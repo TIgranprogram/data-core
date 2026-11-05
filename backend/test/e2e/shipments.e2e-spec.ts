@@ -23,6 +23,7 @@ describe('Shipments (отгрузки)', () => {
     for (const c of ['salesorders', 'incomes', 'shipments', 'auditlogs']) await db().collection(c).deleteMany({});
     const o = await http().post('/api/salesorders').set(auth()).send({ orderNo: 'ОТГ-1', customer: 'ООО Школа', stage: 'ready' }).expect(201);
     orderId = o.body.id;
+    await http().patch(`/api/salesorders/${orderId}`).set(auth()).send({ productionNo: '' }).expect(200); // № заказа выдаётся автоматически — тесту нужен договор без него
     const mk = async (title: string, qty?: number) => (await http().post('/api/incomes').set(auth()).send({ orderId, title, ...(qty ? { qty, unit: 'шт' } : {}) }).expect(201)).body.id as string;
     urnId = await mk('Урна', 15);
     benchId = await mk('Скамья', 4);

@@ -122,3 +122,4 @@
 
 | 2026-11-03 | HEAD (HA refresh + склад телефон + lookup shipped) | tsc ✅; юнит ✅ 257/2403; pwa-import ✅ | e2e ✅ 61 suites / 475 passed (T26 stock-catalog-atomicity 12 fail — нужен disposable URI, не эта задача) | full |
 | 2026-11-03 | c7388d1b C018 КП audit fix | tsc ✅; юнит ✅ 2404/2404; design-lint ✅ | e2e ✅ 61 suites / 475 passed (T26 stock-catalog-atomicity 12 fail — disposable URI, не КП) | full перед выкладкой L offers/KP |
+| 2026-11-05 | QA разбор dc full на ab8ed9a8 | e2e: 8 из 9 красных — старые тесты (автономер заказа 320465cf, 11-04), 1 — ЗЯ-1a (offers paid нужна reason); тесты исправлены ✅ 5 suites / 29 passed (shipments, order-lines, production-orders, matching-assign, offers); eslint client-errors spec — 0 errors; scenarios B — устарел (заглушки «Акты/Накладные/Сертификаты» убраны 11-03) | регрессий от c5a83f28..ab8ed9a8 нет | разбор |

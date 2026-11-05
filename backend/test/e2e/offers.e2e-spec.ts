@@ -59,7 +59,9 @@ describe('Offers (КП)', () => {
     await http().post(`/api/offers/${id}/status`).set(auth()).send({ status: 'accepted' }).expect(200);
     await http().post(`/api/offers/${id}/status`).set(auth()).send({ status: 'paid' }).expect(200);
     const r = await http().patch(`/api/offers/${id}`).set(auth()).send({ notes: 'x' }).expect(400);
-    expect(r.body.message).toContain('оплачено');
+    // ЗЯ-1a: администратор обходит запрет только с причиной; без неё — 400 REASON_REQUIRED
+    expect(r.body.code).toBe('REASON_REQUIRED');
+    expect(r.body.message).toContain('причиной');
     await http().post(`/api/offers/${id}/status`).set(auth()).send({ status: 'cancelled' }).expect(400);
   });
 

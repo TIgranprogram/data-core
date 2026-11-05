@@ -30,7 +30,9 @@ describe('Matching + assign + passport category', () => {
 
   it('assign: несопоставленная позиция — 400 с unmatched; после «не изделие»/подтверждения — 200; повтор — 409; назначенный не ломается', async () => {
     const o = (await http().post('/api/salesorders').set(auth()).send({ orderNo: 'МТ-1', customer: 'Школа', stage: 'new' }).expect(201)).body.id;
+    await http().patch(`/api/salesorders/${o}`).set(auth()).send({ productionNo: '' }).expect(200); // № заказа выдаётся автоматически — снимаем
     const empty = (await http().post('/api/salesorders').set(auth()).send({ orderNo: 'МТ-0', customer: 'Пусто', stage: 'new' }).expect(201)).body.id;
+    await http().patch(`/api/salesorders/${empty}`).set(auth()).send({ productionNo: '' }).expect(200); // № заказа выдаётся автоматически — снимаем
     const prod = (await http().post('/api/showcase').set(auth()).send({ sku: 'MT-P1', name: 'Лавочка', type: 'Благоустройство' }).expect(201)).body.id;
     const l1 = (await http().post('/api/incomes').set(auth()).send({ orderId: o, title: 'Монтаж', qty: 1, unit: 'шт' }).expect(201)).body.id;
     const l2 = (await http().post('/api/incomes').set(auth()).send({ orderId: o, title: 'Изделие без аналога ZZ', qty: 1, unit: 'шт' }).expect(201)).body.id;
@@ -51,6 +53,7 @@ describe('Matching + assign + passport category', () => {
 
   it('роль user: очередь и счётчик читает, подтверждать — 403', async () => {
     const o = (await http().post('/api/salesorders').set(auth()).send({ orderNo: 'МТ-2', customer: 'Лицей', stage: 'new' }).expect(201)).body.id;
+    await http().patch(`/api/salesorders/${o}`).set(auth()).send({ productionNo: '' }).expect(200); // № заказа выдаётся автоматически — снимаем
     const l = (await http().post('/api/incomes').set(auth()).send({ orderId: o, title: 'Урна', qty: 1, unit: 'шт' }).expect(201)).body.id;
     const u = { Authorization: `Bearer ${userTok}` };
     const q = await http().get('/api/matching/unmatched').set(u);

@@ -15,8 +15,12 @@ describe('ORDER-LINES: позиции заказа, заявки на издел
   const db = () => ctx!.connection.db!;
   const http = () => request(app.getHttpServer());
   const auth = () => authHeader(admin.access);
-  const order = async (orderNo: string, extra: Record<string, unknown> = {}) =>
-    (await http().post('/api/salesorders').set(auth()).send({ orderNo, customer: 'Школа', stage: 'new', ...extra }).expect(201)).body.id as string;
+  const order = async (orderNo: string, extra: Record<string, unknown> = {}) => {
+    const id = (await http().post('/api/salesorders').set(auth()).send({ orderNo, customer: 'Школа', stage: 'new', ...extra }).expect(201)).body.id as string;
+    // № заказа выдаётся при создании автоматически; тесту нужен договор без него, если № не задан явно
+    if (!extra.productionNo) await http().patch(`/api/salesorders/${id}`).set(auth()).send({ productionNo: '' }).expect(200);
+    return id;
+  };
   const newLine = (orderId: string, title: string, extra: Record<string, unknown> = {}) =>
     http().post('/api/incomes').set(auth()).send({ orderId, title, qty: 2, unit: 'шт', lineType: 'new_product', unitPrice: 1000, ...extra });
   const card = async (id: string) => (await http().get(`/api/salesorders/${id}`).set(auth()).expect(200)).body;

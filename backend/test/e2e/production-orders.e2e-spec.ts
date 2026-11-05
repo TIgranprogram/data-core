@@ -26,6 +26,7 @@ describe('Production orders (заказы производства)', () => {
     a = (await http().post('/api/salesorders').set(auth()).send({ orderNo: 'ПО-1', customer: 'Школа 1', productionNo: '21-26', stage: 'production', shipDate: '2026-07-01' }).expect(201)).body.id;
     b = (await http().post('/api/salesorders').set(auth()).send({ orderNo: 'ПО-2', customer: 'Школа 2', productionNo: '21-26', stage: 'new', shipDate: '2026-06-01' }).expect(201)).body.id;
     solo = (await http().post('/api/salesorders').set(auth()).send({ orderNo: 'ПО-3', customer: 'Школа 3', stage: 'new' }).expect(201)).body.id;
+    await http().patch(`/api/salesorders/${solo}`).set(auth()).send({ productionNo: '' }).expect(200); // № заказа выдаётся автоматически — снимаем
     await line(a, 'Лавочка парковая', 2);
     await line(a, 'Урна', 1);
     await line(b, 'лавочка  парковая', 3);
