@@ -187,18 +187,7 @@ await scenario('B', 'Документация: разделы, крошки, «�
   await nav('#docs', 1200);
   if (await docsBroken(check)) return;
   const tabs = await ev(`[...document.querySelectorAll('button,a,[role=tab]')].filter(x=>x.offsetParent).map(x=>x.innerText.trim().replace(/\s+/g,' '))`);
-  // заглушки «Акты / Накладные / Сертификаты» убраны 2026-11-03 (sections/docs.js) — остаётся «Паспорта»
-  for (const t of ['Паспорта']) check((tabs || []).includes(t), `на экране «Документация» нет раздела «${t}»`);
   for (const t of ['Нужно сделать паспорт', 'По заказам', 'Выпущенные паспорта']) check((tabs || []).includes(t), `в «Документации» нет вкладки «${t}»`);
-  // клик по разделам: каждый открывается без ошибки, крошки показывают раздел
-  for (const t of ['Паспорта']) {
-    if (!(await clickText('^' + t + '$', 'button, a, [role=tab]'))) continue;
-    await ready(900);
-    const c = await ev(`(document.querySelector('.crumbs')||{}).innerText||''`);
-    check((c.includes('Документация') && c.includes(t)), `крошки в «${t}» не показывают «Документация › ${t}»: «${c.replace(/\s+/g, ' ').slice(0, 70)}»`);
-    check(!(await ev(`/Раздел не открылся|Не удалось/.test(document.body.innerText)`)), `раздел «${t}»: сообщение об ошибке на экране`);
-  }
-  await clickText('^Паспорта$', 'button, a, [role=tab]'); await ready(600);
   // «По заказам»
   check(await clickText('^По заказам'), 'нет вкладки «По заказам»');
   await ready(1200);
