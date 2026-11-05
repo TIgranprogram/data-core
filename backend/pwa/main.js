@@ -3,7 +3,7 @@ import { startLiveSync, stopLiveSync } from './core/live-sync.js';
 import { isDragging } from './ui/drag.js';
 /* «Рабочее место» — вход, шапка, разделы (docs/PRODUCT.md, docs/CANON.md).
  * Раздел = описание в sections/*.js; список, карточка и форма — общие компоненты из ui/. */
-import { api, canEditSection, events, login, PREFIX, session, trackLoad } from './core/api.js';
+import { api, canEditSection, events, login, PREFIX, quietLoadFor, session, trackLoad } from './core/api.js';
 import { getViewAs, setViewAs, syncViewAsRoles, viewAsActive } from './core/view-as.js';
 import { $, h } from './core/dom.js';
 import { closeStep, current, go, onChange, onNav, patch, setGuard } from './core/router.js';
@@ -633,6 +633,7 @@ const isBusy = () => isDragging() || !!document.querySelector('.modal-back') || 
 const SHOWS = { requests: ['requests', 'stock'], stock: ['stock'], movements: ['stock'], salesorders: ['salesorders', 'money'], orders: ['money'], money: ['money', 'requests'], design: ['design', 'salesorders'], work: ['work', 'salesorders'], products: ['products'], docs: ['passports', 'products'], offers: ['products'] };
 /** Изменились данные у других: экран — если он их показывает, числа в меню — всегда. */
 function onVersions(keys) {
+  quietLoadFor(); // чужая правка обновляет экран фоном, без полоски загрузки
   if (keys.has('users')) { refreshMe(); keys.delete('users'); if (!keys.size) return; }
   const shows = SHOWS[current().section];
   if (!shows || shows.some((k) => keys.has(k))) { onDataChanged(); return; }

@@ -208,8 +208,15 @@ export async function confirmPassword(password) {
  *  «Смотреть как роль»: любой не-GET не уходит на сервер. */
 export async function api(path, opts = {}) {
   guardViewAsWrite(opts.method || 'GET');
-  return trackLoad(call(path, opts).catch((e) => failed(e, path, opts.method || 'GET')));
+  const p = call(path, opts).catch((e) => failed(e, path, opts.method || 'GET'));
+  // фон (проверка версий, счётчики, настройки) полоску не показывает — она только для действий человека
+  return opts.quiet || isQuietPath(path) || Date.now() < quietUntil ? p : trackLoad(p);
 }
+/** Фоновые GET, о которых человек не просил: версии данных, счётчики колокольчика и чата, свои настройки. */
+const isQuietPath = (path) => isBackgroundPath(path) || /^\/(notifications\/unread|messages\/threads)(\/|$|\?)/.test(path);
+/** Обновление экрана из-за чужой правки (live-sync) — без полоски: человек ничего не делал. */
+let quietUntil = 0;
+export function quietLoadFor(ms = 2500) { quietUntil = Date.now() + ms; }
 
 /** Полоска загрузки сверху: видна, если что-то идёт дольше 150 мс (api-запросы, ленивая загрузка раздела). */
 let active = 0;
