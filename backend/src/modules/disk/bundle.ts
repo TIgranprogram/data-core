@@ -23,7 +23,6 @@ export interface BundleStatus {
   doneRequest?: string;
 }
 
-const exists = (p: string) => fs.lstat(p).then(() => true, () => false);
 
 async function readRequestToken(reqDir: string): Promise<string | null> {
   try {
