@@ -9,7 +9,7 @@ import { h } from '../core/dom.js';
 import { date, isoDay, money, qty } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
 import { badge, ORDER_PRIORITY } from '../ui/kit/badges.js';
-import { actions, badge as kbadge, button, sku as kitSku } from '../ui/kit/index.js';
+import { actions, badge as kbadge, button, sku as kitSku, table, tabs as kitTabs } from '../ui/kit/index.js';
 import { toast } from '../ui/kit/toast.js';
 import { confirmDlg, modal } from '../ui/kit/dialog.js';
 import { withConfirm } from '../ui/confirm-password.js';
@@ -22,6 +22,7 @@ import { orderReservations } from './order-reservations.js';
 import { suggestLink } from '../ui/composition-suggest.js';
 import { orderDesign } from './order-design.js';
 import { orderWork } from './order-work.js';
+import { orderZipAction } from './order-attachments-zip.js';
 import { unassignedTop, addContractsDialog } from './salesorders-unassigned.js';
 import { unmatchedTop, unmatchedPlate, unmatchedFlag, unmatchedOrders } from './matching-queue.js';
 import { posPic } from '../ui/pos-pic.js';
@@ -30,8 +31,6 @@ import { orderPassportActions } from './order-passports.js';
 import { distribBlock, lineMark, countOf, countBadge } from './order-lines.js';
 import { shipmentsBlock, historyBlock, canShip } from './order-shipments.js';
 import { importOrderExcel, downloadOrderTemplate } from './salesorders-import.js';
-
-import { table, tabs as kitTabs } from '../ui/kit/index.js';
 /**
  * Раздел «Заказы» (TASKS фаза З): заказ = шапка (`salesorders`) + позиции (строки `incomes`).
  * Вкладки «В работе / Закрытые», доска по этапам, карточка: позиции, что заказано под заказ
@@ -537,13 +536,14 @@ export const salesorders = {
       return stageBar(r, { onStep: openStep });
     },
     actions: (r) => {
-      if (!editableOrder(r)) return []; // завершённый заказ правит только админ
+      if (!editableOrder(r)) return [orderZipAction]; // завершённый заказ правит только админ
       const many = NEXT[r.stage] && lagging(r, NEXT[r.stage]).length > 1;
       return [
         // в производстве шаг — в блоке «Готовность»; дублируем короткую ссылку в шапке (C017)
         r.stage === 'production' && { label: 'Готовность', title: 'Проверить готовность к отгрузке', run: () => openStep('ready') },
         NEXT[r.stage] && r.stage !== 'production' && { label: NEXT_LABEL[r.stage], title: NEXT_TIP[r.stage] + (many ? ' Договоры выберете галочками.' : ''), primary: true, run: async (row, ctx) => { const s = await setStage(row, NEXT[row.stage]); if (s) ctx.setRow(s); } },
         { label: 'Изменить заказ', title: '№ заказа, срок и приоритет — сразу у всех договоров заказа', run: (row) => openSide('orderedit', row.key || row.id) },
+        orderZipAction,
       ];
     },
     zones: { extra: 'wide' }, // УПР-3: позиции и договоры — широким блоком

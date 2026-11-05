@@ -1457,10 +1457,10 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
       head.append(el('b', 'srv-big', `Занято ${gb(d.usedBytes)} из ${gb(d.totalBytes)}`), el('span', 'srv-pct ' + d.level, `${String(d.usedPct).replace('.', ',')}% · свободно ${gb(d.freeBytes)}`));
       const forecast = d.daysLeft != null ? `При росте ${gb(d.growthPerDay)} в день места хватит примерно на ${d.daysLeft} дн.`
         : d.growthPerDay != null ? 'За последние дни занятое место не растёт.' : 'Прогноз появится, когда накопится история (от 3 дней — снимок пишется при каждом открытии этой вкладки).';
-      const rows = [['База (Mongo)', gb(d.parts.mongoBytes)], ['Фото и файлы', `${gb(d.parts.uploadsBytes)} · ${d.parts.uploadsFiles} файлов`],
-        ['Бэкапы', d.parts.backupsBytes == null ? 'не видно (том данных не подключён)' : `${gb(d.parts.backupsBytes)} · копий базы: ${d.parts.backupCount}`], ['Что измеряется', d.volume]];
+      const rows = [['База (Mongo)', gb(d.parts.mongoBytes)], ['Фото и файлы', `${gb(d.parts.uploadsBytes)} · ${d.parts.uploadsFiles} файлов`], ...(d.parts.attachmentsBytes != null ? [['Вложения', `${gb(d.parts.attachmentsBytes)} · ${d.parts.attachmentsFiles ?? 0} файлов`]] : []), ['Бэкапы', d.parts.backupsBytes == null ? 'не видно (том данных не подключён)' : `${gb(d.parts.backupsBytes)} · копий базы: ${d.parts.backupCount}`], ['Что измеряется', d.volume]];
       const dl = el('dl', 'srv-parts'); rows.forEach(([k, v]) => dl.append(el('dt', null, k), el('dd', null, v)));
-      box.replaceChildren(head, bar, el('p', 'panel-note', forecast), dl, el('p', 'muted', 'Проверено: ' + new Date(d.checkedAt).toLocaleString('ru-RU')));
+      const aw = d.attachmentsWarning; const awNote = aw && aw.text ? el('p', 'srv-pct ' + (aw.level === 'danger' ? 'danger' : 'warn'), aw.text) : null;
+      box.replaceChildren(head, bar, el('p', 'panel-note', forecast), dl, ...(awNote ? [awNote] : []), el('p', 'muted', 'Проверено: ' + new Date(d.checkedAt).toLocaleString('ru-RU')));
     } catch (e) { box.replaceChildren(el('p', 'error', 'Не удалось узнать место на диске: ' + e.message)); }
   }
   // ---- Сервер: подозрительные запросы, входы и действия ----
