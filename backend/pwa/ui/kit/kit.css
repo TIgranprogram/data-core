@@ -205,7 +205,7 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
   .btn.btn-ghost.btn-icon { min-width: 40px; min-height: 40px; }
   dl.fields dd > a:only-child { display: inline-flex; align-items: center; min-height: 40px; }
   .gc-title, .gcard a { overflow-wrap: anywhere; }
-  .q-link { display: inline-flex; align-items: center; min-height: 40px; }
+  .q-link { display: inline-flex; align-items: center; min-height: 44px; }
   .ref-orders { display: inline-flex; align-items: center; min-height: 40px; }
 }
 
