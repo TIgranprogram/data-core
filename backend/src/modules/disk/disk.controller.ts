@@ -7,7 +7,7 @@ import type { Connection } from 'mongoose';
 import path from 'path';
 import { AuditModule } from '../audit/audit.module';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { diskState, type DiskSnapshot } from './disk-usage';
+import { attachmentsWarning, diskState, type DiskSnapshot } from './disk-usage';
 import { dirSize, exists } from './disk-fs';
 import { backupStamps } from './backups';
 import { BackupsController } from './backups.controller';
@@ -41,13 +41,15 @@ export class DiskService {
       this.heavyRun = this.computeHeavy(mounted, host, uploadsDir, key).catch(() => ({})).finally(() => { this.heavyRun = undefined; });
     }
     return this.heavy && this.heavy.key === key ? this.heavy.parts
-      : { mongoBytes: null, uploadsBytes: null, uploadsFiles: null, backupsBytes: null, backupCount: null };
+      : { mongoBytes: null, uploadsBytes: null, uploadsFiles: null, attachmentsBytes: null, attachmentsFiles: null, backupsBytes: null, backupCount: null };
   }
 
   private async computeHeavy(mounted: boolean, host: string, uploadsDir: string, key: string) {
-    const [db, uploads, backups] = await Promise.all([
+    const upRoot = mounted ? path.join(host, 'uploads') : uploadsDir;
+    const [db, uploads, attachments, backups] = await Promise.all([
       this.connection.db!.stats().catch(() => null),
-      dirSize(mounted ? path.join(host, 'uploads') : uploadsDir),
+      dirSize(upRoot),
+      dirSize(path.join(upRoot, 'attachments')),
       mounted ? dirSize(path.join(host, 'backups')) : Promise.resolve(null),
     ]);
     let backupCount: number | null = null;
@@ -55,6 +57,7 @@ export class DiskService {
     const parts = {
       mongoBytes: db ? Number(db.storageSize ?? 0) + Number(db.indexSize ?? 0) : null,
       uploadsBytes: uploads.bytes, uploadsFiles: uploads.files,
+      attachmentsBytes: attachments.bytes, attachmentsFiles: attachments.files,
       backupsBytes: backups?.bytes ?? null, backupCount,
     };
     this.heavy = { at: Date.now(), key, parts };
@@ -78,6 +81,7 @@ export class DiskService {
       ...state,
       volume: mounted ? 'данные сервера (DATA_DIR)' : 'папка приложения (том с данными не подключён)',
       parts,
+      attachmentsWarning: attachmentsWarning(parts.attachmentsBytes ?? null, total, free),
       checkedAt: new Date(),
     };
   }

@@ -12,6 +12,7 @@ import { AuditAction } from '../../common/interceptors/audit.interceptor';
 import { contentDisposition, parseRange } from './attachment-paths';
 import { AttachmentUploadGuard } from './attachment-upload.guard';
 import { attachmentUploadOptions } from './attachment-upload.options';
+import { OrderAttachmentsService } from './order-attachments.service';
 import { ProductAttachmentsService, type UploadedAttachmentFile } from './productattachments.service';
 
 type Row = { id?: string; originalName?: string; typeName?: string; size?: number };
@@ -94,5 +95,42 @@ export class ProductAttachmentFileController {
     res.on('close', () => stream.destroy());
     stream.on('error', () => res.destroy());
     stream.pipe(res);
+  }
+}
+
+/** ZIP вложений по заказу (ВЛ-1): `?types=<id,id>` — виды вложений. Скачивание — по одноразовому тикету, как у файла. */
+@ApiTags('Вложения изделия')
+@AppSection('salesorders')
+@Controller('salesorders/:id/attachments')
+export class OrderAttachmentsController {
+  constructor(private readonly service: OrderAttachmentsService) {}
+
+  /** `{files, bytes, skipped, tooBig}` — «N файлов, X МБ» до скачивания. */
+  @Get('summary')
+  @Roles('admin', 'director', 'manager', 'user')
+  summary(@Param('id') id: string, @Query('types') types?: string) {
+    return this.service.summary(id, types);
+  }
+
+  /** `{ticket, url, files, bytes}`; в журнал — одна строка (заказ, число файлов). */
+  @Post('zip-ticket')
+  @HttpCode(200)
+  @Roles('admin', 'director', 'manager', 'user')
+  @AuditAction({ action: 'attachment.zip', entityType: 'SalesOrder', idParam: 'id', details: (d) => { const r = (d ?? {}) as { orderNo?: string; files?: number; bytes?: number }; return { orderNo: r.orderNo, files: r.files, bytes: r.bytes }; } })
+  zipTicket(@Param('id') id: string, @Query('types') types: string | undefined, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.ticket(id, types, user);
+  }
+}
+
+/** Сам архив: без заголовка авторизации (обычная ссылка), доступ даёт тикет. Не более 2 сборок одновременно. */
+@ApiTags('Вложения изделия')
+@Public()
+@Controller('salesorders/:id')
+export class OrderAttachmentsZipController {
+  constructor(private readonly service: OrderAttachmentsService) {}
+
+  @Get('attachments.zip')
+  async zip(@Param('id') id: string, @Query('types') types: string | undefined, @Query('t') t: string, @Res() res: Response) {
+    await this.service.stream(id, types, t, res);
   }
 }

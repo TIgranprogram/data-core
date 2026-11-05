@@ -6,7 +6,7 @@ import { chmodSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join as pjoin } from 'path';
 import { Readable, Transform } from 'stream';
 import { Types, type Connection } from 'mongoose';
-import { backupDirs, backupsRoot, latestBackupDate, STAMP_RE } from './backups';
+import { backupDirs, backupsRoot, latestBackupDate, skipAttachments, STAMP_RE } from './backups';
 
 /**
  * БКП (2026-10-26): копии вне дома. Цели WebDAV (Яндекс-Диск, Nextcloud, второй Synology…) — в таблице `backuptargets`,
@@ -223,7 +223,7 @@ export class OffsiteService implements OnModuleInit, OnModuleDestroy {
       await ensureFolder(t);
       const dirs = await backupDirs(backupsRoot(), stamp, 'all');
       const zip = archiver('zip', { zlib: { level: 1 } });
-      for (const [dir, inside] of dirs) zip.directory(dir, inside);
+      for (const [dir, inside] of dirs) zip.directory(dir, inside, skipAttachments(inside)); // вложения изделий — не в облако (ВЛ-В4)
       void zip.finalize();
       const body = zip.pipe(encryptStream(password)).pipe(new Transform({ transform(c, _e, cb) { bytes += c.length; cb(null, c); } }));
       const res = await dav(t, 'PUT', join(t.folder ?? '', file), body as unknown as Readable);

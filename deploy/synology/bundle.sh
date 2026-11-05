@@ -120,7 +120,10 @@ $DOCKER exec "$MONGO_CONTAINER" sh -c \
 # --- 4. uploads ---
 echo "--- uploads"
 if [[ -d "${DATA_DIR}/uploads" ]]; then
-  tar -czf "$W/uploads/data-core-uploads.tar.gz" -C "${DATA_DIR}" uploads
+  # вложения изделий (uploads/attachments) — десятки ГБ; в пакет по умолчанию не входят (ВЛ-В4), включить: BUNDLE_ATTACHMENTS=1
+  ATT_EXCL="--exclude=uploads/attachments"; [[ "${BUNDLE_ATTACHMENTS:-0}" == "1" ]] && ATT_EXCL=""
+  # shellcheck disable=SC2086
+  tar -czf "$W/uploads/data-core-uploads.tar.gz" $ATT_EXCL -C "${DATA_DIR}" uploads
 else
   echo "    нет ${DATA_DIR}/uploads"
 fi

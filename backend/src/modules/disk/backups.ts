@@ -86,3 +86,16 @@ export async function backupDirs(root: string, stamp: string, part: BackupPart) 
 }
 
 export const archiveName = (stamp: string, part: BackupPart) => `datacore-backup-${stamp}${part === 'all' ? '' : '-' + part}.zip`;
+
+/**
+ * Вложения изделий (`uploads/attachments`) в копию «вне дома» не кладём (ВЛ-В4, по умолчанию): их десятки ГБ каждый день.
+ * Включить — `BACKUP_ATTACHMENTS=1`. Подходит как фильтр `archiver.directory(dir, inside, filter)`: имя записи начинается с `inside/`.
+ */
+export function skipAttachments(inside: string, env: NodeJS.ProcessEnv = process.env) {
+  const prefix = `${inside}/attachments`;
+  return <T extends { name: string }>(entry: T): T | false => {
+    if (env.BACKUP_ATTACHMENTS === '1') return entry;
+    const n = entry.name.replace(/\\/g, '/');
+    return n === prefix || n.startsWith(prefix + '/') ? false : entry;
+  };
+}

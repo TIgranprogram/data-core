@@ -2,6 +2,8 @@
  * Место на диске сервера (TASKS ДИ.1) — чистые функции: уровень заполнения и «на сколько хватит» по росту за 30 дней.
  * Снимки (по одному в день) хранит сервис в `disk_usage_history`.
  */
+
+import { capacityLimits } from '../productattachments/attachment-capacity';
 export interface DiskSnapshot { date: string; usedBytes: number; totalBytes: number }
 export type DiskLevel = 'ok' | 'warn' | 'danger';
 
@@ -31,4 +33,21 @@ export function diskState(totalBytes: number, freeBytes: number, history: DiskSn
 /** «12,3 ГБ» — для сообщений и скриптов. */
 export function gb(bytes: number) {
   return (Math.round((bytes / 1024 ** 3) * 10) / 10).toLocaleString('ru-RU') + ' ГБ';
+}
+
+const GIB = 1024 ** 3;
+
+/**
+ * Предупреждение про вложения изделий (ВЛ-1): жёлтое, когда свободно < 15 % или < 10 ГБ; красное — свободно < 10 % или < 5 ГБ,
+ * либо вложения заняли больше потолка. Нет вложений или размер неизвестен — `null`.
+ */
+export function attachmentsWarning(attachmentsBytes: number | null, totalBytes: number, freeBytes: number, ceilingBytes: number = capacityLimits().ceilingBytes): { level: DiskLevel; text: string } | null {
+  if (!attachmentsBytes) return null;
+  const freePct = totalBytes > 0 ? (freeBytes / totalBytes) * 100 : 100;
+  const over = attachmentsBytes > ceilingBytes;
+  const head = `Вложения изделий занимают ${gb(attachmentsBytes)}, свободно ${gb(freeBytes)}.`;
+  if (over) return { level: 'danger', text: `${head} Это больше предела (${gb(ceilingBytes)}): новые файлы не принимаются. Удалите лишнее или увеличьте место.` };
+  if (freePct < 10 || freeBytes < 5 * GIB) return { level: 'danger', text: `${head} Места почти нет — освободите диск.` };
+  if (freePct < 15 || freeBytes < 10 * GIB) return { level: 'warn', text: `${head} Места остаётся мало.` };
+  return null;
 }

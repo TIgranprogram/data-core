@@ -5,7 +5,7 @@ export type ProductAttachmentDocument = HydratedDocument<ProductAttachment>;
 
 /**
  * Вложение изделия (ВЛ-1): один файл — один вид. `products` не меняется (общая с CRM).
- * Удаление мягкое: файл на диске стирает ночная задача через 14 дней (BE-2).
+ * Удаление мягкое: файл на диске стирает ночная задача через 14 дней (`purgeDeleted`).
  */
 @Schema({ collection: 'productattachments', timestamps: true })
 export class ProductAttachment {
@@ -23,6 +23,8 @@ export class ProductAttachment {
   @Prop({ type: Date, default: () => new Date() }) uploadedAt!: Date;
   @Prop({ type: Date, default: null }) deletedAt?: Date | null;
   @Prop({ type: String }) deletedBy?: string;
+  /** Когда файл стёрт с диска ночной чисткой (запись остаётся для истории; вернуть такое вложение нельзя). */
+  @Prop({ type: Date }) fileRemovedAt?: Date;
 }
 export const ProductAttachmentSchema = SchemaFactory.createForClass(ProductAttachment);
 ProductAttachmentSchema.index({ productId: 1, typeId: 1, deletedAt: 1 });

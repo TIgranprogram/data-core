@@ -1,4 +1,4 @@
-import { BadRequestException, HttpException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, HttpException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { promises as fs } from 'fs';
 import { Connection, Model, Types } from 'mongoose';
@@ -14,14 +14,18 @@ import { ProductAttachment, ProductAttachmentDocument } from './productattachmen
 
 export const TYPES_DICT = 'attachmentTypes';
 /** Виды по умолчанию: заводятся один раз, если справочник пуст; дальше правит пользователь. */
+/** Через сколько дней после «Убрать» файл стирается с диска, и в какой час (местное время сервера) идёт чистка. */
+export const PURGE_DAYS = 14;
+const PURGE_HOUR = 3;
 export const DEFAULT_TYPES = ['Чертежи', 'Паспорта', 'Договоры / КП', '3D-модели'];
 
 export interface UploadedAttachmentFile { path: string; originalname: string; size: number; mimetype?: string }
 
 @Injectable()
-export class ProductAttachmentsService implements OnModuleInit {
+export class ProductAttachmentsService implements OnModuleInit, OnModuleDestroy {
   private readonly log = new Logger('ProductAttachments');
   private readonly tickets = new DownloadTickets();
+  private timer?: NodeJS.Timeout;
 
   constructor(
     @InjectModel(ProductAttachment.name) private readonly model: Model<ProductAttachmentDocument>,
@@ -32,6 +36,8 @@ export class ProductAttachmentsService implements OnModuleInit {
   private get types() { return this.connection.db!.collection('dict_values'); }
 
   async onModuleInit() {
+    // ночная чистка: раз в час проверяем время, работаем в 03:xx (повтор в тот же час безопасен)
+    if (process.env.NODE_ENV !== 'test') this.timer = setInterval(() => { if (new Date().getHours() === PURGE_HOUR) void this.purgeDeleted().catch((e) => this.log.warn(`Чистка вложений: ${(e as Error).message}`)); }, 3600_000);
     try {
       if (await this.types.countDocuments({ dict: TYPES_DICT }, { limit: 1 })) return;
       const now = new Date();
@@ -40,6 +46,8 @@ export class ProductAttachmentsService implements OnModuleInit {
       this.log.warn(`Виды вложений по умолчанию не заведены: ${(e as Error).message}`);
     }
   }
+
+  onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
 
   /** Изделие и вид существуют; возвращает название вида. 404/400 по-русски. */
   async assertTarget(productId: string, typeId: string): Promise<string> {
@@ -66,8 +74,27 @@ export class ProductAttachmentsService implements OnModuleInit {
 
   /** Сколько занимают файлы вложений (включая убранные, пока файл не стёрт). */
   async usedBytes(): Promise<number> {
-    const r = await this.model.aggregate([{ $group: { _id: null, n: { $sum: '$size' } } }]);
+    const r = await this.model.aggregate([{ $match: { fileRemovedAt: null } }, { $group: { _id: null, n: { $sum: '$size' } } }]);
     return Number(r[0]?.n ?? 0);
+  }
+
+  /**
+   * Ночная чистка (ВЛ-В1): файлы вложений, убранных больше `PURGE_DAYS` (14) суток назад, стираются с диска;
+   * запись остаётся с `fileRemovedAt`. Возвращает число стёртых файлов. Путь только внутри папки загрузок.
+   */
+  async purgeDeleted(now: Date = new Date()): Promise<number> {
+    const before = new Date(now.getTime() - PURGE_DAYS * 86400_000);
+    const docs = await this.model.find({ deletedAt: { $ne: null, $lt: before }, fileRemovedAt: null }).limit(500).exec();
+    let n = 0;
+    for (const d of docs) {
+      try {
+        await fs.rm(resolveInside(UPLOAD_DIR, d.storedPath), { force: true });
+        await this.model.updateOne({ _id: d._id }, { $set: { fileRemovedAt: now } });
+        n++;
+      } catch (e) { this.log.warn(`Не стёрт файл вложения ${String(d._id)}: ${(e as Error).message}`); }
+    }
+    if (n) this.log.log(`Стёрто файлов убранных вложений: ${n}`);
+    return n;
   }
 
   /** Файл уже на диске (multer): проверить содержимое и записать. Не прошёл — файл стирается, 400. */
@@ -113,6 +140,7 @@ export class ProductAttachmentsService implements OnModuleInit {
 
   async restore(productId: string, id: string) {
     const doc = await this.find(productId, id, true);
+    if (doc.fileRemovedAt) throw new BadRequestException(`Файл уже стёрт с сервера (прошло больше ${PURGE_DAYS} дней). Загрузите его заново.`);
     await this.model.updateOne({ _id: doc._id }, { $set: { deletedAt: null }, $unset: { deletedBy: 1 } });
     return this.present(doc, (await this.typeNames()).get(String(doc.typeId)) ?? '');
   }
