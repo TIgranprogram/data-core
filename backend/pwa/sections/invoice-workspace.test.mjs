@@ -62,7 +62,7 @@ async function modules({ invoice = base(), money = true, call, confirm = true } 
   const body = h('body');
   const document = { body, addEventListener() {}, removeEventListener() {}, querySelector: (selector) => body.querySelector(selector), dispatchEvent() {} };
   const context = vm.createContext({ console, Node: Element, window: { innerWidth: 1800, addEventListener() {}, removeEventListener() {}, dispatchEvent() {} }, document, Promise, setTimeout, clearTimeout, URLSearchParams, CustomEvent: class {}, KeyboardEvent: class {}, localStorage: { getItem: () => null, setItem() {} } });
-  const common = { ...kit, api, session, PREFIX: '', h, canEditSection: () => session.canEdit, current: () => ({ section: 'requests', params: { view: 'board', q: 'гайка', page: '2' } }), date: (v) => String(v || ''), dateTime: (v) => v, money: (v) => `${v} ₽`, qty: (v) => String(v ?? ''), getPref: () => null, DOCK_MIN: 1400, setPref() {}, makeResizable() {}, errText: (e) => e.message, isFailure: () => false, actionText: (_, e) => e.message, busyBtn: (button) => { button.disabled = true; return () => { button.disabled = false; }; } };
+  const common = { ...kit, mark: (el) => el, markEl: (res) => res, api, session, PREFIX: '', h, canEditSection: () => session.canEdit, current: () => ({ section: 'requests', params: { view: 'board', q: 'гайка', page: '2' } }), date: (v) => String(v || ''), dateTime: (v) => v, money: (v) => `${v} ₽`, qty: (v) => String(v ?? ''), getPref: () => null, DOCK_MIN: 1400, setPref() {}, makeResizable() {}, errText: (e) => e.message, isFailure: () => false, actionText: (_, e) => e.message, busyBtn: (button) => { button.disabled = true; return () => { button.disabled = false; }; } };
   const cache = new Map();
   async function load(file) {
     if (cache.has(file)) return cache.get(file);
@@ -157,7 +157,7 @@ test('router wiring: lazy invoicecard, four router-only входа, legacy invoi
   for (const file of ['sections/requests.js', 'sections/invoices-tab.js', 'sections/request-step.js']) assert.match(source(file), /of: 'invoicecard'/);
   assert.match(source('ui/kit/board.js'), /rs\.length < 2 && !g\?\.open/);
   for (const file of ['sections/invoice-workspace.js', 'sections/invoice-workspace-forms.js', 'sections/invoice-workspace-state.js', 'sections/invoice-workspace-api.js']) assert.doesNotMatch(source(file), /openCard\(|from ['"].*\/(requests|invoices-tab|request-step|invoice)\.js/);
-  assert.doesNotMatch(source('ui/card.js'), /from ['"]\.\/kit\/index\.js/);
+  assert.doesNotMatch(source('ui/kit/card.js'), /from ['"]\.\/index\.js/);
   const m = await modules(); const href = m.workspace.workspaceHref({ of: 'invoicecard', open: 'invoice' }); assert.match(href, /view=board/); assert.match(href, /page=2/); assert.match(href, /of=invoicecard/);
 });
 
@@ -172,7 +172,7 @@ test('readonly renderer: группы/0/DOM links/пустоты; DOM-узел �
 });
 
 test('общий openCard guard: та же панель, dirty internal edit/load/reload/close; saving защищён', async () => {
-  const m = await modules({ confirm: false }); const card = await m.load('ui/card.js'); await card.evaluate(); let ctx, dirty = false, saved = 0, changed = 0;
+  const m = await modules({ confirm: false }); const card = await m.load('ui/kit/card.js'); await card.evaluate(); let ctx, dirty = false, saved = 0, changed = 0;
   const section = { title: 'Счёт', get: async () => base(), card: { heading: () => 'Счёт', noHistory: true, view: () => [], extra: (_inv, next) => { ctx = next; return h('div'); } }, form: { build: () => ({ el: h('div'), dirty: () => dirty, read: () => ({ values: {} }) }), toBody: (v) => v, update: async () => { saved++; return base(); } } };
   const handle = card.namespace.openCard(section, { id: 'invoice' }, { close() {}, changed: () => changed++ }); await tick();
   await ctx.edit({ _operation: 'line' }); assert.equal(m.body.querySelectorAll('.drawer').length, 1); assert.equal(handle.editing, true);

@@ -126,7 +126,8 @@ export const kit = {
         panel({ kind: 'Изделие', title: 'Качели двойные', sub: 'Артикул КЧ-02', onClose: () => toast('Закрыть'),
           blocks: [{ title: 'Основное', body: h('p', { class: 'muted' }, 'Поля блока') }, { title: 'Дополнительно', body: h('p', { class: 'muted' }, 'Ещё поля') }],
           footer: [button({ label: 'Сохранить', kind: 'primary' }), button({ label: 'Отмена' })] }).el),
-      block('Пусто и ошибка', null, empty({ title: 'Ничего нет', hint: 'Добавьте запись в панели справа.' }), failBlock(new Error('Тестовая ошибка'), () => toast('Повтор'))),
+      block('Отметка происхождения (data-k)', 'Каждая фабрика kit (через mark / markEl из ui/kit/mark.js) ставит на корень data-k="<эталон>": button, badge, card, row, tabs, table, modal, panel, drawer, form, list, board, filter, pick, empty, mobile.* и др. Большая проверка сайта (правило s) считает элементы экрана без этой отметки — «не из kit».', sample(...[button({ label: 'button' }), badge('badge', 'ok'), empty({ title: 'empty' })].map((n) => h('span', { class: 'muted' }, n.dataset.k + ' → ', n)))),
+      block('Пусто и ошибка (empty)', 'Единственная фабрика пустых состояний: kind "empty" (записей нет, подсказка и ссылка), "notFound" (поиск ничего не дал, сброс), "noData" (за период пусто). Тексты «Пусто / Ничего не найдено / Нет данных» — только через empty().', empty({ title: 'Ничего нет', hint: 'Добавьте запись в панели справа.' }), empty({ kind: 'notFound', query: 'болт М99', onReset: () => toast('Сброс') }), empty({ kind: 'notFound', onReset: () => toast('Сброс') }), empty({ kind: 'noData' }), failBlock(new Error('Тестовая ошибка'), () => toast('Повтор'))),
     );
     return {};
   },
