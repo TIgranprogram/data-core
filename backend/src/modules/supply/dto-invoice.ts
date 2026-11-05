@@ -13,6 +13,14 @@ export class AddInvoiceRequestsDto {
   @IsOptional() @IsString() @Length(0, 500) reason?: string;
 }
 
+/** Обход блока администратором (ЗЯ-1b): без `confirm` — только план, с `confirm: true` и причиной — выполнение. */
+export class AdminOverrideDto {
+  @ApiPropertyOptional({ description: 'Подтверждение выполнения (false/нет — вернуть план без изменений)' })
+  @IsOptional() @IsBoolean() confirm?: boolean;
+  @ApiPropertyOptional({ description: 'Причина (от 3 символов), обязательна при confirm' })
+  @IsOptional() @IsString() @Length(0, 500) reason?: string;
+}
+
 export class ReceiveInvoiceDto {
   @ApiPropertyOptional({ description: 'Какие заявки счёта принять (id); по умолчанию — все неполученные', type: [String] })
   @IsOptional() @IsArray() @ArrayMaxSize(200) @IsMongoId({ each: true }) requestIds?: string[];

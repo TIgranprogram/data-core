@@ -70,6 +70,7 @@ function fakeRequests(lines: Doc[]) {
       for (const l of lines) {
         const hit = range?.$in ? range.$in.map(String).includes(String(l._id)) : true;
         if (hit && u.$set) Object.assign(l, u.$set);
+        if (hit && u.$unset) for (const k of Object.keys(u.$unset as Doc)) delete l[k];
       }
       return chain({});
     }),
@@ -570,6 +571,60 @@ describe('T27: реквизиты оплаченного счёта не пер�
     expect(history.has(String(added))).toBe(false);
     expect(invoices[String(invId)].paymentSnapshot).toEqual({ amount: 100 });
     expect(lines.map((line) => line.priceHint)).toEqual([150, 50]);
+  });
+});
+
+describe('ЗЯ-1b: снятие оплаты со счёта (сторно)', () => {
+  const admin = { id: String(new Types.ObjectId()), role: 'admin', username: 'boss' };
+  const mk = (extra: Doc = {}) => {
+    const invId = new Types.ObjectId(), lineId = new Types.ObjectId();
+    const inv = { _id: invId, status: 'paid', amount: 30, version: 0, paidAt: new Date('2026-11-01'), paymentSnapshot: { amount: 30, paidAt: new Date('2026-11-01'), lines: [] }, ...extra };
+    const line = { _id: lineId, invoiceId: invId, priceHint: 30, status: 'ordered', paid: true, paidAt: new Date('2026-11-01') };
+    const audit = { log: jest.fn(async (e: Doc) => void e) };
+    return { ...makeSvc({ invoices: { [String(invId)]: inv }, lines: [line], audit }), inv, line, invId, audit };
+  };
+
+  it('dryRun: сумма в warnings, данные не тронуты', async () => {
+    const { svc, inv, invId, audit } = mk();
+    const r = await svc.unpay(String(invId), {}, admin, true) as { canProceed: boolean; warnings: string[] };
+    expect(r.canProceed).toBe(true);
+    expect(r.warnings[0]).toMatch(/Оплата 30 ₽/);
+    expect(inv.status).toBe('paid');
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
+  it('admin с причиной: счёт «выставлен», строки без оплаты, сторно в paymentAdjustments и журнале', async () => {
+    const { svc, inv, line, invId, audit } = mk();
+    await svc.unpay(String(invId), { confirm: true, reason: 'оплатили не тот счёт' }, admin);
+    expect(inv.status).toBe('issued');
+    expect(inv).not.toHaveProperty('paymentSnapshot');
+    expect(line.paid).toBe(false);
+    expect(line).not.toHaveProperty('paidAt');
+    expect((inv as Doc).paymentAdjustments).toEqual([expect.objectContaining({ operation: 'payment_reversed', reason: 'оплатили не тот счёт', delta: -30 })]);
+    expect(audit.log.mock.calls[0][0]).toMatchObject({ action: 'admin.override', details: { before: { status: 'paid', amount: 30 }, after: { status: 'issued' }, meta: { rule: 'supply.invoice_unpay' } } });
+  });
+
+  it('без причины → 400, счёт остаётся оплаченным', async () => {
+    const { svc, inv, invId } = mk();
+    await expect(svc.unpay(String(invId), { confirm: true }, admin)).rejects.toBeInstanceOf(BadRequestException);
+    expect(inv.status).toBe('paid');
+  });
+
+  it('менеджер → 403', async () => {
+    const { svc, inv, invId } = mk();
+    await expect(svc.unpay(String(invId), { confirm: true, reason: 'хочу' }, { role: 'manager' })).rejects.toMatchObject({ status: 403 });
+    expect(inv.status).toBe('paid');
+  });
+
+  it('есть приёмка → блок: сначала откат приёмки', async () => {
+    const { svc, inv, invId } = mk({ receiptBoundaryAt: new Date() });
+    await expect(svc.unpay(String(invId), { confirm: true, reason: 'ошибка' }, admin)).rejects.toBeInstanceOf(ConflictException);
+    expect(inv.status).toBe('paid');
+  });
+
+  it('счёт не оплачен → 400', async () => {
+    const { svc, invId } = mk({ status: 'issued' });
+    await expect(svc.unpay(String(invId), { confirm: true, reason: 'ошибка' }, admin)).rejects.toBeInstanceOf(BadRequestException);
   });
 });
 

@@ -2,7 +2,7 @@ import { photoToFront } from '../../common/photo-main';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { CounterService } from '../counter/counter.service';
 import { AuditService } from '../audit/audit.service';
-import { adminOverride, isAdminActor, overrideReason, type OverrideActor } from '../../common/admin-override';
+import { adminOverride, assertAdminActor, isAdminActor, overrideConfirm, overrideReason, type OverridePlan, type OverrideActor } from '../../common/admin-override';
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { customerNames } from '../partners/customer-names';
 import { DICT, type Doc } from '../dicts/dicts.defs';
@@ -582,6 +582,49 @@ export class SupplyService {
       if (so?.salesOrderId) await this.orders.recheck(so.salesOrderId, userId);
     } catch { /* пересчёт готовности не должен ломать приход */ }
     return out;
+  }
+
+  /**
+   * ЗЯ-1 п.2: «Откатить приёмку» (только администратор). dryRun / без confirm — план с warnings[];
+   * confirm + причина — сервер сам отменяет приход на склад (cancelMovement), сбрасывает received*
+   * и возвращает заявку в работу. Остатка не хватает (товар уже израсходован) — блок, склад в минус не уходит.
+   */
+  async rollbackReceipt(id: string, dto: { confirm?: boolean; reason?: string }, actor: OverrideActor, dryRun = false) {
+    assertAdminActor(actor, 'Откат приёмки');
+    if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Некорректный id заявки');
+    const doc = await this.model.findOne({ _id: id, deletedAt: null }).lean().exec() as (Record<string, unknown> & { status?: string; title?: string; unit?: string; qty?: number; paid?: boolean; invoiceId?: unknown; receivedQty?: number; receivedTo?: string; salesOrderId?: unknown }) | null;
+    if (!doc) throw new NotFoundException('Заявка не найдена');
+    if (doc.status !== 'received') throw new BadRequestException('Заявка не принята на склад — откатывать нечего');
+    const moves = await this.connection.db!.collection('stockmovements').find({ documentRef: `SupplyRequest:${id}`, type: 'in', cancelledAt: null, deletedAt: null }).toArray();
+    const warnings: string[] = [], blockers: string[] = [];
+    const unit = doc.unit ? ` ${doc.unit}` : '';
+    const byMaterial = new Map<string, number>();
+    for (const m of moves) byMaterial.set(String(m.materialId), (byMaterial.get(String(m.materialId)) ?? 0) + (Number(m.delta ?? m.qty) || 0));
+    if (!moves.length) warnings.push(`Товар «${doc.title ?? 'позиция'}» не приходовался на склад (${doc.receivedTo === 'direct' ? 'ушёл сразу в работу' : 'приход уже отменён'}) — склад не изменится, заявка вернётся в работу`);
+    for (const [materialId, qty] of byMaterial) {
+      warnings.push(`Приход ${qty}${unit} «${doc.title ?? 'позиция'}» будет отменён — остаток на складе уменьшится на ${qty}`);
+      const have = Number((await this.stock.getItem(materialId) as { quantity?: number }).quantity) || 0;
+      if (have < qty) blockers.push(`Остатка не хватает: на складе ${have}${unit}, а приход ${qty}${unit}. Сначала верните или спишите обратно, потом откатывайте приёмку`);
+    }
+    if (doc.invoiceId) warnings.push('Строка останется в счёте, статус вернётся на «В работе»; если принятых строк в счёте больше нет, счёт снова можно править');
+    if (dryRun) return { dryRun: true, canProceed: !blockers.length, warnings, blockers, relatedAction: 'Отмена прихода на склад и возврат заявки в работу' } satisfies OverridePlan;
+    const reason = overrideConfirm(dto);
+    if (blockers.length) throw new ConflictException(blockers[0]);
+    for (const m of moves) await this.stock.cancelMovement(String(m._id), actor.id);
+    const status = doc.invoiceId || doc.paid ? 'ordered' : 'requested';
+    await this.model.updateOne({ _id: id, deletedAt: null, status: 'received' }, { $set: { status, editedInApp: true }, $unset: { receivedQty: '', receivedAt: '', receivedTo: '', receiveUid: '' } }).exec();
+    if (doc.invoiceId) {
+      // принятых строк в счёте не осталось — снимаем границу приёмки (счёт снова можно править)
+      const left = await this.model.countDocuments({ invoiceId: doc.invoiceId, deletedAt: null, status: 'received' }).exec();
+      if (!(left > 0)) await this.connection.db!.collection('supplyinvoices').updateOne({ _id: doc.invoiceId }, { $unset: { receiptBoundaryAt: '' }, $inc: { version: 1 } });
+    }
+    await adminOverride(this.audit, {
+      rule: 'supply.receipt_rollback', entityType: 'SupplyRequest', entityId: id,
+      before: { status: 'received', receivedQty: doc.receivedQty ?? null, receivedTo: doc.receivedTo ?? null, movements: moves.map((m) => String(m._id)) },
+      after: { status, cancelledQty: [...byMaterial.values()].reduce((t, q) => t + q, 0) }, reason, actor,
+    });
+    try { if (doc.salesOrderId) await this.orders.recheck(doc.salesOrderId, actor.id); } catch { /* пересчёт готовности не должен ломать откат */ }
+    return this.get(id);
   }
 
   private async receiveRaw(id: string, dto: { qty?: number; clientUid?: string; toStock?: boolean; costCenter?: string; costObject?: string; partial?: boolean; materialId?: string }, userId?: string) {

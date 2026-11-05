@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 
 /** Кто делает запрос: роль и признак владельца (как в интерфейсе — владелец приравнен к администратору). */
 export interface OverrideActor { id?: string; role?: string | null; isOwner?: boolean; username?: string }
@@ -19,6 +19,28 @@ export function overrideReason(reason?: string | null): string {
   const r = String(reason ?? '').trim();
   if (r.length < 3) throw new BadRequestException('Администратор обходит запрет только с причиной — напишите её (от 3 символов)');
   return r.slice(0, 500);
+}
+
+/** Два шага обхода с последствиями (ЗЯ-1b): `dryRun` отдаёт план, подтверждение — `confirm: true` и причина. */
+export interface OverridePlan {
+  dryRun: true;
+  /** false — есть блокировка (blockers), выполнить нельзя. */
+  canProceed: boolean;
+  warnings: string[];
+  blockers: string[];
+  /** Связанное действие, которое сервер выполнит сам (для подписи в диалоге). */
+  relatedAction: string;
+}
+
+/** Только администратор: иначе 403 (роль не расширяем). */
+export function assertAdminActor(a: OverrideActor | undefined | null, what: string): void {
+  if (!isAdminActor(a)) throw new ForbiddenException(`${what} — только администратор`);
+}
+
+/** Подтверждение второго шага: `confirm: true` обязателен, затем причина (≥3 символов). Возвращает причину. */
+export function overrideConfirm(dto: { confirm?: boolean; reason?: string }): string {
+  if (dto.confirm !== true) throw new BadRequestException('Подтвердите действие: confirm = true и причина');
+  return overrideReason(dto.reason);
 }
 
 export interface OverrideEntry {

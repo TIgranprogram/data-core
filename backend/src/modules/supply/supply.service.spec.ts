@@ -334,6 +334,70 @@ describe('SupplyService', () => {
       });
     });
 
+    describe('ЗЯ-1b: откат приёмки (сторно прихода)', () => {
+      let audit: { log: jest.Mock };
+      let svc: SupplyService;
+      let invUpdate: jest.Mock;
+      let moves: Array<Record<string, unknown>>;
+      let st: { getItem: jest.Mock; cancelMovement: jest.Mock };
+      const admin = { id: String(new Types.ObjectId()), role: 'admin', username: 'boss' };
+      beforeEach(() => {
+        audit = { log: jest.fn(async () => undefined) };
+        invUpdate = jest.fn(async () => ({ matchedCount: 1 }));
+        moves = [{ _id: new Types.ObjectId(), materialId: new Types.ObjectId(), type: 'in', delta: 10 }];
+        st = { getItem: jest.fn(async () => ({ quantity: 10 })), cancelMovement: jest.fn(async () => ({})) };
+        const conn = { db: { collection: jest.fn((n: string) => ({ find: jest.fn(() => ({ toArray: async () => (n === 'stockmovements' ? moves : []) })), updateOne: invUpdate })) } };
+        svc = new SupplyService(conn as never, model as never, st as never, { safe: async () => true } as never, { recheck: async () => undefined } as never, counters as never, undefined, undefined, audit as never);
+        jest.spyOn(svc, 'get').mockResolvedValue({ id: 'x' } as never);
+        current = reqDoc({ status: 'received', receivedQty: 10, receivedTo: 'stock', unit: 'шт', invoiceId: new Types.ObjectId() });
+      });
+
+      it('dryRun: план с warnings, ничего не меняется', async () => {
+        const r = await svc.rollbackReceipt(String(current!._id), {}, admin, true) as { canProceed: boolean; warnings: string[] };
+        expect(r.canProceed).toBe(true);
+        expect(r.warnings.join(' ')).toMatch(/Приход 10 шт/);
+        expect(st.cancelMovement).not.toHaveBeenCalled();
+        expect(model.updateOne).not.toHaveBeenCalled();
+        expect(audit.log).not.toHaveBeenCalled();
+      });
+
+      it('admin с причиной: приход отменён, received* сброшены, граница счёта снята, журнал', async () => {
+        await svc.rollbackReceipt(String(current!._id), { confirm: true, reason: 'принято по ошибке' }, admin);
+        expect(st.cancelMovement).toHaveBeenCalledWith(String(moves[0]._id), admin.id);
+        const u = model.updateOne.mock.calls[0][1];
+        expect(u.$set.status).toBe('ordered');
+        expect(Object.keys(u.$unset)).toEqual(expect.arrayContaining(['receivedQty', 'receivedAt', 'receivedTo', 'receiveUid']));
+        expect(invUpdate.mock.calls[0][1].$unset).toHaveProperty('receiptBoundaryAt');
+        expect(audit.log.mock.calls[0][0]).toMatchObject({ action: 'admin.override', details: { meta: { rule: 'supply.receipt_rollback', reason: 'принято по ошибке' } } });
+      });
+
+      it('без причины → 400, приход не тронут', async () => {
+        await expect(svc.rollbackReceipt(String(current!._id), { confirm: true }, admin)).rejects.toMatchObject({ status: 400 });
+        expect(st.cancelMovement).not.toHaveBeenCalled();
+        expect(audit.log).not.toHaveBeenCalled();
+      });
+
+      it('менеджер → 403, склад не тронут', async () => {
+        await expect(svc.rollbackReceipt(String(current!._id), { confirm: true, reason: 'хочу' }, { role: 'manager' })).rejects.toMatchObject({ status: 403 });
+        expect(st.cancelMovement).not.toHaveBeenCalled();
+      });
+
+      it('остатка не хватает → блок (409), dryRun показывает canProceed=false', async () => {
+        st.getItem.mockResolvedValue({ quantity: 4 });
+        const plan = await svc.rollbackReceipt(String(current!._id), {}, admin, true) as { canProceed: boolean; blockers: string[] };
+        expect(plan.canProceed).toBe(false);
+        expect(plan.blockers[0]).toMatch(/Остатка не хватает/);
+        await expect(svc.rollbackReceipt(String(current!._id), { confirm: true, reason: 'ошибка' }, admin)).rejects.toMatchObject({ status: 409 });
+        expect(st.cancelMovement).not.toHaveBeenCalled();
+        expect(model.updateOne).not.toHaveBeenCalled();
+      });
+
+      it('заявка не принята → 400', async () => {
+        current = reqDoc({ status: 'ordered' });
+        await expect(svc.rollbackReceipt(String(current._id), { confirm: true, reason: 'ошибка' }, admin)).rejects.toMatchObject({ status: 400 });
+      });
+    });
+
     it('выставленный счёт: сохранение неизменного paid не блокирует примечание', async () => {
       const invId = new Types.ObjectId();
       current = reqDoc({ invoiceId: invId, status: 'ordered', paid: false });

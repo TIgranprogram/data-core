@@ -14,12 +14,15 @@ import { SupplyPhotoDto, SupplyReceiveDto, SupplyRequestDto } from './dto';
 import { SupplyService } from './supply.service';
 import { SupplierExcelService } from './supplier-excel.service';
 import { SupplierCatalogService } from './supplier-catalog.service';
-import { AddInvoiceRequestsDto, CreateInvoicesDto, MergeInvoicesDto, PatchInvoiceDto, PatchInvoiceLineDto, ReceiveInvoiceDto } from './dto-invoice';
+import { AdminOverrideDto, AddInvoiceRequestsDto, CreateInvoicesDto, MergeInvoicesDto, PatchInvoiceDto, PatchInvoiceLineDto, ReceiveInvoiceDto } from './dto-invoice';
 import { isAdminActor } from '../../common/admin-override';
 import { SupplyInvoiceService } from './supply-invoice.service';
 import { CatalogBulkDto, CatalogItemDto, CatalogItemPatchDto } from './dto-catalog';
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+/** Двухшаговый обход (ЗЯ-1b): план при `?dryRun=1` и когда подтверждения нет; выполнение — только с `confirm: true`. */
+const isDry = (q: string | undefined, dto: AdminOverrideDto) => q === '1' || q === 'true' || dto.confirm !== true;
 
 /** Склады (WZ): импорт и массовая запись каталога / прайсов создаёт заявки и позиции по всем категориям — роли с ограничением по складу закрыто. */
 const noScoped = (scope: StockScope | null) => {
@@ -140,6 +143,16 @@ export class SupplyController {
   async payInvoice(@Param('id') id: string, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
     await this.invoices.assertWhole(id, scope);
     return this.invoices.pay(id, user?.id);
+  }
+
+  /** ЗЯ-1: снять оплату со счёта (сторно). `?dryRun=1` или без confirm — план с warnings[]; confirm + reason — выполнить. */
+  @Post('invoices/:id/unpay')
+  @HttpCode(200)
+  @Roles('admin')
+  @AuditAction({ action: 'supply.invoice.unpay', entityType: 'SupplyInvoice', idParam: 'id' })
+  async unpayInvoice(@Param('id') id: string, @Body() dto: AdminOverrideDto, @Query('dryRun') dryRun: string, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    await this.invoices.assertWhole(id, scope);
+    return this.invoices.unpay(id, dto, this.actorOf(user), isDry(dryRun, dto));
   }
 
   @Delete('invoices/:id')
@@ -423,6 +436,18 @@ export class SupplyController {
     await this.supply.assertRequest(id, scope);
     return this.supply.receive(id, dto, user?.id);
   }
+
+  /** ЗЯ-1: откатить приёмку (сторно прихода на склад). `?dryRun=1` или без confirm — план с warnings[]; confirm + reason — выполнить. */
+  @Post('requests/:id/rollback-receipt')
+  @HttpCode(200)
+  @Roles('admin')
+  @AuditAction({ action: 'supply.request.receipt_rollback', entityType: 'SupplyRequest', idParam: 'id' })
+  async rollbackReceipt(@Param('id') id: string, @Body() dto: AdminOverrideDto, @Query('dryRun') dryRun: string, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    await this.supply.assertRequest(id, scope);
+    return this.supply.rollbackReceipt(id, dto, this.actorOf(user), isDry(dryRun, dto));
+  }
+
+  private actorOf(user?: AuthenticatedUser) { return { id: user?.id, role: user?.role, isOwner: user?.isOwner, username: user?.username }; }
 
   /**
    * СКЕ-2: загрузить Excel-прайс поставщика.

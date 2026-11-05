@@ -6,7 +6,7 @@ import type { StockScope } from '../../common/stock-scope';
 import { docScopeMatch } from '../../common/supply-scope';
 import { parseSheetDate } from '../../common/date-parse';
 import { escapeRe, oid } from '../../common/list-query';
-import { adminOverride, overrideReason, type OverrideActor } from '../../common/admin-override';
+import { adminOverride, assertAdminActor, overrideConfirm, overrideReason, type OverridePlan, type OverrideActor } from '../../common/admin-override';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MaterialPriceService } from '../material/material-price.service';
@@ -701,6 +701,43 @@ export class SupplyInvoiceService {
       await this.requests.updateMany({ invoiceId: inv._id, deletedAt: null, status: 'received' },
         { $set: { paid: true, paidAt: now, editedInApp: true } }, { session }).exec();
       await this.recordPrices(inv, 'invoice_paid', session);
+    });
+    return this.get(id);
+  }
+
+  /**
+   * ЗЯ-1 п.9: «Снять оплату» (только администратор). dryRun — план; confirm + причина — сторно: счёт снова «выставлен»,
+   * строки без отметки оплаты, расход уходит из календаря. Запись о платеже не стирается: сумма, дата и причина —
+   * в paymentAdjustments (operation payment_reversed) и в журнале. Есть приёмка — блок: сначала откатите приёмку.
+   */
+  async unpay(id: string, dto: { confirm?: boolean; reason?: string }, actor: OverrideActor, dryRun = false) {
+    assertAdminActor(actor, 'Снятие оплаты');
+    const inv = await this.load(id);
+    if (inv.status !== 'paid') throw new BadRequestException('Счёт не оплачен — снимать нечего');
+    const snap = inv.paymentSnapshot as { amount?: number; paidAt?: Date } | undefined;
+    const amount = Number(snap?.amount ?? inv.amount) || 0;
+    const when = snap?.paidAt ?? inv.paidAt;
+    const blockers: string[] = [];
+    const lock = await this.lockReason(inv);
+    if (lock) blockers.push('По счёту есть приёмка на склад. Сначала откатите приёмку строк, потом снимайте оплату');
+    const warnings = [
+      `Оплата ${amount} ₽${when ? ` от ${new Date(when as Date).toLocaleDateString('ru-RU')}` : ''} будет снята: расход пропадёт из календаря и финансов`,
+      'Счёт вернётся в «Выставлен», строки — в «В работе» без отметки об оплате; запись о платеже сохранится в истории счёта',
+    ];
+    if (dryRun) return { dryRun: true, canProceed: !blockers.length, warnings, blockers, relatedAction: 'Сторно оплаты и возврат строк в «В работе»' } satisfies OverridePlan;
+    const reason = overrideConfirm(dto);
+    if (blockers.length) throw new ConflictException(blockers[0]);
+    const by = actor.id && Types.ObjectId.isValid(actor.id) ? new Types.ObjectId(actor.id) : undefined;
+    await this.tx(async (session) => {
+      const res = await this.model.updateOne({ _id: inv._id, status: 'paid', $or: [{ receiptBoundaryAt: null }, { receiptBoundaryAt: { $exists: false } }] },
+        { $set: { status: 'issued' }, $unset: { paidAt: '', paymentSnapshot: '' }, $inc: { version: 1 },
+          $push: { paymentAdjustments: { at: new Date(), ...(by ? { by } : {}), reason, operation: 'payment_reversed', beforeAmount: amount, afterAmount: 0, delta: -amount, requestIds: [] } } }, { session }).exec();
+      if (!res.matchedCount) throw new ConflictException('Счёт изменился (оплата уже снята или началась приёмка) — обновите карточку');
+      await this.requests.updateMany({ invoiceId: inv._id, deletedAt: null, status: { $nin: ['cancelled', 'received'] } }, { $set: { paid: false, status: 'ordered', editedInApp: true }, $unset: { paidAt: '' } }, { session }).exec();
+    });
+    await adminOverride(this.audit, {
+      rule: 'supply.invoice_unpay', entityType: 'SupplyInvoice', entityId: id,
+      before: { status: 'paid', amount, paidAt: when ?? null }, after: { status: 'issued', amount: 0 }, reason, actor,
     });
     return this.get(id);
   }
