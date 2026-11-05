@@ -1,6 +1,6 @@
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
-import { readonlyGroup, similarBox, sku, section, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, toast, pick, filter, table, panel, SUPPLY_STATUS } from '../ui/kit/index.js';
+import { readonlyGroup, similarBox, sku, section, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, toast, pick, filter, table, panel, links, SUPPLY_STATUS } from '../ui/kit/index.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
 const LONG = 'Очень длинное название позиции для проверки переноса и обрезки текста в карточке эталона';
@@ -91,6 +91,9 @@ export const kit = {
           card({ size: 'L', variant: 'table', title: 'Заказ № 20-26', meta: 'движения', onClick: () => toast('Клик: table'),
             body: table({ columns: [{ key: 'n', label: 'Позиция' }, { key: 'q', label: 'Кол-во', num: true }], rows: [{ cells: ['Труба 57×3', '12'] }, { cells: [LONG, '3'] }] }) }),
           card({ size: 'L', variant: 'table', title: 'Без клика (статична)', body: table({ columns: [{ key: 'n', label: 'Позиция' }], rows: [], empty: 'Нет строк' }) }))),
+      block('Связи (links, вид «картотека»: 1А бумага · 2Б линии · 3А сетка)', 'Сетка карточек связанных разделов в панели: от 240 px, на 390 — одна колонка; карточка с таблицей на всю строку, итог числом в шапке, до 5 строк и «Ещё N». Тёмная тема — кнопка «Сменить тему».',
+        links({ items: [{ key: 'orders', title: 'Заказы', total: 7, onClick: () => toast('Клик: заказы') }, { key: 'stock', title: 'Склад', total: 120, onClick: () => toast('Клик: склад') }, { key: 'debt', title: 'Долг', total: -45000, onClick: () => toast('Клик: долг') }, { key: 'empty', title: 'Без записей', total: 0 },
+          { key: 'moves', title: 'Движения', total: 7, columns: [{ key: 'n', label: 'Позиция' }, { key: 'q', label: 'Кол-во', num: true }], rows: Array.from({ length: 7 }, (_, i) => ({ cells: [i === 1 ? LONG : 'Труба 57×3 № ' + (i + 1), String(10 + i)] })), more: () => toast('Показать все') }] })),
       block('Карточка L (.db-order)', 'Заказ / шапка сущности.', sample(...cards('L'), card({ size: 'L', title: LONG, meta: LONG }))),
       block('Строка (.k-row)', 'Список позиций, корзина с количеством, строка с галочкой. tone — полоса слева.', sample(
         row({ title: 'Труба 57×3', meta: 'на складе 120 м', side: h('b', null, '120 м'), action: button({ label: 'Принять', size: 'S' }) }),
