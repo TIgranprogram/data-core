@@ -167,7 +167,7 @@ export function mountMoney(params) {
       const byDay = (d) => ({ date: d.date, ops: p.items.filter((o) => o.date === d.date) });
       const late = p.items.filter((o) => o.date < c.from);
       return h('tr', { class: 'pend', title: hint },
-        h('th', { class: 'sticky' }, label), h('td', { class: 'tot', onclick: () => showOps({ date: c.to, ops: p.items, title: label }), style: { cursor: 'pointer' } }, cell(p.total)),
+        h('th', { class: 'sticky' }, label), h('td', { class: 'tot click', onclick: () => showOps({ date: c.to, ops: p.items, title: label }) }, cell(p.total)),
         days.map((d) => { const x = byDay(d); const v = x.ops.reduce((a, o) => a + o.amount, 0) + (d.date === c.from ? late.reduce((a, o) => a + o.amount, 0) : 0); return h('td', { class: 'day' + (v ? ' click' : ''), onclick: v ? () => showOps({ date: d.date, title: label, ops: d.date === c.from ? [...late, ...x.ops] : x.ops }) : undefined }, cell(v)); }));
     };
     const pendRows = [pendRow('Счета к оплате (не в остатке)', c.pending?.invoices, 'Заявки с датой счёта, ещё не оплаченные: деньги не ушли, в остаток не входят'),

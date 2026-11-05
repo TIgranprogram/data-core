@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { go } from '../core/router.js';
 import { modal } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
-import { autoMore } from '../ui/kit/index.js';
+import { autoMore, empty } from '../ui/kit/index.js';
 import { statusOf, canEdit as canEditTexts } from './passports/common.js';
 import { printDialog } from './passports/dialogs.js';
 import { orderPassportsButton } from './order-passport-plan.js';
@@ -111,8 +111,9 @@ export function mountOrdersTab(params, { onChanged } = {}) {
 
   function paint(items) {
     drawChips();
-    list.replaceChildren(...(items.length ? items.map(group) : [h('p', { class: 'muted' },
-      state.search || state.readiness ? 'Ничего не найдено — снимите фильтр или поиск.' : 'Паспортов к заказам ещё нет. Выпустите паспорт на вкладке «Нужно сделать паспорт» — он появится здесь.')]));
+    list.replaceChildren(...(items.length ? items.map(group) : [state.search || state.readiness
+      ? empty({ kind: 'notFound', title: 'Ничего не найдено', hint: 'Снимите фильтр или поиск.' })
+      : empty({ title: 'Паспортов к заказам ещё нет', hint: 'Выпустите паспорт на вкладке «Нужно сделать паспорт» — он появится здесь.' })]));
   }
 
   search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { state = { ...state, search: search.value.trim() }; load(); }, 300); });
