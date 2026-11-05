@@ -15,6 +15,7 @@ import { SupplyService } from './supply.service';
 import { SupplierExcelService } from './supplier-excel.service';
 import { SupplierCatalogService } from './supplier-catalog.service';
 import { AddInvoiceRequestsDto, CreateInvoicesDto, MergeInvoicesDto, PatchInvoiceDto, PatchInvoiceLineDto, ReceiveInvoiceDto } from './dto-invoice';
+import { isAdminActor } from '../../common/admin-override';
 import { SupplyInvoiceService } from './supply-invoice.service';
 import { CatalogBulkDto, CatalogItemDto, CatalogItemPatchDto } from './dto-catalog';
 
@@ -353,7 +354,15 @@ export class SupplyController {
   async update(@Param('id') id: string, @Body() dto: SupplyRequestDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
     await this.supply.assertRequest(id, scope);
     if (dto.materialId || dto.categoryId || dto.categoryName) await this.supply.assertNew(dto, scope);
-    return this.supply.update(id, dto, user?.role, user?.id);
+    const actor = { id: user?.id, role: user?.role, isOwner: user?.isOwner, username: user?.username };
+    let body = dto;
+    // ЗЯ-1 п.3: сумма и количество строки счёта у администратора идут в правку строки счёта (пересчёт amount, журнал)
+    if (isAdminActor(actor) && (dto.priceHint !== undefined || dto.qty !== undefined) && (await this.invoices.adminEditLine(id, dto, actor))) {
+      const { priceHint: _p, qty: _q, ...rest } = dto; // eslint-disable-line @typescript-eslint/no-unused-vars
+      body = rest;
+      if (!Object.keys(rest).some((k) => k !== 'reason')) return this.supply.get(id);
+    }
+    return this.supply.update(id, body, user?.role, user?.id, actor);
   }
 
   /** В корзину (мягкое удаление). */

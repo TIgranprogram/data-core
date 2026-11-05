@@ -1,6 +1,8 @@
 import { photoToFront } from '../../common/photo-main';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { CounterService } from '../counter/counter.service';
+import { AuditService } from '../audit/audit.service';
+import { adminOverride, isAdminActor, overrideReason, type OverrideActor } from '../../common/admin-override';
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { customerNames } from '../partners/customer-names';
 import { DICT, type Doc } from '../dicts/dicts.defs';
@@ -63,6 +65,8 @@ export interface SupplyInput {
   /** Фото заявки — весь список (заменяет прежний). */
   photoIds?: string[];
   clientUid?: string;
+  /** Причина обхода блока администратором (ЗЯ-1) — в заявку не пишется, уходит в журнал. */
+  reason?: string;
 }
 
 /** Сегодня, 00:00 UTC — как даты из таблицы и из формы (иначе сортировка «по дате» путает заявки одного дня). */
@@ -87,6 +91,7 @@ export class SupplyService {
     private readonly counters: CounterService,
     @Optional() private readonly versions?: DataVersionService,
     @Optional() private readonly zones?: ZonesService,
+    @Optional() private readonly audit?: AuditService,
   ) {}
 
   private async markInvoiceReceiptBoundary(invoiceId: unknown, session: ClientSession) {
@@ -485,23 +490,34 @@ export class SupplyService {
     } catch { /* уведомление не должно ломать операцию */ }
   }
 
-  async update(id: string, dto: SupplyInput, userRole?: string, actorId?: string) {
+  async update(id: string, dto: SupplyInput, userRole?: string, actorId?: string, actor?: OverrideActor) {
     // менеджер правит суммы заявок (решение 2026-10-29, docs/CHECKLIST-MANAGER-ROLE.md); роли без денег суммы не пришлют — их срезает MoneyMask
-    void userRole;
+    const admin = isAdminActor({ role: userRole, isOwner: actor?.isOwner });
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Некорректный id заявки');
     // Цена и количество строки счёта — только через PATCH строки с пересчётом amount в транзакции.
     // Финансовая блокировка учитывает приёмку любой строки счёта, а не только текущей заявки.
     const financial = ['priceHint', 'qty', 'invoiceNo', 'invoiceDate', 'supplierName', 'companyName'].some((k) => k in dto);
     let linkedInvoiceId: unknown;
+    /** ЗЯ-1 п.4: администратор правит реквизиты строки, пока по счёту нет приёмки — «было» для журнала. */
+    let override: { reason: string; before: Record<string, unknown>; after: Record<string, unknown> } | null = null;
     if (financial || dto.statusLabel !== undefined) {
-      const cur = await this.model.findById(id, { invoiceId: 1, status: 1, paid: 1 }).lean().exec() as { invoiceId?: unknown; status?: string; paid?: boolean } | null;
+      const cur = await this.model.findById(id, { invoiceId: 1, status: 1, paid: 1, invoiceNo: 1, invoiceDate: 1, supplierName: 1, supplierId: 1, companyId: 1 }).lean().exec() as (Record<string, unknown> & { invoiceId?: unknown; status?: string; paid?: boolean }) | null;
       if (cur?.invoiceId) {
         linkedInvoiceId = cur.invoiceId;
         if ('priceHint' in dto || 'qty' in dto) throw new BadRequestException('Цена и количество строки счёта заблокированы для PATCH заявки — измените строку счёта');
         const inv = await this.connection.db!.collection('supplyinvoices').findOne({ _id: cur.invoiceId, deletedAt: null }, { projection: { status: 1, receiptBoundaryAt: 1 } });
         const received = await this.model.countDocuments({ invoiceId: cur.invoiceId, deletedAt: null, status: 'received' }).exec();
         if (inv?.status === 'paid' || inv?.status === 'issued' || inv?.receiptBoundaryAt || received > 0) {
-          if (financial) throw new BadRequestException('Счёт выставлен, оплачен или уже принят на склад — финансовые поля строки заблокированы. Измените счёт');
+          if (financial) {
+            // после приёмки (граница или принятая строка) обход — только с предупреждением (ЗЯ-1b), здесь блок остаётся
+            if (!(admin && !inv?.receiptBoundaryAt && !(received > 0))) throw new BadRequestException('Счёт выставлен, оплачен или уже принят на склад — финансовые поля строки заблокированы. Измените счёт');
+            const keys = ['invoiceNo', 'invoiceDate', 'supplierName', 'companyName'].filter((k) => k in dto) as Array<keyof SupplyInput>;
+            override = {
+              reason: overrideReason(dto.reason),
+              before: { invoiceNo: cur.invoiceNo ?? null, invoiceDate: cur.invoiceDate ?? null, supplierName: cur.supplierName ?? null, supplierId: cur.supplierId ?? null, companyId: cur.companyId ?? null, invoiceStatus: inv?.status ?? null },
+              after: Object.fromEntries(keys.map((k) => [k, dto[k] ?? null])),
+            };
+          }
         }
         const next = dto.statusLabel === undefined ? null : statusFromLabel(dto.statusLabel);
         if (next && !!next.paid !== !!cur.paid) throw new BadRequestException('Отметка оплаты строки счёта меняется только через оплату счёта');
@@ -547,6 +563,7 @@ export class SupplyService {
       res = await this.model.updateOne({ _id: id, deletedAt: null }, { ...(Object.keys(set).length ? { $set: set } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) }).exec();
     }
     if (!res.matchedCount) throw new NotFoundException('Заявка не найдена');
+    if (override) await adminOverride(this.audit, { rule: 'supply.invoiced_fields', entityType: 'SupplyRequest', entityId: id, ...override, actor: { ...actor, id: actor?.id ?? actorId, role: userRole } });
     if (photoIds) await this.writePhotos(new Types.ObjectId(id), { $set: { photoIds } });
     await this.adoptArticle(await this.model.findById(id, { materialId: 1, article: 1, num: 1 }).lean().exec() as Record<string, unknown> | null);
     await this.afterStatus(prev, fields.status as string | undefined, actorId);

@@ -37,10 +37,13 @@ export class CreateOfferDto {
 }
 
 /** Правка: любые поля из создания; статус меняется только через POST :id/status. */
-export class UpdateOfferDto extends PartialType(CreateOfferDto) {}
+export class UpdateOfferDto extends PartialType(CreateOfferDto) {
+  @ApiPropertyOptional({ description: 'Причина (от 3 символов) — нужна администратору для правки оплаченного КП; уходит в журнал' }) @IsOptional() @IsString() @MaxLength(500) reason?: string;
+}
 
 export class OfferStatusDto {
   @ApiProperty({ enum: OFFER_STATUSES }) @IsIn(OFFER_STATUSES as unknown as string[], { message: 'Неизвестный статус' }) status!: string;
+  @ApiPropertyOptional({ description: 'Причина (от 3 символов) — нужна администратору для перехода, который остальным закрыт; уходит в журнал' }) @IsOptional() @IsString() @MaxLength(500) reason?: string;
 }
 
 /** Подтверждение заказа из КП (этап 2): номера можно переопределить. */

@@ -36,3 +36,26 @@ describe('КП: статусы и суммы', () => {
     expect(r.total).toBe(180.3);
   });
 });
+
+describe('КП: обход администратором (ЗЯ-1)', () => {
+  const admin = { admin: true };
+  it('менеджер получает прежние ошибки', () => {
+    expect(() => checkMove('sent', 'draft', [], {})).toThrow(/нельзя перейти/);
+    expect(() => checkMove('paid', 'accepted', [], { admin: false })).toThrow(/оплачено/);
+    expect(() => checkEditable('paid', { admin: false })).toThrow(/правка закрыта/);
+  });
+  it('администратор: переход назад и выход из «Оплачено» без заказа — обход (true)', () => {
+    expect(checkMove('sent', 'draft', [], admin)).toBe(true);
+    expect(checkMove('paid', 'accepted', [], admin)).toBe(true);
+    expect(checkMove('draft', 'sent', [{ productName: 'Урна', unitPrice: 5 }], admin)).toBe(false); // обычный шаг — не обход
+    expect(checkEditable('paid', admin)).toBe(true);
+    expect(checkEditable('sent', admin)).toBe(false);
+  });
+  it('если заказ из КП создан — «Оплачено» закрыто и для администратора', () => {
+    expect(() => checkMove('paid', 'accepted', [], { admin: true, hasOrder: true })).toThrow(/оплачено/);
+    expect(() => checkEditable('paid', { admin: true, hasOrder: true })).toThrow(/правка закрыта/);
+  });
+  it('цена к «Отправлено» обязательна и для администратора', () => {
+    expect(() => checkMove('accepted', 'sent', [{ productName: 'Скамья' }], admin)).toThrow(/Укажите цену/);
+  });
+});

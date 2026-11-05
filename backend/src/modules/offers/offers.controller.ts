@@ -116,7 +116,7 @@ export class OffersController {
   @Roles('admin', 'manager')
   @AuditAction({ action: 'offer.status', entityType: 'CommercialOffer', idParam: 'id' })
   status(@Param('id') id: string, @Body() dto: OfferStatusDto, @CurrentUser() user: AuthenticatedUser) {
-    return this.offers.setStatus(id, dto.status, user);
+    return this.offers.setStatus(id, dto.status, user, dto.reason);
   }
 
   @Get(':id/pdf')

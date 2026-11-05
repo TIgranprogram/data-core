@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
@@ -6,6 +6,8 @@ import type { StockScope } from '../../common/stock-scope';
 import { docScopeMatch } from '../../common/supply-scope';
 import { parseSheetDate } from '../../common/date-parse';
 import { escapeRe, oid } from '../../common/list-query';
+import { adminOverride, overrideReason, type OverrideActor } from '../../common/admin-override';
+import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MaterialPriceService } from '../material/material-price.service';
 import type { PriceSource } from '../material/material-price.schema';
@@ -31,6 +33,7 @@ export class SupplyInvoiceService {
     private readonly supply: SupplyService,
     private readonly prices: MaterialPriceService,
     private readonly notices: NotificationsService,
+    @Optional() private readonly audit?: AuditService,
   ) {}
 
   private async tx<T>(fn: (s: ClientSession) => Promise<T>): Promise<T> {
@@ -628,6 +631,28 @@ export class SupplyInvoiceService {
     });
     const invoice = await this.get(invoiceId);
     return { invoice, line: { id: String(lineId), qty, unitPrice: Math.round((priceHint / qty) * 100) / 100, lineAmount: priceHint }, amount };
+  }
+
+  /**
+   * ЗЯ-1 п.3: администратор меняет сумму/количество строки через PATCH заявки — уходит в правку строки счёта
+   * (пересчёт amount, история цены; у оплаченного — запись в paymentAdjustments) с причиной и записью в журнал.
+   * Заявка без счёта → false (правка идёт обычным путём). После границы приёмки updateLine откажет, как раньше.
+   */
+  async adminEditLine(requestId: string, dto: { priceHint?: number | null; qty?: number; reason?: string }, actor: OverrideActor): Promise<boolean> {
+    const line = await this.requests.findOne({ _id: oid(requestId, 'заявки'), deletedAt: null }).lean().exec() as Lean | null;
+    if (!line?.invoiceId) return false;
+    const reason = overrideReason(dto.reason);
+    const inv = await this.load(String(line.invoiceId));
+    const before = { priceHint: line.priceHint ?? null, qty: line.qty ?? null, invoiceAmount: inv.amount ?? null };
+    const res = await this.updateLine(String(line.invoiceId), requestId, {
+      ...(dto.priceHint !== undefined && dto.priceHint !== null ? { lineAmount: dto.priceHint } : {}), ...(dto.qty !== undefined ? { qty: dto.qty } : {}), reason,
+    }, actor.id);
+    await adminOverride(this.audit, {
+      rule: 'supply.invoiced_line', entityType: 'SupplyRequest', entityId: requestId,
+      before,
+      after: { priceHint: res.line.lineAmount, qty: res.line.qty, invoiceAmount: res.amount }, reason, actor,
+    });
+    return true;
   }
 
   /** Убрать строку из счёта, не удаляя заявку: до первой приёмки (в т. ч. оплаченный); вернуть в «В заказ», пересчитать сумму. */

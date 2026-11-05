@@ -1,11 +1,13 @@
 import { promises as fs } from 'fs';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Types, type Connection, type Model } from 'mongoose';
 import sharp from 'sharp';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { oid, parseList } from '../../common/list-query';
 import { safeUploadPath } from '../../common/uploads/safe-path';
+import { adminOverride, isAdminActor, overrideReason } from '../../common/admin-override';
+import { AuditService } from '../audit/audit.service';
 import { CounterService } from '../counter/counter.service';
 import { IncomesService } from '../incomes/incomes.service';
 import { SalesOrdersService } from '../salesorders/salesorders.service';
@@ -31,6 +33,7 @@ export class OffersService {
     private readonly bgs: OfferBackgroundsService,
     private readonly salesOrders: SalesOrdersService,
     private readonly incomes: IncomesService,
+    @Optional() private readonly audit?: AuditService,
   ) {}
 
   private db() { return this.connection.db!; }
@@ -183,7 +186,8 @@ export class OffersService {
 
   async update(id: string, dto: UpdateOfferDto, user?: AuthenticatedUser) {
     const cur = await this.find(id);
-    checkEditable(cur.status);
+    const bypass = checkEditable(cur.status, { admin: isAdminActor(user), hasOrder: !!cur.orderId });
+    const reason = bypass ? overrideReason(dto.reason) : ''; // ЗЯ-1: оплаченное КП правит администратор только с причиной
     const set: Doc = {};
     if (dto.companyId !== undefined) set.companyId = await this.ourCompany(dto.companyId);
     if (dto.customer !== undefined) set.customer = dto.customer.trim();
@@ -198,6 +202,7 @@ export class OffersService {
     const upd: Doc = { $set: set };
     if (versioned) upd.$push = { versions: { at: new Date(), by: user?.username, snapshot: this.snapshot(cur) } };
     await this.model.updateOne({ _id: cur._id }, upd).exec();
+    if (bypass) await adminOverride(this.audit, { rule: 'offer.paid_edit', entityType: 'CommercialOffer', entityId: cur._id, before: { status: cur.status, total: cur.total ?? 0, items: cur.items }, after: { fields: Object.keys(set) }, reason, actor: user });
     return this.get(id);
   }
 
@@ -215,11 +220,13 @@ export class OffersService {
     return this.get(id);
   }
 
-  async setStatus(id: string, to: string, user: AuthenticatedUser) {
+  async setStatus(id: string, to: string, user: AuthenticatedUser, reasonText?: string) {
     const cur = await this.find(id);
     if (!(OFFER_STATUSES as readonly string[]).includes(to)) throw new BadRequestException('Неизвестный статус');
-    checkMove(cur.status, to as OfferStatus, cur.items);
+    const bypass = checkMove(cur.status, to as OfferStatus, cur.items, { admin: isAdminActor(user), hasOrder: !!cur.orderId });
+    const reason = bypass ? overrideReason(reasonText) : ''; // ЗЯ-1: недопустимый переход — только администратор и с причиной
     await this.model.updateOne({ _id: cur._id }, { $set: { status: to }, $push: { statusHistory: { status: to, at: new Date(), by: user?.username } } }).exec();
+    if (bypass) await adminOverride(this.audit, { rule: 'offer.status_jump', entityType: 'CommercialOffer', entityId: cur._id, before: { status: cur.status }, after: { status: to }, reason, actor: user });
     return this.get(id);
   }
 

@@ -33,6 +33,7 @@ export class SupplyRequestDto {
   @ApiPropertyOptional({ description: 'Фото заявки (id из POST /api/photos/upload) — весь список, по порядку; [] — убрать все', type: [String] })
   @IsOptional() @IsArray() @ArrayMaxSize(30) @IsMongoId({ each: true }) photoIds?: string[];
   @ApiPropertyOptional({ description: 'Ключ клиента — повтор не создаёт дубль' }) @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
+  @ApiPropertyOptional({ description: 'Причина (от 3 символов) — нужна администратору, когда он правит то, что заблокировано остальным; уходит в журнал' }) @IsOptional() @IsString() @Length(0, 500) reason?: string;
 }
 
 export class SupplyPhotoDto {

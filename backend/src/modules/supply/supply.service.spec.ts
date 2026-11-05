@@ -279,6 +279,61 @@ describe('SupplyService', () => {
       expect(model.updateOne).not.toHaveBeenCalled();
     });
 
+    describe('ЗЯ-1: администратор правит реквизиты строки выставленного/оплаченного счёта', () => {
+      let audit: { log: jest.Mock };
+      let svc: SupplyService;
+      beforeEach(() => {
+        audit = { log: jest.fn(async () => undefined) };
+        const conn = { db: { collection: jest.fn((n: string) => ({ findOne: jest.fn(async () => (colls[n] ?? [])[0] ?? null), countDocuments: jest.fn(async () => 0), updateOne: jest.fn(async () => ({ matchedCount: 1 })), find: jest.fn(() => ({ toArray: async () => [] })) })), }, startSession: async () => ({ withTransaction: async (fn: () => Promise<void>) => { await fn(); }, endSession: async () => undefined }) };
+        svc = new SupplyService(conn as never, model as never, stock as never, { safe: async () => true } as never, { recheck: async () => undefined } as never, counters as never, undefined, undefined, audit as never);
+      });
+      const seed = (inv: Record<string, unknown>) => {
+        const invId = new Types.ObjectId();
+        current = reqDoc({ invoiceId: invId, status: 'ordered', invoiceNo: 'А-1' });
+        colls.supplyinvoices = [{ _id: invId, ...inv }];
+      };
+
+      it.each(['paid', 'issued'])('счёт %s, приёмки нет: admin с причиной проходит, в журнале было/стало', async (status) => {
+        seed({ status });
+        await svc.update(String(current!._id), { invoiceNo: 'Б-2', reason: 'опечатка в номере' }, 'admin', String(new Types.ObjectId()));
+        expect(setOf().invoiceNo).toBe('Б-2');
+        const e = audit.log.mock.calls[0][0];
+        expect(e).toMatchObject({ action: 'admin.override', entityType: 'SupplyRequest', details: { before: { invoiceNo: 'А-1' }, after: { invoiceNo: 'Б-2' }, meta: { rule: 'supply.invoiced_fields', reason: 'опечатка в номере' } } });
+      });
+
+      it('владелец (isOwner) приравнен к администратору', async () => {
+        seed({ status: 'paid' });
+        await svc.update(String(current!._id), { invoiceNo: 'Б-2', reason: 'поправка' }, undefined, undefined, { isOwner: true });
+        expect(audit.log).toHaveBeenCalledTimes(1);
+      });
+
+      it('admin без причины → 400, без записи и журнала', async () => {
+        seed({ status: 'paid' });
+        await expect(svc.update(String(current!._id), { invoiceNo: 'Б-2' }, 'admin')).rejects.toMatchObject({ status: 400 });
+        expect(model.updateOne).not.toHaveBeenCalled();
+        expect(audit.log).not.toHaveBeenCalled();
+      });
+
+      it('менеджер получает прежнюю ошибку и журнала нет', async () => {
+        seed({ status: 'paid' });
+        await expect(svc.update(String(current!._id), { invoiceNo: 'Б-2', reason: 'хочу' }, 'manager')).rejects.toThrow(/финансовые поля строки заблокированы/);
+        expect(model.updateOne).not.toHaveBeenCalled();
+        expect(audit.log).not.toHaveBeenCalled();
+      });
+
+      it('после начала приёмки (граница) блок остаётся и для admin', async () => {
+        seed({ status: 'paid', receiptBoundaryAt: new Date() });
+        await expect(svc.update(String(current!._id), { invoiceNo: 'Б-2', reason: 'поправка' }, 'admin')).rejects.toThrow(/финансовые поля строки заблокированы/);
+        expect(model.updateOne).not.toHaveBeenCalled();
+      });
+
+      it('принятая строка счёта: блок остаётся и для admin', async () => {
+        seed({ status: 'issued' });
+        model.countDocuments.mockReturnValue(chain(1));
+        await expect(svc.update(String(current!._id), { invoiceNo: 'Б-2', reason: 'поправка' }, 'admin')).rejects.toThrow(/финансовые поля строки заблокированы/);
+      });
+    });
+
     it('выставленный счёт: сохранение неизменного paid не блокирует примечание', async () => {
       const invId = new Types.ObjectId();
       current = reqDoc({ invoiceId: invId, status: 'ordered', paid: false });

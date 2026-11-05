@@ -78,12 +78,12 @@ function fakeRequests(lines: Doc[]) {
   return api;
 }
 
-function makeSvc(opts: { invoices: Record<string, Doc>; lines?: Doc[]; prices?: { record: jest.Mock } }) {
+function makeSvc(opts: { invoices: Record<string, Doc>; lines?: Doc[]; prices?: { record: jest.Mock }; audit?: { log: jest.Mock } }) {
   const model = fakeModel(opts.invoices);
   const requests = fakeRequests(opts.lines ?? []);
   const prices = opts.prices ?? { record: jest.fn(async () => true) };
   const svc = new SupplyInvoiceService(
-    connection() as never, model as never, requests as never, {} as never, prices as never, { toRoles: async () => undefined } as never,
+    connection() as never, model as never, requests as never, {} as never, prices as never, { toRoles: async () => undefined } as never, opts.audit as never,
   );
   jest.spyOn(svc, 'get').mockImplementation(async (id: string) => ({ id, amount: opts.invoices[id]?.amount }) as never);
   return { svc, model, requests, prices };
@@ -570,5 +570,45 @@ describe('T27: реквизиты оплаченного счёта не пер�
     expect(history.has(String(added))).toBe(false);
     expect(invoices[String(invId)].paymentSnapshot).toEqual({ amount: 100 });
     expect(lines.map((line) => line.priceHint)).toEqual([150, 50]);
+  });
+});
+
+describe('ЗЯ-1: администратор правит сумму строки счёта через заявку', () => {
+  const mk = (status: string, extra: Doc = {}) => {
+    const invId = new Types.ObjectId(), lineId = new Types.ObjectId();
+    const inv = { _id: invId, supplierId: new Types.ObjectId(), status, amount: 30, version: 0, fileIds: [], ...extra };
+    const line = { _id: lineId, num: 1, title: 'Болт', invoiceId: invId, qty: 3, unit: 'шт', priceHint: 30, status: 'ordered', materialId: new Types.ObjectId() };
+    const audit = { log: jest.fn(async (e: Doc) => void e) };
+    return { ...makeSvc({ invoices: { [String(invId)]: inv }, lines: [line], audit }), inv, line, lineId, audit };
+  };
+  const admin = { id: String(new Types.ObjectId()), role: 'admin', username: 'boss' };
+
+  it.each(['issued', 'paid'])('счёт %s без приёмки: сумма и amount пересчитаны, журнал было/стало', async (status) => {
+    const { svc, inv, line, lineId, audit } = mk(status);
+    const ok = await svc.adminEditLine(String(lineId), { priceHint: 50, reason: 'сверка с поставщиком' }, admin);
+    expect(ok).toBe(true);
+    expect(line.priceHint).toBe(50);
+    expect(inv.amount).toBe(50);
+    expect(audit.log.mock.calls[0][0]).toMatchObject({ action: 'admin.override', entityType: 'SupplyRequest', details: { before: { priceHint: 30, qty: 3, invoiceAmount: 30 }, after: { priceHint: 50, qty: 3, invoiceAmount: 50 }, meta: { rule: 'supply.invoiced_line', reason: 'сверка с поставщиком' } } });
+  });
+
+  it('без причины → 400, строка не тронута', async () => {
+    const { svc, line, lineId, audit } = mk('issued');
+    await expect(svc.adminEditLine(String(lineId), { priceHint: 50 }, admin)).rejects.toBeInstanceOf(BadRequestException);
+    expect(line.priceHint).toBe(30);
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
+  it('после границы приёмки блок остаётся и для admin', async () => {
+    const { svc, line, lineId, audit } = mk('paid', { receiptBoundaryAt: new Date() });
+    await expect(svc.adminEditLine(String(lineId), { priceHint: 50, reason: 'поправка' }, admin)).rejects.toThrow(/приёмка/);
+    expect(line.priceHint).toBe(30);
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
+  it('заявка без счёта → false (обычный путь)', async () => {
+    const { svc, line, lineId } = mk('issued');
+    delete (line as Doc).invoiceId;
+    expect(await svc.adminEditLine(String(lineId), { priceHint: 50, reason: 'поправка' }, admin)).toBe(false);
   });
 });
