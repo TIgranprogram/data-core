@@ -70,14 +70,14 @@ async function modules({ invoice = base(), money = true, call, confirm = true } 
     const mod = new vm.SourceTextModule(text, { context, identifier: file }); cache.set(file, mod);
     await mod.link(async (specifier) => {
       const url = new URL(specifier, new URL(file, root)); const rel = url.pathname.slice(root.pathname.length);
-      if (rel.includes('invoice-workspace') || rel === 'ui/kit/readonly.js') return load(rel);
+      if (rel.includes('invoice-workspace') || rel === 'ui/kit/readonly.js' || rel === 'ui/kit/auto-more.js') return load(rel);
       const match = [...text.matchAll(/import\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/g)].find((m) => m[2] === specifier);
       const names = match[1].split(',').map((name) => name.trim().split(/\s+as\s+/)[0]);
       return new vm.SyntheticModule(names, function () { for (const name of names) this.setExport(name, common[name] ?? (() => {})); }, { context });
     });
     return mod;
   }
-  const readonly = await load('ui/kit/readonly.js'); await readonly.evaluate(); common.readonlyGroup = readonly.namespace.readonlyGroup;
+  const readonly = await load('ui/kit/readonly.js'); await readonly.evaluate(); common.readonlyGroup = readonly.namespace.readonlyGroup; const autoMoreMod = await load('ui/kit/auto-more.js'); await autoMoreMod.evaluate(); common.autoMore = autoMoreMod.namespace.autoMore;
   const workspace = await load('sections/invoice-workspace.js'); await workspace.evaluate();
   // kit readonlyGroup в composition должен быть настоящим renderer, а не mock.
   common.readonlyGroup = cache.get('ui/kit/readonly.js')?.namespace?.readonlyGroup || (({ title, rows }) => h('section', null, title, rows.filter(Boolean).map(([label, value]) => [label, value])));
@@ -142,8 +142,8 @@ test('add форма хранит выбор между страницами/п�
   const form = await m.forms.buildWorkspaceForm(base({ status: 'paid' }), { operation: 'add' }, { candidates: async (_inv, opts) => { pages.push(opts.page); return { items: [{ id: 'candidate-' + opts.page, title: 'Заявка', qty: 1 }], total: 101 }; }, overview: () => h('div'), href: () => '#fixture', refresh: () => { refresh++; } });
   await tick(); const cb = form.el.querySelector('input'); // search — не checkbox
   const first = form.el.querySelectorAll('input').find((input) => input.attrs.type === 'checkbox'); first.listeners.change({ target: { checked: true } });
-  await buttonNamed(form.el, 'Далее ›').attrs.onclick();
-  const second = form.el.querySelectorAll('input').find((input) => input.attrs.type === 'checkbox'); second.listeners.change({ target: { checked: true } });
+  await buttonNamed(form.el, 'Показать ещё').attrs.onclick(); await tick(); // ПГ-1c: порции подгружаются и накапливаются
+  const second = form.el.querySelectorAll('input').filter((input) => input.attrs.type === 'checkbox')[1]; second.listeners.change({ target: { checked: true } });
   assert.deepEqual(clean(form.read().values.body), { requestIds: ['candidate-1', 'candidate-2'] }); assert.equal(form.dirty(), true);
   form.el.querySelector('[name="reason"]').value = 'Добавление';
   assert.deepEqual(clean(form.read().values.body), { requestIds: ['candidate-1', 'candidate-2'], reason: 'Добавление' });
