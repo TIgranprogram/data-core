@@ -18,5 +18,46 @@
     "date": "2026-11-01",
     "reason": "P4: перенос кода products.js в sections/products/*.js без изменений вида (старые R2/R5/R7 те же)",
     "accepted": 8
+  },
+  {
+    "date": "2026-11-05",
+    "kind": "special",
+    "name": "table.cal",
+    "reason": "специнтерфейс (закрытый список ORDER-MASTER-PLAN §2): календарь денег",
+    "userApproved": true
+  },
+  {
+    "date": "2026-11-05",
+    "kind": "special",
+    "name": "pg-table",
+    "reason": "специнтерфейс (закрытый список ORDER-MASTER-PLAN §2): сетки данных",
+    "userApproved": true
+  },
+  {
+    "date": "2026-11-05",
+    "kind": "special",
+    "name": "print-kp",
+    "reason": "специнтерфейс (закрытый список ORDER-MASTER-PLAN §2): печатная форма КП",
+    "userApproved": true
+  },
+  {
+    "date": "2026-11-05",
+    "kind": "special",
+    "name": "print-passport",
+    "reason": "специнтерфейс (закрытый список ORDER-MASTER-PLAN §2): печатная форма паспорта",
+    "userApproved": true
+  },
+  {
+    "date": "2026-11-05",
+    "kind": "special",
+    "name": "gantt",
+    "reason": "специнтерфейс (закрытый список ORDER-MASTER-PLAN §2): диаграмма Ганта",
+    "userApproved": true
+  },
+  {
+    "date": "2026-11-05",
+    "reason": "Волна 0 часть A: новые правила L2-L9 + admin, итог с total (ORDER-MASTER-PLAN §3), по поручению координатора",
+    "accepted": 2718,
+    "userApproved": true
   }
 ]

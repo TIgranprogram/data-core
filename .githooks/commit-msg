@@ -14,6 +14,20 @@ fi
 if grep -qE '^backend/(pwa|admin)/' <<<"$FILES"; then
   grep -qE '^Дизайнер: (принято|не нужно)$' <<<"$BODY" || ERR+="  нужна строка «Дизайнер: принято» (после datacore-designer) или «Дизайнер: не нужно» (только подпись/текст, S)\n"
 fi
+# Kit и разделы — разными коммитами. Исключение: в sections меняются только строки import + метка «Перенос: kit».
+if grep -qE '^backend/pwa/ui/kit/' <<<"$FILES" && grep -qE '^backend/pwa/sections/' <<<"$FILES"; then
+  OK=0
+  IMP_RE="^[[:space:]]*(import|export)[[:space:]].*[\"'][;]?[[:space:]]*$"
+  if grep -qE '^Перенос: kit$' <<<"$BODY"; then
+    OK=1
+    while IFS= read -r l; do
+      [[ "$l" =~ ^(\+\+\+|---) ]] && continue
+      [[ "$l" =~ ^[+-] ]] || continue
+      [[ "${l:1}" =~ $IMP_RE ]] || { OK=0; break; }
+    done < <(git diff --cached -U0 -- backend/pwa/sections/)
+  fi
+  [[ $OK -eq 1 ]] || ERR+="  нельзя менять ui/kit и sections в одном коммите (кроме строк import с меткой «Перенос: kit»)\n"
+fi
 [[ -z "$ERR" ]] && exit 0
 printf "КОММИТ ОТКЛОНЁН — нет меток для ворот выкладки:\n%bДобавь строки перед эстафетой и повтори коммит.\n" "$ERR" >&2
 exit 1

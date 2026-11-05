@@ -1,7 +1,7 @@
 // node --test tools/dc.test.mjs — разбор и форматирование dc, без сети.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseErrors, formatErrors, parseFill, parseGitStatus, parseAheadBehind, lastTestLog, parseJest, fmtTime } from './dc.mjs';
+import { parseErrors, formatErrors, parseFill, parseGitStatus, parseAheadBehind, lastTestLog, parseJest, fmtTime, orderStats } from './dc.mjs';
 
 const sample = JSON.stringify({ items: [
   { count: 8, lastAt: '2026-10-30T13:32:10.852Z', message: 'Медленно: products 7907 мс', name: 'SlowScreen', section: 'products', sampleStack: 'первая\nвторая' },
@@ -71,4 +71,9 @@ test('T23: dc status — отдельный live transport; в тесте тол
 test('T23: check и full не вызывают dc status неявно', () => {
   const source = fs.readFileSync(new URL('dc.mjs', import.meta.url), 'utf8');
   for (const [start, end] of [['function cmdCheck()', 'export function cmdStatus'], ['function cmdFull()', 'function cmdLogs']]) assert.doesNotMatch(source.slice(source.indexOf(start), source.indexOf(end)), /cmdStatus\s*\(|['"]status['"]|prodGet\s*\(/);
+});
+
+test('orderStats: экран чист, если его файлов нет среди нарушений', () => {
+  const st = orderStats({ total: 7, byFile: { 'backend/pwa/sections/home.js': 3, 'backend/pwa/sections/products/a.js': 2, 'backend/pwa/ui/base.css': 2 } }, ['home.js', 'products', 'qr.js', 'chat.js']);
+  assert.deepEqual(st, { pct: 50, clean: 2, screens: 4, violations: 7 });
 });

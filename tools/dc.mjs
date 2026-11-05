@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // dc — одна команда вместо россыпи шагов. Без зависимостей, на обоих ПК.
 //   node tools/dc.mjs start | errors [часы] | check | data | status | logs [имя]
-//                     full (полная проверка одной кнопкой) · audit [last] (большая проверка сайта) · stand [up|down|status] (ночной стенд на копии прода) | night [--quick] (ночной прогон в worktree)
+//                     full (полная проверка одной кнопкой) · audit [last] (большая проверка сайта) · order (порядок интерфейса одной строкой) · stand [up|down|status] (ночной стенд на копии прода) | night [--quick] (ночной прогон в worktree)
 // Полный вывод — tools/logs/<дата-время>-<команда>.log, в консоль — короткий итог (до 15 строк).
 // Коды выхода: 0 норма · 1 есть находки · 2 сбой инструмента.
 // Прод — только чтение через deploy/synology/api.sh. Записи на прод и выкладки здесь нет.
@@ -321,6 +321,33 @@ function cmdDoc(p, word) {
   return 0;
 }
 
+/** Счёт «порядка»: экран = файл/папка в backend/pwa/sections; «на эталонах» = нет его файлов среди нарушений design-lint. */
+export function orderStats(lint, screens) {
+  const dirty = new Set();
+  for (const f of Object.keys(lint.byFile || {})) {
+    const m = f.match(/^backend\/pwa\/sections\/([^/]+)/);
+    if (m) dirty.add(m[1].replace(/\.js$/, ''));
+  }
+  const names = screens.map((x) => x.replace(/\.js$/, ''));
+  const clean = names.filter((n) => !dirty.has(n)).length;
+  const pct = names.length ? Math.floor((clean / names.length) * 100) : 0;
+  return { pct, clean, screens: names.length, violations: lint.total };
+}
+
+/** dc order — одна строка «Порядок NN %…» + tools/logs/ORDER-PROGRESS.json. */
+function cmdOrder() {
+  const r = spawnSync(process.execPath, [path.join(ROOT, 'backend', 'scripts', 'design-lint.mjs'), '--json'], { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  let lint; try { lint = JSON.parse(r.stdout.trim().split('\n').pop()); } catch { say('Сбой: design-lint не дал итог'); return 2; }
+  const dir = path.join(ROOT, 'backend', 'pwa', 'sections');
+  const screens = fs.readdirSync(dir).filter((n) => !/\.test\.mjs$/.test(n) && (n.endsWith('.js') || fs.statSync(path.join(dir, n)).isDirectory()));
+  const st = orderStats(lint, screens);
+  const rec = { date: new Date().toISOString(), percent: st.pct, screensOnKit: st.clean, screens: st.screens, violations: st.violations, was: 4730 };
+  fs.mkdirSync(LOGS, { recursive: true });
+  fs.writeFileSync(path.join(LOGS, 'ORDER-PROGRESS.json'), JSON.stringify(rec, null, 1) + '\n');
+  say(`Порядок ${st.pct} % (экранов на эталонах ${st.clean} из ${st.screens}) · нарушений ${st.violations} (было 4730)`);
+  return 0;
+}
+
 /** dc audit — большая проверка сайта (10–30 мин); dc audit last — сводка последней. */
 function cmdAudit(sub) {
   const dir = path.join(LOGS, 'audit');
@@ -368,6 +395,7 @@ async function main(argv) {
       status: () => cmdStatus(),
       stand: () => cmdStand(arg, { log, say }),
       audit: () => cmdAudit(arg),
+      order: () => cmdOrder(),
       full: () => cmdFull(),
       night: () => cmdNight({ quick: argv.includes('--quick') }, { log, say }),
       find: () => cmdFind(argv.slice(1)),

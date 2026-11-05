@@ -9,7 +9,12 @@
 //   R4 цвет/фон/рамка/тень/радиус/шрифт в CSS раздела (не tokens/base/kit) — новые правила
 //   R5 style=/.style./style: в sections (CSS-переменные --x можно) · R6 screens.css не длиннее baseline
 //   R7 класс в class:/className, которого нет ни в одном CSS.
-//   --update-baseline — только убирает устаревшее; --accept "причина" — принять новое (запись в design-allow.json).
+//   Волна 0 (ORDER-MASTER-PLAN §3): L2 сырые теги h('button'…) · L3 класс вне kit/u-* · L4 числа в CSS мимо токенов ·
+//   L5 реэкспорт старых ui в kit/index.js · L6 имя kit без витрины/DESIGN, класс из DESIGN без CSS · L7 заменители текстов
+//   и confirm/alert/prompt · L8 файл > 400 строк · L9 то же для backend/admin (L10 в плане не определён). Админка — в тех же правилах.
+//   Храповик: общий итог (baseline.total) только уменьшается. --update-baseline — только убирает устаревшее.
+//   --accept "причина" --user-approved — перенос ключей (запись в design-allow.json), итог НЕ растёт; без --user-approved отказ.
+//   --json — итог и счёт по файлам (для dc order).
 // Запуск из корня: node backend/scripts/design-lint.mjs [--max N] — код выхода 1, если находок больше N (по умолч. 0).
 import { readFileSync, readdirSync, statSync, writeFileSync, existsSync } from 'fs';
 import { join, relative, dirname, resolve } from 'path';
@@ -17,8 +22,12 @@ import { join, relative, dirname, resolve } from 'path';
 const BS = String.fromCharCode(92);
 const norm = (p) => p.split(BS).join('/');
 const ROOT = join(process.cwd(), 'backend', 'pwa');
+const AROOT = join(process.cwd(), 'backend', 'admin');
 const walk = (d) => readdirSync(d).flatMap((n) => { const p = join(d, n); return statSync(p).isDirectory() ? walk(p) : [p]; });
-const files = walk(ROOT).filter((p) => /\.(css|js)$/.test(p) && !/\.test\.mjs$/.test(p));
+const isSrc = (p) => /\.(css|js)$/.test(p) && !/\.test\.mjs$/.test(p);
+const pwaFiles = walk(ROOT).filter(isSrc);
+const adminFiles = existsSync(AROOT) ? walk(AROOT).filter(isSrc) : [];
+const files = [...pwaFiles, ...adminFiles]; // старые правила и L4/L7/L8 — по обоим деревьям
 const out = [];
 const rel = (p) => norm(relative(process.cwd(), p));
 const add = (file, line, rule, text) => out.push({ file: rel(file), line, rule, text: text.trim().slice(0, 110) });
@@ -48,8 +57,10 @@ for (const f of files) {
 const BASE = join(process.cwd(), 'backend', 'scripts', 'design-baseline.json');
 const ALLOW = join(process.cwd(), 'backend', 'scripts', 'design-allow.json');
 const inKit = (r) => /\/ui\/kit\//.test('/' + r);
-const cssFiles = files.filter((f) => f.endsWith('.css'));
-const jsFiles = files.filter((f) => f.endsWith('.js'));
+const cssFiles = pwaFiles.filter((f) => f.endsWith('.css'));
+const jsFiles = pwaFiles.filter((f) => f.endsWith('.js'));
+const adminJs = adminFiles.filter((f) => f.endsWith('.js'));
+const adminCss = adminFiles.filter((f) => f.endsWith('.css'));
 const sectionJs = jsFiles.filter((f) => /\/sections\//.test(norm(f)));
 
 // минимальный разбор CSS: селекторы и объявления (at-правила разворачиваются плоско)
@@ -62,7 +73,7 @@ function parseCss(file) {
     const top = stack[stack.length - 1];
     if (/^@/.test(top) || /^(from|to|\d+%)/.test(top)) return;
     const m = t.match(/^([\w-]+)\s*:/);
-    if (m) decls.push({ sel: top.replace(/\s+/g, ' '), prop: m[1], line: startLine });
+    if (m) decls.push({ sel: top.replace(/\s+/g, ' '), prop: m[1], val: t.slice(m[0].length).trim(), line: startLine });
   };
   for (let i = 0; i < src.length; i++) {
     const c = src[i];
@@ -83,8 +94,9 @@ const classesOf = (sel) => [...sel.replace(/\[[^\]]*\]|"[^"]*"|'[^']*'/g, '').ma
 const parsed = cssFiles.map((f) => ({ f, r: rel(f), ...parseCss(f) }));
 const allClasses = new Set(parsed.flatMap((p) => p.sels.flatMap((s) => classesOf(s.sel))));
 
-const KEYS = ['old', 'uiJs', 'legacyImports', 'classes', 'r4', 'r5', 'r7', 'r8'];
-const cur = { old: {}, uiJs: {}, legacyImports: {}, classes: {}, r4: {}, r5: {}, r7: {}, r8: {}, screensLines: 0 };
+const KEYS = ['old', 'uiJs', 'legacyImports', 'classes', 'r4', 'r5', 'r7', 'r8', 'l2', 'l3', 'l4', 'l5', 'l6', 'l7', 'l8'];
+const cur = { screensLines: 0 };
+for (const k of KEYS) cur[k] = {};
 const at = {};
 const put = (bucket, key, file, line) => { cur[bucket][key] = (cur[bucket][key] || 0) + 1; if (!at[bucket + '|' + key]) at[bucket + '|' + key] = { file, line }; };
 
@@ -112,14 +124,99 @@ for (const p of parsed) {
 // классы, объявленные в kit/tokens/base, — «свои»: в baseline-снимок R3 не попадают
 const ownClasses = new Set(parsed.filter((p) => /(tokens|base)\.css$/.test(p.r) || inKit(p.r)).flatMap((p) => p.sels.flatMap((s) => classesOf(s.sel))));
 for (const c of ownClasses) delete cur.classes[c];
+
+// ---------- Волна 0: L2–L9 ----------
+const RAW = /\bh\(\s*['"`](button|table|select|textarea|details|dialog|input)['"`]/;
+const CLS = /\b(?:class|className)\s*[:=]\s*(.*)$|classList\.(?:add|toggle|remove)\(([^)]*)\)/;
+const kitSet = new Set(parsed.filter((p) => inKit(p.r)).flatMap((p) => p.sels.flatMap((s) => classesOf(s.sel))));
+const litParts = (expr) => {
+  const res = [];
+  for (const m of expr.matchAll(/'([^'\n]*)'|"([^"\n]*)"|`([^`\n]*)`/g)) {
+    const body = m[1] ?? m[2] ?? m[3] ?? '';
+    const parts = body.split(/\$\{[^}]*\}/);
+    parts.forEach((part, i) => part.split(/\s+/).filter(Boolean).forEach((c) => {
+      const glued = (i > 0 && part.startsWith(c)) || (i < parts.length - 1 && part.endsWith(c));
+      if (!glued && /^-?[A-Za-z_][\w-]*$/.test(c)) res.push(c);
+    }));
+  }
+  return res;
+};
+for (const f of [...sectionJs, ...adminJs]) {
+  const r = rel(f); const isSec = /\/sections\//.test('/' + r);
+  readFileSync(f, 'utf8').split('\n').forEach((l, i) => {
+    if (/^\s*(\/\/|\*)/.test(l) || !isSec) return;
+    const rm = l.match(RAW); if (rm) put('l2', `${r} | ${rm[1]}`, r, i + 1);
+    const cm = l.match(CLS);
+    if (cm) for (const c of litParts(cm[1] ?? cm[2] ?? '')) if (!kitSet.has(c) && !/^u-/.test(c)) put('l3', `${r} | ${c}`, r, i + 1);
+  });
+}
+for (const f of [...jsFiles.filter((f) => !inKit(rel(f))), ...adminJs]) {
+  const r = rel(f);
+  readFileSync(f, 'utf8').split('\n').forEach((l, i) => {
+    if (/^\s*(\/\/|\*)/.test(l)) return;
+    if (/\btoast\(\s*\w+\.message/.test(l)) put('l7', `${r} | toast(e.message)`, r, i + 1);
+    const b = l.match(/(?:^|[^.\w$])(confirm|alert|prompt)\(/); if (b) put('l7', `${r} | ${b[1]}()`, r, i + 1);
+    const t = l.match(/(['"`])(Пусто|Ничего не найдено|Нет данных)\1/); if (t && !/\bempty\w*\(/.test(l)) put('l7', `${r} | ${t[2]}`, r, i + 1);
+  });
+}
+const NUM = /(?:\d*\.)?\d*[1-9]\d*(?:px|rem|em|%)/;
+const adminParsed = adminCss.map((f) => ({ f, r: rel(f), ...parseCss(f) }));
+for (const p of [...parsed, ...adminParsed]) {
+  if (/tokens\.css$/.test(p.r) || /\/kit\/special\//.test(p.r)) continue; // kit/special — закрытый список исключений
+  for (const d of p.decls) if (/^(font-size|border-radius|padding(-[\w]+)?|margin(-[\w]+)?|gap|row-gap|column-gap|box-shadow)$/.test(d.prop)) {
+    const v = d.val.replace(/50%/g, '');
+    if (!/var\(\s*--/.test(v) && NUM.test(v)) put('l4', `${p.r} | ${d.sel} | ${d.prop}`, p.r, d.line);
+  }
+}
+const kidx = join(ROOT, 'ui', 'kit', 'index.js');
+if (existsSync(kidx)) {
+  const ksrc = readFileSync(kidx, 'utf8');
+  for (const m of ksrc.matchAll(/^export\s+[^;]*?from\s+['"](\.\.\/[^'"]+)['"]/gm)) put('l5', m[1], 'backend/pwa/ui/kit/index.js', 1);
+  const kitExports = [];
+  for (const f of jsFiles.filter((f) => inKit(rel(f)))) {
+    const src = readFileSync(f, 'utf8');
+    for (const m of src.matchAll(/^export (?:async )?(?:function|const|let|class) ([A-Za-z_$][\w$]*)/gm)) kitExports.push(m[1]);
+    for (const m of src.matchAll(/^export \{([^}]+)\}/gm)) for (const q of m[1].split(',')) { const n = q.trim().split(/\s+as\s+/).pop(); if (n) kitExports.push(n); }
+  }
+  const showcase = existsSync(join(ROOT, 'sections', 'kit.js')) ? readFileSync(join(ROOT, 'sections', 'kit.js'), 'utf8') : '';
+  const dpath = join(process.cwd(), 'docs', 'DESIGN.md'); const design = existsSync(dpath) ? readFileSync(dpath, 'utf8') : '';
+  for (const n of new Set(kitExports)) {
+    const re = new RegExp('\\b' + n.replace(/\$/g, '\\$') + '\\b');
+    if (!re.test(showcase)) put('l6', `${n} | нет в витрине kit.js`, 'backend/pwa/sections/kit.js', 1);
+    if (!re.test(design)) put('l6', `${n} | нет в DESIGN.md`, 'docs/DESIGN.md', 1);
+  }
+  const allCss = new Set([...allClasses, ...adminParsed.flatMap((p) => p.sels.flatMap((s) => classesOf(s.sel)))]);
+  const EXT = new Set(['js', 'mjs', 'css', 'json', 'md', 'html', 'env', 'ts', 'svg', 'png']);
+  for (const m of design.matchAll(/`\.([a-z][\w-]*)`/g)) if (!EXT.has(m[1]) && !allCss.has(m[1])) put('l6', `.${m[1]} | класс из DESIGN без CSS`, 'docs/DESIGN.md', 1);
+}
+// L8: значение = строк сверх 400 (рост — нарушение), в итог идёт как 1 на файл
+for (const f of [...sectionJs, ...jsFiles.filter((f) => inKit(rel(f)) && !/\/kit\/special\//.test(rel(f))), ...adminJs]) { const n = readFileSync(f, 'utf8').split('\n').length; if (n > 400) { const r = rel(f); cur.l8[r] = n - 400; at['l8|' + r] = { file: r, line: n }; } }
+
+const weigh = (k, n) => (k === 'l8' ? 1 : n);
+const totalOf = (o) => KEYS.reduce((a, k) => a + Object.values(o[k] || {}).reduce((b, n) => b + weigh(k, n), 0), 0);
+const byFileOf = (o) => { const m = {}; for (const k of KEYS) for (const [key, n] of Object.entries(o[k] || {})) { const f = (at[k + '|' + key] || {}).file || (key.match(/^(backend\/[^ |]+)/) || [])[1]; if (f) m[f] = (m[f] || 0) + weigh(k, n); } return m; };
 const sc = parsed.find((p) => /ui\/screens\.css$/.test(p.r));
 cur.screensLines = sc ? readFileSync(sc.f, 'utf8').split('\n').length : 0;
 
 const upd = process.argv.includes('--update-baseline');
+const approved = process.argv.includes('--user-approved');
 const acc = process.argv.includes('--accept') ? process.argv[process.argv.indexOf('--accept') + 1] : null;
-if (!existsSync(BASE) && !(upd && acc)) { console.log('Нет design-baseline.json — создать: --update-baseline --accept "начальный снимок"'); process.exit(2); }
-const empty = { old: {}, uiJs: {}, legacyImports: {}, classes: {}, r4: {}, r5: {}, r7: {}, r8: {}, screensLines: Infinity };
+const curTotal = totalOf(cur);
+// закрытый список исключений (специнтерфейсы): новая запись — только с --user-approved
+if (process.argv.includes('--allow-special')) {
+  const i = process.argv.indexOf('--allow-special'); const name = process.argv[i + 1]; const why = process.argv[i + 2];
+  if (!approved) { console.log('ОТКАЗ: новое исключение — только с --user-approved'); process.exit(2); }
+  const allow = existsSync(ALLOW) ? JSON.parse(readFileSync(ALLOW, 'utf8')) : [];
+  allow.push({ date: new Date().toISOString().slice(0, 10), kind: 'special', name, reason: why, userApproved: true });
+  writeFileSync(ALLOW, JSON.stringify(allow, null, 2) + '\n'); console.log('исключение записано: ' + name); process.exit(0);
+}
+if (process.argv.includes('--json')) { console.log(JSON.stringify({ total: curTotal, byFile: byFileOf(cur) })); process.exit(0); }
+if (acc && !approved) { console.log('ОТКАЗ: --accept работает только с --user-approved (явное решение пользователя). Агентам нельзя.'); process.exit(2); }
+if (!existsSync(BASE) && !(upd && acc)) { console.log('Нет design-baseline.json — создать: --update-baseline --accept "начальный снимок" --user-approved'); process.exit(2); }
+const empty = { screensLines: Infinity };
+for (const k of KEYS) empty[k] = {};
 const base = existsSync(BASE) ? JSON.parse(readFileSync(BASE, 'utf8')) : empty;
+for (const k of KEYS) base[k] = base[k] || {};
 const HINT = {
   old: ['база', 'старое правило — исправить по docs/DESIGN.md'],
   uiJs: ['R1', 'новый файл в ui/ — положить в ui/kit/ или расширить существующий эталон'],
@@ -129,25 +226,36 @@ const HINT = {
   r5: ['R5', 'inline style в разделе — класс из kit (разрешены только CSS-переменные --x)'],
   r7: ['R7', 'класс не найден ни в одном CSS — опечатка или нет в kit'],
   r8: ['R8', 'эталон собран вручную — взять kit.filter/tabs/segmented/board/tile'],
+  l2: ['L2', "сырой h('button|table|select|…') в разделе — фабрика из kit"],
+  l3: ['L3', 'класс вне kit/*.css и u-* — взять эталон из kit'],
+  l4: ['L4', 'число в CSS мимо токенов (font-size/radius/padding/margin/gap/shadow) — var(--…)'],
+  l5: ['L5', 'новый реэкспорт старого ui в kit/index.js — перенести модуль в kit'],
+  l6: ['L6', 'kit без витрины/DESIGN или класс из DESIGN без CSS'],
+  l7: ['L7', 'toast(e.message) / confirm / alert / prompt / текст-заменитель вместо empty()'],
+  l8: ['L8', 'файл длиннее 400 строк — разбить'],
 };
 const v2 = [];
 for (const k of KEYS) for (const [key, n] of Object.entries(cur[k])) if (n > ((base[k] || {})[key] || 0)) { const w = at[k + '|' + key]; v2.push({ file: w.file, line: w.line, rule: HINT[k][0], text: `${key} — ${HINT[k][1]}` }); }
 if (cur.screensLines > base.screensLines) v2.push({ file: 'backend/pwa/ui/screens.css', line: cur.screensLines, rule: 'R6', text: `строк ${cur.screensLines} > baseline ${base.screensLines} — screens.css только уменьшается` });
+if (typeof base.total === 'number' && curTotal > base.total) v2.push({ file: 'backend/scripts/design-baseline.json', line: 1, rule: 'L1', text: `итог ${curTotal} > baseline ${base.total} — итог только уменьшается` });
 
 if (upd) {
   const next = {};
+  const migrating = typeof base.total !== 'number'; // первый снимок формата с total: единственный раз итог может вырасти
   for (const k of KEYS) {
     next[k] = {};
     for (const [key, n] of Object.entries(cur[k])) { const keep = acc ? n : Math.min(n, (base[k] || {})[key] || 0); if (keep > 0) next[k][key] = keep; }
   }
   next.screensLines = acc ? cur.screensLines : Math.min(cur.screensLines, base.screensLines);
+  next.total = totalOf(next);
+  if (acc && !migrating && next.total > base.total) { console.log(`ОТКАЗ: --accept не может поднять итог (${base.total} -> ${next.total}). Сначала уменьшить нарушения.`); process.exit(2); }
   if (acc) {
     const allow = existsSync(ALLOW) ? JSON.parse(readFileSync(ALLOW, 'utf8')) : [];
-    allow.push({ date: new Date().toISOString().slice(0, 10), reason: acc, accepted: v2.length });
+    allow.push({ date: new Date().toISOString().slice(0, 10), reason: acc, accepted: v2.length, userApproved: true });
     writeFileSync(ALLOW, JSON.stringify(allow, null, 2) + '\n');
   }
   writeFileSync(BASE, JSON.stringify(next, null, 1) + '\n');
-  console.log(`baseline обновлён${acc ? ` (принято нарушений: ${v2.length}; причина — в design-allow.json)` : ' (только уменьшение)'}`);
+  console.log(`baseline обновлён: итог ${next.total}${acc ? ` (принято: ${v2.length}; запись в design-allow.json)` : ' (только уменьшение)'}`);
   process.exit(0);
 }
 out.push(...v2);
@@ -173,6 +281,6 @@ for (const f of jsFiles.filter((f) => !inKit(rel(f)))) {
 
 const by = out.reduce((m, x) => ((m[x.rule] = (m[x.rule] || 0) + 1), m), {});
 for (const x of out) console.log(`${x.file}:${x.line}\t${x.rule}\t${x.text}`);
-console.log(`\nИтого: ${out.length}` + (out.length ? ' — ' + Object.entries(by).map(([k, v]) => `${k} ${v}`).join(', ') : ''));
+console.log(`\nИтого новых: ${out.length}; всего сейчас ${curTotal}` + (out.length ? ' — ' + Object.entries(by).map(([k, v]) => `${k} ${v}`).join(', ') : ''));
 const max = process.argv.includes('--max') ? Number(process.argv[process.argv.indexOf("--max") + 1]) : 0;
 process.exit(out.length > max ? 1 : 0);

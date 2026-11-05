@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# H1 (ORDER-MASTER-PLAN §3): при staged backend/pwa|admin — синтаксис модулей и design-lint (храповик: рост нарушений блокирует коммит).
+FILES="$(git diff --cached --name-only --diff-filter=ACMR)"
+grep -qE '^backend/(pwa|admin)/' <<<"$FILES" || exit 0
+ERR=0
+while IFS= read -r f; do
+  [[ "$f" =~ ^backend/(pwa|admin)/.*\.(js|mjs)$ ]] || continue
+  [[ -f "$f" ]] || continue
+  git show ":$f" | node --input-type=module --check 2>/tmp/dc-hook-err.$$ || { echo "СИНТАКСИС: $f" >&2; cat /tmp/dc-hook-err.$$ >&2; ERR=1; }
+done <<<"$FILES"
+rm -f /tmp/dc-hook-err.$$
+OUT="$(node backend/scripts/design-lint.mjs 2>&1)"; RC=$?
+if [[ $RC -ne 0 ]]; then
+  echo "design-lint: нарушений больше baseline (итог может только уменьшаться)." >&2
+  echo "$OUT" | head -25 >&2
+  ERR=1
+fi
+[[ $ERR -eq 0 ]] && exit 0
+echo "КОММИТ ОТКЛОНЁН (pre-commit). Исправь и повтори." >&2
+exit 1
