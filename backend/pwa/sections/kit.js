@@ -1,6 +1,6 @@
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
-import { readonlyGroup, similarBox, sku, section, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, toast, pick, filter, table, panel, links, SUPPLY_STATUS } from '../ui/kit/index.js';
+import { readonlyGroup, similarBox, sku, section, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, qtyInput, targetPicker, toast, pick, filter, table, panel, links, SUPPLY_STATUS } from '../ui/kit/index.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
 const LONG = 'Очень длинное название позиции для проверки переноса и обрезки текста в карточке эталона';
@@ -94,6 +94,19 @@ export const kit = {
       block('Связи (links, вид «картотека»: 1А бумага · 2Б линии · 3А сетка)', 'Сетка карточек связанных разделов в панели: от 240 px, на 390 — одна колонка; карточка с таблицей на всю строку, итог числом в шапке, до 5 строк и «Ещё N». Тёмная тема — кнопка «Сменить тему».',
         links({ items: [{ key: 'orders', title: 'Заказы', total: 7, onClick: () => toast('Клик: заказы') }, { key: 'stock', title: 'Склад', total: 120, onClick: () => toast('Клик: склад') }, { key: 'debt', title: 'Долг', total: -45000, onClick: () => toast('Клик: долг') }, { key: 'empty', title: 'Без записей', total: 0 },
           { key: 'moves', title: 'Движения', total: 7, columns: [{ key: 'n', label: 'Позиция' }, { key: 'q', label: 'Кол-во', num: true }], rows: Array.from({ length: 7 }, (_, i) => ({ cells: [i === 1 ? LONG : 'Труба 57×3 № ' + (i + 1), String(10 + i)] })), more: () => toast('Показать все') }] })),
+      block('Ввод количества в таблице (qtyInput)', 'Поле «Сколько» в ячейке kit.table: число + «+1», при фокусе выделяется; свыше свободного — подсказка в title. Остаток — 5.',
+        table({ label: 'Пример', columns: [{ label: 'Позиция' }, { label: 'Сколько' }], rows: [{ cells: ['Труба 40×40', qtyInput({ label: 'Сколько: труба', plusLabel: 'Добавить: труба', max: 5, maxText: (f) => 'Свободно только ' + f, onInput: () => {} })] }] })),
+      block('Кому / под что (targetPicker)', 'Выдача и возврат: «Под заказ» (заказ → позиция) · «Сотруднику» · «Без заказа». Заказы грузятся по первому нажатию в поле, не при открытии экрана. Рядом в kit: targetNote, targetShort (подписи в движениях), orderLines, lineCode (позиции заказа и их код).',
+        targetPicker({ mode: 'out' }).el),
+      block('Подгрузка порциями (autoMore)', 'Список растёт при прокрутке вниз; внизу «Показано N из M», сбой порции — «Повторить» в подвале, строки остаются. Без IntersectionObserver появляется «Показать ещё». Только наблюдатель (когда загрузку ведёт сам экран, как kit/list) — moreSentinel внутри kit. Здесь 45 строк по 10; каждая 3-я порция даёт ошибку один раз.',
+        (() => {
+          const box = h('div', { class: 'state' }); let failed = false;
+          const m = autoMore({ root: box, limit: 10, text: { fail: 'Список не загрузился', moreFail: 'Не удалось подгрузить строки' },
+            load: async (page, { limit }) => { await new Promise((r) => setTimeout(r, 300)); if (page === 3 && !failed) { failed = true; throw new Error('Нет связи с сервером'); } return { items: Array.from({ length: Math.min(limit, 45 - (page - 1) * limit) }, (_, i) => ({ n: (page - 1) * limit + i + 1 })), total: 45 }; },
+            render: (items) => box.replaceChildren(table({ label: 'Пример подгрузки', maxHeight: 'M', columns: [{ label: '№', num: true }, { label: 'Строка' }], rows: items.map((x) => ({ cells: [String(x.n), 'Позиция ' + x.n] })) })) });
+          m.reload();
+          return h('div', null, box, m.el);
+        })()),
       block('Карточка L (.db-order)', 'Заказ / шапка сущности.', sample(...cards('L'), card({ size: 'L', title: LONG, meta: LONG }))),
       block('Строка (.k-row)', 'Список позиций, корзина с количеством, строка с галочкой. tone — полоса слева.', sample(
         row({ title: 'Труба 57×3', meta: 'на складе 120 м', side: h('b', null, '120 м'), action: button({ label: 'Принять', size: 'S' }) }),
