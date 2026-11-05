@@ -154,6 +154,7 @@ async function errorOf(res) {
   if (closed) err.sectionClosed = true;
   if (res.status === 400 && Array.isArray(data?.unmatched)) err.data = { unmatched: data.unmatched }; // КМ: договоры с несопоставленными позициями
   if (res.status === 409 && data?.existingInvoiceId) err.data = { ...(err.data || {}), existingInvoiceId: data.existingInvoiceId, existingNo: data.existingNo, existingStatus: data.existingStatus }; // счета: дубль № — выбор в диалоге
+  if (data?.code === 'REASON_REQUIRED') err.data = { ...(err.data || {}), code: 'REASON_REQUIRED' }; // ЗЯ-1: админ обходит запрет — нужна причина
   if (data?.code === 'READ_ONLY') err.readOnly = true; // SW-6: идёт переключение сервера, запись на паузе
   if (Array.isArray(fields)) err.fields = fields.map((f) => (typeof f === 'string' ? { key: f } : f)); // ОШ: подсветить поля в форме
   return err;

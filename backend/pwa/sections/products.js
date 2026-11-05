@@ -13,6 +13,7 @@ import { openBulk } from './bulk-edit.js';
 import { qrBulkAction, qrPrintAction } from './qr.js';
 import { routeBlock } from './work-route.js';
 import { productFilesBlock } from './product-files.js';
+import { productAttachmentsBlock } from './product-attachments.js';
 import * as data from './products/data.js';
 import { productForm, productBulkFields } from './products/form-fields.js';
 import { prodFunnel, catLanding, deepGroup } from './products/landing.js';
@@ -116,7 +117,7 @@ export const products = {
     editTop: true,
     zones: { extra: 'side' },
     // SK-8d: «В заказах» и «Паспорта» — только если эти разделы открыты роли
-    extra: (r) => h('div', null, warnNote(r), variantsBlock(r), productFilesBlock(r, session.canEdit), compositionBlock(r), session.sees('work') ? routeBlock(r) : null, session.sees('salesorders') ? inOrders(r) : null, session.seesDocs() ? passportsBlock(r) : null),
+    extra: (r) => h('div', null, warnNote(r), variantsBlock(r), productFilesBlock(r, session.canEdit), session.sees('products') ? productAttachmentsBlock(r) : null, compositionBlock(r), session.sees('work') ? routeBlock(r) : null, session.sees('salesorders') ? inOrders(r) : null, session.seesDocs() ? passportsBlock(r) : null),
     gallery: (r) => r.photos || [],
     photoAdd: data.photoAdd,
     photoMain: data.photoMain,

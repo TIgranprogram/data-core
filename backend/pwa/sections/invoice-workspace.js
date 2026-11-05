@@ -4,6 +4,7 @@ import { current } from '../core/router.js';
 import { date, money, qty } from '../core/format.js';
 import { readonlyGroup, section, table, button, actions, badge, INVOICE_STATUS, SUPPLY_STATUS, confirmDlg, failBlock, toast, toastError, attachCombo, photoField } from '../ui/kit/index.js';
 import { permissions, lineAmount, pendingLines, assertOperation, lineDraft, changeLine, lineBody, metaBody, addBody } from './invoice-workspace-state.js';
+import { adminAction } from './admin-override.js';
 import { getInvoice, getCandidates, getPayers, getContracts, writeInvoice } from './invoice-workspace-api.js';
 import { buildWorkspaceForm } from './invoice-workspace-forms.js';
 
@@ -94,7 +95,7 @@ function positions(invoice, ctx, { editable = true, commands = true, receiveChec
   const canInline = editable && p.editLine;
   const columns = [{ label: 'Позиция', cls: 'clip' }, { label: 'Количество', num: true },
     ...(session.canMoney ? [{ label: 'Цена / ед.', num: true }, { label: 'Сумма строки', num: true }] : []), { label: 'Статус' },
-    ...(editable && commands && p.removeLine ? [{ label: 'Действия' }] : [])];
+    ...(editable && commands && (p.removeLine || p.rollback) ? [{ label: 'Действия' }] : [])];
   if (receiveChecks) columns.unshift({ label: 'Принять' });
   const rows = (invoice.requests || []).map((line) => {
     const mutable = !line.deletedAt && !['received', 'cancelled'].includes(line.status);
@@ -111,11 +112,13 @@ function positions(invoice, ctx, { editable = true, commands = true, receiveChec
       : money(sum);
     const controls = editable && commands && p.removeLine && mutable
       ? actions(button({ label: 'Убрать', kind: 'ghost', onClick: () => command(invoice, ctx, 'remove', line.id) }))
-      : null;
+      : editable && commands && p.rollback && line.status === 'received'
+        ? actions(button({ label: 'Отменить приёмку', kind: 'danger', onClick: () => override(invoice, ctx, 'rollback', line) }))
+        : null;
     // Название позиции — текст, без перехода в раздел заявок (один экран счёта).
     const cells = [h('span', { class: 'clip', title: lineTitle(line) }, lineTitle(line)),
       qtyCell, ...(session.canMoney ? [priceCell, sumCell] : []), badge(SUPPLY_STATUS, line.status === 'ordered' && line.paid ? 'paid' : line.status),
-      ...(controls ? [controls] : [])];
+      ...(controls ? [controls] : editable && commands && (p.removeLine || p.rollback) ? [''] : [])];
     if (receiveChecks) {
       const cb = mutable ? h('input', { type: 'checkbox', checked: true, 'aria-label': 'Принять ' + lineTitle(line) }) : null;
       if (cb) receiveChecks.set(line.id, cb);
@@ -124,6 +127,20 @@ function positions(invoice, ctx, { editable = true, commands = true, receiveChec
     return { data: line.id, cells };
   });
   return table({ label: 'Позиции счёта', columns, rows, maxHeight: 'L', empty: { title: 'В счёте пока нет позиций', hint: p.add ? 'Добавьте заявку полем «+» под таблицей.' : 'Этот счёт доступен только для просмотра.' } });
+}
+
+/** Администратор: снять оплату со счёта или отменить приёмку позиции (окно с последствиями и причиной). */
+async function override(invoice, ctx, kind, line) {
+  try {
+    const path = kind === 'unpay' ? `/supply/invoices/${invoice.id}/unpay` : `/supply/requests/${line.id}/rollback-receipt`;
+    const done = await adminAction(path, kind === 'unpay'
+      ? { title: 'Снять оплату со счёта?', okText: 'Снять оплату', lead: 'Счёт вернётся в «Выставлен», деньги уйдут из календаря оплат. Запись о снятии сохранится.' }
+      : { title: 'Отменить приёмку?', okText: 'Отменить приёмку', lead: `Позиция «${lineTitle(line)}» уйдёт со склада и вернётся на прежний этап.` });
+    if (!done) return;
+    toast(kind === 'unpay' ? 'Оплата снята' : 'Приёмка отменена');
+    ctx.changed();
+    await ctx.reload();
+  } catch (error) { toastError(error); }
 }
 
 async function command(invoice, ctx, operation, lineId, body = {}) {
@@ -300,7 +317,8 @@ function details(invoice, ctx) {
   const topActions = actions(
     button({ label: 'Обновить', kind: 'ghost', onClick: () => ctx.reload() }),
     p.issue ? button({ label: 'Выставить счёт', onClick: () => command(invoice, ctx, 'issue') }) : null,
-    p.pay ? button({ label: 'Счёт оплачен', kind: 'primary', onClick: () => command(invoice, ctx, 'pay') }) : null);
+    p.pay ? button({ label: 'Счёт оплачен', kind: 'primary', onClick: () => command(invoice, ctx, 'pay') }) : null,
+    p.unpay ? button({ label: 'Снять оплату', kind: 'danger', onClick: () => override(invoice, ctx, 'unpay') }) : null);
   const adjustments = session.canMoney ? invoice.paymentAdjustments || [] : [];
   const orders = (invoice.orders || []).map((order) => typeof order === 'object' ? order : { productionNo: order });
   return h('div', { 'data-invoice-workspace': invoice.id, class: 'iw-screen' },

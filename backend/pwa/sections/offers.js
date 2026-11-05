@@ -6,6 +6,7 @@ import { badge } from '../ui/badges.js';
 import { confirmDlg } from '../ui/dialog.js';
 import { toast, toastError } from '../ui/toast.js';
 import { incomeLookups } from './orders.js';
+import { isAdmin, withReason } from './admin-override.js';
 
 /**
  * Раздел «КП» (KP-1): коммерческие предложения хранятся на сервере (/offers), у каждого номер, статус и PDF с фоном.
@@ -154,7 +155,8 @@ const strip = (b) => Object.fromEntries(Object.entries(b).filter(([, x]) => x !=
 // ---------- карточка ----------
 const pdf = async (r) => { const name = await apiFile(`/offers/${r.id}/pdf`, { fallback: `КП-${r.number || 'без-номера'}.pdf` }); toast(`Скачан: ${name}`); };
 const setStatus = async (r, ctx, status) => {
-  const res = await api(`/offers/${r.id}/status`, { method: 'POST', body: { status } });
+  const res = await withReason((reason) => api(`/offers/${r.id}/status`, { method: 'POST', body: { status, ...(reason ? { reason } : {}) } }), 'Сменить статус КП');
+  if (res === null) return; // отказ от причины
   toast(`КП ${r.number}: ${STATUS[status].label}`);
   ctx.setRow(res?.id && res.items ? res : await api(`/offers/${r.id}`));
 };
@@ -181,8 +183,20 @@ const actions = (r) => {
       await setStatus(row, ctx, 'cancelled');
     } });
   }
+  if (isAdmin()) {
+    // Администратор: любой статус, в том числе выход из «Оплачено» (пока заказ не создан); сервер спросит причину.
+    const have = new Set(out.map((a) => a.label));
+    for (const k of ORDER) {
+      const label = `Вернуть статус: ${STATUS[k].label}`;
+      if (k === r.status || have.has(label) || (r.status === 'paid' && r.orderId)) continue;
+      if (canPlain(r.status, k)) continue;
+      out.push({ label, more: true, run: (row, ctx) => setStatus(row, ctx, k) });
+    }
+  }
   return out;
 };
+/** Обычный переход (кнопка уже есть у всех): вперёд по цепочке или «Отклонено / Отменено» не из «Оплачено». */
+const canPlain = (from, to) => from !== 'paid' && (['rejected', 'cancelled'].includes(to) || { draft: 'sent', sent: 'accepted', accepted: 'paid' }[from] === to);
 
 const cell = (v) => v || h('span', { class: 'muted' }, '—');
 const totalOf = (r) => (r.total ? money(r.total) : h('span', { class: 'muted' }, 'без цены'));
@@ -233,7 +247,7 @@ export const offers = {
     ],
     extra: (r) => h('div', { class: 'of-view' },
       h('div', { class: 'section-title' }, `Изделия: ${(r.items || []).length}`),
-      r.status === 'paid' ? h('p', { class: 'hint' }, 'КП оплачено — править его нельзя.') : null,
+      r.status === 'paid' ? h('p', { class: 'hint' }, isAdmin() && !r.orderId ? 'КП оплачено. Администратор может его править и вернуть статус — нужна причина.' : 'КП оплачено — править его нельзя.') : null,
       r.status === 'draft' && (r.items || []).some((l) => !l.unitPrice) ? h('p', { class: 'hint' }, 'Чтобы отметить «отправлено клиенту», укажите цену у каждой строки.') : null,
       r.status === 'accepted' ? h('p', { class: 'hint' }, 'После отметки «оплачено» КП нельзя править.') : null,
       r.status === 'paid' && !r.orderId ? h('p', { class: 'hint' }, 'КП оплачено — нажмите «Сделать заказ», чтобы завести договор без цен из строк КП.') : null,
@@ -249,7 +263,7 @@ export const offers = {
     toInitial: (r) => ({ ...r, companyId: r.companyId ? String(r.companyId) : '', date: day(r.date), validUntil: day(r.validUntil), bg1Id: r.bg1Id ? String(r.bg1Id) : '', bg2Id: r.bg2Id ? String(r.bg2Id) : '', items: r.items || [] }),
     toBody,
     create: (b) => api('/offers', { method: 'POST', body: strip(b) }),
-    update: (id, b) => api(`/offers/${id}`, { method: 'PATCH', body: { ...strip(b), bg1Id: b.bg1Id || null, bg2Id: b.bg2Id || null } }),
+    update: async (id, b) => (await withReason((reason) => api(`/offers/${id}`, { method: 'PATCH', body: { ...strip(b), bg1Id: b.bg1Id || null, bg2Id: b.bg2Id || null, ...(reason ? { reason } : {}) } }), 'Править оплаченное КП')) ?? api(`/offers/${id}`),
   },
   remove: {
     text: (r) => `Удалить КП ${r.number}?`,

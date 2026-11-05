@@ -161,3 +161,10 @@
 - `sections/help-flow-data.js` узел `money` 26–27: прогноз — не выписка банка.
 коммит: не закоммичено
 Карта обновлена.
+
+## Вложения изделия (ВЛ-1 FE-1, 2026-11-05, не закоммичено)
+- `sections/product-attachments.js` — `productAttachmentsBlock(r)` (карточка kit.card variant table на вид из /dicts/attachmentTypes; `sendFile` XHR+прогресс+отмена, `uploadFailText`, скачивание по тикету `download`, «Убрать» только admin). Подключён в `products.js:120` (extra, после productFilesBlock); подсказка в `product-files.js` «Чертежи».
+
+## Администратор обходит запрет (ЗЯ-1c, 2026-11-05, не закоммичено)
+- `sections/admin-override.js`: `adminAction` (POST ?dryRun=1 → окно с warnings/blockers → {confirm,reason}), `withReason` (400 «причин» → спросить и повторить), `askReason`, `isAdmin`.
+- `requests.js`: `rollbackReceipt` ~95, действие «Отменить приёмку» (admin, received), `update` через withReason. `invoice-workspace.js`: `override` ~129, кнопки «Снять оплату» / «Отменить приёмку» по строке. `invoice-workspace-state.js`: права `unpay`, `rollback`. `offers.js`: `setStatus`/`update` через withReason, «Вернуть статус: …» для admin. Карта обновлена.

@@ -19,6 +19,7 @@ import { pic } from './stock.js';
 import { dictNames } from '../ui/dict-options.js';
 import { joinRef, orderLabel, orderOptions, splitRef } from './salesorders.js';
 import { wireFill } from './request-fill.js';
+import { adminAction, isAdmin, withReason } from './admin-override.js';
 import { ordersLookup } from '../core/orders-lookup.js';
 import { advance, bulkOrder, invoiceBlock, missingFor, nextStep, stageStrip } from './request-step.js';
 import { acceptRequests } from './ops.js';
@@ -90,6 +91,15 @@ export const reqReceive = sideForm({
   },
   save: async (body, r) => { const saved = await api(`/supply/requests/${r.id}/receive`, { method: 'POST', body }); toast(saved.receivedTo === 'direct' ? `Получено — ${COST_CENTER[body.costCenter]}, без склада` : 'Принято на склад'); return saved; },
 });
+/** Администратор: вернуть приход и статус заявки (сервер сам убирает товар со склада; не хватает остатка — скажет). */
+export async function rollbackReceipt(r, ctx) {
+  try {
+    const saved = await adminAction(`/supply/requests/${r.id}/rollback-receipt`, { title: 'Отменить приёмку?', okText: 'Отменить приёмку', lead: 'Товар уйдёт со склада, заявка вернётся на прежний этап.' });
+    if (!saved) return;
+    toast('Приёмка отменена');
+    ctx?.setRow?.(saved);
+  } catch (e) { toastError(e, 'отменить приёмку'); }
+}
 async function receive(r, ctx) { const saved = await receiveDialog(r); if (saved) ctx.setRow(saved); }
 
 async function changeStatus(r, ctx) {
@@ -456,6 +466,7 @@ export const requests = {
         st?.kind === 'receive' ? { label: st.verb, primary: true, run: receive } : null,
         step ? { ...step, primary: true } : null,
         !['received', 'cancelled'].includes(supplyKey(r)) ? { label: 'Сменить статус…', run: changeStatus } : null,
+        supplyKey(r) === 'received' && isAdmin() ? { label: 'Отменить приёмку', more: true, run: rollbackReceipt } : null,
       ];
     },
   },
@@ -495,7 +506,7 @@ export const requests = {
       return body;
     },
     create: async (body) => { const r = await api('/supply/requests', { method: 'POST', body }); pastCache = null; if (r?.supplierName) lookups.reset(); return r; },
-    update: async (id, body) => { const r = await api(`/supply/requests/${id}`, { method: 'PATCH', body }); if (body && ('supplierName' in body || 'categoryName' in body || 'companyName' in body)) lookups.reset(); return r; },
+    update: async (id, body) => { const r = (await withReason((reason) => api(`/supply/requests/${id}`, { method: 'PATCH', body: reason ? { ...body, reason } : body }), 'Изменить заявку по счёту')) ?? await api(`/supply/requests/${id}`); if (body && ('supplierName' in body || 'categoryName' in body || 'companyName' in body)) lookups.reset(); return r; },
   },
 
   /** Быстрая заявка одной строкой над списком (и на «Главной»). */

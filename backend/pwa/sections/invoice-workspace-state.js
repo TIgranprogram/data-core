@@ -18,6 +18,9 @@ export function permissions(invoice, rights) {
         : paid ? 'До первой приёмки администратор может править и убирать позиции; исходный платёж не меняется.' : '';
   return { whole, live, boundary, meta, finance, paid, isAdmin, reason,
     add: linesAdmin && !!rights.canMoney, editLine: linesAdmin && !!rights.canMoney, removeLine: linesAdmin,
+    // ЗЯ-1c: только администратор; сервер повторно проверяет и просит причину.
+    unpay: isAdmin && !!rights.canMoney && whole && live && paid && !boundary,
+    rollback: isAdmin && !!rights.canMoney && whole && live,
     issue: finance && invoice.status === 'draft',
     pay: meta && !!rights.canMoney && invoice.status === 'issued',
     receive: meta && ['issued', 'paid'].includes(invoice.status) && pendingLines(invoice).length > 0 };

@@ -85,7 +85,7 @@ export function productFilesBlock(r, canEdit) {
       : kinds.length ? h('div', null, ...kinds.map((k) => slot(k, byKind.get(k), req.has(k)))) : empty({ title: 'Для этой категории рисунки не нужны' });
     const dr = drawings || [];
     const drawingsBody = h('div', null,
-      dr.length ? h('div', null, ...dr.map(drawingRow)) : empty({ title: 'Чертежей нет', hint: canEdit ? 'Загрузите PDF, DWG или DXF — файл будет лежать в изделии.' : '' }),
+      dr.length ? h('div', null, ...dr.map(drawingRow)) : empty({ title: 'Чертежей нет', hint: canEdit ? 'Загрузите PDF, DWG или DXF. Для больших файлов — блок «Вложения» ниже.' : '' }),
       canEdit ? photoDrop({ purpose: 'drawing', drawing: true, attach: async (photoId) => { await attachProductFile(r.id, photoId, 'drawing'); return true; }, done: () => { toast('Чертёж сохранён'); paint(); } }) : null);
     const open = new Set([...root.querySelectorAll('details.k-sec[open]')].map((d) => d.dataset.key));
     const mk = (key, title, count, body) => { const s = section({ title, count, body, open: open.has(key) }); s.dataset.key = key; return s; };
