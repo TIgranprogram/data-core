@@ -181,10 +181,22 @@ export class StockMovementsService {
         }
         const items = new Map<string, StorageItemDocument>();
         for (const id of matIds) items.set(String(id), await this.core.loadStorage(wh._id as Types.ObjectId, id, session));
+        // СКЛ-1: выдаём из «свободно» + бронь этого же заказа; чужая бронь не трогается — отказ целиком с таблицей нехватки
+        const own = new Map<string, number>();
         if (dto.type === 'out') {
-          const short = [...merged].filter(([id, n]) => (items.get(id)!.quantity ?? 0) < n)
-            .map(([id, n]) => `«${nameOf.get(id)}»: есть ${items.get(id)!.quantity ?? 0}, нужно ${n}`);
-          if (short.length) throw new BadRequestException(`Недостаточно на складе — ${short.join('; ')}`);
+          if (soRef.salesOrderId) {
+            const mine = await this.reservations.find({ materialId: { $in: matIds }, salesOrderId: soRef.salesOrderId, status: 'active', deletedAt: null }, { materialId: 1, qty: 1 }).session(session).lean().exec();
+            for (const r of mine) own.set(String(r.materialId), (own.get(String(r.materialId)) ?? 0) + (r.qty ?? 0));
+          }
+          const rows = [...merged].map(([id, n]) => {
+            const it = items.get(id)!; const have = it.quantity ?? 0; const mine = Math.min(own.get(id) ?? 0, it.reservedQty ?? 0);
+            const free = Math.round((have - (it.reservedQty ?? 0) + mine) * 1000) / 1000;
+            return { materialId: id, name: nameOf.get(id) ?? '', need: n, have, free, reservedOther: Math.round(((it.reservedQty ?? 0) - mine) * 1000) / 1000, lack: Math.round((n - free) * 1000) / 1000 };
+          }).filter((r) => r.lack > 1e-9);
+          if (rows.length) {
+            const text = rows.map((r) => `«${r.name}»: нужно ${r.need}, свободно ${r.free}${r.reservedOther > 0 ? ` (в чужой брони ${r.reservedOther})` : ''}`).join('; ');
+            throw new BadRequestException({ statusCode: 400, message: `Недостаточно свободного остатка — ${text}`, details: rows });
+          }
         }
         if (dto.type === 'count') {
           // остаток изменился, пока человек считал (expected — что он видел) — как у одиночного пересчёта
@@ -204,8 +216,8 @@ export class StockMovementsService {
           const delta = dto.type === 'in' ? n : dto.type === 'out' ? -n : Math.round((n - before) * 1000) / 1000;
           if (delta !== 0) {
             item.quantity = Math.round((before + delta) * 1000) / 1000;
+            if (dto.type === 'out' && own.has(id)) item.reservedQty = Math.max(0, (item.reservedQty ?? 0) - Math.min(n, own.get(id)!));
             item.reservedQty = Math.min(item.reservedQty ?? 0, item.quantity); // бронь не больше остатка (HARDEN-1 п.7)
-            if (dto.type === 'out' && (item.reservedQty ?? 0) > 0) item.reservedQty = Math.max(0, (item.reservedQty ?? 0) - n);
             await item.save({ session });
             const type = dto.type === 'count' ? 'adjust' : dto.type;
             const ref = dto.type === 'count' ? `ADJUST:${note ?? 'пересчёт'}` : dto.documentRef;

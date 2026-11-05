@@ -31,21 +31,34 @@ export class StockReservationsService {
    * Каждая строка бронирует min(нужно, свободно); чего не хватает — в ответе `short` (для «Заказать недостающее»).
    * Все брони списка — с общим `batchId` и `groupName`: снимаются строкой или целиком (releaseReservation / releaseGroup).
    */
-  async reserveList(dto: { groupName: string; lines: { materialId: string; qty: number }[]; salesOrderId?: string; salesOrderLineId?: string; clientUid?: string }, userId?: string) {
-    const groupName = String(dto.groupName || '').trim();
-    if (!groupName) throw new BadRequestException('Назовите бронь: для чего (конструкция, заказ)');
+  async reserveList(dto: { groupName?: string; lines: { materialId: string; qty: number; salesOrderLineId?: string }[]; salesOrderId?: string; salesOrderLineId?: string; clientUid?: string }, userId?: string) {
     if (dto.clientUid) {
       const prev = await this.reservations.findOne({ clientUid: dto.clientUid }).lean().exec();
       if (prev) return this.reservationGroup(String((prev as { batchId?: Types.ObjectId }).batchId));
     }
     const merged = new Map<string, number>();
-    for (const l of dto.lines) { const n = Number(l.qty); if (!(n > 0)) throw new BadRequestException('Количество в каждой строке — больше нуля'); merged.set(l.materialId, (merged.get(l.materialId) ?? 0) + n); }
+    // ключ — позиция склада + позиция заказа строки (СКЛ-1: на каждую строку своя позиция заказа)
+    const lineOf = new Map<string, string | undefined>();
+    for (const l of dto.lines) {
+      const n = Number(l.qty); if (!(n > 0)) throw new BadRequestException('Количество в каждой строке — больше нуля');
+      const lid = l.salesOrderLineId || undefined; const k = `${l.materialId}|${lid ?? ''}`;
+      lineOf.set(k, lid); merged.set(k, (merged.get(k) ?? 0) + n);
+    }
     const wh = await this.core.defaultWarehouse();
     const batchId = new Types.ObjectId();
     // под позицию заказа (SK-6): позиция без заказа — заказ берёт сервер; чужая позиция — 400
     const line = dto.salesOrderLineId ? await resolveTarget(this.connection.db!, { salesOrderId: dto.salesOrderId, salesOrderLineId: dto.salesOrderLineId }) : undefined;
+    const lines = new Map<string, Record<string, unknown>>();
+    for (const lid of new Set([...lineOf.values()].filter(Boolean) as string[])) lines.set(lid, await resolveTarget(this.connection.db!, { salesOrderId: dto.salesOrderId, salesOrderLineId: lid }));
     const so = line ? (line.salesOrderId as Types.ObjectId) : dto.salesOrderId && Types.ObjectId.isValid(dto.salesOrderId) ? new Types.ObjectId(dto.salesOrderId) : undefined;
-    const short: { materialId: string; need: number; reserved: number }[] = [];
+    const soOf = so ?? ([...lines.values()][0]?.salesOrderId as Types.ObjectId | undefined);
+    let groupName = String(dto.groupName || '').trim();
+    if (!groupName && soOf) {
+      const doc = await this.connection.db!.collection('salesorders').findOne({ _id: soOf }, { projection: { orderNo: 1 } });
+      groupName = doc?.orderNo ? `Заказ № ${doc.orderNo}` : 'Заказ';
+    }
+    if (!groupName) throw new BadRequestException('Назовите бронь: для чего (конструкция, заказ) — или укажите заказ');
+    const short: { materialId: string; salesOrderLineId?: string; need: number; reserved: number }[] = [];
     const createdBy = userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined;
     let repeat: Types.ObjectId | undefined;
     const session = await this.connection.startSession();
@@ -58,17 +71,18 @@ export class StockReservationsService {
           if (prev) { repeat = (prev as { batchId?: Types.ObjectId }).batchId; return; }
         }
         let first = true;
-        for (const [id, need] of merged) {
+        for (const [key, need] of merged) {
+          const id = key.split('|')[0]; const own = lineOf.get(key) ? lines.get(lineOf.get(key)!) : undefined;
           const matId = oid(id, 'позиции');
           const item = await this.core.loadStorage(wh._id as Types.ObjectId, matId, session);
           const free = Math.max(0, (item.quantity ?? 0) - (item.reservedQty ?? 0));
           const take = Math.min(need, free);
-          if (take < need) short.push({ materialId: id, need, reserved: take });
+          if (take < need) short.push({ materialId: id, ...(lineOf.get(key) ? { salesOrderLineId: lineOf.get(key) } : {}), need, reserved: take });
           if (take <= 0) continue;
           item.reservedQty = (item.reservedQty ?? 0) + take;
           await item.save({ session });
           await this.reservations.create([{ orderId: groupName, materialId: matId, warehouseId: wh._id, qty: take, isActive: true, status: 'active', notes: groupName,
-            batchId, groupName, createdBy, ...(so ? { salesOrderId: so } : {}), ...(line ? { salesOrderLineId: line.salesOrderLineId } : {}), ...(first && dto.clientUid ? { clientUid: dto.clientUid } : {}) }], { session });
+            batchId, groupName, createdBy, ...(own ? { salesOrderId: own.salesOrderId, salesOrderLineId: own.salesOrderLineId } : so ? { salesOrderId: so } : {}), ...(!own && line ? { salesOrderLineId: line.salesOrderLineId } : {}), ...(first && dto.clientUid ? { clientUid: dto.clientUid } : {}) }], { session });
           first = false;
         }
       });

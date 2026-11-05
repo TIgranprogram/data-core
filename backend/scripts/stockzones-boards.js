@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Склад «Плитные материалы» (фанера, ДСП, ДВП, OSB, МДФ) — отдельно от «Листовой материал» (металл).
+ * Склад «Деревообработка» (бывш. «Плитные материалы»; фанера, ДСП, ДВП, OSB, МДФ) — отдельно от «Листовой материал» (металл).
  *
  *   MONGO_URI=… [MONGO_DB=datacore] node scripts/stockzones-boards.js            — ПЛАН
  *   MONGO_URI=… node scripts/stockzones-boards.js --apply                        — запись
  *
- * Создаёт/дополняет категории под «Дерево», склад stockzones, роль «Кладовщик плит (телефон)»
+ * Создаёт/дополняет категории под «Дерево», склад stockzones, роль «Кладовщик дерева (телефон)»
  * (appSections: stock-mobile, warehouseIds: этот склад, baseRole: manager).
  * Категории плит убирает из «Основной», чтобы другие кладовщики их не видели.
  * Прод — только по решению пользователя.
@@ -14,8 +14,8 @@ const path = require('path');
 const mongoose = require(require.resolve('mongoose', { paths: [process.cwd(), path.join(__dirname, '..')] }));
 const { MongoClient, ObjectId } = mongoose.mongo;
 
-const ZONE = 'Плитные материалы';
-const ROLE = 'Кладовщик плит (телефон)';
+const ZONE = 'Деревообработка'; // было «Плитные материалы» (СКЛ-1, stockzones-rename-wood.js)
+const ROLE = 'Кладовщик дерева (телефон)';
 const BOARD_CATS = [
   { name: 'Фанера', slug: 'plywood', skuPrefix: 'PLY' },
   { name: 'ДСП', slug: 'chipboard', skuPrefix: 'CHIP' },
@@ -119,7 +119,7 @@ async function main() {
 
   console.log(JSON.stringify({ apply, db: dbName, ...plan }, null, 2));
   console.log(apply
-    ? 'Готово. Назначьте сотруднику роль «Кладовщик плит (телефон)» в админке и задайте пароль.'
+    ? 'Готово. Назначьте сотруднику роль «Кладовщик дерева (телефон)» в админке и задайте пароль.'
     : 'Это план. Для записи: --apply (на проде — только с разрешения).');
   await client.close();
 }

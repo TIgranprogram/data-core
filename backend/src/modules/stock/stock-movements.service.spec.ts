@@ -66,3 +66,47 @@ describe('HARDEN-1: движения склада', () => {
     expect(t.movements.updateOne).not.toHaveBeenCalled();
   });
 });
+
+describe('СКЛ-1: batch out — «свободно», а не остаток', () => {
+  function setupOut(over: { quantity: number; reservedQty: number; own: number }) {
+    const matId = new Types.ObjectId();
+    const orderId = new Types.ObjectId();
+    const item = { quantity: over.quantity, reservedQty: over.reservedQty, save: jest.fn(async () => undefined) };
+    const movements = { create: jest.fn(async () => []), findOne: jest.fn(() => q(null)), distinct: jest.fn(() => q([matId])) };
+    const reservations = { find: jest.fn(() => q(over.own ? [{ materialId: matId, qty: over.own }] : [])) };
+    const materials = { find: jest.fn(() => q([{ _id: matId, name: 'Труба' }])), exists: jest.fn(async () => true) };
+    const core = { defaultWarehouse: async () => ({ _id: new Types.ObjectId() }), loadStorage: jest.fn(async () => item) };
+    const coll = (n: string) => ({
+      findOne: async () => (n === 'salesorders' ? { _id: orderId } : null),
+      updateMany: async () => ({}),
+      find: () => ({ toArray: async () => [] }),
+    });
+    const connection = { db: { collection: coll }, startSession: async () => ({ withTransaction: async (cb: () => Promise<void>) => cb(), endSession: async () => undefined }) };
+    const svc = new StockMovementsService(connection as never, movements as never, reservations as never, materials as never, core as never, {} as never, {} as never);
+    (svc as unknown as { batchResult: unknown }).batchResult = jest.fn(async () => ({ items: [] }));
+    return { svc, item, matId, orderId, movements };
+  }
+
+  it('чужая бронь: остаток 10, в чужой брони 8 — выдать 5 нельзя, ответ с таблицей нехватки', async () => {
+    const t = setupOut({ quantity: 10, reservedQty: 8, own: 0 });
+    const err = await t.svc.batch({ type: 'out', lines: [{ materialId: String(t.matId), qty: 5 }], issuedTo: 'Цех' }).catch((e) => e);
+    expect(err.getStatus()).toBe(400);
+    expect(err.getResponse().details).toEqual([expect.objectContaining({ need: 5, free: 2, lack: 3, reservedOther: 8, name: 'Труба' })]);
+    expect(t.item.quantity).toBe(10);
+    expect(t.movements.create).not.toHaveBeenCalled();
+  });
+  it('бронь этого же заказа: можно выдать под неё, бронь уменьшается', async () => {
+    const t = setupOut({ quantity: 10, reservedQty: 8, own: 8 });
+    await t.svc.batch({ type: 'out', lines: [{ materialId: String(t.matId), qty: 8 }], salesOrderId: String(t.orderId) });
+    expect(t.item.quantity).toBe(2);
+    expect(t.item.reservedQty).toBe(0);
+    expect(t.movements.create).toHaveBeenCalledTimes(1);
+  });
+  it('бронь заказа + свободное: берём сверх брони, но не из чужой', async () => {
+    const t = setupOut({ quantity: 10, reservedQty: 8, own: 3 });
+    await expect(t.svc.batch({ type: 'out', lines: [{ materialId: String(t.matId), qty: 6 }], salesOrderId: String(t.orderId) })).rejects.toThrow('в чужой брони 5');
+    await t.svc.batch({ type: 'out', lines: [{ materialId: String(t.matId), qty: 5 }], salesOrderId: String(t.orderId) });
+    expect(t.item.quantity).toBe(5);
+    expect(t.item.reservedQty).toBe(5);
+  });
+});

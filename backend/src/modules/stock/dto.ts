@@ -90,9 +90,14 @@ export class StockIssueDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
 }
 
+/** Строка брони по списку: позиция заказа на каждую строку (СКЛ-1). */
+export class StockReserveLineDto extends StockBatchLineDto {
+  @ApiPropertyOptional({ description: 'Позиция заказа (incomes.id) именно этой строки; нет — общая salesOrderLineId списка' }) @IsOptional() @IsMongoId() salesOrderLineId?: string;
+}
+
 export class StockReserveListDto {
-  @ApiProperty({ description: 'Для чего бронь: конструкция / изделие' }) @IsString() @Length(1, 200) groupName!: string;
-  @ApiProperty({ type: [StockBatchLineDto] }) @IsArray() @ArrayMinSize(1) @ArrayMaxSize(500) @ValidateNested({ each: true }) @Type(() => StockBatchLineDto) lines!: StockBatchLineDto[];
+  @ApiPropertyOptional({ description: 'Для чего бронь: конструкция / изделие. Нет — «Заказ № …» по заказу' }) @IsOptional() @IsString() @Length(0, 200) groupName?: string;
+  @ApiProperty({ type: [StockReserveLineDto] }) @IsArray() @ArrayMinSize(1) @ArrayMaxSize(500) @ValidateNested({ each: true }) @Type(() => StockReserveLineDto) lines!: StockReserveLineDto[];
   @ApiPropertyOptional({ description: 'Под заказ (salesorders.id)' }) @IsOptional() @IsMongoId() salesOrderId?: string;
   @ApiPropertyOptional({ description: 'Под позицию заказа (incomes.id) — для всех строк списка; заказ сервер берёт из позиции (SK-6)' }) @IsOptional() @IsMongoId() salesOrderLineId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 100) clientUid?: string;

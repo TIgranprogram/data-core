@@ -104,3 +104,36 @@ describe('HARDEN-1 п.6: бронь перечитывается в транза
     expect(t.item.quantity).toBe(10);
   });
 });
+
+describe('СКЛ-1: reserve-list', () => {
+  function setupList() {
+    const t = setup();
+    const created: Row[] = [];
+    const svcAny = t.svc as unknown as Record<string, unknown>;
+    svcAny.reservations = { create: jest.fn(async (docs: Row[]) => { created.push(...docs); return docs; }), findOne: () => ({ lean: () => ({ exec: async () => null }), session: () => ({ lean: () => ({ exec: async () => null }) }) }) };
+    svcAny.core = { defaultWarehouse: async () => ({ _id: id() }), loadStorage: async () => ({ quantity: 100, reservedQty: 0, save: async () => undefined }) };
+    svcAny.reservationGroup = jest.fn(async () => ({ items: [] }));
+    const base = (t.svc as unknown as { connection: { db: { collection: (n: string) => Row } } }).connection;
+    const orig = base.db.collection;
+    base.db.collection = (n: string) => (n === 'salesorders' ? { findOne: async (qq: Row) => ([t.order, t.other].find((o) => o._id.equals(qq._id)) ? { _id: qq._id, orderNo: '2026-17' } : null) } : orig(n));
+    return { ...t, created };
+  }
+  it('groupName не нужен: имя «Заказ № …» берётся из заказа', async () => {
+    const t = setupList();
+    await t.svc.reserveList({ salesOrderId: String(t.order._id), lines: [{ materialId: String(id()), qty: 2 }] });
+    expect(t.created[0].groupName).toBe('Заказ № 2026-17');
+  });
+  it('нет ни названия, ни заказа — 400', async () => {
+    const t = setupList();
+    await expect(t.svc.reserveList({ lines: [{ materialId: String(id()), qty: 2 }] })).rejects.toBeInstanceOf(BadRequestException);
+  });
+  it('у каждой строки своя позиция заказа; чужая позиция — 400', async () => {
+    const t = setupList();
+    const m = String(id());
+    await t.svc.reserveList({ salesOrderId: String(t.order._id), lines: [{ materialId: m, qty: 1, salesOrderLineId: String(t.lineOk._id) }, { materialId: m, qty: 2 }] });
+    expect(t.created).toHaveLength(2);
+    expect(t.created.find((r) => r.qty === 1)!.salesOrderLineId).toEqual(t.lineOk._id);
+    expect(t.created.find((r) => r.qty === 2)!.salesOrderLineId).toBeUndefined();
+    await expect(t.svc.reserveList({ salesOrderId: String(t.order._id), lines: [{ materialId: m, qty: 1, salesOrderLineId: String(t.lineOther._id) }] })).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
