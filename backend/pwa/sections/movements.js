@@ -4,7 +4,7 @@ import { date, dateTime, qty } from '../core/format.js';
 import { go } from '../core/router.js';
 import { zoneQuery } from '../core/zone.js';
 import { confirmDlg, modal } from '../ui/kit/dialog.js';
-import { targetNote, targetShort } from '../ui/target-picker.js';
+import { targetNote, targetShort } from '../ui/kit/target-picker.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 
 /** Раздел «Движения» (PRODUCT §2): журнал приходов/списаний по всем позициям, отмена ошибочного движения. */

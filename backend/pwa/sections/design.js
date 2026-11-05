@@ -10,7 +10,7 @@ import { askAssignee, askReason } from './design-data.js';
 import { carousel } from '../ui/kit/gallery.js';
 import { discussionBlock, questionBadge } from '../ui/design-notes.js';
 import { photosBlock, stickerRow, stickersBlock, visibleStickers } from '../ui/design-stickers.js';
-import { targetPicker } from '../ui/target-picker.js';
+import { targetPicker } from '../ui/kit/target-picker.js';
 import { withRequestsTab } from './design-requests.js';
 import { activeOrders, orderLabel } from './salesorders.js';
 

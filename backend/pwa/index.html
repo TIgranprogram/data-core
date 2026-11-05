@@ -24,6 +24,7 @@
   <script type="module" src="main.js"></script>
   <!-- preload:begin (node backend/scripts/pwa-preload.mjs) -->
   <link rel="modulepreload" href="core/api.js" />
+  <link rel="modulepreload" href="core/cache.js" />
   <link rel="modulepreload" href="core/dom.js" />
   <link rel="modulepreload" href="core/errors.js" />
   <link rel="modulepreload" href="core/facets.js" />
@@ -32,6 +33,8 @@
   <link rel="modulepreload" href="core/live-sync.js" />
   <link rel="modulepreload" href="core/nav-stack.js" />
   <link rel="modulepreload" href="core/order-color.js" />
+  <link rel="modulepreload" href="core/orders-lookup.js" />
+  <link rel="modulepreload" href="core/passport-kinds.js" />
   <link rel="modulepreload" href="core/prefs.js" />
   <link rel="modulepreload" href="core/router.js" />
   <link rel="modulepreload" href="core/stock-list.js" />
@@ -43,10 +46,47 @@
   <link rel="modulepreload" href="core/zone.js" />
   <link rel="modulepreload" href="sections/fill.js" />
   <link rel="modulepreload" href="sections/home.js" />
+  <link rel="modulepreload" href="sections/issue.js" />
+  <link rel="modulepreload" href="sections/item-orders.js" />
   <link rel="modulepreload" href="sections/lookups.js" />
   <link rel="modulepreload" href="sections/matching-queue.js" />
+  <link rel="modulepreload" href="sections/metal.js" />
+  <link rel="modulepreload" href="sections/movements.js" />
+  <link rel="modulepreload" href="sections/ops-weight.js" />
+  <link rel="modulepreload" href="sections/ops.js" />
+  <link rel="modulepreload" href="sections/order-attachments-zip.js" />
+  <link rel="modulepreload" href="sections/order-design.js" />
+  <link rel="modulepreload" href="sections/order-line-actions.js" />
+  <link rel="modulepreload" href="sections/order-lines.js" />
+  <link rel="modulepreload" href="sections/order-passport-plan.js" />
+  <link rel="modulepreload" href="sections/order-passports.js" />
+  <link rel="modulepreload" href="sections/order-reservations.js" />
+  <link rel="modulepreload" href="sections/order-shipments.js" />
   <link rel="modulepreload" href="sections/order-stage.js" />
+  <link rel="modulepreload" href="sections/order-work.js" />
+  <link rel="modulepreload" href="sections/orders.js" />
+  <link rel="modulepreload" href="sections/passports/common.js" />
+  <link rel="modulepreload" href="sections/passports/dialogs.js" />
+  <link rel="modulepreload" href="sections/passports/models.js" />
+  <link rel="modulepreload" href="sections/pipe-grid.js" />
+  <link rel="modulepreload" href="sections/qr.js" />
+  <link rel="modulepreload" href="sections/reservations.js" />
+  <link rel="modulepreload" href="sections/salesorders-import.js" />
   <link rel="modulepreload" href="sections/salesorders-matching.js" />
+  <link rel="modulepreload" href="sections/salesorders-next.js" />
+  <link rel="modulepreload" href="sections/salesorders-unassigned.js" />
+  <link rel="modulepreload" href="sections/salesorders.js" />
+  <link rel="modulepreload" href="sections/sheet-grid.js" />
+  <link rel="modulepreload" href="sections/stock-issue-card.js" />
+  <link rel="modulepreload" href="sections/stock-issue.js" />
+  <link rel="modulepreload" href="sections/stock-ops-res.js" />
+  <link rel="modulepreload" href="sections/stock-ops.js" />
+  <link rel="modulepreload" href="sections/stock-passport.js" />
+  <link rel="modulepreload" href="sections/stock-requests.js" />
+  <link rel="modulepreload" href="sections/stock.js" />
+  <link rel="modulepreload" href="sections/warehouse-mobile.js" />
+  <link rel="modulepreload" href="sections/work-launch.js" />
+  <link rel="modulepreload" href="sections/work-route.js" />
   <link rel="modulepreload" href="ui/app-badge.js" />
   <link rel="modulepreload" href="ui/avatars.js" />
   <link rel="modulepreload" href="ui/bell.js" />
@@ -55,10 +95,12 @@
   <link rel="modulepreload" href="ui/cat-rain.js" />
   <link rel="modulepreload" href="ui/chat-button.js" />
   <link rel="modulepreload" href="ui/chat-window.js" />
+  <link rel="modulepreload" href="ui/composition-suggest.js" />
   <link rel="modulepreload" href="ui/confirm-password.js" />
   <link rel="modulepreload" href="ui/dict-options.js" />
   <link rel="modulepreload" href="ui/history.js" />
   <link rel="modulepreload" href="ui/icons.js" />
+  <link rel="modulepreload" href="ui/kit/auto-more.js" />
   <link rel="modulepreload" href="ui/kit/badges.js" />
   <link rel="modulepreload" href="ui/kit/board.js" />
   <link rel="modulepreload" href="ui/kit/busy.js" />
@@ -85,12 +127,16 @@
   <link rel="modulepreload" href="ui/kit/photos.js" />
   <link rel="modulepreload" href="ui/kit/pick.js" />
   <link rel="modulepreload" href="ui/kit/pop-menu.js" />
+  <link rel="modulepreload" href="ui/kit/qty-input.js" />
   <link rel="modulepreload" href="ui/kit/readonly.js" />
   <link rel="modulepreload" href="ui/kit/side-form.js" />
   <link rel="modulepreload" href="ui/kit/similar.js" />
   <link rel="modulepreload" href="ui/kit/table.js" />
+  <link rel="modulepreload" href="ui/kit/target-picker.js" />
   <link rel="modulepreload" href="ui/kit/toast.js" />
+  <link rel="modulepreload" href="ui/links.js" />
   <link rel="modulepreload" href="ui/list-export.js" />
+  <link rel="modulepreload" href="ui/materials-spec.js" />
   <link rel="modulepreload" href="ui/notice-card.js" />
   <link rel="modulepreload" href="ui/notices.js" />
   <link rel="modulepreload" href="ui/op-row.js" />
@@ -98,9 +144,12 @@
   <link rel="modulepreload" href="ui/popup.js" />
   <link rel="modulepreload" href="ui/pos-pic.js" />
   <link rel="modulepreload" href="ui/resizer.js" />
+  <link rel="modulepreload" href="ui/responsible.js" />
   <link rel="modulepreload" href="ui/rows-table.js" />
   <link rel="modulepreload" href="ui/search-logic.js" />
   <link rel="modulepreload" href="ui/searchbox.js" />
+  <link rel="modulepreload" href="ui/stage-bar.js" />
+  <link rel="modulepreload" href="ui/weight-count.js" />
   <!-- preload:end -->
 </body>
 </html>
