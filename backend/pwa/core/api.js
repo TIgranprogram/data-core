@@ -153,6 +153,7 @@ async function errorOf(res) {
   const err = fromServer ? new ApiError(msg, res.status) : new ApiError(crash || HUMAN[res.status] || HUMAN[500], res.status);
   if (closed) err.sectionClosed = true;
   if (res.status === 400 && Array.isArray(data?.unmatched)) err.data = { unmatched: data.unmatched }; // КМ: договоры с несопоставленными позициями
+  if (res.status === 400 && Array.isArray(data?.details)) err.data = { ...(err.data || {}), details: data.details }; // склад: таблица нехватки (need/have/free/lack)
   if (res.status === 409 && data?.existingInvoiceId) err.data = { ...(err.data || {}), existingInvoiceId: data.existingInvoiceId, existingNo: data.existingNo, existingStatus: data.existingStatus }; // счета: дубль № — выбор в диалоге
   if (data?.code === 'REASON_REQUIRED') err.data = { ...(err.data || {}), code: 'REASON_REQUIRED' }; // ЗЯ-1: админ обходит запрет — нужна причина
   if (data?.code === 'READ_ONLY') err.readOnly = true; // SW-6: идёт переключение сервера, запись на паузе

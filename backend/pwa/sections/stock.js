@@ -37,8 +37,8 @@ import { metalBody, metalFields, metalInitial, metalKindUi, metalView, offcutDia
 import { orderedBlock, orderItem } from './item-orders.js';
 import { weightCount } from '../ui/weight-count.js';
 import { errText } from '../ui/kit/errors.js';
-import { openStockOp } from './stock-ops.js';
-import { targetNote } from '../ui/target-picker.js';
+import { openStockOp, openStockIssue } from './stock-ops.js';
+import { targetNote } from '../ui/kit/target-picker.js';
 import { passportSpecField, passportSpecView, savePassportSpec } from './stock-passport.js';
 import { mobileStockDashboard } from './warehouse-mobile.js';
 import { qrBulkAction, qrPrintAction } from './qr.js';
@@ -164,7 +164,7 @@ export const stock = {
     query: (P) => ({ priority: 1, ...zoneQuery(), ...(P.ft ? ftIds(P) || { search: [P.q, ftQuery(P.ft)].filter(Boolean).join(' ') || undefined, ...ftParams(P.ft) } : {}) }),
     export: 'admin',
     bulk: { extra: [qrBulkAction('S')] }, // только «Распечатать QR» над отмеченными (без «Изменить выбранные»)
-    headActions: () => [stockActions()],
+    headActions: () => [kitButton({ label: 'Выдать материалы', kind: 'primary', onClick: openStockIssue }), stockActions()],
     moreActions: stockMore,
     top: (_reload) => h('div', null, zoneBar(), stockRequestsBox(), mobileStockDashboard()),
     sortDefault: 'name',

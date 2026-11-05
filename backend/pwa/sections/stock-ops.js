@@ -10,7 +10,7 @@ import { confirmDlg } from '../ui/kit/dialog.js';
 import { errText } from '../ui/kit/errors.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { offerAfterIssue } from '../ui/composition-suggest.js';
-import { lineCode, targetPicker } from '../ui/target-picker.js';
+import { lineCode, targetPicker } from '../ui/kit/target-picker.js';
 import { receiveField } from './item-orders.js';
 import { pipeInHelper } from './metal.js';
 import { lookups } from './lookups.js';
@@ -35,6 +35,7 @@ const OPS = {
   unreserve: { title: 'Снять бронь', verb: 'Снять бронь', done: 'Снято' },
   count: { title: 'Пересчитать', verb: 'Сохранить пересчёт', done: 'Пересчёт сохранён', note: 'Примечание', hint: 'Впишите, сколько лежит всего (с забронированным). Пустое поле — не пересчитано.' },
 };
+export { openStockIssue } from './stock-issue.js'; // кнопка «Выдать материалы» на экране склада
 export const STOCK_OPS = Object.keys(OPS);
 export const opTitle = (op) => OPS[op]?.title || 'Действие со складом';
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
