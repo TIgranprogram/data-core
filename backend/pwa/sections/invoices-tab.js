@@ -2,7 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { current } from '../core/router.js';
 import { date, money } from '../core/format.js';
-import { INVOICE_STATUS, badge, enhanceSelect, empty, table, link, failBlock } from '../ui/kit/index.js';
+import { INVOICE_STATUS, badge, enhanceSelect, empty, table, link, autoMore } from '../ui/kit/index.js';
 import { lookups } from './lookups.js';
 
 /** Вкладка — только список/фильтры. Все операции и позиции находятся в routable invoicecard. */
@@ -15,7 +15,7 @@ const invoiceHref = (id) => {
 };
 export function mountInvoicesTab() {
   const F = { status: '', supplierId: '', q: '', from: '', to: '', contract: '' };
-  let page = 1, seq = 0, timer = null;
+  let timer = null;
   const sel = (opts, key, title) => {
     const select = h('select', { class: 'invl-f', 'aria-label': title, onchange: () => { F[key] = select.value; reload(); } }, ...opts.map(([value, label]) => h('option', { value }, label)));
     return select;
@@ -33,31 +33,27 @@ export function mountInvoicesTab() {
   const q = h('input', { type: 'search', class: 'invl-f', placeholder: 'Поиск: № счёта, поставщик…', oninput: () => { clearTimeout(timer); timer = setTimeout(() => { F.q = q.value.trim(); reload(); }, 300); } });
   const from = h('input', { type: 'date', class: 'invl-f', 'aria-label': 'С даты', onchange: () => { F.from = from.value; reload(); } });
   const to = h('input', { type: 'date', class: 'invl-f', 'aria-label': 'По дату', onchange: () => { F.to = to.value; reload(); } });
-  const rows = h('div', { class: 'invl-list' }), foot = h('div', { class: 'invl-foot' });
-  const el = h('div', { class: 'invl-tab' }, h('p', { class: 'hint' }, 'Откройте счёт по его названию. Позиции и разрешённые действия — в правой панели.'),
-    h('div', { class: 'invl-bar' }, q, statusSel, supSel, ctrSel, h('span', { class: 'invl-period' }, from, h('span', { class: 'muted' }, '—'), to)), rows, foot);
-  function reload() { page = 1; return load(); }
-  async function load() {
-    const my = ++seq; rows.classList.add('is-busy');
-    try {
-      const result = await api('/supply/invoices', { query: { page, limit: LIMIT, ...Object.fromEntries(Object.entries(F).filter(([, value]) => value)) } });
-      if (my !== seq) return;
-      const items = result.items || [];
+  const rows = h('div', { class: 'invl-list' });
+  const F_ = () => Object.fromEntries(Object.entries(F).filter(([, value]) => value));
+  // ПГ-1c: порции при прокрутке вниз — kit.autoMore; «Итого» — из ответа сервера
+  const more = autoMore({
+    root: rows, cls: 'invl-foot', limit: LIMIT, text: { fail: 'Счета не загрузились', moreFail: 'Не удалось подгрузить счета' },
+    load: (p, { limit }) => api('/supply/invoices', { query: { page: p, limit, ...F_() } }),
+    summary: (shown, total, r) => h('div', { class: 'invl-sum' }, `Показано ${shown} из ${total}`, session.canMoney ? [' · Итого: ', h('b', null, money(r?.sum ?? 0))] : null),
+    render: (items) => {
       if (!items.length) {
-        rows.replaceChildren(empty({ title: Object.values(F).some(Boolean) ? 'По этим условиям счетов нет' : 'Счетов пока нет', hint: 'Измените фильтры или создайте счёт на вкладке «Заявки».' })); foot.replaceChildren(); return;
+        rows.replaceChildren(empty({ title: Object.values(F).some(Boolean) ? 'По этим условиям счетов нет' : 'Счетов пока нет', hint: 'Измените фильтры или создайте счёт на вкладке «Заявки».' })); return;
       }
       rows.replaceChildren(table({ label: 'Счета поставщиков',
         columns: [{ label: 'Счёт' }, { label: 'Дата' }, { label: 'Поставщик', cls: 'clip' }, ...(session.canMoney ? [{ label: 'Сумма счёта', num: true }] : []), { label: 'Статус' }, { label: 'Договор' }, { label: 'Позиций', num: true }],
         rows: items.map((invoice) => ({ data: invoice.id, cells: [link({ label: invoice.no ? `Счёт № ${invoice.no}` : 'Счёт без номера', href: invoiceHref(invoice.id) }), date(invoice.date) || '—', invoice.supplierName || '—', ...(session.canMoney ? [money(invoice.amount)] : []),
           h('span', null, badge(INVOICE_STATUS, invoice.status), invoice.partial ? badge('Часть строк скрыта', 'warn') : null), invoice.contractNo ? `№ ${invoice.contractNo}` : 'Без договора', invoice.requestsCount ?? 0] })) }));
-      const pages = Math.max(1, Math.ceil((result.total || 0) / LIMIT));
-      foot.replaceChildren(h('div', { class: 'invl-sum' }, `Счетов: ${result.total ?? items.length}`, session.canMoney ? [' · Итого: ', h('b', null, money(result.sum ?? 0))] : null),
-        pages > 1 ? h('div', { class: 'invl-pager' },
-          h('button', { class: 'btn', type: 'button', disabled: page <= 1, onclick: () => { page--; return load(); } }, '‹ Назад'), h('span', { class: 'muted' }, `${page} из ${pages}`),
-          h('button', { class: 'btn', type: 'button', disabled: page >= pages, onclick: () => { page++; return load(); } }, 'Далее ›')) : null);
-    } catch (e) { if (my === seq) { rows.replaceChildren(failBlock(e, load, { text: 'Счета не загрузились' })); foot.replaceChildren(); } }
-    finally { if (my === seq) rows.classList.remove('is-busy'); }
-  }
+    },
+  });
+  const load = (opt) => more.reload(opt);
+  const el = h('div', { class: 'invl-tab' }, h('p', { class: 'hint' }, 'Откройте счёт по его названию. Позиции и разрешённые действия — в правой панели.'),
+    h('div', { class: 'invl-bar' }, q, statusSel, supSel, ctrSel, h('span', { class: 'invl-period' }, from, h('span', { class: 'muted' }, '—'), to)), rows, more.el);
+  function reload() { return load(); }
   load();
-  return { el, reload: load, update: () => {}, focusSearch: () => q.focus(), destroy: () => { seq++; clearTimeout(timer); } };
+  return { el, reload: () => load({ keep: true }), update: () => {}, focusSearch: () => q.focus(), destroy: () => { clearTimeout(timer); more.destroy(); } };
 }

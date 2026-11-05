@@ -1,7 +1,7 @@
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
 import { money, date } from '../core/format.js';
-import { buildForm, section, table, button, actions, link, failBlock, photoField, badge, SUPPLY_STATUS } from '../ui/kit/index.js';
+import { buildForm, section, table, button, actions, link, autoMore, photoField, badge, SUPPLY_STATUS } from '../ui/kit/index.js';
 import { permissions, assertOperation, lineDraft, changeLine, lineBody, addBody, metaBody } from './invoice-workspace-state.js';
 
 const field = (key, label, input) => ({ key, label, type: 'widget', wide: true, widget: () => ({ el: input, get value() { return JSON.stringify(input.value); }, set value(_) { /* начальное значение уже установлено */ } }) });
@@ -58,36 +58,34 @@ async function buildMetaForm(invoice, services) {
 
 /** Выбор сохраняется в Map между поисками и серверными страницами. */
 function buildAddForm(invoice, services) {
-  const selected = new Map(); let page = 1, q = '', seq = 0, loading = false;
-  const results = h('div'), pager = h('div', { class: 'actions' }), count = h('p', { class: 'hint' });
+  const selected = new Map(); let q = '';
+  const results = h('div'), count = h('p', { class: 'hint' });
   const search = h('input', { type: 'search', name: 'candidate-search', placeholder: 'Найти существующую заявку', 'aria-label': 'Поиск заявок' });
   const reason = invoice.status === 'paid' ? h('input', { name: 'reason', maxlength: 500, placeholder: 'Причина — по желанию' }) : null;
-  const updateCount = () => { count.textContent = `Выбрано заявок: ${selected.size}. Выбор сохраняется между страницами.`; };
-  const load = async () => {
-    const my = ++seq; loading = true; results.classList.add('is-busy');
-    try {
-      const r = await services.candidates(invoice, { page, q, limit: 50 });
-      if (my !== seq) return;
-      const pages = Math.max(1, Math.ceil(Number(r.total || 0) / 50));
+  const updateCount = () => { count.textContent = `Выбрано заявок: ${selected.size}. Выбор сохраняется при поиске и подгрузке.`; };
+  // ПГ-1c: порции при прокрутке вниз — kit.autoMore; выбор (selected) живёт между порциями и поисками
+  const more = autoMore({
+    root: results, cls: 'actions', limit: 50, text: { fail: 'Заявки не загрузились', moreFail: 'Не удалось подгрузить заявки' },
+    load: (page, { limit }) => services.candidates(invoice, { page, q, limit }),
+    render: (items) => {
       results.replaceChildren(table({ label: 'Заявки для добавления', maxHeight: 'M',
         columns: [{ label: 'Выбрать' }, { label: 'Заявка', cls: 'clip' }, { label: 'Количество' }, { label: 'Статус' }],
-        rows: (r.items || []).map((x) => ({ data: x.id, cells: [h('input', { type: 'checkbox', checked: selected.has(x.id), 'aria-label': 'Добавить ' + (x.title || x.num), onchange: (e) => { if (e.target.checked) selected.set(x.id, x); else selected.delete(x.id); updateCount(); } }), x.title || x.materialName || '—', `${x.qty ?? ''} ${x.unit || ''}`, badge(SUPPLY_STATUS, x.status)] })),
-        empty: { title: 'На этой странице нет свободных заявок', hint: pages > 1 ? 'Заявки здесь уже привязаны к счетам. Перелистайте исходную выборку или уточните поиск.' : 'Измените поиск или создайте заявку отдельно. В счёт добавляются только непривязанные заявки.' } }));
-      pager.replaceChildren(button({ label: '‹ Назад', disabled: page <= 1, onClick: () => { page--; return load(); } }), h('span', { class: 'muted' }, `Страница ${page} из ${pages} · в выборке: ${r.total || 0}`), button({ label: 'Далее ›', disabled: page >= pages, onClick: () => { page++; return load(); } }));
-    } catch (e) { if (my === seq) results.replaceChildren(failBlock(e, load, { text: 'Заявки не загрузились' })); }
-    finally { if (my === seq) { loading = false; results.classList.remove('is-busy'); } }
-  };
-  const find = () => { page = 1; q = search.value.trim(); return load(); };
+        rows: items.map((x) => ({ data: x.id, cells: [h('input', { type: 'checkbox', checked: selected.has(x.id), 'aria-label': 'Добавить ' + (x.title || x.num), onchange: (e) => { if (e.target.checked) selected.set(x.id, x); else selected.delete(x.id); updateCount(); } }), x.title || x.materialName || '—', `${x.qty ?? ''} ${x.unit || ''}`, badge(SUPPLY_STATUS, x.status)] })),
+        empty: { title: 'Свободных заявок не нашлось', hint: items.length < more.total ? 'Загруженные заявки уже привязаны к счетам — ищем дальше.' : 'Измените поиск или создайте заявку отдельно. В счёт добавляются только непривязанные заявки.' } }));
+    },
+  });
+  const load = () => more.reload();
+  const find = () => { q = search.value.trim(); return load(); };
   search.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); find(); } });
   const el = section({ title: 'Добавить существующие заявки', open: true, body: [
     actions(search, button({ label: 'Найти', onClick: find })), count,
     reason ? h('label', { class: 'field' }, h('span', null, 'Причина добавления'), reason) : null,
-    results, pager,
+    results, more.el,
     h('p', { class: 'hint' }, 'Нет нужной позиции — кнопка «Создать заявку» сверху. После создания вернитесь в счёт и добавьте её здесь.'),
   ] });
   updateCount(); load();
   return { el, dirty: () => selected.size > 0 || !!reason?.value.trim(), read: () => ({ values: {} }), busy: () => false,
-    payload: () => { if (loading) throw new Error('Дождитесь загрузки заявок'); return addBody(invoice, [...selected.keys()], reason?.value || ''); } };
+    payload: () => { if (more.busy) throw new Error('Дождитесь загрузки заявок'); return addBody(invoice, [...selected.keys()], reason?.value || ''); } };
 }
 
 /** Регистрация формы в openCard охватывает и обзор, и внутренние смены строки/режима. */

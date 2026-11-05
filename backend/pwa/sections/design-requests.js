@@ -2,7 +2,7 @@ import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, qty } from '../core/format.js';
 import { current, go } from '../core/router.js';
-import { attachCombo, tabs, table, empty, tabs as kitTabs } from '../ui/kit/index.js';
+import { attachCombo, tabs, table, empty, autoMore, tabs as kitTabs } from '../ui/kit/index.js';
 import { modal } from '../ui/kit/dialog.js';
 import { carousel } from '../ui/kit/gallery.js';
 import { toastError } from '../ui/kit/toast.js';
@@ -24,49 +24,39 @@ const openCard = (id) => { const P = current().params; go('design', { ...P, of: 
 // ---------- вкладка со списком ----------
 /** Тело вкладки: поиск, фильтр по состоянию, таблица. */
 function requestsView(onCount) {
-  const S = { status: 'open', search: '', page: 1, seq: 0 };
-  const LIMIT = 30;
+  const S = { status: 'open', search: '' };
   const box = h('div', { class: 'state' });
   const search = h('input', { type: 'search', placeholder: 'Поиск по названию…', 'aria-label': 'Поиск заявок', maxlength: 100 });
   let timer = 0;
-  search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { S.search = search.value.trim(); S.page = 1; load(); }, 300); });
-  const statusTabs = tabs({ items: FILTERS.map(([key, label]) => ({ key, label })), value: S.status, label: 'Состояние заявок', onChange: (k) => { S.status = k; S.page = 1; load(); } });
+  search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { S.search = search.value.trim(); load(); }, 300); });
+  const statusTabs = tabs({ items: FILTERS.map(([key, label]) => ({ key, label })), value: S.status, label: 'Состояние заявок', onChange: (k) => { S.status = k; load(); } });
   const chips = statusTabs.el;
   const paintChips = () => statusTabs.set(S.status);
-  const el = h('div', { class: 'dr-view' }, h('div', { class: 'dr-bar' }, search, chips), box);
 
-  function paint(r) {
-    const items = r.items || [];
-    if (!items.length) {
-      box.replaceChildren(S.status === 'open' && !S.search
-        ? empty({ title: 'Заявок на новые изделия нет', hint: 'Появятся, когда менеджер добавит в заказ позицию «Новое изделие».' })
-        : empty({ title: 'Ничего не найдено', hint: 'Смените состояние или поисковый запрос.' }));
-      return;
-    }
-    const rows = items.map((x) => h('tr', { tabindex: '0', class: 'clickable', onclick: () => openCard(x.id), onkeydown: (e) => { if (e.key === 'Enter') openCard(x.id); } },
-      h('td', { class: 'pic-cell' }, x.photo ? h('img', { class: 'pic', src: PREFIX + x.photo, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }) : null),
-      h('td', { class: 'clip' }, h('b', null, clean(x.title) || 'Без названия'), x.status && x.status !== 'open' ? h('small', { class: 'muted' }, ' ' + (STATUS[x.status] || '')) : null),
-      h('td', { class: 'num nowrap' }, qty(x.qtyTotal || 0)),
-      h('td', { class: 'nowrap' }, `${x.lineCount || 0} поз.`),
-      h('td', { class: 'clip md-hide' }, (x.orderNos || []).filter(Boolean).map((n) => '№ ' + n).join(', ') || `${x.orderCount || 0} зак.`),
-      h('td', { class: 'nowrap md-hide' }, x.createdAt ? date(x.createdAt) : '')));
-    const pages = Math.max(1, Math.ceil((r.total || items.length) / LIMIT));
-    box.replaceChildren(table({ clickable: true, columns: [{ label: '' }, { label: 'Изделие' }, { label: 'Кол-во', num: true }, { label: 'Позиций' }, { label: 'Заказы', hide: true }, { label: 'Создана', hide: true }], rows }),
-    pages > 1 ? h('div', { class: 'pager' },
-      h('button', { type: 'button', class: 'btn btn-sm', disabled: S.page <= 1, onclick: () => { S.page--; load(); } }, '← Назад'),
-      h('span', { class: 'muted' }, ` ${S.page} из ${pages} `),
-      h('button', { type: 'button', class: 'btn btn-sm', disabled: S.page >= pages, onclick: () => { S.page++; load(); } }, 'Дальше →')) : null);
-  }
-  async function load() {
-    const my = ++S.seq;
-    box.replaceChildren(h('div', { class: 'skel', style: { margin: '8px 4px' } }));
-    try {
-      const r = await api('/product-requests', { query: { status: S.status, ...(S.search ? { search: S.search } : {}), page: S.page, limit: LIMIT } });
-      if (my !== S.seq) return;
-      paint(r);
-    } catch (e) { if (my === S.seq) { box.replaceChildren(h('div', null, 'Не удалось загрузить заявки. '), h('button', { type: 'button', class: 'btn btn-sm', onclick: load }, 'Повторить')); toastError(e, 'загрузить заявки'); } }
-    requestsCount().then(onCount);
-  }
+  // ПГ-1c: порции при прокрутке вниз — kit.autoMore
+  const more = autoMore({
+    root: box, skeleton: true, limit: 30, text: { fail: 'Заявки не загрузились', moreFail: 'Не удалось подгрузить заявки' },
+    load: (page, { limit }) => api('/product-requests', { query: { status: S.status, ...(S.search ? { search: S.search } : {}), page, limit } }),
+    onError: (e) => toastError(e, 'загрузить заявки'),
+    render: (items) => {
+      if (!items.length) {
+        box.replaceChildren(S.status === 'open' && !S.search
+          ? empty({ title: 'Заявок на новые изделия нет', hint: 'Появятся, когда менеджер добавит в заказ позицию «Новое изделие».' })
+          : empty({ title: 'Ничего не найдено', hint: 'Смените состояние или поисковый запрос.' }));
+        return;
+      }
+      const rows = items.map((x) => h('tr', { tabindex: '0', class: 'clickable', onclick: () => openCard(x.id), onkeydown: (e) => { if (e.key === 'Enter') openCard(x.id); } },
+        h('td', { class: 'pic-cell' }, x.photo ? h('img', { class: 'pic', src: PREFIX + x.photo, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }) : null),
+        h('td', { class: 'clip' }, h('b', null, clean(x.title) || 'Без названия'), x.status && x.status !== 'open' ? h('small', { class: 'muted' }, ' ' + (STATUS[x.status] || '')) : null),
+        h('td', { class: 'num nowrap' }, qty(x.qtyTotal || 0)),
+        h('td', { class: 'nowrap' }, `${x.lineCount || 0} поз.`),
+        h('td', { class: 'clip md-hide' }, (x.orderNos || []).filter(Boolean).map((n) => '№ ' + n).join(', ') || `${x.orderCount || 0} зак.`),
+        h('td', { class: 'nowrap md-hide' }, x.createdAt ? date(x.createdAt) : '')));
+      box.replaceChildren(table({ clickable: true, columns: [{ label: '' }, { label: 'Изделие' }, { label: 'Кол-во', num: true }, { label: 'Позиций' }, { label: 'Заказы', hide: true }, { label: 'Создана', hide: true }], rows }));
+    },
+  });
+  const el = h('div', { class: 'dr-view' }, h('div', { class: 'dr-bar' }, search, chips), box, more.el);
+  const load = async () => { await more.reload(); requestsCount().then(onCount); };
   paintChips();
   load();
   return { el, reload: load };
