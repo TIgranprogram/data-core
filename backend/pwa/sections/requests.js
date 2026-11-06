@@ -103,7 +103,7 @@ export async function rollbackReceipt(r, ctx) {
 async function receive(r, ctx) { const saved = await receiveDialog(r); if (saved) ctx.setRow(saved); }
 
 async function changeStatus(r, ctx) {
-  const sel = enhanceSelect(h('select', { name: 'status', value: supplyKey(r) }, statusOptions().map((o) => h('option', { value: o.value }, o.label))));
+  const sel = enhanceSelect(h('select', { name: 'status', value: supplyKey(r) }, statusOptions().filter((o) => !['ordered', 'paid'].includes(o.value) || o.value === supplyKey(r)).map((o) => h('option', { value: o.value }, o.label))));
   const key = await modal({
     title: 'Сменить статус', okText: 'Сохранить',
     body: h('div', null, h('label', { class: 'field' }, h('span', null, 'Статус'), sel),
@@ -195,7 +195,7 @@ const fields = async (r) => {
     { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
     { section: 'Поставщик и счёт', tone: 'money' },
     // «Получено» — только через «Принять» (приход на склад), в форме его не выбрать
-    inv ? fromInvoice('Статус', SUPPLY_STATUS[supplyKey(r)]?.label) : { key: 'status', label: 'Статус', type: 'select', options: statusOptions().filter((o) => o.value !== 'received' || (r && supplyKey(r) === 'received')), hint: r && supplyKey(r) === 'received' ? undefined : '«Получено» ставится кнопкой «Принять» — тогда товар встанет на склад' },
+    inv ? fromInvoice('Статус', SUPPLY_STATUS[supplyKey(r)]?.label) : { key: 'status', label: 'Статус', type: 'select', options: statusOptions().filter((o) => !['received', 'ordered', 'paid'].includes(o.value) || (r && supplyKey(r) === o.value)), /* «В работе»/«Оплачено» — кнопками шага (Д 2026-11-06) */ hint: r && supplyKey(r) === 'received' ? undefined : '«Получено» ставится кнопкой «Принять» — тогда товар встанет на склад' },
     inv ? fromInvoice('Поставщик', r.supplierName) : { key: 'supplierName', label: 'Поставщик', type: 'combo', options: lk.suppliers, max: 200, extra: (t, shown, form) => partnerAction('supplier', t, lk.suppliers, (n) => { form.add(n); form.set('supplierName', n); }) },
     { key: 'priceHint', money: true, label: 'Вся сумма с НДС, ₽', type: 'money', min: 0, hint: 'За всю позицию целиком, не цена за штуку. На складе закупка без НДС — не копируйте слепо' },
     inv ? fromInvoice('Наша компания', r.companyName) : { key: 'companyName', label: 'Наша компания', type: 'select', options: lk.companies, hint: 'Нужна для платёжного календаря' },
@@ -465,7 +465,7 @@ export const requests = {
       return [
         st?.kind === 'receive' ? { label: st.verb, primary: true, run: receive } : null,
         step ? { ...step, primary: true } : null,
-        !['received', 'cancelled'].includes(supplyKey(r)) ? { label: 'Сменить статус…', run: changeStatus } : null,
+        !r.invoiceId && !['received', 'cancelled'].includes(supplyKey(r)) ? { label: 'Сменить статус…', run: changeStatus } : null, // в счёте статус ведёт счёт
         supplyKey(r) === 'received' && isAdmin() ? { label: 'Отменить приёмку', more: true, run: rollbackReceipt } : null,
       ];
     },

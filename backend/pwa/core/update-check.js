@@ -69,6 +69,18 @@ export function watchUpdates() {
   setInterval(check, 10 * 60 * 1000);
 }
 
+/**
+ * Раздел не загрузился из-за старой копии приложения (2026-11-06, трубарез: копия от 04.11, файлы ui/* переехали в ui/kit —
+ * старый модуль ищет их на сервере и не находит). Один раз за сеанс сами переключаемся на новую версию.
+ */
+const STALE = /dynamically imported module|Importing a module script failed|error loading dynamically|Приложение обновилось/i;
+export function recoverStale(e) {
+  if (!STALE.test(String(e?.message || ''))) return;
+  try { if (sessionStorage.getItem('dc-stale-reload')) return; sessionStorage.setItem('dc-stale-reload', '1'); } catch { return; }
+  toast('Загружаю новую версию приложения…');
+  reloadApp();
+}
+
 /** Обновить: проверить service worker и перезагрузить. */
 export async function reloadApp() {
   try { const reg = await navigator.serviceWorker?.getRegistration?.(); await reg?.update(); } catch { /* без service worker */ }

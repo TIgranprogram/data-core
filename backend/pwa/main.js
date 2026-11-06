@@ -21,7 +21,7 @@ import { lookups } from './sections/lookups.js';
 /** Включаемые разделы: ФОТ — презентационный (TASKS Д3.6), false — пропадёт из меню и не откроется. */
 const FEATURES = { payroll: true };
 // раздел «История» — под своим именем: иначе импорт перекрывает window.history и ‹ › ломаются (НВ.1)
-import { versionLabel, watchUpdates } from './core/update-check.js';
+import { recoverStale, versionLabel, watchUpdates } from './core/update-check.js';
 import { avatarNode } from './ui/avatars.js';
 import { bellButton } from './ui/bell.js';
 import { chatButton } from './ui/chat-button.js';
@@ -108,7 +108,7 @@ function loadSec(key) {
     // старый файл из кэша рядом с новым main.js: без этой проверки — «FN.… is not a function» и бесконечная перерисовка
     if (def[1].some(([, exp]) => m[exp] === undefined)) throw new Error('Приложение обновилось. Обновите страницу (F5).');
     for (const [name, exp] of def[1]) { if (name[0] === '@') FN[name.slice(1)] = m[exp]; else SECTIONS[name] = m[exp]; }
-  }).catch((e) => { delete loading[key]; throw e; }));
+  }).catch((e) => { delete loading[key]; recoverStale(e); throw e; })); // старая копия + переехавшие файлы — сами на новую версию
 }
 /** Какие модули ещё нужны экрану: сам раздел + раздел панели справа (?of=). */
 function needed(section, params) {
@@ -121,7 +121,7 @@ function needed(section, params) {
 }
 const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог поставщиков', 'partners'], ['contracts', 'Договоры', 'orders'], ['salesorders', 'Заказы', 'orders'], ['matching', 'Сопоставление', 'orders'], ['design', 'Проектирование', 'board'], ['work', 'В работе', 'ops'], ['products', 'Продукция', 'stock'], ['offers', 'КП', 'orders'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners'], ['staff', 'Сотрудники', 'partners'], ['stock-mobile', 'Склад · мобильный', 'stock']];
 /** Стартовый экран: роль «Ассистент кладовщика» — сразу своя страница. */
-const defaultSection = () => (session.onlyStockMobile ? 'stock-mobile' : 'home');
+const defaultSection = () => (session.onlyStockMobile ? 'stock-mobile' : isStockRole() ? 'stock' : 'home'); // трубарез, «Лазер лист» — сразу своя таблица (2026-11-06)
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
 const OWNER = { salesorder: 'salesorders', orderedit: 'salesorders', worklaunch: 'salesorders', designorder: 'design', prodreq: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', stockissue: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', invoicecard: 'requests', invoice: 'requests', contract: 'partners', staffcard: 'staff', zonecard: 'staff', incpay: 'money', incprice: 'money', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog',
   kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'docs', ptextview: 'docs', ptnode: 'docs', passports: 'docs', passarchive: 'docs', orderpass: 'docs', doctpl: 'docs' };
@@ -142,7 +142,7 @@ const isPipeRole = () => session.user?.roleLabel === 'Трубарез';
 const isSheetRole = () => session.user?.roleLabel === 'Лазер лист';
 /** Этим ролям открыт только склад: справочники, корзина и история закрыты (пользователь 2026-10-30). */
 const STOCK_ROLE_SECTIONS = new Set(['home', 'stock', 'stock-mobile', 'movements', 'help']);
-const isStockRole = () => isPipeRole() || isSheetRole();
+const isStockRole = () => isPipeRole() || isSheetRole(); const adminSees = (params, v) => (session.role === 'admin' || session.user?.isOwner) && params?.view === v; // админ смотрит экраны ролей склада (2026-11-06)
 
 function showLogin(message) {
   stopRain();
@@ -236,7 +236,7 @@ function shell() {
     // «Сопоставление» не в меню (C016/C017): вход из Заказов и бейджа «не сопоставлено»; #matching и права в NAV оставляем
     group('Производство', navLinks.salesorders, navLinks.design, navLinks.work),
     group('Продукция', navLinks.products, navLinks.offers, session.canEdit ? navLinks.docs : null),
-    group('Склад', navLinks.stock, navLinks['stock-mobile']), // «Склад · мобильный» — кладовщику с телефона: выдать, принять
+    group('Склад', navLinks.stock, navLinks['stock-mobile'], ...(navLinks.stock && (session.role === 'admin' || session.user?.isOwner) ? [link('stock?view=pipe', 'Экран трубареза', 'stock'), link('stock?view=sheet', 'Экран «Лазер лист»', 'stock')] : [])), // «Склад · мобильный» — кладовщику с телефона: выдать, принять
     group('Снабжение', navLinks.requests, navLinks.suppliercatalog, navLinks.contracts),
     session.canMoney ? group('Деньги', navLinks.money, FEATURES.payroll && session.canMoney && session.canPayroll ? navLinks.payroll : null) : null,
     group('Управление', navLinks.staff),
@@ -385,7 +385,7 @@ let card = null;          // { key, handle }
 
 function closeCard() { if (card) { card.handle.close(); card = null; } }
 /** Экран пересоздаётся только при смене раздела (и поиска по всему — у него свой запрос); остальное — update(). */
-const screenKey = (section, params) => (section === 'passports' ? 'docs' : section) + (section === 'search' ? '?' + (params.q || '') : '');
+const screenKey = (section, params) => (section === 'passports' ? 'docs' : section) + (section === 'search' ? '?' + (params.q || '') : '') + (section === 'stock' && params.view ? ':' + params.view : '');
 
 function render(c) {
   // Отложенный lazy callback не обходит незавершённый guard программного перехода.
@@ -415,7 +415,7 @@ function render(c) {
   // старый раздел «Операции» (SK-4b): адреса #ops?mode=… открывают «Склад» с нужной панелью справа
   // SK-8b: раздел снят с роли — прямой адрес ведёт на «Сегодня» с подсказкой, без ошибки
   if (!allowed(section) || (session.onlyStockMobile && section !== 'stock-mobile') || (isStockRole() && !STOCK_ROLE_SECTIONS.has(section))) {
-    toast(`Раздел «${titleOf(OWNER[section] || section) || 'этот'}» для вашей роли закрыт — открыто «Сегодня».`);
+    toast(`Раздел «${titleOf(OWNER[section] || section) || 'этот'}» для вашей роли закрыт — открыто «${titleOf(defaultSection()) || 'Сегодня'}».`);
     go(defaultSection(), {}, { replace: true }); return;
   }
   // старый адрес #passports (ссылки из изделия, заказа, истории): «Архив паспортов» в «Документации», карточка — только просмотр и печать
@@ -435,8 +435,8 @@ function render(c) {
     let list = null;
     // ОШ2: раздел упал при отрисовке — в сборщик и «Не открылось · Повторить» на его месте, а не пустой экран
     try {
-    if (section === 'stock' && isPipeRole()) list = FN.mountPipeGrid();
-    else if (section === 'stock' && isSheetRole()) list = FN.mountSheetGrid();
+    if (section === 'stock' && (isPipeRole() || adminSees(params, 'pipe'))) list = FN.mountPipeGrid();
+    else if (section === 'stock' && (isSheetRole() || adminSees(params, 'sheet'))) list = FN.mountSheetGrid();
     else if (section === 'docs') list = FN.mountDocs(params, { onChanged: () => refreshCounts() });
     else if (section === 'requests') list = FN.mountRequests(params, (p) => mountList(sec, p, {
       onOpen: (row) => openRecord(section, row.id),

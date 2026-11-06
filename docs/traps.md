@@ -17,3 +17,6 @@
 - Метки и пустые значения в PDF — только через `backend/src/common/print` (`fill-text.ts`: `fillBlanks`, `printSafe`; `safe-doc.ts`: `guardDoc` на каждый `new PDFDocument`). В PDF не уходят `{…}`, `undefined`, `null`, `NaN`, `[object Object]`, `Invalid Date`: рукописное поле (число, ФИО, дата) → линия `____`, необязательная фраза без значения не печатается, остаток ловит предохранитель (предупреждение в лог `print`, без ошибки).
 - Паспорт: списки линий и необязательных фраз — `product-passport/passport-blanks.ts`; новая метка в `passport-texts.v2.json` без записи в `LABEL_SOURCES` валит тест.
 - Новый PDF-документ: `guardDoc(new PDFDocument(...), "название")` + тест в `common/print/print-documents.spec.ts`.
+
+## Перенос файлов приложения (2026-11-06)
+- Старая копия в браузере (service worker) догружает недостающие модули с сервера, а там уже новая версия. Файл переехал (ui/x.js → ui/kit/x.js) — старый раздел падает («трубарез не видит свою страницу», копия от 04.11). С 2026-11-06 loadSec в main.js сам один раз включает новую версию (ecoverStale в core/update-check.js). Человеку со старой копией — «Обновить систему» внизу меню или Ctrl+F5.
