@@ -1428,8 +1428,8 @@ body[data-sec] .matching-screen .page-head{border-bottom:0;padding-bottom:0;marg
 .st-row:hover { border-color: var(--primary); }
 .st-row.off { opacity: .6; }
 .st-main { display: grid; gap: 2px; min-width: 0; }
-.st-zones { display: flex; flex-wrap: wrap; gap: var(--s1); }
-.st-zones .tag { cursor: inherit; height: 24px; }
+.st-zones { display: flex; flex-wrap: wrap; gap: var(--s1); min-width: 0; max-width: 100%; }
+.st-zones .tag { cursor: inherit; height: 24px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .st-none { color: var(--danger); font-weight: 600; }
 .st-blocks { display: grid; gap: var(--s4); }
 .st-block { display: grid; gap: var(--s2); }
