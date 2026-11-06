@@ -4,7 +4,8 @@ import { date, isoDay, qty } from '../core/format.js';
 import { ORDER_PRIORITY } from './kit/badges.js';
 import { confirmDlg } from './kit/dialog.js';
 import { photoDrop } from './kit/photos.js';
-import { toastError } from './kit/toast.js';
+import { openPopMenu } from './kit/pop-menu.js';
+import { toast, toastError } from './kit/toast.js';
 import { section } from './kit/index.js';
 
 /**
@@ -81,20 +82,58 @@ const block = (title, tone, count, ...kids) => section({ title, tone, count, ope
 export function photosBlock(row, ctx, canEdit) {
   const pics = () => row.photos || (row.photos = []);
   const strip = h('div', { class: 'pf-strip' });
+  // «Заменить» (РУ-1): id фото, которое заменят; следующий загруженный файл (выбор, перетаскивание, Ctrl+V) встанет на его место
+  let replaceId = null;
+  let offPick = null; // клик мимо блока «Фото» — выйти из режима замены
+  const stopReplace = () => { replaceId = null; if (offPick) { document.removeEventListener('click', offPick); offPick = null; } };
   const paint = () => {
     strip.replaceChildren(...pics().map((p) => h('div', { class: 'pf-item' },
       h('img', { src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy', decoding: 'async', title: 'Открыть фото', onclick: () => window.open(PREFIX + p.url, '_blank') }),
-      canEdit ? h('button', { type: 'button', class: 'pf-del', title: 'Убрать фото', 'aria-label': 'Убрать фото', onclick: async () => {
-        if (!(await confirmDlg('Убрать фото?', 'Фото пропадёт из задачи.', { okText: 'Убрать' }))) return;
-        try { await api(`/design-tasks/${row.id}/photos/${p.id}`, { method: 'DELETE' }); row.photos = pics().filter((x) => x.id !== p.id); paint(); ctx.changed(); } catch (e) { toastError(e, 'убрать фото'); }
-      } }, '×') : null)));
+      canEdit ? h('button', { type: 'button', class: 'pf-del', title: 'Действия с фото', 'aria-label': 'Действия с фото', 'aria-haspopup': 'menu', onclick: (e) => photoMenu(e.currentTarget, p) }, '⋯') : null)));
     strip.hidden = !pics().length;
     hint.textContent = pics().length >= PHOTO_LIMIT ? `Загружено ${PHOTO_LIMIT} из ${PHOTO_LIMIT} — это предел. Уберите ненужные, чтобы добавить новые.` : '';
     drop.hidden = pics().length >= PHOTO_LIMIT;
   };
   const hint = h('div', { class: 'db-hint' });
+  const remove = async (p) => {
+    if (!(await confirmDlg('Убрать фото?', 'Фото пропадёт из задачи.', { okText: 'Убрать' }))) return;
+    try { await api(`/design-tasks/${row.id}/photos/${p.id}`, { method: 'DELETE' }); row.photos = pics().filter((x) => x.id !== p.id); paint(); ctx.changed(); } catch (e) { toastError(e, 'убрать фото'); }
+  };
+  /** «Заменить»: сразу открывается выбор файла; перетащить в зону «Фото» или Ctrl+V заменят то же фото (до клика мимо блока). */
+  const replace = (p) => {
+    replaceId = p.id;
+    toast('Выберите новое фото — оно встанет на место старого');
+    drop.querySelector('input[type="file"]')?.click();
+    if (!offPick) {
+      offPick = (ev) => { if (!ev.target.closest || !ev.target.closest('.dc-photos')) stopReplace(); };
+      setTimeout(() => document.addEventListener('click', offPick), 0);
+    }
+  };
+  const photoMenu = (anchor, p) => openPopMenu({ anchor, side: 'down', groups: [{ items: [
+    { label: 'Заменить…', onSelect: () => replace(p) },
+    { label: 'Убрать', danger: true, onSelect: () => remove(p) },
+  ] }] });
   const drop = canEdit ? photoDrop({
-    attach: async (photoId, p) => { await api(`/design-tasks/${row.id}/photos`, { method: 'POST', body: { photoId } }); pics().push({ id: photoId, ...p }); return pics(); },
+    attach: async (photoId, p) => {
+      const oldId = replaceId;
+      const at = oldId ? pics().findIndex((x) => x.id === oldId) : -1;
+      if (oldId) stopReplace();
+      if (at >= 0) {
+        const old = pics()[at];
+        await api(`/design-tasks/${row.id}/photos`, { method: 'POST', body: { photoId, replacePhotoId: oldId } });
+        pics()[at] = { id: photoId, ...p };
+        toast('Фото заменено', { undo: async () => {
+          await api(`/design-tasks/${row.id}/photos`, { method: 'POST', body: { photoId: oldId, replacePhotoId: photoId } });
+          const i = pics().findIndex((x) => x.id === photoId);
+          if (i >= 0) pics()[i] = old;
+          paint(); ctx.changed();
+        } });
+        return pics();
+      }
+      await api(`/design-tasks/${row.id}/photos`, { method: 'POST', body: { photoId } });
+      pics().push({ id: photoId, ...p });
+      return pics();
+    },
     done: () => { paint(); ctx.changed(); },
   }) : h('span');
   paint();

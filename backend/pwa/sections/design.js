@@ -6,7 +6,7 @@ import { badge, board as mountBoard, button, sku as kitSku, layout, section, sta
 import { designSide } from './design-side.js';
 import { staffOptions } from './passports/common.js';
 import { taskMenu } from './design-menu.js';
-import { askAssignee, askReason } from './design-data.js';
+import { askAssignee, askReason, batchMoveTasks } from './design-data.js';
 import { carousel } from '../ui/kit/gallery.js';
 import { discussionBlock, questionBadge } from '../ui/design-notes.js';
 import { photosBlock, stickerRow, stickersBlock, visibleStickers } from '../ui/design-stickers.js';
@@ -106,6 +106,20 @@ const toInitial = (r) => ({
   deadline: r.deadlineFromOrder || !r.deadline ? '' : String(r.deadline).slice(0, 10),
   priority: r.priorityFromOrder || r.priority === 'normal' ? '' : r.priority,
 });
+
+// ---------- мультивыбор на доске (РУ-4) ----------
+/** Какие столбцы доски сейчас отмечены чекбоксами: выделение живёт внутри mountBoard (kit), читаем по DOM. */
+const pickedCols = () => [...document.querySelectorAll('.board .tcard.selected')].map((x) => x.closest('.col')?.dataset.key).filter(Boolean);
+/** Чекбоксы в «Распределении» и «В работе»: из распределения — в работу одним исполнителем; из работы — завершить / пауза / отмена. */
+const boardMulti = {
+  get label() {
+    const ks = [...new Set(pickedCols())];
+    if (ks.length === 1 && ks[0] === 'queue') return 'Взять в работу';
+    if (ks.length === 1 && ks[0] === 'work') return 'Перевести…';
+    return 'Отметьте задачи в одном столбце';
+  },
+  run: (rows) => batchMoveTasks(rows, people),
+};
 
 // ---------- карточка: шапка, сводка, галерея ----------
 const pair = (k, v, cls) => (v === null || v === undefined || v === '' ? [] : [h('dt', { class: cls }, k), h('dd', { class: cls }, v)]);
@@ -234,8 +248,8 @@ export const design = {
       group: (r) => (r.orderId ? { key: String(r.orderId), label: clean(r.productionNo) ? '№ ' + clean(r.productionNo) : 'Заказ, нет №', sub: clean(r.customer) } : null),
       cardMenu: (r) => taskMenu(r, { people, moveTask }),
       columns: [
-        { key: 'queue', label: STATUS.queue.label, tone: 'dim', emptyText: 'Пусто. Задачи приходят из заказов: кнопка «Передать в проектирование»', query: { status: 'queue', sort: 'seq' } },
-        { key: 'work', label: STATUS.work.label, tone: 'info', query: { status: 'work', sort: 'seq' } },
+        { key: 'queue', label: STATUS.queue.label, tone: 'dim', multi: boardMulti, emptyText: 'Пусто. Задачи приходят из заказов: кнопка «Передать в проектирование»', query: { status: 'queue', sort: 'seq' } },
+        { key: 'work', label: STATUS.work.label, tone: 'info', multi: boardMulti, query: { status: 'work', sort: 'seq' } },
         { key: 'paused', label: STATUS.paused.label, tone: 'warn', compact: true, portion: true, per: 20, query: { status: 'paused', sort: 'seq' } },
         { key: 'done', label: STATUS.done.label, tone: 'ok', compact: true, portion: true, per: 20, query: { status: 'done', sort: '-completedAt' } },
         { key: 'cancelled', label: STATUS.cancelled.label, tone: 'dim', compact: true, portion: true, per: 20, emptyText: 'Пусто. Сюда — снятые задачи (расторжение договора и т. п.)', query: { status: 'cancelled', sort: '-createdAt' } },

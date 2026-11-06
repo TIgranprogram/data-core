@@ -1,6 +1,7 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { confirmDlg, modal, enhanceSelect, toast, toastError } from '../ui/kit/index.js';
+import { plural } from '../core/format.js';
+import { actions, button, confirmDlg, modal, enhanceSelect, toast, toastError } from '../ui/kit/index.js';
 
 /**
  * Данные и окна «Проектирования» (сама доска — эталон ui/kit/board.js, настроена в sections/design.js).
@@ -26,6 +27,54 @@ export function askAssignee(people, { okText = 'Назначить и взять
   queueMicrotask(() => enhanceSelect(sel));
   return modal({ title: 'Кто проектирует?', body: h('label', { class: 'field' }, h('span', null, 'Исполнитель'), sel), okText,
     onOk: () => { if (!sel.value) throw new Error('Выберите исполнителя.'); return sel.value; } });
+}
+/** Куда перевести отмеченные задачи «В работе»: 'done' | 'paused' | 'cancelled' | null (отмена). */
+function askBatchMove(n) {
+  const pick = (value) => (ev) => { const form = ev.target.closest('form'); form.dataset.choice = value; form.requestSubmit(); };
+  // главная кнопка окна — «Завершить»; «Не переводить» — закрыть без изменений (дизайнер 2026-11-06: не путать с «Отменить»)
+  return modal({ title: `Перевести ${n} ${plural(n, 'задачу', 'задачи', 'задач')}`, okText: 'Завершить', cancelText: 'Не переводить', body: h('div', null,
+    h('p', { class: 'hint' }, 'Действие применится ко всем отмеченным задачам в работе. Или выберите другое:'),
+    actions(
+      button({ label: 'Приостановить', onClick: pick('paused') }),
+      button({ label: 'Снять с проектирования', kind: 'danger', onClick: pick('cancelled') }))),
+    onOk: (form) => form.dataset.choice || 'done' });
+}
+/**
+ * Перевести несколько задач доски разом (РУ-4): из «Распределения» — в работу, исполнитель один на всех;
+ * из «В работы» — завершить, приостановить или отменить, причина одна на всех. Отмена окон ничего не меняет.
+ * Журнал — по каждой задаче, как при одиночном переносе. Возвращает число переведённых (0 — отменили).
+ */
+export async function batchMoveTasks(rows, people) {
+  const from = [...new Set(rows.map((r) => r.status))];
+  if (from.length !== 1) { toast('Отметьте задачи в одном столбце', { tone: 'warn' }); return 0; }
+  const was = rows.map((r) => ({ id: r.id, status: r.status, assigneeId: r.assigneeId || null, pauseReason: r.pauseReason || null }));
+  const body = {};
+  if (from[0] === 'queue') {
+    const who = await askAssignee(await people());
+    if (!who) return 0;
+    Object.assign(body, { status: 'work', assigneeId: who });
+  } else if (from[0] === 'work') {
+    const to = await askBatchMove(rows.length);
+    if (!to) return 0;
+    if (to === 'done') Object.assign(body, { status: 'done' });
+    else {
+      const why = await askReason(to);
+      if (!why) return 0;
+      Object.assign(body, { status: to, pauseReason: why });
+    }
+  } else { toast('Пачкой — задачи из «Распределения» и «В работе»', { tone: 'warn' }); return 0; }
+  let n = 0;
+  for (const r of rows) { await api(`/design-tasks/${r.id}`, { method: 'PATCH', body }); n++; }
+  const label = { work: 'В работе', done: 'Завершено', paused: 'Приостановлено', cancelled: 'Отменено' }[body.status];
+  toast(`${label}: ${n} ${plural(n, 'задача', 'задачи', 'задач')}`, { undo: async () => {
+    for (const w of was) await api(`/design-tasks/${w.id}`, { method: 'PATCH', body: {
+      status: w.status,
+      assigneeId: w.assigneeId,
+      ...(w.status === 'paused' || w.status === 'cancelled' ? { pauseReason: w.pauseReason || 'Возврат после отмены' } : {}),
+    } });
+    changed();
+  } });
+  return n;
 }
 
 // ---------- данные: приведение ответа сервера к одному виду ----------

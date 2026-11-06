@@ -60,13 +60,13 @@ export class DesignController {
     return this.design.update(id, dto, user?.id);
   }
 
-  /** Фото задачи: photoId из POST /api/photos/upload. user — только своя или ничья задача. */
+  /** Фото задачи: photoId из POST /api/photos/upload; с replacePhotoId — «Заменить» (новое на место старого). user — только своя или ничья задача. */
   @Post(':id/photos')
   @HttpCode(200)
   @Roles('admin', 'manager', 'user')
   @AuditAction({ action: 'designtask.photo.added', entityType: 'DesignTask', idParam: 'id' })
   addPhoto(@Param('id') id: string, @Body() dto: PhotoDto, @CurrentUser() user?: AuthenticatedUser) {
-    return this.extras.addPhoto(id, dto.photoId, user);
+    return this.extras.addPhoto(id, dto.photoId, user, dto.replacePhotoId);
   }
 
   @Delete(':id/photos/:photoId')

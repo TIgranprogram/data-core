@@ -380,6 +380,35 @@ describe('DesignService', () => {
       await extras.addPhoto(mine.id, String(ph._id), { id: String(id()), username: 'm', role: 'manager' }); // manager — любая
     });
 
+    it('замена фото (РУ-1): новое на месте старого, порядок сохранён, лимит не мешает, журнал — «убрано»', async () => {
+      const audit = { log: jest.fn() };
+      const by: Record<string, Coll> = { salesorders: orders, incomes, persons, products, photos, designnotes: new Coll() };
+      const ex = new DesignExtrasService({ db: { collection: (n: string) => by[n] } } as never, tasks as never, stickerSvc, audit as never);
+      const t = await service.create({ title: 'Эскиз' });
+      const ph = [id(), id(), id()].map((x) => ({ _id: x, storageUrl: `/uploads/${x}.jpg` }));
+      photos.rows.push(...ph);
+      await ex.addPhoto(t.id, String(ph[0]._id));
+      await ex.addPhoto(t.id, String(ph[1]._id));
+      // заменить первое: новое на его месте, второе на своём; в журнале — парное «убрано»
+      const r = await ex.addPhoto(t.id, String(ph[2]._id), undefined, String(ph[0]._id));
+      expect(r.photoIds).toEqual([String(ph[2]._id), String(ph[1]._id)]);
+      expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({
+        action: 'designtask.photo.removed', entityType: 'DesignTask', entityId: t.id,
+        details: { before: { photoId: String(ph[0]._id) }, after: { photoId: String(ph[2]._id) } },
+      }));
+      expect(audit.log).toHaveBeenCalledTimes(1); // обычное добавление журнал руками не пишет
+      // заменяемого нет в задаче и файла нет — понятные отказы
+      await expect(ex.addPhoto(t.id, String(ph[2]._id), undefined, String(ph[0]._id))).rejects.toThrow('Заменяемое фото не найдено');
+      await expect(ex.addPhoto(t.id, String(id()), undefined, String(ph[1]._id))).rejects.toThrow('Фото не найдено');
+      // на пределе (20) замена разрешена: число фото не растёт
+      for (let k = 0; k < 18; k++) { const p = { _id: id(), storageUrl: '/uploads/x.jpg' }; photos.rows.push(p); await ex.addPhoto(t.id, String(p._id)); }
+      const extra = { _id: id(), storageUrl: '/uploads/y.jpg' };
+      photos.rows.push(extra);
+      const full = await ex.addPhoto(t.id, String(extra._id), undefined, String(ph[2]._id));
+      expect(full.photoIds).toHaveLength(20);
+      expect(full.photoIds[0]).toBe(String(extra._id));
+    });
+
     it('роли: фото и значения — admin/manager/user, настройки стикеров — admin', () => {
       const roles = (c: object, m: string) => Reflect.getMetadata(ROLES_KEY, (c as { prototype: Record<string, object> }).prototype[m]);
       expect(roles(DesignController, 'addPhoto')).toEqual(['admin', 'manager', 'user']);

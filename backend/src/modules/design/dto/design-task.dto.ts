@@ -41,6 +41,7 @@ export class AddDesignOrderDto {
 
 export class PhotoDto {
   @ApiProperty({ description: 'Фото из POST /api/photos/upload' }) @IsMongoId() photoId!: string;
+  @ApiPropertyOptional({ description: 'Заменяемое фото задачи: новое встанет на его место («Заменить» в карточке)' }) @IsOptional() @IsMongoId() replacePhotoId?: string;
 }
 
 export class StickerValuesDto {

@@ -1,8 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
 import { oid } from '../../common/list-query';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { AuditService } from '../audit/audit.service';
 import { DesignStickerService } from './design-sticker.service';
 import { DesignTask, type DesignTaskDocument } from './design-task.schema';
 import { presentTasks } from './design-present';
@@ -17,6 +18,7 @@ export class DesignExtrasService {
     @InjectConnection() private readonly connection: Connection,
     @InjectModel(DesignTask.name) private readonly model: Model<DesignTaskDocument>,
     private readonly stickers: DesignStickerService,
+    @Optional() private readonly audit?: AuditService,
   ) {}
 
   private async editable(id: string, user?: AuthenticatedUser) {
@@ -36,11 +38,23 @@ export class DesignExtrasService {
     return (await presentTasks(this.connection, [doc as unknown as Doc]))[0];
   }
 
-  async addPhoto(id: string, photoId: string, user?: AuthenticatedUser) {
+  /** Добавить фото; с `replacePhotoId` — «Заменить» (РУ-1): новое встаёт на место старого, в журнале — «убрано» + «добавлено». */
+  async addPhoto(id: string, photoId: string, user?: AuthenticatedUser, replacePhotoId?: string) {
     const { _id, t } = await this.editable(id, user);
     const pid = oid(photoId, 'фото');
     if (!(await this.connection.db!.collection('photos').findOne({ _id: pid }, { projection: { _id: 1 } }))) throw new NotFoundException('Фото не найдено — загрузите ещё раз');
     const have = (t.photoIds as unknown[] | undefined) ?? [];
+    if (replacePhotoId) {
+      const rid = oid(replacePhotoId, 'заменяемого фото');
+      const at = have.findIndex((x) => String(x) === String(rid));
+      if (at < 0) throw new NotFoundException('Заменяемое фото не найдено в задаче — обновите карточку');
+      const next = have.filter((x) => String(x) !== String(rid));
+      next.splice(at, 0, pid);
+      await this.model.updateOne({ _id, deletedAt: null }, { $set: { photoIds: next } }).exec();
+      // «добавлено» пишет @AuditAction контроллера; сюда — парное «убрано», как при замене вручную
+      await this.audit?.log({ action: 'designtask.photo.removed', entityType: 'DesignTask', entityId: id, userId: user?.id, userName: user?.username, details: { before: { photoId: String(rid) }, after: { photoId: String(pid) } } });
+      return this.present(_id);
+    }
     if (have.length >= MAX_PHOTOS && !have.some((x) => String(x) === String(pid))) throw new BadRequestException(`К задаче можно прикрепить не больше ${MAX_PHOTOS} фото`);
     await this.model.updateOne({ _id, deletedAt: null }, { $addToSet: { photoIds: pid } }).exec();
     return this.present(_id);
