@@ -391,3 +391,4 @@ button.m-fg-h { cursor: pointer; }
 .ep-hist > summary { cursor: pointer; font-weight: 600; }
 .ep-hist-body { margin-top: var(--s3); }
 @media (max-width: 720px) { .ep-grid { grid-template-columns: 1fr; } }
+.k-select { min-width: 0; max-width: 100%; }

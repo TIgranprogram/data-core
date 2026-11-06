@@ -13,10 +13,17 @@ const TONES = ['info', 'warn', 'danger', 'ok'];
 const nodes = (x) => [].concat(x ?? []).filter((n) => n !== null && n !== false && n !== '');
 const quiet = (node) => { for (const t of ['pointerdown', 'click', 'keydown']) node.addEventListener(t, (e) => e.stopPropagation()); return node; };
 
-/** button({ label, kind: 'primary'|'secondary'|'ghost'|'danger', size: 'M'|'S', icon?, onClick, busy?, disabled?, title?, type? }) → .btn */
-export function button({ label, kind = 'secondary', size = 'M', icon, onClick, busy = false, disabled = false, title, type = 'button' } = {}) {
-  const cls = ['btn', kind === 'primary' ? 'btn-primary' : kind === 'ghost' ? 'btn-ghost' : kind === 'danger' ? 'btn-danger' : '', size === 'S' ? 'btn-sm' : '', busy ? 'is-busy' : ''].filter(Boolean).join(' ');
+/** button({ label, kind: 'primary'|'secondary'|'ghost'|'danger', size: 'M'|'S', icon?, onClick, busy?, disabled?, title?, type?, cls? }) → .btn (cls — только для раскладки/состояния: mob-arr-accept и т.п.) */
+export function button({ label, kind = 'secondary', size = 'M', icon, onClick, busy = false, disabled = false, title, type = 'button', cls: extra } = {}) {
+  const cls = ['btn', kind === 'primary' ? 'btn-primary' : kind === 'ghost' ? 'btn-ghost' : kind === 'danger' ? 'btn-danger' : '', size === 'S' ? 'btn-sm' : '', busy ? 'is-busy' : '', extra || ''].filter(Boolean).join(' ');
   return mark(h('button', { type, class: cls, disabled: disabled || busy, title, onclick: onClick }, icon || null, label), 'button');
+}
+
+/** select({ options: [[value,label]|{value,label}], value, onChange(value), label (aria), disabled?, cls? }) → <select class="k-select"> — единственная фабрика выпадающего списка без поиска */
+export function select({ options = [], value, onChange, label, disabled = false, cls } = {}) {
+  const el = h('select', { class: 'k-select' + (cls ? ' ' + cls : ''), 'aria-label': label || null, disabled, onchange: (e) => onChange?.(e.target.value) },
+    ...options.map((o) => { const [v, l] = Array.isArray(o) ? o : [o.value, o.label]; return h('option', { value: v, selected: String(v) === String(value) }, l); }));
+  return mark(el, 'select');
 }
 
 /** badge(map, key) — как badges.js; badge('Текст', 'ok'|'warn'|'danger'|'info'|'dim') — одиночная метка → .badge */
