@@ -61,9 +61,11 @@
    Сумма НДС — `total × rate / (100 + rate)`, 2 знака. Метки — через `common/print` (без `undefined`, `null`, `{…}`).
 4. `POST /offers/preview`, `POST /offers/:id/copy`, `GET /offers/defaults`, `PATCH /offers/backgrounds/:id`.
 5. Юнит: НДС (680 000 → 122 622,95), копия +3 % (680 000 → 700 400) и +5 % (→ 714 000), зоны бланка, preview не пишет в базу.
-6. `docs/openapi.json` (перегенерировать), `docs/MAP.md` строка `offers`.
+6. **Фирма «только для КП» (решение пользователя 2026-11-06):** «Приват-деал» — только в КП, в «Деньгах» (доходы, расходы, платёжный календарь, ФОТ, заказы) её нет вообще. Признак — в своей настройке data-core (модуль `setting`, ключ `offers.onlyCompanyIds: string[]`), **не** поле в `organizations` (общая с CRM). `ourCompanies()` (`incomes/incomes.service.ts:36`) по умолчанию исключает эти фирмы; КП берут полный список через новый `GET /offers/companies` → `{items:[{id,name,offersOnly}],total}`. Старых денег у «Приват-деал» нет — проверить чтением, есть — сказать координатору.
+7. `docs/openapi.json` (перегенерировать), `docs/MAP.md` строка `offers`.
 
 ### Этап 2 — экран (datacore-frontend, после этапа 1, skill `datacore-design`)
+0. Список «Наша компания» в форме КП — из `GET /offers/companies` (не `incomeLookups`). В «Наши компании» у фирмы — галочка «Только для КП (в Деньгах не показывать)».
 1. Форма КП (`pwa/sections/offers.js:120–139`): в «Предложение» — «Объект» (textarea, после «Заказчик»); в «Условия» — «НДС» (с НДС / без НДС) + «Ставка, %»; «Доставка до объекта» (включена / не включена). При выборе фирмы в новом КП — подставить `GET /offers/defaults` в «Условия» и НДС, если поле ещё пустое.
 2. **Предпросмотр:** в форме кнопка «Предпросмотр» → большое окно с PDF (`POST /offers/preview`, blob → `<iframe>`), кнопки «Обновить», «Печать», «Скачать PDF», «Вернуться к правке». Ввод остаётся в правой панели (CANON); окно — только просмотр. После сохранения — то же окно из карточки КП (по `GET /offers/:id/pdf`).
 3. Карточка КП: действие «Копия для другой фирмы» → выбор фирмы + «Наценка, %» → открыть новую копию.
@@ -84,13 +86,14 @@
 ## Файлы
 - Читать: `backend/src/modules/offers/*` (весь модуль, ~1000 строк), `backend/src/common/print/*`, `backend/pwa/sections/offers.js`, `backend/pwa/sections/partners.js:80–130`.
 - Читать запрещено: DESIGN/CANON/HISTORY/TASKS целиком, `docs/openapi.json` целиком, `organization/*` кроме `organization.schema.ts:50–180` (только чтение `vatRate`).
-- Менять (backend): `backend/src/modules/offers/*`, `backend/test/e2e/offers*` · (frontend): `backend/pwa/sections/offers.js`, `backend/pwa/sections/partners.js`, `backend/pwa/help-flow-data.js`.
+- Менять (backend): `backend/src/modules/offers/*`, `backend/src/modules/incomes/incomes.service.ts:36–39` (только `ourCompanies`), `backend/src/modules/setting/*` (если нужен ключ), `backend/test/e2e/offers*` · (frontend): `backend/pwa/sections/offers.js`, `backend/pwa/sections/partners.js`, `backend/pwa/help-flow-data.js`.
 
 ## Критерии приёмки (qa)
 - [ ] КП: мостик 5×2 м, 1 шт, 680 000 ₽, СпортИН-ЮГ → PDF: объект, «в том числе НДС 22 %: 122 622,95 ₽», «Доставка до объекта включена», «Срок действия — 10 календарных дней»; текст не залезает на шапку и подпись бланка.
 - [ ] «Копия для другой фирмы» +3 % → СпортСтройЮГ 700 400 ₽; +5 % → Приват-деал 714 000 ₽; у копий свой бланк.
 - [ ] Предпросмотр нового КП работает до сохранения; номер не тратится; в базе записи нет.
 - [ ] Новое КП берёт стандартные тексты фирмы; правка текста в КП не меняет шаблон.
+- [ ] «Приват-деал» есть в списке фирм КП и нет ни в одном списке «Денег» (доходы, расходы, календарь, сводка, заказы).
 - [ ] Старые КП печатаются как раньше (нет новых полей — нет новых строк, кроме НДС по ставке фирмы).
 - [ ] smoke: `npx tsc --noEmit` 0, `npx jest offers --silent`, `node --input-type=module --check < backend/pwa/sections/offers.js`; перед выкладкой — full + строка TEST-LOG.
 
