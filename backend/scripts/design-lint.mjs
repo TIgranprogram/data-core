@@ -19,6 +19,10 @@
 // Запуск из корня: node backend/scripts/design-lint.mjs [--max N] — код выхода 1, если находок больше N (по умолч. 0).
 import { readFileSync, readdirSync, statSync, writeFileSync, existsSync } from 'fs';
 import { join, relative, dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
+
+// прямой запуск — весь линтер; импорт (тест L3) — только разбор классов ниже
+const isMain = process.argv[1] ? resolve(process.argv[1]) === fileURLToPath(import.meta.url) : true;
 
 const BS = String.fromCharCode(92);
 const norm = (p) => p.split(BS).join('/');
@@ -128,11 +132,12 @@ for (const c of ownClasses) delete cur.classes[c];
 
 // ---------- Волна 0: L2–L9 ----------
 const RAW = /\bh\(\s*['"`](button|table|select|textarea|details|dialog|input)['"`]/;
-const CLS = /\b(?:class|className)\s*[:=]\s*(.*)$|classList\.(?:add|toggle|remove)\(([^)]*)\)/;
 const kitSet = new Set(parsed.filter((p) => inKit(p.r)).flatMap((p) => p.sels.flatMap((s) => classesOf(s.sel))));
-const litParts = (expr) => {
+/** Строковые литералы выражения → слова-классы (в шаблоне — вне ${…}; приклеенные к подстановке не считаются). */
+export const litParts = (expr) => {
   const res = [];
-  for (const m of expr.matchAll(/'([^'\n]*)'|"([^"\n]*)"|`([^`\n]*)`/g)) {
+  const src = String(expr).replace(/\$\{[^}]*\}/g, ' '); // литералы внутри ${…} — не классы
+  for (const m of src.matchAll(/'([^'\n]*)'|"([^"\n]*)"|`([^`\n]*)`/g)) {
     const body = m[1] ?? m[2] ?? m[3] ?? '';
     const parts = body.split(/\$\{[^}]*\}/);
     parts.forEach((part, i) => part.split(/\s+/).filter(Boolean).forEach((c) => {
@@ -142,13 +147,31 @@ const litParts = (expr) => {
   }
   return res;
 };
+/** Выражение-значение, начиная с s[i]: до запятой или закрывающей скобки верхнего уровня (баланс скобок). */
+const readExpr = (s, i, stopComma = true) => {
+  let depth = 0; let out = '';
+  for (; i < s.length; i++) {
+    const c = s[i];
+    if ('([{'.includes(c)) depth++;
+    else if (')]}'.includes(c)) { if (depth === 0) break; depth--; } else if (c === ',' && stopComma && depth === 0) break;
+    out += c;
+  }
+  return out;
+};
+/** Значения классов из строки кода: только то, что стоит после class:/className= и литералы аргументов classList.add|toggle|remove. */
+export const classExprs = (line) => {
+  const exprs = [];
+  for (const m of line.matchAll(/(?:^|[^\w$])(?:class|className)\s*[:=]\s*/g)) exprs.push(readExpr(line, m.index + m[0].length));
+  for (const m of line.matchAll(/classList\.(?:add|toggle|remove)\s*\(/g)) exprs.push(readExpr(line, m.index + m[0].length, false));
+  return exprs.filter(Boolean);
+};
 for (const f of [...sectionJs, ...adminJs]) {
   const r = rel(f); const isSec = /\/sections\//.test('/' + r);
   readFileSync(f, 'utf8').split(/\r?\n/).forEach((l, i) => {
     if (/^\s*(\/\/|\*)/.test(l) || !isSec) return;
     const rm = l.match(RAW); if (rm) put('l2', `${r} | ${rm[1]}`, r, i + 1);
-    const cm = l.match(CLS);
-    if (cm) for (const c of litParts(cm[1] ?? cm[2] ?? '')) if (!kitSet.has(c) && !/^u-/.test(c)) put('l3', `${r} | ${c}`, r, i + 1);
+    const seen = new Set(); // один класс на строке — одно нарушение (даже если class: и classList на одной строке)
+    for (const expr of classExprs(l)) for (const c of litParts(expr)) if (!kitSet.has(c) && !/^u-/.test(c) && !seen.has(c)) { seen.add(c); put('l3', `${r} | ${c}`, r, i + 1); }
   });
 }
 for (const f of [...jsFiles.filter((f) => !inKit(rel(f))), ...adminJs]) {
@@ -286,4 +309,4 @@ const by = out.reduce((m, x) => ((m[x.rule] = (m[x.rule] || 0) + 1), m), {});
 for (const x of out) console.log(`${x.file}:${x.line}\t${x.rule}\t${x.text}`);
 console.log(`\nИтого новых: ${out.length}; всего сейчас ${curTotal}` + (out.length ? ' — ' + Object.entries(by).map(([k, v]) => `${k} ${v}`).join(', ') : ''));
 const max = process.argv.includes('--max') ? Number(process.argv[process.argv.indexOf("--max") + 1]) : 0;
-process.exit(out.length > max ? 1 : 0);
+if (isMain) process.exit(out.length > max ? 1 : 0);
