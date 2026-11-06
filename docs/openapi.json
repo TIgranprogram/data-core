@@ -18583,6 +18583,10 @@
           "photoId": {
             "type": "string",
             "description": "Фото из POST /api/photos/upload"
+          },
+          "replacePhotoId": {
+            "type": "string",
+            "description": "Заменяемое фото задачи: новое встанет на его место («Заменить» в карточке)"
           }
         },
         "required": [
