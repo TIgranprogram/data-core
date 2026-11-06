@@ -4,7 +4,7 @@ import { filter } from '../ui/kit/index.js';
 import { qty } from '../core/format.js';
 import { go } from '../core/router.js';
 import { toast, toastError } from '../ui/kit/toast.js';
-import { moveCell, reservedTable } from './pipe-grid.js';
+import { moveCell, noDrag, reservedTable } from './pipe-grid.js';
 
 /**
  * Экран «Листы» для роли «Лазер лист» (СМ.10): таблица как его Excel, без правой панели.
@@ -38,6 +38,7 @@ export function buildSheets(items) {
 /** Поле-ячейка: Enter и стрелки ходят по таблице, сохраняет при выходе из ячейки. */
 function field(cls, label, start, save) {
   const input = h('input', { class: cls, value: start, 'aria-label': label, ...(cls === 'pg-in' ? { inputmode: 'decimal' } : {}) });
+  noDrag(input); // только ввод — мышкой число в соседнюю ячейку не утащить
   let was = start;
   input.addEventListener('focus', () => input.select());
   input.addEventListener('blur', async () => {

@@ -3,7 +3,6 @@ import type { INestApplication } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { createTestApp, type TestContext } from '../setup/test-db';
 import { SupplyInvoiceService } from '../../src/modules/supply/supply-invoice.service';
-import { SupplyService } from '../../src/modules/supply/supply.service';
 import { authHeader, loginAsAdmin, type AuthTokens } from '../setup/admin.fixture';
 
 /** /api/supply/invoices — счета поставщиков: группой, правка с воротами, оплата, удаление. */
@@ -80,7 +79,9 @@ describe('Supply invoices', () => {
     // Приёмка одной строки фиксирует финансовые поля всего счёта, включая другую строку.
     await http().post(`/api/supply/invoices/${invId}/receive`).set(auth()).send({ requestIds: [a] }).expect(200);
     await http().patch(`/api/supply/invoices/${invId}`).set(auth()).send({ amount: 400 }).expect(400);
-    await http().patch(`/api/supply/invoices/${invId}/lines/${b}`).set(auth()).send({ unitPrice: 1 }).expect(400);
+    // решение 2026-11-06: цену после приёмки исправляет администратор (журнал admin.override); менеджеру — 400 (юнит-тесты)
+    await http().patch(`/api/supply/invoices/${invId}/lines/${b}`).set(auth()).send({ unitPrice: 1, reason: 'Сверка после приёмки' }).expect(200);
+    await http().patch(`/api/supply/invoices/${invId}/lines/${b}`).set(auth()).send({ unitPrice: 100, reason: 'Возврат тестовой суммы' }).expect(200);
     // метаданные — можно, с аудитом; № доезжает до строк
     await http().patch(`/api/supply/invoices/${invId}`).set(auth()).send({ no: '18' }).expect(200);
     expect(await row(a)).toMatchObject({ invoiceNo: '18', priceHint: 100 });
@@ -137,37 +138,12 @@ describe('Supply invoices', () => {
     } finally { release(); spy.mockRestore(); }
   });
 
-  it('T24: legacy PATCH после stale count блокируется barrier частичной приёмки', async () => {
-    const lineId = await mk({ title: 'T24 legacy PATCH race', qty: 2, supplierName: 'Крепёж', priceHint: 75 });
-    const made = await http().post('/api/supply/invoices').set(auth()).send({ requestIds: [lineId] }).expect(201);
-    const id = made.body.items[0].id as string;
+  it('реквизиты строки счёта через PATCH заявки — 400 сразу, строка не меняется (решение 2026-11-06)', async () => {
+    const lineId = await mk({ title: 'T24 legacy PATCH', qty: 2, supplierName: 'Крепёж', priceHint: 75 });
+    await http().post('/api/supply/invoices').set(auth()).send({ requestIds: [lineId] }).expect(201);
     const originalSupplier = await db().collection('organizations').findOne({ name: 'Крепёж' });
-    const supply = app.get(SupplyService) as unknown as { model: { countDocuments: (...args: unknown[]) => { exec: () => Promise<number> } } };
-    const original = supply.model.countDocuments.bind(supply.model);
-    let release!: () => void;
-    let passedPreflight!: () => void;
-    const gate = new Promise<void>((resolve) => { release = resolve; });
-    const reached = new Promise<void>((resolve) => { passedPreflight = resolve; });
-    let held = false;
-    const spy = jest.spyOn(supply.model, 'countDocuments').mockImplementation((...args: unknown[]) => {
-      const query = original(...args);
-      const filter = args[0] as { invoiceId?: unknown; status?: unknown } | undefined;
-      if (!held && filter?.invoiceId && filter.status === 'received') {
-        const exec = query.exec.bind(query);
-        query.exec = async () => { const count = await exec(); held = true; passedPreflight(); await gate; return count; };
-      }
-      return query;
-    });
-    try {
-      const patch = http().patch(`/api/supply/requests/${lineId}`).set(auth()).send({ supplierName: 'Другой поставщик' }).then((response) => response);
-      await reached;
-      await http().post(`/api/supply/requests/${lineId}/receive`).set(auth()).send({ qty: 1, partial: true }).expect(200);
-      release();
-      const response = await patch;
-      expect(response.status).toBe(400);
-      expect(await row(lineId)).toMatchObject({ qty: 1, receivedQty: 1, supplierId: originalSupplier!._id });
-      expect((await db().collection('supplyinvoices').findOne({ _id: new Types.ObjectId(id) }))?.receiptBoundaryAt).toBeInstanceOf(Date);
-    } finally { release(); spy.mockRestore(); }
+    await http().patch(`/api/supply/requests/${lineId}`).set(auth()).send({ supplierName: 'Другой поставщик' }).expect(400);
+    expect(await row(lineId)).toMatchObject({ qty: 2, supplierId: originalSupplier!._id });
   });
 
   it('удаление неоплаченного: заявки отвязаны и вернулись в «В заказ»', async () => {

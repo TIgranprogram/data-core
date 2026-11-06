@@ -536,7 +536,9 @@ export class SupplyService {
         const next = dto.statusLabel === undefined ? null : statusFromLabel(dto.statusLabel);
         if (next?.status === 'cancelled') throw new BadRequestException('Сначала уберите позицию из счёта (кнопка «Убрать» в счёте), затем отменяйте заявку');
         // статус строки счёта ведёт сам счёт: «Оплачен» — оплатой счёта, «Получено» — «Принять», выход — «Убрать»
-        if (next && next.status !== 'received' && (next.status !== cur.status || !!next.paid !== !!cur.paid)) {
+        // исключение: приход отменён в «Движениях» — принятая строка возвращается в «В работе» с той же оплатой (HARDEN-1)
+        const rollback = cur.status === 'received' && next?.status === 'ordered' && !!next.paid === !!cur.paid;
+        if (next && !rollback && next.status !== 'received' && (next.status !== cur.status || !!next.paid !== !!cur.paid)) {
           throw new BadRequestException('Статус позиции счёта меняется в счёте: «Счёт оплачен», «Принять» или «Убрать из счёта»');
         }
       } else if (dto.statusLabel !== undefined && cur?.paid) {

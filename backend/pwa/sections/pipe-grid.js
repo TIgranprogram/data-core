@@ -61,6 +61,16 @@ async function saveCell(row, c, value) {
   it.quantity = metres;
 }
 
+/**
+ * Ячейка — только ввод с клавиатуры (2026-11-06: мышкой утащили выделенное число в соседнюю ячейку — оно «переехало»
+ * и сохранилось в обеих). Перетаскивание текста из ячейки и в ячейку запрещено.
+ */
+export function noDrag(input) {
+  for (const ev of ['dragstart', 'dragover', 'drop']) input.addEventListener(ev, (e) => { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'none'; });
+  input.draggable = false;
+  return input;
+}
+
 export function moveCell(input, dx, dy) {
   const td = input.closest('td'), tr = td.parentElement;
   const rows = [...tr.closest('.pg').querySelectorAll('tbody tr')];
@@ -72,6 +82,7 @@ export function moveCell(input, dx, dy) {
 function cell(row, c, onSaved) {
   const it = row.cells[cellKey(c)];
   const input = h('input', { class: 'pg-in', inputmode: 'decimal', value: pieces(it, c), 'aria-label': `${row.label}, ${c.washed == null ? '' : c.washed ? 'мытая, ' : 'не мытая, '}${c.m ? c.m + ' м' : 'куски'}` });
+  noDrag(input);
   let was = input.value;
   const commit = async () => {
     const text = input.value.trim().replace(',', '.');
