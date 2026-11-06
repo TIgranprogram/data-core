@@ -65,7 +65,8 @@ export function renderOrderPdf(i: OrderPdfInput): Promise<Buffer> {
   let tx = ML;
   if (i.logo) { try { d.image(i.logo, ML, y, { fit: [96, 44], valign: 'center' }); tx = ML + 108; } catch { /* без логотипа */ } }
   bold(12.5).text(i.org.name || 'Наша компания', tx, y + 2, { width: W - MR - tx, lineBreak: false, ellipsis: true });
-  const orgLine = [i.org.inn ? `ИНН ${i.org.inn}` : '', i.org.address ?? '', i.org.phone ? `тел. ${i.org.phone}` : ''].filter(Boolean).join(' · ');
+  // ИНН — только настоящий (10/12 цифр); заглушки вроде «БЕЗ-ИНН-…» в печать не идут
+  const orgLine = [/^\d{10}(\d{2})?$/.test(String(i.org.inn ?? '').trim()) ? `ИНН ${String(i.org.inn).trim()}` : '', i.org.address ?? '', i.org.phone ? `тел. ${i.org.phone}` : ''].filter(Boolean).join(' · ');
   if (orgLine) reg(8.5, MUTED).text(orgLine, tx, y + 20, { width: W - MR - tx, height: 24, ellipsis: true });
   y += 52; rule(y, INK, 1); y += 14;
 
@@ -93,12 +94,16 @@ export function renderOrderPdf(i: OrderPdfInput): Promise<Buffer> {
     return Math.max(PH + 12, h + 8);
   };
   for (const c of i.contracts) {
-    room(30 + (c.lines[0] ? lineHeight(c.lines[0]) : 20));
-    d.rect(ML, y, CW, 24).fill(BAND);
+    // плашка договора растёт под длинное название (до 3 строк), а не вылезает за край
     const head = [`Договор № ${c.orderNo || '—'}${c.contractDate ? ` от ${ruDate(c.contractDate)}` : ''}`, c.customer, c.title].filter(Boolean).join('  ·  ');
-    bold(9.5).text(head, ML + 8, y + 7.5, { width: CW - 16 - (c.stageLabel ? 110 : 0), lineBreak: false, ellipsis: true });
+    const hw = CW - 16 - (c.stageLabel ? 110 : 0);
+    const hh = Math.min(bold(9.5).heightOfString(head, { width: hw }), 36);
+    const band = Math.max(24, hh + 14);
+    room(band + 6 + (c.lines[0] ? lineHeight(c.lines[0]) : 20));
+    d.rect(ML, y, CW, band).fill(BAND);
+    bold(9.5).text(head, ML + 8, y + 7, { width: hw, height: 36, ellipsis: true });
     if (c.stageLabel) reg(8.5, MUTED).text(c.stageLabel, W - MR - 118, y + 8, { width: 110, align: 'right', lineBreak: false });
-    y += 30;
+    y += band + 6;
     if (!c.lines.length) { reg(9, MUTED).text('Позиций нет', ML + 8, y, { lineBreak: false }); y += 22; continue; }
     for (const l of c.lines) {
       const h = lineHeight(l);
