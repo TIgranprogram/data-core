@@ -67,6 +67,11 @@ export function gapSnapshot(doc = document) {
   for (const box of doc.querySelectorAll('.drawer .k-stack, .drawer .drawer-body, .drawer .dz-flow-wide')) {
     groups.push({ sel: box.classList.contains('k-stack') ? '.drawer .k-stack' : '.drawer .drawer-body', dir: 'col', rects: [...box.children].filter(shown).map(rect) });
   }
+  // любые соседние секции панели (вложенные списки категорий и т. п.)
+  for (const box of new Set([...doc.querySelectorAll('.drawer .k-sec')].map((s) => s.parentElement))) {
+    if (!box || box.classList.contains('k-stack') || box.classList.contains('drawer-body')) continue;
+    groups.push({ sel: '.drawer .k-sec + .k-sec', dir: 'col', rects: [...box.children].filter((el) => el.classList.contains('k-sec') && shown(el)).map(rect) });
+  }
   for (const row of doc.querySelectorAll('.drawer :is(.actions,.k-actions)')) {
     groups.push({ sel: '.drawer .actions', dir: 'row', rects: [...row.children].filter((el) => el.matches('button,a,.btn') && shown(el)).map(rect) });
   }

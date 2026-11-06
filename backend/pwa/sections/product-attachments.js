@@ -1,6 +1,6 @@
 import { api, session, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { button, section, table, empty, actions, toast, toastError, confirmDlg, busyBlock, failBlock } from '../ui/kit/index.js';
+import { button, section, stack, table, empty, actions, toast, toastError, confirmDlg, busyBlock, failBlock } from '../ui/kit/index.js';
 
 /**
  * Блок «Вложения» в карточке изделия (ВЛ-1, FE-1; ПМ-1 2026-11-06): одна свёрнутая секция «Вложения · N», внутри на каждый вид
@@ -166,7 +166,7 @@ export function productAttachmentsBlock(r) {
     bodies.clear();
     setCount(root, files.length);
     inner.replaceChildren(types.length
-      ? h('div', null, ...types.map(typeCard))
+      ? stack(...types.map(typeCard)) // категории колонкой с зазором (слипались, 2026-11-06)
       : empty({ title: 'Виды вложений не заведены', hint: 'Администратор добавляет их в справочнике «Виды вложений».' }));
   }
   load();
