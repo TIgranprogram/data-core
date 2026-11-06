@@ -1,6 +1,7 @@
 import { stockList } from '../../core/stock-list.js';
 import { h } from '../../core/dom.js';
 import { patch } from '../../core/router.js';
+import { PREFIX } from '../../core/api.js';
 import { facetValues, FACETS, index, pick, facetLabel, PIPE_KINDS, pipeParts } from '../../core/facets.js';
 import { mark } from './mark.js';
 import { busyBlock } from './busy.js';
@@ -197,14 +198,26 @@ function inlineFilter(categoryKey) {
   return { el, update: (next) => { P = { ...next }; render(); }, reset: () => items && (items = null) };
 }
 
-/** steps[]: { key, label, when?, always? (раскрыт, без сворачивания), icon?(o) → Node (миниатюра у значения) } */
-export function stepFunnel({ steps, load, title = 'Уточнить' }) {
+/** Миниатюра значения из o.thumb (адрес картинки с сервера) — когда шаг не задал свой icon. */
+// нет файла миниатюры — значок скрывается (не битая картинка; приёмка D1)
+const thumbIcon = (src) => h('span', { class: 'ff-ico', 'aria-hidden': 'true' }, h('img', { src: PREFIX + src, alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => { e.target.parentNode.hidden = true; } }));
+
+/** steps[]: { key, label, when?, always? (раскрыт, без сворачивания), icon?(o) → Node (миниатюра у значения), multi? (несколько значений, галочки; P[key] — id через запятую) }
+ *  onChange(P, key) — локальный вариант (C028, воронка паспорта в правой панели): состояние не в адресе, выбор отдаётся наружу,
+ *  экран вызывает update(P). steps можно менять на месте: список читается после load(). */
+export function stepFunnel({ steps, load, title = 'Уточнить', onChange }) {
   let P = {}; let seq = 0;
   const folded = new Map();
   const crumbs = h('div', { class: 'ff-crumbs', hidden: true });
   const body = h('div', { class: 'ff-body' });
   const el = mark(h('div', { class: 'ff ff-inline' }, h('div', { class: 'ls-h' }, title), crumbs, body), 'filter');
-  const set = (k, v) => patch({ [k]: String(P[k] ?? '') === String(v) ? undefined : String(v), page: undefined });
+  const ids = (k) => String(P[k] ?? '').split(',').filter(Boolean);
+  const set = (k, v, multi) => {
+    let val;
+    if (multi) { const cur = ids(k); const i = cur.indexOf(String(v)); if (i >= 0) cur.splice(i, 1); else cur.push(String(v)); val = cur.join(',') || undefined; }
+    else val = String(P[k] ?? '') === String(v) ? undefined : String(v);
+    if (onChange) onChange({ ...P, [k]: val }, k); else patch({ [k]: val, page: undefined });
+  };
   async function render() {
     const my = ++seq;
     if (!body.children.length) body.replaceChildren(busyBlock('', { cls: 'muted small' }));
@@ -216,10 +229,10 @@ export function stepFunnel({ steps, load, title = 'Уточнить' }) {
     const label = (s, v) => (data[s.key] || []).find((o) => String(o.value) === String(v))?.label ?? v;
     const chosen = vis.filter((s) => P[s.key]);
     crumbs.hidden = !chosen.length;
-    crumbs.replaceChildren(...chosen.map((s) => h('button', { type: 'button', class: 'ff-step', title: 'Убрать: ' + s.label, 'data-fk': 'x:' + s.key, onclick: () => set(s.key, P[s.key]) },
-      h('span', { class: 'ff-step-l' }, s.label), h('span', { class: 'ff-step-v' }, String(label(s, P[s.key]))), h('span', { class: 'ff-step-x', 'aria-hidden': 'true' }, '×'))));
+    crumbs.replaceChildren(...chosen.flatMap((s) => (s.multi ? ids(s.key) : [P[s.key]]).map((v) => h('button', { type: 'button', class: 'ff-step', title: 'Убрать: ' + s.label, 'data-fk': 'x:' + s.key + ':' + v, onclick: () => set(s.key, v, s.multi) },
+      h('span', { class: 'ff-step-l' }, s.label), h('span', { class: 'ff-step-v' }, String(label(s, v))), h('span', { class: 'ff-step-x', 'aria-hidden': 'true' }, '×')))));
     let first = true;
-    const groups = vis.filter((s) => !P[s.key]).map((s) => {
+    const groups = vis.filter((s) => s.multi || !P[s.key]).map((s) => {
       const vals = data[s.key] || [];
       if (vals.length < 2) return null; // один вариант — выбирать нечего
       const open = s.always || (folded.has(s.key) ? folded.get(s.key) : first); // always — короткий список, всеграскрыт
@@ -228,8 +241,8 @@ export function stepFunnel({ steps, load, title = 'Уточнить' }) {
         h('button', { type: 'button', class: 'ff-gh', 'data-fk': 'g:' + s.key, 'aria-expanded': String(open), disabled: s.always || undefined, onclick: () => { folded.set(s.key, !open); render(); } },
           h('span', { class: 'ff-gl' }, s.label), h('span', { class: 'ff-gn' }, String(vals.length)), s.always ? null : h('span', { class: 'ff-chev', 'aria-hidden': 'true' }, '▾')),
         open ? h('div', { class: 'ff-checks', role: 'radiogroup', 'aria-label': s.label }, ...vals.map((o) => h('label', { class: 'ff-check' },
-          h('input', { type: 'radio', name: 'sf-' + s.key, 'data-fk': 'v:' + s.key + ':' + o.value, onclick: (e) => { e.preventDefault(); set(s.key, o.value); } }),
-          s.icon ? s.icon(o) : null, h('span', { class: 'ff-cv' }, String(o.label ?? o.value)), h('b', { class: 'ff-cn' }, String(o.n))))) : null);
+          h('input', { type: s.multi ? 'checkbox' : 'radio', name: 'sf-' + s.key, checked: s.multi && ids(s.key).includes(String(o.value)) ? true : null, 'data-fk': 'v:' + s.key + ':' + o.value, onclick: (e) => { e.preventDefault(); set(s.key, o.value, s.multi); } }),
+          s.icon ? s.icon(o) : o.thumb ? thumbIcon(o.thumb) : null, h('span', { class: 'ff-cv' }, String(o.label ?? o.value)), h('b', { class: 'ff-cn' }, String(o.n))))) : null);
     }).filter(Boolean);
     body.replaceChildren(...(groups.length ? groups : [h('div', { class: 'muted small' }, chosen.length ? 'Уточнять больше нечего' : 'Вариантов нет')]));
     if (fk) [...el.querySelectorAll('[data-fk]')].find((n) => n.dataset.fk === fk)?.focus({ preventScroll: true });

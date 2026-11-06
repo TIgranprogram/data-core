@@ -103,6 +103,7 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 /* kit.filter funnel: миниатюра у значения шага (step.icon) */
 .ff-ico { flex: none; width: 24px; height: 24px; border-radius: var(--radius-sm, 4px); overflow: hidden; display: inline-flex; }
 .ff-ico svg { width: 100%; height: 100%; }
+.ff-ico img { width: 100%; height: 100%; object-fit: cover; }
 .ff-gh:disabled { cursor: default; opacity: 1; }
 
 /* kit.section: сворачиваемая секция правой панели (<details>), по умолчанию закрыта */

@@ -213,3 +213,6 @@ export { similarBox } from "./similar.js";
 export { searchBox } from './searchbox.js';
 export { readonlyGroup, readonlyGroups } from './readonly.js';
 export { photoField } from './photos.js';
+
+/** Фото позиции/изделия в таблицах и строках (клик — крупно; нет фото — «нет фото») — ui/pos-pic.js */
+export { posPic, posPicOf } from './pos-pic.js';

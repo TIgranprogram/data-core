@@ -1,7 +1,7 @@
 import { api } from '../../core/api.js';
 import { mark } from './mark.js';
 import { h } from '../../core/dom.js';
-import { posPic } from '../pos-pic.js';
+import { posPic } from './pos-pic.js';
 import { row, sku } from './index.js';
 
 /**
