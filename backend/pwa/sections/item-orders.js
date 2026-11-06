@@ -5,7 +5,7 @@ import { date, money, qty } from '../core/format.js';
 import { patch } from '../core/router.js';
 import { resetStock, stockLookup } from '../core/stock-list.js';
 import { modal } from '../ui/kit/dialog.js';
-import { enhanceSelect, button, select } from '../ui/kit/index.js';
+import { enhanceSelect, button, select, section, stack } from '../ui/kit/index.js';
 import { toast } from '../ui/kit/toast.js';
 
 /*
@@ -16,7 +16,7 @@ export const ordered = (id) => api(`/stock/items/${id}/ordered`);
 
 /** Блоки карточки: «Заказано (в пути N)» и «Поставщики и цены». */
 export function orderedBlock(r) {
-  const box = h('div', null, h('div', { class: 'section-title' }, 'Заказано'), busyBlock('', { tag: 'p', cls: 'muted' }));
+  const box = stack(section({ tone: 'who', title: 'Заказано', body: busyBlock('', { tag: 'p', cls: 'muted' }) }));
 
   async function acceptReq(x) {
     const qtyInp = h('input', { inputmode: 'decimal', value: String(x.qty || ''), class: 'field-inp' });
@@ -37,8 +37,10 @@ export function orderedBlock(r) {
 
   function load() {
     ordered(r.id).then((d) => {
+      const was = [...box.querySelectorAll('details.k-sec')].map((el) => el.open);
       box.replaceChildren(...[
-        h('div', { class: 'section-title' }, d.open.length ? `Заказано — в пути ${qty(d.inTransit)} ${r.unit || ''}` : 'Заказано'),
+        section({ tone: 'who', title: 'Заказано', count: d.open.length, open: was[0] ?? d.open.length > 0, body: [
+        d.open.length ? h('p', { class: 'hint' }, `В пути ${qty(d.inTransit)} ${r.unit || ''}`) : null,
         d.open.length ? h('ul', { class: 'timeline' }, ...d.open.map((x) => {
           const canAccept = x.status === 'ordered' || x.paid;
           return h('li', null,
@@ -46,11 +48,11 @@ export function orderedBlock(r) {
             h('span', { class: 'muted' }, [x.invoiceDate ? 'счёт ' + date(x.invoiceDate) : x.requestDate ? 'заявка ' + date(x.requestDate) : '', x.supplier, x.requestedBy].filter(Boolean).join(' · ')),
             canAccept ? button({ label: 'Принять на склад', kind: 'primary', size: 'S', onClick: () => acceptReq(x) }) : null);
         }))
-          : h('p', { class: 'muted' }, 'Открытых заявок нет. ', h('a', { href: '#requests?q=' + encodeURIComponent(r.name) }, 'Все заявки по позиции →')),
-        d.suppliers.length ? h('div', null, h('div', { class: 'section-title' }, 'Поставщики и цены'),
+          : h('p', { class: 'muted small' }, 'Открытых заявок нет. ', h('a', { href: '#requests?q=' + encodeURIComponent(r.name) }, 'Все заявки по позиции →'))] }),
+        d.suppliers.length ? section({ tone: 'money', title: 'Поставщики и цены', count: d.suppliers.length, open: was[1] || false, body:
           h('ul', { class: 'timeline' }, ...d.suppliers.map((s) => h('li', null, h('span', null, s.name), h('span', { class: 'muted' }, `брали ${s.count} раз${s.lastDate ? ' · последний ' + date(s.lastDate) : ''}`),
-            session.canMoney && s.lastPrice ? h('span', { class: 'num' }, money(s.lastPrice) + ' / ' + (r.unit || 'шт')) : null)))) : null].filter(Boolean));
-    }).catch((e) => box.replaceChildren(failBlock(e, load, { text: 'Заказы не загрузились' })));
+            session.canMoney && s.lastPrice ? h('span', { class: 'num' }, money(s.lastPrice) + ' / ' + (r.unit || 'шт')) : null))) }) : null].filter(Boolean));
+    }).catch((e) => box.replaceChildren(section({ tone: 'who', title: 'Заказано', open: true, body: failBlock(e, load, { text: 'Заказы не загрузились' }) })));
   }
 
   load();

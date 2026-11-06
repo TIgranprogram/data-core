@@ -8,13 +8,16 @@ import { posPic } from '../ui/pos-pic.js';
 
 import { toast, toastError } from '../ui/kit/toast.js';
 import { editReservation } from './reservations.js';
-import { button } from '../ui/kit/index.js';
+import { button, section } from '../ui/kit/index.js';
 
 /*
  * «Брони заказа» в карточке заказа (SK-6b): активные брони по позициям, «изменить» (правая панель), «снять» и «Выдать по заказу…».
  * Выдача — правая панель (SK-6c, sections/order-issue.js): какие строки и сколько; одной операцией, «Отменить» во всплывашке возвращает всё.
  * После «Отменить» панель уже закрыта — блок перечитывается по событию 'order-res-changed'.
  */
+
+/** Секция блока: раскрытость переживает перерисовку. */
+const wrap = (box, title, count, body) => section({ title, count, tone: 'gold', open: box.querySelector('details.k-sec')?.open || false, body });
 
 /** Элемент-блок; сам догружает данные. onChanged — перечитать всю карточку заказа (выдано по позициям и т. д.). */
 export function orderReservations(order, onChanged) {
@@ -26,7 +29,7 @@ export function orderReservations(order, onChanged) {
 
   async function load() {
     let d;
-    try { d = await api(`/stock/reservations/order/${order.id}`); } catch (e) { box.hidden = false; box.replaceChildren(h('div', { class: 'section-title' }, 'Брони заказа'), failBlock(e, load, { text: 'Не загрузились' })); return; }
+    try { d = await api(`/stock/reservations/order/${order.id}`); } catch (e) { box.hidden = false; box.replaceChildren(wrap(box, 'Брони заказа', null, failBlock(e, load, { text: 'Не загрузились' }))); return; }
     const items = d.items || [];
     box.hidden = !items.length && !d.hanging;
     if (box.hidden) return;
@@ -43,11 +46,10 @@ export function orderReservations(order, onChanged) {
           button({ label: 'Изменить', kind: 'ghost', size: 'S', onClick: () => editReservation(x.id) }),
           button({ label: 'Снять', kind: 'ghost', size: 'S', onClick: async (e) => { const btn = e.currentTarget; if (!(await confirmDlg('Снять бронь?', `«${x.name}» — ${qty(x.qty)} ${x.unit || ''} снова станет свободным.`, { okText: 'Снять бронь', danger: true }))) return; btn.disabled = true; try { await api(`/stock/reservations/${x.id}/release`, { method: 'POST' }); toast('Бронь снята'); await refresh(); } catch (er) { toastError(er); btn.disabled = false; } } })) : null);
     });
-    box.replaceChildren(
-      h('div', { class: 'section-title' }, `Брони заказа (${items.length})`),
+    box.replaceChildren(wrap(box, 'Брони заказа', items.length, [
       d.hanging ? h('div', { class: 'res-hang', role: 'note' }, `Висящая бронь: ${d.hanging.toLowerCase()}, а материал всё ещё отложен. Снимите брони, если он не нужен.`) : null,
       items.length ? h('ul', { class: 'spec-list' }, ...rows) : null,
-      session.canEditOrders && items.length ? h('div', { class: 'spec-acts' }, act, can ? null : h('span', { class: 'muted' }, 'На складе нет ничего из броней — выдавать нечего.')) : null);
+      session.canEditOrders && items.length ? h('div', { class: 'spec-acts' }, act, can ? null : h('span', { class: 'muted' }, 'На складе нет ничего из броней — выдавать нечего.')) : null]));
   }
 
   load();

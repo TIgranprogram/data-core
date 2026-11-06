@@ -6,7 +6,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { RouteDto } from './dto/work.dto';
 import { WorkRouteService } from './work-route.service';
 
-/** «Как делается»: маршрут изделия — виды работ по порядку (`products.workTypes[]`). Править — admin и manager. */
+/** «Маршрут изготовления»: маршрут изделия — виды работ по порядку (`products.workTypes[]`). Править — admin и manager. */
 @ApiTags('В работе')
 @AppSection('work', 'products')
 @Controller('work-routes')

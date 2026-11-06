@@ -32,7 +32,46 @@ export const RULES = {
   s: 'A1: элементы экрана и панели не из kit (нет data-k на себе и предках) — счётчик',
   q: 'A3-q: карточка не из kit (article / .tcard / .tile / .db-order без data-k)',
   r: 'A3-r: кликабельная карточка без наведения k-hover (подъём и тень отличаются)',
+  t: 'панель: блоки или кнопки слиплись (зазор меньше 6px)',
 };
+
+/**
+ * Правило t (пользователь 2026-11-06: «слипшийся» — секции «Вложения», «Состав» и кнопки панели без зазора).
+ * groups = [{ sel, dir: 'col'|'row', rects: [{ top, bottom, left, right }] }] — соседние элементы одного контейнера по порядку.
+ * col: следующий блок ниже предыдущего (по горизонтали перекрываются) — зазор по вертикали; row: в одной строке — зазор по горизонтали.
+ */
+export function gapFindings(groups = [], min = 6) {
+  const out = [];
+  for (const g of groups) {
+    for (let i = 1; i < (g.rects || []).length; i++) {
+      const a = g.rects[i - 1], b = g.rects[i];
+      if (g.dir === 'row') {
+        if (Math.abs(a.top - b.top) > 4) continue; // перенос на новую строку
+        const gap = Math.round(b.left - a.right);
+        if (gap < min) out.push({ rule: 't', sel: g.sel, text: `кнопки слиплись: зазор ${gap}px` });
+      } else {
+        if (b.left >= a.right || a.left >= b.right) continue; // другая колонка
+        const gap = Math.round(b.top - a.bottom);
+        if (gap >= 0 && gap < min) out.push({ rule: 't', sel: g.sel, text: `блоки слиплись: зазор ${gap}px` });
+      }
+    }
+  }
+  return out;
+}
+
+/** Снимок для gapFindings в браузере: колонки блоков правой панели и ряды её кнопок. */
+export function gapSnapshot(doc = document) {
+  const rect = (el) => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right }; };
+  const shown = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const groups = [];
+  for (const box of doc.querySelectorAll('.drawer .k-stack, .drawer .drawer-body, .drawer .dz-flow-wide')) {
+    groups.push({ sel: box.classList.contains('k-stack') ? '.drawer .k-stack' : '.drawer .drawer-body', dir: 'col', rects: [...box.children].filter(shown).map(rect) });
+  }
+  for (const row of doc.querySelectorAll('.drawer :is(.actions,.k-actions)')) {
+    groups.push({ sel: '.drawer .actions', dir: 'row', rects: [...row.children].filter((el) => el.matches('button,a,.btn') && shown(el)).map(rect) });
+  }
+  return groups;
+}
 
 // ---------- чистые функции (проверяются в site-audit.test.mjs) ----------
 
@@ -233,6 +272,7 @@ for(const el of document.querySelectorAll('main :is(article,.tcard,.tile,.db-ord
   if(!el.closest('[data-k]'))add('q',sel(el),(el.innerText||'').trim().slice(0,40)||'карточка без текста');
   else if(getComputedStyle(el).cursor==='pointer'&&!el.classList.contains('k-hover'))add('r',sel(el),(el.innerText||'').trim().slice(0,40)||'карточка без текста')}
 for(const f of (${panelStructureFindings.toString()}) ((${panelStructureSnapshot.toString()})()))add(f.rule,f.sel,f.text);
+for(const f of (${gapFindings.toString()}) ((${gapSnapshot.toString()})()))add(f.rule,f.sel,f.text);
 return out})()`;
 
 const JS_TOKENS = (() => {

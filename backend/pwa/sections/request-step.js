@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { isoDay, money, date } from '../core/format.js';
 import { current, patch } from '../core/router.js';
 import { SUPPLY_STATUS, supplyKey } from '../ui/kit/badges.js';
-import { attachCombo, modal, toast, toastError, button, actions, row, section, badge, INVOICE_STATUS, failBlock, enhanceSelect } from '../ui/kit/index.js';
+import { attachCombo, modal, toast, toastError, button, actions, row, section, stack, badge, INVOICE_STATUS, failBlock, enhanceSelect } from '../ui/kit/index.js';
 import { mergeInvoiceWithPreview } from '../core/invoice-merge.js';
 import { lookups, unitList } from './lookups.js';
 
@@ -186,7 +186,7 @@ export const reqStep = {
     startEdit: (r) => !r.invoiceId && (r._to === 'paid' || (r._miss || []).length > 0),
     editable: (r) => !r.invoiceId,
     view: () => [],
-    extra: (r, ctx) => r.invoiceId ? invoiceBlock(r) : h('div', null,
+    extra: (r, ctx) => r.invoiceId ? stack(invoiceBlock(r)) : stack(
       stageStrip(r),
       h('p', { class: 'hint' }, (r._miss || []).length ? 'Заполните поля и нажмите «Сохранить и перевести».' : 'Всё заполнено — можно переводить.'),
       (r._miss || []).length || !r._to ? null : button({ label: verbOf(r._to), kind: 'primary', onClick: async () => {

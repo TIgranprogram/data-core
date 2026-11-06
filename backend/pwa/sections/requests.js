@@ -4,7 +4,7 @@ import { api, PREFIX, session } from '../core/api.js';
 import { normSearch } from '../core/facets.js';
 import { h } from '../core/dom.js';
 import { responsibleField, handoffLine } from '../ui/responsible.js';
-import { actions, button, stepFunnel, table } from '../ui/kit/index.js';
+import { actions, button, stack, stepFunnel, table } from '../ui/kit/index.js';
 import { date, isoDay, money, qty } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
 const invoiceHref = (id) => { const route = current(); return '#' + (route.section || 'requests') + '?' + new URLSearchParams(Object.entries({ ...route.params, of: 'invoicecard', open: id, new: undefined, fill: undefined }).filter(([, value]) => value !== undefined && value !== '')).toString(); };
@@ -457,7 +457,7 @@ export const requests = {
       grp('Дополнительно'),
       ['Примечание', r.notes],
     ],
-    extra: (r, ctx) => h('div', null, handoffLine('supplyrequest', r.id), r.invoiceId ? invoiceBlock(r, ctx) : null), // заявка в счёте — блок «Счёт»; без счёта — как раньше
+    extra: (r, ctx) => stack(handoffLine('supplyrequest', r.id), r.invoiceId ? invoiceBlock(r, ctx) : null), // заявка в счёте — блок «Счёт»; без счёта — как раньше
     // Одна главная кнопка = nextStep; «Принять» только в «Оплачено». Раньше «Принять» висела на всех статусах.
     actions: (r) => {
       const st = nextStep(r);

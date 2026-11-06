@@ -61,7 +61,7 @@ async function download(productId, a) {
 
 export function productAttachmentsBlock(r) {
   const inner = h('div', null, busyBlock('вложения изделия', { retry: load }));
-  const root = section({ title: 'Вложения', count: '…', body: inner });
+  const root = section({ title: 'Вложения', tone: 'who', count: '…', body: inner });
   const setCount = (el, n) => { const b = el?.querySelector(':scope > summary .k-sec-n'); if (b) b.textContent = String(n); };
   const up = new Map(); // typeId -> [{ name, pct, abort }] — загрузки в процессе
   const bodies = new Map(); // typeId -> контейнер таблицы
@@ -144,7 +144,7 @@ export function productAttachmentsBlock(r) {
     const box = h('div');
     bodies.set(t.id, box);
     const input = h('input', { type: 'file', multiple: true, hidden: true, onchange: () => { const l = [...input.files]; input.value = ''; if (l.length) sendAll(t.id, l); } });
-    const node = section({ title: t.name, count: files.filter((f) => f.typeId === t.id).length, body: [box,
+    const node = section({ title: t.name, tone: 'who', count: files.filter((f) => f.typeId === t.id).length, body: [box,
       t.formats ? h('p', { class: 'hint' }, 'Форматы: ' + t.formats) : null,
       canUpload() ? actions(input, button({ label: 'Загрузить файлы', size: 'S', onClick: () => input.click() })) : null] });
     if (canUpload()) wireDrop(node, (l) => sendAll(t.id, l));

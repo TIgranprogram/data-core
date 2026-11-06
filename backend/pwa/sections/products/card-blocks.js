@@ -59,7 +59,7 @@ export function compositionBlock(r) {
     below: l.lineType === 'product' && l.children?.length ? h('details', { class: 'comp-nested' }, h('summary', null, `его состав: ${l.children.length}`),
       h('ul', null, ...l.children.map((c) => h('li', null, `${c.name} · ${qty(c.quantity)} ${c.unit}`)))) : null });
   const groups = [['material', 'Материалы'], ['product', 'Изделия'], ['module', 'Модули (CRM)']].map(([t, title]) => [title, items.filter((l) => (l.lineType || 'material') === t || (t === 'module' && l.raw))]).filter(([, l]) => l.length);
-  return section({ title: 'Состав', count: items.length, body: [
+  return section({ title: 'Состав', tone: 'gold', count: items.length, body: [
     items.length ? h('div', null, ...groups.map(([title, list]) => h('div', null, groups.length > 1 ? h('b', null, title) : null, h('div', null, ...list.map(line)))))
       : none('Не заполнен — «Изменить состав» в действиях карточки.'),
     cost ? h('p', null, h('b', null, `Себестоимость ≈ ${money(cost.total)}`),
@@ -70,8 +70,8 @@ export function compositionBlock(r) {
 export function passportsBlock(r) {
   const p = r.passports;
   const tpl = h('div', null, kitButton({ label: 'Шаблон паспорта', kind: 'primary', size: 'S', onClick: () => go('docs', { tab: 'templates', of: 'doctpl', open: r.id }) }));
-  if (!p?.total) return section({ title: 'Документация', count: 0, body: [none('Паспортов пока нет. В шаблоне видно, что собрано и чего не хватает.'), tpl] });
-  return section({ title: 'Документация', count: p.total, body: [tpl,
+  if (!p?.total) return section({ title: 'Документация', tone: 'neutral', count: 0, body: [none('Паспортов пока нет. В шаблоне видно, что собрано и чего не хватает.'), tpl] });
+  return section({ title: 'Документация', tone: 'neutral', count: p.total, body: [tpl,
     h('ul', { class: 'timeline' }, ...p.items.map((x) => h('li', null,
       h('a', { href: '#passports?open=' + x.id }, `№ ${x.passportNumber || '—'}`),
       h('span', { class: 'muted clip' }, [date(x.date), x.customer, x.orderNo ? 'заказ ' + x.orderNo : ''].filter(Boolean).join(' · '))))),
@@ -81,8 +81,8 @@ export function passportsBlock(r) {
 // «Где в заказах» (БЗ-5): позиции заказов с этим изделием (по ссылке или по совпадению названия) — только просмотр
 export function inOrders(r) {
   const items = r.orderLines || [];
-  if (!items.length) return section({ title: 'В заказах', count: 0, body: none('Изделие ещё не встречается в заказах') });
-  return section({ title: 'В заказах', count: items.length, body:
+  if (!items.length) return section({ title: 'В заказах', tone: 'money', count: 0, body: none('Изделие ещё не встречается в заказах') });
+  return section({ title: 'В заказах', tone: 'money', count: items.length, body:
     h('ul', { class: 'timeline' }, ...items.map((l) => h('li', null,
       h('a', { href: '#salesorders?open=' + l.orderId }, `№ ${l.orderNo || '—'}`),
       h('span', { class: 'muted clip' }, [l.customer, l.qty != null ? `${qty(l.qty)} шт.` : '', l.color, l.size, l.shipDate ? 'отгрузка ' + date(l.shipDate) : ''].filter(Boolean).join(' · ')),
@@ -93,7 +93,7 @@ export function inOrders(r) {
 export function variantsBlock(r) {
   const items = r.variants || [];
   if (!items.length) return null;
-  return section({ title: 'Другие варианты', count: items.length, body:
+  return section({ title: 'Другие варианты', tone: 'info', count: items.length, body:
     h('ul', { class: 'timeline' }, ...items.map((v) => h('li', null,
       h('a', { href: '#products?open=' + v.id }, `арт. ${v.sku || '—'}`),
       h('span', { class: 'muted clip' }, [v.isBase ? 'основное' : '', v.name, dims(v.dimensions), (v.colors || []).join(', ')].filter(Boolean).join(' · '))))) });

@@ -67,7 +67,7 @@ export class WorkRouteService {
     return {
       productId: String(p._id), name: (p.name as string | undefined) ?? null, sku: (p.sku as string | undefined) ?? null,
       hasRoute: steps.length > 0,
-      note: steps.length ? null : 'Не задано, как делается',
+      note: steps.length ? null : 'Маршрут не задан',
       steps: steps.map((s, i) => ({ index: i, workTypeId: String(s.workTypeId), name: s.name, lineId: s.lineId ? String(s.lineId) : null, note: s.note ?? null })),
       // в базе остались шаги удалённых видов работ — их не показываем, но предупреждаем
       droppedSteps: stored.length - steps.length,

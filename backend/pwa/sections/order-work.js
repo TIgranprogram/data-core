@@ -1,7 +1,7 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { failBlock } from '../ui/kit/busy.js';
-import { link, openSide, button } from '../ui/kit/index.js';
+import { link, openSide, button, section } from '../ui/kit/index.js';
 import { openLaunch } from './work-launch.js';
 
 /*
@@ -10,6 +10,8 @@ import { openLaunch } from './work-launch.js';
  * Отказы (`refused`) и предупреждения (`warnings`) показываются словами под кнопками и тостом.
  * Блок виден тем, у кого открыт раздел «В работе»; кнопки — тем, кто может править.
  */
+/** Секция блока: раскрытость переживает перерисовку. */
+const wrap = (box, title, count, body) => section({ title, count, tone: 'main', open: box.querySelector('details.k-sec')?.open || false, body });
 const lineName = (l, i) => `${l.seqNo ?? l.lineNo ?? i + 1}. ${l.title || 'Без названия'}`;
 
 /** Итог запуска словами: что запущено, что не запущено и почему, на что обратить внимание. */
@@ -37,7 +39,7 @@ export function orderWork(orders) {
     try {
       const ids = [...new Set(all.map((l) => l._order.id))].join(',');
       tasks = (await api('/work-tasks', { query: { orderId: ids, status: 'waiting,work,done', limit: 500, sort: '-seq' } })).items || [];
-    } catch (e) { box.replaceChildren(h('div', { class: 'section-title' }, 'В работе'), failBlock(e, () => load())); return; }
+    } catch (e) { box.replaceChildren(wrap(box, 'В работе', null, failBlock(e, () => load()))); return; }
     const byLine = new Map();
     for (const t of tasks) if (t.incomeId && !byLine.has(t.incomeId)) byLine.set(t.incomeId, t);
     const free = all.filter((l) => !byLine.has(String(l.id)));
@@ -61,13 +63,13 @@ export function orderWork(orders) {
     const pickHint = h('span', { class: 'muted' }, 'Отметьте позиции галочками');
     const paint = () => { sendSel.disabled = !picked.size; pickHint.hidden = !!picked.size || !free.length; sendSel.textContent = picked.size ? `Запустить выбранные (${picked.size})` : 'Запустить выбранные'; };
     paint();
-    box.replaceChildren(h('div', { class: 'section-title' }, `В работе (${byLine.size} из ${all.length} поз.)`),
+    box.replaceChildren(wrap(box, 'В работе', `${byLine.size} из ${all.length}`, [
       h('ul', { class: 'spec-list' }, ...rows),
       result ? launchResult(result, titleOf) : null,
       link({ href: '#work?orderId=' + all[0]._order.id, title: 'Доска «В работе» с этим заказом', label: 'Открыть в «В работе»' }),
-      can ? h('div', { class: 'spec-acts' }, sendSel, pickHint, sendAll, free.length ? null : h('span', { class: 'muted' }, 'Все позиции уже запущены.')) : null);
+      can ? h('div', { class: 'spec-acts' }, sendSel, pickHint, sendAll, free.length ? null : h('span', { class: 'muted' }, 'Все позиции уже запущены.')) : null]));
   }
-  box.replaceChildren(h('div', { class: 'section-title' }, 'В работе'), h('div', { class: 'skel', style: { width: '50%' } }));
+  box.replaceChildren(wrap(box, 'В работе', null, h('p', { class: 'muted small' }, 'Загружаю…')));
   load();
   return box;
 }

@@ -1,8 +1,11 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { failBlock } from '../ui/kit/busy.js';
-import { toastError, toast, link, DESIGN_STATUS as STATUS, button } from '../ui/kit/index.js';
+import { toastError, toast, link, section, DESIGN_STATUS as STATUS, button } from '../ui/kit/index.js';
 import { posPic } from '../ui/pos-pic.js';
+
+/** Секция блока: раскрытость переживает перерисовку. */
+const wrap = (box, title, count, body) => section({ title, count, tone: 'main', open: box.querySelector('details.k-sec')?.open || false, body });
 
 /*
  * «Проектирование» в карточке заказа (ПРЖ-5): по каждой позиции — задача «D-81 · В работе» (ссылка) или галочка «передать».
@@ -17,7 +20,7 @@ export function orderDesign(order, lines) {
   async function load() {
     let tasks;
     try { tasks = (await api('/design-tasks', { query: { orderId: order.id, status: 'queue,work,done,paused', limit: 500, sort: '-seq' } })).items || []; }
-    catch (e) { box.replaceChildren(h('div', { class: 'section-title' }, 'Проектирование'), failBlock(e, load)); return; }
+    catch (e) { box.replaceChildren(wrap(box, 'Проектирование', null, failBlock(e, load))); return; }
     // на позицию — самая свежая задача; «открытая» — не завершённая
     const byLine = new Map();
     for (const t of tasks) if (t.incomeId && (!byLine.has(t.incomeId) || (byLine.get(t.incomeId).status === 'done' && t.status !== 'done'))) byLine.set(t.incomeId, t);
@@ -48,12 +51,12 @@ export function orderDesign(order, lines) {
     const pickHint = h('span', { class: 'muted' }, 'Отметьте позиции галочками');
     const paint = () => { sendSel.disabled = !picked.size; sendSel.title = picked.size ? '' : 'Отметьте позиции галочками'; pickHint.hidden = !!picked.size || !free.length; sendSel.textContent = picked.size ? `Передать выбранные (${picked.size})` : 'Передать выбранные'; };
     paint();
-    box.replaceChildren(h('div', { class: 'section-title' }, `Проектирование (${byLine.size} из ${lines.length} поз.)`),
+    box.replaceChildren(wrap(box, 'Проектирование', `${byLine.size} из ${lines.length}`, [
       h('ul', { class: 'spec-list' }, ...rows),
       link({ href: '#design?orderId=' + encodeURIComponent(order.id), title: 'Доска проектирования с этим заказом', label: 'Открыть в проектировании' }),
-      can ? h('div', { class: 'spec-acts' }, sendSel, pickHint, sendAll, free.length ? null : h('span', { class: 'muted' }, 'Все позиции уже переданы.')) : null);
+      can ? h('div', { class: 'spec-acts' }, sendSel, pickHint, sendAll, free.length ? null : h('span', { class: 'muted' }, 'Все позиции уже переданы.')) : null]));
   }
-  box.replaceChildren(h('div', { class: 'section-title' }, 'Проектирование'), h('div', { class: 'skel', style: { width: '50%' } }));
+  box.replaceChildren(wrap(box, 'Проектирование', null, h('p', { class: 'muted small' }, 'Загружаю…')));
   load();
   return box;
 }

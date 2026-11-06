@@ -88,7 +88,7 @@ export function productFilesBlock(r, canEdit) {
       dr.length ? h('div', null, ...dr.map(drawingRow)) : h('p', { class: 'muted small' }, canEdit ? 'Чертежей нет — загрузите PDF, DWG или DXF; большие файлы — во «Вложения».' : 'Чертежей нет'),
       canEdit ? photoDrop({ purpose: 'drawing', drawing: true, attach: async (photoId) => { await attachProductFile(r.id, photoId, 'drawing'); return true; }, done: () => { toast('Чертёж сохранён'); paint(); } }) : null);
     const open = new Set([...root.querySelectorAll('details.k-sec[open]')].map((d) => d.dataset.key));
-    const mk = (key, title, count, body) => { const s = section({ title, count, body, open: open.has(key) }); s.dataset.key = key; return s; };
+    const mk = (key, title, count, body) => { const s = section({ title, count, body, open: open.has(key), tone: 'info' }); s.dataset.key = key; return s; };
     root.replaceChildren(
       mk('shop', 'Витрина', (r.photos || []).length, h('div', { class: 'muted' }, 'Фото на обложку и в списках — наверху карточки.')),
       mk('passport', 'Для паспорта', byKind.size, passport),

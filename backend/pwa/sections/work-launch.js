@@ -5,7 +5,7 @@ import { patch } from '../core/router.js';
 import { workTypes } from './work-route.js';
 
 /*
- * «Запуск в работу» (правая панель): выбранные позиции заказа → у каждой «Как делается» (виды работ по порядку).
+ * «Запуск в работу» (правая панель): выбранные позиции заказа → у каждой «Маршрут изготовления» (виды работ по порядку).
  * У изделия маршрут уже есть — показан, можно изменить; нет — выбираем виды работ кнопками по порядку нажатия.
  * Сохранение: изменённые маршруты пишутся в изделие (PUT /work-routes/:productId — в следующий раз подставится сам),
  * затем POST /work-tasks/launch {lineIds}. Позиции передаёт карточка заказа (sections/order-work.js) через openLaunch.
@@ -30,7 +30,7 @@ function routePicker(line, types, steps0) {
     el.replaceChildren(
       h('b', null, line.name),
       !line.productId ? h('div', { class: 'muted' }, 'Нет изделия — не запустится. Сопоставьте позицию с «Продукцией»: карточка заказа → «Позиции» → «Подобрать изделие».') :
-        steps.length ? h('div', null, chain) : h('div', { class: 'muted' }, 'Не задано, как делается — выберите виды работ по порядку. Иначе будет одна работа «Изготовление».'),
+        steps.length ? h('div', null, chain) : h('div', { class: 'muted' }, 'Маршрут не задан — выберите виды работ по порядку. Иначе будет одна работа «Изготовление».'),
       line.productId && !editing ? button({ label: 'Изменить работы', size: 'S', kind: 'ghost', onClick: () => { editing = true; paint(); } }) : null,
       line.productId && editing ? actions(
         ...types.map((t) => {
@@ -58,7 +58,7 @@ export const workLaunch = sideForm({
   heading: () => 'Запуск в работу',
   subheading: (r) => `позиций: ${r.lines.length}`,
   fields: async (r) => [
-    { section: 'Как делается каждая позиция', tone: 'main', fixed: true },
+    { section: 'Маршрут изготовления каждой позиции', tone: 'main', fixed: true },
     { key: '_note', type: 'widget', label: '', wide: true, widget: () => ({ el: sideNote('Виды работ — колонки доски «В работе». Выбор запомнится в изделии: в следующий раз подставится сам.'), value: '' }) },
     ...r.lines.map((l) => ({ key: 'r_' + l.id, type: 'widget', label: '', wide: true, summary: () => '', widget: () => routePicker(l, r.types, r.routes.get(l.productId) || []) })),
   ],

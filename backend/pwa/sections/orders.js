@@ -1,4 +1,4 @@
-import { grp, sku as kitSku, attachCombo, button } from '../ui/kit/index.js';
+import { grp, sku as kitSku, attachCombo, button, section, stack } from '../ui/kit/index.js';
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, newUid, parseNum, qty } from '../core/format.js';
@@ -148,14 +148,14 @@ function paymentsBlock(r, ctx) {
   if (!session.canMoney) return null;
   const list = r.payments || [];
   const canEdit = session.canEdit;
-  return h('div', { class: 'card-block' },
-    h('div', { class: 'q-head' }, h('h3', null, 'Оплаты'), canEdit && Number(r.amount) > 0 && r.debt > 0 ? button({ label: '+ Оплата', size: 'S', onClick: async () => { const s = await paymentDialog(r); if (s) ctx.setRow(s); } }) : null),
+  return section({ tone: 'money', title: 'Оплаты', count: list.length, open: list.length > 0, body: [
+    canEdit && Number(r.amount) > 0 && r.debt > 0 ? button({ label: '+ Оплата', size: 'S', onClick: async () => { const s = await paymentDialog(r); if (s) ctx.setRow(s); } }) : null,
     list.length ? h('ul', { class: 'q-list' }, list.map((p, i) => h('li', { class: 'q-row' },
       h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, date(p.date)), h('div', { class: 'q-sub' }, [p.method, p.note].filter(Boolean).join(' · '))),
       h('div', { class: 'q-side' }, h('span', { class: 'num pos' }, money(p.amount)),
         canEdit ? button({ label: '✕', kind: 'ghost', size: 'S', title: 'Удалить платёж', onClick: async () => { ctx.setRow(await api(`/incomes/${r.id}/payments/${i}`, { method: 'DELETE', query: { amount: p.amount } })); toast('Оплата удалена'); } }) : null))))
-      : h('p', { class: 'muted' }, Number(r.amount) > 0 ? 'Платежей пока нет.' : 'Сначала впишите сумму позиции.'),
-    list.length ? h('p', { class: 'hint' }, `Оплачено ${money(r.paidAmount)} из ${money(r.amount)}; долг ${money(r.debt)}.`) : null);
+      : h('p', { class: 'muted small' }, Number(r.amount) > 0 ? 'Платежей пока нет.' : 'Сначала впишите сумму позиции.'),
+    list.length ? h('p', { class: 'hint' }, `Оплачено ${money(r.paidAmount)} из ${money(r.amount)}; долг ${money(r.debt)}.`) : null] });
 }
 
 let locked = false;
@@ -215,7 +215,7 @@ export const orders = {
 
   card: {
     zones: { extra: 'side' }, // УПР-3: оплаты — боковой колонкой
-    extra: (r, ctx) => paymentsBlock(r, ctx),
+    extra: (r, ctx) => stack(paymentsBlock(r, ctx)),
     parent: (r) => (r.orderId ? (crumbTrail([r.productionNo ? `Заказ № ${r.productionNo}` : null, r.orderNo ? `Договор ${r.orderNo}` : null, `Позиция ${r.seqNo ?? r.lineNo ?? ''}`.trim()]), { label: `Заказ № ${r.orderNo || '—'}`, run: () => go('salesorders', { open: String(r.orderId) }) }) : null),
     gallery: (r) => r.photos || [],
     photoAdd: (r, photoId) => api(`/incomes/${r.id}/photos`, { method: 'POST', body: { photoId } }),
@@ -250,13 +250,13 @@ export const orders = {
       ['Примечание', r.notes],
     ],
     actions: (r) => [
-      session.canEdit && { label: r.product ? 'Сменить изделие' : 'Выбрать изделие', title: 'Связать позицию с изделием из «Продукции» — для паспорта и единого названия', primary: !r.product && !!r.orderId, run: async (row, ctx) => { const s = await pickProduct(row); if (s) ctx.setRow(s); } },
-      session.canMoney && { label: r.amount ? 'Изменить сумму' : 'Вписать сумму', primary: !r.amount, run: async (row, ctx) => { const s = await priceDialog(row); if (s) ctx.setRow(s); } },
+      session.canEdit && { label: r.product ? 'Сменить изделие' : 'Выбрать изделие', more: !!r.product, title: 'Связать позицию с изделием из «Продукции» — для паспорта и единого названия', primary: !r.product && !!r.orderId, run: async (row, ctx) => { const s = await pickProduct(row); if (s) ctx.setRow(s); } },
+      session.canMoney && { label: r.amount ? 'Изменить сумму' : 'Вписать сумму', more: !!r.amount, primary: !r.amount, run: async (row, ctx) => { const s = await priceDialog(row); if (s) ctx.setRow(s); } },
       session.canMoney && !r.paidDate && !!r.amount && { label: 'Принять оплату', primary: !!r.shipDate, run: async (row, ctx) => { const s = await paymentDialog(row); if (s) ctx.setRow(s); } },
-      session.canMoney && (!!r.paidDate || r.paidAmount > 0) && { label: 'Отменить оплату', run: async (row, ctx) => { const s = await api(`/incomes/${row.id}`, { method: 'PATCH', body: { payments: [] } }); toast('Оплата снята'); ctx.setRow(s); } },
+      session.canMoney && (!!r.paidDate || r.paidAmount > 0) && { label: 'Отменить оплату', more: true, run: async (row, ctx) => { const s = await api(`/incomes/${row.id}`, { method: 'PATCH', body: { payments: [] } }); toast('Оплата снята'); ctx.setRow(s); } },
       !r.shipDate && { label: 'Отгрузить сегодня', primary: !!r.amount, run: async (row, ctx) => ctx.setRow(await markToday(row, 'shipDate')) },
       // УПР-1/Д11: «Выпустить паспорт» убрана — единственный вход в passports.js
-      session.seesDocs() && r.orderId && { label: 'Паспорт →', title: 'Паспорта по заказу', run: (_row) => { go('docs', { tab: 'archive' }); } },
+      session.seesDocs() && r.orderId && { label: 'Паспорт →', more: true, title: 'Паспорта по заказу', run: (_row) => { go('docs', { tab: 'archive' }); } },
     ],
   },
 

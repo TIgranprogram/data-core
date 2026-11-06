@@ -22,7 +22,19 @@ test('summaryLines до 15 строк', () => {
   assert.ok(summaryLines({ date: 'd', screens: 1, panels: 2, total: 0, byRule: { a: 0 }, code: ['x'] }).length <= 15);
 });
 
-const { panelStructureFindings, panelStructureSnapshot, RULES } = await import('./site-audit.mjs');
+const { panelStructureFindings, panelStructureSnapshot, gapFindings, RULES } = await import('./site-audit.mjs');
+
+test('t: слипшиеся блоки и кнопки панели — находка; зазор 12px, перенос строки и другая колонка — нет', () => {
+  const col = (tops) => tops.map(([t, b]) => ({ top: t, bottom: b, left: 0, right: 300 }));
+  assert.deepEqual(gapFindings([{ sel: 's', dir: 'col', rects: col([[0, 60], [60, 120]]) }]).map((x) => x.rule), ['t']);
+  assert.equal(gapFindings([{ sel: 's', dir: 'col', rects: col([[0, 60], [72, 120]]) }]).length, 0);
+  assert.equal(gapFindings([{ sel: 's', dir: 'col', rects: [{ top: 0, bottom: 60, left: 0, right: 300 }, { top: 0, bottom: 60, left: 320, right: 600 }] }]).length, 0);
+  const btn = (l, r, t = 0) => ({ top: t, bottom: t + 40, left: l, right: r });
+  assert.deepEqual(gapFindings([{ sel: 'a', dir: 'row', rects: [btn(0, 80), btn(80, 160)] }]).map((x) => x.rule), ['t']);
+  assert.equal(gapFindings([{ sel: 'a', dir: 'row', rects: [btn(0, 80), btn(88, 160)] }]).length, 0);
+  assert.equal(gapFindings([{ sel: 'a', dir: 'row', rects: [btn(0, 80), btn(0, 80, 48)] }]).length, 0);
+  assert.ok(RULES.t);
+});
 
 test('группа реального счёта без ссылки даёт n, legacy номер без id не даёт ложную ссылку', () => {
   const id = '507f1f77bcf86cd799439011';

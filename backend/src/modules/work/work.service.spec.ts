@@ -210,7 +210,7 @@ describe('WorkService', () => {
   it('маршрут изделия: запись целиком, порядок сохраняется, повтор вида работ — 400, пустой — убрать', async () => {
     await expect(routes.set(String(noRoute), { steps: [{ workTypeId: String(weld) }, { workTypeId: String(weld) }] })).rejects.toThrow('уже есть в маршруте');
     await expect(routes.set(String(noRoute), { steps: [{ workTypeId: String(gone) }] })).rejects.toBeInstanceOf(BadRequestException);
-    expect(await routes.get(String(noRoute))).toMatchObject({ hasRoute: false, note: 'Не задано, как делается', steps: [] });
+    expect(await routes.get(String(noRoute))).toMatchObject({ hasRoute: false, note: 'Маршрут не задан', steps: [] });
     const r = await routes.set(String(noRoute), { steps: [{ workTypeId: String(paint) }, { workTypeId: String(cut), note: ' рез ' }] });
     expect(r).toMatchObject({ hasRoute: true, note: null });
     expect(r.steps.map((s) => [s.name, s.note])).toEqual([['Покраска', null], ['Резка', 'рез']]);

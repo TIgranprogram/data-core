@@ -13,7 +13,7 @@ import { facetFilter, ftParams, ftQuery, parseFt } from '../ui/kit/index.js';
 import { facetLabel, pipeKey, index as facetIndex, pick as facetPick } from '../core/facets.js';
 import { stockRequestsBox, requestFromHash, catalogFromHash, closeRequest } from './stock-requests.js';
 import { loadZones, setZone, zoneNow, zoneQuery } from '../core/zone.js';
-import { segmented, toolbar, catArt, button as kitButton } from '../ui/kit/index.js';
+import { segmented, toolbar, catArt, section, stack, button as kitButton } from '../ui/kit/index.js';
 
 /** Переключатель склада над списком (kit.segmented): виден, если доступно больше одного склада. Выбор запоминается; список и категории перечитываются. */
 function zoneBar() {
@@ -56,10 +56,10 @@ const photoThumb = (r) => {
 const HIST = { in: 'Приход', out: 'Списание', adjust: 'Корректировка', count: 'Пересчёт', transfer: 'Перемещение', reserve: 'Бронь', unreserve: 'Снятие брони' };
 /** Последние 5 записей истории позиции (GET /stock/items/:id/history?limit=5) и «Вся история» — без ограничения. */
 function recentMoves(r) {
-  const ul = h('ul', { class: 'timeline' }, h('li', { class: 'muted' }, 'Загрузка…'));
-  const more = h('div', { class: 'actions' });
+  const ul = h('ul', { class: 'timeline' }, h('li', { class: 'muted' }, 'Загрузка…')); const more = h('div', { class: 'actions' }); const box = h('div');
+  const paint = (count) => box.replaceChildren(section({ tone: 'gold', title: 'Последние записи', count, open: box.querySelector('details.k-sec')?.open || false, body: [ul, more] })); paint(null);
   const show = (res, full) => {
-    if (!res.items.length) { ul.replaceChildren(h('li', { class: 'muted' }, 'Движений нет. Приход и списание — кнопки в карточке позиции.')); more.replaceChildren(); return; }
+    paint(res.total ?? res.items.length); if (!res.items.length) { ul.replaceChildren(h('li', { class: 'muted' }, 'Движений нет. Приход и списание — кнопки в карточке позиции.')); more.replaceChildren(); return; }
     ul.replaceChildren(...res.items.map((m) => h('li', null,
       h('span', { class: 'when' }, date(m.date)), h('span', null, HIST[m.type] || m.type),
       h('span', { class: 'num ' + (m.type === 'in' ? 'pos' : m.type === 'out' ? 'neg' : '') }, (m.type === 'in' ? '+' : m.type === 'out' ? '−' : '') + qty(m.qty)),
@@ -73,7 +73,7 @@ function recentMoves(r) {
   };
   const loadHist = () => api(`/stock/items/${r.id}/history`, { query: { limit: 5 } }).then((res) => show(res, false)).catch((e) => ul.replaceChildren(h('li', null, failBlock(e, loadHist, { text: 'История не загрузилась' }))));
   loadHist();
-  return h('div', null, h('div', { class: 'section-title' }, 'Последние записи'), ul, more);
+  return box;
 }
 
 /** Шапка «Остатков» (УПР-1/Д5): одна синяя «Принять на склад» + «Ещё ▾» (Бронь по списку, Пересчёт, Движения; ⇩ Excel добавляет list.js автоматически). */
@@ -272,17 +272,17 @@ export const stock = {
       // все действия — в правой панели «Склад» (SK-9): закрыли панель — вернулись к этой позиции
       { label: '+ Принять', primary: !(r.reservedQty > 0), run: (row) => { openStockOp('in', row.id); return false; } },
       { label: '− Выдать', title: 'Кому и под что выдано — в правой панели', run: (row) => { openStockOp('out', row.id); return false; } },
-      { label: 'Списать (брак, потеря)', title: 'Причина из списка', run: (row) => { openStockOp('writeoff', row.id); return false; } },
-      { label: 'Забронировать под заказ', run: (row) => { openStockOp('reserve', row.id); return false; } },
-      r.reservedQty > 0 && { label: 'Снять бронь', run: (row) => { openStockOp('unreserve', row.id); return false; } },
-      { label: 'Пересчитать (сколько лежит)', run: (row) => { openStockOp('count', row.id); return false; } },
-      r.metal && !r.offcutOf && { label: 'Отложить обрезок…', run: (row, ctx) => offcutDialog(row, ctx) },
-      { label: 'Заказать (новая заявка)', run: (row) => orderItem(row) },
+      { label: 'Списать (брак, потеря)', more: true, title: 'Причина из списка', run: (row) => { openStockOp('writeoff', row.id); return false; } },
+      { label: 'Забронировать под заказ', more: r.reservedQty > 0, run: (row) => { openStockOp('reserve', row.id); return false; } },
+      r.reservedQty > 0 && { label: 'Снять бронь', more: true, run: (row) => { openStockOp('unreserve', row.id); return false; } },
+      { label: 'Пересчитать (сколько лежит)', more: true, run: (row) => { openStockOp('count', row.id); return false; } },
+      r.metal && !r.offcutOf && { label: 'Отложить обрезок…', more: true, run: (row, ctx) => offcutDialog(row, ctx) },
+      { label: 'Заказать (новая заявка)', more: true, run: (row) => orderItem(row) },
       qrPrintAction('S'),
     ],
     // «Заказано», «Поставщики и цены» (ЗП.1, ЗП.5), затем последние движения
     zones: { extra: 'side' }, // УПР-3: заказано, паспорт и движения — боковой колонкой
-    extra: (r) => h('div', null, orderedBlock(r), passportSpecView(r), recentMoves(r)),
+    extra: (r) => stack(orderedBlock(r), passportSpecView(r), recentMoves(r)),
   },
 
   form: {
@@ -327,7 +327,7 @@ export const stock = {
         { section: 'Склад', tone: 'info', collapsed: !stockOpen },
         { key: 'minQuantity', label: 'Минимальный остаток', type: 'number', min: 0, hint: 'Станет меньше — позиция попадёт в «К закупке»' },
         { key: 'weightG', label: 'Вес 1 шт., г', type: 'number', min: 0, hint: 'Для счёта по весу: штуки = вес партии ÷ вес 1 шт.' },
-        ...(ps ? [{ section: 'Для паспорта', tone: 'info' }, ps] : []),
+        ...(ps ? [{ section: 'Для паспорта', tone: 'neutral' }, ps] : []),
       ];
     },
     initial: () => {

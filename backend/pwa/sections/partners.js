@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { date, money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { modal } from '../ui/kit/dialog.js';
-import { button, fileButton, select, enhanceSelect } from '../ui/kit/index.js';
+import { button, fileButton, select, enhanceSelect, section, stack } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { openSide } from '../ui/kit/side-form.js';
 import { STAGE } from './salesorders.js';
@@ -78,9 +78,9 @@ function stampBlock(r, ctx) {
       session.canEdit ? h('label', { class: 'check' }, clear, 'Убрать белый фон при загрузке') : null,
       session.canEdit ? zone : null);
   };
-  return h('div', { class: 'pp-images' }, h('div', { class: 'section-title' }, 'Печать, подпись и логотип (для паспортов)'),
-    h('p', { class: 'muted' }, 'Лучше PNG с прозрачным фоном (скан без белого фона). В PDF паспорта «с печатью» ставятся на гарантийный талон.'),
-    slot('seal', 'Печать', 'круглая печать организации'), slot('signature', 'Подпись', 'подпись директора'), slot('logo', 'Логотип', 'логотип организации'));
+  return section({ tone: 'neutral', title: 'Печать, подпись и логотип (для паспортов)', count: (r.assets || []).length, body: [
+    h('p', { class: 'muted small' }, 'Лучше PNG с прозрачным фоном (скан без белого фона). В PDF паспорта «с печатью» ставятся на гарантийный талон.'),
+    slot('seal', 'Печать', 'круглая печать организации'), slot('signature', 'Подпись', 'подпись директора'), slot('logo', 'Логотип', 'логотип организации')] });
 }
 
 /**
@@ -88,8 +88,9 @@ function stampBlock(r, ctx) {
  * В КП без выбора бланка подставляется отсюда (стр. 1 и стр. 2+).
  */
 function kpBgBlock(r, ctx) {
-  const root = h('div', { class: 'pp-images' });
+  const root = h('div');
   const paint = async () => {
+    const wasOpen = root.querySelector('details.k-sec')?.open || false;
     let items = [];
     try {
       const resp = await api('/offers/backgrounds');
@@ -132,12 +133,11 @@ function kpBgBlock(r, ctx) {
         h('div', { class: 'pp-kind-head' }, h('b', null, title), h('span', { class: 'muted' }, ' · ' + tip)),
         prev, session.canEdit ? zone : null);
     };
-    root.replaceChildren(
-      h('div', { class: 'section-title' }, 'Бланк КП (фон А4)'),
-      h('p', { class: 'muted' }, 'PNG или JPG до 5 МБ, пропорции листа А4. Этот фон подставляется в PDF КП этой фирмы по умолчанию (можно сменить в карточке КП).'),
+    root.replaceChildren(section({ tone: 'neutral', title: 'Бланк КП (фон А4)', count: items.length, open: wasOpen, body: [
+      h('p', { class: 'muted small' }, 'PNG или JPG до 5 МБ, пропорции листа А4. Этот фон подставляется в PDF КП этой фирмы по умолчанию (можно сменить в карточке КП).'),
       slot(1, 'Страница 1', 'первая страница КП'),
       slot(2, 'Страницы 2+', 'вторая и следующие'),
-    );
+    ] }));
   };
   paint();
   return root;
@@ -145,15 +145,15 @@ function kpBgBlock(r, ctx) {
 
 function related(r, ctx) {
   const items = r.related || [];
-  if (r.kind === 'our') return h('div', null, stampBlock(r, ctx), kpBgBlock(r, ctx), relatedRest(r, items));
-  if (r.kind === 'supplier') return h('div', null, contractsBlock(r), relatedRest(r, items));
-  return relatedRest(r, items);
+  if (r.kind === 'our') return stack(stampBlock(r, ctx), kpBgBlock(r, ctx), relatedRest(r, items));
+  if (r.kind === 'supplier') return stack(contractsBlock(r), relatedRest(r, items));
+  return stack(relatedRest(r, items));
 }
 
 function relatedRest(r, items) {
   if (r.kind === 'customer') {
     // Заказчик целиком: в работе / закрытые, у каждого заказа — этап, позиции, сумма и оплата; клик — сам заказ
-    if (!items.length) return h('p', { class: 'muted' }, 'Заказов нет');
+    if (!items.length) return section({ tone: 'money', title: 'Заказы', count: 0, body: h('p', { class: 'muted small' }, 'Заказов нет') });
     const open = items.filter((o) => !['shipped', 'closed', 'cancelled'].includes(o.stage));
     const done = items.filter((o) => ['shipped', 'closed', 'cancelled'].includes(o.stage));
     const row = (o) => h('li', null,
@@ -161,7 +161,7 @@ function relatedRest(r, items) {
       badge(STAGE, o.stage),
       h('span', { class: 'muted clip' }, [o.title, o.lineCount ? `${qty(o.lineCount)} поз.` : '', o.shipDate ? 'отгрузка ' + date(o.shipDate) : ''].filter(Boolean).join(' · ')),
       session.canMoney && o.amount ? h('span', { class: 'num' }, money(o.amount) + (o.paidAmount >= o.amount ? ' · оплачен' : o.paidAmount ? ` · оплачено ${money(o.paidAmount)}` : ' · не оплачен')) : null);
-    const group = (title, list) => (list.length ? [h('div', { class: 'section-title' }, `${title} (${list.length})`), h('ul', { class: 'timeline' }, ...list.map(row))] : []);
+    const group = (title, list, open = false) => (list.length ? [section({ title, count: list.length, open, body: h('ul', { class: 'timeline' }, ...list.map(row)) })] : []);
     const unpaid = session.canMoney ? items.reduce((s, o) => s + Math.max(0, (o.amount || 0) - (o.paidAmount || 0)), 0) : 0;
     // закрытые прошлых лет — свёрнуты (TASKS ЗК.3)
     const year = String(new Date().getFullYear());
@@ -169,19 +169,18 @@ function relatedRest(r, items) {
     const doneNow = done.filter((o) => !yearOf(o) || yearOf(o) >= year), donePast = done.filter((o) => yearOf(o) && yearOf(o) < year);
     // склад по его заказам (TASKS Б.3 / ЗК.3): брони и что выдано, кому
     const res = r.reservations || [], iss = r.issues || [];
-    return h('div', null,
+    return stack(
       unpaid > 0 ? h('p', { class: 'hint' }, 'Ещё не оплачено по заказам: ', h('b', { class: 'num' }, money(unpaid))) : null,
-      ...group('В работе', open), ...group('Отгружены и закрыты', doneNow),
-      donePast.length ? h('details', { class: 'past-years' }, h('summary', { class: 'section-title' }, `Заказы прошлых лет (${donePast.length})`), h('ul', { class: 'timeline' }, ...donePast.map(row))) : null,
-      res.length ? h('div', null, h('div', { class: 'section-title' }, `Брони на складе (${res.length})`),
+      ...group('В работе', open, true), ...group('Отгружены и закрыты', doneNow), ...group('Заказы прошлых лет', donePast),
+      res.length ? section({ tone: 'gold', title: 'Брони на складе', count: res.length, body:
         h('ul', { class: 'timeline' }, ...res.map((g) => h('li', null, h('a', { href: '#ops?mode=reserve' }, g.name), h('span', { class: 'muted' },
-          [g.orderNo && `заказ №${g.orderNo}`, `${g.lines} поз.`, g.left ? 'в брони ' + qty(g.left) : 'всё выдано', g.issued ? 'выдано ' + qty(g.issued) : ''].filter(Boolean).join(' · ')))))) : null,
-      iss.length ? h('div', null, h('div', { class: 'section-title' }, `Выдано со склада по его заказам (${iss.length})`),
+          [g.orderNo && `заказ №${g.orderNo}`, `${g.lines} поз.`, g.left ? 'в брони ' + qty(g.left) : 'всё выдано', g.issued ? 'выдано ' + qty(g.issued) : ''].filter(Boolean).join(' · '))))) }) : null,
+      iss.length ? section({ tone: 'gold', title: 'Выдано со склада по его заказам', count: iss.length, body:
         h('ul', { class: 'timeline' }, ...iss.map((m) => h('li', null, h('span', { class: 'when' }, date(m.date)), h('a', { href: '#movements?open=' + m.id }, m.name), h('span', { class: 'num' }, `${qty(m.qty)} ${m.unit}`),
-          h('span', { class: 'muted' }, [m.orderNo && `заказ №${m.orderNo}`, m.to ? 'кому: ' + m.to : ''].filter(Boolean).join(' · ')))))) : null);
+          h('span', { class: 'muted' }, [m.orderNo && `заказ №${m.orderNo}`, m.to ? 'кому: ' + m.to : ''].filter(Boolean).join(' · '))))) }) : null);
   }
-  return h('div', null, h('div', { class: 'section-title' }, `${r.kind === 'our' ? 'Заявки на эту компанию' : 'Заявки этому поставщику'} (${items.length})`),
-    items.length ? requestsByMonth(items) : h('p', { class: 'muted' }, 'Заявок нет'));
+  return section({ tone: 'who', title: r.kind === 'our' ? 'Заявки на эту компанию' : 'Заявки этому поставщику', count: items.length, open: true,
+    body: items.length ? requestsByMonth(items) : h('p', { class: 'muted small' }, 'Заявок нет') });
 }
 
 const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
@@ -271,7 +270,7 @@ export const partners = {
       ['Банк', [r.bankName, r.bankBik && 'БИК ' + r.bankBik].filter(Boolean).join(' · ')], ['Расчётный счёт', r.bankAccount], ['Корр. счёт', r.bankCorrAccount],
       ['Контакт', [r.contactName, r.contactPhone].filter(Boolean).join(' · ')], ['Примечание', r.notes]],
     actions: (r) => [
-      r.kind !== 'our' && { label: 'Объединить с…', run: (row, ctx) => mergeDialog(row, ctx) },
+      r.kind !== 'our' && { label: 'Объединить с…', more: true, run: (row, ctx) => mergeDialog(row, ctx) },
       r.kind === 'supplier' && { label: 'Новая заявка этому поставщику', run: () => patch({ of: 'requests', new: '1', open: undefined }) },
       r.kind === 'supplier' && session.canEdit && { label: 'Загрузить прайс из Excel', run: () => openSide('pricelist', 'order:' + r.id) },
     ],

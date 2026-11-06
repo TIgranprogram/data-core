@@ -5,7 +5,7 @@ import { enhanceSelect, button, iconButton, select, section } from '../ui/kit/in
 import { toast, toastError } from '../ui/kit/toast.js';
 
 /*
- * «Как делается» в карточке изделия: маршрут по видам работ (сварка → покраска → сборка). По нему «Запустить в работу»
+ * «Маршрут изготовления» в карточке изделия: маршрут по видам работ (сварка → покраска → сборка). По нему «Запустить в работу»
  * ведёт карточку изделия по доске «В работе». GET /work-routes/:productId, PUT — записать маршрут целиком (пустой — убрать).
  * Нет маршрута — сервер даёт подсказку из модулей изделия («Взять подсказку»); без маршрута изделие запускается одной работой «Изготовление».
  */
@@ -24,7 +24,7 @@ const cut = (steps) => steps.map((s) => ({ workTypeId: s.workTypeId || '', lineI
 
 export function routeBlock(product) {
   const box = h('div', { class: 'wk-route' });
-  const sec = section({ title: 'Как делается', count: '…', body: box }); // ПМ-1: блок панели — свёрнутая секция с числом шагов
+  const sec = section({ title: 'Маршрут изготовления', tone: 'main', count: '…', body: box }); // ПМ-1: блок панели — свёрнутая секция с числом шагов
   const setCount = (n) => { const b = sec.querySelector(':scope > summary .k-sec-n'); if (b) b.textContent = String(n); };
   const can = session.canEdit;
   let data = null, types = [], steps = [], saved = [];
@@ -79,7 +79,7 @@ export function routeBlock(product) {
     setCount(steps.length);
     box.replaceChildren(
       rows.length ? h('ol', { class: 'wk-rt-list' }, ...rows)
-        : h('p', { class: 'muted' }, (data.note || 'Не задано, как делается') + '. ' + (can ? 'Без маршрута изделие запускается одной работой «Изготовление». Добавьте работы по порядку или возьмите подсказку.' : '')),
+        : h('p', { class: 'muted' }, (data.note || 'Маршрут не задан') + '. ' + (can ? 'Без маршрута изделие запускается одной работой «Изготовление». Добавьте работы по порядку или возьмите подсказку.' : '')),
       data.droppedSteps ? h('p', { class: 'hint' }, `Виды работ, удалённые из справочника, в маршруте не показаны: ${data.droppedSteps}. После сохранения они уйдут.`) : null,
       acts);
   }

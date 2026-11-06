@@ -1,6 +1,6 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { attachCombo, busyBlock, failBlock } from '../ui/kit/index.js';
+import { attachCombo, busyBlock, failBlock, section } from '../ui/kit/index.js';
 import { loadMaterialDicts, normSize, splitSizes } from '../ui/materials-spec.js';
 
 /*
@@ -62,10 +62,10 @@ export async function savePassportSpec(id, json) {
 
 /** Блок «Для паспорта» в карточке (только чтение; правка — «Изменить»). */
 export function passportSpecView(r) {
-  const title = h('div', { class: 'section-title' }, 'Для паспорта');
-  const box = h('div', null, title);
+  const box = h('div');
+  const paint = (count, body) => box.replaceChildren(section({ tone: 'neutral', title: 'Для паспорта', count, open: box.querySelector('details.k-sec')?.open || false, body }));
   const render = async () => {
-    box.replaceChildren(title, busyBlock('паспортные данные', { retry: render }));
+    paint(null, busyBlock('паспортные данные', { retry: render }));
     try {
       const [spec, mats] = await Promise.all([load(r.id), api('/dicts/passportMaterials').then((x) => x.items || [])]);
       const name = spec?.materialId ? (mats.find((m) => String(m.id) === String(spec.materialId))?.name || 'материал удалён из справочника') : '';
@@ -73,10 +73,10 @@ export function passportSpecView(r) {
         name && h('p', null, 'Материал: ', h('b', null, name), spec.sizes?.length ? ` · ${spec.sizes.join('; ')}` : '', spec.isCoating ? ' · покрытие' : ''),
         spec.passportText && h('p', null, 'Для паспорта: ', spec.passportText),
         spec.techText && h('p', null, 'Для тех. описания: ', spec.techText)].filter(Boolean)
-        : [h('p', { class: 'muted' }, 'Не связано с материалом паспорта — «Изменить» → «Для паспорта». Пока связи нет, состав изделия подсказывает по названию.')];
-      box.replaceChildren(title, ...rows);
+        : [h('p', { class: 'muted small' }, 'Не связано с материалом паспорта — «Изменить» → «Для паспорта». Пока связи нет, состав изделия подсказывает по названию.')];
+      paint(spec && (name || spec.passportText || spec.techText) ? rows.length : 0, rows);
     } catch (e) {
-      box.replaceChildren(title, failBlock(e, render, { text: 'Данные для паспорта не загрузились' }));
+      paint(null, failBlock(e, render, { text: 'Данные для паспорта не загрузились' }));
     }
   };
   render();

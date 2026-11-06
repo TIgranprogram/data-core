@@ -1554,7 +1554,7 @@ body:has(.drawer:not(.docked)) .chat-win { z-index: 40; }
 .fill-quick input[type="date"] { width: 10.5em; }
 @media (max-width: 600px) { .fill-quick input, .fill-quick input[type="date"] { flex: 1 1 8em; width: auto; } }
 
-/* «В работе» (производство): доска по видам работ, маршрут, запуск из заказа, «Как делается» у изделия */
+/* «В работе» (производство): доска по видам работ, маршрут, запуск из заказа, «Маршрут изготовления» у изделия */
 .wk-wrap { min-width: 0; }
 .wk-dots { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; }
 .wk-dot { width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--border-strong); background: var(--surface); flex: none; }
