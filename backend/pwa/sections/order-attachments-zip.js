@@ -1,9 +1,9 @@
-import { api, PREFIX } from '../core/api.js';
+import { api, apiFile, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { modal } from '../ui/kit/dialog.js';
 import { empty } from '../ui/kit/empty.js';
 import { tagPick } from '../ui/kit/pick.js';
-import { toast } from '../ui/kit/toast.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 import { sideNote } from '../ui/kit/side-form.js';
 
 /**
@@ -89,4 +89,8 @@ export async function orderAttachmentsZip(order) {
 }
 
 /** Пункт «Скачать вложения заказа» в шапке карточки заказа (salesorders.actions). */
-export const orderZipAction = { label: 'Скачать вложения заказа', title: 'Файлы изделий заказа (чертежи, паспорта…) одним архивом', run: (row) => orderAttachmentsZip(row) };
+export const orderZipAction = { label: 'Скачать вложения заказа', more: true, title: 'Файлы изделий заказа (чертежи, паспорта…) одним архивом', run: (row) => orderAttachmentsZip(row) };
+/** «PDF заказа» (пользователь 2026-11-06): весь заказ с перечнем позиций для печати А4 одной кнопкой. Сервер: GET /production-orders/:key/pdf. */
+export const orderPdfAction = { label: 'PDF заказа', title: 'Весь заказ с перечнем позиций — для печати А4', run: async (row) => {
+  try { const name = await apiFile(`/production-orders/${encodeURIComponent(row.key || row.productionNo || row.id)}/pdf`, { fallback: `Заказ_${row.productionNo || row.orderNo || ''}.pdf` }); toast(`Скачан: ${name}`); } catch (e) { toastError(e, 'скачать PDF заказа'); }
+} };

@@ -15,6 +15,10 @@ import { loadReadinessFacts, readinessChecks, readinessWarnings, type Readiness 
 import { checkAssign, compareProductionNo, groupKey, summarize, toProduce, type ProduceLine } from './production-orders';
 import { SalesOrder, SalesOrderDocument } from './sales-order.schema';
 import { SalesOrdersService, nextProductionNo, UNASSIGNED } from './salesorders.service';
+import { promises as fs } from 'fs';
+import sharp from 'sharp';
+import { safeUploadPath } from '../../common/uploads/safe-path';
+import { renderOrderPdf } from './order-pdf';
 
 type Doc = Record<string, unknown>;
 type See = { requests?: boolean; stock?: boolean };
@@ -250,6 +254,49 @@ export class ProductionOrdersService {
     });
     const sum = summarize(docs);
     return { key: groupKey(docs[0]), productionNo: String(docs[0].productionNo ?? '').trim() || null, orders, unmatchedCount: orders.reduce((a, o) => a + o.unmatchedCount, 0), toProduce: toProduce(lines), ...sum, stageLabel: STAGE_LABELS[sum.stage] };
+  }
+
+  /**
+   * PDF заказа целиком (А4): шапка нашей компании с логотипом, договоры и позиции, итоги. money — цены и суммы (как MoneyMask).
+   * Отменённые договоры и позиции не печатаются.
+   */
+  async pdf(key: string, money: boolean) {
+    const card = await this.get(key, {});
+    const live = (card.orders as Doc[]).filter((o) => o.stage !== 'cancelled');
+    if (!live.length) throw new BadRequestException('В заказе нет действующих договоров — печатать нечего');
+    const db = this.connection.db!;
+    const companyId = live.find((o) => o.companyId)?.companyId;
+    const org = companyId && Types.ObjectId.isValid(String(companyId))
+      ? await db.collection('organizations').findOne({ _id: new Types.ObjectId(String(companyId)) }, { projection: { name: 1, fullName: 1, shortName: 1, inn: 1, legalAddress: 1, phone: 1, assets: 1 } }) : null;
+    const logoUrl = ((org?.assets as Array<{ role: string; storageUrl: string }> | undefined) || []).find((a) => a.role === 'logo')?.storageUrl;
+    let logo: Buffer | undefined;
+    const path = safeUploadPath(logoUrl);
+    if (path) { try { logo = await sharp(await fs.readFile(path)).resize({ width: 400, height: 400, fit: 'inside', withoutEnlargement: true }).png().toBuffer(); } catch { logo = undefined; } }
+    const customers = [...new Set(live.map((o) => String(o.customer ?? '').trim()).filter(Boolean))];
+    const minDate = (k: string) => live.map((o) => o[k]).filter(Boolean).sort((a, b) => new Date(a as Date).getTime() - new Date(b as Date).getTime())[0] as Date | undefined;
+    const contracts = live.map((o) => {
+      const lines = ((o.lines as Doc[]) || []).filter((l) => !l.cancelledAt && l.status !== 'cancelled');
+      return {
+        orderNo: String(o.orderNo ?? ''), contractDate: (o.contractDate as Date | undefined) ?? null, customer: customers.length > 1 ? String(o.customer ?? '') : undefined,
+        title: o.title as string | undefined, stageLabel: STAGE_LABELS[o.stage as OrderStage],
+        paid: money ? lines.reduce((s, l) => s + (Number(l.paidAmount) || 0), 0) : undefined,
+        lines: lines.map((l) => ({
+          seqNo: (l.seqNo as number | null | undefined) ?? (l.lineNo as number | undefined) ?? null, title: String(l.title ?? ''),
+          note: [l.kind, l.color, l.size].map((x) => String(x ?? '').trim()).filter(Boolean).join(' · ') || undefined,
+          sku: ((l.product as { sku?: string } | null)?.sku) ?? undefined, qty: l.qty as number | undefined, unit: l.unit as string | undefined,
+          ...(money ? { price: l.unitPrice as number | undefined, amount: l.amount as number | undefined } : {}),
+          shipDate: (l.shipDate as Date | undefined) ?? null,
+        })),
+      };
+    });
+    const number = String(card.productionNo || live[0].orderNo || '—');
+    const buf = await renderOrderPdf({
+      number, stageLabel: card.stageLabel as string | undefined, customer: customers.join(', '),
+      productionDeadline: minDate('productionDeadline') ?? null, shipDate: minDate('shipDate') ?? null,
+      org: org ? { name: String(org.fullName || org.name || org.shortName || ''), inn: org.inn as string | undefined, address: org.legalAddress as string | undefined, phone: org.phone as string | undefined } : { name: '' },
+      logo, contracts, money,
+    });
+    return { buf, filename: `Заказ_${number.replace(/[^\p{L}\p{N}._-]+/gu, '_')}.pdf` };
   }
 
   private liveIds(docs: Doc[]) { return docs.filter((d) => d.stage !== 'cancelled').map((d) => d._id as Types.ObjectId); }

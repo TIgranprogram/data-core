@@ -1,4 +1,6 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Query, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Query, Res, StreamableFile, UseInterceptors } from '@nestjs/common';
+import type { Response } from 'express';
+import { canSeeMoney } from '../../common/roles-hierarchy';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -53,6 +55,15 @@ export class ProductionOrdersController {
   @Roles('admin', 'manager')
   moveContract(@Param('key') key: string, @Body() dto: MoveContractDto) {
     return this.svc.moveContract(key, dto.contractId, dto.toProductionNo);
+  }
+
+  /** PDF заказа целиком для печати А4: шапка, договоры, позиции, итоги; цены и суммы — только ролям с деньгами. */
+  @Get(':key/pdf')
+  @Roles('admin', 'director', 'manager', 'user')
+  async pdf(@Param('key') key: string, @Res({ passthrough: true }) res: Response, @CurrentUser() user?: AuthenticatedUser) {
+    const r = await this.svc.pdf(key, canSeeMoney(user));
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="order.pdf"; filename*=UTF-8''${encodeURIComponent(r.filename)}` });
+    return new StreamableFile(r.buf);
   }
 
   @Get(':key')

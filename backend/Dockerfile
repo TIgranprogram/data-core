@@ -17,6 +17,8 @@ RUN pnpm run build
 FROM node:20-alpine AS prod
 WORKDIR /app
 ENV NODE_ENV=production
+# Обычный шрифт печати (PDF заказа, КП): DejaVu Sans; без него печать берёт ГОСТ из pwa/fonts (2026-11-06).
+RUN apk add --no-cache font-dejavu || echo 'font-dejavu не поставился — печать будет шрифтом ГОСТ'
 # prod stage doesn't need pnpm or corepack — CMD invokes `node`, not pnpm scripts.
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules ./node_modules

@@ -6,7 +6,7 @@ import { fontDir } from '../product-passport/passport-pdf';
 
 /** Кандидаты шрифтов: сначала системный sans-serif с кириллицей (Ubuntu), затем ГОСТ. */
 function offerFontPath(dir: string): string {
-  for (const p of ['/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', '/usr/share/fonts/truetype/freefont/FreeSans.ttf']) {
+  for (const p of ['/usr/share/fonts/dejavu/DejaVuSans.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', '/usr/share/fonts/truetype/freefont/FreeSans.ttf']) {
     if (existsSync(p)) return p;
   }
   return join(dir, 'gost-a.ttf');
