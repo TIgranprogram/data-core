@@ -30,8 +30,8 @@ export function buildLineForm(invoice, line) {
 
 async function buildMetaForm(invoice, services) {
   const p = permissions(invoice, session);
-  const [payers, contracts] = await Promise.all([p.finance ? services.payers() : [], services.contracts(invoice.supplierId)]);
-  if (p.finance && invoice.payerCompanyId && !payers.some((payer) => String(payer.value) === String(invoice.payerCompanyId))) payers.push({ value: String(invoice.payerCompanyId), label: invoice.payerName || 'Текущая компания' });
+  const [payers, contracts] = await Promise.all([p.payer ? services.payers() : [], services.contracts(invoice.supplierId)]);
+  if (p.payer && invoice.payerCompanyId && !payers.some((payer) => String(payer.value) === String(invoice.payerCompanyId))) payers.push({ value: String(invoice.payerCompanyId), label: invoice.payerName || 'Текущая компания' });
   const files = photoField(invoice.files || [], { pdf: true });
   const knownIds = (invoice.fileIds || (invoice.files || []).map((f) => f.id)).map(String);
   const unseenIds = knownIds.filter((id) => !(invoice.files || []).some((f) => String(f.id) === id));
@@ -43,7 +43,7 @@ async function buildMetaForm(invoice, services) {
     { section: 'Реквизиты счёта', fixed: true },
     !p.boundary ? { key: 'duplicateReason', label: 'Причина отдельного счёта с тем же номером', max: 200, wide: true, hint: 'Только если отдельный счёт с тем же номером действительно нужен.' } : null,
     { key: 'no', label: '№ счёта', max: 100 }, { key: 'date', label: 'Дата счёта', type: 'date' },
-    p.finance ? { key: 'payerCompanyId', label: 'Наша компания', type: 'select', options: [{ value: '', label: 'Выберите компанию' }, ...payers] } : null,
+    p.payer ? { key: 'payerCompanyId', label: 'Наша компания', type: 'select', options: [{ value: '', label: 'Выберите компанию' }, ...payers] } : null,
     { section: 'Договор поставщика', tone: 'info' },
     { key: 'contractId', label: 'Договор', type: 'select', options: contractOptions, wide: true },
     { note: link({ label: 'Создать договор отдельно →', href: services.href({ of: 'contract', new: '1', open: undefined, supplierId: invoice.supplierId }) }) },

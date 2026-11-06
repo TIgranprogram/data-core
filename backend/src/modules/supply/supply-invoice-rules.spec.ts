@@ -21,7 +21,7 @@ describe('ворота', () => {
     expect(missing(ORDERED_GATE, { supplierId: 'x', qty: 2, unit: 'шт' })).toEqual([]);
   });
   it('«выставлен»: №, дата, сумма', () => {
-    expect(missing(ISSUED_GATE, { no: ' ' })).toEqual(['№ счёта', 'Дата счёта', 'Сумма счёта']);
+    expect(missing(ISSUED_GATE, { no: ' ' })).toEqual(['№ счёта', 'Дата счёта', 'Сумма позиций (впишите сумму каждой строки в счёте)']);
     expect(missing(ISSUED_GATE, { no: '12', date: new Date(), amount: 5 })).toEqual([]);
   });
 });

@@ -49,7 +49,7 @@ export function missingFor(r, to) {
 /** Следующий шаг заявки: одна кнопка-глагол. kind 'receive' — окно приёма. */
 export function nextStep(r) {
   const k = supplyKey(r);
-  if (k === 'in_progress') return { to: 'requested', verb: 'В заказ' };
+  if (k === 'in_progress') return { to: 'requested', verb: 'Заказать' };
   if (k === 'requested') return { to: 'ordered', verb: 'Заказал у поставщика' };
   if (k === 'ordered') return { to: 'paid', verb: 'Счёт оплачен' };
   if (k === 'paid') return { to: 'received', verb: 'Принять на склад', kind: 'receive' };

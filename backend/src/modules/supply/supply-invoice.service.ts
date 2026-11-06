@@ -199,7 +199,11 @@ export class SupplyInvoiceService {
     const f: Lean = { deletedAt: null };
     const st = (q.status ?? '').split(',').map((x) => x.trim()).filter(Boolean);
     if (st.length) f.status = { $in: st };
-    if (q.supplierId) f.supplierId = oid(q.supplierId, 'поставщика');
+    // фильтр «Поставщик» на вкладке «Счета» шлёт название из справочника (аудит 2026-11-06 №13) — id тоже принимаем
+    if (q.supplierId) {
+      if (Types.ObjectId.isValid(q.supplierId) && /^[0-9a-f]{24}$/i.test(q.supplierId)) f.supplierId = new Types.ObjectId(q.supplierId);
+      else f.supplierName = new RegExp('^' + escapeRe(q.supplierId.trim()) + '$', 'i');
+    }
     if (q.contract) {
       if (!['none', 'has'].includes(q.contract)) throw new BadRequestException('Договор: none (без договора) или has (с договором)');
       f.contractId = q.contract === 'none' ? null : { $ne: null };
@@ -300,7 +304,7 @@ export class SupplyInvoiceService {
     for (const d of docs) {
       const label = `Заявка №${d.num ?? '—'} «${d.title ?? ''}»`;
       if (d.invoiceId) throw new BadRequestException(`${label} уже входит в счёт`);
-      if (!['requested', 'in_progress'].includes(String(d.status ?? 'requested'))) throw new BadRequestException(`${label}: заказать можно только заявку «В заказ» или «В работе»`);
+      if (!['requested', 'in_progress'].includes(String(d.status ?? 'requested'))) throw new BadRequestException(`${label}: заказать можно только заявку «Ожидает» или «Заказать»`);
       const lack = missing(ORDERED_GATE, d);
       if (lack.length) throw new BadRequestException(`${label}: не заполнено — ${lack.join(', ')}`);
     }
@@ -314,7 +318,7 @@ export class SupplyInvoiceService {
         const res = await this.requests.updateMany(
           { _id: { $in: list.map((d) => d._id) }, deletedAt: null, invoiceId: { $exists: false } },
           { $set: { invoiceId: inv._id, status: 'ordered', paid: false, editedInApp: true } }, { session }).exec();
-        if (res.modifiedCount !== list.length) throw new BadRequestException('Заявки изменились, пока вы выбирали — обновите список и повторите');
+        if (res.modifiedCount !== list.length) throw new BadRequestException('Пока вы выбирали, кто-то изменил эти заявки. Обновите список и выберите заново');
         await this.recalcAmount({ _id: inv._id } as Lean, session);
         out.push(String(inv._id));
       }
@@ -329,9 +333,11 @@ export class SupplyInvoiceService {
     if (inv.status === 'cancelled') throw new BadRequestException('Счёт отменён');
     if (inv.status === 'paid' && dto.issue) throw new BadRequestException('Оплаченный счёт нельзя повторно выставить');
     const lock = await this.lockReason(inv);
-    const financial = Object.entries(dto).filter(([k, v]) => v !== undefined && !['fileIds', 'contractId', 'no', 'date'].includes(k));
+    // «Нашу компанию» неоплаченного счёта можно указать и после приёмки: без неё счёт не оплатить (тупик, аудит 2026-11-06 №2)
+    const meta = ['fileIds', 'contractId', 'no', 'date', ...(inv.status !== 'paid' ? ['payerCompanyId'] : [])];
+    const financial = Object.entries(dto).filter(([k, v]) => v !== undefined && !meta.includes(k));
     if (lock) {
-      if (financial.length) throw new BadRequestException(`${lock}. Менять можно файлы, договор, номер и дату`);
+      if (financial.length) throw new BadRequestException(`${lock}. Менять можно файлы, договор, номер, дату и нашу компанию (до оплаты)`);
       return this.patchLocked(inv, dto);
     }
     const set: Lean = {};
@@ -345,7 +351,7 @@ export class SupplyInvoiceService {
     if (dto.payerCompanyId !== undefined) {
       if (dto.payerCompanyId) {
         const org = await this.connection.db!.collection('organizations').findOne({ _id: oid(dto.payerCompanyId, 'плательщика'), deletedAt: null });
-        if (!org) throw new BadRequestException('Плательщик не найден среди организаций');
+        if (!org) throw new BadRequestException('Наша компания не найдена среди организаций');
         set.payerCompanyId = org._id;
       } else set.payerCompanyId = undefined;
     }
@@ -439,7 +445,9 @@ export class SupplyInvoiceService {
       if (d.invoiceId) throw new BadRequestException(`${label} уже входит в счёт`);
       const st = String(d.status ?? 'requested');
       const canAdd = st === 'requested' || st === 'in_progress' || st === 'ordered';
-      if (!canAdd) throw new BadRequestException(`${label}: добавить можно заявку «Заказать», «В работе» или «Оплачено»`);
+      if (!canAdd) throw new BadRequestException(`${label}: добавить можно заявку «Ожидает», «Заказать» или «В работе»`);
+      // своя оплата заявки + оплата счёта = двойной расход в «Деньгах»
+      if (d.paid === true) throw new BadRequestException(`${label} уже оплачена отдельно — сначала снимите оплату (статус «В работе»)`);
       if (inv.supplierId && d.supplierId && String(d.supplierId) !== String(inv.supplierId)) throw new BadRequestException(`${label}: другой поставщик, чем у счёта`);
       if (st === 'requested' || st === 'in_progress') {
         const lack = missing(ORDERED_GATE, { ...d, supplierId: d.supplierId ?? inv.supplierId });
@@ -560,11 +568,16 @@ export class SupplyInvoiceService {
       if (!d) throw new BadRequestException('Дата счёта — в формате ДД.ММ.ГГГГ');
       $set.date = d;
     }
+    if (dto.payerCompanyId && inv.status !== 'paid') {
+      const org = await this.connection.db!.collection('organizations').findOne({ _id: oid(dto.payerCompanyId, 'компании'), deletedAt: null });
+      if (!org) throw new BadRequestException('Наша компания не найдена среди организаций');
+      $set.payerCompanyId = org._id;
+    }
     if (Object.keys($set).length || Object.keys($unset).length) {
       await this.tx(async (session) => {
         await this.model.updateOne({ _id: inv._id }, { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}), $inc: { version: 1 } }, { session }).exec();
         // № / дата / плательщик — метаданные строк, цены и количество не трогаем
-        if (['no', 'date'].some((k) => k in $set || k in $unset)) await this.copyMetaToRequests({ ...inv, ...$set }, session);
+        if (['no', 'date', 'payerCompanyId'].some((k) => k in $set || k in $unset)) await this.copyMetaToRequests({ ...inv, ...$set }, session);
       });
     }
     return this.get(String(inv._id));
@@ -654,11 +667,19 @@ export class SupplyInvoiceService {
   /**
    * ЗЯ-1 п.3: администратор меняет сумму/количество строки через PATCH заявки — уходит в правку строки счёта
    * (пересчёт amount, история цены; у оплаченного — запись в paymentAdjustments) с причиной и записью в журнал.
-   * Заявка без счёта → false (правка идёт обычным путём). После границы приёмки updateLine откажет, как раньше.
+   * Заявка без счёта → false (правка идёт обычным путём).
+   * Менеджер (решение Б, 2026-11-06): та же правка строки до приёмки, без причины и журнала обхода — как в самом счёте.
    */
   async adminEditLine(requestId: string, dto: { priceHint?: number | null; qty?: number; reason?: string }, actor: OverrideActor): Promise<boolean> {
     const line = await this.requests.findOne({ _id: oid(requestId, 'заявки'), deletedAt: null }).lean().exec() as Lean | null;
     if (!line?.invoiceId) return false;
+    if (dto.priceHint === null) throw new BadRequestException('Сумму позиции счёта нельзя стереть — впишите сумму');
+    if (!isAdminActor(actor)) {
+      await this.updateLine(String(line.invoiceId), requestId, {
+        ...(dto.priceHint !== undefined ? { lineAmount: dto.priceHint } : {}), ...(dto.qty !== undefined ? { qty: dto.qty } : {}),
+      }, actor.id, actor);
+      return true;
+    }
     const reason = overrideReason(dto.reason);
     const inv = await this.load(String(line.invoiceId));
     const before = { priceHint: line.priceHint ?? null, qty: line.qty ?? null, invoiceAmount: inv.amount ?? null };
@@ -673,10 +694,12 @@ export class SupplyInvoiceService {
     return true;
   }
 
-  /** Убрать строку из счёта, не удаляя заявку: до первой приёмки (в т. ч. оплаченный); вернуть в «В заказ», пересчитать сумму. */
-  async removeLine(invoiceId: string, lineId: string, actorId?: string) {
+  /** Убрать строку из счёта, не удаляя заявку: до первой приёмки (в т. ч. оплаченный); вернуть в «Заказать», пересчитать сумму. */
+  async removeLine(invoiceId: string, lineId: string, actorId?: string, actor?: OverrideActor) {
     const inv = await this.load(invoiceId);
     if (inv.status === 'cancelled') throw new BadRequestException('Счёт отменён');
+    // менеджер убирает позицию из неоплаченного счёта (иначе не отменить заявку); оплаченный — только администратор
+    if (actor && !isAdminActor(actor) && inv.status === 'paid') throw new ForbiddenException('Счёт оплачен — убрать позицию может только администратор');
     const lock = await this.lockReason(inv);
     if (lock) throw new BadRequestException(`${lock}. Убрать строку можно только до первой приёмки`);
     const line = await this.requests.findOne({ _id: oid(lineId, 'заявки'), invoiceId: inv._id, deletedAt: null }).exec() as Lean | null;
@@ -686,11 +709,12 @@ export class SupplyInvoiceService {
     const amount = await this.tx(async (session) => {
       await this.touchFinancialInvoice(inv._id, session);
       await this.requests.updateOne({ _id: line._id },
-        { $unset: { invoiceId: '', invoiceNo: '', invoiceDate: '' }, $set: { ...(line.status === 'ordered' && line.paid !== true ? { status: 'requested' } : {}), editedInApp: true } }, { session }).exec();
+        // оплата строки — это оплата счёта: вне счёта строка не оплачена (иначе двойной расход в «Деньгах»)
+        { $unset: { invoiceId: '', invoiceNo: '', invoiceDate: '', paidAt: '' }, $set: { ...(line.status === 'ordered' ? { status: 'requested' } : {}), paid: false, editedInApp: true } }, { session }).exec();
       const afterAmount = await this.recalcAmount(inv, session);
       if (inv.status === 'paid') {
         await this.recordPaymentAdjustment(inv, session, {
-          reason: 'Позиция убрана администратором до приёмки',
+          reason: 'Позиция убрана из счёта до приёмки',
           actorId, operation: 'line_removed', beforeAmount, afterAmount, requestIds: [line._id as Types.ObjectId],
         });
       }
@@ -704,7 +728,7 @@ export class SupplyInvoiceService {
     const inv = await this.load(id);
     if (inv.status === 'paid') throw new BadRequestException('Счёт уже оплачен');
     if (inv.status !== 'issued') throw new BadRequestException('Сначала отметьте счёт выставленным: нужны №, дата и сумма');
-    if (!inv.payerCompanyId) throw new BadRequestException('Укажите, какая компания платит (плательщик)');
+    if (!inv.payerCompanyId) throw new BadRequestException('Укажите «Нашу компанию» — кто платит по счёту (кнопка «Изменить» в счёте)');
     const sum = await this.linesSum(inv);
     if (Math.abs((Number(inv.amount) || 0) - sum) > 0.009) throw new BadRequestException('Сумма счёта не совпадает с суммой строк — исправьте цены позиций');
     const now = new Date();
@@ -760,7 +784,7 @@ export class SupplyInvoiceService {
     return this.get(id);
   }
 
-  /** Удалить счёт (мягко): оплаченный/принятый нельзя; заявки отвязываются и возвращаются в «В заказ». */
+  /** Удалить счёт (мягко): оплаченный/принятый нельзя; заявки отвязываются и возвращаются в «Заказать». */
   async remove(id: string) {
     const inv = await this.load(id);
     if (inv.status === 'cancelled') throw new BadRequestException('Счёт отменён');

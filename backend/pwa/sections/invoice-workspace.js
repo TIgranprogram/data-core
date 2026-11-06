@@ -149,7 +149,7 @@ async function command(invoice, ctx, operation, lineId, body = {}) {
   try {
   assertOperation(invoice, session, operation, lineId);
   const titles = { remove: 'Убрать позицию из счёта?', issue: 'Выставить счёт?', pay: 'Отметить счёт оплаченным?', receive: 'Принять отмеченные позиции на склад?' };
-  const notes = { remove: 'Заявка останется и вернётся в «В заказ». Сумма счёта пересчитается.', issue: 'Сначала сохраните реквизиты. Это отдельное выставление счёта, без оплаты.', pay: 'Будет зафиксирован факт оплаты полного счёта. Реквизиты и позиции эта команда не сохраняет.', receive: 'Будут приняты только отмеченные позиции. Первая приёмка зафиксирует финансы всего счёта.' };
+  const notes = { remove: 'Заявка останется и вернётся в «Заказать». Сумма счёта пересчитается.', issue: 'Сначала сохраните реквизиты. Это отдельное выставление счёта, без оплаты.', pay: 'Будет зафиксирован факт оплаты полного счёта. Реквизиты и позиции эта команда не сохраняет.', receive: 'Будут приняты только отмеченные позиции. Первая приёмка зафиксирует финансы всего счёта.' };
   if (operation === 'receive' && !body.requestIds?.length) { toast('Отметьте позиции, которые приехали', { error: true }); return; }
   if (!(await confirmDlg(titles[operation], notes[operation], { okText: operation === 'remove' ? 'Убрать' : 'Подтвердить', danger: operation === 'remove' }))) return;
   await ctx.run(async () => {
@@ -173,7 +173,7 @@ function metaBlock(invoice, ctx) {
   }
   const no = h('input', { name: 'no', value: invoice.no || '', maxlength: 100, 'aria-label': '№ счёта' });
   const dateInp = h('input', { name: 'date', type: 'date', value: String(invoice.date || '').slice(0, 10), 'aria-label': 'Дата счёта' });
-  const payer = enhanceSelect(h('select', { name: 'payerCompanyId', 'aria-label': 'Наша компания', disabled: !p.finance }, h('option', { value: '' }, 'Выберите компанию')));
+  const payer = enhanceSelect(h('select', { name: 'payerCompanyId', 'aria-label': 'Наша компания', disabled: !p.payer }, h('option', { value: '' }, 'Выберите компанию')));
   const contract = enhanceSelect(h('select', { name: 'contractId', 'aria-label': 'Договор' }, h('option', { value: '' }, 'Без договора')));
   const files = photoField(invoice.files || [], { pdf: true });
   const knownIds = (invoice.fileIds || (invoice.files || []).map((f) => f.id)).map(String);
@@ -201,8 +201,8 @@ function metaBlock(invoice, ctx) {
   files.el.addEventListener('change', () => saveMeta(), true);
   (async () => {
     try {
-      const [payers, contracts] = await Promise.all([p.finance ? getPayers() : [], getContracts(invoice.supplierId)]);
-      if (p.finance && invoice.payerCompanyId && !payers.some((x) => String(x.value) === String(invoice.payerCompanyId))) {
+      const [payers, contracts] = await Promise.all([p.payer ? getPayers() : [], getContracts(invoice.supplierId)]);
+      if (p.payer && invoice.payerCompanyId && !payers.some((x) => String(x.value) === String(invoice.payerCompanyId))) {
         payers.push({ value: String(invoice.payerCompanyId), label: invoice.payerName || 'Текущая компания' });
       }
       payer.replaceChildren(h('option', { value: '' }, 'Выберите компанию'), ...payers.map((x) => h('option', { value: x.value, selected: String(x.value) === String(invoice.payerCompanyId || '') || null }, x.label)));
@@ -217,7 +217,7 @@ function metaBlock(invoice, ctx) {
     h('div', { class: 'iw-meta form-grid' },
       h('label', { class: 'field' }, h('span', null, '№ счёта'), no),
       h('label', { class: 'field' }, h('span', null, 'Дата'), dateInp),
-      p.finance ? h('label', { class: 'field' }, h('span', null, 'Наша компания'), payer) : null,
+      p.payer ? h('label', { class: 'field' }, h('span', null, 'Наша компания'), payer) : null,
       h('label', { class: 'field wide' }, h('span', null, 'Договор поставщика'), contract)),
     h('div', { class: 'iw-files' }, h('div', { class: 'muted small' }, 'Файлы счёта'), files.el),
   ] });

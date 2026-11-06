@@ -15,7 +15,6 @@ import { SupplyService } from './supply.service';
 import { SupplierExcelService } from './supplier-excel.service';
 import { SupplierCatalogService } from './supplier-catalog.service';
 import { AdminOverrideDto, AddInvoiceRequestsDto, CreateInvoicesDto, MergeInvoicesDto, PatchInvoiceDto, PatchInvoiceLineDto, ReceiveInvoiceDto } from './dto-invoice';
-import { isAdminActor } from '../../common/admin-override';
 import { SupplyInvoiceService } from './supply-invoice.service';
 import { CatalogBulkDto, CatalogItemDto, CatalogItemPatchDto } from './dto-catalog';
 
@@ -95,13 +94,13 @@ export class SupplyController {
     return this.invoices.updateLine(id, lineId, dto, user?.id, { id: user?.id, role: user?.role, isOwner: user?.isOwner, username: user?.username });
   }
 
-  /** Убрать строку из счёта до приёмки (только админ; заявка остаётся, возвращается в «В заказ»). */
+  /** Убрать строку из счёта до приёмки (заявка остаётся, возвращается в «Заказать»); из оплаченного — только админ. */
   @Delete('invoices/:id/lines/:lineId')
-  @Roles('admin')
+  @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.invoice.line_removed', entityType: 'SupplyInvoice', idParam: 'id' })
   async removeInvoiceLine(@Param('id') id: string, @Param('lineId') lineId: string, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
     await this.invoices.assertWhole(id, scope);
-    return this.invoices.removeLine(id, lineId, user?.id);
+    return this.invoices.removeLine(id, lineId, user?.id, { id: user?.id, role: user?.role, isOwner: user?.isOwner, username: user?.username });
   }
 
   /** Предпросмотр объединения двух счетов: ничего не меняет. */
@@ -371,12 +370,13 @@ export class SupplyController {
     // карточка шлёт все поля разом: неизменённые сумма/количество/компания строки счёта — не финансовая правка
     let body = await this.supply.dropUnchanged(id, dto);
     // ЗЯ-1 п.3: сумма и количество строки счёта у администратора идут в правку строки счёта (пересчёт amount, журнал)
-    if (isAdminActor(actor) && (body.priceHint !== undefined || body.qty !== undefined) && (await this.invoices.adminEditLine(id, body, actor))) {
+    // менеджер — та же правка строки счёта до приёмки (решение Б 2026-11-06), без причины
+    if ((body.priceHint !== undefined || body.qty !== undefined) && (await this.invoices.adminEditLine(id, body, actor))) {
       const { priceHint: _p, qty: _q, ...rest } = body; // eslint-disable-line @typescript-eslint/no-unused-vars
       body = rest;
       if (!Object.keys(rest).some((k) => k !== 'reason')) return this.supply.get(id);
     }
-    return this.supply.update(id, body, user?.role, user?.id, actor);
+    return this.supply.update(id, body, user?.role, user?.id);
   }
 
   /** В корзину (мягкое удаление). */

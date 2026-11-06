@@ -2,7 +2,7 @@ import { photoToFront } from '../../common/photo-main';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { CounterService } from '../counter/counter.service';
 import { AuditService } from '../audit/audit.service';
-import { adminOverride, assertAdminActor, isAdminActor, overrideConfirm, overrideReason, type OverridePlan, type OverrideActor } from '../../common/admin-override';
+import { adminOverride, assertAdminActor, overrideConfirm, type OverridePlan, type OverrideActor } from '../../common/admin-override';
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { customerNames } from '../partners/customer-names';
 import { DICT, type Doc } from '../dicts/dicts.defs';
@@ -277,7 +277,8 @@ export class SupplyService {
     sort._id = -1;
     // сумма и счётчики не зависят от страницы и сортировки — кэш по версии данных и фильтру (без page/limit/sort)
     const totals = async () => Promise.all([
-      this.model.aggregate([{ $match: filter }, { $group: { _id: null, sum: { $sum: { $ifNull: ['$priceHint', 0] } } } }]).exec(),
+      // «Итого» без отменённых, если их не выбрали явно (как в подсказке: отменённые в расчёты не идут)
+      this.model.aggregate([{ $match: statusCond ? filter : { $and: [filter, { status: { $ne: 'cancelled' } }] } }, { $group: { _id: null, sum: { $sum: { $ifNull: ['$priceHint', 0] } } } }]).exec(),
       this.model.aggregate([{ $match: noStatus }, { $group: { _id: { s: '$status', p: { $eq: ['$paid', true] } }, n: { $sum: 1 } } }]).exec(),
     ]);
     const pure = { ...Object.fromEntries(Object.entries(q).filter(([k]) => !['page', 'limit', 'sort', 'facets'].includes(k))), ...(scope ? { _scope: createHash('sha1').update(JSON.stringify(sc)).digest('hex') } : {}) };
@@ -349,6 +350,10 @@ export class SupplyService {
 
   /** В корзину (мягко). Приход на склад по заявке, если был, остаётся — его отменяют на складе. */
   async remove(id: string) {
+    // строка счёта: удаление сломало бы сумму счёта и оплату — сначала убрать из счёта (пересчёт и журнал там)
+    const cur = await this.model.findOne({ _id: oid(id, 'заявки'), deletedAt: null }, { invoiceId: 1, paid: 1 }).lean().exec() as { invoiceId?: unknown; paid?: boolean } | null;
+    if (cur?.invoiceId) throw new BadRequestException('Заявка входит в счёт — сначала уберите её из счёта (кнопка «Убрать» в счёте)');
+    if (cur?.paid) throw new BadRequestException('Заявка оплачена — сначала снимите оплату (статус «В работе»), потом удаляйте');
     const res = await this.model.updateOne({ _id: oid(id, 'заявки'), deletedAt: null }, { $set: { deletedAt: new Date(), editedInApp: true } }).exec();
     if (!res.matchedCount) throw new NotFoundException('Заявка не найдена');
     return { id, deleted: true };
@@ -418,7 +423,7 @@ export class SupplyService {
       if (dup) return this.get(String(dup._id));
     }
     const fields = await this.toFields(dto);
-    if (fields.status === 'received') throw new BadRequestException('«Получено» ставится только кнопкой «Принять» — так товар приходует на склад и ничего не теряется (создайте заявку «Оплачено», затем «Принять»)');
+    if (fields.status === 'received') throw new BadRequestException('«Получено» ставится только кнопкой «Принять» — так товар приходует на склад и ничего не теряется (создайте заявку, затем нажмите «Принять» в её карточке)');
     if (!fields.title && !fields.materialId) throw new BadRequestException('Укажите наименование');
     // ТИ-8 Н-1: выбрана позиция склада, названия нет — «в счёте», если заполнено, иначе короткое
     if (!fields.title && fields.materialId) {
@@ -495,11 +500,18 @@ export class SupplyService {
    * убираются из правки — иначе любое сохранение (примечание, приоритет) упиралось в финансовый замок счёта.
    */
   async dropUnchanged<T extends SupplyInput>(id: string, dto: T): Promise<T> {
-    if (!Types.ObjectId.isValid(id) || !['priceHint', 'qty', 'companyName'].some((k) => k in dto)) return dto;
-    const cur = await this.model.findById(id, { invoiceId: 1, priceHint: 1, qty: 1, companyId: 1 }).lean().exec() as Record<string, unknown> | null;
-    if (!cur?.invoiceId) return dto;
-    const num = (v: unknown) => (v === null || v === undefined || v === '' ? null : Math.round(Number(v) * 100) / 100);
+    if (!Types.ObjectId.isValid(id) || !['priceHint', 'qty', 'companyName', 'statusLabel'].some((k) => k in dto)) return dto;
+    const cur = await this.model.findById(id, { invoiceId: 1, priceHint: 1, qty: 1, companyId: 1, status: 1, paid: 1 }).lean().exec() as Record<string, unknown> | null;
+    if (!cur) return dto;
     const out: T = { ...dto };
+    // тот же статус: не трогаем paid/paidAt (иначе дата оплаты сдвигалась на «сейчас», а у «Получено» терялась оплата)
+    if ('statusLabel' in out) {
+      const s = statusFromLabel(out.statusLabel);
+      const same = !s || (s.status === cur.status && (['received', 'cancelled'].includes(s.status) || !!s.paid === !!cur.paid));
+      if (same) delete out.statusLabel;
+    }
+    if (!cur.invoiceId) return out;
+    const num = (v: unknown) => (v === null || v === undefined || v === '' ? null : Math.round(Number(v) * 100) / 100);
     if ('priceHint' in out && num(out.priceHint) === num(cur.priceHint)) delete out.priceHint;
     if ('qty' in out && num(out.qty) === num(cur.qty)) delete out.qty;
     if ('companyName' in out) {
@@ -509,38 +521,28 @@ export class SupplyService {
     return out;
   }
 
-  async update(id: string, dto: SupplyInput, userRole?: string, actorId?: string, actor?: OverrideActor) {
+  async update(id: string, dto: SupplyInput, _userRole?: string, actorId?: string) {
     // менеджер правит суммы заявок (решение 2026-10-29, docs/CHECKLIST-MANAGER-ROLE.md); роли без денег суммы не пришлют — их срезает MoneyMask
-    const admin = isAdminActor({ role: userRole, isOwner: actor?.isOwner });
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Некорректный id заявки');
     // Цена и количество строки счёта — только через PATCH строки с пересчётом amount в транзакции.
     // Финансовая блокировка учитывает приёмку любой строки счёта, а не только текущей заявки.
     const financial = ['priceHint', 'qty', 'invoiceNo', 'invoiceDate', 'supplierName', 'companyName'].some((k) => k in dto);
-    let linkedInvoiceId: unknown;
-    /** ЗЯ-1 п.4: администратор правит реквизиты строки, пока по счёту нет приёмки — «было» для журнала. */
-    let override: { reason: string; before: Record<string, unknown>; after: Record<string, unknown> } | null = null;
     if (financial || dto.statusLabel !== undefined) {
       const cur = await this.model.findById(id, { invoiceId: 1, status: 1, paid: 1, invoiceNo: 1, invoiceDate: 1, supplierName: 1, supplierId: 1, companyId: 1 }).lean().exec() as (Record<string, unknown> & { invoiceId?: unknown; status?: string; paid?: boolean }) | null;
       if (cur?.invoiceId) {
-        linkedInvoiceId = cur.invoiceId;
-        if ('priceHint' in dto || 'qty' in dto) throw new BadRequestException('Цена и количество строки счёта заблокированы для PATCH заявки — измените строку счёта');
-        const inv = await this.connection.db!.collection('supplyinvoices').findOne({ _id: cur.invoiceId, deletedAt: null }, { projection: { status: 1, receiptBoundaryAt: 1 } });
-        const received = await this.model.countDocuments({ invoiceId: cur.invoiceId, deletedAt: null, status: 'received' }).exec();
-        if (inv?.status === 'paid' || inv?.status === 'issued' || inv?.receiptBoundaryAt || received > 0) {
-          if (financial) {
-            // после приёмки (граница или принятая строка) обход — только с предупреждением (ЗЯ-1b), здесь блок остаётся
-            if (!(admin && !inv?.receiptBoundaryAt && !(received > 0))) throw new BadRequestException('Счёт выставлен, оплачен или уже принят на склад — финансовые поля строки заблокированы. Измените счёт');
-            const keys = ['invoiceNo', 'invoiceDate', 'supplierName', 'companyName'].filter((k) => k in dto) as Array<keyof SupplyInput>;
-            override = {
-              reason: overrideReason(dto.reason),
-              before: { invoiceNo: cur.invoiceNo ?? null, invoiceDate: cur.invoiceDate ?? null, supplierName: cur.supplierName ?? null, supplierId: cur.supplierId ?? null, companyId: cur.companyId ?? null, invoiceStatus: inv?.status ?? null },
-              after: Object.fromEntries(keys.map((k) => [k, dto[k] ?? null])),
-            };
-          }
-        }
+        // строка счёта — часть счёта: сумма и количество идут через правку строки (контроллер), реквизиты — общие для счёта
+        if ('priceHint' in dto || 'qty' in dto) throw new BadRequestException('Сумма и количество позиции счёта меняются в самом счёте — откройте счёт');
+        if (financial) throw new BadRequestException('Номер, дата, поставщик и наша компания — общие для всего счёта. Измените их в самом счёте');
         const next = dto.statusLabel === undefined ? null : statusFromLabel(dto.statusLabel);
-        if (next && !!next.paid !== !!cur.paid) throw new BadRequestException('Отметка оплаты строки счёта меняется только через оплату счёта');
-        if (next?.status === 'cancelled') throw new BadRequestException('Сначала уберите строку из счёта, затем отменяйте заявку');
+        if (next?.status === 'cancelled') throw new BadRequestException('Сначала уберите позицию из счёта (кнопка «Убрать» в счёте), затем отменяйте заявку');
+        // статус строки счёта ведёт сам счёт: «Оплачен» — оплатой счёта, «Получено» — «Принять», выход — «Убрать»
+        if (next && next.status !== 'received' && (next.status !== cur.status || !!next.paid !== !!cur.paid)) {
+          throw new BadRequestException('Статус позиции счёта меняется в счёте: «Счёт оплачен», «Принять» или «Убрать из счёта»');
+        }
+      } else if (dto.statusLabel !== undefined && cur?.paid) {
+        // отмена оплаченной заявки молча стирала расход из «Денег»
+        const next = statusFromLabel(dto.statusLabel);
+        if (next?.status === 'cancelled') throw new BadRequestException('Заявка оплачена — сначала снимите оплату (статус «В работе»), потом отменяйте');
       }
     }
     const fields = await this.toFields(dto);
@@ -565,24 +567,8 @@ export class SupplyService {
     set.editedInApp = true;
     if (resetReceipt) Object.assign(unset, { receivedQty: '', receivedAt: '', receivedTo: '', receiveUid: '' });
     if (fields.paid === false) unset.paidAt = '';
-    let res: { matchedCount: number } = { matchedCount: 0 };
-    if (linkedInvoiceId && financial) {
-      const session = await this.connection.startSession();
-      try {
-        await session.withTransaction(async () => {
-          const barrier = await this.connection.db!.collection('supplyinvoices').updateOne(
-            { _id: linkedInvoiceId, deletedAt: null, $or: [{ receiptBoundaryAt: null }, { receiptBoundaryAt: { $exists: false } }] },
-            { $inc: { version: 1 } }, { session },
-          );
-          if (!barrier.matchedCount) throw new BadRequestException('По счёту уже началась приёмка — изменение строки заблокировано');
-          res = await this.model.updateOne({ _id: id, deletedAt: null }, { ...(Object.keys(set).length ? { $set: set } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) }, { session }).exec();
-        });
-      } finally { await session.endSession(); }
-    } else {
-      res = await this.model.updateOne({ _id: id, deletedAt: null }, { ...(Object.keys(set).length ? { $set: set } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) }).exec();
-    }
+    const res = await this.model.updateOne({ _id: id, deletedAt: null }, { ...(Object.keys(set).length ? { $set: set } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) }).exec();
     if (!res.matchedCount) throw new NotFoundException('Заявка не найдена');
-    if (override) await adminOverride(this.audit, { rule: 'supply.invoiced_fields', entityType: 'SupplyRequest', entityId: id, ...override, actor: { ...actor, id: actor?.id ?? actorId, role: userRole } });
     if (photoIds) await this.writePhotos(new Types.ObjectId(id), { $set: { photoIds } });
     await this.adoptArticle(await this.model.findById(id, { materialId: 1, article: 1, num: 1 }).lean().exec() as Record<string, unknown> | null);
     await this.afterStatus(prev, fields.status as string | undefined, actorId);
@@ -655,6 +641,7 @@ export class SupplyService {
       if (dto.clientUid && (doc as unknown as { receiveUid?: string }).receiveUid === dto.clientUid) return this.get(id);
       throw new ConflictException('Заявка уже отмечена как полученная');
     }
+    if (doc.status === 'cancelled') throw new BadRequestException('Заявка отменена — принять её нельзя. Верните статус «Заказать» или создайте новую заявку');
     const qty = Number(dto.qty ?? doc.qty);
     if (!(qty > 0)) throw new BadRequestException('Укажите количество');
 

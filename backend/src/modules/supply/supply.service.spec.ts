@@ -256,16 +256,6 @@ describe('SupplyService', () => {
       expect(changed).toEqual({ priceHint: 150 });
     });
 
-    it.each(['supplierName', 'companyName'] as const)('%s: приёмка другой строки блокирует правку всей финансовой части счёта', async (field) => {
-      const invId = new Types.ObjectId();
-      current = reqDoc({ invoiceId: invId, status: 'ordered' });
-      colls.supplyinvoices = [{ _id: invId, status: 'draft' }];
-      model.countDocuments.mockReturnValue(chain(1));
-      await expect(service.update(String(current._id), { [field]: 'Новая компания' })).rejects.toMatchObject({ status: 400 });
-      expect(model.countDocuments).toHaveBeenCalledWith({ invoiceId: invId, deletedAt: null, status: 'received' });
-      expect(model.updateOne).not.toHaveBeenCalled();
-    });
-
     it.each(['paid', 'issued'])('счёт %s: поставщик и наша компания через заявку → 400', async (status) => {
       const invId = new Types.ObjectId();
       current = reqDoc({ invoiceId: invId, status: 'ordered' });
@@ -287,61 +277,33 @@ describe('SupplyService', () => {
       expect(model.updateOne).not.toHaveBeenCalled();
     });
 
-    describe('ЗЯ-1: администратор правит реквизиты строки выставленного/оплаченного счёта', () => {
-      let audit: { log: jest.Mock };
-      let svc: SupplyService;
-      beforeEach(() => {
-        audit = { log: jest.fn(async () => undefined) };
-        const conn = { db: { collection: jest.fn((n: string) => ({ findOne: jest.fn(async () => (colls[n] ?? [])[0] ?? null), countDocuments: jest.fn(async () => 0), updateOne: jest.fn(async () => ({ matchedCount: 1 })), find: jest.fn(() => ({ toArray: async () => [] })) })), }, startSession: async () => ({ withTransaction: async (fn: () => Promise<void>) => { await fn(); }, endSession: async () => undefined }) };
-        svc = new SupplyService(conn as never, model as never, stock as never, { safe: async () => true } as never, { recheck: async () => undefined } as never, counters as never, undefined, undefined, audit as never);
-      });
-      const seed = (inv: Record<string, unknown>) => {
-        const invId = new Types.ObjectId();
-        current = reqDoc({ invoiceId: invId, status: 'ordered', invoiceNo: 'А-1' });
-        colls.supplyinvoices = [{ _id: invId, ...inv }];
-      };
-
-      it.each(['paid', 'issued'])('счёт %s, приёмки нет: admin с причиной проходит, в журнале было/стало', async (status) => {
-        seed({ status });
-        await svc.update(String(current!._id), { invoiceNo: 'Б-2', reason: 'опечатка в номере' }, 'admin', String(new Types.ObjectId()));
-        expect(setOf().invoiceNo).toBe('Б-2');
-        const e = audit.log.mock.calls[0][0];
-        expect(e).toMatchObject({ action: 'admin.override', entityType: 'SupplyRequest', details: { before: { invoiceNo: 'А-1' }, after: { invoiceNo: 'Б-2' }, meta: { rule: 'supply.invoiced_fields', reason: 'опечатка в номере' } } });
-      });
-
-      it('владелец (isOwner) приравнен к администратору', async () => {
-        seed({ status: 'paid' });
-        await svc.update(String(current!._id), { invoiceNo: 'Б-2', reason: 'поправка' }, undefined, undefined, { isOwner: true });
-        expect(audit.log).toHaveBeenCalledTimes(1);
-      });
-
-      it('admin без причины → 400, без записи и журнала', async () => {
-        seed({ status: 'paid' });
-        await expect(svc.update(String(current!._id), { invoiceNo: 'Б-2' }, 'admin')).rejects.toMatchObject({ status: 400 });
-        expect(model.updateOne).not.toHaveBeenCalled();
-        expect(audit.log).not.toHaveBeenCalled();
-      });
-
-      it('менеджер получает прежнюю ошибку и журнала нет', async () => {
-        seed({ status: 'paid' });
-        await expect(svc.update(String(current!._id), { invoiceNo: 'Б-2', reason: 'хочу' }, 'manager')).rejects.toThrow(/финансовые поля строки заблокированы/);
-        expect(model.updateOne).not.toHaveBeenCalled();
-        expect(audit.log).not.toHaveBeenCalled();
-      });
-
-      it('после начала приёмки (граница) блок остаётся и для admin', async () => {
-        seed({ status: 'paid', receiptBoundaryAt: new Date() });
-        await expect(svc.update(String(current!._id), { invoiceNo: 'Б-2', reason: 'поправка' }, 'admin')).rejects.toThrow(/финансовые поля строки заблокированы/);
-        expect(model.updateOne).not.toHaveBeenCalled();
-      });
-
-      it('принятая строка счёта: блок остаётся и для admin', async () => {
-        seed({ status: 'issued' });
-        model.countDocuments.mockReturnValue(chain(1));
-        await expect(svc.update(String(current!._id), { invoiceNo: 'Б-2', reason: 'поправка' }, 'admin')).rejects.toThrow(/финансовые поля строки заблокированы/);
-      });
+    // решение 2026-11-06: реквизиты строки счёта (№, дата, поставщик, наша компания) меняются только в самом счёте — для всех ролей
+    it.each(['draft', 'issued', 'paid'])('счёт %s: № счёта через заявку → 400 и для admin', async (status) => {
+      const invId = new Types.ObjectId();
+      current = reqDoc({ invoiceId: invId, status: 'ordered', invoiceNo: 'А-1' });
+      colls.supplyinvoices = [{ _id: invId, status }];
+      await expect(service.update(String(current._id), { invoiceNo: 'Б-2', reason: 'опечатка' }, 'admin')).rejects.toThrow(/в самом счёте/);
+      expect(model.updateOne).not.toHaveBeenCalled();
     });
 
+    it('строку счёта нельзя вернуть в «Заказать» правкой статуса', async () => {
+      current = reqDoc({ invoiceId: new Types.ObjectId(), status: 'ordered' });
+      await expect(service.update(String(current._id), { statusLabel: '✅ Заказать' })).rejects.toMatchObject({ status: 400 });
+      expect(model.updateOne).not.toHaveBeenCalled();
+    });
+
+    it('оплаченную заявку без счёта нельзя отменить, не сняв оплату', async () => {
+      current = reqDoc({ status: 'ordered', paid: true });
+      await expect(service.update(String(current._id), { statusLabel: '❌ Отменено' })).rejects.toThrow(/снимите оплату/);
+      expect(model.updateOne).not.toHaveBeenCalled();
+    });
+
+    it('dropUnchanged: тот же статус «Оплачено» не пересылается — дата оплаты не сдвигается', async () => {
+      current = reqDoc({ status: 'ordered', paid: true });
+      expect(await service.dropUnchanged(String(current._id), { statusLabel: 'Оплачено', notes: 'x' })).toEqual({ notes: 'x' });
+      current = reqDoc({ status: 'received', paid: true });
+      expect(await service.dropUnchanged(String(current._id), { statusLabel: 'Получено' })).toEqual({});
+    });
     describe('ЗЯ-1b: откат приёмки (сторно прихода)', () => {
       let audit: { log: jest.Mock };
       let svc: SupplyService;
@@ -495,6 +457,14 @@ describe('SupplyService', () => {
       await expect(service.remove(id)).resolves.toEqual({ id, deleted: true });
       expect(setOf().deletedAt).toBeInstanceOf(Date);
       expect(setOf().editedInApp).toBe(true);
+    });
+
+    it('remove: заявка в счёте или оплаченная → 400 без записи (аудит 2026-11-06 №3)', async () => {
+      for (const extra of [{ invoiceId: new Types.ObjectId() }, { paid: true }]) {
+        current = reqDoc(extra);
+        await expect(service.remove(String(current._id))).rejects.toMatchObject({ status: 400 });
+      }
+      expect(model.updateOne).not.toHaveBeenCalled();
     });
 
     it('remove несуществующей → NotFound', async () => {

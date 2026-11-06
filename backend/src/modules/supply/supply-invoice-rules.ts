@@ -17,7 +17,7 @@ export const ORDERED_GATE: GateField[] = [
 export const ISSUED_GATE: GateField[] = [
   { key: 'no', label: '№ счёта', ok: (i) => has(i.no) },
   { key: 'date', label: 'Дата счёта', ok: (i) => !!i.date },
-  { key: 'amount', label: 'Сумма счёта', ok: (i) => Number(i.amount) > 0 },
+  { key: 'amount', label: 'Сумма позиций (впишите сумму каждой строки в счёте)', ok: (i) => Number(i.amount) > 0 },
 ];
 
 /** Названия недостающих полей. */

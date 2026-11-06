@@ -195,10 +195,10 @@ const fields = async (r) => {
     { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
     { section: 'Поставщик и счёт', tone: 'money' },
     // «Получено» — только через «Принять» (приход на склад), в форме его не выбрать
-    { key: 'status', label: 'Статус', type: 'select', options: statusOptions().filter((o) => o.value !== 'received' || (r && supplyKey(r) === 'received')), hint: r && supplyKey(r) === 'received' ? undefined : '«Получено» ставится кнопкой «Принять» — тогда товар встанет на склад' },
+    inv ? fromInvoice('Статус', SUPPLY_STATUS[supplyKey(r)]?.label) : { key: 'status', label: 'Статус', type: 'select', options: statusOptions().filter((o) => o.value !== 'received' || (r && supplyKey(r) === 'received')), hint: r && supplyKey(r) === 'received' ? undefined : '«Получено» ставится кнопкой «Принять» — тогда товар встанет на склад' },
     inv ? fromInvoice('Поставщик', r.supplierName) : { key: 'supplierName', label: 'Поставщик', type: 'combo', options: lk.suppliers, max: 200, extra: (t, shown, form) => partnerAction('supplier', t, lk.suppliers, (n) => { form.add(n); form.set('supplierName', n); }) },
     { key: 'priceHint', money: true, label: 'Вся сумма с НДС, ₽', type: 'money', min: 0, hint: 'За всю позицию целиком, не цена за штуку. На складе закупка без НДС — не копируйте слепо' },
-    { key: 'companyName', label: 'Наша компания', type: 'select', options: lk.companies, hint: 'Нужна для платёжного календаря' },
+    inv ? fromInvoice('Наша компания', r.companyName) : { key: 'companyName', label: 'Наша компания', type: 'select', options: lk.companies, hint: 'Нужна для платёжного календаря' },
     { key: 'invoiceType', label: 'Тип счёта', type: 'combo', options: lk.invoiceTypes || [], max: 60 },
     inv ? fromInvoice('№ счёта', r.invoiceNo) : { key: 'invoiceNo', label: '№ счёта', max: 100, span: 1 },
     inv ? fromInvoice('Дата счёта', r.invoiceDate ? date(r.invoiceDate) : '') : { key: 'invoiceDate', label: 'Дата счёта', type: 'date', hint: 'День расхода в календаре', span: 1 },
@@ -334,7 +334,7 @@ export const requests = {
     periods: (P) => (['received', 'cancelled'].includes(P.status) ? { date: (r) => r.receivedAt || r.requestDate || r.updatedAt, total: session.canMoney ? (rs) => money(rs.reduce((s, r) => s + (Number(r.priceHint) || 0), 0)) : undefined } : null),
     hints: {
       '': 'Все заявки. Кнопка в строке — следующий шаг: «Заказал у поставщика» → «Счёт оплачен» → «Принять» на склад.',
-      in_progress: 'Ждут решения: заказывать («В заказ») или отменить в карточке.',
+      in_progress: 'Ждут решения: заказывать («Заказать») или отменить в карточке.',
       requested: 'Нужно заказать у поставщика. Заказали — «Заказал у поставщика».',
       ordered: 'Заказано, ждём счёт и оплату. Оплатили — «Счёт оплачен» (понадобятся № и дата счёта).',
       paid: 'Оплачено, ждём поставку. Пришло — «Принять»: товар встанет на склад.',
@@ -480,7 +480,7 @@ export const requests = {
       const linked = !!v.materialId; // поля позиции не шлём — истина в карточке склада
       const body = {
         qty: v.qty ?? 1,
-        companyName: s(v.companyName), orderLabel: s(v.orderLabel), requestedBy: s(v.requestedBy),
+        orderLabel: s(v.orderLabel), requestedBy: s(v.requestedBy),
         invoiceType: s(v.invoiceType), deliveryNote: s(v.deliveryNote), notes: s(v.notes),
         statusLabel: SUPPLY_STATUS[v.status]?.label, priorityLabel: PRIORITY[v.priority]?.label,
         photoIds: v.photos || [],
@@ -496,7 +496,7 @@ export const requests = {
       body.priceHint = v.priceHint; // пусто — null: сумму можно стереть (В.7)
       if (v.requestDate) body.requestDate = v.requestDate;
       body.costCenter = v.costCenter || ''; body.costObject = v.costObject || '';
-      if ('supplierName' in v) body.supplierName = s(v.supplierName);
+      if ('supplierName' in v) body.supplierName = s(v.supplierName); if ('companyName' in v) body.companyName = s(v.companyName); // у счёта — только показ
       if ('invoiceNo' in v) body.invoiceNo = s(v.invoiceNo);
       if ('invoiceDate' in v) body.invoiceDate = v.invoiceDate || '';
       if (v.materialId) body.materialId = String(v.materialId);

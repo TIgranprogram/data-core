@@ -95,12 +95,15 @@ test('paid до приёмки: админ edit/add/remove; после boundary 
   assert.deepEqual(pure.addBody(base({ status: 'paid' }), ['a']), { requestIds: ['a'] });
   assert.deepEqual(pure.addBody(base({ status: 'paid' }), ['a', 'a'], 'Уточнение'), { requestIds: ['a'], reason: 'Уточнение' });
   const noAdmin = pure.permissions(base({ status: 'paid' }), { canEdit: true, canMoney: true, role: 'manager' });
-  assert.equal(noAdmin.removeLine, false); assert.equal(noAdmin.editLine, false);
+  assert.equal(noAdmin.removeLine, false); assert.equal(noAdmin.editLine, true); // решение Б: менеджер правит цену до приёмки
 });
 test('money=false не допускает финансовых writes, metadata допустима и whitelist после receipt', () => {
   const p = pure.permissions(base(), { ...rights, canMoney: false }); assert.equal(p.finance, false); assert.equal(p.pay, false); assert.equal(p.meta, true);
   const body = pure.metaBody(base({ receiptBoundaryAt: 'stamp' }), { no: ' А ', date: '2026-11-03', fileIds: ['f'], contractId: 'c', amount: 999, payerCompanyId: 'new' }, rights);
-  assert.deepEqual(body, { no: 'А', date: '2026-11-03', fileIds: ['f'], contractId: 'c' });
+  // неоплаченный счёт после приёмки: «Наша компания» доступна (иначе не оплатить), сумма — нет
+  assert.deepEqual(body, { no: 'А', date: '2026-11-03', fileIds: ['f'], contractId: 'c', payerCompanyId: 'new' });
+  const paidLocked = pure.metaBody(base({ status: 'paid', receiptBoundaryAt: 'stamp' }), { no: '1', payerCompanyId: 'new' }, rights);
+  assert.equal('payerCompanyId' in paidLocked, false);
 });
 test('received/cancelled line нельзя удалить; paid-строку до приёмки админ может убрать', () => {
   for (const line of [{ id: 'line', status: 'received' }, { id: 'line', status: 'cancelled' }]) assert.throws(() => pure.assertOperation(base({ requests: [line] }), rights, 'remove', 'line'));
@@ -185,7 +188,7 @@ test('metadata paid не отправляет неподдерживаемый D
   const body = pure.metaBody(base({ status: 'paid', payerCompanyId: 'old' }), { no: '1', payerCompanyId: 'new', reason: 'Не поле DTO' }, rights);
   assert.equal(body.payerCompanyId, 'new'); assert.equal('reason' in body, false);
   const locked = pure.metaBody(base({ receiptBoundaryAt: 'stamp' }), { no: '1', duplicateReason: 'Нельзя после приёмки', payerCompanyId: 'new' }, rights);
-  assert.deepEqual(Object.keys(locked).sort(), ['contractId', 'date', 'fileIds', 'no']);
+  assert.deepEqual(Object.keys(locked).sort(), ['contractId', 'date', 'fileIds', 'no', 'payerCompanyId']);
 });
 
 test('readonly renderer реально сохраняет 0, false→Нет, true→Да и DOM-ссылку', async () => {

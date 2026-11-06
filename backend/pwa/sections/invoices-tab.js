@@ -7,7 +7,7 @@ import { lookups } from './lookups.js';
 
 /** Вкладка — только список/фильтры. Все операции и позиции находятся в routable invoicecard. */
 const LIMIT = 30;
-const STATUS_OPTS = [['', 'Все статусы'], ['draft', 'Черновик'], ['issued', 'Выставлен'], ['paid', 'Оплачен'], ['cancelled', 'Отменён']];
+const STATUS_OPTS = [['', 'Все статусы'], ['draft', 'Черновик'], ['issued', 'Выставлен'], ['paid', 'Оплачен']]; // «Отменён» не показываем: такие счета (после объединения) уходят в корзину, фильтр всегда пуст
 const invoiceHref = (id) => {
   const route = current();
   const params = { ...route.params, tab: 'invoices', of: 'invoicecard', open: id, new: undefined, fill: undefined };
