@@ -20,7 +20,7 @@
         { "code": "trn.muscles", "name": "Группа мышц", "order": 2, "step": true, "multi": true, "hint": "Для силовых. Совмещённый тренажёр — несколько значений",
           "values": [
             { "code": "trn.muscles.legs", "name": "Ноги и ягодицы", "order": 1, "words": "ног|присед|голен|бедр|глют|флекс", "purposePhrase": "Ноги", "estimate": 15 },
-            { "code": "trn.muscles.chest", "name": "Грудь, плечи, руки", "order": 2, "words": "груд|плеч|сведени|баттерфл|вверх|трицепс|бицепс", "purposePhrase": "Грудь, плечи, руки", "estimate": 20 },
+            { "code": "trn.muscles.chest", "name": "Грудь, плечи, руки", "order": 2, "words": "груд|плеч|сведени|баттерфл|вверх|трицепс|бицепс|жим", "purposePhrase": "Грудь, плечи, руки", "estimate": 20 },
             { "code": "trn.muscles.back", "name": "Спина", "order": 3, "words": "тяг|подтяг|гравитрон", "purposePhrase": "Спина", "estimate": 17 },
             { "code": "trn.muscles.core", "name": "Пресс и поясница", "order": 4, "words": "пресс|гиперэкст", "purposePhrase": "Пресс", "estimate": 5 }
           ] },
@@ -43,7 +43,7 @@
       "facets": [
         { "code": "wrk.kind", "name": "Снаряд", "order": 1, "step": true, "multi": false, "hint": "Комплекс или отдельный снаряд; для спорта — вид игры",
           "values": [
-            { "code": "wrk.kind.complex", "name": "Комплекс (несколько снарядов)", "order": 1, "words": "комплекс|спорткомплекс|гексагон|площадка", "purposePhrase": "Комплекс с собственным весом", "estimate": 58 },
+            { "code": "wrk.kind.complex", "name": "Комплекс (несколько снарядов)", "order": 1, "words": "комплекс воркаут|воркаут комплекс|спорткомплекс|спортивный комплекс|мобильный комплекс|комплекс для тренировки|гексагон|площадка", "purposePhrase": "Комплекс с собственным весом", "estimate": 58 },
             { "code": "wrk.kind.bar", "name": "Турник, перекладина", "order": 2, "words": "турник|перекладин", "purposePhrase": "Турник, рукоход", "estimate": 21 },
             { "code": "wrk.kind.parallel", "name": "Брусья", "order": 3, "words": "брусья|столбики для отжим", "purposePhrase": "Брусья", "estimate": 20 },
             { "code": "wrk.kind.monkey", "name": "Рукоход", "order": 4, "words": "рукоход", "purposePhrase": "Турник, рукоход", "estimate": 9 },
@@ -78,13 +78,13 @@
       "facets": [
         { "code": "blg.fence", "name": "Элемент ограждения", "order": 1, "step": true, "multi": false, "hint": "Только для ограждений",
           "values": [
-            { "code": "blg.fence.section", "name": "Секция", "order": 1, "words": "секци|ограждени|систем", "purposePhrase": "Ограждение", "estimate": 20 },
+            { "code": "blg.fence.section", "name": "Секция", "order": 1, "words": "секци|ограждени|оградительн|систем", "purposePhrase": "Ограждение", "estimate": 20 },
             { "code": "blg.fence.gate", "name": "Калитка", "order": 2, "words": "калитк", "purposePhrase": "Ограждение", "estimate": 2 },
-            { "code": "blg.fence.post", "name": "Стойка, столб", "order": 3, "words": "стойк|столб", "purposePhrase": "Ограждение", "estimate": 5 }
+            { "code": "blg.fence.post", "name": "Стойка, столб", "order": 3, "words": "столбик конеч|столбик промеж|столбик углов|стойка со", "purposePhrase": "Ограждение", "estimate": 5 }
           ] },
         { "code": "blg.seats", "name": "Мест", "order": 2, "step": true, "multi": false, "hint": "Трибуны, скамьи, столы",
           "values": [
-            { "code": "blg.seats.5", "name": "до 5", "order": 1, "words": "", "purposePhrase": null, "estimate": 4 },
+            { "code": "blg.seats.5", "name": "до 5", "order": 1, "words": " 5 мест|на 5 мест", "purposePhrase": null, "estimate": 4 },
             { "code": "blg.seats.10", "name": "10", "order": 2, "words": "10 мест", "purposePhrase": null, "estimate": 2 },
             { "code": "blg.seats.15", "name": "15", "order": 3, "words": "15 мест", "purposePhrase": null, "estimate": 4 },
             { "code": "blg.seats.20", "name": "20", "order": 4, "words": "20 мест", "purposePhrase": null, "estimate": 4 },
@@ -93,8 +93,8 @@
           ] },
         { "code": "blg.seat", "name": "Сиденье", "order": 3, "step": true, "multi": false, "hint": "Трибуны и скамьи: от этого зависит текст ухода",
           "values": [
-            { "code": "blg.seat.plastic", "name": "Пластик", "order": 1, "words": "пластик", "purposePhrase": null, "estimate": 14 },
-            { "code": "blg.seat.board", "name": "Доска", "order": 2, "words": "доск|дерев|сосн", "purposePhrase": null, "estimate": 10 }
+            { "code": "blg.seat.plastic", "name": "Пластик", "order": 1, "words": "пластиков|- пластик", "purposePhrase": null, "estimate": 14 },
+            { "code": "blg.seat.board", "name": "Доска", "order": 2, "words": "доск|сосн|wood|лиственниц", "purposePhrase": null, "estimate": 10 }
           ] },
         { "code": "blg.rail", "name": "Перила, спинка", "order": 4, "step": true, "multi": false, "hint": "Трибуны и скамьи",
           "values": [
