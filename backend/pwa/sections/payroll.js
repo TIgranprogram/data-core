@@ -6,7 +6,7 @@ import { confirmDlg } from '../ui/kit/dialog.js';
 import { openSide, sideForm } from '../ui/kit/side-form.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { incomeLookups, todayMsk } from './orders.js';
-import { table, button, iconButton, enhanceSelect } from '../ui/kit/index.js';
+import { table, button, iconButton, enhanceSelect, empty } from '../ui/kit/index.js';
 
 /**
  * «ФОТ» — фонд оплаты труда. Данные с сервера: GET /api/payroll/summary?month= (сотрудники, табель, начислено,
@@ -104,8 +104,7 @@ export function mountPayroll() {
     next.disabled = s.month >= curMonth();
     const items = s.items.filter((p) => p.rate || p.paid || p.hasTimesheet);
     if (!items.length) {
-      return [h('div', { class: 'panel state' }, h('div', null, 'Ставок нет. «Справочники → Сотрудники» → сотрудник → «Оплата» и «Ставка».'),
-        h('a', { class: 'btn', href: '#dicts?d=persons' }, 'Открыть «Сотрудники»'))];
+      return [empty({ title: 'Ставок нет.', hint: '«Справочники → Сотрудники» → сотрудник → «Оплата» и «Ставка».', action: { href: '#dicts?d=persons', label: 'Открыть «Сотрудники»' } })];
     }
     const cos = s.byCompany || [];
     const row = (p) => {

@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { go } from '../core/router.js';
 import { modal } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
-import { autoMore, empty, tabs, button, badge, enhanceSelect } from '../ui/kit/index.js';
+import { searchBox, autoMore, empty, tabs, button, badge, enhanceSelect } from '../ui/kit/index.js';
 import { statusOf, canEdit as canEditTexts } from './passports/common.js';
 import { printDialog } from './passports/dialogs.js';
 import { orderPassportsButton } from './order-passport-plan.js';
@@ -53,10 +53,10 @@ async function changeReadiness(p) {
 export function mountOrdersTab(params, { onChanged } = {}) {
   let state = { readiness: params.readiness || '', search: params.search || '' };
   let open = params.open ? String(params.open) : '';
-  const search = h('input', { type: 'search', placeholder: 'Поиск: № заказа, № договора, заказчик…', value: state.search, 'aria-label': 'Поиск' });
+  const search = searchBox({ value: state.search, placeholder: 'Поиск: № заказа, № договора, заказчик…', onSearch: (v) => { state = { ...state, search: v }; load(); } });
   const chips = tabs({ items: [['', 'Все'], ...Object.entries(READINESS).map(([k, s]) => [k, s.label])].map(([key, label]) => ({ key, label })),
     value: state.readiness, label: 'Статус паспортов', onChange: (k) => { state = { ...state, readiness: k }; load(); } });
-  const list = h('div', { class: 'do-list' });
+  const list = h('div', { class: 'do-list' }, empty({ kind: 'noData', title: 'Загружаю паспорта по заказам…' }));
   // ПГ-1c: порции при прокрутке вниз — kit.autoMore; открытая группа (open) и поиск не теряются
   const more = autoMore({
     root: list, cls: 'do-pager', limit: 20, text: { fail: 'Паспорта по заказам не загрузились', moreFail: 'Не удалось подгрузить паспорта' },
@@ -65,10 +65,9 @@ export function mountOrdersTab(params, { onChanged } = {}) {
     render: (items) => paint(items),
   });
   const load = (opt) => more.reload(opt);
-  const el = h('div', { class: 'do' }, h('div', { class: 'do-head' }, search, chips.el),
+  const el = h('div', { class: 'do' }, h('div', { class: 'do-head' }, search.el, chips.el),
     h('div', { class: 'do-legend' }, ...Object.values(READINESS).map((x) => h('span', { class: 'do-leg' }, badge(x.label, x.cls), h('span', { class: 'muted' }, x.hint.split(' — ')[1]))),
       h('span', { class: 'muted' }, 'Новый паспорт: «Нужно сделать паспорт» или «Шаблоны».')), list, more.el);
-  let timer = 0;
 
   const drawChips = () => chips.set(state.readiness);
 
@@ -116,14 +115,13 @@ export function mountOrdersTab(params, { onChanged } = {}) {
       : empty({ title: 'Паспортов к заказам ещё нет', hint: 'Выпустите паспорт на вкладке «Нужно сделать паспорт» — он появится здесь.' })]));
   }
 
-  search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { state = { ...state, search: search.value.trim() }; load(); }, 300); });
   drawChips(); load();
 
   return {
     el,
     reload: () => load({ keep: true }),
     focusSearch: () => search.focus(),
-    destroy: () => { clearTimeout(timer); more.destroy(); },
+    destroy: () => { more.destroy(); },
     update: (p) => { if (p.open && String(p.open) !== open) { open = String(p.open); more.repaint(); } },
   };
 }

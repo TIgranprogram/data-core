@@ -1,5 +1,4 @@
 import { api, PREFIX, session } from '../core/api.js';
-import { searchBox } from '../ui/searchbox.js';
 import { h } from '../core/dom.js';
 import { busyBlock, busyBtn, failBlock } from '../ui/kit/busy.js';
 import { money, qty } from '../core/format.js';
@@ -8,7 +7,7 @@ import { confirmDlg, modal } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { lookups } from './lookups.js';
 import { KINDS, KINDS_V2, kindName } from '../core/passport-kinds.js';
-import { tagPick, button, select, enhanceSelect } from '../ui/kit/index.js';
+import { searchBox, tagPick, button, select, enhanceSelect } from '../ui/kit/index.js';
 import { mountTexts, TEXTS_KEY } from './passport-texts.js';
 import { mountTree, TREE_KEY } from './passport-tree.js';
 import { mountZones, ZONES_KEY } from './stock-zones.js';
@@ -167,7 +166,8 @@ export function mountDicts(params) {
     cand.replaceChildren(h('p', { class: 'muted' }, 'Ищу в заявках, на складе и в Google-таблице…'));
     try {
       const r = await api(`/dicts/${dictKey()}/candidates`);
-      if (!r.items.length) { cand.replaceChildren(h('p', { class: 'hint' }, 'Всё, что встречается в данных, уже есть в справочнике.'), button({ label: 'Закрыть', size: 'S', onClick: () => { cand.hidden = true; } })); return; }
+      if (!r.items.length) { cand.replaceChildren(h('p', { class: 'hint' }, 'Всё, что встречается в данных, уже есть в справочнике.'),
+        button({ label: 'Закрыть', size: 'S', onClick: () => { cand.hidden = true; } })); return; }
       const boxes = r.items.map((c) => ({ c, cb: h('input', { type: 'checkbox', checked: !c.similar }) }));
       const go2 = button({ label: 'Добавить отмеченные', kind: 'primary', size: 'S' });
       go2.addEventListener('click', async () => {
@@ -183,7 +183,8 @@ export function mountDicts(params) {
         h('ul', { class: 'dict-cand-list' }, ...boxes.map(({ c, cb }) => h('li', null, h('label', null, cb, h('b', null, c.name)),
           h('span', { class: 'muted' }, [c.uses ? `встречается ${qty(c.uses)} раз` : '', c.source].filter(Boolean).join(' · ')),
           c.similar ? h('span', { class: 'tag' }, `похоже на «${c.similar.name}» ${Math.round(c.similar.score * 100)}%`) : null))),
-        h('div', { class: 'bulk-foot' }, go2, button({ label: 'Закрыть', size: 'S', onClick: () => { cand.hidden = true; } })));
+        h('div', { class: 'bulk-foot' }, go2,
+          button({ label: 'Закрыть', size: 'S', onClick: () => { cand.hidden = true; } })));
     } catch (e) { cand.replaceChildren(failBlock(e)); }
   }
 

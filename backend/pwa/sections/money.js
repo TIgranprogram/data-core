@@ -219,7 +219,7 @@ export function mountMoney(params) {
       h('div', { class: 'summary' }, ...(withOpen
         ? [kpi('остаток на начало', t.opening), kpi('поступления' + upto, t.income), kpi('выплаты' + upto, t.expense), kpi('остаток' + (upto ? ' сегодня' : ' на конец'), t.closing)]
         : [kpi('поступления' + upto, t.income), kpi('выплаты' + upto, t.expense), kpi('итог' + upto, t.income - t.expense, { calm: true, sign: true })]),
-        c.needsFill.total ? h('button', { class: 'sum-item attn', type: 'button', onclick: () => go('fill') }, h('span', { class: 'sum-v' }, String(c.needsFill.total)), h('span', { class: 'sum-l' }, 'не попали в расчёт →')) : null),
+        c.needsFill.total ? button({ cls: 'sum-item attn', onClick: () => go('fill'), icon: h('span', { class: 'sum-v' }, String(c.needsFill.total)), label: h('span', { class: 'sum-l' }, 'не попали в расчёт →') }) : null),
       dueLine,
       startDate ? h('p', { class: 'hint' }, 'Учёт ведётся с ' + startDate.split('-').reverse().join('.') + '; операции раньше — серым, в остаток не входят.') : null,
       h('div', { class: 'panel cal-wrap', id: 'money-cal' }, h('table', { class: 'cal' }, h('thead', null, head), h('tbody', null, rows))),

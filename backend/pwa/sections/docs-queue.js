@@ -8,7 +8,7 @@ import { toastError } from '../ui/kit/toast.js';
 import { issuePassport } from './passports.js';
 import { canEdit as canEditTexts } from './passports/common.js';
 
-import { table, tabs, button, badge } from '../ui/kit/index.js';
+import { table, tabs, button, badge, searchBox } from '../ui/kit/index.js';
 /**
  * Вкладка «Нужно сделать паспорт» (ТЗ ОП): позиции заказов, где проектирование готово, а выпущенного паспорта нет.
  * Данные — GET /passports/queue (по сроку отгрузки; «горит» — до отгрузки ≤ 3 дней или просрочено).
@@ -17,12 +17,12 @@ const STATE = { none: ['нет паспорта', 'dim'], draft: ['чернов�
 const DUE = [['all', 'Все'], ['overdue', 'Просрочено'], ['soon', 'Горит']];
 
 export function mountQueueTab(params) {
-  let due = 'all', search = '', data = null, t = null, gone = false;
+  let due = 'all', search = '', data = null, gone = false;
   const summary = h('div', { class: 'q-summary' });
   const chips = tabs({ items: DUE.map(([key, label]) => ({ key, label })), value: 'all', label: 'Срок', onChange: (k) => { due = k; load(); } });
-  const q = h('input', { type: 'search', placeholder: 'Поиск: заказ, заказчик, изделие…', 'aria-label': 'Поиск', oninput: (e) => { search = e.target.value.trim(); clearTimeout(t); t = setTimeout(load, 300); } });
+  const q = searchBox({ placeholder: 'Поиск: заказ, заказчик, изделие…', onSearch: (v) => { search = v; load(); } });
   const list = h('div', { class: 'dq-list' });
-  const el = h('div', { class: 'dq' }, h('div', { class: 'page-head' }, h('div', { class: 'field' }, q), chips.el), summary, list);
+  const el = h('div', { class: 'dq' }, h('div', { class: 'page-head' }, h('div', { class: 'field' }, q.el), chips.el), summary, list);
 
   const make = async (r, btn) => {
     if (r.passportId) {
@@ -64,5 +64,5 @@ export function mountQueueTab(params) {
   window.addEventListener('data-changed', onChanged);
   load();
   void params;
-  return { el, reload: load, update: () => {}, focusSearch: () => q.focus(), destroy: () => { gone = true; clearTimeout(t); window.removeEventListener('data-changed', onChanged); } };
+  return { el, reload: load, update: () => {}, focusSearch: () => q.focus(), destroy: () => { gone = true; window.removeEventListener('data-changed', onChanged); } };
 }

@@ -1,6 +1,6 @@
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
-import { readonlyGroup, similarBox, sku, section, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, qtyInput, targetPicker, toast, pick, filter, table, panel, entityPanel, select, fileButton, links, SUPPLY_STATUS } from '../ui/kit/index.js';
+import { searchBox, readonlyGroup, similarBox, sku, section, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, qtyInput, targetPicker, toast, pick, filter, table, panel, entityPanel, select, fileButton, links, SUPPLY_STATUS } from '../ui/kit/index.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
 const LONG = 'Очень длинное название позиции для проверки переноса и обрезки текста в карточке эталона';
@@ -149,6 +149,7 @@ export const kit = {
       block('Выпадающий список (select)', 'Без поиска, до ~10 значений. Длинные списки — pick.', sample(select({ options: [['a', 'Первый'], ['b', 'Второй']], value: 'a', label: 'Образец' }))),
       block('Кнопка выбора файла (fileButton)', 'Кнопка-подпись со скрытым полем файла; выбранный файл уходит в onFile.', sample(fileButton({ label: 'Загрузить файл…', accept: '.csv', onFile: (f) => toast(f.name) }))),
       block('Отметка происхождения (data-k)', 'Каждая фабрика kit (через mark / markEl из ui/kit/mark.js) ставит на корень data-k="<эталон>": button, badge, card, row, tabs, table, modal, panel, drawer, form, list, board, filter, pick, empty, mobile.* и др. Большая проверка сайта (правило s) считает элементы экрана без этой отметки — «не из kit».', sample(...[button({ label: 'button' }), badge('badge', 'ok'), empty({ title: 'empty' })].map((n) => h('span', { class: 'muted' }, n.dataset.k + ' → ', n)))),
+      block('Строка поиска (searchBox)', 'Единственное поле поиска: крестик, пауза ввода, Esc — очистить, подсказка про минимум знаков. Пусто = «без поиска». Сырой input type=search в разделе нельзя.', searchBox({ placeholder: 'Поиск…', onSearch: (q) => toast('Поиск: ' + (q || 'всё')) })),
       block('Пусто и ошибка (empty)', 'Единственная фабрика пустых состояний: kind "empty" (записей нет, подсказка и ссылка), "notFound" (поиск ничего не дал, сброс), "noData" (за период пусто). Тексты «Пусто / Ничего не найдено / Нет данных» — только через empty().', empty({ title: 'Ничего нет', hint: 'Добавьте запись в панели справа.' }), empty({ kind: 'notFound', query: 'болт М99', onReset: () => toast('Сброс') }), empty({ kind: 'notFound', onReset: () => toast('Сброс') }), empty({ kind: 'noData' }), failBlock(new Error('Тестовая ошибка'), () => toast('Повтор'))),
     );
     return {};

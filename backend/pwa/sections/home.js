@@ -218,10 +218,10 @@ export function mountHome(deps) {
     },
     urgent(key, title) {
       const s = shell(key, title);
-      s.el.classList.add('td-urgent');
       return { el: s.el, counted: true, paint() {
         const over = visibleFeed().filter((c) => c.overdueDays > 0 && !ownKinds.has(c.kind));
         const um = unmatchedRow();
+        s.el.classList.toggle('td-urgent', over.length > 0 || !!um); // красный заголовок только когда есть что срочно
         return s.set(over.length, over.length || um ? h('div', { class: 'td-feed' }, ...rowsOf('over', over), um) : emptyLine('Нет просроченных дел')) + (um ? 1 : 0);
       } };
     },
@@ -303,14 +303,15 @@ export function mountHome(deps) {
   // ---------- Пульс: числа ----------
   function paintPulse() {
     const showQ = has('questions'), showW = has('work');
-    const mk = (key, n, label, title) => h('button', { type: 'button', title, class: 'td-chip' + (chip === key ? ' on' : '') + (n ? '' : ' zero'), 'aria-pressed': String(chip === key),
-      onclick: () => {
+    const mk = (key, n, label, title) => button({ title, cls: 'td-chip' + (chip === key ? ' on' : '') + (n ? '' : ' zero'),
+      icon: h('b', null, String(n || 0)), label: h('span', null, label),
+      onClick: () => {
         if (key === 'question') { showAllQ = !showAllQ; paintFeed(); blocks.find((b) => b.el.classList.contains('td-b-questions'))?.el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
         chip = chip === key ? null : key; dayFilter = null; paintAll();
-      } },
-      h('b', null, String(n || 0)), h('span', null, label));
+      } });
     const base = (data?.feed || []).filter((c) => c.kind !== 'question' && notSnoozed(c));
     const o = base.filter((c) => c.overdueDays > 0).length, w = base.filter((c) => c.kind === 'work' && c.overdueDays > 0).length, q = questions().length;
+    if (!o && !w && !q && !chip) { pulseEl.replaceChildren(h('p', { class: 'td-sub' }, 'Всё спокойно')); return; } // три нулевые пилюли вместо одной строки
     pulseEl.replaceChildren(
       mk('overdue', o, plural(o, 'просроченное дело', 'просроченных дела', 'просроченных дел'), 'Показать только просроченные дела'),
       showW ? mk('workover', w, plural(w, 'задание просрочено', 'задания просрочено', 'заданий просрочено'), 'Показать просроченные задания в работе') : null,
@@ -325,15 +326,13 @@ export function mountHome(deps) {
     const any = days.some((d) => d.events.length);
     weekEl.replaceChildren(h('div', { class: 'td-days' }, ...days.map((d) => {
       const dt = new Date(d.date + 'T00:00');
-      return h('button', {
-        type: 'button', class: 'td-day' + (d.date === today ? ' today' : '') + (dayFilter === d.date ? ' on' : ''),
-        'aria-pressed': String(dayFilter === d.date),
-        onclick: () => { dayFilter = dayFilter === d.date ? null : d.date; chip = null; paintAll(); },
-      },
-        h('span', { class: 'td-dn' }, dt.toLocaleDateString('ru-RU', { weekday: 'short' })),
-        h('b', { class: 'td-dd' }, String(dt.getDate())),
-        h('span', { class: 'td-ev' }, d.events.slice(0, 3).map((e) => h('i', { class: 'td-pt k-' + e.kind, title: `${KIND_LABEL[e.kind] || ''}: ${e.title}` })),
-          d.events.length > 3 ? h('small', null, '+' + (d.events.length - 3)) : null));
+      return button({
+        cls: 'td-day' + (d.date === today ? ' today' : '') + (dayFilter === d.date ? ' on' : ''),
+        onClick: () => { dayFilter = dayFilter === d.date ? null : d.date; chip = null; paintAll(); },
+        icon: [h('span', { class: 'td-dn' }, dt.toLocaleDateString('ru-RU', { weekday: 'short' })), h('b', { class: 'td-dd' }, String(dt.getDate()))],
+        label: h('span', { class: 'td-ev' }, d.events.slice(0, 3).map((e) => h('i', { class: 'td-pt k-' + e.kind, title: `${KIND_LABEL[e.kind] || ''}: ${e.title}` })),
+          d.events.length > 3 ? h('small', null, '+' + (d.events.length - 3)) : null),
+      });
     })), any ? null : h('div', { class: 'td-sub' }, 'На неделе событий нет'));
   }
 
