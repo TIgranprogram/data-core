@@ -1,0 +1,177 @@
+{
+  "version": 1,
+  "date": "2026-11-07",
+  "source": "C028 аналитик; подсчёты — по названиям 483 изделий прода (tools/logs/c028/products.json, категория изделия как сейчас)",
+  "howToLoad": "Скрипт: каждый признак → dict_values {dict:'productFacets'}, каждое значение → dict_values {dict:'productFacetValues', parentId:<id признака>}. Ключ upsert — code. purposePhrase — name из справочника passportPhrases (section=purpose) → purposePhraseId; installType — code из passportInstall → installTypeId; null — не ставить. estimate — только для отчёта, не грузить. Загрузка: план → --apply по «да» пользователя.",
+  "wordsRule": "words: корни через |, без регистра, ё=е, поиск подстрокой в названии изделия; значения проверяются по order, первое совпадение — подсказка. Пустые words — значение не подсказывается, только ручной выбор.",
+  "categories": [
+    {
+      "category": "TRN",
+      "groupStepHint": "Группа почти всегда «Тренажеры» — шаг группы пропускается",
+      "defaultInstallType": "EMBEDDED",
+      "facets": [
+        { "code": "trn.kind", "name": "Вид тренажёра", "order": 1, "step": true, "multi": false, "hint": "Сначала главное: силовой, кардио или для суставов",
+          "values": [
+            { "code": "trn.kind.power", "name": "Силовой", "order": 1, "words": "жим|тяг|подтяг|присед|бицепс|трицепс|гиперэкст|пресс|гравитрон|мультиштанг|сведени|разгиб|сгибан|отведени|станок|силов|флекс|комбо", "purposePhrase": null, "estimate": 61 },
+            { "code": "trn.kind.cardio", "name": "Кардио", "order": 2, "words": "вело|орбитрек|эллип|скороход|степ|лыжн|гребн", "purposePhrase": "Кардио", "estimate": 19 },
+            { "code": "trn.kind.joint", "name": "Для суставов и разминки", "order": 3, "words": "маятник|твист|хипс|шейкер|диск", "purposePhrase": "Разминка суставов", "estimate": 9 },
+            { "code": "trn.kind.func", "name": "Функциональный", "order": 4, "words": "покрышк|боксер", "purposePhrase": "Комплексный", "estimate": 3 }
+          ] },
+        { "code": "trn.muscles", "name": "Группа мышц", "order": 2, "step": true, "multi": true, "hint": "Для силовых. Совмещённый тренажёр — несколько значений",
+          "values": [
+            { "code": "trn.muscles.legs", "name": "Ноги и ягодицы", "order": 1, "words": "ног|присед|голен|бедр|глют|флекс", "purposePhrase": "Ноги", "estimate": 15 },
+            { "code": "trn.muscles.chest", "name": "Грудь, плечи, руки", "order": 2, "words": "груд|плеч|сведени|баттерфл|вверх|трицепс|бицепс", "purposePhrase": "Грудь, плечи, руки", "estimate": 20 },
+            { "code": "trn.muscles.back", "name": "Спина", "order": 3, "words": "тяг|подтяг|гравитрон", "purposePhrase": "Спина", "estimate": 17 },
+            { "code": "trn.muscles.core", "name": "Пресс и поясница", "order": 4, "words": "пресс|гиперэкст", "purposePhrase": "Пресс", "estimate": 5 }
+          ] },
+        { "code": "trn.load", "name": "Нагрузка", "order": 3, "step": true, "multi": false, "hint": "Для силовых: свой вес или грузы. От неё зависит текст ТО",
+          "values": [
+            { "code": "trn.load.weights", "name": "Изменяемая (грузы)", "order": 1, "words": "изменяем|нагрузочн|силовой", "purposePhrase": null, "estimate": 20 },
+            { "code": "trn.load.body", "name": "Собственный вес", "order": 2, "words": "", "purposePhrase": null, "estimate": 41 }
+          ] },
+        { "code": "trn.build", "name": "Исполнение", "order": 4, "step": true, "multi": false, "hint": "Один тренажёр или два в одном",
+          "values": [
+            { "code": "trn.build.combo", "name": "Совмещённый (2 в 1)", "order": 1, "words": "+|комбо|комбинир", "purposePhrase": "Комплексный", "estimate": 16 },
+            { "code": "trn.build.single", "name": "Одиночный", "order": 2, "words": "", "purposePhrase": null, "estimate": 82 }
+          ] }
+      ]
+    },
+    {
+      "category": "WRK",
+      "groupStepHint": "Группа: «Воркаут» (126) / «Спорт оборудование» (41) / «Военизированная полоса препятствий» (0, сюда элементы полосы)",
+      "defaultInstallType": "CONCRETE_POSTS",
+      "facets": [
+        { "code": "wrk.kind", "name": "Снаряд", "order": 1, "step": true, "multi": false, "hint": "Комплекс или отдельный снаряд; для спорта — вид игры",
+          "values": [
+            { "code": "wrk.kind.complex", "name": "Комплекс (несколько снарядов)", "order": 1, "words": "комплекс|спорткомплекс|гексагон|площадка", "purposePhrase": "Комплекс с собственным весом", "estimate": 58 },
+            { "code": "wrk.kind.bar", "name": "Турник, перекладина", "order": 2, "words": "турник|перекладин", "purposePhrase": "Турник, рукоход", "estimate": 21 },
+            { "code": "wrk.kind.parallel", "name": "Брусья", "order": 3, "words": "брусья|столбики для отжим", "purposePhrase": "Брусья", "estimate": 20 },
+            { "code": "wrk.kind.monkey", "name": "Рукоход", "order": 4, "words": "рукоход", "purposePhrase": "Турник, рукоход", "estimate": 9 },
+            { "code": "wrk.kind.bench", "name": "Скамья (пресс, гимнастика)", "order": 5, "words": "скам", "purposePhrase": "Гимнастика, пресс", "estimate": 12 },
+            { "code": "wrk.kind.wall", "name": "Шведская стенка", "order": 6, "words": "шведск", "purposePhrase": "Шведская стенка", "estimate": 3 },
+            { "code": "wrk.kind.rings", "name": "Кольца, канат, скалодром", "order": 7, "words": "кольца|канат|скалодром", "purposePhrase": "Кольца, канат, скалодром", "estimate": 3 },
+            { "code": "wrk.kind.basket", "name": "Баскетбол", "order": 8, "words": "баскет", "purposePhrase": "Баскетбол", "estimate": 9 },
+            { "code": "wrk.kind.goal", "name": "Ворота (футбол, хоккей)", "order": 9, "words": "ворот", "purposePhrase": "Футбол", "estimate": 11 },
+            { "code": "wrk.kind.net", "name": "Стойки (волейбол, теннис, бадминтон)", "order": 10, "words": "волейб|теннис|бадминт", "purposePhrase": "Волейбол", "estimate": 4 },
+            { "code": "wrk.kind.obstacle", "name": "Полоса препятствий", "order": 11, "words": "элемент|окоп|бум|лабиринт|разрушен|стена с", "purposePhrase": "Полоса препятствий", "estimate": 8 },
+            { "code": "wrk.kind.judge", "name": "Трибуна, судейская вышка", "order": 12, "words": "трибун|вышк", "purposePhrase": "Зрительские места", "estimate": 4 },
+            { "code": "wrk.kind.other", "name": "Прочее", "order": 13, "words": "", "purposePhrase": null, "estimate": 10 }
+          ] },
+        { "code": "wrk.size", "name": "Размер комплекса", "order": 2, "step": true, "multi": false, "hint": "Только для комплексов: сколько снарядов",
+          "values": [
+            { "code": "wrk.size.s", "name": "2–3 снаряда", "order": 1, "words": "", "purposePhrase": null, "estimate": 24 },
+            { "code": "wrk.size.m", "name": "4–5 снарядов", "order": 2, "words": "", "purposePhrase": null, "estimate": 26 },
+            { "code": "wrk.size.l", "name": "6 и больше", "order": 3, "words": "", "purposePhrase": null, "estimate": 7 }
+          ] },
+        { "code": "wrk.special", "name": "Особое назначение", "order": 3, "step": true, "multi": true, "hint": "ГТО и МГН добавляют свои тексты в паспорт",
+          "values": [
+            { "code": "wrk.special.gto", "name": "Для испытаний ГТО", "order": 1, "words": "гто|испытани|норматив|измерит|прыжок в длину", "purposePhrase": "Испытания ГТО", "estimate": 10 },
+            { "code": "wrk.special.mgn", "name": "Для людей с ограниченными возможностями", "order": 2, "words": "инвалид|ограниченн", "purposePhrase": null, "estimate": 3 },
+            { "code": "wrk.special.none", "name": "Обычное", "order": 3, "words": "", "purposePhrase": null, "estimate": 161 }
+          ] }
+      ]
+    },
+    {
+      "category": "BLG",
+      "groupStepHint": "Главный шаг — группа: Ограждения 26, Трибуны 25, Благоустройство 19, Скамьи 18, Навесы 14, Стенды 13, Урны 13, Качели 9, Геопластика 6, Велопарковки 4, Столы 2",
+      "defaultInstallType": null,
+      "facets": [
+        { "code": "blg.fence", "name": "Элемент ограждения", "order": 1, "step": true, "multi": false, "hint": "Только для ограждений",
+          "values": [
+            { "code": "blg.fence.section", "name": "Секция", "order": 1, "words": "секци|ограждени|систем", "purposePhrase": "Ограждение", "estimate": 20 },
+            { "code": "blg.fence.gate", "name": "Калитка", "order": 2, "words": "калитк", "purposePhrase": "Ограждение", "estimate": 2 },
+            { "code": "blg.fence.post", "name": "Стойка, столб", "order": 3, "words": "стойк|столб", "purposePhrase": "Ограждение", "estimate": 5 }
+          ] },
+        { "code": "blg.seats", "name": "Мест", "order": 2, "step": true, "multi": false, "hint": "Трибуны, скамьи, столы",
+          "values": [
+            { "code": "blg.seats.5", "name": "до 5", "order": 1, "words": "", "purposePhrase": null, "estimate": 4 },
+            { "code": "blg.seats.10", "name": "10", "order": 2, "words": "10 мест", "purposePhrase": null, "estimate": 2 },
+            { "code": "blg.seats.15", "name": "15", "order": 3, "words": "15 мест", "purposePhrase": null, "estimate": 4 },
+            { "code": "blg.seats.20", "name": "20", "order": 4, "words": "20 мест", "purposePhrase": null, "estimate": 4 },
+            { "code": "blg.seats.25", "name": "25 и больше", "order": 5, "words": "25 мест|30 мест", "purposePhrase": null, "estimate": 2 },
+            { "code": "blg.seats.stairs", "name": "Подъём (лестница) трибуны", "order": 6, "words": "подъем для трибун|подъём для трибун", "purposePhrase": null, "estimate": 10 }
+          ] },
+        { "code": "blg.seat", "name": "Сиденье", "order": 3, "step": true, "multi": false, "hint": "Трибуны и скамьи: от этого зависит текст ухода",
+          "values": [
+            { "code": "blg.seat.plastic", "name": "Пластик", "order": 1, "words": "пластик", "purposePhrase": null, "estimate": 14 },
+            { "code": "blg.seat.board", "name": "Доска", "order": 2, "words": "доск|дерев|сосн", "purposePhrase": null, "estimate": 10 }
+          ] },
+        { "code": "blg.rail", "name": "Перила, спинка", "order": 4, "step": true, "multi": false, "hint": "Трибуны и скамьи",
+          "values": [
+            { "code": "blg.rail.yes", "name": "С перилами / со спинкой", "order": 1, "words": "перил|спинк", "purposePhrase": null, "estimate": 10 },
+            { "code": "blg.rail.no", "name": "Без перил / без спинки", "order": 2, "words": "без спинки", "purposePhrase": null, "estimate": 15 }
+          ] },
+        { "code": "blg.material", "name": "Материал", "order": 5, "step": false, "multi": false, "hint": "Не шаг воронки: подставляется в текст ухода (дерево — пропитка)",
+          "values": [
+            { "code": "blg.material.metal", "name": "Металл", "order": 1, "words": "", "purposePhrase": null, "estimate": 146 },
+            { "code": "blg.material.wood", "name": "Дерево (или металл с деревом)", "order": 2, "words": "дерев|сосн|wood|доск|бордо|пенек|камыш", "purposePhrase": null, "estimate": 21 },
+            { "code": "blg.material.concrete", "name": "Бетон", "order": 3, "words": "бетон", "purposePhrase": null, "estimate": 1 },
+            { "code": "blg.material.glass", "name": "Стеклопластик с подсветкой", "order": 4, "words": "стеклопласт|подсветк", "purposePhrase": null, "estimate": 3 }
+          ] }
+      ]
+    },
+    {
+      "category": "DIO",
+      "groupStepHint": "Группа = вид: Качели, Качалка-балансир, Качалка на пружине, Карусели, Горки, Детские игровые комплексы, Песочницы, Пространственные сети, Домики, Детское игровое оборудование",
+      "defaultInstallType": "CONCRETE_POSTS",
+      "facets": [
+        { "code": "dio.age", "name": "Возраст детей", "order": 1, "step": true, "multi": false, "hint": "Сейчас ни у одного изделия не задан — спросить один раз, сохранить в изделие",
+          "values": [
+            { "code": "dio.age.0-3", "name": "до 3 лет", "order": 1, "words": "", "purposePhrase": null, "estimate": 0 },
+            { "code": "dio.age.3-7", "name": "3–7 лет", "order": 2, "words": "", "purposePhrase": null, "estimate": 0 },
+            { "code": "dio.age.7-12", "name": "7–12 лет", "order": 3, "words": "", "purposePhrase": null, "estimate": 0 },
+            { "code": "dio.age.3-12", "name": "3–12 лет", "order": 4, "words": "", "purposePhrase": null, "estimate": 0 }
+          ] },
+        { "code": "dio.seats", "name": "Мест", "order": 2, "step": true, "multi": false, "hint": "Качели, качалки, карусели",
+          "values": [
+            { "code": "dio.seats.1", "name": "Одно место", "order": 1, "words": "", "purposePhrase": null, "estimate": 0 },
+            { "code": "dio.seats.2", "name": "Два места", "order": 2, "words": "двойн|двух", "purposePhrase": null, "estimate": 1 },
+            { "code": "dio.seats.many", "name": "Три и больше", "order": 3, "words": "четвер|круговые|гнездо", "purposePhrase": null, "estimate": 3 }
+          ] },
+        { "code": "dio.material", "name": "Материал", "order": 3, "step": false, "multi": false, "hint": "Не шаг воронки: подставляется в текст ухода",
+          "values": [
+            { "code": "dio.material.metal", "name": "Металл", "order": 1, "words": "", "purposePhrase": null, "estimate": 0 },
+            { "code": "dio.material.wood", "name": "Дерево (или металл с деревом)", "order": 2, "words": "дерев|wood", "purposePhrase": null, "estimate": 2 },
+            { "code": "dio.material.glass", "name": "Стеклопластик", "order": 3, "words": "стеклопласт", "purposePhrase": null, "estimate": 0 }
+          ] }
+      ]
+    },
+    {
+      "category": "DSP",
+      "groupStepHint": "Группа «Детское спортивное оборудование» (59) пуста; изделий DSP сейчас 0",
+      "defaultInstallType": "CONCRETE_POSTS",
+      "facets": [
+        { "code": "dsp.kind", "name": "Снаряд", "order": 1, "step": true, "multi": false, "hint": "Как у воркаута, для детей",
+          "values": [
+            { "code": "dsp.kind.complex", "name": "Комплекс", "order": 1, "words": "комплекс", "purposePhrase": "Комплекс с собственным весом", "estimate": 0 },
+            { "code": "dsp.kind.bar", "name": "Турник, рукоход, брусья", "order": 2, "words": "турник|рукоход|брусья", "purposePhrase": "Турник, рукоход", "estimate": 0 },
+            { "code": "dsp.kind.wall", "name": "Шведская стенка, лестница", "order": 3, "words": "шведск|лестниц", "purposePhrase": "Шведская стенка", "estimate": 0 },
+            { "code": "dsp.kind.game", "name": "Игровой спорт (ворота, баскетбол)", "order": 4, "words": "ворот|баскет|детского сада", "purposePhrase": "Детский спорт", "estimate": 1 }
+          ] },
+        { "code": "dsp.age", "name": "Возраст детей", "order": 2, "step": true, "multi": false, "hint": "Обычно от 7 лет (справочник категорий)",
+          "values": [
+            { "code": "dsp.age.3-7", "name": "3–7 лет", "order": 1, "words": "детского сада", "purposePhrase": null, "estimate": 1 },
+            { "code": "dsp.age.7-12", "name": "7–12 лет", "order": 2, "words": "", "purposePhrase": null, "estimate": 0 },
+            { "code": "dsp.age.12", "name": "от 12 лет", "order": 3, "words": "", "purposePhrase": null, "estimate": 0 }
+          ] }
+      ]
+    }
+  ],
+  "groupCategory": {
+    "note": "Предложение для categories.passportCategory (поле уже есть, сейчас пусто у всех 29 групп). Запись — только по «да» (вопрос ПФ-1).",
+    "TRN": ["Тренажеры"],
+    "WRK": ["Воркаут", "Спорт оборудование", "Военизированная полоса препятствий"],
+    "BLG": ["Навесы", "Благоустройство (оборудование невошедшее в другие группы)", "Ограждения", "Скамьи", "Урны", "Столы", "Вазоны", "Велопарковки", "Информационные стенды и указатели", "Трибуны", "Качели (раздел «Оборудование для благоустройства территории»)", "Геопластика"],
+    "DIO": ["Качели (раздел «Оборудование для детских игровых площадок»)", "Карусели", "Качалка-балансир", "Качалка на пружине", "Домики", "Песочницы", "Горки", "Пространственные сети", "Детское игровое оборудование", "Детские игровые комплексы"],
+    "DSP": ["Детское спортивное оборудование"],
+    "skip": ["Скамьи (раздел «Воркаут», 0 изделий)", "Спорт оборудование (раздел «Воркаут», 0 изделий)"]
+  },
+  "newPurposePhrases": [
+    { "name": "Разминка суставов", "categories": "TRN", "text": "Предназначено для разминки суставов и мягкой нагрузки на мышцы." },
+    { "name": "Шведская стенка", "categories": "WRK, DSP", "text": "Предназначено для гимнастических упражнений, лазания и растяжки." },
+    { "name": "Кольца, канат, скалодром", "categories": "WRK", "text": "Предназначено для упражнений в висе, лазания и развития силы хвата." },
+    { "name": "Испытания ГТО", "categories": "WRK", "text": "Предназначено для подготовки к испытаниям (тестам) комплекса ГТО и их выполнения." },
+    { "name": "Зрительские места", "categories": "WRK, BLG", "text": "Предназначено для размещения зрителей и судей." },
+    { "name": "Детский спорт", "categories": "DSP", "text": "Предназначено для спортивных игр и упражнений детей." }
+  ]
+}

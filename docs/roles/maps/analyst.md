@@ -1,6 +1,11 @@
 # Карта роли analyst
 
-коммит: не закоммичен (ЕН 2026-11-03; C011 2026-11-03; УСЛ 2026-11-04; ДЕНЬГИ 2026-11-04; C022 2026-11-04; ВЛ-1 2026-11-05)
+коммит: не закоммичен (ЕН 2026-11-03; C011 2026-11-03; УСЛ 2026-11-04; ДЕНЬГИ 2026-11-04; C022 2026-11-04; ВЛ-1 2026-11-05; C028 2026-11-07, база 2c4c633d)
+
+## Паспорт воронкой (C028, 2026-11-07)
+- Данные прода: `tools/logs/c028/` (483 изделия, 342 паспорта). Признаки: `docs/crew/C028-passport-funnel/facets-seed.json`; анализ — в отчёте координатору (файл ANALYSIS.md пишет координатор).
+- Категория группы `categories.passportCategory` пуста у 29/29 → угадывание по корню `common/passport/form-values.ts:66–74` («оборудование» → DIO, 13 изделий). Своя категория изделия — `passportDefaults`.
+- Решение: Раздел → Группа (категория) → признаки (`dict_values` productFacets/productFacetValues) → `products.facetValueIds`; `passportTypes` (0) убрать. Правила выпуска `passport-rules.ts:216–255`. Вопросы ПФ-1…3.
 
 ## Единая номенклатура (ЕН, 2026-11-03)
 - Канон склада — `materials` (+ остаток `storageitems`). Изделия — `products` (ДМ-1: покупные остаются в materials). Каталог — `supplieritems` (data-core), факт цены — `materialprices` → `lastPrice*`. Заявка — снимок `supplyrequests` (`title` без `materialId` допустим; `supplierItemId` нет, СК-3).
