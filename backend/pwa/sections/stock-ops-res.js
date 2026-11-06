@@ -4,7 +4,8 @@ import { h } from '../core/dom.js';
 import { parseNum, qty } from '../core/format.js';
 import { confirmDlg } from '../ui/kit/dialog.js';
 import { errText } from '../ui/kit/errors.js';
-import { toast } from '../ui/kit/toast.js';
+import { toast, toastError } from '../ui/kit/toast.js';
+import { button } from '../ui/kit/index.js';
 import { issueToFields } from './issue.js';
 import { editReservation } from './reservations.js';
 
@@ -84,13 +85,13 @@ export async function buildUnreserve(materialId) {
       h('div', { class: 'spec-main' }, h('div', { class: 'clip', title: where(r) }, where(r)), r.hanging ? h('small', { class: 'neg' }, `висящая: ${r.hanging.toLowerCase()}`) : null),
       h('span', { class: 'num nowrap' }, `${qty(r.qty)} ${r.unit}`),
       h('span', { class: 'res-acts' },
-        h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => editReservation(r.id) }, 'Изменить'),
-        h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: async (e) => {
+        button({ label: 'Изменить', kind: 'ghost', size: 'S', onClick: () => editReservation(r.id) }),
+        button({ label: 'Снять', kind: 'ghost', size: 'S', onClick: async (e) => {
           const btn = e.currentTarget; // после await в событии currentTarget уже null
           if (!(await confirmDlg('Снять бронь?', `«${where(r)}» — ${qty(r.qty)} ${r.unit} снова станет свободным.`, { okText: 'Снять бронь', danger: true }))) return;
           btn.disabled = true;
-          try { await api(`/stock/reservations/${r.id}/release`, { method: 'POST' }); toast('Бронь снята'); window.dispatchEvent(new CustomEvent('data-changed')); rows = rows.filter((x) => x !== r); draw(); } catch (er) { toast(errText(er), { error: true }); btn.disabled = false; }
-        } }, 'Снять')))))] : []));
+          try { await api(`/stock/reservations/${r.id}/release`, { method: 'POST' }); toast('Бронь снята'); window.dispatchEvent(new CustomEvent('data-changed')); rows = rows.filter((x) => x !== r); draw(); } catch (er) { toastError(er); btn.disabled = false; }
+        } })))))] : []));
   draw();
   const el = h('div', null,
     h('p', { class: 'hint' }, `${it.name}: в брони ${qty(it.reservedQty)} ${unit}. Снятое возвращается в свободный остаток; на складе ничего не списывается. Конкретную бронь можно снять кнопкой в списке ниже.`),

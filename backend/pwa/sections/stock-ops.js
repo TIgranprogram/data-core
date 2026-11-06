@@ -5,7 +5,7 @@ import { busyBtn } from '../ui/kit/busy.js';
 import { parseNum, plural, qty } from '../core/format.js';
 import { current, patch } from '../core/router.js';
 import { stockList } from '../core/stock-list.js';
-import { attachCombo, enhanceSelect, ftParams, ftQuery, row } from '../ui/kit/index.js';
+import { attachCombo, button, enhanceSelect, ftParams, ftQuery, iconButton, row, select } from '../ui/kit/index.js';
 import { confirmDlg } from '../ui/kit/dialog.js';
 import { errText } from '../ui/kit/errors.js';
 import { toast, toastError } from '../ui/kit/toast.js';
@@ -74,7 +74,7 @@ async function build() {
 
   // ---------- Выбор позиции ----------
   const pickIn = h('input', { placeholder: 'Название или размер', 'aria-label': 'Найти позицию' });
-  const pickCat = h('select', { 'aria-label': 'Категория', onchange: () => { pickIn.value = ''; pickIn.focus(); combo.refresh(); } }, h('option', { value: '' }, 'Все категории'));
+  const pickCat = select({ label: 'Категория', options: [['', 'Все категории']], onChange: () => { pickIn.value = ''; pickIn.focus(); combo.refresh(); } });
   api('/stock/categories', { query: zoneQuery() }).then((r) => pickCat.append(...(r.items || []).filter((c) => c.id !== 'none').map((c) => h('option', { value: c.id }, c.name)))).catch(() => {});
   const pickLabel = h('span', null, 'Добавить позицию');
   const pickBox = h('div', { class: 'field wide' }, pickLabel, h('div', { class: 'sop-pick' }, pickCat, h('div', { class: 'sop-pick-in' }, pickIn)));
@@ -88,7 +88,7 @@ async function build() {
   pickIn.addEventListener('focus', async () => {
     if (all || loading) return;
     loading = true;
-    try { all = await stockList(); } catch (e) { toast(errText(e), { error: true }); } finally { loading = false; }
+    try { all = await stockList(); } catch (e) { toastError(e); } finally { loading = false; }
     if (document.activeElement === pickIn) combo.refresh();
   });
 
@@ -99,7 +99,7 @@ async function build() {
       pickIn.value = '';
       add(r);
       toast(`Позиция «${r.name}» создана — укажите количество`);
-    } catch (e) { toast(errText(e), { error: true }); }
+    } catch (e) { toastError(e); }
   }
 
   // ---------- Строки ----------
@@ -154,13 +154,13 @@ async function build() {
       const info = op === 'count' ? `по учёту ${qty(it.quantity)} ${it.unit || ''}` : `на складе ${qty(it.quantity)} ${it.unit || ''}${it.reservedQty ? `, в брони ${qty(it.reservedQty)}` : ''}`;
       return row({ data: it.id, title: it.name, meta: info,
         qty: [
-          op !== 'count' ? h('button', { class: 'btn btn-icon btn-sm', type: 'button', tabindex: -1, onclick: () => step(-1), 'aria-label': 'Меньше' }, '−') : null,
+          op !== 'count' ? iconButton({ icon: '−', label: 'Меньше', size: 'S', onClick: () => step(-1) }) : null,
           inp,
-          op !== 'count' ? h('button', { class: 'btn btn-icon btn-sm', type: 'button', tabindex: -1, onclick: () => step(1), 'aria-label': 'Больше' }, '+') : null,
+          op !== 'count' ? iconButton({ icon: '+', label: 'Больше', size: 'S', onClick: () => step(1) }) : null,
           h('span', { class: 'muted small' }, it.unit || ''),
           weighButton(it, op, (q, nt) => { l.note = nt; inp.value = String(q); inp.dispatchEvent(new Event('input')); })],
         diff,
-        action: h('button', { class: 'btn btn-ghost btn-icon btn-sm', type: 'button', title: 'Убрать из списка', 'aria-label': 'Убрать из списка', onclick: () => { lines = lines.filter((x) => x !== l); touched = true; saveDraft(); render(); } }, '×'),
+        action: iconButton({ icon: '×', label: 'Убрать из списка', size: 'S', onClick: () => { lines = lines.filter((x) => x !== l); touched = true; saveDraft(); render(); } }),
         warn,
         below: [l.recv?.el, ph] });
     }));
@@ -172,7 +172,7 @@ async function build() {
   const noteLabel = h('span', null, cfg.note);
   const noteBox = h('label', { class: 'field wide' }, noteLabel, note);
   // бронь: заказ выбирается только в targetPicker — withOrders на «Для чего» давал второй список заказов (дубль)
-  const reasonSel = op === 'writeoff' ? h('select', { 'aria-label': 'Причина списания' }, h('option', { value: '' }, '— выберите причину —')) : null;
+  const reasonSel = op === 'writeoff' ? select({ label: 'Причина списания', options: [['', '— выберите причину —']] }) : null;
   if (reasonSel) {
     api('/dicts/writeOffReasons').then((r) => { for (const x of r.items || []) reasonSel.append(h('option', { value: x.name }, x.name)); enhanceSelect(reasonSel); })
       .catch(() => { reasonSel.firstChild.textContent = '— список не загрузился, закройте и откройте панель —'; });
@@ -200,7 +200,7 @@ async function build() {
   resPanel?.load();
 
   // пересчёт: все позиции текущего фильтра списка (поиск, состояние, категория, признаки) — в строки разом
-  const takeAllBtn = op === 'count' ? h('button', { class: 'btn btn-sm', type: 'button', style: { marginBottom: 'var(--s2)' }, title: 'Берёт все позиции, которые сейчас видны в списке с учётом поиска и фильтров', onclick: async (e) => {
+  const takeAllBtn = op === 'count' ? button({ label: 'Взять всё из списка в пересчёт', size: 'S', title: 'Берёт все позиции, которые сейчас видны в списке с учётом поиска и фильтров', onClick: async (e) => {
     const free = busyBtn(e.currentTarget, 'Загружаю…');
     try {
       const q = { limit: 10000, sort: 'name' };
@@ -215,7 +215,7 @@ async function build() {
       touched = true; saveDraft(); render();
       toast(`В пересчёте позиций: ${lines.length}`);
     } catch (err) { toastError(err, 'взять позиции в пересчёт'); } finally { free(); }
-  } }, 'Взять всё из списка в пересчёт') : null;
+  } }) : null;
 
   const whyHead = op === 'reserve' ? h('div', { class: 'section-title' }, 'Под что бронируем') : null;
   // бронь: сначала выбор позиций склада, потом «под что»; у остальных — строки, затем добавить
@@ -236,7 +236,7 @@ async function build() {
       noteBox,
       op === 'in' ? h('label', { class: 'field wide' }, h('span', null, 'Документ'), doc) : null));
   // кнопка разворота — только для «Принять» с блоком счетов
-  const toggleManual = arrivals ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm sop-toggle-manual', onclick() { manualSection.hidden = !manualSection.hidden; this.textContent = manualSection.hidden ? '+ Принять без счёта' : '− Скрыть'; } }, '+ Принять без счёта') : null;
+  const toggleManual = arrivals ? button({ label: '+ Принять без счёта', kind: 'ghost', size: 'S', onClick: (e) => { manualSection.hidden = !manualSection.hidden; e.currentTarget.textContent = manualSection.hidden ? '+ Принять без счёта' : '− Скрыть'; } }) : null;
   const el = h('div', { class: 'sop' },
     h('p', { class: 'hint' }, cfg.hint),
     arrivals?.el,

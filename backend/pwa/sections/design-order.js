@@ -8,7 +8,7 @@ import { toastError } from '../ui/kit/toast.js';
 import { dueNode, moveTask, people } from './design.js';
 import { STAGE } from './salesorders.js';
 
-import { table, sku as kitSku } from '../ui/kit/index.js';
+import { table, sku as kitSku, button } from '../ui/kit/index.js';
 /**
  * Правая панель заказа на доске «Проектирование» (`?of=designorder&open=<id заказа>`, DESIGN §4 «Доска заказов»).
  * Открыто — «с чем работаем»: «Заказ», «Изделия к проектированию» (взять в работу / назначить прямо в строке), «Как идёт проектирование».
@@ -24,14 +24,14 @@ function linesBlock(row, ctx) {
   const rows = row.lines.map((l) => {
     const t = l.task;
     const acts = [];
-    if (can && !t) acts.push(h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => run(() => createTask(l, 'work', people), 'взять в работу') }, 'Взять в работу'),
-      h('button', { type: 'button', class: 'btn btn-sm', onclick: () => run(() => createTask(l, 'queue', people), 'отправить на распределение') }, 'На распределение'));
+    if (can && !t) acts.push(button({ label: 'Взять в работу', kind: 'primary', size: 'S', onClick: () => run(() => createTask(l, 'work', people), 'взять в работу') }),
+      button({ label: 'На распределение', size: 'S', onClick: () => run(() => createTask(l, 'queue', people), 'отправить на распределение') }));
     if (can && t && t.status !== 'done') {
-      if (t.status === 'queue' || t.status === 'paused') acts.push(h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => run(() => moveTask(t, 'work'), 'взять в работу') }, t.status === 'paused' ? 'Возобновить' : 'Взять в работу'));
-      acts.push(h('button', { type: 'button', class: 'btn btn-sm', onclick: () => run(async () => {
+      if (t.status === 'queue' || t.status === 'paused') acts.push(button({ label: t.status === 'paused' ? 'Возобновить' : 'Взять в работу', kind: 'primary', size: 'S', onClick: () => run(() => moveTask(t, 'work'), 'взять в работу') }));
+      acts.push(button({ label: t.assignee ? 'Сменить исполнителя' : 'Назначить', size: 'S', onClick: () => run(async () => {
         const who = await askAssignee(await people(), { okText: 'Назначить' });
         if (who) await api(`/design-tasks/${t.id}`, { method: 'PATCH', body: { assigneeId: who } });
-      }, 'назначить исполнителя') }, t.assignee ? 'Сменить исполнителя' : 'Назначить'));
+      }, 'назначить исполнителя') }));
     }
     return h('li', { class: 'db-prow' },
       posPic(l.photo ? { url: l.photo, thumb: l.photo } : null, 'sm'),

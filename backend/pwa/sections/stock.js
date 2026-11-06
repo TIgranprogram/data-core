@@ -65,10 +65,10 @@ function recentMoves(r) {
       h('span', { class: 'num ' + (m.type === 'in' ? 'pos' : m.type === 'out' ? 'neg' : '') }, (m.type === 'in' ? '+' : m.type === 'out' ? '−' : '') + qty(m.qty)),
       h('span', { class: 'muted', style: { flex: '1' } }, targetNote(m), targetNote(m) && m.note ? ' · ' : '', m.note || ''))));
     more.replaceChildren(...[
-      !full && res.total > res.items.length ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: async (e) => {
+      !full && res.total > res.items.length ? kitButton({ label: `Вся история (${res.total})`, kind: 'ghost', size: 'S', onClick: async (e) => {
         const free = busyBtn(e.currentTarget, null);
         try { show(await api(`/stock/items/${r.id}/history`), true); } catch (err) { free(); toastError(err, 'загрузить историю'); }
-      } }, `Вся история (${res.total})`) : null,
+      } }) : null,
       h('a', { class: 'btn btn-ghost btn-sm', href: '#movements?materialId=' + r.id, title: 'Журнал движений позиции — там можно отменить ошибочное' }, 'Журнал движений →')].filter(Boolean));
   };
   const loadHist = () => api(`/stock/items/${r.id}/history`, { query: { limit: 5 } }).then((res) => show(res, false)).catch((e) => ul.replaceChildren(h('li', null, failBlock(e, loadHist, { text: 'История не загрузилась' }))));
@@ -77,7 +77,7 @@ function recentMoves(r) {
 }
 
 /** Шапка «Остатков» (УПР-1/Д5): одна синяя «Принять на склад» + «Ещё ▾» (Бронь по списку, Пересчёт, Движения; ⇩ Excel добавляет list.js автоматически). */
-const stockActions = () => h('button', { class: 'btn', type: 'button', onclick: () => openStockOp('in') }, 'Принять на склад');
+const stockActions = () => kitButton({ label: 'Принять на склад', onClick: () => openStockOp('in') });
 const stockMore = () => [
   { items: [
     { label: 'Бронь по списку', onSelect: () => openStockOp('reserve') },
@@ -187,7 +187,7 @@ export const stock = {
       { key: 'categoryId', label: 'Категория', type: 'hidden' }, // выбирается списком «Категории» в левой панели
     ],
     hints: {
-      '': 'Все позиции склада. В строке: «+ Принять» и «Забронировать» (если есть бронь — «Выдать»). Сверху — «Принять на склад»; в «Ещё» — бронь списком, пересчёт, движения. Списание и заказ — в карточке позиции.',
+      '': 'Все позиции склада. «+ Принять» и «Забронировать» — в строке; бронь списком, пересчёт и движения — в «Ещё».',
       low: 'Меньше минимального остатка — пора заказать: откройте позицию → «Заказать».',
       none: 'Закончилось — закажите из карточки, если позиция ещё нужна.',
       ordered: 'Заказано, ждём поставку. Приехало — откройте позицию и нажмите «Принять» у заявки.',

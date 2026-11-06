@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { date, isoDay, money, parseNum } from '../core/format.js';
 import { go } from '../core/router.js';
 import { badge } from '../ui/kit/badges.js';
+import { button, iconButton, enhanceSelect } from '../ui/kit/index.js';
 import { confirmDlg } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { incomeLookups } from './orders.js';
@@ -32,7 +33,7 @@ const backgrounds = () => (bgP ||= api('/offers/backgrounds').then((r) => (Array
 
 /** Выбор фона страницы. Пусто — бланк нашей фирмы из «Контрагентов» (К11). Загрузка бланка фирмы — только там. */
 function bgWidget(page, initial, companies) {
-  const sel = h('select', { 'aria-label': page === 1 ? 'Бланк первой страницы' : 'Бланк второй и следующих страниц' });
+  const sel = enhanceSelect(h('select', { 'aria-label': page === 1 ? 'Бланк первой страницы' : 'Бланк второй и следующих страниц' }));
   const ownerName = (id) => companies.find((c) => c.id === id)?.name;
   const fill = async (keep) => {
     bgP = null;
@@ -86,10 +87,10 @@ function itemsWidget(initial) {
         h('div', { class: 'of-l1' },
           h('b', { class: 'of-n' }, String(i + 1)), name,
           q, unitInp, price, sumEl,
-          h('button', { class: 'btn btn-ghost btn-icon btn-sm', type: 'button', title: 'Убрать строку', 'aria-label': 'Убрать строку', onclick: () => { rows.splice(i, 1); paint(); } }, '×'),
+          iconButton({ icon: '×', label: 'Убрать строку', title: 'Убрать строку', size: 'S', onClick: () => { rows.splice(i, 1); paint(); } }),
           unitDl),
         h('div', { class: 'of-l3' }, inp('color', 'Цвет', { max: 80 }), inp('size', 'Размер', { max: 80 })));
-    }), h('div', { class: 'of-add' }, h('button', { class: 'btn btn-sm', type: 'button', onclick: () => { rows.push({ productName: '', quantity: '1', unit: 'шт', unitPrice: '' }); paint(); rows.at(-1)._name.focus(); } }, '+ Строка'), total));
+    }), h('div', { class: 'of-add' }, button({ label: '+ Строка', size: 'S', onClick: () => { rows.push({ productName: '', quantity: '1', unit: 'шт', unitPrice: '' }); paint(); rows.at(-1)._name.focus(); } }), total));
   };
   if (!rows.length) rows.push({ productName: '', quantity: '1', unit: 'шт', unitPrice: '' });
   paint();

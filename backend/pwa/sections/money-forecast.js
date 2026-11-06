@@ -2,6 +2,7 @@ import { h } from '../core/dom.js';
 import { date, money } from '../core/format.js';
 import { patch } from '../core/router.js';
 import { opRow } from '../ui/op-row.js';
+import { button, segmented } from '../ui/kit/index.js';
 
 /*
  * «Деньги → Прогноз» (TASKS БЗ-1) — отдельно от факта: с сегодня вперёд (30/60/90 дней), только ожидаемое.
@@ -31,7 +32,7 @@ export function forecastView(f, { horizon, hasOpening, startDate, openingZero })
       h('b', null, String(Number(d.date.slice(8)))), h('span', null, d.date.slice(8) === '01' || d.date === f.from ? `${WD[d.weekday]} · ${MON[Number(d.date.slice(5, 7)) - 1]}` : WD[d.weekday]))));
   const showOps = (d) => {
     opsBox.hidden = false;
-    opsBox.replaceChildren(h('div', { class: 'q-head' }, h('h3', null, `Ожидается ${date(d.date)}`), h('button', { class: 'btn btn-ghost btn-sm q-link', type: 'button', onclick: () => { opsBox.hidden = true; } }, 'Скрыть')),
+    opsBox.replaceChildren(h('div', { class: 'q-head' }, h('h3', null, `Ожидается ${date(d.date)}`), button({ label: 'Скрыть', kind: 'ghost', size: 'S', onClick: () => { opsBox.hidden = true; } })),
       h('ul', { class: 'q-list' }, d.ops.map(opRow)));
     opsBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
@@ -55,7 +56,8 @@ export function forecastView(f, { horizon, hasOpening, startDate, openingZero })
     : f.firstGap ? kpi(`разрыв с ${date(f.firstGap)} · ${low}`, money(f.minBalance.amount), 'neg')
       : kpi(hasOpening ? 'разрыва нет' : 'разрыв — введите остаток на сегодня', '—', 'muted');
   return [
-    h('div', { class: 'm-horizon seg', role: 'tablist' }, ...[30, 60, 90].map((n) => h('button', { type: 'button', class: horizon === n ? 'active' : '', onclick: () => patch({ days: n === 30 ? undefined : String(n) }) }, `${n} дней`))),
+    segmented({ cls: 'm-horizon', label: 'Горизонт прогноза', items: [30, 60, 90].map((n) => ({ key: String(n), label: `${n} дней` })),
+      value: String(horizon), onChange: (k) => patch({ days: k === '30' ? undefined : k }) }).el,
     zeroNote,
     h('div', { class: 'summary' },
       kpi(`поступления до ${date(f.week.to)}`, money(f.week.receive)),

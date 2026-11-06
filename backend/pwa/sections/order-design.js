@@ -1,7 +1,7 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { failBlock } from '../ui/kit/busy.js';
-import { toastError, toast, link, DESIGN_STATUS as STATUS } from '../ui/kit/index.js';
+import { toastError, toast, link, DESIGN_STATUS as STATUS, button } from '../ui/kit/index.js';
 import { posPic } from '../ui/pos-pic.js';
 
 /*
@@ -43,8 +43,8 @@ export function orderDesign(order, lines) {
         t ? h('a', { href: '#design?open=' + t.id, title: 'Открыть задачу проектирования' }, `${t.code} · ${STATUS[t.status]?.label || t.status}`) : h('span', { class: 'muted' }, 'нет задачи'),
         h('span'));
     });
-    const sendSel = h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: (e) => send([...picked], e.currentTarget) }, 'Передать выбранные');
-    const sendAll = h('button', { type: 'button', class: 'btn btn-sm', disabled: !free.length, onclick: (e) => send(null, e.currentTarget) }, free.length === lines.length ? 'Передать все позиции' : `Передать все без задач (${free.length})`);
+    const sendSel = button({ label: 'Передать выбранные', kind: 'primary', size: 'S', onClick: (e) => send([...picked], e.currentTarget) });
+    const sendAll = button({ label: free.length === lines.length ? 'Передать все позиции' : `Передать все без задач (${free.length})`, size: 'S', disabled: !free.length, onClick: (e) => send(null, e.currentTarget) });
     const pickHint = h('span', { class: 'muted' }, 'Отметьте позиции галочками');
     const paint = () => { sendSel.disabled = !picked.size; sendSel.title = picked.size ? '' : 'Отметьте позиции галочками'; pickHint.hidden = !!picked.size || !free.length; sendSel.textContent = picked.size ? `Передать выбранные (${picked.size})` : 'Передать выбранные'; };
     paint();

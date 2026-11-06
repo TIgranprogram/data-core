@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { toast } from '../ui/kit/toast.js';
 import { modal } from '../ui/kit/dialog.js';
 import { STAGE } from './order-stage.js';
+import { select } from '../ui/kit/index.js';
 
 /**
  * Этап 3 заказов: отмена и перенос позиции, перенос договора в другой заказ, возврат на прежний этап.
@@ -69,7 +70,7 @@ export async function moveLine(l, o) {
   const res = await api('/salesorders/lookup', { query: { filter: 'active' } });
   const items = (res.items || []).filter((x) => String(x.id) !== String(o.id));
   if (!items.length) { toast('Других договоров в работе нет'); return null; }
-  const sel = h('select', null, ...items.map((x) => h('option', { value: x.id }, `Договор ${x.orderNo || '—'}${x.customer ? ' · ' + x.customer : ''}${x.productionNo ? ' · заказ ' + x.productionNo : ''}`)));
+  const sel = select({ label: 'В какой договор', options: items.map((x) => [x.id, `Договор ${x.orderNo || '—'}${x.customer ? ' · ' + x.customer : ''}${x.productionNo ? ' · заказ ' + x.productionNo : ''}`]) });
   const saved = await modal({
     title: 'Перенести в другой договор', okText: 'Перенести', wide: true,
     body: h('div', null,
@@ -87,7 +88,7 @@ export async function moveContract(o) {
   const res = await api('/production-orders', { query: { filter: 'active', limit: 100 } });
   const items = (res.items || []).filter((x) => String(x.key) !== String(o.productionNo));
   if (!items.length) { toast('Других заказов в работе нет'); return null; }
-  const sel = h('select', null, ...items.map((x) => h('option', { value: x.key }, `Заказ ${x.key}${(x.customers || []).length ? ' · ' + x.customers.join(', ') : ''}`)));
+  const sel = select({ label: 'В какой заказ', options: items.map((x) => [x.key, `Заказ ${x.key}${(x.customers || []).length ? ' · ' + x.customers.join(', ') : ''}`]) });
   const saved = await modal({
     title: 'Перенести в другой заказ', okText: 'Перенести', wide: true,
     body: h('div', null,
@@ -105,7 +106,7 @@ export async function stageBack(o) {
   const from = order.indexOf(o.stage);
   const opts = o.stage === 'cancelled' ? order : order.slice(0, Math.max(0, from));
   if (!opts.length) { toast('Назад возвращать некуда'); return null; }
-  const sel = h('select', null, ...opts.map((k) => h('option', { value: k }, STAGE[k]?.label || 'Другой этап')));
+  const sel = select({ label: 'Этап', options: opts.map((k) => [k, STAGE[k]?.label || 'Другой этап']) });
   const why = reasonField('Почему возвращаем');
   const saved = await modal({
     title: 'Вернуть на прежний этап', okText: 'Вернуть',

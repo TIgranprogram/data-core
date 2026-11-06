@@ -5,7 +5,7 @@ import { ordersLookup } from '../core/orders-lookup.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { modal } from '../ui/kit/dialog.js';
-import { attachCombo, enhanceSelect } from '../ui/kit/index.js';
+import { attachCombo, enhanceSelect, select } from '../ui/kit/index.js';
 
 /*
  * «Кому выдано» (TASKS Л.3) и «Выдать по брони» (Б.2) — общее для «Операций», строки «− Списать» и броней.
@@ -54,7 +54,7 @@ export const saveTo = (v) => { try { sessionStorage.setItem(LAST_KEY, JSON.strin
 export function issueToFields(issuedTo = '') {
   const last = issuedTo ? null : lastTo();
   if (last?.issuedTo) issuedTo = last.issuedTo;
-  const sel = h('select', { 'aria-label': 'Кому выдано — сотрудник' }, h('option', { value: '' }, '— сотрудник —'));
+  const sel = select({ label: 'Кому выдано — сотрудник', options: [['', '— сотрудник —']] });
   const txt = h('input', { maxlength: 200, value: issuedTo, placeholder: 'или: объект / заказ — из списка или своё', 'aria-label': 'Кому / куда выдано' });
   peopleByWork().then((groups) => {
     if (!groups.length) { sel.firstChild.textContent = '— сотрудников нет в «Справочниках» —'; return; }

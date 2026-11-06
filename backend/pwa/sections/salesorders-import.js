@@ -6,7 +6,7 @@ import { h } from '../core/dom.js';
 import { api, session } from '../core/api.js';
 import { downloadXlsx } from '../core/xlsx-write.js';
 import { readTableFile } from '../core/xlsx-read.js';
-import { toast, modal, errText } from '../ui/kit/index.js';
+import { toast, modal, toastError } from '../ui/kit/index.js';
 import { go } from '../core/router.js';
 
 const HEAD_KEYS = {
@@ -163,7 +163,7 @@ export async function importOrderExcel() {
   if (!file) return null;
   let parsed;
   try { parsed = parseOrderImport(await readTableFile(file)); }
-  catch (e) { toast(errText(e)); return null; }
+  catch (e) { toastError(e); return null; }
   const saved = await modal({
     title: 'Импорт заказа из Excel',
     okText: parsed.ok ? 'Загрузить на сайт' : 'Понятно',

@@ -1,6 +1,7 @@
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { modal } from '../ui/kit/dialog.js';
+import { iconButton } from '../ui/kit/index.js';
 import { calcWeight, weightCount } from '../ui/weight-count.js';
 
 /*
@@ -11,7 +12,7 @@ const g = (n) => `${qty(n)} г`;
 
 export function weighButton(it, mode, onDone) {
   if (!['in', 'count'].includes(mode) || String(it.unit || 'шт').toLowerCase() !== 'шт') return null;
-  return h('button', { class: 'btn btn-icon btn-sm', type: 'button', tabindex: -1, title: 'Посчитать по весу', 'aria-label': 'По весу', onclick: async () => {
+  const btn = iconButton({ icon: '⚖', label: 'По весу', title: 'Посчитать по весу', size: 'S', onClick: async () => {
     const q = h('input', { inputmode: 'decimal' });
     const wc = weightCount({ qtyInput: q, unitWeightG: it.weightG, label: mode === 'count' ? 'Количество всего' : 'Количество', expectQty: mode === 'count' ? it.quantity : null });
     setTimeout(() => wc.el.querySelector('.wc-seg .k-seg-btn:last-child')?.click(), 0); // сразу «по весу»
@@ -27,5 +28,7 @@ export function weighButton(it, mode, onDone) {
       },
     });
     if (r) onDone(r.qty, r.note);
-  } }, '⚖');
+  } });
+  btn.tabIndex = -1;
+  return btn;
 }

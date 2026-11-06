@@ -37,7 +37,7 @@ async function component({ failPost = false, canMoney = true, paid = false, rece
     attachCombo() {}, modal: (cfg) => new Promise((resolve) => dialogs.push({ cfg, resolve })), toast() {}, toastError(e) { failures.push(e); },
     button: ({ label, onClick }) => h('button', { onclick: onClick }, label), actions: (...kids) => h('actions', {}, ...kids),
     row: ({ title, meta, side }) => h('row', {}, title, meta, side), section: ({ title, count, body }) => h('section', {}, title, count, body),
-    badge: (_map, key) => h('badge', {}, key), INVOICE_STATUS: {}, busyBlock: (what) => h('busy', {}, what), failBlock: (e, retry) => h('fail', { retry }, e.message),
+    badge: (_map, key) => h('badge', {}, key), enhanceSelect: (el) => el, INVOICE_STATUS: {}, busyBlock: (what) => h('busy', {}, what), failBlock: (e, retry) => h('fail', { retry }, e.message),
   };
   const mocks = {
     '../core/api.js': { api, PREFIX: '', session: { canEdit: true, canMoney } }, '../core/dom.js': { h },

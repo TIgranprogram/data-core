@@ -7,7 +7,10 @@ import { askAssignee, changed, clean } from './design-data.js';
 /** Пункты меню «⋯» на карточке доски «Проектирования» (kit.board cardMenu): исполнитель, срок, вопрос, фото, перенос, ссылка, удаление. */
 export async function copyLink(url) {
   try { await navigator.clipboard.writeText(url); toast('Ссылка скопирована'); }
-  catch { window.prompt('Скопируйте ссылку', url); }
+  catch {
+    // буфер недоступен (нет HTTPS/разрешения) — показать ссылку в окне, чтобы скопировать руками
+    await modal({ title: 'Скопируйте ссылку', body: document.createTextNode('Выделите и скопируйте: ' + url), okText: 'Готово', onOk: async () => true });
+  }
 }
 const askDue = async (t) => {
   const d = h('input', { type: 'date', 'aria-label': 'Срок', value: t.deadline && !t.deadlineFromOrder ? String(t.deadline).slice(0, 10) : '' });

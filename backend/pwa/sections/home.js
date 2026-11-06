@@ -7,7 +7,7 @@ import { patch, go } from '../core/router.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { unmatchedCount } from './matching-queue.js';
 import { fillToday } from './fill.js';
-import { empty, card, row } from '../ui/kit/index.js';
+import { empty, card, row, button, segmented } from '../ui/kit/index.js';
 
 /**
  * «Сегодня» — утренний бриф по ролям (docs/audit/AUDIT-TODAY.md §3): у каждой роли свои 3–6 блоков,
@@ -153,9 +153,9 @@ export function mountHome(deps) {
   };
   function cardEl(c) {
     let li = null;
-    const btns = (c.actions || []).slice(0, 1).map((a) => h('button', {
-      type: 'button', class: 'btn btn-sm btn-primary',
-      onclick: async (e) => {
+    const btns = (c.actions || []).slice(0, 1).map((a) => button({
+      label: a.label, kind: 'primary', size: 'S',
+      onClick: async (e) => {
         e.stopPropagation();
         const b = e.currentTarget; b.disabled = true; b.classList.add('is-busy');
         try {
@@ -163,10 +163,10 @@ export function mountHome(deps) {
           if (ok) { li.classList.add('leaving'); setTimeout(() => done(c), 180); }
         } catch (ex) { toastError(ex); } finally { b.disabled = false; b.classList.remove('is-busy'); }
       },
-    }, a.label));
+    }));
     li = row({ cls: 'k-feed', tone: c.tone || 'info', title: c.title, meta: [KIND_LABEL[c.kind], c.sub].filter(Boolean).join(' · '),
       side: h('span', { class: 'muted small nowrap' }, dueText(c)),
-      action: [btns, h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Спрятать карточку до завтра', onclick: (e) => { e.stopPropagation(); snooze(c); } }, 'На завтра')] });
+      action: [btns, button({ label: 'На завтра', kind: 'ghost', size: 'S', title: 'Спрятать карточку до завтра', onClick: (e) => { e.stopPropagation(); snooze(c); } })] });
     li.tabIndex = 0;
     li.addEventListener('click', (e) => { if (!e.target.closest('button')) openRec(c); });
     li.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target === li) openRec(c); });
@@ -186,8 +186,8 @@ export function mountHome(deps) {
   function rowsOf(key, items) {
     const full = expanded.has(key), rows = full ? items : items.slice(0, PREVIEW);
     return [...rows.map(cardEl),
-      items.length > PREVIEW ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm td-more', onclick: () => { full ? expanded.delete(key) : expanded.add(key); paintFeed(); } },
-        full ? 'Свернуть ↑' : `ещё ${items.length - PREVIEW} ↓`) : null];
+      items.length > PREVIEW ? h('div', { class: 'td-more' }, button({ label: full ? 'Свернуть ↑' : `ещё ${items.length - PREVIEW} ↓`, kind: 'ghost', size: 'S',
+        onClick: () => { full ? expanded.delete(key) : expanded.add(key); paintFeed(); } })) : null];
   }
   function group(key, title, items, open) {
     if (!items.length) return null;
@@ -196,7 +196,7 @@ export function mountHome(deps) {
   }
   const unmatchedRow = () => (unmatchedN > 0 ? h('div', { class: 'td-unm' }, h('a', { class: 'q-link', href: '#salesorders', onclick: (e) => { e.preventDefault(); go('salesorders', {}); } }, 'Не сопоставлено позиций: ' + unmatchedN)) : null);
   const emptyBox = (t, s2) => empty({ title: t, hint: s2 });
-  const emptyLine = (t) => h('div', { class: 'td-none' }, t);
+  const emptyLine = (t) => empty({ kind: 'noData', title: t });
 
   // ---------- Блоки ----------
   /** Каркас блока: рамка с заголовком (и числом) и телом. */
@@ -243,9 +243,8 @@ export function mountHome(deps) {
         const rows = showAllQ ? qs : qs.slice(0, 2);
         return s.set(qs.length, qs.length ? h('div', { class: 'td-qcard' },
           ...rows.map((c) => h('div', { class: 'td-q' }, h('div', { class: 'td-q-t' }, c.title), c.sub ? h('div', { class: 'td-sub' }, c.sub) : null,
-            h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => answer(c) }, 'Ответить'))),
-          qs.length > 2 ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => { showAllQ = !showAllQ; paintFeed(); } },
-            showAllQ ? 'Свернуть ↑' : `Показать все ${qs.length} ↓`) : null) : emptyLine('Нет вопросов без ответа'));
+            button({ label: 'Ответить', kind: 'primary', size: 'S', onClick: () => answer(c) }))),
+          qs.length > 2 ? button({ label: showAllQ ? 'Свернуть ↑' : `Показать все ${qs.length} ↓`, kind: 'ghost', size: 'S', onClick: () => { showAllQ = !showAllQ; paintFeed(); } }) : null) : emptyLine('Нет вопросов без ответа'));
       } };
     },
     passports(key, title) {
@@ -292,7 +291,7 @@ export function mountHome(deps) {
     const fl = dayFilter ? `Дела на ${new Date(dayFilter + 'T00:00').toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}`
       : chip ? (chip === 'overdue' ? 'Только просроченные' : 'Только просроченные в работе') : '';
     filterEl.replaceChildren(fl ? h('div', { class: 'td-filter' }, fl,
-      h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { dayFilter = null; chip = null; paintAll(); } }, 'Показать все')) : '');
+      button({ label: 'Показать все', size: 'S', onClick: () => { dayFilter = null; chip = null; paintAll(); } })) : '');
     let total = 0;
     for (const b of blocks) { const n = b.paint(); if (b.counted) total += n || 0; }
     if (!total && !has('fill') && !has('money')) {
@@ -393,8 +392,7 @@ export function mountHome(deps) {
     if (!sc) return;
     const pick = (m) => { if (mode === m) return; mode = m; load(); };
     scopeEl.replaceChildren(
-      h('div', { class: 'seg', role: 'group', 'aria-label': 'Что показывать' },
-        ...[['mine', 'Моё'], ['all', 'Всё']].map(([m, label]) => h('button', { type: 'button', class: mode === m ? 'active' : '', 'aria-pressed': String(mode === m), onclick: () => pick(m) }, label))),
+      segmented({ items: [{ key: 'mine', label: 'Моё' }, { key: 'all', label: 'Всё' }], value: mode, onChange: (m) => pick(m), label: 'Что показывать' }).el,
       sc.linked === false ? h('div', { class: 'hint td-scope-hint' }, 'Вход не связан с сотрудником — скажите директору.') : null);
   }
 
@@ -422,7 +420,7 @@ export function mountHome(deps) {
 
   // ---------- Быстрые действия (склад и снабжение; на телефоне — крупные плитки) ----------
   const quick = ['user', 'manager'].includes(role) && (seeReq || seeStock);
-  const act = (label, title, onclick) => h('button', { type: 'button', class: 'btn', title, onclick }, label);
+  const act = (label, title, onclick) => button({ label, title, onClick: onclick });
   const actions = quick ? h('div', { class: 'today-actions' },
     seeReq ? [
       act('+ Заявка', 'Новая заявка — форма справа', () => patch({ of: 'requests', new: '1', open: undefined })),

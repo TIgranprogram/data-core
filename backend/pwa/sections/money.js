@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { failBlock } from '../ui/kit/busy.js';
 import { money } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
-import { filter, table, tabs as kitTabs } from '../ui/kit/index.js';
+import { filter, table, tabs as kitTabs, button, iconButton, link, segmented } from '../ui/kit/index.js';
 import { mountList } from '../ui/kit/list.js';
 import { openSide, noteField, sideForm } from '../ui/kit/side-form.js';
 import { toast } from '../ui/kit/toast.js';
@@ -103,13 +103,14 @@ export function mountMoney(params) {
   // прогноз — «остаток на сегодня», календарь — «на 1-е число месяца» (БЗ-1)
   const openKey = () => (tab() === 'forecast' ? 'dc-forecast-opening-' + org() : 'dc-opening-' + month() + '-' + org());
   opening.addEventListener('change', () => { store.set(openKey(), opening.value.trim()); load(); });
-  const nextBtn = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Следующий месяц', onclick: () => patch({ month: shiftMonth(month(), step()) }) }, '›');
+  const nextBtn = iconButton({ icon: '›', label: 'Следующий месяц', title: 'Следующий месяц', onClick: () => patch({ month: shiftMonth(month(), step()) }) });
   // в «Сводке» листаем годами, в календаре — месяцами
   const step = () => (tab() === 'summary' ? 12 : 1);
-  const gear = h('button', { class: 'btn btn-ghost btn-sm', type: 'button', hidden: true, title: 'Дата старта учёта и остатки СИЮ/ССЮ. Можно менять в любой момент.', onclick: () => startDialog() }, '⚙ Старт учёта');
+  const gear = button({ label: '⚙ Старт учёта', kind: 'ghost', size: 'S', title: 'Дата старта учёта и остатки СИЮ/ССЮ. Можно менять в любой момент.', onClick: () => startDialog() });
+  gear.hidden = true;
   const controls = h('div', { class: 'm-controls' },
     h('div', { class: 'm-month' },
-      h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Назад', onclick: () => patch({ month: shiftMonth(month(), -step()) }) }, '‹'),
+      iconButton({ icon: '‹', label: 'Месяц назад', title: 'Назад', onClick: () => patch({ month: shiftMonth(month(), -step()) }) }),
       monthLabel,
       nextBtn),
     orgSeg,
@@ -127,8 +128,9 @@ export function mountMoney(params) {
       onChange: (k) => (k === 'fill' ? go('fill') : patch({ tab: k === 'calendar' ? undefined : k })) }).el);
     const [y, m] = month().split('-').map(Number);
     monthLabel.textContent = tab() === 'summary' ? `${y} год` : `${MONTHS[m - 1][0].toUpperCase()}${MONTHS[m - 1].slice(1)} ${y}`;
-    orgSeg.replaceChildren(...['all', ...(companies || ['СИЮ', 'ССЮ'])].map((c) =>
-      h('button', { type: 'button', class: org() === c ? 'active' : '', onclick: () => patch({ org: c === 'all' ? undefined : c }) }, c === 'all' ? 'Все' : c)));
+    orgSeg.replaceChildren(segmented({ cls: 'seg', label: 'Компания',
+      items: ['all', ...(companies || ['СИЮ', 'ССЮ'])].map((c) => ({ key: c, label: c === 'all' ? 'Все' : c })),
+      value: org() || 'all', onChange: (c) => patch({ org: c === 'all' ? undefined : c }) }).el);
     opening.value = store.get(openKey()) || '';
     controls.querySelector('.m-month').hidden = tab() === 'forecast'; // прогноз — с сегодня, месяц не листается
     controls.querySelector('.m-open-l').textContent = tab() === 'forecast' ? 'остаток денег на сегодня' : 'остаток денег на 1-е';
@@ -192,7 +194,7 @@ export function mountMoney(params) {
       opsBox.hidden = false;
       opsBox.replaceChildren(
         h('div', { class: 'q-head' }, h('h3', null, d.title || `Операции ${dd.getUTCDate()} ${MONTHS[dd.getUTCMonth()].replace(/ь$/, 'я').replace(/й$/, 'я').replace(/т$/, 'та')}`),
-          h('button', { class: 'btn btn-ghost btn-sm q-link', type: 'button', onclick: () => { opsBox.hidden = true; } }, 'Скрыть')),
+          button({ label: 'Скрыть', kind: 'ghost', size: 'S', onClick: () => { opsBox.hidden = true; } })),
         h('ul', { class: 'q-list' }, d.ops.map(opRow)));
       opsBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
@@ -207,7 +209,7 @@ export function mountMoney(params) {
     if (mt?.invoicesToPay > 0) dueBits.push(`к оплате ${money(mt.invoicesToPay)}`);
     if (mt?.overdueInvoices > 0) dueBits.push(`просрочено ${money(mt.overdueInvoices)}`);
     const dueLine = dueBits.length ? h('p', { class: 'hint' },
-      h('button', { type: 'button', class: 'link-btn', onclick: () => document.getElementById('money-cal')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, dueBits.join(' · ')),
+      link({ label: dueBits.join(' · '), onClick: () => document.getElementById('money-cal')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }),
       ' — в строках календаря ниже, в итог не входят.') : null;
     const kpi = (label, v, opts = {}) => h('div', { class: 'sum-item static' }, h('span', { class: 'sum-v' + (v < 0 && !opts.calm ? ' neg' : '') }, (opts.sign && v > 0 ? '+' : '') + money(v)), h('span', { class: 'sum-l' }, label));
     const upto = c.to < `${month()}-${String(lastDay(month())).padStart(2, '0')}` ? ` по ${Number(c.to.slice(8))}-е` : '';
@@ -355,7 +357,7 @@ export function mountMoney(params) {
         renderChrome(s.companies);
         content = summary(s, p);
       } else if (m > cur()) {
-        content = [h('div', { class: 'panel state' }, h('div', null, 'Это будущий месяц — здесь показываются только прошедшие дни.'), h('div', { class: 'muted' }, 'Будущие дни — во вкладке «Прогноз».'), h('button', { class: 'btn', type: 'button', onclick: () => patch({ month: undefined }) }, 'К текущему месяцу'))];
+        content = [h('div', { class: 'panel state' }, h('div', null, 'Это будущий месяц — здесь показываются только прошедшие дни.'), h('div', { class: 'muted' }, 'Будущие дни — во вкладке «Прогноз».'), button({ label: 'К текущему месяцу', onClick: () => patch({ month: undefined }) }))];
       } else {
         const c = await api('/finance/cashflow', { query: { ...q, ...(hasStart() ? {} : { opening: opening.value.trim().replace(',', '.') || 0 }) } });
         if (my !== seq) return;

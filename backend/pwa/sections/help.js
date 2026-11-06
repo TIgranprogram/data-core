@@ -1,5 +1,6 @@
 // «Работа с сайтом» (#help): «С чего начать?» + карта-схема. Данные — help-flow-data.js; раскладка считается здесь.
 import { h } from '../core/dom.js';
+import { button } from '../ui/kit/index.js';
 import { SCENARIOS, LANES, NODES, EDGES } from './help-flow-data.js';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -196,7 +197,7 @@ function scenarioCard(sc) {
 function mapBox() {
   const svg = mapSvg();
   const box = h('div', { class: 'hp-map is-fit' }, svg);
-  const btn = h('button', { type: 'button', class: 'btn btn-ghost btn-sm' }, '🔍 Крупнее');
+  const btn = button({ label: '🔍 Крупнее', kind: 'ghost', size: 'S' });
   const hint = h('span', { class: 'muted small' }, 'Карта вписана целиком. «Крупнее» — показать в полный размер.');
   btn.onclick = () => {
     const fit = !box.classList.contains('is-fit');

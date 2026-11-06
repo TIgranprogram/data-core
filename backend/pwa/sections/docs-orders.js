@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { go } from '../core/router.js';
 import { modal } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
-import { autoMore, empty } from '../ui/kit/index.js';
+import { autoMore, empty, tabs, button, badge, enhanceSelect } from '../ui/kit/index.js';
 import { statusOf, canEdit as canEditTexts } from './passports/common.js';
 import { printDialog } from './passports/dialogs.js';
 import { orderPassportsButton } from './order-passport-plan.js';
@@ -24,14 +24,14 @@ export const readinessOf = (r) => (statusOf(r) === 'annulled' ? null : r.readine
 export const readinessChip = (r) => {
   const k = readinessOf(r);
   const s = READINESS[k];
-  return s ? h('span', { class: 'badge ' + s.cls, title: k === 'rework' && r.reworkNote ? 'Доработать — ' + r.reworkNote : s.hint }, s.label) : h('span', { class: 'muted' }, 'аннулирован');
+  return s ? h('span', { title: k === 'rework' && r.reworkNote ? 'Доработать — ' + r.reworkNote : s.hint }, badge(s.label, s.cls)) : h('span', { class: 'muted' }, 'аннулирован');
 };
 
 const canChange = () => session.canEdit && canEditTexts();
 
 async function changeReadiness(p) {
   const cur = readinessOf(p) || 'ready';
-  const sel = h('select', null, ...Object.entries(READINESS).map(([v, s]) => h('option', { value: v }, s.label)));
+  const sel = enhanceSelect(h('select', null, ...Object.entries(READINESS).map(([v, s]) => h('option', { value: v }, s.label))));
   sel.value = cur;
   const note = h('textarea', { rows: 3, maxlength: 500, placeholder: 'Что доработать (необязательно)' }, p.reworkNote || '');
   const noteBox = h('label', { class: 'field' }, h('span', null, 'Что доработать'), note);
@@ -54,7 +54,8 @@ export function mountOrdersTab(params, { onChanged } = {}) {
   let state = { readiness: params.readiness || '', search: params.search || '' };
   let open = params.open ? String(params.open) : '';
   const search = h('input', { type: 'search', placeholder: 'Поиск: № заказа, № договора, заказчик…', value: state.search, 'aria-label': 'Поиск' });
-  const chips = h('div', { class: 'seg', role: 'group', 'aria-label': 'Статус паспортов' });
+  const chips = tabs({ items: [['', 'Все'], ...Object.entries(READINESS).map(([k, s]) => [k, s.label])].map(([key, label]) => ({ key, label })),
+    value: state.readiness, label: 'Статус паспортов', onChange: (k) => { state = { ...state, readiness: k }; load(); } });
   const list = h('div', { class: 'do-list' });
   // ПГ-1c: порции при прокрутке вниз — kit.autoMore; открытая группа (open) и поиск не теряются
   const more = autoMore({
@@ -64,13 +65,12 @@ export function mountOrdersTab(params, { onChanged } = {}) {
     render: (items) => paint(items),
   });
   const load = (opt) => more.reload(opt);
-  const el = h('div', { class: 'do' }, h('div', { class: 'do-head' }, search, chips),
-    h('div', { class: 'do-legend' }, ...Object.values(READINESS).map((x) => h('span', { class: 'do-leg' }, h('span', { class: 'badge ' + x.cls }, x.label), h('span', { class: 'muted' }, x.hint.split(' — ')[1]))),
+  const el = h('div', { class: 'do' }, h('div', { class: 'do-head' }, search, chips.el),
+    h('div', { class: 'do-legend' }, ...Object.values(READINESS).map((x) => h('span', { class: 'do-leg' }, badge(x.label, x.cls), h('span', { class: 'muted' }, x.hint.split(' — ')[1]))),
       h('span', { class: 'muted' }, 'Новый паспорт: «Нужно сделать паспорт» или «Шаблоны».')), list, more.el);
   let timer = 0;
 
-  const drawChips = () => chips.replaceChildren(...[['', 'Все'], ...Object.entries(READINESS).map(([k, s]) => [k, s.label])].map(([k, label]) =>
-    h('button', { type: 'button', class: state.readiness === k ? 'active' : '', onclick: () => { state = { ...state, readiness: k }; load(); } }, label)));
+  const drawChips = () => chips.set(state.readiness);
 
   const numOf = (p) => (p.passportNumber && !String(p.passportNumber).startsWith('draft-') ? '№ ' + p.passportNumber : 'черновик');
   const hintOf = (p) => { const k = readinessOf(p); return k === 'rework' ? 'Доработать' + (p.reworkNote ? ' — ' + p.reworkNote : '') : k ? READINESS[k].hint : ''; };
@@ -81,8 +81,8 @@ export function mountOrdersTab(params, { onChanged } = {}) {
     h('span', { class: 'do-state', title: hintOf(p) }, readinessChip(p),
       readinessOf(p) === 'rework' && p.reworkNote ? h('span', { class: 'muted do-note' }, p.reworkNote) : null),
     h('span', { class: 'do-acts' },
-      canChange() && statusOf(p) !== 'annulled' ? h('button', { class: 'btn btn-sm', type: 'button', onclick: async () => { if (await changeReadiness(p)) { toast('Статус сохранён'); await load({ keep: true }); onChanged?.(); } } }, 'Статус…') : null,
-      h('button', { class: 'btn btn-sm', type: 'button', onclick: () => printDialog(p) }, 'PDF и печать…')));
+      canChange() && statusOf(p) !== 'annulled' ? button({ label: 'Статус…', size: 'S', onClick: async () => { if (await changeReadiness(p)) { toast('Статус сохранён'); await load({ keep: true }); onChanged?.(); } } }) : null,
+      button({ label: 'PDF и печать…', size: 'S', onClick: () => printDialog(p) })));
 
   // подгруппы по категории; если сервер не прислал categories — одна общая
   const subgroups = (g) => {
@@ -102,8 +102,8 @@ export function mountOrdersTab(params, { onChanged } = {}) {
         g.customerName ? h('span', { class: 'muted' }, ' · ' + g.customerName) : null),
       h('span', { class: 'do-big' }, h('b', null, `Готово ${g.ready} из ${g.total}`),
         h('span', { class: 'do-bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(g.total), 'aria-valuenow': String(g.ready) }, h('i', { style: `width:${pct}%` }))),
-      g.rework ? h('span', { class: 'badge warn', title: READINESS.rework.hint }, `доработать: ${g.rework}`) : null,
-      g.notReady ? h('span', { class: 'badge dim', title: READINESS.notReady.hint }, `не готовы: ${g.notReady}`) : null);
+      g.rework ? h('span', { title: READINESS.rework.hint }, badge(`доработать: ${g.rework}`, 'warn')) : null,
+      g.notReady ? h('span', { title: READINESS.notReady.hint }, badge(`не готовы: ${g.notReady}`, 'dim')) : null);
     return h('section', { class: 'do-group' }, head,
       isOpen ? h('div', { class: 'do-body' }, h('div', { class: 'section-title' }, `Паспорта (${g.total})`), ...subgroups(g)) : null,
       isOpen && g.orderId ? h('div', { class: 'do-foot' }, canChange() ? orderPassportsButton(g.orderId) : null, h('a', { href: '#salesorders?open=' + g.orderId }, 'Открыть заказ →')) : null);

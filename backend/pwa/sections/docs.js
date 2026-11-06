@@ -13,7 +13,7 @@ import { savePd, products, PD_KEYS } from './products.js';
 import { passportKindDrop } from './product-files.js';
 import { mountOrdersTab } from './docs-orders.js';
 import { mountQueueTab } from './docs-queue.js';
-import { buildForm, tabs as kitTabs, badge as kitBadge, segmented, sku as kitSku, link as kitLink, crumbTail } from '../ui/kit/index.js';
+import { buildForm, tabs as kitTabs, badge as kitBadge, segmented, sku as kitSku, link as kitLink, crumbTail, button, enhanceSelect } from '../ui/kit/index.js';
 
 
 /*
@@ -105,7 +105,7 @@ export const doctpl = {
     build: async (r) => {
       const cats = (await passportCategoryOptions()).map((c) => ({ code: c.value, name: c.label }));
       const derived = r.passportCategory?.code || '';
-      const sel = h('select', null, h('option', { value: '' }, '— по разделу и группе —'), ...cats.map((c) => h('option', { value: String(c.code) }, c.name)));
+      const sel = enhanceSelect(h('select', null, h('option', { value: '' }, '— по разделу и группе —'), ...cats.map((c) => h('option', { value: String(c.code) }, c.name))));
       sel.value = r.passportDefaults?.passportCategory || derived || '';
       const fb = funnelBox({ value: JSON.stringify(r.passportDefaults?.textChoices || {}), category: sel.value, canEditText: canEditTexts() });
       sel.addEventListener('change', () => fb.setCategory(sel.value));
@@ -148,7 +148,7 @@ export const doctpl = {
         if (!fields?.length) return plainItem(m);
         const one = fields.length === 1;
         const f = buildForm(fields.map((x) => ({ ...x, ...(one ? { label: m.label } : {}), span: undefined, wide: one || x.wide })), NUM_KEYS.has(m.key) ? { [m.key]: r.passportDefaults?.[m.key] ?? '' } : products.form.toInitial(r));
-        const btn = h('button', { type: 'button', class: 'btn btn-sm btn-primary' }, 'Сохранить в изделии');
+        const btn = button({ label: 'Сохранить в изделии', kind: 'primary', size: 'S' });
         btn.onclick = async () => {
           const res = f.read(); if (res.errors) return;
           const v = res.values; const body = {}; const pd = {};
@@ -196,7 +196,7 @@ export const doctpl = {
         h('label', { class: 'field wide' }, h('span', null, 'Категория паспорта'), sel,
           h('div', { class: 'hint' }, 'Обычно определяется по разделу и группе; укажите, если нужна другая. От неё зависят варианты ниже.')),
         h('div', { class: 'field wide' }, h('span', null, 'Тексты паспорта — выбор (монтаж, назначение…)'), fb.el),
-        h('div', { class: 'actions wide' }, h('button', { type: 'button', class: 'btn', title: 'PDF с пометкой «ЧЕРНОВИК» по сохранённому шаблону; паспорт не выпускается', onclick: (e) => { const b = e.currentTarget; b.classList.add('is-busy'); previewPassport(r.id).finally(() => b.classList.remove('is-busy')); } }, 'Предпросмотр')));
+        h('div', { class: 'actions wide' }, button({ label: 'Предпросмотр', title: 'PDF с пометкой «ЧЕРНОВИК» по сохранённому шаблону; паспорт не выпускается', onClick: (e) => { const b = e.currentTarget; b.classList.add('is-busy'); previewPassport(r.id).finally(() => b.classList.remove('is-busy')); } })));
       const values = () => ({ category: sel.value, choices: JSON.parse(fb.value || '{}'), over: {} });
       const start = JSON.stringify(values());
       return { el, focus: () => sel.focus(), dirty: () => JSON.stringify(values()) !== start, read: () => ({ values: values() }) };

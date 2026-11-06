@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { isoDay, money, date } from '../core/format.js';
 import { current, patch } from '../core/router.js';
 import { SUPPLY_STATUS, supplyKey } from '../ui/kit/badges.js';
-import { attachCombo, modal, toast, toastError, button, actions, row, section, badge, INVOICE_STATUS, failBlock } from '../ui/kit/index.js';
+import { attachCombo, modal, toast, toastError, button, actions, row, section, badge, INVOICE_STATUS, failBlock, enhanceSelect } from '../ui/kit/index.js';
 import { mergeInvoiceWithPreview } from '../core/invoice-merge.js';
 import { lookups, unitList } from './lookups.js';
 
@@ -94,7 +94,7 @@ const verbOf = (to) => ({ ordered: 'Заказал у поставщика', pai
 const MERGE_LABELS = { append: 'Добавить все позиции', mergeSameRequest: 'Добавить без дублей', replaceLines: 'Заменить позиции целевого счёта' };
 /** Только подтверждение: POST выполняется после закрытия окна, не в обработчике submit. */
 function confirmInvoiceMerge(preview) {
-  const strategy = h('select', { value: 'append' }, ...preview.strategies.filter((k) => preview.plans[k]).map((k) => h('option', { value: k }, MERGE_LABELS[k])));
+  const strategy = enhanceSelect(h('select', { value: 'append' }, ...preview.strategies.filter((k) => preview.plans[k]).map((k) => h('option', { value: k }, MERGE_LABELS[k]))));
   const plan = h('div', null);
   const lines = (title, items, note) => section({ title, count: items.length, open: true, body: [
     note ? h('p', { class: 'hint' }, note) : null,
@@ -189,11 +189,11 @@ export const reqStep = {
     extra: (r, ctx) => r.invoiceId ? invoiceBlock(r) : h('div', null,
       stageStrip(r),
       h('p', { class: 'hint' }, (r._miss || []).length ? 'Заполните поля и нажмите «Сохранить и перевести».' : 'Всё заполнено — можно переводить.'),
-      (r._miss || []).length || !r._to ? null : h('button', { class: 'btn btn-primary', type: 'button', onclick: async () => {
+      (r._miss || []).length || !r._to ? null : button({ label: verbOf(r._to), kind: 'primary', onClick: async () => {
         if (r._to === 'ordered') await api('/supply/invoices', { method: 'POST', body: { requestIds: [r.id] } });
         else await api(`/supply/requests/${r.id}`, { method: 'PATCH', body: { statusLabel: SUPPLY_STATUS[r._to].label } });
         toast(`${heading(r)} → ${SUPPLY_STATUS[r._to].label}`); ctx.changed(); ctx.close();
-      } }, verbOf(r._to))),
+      } })),
   },
   form: {
     saveLabel: 'Сохранить и перевести',

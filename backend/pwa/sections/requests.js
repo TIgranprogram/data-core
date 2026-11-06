@@ -1,4 +1,4 @@
-import { grp } from '../ui/kit/index.js';
+import { grp, enhanceSelect } from '../ui/kit/index.js';
 import { paintOrder } from '../core/order-color.js';
 import { api, PREFIX, session } from '../core/api.js';
 import { normSearch } from '../core/facets.js';
@@ -103,7 +103,7 @@ export async function rollbackReceipt(r, ctx) {
 async function receive(r, ctx) { const saved = await receiveDialog(r); if (saved) ctx.setRow(saved); }
 
 async function changeStatus(r, ctx) {
-  const sel = h('select', { name: 'status', value: supplyKey(r) }, statusOptions().map((o) => h('option', { value: o.value }, o.label)));
+  const sel = enhanceSelect(h('select', { name: 'status', value: supplyKey(r) }, statusOptions().map((o) => h('option', { value: o.value }, o.label))));
   const key = await modal({
     title: 'Сменить статус', okText: 'Сохранить',
     body: h('div', null, h('label', { class: 'field' }, h('span', null, 'Статус'), sel),

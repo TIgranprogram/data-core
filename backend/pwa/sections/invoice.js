@@ -5,7 +5,7 @@ import { parsePasted } from '../core/paste-parse.js';
 import { downloadTemplate, readTableFile } from '../core/xlsx-read.js';
 import { matchLines, rememberPairs } from '../core/bulk-match.js';
 import { normSearch } from '../core/facets.js';
-import { attachCombo, segmented } from '../ui/kit/index.js';
+import { attachCombo, segmented, fileButton, button, iconButton, enhanceSelect } from '../ui/kit/index.js';
 import { photoField } from '../ui/kit/photos.js';
 import { COST_CENTER } from '../ui/kit/badges.js';
 import { toast, toastError } from '../ui/kit/toast.js';
@@ -40,7 +40,7 @@ async function buildInvoiceForm(opts = {}) {
   const no = h('input', { maxlength: 100, placeholder: 'например: 01097' });
   const date = h('input', { type: 'date', value: isoDay() });
   const sup = h('input', { maxlength: 200 });
-  const company = h('select', null, h('option', { value: '' }, '—'), ...(lk.companies || []).map((c) => h('option', { value: c }, c)));
+  const company = enhanceSelect(h('select', null, h('option', { value: '' }, '—'), ...(lk.companies || []).map((c) => h('option', { value: c }, c))));
   const type = h('input', { maxlength: 60 });
   let state = opts.paste ? 'ordered' : 'received';
   let cc = 'workshop';
@@ -77,16 +77,16 @@ async function buildInvoiceForm(opts = {}) {
     const nUrl = h('input', { maxlength: 1000, placeholder: 'https://…' });
     const nPhotos = photoField([]);
     const nErr = h('div', { class: 'err', hidden: true });
-    const nSave = h('button', { type: 'button', class: 'btn btn-primary btn-sm' }, 'Создать позицию');
+    const nSave = button({ label: 'Создать позицию', kind: 'primary', size: 'S' });
     const nBox = h('div', { class: 'form-block inv-new', 'data-tone': 'info', hidden: true },
       h('div', { class: 'inv-new-head' }, h('b', null, 'Новая позиция в базе'), h('span', { class: 'muted small' }, ' — появится на складе в выбранной категории')),
       h('div', { class: 'form-grid' }, field('Категория *', h('div', { class: 'has-combo' }, nCat)), field('Короткое название *', nName, 'wide'), field('Длинное название', nFull, 'wide'), field('Название в счёте', nInv, 'wide'), field('Артикул', nArt), field('Единица', h('div', { class: 'has-combo' }, nUnit)), field('Ссылка на товар', nUrl, 'wide'),
         h('div', { class: 'field wide' }, h('span', null, 'Фото'), nPhotos.el)),
-      nErr, h('div', { class: 'inv-new-foot' }, nSave, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { nBox.hidden = true; } }, 'Отмена')));
-    const addNew = h('button', { type: 'button', class: 'btn btn-sm', title: 'Нужной позиции нет в списке — создать её в базе', onclick: () => { nBox.hidden = !nBox.hidden; if (nBox.hidden) return; nCat.value = catSel || nCat.value; nName.value = nName.value || title.value.trim(); nInv.value = nInv.value || row.src?.name || title.value.trim(); (nCat.value ? nName : nCat).focus(); } }, 'Создать позицию');
+      nErr, h('div', { class: 'inv-new-foot' }, nSave, button({ label: 'Отмена', size: 'S', onClick: () => { nBox.hidden = true; } })));
+    const addNew = button({ label: 'Создать позицию', size: 'S', title: 'Нужной позиции нет в списке — создать её в базе', onClick: () => { nBox.hidden = !nBox.hidden; if (nBox.hidden) return; nCat.value = catSel || nCat.value; nName.value = nName.value || title.value.trim(); nInv.value = nInv.value || row.src?.name || title.value.trim(); (nCat.value ? nName : nCat).focus(); } });
     const syncAdd = () => { const t = title.value.trim(); addNew.textContent = t ? `Создать «${t.length > 30 ? t.slice(0, 30) + '…' : t}»` : 'Создать позицию'; addNew.hidden = !t || t === row.picked || items.some((x) => x.label.toLowerCase() === t.toLowerCase()); };
     title.addEventListener('input', () => setTimeout(syncAdd, 0)); title.addEventListener('change', () => setTimeout(syncAdd, 0)); syncAdd();
-    const del = h('button', { type: 'button', class: 'btn btn-ghost btn-icon btn-sm', title: 'Убрать позицию', onclick: () => { rows.splice(rows.indexOf(row), 1); row.el.remove(); recalc(); } }, '×');
+    const del = iconButton({ icon: '×', label: 'Убрать позицию', title: 'Убрать позицию', size: 'S', onClick: () => { rows.splice(rows.indexOf(row), 1); row.el.remove(); recalc(); } });
     const dupe = orderedNote(); // ЗП.3: позиция уже заказана — предупредить в строке
     row.el = h('div', { class: 'inv-row' },
       h('div', { class: 'inv-pick' }, field('Категория', h('div', { class: 'has-combo' }, cat)), field('Позиция', h('div', { class: 'has-combo' }, title))),
@@ -186,8 +186,8 @@ async function buildInvoiceForm(opts = {}) {
   }
   const pasteBox = opts.paste ? h('div', { class: 'form-block paste-box', 'data-tone': 'info' },
     h('div', { class: 'section-title' }, 'Вставьте строки таблицы'), pasteArea,
-    h('div', { class: 'inv-foot' }, h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: applyPaste }, 'Разобрать и найти в базе'), h('label', { class: 'btn btn-sm', title: 'Файл Excel (.xlsx) или CSV — первый лист' }, 'Загрузить файл…', h('input', { type: 'file', accept: '.xlsx,.csv,.txt', hidden: true, onchange: async (e) => { const fl = e.target.files[0]; e.target.value = ''; if (!fl) return; try { pasteArea.value = await readTableFile(fl); applyPaste(); } catch (err) { toastError(err); } } })),
-      h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Пустая таблица с нужными колонками — заполнить в Excel и загрузить', onclick: () => downloadTemplate() }, '⇩ Шаблон Excel'), h('span', { class: 'spacer' })), pasteInfo) : null;
+    h('div', { class: 'inv-foot' }, button({ label: 'Разобрать и найти в базе', kind: 'primary', size: 'S', onClick: applyPaste }), fileButton({ label: 'Загрузить файл…', accept: '.xlsx,.csv,.txt', title: 'Файл Excel (.xlsx) или CSV — первый лист', onFile: async (fl) => { try { pasteArea.value = await readTableFile(fl); applyPaste(); } catch (err) { toastError(err); } } }),
+      button({ label: '⇩ Шаблон Excel', kind: 'ghost', size: 'S', title: 'Пустая таблица с нужными колонками — заполнить в Excel и загрузить', onClick: () => downloadTemplate() }), h('span', { class: 'spacer' })), pasteInfo) : null;
 
   const body = h('div', { class: 'inv' },
     h('p', { class: 'hint' }, opts.paste
@@ -197,7 +197,7 @@ async function buildInvoiceForm(opts = {}) {
     h('div', { class: 'form-grid inv-head' }, field(h('span', null, opts.paste ? '№ счёта (если уже есть)' : '№ счёта', noStar), no), field('Дата счёта', date), field(h('span', null, 'Поставщик', h('span', { class: 'req' }, ' *')), h('div', { class: 'has-combo' }, sup)), field(h('span', null, 'Наша компания', coStar), company), field('Тип счёта', h('div', { class: 'has-combo' }, type)), h('div', { class: 'field wide' }, h('span', null, 'Что уже произошло'), stateBox), h('div', { class: 'field wide' }, h('span', null, 'Куда пошло (для «Денег»)'), ccBox), h('label', { class: 'check wide' }, toStock, ' При «Получено» — сразу поставить на склад (обычно приход оформляет кладовщик)')),
     h('div', { class: 'section-title' }, 'Позиции счёта'),
     lines,
-    h('div', { class: 'inv-foot' }, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => addRow() }, '+ Строка счёта'), h('span', { class: 'spacer' }), session.canMoney ? h('span', null, 'Итого: ', totalEl) : null));
+    h('div', { class: 'inv-foot' }, button({ label: '+ Строка счёта', size: 'S', onClick: () => addRow() }), h('span', { class: 'spacer' }), session.canMoney ? h('span', null, 'Итого: ', totalEl) : null));
   attachCombo(sup, { options: () => (lk.suppliers || []).map((s) => ({ label: s })), extra: (t) => partnerAction('supplier', t, lk.suppliers, (n) => { (lk.suppliers ||= []).push(n); sup.value = n; }) });
   attachCombo(type, { options: () => (lk.invoiceTypes || []).map((s) => ({ label: s })) });
   if (!opts.paste) addRow(false);

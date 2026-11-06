@@ -8,6 +8,7 @@ import { posPic } from '../ui/pos-pic.js';
 
 import { toast, toastError } from '../ui/kit/toast.js';
 import { editReservation } from './reservations.js';
+import { button } from '../ui/kit/index.js';
 
 /*
  * «Брони заказа» в карточке заказа (SK-6b): активные брони по позициям, «изменить» (правая панель), «снять» и «Выдать по заказу…».
@@ -31,7 +32,7 @@ export function orderReservations(order, onChanged) {
     if (box.hidden) return;
     // что выдавать и сколько — в правой панели (SK-6c); здесь только список и кнопка
     const can = items.filter((x) => x.onHand > 0 && x.qty > 0).length;
-    const act = h('button', { type: 'button', class: 'btn btn-primary btn-sm', disabled: !can, onclick: () => patch({ of: 'resedit', new: '1', op: 'issueorder', orderId: order.id, open: undefined }, { replace: false }) }, 'Выдать по заказу…');
+    const act = button({ label: 'Выдать по заказу…', kind: 'primary', size: 'S', disabled: !can, onClick: () => patch({ of: 'resedit', new: '1', op: 'issueorder', orderId: order.id, open: undefined }, { replace: false }) });
     const lineLabel = (x) => { if (!x.salesOrderLineId) return 'весь заказ'; const n = order.seqBy?.get(String(x.salesOrderLineId)) ?? x.lineNo; return `${n ? 'поз. ' + n + ' · ' : ''}${x.lineTitle || 'позиция заказа'}`; };
     const rows = items.map((x) => {
       return h('li', { class: 'spec-row res-order-row' }, posPic(x.photo, 'sm'),
@@ -39,8 +40,8 @@ export function orderReservations(order, onChanged) {
           h('small', { class: x.canIssue ? 'muted' : 'neg' }, lineLabel(x) + (x.issued ? ` · уже выдано ${qty(x.issued)} ${x.unit}` : '') + (x.canIssue ? '' : x.onHand > 0 ? ` · на складе только ${qty(x.onHand)} ${x.unit}` : ' · на складе нет'))),
         h('span', { class: 'num nowrap', title: 'Осталось в брони' }, `${qty(x.qty)} ${x.unit}`),
         session.canEditOrders ? h('span', { class: 'res-acts' },
-          h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => editReservation(x.id) }, 'Изменить'),
-          h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: async (e) => { const btn = e.currentTarget; if (!(await confirmDlg('Снять бронь?', `«${x.name}» — ${qty(x.qty)} ${x.unit || ''} снова станет свободным.`, { okText: 'Снять бронь', danger: true }))) return; btn.disabled = true; try { await api(`/stock/reservations/${x.id}/release`, { method: 'POST' }); toast('Бронь снята'); await refresh(); } catch (er) { toastError(er); btn.disabled = false; } } }, 'Снять')) : null);
+          button({ label: 'Изменить', kind: 'ghost', size: 'S', onClick: () => editReservation(x.id) }),
+          button({ label: 'Снять', kind: 'ghost', size: 'S', onClick: async (e) => { const btn = e.currentTarget; if (!(await confirmDlg('Снять бронь?', `«${x.name}» — ${qty(x.qty)} ${x.unit || ''} снова станет свободным.`, { okText: 'Снять бронь', danger: true }))) return; btn.disabled = true; try { await api(`/stock/reservations/${x.id}/release`, { method: 'POST' }); toast('Бронь снята'); await refresh(); } catch (er) { toastError(er); btn.disabled = false; } } })) : null);
     });
     box.replaceChildren(
       h('div', { class: 'section-title' }, `Брони заказа (${items.length})`),

@@ -2,7 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { patch } from '../core/router.js';
 import { stockLookup } from '../core/stock-list.js';
-import { attachCombo, tagPick, busyBlock, failBlock, confirmDlg, toast, toastError, errText } from '../ui/kit/index.js';
+import { attachCombo, tagPick, busyBlock, button, empty, failBlock, confirmDlg, toast, toastError, errText } from '../ui/kit/index.js';
 
 /**
  * «Справочники → Склады» (WAREHOUSE-ZONES): список складов и правая панель (of=stockzone&open=<id> | new=1).
@@ -40,7 +40,7 @@ const countText = (z) => [
 export function mountZones() {
   const list = h('div', null, busyBlock('склады'));
   const el = h('div', null,
-    isAdmin() ? h('div', { class: 'toolbar' }, h('button', { type: 'button', class: 'btn btn-primary', onclick: () => patch({ of: 'stockzone', new: '1', open: undefined }) }, '+ Склад')) : null,
+    isAdmin() ? h('div', { class: 'toolbar' }, button({ label: '+ Склад', kind: 'primary', onClick: () => patch({ of: 'stockzone', new: '1', open: undefined }) })) : null,
     list);
 
   async function remove(z, btn) {
@@ -50,15 +50,15 @@ export function mountZones() {
     catch (e) { btn.disabled = false; toastError(e, 'Удалить склад'); }
   }
   function render() {
-    if (!rows.length) { list.replaceChildren(h('div', { class: 'state' }, h('p', null, 'Складов пока нет.'), h('p', { class: 'muted' }, 'Нажмите «+ Склад». Пока складов нет, все видят весь склад.'))); return; }
+    if (!rows.length) { list.replaceChildren(empty({ title: 'Складов пока нет.', hint: 'Нажмите «+ Склад». Пока складов нет, все видят весь склад.' })); return; }
     list.replaceChildren(h('ul', { class: 'dict-list' }, ...rows.map((z) => h('li', { class: 'dict-item' + (isAdmin() ? ' clickable' : ''),
       onclick: isAdmin() ? (e) => { if (!e.target.closest('button')) patch({ of: 'stockzone', open: z.id, new: undefined }); } : null },
       h('div', { class: 'dict-name' }, h('b', { title: z.name }, z.name), z.isDefault ? h('span', { class: 'badge info' }, 'Основной') : null),
       h('div', { class: 'dict-desc muted md-hide' }, countText(z)),
       h('div', { class: 'dict-acts' }, isAdmin() ? [
-        h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => patch({ of: 'stockzone', open: z.id, new: undefined }) }, 'Изменить'),
+        button({ label: 'Изменить', kind: 'ghost', size: 'S', onClick: () => patch({ of: 'stockzone', open: z.id, new: undefined }) }),
         z.isDefault ? h('span', { class: 'dict-lock muted', title: 'Основной склад нужен программе — удалить нельзя' }, '🔒 Основной')
-          : h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: (e) => remove(z, e.currentTarget) }, 'Удалить'),
+          : button({ label: 'Удалить', kind: 'ghost', size: 'S', onClick: (e) => remove(z, e.currentTarget) }),
       ] : null)))));
   }
   async function reload() {

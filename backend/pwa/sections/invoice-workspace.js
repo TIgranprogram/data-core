@@ -2,7 +2,7 @@ import { h } from '../core/dom.js';
 import { api, PREFIX, session } from '../core/api.js';
 import { current } from '../core/router.js';
 import { date, money, qty } from '../core/format.js';
-import { readonlyGroup, section, table, button, actions, badge, INVOICE_STATUS, SUPPLY_STATUS, confirmDlg, failBlock, toast, toastError, attachCombo, photoField } from '../ui/kit/index.js';
+import { readonlyGroup, section, table, button, actions, badge, INVOICE_STATUS, SUPPLY_STATUS, confirmDlg, failBlock, toast, toastError, attachCombo, photoField, enhanceSelect } from '../ui/kit/index.js';
 import { permissions, lineAmount, pendingLines, assertOperation, lineDraft, changeLine, lineBody, metaBody, addBody } from './invoice-workspace-state.js';
 import { adminAction } from './admin-override.js';
 import { getInvoice, getCandidates, getPayers, getContracts, writeInvoice } from './invoice-workspace-api.js';
@@ -171,8 +171,8 @@ function metaBlock(invoice, ctx) {
   }
   const no = h('input', { name: 'no', value: invoice.no || '', maxlength: 100, 'aria-label': '№ счёта' });
   const dateInp = h('input', { name: 'date', type: 'date', value: String(invoice.date || '').slice(0, 10), 'aria-label': 'Дата счёта' });
-  const payer = h('select', { name: 'payerCompanyId', 'aria-label': 'Наша компания', disabled: !p.finance }, h('option', { value: '' }, 'Выберите компанию'));
-  const contract = h('select', { name: 'contractId', 'aria-label': 'Договор' }, h('option', { value: '' }, 'Без договора'));
+  const payer = enhanceSelect(h('select', { name: 'payerCompanyId', 'aria-label': 'Наша компания', disabled: !p.finance }, h('option', { value: '' }, 'Выберите компанию')));
+  const contract = enhanceSelect(h('select', { name: 'contractId', 'aria-label': 'Договор' }, h('option', { value: '' }, 'Без договора')));
   const files = photoField(invoice.files || [], { pdf: true });
   const knownIds = (invoice.fileIds || (invoice.files || []).map((f) => f.id)).map(String);
   const unseenIds = knownIds.filter((id) => !(invoice.files || []).some((f) => String(f.id) === id));

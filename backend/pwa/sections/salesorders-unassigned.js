@@ -6,7 +6,7 @@ import { matchBadge, openMatching } from './salesorders-matching.js';
 import { session } from '../core/api.js';
 import { toast } from '../ui/kit/toast.js';
 import { modal } from '../ui/kit/dialog.js';
-import { attachCombo } from '../ui/kit/index.js';
+import { attachCombo, button, select } from '../ui/kit/index.js';
 import { errText } from '../ui/kit/errors.js';
 
 /** В3: «Договоры без заказа» — выбор галочками и перенос в новый или существующий заказ (POST /production-orders/assign). */
@@ -23,12 +23,12 @@ export function unassignedPicker({ onChange } = {}) {
   let who = ''; // фильтр по заказчику — среди уже загруженных строк
   const search = h('input', { type: 'search', placeholder: 'Поиск: № договора, заказчик…', 'aria-label': 'Поиск договоров' });
   const whoIn = h('input', { placeholder: 'Заказчик: все', autocomplete: 'off', 'aria-label': 'Заказчик' });
-  const whoAll = h('button', { class: 'btn btn-ghost btn-sm', type: 'button', hidden: true }, 'Выбрать всех этого заказчика');
+  const whoAll = button({ label: 'Выбрать всех этого заказчика', kind: 'ghost', size: 'S' }); whoAll.hidden = true;
   const shown = () => (who ? rows.filter((r) => (r.customer || '') === who) : rows);
   const allCb = h('input', { type: 'checkbox', class: 'ua-cb', 'aria-label': 'Выбрать все' });
   const body = h('div', { class: 'ua-list' });
   const info = h('span', { class: 'muted small' });
-  const more = h('button', { class: 'btn btn-ghost btn-sm', type: 'button', hidden: true }, 'Показать ещё');
+  const more = button({ label: 'Показать ещё', kind: 'ghost', size: 'S' }); more.hidden = true;
   const sync = () => { const v = shown(); allCb.checked = v.length > 0 && v.every((r) => picked.has(r.id)); onChange?.([...picked]); };
   const paint = () => {
     const view = shown();
@@ -40,7 +40,7 @@ export function unassignedPicker({ onChange } = {}) {
       const cb = h('input', { type: 'checkbox', class: 'ua-cb', checked: picked.has(r.id), onchange: (e) => { if (e.target.checked) picked.add(r.id); else picked.delete(r.id); sync(); } });
       return h('label', { class: 'ua-row' }, cb,
         h('span', { class: 'ua-main' }, h('b', null, 'Договор ' + (r.orderNo || '—')), h('span', { class: 'muted' }, r.customer ? ' · ' + r.customer : '')),
-        h('span', { class: 'ua-match' }, matchBadge(r), r.canAssign === false ? h('button', { class: 'btn btn-sm', type: 'button', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); openMatching(patch, r.id); } }, 'Сопоставить') : null),
+        h('span', { class: 'ua-match' }, matchBadge(r), r.canAssign === false ? button({ label: 'Сопоставить', size: 'S', title: 'Сопоставить позиции договора с изделиями', onClick: (e) => { e.preventDefault(); openMatching(patch, r.id); } }) : null),
         h('span', { class: 'muted small nowrap' }, [r.date && date(r.date), `${qty(r.lineCount || 0)} поз.`, session.canMoney && r.amount ? money(r.amount) : ''].filter(Boolean).join(' · ')));
     }));
     sync();
@@ -81,7 +81,7 @@ export function blockedBox() {
     el.hidden = false;
     el.replaceChildren(h('p', null, 'Нельзя перенести: в договорах есть позиции без изделия. Сопоставьте их, потом повторите.'),
       h('ul', null, list.map((x) => h('li', null, `Договор ${x.orderNo || '—'}: не сопоставлено ${qty(x.unmatched)} из ${qty(x.lines)}`))),
-      h('button', { class: 'btn btn-sm btn-primary', type: 'button', onclick: () => { el.closest('form')?.querySelector('.modal-foot button[type=button]')?.click(); openMatching(patch, first.orderId); } }, 'Перейти к сопоставлению'));
+      button({ label: 'Перейти к сопоставлению', kind: 'primary', size: 'S', onClick: () => { el.closest('form')?.querySelector('.modal-foot button[type=button]')?.click(); openMatching(patch, first.orderId); } }));
     return true;
   };
   return { el, show };
@@ -101,7 +101,7 @@ export async function assignContracts(ids, productionNo) {
 export async function chooseTarget(ids) {
   let nums = [];
   try { const d = await api('/production-orders', { query: { filter: 'active', limit: 200, sort: '-createdAt' } }); nums = [...new Set((d.items || []).map((x) => x.productionNo).filter(Boolean))]; } catch { /* список необязателен */ }
-  const mode = h('select', { 'aria-label': 'Куда' }, h('option', { value: 'new' }, 'В новый заказ (номер выдаст система)'), h('option', { value: 'old' }, 'В существующий заказ'));
+  const mode = select({ label: 'Куда', options: [['new', 'В новый заказ (номер выдаст система)'], ['old', 'В существующий заказ']] });
   const no = h('input', { placeholder: '№ заказа: начните вводить', autocomplete: 'off', 'aria-label': '№ заказа' });
   const noField = h('label', { class: 'field', hidden: true }, h('span', null, '№ заказа'), no);
   mode.addEventListener('change', () => { noField.hidden = mode.value !== 'old'; if (!noField.hidden) no.focus(); });
@@ -124,16 +124,16 @@ export function unassignedBar(getPicker, afterMove) {
     bar.hidden = !ids.length;
     const bad = (getPicker()?.rows() || []).filter((r) => ids.includes(r.id) && r.canAssign === false);
     bar.replaceChildren(h('b', null, `Выбрано ${ids.length}`),
-      h('button', { class: 'btn btn-primary btn-sm', type: 'button', disabled: bad.length > 0, title: bad.length ? 'Сначала сопоставьте позиции договора с изделиями' : undefined, onclick: async () => { if (await chooseTarget(ids)) { afterMove?.(); getPicker()?.reload(); } } }, 'В заказ…'),
+      button({ label: 'В заказ…', kind: 'primary', size: 'S', title: bad.length ? 'Сначала сопоставьте позиции договора с изделиями' : undefined, disabled: bad.length > 0, onClick: async () => { if (await chooseTarget(ids)) { afterMove?.(); getPicker()?.reload(); } } }),
       bad.length ? h('span', { class: 'muted small' }, `Не сопоставлены позиции в договорах: ${bad.length}.`) : null,
-      bad.length ? h('button', { class: 'btn btn-sm', type: 'button', onclick: () => openMatching(patch, bad[0].id) }, 'Сопоставить') : null);
+      bad.length ? button({ label: 'Сопоставить', size: 'S', onClick: () => openMatching(patch, bad[0].id) }) : null);
   };
   return { bar, onChange };
 }
 
 /** Блок над списком «Заказов»: плашка «Договоры без заказа (N)» → раскрывается выбор с полосой действий. */
 export function unassignedTop(reload) {
-  const btn = h('button', { class: 'btn btn-ghost', type: 'button', 'aria-expanded': 'false' }, 'Договоры без заказа');
+  const btn = button({ label: 'Договоры без заказа', kind: 'ghost' }); btn.setAttribute('aria-expanded', 'false');
   const box = h('div', { class: 'ua-box', hidden: true });
   const el = h('div', { class: 'ua-top' }, btn, box);
   let picker = null;

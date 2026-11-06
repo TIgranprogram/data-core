@@ -18,7 +18,7 @@ export function mountInvoicesTab() {
   let timer = null;
   const sel = (opts, key, title) => {
     const select = h('select', { class: 'invl-f', 'aria-label': title, onchange: () => { F[key] = select.value; reload(); } }, ...opts.map(([value, label]) => h('option', { value }, label)));
-    return select;
+    return enhanceSelect(select);
   };
   const statusSel = sel(STATUS_OPTS, 'status', 'Статус');
   const supSel = sel([['', 'Все поставщики']], 'supplierId', 'Поставщик');

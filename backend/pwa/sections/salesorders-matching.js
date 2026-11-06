@@ -1,7 +1,7 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
-import { attachCombo, similarBox } from '../ui/kit/index.js';
+import { attachCombo, similarBox, button } from '../ui/kit/index.js';
 import { posPic } from '../ui/pos-pic.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { current, patch } from '../core/router.js';
@@ -51,11 +51,11 @@ function lineRow(it, run, write, single) {
   const sugList = !it.matched && sugg.length
     ? h('ul', { class: 'mt-sug' }, sugg.map((s) => h('li', null, posPic(s.photo),
       h('div', { class: 'mt-sug-main' }, h('b', null, s.name), s.sku ? h('span', { class: 'muted' }, ' · ' + s.sku) : null, h('div', { class: 't-sub' }, `${qty(s.percent)}% · ${s.label || ''}`)),
-      write ? h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: (e) => confirm(s.productId) && e.currentTarget.classList.add('is-busy') }, 'Подтвердить') : null)))
+      write ? button({ label: 'Подтвердить', kind: 'primary', size: 'S', onClick: (e) => confirm(s.productId) && e.currentTarget.classList.add('is-busy') }) : null)))
     : null;
   const sim = similarBox({ pickLabel: 'Взять это', onPick: (p) => confirm(p.id) });
   if (write) {
-    if (it.state === 'auto' && it.productId) acts.append(h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => confirm(it.productId) }, 'Подтвердить'));
+    if (it.state === 'auto' && it.productId) acts.append(button({ label: 'Подтвердить', kind: 'primary', size: 'S', onClick: () => confirm(it.productId) }));
     const input = h('input', { type: 'search', placeholder: 'Название или артикул изделия', 'aria-label': 'Поиск изделия' });
     let ready = false;
     const togglePick = async () => {
@@ -70,10 +70,10 @@ function lineRow(it, run, write, single) {
       } catch (e) { ready = false; toastError(e, 'загрузить изделия'); }
     };
     if (single) togglePick();
-    else acts.append(h('button', { type: 'button', class: 'btn btn-sm', onclick: togglePick }, 'Выбрать другое изделие'));
+    else acts.append(button({ label: 'Выбрать другое изделие', size: 'S', onClick: togglePick }));
     // подходящего нет — создать изделие; сначала всегда проверка похожих (C017), второй клик — «Всё равно создать»
     let warned = false;
-    acts.append(h('button', { type: 'button', class: 'btn btn-sm', onclick: async (e) => {
+    acts.append(button({ label: '+ Изделие', size: 'S', onClick: async (e) => {
       const b = e.currentTarget;
       if (!warned) {
         b.classList.add('is-busy');
@@ -98,8 +98,8 @@ function lineRow(it, run, write, single) {
         try { await api('/matching/confirm', { method: 'POST', body: { lineId: it.lineId, productId: prod.id } }); toast('Изделие создано и сопоставлено'); } catch (err) { toastError(err, 'сопоставить с новым изделием'); }
         patch({ ...back, new: undefined });
       });
-    } }, '+ Изделие'));
-    if (it.state !== 'none') acts.append(h('button', { type: 'button', class: 'btn btn-sm btn-ghost', onclick: () => run(() => api('/matching/none', { method: 'POST', body: { lineId: it.lineId } })) }, 'Не изделие (монтаж, доставка)'));
+    } }));
+    if (it.state !== 'none') acts.append(button({ label: 'Не изделие (монтаж, доставка)', kind: 'ghost', size: 'S', onClick: () => run(() => api('/matching/none', { method: 'POST', body: { lineId: it.lineId } })) }));
   }
   return h('li', { class: 'mt-row' + (it.matched ? '' : ' mt-open') },
     h('div', { class: 'mt-head' }, posPic(it.photo),
@@ -137,11 +137,11 @@ export const matching = {
       };
       const sure = items.filter((x) => x.confident && x.state !== 'confirmed' && x.state !== 'none' && (x.suggestions?.[0]?.productId || x.productId));
       const bulk = write && !single && sure.length
-        ? h('button', { type: 'button', class: 'btn btn-primary', onclick: (e) => { e.currentTarget.classList.add('is-busy'); run(() => api('/matching/bulk', { method: 'POST', body: { items: sure.map((x) => ({ lineId: x.lineId, productId: x.suggestions?.[0]?.productId || x.productId })) } })); } }, `Подтвердить все уверенные (${sure.length})`)
+        ? button({ label: `Подтвердить все уверенные (${sure.length})`, kind: 'primary', onClick: (e) => { e.currentTarget.classList.add('is-busy'); run(() => api('/matching/bulk', { method: 'POST', body: { items: sure.map((x) => ({ lineId: x.lineId, productId: x.suggestions?.[0]?.productId || x.productId })) } })); } })
         : null;
       return h('div', { class: 'mt' },
         single
-          ? h('div', { class: 'mt-top' }, h('b', null, 'Выбор изделия для позиции'), h('span', { class: 'muted' }, ' · '), h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => openMatching(patch, r.orderId) }, 'Весь договор'))
+          ? h('div', { class: 'mt-top' }, h('b', null, 'Выбор изделия для позиции'), h('span', { class: 'muted' }, ' · '), button({ label: 'Весь договор', kind: 'ghost', size: 'S', onClick: () => openMatching(patch, r.orderId) }))
           : h('div', { class: 'mt-top' }, h('b', null, `Сопоставлено ${qty(r.matched ?? 0)} из ${qty(r.total ?? items.length)}`), r.unmatched ? h('span', { class: 'muted' }, ` · осталось ${qty(r.unmatched)}`) : null),
         write ? null : h('p', { class: 'hint' }, 'Только просмотр: сопоставлять могут администратор и менеджер.'),
         bulk,

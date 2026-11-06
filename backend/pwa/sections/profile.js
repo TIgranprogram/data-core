@@ -4,7 +4,7 @@ import { getViewAs, rememberRoles, rolesForSelect, setViewAs } from '../core/vie
 import { toast, toastError } from '../ui/kit/toast.js';
 import { AVATAR_PRESETS, avatarNode, presetNode } from '../ui/avatars.js';
 import { getPref, setPref } from '../core/prefs.js';
-import { enhanceSelect, segmented } from '../ui/kit/index.js';
+import { enhanceSelect, segmented, button } from '../ui/kit/index.js';
 
 /**
  * Правая панель «Мой профиль» (`?of=profile&open=me`): имя, телефон, аватар (10 пресетов или своё фото).
@@ -15,7 +15,7 @@ const photoOf = (a) => (String(a || '').startsWith('photo:') ? a : null);
 
 /** Выбор роли для просмотра. Список — GET /roles; встроенные без карточки всё равно есть. Смена только локальная. */
 function viewAsField() {
-  const sel = h('select', { 'aria-label': 'Смотреть как' });
+  const sel = enhanceSelect(h('select', { 'aria-label': 'Смотреть как' }));
   const fill = () => {
     const cur = getViewAs();
     const opts = rolesForSelect();
@@ -56,7 +56,7 @@ export const profile = {
         }, presetNode(p.code, 40))));
       };
       const file = h('input', { type: 'file', accept: 'image/*', hidden: true });
-      const upBtn = h('button', { type: 'button', class: 'btn btn-sm', onclick: () => file.click() }, 'Загрузить своё фото');
+      const upBtn = button({ label: 'Загрузить своё фото', size: 'S', onClick: () => file.click() });
       file.addEventListener('change', async () => {
         const f = file.files[0]; file.value = '';
         if (!f) return;
@@ -68,7 +68,7 @@ export const profile = {
         } catch (e) { toastError(e, 'загрузить фото'); } finally { upBtn.classList.remove('is-busy'); upBtn.disabled = false; }
       });
       name.addEventListener('input', () => { if (!avatar) paint(); });
-      const save = h('button', { type: 'button', class: 'btn btn-primary', onclick: async (e) => {
+      const save = button({ label: 'Сохранить', kind: 'primary', onClick: async (e) => {
         const btn = e.currentTarget; btn.classList.add('is-busy'); btn.disabled = true;
         try {
           const me = await api('/auth/me', { method: 'PATCH', body: { displayName: name.value.trim(), phone: phone.value.trim(), avatar } });

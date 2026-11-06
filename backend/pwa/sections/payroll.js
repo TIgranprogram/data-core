@@ -6,7 +6,7 @@ import { confirmDlg } from '../ui/kit/dialog.js';
 import { openSide, sideForm } from '../ui/kit/side-form.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { incomeLookups, todayMsk } from './orders.js';
-import { table } from '../ui/kit/index.js';
+import { table, button, iconButton, enhanceSelect } from '../ui/kit/index.js';
 
 /**
  * «ФОТ» — фонд оплаты труда. Данные с сервера: GET /api/payroll/summary?month= (сотрудники, табель, начислено,
@@ -62,13 +62,13 @@ export function mountPayroll() {
   if (!session.canPayroll) return { el: h('div', { class: 'panel state' }, 'Раздел доступен только бухгалтеру и руководству.'), reload: () => {}, update: () => {} };
   let month = curMonth();
   const monthLabel = h('span', { class: 'm-label' });
-  const next = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Следующий месяц', onclick: () => { month = shift(month, 1); load(); } }, '›');
+  const next = iconButton({ icon: '›', label: 'Следующий месяц', title: 'Следующий месяц', onClick: () => { month = shift(month, 1); load(); } });
   const body = h('div', { class: 'm-body' }, busyBlock('сотрудников', { cls: 'panel state' }));
-  const addBtn = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => payDialog(null) }, '+ Выплата');
+  const addBtn = button({ label: '+ Выплата', kind: 'primary', onClick: () => payDialog(null) });
   const el = h('div', { class: 'payroll' },
     h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'ФОТ'), h('div', { class: 'sub' }, 'Фонд оплаты труда: начислено, выплачено, остаток по сотрудникам и компаниям')), h('span', { class: 'spacer' }), addBtn),
     h('div', { class: 'm-controls' }, h('div', { class: 'm-month' },
-      h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Предыдущий месяц', onclick: () => { month = shift(month, -1); load(); } }, '‹'), monthLabel, next)),
+      iconButton({ icon: '‹', label: 'Предыдущий месяц', title: 'Предыдущий месяц', onClick: () => { month = shift(month, -1); load(); } }), monthLabel, next)),
     body);
 
   let data = null;
@@ -91,7 +91,7 @@ export function mountPayroll() {
 
   async function companyPick(p, cell) {
     const l = await incomeLookups().catch(() => ({ companies: [] }));
-    const sel = h('select', null, h('option', { value: '' }, 'выбрать компанию…'), ...l.companies.map((c) => h('option', { value: c.id }, c.name)));
+    const sel = enhanceSelect(h('select', null, h('option', { value: '' }, 'выбрать компанию…'), ...l.companies.map((c) => h('option', { value: c.id }, c.name))));
     sel.addEventListener('change', async () => {
       if (!sel.value) return;
       try { await api(`/payroll/people/${p.id}`, { method: 'PATCH', body: { companyId: sel.value } }); toast('Наша компания сотрудника сохранена'); load(); } catch (e) { toastError(e); }
@@ -118,7 +118,7 @@ export function mountPayroll() {
         h('td', { class: 'num right' }, money(p.accrued)), h('td', { class: 'num right' }, money(p.paid)),
         h('td', { class: 'num right ' + (p.balance > 0 ? 'neg' : '') }, money(p.balance)),
         h('td', { class: 'num md-hide' }, date(p.dueDate)),
-        h('td', { class: 'act' }, h('button', { class: 'btn btn-sm', type: 'button', onclick: () => payDialog(p) }, '+ Выплата')));
+        h('td', { class: 'act' }, button({ label: '+ Выплата', size: 'S', onClick: () => payDialog(p) })));
     };
     const t = s.totals;
     const noRate = s.noRate ? h('p', { class: 'hint' }, `Без ставки: ${s.noRate} — «Справочники → Сотрудники» → сотрудник → «Оплата» и «Ставка».`) : null;
@@ -138,10 +138,10 @@ export function mountPayroll() {
         pays.items.length ? h('ul', { class: 'q-list' }, pays.items.map((p) => h('li', { class: 'q-row' },
           h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, p.person), h('div', { class: 'q-sub' }, [date(p.date), p.kindLabel, p.company, p.note].filter(Boolean).join(' · '))),
           h('div', { class: 'q-side' }, h('span', { class: 'num neg' }, '−' + money(p.amount)),
-            h('button', { class: 'btn btn-ghost btn-sm', type: 'button', title: 'Удалить выплату', onclick: async () => {
+            button({ label: '✕', kind: 'ghost', size: 'S', title: 'Удалить выплату', onClick: async () => {
               if (!(await confirmDlg('Удалить выплату?', `${p.person}: ${money(p.amount)} от ${date(p.date)}`, { okText: 'Удалить', danger: true }))) return;
               try { await api(`/payroll/payments/${p.id}`, { method: 'DELETE' }); toast('Выплата удалена'); load(); } catch (e) { toastError(e); }
-            } }, '✕'))))) : h('p', { class: 'muted', style: { padding: '0 16px 12px' } }, 'За месяц выплат нет. «+ Выплата» — записать аванс, зарплату или премию.')),
+            } }))))) : h('p', { class: 'muted q-empty' }, 'За месяц выплат нет. «+ Выплата» — записать аванс, зарплату или премию.')),
     ];
   }
 

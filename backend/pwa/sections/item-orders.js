@@ -5,7 +5,7 @@ import { date, money, qty } from '../core/format.js';
 import { patch } from '../core/router.js';
 import { resetStock, stockLookup } from '../core/stock-list.js';
 import { modal } from '../ui/kit/dialog.js';
-import { enhanceSelect } from '../ui/kit/index.js';
+import { enhanceSelect, button, select } from '../ui/kit/index.js';
 import { toast } from '../ui/kit/toast.js';
 
 /*
@@ -44,7 +44,7 @@ export function orderedBlock(r) {
           return h('li', null,
             h('a', { href: '#requests?open=' + x.id }, `№${x.num ?? '—'}`), h('span', { class: 'num' }, `${qty(x.qty)} ${x.unit}`), h('span', null, x.statusLabel),
             h('span', { class: 'muted' }, [x.invoiceDate ? 'счёт ' + date(x.invoiceDate) : x.requestDate ? 'заявка ' + date(x.requestDate) : '', x.supplier, x.requestedBy].filter(Boolean).join(' · ')),
-            canAccept ? h('button', { class: 'btn btn-sm btn-primary', type: 'button', onclick: () => acceptReq(x) }, 'Принять на склад') : null);
+            canAccept ? button({ label: 'Принять на склад', kind: 'primary', size: 'S', onClick: () => acceptReq(x) }) : null);
         }))
           : h('p', { class: 'muted' }, 'Открытых заявок нет. ', h('a', { href: '#requests?q=' + encodeURIComponent(r.name) }, 'Все заявки по позиции →')),
         d.suppliers.length ? h('div', null, h('div', { class: 'section-title' }, 'Поставщики и цены'),
@@ -77,7 +77,7 @@ export async function orderItem(r) {
 /** Поле «Закрыть заявку» в окне прихода (ЗП.4): { el, value() → заявка | null }. */
 export function receiveField(r, onOnly) {
   if (!(r.ordered > 0)) return null;
-  const sel = h('select', null, h('option', { value: '' }, '— приход без заявки —'));
+  const sel = select({ label: 'Закрыть заявку', options: [['', '— приход без заявки —']] });
   const list = [];
   ordered(r.id).then((d) => { for (const x of d.open) { list.push(x); sel.append(h('option', { value: x.id }, `№${x.num ?? '—'} · ${qty(x.qty)} ${x.unit} · ${x.statusLabel}`)); } if (list.length === 1) { sel.value = list[0].id; onOnly?.(list[0]); } enhanceSelect(sel); }).catch(() => {});
   return { el: h('label', { class: 'field wide' }, h('span', null, 'Закрыть заявку'), sel), value: () => list.find((x) => x.id === sel.value) || null };

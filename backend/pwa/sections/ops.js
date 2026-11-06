@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { parseNum, plural } from '../core/format.js';
 import { modal } from '../ui/kit/dialog.js';
 import { toast } from '../ui/kit/toast.js';
-import { row, failBlock } from '../ui/kit/index.js';
+import { row, failBlock, button } from '../ui/kit/index.js';
 
 /* Приёмка машины по счёту — блок «Ждём поставку» в правой панели «Принять» (sections/stock-ops.js). Раздел «Операции» упразднён (SK-4b). */
 export function arrivalsBlock(onDone) {
@@ -30,7 +30,7 @@ export function arrivalsBlock(onDone) {
         h('span', { class: 'muted small' }, 'Приехала машина — найдите счёт и примите всё разом')),
       h('div', { class: 'ops-arr-list' }, ...[...groups].map(([key, rs]) => row({ title: key, meta: rs.slice(0, 3).map((r) => r.title).join(' · ') + (rs.length > 3 ? ` · ещё ${rs.length - 3}` : ''),
         side: h('span', { class: 'muted small nowrap' }, `${rs.length} ${plural(rs.length, 'позиция', 'позиции', 'позиций')}`),
-        action: h('button', { class: 'btn btn-sm', type: 'button', onclick: () => acceptGroup(key, rs) }, 'Принять…') }))));
+        action: button({ label: 'Принять…', size: 'S', onClick: () => acceptGroup(key, rs) }) }))));
   }
   async function acceptGroup(key, rs) {
     if (await acceptRequests('Приёмка: ' + key, rs)) { await load(); onDone(); }

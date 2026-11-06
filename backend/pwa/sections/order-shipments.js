@@ -8,7 +8,7 @@ import { failBlock } from '../ui/kit/busy.js';
 import { emptyState } from '../ui/kit/empty.js';
 import { posPic } from '../ui/pos-pic.js';
 
-import { table } from '../ui/kit/index.js';
+import { table, button, segmented } from '../ui/kit/index.js';
 /**
  * Отгрузки заказа и история (ТЗ ОТГ/ИСТ). Блоки в карточке заказа + правая панель «Отгрузить» (`of=shipdo&open=<orderId>`).
  * Сервер: GET/POST /salesorders/:id/shipments, DELETE /shipments/:id, GET /shipments/:id/pdf, GET /salesorders/:id/history.
@@ -30,14 +30,14 @@ export function shipmentsBlock(order, onChange) {
         h('span', { class: 'shp-pics' }, ...(s.lines || []).slice(0, 3).map((l) => posPic(l.photo, 'sm'))),
         h('span', null, `${qty(s.qtyTotal)} шт. · ${(s.lines || []).map((l) => `${l.title} ×${qty(l.qty)}`).join(', ')}`),
         h('span', { class: 'muted' }, [s.who?.name, s.receiver && 'принял: ' + s.receiver, s.docNo && '№ ' + s.docNo, s.reason && 'причина: ' + s.reason, s.note].filter(Boolean).join(' · ')),
-        h('button', { type: 'button', class: 'btn btn-sm', onclick: () => pdf(s) }, 'Накладная'),
-        canShip() ? h('button', { type: 'button', class: 'btn btn-sm btn-danger', onclick: async (e) => {
+        button({ label: 'Накладная', size: 'S', onClick: () => pdf(s) }),
+        canShip() ? button({ label: 'Отменить', kind: 'danger', size: 'S', onClick: async (e) => {
           if (!(await confirmDlg(`Отменить ${s.number || 'отгрузку'}?`, 'Остаток по позициям вернётся, этап заказа пересчитается.', { okText: 'Да, отменить', danger: true }))) return;
           const b = e.currentTarget; b.classList.add('is-busy'); b.disabled = true;
           try { await api(`/shipments/${s.id}`, { method: 'DELETE' }); toast('Отгрузка отменена'); changed(); onChange?.(); } catch (er) { toastError(er, 'отменить отгрузку'); b.classList.remove('is-busy'); b.disabled = false; }
-        } }, 'Отменить') : null)))
+        } }) : null)))
         : (d.legacyShipped ? null : emptyState({ title: 'Отгрузок пока нет', hint: open ? 'Нажмите «Отгрузить» — выберите позиции и количество.' : '' })),
-      open ? h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn btn-primary', onclick: () => patch({ of: 'shipdo', open: order.id }, { replace: false }) }, typeof d.shippable === 'number' ? `Отгрузить (${d.shippable} готово)` : 'Отгрузить')) : null);
+      open ? h('div', { class: 'actions' }, button({ label: typeof d.shippable === 'number' ? `Отгрузить (${d.shippable} готово)` : 'Отгрузить', kind: 'primary', onClick: () => patch({ of: 'shipdo', open: order.id }, { replace: false }) })) : null);
   }).catch((e) => body.replaceChildren(failBlock(e)));
   load();
   return h('div', { class: 'so-sec' }, h('div', { class: 'section-title' }, 'Отгрузки'), body);
@@ -49,9 +49,8 @@ const TYPES = [['', 'Все'], ['change', 'Изменения'], ['line', 'По�
 export function historyBlock(order) {
   let type = '', search = '', t = null, loaded = false;
   const list = h('div', null);
-  const chips = h('div', { class: 'seg', role: 'tablist', 'aria-label': 'Тип событий' });
+  const chips = segmented({ items: TYPES.map(([key, label]) => ({ key, label })), value: type, label: 'Тип событий', onChange: (k) => { type = k; load(); } }).el;
   const q = h('input', { type: 'search', placeholder: 'Поиск по истории…', 'aria-label': 'Поиск по истории', oninput: (e) => { search = e.target.value.trim(); clearTimeout(t); t = setTimeout(load, 300); } });
-  const drawChips = () => chips.replaceChildren(...TYPES.map(([k, label]) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(type === k), class: type === k ? 'active' : '', onclick: () => { type = k; drawChips(); load(); } }, label)));
   function load() {
     list.replaceChildren(h('div', { class: 'muted' }, 'Загрузка…'));
     api(`/salesorders/${order.id}/history`, { query: { type, search } }).then((d) => {
@@ -61,7 +60,6 @@ export function historyBlock(order) {
         emptyState({ title: 'Событий нет', hint: type || search ? 'Смените тип или очистите поиск.' : 'Здесь появятся изменения, отгрузки, паспорта и выдачи со склада.' }));
     }).catch((e) => list.replaceChildren(failBlock(e)));
   }
-  drawChips();
   const det = h('details', { class: 'so-sec', ontoggle: () => { if (det.open && !loaded) { loaded = true; load(); } } },
     h('summary', { class: 'section-title' }, 'История заказа'), chips, h('div', { class: 'field' }, q), list);
   return det;
@@ -104,7 +102,7 @@ function form(order, ctx) {
       root.replaceChildren(emptyState({ title: 'Отгружать пока нечего', hint: (w.missing || [])[0] || 'Позиции ещё не готовы.' }), lk ? h('p', null, h('a', { href: lk.href }, lk.label + ' →')) : null, blockedBox);
       return;
     }
-    const send = h('button', { type: 'button', class: 'btn btn-primary', onclick: async (e) => {
+    const send = button({ label: 'Отгрузить', kind: 'primary', onClick: async (e) => {
       const ls = picked().filter((x) => x.qty > 0);
       if (!ls.length) { toastError(new Error('Выберите позиции и впишите «Сколько».')); return; }
       if (ls.some((x) => x.qty > x.left)) { toastError(new Error('Больше остатка отгрузить нельзя.')); return; }
@@ -117,7 +115,7 @@ function form(order, ctx) {
         if (s?.id) pdf(s);
         ctx.close();
       } catch (er) { toastError(er, 'отгрузить'); b.classList.remove('is-busy'); b.disabled = false; }
-    } }, 'Отгрузить');
+    } });
     root.replaceChildren(
       h('div', { class: 'section-title' }, 'Можно отгрузить'),
       table({ columns: [{ label: '' }, { label: '' }, { label: 'Позиция' }, { label: 'Осталось', num: true }, { label: 'Сколько' }],
@@ -126,7 +124,7 @@ function form(order, ctx) {
         h('label', { class: 'field' }, h('span', null, 'Дата'), date0), h('label', { class: 'field' }, h('span', null, 'Получатель'), recv),
         h('label', { class: 'field' }, h('span', null, '№ документа'), docNo), h('label', { class: 'field' }, h('span', null, 'Примечание'), note), reasonBox),
       blockedBox,
-      h('div', { class: 'actions' }, send, h('button', { type: 'button', class: 'btn', onclick: () => ctx.close() }, 'Отмена')));
+      h('div', { class: 'actions' }, send, button({ label: 'Отмена', onClick: () => ctx.close() })));
   }).catch((e) => root.replaceChildren(failBlock(e)));
   return root;
 }

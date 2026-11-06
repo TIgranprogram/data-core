@@ -9,8 +9,8 @@ import { h } from '../core/dom.js';
 import { date, isoDay, money, qty } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
 import { badge, ORDER_PRIORITY } from '../ui/kit/badges.js';
-import { actions, badge as kbadge, button, sku as kitSku, table, tabs as kitTabs } from '../ui/kit/index.js';
-import { toast } from '../ui/kit/toast.js';
+import { actions, badge as kbadge, button, iconButton, link, select, sku as kitSku, table, tabs as kitTabs } from '../ui/kit/index.js';
+import { toast, toastError } from '../ui/kit/toast.js';
 import { confirmDlg, modal } from '../ui/kit/dialog.js';
 import { withConfirm } from '../ui/confirm-password.js';
 import { incomeLookups } from './orders.js';
@@ -128,9 +128,9 @@ function readinessBlock(r, after) {
     const mark = async (btn) => {
       if (bad.length && !(await confirmDlg('Не выполнено: ' + bad.map((c) => c.label).join('; ') + '. Всё равно отметить?', 'Заказ перейдёт в «Готово к отгрузке».', { okText: 'Да, отметить' }))) return;
       btn.disabled = true; btn.classList.add('is-busy');
-      try { await setStage(r, 'ready'); window.dispatchEvent(new CustomEvent('data-changed')); after?.(); } catch (e) { toast(errText(e)); } finally { btn.disabled = false; btn.classList.remove('is-busy'); }
+      try { await setStage(r, 'ready'); window.dispatchEvent(new CustomEvent('data-changed')); after?.(); } catch (e) { toastError(e); } finally { btn.disabled = false; btn.classList.remove('is-busy'); }
     };
-    const btn = can ? h('button', { class: 'btn ' + (bad.length ? 'btn-ghost' : 'btn-warm btn-primary'), type: 'button', onclick: (e) => mark(e.currentTarget) }, 'Отметить: готов к отгрузке') : null;
+    const btn = can ? button({ label: 'Отметить: готов к отгрузке', kind: bad.length ? 'ghost' : 'primary', cls: bad.length ? '' : 'btn-warm', onClick: (e) => mark(e.currentTarget) }) : null;
     box.replaceChildren(h('div', { class: 'section-title' }, 'Готовность к отгрузке'),
       ...checks.map((c) => h('div', { class: 'rdy-row' + (c.ok ? ' ok' : '') },
         h('span', { class: c.ok ? 'pos' : 'muted', 'aria-hidden': 'true' }, c.ok ? '✓' : '○'), ' ', h('span', null, c.label),
@@ -151,9 +151,7 @@ async function matchProducts(r) {
   const items = res?.items || [];
   if (!items.length) { toast('Все позиции уже с изделием'); return null; }
   const rows = items.map((it) => {
-    const sel = h('select', null,
-      ...(it.suggestions || []).map((s) => h('option', { value: s.productId }, `${s.sku ? s.sku + ' ' : ''}${s.name}`)),
-      h('option', { value: '' }, 'Без изделия'));
+    const sel = select({ label: it.title || 'Изделие', options: [...(it.suggestions || []).map((s) => [s.productId, `${s.sku ? s.sku + ' ' : ''}${s.name}`]), ['', 'Без изделия']] });
     return { it, sel, el: h('label', { class: 'field' }, h('span', null, `${it.lineNo ? it.lineNo + '. ' : ''}${it.title || ''}`), sel) };
   });
   const saved = await modal({
@@ -251,19 +249,19 @@ function contractGroup(o, reload) {
     try {
       if ((await withConfirm(async () => { await salesorders.remove.run(o); return true; }, { text: 'Удаление требует вашего пароля.' })) === null) return;
       toast('Договор с заказчиком удалён'); window.dispatchEvent(new CustomEvent('data-changed')); reload?.();
-    } catch (e) { toast(errText(e)); }
+    } catch (e) { toastError(e); }
   };
   const menu = [
     !['closed', 'cancelled', 'new'].includes(o.stage) && canShip() && { label: 'Отгрузить', onSelect: () => patch({ of: 'shipdo', open: o.id }, { replace: false }) },
     can && !closedStage(o) && seeStock && { label: 'Загрузить спецификацию из Excel', onSelect: () => patch({ of: 'specimport', new: '1', orderId: o.id, open: undefined }, { replace: false }) },
-    can && o.productionNo && !closedStage(o) && { label: 'Перенести в другой заказ', onSelect: () => moveContract(o).then((r) => r && reload?.()).catch((e) => toast(errText(e))) },
-    session.role === 'admin' && o.stage !== 'new' && { label: 'Вернуть на прежний этап…', onSelect: () => stageBack(o).then((r) => r && reload?.()).catch((e) => toast(errText(e))) },
+    can && o.productionNo && !closedStage(o) && { label: 'Перенести в другой заказ', onSelect: () => moveContract(o).then((r) => r && reload?.()).catch((e) => toastError(e)) },
+    session.role === 'admin' && o.stage !== 'new' && { label: 'Вернуть на прежний этап…', onSelect: () => stageBack(o).then((r) => r && reload?.()).catch((e) => toastError(e)) },
     can && { label: 'Удалить договор', danger: true, onSelect: remove },
   ].filter(Boolean);
-  const dots = h('button', { class: 'btn btn-ghost btn-sm so-dots', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-label': 'Ещё действия по договору', title: 'Ещё: ' + menu.map((m) => m.label.toLowerCase()).join(', ') }, '⋯');
+  const dots = iconButton({ icon: '⋯', label: 'Ещё действия по договору', title: 'Ещё: ' + menu.map((m) => m.label.toLowerCase()).join(', '), size: 'S', menu: true, cls: 'so-dots' });
   dots.addEventListener('click', () => { if (isOpenFor(dots)) closePopMenu(true); else openPopMenu({ anchor: dots, side: 'down', groups: [{ items: menu }] }); });
   const acts = [
-    can ? h('button', { class: 'btn btn-sm', type: 'button', title: 'Изменить договор: № договора, заказчик, срок, примечание', onclick: () => patch({ of: 'salesorder', open: o.id }, { replace: false }) }, 'Изменить договор') : null,
+    can ? button({ label: 'Изменить договор', size: 'S', title: 'Изменить договор: № договора, заказчик, срок, примечание', onClick: () => patch({ of: 'salesorder', open: o.id }, { replace: false }) }) : null,
     menu.length ? dots : null,
   ].filter(Boolean);
   const head = h('div', { class: 'so-grp-head' },
@@ -275,11 +273,11 @@ function contractGroup(o, reload) {
   const done = (r) => { if (r) reload?.(); };
   const lineMenu = (l, btn) => {
     const items = l.cancelledAt
-      ? [{ label: 'Вернуть позицию', onSelect: () => restoreLine(l).then(done).catch((e) => toast(errText(e))) }]
-      : [{ label: 'Отменить позицию', danger: true, onSelect: () => cancelLine(l, o).then(done).catch((e) => toast(errText(e))) }, { label: 'Перенести в другой договор', onSelect: () => moveLine(l, o).then(done).catch((e) => toast(errText(e))) }];
+      ? [{ label: 'Вернуть позицию', onSelect: () => restoreLine(l).then(done).catch((e) => toastError(e)) }]
+      : [{ label: 'Отменить позицию', danger: true, onSelect: () => cancelLine(l, o).then(done).catch((e) => toastError(e)) }, { label: 'Перенести в другой договор', onSelect: () => moveLine(l, o).then(done).catch((e) => toastError(e)) }];
     if (isOpenFor(btn)) closePopMenu(true); else openPopMenu({ anchor: btn, side: 'down', groups: [{ items }] });
   };
-  const rowDots = (l) => { const b = h('button', { class: 'btn btn-ghost btn-sm so-dots', type: 'button', 'aria-haspopup': 'menu', 'aria-label': 'Действия с позицией', title: 'Отменить или перенести позицию', onclick: (e) => { e.stopPropagation(); lineMenu(l, b); } }, '⋯'); return b; };
+  const rowDots = (l) => { const b = iconButton({ icon: '⋯', label: 'Действия с позицией', title: 'Отменить или перенести позицию', size: 'S', menu: true, cls: 'so-dots', onClick: (e) => { e.stopPropagation(); lineMenu(l, b); } }); return b; };
   const paidOf = (l) => (Number(l.paidAmount) || (l.paidDate ? Number(l.amount) || 0 : 0));
   const payCells = (l) => {
     if (!session.canMoney) return [];
@@ -287,7 +285,7 @@ function contractGroup(o, reload) {
     return [
       h('td', { class: 'num nowrap muted' }, paidOf(l) ? money(paidOf(l)) : ''),
       h('td', { class: 'num nowrap' }, l.amount ? (debt > 0 ? money(debt) : h('span', { class: 'muted' }, '—')) : ''),
-      ...(payOn ? [h('td', { class: 'nowrap' }, l.amount && debt > 0 ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', title: 'Принять оплату по этой позиции', onclick: (e) => { e.stopPropagation(); patch({ of: 'incpay', open: String(l.id), new: undefined }, { replace: false }); } }, 'Принять оплату') : '')] : []),
+      ...(payOn ? [h('td', { class: 'nowrap' }, l.amount && debt > 0 ? button({ label: 'Принять оплату', kind: 'ghost', size: 'S', title: 'Принять оплату по этой позиции', onClick: (e) => { e.stopPropagation(); patch({ of: 'incpay', open: String(l.id), new: undefined }, { replace: false }); } }) : '')] : []),
     ];
   };
   const linesTable = lines.length
@@ -299,7 +297,7 @@ function contractGroup(o, reload) {
   // одна «+ Позиция» — под таблицей позиций, открывает полную форму справа (название, количество, цена, фото)
   const add = can && !closedStage(o)
     ? (canChangeLines(o)
-      ? h('div', { class: 'so-add' }, h('button', { class: 'btn btn-sm', type: 'button', title: 'Новая позиция: все поля — в правой панели', onclick: () => patch({ of: 'orders', new: '1', open: undefined, orderNo: o.orderNo || '', customer: o.customer || '', companyName: o.companyName || '', orderId: o.id }, { replace: false }) }, '+ Позиция'))
+      ? h('div', { class: 'so-add' }, button({ label: '+ Позиция', size: 'S', title: 'Новая позиция: все поля — в правой панели', onClick: () => patch({ of: 'orders', new: '1', open: undefined, orderNo: o.orderNo || '', customer: o.customer || '', companyName: o.companyName || '', orderId: o.id }, { replace: false }) }))
       : h('p', { class: 'hint' }, 'Договор уже в работе — менять позиции может администратор.'))
     : null;
   const seqBy = new Map(lines.map((l, i) => [String(l.id), seq(l, i)]));
@@ -312,7 +310,7 @@ function contractGroup(o, reload) {
     ['stock', 'Склад', seeReq || seeStock, () => h('div', null,
       seeReq ? sec(`Заказано под заказ (${(o.supplyRequests || []).length})`,
         (o.supplyRequests || []).length ? h('ul', { class: 'timeline' }, ...o.supplyRequests.map((s) => h('li', null, h('a', { href: '#requests?open=' + (s.id || s._id) }, `№${s.num ?? ''} ${s.title}`), h('span', { class: 'muted' }, ` · ${qty(s.qty)} ${s.unit || ''} · ${s.statusLabel || s.status || ''}`)))) : h('p', { class: 'muted' }, 'Заявок под этот заказ пока нет.'),
-        can ? h('button', { class: 'btn btn-sm', type: 'button', title: 'Новая заявка: заказ и заказчик подставятся сами', onclick: () => patch({ of: 'requests', new: '1', open: undefined, salesOrderRef: o.id, orderLabel: o.customer || undefined }) }, '+ Заявка под этот заказ') : null) : null,
+        can ? button({ label: '+ Заявка под этот заказ', size: 'S', title: 'Новая заявка: заказ и заказчик подставятся сами', onClick: () => patch({ of: 'requests', new: '1', open: undefined, salesOrderRef: o.id, orderLabel: o.customer || undefined }) }) : null) : null,
       seeStock ? orderReservations({ id: o.id, orderNo: o.orderNo, productionNo: o.productionNo, seqBy }, reload) : null,
       seeStock ? issuedBlock(o, sec) : null,
       seeStock && (o.stockMovements || []).length ? sec(`Отпущено со склада (${o.stockMovements.length})`,
@@ -372,7 +370,7 @@ const plateOf = (d) => { const u = unmatchedOrders(d); return u.length ? unmatch
 /** «+ Договор» над группами: меню «Выбрать из договоров без заказа» / «Создать новый». */
 function addContractBtn(d, ctx) {
   if (!editableOrder(d) || closedStage(d)) return null;
-  const btn = h('button', { class: 'btn btn-sm so-add', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', title: 'Добавить договор в этот заказ' }, '+ Договор');
+  const btn = button({ label: '+ Договор', size: 'S', cls: 'so-add', title: 'Добавить договор в этот заказ' }); btn.setAttribute('aria-haspopup', 'menu');
   btn.addEventListener('click', () => {
     if (isOpenFor(btn)) { closePopMenu(true); return; }
     openPopMenu({ anchor: btn, side: 'down', groups: [{ items: [
@@ -458,9 +456,9 @@ export const salesorders = {
     sortDefault: 'deadline',
     createLabel: false,
     headActions: () => session.canEditOrders ? [
-      h('button', { class: 'btn btn-primary', type: 'button', title: 'Новый заказ (договор): № заказа можно взять существующий — договоры объединятся в один заказ', onclick: () => patch({ of: 'salesorder', new: '1', open: undefined }, { replace: false }) }, '+ Заказ'),
-      h('button', { class: 'btn', type: 'button', title: 'Проверка полей Excel и загрузка заказа на сайт', onclick: () => importOrderExcel().catch((e) => toast(errText(e))) }, 'Импорт Excel'),
-      h('button', { class: 'btn btn-ghost', type: 'button', title: 'Скачать пустой шаблон Excel для заказа', onclick: () => downloadOrderTemplate() }, 'Шаблон'),
+      button({ label: '+ Заказ', kind: 'primary', title: 'Новый заказ (договор): № заказа можно взять существующий — договоры объединятся в один заказ', onClick: () => patch({ of: 'salesorder', new: '1', open: undefined }, { replace: false }) }),
+      button({ label: 'Импорт Excel', title: 'Проверка полей Excel и загрузка заказа на сайт', onClick: () => importOrderExcel().catch((e) => toastError(e)) }),
+      button({ label: 'Шаблон', kind: 'ghost', title: 'Скачать пустой шаблон Excel для заказа', onClick: () => downloadOrderTemplate() }),
     ] : [],
     searchPlaceholder: 'Поиск: № заказа, № договора, заказчик, предмет…',
     extraKeys: ['productId'], query: (P) => ({ productId: P.productId || undefined }),
@@ -639,7 +637,7 @@ export const salesorder = {
     stats: (r) => [['Позиций', qty(r.lineCount)], ...(session.canMoney ? [['Сумма', r.amount ? money(r.amount) : '—'], ['Оплачено', r.paidAmount ? money(r.paidAmount) : '—']] : [])],
     view: (r) => [
       ['№ заказа', r.productionNo || h('span', { class: 'muted' }, 'нет №')],
-      ...(r.offerId || r.offerNo ? [['Из КП', r.offerNo ? h('button', { type: 'button', class: 'link-btn', onclick: () => go('offers', { open: r.offerId }) }, r.offerNo) : '—']] : []),
+      ...(r.offerId || r.offerNo ? [['Из КП', r.offerNo ? link({ label: r.offerNo, onClick: () => go('offers', { open: r.offerId }) }) : '—']] : []),
       ['Заказчик', customerLink(r.customer)],
       ['Предмет', r.title],
       ['Наша компания', r.companyName || h('span', { class: 'muted' }, 'не указана')],

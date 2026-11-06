@@ -1,7 +1,7 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { failBlock } from '../ui/kit/busy.js';
-import { link, openSide } from '../ui/kit/index.js';
+import { link, openSide, button } from '../ui/kit/index.js';
 import { openLaunch } from './work-launch.js';
 
 /*
@@ -56,8 +56,8 @@ export function orderWork(orders) {
         t ? h('a', { href: '#work?open=' + t.id, title: 'Открыть карточку в работе' }, `${t.code} · ${st}`) : h('span', { class: 'muted' }, 'не запущена'),
         h('span'));
     });
-    const sendSel = h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: (e) => send([...picked], e.currentTarget) }, 'Запустить выбранные');
-    const sendAll = h('button', { type: 'button', class: 'btn btn-sm', disabled: !free.length, onclick: (e) => send(free.map((l) => String(l.id)), e.currentTarget) }, free.length === all.length ? 'Запустить в работу все позиции' : `Запустить все не запущенные (${free.length})`);
+    const sendSel = button({ label: 'Запустить выбранные', kind: 'primary', size: 'S', onClick: (e) => send([...picked], e.currentTarget) });
+    const sendAll = button({ label: free.length === all.length ? 'Запустить в работу все позиции' : `Запустить все не запущенные (${free.length})`, size: 'S', disabled: !free.length, onClick: (e) => send(free.map((l) => String(l.id)), e.currentTarget) });
     const pickHint = h('span', { class: 'muted' }, 'Отметьте позиции галочками');
     const paint = () => { sendSel.disabled = !picked.size; pickHint.hidden = !!picked.size || !free.length; sendSel.textContent = picked.size ? `Запустить выбранные (${picked.size})` : 'Запустить выбранные'; };
     paint();

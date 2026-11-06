@@ -1,4 +1,4 @@
-import { grp, sku as kitSku, attachCombo } from '../ui/kit/index.js';
+import { grp, sku as kitSku, attachCombo, button } from '../ui/kit/index.js';
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, newUid, parseNum, qty } from '../core/format.js';
@@ -149,11 +149,11 @@ function paymentsBlock(r, ctx) {
   const list = r.payments || [];
   const canEdit = session.canEdit;
   return h('div', { class: 'card-block' },
-    h('div', { class: 'q-head' }, h('h3', null, 'Оплаты'), canEdit && Number(r.amount) > 0 && r.debt > 0 ? h('button', { class: 'btn btn-sm', type: 'button', onclick: async () => { const s = await paymentDialog(r); if (s) ctx.setRow(s); } }, '+ Оплата') : null),
+    h('div', { class: 'q-head' }, h('h3', null, 'Оплаты'), canEdit && Number(r.amount) > 0 && r.debt > 0 ? button({ label: '+ Оплата', size: 'S', onClick: async () => { const s = await paymentDialog(r); if (s) ctx.setRow(s); } }) : null),
     list.length ? h('ul', { class: 'q-list' }, list.map((p, i) => h('li', { class: 'q-row' },
       h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, date(p.date)), h('div', { class: 'q-sub' }, [p.method, p.note].filter(Boolean).join(' · '))),
       h('div', { class: 'q-side' }, h('span', { class: 'num pos' }, money(p.amount)),
-        canEdit ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', title: 'Удалить платёж', onclick: async () => { ctx.setRow(await api(`/incomes/${r.id}/payments/${i}`, { method: 'DELETE', query: { amount: p.amount } })); toast('Оплата удалена'); } }, '✕') : null))))
+        canEdit ? button({ label: '✕', kind: 'ghost', size: 'S', title: 'Удалить платёж', onClick: async () => { ctx.setRow(await api(`/incomes/${r.id}/payments/${i}`, { method: 'DELETE', query: { amount: p.amount } })); toast('Оплата удалена'); } }) : null))))
       : h('p', { class: 'muted' }, Number(r.amount) > 0 ? 'Платежей пока нет.' : 'Сначала впишите сумму позиции.'),
     list.length ? h('p', { class: 'hint' }, `Оплачено ${money(r.paidAmount)} из ${money(r.amount)}; долг ${money(r.debt)}.`) : null);
 }

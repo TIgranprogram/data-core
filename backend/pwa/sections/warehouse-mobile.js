@@ -5,6 +5,7 @@ import { icon } from '../ui/icons.js';
 import { openStockOp } from './stock-ops.js';
 import { dayLabel, moveLabel } from './movements.js';
 import { badge, STOCK_STATUS } from '../ui/kit/badges.js';
+import { button } from '../ui/kit/index.js';
 
 const isMobile = () => window.innerWidth <= 720;
 const thumb = (photo) => photo ? h('img', { class: 'mob-thumb', src: PREFIX + (photo.thumb || photo.url), alt: '', loading: 'lazy' }) : null;
@@ -89,8 +90,7 @@ async function loadArrivals(box) {
                       req.paid ? h('span', { class: 'mob-arr-paid' }, 'оплачено') : null,
                       req.deliveryNote ? h('span', { class: 'muted' }, req.deliveryNote) : null)));
               })),
-            h('button', { class: 'btn btn-sm mob-arr-accept', type: 'button', onclick: () => openStockOp('in') },
-              `Принять ${g.items.length} ${plural(g.items.length, 'позицию', 'позиции', 'позиций')}`)))));
+            button({ label: `Принять ${g.items.length} ${plural(g.items.length, 'позицию', 'позиции', 'позиций')}`, size: 'S', cls: 'mob-arr-accept', onClick: () => openStockOp('in') })))));
   } catch { box.replaceChildren(); }
 }
 

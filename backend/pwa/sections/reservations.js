@@ -1,6 +1,6 @@
 import { api, session } from '../core/api.js';
 import { zoneQuery } from '../core/zone.js';
-import { row } from '../ui/kit/index.js';
+import { row, button } from '../ui/kit/index.js';
 import { h } from '../core/dom.js';
 import { date, plural, qty } from '../core/format.js';
 import { patch } from '../core/router.js';
@@ -47,9 +47,9 @@ export function reservationsPanel({ onChange }) {
         ...d.lines.map((l) => row({ title: l.name,
           side: [h('span', { class: 'num' }, l.left ? `${qty(l.left)} ${l.unit}` : 'выдано'), h('span', { class: 'muted num small' }, l.issued ? `выдано ${qty(l.issued)}` : '')],
           action: session.canEdit && l.canIssue ? [
-            h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => editReservation(l.id) }, 'Изменить'),
-            h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => issue(`Выдать: ${l.name}`, [{ id: l.id, name: l.name, unit: l.unit, qty: l.left }]) }, 'Выдать'),
-            h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: async () => { await api(`/stock/reservations/${l.id}/release`, { method: 'POST' }); toast('Бронь снята'); await changed(); } }, 'Снять')] : null })),
+            button({ label: 'Изменить', kind: 'ghost', size: 'S', onClick: () => editReservation(l.id) }),
+            button({ label: 'Выдать', kind: 'ghost', size: 'S', onClick: () => issue(`Выдать: ${l.name}`, [{ id: l.id, name: l.name, unit: l.unit, qty: l.left }]) }),
+            button({ label: 'Снять', kind: 'ghost', size: 'S', onClick: async () => { await api(`/stock/reservations/${l.id}/release`, { method: 'POST' }); toast('Бронь снята'); await changed(); } })] : null })),
         d.issues.length ? h('div', null, h('div', { class: 'section-title' }, 'Выдано'),
           h('ul', { class: 'timeline' }, ...d.issues.map((x) => h('li', null, h('span', { class: 'when' }, date(x.date)), `${x.name} — ${qty(x.qty)} ${x.unit}`, h('span', { class: 'muted' }, x.to ? ` · ${x.to}` : ' · кому — не указано'))))) : null,
         d.requests.length ? h('div', null, h('div', { class: 'section-title' }, 'Заказано недостающее'),
@@ -80,8 +80,8 @@ export function reservationsPanel({ onChange }) {
         const det = h('details', { class: 'ops-res', ontoggle: (e) => { if (e.target.open && !box.dataset.loaded) { box.dataset.loaded = '1'; detail(g, box); } } },
           h('summary', null, h('b', null, g.name), g.hanging ? h('span', { class: 'badge warn', title: 'Заказ закрыт или отгружен, а материал всё ещё в брони' }, 'Висит · ' + g.hanging.toLowerCase()) : null, h('span', { class: 'muted' }, ` · ${g.lines.length} ${plural(g.lines.length, 'позиция', 'позиции', 'позиций')}${g.salesOrder ? ' · ' + g.salesOrder : ''}${g.createdBy ? ' · ' + g.createdBy : ''}${g.createdAt ? ' · ' + date(g.createdAt) : ''}`),
             session.canEdit ? h('span', { class: 'res-acts' },
-              h('button', { type: 'button', class: 'btn btn-sm', onclick: (e) => { e.preventDefault(); issue(`Выдать всю бронь «${g.name}»`, g.lines.map((l) => ({ id: l.id, name: l.name, unit: l.unit, qty: l.qty }))); } }, 'Выдать всё'),
-              h('button', { type: 'button', class: 'btn btn-sm' + (g.hanging ? '' : ' btn-ghost'), onclick: async (e) => { e.preventDefault(); try { await releaseGroup(g); toast(`Бронь «${g.name}» снята`); await changed(); } catch (er) { toastError(er); } } }, g.hanging ? 'Снять' : 'Снять всю')) : null),
+              button({ label: 'Выдать всё', size: 'S', onClick: (e) => { e.preventDefault(); issue(`Выдать всю бронь «${g.name}»`, g.lines.map((l) => ({ id: l.id, name: l.name, unit: l.unit, qty: l.qty }))); } }),
+              button({ label: g.hanging ? 'Снять' : 'Снять всю', kind: g.hanging ? 'secondary' : 'ghost', size: 'S', onClick: async (e) => { e.preventDefault(); try { await releaseGroup(g); toast(`Бронь «${g.name}» снята`); await changed(); } catch (er) { toastError(er); } } })) : null),
           box);
         return det;
       })));

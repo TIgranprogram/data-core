@@ -3,9 +3,9 @@ import { h } from '../core/dom.js';
 import { parseNum, qty } from '../core/format.js';
 import { current, patch } from '../core/router.js';
 import { confirmDlg } from '../ui/kit/dialog.js';
-import { errText } from '../ui/kit/errors.js';
 import { targetPicker } from '../ui/kit/target-picker.js';
-import { toast } from '../ui/kit/toast.js';
+import { toast, toastError } from '../ui/kit/toast.js';
+import { button } from '../ui/kit/index.js';
 import { buildIssueOrder } from './order-issue.js';
 
 /*
@@ -29,12 +29,12 @@ async function build() {
   const note = h('input', { maxlength: 300, placeholder: 'необязательно — допишется в примечание брони' });
   for (const i of [qIn, note]) i.addEventListener('input', () => { touched = true; });
 
-  const release = h('button', { class: 'btn btn-sm', type: 'button', onclick: async () => {
+  const release = button({ label: 'Снять бронь', size: 'S', onClick: async () => {
     if (!(await confirmDlg('Снять бронь?', `«${line.name}» — ${qty(line.qty)} ${unit} снова станет свободным.`, { okText: 'Снять бронь', danger: true }))) return;
     release.disabled = true;
     try { await api(`/stock/reservations/${line.id}/release`, { method: 'POST' }); toast('Бронь снята'); window.dispatchEvent(new CustomEvent('data-changed')); touched = false; patch({ of: undefined, new: undefined, rid: undefined }); }
-    catch (e) { toast(errText(e), { error: true }); release.disabled = false; }
-  } }, 'Снять бронь');
+    catch (e) { toastError(e); release.disabled = false; }
+  } });
 
   const el = h('div', null,
     group.hanging ? h('div', { class: 'res-hang', role: 'note' }, `Висящая бронь: ${group.hanging.toLowerCase()}, а материал всё ещё отложен. Если он не нужен — снимите бронь.`) : null,

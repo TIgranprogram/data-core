@@ -4,6 +4,7 @@ import { qty } from '../core/format.js';
 import { modal } from '../ui/kit/dialog.js';
 import { toast } from '../ui/kit/toast.js';
 import { patch } from '../core/router.js';
+import { button, select } from '../ui/kit/index.js';
 
 /**
  * Позиции заказа трёх видов: изделие / новое изделие (ждёт проектировщика) / услуга (справочник «Услуги»).
@@ -121,7 +122,7 @@ export const countBadge = (n) => (n > 0 ? h('span', { class: 'badge warn', title
 
 /** «Это услуга»: 2 поля в окне — услуга и цена. */
 function serviceDialog(l) {
-  const sel = h('select', null, h('option', { value: '' }, 'Выберите…'));
+  const sel = select({ label: 'Услуга', options: [['', 'Выберите…']] });
   const price = h('input', { type: 'number', min: '0', step: 'any', placeholder: 'Цена за единицу, ₽', value: l.unitPrice ? String(l.unitPrice) : '' });
   const note = h('p', { class: 'hint' }, 'Услуга не идёт в производство и не требует изделия. Список — из Справочники → Услуги.');
   serviceTypes().then((ts) => { sel.append(...ts.map((t) => h('option', { value: t.value }, t.label))); if (!ts.length) note.textContent = NO_TYPES; });
@@ -151,9 +152,9 @@ export function distribBlock(o, reload) {
   const row = (l) => h('li', { class: 'ol-row' },
     h('div', { class: 'ol-name' }, h('b', null, l.title || 'Без названия'), h('span', { class: 'muted' }, ` · ${qty(l.qty)} ${l.unit || ''}`.trimEnd())),
     h('div', { class: 'ol-acts' },
-      h('button', { class: 'btn btn-sm', type: 'button', title: 'Найти изделие в «Продукции» и связать с позицией', onclick: () => patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }) }, 'Подобрать изделие'),
-      h('button', { class: 'btn btn-sm', type: 'button', title: 'Изделия ещё нет: проектировщик получит заявку', onclick: (e) => { const b = e.currentTarget; b.classList.add('is-busy'); newProduct(l).then(done).catch(fail).finally(() => b.classList.remove('is-busy')); } }, 'Новое изделие'),
-      h('button', { class: 'btn btn-sm', type: 'button', title: 'Услуга из справочника — изделие не нужно', onclick: () => serviceDialog(l).then(done).catch(fail) }, 'Это услуга')));
+      button({ label: 'Подобрать изделие', size: 'S', title: 'Найти изделие в «Продукции» и связать с позицией', onClick: () => patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }) }),
+      button({ label: 'Новое изделие', size: 'S', title: 'Изделия ещё нет: проектировщик получит заявку', onClick: (e) => { const b = e.currentTarget; b.classList.add('is-busy'); newProduct(l).then(done).catch(fail).finally(() => b.classList.remove('is-busy')); } }),
+      button({ label: 'Это услуга', size: 'S', title: 'Услуга из справочника — изделие не нужно', onClick: () => serviceDialog(l).then(done).catch(fail) })));
   return h('div', { class: 'ol-box' },
     h('div', { class: 'ol-head' }, h('b', null, 'Распределение'), ' ', countBadge(open.length)),
     h('p', { class: 'hint' }, 'У этих позиций нет изделия. Выберите изделие, закажите новое у проектировщика или отметьте услугой — иначе «В производство» не включится.'),
