@@ -24,6 +24,7 @@
 | C016 | Cursor (координатор) | S | Аудит: нужна ли страница «Сопоставление» | done — `C016-matching-nav-audit/REPORT.md` |
 | C017 | Cursor (оркестратор) | M | Производство: заказы/сопоставление/design/work | done — `C017-production-polish/REPORT.md` |
 | C024 | GLM-5.3 (внешний) | L | Аудит рутинных задач по журналу прода: топ-15 + ТЗ топ-5 | done — `C024-routine-audit/REPORT.md` + `FIX-TZ.md`; очередь — TASKS «Рутина» РУ-1…15 |
+| C025 | GLM-5.3 (внешний) | M | РУ-1 «Заменить фото» + РУ-4 раздача задач проектирования пачкой | queued — `C025-design-routine/TZ.md` |
 | C018 | Cursor (оркестратор) | L | Доска/группы/счётчик + доки/КП аудит | done — `C018-production-products-docs/REPORT.md` |
 | C019 | Cursor | M | «Смотреть как роль» (только просмотр) | ТЗ VIEW-AS — другой чат |
 | C019b | Cursor | M | Локальный ИИ → Excel заказа + импорт на сайте | код готов — `C019-local-ai-order-import/`; выкладка с C022 |
