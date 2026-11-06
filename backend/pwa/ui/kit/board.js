@@ -150,7 +150,8 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
       h('div', { class: 't-meta' }, v.meta, v.side ? h('span', { class: 'num' }, v.side) : null)]),
     v.foot ? quiet(v.foot) : null);
     if (multi && sel.has(row.id)) card.classList.add('selected');
-    const items = board.cardMenu && !multi ? board.cardMenu(row, c) : null;
+    // с галочкой (multi) меню «⋯» уходит в нижний угол карточки (kit.css) — действия карточки не теряются (дизайнер 2026-11-06)
+    const items = board.cardMenu ? board.cardMenu(row, c) : null;
     if (items && items.some((i) => i && !i.sep)) card.append(menuBtn(items, row));
     if (v.orderKey) { paintOrder(card, v.orderKey); card.classList.add('t-grouped'); } // цветная полоса заказа (карточка → {orderKey})
     bindDrag(card, row, c.key);

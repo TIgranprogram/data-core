@@ -30,6 +30,7 @@
 /* кнопка «⋯» на карточке доски */
 .k-menu-btn { position: absolute; top: 2px; right: 2px; z-index: 2; width: 32px; height: 32px; padding: 0; font-size: 18px; line-height: 1; }
 .tcard:has(.k-menu-btn) .t-title { padding-right: 30px; }
+.tcard:has(.t-pick) .k-menu-btn { top: auto; bottom: 2px; } /* галочка сверху справа, меню — снизу справа */
 /* segmented: переключатель на 2–4 варианта */
 .k-seg { display: flex; height: 36px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface); }
 .k-seg-btn { --tone: var(--primary); flex: 1; min-width: 0; height: 100%; margin: 0; border: 0; border-radius: 0; box-shadow: none; background: none; padding: 0 8px; font: inherit; font-size: var(--fs-sm); color: var(--muted); cursor: pointer; white-space: nowrap; transition: background .12s, color .12s; }
