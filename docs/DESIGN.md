@@ -114,6 +114,7 @@
 | panel | правая панель / предпросмотр: шапка, блоки, подвал (запись — `openCard`) | `panel({ title, sub?, kind?, blocks: [{title?,body}], footer, onClose })` |
 | entityPanel | правая панель v2 (ПМ-1): «раздел › сущность», главный блок, карточки связей, история свёрнута | `entityPanel({ section, title, kind?, main, related:[{key,title,meta?,count?,onOpen}], active?, history?, onClose })` → `{ el, setMain, setActive }` |
 | select | короткий выпадающий список без поиска (длинный — pick) | `select({ options:[[v,label]], value, onChange, label, disabled?, cls? })` |
+| fileButton | кнопка выбора файла (скрытый input внутри) | `fileButton({ label, accept, onFile(file), size?, title? })` |
 | readonlyGroup | компактная карточная группа реквизитов: h3 и ровные пары «метка — значение»; пустые группы не строятся, 0 и DOM-ссылки сохраняются | `readonlyGroup({ title, rows })`; общий `card.view` адаптирует прежние tuples/grp, без своих стилей в разделах |
 | timeline / Гант | лента времени «В работе»; стили `kit/timeline.css` | `mountGantt(cfg, path, query, hooks)` (`ui/gantt.js`) |
 | dialog | подтверждение или 1–3 поля; больше — правая панель | `modal({ title, body, okText, danger, wide, onOk })`, `confirmDlg(title, text, { okText, danger })` |

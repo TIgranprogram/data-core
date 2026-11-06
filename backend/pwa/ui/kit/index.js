@@ -19,6 +19,12 @@ export function button({ label, kind = 'secondary', size = 'M', icon, onClick, b
   return mark(h('button', { type, class: cls, disabled: disabled || busy, title, onclick: onClick }, icon || null, label), 'button');
 }
 
+/** fileButton({ label, accept, onFile(file), size: 'M'|'S', title? }) → кнопка-подпись со скрытым file input; выбранный файл отдаётся в onFile, поле сбрасывается */
+export function fileButton({ label, accept, onFile, size = 'S', title } = {}) {
+  const input = h('input', { type: 'file', accept, hidden: true, onchange: (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) onFile?.(f); } });
+  return mark(h('label', { class: 'btn' + (size === 'S' ? ' btn-sm' : ''), title: title || null }, label, input), 'button');
+}
+
 /** select({ options: [[value,label]|{value,label}], value, onChange(value), label (aria), disabled?, cls? }) → <select class="k-select"> — единственная фабрика выпадающего списка без поиска */
 export function select({ options = [], value, onChange, label, disabled = false, cls } = {}) {
   const el = h('select', { class: 'k-select' + (cls ? ' ' + cls : ''), 'aria-label': label || null, disabled, onchange: (e) => onChange?.(e.target.value) },

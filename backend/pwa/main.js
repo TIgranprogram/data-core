@@ -119,7 +119,7 @@ function needed(section, params) {
   if (section === 'money' && params?.tab === 'debts') keys.add('orders'); // «Долги» — список из orders.js
   return [...keys].filter((k) => LAZY[k][1].some(([n]) => (n[0] === '@' ? !FN[n.slice(1)] : !SECTIONS[n])));
 }
-const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог поставщиков', 'partners'], ['contracts', 'Договоры', 'orders'], ['salesorders', 'Заказы', 'orders'], ['matching', 'Сопоставление', 'orders'], ['design', 'Проектирование', 'board'], ['work', 'В работе', 'ops'], ['products', 'Продукция', 'stock'], ['offers', 'КП', 'orders'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners'], ['staff', 'Сотрудники', 'partners'], ['stock-mobile', 'Склад (телефон)', 'stock']];
+const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог поставщиков', 'partners'], ['contracts', 'Договоры', 'orders'], ['salesorders', 'Заказы', 'orders'], ['matching', 'Сопоставление', 'orders'], ['design', 'Проектирование', 'board'], ['work', 'В работе', 'ops'], ['products', 'Продукция', 'stock'], ['offers', 'КП', 'orders'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['money', 'Платёжный календарь', 'money'], ['payroll', 'ФОТ', 'partners'], ['staff', 'Сотрудники', 'partners'], ['stock-mobile', 'Склад · мобильный', 'stock']];
 /** Стартовый экран: роль «Ассистент кладовщика» — сразу своя страница. */
 const defaultSection = () => (session.onlyStockMobile ? 'stock-mobile' : 'home');
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
@@ -236,7 +236,7 @@ function shell() {
     // «Сопоставление» не в меню (C016/C017): вход из Заказов и бейджа «не сопоставлено»; #matching и права в NAV оставляем
     group('Производство', navLinks.salesorders, navLinks.design, navLinks.work),
     group('Продукция', navLinks.products, navLinks.offers, session.canEdit ? navLinks.docs : null),
-    group('Склад', navLinks.stock, navLinks['stock-mobile']), // «Склад (телефон)» — кладовщику с телефона: выдать, принять
+    group('Склад', navLinks.stock, navLinks['stock-mobile']), // «Склад · мобильный» — кладовщику с телефона: выдать, принять
     group('Снабжение', navLinks.requests, navLinks.suppliercatalog, navLinks.contracts),
     session.canMoney ? group('Деньги', navLinks.money, FEATURES.payroll && session.canMoney && session.canPayroll ? navLinks.payroll : null) : null,
     group('Управление', navLinks.staff),
