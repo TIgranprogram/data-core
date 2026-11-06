@@ -116,6 +116,10 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 /* k-stack — блоки правой панели колонкой с одним зазором (ПМ-1, аудит панелей 2026-11-06) */
 .k-stack { display: flex; flex-direction: column; gap: var(--s3); min-width: 0; }
 .k-stack > .k-sec { margin: 0; }
+/* цвета категорий секций (к form.css main/info/money/who): золотой и серый */
+.form-block[data-tone='gold'] { --tone: var(--gold); --tone-soft: var(--gold-soft); }
+.form-block[data-tone='gold'] .form-sec { color: var(--gold-deep); } /* заголовок читается на светлом фоне (~5:1); полоса слева — --gold */
+.form-block[data-tone='neutral'] { --tone: var(--muted); --tone-soft: var(--neutral-soft); }
 /* правая панель: блоки колонкой с одним зазором, свои нижние отступы не нужны (ПМ-1, аудит 2026-11-06) */
 .drawer-body { display: flex; flex-direction: column; gap: var(--s4); }
 .drawer-body > * { flex-shrink: 0; margin-bottom: 0; }
@@ -344,7 +348,7 @@ button.m-fg-h { cursor: pointer; }
 .dz-flow > * { break-inside: avoid; -webkit-column-break-inside: avoid; page-break-inside: avoid; margin: 0 0 var(--s4); min-width: 0; width: 100%; display: block; }
 .dz-flow > *:last-child { margin-bottom: 0; }
 /* ряд кнопок в потоке остаётся рядом с зазором (аудит панелей 2026-11-06: display:block склеивал кнопки) */
-.dz-flow > .actions { display: flex; }
+.dz-flow > .actions, .dz-flow > .k-stack { display: flex; } /* ряд кнопок и колонка блоков сохраняют свой зазор в «двух колонках» */
 /* Воронка этапов — на всю ширину потока, иначе в 2 колонках уезжает влево */
 .dz-flow > .stg,
 .dz-flow > .stg-cancel { column-span: all; }

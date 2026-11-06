@@ -136,12 +136,13 @@ export const grp = (t) => [h('span', { class: 'fields-grp' }, t), h('span', { cl
 
 export const sku = (text) => (text == null || String(text).trim() === '' ? null : mark(h('span', { class: 'k-sku' }, String(text).trim()), 'sku'));
 
-/** section({ title, count?, open?, body, cls? }) → <details class="form-block k-sec">: сворачиваемая секция правой панели (по умолчанию закрыта).
+/** section({ title, count?, open?, body, cls?, tone? }) → <details class="form-block k-sec">: сворачиваемая секция правой панели (по умолчанию закрыта).
+ *  tone — цвет категории (полоса слева и заголовок): main · info · money · who · gold · neutral (ПМ-1, 2026-11-06).
  *  В шапке — заголовок, число (count) и стрелка; открывается Enter/Пробел/щелчком. body — узлы или массив. Свёрнутое состояние не хранится. */
-export function section({ title, count, open = false, body, cls } = {}) {
+export function section({ title, count, open = false, body, cls, tone = 'main' } = {}) {
   const sum = h('summary', { class: 'form-sec k-sec-head' }, h('span', { class: 'form-sec-t' }, title),
     count != null ? h('span', { class: 'badge dim k-sec-n' }, String(count)) : null, h('span', { class: 'form-sec-chev', 'aria-hidden': 'true' }, '›'));
-  return mark(h('details', { class: 'form-block k-sec' + (cls ? ' ' + cls : ''), 'data-tone': 'main', open: open || null }, sum, h('div', { class: 'k-sec-body' }, ...nodes(body))), 'section');
+  return mark(h('details', { class: 'form-block k-sec' + (cls ? ' ' + cls : ''), 'data-tone': tone, open: open || null }, sum, h('div', { class: 'k-sec-body' }, ...nodes(body))), 'section');
 }
 
 /** stack(...блоки) → .k-stack: блоки правой панели колонкой с одним зазором (ПМ-1). */
