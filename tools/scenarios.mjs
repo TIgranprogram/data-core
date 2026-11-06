@@ -140,6 +140,8 @@ await scenario('A', 'Паспорт: шаблон, «Не хватает», со
   notes.push(`изделие ${pick.sku || ''} ${pick.name}`.slice(0, 80));
   try {
     await nav('#products?open=' + pick.id, 1200);
+    // ПМ-1 (2026-11-06): блок «Документация» — свёрнутая секция; кнопка внутри
+    await clickText('^Документация', 'summary');
     check(await clickText('^Шаблон паспорта', 'button, a, .btn'), 'в карточке изделия нет кнопки «Шаблон паспорта»');
     await until(`/шаблон паспорта ·|Раздел не открылся/i.test(document.body.innerText)`, 8000);
     if (await docsBroken(check)) return;

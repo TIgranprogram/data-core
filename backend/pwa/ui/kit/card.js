@@ -195,10 +195,10 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   }
 
   async function loadHistory(ul, wrap) {
-    if (!section.entityType || !row?.id) { return; }
+    if (!section.entityType || !row?.id) { ul.replaceChildren(); return; }
     try {
       const r = await api('/audit-logs/record', { query: { entityType: section.entityType, entityId: row.id } });
-      if (!r.items.length) return; // скрываем секцию если истории нет
+      if (!r.items.length) { ul.replaceChildren(); return; } // истории нет — секция скрыта, «Загружаю…» не висит (обход ждал его до упора)
       const label = section.historyLabels || {};
       // подписи полей — из формы раздела (И.1: «Поле: было → стало»)
       let names = {}; let flds = [];
@@ -207,7 +207,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
       const byKey = new Map(flds.map((f) => [f.key, f]));
       const revertOf = (x) => (x.first || !canEditSection(section) || section.form?.build ? [] : (x.changes || []).filter((c) => byKey.has(c.field) && byKey.get(c.field).type !== 'widget' && byKey.get(c.field).type !== 'photos'));
       const items = r.items.filter((x) => usefulEntry(x, names));
-      if (!items.length) return;
+      if (!items.length) { ul.replaceChildren(); return; }
       ul.replaceChildren(...items.map((x) => h('li', null, h('span', { class: 'when' }, dateTime(x.createdAt)), h('span', null, label[x.action] || actionLabel(x.action)), h('span', { class: 'muted' }, x.userName || ''),
         changeList(x.changes, names, x.first),
         String(x.action || '').endsWith('deleted') && session.canEdit ? h('a', { href: '#trash', class: 'btn btn-ghost btn-sm', title: 'Открыть корзину: там запись можно вернуть', onclick: (e) => { e.preventDefault(); go('trash'); } }, 'В корзине — восстановить') : null,
