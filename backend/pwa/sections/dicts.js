@@ -8,7 +8,7 @@ import { confirmDlg, modal } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { lookups } from './lookups.js';
 import { KINDS, KINDS_V2, kindName } from '../core/passport-kinds.js';
-import { tagPick } from '../ui/kit/index.js';
+import { tagPick, button, select, enhanceSelect } from '../ui/kit/index.js';
 import { mountTexts, TEXTS_KEY } from './passport-texts.js';
 import { mountTree, TREE_KEY } from './passport-tree.js';
 import { mountZones, ZONES_KEY } from './stock-zones.js';
@@ -51,7 +51,7 @@ export function mountDicts(params) {
   let q = '';
   const openGroups = new Set(); // свёрнутая группа «Документы», открытая вручную
   const nav = h('nav', { class: 'panel dict-nav', 'aria-label': 'Справочники' });
-  const sel = h('select', { class: 'dict-sel', 'aria-label': 'Справочник', onchange: () => { const v = sel.value; if (v === '#partners') go('partners'); else go('dicts', { d: v }, { replace: true }); } });
+  const sel = select({ cls: 'dict-sel', label: 'Справочник', onChange: (v) => { if (v === '#partners') go('partners'); else go('dicts', { d: v }, { replace: true }); } });
   const title = h('h3', null, '…');
   const hint = h('p', { class: 'hint dict-hint' });
   // общий поиск (ПО.3): пусто — весь справочник
@@ -62,8 +62,8 @@ export function mountDicts(params) {
   let tree = null; // экран «Тексты паспорта» (дерево вариантов)
   let zonesView = null; // экран «Склады» (только администратор)
   let qf = 'all'; // фильтр качества таблицы: все / дубли
-  const addBtn = h('button', { type: 'button', class: 'btn btn-primary', hidden: !session.canEdit, onclick: () => patch({ of: 'dict', new: '1', open: undefined }) }, '+ Добавить');
-  const candBtn = h('button', { type: 'button', class: 'btn', hidden: !session.canEdit, title: 'Значения, которые уже встречаются в заявках, на складе и в Google-таблице, но ещё не в справочнике', onclick: () => toggleCandidates() }, 'Найти в данных…');
+  const addBtn = button({ label: '+ Добавить', kind: 'primary', onClick: () => patch({ of: 'dict', new: '1', open: undefined }) }); addBtn.hidden = !session.canEdit;
+  const candBtn = button({ label: 'Найти в данных…', title: 'Значения, которые уже встречаются в заявках, на складе и в Google-таблице, но ещё не в справочнике', onClick: () => toggleCandidates() }); candBtn.hidden = !session.canEdit;
   const cand = h('div', { class: 'dict-cand', hidden: true });
   const body = h('div', { class: 'dict-body' });
   const box = h('section', { class: 'panel dict-main' },
@@ -124,9 +124,9 @@ export function mountDicts(params) {
       const lock = isLocked(dict, r);
       const acts = [];
       if (canEditDict()) {
-        acts.push(h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => patch({ of: 'dict', open: r.id, new: undefined }) }, 'Изменить'));
+        acts.push(button({ label: 'Изменить', kind: 'ghost', size: 'S', onClick: () => patch({ of: 'dict', open: r.id, new: undefined }) }));
         acts.push(lock ? h('span', { class: 'dict-lock muted', title: 'Это значение нужно программе — удалить нельзя' }, '🔒 Встроено в программу')
-          : h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: (e) => removeItem(r, e.currentTarget) }, 'Удалить'));
+          : button({ label: 'Удалить', kind: 'ghost', size: 'S', onClick: (e) => removeItem(r, e.currentTarget) }));
       } else if (lock) acts.push(h('span', { class: 'dict-lock muted' }, '🔒 Встроено в программу'));
       list.append(h('li', { class: 'dict-item' + (canEditDict() ? ' clickable' : ''), onclick: canEditDict() ? (e) => { if (!e.target.closest('button')) patch({ of: 'dict', open: r.id, new: undefined }); } : null },
         h('div', { class: 'dict-name' }, h('b', { title: r.name }, r.name), ...qualityBadges({ dupe: dup.get(r.id) || 0, dupeHint: 'Такое же название есть у другой записи — объедините' })),
@@ -167,9 +167,9 @@ export function mountDicts(params) {
     cand.replaceChildren(h('p', { class: 'muted' }, 'Ищу в заявках, на складе и в Google-таблице…'));
     try {
       const r = await api(`/dicts/${dictKey()}/candidates`);
-      if (!r.items.length) { cand.replaceChildren(h('p', { class: 'hint' }, 'Всё, что встречается в данных, уже есть в справочнике.'), h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { cand.hidden = true; } }, 'Закрыть')); return; }
+      if (!r.items.length) { cand.replaceChildren(h('p', { class: 'hint' }, 'Всё, что встречается в данных, уже есть в справочнике.'), button({ label: 'Закрыть', size: 'S', onClick: () => { cand.hidden = true; } })); return; }
       const boxes = r.items.map((c) => ({ c, cb: h('input', { type: 'checkbox', checked: !c.similar }) }));
-      const go2 = h('button', { type: 'button', class: 'btn btn-primary btn-sm' }, 'Добавить отмеченные');
+      const go2 = button({ label: 'Добавить отмеченные', kind: 'primary', size: 'S' });
       go2.addEventListener('click', async () => {
         const names = boxes.filter((b) => b.cb.checked).map((b) => b.c.name);
         if (!names.length) { toast('Отметьте, что добавить', { error: true }); return; }
@@ -183,7 +183,7 @@ export function mountDicts(params) {
         h('ul', { class: 'dict-cand-list' }, ...boxes.map(({ c, cb }) => h('li', null, h('label', null, cb, h('b', null, c.name)),
           h('span', { class: 'muted' }, [c.uses ? `встречается ${qty(c.uses)} раз` : '', c.source].filter(Boolean).join(' · ')),
           c.similar ? h('span', { class: 'tag' }, `похоже на «${c.similar.name}» ${Math.round(c.similar.score * 100)}%`) : null))),
-        h('div', { class: 'bulk-foot' }, go2, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { cand.hidden = true; } }, 'Закрыть')));
+        h('div', { class: 'bulk-foot' }, go2, button({ label: 'Закрыть', size: 'S', onClick: () => { cand.hidden = true; } })));
     } catch (e) { cand.replaceChildren(failBlock(e)); }
   }
 
@@ -256,7 +256,7 @@ export function mountDicts(params) {
 /** Объединить дубль: всё связанное перейдёт к выбранному, этот — в корзину. */
 async function mergeDialog(r, ctx) {
   const all = (await api(`/dicts/${dictKey()}`)).items.filter((x) => x.id !== r.id);
-  const sel = h('select', null, h('option', { value: '' }, '— выберите —'), ...all.map((x) => h('option', { value: x.id }, x.name)));
+  const sel = enhanceSelect(select({ options: [['', '— выберите —'], ...all.map((x) => [x.id, x.name])], label: 'Оставить' }));
   const done = await modal({
     title: 'Объединить «' + r.name + '»',
     okText: 'Объединить',
@@ -343,7 +343,7 @@ export const dict = {
       const usageField = isNew ? null : { key: '_usage', label: '', type: 'widget', wide: true, summary: () => '',
         widget: () => ({ el: h('div', { class: 'dict-usage' },
           u && u.tracked !== false ? h('div', { class: 'muted' }, u.busy ? `Используется в: ${secs}` : 'Нигде не используется') : null,
-          canEditDict() ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => mergeDialog(r, { close() {} }) }, 'Объединить с…') : null),
+          canEditDict() ? button({ label: 'Объединить с…', size: 'S', onClick: () => mergeDialog(r, { close() {} }) }) : null),
         get value() { return ''; }, set value(x) { void x; }, focus() {} }) };
       // «Виды работ» сотрудника — несколько, галочками (workTypeIds; от них зависит, кого предложат на карточку в «В работе»)
       const wtOpts = (info.refs?.worktypes || []).map((o) => ({ code: String(o.value), name: o.label }));

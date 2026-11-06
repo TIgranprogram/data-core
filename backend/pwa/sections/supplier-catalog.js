@@ -1,7 +1,7 @@
 import { api, apiFile, session, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, money, qty, plural } from '../core/format.js';
-import { stepFunnel, attachCombo, enhanceSelect } from '../ui/kit/index.js';
+import { stepFunnel, attachCombo, enhanceSelect, button, iconButton } from '../ui/kit/index.js';
 import { catArt } from '../ui/cat-art.js';
 import { current, patch, go } from '../core/router.js';
 import { openSide, noteField, sideForm } from '../ui/kit/side-form.js';
@@ -106,7 +106,7 @@ function sideFilters() {
         h('div', { class: 'ls-list' }, FLAGS.map(([k, label]) => opt(label, flagN[k], P.flag === k, () => patch({ flag: P.flag === k ? undefined : k, page: undefined }))))),
       h('div', { class: 'ls-group' }, h('div', { class: 'ls-h' }, 'Порядок'),
         h('div', { class: 'ls-list' }, ORDERS.map(([k, label]) => opt(label, undefined, (P.ord || '') === k, () => patch({ ord: k || undefined, page: undefined }))))),
-      h('button', { type: 'button', class: 'btn btn-ghost', onclick: () => patch({ supplierId: undefined, catId: undefined, subId: undefined, flag: undefined, ord: undefined, q: undefined, all: undefined, page: undefined }) }, 'Сбросить'));
+      button({ label: 'Сбросить', kind: 'ghost', onClick: () => patch({ supplierId: undefined, catId: undefined, subId: undefined, flag: undefined, ord: undefined, q: undefined, all: undefined, page: undefined }) }));
   }
   el.append(funnel.el, rest);
   return { el, update(next) { P = next; funnel.update(next); paint(); } };
@@ -123,15 +123,15 @@ async function catLanding() {
     return h('button', { type: 'button', class: 'cat-tile', title: name, onclick: pick }, art, h('div', { class: 'cat-body' }, h('div', { class: 'cat-name' }, name), h('div', { class: 'cat-n' }, nPos(n || 0))));
   };
   const tops = catTops(c);
-  if (!tops.length && !c.noCategory) return h('div', { class: 'state' }, h('div', null, 'Категорий пока нет — позиции покажутся списком.'), h('button', { class: 'btn', type: 'button', onclick: () => go({ all: '1' }) }, 'Все списком'));
+  if (!tops.length && !c.noCategory) return h('div', { class: 'state' }, h('div', null, 'Категорий пока нет — позиции покажутся списком.'), button({ label: 'Все списком', onClick: () => go({ all: '1' }) }));
   const queue = c.unmatched > 0 && canWrite()
     ? h('div', { class: 'cat-top' },
         h('p', { class: 'hint' }, `Без связи со складом: ${nPos(c.unmatched)} — выберите позицию или создайте новую, не плодя дубли имени.`),
-        h('button', { class: 'btn btn-primary', type: 'button', onclick: () => go({ flag: 'unmatched', all: '1' }) }, 'Очередь «Связать с позицией»'))
+        button({ label: 'Очередь «Связать с позицией»', kind: 'primary', onClick: () => go({ flag: 'unmatched', all: '1' }) }))
     : null;
   return h('div', { class: 'cat-landing' },
     queue,
-    h('div', { class: 'cat-top' }, h('p', { class: 'muted' }, `Выберите категорию · всего ${nPos(totalOf(c))}`), h('button', { class: 'btn', type: 'button', onclick: () => go({ all: '1' }) }, 'Все списком')),
+    h('div', { class: 'cat-top' }, h('p', { class: 'muted' }, `Выберите категорию · всего ${nPos(totalOf(c))}`), button({ label: 'Все списком', onClick: () => go({ all: '1' }) })),
     h('div', { class: 'cat-grid' },
       ...tops.map((x) => tile(x.name, x.count, () => go({ catId: x.id }))),
       c.noCategory ? tile('Без категории', c.noCategory, () => go({ catId: 'none' })) : null));
@@ -139,16 +139,16 @@ async function catLanding() {
 
 // ---------- шапка: крошки и шестерёнка ----------
 function topBlock(reload) {
-  const gear = h('button', { class: 'btn btn-ghost', type: 'button', title: 'Шаблон, загрузка и выгрузка Excel', 'aria-label': 'Действия с Excel', 'aria-haspopup': 'menu',
-    onclick: () => openPopMenu({ anchor: gear, side: 'down', groups: [
+  const gear = iconButton({ icon: icon('settings'), label: 'Действия с Excel', title: 'Шаблон, загрузка и выгрузка Excel', menu: true,
+    onClick: () => openPopMenu({ anchor: gear, side: 'down', groups: [
       { items: [
         { label: '⇩ Шаблон Excel', onSelect: () => download('/supply/catalog/template', {}, 'Шаблон_каталога.xlsx') },
         canWrite() ? { label: 'Загрузить Excel…', onSelect: () => openSide('pricelist', current().params.supplierId || 'x') } : null,
         { label: 'Выгрузить в Excel', onSelect: () => download('/supply/catalog/export', queryOf(current().params), 'Каталог_поставщиков.xlsx') },
-      ] }] }) }, icon('settings'));
+      ] }] }) });
   // выход к плиткам категорий и сброс — всегда на виду сверху (жалоба 2026-10-29: «зашёл в категорию — назад не выйти»)
   const ALL = { supplierId: undefined, catId: undefined, subId: undefined, flag: undefined, ord: undefined, q: undefined, all: undefined, page: undefined };
-  const back = h('button', { class: 'btn', type: 'button', onclick: () => patch(ALL) }, '← Все категории');
+  const back = button({ label: '← Все категории', onClick: () => patch(ALL) });
   const el = h('div', { class: 'sc-top' }, back, h('span', { class: 'spacer' }), gear);
   el.onParams = async (P) => {
     back.hidden = !(P.supplierId || P.catId || P.subId || P.q || P.flag || P.all || P.ord);
@@ -290,11 +290,11 @@ function materialWidget(v, row) {
     }, 250);
   });
   const createBtn = row?.id && canWrite()
-    ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm sc-preview', onclick: (e) => {
+    ? button({ label: 'Создать позицию склада', kind: 'ghost', size: 'S', cls: 'sc-preview', onClick: (e) => {
         e.preventDefault();
         const art = row.article && !String(row.article).startsWith('manual:') ? row.article : '';
         go('stock', { new: '1', name: row.name || '', article: art || undefined, fromCatalog: row.id, open: undefined });
-      } }, 'Создать позицию склада')
+      } })
     : null;
   const hint = h('p', { class: 'hint' }, 'Сначала найдите на складе. Нет такой — только кнопка «Создать позицию склада» (иначе появится дубль имени).');
   return { el: h('div', null, wrap, createBtn, hint), get value() { return id ? JSON.stringify(id) : ''; }, set value(_) { /* только ввод */ } };
@@ -365,7 +365,7 @@ export const supplierCatalog = {
       const cell = (l, v) => (v === undefined || v === null || v === '' ? null : h('div', { class: 'sc-f' }, h('span', null, l), h('b', null, v)));
       const mat = r.materialId
         ? h('span', null, r.materialName, r.materialArticle ? h('span', { class: 'muted' }, ' · ' + r.materialArticle) : null)
-        : h('span', { class: 'sc-nolink' }, h('span', { class: 'muted' }, 'нет связи'), canWrite() ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => ctx.edit() }, 'Связать с позицией') : null);
+        : h('span', { class: 'sc-nolink' }, h('span', { class: 'muted' }, 'нет связи'), canWrite() ? button({ label: 'Связать с позицией', size: 'S', onClick: () => ctx.edit() }) : null);
       return h('div', { class: 'sc-card' },
         h('div', { class: 'sc-price' },
           h('div', { class: 'sc-price-v num' }, r.priceHint != null ? `${money(r.priceHint)}${r.unit ? ' / ' + r.unit : ''}` : 'Цена не задана'),

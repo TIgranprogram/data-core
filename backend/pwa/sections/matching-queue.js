@@ -2,7 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
-import { enhanceSelect, table, tabs as kitTabs } from '../ui/kit/index.js';
+import { enhanceSelect, table, tabs as kitTabs, button } from '../ui/kit/index.js';
 import { toastError } from '../ui/kit/toast.js';
 import { STAGE } from './order-stage.js';
 import { openMatching } from './salesorders-matching.js';
@@ -29,7 +29,7 @@ export function unmatchedPlate(n, orderId) {
   if (!n) return null;
   return h('div', { class: 'mt-plate', role: 'status' },
     h('span', null, `${qty(n)} ${n % 10 === 1 && n % 100 !== 11 ? 'позиция не связана' : 'позиций не связаны'} с продукцией. Заказ можно вести дальше.`),
-    h('button', { class: 'btn btn-sm', type: 'button', onclick: () => openMatching(patch, orderId) }, 'Сопоставить'));
+    button({ label: 'Сопоставить', size: 'S', onClick: () => openMatching(patch, orderId) }));
 }
 
 /** Метка «не сопоставлено» на карточке; клик открывает сопоставление договора. */
@@ -44,7 +44,7 @@ export function unmatchedOrders(r) {
 
 /** Блок над списком: кнопка «Несопоставленные · N» (скрыта при 0) и раскрывающаяся таблица; open — сразу таблица, без кнопки (экран «Сопоставление»). */
 export function unmatchedTop({ open = false } = {}) {
-  const btn = h('button', { class: 'btn btn-ghost', type: 'button', hidden: true, 'aria-expanded': 'false' }, 'Несопоставленные');
+  const btn = button({ label: 'Несопоставленные', kind: 'ghost' }); btn.hidden = true; btn.setAttribute('aria-expanded', 'false');
   const box = h('div', { class: 'ua-box', hidden: !open });
   const el = h('div', { class: 'ua-top' }, open ? null : btn, box);
   let items = [], total = 0, q = '', onlyProd = false, loaded = false;
@@ -62,9 +62,9 @@ export function unmatchedTop({ open = false } = {}) {
     enhanceSelect(s);
   };
   const prod = h('input', { type: 'checkbox' });
-  const bulkBtn = h('button', { class: 'btn btn-primary mq-bulk', type: 'button', hidden: true });
+  const bulkBtn = button({ label: '', kind: 'primary', cls: 'mq-bulk' }); bulkBtn.hidden = true;
   const body = h('div', { class: 'mq-body' });
-  const more = h('button', { class: 'btn btn-ghost btn-sm', type: 'button', hidden: true }, 'Показать ещё');
+  const more = button({ label: 'Показать ещё', kind: 'ghost', size: 'S' }); more.hidden = true;
   const write = canWrite();
 
   const setCount = async () => {
@@ -80,9 +80,9 @@ export function unmatchedTop({ open = false } = {}) {
   const rowEl = (it) => {
     const s = best(it);
     const acts = write ? h('div', { class: 'mq-acts' },
-      s ? h('button', { class: 'btn btn-sm btn-primary', type: 'button', onclick: (e) => { e.currentTarget.classList.add('is-busy'); run(() => api('/matching/confirm', { method: 'POST', body: { lineId: it.lineId, productId: s.productId } })); } }, 'Подтвердить') : null,
-      h('button', { class: 'btn btn-sm', type: 'button', onclick: () => openMatching(patch, it.orderId, it.lineId) }, 'Выбрать…'),
-      h('button', { class: 'btn btn-sm btn-ghost', type: 'button', onclick: (e) => { e.currentTarget.classList.add('is-busy'); run(() => api('/matching/none', { method: 'POST', body: { lineId: it.lineId } })); } }, 'Не изделие')) : null;
+      s ? button({ label: 'Подтвердить', kind: 'primary', size: 'S', onClick: (e) => { e.currentTarget.classList.add('is-busy'); run(() => api('/matching/confirm', { method: 'POST', body: { lineId: it.lineId, productId: s.productId } })); } }) : null,
+      button({ label: 'Выбрать…', size: 'S', onClick: () => openMatching(patch, it.orderId, it.lineId) }),
+      button({ label: 'Не изделие', kind: 'ghost', size: 'S', onClick: (e) => { e.currentTarget.classList.add('is-busy'); run(() => api('/matching/none', { method: 'POST', body: { lineId: it.lineId } })); } })) : null;
     return h('tr', null,
       h('td', { class: 'nowrap' }, it.productionNo ? h('b', null, it.productionNo) : h('span', { class: 'muted' }, 'нет №'), h('div', { class: 't-sub' }, STAGE[it.stage]?.label || '')),
       h('td', null, h('b', null, it.orderNo || '—'), h('div', { class: 't-sub' }, it.customer || '')),

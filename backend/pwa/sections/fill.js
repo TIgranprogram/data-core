@@ -4,8 +4,8 @@ import { failBlock } from '../ui/kit/busy.js';
 import { qty, parseNum } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { opThumb } from '../ui/op-row.js';
-import { toast } from '../ui/kit/toast.js';
-import { empty } from '../ui/kit/index.js';
+import { toast, toastError } from '../ui/kit/toast.js';
+import { empty, button } from '../ui/kit/index.js';
 
 /**
  * «Требуют заполнения» по категориям (TASKS ТЗ.3–ТЗ.4). Данные — `/api/fill-audit`: группа = что не заполнено,
@@ -24,7 +24,7 @@ const NUMERIC = new Set(['priceHint', 'unitPrice']);
 function quickRow(g, x, done) {
   const v = x.values || {};
   const inputs = Object.fromEntries(g.quick.map((k) => [k, h('input', { type: QUICK[k][1], value: v[k] ?? '', placeholder: QUICK[k][0], 'aria-label': QUICK[k][0], ...(NUMERIC.has(k) ? { inputmode: 'decimal' } : {}), onkeydown: (e) => { if (e.key === 'Enter') save(); } })]));
-  const btn = h('button', { type: 'button', class: 'btn btn-sm btn-primary', onclick: () => save() }, 'Сохранить');
+  const btn = button({ label: 'Сохранить', kind: 'primary', size: 'S', onClick: () => save() });
   async function save() {
     const body = {};
     Object.values(inputs).forEach((i) => i.classList.remove('err'));
@@ -36,13 +36,13 @@ function quickRow(g, x, done) {
     if (!Object.keys(body).length) { toast(g.quick.includes('unitPrice') ? 'Впишите цену' : 'Впишите № счёта, дату или сумму'); inputs[g.quick[0]].focus(); return; }
     btn.disabled = true;
     try { await api(`${g.quickPath || '/supply/requests'}/${x.id}`, { method: 'PATCH', body }); toast('Сохранено'); done(); }
-    catch (e) { toast(e.message || 'Не сохранилось', { error: true }); btn.disabled = false; }
+    catch (e) { toastError(e, 'сохранить'); btn.disabled = false; }
   }
   return h('li', { class: 'q-row fill-qrow' + (x.thumb ? ' has-pic' : '') },
     opThumb(x.thumb),
     h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, x.title), x.sub ? h('div', { class: 'q-sub' }, x.sub) : null,
       h('div', { class: 'fill-quick' }, ...g.quick.map((k) => inputs[k]), btn)),
-    h('div', { class: 'q-side' }, h('button', { type: 'button', class: 'btn btn-sm btn-ghost', onclick: () => openRow(g, x) }, 'Открыть')));
+    h('div', { class: 'q-side' }, button({ label: 'Открыть', kind: 'ghost', size: 'S', onClick: () => openRow(g, x) })));
 }
 
 function groupBlock(g, open, onToggle, onSaved) {

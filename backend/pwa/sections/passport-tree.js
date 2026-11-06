@@ -4,6 +4,7 @@ import { busyBlock, failBlock } from '../ui/kit/busy.js';
 import { current, patch } from '../core/router.js';
 import { confirmDlg, modal } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
+import { button, select, empty } from '../ui/kit/index.js';
 import { catChips } from '../ui/cat-chips.js';
 import { dupeCounts, qualityBadges, qualityFilter } from '../ui/quality.js';
 import { LATER_CATS, dictRows } from './passports/common.js';
@@ -84,10 +85,10 @@ export function mountTree() {
       return [h('li', null, btn), ...kids.flatMap((k) => row(k, depth + 1))];
     };
     const secs = model.roots.filter(shown);
-    if (!secs.length) { tree.replaceChildren(h('div', { class: 'state' }, mode === 'all' ? 'Разделов пока нет — их создаёт программа при обновлении справочника.' : mode === 'empty' ? 'Пустых текстов нет.' : 'Дублей нет.')); return; }
+    if (!secs.length) { tree.replaceChildren(empty({ title: mode === 'all' ? 'Разделов пока нет — их создаёт программа при обновлении справочника.' : mode === 'empty' ? 'Пустых текстов нет.' : 'Дублей нет.' })); return; }
     tree.replaceChildren(...secs.map((r) => h('section', { class: 'pt-sec' },
       h('div', { class: 'pt-sec-head' }, h('h3', null, r.name), r.required ? h('span', { class: 'pt-sec-tag' }, 'обязательный раздел') : null,
-        edit ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => patch({ of: 'ptnode', open: 'new.' + r.id, new: undefined }) }, '+ Вариант') : null),
+        edit ? button({ label: '+ Вариант', kind: 'ghost', size: 'S', onClick: () => patch({ of: 'ptnode', open: 'new.' + r.id, new: undefined }) }) : null),
       model.children(r.id).length ? h('ul', { class: 'pt-items' }, ...model.children(r.id).filter(shown).flatMap((k) => row(k, 0))) : h('p', { class: 'muted' }, 'Вариантов пока нет — «+ Вариант».'))));
   }
   async function reload() {
@@ -127,9 +128,9 @@ function nodeForm(r) {
   const insert = (v) => { const s = ta.selectionStart ?? ta.value.length, e = ta.selectionEnd ?? s; ta.value = ta.value.slice(0, s) + v + ta.value.slice(e); ta.focus(); ta.selectionStart = ta.selectionEnd = s + v.length; };
   const vars = h('div', { class: 'pt-vars' }, ...VARS.map((v) => h('button', { type: 'button', class: 'tag', onclick: () => insert(v) }, v === '{std:' ? '{std:КОД}' : v)));
   const tools = [];
-  if (r.kind === 'node' && !isRoot && !r.hasChildren) tools.push(h('button', { type: 'button', class: 'btn btn-sm', onclick: () => mergeInto(r) }, 'Объединить с…'));
-  if (r.kind === 'node' && !isRoot) tools.push(h('button', { type: 'button', class: 'btn btn-danger btn-sm', onclick: () => removeNode(r) }, 'Убрать'));
-  if (r.kind === 'node' && !isRoot && (r.hasChildren || !r.text.trim()) && r.pathText.split(' › ').length < 3) tools.push(h('button', { type: 'button', class: 'btn btn-sm', onclick: () => patch({ of: 'ptnode', open: 'new.' + r.id }) }, '+ Подвариант'));
+  if (r.kind === 'node' && !isRoot && !r.hasChildren) tools.push(button({ label: 'Объединить с…', size: 'S', onClick: () => mergeInto(r) }));
+  if (r.kind === 'node' && !isRoot) tools.push(button({ label: 'Убрать', kind: 'danger', size: 'S', onClick: () => removeNode(r) }));
+  if (r.kind === 'node' && !isRoot && (r.hasChildren || !r.text.trim()) && r.pathText.split(' › ').length < 3) tools.push(button({ label: '+ Подвариант', size: 'S', onClick: () => patch({ of: 'ptnode', open: 'new.' + r.id }) }));
   const where = r.kind === 'new' ? `Новый вариант в разделе «${r.pathText}».` : isRoot ? 'Раздел паспорта: здесь его название, порядок и обязательность; варианты — ниже в дереве.' : `${r.pathText}${r.used ? ` · используется: ${r.used}` : ''}`;
   const el = h('div', { class: 'form-grid pt-form' },
     h('p', { class: 'hint wide' }, where, ' Выданные паспорта не меняются; черновики подхватят новый текст при открытии.'),
@@ -170,7 +171,7 @@ async function saveNode(id, body) {
 
 async function mergeInto(r) {
   if (!r.siblings.length) { toast('В разделе нет других вариантов', { error: true }); return; }
-  const sel = h('select', null, h('option', { value: '' }, '— выберите —'), ...r.siblings.map((x) => h('option', { value: x.id }, ((s) => (s.length > 30 ? s.slice(0, 29) + '…' : s))(x.name + (x.text ? ' — ' + x.text : '')))));
+  const sel = select({ label: 'Оставить', options: [['', '— выберите —'], ...r.siblings.map((x) => [x.id, ((s) => (s.length > 30 ? s.slice(0, 29) + '…' : s))(x.name + (x.text ? ' — ' + x.text : ''))])] });
   const done = await modal({ title: `Объединить «${r.name}»`, okText: 'Объединить',
     body: h('div', { class: 'pt-merge' }, h('p', { class: 'hint' }, 'Это тот же вариант другими словами? Выбранный останется, «' + r.name + '» уйдёт в корзину, а где он выбран — переключится на выбранный.'), h('label', { class: 'field' }, h('span', null, 'Оставить'), sel)),
     onOk: async () => { if (!sel.value) throw new Error('Выберите, с чем объединить'); return api(`${DICT}/${r.id}/merge`, { method: 'POST', body: { intoId: sel.value } }); } });

@@ -4,7 +4,7 @@ import { photoDrop } from '../../ui/kit/photos.js';
 import { imagesBody } from '../../core/passport-images.js';
 import { toast, toastError } from '../../ui/kit/toast.js';
 import { confirmDlg } from '../../ui/kit/dialog.js';
-import { table } from '../../ui/kit/index.js';
+import { table, button, iconButton } from '../../ui/kit/index.js';
 import { date } from '../../core/format.js';
 import { canEdit, imgsOf, isRequired, kinds, V2_NUMS } from './common.js';
 
@@ -49,7 +49,7 @@ export function checkBlock(r) {
       const img = m.startsWith('Рисунок: ') || m === 'Фото изделия' ? IMG_BY_LABEL[m.replace(/^Рисунок: /, '')] : null;
       // не картинка — «Заполнить»: открыть правку паспорта (та же кнопка «Изменить» карточки)
       const fill = () => [...document.querySelectorAll('.drawer button')].find((b) => b.textContent.trim() === 'Изменить')?.click();
-      return h('li', null, m, !canEdit() ? null : img ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => goTo(img) }, 'Загрузить') : h('button', { type: 'button', class: 'btn btn-sm', onclick: fill }, 'Заполнить'));
+      return h('li', null, m, !canEdit() ? null : img ? button({ label: 'Загрузить', size: 'S', onClick: () => goTo(img) }) : button({ label: 'Заполнить', size: 'S', onClick: fill }));
     })),
     warn.length ? h('div', null, h('div', { class: 'section-title' }, 'Нормативы — проверить'), h('p', { class: 'hint' }, 'Статус и дату проверки — в «Справочники → Паспорта → Нормативы». Паспорт выдавать можно.'),
       h('ul', { class: 'timeline' }, ...warn.map((w) => h('li', { class: 'muted' }, w)))) : null);
@@ -71,19 +71,19 @@ export function periodBlock(m) {
 export function snapItem(r, ctx, s, i) {
   const view = h('p', { class: 'pp-snap-item' }, i.number ? h('b', null, i.number + ' ') : '— ', i.text,
     i.edited ? h('span', { class: 'muted', title: 'Было: ' + (i.original || '') }, ' · изменён для этого паспорта') : null,
-    canEdit() ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm btn-icon pp-snap-edit', title: `Править пункт ${i.number || ''}`.trim(), 'aria-label': `Править пункт ${i.number || ''}`.trim(), onclick: () => view.replaceWith(editor()) }, '✎') : null,
-    canEdit() && i.edited ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Этот текст пункта получат новые паспорта той же категории', onclick: async () => {
+    canEdit() ? iconButton({ icon: '✎', label: `Править пункт ${i.number || ''}`.trim(), size: 'S', cls: 'pp-snap-edit', onClick: () => view.replaceWith(editor()) }) : null,
+    canEdit() && i.edited ? button({ label: 'Сделать общим для категории', kind: 'ghost', size: 'S', title: 'Этот текст пункта получат новые паспорта той же категории', onClick: async () => {
       if (!(await confirmDlg('Перенести в справочник?', `Пункт «${s.number} ${s.title}» с этим текстом станет общим для новых паспортов категории. Выданные паспорта не изменятся.`, { okText: 'Перенести' }))) return;
       try { const v = await api(`/passports/${r.id}/snapshot-item/promote`, { method: 'POST', body: { sectionKey: s.key, itemKey: i.key } }); toast(`Перенесено: шаблон категории, версия ${v.version}`); } catch (e) { toastError(e); }
-    } }, 'Сделать общим для категории') : null);
+    } }) : null);
   const editor = () => {
     const ta = h('textarea', { rows: 4, value: i.text, 'aria-label': 'Текст пункта' });
-    const save = h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: async () => {
+    const save = button({ label: 'Сохранить', kind: 'primary', size: 'S', onClick: async () => {
       save.disabled = true; save.textContent = 'Сохранение…';
       try { await api(`/passports/${r.id}/snapshot-item`, { method: 'PATCH', body: { sectionKey: s.key, itemKey: i.key, text: ta.value } }); ctx.setRow(await api(`/passports/${r.id}`)); toast('Пункт изменён для этого паспорта'); } catch (e) { toastError(e); save.disabled = false; save.textContent = 'Сохранить'; }
-    } }, 'Сохранить');
+    } });
     const box = h('div', { class: 'field wide' }, ta, h('div', { class: 'hint' }, 'Правка только для этого паспорта'),
-      h('div', { class: 'rt-acts' }, save, h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => box.replaceWith(view) }, 'Отмена')));
+      h('div', { class: 'rt-acts' }, save, button({ label: 'Отмена', kind: 'ghost', size: 'S', onClick: () => box.replaceWith(view) })));
     setTimeout(() => ta.focus(), 0);
     return box;
   };
@@ -93,12 +93,12 @@ export function snapItem(r, ctx, s, i) {
 /** Паспорт v2: текст из снимка (как будет в паспорте) и «Обновить текст по справочникам» (новый снимок). */
 export function previewBlock(r, ctx) {
   const t = r.textSnapshot;
-  const refresh = canEdit() ? h('button', { type: 'button', class: 'btn btn-sm', title: 'Собрать текст заново по справочникам и шаблону категории (выданный текст заменится)', onclick: async (e) => {
+  const refresh = canEdit() ? button({ label: 'Обновить текст по справочникам', size: 'S', title: 'Собрать текст заново по справочникам и шаблону категории (выданный текст заменится)', onClick: async (e) => {
     const edited = (t?.sections || []).reduce((n, x) => n + x.items.filter((it) => it.edited).length, 0);
     if (edited && !(await confirmDlg('Пересобрать текст?', `Ручных правок в этом паспорте: ${edited}. После пересборки по справочникам они пропадут.`, { okText: 'Пересобрать' }))) return;
     e.target.disabled = true; e.target.textContent = 'Собираю…';
     try { await api(`/passports/${r.id}/snapshot`, { method: 'POST' }); ctx.setRow(await api(`/passports/${r.id}`)); toast('Текст паспорта собран заново'); } catch (err) { toastError(err); e.target.disabled = false; e.target.textContent = 'Обновить текст по справочникам'; }
-  } }, 'Обновить текст по справочникам') : null;
+  } }) : null;
   if (!t) return h('div', null, h('div', { class: 'section-title' }, 'Текст паспорта'), h('p', { class: 'muted' }, 'Текст ещё не собран.'), refresh);
   const part = (title, body) => (body ? h('details', { class: 'month-group' }, h('summary', null, title), body) : null);
   return h('div', null, h('div', { class: 'section-title' }, 'Текст паспорта'),

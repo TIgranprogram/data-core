@@ -1,6 +1,7 @@
 import { api, session } from '../../core/api.js';
 import { h } from '../../core/dom.js';
-import { toast } from '../../ui/kit/toast.js';
+import { toast, toastError } from '../../ui/kit/toast.js';
+import { button } from '../../ui/kit/index.js';
 
 /** ПН: полоска «последний / следующий» номера; «Следующий №» и «Изделие №» можно поправить (admin/director/владелец), талон — автоматом. */
 const canEdit = () => session.role === 'admin' || session.role === 'director' || !!session.user?.isOwner;
@@ -17,7 +18,7 @@ export function numbersStrip() {
   const CODE = ['Изделие №', 'nextProductCode', 'nextProductCode', 'Следующее изделие получит №'];
   const editable = (n, f) => {
     const el = piece(f[0], n[f[1]]);
-    if (canEdit()) el.append(h('button', { type: 'button', class: 'btn btn-ghost pn-edit', title: HINT, onclick: () => edit(n, el, f) }, '✎ Изменить'));
+    if (canEdit()) el.append(button({ label: '✎ Изменить', kind: 'ghost', cls: 'pn-edit', title: HINT, onClick: () => edit(n, el, f) }));
     return el;
   };
   /** +1: следующий паспорт, талон и номер изделия сдвигаются вместе — номера ушли в другую программу. */
@@ -26,12 +27,13 @@ export function numbersStrip() {
     try {
       const r = await api('/passports/next-number', { method: 'PUT', body: { next: n.nextPassportNo + 1, nextProductCode: n.nextProductCode + 1 } });
       render(r); toast(`Следующий паспорт № ${r.nextPassportNo}, изделие № ${r.nextProductCode}`);
-    } catch (e) { toast(e.message || 'Не удалось сохранить', { error: true }); btn.disabled = false; }
+    } catch (e) { toastError(e); btn.disabled = false; }
   };
   const nextPiece = (n) => {
     const el = editable(n, PASS);
     if (canEdit()) {
-      const plus = h('button', { type: 'button', class: 'btn btn-ghost pn-edit pn-plus', title: 'Следующий номер, талон и номер изделия +1', 'aria-label': 'Прибавить один к номерам', onclick: () => bump(n, plus) }, '+1');
+      const plus = button({ label: '+1', kind: 'ghost', cls: 'pn-edit pn-plus', title: 'Следующий номер, талон и номер изделия +1', onClick: () => bump(n, plus) });
+      plus.setAttribute('aria-label', 'Прибавить один к номерам');
       el.insertBefore(plus, el.querySelector('.pn-edit:not(.pn-plus)'));
     }
     return el;
@@ -40,8 +42,8 @@ export function numbersStrip() {
   const edit = (n, el, f) => {
     const inp = h('input', { type: 'text', inputmode: 'numeric', 'aria-label': f[0], title: HINT, class: 'pn-input', value: n[f[1]] ?? '' });
     const err = h('div', { class: 'pn-err', role: 'alert' });
-    const save = h('button', { type: 'button', class: 'btn btn-primary' }, 'Сохранить');
-    const cancel = h('button', { type: 'button', class: 'btn btn-ghost', onclick: () => render(n) }, 'Отмена');
+    const save = button({ label: 'Сохранить', kind: 'primary' });
+    const cancel = button({ label: 'Отмена', kind: 'ghost', onClick: () => render(n) });
     save.onclick = async () => {
       err.textContent = '';
       const v = Number(inp.value.trim());

@@ -1,7 +1,7 @@
 import { api } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { toastError } from '../../ui/kit/toast.js';
-import { link } from '../../ui/kit/index.js';
+import { link, button } from '../../ui/kit/index.js';
 import { go } from '../../core/router.js';
 import { rowsTable } from '../../ui/rows-table.js';
 import { BOM_COLS, canEdit } from './common.js';
@@ -94,13 +94,13 @@ function buildProductSearch(row, ctx, onSaved) {
 
   inp.addEventListener('blur', () => setTimeout(() => { dropList.style.display = 'none'; }, 200));
 
-  const saveBtn = h('button', { type: 'button', class: 'btn btn-primary', onclick: async () => {
+  const saveBtn = button({ label: 'Сохранить →', kind: 'primary', onClick: async () => {
     if (!picked) { toastError(new Error('Выберите изделие из списка')); return; }
     saveBtn.disabled = true;
     const fresh = await patchPassport(row.id, ctx, { productId: picked });
     if (fresh) onSaved(fresh, 0);
     else saveBtn.disabled = false;
-  } }, 'Сохранить →');
+  } });
 
   return h('div', { style: { position: 'relative' } },
     h('label', { class: 'field wide' }, h('span', null, 'Изделие из «Продукции»'), inp),
@@ -114,7 +114,7 @@ function buildProduct(row, ctx, onSaved) {
     const search = buildProductSearch(row, ctx, onSaved);
     const wrap = h('div', null,
       h('p', null, h('b', null, name), h('span', { class: 'muted' }, ' — изделие выбрано')),
-      canEdit() ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => wrap.replaceWith(search) }, 'Изменить') : null);
+      canEdit() ? button({ label: 'Изменить', size: 'S', onClick: () => wrap.replaceWith(search) }) : null);
     return wrap;
   }
   return buildProductSearch(row, ctx, onSaved);
@@ -158,14 +158,14 @@ function buildBom(row, ctx, onSaved, onSkip) {
     try { return JSON.parse(v || '[]') || []; } catch { return []; }
   };
 
-  const skipBtn = h('button', { type: 'button', class: 'btn', onclick: () => onSkip() }, 'Пропустить');
-  const saveBtn = h('button', { type: 'button', class: 'btn btn-primary', onclick: async () => {
+  const skipBtn = button({ label: 'Пропустить', onClick: () => onSkip() });
+  const saveBtn = button({ label: 'Сохранить →', kind: 'primary', onClick: async () => {
     saveBtn.disabled = true;
     const bom = parseArr(widget.value);
     const fresh = await patchPassport(row.id, ctx, { bom });
     if (fresh) onSaved(fresh, 4);
     else saveBtn.disabled = false;
-  } }, 'Сохранить →');
+  } });
 
   return h('div', null, widget.el, h('div', { class: 'pw-actions' }, skipBtn, saveBtn));
 }
@@ -175,15 +175,13 @@ function buildIssue(row, ctx, goToStep) {
   const missing = row.missing || [];
 
   if (!missing.length) {
-    const issueBtn = h('button', { type: 'button', class: 'btn btn-primary',
-      style: { fontSize: '1.1em', padding: 'var(--s2) var(--s4)' },
-      onclick: () => issueAction(row, ctx) }, '✓ Выпустить');
+    const issueBtn = button({ label: '✓ Выпустить', kind: 'primary', onClick: () => issueAction(row, ctx) });
     return h('div', null, check, h('div', { class: 'pw-actions', style: { justifyContent: 'center' } }, issueBtn));
   }
 
   const ul = h('ul', null, ...missing.map((m) => {
     const si = missToStep(m);
-    const goBtn = si >= 0 ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => goToStep(si) }, '→ заполнить') : null;
+    const goBtn = si >= 0 ? button({ label: '→ заполнить', size: 'S', onClick: () => goToStep(si) }) : null;
     return h('li', null, m, goBtn ? h('span', null, ' ', goBtn) : null);
   }));
 

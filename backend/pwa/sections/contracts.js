@@ -2,7 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay } from '../core/format.js';
 import { patch } from '../core/router.js';
-import { attachCombo } from '../ui/kit/index.js';
+import { attachCombo, button } from '../ui/kit/index.js';
 import { confirmDlg } from '../ui/kit/dialog.js';
 import { errText } from '../ui/kit/errors.js';
 import { photoField } from '../ui/kit/photos.js';
@@ -66,12 +66,12 @@ export function contractField({ supplierId = '', current = null, onChange } = {}
   const nTo = h('input', { type: 'date' });
   const nFiles = filesField();
   const nErr = h('div', { class: 'err', hidden: true });
-  const nSave = h('button', { type: 'button', class: 'btn btn-primary btn-sm' }, 'Сохранить договор');
+  const nSave = button({ label: 'Сохранить договор', kind: 'primary', size: 'S' });
   const fld = (label, el, cls = '') => h('label', { class: 'field ' + cls }, h('span', null, label), el);
   const form = h('div', { class: 'form-block inv-new', 'data-tone': 'info', hidden: true },
     h('div', { class: 'inv-new-head' }, h('b', null, 'Новый договор'), h('span', { class: 'muted small' }, ' — сразу выберется в этом счёте')),
     h('div', { class: 'form-grid' }, fld('№ договора *', nNo), fld('Дата договора *', nDate), fld('Предмет', nSubject, 'wide'), fld('Действует до', nTo), h('div', { class: 'field wide' }, h('span', null, 'Скан договора'), nFiles.el)),
-    nErr, h('div', { class: 'inv-new-foot' }, nSave, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { form.hidden = true; } }, 'Отмена')));
+    nErr, h('div', { class: 'inv-new-foot' }, nSave, button({ label: 'Отмена', size: 'S', onClick: () => { form.hidden = true; } })));
   nSave.addEventListener('click', async () => {
     if (!clean(nNo.value)) { nErr.textContent = 'Впишите № договора'; nErr.hidden = false; nNo.focus(); return; }
     if (!nDate.value) { nErr.textContent = 'Укажите дату договора'; nErr.hidden = false; nDate.focus(); return; }
@@ -123,7 +123,7 @@ export async function setInvoiceContract(invoiceId, contractId) {
 export function contractsBlock(r) {
   const box = h('div', { class: 'ctr-block' });
   const list = h('div', { class: 'ctr-list' }, h('div', { class: 'muted' }, 'Загружаю договоры…'));
-  const add = canContract() ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => patch({ of: 'contract', new: '1', open: undefined, supplierId: r.id }) }, '+ Договор') : null;
+  const add = canContract() ? button({ label: '+ Договор', size: 'S', onClick: () => patch({ of: 'contract', new: '1', open: undefined, supplierId: r.id }) }) : null;
   box.append(h('div', { class: 'ctr-head' }, h('div', { class: 'section-title' }, 'Договоры'), add), list);
   let seq = 0;
   async function load() {
@@ -133,15 +133,15 @@ export function contractsBlock(r) {
       if (my !== seq) return;
       if (!items.length) { list.replaceChildren(h('p', { class: 'muted' }, 'У поставщика пока нет договоров.' + (canContract() ? ' Создайте первый — «+ Договор».' : ''))); return; }
       list.replaceChildren(h('ul', { class: 'timeline ctr-ul' }, ...items.map(rowEl)));
-    } catch (e) { if (my === seq) list.replaceChildren(h('div', { class: 'err' }, errText(e)), h('button', { type: 'button', class: 'btn btn-sm', onclick: load }, 'Повторить')); }
+    } catch (e) { if (my === seq) list.replaceChildren(h('div', { class: 'err' }, errText(e)), button({ label: 'Повторить', size: 'S', onClick: load })); }
   }
   function rowEl(c) {
     const open = () => patch({ of: 'contract', open: c.id, new: undefined });
-    const del = canContract() ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm ctr-del', title: 'Удалить договор', onclick: async (e) => {
+    const del = canContract() ? button({ label: 'Удалить', kind: 'ghost', size: 'S', cls: 'ctr-del', title: 'Удалить договор', onClick: async (e) => {
       e.stopPropagation();
       if (!(await confirmDlg('Удалить договор поставщика?', `Договор № ${c.no} от ${date(c.date)} будет удалён. Если к нему привязаны счета, удалить не получится.`, { okText: 'Удалить', danger: true }))) return;
       try { await api(`/supply/contracts/${c.id}`, { method: 'DELETE' }); toast('Договор поставщика удалён'); load(); } catch (err) { toastError(err); }
-    } }, 'Удалить') : null;
+    } }) : null;
     return h('li', { class: 'ctr-row', tabindex: '0', onclick: open, onkeydown: (e) => { if (e.key === 'Enter') open(); } },
       h('b', null, `№ ${c.no}`), h('span', { class: 'when' }, date(c.date)),
       h('span', { class: 'muted clip' }, [c.subject, c.validTo ? 'до ' + date(c.validTo) : 'бессрочный'].filter(Boolean).join(' · ')),

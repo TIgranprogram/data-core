@@ -4,7 +4,7 @@ import { getViewAs, rememberRoles, rolesForSelect, setViewAs } from '../core/vie
 import { toast, toastError } from '../ui/kit/toast.js';
 import { AVATAR_PRESETS, avatarNode, presetNode } from '../ui/avatars.js';
 import { getPref, setPref } from '../core/prefs.js';
-import { enhanceSelect, segmented, button } from '../ui/kit/index.js';
+import { enhanceSelect, segmented, button, select, fileButton } from '../ui/kit/index.js';
 
 /**
  * Правая панель «Мой профиль» (`?of=profile&open=me`): имя, телефон, аватар (10 пресетов или своё фото).
@@ -15,7 +15,7 @@ const photoOf = (a) => (String(a || '').startsWith('photo:') ? a : null);
 
 /** Выбор роли для просмотра. Список — GET /roles; встроенные без карточки всё равно есть. Смена только локальная. */
 function viewAsField() {
-  const sel = enhanceSelect(h('select', { 'aria-label': 'Смотреть как' }));
+  const sel = enhanceSelect(select({ label: 'Смотреть как' }));
   const fill = () => {
     const cur = getViewAs();
     const opts = rolesForSelect();
@@ -55,18 +55,14 @@ export const profile = {
           onclick: () => { avatar = 'preset:' + p.code; paint(); },
         }, presetNode(p.code, 40))));
       };
-      const file = h('input', { type: 'file', accept: 'image/*', hidden: true });
-      const upBtn = button({ label: 'Загрузить своё фото', size: 'S', onClick: () => file.click() });
-      file.addEventListener('change', async () => {
-        const f = file.files[0]; file.value = '';
-        if (!f) return;
-        upBtn.classList.add('is-busy'); upBtn.disabled = true;
+      const upBtn = fileButton({ label: 'Загрузить своё фото', accept: 'image/*', size: 'S', onFile: async (f) => {
+        upBtn.classList.add('is-busy');
         try {
           const fd = new FormData(); fd.append('file', f, f.name || 'avatar.png');
           const ph = await api('/photos/upload', { method: 'POST', body: fd });
           avatar = 'photo:' + String(ph._id || ph.id); paint();
-        } catch (e) { toastError(e, 'загрузить фото'); } finally { upBtn.classList.remove('is-busy'); upBtn.disabled = false; }
-      });
+        } catch (e) { toastError(e, 'загрузить фото'); } finally { upBtn.classList.remove('is-busy'); }
+      } });
       name.addEventListener('input', () => { if (!avatar) paint(); });
       const save = button({ label: 'Сохранить', kind: 'primary', onClick: async (e) => {
         const btn = e.currentTarget; btn.classList.add('is-busy'); btn.disabled = true;
@@ -88,7 +84,7 @@ export const profile = {
         h('label', { class: 'field' }, h('span', null, 'Имя'), name),
         h('label', { class: 'field' }, h('span', null, 'Телефон'), phone),
         h('div', { class: 'field' }, h('span', null, 'Аватар'), grid,
-          h('div', { class: 'pf-av-up' }, upBtn, photoOf(avatar) ? h('span', { class: 'muted' }, 'Выбрано своё фото') : null), file),
+          h('div', { class: 'pf-av-up' }, upBtn, photoOf(avatar) ? h('span', { class: 'muted' }, 'Выбрано своё фото') : null)),
         h('div', { class: 'field' }, h('span', null, 'Вид экрана'), viewSeg.el,
           h('small', { class: 'muted' }, 'Крупный — фото, текст, поля и кнопки больше. Меняется сразу, сохраняется для вас на любом устройстве.')),
         viewAs,

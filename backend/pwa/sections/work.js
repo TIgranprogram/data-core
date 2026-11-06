@@ -1,6 +1,6 @@
 import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { sku as kitSku } from '../ui/kit/index.js';
+import { sku as kitSku, button } from '../ui/kit/index.js';
 import { date, isoDay, qty } from '../core/format.js';
 import { go } from '../core/router.js';
 import { badge, ORDER_PRIORITY } from '../ui/kit/badges.js';
@@ -159,7 +159,7 @@ function assignBlock(r, ctx) {
   const note = h('textarea', { rows: 3, maxlength: 500, 'aria-label': 'Примечание', placeholder: 'Примечание (необязательно)' });
   note.value = r.note || '';
   const hint = h('div', { class: 'hint' });
-  const all = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', hidden: true, onclick: () => fill(true) }, 'Показать всех сотрудников');
+  const all = button({ label: 'Показать всех сотрудников', kind: 'ghost', size: 'S', onClick: () => fill(true) }); all.hidden = true;
   async function fill(everyone) {
     let list;
     try { list = everyone || !wt?.workTypeId ? await people() : (await api('/work-tasks/people', { query: { workTypeId: wt.workTypeId } })).items.map((p) => ({ value: p.id, label: p.name })); }
@@ -172,13 +172,13 @@ function assignBlock(r, ctx) {
     hint.textContent = limited ? (list.length ? `Показаны сотрудники с видом работ «${wt.name}».` : `С видом работ «${wt.name}» сотрудников нет. Вид работ добавляется в «Справочники → Сотрудники».`) : '';
     all.hidden = !limited;
   }
-  const save = h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: async (e) => {
+  const save = button({ label: 'Сохранить', kind: 'primary', size: 'S', onClick: async (e) => {
     const b = e.currentTarget; b.disabled = true; b.classList.add('is-busy');
     try { const body = {}; if ((sel.value || null) !== (r.assigneeId || null)) body.assigneeId = sel.value || null; if (note.value.trim() !== (r.note || '')) body.note = note.value.trim();
       if (!Object.keys(body).length) { toast('Ничего не изменилось'); b.disabled = false; b.classList.remove('is-busy'); return; }
       const saved = await api('/work-tasks/' + r.id, { method: 'PATCH', body }); toast('Сохранено'); ctx.setRow(saved); }
     catch (err) { toastError(err, 'сохранить'); b.disabled = false; b.classList.remove('is-busy'); }
-  } }, 'Сохранить');
+  } });
   const box = h('section', { class: 'wk-assign' }, h('div', { class: 'section-title' }, 'Исполнитель и примечание'),
     h('label', { class: 'field' }, h('span', null, 'Исполнитель'), sel), hint, all,
     h('label', { class: 'field' }, h('span', null, 'Примечание'), note), h('div', { class: 'spec-acts' }, save));
@@ -189,12 +189,12 @@ function assignBlock(r, ctx) {
 /** «Отменить»: причина обязательна. Свёрнуто, чтобы не нажать случайно. */
 function cancelBlock(r, ctx) {
   const why = h('textarea', { rows: 2, maxlength: 300, 'aria-label': 'Причина отмены', placeholder: 'Почему отменяем (например, заказчик отказался)' });
-  const btn = h('button', { type: 'button', class: 'btn btn-sm btn-danger', onclick: async (e) => {
+  const btn = button({ label: 'Отменить задание', kind: 'danger', size: 'S', onClick: async (e) => {
     if (!why.value.trim()) { toast('Впишите причину отмены'); why.focus(); return; }
     const b = e.currentTarget; b.disabled = true; b.classList.add('is-busy');
     try { const saved = await api(`/work-tasks/${r.id}/cancel`, { method: 'POST', body: { reason: why.value.trim() } }); toast(`${r.code} отменена`); ctx.setRow(saved); }
     catch (err) { toastError(err, 'отменить'); b.disabled = false; b.classList.remove('is-busy'); }
-  } }, 'Отменить задание');
+  } });
   return h('details', { class: 'db-blk wk-cancel' }, h('summary', null, 'Отменить задание'),
     h('div', { class: 'db-blk-body' }, h('p', { class: 'muted' }, 'Позиция освободится — её можно будет запустить заново.'), h('label', { class: 'field' }, h('span', null, 'Причина'), why), btn));
 }

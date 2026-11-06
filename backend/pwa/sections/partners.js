@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { date, money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { modal } from '../ui/kit/dialog.js';
+import { button, fileButton, select, enhanceSelect } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { openSide } from '../ui/kit/side-form.js';
 import { STAGE } from './salesorders.js';
@@ -20,7 +21,7 @@ const enc = (id) => encodeURIComponent(id);
 async function mergeDialog(r, ctx) {
   const type = r.kind === 'customer' ? 'customer' : 'supplier';
   const all = (await api('/partners', { query: { type } })).items.filter((x) => x.id !== r.id);
-  const sel = h('select', null, h('option', { value: '' }, '— выберите —'), ...all.map((x) => h('option', { value: x.id }, x.name)));
+  const sel = enhanceSelect(select({ options: [['', '— выберите —'], ...all.map((x) => [x.id, x.name])], label: 'Оставить' }));
   const done = await modal({
     title: 'Объединить «' + r.name + '»',
     okText: 'Объединить',
@@ -50,14 +51,13 @@ function lazyPreview(cur, label, del) {
   const box = h('div', { class: 'stamp-pic' });
   const show = () => box.replaceChildren(h('div', { class: 'stamp-prev', title: 'Так выглядит на талоне; клетка — прозрачные места' },
     h('img', { src: PREFIX + cur.url, alt: label, onerror: (e) => e.target.replaceWith(h('span', { class: 'muted' }, 'файл не найден — загрузите заново')) }), h('span', null, 'Продавец: ________')), del);
-  box.append(h('span', { class: 'badge ok' }, `${label}: загружена ✓`), h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: show }, 'Показать'), del);
+  box.append(h('span', { class: 'badge ok' }, `${label}: загружена ✓`), button({ label: 'Показать', kind: 'ghost', size: 'S', onClick: show }), del);
   return box;
 }
 
 function stampBlock(r, ctx) {
   const slot = (role, label, tip) => {
     const cur = (r.assets || []).find((a) => a.role === role);
-    const input = h('input', { type: 'file', accept: 'image/*', hidden: true });
     // «Убрать белый фон»: для печати и подписи включено, для логотипа — нет (сервер делает светлое прозрачным)
     const clear = h('input', { type: 'checkbox', checked: role !== 'logo' });
     const upload = async (file) => {
@@ -65,14 +65,13 @@ function stampBlock(r, ctx) {
       const fd = new FormData(); fd.append('file', file, file.name || `${role}.png`);
       try { await api(`/organizations/${r.id}/assets/${role}${clear.checked ? '?clearWhite=1' : ''}`, { method: 'PUT', body: fd }); toast(`${label}: загружено`); ctx.reload(); } catch (e) { toastError(e); }
     };
-    input.addEventListener('change', () => { upload(input.files[0]); input.value = ''; });
     const zone = h('div', { class: 'photo-drop', tabindex: '0', title: 'Перетащите файл, вставьте Ctrl+V или нажмите' },
-      h('span', null, cur ? 'Заменить: перетащите, Ctrl+V или ' : 'Перетащите, вставьте Ctrl+V или '), h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => input.click() }, 'выберите файл'), input);
+      h('span', null, cur ? 'Заменить: перетащите, Ctrl+V или ' : 'Перетащите, вставьте Ctrl+V или '), fileButton({ label: 'выберите файл', accept: 'image/*', onFile: upload }));
     zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('over'); });
     zone.addEventListener('dragleave', () => zone.classList.remove('over'));
     zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('over'); upload(e.dataTransfer?.files?.[0]); });
     zone.addEventListener('paste', (e) => { const f = [...(e.clipboardData?.items || [])].find((i) => i.kind === 'file')?.getAsFile(); if (f) { e.preventDefault(); upload(f); } });
-    const del = cur ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: async () => { try { await api(`/organizations/${r.id}/assets/${role}`, { method: 'DELETE' }); toast(`${label}: убрано`); ctx.reload(); } catch (e) { toastError(e); } } }, 'Убрать') : null;
+    const del = cur ? button({ label: 'Убрать', kind: 'ghost', size: 'S', onClick: async () => { try { await api(`/organizations/${r.id}/assets/${role}`, { method: 'DELETE' }); toast(`${label}: убрано`); ctx.reload(); } catch (e) { toastError(e); } } }) : null;
     return h('div', { class: 'pp-kind' },
       h('div', { class: 'pp-kind-head' }, h('b', null, label), h('span', { class: 'muted' }, ' · ' + tip)),
       cur ? lazyPreview(cur, label, del) : h('div', { class: 'muted' }, 'Не загружено — в PDF «с печатью» этого не будет'),
@@ -98,7 +97,6 @@ function kpBgBlock(r, ctx) {
     } catch (e) { toastError(e); }
     const slot = (page, title, tip) => {
       const cur = items.find((b) => Number(b.page) === page && b.isDefault) || items.find((b) => Number(b.page) === page);
-      const input = h('input', { type: 'file', accept: 'image/png,image/jpeg', hidden: true });
       const upload = async (file) => {
         if (!file || !/^image\/(png|jpeg)$/.test(file.type)) { toastError(new Error('Нужен PNG или JPG до 5 МБ, пропорции А4')); return; }
         const fd = new FormData();
@@ -113,16 +111,15 @@ function kpBgBlock(r, ctx) {
           ctx.reload();
         } catch (e) { toastError(e); }
       };
-      input.addEventListener('change', () => { upload(input.files[0]); input.value = ''; });
       const zone = h('div', { class: 'photo-drop', tabindex: '0', title: 'PNG/JPG до 5 МБ, размер страницы А4' },
         h('span', null, cur ? 'Заменить бланк: перетащите, Ctrl+V или ' : 'Перетащите бланк А4, вставьте Ctrl+V или '),
-        h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => input.click() }, 'выберите файл'), input);
+        fileButton({ label: 'выберите файл', accept: 'image/png,image/jpeg', onFile: upload }));
       zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('over'); });
       zone.addEventListener('dragleave', () => zone.classList.remove('over'));
       zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('over'); upload(e.dataTransfer?.files?.[0]); });
       zone.addEventListener('paste', (e) => { const f = [...(e.clipboardData?.items || [])].find((i) => i.kind === 'file')?.getAsFile(); if (f) { e.preventDefault(); upload(f); } });
       const del = cur && session.canEdit
-        ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: async () => {
+        ? button({ label: 'Убрать', kind: 'ghost', size: 'S', onClick: async () => {
           try { await api(`/offers/backgrounds/${cur.id}`, { method: 'DELETE' }); toast('Бланк убран'); ctx.reload(); } catch (e) { toastError(e); }
         } }, 'Убрать')
         : null;

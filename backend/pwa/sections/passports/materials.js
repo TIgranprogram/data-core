@@ -2,6 +2,7 @@ import { api } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { toast } from '../../ui/kit/toast.js';
 import { confirmDlg } from '../../ui/kit/dialog.js';
+import { button } from '../../ui/kit/index.js';
 import { materialsSpec, specSummary } from '../../ui/materials-spec.js';
 import { fillFromType } from './product-types.js';
 
@@ -58,7 +59,7 @@ function wireMaterials(api, { r, md, ctx }) {
   let auto = '';
   // текст «наш» (его можно заменять собранным): пусто, подставлен программой или совпал с собранным; правка человека — не наш
   let ours = !String(ta.value || '').trim();
-  const again = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => { if (!auto) return; ours = true; api.set('materials', auto); paint(); } }, '↻ Собрать заново из таблицы');
+  const again = button({ label: '↻ Собрать заново из таблицы', kind: 'ghost', size: 'S', onClick: () => { if (!auto) return; ours = true; api.set('materials', auto); paint(); } });
   const note = h('div', { class: 'ms-auto', hidden: true });
   (api.field('materials') || ta.parentElement)?.append(note);
   const hid = api.field('materialIds'); if (hid) hid.hidden = true; // служебное поле: метки — из таблицы

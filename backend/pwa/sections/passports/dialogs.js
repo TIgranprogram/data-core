@@ -1,8 +1,8 @@
 import { api, apiFile } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { busyBtn } from '../../ui/kit/busy.js';
-import { attachCombo } from '../../ui/kit/index.js';
-import { toast } from '../../ui/kit/toast.js';
+import { attachCombo, select } from '../../ui/kit/index.js';
+import { toast, toastError } from '../../ui/kit/toast.js';
 import { confirmDlg, modal } from '../../ui/kit/dialog.js';
 import { icon } from '../../ui/icons.js';
 import { LATER_CATS, V2_CATS, heading, numberOf } from './common.js';
@@ -65,7 +65,7 @@ export const VARIANT_HINT = 'Полный — с зоной размещения
 export async function previewPassport(productId) {
   const done = toast('Готовлю предпросмотр… это может занять до минуты', { ms: 180000 });
   try { await apiFile('/passports/preview', { method: 'POST', body: { productId, mode: 'pages', variant: passportVariant.value }, fallback: 'Предпросмотр_паспорта.pdf' }); done(); }
-  catch (e) { done(); toast(e?.message || 'Не удалось собрать предпросмотр'); }
+  catch (e) { done(); toastError(e); }
 }
 
 // Значки форматов (замечание пользователя 2026-10-22: «показать визуально, книжная или альбомная»)
@@ -120,7 +120,7 @@ export async function printDialog(r) {
 export const OLD_TO_V2 = { 'уличный тренажёр': 'TRN', 'воркаут': 'WRK', 'спортивное оборудование': 'WRK', 'благоустройство': 'BLG', 'маф': 'BLG' };
 export async function convertDialog(r, ctx) {
   const cats = V2_CATS.filter((c) => c.value && !LATER_CATS.includes(c.value));
-  const sel = h('select', { 'aria-label': 'Категория паспорта' }, h('option', { value: '' }, '— выберите —'), cats.map((c) => h('option', { value: c.value }, c.label)));
+  const sel = select({ label: 'Категория паспорта', options: [['', '— выберите —'], ...cats.map((c) => [c.value, c.label])] });
   sel.value = OLD_TO_V2[String(r.category || '').trim().toLowerCase()] || '';
   const res = await modal({
     title: 'Категория паспорта', okText: 'Сохранить',

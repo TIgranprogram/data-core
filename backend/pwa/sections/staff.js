@@ -5,7 +5,7 @@ import { current, go } from '../core/router.js';
 import { busyBlock, failBlock } from '../ui/kit/busy.js';
 import { confirmDlg } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
-import { tabs as kitTabs, empty as kitEmpty, button, row, badge, enhanceSelect } from '../ui/kit/index.js';
+import { tabs as kitTabs, empty as kitEmpty, button, row, badge, enhanceSelect, select as kitSelect } from '../ui/kit/index.js';
 
 /**
  * «Управление → Сотрудники» (ЗО-2): список сотрудников, вкладка «Зоны», плашка «Не назначено».
@@ -57,7 +57,7 @@ export function mountStaff(params) {
       h('p', { class: 'hint' }, 'Эти люди входят на сайт, но не связаны с сотрудником — им не приходят уведомления зон. Свяжите каждого.'),
       h('ul', { class: 'st-list' }, ...list.map((u) => {
         const sug = u.suggestPersonId && byId.get(u.suggestPersonId);
-        const sel = enhanceSelect(h('select', { 'aria-label': 'Сотрудник для входа ' + u.displayName }, h('option', { value: '' }, 'Выбрать сотрудника…'), ...free.map((p) => h('option', { value: p.id }, p.name))));
+        const sel = enhanceSelect(kitSelect({ label: 'Сотрудник для входа ' + u.displayName, options: [['', 'Выбрать сотрудника…'], ...free.map((p) => [p.id, p.name])] }));
         sel.onchange = (e) => { if (sel.value) act(e, () => link(sel.value, u.userId), 'Вход связан'); };
         return h('li', { class: 'st-row' },
           h('span', { class: 'st-main' }, h('b', null, u.displayName), h('span', { class: 'muted small' }, 'логин ' + u.username)),

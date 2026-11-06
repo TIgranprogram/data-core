@@ -4,7 +4,7 @@ import { go, navInfo } from '../core/router.js';
 import { getPref, setPref } from '../core/prefs.js';
 import { icon } from '../ui/icons.js';
 import { toastError } from '../ui/kit/toast.js';
-import { iconButton } from '../ui/kit/index.js';
+import { iconButton, button } from '../ui/kit/index.js';
 import { noticeTime } from '../ui/notice-card.js';
 import { uploadPhoto } from '../ui/kit/photos.js';
 import { openZoom } from '../ui/kit/gallery.js';
@@ -63,17 +63,17 @@ export function mountChat(el, { params, nav, single } = {}) {
   const feed = h('div', { class: 'chat-feed', role: 'log', 'aria-live': 'polite' });
   const title = h('b', { class: 'cv-title' });
   const subt = h('span', { class: 'cv-sub' });
-  const back = h('button', { type: 'button', class: 'btn btn-ghost btn-icon cv-back', 'aria-label': 'Назад к списку', onclick: () => goList() }, '←');
+  const back = iconButton({ icon: '←', label: 'Назад к списку', cls: 'cv-back', onClick: () => goList() });
   const strip = h('div', { class: 'pf-strip cv-pics', hidden: true });
   const text = h('textarea', { class: 'chat-input', rows: 2, maxlength: 2000, placeholder: 'Сообщение…', title: 'Enter — отправить, Shift+Enter — новая строка', 'aria-label': 'Сообщение. Enter — отправить, Shift+Enter — новая строка' });
   const file = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true });
-  const clip = h('button', { type: 'button', class: 'btn btn-ghost btn-icon', title: 'Добавить фото (можно вставить Ctrl+V или перетащить)', 'aria-label': 'Добавить фото', onclick: () => file.click() }, icon('clip'));
-  const send = h('button', { type: 'button', class: 'btn btn-primary', onclick: () => submit() }, 'Отправить');
+  const clip = iconButton({ icon: icon('clip'), label: 'Добавить фото', title: 'Добавить фото (можно вставить Ctrl+V или перетащить)', onClick: () => file.click() });
+  const send = button({ label: 'Отправить', kind: 'primary', onClick: () => submit() });
   // смайлики по теме производства спортивного оборудования (пользователь 2026-10-29) — вставляются в текст на место курсора
   const pick = h('div', { class: 'chat-emoji', hidden: true, role: 'dialog', 'aria-label': 'Смайлики' },
     ...EMOJI.map(([group, list]) => h('div', { class: 'chat-emoji-grp' }, h('div', { class: 'chat-emoji-lab' }, group),
       h('div', { class: 'chat-emoji-row' }, ...list.map(([e, t]) => iconButton({ icon: e, label: t, onClick: () => putEmoji(e) }))))));
-  const smile = h('button', { type: 'button', class: 'btn btn-ghost btn-icon', title: 'Смайлики', 'aria-label': 'Смайлики', 'aria-expanded': 'false', onclick: () => togglePick() }, '😊');
+  const smile = iconButton({ icon: '😊', label: 'Смайлики', menu: true, onClick: () => togglePick() });
   const togglePick = (open = pick.hidden) => { pick.hidden = !open; smile.setAttribute('aria-expanded', String(open)); };
   const putEmoji = (e) => {
     const a = text.selectionStart ?? text.value.length, b = text.selectionEnd ?? a;

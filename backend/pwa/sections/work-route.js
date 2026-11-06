@@ -1,7 +1,7 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { failBlock } from '../ui/kit/busy.js';
-import { enhanceSelect } from '../ui/kit/index.js';
+import { enhanceSelect, button, iconButton, select } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 
 /*
@@ -37,9 +37,7 @@ export function routeBlock(product) {
   }
 
   function sel(options, value, onChange, { empty, label }) {
-    const el = h('select', { 'aria-label': label },
-      empty ? h('option', { value: '' }, empty) : null,
-      ...options.map((o) => h('option', { value: o.value, selected: String(o.value) === String(value) }, o.label)));
+    const el = select({ label, options: [...(empty ? [['', empty]] : []), ...options.map((o) => [o.value, o.label])], value });
     // вид работ, которого нет в справочнике (удалён), остаётся выбранным, а не подменяется первым в списке
     el.value = value || '';
     el.addEventListener('change', () => onChange(el.value));
@@ -60,20 +58,21 @@ export function routeBlock(product) {
       const row = h('li', { class: 'wk-rt-row' }, h('span', { class: 'wk-rt-n' }, i + 1),
         h('div', { class: 'wk-rt-main' }, typeSel, partSel, note),
         h('div', { class: 'wk-rt-btns' },
-          h('button', { type: 'button', class: 'btn btn-ghost btn-icon btn-sm', title: 'Выше', 'aria-label': 'Шаг выше', disabled: i === 0, onclick: () => move(i, -1) }, '↑'),
-          h('button', { type: 'button', class: 'btn btn-ghost btn-icon btn-sm', title: 'Ниже', 'aria-label': 'Шаг ниже', disabled: i === steps.length - 1, onclick: () => move(i, 1) }, '↓'),
-          h('button', { type: 'button', class: 'btn btn-ghost btn-icon btn-sm', title: 'Убрать шаг', 'aria-label': 'Убрать шаг', onclick: () => { steps.splice(i, 1); paint(); } }, '✕')));
+          iconButton({ icon: '↑', label: 'Шаг выше', title: 'Выше', size: 'S', onClick: () => move(i, -1) }),
+          iconButton({ icon: '↓', label: 'Шаг ниже', title: 'Ниже', size: 'S', onClick: () => move(i, 1) }),
+          iconButton({ icon: '✕', label: 'Убрать шаг', size: 'S', onClick: () => { steps.splice(i, 1); paint(); } })));
+      const [bUp, bDown] = row.querySelectorAll('.wk-rt-btns button'); bUp.disabled = i === 0; bDown.disabled = i === steps.length - 1;
       enhanceSelect(typeSel, { force: true }); if (partSel) enhanceSelect(partSel, { force: true });
       return row;
     });
-    const saveBtn = h('button', { type: 'button', class: 'btn btn-primary btn-sm', disabled: !dirty, onclick: (e) => save(e.currentTarget) }, 'Сохранить');
+    const saveBtn = button({ label: 'Сохранить', kind: 'primary', size: 'S', disabled: !dirty, onClick: (e) => save(e.currentTarget) });
     const hint = h('span', { class: 'muted' }, dirty ? 'Есть несохранённые изменения' : '');
     function markDirty() { const d = !same(cut(steps), saved); saveBtn.disabled = !d; hint.textContent = d ? 'Есть несохранённые изменения' : ''; }
     const free = types.filter((t) => !steps.some((s) => s.workTypeId === t.value));
     const sug = (data.suggested || []).filter((x) => types.some((t) => t.value === x.workTypeId));
     const acts = can ? h('div', { class: 'spec-acts' },
-      h('button', { type: 'button', class: 'btn btn-sm', disabled: !free.length, title: free.length ? '' : 'Все виды работ уже в маршруте', onclick: () => { steps.push({ workTypeId: '', lineId: '', note: '' }); paint(); box.querySelector('.wk-rt-row:last-child select, .wk-rt-row:last-child .sel-input')?.focus(); } }, '+ Добавить работу'),
-      !steps.length && sug.length ? h('button', { type: 'button', class: 'btn btn-sm', title: 'Виды работ из модулей изделия', onclick: () => { steps = sug.map((x) => ({ workTypeId: x.workTypeId, lineId: x.lineId || '', note: '' })); paint(); } }, 'Взять подсказку: ' + sug.map((x) => x.name).join(' → ')) : null,
+      button({ label: '+ Добавить работу', size: 'S', disabled: !free.length, title: free.length ? '' : 'Все виды работ уже в маршруте', onClick: () => { steps.push({ workTypeId: '', lineId: '', note: '' }); paint(); box.querySelector('.wk-rt-row:last-child select, .wk-rt-row:last-child .sel-input')?.focus(); } }),
+      !steps.length && sug.length ? button({ label: 'Взять подсказку: ' + sug.map((x) => x.name).join(' → '), size: 'S', title: 'Виды работ из модулей изделия', onClick: () => { steps = sug.map((x) => ({ workTypeId: x.workTypeId, lineId: x.lineId || '', note: '' })); paint(); } }) : null,
       saveBtn, hint) : null;
     box.replaceChildren(h('div', { class: 'section-title' }, 'Как делается'),
       rows.length ? h('ol', { class: 'wk-rt-list' }, ...rows)

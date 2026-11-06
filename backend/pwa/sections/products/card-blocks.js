@@ -2,7 +2,7 @@ import { session } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { date, money, qty } from '../../core/format.js';
 import { go } from '../../core/router.js';
-import { button as kitButton, row as kitRow, empty as kitEmpty, toast } from '../../ui/kit/index.js';
+import { button as kitButton, row as kitRow, empty as kitEmpty, toast, toastError } from '../../ui/kit/index.js';
 import { suggestLink } from '../../ui/composition-suggest.js';
 import { clearNoteWarning, resetPdCategory } from './data.js';
 
@@ -20,7 +20,7 @@ export function passportCatView(r, ctx) {
   if (pc?.own) {
     const inh = pc.inherited;
     const reset = kitButton({ label: 'Сбросить', kind: 'ghost', size: 'S', onClick: async () => {
-      try { const fresh = await resetPdCategory(r); toast('Категория сброшена'); ctx?.setRow?.(fresh); } catch (e) { toast(e.message || 'Не удалось сбросить'); }
+      try { const fresh = await resetPdCategory(r); toast('Категория сброшена'); ctx?.setRow?.(fresh); } catch (e) { toastError(e); }
     } });
     return h('span', null, `${lbl(pc.own)} — задана в самом изделии`, inh && inh.code !== pc.own.code ? ` (${r.group ? `у группы «${r.group}»` : 'по группе'}: ${lbl(inh)})` : '', ' ', reset);
   }

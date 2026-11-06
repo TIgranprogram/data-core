@@ -1,6 +1,6 @@
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { tabs } from '../ui/kit/index.js';
+import { tabs, iconButton } from '../ui/kit/index.js';
 import { normSearch, searchTokens } from '../core/facets.js';
 import { money, parseNum, qty } from '../core/format.js';
 import { stockLookup } from '../core/stock-list.js';
@@ -53,11 +53,11 @@ async function buildCompositionForm() {
     return h('div', { class: 'comp-row' + (r.missing ? ' comp-missing' : '') },
       h('div', { class: 'c-name' }, r.name, h('small', null, [r.article && 'арт. ' + r.article, r.missing && 'удалено из справочника — уберите или замените', r.readOnly && 'из CRM, здесь не правится'].filter(Boolean).join(' · '))),
       h('span', { class: 'comp-qty' },
-        r.readOnly ? null : h('button', { type: 'button', class: 'btn btn-sm btn-icon', 'aria-label': 'Меньше', onclick: () => step(-1) }, '−'),
-        q, r.readOnly ? null : h('button', { type: 'button', class: 'btn btn-sm btn-icon', 'aria-label': 'Больше', onclick: () => step(1) }, '+'),
+        r.readOnly ? null : iconButton({ icon: '−', label: 'Меньше', size: 'S', onClick: () => step(-1) }),
+        q, r.readOnly ? null : iconButton({ icon: '+', label: 'Больше', size: 'S', onClick: () => step(1) }),
         h('span', { class: 'muted' }, r.unit)),
       sumEl,
-      r.readOnly ? h('span') : h('button', { type: 'button', class: 'btn btn-ghost btn-sm btn-icon', title: 'Убрать из состава', 'aria-label': `Убрать: ${r.name}`, onclick: () => { rows.splice(rows.indexOf(r), 1); draw(); } }, '×'));
+      r.readOnly ? h('span') : iconButton({ icon: '×', label: `Убрать: ${r.name}`, title: 'Убрать из состава', size: 'S', onClick: () => { rows.splice(rows.indexOf(r), 1); draw(); } }));
   };
   function draw() {
     const parts = [];

@@ -1,6 +1,7 @@
 import { apiFile } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { modal } from '../ui/kit/dialog.js';
+import { button, iconButton } from '../ui/kit/index.js';
 import { loadMaterialDicts } from '../ui/materials-spec.js';
 import { toast } from '../ui/kit/toast.js';
 
@@ -48,14 +49,14 @@ export async function openTechSheet(r) {
   const paint = () => box.replaceChildren(...rows.map((row, i) => h('div', { class: 'ts-row' },
     h('input', { value: row.name, 'aria-label': 'Часть', placeholder: 'Часть', oninput: (e) => { row.name = e.target.value; } }),
     h('textarea', { rows: 2, value: row.text, 'aria-label': 'Описание', placeholder: 'Материал и допуски', oninput: (e) => { row.text = e.target.value; } }),
-    h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Убрать строку', 'aria-label': 'Убрать строку', onclick: () => { rows.splice(i, 1); paint(); } }, '×'))));
+    iconButton({ icon: '×', label: 'Убрать строку', size: 'S', onClick: () => { rows.splice(i, 1); paint(); } }))));
   paint();
   await modal({
     title: 'Техническое описание', okText: '⇩ Скачать PDF', wide: true,
     body: h('div', null, h('p', { class: 'hint' }, 'Данные взяты из изделия, допуски примерные — проверьте и поправьте. Документ не сохраняется.'),
       h('label', { class: 'field' }, h('span', null, 'Название'), title),
       h('div', { class: 'ts-row ts-head' }, h('span', null, 'Часть'), h('span', null, 'Материал и допуски'), h('span')), box,
-      h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => { rows.push({ name: '', text: '' }); paint(); } }, '+ Строка')),
+      button({ label: '+ Строка', kind: 'ghost', size: 'S', onClick: () => { rows.push({ name: '', text: '' }); paint(); } })),
     onOk: async () => {
       const list = rows.map((x) => ({ name: x.name.trim(), text: x.text.trim() })).filter((x) => x.name || x.text);
       if (!list.length) throw new Error('Добавьте хотя бы одну строку');

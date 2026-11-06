@@ -5,7 +5,7 @@ import { normSearch, searchTokens } from '../../core/facets.js';
 import { date } from '../../core/format.js';
 import { patch } from '../../core/router.js';
 import { createProductFor } from '../products.js';
-import { modal, segmented } from '../../ui/kit/index.js';
+import { modal, segmented, button } from '../../ui/kit/index.js';
 import { toastError } from '../../ui/kit/toast.js';
 import { LATER_CATS, kinds, STATUS_LABEL, V2_CATS, V2_NUMS, api_get, canEdit, dims, num, st } from './common.js';
 import { mmOf, models, productsAll, resetProducts } from './models.js';
@@ -71,9 +71,9 @@ export function productBlock(api, { r, catBy }) {
     paintBadge(); lockData();
     sumLine.replaceChildren(text ? text + ' — ' : '', 'из изделия · ', h('a', { href: '#products?open=' + chosen.id, target: '_blank', rel: 'noopener', class: 'btn btn-sm', title: 'Откроется в новой вкладке — паспорт здесь останется как есть' }, 'Изменить в изделии →'),
       h('div', { class: 'muted' }, 'Рисунки берутся из изделия → ', h('a', { href: '#products?open=' + chosen.id, target: '_blank', rel: 'noopener' }, 'Фото и файлы')), diffs,
-      draft ? null : ' · ', draft ? null : h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => { api.open('name'); api.field('name')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }, 'изменить название паспорта'),
+      draft ? null : ' · ', draft ? null : button({ label: 'изменить название паспорта', kind: 'ghost', size: 'S', onClick: () => { api.open('name'); api.field('name')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }),
       !draft && r?.categoryDiffers ? h('div', null, h('span', { class: 'badge warn' }, 'Категория отличается от изделия'), ' ', V2_CATS.find((c) => c.value === (r.productCategory?.code || r.productCategory))?.label || '') : null,
-      fromOrder ? h('div', null, 'Название — как в заказе · ', h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => { api.set('name', chosen.name); paintSum(); } }, 'взять из изделия')) : null);
+      fromOrder ? h('div', null, 'Название — как в заказе · ', button({ label: 'взять из изделия', kind: 'ghost', size: 'S', onClick: () => { api.set('name', chosen.name); paintSum(); } })) : null);
   };
   // источник категории — плашка рядом с выбором «Категория паспорта»
   const badge = h('div', { class: 'pp-cat-src' });
@@ -88,7 +88,7 @@ export function productBlock(api, { r, catBy }) {
     else { kind = 'warn'; text = 'не задана — выберите'; }
     const canReset = catInfo.own && canEdit();
     badge.replaceChildren(h('span', { class: 'badge ' + kind }, 'Категория: ' + text),
-      ...(canReset ? [' ', h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => resetOwn() }, 'Сбросить')] : []));
+      ...(canReset ? [' ', button({ label: 'Сбросить', kind: 'ghost', size: 'S', onClick: () => resetOwn() })] : []));
   };
   const catField = api.field('passportCategory'); if (catField && !r) catField.append(badge);
   const resetOwn = async () => {
@@ -125,7 +125,7 @@ export function productBlock(api, { r, catBy }) {
     }
     if (chosen) {
       box.replaceChildren(h('div', { class: 'pp-prod-sel' }, pic(chosen), h('div', { style: { flex: '1' } }, h('b', null, front(chosen)), h('div', { class: 'muted' }, sub(chosen))),
-        h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { chosen = null; lockData(); render(); } }, 'Сменить')), sumLine);
+        button({ label: 'Сменить', size: 'S', onClick: () => { chosen = null; lockData(); render(); } })), sumLine);
       paintSum();
       return;
     }
@@ -133,7 +133,7 @@ export function productBlock(api, { r, catBy }) {
     const seg = segmented({ items: [{ key: '', label: 'Все' }, ...cats].map((c) => ({ key: c.value, label: c.label })), value: filterCat, label: 'Показать изделия категории', onChange: (k) => { filterCat = k; render(); } }).el;
     const input = h('input', { type: 'text', value: q, placeholder: 'Найти изделие: название или артикул — по всем категориям', 'aria-label': 'Найти изделие', autocomplete: 'off' });
     const list = h('ul', { class: 'pp-prod-list', role: 'listbox', 'aria-label': 'Изделия' });
-    const add = h('button', { type: 'button', class: 'btn btn-sm' });
+    const add = button({ label: '', size: 'S' });
     const fill = async () => {
       const all = await productsAll();
       const tk = searchTokens(q);
@@ -159,7 +159,7 @@ export function productBlock(api, { r, catBy }) {
         patch({ of: 'passports', new: '1', open: undefined });
       });
     };
-    const noProduct = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => { lock(false); api.open('name'); box.replaceChildren(h('p', { class: 'muted' }, 'Без изделия: начните печатать наименование — возьмите данные из прошлого паспорта.')); setTimeout(() => api.input('name')?.focus?.()); } }, 'Изделия нет в «Продукции» — взять данные из прошлого паспорта');
+    const noProduct = button({ label: 'Изделия нет в «Продукции» — взять данные из прошлого паспорта', kind: 'ghost', size: 'S', onClick: () => { lock(false); api.open('name'); box.replaceChildren(h('p', { class: 'muted' }, 'Без изделия: начните печатать наименование — возьмите данные из прошлого паспорта.')); setTimeout(() => api.input('name')?.focus?.()); } });
     box.replaceChildren(h('p', { class: 'hint' }, 'Сначала изделие: выберите — паспорт заполнится из него (серым — подставленное, можно поправить).'),
       seg, h('div', { class: 'pp-prod-tools' }, input, add), list, noProduct);
     fill();

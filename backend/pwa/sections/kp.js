@@ -1,6 +1,6 @@
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { sku as kitSku } from '../ui/kit/index.js';
+import { sku as kitSku, button, iconButton, select, fileButton } from '../ui/kit/index.js';
 import { busyBtn } from '../ui/kit/busy.js';
 import { money, parseNum, plural, qty } from '../core/format.js';
 import { readTableFile } from '../core/xlsx-read.js';
@@ -66,7 +66,7 @@ async function buildKpForm() {
   const [lk, il] = await Promise.all([lookups().catch(() => ({})), incomeLookups().catch(() => ({ companies: [], customers: [] }))]);
   let lines = load();
   const field = (label, el, cls = '') => h('label', { class: 'field ' + cls }, h('span', null, label), el);
-  const company = h('select', null, ...(il.companies || []).map((c) => h('option', { value: c.id }, c.name)));
+  const company = select({ options: (il.companies || []).map((c) => [c.id, c.name]), label: 'Наша компания' });
   const customer = h('input', { maxlength: 300, placeholder: 'Кому: заказчик' });
   const custBox = h('div', { class: 'has-combo' }, customer); // поле сначала в обёртку — список крепится к родителю
   attachCombo(customer, { options: () => (il.customers || lk.customers || []).map((x) => ({ label: x })) });
@@ -115,7 +115,7 @@ async function buildKpForm() {
       s.addEventListener('input', () => { l.size = s.value; save(lines); });
       return h('div', { class: 'kp-line' }, h('div', { class: 'kp-name' }, h('b', null, l.name), h('div', null, kitSku(l.sku))),
         field('Кол-во', q), field('Ед.', u), field('Цена, ₽', p), field('Цвет', c), field('Размер', s),
-        h('button', { class: 'btn btn-ghost btn-icon btn-sm', type: 'button', title: 'Убрать', onclick: () => { lines.splice(i, 1); render(); } }, '×'));
+        iconButton({ icon: '×', label: 'Убрать', size: 'S', onClick: () => { lines.splice(i, 1); render(); } }));
     }));
   };
   render();
@@ -148,7 +148,6 @@ async function buildKpForm() {
 async function buildImportForm() {
   let text = '';
   const area = h('textarea', { rows: 8, placeholder: 'Вставьте строки из Excel вместе с заголовками (Тип, Группа, Артикул, Наименование, Серия, Цена) — или выберите файл' });
-  const file = h('input', { type: 'file', accept: '.xlsx,.csv,.txt' });
   const report = h('div', { class: 'imp-report' });
   const check = async () => {
     text = area.value;
@@ -161,10 +160,10 @@ async function buildImportForm() {
     } catch (e) { report.replaceChildren(h('p', { class: 'err' }, errText(e))); }
   };
   area.addEventListener('input', () => { clearTimeout(area._t); area._t = setTimeout(check, 400); });
-  file.addEventListener('change', async () => { if (file.files[0]) { try { area.value = await readTableFile(file.files[0]); check(); } catch (e) { report.replaceChildren(h('p', { class: 'err' }, errText(e))); } } });
+  const file = fileButton({ label: 'Выбрать файл', accept: '.xlsx,.csv,.txt', onFile: async (f) => { try { area.value = await readTableFile(f); check(); } catch (e) { report.replaceChildren(h('p', { class: 'err' }, errText(e))); } } });
   const el = h('div', null, h('p', { class: 'hint' }, 'Каталог изделий: по артикулу — новые добавятся, у существующих обновятся название, раздел, группа, серия (цена — только если её ещё нет). Ничего не удаляется. Изделия без цены — черновики.'),
-    h('button', { class: 'btn', type: 'button', title: 'Пустая таблица с нужными колонками и примером', onclick: () => downloadXlsx('Шаблон каталога изделий.xlsx', [['Тип', 'Группа', 'Артикул', 'Наименование', 'Серия', 'Цена'], ['Детское игровое оборудование', 'Качели', 'КЧ-001', 'Качели двойные', 'Классик', 12500]], 'Каталог') }, '⇩ Шаблон Excel'),
-    h('label', { class: 'field wide' }, h('span', null, 'Файл Excel (.xlsx) или CSV'), file), h('label', { class: 'field wide' }, h('span', null, 'Или вставьте строки'), area), report);
+    button({ label: '⇩ Шаблон Excel', title: 'Пустая таблица с нужными колонками и примером', onClick: () => downloadXlsx('Шаблон каталога изделий.xlsx', [['Тип', 'Группа', 'Артикул', 'Наименование', 'Серия', 'Цена'], ['Детское игровое оборудование', 'Качели', 'КЧ-001', 'Качели двойные', 'Классик', 12500]], 'Каталог') }),
+    h('div', { class: 'field wide' }, h('span', null, 'Файл Excel (.xlsx) или CSV'), file), h('label', { class: 'field wide' }, h('span', null, 'Или вставьте строки'), area), report);
   return {
     el, focus: () => area.focus(), dirty: () => !!area.value.trim(),
     read: () => ({ values: { save: async () => {
@@ -190,8 +189,8 @@ async function buildFromOrdersForm() {
     h('p', { class: 'hint' }, 'Позиции заказов, которых ещё нет в «Продукции». Отметьте, что сделать изделиями-черновиками (без цены), и при желании поправьте название; полное описание из заказа попадёт в описание изделия. Неотмеченные позиции остаются как есть — их можно добавить позже тем же способом. Текст и суммы в заказах не меняются.'),
     h('p', null, `Новых: ${r.new} · уже есть в «Продукции»: ${r.exists} (позиции привяжутся к ним сами) · позиций заказов проверено: ${r.lines}`),
     rows.length ? h('div', { class: 'bulk-foot' }, count,
-      h('button', { type: 'button', class: 'btn btn-sm', onclick: () => all(true) }, 'Выбрать все'),
-      h('button', { type: 'button', class: 'btn btn-sm', onclick: () => all(false) }, 'Снять все')) : null,
+      button({ label: 'Выбрать все', size: 'S', onClick: () => all(true) }),
+      button({ label: 'Снять все', size: 'S', onClick: () => all(false) })) : null,
     rows.length ? h('ul', { class: 'dict-cand-list fo-list' }, ...rows.map(({ p, cb, name }) => h('li', null, cb, name,
       h('span', { class: 'muted small' }, `позиций ${p.lines}${p.orders.length ? ' · заказы ' + p.orders.join(', ') : ''}`)))) : h('p', { class: 'muted' }, 'Новых изделий нет'));
   return {
@@ -221,8 +220,8 @@ async function buildFromPassportsForm() {
     const name = h('input', { value: g[0].name, maxlength: 256, class: 'fo-name', 'aria-label': 'Название изделия' });
     rows.forEach((x) => x.main.addEventListener('change', () => { if (x.main.checked) { name.value = x.m.name; x.on.checked = true; } }));
     const box = h('div', { class: 'fp-group' });
-    const merge = h('button', { type: 'button', class: 'btn btn-primary btn-sm' }, 'Объединить');
-    const apart = h('button', { type: 'button', class: 'btn btn-sm', title: 'Каждый вариант станет отдельным изделием' }, 'Это разные изделия');
+    const merge = button({ label: 'Объединить', kind: 'primary', size: 'S' });
+    const apart = button({ label: 'Это разные изделия', size: 'S', title: 'Каждый вариант станет отдельным изделием' });
     merge.addEventListener('click', () => {
       const keys = rows.filter((x) => x.on.checked).map((x) => x.m.key);
       const main = rows.find((x) => x.main.checked)?.m.key;

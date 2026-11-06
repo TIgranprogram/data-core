@@ -1,6 +1,7 @@
 import { api } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { modal } from '../../ui/kit/dialog.js';
+import { select } from '../../ui/kit/index.js';
 import { toast } from '../../ui/kit/toast.js';
 
 /**
@@ -43,7 +44,7 @@ export function specFromType(type, dicts) {
 export async function fillFromType(w, { name, dicts }) {
   const types = await api('/dicts/passportTypes').then((r) => r.items || []).catch(() => []);
   if (!types.length) { toast('Типы изделий ещё не заполнены — справочник «Типы изделий»'); return; }
-  const sel = h('select', { 'aria-label': 'Тип изделия' }, h('option', { value: '' }, 'Выберите тип'), ...types.map((t) => h('option', { value: String(t.id) }, t.name)));
+  const sel = select({ label: 'Тип изделия', options: [['', 'Выберите тип'], ...types.map((t) => [String(t.id), t.name])] });
   sel.value = String(typeByName(types, name)?.id ?? '');
   const id = await modal({
     title: 'Подставить по типу изделия', okText: 'Подставить',
