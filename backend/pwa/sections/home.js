@@ -186,12 +186,14 @@ export function mountHome(deps) {
   function rowsOf(key, items) {
     const full = expanded.has(key), rows = full ? items : items.slice(0, PREVIEW);
     return [...rows.map(cardEl),
-      items.length > PREVIEW ? h('div', { class: 'td-more' }, button({ label: full ? 'Свернуть ↑' : `ещё ${items.length - PREVIEW} ↓`, kind: 'ghost', size: 'S',
+      items.length > PREVIEW ? h('div', { class: 'td-more' },
+        button({ label: full ? 'Свернуть ↑' : `ещё ${items.length - PREVIEW} ↓`, kind: 'ghost', size: 'S',
         onClick: () => { full ? expanded.delete(key) : expanded.add(key); paintFeed(); } })) : null];
   }
   function group(key, title, items, open) {
     if (!items.length) return null;
-    return h('details', { class: 'td-group', open }, h('summary', null, h('span', null, title), h('b', { class: 'td-gn' }, String(items.length))),
+    return h('details', { class: 'td-group', open },
+      h('summary', null, h('span', null, title), h('b', { class: 'td-gn' }, String(items.length))),
       h('div', { class: 'td-rows' }, ...rowsOf(key, items)));
   }
   const unmatchedRow = () => (unmatchedN > 0 ? h('div', { class: 'td-unm' }, h('a', { class: 'q-link', href: '#salesorders', onclick: (e) => { e.preventDefault(); go('salesorders', {}); } }, 'Не сопоставлено позиций: ' + unmatchedN)) : null);
@@ -221,7 +223,7 @@ export function mountHome(deps) {
       return { el: s.el, counted: true, paint() {
         const over = visibleFeed().filter((c) => c.overdueDays > 0 && !ownKinds.has(c.kind));
         const um = unmatchedRow();
-        s.el.classList.toggle('td-urgent', over.length > 0 || !!um); // красный заголовок только когда есть что срочно
+        s.el.classList.toggle('td-urgent', over.length > 0); // красный только при просроченных делах; «не сопоставлено» — не тревога
         return s.set(over.length, over.length || um ? h('div', { class: 'td-feed' }, ...rowsOf('over', over), um) : emptyLine('Нет просроченных дел')) + (um ? 1 : 0);
       } };
     },
@@ -242,7 +244,8 @@ export function mountHome(deps) {
         const qs = questions();
         const rows = showAllQ ? qs : qs.slice(0, 2);
         return s.set(qs.length, qs.length ? h('div', { class: 'td-qcard' },
-          ...rows.map((c) => h('div', { class: 'td-q' }, h('div', { class: 'td-q-t' }, c.title), c.sub ? h('div', { class: 'td-sub' }, c.sub) : null,
+          ...rows.map((c) => h('div', { class: 'td-q' }, h('div', { class: 'td-q-t' }, c.title),
+            c.sub ? h('div', { class: 'td-sub' }, c.sub) : null,
             button({ label: 'Ответить', kind: 'primary', size: 'S', onClick: () => answer(c) }))),
           qs.length > 2 ? button({ label: showAllQ ? 'Свернуть ↑' : `Показать все ${qs.length} ↓`, kind: 'ghost', size: 'S', onClick: () => { showAllQ = !showAllQ; paintFeed(); } }) : null) : emptyLine('Нет вопросов без ответа'));
       } };
@@ -311,7 +314,7 @@ export function mountHome(deps) {
       } });
     const base = (data?.feed || []).filter((c) => c.kind !== 'question' && notSnoozed(c));
     const o = base.filter((c) => c.overdueDays > 0).length, w = base.filter((c) => c.kind === 'work' && c.overdueDays > 0).length, q = questions().length;
-    if (!o && !w && !q && !chip) { pulseEl.replaceChildren(h('p', { class: 'td-sub' }, 'Всё спокойно')); return; } // три нулевые пилюли вместо одной строки
+    if (!o && !w && !q && !chip) { pulseEl.replaceChildren(h('p', { class: 'td-sub' }, 'Просроченных дел нет')); return; } // три нулевые пилюли вместо одной строки
     pulseEl.replaceChildren(
       mk('overdue', o, plural(o, 'просроченное дело', 'просроченных дела', 'просроченных дел'), 'Показать только просроченные дела'),
       showW ? mk('workover', w, plural(w, 'задание просрочено', 'задания просрочено', 'заданий просрочено'), 'Показать просроченные задания в работе') : null,
