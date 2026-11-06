@@ -1,5 +1,5 @@
 import { PREFIX, session } from '../core/api.js';
-import { sku as kitSku, button as kitButton, toast, confirmDlg } from '../ui/kit/index.js';
+import { sku as kitSku, button as kitButton, stack, toast, confirmDlg } from '../ui/kit/index.js';
 import { h } from '../core/dom.js';
 import { money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
@@ -117,7 +117,7 @@ export const products = {
     editTop: true,
     zones: { extra: 'side' },
     // SK-8d: «В заказах» и «Паспорта» — только если эти разделы открыты роли
-    extra: (r) => h('div', null, warnNote(r), variantsBlock(r), productFilesBlock(r, session.canEdit), session.sees('products') ? productAttachmentsBlock(r) : null, compositionBlock(r), session.sees('work') ? routeBlock(r) : null, session.sees('salesorders') ? inOrders(r) : null, session.seesDocs() ? passportsBlock(r) : null),
+    extra: (r) => stack(warnNote(r), variantsBlock(r), productFilesBlock(r, session.canEdit), session.sees('products') ? productAttachmentsBlock(r) : null, compositionBlock(r), session.sees('work') ? routeBlock(r) : null, session.sees('salesorders') ? inOrders(r) : null, session.seesDocs() ? passportsBlock(r) : null),
     gallery: (r) => r.photos || [],
     photoAdd: data.photoAdd,
     photoMain: data.photoMain,
@@ -152,14 +152,14 @@ export const products = {
     // главное → связанное → редкое в «⋯» (ПРД.4)
     actions: (r) => [{ label: 'В КП', title: 'Добавить в коммерческое предложение', run: (row) => { kpAdd(row); toast(`В КП — всего ${kpCount()}`); } },
       ...(session.canEdit ? [{ label: 'Изменить состав', run: (row) => { setCompositionTarget(row); patch({ of: 'composition', new: '1', open: undefined }); } }] : []),
-      { label: 'Заказы с этим изделием', run: (row) => go('salesorders', { productId: row.id }) },
+      { label: 'Заказы с этим изделием', more: true, run: (row) => go('salesorders', { productId: row.id }) }, // ПМ-1: на виду ≤ 3 кнопок, связь — секция «В заказах»
       // один вход: есть паспорт — печать; нет — редактор шаблона (там видно, чего не хватает)
       ...(session.seesDocs() ? [{ label: 'Печать паспорта', title: 'Есть паспорт — PDF и печать; нет — откроется шаблон с недостающим', run: async (row) => {
         if (row.passports?.items?.[0]) printDialog(await data.getPassport(row.passports.items[0].id));
         else await previewPassport(row.id);
       } }] : []),
       // УПР-1/Д11: «Выпустить паспорт» убрана — единственный вход в passports.js (панель паспорта)
-      { label: 'Техническое описание', title: 'PDF для заказчика: фото, части, материалы и допуски', run: (row) => openTechSheet(row) },
+      { label: 'Техническое описание', more: true, title: 'PDF для заказчика: фото, части, материалы и допуски', run: (row) => openTechSheet(row) },
       // ПРЖ-4: артикул по номеру группы (сервер: assign-sku; без confirm — только проверка и число паспортов)
       ...(session.canEdit ? [{ label: 'Присвоить артикул группы', more: true, title: 'Новый артикул по номеру группы изделия (например 34 → 3411)', run: async (row, ctx) => {
         const chk = await data.assignSku(row.id);

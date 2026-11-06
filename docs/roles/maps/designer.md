@@ -1,6 +1,7 @@
 # Карта роли designer
 
 коммит: 12d0d8da (+ незакоммиченное: STYLE-DECISION «картотека» 05.11 — решение по коду, без снимков). Снимка нет.
+- Аудит правых панелей 06.11 (по коду, без стенда): причины — kit.css:338 `.dz-flow > *{display:block}` ломает `.actions`; list.css:76 `.drawer-body` без gap; list.css:52 `.state` padding 32/16 (пустые «Файлов нет»); product-attachments.js:89–119 (card M × вид + table.empty), product-files.js:76–97 (эталон section), card-blocks.js `.section-title`-блоки. Отчёт — у координатора (docs/crew/C-PANELS-AUDIT/REPORT.md).
 
 - Стиль «картотека» (решение 05.11): docs/crew/STYLE-DECISION.md — 1А бумага, 2Б линии, 3А сетка; правки: kit.css:178 .k-hover → --shadow, kit.css:4 полоса L 6→4px, kit.css:133/145/163 убрать -1px, base.css:137 тень/радиус .tcard, base.css:153 тень .tile; таблица list.css:13–22; сетка связей — @container как kit.css:333.
 - C022 «Новая позиция склада» (повторная приёмка 04.11, принято по коду): form.js:291 mount сразу; metal.js:44–108 скрытие блока до отрисовки, подсказка ед. 84–88, формат у толщины 77–81, мойка без второго «—» 106; stock.js:298 hint « »; dictNames только metal.js:6. P2: пустой зазор подсказки ед. и двойное «м» в остатке stock.js:222. Отчёт docs/crew/C022-stock-order/DESIGNER.md. design-lint 0. Журнал review-scope не закрыт.

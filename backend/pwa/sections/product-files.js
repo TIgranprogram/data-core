@@ -1,6 +1,6 @@
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { button, empty, carousel, toast, toastError, confirmDlg, section, row, link, photoDrop, busyBlock, failBlock } from '../ui/kit/index.js';
+import { button, empty, carousel, toast, toastError, confirmDlg, section, stack, row, link, photoDrop, busyBlock, failBlock } from '../ui/kit/index.js';
 import { KINDS, KINDS_V2 } from '../core/passport-kinds.js';
 
 /**
@@ -43,8 +43,8 @@ const fileIcon = (name) => ({ pdf: '📄', dwg: '📐', dxf: '📐' })[String(na
 const sizeText = (n) => (!n ? '' : n > 1048576 ? `${(n / 1048576).toFixed(1)} МБ` : `${Math.max(1, Math.round(n / 1024))} КБ`);
 
 export function productFilesBlock(r, canEdit) {
-  const title = h('div', { class: 'section-title' }, 'Фото и файлы');
-  const root = h('div', null, title, busyBlock('файлы изделия', { retry: paint }));
+  // ПМ-1: без заголовка-линии — сами секции (Витрина, Для паспорта, Чертежи) карточками в колонке
+  const root = stack(busyBlock('файлы изделия', { retry: paint }));
   const slot = (kind, rec, required) => {
     const ph = rec?.photoId;
     const pics = ph && ph.storageUrl ? [{ url: ph.storageUrl, thumb: ph.variants?.thumb?.storageUrl || ph.storageUrl, medium: ph.variants?.medium?.storageUrl }] : [];
@@ -74,7 +74,7 @@ export function productFilesBlock(r, canEdit) {
       [items, need, drawings] = await Promise.all([api(`/products/${r.id}/photos?purpose=passport`).then((x) => x.items || x), needKinds(r),
         api(`/products/${r.id}/photos?purpose=drawing`).then((x) => x.items || x).catch(() => [])]);
     } catch (e) {
-      root.replaceChildren(title, failBlock(e, paint, { text: 'Фото и файлы изделия не загрузились' }));
+      root.replaceChildren(failBlock(e, paint, { text: 'Фото и файлы изделия не загрузились' }));
       return;
     }
     const byKind = new Map((items || []).map((x) => [x.kind === 'safety_zone' ? 'safety' : x.kind, x]));
@@ -85,11 +85,11 @@ export function productFilesBlock(r, canEdit) {
       : kinds.length ? h('div', null, ...kinds.map((k) => slot(k, byKind.get(k), req.has(k)))) : empty({ title: 'Для этой категории рисунки не нужны' });
     const dr = drawings || [];
     const drawingsBody = h('div', null,
-      dr.length ? h('div', null, ...dr.map(drawingRow)) : empty({ title: 'Чертежей нет', hint: canEdit ? 'Загрузите PDF, DWG или DXF. Для больших файлов — блок «Вложения» ниже.' : '' }),
+      dr.length ? h('div', null, ...dr.map(drawingRow)) : h('p', { class: 'muted small' }, canEdit ? 'Чертежей нет — загрузите PDF, DWG или DXF; большие файлы — во «Вложения».' : 'Чертежей нет'),
       canEdit ? photoDrop({ purpose: 'drawing', drawing: true, attach: async (photoId) => { await attachProductFile(r.id, photoId, 'drawing'); return true; }, done: () => { toast('Чертёж сохранён'); paint(); } }) : null);
     const open = new Set([...root.querySelectorAll('details.k-sec[open]')].map((d) => d.dataset.key));
     const mk = (key, title, count, body) => { const s = section({ title, count, body, open: open.has(key) }); s.dataset.key = key; return s; };
-    root.replaceChildren(title,
+    root.replaceChildren(
       mk('shop', 'Витрина', (r.photos || []).length, h('div', { class: 'muted' }, 'Фото на обложку и в списках — наверху карточки.')),
       mk('passport', 'Для паспорта', byKind.size, passport),
       mk('drawing', 'Чертежи', dr.length, drawingsBody));

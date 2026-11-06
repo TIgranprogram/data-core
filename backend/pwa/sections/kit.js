@@ -1,6 +1,6 @@
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
-import { searchBox, readonlyGroup, similarBox, sku, section, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, qtyInput, targetPicker, toast, pick, filter, table, panel, entityPanel, select, fileButton, links, SUPPLY_STATUS } from '../ui/kit/index.js';
+import { searchBox, readonlyGroup, similarBox, sku, section, stack, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, qtyInput, targetPicker, toast, pick, filter, table, panel, entityPanel, select, fileButton, links, SUPPLY_STATUS } from '../ui/kit/index.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
 const LONG = 'Очень длинное название позиции для проверки переноса и обрезки текста в карточке эталона';
@@ -78,6 +78,8 @@ export const kit = {
         sample(readonlyGroup({ title: 'Сведения', rows: [['Поставщик', LONG], ['Позиций', 0], ['Связь', link({ label: 'Открыть заявку', href: '#requests' })], ['Пустое', '']] }), readonlyGroup({ title: 'Пустая группа', rows: [['Нет значения', '']] }))),
       block('Сворачиваемая секция', 'section({ title, count, open, body }) — группа в правой панели: закрыта по умолчанию, в шапке число; Enter/Пробел открывает.',
         sample(section({ title: 'Для паспорта', count: 3, body: h('div', null, 'Содержимое группы') }), section({ title: 'Чертежи', count: 0, open: true, body: empty({ title: 'Чертежей нет' }) }))),
+      block('Блоки панели колонкой', 'stack(...блоки) — секции правой панели одна под другой с одним зазором; пустая секция — строка внутри.',
+        sample(stack(section({ title: 'Состав', count: 2, body: h('div', null, 'Материалы и узлы') }), section({ title: 'В заказах', count: 0, body: h('p', { class: 'muted small' }, 'Изделие ещё не встречается в заказах') })))),
       block('Карточка S (.tile)', 'tone; длинный текст; без меты; с действием.',
         sample(...cards('S'), card({ size: 'S', title: LONG, meta: LONG }), card({ size: 'S', title: 'Без меты' }), card({ size: 'S', title: 'С действием', actions: button({ label: 'Открыть', size: 'S' }) }))),
       block('Карточка M (.tcard)', 'tone; с фото; плотная (compact); длинный текст.',

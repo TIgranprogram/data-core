@@ -1,10 +1,10 @@
 import { api, session, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { button, card, table, empty, actions, toast, toastError, confirmDlg, busyBlock, failBlock } from '../ui/kit/index.js';
+import { button, section, table, empty, actions, toast, toastError, confirmDlg, busyBlock, failBlock } from '../ui/kit/index.js';
 
 /**
- * Блок «Вложения» в карточке изделия (ВЛ-1, FE-1): на каждый вид из справочника «Виды вложений» — карточка kit.card
- * (variant table) со списком файлов и кнопкой «Загрузить файлы». Загрузка — XHR с прогрессом и «Отмена»,
+ * Блок «Вложения» в карточке изделия (ВЛ-1, FE-1; ПМ-1 2026-11-06): одна свёрнутая секция «Вложения · N», внутри на каждый вид
+ * из справочника «Виды вложений» — свёрнутая секция «Чертежи · 2» с файлами и кнопкой «Загрузить файлы»; пустой вид — одна строка. Загрузка — XHR с прогрессом и «Отмена»,
  * скачивание — по одноразовому тикету, удаление — только admin. Сервер: modules/productattachments.
  */
 const sizeText = (n) => (!n ? '0 КБ' : n >= 1073741824 ? `${(n / 1073741824).toFixed(1)} ГБ` : n >= 1048576 ? `${(n / 1048576).toFixed(1)} МБ` : `${Math.max(1, Math.round(n / 1024))} КБ`);
@@ -60,8 +60,9 @@ async function download(productId, a) {
 }
 
 export function productAttachmentsBlock(r) {
-  const title = h('div', { class: 'section-title' }, 'Вложения');
-  const root = h('div', null, title, busyBlock('вложения изделия', { retry: load }));
+  const inner = h('div', null, busyBlock('вложения изделия', { retry: load }));
+  const root = section({ title: 'Вложения', count: '…', body: inner });
+  const setCount = (el, n) => { const b = el?.querySelector(':scope > summary .k-sec-n'); if (b) b.textContent = String(n); };
   const up = new Map(); // typeId -> [{ name, pct, abort }] — загрузки в процессе
   const bodies = new Map(); // typeId -> контейнер таблицы
   let types = [], files = [];
@@ -85,11 +86,13 @@ export function productAttachmentsBlock(r) {
     const box = bodies.get(typeId);
     if (!box) return;
     const rows = rowsOf(typeId);
-    box.replaceChildren(table({
+    setCount(box.closest('details'), files.filter((f) => f.typeId === typeId).length);
+    setCount(root, files.length);
+    // пустой вид — одна строка, без большой плашки «Файлов нет» (аудит панелей 2026-11-06)
+    box.replaceChildren(rows.length ? table({
       label: 'Файлы вида', rows,
       columns: [{ label: 'Файл' }, { label: 'Размер', num: true }, { label: 'Загружен', hide: true }, { label: 'Кто', hide: true }, { label: '' }],
-      empty: { title: 'Файлов нет', hint: canUpload() ? 'Перетащите файлы сюда или нажмите «Загрузить файлы» — можно несколько сразу.' : '' },
-    }));
+    }) : h('p', { class: 'muted small' }, canUpload() ? 'Файлов нет — перетащите сюда или нажмите «Загрузить файлы».' : 'Файлов нет'));
   };
 
   async function remove(f) {
@@ -141,26 +144,28 @@ export function productAttachmentsBlock(r) {
     const box = h('div');
     bodies.set(t.id, box);
     const input = h('input', { type: 'file', multiple: true, hidden: true, onchange: () => { const l = [...input.files]; input.value = ''; if (l.length) sendAll(t.id, l); } });
-    const node = card({ size: 'M', title: t.name, meta: t.formats ? 'Форматы: ' + t.formats : null, variant: 'table', body: box,
-      actions: canUpload() ? [input, button({ label: 'Загрузить файлы', size: 'S', onClick: () => input.click() })] : null });
+    const node = section({ title: t.name, count: files.filter((f) => f.typeId === t.id).length, body: [box,
+      t.formats ? h('p', { class: 'hint' }, 'Форматы: ' + t.formats) : null,
+      canUpload() ? actions(input, button({ label: 'Загрузить файлы', size: 'S', onClick: () => input.click() })) : null] });
     if (canUpload()) wireDrop(node, (l) => sendAll(t.id, l));
     paintType(t.id);
     return node;
   };
 
   async function load() {
-    root.replaceChildren(title, busyBlock('вложения изделия', { retry: load }));
+    inner.replaceChildren(busyBlock('вложения изделия', { retry: load }));
     try {
       const [tr, fr] = await Promise.all([api('/dicts/attachmentTypes'), api(`/products/${r.id}/attachments`)]);
       types = (tr.items || tr).filter((t) => t && t.name).map((t) => ({ id: String(t.id || t._id), name: t.name, formats: t.formats || '', order: Number(t.order) || 0 }))
         .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, 'ru'));
       files = fr.items || [];
     } catch (e) {
-      root.replaceChildren(title, failBlock(e, load, { text: 'Вложения изделия не загрузились' }));
+      inner.replaceChildren(failBlock(e, load, { text: 'Вложения изделия не загрузились' }));
       return;
     }
     bodies.clear();
-    root.replaceChildren(title, types.length
+    setCount(root, files.length);
+    inner.replaceChildren(types.length
       ? h('div', null, ...types.map(typeCard))
       : empty({ title: 'Виды вложений не заведены', hint: 'Администратор добавляет их в справочнике «Виды вложений».' }));
   }

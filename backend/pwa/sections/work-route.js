@@ -1,7 +1,7 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { failBlock } from '../ui/kit/busy.js';
-import { enhanceSelect, button, iconButton, select } from '../ui/kit/index.js';
+import { busyBlock, failBlock } from '../ui/kit/busy.js';
+import { enhanceSelect, button, iconButton, select, section } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 
 /*
@@ -24,13 +24,15 @@ const cut = (steps) => steps.map((s) => ({ workTypeId: s.workTypeId || '', lineI
 
 export function routeBlock(product) {
   const box = h('div', { class: 'wk-route' });
+  const sec = section({ title: 'Как делается', count: '…', body: box }); // ПМ-1: блок панели — свёрнутая секция с числом шагов
+  const setCount = (n) => { const b = sec.querySelector(':scope > summary .k-sec-n'); if (b) b.textContent = String(n); };
   const can = session.canEdit;
   let data = null, types = [], steps = [], saved = [];
 
   async function load() {
-    box.replaceChildren(h('div', { class: 'section-title' }, 'Как делается'), h('div', { class: 'skel', style: { width: '60%' } }));
+    box.replaceChildren(busyBlock('маршрут'));
     try { [data, types] = await Promise.all([api('/work-routes/' + product.id), workTypes()]); }
-    catch (e) { box.replaceChildren(h('div', { class: 'section-title' }, 'Как делается'), failBlock(e, load)); return; }
+    catch (e) { box.replaceChildren(failBlock(e, load)); return; }
     steps = data.steps.map((s) => ({ workTypeId: s.workTypeId, lineId: s.lineId || '', note: s.note || '' }));
     saved = cut(steps);
     paint();
@@ -74,7 +76,8 @@ export function routeBlock(product) {
       button({ label: '+ Добавить работу', size: 'S', disabled: !free.length, title: free.length ? '' : 'Все виды работ уже в маршруте', onClick: () => { steps.push({ workTypeId: '', lineId: '', note: '' }); paint(); box.querySelector('.wk-rt-row:last-child select, .wk-rt-row:last-child .sel-input')?.focus(); } }),
       !steps.length && sug.length ? button({ label: 'Взять подсказку: ' + sug.map((x) => x.name).join(' → '), size: 'S', title: 'Виды работ из модулей изделия', onClick: () => { steps = sug.map((x) => ({ workTypeId: x.workTypeId, lineId: x.lineId || '', note: '' })); paint(); } }) : null,
       saveBtn, hint) : null;
-    box.replaceChildren(h('div', { class: 'section-title' }, 'Как делается'),
+    setCount(steps.length);
+    box.replaceChildren(
       rows.length ? h('ol', { class: 'wk-rt-list' }, ...rows)
         : h('p', { class: 'muted' }, (data.note || 'Не задано, как делается') + '. ' + (can ? 'Без маршрута изделие запускается одной работой «Изготовление». Добавьте работы по порядку или возьмите подсказку.' : '')),
       data.droppedSteps ? h('p', { class: 'hint' }, `Виды работ, удалённые из справочника, в маршруте не показаны: ${data.droppedSteps}. После сохранения они уйдут.`) : null,
@@ -93,5 +96,5 @@ export function routeBlock(product) {
   }
 
   load();
-  return box;
+  return sec;
 }
