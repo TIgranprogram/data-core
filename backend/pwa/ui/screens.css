@@ -1423,7 +1423,7 @@ body[data-sec] .matching-screen .page-head{border-bottom:0;padding-bottom:0;marg
 .st-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s4); padding: var(--s3) var(--s4); margin: var(--s3) 0; background: var(--warn-soft); border: 1px solid var(--border); border-radius: var(--radius); }
 .st-banner-acts { display: flex; flex-wrap: wrap; gap: var(--s2); }
 .st-body { margin-top: var(--s3); }
-.st-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
+.st-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
 .st-row { width: 100%; display: grid; grid-template-columns: minmax(0, 1.2fr) auto minmax(0, 1.6fr) auto; align-items: center; gap: var(--s3); padding: var(--s3) var(--s4); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); font: inherit; color: var(--text); text-align: left; cursor: pointer; }
 .st-row:hover { border-color: var(--primary); }
 .st-row.off { opacity: .6; }
@@ -1441,7 +1441,7 @@ body[data-sec] .matching-screen .page-head{border-bottom:0;padding-bottom:0;marg
 .ho-line { margin-top: var(--s2); }
 .td-scope { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
 .td-scope-hint { max-width: 280px; }
-@media (max-width: 720px) { .st-row { grid-template-columns: minmax(0, 1fr) auto; } .st-row .st-zones { grid-column: 1 / -1; } }
+@media (max-width: 720px) { .st-row { grid-template-columns: minmax(0, 1fr) auto; } .st-row .st-zones { grid-column: 1 / -1; } .st-row .btn { white-space: normal; } .st-row .k-select { min-width: 0; max-width: 100%; } }
 
 /* переключатели .seg — 44 px на телефоне (приёмка 2026-10-29) */
 @media (max-width: 700px) { .td-scope .seg button { min-height: 44px; } }

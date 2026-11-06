@@ -183,3 +183,5 @@
 - `requests.js`: `rollbackReceipt` ~95, действие «Отменить приёмку» (admin, received), `update` через withReason. `invoice-workspace.js`: `override` ~129, кнопки «Снять оплату» / «Отменить приёмку» по строке. `invoice-workspace-state.js`: права `unpay`, `rollback`. `offers.js`: `setStatus`/`update` через withReason, «Вернуть статус: …» для admin. Карта обновлена.
 
 - ORDER-W1: kit/target-picker.js:69 (targetPicker, перенесён из ui/), kit/qty-input.js:10 (qtyInput), sections/order-attachments-zip.js (orderZipAction в конце), витрина sections/kit.js блоки qtyInput/targetPicker. Коммит: не закоммичено.
+
+- CL-D (2026-11-06): `ui/kit/searchbox.js` (searchBox, ушёл из ui/, data-k=search; экспорт `kit/index.js`), `--tap` в tokens.css, оверрайды `.btn.td-chip/.td-day/.sum-item` и `.ls-grid>.list-side`, `.t-pick input` — конец `kit/kit.css`; `home.js` paintPulse/paintWeek на `button({cls})`. Коммит: не закоммичено. Карта обновлена.

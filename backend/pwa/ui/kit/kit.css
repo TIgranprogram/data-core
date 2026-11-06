@@ -392,3 +392,13 @@ button.m-fg-h { cursor: pointer; }
 .ep-hist-body { margin-top: var(--s3); }
 @media (max-width: 720px) { .ep-grid { grid-template-columns: 1fr; } }
 .k-select { min-width: 0; max-width: 100%; }
+
+/* Правки по замечаниям CL-D (2026-11-06): kit-кнопка с cls раскладки экрана, панель фильтров, зона нажатия */
+.ls-grid > .list-side { background: var(--surface); border: 1px solid var(--border-strong); } /* панель фильтров не сливается с колонками доски */
+.btn.td-chip { height: auto; font-weight: inherit; }
+.btn.td-day { height: 56px; flex-direction: column; font-weight: inherit; white-space: normal; }
+.btn.sum-item { height: auto; align-items: flex-start; justify-content: flex-start; border-radius: 0; font-weight: inherit; white-space: normal; }
+@media (max-width: 720px) {
+  .q-link { display: inline-flex; align-items: center; justify-content: flex-end; min-width: var(--tap); min-height: var(--tap); }
+  .t-pick input { width: var(--tap); height: var(--tap); }
+}

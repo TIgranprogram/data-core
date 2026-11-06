@@ -24,6 +24,7 @@
 
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
   --radius: 10px;
+  --tap: 44px; /* минимальная зона нажатия на телефоне */
   /* Стиль «картотека» (ДС-1, STYLE-DECISION): псевдонимы карточки, один бренд — одна правка */
   --card-pad: var(--s3) var(--s4); --card-gap: var(--s3); --card-min: 240px; --cell-pad: var(--s2) var(--s3);
   --radius-sm: 7px;

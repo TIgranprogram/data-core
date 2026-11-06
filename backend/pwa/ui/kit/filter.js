@@ -5,7 +5,7 @@ import { facetValues, FACETS, index, pick, facetLabel, PIPE_KINDS, pipeParts } f
 import { mark } from './mark.js';
 import { busyBlock } from './busy.js';
 import { zoneCats } from '../../core/zone.js';
-import { searchBox } from '../searchbox.js';
+import { searchBox } from './searchbox.js';
 import { makeResizable } from '../resizer.js';
 import { button } from './index.js';
 

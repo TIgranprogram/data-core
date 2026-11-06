@@ -1,5 +1,6 @@
-import { h } from '../core/dom.js';
-import { searchDecider } from './search-logic.js';
+import { h } from '../../core/dom.js';
+import { searchDecider } from '../search-logic.js';
+import { mark } from './mark.js';
 
 /*
  * Строка поиска — одна на всё приложение (TASKS ПО.3, CANON §2 «поиск: пусто = всё»): шапка, списки, справочники,
@@ -14,7 +15,7 @@ export function searchBox({ value = '', placeholder = 'Поиск…', label = '
   const input = h('input', { type: 'text', inputmode: 'search', enterkeyhint: 'search', autocomplete: 'off', placeholder, 'aria-label': label, value });
   const x = h('button', { type: 'button', class: 'sb-x', title: 'Очистить (Esc)', 'aria-label': 'Очистить поиск', hidden: !value, onclick: () => { clear(); input.focus(); } }, '×');
   const hint = h('div', { class: 'sb-hint', hidden: true, role: 'status' });
-  const el = h('div', { class: ('sb ' + className).trim() }, input, x, hint);
+  const el = mark(h('div', { class: ('sb ' + className).trim() }, input, x, hint), 'search');
   let t;
   const apply = () => {
     clearTimeout(t);

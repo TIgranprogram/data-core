@@ -8,7 +8,7 @@ import { getViewAs, setViewAs, syncViewAsRoles, viewAsActive } from './core/view
 import { $, h } from './core/dom.js';
 import { closeStep, current, go, onChange, onNav, patch, setGuard } from './core/router.js';
 import { confirmDlg, modal } from './ui/kit/dialog.js';
-import { searchBox } from './ui/searchbox.js';
+import { searchBox } from './ui/kit/searchbox.js';
 import { openCard } from './ui/kit/card.js';
 import { installGlobalErrors } from './ui/kit/errors.js';
 import { toast, toastError } from './ui/kit/toast.js';
