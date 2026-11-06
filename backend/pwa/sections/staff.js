@@ -5,7 +5,7 @@ import { current, go } from '../core/router.js';
 import { busyBlock, failBlock } from '../ui/kit/busy.js';
 import { confirmDlg } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
-import { tabs as kitTabs, empty as kitEmpty, button, row, badge, enhanceSelect, select as kitSelect } from '../ui/kit/index.js';
+import { actions, section, stack, tabs as kitTabs, empty as kitEmpty, button, row, badge, enhanceSelect, select as kitSelect } from '../ui/kit/index.js';
 
 /**
  * «Управление → Сотрудники» (ЗО-2): список сотрудников, вкладка «Зоны», плашка «Не назначено».
@@ -125,9 +125,9 @@ function loginBlock(p, logins, ctx) {
   const save = button({ label: 'Сохранить вход', kind: 'primary', onClick: (e) => busy(e, async () => {
     try { await api(`/staff/${p.id}/login`, { method: 'PUT', body: { userId: sel.value || null } }); toast(sel.value ? 'Вход связан' : 'Вход отвязан'); ctx.reload(); } catch (ex) { toastError(ex, 'связать вход'); }
   }) });
-  return h('section', { class: 'st-block' }, h('h3', { class: 'section-title' }, 'Вход в приложение'),
+  return section({ title: 'Вход в приложение', tone: 'who', open: !p.hasLogin, body: [
     p.hasLogin ? null : h('p', { class: 'hint warn' }, 'Сотрудник не связан со входом — ему не приходят уведомления.'),
-    h('label', { class: 'field' }, h('span', null, 'Пользователь'), sel), h('div', { class: 'actions' }, save));
+    h('label', { class: 'field' }, h('span', null, 'Пользователь'), sel), actions(save)] });
 }
 
 function zonesBlock(p, zoneList, ctx) {
@@ -136,19 +136,19 @@ function zonesBlock(p, zoneList, ctx) {
   const save = button({ label: 'Сохранить зоны', kind: 'primary', onClick: (e) => busy(e, async () => {
     try { await api(`/staff/${p.id}/zones`, { method: 'PUT', body: { zoneCodes: [...on], note: reason.value.trim() || undefined } }); toast('Зоны сохранены'); ctx.reload(); } catch (ex) { toastError(ex, 'сохранить зоны'); }
   }) });
-  return h('section', { class: 'st-block' }, h('h3', { class: 'section-title' }, 'Зоны ответственности'),
+  return section({ title: 'Зоны ответственности', tone: 'who', count: on.size, open: true, body: [
     h('div', { class: 'st-checks' }, ...zoneList.filter((z) => z.active || on.has(z.code)).map((z) => h('div', null, check(z.name, on.has(z.code), (v) => (v ? on.add(z.code) : on.delete(z.code))), z.hint ? h('div', { class: 'hint st-hint' }, z.hint) : null))),
-    h('label', { class: 'field' }, h('span', null, 'Комментарий (необязательно)'), reason), h('div', { class: 'actions' }, save));
+    h('label', { class: 'field' }, h('span', null, 'Комментарий (необязательно)'), reason), actions(save)] });
 }
 
 const day = (v) => (v ? dateTime(v).slice(0, 10) : '');
 function historyBlock(p) {
   const zs = p.history?.zones || [], hs = p.history?.handoffs || [];
   const NAME = { supplyrequest: 'заявка', salesorder: 'заказ', designtask: 'задача проектирования' };
-  return h('section', { class: 'st-block' }, h('h3', { class: 'section-title' }, 'История'),
+  return section({ title: 'История', tone: 'who', count: zs.length + hs.length, body: [
     zs.length ? h('ul', { class: 'st-hist' }, ...zs.map((z) => h('li', null, h('b', null, z.zoneName || z.zoneCode), ` · с ${day(z.from)}${z.to ? ' по ' + day(z.to) : ' — сейчас'}`, z.note ? h('span', { class: 'muted' }, ' · ' + z.note) : null)))
       : h('p', { class: 'hint' }, 'Зоны этому сотруднику ещё не назначали.'),
-    hs.length ? h('ul', { class: 'st-hist' }, ...hs.map((x) => h('li', null, `${NAME[x.entity] || x.entity}: `, h('b', null, x.from || 'без ответственного'), ' → ', h('b', null, x.to || 'снят'), ` · ${day(x.at)}${x.by ? ' · ' + x.by : ''}`))) : h('p', { class: 'hint' }, 'Передач объектов не было.'));
+    hs.length ? h('ul', { class: 'st-hist' }, ...hs.map((x) => h('li', null, `${NAME[x.entity] || x.entity}: `, h('b', null, x.from || 'без ответственного'), ' → ', h('b', null, x.to || 'снят'), ` · ${day(x.at)}${x.by ? ' · ' + x.by : ''}`))) : h('p', { class: 'hint' }, 'Передач объектов не было.')] });
 }
 
 export const staffCard = {
@@ -164,7 +164,7 @@ export const staffCard = {
     noHistory: true,
     view: (r) => [['Телефон', r.phone], ['Вход', r.login ? `${r.login.displayName || r.login.username} (${r.login.username})` : '']],
     zones: { extra: 'side' }, // УПР-3: вход и зоны — боковой колонкой
-    extra: (r, ctx) => h('div', { class: 'st-blocks' }, loginBlock(r, r._logins, ctx), zonesBlock(r, r._zones, ctx), historyBlock(r)),
+    extra: (r, ctx) => stack(loginBlock(r, r._logins, ctx), zonesBlock(r, r._zones, ctx), historyBlock(r)),
   },
 };
 
@@ -180,10 +180,10 @@ const ZONE_EVENTS = {
   management: ['Все разделы', ['всё, что не назначено в других зонах']],
 };
 function zoneEvents(code) {
-  const [section, events] = ZONE_EVENTS[code] || ['—', []];
-  return h('section', { class: 'st-block' }, h('h3', { class: 'section-title' }, 'Что приходит людям зоны'),
-    h('p', null, 'Раздел: ' + section),
-    events.length ? h('ul', null, ...events.map((t) => h('li', null, t))) : h('p', { class: 'hint' }, 'Пока без уведомлений — их добавят позже.'));
+  const [sect, events] = ZONE_EVENTS[code] || ['—', []];
+  return section({ title: 'Что приходит людям зоны', tone: 'who', count: events.length, body: [
+    h('p', null, 'Раздел: ' + sect),
+    events.length ? h('ul', null, ...events.map((t) => h('li', null, t))) : h('p', { class: 'hint' }, 'Пока без уведомлений — их добавят позже.')] });
 }
 
 // ─── карточка зоны ─────────────────────────────────────────────────────────────────────────────────────
@@ -212,17 +212,17 @@ function zoneEditor(z, everyone, ctx) {
     if (!(await confirmDlg(`Удалить зону «${z.name}»?`, 'Зона исчезнет из списка. Если в ней есть люди, сначала снимите их.', { okText: 'Удалить', danger: true }))) return;
     try { await api(`/zones/${z.id}`, { method: 'DELETE' }); toast('Зона удалена'); go('staff', { tab: 'zones' }, { replace: true }); } catch (ex) { toastError(ex, 'удалить зону'); }
   } }) : null;
-  return h('div', { class: 'st-blocks' },
-    h('section', { class: 'st-block' }, h('h3', { class: 'section-title' }, 'Зона'),
+  return stack(
+    section({ title: 'Зона', tone: 'who', open: true, body: [
       h('label', { class: 'field' }, h('span', null, 'Название'), name),
       h('label', { class: 'field' }, h('span', null, 'Подсказка — за что отвечает зона'), hint),
       check('Показывать зону', active, (v) => { active = v; }),
-      z.system ? h('p', { class: 'hint' }, 'Базовую зону удалить нельзя — её можно переименовать или скрыть.') : null),
+      z.system ? h('p', { class: 'hint' }, 'Базовую зону удалить нельзя — её можно переименовать или скрыть.') : null] }),
     zoneEvents(z.code),
-    h('section', { class: 'st-block' }, h('h3', { class: 'section-title' }, 'Кто отвечает'),
+    section({ title: 'Кто отвечает', tone: 'who', count: members.size, open: true, body: [
       everyone.length ? h('div', { class: 'st-checks' }, ...everyone.map((p) => check(p.name + (p.hasLogin ? '' : ' (не получит уведомления — нет входа)'), members.has(p.id), (v) => (v ? members.add(p.id) : members.delete(p.id)))))
-        : h('p', { class: 'hint' }, 'Сотрудников нет.')),
-    h('div', { class: 'actions' }, save, del));
+        : h('p', { class: 'hint' }, 'Сотрудников нет.')] }),
+    actions(save, del));
 }
 
 export const zoneCard = {

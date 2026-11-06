@@ -9,7 +9,7 @@ import { h } from '../core/dom.js';
 import { date, isoDay, money, qty } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
 import { badge, ORDER_PRIORITY } from '../ui/kit/badges.js';
-import { actions, badge as kbadge, button, iconButton, link, select, sku as kitSku, table, tabs as kitTabs } from '../ui/kit/index.js';
+import { actions, badge as kbadge, button, iconButton, link, section, select, stack, sku as kitSku, table, tabs as kitTabs } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { confirmDlg, modal } from '../ui/kit/dialog.js';
 import { withConfirm } from '../ui/confirm-password.js';
@@ -120,7 +120,7 @@ async function setStage(r, stage) {
 
 /** Блок «Готовность к отгрузке» в карточке заказа: проверки сервера + кнопка «Отметить: готов к отгрузке». */
 function readinessBlock(r, after) {
-  const box = h('div', { class: 'so-sec rdy' });
+  const box = h('div', null);
   const paint = (d) => {
     const checks = d?.checks || [];
     const bad = checks.filter((c) => !c.ok);
@@ -131,12 +131,11 @@ function readinessBlock(r, after) {
       try { await setStage(r, 'ready'); window.dispatchEvent(new CustomEvent('data-changed')); after?.(); } catch (e) { toastError(e); } finally { btn.disabled = false; btn.classList.remove('is-busy'); }
     };
     const btn = can ? button({ label: 'Отметить: готов к отгрузке', kind: bad.length ? 'ghost' : 'primary', cls: bad.length ? '' : 'btn-warm', onClick: (e) => mark(e.currentTarget) }) : null;
-    box.replaceChildren(h('div', { class: 'section-title' }, 'Готовность к отгрузке'),
+    box.replaceChildren(section({ title: 'Готовность к отгрузке', tone: 'main', open: true, cls: 'rdy', body: [
       ...checks.map((c) => h('div', { class: 'rdy-row' + (c.ok ? ' ok' : '') },
         h('span', { class: c.ok ? 'pos' : 'muted', 'aria-hidden': 'true' }, c.ok ? '✓' : '○'), ' ', h('span', null, c.label),
         !c.ok && c.hint ? h('span', { class: 'muted small' }, ' — ' + c.hint) : null,
-        !c.ok && c.href ? h('a', { href: c.href.startsWith('#') ? c.href : '#' + c.href.replace(/^\//, ''), class: 'small' }, ' Открыть') : null)),
-      btn);
+        !c.ok && c.href ? h('a', { href: c.href.startsWith('#') ? c.href : '#' + c.href.replace(/^\//, ''), class: 'small' }, ' Открыть') : null)), btn] }));
   };
   const load = () => api(`/production-orders/${encodeURIComponent(r.key)}/readiness`).then(paint)
     .catch((e) => box.replaceChildren(failBlock(e, load, { cls: 'so-state', text: 'Готовность к отгрузке не загрузилась' })));
@@ -186,7 +185,7 @@ function issuedBlock(d, sec) {
   const groups = new Map();
   for (const x of by) { const k = x.salesOrderLineId ? String(x.salesOrderLineId) : ''; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x); }
   const title = (k) => { if (!k) return 'Весь заказ (без позиции)'; const i = lines.findIndex((l) => String(l.id) === k); return i < 0 ? 'Позиция заказа' : `поз. ${lines[i].seqNo ?? lines[i].lineNo ?? i + 1} · ${lines[i].title}`; };
-  return sec(`Выдано со склада по позициям (${groups.size})`, h('ul', { class: 'timeline' }, ...[...groups].flatMap(([k, xs]) => xs.map((x, i) => h('li', i ? { class: 'tl-cont' } : null,
+  return sec('Выдано со склада по позициям', 'gold', groups.size, h('ul', { class: 'timeline' }, ...[...groups].flatMap(([k, xs]) => xs.map((x, i) => h('li', i ? { class: 'tl-cont' } : null,
     i === 0 ? posPic(x.photo, 'sm') : null,
     i === 0 ? h('span', { class: 'tl-line', title: title(k) }, title(k)) : null, h('span', null, x.materialName || 'позиция'),
     h('span', { class: 'num neg', title: 'Выдано минус возвращено' }, qty(x.net) + ' ' + (x.unit || '')),
@@ -198,12 +197,12 @@ function issuedBlock(d, sec) {
 function orderPassports(r) {
   if (!session.seesDocs()) return null;
   const val = h('span', { class: 'muted' }, 'загрузка…');
-  const box = h('div', { class: 'so-sec' }, h('div', { class: 'section-title' }, 'Паспорта'), val);
+  const body = h('div', null, val); const box = stack(section({ title: 'Паспорта', tone: 'neutral', open: true, body }));
   const load = () => api('/passports', { query: { salesOrderId: r.id, limit: 200 } }).then((d) => {
     const items = (d.items || []).filter((p) => p.status !== 'annulled');
-    box.querySelector('.op-act')?.remove();
+    body.querySelector('.op-act')?.remove();
     const act = orderPassportActions(r, items, load);
-    if (act) { act.classList.add('op-act'); box.append(act); }
+    if (act) { act.classList.add('op-act'); body.append(act); }
     const ready = items.filter((p) => (p.readiness || (p.status === 'draft' ? 'notReady' : 'ready')) === 'ready').length;
     val.replaceChildren(items.length ? h('a', { href: '#docs?tab=orders&open=' + r.id }, `Паспорта ${items.length} (готовы ${ready})`) : 'пока не выпускали — «Документация → Нужно сделать паспорт»');
   }).catch((e) => val.replaceChildren(e?.status === 403 ? 'Нет доступа к паспортам' : 'не удалось загрузить'));
@@ -211,7 +210,7 @@ function orderPassports(r) {
   return box;
 }
 
-const sec = (title, ...kids) => h('div', { class: 'so-sec' }, h('div', { class: 'section-title' }, title), ...kids);
+const sec = (title, tone, count, ...kids) => section({ title, tone, count, open: tone === 'money' || undefined, body: kids });
 /** Отменённая позиция: серая строка с причиной и «Вернуть»; в суммы не входит. */
 const cancelledRow = (l, i, o, dots) => h('tr', { class: 'muted', title: 'Позиция отменена: ' + (l.cancelReason || '') },
   h('td', { class: 'muted' }, seq(l, i)), h('td', null, ''),
@@ -266,7 +265,7 @@ function contractGroup(o, reload) {
   ].filter(Boolean);
   const head = h('div', { class: 'so-grp-head' },
     h('div', { class: 'so-grp-title' }, h('b', null, 'Договор ' + (o.orderNo || '—')), h('span', { class: 'muted' }, o.customer ? ' · ' + o.customer : ''), ' ', badge(STAGE, o.stage), ' ', due(o), ' ', countBadge(countOf(o))),
-    acts.length ? h('div', { class: 'so-grp-acts' }, ...acts) : null);
+    acts.length ? actions(...acts) : null);
   // «Оплачено» / «Долг» и «Принять оплату» — только с правом на деньги (приём оплаты — панель incpay, она же из карточки позиции)
   const payOn = session.canMoney && can;
   const lineAct = (l) => canChangeLines(o) && !closedStage(o) && can;
@@ -304,18 +303,18 @@ function contractGroup(o, reload) {
   const hasShip = o.stage !== 'new' || lines.some((l) => l.shipped);
   // вкладки без данных не показываем: нет доступа к разделу, нет позиций или этап ещё не дошёл
   const defs = [
-    ['pos', `Позиции (${lines.length})`, true, () => h('div', null, distribBlock(o, reload), linesTable, add)],
+    ['pos', `Позиции (${lines.length})`, true, () => stack(distribBlock(o, reload), linesTable, add)],
     ['design', 'Проектирование', session.sees('design') && lines.length > 0, () => orderDesign({ id: o.id, orderNo: o.productionNo || o.orderNo }, lines)],
     ['work', 'Работа', session.sees('work') && lines.length > 0 && !closedStage(o), () => orderWork([o])],
-    ['stock', 'Склад', seeReq || seeStock, () => h('div', null,
-      seeReq ? sec(`Заказано под заказ (${(o.supplyRequests || []).length})`,
+    ['stock', 'Склад', seeReq || seeStock, () => stack(
+      seeReq ? sec('Заказано под заказ', 'who', (o.supplyRequests || []).length,
         (o.supplyRequests || []).length ? h('ul', { class: 'timeline' }, ...o.supplyRequests.map((s) => h('li', null, h('a', { href: '#requests?open=' + (s.id || s._id) }, `№${s.num ?? ''} ${s.title}`), h('span', { class: 'muted' }, ` · ${qty(s.qty)} ${s.unit || ''} · ${s.statusLabel || s.status || ''}`)))) : h('p', { class: 'muted' }, 'Заявок под этот заказ пока нет.'),
         can ? button({ label: '+ Заявка под этот заказ', size: 'S', title: 'Новая заявка: заказ и заказчик подставятся сами', onClick: () => patch({ of: 'requests', new: '1', open: undefined, salesOrderRef: o.id, orderLabel: o.customer || undefined }) }) : null) : null,
       seeStock ? orderReservations({ id: o.id, orderNo: o.orderNo, productionNo: o.productionNo, seqBy }, reload) : null,
       seeStock ? issuedBlock(o, sec) : null,
-      seeStock && (o.stockMovements || []).length ? sec(`Отпущено со склада (${o.stockMovements.length})`,
+      seeStock && (o.stockMovements || []).length ? sec('Отпущено со склада', 'gold', o.stockMovements.length,
         h('ul', { class: 'timeline' }, ...o.stockMovements.map((m) => h('li', null, h('span', { class: 'when' }, date(m.date)), h('span', null, m.materialName || 'позиция'), h('span', { class: 'num neg' }, '−' + qty(m.qty)), h('span', { class: 'muted' }, [m.issuedToLabel && 'кому: ' + m.issuedToLabel, m.notes].filter(Boolean).join(' · ')))))) : null)],
-    ['ship', 'Отгрузки', hasShip, () => h('div', null, shipmentsBlock({ id: o.id, stage: o.stage }, reload), historyBlock({ id: o.id }))],
+    ['ship', 'Отгрузки', hasShip, () => stack(shipmentsBlock({ id: o.id, stage: o.stage }, reload), historyBlock({ id: o.id }))],
     ['pass', 'Паспорта', session.seesDocs() && lines.length > 0, () => orderPassports(o)],
   ].filter((d) => d[2]);
   const tabsEl = kitTabs({ label: 'Разделы договора', items: defs.map(([key, label]) => ({ key, label })), value: defs[0][0], onChange: (k) => show(k) });
@@ -358,7 +357,7 @@ function produceBlock(d) {
   const nameCell = (x) => (x.sku
     ? h('span', { title: [x.sku, x.title].filter(Boolean).join(' · ') }, kitSku(x.sku), ' ', x.title)
     : x.title);
-  return sec(`К производству (${t.length})`,
+  return sec('К производству', 'main', t.length,
     table({ columns: [{ label: '№' }, { label: '' }, { label: 'Изделие' }, { label: 'Кол-во', num: true }, { label: 'Ед. изм.' }, { label: 'Из позиций' }],
       rows: t.map((x, i) => ({ cells: [{ v: i + 1, cls: 'muted' }, { v: posPic(x.photo, x.photo?.url || x.photo?.thumb ? 'lg' : 'sm'), cls: 'pic-cell' }, nameCell(x), qty(x.qty), { v: x.unit || '', cls: 'muted' }, { v: (x.seqNos || []).join(', '), cls: 'muted' }] })) }),
     h('p', { class: 'hint' }, 'Одинаковые позиции всех договоров заказа сложены вместе — чтобы запустить в работу сразу всё. Это только просмотр.'));
@@ -382,12 +381,12 @@ function addContractBtn(d, ctx) {
 }
 
 function details(r, ctx) {
-  const box = h('div', null);
+  const box = stack();
   const paint = (d) => box.replaceChildren(...[
     inWork(d) ? plateOf(d) : null,
     produceBlock(d),
     ['closed', 'cancelled', 'shipped', 'ready', 'partly'].includes(d.stage) ? null : readinessBlock(d, reload),
-    sec(`Договоры (${(d.orders || []).length})`, addContractBtn(d, ctx), ...((d.orders || []).length ? d.orders.map((o) => contractGroup(o, reload)) : [h('p', { class: 'muted' }, 'Договоров нет.')])),
+    sec('Договоры', 'money', (d.orders || []).length, addContractBtn(d, ctx), ...((d.orders || []).length ? d.orders.map((o) => contractGroup(o, reload)) : [h('p', { class: 'muted' }, 'Договоров нет.')])),
   ].filter(Boolean));
   const reload = () => api(`/production-orders/${encodeURIComponent(r.key)}`).then((d) => paint(d)).catch((e) => box.replaceChildren(failBlock(e, reload)));
   if (r.orders) paint(r); else { box.append(h('div', { class: 'muted' }, 'Загрузка…')); reload(); }

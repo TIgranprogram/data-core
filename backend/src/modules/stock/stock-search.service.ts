@@ -216,13 +216,14 @@ export class StockSearchService {
     const orgs = orgIds.length ? await db.collection('organizations').find({ _id: { $in: orgIds } }, { projection: { name: 1, shortName: 1 } }).toArray() : [];
     const on = new Map(orgs.map((o) => [String(o._id), String(o.shortName || o.name)]));
     const LBL: Record<string, string> = { in_progress: 'Ожидает', requested: 'Заказать', ordered: 'В работе' };
-    const sup = new Map<string, { name: string; count: number; lastDate: Date | null; lastPrice: number | null }>();
+    // lastQty — сколько брали в прошлый раз: количество по умолчанию в быстром «Заказать» со склада (2026-11-06)
+    const sup = new Map<string, { name: string; count: number; lastDate: Date | null; lastPrice: number | null; lastQty: number | null }>();
     for (const g of got) {
       const name = g.supplierId ? on.get(String(g.supplierId)) ?? 'Поставщик не указан' : 'Поставщик не указан';
-      const s = sup.get(name) ?? { name, count: 0, lastDate: null, lastPrice: null };
+      const s = sup.get(name) ?? { name, count: 0, lastDate: null, lastPrice: null, lastQty: null };
       s.count++;
       const when = (g.receivedAt ?? g.invoiceDate ?? g.requestDate) as Date | null;
-      if (s.count === 1) { s.lastDate = when ?? null; s.lastPrice = canMoney && Number(g.priceHint) > 0 && Number(g.qty) > 0 ? Math.round((Number(g.priceHint) / Number(g.qty)) * 100) / 100 : null; }
+      if (s.count === 1) { s.lastDate = when ?? null; s.lastQty = Number(g.qty) > 0 ? Number(g.qty) : null; s.lastPrice = canMoney && Number(g.priceHint) > 0 && Number(g.qty) > 0 ? Math.round((Number(g.priceHint) / Number(g.qty)) * 100) / 100 : null; }
       sup.set(name, s);
     }
     return {

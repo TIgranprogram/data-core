@@ -1,6 +1,6 @@
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { sku as kitSku, button, iconButton, select, fileButton } from '../ui/kit/index.js';
+import { sku as kitSku, button, iconButton, select, fileButton, section } from '../ui/kit/index.js';
 import { busyBtn } from '../ui/kit/busy.js';
 import { money, parseNum, plural, qty } from '../core/format.js';
 import { readTableFile } from '../core/xlsx-read.js';
@@ -229,19 +229,19 @@ async function buildFromPassportsForm() {
       run(merge, { groups: [{ keys, main, name: name.value.trim() }] }, () => box.remove());
     });
     apart.addEventListener('click', () => run(apart, { groups: g.map((m) => ({ keys: [m.key], main: m.key })) }, () => box.remove()));
-    box.append(h('div', { class: 'section-title' }, `Похожие: ${g.length}`),
+    box.append(section({ title: 'Похожие', tone: 'neutral', count: g.length, open: true, body: [
       h('ul', { class: 'dict-cand-list fo-list' }, ...rows.map((x) => h('li', null, x.on, x.main, h('b', null, x.m.name), h('span', { class: 'muted small' }, art(x.m))))),
       h('label', { class: 'field wide' }, h('span', null, 'Название изделия'), name),
-      h('div', { class: 'bulk-foot' }, merge, apart));
+      h('div', { class: 'bulk-foot' }, merge, apart)] }));
     return box;
   };
   const el = h('div', null,
     h('p', { class: 'hint' }, 'Паспорта без изделия в «Продукции». Похожие модели собраны в группы: галочка — паспорта группы, кружок — главный вариант (самый полно заполненный уже выбран), его данные станут данными изделия. Выданные паспорта — номера, текст, PDF — не меняются, только получают ссылку на изделие.'),
     h('p', null, `Групп похожих: ${r.groups.length} · одиночных моделей: ${r.singles} · уже связано паспортов: ${r.linked}${r.noName ? ` · без названия: ${r.noName} (пропущены)` : ''}`),
     ...r.groups.map(groupEl),
-    r.singles ? h('details', { class: 'month-group' }, h('summary', null, `Одиночные модели: ${r.singles} — «Создать изделия для остальных»`),
+    r.singles ? section({ title: 'Одиночные модели — «Создать изделия для остальных»', tone: 'neutral', count: r.singles, body: [
       h('ul', { class: 'timeline' }, ...r.singlesPreview.map((m) => h('li', null, m.name, h('span', { class: 'muted' }, ` · ${art({ ...m, score: '—' })}`)))),
-      r.singles > r.singlesPreview.length ? h('p', { class: 'muted' }, `…и ещё ${r.singles - r.singlesPreview.length}`) : null) : null);
+      r.singles > r.singlesPreview.length ? h('p', { class: 'muted' }, `…и ещё ${r.singles - r.singlesPreview.length}`) : null] }) : null);
   return {
     el, dirty: () => false,
     read: () => ({ values: { save: async () => {

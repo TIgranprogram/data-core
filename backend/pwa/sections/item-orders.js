@@ -1,11 +1,11 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { busyBlock, failBlock } from '../ui/kit/busy.js';
-import { date, money, qty } from '../core/format.js';
+import { date, isoDay, money, qty } from '../core/format.js';
 import { patch } from '../core/router.js';
 import { resetStock, stockLookup } from '../core/stock-list.js';
 import { modal } from '../ui/kit/dialog.js';
-import { enhanceSelect, button, select, section, stack } from '../ui/kit/index.js';
+import { enhanceSelect, button, qtyInput, select, section, stack } from '../ui/kit/index.js';
 import { toast } from '../ui/kit/toast.js';
 
 /*
@@ -59,21 +59,68 @@ export function orderedBlock(r) {
   return box;
 }
 
-/** «Заказать» с защитой от дубля (ЗП.3): уже есть открытая заявка — окно «Открыть заявку» / «Всё равно заказать». */
+const num = (v) => Number(String(v ?? '').replace(',', '.').replace(/\s/g, ''));
+const OTHER = '__other';
+
+/** Сколько заказать по умолчанию: добрать до минимума, иначе как в прошлый раз, иначе 1. */
+export function suggestQty(r, last) {
+  const need = (Number(r.minQuantity) || 0) - (Number(r.free ?? r.quantity) || 0);
+  if (need > 0) return Math.ceil(need * 1000) / 1000;
+  return Number(last) > 0 ? Number(last) : 1;
+}
+
+/**
+ * «Заказать» со склада (пользователь 2026-11-06: «нажал — не все данные подставляются, много лишнего; нужен быстрый заказ,
+ * если брали у нескольких — предложить, у кого»). Окно в 2–3 поля: количество, поставщик из прошлых закупок
+ * (чаще и свежее — первым, с последней ценой), сумма по этой цене. «Создать заявку» — сразу, позиция склада привязана.
+ * «Полная форма…» — та же заявка в правой панели со всеми подставленными полями. Уже есть открытая заявка — предупреждение (ЗП.3).
+ */
 export async function orderItem(r) {
-  const go = () => patch({ of: 'requests', new: '1', open: undefined, title: r.name, unit: r.unit || '', categoryName: r.categoryName || '' });
-  if (!(r.ordered > 0)) { go(); return; }
-  const d = await ordered(r.id).catch(() => null);
-  if (!d?.open.length) { go(); return; }
-  const first = d.open[0];
-  const ok = await modal({
-    title: 'Уже заказано', okText: 'Всё равно заказать', cancelText: 'Не заказывать',
-    body: h('div', null, h('p', null, `По «${r.name}» уже заказано ${qty(d.inTransit)} ${r.unit || ''}:`),
-      h('ul', { class: 'timeline' }, ...d.open.map((x) => h('li', null, h('a', { href: '#requests?open=' + x.id, onclick: () => document.querySelector('.modal-back')?.remove() }, `Открыть заявку №${x.num ?? '—'}`),
-        h('span', { class: 'muted' }, `${qty(x.qty)} ${x.unit} · ${x.statusLabel}`)))),
-      h('p', { class: 'hint' }, `Скорее всего, вторая заявка не нужна — откройте №${first.num ?? ''} и при необходимости поменяйте количество.`)),
+  const d = await ordered(r.id).catch(() => ({ open: [], suppliers: [], inTransit: 0 }));
+  const sups = (d.suppliers || []).filter((s) => s.name && s.name !== 'Поставщик не указан')
+    .sort((a, b) => b.count - a.count || new Date(b.lastDate || 0) - new Date(a.lastDate || 0));
+  const unit = r.unit || 'шт';
+  const qtyBox = qtyInput({ value: String(suggestQty(r, sups[0]?.lastQty)), label: 'Количество', plusLabel: 'Ещё 1' });
+  const qtyInp = qtyBox.input;
+  const sel = select({ label: 'Поставщик', options: [
+    ...sups.map((s) => [s.name, `${s.name} · брали ${s.count} раз${s.lastDate ? ', ' + date(s.lastDate) : ''}${session.canMoney && s.lastPrice ? ' · ' + money(s.lastPrice) + ' / ' + unit : ''}`]),
+    [OTHER, sups.length ? 'Другой поставщик… (полная форма)' : 'Указать поставщика… (полная форма)'], ['', 'Пока без поставщика']] });
+  sel.value = sups[0]?.name ?? ''; enhanceSelect(sel);
+  const sumNote = h('p', { class: 'hint' });
+  const price = () => sups.find((s) => s.name === sel.value)?.lastPrice ?? null;
+  const paint = () => {
+    const p = price(), n = num(qtyInp.value);
+    sumNote.textContent = session.canMoney && p && n > 0 ? `Сумма по прошлой цене ≈ ${money(Math.round(p * n * 100) / 100)} — уточните по счёту` : '';
+  };
+  qtyInp.addEventListener('input', paint); paint();
+  const supplier = () => (sel.value === OTHER ? '' : sel.value);
+  const body = () => {
+    const n = num(qtyInp.value);
+    if (!(n > 0)) throw new Error('Укажите количество больше нуля');
+    const p = price();
+    return { materialId: r.id, qty: n, unit, requestedBy: session.name, requestDate: isoDay(),
+      ...(supplier() ? { supplierName: supplier() } : {}), ...(session.canMoney && p ? { priceHint: Math.round(p * n * 100) / 100 } : {}) };
+  };
+  let full = false;
+  const openFull = (e) => { full = true; (e.currentTarget || e.target).closest('.modal')?.querySelector('.modal-foot .btn:not(.btn-primary)')?.click(); };
+  sel.addEventListener('change', (e) => { if (sel.value === OTHER) openFull(e); else paint(); }); // другой поставщик — в полной форме (там список с поиском)
+  const warn = d.open?.length ? h('div', { class: 'warn-note' },
+    h('p', null, `Уже заказано ${qty(d.inTransit)} ${unit}: `, ...d.open.slice(0, 3).flatMap((x, i) => [i ? ', ' : '', h('a', { href: '#requests?open=' + x.id }, `№${x.num ?? '—'} (${x.statusLabel})`)])),
+    h('p', { class: 'hint' }, 'Скорее всего, вторая заявка не нужна — откройте заявку и поменяйте количество.')) : null;
+  const saved = await modal({
+    title: 'Заказать: ' + r.name, okText: 'Создать заявку',
+    body: h('div', null, warn,
+      h('label', { class: 'field' }, h('span', null, `Количество, ${unit}`), qtyBox),
+      h('label', { class: 'field' }, h('span', null, 'Поставщик'), sel),
+      sumNote,
+      button({ label: 'Полная форма…', kind: 'ghost', size: 'S', title: 'Открыть заявку целиком: приоритет, заказ, примечание', onClick: openFull })),
+    onOk: () => api('/supply/requests', { method: 'POST', body: body() }),
   });
-  if (ok) go();
+  if (saved) { toast(`Заявка №${saved.num ?? ''} создана — «${r.name}», ${qty(saved.qty)} ${unit}`); window.dispatchEvent(new CustomEvent('data-changed')); return; }
+  if (!full) return;
+  const b = (() => { try { return body(); } catch { return { qty: suggestQty(r) }; } })();
+  patch({ of: 'requests', new: '1', open: undefined, materialId: r.id, title: r.name, unit, categoryName: r.categoryName || '', qty: String(b.qty || ''),
+    supplierName: b.supplierName || '', priceHint: b.priceHint ? String(b.priceHint) : '' });
 }
 
 /** Поле «Закрыть заявку» в окне прихода (ЗП.4): { el, value() → заявка | null }. */

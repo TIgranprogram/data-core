@@ -12,7 +12,7 @@ import { toast, toastError } from '../ui/kit/toast.js';
 import { setCrumbTail } from '../ui/kit/crumbs.js';
 import { partnerAction } from './lookups.js';
 
-import { table } from '../ui/kit/index.js';
+import { table, section, stack } from '../ui/kit/index.js';
 /**
  * Каталог поставщиков (SUPPLIER-CATALOG.md §8): один список как везде (ui/list.js).
  * Слева: воронка категория → подкатегория → поставщик (только поставщики выбранной ветки) и быстрые отборы «Без связи / Без цены / Цена устарела» (toolbarExtra) — из GET /supply/catalog/counts.
@@ -381,10 +381,10 @@ export const supplierCatalog = {
     view: () => [],
     extra: (r) => {
       const hist = [...(r.priceHistory || [])].reverse();
-      if (!hist.length) return h('p', { class: 'muted' }, 'Истории цен пока нет.');
-      return h('div', null, h('div', { class: 'section-title' }, 'История цен'),
+      if (!hist.length) return stack(section({ title: 'История цен', tone: 'money', count: 0, body: h('p', { class: 'muted small' }, 'Истории цен пока нет.') }));
+      return stack(section({ title: 'История цен', tone: 'money', count: hist.length, body:
         table({ columns: [{ label: 'Дата' }, { label: 'Цена, ₽', num: true }, { label: 'Откуда' }],
-          rows: hist.map((x) => ({ cells: [x.date ? date(x.date) : '—', money(x.price), { v: SRC[x.source] || x.source || '', cls: 'muted' }] })) }));
+          rows: hist.map((x) => ({ cells: [x.date ? date(x.date) : '—', money(x.price), { v: SRC[x.source] || x.source || '', cls: 'muted' }] })) }) }));
     },
   },
 

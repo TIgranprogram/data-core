@@ -4,7 +4,7 @@ import { photoDrop } from '../../ui/kit/photos.js';
 import { imagesBody } from '../../core/passport-images.js';
 import { toast, toastError } from '../../ui/kit/toast.js';
 import { confirmDlg } from '../../ui/kit/dialog.js';
-import { table, button, iconButton } from '../../ui/kit/index.js';
+import { table, button, iconButton, section } from '../../ui/kit/index.js';
 import { date } from '../../core/format.js';
 import { canEdit, imgsOf, isRequired, kinds, V2_NUMS } from './common.js';
 
@@ -14,8 +14,8 @@ export function imagesBlock(r, ctx) {
   const save = async (images) => {
     try { ctx.setRow(await api(`/passports/${r.id}`, { method: 'PATCH', body: { images: imagesBody(images) } }).then(() => api(`/passports/${r.id}`))); } catch (e) { toastError(e); }
   };
-  return h('div', { class: 'pp-images' }, h('div', { class: 'section-title' }, 'Картинки паспорта'),
-    ...kinds(r).map(([kind, label, where]) => {
+  const total = (r.images || []).length;
+  return section({ title: 'Картинки паспорта', tone: 'info', count: total, cls: 'pp-images', body: kinds(r).map(([kind, label, where]) => {
       const list = imgsOf(r, kind);
       const std = (k) => (r.standardImages || []).filter((x) => x.kind === k && x.url);
       return h('div', { class: 'pp-kind', 'data-kind': kind },
@@ -27,7 +27,7 @@ export function imagesBlock(r, ctx) {
         !list.length && std(kind).length ? h('div', null, h('div', { class: 'hint' }, 'Стандартная схема способа установки — попадёт в паспорт; загрузите свою, чтобы заменить'),
           h('div', { class: 'pf-strip' }, ...std(kind).map((i) => h('a', { class: 'pf-item', href: PREFIX + i.url, target: '_blank', rel: 'noopener', 'aria-label': `${label}: стандартная схема` }, h('img', { src: PREFIX + i.url, alt: label }))))) : null,
         canEdit() ? photoDrop({ attach: async (photoId) => { r.images = [...(r.images || []), { kind, photoId, order: list.length }]; return r; }, done: () => save(r.images) }) : null);
-    }));
+    }) });
 }
 
 /** Паспорт v2 (БЗ-6 Э5a2): «Проверка» — чего не хватает; у рисунка — «Загрузить» (переход к его зоне загрузки ниже). */
@@ -36,14 +36,15 @@ export const IMG_BY_LABEL = { 'Фото изделия': 'overview', 'Чертё
 export function checkBlock(r) {
   const miss = r.missing || [];
   const warn = r.standardWarnings || [];
-  if (!miss.length && !warn.length) return h('div', null, h('div', { class: 'section-title' }, 'Проверка'), h('p', { class: 'muted' }, 'Всё заполнено — паспорт можно выдавать.'));
+  if (!miss.length && !warn.length) return section({ title: 'Проверка', tone: 'neutral', count: 0, body: h('p', { class: 'muted small' }, 'Всё заполнено — паспорт можно выдавать.') });
   const goTo = (kind) => {
     const zone = document.querySelector(`.pp-kind[data-kind="${kind}"]`);
     if (!zone) return;
+    zone.closest('details.k-sec')?.setAttribute('open', '');
     zone.scrollIntoView({ behavior: 'smooth', block: 'center' });
     zone.classList.add('fill-here'); setTimeout(() => zone.classList.remove('fill-here'), 2500);
   };
-  return h('div', null, h('div', { class: 'section-title' }, miss.length ? (r.strict ? `Не готов к выпуску — не хватает: ${miss.length}` : `Проверка — не хватает: ${miss.length}`) : 'Проверка'),
+  return section({ title: miss.length ? (r.strict ? 'Не готов к выпуску — не хватает' : 'Проверка — не хватает') : 'Проверка', tone: 'neutral', count: miss.length || warn.length, open: miss.length > 0, body: [
     r.strict && miss.length ? h('p', { class: 'hint' }, 'PDF и печать станут доступны, когда заполните отмеченное. «Заполняется после печати» (покупатель, адрес, монтаж) выпуск не задерживает.') : null,
     h('ul', { class: 'timeline pp-check' }, ...miss.map((m) => {
       const img = m.startsWith('Рисунок: ') || m === 'Фото изделия' ? IMG_BY_LABEL[m.replace(/^Рисунок: /, '')] : null;
@@ -51,8 +52,8 @@ export function checkBlock(r) {
       const fill = () => [...document.querySelectorAll('.drawer button')].find((b) => b.textContent.trim() === 'Изменить')?.click();
       return h('li', null, m, !canEdit() ? null : img ? button({ label: 'Загрузить', size: 'S', onClick: () => goTo(img) }) : button({ label: 'Заполнить', size: 'S', onClick: fill }));
     })),
-    warn.length ? h('div', null, h('div', { class: 'section-title' }, 'Нормативы — проверить'), h('p', { class: 'hint' }, 'Статус и дату проверки — в «Справочники → Паспорта → Нормативы». Паспорт выдавать можно.'),
-      h('ul', { class: 'timeline' }, ...warn.map((w) => h('li', { class: 'muted' }, w)))) : null);
+    warn.length ? section({ title: 'Нормативы — проверить', tone: 'neutral', count: warn.length, body: [h('p', { class: 'hint' }, 'Статус и дату проверки — в «Справочники → Паспорта → Нормативы». Паспорт выдавать можно.'),
+      h('ul', { class: 'timeline' }, ...warn.map((w) => h('li', { class: 'muted' }, w)))] }) : null] });
 }
 
 /** Последний номер раздела снимка (ТО и монтаж в PDF идут следующими). */
@@ -99,9 +100,9 @@ export function previewBlock(r, ctx) {
     e.target.disabled = true; e.target.textContent = 'Собираю…';
     try { await api(`/passports/${r.id}/snapshot`, { method: 'POST' }); ctx.setRow(await api(`/passports/${r.id}`)); toast('Текст паспорта собран заново'); } catch (err) { toastError(err); e.target.disabled = false; e.target.textContent = 'Обновить текст по справочникам'; }
   } }) : null;
-  if (!t) return h('div', null, h('div', { class: 'section-title' }, 'Текст паспорта'), h('p', { class: 'muted' }, 'Текст ещё не собран.'), refresh);
-  const part = (title, body) => (body ? h('details', { class: 'month-group' }, h('summary', null, title), body) : null);
-  return h('div', null, h('div', { class: 'section-title' }, 'Текст паспорта'),
+  if (!t) return section({ title: 'Текст паспорта', tone: 'neutral', count: 0, body: [h('p', { class: 'muted small' }, 'Текст ещё не собран.'), refresh] });
+  const part = (title, body) => (body ? section({ title, tone: 'neutral', body }) : null);
+  return section({ title: 'Текст паспорта', tone: 'neutral', body: [
     h('p', { class: 'muted' }, `Текст собран ${t.at ? date(t.at) : ''}${t.missing?.length ? ' · в тексте не заполнено: ' + t.missing.map((k) => V2_NUMS.find((n) => n[0] === k)?.[1] || k).join(', ') : ''}`),
     // порядок и номера — как в PDF: 1 описание, 2 правила, разделы шаблона, затем ТО и монтаж — следующими номерами
     part('1 Описание и назначение', t.description || t.purpose ? h('div', null, t.description ? h('p', null, t.description) : null, t.purpose ? h('p', null, t.purpose) : null) : null),
@@ -109,13 +110,13 @@ export function previewBlock(r, ctx) {
     ...(t.sections || []).map((s) => part(`${s.number} ${s.title}`, h('div', null, ...s.items.map((i) => snapItem(r, ctx, s, i))))),
     part(`${lastNo(t) + 1} Обслуживание по периодам (из справочников)`, t.maintenance?.length ? h('div', null, ...t.maintenance.map(periodBlock)) : null),
     part(`${lastNo(t) + 2} Монтаж по способу установки`, t.install?.text ? h('ol', null, ...String(t.install.text).split(/\r?\n/).filter(Boolean).map((x) => h('li', null, x))) : null),
-    refresh);
+    refresh] });
 }
 
 export function bomBlock(r) {
-  if (!r.bom?.length) return h('div', null, h('div', { class: 'section-title' }, 'Комплектность (приложение)'), h('p', { class: 'muted' }, 'Не заполнена — в PDF будет «И-1 · Изделие в сборе · 1 шт.»'));
+  if (!r.bom?.length) return section({ title: 'Комплектность (приложение)', tone: 'neutral', count: 0, body: h('p', { class: 'muted small' }, 'Не заполнена — в PDF будет «И-1 · Изделие в сборе · 1 шт.»') });
   const rows = r.bom;
-  return h('div', null, h('div', { class: 'section-title' }, 'Комплектность (приложение)'),
+  return section({ title: 'Комплектность (приложение)', tone: 'neutral', count: rows.length, body:
     table({ columns: [{ label: 'Поз.' }, { label: 'Обозначение' }, { label: 'Наименование' }, { label: 'Кол-во', num: true }, { label: 'Ед.' }, { label: 'Примечание' }],
-      rows: rows.map((b) => ({ cells: [b.pos ?? '', b.code ?? '', b.name ?? '', b.qty ?? '', b.unit ?? '', { v: b.note ?? '', cls: 'muted' }] })) }));
+      rows: rows.map((b) => ({ cells: [b.pos ?? '', b.code ?? '', b.name ?? '', b.qty ?? '', b.unit ?? '', { v: b.note ?? '', cls: 'muted' }] })) }) });
 }

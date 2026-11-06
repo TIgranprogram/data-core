@@ -2,7 +2,7 @@ import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, qty } from '../core/format.js';
 import { current, go } from '../core/router.js';
-import { attachCombo, tabs, table, empty, autoMore, tabs as kitTabs } from '../ui/kit/index.js';
+import { attachCombo, tabs, table, empty, autoMore, section, stack, tabs as kitTabs } from '../ui/kit/index.js';
 import { modal } from '../ui/kit/dialog.js';
 import { carousel } from '../ui/kit/gallery.js';
 import { toastError } from '../ui/kit/toast.js';
@@ -130,10 +130,9 @@ export const designRequest = {
       ['Создана', r.createdAt ? date(r.createdAt) : ''],
       ['Изделие', r.productId ? h('a', { href: '#products?open=' + r.productId }, 'Открыть в «Продукции»') : ''],
     ],
-    extra: (r) => h('div', { class: 'db-blocks' }, h('details', { class: 'db-blk', open: true }, h('summary', null, `Где нужно (${(r.lines || []).length})`),
-      h('div', { class: 'db-blk-body' }, (r.lines || []).length ? h('ul', { class: 'timeline' }, (r.lines || []).map((l) => h('li', null,
+    extra: (r) => stack(section({ title: 'Где нужно', tone: 'who', count: (r.lines || []).length, open: true, body: (r.lines || []).length ? h('ul', { class: 'timeline' }, (r.lines || []).map((l) => h('li', null,
         l.orderId ? h('a', { href: '#salesorders?open=' + l.orderId }, `№ ${l.orderNo || '—'}`) : h('span', null, '№ —'),
-        h('span', { class: 'muted clip' }, [clean(l.customer), clean(l.title), l.qty != null ? `${qty(l.qty)} ${clean(l.unit) || 'шт'}` : ''].filter(Boolean).join(' · '))))) : h('div', { class: 'db-hint' }, 'Позиций нет.')))),
+        h('span', { class: 'muted clip' }, [clean(l.customer), clean(l.title), l.qty != null ? `${qty(l.qty)} ${clean(l.unit) || 'шт'}` : ''].filter(Boolean).join(' · '))))) : h('p', { class: 'muted small' }, 'Позиций нет.') })),
     actions: (r) => {
       if (r.status !== 'open' || !session.canEdit) return [];
       return [

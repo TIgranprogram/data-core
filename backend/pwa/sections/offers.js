@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { date, isoDay, money, parseNum } from '../core/format.js';
 import { go } from '../core/router.js';
 import { badge } from '../ui/kit/badges.js';
-import { button, iconButton, enhanceSelect } from '../ui/kit/index.js';
+import { button, iconButton, enhanceSelect, section, stack } from '../ui/kit/index.js';
 import { confirmDlg } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { incomeLookups } from './orders.js';
@@ -246,8 +246,7 @@ export const offers = {
       ['Условия', r.terms], ['Примечание', r.notes],
       ['Статус', badge(STATUS, r.status)],
     ],
-    extra: (r) => h('div', { class: 'of-view' },
-      h('div', { class: 'section-title' }, `Изделия: ${(r.items || []).length}`),
+    extra: (r) => stack(section({ title: 'Изделия', tone: 'money', count: (r.items || []).length, open: true, cls: 'of-view', body: [
       r.status === 'paid' ? h('p', { class: 'hint' }, isAdmin() && !r.orderId ? 'КП оплачено. Администратор может его править и вернуть статус — нужна причина.' : 'КП оплачено — править его нельзя.') : null,
       r.status === 'draft' && (r.items || []).some((l) => !l.unitPrice) ? h('p', { class: 'hint' }, 'Чтобы отметить «отправлено клиенту», укажите цену у каждой строки.') : null,
       r.status === 'accepted' ? h('p', { class: 'hint' }, 'После отметки «оплачено» КП нельзя править.') : null,
@@ -255,7 +254,7 @@ export const offers = {
       r.orderId ? h('p', { class: 'hint' }, 'По этому КП уже есть заказ — откройте кнопкой «Открыть заказ».') : null,
       h('ol', { class: 'of-items' }, ...(r.items || []).map((l) => h('li', null,
         h('b', null, l.productName), h('span', { class: 'muted' }, [l.color, l.size].filter(Boolean).map((x) => ' · ' + x).join('')),
-        h('div', { class: 'muted small' }, `${l.quantity} ${l.unit || 'шт'}${l.unitPrice ? ` × ${money(l.unitPrice)} = ${money(l.total ?? lineSum(l))}` : ' · цена не указана'}`))))),
+        h('div', { class: 'muted small' }, `${l.quantity} ${l.unit || 'шт'}${l.unitPrice ? ` × ${money(l.unitPrice)} = ${money(l.total ?? lineSum(l))}` : ' · цена не указана'}`))))] })),
     actions,
   },
   form: {

@@ -8,7 +8,7 @@ import { failBlock } from '../ui/kit/busy.js';
 import { emptyState } from '../ui/kit/empty.js';
 import { posPic } from '../ui/pos-pic.js';
 
-import { table, button, segmented } from '../ui/kit/index.js';
+import { table, button, segmented, section } from '../ui/kit/index.js';
 /**
  * Отгрузки заказа и история (ТЗ ОТГ/ИСТ). Блоки в карточке заказа + правая панель «Отгрузить» (`of=shipdo&open=<orderId>`).
  * Сервер: GET/POST /salesorders/:id/shipments, DELETE /shipments/:id, GET /shipments/:id/pdf, GET /salesorders/:id/history.
@@ -40,7 +40,7 @@ export function shipmentsBlock(order, onChange) {
       open ? h('div', { class: 'actions' }, button({ label: typeof d.shippable === 'number' ? `Отгрузить (${d.shippable} готово)` : 'Отгрузить', kind: 'primary', onClick: () => patch({ of: 'shipdo', open: order.id }, { replace: false }) })) : null);
   }).catch((e) => body.replaceChildren(failBlock(e)));
   load();
-  return h('div', { class: 'so-sec' }, h('div', { class: 'section-title' }, 'Отгрузки'), body);
+  return section({ title: 'Отгрузки', tone: 'gold', open: true, body });
 }
 
 const TYPES = [['', 'Все'], ['change', 'Изменения'], ['line', 'Позиции'], ['design', 'Проектирование'], ['passport', 'Паспорта'], ['shipment', 'Отгрузки'], ['stock', 'Склад'], ['payment', 'Оплаты']];
@@ -60,8 +60,8 @@ export function historyBlock(order) {
         emptyState({ title: 'Событий нет', hint: type || search ? 'Смените тип или очистите поиск.' : 'Здесь появятся изменения, отгрузки, паспорта и выдачи со склада.' }));
     }).catch((e) => list.replaceChildren(failBlock(e)));
   }
-  const det = h('details', { class: 'so-sec', ontoggle: () => { if (det.open && !loaded) { loaded = true; load(); } } },
-    h('summary', { class: 'section-title' }, 'История заказа'), chips, h('div', { class: 'field' }, q), list);
+  const det = section({ title: 'История заказа', tone: 'neutral', body: [chips, h('div', { class: 'field' }, q), list] });
+  det.addEventListener('toggle', () => { if (det.open && !loaded) { loaded = true; load(); } });
   return det;
 }
 

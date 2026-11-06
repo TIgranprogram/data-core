@@ -1,7 +1,7 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { plural } from '../core/format.js';
-import { confirmDlg, toastError, button } from './kit/index.js';
+import { confirmDlg, toastError, button, section } from './kit/index.js';
 
 /**
  * Обсуждение задачи проектирования (правая панель): лента, вопрос менеджеру, ответ.
@@ -131,8 +131,7 @@ export function discussionBlock(row, ctx, openGallery) {
   const me = session.name;
   const askLabel = h('label', { class: 'check dn-ask', for: 'dn-ask-' + row.id }, ask, h('span', null, 'Вопрос менеджеру'));
   const box = h('div', { class: 'dn-form' }, replyBar, input, h('div', { class: 'dn-row' }, askLabel, send));
-  const el = h('details', { class: 'db-blk', open: true }, h('summary', null, 'Обсуждение'),
-    h('div', { class: 'db-blk-body' }, flag, list, me ? box : null));
+  const el = section({ title: 'Обсуждение', tone: 'who', open: true, body: [flag, list, me ? box : null] });
   load();
   return el;
 }

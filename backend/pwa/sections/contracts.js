@@ -2,7 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay } from '../core/format.js';
 import { patch } from '../core/router.js';
-import { attachCombo, button } from '../ui/kit/index.js';
+import { actions, attachCombo, button, section, stack } from '../ui/kit/index.js';
 import { confirmDlg } from '../ui/kit/dialog.js';
 import { errText } from '../ui/kit/errors.js';
 import { photoField } from '../ui/kit/photos.js';
@@ -121,17 +121,19 @@ export async function setInvoiceContract(invoiceId, contractId) {
 
 /** Блок «Договоры» в карточке поставщика: список, «+ Договор», клик — правка справа, удаление с подтверждением. */
 export function contractsBlock(r) {
-  const box = h('div', { class: 'ctr-block' });
   const list = h('div', { class: 'ctr-list' }, h('div', { class: 'muted' }, 'Загружаю договоры…'));
   const add = canContract() ? button({ label: '+ Договор', size: 'S', onClick: () => patch({ of: 'contract', new: '1', open: undefined, supplierId: r.id }) }) : null;
-  box.append(h('div', { class: 'ctr-head' }, h('div', { class: 'section-title' }, 'Договоры'), add), list);
+  const sec = section({ title: 'Договоры', tone: 'money', count: '…', open: true, body: [list, add ? actions(add) : null] });
+  const box = stack(sec);
+  const setN = (n) => { const b = sec.querySelector('.k-sec-n'); if (b) b.textContent = String(n); };
   let seq = 0;
   async function load() {
     const my = ++seq;
     try {
       const items = await fetchContracts(r.id, '');
       if (my !== seq) return;
-      if (!items.length) { list.replaceChildren(h('p', { class: 'muted' }, 'У поставщика пока нет договоров.' + (canContract() ? ' Создайте первый — «+ Договор».' : ''))); return; }
+      setN(items.length);
+      if (!items.length) { list.replaceChildren(h('p', { class: 'muted small' }, 'У поставщика пока нет договоров.' + (canContract() ? ' Создайте первый — «+ Договор».' : ''))); return; }
       list.replaceChildren(h('ul', { class: 'timeline ctr-ul' }, ...items.map(rowEl)));
     } catch (e) { if (my === seq) list.replaceChildren(h('div', { class: 'err' }, errText(e)), button({ label: 'Повторить', size: 'S', onClick: load })); }
   }

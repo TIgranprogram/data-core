@@ -1,3 +1,7 @@
+## Правые панели, волна 3 (ПМ-1, 2026-11-06, не закоммичено)
+коммит: не закоммичено
+- `salesorders.js`: `sec(title,tone,count,…kids)` (~214; tone money→открыта), `readinessBlock` 122, `orderPassports` 198, шапка договора `actions()` 267, `details` stack ~384; `order-shipments.js` Отгрузки/История → section. `passports.js` actions `more:true` (154–175), extra stack (176); `passports/card-blocks.js` все блоки → section (Проверка открыта при missing). `contracts.js contractsBlock` (число в `.k-sec-n` через setN), `offers.js` extra, `kp.js` Похожие/Одиночные, `supplier-catalog.js` История цен, `design.js` specBlock/noteBlock/extra stack, `design-order.js block()`, `design-requests.js` extra, `ui/design-notes.js`/`ui/design-stickers.js` block→section, `work.js` topBlock/assignBlock/cancelBlock/extra, `staff.js` loginBlock/zonesBlock/historyBlock/zoneEvents/zoneEditor. Из screens.css убран `.ctr-head`. Файлы CRLF: design-lint слеп к L3 в CRLF — править с сохранением EOL (скрипт). Карта обновлена.
+
 # Карта роли frontend
 
 ## autoMore — подгрузка порциями (ПГ-1c, 2026-11-05)

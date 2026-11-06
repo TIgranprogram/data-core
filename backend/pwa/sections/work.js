@@ -1,6 +1,6 @@
 import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { sku as kitSku, button } from '../ui/kit/index.js';
+import { sku as kitSku, button, section, stack } from '../ui/kit/index.js';
 import { date, isoDay, qty } from '../core/format.js';
 import { go } from '../core/router.js';
 import { badge, ORDER_PRIORITY } from '../ui/kit/badges.js';
@@ -149,7 +149,7 @@ function topBlock(r) {
     r.status === 'cancelled' && r.cancelReason ? h('div', { class: 'dc-pause' }, 'Отменена: ' + r.cancelReason) : null,
     r.photo ? h('img', { class: 'wk-photo', src: PREFIX + r.photo, alt: '' }) : null,
     grid,
-    h('section', null, h('div', { class: 'section-title' }, 'Маршрут'), routeSteps(r)));
+    section({ title: 'Маршрут', tone: 'main', count: (r.route || []).length, open: true, body: routeSteps(r) }));
 }
 
 /** Исполнитель (из тех, у кого есть вид работ текущего шага) и примечание — сохраняются одной кнопкой. */
@@ -179,9 +179,9 @@ function assignBlock(r, ctx) {
       const saved = await api('/work-tasks/' + r.id, { method: 'PATCH', body }); toast('Сохранено'); ctx.setRow(saved); }
     catch (err) { toastError(err, 'сохранить'); b.disabled = false; b.classList.remove('is-busy'); }
   } });
-  const box = h('section', { class: 'wk-assign' }, h('div', { class: 'section-title' }, 'Исполнитель и примечание'),
+  const box = section({ title: 'Исполнитель и примечание', tone: 'who', open: true, cls: 'wk-assign', body: [
     h('label', { class: 'field' }, h('span', null, 'Исполнитель'), sel), hint, all,
-    h('label', { class: 'field' }, h('span', null, 'Примечание'), note), h('div', { class: 'spec-acts' }, save));
+    h('label', { class: 'field' }, h('span', null, 'Примечание'), note), h('div', { class: 'spec-acts' }, save)] });
   sel.disabled = true; fill(false).then(() => { sel.disabled = false; });
   return box;
 }
@@ -195,8 +195,7 @@ function cancelBlock(r, ctx) {
     try { const saved = await api(`/work-tasks/${r.id}/cancel`, { method: 'POST', body: { reason: why.value.trim() } }); toast(`${r.code} отменена`); ctx.setRow(saved); }
     catch (err) { toastError(err, 'отменить'); b.disabled = false; b.classList.remove('is-busy'); }
   } });
-  return h('details', { class: 'db-blk wk-cancel' }, h('summary', null, 'Отменить задание'),
-    h('div', { class: 'db-blk-body' }, h('p', { class: 'muted' }, 'Позиция освободится — её можно будет запустить заново.'), h('label', { class: 'field' }, h('span', null, 'Причина'), why), btn));
+  return section({ title: 'Отменить задание', tone: 'neutral', cls: 'wk-cancel', body: [h('p', { class: 'muted' }, 'Позиция освободится — её можно будет запустить заново.'), h('label', { class: 'field' }, h('span', null, 'Причина'), why), btn] });
 }
 
 export const work = {
@@ -273,7 +272,7 @@ export const work = {
     view: () => [],
     extra: (r, ctx) => {
       if (!session.canEdit) return r.note ? h('div', { class: 'dc-note' }, r.note) : null;
-      return h('div', { class: 'db-blocks' }, r.status === 'cancelled' ? (r.note ? h('div', { class: 'dc-note' }, r.note) : null) : assignBlock(r, ctx), r.status === 'waiting' || r.status === 'work' ? cancelBlock(r, ctx) : null);
+      return stack(r.status === 'cancelled' ? (r.note ? h('div', { class: 'dc-note' }, r.note) : null) : assignBlock(r, ctx), r.status === 'waiting' || r.status === 'work' ? cancelBlock(r, ctx) : null);
     },
     actions: (r) => {
       const run = (fn) => async (row, ctx) => { const saved = await fn(row); if (saved) ctx.setRow(saved); };

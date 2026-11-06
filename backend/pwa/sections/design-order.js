@@ -8,13 +8,13 @@ import { toastError } from '../ui/kit/toast.js';
 import { dueNode, moveTask, people } from './design.js';
 import { STAGE } from './salesorders.js';
 
-import { table, sku as kitSku, button } from '../ui/kit/index.js';
+import { table, sku as kitSku, button, section, stack } from '../ui/kit/index.js';
 /**
  * Правая панель заказа на доске «Проектирование» (`?of=designorder&open=<id заказа>`, DESIGN §4 «Доска заказов»).
  * Открыто — «с чем работаем»: «Заказ», «Изделия к проектированию» (взять в работу / назначить прямо в строке), «Как идёт проектирование».
  * Свёрнуто — справочное: «Что в позициях». Цен нет. Блоки «Файлы и чертежи», «История» появятся, когда сервер отдаст данные.
  */
-const block = (title, open, ...kids) => h('details', { class: 'db-blk', open: open || undefined }, h('summary', { class: 'section-title' }, title), h('div', { class: 'db-blk-body' }, ...kids));
+const block = (title, open, count, ...kids) => section({ title, tone: 'main', count, open, body: kids });
 const field = (label, value) => (value === null || value === undefined || value === '' ? null : [h('dt', null, label), h('dd', null, value)]);
 const today = () => isoDay();
 
@@ -41,7 +41,7 @@ function linesBlock(row, ctx) {
         h('div', { class: 'db-pstate' }, t ? badge(DESIGN_STATUS, t.status) : h('span', { class: 'muted' }, 'ещё не взято')),
         acts.length ? h('div', { class: 'db-pacts' }, acts) : null));
   });
-  return block('Изделия к проектированию', true, rows.length ? h('ul', { class: 'db-plist' }, rows) : h('div', { class: 'db-hint' }, 'В заказе нет позиций.'));
+  return block('Изделия к проектированию', true, rows.length, rows.length ? h('ul', { class: 'db-plist' }, rows) : h('div', { class: 'db-hint' }, 'В заказе нет позиций.'));
 }
 
 const lineTitle = (l) => ((l.seqNo ?? l.lineNo) != null ? `поз. ${l.seqNo ?? l.lineNo} · ` : '') + l.title;
@@ -52,7 +52,7 @@ function progressBlock(row) {
   const dues = open.map((t) => t.deadline && String(t.deadline).slice(0, 10)).filter(Boolean).sort();
   const over = dues.filter((d) => d < today()).length;
   const free = row.lines.filter((l) => !l.task).length;
-  return block('Как идёт проектирование', true, h('dl', { class: 'fields' },
+  return block('Как идёт проектирование', true, undefined, h('dl', { class: 'fields' },
     ...['queue', 'work', 'paused', 'done', 'cancelled'].flatMap((k) => field(COL_LABEL[k], String(c[k] ?? 0))),
     ...(field('Ещё не взято', String(free)) || []),
     ...(field('Ближайший срок', dues[0] ? date(dues[0]) : open.length ? 'без срока' : '') || []),
@@ -86,9 +86,9 @@ export const designOrder = {
       ['Этап заказа', STAGE[r.stage]?.label || r.stage],
       ['Примечание', r.note],
     ],
-    extra: (r, ctx) => h('div', { class: 'db-blocks' },
+    extra: (r, ctx) => stack(
       linesBlock(r, ctx),
       progressBlock(r),
-      block('Что в позициях', false, table({ columns: [{ label: 'Поз.' }, { label: 'Название' }, { label: 'Кол-во', num: true }, { label: 'Артикул' }], rows: r.lines.map((l) => ({ cells: [l.seqNo ?? l.lineNo ?? '', l.title, l.qty != null ? qty(l.qty) : '', kitSku(l.sku) || ''] })), empty: { title: 'Позиций нет' } }))),
+      block('Что в позициях', false, r.lines.length, table({ columns: [{ label: 'Поз.' }, { label: 'Название' }, { label: 'Кол-во', num: true }, { label: 'Артикул' }], rows: r.lines.map((l) => ({ cells: [l.seqNo ?? l.lineNo ?? '', l.title, l.qty != null ? qty(l.qty) : '', kitSku(l.sku) || ''] })), empty: { title: 'Позиций нет' } }))),
   },
 };

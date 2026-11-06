@@ -1,4 +1,4 @@
-import { grp } from '../ui/kit/index.js';
+import { grp, stack } from '../ui/kit/index.js';
 import { api, apiFile, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { busyBtn } from '../ui/kit/busy.js';
@@ -158,24 +158,24 @@ export const passports = {
         ...(r.missing?.length ? { disabled: true, title: `Не хватает для выпуска: ${r.missing.join(', ')}` } : { title: 'Присвоить номер и талон; текст будет заморожен' }) },
       !r.passportCategory ? { label: '⇩ PDF — нет категории', disabled: true, title: canEdit() ? 'Нет категории паспорта — нажмите «Выбрать категорию»' : 'Нет категории паспорта — её указывает директор или администратор', run: () => {} }
         : { label: statusOf(r) === 'draft' ? '⇩ PDF черновика…' : '⇩ PDF и печать…', primary: statusOf(r) !== 'draft', run: (row) => printDialog(row) },
-      isIssued(r) && canEdit() && { label: 'Новая редакция', title: 'Изменить выпущенный паспорт: номер тот же, редакция +1, прежняя — в истории', run: (row) => { st.revisionFor = row.id; [...document.querySelectorAll('.drawer button')].find((b) => b.textContent.trim() === 'Изменить')?.click(); } },
-      isIssued(r) && canEdit() && { label: 'Аннулировать…', title: 'Номер останется занятым и повторно не выдаётся', run: (row, ctx) => annulDialog(row, ctx) },
-      isIssued(r) && (session.role === 'admin' || session.user?.isOwner) && { label: 'Изменить номер…', run: (row, ctx) => numberDialog(row, ctx) },
-      !r.passportCategory && canEdit() && { label: 'Выбрать категорию', title: 'Без категории PDF упрощённый — с категорией текст соберётся по справочникам', run: (row, ctx) => convertDialog(row, ctx) },
+      isIssued(r) && canEdit() && { label: 'Новая редакция', more: true, title: 'Изменить выпущенный паспорт: номер тот же, редакция +1, прежняя — в истории', run: (row) => { st.revisionFor = row.id; [...document.querySelectorAll('.drawer button')].find((b) => b.textContent.trim() === 'Изменить')?.click(); } },
+      isIssued(r) && canEdit() && { label: 'Аннулировать…', more: true, title: 'Номер останется занятым и повторно не выдаётся', run: (row, ctx) => annulDialog(row, ctx) },
+      isIssued(r) && (session.role === 'admin' || session.user?.isOwner) && { label: 'Изменить номер…', more: true, run: (row, ctx) => numberDialog(row, ctx) },
+      !r.passportCategory && canEdit() && { label: 'Выбрать категорию', more: true, title: 'Без категории PDF упрощённый — с категорией текст соберётся по справочникам', run: (row, ctx) => convertDialog(row, ctx) },
       // ПИ.5: старый паспорт без изделия — привязать к изделию или создать изделие из него (одна модель, без массовых)
-      !r.productId && canEdit() && { label: 'Привязать к изделию', run: (row, ctx) => linkDialog(row, ctx) },
-      !r.productId && canEdit() && r.name && { label: 'Создать изделие из паспорта', title: 'Изделие в «Продукции» с данными этого паспорта; паспорта той же модели привяжутся к нему', run: async (row, ctx) => {
+      !r.productId && canEdit() && { label: 'Привязать к изделию', more: true, run: (row, ctx) => linkDialog(row, ctx) },
+      !r.productId && canEdit() && r.name && { label: 'Создать изделие из паспорта', more: true, title: 'Изделие в «Продукции» с данными этого паспорта; паспорта той же модели привяжутся к нему', run: async (row, ctx) => {
         const key = `${String(row.name).replace(/\s+/g, ' ').trim()}\u0000${String(row.article || '').replace(/\s+/g, ' ').trim()}`;
         if (!(await confirmDlg('Создать изделие?', `В «Продукции» появится «${row.name}» с размерами, текстами и фото этого паспорта. Паспорта той же модели (то же наименование и артикул) привяжутся к нему.`, { okText: 'Создать' }))) return;
         try { const res = await api('/showcase/from-passports', { method: 'POST', body: { groups: [{ keys: [key], main: key }] } }); resetProducts(); toast(`Изделие создано, привязано паспортов: ${res.linked}`); ctx.setRow(await api(`/passports/${row.id}`)); } catch (e) { toastError(e); }
       } },
-      canEdit() && { label: 'Создать копию', title: 'Новый паспорт на ту же модель: новые номера, дата — сегодня', run: async (row, ctx) => {
+      canEdit() && { label: 'Создать копию', more: true, title: 'Новый паспорт на ту же модель: новые номера, дата — сегодня', run: async (row, ctx) => {
         try { const c = await api(`/passports/${row.id}/copy`, { method: 'POST', body: {} }); toast(`Создан паспорт № ${c.passportNumber} — укажите заказчика и дату`); ctx.changed(); go('passports', { ...current().params, open: c.id }); } catch (e) { toastError(e); }
       } },
     ],
     extra: (r, ctx) => {
       const draft = statusOf(r) === 'draft';
-      return h('div', null,
+      return stack(
         draft && canEdit() ? passportWizard(r, ctx) : null,
         !draft || !canEdit() ? (r.passportCategory ? checkBlock(r) : (r.missing?.length ? h('div', { class: 'fill-note' }, 'Не хватает для выдачи: ', h('b', null, r.missing.join(', '))) : null)) : null,
         imagesBlock(r, ctx), bomBlock(r),

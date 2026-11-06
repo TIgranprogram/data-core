@@ -2,7 +2,7 @@ import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay } from '../core/format.js';
 import { current, go } from '../core/router.js';
-import { badge, board as mountBoard, button, sku as kitSku, layout, toast, toastError, DESIGN_STATUS, ORDER_PRIORITY } from '../ui/kit/index.js';
+import { badge, board as mountBoard, button, sku as kitSku, layout, section, stack, toast, toastError, DESIGN_STATUS, ORDER_PRIORITY } from '../ui/kit/index.js';
 import { designSide } from './design-side.js';
 import { staffOptions } from './passports/common.js';
 import { taskMenu } from './design-menu.js';
@@ -161,14 +161,14 @@ function specBlock(r) {
   const kids = [['Габариты', clean(sp.size)], ['Крепление', clean(sp.mount)], ['Покрытие', clean(sp.cover)], ['RAL', clean(sp.ral)], ['Доп.', clean(sp.extra)]].flatMap(([k, v]) => pair(k, v));
   const raw = clean(sp.raw);
   if (!kids.length && !raw) return null;
-  return h('section', { class: 'dc-prod' }, h('h3', null, 'Изделие'),
+  return section({ title: 'Изделие', tone: 'main', open: true, cls: 'dc-prod', body: [
     kids.length ? h('dl', { class: 'kv-grid' }, ...kids) : null,
-    raw ? h('details', { class: 'dc-raw' }, h('summary', null, 'Исходный текст позиции заказа'), h('div', { class: 'dc-note' }, raw)) : null);
+    raw ? section({ title: 'Исходный текст позиции заказа', tone: 'neutral', cls: 'dc-raw', body: h('div', { class: 'dc-note' }, raw) }) : null] });
 }
 function noteBlock(text) {
   const p = h('div', { class: 'dc-note clip3' }, text);
   const btn = button({ label: 'Показать полностью', kind: 'ghost', size: 'S', onClick: () => { const on = p.classList.toggle('clip3'); btn.textContent = on ? 'Показать полностью' : 'Свернуть'; } });
-  return h('details', { class: 'db-blk' }, h('summary', null, 'Примечание'), h('div', { class: 'db-blk-body' }, p, btn));
+  return section({ title: 'Примечание', tone: 'main', body: [p, btn] });
 }
 
 export const design = {
@@ -254,7 +254,7 @@ export const design = {
     top: (r, ctx) => topBlock(r, ctx),
     view: () => [],
     extra: (r, ctx) => {
-      const host = h('div', { class: 'db-blocks' });
+      const host = stack();
       const can = session.canEdit;
       const prod = specBlock(r);
       if (prod) host.append(prod);

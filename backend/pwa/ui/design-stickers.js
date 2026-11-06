@@ -5,6 +5,7 @@ import { ORDER_PRIORITY } from './kit/badges.js';
 import { confirmDlg } from './kit/dialog.js';
 import { photoDrop } from './kit/photos.js';
 import { toastError } from './kit/toast.js';
+import { section } from './kit/index.js';
 
 /**
  * Стикеры и фото задач проектирования (карточки как в YouGile). Сервер: GET /design-stickers (все), стикеры доски — в GET /design-board,
@@ -75,7 +76,7 @@ export function stickerRow(task, list, limit = CARD_STICKERS) {
 }
 
 // ---------- правая панель задачи: «Фото» и «Стикеры» ----------
-const block = (title, ...kids) => h('details', { class: 'db-blk', open: true }, h('summary', null, title), h('div', { class: 'db-blk-body' }, ...kids));
+const block = (title, tone, count, ...kids) => section({ title, tone, count, open: true, body: kids });
 
 export function photosBlock(row, ctx, canEdit) {
   const pics = () => row.photos || (row.photos = []);
@@ -97,7 +98,7 @@ export function photosBlock(row, ctx, canEdit) {
     done: () => { paint(); ctx.changed(); },
   }) : h('span');
   paint();
-  return block('Фото', strip, !pics().length && !canEdit ? h('div', { class: 'db-hint' }, 'Фото нет.') : null, hint, canEdit ? drop : null);
+  return block('Фото', 'info', undefined, strip, !pics().length && !canEdit ? h('div', { class: 'db-hint' }, 'Фото нет.') : null, hint, canEdit ? drop : null);
 }
 
 export function stickersBlock(row, list, ctx, canEdit) {
@@ -131,5 +132,5 @@ export function stickersBlock(row, list, ctx, canEdit) {
     paint();
     return h('div', { class: 'stk-row' }, label, box);
   });
-  return block('Стикеры', rows);
+  return block('Стикеры', 'main', rows.length, rows);
 }
