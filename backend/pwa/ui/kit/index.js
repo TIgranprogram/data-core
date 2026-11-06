@@ -143,6 +143,7 @@ export { mountBoard as board } from './board.js';
 export { table } from './table.js';
 export { links } from './links.js';
 export { panel } from './panel.js';
+export { entityPanel } from './entity-panel.js';
 
 /** boardStatic({ columns: [{ key, label, tone, hint?, cards: [узлы], empty? }], density }) → .board без сервера (витрина, малые списки) */
 export function boardStatic({ columns, density = 'normal' }) {

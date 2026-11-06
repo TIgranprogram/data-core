@@ -185,7 +185,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
         : h('button', { type: 'button', class: 'btn btn-ghost btn-sm db-inv-chip', title: 'Открыть', onclick: () => g.open() }, g.label))
       : h('span', { class: 'db-inv-chip is-static' }, g.label);
     const card = paintOrder(h('article', {
-      class: 'db-order k-gfold',
+      class: 'db-order k-gfold k-hover',
       'data-group-key': k,
       tabindex: '0',
       role: 'button',

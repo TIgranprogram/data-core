@@ -379,3 +379,15 @@ button.m-fg-h { cursor: pointer; }
 @media (max-width: 720px) { .k-card-table .btn, .k-card .k-actions .btn { min-height: 44px; } }
 .k-actions input { width: 7em; min-width: 6em; max-width: 8em; }
 @media (pointer: coarse), (max-width: 720px) { .k-actions input { min-height: 44px; } }
+/* ПМ-1: правая панель v2 (entityPanel) — «где мы», главный блок, связи сеткой, история свёрнута */
+.ep-where { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s1); min-width: 0; font-size: var(--fs-lg); }
+.ep-where .ep-sec { color: var(--muted); font-size: var(--fs-sm); }
+.ep-where .ep-sep { color: var(--muted); }
+.ep-body { display: flex; flex-direction: column; gap: var(--card-gap, var(--s4)); }
+.ep-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--card-gap, var(--s3)); }
+.ep-grid .tile.is-active { border-color: var(--primary); }
+.ep-count { font-variant-numeric: tabular-nums; font-weight: 600; }
+.ep-hist { border: 1px solid var(--border); border-radius: var(--radius); padding: var(--card-pad, var(--s3)); }
+.ep-hist > summary { cursor: pointer; font-weight: 600; }
+.ep-hist-body { margin-top: var(--s3); }
+@media (max-width: 720px) { .ep-grid { grid-template-columns: 1fr; } }
