@@ -420,3 +420,7 @@ button.m-fg-h { cursor: pointer; }
   .q-link { display: inline-flex; align-items: center; justify-content: flex-end; min-width: var(--tap); min-height: var(--tap); }
   .t-pick input { width: var(--tap); height: var(--tap); }
 }
+
+/* Окно просмотра PDF (КП-2): pdf-preview.js */
+.k-pdf-box { display: flex; flex-direction: column; gap: var(--s2); }
+.k-pdf { width: 100%; height: min(72vh, 900px); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }

@@ -178,7 +178,17 @@ function guardViewAsWrite(method = 'GET') {
 export async function apiFile(path, opts = {}) {
   return fileGet(path, opts).catch((e) => failed(e, path, opts.method || 'GET'));
 }
-async function fileGet(path, { query, fallback = 'file', timeout = 180000, method, body } = {}) {
+async function fileGet(path, opts = {}) {
+  const { blob, name } = await fileFetch(path, opts);
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+  return name;
+}
+/** Получить файл (PDF) в память без скачивания — для предпросмотра. POST с телом разрешён (предпросмотр КП: в базу не пишет). */
+export async function apiBlob(path, opts = {}) {
+  return fileFetch(path, opts).catch((e) => failed(e, path, opts.method || 'GET'));
+}
+async function fileFetch(path, { query, fallback = 'file', timeout = 180000, method, body } = {}) {
   guardViewAsWrite(method || 'GET');
   const qs = query ? '?' + new URLSearchParams(Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== '')).toString() : '';
   const init = { timeout, ...(method ? { method, body } : {}), ...(method && method !== 'GET' ? { headers: { 'Idempotency-Key': newKey() } } : {}) };
@@ -191,10 +201,7 @@ async function fileGet(path, { query, fallback = 'file', timeout = 180000, metho
   const cd = res.headers.get('content-disposition') || '';
   const m = /filename\*=UTF-8''([^;]+)/i.exec(cd);
   const name = m ? decodeURIComponent(m[1]) : fallback;
-  const blob = await res.blob();
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 30000);
-  return name;
+  return { blob: await res.blob(), name };
 }
 
 /** Проверка пароля текущего пользователя → токен подтверждения. Неверный пароль (401/403) не выбрасывает из системы. */

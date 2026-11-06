@@ -185,6 +185,7 @@ export { mobile, catArt } from './mobile.js';
 
 // ---- Реэкспорт существующих эталонов ----
 export { modal, confirmDlg } from './dialog.js';
+export { openPdfPreview } from './pdf-preview.js';
 export { toast, toastError } from './toast.js';
 export { failBlock, busyBlock } from './busy.js';
 export { errText } from './errors.js';
