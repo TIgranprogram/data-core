@@ -7,6 +7,7 @@ describe('HARDEN-1 п.13: выплата с clientUid', () => {
     const pay = { updateOne: jest.fn(async () => ({ upsertedId })), insertOne: jest.fn(async () => ({ insertedId: new Types.ObjectId() })), findOne: jest.fn(async () => ({ _id: new Types.ObjectId(), month: '2026-10' })) };
     const coll = (n: string) => n === 'payroll_payments' ? pay
       : n === 'persons' ? { findOne: async () => ({ _id: pid }) }
+      : n === 'settings' ? { findOne: async () => null }
       : { find: () => ({ project: undefined, toArray: async () => [{ _id: cid, name: 'ООО', isOurCompany: true }] }) };
     const svc = new PayrollService({ db: { collection: coll } } as never);
     return { svc, pay };

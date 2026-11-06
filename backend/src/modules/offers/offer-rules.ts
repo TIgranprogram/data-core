@@ -55,3 +55,31 @@ export function checkEditable(status: OfferStatus, bypass: OfferBypass = {}): bo
   if (bypass.admin && !bypass.hasOrder) return true;
   throw new BadRequestException('КП оплачено — правка закрыта');
 }
+
+export type VatMode = 'with' | 'without';
+export const DEFAULT_VAT_RATE = 22;
+
+/**
+ * НДС КП: режим пусто → по ставке фирмы (> 0 — «с НДС»); ставка пусто → ставка фирмы, нет — 22.
+ * «Без НДС» ставку не печатает, но возвращаем её для формы.
+ */
+export function resolveVat(mode: VatMode | null | undefined, rate: number | null | undefined, orgRate: number | null | undefined): { vatMode: VatMode; vatRate: number } {
+  const org = Number(orgRate);
+  const vatMode: VatMode = mode ?? (org > 0 ? 'with' : 'without');
+  const own = rate === null || rate === undefined ? NaN : Number(rate);
+  const vatRate = Number.isFinite(own) ? own : org > 0 ? org : DEFAULT_VAT_RATE;
+  return { vatMode, vatRate };
+}
+
+/** НДС внутри суммы: total × ставка / (100 + ставка), 2 знака. */
+export const vatAmount = (total: number, rate: number): number => round2((Number(total) * rate) / (100 + rate));
+
+/** Цена строки с наценкой, % (отрицательная — скидка): округление до рубля. */
+export const markedUp = (price: number, percent: number): number => Math.round((Number(price) * (100 + percent)) / 100);
+
+/** Срок действия в календарных днях: validUntil − date; нет даты или не больше нуля — null. */
+export function validDays(date: Date | string, validUntil?: Date | string | null): number | null {
+  if (!validUntil) return null;
+  const n = Math.round((new Date(validUntil).getTime() - new Date(date).getTime()) / 86400000);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}

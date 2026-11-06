@@ -30,6 +30,10 @@ export class CreateOfferDto {
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) @Max(100) prepaymentPercent?: number;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) productionDays?: number;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) deliveryDays?: number;
+  @ApiPropertyOptional({ description: 'Объект (печатается под заказчиком)' }) @IsOptional() @IsString() @MaxLength(500) objectName?: string;
+  @ApiPropertyOptional({ enum: ['with', 'without'], description: 'НДС; пусто — по ставке нашей фирмы' }) @IsOptional() @IsIn(['with', 'without'], { message: 'НДС — «с НДС» или «без НДС»' }) vatMode?: 'with' | 'without';
+  @ApiPropertyOptional({ description: 'Ставка НДС, %; пусто — ставка фирмы (нет — 22)' }) @IsOptional() @IsNumber() @Min(0) @Max(30) vatRate?: number;
+  @ApiPropertyOptional({ enum: ['included', 'excluded'], description: 'Доставка до объекта; пусто — строку не печатаем' }) @IsOptional() @IsIn(['included', 'excluded'], { message: 'Доставка — «включена» или «не включена»' }) delivery?: 'included' | 'excluded';
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(3000) terms?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) notes?: string;
   @ApiPropertyOptional({ description: 'Фон стр. 1: id из GET /offers/backgrounds; пусто — по умолчанию' }) @IsOptional() @Matches(BG_ID, { message: 'Некорректный фон' }) bg1Id?: string;
@@ -52,9 +56,35 @@ export class OfferCreateOrderDto {
   @ApiPropertyOptional({ description: '№ заказа на производство; по умолчанию — следующий свободный' }) @IsOptional() @IsString() @MaxLength(50) productionNo?: string;
 }
 
+/** Поля зоны текста и стандартных текстов бланка (общие для загрузки и правки). */
+const emptyToUndef = ({ value }: { value: unknown }) => (value === '' ? undefined : value);
+
 export class UploadBackgroundDto {
   @ApiProperty() @IsString() @MaxLength(100) name!: string;
   @ApiProperty({ enum: [1, 2], description: '1 — первая страница, 2 — вторая и следующие' }) @Type(() => Number) @IsInt() @IsIn([1, 2], { message: 'Страница — 1 или 2' }) page!: number;
   @ApiPropertyOptional({ description: 'Наша компания: бланк этой компании; пусто — общий фон' }) @IsOptional() @IsObjectId() companyId?: string;
   @ApiPropertyOptional({ description: 'Сделать фоном по умолчанию для этой страницы' }) @IsOptional() @Transform(({ value }) => value === true || value === 'true' || value === '1') @IsBoolean() isDefault?: boolean;
+  @ApiPropertyOptional({ description: 'Верх зоны текста, доля высоты 0–0.6; пусто — как раньше' }) @IsOptional() @Transform(emptyToUndef) @Type(() => Number) @IsNumber() @Min(0, { message: 'Верх текста — от 0 до 60 %' }) @Max(0.6, { message: 'Верх текста — от 0 до 60 %' }) textTop?: number;
+  @ApiPropertyOptional({ description: 'Низ зоны текста, доля высоты 0.4–0.95; пусто — как раньше' }) @IsOptional() @Transform(emptyToUndef) @Type(() => Number) @IsNumber() @Min(0.4, { message: 'Низ текста — от 40 до 95 %' }) @Max(0.95, { message: 'Низ текста — от 40 до 95 %' }) textBottom?: number;
+  @ApiPropertyOptional({ description: 'Стандартные тексты фирмы (подставляются в «Условия» нового КП)' }) @IsOptional() @IsString() @MaxLength(3000) defaultTerms?: string;
+}
+
+/** Правка бланка; null в textTop / textBottom / defaultTerms — сбросить. */
+export class UpdateBackgroundDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() @IsNotEmpty({ message: 'Название не может быть пустым' }) @MaxLength(100) name?: string;
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @IsNumber() @Min(0, { message: 'Верх текста — от 0 до 60 %' }) @Max(0.6, { message: 'Верх текста — от 0 до 60 %' }) textTop?: number | null;
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @IsNumber() @Min(0.4, { message: 'Низ текста — от 40 до 95 %' }) @Max(0.95, { message: 'Низ текста — от 40 до 95 %' }) textBottom?: number | null;
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @IsString() @MaxLength(3000) defaultTerms?: string | null;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isDefault?: boolean;
+}
+
+/** Копия КП для другой нашей фирмы с наценкой. */
+export class OfferCopyDto {
+  @ApiProperty({ description: 'Наша компания, для которой делаем копию' }) @IsObjectId() companyId!: string;
+  @ApiPropertyOptional({ default: 0, description: 'Наценка на цены строк, % (−50…100); цена округляется до рубля' }) @IsOptional() @IsNumber() @Min(-50, { message: 'Наценка — от −50 до 100 %' }) @Max(100, { message: 'Наценка — от −50 до 100 %' }) markupPercent?: number;
+}
+
+/** Показать/скрыть фирму в «Деньгах»: «только для КП» — в доходах, расходах, календаре её нет. */
+export class OfferCompanyDto {
+  @ApiProperty() @IsBoolean() offersOnly!: boolean;
 }

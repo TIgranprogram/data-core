@@ -1,6 +1,6 @@
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
-import { searchBox, readonlyGroup, similarBox, sku, section, stack, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, qtyInput, targetPicker, toast, pick, filter, table, panel, entityPanel, select, fileButton, links, SUPPLY_STATUS } from '../ui/kit/index.js';
+import { searchBox, readonlyGroup, similarBox, sku, section, stack, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, openPdfPreview, qtyInput, targetPicker, toast, pick, filter, table, panel, entityPanel, select, fileButton, links, SUPPLY_STATUS } from '../ui/kit/index.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
 const LONG = 'Очень длинное название позиции для проверки переноса и обрезки текста в карточке эталона';
@@ -109,6 +109,8 @@ export const kit = {
           m.reload();
           return h('div', null, box, m.el);
         })()),
+      block('Окно просмотра PDF (openPdfPreview)', 'Только просмотр (КП: предпросмотр до сохранения, карточка, проверка бланка): Обновить · Печать · Скачать PDF · «Вернуться к правке». Ввод остаётся в правой панели.',
+        button({ label: 'Открыть пример окна', onClick: () => openPdfPreview({ title: 'Пример', load: async () => { throw new Error('В витрине PDF не грузится'); } }) })),
       block('Карточка L (.db-order)', 'Заказ / шапка сущности.', sample(...cards('L'), card({ size: 'L', title: LONG, meta: LONG }))),
       block('Строка (.k-row)', 'Список позиций, корзина с количеством, строка с галочкой. tone — полоса слева.', sample(
         row({ title: 'Труба 57×3', meta: 'на складе 120 м', side: h('b', null, '120 м'), action: button({ label: 'Принять', size: 'S' }) }),

@@ -1,4 +1,4 @@
-import { calcTotals, canMove, checkEditable, checkMove } from './offer-rules';
+import { calcTotals, canMove, checkEditable, checkMove, markedUp, resolveVat, validDays, vatAmount } from './offer-rules';
 
 describe('КП: статусы и суммы', () => {
   it('цепочка draft → sent → accepted → paid, пропуск шагов запрещён', () => {
@@ -57,5 +57,29 @@ describe('КП: обход администратором (ЗЯ-1)', () => {
   });
   it('цена к «Отправлено» обязательна и для администратора', () => {
     expect(() => checkMove('accepted', 'sent', [{ productName: 'Скамья' }], admin)).toThrow(/Укажите цену/);
+  });
+
+  describe('НДС, наценка, срок действия', () => {
+    it('НДС внутри 680 000 при 22 % — 122 622,95', () => {
+      expect(vatAmount(680000, 22)).toBe(122622.95);
+    });
+    it('режим и ставка: пусто — по фирме; нет ставки фирмы — 22', () => {
+      expect(resolveVat(undefined, undefined, 22)).toEqual({ vatMode: 'with', vatRate: 22 });
+      expect(resolveVat(undefined, undefined, 0)).toEqual({ vatMode: 'without', vatRate: 22 });
+      expect(resolveVat(undefined, undefined, null)).toEqual({ vatMode: 'without', vatRate: 22 });
+      expect(resolveVat('with', 10, 0)).toEqual({ vatMode: 'with', vatRate: 10 });
+      expect(resolveVat('without', undefined, 20)).toEqual({ vatMode: 'without', vatRate: 20 });
+    });
+    it('наценка: +3 % → 700 400, +5 % → 714 000, округление до рубля', () => {
+      expect(markedUp(680000, 3)).toBe(700400);
+      expect(markedUp(680000, 5)).toBe(714000);
+      expect(markedUp(1001, 3)).toBe(1031);
+      expect(markedUp(1000, -10)).toBe(900);
+    });
+    it('срок действия — календарные дни', () => {
+      expect(validDays('2026-11-06', '2026-11-16')).toBe(10);
+      expect(validDays('2026-11-06', null)).toBeNull();
+      expect(validDays('2026-11-06', '2026-11-06')).toBeNull();
+    });
   });
 });

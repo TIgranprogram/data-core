@@ -1,9 +1,9 @@
-import { api, apiFile } from '../core/api.js';
+import { api, apiFile, apiBlob } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, parseNum } from '../core/format.js';
 import { go } from '../core/router.js';
 import { badge } from '../ui/kit/badges.js';
-import { button, iconButton, enhanceSelect, section, stack } from '../ui/kit/index.js';
+import { button, iconButton, enhanceSelect, section, stack, openPdfPreview, modal, buildForm } from '../ui/kit/index.js';
 import { confirmDlg } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { incomeLookups } from './orders.js';
@@ -116,26 +116,76 @@ function itemsWidget(initial) {
 
 // ---------- форма ----------
 let formItems = null; // виджет строк открытой формы — для подсветки при сохранении
+/** Наши фирмы для КП — с «только для КП» (Приват-деал и т. п.); в Деньгах их нет. */
+const ourCompanies = () => api('/offers/companies').then((r) => (Array.isArray(r) ? r : r?.items || [])).catch(() => []);
+const VAT_OPTS = [{ value: '', label: 'Как у нашей фирмы' }, { value: 'with', label: 'С НДС' }, { value: 'without', label: 'Без НДС' }];
+const DELIVERY_OPTS = [{ value: '', label: 'Не указывать' }, { value: 'included', label: 'Включена в стоимость' }, { value: 'excluded', label: 'Не входит в стоимость' }];
+
+/** Тело КП из текущих значений формы (для предпросмотра до сохранения). */
+function bodyOfForm(fapi) {
+  const v = {};
+  for (const k of fapi.keys()) v[k] = fapi.get(k);
+  try { v.items = v.items ? JSON.parse(v.items) : []; } catch { v.items = []; }
+  if (!v.companyId) throw new Error('Выберите нашу компанию');
+  if (!String(v.customer || '').trim()) throw new Error('Укажите заказчика');
+  return strip(toBody(v));
+}
+const previewBlob = (body) => apiBlob('/offers/preview', { method: 'POST', body, fallback: 'КП-черновик.pdf' });
+
+/** Кнопка «Предпросмотр» внутри формы: читает значения соседних полей через mount(fapi). */
+function previewWidget() {
+  const ref = { fapi: null };
+  const run = () => {
+    try { bodyOfForm(ref.fapi); } catch (e) { toastError(e); return; }
+    openPdfPreview({ title: 'Предпросмотр КП', load: () => previewBlob(bodyOfForm(ref.fapi)) });
+  };
+  return {
+    ref,
+    el: h('div', { class: 'of-bg' },
+      button({ label: 'Предпросмотр', onClick: run }),
+      h('p', { class: 'muted small' }, 'Покажет PDF до сохранения. Номер не тратится, КП в списке не появится.')),
+    get value() { return ''; },
+    set value(_) { /* только показ */ },
+  };
+}
+
 const fields = async () => {
-  const il = await incomeLookups().catch(() => ({ companies: [], customers: [] }));
+  const [il, companies] = await Promise.all([incomeLookups().catch(() => ({ companies: [], customers: [] })), ourCompanies()]);
+  const pw = previewWidget();
   return [
     { section: 'Предложение', tone: 'main', fixed: true },
-    { key: 'companyId', label: 'Наша компания', type: 'select', required: true, choose: true, options: (il.companies || []).map((c) => ({ value: c.id, label: c.name })) },
+    { key: 'companyId', label: 'Наша компания', type: 'select', required: true, choose: true, options: companies.map((c) => ({ value: c.id, label: c.name })),
+      // стандартные тексты и НДС выбранной фирмы — только в пустые поля
+      mount: (fapi) => fapi.on('companyId', async () => {
+        const id = fapi.get('companyId');
+        if (!id) return;
+        const d = await api('/offers/defaults', { query: { companyId: id } }).catch(() => null);
+        if (!d) return;
+        if (d.terms && !fapi.get('terms').trim()) fapi.set('terms', d.terms, { auto: true, src: 'из шаблона фирмы' });
+        if (d.vatMode && !fapi.get('vatMode')) fapi.set('vatMode', d.vatMode, { auto: true, src: 'из настроек фирмы' });
+        if (d.vatRate != null && String(fapi.get('vatRate')) === '') fapi.set('vatRate', String(d.vatRate), { auto: true, src: 'из настроек фирмы' });
+      }) },
     { key: 'customer', label: 'Заказчик', type: 'combo', required: true, max: 300, options: (il.customers || []).map((x) => ({ value: x, label: x })), hint: 'Кому адресовано предложение' },
+    { key: 'objectName', label: 'Объект', type: 'textarea', max: 500, wide: true, hint: 'Печатается жирным под заказчиком. Необязательно' },
     { key: 'date', label: 'Дата', type: 'date', required: true },
     { key: 'validUntil', label: 'Действительно до', type: 'date', required: true },
     { key: 'title', label: 'Тема', max: 200, wide: true, hint: 'Необязательно — для себя, в PDF не попадает' },
     { section: 'Изделия', tone: 'money', fixed: true },
     { key: 'items', label: 'Строки', type: 'widget', wide: true, widget: (v) => (formItems = itemsWidget(v)) },
     { section: 'Условия', tone: 'info' },
+    { key: 'vatMode', label: 'НДС', type: 'select', options: VAT_OPTS },
+    { key: 'vatRate', label: 'Ставка НДС, %', type: 'number', min: 0, hint: 'Пусто — ставка фирмы' },
+    { key: 'delivery', label: 'Доставка до объекта', type: 'select', options: DELIVERY_OPTS },
     { key: 'prepaymentPercent', label: 'Предоплата, %', type: 'number', min: 0 },
     { key: 'productionDays', label: 'Срок изготовления, дн.', type: 'number', min: 0 },
     { key: 'deliveryDays', label: 'Срок доставки, дн.', type: 'number', min: 0 },
-    { key: 'terms', label: 'Условия', type: 'textarea', wide: true, hint: 'Оплата, гарантия, монтаж — попадёт в PDF' },
+    { key: 'terms', label: 'Условия', type: 'textarea', wide: true, hint: 'Стандартные тексты фирмы подставляются сами; правка здесь шаблон не меняет. Попадёт в PDF' },
     { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
+    { section: 'Просмотр', tone: 'neutral', fixed: true },
+    { key: '_preview', label: 'PDF до сохранения', type: 'widget', wide: true, widget: () => pw, mount: (fapi) => { pw.ref.fapi = fapi; } },
     { section: 'Фон PDF', tone: 'who', collapsed: true },
-    { key: 'bg1Id', label: 'Бланк 1-й страницы', type: 'widget', wide: true, widget: (v) => bgWidget(1, v, il.companies || []), hint: 'Пусто — бланк выбранной нашей фирмы' },
-    { key: 'bg2Id', label: 'Бланк 2-й и следующих', type: 'widget', wide: true, widget: (v) => bgWidget(2, v, il.companies || []), hint: 'Пусто — бланк фирмы; «без фона» — белая страница' },
+    { key: 'bg1Id', label: 'Бланк 1-й страницы', type: 'widget', wide: true, widget: (v) => bgWidget(1, v, companies), hint: 'Пусто — бланк выбранной нашей фирмы' },
+    { key: 'bg2Id', label: 'Бланк 2-й и следующих', type: 'widget', wide: true, widget: (v) => bgWidget(2, v, companies), hint: 'Пусто — бланк фирмы; «без фона» — белая страница' },
   ];
 };
 const numOrNull = (v) => (v === null || v === undefined || v === '' ? undefined : Number(v));
@@ -148,6 +198,7 @@ const toBody = (v) => {
     companyId: v.companyId, customer: clean(v.customer), date: v.date, validUntil: v.validUntil, title: clean(v.title),
     items,
     prepaymentPercent: numOrNull(v.prepaymentPercent), productionDays: numOrNull(v.productionDays), deliveryDays: numOrNull(v.deliveryDays),
+    objectName: clean(v.objectName), vatMode: v.vatMode || '', vatRate: numOrNull(v.vatRate), delivery: v.delivery || '',
     terms: clean(v.terms), notes: clean(v.notes), bg1Id: v.bg1Id || '', bg2Id: v.bg2Id || '',
   };
 };
@@ -169,11 +220,31 @@ const makeOrder = async (r, ctx) => {
     if (res.orderId) go('salesorders', { open: res.orderId });
   } catch (e) { toastError(e, 'создать заказ из КП'); }
 };
+const preview = (r) => openPdfPreview({ title: `КП ${r.number || ''}`.trim(), load: () => apiBlob(`/offers/${r.id}/pdf`, { fallback: `КП-${r.number || 'без-номера'}.pdf` }) });
+/** «Копия для другой фирмы»: выбор фирмы + наценка, % → открыть новую копию-черновик. */
+async function copyDialog(r) {
+  const companies = await ourCompanies();
+  const f = buildForm([
+    { key: 'companyId', label: 'Наша фирма', type: 'select', required: true, choose: true, wide: true, options: companies.map((c) => ({ value: c.id, label: c.name })) },
+    { key: 'markupPercent', label: 'Наценка, %', type: 'number', hint: 'От −50 до 100. Цены строк округлятся до рубля' },
+    { note: 'Копия — черновик с бланком выбранной фирмы; заказчик, объект и строки те же.' },
+  ], { markupPercent: '0' });
+  const id = await modal({ title: 'Копия для другой фирмы', okText: 'Сделать копию', body: f.el, onOk: async () => {
+    const res = f.read();
+    if (res.errors) throw new Error('Заполните отмеченные поля');
+    const n = res.values.markupPercent ?? 0;
+    if (n < -50 || n > 100) throw new Error('Наценка — от −50 до 100 %');
+    const c = await api(`/offers/${r.id}/copy`, { method: 'POST', body: { companyId: res.values.companyId, markupPercent: n } });
+    return c?.id || c?._id || true;
+  } });
+  if (id && id !== true) { toast('Копия создана'); go('offers', { open: id }); }
+}
 const actions = (r) => {
   const to = (status, label, extra = {}) => ({ label, run: (row, ctx) => setStatus(row, ctx, status), ...extra });
-  const out = [{ label: '⇩ Скачать PDF', run: (row) => pdf(row), primary: r.status === 'paid' || r.status === 'rejected' || r.status === 'cancelled' }];
+  const out = [{ label: 'Предпросмотр', run: (row) => preview(row) }, { label: '⇩ Скачать PDF', run: (row) => pdf(row), primary: r.status === 'paid' || r.status === 'rejected' || r.status === 'cancelled' }];
   if (r.orderId) out.unshift({ label: 'Открыть заказ', primary: true, run: () => go('salesorders', { open: r.orderId }) });
   else if (['accepted', 'paid'].includes(r.status)) out.push({ label: 'Сделать заказ', primary: r.status === 'accepted', run: (row, ctx) => makeOrder(row, ctx) });
+  out.push({ label: 'Копия для другой фирмы', more: true, run: () => copyDialog(r) });
   if (r.status === 'draft') out.push(to('sent', 'Отметить: отправлено клиенту', { primary: true }));
   if (r.status === 'sent') out.push(to('accepted', 'Отметить: принято клиентом', { primary: true }));
   if (r.status === 'accepted') out.push(to('paid', 'Отметить: оплачено', { primary: true }));
@@ -242,6 +313,8 @@ export const offers = {
     view: (r) => [
       ['Наша фирма', r.companyName], ['Заказчик', r.customer], ['Дата', date(r.date)], ['Действительно до', r.validUntil ? date(r.validUntil) : ''],
       ['Сумма', r.total ? money(r.total) : 'цены не указаны'],
+      ['Объект', r.objectName], ['НДС', r.vatMode === 'without' ? 'Без НДС' : r.vatMode === 'with' ? `С НДС${r.vatRate ? ` ${r.vatRate} %` : ''}` : ''],
+      ['Доставка до объекта', r.delivery === 'included' ? 'Включена в стоимость' : r.delivery === 'excluded' ? 'Не входит в стоимость' : ''],
       ['Предоплата', r.prepaymentPercent ? `${r.prepaymentPercent} %` : ''], ['Срок изготовления', r.productionDays ? `${r.productionDays} дн.` : ''], ['Срок доставки', r.deliveryDays ? `${r.deliveryDays} дн.` : ''],
       ['Условия', r.terms], ['Примечание', r.notes],
       ['Статус', badge(STATUS, r.status)],
@@ -260,10 +333,10 @@ export const offers = {
   form: {
     fields,
     initial: () => ({ date: isoDay(), items: [] }),
-    toInitial: (r) => ({ ...r, companyId: r.companyId ? String(r.companyId) : '', date: day(r.date), validUntil: day(r.validUntil), bg1Id: r.bg1Id ? String(r.bg1Id) : '', bg2Id: r.bg2Id ? String(r.bg2Id) : '', items: r.items || [] }),
+    toInitial: (r) => ({ ...r, companyId: r.companyId ? String(r.companyId) : '', date: day(r.date), validUntil: day(r.validUntil), bg1Id: r.bg1Id ? String(r.bg1Id) : '', bg2Id: r.bg2Id ? String(r.bg2Id) : '', vatMode: r.vatMode || '', delivery: r.delivery || '', objectName: r.objectName || '', items: r.items || [] }),
     toBody,
     create: (b) => api('/offers', { method: 'POST', body: strip(b) }),
-    update: async (id, b) => (await withReason((reason) => api(`/offers/${id}`, { method: 'PATCH', body: { ...strip(b), bg1Id: b.bg1Id || null, bg2Id: b.bg2Id || null, ...(reason ? { reason } : {}) } }), 'Править оплаченное КП')) ?? api(`/offers/${id}`),
+    update: async (id, b) => (await withReason((reason) => api(`/offers/${id}`, { method: 'PATCH', body: { ...strip(b), bg1Id: b.bg1Id || null, bg2Id: b.bg2Id || null, objectName: b.objectName || '', vatMode: b.vatMode || null, delivery: b.delivery || null, ...(reason ? { reason } : {}) } }), 'Править оплаченное КП')) ?? api(`/offers/${id}`),
   },
   remove: {
     text: (r) => `Удалить КП ${r.number}?`,

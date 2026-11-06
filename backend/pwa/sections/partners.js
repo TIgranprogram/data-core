@@ -1,9 +1,9 @@
-import { api, PREFIX, session } from '../core/api.js';
+import { api, apiBlob, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { modal } from '../ui/kit/dialog.js';
-import { button, fileButton, select, enhanceSelect, section, stack } from '../ui/kit/index.js';
+import { button, fileButton, select, enhanceSelect, section, stack, openPdfPreview, buildForm, segmented } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { openSide } from '../ui/kit/side-form.js';
 import { STAGE } from './salesorders.js';
@@ -87,8 +87,32 @@ function stampBlock(r, ctx) {
  * Бланк КП (К11): фон А4 по умолчанию у этой нашей фирмы.
  * В КП без выбора бланка подставляется отсюда (стр. 1 и стр. 2+).
  */
+/** Зона текста и стандартные тексты бланка (KP-2): проценты высоты страницы; PATCH /offers/backgrounds/:id. */
+function zoneForm(cur, withTerms, ctx) {
+  const pc = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? '' : String(Math.round(Number(v) * 1000) / 10));
+  const f = buildForm([
+    { key: 'textTop', label: 'Верх текста, %', type: 'number', min: 0, hint: 'Шапка бланка выше этой линии (0–60). Пусто — не менять' },
+    { key: 'textBottom', label: 'Низ текста, %', type: 'number', min: 0, hint: 'Подвал бланка ниже этой линии (40–95). Пусто — не менять' },
+    withTerms ? { key: 'defaultTerms', label: 'Стандартные тексты', type: 'textarea', wide: true, max: 3000, hint: 'Подставляются в «Условия» нового КП этой фирмы. В самом КП их можно править — шаблон не изменится.' } : null,
+  ].filter(Boolean), { textTop: pc(cur.textTop), textBottom: pc(cur.textBottom), defaultTerms: cur.defaultTerms || '' });
+  const save = async () => {
+    const res = f.read();
+    if (res.errors) return;
+    const { textTop, textBottom, defaultTerms } = res.values;
+    if (textTop !== null && textTop > 60) { toastError(new Error('Верх текста — от 0 до 60 %')); return; }
+    if (textBottom !== null && (textBottom < 40 || textBottom > 95)) { toastError(new Error('Низ текста — от 40 до 95 %')); return; }
+    const body = {};
+    if (textTop !== null) body.textTop = textTop / 100;
+    if (textBottom !== null) body.textBottom = textBottom / 100;
+    if (withTerms) body.defaultTerms = defaultTerms || '';
+    try { await api(`/offers/backgrounds/${cur.id}`, { method: 'PATCH', body }); toast('Бланк: настройки сохранены'); ctx.reload(); } catch (e) { toastError(e); }
+  };
+  return { read: () => f.read().values?.defaultTerms || '', el: h('div', null, f.el, button({ label: 'Сохранить', size: 'S', onClick: save })) };
+}
+
 function kpBgBlock(r, ctx) {
   const root = h('div');
+  let termsOf = null;
   const paint = async () => {
     const wasOpen = root.querySelector('details.k-sec')?.open || false;
     let items = [];
@@ -129,14 +153,37 @@ function kpBgBlock(r, ctx) {
           h('div', { class: 'stamp-prev', title: 'Фон PDF КП (А4)' }, h('img', { src: PREFIX + cur.url, alt: title, onerror: (e) => e.target.replaceWith(h('span', { class: 'muted' }, 'файл не найден')) })),
           del)
         : h('div', { class: 'muted' }, 'Не загружено — в КП подставится общий или встроенный бланк');
+      const zf = cur && session.canEdit ? zoneForm(cur, page === 1, ctx) : null;
+      if (zf && page === 1) termsOf = zf.read;
       return h('div', { class: 'pp-kind' },
         h('div', { class: 'pp-kind-head' }, h('b', null, title), h('span', { class: 'muted' }, ' · ' + tip)),
-        prev, session.canEdit ? zone : null);
+        prev, session.canEdit ? zone : null, zf?.el);
     };
+    // «Только для КП» — фирма есть в КП, но не в «Деньгах»
+    let onlyKp = null;
+    try {
+      const cs = await api('/offers/companies');
+      const me = (Array.isArray(cs) ? cs : cs?.items || []).find((c) => String(c.id) === String(r.id));
+      const seg = segmented({ label: 'Где видна фирма', value: me?.offersOnly ? 'kp' : 'all', items: [{ key: 'all', label: 'В «Деньгах» и в КП' }, { key: 'kp', label: 'Только для КП' }],
+        onChange: async (k) => {
+          if (!session.canEdit) { seg.set(me?.offersOnly ? 'kp' : 'all'); return; }
+          try { await api(`/offers/companies/${r.id}`, { method: 'PATCH', body: { offersOnly: k === 'kp' } }); if (me) me.offersOnly = k === 'kp'; toast(k === 'kp' ? 'Фирма только для КП: в «Деньгах» её не будет' : 'Фирма снова в «Деньгах»'); }
+          catch (e) { seg.set(me?.offersOnly ? 'kp' : 'all'); toastError(e); }
+        } });
+      onlyKp = h('div', { class: 'pp-kind' }, h('div', { class: 'pp-kind-head' }, h('b', null, 'Где видна фирма')), seg.el);
+    } catch { /* старый сервер — галочки нет */ }
+    const check = button({ label: 'Проверить бланк', size: 'S', title: 'Показать пробное КП на бланке этой фирмы', onClick: () => {
+      const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+      const body = { companyId: r.id, customer: 'Пробный заказчик', objectName: 'Пробный объект', date: day(0), validUntil: day(10), delivery: 'included',
+        items: [{ productName: 'Пробное изделие', quantity: 1, unit: 'шт', unitPrice: 100000 }], ...(termsOf?.() ? { terms: termsOf() } : {}) };
+      openPdfPreview({ title: `Проверка бланка · ${r.name || ''}`.trim(), load: () => apiBlob('/offers/preview', { method: 'POST', body, fallback: 'КП-проба.pdf' }) });
+    } });
     root.replaceChildren(section({ tone: 'neutral', title: 'Бланк КП (фон А4)', count: items.length, open: wasOpen, body: [
+      onlyKp,
       h('p', { class: 'muted small' }, 'PNG или JPG до 5 МБ, пропорции листа А4. Этот фон подставляется в PDF КП этой фирмы по умолчанию (можно сменить в карточке КП).'),
       slot(1, 'Страница 1', 'первая страница КП'),
       slot(2, 'Страницы 2+', 'вторая и следующие'),
+      items.length ? check : null,
     ] }));
   };
   paint();

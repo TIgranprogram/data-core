@@ -5,19 +5,33 @@ import PDFDocument from 'pdfkit';
 import { fontDir } from '../product-passport/passport-pdf';
 
 /** Кандидаты шрифтов: сначала системный sans-serif с кириллицей (Ubuntu), затем ГОСТ. */
+function offerBoldPath(dir: string): string {
+  for (const p of ['/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf']) {
+    if (existsSync(p)) return p;
+  }
+  return offerFontPath(dir);
+}
 function offerFontPath(dir: string): string {
   for (const p of ['/usr/share/fonts/dejavu/DejaVuSans.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', '/usr/share/fonts/truetype/freefont/FreeSans.ttf']) {
     if (existsSync(p)) return p;
   }
   return join(dir, 'gost-a.ttf');
 }
-import { PAGE_H as H, PAGE_W as W, paginateRows, placeBlock, zoneOf } from './offer-layout';
+import { PAGE_H as H, PAGE_W as W, paginateRows, placeBlock, zoneOf, type Zones } from './offer-layout';
+import { validDays, vatAmount, type VatMode } from './offer-rules';
 
 export interface OfferPdfInput {
   number: string;
   date: Date | string;
   validUntil?: Date | string | null;
   customer: string;
+  /** Объект — под заказчиком, жирным. */
+  objectName?: string | null;
+  /** Черновик (предпросмотр): номер печатается без «№». */
+  draft?: boolean;
+  vatMode: VatMode;
+  vatRate: number;
+  delivery?: 'included' | 'excluded' | null;
   companyName?: string;
   items: Array<{ productName: string; productSku?: string; description?: string; color?: string; size?: string; quantity: number; unit?: string; unitPrice?: number | null; total: number }>;
   total: number;
@@ -29,17 +43,26 @@ export interface OfferPdfInput {
   /** Готовые JPEG фонов; null — белая страница. */
   bg1: Buffer | null;
   bg2: Buffer | null;
+  /** Зоны текста бланков (доли высоты); пусто — по умолчанию. */
+  zones?: Zones;
   /** Фото строк (JPEG) по индексу строки; нет — без фото. */
   photos: Map<number, Buffer>;
 }
 
 const ML = 40, CW = W - ML * 2;
-const PHOTO = 36;
+/** Фото строки: до 4 строк — крупнее (80 pt), больше — 48 pt. */
+const photoSize = (rows: number) => (rows <= 4 ? 80 : 48);
 
 export const ruDate = (v?: Date | string | null) => {
   if (!v) return '';
   const d = new Date(v);
   return Number.isNaN(d.getTime()) ? '' : `${String(d.getUTCDate()).padStart(2, '0')}.${String(d.getUTCMonth() + 1).padStart(2, '0')}.${d.getUTCFullYear()}`;
+};
+/** Рубли для итога: целое — без копеек («680 000 ₽»), иначе «122 622,95 ₽». */
+export const rub = (n: number) => {
+  const r = Math.round(Number(n) * 100) / 100;
+  const t = money(r);
+  return `${Number.isInteger(r) ? t.replace(/,00$/, '') : t} ₽`;
 };
 /** 12345.5 → «12 345,50». */
 export const money = (n: number | null | undefined) => {
@@ -54,11 +77,14 @@ export function renderOfferPdf(i: OfferPdfInput): Promise<Buffer> {
   const dir = fontDir();
   const d = guardDoc(new PDFDocument({ size: [W, H], margin: 0, info: { Title: `Коммерческое предложение № ${i.number}`, Author: i.companyName || '' } }), 'КП');
   d.registerFont('gost', offerFontPath(dir));
+  d.registerFont('gostb', offerBoldPath(dir));
   const chunks: Buffer[] = [];
   d.on('data', (c: Buffer) => chunks.push(c));
   const done = new Promise<Buffer>((ok, fail) => { d.on('end', () => ok(Buffer.concat(chunks))); d.on('error', fail); });
 
   const hasPhoto = i.photos.size > 0;
+  const PHOTO = photoSize(i.items.length);
+  const zones = i.zones;
   // колонки: №, [Фото], Наименование (остаток), Кол-во, Ед., Цена, Сумма
   const fixed = [24, ...(hasPhoto ? [PHOTO + 8] : []), 0, 44, 30, 62, 70];
   const nameIdx = hasPhoto ? 2 : 1;
@@ -72,9 +98,9 @@ export function renderOfferPdf(i: OfferPdfInput): Promise<Buffer> {
   const goto = (p: number) => { while (page < p) { d.addPage(); page += 1; drawBg(page); } };
   drawBg(0);
 
-  const text = (s: string, x: number, y: number, o: { size?: number; width?: number; align?: 'left' | 'center' | 'right' } = {}) =>
-    d.font('gost').fontSize(o.size ?? 10).fillColor(INK).text(s, x, y, { width: o.width ?? CW, align: o.align ?? 'left' });
-  const hOf = (s: string, width: number, size: number) => d.font('gost').fontSize(size).heightOfString(s, { width });
+  const text = (s: string, x: number, y: number, o: { size?: number; width?: number; align?: 'left' | 'center' | 'right'; bold?: boolean; color?: string } = {}) =>
+    d.font(o.bold ? 'gostb' : 'gost').fontSize(o.size ?? 10).fillColor(o.color ?? INK).text(s, x, y, { width: o.width ?? CW, align: o.align ?? 'left' });
+  const hOf = (s: string, width: number, size: number, bold = false) => d.font(bold ? 'gostb' : 'gost').fontSize(size).heightOfString(s, { width });
 
   const nameText = (it: OfferPdfInput['items'][number]) => {
     const meta = [it.productSku ? `арт. ${it.productSku}` : '', it.color ? `цвет: ${it.color}` : '', it.size ? `размер: ${it.size}` : ''].filter(Boolean).join(', ');
@@ -88,13 +114,14 @@ export function renderOfferPdf(i: OfferPdfInput): Promise<Buffer> {
   });
 
   // шапка КП на стр. 1
-  const z0 = zoneOf(0);
+  const z0 = zoneOf(0, zones);
   let y = z0.top;
-  text(`№ ${i.number} от ${ruDate(i.date)}`, ML, y, { size: 13 });
-  y = d.y + 4;
-  text(`Для: ${i.customer}`, ML, y, { size: 10.5 });
+  text(i.draft ? i.number : `№ ${i.number}`, ML, y, { size: 13, width: CW / 2 });
+  text(`Дата: ${ruDate(i.date)}`, ML + CW / 2, y, { size: 11, width: CW / 2, align: 'right' });
+  y += 20;
+  text(`Заказчик: ${i.customer}`, ML, y, { size: 10.5 });
   y = d.y + 3;
-  if (i.validUntil) { text(`Действительно до ${ruDate(i.validUntil)}`, ML, y, { size: 10 }); y = d.y + 3; }
+  if (i.objectName?.trim()) { text(`Объект: ${i.objectName.trim()}`, ML, y, { size: 10.5, bold: true }); y = d.y + 3; }
   y += 8;
 
   // блоки после таблицы
@@ -104,10 +131,17 @@ export function renderOfferPdf(i: OfferPdfInput): Promise<Buffer> {
   if (Number(i.productionDays) > 0) cond.push(`Срок изготовления: ${i.productionDays} дн.`);
   if (Number(i.deliveryDays) > 0) cond.push(`Срок доставки: ${i.deliveryDays} дн.`);
   if (i.terms?.trim()) cond.push(i.terms.trim());
+  // справочные строки (серым): доставка, срок действия, цены и НДС — строятся из полей КП
+  const days = validDays(i.date, i.validUntil);
+  const info = [
+    ...(i.delivery === 'included' ? ['Доставка до объекта включена в стоимость.'] : i.delivery === 'excluded' ? ['Доставка до объекта в стоимость не входит.'] : []),
+    ...(days ? [`Срок действия коммерческого предложения — ${days} календарных дней.`] : []),
+    i.vatMode === 'with' ? `Цены указаны в рублях РФ, с НДС ${qty(i.vatRate)} % (НДС включён в стоимость).` : 'Цены указаны в рублях РФ, без НДС.',
+  ];
   const blocks = [...(cond.length ? [{ title: 'Условия', body: cond.join('\n') }] : []), ...(i.notes?.trim() ? [{ title: 'Примечание', body: i.notes.trim() }] : [])];
 
-  const HEAD_H = 22, TAIL_H = 26;
-  const { pages, endY } = paginateRows(heights, y, HEAD_H, TAIL_H);
+  const HEAD_H = 22, TAIL_H = 46;
+  const { pages, endY } = paginateRows(heights, y, HEAD_H, TAIL_H, zones);
 
   const lineAt = (yy: number, h: number) => {
     d.lineWidth(0.5).strokeColor('#555').rect(ML, yy, CW, h).stroke();
@@ -115,7 +149,7 @@ export function renderOfferPdf(i: OfferPdfInput): Promise<Buffer> {
   };
   pages.forEach((idxs, p) => {
     goto(p);
-    let yy = p === 0 ? y : zoneOf(p).top;
+    let yy = p === 0 ? y : zoneOf(p, zones).top;
     HEAD.forEach((c, k) => text(c, xs[k] + 3, yy + 6, { size: 8.5, width: widths[k] - 6, align: 'center' }));
     lineAt(yy, HEAD_H);
     yy += HEAD_H;
@@ -139,20 +173,28 @@ export function renderOfferPdf(i: OfferPdfInput): Promise<Buffer> {
   });
 
   // «Итого» и текстовые блоки — после последней строки, переносятся целиком
-  let at = placeBlock(page, endY, TAIL_H);
+  let at = placeBlock(page, endY, TAIL_H, zones);
   goto(at.page);
-  text(`Итого: ${money(i.total)} руб.`, ML, at.y + 8, { size: 11.5, align: 'right' });
+  text(`Итого: ${rub(i.total)}`, ML, at.y + 8, { size: 13, bold: true, align: 'right' });
+  text(i.vatMode === 'with' ? `в том числе НДС ${qty(i.vatRate)} %: ${rub(vatAmount(i.total, i.vatRate))}` : 'Без НДС', ML, d.y + 3, { size: 9.5, align: 'right' });
   let ty = at.y + TAIL_H + 6;
+  for (const line of info) {
+    at = placeBlock(page, ty, hOf(line, CW, 9) + 2, zones);
+    goto(at.page);
+    text(line, ML, at.y, { size: 9, color: '#555' });
+    ty = d.y + 2;
+  }
+  ty += 4;
   for (const b of blocks) {
     // заголовок + первая строка вместе, дальше абзацы по одному — длинный текст переносится, зону не пересекает
     const [first, ...rest] = b.body.split('\n');
-    at = placeBlock(page, ty, hOf(b.title, CW, 10) + hOf(first, CW, 9.5) + 6);
+    at = placeBlock(page, ty, hOf(b.title, CW, 10) + hOf(first, CW, 9.5) + 6, zones);
     goto(at.page);
     text(b.title, ML, at.y, { size: 10 });
     text(first, ML, d.y + 2, { size: 9.5 });
     ty = d.y + 2;
     for (const line of rest) {
-      at = placeBlock(page, ty, hOf(line, CW, 9.5) + 2);
+      at = placeBlock(page, ty, hOf(line, CW, 9.5) + 2, zones);
       goto(at.page);
       text(line, ML, at.y, { size: 9.5 });
       ty = d.y + 2;

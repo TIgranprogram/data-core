@@ -8,7 +8,7 @@ import { AppSection } from '../../common/decorators/app-section.decorator';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { CreateOfferDto, OfferCreateOrderDto, OfferStatusDto, UpdateOfferDto, UploadBackgroundDto } from './dto';
+import { CreateOfferDto, OfferCompanyDto, OfferCopyDto, OfferCreateOrderDto, OfferStatusDto, UpdateBackgroundDto, UpdateOfferDto, UploadBackgroundDto } from './dto';
 import { BG_MAX_BYTES, BG_MIME, OfferBackgroundsService } from './offer-backgrounds.service';
 import { OffersService } from './offers.service';
 
@@ -47,12 +47,50 @@ export class OffersController {
     return this.bgs.upload(file, dto);
   }
 
+  @Patch('backgrounds/:id')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'offer.background.updated', entityType: 'CommercialOffer', idParam: 'id' })
+  updateBackground(@Param('id') id: string, @Body() dto: UpdateBackgroundDto) {
+    return this.bgs.update(id, dto);
+  }
+
   @Delete('backgrounds/:id')
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'offer.background.deleted', entityType: 'CommercialOffer' })
   removeBackground(@Param('id') id: string) {
     return this.bgs.remove(id);
+  }
+
+  /** Наши фирмы для КП (с «только для КП»): `{ items:[{id,name,offersOnly}], total }`. */
+  @Get('companies')
+  @Roles('admin', 'director', 'manager', 'user')
+  companies() {
+    return this.offers.companies();
+  }
+
+  @Patch('companies/:id')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'offer.company.offersOnly', entityType: 'Organization', idParam: 'id' })
+  setCompany(@Param('id') id: string, @Body() dto: OfferCompanyDto) {
+    return this.offers.setCompanyOffersOnly(id, dto.offersOnly);
+  }
+
+  /** Стандартные тексты и НДС для новой формы выбранной фирмы. */
+  @Get('defaults')
+  @Roles('admin', 'director', 'manager', 'user')
+  defaults(@Query('companyId') companyId: string) {
+    return this.offers.defaults(companyId);
+  }
+
+  /** Предпросмотр PDF до сохранения: в базу не пишет, номер не тратит. */
+  @Post('preview')
+  @HttpCode(200)
+  @Roles('admin', 'director', 'manager', 'user')
+  async preview(@Body() dto: CreateOfferDto, @Res({ passthrough: true }) res: Response) {
+    const r = await this.offers.preview(dto);
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="offer.pdf"; filename*=UTF-8''${encodeURIComponent(r.filename)}` });
+    return new StreamableFile(r.buf);
   }
 
   @Get(':id')
@@ -90,6 +128,14 @@ export class OffersController {
   @AuditAction({ action: 'offer.order.created', entityType: 'CommercialOffer', idParam: 'id' })
   createOrder(@Param('id') id: string, @Body() dto: OfferCreateOrderDto, @CurrentUser() user: AuthenticatedUser) {
     return this.offers.createOrder(id, dto, user);
+  }
+
+  /** Копия КП для другой нашей фирмы с наценкой, % — новый черновик. */
+  @Post(':id/copy')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'offer.copied', entityType: 'CommercialOffer', idParam: 'id' })
+  copy(@Param('id') id: string, @Body() dto: OfferCopyDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.offers.copy(id, dto, user);
   }
 
   /** Мягкое удаление. */

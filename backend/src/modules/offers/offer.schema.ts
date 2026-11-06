@@ -64,6 +64,15 @@ export class CommercialOffer {
   /** Фон страницы 1 / страниц 2+: id из `offerbackgrounds`; пусто — по умолчанию; «none» у фона 2 — белая страница. */
   @Prop({ type: String }) bg1Id?: string;
   @Prop({ type: String }) bg2Id?: string;
+  /** Объект (стройка, площадка) — печатается под заказчиком. */
+  @Prop({ type: String, trim: true, maxlength: 500 }) objectName?: string;
+  /** НДС: пусто — по ставке нашей фирмы (organizations.vatRate > 0 — с НДС). */
+  @Prop({ type: String, enum: ['with', 'without'] }) vatMode?: 'with' | 'without';
+  @Prop({ type: Number, min: 0, max: 30 }) vatRate?: number;
+  /** Доставка до объекта: пусто — строку не печатаем. */
+  @Prop({ type: String, enum: ['included', 'excluded'] }) delivery?: 'included' | 'excluded';
+  /** КП, с которого сделана копия для другой фирмы. */
+  @Prop({ type: Types.ObjectId }) copyOf?: Types.ObjectId;
   /** Заказ, созданный из КП (этап 2). */
   @Prop({ type: Types.ObjectId }) orderId?: Types.ObjectId;
   /** Снимки до правки после «Отправлено» / «Принято». */
@@ -85,5 +94,10 @@ export class OfferBackground {
   @Prop({ type: Boolean, default: false }) isDefault!: boolean;
   /** Бланк нашей компании (К11): нет — общий фон. «По умолчанию» — своё у каждой компании. */
   @Prop({ type: Types.ObjectId, default: null }) companyId?: Types.ObjectId | null;
+  /** Зона текста бланка — доли высоты страницы (верх 0–0.6, низ 0.4–0.95); пусто — как раньше (offer-layout ZONE_*). */
+  @Prop({ type: Number, min: 0, max: 0.6, default: null }) textTop?: number | null;
+  @Prop({ type: Number, min: 0.4, max: 0.95, default: null }) textBottom?: number | null;
+  /** Стандартные тексты фирмы: подставляются в «Условия» нового КП. */
+  @Prop({ type: String, maxlength: 3000, default: null }) defaultTerms?: string | null;
 }
 export const OfferBackgroundSchema = SchemaFactory.createForClass(OfferBackground);

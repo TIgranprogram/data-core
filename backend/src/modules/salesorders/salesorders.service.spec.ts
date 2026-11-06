@@ -36,7 +36,7 @@ describe('SalesOrdersService: приоритет и изделие позици�
     distinct = jest.fn(async () => [orderId]);
     const coll = (name: string) => {
       const q = { sort: () => q, toArray: async () => rows[name] ?? [] };
-      return { find: jest.fn(() => q), aggregate: jest.fn(() => q), updateMany: incomesUpdateMany, distinct };
+      return { findOne: jest.fn(async () => null), find: jest.fn(() => q), aggregate: jest.fn(() => q), updateMany: incomesUpdateMany, distinct };
     };
     const connection = { db: { collection: jest.fn(coll) } };
     model = {

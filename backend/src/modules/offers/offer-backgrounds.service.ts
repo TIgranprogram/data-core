@@ -7,7 +7,7 @@ import type { Model } from 'mongoose';
 import sharp, { type Metadata } from 'sharp';
 import { oid } from '../../common/list-query';
 import { safeUploadPath, uploadsRoot } from '../../common/uploads/safe-path';
-import type { UploadBackgroundDto } from './dto';
+import type { UpdateBackgroundDto, UploadBackgroundDto } from './dto';
 import { OfferBackground, type OfferBackgroundDocument } from './offer.schema';
 
 export const BG_MAX_BYTES = 5 * 1024 * 1024;
@@ -15,6 +15,7 @@ const MIME_EXT: Record<string, string> = { 'image/png': '.png', 'image/jpeg': '.
 export const BG_MIME = /^image\/(png|jpeg)$/;
 /** A4: отношение сторон; фон другой пропорции растянется — предупреждаем. */
 const A4_RATIO = 210 / 297;
+const clean = (v: unknown) => String(v ?? '').trim();
 
 /** Встроенные фоны: `backend/assets/offers/` (стр. 1 и стр. 2+). */
 export function assetsDir(): string {
@@ -26,7 +27,16 @@ const BUILTIN: Record<1 | 2, { id: string; name: string; file: string }> = {
   2: { id: 'builtin-2', name: 'Стандартный фон, страницы 2+', file: 'kp-2str.png' },
 };
 
-export interface BgItem { id: string; name: string; page: number; url: string | null; isDefault: boolean; builtin: boolean; companyId: string | null }
+export interface BgItem { id: string; name: string; page: number; url: string | null; isDefault: boolean; builtin: boolean; companyId: string | null; textTop: number | null; textBottom: number | null; defaultTerms: string }
+
+/** Фон для PDF: картинка и зона текста бланка (null — зона по умолчанию). */
+export interface ResolvedBg { jpeg: Buffer | null; textTop: number | null; textBottom: number | null }
+const NO_BG: ResolvedBg = { jpeg: null, textTop: null, textBottom: null };
+
+/** Верх и низ зоны текста: между ними не меньше 20 % высоты страницы. */
+export function checkZone(top?: number | null, bottom?: number | null) {
+  if (top != null && bottom != null && bottom - top < 0.2) throw new BadRequestException('Зона текста слишком узкая: между верхом и низом должно быть не меньше 20 % страницы');
+}
 
 /** Фоны КП: загруженные (`offerbackgrounds`) и встроенные; перекодирование в лёгкий JPEG с кэшем в памяти. */
 @Injectable()
@@ -35,8 +45,11 @@ export class OfferBackgroundsService {
 
   constructor(@InjectModel(OfferBackground.name) private readonly model: Model<OfferBackgroundDocument>) {}
 
-  private present(b: { _id: unknown; name: string; page: number; file: string; isDefault?: boolean; companyId?: unknown }): BgItem {
-    return { id: String(b._id), name: b.name, page: b.page, url: b.file, isDefault: !!b.isDefault, builtin: false, companyId: b.companyId ? String(b.companyId) : null };
+  private present(b: { _id: unknown; name: string; page: number; file: string; isDefault?: boolean; companyId?: unknown; textTop?: number | null; textBottom?: number | null; defaultTerms?: string | null }): BgItem {
+    return {
+      id: String(b._id), name: b.name, page: b.page, url: b.file, isDefault: !!b.isDefault, builtin: false, companyId: b.companyId ? String(b.companyId) : null,
+      textTop: b.textTop ?? null, textBottom: b.textBottom ?? null, defaultTerms: b.defaultTerms ?? '',
+    };
   }
 
   /** `{ items, total }`: загруженные + встроенные для страниц, где нет загруженного «по умолчанию». */
@@ -45,7 +58,7 @@ export class OfferBackgroundsService {
     const items = docs.map((d) => this.present(d));
     for (const p of [1, 2] as const) {
       const hasDefault = items.some((x) => x.page === p && x.isDefault && !x.companyId);
-      items.push({ id: BUILTIN[p].id, name: BUILTIN[p].name, page: p, url: null, isDefault: !hasDefault, builtin: true, companyId: null });
+      items.push({ id: BUILTIN[p].id, name: BUILTIN[p].name, page: p, url: null, isDefault: !hasDefault, builtin: true, companyId: null, textTop: null, textBottom: null, defaultTerms: '' });
     }
     items.sort((a, b) => a.page - b.page || Number(a.builtin) - Number(b.builtin));
     return { items, total: items.length };
@@ -61,13 +74,41 @@ export class OfferBackgroundsService {
     await fs.mkdir(dir, { recursive: true });
     const name = `${randomUUID()}${MIME_EXT[file.mimetype]}`;
     await fs.writeFile(join(dir, name), file.buffer);
+    checkZone(dto.textTop, dto.textBottom);
     const page = dto.page as 1 | 2;
     const companyId = dto.companyId ? oid(dto.companyId, 'компании') : null;
     if (dto.isDefault) await this.model.updateMany({ page, isDefault: true, companyId }, { $set: { isDefault: false } }).exec();
-    const doc = await this.model.create({ name: dto.name.trim(), page, file: `/uploads/offers/${name}`, isDefault: !!dto.isDefault, companyId });
+    const doc = await this.model.create({ name: dto.name.trim(), page, file: `/uploads/offers/${name}`, isDefault: !!dto.isDefault, companyId, textTop: dto.textTop ?? null, textBottom: dto.textBottom ?? null, defaultTerms: clean(dto.defaultTerms) || null });
     const ratio = meta.width && meta.height ? meta.width / meta.height : A4_RATIO;
     const warning = Math.abs(ratio / A4_RATIO - 1) > 0.02 ? 'Пропорции фона не А4 — картинка растянется на всю страницу' : null;
     return { ...this.present(doc.toObject()), warning };
+  }
+
+  /** Правка бланка: название, зона текста, стандартные тексты, «по умолчанию». Встроенный — нельзя. */
+  async update(id: string, dto: UpdateBackgroundDto) {
+    if (/^builtin-/.test(id)) throw new BadRequestException('Встроенный фон править нельзя');
+    const cur = await this.model.findById(oid(id, 'фона')).lean().exec();
+    if (!cur) throw new NotFoundException('Фон не найден');
+    const set: Record<string, unknown> = {};
+    if (dto.name !== undefined) set.name = dto.name.trim();
+    if (dto.textTop !== undefined) set.textTop = dto.textTop;
+    if (dto.textBottom !== undefined) set.textBottom = dto.textBottom;
+    if (dto.defaultTerms !== undefined) set.defaultTerms = clean(dto.defaultTerms) || null;
+    if (dto.isDefault !== undefined) set.isDefault = dto.isDefault;
+    if (!Object.keys(set).length) throw new BadRequestException('Нечего менять');
+    checkZone('textTop' in set ? (set.textTop as number | null) : cur.textTop, 'textBottom' in set ? (set.textBottom as number | null) : cur.textBottom);
+    if (dto.isDefault) await this.model.updateMany({ page: cur.page, isDefault: true, companyId: cur.companyId ?? null, _id: { $ne: cur._id } }, { $set: { isDefault: false } }).exec();
+    const doc = await this.model.findByIdAndUpdate(cur._id, { $set: set }, { new: true }).lean().exec();
+    return this.present(doc as unknown as Parameters<OfferBackgroundsService['present']>[0]);
+  }
+
+  /** Стандартные тексты фирмы: из её бланка стр. 1 «по умолчанию»; нет — из общего; нет — пусто. */
+  async defaultTerms(companyId: unknown): Promise<string> {
+    for (const owner of companyId ? [companyId, null] : [null]) {
+      const def = await this.model.findOne({ page: 1, isDefault: true, companyId: owner }).lean().exec();
+      if (def?.defaultTerms) return def.defaultTerms;
+    }
+    return '';
   }
 
   async remove(id: string) {
@@ -80,20 +121,26 @@ export class OfferBackgroundsService {
     return { id, deleted: true };
   }
 
-  /** JPEG фона для страницы (1 / 2+): выбранный → бланк компании → общий «по умолчанию» → встроенный; `none` у стр. 2 — белая (null). */
-  async resolve(page: 1 | 2, id?: string | null, companyId?: unknown): Promise<Buffer | null> {
-    if (page === 2 && id === 'none') return null;
+  /** Фон для страницы (1 / 2+): выбранный → бланк компании → общий «по умолчанию» → встроенный; «none» у стр. 2 — белая. Вместе с зоной текста бланка. */
+  async resolve(page: 1 | 2, id?: string | null, companyId?: unknown): Promise<ResolvedBg> {
+    if (page === 2 && id === 'none') return NO_BG;
+    const take = async (b: { _id: unknown; file: string; textTop?: number | null; textBottom?: number | null }): Promise<ResolvedBg | null> => {
+      const jpeg = await this.jpeg(String(b._id), safeUploadPath(b.file));
+      return jpeg ? { jpeg, textTop: b.textTop ?? null, textBottom: b.textBottom ?? null } : null;
+    };
     if (id && /^[a-f\d]{24}$/i.test(id)) {
       const b = await this.model.findById(id).lean().exec();
-      if (b) { const buf = await this.jpeg(String(b._id), safeUploadPath(b.file)); if (buf) return buf; }
+      const r = b && (await take(b));
+      if (r) return r;
     }
     if (id !== `builtin-${page}`) {
       for (const owner of companyId ? [companyId, null] : [null]) {
         const def = await this.model.findOne({ page, isDefault: true, companyId: owner }).lean().exec();
-        if (def) { const buf = await this.jpeg(String(def._id), safeUploadPath(def.file)); if (buf) return buf; }
+        const r = def && (await take(def));
+        if (r) return r;
       }
     }
-    return this.jpeg(BUILTIN[page].id, join(assetsDir(), BUILTIN[page].file));
+    return { ...NO_BG, jpeg: await this.jpeg(BUILTIN[page].id, join(assetsDir(), BUILTIN[page].file)) };
   }
 
   /** PNG 2.6 МБ → JPEG q82 не шире 1654 px (≈200 dpi): PDF остаётся лёгким. */

@@ -17,7 +17,7 @@ const clean = () => { expect(calls.length).toBeGreaterThan(0); expect(calls.filt
 
 describe('печать документов: нет утечек меток и пустот', () => {
   it('КП', async () => {
-    await renderOfferPdf({ number: 'КП-1', date: '2026-10-30', customer: '{customer}', items: [{ productName: 'undefined', quantity: 1, total: NaN } as never], total: NaN,
+    await renderOfferPdf({ number: 'КП-1', date: '2026-10-30', customer: '{customer}', items: [{ productName: 'undefined', quantity: 1, total: NaN } as never], total: NaN, vatMode: 'with', vatRate: 22,
       terms: 'Оплата {pay}', bg1: null, bg2: null, photos: new Map() });
     clean();
   });

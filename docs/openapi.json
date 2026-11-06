@@ -10060,6 +10060,134 @@
         "tags": [
           "КП"
         ]
+      },
+      "patch": {
+        "operationId": "OffersController_updateBackground",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBackgroundDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      }
+    },
+    "/offers/companies": {
+      "get": {
+        "operationId": "OffersController_companies",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ],
+        "summary": "Наши фирмы для КП (с «только для КП»)"
+      }
+    },
+    "/offers/companies/{id}": {
+      "patch": {
+        "operationId": "OffersController_setCompany",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfferCompanyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      }
+    },
+    "/offers/defaults": {
+      "get": {
+        "operationId": "OffersController_defaults",
+        "parameters": [
+          {
+            "name": "companyId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ],
+        "summary": "Стандартные тексты и НДС для новой формы КП"
+      }
+    },
+    "/offers/preview": {
+      "post": {
+        "operationId": "OffersController_preview",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOfferDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "application/pdf"
+          }
+        },
+        "tags": [
+          "КП"
+        ],
+        "summary": "Предпросмотр PDF до сохранения (в базу не пишет)"
       }
     },
     "/offers/{id}": {
@@ -10191,6 +10319,40 @@
         "tags": [
           "КП"
         ]
+      }
+    },
+    "/offers/{id}/copy": {
+      "post": {
+        "operationId": "OffersController_copy",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfferCopyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ],
+        "summary": "Копия КП для другой фирмы с наценкой"
       }
     },
     "/offers/{id}/restore": {
@@ -18931,6 +19093,19 @@
           "isDefault": {
             "type": "boolean",
             "description": "Сделать фоном по умолчанию для этой страницы"
+          },
+          "textTop": {
+            "type": "number",
+            "description": "Верх зоны текста, доля высоты 0–0.6; пусто — как раньше"
+          },
+          "textBottom": {
+            "type": "number",
+            "description": "Низ зоны текста, доля высоты 0.4–0.95; пусто — как раньше"
+          },
+          "defaultTerms": {
+            "type": "string",
+            "maxLength": 3000,
+            "description": "Стандартные тексты фирмы (подставляются в «Условия» нового КП)"
           }
         },
         "required": [
@@ -19019,6 +19194,33 @@
           "deliveryDays": {
             "type": "number"
           },
+          "objectName": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Объект (печатается под заказчиком)"
+          },
+          "vatMode": {
+            "type": "string",
+            "enum": [
+              "with",
+              "without"
+            ],
+            "description": "НДС; пусто — по ставке нашей фирмы"
+          },
+          "vatRate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 30,
+            "description": "Ставка НДС, %; пусто — ставка фирмы (нет — 22)"
+          },
+          "delivery": {
+            "type": "string",
+            "enum": [
+              "included",
+              "excluded"
+            ],
+            "description": "Доставка до объекта; пусто — строку не печатаем"
+          },
           "terms": {
             "type": "string"
           },
@@ -19077,6 +19279,33 @@
           },
           "deliveryDays": {
             "type": "number"
+          },
+          "objectName": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Объект (печатается под заказчиком)"
+          },
+          "vatMode": {
+            "type": "string",
+            "enum": [
+              "with",
+              "without"
+            ],
+            "description": "НДС; пусто — по ставке нашей фирмы"
+          },
+          "vatRate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 30,
+            "description": "Ставка НДС, %; пусто — ставка фирмы (нет — 22)"
+          },
+          "delivery": {
+            "type": "string",
+            "enum": [
+              "included",
+              "excluded"
+            ],
+            "description": "Доставка до объекта; пусто — строку не печатаем"
           },
           "terms": {
             "type": "string"
@@ -20567,6 +20796,65 @@
       "SetAttributeValueDto": {
         "type": "object",
         "properties": {}
+      },
+      "UpdateBackgroundDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "textTop": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 0.6
+          },
+          "textBottom": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0.4,
+            "maximum": 0.95
+          },
+          "defaultTerms": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 3000
+          },
+          "isDefault": {
+            "type": "boolean"
+          }
+        }
+      },
+      "OfferCopyDto": {
+        "type": "object",
+        "properties": {
+          "companyId": {
+            "type": "string",
+            "description": "Наша компания, для которой делаем копию"
+          },
+          "markupPercent": {
+            "type": "number",
+            "default": 0,
+            "minimum": -50,
+            "maximum": 100,
+            "description": "Наценка на цены строк, % (−50…100); цена округляется до рубля"
+          }
+        },
+        "required": [
+          "companyId"
+        ]
+      },
+      "OfferCompanyDto": {
+        "type": "object",
+        "properties": {
+          "offersOnly": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "offersOnly"
+        ]
       }
     }
   }

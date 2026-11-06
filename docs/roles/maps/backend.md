@@ -1,5 +1,8 @@
 # Карта роли backend
 
+## КП-2 шаблоны по фирмам (C026 этап 1, 2026-11-06, не закоммичено)
+- `offers/offer-layout.ts:16` zoneOf с зонами бланка; `offer-backgrounds.service.ts` resolve/update/defaultTerms; `offer-pdf.ts` шапка/НДС/строки; `offers.service.ts` render/preview/copy/defaults/companies; `offer-rules.ts` resolveVat/vatAmount/markedUp; `common/offers-only.ts` + `incomes.service.ts:36` ourCompanies. Spec: `offers.templates.spec.ts`. openapi правлен вручную. Отчёт `docs/crew/C026-kp-templates/backend.md`. коммит: —
+
 ## СКЛ-1b склад: выдача «свободно», reserve-list, скрипты зон (2026-11-05, не закоммичено)
 - `stock-movements.service.ts:184` batch out (свободно + своя бронь, `details`); `stock-reservations.service.ts:34` reserveList (groupName опц., `salesOrderLineId` в строке); `dto.ts` `StockReserveLineDto`. Скрипты `scripts/stockzones-merge-pipes.js`, `stockzones-rename-wood.js`, `lib/backup-fresh.js`. Отчёт `docs/crew/SKL-1b-report.md`. openapi не обновлён. коммит: —
 

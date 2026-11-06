@@ -1,4 +1,4 @@
-import { paginateRows, placeBlock, zoneOf } from './offer-layout';
+import { PAGE_H, paginateRows, placeBlock, zoneOf } from './offer-layout';
 
 describe('КП: раскладка таблицы по страницам', () => {
   const rows = (n: number, h = 24) => Array.from({ length: n }, () => h);
@@ -33,5 +33,21 @@ describe('КП: раскладка таблицы по страницам', () =
     const z = zoneOf(0);
     expect(placeBlock(0, z.bottom - 10, 30)).toEqual({ page: 1, y: zoneOf(1).top });
     expect(placeBlock(0, 300, 30)).toEqual({ page: 0, y: 300 });
+  });
+
+  it('зоны бланка: верх и низ берутся из бланка, без бланка — как раньше', () => {
+    const own = { first: { textTop: 0.26, textBottom: 0.78 }, next: { textTop: 0.11, textBottom: 0.78 } };
+    expect(zoneOf(0, own).top).toBeCloseTo(0.26 * PAGE_H);
+    expect(zoneOf(1, own).bottom).toBeCloseTo(0.78 * PAGE_H);
+    expect(zoneOf(0, { first: { textTop: null } })).toEqual(zoneOf(0));
+    expect(zoneOf(1)).toEqual(zoneOf(1, {}));
+  });
+
+  it('узкая зона бланка даёт больше страниц и ничего не выходит за её низ', () => {
+    const h = rows(20);
+    const zones = { first: { textTop: 0.3, textBottom: 0.5 }, next: { textTop: 0.3, textBottom: 0.5 } };
+    const r = paginateRows(h, zoneOf(0, zones).top, 22, 26, zones);
+    expect(r.pages.length).toBeGreaterThan(paginateRows(h, 230, 22, 26).pages.length);
+    expect(placeBlock(0, zoneOf(0, zones).bottom - 5, 30, zones)).toEqual({ page: 1, y: zoneOf(1, zones).top });
   });
 });
