@@ -96,7 +96,9 @@ async function bootstrap() {
           imgSrc: ["'self'", 'data:', 'blob:'],
           fontSrc: ["'self'", 'data:'],
           connectSrc: ["'self'"],
-          objectSrc: ["'none'"],
+          // KP-2 (разрешено пользователем 2026-11-06): предпросмотр PDF — blob: в <iframe>; чужие источники запрещены
+          frameSrc: ["'self'", 'blob:'],
+          objectSrc: ["'self'", 'blob:'],
           baseUri: ["'self'"],
           formAction: ["'self'"],
           frameAncestors: ["'self'"],

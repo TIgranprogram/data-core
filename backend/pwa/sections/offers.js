@@ -332,7 +332,7 @@ export const offers = {
   },
   form: {
     fields,
-    initial: () => ({ date: isoDay(), items: [] }),
+    initial: () => ({ date: isoDay(), validUntil: isoDay(new Date(Date.now() + 10 * 86400000)), items: [] }), // срок КП по умолчанию — 10 дней
     toInitial: (r) => ({ ...r, companyId: r.companyId ? String(r.companyId) : '', date: day(r.date), validUntil: day(r.validUntil), bg1Id: r.bg1Id ? String(r.bg1Id) : '', bg2Id: r.bg2Id ? String(r.bg2Id) : '', vatMode: r.vatMode || '', delivery: r.delivery || '', objectName: r.objectName || '', items: r.items || [] }),
     toBody,
     create: (b) => api('/offers', { method: 'POST', body: strip(b) }),
