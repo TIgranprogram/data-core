@@ -4021,6 +4021,47 @@
         ]
       }
     },
+    "/supply/invoices/{id}/unpay": {
+      "post": {
+        "operationId": "SupplyController_unpayInvoice",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dryRun",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminOverrideDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
     "/supply/supplier-items": {
       "get": {
         "operationId": "SupplyController_listSupplierItems",
@@ -4825,6 +4866,47 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SupplyReceiveDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/requests/{id}/rollback-receipt": {
+      "post": {
+        "operationId": "SupplyController_rollbackReceipt",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dryRun",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminOverrideDto"
               }
             }
           }
@@ -5913,6 +5995,29 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы производства"
+        ]
+      }
+    },
+    "/production-orders/{key}/pdf": {
+      "get": {
+        "operationId": "ProductionOrdersController_pdf",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -10032,6 +10137,62 @@
         ]
       }
     },
+    "/offers/{id}/to-order": {
+      "post": {
+        "operationId": "OffersController_toOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      }
+    },
+    "/offers/{id}/create-order": {
+      "post": {
+        "operationId": "OffersController_createOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfferCreateOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      }
+    },
     "/offers/{id}/restore": {
       "post": {
         "operationId": "OffersController_restore",
@@ -10108,6 +10269,275 @@
         },
         "tags": [
           "КП"
+        ]
+      }
+    },
+    "/products/{id}/attachments": {
+      "get": {
+        "operationId": "ProductAttachmentsController_list",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Вложения изделия"
+        ]
+      },
+      "post": {
+        "operationId": "ProductAttachmentsController_upload",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "typeId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Вложения изделия"
+        ]
+      }
+    },
+    "/products/{id}/attachments/{aid}": {
+      "delete": {
+        "operationId": "ProductAttachmentsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "aid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Вложения изделия"
+        ]
+      }
+    },
+    "/products/{id}/attachments/{aid}/restore": {
+      "post": {
+        "operationId": "ProductAttachmentsController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "aid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Вложения изделия"
+        ]
+      }
+    },
+    "/products/{id}/attachments/{aid}/download-ticket": {
+      "post": {
+        "operationId": "ProductAttachmentsController_ticket",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "aid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Вложения изделия"
+        ]
+      }
+    },
+    "/products/{id}/attachments/{aid}/file": {
+      "get": {
+        "operationId": "ProductAttachmentFileController_file",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "aid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "t",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Вложения изделия"
+        ]
+      }
+    },
+    "/salesorders/{id}/attachments/summary": {
+      "get": {
+        "operationId": "OrderAttachmentsController_summary",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "types",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Вложения изделия"
+        ]
+      }
+    },
+    "/salesorders/{id}/attachments/zip-ticket": {
+      "post": {
+        "operationId": "OrderAttachmentsController_zipTicket",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Вложения изделия"
+        ]
+      }
+    },
+    "/salesorders/{id}/attachments.zip": {
+      "get": {
+        "operationId": "OrderAttachmentsZipController_zip",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "t",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Вложения изделия"
         ]
       }
     },
@@ -11207,7 +11637,7 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": "{ enabled, self:home|office, role:main|standby, mode:normal|readonly, job:{id,direction,step,state,startedAt,finishedAt?,error?}|null, peer:{name,version,copyAgeMin,healthy,checkedAt}, bridge:{alive}, blockers:[строки], canStart, canEmergency }; без HA_SELF — enabled:false и обзор соседа по HA_PEER_URL"
+            "description": "{ enabled, self:home|office, role:main|standby, mode:normal|readonly, job:{id,direction,step,state,startedAt,finishedAt?,error?}|null, peer:{name,version,copyAgeMin,healthy,checkedAt}, bridge:{alive}, blockers:[строки], canStart, canRefresh, canEmergency, speed:{home,office}:{p50,p95,requests,slow,probeMs} }; direction=refresh, пока идёт обновление запасного. canRefresh = главный + обычный режим + нет работы + мост жив (blockers не входят). Без HA_SELF — enabled:false и обзор соседа по HA_PEER_URL. speed не меняет переключение."
           }
         },
         "tags": [
@@ -11222,7 +11652,7 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": "{ self:home|office|null, role:main|standby|null, version, copyAt }"
+            "description": "{ self:home|office|null, role:main|standby|null, version, copyAt, speed:{p50,p95,requests,slow} }"
           }
         },
         "tags": [
@@ -11251,6 +11681,37 @@
           },
           "409": {
             "description": "Переключение уже идёт или этот сервер не главный"
+          },
+          "503": {
+            "description": "Мост переключения не запущен"
+          }
+        },
+        "tags": [
+          "Переключение сервера"
+        ]
+      }
+    },
+    "/control/switch/refresh": {
+      "post": {
+        "operationId": "SwitchController_refresh",
+        "summary": "Обновить запасной: код и база, без смены домена. Повтор, пока идёт работа, — 409",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartSwitchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "{ ok:true, job }; direction=refresh"
+          },
+          "409": {
+            "description": "Уже идёт работа или этот сервер не главный"
           },
           "503": {
             "description": "Мост переключения не запущен"
@@ -15579,242 +16040,6 @@
           }
         }
       }
-    },
-    "/products/{id}/attachments": {
-      "get": {
-        "operationId": "ProductAttachmentsController_list",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "deleted",
-            "required": false,
-            "in": "query",
-            "description": "1 — убранные файлы (только admin)",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "{items,total,page,limit}; без storedPath"
-          }
-        },
-        "tags": [
-          "Вложения изделия"
-        ]
-      },
-      "post": {
-        "operationId": "ProductAttachmentsController_upload",
-        "summary": "Загрузить вложение (multipart, поле file; вид — ?typeId=; до ATTACHMENT_MAX_BYTES, 512 МБ). admin, manager",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "typeId",
-            "required": true,
-            "in": "query",
-            "description": "id строки справочника attachmentTypes",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "file": {
-                    "type": "string",
-                    "format": "binary"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          },
-          "400": {
-            "description": "формат/содержимое не разрешены"
-          },
-          "413": {
-            "description": "больше лимита"
-          },
-          "507": {
-            "description": "нет места"
-          }
-        },
-        "tags": [
-          "Вложения изделия"
-        ]
-      }
-    },
-    "/products/{id}/attachments/{aid}": {
-      "delete": {
-        "operationId": "ProductAttachmentsController_remove",
-        "summary": "Убрать вложение (мягко). Только admin",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "aid",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Вложения изделия"
-        ]
-      }
-    },
-    "/products/{id}/attachments/{aid}/restore": {
-      "post": {
-        "operationId": "ProductAttachmentsController_restore",
-        "summary": "Вернуть убранное вложение. Только admin",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "aid",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Вложения изделия"
-        ]
-      }
-    },
-    "/products/{id}/attachments/{aid}/download-ticket": {
-      "post": {
-        "operationId": "ProductAttachmentsController_ticket",
-        "summary": "Одноразовый тикет на скачивание (60 с) → {ticket,expiresIn,url}",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "aid",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Вложения изделия"
-        ]
-      }
-    },
-    "/products/{id}/attachments/{aid}/file": {
-      "get": {
-        "operationId": "ProductAttachmentFileController_file",
-        "summary": "Скачать файл по тикету (без JWT; Range поддерживается; тикет гасится)",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "aid",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "t",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "application/octet-stream"
-          },
-          "206": {
-            "description": "часть файла"
-          },
-          "403": {
-            "description": "тикет устарел"
-          },
-          "404": {
-            "description": ""
-          },
-          "416": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Вложения изделия"
-        ]
-      }
     }
   },
   "info": {
@@ -15823,12 +16048,7 @@
     "version": "0.1.0",
     "contact": {}
   },
-  "tags": [
-    {
-      "name": "Вложения изделия",
-      "description": ""
-    }
-  ],
+  "tags": [],
   "servers": [],
   "components": {
     "securitySchemes": {
@@ -16409,7 +16629,7 @@
           "photoId"
         ]
       },
-      "StockBatchLineDto": {
+      "StockReserveLineDto": {
         "type": "object",
         "properties": {
           "materialId": {
@@ -16426,6 +16646,10 @@
           "expected": {
             "type": "number",
             "description": "count: остаток, который видел человек; не совпал с сервером — 409"
+          },
+          "salesOrderLineId": {
+            "type": "string",
+            "description": "Позиция заказа (incomes.id) именно этой строки; нет — общая salesOrderLineId списка"
           }
         },
         "required": [
@@ -16438,12 +16662,12 @@
         "properties": {
           "groupName": {
             "type": "string",
-            "description": "Для чего бронь: конструкция / изделие"
+            "description": "Для чего бронь: конструкция / изделие. Нет — «Заказ № …» по заказу"
           },
           "lines": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/StockBatchLineDto"
+              "$ref": "#/components/schemas/StockReserveLineDto"
             }
           },
           "salesOrderId": {
@@ -16459,7 +16683,6 @@
           }
         },
         "required": [
-          "groupName",
           "lines"
         ]
       },
@@ -16678,6 +16901,30 @@
         "required": [
           "salesOrderId",
           "lines"
+        ]
+      },
+      "StockBatchLineDto": {
+        "type": "object",
+        "properties": {
+          "materialId": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "number",
+            "description": "Количество > 0; для count — фактический остаток (≥ 0)"
+          },
+          "note": {
+            "type": "string",
+            "description": "Примечание строки (расчёт по весу, НО)"
+          },
+          "expected": {
+            "type": "number",
+            "description": "count: остаток, который видел человек; не совпал с сервером — 409"
+          }
+        },
+        "required": [
+          "materialId",
+          "qty"
         ]
       },
       "StockBatchDto": {
@@ -17071,6 +17318,19 @@
           }
         }
       },
+      "AdminOverrideDto": {
+        "type": "object",
+        "properties": {
+          "confirm": {
+            "type": "boolean",
+            "description": "Подтверждение выполнения (false/нет — вернуть план без изменений)"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Причина (от 3 символов), обязательна при confirm"
+          }
+        }
+      },
       "CatalogItemDto": {
         "type": "object",
         "properties": {}
@@ -17207,6 +17467,10 @@
           "clientUid": {
             "type": "string",
             "description": "Ключ клиента — повтор не создаёт дубль"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Причина (от 3 символов) — нужна администратору, когда он правит то, что заблокировано остальным; уходит в журнал"
           }
         }
       },
@@ -17504,6 +17768,14 @@
             "type": "string",
             "description": "Ключ клиента — повтор не создаёт дубль"
           },
+          "offerId": {
+            "type": "string",
+            "description": "id КП, из которого создан договор"
+          },
+          "offerNo": {
+            "type": "string",
+            "description": "Номер КП для отображения"
+          },
           "requireFields": {
             "type": "boolean",
             "description": "true — проверить обязательные поля формы приложения: № договора, № заказа, заказчик, наша компания (импорт и договоры «без заказа» шлют без флага)"
@@ -17625,7 +17897,7 @@
           },
           "lineType": {
             "type": "string",
-            "description": "Тип позиции: product (изделие) | new_product (заявка на новое изделие) | service (услуга Доставка/Монтаж); null — как у старых позиций. Задан — проверяются обязательные поля типа",
+            "description": "Тип позиции: product (изделие) | new_product (заявка на новое изделие) | service (услуга из справочника «Услуги»); null — как у старых позиций. Задан — проверяются обязательные поля типа",
             "nullable": true,
             "enum": [
               "product",
@@ -17633,9 +17905,9 @@
               "service"
             ]
           },
-          "workTypeId": {
+          "serviceId": {
             "type": "object",
-            "description": "Услуга: вид работ из справочника (только Доставка / Монтаж)",
+            "description": "Услуга: id из справочника «Услуги» (/api/dicts/services)",
             "nullable": true
           },
           "productRequestId": {
@@ -18815,6 +19087,23 @@
           "bg2Id": {
             "type": "string",
             "description": "Фон стр. 2+: id; «none» — белая; пусто — по умолчанию"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Причина (от 3 символов) — нужна администратору для правки оплаченного КП; уходит в журнал"
+          }
+        }
+      },
+      "OfferCreateOrderDto": {
+        "type": "object",
+        "properties": {
+          "orderNo": {
+            "type": "string",
+            "description": "№ договора; по умолчанию — из номера КП"
+          },
+          "productionNo": {
+            "type": "string",
+            "description": "№ заказа на производство; по умолчанию — следующий свободный"
           }
         }
       },
@@ -18831,6 +19120,10 @@
               "rejected",
               "cancelled"
             ]
+          },
+          "reason": {
+            "type": "string",
+            "description": "Причина (от 3 символов) — нужна администратору для перехода, который остальным закрыт; уходит в журнал"
           }
         },
         "required": [
