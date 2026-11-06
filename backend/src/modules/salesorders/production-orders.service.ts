@@ -18,7 +18,7 @@ import { SalesOrdersService, nextProductionNo, UNASSIGNED } from './salesorders.
 import { promises as fs } from 'fs';
 import sharp from 'sharp';
 import { safeUploadPath } from '../../common/uploads/safe-path';
-import { renderOrderPdf } from './order-pdf';
+import { renderOrderPdf, ruDate, ruNum } from './order-pdf';
 
 type Doc = Record<string, unknown>;
 type See = { requests?: boolean; stock?: boolean };
@@ -256,45 +256,88 @@ export class ProductionOrdersService {
     return { key: groupKey(docs[0]), productionNo: String(docs[0].productionNo ?? '').trim() || null, orders, unmatchedCount: orders.reduce((a, o) => a + o.unmatchedCount, 0), toProduce: toProduce(lines), ...sum, stageLabel: STAGE_LABELS[sum.stage] };
   }
 
+  /** Фото для печати: файл из /uploads → PNG до 300 px (печать 66 pt); нет файла — undefined. */
+  private async printImage(url?: string | null, size = 300): Promise<Buffer | undefined> {
+    const path = safeUploadPath(url ?? undefined);
+    if (!path) return undefined;
+    try { return await sharp(await fs.readFile(path)).resize({ width: size, height: size, fit: 'inside', withoutEnlargement: true }).flatten({ background: '#ffffff' }).png().toBuffer(); } catch { return undefined; }
+  }
+
   /**
-   * PDF заказа целиком (А4): шапка нашей компании с логотипом, договоры и позиции, итоги. money — цены и суммы (как MoneyMask).
-   * Отменённые договоры и позиции не печатаются.
+   * Производственный лист заказа (А4, без цен): шапка компании с логотипом, сроки, приоритет, сводка процессов;
+   * по позициям — фото, количество, артикул/цвет/размер, маршрут изготовления с текущим шагом («В работе»),
+   * проектирование (статус, исполнитель), примечание. Отменённые договоры и позиции не печатаются.
    */
-  async pdf(key: string, money: boolean) {
+  async pdf(key: string) {
     const card = await this.get(key, {});
     const live = (card.orders as Doc[]).filter((o) => o.stage !== 'cancelled');
     if (!live.length) throw new BadRequestException('В заказе нет действующих договоров — печатать нечего');
     const db = this.connection.db!;
+    const linesOf = (o: Doc) => ((o.lines as Doc[]) || []).filter((l) => !l.cancelledAt && l.status !== 'cancelled');
+    const all = live.flatMap(linesOf);
+    const ids = all.map((l) => new Types.ObjectId(String(l.id ?? l._id)));
+    const productIds = [...new Set(all.map((l) => String(l.productId ?? '')).filter((x) => Types.ObjectId.isValid(x)))].map((x) => new Types.ObjectId(x));
     const companyId = live.find((o) => o.companyId)?.companyId;
-    const org = companyId && Types.ObjectId.isValid(String(companyId))
-      ? await db.collection('organizations').findOne({ _id: new Types.ObjectId(String(companyId)) }, { projection: { name: 1, fullName: 1, shortName: 1, inn: 1, legalAddress: 1, phone: 1, assets: 1 } }) : null;
+    const [org, works, designs, products] = await Promise.all([
+      companyId && Types.ObjectId.isValid(String(companyId)) ? db.collection('organizations').findOne({ _id: new Types.ObjectId(String(companyId)) }, { projection: { name: 1, fullName: 1, shortName: 1, inn: 1, legalAddress: 1, phone: 1, assets: 1 } }) : null,
+      db.collection('worktasks').find({ incomeId: { $in: ids }, deletedAt: null, status: { $ne: 'cancelled' } }, { projection: { incomeId: 1, status: 1, route: 1, stepIndex: 1, assigneeId: 1 } }).toArray(),
+      db.collection('designtasks').find({ incomeId: { $in: ids }, deletedAt: null, status: { $ne: 'cancelled' } }, { projection: { incomeId: 1, status: 1, assigneeId: 1, completedAt: 1 } }).toArray(),
+      productIds.length ? db.collection('products').find({ _id: { $in: productIds } }, { projection: { workTypes: 1 } }).toArray() : [],
+    ]);
+    // маршрут изделия (ещё не запущено): названия видов работ из справочника
+    const wtIds = products.flatMap((p) => ((p.workTypes as Array<{ workTypeId: Types.ObjectId }> | undefined) ?? []).map((w) => w.workTypeId)).filter(Boolean);
+    const personIds = [...works, ...designs].map((t) => t.assigneeId).filter(Boolean) as Types.ObjectId[];
+    const [wts, persons] = await Promise.all([
+      wtIds.length ? db.collection('worktypes').find({ _id: { $in: wtIds } }, { projection: { name: 1 } }).toArray() : [],
+      personIds.length ? db.collection('persons').find({ _id: { $in: personIds } }, { projection: { lastName: 1, firstName: 1 } }).toArray() : [],
+    ]);
+    const wtName = new Map(wts.map((w) => [String(w._id), String(w.name ?? '')]));
+    const plan = new Map(products.map((p) => [String(p._id), ((p.workTypes as Array<{ workTypeId: Types.ObjectId }> | undefined) ?? []).map((w) => wtName.get(String(w.workTypeId))).filter(Boolean) as string[]]));
+    const who = new Map(persons.map((p) => [String(p._id), [p.lastName, p.firstName].filter(Boolean).join(' ')]));
+    const workOf = new Map(works.map((w) => [String(w.incomeId), w]));
+    const designOf = new Map(designs.map((t) => [String(t.incomeId), t]));
+    const DESIGN: Record<string, string> = { queue: 'в очереди', work: 'в работе', paused: 'на паузе', done: 'готово' };
     const logoUrl = ((org?.assets as Array<{ role: string; storageUrl: string }> | undefined) || []).find((a) => a.role === 'logo')?.storageUrl;
-    let logo: Buffer | undefined;
-    const path = safeUploadPath(logoUrl);
-    if (path) { try { logo = await sharp(await fs.readFile(path)).resize({ width: 400, height: 400, fit: 'inside', withoutEnlargement: true }).png().toBuffer(); } catch { logo = undefined; } }
+    const [logo, photos] = await Promise.all([this.printImage(logoUrl, 400), Promise.all(all.map((l) => this.printImage((l.photo as { url?: string } | null)?.url)))]);
+    const photoOf = new Map(all.map((l, k) => [String(l.id ?? l._id), photos[k]]));
+    let inWork = 0, ready = 0, inDesign = 0, pieces = 0;
     const customers = [...new Set(live.map((o) => String(o.customer ?? '').trim()).filter(Boolean))];
     const minDate = (k: string) => live.map((o) => o[k]).filter(Boolean).sort((a, b) => new Date(a as Date).getTime() - new Date(b as Date).getTime())[0] as Date | undefined;
-    const contracts = live.map((o) => {
-      const lines = ((o.lines as Doc[]) || []).filter((l) => !l.cancelledAt && l.status !== 'cancelled');
-      return {
-        orderNo: String(o.orderNo ?? ''), contractDate: (o.contractDate as Date | undefined) ?? null, customer: customers.length > 1 ? String(o.customer ?? '') : undefined,
-        title: o.title as string | undefined, stageLabel: STAGE_LABELS[o.stage as OrderStage],
-        paid: money ? lines.reduce((s, l) => s + (Number(l.paidAmount) || 0), 0) : undefined,
-        lines: lines.map((l) => ({
-          seqNo: (l.seqNo as number | null | undefined) ?? (l.lineNo as number | undefined) ?? null, title: String(l.title ?? ''),
-          note: [l.kind, l.color, l.size].map((x) => String(x ?? '').trim()).filter(Boolean).join(' · ') || undefined,
-          sku: ((l.product as { sku?: string } | null)?.sku) ?? undefined, qty: l.qty as number | undefined, unit: l.unit as string | undefined,
-          ...(money ? { price: l.unitPrice as number | undefined, amount: l.amount as number | undefined } : {}),
-          shipDate: (l.shipDate as Date | undefined) ?? null,
-        })),
-      };
-    });
+    const contracts = live.map((o) => ({
+      orderNo: String(o.orderNo ?? ''), contractDate: (o.contractDate as Date | undefined) ?? null, customer: customers.length > 1 ? String(o.customer ?? '') : undefined,
+      title: o.title as string | undefined, stageLabel: STAGE_LABELS[o.stage as OrderStage],
+      lines: linesOf(o).map((l) => {
+        const id = String(l.id ?? l._id);
+        pieces += Number(l.qty) || 0;
+        const w = workOf.get(id), t = designOf.get(id);
+        const steps = ((w?.route as Array<{ name: string }> | undefined) ?? []).map((s) => s.name);
+        const at = w ? (w.status === 'done' ? steps.length : Number(w.stepIndex ?? -1)) : -1;
+        let route = (w ? steps : plan.get(String(l.productId ?? '')) ?? []).map((name, k) => ({ name, state: (w && (w.status === 'done' || k < at) ? 'done' : w && k === at && w.status === 'work' ? 'now' : 'next') as 'done' | 'now' | 'next' }));
+        if (w?.status === 'done') ready++; else if (w) inWork++;
+        if (t && t.status !== 'done') inDesign++;
+        const workText = w ? (w.status === 'done' ? 'изготовлено' : w.status === 'waiting' ? 'ждёт запуска' : '') + (w.assigneeId ? ` · ${who.get(String(w.assigneeId)) ?? ''}` : '')
+          : route.length ? 'ещё не запущено в работу' : 'маршрут не задан — запуск одной работой «Изготовление»';
+        if (!w && route.length) route = route.map((s) => ({ ...s, state: 'next' as const }));
+        const sku = (l.product as { sku?: string } | null)?.sku;
+        return {
+          seqNo: (l.seqNo as number | null | undefined) ?? (l.lineNo as number | undefined) ?? null, title: String(l.title ?? ''), qty: l.qty as number | undefined, unit: l.unit as string | undefined,
+          facts: [sku ? `арт. ${sku}` : '', l.kind ? String(l.kind) : '', l.color ? `цвет: ${l.color}` : '', l.size ? `размер: ${l.size}` : '', l.shipDate ? `отгрузка ${ruDate(l.shipDate as Date)}` : ''].filter(Boolean),
+          photo: photoOf.get(id), route, workText: route.length && w && workText ? `Изготовление: ${workText.replace(/^ · /, '')}` : route.length ? undefined : workText,
+          designText: t ? `Проектирование: ${DESIGN[String(t.status)] ?? String(t.status)}${t.assigneeId ? ` · ${who.get(String(t.assigneeId)) ?? ''}` : ''}${t.status === 'done' && t.completedAt ? ` (${ruDate(t.completedAt as Date)})` : ''}` : undefined,
+          note: l.notes ? `Примечание: ${String(l.notes)}` : undefined,
+        };
+      }),
+    }));
+    const total = all.length;
+    const PRIORITY: Record<string, string> = { urgent: 'срочно', high: 'высокий', low: 'низкий' };
     const number = String(card.productionNo || live[0].orderNo || '—');
     const buf = await renderOrderPdf({
-      number, stageLabel: card.stageLabel as string | undefined, customer: customers.join(', '),
+      number, stageLabel: card.stageLabel as string | undefined, customer: customers.join(', '), priority: PRIORITY[String(card.priority)] ?? undefined,
       productionDeadline: minDate('productionDeadline') ?? null, shipDate: minDate('shipDate') ?? null,
+      notes: live.map((o) => String(o.notes ?? '').trim()).filter(Boolean).join(' · ') || undefined,
+      summary: `Позиций ${total} · изделий ${ruNum(pieces)} шт · в проектировании ${inDesign} · в работе ${inWork} · изготовлено ${ready}`,
       org: org ? { name: String(org.fullName || org.name || org.shortName || ''), inn: org.inn as string | undefined, address: org.legalAddress as string | undefined, phone: org.phone as string | undefined } : { name: '' },
-      logo, contracts, money,
+      logo, contracts,
     });
     return { buf, filename: `Заказ_${number.replace(/[^\p{L}\p{N}._-]+/gu, '_')}.pdf` };
   }

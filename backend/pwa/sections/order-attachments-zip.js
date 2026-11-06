@@ -90,7 +90,7 @@ export async function orderAttachmentsZip(order) {
 
 /** Пункт «Скачать вложения заказа» в шапке карточки заказа (salesorders.actions). */
 export const orderZipAction = { label: 'Скачать вложения заказа', more: true, title: 'Файлы изделий заказа (чертежи, паспорта…) одним архивом', run: (row) => orderAttachmentsZip(row) };
-/** «PDF заказа» (пользователь 2026-11-06): весь заказ с перечнем позиций для печати А4 одной кнопкой. Сервер: GET /production-orders/:key/pdf. */
-export const orderPdfAction = { label: 'PDF заказа', title: 'Весь заказ с перечнем позиций — для печати А4', run: async (row) => {
+/** «PDF заказа» (пользователь 2026-11-06): производственный лист — фото, маршрут, проектирование, без цен; А4 одной кнопкой. Сервер: GET /production-orders/:key/pdf. */
+export const orderPdfAction = { label: 'PDF заказа', title: 'Производственный лист А4: фото, маршрут изготовления, проектирование — без цен', run: async (row) => {
   try { const name = await apiFile(`/production-orders/${encodeURIComponent(row.key || row.productionNo || row.id)}/pdf`, { fallback: `Заказ_${row.productionNo || row.orderNo || ''}.pdf` }); toast(`Скачан: ${name}`); } catch (e) { toastError(e, 'скачать PDF заказа'); }
 } };
