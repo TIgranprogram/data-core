@@ -132,7 +132,8 @@ for (const c of ownClasses) delete cur.classes[c];
 
 // ---------- Волна 0: L2–L9 ----------
 const RAW = /\bh\(\s*['"`](button|table|select|textarea|details|dialog|input)['"`]/;
-const kitSet = new Set(parsed.filter((p) => inKit(p.r)).flatMap((p) => p.sels.flatMap((s) => classesOf(s.sel))));
+// L3: свои классы — kit/*.css и базовые tokens.css/base.css (muted, small, nowrap… — ими пользуется сам kit; C029-B1, 2026-11-07); screens.css — нет
+const kitSet = new Set(parsed.filter((p) => inKit(p.r) || /(^|\/)ui\/(tokens|base)\.css$/.test(p.r)).flatMap((p) => p.sels.flatMap((s) => classesOf(s.sel))));
 /** Строковые литералы выражения → слова-классы (в шаблоне — вне ${…}; приклеенные к подстановке не считаются). */
 export const litParts = (expr) => {
   const res = [];
