@@ -23,12 +23,17 @@ export interface PhraseNode {
   isDefault: boolean;
   installTypeId: string | null;
   slot: number;
+  /** Привязка текста к значениям признаков изделия / к группам изделий (C028 B2); пусто — текст не привязан. */
+  facetValueIds?: string[];
+  groupIds?: string[];
 }
 export interface PhraseTreeNode extends PhraseNode { children: PhraseTreeNode[] }
 export type RawNode = Record<string, unknown>;
 
 const str = (v: unknown) => String(v ?? '').replace(/\s+/g, ' ').trim();
 const num = (v: unknown, d: number) => { const n = Number(v); return Number.isFinite(n) ? n : d; };
+
+const ids = (v: unknown) => (Array.isArray(v) ? v : []).map(String).filter(Boolean);
 
 /** Запись справочника → узел (id строкой; пустое — по умолчанию). Текст сохраняет переводы строк. */
 export function toNode(r: RawNode): PhraseNode {
@@ -37,6 +42,7 @@ export function toNode(r: RawNode): PhraseNode {
     text: String(r.text ?? '').trim(), categories: str(r.categories), allCategories: r.allCategories === true || r.allCategories === 'true',
     order: num(r.order, 0), required: r.required === true || r.required === 'true', isDefault: r.isDefault === true || r.isDefault === 'true',
     installTypeId: r.installTypeId ? String(r.installTypeId) : null, slot: Math.max(1, Math.floor(num(r.slot, 1))),
+    facetValueIds: ids(r.facetValueIds), groupIds: ids(r.groupIds),
   };
 }
 
@@ -89,12 +95,26 @@ export function leavesOf(n: PhraseTreeNode): PhraseTreeNode[] {
   return n.children.length ? n.children.flatMap(leavesOf) : [n];
 }
 
-/** От узла вниз до листа: единственный вариант — сам; несколько — отмеченный «по умолчанию»; иначе выбора нет (null). */
-export function descend(n: PhraseTreeNode): PhraseTreeNode | null {
-  if (!n.children.length) return n;
-  if (n.children.length === 1) return descend(n.children[0]);
-  const def = n.children.find((c) => c.isDefault);
-  return def ? descend(def) : null;
+/** Изделие, под которое собирается текст: значения его признаков и группы (сама и родители). */
+export interface ProductCtx { facetValueIds: Set<string>; groupIds: Set<string> }
+
+const isBound = (n: PhraseTreeNode) => !!(n.facetValueIds?.length || n.groupIds?.length);
+/** Привязанный лист подходит изделию, если совпало хоть одно значение признака или группа. */
+const matchesProduct = (n: PhraseTreeNode, ctx?: ProductCtx) =>
+  !!ctx && (!!n.facetValueIds?.some((x) => ctx.facetValueIds.has(x)) || !!n.groupIds?.some((x) => ctx.groupIds.has(x)));
+
+/**
+ * От узла вниз до листа: единственный вариант — сам; несколько — отмеченный «по умолчанию»; иначе выбора нет (null).
+ * С `ctx` (C028 B2): сначала вариант, привязанный к признакам/группе изделия; лист, привязанный к чужим, сам не выбирается никогда.
+ */
+export function descend(n: PhraseTreeNode, ctx?: ProductCtx, auto = false): PhraseTreeNode | null {
+  if (!n.children.length) return auto && isBound(n) && !matchesProduct(n, ctx) ? null : n;
+  const kids = auto ? n.children.filter((c) => leavesOf(c).some((l) => !isBound(l) || matchesProduct(l, ctx))) : n.children;
+  const hit = auto ? kids.find((c) => leavesOf(c).some((l) => isBound(l) && matchesProduct(l, ctx))) : undefined;
+  if (hit) return descend(hit, ctx, auto);
+  if (kids.length === 1) return descend(kids[0], ctx, auto);
+  const def = kids.find((c) => c.isDefault);
+  return def ? descend(def, ctx, auto) : null;
 }
 
 export interface Resolved {
@@ -107,7 +127,7 @@ export interface Resolved {
 }
 
 /** Выбор по разделам: сохранённый (`textChoices`) проверяется по дереву категории; нет — подставляется единственный / «по умолчанию». */
-export function resolveChoices(forest: PhraseTreeNode[], saved: Record<string, unknown> | null | undefined): Resolved {
+export function resolveChoices(forest: PhraseTreeNode[], saved: Record<string, unknown> | null | undefined, ctx?: ProductCtx): Resolved {
   const out: Resolved = { leaves: new Map(), unresolved: [], invalid: [] };
   for (const root of forest) {
     const want = saved && saved[root.id] ? String(saved[root.id]) : '';
@@ -118,7 +138,7 @@ export function resolveChoices(forest: PhraseTreeNode[], saved: Record<string, u
       else { out.invalid.push(root.id); out.unresolved.push(root); }
       continue;
     }
-    const leaf = descend(root);
+    const leaf = descend(root, ctx, true);
     if (leaf) out.leaves.set(root.id, { leaf, auto: true });
     else out.unresolved.push(root);
   }

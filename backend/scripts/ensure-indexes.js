@@ -27,6 +27,7 @@ const RAW = [
   ['stockmovements', { salesOrderLineId: 1 }, { sparse: true }], // SK-7: состав изделия из выдач под позицию
   ['materials', { 'passportSpec.materialId': 1 }, { sparse: true }], // МЦ-2: позиции склада по материалу паспорта
   ['products', { deletedAt: 1, name: 1, _id: 1 }], // скорость 2026-11-01: витрина — список по названию без сортировки в памяти (общая с CRM, только индекс)
+  ['products', { facetValueIds: 1 }, { sparse: true }], // C028: воронка паспорта — изделия по значениям признаков (multikey)
   ['productpassports', { productId: 1, deletedAt: 1 }], // скорость: витрина — число и обложки паспортов изделий страницы
 ];
 

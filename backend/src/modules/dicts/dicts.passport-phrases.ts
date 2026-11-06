@@ -42,6 +42,8 @@ export function passportPhrasesDef(base: DictBase): DictBase {
       { key: 'required', label: 'Раздел обязателен', type: 'select', bool: true, options: [{ value: 'true', label: 'да' }], hint: 'Только у раздела: без выбора паспорт не выпустить' },
       { key: 'isDefault', label: 'По умолчанию', type: 'select', bool: true, options: [{ value: 'true', label: 'да' }], hint: 'Подставляется, пока не выбран другой вариант' },
       { key: 'text', label: 'Текст (только у конечного варианта)', type: 'textarea', wide: true },
+      { key: 'facetValueIds', label: 'Значения признаков', type: 'select', ref: 'productFacetValues', multi: true, wide: true, hint: 'Текст предлагается изделиям с этими значениями признаков (например, «Грузовой блок»); пусто — по категории' },
+      { key: 'groupIds', label: 'Группы изделий', type: 'select', ref: 'productGroups', multi: true, wide: true, hint: 'Текст сам подставляется изделиям этих групп (например, «Трибуны»); пусто — по категории' },
       { tech: true, key: 'parentId', label: 'Родитель (id узла; пусто — раздел)', hint: 'Раздел → варианты → подварианты, не больше 4 уровней' },
       { tech: true, key: 'order', label: 'Порядок среди соседей' },
       { tech: true, key: 'installTypeId', label: 'Способ установки (id)', hint: 'У варианта раздела «Установка»: выбор сам ставит способ установки паспорта' },
@@ -50,7 +52,7 @@ export function passportPhrasesDef(base: DictBase): DictBase {
     columns: [{ key: 'section', label: 'Раздел' }, { key: 'categories', label: 'Категории' }],
     row: (d) => ({
       name: s(d.name), section: s(d.section), parentId: d.parentId ? String(d.parentId) : '', categories: s(d.categories), allCategories: d.allCategories === true,
-      order: d.order ?? 0, required: d.required === true, isDefault: d.isDefault === true, installTypeId: d.installTypeId ? String(d.installTypeId) : '', slot: d.slot ?? '', text: String(d.text ?? ''),
+      order: d.order ?? 0, required: d.required === true, isDefault: d.isDefault === true, installTypeId: d.installTypeId ? String(d.installTypeId) : '', facetValueIds: ((d.facetValueIds as unknown[]) ?? []).map(String), groupIds: ((d.groupIds as unknown[]) ?? []).map(String), slot: d.slot ?? '', text: String(d.text ?? ''),
     }),
     // запрет дублей — среди соседей (одно название под разными разделами допустимо)
     dupKey: (d) => `${d.parentId ? String(d.parentId) : ''}|${s(d.name).toLowerCase()}`,
@@ -77,6 +79,15 @@ export function passportPhrasesDef(base: DictBase): DictBase {
       if (section && !SECTION_RE.test(section)) throw new BadRequestException('Раздел: латинские буквы, цифры и «-» (purpose, installation, mounting…)');
       const installTypeId = has('installTypeId') ? s(b.installTypeId) : cur?.installTypeId ?? '';
       if (installTypeId && !isOid(installTypeId)) throw new BadRequestException('Некорректный способ установки');
+      // не пришло при правке — остаются прежние (в PhraseNode этого поля нет, читаем сырую запись)
+      const fv = has('facetValueIds') ? (Array.isArray(b.facetValueIds) ? b.facetValueIds : []).map(String)
+        : id ? (((await db.collection('dict_values').find({ _id: new Types.ObjectId(id) }).toArray())[0]?.facetValueIds as unknown[]) ?? []).map(String) : [];
+      if (!fv.every(isOid)) throw new BadRequestException('Некорректное значение признака');
+      const facetValueIds = fv.map((x) => new Types.ObjectId(x));
+      const gi = has('groupIds') ? (Array.isArray(b.groupIds) ? b.groupIds : []).map(String)
+        : id ? (((await db.collection('dict_values').find({ _id: new Types.ObjectId(id) }).toArray())[0]?.groupIds as unknown[]) ?? []).map(String) : [];
+      if (!gi.every(isOid)) throw new BadRequestException('Некорректная группа изделий');
+      const groupIds = gi.map((x) => new Types.ObjectId(x));
       const order = has('order') && s(b.order) !== '' ? Number(String(b.order).replace(',', '.')) : cur?.order ?? 0;
       if (!Number.isFinite(order)) throw new BadRequestException('Порядок — число');
       const slot = has('slot') && s(b.slot) !== '' ? Math.floor(Number(b.slot)) : cur?.slot ?? 1;
@@ -90,6 +101,7 @@ export function passportPhrasesDef(base: DictBase): DictBase {
         required: !parentId && (has('required') ? yes(b.required) : cur?.required ?? false) ? true : null,
         slot: parentId ? null : slot,
         installTypeId: installTypeId ? new Types.ObjectId(installTypeId) : null,
+        facetValueIds, groupIds,
         funnelV: 1, updatedAt: new Date(),
       };
     },

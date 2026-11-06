@@ -1,5 +1,5 @@
 import { compose, legacyStartNumber, legacyTemplateToBlocks, usedStandards, type ComposedSection, type LegacyTemplateLike, type PassportTextBlock, type StandardsDict } from './passport-compose';
-import { choicesObject, resolveChoices, FIELD_SECTIONS, type PhraseTreeNode } from '../../common/passport/phrase-tree';
+import { choicesObject, resolveChoices, FIELD_SECTIONS, type PhraseTreeNode, type ProductCtx } from '../../common/passport/phrase-tree';
 import { describeProduct, installText, maintenanceTables, usageRules, type DictRec, type InstallParts, type MaintenanceTable } from './passport-compose-parts';
 
 /**
@@ -14,7 +14,7 @@ export interface V2TextInput {
   standards?: StandardsDict;
   dicts?: { elements?: DictRec[]; materials?: DictRec[]; defects?: DictRec[]; install?: DictRec[] };
   /** Воронка (ПВ): дерево текстов категории и выбор паспорта { rootId: leafId } — тексты по выбору идут верхним слоем. */
-  funnel?: { forest: PhraseTreeNode[]; choices?: Record<string, unknown> | null };
+  funnel?: { forest: PhraseTreeNode[]; choices?: Record<string, unknown> | null; product?: ProductCtx };
 }
 
 export interface V2Text {
@@ -49,7 +49,7 @@ export function buildV2Text(input: V2TextInput): V2Text {
   const ownBlocks: PassportTextBlock[] = own ? legacyTemplateToBlocks(own).map((b) => ({ ...b, category })) : [];
   const blocks = [...legacyTemplateToBlocks(all), ...ownBlocks];
   // воронка: разделы «Назначение» и «Установка» идут в поля, остальные — заменяют пункт №slot раздела шаблона
-  const resolved = resolveChoices(input.funnel?.forest ?? [], input.funnel?.choices);
+  const resolved = resolveChoices(input.funnel?.forest ?? [], input.funnel?.choices, input.funnel?.product);
   const extraMissing = new Set<string>();
   let purpose = '';
   let installLeaf: PhraseTreeNode | null = null;

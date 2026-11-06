@@ -52,5 +52,7 @@ export const DICT_META: Record<string, DictMeta> = {
   passportDefects: { sections: ['Документация'], refBy: 'id' },
   passportInstall: { sections: ['Документация'], refBy: 'id' },
   passportPhrases: { sections: ['Документация'], refBy: 'id' },
+  productFacets: { sections: ['Документация', 'Продукция'], refBy: 'id' },
+  productFacetValues: { sections: ['Документация', 'Продукция'], refBy: 'id' },
   passportStyle: { sections: ['Документация'], refBy: 'id', untracked: true, locked: (d) => (STYLE_CODES.includes(code(d)) || /^COVER_/.test(code(d)) ? BUILTIN_REASON : null) },
 };

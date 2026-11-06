@@ -1,3 +1,7 @@
+## Паспорт воронкой F1 (C028, 2026-11-07, не закоммичено)
+коммит: не закоммичено
+- `sections/passports/funnel/`: `index.js` (build панели `of=passfunnel`, `choose`, `stagePanels`), `open.js` (`openPassportFunnel`, `takePending`), `api.js` (A2–A5, `putDefaults`, `issueFromProduct`), `pick-steps.js` (stepFunnel локально), `product-list.js`, `gaps.js`, `texts.js`, `issue.js`, `new-product.js`. Входы: `docs.js` page-head «Новый паспорт», `products/card-blocks.js passportsBlock` «Создать паспорт». kit: `filter.js stepFunnel` onChange/multi/thumbIcon, `ui/kit/pos-pic.js`. Старые мастер/форма живы до F3. Отчёт: `docs/crew/C028-passport-funnel/frontend-report.md`. Карта обновлена.
+
 ## C027 «Деньги по статьям» (2026-11-06, не закоммичено)
 commit: не закоммичено
 - `sections/money-articles.js` — `articlesView` (вкладка `tab=articles`, GET /finance/by-articles[/ops]; `opened` — раскрытые статьи); `money.js` вкладка/`yearly()`/ветка в `load`. `sections/expenses.js` — `expense` (панель `of=expense`), `expenses` (раздел, NAV «Прочие расходы»), `articleTree/articleOptions/articleByCategory/orderChoices`, `requestArticleField` (форма заявки, `requests.js`). `ui/op-row.js` source=expense; `main.js` LAZY/NAV/SEC_OF/GROUP_OF/OWNER; `core/api.js sees(expenses)`; `help-flow-data.js` m4/m5. Карта обновлена.

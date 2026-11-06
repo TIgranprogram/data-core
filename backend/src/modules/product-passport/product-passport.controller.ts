@@ -122,8 +122,20 @@ export class ProductPassportController {
   @Get('passports/funnel')
   @Roles(...VIEW)
   @ApiQuery({ name: 'category', required: false, description: 'Код категории паспорта: TRN, WRK, BLG, DIO, DSP' })
-  funnel(@Query('category') category?: string) {
-    return this.service.funnel(category);
+  @ApiQuery({ name: 'group', required: false, description: 'C028: id группы изделий' })
+  @ApiQuery({ name: 'f', required: false, description: 'C028: id значений признаков через запятую; none:<id или код признака> — изделия без значения' })
+  @ApiQuery({ name: 'q', required: false, description: 'C028: поиск по всем изделиям (название, артикул); шаги не сужают' })
+  async funnel(@Query() q: Record<string, string>) {
+    // тексты воронки ({ sections }) — как раньше; шаги создания паспорта ({ category, steps, products }) добавлены рядом (C028)
+    return { ...(await this.service.funnel(q.category)), ...(await this.service.productFunnel(q)) };
+  }
+
+  /** C028: чего не хватает изделию для паспорта — { category, missing[] }, только пустое. */
+  @AppSection('products', 'passports')
+  @Get('showcase/:id/passport-gaps')
+  @Roles('admin', 'director', 'manager', 'user')
+  passportGaps(@Param('id') id: string) {
+    return this.service.gaps(id);
   }
 
   /** Модели (артикул + наименование) с фото и полями — выбор модели при создании паспорта. */
@@ -156,8 +168,9 @@ export class ProductPassportController {
   @Get('passports/texts')
   @Roles(...VIEW)
   @ApiQuery({ name: 'category', required: true, enum: ['DIO', 'DSP', 'TRN', 'WRK', 'BLG'] })
-  texts(@Query('category') category?: string) {
-    return this.service.texts(category);
+  @ApiQuery({ name: 'productId', required: false, description: 'C028: изделие — в phrases фразы по его признакам идут первыми (byFacet)' })
+  texts(@Query('category') category?: string, @Query('productId') productId?: string) {
+    return this.service.texts(category, productId);
   }
 
   /** Массовое изменение выбранных паспортов (БЗ-9): { ids, set, arrays?: { elements|materialIds: add|replace }, rebuildText? } → { updated, failed, before }. */

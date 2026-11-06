@@ -11,7 +11,7 @@ const dir = process.env.QA_DIR || process.cwd();
 const USER = process.env.QA_USER || 'qa';
 const PW = fs.readFileSync(path.join(dir, USER === 'qa' ? 'qa-login.txt' : `${USER}.txt`), 'utf8').trim();
 const port = 9300 + Math.floor(Math.random() * 500);
-const prof = path.join(dir, 'edge-prof-' + port);
+const prof = path.resolve(dir, 'edge-prof-' + port); // полный путь (см. qa-smoke.mjs)
 const br = spawn('C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${prof}`, '--no-first-run', '--hide-scrollbars', 'about:blank'], { stdio: 'ignore' });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -27,7 +27,7 @@ const ev = async (expr) => (await cmd('Runtime.evaluate', { expression: expr, aw
 await cmd('Emulation.setDeviceMetricsOverride', { width: +W, height: +H, deviceScaleFactor: 1, mobile: +W < 720 });
 await cmd('Page.enable');
 const ADMIN = HASH.startsWith('/admin');
-await cmd('Page.navigate', { url: 'http://localhost:3002' + (ADMIN ? HASH : '/app/') });
+await cmd('Page.navigate', { url: (process.env.QA_BASE || 'http://localhost:3002') + (ADMIN ? HASH : '/app/') });
 await sleep(1500);
 const TOK = path.join(dir, USER === 'qa' ? 'qa-tokens.json' : `${USER}-tokens.json`);
 let LR;

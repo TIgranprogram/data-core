@@ -12,6 +12,7 @@
 //   Волна 0 (ORDER-MASTER-PLAN §3): L2 сырые теги h('button'…) · L3 класс вне kit/u-* · L4 числа в CSS мимо токенов ·
 //   L5 реэкспорт старых ui в kit/index.js · L6 имя kit без витрины/DESIGN, класс из DESIGN без CSS · L7 заменители текстов
 //   и confirm/alert/prompt · L8 файл > 400 строк · L9 то же для backend/admin (L10 в плане не определён). Админка — в тех же правилах.
+//   --recount --accept "причина" --user-approved — единственный способ поднять итог: пересчёт после исправления самого линтера (ЛИНТ-CRLF).
 //   Храповик: общий итог (baseline.total) только уменьшается. --update-baseline — только убирает устаревшее.
 //   --accept "причина" --user-approved — перенос ключей (запись в design-allow.json), итог НЕ растёт; без --user-approved отказ.
 //   --json — итог и счёт по файлам (для dc order).
@@ -33,7 +34,7 @@ const rel = (p) => norm(relative(process.cwd(), p));
 const add = (file, line, rule, text) => out.push({ file: rel(file), line, rule, text: text.trim().slice(0, 110) });
 
 for (const f of files) {
-  const lines = readFileSync(f, 'utf8').split('\n');
+  const lines = readFileSync(f, 'utf8').split(/\r?\n/);
   const isCss = f.endsWith('.css');
   if (isCss && !f.endsWith('tokens.css')) {
     lines.forEach((l, i) => {
@@ -105,7 +106,7 @@ for (const f of jsFiles) { const r = rel(f); if (/\/ui\/[^/]+\.js$/.test('/' + r
 const IMPORT = /^\s*(?:import|export)\s+(?:[^'"]*?\s+from\s+)?['"](\.{1,2}\/[^'"]+)['"]/;
 for (const f of sectionJs) {
   const r = rel(f);
-  readFileSync(f, 'utf8').split('\n').forEach((l, i) => {
+  readFileSync(f, 'utf8').split(/\r?\n/).forEach((l, i) => {
     const m = l.match(IMPORT);
     if (m) { const t = rel(resolve(dirname(f), m[1])); if (/^backend\/pwa\/ui\//.test(t) && !inKit(t)) put('legacyImports', `${r} -> ${t}`, r, i + 1); }
     if (/^\s*(\/\/|\*)/.test(l)) return;
@@ -143,7 +144,7 @@ const litParts = (expr) => {
 };
 for (const f of [...sectionJs, ...adminJs]) {
   const r = rel(f); const isSec = /\/sections\//.test('/' + r);
-  readFileSync(f, 'utf8').split('\n').forEach((l, i) => {
+  readFileSync(f, 'utf8').split(/\r?\n/).forEach((l, i) => {
     if (/^\s*(\/\/|\*)/.test(l) || !isSec) return;
     const rm = l.match(RAW); if (rm) put('l2', `${r} | ${rm[1]}`, r, i + 1);
     const cm = l.match(CLS);
@@ -152,7 +153,7 @@ for (const f of [...sectionJs, ...adminJs]) {
 }
 for (const f of [...jsFiles.filter((f) => !inKit(rel(f))), ...adminJs]) {
   const r = rel(f);
-  readFileSync(f, 'utf8').split('\n').forEach((l, i) => {
+  readFileSync(f, 'utf8').split(/\r?\n/).forEach((l, i) => {
     if (/^\s*(\/\/|\*)/.test(l)) return;
     if (/\btoast\(\s*\w+\.message/.test(l)) put('l7', `${r} | toast(e.message)`, r, i + 1);
     const b = l.match(/(?:^|[^.\w$])(confirm|alert|prompt)\(/); if (b) put('l7', `${r} | ${b[1]}()`, r, i + 1);
@@ -190,16 +191,18 @@ if (existsSync(kidx)) {
   for (const m of design.matchAll(/`\.([a-z][\w-]*)`/g)) if (!EXT.has(m[1]) && !allCss.has(m[1])) put('l6', `.${m[1]} | класс из DESIGN без CSS`, 'docs/DESIGN.md', 1);
 }
 // L8: значение = строк сверх 400 (рост — нарушение), в итог идёт как 1 на файл
-for (const f of [...sectionJs, ...jsFiles.filter((f) => inKit(rel(f)) && !/\/kit\/special\//.test(rel(f))), ...adminJs]) { const n = readFileSync(f, 'utf8').split('\n').length; if (n > 400) { const r = rel(f); cur.l8[r] = n - 400; at['l8|' + r] = { file: r, line: n }; } }
+for (const f of [...sectionJs, ...jsFiles.filter((f) => inKit(rel(f)) && !/\/kit\/special\//.test(rel(f))), ...adminJs]) { const n = readFileSync(f, 'utf8').split(/\r?\n/).length; if (n > 400) { const r = rel(f); cur.l8[r] = n - 400; at['l8|' + r] = { file: r, line: n }; } }
 
 const weigh = (k, n) => (k === 'l8' ? 1 : n);
 const totalOf = (o) => KEYS.reduce((a, k) => a + Object.values(o[k] || {}).reduce((b, n) => b + weigh(k, n), 0), 0);
 const byFileOf = (o) => { const m = {}; for (const k of KEYS) for (const [key, n] of Object.entries(o[k] || {})) { const f = (at[k + '|' + key] || {}).file || (key.match(/^(backend\/[^ |]+)/) || [])[1]; if (f) m[f] = (m[f] || 0) + weigh(k, n); } return m; };
 const sc = parsed.find((p) => /ui\/screens\.css$/.test(p.r));
-cur.screensLines = sc ? readFileSync(sc.f, 'utf8').split('\n').length : 0;
+cur.screensLines = sc ? readFileSync(sc.f, 'utf8').split(/\r?\n/).length : 0;
 
 const upd = process.argv.includes('--update-baseline');
 const approved = process.argv.includes('--user-approved');
+// --recount: пересчёт после исправления самого линтера (не новые нарушения, а прежде невидимые); только с --user-approved (ЛИНТ-CRLF, 2026-11-07)
+const recount = process.argv.includes('--recount');
 const acc = process.argv.includes('--accept') ? process.argv[process.argv.indexOf('--accept') + 1] : null;
 const curTotal = totalOf(cur);
 // закрытый список исключений (специнтерфейсы): новая запись — только с --user-approved
@@ -248,7 +251,7 @@ if (upd) {
   }
   next.screensLines = acc ? cur.screensLines : Math.min(cur.screensLines, base.screensLines);
   next.total = totalOf(next);
-  if (acc && !migrating && next.total > base.total) { console.log(`ОТКАЗ: --accept не может поднять итог (${base.total} -> ${next.total}). Сначала уменьшить нарушения.`); process.exit(2); }
+  if (acc && !migrating && !(recount && approved) && next.total > base.total) { console.log(`ОТКАЗ: --accept не может поднять итог (${base.total} -> ${next.total}). Сначала уменьшить нарушения.`); process.exit(2); }
   if (acc) {
     const allow = existsSync(ALLOW) ? JSON.parse(readFileSync(ALLOW, 'utf8')) : [];
     allow.push({ date: new Date().toISOString().slice(0, 10), reason: acc, accepted: v2.length, userApproved: true });
@@ -273,7 +276,7 @@ for (const f of jsFiles.filter((f) => !inKit(rel(f)))) {
   for (const m of src.matchAll(/\b(?:function|const|let|var|class)\s+([A-Za-z_$][\w$]*)/g)) known.add(m[1]);
   for (const m of src.matchAll(/(?:\(|,)\s*([A-Za-z_$][\w$]*)\s*(?=[,)=])/g)) known.add(m[1]);
   for (const m of src.matchAll(/\{([^{}]*)\}\s*=/g)) for (const p of m[1].split(',')) { const n = p.trim().split(/[:=\s]/).pop(); if (n) known.add(n); }
-  src.split('\n').forEach((l, i) => {
+  src.split(/\r?\n/).forEach((l, i) => {
     if (/^\s*(\/\/|\*)/.test(l)) return;
     for (const m of l.matchAll(/(^|[^.\w$'"`])(?<!\b(?:get|set|async) )([A-Za-z_$][\w$]*)\(/g)) if (kitNames.has(m[2]) && !known.has(m[2])) out.push({ file: rel(f), line: i + 1, rule: 'R9', text: `${m[2]}() вызван без import из ui/kit — экран упадёт` });
   });

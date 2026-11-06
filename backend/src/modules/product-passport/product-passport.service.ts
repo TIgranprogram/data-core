@@ -22,13 +22,16 @@ import { PASSPORT_TEXTS_V2 } from './passport-texts.v2';
 import { textsTree } from './passport-texts-tree';
 import { ALL_V2, AFTER_PRINT_FIELDS, DRAFT_PREFIX, MODEL_FIELDS, NUMBER_FIELDS, OID_FIELDS, isIssued, type Doc } from './passport-consts';
 import { PassportBulk } from './passport-bulk';
+import { productFunnel } from './passport-funnel';
+import { productGaps } from './passport-gaps';
+import { facetPhrases, groupChain } from './passport-facet-phrases';
 import { diffPatch, followsProduct, productCategories, productPatch } from './passport-from-product';
 import { fromIncome, loadQueue, ourSupplierId } from './passport-queue';
 import { PassportIssue } from './passport-issue';
 import { orderIssue, orderPlan, type OrderHost } from './passport-order';
 import { PassportNumbers } from './passport-numbers';
 import { PassportQueries, choiceMissingIn } from './passport-queries';
-import { buildForest, parseChoices, presentForest, resolveChoices, toNode, type PhraseTreeNode } from '../../common/passport/phrase-tree';
+import { buildForest, parseChoices, presentForest, resolveChoices, toNode, type PhraseTreeNode, type ProductCtx } from '../../common/passport/phrase-tree';
 import { MaterialsSpecRefs, parseMaterialsSpec, type StoredSpec } from '../../common/catalog/materials-table';
 
 @Injectable()
@@ -445,11 +448,12 @@ export class ProductPassportService {
     const [elements, materials, defects, install] = await Promise.all([load('passportElements'), load('passportMaterials'), load('passportDefects'), load('passportInstall')]);
     // воронка (ПВ): выбор по разделам; вариант раздела «Установка» сам ставит способ установки (схемы, рисунки, основание — в нём)
     const forest = await this.forest(cat);
-    const resolved = resolveChoices(forest, p.textChoices as Record<string, string> | undefined);
+    const product = await this.productCtx(p.productId);
+    const resolved = resolveChoices(forest, p.textChoices as Record<string, string> | undefined, product);
     const instRoot = forest.find((r) => r.section === 'installation');
     const instLeaf = instRoot ? resolved.leaves.get(instRoot.id)?.leaf : undefined;
     if (instLeaf?.installTypeId) p.installationTypeId = new Types.ObjectId(instLeaf.installTypeId);
-    const text = buildV2Text({ passport: p, all, own, standards, dicts: { elements, materials, defects, install }, funnel: { forest, choices: p.textChoices as Record<string, string> | undefined } });
+    const text = buildV2Text({ passport: p, all, own, standards, dicts: { elements, materials, defects, install }, funnel: { forest, choices: p.textChoices as Record<string, string> | undefined, product } });
     return { text, instLeaf };
   }
 
@@ -527,6 +531,15 @@ export class ProductPassportService {
   }
 
   // ─── воронка текстов (ПВ 2026-10-25) ─────────────────────────────────────────────────────────────
+  /** Признаки и группы изделия (сама группа и её родители) — по ним тексты, привязанные к признакам/группам, выбираются сами (C028 B2). */
+  private async productCtx(productId: unknown): Promise<ProductCtx | undefined> {
+    if (!productId || !Types.ObjectId.isValid(String(productId))) return undefined;
+    const db = this.connection.db!;
+    const prod = await db.collection('products').findOne({ _id: new Types.ObjectId(String(productId)) }, { projection: { facetValueIds: 1, categoryId: 1 } });
+    if (!prod) return undefined;
+    return { facetValueIds: new Set(((prod.facetValueIds as unknown[]) ?? []).map(String)), groupIds: await groupChain(db, prod.categoryId) };
+  }
+
   /** Дерево текстов, видимое категории (без категории — всё): один расчёт, пока не менялся dict_values. Общий результат — не менять. */
   async forest(category?: string): Promise<PhraseTreeNode[]> {
     const cat = String(category ?? '').trim();
@@ -536,6 +549,12 @@ export class ProductPassportService {
 
   /** GET passports/funnel?category=TRN → { sections: [раздел → варианты → подварианты → текст] }. */
   async funnel(category?: string) { return { sections: presentForest(await this.forest(category)) }; }
+
+  /** GET passports/funnel?category=&group=&f=&q= → шаги воронки создания паспорта (категория → группа → признаки) и изделия (C028, A2). */
+  productFunnel(q: Record<string, unknown>) { return productFunnel(this.connection.db!, q); }
+
+  /** GET showcase/:id/passport-gaps → чего не хватает изделию для паспорта (C028, A3). */
+  gaps(productId: string) { return productGaps(this, this.connection.db!, productId); }
 
   /** Обязательные разделы воронки без выбора → [{ label, key: 'choice:<id раздела>' }]; текст, набранный вручную, раздел закрывает. */
   private async choiceMissing(d: Doc): Promise<Array<{ label: string; key: string }>> {
@@ -626,7 +645,24 @@ export class ProductPassportService {
   }
 
   /** Тексты v2 категории: общая часть + своя версия + дерево «общий / категории / заменяет». ALL — общая часть как «своя» (правится). */
-  async texts(category?: string) {
+  async texts(category?: string, productId?: string) {
+    const base = await this.textsOf(category);
+    return { ...base, phrases: await this.phrasesFor(base.category, productId) };
+  }
+
+  /** A5: готовые тексты категории; с изделием — фразы по его признакам первыми (byFacet), чужие признаки скрыты. */
+  private async phrasesFor(category: string, productId?: string) {
+    const db = this.connection.db!;
+    const prod = productId && Types.ObjectId.isValid(productId) ? await db.collection('products').findOne({ _id: new Types.ObjectId(productId) }, { projection: { facetValueIds: 1, categoryId: 1 } }) : null;
+    if (productId && !prod) throw new NotFoundException('Изделие не найдено');
+    const raw = await db.collection('dict_values').find({ dict: 'passportPhrases', deletedAt: null, $or: [{ facetValueIds: { $exists: true } }, { groupIds: { $exists: true } }] }, { projection: { facetValueIds: 1, groupIds: 1 } }).toArray();
+    const ids = (r: Record<string, unknown>, k: string) => ((r[k] as unknown[]) ?? []).map(String);
+    const bound = new Map(raw.map((r) => [String(r._id), ids(r, 'facetValueIds')]));
+    const boundGroups = new Map(raw.map((r) => [String(r._id), ids(r, 'groupIds')]));
+    return facetPhrases(await this.forest(category === 'ALL' ? undefined : category), bound, prod ? new Set(ids(prod, 'facetValueIds')) : null, boundGroups, prod ? await groupChain(db, prod.categoryId) : new Set());
+  }
+
+  private async textsOf(category?: string) {
     const cat = normalizeCategory(category);
     const allV2 = await this.v2All();
     if (cat === 'ALL') {

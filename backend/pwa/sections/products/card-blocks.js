@@ -5,6 +5,7 @@ import { go } from '../../core/router.js';
 import { button as kitButton, row as kitRow, section, toast, toastError } from '../../ui/kit/index.js';
 import { suggestLink } from '../../ui/composition-suggest.js';
 import { clearNoteWarning, resetPdCategory } from './data.js';
+import { openPassportFunnel } from '../passports/funnel/open.js';
 
 /* Блоки правой панели изделия (вид): примечание-предупреждение, состав, документация, «В заказах», категория паспорта.
  * ПМ-1 (2026-11-06): каждый блок — свёрнутая секция kit.section с числом; пустой — одна строка внутри. */
@@ -69,7 +70,7 @@ export function compositionBlock(r) {
 // «Паспорта» (БЗ-5): выпущенные паспорта этого изделия — по ссылке или по названию
 export function passportsBlock(r) {
   const p = r.passports;
-  const tpl = h('div', null, kitButton({ label: 'Шаблон паспорта', kind: 'primary', size: 'S', onClick: () => go('docs', { tab: 'templates', of: 'doctpl', open: r.id }) }));
+  const tpl = h('div', null, session.canEdit && session.seesDocs() ? kitButton({ label: 'Создать паспорт', kind: 'primary', size: 'S', title: 'Только недостающее — и PDF', onClick: () => openPassportFunnel({ productId: r.id }) }) : null, kitButton({ label: 'Шаблон паспорта', size: 'S', onClick: () => go('docs', { tab: 'templates', of: 'doctpl', open: r.id }) }));
   if (!p?.total) return section({ title: 'Документация', tone: 'neutral', count: 0, body: [none('Паспортов пока нет. В шаблоне видно, что собрано и чего не хватает.'), tpl] });
   return section({ title: 'Документация', tone: 'neutral', count: p.total, body: [tpl,
     h('ul', { class: 'timeline' }, ...p.items.map((x) => h('li', null,

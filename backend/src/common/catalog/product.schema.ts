@@ -39,6 +39,8 @@ export class Product {
   @Prop() description?: string;
   @Prop() notes?: string;
   @Prop({ type: [Types.ObjectId], ref: 'Photo', default: [] }) photoIds!: Types.ObjectId[];
+  /** C028: признаки продукции (значения справочника productFacetValues) для паспорта «воронкой». Только data-core; CRM поле не читает; индекс — scripts/ensure-indexes.js. */
+  @Prop({ type: [Types.ObjectId], default: undefined }) facetValueIds?: Types.ObjectId[];
   /** WAVE-NX-CATALOG-PHOTOS P2: главное фото (обложка) — обязано быть в photoIds (validate в service). */
   @Prop({ type: Types.ObjectId, ref: 'Photo', default: null }) mainPhotoId?: Types.ObjectId | null;
   @Prop({ type: ProdDimensionsSchemaFactory }) dimensions?: { length?: number; width?: number; height?: number; unit?: string };

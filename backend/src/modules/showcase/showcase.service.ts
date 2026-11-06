@@ -49,6 +49,16 @@ const presentDimensions = (v: unknown) => {
   const n = (k: string) => (Number(d[k]) > 0 ? Number(d[k]) : null);
   return { length: n('length'), width: n('width'), height: n('height'), unit: String(d.unit || 'мм') };
 };
+/** Признаки изделия из тела запроса: список id; каждый — живое значение справочника productFacetValues (иначе 400). */
+async function facetIds(db: import('mongoose').mongo.Db, v: unknown): Promise<Types.ObjectId[]> {
+  if (v === null || v === '') return [];
+  if (!Array.isArray(v)) throw new BadRequestException('Признаки: ожидается список id значений');
+  const ids = [...new Set(v.map(String))];
+  if (!ids.every((x) => Types.ObjectId.isValid(x) && x.length === 24)) throw new BadRequestException('Признаки: некорректный id значения');
+  const oids = ids.map((x) => new Types.ObjectId(x));
+  if (oids.length && (await db.collection('dict_values').countDocuments({ dict: 'productFacetValues', deletedAt: null, _id: { $in: oids } })) !== oids.length) throw new BadRequestException('Признак не найден в справочнике — выберите значение из списка');
+  return oids;
+}
 /** Точное совпадение названия без регистра и лишних пробелов. */
 const sameName = (name: string) => new RegExp('^\\s*' + escapeRe(name).replace(/\s+/g, '\\s+') + '\\s*$', 'i');
 
@@ -114,7 +124,7 @@ export class ShowcaseService {
         // характеристики и тексты для паспорта (ФИ2) — поля общей схемы CRM, читаем как есть
         unit: String(d.unit ?? 'шт'), dimensions: presentDimensions(d.dimensions), weightKg: Number(d.weightKg) > 0 ? Number(d.weightKg) : null,
         ralCode: (d.ralCode as string) || null, purpose: (d.purpose as string) || null, installation: (d.installation as string) || null,
-        passportsCount: ppN.get(String(d._id)) ?? 0, designerId: d.designerId ? String(d.designerId) : null,
+        facetValueIds: ((d.facetValueIds as Types.ObjectId[]) ?? []).map(String), passportsCount: ppN.get(String(d._id)) ?? 0, designerId: d.designerId ? String(d.designerId) : null,
         canPassport: !!pp.effective, missing: pp.effective ? [] : ['Нет категории паспорта — заполните в «Документация → Шаблоны»'], ppCategory: pp.effective?.code ?? null, ppSource: pp.effective?.source ?? null, ppOwn: pp.own, ppInherited: pp.inherited };
     });
   }
@@ -324,6 +334,8 @@ export class ShowcaseService {
     }
     // МИ.2: материалы изделия таблицей — новое поле data-core (CRM не читает); ссылки только на справочники; пусто — null
     if (dto.materialsSpec !== undefined) { const sp = parseMaterialsSpec(dto.materialsSpec); await this.mi.check(sp); set.materialsSpec = sp; }
+    // C028: признаки продукции — только значения справочника «Значения признаков»
+    if (dto.facetValueIds !== undefined) set.facetValueIds = await facetIds(this.db, dto.facetValueIds);
     if (Array.isArray(dto.photoIds)) set.photoIds = (dto.photoIds as string[]).filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
     return set;
   }

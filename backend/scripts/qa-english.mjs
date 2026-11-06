@@ -18,7 +18,7 @@ const hashes = [...new Set([...sections, 'money?tab=calendar', 'money?tab=debts'
 const ALLOW = new Set(['ral', 'pdf', 'xlsx', 'csv', 'png', 'jpg', 'jpeg', 'mm', 'cm', 'kg', 'шт', 'ip', 'qr', 'id', 'gost', 'ooo', 'ip', 'pro', 'crm', 'kppd', 'rs', 'dxf', 'dwg', 'cad', 'isbn', 'ph', 'led', 'wifi', 'usb', 'ok', 'a4', 'a3', 'inn', 'kpp', 'ogrn', 'excel', 'esc', 'ctrl', 'enter', 'shift', 'tab', 'wifi']);
 
 const port = 9300 + Math.floor(Math.random() * 500);
-const prof = path.join(dir, 'edge-english-' + port);
+const prof = path.resolve(dir, 'edge-english-' + port); // полный путь (см. qa-smoke.mjs)
 const br = spawn(process.env.EDGE || 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${prof}`, '--no-first-run', 'about:blank'], { stdio: 'ignore' });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

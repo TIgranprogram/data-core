@@ -10994,6 +10994,102 @@
         ]
       }
     },
+    "/finance/by-articles": {
+      "get": {
+        "operationId": "FinanceController_byArticles",
+        "parameters": [
+          {
+            "name": "salesOrderId",
+            "required": false,
+            "in": "query",
+            "description": "Объект — заказ заказчика (для mode=object)",
+            "schema": {}
+          },
+          {
+            "name": "mode",
+            "required": false,
+            "in": "query",
+            "description": "company (вся фирма, умолч.) | object",
+            "schema": {}
+          },
+          {
+            "name": "org",
+            "required": false,
+            "in": "query",
+            "description": "all | СИЮ | ССЮ | id",
+            "schema": {}
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "description": "Год (умолч. текущий)",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Деньги"
+        ]
+      }
+    },
+    "/finance/by-articles/ops": {
+      "get": {
+        "operationId": "FinanceController_byArticlesOps",
+        "parameters": [
+          {
+            "name": "salesOrderId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "mode",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "org",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "month",
+            "required": false,
+            "in": "query",
+            "description": "ГГГГ-ММ; пусто — весь год",
+            "schema": {}
+          },
+          {
+            "name": "articleId",
+            "required": true,
+            "in": "query",
+            "description": "id подстатьи / статьи | none | income | expense | unallocated",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Деньги"
+        ]
+      }
+    },
     "/finance/settings": {
       "get": {
         "operationId": "FinanceController_settings",
@@ -11041,8 +11137,7 @@
         },
         "tags": [
           "Деньги"
-        ],
-        "summary": "Что не попало в расчёт; noArticle — оплачено без статьи расхода"
+        ]
       }
     },
     "/payroll/summary": {
@@ -11199,6 +11294,131 @@
         },
         "tags": [
           "ФОТ"
+        ]
+      }
+    },
+    "/expense-articles": {
+      "get": {
+        "operationId": "ExpenseArticlesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Статьи расходов"
+        ]
+      }
+    },
+    "/expenses": {
+      "get": {
+        "operationId": "ExpensesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Прочие расходы"
+        ]
+      },
+      "post": {
+        "operationId": "ExpensesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateExpenseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Прочие расходы"
+        ]
+      }
+    },
+    "/expenses/{id}": {
+      "get": {
+        "operationId": "ExpensesController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Прочие расходы"
+        ]
+      },
+      "patch": {
+        "operationId": "ExpensesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateExpenseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Прочие расходы"
+        ]
+      },
+      "delete": {
+        "operationId": "ExpensesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Прочие расходы"
         ]
       }
     },
@@ -15233,10 +15453,52 @@
         "operationId": "ProductPassportController_funnel",
         "parameters": [
           {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "C028: поиск по всем изделиям (название, артикул); шаги не сужают",
+            "schema": {}
+          },
+          {
+            "name": "f",
+            "required": false,
+            "in": "query",
+            "description": "C028: id значений признаков через запятую; none:<id или код признака> — изделия без значения",
+            "schema": {}
+          },
+          {
+            "name": "group",
+            "required": false,
+            "in": "query",
+            "description": "C028: id группы изделий",
+            "schema": {}
+          },
+          {
             "name": "category",
             "required": false,
             "in": "query",
             "description": "Код категории паспорта: TRN, WRK, BLG, DIO, DSP",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/showcase/{id}/passport-gaps": {
+      "get": {
+        "operationId": "ProductPassportController_passportGaps",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
             "schema": {
               "type": "string"
             }
@@ -15326,6 +15588,15 @@
                 "WRK",
                 "BLG"
               ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "required": false,
+            "in": "query",
+            "description": "C028: изделие — в phrases фразы по его признакам идут первыми (byFacet)",
+            "schema": {
               "type": "string"
             }
           }
@@ -16198,312 +16469,6 @@
             "description": ""
           }
         }
-      }
-    },
-    "/finance/by-articles": {
-      "get": {
-        "operationId": "FinanceController_byArticles",
-        "summary": "Деньги по статьям: статья → подстатья × месяцы года (факт)",
-        "parameters": [
-          {
-            "name": "year",
-            "required": false,
-            "in": "query",
-            "description": "Год (умолч. текущий)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "org",
-            "required": false,
-            "in": "query",
-            "description": "all | СИЮ | ССЮ | id",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "mode",
-            "required": false,
-            "in": "query",
-            "description": "company (умолч.) | object",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "salesOrderId",
-            "required": false,
-            "in": "query",
-            "description": "Объект — заказ заказчика (для mode=object)",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "{ year, months, scope, head{income,expense,profit,totals}, rows[{id,name,level,values[12],total,pct,children}], unassigned, unallocated?, result{values,cumulative,ratio} }"
-          }
-        },
-        "tags": [
-          "Деньги"
-        ]
-      }
-    },
-    "/finance/by-articles/ops": {
-      "get": {
-        "operationId": "FinanceController_byArticlesOps",
-        "summary": "Операции одной ячейки «По статьям»",
-        "parameters": [
-          {
-            "name": "articleId",
-            "required": true,
-            "in": "query",
-            "description": "id подстатьи / статьи | none | income | expense | unallocated",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "month",
-            "required": false,
-            "in": "query",
-            "description": "ГГГГ-ММ; пусто — весь год",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "year",
-            "required": false,
-            "in": "query",
-            "description": "",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "org",
-            "required": false,
-            "in": "query",
-            "description": "",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "mode",
-            "required": false,
-            "in": "query",
-            "description": "",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "salesOrderId",
-            "required": false,
-            "in": "query",
-            "description": "",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "{ items: Op[] (у Op: articleId, salesOrderId, source), total }"
-          }
-        },
-        "tags": [
-          "Деньги"
-        ]
-      }
-    },
-    "/expense-articles": {
-      "get": {
-        "operationId": "ExpenseArticlesController_list",
-        "summary": "Статьи расходов: дерево статья → подстатьи",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "{ items:[{id,name,code?,sortOrder,children:[{id,name,code?,sortOrder,categoryIds}]}], total }"
-          }
-        },
-        "tags": [
-          "Статьи расходов"
-        ]
-      }
-    },
-    "/expenses": {
-      "get": {
-        "operationId": "ExpensesController_list",
-        "summary": "Прочие расходы: список; sum — сумма по всему фильтру",
-        "parameters": [
-          {
-            "name": "from",
-            "required": false,
-            "in": "query",
-            "description": "ГГГГ-ММ-ДД",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "to",
-            "required": false,
-            "in": "query",
-            "description": "ГГГГ-ММ-ДД",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "companyId",
-            "required": false,
-            "in": "query",
-            "description": "",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "articleId",
-            "required": false,
-            "in": "query",
-            "description": "подстатья или статья (со всеми подстатьями)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "salesOrderId",
-            "required": false,
-            "in": "query",
-            "description": "",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "description": "",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "description": "",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "description": "",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "{ items:[{id,date,amount,companyId,companyName,articleId,articleName,parentArticleName,salesOrderId,salesOrderNo,title,counterpartyName,docNo,fileIds,files[{id,name,url}],comment}], total, page, limit, sum }"
-          }
-        },
-        "tags": [
-          "Прочие расходы"
-        ]
-      },
-      "post": {
-        "operationId": "ExpensesController_create",
-        "summary": "Добавить расход: { date, amount, companyId, articleId, title, salesOrderId?, counterpartyName?, docNo?, fileIds?, comment? }",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Прочие расходы"
-        ]
-      }
-    },
-    "/expenses/{id}": {
-      "get": {
-        "operationId": "ExpensesController_get",
-        "summary": "Расход (тот же вид, что в списке)",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Прочие расходы"
-        ]
-      },
-      "patch": {
-        "operationId": "ExpensesController_update",
-        "summary": "Изменить расход (любые поля тела создания)",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Прочие расходы"
-        ]
-      },
-      "delete": {
-        "operationId": "ExpensesController_remove",
-        "summary": "Удалить расход (мягко)",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Прочие расходы"
-        ]
       }
     }
   },
@@ -17842,9 +17807,9 @@
             "type": "string"
           },
           "articleId": {
-            "type": "string",
-            "nullable": true,
-            "description": "Статья расхода (id подстатьи из /expense-articles); null или \"\" — снять"
+            "type": "object",
+            "description": "Статья расхода (id подстатьи из /expense-articles); null или \"\" — снять",
+            "nullable": true
           },
           "categoryName": {
             "type": "string",
@@ -19842,6 +19807,101 @@
             "type": "object",
             "description": "Наша компания (organizations); null — снять",
             "nullable": true
+          }
+        }
+      },
+      "CreateExpenseDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "Дата оплаты ГГГГ-ММ-ДД"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Сумма, ₽ (больше нуля)"
+          },
+          "companyId": {
+            "type": "string",
+            "description": "Наша фирма (organizations.id)"
+          },
+          "articleId": {
+            "type": "string",
+            "description": "Подстатья (expense-articles children.id)"
+          },
+          "title": {
+            "type": "string"
+          },
+          "salesOrderId": {
+            "type": "string",
+            "description": "Объект — заказ заказчика (salesorders.id); \"\" — без объекта"
+          },
+          "counterpartyName": {
+            "type": "string"
+          },
+          "docNo": {
+            "type": "string"
+          },
+          "fileIds": {
+            "description": "Файлы счёта (id из загрузки файлов)",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "comment": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "amount",
+          "companyId",
+          "articleId",
+          "title"
+        ]
+      },
+      "UpdateExpenseDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "Дата оплаты ГГГГ-ММ-ДД"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Сумма, ₽ (больше нуля)"
+          },
+          "companyId": {
+            "type": "string",
+            "description": "Наша фирма (organizations.id)"
+          },
+          "articleId": {
+            "type": "string",
+            "description": "Подстатья (expense-articles children.id)"
+          },
+          "title": {
+            "type": "string"
+          },
+          "salesOrderId": {
+            "type": "string",
+            "description": "Объект — заказ заказчика (salesorders.id); \"\" — без объекта"
+          },
+          "counterpartyName": {
+            "type": "string"
+          },
+          "docNo": {
+            "type": "string"
+          },
+          "fileIds": {
+            "description": "Файлы счёта (id из загрузки файлов)",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "comment": {
+            "type": "string"
           }
         }
       },

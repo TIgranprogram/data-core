@@ -6,6 +6,7 @@ import { normSize } from '../../common/catalog/materials-text';
 import { personWorkTypeIds, workTypeFields } from '../../common/catalog/person-work-types';
 import { passportPhrasesDef } from './dicts.passport-phrases';
 import { productGroupDefs } from './dicts.product-groups';
+import { productFacetDefs } from './dicts.product-facets';
 import { expenseArticlesDef } from './dicts.expense-articles';
 import { DICT_META } from './dicts.meta';
 type Db = mongo.Db;
@@ -827,6 +828,7 @@ const BASE: DictBase[] = [
     ...ppUsage({ pp: 'installationTypeId', dicts: [{ dict: 'passportDefects', field: 'applies', title: 'Дефект' }] }),
     editRoles: ['director'],
   },
+  ...productFacetDefs(simpleList),
   passportPhrasesDef({
     // ТЭ (2026-10-23) → ПВ (2026-10-25): тексты разделов паспорта деревом «раздел → варианты → подварианты» (passportPhrasesDef:
     // поля, проверки, «Используется»). В паспорте и изделии выбирается из дерева воронкой; выданные паспорта хранят свой текст
@@ -875,6 +877,7 @@ export const DICT_UI: Record<string, { newTitle: string; nameLabel?: string }> =
   passportElements: { newTitle: 'Новый функциональный элемент' }, passportMaterials: { newTitle: 'Новый материал или покрытие' },
   passportSortament: { newTitle: 'Новый размер материала', nameLabel: 'Размер (∅89×3, 2, 27×120)' }, passportParts: { newTitle: 'Новая часть изделия' },
   passportDefects: { newTitle: 'Новый дефект' }, passportInstall: { newTitle: 'Новый способ установки' }, passportPhrases: { newTitle: 'Новый текст паспорта' },
+  productFacets: { newTitle: 'Новый признак продукции' }, productFacetValues: { newTitle: 'Новое значение признака' },
   productSeries: { newTitle: 'Новая серия' }, attachmentTypes: { newTitle: 'Новый вид вложений' }, productGroups: { newTitle: 'Новая группа изделий' }, productSections: { newTitle: 'Новый раздел изделий' },
   passportStyle: { newTitle: 'Новый элемент оформления' }, expenseArticles: { newTitle: 'Новая статья расходов' },
 };

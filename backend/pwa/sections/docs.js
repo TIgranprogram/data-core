@@ -13,6 +13,7 @@ import { savePd, products, PD_KEYS } from './products.js';
 import { passportKindDrop } from './product-files.js';
 import { mountOrdersTab } from './docs-orders.js';
 import { mountQueueTab } from './docs-queue.js';
+import { openPassportFunnel } from './passports/funnel/open.js';
 import { buildForm, tabs as kitTabs, badge as kitBadge, segmented, sku as kitSku, link as kitLink, crumbTail, button, enhanceSelect } from '../ui/kit/index.js';
 
 
@@ -249,7 +250,7 @@ export function mountDocs(params, { onChanged } = {}) {
   let inner = null;
   const seg = h('div');
   const body = h('div', { class: 'docs-body' });
-  const el = h('div', { class: 'docs' }, h('div', { class: 'page-head' }, seg), body);
+  const el = h('div', { class: 'docs' }, h('div', { class: 'page-head' }, seg, canTpl() ? button({ label: 'Новый паспорт', kind: 'primary', title: 'Выбрать изделие по шагам и выпустить PDF', onClick: () => openPassportFunnel() }) : null), body);
 
   const drawTabs = () => {
     seg.replaceChildren(kitTabs({ label: 'Паспорта', items: TABS.map(([key, label]) => ({ key, label })), value: tab, onChange: (k) => { if (tab !== k) go('docs', k === 'queue' ? {} : { tab: k }, { replace: true }); } }).el);

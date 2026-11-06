@@ -17,7 +17,7 @@ const sections = [...(main.match(/const NAV = \[(.+?)\];/s)?.[1] ?? '').matchAll
 const hashes = [...new Set([...sections, 'money?tab=calendar', 'money?tab=debts', 'money?tab=forecast', 'docs?tab=queue', 'docs?tab=orders', 'docs?tab=archive', 'stock', 'movements', 'dicts', 'trash', 'history', 'help'])];
 
 const port = 9300 + Math.floor(Math.random() * 500);
-const prof = path.join(dir, 'edge-smoke-' + port);
+const prof = path.resolve(dir, 'edge-smoke-' + port); // полный путь: относительный Edge ищет от своей папки и падает окном «Не удалось создать каталог данных»
 const br = spawn(process.env.EDGE || 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${prof}`, '--no-first-run', 'about:blank'], { stdio: 'ignore' });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
