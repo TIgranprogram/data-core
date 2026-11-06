@@ -1,0 +1,537 @@
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="true">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+#dc-kartoteka {
+  --dcm-font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  color-scheme: light dark;
+
+  /* Токены проекта data-core (tokens.css), светлая / тёмная тема */
+  --dcm-bg: light-dark(#f1f4f3, #0f131a);
+  --dcm-surface: light-dark(#ffffff, #171c25);
+  --dcm-surface-2: light-dark(#f6f9f8, #1c222d);
+  --dcm-surface-3: light-dark(#e9eeec, #252c39);
+  --dcm-photo-bg: light-dark(#f6f7f9, #f6f7f9);
+  --dcm-text: light-dark(#17201c, #d3dbd8);
+  --dcm-muted: light-dark(#5d6964, #97a5a0);
+  --dcm-border: light-dark(#e0e6e3, #2a3140);
+  --dcm-border-strong: light-dark(#cad4cf, #3b4557);
+  --dcm-side: light-dark(#171c26, #0b0e14);
+  --dcm-side-2: light-dark(#222938, #1b2130);
+  --dcm-side-text: light-dark(#aeb5c2, #a3b8ae);
+  --dcm-side-head: light-dark(#d4ae4f, #c9ab5c);
+  --dcm-gold: light-dark(#d9ab33, #e3b74a);
+  --dcm-gold-soft: light-dark(#f8eccb, rgba(227,183,74,.16));
+  --dcm-primary: light-dark(#0f7d55, #3fcf8e);
+  --dcm-on-primary: light-dark(#ffffff, #06140d);
+  --dcm-primary-soft: light-dark(#e2f3ea, rgba(63,207,142,.15));
+  --dcm-danger: light-dark(#c2372d, #f0756d);
+  --dcm-ok: light-dark(#1f7a3f, #57c785);
+  --dcm-warn: light-dark(#965700, #eba845);
+  --dcm-info: light-dark(#0b6f8f, #4fbadb);
+  --dcm-heading: light-dark(#0e3b2b, #6fe0b0);
+  --dcm-link: light-dark(#0b7350, #5fd8a4);
+  --dcm-row-hover: light-dark(#f5f9f7, #1d2430);
+  --dcm-row-selected: light-dark(#e9f6ef, rgba(227,183,74,.10));
+  --dcm-sec-supply: light-dark(#9a4f2c, #d9a086);
+  --dcm-sec-stock: light-dark(#1f6e7c, #7fbcc6);
+  --dcm-sec-money: light-dark(#8a4560, #cba0b0);
+  --dcm-sec-orders: light-dark(#66499f, #b5a0dc);
+  --dcm-shadow: light-dark(0 1px 2px rgba(20,26,38,.05), 0 1px 2px rgba(0,0,0,.35));
+  --dcm-radius: 10px; --dcm-radius-sm: 7px;
+  --dcm-s1: 4px; --dcm-s2: 8px; --dcm-s3: 12px; --dcm-s4: 16px; --dcm-s5: 24px;
+
+  font-family: var(--dcm-font);
+  font-size: 14px;
+  color: var(--dcm-text);
+  line-height: 1.45;
+}
+#dc-kartoteka * { box-sizing: border-box; margin: 0; padding: 0; }
+#dc-kartoteka button { font-family: inherit; font-size: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+#dc-kartoteka .num { font-variant-numeric: tabular-nums; }
+
+.dcm-stage { height: 860px; display: flex; flex-direction: column; gap: 10px; }
+
+/* ===== Каркас приложения ===== */
+.dcm-app { flex: 1; min-height: 0; display: flex; background: var(--dcm-bg); border-radius: var(--dcm-radius); overflow: hidden; border: 1px solid var(--dcm-border); }
+
+.dcm-side { width: 248px; flex: none; background: var(--dcm-side); color: var(--dcm-side-text); display: flex; flex-direction: column; padding: 12px 12px 10px; gap: 1px; overflow: hidden; }
+.dcm-side .logo { display: flex; gap: 8px; align-items: center; padding: 2px 8px 10px; color: #fff; }
+.dcm-side .logo b { font-size: 13.5px; font-weight: 650; display: block; }
+.dcm-side .logo small { color: var(--dcm-side-text); font-size: 11px; display: block; }
+.dcm-side .logo .cube { width: 26px; height: 26px; border-radius: 7px; background: linear-gradient(135deg, var(--dcm-gold), #b8860b); display: grid; place-items: center; color: #171c26; }
+.dcm-side .grp { font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--dcm-side-head); font-weight: 700; padding: 9px 8px 4px; }
+.dcm-side a { display: flex; align-items: center; gap: 9px; padding: 5px 10px; border-radius: var(--dcm-radius-sm); color: var(--dcm-side-text); text-decoration: none; font-size: 13px; }
+.dcm-side a i { width: 16px; height: 16px; flex: none; }
+.dcm-side a:hover { background: var(--dcm-side-2); color: #fff; }
+.dcm-side a.on { background: var(--dcm-side-2); color: #fff; }
+/* «Видение»: активный пункт — мягкий фон цвета раздела + полоса слева (как в приложении) */
+.vision .dcm-side a.on { background: rgba(217, 160, 134, .16); box-shadow: inset 3px 0 0 var(--dcm-sec-supply); }
+/* «Сейчас»: у заголовков групп — цветная точка раздела (как на стенде) */
+.now .dcm-side .grp { position: relative; padding-left: 22px; }
+.now .dcm-side .grp::before { content: ''; position: absolute; left: 9px; top: 55%; transform: translateY(-50%); width: 6px; height: 6px; border-radius: 99px; background: var(--dcm-gdot, transparent); }
+.now .grp.g-orders { --dcm-gdot: var(--dcm-sec-orders); }
+.now .grp.g-products { --dcm-gdot: var(--dcm-sec-products); }
+.now .grp.g-stock { --dcm-gdot: var(--dcm-sec-stock); }
+.now .grp.g-supply { --dcm-gdot: var(--dcm-sec-supply); }
+.now .grp.g-money { --dcm-gdot: var(--dcm-sec-money); }
+.dcm-side a .cnt { margin-left: auto; background: rgba(255,255,255,.12); border-radius: 99px; padding: 0 7px; font-size: 11px; }
+.dcm-side .side-foot { margin-top: auto; font-size: 11px; color: var(--dcm-side-text); opacity: .75; padding: 10px 8px 0; border-top: 1px solid rgba(255,255,255,.08); }
+
+.dcm-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.dcm-top { height: 52px; flex: none; display: flex; align-items: center; gap: 14px; padding: 0 18px; border-bottom: 1px solid var(--dcm-border); background: var(--dcm-surface); }
+.dcm-top .search { flex: 1; max-width: 430px; display: flex; align-items: center; gap: 8px; background: var(--dcm-surface-2); border: 1px solid var(--dcm-border); border-radius: var(--dcm-radius-sm); padding: 6px 10px; color: var(--dcm-muted); font-size: 13px; }
+.dcm-top .kbd { border: 1px solid var(--dcm-border-strong); border-radius: 4px; padding: 0 5px; font-size: 11px; }
+.dcm-top .ico { width: 32px; height: 32px; border-radius: var(--dcm-radius-sm); display: grid; place-items: center; color: var(--dcm-muted); }
+.dcm-top .ico:hover { background: var(--dcm-surface-2); color: var(--dcm-text); }
+.dcm-top .ava { margin-left: 6px; width: 30px; height: 30px; border-radius: 99px; background: var(--dcm-gold); color: #171c26; font-weight: 700; font-size: 12px; display: grid; place-items: center; }
+
+.dcm-page { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 14px 18px 0; }
+.dcm-crumbs { font-size: 12px; color: var(--dcm-muted); display: flex; gap: 6px; align-items: center; }
+.dcm-crumbs b { color: var(--dcm-text); font-weight: 500; }
+.dcm-phead { display: flex; align-items: center; gap: 12px; padding: 8px 0 4px; }
+.dcm-phead h1 { font-size: 24px; font-weight: 700; color: var(--dcm-heading); }
+.dcm-phead .cnt2 { color: var(--dcm-muted); font-size: 14px; }
+.dcm-phead .grow { flex: 1; }
+
+.dcm-btn { display: inline-flex; align-items: center; gap: 7px; border-radius: var(--dcm-radius-sm); padding: 0 13px; height: 34px; font-size: 13.5px; font-weight: 500; border: 1px solid var(--dcm-border-strong); background: var(--dcm-surface); color: var(--dcm-text); }
+.dcm-btn:hover { background: var(--dcm-surface-2); }
+.dcm-btn.pri { background: var(--dcm-primary); border-color: transparent; color: var(--dcm-on-primary); font-weight: 600; }
+.dcm-btn.pri:hover { filter: brightness(1.06); }
+.dcm-btn.ghost { border-color: transparent; background: none; color: var(--dcm-link); }
+.dcm-btn.ghost:hover { background: var(--dcm-surface-2); }
+.dcm-btn.sm { height: 27px; padding: 0 10px; font-size: 12.5px; }
+
+.dcm-tabs { display: flex; gap: 18px; border-bottom: 1px solid var(--dcm-border); margin-top: 6px; }
+.dcm-tabs button { padding: 8px 2px 9px; color: var(--dcm-muted); font-size: 13.5px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.dcm-tabs button.on { color: var(--dcm-text); font-weight: 600; border-color: var(--dcm-primary); }
+
+.dcm-badge { display: inline-flex; align-items: center; gap: 5px; border-radius: 99px; padding: 1px 9px; font-size: 11.5px; font-weight: 500; background: var(--dcm-surface-3); color: var(--dcm-muted); }
+.dcm-badge .dot { width: 7px; height: 7px; border-radius: 99px; }
+.dcm-badge.ok { background: light-dark(#e3f3e8, rgba(87,199,133,.14)); color: var(--dcm-ok); }
+.dcm-badge.warn { background: light-dark(#fcf0dc, rgba(235,168,69,.14)); color: var(--dcm-warn); }
+.dcm-badge.dim { background: var(--dcm-surface-2); color: var(--dcm-muted); }
+
+.dcm-a { color: var(--dcm-link); text-decoration: underline dotted; text-underline-offset: 3px; }
+.dcm-a:hover { text-decoration-style: solid; }
+
+/* Миниатюра-заглушка (без внешних картинок) */
+.dcm-pic { background: var(--dcm-photo-bg); border: 1px solid var(--dcm-border); border-radius: var(--dcm-radius-sm); display: grid; place-items: center; color: var(--dcm-muted); overflow: hidden; flex: none; }
+.dcm-pic svg { opacity: .55; }
+
+/* Маркеры-номера для легенды */
+.dcm-mark { position: absolute; width: 18px; height: 18px; border-radius: 99px; font-size: 11px; font-weight: 700; display: grid; place-items: center; color: #fff; box-shadow: 0 0 0 2px var(--dcm-bg); z-index: 5; }
+.dcm-mark.bad { background: var(--dcm-danger); }
+.dcm-mark.good { background: var(--dcm-ok); }
+
+.dcm-legend { flex: none; display: flex; gap: 18px; flex-wrap: wrap; align-items: center; background: var(--dcm-surface); border: 1px solid var(--dcm-border); border-radius: var(--dcm-radius); padding: 9px 14px; font-size: 12.5px; color: var(--dcm-muted); }
+.dcm-legend .m { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 99px; color: #fff; font-size: 10.5px; font-weight: 700; margin-right: 6px; }
+.dcm-legend .m.bad { background: var(--dcm-danger); }
+.dcm-legend .m.good { background: var(--dcm-ok); }
+
+/* ================= ВАРИАНТ «ВИДЕНИЕ» ================= */
+.vision .dcm-body { flex: 1; min-height: 0; display: flex; gap: 16px; padding: 12px 0 16px; }
+.vision .dcm-list { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; overflow: hidden; position: relative; }
+
+.vrow { position: relative; display: flex; align-items: center; gap: 12px; background: var(--dcm-surface); border: 1px solid var(--dcm-border); border-radius: var(--dcm-radius); padding: 10px 14px 10px 16px; }
+.vrow::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 4px; border-radius: 99px; background: var(--dcm-tone, transparent); }
+.vrow:hover { border-color: var(--dcm-border-strong); }
+.vrow.sel { border-color: var(--dcm-gold); background: var(--dcm-row-selected); }
+.vrow .pic { width: 42px; height: 42px; }
+.vrow .nm { flex: 1; min-width: 0; }
+.vrow .nm b { font-weight: 500; font-size: 14px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vrow .nm small { color: var(--dcm-muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.vrow .figures { display: flex; align-items: center; gap: 10px; flex: none; }
+.vrow .figures .sum { font-size: 14px; font-weight: 600; }
+
+.dcm-panel { width: 470px; flex: none; background: var(--dcm-surface); border: 1px solid var(--dcm-border); border-radius: var(--dcm-radius); display: flex; flex-direction: column; overflow: hidden; }
+.dcm-panel .p-head { padding: 14px 18px 10px; border-bottom: 1px solid var(--dcm-border); }
+.dcm-panel .p-ctx { font-size: 11.5px; color: var(--dcm-muted); display: flex; gap: 6px; align-items: center; }
+.dcm-panel h2 { font-size: 18px; font-weight: 650; color: var(--dcm-heading); margin: 4px 0 6px; line-height: 1.25; }
+.dcm-panel .p-badges { display: flex; gap: 8px; align-items: center; }
+.dcm-panel .p-acts { display: flex; gap: 8px; align-items: center; padding: 12px 18px; }
+.dcm-panel .p-body { flex: 1; min-height: 0; overflow: hidden; padding: 0 18px 14px; display: flex; flex-direction: column; gap: 12px; }
+
+.kcard { border: 1px solid var(--dcm-border); border-radius: var(--dcm-radius); background: var(--dcm-surface); position: relative; }
+.kcard .k-head { display: flex; align-items: baseline; gap: 10px; padding: 10px 14px 8px; }
+.kcard .k-head h3 { font-size: 15px; font-weight: 650; color: var(--dcm-text); }
+.kcard .k-head .k-total { margin-left: auto; font-size: 15px; font-weight: 650; white-space: nowrap; }
+.kcard .k-total small { color: var(--dcm-muted); font-weight: 500; font-size: 12.5px; }
+.kcard .k-label { position: absolute; top: -8px; left: 12px; background: var(--dcm-surface); padding: 0 6px; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--dcm-muted); font-weight: 700; }
+.kcard table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.kcard td { padding: 6px 14px; border-top: 1px solid var(--dcm-border); }
+.kcard tr:first-child td { border-top: none; }
+.kcard td.k { color: var(--dcm-muted); width: 44%; }
+.kcard td.v { font-weight: 500; text-align: right; }
+.kcard td.v .neg { color: var(--dcm-danger); }
+.kcard .k-more { display: block; padding: 6px 14px 9px; color: var(--dcm-link); font-size: 12.5px; border-top: 1px solid var(--dcm-border); }
+
+.kgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.kgrid .kcard.wide { grid-column: 1 / -1; }
+
+.khist { display: flex; align-items: center; gap: 8px; color: var(--dcm-muted); font-size: 12.5px; padding: 9px 14px; border: 1px dashed var(--dcm-border-strong); border-radius: var(--dcm-radius-sm); }
+.khist b { color: var(--dcm-text); font-weight: 600; }
+.khist i { margin-left: auto; }
+
+/* ================= ВАРИАНТ «СЕЙЧАС» ================= */
+.now .dcm-body { flex: 1; min-height: 0; display: flex; gap: 14px; padding: 12px 0 16px; overflow: hidden; position: relative; }
+.now .col { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--dcm-surface-2); border-radius: var(--dcm-radius); padding: 10px; overflow: hidden; }
+.now .col.filters { flex: none; width: 208px; position: relative; }
+.now .col-head { display: flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 650; padding: 2px 4px 10px; }
+.now .col-head .dot { width: 8px; height: 8px; border-radius: 99px; }
+.now .col-head .nums { margin-left: auto; font-size: 12.5px; font-weight: 400; color: var(--dcm-muted); white-space: nowrap; }
+.now .f-group { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--dcm-muted); font-weight: 700; padding: 10px 4px 6px; }
+.now .f-input { border: 1px solid var(--dcm-border); background: var(--dcm-surface); border-radius: var(--dcm-radius-sm); padding: 6px 9px; font-size: 12.5px; color: var(--dcm-muted); margin-bottom: 8px; }
+.now .f-chip { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--dcm-text); padding: 5px 6px; border-radius: 6px; }
+.now .f-chip span { color: var(--dcm-muted); }
+.now .f-chip.on { background: var(--dcm-row-selected); }
+.now .f-reset { color: var(--dcm-link); font-size: 12.5px; padding: 8px 6px 0; }
+
+.now .qcard { background: var(--dcm-surface); border: 1px solid var(--dcm-border); border-radius: var(--dcm-radius); margin-bottom: 10px; overflow: hidden; }
+.now .qcard .bigpic { height: 86px; margin: 8px 8px 0; width: calc(100% - 16px); border-radius: var(--dcm-radius-sm); }
+.now .qcard .q-t { padding: 8px 12px 2px; font-size: 13px; font-weight: 500; line-height: 1.3; }
+.now .qcard .q-m { padding: 0 12px 8px; font-size: 12px; color: var(--dcm-muted); }
+.now .qcard .q-b { display: flex; gap: 6px; padding: 0 8px 8px; }
+.now .qcard .q-b .dcm-btn { flex: 1; justify-content: center; height: 30px; font-size: 12.5px; }
+.now .crm { display: flex; align-items: center; gap: 8px; }
+.now .crm .cbx { width: 16px; height: 16px; border: 1.5px solid var(--dcm-border-strong); border-radius: 4px; flex: none; }
+.now .crm .t { flex: 1; font-size: 12.5px; line-height: 1.3; }
+.now .crm .t small { display: block; color: var(--dcm-muted); }
+.now .cutcol { position: relative; }
+.now .cutcol::after { content: ''; position: absolute; top: 0; right: -2px; bottom: 0; width: 26px; background: linear-gradient(to right, transparent, var(--dcm-bg)); pointer-events: none; }
+
+@media (max-width: 980px) {
+  .dcm-panel, .vision .dcm-panel { width: 100%; }
+  .vision .dcm-body { flex-direction: column; overflow: hidden; }
+  .dcm-side { display: none; }
+  .kgrid { grid-template-columns: 1fr; }
+}
+</style>
+
+<div id="dc-kartoteka">
+  <div class="viz-carousel" aria-label="Экран «Заявки»: видение и текущий вид" data-previous-label="Назад" data-next-label="Вперёд">
+
+    <!-- ============ ВАРИАНТ 1: ВИДЕНИЕ ============ -->
+    <section data-variant="Видение · картотека" aria-label="Видение: картотека" class="vision">
+      <div class="dcm-stage">
+        <div class="dcm-app">
+          <nav class="dcm-side" aria-label="Меню">
+            <div class="logo"><span class="cube"><i data-lucide="box" aria-hidden="true"></i></span><span><b>Рабочее место</b><small>единая база</small></span></div>
+            <a href="#v"><i data-lucide="sun-medium" aria-hidden="true"></i>Сегодня</a>
+            <div class="grp">Производство</div>
+            <a href="#v"><i data-lucide="factory" aria-hidden="true" style="color:var(--dcm-sec-orders)"></i>Заказы</a>
+            <a href="#v"><i data-lucide="pen-tool" aria-hidden="true" style="color:var(--dcm-sec-orders)"></i>Проектирование</a>
+            <a href="#v"><i data-lucide="hammer" aria-hidden="true" style="color:var(--dcm-sec-orders)"></i>В работе</a>
+            <div class="grp">Продукция</div>
+            <a href="#v"><i data-lucide="boxes" aria-hidden="true" style="color:var(--dcm-sec-products)"></i>Продукция</a>
+            <a href="#v"><i data-lucide="file-text" aria-hidden="true" style="color:var(--dcm-sec-products)"></i>КП</a>
+            <a href="#v"><i data-lucide="folder-open" aria-hidden="true" style="color:var(--dcm-sec-products)"></i>Документация</a>
+            <div class="grp">Склад</div>
+            <a href="#v"><i data-lucide="package" aria-hidden="true" style="color:var(--dcm-sec-stock)"></i>Остатки <span class="cnt">1</span></a>
+            <a href="#v"><i data-lucide="smartphone" aria-hidden="true" style="color:var(--dcm-sec-stock)"></i>Склад · мобильный</a>
+            <a href="#v"><i data-lucide="arrow-left-right" aria-hidden="true" style="color:var(--dcm-sec-stock)"></i>Движения</a>
+            <div class="grp">Снабжение</div>
+            <a href="#v" class="on"><i data-lucide="clipboard-list" aria-hidden="true" style="color:var(--dcm-sec-supply)"></i>Заявки <span class="cnt">10</span></a>
+            <a href="#v"><i data-lucide="truck" aria-hidden="true" style="color:var(--dcm-sec-supply)"></i>Каталог поставщиков</a>
+            <a href="#v"><i data-lucide="file-signature" aria-hidden="true" style="color:var(--dcm-sec-supply)"></i>Договоры</a>
+            <div class="grp">Деньги</div>
+            <a href="#v"><i data-lucide="wallet" aria-hidden="true" style="color:var(--dcm-sec-money)"></i>Платёжный календарь</a>
+            <a href="#v"><i data-lucide="receipt" aria-hidden="true" style="color:var(--dcm-sec-money)"></i>ФОТ</a>
+            <div class="grp">Управление</div>
+            <a href="#v"><i data-lucide="users" aria-hidden="true"></i>Сотрудники</a>
+            <a href="#v"><i data-lucide="settings" aria-hidden="true"></i>Настройки</a>
+            <div class="side-foot">Версия от 05.11.2026 · Default Administrator</div>
+          </nav>
+
+          <div class="dcm-main">
+            <header class="dcm-top">
+              <i data-lucide="chevron-left" aria-hidden="true"></i>
+              <i data-lucide="chevron-right" aria-hidden="true" style="opacity:.35"></i>
+              <div class="search"><i data-lucide="search" aria-hidden="true" style="width:14px;height:14px"></i>Найти заявку, позицию, поставщика… <span class="kbd">/</span></div>
+              <span style="flex:1"></span>
+              <button class="ico" id="dcm-theme" aria-label="Переключить тему"><i data-lucide="moon-star" aria-hidden="true"></i></button>
+              <span class="ico"><i data-lucide="bell" aria-hidden="true"></i></span>
+              <span class="ico"><i data-lucide="circle-help" aria-hidden="true"></i></span>
+              <span class="ava">ДА</span>
+            </header>
+
+            <div class="dcm-page">
+              <div class="dcm-crumbs">Снабжение <i data-lucide="chevron-right" aria-hidden="true" style="width:12px"></i> <b>Заявки</b> <i data-lucide="chevron-right" aria-hidden="true" style="width:12px"></i> карточка</div>
+              <div class="dcm-phead">
+                <h1>Заявки</h1><span class="cnt2 num">10 · оплачено 9</span>
+                <span class="grow"></span>
+                <button class="dcm-btn sm ghost">⇩ Excel</button>
+                <button class="dcm-btn pri"><i data-lucide="plus" aria-hidden="true" style="width:15px"></i>Заявка</button>
+              </div>
+              <div class="dcm-tabs" role="tablist" aria-label="Раздел">
+                <button class="on" role="tab" aria-selected="true">Заявки</button>
+                <button role="tab" aria-selected="false">Счета</button>
+              </div>
+
+              <div class="dcm-body">
+                <!-- Список: строки-карточки, итоги справа, тон-полоса -->
+                <div class="dcm-list">
+                  <div class="vrow" style="--dcm-tone: var(--dcm-sec-supply)">
+                    <span class="dcm-pic pic" style="width:42px;height:42px"><i data-lucide="cylinder" aria-hidden="true"></i></span>
+                    <span class="nm"><b>Труба профильная 40×40×2, 6 м</b><small>№158 · ПРОММЕТИЗ · нужна к 12.11.2026</small></span>
+                    <span class="figures"><span class="dcm-badge dim num">3 шт</span><span class="sum num">12 400,00 ₽</span><button class="dcm-btn sm">Принять</button></span>
+                  </div>
+                  <div class="vrow sel" style="--dcm-tone: var(--dcm-sec-supply)">
+                    <span class="mark good" style="right:-9px; top:-9px">3</span>
+                    <span class="dcm-pic pic" style="width:42px;height:42px"><i data-lucide="cylinder" aria-hidden="true"></i></span>
+                    <span class="nm"><b>Труба профильная 60×40×3, 6 м</b><small>№157 · ПРОММЕТИЗ · нужна к 14.11.2026</small></span>
+                    <span class="figures"><span class="dcm-badge dim num">21 шт</span><span class="sum num">86 100,00 ₽</span><button class="dcm-btn sm">Принять</button></span>
+                  </div>
+                  <div class="vrow" style="--dcm-tone: var(--dcm-warn)">
+                    <span class="dcm-pic pic" style="width:42px;height:42px"><i data-lucide="bolt" aria-hidden="true"></i></span>
+                    <span class="nm"><b>Болт М12×80 оцинк. DIN 933</b><small>№156 · Крепёж-Центр · ждём счёт</small></span>
+                    <span class="figures"><span class="dcm-badge warn num">ниже мин. на 40</span><span class="sum num">—</span><button class="dcm-btn sm">В заказ</button></span>
+                  </div>
+                  <div class="vrow" style="--dcm-tone: var(--dcm-sec-stock)">
+                    <span class="dcm-pic pic" style="width:42px;height:42px"><i data-lucide="layers" aria-hidden="true"></i></span>
+                    <span class="nm"><b>Лист г/к 4 мм Ст3сп</b><small>№155 · ПРОММЕТИЗ · оплачено 02.11</small></span>
+                    <span class="figures"><span class="dcm-badge ok num">принято</span><span class="sum num">48 300,00 ₽</span></span>
+                  </div>
+                  <div class="vrow" style="--dcm-tone: var(--dcm-sec-stock)">
+                    <span class="dcm-pic pic" style="width:42px;height:42px"><i data-lucide="circle" aria-hidden="true"></i></span>
+                    <span class="nm"><b>Круг 20 Ст3пс</b><small>№154 · ПРОММЕТИЗ · оплачено 01.11</small></span>
+                    <span class="figures"><span class="dcm-badge ok num">принято</span><span class="sum num">17 260,00 ₽</span></span>
+                  </div>
+                  <div class="vrow" style="--dcm-tone: var(--dcm-sec-supply)">
+                    <span class="dcm-pic pic" style="width:42px;height:42px"><i data-lucide="wrench" aria-hidden="true"></i></span>
+                    <span class="nm"><b>Гайка М12 оцинк. DIN 985</b><small>№153 · Крепёж-Центр · нужна к 18.11</small></span>
+                    <span class="figures"><span class="dcm-badge dim num">200 шт</span><span class="sum num">3 400,00 ₽</span><button class="dcm-btn sm">В заказ</button></span>
+                  </div>
+                  <div class="vrow" style="align-items:center; justify-content:center; border-style:dashed; border-color:var(--dcm-border-strong); background:none; color:var(--dcm-muted); font-size:12.5px; padding:8px">Показано 6 из 10 · «Показать ещё»</div>
+                </div>
+
+                <!-- Панель сущности: контекст → главный блок → связи сеткой → история -->
+                <aside class="dcm-panel" aria-label="Карточка заявки">
+                  <div class="p-head">
+                    <div class="p-ctx">Снабжение › Заявки · <span>карточка</span></div>
+                    <h2>Труба профильная 40×40×2, 6 м</h2>
+                    <div class="p-badges">
+                      <span class="dcm-badge ok"><span class="dot" style="background:var(--dcm-ok)"></span>Оплачена</span>
+                      <span class="dcm-badge warn">Нужна к 12.11.2026</span>
+                      <span class="dcm-badge dim">№158</span>
+                    </div>
+                  </div>
+                  <div class="p-acts">
+                    <button class="dcm-btn pri"><i data-lucide="package-check" aria-hidden="true" style="width:15px"></i>Принять на склад</button>
+                    <button class="dcm-btn">Изменить</button>
+                    <span class="grow" style="flex:1"></span>
+                    <button class="dcm-btn ghost">⋯</button>
+                  </div>
+                  <div class="p-body">
+                    <div class="kcard" style="position:relative">
+                      <span class="mark good" style="right:-9px; top:-9px">1</span>
+                      <span class="k-label">Заявка №158</span>
+                      <div class="k-head"><h3>Что заказано</h3><span class="k-total num">3 шт · 12 400,00 ₽</span></div>
+                      <table>
+                        <tr><td class="k">Поставщик</td><td class="v"><a class="dcm-a" href="#v">ПРОММЕТИЗ</a></td></tr>
+                        <tr><td class="k">Количество</td><td class="v num">3 шт · по 4 133,33 ₽</td></tr>
+                        <tr><td class="k">Заказ</td><td class="v"><a class="dcm-a" href="#v">ЗНП 552-2 · поз. 7</a></td></tr>
+                        <tr><td class="k">Оплата</td><td class="v"><a class="dcm-a" href="#v">Счёт №221</a> · 02.11.2026</td></tr>
+                      </table>
+                    </div>
+
+                    <div style="position:relative">
+                      <span class="mark good" style="right:1px; top:-4px">2</span>
+                      <div class="kgrid">
+                        <div class="kcard">
+                          <div class="k-head"><h3>Склад</h3><span class="k-total num">свободно 146 <small>шт</small></span></div>
+                          <table>
+                            <tr><td class="k">Труба 40×40×2</td><td class="v num">62</td></tr>
+                            <tr><td class="k">Труба 60×40×3</td><td class="v num">21</td></tr>
+                          </table>
+                          <a class="k-more" href="#v">Ещё 3 позиции →</a>
+                        </div>
+                        <div class="kcard">
+                          <div class="k-head"><h3>Заказ ЗНП 552-2</h3><span class="k-total num">87 500,00 ₽</span></div>
+                          <table>
+                            <tr><td class="k">Заказчик</td><td class="v">Парк «Северный»</td></tr>
+                            <tr><td class="k">Статус</td><td class="v"><span class="dcm-badge ok" style="font-size:11px">в работе</span></td></tr>
+                          </table>
+                          <a class="k-more" href="#v">7 позиций →</a>
+                        </div>
+                        <div class="kcard">
+                          <div class="k-head"><h3>Счёт №221</h3><span class="k-total num">оплачен</span></div>
+                          <table>
+                            <tr><td class="k">Сумма</td><td class="v num">12 400,00 ₽</td></tr>
+                            <tr><td class="k">Дата</td><td class="v num">02.11.2026</td></tr>
+                          </table>
+                        </div>
+                        <div class="kcard">
+                          <div class="k-head"><h3>Движения</h3><span class="k-total num">2 <small>за месяц</small></span></div>
+                          <table>
+                            <tr><td class="k">Приход 21.10</td><td class="v num">+10 шт</td></tr>
+                            <tr><td class="k">Выдача под 552-2</td><td class="v num"><span class="neg">−7 шт</span></td></tr>
+                          </table>
+                          <a class="k-more" href="#v">Весь журнал →</a>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="khist" style="position:relative">
+                      <span class="mark good" style="right:-9px; top:-9px">4</span>
+                      <i data-lucide="history" aria-hidden="true" style="width:14px"></i><b>История изменений</b> · 7 записей
+                      <i data-lucide="chevron-right" aria-hidden="true"></i>
+                    </div>
+                  </div>
+                </aside>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dcm-legend">
+          <span><span class="m good">1</span>итог — в шапке карточки, без раскрытия</span>
+          <span><span class="m good">2</span>связи — сетка карточек, клик меняет только панель</span>
+          <span><span class="m good">3</span>счётчик и сумма разведены, цифры выровнены</span>
+          <span><span class="m good">4</span>история свёрнута; список и меню неподвижны</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ВАРИАНТ 2: СЕЙЧАС ============ -->
+    <section data-variant="Сейчас (стенд)" aria-label="Текущий вид со стенда" class="now" hidden>
+      <div class="dcm-stage">
+        <div class="dcm-app">
+          <nav class="dcm-side" aria-label="Меню">
+            <div class="logo"><span class="cube"><i data-lucide="box" aria-hidden="true"></i></span><span><b>Рабочее место</b><small>единая база</small></span></div>
+            <a href="#n"><i data-lucide="sun-medium" aria-hidden="true"></i>Сегодня</a>
+            <div class="grp g-orders">Производство</div>
+            <a href="#n"><i data-lucide="factory" aria-hidden="true"></i>Заказы</a>
+            <a href="#n"><i data-lucide="pen-tool" aria-hidden="true"></i>Проектирование</a>
+            <a href="#n"><i data-lucide="hammer" aria-hidden="true"></i>В работе</a>
+            <div class="grp g-products">Продукция</div>
+            <a href="#n"><i data-lucide="boxes" aria-hidden="true"></i>Продукция</a>
+            <a href="#n"><i data-lucide="file-text" aria-hidden="true"></i>КП</a>
+            <a href="#n"><i data-lucide="folder-open" aria-hidden="true"></i>Документация</a>
+            <div class="grp g-stock">Склад</div>
+            <a href="#n"><i data-lucide="package" aria-hidden="true"></i>Остатки <span class="cnt">1</span></a>
+            <a href="#n"><i data-lucide="smartphone" aria-hidden="true"></i>Склад (телефон)</a>
+            <div class="grp g-supply">Снабжение</div>
+            <a href="#n" class="on"><i data-lucide="clipboard-list" aria-hidden="true"></i>Заявки <span class="cnt">10</span></a>
+            <a href="#n"><i data-lucide="truck" aria-hidden="true"></i>Каталог поставщиков</a>
+            <a href="#n"><i data-lucide="file-signature" aria-hidden="true"></i>Договоры</a>
+            <div class="grp g-money">Деньги</div>
+            <a href="#n"><i data-lucide="wallet" aria-hidden="true"></i>Платёжный календарь</a>
+            <a href="#n"><i data-lucide="receipt" aria-hidden="true"></i>ФОТ</a>
+            <div class="grp">Управление</div>
+            <a href="#n"><i data-lucide="users" aria-hidden="true"></i>Сотрудники</a>
+            <a href="#n"><i data-lucide="settings" aria-hidden="true"></i>Настройки</a>
+            <div class="side-foot">vW/db09</div>
+          </nav>
+
+          <div class="dcm-main">
+            <header class="dcm-top">
+              <i data-lucide="chevron-left" aria-hidden="true"></i>
+              <i data-lucide="chevron-right" aria-hidden="true" style="opacity:.35"></i>
+              <div class="search"><i data-lucide="search" aria-hidden="true" style="width:14px;height:14px"></i>Найти заявку, позицию, поставщика… <span class="kbd">/</span></div>
+              <span style="flex:1"></span>
+              <span class="ico"><i data-lucide="bell" aria-hidden="true"></i></span>
+              <span class="ico"><i data-lucide="circle-help" aria-hidden="true"></i></span>
+              <span class="ava">ДА</span>
+            </header>
+
+            <div class="dcm-page">
+              <div class="dcm-crumbs">Снабжение <i data-lucide="chevron-right" aria-hidden="true" style="width:12px"></i> <b>Заявки</b></div>
+              <div class="dcm-phead">
+                <h1>Заявки</h1>
+                <span class="grow"></span>
+                <button class="dcm-btn sm ghost">Таблица · Доска</button>
+                <button class="dcm-btn sm ghost">Ещё ▾</button>
+                <button class="dcm-btn pri"><i data-lucide="plus" aria-hidden="true" style="width:15px"></i>Заявка</button>
+              </div>
+              <div class="dcm-tabs" role="tablist" aria-label="Раздел">
+                <button class="on" role="tab" aria-selected="true">Заявки</button>
+                <button role="tab" aria-selected="false">Счета</button>
+              </div>
+
+              <div class="dcm-body">
+                <!-- Фильтр: выглядит как ещё одна колонка доски -->
+                <div class="col filters">
+                  <span class="mark bad" style="right:-9px; top:-9px">2</span>
+                  <div class="col-head">Фильтры</div>
+                  <div class="f-input">Поиск: наименование, №…</div>
+                  <div class="f-input num">с __.__.____ до __.__.____</div>
+                  <div class="f-group">По заказу</div>
+                  <div class="f-chip on">Все заказы</div>
+                  <div class="f-chip">ЗНП 552-2 <span class="num">4</span></div>
+                  <div class="f-chip">ЗНП 551-1 <span class="num">3</span></div>
+                  <div class="f-group">Категория</div>
+                  <div class="f-chip">Метизы <span class="num">30 −</span></div>
+                  <div class="f-chip">Труба <span class="num">21</span></div>
+                  <div class="f-reset">Сбросить всё</div>
+                </div>
+
+                <div class="col">
+                  <span class="mark bad" style="right:-9px; top:-9px">1</span>
+                  <div class="col-head"><span class="dot" style="background:var(--dcm-info)"></span>Заказать <span class="nums num">1 0,00 ₽</span></div>
+                  <div class="qcard">
+                    <div class="crm">
+                      <span class="mark bad" style="position:relative; width:16px; height:16px; font-size:10px">4</span>
+                      <span class="cbx" title="чекбокс ~20px"></span>
+                      <span class="t">Заявка из CRM (тест)<small>3 шт · не хватает: поставщик</small></span>
+                    </div>
+                    <div class="q-b"><button class="dcm-btn">Заказал у поставщика</button></div>
+                  </div>
+                  <div style="color:var(--dcm-muted); font-size:12px; padding:4px 6px">Выберите позиции и закажите у поставщика.</div>
+                </div>
+
+                <div class="col">
+                  <div class="col-head"><span class="dot" style="background:var(--dcm-gold)"></span>В работе <span class="nums num">0 0,00 ₽</span></div>
+                  <div style="color:var(--dcm-muted); font-size:12px; padding:4px 6px">Ждём счёт и оплату. Оплатили — «Счёт оплачен».</div>
+                </div>
+
+                <div class="col">
+                  <div class="col-head"><span class="dot" style="background:var(--dcm-warn)"></span>Оплачено <span class="nums num">9 15 930,00 ₽</span></div>
+                  <div class="qcard">
+                    <span class="mark bad" style="right:-9px; top:-9px">3</span>
+                    <div class="bigpic dcm-pic"><i data-lucide="image" aria-hidden="true"></i></div>
+                    <div class="q-t">Труба профильная 40×40…</div>
+                    <div class="q-m">№158 · 3 шт · ПРОММЕТИЗ</div>
+                    <div class="q-b"><button class="dcm-btn pri">Принять на склад</button></div>
+                  </div>
+                  <div class="qcard">
+                    <div class="bigpic dcm-pic"><i data-lucide="image" aria-hidden="true"></i></div>
+                    <div class="q-t">Лист г/к 4 мм Ст3сп</div>
+                    <div class="q-m">№155 · 6 листов · ПРОММЕТИЗ</div>
+                    <div class="q-b"><button class="dcm-btn pri">Принять на склад</button></div>
+                  </div>
+                </div>
+
+                <div class="col cutcol">
+                  <span class="mark bad" style="right:-9px; top:-9px">5</span>
+                  <div class="col-head"><span class="dot" style="background:var(--dcm-ok)"></span>Получено <span class="nums num">—</span></div>
+                  <div class="qcard"><div class="q-t" style="padding-top:10px">Круг 20 Ст3пс</div><div class="q-m">№154 · принято 01.11</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dcm-legend">
+          <span><span class="m bad">1</span>счётчик и сумма слиплись: «9 15 930,00 ₽»</span>
+          <span><span class="m bad">2</span>фильтры читаются как пятая колонка доски</span>
+          <span><span class="m bad">3</span>фото больше текста — колонка как галерея</span>
+          <span><span class="m bad">4</span>чекбокс меньше тач-нормы 44px</span>
+          <span><span class="m bad">5</span>крайняя колонка обрезана без намёка на прокрутку</span>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  var root = document.getElementById('dc-kartoteka');
+  var btn = root.querySelector('#dcm-theme');
+  if (btn) btn.addEventListener('click', function () {
+    var cur = getComputedStyle(root).colorScheme || '';
+    var next = cur.indexOf('dark') === 0 ? 'light' : 'dark';
+    root.style.colorScheme = next;
+  });
+})();
+</script>
