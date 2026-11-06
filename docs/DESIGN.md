@@ -95,6 +95,7 @@
 | similarBox | «Похожее уже есть — может, это оно?» под названием изделия и в сопоставлении: GET /showcase/similar, строки kit.row (миниатюра, sku, группа), `check` (400 мс, от 3 символов) / `load` / `show` | `similarBox({onPick,pickLabel})` → `{el,check,load,show}` |
 | sku | артикул изделия: в работе с конкретным изделием — впереди названия (`sku(a)`, пробел, название), в таблицах/карточках — отдельной строкой под названием; без подписи «арт.» | `sku(text)` → `.k-sku` / null |
 | section | сворачиваемая секция правой панели (группа «Фото и файлы», «Чертежи»): закрыта по умолчанию, в шапке заголовок и число, открывается с клавиатуры | `section({ title, count?, open?, body })` → `details.form-block.k-sec` |
+| stack | блоки правой панели колонкой с одним зазором (секции «Состав», «Вложения», «В заказах»…); пустая секция — одна строка внутри, без большой плашки (ПМ-1, 2026-11-06) | `stack(...блоки)` → `div.k-stack` |
 | link | встроенная ссылка: переход (`href`) или короткое действие в тексте | `link({ label, href?, onClick?, title?, target? })` |
 | segmented | переключатель вида/режима, 2–4 пункта | `segmented({ items: [{key,label,tone?}], value, onChange(key), label })` → `{ el, set }` |
 | card S / M / L + tone | S — плитка быстрого фильтра; M — карточка списка/доски (`density: 'compact'`); L — группа-заказ; `tone` info/warn/danger/ok — полоса слева | `card({ size, tone, title, meta, badges, actions, onClick, photo, density })` |

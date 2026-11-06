@@ -113,6 +113,12 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .k-sec-n { flex: none; }
 .k-sec > summary:hover .form-sec-chev { color: var(--text); }
 .k-sec-body > * + * { margin-top: var(--s3); }
+/* k-stack — блоки правой панели колонкой с одним зазором (ПМ-1, аудит панелей 2026-11-06) */
+.k-stack { display: flex; flex-direction: column; gap: var(--s3); min-width: 0; }
+.k-stack > .k-sec { margin: 0; }
+/* правая панель: блоки колонкой с одним зазором, свои нижние отступы не нужны (ПМ-1, аудит 2026-11-06) */
+.drawer-body { display: flex; flex-direction: column; gap: var(--s4); }
+.drawer-body > * { flex-shrink: 0; margin-bottom: 0; }
 
 /* Фото в карточке доски: сверху, высота ограничена (как миниатюра галереи) */
 .tcard .t-pic { width: 100%; height: 96px; object-fit: contain; background: var(--surface-2); border-radius: var(--radius-sm); }
@@ -337,6 +343,8 @@ button.m-fg-h { cursor: pointer; }
 .dz-flow { column-count: 1; column-gap: var(--s5); min-width: 0; }
 .dz-flow > * { break-inside: avoid; -webkit-column-break-inside: avoid; page-break-inside: avoid; margin: 0 0 var(--s4); min-width: 0; width: 100%; display: block; }
 .dz-flow > *:last-child { margin-bottom: 0; }
+/* ряд кнопок в потоке остаётся рядом с зазором (аудит панелей 2026-11-06: display:block склеивал кнопки) */
+.dz-flow > .actions { display: flex; }
 /* Воронка этапов — на всю ширину потока, иначе в 2 колонках уезжает влево */
 .dz-flow > .stg,
 .dz-flow > .stg-cancel { column-span: all; }

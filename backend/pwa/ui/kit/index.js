@@ -144,6 +144,9 @@ export function section({ title, count, open = false, body, cls } = {}) {
   return mark(h('details', { class: 'form-block k-sec' + (cls ? ' ' + cls : ''), 'data-tone': 'main', open: open || null }, sum, h('div', { class: 'k-sec-body' }, ...nodes(body))), 'section');
 }
 
+/** stack(...блоки) → .k-stack: блоки правой панели колонкой с одним зазором (ПМ-1). */
+export const stack = (...children) => mark(h('div', { class: 'k-stack' }, ...nodes(children)), 'stack');
+
 /** stat({ value, label }) → .stat; stats([...]) → .stats */
 export const stat = ({ value, label }) => mark(h('div', { class: 'stat' }, h('b', { class: 'num' }, String(value ?? '—')), h('span', null, label)), 'stat');
 export const stats = (items) => mark(h('div', { class: 'stats' }, ...items.map(stat)), 'stats');

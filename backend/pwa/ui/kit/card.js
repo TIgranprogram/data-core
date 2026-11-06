@@ -145,7 +145,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     if (section.card.extra) put(section.card.extra(row, actx()), 'extra');
     // noHistory — у записи нет своей истории (пункт текста паспорта: история — у версии шаблона)
     const histUl = section.card.noHistory ? null : h('ul', { class: 'timeline' }, busyBlock('историю', { tag: 'li', cls: 'muted' }));
-    const histWrap = histUl ? (section.card.top ? h('details', { class: 'db-blk', hidden: true }, h('summary', null, 'История изменений'), histUl) : h('div', { hidden: true }, h('div', { class: 'section-title' }, 'История изменений'), histUl)) : null;
+    const histWrap = histUl ? h('details', { class: 'db-blk', hidden: true }, h('summary', null, 'История изменений'), histUl) : null; // история — внизу, всегда свёрнута (ПМ-1)
     put(histWrap, 'history');
     body.replaceChildren(...arrange(content));
     if (histUl) loadHistory(histUl, histWrap);
