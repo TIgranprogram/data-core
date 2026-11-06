@@ -1,6 +1,6 @@
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
-import { readonlyGroup, similarBox, sku, section, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, qtyInput, targetPicker, toast, pick, filter, table, panel, entityPanel, links, SUPPLY_STATUS } from '../ui/kit/index.js';
+import { readonlyGroup, similarBox, sku, section, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, qtyInput, targetPicker, toast, pick, filter, table, panel, entityPanel, select, links, SUPPLY_STATUS } from '../ui/kit/index.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
 const LONG = 'Очень длинное название позиции для проверки переноса и обрезки текста в карточке эталона';
@@ -146,6 +146,7 @@ export const kit = {
         (() => { const p = entityPanel({ section: 'Деньги', title: 'Счёт № 4521', kind: 'Счёт', onClose: () => toast('Закрыть'), main: h('p', { class: 'muted' }, 'Главный блок: данные и кнопки раздела'), active: 'money',
           related: [{ key: 'money', title: 'Деньги', meta: 'Оплаты и график', onOpen: (r) => { p.setActive(r.key); p.setMain(h('p', null, 'Деньги')); } }, { key: 'stock', title: 'Склад', meta: 'Приёмка', count: 3, onOpen: (r) => { p.setActive(r.key); p.setMain(h('p', null, 'Склад')); } }],
           history: async () => h('p', { class: 'muted' }, 'Изменений пока нет') }); return p.el; })()),
+      block('Выпадающий список (select)', 'Без поиска, до ~10 значений. Длинные списки — pick.', sample(select({ options: [['a', 'Первый'], ['b', 'Второй']], value: 'a', label: 'Образец' }))),
       block('Отметка происхождения (data-k)', 'Каждая фабрика kit (через mark / markEl из ui/kit/mark.js) ставит на корень data-k="<эталон>": button, badge, card, row, tabs, table, modal, panel, drawer, form, list, board, filter, pick, empty, mobile.* и др. Большая проверка сайта (правило s) считает элементы экрана без этой отметки — «не из kit».', sample(...[button({ label: 'button' }), badge('badge', 'ok'), empty({ title: 'empty' })].map((n) => h('span', { class: 'muted' }, n.dataset.k + ' → ', n)))),
       block('Пусто и ошибка (empty)', 'Единственная фабрика пустых состояний: kind "empty" (записей нет, подсказка и ссылка), "notFound" (поиск ничего не дал, сброс), "noData" (за период пусто). Тексты «Пусто / Ничего не найдено / Нет данных» — только через empty().', empty({ title: 'Ничего нет', hint: 'Добавьте запись в панели справа.' }), empty({ kind: 'notFound', query: 'болт М99', onReset: () => toast('Сброс') }), empty({ kind: 'notFound', onReset: () => toast('Сброс') }), empty({ kind: 'noData' }), failBlock(new Error('Тестовая ошибка'), () => toast('Повтор'))),
     );
