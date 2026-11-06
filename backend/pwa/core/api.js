@@ -44,6 +44,7 @@ export const session = {
   /** SK-8b: виден ли раздел меню по галочкам роли (user.sections; нет списка — всё как раньше; «Сегодня» и админ — всегда).
    *  Сессия хранится в localStorage — без связи работает по последнему входу / /auth/me. */
   sees(id) {
+    if (id === 'expenses') id = 'money'; // «Прочие расходы» видны там же, где «Деньги»
     if (id === 'contracts') id = 'requests'; // «Договоры» видны там же, где «Заявки»
     if (id === 'staff') return this.role === 'admin' || this.role === 'director' || this.user?.isOwner === true; // «Управление → Сотрудники»: только руководство
     const u = this.user, s = u?.sections;

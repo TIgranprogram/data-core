@@ -47,8 +47,8 @@ export class DictsService {
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Некорректный id записи');
     return new Types.ObjectId(id);
   }
-  private async docs(d: DictDef) {
-    return (await this.db.collection(d.coll).find(d.match).toArray()) as Doc[];
+  private async docs(d: DictDef, extra?: Record<string, unknown>) {
+    return (await this.db.collection(d.coll).find(extra ? { ...d.match, ...extra } : d.match).toArray()) as Doc[];
   }
   private async one(d: DictDef, id: string) {
     const doc = (await this.db.collection(d.coll).findOne({ ...d.match, _id: this.oid(id) })) as Doc | null;
@@ -72,14 +72,16 @@ export class DictsService {
   /** Списки выбора для полей-ссылок формы: ключ справочника → [{ value, label }]. */
   private async refsOf(d: DictDef) {
     const refs: Record<string, { value: string; label: string }[]> = {};
-    for (const f of d.fields) if (typeof f.ref === 'string') { const rd = this.def(f.ref); refs[f.ref] = (await this.docs(rd)).map((x) => ({ value: String(x._id), label: rd.name(x) })).sort((a, b) => a.label.localeCompare(b.label, 'ru')); }
+    for (const f of d.fields) if (typeof f.ref === 'string') { const rd = this.def(f.ref); refs[f.ref] = (await this.docs(rd, f.refMatch)).map((x) => ({ value: String(x._id), label: rd.name(x) })).sort((a, b) => a.label.localeCompare(b.label, 'ru')); }
     return refs;
   }
 
   /** Для полей-ссылок (select + ref): рядом с id — название (workTypeId → workTypeName, parentId → parentName). */
   private refNames<T extends Record<string, unknown>>(d: DictDef, row: T, refs: Record<string, { value: string; label: string }[]>): T {
     const out: Record<string, unknown> = { ...row };
-    for (const f of d.fields) if (typeof f.ref === 'string' && row[f.key] !== undefined) out[f.key.replace(/Id$/, '') + 'Name'] = refs[f.ref]?.find((r) => r.value === String(row[f.key]))?.label ?? '';
+    // несколько значений: categoryIds → categoryNames (названия через запятую)
+    for (const f of d.fields) if (typeof f.ref === 'string' && f.multi && Array.isArray(row[f.key])) out[f.key.replace(/Ids$/, '') + 'Names'] = (row[f.key] as unknown[]).map((v) => refs[f.ref as string]?.find((r) => r.value === String(v))?.label ?? '').filter(Boolean).join(', ');
+    for (const f of d.fields) if (typeof f.ref === 'string' && !f.multi && row[f.key] !== undefined) out[f.key.replace(/Id$/, '') + 'Name'] = refs[f.ref]?.find((r) => r.value === String(row[f.key]))?.label ?? '';
     return out as T;
   }
 

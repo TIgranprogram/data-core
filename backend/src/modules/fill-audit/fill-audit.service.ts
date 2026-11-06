@@ -29,7 +29,7 @@ const dmy = (d: unknown) => iso(d).split('-').reverse().join('.');
  * дают «не указано» в «Деньги → Сводка → Куда / На что / Кому».
  */
 /** Коллекции, которые читает «Требуют заполнения» (кэш С9). */
-const FILL_COLLS = ['materials', 'organizations', 'persons', 'supplyrequests', 'incomes', 'salesorders', 'productpassports', 'storageitems', 'products'] as const;
+const FILL_COLLS = ['materials', 'organizations', 'persons', 'supplyrequests', 'incomes', 'salesorders', 'productpassports', 'storageitems', 'products', 'expensearticles'] as const;
 
 /**
  * SK-8d: только группы открытых разделов роли (open = null — все). Кэш общий для всех ролей —
@@ -62,6 +62,8 @@ export class FillAuditService {
     const personNames = persons.flatMap((p) => [`${p.firstName ?? ''} ${p.lastName ?? ''}`, `${p.lastName ?? ''} ${p.firstName ?? ''}`].map((x) => x.trim()).filter(Boolean));
 
     const live = { deletedAt: null, status: { $ne: 'cancelled' } };
+    // C027: категории, у которых есть подстатья по умолчанию, — заявке статья подставится сама
+    const mappedCats = (await db.collection('expensearticles').find({ deletedAt: null, parentId: { $ne: null } }, { projection: { categoryIds: 1 } }).toArray()).flatMap((a) => (a.categoryIds as unknown[] | undefined) ?? []);
     const inExpenses = { ...live, priceHint: { $gt: 0 }, invoiceDate: { $ne: null } };
     const noCompany = { $or: [{ companyId: null }, { companyId: { $exists: false } }, { companyId: { $nin: ours } }] };
     const reqItem = (r: Q): Item => ({ id: String(r._id), title: (r.num ? `№${r.num} · ` : '') + String(r.title ?? ''), sub: [r.invoiceNo ? `счёт ${r.invoiceNo}` : '', r.invoiceDate ? dmy(r.invoiceDate) : r.requestDate ? dmy(r.requestDate) : '', r.requestedBy].filter(Boolean).join(' · ') });
@@ -103,6 +105,8 @@ export class FillAuditService {
         coll: 'supplyrequests', q: { ...inExpenses, ...empty('costCenter'), $and: [empty('salesOrderId')] }, item: reqItem, sort: { invoiceDate: -1 } },
       { key: 'exp-supplier', area: 'Аналитика расходов', title: 'Не указан поставщик', why: '«Кому платили» и сверка с поставщиками', section: 'requests', field: 'supplierName', money: true,
         coll: 'supplyrequests', q: { ...inExpenses, ...empty('supplierId') }, item: reqItem, sort: { invoiceDate: -1 } },
+      { key: 'exp-article', area: 'Аналитика расходов', title: 'Оплачено, а статья расхода не определилась', why: 'В «Деньги → По статьям» такой расход стоит в строке «Без статьи» — выберите статью', section: 'requests', field: 'articleId', money: true,
+        coll: 'supplyrequests', q: { ...live, paid: true, priceHint: { $gt: 0 }, ...empty('articleId'), categoryId: { $nin: mappedCats } }, item: reqItem, sort: { paidAt: -1 } },
       { key: 'exp-category', area: 'Аналитика расходов', title: 'Не указана категория', why: '«На что тратили» — по категориям', section: 'requests', field: 'categoryName', money: true,
         coll: 'supplyrequests', q: { ...inExpenses, ...empty('categoryId') }, item: reqItem, sort: { invoiceDate: -1 } },
       { key: 'inc-amount', area: 'Деньги', title: 'Позиции заказов без суммы', why: 'Не попадают в поступления и в выручку', section: 'orders', field: 'unitPrice', money: true,

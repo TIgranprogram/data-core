@@ -22,7 +22,7 @@ import { wireFill } from './request-fill.js';
 import { adminAction, isAdmin, withReason } from './admin-override.js';
 import { ordersLookup } from '../core/orders-lookup.js';
 import { advance, bulkOrder, invoiceBlock, missingFor, nextStep, stageStrip } from './request-step.js';
-import { acceptRequests } from './ops.js';
+import { acceptRequests } from './ops.js'; import { articleTree, requestArticleField } from './expenses.js';
 
 /** Раздел «Заявки» (PRODUCT §1) — коллекция supplyrequests через /api/supply. */
 /** «+ Новый заказчик «…»» и «Заказчик: X · Объект: Y» под списком поля «Заказчик» (TASKS ЗЧ.2). */
@@ -166,7 +166,7 @@ const fromInvoice = (label, text) => ({ key: '_inv' + label, type: 'widget', lab
 const fromStock = (label, text) => ({ key: '_stk_' + label, type: 'widget', label, hint: 'Из позиции склада — правится только в её карточке', widget: () => ({ el: h('div', null, text || '—'), get value() { return ''; }, set value(_) { /* только показ */ } }) });
 
 const fields = async (r) => {
-  const lk = await lookups();
+  const [lk, tree] = await Promise.all([lookups(), articleTree().catch(() => [])]);
   const inv = !!r?.invoiceId; // З6: № счёта, дата, поставщик лежат в счёте — в заявке только показ
   const linked = !!r?.materialId; // связана со складом — название/артикул/категория не правятся здесь
   return [
@@ -197,8 +197,8 @@ const fields = async (r) => {
     // «Получено» — только через «Принять» (приход на склад), в форме его не выбрать
     inv ? fromInvoice('Статус', SUPPLY_STATUS[supplyKey(r)]?.label) : { key: 'status', label: 'Статус', type: 'select', options: statusOptions().filter((o) => !['received', 'ordered', 'paid'].includes(o.value) || (r && supplyKey(r) === o.value)), /* «В работе»/«Оплачено» — кнопками шага (Д 2026-11-06) */ hint: r && supplyKey(r) === 'received' ? undefined : '«Получено» ставится кнопкой «Принять» — тогда товар встанет на склад' },
     inv ? fromInvoice('Поставщик', r.supplierName) : { key: 'supplierName', label: 'Поставщик', type: 'combo', options: lk.suppliers, max: 200, extra: (t, shown, form) => partnerAction('supplier', t, lk.suppliers, (n) => { form.add(n); form.set('supplierName', n); }) },
-    { key: 'priceHint', money: true, label: 'Вся сумма с НДС, ₽', type: 'money', min: 0, hint: 'За всю позицию целиком, не цена за штуку. На складе закупка без НДС — не копируйте слепо' },
-    inv ? fromInvoice('Наша компания', r.companyName) : { key: 'companyName', label: 'Наша компания', type: 'select', options: lk.companies, hint: 'Нужна для платёжного календаря' },
+    { key: 'priceHint', money: true, label: 'Вся сумма с НДС, ₽', type: 'money', min: 0, hint: 'За всю позицию целиком, не цена за штуку. На складе закупка без НДС — не копируйте слепо' }, requestArticleField(tree, lk, r, linked),
+    inv ? fromInvoice('Наша компания', r.companyName) : { key: 'companyName', label: 'Компания', type: 'select', options: lk.companies, hint: 'Нужна для платёжного календаря' },
     { key: 'invoiceType', label: 'Тип счёта', type: 'combo', options: lk.invoiceTypes || [], max: 60 },
     inv ? fromInvoice('№ счёта', r.invoiceNo) : { key: 'invoiceNo', label: '№ счёта', max: 100, span: 1 },
     inv ? fromInvoice('Дата счёта', r.invoiceDate ? date(r.invoiceDate) : '') : { key: 'invoiceDate', label: 'Дата счёта', type: 'date', hint: 'День расхода в календаре', span: 1 },
@@ -264,7 +264,7 @@ function stepAct(r) {
 /** З5: метка заказа на карточке и в списке — «Заказ № N» (номер берётся из подписи заявки). */
 const orderTag = (r) => (r.salesOrderId ? 'Заказ № ' + (/№\s*([^\s·]+)/.exec(r.orderLabel || '')?.[1] || '—') : '');
 
-const toInitial = (r) => ({ ...r, photos: r.photos || [], salesOrderRef: joinRef(r), status: supplyKey(r), priority: r.priority || 'normal', requestDate: r.requestDate ? isoDay(r.requestDate) : '', invoiceDate: r.invoiceDate ? String(r.invoiceDate).slice(0, 10) : '' });
+const toInitial = (r) => ({ ...r, articleId: r.articleId ? String(r.articleId) : '', photos: r.photos || [], salesOrderRef: joinRef(r), status: supplyKey(r), priority: r.priority || 'normal', requestDate: r.requestDate ? isoDay(r.requestDate) : '', invoiceDate: r.invoiceDate ? String(r.invoiceDate).slice(0, 10) : '' });
 
 export const requests = {
   id: 'requests',
@@ -428,7 +428,7 @@ export const requests = {
       ['Получено', r.status === 'received' ? (r.receivedTo === 'direct' ? 'без склада — сразу в работу / по назначению' : 'на склад') : ''],
       ['Принято', r.status === 'received' && r.receivedQty ? qty(r.receivedQty) : ''],
       grp('Деньги'),
-      ['Сумма с НДС', session.canMoney && r.priceHint ? money(r.priceHint) : ''],
+      ['Сумма с НДС', session.canMoney && r.priceHint ? money(r.priceHint) : ''], ['Статья расхода', session.canMoney ? r.articleName : ''],
       ['В каталоге сейчас', session.canMoney && r.catalogCurrentPrice != null
         ? h('span', { class: 'hint', title: 'Текущая цена в каталоге поставщика — заявка не меняется' },
             money(r.catalogCurrentPrice) + ' ₽',
@@ -497,7 +497,7 @@ export const requests = {
       if (v.requestDate) body.requestDate = v.requestDate;
       body.costCenter = v.costCenter || ''; body.costObject = v.costObject || '';
       if ('supplierName' in v) body.supplierName = s(v.supplierName); if ('companyName' in v) body.companyName = s(v.companyName); // у счёта — только показ
-      if ('invoiceNo' in v) body.invoiceNo = s(v.invoiceNo);
+      if ('invoiceNo' in v) body.invoiceNo = s(v.invoiceNo); if ('articleId' in v) body.articleId = v.articleId || null;
       if ('invoiceDate' in v) body.invoiceDate = v.invoiceDate || '';
       if (v.materialId) body.materialId = String(v.materialId);
       if ('responsibleId' in v) body.responsibleId = v.responsibleId || '';

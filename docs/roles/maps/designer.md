@@ -1,6 +1,7 @@
 # Карта роли designer
 
 коммит: 12d0d8da (+ незакоммиченное: STYLE-DECISION «картотека» 05.11 — решение по коду, без снимков). Снимка нет.
+- C027 «По статьям» (06.11, по коду + импорт модуля на стенде, без входа): money-articles.js:25 TDZ `toolbar` (локальная :32 затеняет kit) — экран падает; tr.sub td muted (screens.css:131) сильнее td.click (:136); статьи с классом bal = итоги; ops в двойном panel (:27–28, эталон money.js:156/229); fill по группе — `#fill?g=exp-article` (fill.js:63). Прочие расходы expenses.js:148 склонение. Вход на :3001 — stand-login даёт 401. Отчёт docs/crew/C027-money-by-articles/designer-report.md.
 - Аудит правых панелей 06.11 (по коду, без стенда): причины — kit.css:338 `.dz-flow > *{display:block}` ломает `.actions`; list.css:76 `.drawer-body` без gap; list.css:52 `.state` padding 32/16 (пустые «Файлов нет»); product-attachments.js:89–119 (card M × вид + table.empty), product-files.js:76–97 (эталон section), card-blocks.js `.section-title`-блоки. Отчёт — у координатора (docs/crew/C-PANELS-AUDIT/REPORT.md).
 
 - Стиль «картотека» (решение 05.11): docs/crew/STYLE-DECISION.md — 1А бумага, 2Б линии, 3А сетка; правки: kit.css:178 .k-hover → --shadow, kit.css:4 полоса L 6→4px, kit.css:133/145/163 убрать -1px, base.css:137 тень/радиус .tcard, base.css:153 тень .tile; таблица list.css:13–22; сетка связей — @container как kit.css:333.

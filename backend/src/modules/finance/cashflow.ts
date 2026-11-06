@@ -26,6 +26,12 @@ export interface Op {
   method?: string;
   /** Операция раньше «старта учёта» — показывается серым, в остаток не входит. */
   beforeStart?: boolean;
+  /** Подстатья расхода (expensearticles.id) — «Деньги → По статьям»; нет — «Без статьи». */
+  articleId?: string;
+  /** Объект — заказ заказчика (salesorders.id). */
+  salesOrderId?: string;
+  /** Откуда операция: заявка, оплаченный счёт, ФОТ, прочий расход, платёж по заказу. */
+  source?: 'request' | 'invoice' | 'payroll' | 'expense' | 'income';
 }
 
 /** Старт учёта: с этой даты остаток = balance (сумма по выбранным компаниям). */

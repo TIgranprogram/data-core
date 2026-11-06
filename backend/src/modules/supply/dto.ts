@@ -8,6 +8,7 @@ export class SupplyRequestDto {
   @ApiPropertyOptional({ description: '№ заявки (пусто — следующий)' }) @IsOptional() @IsNumber() num?: number;
   @ApiPropertyOptional({ description: 'Дата заявки, ISO' }) @IsOptional() @IsDateString() requestDate?: string;
   @ApiPropertyOptional() @IsOptional() @IsMongoId() categoryId?: string;
+  @ApiPropertyOptional({ description: 'Статья расхода (id подстатьи из /expense-articles); null или "" — снять', nullable: true }) @IsOptional() @IsString() @Length(0, 30) articleId?: string | null;
   @ApiPropertyOptional({ description: 'Категория по названию (создаётся, если нет)' }) @IsOptional() @IsString() @Length(0, 100) categoryName?: string;
   @ApiPropertyOptional({ description: 'Позиция склада (материал)' }) @IsOptional() @IsMongoId() materialId?: string;
   @ApiPropertyOptional({ description: 'Поставщик по названию (организация создаётся, если нет)' }) @IsOptional() @IsString() @Length(0, 200) supplierName?: string;

@@ -8,6 +8,9 @@ import { buildCashflow, buildPending, buildSummary, foldOverdueInvoices, opening
 import { incomePayments, type IncomePayment } from '../incomes/income.schema';
 import { PayrollService } from '../payroll/payroll.service';
 import { firstPhotoThumbs } from '../../common/photo-thumbs';
+import { ExpenseArticlesService } from '../expense-articles/expense-articles.service';
+import { articleOfCategory, PAYROLL_CODE } from '../expense-articles/articles-tree';
+import { buildByArticles, opsOfCell, type ByArticlesOpts } from './by-articles';
 import { buildForecast, expectedOps, invoiceStaleSince, type ExpenseSrc, type IncomeSrc } from './forecast';
 
 const iso = (d: unknown) => (d instanceof Date && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : '');
@@ -23,7 +26,7 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
  */
 @Injectable()
 export class FinanceService {
-  constructor(@InjectConnection() private readonly connection: Connection, private readonly payroll: PayrollService) {}
+  constructor(@InjectConnection() private readonly connection: Connection, private readonly payroll: PayrollService, private readonly articles: ExpenseArticlesService) {}
 
   private period(q: Record<string, unknown>) {
     const now = new Date();
@@ -86,14 +89,14 @@ export class FinanceService {
     const overdueClause = overdueBefore
       ? [{ paid: { $ne: true }, invoiceDate: { $gte: new Date(invoiceStaleSince(today) + 'T00:00:00Z'), $lt: new Date(from + 'T00:00:00Z') } }]
       : [];
-    const [reqs, incs, shipped, payroll, cats, orgs, paidInvoices] = await Promise.all([
+    const [reqs, incs, shipped, payroll, cats, orgs, paidInvoices, tree, otherExpenses] = await Promise.all([
       // оплаченные — по дате оплаты (paidAt, нет — дата счёта); неоплаченные с датой счёта в периоде — «счета к оплате»;
       // раньше периода (не старше 90 дней) — те же просроченные, что прогноз ставит на сегодня
       db.collection('supplyrequests').find({ deletedAt: null, status: { $ne: 'cancelled' }, priceHint: { $gt: 0 }, companyId: { $in: companyIds }, $or: [
         { paid: true, $or: [{ paidAt: range }, { paidAt: null, invoiceDate: range }] }, { paid: { $ne: true }, invoiceDate: range }, ...overdueClause] },
-        { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1, categoryId: 1, supplierId: 1, costCenter: 1, salesOrderId: 1, photoIds: 1, paid: 1, paidAt: 1, invoiceId: 1 } }).toArray(),
+        { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1, categoryId: 1, supplierId: 1, costCenter: 1, salesOrderId: 1, articleId: 1, photoIds: 1, paid: 1, paidAt: 1, invoiceId: 1 } }).toArray(),
       db.collection('incomes').find({ deletedAt: null, cancelledAt: null, amount: { $gt: 0 }, companyId: { $in: companyIds }, $or: [{ 'payments.date': range }, { paidDate: range }] },
-        { projection: { orderNo: 1, title: 1, amount: 1, paidDate: 1, payments: 1, companyId: 1, customer: 1 } }).toArray(),
+        { projection: { orderNo: 1, orderId: 1, title: 1, amount: 1, paidDate: 1, payments: 1, companyId: 1, customer: 1 } }).toArray(),
       db.collection('incomes').find({ deletedAt: null, cancelledAt: null, amount: { $gt: 0 }, companyId: { $in: companyIds }, paidDate: null, shipDate: { $ne: null, $lt: end } },
         { projection: { orderNo: 1, title: 1, amount: 1, shipDate: 1, payments: 1, paidDate: 1, companyId: 1, customer: 1 } }).toArray(),
       this.payroll.paidOps(from, to, companyIds),
@@ -101,6 +104,9 @@ export class FinanceService {
       db.collection('organizations').find({}, { projection: { name: 1, shortName: 1 } }).toArray(),
       db.collection('supplyinvoices').find({ status: 'paid', deletedAt: null, 'paymentSnapshot.paidAt': range },
         { projection: { paymentSnapshot: 1, no: 1, payerCompanyId: 1 } }).toArray(),
+      this.articles.tree(),
+      // прочие расходы (факт без заявки): по дате оплаты, наши компании
+      db.collection('expenses').find({ deletedAt: null, amount: { $gt: 0 }, companyId: { $in: companyIds }, date: range }).toArray(),
     ]);
     const cat = new Map(cats.map((c) => [String(c._id), String(c.name)]));
     const org = new Map(orgs.map((o) => [String(o._id), String(o.shortName || o.name)]));
@@ -110,14 +116,24 @@ export class FinanceService {
       return (snapshot?.lines ?? []).map((line) => ({ invoice, snapshot, line }));
     });
     const snapshotRequestIds = new Set(snapshotLines.map(({ line }) => String(line.requestId)));
+    // статья и объект строки счёта — по её заявке (запасной путь: категория строки)
+    const lineReqs = snapshotRequestIds.size ? await db.collection('supplyrequests').find({ _id: { $in: [...snapshotRequestIds].filter((i) => Types.ObjectId.isValid(i)).map((i) => new Types.ObjectId(i)) } }, { projection: { articleId: 1, categoryId: 1, salesOrderId: 1 } }).toArray() : [];
+    const lineReq = new Map(lineReqs.map((r) => [String(r._id), r]));
+    const articleOf = (articleId: unknown, categoryId: unknown) => (articleId ? String(articleId) : articleOfCategory(tree, categoryId)?.id);
+    const payrollArticle = tree.flatMap((n) => n.children).find((c) => c.code === PAYROLL_CODE)?.id;
+    // позиции доходов без orderId — по номеру заказа (объект = заказ с тем же orderNo)
+    const noId = [...new Set(incs.filter((i) => !i.orderId && i.orderNo).map((i) => String(i.orderNo)))];
+    const orderByNo = new Map((noId.length ? await db.collection('salesorders').find({ deletedAt: null, orderNo: { $in: noId } }, { projection: { orderNo: 1 } }).toArray() : []).map((o) => [String(o.orderNo), String(o._id)]));
     const snapshotInvoiceIds = new Set(paidInvoices.map((invoice) => String(invoice._id)));
     const exp = (r: (typeof reqs)[number], date: string, overdue?: boolean): Op => ({ type: 'expense', id: String(r._id), date, amount: Number(r.priceHint), company: cname.get(String(r.companyId)) ?? '?',
         title: (r.num ? `№${r.num} · ` : '') + String(r.title ?? ''), doc: r.invoiceNo ? String(r.invoiceNo) : undefined,
         category: r.categoryId ? cat.get(String(r.categoryId)) : undefined, counterparty: r.supplierId ? org.get(String(r.supplierId)) : undefined, costCenter: costCenterLabel(r as { costCenter?: unknown; salesOrderId?: unknown }),
+        ...(articleOf(r.articleId, r.categoryId) ? { articleId: articleOf(r.articleId, r.categoryId) } : {}), ...(r.salesOrderId ? { salesOrderId: String(r.salesOrderId) } : {}), source: 'request',
         ...(thumbMap.has(String(r._id)) ? { thumb: thumbMap.get(String(r._id)) } : {}), ...(overdue ? { overdue } : {}) });
     const inRange = (d: string) => d >= from && d <= to;
     const incomeOp = (i: (typeof incs)[number], p: IncomePayment, partial: boolean): Op => ({ type: 'income', id: String(i._id), date: iso(p.date), amount: p.amount, company: cname.get(String(i.companyId)) ?? '?',
-      title: String(i.title ?? '') + (partial ? ' · частичная оплата' : ''), doc: i.orderNo ? `заказ ${i.orderNo}` : undefined, counterparty: i.customer ? String(i.customer) : undefined, ...(p.method ? { method: p.method } : {}) });
+      title: String(i.title ?? '') + (partial ? ' · частичная оплата' : ''), doc: i.orderNo ? `заказ ${i.orderNo}` : undefined, counterparty: i.customer ? String(i.customer) : undefined, ...(p.method ? { method: p.method } : {}),
+      source: 'income', ...((i.orderId ? String(i.orderId) : orderByNo.get(String(i.orderNo ?? ''))) ? { salesOrderId: i.orderId ? String(i.orderId) : orderByNo.get(String(i.orderNo)) } : {}) });
     return {
       ops: [
         ...reqs.filter((r) => r.paid === true && !snapshotRequestIds.has(String(r._id)) && !(r.invoiceId && snapshotInvoiceIds.has(String(r.invoiceId)))).map((r) => exp(r, iso(r.paidAt) || iso(r.invoiceDate))).filter((o) => inRange(o.date)),
@@ -129,9 +145,14 @@ export class FinanceService {
           category: line.categoryId ? cat.get(String(line.categoryId)) : undefined,
           counterparty: line.supplierId ? org.get(String(line.supplierId)) : line.supplierName ? String(line.supplierName) : undefined,
           costCenter: costCenterLabel(line as { costCenter?: unknown; salesOrderId?: unknown }),
+          ...(articleOf(lineReq.get(String(line.requestId))?.articleId, lineReq.get(String(line.requestId))?.categoryId ?? line.categoryId) ? { articleId: articleOf(lineReq.get(String(line.requestId))?.articleId, lineReq.get(String(line.requestId))?.categoryId ?? line.categoryId) } : {}),
+          ...((line.salesOrderId ?? lineReq.get(String(line.requestId))?.salesOrderId) ? { salesOrderId: String(line.salesOrderId ?? lineReq.get(String(line.requestId))?.salesOrderId) } : {}), source: 'invoice',
         })).filter((o) => inRange(o.date)),
         ...incs.flatMap((i) => { const pays = incomePayments(i as { amount?: number; paidDate?: Date; payments?: IncomePayment[] }); return pays.map((p) => incomeOp(i, p, pays.length > 1 || p.amount < Number(i.amount))); }).filter((o) => inRange(o.date)),
-        ...payroll.map((p): Op => ({ type: 'expense', id: p.id, date: p.date, amount: p.amount, company: cname.get(p.companyId) ?? '?', title: `${p.kind} · ${p.person}`, category: 'ФОТ', costCenter: 'ФОТ', counterparty: p.person })),
+        ...payroll.map((p): Op => ({ type: 'expense', id: p.id, date: p.date, amount: p.amount, company: cname.get(p.companyId) ?? '?', title: `${p.kind} · ${p.person}`, category: 'ФОТ', costCenter: 'ФОТ', counterparty: p.person, source: 'payroll', ...(payrollArticle ? { articleId: payrollArticle } : {}) })),
+        ...otherExpenses.map((e): Op => ({ type: 'expense', id: String(e._id), date: iso(e.date), amount: Number(e.amount), company: cname.get(String(e.companyId)) ?? '?', title: String(e.title ?? ''),
+          doc: e.docNo ? String(e.docNo) : undefined, category: 'Прочие расходы', counterparty: e.counterpartyName ? String(e.counterpartyName) : undefined, source: 'expense', articleId: String(e.articleId),
+          ...(e.salesOrderId ? { salesOrderId: String(e.salesOrderId) } : {}) })).filter((o) => inRange(o.date)),
       ],
       invoices: reqs.filter((r) => r.paid !== true).map((r) => { const d = iso(r.invoiceDate); return exp(r, d, !!d && d <= today); }),
       awaiting: shipped.flatMap((i): Op[] => {
@@ -147,7 +168,8 @@ export class FinanceService {
     const db = this.connection.db!;
     const ours = (await ourCompanies(this.connection)).map((c) => c.id);
     const noCompany = { $or: [{ companyId: null }, { companyId: { $exists: false } }, { companyId: { $nin: ours } }] };
-    const [reqs, incs] = await Promise.all([
+    const tree = await this.articles.tree();
+    const [reqs, incs, paidNoArticle] = await Promise.all([
       db.collection('supplyrequests').find({ deletedAt: null, status: { $ne: 'cancelled' }, $or: [
         { invoiceDate: { $ne: null }, $or: [{ priceHint: null }, { priceHint: { $exists: false } }, { priceHint: { $lte: 0 } }] },
         { priceHint: { $gt: 0 }, $or: [{ invoiceDate: null }, { invoiceDate: { $exists: false } }] }, { paid: true, $or: [{ priceHint: null }, { priceHint: { $exists: false } }, { priceHint: { $lte: 0 } }] }, // оплачено без суммы — в календарь не попало
@@ -155,7 +177,11 @@ export class FinanceService {
       ] }, { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1 } }).sort({ invoiceDate: -1, num: -1 }).limit(limit).toArray(),
       db.collection('incomes').find({ deletedAt: null, cancelledAt: null, $or: [{ amount: { $lte: 0 } }, { reportDate: null }, { reportDate: { $exists: false } }, ...noCompany.$or] },
         { projection: { orderNo: 1, title: 1, amount: 1, reportDate: 1, companyId: 1 } }).limit(limit).toArray(),
+      // оплачено, а статья не определилась ни заявкой, ни категорией
+      db.collection('supplyrequests').find({ deletedAt: null, status: { $ne: 'cancelled' }, paid: true, priceHint: { $gt: 0 }, articleId: null },
+        { projection: { num: 1, title: 1, priceHint: 1, paidAt: 1, invoiceDate: 1, invoiceNo: 1, categoryId: 1 } }).sort({ paidAt: -1, num: -1 }).toArray(),
     ]);
+    const noArticle = paidNoArticle.filter((r) => !articleOfCategory(tree, r.categoryId));
     const has = (id: unknown) => !!id && ours.some((o) => String(o) === String(id));
     const items = [
       ...reqs.map((r) => ({ type: 'expense' as const, id: String(r._id), title: (r.num ? `№${r.num} · ` : '') + String(r.title ?? ''), doc: r.invoiceNo ? String(r.invoiceNo) : null, date: iso(r.invoiceDate) || null,
@@ -163,7 +189,9 @@ export class FinanceService {
       ...incs.map((i) => ({ type: 'income' as const, id: String(i._id), title: String(i.title ?? ''), doc: i.orderNo ? `заказ ${i.orderNo}` : null, date: iso(i.reportDate) || null,
         missing: [!(Number(i.amount) > 0) && 'сумма (кол-во × цена или вручную)', !i.reportDate && 'дата отгрузки или оплаты', !has(i.companyId) && 'наша компания'].filter(Boolean) as string[] })),
     ];
-    return { total: items.length, items, payrollNoCompany: await this.payroll.unassignedPayments(ours) };
+    return { total: items.length, items,
+      noArticle: { total: noArticle.length, items: noArticle.slice(0, limit).map((r) => ({ type: 'expense' as const, id: String(r._id), title: (r.num ? `№${r.num} · ` : '') + String(r.title ?? ''), doc: r.invoiceNo ? String(r.invoiceNo) : null, date: iso(r.paidAt) || iso(r.invoiceDate) || null, amount: Number(r.priceHint), missing: ['статья расхода'] })) },
+      payrollNoCompany: await this.payroll.unassignedPayments(ours) };
   }
 
   async cashflow(q: Record<string, unknown>) {
@@ -248,6 +276,50 @@ export class FinanceService {
     const sum = (t: string) => Math.round(noDate.filter((x) => x.type === t).reduce((s, x) => s + x.amount, 0) * 100) / 100;
     return { from: today, to, days: f.days, totals: f.totals, companies: names, opening, gapDays: f.gapDays, firstGap: f.firstGap, minBalance: f.minBalance, week: f.week,
       noDate: { items: noDate, expense: sum('expense'), income: sum('income') } };
+  }
+
+  /** Параметры «По статьям»: год, фирма, режим (вся фирма / объект) и объект. */
+  private async articlesScope(q: Record<string, unknown>) {
+    const now = new Date();
+    const year = q.year === undefined || q.year === '' ? now.getUTCFullYear() : Number(q.year);
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) throw new BadRequestException('Год — число от 2000 до 2100');
+    const mode = String(q.mode ?? 'company');
+    if (mode !== 'company' && mode !== 'object') throw new BadRequestException('Режим: «вся фирма» или «по объекту»');
+    const { used } = await this.companies(q.org);
+    const opts: ByArticlesOpts = { mode };
+    if (mode === 'object') {
+      if (!q.salesOrderId || !Types.ObjectId.isValid(String(q.salesOrderId))) throw new BadRequestException('Выберите объект — заказ заказчика');
+      const db = this.connection.db!;
+      const order = await db.collection('salesorders').findOne({ _id: new Types.ObjectId(String(q.salesOrderId)), deletedAt: null }, { projection: { orderNo: 1, customer: 1, title: 1 } });
+      if (!order) throw new BadRequestException('Объект не найден — выберите заказ из списка');
+      // цена контракта = сумма позиций заказа (не отменённых)
+      const lines = await db.collection('incomes').find({ deletedAt: null, cancelledAt: null, $or: [{ orderId: order._id }, ...(order.orderNo ? [{ orderId: null, orderNo: String(order.orderNo) }] : [])] }, { projection: { amount: 1 } }).toArray();
+      opts.salesOrderId = String(order._id);
+      opts.orderNo = order.orderNo ? String(order.orderNo) : undefined;
+      opts.title = [order.customer, order.title].filter(Boolean).map(String).join(' · ') || undefined;
+      opts.contractPrice = Math.round(lines.reduce((s, l) => s + (Number(l.amount) || 0), 0) * 100) / 100;
+    }
+    return { year, opts, ids: used.map((c) => c.id), today: iso(new Date()) };
+  }
+
+  /** «Деньги → По статьям»: статья → подстатья × месяцы года (только факт). */
+  async byArticles(q: Record<string, unknown>) {
+    const { year, opts, ids, today } = await this.articlesScope(q);
+    const [{ ops }, tree] = await Promise.all([this.ops(`${year}-01-01`, `${year}-12-31`, ids), this.articles.tree()]);
+    return buildByArticles(ops, tree, year, today, opts);
+  }
+
+  /** Операции одной ячейки таблицы «По статьям» (articleId — подстатья, статья, none, income, expense, unallocated). */
+  async byArticlesOps(q: Record<string, unknown>) {
+    const { year, opts, ids, today } = await this.articlesScope(q);
+    const articleId = String(q.articleId ?? '').trim();
+    if (!articleId) throw new BadRequestException('Укажите статью');
+    const month = q.month === undefined || q.month === '' ? undefined : String(q.month);
+    if (month && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new BadRequestException('Месяц — в формате ГГГГ-ММ');
+    if (month && month.slice(0, 4) !== String(year)) throw new BadRequestException('Месяц не из выбранного года');
+    const [{ ops }, tree] = await Promise.all([this.ops(`${year}-01-01`, `${year}-12-31`, ids), this.articles.tree()]);
+    const items = opsOfCell(ops, tree, year, today, opts, articleId, month);
+    return { items, total: items.length };
   }
 
   async summary(q: Record<string, unknown>) {

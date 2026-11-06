@@ -352,8 +352,8 @@ export const dict = {
         widget: (v) => refChipsField(wtOpts, { label: 'Виды работ', value: v, multiple: true }) }
         : f === catField && catOpts.length ? { key: f.key, label: f.label, type: 'widget', wide: true, hint: f.hint || '«Для всех» — подходит любой категории', summary: () => '',
         widget: (v) => catChipsField(catOpts, { label: f.label, value: v, later: ['DIO', 'DSP'] }) }
-        : f.ref?.dict ? { key: f.key, label: f.label, type: 'widget', wide: true, hint: f.hint, summary: () => '',
-          widget: (v) => refChipsField(refOpts[f.key] || [], { label: f.label, value: v, multiple: f.ref.multiple !== false }) }
+        : f.ref?.dict || f.multi ? { key: f.key, label: f.label, type: 'widget', wide: true, hint: f.hint, summary: () => '', // multi: несколько из refs сервера (статья → категории склада)
+          widget: (v) => refChipsField(f.multi ? (info.refs?.[f.ref] || []).map((o) => ({ code: String(o.value), name: o.label })) : refOpts[f.key] || [], { label: f.label, value: v, multiple: f.multi || f.ref.multiple !== false }), mount: f.multi ? (fapi) => { const sync = () => { const l = fapi.field(f.key); if (l) l.hidden = !fapi.get('parentId'); }; fapi.on('parentId', sync); sync(); } : undefined } // чипы категорий — только у подстатьи
         : f.lockAfterCreate && !isNew && (f.key === 'code' || r[f.key]) ? { key: f.key, label: f.label, type: 'widget', hint: f.key === 'code' ? 'Не меняется: на него ссылаются тексты и изделия' : 'Не меняется: ' + (f.hint || 'на него ссылаются изделия'), summary: () => '',
           widget: (v) => ({ el: h('span', { class: 'muted' }, String(v ?? '')), get value() { return JSON.stringify(String(v ?? '')); }, set value(x) { void x; }, focus() {} }) }
         : {

@@ -42,6 +42,27 @@ export class FinanceController {
     return this.finance.forecast(q);
   }
 
+  /** «По статьям»: статья → подстатья × месяцы года (только факт); режим «по объекту» — один заказ заказчика. */
+  @Get('by-articles')
+  @Roles('admin', 'accountant', 'manager')
+  @ApiQuery({ name: 'year', required: false, description: 'Год (умолч. текущий)' })
+  @ApiQuery({ name: 'org', required: false, description: 'all | СИЮ | ССЮ | id' })
+  @ApiQuery({ name: 'mode', required: false, description: 'company (вся фирма, умолч.) | object' })
+  @ApiQuery({ name: 'salesOrderId', required: false, description: 'Объект — заказ заказчика (для mode=object)' })
+  byArticles(@Query() q: Record<string, string>) {
+    return this.finance.byArticles(q);
+  }
+
+  /** Операции одной ячейки «По статьям»: articleId — подстатья, статья, none, income, expense, unallocated; month — ГГГГ-ММ. */
+  @Get('by-articles/ops')
+  @Roles('admin', 'accountant', 'manager')
+  @ApiQuery({ name: 'articleId', required: true, description: 'id подстатьи / статьи | none | income | expense | unallocated' })
+  @ApiQuery({ name: 'month', required: false, description: 'ГГГГ-ММ; пусто — весь год' })
+  @ApiQuery({ name: 'year', required: false }) @ApiQuery({ name: 'org', required: false }) @ApiQuery({ name: 'mode', required: false }) @ApiQuery({ name: 'salesOrderId', required: false })
+  byArticlesOps(@Query() q: Record<string, string>) {
+    return this.finance.byArticlesOps(q);
+  }
+
   /** «Старт учёта»: дата и остатки на счетах наших компаний; от неё считаются остаток календаря и прогноз. */
   @Get('settings')
   @Roles('admin', 'accountant')

@@ -10040,27 +10040,6 @@
       }
     },
     "/offers/backgrounds/{id}": {
-      "delete": {
-        "operationId": "OffersController_removeBackground",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "КП"
-        ]
-      },
       "patch": {
         "operationId": "OffersController_updateBackground",
         "parameters": [
@@ -10091,6 +10070,27 @@
         "tags": [
           "КП"
         ]
+      },
+      "delete": {
+        "operationId": "OffersController_removeBackground",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
       }
     },
     "/offers/companies": {
@@ -10104,8 +10104,7 @@
         },
         "tags": [
           "КП"
-        ],
-        "summary": "Наши фирмы для КП (с «только для КП»)"
+        ]
       }
     },
     "/offers/companies/{id}": {
@@ -10161,8 +10160,7 @@
         },
         "tags": [
           "КП"
-        ],
-        "summary": "Стандартные тексты и НДС для новой формы КП"
+        ]
       }
     },
     "/offers/preview": {
@@ -10181,13 +10179,12 @@
         },
         "responses": {
           "200": {
-            "description": "application/pdf"
+            "description": ""
           }
         },
         "tags": [
           "КП"
-        ],
-        "summary": "Предпросмотр PDF до сохранения (в базу не пишет)"
+        ]
       }
     },
     "/offers/{id}": {
@@ -10351,8 +10348,7 @@
         },
         "tags": [
           "КП"
-        ],
-        "summary": "Копия КП для другой фирмы с наценкой"
+        ]
       }
     },
     "/offers/{id}/restore": {
@@ -11045,7 +11041,8 @@
         },
         "tags": [
           "Деньги"
-        ]
+        ],
+        "summary": "Что не попало в расчёт; noArticle — оплачено без статьи расхода"
       }
     },
     "/payroll/summary": {
@@ -16202,6 +16199,312 @@
           }
         }
       }
+    },
+    "/finance/by-articles": {
+      "get": {
+        "operationId": "FinanceController_byArticles",
+        "summary": "Деньги по статьям: статья → подстатья × месяцы года (факт)",
+        "parameters": [
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "description": "Год (умолч. текущий)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "org",
+            "required": false,
+            "in": "query",
+            "description": "all | СИЮ | ССЮ | id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mode",
+            "required": false,
+            "in": "query",
+            "description": "company (умолч.) | object",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "salesOrderId",
+            "required": false,
+            "in": "query",
+            "description": "Объект — заказ заказчика (для mode=object)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{ year, months, scope, head{income,expense,profit,totals}, rows[{id,name,level,values[12],total,pct,children}], unassigned, unallocated?, result{values,cumulative,ratio} }"
+          }
+        },
+        "tags": [
+          "Деньги"
+        ]
+      }
+    },
+    "/finance/by-articles/ops": {
+      "get": {
+        "operationId": "FinanceController_byArticlesOps",
+        "summary": "Операции одной ячейки «По статьям»",
+        "parameters": [
+          {
+            "name": "articleId",
+            "required": true,
+            "in": "query",
+            "description": "id подстатьи / статьи | none | income | expense | unallocated",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "month",
+            "required": false,
+            "in": "query",
+            "description": "ГГГГ-ММ; пусто — весь год",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "org",
+            "required": false,
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mode",
+            "required": false,
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "salesOrderId",
+            "required": false,
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{ items: Op[] (у Op: articleId, salesOrderId, source), total }"
+          }
+        },
+        "tags": [
+          "Деньги"
+        ]
+      }
+    },
+    "/expense-articles": {
+      "get": {
+        "operationId": "ExpenseArticlesController_list",
+        "summary": "Статьи расходов: дерево статья → подстатьи",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "{ items:[{id,name,code?,sortOrder,children:[{id,name,code?,sortOrder,categoryIds}]}], total }"
+          }
+        },
+        "tags": [
+          "Статьи расходов"
+        ]
+      }
+    },
+    "/expenses": {
+      "get": {
+        "operationId": "ExpensesController_list",
+        "summary": "Прочие расходы: список; sum — сумма по всему фильтру",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "ГГГГ-ММ-ДД",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "ГГГГ-ММ-ДД",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "companyId",
+            "required": false,
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "articleId",
+            "required": false,
+            "in": "query",
+            "description": "подстатья или статья (со всеми подстатьями)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "salesOrderId",
+            "required": false,
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{ items:[{id,date,amount,companyId,companyName,articleId,articleName,parentArticleName,salesOrderId,salesOrderNo,title,counterpartyName,docNo,fileIds,files[{id,name,url}],comment}], total, page, limit, sum }"
+          }
+        },
+        "tags": [
+          "Прочие расходы"
+        ]
+      },
+      "post": {
+        "operationId": "ExpensesController_create",
+        "summary": "Добавить расход: { date, amount, companyId, articleId, title, salesOrderId?, counterpartyName?, docNo?, fileIds?, comment? }",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Прочие расходы"
+        ]
+      }
+    },
+    "/expenses/{id}": {
+      "get": {
+        "operationId": "ExpensesController_get",
+        "summary": "Расход (тот же вид, что в списке)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Прочие расходы"
+        ]
+      },
+      "patch": {
+        "operationId": "ExpensesController_update",
+        "summary": "Изменить расход (любые поля тела создания)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Прочие расходы"
+        ]
+      },
+      "delete": {
+        "operationId": "ExpensesController_remove",
+        "summary": "Удалить расход (мягко)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Прочие расходы"
+        ]
+      }
     }
   },
   "info": {
@@ -17537,6 +17840,11 @@
           },
           "categoryId": {
             "type": "string"
+          },
+          "articleId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Статья расхода (id подстатьи из /expense-articles); null или \"\" — снять"
           },
           "categoryName": {
             "type": "string",
@@ -19104,13 +19412,46 @@
           },
           "defaultTerms": {
             "type": "string",
-            "maxLength": 3000,
             "description": "Стандартные тексты фирмы (подставляются в «Условия» нового КП)"
           }
         },
         "required": [
           "name",
           "page"
+        ]
+      },
+      "UpdateBackgroundDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "textTop": {
+            "type": "object",
+            "nullable": true
+          },
+          "textBottom": {
+            "type": "object",
+            "nullable": true
+          },
+          "defaultTerms": {
+            "type": "object",
+            "nullable": true
+          },
+          "isDefault": {
+            "type": "boolean"
+          }
+        }
+      },
+      "OfferCompanyDto": {
+        "type": "object",
+        "properties": {
+          "offersOnly": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "offersOnly"
         ]
       },
       "OfferItemDto": {
@@ -19196,7 +19537,6 @@
           },
           "objectName": {
             "type": "string",
-            "maxLength": 500,
             "description": "Объект (печатается под заказчиком)"
           },
           "vatMode": {
@@ -19209,8 +19549,6 @@
           },
           "vatRate": {
             "type": "number",
-            "minimum": 0,
-            "maximum": 30,
             "description": "Ставка НДС, %; пусто — ставка фирмы (нет — 22)"
           },
           "delivery": {
@@ -19282,7 +19620,6 @@
           },
           "objectName": {
             "type": "string",
-            "maxLength": 500,
             "description": "Объект (печатается под заказчиком)"
           },
           "vatMode": {
@@ -19295,8 +19632,6 @@
           },
           "vatRate": {
             "type": "number",
-            "minimum": 0,
-            "maximum": 30,
             "description": "Ставка НДС, %; пусто — ставка фирмы (нет — 22)"
           },
           "delivery": {
@@ -19339,6 +19674,23 @@
             "description": "№ заказа на производство; по умолчанию — следующий свободный"
           }
         }
+      },
+      "OfferCopyDto": {
+        "type": "object",
+        "properties": {
+          "companyId": {
+            "type": "string",
+            "description": "Наша компания, для которой делаем копию"
+          },
+          "markupPercent": {
+            "type": "number",
+            "default": 0,
+            "description": "Наценка на цены строк, % (−50…100); цена округляется до рубля"
+          }
+        },
+        "required": [
+          "companyId"
+        ]
       },
       "OfferStatusDto": {
         "type": "object",
@@ -20796,65 +21148,6 @@
       "SetAttributeValueDto": {
         "type": "object",
         "properties": {}
-      },
-      "UpdateBackgroundDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 100
-          },
-          "textTop": {
-            "type": "number",
-            "nullable": true,
-            "minimum": 0,
-            "maximum": 0.6
-          },
-          "textBottom": {
-            "type": "number",
-            "nullable": true,
-            "minimum": 0.4,
-            "maximum": 0.95
-          },
-          "defaultTerms": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 3000
-          },
-          "isDefault": {
-            "type": "boolean"
-          }
-        }
-      },
-      "OfferCopyDto": {
-        "type": "object",
-        "properties": {
-          "companyId": {
-            "type": "string",
-            "description": "Наша компания, для которой делаем копию"
-          },
-          "markupPercent": {
-            "type": "number",
-            "default": 0,
-            "minimum": -50,
-            "maximum": 100,
-            "description": "Наценка на цены строк, % (−50…100); цена округляется до рубля"
-          }
-        },
-        "required": [
-          "companyId"
-        ]
-      },
-      "OfferCompanyDto": {
-        "type": "object",
-        "properties": {
-          "offersOnly": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "offersOnly"
-        ]
       }
     }
   }

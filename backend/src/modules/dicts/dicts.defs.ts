@@ -6,6 +6,7 @@ import { normSize } from '../../common/catalog/materials-text';
 import { personWorkTypeIds, workTypeFields } from '../../common/catalog/person-work-types';
 import { passportPhrasesDef } from './dicts.passport-phrases';
 import { productGroupDefs } from './dicts.product-groups';
+import { expenseArticlesDef } from './dicts.expense-articles';
 import { DICT_META } from './dicts.meta';
 type Db = mongo.Db;
 type Document = mongo.Document;
@@ -24,6 +25,10 @@ export type Doc = Document & { _id: ObjectId };
 export type Field = { key: string; label: string; type?: 'text' | 'textarea' | 'select' | 'money' | 'color' | 'photo' | 'photos' | 'date'; required?: boolean; options?: { value: string; label: string }[];
   /** Строка — ключ в `refs` для select (id записи); объект — выбор кодов из записей справочника `dict` (у двух — через запятую), хранится строка кодов через запятую. */
   ref?: string | { dict: string; multiple?: boolean };
+  /** Для select со строковым ref: какие записи справочника показывать в списке выбора (например, только статьи верхнего уровня). */
+  refMatch?: Document;
+  /** Для select со строковым ref: можно выбрать несколько — в базе массив id, в строке таблицы тоже массив. */
+  multi?: boolean;
   hint?: string; wide?: boolean;
   /** Флажок «да / нет» (select с вариантом «да»): в базе — true, иначе null. */
   bool?: boolean;
@@ -416,6 +421,7 @@ const BASE: DictBase[] = [
     options: (docs) => docs.map((d) => s(d.name)),
   },
   ...productGroupDefs({ translit }),
+  expenseArticlesDef(),
   {
     key: 'units', group: 'Склад и позиции', title: 'Единицы измерения',
     hint: 'Единицы в заявках, на складе и в заказах: «шт», «м», «лист»… Сокращение — то, что видно в строках.',
@@ -870,7 +876,7 @@ export const DICT_UI: Record<string, { newTitle: string; nameLabel?: string }> =
   passportSortament: { newTitle: 'Новый размер материала', nameLabel: 'Размер (∅89×3, 2, 27×120)' }, passportParts: { newTitle: 'Новая часть изделия' },
   passportDefects: { newTitle: 'Новый дефект' }, passportInstall: { newTitle: 'Новый способ установки' }, passportPhrases: { newTitle: 'Новый текст паспорта' },
   productSeries: { newTitle: 'Новая серия' }, attachmentTypes: { newTitle: 'Новый вид вложений' }, productGroups: { newTitle: 'Новая группа изделий' }, productSections: { newTitle: 'Новый раздел изделий' },
-  passportStyle: { newTitle: 'Новый элемент оформления' },
+  passportStyle: { newTitle: 'Новый элемент оформления' }, expenseArticles: { newTitle: 'Новая статья расходов' },
 };
 /** Поля справочника с подписью «Название» из DICT_UI. */
 export const uiFields = (d: DictDef) => { const l = DICT_UI[d.key]?.nameLabel; return l ? d.fields.map((f) => (f.key === 'name' ? { ...f, label: l } : f)) : d.fields; };

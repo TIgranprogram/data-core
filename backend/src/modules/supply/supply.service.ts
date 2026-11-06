@@ -37,6 +37,8 @@ export interface SupplyInput {
   requestDate?: string;
   categoryId?: string;
   categoryName?: string;
+  /** Статья расхода (id подстатьи); null или '' — снять. */
+  articleId?: string | null;
   materialId?: string;
   supplierName?: string;
   companyName?: string;
@@ -154,9 +156,10 @@ export class SupplyService {
     // Свои фото заявки (загружены в приложении или из «Справочника») — photoIds, вне схемы CRM
     const ownIds = (d: Record<string, unknown>) => (d.photoIds as Types.ObjectId[] | undefined) ?? [];
     // позиции склада читаются один раз (названия + главное фото); все чтения независимы — разом
-    const [sup, cat, { names: mat, photos: photo }, inv, own] = await Promise.all([
+    const [sup, cat, art, { names: mat, photos: photo }, inv, own] = await Promise.all([
       this.names('organizations', docs.flatMap((d) => [d.supplierId, d.companyId])),
       this.names('categories', docs.map((d) => d.categoryId)),
+      this.names('expensearticles', docs.map((d) => d.articleId)),
       this.materialInfo(docs.map((d) => d.materialId)),
       this.invoiceAmounts(docs.map((d) => d.invoiceId)),
       this.photoUrls(new Map(docs.flatMap((d) => ownIds(d)).map((p) => [String(p), p] as [string, Types.ObjectId]))),
@@ -167,6 +170,8 @@ export class SupplyService {
       supplierName: d.supplierId ? sup.get(String(d.supplierId)) ?? null : null,
       companyName: d.companyId ? sup.get(String(d.companyId)) ?? null : null,
       categoryName: d.categoryId ? cat.get(String(d.categoryId)) ?? null : null,
+      articleId: d.articleId ? String(d.articleId) : null,
+      articleName: d.articleId ? art.get(String(d.articleId)) ?? null : null,
       materialName: d.materialId ? mat.get(String(d.materialId)) ?? null : null,
       statusLabel: labelFromStatus(d.status as string, d.paid as boolean),
       priorityLabel: labelFromPriority(d.priority as string),
@@ -404,6 +409,15 @@ export class SupplyService {
     }
     if (dto.categoryId && Types.ObjectId.isValid(dto.categoryId)) f.categoryId = new Types.ObjectId(dto.categoryId);
     else if (dto.categoryName !== undefined) f.categoryId = await new CategoryResolver(this.connection).resolve(dto.categoryName);
+    if (dto.articleId !== undefined) {
+      if (!dto.articleId) f.articleId = undefined;
+      else {
+        const a = Types.ObjectId.isValid(dto.articleId) ? await this.connection.db!.collection('expensearticles').findOne({ _id: new Types.ObjectId(dto.articleId), deletedAt: null }, { projection: { parentId: 1 } }) : null;
+        if (!a) throw new BadRequestException('Статья расхода не найдена — выберите из списка');
+        if (!a.parentId) throw new BadRequestException('Выберите подстатью, а не общую статью');
+        f.articleId = a._id;
+      }
+    }
     if (dto.materialId && Types.ObjectId.isValid(dto.materialId)) f.materialId = new Types.ObjectId(dto.materialId);
     const orgs = new OrgResolver(this.connection);
     if (dto.supplierName !== undefined) f.supplierId = await orgs.resolve(dto.supplierName, 'supplier');

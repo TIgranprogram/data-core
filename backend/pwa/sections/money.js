@@ -9,11 +9,12 @@ import { openSide, noteField, sideForm } from '../ui/kit/side-form.js';
 import { toast } from '../ui/kit/toast.js';
 import { opRow } from '../ui/op-row.js';
 import { forecastView } from './money-forecast.js';
+import { articlesView } from './money-articles.js';
 
 /**
  * «Деньги»: календарь (факт по сегодня), сводка, прогноз, долги, «требуют заполнения».
  * Считает сервер (/api/finance): выплаты — оплаченные заявки, поступления — платежи по заказам.
- * Адрес: #money?tab=calendar|summary|forecast|debts&month=2026-10&org=all|СИЮ|ССЮ.
+ * Адрес: #money?tab=articles|calendar|summary|forecast|debts&month=2026-10&org=all|СИЮ|ССЮ (articles: &mode=object&order=<id заказа>).
  * Клик по сумме дня — операции; клик по операции — карточка справа.
  * Остаток дней — от старта учёта. Ноль на старте — не выписка банка.
  * Пока старт не задан, вместо остатка показываем итог — без красного.
@@ -91,7 +92,7 @@ const openingIsZero = (orgName) => {
 
 export function mountMoney(params) {
   let P = { ...params };
-  const tab = () => P.tab || 'calendar';
+  const tab = () => P.tab || 'articles';
   const month = () => (/^\d{4}-\d{2}$/.test(P.month || '') ? P.month : cur());
   const org = () => P.org || 'all';
 
@@ -105,7 +106,8 @@ export function mountMoney(params) {
   opening.addEventListener('change', () => { store.set(openKey(), opening.value.trim()); load(); });
   const nextBtn = iconButton({ icon: '›', label: 'Следующий месяц', title: 'Следующий месяц', onClick: () => patch({ month: shiftMonth(month(), step()) }) });
   // в «Сводке» листаем годами, в календаре — месяцами
-  const step = () => (tab() === 'summary' ? 12 : 1);
+  const yearly = () => tab() === 'summary' || tab() === 'articles';
+  const step = () => (yearly() ? 12 : 1);
   const gear = button({ label: '⚙ Старт учёта', kind: 'ghost', size: 'S', title: 'Дата старта учёта и остатки СИЮ/ССЮ. Можно менять в любой момент.', onClick: () => startDialog() });
   gear.hidden = true;
   const controls = h('div', { class: 'm-controls' },
@@ -124,10 +126,10 @@ export function mountMoney(params) {
     controls, body);
 
   function renderChrome(companies) {
-    tabs.replaceChildren(kitTabs({ label: 'Разделы денег', items: [['calendar', 'Платёжный календарь'], ['summary', 'Сводка'], ['forecast', 'Прогноз'], ['debts', 'Долги'], ['fill', 'Требуют заполнения']].map(([key, label]) => ({ key, label })), value: tab(),
-      onChange: (k) => (k === 'fill' ? go('fill') : patch({ tab: k === 'calendar' ? undefined : k })) }).el);
+    tabs.replaceChildren(kitTabs({ label: 'Разделы денег', items: [['articles', 'По статьям'], ['calendar', 'Платёжный календарь'], ['summary', 'Сводка'], ['forecast', 'Прогноз'], ['debts', 'Долги'], ['fill', 'Требуют заполнения']].map(([key, label]) => ({ key, label })), value: tab(),
+      onChange: (k) => (k === 'fill' ? go('fill') : patch({ tab: k === 'articles' ? undefined : k })) }).el);
     const [y, m] = month().split('-').map(Number);
-    monthLabel.textContent = tab() === 'summary' ? `${y} год` : `${MONTHS[m - 1][0].toUpperCase()}${MONTHS[m - 1].slice(1)} ${y}`;
+    monthLabel.textContent = yearly() ? `${y} год` : `${MONTHS[m - 1][0].toUpperCase()}${MONTHS[m - 1].slice(1)} ${y}`;
     orgSeg.replaceChildren(segmented({ cls: 'seg', label: 'Компания',
       items: ['all', ...(companies || ['СИЮ', 'ССЮ'])].map((c) => ({ key: c, label: c === 'all' ? 'Все' : c })),
       value: org() || 'all', onChange: (c) => patch({ org: c === 'all' ? undefined : c }) }).el);
@@ -135,8 +137,8 @@ export function mountMoney(params) {
     controls.querySelector('.m-month').hidden = tab() === 'forecast'; // прогноз — с сегодня, месяц не листается
     controls.querySelector('.m-open-l').textContent = tab() === 'forecast' ? 'остаток денег на сегодня' : 'остаток денег на 1-е';
     controls.hidden = tab() === 'fill' || tab() === 'debts';
-    nextBtn.disabled = tab() === 'summary' ? y >= Number(cur().slice(0, 4)) : month() >= cur(); // будущее — отдельный прогноз
-    nextBtn.title = tab() === 'summary' ? 'Следующий год' : 'Следующий месяц';
+    nextBtn.disabled = yearly() ? y >= Number(cur().slice(0, 4)) : month() >= cur(); // будущее — отдельный прогноз
+    nextBtn.title = yearly() ? 'Следующий год' : 'Следующий месяц';
     opening.parentElement.hidden = (tab() !== 'calendar' && tab() !== 'forecast') || hasStart();
     // Старт и остатки — на Сводке, календаре и прогнозе (не только календарь): вписать можно в любой момент
     const moneyTab = tab() === 'calendar' || tab() === 'summary' || tab() === 'forecast';
@@ -338,7 +340,10 @@ export function mountMoney(params) {
       let content;
       // старая вкладка «Требуют заполнения» — теперь своя страница по категориям (#fill)
       if (tab() === 'fill') { go('fill', {}, { replace: true }); return; }
-      if (tab() === 'forecast') {
+      if (tab() === 'articles') {
+        renderChrome(settings?.companies);
+        content = [articlesView({ year: m.slice(0, 4), org: org(), mode: P.mode, order: P.order, opRow })];
+      } else if (tab() === 'forecast') {
         const days = [30, 60, 90].includes(Number(P.days)) ? Number(P.days) : 30;
         const f = await api('/finance/forecast', { query: { days, org: org(), ...(hasStart() ? {} : { opening: opening.value.trim().replace(',', '.') || 0 }) } });
         if (my !== seq) return;
@@ -378,7 +383,7 @@ export function mountMoney(params) {
     destroy: dropDebts,
     /** Смена вкладки/месяца/компании — без пересоздания экрана; открытая карточка — без перезагрузки данных. */
     update(next) {
-      const changed = ['tab', 'month', 'org', 'days'].some((k) => (next[k] || '') !== (P[k] || ''));
+      const changed = ['tab', 'month', 'org', 'days', 'mode', 'order'].some((k) => (next[k] || '') !== (P[k] || ''));
       P = { ...next };
       if (changed) load();
       else if (tab() === 'debts' && debts) debts.update?.(debtParams(P));

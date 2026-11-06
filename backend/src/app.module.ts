@@ -73,6 +73,8 @@ import { FillAuditModule } from './modules/fill-audit/fill-audit.module';
 import { DiskModule } from './modules/disk/disk.controller';
 import { ShowcaseModule } from './modules/showcase/showcase.controller';
 import { FinanceModule } from './modules/finance/finance.module';
+import { ExpenseArticlesModule } from './modules/expense-articles/expense-articles.module';
+import { ExpensesModule } from './modules/expenses/expenses.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
 import { TodayModule } from './modules/today/today.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -199,6 +201,8 @@ import { RequestMethod } from '@nestjs/common';
     ZonesModule,            // /api/zones, /api/staff — зоны ответственности, сотрудник ↔ вход, адресация уведомлений (ЗО)
     MessagesModule,         // /api/messages — мини-чат сотрудников
     TodayModule,          // /api/today — «Сегодня»: лента дел, неделя, показатели (только чтение)
+    ExpenseArticlesModule,  // /api/expense-articles — статьи расходов (2 уровня), сид при первом запуске
+    ExpensesModule,         // /api/expenses — «Прочие расходы» (факт, со статьёй и файлом счёта)
     PayrollModule,          // /api/payroll — ФОТ: табель, начисления, выплаты (в календарь и прогноз — через finance)
     FinanceModule,          // /api/finance — платёжный календарь и сводка (расчёт, без таблиц)
     DevlogModule,           // /api/devlog — «Ведение проекта»: версии, время, ошибки, задачи, документы, набор (admin)

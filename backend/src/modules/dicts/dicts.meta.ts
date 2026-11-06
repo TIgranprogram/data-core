@@ -26,6 +26,7 @@ const code = (d: Record<string, unknown>) => String(d.code ?? '').trim().toUpper
 export const DICT_META: Record<string, DictMeta> = {
   categories: { sections: ['Остатки', 'Заявки'], refBy: 'id' },
   productGroups: { sections: ['Продукция'], refBy: 'id' },
+  expenseArticles: { sections: ['Деньги', 'Заявки', 'Прочие расходы'], refBy: 'id', locked: (d) => (d.code ? BUILTIN_REASON : null) },
   productSeries: { sections: ['Продукция'], refBy: 'name' },
   attachmentTypes: { sections: ['Продукция'], refBy: 'id' },
   productSections: { sections: ['Продукция'], refBy: 'id' },

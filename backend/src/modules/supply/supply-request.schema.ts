@@ -36,6 +36,10 @@ export class SupplyRequest {
   @Prop({ type: Types.ObjectId, ref: 'Category', index: true })
   categoryId?: Types.ObjectId;
 
+  /** Статья расхода (подстатья из `expensearticles`, только data-core; CRM поле игнорирует) — «Деньги → По статьям». */
+  @Prop({ type: Types.ObjectId })
+  articleId?: Types.ObjectId;
+
   @Prop({ type: Types.ObjectId, ref: 'Material', index: true })
   materialId?: Types.ObjectId;
 

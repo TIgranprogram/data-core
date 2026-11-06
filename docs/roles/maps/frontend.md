@@ -1,3 +1,7 @@
+## C027 «Деньги по статьям» (2026-11-06, не закоммичено)
+commit: не закоммичено
+- `sections/money-articles.js` — `articlesView` (вкладка `tab=articles`, GET /finance/by-articles[/ops]; `opened` — раскрытые статьи); `money.js` вкладка/`yearly()`/ветка в `load`. `sections/expenses.js` — `expense` (панель `of=expense`), `expenses` (раздел, NAV «Прочие расходы»), `articleTree/articleOptions/articleByCategory/orderChoices`, `requestArticleField` (форма заявки, `requests.js`). `ui/op-row.js` source=expense; `main.js` LAZY/NAV/SEC_OF/GROUP_OF/OWNER; `core/api.js sees(expenses)`; `help-flow-data.js` m4/m5. Карта обновлена.
+
 ## КП-2 шаблоны и предпросмотр (C026, 2026-11-06, не закоммичено)
 commit: не закоммичено
 - `sections/offers.js`: `ourCompanies`, `previewWidget`/`bodyOfForm` (форма, секция «Просмотр»), `copyDialog`, `preview`, поля объект/НДС/доставка в `fields`/`toBody`/`view`. `sections/partners.js`: `zoneForm`, `kpBgBlock` (segmented «Только для КП», «Проверить бланк»). `core/api.js apiBlob`; `ui/kit/pdf-preview.js openPdfPreview` (+ kit.css .k-pdf, витрина #kit, DESIGN §4). Карта обновлена.
