@@ -14,10 +14,12 @@ export function permissions(invoice, rights) {
   const linesAdmin = meta && isAdmin && !boundary;
   const reason = !whole ? 'Часть строк скрыта другим складом. Доступен только просмотр видимых позиций.'
     : !live ? 'Счёт отменён. Доступен только просмотр.'
-      : boundary ? 'По счёту уже есть приёмка. Позиции и финансовые поля зафиксированы; можно менять номер, дату, файлы и договор.'
+      : boundary ? (isAdmin ? 'По счёту уже есть приёмка. Вы можете исправить цену и сумму позиции; количество принятой позиции меняется отменой приёмки.'
+        : 'По счёту уже есть приёмка. Цены исправляет администратор; можно менять номер, дату, файлы и договор.')
         : paid ? 'До первой приёмки администратор может править и убирать позиции; исходный платёж не меняется.' : '';
+  // Цену позиции администратор исправляет на любой стадии (решение 2026-11-06); добавить и убрать — только до приёмки.
   return { whole, live, boundary, meta, finance, paid, isAdmin, reason,
-    add: linesAdmin && !!rights.canMoney, editLine: linesAdmin && !!rights.canMoney, removeLine: linesAdmin,
+    add: linesAdmin && !!rights.canMoney, editLine: meta && isAdmin && !!rights.canMoney, removeLine: linesAdmin,
     // ЗЯ-1c: только администратор; сервер повторно проверяет и просит причину.
     unpay: isAdmin && !!rights.canMoney && whole && live && paid && !boundary,
     rollback: isAdmin && !!rights.canMoney && whole && live,
@@ -70,7 +72,9 @@ export function assertOperation(invoice, rights, operation, lineId) {
   if (!allowed[operation]) throw new Error(p.reason || 'Недостаточно прав для этого действия');
   if (['line', 'remove'].includes(operation)) {
     const line = (invoice.requests || []).find((r) => r.id === lineId);
-    if (!line || line.deletedAt || ['received', 'cancelled'].includes(line.status)) throw new Error('Эту позицию нельзя изменить или убрать из счёта');
+    // принятую позицию можно только переоценить (line), но не убрать
+    const closed = operation === 'line' ? ['cancelled'] : ['received', 'cancelled'];
+    if (!line || line.deletedAt || closed.includes(line.status)) throw new Error('Эту позицию нельзя изменить или убрать из счёта');
   }
   return p;
 }

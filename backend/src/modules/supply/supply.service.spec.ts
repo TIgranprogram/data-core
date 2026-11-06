@@ -248,6 +248,14 @@ describe('SupplyService', () => {
       expect(model.updateOne).not.toHaveBeenCalled();
     });
 
+    it('dropUnchanged: карточка шлёт ту же сумму и количество строки счёта — они не считаются правкой', async () => {
+      current = reqDoc({ invoiceId: new Types.ObjectId(), status: 'ordered', priceHint: 120, qty: 2 });
+      const out = await service.dropUnchanged(String(current._id), { priceHint: 120, qty: 2, notes: 'x' });
+      expect(out).toEqual({ notes: 'x' });
+      const changed = await service.dropUnchanged(String(current._id), { priceHint: 150, qty: 2 });
+      expect(changed).toEqual({ priceHint: 150 });
+    });
+
     it.each(['supplierName', 'companyName'] as const)('%s: приёмка другой строки блокирует правку всей финансовой части счёта', async (field) => {
       const invId = new Types.ObjectId();
       current = reqDoc({ invoiceId: invId, status: 'ordered' });

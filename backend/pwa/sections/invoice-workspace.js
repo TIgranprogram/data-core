@@ -100,14 +100,16 @@ function positions(invoice, ctx, { editable = true, commands = true, receiveChec
   const rows = (invoice.requests || []).map((line) => {
     const mutable = !line.deletedAt && !['received', 'cancelled'].includes(line.status);
     const inline = canInline && mutable;
+    // принятую позицию администратор переоценивает (цена, сумма), количество — уже на складе
+    const priceInline = canInline && !line.deletedAt && line.status !== 'cancelled';
     const sum = lineAmount(line);
     const qtyCell = inline
       ? inlineField(invoice, ctx, line, 'qty', { format: (d) => qty(d.qty), suffix: line.unit || '', step: 'any' })
       : `${qty(line.qty)} ${line.unit || ''}`.trim();
-    const priceCell = !session.canMoney ? null : inline
+    const priceCell = !session.canMoney ? null : priceInline
       ? inlineField(invoice, ctx, line, 'unitPrice', { format: (d) => Number(d.qty) > 0 ? money(Number(d.lineAmount) / Number(d.qty)) : '—', step: '0.01' })
       : (Number(line.qty) > 0 ? money(sum / Number(line.qty)) : '—');
-    const sumCell = !session.canMoney ? null : inline
+    const sumCell = !session.canMoney ? null : priceInline
       ? inlineField(invoice, ctx, line, 'lineAmount', { format: (d) => money(d.lineAmount), step: '0.01' })
       : money(sum);
     const controls = editable && commands && p.removeLine && mutable

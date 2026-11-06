@@ -6,7 +6,7 @@ import type { StockScope } from '../../common/stock-scope';
 import { docScopeMatch } from '../../common/supply-scope';
 import { parseSheetDate } from '../../common/date-parse';
 import { escapeRe, oid } from '../../common/list-query';
-import { adminOverride, assertAdminActor, overrideConfirm, overrideReason, type OverridePlan, type OverrideActor } from '../../common/admin-override';
+import { adminOverride, assertAdminActor, isAdminActor, overrideConfirm, overrideReason, type OverridePlan, type OverrideActor } from '../../common/admin-override';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MaterialPriceService } from '../material/material-price.service';
@@ -593,17 +593,25 @@ export class SupplyInvoiceService {
     }
   }
 
-    /** Правка цены/количества одной строки до приёмки; amount и цена материала пересчитываются в транзакции. */
-  async updateLine(invoiceId: string, lineId: string, dto: PatchInvoiceLineDto, actorId?: string) {
+  /**
+   * Правка цены/количества одной строки; amount и цена материала пересчитываются в транзакции.
+   * До приёмки — менеджер и админ. После приёмки (решение пользователя 2026-11-06) — только администратор:
+   * цену и сумму можно на любой стадии; количество принятой строки — нет (оно уже на складе, меняется отменой приёмки).
+   * `audited` — вызывающий сам пишет журнал обхода (adminEditLine).
+   */
+  async updateLine(invoiceId: string, lineId: string, dto: PatchInvoiceLineDto, actorId?: string, actor?: OverrideActor, audited = false) {
     const inv = await this.load(invoiceId);
     if (inv.status === 'cancelled') throw new BadRequestException('Счёт отменён');
     const lock = await this.lockReason(inv);
-    if (lock) throw new BadRequestException(`${lock}. Исправления — корректировкой/сторно`);
+    const adminAfterReceipt = !!lock && isAdminActor(actor);
+    if (lock && !adminAfterReceipt) throw new BadRequestException(`${lock}. Цену после приёмки исправляет администратор`);
     const line = await this.requests.findOne({ _id: oid(lineId, 'заявки'), invoiceId: inv._id, deletedAt: null }).exec() as Lean | null;
     if (!line) throw new NotFoundException('Строка не найдена в счёте');
+    if (line.status === 'cancelled') throw new BadRequestException('Строка отменена — её цену не правят');
     const oldQty = Number(line.qty) || 0;
     const qty = dto.qty !== undefined ? Number(dto.qty) : oldQty;
     if (!Number.isFinite(qty) || !(qty > 0)) throw new BadRequestException('Количество строки должно быть больше нуля');
+    if (line.status === 'received' && qty !== oldQty) throw new BadRequestException('Позиция уже принята на склад — количество меняется только отменой приёмки. Цену и сумму исправить можно');
     let priceHint: number;
     if (dto.lineAmount !== undefined) {
       if (!(Number(dto.lineAmount) >= 0)) throw new BadRequestException('Сумма строки не может быть отрицательной');
@@ -620,7 +628,9 @@ export class SupplyInvoiceService {
         const fresh = await this.model.findOne({ _id: inv._id }, { version: 1 }).session(session).lean().exec() as Lean | null;
         if (Number(fresh?.version ?? 0) !== Number(dto.version)) throw new ConflictException('Счёт изменился, пока вы правили цену — обновите и повторите');
       }
-      await this.touchFinancialInvoice(inv._id, session);
+      // после приёмки граница уже стоит: версию поднимаем без условия «приёмки нет»
+      if (adminAfterReceipt) await this.model.updateOne({ _id: inv._id }, { $inc: { version: 1 } }, { session }).exec();
+      else await this.touchFinancialInvoice(inv._id, session);
       await this.requests.updateOne({ _id: line._id }, { $set: { priceHint, ...(dto.qty !== undefined ? { qty } : {}), editedInApp: true } }, { session }).exec();
       // Снимок invoice_paid не перезаписываем: исправление — отдельная строка истории цены.
       const source: PriceSource = inv.status === 'draft' ? 'manual' : inv.status === 'paid' ? 'invoice_adjustment' : 'invoice_issued';
@@ -629,6 +639,14 @@ export class SupplyInvoiceService {
       if (inv.status === 'paid') await this.recordPaymentAdjustment(inv, session, { reason: dto.reason, actorId, operation: 'line_edit', beforeAmount: Number(inv.amount) || 0, afterAmount: amount, requestIds: [line._id as Types.ObjectId] });
       return amount;
     });
+    if (adminAfterReceipt && !audited) {
+      await adminOverride(this.audit, {
+        rule: 'supply.price_after_receipt', entityType: 'SupplyRequest', entityId: line._id,
+        before: { priceHint: line.priceHint ?? null, qty: oldQty, invoiceAmount: inv.amount ?? null },
+        after: { priceHint, qty, invoiceAmount: amount },
+        reason: dto.reason?.trim() || 'Исправление цены администратором после приёмки', actor,
+      });
+    }
     const invoice = await this.get(invoiceId);
     return { invoice, line: { id: String(lineId), qty, unitPrice: Math.round((priceHint / qty) * 100) / 100, lineAmount: priceHint }, amount };
   }
@@ -646,7 +664,7 @@ export class SupplyInvoiceService {
     const before = { priceHint: line.priceHint ?? null, qty: line.qty ?? null, invoiceAmount: inv.amount ?? null };
     const res = await this.updateLine(String(line.invoiceId), requestId, {
       ...(dto.priceHint !== undefined && dto.priceHint !== null ? { lineAmount: dto.priceHint } : {}), ...(dto.qty !== undefined ? { qty: dto.qty } : {}), reason,
-    }, actor.id);
+    }, actor.id, actor, true);
     await adminOverride(this.audit, {
       rule: 'supply.invoiced_line', entityType: 'SupplyRequest', entityId: requestId,
       before,

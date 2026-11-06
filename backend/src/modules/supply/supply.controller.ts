@@ -92,7 +92,7 @@ export class SupplyController {
   @AuditAction({ action: 'supply.invoice.line_updated', entityType: 'SupplyInvoice', idParam: 'id' })
   async updateInvoiceLine(@Param('id') id: string, @Param('lineId') lineId: string, @Body() dto: PatchInvoiceLineDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
     await this.invoices.assertWhole(id, scope);
-    return this.invoices.updateLine(id, lineId, dto, user?.id);
+    return this.invoices.updateLine(id, lineId, dto, user?.id, { id: user?.id, role: user?.role, isOwner: user?.isOwner, username: user?.username });
   }
 
   /** Убрать строку из счёта до приёмки (только админ; заявка остаётся, возвращается в «В заказ»). */
@@ -368,10 +368,11 @@ export class SupplyController {
     await this.supply.assertRequest(id, scope);
     if (dto.materialId || dto.categoryId || dto.categoryName) await this.supply.assertNew(dto, scope);
     const actor = { id: user?.id, role: user?.role, isOwner: user?.isOwner, username: user?.username };
-    let body = dto;
+    // карточка шлёт все поля разом: неизменённые сумма/количество/компания строки счёта — не финансовая правка
+    let body = await this.supply.dropUnchanged(id, dto);
     // ЗЯ-1 п.3: сумма и количество строки счёта у администратора идут в правку строки счёта (пересчёт amount, журнал)
-    if (isAdminActor(actor) && (dto.priceHint !== undefined || dto.qty !== undefined) && (await this.invoices.adminEditLine(id, dto, actor))) {
-      const { priceHint: _p, qty: _q, ...rest } = dto; // eslint-disable-line @typescript-eslint/no-unused-vars
+    if (isAdminActor(actor) && (body.priceHint !== undefined || body.qty !== undefined) && (await this.invoices.adminEditLine(id, body, actor))) {
+      const { priceHint: _p, qty: _q, ...rest } = body; // eslint-disable-line @typescript-eslint/no-unused-vars
       body = rest;
       if (!Object.keys(rest).some((k) => k !== 'reason')) return this.supply.get(id);
     }

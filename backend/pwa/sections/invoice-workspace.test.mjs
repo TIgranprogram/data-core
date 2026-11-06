@@ -85,7 +85,7 @@ async function modules({ invoice = base(), money = true, call, confirm = true } 
 }
 
 for (const locked of [{ receiptBoundaryAt: '2026-01-01' }, { lockReason: 'receipt' }, { requests: [{ id: 'hidden', status: 'received' }] }]) test('authoritative/fallback boundary запрещает финансы, но разрешает metadata: ' + JSON.stringify(locked), () => {
-  const p = pure.permissions(base(locked), rights); assert.equal(p.finance, false); assert.equal(p.meta, true); assert.equal(p.add, false); assert.equal(p.editLine, false);
+  const p = pure.permissions(base(locked), rights); assert.equal(p.finance, false); assert.equal(p.meta, true); assert.equal(p.add, false); assert.equal(p.editLine, true); assert.equal(pure.permissions(base(locked), { ...rights, role: 'manager', isAdmin: false }).editLine, false);
 });
 for (const extra of [{ partial: true }, { status: 'cancelled' }]) test('partial/cancelled запрещает ВСЕ writes: ' + JSON.stringify(extra), () => {
   for (const op of ['meta', 'line', 'add', 'remove', 'issue', 'pay', 'receive']) assert.throws(() => pure.assertOperation(base(extra), rights, op, 'line'));
@@ -198,9 +198,9 @@ test('readonly renderer реально сохраняет 0, false→Нет, tru
   assert.equal(readonly.namespace.readonlyGroup({ rows: [['Нет значения', '']] }), null);
 });
 
-test('фиксировать реальную оплату уже полученного issued-счёта можно; его цены менять нельзя', () => {
+test('фиксировать реальную оплату уже полученного issued-счёта можно; цены исправляет только администратор', () => {
   const p = pure.permissions(base({ requests: [{ id: 'line', status: 'received' }] }), rights);
-  assert.equal(p.pay, true); assert.equal(p.editLine, false); assert.equal(p.add, false); assert.equal(p.removeLine, false);
+  assert.equal(p.pay, true); assert.equal(p.editLine, true); assert.equal(p.add, false); assert.equal(p.removeLine, false);
 });
 
 test('добавление соблюдает DTO максимум200 уникальных заявок', () => {

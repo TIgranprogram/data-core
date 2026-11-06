@@ -490,6 +490,25 @@ export class SupplyService {
     } catch { /* уведомление не должно ломать операцию */ }
   }
 
+  /**
+   * Карточка заявки шлёт форму целиком. У строки счёта неизменённые сумма, количество и наша компания
+   * убираются из правки — иначе любое сохранение (примечание, приоритет) упиралось в финансовый замок счёта.
+   */
+  async dropUnchanged<T extends SupplyInput>(id: string, dto: T): Promise<T> {
+    if (!Types.ObjectId.isValid(id) || !['priceHint', 'qty', 'companyName'].some((k) => k in dto)) return dto;
+    const cur = await this.model.findById(id, { invoiceId: 1, priceHint: 1, qty: 1, companyId: 1 }).lean().exec() as Record<string, unknown> | null;
+    if (!cur?.invoiceId) return dto;
+    const num = (v: unknown) => (v === null || v === undefined || v === '' ? null : Math.round(Number(v) * 100) / 100);
+    const out: T = { ...dto };
+    if ('priceHint' in out && num(out.priceHint) === num(cur.priceHint)) delete out.priceHint;
+    if ('qty' in out && num(out.qty) === num(cur.qty)) delete out.qty;
+    if ('companyName' in out) {
+      const name = cur.companyId ? (await this.names('organizations', [cur.companyId])).get(String(cur.companyId)) ?? null : null;
+      if ((String(out.companyName ?? '').trim() || null) === (name || null)) delete out.companyName;
+    }
+    return out;
+  }
+
   async update(id: string, dto: SupplyInput, userRole?: string, actorId?: string, actor?: OverrideActor) {
     // менеджер правит суммы заявок (решение 2026-10-29, docs/CHECKLIST-MANAGER-ROLE.md); роли без денег суммы не пришлют — их срезает MoneyMask
     const admin = isAdminActor({ role: userRole, isOwner: actor?.isOwner });

@@ -654,11 +654,33 @@ describe('ЗЯ-1: администратор правит сумму строк�
     expect(audit.log).not.toHaveBeenCalled();
   });
 
-  it('после границы приёмки блок остаётся и для admin', async () => {
-    const { svc, line, lineId, audit } = mk('paid', { receiptBoundaryAt: new Date() });
-    await expect(svc.adminEditLine(String(lineId), { priceHint: 50, reason: 'поправка' }, admin)).rejects.toThrow(/приёмка/);
+  it('после приёмки admin исправляет цену (решение 2026-11-06): сумма и amount пересчитаны, журнал один', async () => {
+    const { svc, inv, line, lineId, audit } = mk('paid', { receiptBoundaryAt: new Date() });
+    line.status = 'received';
+    expect(await svc.adminEditLine(String(lineId), { priceHint: 50, reason: 'поправка' }, admin)).toBe(true);
+    expect(line.priceHint).toBe(50);
+    expect(inv.amount).toBe(50);
+    expect(audit.log).toHaveBeenCalledTimes(1);
+  });
+
+  it('после приёмки количество принятой строки не меняется даже у admin', async () => {
+    const { svc, line, lineId } = mk('paid', { receiptBoundaryAt: new Date() });
+    line.status = 'received';
+    await expect(svc.adminEditLine(String(lineId), { qty: 5, reason: 'поправка' }, admin)).rejects.toThrow(/отменой приёмки/);
+    expect(line.qty).toBe(3);
+  });
+
+  it('после приёмки менеджер цену не меняет', async () => {
+    const { svc, inv, line, lineId } = mk('paid', { receiptBoundaryAt: new Date() });
+    await expect(svc.updateLine(String(inv._id), String(lineId), { lineAmount: 50 }, undefined, { role: 'manager' })).rejects.toThrow(/администратор/);
     expect(line.priceHint).toBe(30);
-    expect(audit.log).not.toHaveBeenCalled();
+  });
+
+  it('прямая правка строки admin после приёмки — журнал с причиной по умолчанию', async () => {
+    const { svc, inv, line, lineId, audit } = mk('paid', { receiptBoundaryAt: new Date() });
+    await svc.updateLine(String(inv._id), String(lineId), { lineAmount: 45 }, admin.id, admin);
+    expect(line.priceHint).toBe(45);
+    expect(audit.log.mock.calls[0][0]).toMatchObject({ details: { meta: { rule: 'supply.price_after_receipt' } } });
   });
 
   it('заявка без счёта → false (обычный путь)', async () => {

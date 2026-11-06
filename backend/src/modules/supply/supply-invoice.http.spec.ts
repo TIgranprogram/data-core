@@ -75,7 +75,7 @@ describe('Счета: HTTP-контракт без Mongo', () => {
     const update = jest.spyOn(invoices, 'updateLine').mockResolvedValue({ amount: 25 } as never);
     await request(app.getHttpServer()).patch(`/supply/invoices/${invId}/lines/${lineId}`)
       .send({ qty: 2.5, unitPrice: 10 }).expect(200);
-    expect(update).toHaveBeenCalledWith(String(invId), String(lineId), { qty: 2.5, unitPrice: 10 }, expect.any(String));
+    expect(update).toHaveBeenCalledWith(String(invId), String(lineId), { qty: 2.5, unitPrice: 10 }, expect.any(String), expect.objectContaining({ role: 'admin' }));
   });
 
   it.each([0, -1, '2'])('PATCH строки отклоняет qty=%s на уровне DTO', async (qty) => {
