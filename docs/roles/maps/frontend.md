@@ -1,3 +1,7 @@
+## C030-мелочи (2026-11-07, не закоммичено)
+коммит: не закоммичено
+- kit: `ui/kit/index.js segmented` (опция scroll), `kit.css` `.k-seg-scroll`, `.k-cols.k-cols>.k-sec.k-sec`, `.k-row-act .btn-ghost.btn-sm` (телефон). Экраны: `stock.js:27`, `matching-queue.js unmatchedTop`, `salesorders-unassigned.js unassignedTop` (section вместо кнопки). Карта обновлена.
+
 ## Паспорт воронкой F1 (C028, 2026-11-07, не закоммичено)
 коммит: не закоммичено
 - `sections/passports/funnel/`: `index.js` (build панели `of=passfunnel`, `choose`, `stagePanels`), `open.js` (`openPassportFunnel`, `takePending`), `api.js` (A2–A5, `putDefaults`, `issueFromProduct`), `pick-steps.js` (stepFunnel локально), `product-list.js`, `gaps.js`, `texts.js`, `issue.js`, `new-product.js`. Входы: `docs.js` page-head «Новый паспорт», `products/card-blocks.js passportsBlock` «Создать паспорт». kit: `filter.js stepFunnel` onChange/multi/thumbIcon, `ui/kit/pos-pic.js`. Старые мастер/форма живы до F3. Отчёт: `docs/crew/C028-passport-funnel/frontend-report.md`. Карта обновлена.

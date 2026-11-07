@@ -2,7 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
-import { enhanceSelect, table, tabs as kitTabs, button } from '../ui/kit/index.js';
+import { enhanceSelect, table, tabs as kitTabs, button, section } from '../ui/kit/index.js';
 import { toastError } from '../ui/kit/toast.js';
 import { STAGE } from './order-stage.js';
 import { openMatching } from './salesorders-matching.js';
@@ -44,9 +44,10 @@ export function unmatchedOrders(r) {
 
 /** Блок над списком: кнопка «Несопоставленные · N» (скрыта при 0) и раскрывающаяся таблица; open — сразу таблица, без кнопки (экран «Сопоставление»). */
 export function unmatchedTop({ open = false } = {}) {
-  const btn = button({ label: 'Несопоставленные', kind: 'ghost' }); btn.hidden = true; btn.setAttribute('aria-expanded', 'false');
-  const box = h('div', { class: 'ua-box', hidden: !open });
-  const el = h('div', { class: 'ua-top' }, open ? null : btn, box);
+  const box = h('div', { class: 'ua-box' });
+  const sec = open ? null : section({ title: 'Несопоставленные', count: '', body: [box] }); // раскрывающийся блок со счётчиком и стрелкой (kit section)
+  if (sec) sec.hidden = true;
+  const el = h('div', { class: 'ua-top' }, sec || box);
   let items = [], total = 0, q = '', onlyProd = false, loaded = false;
   const filter = { productionNo: '', orderNo: '', stage: '' };
   const search = h('input', { type: 'search', placeholder: 'Поиск: № заказа, № договора, заказчик, позиция…', 'aria-label': 'Поиск несопоставленных позиций' });
@@ -69,9 +70,7 @@ export function unmatchedTop({ open = false } = {}) {
 
   const setCount = async () => {
     const c = await unmatchedCount();
-    btn.hidden = !c.total && box.hidden;
-    btn.textContent = `Несопоставленные · ${qty(c.total || 0)}`;
-    btn.classList.toggle('active', !box.hidden);
+    if (sec) { sec.hidden = !c.total && !sec.open; sec.querySelector('.k-sec-n').textContent = qty(c.total || 0); }
   };
   const run = async (fn) => { try { await fn(); changed(); } catch (e) { toastError(e, 'сохранить сопоставление'); } };
   const best = (it) => (it.suggestions || [])[0];
@@ -119,13 +118,8 @@ export function unmatchedTop({ open = false } = {}) {
   bulkBtn.addEventListener('click', (e) => { e.currentTarget.classList.add('is-busy'); const list = sure(); run(() => api('/matching/bulk', { method: 'POST', body: { items: list.map((x) => ({ lineId: x.lineId, productId: best(x).productId })) } })); });
   box.append(h('p', { class: 'hint' }, write ? 'Здесь строки договоров, которые ещё не связаны с изделием из «Продукции». Сравните картинки слева и справа. Совпало — подтвердите. Нет — выберите другое изделие.' : 'Только просмотр: сопоставлять могут администратор и менеджер.'),
     bulkBtn, h('div', { class: 'mq-bar' }, h('label', { class: 'field' }, search), orderSel, contractSel, stageSel, h('label', { class: 'check' }, prod, ' Только в производстве')), body, more);
-  btn.addEventListener('click', () => {
-    box.hidden = !box.hidden;
-    btn.setAttribute('aria-expanded', String(!box.hidden));
-    btn.classList.toggle('active', !box.hidden);
-    if (!box.hidden) load(false);
-  });
-  window.addEventListener('data-changed', () => { if (!el.isConnected) return; setCount(); if (!box.hidden) load(false); });
+  sec?.addEventListener('toggle', () => { if (sec.open) load(false); });
+  window.addEventListener('data-changed', () => { if (!el.isConnected) return; setCount(); if (open || sec.open) load(false); });
   setCount();
   if (open) load(false);
   return el;

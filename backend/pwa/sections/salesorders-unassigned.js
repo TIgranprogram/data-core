@@ -6,7 +6,7 @@ import { matchBadge, openMatching } from './salesorders-matching.js';
 import { session } from '../core/api.js';
 import { toast } from '../ui/kit/toast.js';
 import { modal } from '../ui/kit/dialog.js';
-import { attachCombo, button, select } from '../ui/kit/index.js';
+import { attachCombo, button, select, section } from '../ui/kit/index.js';
 import { errText } from '../ui/kit/errors.js';
 
 /** В3: «Договоры без заказа» — выбор галочками и перенос в новый или существующий заказ (POST /production-orders/assign). */
@@ -133,22 +133,19 @@ export function unassignedBar(getPicker, afterMove) {
 
 /** Блок над списком «Заказов»: плашка «Договоры без заказа (N)» → раскрывается выбор с полосой действий. */
 export function unassignedTop(reload) {
-  const btn = button({ label: 'Договоры без заказа', kind: 'ghost' }); btn.setAttribute('aria-expanded', 'false');
-  const box = h('div', { class: 'ua-box', hidden: true });
-  const el = h('div', { class: 'ua-top' }, btn, box);
+  const box = h('div', { class: 'ua-box' });
+  const sec = section({ title: 'Договоры без заказа', count: '', body: [box] }); // раскрывающийся блок со счётчиком и стрелкой (kit section)
+  const nEl = sec.querySelector('.k-sec-n'); nEl.hidden = true;
+  const el = h('div', { class: 'ua-top' }, sec);
   let picker = null;
-  const setCount = (n) => { btn.textContent = `Договоры без заказа${n == null ? '' : ` (${qty(n)})`}`; btn.classList.toggle('active', !box.hidden); };
+  const setCount = (n) => { nEl.hidden = n == null; if (n != null) nEl.textContent = qty(n); };
   api('/production-orders/unassigned', { query: { limit: 1 } }).then((d) => setCount(d.total ?? 0)).catch(() => {});
   const { bar, onChange } = unassignedBar(() => picker, reload);
-  const open = () => {
-    box.hidden = !box.hidden;
-    btn.setAttribute('aria-expanded', String(!box.hidden));
-    if (!box.hidden && !picker) { picker = unassignedPicker({ onChange }); box.append(bar, picker.el); }
-    if (!box.hidden) picker?.reload().then?.(() => setCount(picker.count()));
-    setCount(picker ? picker.count() : null);
-  };
-  btn.addEventListener('click', open);
-  window.addEventListener('data-changed', () => { if (!box.hidden) picker?.reload(); });
+  sec.addEventListener('toggle', () => {
+    if (sec.open && !picker) { picker = unassignedPicker({ onChange }); box.append(bar, picker.el); }
+    if (sec.open) picker?.reload().then?.(() => setCount(picker.count()));
+  });
+  window.addEventListener('data-changed', () => { if (sec.open) picker?.reload(); });
   return el;
 }
 

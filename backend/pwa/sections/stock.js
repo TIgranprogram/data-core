@@ -24,7 +24,7 @@ function zoneBar() {
     // один склад: переключатель скрыт; раньше при used слали data-changed и сбрасывали кэш 10k (C022)
     if (zs.length < 2) return;
     box.hidden = false;
-    box.replaceChildren(segmented({ label: 'Склад', items: zs.map((z) => ({ key: z.id, label: z.name })), value: zoneNow(),
+    box.replaceChildren(segmented({ label: 'Склад', scroll: true, items: zs.map((z) => ({ key: z.id, label: z.name })), value: zoneNow(),
       onChange: (id) => { setZone(id); patch({ categoryId: undefined, page: undefined }); window.dispatchEvent(new CustomEvent('data-changed')); } }).el);
     if (zoneNow() !== used) window.dispatchEvent(new CustomEvent('data-changed')); // запомненный склад устарел — список уже ушёл с другим
   }).catch(() => { /* без списка складов экран работает как раньше: сервер сам ограничивает по роли */ });
