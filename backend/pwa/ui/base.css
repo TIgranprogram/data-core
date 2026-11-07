@@ -126,8 +126,9 @@ a.kpi:hover { text-decoration: none; border-color: var(--border-strong); }
 @media (max-width: 1280px) { .grid-2 { grid-template-columns: minmax(0, 1fr); } }
 
 /* ---------- Доска (колонки по статусам слева направо) ---------- */
-.board { display: grid; grid-auto-flow: column; grid-auto-columns: 290px; gap: var(--s3); overflow-x: auto; padding-bottom: 8px; align-items: start; }
-.col { background: var(--surface-3); border-radius: var(--radius); display: flex; flex-direction: column; max-height: calc(100vh - 220px); min-height: 120px; }
+/* доска: колонки тянутся по ширине экрана (290–520px), шире — растут промежутки; узко — прокрутка вбок (2026-11-07) */
+.board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(290px, 520px); justify-content: space-between; gap: var(--s3); overflow-x: auto; margin-top: var(--s3); padding-bottom: 8px; align-items: start; }
+.col { background: var(--col-bg); border: 1px solid var(--col-border); border-radius: var(--radius); display: flex; flex-direction: column; max-height: calc(100vh - 220px); min-height: 120px; }
 .col.drop { outline: 2px dashed var(--primary); outline-offset: -2px; background: var(--primary-soft); }
 .col-head { display: flex; align-items: center; gap: 8px; padding: 12px 12px 8px; font-weight: 600; }
 .col-head .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--tone, var(--muted)); }

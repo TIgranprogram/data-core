@@ -41,6 +41,8 @@
   --surface: #ffffff;
   --surface-2: #f6f9f8;
   --surface-3: #e9eeec;
+  --col-bg: #e1e8e4; /* колонка доски — темнее фона страницы (светлая тема сливалась, 2026-11-07) */
+  --col-border: #d3dcd7;
   --photo-bg: #f6f7f9; /* фото изделий и рисунки разделов — светлый фон в обеих темах */
   --paper: #ffffff; /* чертёж и печать — всегда на белом, в обеих темах */
   /* чернила */
@@ -108,6 +110,8 @@
   --surface: #171c25;
   --surface-2: #1c222d;
   --surface-3: #252c39;
+  --col-bg: var(--surface-3);
+  --col-border: transparent;
   --photo-bg: #f6f7f9; /* светлый и в тёмной теме: чертёж читается */
   --paper: #ffffff;
   --text: #d3dbd8;
