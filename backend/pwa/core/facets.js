@@ -15,6 +15,30 @@ export const skuKey = (s) => String(s ?? '').toLowerCase().replace(/ё/g, 'е').
 export const searchTokens = (q) => normSearch(q).replace(/(^|\s)м\s+(\d)/g, '$1м$2').split(' ').filter(Boolean);
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+/** Ключ слова для правил типа: регистр, «ё», знаки — не различаем («Нерж.» = «нерж»). */
+const wordKey = (w) => String(w ?? '').toLowerCase().replace(/ё/g, 'е').replace(/[^\wа-яё-]/g, '');
+/** Слово — прилагательное/материал, а не тип: таблица исключений и окончания прилагательных (C043). */
+export function isTypeAdjective(word) {
+  const k = wordKey(word);
+  if (!k || /^\d/.test(k)) return false;
+  if (TYPE_SKIP_WORDS.has(k)) return true;
+  if (TYPE_NOUN_WORDS.has(k)) return false;
+  return /(ый|ий|ой|ая|яя|ое|ее|ые|ие)$/.test(k);
+}
+/** Первое существительное имени → тип: пропускаем ведущие прилагательные и материалы («Алюминиевый» → «Соединитель»). */
+function typeOfName(n) {
+  const cut = n.search(/,(?!\d)/); // запятая-разделитель, а не десятичная в размере («4,2х20»)
+  const head = cut === -1 ? n : n.slice(0, cut);
+  const words = (s) => String(s).trim().split(/\s+/).filter(Boolean);
+  const firstNoun = (list) => list.findIndex((w) => !isTypeAdjective(w));
+  if (cut === -1) { const ws = words(n); const i = firstNoun(ws); return i === -1 ? ws[0] : ws[i]; }
+  const ws = words(head);
+  const i = firstNoun(ws);
+  if (i >= 0) return ws.slice(i).join(' ');
+  const rest = words(n.slice(cut + 1)); // перед запятой только прилагательное — существительное ищем после неё
+  const j = firstNoun(rest);
+  return j >= 0 ? rest[j] : head;
+}
 
 /** Признаки позиции по наименованию. */
 export function facetsOf(name) {
@@ -22,8 +46,9 @@ export function facetsOf(name) {
   const thread = n.match(/(?:^|[\s,(])[MМ]\s?(\d+(?:[.,]\d+)?)(?![\d.,]*\s?мм)/);
   const len = n.match(/[MМ]\s?\d+(?:[.,]\d+)?\s?[xхX×]\s?(\d+(?:[.,]\d+)?)/);
   const std = n.match(/\b(DIN|ГОСТ|ISO)\s?(\d+)/i);
-  let type = n.includes(',') ? n.slice(0, n.indexOf(',')) : n.split(/\s+/)[0];
-  type = cap(type.replace(/\s+[MМ]\s?\d.*$/, '').replace(/[.\s]+$/, '').trim());
+  let type = typeOfName(n);
+  // размер и единица в тип не входят: «Саморез 4,2х20» → «Саморез», «Уголок 40х40 3 мм» → «Уголок» (резьба, длина, сечение — свои признаки)
+  type = cap(type.replace(/\s+[MМ]\s?\d.*$/, '').replace(/(?:\s+(?:[Øø]?\d[\w,.×хX-]*|мм|м²|м³|м|шт|кг|л))+$/, '').replace(/[.\s]+$/, '').trim());
   if (type.length > 40) type = type.split(/\s+/).slice(0, 2).join(' ');
   return {
     type: type || null,
@@ -72,14 +97,17 @@ export function index(items) {
   const section = one('assortment'), grade = one('materialGrade');
   for (const it of items) {
     const isPipe = it.metal === 'pipe' && !!it.assortment;
+    // ручной тип важнее вычисленного (C043): typeName правит пользователь в «Изменить выбранные»
+    const manual = it.typeName ? { type: String(it.typeName).trim() } : {};
     if (isPipe) {
-      it._f = { pipe: pipeKey(it), wash: it.washed == null ? null : it.washed ? 'Мытая' : 'Не мытая' };
+      it._f = { pipe: pipeKey(it), wash: it.washed == null ? null : it.washed ? 'Мытая' : 'Не мытая', ...manual };
     } else {
       // C009 / СКФ.7: заполненные dimensions[] важнее разбора имени; имя — запасной источник
       const fromName = it.metal ? {} : facetsOf(it.name);
       const len = it.dims?.length != null ? String(it.dims.length) : (fromName.length || null);
       it._f = {
         ...fromName,
+        ...manual,
         ...(len ? { length: len } : {}),
         section: section(it.assortment),
         grade: grade(it.materialGrade),
@@ -107,6 +135,24 @@ export function facetValues(items, key) {
   if (key === 'pipe' || key === 'section') return [...m].sort((a, b) => bySize(a[0].split('|')[1] ?? a[0], b[0].split('|')[1] ?? b[0]) || (pipeParts(a[0]).len || 1e9) - (pipeParts(b[0]).len || 1e9));
   return [...m].sort((a, b) => (key === 'type' ? b[1] - a[1] || a[0].localeCompare(b[0], 'ru') : num(a[0]) - num(b[0]) || a[0].localeCompare(b[0])));
 }
+
+/** Слова-прилагательные и материалы, которые не могут быть типом (C043): «Алюминиевый» — прилагательное, тип — первое существительное («Соединитель»). Таблица — рядом с TYPE_FAMILIES; дополнена эвристикой окончаний в isTypeAdjective. */
+export const TYPE_SKIP_WORDS = new Set([
+  'алюминиевый', 'алюминиевая', 'алюминиевое', 'алюминиевые', 'алюм', 'алюминий',
+  'оцинкованный', 'оцинкованная', 'оцинкованное', 'оцинкованные', 'оцинк', 'оцинковка',
+  'нержавеющий', 'нержавеющая', 'нержавеющее', 'нержавеющие', 'нержав', 'нержавейка', 'нерж',
+  'стальной', 'стальная', 'стальное', 'стальные', 'сталь',
+  'медный', 'медная', 'медное', 'медные', 'медь', 'латунный', 'латунная', 'латунное', 'латунные', 'латунь',
+  'хромированный', 'хромированная', 'хромированное', 'хромированные',
+  'пластиковый', 'пластиковая', 'пластиковое', 'пластиковые',
+  'полипропиленовый', 'полипропиленовая', 'полипропиленовое', 'полипропиленовые',
+  'сменный', 'сменная', 'сменное', 'сменные',
+]);
+/** Существительные с «прилагательным» окончанием — тип, а не прилагательное («Изделие», «Крепление»). */
+export const TYPE_NOUN_WORDS = new Set([
+  'изделие', 'изделия', 'крепление', 'соединение', 'покрытие', 'основание', 'оборудование', 'приспособление',
+  'строение', 'здание', 'снаряжение', 'сооружение',
+]);
 
 /** Семейства типов (C039): «полочки» шага «Тип» — id, подпись полки, правило по названию типа (первое совпадение сверху вниз). Одна копия: рисунки семейств — ui/cat-art.js FAMILY_ICON. */
 export const TYPE_FAMILIES = [

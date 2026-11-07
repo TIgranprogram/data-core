@@ -13,9 +13,11 @@ export function hint(text, tone) {
 }
 
 /** tileGrid(...плитки) → .k-tilegrid: сетка карточек S (2 колонки на телефоне, 3–4 на широком экране).
+ *  tileGrid({ compact: true }, ...плитки) → .k-tilegrid-compact: плотная сетка для плиток card S compact (C043, типы в раскрытой категории).
  *  Плитки с expand: панели переносятся в конец сетки (под весь ряд, на всю ширину), открыта одна — открыл другую, прежняя закрылась. */
-export const tileGrid = (...tiles) => {
-  const grid = h('div', { class: 'k-tilegrid' }, ...nodes(tiles));
+export const tileGrid = (...args) => {
+  const opts = args[0] && typeof args[0] === 'object' && !(typeof Node !== 'undefined' && args[0] instanceof Node) ? args.shift() : {};
+  const grid = h('div', { class: 'k-tilegrid' + (opts.compact ? ' k-tilegrid-compact' : '') }, ...nodes(args));
   accordion(grid);
   grid.append(...[...grid.querySelectorAll(':scope > .k-tile-wrap > .k-expand')]);
   return mark(grid, 'tileGrid');

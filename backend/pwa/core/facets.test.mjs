@@ -35,3 +35,40 @@ test('остальные подписи фильтров не меняются',
     assert.equal(v.find((x)=>x.id==='Гайка шестигр').group,'');
   });
 }
+{
+  const src=readFileSync(new URL('./facets.js',import.meta.url),'utf8');
+  const {facetsOf,isTypeAdjective}=await import('data:text/javascript;base64,'+Buffer.from(src).toString('base64'));
+  test('тип — существительное, а не прилагательное/материал (C043)',()=>{
+    // «Прочее» из C039: «Алюминиевый», «Сменная» — это прилагательные, тип внутри: соединитель, насадка
+    assert.equal(facetsOf('Алюминиевый, соединитель 20х20').type,'Соединитель');
+    assert.equal(facetsOf('Алюминиевый соединитель 20х20').type,'Соединитель');
+    assert.equal(facetsOf('Оцинкованный саморез 4,2х20').type,'Саморез');
+    assert.equal(facetsOf('Сменная насадка для шуруповерта').type,'Насадка');
+    assert.equal(facetsOf('Нерж. труба 40х40').type,'Труба');
+    assert.equal(facetsOf('Стальной уголок 40х40, 2 м').type,'Уголок');
+    // прежнее поведение не меняется: тип до запятой остаётся целиком
+    assert.equal(facetsOf('Болт мебельный, M8х40').type,'Болт мебельный');
+    assert.equal(facetsOf('Болт M8х40').type,'Болт');
+    // существительные с «прилагательным» окончанием не режем (белый список)
+    assert.equal(facetsOf('Изделие деревянное, 1').type,'Изделие деревянное');
+    assert.equal(isTypeAdjective('Алюминиевый'),true);
+    assert.equal(isTypeAdjective('Изделие'),false);
+  });
+}
+{
+  const src=readFileSync(new URL('./facets.js',import.meta.url),'utf8');
+  const {index}=await import('data:text/javascript;base64,'+Buffer.from(src).toString('base64'));
+  test('ручной тип typeName важнее вычисленного — в обеих ветках (C043)',()=>{
+    const [bolt,pipe,plain,plainPipe]=index([
+      {name:'Болт мебельный, M8х40',typeName:'Соединитель'},
+      {name:'Труба 40х40',metal:'pipe',assortment:'Труба 40×40×2',dims:{length:6000},typeName:'Труба профильная'},
+      {name:'Гайка шестигр, M8'},
+      {name:'Труба 20х20',metal:'pipe',assortment:'Труба 20×20×2',dims:{length:6000}},
+    ]);
+    assert.equal(bolt._f.type,'Соединитель');
+    assert.equal(pipe._f.type,'Труба профильная');
+    assert.ok(pipe._f.pipe);
+    assert.equal(plain._f.type,'Гайка шестигр'); // без typeName — по имени
+    assert.equal(plainPipe._f.type,undefined); // труба без ручного типа: прежнее поведение
+  });
+}

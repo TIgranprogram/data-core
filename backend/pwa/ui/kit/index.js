@@ -63,7 +63,7 @@ function variantBody(variant, body, price) {
 }
 
 /** card({ size: 'S'|'M'|'L', tone: 'neutral'|'info'|'warn'|'danger'|'ok', title, meta, badges, actions, onClick, photo, density, cls, variant: 'long'|'table'|'fields', body, price })
- *  S: art (узел 40×40 слева, catArt; artCover:true — рисунок сверху во всю ширину 16:10 на --photo-bg), onToggle(open) у expand, low (часть меты красным), graph (miniChart под меткой), expand: { title, action, body } — плитка раскрывает панель; внутри tileGrid панель стоит под всем рядом плиток на всю ширину, открыта одна (аккордеон), по умолчанию закрыты.
+ *  S: art (узел 40×40 слева, catArt; artCover:true — рисунок сверху во всю ширину 16:10 на --photo-bg), onToggle(open) у expand, low (часть меты красным), graph (miniChart под меткой), compact:true — плитка в 2 раза меньше/ниже (.k-compact, C043: типы в раскрытой категории), expand: { title, action, body } — плитка раскрывает панель; внутри tileGrid панель стоит под всем рядом плиток на всю ширину, открыта одна (аккордеон), по умолчанию закрыты.
  *  M variant 'fields': price + body (readonlyGroup). L: head: { title, badges, menu } + tabs: { items: [{ key, label, count? }], panes: { key: () => узел }, value } — шапка и вкладки с панелью (в DOM только активная).
  *  variant + body — слот под заголовком; onClick → класс k-hover (подъём -2px и --shadow-lg, только у кликабельных).
  *  S → .tile, M → .tcard (density 'compact' → .tcard.compact), L → .db-order. tone → .tone-X + .k-toned (полоса слева).
@@ -103,7 +103,7 @@ function headTabsCard({ head = {}, tabs: tb, tone = 'neutral', cls }) {
     h('div', { class: 'db-oh k-head' }, h('span', { class: 'db-oname' }, h('b', null, head.title)), head.badges ? h('div', { class: 'k-badges' }, ...nodes(head.badges)) : null, head.menu || null),
     t ? t.el : null, t ? pane : null);
 }
-function cardBase({ size = 'M', tone = 'neutral', title, meta, badges, actions, onClick, photo, density, cls, variant, body, price, art, artCover, low, graph } = {}) {
+function cardBase({ size = 'M', tone = 'neutral', title, meta, badges, actions, onClick, photo, density, cls, variant, body, price, art, artCover, compact: compactTile, low, graph } = {}) {
   const toned = TONES.includes(tone) ? ' tone-' + tone + ' k-toned' : '';
   const hover = onClick ? ' k-hover' : '';
   const slot = variantBody(variant, body, price);
@@ -114,8 +114,9 @@ function cardBase({ size = 'M', tone = 'neutral', title, meta, badges, actions, 
   if (size === 'S') {
     const sub = meta || low ? h('span', { class: 'muted' }, meta, low ? h('span', { class: 'k-low' }, (meta ? ' · ' : '') + low) : null) : null;
     const inner = [h('b', { title }, title), sub, graph || null, bs.length ? h('div', { class: 'k-badges' }, ...bs) : null, slot, as.length ? quiet(h('div', { class: 'k-actions' }, ...as)) : null];
-    if (art) return h('div', { class: 'tile k-s k-art' + (artCover ? ' k-cover' : '') + toned + extra, ...open }, h('span', { class: 'k-tile-art', 'aria-hidden': 'true' }, art), h('div', { class: 'k-tile-txt' }, ...inner));
-    return h('div', { class: 'tile k-s' + toned + extra, ...open }, ...inner);
+    const small = compactTile ? ' k-compact' : '';
+    if (art) return h('div', { class: 'tile k-s k-art' + (artCover ? ' k-cover' : '') + small + toned + extra, ...open }, h('span', { class: 'k-tile-art', 'aria-hidden': 'true' }, art), h('div', { class: 'k-tile-txt' }, ...inner));
+    return h('div', { class: 'tile k-s' + small + toned + extra, ...open }, ...inner);
   }
   if (size === 'L') {
     return h('article', { class: 'db-order' + toned + extra, ...open },
