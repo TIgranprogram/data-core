@@ -5,7 +5,7 @@ import { busyBtn } from '../ui/kit/busy.js';
 import { parseNum, plural, qty } from '../core/format.js';
 import { current, patch } from '../core/router.js';
 import { stockList } from '../core/stock-list.js';
-import { attachCombo, button, enhanceSelect, ftParams, ftQuery, iconButton, row, select } from '../ui/kit/index.js';
+import { button, enhanceSelect, ftParams, ftQuery, iconButton, row, select } from '../ui/kit/index.js';
 import { confirmDlg } from '../ui/kit/dialog.js';
 import { errText } from '../ui/kit/errors.js';
 import { toast, toastError } from '../ui/kit/toast.js';
@@ -13,10 +13,10 @@ import { offerAfterIssue } from '../ui/composition-suggest.js';
 import { lineCode, targetPicker } from '../ui/kit/target-picker.js';
 import { receiveField } from './item-orders.js';
 import { pipeInHelper } from './metal.js';
-import { lookups } from './lookups.js';
 import { arrivalsBlock } from './ops.js';
 import { weighButton } from './ops-weight.js';
 import { buildFromReserve, buildUnreserve } from './stock-ops-res.js';
+import { rememberPick, stockPick } from './stock-ops-pick.js';
 import { reservationsPanel } from './reservations.js';
 
 /*
@@ -68,39 +68,36 @@ async function build() {
     if (line.recv) line.recv.el.style.gridColumn = '1 / -1';
     return line;
   };
+  // П-1 п. 6: «от кого» для прихода — прошлое примечание этой позиции серым в поле, ручное главнее (C032)
+  const NOTE_KEY = (id) => 'dc-ops-note-' + id;
+  const lastNote = (id) => { try { return localStorage.getItem(NOTE_KEY(id)) || ''; } catch { return ''; } };
+  const noteAsBefore = () => {
+    if (op !== 'in') return;
+    const base = 'например: принёс поставщик';
+    if (lines.length !== 1) { note.placeholder = base; return; }
+    const past = lastNote(lines[0].it.id);
+    note.placeholder = past ? `${past} — как в прошлый раз` : base;
+  };
   let resCache = null; // брони — один запрос, только когда понадобились (пересчёт ниже брони)
   const ordersOf = async (materialId) => { resCache ??= api('/stock/reservations', { query: zoneQuery() }).then((r) => r.items || []).catch(() => []); return (await resCache).filter((g) => g.lines.some((l) => l.materialId === materialId)).map((g) => (g.salesOrder && !String(g.name).includes(g.salesOrder) ? `${g.name} (заказ ${g.salesOrder})` : g.name)); };
-  let all = null; let loading = false; // склад целиком — по первому нажатию в поле «Позиция»
+  let all = null; // склад целиком — грузит блок шагов по первому действию (stock-ops-pick.js)
 
-  // ---------- Выбор позиции ----------
-  const pickIn = h('input', { placeholder: 'Название или размер', 'aria-label': 'Найти позицию' });
-  const pickCat = select({ label: 'Категория', options: [['', 'Все категории']], onChange: () => { pickIn.value = ''; pickIn.focus(); combo.refresh(); } });
-  api('/stock/categories', { query: zoneQuery() }).then((r) => pickCat.append(...(r.items || []).filter((c) => c.id !== 'none').map((c) => h('option', { value: c.id }, c.name)))).catch(() => {});
+  // ---------- Выбор позиции: шаги «Недавно → Категория → Позиция» + поиск по всему складу (C032, П-1) ----------
+  // «Дальше: …» — та же строка kit row с акцентом, что в воронке паспорта (единый вид П-1)
+  const nextHint = h('div', { class: 'field wide' });
+  const sayNext = (t) => nextHint.replaceChildren(row({ tone: 'info', title: 'Дальше: ' + t }));
+  sayNext('выберите категорию');
+  const pickIn = h('input', { placeholder: 'Название или размер', 'aria-label': 'Найти позицию' }); // ищет по всему складу, шаги его не сужают
+  const pick = stockPick({ op, input: pickIn, add: (it) => add(it), onCat: () => updNext() });
   const pickLabel = h('span', null, 'Добавить позицию');
-  const pickBox = h('div', { class: 'field wide' }, pickLabel, h('div', { class: 'sop-pick' }, pickCat, h('div', { class: 'sop-pick-in' }, pickIn)));
-  const opts = () => (all || []).filter((i) => !pickCat.value || i.categoryId === pickCat.value).map((i) => ({ value: i.id, label: i.name, sub: `${qty(i.quantity)} ${i.unit || ''}`.trim() }));
-  const combo = attachCombo(pickIn, {
-    options: opts,
-    empty: () => (loading ? 'Загружаю склад…' : ''),
-    onPick: (o) => { pickIn.value = ''; const it = all.find((x) => x.id === o.value); if (it) add(it); },
-    extra: (text) => (op === 'in' && all && text.length > 2 && !all.some((x) => x.name.toLowerCase() === text.toLowerCase()) ? [{ label: `Создать «${text}»`, run: () => createNew(text) }] : []),
-  });
-  pickIn.addEventListener('focus', async () => {
-    if (all || loading) return;
-    loading = true;
-    try { all = await stockList(); } catch (e) { toastError(e); } finally { loading = false; }
-    if (document.activeElement === pickIn) combo.refresh();
-  });
-
-  async function createNew(name) {
-    try {
-      const r = await api('/stock/items', { method: 'POST', body: { name, unit: 'шт' } });
-      lookups.reset?.();
-      pickIn.value = '';
-      add(r);
-      toast(`Позиция «${r.name}» создана — укажите количество`);
-    } catch (e) { toastError(e); }
-  }
+  const pickBox = h('div', { class: 'field wide' }, pickLabel, pick.el, h('div', { class: 'sop-pick-in' }, pickIn));
+  /** П-1 п. 7: «Дальше: …» — что сделать сейчас, по состоянию пачки и шагов. */
+  const updNext = () => {
+    const t = !lines.length
+      ? (pick.hasCats() && !pick.catChosen() ? 'выберите категорию' : 'выберите позицию — «Недавно» или поиском')
+      : lines.some((l) => !(parseNum(l.qty) > 0)) ? 'укажите количество' : `нажмите «${cfg.verb}»`;
+    sayNext(t);
+  };
 
   // ---------- Строки ----------
   const linesBox = h('div', { class: 'ops-lines sop-lines' });
@@ -109,6 +106,8 @@ async function build() {
     touched = true;
     const ex = lines.find((l) => l.it.id === it.id);
     if (ex) { if (op !== 'count') ex.qty = String((parseNum(ex.qty) || 0) + 1); } else lines.push(newLine(it));
+    rememberPick(op, it); // «Недавно» — что этот пользователь брал в этой операции (C032, П-1 п. 5)
+    pick.refreshRecent();
     saveDraft();
     render();
     requestAnimationFrame(() => linesBox.querySelector(`[data-id="${it.id}"] input`)?.select());
@@ -116,6 +115,8 @@ async function build() {
   function render() {
     count.textContent = lines.length ? `Позиций: ${lines.length}` : '';
     pickLabel.textContent = lines.length ? 'Добавить ещё позицию' : 'Добавить позицию';
+    updNext();
+    noteAsBefore();
     if (!lines.length) { linesBox.replaceChildren(h('div', { class: 'ops-empty muted sop-empty' }, op === 'reserve' ? 'Позиций пока нет — выберите категорию и название выше.' : 'Позиций пока нет — выберите категорию и позицию ниже.')); return; }
     linesBox.replaceChildren(...lines.map((l) => {
       const it = l.it;
@@ -219,7 +220,7 @@ async function build() {
 
   const whyHead = op === 'reserve' ? h('div', { class: 'section-title' }, 'Под что бронируем') : null;
   // бронь: сначала выбор позиций склада, потом «под что»; у остальных — строки, затем добавить
-  const pickGrid = h('div', { class: 'form-grid' }, pickBox);
+  const pickGrid = h('div', { class: 'form-grid' }, nextHint, pickBox);
   const whatBlock = op === 'reserve'
     ? [h('div', { class: 'sop-head' }, h('div', { class: 'section-title' }, 'Что бронируем'), count), pickGrid, linesBox]
     : [h('div', { class: 'sop-head' }, h('div', { class: 'section-title' }, 'Что ' + (op === 'in' ? 'принимаем' : op === 'out' ? 'выдаём' : op === 'count' ? 'пересчитываем' : 'списываем')), count), takeAllBtn, linesBox, pickGrid];
@@ -331,6 +332,7 @@ async function build() {
       if (!rest.length) { clearDraft(); return { lines: withReq.length }; }
     }
     const body = { type: op === 'writeoff' ? 'out' : op, lines: rest, note: text || undefined, clientUid };
+    if (op === 'in' && text) for (const l of lines) { try { localStorage.setItem(NOTE_KEY(l.it.id), text); } catch { /* приватный режим */ } } // «от кого» в следующий раз — подсказкой (C032)
     if (op === 'writeoff') { body.writeOff = true; body.reason = reasonSel.value; }
     if (op === 'in') body.documentRef = doc.value.trim() || undefined;
     if (isReturn) Object.assign(body, retTp.value(), { isReturn: true });
