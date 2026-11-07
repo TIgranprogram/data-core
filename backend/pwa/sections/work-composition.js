@@ -55,7 +55,7 @@ export function compositionEditor({ parts: p0 = [], steps: s0 = [], types = [], 
   }
   const checkBtn = (kind, row) => {
     const locked = !!check && (dirty || !row.saved);
-    return button({ label: row.checked ? badge('проверено', 'ok') : 'Проверено', kind: row.checked ? 'ghost' : 'secondary', size: 'S', disabled: !canEdit || locked,
+    return button({ label: locked ? 'Сначала сохраните' : row.checked ? badge('✓ проверено — снять', 'ok') : 'Отметить проверенным', kind: row.checked ? 'ghost' : 'secondary', size: 'S', disabled: !canEdit || locked,
       title: locked ? 'Сначала сохраните правки — потом отметьте' : row.checked ? (row.by ? 'Проверил: ' + row.by + '. Нажмите — снять' : 'Нажмите — снять отметку') : 'Отметить как проверенное', onClick: () => toggle(kind, row) });
   };
 
@@ -193,10 +193,11 @@ export const workPlan = sideForm({
     let ed = null;
     const check = async (kind, rowId, checked) => { const x = await api(`${PLAN}/${p.id}/check`, { method: 'POST', body: { kind, rowId, checked } }); Object.assign(p, x); return x; };
     const notes = [];
+    if (session.canEdit) notes.push(sideNote('Правка часов или количества снимает отметку «Проверено» — после сохранения отметьте снова.'));
     if (!p.productId) notes.push(sideNote('У позиции нет изделия: составьте части и работы вручную — они сохранятся только в этом заказе. Чтобы подставить из продукции, сопоставьте позицию с изделием.'));
     else notes.push(sideNote('Изделие: ' + (p.productName || '—') + (p.origin === 'product' ? '. Части и работы подставлены из продукции — проверьте и отметьте.' : '. План составлен вручную.')));
     if (p.productChangedSinceCopy) {
-      notes.push(sideNote('Изделие изменилось после копии. ',
+      notes.push(sideNote('Изделие в продукции изменили после того, как план взяли в этот заказ. ',
         button({ label: 'Взять заново', size: 'S', onClick: async (e) => {
           e.currentTarget.classList.add('is-busy');
           try { const x = await api(`${PLAN}/${p.id}/reset-from-product`, { method: 'POST' }); Object.assign(p, x); ed?.setData(x); toast('План взят заново из изделия'); patch({ of: 'workplan', open: String(r.incomeId) }); }
