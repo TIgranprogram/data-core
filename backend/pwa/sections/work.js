@@ -10,6 +10,7 @@ import { failBlock } from '../ui/kit/busy.js';
 import { enhanceSelect } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { activeOrders, orderLabel } from './salesorders.js';
+export { workPlan } from './work-composition.js'; // панель «Позиция заказа» (of=workplan)
 export { workLaunch } from './work-launch.js'; // панель «Запуск в работу» (of=worklaunch)
 
 /**

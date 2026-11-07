@@ -1,14 +1,6 @@
-import { api, session } from '../core/api.js';
-import { h } from '../core/dom.js';
-import { busyBlock, failBlock } from '../ui/kit/busy.js';
-import { enhanceSelect, button, iconButton, select, section } from '../ui/kit/index.js';
-import { toast, toastError } from '../ui/kit/toast.js';
+import { api } from '../core/api.js';
 
-/*
- * «Маршрут изготовления» в карточке изделия: маршрут по видам работ (сварка → покраска → сборка). По нему «Запустить в работу»
- * ведёт карточку изделия по доске «В работе». GET /work-routes/:productId, PUT — записать маршрут целиком (пустой — убрать).
- * Нет маршрута — сервер даёт подсказку из модулей изделия («Взять подсказку»); без маршрута изделие запускается одной работой «Изготовление».
- */
+/* Виды работ из справочника (кэш на минуту). Редактор «Части и работы» — sections/work-composition.js. */
 let typesP = null, typesAt = 0;
 /** Виды работ из справочника: [{ value, label }], один запрос на минуту. */
 export const workTypes = () => {
@@ -18,83 +10,3 @@ export const workTypes = () => {
   }
   return typesP;
 };
-
-const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-const cut = (steps) => steps.map((s) => ({ workTypeId: s.workTypeId || '', lineId: s.lineId || '', note: (s.note || '').trim() }));
-
-export function routeBlock(product) {
-  const box = h('div', { class: 'wk-route' });
-  const sec = section({ title: 'Маршрут изготовления', tone: 'main', count: '…', body: box }); // ПМ-1: блок панели — свёрнутая секция с числом шагов
-  const setCount = (n) => { const b = sec.querySelector(':scope > summary .k-sec-n'); if (b) b.textContent = String(n); };
-  const can = session.canEdit;
-  let data = null, types = [], steps = [], saved = [];
-
-  async function load() {
-    box.replaceChildren(busyBlock('маршрут'));
-    try { [data, types] = await Promise.all([api('/work-routes/' + product.id), workTypes()]); }
-    catch (e) { box.replaceChildren(failBlock(e, load)); return; }
-    steps = data.steps.map((s) => ({ workTypeId: s.workTypeId, lineId: s.lineId || '', note: s.note || '' }));
-    saved = cut(steps);
-    paint();
-  }
-
-  function sel(options, value, onChange, { empty, label }) {
-    const el = select({ label, options: [...(empty ? [['', empty]] : []), ...options.map((o) => [o.value, o.label])], value });
-    // вид работ, которого нет в справочнике (удалён), остаётся выбранным, а не подменяется первым в списке
-    el.value = value || '';
-    el.addEventListener('change', () => onChange(el.value));
-    return el;
-  }
-
-  function paint() {
-    const dirty = !same(cut(steps), saved);
-    const parts = (data.parts || []).map((p, i) => ({ value: p.id, label: `${i + 1}. ${p.name || 'часть состава'}` }));
-    const move = (i, d) => { const j = i + d; if (j < 0 || j >= steps.length) return; [steps[i], steps[j]] = [steps[j], steps[i]]; paint(); };
-    const rows = steps.map((s, i) => {
-      const used = new Set(steps.filter((_, k) => k !== i).map((x) => x.workTypeId));
-      const opts = types.filter((t) => !used.has(t.value) || t.value === s.workTypeId);
-      const typeSel = sel(opts, s.workTypeId, (v) => { s.workTypeId = v; paint(); }, { empty: 'Выберите вид работ', label: `Шаг ${i + 1}: вид работ` });
-      const partSel = parts.length ? sel(parts, s.lineId, (v) => { s.lineId = v; paint(); }, { empty: 'Вся часть изделия', label: `Шаг ${i + 1}: часть состава` }) : null;
-      const note = h('input', { type: 'text', value: s.note, maxlength: 300, placeholder: 'Примечание (необязательно)', 'aria-label': `Шаг ${i + 1}: примечание`, oninput: (e) => { s.note = e.target.value; markDirty(); } });
-      if (!can) return h('li', { class: 'wk-rt-row' }, h('span', { class: 'wk-rt-n' }, i + 1), h('div', { class: 'wk-rt-main' }, h('b', null, types.find((t) => t.value === s.workTypeId)?.label || data.steps[i]?.name || '—'), s.note ? h('span', { class: 'muted' }, ' · ' + s.note) : null));
-      const row = h('li', { class: 'wk-rt-row' }, h('span', { class: 'wk-rt-n' }, i + 1),
-        h('div', { class: 'wk-rt-main' }, typeSel, partSel, note),
-        h('div', { class: 'wk-rt-btns' },
-          iconButton({ icon: '↑', label: 'Шаг выше', title: 'Выше', size: 'S', onClick: () => move(i, -1) }),
-          iconButton({ icon: '↓', label: 'Шаг ниже', title: 'Ниже', size: 'S', onClick: () => move(i, 1) }),
-          iconButton({ icon: '✕', label: 'Убрать шаг', size: 'S', onClick: () => { steps.splice(i, 1); paint(); } })));
-      const [bUp, bDown] = row.querySelectorAll('.wk-rt-btns button'); bUp.disabled = i === 0; bDown.disabled = i === steps.length - 1;
-      enhanceSelect(typeSel, { force: true }); if (partSel) enhanceSelect(partSel, { force: true });
-      return row;
-    });
-    const saveBtn = button({ label: 'Сохранить', kind: 'primary', size: 'S', disabled: !dirty, onClick: (e) => save(e.currentTarget) });
-    const hint = h('span', { class: 'muted' }, dirty ? 'Есть несохранённые изменения' : '');
-    function markDirty() { const d = !same(cut(steps), saved); saveBtn.disabled = !d; hint.textContent = d ? 'Есть несохранённые изменения' : ''; }
-    const free = types.filter((t) => !steps.some((s) => s.workTypeId === t.value));
-    const sug = (data.suggested || []).filter((x) => types.some((t) => t.value === x.workTypeId));
-    const acts = can ? h('div', { class: 'spec-acts' },
-      button({ label: '+ Добавить работу', size: 'S', disabled: !free.length, title: free.length ? '' : 'Все виды работ уже в маршруте', onClick: () => { steps.push({ workTypeId: '', lineId: '', note: '' }); paint(); box.querySelector('.wk-rt-row:last-child select, .wk-rt-row:last-child .sel-input')?.focus(); } }),
-      !steps.length && sug.length ? button({ label: 'Взять подсказку: ' + sug.map((x) => x.name).join(' → '), size: 'S', title: 'Виды работ из модулей изделия', onClick: () => { steps = sug.map((x) => ({ workTypeId: x.workTypeId, lineId: x.lineId || '', note: '' })); paint(); } }) : null,
-      saveBtn, hint) : null;
-    setCount(steps.length);
-    box.replaceChildren(
-      rows.length ? h('ol', { class: 'wk-rt-list' }, ...rows)
-        : h('p', { class: 'muted' }, (data.note || 'Маршрут не задан') + '. ' + (can ? 'Без маршрута изделие запускается одной работой «Изготовление». Добавьте работы по порядку или возьмите подсказку.' : '')),
-      data.droppedSteps ? h('p', { class: 'hint' }, `Виды работ, удалённые из справочника, в маршруте не показаны: ${data.droppedSteps}. После сохранения они уйдут.`) : null,
-      acts);
-  }
-
-  async function save(btn) {
-    const body = steps.map((s) => ({ workTypeId: s.workTypeId, ...(s.lineId ? { lineId: s.lineId } : {}), ...(s.note.trim() ? { note: s.note.trim() } : {}) }));
-    if (body.some((s) => !s.workTypeId)) { toast('У шага не выбран вид работ — выберите или уберите шаг'); return; }
-    btn.disabled = true; btn.classList.add('is-busy');
-    try {
-      await api('/work-routes/' + product.id, { method: 'PUT', body: { steps: body } });
-      toast(body.length ? 'Маршрут сохранён' : 'Маршрут убран');
-      await load(); // перечитать: так видно, что записалось
-    } catch (e) { toastError(e, 'сохранить маршрут'); btn.disabled = false; btn.classList.remove('is-busy'); }
-  }
-
-  load();
-  return sec;
-}

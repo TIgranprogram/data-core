@@ -1,14 +1,13 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { button, toast, sideForm, sideNote, actions } from '../ui/kit/index.js';
+import { badge, toast, sideForm, sideNote } from '../ui/kit/index.js';
 import { patch } from '../core/router.js';
-import { workTypes } from './work-route.js';
+import { planLink } from './work-composition.js';
 
 /*
  * «Запуск в работу» (правая панель): выбранные позиции заказа → у каждой «Маршрут изготовления» (виды работ по порядку).
- * У изделия маршрут уже есть — показан, можно изменить; нет — выбираем виды работ кнопками по порядку нажатия.
- * Сохранение: изменённые маршруты пишутся в изделие (PUT /work-routes/:productId — в следующий раз подставится сам),
- * затем POST /work-tasks/launch {lineIds}. Позиции передаёт карточка заказа (sections/order-work.js) через openLaunch.
+ * Маршрут здесь не правится: части и работы позиции — в «Составе позиции» (sections/work-composition.js, план позиции).
+ * Панель показывает итог плана каждой позиции; запуск — POST /work-tasks/launch {lineIds}. Позиции передаёт карточка заказа (sections/order-work.js) через openLaunch.
  */
 const pending = new Map(); // ключ панели → { lines:[{ id, name, productId }], done(result) }
 
@@ -20,27 +19,22 @@ export function openLaunch(lines, done, openSide) {
   openSide('worklaunch', key);
 }
 
-/** Выбор видов работ по порядку: нажал — добавился в конец, нажал ещё раз — убран. value — JSON { productId, steps:[id], changed }. */
-function routePicker(line, types, steps0) {
-  let steps = [...steps0], editing = !steps0.length, changed = false;
+/** Итог плана позиции: части, работы, сколько проверено; ссылка в «Состав и работы». Запуск не запрещён и при непроверенном. */
+function planSummary(line, plan) {
   const el = h('div', { class: 'field' });
-  const name = (id) => types.find((t) => t.value === id)?.label || 'вид работ удалён';
-  const paint = () => {
-    const chain = steps.length ? steps.map((id, i) => `${i + 1}. ${name(id)}`).join(' → ') : '';
-    el.replaceChildren(
-      h('b', null, line.name),
-      !line.productId ? h('div', { class: 'muted' }, 'Нет изделия — не запустится. Сопоставьте позицию с «Продукцией»: карточка заказа → «Позиции» → «Подобрать изделие».') :
-        steps.length ? h('div', null, chain) : h('div', { class: 'muted' }, 'Маршрут не задан — выберите виды работ по порядку. Иначе будет одна работа «Изготовление».'),
-      line.productId && !editing ? button({ label: 'Изменить работы', size: 'S', kind: 'ghost', onClick: () => { editing = true; paint(); } }) : null,
-      line.productId && editing ? actions(
-        ...types.map((t) => {
-          const at = steps.indexOf(t.value);
-          return button({ label: at >= 0 ? `${at + 1}. ${t.label}` : t.label, size: 'S', kind: at >= 0 ? 'primary' : 'secondary',
-            onClick: () => { steps = at >= 0 ? steps.filter((x) => x !== t.value) : [...steps, t.value]; changed = true; paint(); el.dispatchEvent(new Event('change', { bubbles: true })); } });
-        })) : null);
-  };
-  paint();
-  return { el, get value() { return JSON.stringify({ productId: line.productId || null, steps, changed }); }, set value(_) { /* только своё состояние */ } };
+  const show = { el, get value() { return ''; }, set value(_) { /* только показ */ } };
+  if (!line.productId && !plan) {
+    el.append(h('b', null, line.name), h('div', { class: 'muted' }, 'Нет изделия — составьте части и работы вручную в «Составе позиции» или сопоставьте позицию с «Продукцией»: карточка заказа → «Позиции» → «Подобрать изделие».'), planLink(line.id, { title: line.name }));
+    return show;
+  }
+  const rows = [...(plan?.parts || []), ...(plan?.steps || [])];
+  const ok = rows.filter((r) => r.checked).length;
+  el.append(h('b', null, line.name),
+    h('div', null, plan ? `Частей: ${plan.parts.length} · работ: ${plan.steps.length}` : 'План не загрузился'),
+    !plan ? null : !plan.steps.length ? h('div', { class: 'muted' }, 'Работ нет — будет одна работа «Изготовление».') : badge(ok === rows.length ? 'всё проверено' : `проверено ${ok} из ${rows.length}`, ok === rows.length ? 'ok' : 'warn'),
+    plan && ok < rows.length ? h('div', { class: 'muted' }, 'Не всё проверено — запустить можно, сервер напомнит.') : null,
+    planLink(line.id, { title: line.name }));
+  return show;
 }
 
 export const workLaunch = sideForm({
@@ -50,28 +44,23 @@ export const workLaunch = sideForm({
   get: async (key) => {
     const p = pending.get(key);
     if (!p) throw new Error('Откройте запуск из карточки заказа заново');
-    const types = await workTypes();
-    const ids = [...new Set(p.lines.map((l) => l.productId).filter(Boolean))];
-    const routes = new Map(await Promise.all(ids.map(async (id) => [id, ((await api('/work-routes/' + id).catch(() => ({ steps: [] }))).steps || []).map((s) => String(s.workTypeId))])));
-    return { key, lines: p.lines, types, routes };
+    const plans = new Map(await Promise.all(p.lines.filter((l) => l.productId).map(async (l) => [l.id, await api('/orderline-plans/by-income/' + l.id).catch(() => null)])));
+    return { key, lines: p.lines, plans };
   },
   heading: () => 'Запуск в работу',
   subheading: (r) => `позиций: ${r.lines.length}`,
   fields: async (r) => [
     { section: 'Маршрут изготовления каждой позиции', tone: 'main', fixed: true },
-    { key: '_note', type: 'widget', label: '', wide: true, widget: () => ({ el: sideNote('Виды работ — колонки доски «В работе». Выбор запомнится в изделии: в следующий раз подставится сам.'), value: '' }) },
-    ...r.lines.map((l) => ({ key: 'r_' + l.id, type: 'widget', label: '', wide: true, summary: () => '', widget: () => routePicker(l, r.types, r.routes.get(l.productId) || []) })),
+    { key: '_note', type: 'widget', label: '', wide: true, widget: () => ({ el: sideNote('Запуск берёт части и работы из плана позиции. Правка плана — по ссылке «Состав и работы»; в изделие она не пишется без вашего «И в продукцию».'), value: '' }) },
+    ...r.lines.map((l) => ({ key: 'r_' + l.id, type: 'widget', label: '', wide: true, summary: () => '', widget: () => planSummary(l, r.plans.get(l.id) || null) })),
   ],
   toInitial: () => ({}),
   save: async (v, row) => {
     const p = pending.get(row.key);
-    // один маршрут на изделие: последний изменённый выбор по этому изделию
-    const byProduct = new Map();
-    for (const l of row.lines) { const x = v['r_' + l.id]; if (x?.changed && x.productId) byProduct.set(x.productId, x.steps); }
-    for (const [pid, steps] of byProduct) await api('/work-routes/' + pid, { method: 'PUT', body: { steps: steps.map((workTypeId) => ({ workTypeId })) } });
     const res = await api('/work-tasks/launch', { method: 'POST', body: { lineIds: row.lines.map((l) => String(l.id)) } });
     const skip = (res.refused || []).length;
-    toast(res.created ? `Запущено в работу: ${res.created}${skip ? `, не запущено: ${skip}` : ''}` : `Не запущено: ${skip}`, { sub: skip ? 'Причины — в карточке заказа, блок «Работа»' : undefined });
+    const warn = (res.warnings || []).length;
+    toast(res.created ? `Запущено в работу: ${res.created}${skip ? `, не запущено: ${skip}` : ''}` : `Не запущено: ${skip}`, { sub: skip ? 'Причины — в карточке заказа, блок «Работа»' : warn ? 'Есть предупреждения — в карточке заказа, блок «В работе»' : undefined });
     pending.delete(row.key);
     p?.done?.(res);
     if (p?.back) setTimeout(() => patch({ of: undefined, open: p.back }), 50); // панель закрылась — снова карточка заказа
