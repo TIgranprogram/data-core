@@ -11,7 +11,7 @@ import { printDialog, previewPassport } from './passports/dialogs.js';
 import { openTechSheet } from './tech-sheet.js';
 import { openBulk } from './bulk-edit.js';
 import { qrBulkAction, qrPrintAction } from './qr.js';
-import { routeBlock } from './work-route.js';
+import { productRoute } from './work-composition.js';
 import { productFilesBlock } from './product-files.js';
 import { productAttachmentsBlock } from './product-attachments.js';
 import * as data from './products/data.js';
@@ -117,7 +117,7 @@ export const products = {
     editTop: true,
     zones: { extra: 'side' },
     // SK-8d: «В заказах» и «Паспорта» — только если эти разделы открыты роли
-    extra: (r) => stack(warnNote(r), variantsBlock(r), productFilesBlock(r, session.canEdit), session.sees('products') ? productAttachmentsBlock(r) : null, compositionBlock(r), session.sees('work') ? routeBlock(r) : null, session.sees('salesorders') ? inOrders(r) : null, session.seesDocs() ? passportsBlock(r) : null),
+    extra: (r) => stack(warnNote(r), variantsBlock(r), productFilesBlock(r, session.canEdit), session.sees('products') ? productAttachmentsBlock(r) : null, compositionBlock(r), session.sees('work') ? productRoute(r) : null, session.sees('salesorders') ? inOrders(r) : null, session.seesDocs() ? passportsBlock(r) : null),
     gallery: (r) => r.photos || [],
     photoAdd: data.photoAdd,
     photoMain: data.photoMain,

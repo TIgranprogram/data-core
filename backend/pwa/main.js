@@ -47,7 +47,7 @@ const LAZY = {
   orders: [() => import('./sections/orders.js'), [['orders','orders'],['incpay','incPay'],['incprice','incPrice']]],
   salesorders: [() => import('./sections/salesorders.js'), [['salesorders','salesorders'],['salesorder','salesorder'],['orderedit','orderEdit']]],
   design: [() => import('./sections/design.js'), [['design','design']]],
-  work: [() => import('./sections/work.js'), [['work','work'],['worklaunch','workLaunch']]],
+  work: [() => import('./sections/work.js'), [['work','work'],['worklaunch','workLaunch'],['workplan','workPlan']]],
   offers: [() => import('./sections/offers.js'), [['offers','offers']]],
   designorder: [() => import('./sections/design-order.js'), [['designorder','designOrder']]],
   prodreq: [() => import('./sections/design-requests.js'), [['prodreq','designRequest']]],
@@ -93,7 +93,7 @@ const LAZY = {
   'stock-mobile': [() => import('./sections/stock-mobile.js'), [['stock-mobile','stockMobile']]],
 };
 // имя раздела (адрес / ?of=) -> ключ загрузчика, если они различаются
-const LOADER_OF = { salesorder: 'salesorders', orderedit: 'salesorders', worklaunch: 'work', pasteorder: 'invoice', dict: 'dicts', dicts: 'dicts', doctpl: 'docs', passarchive: 'docs', orderpass: 'docs', catalogimport: 'kp', fromorders: 'kp', frompassports: 'kp', ptextview: 'ptext', staffcard: 'staff', zonecard: 'staff', contracts: 'contract', expense: 'expenses', incpay: 'orders', incprice: 'orders', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog' };
+const LOADER_OF = { salesorder: 'salesorders', orderedit: 'salesorders', worklaunch: 'work', workplan: 'work', pasteorder: 'invoice', dict: 'dicts', dicts: 'dicts', doctpl: 'docs', passarchive: 'docs', orderpass: 'docs', catalogimport: 'kp', fromorders: 'kp', frompassports: 'kp', ptextview: 'ptext', staffcard: 'staff', zonecard: 'staff', contracts: 'contract', expense: 'expenses', incpay: 'orders', incprice: 'orders', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog' };
 const loading = {};
 let warmed = false;
 /** Прогрев (скорость): после входа, в простое, подтянуть частые разделы — первое открытие без ожидания. Один раз, ошибки молча. */
@@ -126,7 +126,7 @@ const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'r
 /** Стартовый экран: роль «Ассистент кладовщика» — сразу своя страница. */
 const defaultSection = () => (session.onlyStockMobile ? 'stock-mobile' : isStockRole() ? 'stock' : 'home'); // трубарез, «Лазер лист» — сразу своя таблица (2026-11-06)
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
-const OWNER = { passfunnel: 'docs', salesorder: 'salesorders', orderedit: 'salesorders', worklaunch: 'salesorders', designorder: 'design', prodreq: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', stockissue: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', orderbulk: 'requests', invoicecard: 'requests', invoice: 'requests', contract: 'partners', staffcard: 'staff', zonecard: 'staff', incpay: 'money', incprice: 'money', expense: 'money', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog',
+const OWNER = { passfunnel: 'docs', salesorder: 'salesorders', orderedit: 'salesorders', worklaunch: 'salesorders', workplan: 'salesorders', designorder: 'design', prodreq: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', stockissue: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', orderbulk: 'requests', invoicecard: 'requests', invoice: 'requests', contract: 'partners', staffcard: 'staff', zonecard: 'staff', incpay: 'money', incprice: 'money', expense: 'money', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog',
   kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'docs', ptextview: 'docs', ptnode: 'docs', passports: 'docs', passarchive: 'docs', orderpass: 'docs', doctpl: 'docs' };
 // ЦВ-1: раздел данных → цвет (--sec-*)
 const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', contracts: 'supply', stock: 'stock', movements: 'stock', salesorders: 'orders', matching: 'orders', design: 'orders', work: 'orders', docs: 'orders', products: 'products', offers: 'products', orders: 'money', money: 'money', expenses: 'money' };

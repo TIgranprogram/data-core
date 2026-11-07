@@ -3,6 +3,7 @@ import { h } from '../core/dom.js';
 import { failBlock } from '../ui/kit/busy.js';
 import { link, openSide, button, section } from '../ui/kit/index.js';
 import { openLaunch } from './work-launch.js';
+import { planLink } from './work-composition.js';
 
 /*
  * «В работе» в карточке заказа: по каждой позиции — карточка «W-12 · Сварка» (ссылка) или галочка «запустить».
@@ -56,7 +57,7 @@ export function orderWork(orders) {
       return h('li', { class: 'spec-row' }, cb,
         h('div', { class: 'spec-main' }, h('div', { class: 'clip', title: l.title }, (many ? `Договор ${l._order.orderNo || '—'} · ` : '') + lineName(l, i))),
         t ? h('a', { href: '#work?open=' + t.id, title: 'Открыть карточку в работе' }, `${t.code} · ${st}`) : h('span', { class: 'muted' }, 'не запущена'),
-        h('span'));
+        planLink(String(l.id), { title: lineName(l, i), orderNo: l._order.orderNo, qty: l.qty }, 'Состав'));
     });
     const sendSel = button({ label: 'Запустить выбранные', kind: 'primary', size: 'S', onClick: (e) => send([...picked], e.currentTarget) });
     const sendAll = button({ label: free.length === all.length ? 'Запустить в работу все позиции' : `Запустить все не запущенные (${free.length})`, size: 'S', disabled: !free.length, onClick: (e) => send(free.map((l) => String(l.id)), e.currentTarget) });
