@@ -103,8 +103,12 @@ const fieldValue = (f: Field, v: unknown) => {
   if (f.bool) return v === true || v === 'true' ? true : null;
   if (f.type === 'photos') return (Array.isArray(v) ? v : []).map(String).filter(isOid);
   if (f.type === 'photo') { const x = Array.isArray(v) ? v[0] : v; return isOid(x) ? String(x) : null; }
+  // многострочное поле («По строке на шаг»): переносы строк сохраняем, внутри строки — один пробел (2026-11-07: склеивалось в одну строку)
+  if (f.type === 'textarea') return lines(v);
   return opt(v);
 };
+/** Текст по строкам: CR LF → LF, пробелы внутри строки схлопнуты, пустые края убраны; пусто — null. */
+export const lines = (v: unknown): string | null => String(v ?? '').replace(/\r\n?/g, '\n').split('\n').map((l) => l.replace(/[ \t]+/g, ' ').trim()).join('\n').replace(/^\n+|\n+$/g, '') || null;
 const oidOrNull = (v: unknown) => (v && Types.ObjectId.isValid(String(v)) ? new Types.ObjectId(String(v)) : null);
 const count = async (db: Db, coll: string, q: Document) => db.collection(coll).countDocuments({ deletedAt: null, ...q });
 /** Сколько раз встречается каждое строковое значение поля (нормализовано). */
