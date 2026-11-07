@@ -12,7 +12,7 @@
 4. Лишних уточнений пользователю нет: допущение + пометка в отчёте / QUESTIONS.
 5. В запрос субагенту — суть и путь к ТЗ, не весь контекст чата.
 
-То же в `.cursor/rules/token-economy.mdc` (`alwaysApply`).
+Это единственная копия правила; зеркало для Cursor — `.cursor/rules/token-economy.mdc` (`alwaysApply`). Остальные доки только ссылаются сюда.
 
 ## Что это
 
@@ -40,7 +40,8 @@
 | Схема таблиц / контракт для клиента | живой API: `GET /api/meta/schema`, `/api/meta/openapi.json`, `/api/meta/guide` (модуль `modules/meta`); в админке — вкладка «Подключение» | — |
 | Точный контракт эндпоинта | `docs/openapi.json` — **только grep по пути**, файл 175 КБ | целиком |
 | Что делать / открытые задачи | [docs/BACKLOG.md](docs/BACKLOG.md) — приоритеты и порядок, начинать отсюда; [docs/TASKS.md](docs/TASKS.md) (бэклог) — Grep по коду задачи или первый `[ ]`, не целиком; [ROADMAP.md](ROADMAP.md) (план) | TASKS целиком |
-| Внешние агенты Manus / OpenCode (ТЗ, промпт, отчёт) | [docs/crew/](docs/crew/README.md) + доска [BOARD.md](docs/crew/BOARD.md); папка задания `docs/crew/Cxxx-…/` | параллельные копии ТЗ вне crew |
+| Любое задание (свои роли и внешние ИИ): ТЗ, промпт, отчёт | [docs/crew/](docs/crew/README.md) + доска [BOARD.md](docs/crew/BOARD.md); папка задания `docs/crew/Cxxx-…/` — единственное место (с 2026-11-07) | новые ТЗ в `docs/roles/tz/` |
+| Куда идём: цели-результаты и состояние | [docs/CONTROL.md](docs/CONTROL.md) «Цели» | — |
 | Архитектура: циклы модулей, общие коллекции, DTO, рефакторинг | [docs/ARCH-PLAN.md](docs/ARCH-PLAN.md) — ТЗ и чек-листы (М — мелкие, АБЗ — большие) | — |
 | Команда агентов: роли, границы, ТЗ, поток задачи | [docs/roles/README.md](docs/roles/README.md), агенты — `.claude/agents/` | — |
 | Вопросы, ждущие решения пользователя | [docs/QUESTIONS.md](docs/QUESTIONS.md) — новые вопросы записывать туда; мёртвый код не оставлять | — |

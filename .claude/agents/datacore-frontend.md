@@ -31,3 +31,6 @@ smoke — skill `datacore-verify` §0: `node --input-type=module --check < фа�
 
 ## Зона
 `backend/pwa/**`, `backend/admin/**`, `docs/DESIGN.md` §4/§8, свои уроки и карта. Сервер — «нужно от backend: …».
+
+## Смело (C038, docs/roles/README.md «Работаем смело»)
+- Цель — действие пользователя за минимум касаний; меряй (запросы, время экрана) до/после. 2 неудачных подхода → «нужен совет opus: <вопрос>».
