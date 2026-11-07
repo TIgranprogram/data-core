@@ -3,10 +3,10 @@ import { h } from '../../core/dom.js';
 import { qty } from '../../core/format.js';
 import { normSearch, searchTokens } from '../../core/facets.js';
 import { activeOrders, orderLabel } from '../../sections/salesorders.js';
-import { peopleByWork, withOrders, lastTo, saveTo } from '../../sections/issue.js';
+import { peopleByWork, recentIssues, withOrders, lastTo, saveTo } from '../../sections/issue.js';
 import { attachCombo, enhanceSelect } from './pick.js';
 import { errText } from './errors.js';
-import { segmented } from './index.js';
+import { funnel, segmented } from './index.js';
 import { mark } from './mark.js';
 
 /*
@@ -171,18 +171,31 @@ export function targetPicker({ mode = 'out', onChange } = {}) {
   }
   renderOrder();
 
-  // ---------- сотрудник ----------
-  const personSel = h('select', { 'aria-label': 'Сотрудник' }, h('option', { value: '' }, '— сотрудник —'));
+  // ---------- сотрудник (C033-1б: воронка «Вид работ → Сотрудник» + «Недавно выдавал») ----------
+  let pGroups = []; let pWt = ''; let pPerson = ''; // pPerson — id выбранного сотрудника
+  const pPaint = () => {
+    pFn.update({ steps: [
+      { key: 'wt', label: 'Вид работ', ask: 'выберите вид работ', value: pWt, values: pGroups.map((g) => ({ id: g.group, label: g.group, count: g.people.length })) },
+      { key: 'person', label: 'Сотрудник', ask: 'выберите сотрудника', value: pPerson, values: (pGroups.find((g) => g.group === pWt)?.people || pGroups.flatMap((g) => g.people)).map((p) => ({ id: p.id, label: p.name })) },
+    ], next: pPerson ? null : undefined });
+  };
+  const pFn = funnel({ steps: [], onChange: (k, v) => { if (k === 'wt') { pWt = v; pPerson = ''; } else pPerson = v; pPaint(); }, recent: [] });
+  /** Клик по «Недавно» — сотрудника в шаги, объект/имя — в «Без заказа». */
+  const pApply = (x) => {
+    const byId = pGroups.flatMap((g) => g.people).find((p) => p.id === x?.personId);
+    const byName = !byId && x?.personName ? pGroups.flatMap((g) => g.people).find((p) => p.name === x.personName) : null;
+    const found = byId || byName;
+    if (found) { pPerson = found.id; pWt = pGroups.find((g) => g.people.some((p) => p.id === found.id))?.group || pWt; if (kind !== 'person') setKind('person'); freeIn.value = ''; }
+    else if (x?.issuedTo) { setKind('free'); freeIn.value = x.issuedTo; }
+    pPaint();
+  };
   let peopleLoaded = false;
   const loadPeople = () => {
     if (peopleLoaded) return; peopleLoaded = true;
-    peopleByWork().then((groups) => {
-      if (!groups.length) { personSel.firstChild.textContent = '— сотрудников нет в «Справочниках» —'; return; }
-      for (const g of groups) personSel.append(h('optgroup', { label: g.group }, ...g.people.map((p) => h('option', { value: p.id }, p.name))));
-      enhanceSelect(personSel, { force: true });
-    }).catch(() => { peopleLoaded = false; personSel.firstChild.textContent = '— список не загрузился —'; });
+    peopleByWork().then((groups) => { pGroups = groups; pPaint(); }).catch(() => { peopleLoaded = false; });
+    recentIssues(pApply).then((items) => pFn.setRecent(items));
   };
-  const personPanel = h('div', { class: 'tp-panel' }, h('label', { class: 'field wide' }, h('span', null, 'Сотрудник'), personSel));
+  const personPanel = h('div', { class: 'tp-panel' }, h('div', { class: 'field wide' }, pFn.el) /* подпись — у шага воронки, без повтора */);
 
   // ---------- просто выдано ----------
   const freeIn = h('input', { maxlength: 200, placeholder: 'Объект, бригада, заказ — из списка или своё (необязательно)', 'aria-label': 'Куда / кому выдано' });
@@ -196,7 +209,7 @@ export function targetPicker({ mode = 'out', onChange } = {}) {
     setKind('free');
     // ВЫД.3: выдают пачкой одному — подставить последнего получателя (сотрудник или текст), на 2 часа
     const last = mode === 'out' ? lastTo() : null;
-    if (last?.personId) { setKind('person'); loadPeople(); peopleByWork().then(() => { personSel.value = last.personId; init.p = personSel.value; }).catch(() => {}); }
+    if (last?.personId) { setKind('person'); loadPeople(); peopleByWork().then((gs) => { const f = gs.flatMap((g) => g.people).find((p) => p.id === last.personId); if (f) { pPerson = f.id; init.p = f.id; pPaint(); } }).catch(() => {}); }
     else if (last?.issuedTo) { freeIn.value = last.issuedTo; init.f = last.issuedTo; }
   } else {
     el.append(orderPanel);
@@ -224,7 +237,7 @@ export function targetPicker({ mode = 'out', onChange } = {}) {
     /** Выбранная позиция заказа (для подтверждений). */
     line: () => (kind === 'order' ? line : null),
     check: () => {
-      if (kind !== 'order') return kind === 'person' && !personSel.value ? 'Выберите сотрудника или переключите на «Без заказа»' : '';
+      if (kind !== 'order') return kind === 'person' && !pPerson ? 'Выберите сотрудника или переключите на «Без заказа»' : '';
       if (!order) return res ? '' : ret ? 'Выберите заказ, из которого вернули' : 'Выберите заказ или переключите на «Без заказа»';
       if (!lines && !linesErr) return 'Позиции заказа ещё загружаются — подождите секунду';
       if (ret && !line) return 'Выберите позицию заказа, с которой вернули';
@@ -233,13 +246,13 @@ export function targetPicker({ mode = 'out', onChange } = {}) {
     },
     value: () => {
       if (kind === 'order' && order) return { salesOrderId: order.id, ...(line ? { salesOrderLineId: line.id } : {}), ...(personSel2?.value ? { personId: personSel2.value } : {}) };
-      if (kind === 'person' && personSel.value) { const v = { personId: personSel.value }; if (mode === 'out') saveTo(v); return v; }
+      if (kind === 'person' && pPerson) { const v = { personId: pPerson }; if (mode === 'out') saveTo(v); return v; }
       if (kind === 'free' && freeIn.value.trim()) { const v = { issuedTo: freeIn.value.trim() }; if (mode === 'out') saveTo(v); return v; }
       return {};
     },
-    dirty: () => !!(order || personSel.value !== init.p || freeIn.value.trim() !== init.f),
+    dirty: () => !!(order || pPerson !== init.p || freeIn.value.trim() !== init.f),
     /** Подставить заказ и позицию (правка брони): позиции берутся с сервера. */
     preset: (o, lineId) => { if (!o?.id) return; chooseOrder({ id: o.id, label: o.label, orderNo: o.orderNo, customer: o.customer }, null, lineId || null); },
-    reset: () => { order = null; lines = null; line = null; whole = false; personSel.value = ''; if (personSel2) personSel2.value = ''; freeIn.value = ''; renderOrder(); },
+    reset: () => { order = null; lines = null; line = null; whole = false; pWt = ''; pPerson = ''; if (personSel2) personSel2.value = ''; freeIn.value = ''; renderOrder(); pPaint(); },
   };
 }

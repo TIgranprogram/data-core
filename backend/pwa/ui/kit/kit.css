@@ -461,8 +461,8 @@ table.list .k-nowrap { white-space: nowrap; }
 .tile.k-cover > .k-tile-txt { padding: var(--s3) var(--s4) var(--s4); }
 .tile.k-cover b { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; line-height: 1.3; }
 /* раскрывающаяся плитка (card S expand): стрелка у названия — видно, что раскрывается (приёмка дизайнера C030) */
-.tile[aria-expanded] .k-tile-txt > b::after { content: ' ▾'; color: var(--muted); font-weight: 400; }
-.tile.k-open[aria-expanded] .k-tile-txt > b::after { content: ' ▴'; }
+.tile[aria-expanded] .k-tile-txt > b::after { content: '\00a0▾'; color: var(--muted); font-weight: 400; }
+.tile.k-open[aria-expanded] .k-tile-txt > b::after { content: '\00a0▴'; }
 @media (max-width: 720px) { .tile.k-cover > .k-tile-txt { padding: var(--s2) var(--s3) var(--s3); } }
 @media (prefers-reduced-motion: reduce) { .tile.k-cover, .tile.k-cover .k-tile-art svg { transition: none; } .tile.k-cover.k-hover:hover .k-tile-art svg { transform: none; } }
 .k-tile-txt { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; flex: 1; }
