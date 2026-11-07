@@ -14,6 +14,22 @@ export interface GapItem {
   multi?: boolean; default?: unknown; suggest?: { id: string; label: string; word: string }; options?: Array<{ id: string; label: string }>;
 }
 
+/** Элемент для списка «Что это за изделие»: строго по категории (пустая — никому) и только изделие/снаряд (без kind — как изделие до разметки). */
+export function elementFits(d: Record<string, unknown>, code: string): boolean {
+  const kind = s(d.kind);
+  if (kind && kind !== 'product') return false;
+  return s(d.categories).split(/[,;\s]+/).filter(Boolean).includes(code);
+}
+
+/** У изделия есть элементы: свои (умолчания паспорта) или из выбранных значений признаков. */
+async function hasElements(db: mongo.Db, prod: Record<string, unknown>): Promise<boolean> {
+  if ((((prod.passportDefaults as { elements?: unknown[] } | undefined)?.elements) ?? []).length) return true;
+  const have = new Set(((prod.facetValueIds as unknown[]) ?? []).map(String));
+  if (!have.size) return false;
+  const vals = await db.collection('dict_values').find({ dict: 'productFacetValues', deletedAt: null }, { projection: { elementIds: 1 } }).toArray();
+  return vals.some((v) => have.has(String(v._id)) && ((v.elementIds as unknown[]) ?? []).length > 0);
+}
+
 /** Вид пункта «не хватает» по ключу поля формы паспорта (правила — passport-rules.ts). */
 export function gapKind(key: string): GapItem['kind'] {
   if (key.startsWith('img_')) return 'image';
@@ -56,11 +72,13 @@ export async function productGaps(svc: Checker, db: mongo.Db, id: string) {
     missing.push({ key: f.code, label: f.name, kind: 'facet', required: false, multi: f.multi, ...(suggest ? { suggest } : {}), options: vals.map((v) => ({ id: v.id, label: v.name })) });
   }
   // обязательные поля и рисунки категории
-  const rows = (await svc.check({ productId: id, mode: 'template' })).missing.filter((m) => !m.key.startsWith('choice:') && m.key !== 'category');
+  let rows = (await svc.check({ productId: id, mode: 'template' })).missing.filter((m) => !m.key.startsWith('choice:') && m.key !== 'category');
+  // C028: элементы дают признаки (elementIds значений) — шаг нужен, только если у изделия их нет ни своих, ни из признаков
+  if (rows.some((m) => m.key === 'elements') && (await hasElements(db, prod))) rows = rows.filter((m) => m.key !== 'elements');
   const [installs, elements] = rows.some((m) => m.key === 'installationTypeId' || m.key === 'elements')
     ? await Promise.all([
       db.collection('dict_values').find({ dict: 'passportInstall', deletedAt: null }, { projection: { name: 1, code: 1, categories: 1 } }).toArray(),
-      db.collection('dict_values').find({ dict: 'passportElements', deletedAt: null }, { projection: { name: 1, categories: 1 } }).toArray(),
+      db.collection('dict_values').find({ dict: 'passportElements', deletedAt: null }, { projection: { name: 1, categories: 1, kind: 1 } }).toArray(),
     ]) : [[], []];
   const forCat = (d: Record<string, unknown>) => { const l = s(d.categories).split(/[,;\s]+/).filter(Boolean); return !l.length || l.includes(code); };
   const life = Number(String(rules.get(code)?.serviceLifeYears ?? '').replace(',', '.'));
@@ -72,7 +90,7 @@ export async function productGaps(svc: Checker, db: mongo.Db, id: string) {
       const def = installs.find((d) => s(d.code) === DEFAULT_INSTALL[code]);
       if (def) item.default = { id: String(def._id), label: s(def.name) };
     } else if (kind === 'elements') {
-      item.options = elements.filter(forCat).map((d) => ({ id: String(d._id), label: s(d.name) })).sort((a, b) => a.label.localeCompare(b.label, 'ru'));
+      item.options = elements.filter((d) => elementFits(d, code)).map((d) => ({ id: String(d._id), label: s(d.name) })).sort((a, b) => a.label.localeCompare(b.label, 'ru'));
     } else if (m.key === 'serviceLifeYears' && life > 0) item.default = life;
     missing.push(item);
   }

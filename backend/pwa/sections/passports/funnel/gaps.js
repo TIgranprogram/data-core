@@ -1,5 +1,5 @@
 import { h } from '../../../core/dom.js';
-import { buildForm, button, empty, enhanceSelect, link, row, section, select, sideNote, stack, tagPick, toastError } from '../../../ui/kit/index.js';
+import { buildForm, button, empty, enhanceSelect, link, row, section, select, sideNote, stack, toastError } from '../../../ui/kit/index.js';
 import { V2_NUMS } from '../common.js';
 import { loadGaps, patchProduct, putDefaults, setFacets } from './api.js';
 
@@ -28,9 +28,13 @@ export function gapsBlock({ prod, onLoad }) {
   function control(m) {
     if (m.kind === 'image') return toCard(prod, 'Рисунок добавляется в карточке изделия — блок «Фото и рисунки».');
     if (m.kind === 'elements') {
-      const tp = tagPick({ options: (m.options || []).map((o) => ({ value: o.id, label: o.label })), value: [], label: m.label });
-      tp.el.addEventListener('change', () => { const list = JSON.parse(tp.value); if (list.length) save(() => putDefaults(prod, { elements: list })); });
-      return tp.el;
+      const f = buildForm([{ key: 'els', label: 'Не больше трёх вариантов', type: 'combo', multi: true, options: optsOf(m).map(([value, label]) => ({ value, label })), hint: 'Начните печатать — список подскажет' }], {});
+      f.el.addEventListener('change', () => {
+        const names = String(f.read().values?.els || '').split(',').map((x) => x.trim()).filter(Boolean);
+        const list = [...new Set(names.map((n) => (m.options || []).find((o) => o.label === n)?.id).filter(Boolean))].slice(0, 3);
+        if (list.length) save(() => putDefaults(prod, { elements: list }));
+      });
+      return stack(sideNote('Укажите, что это за изделие (не больше трёх вариантов) — по этому в паспорте собираются правила пользования и осмотр.'), f.el);
     }
     if (m.kind === 'field' && m.key === 'height') { // «Габариты»: три размера изделия, мм — в изделие
       const d = prod.dimensions && (prod.dimensions.unit || 'мм') === 'мм' ? prod.dimensions : {};
@@ -66,10 +70,11 @@ export function gapsBlock({ prod, onLoad }) {
         action: button({ label: 'Да, верно', size: 'S', onClick: () => save(() => write(m.suggest.id)) }) }) : null);
   }
 
+  const rank = (m) => (m.kind === 'facet' ? 0 : m.kind === 'elements' ? 1 : 2); // признаки → «Что это за изделие» → остальное
   function paint() {
     if (!missing.length) { box.replaceChildren(empty({ title: 'Всё заполнено', hint: 'Для паспорта хватает данных изделия.' })); return; }
     box.replaceChildren(sideNote('Заполните только пустое — ответы сохраняются в изделие и больше не спрашиваются.'),
-      ...missing.map((m) => section({ title: m.label + (m.required ? '' : ' — по желанию'), tone: m.required ? 'main' : 'neutral', open: !!m.required, body: control(m) })));
+      ...[...missing].sort((a, b) => rank(a) - rank(b)).map((m) => section({ title: (m.kind === 'elements' ? 'Что это за изделие' : m.label) + (m.required ? '' : ' — по желанию'), tone: m.required ? 'main' : 'neutral', open: !!m.required, body: control(m) })));
   }
 
   async function reload() {

@@ -13,16 +13,16 @@
         { "code": "trn.kind", "name": "Вид тренажёра", "order": 1, "step": true, "multi": false, "hint": "Сначала главное: силовой, кардио или для суставов",
           "values": [
             { "code": "trn.kind.power", "name": "Силовой", "order": 1, "words": "жим|тяг|подтяг|присед|бицепс|трицепс|гиперэкст|пресс|гравитрон|мультиштанг|сведени|разгиб|сгибан|отведени|станок|силов|флекс|комбо", "purposePhrase": null, "estimate": 61 },
-            { "code": "trn.kind.cardio", "name": "Кардио", "order": 2, "words": "вело|орбитрек|эллип|скороход|степ|лыжн|гребн", "purposePhrase": "Кардио", "estimate": 19 },
-            { "code": "trn.kind.joint", "name": "Для суставов и разминки", "order": 3, "words": "маятник|твист|хипс|шейкер|диск", "purposePhrase": "Разминка суставов", "estimate": 9 },
+            { "code": "trn.kind.cardio", "name": "Кардио", "order": 2, "words": "вело|орбитрек|эллип|скороход|степ|лыжн|гребн", "purposePhrase": "Кардио", "estimate": 19, "elements": ["Кардиотренажёр"] },
+            { "code": "trn.kind.joint", "name": "Для суставов и разминки", "order": 3, "words": "маятник|твист|хипс|шейкер|диск", "purposePhrase": "Разминка суставов", "estimate": 9, "elements": ["Тренажёр с подвижными узлами"] },
             { "code": "trn.kind.func", "name": "Функциональный", "order": 4, "words": "покрышк|боксер", "purposePhrase": "Комплексный", "estimate": 3 }
           ] },
         { "code": "trn.muscles", "name": "Группа мышц", "order": 2, "step": true, "multi": true, "hint": "Для силовых. Совмещённый тренажёр — несколько значений",
           "values": [
-            { "code": "trn.muscles.legs", "name": "Ноги и ягодицы", "order": 1, "words": "ног|присед|голен|бедр|глют|флекс", "purposePhrase": "Ноги", "estimate": 15 },
-            { "code": "trn.muscles.chest", "name": "Грудь, плечи, руки", "order": 2, "words": "груд|плеч|сведени|баттерфл|вверх|трицепс|бицепс|жим", "purposePhrase": "Грудь, плечи, руки", "estimate": 20 },
-            { "code": "trn.muscles.back", "name": "Спина", "order": 3, "words": "тяг|подтяг|гравитрон", "purposePhrase": "Спина", "estimate": 17 },
-            { "code": "trn.muscles.core", "name": "Пресс и поясница", "order": 4, "words": "пресс|гиперэкст", "purposePhrase": "Пресс", "estimate": 5 }
+            { "code": "trn.muscles.legs", "name": "Ноги и ягодицы", "order": 1, "words": "ног|присед|голен|бедр|глют|флекс", "purposePhrase": "Ноги", "estimate": 15, "elements": ["Тренажёр для мышц ног и ягодиц"] },
+            { "code": "trn.muscles.chest", "name": "Грудь, плечи, руки", "order": 2, "words": "груд|плеч|сведени|баттерфл|вверх|трицепс|бицепс|жим", "purposePhrase": "Грудь, плечи, руки", "estimate": 20, "elements": ["Тренажёр для мышц груди и спины"] },
+            { "code": "trn.muscles.back", "name": "Спина", "order": 3, "words": "тяг|подтяг|гравитрон", "purposePhrase": "Спина", "estimate": 17, "elements": ["Тренажёр для мышц груди и спины"] },
+            { "code": "trn.muscles.core", "name": "Пресс и поясница", "order": 4, "words": "пресс|гиперэкст", "purposePhrase": "Пресс", "estimate": 5, "elements": ["Скамья для пресса"] }
           ] },
         { "code": "trn.load", "name": "Нагрузка", "order": 3, "step": true, "multi": false, "hint": "Для силовых: свой вес или грузы. От неё зависит текст ТО",
           "values": [
@@ -44,15 +44,15 @@
         { "code": "wrk.kind", "name": "Снаряд", "order": 1, "step": true, "multi": false, "hint": "Комплекс или отдельный снаряд; для спорта — вид игры",
           "values": [
             { "code": "wrk.kind.complex", "name": "Комплекс (несколько снарядов)", "order": 1, "words": "комплекс воркаут|воркаут комплекс|спорткомплекс|спортивный комплекс|мобильный комплекс|комплекс для тренировки|гексагон|площадка", "purposePhrase": "Комплекс с собственным весом", "estimate": 58 },
-            { "code": "wrk.kind.bar", "name": "Турник, перекладина", "order": 2, "words": "турник|перекладин", "purposePhrase": "Турник, рукоход", "estimate": 21 },
-            { "code": "wrk.kind.parallel", "name": "Брусья", "order": 3, "words": "брусья|столбики для отжим", "purposePhrase": "Брусья", "estimate": 20 },
-            { "code": "wrk.kind.monkey", "name": "Рукоход", "order": 4, "words": "рукоход", "purposePhrase": "Турник, рукоход", "estimate": 9 },
-            { "code": "wrk.kind.bench", "name": "Скамья (пресс, гимнастика)", "order": 5, "words": "скам", "purposePhrase": "Гимнастика, пресс", "estimate": 12 },
-            { "code": "wrk.kind.wall", "name": "Шведская стенка", "order": 6, "words": "шведск", "purposePhrase": "Шведская стенка", "estimate": 3 },
+            { "code": "wrk.kind.bar", "name": "Турник, перекладина", "order": 2, "words": "турник|перекладин", "purposePhrase": "Турник, рукоход", "estimate": 21, "elements": ["Турник"] },
+            { "code": "wrk.kind.parallel", "name": "Брусья", "order": 3, "words": "брусья|столбики для отжим", "purposePhrase": "Брусья", "estimate": 20, "elements": ["Брусья"] },
+            { "code": "wrk.kind.monkey", "name": "Рукоход", "order": 4, "words": "рукоход", "purposePhrase": "Турник, рукоход", "estimate": 9, "elements": ["Рукоход"] },
+            { "code": "wrk.kind.bench", "name": "Скамья (пресс, гимнастика)", "order": 5, "words": "скам", "purposePhrase": "Гимнастика, пресс", "estimate": 12, "elements": ["Скамья для пресса"] },
+            { "code": "wrk.kind.wall", "name": "Шведская стенка", "order": 6, "words": "шведск", "purposePhrase": "Шведская стенка", "estimate": 3, "elements": ["Шведская стенка"] },
             { "code": "wrk.kind.rings", "name": "Кольца, канат, скалодром", "order": 7, "words": "кольца|канат|скалодром", "purposePhrase": "Кольца, канат, скалодром", "estimate": 3 },
-            { "code": "wrk.kind.basket", "name": "Баскетбол", "order": 8, "words": "баскет", "purposePhrase": "Баскетбол", "estimate": 9 },
-            { "code": "wrk.kind.goal", "name": "Ворота (футбол, хоккей)", "order": 9, "words": "ворот", "purposePhrase": "Футбол", "estimate": 11 },
-            { "code": "wrk.kind.net", "name": "Стойки (волейбол, теннис, бадминтон)", "order": 10, "words": "волейб|теннис|бадминт", "purposePhrase": "Волейбол", "estimate": 4 },
+            { "code": "wrk.kind.basket", "name": "Баскетбол", "order": 8, "words": "баскет", "purposePhrase": "Баскетбол", "estimate": 9, "elements": ["Баскетбольная стойка"] },
+            { "code": "wrk.kind.goal", "name": "Ворота (футбол, хоккей)", "order": 9, "words": "ворот", "purposePhrase": "Футбол", "estimate": 11, "elements": ["Ворота для мини-футбола"] },
+            { "code": "wrk.kind.net", "name": "Стойки (волейбол, теннис, бадминтон)", "order": 10, "words": "волейб|теннис|бадминт", "purposePhrase": "Волейбол", "estimate": 4, "elements": ["Волейбольные стойки"] },
             { "code": "wrk.kind.obstacle", "name": "Полоса препятствий", "order": 11, "words": "элемент|окоп|бум|лабиринт|разрушен|стена с", "purposePhrase": "Полоса препятствий", "estimate": 8 },
             { "code": "wrk.kind.judge", "name": "Трибуна, судейская вышка", "order": 12, "words": "трибун|вышк", "purposePhrase": "Зрительские места", "estimate": 4 },
             { "code": "wrk.kind.other", "name": "Прочее", "order": 13, "words": "", "purposePhrase": null, "estimate": 10 }
@@ -144,8 +144,8 @@
         { "code": "dsp.kind", "name": "Снаряд", "order": 1, "step": true, "multi": false, "hint": "Как у воркаута, для детей",
           "values": [
             { "code": "dsp.kind.complex", "name": "Комплекс", "order": 1, "words": "комплекс", "purposePhrase": "Комплекс с собственным весом", "estimate": 0 },
-            { "code": "dsp.kind.bar", "name": "Турник, рукоход, брусья", "order": 2, "words": "турник|рукоход|брусья", "purposePhrase": "Турник, рукоход", "estimate": 0 },
-            { "code": "dsp.kind.wall", "name": "Шведская стенка, лестница", "order": 3, "words": "шведск|лестниц", "purposePhrase": "Шведская стенка", "estimate": 0 },
+            { "code": "dsp.kind.bar", "name": "Турник, рукоход, брусья", "order": 2, "words": "турник|рукоход|брусья", "purposePhrase": "Турник, рукоход", "estimate": 0, "elements": ["Турник","Рукоход","Брусья"] },
+            { "code": "dsp.kind.wall", "name": "Шведская стенка, лестница", "order": 3, "words": "шведск|лестниц", "purposePhrase": "Шведская стенка", "estimate": 0, "elements": ["Шведская стенка","Лестница"] },
             { "code": "dsp.kind.game", "name": "Игровой спорт (ворота, баскетбол)", "order": 4, "words": "ворот|баскет|детского сада", "purposePhrase": "Детский спорт", "estimate": 1 }
           ] },
         { "code": "dsp.age", "name": "Возраст детей", "order": 2, "step": true, "multi": false, "hint": "Обычно от 7 лет (справочник категорий)",

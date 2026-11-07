@@ -710,6 +710,7 @@ const BASE: DictBase[] = [
         { key: 'usageRules', label: 'Правила пользования', type: 'textarea', wide: true, hint: 'По строке на шаг' },
         { key: 'inspect', label: 'Что проверять при ТО', type: 'textarea', wide: true, hint: 'По строке на пункт' },
         { key: 'standard', label: 'Норматив', hint: 'На какой норматив опирается элемент — выберите из списка', ref: { dict: 'passportStandards', multiple: false } },
+        { key: 'kind', label: 'Что это', type: 'select', hint: 'Изделие / снаряд — выбирается как «Что это за изделие»; деталь и крепёж в список выбора не попадают', options: [{ value: 'product', label: 'Изделие / снаряд' }, { value: 'part', label: 'Деталь' }, { value: 'fastener', label: 'Крепёж' }] },
         { key: 'categories', label: 'Для каких категорий', wide: true, hint: 'Категории паспортов, где этот элемент бывает — отметьте нужные' },
         TECH({ key: 'code', label: 'Код элемента', required: true, lockAfterCreate: true, hint: 'Короткое имя латиницей (HORIZONTAL_BAR): по нему изделия и дефекты ссылаются на элемент. После создания не меняется' }),
       ]),

@@ -11,3 +11,9 @@
 Файлы: funnel/{index,open,api,pick-steps,product-list,gaps,texts,issue,new-product}.js; ui/kit/{filter,index,kit.css,pos-pic,similar}.js; sections/{docs,kit,help-flow-data}.js, products/card-blocks.js, main.js (LAZY+OWNER), index.html (preload).
 Нужно от backend / координатора (договор): 1) `GET /passports/funnel` уже занят деревом фраз (`ui/funnel.js`, `?category=`) — A2 использует тот же путь: нужно различать (например по `group|f|q` или новый путь); 2) A2: как передавать «Признак не указан» — я шлю в `f` токен `none:<key шага>`; 3) A5: где в ответе дерево фраз с `byFacet` (читаю `funnel.sections | phrases.sections | sections[с children]`); 4) A2 `photo` — объект `{url,thumb}` или строка (оба поддержаны); `thumb` у группы — адрес с сервера.
 Риски: в design-lint общий итог выше baseline (чужие файлы, +168 L3) — тест `pwa-guards` «нет новых нарушений» красный не из-за F1; мои файлы чисты. Рисунки (kind image) только ссылкой «в карточке изделия» — загрузки в воронке нет.
+
+## Элементы (gaps.js)
+- Блок `elements` в «Чего не хватает»: заголовок «Что это за изделие», подсказка одной строкой, выбор — kit buildForm combo multi (поиск, до 3), вместо tagPick.
+- Порядок: признаки (facet) → «Что это за изделие» → остальное (`rank` в paint).
+- Файл: backend/pwa/sections/passports/funnel/gaps.js. Помощь «?» — «Элементы» не упомянуты.
+- Проверки: --check ок, design-lint новых 0. qa-smoke не запускался (нет стенда в сессии).

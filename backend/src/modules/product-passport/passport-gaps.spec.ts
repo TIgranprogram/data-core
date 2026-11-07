@@ -52,3 +52,30 @@ describe('«Чего не хватает» изделию (A3)', () => {
     expect(r.missing).toEqual([]);
   });
 });
+
+describe('«Чего не хватает»: элементы (C028)', () => {
+  const el = (name: string, categories: string, kind?: string) => ({ _id: oid(), dict: 'passportElements', name, categories, ...(kind ? { kind } : {}), deletedAt: null });
+  const bar = el('Турник', 'TRN, WRK'), bush = el('Втулка', 'TRN', 'part'), free = el('Без категории', ''), other = el('Горка', 'DIO');
+  const withEl = (extra: Row[]) => { dictRows.push(...extra); return () => { for (const r of extra) dictRows.splice(dictRows.indexOf(r), 1); }; };
+  const miss = [{ label: 'Элементы', key: 'elements' }];
+
+  it('список элементов: строго по категории, без деталей и без пустых категорий', async () => {
+    const undo = withEl([bar, bush, free, other]);
+    const prod = { _id: oid(), name: 'Станок', passportDefaults: { passportCategory: 'TRN' } };
+    const r = await productGaps(checker(miss), fakeDb(prod), String(prod._id));
+    undo();
+    expect(r.missing.find((m) => m.key === 'elements')!.options!.map((o) => o.label)).toEqual(['Турник']);
+  });
+  it('элементы есть у изделия — строки нет', async () => {
+    const prod = { _id: oid(), name: 'Станок', passportDefaults: { passportCategory: 'TRN', elements: [oid()] } };
+    expect((await productGaps(checker(miss), fakeDb(prod), String(prod._id))).missing.some((m) => m.key === 'elements')).toBe(false);
+  });
+  it('элементы приходят из признака — строки нет', async () => {
+    const power = { ...kinds[0], elementIds: [oid()] };
+    dictRows.push(power);
+    const prod = { _id: oid(), name: 'Станок', passportDefaults: { passportCategory: 'TRN' }, facetValueIds: [power._id] };
+    const r = await productGaps(checker(miss), fakeDb(prod), String(prod._id));
+    dictRows.splice(dictRows.indexOf(power), 1);
+    expect(r.missing.some((m) => m.key === 'elements')).toBe(false);
+  });
+});

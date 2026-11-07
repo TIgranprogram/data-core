@@ -14,6 +14,7 @@ import { isUsedByCrm } from '../../common/catalog/catalog-references';
 import { CounterService } from '../counter/counter.service';
 import { parseCatalog } from './catalog-rows';
 import { normalizePassportDefaults, presentPassportDefaults, type PassportDefaults } from './passport-defaults';
+import { facetElementsPatch } from './facet-elements';
 import { productNameKey, shortProductName } from './order-product-name';
 import { clean, LIVE, loadPhotos, variants, type Doc } from './showcase-common';
 const key0 = (v: unknown) => clean(v).toLowerCase().replace(/ё/g, 'е');
@@ -359,6 +360,11 @@ export class ShowcaseService {
     const now = new Date();
     const { insertedId } = await this.db.collection('products').insertOne({ sku, kind: 'good', unit: 'шт', status: 'draft', listPrice: 0, basePrice: 0, costPrice: 0, defaultMarkupPercent: 30, stockQty: 0,
       photoIds: [], mainPhotoId: null, productModuleIds: [], composition: [], isActive: true, deletedAt: null, hasPassport: false, hasDrawing: false, ...set, ...(set.photoIds ? { mainPhotoId: (set.photoIds as Types.ObjectId[])[0] ?? null } : {}), source: 'showcase', createdAt: now, updatedAt: now });
+    // C028: изделие, созданное по ходу воронки, сразу с признаками — их элементы в умолчания паспорта (как при правке)
+    if (Array.isArray(set.facetValueIds) && (set.facetValueIds as unknown[]).length) {
+      const fromFacets = await facetElementsPatch(this.db, insertedId, set.facetValueIds as Types.ObjectId[]);
+      if (fromFacets) await this.db.collection('products').updateOne({ _id: insertedId }, { $set: { 'passportDefaults.elements': fromFacets } });
+    }
     const created = await this.get(String(insertedId));
     return skuWarning ? { ...created, skuWarning } : created;
   }
@@ -450,7 +456,9 @@ export class ShowcaseService {
       set.sku = sku;
     }
     if (set.photoIds) set.mainPhotoId = (set.photoIds as Types.ObjectId[])[0] ?? null;
-    const r = await this.db.collection('products').updateOne({ _id, deletedAt: null }, { $set: { ...set, updatedAt: new Date() } });
+    // C028: элементы выбранных признаков дописываются в умолчания паспорта (ручные не стираются)
+    const fromFacets = Array.isArray(set.facetValueIds) ? await facetElementsPatch(this.db, _id, set.facetValueIds as Types.ObjectId[]) : null;
+    const r = await this.db.collection('products').updateOne({ _id, deletedAt: null }, { $set: { ...set, ...(fromFacets ? { 'passportDefaults.elements': fromFacets } : {}), updatedAt: new Date() } });
     if (!r.matchedCount) throw new NotFoundException('Изделие не найдено');
     return this.get(id);
   }
