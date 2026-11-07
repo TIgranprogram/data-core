@@ -102,3 +102,29 @@ export function catArt(name) {
   const draw = (SETS.find(([re]) => re.test(name || '')) || [null, fallback])[1];
   return `<svg viewBox="10 12 140 82" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">${draw()}</svg>`;
 }
+
+/* Рисунки типов позиций (метизы, металл, дерево): те же краски и стиль; нет рисунка — общий значок категории. */
+const hex = (cx, cy, r, c) => `<path d="${[0, 1, 2, 3, 4, 5].map((i) => `${i ? 'L' : 'M'}${(cx + r * Math.cos(Math.PI / 3 * i)).toFixed(1)} ${(cy + r * Math.sin(Math.PI / 3 * i)).toFixed(1)}`).join(' ')} Z" fill="${c}"/>`;
+const threads = (x, y1, y2, c = '#c9d0cc') => { const out = []; for (let y = y1; y < y2; y += 6) out.push(ln(`M${x - 6} ${y + 3} L${x + 6} ${y}`, c, 1.4)); return out.join(''); };
+const TYPE_SETS = [
+  [/^болт|^винт/i, () => ground(80, 50) + `<path d="M56 30 h48 v14 h-48 Z" fill="${M}"/>` + rect(72, 44, 16, 42, '#59616a', 1) + threads(80, 50, 84)],
+  [/^гайк/i, () => ground(80, 40) + hex(80, 56, 30, M) + `<circle cx="80" cy="56" r="13" fill="#f4f6f5"/>` + ln('M68 56 a12 12 0 0 1 24 0', '#c9d0cc', 1.6)],
+  [/^шайб/i, () => ground(80, 40) + `<circle cx="80" cy="56" r="30" fill="${M}"/><circle cx="80" cy="56" r="20" fill="#59616a"/><circle cx="80" cy="56" r="11" fill="#f4f6f5"/>`],
+  [/^(само)?рез|саморез/i, () => ground(80, 50) + `<path d="M58 30 h44 l-4 10 h-36 Z" fill="${A}"/>` + `<path d="M72 40 h16 L82 86 H78 Z" fill="${M}"/>` + threads(80, 46, 80, '#f4f6f5')],
+  [/^шуруп/i, () => ground(80, 50) + `<path d="M56 32 h48 a24 12 0 0 1 -48 0 Z" fill="${W2}"/>` + ln('M80 38 V84', '#59616a', 8) + threads(80, 46, 80)],
+  [/^анкер|^дюбел/i, () => ground(80, 56) + rect(46, 46, 52, 18, '#59616a', 6) + rect(98, 50, 18, 10, M, 2) + ln('M52 50 v10 M62 50 v10 M72 50 v10 M82 50 v10', '#c9d0cc', 1.6) + `<circle cx="128" cy="55" r="6" fill="${A}"/>`],
+  [/^шпильк/i, () => ground(80, 60) + rect(30, 50, 100, 10, '#59616a', 4) + threads(80, 30, 30) + [36, 48, 60, 100, 112, 124].map((x) => ln(`M${x} 50 l5 10`, '#c9d0cc', 1.4)).join('')],
+  [/профил.*труб|труба проф|труб.*проф/i, () => ground(80, 50) + rect(48, 28, 64, 46, M, 3) + rect(58, 38, 44, 26, '#f4f6f5', 2)],
+  [/кругл.*труб|труба|^труб/i, () => ground(80, 46) + `<circle cx="80" cy="54" r="30" fill="${M}"/><circle cx="80" cy="54" r="21" fill="#f4f6f5"/>`],
+  [/^лист/i, () => ground(80, 64) + [0, 1, 2].map((i) => `<path d="M${34 + i * 4} ${72 - i * 9} L${96 + i * 4} ${58 - i * 9} L${132 + i * 2} ${66 - i * 9} L${70 + i * 2} ${80 - i * 9} Z" fill="${i === 2 ? '#9aa3ab' : i % 2 ? '#59616a' : M}"/>`).join('')],
+  [/^доск|^брус|^рейк|^фанер/i, () => ground(80, 64) + `<path d="M30 70 L100 54 L134 62 L64 80 Z" fill="${W}"/>` + `<path d="M30 70 L64 80 V86 L30 76 Z" fill="${W2}"/><path d="M64 80 L134 62 V68 L64 86 Z" fill="${W2}"/>` + ln('M52 70 q18 -4 36 -8', W2, 1.4)],
+  [/^уголок|^швеллер|^балк/i, () => ground(80, 56) + `<path d="M46 30 h14 v42 h46 v14 h-60 Z" fill="${M}"/>`],
+  [/^прут|^арматур|^круг|^проволок/i, () => ground(80, 62) + [38, 50, 62].map((y) => rect(28, y, 104, 8, y === 50 ? '#59616a' : M, 4)).join('')],
+  [/^цеп/i, () => ground(80, 60) + [0, 1, 2, 3].map((i) => `<rect x="${34 + i * 22}" y="${i % 2 ? 44 : 38}" width="30" height="18" rx="9" fill="none" stroke="${M}" stroke-width="4"/>`).join('')],
+];
+/** SVG-разметка рисунка для типа позиции («Болт», «Гайка шестигранная»); нет рисунка — общий значок категории. */
+export function typeArt(type, categoryName = '') {
+  const hit = TYPE_SETS.find(([re]) => re.test(String(type || '').trim()));
+  if (!hit) return catArt(categoryName || type);
+  return `<svg viewBox="10 12 140 82" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">${hit[1]()}</svg>`;
+}

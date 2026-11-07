@@ -2,7 +2,7 @@ import { PREFIX } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { markEl } from './mark.js';
 import { paintOrder } from '../../core/order-color.js';
-import { catArt } from '../cat-art.js';
+import { catArt, typeArt } from '../cat-art.js';
 
 /**
  * kit «mobile» — мобильные рабочие экраны (склад ассистента; дальше — другие рабочие): крупно, по одному шагу, QR + кнопки.
@@ -84,7 +84,7 @@ export function tiles({ items = [], onPick, empty = 'Ничего нет', selec
     return h('button', { type: 'button', class: 'm-tile' + (selected !== undefined && it.value === selected ? ' m-on' : '') + (it.art ? '' : ' m-plain'), role: 'option', onclick: () => onPick?.(it) }, it.art ? pic : null, h('b', null, it.label));
   }));
 }
-export { catArt };
+export { catArt, typeArt };
 
 /** Одна строка ленты: дата · что · количество; sub — мелкая подпись (поз. заказа). */
 const feedRow = (it) => h('div', { class: 'm-fi m-fi-' + (it.kind || 'out') },
