@@ -199,6 +199,7 @@ export const ADVICE = [
 
 // Скрипты без кнопки: ИИ / внутренние / убраны из пульта администратора.
 export const NOT_ON_BUTTONS = {
+  'tools/c039-types.mjs': 'разовый отчёт покрытия иконок типов для ИИ (C039), не для администратора',
   'deploy/synology/api.sh': 'вход для агента datacore-access; запрос собирается вручную',
   'deploy/synology/sync-dir.sh': 'часть выкладки и отката на сервере; вручную не запускается',
   'deploy/synology/backup.sh': 'cron 03:00 и выкладка; отдельной кнопки нет',
