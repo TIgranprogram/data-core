@@ -157,7 +157,8 @@ export function tabs({ items, value, onChange, label, layout: lay }) {
     h('span', { class: 'k-day-marks', 'aria-hidden': 'true' }, ...(it.marks || []).slice(0, 3).map((m) => h('i', { class: 'tone-' + m }))))));
   else el.append(...items.map((it) => h('button', { type: 'button', role: 'tab', class: 'chip', dataset: { key: String(it.key) }, onclick: () => { set(it.key); onChange?.(it.key); } },
     it.label, it.count != null ? h('b', null, String(it.count)) : null)));
-  set(value ?? items[0]?.key);
+  // value: null — явно «ничего не выбрано» (шаг воронки ещё не пройден): ничего не подсвечиваем; не передан — первый, как раньше
+  set(value === undefined ? items[0]?.key : value);
   return { el, set };
 }
 
@@ -293,6 +294,7 @@ export { photoField } from './photos.js';
 /** Путеводитель (help и обучающие схемы): cat/unit/chain/flow/note/toggle — ui/kit/guide.js */
 export { guide } from './guide.js';
 export { stageBar, headStats } from './stage-bar.js';
+export { funnel } from './funnel.js';
 
 /** Фото позиции/изделия в таблицах и строках (клик — крупно; нет фото — «нет фото») — ui/pos-pic.js */
 export { posPic, posPicOf } from './pos-pic.js';

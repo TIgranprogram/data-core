@@ -120,6 +120,14 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .k-sec > summary:hover .form-sec-chev { color: var(--text); }
 .k-sec-body > * + * { margin-top: var(--s3); }
 /* k-stack — блоки правой панели колонкой с одним зазором (ПМ-1, аудит панелей 2026-11-06) */
+/* воронка: фишки переносятся строками — все варианты на виду, подпись не обрезается */
+.k-funnel .chips { flex-wrap: wrap; overflow: visible; row-gap: var(--s1); }
+.k-funnel .chips { gap: var(--s2); padding-left: 0; border-bottom: 0; }
+/* фишка шага воронки — кнопка-пилюля: рамка и фон, видно что нажимается (приёмка дизайнера C033-0) */
+.k-funnel .chip { white-space: normal; height: auto; min-height: 40px; padding: var(--s2) var(--s3); text-align: left; margin-bottom: 0; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface-2); color: var(--text); }
+.k-funnel .chip:hover { border-color: var(--primary); }
+.k-funnel .chip.active { border-color: var(--primary); background: var(--primary-soft); }
+.k-funnel .chip:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .k-stack { display: flex; flex-direction: column; gap: var(--s3); min-width: 0; }
 .k-stack > .k-sec { margin: 0; }
 /* секции подряд не в stack (вложенные списки) — тот же зазор, не слипаются */
