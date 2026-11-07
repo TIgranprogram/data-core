@@ -28,6 +28,7 @@ export const DICT_META: Record<string, DictMeta> = {
   productGroups: { sections: ['Продукция'], refBy: 'id' },
   expenseArticles: { sections: ['Деньги', 'Заявки', 'Прочие расходы'], refBy: 'id', locked: (d) => (d.code ? BUILTIN_REASON : null) },
   productSeries: { sections: ['Продукция'], refBy: 'name' },
+  productParts: { sections: ['Продукция', 'В работе'], refBy: 'id' },
   attachmentTypes: { sections: ['Продукция'], refBy: 'id' },
   productSections: { sections: ['Продукция'], refBy: 'id' },
   units: { sections: ['Остатки', 'Заявки'], refBy: 'name' },

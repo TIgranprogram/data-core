@@ -60,9 +60,13 @@ export class Product {
   @Prop({ type: [CompositionLineSchema], default: [] })
   composition!: CompositionLine[];
 
-  /** Маршрут изделия (В работе): виды работ по порядку; `lineId` — часть состава (composition[]._id). Необязательно, CRM не читает. */
-  @Prop({ type: [{ _id: false, workTypeId: { type: Types.ObjectId, ref: 'WorkType', required: true }, lineId: { type: Types.ObjectId }, note: { type: String } }], default: undefined })
-  workTypes?: Array<{ workTypeId: Types.ObjectId; lineId?: Types.ObjectId; note?: string }>;
+  /** Маршрут изделия (В работе): виды работ по порядку; lineId — часть состава (composition[]._id); partRowId — часть из parts; hours — норма на 1 шт. Необязательно, CRM не читает. */
+  @Prop({ type: [{ _id: false, workTypeId: { type: Types.ObjectId, ref: 'WorkType', required: true }, lineId: { type: Types.ObjectId }, note: { type: String }, partRowId: { type: Types.ObjectId }, hours: { type: Number }, checked: { type: Boolean }, checkedBy: { type: Types.ObjectId }, checkedAt: { type: Date } }], default: undefined })
+  workTypes?: Array<{ workTypeId: Types.ObjectId; lineId?: Types.ObjectId; note?: string; partRowId?: Types.ObjectId; hours?: number; checked?: boolean; checkedBy?: Types.ObjectId; checkedAt?: Date }>;
+
+  /** Части изделия для работ (стойки, навес, наполнение; C041). Необязательно, CRM не читает; partId — справочник productParts. */
+  @Prop({ type: [{ partId: { type: Types.ObjectId }, name: { type: String, required: true }, qty: { type: Number, default: 1 }, lineId: { type: Types.ObjectId }, checked: { type: Boolean, default: false }, checkedBy: { type: Types.ObjectId }, checkedAt: { type: Date } }], default: undefined })
+  parts?: Array<{ _id: Types.ObjectId; partId?: Types.ObjectId; name: string; qty: number; lineId?: Types.ObjectId; checked: boolean; checkedBy?: Types.ObjectId; checkedAt?: Date }>;
 
   @Prop({ default: true }) isActive!: boolean;
   /** TZ-CATALOG-314 archive marker; legacy rows without this field remain active. */

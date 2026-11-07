@@ -46,13 +46,15 @@ export function mergeColumns(routes: Array<Array<{ key: string; name: string }>>
 
 export interface LaunchLine { _id: Types.ObjectId; orderId?: Types.ObjectId; lineNo?: number; title?: string; productId?: Types.ObjectId | null }
 export interface LaunchProduct { _id: Types.ObjectId; routeSteps: WorkStep[] }
+/** Шаги плана позиции для запуска и сколько из них без «Проверено». */
+export interface PlanRoute { steps: WorkStep[]; unchecked: number; total: number }
 export interface Refusal { incomeId: string; lineNo: number | null; title: string; reason: string }
 
 /**
  * Что делать с позициями при запуске: запустить (с маршрутом изделия или общим «Изготовление»)
  * либо отказать с понятной причиной. `open` — позиции, у которых уже есть открытое задание (код → W-N).
  */
-export function planLaunch(lines: LaunchLine[], products: Map<string, LaunchProduct>, open: Map<string, number>) {
+export function planLaunch(lines: LaunchLine[], products: Map<string, LaunchProduct>, open: Map<string, number>, plans: Map<string, PlanRoute> = new Map()) {
   const launch: Array<{ line: LaunchLine; route: WorkStep[]; generic: boolean }> = [];
   const refused: Refusal[] = [];
   const warnings: Array<{ incomeId: string; lineNo: number | null; text: string }> = [];
@@ -63,7 +65,11 @@ export function planLaunch(lines: LaunchLine[], products: Map<string, LaunchProd
     if (!l.productId) { refused.push({ ...base, reason: 'Нет изделия — сначала сопоставьте позицию с продукцией' }); continue; }
     const p = products.get(String(l.productId));
     if (!p) { refused.push({ ...base, reason: 'Изделие не найдено или удалено — сопоставьте позицию заново' }); continue; }
-    if (!p.routeSteps.length) {
+    const own = plans.get(String(l._id)); // план позиции важнее маршрута изделия
+    if (own) {
+      launch.push({ line: l, route: own.steps, generic: false });
+      if (own.unchecked) warnings.push({ ...base, text: `Состав не проверен: ${own.unchecked} из ${own.total} работ без галочки «Проверено»` });
+    } else if (!p.routeSteps.length) {
       launch.push({ line: l, route: genericRoute(), generic: true });
       warnings.push({ ...base, text: 'У изделия не задано, как оно делается: запущено одной работой «Изготовление»' });
     } else launch.push({ line: l, route: p.routeSteps, generic: false });

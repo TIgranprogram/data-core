@@ -5,6 +5,7 @@ import { Types } from 'mongoose';
 import { personWorkTypeIds } from '../../common/catalog/person-work-types';
 import { oid, oids, parseList } from '../../common/list-query';
 import { CounterService } from '../counter/counter.service';
+import { OrderLinePlanService } from '../order-line-plan/order-line-plan.service';
 import { personView } from '../design/design-present';
 import type { CancelDto, LaunchDto, MoveDto, PlanDto, WorkTaskPatchDto } from './dto/work.dto';
 import { DONE_DAYS, mergeColumns, nextIndex, planLaunch, positionAt, stepKeyOf, type LaunchProduct } from './work-flow';
@@ -28,6 +29,7 @@ export class WorkService {
     @InjectModel(WorkTask.name) private readonly model: Model<WorkTaskDocument>,
     private readonly counters: CounterService,
     private readonly routes: WorkRouteService,
+    private readonly plans: OrderLinePlanService,
   ) {}
 
   private db() { return this.connection.db!; }
@@ -121,7 +123,7 @@ export class WorkService {
 
   /**
    * Запуск позиций в работу (заказ целиком или выбранные). Позиции без изделия и уже запущенные не запускаются —
-   * в ответе `refused` с понятной причиной; изделие без маршрута запускается одной работой «Изготовление» (+ `warnings`).
+   * в ответе `refused` с понятной причиной; шаги — из плана позиции (`warnings`, если не всё проверено); изделие без работ запускается одной работой «Изготовление» (+ `warnings`).
    */
   async launch(dto: LaunchDto, userId?: string) {
     if (!dto.orderId && !dto.lineIds?.length) throw new BadRequestException('Укажите заказ или позиции для запуска');
@@ -141,7 +143,11 @@ export class WorkService {
     const prods = prodIds.length ? await this.db().collection('products').find({ _id: { $in: prodIds }, deletedAt: null }, { projection: { workTypes: 1 } }).toArray() : [];
     const steps = await this.routes.stepsOf(prods as Doc[]);
     const known = new Map<string, LaunchProduct>(prods.map((p) => [String(p._id), { _id: p._id as Types.ObjectId, routeSteps: steps.get(String(p._id)) ?? [] }]));
-    const plan = planLaunch(lines.map((l) => ({ _id: l._id as Types.ObjectId, orderId: l.orderId as Types.ObjectId | undefined, lineNo: l.lineNo as number | undefined, title: l.title as string | undefined, productId: l.productId as Types.ObjectId | undefined })), known, new Map(open.map((t) => [String(t.openIncomeId), t.seq as number])));
+    // шаги берём из плана позиции (нет плана — создаётся из изделия); так запуск не меняет изделие
+    const openIds = new Set(open.map((t) => String(t.openIncomeId)));
+    const ready = lines.filter((l) => l.productId && known.has(String(l.productId)) && !openIds.has(String(l._id)));
+    const byLine = await this.plans.forLaunch(ready.map((l) => ({ _id: l._id as Types.ObjectId, productId: l.productId as Types.ObjectId })));
+    const plan = planLaunch(lines.map((l) => ({ _id: l._id as Types.ObjectId, orderId: l.orderId as Types.ObjectId | undefined, lineNo: l.lineNo as number | undefined, title: l.title as string | undefined, productId: l.productId as Types.ObjectId | undefined })), known, new Map(open.map((t) => [String(t.openIncomeId), t.seq as number])), byLine);
     const created: Doc[] = [];
     const refused = [...plan.refused];
     for (const { line, route, generic } of plan.launch) {
@@ -152,6 +158,7 @@ export class WorkService {
         refused.push({ incomeId: String(line._id), lineNo: line.lineNo ?? null, title: String(line.title ?? ''), reason: 'Уже в работе' }); // параллельный запрос успел раньше
       }
     }
+    await this.plans.markLaunched(created.map((c) => c.incomeId as Types.ObjectId));
     const warned = new Set(created.map((c) => String(c.incomeId)));
     return { created: created.length, skipped: refused.length, items: await presentWork(this.connection, created), refused, warnings: plan.warnings.filter((w) => warned.has(w.incomeId)) };
   }

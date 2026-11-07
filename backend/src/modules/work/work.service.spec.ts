@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Types } from 'mongoose';
+import type { OrderLinePlanService } from '../order-line-plan/order-line-plan.service';
 import { WorkRouteService } from './work-route.service';
 import { WorkService } from './work.service';
 
@@ -73,6 +74,8 @@ class Coll {
 describe('WorkService', () => {
   let tasks: Coll, orders: Coll, incomes: Coll, persons: Coll, products: Coll, worktypes: Coll;
   let service: WorkService, routes: WorkRouteService;
+  let planned: Map<string, unknown>; // шаги плана позиции для запуска (по умолчанию планов нет — берётся маршрут изделия)
+  const launched: unknown[] = [];
   let seq: number;
   const id = () => new Types.ObjectId();
   let orderId: Types.ObjectId, cut: Types.ObjectId, weld: Types.ObjectId, paint: Types.ObjectId, gone: Types.ObjectId;
@@ -85,7 +88,9 @@ describe('WorkService', () => {
     const by: Record<string, Coll> = { salesorders: orders, incomes, persons, products, worktypes, photos: new Coll(), productmodules: new Coll(), materials: new Coll() };
     const connection = { db: { collection: (n: string) => by[n] } };
     routes = new WorkRouteService(connection as never);
-    service = new WorkService(connection as never, tasks as never, { nextSeq: jest.fn(async () => ++seq) } as never, routes);
+    planned = new Map(); launched.length = 0;
+    const plans = { forLaunch: jest.fn(async (ls: Array<{ _id: Types.ObjectId }>) => new Map([...planned].filter(([k]) => ls.some((l) => String(l._id) === k)))), markLaunched: jest.fn(async (ids: unknown[]) => { launched.push(...ids); }) };
+    service = new WorkService(connection as never, tasks as never, { nextSeq: jest.fn(async () => ++seq) } as never, routes, plans as unknown as OrderLinePlanService);
     [orderId, cut, weld, paint, gone, withRoute, noRoute, line1, line2, line3] = Array.from({ length: 10 }, id);
     orders.rows.push({ _id: orderId, orderNo: '109-П', deletedAt: null });
     worktypes.rows.push({ _id: cut, name: 'Резка', deletedAt: null }, { _id: weld, name: 'Сварка', deletedAt: null }, { _id: paint, name: 'Покраска', deletedAt: null }, { _id: gone, name: 'Старая', deletedAt: new Date() });
@@ -98,6 +103,15 @@ describe('WorkService', () => {
       { _id: line2, orderId, lineNo: 2, title: 'Урна. Цвет: чёрный', productId: noRoute, deletedAt: null },
       { _id: line3, orderId, lineNo: 3, title: 'Беседка (изделия ещё нет)', deletedAt: null },
     );
+  });
+
+  it('запуск по плану позиции: шаги плана вместо маршрута изделия, непроверенное — в warnings, позиция помечается запущенной', async () => {
+    planned.set(String(line1), { total: 2, unchecked: 1, steps: [{ workTypeId: cut, name: 'Резка', stepId: id(), partName: 'Стойки', hours: 2 }, { workTypeId: cut, name: 'Резка', stepId: id(), partName: 'Навес', hours: 3 }] });
+    const r = await service.launch({ lineIds: [String(line1)] });
+    expect(r.items[0].route.map((s) => s.name)).toEqual(['Резка', 'Резка']); // повтор вида работ на разных частях — одна колонка доски
+    expect(r.warnings).toEqual([expect.objectContaining({ incomeId: String(line1), text: expect.stringContaining('1 из 2') })]);
+    expect((tasks.rows[0].route as Array<{ partName: string; hours: number }>).map((s) => [s.partName, s.hours])).toEqual([['Стойки', 2], ['Навес', 3]]);
+    expect(launched.map(String)).toContain(String(line1));
   });
 
   it('запуск: маршрут изделия без удалённых видов работ — карточка на первом шаге', async () => {
@@ -208,7 +222,7 @@ describe('WorkService', () => {
   });
 
   it('маршрут изделия: запись целиком, порядок сохраняется, повтор вида работ — 400, пустой — убрать', async () => {
-    await expect(routes.set(String(noRoute), { steps: [{ workTypeId: String(weld) }, { workTypeId: String(weld) }] })).rejects.toThrow('уже есть в маршруте');
+    await expect(routes.set(String(noRoute), { steps: [{ workTypeId: String(weld) }, { workTypeId: String(weld) }] })).rejects.toThrow('уже есть');
     await expect(routes.set(String(noRoute), { steps: [{ workTypeId: String(gone) }] })).rejects.toBeInstanceOf(BadRequestException);
     expect(await routes.get(String(noRoute))).toMatchObject({ hasRoute: false, note: 'Маршрут не задан', steps: [] });
     const r = await routes.set(String(noRoute), { steps: [{ workTypeId: String(paint) }, { workTypeId: String(cut), note: ' рез ' }] });

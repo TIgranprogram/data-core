@@ -1,4 +1,7 @@
 # Карта роли backend
+## План позиции заказа C041 Э1 (2026-11-07)
+- `modules/order-line-plan/` (`order-line-plan.service.ts`: ensure/save/check/applyToProduct/resetFromProduct/forLaunch/markLaunched; controller `/orderline-plans`), чистая логика `common/work-route-rows.ts` (normalizeRows, diffRows, rowsFromProduct, productFields), `common/work-step.ts`; запуск — `work/work.service.ts launch` + `work-flow.ts planLaunch(plans)`; маршрут изделия `work-route.service.ts set/get` (parts, compositionLines); справочник `dicts.defs.ts productPartsList`. Отчёт — конец `docs/crew/C041-work-composition/TZ-E1.md`. коммит: feat(work) в ветке worktree-agent-ac7381702324e672d
+
 ## Сводка позиции C040 (2026-11-07, не закоммичено)
 - `GET /materials/:id/summary` — `stock/stock-summary.controller.ts` (путь materials, модуль stock — без цикла), `stock-summary.service.ts:summary` (13 чтений разом), чистые расчёты `stock-summary.ts` (buildSuppliers/buildPrices/buildMonthly/topCustomers, поверх `foldPurchases`); spec `stock-summary.spec.ts`. Отчёт `docs/crew/C040-catalog-card/REPORT.md`. коммит: —
 
