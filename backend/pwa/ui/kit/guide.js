@@ -48,6 +48,16 @@ export function flow(items) {
       h('button', { type: 'button', class: 'g-flow-chip', onclick: it.onClick, title: it.title || it.label }, it.label)])), 'guide');
 }
 
+/** Карточка «Я хочу…»: tok — цветовой токен раздела (--sec-*, полоса слева), menu — где в меню, href — ссылка в раздел. */
+export function want({ tok, want, menu, href, start }) {
+  const el = h('article', { class: 'g-want k-toned' },
+    h('h3', null, want),
+    menu ? h('div', { class: 'g-want-menu' }, h('span', { class: 'g-k' }, 'Раздел'), href ? h('a', { href }, menu) : h('span', null, menu)) : null,
+    start ? h('p', null, start) : null);
+  if (tok) el.style.setProperty('--tone', `var(--sec-${tok})`); // custom-свойства — только setProperty (h() их не ставит)
+  return mark(el, 'guide');
+}
+
 /** Примечание: «Порядок важен: …» (tone warn) или «Можно потом: …». */
 export function note({ label, text, tone }) {
   return mark(h('p', { class: 'g-note' + (tone ? ' g-note-warn' : '') }, h('b', null, label + ': '), text), 'guide');
@@ -60,4 +70,4 @@ export function toggle({ label, checked = false, onChange }) {
   return mark(h('label', { class: 'check' }, input, ' ', label), 'guide');
 }
 
-export const guide = { cat, unit, chain, flow, note, toggle };
+export const guide = { cat, unit, chain, flow, want, note, toggle };

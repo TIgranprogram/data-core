@@ -580,3 +580,12 @@ table.list .k-nowrap { white-space: nowrap; }
 .g-note b { font-weight: 600; }
 .g-note-warn { background: var(--warn-soft); }
 @media (pointer: coarse) { .g-cat > summary { min-height: 44px; } .g-flow-chip { min-height: 44px; } }
+@media (max-width: 720px) { .g-flow-chip { min-height: 44px; } }
+
+/* guide.want — карточка «Я хочу…» (тон раздела через --tone, как у k-toned; border-left — здесь, чтобы не спорить с шорткатом border) */
+.g-want { display: flex; flex-direction: column; gap: var(--s2); background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--tone, var(--border)); border-radius: var(--radius); padding: var(--s3) var(--s4); min-width: 0; }
+.g-want h3 { margin: 0; font-size: var(--fs-h3); font-weight: 650; color: var(--heading); }
+.g-want p { margin: 0; font-size: var(--fs); color: var(--text); }
+.g-want-menu { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: baseline; font-size: var(--fs-sm); }
+.g-k { color: var(--muted); font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .05em; flex: none; }
+.g-wants { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: var(--s3); }
