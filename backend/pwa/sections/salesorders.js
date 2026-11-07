@@ -506,6 +506,7 @@ export const salesorders = {
       ['Заказчик', (r.customers || []).length ? h('span', null, ...(r.customers || []).flatMap((c, i) => [i ? ', ' : '', customerLink(c)])) : ''],
       ['Наша компания', names(r.companyNames) || h('span', { class: 'muted' }, 'не указана')],
       ['Срок', r.deadline ? due(r) : ''],
+      ['Срок изготовления, дн.', (Number(r.leadDays) || Math.max(0, ...(r.orders || []).map((o) => Number(o.leadDays) || 0))) || ''],
       ['Приоритет', r.priority && r.priority !== 'normal' ? prio(r) : ''],
       ['Что дальше', r.stage === 'new' && r.lineCount === 0 && !(r.lines || []).length ? h('span', { class: 'neg' }, 'В заказе нет позиций — «В производство» не сработает. Сначала добавьте позиции.') : STAGE_NOW[r.stage] ? h('span', { class: 'muted' }, STAGE_NOW[r.stage]) : ''],
       ['Не распределено', countOf(r) ? h('span', { class: 'neg' }, `${countOf(r)} поз. без изделия — «В производство» не сработает, пока их не распределят (выбрать изделие, новое изделие или услуга).`) : ''],

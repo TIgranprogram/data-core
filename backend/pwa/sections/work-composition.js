@@ -2,8 +2,10 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { patch, go } from '../core/router.js';
 import { failBlock } from '../ui/kit/busy.js';
-import { actions, badge, qtyInput, searchBox, stack, busyBlock, button, enhanceSelect, funnel, iconButton, link, modal, section, select, sideForm, sideNote, table, toast, toastError } from '../ui/kit/index.js';
+import { actions, badge, qtyInput, stack, busyBlock, button, enhanceSelect, funnel, iconButton, link, modal, section, select, sideForm, sideNote, table, textInput, toast, toastError } from '../ui/kit/index.js';
+import { qty } from '../core/format.js';
 import { workTypes } from './work-route.js';
+import { costBlock, factsBlock, markStep } from './work-facts.js';
 
 /*
  * Состав и работы (C041 Э1): части изделия (стойки, навес, наполнение) × виды работ × норма часов, галочка «Проверено».
@@ -29,17 +31,18 @@ export const partTypes = () => {
 };
 
 const partOf = (p) => ({ id: String(p.id || p._id || uid()), partId: p.partId ? String(p.partId) : '', name: p.name || '', qty: p.qty ?? 1, checked: !!p.checked, by: p.checkedByName || '', saved: !!(p.id || p._id) });
-const stepOf = (s) => ({ id: String(s.id || s._id || uid()), workTypeId: String(s.workTypeId || ''), partRowId: s.partRowId ? String(s.partRowId) : '', hours: s.hours ?? '', checked: !!s.checked, by: s.checkedByName || '', saved: !!(s.id || s._id) });
+const stepOf = (s) => ({ id: String(s.id || s._id || uid()), workTypeId: String(s.workTypeId || ''), partRowId: s.partRowId ? String(s.partRowId) : '', hours: s.hours ?? '', checked: !!s.checked, by: s.checkedByName || '', saved: !!(s.id || s._id), startedAt: s.startedAt || null, finishedAt: s.finishedAt || null, factHours: s.factHours ?? null });
 const outPart = (p) => ({ id: p.id, ...(p.partId ? { partId: p.partId } : {}), name: p.name, qty: num(p.qty) ?? 1, checked: p.checked });
 const outStep = (s) => ({ id: s.id, workTypeId: s.workTypeId, partRowId: s.partRowId || null, hours: num(s.hours), checked: s.checked });
 
 /**
- * compositionEditor({ parts, steps, types, partsDict, canEdit, check?(kind,rowId,checked) → данные, suggested? })
- * → { el, get value() (JSON { parts, steps }), get dirty(), setData({ parts, steps }) }; при правке шлёт `change`.
+ * compositionEditor({ parts, steps, types, partsDict, canEdit, check?(kind,rowId,checked) → данные, suggested?,
+ *                     onMark?(kind,row,what) — только в плане позиции: «▶ начал» / «■ закончил», fact?, leadDays? })
+ * → { el, get value() (JSON { parts, steps }), get dirty(), setData({ parts, steps, fact?, leadDays? }) }; при правке шлёт `change`.
  * check не задан — «Проверено» ставится на месте и уходит вместе с сохранением.
  */
-export function compositionEditor({ parts: p0 = [], steps: s0 = [], types = [], partsDict = [], canEdit = true, check, suggested = [] } = {}) {
-  let parts = p0.map(partOf), steps = s0.map(stepOf), curPart = '', dirty = false, adding = false;
+export function compositionEditor({ parts: p0 = [], steps: s0 = [], types = [], partsDict = [], canEdit = true, check, suggested = [], onMark, fact: fact0 = null, leadDays: lead0 = null } = {}) {
+  let parts = p0.map(partOf), steps = s0.map(stepOf), curPart = '', dirty = false, adding = false, fact = fact0, leadDays = lead0;
   const root = stack();
   const typeName = (id) => types.find((t) => t.value === id)?.label || 'вид работ удалён';
   const partName = (id) => (id ? parts.find((p) => p.id === id)?.name || 'часть удалена' : 'Изделие целиком');
@@ -72,7 +75,7 @@ export function compositionEditor({ parts: p0 = [], steps: s0 = [], types = [], 
 
   function partsTable() {
     return table({
-      label: 'Части изделия', columns: [{ label: 'Часть', wrap: true }, { label: 'Кол-во', num: true }, { label: 'Проверено' }, { label: '' }],
+      label: 'Части изделия', cls: 'k-table-stack', columns: [{ label: 'Часть', wrap: true }, { label: 'Кол-во', num: true }, { label: 'Проверено' }, { label: '' }],
       empty: { title: 'Частей нет', hint: canEdit ? 'Работы идут на изделие целиком. Добавьте части — стойки, навес, наполнение — и назначьте работы каждой.' : '' },
       rows: parts.map((p) => ({ cells: [p.name, qtyIn(p), checkBtn('part', p),
         canEdit ? iconButton({ icon: '✕', label: 'Убрать часть ' + p.name, size: 'S', onClick: () => edit(() => { parts = parts.filter((x) => x !== p); steps = steps.filter((s) => s.partRowId !== p.id); if (curPart === p.id) curPart = ''; }) }) : ''] })),
@@ -92,7 +95,7 @@ export function compositionEditor({ parts: p0 = [], steps: s0 = [], types = [], 
         edit(() => { parts.push({ id: uid(), partId: made.value, name: made.label, qty: 1, checked: false, by: '', saved: false }); });
       } catch (e) { toastError(e, 'добавить часть'); }
     };
-    const name = searchBox({ placeholder: 'Название новой части — Enter', label: 'Название новой части', minLength: 1, onSearch: () => {}, onEnter: add });
+    const name = textInput({ label: 'Название новой части', placeholder: 'Например, Стойка', max: 120, onEnter: add }); // C044-T2: однострочное поле эталона kit, а не строка поиска
     name.el.hidden = !adding;
     const ok = button({ label: 'Добавить', size: 'S', kind: 'primary', onClick: () => add(name.input.value) });
     ok.hidden = !adding;
@@ -125,13 +128,28 @@ export function compositionEditor({ parts: p0 = [], steps: s0 = [], types = [], 
   }
   function paintFunnel() { fn.update({ steps: funnelSteps() }); }
 
+  /** Ячейка «Часов»: норма на 1 шт. + фактически, если он уже есть, — мелким «факт 1,5 ч». */
+  const hoursCell = (s) => h('div', null, hoursIn(s), s.factHours != null ? h('span', { class: 'muted small' }, `факт ${qty(s.factHours)} ч`) : null);
+  /** «▶ начал» / «■ закончил» — только когда передан onMark (панель «Позиция заказа»): отметка факта шага. */
+  const markBtn = (s, what) => {
+    const locked = dirty || !s.saved; // отметка перечитывает план — несохранённые правки потерялись бы
+    const b = iconButton({ icon: what === 'start' ? '▶' : '■', label: what === 'start' ? 'Отметить начало' : 'Отметить конец', size: 'S',
+      title: locked ? 'Сначала сохраните правки — потом отметьте' : what === 'start' ? 'Отметить начало работы' : 'Отметить окончание работы',
+      onClick: async () => { try { await onMark('step', s, what); } catch (e) { toastError(e, 'отметить шаг'); } } });
+    if (locked) b.disabled = true; // сначала сохраните: отметка перечитывает план
+    else if (what === 'start' ? (s.startedAt || s.finishedAt) : !!s.finishedAt) b.disabled = true; // уже отмечено — второй раз нельзя
+    return b;
+  };
+
   function stepsTable() {
     const sorted = steps; // порядок = порядок выполнения (цепочка Ганта)
     return table({
-      label: 'Работы по частям', columns: [{ label: 'Часть', wrap: true }, { label: 'Работа' }, { label: 'Часов на 1 шт.', num: true }, { label: 'Проверено' }, { label: '' }],
+      label: 'Работы по частям', cls: 'k-table-stack', columns: [{ label: 'Часть', wrap: true }, { label: 'Работа' }, { label: 'Часов на 1 шт.', num: true }, { label: 'Проверено' }, { label: '' }],
       empty: { title: 'Работ нет', hint: canEdit ? 'Без работ позиция запускается одной работой «Изготовление». Выберите часть и виды работ выше.' : '' },
-      rows: sorted.map((s, i) => ({ cells: [partName(s.partRowId), typeName(s.workTypeId), hoursIn(s), checkBtn('step', s),
+      rows: sorted.map((s, i) => ({ cells: [partName(s.partRowId), typeName(s.workTypeId), hoursCell(s), checkBtn('step', s),
         canEdit ? actions(
+          onMark ? markBtn(s, 'start') : null,
+          onMark ? markBtn(s, 'finish') : null,
           iconButton({ icon: '↑', label: 'Работа выше', size: 'S', onClick: () => move(i, -1) }),
           iconButton({ icon: '↓', label: 'Работа ниже', size: 'S', onClick: () => move(i, 1) }),
           iconButton({ icon: '✕', label: 'Убрать работу', size: 'S', onClick: () => edit(() => { steps = steps.filter((x) => x !== s); }) })) : ''] })),
@@ -141,8 +159,11 @@ export function compositionEditor({ parts: p0 = [], steps: s0 = [], types = [], 
   function paint() {
     const all = parts.length + steps.length, ok = parts.filter((p) => p.checked).length + steps.filter((s) => s.checked).length;
     const pending = [...parts, ...steps].filter((r) => !r.checked && (!check || r.saved));
+    const factText = fact && Number(fact.hours) > 0 ? `Факт: ${qty(fact.hours)} ч` : ''; // план позиции: сколько реально работали
+    const leadText = leadDays != null ? `Срок: ${leadDays} дн.` : ''; // срок позиции, рабочих дней
     const sum = actions(
       all ? (ok === all ? badge('всё проверено', 'ok') : badge(`проверено ${ok} из ${all}`, 'warn')) : null, totalEl,
+      factText ? h('span', { class: 'muted' }, factText) : null, leadText ? h('span', { class: 'muted' }, leadText) : null,
       canEdit && pending.length && !(check && dirty) ? button({ label: 'Проверить всё', size: 'S', kind: 'primary', onClick: async (e) => {
         e.currentTarget.classList.add('is-busy');
         if (!check) { pending.forEach((r) => { r.checked = true; }); touch(); paint(); return; }
@@ -155,7 +176,7 @@ export function compositionEditor({ parts: p0 = [], steps: s0 = [], types = [], 
     if (canEdit) paintFunnel();
   }
 
-  function setData(d) { parts = (d.parts || []).map(partOf); steps = (d.steps || []).map(stepOf); dirty = false; curPart = ''; adding = false; paint(); }
+  function setData(d) { parts = (d.parts || []).map(partOf); steps = (d.steps || []).map(stepOf); fact = d.fact ?? fact; leadDays = d.leadDays ?? leadDays; dirty = false; curPart = ''; adding = false; paint(); }
   paint();
   return { el: root, get value() { return JSON.stringify({ parts: parts.map(outPart), steps: steps.map(outStep) }); }, get dirty() { return dirty; }, setData };
 }
@@ -192,6 +213,14 @@ export const workPlan = sideForm({
     const p = r.plan;
     let ed = null;
     const check = async (kind, rowId, checked) => { const x = await api(`${PLAN}/${p.id}/check`, { method: 'POST', body: { kind, rowId, checked } }); Object.assign(p, x); return x; };
+    // «▶ начал / ■ закончил»: отметка факта шага, затем перечитать план — придут факт и срок позиции
+    const onMark = async (kind, row, what) => {
+      await markStep(p.id, row.id, what);
+      const fresh = await api(`${PLAN}/by-income/${r.incomeId}`);
+      Object.assign(p, fresh);
+      ed?.setData(fresh);
+      toast(what === 'start' ? 'Начало отмечено' : 'Окончание отмечено');
+    };
     const notes = [];
     if (session.canEdit) notes.push(sideNote('Правка часов или количества снимает отметку «Проверено» — после сохранения отметьте снова.'));
     if (!p.productId) notes.push(sideNote('У позиции нет изделия: составьте части и работы вручную — они сохранятся только в этом заказе. Чтобы подставить из продукции, сопоставьте позицию с изделием.'));
@@ -210,9 +239,11 @@ export const workPlan = sideForm({
       { section: 'Состав и работы', tone: 'main', fixed: true },
       { key: '_notes', type: 'widget', label: '', wide: true, widget: () => ({ el: stack(...notes), value: '' }) },
       { key: 'compo', type: 'widget', label: '', wide: true, summary: () => '', widget: () => {
-        ed = compositionEditor({ parts: p.parts, steps: p.steps, types: r.types, partsDict: r.partsDict, canEdit: !!session.canEdit, check });
+        ed = compositionEditor({ parts: p.parts, steps: p.steps, types: r.types, partsDict: r.partsDict, canEdit: !!session.canEdit, check,
+          fact: p.fact, leadDays: p.leadDays, onMark });
         return { el: ed.el, get value() { return ed.value; }, set value(_) { /* только своё состояние */ } };
       } },
+      ...(session.canMoney ? [{ key: '_cost', type: 'widget', label: '', wide: true, widget: () => ({ el: costBlock({ incomeId: r.incomeId }), value: '' }) }] : []),
     ];
   },
   toInitial: () => ({}),
@@ -259,7 +290,9 @@ export function productRoute(product) {
     } });
     ed.el.addEventListener('change', () => { saveBtn.disabled = false; });
     setCount((data.steps || []).length);
-    box.replaceChildren(sideNote('Так позиции заказа получают части и работы по умолчанию. Менеджер правит их в заказе и ставит «Проверено».'), ed.el, can ? actions(saveBtn) : null);
+    // «Работы: фактически» (норма из факта) и «Себестоимость» изделия — после редактора, эталоны kit
+    box.replaceChildren(sideNote('Так позиции заказа получают части и работы по умолчанию. Менеджер правит их в заказе и ставит «Проверено».'), ed.el,
+      factsBlock(product, { onApplied: load }), costBlock({ productId: product.id }), can ? actions(saveBtn) : null);
   }
   load();
   return sec;
