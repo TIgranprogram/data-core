@@ -363,27 +363,8 @@ body[data-sec] .page-head .ico { color: var(--sec); }
 .so-pane[hidden] { display: none; }
 .so-grp-acts .so-dots { padding: 0 var(--s2); font-weight: 700; }
 
-/* Воронка заказа (ui/stage-bar.js): пройдено ✓, текущий ●, дальше — номер; без горизонтальной прокрутки */
-.stg { display: flex; gap: var(--s1); list-style: none; margin: 0 0 var(--s3); padding: 0; }
-.stg-step { flex: 1 1 0; min-width: 0; }
-.stg-in { display: flex; flex-direction: column; gap: 2px; width: 100%; min-width: 0; padding: var(--s2); border: 1px solid var(--border); border-top-width: 4px; border-radius: var(--radius-sm); background: var(--surface); color: var(--muted); font: inherit; font-size: var(--fs-sm); text-align: left; }
-button.stg-in { cursor: pointer; }
-button.stg-in:hover { background: var(--surface-2); color: var(--text); }
-button.stg-in:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-.stg-mark { font-weight: 700; }
-.stg-lbl { overflow-wrap: normal; word-break: normal; hyphens: manual; line-height: 1.25; font-size: 12px; }
-.stg-sub { font-size: var(--fs-sm); color: var(--warn); font-weight: 600; }
-.stg-step.done .stg-in { border-top-color: var(--ok); background: var(--ok-soft); color: var(--text); }
-.stg-step.done .stg-mark { color: var(--ok); }
-.stg-step.cur .stg-in { border-color: var(--primary); border-top-color: var(--primary); background: var(--primary-soft); color: var(--text); font-weight: 700; }
-.stg-step.cur .stg-mark { color: var(--primary); }
-.stg-step.todo .stg-in { border-style: dashed; border-top-style: solid; }
+/* Воронка заказа: полоса — эталон kit/stage-bar.css; здесь только плашка «Отменён» */
 .stg-cancel { margin: 0 0 var(--s3); padding: var(--s2) var(--s3); border: 1px solid var(--danger); border-left-width: 4px; border-radius: var(--radius-sm); color: var(--danger); font-weight: 700; }
-@media (max-width: 560px) {
-  .stg { gap: 2px; }
-  .stg-in { padding: var(--s1); }
-  .stg-step:not(.cur) .stg-lbl { font-size: 11px; }
-}
 
 /* Мой профиль и аватары */
 .pf-profile { display: flex; flex-direction: column; gap: var(--s3); }

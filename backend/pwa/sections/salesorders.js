@@ -1,6 +1,6 @@
 import { STAGE, crumbTrail } from './order-stage.js';
 import { nextStep, orderCounts } from './salesorders-next.js';
-import { stageBar } from '../ui/stage-bar.js';
+import { stageBar, orderHead } from './order-head.js';
 import { openPopMenu, closePopMenu, isOpenFor } from '../ui/kit/pop-menu.js';
 import { sideForm, openSide, sideNote } from '../ui/kit/side-form.js';
 import { api, session, writeHooks } from '../core/api.js';
@@ -500,7 +500,7 @@ export const salesorders = {
     heading,
     noHistory: true,
     subheading: (r) => [names(r.customers), names(r.companyNames)].filter(Boolean).join(' · '),
-    stats: (r) => [['Договоров', qty((r.orderNos || []).length)], ['Позиций', qty(r.lineCount)], ...(session.canMoney ? [['Сумма', r.amount ? money(r.amount) : '—'], ['Оплачено', r.paidAmount ? money(r.paidAmount) : '—']] : [])],
+    ...orderHead(openStep), // значки шапки (kit headStats) + полоса этапов (kit stageBar)
     view: (r) => [
       ['Договоры', names(r.orderNos)],
       ['Заказчик', (r.customers || []).length ? h('span', null, ...(r.customers || []).flatMap((c, i) => [i ? ', ' : '', customerLink(c)])) : ''],
@@ -523,7 +523,7 @@ export const salesorders = {
         }, 80);
         patch({ tab: undefined }, { replace: true });
       }
-      return stageBar(r, { onStep: openStep });
+      return null;
     },
     actions: (r) => {
       if (!editableOrder(r)) return [orderPdfAction, orderZipAction]; // завершённый заказ правит только админ

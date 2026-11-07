@@ -1,6 +1,6 @@
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
-import { hint, tileGrid, landing, miniChart, navList, photoStrip, catArt, stat, searchBox, readonlyGroup, similarBox, posPic, posPicOf, sku, section, stack, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, openPdfPreview, qtyInput, targetPicker, toast, pick, filter, table, panel, entityPanel, select, fileButton, links, SUPPLY_STATUS } from '../ui/kit/index.js';
+import { hint, tileGrid, landing, miniChart, navList, photoStrip, catArt, stat, searchBox, readonlyGroup, similarBox, posPic, posPicOf, sku, section, stack, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, openPdfPreview, stageBar, headStats, qtyInput, targetPicker, toast, pick, filter, table, panel, entityPanel, select, fileButton, links, guide, SUPPLY_STATUS } from '../ui/kit/index.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
 const LONG = 'Очень длинное название позиции для проверки переноса и обрезки текста в карточке эталона';
@@ -89,6 +89,11 @@ export const kit = {
         sample(section({ title: 'Для паспорта', count: 3, body: h('div', null, 'Содержимое группы') }), section({ title: 'Чертежи', count: 0, open: true, body: empty({ title: 'Чертежей нет' }) }))),
       block('Блоки панели колонкой', 'stack(...блоки) — секции правой панели одна под другой с одним зазором; пустая секция — строка внутри.',
         sample(stack(section({ title: 'Состав', count: 2, body: h('div', null, 'Материалы и узлы') }), section({ title: 'В заказах', count: 0, body: h('p', { class: 'muted small' }, 'Изделие ещё не встречается в заказах') })))),
+      block('Путеводитель (guide)', 'Страница «Работа с сайтом» и обучающие схемы: cat — категория-аккордеон (одинаковый name — открыта одна), unit — подраздел с цепочкой, chain — шаги «что за чем» (номер, действие, где в меню, пояснение), flow — полоса-обзор, note — «Порядок важен / Можно потом», toggle — галочка.',
+        guide.flow([{ label: 'Производство', onClick: () => toast('Клик: Производство') }, { label: 'Склад', onClick: () => toast('Клик: Склад') }, { label: 'Деньги', onClick: () => toast('Клик: Деньги') }]),
+        guide.cat({ name: 'kit-guide', title: 'Склад', what: 'Остатки, приём и выдача', chips: ['Остатки', 'Журнал движений'], count: '2 раздела', open: true,
+          body: [guide.unit({ name: 'Остатки', href: '#kit', what: 'Что лежит на складе', steps: [{ t: 'Примите товар', where: 'Остатки → «Принять»', d: 'Пояснение к шагу: приёмка после оплаты.' }, { t: 'Выдайте', where: 'Остатки → «Выдать»' }], strict: 'Сначала приёмка, потом выдача.', later: 'Бронь под заказ — позже.' })] }),
+        guide.toggle({ label: 'Показать все разделы', onChange: () => {} })),
       block('Карточка S (.tile)', 'tone; длинный текст; без меты; с действием.',
         sample(...cards('S'), card({ size: 'S', title: LONG, meta: LONG }), card({ size: 'S', title: 'Без меты' }), card({ size: 'S', title: 'С действием', actions: button({ label: 'Открыть', size: 'S' }) }))),
       block('Карточка M (.tcard)', 'tone; с фото; плотная (compact); длинный текст.',
@@ -118,6 +123,10 @@ export const kit = {
           m.reload();
           return h('div', null, box, m.el);
         })()),
+      block('Полоса этапов и значки шапки (stageBar, headStats)', 'Этапы — тонкая полоса «как заряд батареи» + одна строка текущего этапа; полные названия в подсказке сегмента. Значки — цифры справа в строке заголовка панели (card.headStats / card.headStrip).',
+        stack(
+          stageBar({ label: 'Пример', steps: [{ key: 'a', label: 'Проектирование', done: true }, { key: 'b', label: 'Производство', done: true }, { key: 'c', label: 'Готово к отгрузке', done: true }, { key: 'd', label: 'Отгружен', current: true, note: 'частично' }, { key: 'e', label: 'Закрыт' }], onPick: () => {} }),
+          headStats([{ value: '1', label: 'дог.', title: 'Договоров: 1' }, { value: '8', label: 'поз.', title: 'Позиций: 8' }, { value: '—', label: 'сумма' }, { value: '—', label: 'оплачено' }]))),
       block('Окно просмотра PDF (openPdfPreview)', 'Только просмотр (КП: предпросмотр до сохранения, карточка, проверка бланка): Обновить · Печать · Скачать PDF · «Вернуться к правке». Ввод остаётся в правой панели.',
         button({ label: 'Открыть пример окна', onClick: () => openPdfPreview({ title: 'Пример', load: async () => { throw new Error('В витрине PDF не грузится'); } }) })),
       block('Карточка L (.db-order)', 'Заказ / шапка сущности.', sample(...cards('L'), card({ size: 'L', title: LONG, meta: LONG }))),

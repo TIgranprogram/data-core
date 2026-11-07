@@ -2,13 +2,14 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, qty } from '../core/format.js';
 import { badge, DESIGN_STATUS, ORDER_PRIORITY } from '../ui/kit/badges.js';
-import { posPic } from '../ui/pos-pic.js';
+import { posPic } from '../ui/kit/pos-pic.js';
 import { askAssignee, changed, COL_LABEL, createTask, distributeOrder, dropOrder, fetchBoardOrder, loadLines } from './design-data.js';
 import { toastError } from '../ui/kit/toast.js';
 import { dueNode, moveTask, people } from './design.js';
 import { STAGE } from './salesorders.js';
 
-import { table, sku as kitSku, button, section, stack } from '../ui/kit/index.js';
+import { table, sku as kitSku, button, section, stack, row as kitRow, actions as kitActions } from '../ui/kit/index.js';
+import { go } from '../core/router.js';
 /**
  * Правая панель заказа на доске «Проектирование» (`?of=designorder&open=<id заказа>`, DESIGN §4 «Доска заказов»).
  * Открыто — «с чем работаем»: «Заказ», «Изделия к проектированию» (взять в работу / назначить прямо в строке), «Как идёт проектирование».
@@ -33,15 +34,17 @@ function linesBlock(row, ctx) {
         if (who) await api(`/design-tasks/${t.id}`, { method: 'PATCH', body: { assigneeId: who } });
       }, 'назначить исполнителя') }));
     }
-    return h('li', { class: 'db-prow' },
-      posPic(l.photo ? { url: l.photo, thumb: l.photo } : null, 'sm'),
-      h('div', { class: 'db-pmain' },
-        h('div', { class: 't-title' }, t ? h('a', { href: '#design?open=' + t.id, title: 'Открыть изделие справа' }, lineTitle(l)) : lineTitle(l)),
-        h('div', { class: 't-sub' }, kitSku(l.sku), l.sku ? ' · ' : null, [l.qty != null && `${qty(l.qty)} ${l.unit || ''}`.trim(), t?.assignee?.name].filter(Boolean).join(' · ')),
-        h('div', { class: 'db-pstate' }, t ? badge(DESIGN_STATUS, t.status) : h('span', { class: 'muted' }, 'ещё не взято')),
-        acts.length ? h('div', { class: 'db-pacts' }, acts) : null));
+    // C030: строка — эталон kit row: вся строка открывает изделие справа (если оно в работе), кнопки — внизу и карточку не открывают
+    return kitRow({
+      lead: posPic(l.photo ? { url: l.photo, thumb: l.photo } : null, 'sm'),
+      title: lineTitle(l), wrap: true,
+      meta: [kitSku(l.sku), l.sku ? ' · ' : null, [l.qty != null && `${qty(l.qty)} ${l.unit || ''}`.trim(), t?.assignee?.name].filter(Boolean).join(' · ')],
+      side: t ? badge(DESIGN_STATUS, t.status) : badge('Ещё не взято', 'dim'),
+      below: acts.length ? kitActions(...acts) : null,
+      onClick: t ? () => go('design', { open: t.id }) : undefined,
+    });
   });
-  return block('Изделия к проектированию', true, rows.length, rows.length ? h('ul', { class: 'db-plist' }, rows) : h('div', { class: 'db-hint' }, 'В заказе нет позиций.'));
+  return block('Изделия к проектированию', true, rows.length, rows.length ? stack(...rows) : h('div', { class: 'db-hint' }, 'В заказе нет позиций.'));
 }
 
 const lineTitle = (l) => ((l.seqNo ?? l.lineNo) != null ? `поз. ${l.seqNo ?? l.lineNo} · ` : '') + l.title;

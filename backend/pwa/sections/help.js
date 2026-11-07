@@ -1,8 +1,12 @@
-// «Работа с сайтом» (#help): «С чего начать?» + карта-схема. Данные — help-flow-data.js; раскладка считается здесь.
+// «Работа с сайтом» (#help): путеводитель — категории меню раскрываются в цепочки шагов «что за чем».
+// Показываются разделы роли (галочки в «Сотрудниках»); галочка «показать и другие» открывает остальное.
+// Данные — help-guide-data.js; карта внизу — та же схема, но только видимые роли дорожки.
 import { h } from '../core/dom.js';
-import { button } from '../ui/kit/index.js';
-import { SCENARIOS, LANES, NODES, EDGES } from './help-flow-data.js';
+import { session } from '../core/api.js';
+import { guide, button } from '../ui/kit/index.js';
+import { GROUPS, SECTIONS, SCENARIOS, LANES, NODES, EDGES } from './help-guide-data.js';
 
+// ---------- карта (SVG): дорожки = строки, шаги = колонки, справочники — список справа ----------
 const NS = 'http://www.w3.org/2000/svg';
 const s = (tag, attrs, ...kids) => {
   const el = document.createElementNS(NS, tag);
@@ -10,14 +14,13 @@ const s = (tag, attrs, ...kids) => {
   for (const k of kids.flat()) if (k != null) el.append(k);
   return el;
 };
-
 // размеры раскладки. Ширина колонки — по самому длинному тексту в ней (7.2 px/символ для 12px, 8.2 — для 14px bold).
 const LBL_W = 150, NW_MIN = 176, NH = 54, GX = 72, GY = 72, PAD = 14, REF_GAP = 56, REF_HEAD = 30;
 const nodeW = (n) => Math.max(NW_MIN, Math.ceil(Math.max(n.label.length * 8.2, n.where.length * 7.2) + 24));
 const LBL_PX = 7.6, LBL_H = 16; // подписи рёбер: 12px, 600
 
-const laneTok = (l) => (l.tok ? `var(--sec-${l.tok})` : 'var(--muted)');
-const laneSoft = (l) => (l.tok ? `var(--sec-${l.tok}-soft)` : 'var(--surface-3)');
+const laneTok = (l) => (l?.tok ? `var(--sec-${l.tok})` : 'var(--muted)');
+const laneSoft = (l) => (l?.tok ? `var(--sec-${l.tok}-soft)` : 'var(--surface-3)');
 
 /** Перенос названия дорожки по словам (≤ max символов в строке). */
 function wrap(t, max) {
@@ -30,9 +33,9 @@ function wrap(t, max) {
 }
 
 /** Положение узлов: дорожка = строка, шаг = колонка; справочники (H) — список справа, без линий. */
-export function layout() {
-  const steps = NODES.filter((n) => n.lane !== 'H'), refsN = NODES.filter((n) => n.lane === 'H').sort((a, b) => a.n - b.n);
-  const maxN = Math.max(...steps.map((n) => n.n));
+function layout(nodes, lanes) {
+  const steps = nodes.filter((n) => n.lane !== 'H'), refsN = nodes.filter((n) => n.lane === 'H').sort((a, b) => a.n - b.n);
+  const maxN = Math.max(1, ...steps.map((n) => n.n));
   const colW = Array.from({ length: maxN }, (_, i) => Math.max(NW_MIN, ...steps.filter((n) => n.n === i + 1).map(nodeW)));
   const colX = [PAD + LBL_W];
   for (let i = 1; i < maxN; i++) colX.push(colX[i - 1] + colW[i - 1] + GX);
@@ -41,11 +44,11 @@ export function layout() {
   const refX = right + REF_GAP, refW = Math.max(NW_MIN, ...refsN.map(nodeW)), refH = 46, refGap = 10;
   const pos = {};
   for (const n of steps) {
-    const c = n.n - 1, row = LANES.findIndex((l) => l.id === n.lane);
+    const c = n.n - 1, row = lanes.findIndex((l) => l.id === n.lane);
     pos[n.id] = { x: colX[c], y: rowY(row), w: colW[c], h: NH, n, col: c, row };
   }
   refsN.forEach((n, i) => { pos[n.id] = { x: refX, y: PAD + REF_HEAD + i * (refH + refGap), w: refW, h: refH, n, ref: true }; });
-  const lanesH = rowY(LANES.length - 1) + NH;
+  const lanesH = rowY(lanes.length - 1) + NH;
   const refsH = PAD + REF_HEAD + refsN.length * (refH + refGap) - refGap;
   return { pos, colX, colW, rowY, right, refX, refW, maxN, width: refX + refW + PAD + 4, height: Math.max(lanesH, refsH) + PAD };
 }
@@ -54,7 +57,7 @@ export function layout() {
  * Ребро идёт только по коридорам: горизонтали — между рядами, вертикали — в промежутках между колонками.
  * Внутри дорожки — прямая слева направо. k — номер межрядного ребра (сдвиг, чтобы линии не слипались).
  */
-export function route(a, b, k, L) {
+function route(a, b, k, L) {
   if (a.row === b.row) { const y = a.y + NH / 2; return [[a.x + a.w, y], [b.x, y]]; }
   const off = ((k % 3) - 1) * 8;
   const down = b.row > a.row, sx = a.x + a.w / 2 + off, ex = b.x + b.w / 2 - off;
@@ -69,18 +72,18 @@ export function route(a, b, k, L) {
 }
 
 // геометрия для проверок: отрезок (оси) × прямоугольник, прямоугольник × прямоугольник
-export const segHitsRect = ([x1, y1], [x2, y2], r) => {
+const segHitsRect = ([x1, y1], [x2, y2], r) => {
   if (x1 === x2) return x1 > r.x && x1 < r.x + r.w && Math.max(y1, y2) > r.y && Math.min(y1, y2) < r.y + r.h;
   return y1 > r.y && y1 < r.y + r.h && Math.max(x1, x2) > r.x && Math.min(x1, x2) < r.x + r.w;
 };
-export const rectsHit = (p, q) => p.x < q.x + q.w && q.x < p.x + p.w && p.y < q.y + q.h && q.y < p.y + p.h;
+const rectsHit = (p, q) => p.x < q.x + q.w && q.x < p.x + p.w && p.y < q.y + q.h && q.y < p.y + p.h;
 
 /** Вся геометрия карты. Подпись ребра — у его начала в свободном месте (без линий, узлов и других подписей), иначе не рисуется. */
-export function computeMap() {
-  const L = layout();
+function computeMap(nodes, lanes, edgesAll) {
+  const L = layout(nodes, lanes);
   const edges = [];
   let k = 0;
-  for (const e of EDGES) {
+  for (const e of edgesAll) {
     const a = L.pos[e.from], b = L.pos[e.to];
     if (!a || !b || a.ref || b.ref) continue;
     edges.push({ e, pts: route(a, b, a.row === b.row ? 0 : k++, L) });
@@ -109,7 +112,7 @@ export function computeMap() {
     const got = cands.map((c) => ({ x: c.x, y: c.y, w, h: hh })).find(free);
     if (got) { placed.push(got); ed.label = { ...got, text: ed.e.label }; }
   }
-  return { L, edges, segs, nodeRects, labels: placed };
+  return { L, edges };
 }
 
 /** Ломаная со скруглёнными углами. */
@@ -124,15 +127,16 @@ function pathD(pts, r = 8) {
   return d + ` L${e[0]},${e[1]}`;
 }
 
-export function mapSvg() {
-  const { L, edges } = computeMap();
-  const laneOf = Object.fromEntries(LANES.map((l) => [l.id, l]));
+/** Схема: дорожки цветом раздела, справа — «Используются везде». */
+function mapSvg({ lanes, nodes, edges: edgesAll }) {
+  const { L, edges } = computeMap(nodes, lanes, edgesAll);
+  const laneOf = Object.fromEntries(lanes.map((l) => [l.id, l]));
   laneOf.H = { id: 'H', name: 'Справочники', tok: null };
   const svg = s('svg', { class: 'hp-svg', viewBox: `0 0 ${L.width} ${L.height}`, width: L.width, height: L.height, role: 'img', 'aria-label': 'Схема: как связаны заказ, проектирование, снабжение, склад, отгрузка, паспорт и деньги' });
   svg.append(s('defs', null,
     s('marker', { id: 'hp-arr', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' }, s('path', { d: 'M0,0 L10,5 L0,10 z', class: 'hp-arrow' }))));
   // полосы дорожек и название слева (крупно, перенос по словам)
-  LANES.forEach((l, i) => {
+  lanes.forEach((l, i) => {
     const g = s('g', { style: `--lc:${laneTok(l)};--ls:${laneSoft(l)}` });
     g.append(s('rect', { class: 'hp-band', x: PAD, y: L.rowY(i) - 8, width: L.right - PAD + 12, height: NH + 16, rx: 10 }));
     const lines = wrap(l.name, 13), y0 = L.rowY(i) + NH / 2 + 5 - (lines.length - 1) * 9;
@@ -163,11 +167,12 @@ export function mapSvg() {
 }
 
 /** На узком экране вместо схемы — шаги по дорожкам. */
-function mapList() {
+function mapList({ lanes, nodes }) {
   const box = h('div', { class: 'hp-list' });
-  for (const l of [...LANES, { id: 'H', name: 'Справочники', tok: null }]) {
-    const nodes = NODES.filter((n) => n.lane === l.id).sort((a, b) => a.n - b.n);
-    const steps = nodes.map((n, i) => [i ? h('span', { class: 'hp-arr-s', 'aria-hidden': 'true' }, l.id === 'H' ? '·' : '→') : null,
+  for (const l of [...lanes, { id: 'H', name: 'Справочники', tok: null }]) {
+    const ns = nodes.filter((n) => n.lane === l.id).sort((a, b) => a.n - b.n);
+    if (!ns.length) continue;
+    const steps = ns.map((n, i) => [i ? h('span', { class: 'hp-arr-s', 'aria-hidden': 'true' }, l.id === 'H' ? '·' : '→') : null,
       h('span', { class: 'hp-step', title: 'Меню: ' + n.where }, h('b', null, n.label), h('small', null, 'Меню: ' + n.where))]);
     box.append(h('div', { class: 'hp-lane-row', style: `--lc:${laneTok(l)};--ls:${laneSoft(l)}` }, h('div', { class: 'hp-lane-name' }, l.name), h('div', { class: 'hp-steps' }, steps)));
   }
@@ -182,20 +187,9 @@ function legend() {
     h('span', null, h('i', { class: 'hp-chip' }), ' цвет — раздел меню; серая строка в блоке — где это в меню'));
 }
 
-function scenarioCard(sc) {
-  const lane = LANES.find((l) => l.id === sc.lane);
-  return h('article', { class: 'hp-card', style: `--lc:${laneTok(lane)};--ls:${laneSoft(lane)}` },
-    h('h3', null, sc.want),
-    h('div', { class: 'hp-row' }, h('span', { class: 'hp-k' }, 'Начните здесь'), h('a', { href: sc.href }, sc.menu)),
-    h('p', null, sc.start),
-    h('div', { class: 'hp-row' }, h('span', { class: 'hp-k' }, 'Дальше'), h('span', null, sc.next)),
-    sc.later ? h('p', { class: 'hp-later' }, h('b', null, 'Можно потом: '), sc.later) : null,
-    sc.strict ? h('p', { class: 'hp-strict' }, h('b', null, 'Порядок важен: '), sc.strict) : null);
-}
-
 /** Карта: по умолчанию вписана в ширину целиком; «Крупнее» — в натуральный размер, полоса прокрутки внизу (или Shift + колесо). Мышь не перехватывается: колесо листает страницу. */
-function mapBox() {
-  const svg = mapSvg();
+function mapBox(data) {
+  const svg = mapSvg(data);
   const box = h('div', { class: 'hp-map is-fit' }, svg);
   const btn = button({ label: '🔍 Крупнее', kind: 'ghost', size: 'S' });
   const hint = h('span', { class: 'muted small' }, 'Карта вписана целиком. «Крупнее» — показать в полный размер.');
@@ -209,14 +203,108 @@ function mapBox() {
   return h('div', { class: 'hp-mapwrap' }, h('div', { class: 'hp-maptools' }, btn, hint), box);
 }
 
+// ---------- страница ----------
+const ALL_SECS = [...new Set(GROUPS.flatMap((g) => g.secs))];
+const SEC_OWNER = { movements: 'stock' }; // журнал движений открывается вместе со складом
+const isStockRole = () => ['Трубарез', 'Лазер лист'].includes(session.user?.roleLabel);
+
+/** Виден ли раздел роли — тем же правилом, что строит меню (main.js). */
+function sees(id) {
+  const u = session.user;
+  switch (id) {
+    case 'home': case 'search': case 'chat': case 'profile': return true;
+    case 'history': return u?.isOwner === true || ['admin', 'director'].includes(session.role);
+    case 'dicts': case 'trash': return !isStockRole();
+    case 'docs': return session.canEdit && session.seesDocs();
+    case 'money': return session.canMoney && session.sees('money');
+    case 'expenses': return session.canMoney && session.sees('expenses');
+    case 'payroll': return session.canMoney && session.canPayroll;
+    default: return session.sees(SEC_OWNER[id] || id);
+  }
+}
+
+let showAll = false;
+try { showAll = sessionStorage.getItem('dc-help-all') === '1'; } catch { /* приватный режим */ }
+const on = (id) => showAll || sees(id);
+
+const pl = (n, one, few, many) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : (a >= 2 && a <= 4 && (b < 10 || b > 20) ? few : many); };
+const block = (title, ...kids) => h('section', { class: 'hp-sec' }, h('h2', null, title), ...kids);
+
+/** Подраздел раздела: название-ссылка, что это, шаги, примечания. */
+const unitFor = (id) => {
+  const x = SECTIONS[id];
+  return guide.unit({ name: x.name, href: x.href, what: x.what, steps: x.steps, strict: x.strict, later: x.later });
+};
+
+/** Категория (группа меню): открыта одна (name), метки — видимые разделы группы. */
+function catFor(g) {
+  const vis = g.secs.filter(on);
+  if (!vis.length) return null;
+  return guide.cat({ title: g.name, what: g.what, chips: vis.map((id) => SECTIONS[id].name),
+    count: `${vis.length} ${pl(vis.length, 'раздел', 'раздела', 'разделов')}`, name: 'hp-cats', body: vis.map(unitFor) });
+}
+
+/** Полоса «как идти в целом»: клик — раскрыть свою категорию ниже. */
+function flowStrip(catEls) {
+  const items = [];
+  for (const g of GROUPS) {
+    const el = catEls.get(g.id);
+    if (el) items.push({ label: g.name, onClick: () => { el.open = true; el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
+  }
+  return items.length > 1 ? guide.flow(items) : null;
+}
+
+/** Строка про роль: что открыто и галочка «показать и другие» (у кого всё открыто — без галочки). */
+function roleBar(total, visible) {
+  if (visible >= total) return h('p', { class: 'muted small' }, 'Открыты все разделы — ниже порядок работы целиком.');
+  if (isStockRole()) return h('p', { class: 'muted small' }, 'Вам открыт склад и общие инструменты.');
+  return h('div', { class: 'hp-row' },
+    h('span', { class: 'muted small' }, `Показаны разделы вашей роли: ${visible} из ${total}.`),
+    guide.toggle({ label: 'Показать и другие разделы', checked: showAll, onChange: (v) => { showAll = v; try { sessionStorage.setItem('dc-help-all', v ? '1' : '0'); } catch { /* приватный режим */ } paint(); } }));
+}
+
+/** Карточка «Я хочу…»: короткая подсказка + ссылка в раздел. */
+function scenarioCard(sc) {
+  return h('article', { class: 'hp-card', style: `--lc:var(--sec-${sc.tok});--ls:var(--sec-${sc.tok}-soft)` },
+    h('h3', null, sc.want),
+    h('div', { class: 'hp-row' }, h('span', { class: 'hp-k' }, 'Раздел'), h('a', { href: sc.href }, sc.menu)),
+    h('p', null, sc.start));
+}
+
+/** Данные карты, отфильтрованные по роли: дорожки без видимых разделов уходят, узлы и связи — вместе с ними. */
+function mapData() {
+  const lanes = LANES.filter((l) => !l.secs || l.secs.some(on));
+  const laneIds = new Set(lanes.map((l) => l.id));
+  const nodes = NODES.filter((n) => (n.lane === 'H' ? (n.sec ? on(n.sec) : true) : laneIds.has(n.lane)));
+  const have = new Set(nodes.map((n) => n.id));
+  return { lanes, nodes, edges: EDGES.filter((e) => have.has(e.from) && have.has(e.to)) };
+}
+
+let paint = () => {};
+
 export const help = {
   id: 'help',
   title: 'Работа с сайтом',
   mount(el) {
-    el.append(
-      h('div', { class: 'page-head' }, h('h1', null, 'Работа с сайтом'), h('span', { class: 'muted small' }, 'Откуда начать и что за чем идёт. Порядок почти везде не строгий — недостающее добавляется позже.')),
-      h('section', { class: 'hp-sec' }, h('h2', null, 'С чего начать?'), h('div', { class: 'hp-cards' }, SCENARIOS.map(scenarioCard))),
-      h('section', { class: 'hp-sec' }, h('h2', null, 'Карта работы'), legend(), mapBox(), mapList()));
+    el.append(h('div', { class: 'page-head' }, h('h1', null, 'Работа с сайтом'),
+      h('span', { class: 'muted small' }, 'Откуда начать и что за чем идёт. Недостающее добавляется позже — порядок почти везде не строгий.')));
+    const root = h('div');
+    el.append(root);
+    paint = () => {
+      const catEls = new Map();
+      const cats = GROUPS.map((g) => { const c = catFor(g); if (c) catEls.set(g.id, c); return c; }).filter(Boolean);
+      const flow = flowStrip(catEls);
+      const scs = SCENARIOS.filter((sc) => on(sc.sec));
+      const data = mapData();
+      root.replaceChildren(
+        roleBar(ALL_SECS.length, ALL_SECS.filter(on).length),
+        flow ? block('Как идти в целом', flow, h('p', { class: 'muted small' }, 'Нажмите группу — раскроется ниже.')) : null,
+        scs.length ? block('С чего начать?', h('div', { class: 'hp-cards' }, scs.map(scenarioCard))) : null,
+        cats.length ? block('Разделы — что где делать', ...cats) : null,
+        h('div', { class: 'hp-sec' }, guide.cat({ title: 'Карта работы', what: 'Вся цепочка на одной схеме — кто за кем идёт', count: 'схема', name: 'hp-extra',
+          body: [legend(), mapBox(data), mapList(data)] })));
+    };
+    paint();
     return {};
   },
 };

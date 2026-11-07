@@ -1,3 +1,7 @@
+## Шапка заказа: stageBar/headStats (C030, 2026-11-07, не закоммичено)
+коммит: не закоммичено
+- kit: `ui/kit/stage-bar.js` (stageBar, headStats) + `stage-bar.css`; `kit/card.js` опции `card.headStats/headStrip` (`.k-head-row`, `.k-head-slot`); `sections/order-head.js` (воронка заказа + `orderHead(openStep)`), `salesorders.js` card. `ui/stage-bar.js` — реэкспорт. Витрина #kit, DESIGN §4. Карта обновлена.
+
 ## C030-мелочи (2026-11-07, не закоммичено)
 коммит: не закоммичено
 - kit: `ui/kit/index.js segmented` (опция scroll), `kit.css` `.k-seg-scroll`, `.k-cols.k-cols>.k-sec.k-sec`, `.k-row-act .btn-ghost.btn-sm` (телефон). Экраны: `stock.js:27`, `matching-queue.js unmatchedTop`, `salesorders-unassigned.js unassignedTop` (section вместо кнопки). Карта обновлена.
