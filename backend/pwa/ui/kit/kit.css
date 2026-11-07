@@ -597,3 +597,8 @@ table.list .k-nowrap { white-space: nowrap; }
 .g-want-menu { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: baseline; font-size: var(--fs-sm); }
 .g-k { color: var(--muted); font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .05em; flex: none; }
 .g-wants { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: var(--s3); }
+
+/* clamp: длинный текст позиции договора в 2–3 строки, не раздвигает карточку/таблицу (сопоставление, 2026-11-07) */
+.k-clamp { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; min-width: 0; max-width: 100%; }
+.k-clamp-2 { -webkit-line-clamp: 2; }
+table.list td.k-col-wrap { min-width: 11rem; max-width: 0; width: 24%; overflow: hidden; }

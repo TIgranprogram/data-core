@@ -132,6 +132,9 @@ function cardBase({ size = 'M', tone = 'neutral', title, meta, badges, actions, 
 /** actions(...узлы) → .k-actions — тот же ряд кнопок, что в card({ actions }); для низа карточки доски (card → { foot }) */
 export const actions = (...children) => mark(h('div', { class: 'k-actions' }, ...nodes(children)), 'actions');
 
+/** clamp(text, { lines: 2 | 3 }) — длинный текст (позиция договора) в N строк с «…», полный текст в title; ширину контейнера не раздвигает. */
+export const clamp = (text, { lines = 3, cls } = {}) => mark(h('span', { class: 'k-clamp k-clamp-' + (lines === 2 ? 2 : 3) + (cls ? ' ' + cls : ''), title: text == null ? null : String(text) }, text), 'clamp');
+
 /** row({ title, meta, tone, lead, side, qty, diff, warn, action, below, active, inCart, onClick, tag, cls, data })
  *  Строка списка/корзины: имя + мета, справа side (узлы) и action (кнопка). Если есть qty/diff — раскладка «корзина»:
  *  wrap: true — название до 2 строк (длинные названия изделий в узкой панели), иначе — одна строка с «…».

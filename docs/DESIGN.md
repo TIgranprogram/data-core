@@ -100,6 +100,7 @@
 | segmented | переключатель вида/режима, 2–4 пункта; `scroll: true` — длинные названия (склады), ряд прокручивается, не обрезается | `segmented({ items: [{key,label,tone?}], value, onChange(key), label, scroll? })` → `{ el, set }` |
 | card S / M / L + tone | S — плитка быстрого фильтра; M — карточка списка/доски (`density: 'compact'`); L — группа-заказ; `tone` info/warn/danger/ok — полоса слева | `card({ size, tone, title, meta, badges, actions, onClick, photo, density })` |
 | actions | Ряд кнопок внизу карточки доски (кнопка шага) — клик не открывает карточку | `actions(button({ label, size: 'S' }), …)` → `.k-actions` |
+| clamp | длинный текст (позиция договора) в 2–3 строки с «…», полный в title; в таблице колонка `wrap:true` не раздвигает ширину | `clamp(text,{lines:2|3,cls})` |
 | row | строка списка/корзины; `qty`/`diff` — раскладка «корзина» | `row({ title, meta, tone, lead, side, qty, diff, warn, action, below, active, onClick, tag })` |
 | badge | статус словами: карта или одиночная метка ok/warn/danger/info/dim | `badge(MAP, key)` · `badge('Текст', 'ok')`; карты `SUPPLY_STATUS, INVOICE_STATUS, STOCK_STATUS, DESIGN_STATUS, ORDER_PRIORITY` |
 | empty | пусто / ничего не найдено, с подсказкой | `empty(…)` (= `emptyState`) |
@@ -443,3 +444,5 @@ a:not([class]):focus-visible, .link-btn:focus-visible { outline: 2px solid var(-
 | 2026-11-07 | C030 шаг 2 (kit для 5 экранов): варианты hint, table pic/nowrap, section fixed/urgent/more, stat-пилюля, tabs days, layout.cols, card S art/low/graph/expand, card M fields, card L head+tabs, badge dot; новые эталоны tileGrid, landing, miniChart, navList, photoStrip (`ui/kit/blocks.js`). Стиль экранов не менялся: токены перенесены в kit.css, вызовы прежние. Витрина `#kit`, блоки C030-1…13. |
 | 2026-11-07 | C030-мелочи: `segmented` вариант `scroll` (склады; на телефоне свайп); `layout.cols` — блоки колонок на одной высоте; «Несопоставленные» и «Договоры без заказа» — эталон `section` со счётчиком и стрелкой вместо кнопки; на телефоне ghost S в действиях `row` тише названия (muted, 500). | дизайнер: 390/1024 склад, главная, заказы, справочники |
 | 2026-11-07 | C033: воронка П-1 — один эталон `kit/funnel.js` (шаги по числу значений: вкладки / список с поиском, следующий шаг после выбора, свёрнутый «… ✎», «Дальше», «Недавно»); паспорт и склад переведены на него, локальный `stepFunnel` в паспорте убран. |
+
+- 2026-11-07 — Сопоставление: длинные тексты позиций договора — `kit.clamp` (2–3 строки, «…», title) и колонка таблицы `wrap:true`; страница не прокручивается вбок.
