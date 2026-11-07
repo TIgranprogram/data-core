@@ -16,6 +16,7 @@ import { QrService } from '../qr/qr.service';
 import { StockCoreService } from './stock-core.service';
 import { StockSearchService } from './stock-search.service';
 import { StockCatalogNameService } from './stock-catalog-name.service';
+import { StockBulk } from './stock-bulk';
 import { StorageItem, StorageItemDocument } from './schemas/storage-item.schema';
 import type { StockItemInput } from './stock.types';
 
@@ -34,6 +35,13 @@ export class StockCatalogService {
   ) {}
 
   private readonly logger = new Logger(StockCatalogService.name);
+
+  /** C043: массовая правка отмеченных позиций и «Отменить» — подробности в stock-bulk.ts. */
+  private readonly bulkOps = new StockBulk({
+    db: () => this.connection.db!,
+    resolveCategory: (dto) => this.resolveItemCategory(dto),
+    markEdited: (_id) => this.core.markEdited(_id),
+  });
 
   /** Материал с таким же наименованием (без учёта регистра и лишних пробелов). */
   async findMaterialByName(name: string, session?: ClientSession): Promise<MaterialDocument | null> {
@@ -114,6 +122,7 @@ export class StockCatalogService {
         sku: await this.skuFor(categoryId, session), categoryId, notes: dto.notes, weightKg: dto.weightKg,
         ...(dto.fullName?.trim() ? { fullName: dto.fullName.trim() } : {}), ...(dto.invoiceName?.trim() ? { invoiceName: dto.invoiceName.trim() } : {}),
         ...(dto.assortment?.trim() ? { assortment: dto.assortment.trim() } : {}), ...(dto.materialGrade?.trim() ? { materialGrade: dto.materialGrade.trim() } : {}),
+        ...(dto.typeName?.trim() ? { typeName: dto.typeName.trim() } : {}),
         ...(dto.dims ? { dimensions: mergeDims([], dto.dims) } : {}),
         ...(typeof dto.washed === 'boolean' ? { washed: dto.washed } : {}),
       }], { session });
@@ -182,6 +191,8 @@ export class StockCatalogService {
     if (dto.invoiceName !== undefined) set.invoiceName = dto.invoiceName.trim() || null;
     if (dto.weightKg !== undefined) set.weightKg = dto.weightKg;
     for (const k of ['assortment', 'materialGrade'] as const) if (dto[k] !== undefined) set[k] = dto[k]?.trim() || null;
+    // C043: ручной тип позиции; пусто — стереть (тип снова вычисляется из названия)
+    if (dto.typeName !== undefined) set.typeName = dto.typeName?.trim() || null;
     if (dto.washed !== undefined) set.washed = dto.washed;
     if (dto.dims) set.dimensions = mergeDims(mat.dimensions, dto.dims);
     if (categoryId) set.categoryId = categoryId;
@@ -278,6 +289,16 @@ export class StockCatalogService {
     // Строки остатка, удалённые вместе с позицией, возвращаются вместе с ней
     await this.storage.updateMany({ materialId: _id, deletedAt: when }, { $set: { deletedAt: null } }).setOptions({ includeSoftDeleted: true }).exec();
     return this.search.getItem(materialId);
+  }
+
+  /** C043: массовая правка отмеченных позиций — подробности в stock-bulk.ts. */
+  bulkUpdate(dto: Parameters<StockBulk['run']>[0]) {
+    return this.bulkOps.run(dto);
+  }
+
+  /** C043: «Отменить» массовую правку позиций — прежние значения возвращаются. */
+  bulkRestore(dto: Parameters<StockBulk['restore']>[0]) {
+    return this.bulkOps.restore(dto);
   }
 
 }

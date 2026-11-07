@@ -21,6 +21,8 @@ export interface StockItemInput {
   assortment?: string | null;
   washed?: boolean | null;
   materialGrade?: string | null;
+  /** C043: ручной тип позиции; пусто — тип вычисляется из названия (null — стереть). */
+  typeName?: string | null;
   dims?: Dims;
 }
 

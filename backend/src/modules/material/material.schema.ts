@@ -56,6 +56,13 @@ export class Material {
   @Prop({ index: true, sparse: true })
   materialGrade?: string;
 
+  /**
+   * C043: ручной тип позиции («Соединитель», «Труба»…) — переопределяет тип, вычисленный из названия.
+   * Поле только data-core: CRM его не читает, схема kppdf не меняется (Mongo без схемы, поле необязательное).
+   */
+  @Prop({ trim: true })
+  typeName?: string;
+
   /** Труба: мытая / не мытая (СМ.5); поле только data-core, CRM его не читает. */
   @Prop({ type: Boolean, default: undefined })
   washed?: boolean;

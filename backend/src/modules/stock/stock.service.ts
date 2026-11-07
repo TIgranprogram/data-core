@@ -27,6 +27,7 @@ export type { MoveInput, MoveType, StockItemInput } from './stock.types';
  * | defaultWarehouse, listWarehouses, (loadStorage, markEdited, issuedNames)               | stock-core.service.ts         |
  * | listItems, getItem, openRequests, itemOrdered, categorySummary, totals                  | stock-search.service.ts       |
  * | createItem, updateItem, addPhoto, mainPhoto, removePhoto, removeItem, restoreItem, findMaterialByName, autoArticle, skuFor, adoptArticle | stock-catalog.service.ts |
+ * | bulkUpdate, bulkRestore (C043: массовая правка позиций и «Отменить»)                     | stock-bulk.ts                 |
  * | move, batch, cancelBatch, cancelMovement, listMovements, history, offcut                | stock-movements.service.ts    |
  * | reserveList, listReservations, releaseReservation, releaseGroup, issueReservations, reservationDetail, updateReservation, reservationsByOrder, issueOrder | stock-reservations.service.ts |
  * | specPreview, specApply (спецификация Excel → брони, SK-6)                               | stock-spec.service.ts         |
@@ -76,6 +77,10 @@ export class StockService {
   mainPhoto(materialId: string, photoId: string) { return this.catalog.mainPhoto(materialId, photoId); }
   removeItem(materialId: string) { return this.catalog.removeItem(materialId); }
   restoreItem(materialId: string) { return this.catalog.restoreItem(materialId); }
+  /** C043: массовая правка отмеченных позиций { ids ≤ 500, set } → { updated, failed, before }. */
+  bulkUpdate(dto: Parameters<StockCatalogService['bulkUpdate']>[0]) { return this.catalog.bulkUpdate(dto); }
+  /** C043: «Отменить» массовую правку позиций { items: [{ id, set }] } → { restored }. */
+  bulkRestore(dto: Parameters<StockCatalogService['bulkRestore']>[0]) { return this.catalog.bulkRestore(dto); }
   adoptArticle(materialId: Types.ObjectId | string, incoming: unknown, source: string): Promise<ArticleDecision> { return this.catalog.adoptArticle(materialId, incoming, source); }
 
   // --- движения

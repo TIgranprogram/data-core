@@ -128,6 +128,40 @@ export class StockController {
     return this.stock.createItem(scope ? await this.stock.scopeNewItem(dto, scope) : dto, scope);
   }
 
+  /**
+   * C043: массовая правка отмеченных позиций «Остатков» — { ids ≤ 500, set } → { updated, failed, before }.
+   * set: typeName / categoryId / categoryName / unit / materialGrade / assortment (лишние ключи игнорируются);
+   * before — прежние значения для «Отменить» (PATCH /stock/items/bulk/restore).
+   * Маршрут объявлен ДО `items/:id`: Express берёт первое совпадение, иначе «bulk» уйдёт в :id.
+   */
+  @Patch('items/bulk')
+  @Roles('admin', 'manager')
+  @Throttle({ short: { ttl: 60_000, limit: 30 } }) // C043: массовая операция — не чаще 30 в минуту
+  @AuditAction({ action: 'stock.item.bulk', entityType: 'Material', details: (d) => ({ updated: (d as { updated?: number }).updated }) })
+  async bulkUpdate(@Body() dto: { ids?: unknown; set?: Record<string, unknown> }, @StockScoped() scope: StockScope | null) {
+    const ids = Array.isArray(dto.ids) ? dto.ids.map(String) : [];
+    await this.stock.assertInScope(ids, scope);
+    const set = dto.set ?? {};
+    // перенос в чужую категорию — 403; категория по названию должна быть из раздела склада роли
+    if (scope && (set.categoryId || set.categoryName)) {
+      await this.stock.scopeNewItem({ categoryId: set.categoryId == null ? undefined : String(set.categoryId), categoryName: set.categoryName == null ? undefined : String(set.categoryName), name: '' }, scope);
+    }
+    return this.stock.bulkUpdate(dto);
+  }
+
+  /** C043: «Отменить» массовую правку позиций — { items: [{ id, set }] } → { restored }; null возвращает прежнее пустое значение. */
+  @Patch('items/bulk/restore')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.item.bulk.restore', entityType: 'Material', details: (d) => ({ restored: (d as { restored?: number }).restored }) })
+  async bulkRestore(@Body() dto: { items?: Array<{ id?: string; set?: Record<string, unknown> }> }, @StockScoped() scope: StockScope | null) {
+    await this.stock.assertInScope((dto.items ?? []).map((it) => String(it?.id ?? '')), scope);
+    if (scope) for (const it of dto.items ?? []) { // «откат» не переносит позицию в чужую категорию
+      const c = it?.set?.categoryId;
+      if (c != null && c !== '') await this.stock.scopeNewItem({ categoryId: String(c), name: '' }, scope);
+    }
+    return this.stock.bulkRestore(dto);
+  }
+
   @Patch('items/:id')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.item.updated', entityType: 'Material', idParam: 'id' })

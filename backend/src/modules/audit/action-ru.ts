@@ -11,6 +11,7 @@ const ENTITY_RU: Record<string, string> = {
 const VERB_RU: Record<string, string> = {
   created: 'Создано', updated: 'Изменено', deleted: 'Удалено', restored: 'Восстановлено',
   create: 'Создано', update: 'Изменено', delete: 'Удалено', restore: 'Восстановлено',
+  bulk: 'Изменено массово', // C043: массовая правка выбранных записей (stock.item.bulk, showcase.bulk)
 };
 
 export function actionRu(action: string | undefined | null, entityType?: string | null): string {

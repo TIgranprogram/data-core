@@ -16,6 +16,7 @@ export class StockItemDto {
   @ApiPropertyOptional({ description: 'ДМ.2: наименование как в счёте поставщика; пусто — стереть' }) @IsOptional() @IsString() @Length(0, 500) invoiceName?: string;
   @ApiPropertyOptional({ description: 'Металл: сортамент / сечение (40×20×2, 2 мм); null — стереть' }) @IsOptional() @IsString() @Length(0, 200) assortment?: string | null;
   @ApiPropertyOptional({ description: 'Марка стали (Ст3, AISI 304); null — стереть' }) @IsOptional() @IsString() @Length(0, 100) materialGrade?: string | null;
+  @ApiPropertyOptional({ description: 'C043: тип позиции вручную (пусто — вычисляется из названия); пусто — стереть' }) @IsOptional() @IsString() @Length(0, 120) typeName?: string | null;
   @ApiPropertyOptional({ description: 'Труба: мытая (true) / не мытая (false); null — стереть' }) @IsOptional() @IsBoolean() washed?: boolean | null;
   @ApiPropertyOptional({ description: 'Размеры, мм: { length, width, thickness, diameter } (null — стереть)' }) @IsOptional() @IsObject() dims?: { length?: number | null; width?: number | null; thickness?: number | null; diameter?: number | null };
 }

@@ -165,7 +165,7 @@ export class StockSearchService {
         categoryId: m.categoryId ? String(m.categoryId) : null, categoryName: m.categoryId ? catName.get(String(m.categoryId)) ?? null : null,
         notes: m.notes, fullName: (m as { fullName?: string }).fullName ?? null, invoiceName: (m as { invoiceName?: string }).invoiceName ?? null, quantity, reservedQty, free: freeQty(quantity, reservedQty), minQuantity,
         ordered: Math.round((openReq.get(String(m._id)) ?? []).reduce((s, r) => s + (r.qty || 0), 0) * 1000) / 1000,
-        assortment: m.assortment ?? null, materialGrade: m.materialGrade ?? null, washed: (m as { washed?: boolean }).washed ?? null, dims: dimsOf(m.dimensions),
+        assortment: m.assortment ?? null, materialGrade: m.materialGrade ?? null, typeName: m.typeName ?? null, washed: (m as { washed?: boolean }).washed ?? null, dims: dimsOf(m.dimensions),
         metal: metalKind(m.categoryId ? catName.get(String(m.categoryId)) : null, m.unit),
         offcutOf: (m as { offcutOf?: Types.ObjectId }).offcutOf ? String((m as { offcutOf?: Types.ObjectId }).offcutOf) : null,
         offcuts: offcutsOf.get(String(m._id)) ?? [],
