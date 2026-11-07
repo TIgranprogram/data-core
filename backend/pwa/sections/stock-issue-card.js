@@ -1,7 +1,7 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { plural, qty } from '../core/format.js';
-import { buildForm, busyBlock, button, card, failBlock, qtyInput, sideNote, table } from '../ui/kit/index.js';
+import { buildForm, busyBlock, button, card, empty, failBlock, funnel, qtyInput, sideNote, table } from '../ui/kit/index.js';
 
 /*
  * Карточка одного склада в экране «Выдать материалы» (stock-issue.js): kit card variant table.
@@ -17,19 +17,16 @@ export function warehouseCard({ zone, cart, onChange, onRemove }) {
   let seq = 0;
   let timer = 0;
   const inputs = new Map();
-  const cats = new Map(); // название категории → id
   const head = h('span', null);
   const box = h('div', null, busyBlock('позиции склада'));
 
-  // поиск и категория — одна форма kit; следим за полями по имени
-  const filters = buildForm([
-    { key: 'q', type: 'text', label: 'Поиск', placeholder: 'Название или размер' },
-    { key: 'cat', type: 'combo', label: 'Категория', placeholder: 'Все категории', strict: true,
-      load: async () => { const r = await api('/stock/categories', { query: { zoneId: zone.id } }); cats.clear(); for (const c of r.items || []) if (c.id !== 'none') cats.set(c.name, c.id); return [...cats.keys()].map((n) => ({ value: n, label: n })); } },
-  ], {});
-  const wire = (name, fn) => { const el = filters.el.querySelector(`[name="${name}"]`); for (const t of ['input', 'change']) el?.addEventListener(t, fn); };
-  wire('q', (e) => { clearTimeout(timer); timer = setTimeout(() => { const t = e.target.value.trim(); if (t !== text) { text = t; load(); } }, 250); });
-  wire('cat', (e) => { const id = cats.get(e.target.value.trim()) || ''; if (id !== cat) { cat = id; load(); } });
+  // П-1: «Категория» — шаг воронки (фишки с числом позиций), позиции — только после выбора категории или по тексту поиска (тогда по всему складу)
+  let cats = [];
+  const fun = funnel({ steps: [], onChange: (_k, v) => { cat = v || ''; paintCats(); load(); } });
+  const paintCats = () => fun.update({ steps: [{ key: 'category', label: 'Категория', ask: 'выберите категорию', skip: cats.length < 2, value: cat, values: cats.map((c) => ({ id: c.id, label: c.name, count: c.total })) }] });
+  const filters = buildForm([{ key: 'q', type: 'text', label: 'Поиск по всему складу', placeholder: 'Название или размер' }], {});
+  const input = filters.el.querySelector('[name="q"]');
+  for (const t of ['input', 'change']) input?.addEventListener(t, (e) => { clearTimeout(timer); timer = setTimeout(() => { const v = e.target.value.trim(); if (v !== text) { text = v; load(); } }, 250); });
 
   function qtyCell(it) {
     const free = it.free ?? it.quantity;
@@ -49,7 +46,7 @@ export function warehouseCard({ zone, cart, onChange, onRemove }) {
       label: `Позиции склада «${zone.name}»`,
       columns: [{ label: 'Позиция' }, { label: 'Остаток', num: true }, { label: 'Свободно', num: true }, { label: 'Ед.' }, { label: 'Сколько' }],
       rows,
-      empty: text || cat ? { kind: 'notFound', query: text } : { title: 'На этом складе нет позиций в наличии' },
+      empty: text ? { kind: 'notFound', query: text } : { title: 'В категории нет позиций в наличии' },
     });
     box.replaceChildren(...[tbl, total > items.length ? sideNote(`Показано ${items.length} из ${total} — уточните поиск или категорию.`) : null].filter(Boolean));
     head.textContent = total ? `${total} ${plural(total, 'позиция', 'позиции', 'позиций')}` : '';
@@ -57,18 +54,21 @@ export function warehouseCard({ zone, cart, onChange, onRemove }) {
 
   async function load() {
     const my = ++seq;
+    if (!text && !cat && cats.length > 1) { box.replaceChildren(empty({ title: 'Выберите категорию', hint: 'Или найдите позицию поиском — он ищет по всему складу.' })); head.textContent = ''; return; }
     box.replaceChildren(busyBlock('позиции склада'));
     try {
-      const r = await api('/stock/items', { query: { zoneId: zone.id, limit: LIMIT, sort: 'name', status: 'ok,low,reserved', search: text || undefined, categoryId: cat || undefined } });
+      const r = await api('/stock/items', { query: { zoneId: zone.id, limit: LIMIT, sort: 'name', status: 'ok,low,reserved', search: text || undefined, categoryId: text ? undefined : cat || undefined } });
       if (my === seq) paint(r.items || [], r.total ?? (r.items || []).length);
     } catch (e) { if (my === seq) box.replaceChildren(failBlock(e, load)); }
   }
-  load();
+  const init = () => api('/stock/categories', { query: { zoneId: zone.id } }).then((r) => { cats = (r.items || []).filter((c) => c.id !== 'none'); paintCats(); load(); })
+    .catch((e) => box.replaceChildren(failBlock(e, () => { box.replaceChildren(busyBlock('позиции склада')); init(); })));
+  init();
 
   const el = card({
     size: 'M', variant: 'table', title: zone.name, meta: head,
     actions: button({ label: 'Убрать склад', kind: 'ghost', size: 'S', onClick: onRemove }),
-    body: [filters.el, box],
+    body: [fun.el, filters.el, box],
   });
   /** Корзина изменилась не здесь (убрали позицию справа) — перечитать числа в полях. */
   const sync = () => inputs.forEach((inp, id) => { inp.value = cart.get(id)?.qty ?? ''; });

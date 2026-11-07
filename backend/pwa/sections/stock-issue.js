@@ -4,7 +4,7 @@ import { parseNum, plural, qty } from '../core/format.js';
 import { patch } from '../core/router.js';
 import { loadZones } from '../core/zone.js';
 import { busyBtn } from '../ui/kit/busy.js';
-import { actions, badge, busyBlock, button, empty, iconButton, modal, row, section, sideNote, table, toast, toastError } from '../ui/kit/index.js';
+import { actions, badge, busyBlock, button, empty, funnel, iconButton, modal, row, section, sideNote, table, toast, toastError } from '../ui/kit/index.js';
 import { targetPicker } from '../ui/kit/target-picker.js';
 import { peopleByWork } from './issue.js';
 import { warehouseCard } from './stock-issue-card.js';
@@ -100,19 +100,28 @@ function build() {
   // ---------- Каскад складов ----------
   const cascade = h('div', null);
   const pickBox = h('div', null);
+  // П-1: шаг «Склад» — фишки (можно несколько); карточка склада сама ведёт «Категория → позиции». Панель не перерисовывается целиком.
+  const fun = funnel({ steps: [], onChange: (_k, v) => syncZones(String(v || '').split(',').filter(Boolean)) });
   function addZone(z) {
     if (cards.some((x) => x.zone.id === z.id)) return;
-    const c = warehouseCard({ zone: z, cart, onChange: touch, onRemove: () => { cards.splice(cards.findIndex((x) => x.c === c), 1); c.el.remove(); paintZones(); } });
+    const c = warehouseCard({ zone: z, cart, onChange: touch, onRemove: () => dropZone(z.id) });
     cards.push({ zone: z, c });
     cascade.append(c.el);
+    c.el.scrollIntoView?.({ block: 'nearest' });
     paintZones();
   }
+  function dropZone(id) {
+    const i = cards.findIndex((x) => x.zone.id === id);
+    if (i >= 0) { cards[i].c.el.remove(); cards.splice(i, 1); }
+    paintZones();
+  }
+  function syncZones(idsNow) {
+    for (const x of [...cards]) if (!idsNow.includes(x.zone.id)) dropZone(x.zone.id);
+    for (const id of idsNow) { const z = zones.find((q) => q.id === id); if (z) addZone(z); }
+  }
   function paintZones() {
-    const left = zones.filter((z) => !cards.some((x) => x.zone.id === z.id));
-    pickBox.replaceChildren(...[
-      cards.length ? null : empty({ title: 'Выберите склад', hint: 'Откроется таблица его позиций — впишите, сколько нужно.' }),
-      left.length ? actions(...left.map((z) => button({ label: (cards.length ? '+ ' : '') + z.name, onClick: () => addZone(z) }))) : null,
-    ].filter(Boolean));
+    fun.update({ steps: [{ key: 'zone', label: 'Склад', ask: 'выберите склад', multi: true, skip: zones.length < 2, value: cards.map((x) => x.zone.id).join(','), values: zones.map((z) => ({ id: z.id, label: z.name })) }] });
+    pickBox.replaceChildren(cards.length ? null : empty({ title: 'Выберите склад', hint: 'Откроются его категории — затем таблица позиций.' }));
   }
   const zonesNote = h('div', null, busyBlock('склады'));
   const initZones = () => loadZones().then((zs) => {
@@ -126,7 +135,7 @@ function build() {
   const el = h('div', null,
     sideNote('Выберите, кому выдаём, затем склад и количество. Последних получателей помним в «Недавно».'),
     section({ title: 'Кому', open: true, body: tp.el }),
-    section({ title: 'Откуда', open: true, body: [zonesNote, cascade, pickBox] }),
+    section({ title: 'Откуда', open: true, body: [zonesNote, fun.el, cascade, pickBox] }),
     cartSec);
 
   return { el, readonly: true, dirty: () => cart.size > 0 || !!tp.dirty(), focus: () => {}, read: () => ({ values: {} }) };
