@@ -1,0 +1,20 @@
+# C041 — Совет (opus): как действовать на Э1 (2026-11-07)
+
+**Модель данных — принять с поправками.**
+1. Справочник `productParts` в `dict_values` (`dicts.defs.ts`) — да; поля: name, categories, sortOrder; слияние дублей через существующий merge. `passportParts` не трогать, не импортировать.
+2. Поправка к `products.parts[]`: НЕ вкладывать `ops` внутрь частей и НЕ вычислять `workTypes[]` заново. Порядок шагов сквозной (цепочка Ганта идёт через части), поэтому: `products.parts[] {_id, partId, name, qty, lineId?, checked, checkedBy, checkedAt}` — список частей; маршрут остаётся в `products.workTypes[]`, расширяется необязательными `partRowId?` (= parts[]._id), `hours?` (норма на 1 шт., Q5), `checked/checkedBy/checkedAt`. Одна правда, без дублирования и рассинхрона.
+3. Миграция без потерь — без скрипта: старые шаги без `partRowId` показываются частью «Изделие целиком»; `lineId` остаётся как есть. `parts[]` пишутся только при сохранении человеком. `stepsOf()` и CRM лишние поля игнорируют.
+4. Снять запрет повтора вида работ (`work-route.service.ts:88–93`): уникальность — по паре (workTypeId, partRowId). Доска выдержит: `mergeColumns` (`work-flow.ts:33`) повторный ключ сливает в одну колонку — покрыть юнитом.
+5. `orderlineplans` — да, та же форма: `{incomeId (unique), productId, origin:'product'|'order', rev, parts[], steps[] {_id, workTypeId, partRowId, hours, checked*, assigneeId?(Э2), plan?(Э2)}, productRevAtCopy, launchedAt?}`. У каждого шага стабильный `_id` — на него сошлются Гант (Э2) и `workhours.stepId` (Э3) вместо `stepIndex`.
+6. `worktasks.route[]` при запуске = снимок `orderlineplans.steps` + `stepId`, `partName`, `hours` (Mixed, схема не меняется). Э1: длительность по-прежнему `worktypes.days`; Э2: часы×кол-во/8.
+
+**Порядок Э1.** 0) `datacore-access`: числа покрытия (`products.workTypes`, `worktasks` по статусам, `worktypes.days/hourlyRate`). 1) Справочник `productParts`. 2) `products`: поля + `work-route.service` (GET отдаёт parts с запасным «Изделие целиком», PUT принимает parts+steps). 3) Модуль `order-line-plan`: GET get-or-create (upsert `$setOnInsert` по уникальному incomeId — гонка безопасна), PUT с `rev` (409 при чужой правке), `diff` против продукции, `PATCH check` (роль manager/admin), флаг `applyToProduct` — ОДИН серверный вызов пишет план и изделие, с проверкой `products.updatedAt` == ожидаемому (иначе 409 «изделие изменили»). 4) `work.service.launch`: берёт план позиции, нет плана — создаёт его из изделия той же функцией; непроверенное — `warnings`, не запрет (Q3). Юнит + e2e, openapi, MAP. 5) Экран: правая панель «Позиция заказа» (entityPanel + section частей + воронка П-1 из kit `funnel`), вопрос «Только в этом заказе / И в продукцию». 6) Переписать `work-launch.js`: убрать молчаливый `PUT /work-routes` (строка 71); панель запуска показывает итог плана и ссылку «Состав позиции». 7) Блок «Маршрут изготовления» в карточке изделия — тот же компонент. Дизайнер → full → выкладка.
+
+**Подводные камни.**
+- CRM: перед стартом grep в `D:\kppdf-8.0` — нет ли `replaceOne`/`findOneAndReplace`/полной перезаписи `products` (сотрёт `parts`). `composition` не трогать; `lineId` части — только ссылка.
+- `work-launch.js:71` сейчас последний выбор на изделие молча перезаписывает маршрут для ВСЕХ будущих заказов — убрать в шаге 6 обязательно, иначе вопрос «в продукцию?» бессмыслен.
+- Soft-delete: план не удалять вместе с позицией; читать только при `incomes.deletedAt:null`; восстановление позиции — план на месте. Смена `productId` у позиции — пометка «изделие сменилось, взять заново?», не автозатирание.
+- Запущенное задание — снимок: правка плана после запуска задание не меняет; показать «план изменён после запуска».
+- Idempotency: повтор POST launch защищён замком `openIncomeId`; повтор PUT плана — через `rev`; ленивое создание — только upsert, не find+insert.
+- Валидация: DTO `whitelist+forbidNonWhitelisted` — все поля плана описать сразу (включая задел Э2 `assigneeId/plan`), иначе 400 при добавлении.
+- Класс XL (общая `products`): только необязательные поля, full-прогон перед выкладкой.
