@@ -189,7 +189,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     }
     const acts = [];
     if (edit) {
-      rare.forEach((a) => acts.push(h('button', { type: 'button', role: 'menuitem', onclick: (e) => { setOpen(false); runAction(a, e.currentTarget); } }, a.label)));
+      let sep = false; rare.forEach((a) => { if (a.danger && !sep) { sep = true; acts.push(h('hr', { class: 'menu-sep' })); } acts.push(h('button', { type: 'button', role: 'menuitem', class: a.danger ? 'danger' : undefined, onclick: (e) => { setOpen(false); runAction(a, e.currentTarget); } }, a.label)); }); // danger — внизу, за чертой
       if (section.duplicate && section.form) acts.push(h('button', { type: 'button', role: 'menuitem', onclick: () => { setOpen(false); showForm('create', section.duplicate(row)); } }, 'Дублировать'));
       if (section.remove) acts.push(h('button', { type: 'button', role: 'menuitem', class: 'danger', onclick: () => { setOpen(false); doRemove(); } }, 'Удалить'));
     }
@@ -347,7 +347,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   }
 
   if (mode === 'create') showForm('create', initial);
-  else if (fill && section.form && canEditSection(section)) showView().then(() => (row ? showForm('edit') : null)).then(() => { if (form) markFill(fill); });
+  else if (fill && section.form && canEditSection(section)) showView().then(() => (row ? showForm('edit') : null)).then(() => { if (form && fill !== 'edit') markFill(fill); });
   // card.startEdit(row) — открыть сразу правкой (текст пункта паспорта: панель = поле ввода)
   else if (section.card.startEdit && section.form && canEditSection(section)) showView().then(() => (row && section.card.startEdit(row) ? showForm('edit') : null));
   else showView();
