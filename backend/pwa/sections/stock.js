@@ -151,7 +151,7 @@ export const stock = {
     chipsTop: true, // СКФ.2: «Состояние» — строкой над таблицей
     toolbarExtra: () => facetFilter({ categoryKey: 'categoryId', inline: true }),
     extraKeys: ['ft', 'all'],
-    // первая страница — плитки категорий с рисунками (как «Продукция» и «Каталог поставщиков»); галерея — карточки позиций с фото
+    // первая страница — плитки категорий с рисунками (как «Продукция» и «Каталог номенклатуры»); галерея — карточки позиций с фото
     gallery: { limit: 100, card: (r) => ({ pic: r.photos?.[0] ? PREFIX + (r.photos[0].thumb || r.photos[0].url) : null, title: r.name, meta: [r.categoryName, r.article].filter(Boolean).join(' · '), price: `${qty(r.quantity)} ${unit(r)}` }) },
     landing: { when: (P) => !P.categoryId && !P.q && !P.ft && !P.status && !P.all, render: stockLanding },
     // priority=1: «заканчивается» и «в брони» — сверху (внутри групп — выбранный порядок)

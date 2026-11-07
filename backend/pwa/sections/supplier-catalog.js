@@ -13,10 +13,11 @@ import { setCrumbTail } from '../ui/kit/crumbs.js';
 import { partnerAction } from './lookups.js';
 import { previewTable, orderPreview, orderTemplate } from './supplier-catalog-import.js';
 import { openOrderBulk } from './order-bulk.js';
+import { cardActions, createButton } from './supplier-catalog-actions.js';
 
 import { table, section, stack, card, badge, empty, hint, landing, tileGrid, navList, posPic, readonlyGroup, toolbar } from '../ui/kit/index.js';
 /**
- * Каталог поставщиков (SUPPLIER-CATALOG.md §8): один список как везде (ui/list.js).
+ * Каталог номенклатуры (SUPPLIER-CATALOG.md §8): один список как везде (ui/list.js).
  * Слева: воронка категория → подкатегория → поставщик (только поставщики выбранной ветки) и быстрые отборы «Без связи / Без цены / Цена устарела» (toolbarExtra) — из GET /supply/catalog/counts.
  * Справа: таблица GET /supply/catalog/items. Сверху: крошки и шестерёнка (шаблон, импорт, выгрузка).
  * Правка, добавление, импорт — только admin / manager; остальные — просмотр и выгрузка.
@@ -284,7 +285,7 @@ const num = (x) => (x === null || x === undefined || x === '' ? null : Number(x)
 
 export const supplierCatalog = {
   id: 'suppliercatalog',
-  title: 'Каталог поставщиков',
+  title: 'Каталог номенклатуры',
   newTitle: 'Новая позиция каталога',
   canEdit: canWrite,
   get: async (id) => {
@@ -307,7 +308,8 @@ export const supplierCatalog = {
     get sortDefault() { return (current().params.ord || '').replace(/^-/, ''); },
     gallery: { default: true, limit: 100, card: (r) => ({ pic: r.thumb ? PREFIX + r.thumb : null, title: r.name, meta: [r.supplierName, r.article && !r.article.startsWith('manual:') ? 'арт. ' + r.article : ''].filter(Boolean).join(' · '), price: r.priceHint != null ? money(r.priceHint) : null }) },
     landing: { when: (P) => !P.supplierId && !P.catId && !P.subId && !P.q && !P.flag && !P.all, render: catLanding },
-    createLabel: 'Новая позиция',
+    createLabel: false, // «+ Создать» — меню позиция / предложение (headActions)
+    headActions: () => (canWrite() ? [createButton()] : []),
     searchPlaceholder: 'Артикул, название, примечание…',
     emptyText: 'В каталоге пока пусто.', emptyHint: 'Загрузите прайс поставщика по шаблону: шестерёнка → «⇩ Шаблон Excel», затем «Загрузить Excel…».',
     rowAction: (r) => (!r.materialId && canWrite()
@@ -340,7 +342,8 @@ export const supplierCatalog = {
     heading: (r) => r.name,
     subheading: (r) => (isMaterial(r) ? 'Поставщика нет' : r.supplierName || ''),
     editTop: true,
-    editable: (r) => !isMaterial(r),
+    actions: (r) => cardActions(r),
+    editable: (r) => !isMaterial(r), editLabel: 'Изменить предложение',
     top: (r, ctx) => {
       if (isMaterial(r)) {
         return card({ size: 'M', variant: 'fields',
