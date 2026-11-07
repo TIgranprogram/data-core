@@ -146,7 +146,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const tbody = h('tbody');
   const cards = h('ul', { class: 'cards' });
   const galleryBox = h('div', { class: 'gal-box', hidden: true });
-  const tableBox = h('div', null, h('div', { class: 'table-wrap' }, h('table', { class: 'list' }, h('thead', null, theadRow), tbody)), cards);
+  const tableWrap = h('div', { class: 'table-wrap' }, h('table', { class: 'list' }, h('thead', null, theadRow), tbody));
+  const tableBox = h('div', null, tableWrap, cards);
   const foot = h('div', { class: 'list-foot' });
   const quickBox = quick && canCreate ? quick : null;
   // БЗ-9: отметка записей и «Изменить выбранные» — только где раздел объявил L.bulk и есть право правки
@@ -267,12 +268,13 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     return query;
   }
   // ПГ-1: автоподгрузка — строки добавляются при прокрутке к низу; адресный page не используется
-  let pagesLoaded = 1;
-  let loadingMore = false;
+  let pagesLoaded = 1, loadingMore = false;
   const moreNote = h('span', { class: 'muted' });
-  const watch = moreSentinel({ hasMore: () => !loadingMore && lastResp && rows.length < lastResp.total && !panel.classList.contains('loading'), onMore: () => load({ append: true }) });
-  const sentinel = watch.el;
-  const rewatch = watch.rewatch;
+  const canMore = () => !loadingMore && lastResp && rows.length < lastResp.total && !panel.classList.contains('loading');
+  // таблица прокручивается в своём окне .table-wrap: подвал вне окна всегда виден и тянул бы страницы подряд → в окне свой наблюдатель, у подвала — только без таблицы (карточки, галерея)
+  const watch = moreSentinel({ hasMore: () => canMore() && !tableWrap.offsetParent, onMore: () => load({ append: true }) }), sentinel = watch.el;
+  const watchIn = moreSentinel({ hasMore: canMore, onMore: () => load({ append: true }) }); tableWrap.append(watchIn.el);
+  const rewatch = () => { watch.rewatch(); watchIn.rewatch(); };
   async function load(opt = {}) {
     let { limit, page, sort, board: isBoard, gallery: isGallery, gantt: isGantt } = st();
     if (isGallery) { limit = Number(P.limit) || L.gallery.limit || 100; sort = P.sort || L.gallery.sort || sort; }
@@ -392,6 +394,6 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     // после записи (dc:changed): строки, числа плиток и шаги «Уточнить» обновляются на месте, без мигания
     reload: (row) => { if (tilesBox) loadTiles(true); extra?.update(P); if (st().gantt && gantt) return gantt.reload(); return st().board && board ? (row && board.reloadFor ? board.reloadFor(row) : board.reload()) : load({ keep: true }); },
     focusSearch: () => sb.focus(),
-    destroy: () => { document.removeEventListener('keydown', onKey); watch.destroy(); },
+    destroy: () => { document.removeEventListener('keydown', onKey); watch.destroy(); watchIn.destroy(); },
   };
 }
