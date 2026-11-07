@@ -9,7 +9,7 @@ import { h } from '../core/dom.js';
 import { date, isoDay, money, qty } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
 import { badge, ORDER_PRIORITY } from '../ui/kit/badges.js';
-import { actions, badge as kbadge, button, iconButton, link, section, select, stack, sku as kitSku, table, tabs as kitTabs } from '../ui/kit/index.js';
+import { actions, badge as kbadge, button, card, iconButton, link, row as kitRow, section, select, stack, sku as kitSku, table, tabs as kitTabs, toolbar } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { confirmDlg, modal } from '../ui/kit/dialog.js';
 import { withConfirm } from '../ui/confirm-password.js';
@@ -87,13 +87,13 @@ const freeNo = () => api('/salesorders/next-production-no').then((r) => r?.value
 const lagging = (r, stage) => (r.orders || []).filter((o) => o.stage !== 'cancelled' && STAGE_ORDER.indexOf(o.stage || 'new') < STAGE_ORDER.indexOf(stage));
 /** Выбор договоров галочками: все отстающие отмечены. null — отказались, иначе id выбранных. */
 function pickContracts(r, stage, list) {
-  const cbs = list.map((o) => h('input', { type: 'checkbox', class: 'ua-cb', checked: true, value: o.id }));
+  const cbs = list.map((o) => h('input', { type: 'checkbox', checked: true, value: o.id }));
   return modal({
     title: `${heading(r)}: «${STAGE[stage].label}»`, okText: 'Применить к выбранным',
     body: h('div', null, h('p', { class: 'muted' }, 'Отметьте договоры, у которых сменится этап. Остальные останутся как есть.'),
-      h('div', { class: 'ua-list' }, ...list.map((o, i) => h('label', { class: 'ua-row' }, cbs[i],
-        h('span', { class: 'ua-main' }, h('b', null, 'Договор ' + (o.orderNo || '—')), h('span', { class: 'muted' }, o.customer ? ' · ' + o.customer : '')),
-        h('span', { class: 'muted small nowrap' }, 'сейчас: ' + (STAGE[o.stage || 'new']?.label || o.stage)))))),
+      h('div', null, ...list.map((o, i) => h('label', null,
+        kitRow({ lead: cbs[i], title: 'Договор ' + (o.orderNo || '—'),
+          meta: [o.customer, 'сейчас: ' + (STAGE[o.stage || 'new']?.label || o.stage)].filter(Boolean).join(' · ') }))))),
     onOk: async () => { const ids = cbs.filter((c) => c.checked).map((c) => c.value); if (!ids.length) throw new Error('Отметьте хотя бы один договор'); return ids; },
   });
 }
@@ -132,10 +132,10 @@ function readinessBlock(r, after) {
     };
     const btn = can ? button({ label: 'Отметить: готов к отгрузке', kind: bad.length ? 'ghost' : 'primary', cls: bad.length ? '' : 'btn-warm', onClick: (e) => mark(e.currentTarget) }) : null;
     box.replaceChildren(section({ title: 'Готовность к отгрузке', tone: 'main', open: true, cls: 'rdy', body: [
-      ...checks.map((c) => h('div', { class: 'rdy-row' + (c.ok ? ' ok' : '') },
-        h('span', { class: c.ok ? 'pos' : 'muted', 'aria-hidden': 'true' }, c.ok ? '✓' : '○'), ' ', h('span', null, c.label),
-        !c.ok && c.hint ? h('span', { class: 'muted small' }, ' — ' + c.hint) : null,
-        !c.ok && c.href ? h('a', { href: c.href.startsWith('#') ? c.href : '#' + c.href.replace(/^\//, ''), class: 'small' }, ' Открыть') : null)), btn] }));
+      ...checks.map((c) => kitRow({ tone: c.ok ? 'ok' : 'neutral',
+        title: (c.ok ? '✓ ' : '○ ') + c.label,
+        below: [!c.ok && c.hint ? h('span', { class: 'muted small' }, ' — ' + c.hint) : null,
+          !c.ok && c.href ? h('a', { href: c.href.startsWith('#') ? c.href : '#' + c.href.replace(/^\//, ''), class: 'small' }, ' Открыть') : null] })), btn] }));
   };
   const load = () => api(`/production-orders/${encodeURIComponent(r.key)}/readiness`).then(paint)
     .catch((e) => box.replaceChildren(failBlock(e, load, { cls: 'so-state', text: 'Готовность к отгрузке не загрузилась' })));
@@ -185,12 +185,13 @@ function issuedBlock(d, sec) {
   const groups = new Map();
   for (const x of by) { const k = x.salesOrderLineId ? String(x.salesOrderLineId) : ''; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x); }
   const title = (k) => { if (!k) return 'Весь заказ (без позиции)'; const i = lines.findIndex((l) => String(l.id) === k); return i < 0 ? 'Позиция заказа' : `поз. ${lines[i].seqNo ?? lines[i].lineNo ?? i + 1} · ${lines[i].title}`; };
-  return sec('Выдано со склада по позициям', 'gold', groups.size, h('ul', { class: 'timeline' }, ...[...groups].flatMap(([k, xs]) => xs.map((x, i) => h('li', i ? { class: 'tl-cont' } : null,
-    i === 0 ? posPic(x.photo, 'sm') : null,
-    i === 0 ? h('span', { class: 'tl-line', title: title(k) }, title(k)) : null, h('span', null, x.materialName || 'позиция'),
-    h('span', { class: 'num neg', title: 'Выдано минус возвращено' }, qty(x.net) + ' ' + (x.unit || '')),
-    h('span', { class: 'muted' }, `выдано ${qty(x.issued)}${x.returned ? ', возвращено ' + qty(x.returned) : ''}`),
-    i === 0 && k && lines.find((l) => String(l.id) === k)?.productId ? suggestLink(k) : null)))));
+  return sec('Выдано со склада по позициям', 'gold', groups.size, stack(...[...groups].flatMap(([k, xs]) => xs.map((x, i) => kitRow({
+    lead: i === 0 ? posPic(x.photo, 'sm') : null,
+    title: i === 0 ? h('span', { title: title(k) }, title(k)) : (x.materialName || 'позиция'),
+    meta: i === 0 ? (x.materialName || 'позиция') : null,
+    side: [h('span', { class: 'num neg', title: 'Выдано минус возвращено' }, qty(x.net) + ' ' + (x.unit || ''))],
+    below: [`выдано ${qty(x.issued)}${x.returned ? ', возвращено ' + qty(x.returned) : ''}`,
+      i === 0 && k && lines.find((l) => String(l.id) === k)?.productId ? suggestLink(k) : null].filter(Boolean)})))));
 }
 
 /** Строка «Паспорта N (готовы M)» → вкладка «По заказам» (ТИ-11). */
@@ -198,11 +199,12 @@ function orderPassports(r) {
   if (!session.seesDocs()) return null;
   const val = h('span', { class: 'muted' }, 'загрузка…');
   const body = h('div', null, val); const box = stack(section({ title: 'Паспорта', tone: 'neutral', open: true, body }));
+  let actEl = null; // кнопка-действие под строкой (замена классу-маркеру op-act)
   const load = () => api('/passports', { query: { salesOrderId: r.id, limit: 200 } }).then((d) => {
     const items = (d.items || []).filter((p) => p.status !== 'annulled');
-    body.querySelector('.op-act')?.remove();
-    const act = orderPassportActions(r, items, load);
-    if (act) { act.classList.add('op-act'); body.append(act); }
+    actEl?.remove();
+    actEl = orderPassportActions(r, items, load);
+    if (actEl) body.append(actEl);
     const ready = items.filter((p) => (p.readiness || (p.status === 'draft' ? 'notReady' : 'ready')) === 'ready').length;
     val.replaceChildren(items.length ? h('a', { href: '#docs?tab=orders&open=' + r.id }, `Паспорта ${items.length} (готовы ${ready})`) : 'пока не выпускали — «Документация → Нужно сделать паспорт»');
   }).catch((e) => val.replaceChildren(e?.status === 403 ? 'Нет доступа к паспортам' : 'не удалось загрузить'));
@@ -263,9 +265,6 @@ function contractGroup(o, reload) {
     can ? button({ label: 'Изменить договор', size: 'S', title: 'Изменить договор: № договора, заказчик, срок, примечание', onClick: () => patch({ of: 'salesorder', open: o.id }, { replace: false }) }) : null,
     menu.length ? dots : null,
   ].filter(Boolean);
-  const head = h('div', { class: 'so-grp-head' },
-    h('div', { class: 'so-grp-title' }, h('b', null, 'Договор ' + (o.orderNo || '—')), h('span', { class: 'muted' }, o.customer ? ' · ' + o.customer : ''), ' ', badge(STAGE, o.stage), ' ', due(o), ' ', countBadge(countOf(o))),
-    acts.length ? actions(...acts) : null);
   // «Оплачено» / «Долг» и «Принять оплату» — только с правом на деньги (приём оплаты — панель incpay, она же из карточки позиции)
   const payOn = session.canMoney && can;
   const lineAct = (l) => canChangeLines(o) && !closedStage(o) && can;
@@ -290,13 +289,13 @@ function contractGroup(o, reload) {
   const linesTable = lines.length
     ? table({ clickable: true, columns: [{ label: '№' }, { label: '' }, { label: 'Название' }, { label: 'Кол-во', num: true }, { label: 'Отгружено', num: true }, { label: 'Цвет' }, ...(session.canMoney ? [{ label: 'Сумма', num: true }, { label: 'Оплачено', num: true }, { label: 'Долг', num: true }] : []), ...(payOn ? [{ label: '' }] : []), ...(can ? [{ label: '' }] : [])],
       rows: lines.map((l, i) => l.cancelledAt ? cancelledRow(l, i, o, can && canChangeLines(o) ? rowDots(l) : null) : h('tr', { onclick: () => patch({ of: 'orders', open: l.id }, { replace: false }), title: 'Открыть позицию: фото, сумма, отгрузка, оплата (назад — к заказу)' },
-        h('td', { class: 'muted' }, seq(l, i)), h('td', { class: 'pic-cell' }, posPic(l.photo, l.photo?.url || l.photo?.thumb ? 'lg' : 'sm')), h('td', null, l.title, ourLine(l), l.unassigned !== undefined || l.lineType ? h('span', { class: 'ol-mark' }, ' ', lineMark(l)) : null, l.unassigned === undefined && !l.lineType && l.matched === false ? h('a', { class: 'badge warn mt-flag', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null), h('td', { class: 'num nowrap' }, `${qty(l.qty)} ${l.unit || ''}`),
+        h('td', { class: 'muted' }, seq(l, i)), h('td', null, posPic(l.photo, l.photo?.url || l.photo?.thumb ? 'lg' : 'sm')), h('td', null, l.title, ourLine(l), l.unassigned !== undefined || l.lineType ? h('span', null, ' ', lineMark(l)) : null, l.unassigned === undefined && !l.lineType && l.matched === false ? h('a', { class: 'badge warn', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null), h('td', { class: 'num nowrap' }, `${qty(l.qty)} ${l.unit || ''}`),
         h('td', { class: 'num nowrap muted' }, l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : ''), h('td', { class: 'muted' }, l.color || ''), session.canMoney ? h('td', { class: 'num' }, l.amount ? money(l.amount) : '') : null, ...payCells(l), can ? h('td', { class: 'nowrap' }, lineAct(l) ? rowDots(l) : '') : null)) })
     : h('p', { class: 'muted' }, 'В этом договоре позиций пока нет — нажмите «+ Позиция».');
   // одна «+ Позиция» — под таблицей позиций, открывает полную форму справа (название, количество, цена, фото)
   const add = can && !closedStage(o)
     ? (canChangeLines(o)
-      ? h('div', { class: 'so-add' }, button({ label: '+ Позиция', size: 'S', title: 'Новая позиция: все поля — в правой панели', onClick: () => patch({ of: 'orders', new: '1', open: undefined, orderNo: o.orderNo || '', customer: o.customer || '', companyName: o.companyName || '', orderId: o.id }, { replace: false }) }))
+      ? toolbar(button({ label: '+ Позиция', size: 'S', title: 'Новая позиция: все поля — в правой панели', onClick: () => patch({ of: 'orders', new: '1', open: undefined, orderNo: o.orderNo || '', customer: o.customer || '', companyName: o.companyName || '', orderId: o.id }, { replace: false }) }))
       : h('p', { class: 'hint' }, 'Договор уже в работе — менять позиции может администратор.'))
     : null;
   const seqBy = new Map(lines.map((l, i) => [String(l.id), seq(l, i)]));
@@ -308,32 +307,25 @@ function contractGroup(o, reload) {
     ['work', 'Работа', session.sees('work') && lines.length > 0 && !closedStage(o), () => orderWork([o])],
     ['stock', 'Склад', seeReq || seeStock, () => stack(
       seeReq ? sec('Заказано под заказ', 'who', (o.supplyRequests || []).length,
-        (o.supplyRequests || []).length ? h('ul', { class: 'timeline' }, ...o.supplyRequests.map((s) => h('li', null, h('a', { href: '#requests?open=' + (s.id || s._id) }, `№${s.num ?? ''} ${s.title}`), h('span', { class: 'muted' }, ` · ${qty(s.qty)} ${s.unit || ''} · ${s.statusLabel || s.status || ''}`)))) : h('p', { class: 'muted' }, 'Заявок под этот заказ пока нет.'),
+        (o.supplyRequests || []).length ? stack(...o.supplyRequests.map((s) => kitRow({ title: h('a', { href: '#requests?open=' + (s.id || s._id) }, `№${s.num ?? ''} ${s.title}`), meta: `${qty(s.qty)} ${s.unit || ''} · ${s.statusLabel || s.status || ''}` }))) : h('p', { class: 'muted' }, 'Заявок под этот заказ пока нет.'),
         can ? button({ label: '+ Заявка под этот заказ', size: 'S', title: 'Новая заявка: заказ и заказчик подставятся сами', onClick: () => patch({ of: 'requests', new: '1', open: undefined, salesOrderRef: o.id, orderLabel: o.customer || undefined }) }) : null) : null,
       seeStock ? orderReservations({ id: o.id, orderNo: o.orderNo, productionNo: o.productionNo, seqBy }, reload) : null,
       seeStock ? issuedBlock(o, sec) : null,
       seeStock && (o.stockMovements || []).length ? sec('Отпущено со склада', 'gold', o.stockMovements.length,
-        h('ul', { class: 'timeline' }, ...o.stockMovements.map((m) => h('li', null, h('span', { class: 'when' }, date(m.date)), h('span', null, m.materialName || 'позиция'), h('span', { class: 'num neg' }, '−' + qty(m.qty)), h('span', { class: 'muted' }, [m.issuedToLabel && 'кому: ' + m.issuedToLabel, m.notes].filter(Boolean).join(' · ')))))) : null)],
+        stack(...o.stockMovements.map((m) => kitRow({ lead: date(m.date), title: m.materialName || 'позиция',
+          side: [h('span', { class: 'num neg' }, '−' + qty(m.qty))],
+          below: [m.issuedToLabel && 'кому: ' + m.issuedToLabel, m.notes].filter(Boolean).join(' · ') || null })))) : null)],
     ['ship', 'Отгрузки', hasShip, () => stack(shipmentsBlock({ id: o.id, stage: o.stage }, reload), historyBlock({ id: o.id }))],
     ['pass', 'Паспорта', session.seesDocs() && lines.length > 0, () => orderPassports(o)],
   ].filter((d) => d[2]);
-  const tabsEl = kitTabs({ label: 'Разделы договора', items: defs.map(([key, label]) => ({ key, label })), value: defs[0][0], onChange: (k) => show(k) });
-  const panes = new Map(); // вкладка → панель (строится при первом открытии)
-  const paneBox = h('div', { class: 'so-pane-box' });
-  let cur = '';
-  const show = (k) => {
-    const def = defs.find((d) => d[0] === k) || defs[0];
-    cur = def[0];
-    if (!panes.has(cur)) {
-      const pane = h('div', { class: 'so-pane', role: 'tabpanel' });
-      const el = def[3]();
-      pane.append(el || h('p', { class: 'muted' }, 'Здесь пока ничего нет.'));
-      panes.set(cur, pane); paneBox.append(pane);
-    }
-    for (const [key, pane] of panes) pane.hidden = key !== cur;
-    tabsEl.set(cur);
-  };
-  const root = h('div', { class: 'so-grp' }, head, defs.length > 1 ? tabsEl.el : null, paneBox);
+  // группа-договор — эталон card L (шапка + вкладки; панель вкладки строится при первом открытии)
+  const root = card({ size: 'L',
+    head: { title: 'Договор ' + (o.orderNo || '—') + (o.customer ? ' · ' + o.customer : ''),
+      badges: [badge(STAGE, o.stage), due(o), countBadge(countOf(o))].filter(Boolean),
+      menu: acts.length ? actions(...acts) : null },
+    tabs: { label: 'Разделы договора', items: defs.map(([key, label]) => ({ key, label })), value: defs[0][0],
+      panes: Object.fromEntries(defs.map(([key, , , make]) => [key, () => make() || h('p', { class: 'muted' }, 'Здесь пока ничего нет.')])) } });
+  const show = (k) => { if (k) root.querySelector(`.chip[data-key="${k}"]`)?.click(); };
   const onTab = (ev) => {
     if (!root.isConnected) { window.removeEventListener('so-open-tab', onTab); return; }
     const k = ev.detail?.tab;
@@ -369,7 +361,7 @@ const plateOf = (d) => { const u = unmatchedOrders(d); return u.length ? unmatch
 /** «+ Договор» над группами: меню «Выбрать из договоров без заказа» / «Создать новый». */
 function addContractBtn(d, ctx) {
   if (!editableOrder(d) || closedStage(d)) return null;
-  const btn = button({ label: '+ Договор', size: 'S', cls: 'so-add', title: 'Добавить договор в этот заказ' }); btn.setAttribute('aria-haspopup', 'menu');
+  const btn = button({ label: '+ Договор', size: 'S', title: 'Добавить договор в этот заказ' }); btn.setAttribute('aria-haspopup', 'menu');
   btn.addEventListener('click', () => {
     if (isOpenFor(btn)) { closePopMenu(true); return; }
     openPopMenu({ anchor: btn, side: 'down', groups: [{ items: [
@@ -377,7 +369,7 @@ function addContractBtn(d, ctx) {
       { label: 'Создать новый', onSelect: () => patch({ of: 'salesorder', new: '1', productionNo: d.productionNo || '', customer: (d.customers || [])[0] || (d.orders || [])[0]?.customer || '', open: undefined }, { replace: false }) },
     ] }] });
   });
-  return h('div', { class: 'so-add' }, btn);
+  return toolbar(btn);
 }
 
 function details(r, ctx) {
@@ -408,7 +400,8 @@ function shape(d) {
   return { ...d, id: d.key, orderNos: os.map((o) => o.orderNo), customers: uniq(os.map((o) => o.customer)), companyNames: uniq(os.map((o) => o.companyName)),
     lineCount: os.reduce((s, o) => s + (o.lineCount ?? (o.lines || []).length), 0), amount: sumOf(os, 'amount'), paidAmount: sumOf(os, 'paidAmount') };
 }
-const stageCell = (r) => h('span', null, badge(STAGE, r.stage), r.readiness?.ready && ['new', 'production'].includes(r.stage) ? h('span', { class: 'tag ok', title: 'Все проверки пройдены, изготовленное готово — можно отметить «Готово к отгрузке»' }, ' Можно отгружать') : null, r.stagesDiffer ? h('span', { class: 'muted small', title: 'У договоров заказа разные этапы — показан самый отстающий' }, ' · разные') : null);
+const readyBadge = () => { const b = kbadge('Можно отгружать', 'ok'); b.title = 'Все проверки пройдены, изготовленное готово — можно отметить «Готово к отгрузке»'; return b; }; // SPEC: tag → badge
+const stageCell = (r) => h('span', null, badge(STAGE, r.stage), r.readiness?.ready && ['new', 'production'].includes(r.stage) ? readyBadge() : null, r.stagesDiffer ? h('span', { class: 'muted small', title: 'У договоров заказа разные этапы — показан самый отстающий' }, ' · разные') : null);
 const names = (a) => (a || []).join(', ');
 const COL_HINT = { new: 'проектирование', production: 'изготовление', ready: 'ждёт отгрузки', partly: 'досдать остаток', shipped: 'закрыть заказ' };
 /** Карточка доски (как «В работе»): заголовок, подстрока, одна короткая метка-предупреждение, срок/приоритет и одна кнопка шага (kit.card actions). */
@@ -482,7 +475,7 @@ export const salesorders = {
       { key: 'orderNos', label: 'Договоры', cls: 'clip md-hide', render: (r) => h('span', { class: 'muted small', title: names(r.orderNos) }, names(r.orderNos) || '—') },
       { key: 'customer', label: 'Заказчик', sort: 'customer', cls: 'clip', render: (r) => h('span', { title: names(r.customers) }, names(r.customers)) },
       { key: 'companyName', label: 'Наша компания', cls: 'md-hide', render: (r) => names(r.companyNames) || h('span', { class: 'muted' }, '—') },
-      { key: 'lineCount', label: 'Поз.', cls: 'num right', render: (r) => h('span', null, qty(r.lineCount), countOf(r) ? h('span', { class: 'ol-count' }, ' ', countBadge(countOf(r))) : null) },
+      { key: 'lineCount', label: 'Поз.', cls: 'num right', render: (r) => h('span', null, qty(r.lineCount), countOf(r) ? h('span', null, ' ', countBadge(countOf(r))) : null) },
       { key: 'deadline', label: 'Срок', sort: 'deadline', cls: 'nowrap', render: due },
       { key: 'amount', money: true, label: 'Сумма', cls: 'num right md-hide', render: (r) => (r.amount ? money(r.amount) : h('span', { class: 'muted' }, '—')) },
       { key: 'priority', label: 'Приоритет', cls: 'nowrap md-hide', render: (r) => prio(r) || '' },

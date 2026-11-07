@@ -12,7 +12,7 @@ import { toast, toastError } from '../ui/kit/toast.js';
 import { setCrumbTail } from '../ui/kit/crumbs.js';
 import { partnerAction } from './lookups.js';
 
-import { table, section, stack } from '../ui/kit/index.js';
+import { table, section, stack, card, badge, empty, hint, landing, tileGrid, navList, posPic, readonlyGroup, toolbar } from '../ui/kit/index.js';
 /**
  * Каталог поставщиков (SUPPLIER-CATALOG.md §8): один список как везде (ui/list.js).
  * Слева: воронка категория → подкатегория → поставщик (только поставщики выбранной ветки) и быстрые отборы «Без связи / Без цены / Цена устарела» (toolbarExtra) — из GET /supply/catalog/counts.
@@ -60,12 +60,13 @@ function queryOf(P) {
 const ORDERS = [['', 'По названию'], ['price', 'Цена: сначала дешёвые'], ['-price', 'Цена: сначала дорогие'], ['-priceDate', 'Дата цены: сначала свежие'], ['priceDate', 'Дата цены: сначала старые']];
 const STALE_MS = 183 * 86400000;
 const isStale = (r) => r.priceHint != null && (!r.priceDate || Date.now() - new Date(r.priceDate).getTime() > STALE_MS);
+const staleBadge = (priceDate) => { const b = badge(priceDate ? 'от ' + date(priceDate) + ' — устарела' : 'устарела', 'warn'); b.title = 'Цене больше 6 месяцев'; return b; }; // «Цена устарела» — badge warn
 const catTops = (c) => { const all = c.categories || []; const ids = new Set(all.map((x) => String(x.id))); return all.filter((x) => !x.parentId || !ids.has(String(x.parentId))); };
 const totalOf = (c) => (c.suppliers || []).reduce((a, s) => a + (s.count || 0), 0);
 
 /** Слева: воронка Категория → Подкатегория (поставщики — плитки списка), быстрые отборы, порядок, «Сбросить», «Показано N из M». */
 function sideFilters() {
-  const el = h('div', { class: 'ls-extra' });
+  const el = h('div');
   const funnel = stepFunnel({
     title: 'Категория',
     steps: [{ key: 'catId', label: 'Категория' }, { key: 'subId', label: 'Подкатегория', when: (P) => !!P.catId && P.catId !== 'none' }, { key: 'supplierId', label: 'Поставщик' }],
@@ -86,29 +87,32 @@ function sideFilters() {
       return { catId: tops, subId: subs, supplierId: sups };
     },
   });
+  const quickBox = h('div');
+  const orderBox = h('div');
   const rest = h('div');
   let P = {};
   let seq = 0;
-  const opt = (label, n, on, run) => h('button', { type: 'button', class: 'ls-opt' + (on ? ' active' : ''), onclick: run },
-    h('span', { class: 'ls-t' }, label), n !== undefined ? h('b', null, qty(n)) : null);
+  const ordKey = (o) => (ORDERS.find(([k]) => k === (o || '')) || [''])[0] || 'name';
   async function paint() {
     const my = ++seq;
     let c;
     try { c = await getCounts(); } catch { return; }
     const flagN = { unmatched: c.unmatched, noPrice: c.noPrice, stale: c.stale };
-    const shown = h('p', { class: 'sc-shown muted small' });
+    quickBox.replaceChildren(navList({ label: 'Быстрые отборы', value: P.flag || null, // отборы/порядок — navList, пересборка для свежих счётчиков
+      groups: [{ title: 'Быстро', items: FLAGS.map(([k, label]) => ({ key: k, label, count: flagN[k] })) }],
+      onPick: (k) => patch({ flag: P.flag === k ? undefined : k, page: undefined }) }).el);
+    orderBox.replaceChildren(navList({ label: 'Порядок', value: ordKey(P.ord),
+      groups: [{ title: 'Порядок', items: ORDERS.map(([k, label]) => ({ key: k || 'name', label })) }],
+      onPick: (k) => patch({ ord: k === 'name' ? undefined : k, page: undefined }) }).el);
+    const shown = h('p', { class: 'muted small' });
     api('/supply/catalog/items', { query: { ...queryOf(P), limit: 1 } }).then((r) => {
       if (my === seq) shown.textContent = `Показано ${qty(r.total)} из ${qty(totalOf(c))}`;
     }).catch(() => {});
     rest.replaceChildren(
       shown,
-      h('div', { class: 'ls-group' }, h('div', { class: 'ls-h' }, 'Быстро'),
-        h('div', { class: 'ls-list' }, FLAGS.map(([k, label]) => opt(label, flagN[k], P.flag === k, () => patch({ flag: P.flag === k ? undefined : k, page: undefined }))))),
-      h('div', { class: 'ls-group' }, h('div', { class: 'ls-h' }, 'Порядок'),
-        h('div', { class: 'ls-list' }, ORDERS.map(([k, label]) => opt(label, undefined, (P.ord || '') === k, () => patch({ ord: k || undefined, page: undefined }))))),
       button({ label: 'Сбросить', kind: 'ghost', onClick: () => patch({ supplierId: undefined, catId: undefined, subId: undefined, flag: undefined, ord: undefined, q: undefined, all: undefined, page: undefined }) }));
   }
-  el.append(funnel.el, rest);
+  el.append(funnel.el, quickBox, orderBox, rest);
   return { el, update(next) { P = next; funnel.update(next); paint(); } };
 }
 
@@ -118,23 +122,20 @@ async function catLanding() {
   const c = await getCounts();
   const go = (p) => patch({ ...p, view: 'table', page: undefined });
   const tile = (name, n, pick) => {
-    const art = h('div', { class: 'cat-art' });
+    const art = h('span');
     art.innerHTML = catArt(name); // свой статичный SVG, данных пользователя нет
-    return h('button', { type: 'button', class: 'cat-tile', title: name, onclick: pick }, art, h('div', { class: 'cat-body' }, h('div', { class: 'cat-name' }, name), h('div', { class: 'cat-n' }, nPos(n || 0))));
+    return card({ size: 'S', art, title: name, meta: nPos(n || 0), onClick: pick });
   };
   const tops = catTops(c);
-  if (!tops.length && !c.noCategory) return h('div', { class: 'state' }, h('div', null, 'Категорий пока нет — позиции покажутся списком.'), button({ label: 'Все списком', onClick: () => go({ all: '1' }) }));
+  if (!tops.length && !c.noCategory) { const box = empty({ title: 'Категорий пока нет — позиции покажутся списком.' }); box.append(button({ label: 'Все списком', onClick: () => go({ all: '1' }) })); return box; }
   const queue = c.unmatched > 0 && canWrite()
-    ? h('div', { class: 'cat-top' },
-        h('p', { class: 'hint' }, `Без связи со складом: ${nPos(c.unmatched)} — выберите позицию или создайте новую, не плодя дубли имени.`),
-        button({ label: 'Очередь «Связать с позицией»', kind: 'primary', onClick: () => go({ flag: 'unmatched', all: '1' }) }))
+    ? landing({ head: `Без связи со складом: ${nPos(c.unmatched)} — выберите позицию или создайте новую, не плодя дубли имени.`,
+        action: button({ label: 'Очередь «Связать с позицией»', kind: 'primary', onClick: () => go({ flag: 'unmatched', all: '1' }) }) })
     : null;
-  return h('div', { class: 'cat-landing' },
-    queue,
-    h('div', { class: 'cat-top' }, h('p', { class: 'muted' }, `Выберите категорию · всего ${nPos(totalOf(c))}`), button({ label: 'Все списком', onClick: () => go({ all: '1' }) })),
-    h('div', { class: 'cat-grid' },
+  return landing({ head: `Выберите категорию · всего ${nPos(totalOf(c))}`, action: button({ label: 'Все списком', onClick: () => go({ all: '1' }) }),
+    body: [queue, tileGrid(
       ...tops.map((x) => tile(x.name, x.count, () => go({ catId: x.id }))),
-      c.noCategory ? tile('Без категории', c.noCategory, () => go({ catId: 'none' })) : null));
+      c.noCategory ? tile('Без категории', c.noCategory, () => go({ catId: 'none' })) : null)] });
 }
 
 // ---------- шапка: крошки и шестерёнка ----------
@@ -149,7 +150,7 @@ function topBlock(reload) {
   // выход к плиткам категорий и сброс — всегда на виду сверху (жалоба 2026-10-29: «зашёл в категорию — назад не выйти»)
   const ALL = { supplierId: undefined, catId: undefined, subId: undefined, flag: undefined, ord: undefined, q: undefined, all: undefined, page: undefined };
   const back = button({ label: '← Все категории', onClick: () => patch(ALL) });
-  const el = h('div', { class: 'sc-top' }, back, h('span', { class: 'spacer' }), gear);
+  const el = toolbar(back, h('span', { class: 'spacer' }), gear);
   el.onParams = async (P) => {
     back.hidden = !(P.supplierId || P.catId || P.subId || P.q || P.flag || P.all || P.ord);
     setCrumbTail(null);
@@ -171,15 +172,14 @@ const ST = { new: ['Новая', 'ok'], price: ['Цена изменилась',
 function previewTable(res) {
   const c = res.counts || {};
   const rows = res.rows || [];
-  const head = h('p', { class: 'hint' + (c.error ? '' : ' ok') },
-    `Строк: ${qty(c.total)} · новых: ${qty(c.new)} · цена изменилась: ${qty(c.price)} · изменится: ${qty(c.update)} · без изменений: ${qty(c.same)} · ошибок: ${qty(c.error)}`);
-  const dup = res.duplicate ? h('p', { class: 'form-error' }, 'Этот файл уже загружали. Если загрузить ещё раз, изменений почти не будет.') : null;
-  const note = c.error ? h('p', { class: 'hint' }, 'Строки с ошибками будут пропущены, остальные загрузятся.') : null;
+  const head = hint(`Строк: ${qty(c.total)} · новых: ${qty(c.new)} · цена изменилась: ${qty(c.price)} · изменится: ${qty(c.update)} · без изменений: ${qty(c.same)} · ошибок: ${qty(c.error)}`, c.error ? undefined : 'ok');
+  const dup = res.duplicate ? hint('Этот файл уже загружали. Если загрузить ещё раз, изменений почти не будет.', 'danger') : null;
+  const note = c.error ? hint('Строки с ошибками будут пропущены, остальные загрузятся.') : null;
   const trs = rows.slice(0, 300).map((r) => {
     const [label, tone] = ST[r.status] || [r.status, ''];
     return h('tr', null,
       h('td', { class: 'muted nowrap' }, String(r.rowNum)),
-      h('td', null, h('span', { class: 'badge ' + tone }, label), r.errors?.length ? h('div', { class: 'form-error small' }, r.errors.join('; ')) : null),
+      h('td', null, h('span', { class: 'badge ' + tone }, label), r.errors?.length ? errLine(r.errors.join('; ')) : null),
       h('td', { class: 'muted nowrap' }, r.supplierName || '—'),
       h('td', { class: 'nowrap' }, r.article || '—'),
       h('td', null, r.name || '—', r.materialName ? h('div', { class: 'muted small' }, '→ ' + r.materialName) : null),
@@ -195,7 +195,7 @@ function orderPreview(rows) {
     h('td', null, rw.article), h('td', { class: 'clip' }, rw.name), h('td', null, rw.color),
     h('td', { class: 'num' }, rw.qty), h('td', null, rw.unit || 'шт'), h('td', null, rw.optGroup),
     h('td', { class: 'num' }, rw.price != null ? rw.price.toLocaleString('ru') + ' ₽' : '—')));
-  return [h('p', { class: 'hint ok' }, `Найдено строк: ${rows.length}${rows.length > 200 ? ' (показаны первые 200)' : ''}`),
+  return [hint(`Найдено строк: ${rows.length}${rows.length > 200 ? ' (показаны первые 200)' : ''}`, 'ok'),
     table({ columns: ['Артикул', 'Название', 'Цвет', 'Кол-во', 'Ед.', 'Группа', 'Цена'].map((label) => ({ label })), rows: trs, maxHeight: 'M' })];
 }
 // 2026-10-26: «Кол-во» — сколько заказать в этих единицах (пусто = 1); «Ед. изм.» — шт / м / кг / упак (пусто = шт); «Цена» — за 1 единицу
@@ -207,6 +207,7 @@ const orderTemplate = () => downloadXlsx('шаблон-прайса.xlsx', [['А
  * open = <id поставщика>|x — прайс-лист в каталог (preview → apply); order:<id> — «Заказ клиента» от поставщика: заявки + цены каталога.
  */
 const fileKey = (k) => (String(k).startsWith('order:') ? { mode: 'order', supplierId: String(k).slice(6) } : { mode: 'price', supplierId: k === 'x' ? '' : String(k) });
+const errLine = (text) => { const p = hint(text, 'danger'); p.classList.add('small'); return p; }; // строка ошибок файла, мелким
 let cur = null; // файл и предпросмотр открытой панели «Загрузить прайс»
 export const priceList = sideForm({
   id: 'pricelist', title: 'Загрузить прайс из Excel', noun: 'файл',
@@ -217,30 +218,31 @@ export const priceList = sideForm({
   fields: async (r) => {
     const order = r.mode === 'order';
     const file = h('input', { type: 'file', accept: order ? '.xlsx,.xls' : '.xlsx', 'aria-label': 'Файл Excel' });
-    const out = h('div', { class: 'sc-preview' });
+    const out = section({ fixed: true, title: 'Предпросмотр', body: [] });
+    const outBody = out.querySelector('.k-sec-body');
     let ready = false; let fapi = null;
     const supplier = () => (order ? r.supplierId : fapi?.get('supplierId') || '');
     const fd = () => { const x = new FormData(); x.append('file', file.files[0]); if (!order && supplier()) x.append('supplierId', supplier()); return x; };
     async function preview() {
       ready = false;
-      if (!file.files?.[0]) { out.replaceChildren(); return; }
-      out.replaceChildren(h('p', { class: 'hint' }, 'Проверяю файл…'));
+      if (!file.files?.[0]) { outBody.replaceChildren(); return; }
+      outBody.replaceChildren(hint('Проверяю файл…'));
       try {
         if (order) {
           const res = await api(`/supply/suppliers/${r.supplierId}/excel?preview=1`, { method: 'POST', body: fd() });
-          ready = true; out.replaceChildren(...orderPreview(res.rows || []));
+          ready = true; outBody.replaceChildren(...orderPreview(res.rows || []));
         } else {
           const res = await api('/supply/catalog/import?preview=1', { method: 'POST', body: fd() });
-          out.replaceChildren(...previewTable(res).filter(Boolean));
+          outBody.replaceChildren(...previewTable(res).filter(Boolean));
           ready = (res.counts?.total || 0) > (res.counts?.error || 0);
         }
-      } catch (e) { out.replaceChildren(h('p', { class: 'form-error' }, e.message || 'Не удалось прочитать файл')); }
+      } catch (e) { outBody.replaceChildren(hint(e.message || 'Не удалось прочитать файл', 'danger')); }
     }
     file.addEventListener('change', preview);
     cur = { file, ready: () => ready, fd, order };
     const note = order
-      ? h('p', { class: 'hint' }, 'Загрузите файл «Заказ клиента» от поставщика: по каждой строке — заявка и цена в каталог поставщика. Кол-во пусто — 1; Ед. изм. пусто — шт; цена — за 1 единицу. ', h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: orderTemplate }, '⇩ Шаблон Excel'))
-      : h('p', { class: 'hint' }, 'Скачайте шаблон в меню ⚙ каталога, заполните и загрузите. Поставщика можно не выбирать, если в файле есть колонка «ИНН поставщика».');
+      ? (() => { const p = hint('Загрузите файл «Заказ клиента» от поставщика: по каждой строке — заявка и цена в каталог поставщика. Кол-во пусто — 1; Ед. изм. пусто — шт; цена — за 1 единицу. '); p.append(h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: orderTemplate }, '⇩ Шаблон Excel')); return p; })()
+      : hint('Скачайте шаблон в меню ⚙ каталога, заполните и загрузите. Поставщика можно не выбирать, если в файле есть колонка «ИНН поставщика».');
     return [noteField(note),
       order ? null : { key: 'supplierId', label: 'Поставщик (необязательно)', type: 'select', wide: true, options: await loadSuppliers(), hint: 'Не выбран — поставщик указан в файле' },
       { key: 'file', label: 'Файл Excel (.xlsx)', type: 'widget', wide: true, widget: () => ({ el: h('div', null, file, out), get value() { return file.files?.[0]?.name || ''; }, set value(_) { /* только ввод */ } }),
@@ -271,7 +273,7 @@ export const priceList = sideForm({
 function materialWidget(v, row) {
   let id = v || null;
   const input = h('input', { type: 'text', placeholder: 'Найти на складе: название или артикул', value: row?.materialName || '' });
-  const wrap = h('div', { class: 'combo-wrap' }, input);
+  const wrap = h('div', null, input);
   let opts = [];
   let last = null;
   let timer;
@@ -290,17 +292,17 @@ function materialWidget(v, row) {
     }, 250);
   });
   const createBtn = row?.id && canWrite()
-    ? button({ label: 'Создать позицию склада', kind: 'ghost', size: 'S', cls: 'sc-preview', onClick: (e) => {
+    ? button({ label: 'Создать позицию склада', kind: 'ghost', size: 'S', onClick: (e) => {
         e.preventDefault();
         const art = row.article && !String(row.article).startsWith('manual:') ? row.article : '';
         go('stock', { new: '1', name: row.name || '', article: art || undefined, fromCatalog: row.id, open: undefined });
       } })
     : null;
-  const hint = h('p', { class: 'hint' }, 'Сначала найдите на складе. Нет такой — только кнопка «Создать позицию склада» (иначе появится дубль имени).');
-  return { el: h('div', null, wrap, createBtn, hint), get value() { return id ? JSON.stringify(id) : ''; }, set value(_) { /* только ввод */ } };
+  const hintEl = hint('Сначала найдите на складе. Нет такой — только кнопка «Создать позицию склада» (иначе появится дубль имени).');
+  return { el: h('div', null, wrap, createBtn, hintEl), get value() { return id ? JSON.stringify(id) : ''; }, set value(_) { /* только ввод */ } };
 }
 
-const thumb = (r) => (r.thumb ? h('img', { class: 'thumb', src: PREFIX + r.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : null);
+const thumb = (r) => posPic(r.thumb ? { thumb: r.thumb, url: r.thumb } : null, 'sm');
 const num = (x) => (x === null || x === undefined || x === '' ? null : Number(x));
 
 export const supplierCatalog = {
@@ -341,7 +343,7 @@ export const supplierCatalog = {
       { key: 'material', label: 'Наш материал', cls: 'clip md-hide', render: (r) => r.materialId ? h('span', { title: r.materialArticle }, r.materialName) : h('span', { class: 'badge warn', title: 'Не связана с позицией склада' }, 'нет связи') },
       { key: 'unit', label: 'Ед. изм.', cls: 'md-hide', render: (r) => r.unit || '' },
       { key: 'priceHint', money: true, label: 'Цена, ₽', cls: 'num right', render: (r) => r.priceHint != null ? money(r.priceHint) : h('span', { class: 'muted' }, '—') },
-      { key: 'priceDate', label: 'Дата цены', cls: 'nowrap md-hide muted', render: (r) => (isStale(r) ? h('span', { class: 'sc-stale', title: 'Цене больше 6 месяцев' }, r.priceDate ? 'от ' + date(r.priceDate) + ' — устарела' : 'устарела') : r.priceDate ? date(r.priceDate) : '') },
+      { key: 'priceDate', label: 'Дата цены', cls: 'nowrap md-hide muted', render: (r) => (isStale(r) ? staleBadge(r.priceDate) : r.priceDate ? date(r.priceDate) : '') },
       { key: 'stockQty', label: 'Остаток', cls: 'num right md-hide', render: (r) => r.stockQty != null ? qty(r.stockQty) : '' },
     ],
     card: {
@@ -362,21 +364,19 @@ export const supplierCatalog = {
     editTop: true,
     top: (r, ctx) => {
       const art = r.article && !r.article.startsWith('manual:') ? r.article : '';
-      const cell = (l, v) => (v === undefined || v === null || v === '' ? null : h('div', { class: 'sc-f' }, h('span', null, l), h('b', null, v)));
       const mat = r.materialId
         ? h('span', null, r.materialName, r.materialArticle ? h('span', { class: 'muted' }, ' · ' + r.materialArticle) : null)
-        : h('span', { class: 'sc-nolink' }, h('span', { class: 'muted' }, 'нет связи'), canWrite() ? button({ label: 'Связать с позицией', size: 'S', onClick: () => ctx.edit() }) : null);
-      return h('div', { class: 'sc-card' },
-        h('div', { class: 'sc-price' },
-          h('div', { class: 'sc-price-v num' }, r.priceHint != null ? `${money(r.priceHint)}${r.unit ? ' / ' + r.unit : ''}` : 'Цена не задана'),
-          r.priceHint != null && r.priceDate ? h('div', { class: isStale(r) ? 'sc-stale small' : 'muted small' }, 'от ' + date(r.priceDate) + (isStale(r) ? ' — устарела' : '')) : null),
-        h('div', { class: 'sc-grid' },
-          cell('Артикул у поставщика', art),
-          cell('Цвет', r.color), cell('Группа', r.optGroup),
-          cell('Остаток', r.stockQty != null ? qty(r.stockQty) : ''),
-          cell('Откуда', SRC[r.source] || ''),
-          cell('Наш материал', mat),
-          cell('Примечание', r.note)));
+        : h('span', null, h('span', { class: 'muted' }, 'нет связи'), canWrite() ? button({ label: 'Связать с позицией', size: 'S', onClick: () => ctx.edit() }) : null);
+      return card({ size: 'M', variant: 'fields',
+        price: { value: r.priceHint != null ? `${money(r.priceHint)}${r.unit ? ' / ' + r.unit : ''}` : 'Цена не задана',
+          note: r.priceHint != null && r.priceDate ? (isStale(r) ? staleBadge(r.priceDate) : 'от ' + date(r.priceDate)) : null },
+        body: readonlyGroup({ rows: [
+          ['Артикул у поставщика', art],
+          ['Цвет', r.color], ['Группа', r.optGroup],
+          ['Остаток', r.stockQty != null ? qty(r.stockQty) : ''],
+          ['Откуда', SRC[r.source] || ''],
+          ['Наш материал', mat],
+          ['Примечание', r.note]] }) });
     },
     view: () => [],
     extra: (r) => {

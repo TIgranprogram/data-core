@@ -1,13 +1,13 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { failBlock } from '../ui/kit/busy.js';
+import { failBlock, busyBlock } from '../ui/kit/busy.js';
 import { modal } from '../ui/kit/dialog.js';
 import { isoDay, date } from '../core/format.js';
 import { patch, go } from '../core/router.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { unmatchedCount } from './matching-queue.js';
 import { fillToday } from './fill.js';
-import { empty, card, row, button, segmented } from '../ui/kit/index.js';
+import { empty, card, row, button, segmented, section, stack, stat, tabs, link, toolbar, layout, hint, miniChart, tileGrid } from '../ui/kit/index.js';
 
 /**
  * «Сегодня» — утренний бриф по ролям (docs/audit/AUDIT-TODAY.md §3): у каждой роли свои 3–6 блоков,
@@ -72,10 +72,10 @@ export function mountHome(deps) {
   let mode = null; // «Моё» / «Всё»: первый раз — как скажет сервер (scope.defaultMode)
   let unmatchedN = 0;
   const scopeEl = h('div', { class: 'td-scope', hidden: true });
-  const pulseEl = h('div', { class: 'td-pulse' }, h('span', { class: 'skel', style: { width: '200px' } }));
-  const filterEl = h('div', { class: 'td-filterwrap' });
-  const blocksEl = h('div', { class: 'td-cols' }, h('div', { class: 'skel-card' }, h('span', { class: 'skel' })));
-  const weekEl = h('div', { class: 'td-week' });
+  const pulseEl = h('div', { class: 'td-pulse' }, busyBlock('Сегодня'));
+  const filterEl = h('div');
+  const blocksEl = layout.cols(busyBlock('Сегодня'));
+  const weekEl = h('div');
   const tilesEl = h('div', { class: 'td-tiles', hidden: true });
   const moneyTileSlot = h('div');
   const fill = has('fill') ? fillToday() : null;
@@ -186,27 +186,27 @@ export function mountHome(deps) {
   function rowsOf(key, items) {
     const full = expanded.has(key), rows = full ? items : items.slice(0, PREVIEW);
     return [...rows.map(cardEl),
-      items.length > PREVIEW ? h('div', { class: 'td-more' },
+      items.length > PREVIEW ? h('div', null,
         button({ label: full ? 'Свернуть ↑' : `ещё ${items.length - PREVIEW} ↓`, kind: 'ghost', size: 'S',
         onClick: () => { full ? expanded.delete(key) : expanded.add(key); paintFeed(); } })) : null];
   }
   function group(key, title, items, open) {
     if (!items.length) return null;
-    return h('details', { class: 'td-group', open },
-      h('summary', null, h('span', null, title), h('b', { class: 'td-gn' }, String(items.length))),
-      h('div', { class: 'td-rows' }, ...rowsOf(key, items)));
+    return section({ title, count: items.length, open, body: rowsOf(key, items) });
   }
-  const unmatchedRow = () => (unmatchedN > 0 ? h('div', { class: 'td-unm' }, h('a', { class: 'q-link', href: '#salesorders', onclick: (e) => { e.preventDefault(); go('salesorders', {}); } }, 'Не сопоставлено позиций: ' + unmatchedN)) : null);
+  const unmatchedRow = () => (unmatchedN > 0 ? h('div', null, link({ label: 'Не сопоставлено позиций: ' + unmatchedN, href: '#salesorders', onClick: (e) => { e.preventDefault(); go('salesorders', {}); } })) : null);
   const emptyBox = (t, s2) => empty({ title: t, hint: s2 });
   const emptyLine = (t) => empty({ kind: 'noData', title: t });
 
   // ---------- Блоки ----------
-  /** Каркас блока: рамка с заголовком (и числом) и телом. */
+  /** Каркас блока: section fixed (рамка с заголовком и числом) и телом. */
   function shell(key, title) {
-    const head = h('h2', { class: 'td-ph' });
-    const body = h('div', { class: 'td-pb td-pb-r' });
-    const el = h('section', { class: 'td-panel td-b-' + key }, head, body);
-    const set = (n, ...kids) => { head.replaceChildren(title, n ? h('b', { class: 'td-gn' }, String(n)) : null); body.replaceChildren(...kids); return n; };
+    const el = section({ fixed: true, title, count: '', body: [] });
+    el.dataset.b = key;
+    const head = el.querySelector('.k-sec-fhead');
+    const nEl = head.querySelector('.k-sec-n');
+    const body = el.querySelector('.k-sec-body');
+    const set = (n, ...kids) => { if (n) { nEl.textContent = String(n); nEl.hidden = false; } else nEl.hidden = true; body.replaceChildren(...kids); return n; };
     return { el, set, head, body };
   }
   const BLOCK = {
@@ -215,7 +215,7 @@ export function mountHome(deps) {
       return { el: s.el, counted: true, paint() {
         const items = visibleFeed().filter((c) => c.kind === key);
         if (key === 'work') items.sort((a, b) => (b.overdueDays || 0) - (a.overdueDays || 0) || (a.personId ? 1 : 0) - (b.personId ? 1 : 0));
-        return s.set(items.length, items.length ? h('div', { class: 'td-feed' }, ...rowsOf(key, items)) : emptyLine(EMPTY[key]));
+        return s.set(items.length, items.length ? stack(...rowsOf(key, items)) : emptyLine(EMPTY[key]));
       } };
     },
     urgent(key, title) {
@@ -223,8 +223,8 @@ export function mountHome(deps) {
       return { el: s.el, counted: true, paint() {
         const over = visibleFeed().filter((c) => c.overdueDays > 0 && !ownKinds.has(c.kind));
         const um = unmatchedRow();
-        s.el.classList.toggle('td-urgent', over.length > 0); // красный только при просроченных делах; «не сопоставлено» — не тревога
-        return s.set(over.length, over.length || um ? h('div', { class: 'td-feed' }, ...rowsOf('over', over), um) : emptyLine('Нет просроченных дел')) + (um ? 1 : 0);
+        s.el.classList.toggle('urgent', over.length > 0); // красный только при просроченных делах; «не сопоставлено» — не тревога
+        return s.set(over.length, over.length || um ? stack(...rowsOf('over', over), um) : emptyLine('Нет просроченных дел')) + (um ? 1 : 0);
       } };
     },
     plan(key, title) {
@@ -235,7 +235,7 @@ export function mountHome(deps) {
         const today = all.filter((c) => !(c.overdueDays > 0) && (c.daysLeft === 0 || c.due === t));
         const week = all.filter((c) => !over.includes(c) && !today.includes(c));
         const rows = [group('today', 'Сегодня', today, true), group('week', 'На неделе', week, true)];
-        return s.set(today.length + week.length, rows[0] || rows[1] ? h('div', { class: 'td-feed' }, ...rows) : emptyLine('Нет дел на сегодня и неделю'));
+        return s.set(today.length + week.length, rows[0] || rows[1] ? stack(...rows) : emptyLine('Нет дел на сегодня и неделю'));
       } };
     },
     questions(key, title) {
@@ -243,10 +243,9 @@ export function mountHome(deps) {
       return { el: s.el, counted: true, paint() {
         const qs = questions();
         const rows = showAllQ ? qs : qs.slice(0, 2);
-        return s.set(qs.length, qs.length ? h('div', { class: 'td-qcard' },
-          ...rows.map((c) => h('div', { class: 'td-q' }, h('div', { class: 'td-q-t' }, c.title),
-            c.sub ? h('div', { class: 'td-sub' }, c.sub) : null,
-            button({ label: 'Ответить', kind: 'primary', size: 'S', onClick: () => answer(c) }))),
+        return s.set(qs.length, qs.length ? stack(
+          ...rows.map((c) => row({ title: c.title, meta: c.sub,
+            action: button({ label: 'Ответить', kind: 'primary', size: 'S', onClick: () => answer(c) }) })),
           qs.length > 2 ? button({ label: showAllQ ? 'Свернуть ↑' : `Показать все ${qs.length} ↓`, kind: 'ghost', size: 'S', onClick: () => { showAllQ = !showAllQ; paintFeed(); } }) : null) : emptyLine('Нет вопросов без ответа'));
       } };
     },
@@ -255,27 +254,29 @@ export function mountHome(deps) {
       return { el: s.el, counted: true, paint() {
         const items = (pq?.items || []).slice(0, 5);
         const left = Math.max(0, (pq?.total ?? items.length) - items.length);
-        return s.set(items.length, items.length ? h('div', { class: 'td-passports' },
-          ...items.map((r) => h('button', { type: 'button', class: 'td-pass' + (r.hot ? ' hot' : ''), onclick: () => go('docs') },
-            h('span', { class: 'td-title' }, `№ ${r.productionNo || r.orderNo || '—'} · ${r.productName || r.title || ''}`),
-            h('span', { class: 'td-sub' }, [r.customer, r.shipDate ? 'отгрузка ' + date(r.shipDate) : 'без срока', r.passportId ? 'есть черновик' : 'нет паспорта'].filter(Boolean).join(' · ')))),
-          left ? h('a', { class: 'td-more-link', href: '#docs', onclick: (e) => { e.preventDefault(); go('docs'); } }, `Все (ещё ${left}) →`) : null) : emptyLine('Нет паспортов, которые пора выдать'));
+        return s.set(items.length, items.length ? stack(
+          ...items.map((r) => row({ tag: 'button', tone: r.hot ? 'danger' : 'neutral',
+            title: `№ ${r.productionNo || r.orderNo || '—'} · ${r.productName || r.title || ''}`,
+            meta: [r.customer, r.shipDate ? 'отгрузка ' + date(r.shipDate) : 'без срока', r.passportId ? 'есть черновик' : 'нет паспорта'].filter(Boolean).join(' · '),
+            onClick: () => go('docs') })),
+          left ? link({ label: `Все (ещё ${left}) →`, href: '#docs', onClick: (e) => { e.preventDefault(); go('docs'); } }) : null) : emptyLine('Нет паспортов, которые пора выдать'));
       } };
     },
     contracts(key, title) {
       const s = shell(key, title);
       return { el: s.el, counted: true, paint() {
         const items = contractsSoon;
-        return s.set(items.length, items.length ? h('div', { class: 'td-passports' },
-          ...items.slice(0, 5).map((c) => h('button', { type: 'button', class: 'td-pass' + (String(c.validTo).slice(0, 10) < isoDay() ? ' hot' : ''), onclick: () => patch({ of: 'contract', open: c.id || c._id }) },
-            h('span', { class: 'td-title' }, `Договор № ${c.no || '—'}`),
-            h('span', { class: 'td-sub' }, [c.supplierName, (String(c.validTo).slice(0, 10) < isoDay() ? 'истёк ' : 'до ') + date(c.validTo)].filter(Boolean).join(' · '))))) : emptyLine('Нет договоров, которые скоро истекают'));
+        return s.set(items.length, items.length ? stack(
+          ...items.slice(0, 5).map((c) => row({ tag: 'button', tone: String(c.validTo).slice(0, 10) < isoDay() ? 'danger' : 'neutral',
+            title: `Договор № ${c.no || '—'}`,
+            meta: [c.supplierName, (String(c.validTo).slice(0, 10) < isoDay() ? 'истёк ' : 'до ') + date(c.validTo)].filter(Boolean).join(' · '),
+            onClick: () => patch({ of: 'contract', open: c.id || c._id }) }))) : emptyLine('Нет договоров, которые скоро истекают'));
       } };
     },
     unmatched(key, title) {
       const s = shell(key, title);
       return { el: s.el, counted: true, paint() {
-        return s.set(unmatchedN, unmatchedN ? h('div', { class: 'td-unm' }, h('a', { href: '#salesorders', onclick: (e) => { e.preventDefault(); go('salesorders', {}); } }, 'Сопоставить позиции договоров: ' + unmatchedN)) : emptyLine('Нет несопоставленных позиций'));
+        return s.set(unmatchedN, unmatchedN ? link({ label: 'Сопоставить позиции договоров: ' + unmatchedN, href: '#salesorders', onClick: (e) => { e.preventDefault(); go('salesorders', {}); } }) : emptyLine('Нет несопоставленных позиций'));
       } };
     },
     money(key, title) {
@@ -293,7 +294,7 @@ export function mountHome(deps) {
     if (!data) return;
     const fl = dayFilter ? `Дела на ${new Date(dayFilter + 'T00:00').toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}`
       : chip ? (chip === 'overdue' ? 'Только просроченные' : 'Только просроченные в работе') : '';
-    filterEl.replaceChildren(fl ? h('div', { class: 'td-filter' }, fl,
+    filterEl.replaceChildren(fl ? toolbar(h('span', null, fl),
       button({ label: 'Показать все', size: 'S', onClick: () => { dayFilter = null; chip = null; paintAll(); } })) : '');
     let total = 0;
     for (const b of blocks) { const n = b.paint(); if (b.counted) total += n || 0; }
@@ -306,15 +307,14 @@ export function mountHome(deps) {
   // ---------- Пульс: числа ----------
   function paintPulse() {
     const showQ = has('questions'), showW = has('work');
-    const mk = (key, n, label, title) => button({ title, cls: 'td-chip' + (chip === key ? ' on' : '') + (n ? '' : ' zero'),
-      icon: h('b', null, String(n || 0)), label: h('span', null, label),
+    const mk = (key, n, label, title) => { const el = stat({ value: n || 0, label, active: chip === key,
       onClick: () => {
-        if (key === 'question') { showAllQ = !showAllQ; paintFeed(); blocks.find((b) => b.el.classList.contains('td-b-questions'))?.el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+        if (key === 'question') { showAllQ = !showAllQ; paintFeed(); blocks.find((b) => b.el.dataset.b === 'questions')?.el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
         chip = chip === key ? null : key; dayFilter = null; paintAll();
-      } });
+      } }); el.title = title; return el; };
     const base = (data?.feed || []).filter((c) => c.kind !== 'question' && notSnoozed(c));
     const o = base.filter((c) => c.overdueDays > 0).length, w = base.filter((c) => c.kind === 'work' && c.overdueDays > 0).length, q = questions().length;
-    if (!o && !w && !q && !chip) { pulseEl.replaceChildren(h('p', { class: 'td-sub' }, 'Просроченных дел нет')); return; } // три нулевые пилюли вместо одной строки
+    if (!o && !w && !q && !chip) { pulseEl.replaceChildren(hint('Просроченных дел нет')); return; } // три нулевые пилюли вместо одной строки
     pulseEl.replaceChildren(
       mk('overdue', o, plural(o, 'просроченное дело', 'просроченных дела', 'просроченных дел'), 'Показать только просроченные дела'),
       showW ? mk('workover', w, plural(w, 'задание просрочено', 'задания просрочено', 'заданий просрочено'), 'Показать просроченные задания в работе') : null,
@@ -327,23 +327,23 @@ export function mountHome(deps) {
     if (!days.length) { weekEl.replaceChildren(); return; }
     const today = isoDay();
     const any = days.some((d) => d.events.length);
-    weekEl.replaceChildren(h('div', { class: 'td-days' }, ...days.map((d) => {
-      const dt = new Date(d.date + 'T00:00');
-      return button({
-        cls: 'td-day' + (d.date === today ? ' today' : '') + (dayFilter === d.date ? ' on' : ''),
-        onClick: () => { dayFilter = dayFilter === d.date ? null : d.date; chip = null; paintAll(); },
-        icon: [h('span', { class: 'td-dn' }, dt.toLocaleDateString('ru-RU', { weekday: 'short' })), h('b', { class: 'td-dd' }, String(dt.getDate()))],
-        label: h('span', { class: 'td-ev' }, d.events.slice(0, 3).map((e) => h('i', { class: 'td-pt k-' + e.kind, title: `${KIND_LABEL[e.kind] || ''}: ${e.title}` })),
-          d.events.length > 3 ? h('small', null, '+' + (d.events.length - 3)) : null),
-      });
-    })), any ? null : h('div', { class: 'td-sub' }, 'На неделе событий нет'));
+    const KIND_TONE = { delivery: 'info', shipment: 'ok', design: 'warn', question: 'warn', payment: 'danger', work: 'info' };
+    const week = tabs({
+      layout: 'days', label: 'Неделя по дням', value: dayFilter ?? undefined,
+      items: days.map((d) => {
+        const dt = new Date(d.date + 'T00:00');
+        return { key: d.date, today: d.date === today, label: String(dt.getDate()),
+          sub: dt.toLocaleDateString('ru-RU', { weekday: 'short' }),
+          marks: d.events.slice(0, 3).map((e) => KIND_TONE[e.kind] || 'dim') };
+      }),
+      onChange: (k) => { dayFilter = dayFilter === k ? null : k; chip = null; paintAll(); },
+    });
+    weekEl.replaceChildren(week.el, any ? null : hint('На неделе событий нет'));
   }
 
   // ---------- Плитки-показатели: подпись, число, мини-график ----------
-  const segBar = (parts) => {
-    const tot = parts.reduce((a, p) => a + p.n, 0);
-    return h('div', { class: 'td-seg', 'aria-hidden': 'true' }, tot ? parts.filter((p) => p.n > 0).map((p) => h('i', { class: p.cls, style: { flex: String(p.n) } })) : null);
-  };
+  const SEG_TONE = { s1: 'info', s2: 'warn', s3: 'ok', s4: 'dim' };
+  const segBar = (parts) => miniChart({ type: 'bar', parts: parts.map((p) => ({ value: p.n, tone: SEG_TONE[p.cls] || 'dim' })) });
   function spark(days) {
     const w = 100, H = 32, pad = 3;
     const vals = days.map((d) => d.balance), lo = Math.min(0, ...vals), hi = Math.max(0, ...vals), span = hi - lo || 1;
@@ -354,7 +354,7 @@ export function mountHome(deps) {
       svg('polyline', { points: days.map((d, i) => `${X(i)},${Y(d.balance)}`).join(' '), fill: 'none', class: 'td-line', 'vector-effect': 'non-scaling-stroke' }));
   }
   const tile = (label, value, graph, onclick, title) => {
-    const el = card({ size: 'S', title: value, meta: label, badges: graph || h('div', { class: 'td-seg' }), onClick: onclick });
+    const el = card({ size: 'S', title: value, meta: label, badges: graph || miniChart({ type: 'bar', parts: [] }), onClick: onclick });
     el.title = title || '';
     return el;
   };
@@ -395,7 +395,7 @@ export function mountHome(deps) {
     const pick = (m) => { if (mode === m) return; mode = m; load(); };
     scopeEl.replaceChildren(
       segmented({ items: [{ key: 'mine', label: 'Моё' }, { key: 'all', label: 'Всё' }], value: mode, onChange: (m) => pick(m), label: 'Что показывать' }).el,
-      sc.linked === false ? h('div', { class: 'hint td-scope-hint' }, 'Вход не связан с сотрудником — скажите директору.') : null);
+      sc.linked === false ? hint('Вход не связан с сотрудником — скажите директору.') : null);
   }
 
   // ---------- Загрузка ----------
@@ -423,16 +423,15 @@ export function mountHome(deps) {
   // ---------- Быстрые действия (склад и снабжение; на телефоне — крупные плитки) ----------
   const quick = ['user', 'manager'].includes(role) && (seeReq || seeStock);
   const act = (label, title, onclick) => button({ label, title, onClick: onclick });
-  const actions = quick ? h('div', { class: 'today-actions' },
+  const actions = quick ? toolbar(
     seeReq ? [
       act('+ Заявка', 'Новая заявка — форма справа', () => patch({ of: 'requests', new: '1', open: undefined })),
       act('+ Из таблицы', 'Скопировать строки из Excel / сайта — заявки на все позиции', () => patch({ of: 'pasteorder', new: '1', open: undefined })),
       act('+ Счёт', 'Внести счёт, которого не было в заявках', () => patch({ of: 'invoice', new: '1', open: undefined }))] : null,
     null) : null; // УПР-1/Д5: кнопки склада убраны с «Сегодня» — они в «Складе»
-  const goTiles = quick ? h('div', { class: 'go-tiles' },
-    seeReq ? h('button', { type: 'button', class: 'go-tile', onclick: () => patch({ of: 'requests', new: '1', open: undefined }) },
-      h('b', null, '+ Заявка'), h('span', null, 'закончилось — что, сколько')) : null,
-    seeStock ? h('a', { class: 'go-tile', href: '#stock' }, h('b', null, 'Склад'), h('span', null, 'остатки и движения')) : null) : null;
+  const goTiles = quick ? tileGrid(
+    seeReq ? card({ size: 'S', title: '+ Заявка', meta: 'закончилось — что, сколько', onClick: () => patch({ of: 'requests', new: '1', open: undefined }) }) : null,
+    seeStock ? card({ size: 'S', title: 'Склад', meta: 'остатки и движения', onClick: () => { location.hash = '#stock'; } }) : null) : null;
 
   // Диск сервера и целостность данных — только админу и только если есть что показать (под блоками)
   // проверки здоровья — не чаще раза в час (ответ в sessionStorage)
@@ -443,7 +442,8 @@ export function mountHome(deps) {
     try { sessionStorage.setItem(k, JSON.stringify({ t: Date.now(), v })); } catch { /* хранилище недоступно */ }
     return v;
   };
-  const diskNote = h('p', { class: 'hint disk-note', hidden: true });
+  const diskNote = hint('');
+  diskNote.hidden = true;
   if (role === 'admin' || session.user?.isOwner) {
     hourly('/health/disk').then((d) => {
       if (d.level === 'ok') return;
@@ -454,12 +454,12 @@ export function mountHome(deps) {
     }).catch(() => {});
     hourly('/health/integrity').then((r) => {
       if (!r.issues?.length) return;
-      diskNote.after(h('p', { class: 'hint disk-note' }, h('b', null, 'Проверка данных: '), r.issues.map((x) => `${x.title} — ${x.count}`).join('; '), '. Напишите разработчику — исправим по плану.'));
+      const integrityNote = hint(''); integrityNote.replaceChildren(h('b', null, 'Проверка данных: '), r.issues.map((x) => `${x.title} — ${x.count}`).join('; '), '. Напишите разработчику — исправим по плану.'); diskNote.after(integrityNote);
     }).catch(() => {});
   }
 
-  const fold = (cls, title, body, hidden) => h('details', { class: 'td-weekfold ' + cls, hidden }, h('summary', null, title), h('div', { class: 'td-fold-body' }, body));
-  const statsFold = fold('td-stats', 'Показатели', tilesEl, true);
+  const fold = (title, body, hidden) => { const el = section({ title, body }); el.hidden = !!hidden; return el; };
+  const statsFold = fold('Показатели', tilesEl, true);
 
   const el = h('div', { class: 'today' },
     h('div', { class: 'page-head td-head' },
@@ -470,7 +470,7 @@ export function mountHome(deps) {
     actions,
     filterEl,
     blocksEl,
-    showWeek ? fold('td-wk', 'Неделя по дням', weekEl) : null,
+    showWeek ? fold('Неделя по дням', weekEl) : null,
     statsFold,
     diskNote);
 

@@ -3,17 +3,17 @@ import { stockLookup, stockList } from '../core/stock-list.js';
 import { normSearch } from '../core/facets.js';
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { busyBtn, failBlock } from '../ui/kit/busy.js';
+import { busyBtn, busyBlock, failBlock } from '../ui/kit/busy.js';
 import { date, qty, plural } from '../core/format.js';
 import { go, patch } from '../core/router.js';
-import { badge, STOCK_STATUS } from '../ui/kit/badges.js';
+import { STOCK_STATUS } from '../ui/kit/badges.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { lookups, UNITS, unitList } from './lookups.js';
 import { facetFilter, ftParams, ftQuery, parseFt } from '../ui/kit/index.js';
 import { facetLabel, pipeKey, index as facetIndex, pick as facetPick } from '../core/facets.js';
 import { stockRequestsBox, requestFromHash, catalogFromHash, closeRequest } from './stock-requests.js';
 import { loadZones, setZone, zoneNow, zoneQuery } from '../core/zone.js';
-import { segmented, toolbar, catArt, section, stack, button as kitButton } from '../ui/kit/index.js';
+import { segmented, toolbar, catArt, section, stack, button as kitButton, badge, card, row, tileGrid, landing, hint, empty, posPic } from '../ui/kit/index.js';
 
 /** Переключатель склада над списком (kit.segmented): виден, если доступно больше одного склада. Выбор запоминается; список и категории перечитываются. */
 function zoneBar() {
@@ -48,22 +48,20 @@ const unit = (r) => r.unit || '';
 /** Миниатюра в строке списка (или пустое место того же размера — колонки не прыгают). */
 /** Миниатюра в ячейке таблицы; фото нет (или битое) — ячейка пустая, без квадрата-заглушки. */
 export const pic = (p) => (p ? h('img', { class: 'pic', src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }) : null);
-const photoThumb = (r) => {
-  const p = (r.photos || [])[0];
-  return p ? h('img', { class: 'thumb', src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy' }) : null;
-};
+const photoThumb = (r) => posPic((r.photos || [])[0], 'sm');
 
 const HIST = { in: 'Приход', out: 'Списание', adjust: 'Корректировка', count: 'Пересчёт', transfer: 'Перемещение', reserve: 'Бронь', unreserve: 'Снятие брони' };
+const NEG = ' neg';
+const negCls = (m) => (m.type === 'out' ? NEG : '');
 /** Последние 5 записей истории позиции (GET /stock/items/:id/history?limit=5) и «Вся история» — без ограничения. */
 function recentMoves(r) {
-  const ul = h('ul', { class: 'timeline' }, h('li', { class: 'muted' }, 'Загрузка…')); const more = h('div', { class: 'actions' }); const box = h('div');
-  const paint = (count) => box.replaceChildren(section({ tone: 'gold', title: 'Последние записи', count, open: box.querySelector('details.k-sec')?.open || false, body: [ul, more] })); paint(null);
+  const list = stack(busyBlock('История движений')); const more = h('div', { class: 'actions' }); const box = h('div');
+  const paint = (count) => box.replaceChildren(section({ tone: 'gold', title: 'Последние записи', count, open: box.querySelector('details.k-sec')?.open || false, body: [list, more] })); paint(null);
   const show = (res, full) => {
-    paint(res.total ?? res.items.length); if (!res.items.length) { ul.replaceChildren(h('li', { class: 'muted' }, 'Движений нет. Приход и списание — кнопки в карточке позиции.')); more.replaceChildren(); return; }
-    ul.replaceChildren(...res.items.map((m) => h('li', null,
-      h('span', { class: 'when' }, date(m.date)), h('span', null, HIST[m.type] || m.type),
-      h('span', { class: 'num ' + (m.type === 'in' ? 'pos' : m.type === 'out' ? 'neg' : '') }, (m.type === 'in' ? '+' : m.type === 'out' ? '−' : '') + qty(m.qty)),
-      h('span', { class: 'muted', style: { flex: '1' } }, targetNote(m), targetNote(m) && m.note ? ' · ' : '', m.note || ''))));
+    paint(res.total ?? res.items.length); if (!res.items.length) { list.replaceChildren(hint('Движений нет. Приход и списание — кнопки в карточке позиции.')); more.replaceChildren(); return; }
+    list.replaceChildren(...res.items.map((m) => row({ lead: date(m.date), title: HIST[m.type] || m.type,
+      side: h('span', { class: 'num' + negCls(m) }, (m.type === 'in' ? '+' : m.type === 'out' ? '−' : '') + qty(m.qty)),
+      below: [targetNote(m), m.note].filter(Boolean).join(' · ') || null })));
     more.replaceChildren(...[
       !full && res.total > res.items.length ? kitButton({ label: `Вся история (${res.total})`, kind: 'ghost', size: 'S', onClick: async (e) => {
         const free = busyBtn(e.currentTarget, null);
@@ -71,7 +69,7 @@ function recentMoves(r) {
       } }) : null,
       h('a', { class: 'btn btn-ghost btn-sm', href: '#movements?materialId=' + r.id, title: 'Журнал движений позиции — там можно отменить ошибочное' }, 'Журнал движений →')].filter(Boolean));
   };
-  const loadHist = () => api(`/stock/items/${r.id}/history`, { query: { limit: 5 } }).then((res) => show(res, false)).catch((e) => ul.replaceChildren(h('li', null, failBlock(e, loadHist, { text: 'История не загрузилась' }))));
+  const loadHist = () => api(`/stock/items/${r.id}/history`, { query: { limit: 5 } }).then((res) => show(res, false)).catch((e) => list.replaceChildren(failBlock(e, loadHist, { text: 'История не загрузилась' })));
   loadHist();
   return box;
 }
@@ -103,41 +101,39 @@ function ftIds(P) {
 
 // ---------- первая страница «Остатков»: плитки категорий (эталон cat-tile, как «Каталог поставщиков») ----------
 const nPos = (n) => `${qty(n)} ${plural(n, 'позиция', 'позиции', 'позиций')}`;
+const stockTag = (text, title, tone = 'dim') => { const b = badge(text, tone); b.title = title; return b; }; // метка в ячейке «Состояние»: бронь / «висит»
+/** Метка у названия трубы (эталон badge): «нерж.» / «Мытая». */
+const pipeBadge = (text, tone) => { const b = badge(text, tone); b.setAttribute('style', 'margin-left: 6px'); return b; };
 async function stockLanding() {
   const [catsR, zones] = await Promise.all([api('/stock/categories'), loadZones().catch(() => [])]);
   const cats = (catsR.items || []).filter((c) => c.id !== 'none' && c.total);
   const open = (p) => patch({ ...p, view: 'table', page: undefined });
   const all = kitButton({ label: 'Все позиции списком', onClick: () => open({ all: '1' }) });
-  if (!cats.length) return h('div', { class: 'state' }, h('div', null, 'Категорий пока нет — позиции покажутся списком.'), all);
-  const art = (name, cls) => { const el = h('div', { class: cls }); el.innerHTML = catArt(name); return el; }; // свой статичный SVG, данных пользователя нет
+  if (!cats.length) { const box = empty({ title: 'Категорий пока нет — позиции покажутся списком.' }); box.append(all); return box; }
+  const art = (name) => { const el = h('span'); el.innerHTML = catArt(name); return el; }; // свой статичный SVG, данных пользователя нет
   const low = (c) => [c.low ? `к закупке ${c.low}` : '', c.none ? `нет ${c.none}` : ''].filter(Boolean).join(' · ');
-  const catTile = (c, zoneId) => h('button', { type: 'button', class: 'cat-tile', title: c.name, onclick: () => { if (zoneId) setZone(zoneId); open({ categoryId: c.id }); } }, art(c.name, 'cat-art'),
-    h('div', { class: 'cat-body' }, h('div', { class: 'cat-name' }, c.name), h('div', { class: 'cat-n' }, nPos(c.total), low(c) ? h('span', { class: 'warn' }, ' · ' + low(c)) : null)));
+  const catTile = (c, zoneId) => card({ size: 'S', art: art(c.name), title: c.name, meta: nPos(c.total), low: low(c) || undefined,
+    onClick: () => { if (zoneId) setZone(zoneId); open({ categoryId: c.id }); } });
   const total = cats.reduce((a, c) => a + c.total, 0);
-  const head = h('div', { class: 'cat-top' }, h('p', { class: 'muted' }, `Выберите ${zones.length > 1 ? 'склад' : 'категорию'} · всего ${nPos(total)}`), all);
+  const head = `Выберите ${zones.length > 1 ? 'склад' : 'категорию'} · всего ${nPos(total)}`;
   // один склад или ни одного — сразу категории
-  if (zones.length < 2) return h('div', { class: 'cat-landing' }, head, h('div', { class: 'cat-grid' }, ...cats.map((c) => catTile(c, ''))));
-  // склады — большие плитки (как разделы «Продукции»), под ними — категории склада; категория без склада — в основном
+  if (zones.length < 2) return landing({ head, action: all, body: tileGrid(...cats.map((c) => catTile(c, ''))) });
+  // склады — плитки с раскрывающейся панелью (card S expand), под ними — категории склада; категория без склада — в основном
   const def = zones.find((z) => z.isDefault) || zones[0];
   const zoneOf = (c) => zones.find((z) => (z.categoryIds || []).includes(c.id)) || def;
-  const items = [];
-  const setOpen = (id) => { for (const it of items) { const on = it.id === id; it.tile.classList.toggle('active', on); it.tile.setAttribute('aria-expanded', String(on)); it.panel.classList.toggle('open', on); if (on) it.panel.removeAttribute('inert'); else it.panel.setAttribute('inert', ''); } };
+  const zoneTiles = [];
   const zoneItem = (z) => {
     const zc = cats.filter((c) => zoneOf(c) === z);
     const n = zc.reduce((a, c) => a + c.total, 0);
-    const pid = 'zone-p-' + z.id;
-    const tile = h('button', { type: 'button', class: 'sec-tile sec-stock', title: z.name, 'aria-expanded': 'false', 'aria-controls': pid,
-      onclick: () => setOpen(tile.classList.contains('active') ? '' : z.id) }, art(z.name, 'sec-art'),
-      h('span', { class: 'sec-body' }, h('span', { class: 'sec-name' }, z.name), h('span', { class: 'sec-n' }, nPos(n) + (zc.length ? ` · категорий ${zc.length}` : ''))),
-      h('span', { class: 'sec-chev', 'aria-hidden': 'true' }, '▾'));
-    const panel = h('div', { class: 'sec-panel', id: pid, inert: '' }, h('div', { class: 'sec-panel-in' },
-      h('div', { class: 'sec-panel-head' }, h('h3', null, 'Категории склада «' + z.name + '»'), kitButton({ label: 'Весь склад →', kind: 'ghost', onClick: () => { setZone(z.id); open({ all: '1' }); } })),
-      zc.length ? h('div', { class: 'cat-grid' }, ...zc.map((c) => catTile(c, z.id))) : h('p', { class: 'muted' }, 'Категорий нет — отметьте их в «Справочники» → «Склады».')));
-    items.push({ id: z.id, tile, panel });
-    return h('div', { class: 'sec-item' }, tile, panel);
+    const el = card({ size: 'S', art: art(z.name), title: z.name, meta: nPos(n) + (zc.length ? ` · категорий ${zc.length}` : ''),
+      expand: { title: 'Категории склада «' + z.name + '»',
+        action: kitButton({ label: 'Весь склад →', kind: 'ghost', size: 'S', onClick: () => { setZone(z.id); open({ all: '1' }); } }),
+        body: zc.length ? tileGrid(...zc.map((c) => catTile(c, z.id))) : hint('Категорий нет — отметьте их в «Справочники» → «Склады».') } });
+    zoneTiles.push({ id: z.id, tile: el.firstElementChild });
+    return el;
   };
-  const node = h('div', { class: 'cat-landing' }, head, h('div', { class: 'sec-grid' }, ...zones.map(zoneItem)));
-  setOpen(def.id); // основной раскрыт сразу — частые категории под рукой
+  const node = landing({ head, action: all, body: tileGrid(...zones.map(zoneItem)) });
+  zoneTiles.find((t) => t.id === def.id)?.tile.click(); // основной раскрыт сразу — частые категории под рукой
   return node;
 }
 
@@ -210,9 +206,9 @@ export const stock = {
       })),
     },
     columns: [
-      { key: 'pic', label: '', cls: 'pic-cell', render: (r) => pic(r.photos?.[0]) },
+      { key: 'pic', label: '', pic: true, render: (r) => pic(r.photos?.[0]) },
       { key: 'name', label: 'Название', sort: 'name', cls: 'clip', render: (r) => (r.metal === 'pipe' && r.assortment
-        ? h('span', { title: r.name }, h('b', null, facetLabel('pipe', pipeKey(r))), /нерж/i.test(r.name) ? h('span', { class: 'badge', style: { marginLeft: '6px' } }, 'нерж.') : null, r.washed == null ? null : h('span', { class: 'badge ' + (r.washed ? 'info' : 'warn'), style: { marginLeft: '6px' } }, r.washed ? 'Мытая' : 'Не мытая'))
+        ? h('span', { title: r.name }, h('b', null, facetLabel('pipe', pipeKey(r))), /нерж/i.test(r.name) ? pipeBadge('нерж.', 'dim') : null, r.washed == null ? null : pipeBadge(r.washed ? 'Мытая' : 'Не мытая', r.washed ? 'info' : 'warn'))
         : h('span', { title: r.name }, r.name)) },
       { key: 'categoryName', label: 'Категория', sort: 'categoryName', cls: 'md-hide', render: (r) => r.categoryName || '' },
       { key: 'quantity', label: 'Остаток', sort: 'quantity', cls: 'num right', render: (r) => {
@@ -225,12 +221,12 @@ export const stock = {
       { key: 'free', label: 'Свободно', sort: 'free', cls: 'num right', render: (r) => h('span', { title: r.ordered ? `С учётом заказанного: ${qty(r.free + r.ordered)}` : '' }, qty(r.free)) },
       { key: 'minQuantity', label: 'Мин.', sort: 'minQuantity', cls: 'num right md-hide', render: (r) => (r.minQuantity ? qty(r.minQuantity) : '') },
       { key: 'lastCountedAt', label: 'Пересчёт', sort: 'lastCountedAt', cls: 'md-hide muted', render: (r) => (r.lastCountedAt ? date(r.lastCountedAt) : '') },
-      { key: 'status', label: 'Состояние', sort: 'status', render: (r) => h('span', { class: 'nowrap st-cell' },
+      { key: 'status', label: 'Состояние', sort: 'status', nowrap: true, render: (r) => h('span', { class: 'nowrap' },
           r.status === 'none' && r.ordered
             ? h('span', { class: 'badge warn', title: `Нет на складе, в заявках: ${qty(r.ordered)} ${unit(r)}` }, `нет (заказано ${qty(r.ordered)})`)
             : [badge(STOCK_STATUS, r.status), r.ordered ? h('span', { class: 'muted small', title: 'Открытые заявки на позицию' }, `  зак. ${qty(r.ordered)}`) : null],
-          r.reservedQty ? h('span', { class: 'tag', title: 'Отложено под заказы. Снять — откройте позицию, кнопка «Снять бронь»' }, `бронь ${qty(r.reservedQty)}`) : null,
-          r.hangingQty ? h('span', { class: 'tag tag-hang', title: 'Заказ уже отгружен, закрыт или аннулирован, а материал всё ещё в брони. Откройте позицию, кнопка «Снять бронь»' }, `висит ${qty(r.hangingQty)}`) : null) },
+          r.reservedQty ? stockTag(`бронь ${qty(r.reservedQty)}`, 'Отложено под заказы. Снять — откройте позицию, кнопка «Снять бронь»') : null,
+          r.hangingQty ? stockTag(`висит ${qty(r.hangingQty)}`, 'Заказ уже отгружен, закрыт или аннулирован, а материал всё ещё в брони. Откройте позицию, кнопка «Снять бронь»', 'warn') : null) },
     ],
     card: {
       thumb: photoThumb,

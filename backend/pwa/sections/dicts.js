@@ -7,7 +7,7 @@ import { confirmDlg, modal } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { lookups } from './lookups.js';
 import { KINDS, KINDS_V2, kindName } from '../core/passport-kinds.js';
-import { searchBox, tagPick, button, select, enhanceSelect } from '../ui/kit/index.js';
+import { searchBox, tagPick, button, select, enhanceSelect, navList, layout, toolbar, row, stack, section, actions, badge, empty, hint as hintKit, photoStrip as kitPhotoStrip } from '../ui/kit/index.js';
 import { mountTexts, TEXTS_KEY } from './passport-texts.js';
 import { mountTree, TREE_KEY } from './passport-tree.js';
 import { mountZones, ZONES_KEY } from './stock-zones.js';
@@ -49,10 +49,9 @@ export function mountDicts(params) {
   let data = null;
   let q = '';
   const openGroups = new Set(); // свёрнутая группа «Документы», открытая вручную
-  const nav = h('nav', { class: 'panel dict-nav', 'aria-label': 'Справочники' });
-  const sel = select({ cls: 'dict-sel', label: 'Справочник', onChange: (v) => { if (v === '#partners') go('partners'); else go('dicts', { d: v }, { replace: true }); } });
-  const title = h('h3', null, '…');
-  const hint = h('p', { class: 'hint dict-hint' });
+  const nav = h('nav', { class: 'panel', 'aria-label': 'Справочники' });
+  const title = h('h2', null, '…');
+  const hintEl = hintKit('');
   // общий поиск (ПО.3): пусто — весь справочник
   const sbx = searchBox({ placeholder: 'Найти значение…', label: 'Поиск значения', delay: 150, onSearch: (v) => { q = v.toLowerCase(); renderTable(); } });
   const search = sbx.el;
@@ -63,14 +62,14 @@ export function mountDicts(params) {
   let qf = 'all'; // фильтр качества таблицы: все / дубли
   const addBtn = button({ label: '+ Добавить', kind: 'primary', onClick: () => patch({ of: 'dict', new: '1', open: undefined }) }); addBtn.hidden = !session.canEdit;
   const candBtn = button({ label: 'Найти в данных…', title: 'Значения, которые уже встречаются в заявках, на складе и в Google-таблице, но ещё не в справочнике', onClick: () => toggleCandidates() }); candBtn.hidden = !session.canEdit;
-  const cand = h('div', { class: 'dict-cand', hidden: true });
-  const body = h('div', { class: 'dict-body' });
-  const box = h('section', { class: 'panel dict-main' },
-    h('header', { class: 'dict-head' }, h('div', { class: 'dict-titles' }, title, hint), h('div', { class: 'dict-tools' }, searchWrap, candBtn, addBtn)),
+  const cand = h('div', { hidden: true });
+  const body = h('div');
+  const box = h('section', { class: 'panel' },
+    toolbar(title, hintEl, searchWrap, candBtn, addBtn),
     cand, body);
-  const el = h('div', { class: 'dicts' },
+  const el = h('div',
     h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Справочники'), h('div', { class: 'sub' }, 'Здесь меняются значения выпадающих списков: добавить, исправить, удалить. Изменение сразу видно во всех разделах'))),
-    h('div', { class: 'dict-layout' }, sel, nav, box));
+    layout.split({ side: nav, main: box, sideLabel: 'Справочники' }));
 
   // Меню: серверные группы → 4 понятные + «Контрагенты»; «Документы» свёрнуты, пока не выбран справочник из неё
   function menuGroups() {
@@ -81,23 +80,16 @@ export function mountDicts(params) {
   }
   function renderNav() {
     const cur = dictKey();
-    const gs = menuGroups();
-    const link = (key, text, count) => h('a', { class: 'dict-link' + (key === cur ? ' active' : ''), href: '#dicts?d=' + key, onclick: (e) => { e.preventDefault(); go('dicts', { d: key }, { replace: true }); } },
-      h('span', null, text), count === undefined ? null : h('b', { class: 'num' }, count === '→' ? '→' : qty(count)));
-    nav.replaceChildren(...gs.flatMap((g) => {
+    const gs = menuGroups().map((g) => {
       const pass = g.name === PASS_GROUP;
-      const here = g.items.some((d) => d.key === cur) || (cur === ZONES_KEY) || (pass && cur === TEXTS_KEY);
-      const folded = pass && !here && !openGroups.has(g.name);
-      const head = pass
-        ? h('button', { type: 'button', class: 'dict-group dict-group-toggle', 'aria-expanded': String(!folded), onclick: () => { if (openGroups.has(g.name)) openGroups.delete(g.name); else openGroups.add(g.name); renderNav(); } }, (folded ? '▸ ' : '▾ ') + g.name)
-        : h('div', { class: 'dict-group' }, g.name);
-      if (folded) return [head];
-      return [head, ...g.items.map((d) => link(d.key, d.title, d.count)), g.name === GROUP_ORDER[0] && isAdmin() ? link(ZONES_KEY, 'Склады') : null, pass ? link(TEXTS_KEY, 'Общие разделы (шаблон)', '→') : null];
-    }).filter(Boolean), h('div', { class: 'dict-group' }, 'Контрагенты'), h('a', { class: 'dict-link', href: '#partners' }, h('span', null, 'Поставщики, заказчики, наши компании'), h('b', null, '→')));
-    // телефон: один select вместо ленты ссылок
-    sel.replaceChildren(...gs.map((g) => h('optgroup', { label: g.name }, ...g.items.map((d) => h('option', { value: d.key }, d.title)), g.name === GROUP_ORDER[0] && isAdmin() ? h('option', { value: ZONES_KEY }, 'Склады') : null, g.name === PASS_GROUP ? h('option', { value: TEXTS_KEY }, 'Общие разделы (шаблон)') : null)),
-      h('optgroup', { label: 'Контрагенты' }, h('option', { value: '#partners' }, 'Поставщики, заказчики, наши компании')));
-    sel.value = cur;
+      const here = g.items.some((d) => d.key === cur) || cur === ZONES_KEY || (pass && cur === TEXTS_KEY);
+      const items = [...g.items.map((d) => ({ key: d.key, label: d.title, count: d.count }))];
+      if (g.name === GROUP_ORDER[0] && isAdmin()) items.push({ key: ZONES_KEY, label: 'Склады' });
+      if (pass) items.push({ key: TEXTS_KEY, label: 'Общие разделы (шаблон)' });
+      return { title: g.name, items, fold: pass, open: !pass || here || openGroups.has(g.name) };
+    });
+    gs.push({ title: 'Контрагенты', items: [{ key: '#partners', label: 'Поставщики, заказчики, наши компании', href: '#partners' }] });
+    nav.replaceChildren(navList({ groups: gs, value: cur, label: 'Справочники', onPick: (k) => go('dicts', { d: k }, { replace: true }) }).el);
   }
 
   function renderTable() {
@@ -112,27 +104,27 @@ export function mountDicts(params) {
     if (!dup.size) qf = 'all';
     const rows = data.items.filter((x) => (qf !== 'dupes' || dup.has(x.id)) && (!tk.length || ((s) => tk.every((w) => s.includes(w)))(normSearch(Object.values(x).filter((v) => typeof v !== 'object').join(' ')))));
     if (!data.items.length) {
-      body.replaceChildren(h('div', { class: 'state' }, h('p', null, 'Здесь пока ничего нет.'), canEditDict() ? h('p', { class: 'muted' }, 'Нажмите «+ Добавить» или «Найти в данных…» — возьмём то, что уже встречается в заявках и на складе.') : null));
+      body.replaceChildren(empty({ title: 'Здесь пока ничего нет.', hint: canEditDict() ? 'Нажмите «+ Добавить» или «Найти в данных…» — возьмём то, что уже встречается в заявках и на складе.' : undefined }));
       return;
     }
-    if (!rows.length) { body.replaceChildren(h('div', { class: 'state' }, h('p', null, `Ничего не найдено по «${sbx.input.value}».`), h('p', { class: 'muted' }, 'Попробуйте другое слово.'))); return; }
-    const descOf = (r) => cols.filter((c) => c.key !== 'name').map((c) => (c.key === 'hex' && r.hex ? [h('i', { class: 'swatch', style: { background: r.hex } }), r.hex] : fmt(fieldOf(c.key), r[c.key], dict.refs) || (c.key === 'workTypeName' ? r.workTypeName : '')))
+    if (!rows.length) { body.replaceChildren(empty({ title: `Ничего не найдено по «${sbx.input.value}».`, hint: 'Попробуйте другое слово.' })); return; }
+    const descOf = (r) => cols.filter((c) => c.key !== 'name').map((c) => (c.key === 'hex' && r.hex ? [colorBadge(r.hex), r.hex] : fmt(fieldOf(c.key), r[c.key], dict.refs) || (c.key === 'workTypeName' ? r.workTypeName : '')))
       .filter((x) => x && x.length !== 0).flatMap((x, i) => (i ? [' · ', x] : [x]));
-    const list = h('ul', { class: 'dict-list' });
+    const list = stack();
     for (const r of rows) {
       const lock = isLocked(dict, r);
       const acts = [];
       if (canEditDict()) {
         acts.push(button({ label: 'Изменить', kind: 'ghost', size: 'S', onClick: () => patch({ of: 'dict', open: r.id, new: undefined }) }));
-        acts.push(lock ? h('span', { class: 'dict-lock muted', title: 'Это значение нужно программе — удалить нельзя' }, '🔒 Встроено в программу')
+        acts.push(lock ? lockBadge()
           : button({ label: 'Удалить', kind: 'ghost', size: 'S', onClick: (e) => removeItem(r, e.currentTarget) }));
-      } else if (lock) acts.push(h('span', { class: 'dict-lock muted' }, '🔒 Встроено в программу'));
-      list.append(h('li', { class: 'dict-item' + (canEditDict() ? ' clickable' : ''), onclick: canEditDict() ? (e) => { if (!e.target.closest('button')) patch({ of: 'dict', open: r.id, new: undefined }); } : null },
-        h('div', { class: 'dict-name' }, h('b', { title: r.name }, r.name), ...qualityBadges({ dupe: dup.get(r.id) || 0, dupeHint: 'Такое же название есть у другой записи — объедините' })),
-        h('div', { class: 'dict-desc muted md-hide' }, ...descOf(r)),
-        h('div', { class: 'dict-acts' }, ...acts)));
+      } else if (lock) acts.push(lockBadge());
+      list.append(row({ title: r.name, meta: descOf(r),
+        side: qualityBadges({ dupe: dup.get(r.id) || 0, dupeHint: 'Такое же название есть у другой записи — объедините' }),
+        action: acts,
+        onClick: canEditDict() ? (e) => { if (!e.target.closest('button')) patch({ of: 'dict', open: r.id, new: undefined }); } : undefined }));
     }
-    body.replaceChildren(...(dup.size ? [h('div', { class: 'pt-bar' }, qualityFilter({ value: qf, counts: { dupes: dup.size }, onChange: (v) => { qf = v; renderTable(); } }))] : []), list);
+    body.replaceChildren(...(dup.size ? [toolbar(qualityFilter({ value: qf, counts: { dupes: dup.size }, onChange: (v) => { qf = v; renderTable(); } }))] : []), list);
   }
 
   // Удаление из списка: свободное — подтверждение; занятое — замена (только админ), иначе текст
@@ -166,7 +158,7 @@ export function mountDicts(params) {
     cand.replaceChildren(h('p', { class: 'muted' }, 'Ищу в заявках, на складе и в Google-таблице…'));
     try {
       const r = await api(`/dicts/${dictKey()}/candidates`);
-      if (!r.items.length) { cand.replaceChildren(h('p', { class: 'hint' }, 'Всё, что встречается в данных, уже есть в справочнике.'),
+      if (!r.items.length) { cand.replaceChildren(hintKit('Всё, что встречается в данных, уже есть в справочнике.'),
         button({ label: 'Закрыть', size: 'S', onClick: () => { cand.hidden = true; } })); return; }
       const boxes = r.items.map((c) => ({ c, cb: h('input', { type: 'checkbox', checked: !c.similar }) }));
       const go2 = button({ label: 'Добавить отмеченные', kind: 'primary', size: 'S' });
@@ -178,13 +170,12 @@ export function mountDicts(params) {
         catch (e) { toastError(e); go2.disabled = false; go2.textContent = 'Добавить отмеченные'; }
       });
       cand.replaceChildren(
-        h('div', { class: 'section-title' }, `Нашлось в данных, но нет в справочнике: ${r.items.length}`),
-        h('p', { class: 'hint' }, 'Отмечено то, чего точно нет. «Похоже на …» — вероятно, то же самое другим написанием: такое лучше не добавлять, а потом объединить.'),
-        h('ul', { class: 'dict-cand-list' }, ...boxes.map(({ c, cb }) => h('li', null, h('label', null, cb, h('b', null, c.name)),
-          h('span', { class: 'muted' }, [c.uses ? `встречается ${qty(c.uses)} раз` : '', c.source].filter(Boolean).join(' · ')),
-          c.similar ? h('span', { class: 'tag' }, `похоже на «${c.similar.name}» ${Math.round(c.similar.score * 100)}%`) : null))),
-        h('div', { class: 'bulk-foot' }, go2,
-          button({ label: 'Закрыть', size: 'S', onClick: () => { cand.hidden = true; } })));
+        section({ title: `Нашлось в данных, но нет в справочнике: ${r.items.length}`, open: true, body: [
+          hintKit('Отмечено то, чего точно нет. «Похоже на …» — вероятно, то же самое другим написанием: такое лучше не добавлять, а потом объединить.'),
+          ...boxes.map(({ c, cb }) => row({ lead: cb, title: c.name,
+            meta: [c.uses ? `встречается ${qty(c.uses)} раз` : '', c.source].filter(Boolean).join(' · '),
+            side: c.similar ? [badge(`похоже на «${c.similar.name}» ${Math.round(c.similar.score * 100)}%`, 'dim')] : null })),
+          actions(go2, button({ label: 'Закрыть', size: 'S', onClick: () => { cand.hidden = true; } }))] }));
     } catch (e) { cand.replaceChildren(failBlock(e)); }
   }
 
@@ -192,7 +183,7 @@ export function mountDicts(params) {
     try {
       const g = await api('/dicts');
       groups = g.items;
-      title.textContent = 'Тексты паспорта'; hint.textContent = 'Что подставляется в паспорт: раздел → 2–3 варианта → текст. Менеджер выбирает вариант, а не пишет текст.';
+      title.textContent = 'Тексты паспорта'; hintEl.textContent = 'Что подставляется в паспорт: раздел → 2–3 варианта → текст. Менеджер выбирает вариант, а не пишет текст.';
       searchWrap.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
       renderNav();
       if (!tree) tree = mountTree();
@@ -205,7 +196,7 @@ export function mountDicts(params) {
     try {
       const g = await api('/dicts');
       groups = g.items;
-      title.textContent = 'Склады'; hint.textContent = 'Какие позиции видит каждый склад: категории и отдельные позиции. Склад выбирается у роли; кладовщик видит только свой.';
+      title.textContent = 'Склады'; hintEl.textContent = 'Какие позиции видит каждый склад: категории и отдельные позиции. Склад выбирается у роли; кладовщик видит только свой.';
       searchWrap.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
       renderNav();
       if (!zonesView) zonesView = mountZones();
@@ -218,7 +209,7 @@ export function mountDicts(params) {
     try {
       const g = await api('/dicts');
       groups = g.items;
-      title.textContent = 'Общие разделы паспорта'; hint.textContent = 'Шаблон разделов по категориям (общие указания, хранение, гарантия…): что общее для всех, что своё у категории и что его заменяет. Клик по пункту — правка справа.';
+      title.textContent = 'Общие разделы паспорта'; hintEl.textContent = 'Шаблон разделов по категориям (общие указания, хранение, гарантия…): что общее для всех, что своё у категории и что его заменяет. Клик по пункту — правка справа.';
       searchWrap.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
       renderNav();
       if (!texts) texts = mountTexts();
@@ -241,7 +232,7 @@ export function mountDicts(params) {
       if (!d.dict.sections && meta.sections) d.dict.sections = meta.sections;
       if (!d.dict.locked && meta.locked) d.dict.locked = meta.locked;
       title.textContent = d.dict.title;
-      hint.textContent = d.dict.sections?.length ? `Применяется в: ${d.dict.sections.join(', ')}` : d.dict.hint || '';
+      hintEl.textContent = d.dict.sections?.length ? `Применяется в: ${d.dict.sections.join(', ')}` : d.dict.hint || '';
       candBtn.hidden = !canEditDict() || ['colors', 'worktypes', 'payoutSchedules'].includes(d.dict.key);
       renderNav(); renderTable();
     } catch (e) { body.replaceChildren(failBlock(e, () => reload())); }
@@ -262,7 +253,7 @@ async function mergeDialog(r, ctx) {
     title: 'Объединить «' + r.name + '»',
     okText: 'Объединить',
     body: h('div', null,
-      h('p', { class: 'hint' }, `Это то же самое, что другое значение (дубль, другое написание)? Всё, где используется «${r.name}», перейдёт к выбранному, а «${r.name}» уйдёт в корзину.`),
+      hintKit(`Это то же самое, что другое значение (дубль, другое написание)? Всё, где используется «${r.name}», перейдёт к выбранному, а «${r.name}» уйдёт в корзину.`),
       h('label', { class: 'field' }, h('span', null, 'Оставить'), sel)),
     onOk: async () => {
       if (!sel.value) throw new Error('Выберите, с чем объединить');
@@ -295,9 +286,12 @@ let photoKeys = new Map();
 function photoStrip(r, f) {
   const ids = idsOf(r[f.key]).filter((id) => r.photos?.[id]);
   if (!ids.length) return '';
-  return h('div', { class: 'pf-strip' }, ...ids.map((id) => h('a', { class: 'pf-item', href: PREFIX + r.photos[id].url, target: '_blank', rel: 'noopener', title: 'Открыть картинку', 'aria-label': `${f.label}: открыть картинку` },
-    h('img', { src: PREFIX + (r.photos[id].thumb || r.photos[id].url), alt: f.label }))));
+  return kitPhotoStrip(ids.map((id) => ({ url: r.photos[id].url, thumb: r.photos[id].thumb })));
 }
+/** Цвет-кружок (эталон badge dot). */
+const colorBadge = (hex) => badge(hex, 'dim', { dot: hex });
+/** Замок «Встроено в программу» (эталон badge). */
+const lockBadge = () => { const b = badge('🔒 Встроено в программу', 'dim'); b.title = 'Это значение нужно программе — удалить нельзя'; return b; };
 
 let curNewTitle = null; // заголовок «Новый …» открытого справочника (из GET /dicts/:key)
 export const dict = {
@@ -315,7 +309,7 @@ export const dict = {
     startEdit: () => true, // «Изменить» в списке — сразу правка в правой панели
     view: (r) => (r.dictInfo?.fields || []).filter((f) => !['name', 'firstName', 'lastName', 'patronymic'].includes(f.key) || r.dict === 'persons')
       .filter((f) => f.type !== 'money' || session.canMoney)
-      .map((f) => [f.key === 'workTypeId' && r.dict === 'persons' ? 'Виды работ' : f.label, f.key === 'workTypeId' && r.dict === 'persons' ? workTypesText(r) : isPhoto(f) ? photoStrip(r, f) : f.type === 'color' && r[f.key] ? h('span', null, h('i', { class: 'swatch', style: { background: r[f.key] } }), ' ', r[f.key]) : fmt(f, r[f.key], r.dictInfo.refs)]),
+      .map((f) => [f.key === 'workTypeId' && r.dict === 'persons' ? 'Виды работ' : f.label, f.key === 'workTypeId' && r.dict === 'persons' ? workTypesText(r) : isPhoto(f) ? photoStrip(r, f) : f.type === 'color' && r[f.key] ? h('span', null, colorBadge(r[f.key]), ' ', r[f.key]) : fmt(f, r[f.key], r.dictInfo.refs)]),
     actions: (r) => [{ label: 'Объединить с…', run: (row, ctx) => mergeDialog(row, ctx) }],
   },
   form: {
@@ -342,7 +336,7 @@ export const dict = {
       const secs = (u?.sections || []).join(', ') || 'других разделах';
       const NAME_KEYS = ['name', 'firstName', 'lastName'];
       const usageField = isNew ? null : { key: '_usage', label: '', type: 'widget', wide: true, summary: () => '',
-        widget: () => ({ el: h('div', { class: 'dict-usage' },
+        widget: () => ({ el: h('div', null,
           u && u.tracked !== false ? h('div', { class: 'muted' }, u.busy ? `Используется в: ${secs}` : 'Нигде не используется') : null,
           canEditDict() ? button({ label: 'Объединить с…', size: 'S', onClick: () => mergeDialog(r, { close() {} }) }) : null),
         get value() { return ''; }, set value(x) { void x; }, focus() {} }) };
