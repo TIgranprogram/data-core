@@ -207,6 +207,24 @@ function attachmentTypesList(): DictBase {
 }
 
 /**
+ * «Части изделия для работ» (C041): стойки, навес, наполнение — из чего состоит изделие при изготовлении.
+ * Не путать с passportParts (слова паспорта). Используется: products.parts[].partId.
+ */
+function productPartsList(): DictBase {
+  const base = simpleList('productParts', 'Продукция', 'Части изделия (для работ)',
+    'Из каких частей делают изделие: стойки, навес, наполнение… К частям в позиции заказа и в карточке изделия привязываются виды работ. Новая часть из позиции заказа появляется здесь сама.',
+    [{ key: 'categories', label: 'Для каких категорий', wide: true, hint: 'Необязательно: категории изделий, где эта часть бывает; пусто — для всех' }, { key: 'sortOrder', label: 'Порядок', hint: 'Число: чем меньше, тем выше в списке' }],
+    undefined, ['Стойки', 'Навес', 'Наполнение', 'Основание']);
+  return {
+    ...base,
+    ...withProducts(noUsage,
+      async (_db, d) => ({ 'parts.partId': d._id }),
+      async (db, from, to) => (await db.collection('products').updateMany({ 'parts.partId': from._id },
+        { $set: { 'parts.$[p].partId': to._id } }, { arrayFilters: [{ 'p.partId': from._id }] })).modifiedCount),
+  };
+}
+
+/**
  * «Серии изделий» (ИЗ-18): `products.series` хранит название строкой; серия изделия выбирается только из справочника.
  * «Используется» — число изделий; переименование и объединение правят `products.series` (поле только data-core, CRM его не читает).
  */
@@ -668,6 +686,7 @@ const BASE: DictBase[] = [
   simpleList('services', 'Заявки и счета', 'Услуги', 'Услуги в заказе, КП и счетах: доставка, монтаж, погрузка, аренда техники… Список общий. Новые — только здесь, не в «Видах работ».', [{ key: 'notes', label: 'Примечание' }], undefined, [], 'services'),
 
   productSeriesList(),
+  productPartsList(),
   attachmentTypesList(),
 
   // ───────── Паспорта (БЗ-6, docs/PASSPORTS-V2.md §2, §3.2, §3.3): правят директор и админ ─────────
@@ -883,7 +902,7 @@ export const DICT_UI: Record<string, { newTitle: string; nameLabel?: string }> =
   passportSortament: { newTitle: 'Новый размер материала', nameLabel: 'Размер (∅89×3, 2, 27×120)' }, passportParts: { newTitle: 'Новая часть изделия' },
   passportDefects: { newTitle: 'Новый дефект' }, passportInstall: { newTitle: 'Новый способ установки' }, passportPhrases: { newTitle: 'Новый текст паспорта' },
   productFacets: { newTitle: 'Новый признак продукции' }, productFacetValues: { newTitle: 'Новое значение признака' },
-  productSeries: { newTitle: 'Новая серия' }, attachmentTypes: { newTitle: 'Новый вид вложений' }, productGroups: { newTitle: 'Новая группа изделий' }, productSections: { newTitle: 'Новый раздел изделий' },
+  productSeries: { newTitle: 'Новая серия' }, productParts: { newTitle: 'Новая часть изделия' }, attachmentTypes: { newTitle: 'Новый вид вложений' }, productGroups: { newTitle: 'Новая группа изделий' }, productSections: { newTitle: 'Новый раздел изделий' },
   passportStyle: { newTitle: 'Новый элемент оформления' }, expenseArticles: { newTitle: 'Новая статья расходов' },
 };
 /** Поля справочника с подписью «Название» из DICT_UI. */

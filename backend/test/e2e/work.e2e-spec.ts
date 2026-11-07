@@ -46,7 +46,7 @@ describe('Work tasks (В работе)', () => {
     const r = (await http().post('/api/work-tasks/launch').set(auth()).send({ orderId }).expect(200)).body;
     expect(r).toMatchObject({ created: 2, skipped: 1 });
     expect(r.refused[0]).toMatchObject({ incomeId: lineC, reason: expect.stringContaining('Нет изделия') });
-    expect(r.warnings).toHaveLength(1);
+    expect(r.warnings).toHaveLength(2); // изделие без маршрута + непроверенный план первой позиции
     const a = r.items.find((i: { productId: string }) => i.productId === productA);
     taskId = a.id;
     expect(a).toMatchObject({ status: 'work', currentStep: 'Резка', code: expect.stringMatching(/^W-\d+$/) });

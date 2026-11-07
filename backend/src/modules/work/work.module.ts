@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CounterModule } from '../counter/counter.module';
+import { OrderLinePlanModule } from '../order-line-plan/order-line-plan.module';
 import { WorkRouteController } from './work-route.controller';
 import { WorkRouteService } from './work-route.service';
 import { WorkTask, WorkTaskSchema } from './work-task.schema';
@@ -9,7 +10,7 @@ import { WorkService } from './work.service';
 
 /** /api/work-tasks — «В работе»: карточки позиций заказов по шагам маршрута (`worktasks`); /api/work-routes — маршрут изделия (`products.workTypes`). */
 @Module({
-  imports: [MongooseModule.forFeature([{ name: WorkTask.name, schema: WorkTaskSchema }]), CounterModule],
+  imports: [MongooseModule.forFeature([{ name: WorkTask.name, schema: WorkTaskSchema }]), CounterModule, OrderLinePlanModule],
   controllers: [WorkController, WorkRouteController],
   providers: [WorkService, WorkRouteService],
 })

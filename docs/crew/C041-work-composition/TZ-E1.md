@@ -30,12 +30,12 @@
 
 ## Чек-лист
 ### Сервер (backend)
-- [ ] 0. grep в `D:\kppdf-8.0` на `replaceOne|findOneAndReplace|\.save\(` по `products` — CRM не стирает новые поля? Итог в отчёт (только чтение).
-- [ ] 1. Группа справочника `productParts` (сид, без записи на прод вручную).
-- [ ] 2. `products`: поля `parts[]`, у `workTypes[]` — `partRowId/hours/checked*`; `work-route.service.ts` — уникальность пары; юнит на повтор вида работ в `mergeColumns` (`work-flow.ts:33`).
-- [ ] 3. Модуль `order-line-plan`: схема, сервис, контроллер по контракту; rev/409; diff; check; apply-to-product (проверка `products.updatedAt`); reset; soft-delete вместе с позицией; смена `productId` позиции → `productChangedSinceCopy`, план не затирается.
-- [ ] 4. `launch` по плану, снимок со `stepId/partName/hours`, `warnings[]`.
-- [ ] 5. Юнит + e2e; `docs/MAP.md`; openapi — если локально можно.
+- [ ] 0. (❌ нет D:kppdf-8.0 на этой машине; все записи в products — точечные $set/$unset, не замена документа) grep в `D:\kppdf-8.0` на `replaceOne|findOneAndReplace|\.save\(` по `products` — CRM не стирает новые поля? Итог в отчёт (только чтение).
+- [x] 1. Группа справочника `productParts` (сид, без записи на прод вручную).
+- [x] 2. `products`: поля `parts[]`, у `workTypes[]` — `partRowId/hours/checked*`; `work-route.service.ts` — уникальность пары; юнит на повтор вида работ в `mergeColumns` (`work-flow.ts:33`).
+- [x] 3. Модуль `order-line-plan`: схема, сервис, контроллер по контракту; rev/409; diff; check; apply-to-product (проверка `products.updatedAt`); reset; soft-delete вместе с позицией; смена `productId` позиции → `productChangedSinceCopy`, план не затирается.
+- [x] 4. `launch` по плану, снимок со `stepId/partName/hours`, `warnings[]`.
+- [x] 5. Юнит + e2e (e2e написан, не прогнан — нет Docker); `docs/MAP.md`, `docs/data-model.md`; openapi не регенерирован (нужен Docker+Mongo).
 ### Экран (frontend)
 - [ ] 6. Правая панель «Позиция заказа» (там, где сейчас открывается позиция в «В работе»/заказе — найти по AUDIT.md): шапка (что открыто, заказ, изделие, кол-во), блок «Состав и работы» — воронка П-1 (`docs/PATTERNS.md`): часть → виды работ (выпадающие списки из справочников) → норма часов; таблица итога по частям (часть · работы · часы · ✓). Зелёная галочка «Проверено» у части и шага (одно касание). Добавить часть (из справочника, новое имя → в справочник), удалить, изменить.
 - [ ] 7. Сохранение: если план отличается от изделия — окно «Сохранить: Только в этом заказе / И в продукцию». «И в продукцию» → `apply-to-product`. Плашка «Изделие изменилось после копии — Взять заново?» → `reset-from-product`. После запуска — «Задание уже запущено: правки плана его не меняют».
@@ -55,3 +55,14 @@
 
 ## Отчёт
 `REPORT-E1.md` (разделы backend / frontend), ≤ 15 строк на раздел; если запись запрещена — в конце этого файла.
+
+## Отчёт backend (REPORT-E1.md писать не удалось — инструмент запретил; отчёт здесь)
+Статус: сервер готов; tsc 0, юнит 279 файлов / 3126 зелёные, eslint модулей 0, новых циклов нет. e2e `test/e2e/order-line-plan.e2e-spec.ts` написан, НЕ прогнан (нет Docker/Mongo).
+- Пп. 1–5 ✅. П. 0 ❌: `D:\kppdf-8.0` на этой машине нет; все записи в `products` — точечные `$set/$unset`, не замена документа. Grep по CRM (`replaceOne|findOneAndReplace|.save(` по products) — на машине, где репо есть.
+- Справочник `productParts` (`dicts.defs.ts productPartsList`, meta): правит менеджер+; сид 4 частей при пустом справочнике — `OrderLinePlanService.onModuleInit`.
+- `products.parts[]`, `workTypes[].partRowId/hours/checked*`; запись — только `common/work-route-rows.ts`. Повтор вида работ запрещён лишь на одной и той же части.
+- Модуль `modules/order-line-plan/` — контракт ТЗ + дополнения экрана: клиентские 24-hex `id` у новых строк, `partRowId: null` = «Изделие целиком», в плане `productUpdatedAt`, `changedAfterLaunch`, `task`; PUT/check возвращают полный план.
+- `GET/PUT /work-routes/:id` принимают/отдают `parts` (partId, qty, checked), шаги — `partRowId/partName/hours/checked`. Для frontend: прежние строки состава (были `parts`) теперь `compositionLines` — `pwa/sections/work-route.js:51`.
+- Запуск берёт шаги плана (нет — создаёт из изделия), снимок + `stepId/partName/hours`, непроверенное → `warnings[]`, `markLaunched`.
+- Решения: `origin` product|manual; план не удаляется с позицией, читается при живой позиции; смена изделия → `productChangedSinceCopy`, apply-to-product запрещён (409); «Проверено» не входит в `diff`; `rev` растёт и при check.
+- Риски: openapi не регенерирован; в e2e форма ответа `/api/dicts/productParts` предположена как `items`; индекс `orderlineplans.incomeId` создаётся `ensure-indexes --apply` при выкладке.

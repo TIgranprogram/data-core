@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
+import type { WorkStep } from '../../common/work-step';
 
 export type WorkTaskDocument = HydratedDocument<WorkTask>;
 
@@ -7,17 +8,7 @@ export type WorkTaskDocument = HydratedDocument<WorkTask>;
 export const WORK_STATUSES = ['waiting', 'work', 'done', 'cancelled'] as const;
 export type WorkStatus = (typeof WORK_STATUSES)[number];
 
-/** Шаг маршрута в задании — снимок на момент запуска (правка маршрута изделия уже запущенное не меняет). */
-export interface WorkStep {
-  /** null — общая работа «Изготовление» (у изделия нет маршрута). */
-  workTypeId: Types.ObjectId | null;
-  name: string;
-  /** Часть состава изделия (composition[]._id), к которой относится шаг; необязательно. */
-  lineId?: Types.ObjectId;
-  note?: string;
-  /** Ручной план шага для Ганта; нет — вычисляется цепочкой (work-plan.ts). */
-  plan?: { start: Date; days: number };
-}
+export type { WorkStep };
 
 /** Запись истории движения карточки: с какого шага на какой (null — «Ждёт запуска», длина маршрута — «Готово»). */
 export interface WorkMove { at: Date; by?: Types.ObjectId; from: number | null; to: number | null }

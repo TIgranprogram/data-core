@@ -60,6 +60,7 @@ import { IncomesModule } from './modules/incomes/incomes.module';
 import { SalesOrdersModule } from './modules/salesorders/salesorders.module';
 import { DesignModule } from './modules/design/design.module';
 import { WorkModule } from './modules/work/work.module';
+import { OrderLinePlanModule } from './modules/order-line-plan/order-line-plan.module';
 import { MatchingModule } from './modules/matching/matching.module';
 import { MaterialRequestsModule } from './modules/material-requests/material-requests.module';
 import { ProductRequestsModule } from './modules/product-requests/product-requests.module';
@@ -192,6 +193,7 @@ import { RequestMethod } from '@nestjs/common';
     MaterialRequestsModule, // /api/material-requests — заявки кладовщика на новую позицию склада, коллекция materialrequests
     ProductRequestsModule,  // /api/product-requests — заявки на создание нового изделия, коллекция productrequests (ORDER-LINES)
     DesignModule,           // /api/design-tasks — «Проектирование»: задачи на чертежи, коллекция designtasks (ПРЖ-3)
+    OrderLinePlanModule,    // /api/orderline-plans — план позиции заказа: части × виды работ, «Проверено» (C041), коллекция orderlineplans
     WorkModule,             // /api/work-tasks, /api/work-routes — «В работе»: карточки позиций по шагам маршрута изделия, коллекция worktasks
     ShipmentsModule,        // /api/shipments — отгрузки заказов (ОТГ), коллекция shipments
     OffersModule,           // /api/offers — коммерческие предложения (КП-1), коллекции commercialoffers, offerbackgrounds

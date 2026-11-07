@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Put } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
+import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RouteDto } from './dto/work.dto';
 import { WorkRouteService } from './work-route.service';
@@ -24,7 +25,7 @@ export class WorkRouteController {
   @Put(':productId')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'workroute.updated', entityType: 'Product', idParam: 'productId' })
-  set(@Param('productId') productId: string, @Body() dto: RouteDto) {
-    return this.routes.set(productId, dto);
+  set(@Param('productId') productId: string, @Body() dto: RouteDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.routes.set(productId, dto, user?.id);
   }
 }

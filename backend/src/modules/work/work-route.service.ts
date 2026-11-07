@@ -3,14 +3,15 @@ import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import { oid } from '../../common/list-query';
+import { normalizeRows, productFields, rowsFromProduct, WHOLE_PRODUCT, type PartRow, type StepIn, type StepRow } from '../../common/work-route-rows';
 import type { RouteDto } from './dto/work.dto';
 import type { WorkStep } from './work-task.schema';
 
 type Doc = Record<string, unknown>;
-type Stored = { workTypeId: Types.ObjectId; lineId?: Types.ObjectId; note?: string };
+type Stored = { workTypeId: Types.ObjectId; lineId?: Types.ObjectId; note?: string; partRowId?: Types.ObjectId; hours?: number; checked?: boolean };
 
 /**
- * Маршрут изделия — `products.workTypes[]` (необязательное поле в общей с CRM коллекции; порядок массива = порядок работ).
+ * Маршрут изделия — `products.workTypes[]` (необязательное поле в общей с CRM коллекции; порядок массива = порядок работ), части — `products.parts[]` (C041). Шаг = вид работ × часть, нет части — «Изделие целиком».
  * Маршрут модуля (`productmodules.workTypes`) только читается — как подсказка. Пишем сырой коллекцией, остальные поля изделия не трогаем.
  */
 @Injectable()
@@ -20,7 +21,7 @@ export class WorkRouteService {
   private db() { return this.connection.db!; }
 
   private async product(productId: string) {
-    const p = await this.db().collection('products').findOne({ _id: oid(productId, 'изделия'), deletedAt: null }, { projection: { name: 1, sku: 1, workTypes: 1, composition: 1, productModuleIds: 1 } });
+    const p = await this.db().collection('products').findOne({ _id: oid(productId, 'изделия'), deletedAt: null }, { projection: { name: 1, sku: 1, workTypes: 1, parts: 1, composition: 1, productModuleIds: 1 } });
     if (!p) throw new NotFoundException('Изделие не найдено');
     return p as Doc;
   }
@@ -32,7 +33,7 @@ export class WorkRouteService {
     const name = new Map(types.map((t) => [String(t._id), String(t.name ?? '')]));
     return new Map(products.map((p) => [String(p._id), ((p.workTypes as Stored[] | undefined) ?? [])
       .filter((w) => name.has(String(w.workTypeId)))
-      .map((w) => ({ workTypeId: w.workTypeId, name: name.get(String(w.workTypeId))!, ...(w.lineId ? { lineId: w.lineId } : {}), ...(w.note ? { note: w.note } : {}) }))]));
+      .map((w) => ({ workTypeId: w.workTypeId, name: name.get(String(w.workTypeId))!, ...(w.lineId ? { lineId: w.lineId } : {}), ...(w.note ? { note: w.note } : {}), ...(w.partRowId ? { partRowId: w.partRowId } : {}), ...(w.hours !== undefined ? { hours: w.hours } : {}), ...(w.checked ? { checked: true } : {}) }))]));
   }
 
   /** Подсказка из модулей изделия (только чтение): виды работ модулей по порядку, без повторов. */
@@ -58,6 +59,8 @@ export class WorkRouteService {
     const p = await this.product(productId);
     const steps = (await this.stepsOf([p])).get(String(p._id)) ?? [];
     const stored = (p.workTypes as Stored[] | undefined) ?? [];
+    const ownParts = (p.parts as PartRow[] | undefined) ?? [];
+    const partNames = new Map(ownParts.map((x) => [String(x._id), x.name]));
     const comp = (p.composition as Array<{ _id: Types.ObjectId; lineType: string; refId: Types.ObjectId }> | undefined) ?? [];
     const names = new Map<string, string>();
     for (const [type, coll] of [['module', 'productmodules'], ['material', 'materials'], ['product', 'products']] as const) {
@@ -68,34 +71,35 @@ export class WorkRouteService {
       productId: String(p._id), name: (p.name as string | undefined) ?? null, sku: (p.sku as string | undefined) ?? null,
       hasRoute: steps.length > 0,
       note: steps.length ? null : 'Маршрут не задан',
-      steps: steps.map((s, i) => ({ index: i, workTypeId: String(s.workTypeId), name: s.name, lineId: s.lineId ? String(s.lineId) : null, note: s.note ?? null })),
+      steps: steps.map((s, i) => ({ index: i, workTypeId: String(s.workTypeId), name: s.name, lineId: s.lineId ? String(s.lineId) : null, note: s.note ?? null, partRowId: s.partRowId ? String(s.partRowId) : null, partName: s.partRowId ? partNames.get(String(s.partRowId)) ?? WHOLE_PRODUCT : WHOLE_PRODUCT, hours: s.hours ?? null, checked: !!s.checked })),
+      // parts — части изделия для работ (шаги без части = «Изделие целиком»); compositionLines — строки состава (composition), к ним привязан lineId
+      parts: ownParts.map((x) => ({ id: String(x._id), partId: x.partId ? String(x.partId) : null, name: x.name, qty: x.qty ?? 1, checked: !!x.checked })),
       // в базе остались шаги удалённых видов работ — их не показываем, но предупреждаем
       droppedSteps: stored.length - steps.length,
-      parts: comp.map((l) => ({ id: String(l._id), lineType: l.lineType, name: names.get(String(l.refId)) ?? '' })),
+      compositionLines: comp.map((l) => ({ id: String(l._id), lineType: l.lineType, name: names.get(String(l.refId)) ?? '' })),
       suggested: steps.length ? [] : await this.suggest(p),
     };
   }
 
-  /** Записать маршрут целиком (пустой список — убрать). Повтор вида работ в одном маршруте — 400. */
-  async set(productId: string, dto: RouteDto) {
+  /**
+   * Записать маршрут и (если присланы) части целиком; пустой список шагов — маршрут убран. Вид работ не повторяется
+   * на одной и той же части (на разных — можно). «Проверено» с прежней отметкой сохраняется, новая ставит автора.
+   */
+  async set(productId: string, dto: RouteDto, userId?: string) {
     const p = await this.product(productId);
-    const ids = dto.steps.map((s) => oid(s.workTypeId, 'вида работ'));
-    const types = ids.length ? await this.db().collection('worktypes').find({ _id: { $in: ids }, deletedAt: null }, { projection: { name: 1 } }).toArray() : [];
-    const name = new Map(types.map((t) => [String(t._id), String(t.name ?? '')]));
-    const seen = new Set<string>();
-    ids.forEach((id) => {
-      const key = String(id);
-      if (!name.has(key)) throw new BadRequestException('Вид работ не найден — выберите из справочника');
-      if (seen.has(key)) throw new BadRequestException(`Вид работ «${name.get(key)}» уже есть в маршруте`);
-      seen.add(key);
-    });
-    const parts = new Set(((p.composition as Array<{ _id: Types.ObjectId }> | undefined) ?? []).map((l) => String(l._id)));
-    const workTypes: Stored[] = dto.steps.map((s, i) => {
-      if (s.lineId && !parts.has(s.lineId)) throw new BadRequestException('Часть состава не из этого изделия');
-      const note = s.note?.trim();
-      return { workTypeId: ids[i], ...(s.lineId ? { lineId: new Types.ObjectId(s.lineId) } : {}), ...(note ? { note } : {}) };
-    });
-    await this.db().collection('products').updateOne({ _id: p._id as Types.ObjectId }, workTypes.length ? { $set: { workTypes, updatedAt: new Date() } } : { $unset: { workTypes: '' }, $set: { updatedAt: new Date() } });
+    const composition = new Set(((p.composition as Array<{ _id: Types.ObjectId }> | undefined) ?? []).map((l) => String(l._id)));
+    if (dto.steps.some((s) => s.lineId && !composition.has(s.lineId))) throw new BadRequestException('Часть состава не из этого изделия');
+    const prev = rowsFromProduct(p, await this.typeNames(((p.workTypes as Stored[] | undefined) ?? []).map((w) => w.workTypeId)));
+    const parts = dto.parts ?? prev.parts.map((x) => ({ id: String(x._id), ...(x.partId ? { partId: String(x.partId) } : {}), name: x.name, qty: x.qty, checked: x.checked }));
+    const rows = normalizeRows({ parts, steps: dto.steps as StepIn[] }, prev, { typeNames: await this.typeNames(dto.steps.map((s) => s.workTypeId)), by: userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined, now: new Date(), keepLinks: false });
+    const { set, unset } = productFields(rows.parts, rows.steps as StepRow[]);
+    await this.db().collection('products').updateOne({ _id: p._id as Types.ObjectId }, { $set: { ...set, updatedAt: new Date() }, ...(Object.keys(unset).length ? { $unset: unset } : {}) });
     return this.get(productId);
+  }
+
+  private async typeNames(ids: unknown[]) {
+    const uniq = [...new Set(ids.filter(Boolean).map(String))].filter((x) => /^[0-9a-f]{24}$/i.test(x)).map((x) => new Types.ObjectId(x));
+    const types = uniq.length ? await this.db().collection('worktypes').find({ _id: { $in: uniq }, deletedAt: null }, { projection: { name: 1 } }).toArray() : [];
+    return new Map(types.map((t) => [String(t._id), String(t.name ?? '')]));
   }
 }
