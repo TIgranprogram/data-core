@@ -96,3 +96,28 @@ export function loadByDay(bars: Array<{ assigneeId: string | null; startAt: Date
   return [...sum].map(([k, hours]) => { const [personId, date] = k.split('|'); return { personId, date, hours: Math.round(hours * 100) / 100 }; })
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.personId < b.personId ? -1 : 1));
 }
+
+/**
+ * Факт-часы шага по отметкам «начал / закончил» (C041 Э3): по рабочим дням отрезка.
+ * Один рабочий день — реальная разница во времени (0,25…8 ч); несколько дней — 8 ч за день
+ * (точной почасовой отметки нет, а день в плане и Ганте — 8 ч).
+ */
+export function factSpan(start: Date, finish: Date): Array<{ date: string; hours: number }> {
+  const a = Math.min(start.getTime(), finish.getTime()), b = Math.max(start.getTime(), finish.getTime());
+  const from = dayOf(new Date(a)), to = dayOf(new Date(b));
+  const days = workDays(from, to).map(isoDay);
+  if (days.length <= 1) {
+    const hours = Math.min(DAY_HOURS, Math.max(0.25, Math.round(((b - a) / 3_600_000) * 4) / 4));
+    return [{ date: isoDay(from), hours }];
+  }
+  return days.map((date) => ({ date, hours: DAY_HOURS }));
+}
+
+/** Срок плана: рабочие дни от первого шага до последнего (включительно); пусто — 0 дней. */
+export function leadDays(steps: SchedIn[], anchor: Date, dayHours = DAY_HOURS): { days: number; start: Date | null; end: Date | null } {
+  if (!steps.length) return { days: 0, start: null, end: null };
+  const rows = scheduleSteps(steps, anchor, dayHours);
+  const start = new Date(Math.min(...rows.map((r) => r.start.getTime())));
+  const end = new Date(Math.max(...rows.map((r) => r.end.getTime())));
+  return { days: workDays(start, end).length, start, end };
+}

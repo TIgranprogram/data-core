@@ -9,9 +9,11 @@ import {
   type PartIn, type PartRow, type PlanDiff, type StepRow,
 } from '../../common/work-route-rows';
 import type { ApplyToProductDto, CheckDto, SavePlanDto } from './dto/order-line-plan.dto';
+import { r2 } from '../../common/work-facts';
+import { WorkFactsService } from './work-facts.service';
 
 type Doc = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
-interface Income { _id: Types.ObjectId; productId?: Types.ObjectId | null }
+interface Income { _id: Types.ObjectId; productId?: Types.ObjectId | null; qty?: number }
 
 export const PARTS_DICT = 'productParts';
 /** Части по умолчанию, пока справочник пуст. */
@@ -27,7 +29,7 @@ const ms = (d: unknown) => (d instanceof Date ? d.getTime() : d ? new Date(d as 
 @Injectable()
 export class OrderLinePlanService implements OnModuleInit {
   private readonly log = new Logger(OrderLinePlanService.name);
-  constructor(@InjectConnection() private readonly connection: Connection) {}
+  constructor(@InjectConnection() private readonly connection: Connection, private readonly facts: WorkFactsService) {}
 
   private db() { return this.connection.db!; }
   private plans() { return this.db().collection('orderlineplans'); }
@@ -46,7 +48,7 @@ export class OrderLinePlanService implements OnModuleInit {
   }
 
   private async income(incomeId: string): Promise<Income> {
-    const inc = await this.db().collection('incomes').findOne({ _id: oid(incomeId, 'позиции'), deletedAt: null }, { projection: { productId: 1 } });
+    const inc = await this.db().collection('incomes').findOne({ _id: oid(incomeId, 'позиции'), deletedAt: null }, { projection: { productId: 1, qty: 1 } });
     if (!inc) throw new NotFoundException('Позиция заказа не найдена');
     return inc as unknown as Income;
   }
@@ -107,17 +109,24 @@ export class OrderLinePlanService implements OnModuleInit {
     const sameProduct = idOf(plan.productId) === idOf(inc.productId);
     const copyAt = ms(plan.productRevAtCopy), nowAt = ms(prod?.updatedAt);
     const diff: PlanDiff = prod && sameProduct ? diffRows({ parts, steps }, base) : { changed: false, added: 0, removed: 0, edited: 0 };
+    // Э3: факт по шагам (workhours / отметки) и срок позиции по нормам
+    const qty = Math.max(1, Number(inc.qty) || 1);
+    const [factMap, planLead] = await Promise.all([this.facts.factBySteps(steps), this.facts.planLead(plan, qty)]);
+    const shown = steps.filter((s) => names.has(String(s.workTypeId)));
+    const factHours = r2(shown.reduce((a, s) => a + (factMap.get(String(s._id)) ?? 0), 0));
     return {
       id: String(plan._id), incomeId: String(plan.incomeId), productId: idOf(inc.productId), productName: prod ? String(prod.name ?? '') : null,
       rev: plan.rev as number, origin: plan.origin as string, launchedAt: plan.launchedAt ?? null,
       parts: parts.map((p) => ({ id: String(p._id), partId: idOf(p.partId), name: p.name, qty: p.qty, checked: !!p.checked, checkedByName: who(p), checkedAt: p.checkedAt ?? null })),
-      steps: steps.filter((s) => names.has(String(s.workTypeId))).map((s) => ({
+      steps: shown.map((s) => ({
         id: String(s._id), workTypeId: String(s.workTypeId), workTypeName: names.get(String(s.workTypeId))!,
         partRowId: idOf(s.partRowId), partName: s.partRowId ? partName.get(String(s.partRowId)) ?? WHOLE_PRODUCT : WHOLE_PRODUCT,
         hours: s.hours ?? null, note: s.note ?? null, checked: !!s.checked, checkedByName: who(s), checkedAt: s.checkedAt ?? null,
         assigneeId: idOf(s.assigneeId), plan: s.plan ?? null,
+        startedAt: s.startedAt ?? null, finishedAt: s.finishedAt ?? null, factHours: factMap.has(String(s._id)) ? factMap.get(String(s._id))! : null,
       })),
       diff,
+      fact: { hours: factHours, perUnit: r2(factHours / qty) }, leadDays: planLead,
       // изделие сменили у позиции или изменили после копии — предложить «Взять заново»
       productChangedSinceCopy: !sameProduct || (!!prod && nowAt !== null && (copyAt === null || nowAt > copyAt)),
       productUpdatedAt: prod?.updatedAt ?? null,

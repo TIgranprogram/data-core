@@ -1,4 +1,4 @@
-import { durationDays, isoDay, lastDay, loadByDay, scheduleSteps, spreadHours } from './work-schedule';
+import { durationDays, factSpan, isoDay, lastDay, leadDays, loadByDay, scheduleSteps, spreadHours } from './work-schedule';
 
 const d = (s: string) => new Date(`${s}T00:00:00Z`);
 const iso = (r: { start: Date; end: Date }) => `${isoDay(r.start)}..${isoDay(r.end)}`;
@@ -61,5 +61,28 @@ describe('work-schedule: сроки плана позиции', () => {
       { assigneeId: null, startAt: d('2026-11-02'), endAt: d('2026-11-02'), hours: 8 },
     ]);
     expect(load).toEqual([{ personId: 'w1', date: '2026-11-02', hours: 10 }, { personId: 'w1', date: '2026-11-03', hours: 4 }]);
+  });
+
+  it('факт шага: один день — реальная разница (0,25…8 ч), несколько дней — 8 ч за день', () => {
+    const h = (s: string) => new Date(s);
+    expect(factSpan(h('2026-11-02T09:00:00Z'), h('2026-11-02T13:00:00Z'))).toEqual([{ date: '2026-11-02', hours: 4 }]);
+    expect(factSpan(h('2026-11-02T09:00:00Z'), h('2026-11-02T09:00:00Z'))).toEqual([{ date: '2026-11-02', hours: 0.25 }]);
+    expect(factSpan(h('2026-11-02T09:00:00Z'), h('2026-11-02T23:00:00Z'))).toEqual([{ date: '2026-11-02', hours: 8 }]);
+    expect(factSpan(h('2026-11-06T09:00:00Z'), h('2026-11-09T12:00:00Z'))).toEqual([
+      { date: '2026-11-06', hours: 8 }, { date: '2026-11-09', hours: 8 },
+    ]); // через выходные — только рабочие дни
+  });
+
+  it('срок плана: рабочие дни от первого шага до последнего', () => {
+    expect(leadDays([], d('2026-11-02')).days).toBe(0);
+    expect(leadDays([{ id: 'a', part: 'p1', hours: 8 }], d('2026-11-02')).days).toBe(1);
+    const r = leadDays([
+      { id: 'a', part: 'p1', hours: 16 }, // пн–вт
+      { id: 'b', part: 'p2', hours: 8 }, // пн
+      { id: 'c', part: null, hours: 8 }, // ср
+    ], d('2026-11-02'));
+    expect(r.days).toBe(3);
+    expect(isoDay(r.start!)).toBe('2026-11-02');
+    expect(isoDay(r.end!)).toBe('2026-11-04');
   });
 });

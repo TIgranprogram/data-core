@@ -253,7 +253,9 @@ export class ProductionOrdersService {
       return { ...c, lines: withSeq, unmatchedCount: withSeq.filter((l) => !(l as unknown as { matched: boolean }).matched).length };
     });
     const sum = summarize(docs);
-    return { key: groupKey(docs[0]), productionNo: String(docs[0].productionNo ?? '').trim() || null, orders, unmatchedCount: orders.reduce((a, o) => a + o.unmatchedCount, 0), toProduce: toProduce(lines), ...sum, stageLabel: STAGE_LABELS[sum.stage] };
+    // C041 Э3: срок изготовления заказа — максимум по договорам (у каждого leadDays из /salesorders/:id)
+    const lead = Math.max(0, ...orders.map((o) => Number((o as Doc).leadDays) || 0));
+    return { key: groupKey(docs[0]), productionNo: String(docs[0].productionNo ?? '').trim() || null, orders, unmatchedCount: orders.reduce((a, o) => a + o.unmatchedCount, 0), toProduce: toProduce(lines), leadDays: lead || null, ...sum, stageLabel: STAGE_LABELS[sum.stage] };
   }
 
   /** Фото для печати: файл из /uploads → PNG до 300 px (печать 66 pt); нет файла — undefined. */

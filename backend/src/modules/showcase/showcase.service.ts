@@ -79,6 +79,15 @@ export class ShowcaseService {
   private readonly mi = new ShowcaseMaterials(() => this.db);
 
 
+  /** Себестоимость состава изделия (материалы + вложенные изделия) — для себестоимости позиции/изделия (C041 Э3). */
+  async compositionCost(productId: string): Promise<{ total: number; missing: number } | null> {
+    const d = await this.db.collection('products').findOne({ _id: oid(productId, 'изделия'), deletedAt: null }, { projection: { composition: 1 } });
+    if (!d) return null;
+    const c = await this.comp.cost(((d.composition as Array<{ lineType?: string; refId?: unknown; quantity?: number }>) ?? [])
+      .map((l) => ({ lineType: l.lineType, refId: String(l.refId), quantity: Number(l.quantity) || 0 })));
+    return c ? { total: c.total, missing: c.missing } : null;
+  }
+
   private async present(docs: Doc[]) {
     const catIds = [...new Set(docs.map((d) => d.categoryId).filter(Boolean).map(String))].map((x) => new Types.ObjectId(x));
     const cats = catIds.length ? await this.db.collection('categories').find({ _id: { $in: catIds } }, { projection: { name: 1, parentId: 1, passportCategory: 1 } }).toArray() : [];

@@ -17,6 +17,7 @@ import { loadLinePhotos, type LinePhoto } from '../../common/photos';
 import { HISTORY_TYPES, loadOrderHistory, type HistoryAccess } from './order-history';
 import { ORDER_PRIORITIES, type OrderPriority } from '../../common/text/order-key';
 import { loadSeq } from '../../common/text/production-seq';
+import { dayOf, leadDays } from '../../common/work-schedule';
 import { suggestProducts } from '../../common/catalog/product-match';
 import { ORDER_CACHE_FIELDS } from './order-link';
 import { isUnassigned } from '../matching/matching-rules';
@@ -208,10 +209,28 @@ export class SalesOrdersService {
     const fix = (a: Doc[]) => a.map((x) => ({ ...x, id: String(x._id), _id: String(x._id) }));
     return {
       ...header,
+      leadDays: await this.orderLeadDays(lines), // срок изготовления по нормам планов позиций (C041 Э3)
       lines: fix(lines.map((l) => ({ ...l, status: l.cancelledAt ? 'cancelled' : l.paidDate ? 'paid' : l.shipDate ? 'awaiting' : 'draft', unassigned: !l.cancelledAt && isUnassigned(l as Doc) }))),
       supplyRequests: fix(supplyRequests), stockMovements: fix(stockMovements), issuedByLine,
       reservations: [...resGroups.values()].map((g) => ({ ...g, left: Math.round(g.left * 1000) / 1000, issued: Math.round(g.issued * 1000) / 1000 })),
     };
+  }
+
+  /** Срок изготовления заказа (C041 Э3): самый долгий по позициям, рабочие дни по нормам их планов; нет норм — null. */
+  private async orderLeadDays(lines: Doc[]): Promise<number | null> {
+    const ids = lines.filter((l) => !l.cancelledAt).map((l) => l._id as Types.ObjectId);
+    if (!ids.length) return null;
+    const plans = await this.connection.db!.collection('orderlineplans').find({ incomeId: { $in: ids }, deletedAt: null }, { projection: { incomeId: 1, steps: 1 } }).toArray();
+    let max = 0;
+    for (const p of plans) {
+      const inc = lines.find((l) => String(l._id) === String(p.incomeId));
+      const qty = Math.max(1, Number(inc?.qty) || 1);
+      const steps = ((p.steps as Array<{ _id: unknown; partRowId?: unknown; hours?: number; plan?: { start: Date; end: Date } }>) ?? []).filter((s) => Number(s.hours) > 0);
+      if (!steps.length) continue;
+      const r = leadDays(steps.map((s) => ({ id: String(s._id), part: s.partRowId ? String(s.partRowId) : null, hours: (Number(s.hours) || 0) * qty, plan: s.plan ? { start: new Date(s.plan.start), end: new Date(s.plan.end) } : null })), dayOf(new Date()));
+      max = Math.max(max, r.days);
+    }
+    return max || null;
   }
 
   /** `?year=2026` (умолч. текущий) → `{value:"21-26"}`; удалённые заказы номер не освобождают. */

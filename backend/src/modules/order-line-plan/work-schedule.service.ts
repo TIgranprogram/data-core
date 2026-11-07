@@ -7,6 +7,7 @@ import type { PartRow, StepRow } from '../../common/work-route-rows';
 import { WHOLE_PRODUCT } from '../../common/work-route-rows';
 import { DAY_HOURS, DAY_MS, dayOf, fromWorkday, isoDay, lastDay, loadByDay, scheduleSteps, workDays } from '../../common/work-schedule';
 import type { StepPatchDto } from './dto/order-line-plan.dto';
+import { WorkFactsService } from './work-facts.service';
 
 type Doc = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 export type BarStatus = 'plan' | 'work' | 'done';
@@ -25,7 +26,7 @@ const idOf = (v: unknown) => (v ? String(v) : null);
  */
 @Injectable()
 export class WorkScheduleService {
-  constructor(@InjectConnection() private readonly connection: Connection) {}
+  constructor(@InjectConnection() private readonly connection: Connection, private readonly facts: WorkFactsService) {}
 
   private db() { return this.connection.db!; }
 
@@ -121,7 +122,7 @@ export class WorkScheduleService {
     };
   }
 
-  /** «Отметить начало / конец» шага: ставит `startedAt` / `finishedAt` (повтор — не перезаписывает). */
+  /** «Отметить начало / конец» шага: ставит `startedAt` / `finishedAt` (повтор — не перезаписывает), конец пишет факт-часы. */
   async mark(planId: string, stepId: string, what: 'start' | 'finish') {
     const plans = this.db().collection('orderlineplans');
     const plan = (await plans.findOne({ _id: oid(planId, 'плана'), deletedAt: null })) as Doc | null;
@@ -131,12 +132,14 @@ export class WorkScheduleService {
     if (at < 0) throw new NotFoundException('Шага нет в плане');
     const row = (plan.steps as StepRow[])[at];
     const now = new Date();
+    if (what === 'finish' && row.startedAt && now < new Date(row.startedAt)) throw new BadRequestException('Конец работы раньше начала');
     const key = what === 'start' ? 'startedAt' : 'finishedAt';
     const set: Doc = { updatedAt: now };
     if (!row[key]) set[`steps.${at}.${key}`] = now;
     if (what === 'finish' && !row.startedAt) set[`steps.${at}.startedAt`] = now; // закончил без «начал» — начало = сейчас
     await plans.updateOne({ _id: plan._id }, { $set: set, $inc: { rev: 1 } });
     const fresh = (await plans.findOne({ _id: plan._id })) as Doc;
+    if (what === 'finish') await this.facts.recordStep(fresh, sid); // факт-часы шага для норм и себестоимости
     const bar = (await this.barsOf([fresh], dayOf(new Date()))).find((b) => b.stepId === sid)!;
     return { bar, rev: fresh.rev as number };
   }

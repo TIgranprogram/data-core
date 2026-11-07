@@ -641,13 +641,14 @@ const BASE: DictBase[] = [
     key: 'worktypes', group: 'Люди и ФОТ', title: 'Виды работ',
     hint: 'Сварка, покраска, столярные… — у сотрудника; отдел вида работ — кому выдаём со склада (телефон: отдел → его сотрудники).',
     coll: 'worktypes', match: { deletedAt: null },
-    columns: [{ key: 'departmentName', label: 'Отдел' }, { key: 'description', label: 'Описание' }],
+    columns: [{ key: 'departmentName', label: 'Отдел' }, { key: 'hourlyRate', label: 'Ставка, ₽/ч' }, { key: 'description', label: 'Описание' }],
     // ОТД-1: отдел — id строки справочника «Отделы» (переименование отдела связь не рвёт); старое текстовое `department` не трогаем
     fields: [{ key: 'name', label: 'Название', required: true }, { key: 'departmentId', label: 'Отдел', type: 'select', ref: 'departments', hint: 'Сварка → Сварочный отдел. Сотрудники с этим видом работ попадут в отдел на телефоне склада.' },
+      { key: 'hourlyRate', label: 'Ставка, ₽/ч', type: 'money', hint: 'Для себестоимости работ: если у сотрудника нет почасовой ставки (C041 Э3)' },
       { key: 'description', label: 'Описание', type: 'textarea', wide: true }],
     name: (d) => s(d.name),
-    row: (d) => ({ name: s(d.name), departmentId: d.departmentId ? String(d.departmentId) : '', description: s(d.description) }),
-    toDoc: async (b, isNew) => ({ name: s(b.name), ...(b.departmentId !== undefined ? { departmentId: oidOrNull(b.departmentId) } : {}), description: opt(b.description), updatedAt: new Date(), ...(isNew ? { isActive: true, hourlyRate: 0, deletedAt: null, createdAt: new Date() } : {}) }),
+    row: (d) => ({ name: s(d.name), departmentId: d.departmentId ? String(d.departmentId) : '', hourlyRate: Number(d.hourlyRate) > 0 ? Number(d.hourlyRate) : '', description: s(d.description) }),
+    toDoc: async (b, isNew) => ({ name: s(b.name), ...(b.departmentId !== undefined ? { departmentId: oidOrNull(b.departmentId) } : {}), ...(b.hourlyRate !== undefined ? { hourlyRate: Number(b.hourlyRate) > 0 ? Number(b.hourlyRate) : 0 } : {}), description: opt(b.description), updatedAt: new Date(), ...(isNew ? { isActive: true, hourlyRate: Number(b.hourlyRate) > 0 ? Number(b.hourlyRate) : 0, deletedAt: null, createdAt: new Date() } : {}) }),
     usage: async (db, docs) => {
       const rows = await db.collection('persons').aggregate([{ $match: { deletedAt: null, $or: [{ workTypeId: { $in: docs.map((d) => d._id) } }, { workTypeIds: { $in: docs.map((d) => d._id) } }] } }, { $project: { ids: { $setUnion: [{ $ifNull: ['$workTypeIds', []] }, { $cond: [{ $ifNull: ['$workTypeId', false] }, ['$workTypeId'], []] }] } } }, { $unwind: '$ids' }, { $match: { ids: { $in: docs.map((d) => d._id) } } }, { $group: { _id: '$ids', n: { $sum: 1 } } }]).toArray();
       return new Map(rows.map((r) => [String(r._id), r.n as number]));

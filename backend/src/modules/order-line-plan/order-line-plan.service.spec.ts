@@ -47,7 +47,9 @@ describe('OrderLinePlanService (C041 Э1)', () => {
 
   beforeEach(() => {
     c = Object.fromEntries(['incomes', 'products', 'worktypes', 'worktasks', 'users', 'dict_values', 'orderlineplans'].map((n) => [n, new Coll()]));
-    svc = new OrderLinePlanService({ db: { collection: (n: string) => c[n] } } as never);
+    // Э3: факт и срок — заглушка (в этом спеке проверяется план, не факт)
+    const facts = { factBySteps: async () => new Map<string, number>(), planLead: async () => 0 };
+    svc = new OrderLinePlanService({ db: { collection: (n: string) => c[n] } } as never, facts as never);
     [cut, weld, prod, inc, part] = Array.from({ length: 5 }, id);
     c.worktypes.rows.push({ _id: cut, name: 'Резка', deletedAt: null }, { _id: weld, name: 'Сварка', deletedAt: null });
     c.products.rows.push({ _id: prod, name: 'Беседка', deletedAt: null, updatedAt: T0, parts: [{ _id: part, name: 'Стойки', qty: 4, checked: true }], workTypes: [{ workTypeId: cut }, { workTypeId: weld, partRowId: part, hours: 2 }] });

@@ -12,6 +12,7 @@ const VERB_RU: Record<string, string> = {
   created: 'Создано', updated: 'Изменено', deleted: 'Удалено', restored: 'Восстановлено',
   create: 'Создано', update: 'Изменено', delete: 'Удалено', restore: 'Восстановлено',
   bulk: 'Изменено массово', // C043: массовая правка выбранных записей (stock.item.bulk, showcase.bulk)
+  applied: 'Принято как норма', // C041 Э3: медиана факта записана в изделие (workfact.applied)
 };
 
 export function actionRu(action: string | undefined | null, entityType?: string | null): string {
