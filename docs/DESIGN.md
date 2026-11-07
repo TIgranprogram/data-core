@@ -104,6 +104,19 @@
 | badge | статус словами: карта или одиночная метка ok/warn/danger/info/dim | `badge(MAP, key)` · `badge('Текст', 'ok')`; карты `SUPPLY_STATUS, INVOICE_STATUS, STOCK_STATUS, DESIGN_STATUS, ORDER_PRIORITY` |
 | empty | пусто / ничего не найдено, с подсказкой | `empty(…)` (= `emptyState`) |
 | stat | строка цифр-итогов | `stat({ value, label })`, `stats([…])` |
+| hint | подпись под полем или заголовком; tone warn/danger — красная, ok — зелёная (C030-13; `.hint` теперь в kit.css) | `hint(text, tone?)` → `p.hint` |
+| card S: art / low / graph / expand | плитка категории и зоны склада: рисунок 40×40, «мало» красным, график, раскрытие панели под плиткой на всю ширину сетки | `card({ size:'S', art, low, graph, expand:{ title, action, body } })` |
+| tileGrid · landing | сетка плиток (2 на 390, 3–4 на широком) и посадочная «Выберите … · всего N» с кнопкой справа | `tileGrid(...плитки)` · `landing({ head, action, body })` |
+| section fixed / urgent / more | фиксированная секция главной без стрелки; urgent — полоса danger; more — первые N строк и «Все (ещё N) →» | `section({ title, count, fixed, urgent, more:{ limit, label, onMore } })` |
+| layout.cols | две колонки от 1100 px, ниже одна | `layout.cols(...блоки)` |
+| stat кликабельный | пилюля-показатель: число красное при tone danger и > 0, приглушённое при 0; active — рамка | `stat({ value, label, onClick, tone, active })` |
+| tabs layout days | неделя: 7 клеток по 56 px, сегодня с рамкой, до 3 точек по тонам | `tabs({ layout:'days', items:[{ key, label, sub, marks, today }], value, onChange })` |
+| miniChart | маленький график в слоте graph карточки S: bar — доли по тонам, spark — линия с нулевой осью | `miniChart({ type:'bar', parts:[{value,tone}] })` · `miniChart({ type:'spark', points })` |
+| navList | колонка навигации: группы (fold — со стрелкой), пункт с числом, активный — полоса, href — «→» | `navList({ groups:[{ title, fold, items:[{ key, label, count, href }] }], value, onPick, label })` → `{ el, set }` |
+| photoStrip · badge dot | ряд фото 56 px (клик — крупно); бейдж с цветным кружком 12 px | `photoStrip([{ url, thumb }])` · `badge('Красный', 'dim', { dot: hex })` |
+| card M fields | карточка с ценой слева и парами в 2 колонки (readonlyGroup) | `card({ size:'M', variant:'fields', price:{ value, note }, body })` |
+| card L head + tabs | карточка-группа с шапкой (название, бейджи, меню) и вкладками; в DOM только активная панель | `card({ size:'L', head:{ title, badges, menu }, tabs:{ items, panes:{ key: () => узел }, value } })` |
+| table pic / nowrap | колонки: под posPic и без переноса строки | `table({ columns:[{ pic:true }, { nowrap:true }] })` |
 | toolbar | полоса кнопок/фильтров над списком | `toolbar(…узлы)` |
 | tabs | вкладки раздела и панели (статусы, «Заявки/Счета», колокольчик, «Сотрудники») | `tabs({ items: [{key,label,count?}], value, onChange(key), label })` → `{ el, set }` |
 | board (+ density / cardMenu / group) | доска по статусам с сервера, DnD, порции; `density` normal/compact/pics; `cardMenu` — «⋯» на карточке; `group` — группа-заказ: клик по всей карточке раскрывает, кнопка ⇕ в шапке колонки — все группы колонки, состояние запоминается (prefs) | `board(cfg, path, query, { onOpen, onChanged, onTotal })`; поля cfg — шапка `ui/kit/board.js` |
@@ -421,3 +434,4 @@ a:not([class]):focus-visible, .link-btn:focus-visible { outline: 2px solid var(-
 | 2026-11-04 | «Смотреть как роль»: select в профиле и полоса `.view-as` (те же токены, что предупреждение «нет связи»). Кнопка — эталон `button`. Нового окна нет. | админ проверяет меню роли, не меняя данные |
 | 2026-11-04 | Админка «Ведение проекта → Время»: карточки `.dv-kpi` (итог часов/сессий/правок/дом·работа), пресеты периода, 4 графика. Только токены `--surface`/`--heading`/`--primary`. Вкладка по умолчанию — «Время». | аудит учёта часов: сразу видно, сколько ушло на проект |
 | 2026-11-07 | Воронка паспорта (C028): вариант эталона `filter` mode `funnel` — `onChange(P, key)` (выбор не в адресе, для панелей-мастеров), шаг `multi` (галочки, несколько значений через запятую); новые экраны `sections/passports/funnel/*` собраны из kit (stepFunnel, table, row, section, buildForm, similarBox, empty, posPic/posPicOf — фото в строке, перенесено в kit), своего CSS нет. Витрина `#kit` → «Фильтр». | воронка «Новый паспорт», кнопка «Создать паспорт» в изделии |
+| 2026-11-07 | C030 шаг 2 (kit для 5 экранов): варианты hint, table pic/nowrap, section fixed/urgent/more, stat-пилюля, tabs days, layout.cols, card S art/low/graph/expand, card M fields, card L head+tabs, badge dot; новые эталоны tileGrid, landing, miniChart, navList, photoStrip (`ui/kit/blocks.js`). Стиль экранов не менялся: токены перенесены в kit.css, вызовы прежние. Витрина `#kit`, блоки C030-1…13. |

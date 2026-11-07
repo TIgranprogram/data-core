@@ -1435,7 +1435,6 @@ body[data-sec] .matching-screen .page-head{border-bottom:0;padding-bottom:0;marg
 .st-check.off { opacity: .5; }
 .st-hint { margin-left: 28px; }
 .st-hist { margin: 0; padding-left: var(--s4); display: grid; gap: var(--s1); }
-.hint.warn { color: var(--danger); }
 .ho-line { margin-top: var(--s2); }
 .td-scope { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
 .td-scope-hint { max-width: 280px; }

@@ -2,6 +2,7 @@ import { h } from '../../core/dom.js';
 import { PREFIX } from '../../core/api.js';
 import { badge as badgeOf } from './badges.js';
 import { mark } from './mark.js';
+import { hint, tileGrid, landing, miniChart, navList, photoStrip } from './blocks.js';
 
 /**
  * kit — единая библиотека эталонов. Разделы импортируют ТОЛЬКО отсюда (docs/roles/tz/DESIGN-KIT.md).
@@ -32,17 +33,25 @@ export function select({ options = [], value, onChange, label, disabled = false,
   return mark(el, 'select');
 }
 
-/** badge(map, key) — как badges.js; badge('Текст', 'ok'|'warn'|'danger'|'info'|'dim') — одиночная метка → .badge */
-export function badge(a, b) {
+/** badge(map, key) — как badges.js; badge('Текст', 'ok'|'warn'|'danger'|'info'|'dim', { dot? }) — одиночная метка → .badge.
+ *  dot — цвет кружка перед текстом (например hex цвета изделия); без dot кружок по тону. */
+export function badge(a, b, opts = {}) {
   if (a && typeof a === 'object') return mark(badgeOf(a, b), 'badge');
-  return mark(h('span', { class: 'badge ' + (b || 'dim') }, a), 'badge');
+  const el = h('span', { class: 'badge ' + (b || 'dim') }, a);
+  if (opts.dot) { el.classList.add('k-dot'); el.style.setProperty('--dot', opts.dot); }
+  return mark(el, 'badge');
 }
 
 export { empty } from './empty.js';
 
-/** Слот variant карточки: 'long' — длинный текст (строка или узлы), 6 строк + «Развернуть»; 'table' — body = kit table() внутри карточки. */
-function variantBody(variant, body) {
+/** Слот variant карточки: 'long' — длинный текст (строка или узлы), 6 строк + «Развернуть»; 'table' — body = kit table() внутри карточки;
+ *  'fields' — цена слева (price: { value, note } или узел) и пары «метка — значение» (body = readonlyGroup, 2 колонки; на 390 — 1). */
+function variantBody(variant, body, price) {
   const kids = nodes(body);
+  if (variant === 'fields') {
+    const p = price && typeof price === 'object' && !(price instanceof Node) ? h('div', { class: 'k-price' }, h('b', { class: 'k-price-v num' }, String(price.value ?? '')), price.note ? h('span', { class: 'muted small' }, price.note) : null) : price || null;
+    return p || kids.length ? quiet(h('div', { class: 'k-card-body k-card-fields' }, p, kids.length ? h('div', { class: 'k-fields-grid' }, ...kids) : null)) : null;
+  }
   if (!kids.length || (variant !== 'long' && variant !== 'table')) return null;
   if (variant === 'table') return quiet(h('div', { class: 'k-card-body k-card-table' }, ...kids));
   const text = h('div', { class: 'k-card-body k-card-long clamp' }, ...kids);
@@ -53,22 +62,58 @@ function variantBody(variant, body) {
   return quiet(h('div', { class: 'k-card-slot' }, text, more));
 }
 
-/** card({ size: 'S'|'M'|'L', tone: 'neutral'|'info'|'warn'|'danger'|'ok', title, meta, badges, actions, onClick, photo, density, cls, variant: 'long'|'table', body })
+/** card({ size: 'S'|'M'|'L', tone: 'neutral'|'info'|'warn'|'danger'|'ok', title, meta, badges, actions, onClick, photo, density, cls, variant: 'long'|'table'|'fields', body, price })
+ *  S: art (узел 40×40 слева, catArt), low (часть меты красным), graph (miniChart под меткой), expand: { title, action, body } — плитка раскрывает панель под собой (внутри tileGrid — на всю ширину).
+ *  M variant 'fields': price + body (readonlyGroup). L: head: { title, badges, menu } + tabs: { items: [{ key, label, count? }], panes: { key: () => узел }, value } — шапка и вкладки с панелью (в DOM только активная).
  *  variant + body — слот под заголовком; onClick → класс k-hover (подъём -2px и --shadow-lg, только у кликабельных).
  *  S → .tile, M → .tcard (density 'compact' → .tcard.compact), L → .db-order. tone → .tone-X + .k-toned (полоса слева).
  *  photo — строка-адрес или { thumb, url } (с PREFIX); badges/actions — узлы или массивы; кнопки в actions не открывают карточку. */
 export function card(opts = {}) { return mark(cardRaw(opts), 'card'); }
-function cardRaw({ size = 'M', tone = 'neutral', title, meta, badges, actions, onClick, photo, density, cls, variant, body } = {}) {
+function cardRaw(o = {}) {
+  if (o.size === 'S' && o.expand) return expandTile(o);
+  if (o.size === 'L' && (o.head || o.tabs)) return headTabsCard(o);
+  return cardBase(o);
+}
+/** Плитка S с раскрывающейся панелью под собой: обёртка display:contents, панель занимает всю строку сетки. */
+function expandTile({ expand, onClick, ...rest }) {
+  const panelEl = h('div', { class: 'k-expand', hidden: true, inert: true },
+    expand.title || expand.action ? h('div', { class: 'k-expand-head' }, h('b', null, expand.title), expand.action || null) : null,
+    h('div', { class: 'k-expand-body' }, ...nodes(expand.body)));
+  let tile;
+  const toggle = () => {
+    const open = panelEl.hidden;
+    panelEl.hidden = !open; panelEl.inert = !open;
+    tile.classList.toggle('k-open', open); tile.setAttribute('aria-expanded', String(open));
+    if (open) onClick?.();
+  };
+  tile = cardBase({ ...rest, onClick: toggle });
+  tile.setAttribute('aria-expanded', 'false');
+  return h('div', { class: 'k-tile-wrap' }, tile, panelEl);
+}
+/** Карточка L с шапкой (название, бейджи, меню справа) и вкладками: панель вкладки создаётся при открытии. */
+function headTabsCard({ head = {}, tabs: tb, tone = 'neutral', cls }) {
+  const toned = TONES.includes(tone) ? ' tone-' + tone + ' k-toned' : '';
+  const pane = h('div', { class: 'k-pane' });
+  const show = (key) => pane.replaceChildren(...nodes(tb?.panes?.[key]?.()));
+  const t = tb?.items?.length ? tabs({ items: tb.items, value: tb.value, label: head.title, onChange: show }) : null;
+  if (t) show(tb.value ?? tb.items[0].key);
+  return h('article', { class: 'db-order k-headtabs' + toned + (cls ? ' ' + cls : '') },
+    h('div', { class: 'db-oh k-head' }, h('span', { class: 'db-oname' }, h('b', null, head.title)), head.badges ? h('div', { class: 'k-badges' }, ...nodes(head.badges)) : null, head.menu || null),
+    t ? t.el : null, t ? pane : null);
+}
+function cardBase({ size = 'M', tone = 'neutral', title, meta, badges, actions, onClick, photo, density, cls, variant, body, price, art, low, graph } = {}) {
   const toned = TONES.includes(tone) ? ' tone-' + tone + ' k-toned' : '';
   const hover = onClick ? ' k-hover' : '';
-  const slot = variantBody(variant, body);
+  const slot = variantBody(variant, body, price);
   const open = onClick ? { tabindex: '0', role: 'button', onclick: onClick, onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(e); } } } : {};
   const bs = nodes(badges), as = nodes(actions);
   const pic = photo ? h('img', { class: 't-pic', src: typeof photo === 'string' ? photo : PREFIX + (photo.thumb || photo.url), alt: '', loading: 'lazy', decoding: 'async', draggable: 'false' }) : null;
-  const extra = (variant === 'long' || variant === 'table' ? ' k-' + variant : '') + hover + (cls ? ' ' + cls : '');
+  const extra = (variant === 'long' || variant === 'table' || variant === 'fields' ? ' k-' + variant : '') + hover + (cls ? ' ' + cls : '');
   if (size === 'S') {
-    return h('div', { class: 'tile k-s' + toned + extra, ...open }, h('b', { title }, title), meta ? h('span', { class: 'muted' }, meta) : null,
-      bs.length ? h('div', { class: 'k-badges' }, ...bs) : null, slot, as.length ? quiet(h('div', { class: 'k-actions' }, ...as)) : null);
+    const sub = meta || low ? h('span', { class: 'muted' }, meta, low ? h('span', { class: 'k-low' }, (meta ? ' · ' : '') + low) : null) : null;
+    const inner = [h('b', { title }, title), sub, graph || null, bs.length ? h('div', { class: 'k-badges' }, ...bs) : null, slot, as.length ? quiet(h('div', { class: 'k-actions' }, ...as)) : null];
+    if (art) return h('div', { class: 'tile k-s k-art' + toned + extra, ...open }, h('span', { class: 'k-tile-art', 'aria-hidden': 'true' }, art), h('div', { class: 'k-tile-txt' }, ...inner));
+    return h('div', { class: 'tile k-s' + toned + extra, ...open }, ...inner);
   }
   if (size === 'L') {
     return h('article', { class: 'db-order' + toned + extra, ...open },
@@ -98,11 +143,16 @@ export function row({ title, meta, tone = 'neutral', lead, side, qty, diff, warn
   return mark(h(tag, { class: cn, ...(data ? { 'data-id': data } : {}), ...(onClick ? { onclick: onClick } : {}) }, ...kids), 'row');
 }
 
-/** tabs({ items: [{ key, label, count? }], value, onChange(key), label (aria) }) → { el, set(key) } — .chips/.chip */
-export function tabs({ items, value, onChange, label }) {
-  const el = mark(h('div', { class: 'chips', role: 'tablist', 'aria-label': label || null }), 'tabs');
-  const set = (key) => el.querySelectorAll('.chip').forEach((c) => { const on = c.dataset.key === String(key); c.classList.toggle('active', on); c.setAttribute('aria-selected', String(on)); });
-  el.append(...items.map((it) => h('button', { type: 'button', role: 'tab', class: 'chip', dataset: { key: String(it.key) }, onclick: () => { set(it.key); onChange?.(it.key); } },
+/** tabs({ items: [{ key, label, count?, sub?, marks?, today? }], value, onChange(key), label (aria), layout?: 'days' }) → { el, set(key) } — .chips/.chip
+ *  layout 'days' — неделя: 7 равных клеток (label — число/день, sub — подпись, marks — до 3 точек по тонам info/warn/danger/ok, today — рамка). */
+export function tabs({ items, value, onChange, label, layout: lay }) {
+  const days = lay === 'days';
+  const el = mark(h('div', { class: days ? 'k-days' : 'chips', role: 'tablist', 'aria-label': label || null }), 'tabs');
+  const set = (key) => el.querySelectorAll(days ? '.k-day' : '.chip').forEach((c) => { const on = c.dataset.key === String(key); c.classList.toggle('active', on); c.setAttribute('aria-selected', String(on)); });
+  if (days) el.append(...items.map((it) => h('button', { type: 'button', role: 'tab', class: 'k-day' + (it.today ? ' today' : ''), dataset: { key: String(it.key) }, onclick: () => { set(it.key); onChange?.(it.key); } },
+    h('b', null, it.label), it.sub ? h('span', { class: 'k-day-sub' }, it.sub) : null,
+    h('span', { class: 'k-day-marks', 'aria-hidden': 'true' }, ...(it.marks || []).slice(0, 3).map((m) => h('i', { class: 'tone-' + m }))))));
+  else el.append(...items.map((it) => h('button', { type: 'button', role: 'tab', class: 'chip', dataset: { key: String(it.key) }, onclick: () => { set(it.key); onChange?.(it.key); } },
     it.label, it.count != null ? h('b', null, String(it.count)) : null)));
   set(value ?? items[0]?.key);
   return { el, set };
@@ -136,20 +186,38 @@ export const grp = (t) => [h('span', { class: 'fields-grp' }, t), h('span', { cl
 
 export const sku = (text) => (text == null || String(text).trim() === '' ? null : mark(h('span', { class: 'k-sku' }, String(text).trim()), 'sku'));
 
-/** section({ title, count?, open?, body, cls?, tone? }) → <details class="form-block k-sec">: сворачиваемая секция правой панели (по умолчанию закрыта).
+/** section({ title, count?, open?, body, cls?, tone?, fixed? (всегда раскрыта, без стрелки), urgent? (полоса danger), more?: { limit, label, onMore } (первые limit строк + «Все (ещё N) →») }) → <details class="form-block k-sec">: сворачиваемая секция правой панели (по умолчанию закрыта).
  *  tone — цвет категории (полоса слева и заголовок): main · info · money · who · gold · neutral (ПМ-1, 2026-11-06).
  *  В шапке — заголовок, число (count) и стрелка; открывается Enter/Пробел/щелчком. body — узлы или массив. Свёрнутое состояние не хранится. */
-export function section({ title, count, open = false, body, cls, tone = 'main' } = {}) {
+export function section({ title, count, open = false, body, cls, tone = 'main', fixed = false, urgent = false, more } = {}) {
+  const kids = nodes(body);
+  let moreEl = null;
+  if (more && kids.length > (more.limit ?? 5)) {
+    const hidden = kids.slice(more.limit ?? 5);
+    hidden.forEach((n) => { n.hidden = true; });
+    const btn = link({ label: (more.label || 'Все') + ' (ещё ' + hidden.length + ') →', onClick: () => { hidden.forEach((n) => { n.hidden = false; }); moreEl.remove(); more.onMore?.(); } });
+    moreEl = h('div', { class: 'k-sec-more' }, btn);
+  }
+  if (fixed) {
+    return mark(h('section', { class: 'form-block k-sec k-sec-fixed' + (urgent ? ' urgent' : '') + (cls ? ' ' + cls : ''), 'data-tone': tone },
+      h('div', { class: 'k-sec-fhead' }, h('h2', null, title), count != null ? h('span', { class: 'k-sec-n num' }, String(count)) : null),
+      h('div', { class: 'k-sec-body' }, ...kids, moreEl)), 'section');
+  }
   const sum = h('summary', { class: 'form-sec k-sec-head' }, h('span', { class: 'form-sec-t' }, title),
     count != null ? h('span', { class: 'badge dim k-sec-n' }, String(count)) : null, h('span', { class: 'form-sec-chev', 'aria-hidden': 'true' }, '›'));
-  return mark(h('details', { class: 'form-block k-sec' + (cls ? ' ' + cls : ''), 'data-tone': tone, open: open || null }, sum, h('div', { class: 'k-sec-body' }, ...nodes(body))), 'section');
+  return mark(h('details', { class: 'form-block k-sec' + (cls ? ' ' + cls : ''), 'data-tone': tone, open: open || null }, sum, h('div', { class: 'k-sec-body' }, ...kids, moreEl)), 'section');
 }
 
 /** stack(...блоки) → .k-stack: блоки правой панели колонкой с одним зазором (ПМ-1). */
 export const stack = (...children) => mark(h('div', { class: 'k-stack' }, ...nodes(children)), 'stack');
 
-/** stat({ value, label }) → .stat; stats([...]) → .stats */
-export const stat = ({ value, label }) => mark(h('div', { class: 'stat' }, h('b', { class: 'num' }, String(value ?? '—')), h('span', null, label)), 'stat');
+/** stat({ value, label, onClick?, tone?, active? }) → .stat; stats([...]) → .stats. onClick — кликабельная пилюля (button.k-pill): число красное при tone danger, приглушённое при 0; active — рамка. */
+export const stat = ({ value, label, onClick, tone, active = false }) => {
+  const kids = [h('b', { class: 'num' }, String(value ?? '—')), h('span', null, label)];
+  if (!onClick) return mark(h('div', { class: 'stat' }, ...kids), 'stat');
+  const zero = Number(value) === 0;
+  return mark(h('button', { type: 'button', class: 'stat k-pill' + (zero ? ' zero' : '') + (tone ? ' tone-' + tone : '') + (active ? ' active' : ''), 'aria-pressed': String(!!active), onclick: onClick }, ...kids), 'stat');
+};
 export const stats = (items) => mark(h('div', { class: 'stats' }, ...items.map(stat)), 'stats');
 
 /** toolbar(...узлы) → .toolbar */
@@ -158,6 +226,7 @@ export const toolbar = (...children) => mark(h('div', { class: 'toolbar' }, ...n
 /** Доска с данными с сервера (колонки, DnD, порции) — ui/kit/board.js */
 export { mountBoard as board } from './board.js';
 export { table } from './table.js';
+export { hint, tileGrid, landing, miniChart, navList, photoStrip };
 export { links } from './links.js';
 export { panel } from './panel.js';
 export { entityPanel } from './entity-panel.js';
@@ -178,6 +247,8 @@ export const layout = {
     const el = mark(h('div', { class: 'k-split' }, toggle, h('aside', { class: 'k-split-side', 'aria-label': sideLabel }, side), h('div', { class: 'k-split-main' }, main)), 'layout.split');
     return el;
   },
+  /** layout.cols(...блоки) → 2 колонки от 1100 px, ниже одна */
+  cols: (...blocks) => mark(h('div', { class: 'k-cols' }, ...nodes(blocks)), 'layout.cols'),
 };
 
 /** Семейство mobile — мобильные рабочие экраны (ui/kit/mobile.js) */
