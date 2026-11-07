@@ -7,7 +7,7 @@ import { toast } from '../ui/kit/toast.js';
 /*
  * «Изменить выбранные» (БЗ-9) — правая панель массового изменения: у каждого поля галочка «менять»; меняется только
  * отмеченное, остальное у записей остаётся своё. Перед записью — подтверждение «у N записей: …», после — «Отменить».
- *   openBulk({ title, ids, fields: async () => [поле], apply: async (set, arrays) => { updated, failed, before }, restore: async (before) => …, done })
+ *   openBulk({ title, noun, ids, fields: async () => [поле], apply: async (set, arrays) => { updated, failed, before }, restore: async (before) => …, done })
  * Поле: { key, label, type: select|combo|text|number|date|tags|list, options?, modes?: true (добавить / заменить — для tags, list), hint?, map?(raw) }
  */
 let job = null;
@@ -16,6 +16,7 @@ export function openBulk(cfg) { job = cfg; patch({ of: 'bulkedit', new: '1', ope
 async function build() {
   if (!job?.ids?.length) throw new Error('Отметьте записи галочками в списке');
   const cur = job;
+  const noun = cur.noun || 'записей'; // слово для счёта; «позиций» — склад
   const fields = await cur.fields();
   const rows = [];
   const body = h('div', { class: 'bulk-form' });
@@ -59,7 +60,7 @@ async function build() {
     body.append(row);
   }
   const el = h('div', null,
-    h('p', { class: 'hint' }, `Отмечено записей: ${cur.ids.length}. Поставьте галочку у поля, которое меняете, — у записей изменится только оно, остальное останется своим.`),
+    h('p', { class: 'hint' }, `Отмечено ${noun}: ${cur.ids.length}. Поставьте галочку у поля, которое меняете, — у записей изменится только оно, остальное останется своим.`),
     body);
   return {
     el, dirty: () => rows.some((r) => r.use.checked), focus: () => rows[0]?.use.focus(),
@@ -69,7 +70,7 @@ async function build() {
       const set = {}; const arrays = {};
       for (const r of used) { set[r.f.key] = r.read(); if (r.f.modes) arrays[r.f.key] = r.mode(); }
       const what = used.map((r) => r.f.label + (r.f.modes ? (r.mode() === 'add' ? ' (добавить)' : ' (заменить)') : '')).join(', ');
-      if (!(await confirmDlg(`Изменить у ${cur.ids.length} записей?`, `Поля: ${what.replace(/\.$/, '')}. Остальное у записей не меняется. Сразу после — можно «Отменить».`, { okText: 'Изменить' }))) throw new Error('Отменено — ничего не изменено');
+      if (!(await confirmDlg(`Изменить у ${cur.ids.length} ${noun}?`, `Поля: ${what.replace(/\.$/, '')}. Остальное у записей не меняется. Сразу после — можно «Отменить».`, { okText: 'Изменить' }))) throw new Error('Отменено — ничего не изменено');
       const res = await cur.apply(set, arrays);
       const fail = res.failed?.length ? ` · не изменено: ${res.failed.length} (${res.failed[0].message})` : '';
       toast(`Изменено: ${res.updated}${fail}`, res.before?.length ? { undo: async () => { await cur.restore(res.before); toast('Отменено — вернули как было'); cur.done?.(); } } : {});
@@ -80,6 +81,6 @@ async function build() {
 }
 
 export const bulkEdit = {
-  id: 'bulkedit', title: 'Изменить выбранные', newTitle: 'Изменить выбранные', card: { heading: () => 'Изменить выбранные' }, get: async () => ({}),
+  id: 'bulkedit', title: 'Изменить выбранные', newTitle: 'Изменить выбранные', card: { heading: () => (job?.ids?.length ? `Изменить выбранные: ${job.ids.length}` : 'Изменить выбранные') }, get: async () => ({}),
   form: { build, toBody: (v) => v, create: (v) => v.save(), saveLabel: 'Изменить выбранные', closeAfterCreate: true },
 };
