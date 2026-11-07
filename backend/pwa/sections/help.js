@@ -3,7 +3,7 @@
 // Данные — help-guide-data.js; карта внизу — та же схема, но только видимые роли дорожки.
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
-import { guide, button } from '../ui/kit/index.js';
+import { guide, button, toolbar } from '../ui/kit/index.js';
 import { GROUPS, SECTIONS, SCENARIOS, LANES, NODES, EDGES } from './help-guide-data.js';
 
 // ---------- карта (SVG): дорожки = строки, шаги = колонки, справочники — список справа ----------
@@ -137,14 +137,14 @@ function mapSvg({ lanes, nodes, edges: edgesAll }) {
     s('marker', { id: 'hp-arr', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' }, s('path', { d: 'M0,0 L10,5 L0,10 z', class: 'hp-arrow' }))));
   // полосы дорожек и название слева (крупно, перенос по словам)
   lanes.forEach((l, i) => {
-    const g = s('g', { style: `--lc:${laneTok(l)};--ls:${laneSoft(l)}` });
+    const g = s('g', { style: `--tone:${laneTok(l)};--tone-soft:${laneSoft(l)}` });
     g.append(s('rect', { class: 'hp-band', x: PAD, y: L.rowY(i) - 8, width: L.right - PAD + 12, height: NH + 16, rx: 10 }));
     const lines = wrap(l.name, 13), y0 = L.rowY(i) + NH / 2 + 5 - (lines.length - 1) * 9;
     g.append(s('text', { class: 'hp-lane', x: PAD + 12, y: y0 }, lines.map((t, j) => s('tspan', { x: PAD + 12, dy: j ? 18 : 0 }, t))));
     svg.append(g);
   });
   // справочники — отдельный список без линий
-  const refs = s('g', { style: '--lc:var(--muted);--ls:var(--surface-3)' });
+  const refs = s('g', { style: '--tone:var(--muted);--tone-soft:var(--surface-3)' });
   refs.append(s('rect', { class: 'hp-band hp-band-ref', x: L.refX - 12, y: PAD - 8, width: L.refW + 24, height: L.height - 2 * PAD + 14, rx: 10 }));
   refs.append(s('text', { class: 'hp-refhead', x: L.refX, y: PAD + 14 }, 'Используются везде'));
   svg.append(refs);
@@ -157,7 +157,7 @@ function mapSvg({ lanes, nodes, edges: edgesAll }) {
   for (const id of Object.keys(L.pos)) {
     const { x, y, w, h: hh, n, ref } = L.pos[id];
     const l = laneOf[n.lane];
-    svg.append(s('g', { class: 'hp-node' + (ref ? ' is-ref' : ''), style: `--lc:${laneTok(l)};--ls:${laneSoft(l)}`, 'data-id': id, transform: `translate(${x},${y})` },
+    svg.append(s('g', { class: 'hp-node' + (ref ? ' is-ref' : ''), style: `--tone:${laneTok(l)};--tone-soft:${laneSoft(l)}`, 'data-id': id, transform: `translate(${x},${y})` },
       s('title', null, `${n.label} — Меню: ${n.where}`),
       s('rect', { width: w, height: hh, rx: 9 }),
       s('text', { class: 'hp-t', x: w / 2, y: ref ? 19 : 22, 'text-anchor': 'middle' }, n.label),
@@ -174,7 +174,7 @@ function mapList({ lanes, nodes }) {
     if (!ns.length) continue;
     const steps = ns.map((n, i) => [i ? h('span', { class: 'hp-arr-s', 'aria-hidden': 'true' }, l.id === 'H' ? '·' : '→') : null,
       h('span', { class: 'hp-step', title: 'Меню: ' + n.where }, h('b', null, n.label), h('small', null, 'Меню: ' + n.where))]);
-    box.append(h('div', { class: 'hp-lane-row', style: `--lc:${laneTok(l)};--ls:${laneSoft(l)}` }, h('div', { class: 'hp-lane-name' }, l.name), h('div', { class: 'hp-steps' }, steps)));
+    box.append(h('div', { class: 'hp-lane-row', style: `--tone:${laneTok(l)};--tone-soft:${laneSoft(l)}` }, h('div', { class: 'hp-lane-name' }, l.name), h('div', { class: 'hp-steps' }, steps)));
   }
   return box;
 }
@@ -258,18 +258,13 @@ function flowStrip(catEls) {
 function roleBar(total, visible) {
   if (visible >= total) return h('p', { class: 'muted small' }, 'Открыты все разделы — ниже порядок работы целиком.');
   if (isStockRole()) return h('p', { class: 'muted small' }, 'Вам открыт склад и общие инструменты.');
-  return h('div', { class: 'hp-row' },
+  return toolbar(
     h('span', { class: 'muted small' }, `Показаны разделы вашей роли: ${visible} из ${total}.`),
     guide.toggle({ label: 'Показать и другие разделы', checked: showAll, onChange: (v) => { showAll = v; try { sessionStorage.setItem('dc-help-all', v ? '1' : '0'); } catch { /* приватный режим */ } paint(); } }));
 }
 
-/** Карточка «Я хочу…»: короткая подсказка + ссылка в раздел. */
-function scenarioCard(sc) {
-  return h('article', { class: 'hp-card', style: `--lc:var(--sec-${sc.tok});--ls:var(--sec-${sc.tok}-soft)` },
-    h('h3', null, sc.want),
-    h('div', { class: 'hp-row' }, h('span', { class: 'hp-k' }, 'Раздел'), h('a', { href: sc.href }, sc.menu)),
-    h('p', null, sc.start));
-}
+/** Карточка «Я хочу…» — эталон guide.want: тон раздела слева, ссылка в раздел, одна подсказка. */
+const scenarioCard = (sc) => guide.want({ tok: sc.tok, want: sc.want, menu: sc.menu, href: sc.href, start: sc.start });
 
 /** Данные карты, отфильтрованные по роли: дорожки без видимых разделов уходят, узлы и связи — вместе с ними. */
 function mapData() {
@@ -299,7 +294,7 @@ export const help = {
       root.replaceChildren(
         roleBar(ALL_SECS.length, ALL_SECS.filter(on).length),
         flow ? block('Как идти в целом', flow, h('p', { class: 'muted small' }, 'Нажмите группу — раскроется ниже.')) : null,
-        scs.length ? block('С чего начать?', h('div', { class: 'hp-cards' }, scs.map(scenarioCard))) : null,
+        scs.length ? block('С чего начать?', h('div', { class: 'g-wants' }, scs.map(scenarioCard))) : null,
         cats.length ? block('Разделы — что где делать', ...cats) : null,
         h('div', { class: 'hp-sec' }, guide.cat({ title: 'Карта работы', what: 'Вся цепочка на одной схеме — кто за кем идёт', count: 'схема', name: 'hp-extra',
           body: [legend(), mapBox(data), mapList(data)] })));
