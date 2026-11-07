@@ -63,7 +63,7 @@ function variantBody(variant, body, price) {
 }
 
 /** card({ size: 'S'|'M'|'L', tone: 'neutral'|'info'|'warn'|'danger'|'ok', title, meta, badges, actions, onClick, photo, density, cls, variant: 'long'|'table'|'fields', body, price })
- *  S: art (узел 40×40 слева, catArt; artCover:true — рисунок сверху во всю ширину 16:10 на --photo-bg), onToggle(open) у expand, low (часть меты красным), graph (miniChart под меткой), expand: { title, action, body } — плитка раскрывает панель под собой (внутри tileGrid — на всю ширину).
+ *  S: art (узел 40×40 слева, catArt; artCover:true — рисунок сверху во всю ширину 16:10 на --photo-bg), onToggle(open) у expand, low (часть меты красным), graph (miniChart под меткой), expand: { title, action, body } — плитка раскрывает панель; внутри tileGrid панель стоит под всем рядом плиток на всю ширину, открыта одна (аккордеон), по умолчанию закрыты.
  *  M variant 'fields': price + body (readonlyGroup). L: head: { title, badges, menu } + tabs: { items: [{ key, label, count? }], panes: { key: () => узел }, value } — шапка и вкладки с панелью (в DOM только активная).
  *  variant + body — слот под заголовком; onClick → класс k-hover (подъём -2px и --shadow-lg, только у кликабельных).
  *  S → .tile, M → .tcard (density 'compact' → .tcard.compact), L → .db-order. tone → .tone-X + .k-toned (полоса слева).
@@ -74,9 +74,10 @@ function cardRaw(o = {}) {
   if (o.size === 'L' && (o.head || o.tabs)) return headTabsCard(o);
   return cardBase(o);
 }
-/** Плитка S с раскрывающейся панелью под собой: обёртка display:contents, панель занимает всю строку сетки. */
+/** Плитка S с раскрывающейся панелью: tileGrid переносит панель под весь ряд плиток (аккордеон — открыта одна). */
+let expandSeq = 0;
 function expandTile({ expand, onClick, onToggle, ...rest }) {
-  const panelEl = h('div', { class: 'k-expand', hidden: true, inert: true },
+  const panelEl = h('div', { class: 'k-expand', id: 'k-expand-' + (++expandSeq), hidden: true, inert: true },
     expand.title || expand.action ? h('div', { class: 'k-expand-head' }, h('b', null, expand.title), expand.action || null) : null,
     h('div', { class: 'k-expand-body' }, ...nodes(expand.body)));
   let tile;
@@ -84,11 +85,11 @@ function expandTile({ expand, onClick, onToggle, ...rest }) {
     const open = panelEl.hidden;
     panelEl.hidden = !open; panelEl.inert = !open;
     tile.classList.toggle('k-open', open); tile.setAttribute('aria-expanded', String(open));
-    if (open) onClick?.();
+    if (open) { onClick?.(); tile.dispatchEvent(new CustomEvent('k-expand-open', { bubbles: true })); }
     onToggle?.(open);
   };
   tile = cardBase({ ...rest, onClick: toggle });
-  tile.setAttribute('aria-expanded', 'false');
+  tile.setAttribute('aria-expanded', 'false'); tile.setAttribute('aria-controls', panelEl.id);
   return h('div', { class: 'k-tile-wrap' }, tile, panelEl);
 }
 /** Карточка L с шапкой (название, бейджи, меню справа) и вкладками: панель вкладки создаётся при открытии. */

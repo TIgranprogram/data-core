@@ -12,12 +12,25 @@ export function hint(text, tone) {
   return mark(h('p', { class: 'hint' + t }, text), 'hint');
 }
 
-/** tileGrid(...плитки) → .k-tilegrid: сетка карточек S (2 колонки на телефоне, 3–4 на широком экране). */
-export const tileGrid = (...tiles) => mark(h('div', { class: 'k-tilegrid' }, ...nodes(tiles)), 'tileGrid');
+/** tileGrid(...плитки) → .k-tilegrid: сетка карточек S (2 колонки на телефоне, 3–4 на широком экране).
+ *  Плитки с expand: панели переносятся в конец сетки (под весь ряд, на всю ширину), открыта одна — открыл другую, прежняя закрылась. */
+export const tileGrid = (...tiles) => {
+  const grid = h('div', { class: 'k-tilegrid' }, ...nodes(tiles));
+  accordion(grid);
+  grid.append(...[...grid.querySelectorAll(':scope > .k-tile-wrap > .k-expand')]);
+  return mark(grid, 'tileGrid');
+};
+/** Аккордеон: на открытие плитки закрыть остальные раскрытые плитки того же уровня (в tileGrid и landing). */
+const accordion = (el) => el.addEventListener('k-expand-open', (e) => {
+  const mine = e.target.closest('.k-expand');
+  el.querySelectorAll('.k-tile-wrap > .tile[aria-expanded="true"]').forEach((t) => { if (t !== e.target && t.closest('.k-expand') === mine) t.click(); });
+});
 
 /** landing({ head, action?, body }) → .k-landing: строка «Выберите … · всего N» (muted), кнопка справа, ниже тело (обычно tileGrid). */
 export function landing({ head, action, body } = {}) {
-  return mark(h('div', { class: 'k-landing' }, h('div', { class: 'k-landing-top' }, h('span', { class: 'muted' }, head), action || null), ...nodes(body)), 'landing');
+  const el = h('div', { class: 'k-landing' }, h('div', { class: 'k-landing-top' }, h('span', { class: 'muted' }, head), action || null), ...nodes(body));
+  accordion(el);
+  return mark(el, 'landing');
 }
 
 /** miniChart({ type: 'bar'|'spark', parts?: [{ value, tone }], points?: [число], label? }) — маленький график для слота graph карточки S.
