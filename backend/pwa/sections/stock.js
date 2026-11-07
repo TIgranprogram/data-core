@@ -121,7 +121,6 @@ async function stockLanding() {
   // склады — плитки с раскрывающейся панелью (card S expand), под ними — категории склада; категория без склада — в основном
   const def = zones.find((z) => z.isDefault) || zones[0];
   const zoneOf = (c) => zones.find((z) => (z.categoryIds || []).includes(c.id)) || def;
-  const zoneTiles = [];
   const zoneItem = (z) => {
     const zc = cats.filter((c) => zoneOf(c) === z);
     const n = zc.reduce((a, c) => a + c.total, 0);
@@ -129,11 +128,9 @@ async function stockLanding() {
       expand: { title: 'Категории склада «' + z.name + '»',
         action: kitButton({ label: 'Весь склад →', kind: 'ghost', size: 'S', onClick: () => { setZone(z.id); open({ all: '1' }); } }),
         body: zc.length ? tileGrid(...zc.map((c) => catTile(c, z.id))) : hint('Категорий нет — отметьте их в «Справочники» → «Склады».') } });
-    zoneTiles.push({ id: z.id, tile: el.firstElementChild });
     return el;
   };
   const node = landing({ head, action: all, body: tileGrid(...zones.map(zoneItem)) });
-  zoneTiles.find((t) => t.id === def.id)?.tile.click(); // основной раскрыт сразу — частые категории под рукой
   return node;
 }
 

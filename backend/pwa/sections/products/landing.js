@@ -55,7 +55,7 @@ export async function catLanding({ pick }) {
     const base = { size: 'S', artCover: true, art: art(t.name), title: t.name, meta: nItems(t.count || 0) };
     if (!ks.length) return card({ ...base, onClick: () => pick(t.id) });
     const el = card({ ...base,
-      onToggle: (open) => { if (open) for (const o of secTiles) if (o.id !== t.id && o.tile.classList.contains('k-open')) o.tile.click(); secSave(open ? t.id : (secOpen() === t.id ? '' : secOpen())); },
+      onToggle: (open) => { secSave(open ? t.id : (secOpen() === t.id ? '' : secOpen())); },
       expand: { title: 'Группы раздела «' + t.name + '»', action: kitButton({ label: 'Весь раздел →', kind: 'ghost', size: 'S', onClick: () => pick(t.id) }), // «Все изделия списком» — один раз, сверху (аудит Д12)
         body: tileGrid(...ks.map((g) => catTile(g, pick))) } });
     secTiles.push({ id: t.id, tile: el.firstElementChild });
