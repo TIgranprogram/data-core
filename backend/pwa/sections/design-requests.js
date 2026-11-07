@@ -4,6 +4,7 @@ import { date, qty } from '../core/format.js';
 import { current, go } from '../core/router.js';
 import { attachCombo, tabs, table, empty, autoMore, section, stack, tabs as kitTabs } from '../ui/kit/index.js';
 import { modal } from '../ui/kit/dialog.js';
+import { funnel } from '../ui/kit/funnel.js';
 import { carousel } from '../ui/kit/gallery.js';
 import { toastError } from '../ui/kit/toast.js';
 
@@ -113,6 +114,29 @@ function askProduct() {
 }
 
 const norm = (x) => (x === null || x === undefined ? '' : String(x).trim());
+const sameName = (a, b) => norm(a).toLowerCase() === norm(b).toLowerCase();
+
+/** «Тип → Группа» воронкой (kit.funnel, П-1): группы — только выбранного типа, с числом изделий. value поля = JSON {type, group}. */
+function typeGroupWidget(fv) {
+  const types = (fv.sections || []).map((x) => ({ name: norm(x.value ?? x), n: x.n })).filter((x) => x.name);
+  return () => {
+    let type = '', group = '';
+    const groupsOf = (t) => (fv.groups || []).filter((g) => sameName(g.section, t) && norm(g.value)).map((g) => ({ name: norm(g.value), n: g.n }));
+    const steps = () => {
+      const gs = type ? groupsOf(type) : [];
+      return [
+        { key: 'type', label: 'Тип оборудования', ask: 'выберите тип оборудования', value: type ? String(types.findIndex((x) => x.name === type)) : '', values: types.map((x, i) => ({ id: String(i), label: x.name, count: x.n })) },
+        { key: 'group', label: 'Группа изделий', ask: 'выберите группу или оставьте без группы', optional: true, skip: !gs.length, value: group ? String(gs.findIndex((x) => x.name === group)) : '', values: gs.map((x, i) => ({ id: String(i), label: x.name, count: x.n })) },
+      ];
+    };
+    const f = funnel({ steps: steps(), onChange: (key, id) => {
+      if (key === 'type') { type = id === '' ? '' : types[Number(id)]?.name || ''; group = ''; }
+      else { const gs = groupsOf(type); group = id === '' ? '' : gs[Number(id)]?.name || ''; }
+      f.update({ steps: steps() });
+    } });
+    return { el: f.el, get value() { return JSON.stringify({ type, group }); }, set value(_) { /* только показ */ } };
+  };
+}
 
 export const designRequest = {
   id: 'prodreq',
@@ -154,8 +178,7 @@ export const designRequest = {
       return [
         { section: 'Новое изделие', tone: 'main', fixed: true },
         { key: 'name', label: 'Название', wide: true, required: true, max: 300 },
-        { key: 'type', label: 'Тип оборудования', type: 'combo', required: true, max: 100, options: (fv.sections || []).map((x) => x.value ?? x), hint: 'Из списка или своё' },
-        { key: 'group', label: 'Группа изделий', type: 'combo', max: 100, options: (fv.groups || []).map((g) => ({ value: g.value, label: g.value, sub: g.section })) },
+        { key: 'tg', label: 'Тип и группа', type: 'widget', wide: true, required: true, hint: 'Сначала тип оборудования, затем группа этого типа. Число — сколько изделий уже есть', widget: typeGroupWidget(fv), summary: () => '' },
         { key: 'sku', label: 'Артикул', max: 64, hint: 'Оставьте пустым — будет присвоен автоматически' },
         { key: 'price', money: true, label: 'Цена', type: 'number', hint: 'Пусто — возьмётся из позиций заказов' },
         { key: 'description', label: 'Описание', type: 'textarea', wide: true, rows: 3, max: 2000 },
@@ -163,12 +186,14 @@ export const designRequest = {
       ];
     },
     initial: () => ({}),
-    toInitial: (r) => ({ name: clean(r.title), description: clean(r.description), type: '', group: '', sku: '', price: '' }),
+    toInitial: (r) => ({ name: clean(r.title), description: clean(r.description), tg: null, sku: '', price: '' }),
     toBody: (v) => {
       if (!norm(v.name)) throw new Error('Впишите название изделия.');
-      if (!norm(v.type)) throw new Error('Выберите тип оборудования.');
-      const b = { name: norm(v.name), type: norm(v.type) };
-      for (const k of ['group', 'sku', 'description']) if (norm(v[k])) b[k] = norm(v[k]);
+      const tg = v.tg || {};
+      if (!norm(tg.type)) throw new Error('Выберите тип оборудования.');
+      const b = { name: norm(v.name), type: norm(tg.type) };
+      if (norm(tg.group)) b.group = norm(tg.group);
+      for (const k of ['sku', 'description']) if (norm(v[k])) b[k] = norm(v[k]);
       if (v.price !== '' && v.price !== null && v.price !== undefined && Number(v.price) > 0) b.price = Number(v.price);
       return b;
     },

@@ -9,7 +9,7 @@ import { button, posPic, searchBox, section, sideNote, sku, table } from '../../
 const photoOf = (p) => (typeof p === 'string' ? { url: p, thumb: p } : p);
 
 export function productList({ onPick, onNew, onSearch }) {
-  const sb = searchBox({ placeholder: 'Название или артикул — ищет по всем изделиям', onSearch: (q) => onSearch?.(q) });
+  const sb = searchBox({ placeholder: 'Название или артикул', onSearch: (q) => onSearch?.(q) });
   const box = h('div', null);
   const newBtn = button({ label: '+ Новое изделие', size: 'S', title: 'Нет нужного в списке — создать по ходу', onClick: () => onNew?.() });
   const sec = section({ title: 'Изделие', count: 0, open: true, tone: 'main', body: [sb.el, box, newBtn] });

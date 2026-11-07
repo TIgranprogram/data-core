@@ -23,7 +23,7 @@ import { suggestLink } from '../ui/composition-suggest.js';
 import { orderDesign } from './order-design.js';
 import { orderWork } from './order-work.js';
 import { orderPdfAction, orderZipAction } from './order-attachments-zip.js';
-import { unassignedTop, addContractsDialog } from './salesorders-unassigned.js';
+import { unassignedTop, addContractsDialog } from './salesorders-unassigned.js'; import { memoryFields } from './salesorders-memory.js';
 import { unmatchedTop, unmatchedPlate, unmatchedFlag, unmatchedOrders } from './matching-queue.js';
 import { posPic } from '../ui/pos-pic.js';
 import { cancelLine, restoreLine, moveLine, moveContract, stageBack, canChangeLines } from './order-line-actions.js';
@@ -614,7 +614,7 @@ export const salesorder = {
   id: 'salesorder',
   kind: 'Договор с заказчиком',
   title: 'Договор с заказчиком',
-  newTitle: 'Новый договор',
+  newTitle: 'Новый заказ (договор)', // кнопка «+ Заказ» — заголовок панели совпадает
   entityType: 'SalesOrder',
   canEdit: () => session.canEditOrders,
   historyLabels: { 'salesorder.created': 'Создан', 'salesorder.updated': 'Изменён', 'salesorder.deleted': 'Удалён', 'salesorder.restored': 'Восстановлен' },
@@ -658,22 +658,21 @@ export const salesorder = {
         activeOrderNos().catch(() => []),
         freeNo(),
       ]);
-      const options = uniq([next, ...nums].filter(Boolean));
-      const needNo = !row || !String(row.productionNo || '').trim();
+      const options = uniq([next, ...nums].filter(Boolean)); const needNo = !row || !String(row.productionNo || '').trim();
       return [
         { section: 'Договор с заказчиком', tone: 'main', fixed: true },
+        ...(await memoryFields({ row, customers: l.customers, companies: l.companies, next, needNo })),
         { key: 'productionNo', label: '№ заказа', type: 'combo', required: true, options, max: 50,
           hint: needNo
             ? (next
-              ? `Подставлен следующий свободный № ${next} (последний + 1). Можно выбрать другой из списка. Очистите поле — номер встанет снова.`
+              ? `Подставлен следующий свободный № ${next} (последний + 1). Другой № — переключатель «В существующий заказ».`
               : 'Номер для производства, например 21-26. Выберите № из списка — договор войдёт в этот заказ.')
             : 'Номер для производства, например 21-26: номер и год. Выберите № из списка — договор войдёт в этот заказ.',
-          // пусто (новый или без №) — сразу last+1; очистили поле — снова last+1
-          mount: (fa) => { if (!needNo) return; fillFreeNo(fa); } },
+          // новый или без № — сразу last+1
+          mount: (fa) => { if (!needNo) return; if (next) fa.set('productionNo', next, { auto: true }); } },
         { key: 'orderNo', label: '№ договора', required: true, max: 50 },
-        { key: 'customer', label: 'Заказчик', type: 'combo', required: true, options: l.customers, max: 300 },
         { key: 'title', label: 'Предмет заказа', wide: true, max: 1000 },
-        { key: 'companyName', label: 'Наша компания', type: 'select', required: true, choose: true, hint: 'Выбирайте каждый раз — от компании зависят документы.', options: l.companies.map((c) => c.name) },
+        { key: 'companyName', label: 'Наша компания', type: 'select', required: true, choose: true, hint: 'От компании зависят документы. Из прошлого заказа заказчика подставим по кнопке «Да, как в прошлый раз».', options: l.companies.map((c) => c.name) },
         { key: 'paymentForm', label: 'Форма оплаты', type: 'combo', options: l.paymentForms, max: 50 },
         await responsibleField('Кому передан договор. Смена записывается в историю передач.'),
         { key: 'priority', label: 'Приоритет', type: 'select', options: Object.entries(ORDER_PRIORITY).map(([value, p]) => ({ value, label: p.label })), hint: 'Срочные заказы выделяются в «Проектировании» и в списках.' },

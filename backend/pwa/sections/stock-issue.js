@@ -124,7 +124,7 @@ function build() {
   paintCart();
 
   const el = h('div', null,
-    sideNote('Выберите, кому выдаём, затем склад и количество. Получатель запоминается на 2 часа.'),
+    sideNote('Выберите, кому выдаём, затем склад и количество. Последних получателей помним в «Недавно».'),
     section({ title: 'Кому', open: true, body: tp.el }),
     section({ title: 'Откуда', open: true, body: [zonesNote, cascade, pickBox] }),
     cartSec);

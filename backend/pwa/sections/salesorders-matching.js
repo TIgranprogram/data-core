@@ -1,7 +1,7 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
-import { attachCombo, similarBox, button } from '../ui/kit/index.js';
+import { attachCombo, similarBox, button, funnel, stack } from '../ui/kit/index.js';
 import { posPic } from '../ui/pos-pic.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { current, patch } from '../core/router.js';
@@ -22,7 +22,7 @@ const canWrite = () => ['admin', 'manager'].includes(session.role) || session.us
 const changed = () => window.dispatchEvent(new CustomEvent('data-changed'));
 
 let productsCache = null;
-const products = () => (productsCache ??= api('/showcase', { query: { limit: 500 } }).then((r) => (r.items || []).map((p) => ({ value: String(p.id), label: p.name || p.title || '—', sub: p.sku || p.article || '' }))).catch((e) => { productsCache = null; throw e; }));
+const products = () => (productsCache ??= api('/showcase', { query: { limit: 500 } }).then((r) => (r.items || []).map((p) => ({ value: String(p.id), label: p.name || p.title || '—', sub: p.sku || p.article || '', type: p.type || '', group: p.group || '' }))).catch((e) => { productsCache = null; throw e; }));
 
 /** Кнопка «Сопоставлено N из M» → бейдж для списка договоров. */
 export function matchBadge(r) {
@@ -42,6 +42,30 @@ function whenStill(el, fn, last = null, tries = 0) {
   setTimeout(() => whenStill(el, fn, x, tries + 1), 50);
 }
 
+/** «Тип → Группа → Изделие» воронкой (kit.funnel, П-1) по списку изделий; выбор изделия = onPick(id). */
+function funnelOf(opts, onPick) {
+  const NONE = 'Без типа';
+  const sel = { type: '', group: '' };
+  const tally = (list, key) => { const m = new Map(); for (const p of list) { const k = p[key] || ''; m.set(k, (m.get(k) || 0) + 1); } return [...m].map(([k, n], i) => ({ name: k, n, i })); };
+  const steps = () => {
+    const types = tally(opts, 'type').sort((a, b) => b.n - a.n);
+    const ofType = sel.type === '' ? [] : opts.filter((p) => (p.type || NONE) === sel.type);
+    const groups = tally(ofType, 'group').filter((g) => g.name);
+    const ofGroup = ofType.filter((p) => !sel.group || p.group === sel.group);
+    return [
+      { key: 'type', label: 'Тип', ask: 'выберите тип оборудования', value: sel.type, values: types.map((t) => ({ id: t.name || NONE, label: t.name || NONE, count: t.n })) },
+      { key: 'group', label: 'Группа', ask: 'выберите группу или сразу изделие', optional: true, skip: !groups.length, value: sel.group, values: groups.map((g) => ({ id: g.name, label: g.name, count: g.n })) },
+      { key: 'product', label: 'Изделие', ask: 'выберите изделие', value: '', values: ofGroup.map((p) => ({ id: p.value, label: p.label + (p.sub ? ` · ${p.sub}` : '') })) },
+    ];
+  };
+  const f = funnel({ steps: steps(), onChange: (key, id) => {
+    if (key === 'product') { if (id) onPick(id); return; }
+    if (key === 'type') { sel.type = id; sel.group = ''; } else sel.group = id;
+    f.update({ steps: steps() });
+  } });
+  return f;
+}
+
 function lineRow(it, run, write, single) {
   const st = STATE[it.state] || STATE.unmatched;
   const acts = h('div', { class: 'mt-acts' });
@@ -49,9 +73,9 @@ function lineRow(it, run, write, single) {
   const confirm = (productId) => run(() => api('/matching/confirm', { method: 'POST', body: { lineId: it.lineId, productId } }));
   const sugg = (it.suggestions || []).slice(0, 3);
   const sugList = !it.matched && sugg.length
-    ? h('ul', { class: 'mt-sug' }, sugg.map((s) => h('li', null, posPic(s.photo),
-      h('div', { class: 'mt-sug-main' }, h('b', null, s.name), s.sku ? h('span', { class: 'muted' }, ' · ' + s.sku) : null, h('div', { class: 't-sub' }, `${qty(s.percent)}% · ${s.label || ''}`)),
-      write ? button({ label: 'Подтвердить', kind: 'primary', size: 'S', onClick: (e) => confirm(s.productId) && e.currentTarget.classList.add('is-busy') }) : null)))
+    ? h('ul', { class: 'mt-sug' }, sugg.map((s, i) => h('li', null, posPic(s.photo),
+      h('div', { class: 'mt-sug-main' }, h('span', { class: 'muted' }, i ? 'Или: ' : 'Похоже: '), h('b', null, s.name), s.sku ? h('span', { class: 'muted' }, ' · ' + s.sku) : null, h('div', { class: 't-sub' }, `${qty(s.percent)}% · ${s.label || ''}`)),
+      write ? button({ label: 'Да, верно', kind: 'primary', size: 'S', onClick: (e) => { e.currentTarget.classList.add('is-busy'); confirm(s.productId); } }) : null)))
     : null;
   const sim = similarBox({ pickLabel: 'Взять это', onPick: (p) => confirm(p.id) });
   if (write) {
@@ -64,9 +88,10 @@ function lineRow(it, run, write, single) {
       ready = true;
       try {
         const opts = await products();
-        pickBox.replaceChildren(h('label', { class: 'field' }, input));
+        const fun = funnelOf(opts, confirm);
+        pickBox.replaceChildren(stack(fun.el, h('label', { class: 'field' }, h('span', null, 'или найти по названию'), input))); // kit stack — зазор между воронкой и поиском
         attachCombo(input, { options: () => opts, onPick: (o) => confirm(o.value), free: false, empty: () => 'Такого изделия нет' });
-        whenStill(input, () => { input.focus(); input.click(); }); // click раскрывает список
+        if (single && !fun.el.querySelector('[data-step]')) whenStill(input, () => { input.focus(); input.click(); });
       } catch (e) { ready = false; toastError(e, 'загрузить изделия'); }
     };
     if (single) togglePick();

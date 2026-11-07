@@ -1,11 +1,11 @@
-import { api } from '../core/api.js';
+import { api, session } from '../core/api.js';
 import { cachedFetch } from '../core/cache.js';
 import { persons } from './passports/common.js';
 import { ordersLookup } from '../core/orders-lookup.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { modal } from '../ui/kit/dialog.js';
-import { attachCombo, enhanceSelect, select } from '../ui/kit/index.js';
+import { attachCombo, funnel } from '../ui/kit/index.js';
 
 /*
  * «Кому выдано» (TASKS Л.3) и «Выдать по брони» (Б.2) — общее для «Операций», строки «− Списать» и броней.
@@ -45,29 +45,67 @@ export function withOrders(input) {
   return input;
 }
 
-/** ВЫД.1: последний «Кому выдано» — на 2 часа в этой вкладке: следующая выдача подставляет его сама (выдают пачкой одному). */
+/** ВЫД.1: последний «Кому выдано» — на 2 часа в этой вкладке (память kit target-picker, режим «Выдать»). */
 const LAST_KEY = 'dc-issue-to';
 export const lastTo = () => { try { const v = JSON.parse(sessionStorage.getItem(LAST_KEY) || 'null'); return v && Date.now() - v.at < 2 * 3600e3 ? v : null; } catch { return null; } };
 export const saveTo = (v) => { try { sessionStorage.setItem(LAST_KEY, JSON.stringify({ ...v, at: Date.now() })); } catch { /* приватный режим */ } };
 
-/** Поля «Кому выдано»: { el, value() → { personId?, issuedTo? } }; issuedTo — подставить (объект брони); пусто — последний выбор. */
+/** C033: «Недавно выдавал» — свои прошлые выборы, в этом браузере (localStorage, не 2 часа). */
+const RECENT_KEY = 'dc-issue-recent';
+const readRecent = () => { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') || []; } catch { return []; } };
+const pushRecent = (v) => { if (!v.personId && !v.issuedTo) return; try { localStorage.setItem(RECENT_KEY, JSON.stringify([{ ...v }, ...readRecent().filter((x) => (x.personId || x.issuedTo) !== (v.personId || v.issuedTo))].slice(0, 6))); } catch { /* приватный режим */ } };
+
+/** «Недавно выдавал» — мои последние выдачи из журнала (GET /stock/movements?type=out, существующий); пусто — из своих прошлых выборов.
+ *  onPick получает { personName?, issuedTo? } / { personId, personName? } — клик по строке «Недавно». */
+export async function recentIssues(onPick) {
+  try {
+    const r = await api('/stock/movements', { query: { type: 'out', limit: 50, sort: '-date' } });
+    const me = session.name;
+    const seen = new Set();
+    const items = (r.items || []).filter((m) => !m.cancelledAt && (m.createdBy || '') === me)
+      .map((m) => ({ personName: m.personName || '', issuedTo: m.issuedTo || '' }))
+      .filter((x) => { const k = x.personName || x.issuedTo; if (!k || seen.has(k)) return false; seen.add(k); return true; })
+      .slice(0, 4)
+      .map((x) => ({ title: x.personName || x.issuedTo, meta: 'моя выдача', onClick: () => onPick(x) }));
+    if (items.length) return items;
+  } catch { /* журнал не открылся — память своих выборов ниже */ }
+  return readRecent().slice(0, 4).map((v) => ({ title: v.personName || v.issuedTo, meta: 'прошлый выбор', onClick: () => onPick(v) }));
+}
+
+/**
+ * Поля «Кому выдано» (C033, П-1 «Воронка с памятью»): шаги «Вид работ → Сотрудник» на эталоне funnel
+ * (вид работ один — шаг пропущен сам), под ними — «или: объект / заказ» с заказами в работе.
+ * { el, value() → { personId?, issuedTo? } }; issuedTo — подставить (объект брони).
+ */
 export function issueToFields(issuedTo = '') {
-  const last = issuedTo ? null : lastTo();
-  if (last?.issuedTo) issuedTo = last.issuedTo;
-  const sel = select({ label: 'Кому выдано — сотрудник', options: [['', '— сотрудник —']] });
+  let groups = []; let group = ''; let person = '';
+  let personName = ''; // для «Недавно» — выбрать человека по имени, id придёт из справочника
   const txt = h('input', { maxlength: 200, value: issuedTo, placeholder: 'или: объект / заказ — из списка или своё', 'aria-label': 'Кому / куда выдано' });
-  peopleByWork().then((groups) => {
-    if (!groups.length) { sel.firstChild.textContent = '— сотрудников нет в «Справочниках» —'; return; }
-    for (const g of groups) sel.append(h('optgroup', { label: g.group }, ...g.people.map((p) => h('option', { value: p.id }, p.name))));
-    if (last?.personId) sel.value = last.personId;
-    enhanceSelect(sel); // много людей — поиск по списку, ФИО целиком (ВС.6)
-  }).catch(() => { sel.firstChild.textContent = '— список не загрузился —'; });
-  const el = h('label', { class: 'field wide' }, h('span', null, 'Кому выдано'), h('div', { class: 'issue-to' }, sel, h('div', null, txt)));
   withOrders(txt);
+  const apply = (x) => { // клик по «Недавно» — заполнить шаги/текст
+    if (x?.personName) { personName = x.personName; group = groups.find((g) => g.people.some((p) => p.name === personName))?.group || group; const found = groups.flatMap((g) => g.people).find((p) => p.name === personName); person = found?.id || ''; txt.value = ''; }
+    else if (x?.issuedTo) { txt.value = x.issuedTo; person = ''; personName = ''; }
+    paint();
+  };
+  const fn = funnel({
+    steps: [],
+    onChange: (key, v) => { if (key === 'wt') { group = v; person = ''; } else if (key === 'person') person = v; paint(); },
+    recent: [],
+  });
+  const paint = () => {
+    const steps = [
+      { key: 'wt', label: 'Вид работ', value: group, values: groups.map((g) => ({ id: g.group, label: g.group, count: g.people.length })) },
+      { key: 'person', label: 'Сотрудник', value: person, values: (groups.find((g) => g.group === group)?.people || groups.flatMap((g) => g.people)).map((p) => ({ id: p.id, label: p.name })) },
+    ];
+    fn.update({ steps, next: person || txt.value.trim() ? null : undefined });
+  };
+  peopleByWork().then((gs) => { groups = gs; if (personName) apply({ personName }); else paint(); }).catch(() => paint());
+  recentIssues(apply).then((items) => fn.setRecent(items));
+  const el = h('div', { class: 'field wide' }, h('span', null, 'Кому выдано'), fn.el, h('div', null, txt));
   return {
     el,
-    value: () => { const v = { ...(sel.value ? { personId: sel.value } : {}), ...(txt.value.trim() ? { issuedTo: txt.value.trim() } : {}) }; if (v.personId || v.issuedTo) saveTo(v); return v; },
-    reset: () => { sel.value = ''; txt.value = ''; },
+    value: () => { const nm = groups.flatMap((g) => g.people).find((p) => p.id === person)?.name || personName; const v = { ...(person ? { personId: person } : {}), ...(txt.value.trim() ? { issuedTo: txt.value.trim() } : {}) }; pushRecent({ ...v, ...(nm ? { personName: nm } : {}) }); return v; },
+    reset: () => { group = ''; person = ''; personName = ''; txt.value = ''; paint(); },
   };
 }
 

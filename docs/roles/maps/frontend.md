@@ -1,3 +1,11 @@
+## C033 п.5 форма «+ Договор» (2026-11-07, не закоммичено)
+коммит: не закоммичено
+- `sections/salesorders-memory.js`: `memoryFields` (Заказчик с числом заказов, `likeWidget` «как в прошлый раз», segment `_noMode` новый/существующий); подключён в `salesorders.js` form.fields (~665). Карта обновлена.
+
+## C033 п.4 форма изделия (2026-11-07, не закоммичено)
+коммит: не закоммичено
+- `sections/products/form-fields.js`: groupsOf (только группы типа), серия после группы, `pdCategory` mount `fill` (гарантия/срок из passportCategories, «из категории»), секция «Ещё». Карта обновлена.
+
 ## Шапка заказа: stageBar/headStats (C030, 2026-11-07, не закоммичено)
 коммит: не закоммичено
 - kit: `ui/kit/stage-bar.js` (stageBar, headStats) + `stage-bar.css`; `kit/card.js` опции `card.headStats/headStrip` (`.k-head-row`, `.k-head-slot`); `sections/order-head.js` (воронка заказа + `orderHead(openStep)`), `salesorders.js` card. `ui/stage-bar.js` — реэкспорт. Витрина #kit, DESIGN §4. Карта обновлена.

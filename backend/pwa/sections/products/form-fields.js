@@ -7,10 +7,10 @@ import { tagPick, toast, confirmDlg, similarBox } from '../../ui/kit/index.js';
 import { dictNames } from '../../ui/dict-options.js';
 import { loadMaterialDicts, materialsSpec, specSummary } from '../../ui/materials-spec.js';
 import { funnelBox } from '../../ui/funnel.js';
-import { canEdit as canEditPassportTexts, dictOpts } from '../passports/common.js';
+import { canEdit as canEditPassportTexts, dictOpts, dictRows } from '../passports/common.js';
 import { formValues, phrases, staffOptions, passportCategoryOptions, skuSearch, materialsFromComposition, createProduct, patchProduct, savePd, takePending, pendingProduct } from './data.js';
 
-/* Форма изделия в правой панели: поля (ИЗ-4: Изделие → Цена → Паспорт → Характеристики → Описание и материалы → Дополнительно), тело запроса, создание/правка. */
+/* Форма изделия в правой панели: поля (ИЗ-4: Изделие → Цена → Паспорт → Характеристики → Описание и материалы → Ещё), тело запроса, создание/правка. */
 
 // «Цена и себестоимость» в форме: себестоимость — только показ расчёта по составу (поле CRM costPrice не пишем)
 const costInfo = (r) => {
@@ -39,14 +39,14 @@ const specBody = (v, r) => {
 
 const opt = (x) => ({ value: x.value, label: x.value, sub: x.n ? `${qty(x.n)} изд.` : '' });
 const same = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
-// группы выбранного раздела — сверху, остальные — «Все» (с разделом в подписи); одно название — один раз
+// «Тип → Группа»: у выбранного типа есть группы — показываем только их, нет — все (с типом в подписи); одно название — один раз
 const groupsOf = (fv) => (get) => {
   const sec = get('type').trim(); const seen = new Set();
   const mine = sec ? fv.groups.filter((g) => same(g.section, sec)).map((g) => ({ ...opt(g), group: `Раздел «${sec}»` })) : [];
   mine.forEach((g) => seen.add(g.value.toLowerCase()));
   const rest = fv.groups.filter((g) => !seen.has(g.value.toLowerCase()) && (seen.add(g.value.toLowerCase()), true))
     .map((g) => ({ ...opt(g), sub: [opt(g).sub, g.section].filter(Boolean).join(' · '), group: mine.length ? 'Все' : undefined }));
-  return [...mine, ...rest];
+  return mine.length ? mine : rest;
 };
 // дубль артикула — по тому же правилу, что на сервере (регистр, KC-01 = КС-01), и в корзине тоже
 const skuTaken = (r) => async (v) => {
@@ -73,7 +73,7 @@ export function productForm() {
       designerIds = new Map(staff.map((p) => [p.label, p.value]));
       // «Паспорт»: категория и выбор текстов воронки — паспорт возьмёт их из изделия сам
       const pd0 = r?.passportDefaults || {}; let pdFunnel = null;
-      const [els, inst] = await Promise.all([dictOpts('passportElements'), dictOpts('passportInstall')]);
+      const [els, inst, catRows] = await Promise.all([dictOpts('passportElements'), dictOpts('passportInstall'), dictRows('passportCategories')]);
       const pc = r?.passportCategory;
       const sim = similarBox({ onPick: (it) => go('products', { open: it.id }) });
       const catHint = pc?.own ? 'Задана в самом изделии. Паспорт берёт категорию отсюда' : pc?.inherited || pc?.code ? 'Сейчас — по группе или разделу. Укажите свою, если нужна другая. Паспорт берёт категорию отсюда' : 'Обычно определяется по разделу и группе; укажите, если нужна другая. Паспорт берёт категорию отсюда';
@@ -84,7 +84,8 @@ export function productForm() {
         { key: '_similar', type: 'widget', wide: true, summary: () => '', widget: () => ({ el: sim.el, value: '' }),
           mount: (api) => { const run = () => sim.check(api.get('name'), r?.id); api.on('name', run); run(); } },
         { key: 'type', label: 'Тип оборудования', type: 'combo', required: true, max: 100, options: fv.sections.map(opt), hint: 'Из списка или своё; серым — сколько изделий и категория паспорта' },
-        { key: 'group', label: 'Группа изделий', type: 'combo', max: 100, options: groupsOf(fv), hint: 'Сверху — группы выбранного типа' },
+        { key: 'group', label: 'Группа изделий', type: 'combo', max: 100, options: groupsOf(fv), hint: 'Только группы выбранного типа; тип не выбран — все' },
+        { key: 'series', label: 'Название серии', type: 'combo', max: 100, options: fv.series.map(opt), strict: true, strictText: 'Выберите серию из справочника', extra: () => [{ label: 'Открыть справочник серий', run: () => go('dicts', { d: 'productSeries' }) }], hint: 'Нет нужной — добавьте в справочнике. Справочник серий не привязан к группам' },
         { key: 'sku', label: 'Артикул', max: 64, span: 1, warn: skuTaken(r), hint: 'Оставьте пустым — будет присвоен автоматически по номеру группы' },
         { key: 'status', label: 'Статус', type: 'segment', options: [{ value: 'draft', label: 'Черновик' }, { value: 'active', label: 'В продаже', tone: 'ok' }, { value: 'archived', label: 'Архив' }],
           hint: 'С ценой черновик сам становится «в продаже»' },
@@ -93,7 +94,19 @@ export function productForm() {
         ...(session.canMoney ? [{ key: '_cost', type: 'widget', label: 'Себестоимость материалов', wide: true, widget: () => costInfo(r), summary: () => '' }] : []),
         { section: 'Паспорт', tone: 'info', collapsed: !Object.keys(pd0).length },
         { key: 'pdCategory', label: 'Категория паспорта', type: 'select', options: pdCats, hint: catHint,
-          mount: (api) => api.on('pdCategory', () => pdFunnel?.setCategory(api.get('pdCategory'))) },
+          mount: (api) => {
+            // гарантия и срок службы пустые — берём из категории паспорта (справочник), помечаем «из категории»; ручной ввод главнее
+            const fill = () => {
+              const code = api.get('pdCategory') || r?.passportCategory?.code || '';
+              const row = catRows.find((c) => String(c.code) === String(code)); if (!row) return;
+              for (const [k, v] of [['pdWarranty', row.warrantyMonths], ['pdLife', row.serviceLifeYears]]) {
+                if (v == null || v === '' || api.manual(k)) continue;
+                const cur = api.get(k); if (cur !== '' && !api.input(k)?.classList?.contains('is-default')) continue;
+                if (String(cur) !== String(v)) api.set(k, v, { auto: true, src: 'из категории' });
+              }
+            };
+            api.on('pdCategory', () => { pdFunnel?.setCategory(api.get('pdCategory')); fill(); }); fill();
+          } },
         { key: 'pdChoices', label: 'Тексты паспорта — выбор (монтаж, назначение…)', type: 'widget', wide: true, summary: () => '',
           widget: (v) => (pdFunnel = funnelBox({ value: v, category: pd0.passportCategory || r?.passportCategory?.code || '', canEditText: canEditPassportTexts() })),
           // выбранная «Установка» задаёт способ установки сама (сервер так и делает) — отдельный список не нужен
@@ -126,9 +139,8 @@ export function productForm() {
         { key: 'purpose', label: 'Назначение', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('purpose'), by: 'group', title: 'Варианты' } },
         { key: 'installation', label: 'Монтаж', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('installationMethod'), by: 'group', title: 'Варианты' } },
         { key: 'description', label: 'Описание', type: 'textarea', wide: true, hint: r ? '' : 'Состав — в карточке сразу после «Создать»' },
-        { section: 'Дополнительно', tone: 'info', collapsed: !(r?.orderName || r?.series || r?.colors?.length || r?.sizes?.length || r?.designer || r?.notes) },
+        { section: 'Ещё', tone: 'info', collapsed: !(r?.orderName || r?.colors?.length || r?.sizes?.length || r?.designer || r?.notes) },
         { key: 'orderName', label: 'Название в договоре', max: 500, span: 3, hint: 'Как изделие называется в договорах заказчика — по нему система предлагает сопоставление. Пусто — берётся короткое' },
-        { key: 'series', label: 'Название серии', type: 'combo', max: 100, options: fv.series.map(opt), strict: true, strictText: 'Выберите серию из справочника', extra: () => [{ label: 'Открыть справочник серий', run: () => go('dicts', { d: 'productSeries' }) }], hint: 'Нет нужной — добавьте в справочнике' },
         { key: 'colors', label: 'Цвета (варианты)', type: 'combo', multi: true, max: 500, options: fv.colors.map(opt), load: dictNames('colors'), hint: 'Выберите несколько или впишите через запятую' },
         { key: 'sizes', label: 'Размеры (варианты)', type: 'combo', multi: true, max: 500, options: fv.sizes.map(opt), hint: 'Выберите несколько или впишите через запятую: 3×2 м, 4×2 м' },
         { key: 'designerName', label: 'Кто проектировал', type: 'combo', options: people, strict: true, strictText: 'Выберите сотрудника из списка или оставьте пустым', hint: 'К кому идти, если в паспорте не хватает данных. В паспорт не входит' },
