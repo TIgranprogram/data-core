@@ -16,3 +16,22 @@ test('остальные подписи фильтров не меняются',
     assert.equal(facetsOf('Болт M8х40').length,'40');
   });
 }
+{
+  const src=readFileSync(new URL('./facets.js',import.meta.url),'utf8');
+  const {typeGroups,typeValues,familyOf,TYPE_ALL}=await import('data:text/javascript;base64,'+Buffer.from(src).toString('base64'));
+  const items=['Болт мебельный, M8х40','Болт с шестигр. головкой, M10х100','Болт с шестигр. головкой, M10х60','Шайба плоская, 8','Шайба гроверная, 8','Гайка шестигр, M8','Шуруп, 5х40','Нечто, 1'].map((name)=>({name,categoryId:'c'}));
+  test('typeGroups: семейство по первому слову, полки по числу позиций, одиночные после, «Прочее» последним',()=>{
+    const g=typeGroups(items);
+    assert.deepEqual(g.map((x)=>x.family),['bolt','washer','nut','screw','other']);
+    assert.deepEqual(g[0].types.map((t)=>[t.label,t.count]),[['Болт с шестигр. головкой',2],['Болт мебельный',1]]);
+    assert.equal(g[0].count,3);
+    assert.equal(familyOf('Анкерный болт с гайкой').id,'bolt');
+    assert.equal(familyOf('Нечто неизвестное').id,'other');
+  });
+  test('typeValues: полка в group, у одиночных типов пусто, последняя «Все типы»',()=>{
+    const v=typeValues(items);
+    assert.equal(v.at(-1).id,TYPE_ALL);
+    assert.equal(v.find((x)=>x.id==='Болт мебельный').group,'Болты и анкеры');
+    assert.equal(v.find((x)=>x.id==='Гайка шестигр').group,'');
+  });
+}

@@ -108,11 +108,46 @@ export function facetValues(items, key) {
   return [...m].sort((a, b) => (key === 'type' ? b[1] - a[1] || a[0].localeCompare(b[0], 'ru') : num(a[0]) - num(b[0]) || a[0].localeCompare(b[0])));
 }
 
-/** Шаг «Тип» воронки (П-1): значения-типы выбранных позиций (по убыванию числа) и последняя фишка «Все типы». Пусто/один тип — шаг пропускают (skip). */
+/** Семейства типов (C039): «полочки» шага «Тип» — id, подпись полки, правило по названию типа (первое совпадение сверху вниз). Одна копия: рисунки семейств — ui/cat-art.js FAMILY_ICON. */
+export const TYPE_FAMILIES = [
+  { id: 'rig', label: 'Такелаж и цепи', re: /рым|[cс]коб|шакле|вертлюг|цеп|х[ао]мут|карабин|зажим|петл|винт-кольц|такелаж/i },
+  { id: 'washer', label: 'Шайбы', re: /шайб/i },
+  { id: 'bolt', label: 'Болты и анкеры', re: /болт|анкер|дюбел/i },
+  { id: 'nut', label: 'Гайки', re: /гайк/i },
+  { id: 'screw', label: 'Саморезы и шурупы', re: /саморез|шуруп/i },
+  { id: 'vint', label: 'Винты и шпильки', re: /^винт|шпильк/i },
+  { id: 'rivet', label: 'Заклёпки', re: /закл[её]пк/i },
+  { id: 'pipe', label: 'Трубы', re: /^труб/i },
+  { id: 'sheet', label: 'Листы и профиль', re: /^лист|^профил|рифл|сетк/i },
+  { id: 'cut', label: 'Сверла, фрезы, диски', re: /сверл|фрез|^бит[аы]?(\s|$)|^диск|^круг|цанг|лезви|^нож/i },
+  { id: 'tool', label: 'Инструмент', re: /молот|рулетк|микрометр|штангенц|уровень|пистолет|шпател|[cс]труб|инструмент|весы|набор|сменн/i },
+  { id: 'ppe', label: 'Защита и одежда', re: /перчатк|костюм|маска|пелерин/i },
+  { id: 'chem', label: 'Краска, клей, плёнка', re: /краск|маркер|шпаклев|шпаклёв|клей|смазк|скотч|стрейч|упаков|лент|рулоны|вспен|пэт/i },
+  { id: 'bearing', label: 'Подшипники и пружины', re: /подшипник|^вал(\s|$)|модуль линейн|пружин|колес|втулк/i },
+  { id: 'elec', label: 'Электрика', re: /неон|ибп|wi-?fi|роутер|блок|разъ[её]м|быстроразъ|марганц|lc\d/i },
+  { id: 'play', label: 'Игровое оборудование', re: /качел|сиден/i },
+];
+const OTHER_FAMILY = { id: 'other', label: 'Прочее' };
+/** Семейство типа по его названию ({ id, label }); не нашлось — «Прочее». */
+export const familyOf = (type) => TYPE_FAMILIES.find((f) => f.re.test(String(type || '').trim())) || OTHER_FAMILY;
+
+/** Типы по полочкам: [{ family, label, count, types:[{id,label,count}] }]. Полки с двумя и больше типами — по числу позиций, затем одиночные типы (шапка не нужна), «Прочее» последним; внутри полки — по числу позиций. */
+export function typeGroups(items) {
+  if (items.length && !items[0]._f) index(items);
+  const by = new Map();
+  for (const [id, count] of facetValues(items, 'type')) {
+    const f = familyOf(id);
+    if (!by.has(f.id)) by.set(f.id, { family: f.id, label: f.label, count: 0, types: [] });
+    const g = by.get(f.id); g.count += count; g.types.push({ id, label: id, count });
+  }
+  const rank = (g) => (g.family === 'other' ? 2 : g.types.length > 1 ? 0 : 1);
+  return [...by.values()].sort((a, b) => rank(a) - rank(b) || b.count - a.count || a.label.localeCompare(b.label, 'ru'));
+}
+
+/** Шаг «Тип» воронки (П-1): типы выбранных позиций по полочкам (group — подпись полки, у одиночных типов пусто) и последняя фишка «Все типы». Пусто — шаг пропускают (skip). */
 export const TYPE_ALL = '*';
 export function typeValues(items) {
-  if (items.length && !items[0]._f) index(items);
-  const vals = facetValues(items, 'type').map(([id, count]) => ({ id, label: id, count }));
+  const vals = typeGroups(items).flatMap((g) => g.types.map((t) => ({ ...t, group: g.types.length > 1 ? g.label : '' })));
   return vals.length ? [...vals, { id: TYPE_ALL, label: 'Все типы' }] : [];
 }
 /** Позиции выбранного типа ('' или «Все типы» — все). */

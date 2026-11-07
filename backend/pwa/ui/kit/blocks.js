@@ -33,9 +33,11 @@ export function landing({ head, action, body } = {}) {
   return mark(el, 'landing');
 }
 
-/** miniChart({ type: 'bar'|'spark', parts?: [{ value, tone }], points?: [число], label? }) — маленький график для слота graph карточки S.
- *  bar — полоса из долей по тонам (info/warn/danger/ok/dim), высота 6 px; spark — линия по точкам с нулевой осью. Оба — aria-hidden. */
-export function miniChart({ type = 'bar', parts = [], points = [], label } = {}) {
+/** miniChart({ type: 'bar'|'spark'|'columns', parts?: [{ value, tone }], points?: [число], label? }) — маленький график для слота graph карточки S.
+ *  bar — полоса из долей по тонам (info/warn/danger/ok/dim), высота 6 px; spark — линия по точкам с нулевой осью. Оба — aria-hidden.
+ *  columns — { groups:[{ label, values:[{ value, tone }] }], legend:[{ label, tone }], empty } — столбики по периодам (месяцам), без кнопок, с подписью role=img; все 0 — подсказка empty. */
+export function miniChart({ type = 'bar', parts = [], points = [], label, groups = [], legend = [], empty } = {}) {
+  if (type === 'columns') return mark(monthBars({ groups, legend, label, empty }), 'miniChart');
   if (type === 'spark') {
     const el = document.createElementNS(SVG, 'svg');
     el.setAttribute('class', 'k-chart k-spark'); el.setAttribute('viewBox', '0 0 100 24'); el.setAttribute('preserveAspectRatio', 'none'); el.setAttribute('aria-hidden', 'true');
@@ -55,6 +57,24 @@ export function miniChart({ type = 'bar', parts = [], points = [], label } = {})
   const total = parts.reduce((s, p) => s + (Number(p.value) || 0), 0);
   return mark(h('div', { class: 'k-chart k-bar', 'aria-hidden': 'true' },
     ...parts.filter((p) => Number(p.value) > 0).map((p) => { const part = h('span', { class: 'k-bar-part tone-' + (p.tone || 'dim') }); part.style.flexGrow = String(Number(p.value) / total); return part; })), 'miniChart');
+}
+
+/** Столбики по периодам: monthBars → .k-mbars. groups: [{ label, values:[{ value, tone }] }], legend: [{ label, tone }]; пусто (все 0) — подсказка empty. Только чтение. */
+function monthBars({ groups, legend, label, empty }) {
+  const max = Math.max(0, ...groups.flatMap((g) => g.values.map((v) => Number(v.value) || 0)));
+  if (!max) return h('p', { class: 'k-mbars-empty muted small' }, empty || 'Данных пока нет.');
+  const text = groups.map((g) => g.label + ': ' + g.values.map((v, i) => (legend[i]?.label || '') + ' ' + (Number(v.value) || 0)).join(', ')).join('; ');
+  const cols = groups.map((g) => {
+    const bars = g.values.map((v, i) => {
+      const b = h('i', { class: 'k-mb-b tone-' + (v.tone || 'dim'), title: g.label + ' · ' + (legend[i]?.label || '') + ': ' + (Number(v.value) || 0) });
+      b.style.setProperty('--h', ((Number(v.value) || 0) / max * 100).toFixed(1) + '%');
+      return b;
+    });
+    return h('div', { class: 'k-mb-g' }, h('div', { class: 'k-mb-plot' }, ...bars), h('span', { class: 'k-mb-l' }, g.label));
+  });
+  return h('div', { class: 'k-chart k-mbars', role: 'img', 'aria-label': (label ? label + '. ' : '') + text },
+    h('div', { class: 'k-mb-cols', 'aria-hidden': 'true' }, ...cols),
+    legend.length ? h('div', { class: 'k-mb-legend', 'aria-hidden': 'true' }, ...legend.map((l) => h('span', { class: 'k-mb-lg tone-' + (l.tone || 'dim') }, l.label))) : null);
 }
 
 /** navList({ groups: [{ title, fold?, open?, items: [{ key, label, count?, href? }] }], value, onPick(key), label }) → { el, set(key) }

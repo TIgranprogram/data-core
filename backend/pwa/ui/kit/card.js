@@ -66,7 +66,8 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   let disposed = false;
   const titleEl = h('h2');
   // тип записи над заголовком: в панели открываются и изделие, и задача, и заказ — по названию их не различить
-  const kindEl = h('div', { class: 'drawer-kind', hidden: !section.kind }, section.kind || '');
+  const kindOf = (r) => (typeof section.kind === 'function' ? section.kind(r) : section.kind) || ''; // kind — строка или (row) → строка (позиция / предложение)
+  const kindEl = h('div', { class: 'drawer-kind', hidden: !kindOf(null) }, kindOf(null));
   const subEl = h('div', { class: 'muted small' });
   const hstEl = h('div', { class: 'k-head-slot' }); // card.headStats(row): значки справа от заголовка
   const stripEl = h('div', { class: 'k-head-strip' }); // card.headStrip(row): полоса под заголовком на всю ширину
@@ -110,6 +111,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     catch (e) { drawer.classList.remove('loading'); body.replaceChildren(failBlock(e, () => showView(), { text: 'Запись не открылась' })); titleEl.textContent = section.title; return; }
     drawer.classList.remove('loading');
     titleEl.replaceChildren(...parts(section.card.heading(row)));
+    kindEl.textContent = kindOf(row); kindEl.hidden = !kindEl.textContent;
     subEl.replaceChildren(...parts(section.card.subheading ? section.card.subheading(row) : ''));
     hstEl.replaceChildren(...[section.card.headStats?.(row)].filter(Boolean)); hstEl.hidden = !hstEl.firstChild;
     stripEl.replaceChildren(...[section.card.headStrip?.(row, actx())].filter(Boolean)); stripEl.hidden = !stripEl.firstChild;
@@ -264,7 +266,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     menuBox.replaceChildren();
     // заголовок — «что и о чём»: «Изделие · 32.11 Скамья», а не «Изменить»; режим — мелкой строкой ниже
     const who = isNew ? [] : parts(section.card.heading(row));
-    const what = section.kind || section.title;
+    const what = kindOf(row) || section.title;
     const custom = isNew ? null : section.card.editTitle?.(row);
     if (isNew) titleEl.replaceChildren(section.newTitle || 'Новая запись');
     else if (custom) titleEl.replaceChildren(...parts(custom));

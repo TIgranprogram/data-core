@@ -3,6 +3,7 @@
  * Один стиль: графитовый металл, дерево, один зелёный акцент; фон — белый «paper» в обеих темах.
  * Подбор по названию категории (первое совпадение сверху вниз); нет совпадения — общий рисунок.
  */
+import { familyOf } from "../core/facets.js";
 const M = '#3b4148'; // металл
 const W = '#b98552'; // дерево
 const W2 = '#9a6a3d'; // дерево в тени
@@ -103,28 +104,128 @@ export function catArt(name) {
   return `<svg viewBox="10 12 140 82" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">${draw()}</svg>`;
 }
 
-/* Рисунки типов позиций (метизы, металл, дерево): те же краски и стиль; нет рисунка — общий значок категории. */
+/* Иконки типов позиций (C039): плоские пиктограммы на прозрачном фоне — графит + один зелёный акцент, сетка 100×100.
+ * Семейство (Болты, Гайки, Шайбы…) считает core/facets.js (TYPE_FAMILIES); тут — рисунок типа и запасной рисунок семейства. */
+const I = M; // графит
+const S2 = '#59616a'; // металл посветлее
+const P = '#f4f6f5'; // «вырез» (как фон плитки)
+const L = '#c9d0cc'; // блик
 const hex = (cx, cy, r, c) => `<path d="${[0, 1, 2, 3, 4, 5].map((i) => `${i ? 'L' : 'M'}${(cx + r * Math.cos(Math.PI / 3 * i)).toFixed(1)} ${(cy + r * Math.sin(Math.PI / 3 * i)).toFixed(1)}`).join(' ')} Z" fill="${c}"/>`;
-const threads = (x, y1, y2, c = '#c9d0cc') => { const out = []; for (let y = y1; y < y2; y += 6) out.push(ln(`M${x - 6} ${y + 3} L${x + 6} ${y}`, c, 1.4)); return out.join(''); };
-const TYPE_SETS = [
-  [/^болт|^винт/i, () => ground(80, 50) + `<path d="M56 30 h48 v14 h-48 Z" fill="${M}"/>` + rect(72, 44, 16, 42, '#59616a', 1) + threads(80, 50, 84)],
-  [/^гайк/i, () => ground(80, 40) + hex(80, 56, 30, M) + `<circle cx="80" cy="56" r="13" fill="#f4f6f5"/>` + ln('M68 56 a12 12 0 0 1 24 0', '#c9d0cc', 1.6)],
-  [/^шайб/i, () => ground(80, 40) + `<circle cx="80" cy="56" r="30" fill="${M}"/><circle cx="80" cy="56" r="20" fill="#59616a"/><circle cx="80" cy="56" r="11" fill="#f4f6f5"/>`],
-  [/^(само)?рез|саморез/i, () => ground(80, 50) + `<path d="M58 30 h44 l-4 10 h-36 Z" fill="${A}"/>` + `<path d="M72 40 h16 L82 86 H78 Z" fill="${M}"/>` + threads(80, 46, 80, '#f4f6f5')],
-  [/^шуруп/i, () => ground(80, 50) + `<path d="M56 32 h48 a24 12 0 0 1 -48 0 Z" fill="${W2}"/>` + ln('M80 38 V84', '#59616a', 8) + threads(80, 46, 80)],
-  [/^анкер|^дюбел/i, () => ground(80, 56) + rect(46, 46, 52, 18, '#59616a', 6) + rect(98, 50, 18, 10, M, 2) + ln('M52 50 v10 M62 50 v10 M72 50 v10 M82 50 v10', '#c9d0cc', 1.6) + `<circle cx="128" cy="55" r="6" fill="${A}"/>`],
-  [/^шпильк/i, () => ground(80, 60) + rect(30, 50, 100, 10, '#59616a', 4) + threads(80, 30, 30) + [36, 48, 60, 100, 112, 124].map((x) => ln(`M${x} 50 l5 10`, '#c9d0cc', 1.4)).join('')],
-  [/профил.*труб|труба проф|труб.*проф/i, () => ground(80, 50) + rect(48, 28, 64, 46, M, 3) + rect(58, 38, 44, 26, '#f4f6f5', 2)],
-  [/кругл.*труб|труба|^труб/i, () => ground(80, 46) + `<circle cx="80" cy="54" r="30" fill="${M}"/><circle cx="80" cy="54" r="21" fill="#f4f6f5"/>`],
-  [/^лист/i, () => ground(80, 64) + [0, 1, 2].map((i) => `<path d="M${34 + i * 4} ${72 - i * 9} L${96 + i * 4} ${58 - i * 9} L${132 + i * 2} ${66 - i * 9} L${70 + i * 2} ${80 - i * 9} Z" fill="${i === 2 ? '#9aa3ab' : i % 2 ? '#59616a' : M}"/>`).join('')],
-  [/^доск|^брус|^рейк|^фанер/i, () => ground(80, 64) + `<path d="M30 70 L100 54 L134 62 L64 80 Z" fill="${W}"/>` + `<path d="M30 70 L64 80 V86 L30 76 Z" fill="${W2}"/><path d="M64 80 L134 62 V68 L64 86 Z" fill="${W2}"/>` + ln('M52 70 q18 -4 36 -8', W2, 1.4)],
-  [/^уголок|^швеллер|^балк/i, () => ground(80, 56) + `<path d="M46 30 h14 v42 h46 v14 h-60 Z" fill="${M}"/>`],
-  [/^прут|^арматур|^круг|^проволок/i, () => ground(80, 62) + [38, 50, 62].map((y) => rect(28, y, 104, 8, y === 50 ? '#59616a' : M, 4)).join('')],
-  [/^цеп/i, () => ground(80, 60) + [0, 1, 2, 3].map((i) => `<rect x="${34 + i * 22}" y="${i % 2 ? 44 : 38}" width="30" height="18" rx="9" fill="none" stroke="${M}" stroke-width="4"/>`).join('')],
+const ci = (cx, cy, r, c) => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${c}"/>`;
+const ring = (cx, cy, r, w, c, extra = '') => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${c}" stroke-width="${w}" ${extra}/>`;
+const pa = (d, c) => `<path d="${d}" fill="${c}"/>`;
+/** Нарезка: косые чёрточки по стержню. */
+const tl = (x, y1, y2, w, c = P) => { let s = ''; for (let y = y1; y < y2; y += 7) s += ln(`M${x - w} ${y + 5} L${x + w} ${y}`, c, 2.2); return s; };
+const star = (cx, cy, r1, r2, n, c) => pa(Array.from({ length: n * 2 }, (_, i) => { const a = Math.PI / n * i; const r = i % 2 ? r2 : r1; return `${i ? 'L' : 'M'}${(cx + r * Math.cos(a)).toFixed(1)} ${(cy + r * Math.sin(a)).toFixed(1)}`; }).join(' ') + ' Z', c);
+const radial = (cx, cy, r1, r2, n, c, w = 2) => Array.from({ length: n }, (_, i) => { const a = Math.PI * 2 / n * i; return ln(`M${(cx + r1 * Math.cos(a)).toFixed(1)} ${(cy + r1 * Math.sin(a)).toFixed(1)} L${(cx + r2 * Math.cos(a)).toFixed(1)} ${(cy + r2 * Math.sin(a)).toFixed(1)}`, c, w); }).join('');
+const pipeShine = ln('M20 38 A32 32 0 0 1 36 20', L, 3.4);
+
+/** key → [подпись, рисунок]. */
+const ICONS = {
+  bolt: ['Болт', () => rect(30, 8, 40, 18, I, 3) + ln('M36 14 H64', P, 2) + rect(41, 26, 18, 62, I, 1) + pa('M41 88 L45 95 H55 L59 88 Z', I) + tl(50, 32, 86, 9)],
+  boltFurn: ['Болт мебельный', () => pa('M22 32 A28 26 0 0 1 78 32 Z', I) + rect(40, 32, 20, 10, A, 0) + rect(42, 42, 16, 46, I, 1) + pa('M42 88 L46 95 H54 L58 88 Z', I) + tl(50, 46, 86, 8) + ln('M34 22 Q42 14 52 13', P, 2)],
+  boltAnchor: ['Анкерный болт', () => rect(32, 6, 36, 14, I, 3) + rect(45, 20, 10, 70, I, 1) + rect(35, 38, 30, 38, A, 3) + ln('M42 44 V76 M50 44 V76 M58 44 V76', P, 1.8) + pa('M45 90 L48 96 H52 L55 90 Z', I)],
+  nut: ['Гайка', () => hex(50, 50, 42, I) + ci(50, 50, 18, P) + ring(50, 50, 13, 1.8, L)],
+  nutCap: ['Гайка колпачковая', () => pa('M24 88 V42 A26 26 0 0 1 76 42 V88 Z', I) + ln('M41 52 V88 M59 52 V88', P, 2) + ln('M32 40 Q36 26 50 22', L, 3)],
+  nutInsert: ['Гайка со вставкой', () => hex(50, 50, 42, I) + ci(50, 50, 24, A) + ci(50, 50, 13, P)],
+  nutRym: ['Рым-гайка', () => ring(50, 30, 20, 9, I) + rect(30, 54, 40, 14, I, 3) + rect(40, 68, 20, 22, I, 1) + tl(50, 70, 90, 8)],
+  washer: ['Шайба плоская', () => ci(50, 50, 42, I) + ci(50, 50, 17, P)],
+  washerBig: ['Шайба увеличенная', () => ci(50, 50, 46, I) + ci(50, 50, 11, P) + ring(50, 50, 38, 1.8, L)],
+  washerSpring: ['Шайба гроверная', () => ring(50, 50, 30, 20, I, 'stroke-dasharray="165 24" transform="rotate(-80 50 50)"') + ln('M68 18 L82 14', A, 3.4) + ln('M70 26 L84 24', A, 3.4)],
+  screw: ['Саморез', () => rect(26, 8, 48, 12, I, 6) + ln('M50 11 V17 M44 14 H56', P, 2.2) + pa('M41 20 H59 V70 L50 95 L41 70 Z', I) + tl(50, 24, 66, 9)],
+  woodScrew: ['Шуруп', () => pa('M24 8 H76 L58 26 H42 Z', I) + ln('M36 13 H64', P, 2.4) + pa('M42 26 H58 L53 92 H47 Z', I) + [34, 46, 58, 70, 82].map((y) => ln(`M33 ${y + 6} L67 ${y}`, I, 3.4)).join('')],
+  vint: ['Винт', () => rect(28, 8, 44, 18, I, 4) + ln('M33 17 H67', P, 3.4) + rect(40, 26, 20, 60, I, 1) + tl(50, 32, 84, 9)],
+  ringScrew: ['Винт-кольцо', () => ring(50, 24, 17, 8, I) + rect(43, 42, 14, 48, I, 1) + tl(50, 46, 88, 8)],
+  stud: ['Шпилька', () => rect(43, 5, 14, 90, I, 3) + tl(50, 9, 92, 8) + rect(35, 40, 30, 12, A, 3)],
+  rivet: ['Заклёпка', () => ln('M50 3 V56', A, 5) + rect(24, 14, 52, 10, I, 5) + rect(37, 24, 26, 46, I, 1) + rect(30, 70, 40, 10, I, 5)],
+  rivetHex: ['Заклёпка шестигранная', () => hex(50, 24, 24, I) + rect(40, 36, 20, 44, I, 1) + rect(32, 80, 36, 10, I, 5) + ci(50, 24, 8, P)],
+  pipeRound: ['Труба круглая', () => ci(50, 50, 42, I) + ci(50, 50, 29, P)],
+  pipeRoundSS: ['Труба круглая нержавеющая', () => ci(50, 50, 42, S2) + ci(50, 50, 29, P) + pipeShine + ln('M27 62 A28 28 0 0 0 40 74', L, 3.4)],
+  pipeProf: ['Труба профильная', () => rect(8, 20, 84, 60, I, 8) + rect(24, 34, 52, 32, P, 3)],
+  pipeProfSS: ['Труба профильная нержавеющая', () => rect(8, 20, 84, 60, S2, 8) + rect(24, 34, 52, 32, P, 3) + ln('M16 34 V26 Q16 26 24 26', L, 3.4)],
+  sheet: ['Лист', () => [0, 1, 2].map((i) => pa(`M8 ${72 - i * 13} L46 ${54 - i * 13} L92 ${66 - i * 13} L52 ${86 - i * 13} Z`, i === 2 ? S2 : I)).join('') + ln('M26 38 L40 34', P, 2.6)],
+  sheetPlate: ['Лист рифлёный', () => pa('M8 60 L46 38 L92 54 L52 80 Z', I) + [[34, 56], [48, 62], [62, 62], [44, 48], [58, 52], [70, 56]].map(([x, y]) => ln(`M${x - 4} ${y + 2} L${x + 4} ${y - 2}`, L, 3)).join('')],
+  angle: ['Профиль, уголок', () => pa('M18 12 H40 V60 H84 V80 H18 Z', I) + ln('M26 20 V70', P, 2)],
+  mesh: ['Сетка', () => [10, 30, 50, 70, 90].map((v) => ln(`M${v} 10 V90 M10 ${v} H90`, I, 4)).join('')],
+  drill: ['Сверло', () => rect(41, 4, 18, 24, S2, 3) + pa('M36 28 H64 L50 96 Z', I) + [38, 50, 62, 74].map((y) => ln(`M${42 - (y - 38) / 8} ${y} L${58 + (y - 38) / 8 - 6} ${y - 6}`, P, 3)).join('')],
+  bit: ['Бита', () => rect(34, 6, 32, 12, A, 3) + rect(38, 18, 24, 50, I, 2) + pa('M38 68 H62 L56 90 H44 Z', I) + ln('M44 24 V62 M56 24 V62', P, 1.8)],
+  mill: ['Фреза', () => rect(42, 4, 16, 28, S2, 3) + rect(32, 32, 36, 58, I, 4) + [40, 52, 64, 76].map((y) => ln(`M32 ${y + 8} L68 ${y - 4}`, P, 3.2)).join('')],
+  burr: ['Борфреза', () => rect(46, 4, 8, 42, S2, 2) + `<ellipse cx="50" cy="68" rx="19" ry="27" fill="${I}"/>` + ln('M36 52 L64 84 M36 66 L60 92 M44 46 L66 70 M64 52 L36 84', P, 2.2)],
+  collet: ['Цанга', () => rect(24, 8, 52, 16, I, 3) + rect(32, 24, 36, 64, I, 4) + ln('M40 40 V88 M50 40 V88 M60 40 V88', P, 2.2) + rect(40, 24, 20, 10, A, 2)],
+  disc: ['Диск, круг отрезной', () => ci(50, 50, 44, I) + ci(50, 50, 11, P) + ring(50, 50, 30, 1.8, L) + ln('M20 30 A34 34 0 0 1 36 18', L, 3)],
+  saw: ['Диск пильный', () => star(50, 50, 46, 38, 18, I) + ci(50, 50, 12, P) + ring(50, 50, 26, 1.8, L)],
+  flap: ['Круг лепестковый', () => ci(50, 50, 44, I) + radial(50, 50, 14, 43, 18, P, 2.6) + ci(50, 50, 12, P)],
+  blade: ['Лезвие, нож', () => pa('M8 66 L84 28 L92 44 L16 80 Z', I) + ln('M30 64 L70 44', P, 2.2) + ci(24, 70, 3, P) + rect(80, 24, 14, 24, A, 3)],
+  hammer: ['Молоток, инструмент', () => rect(44, 34, 12, 58, W, 4) + rect(18, 10, 60, 24, I, 4) + pa('M78 14 L94 24 L78 30 Z', I) + ln('M26 17 H60', L, 3)],
+  rule: ['Рулетка', () => rect(10, 22, 60, 56, I, 14) + ci(40, 50, 17, P) + ci(40, 50, 6, I) + rect(66, 54, 28, 8, A, 2)],
+  caliper: ['Штангенциркуль, микрометр', () => rect(6, 38, 88, 12, I, 3) + rect(6, 38, 12, 46, I, 3) + rect(42, 38, 16, 30, A, 3) + [26, 34, 70, 78, 86].map((x) => ln(`M${x} 44 V50`, P, 1.8)).join('') + rect(42, 50, 6, 36, I, 1)],
+  level: ['Уровень', () => rect(6, 32, 88, 36, I, 6) + rect(34, 42, 32, 16, P, 8) + ci(50, 50, 5, A) + ln('M34 50 H29 M66 50 H71', P, 2)],
+  scale: ['Весы', () => rect(10, 64, 80, 22, I, 6) + ci(50, 36, 26, I) + ci(50, 36, 18, P) + ln('M50 36 L60 24', A, 3.4)],
+  gloves: ['Перчатки', () => rect(30, 48, 42, 40, I, 12) + rect(30, 16, 9, 38, I, 4.5) + rect(41, 8, 9, 46, I, 4.5) + rect(52, 8, 9, 46, I, 4.5) + rect(63, 16, 9, 38, I, 4.5) + ln('M32 70 L12 52', I, 12) + rect(30, 78, 42, 10, A, 4)],
+  mask: ['Маска сварщика', () => pa('M20 52 A30 30 0 0 1 80 52 V72 Q50 92 20 72 Z', I) + rect(30, 46, 40, 14, P, 3) + ln('M34 53 H66', A, 3)],
+  suit: ['Костюм, пелерина', () => pa('M34 10 L8 28 L20 46 L30 40 V90 H70 V40 L80 46 L92 28 L66 10 Q50 24 34 10 Z', I) + ln('M50 24 V90', P, 2) + ci(44, 50, 2, P) + ci(44, 62, 2, P)],
+  spray: ['Краска-спрей', () => rect(32, 32, 34, 58, I, 6) + rect(40, 16, 18, 16, A, 3) + rect(46, 6, 6, 10, I, 2) + rect(32, 50, 34, 20, P, 2) + ln('M38 60 H60', I, 3) + ci(14, 16, 3, A) + ci(8, 28, 3, A) + ci(20, 30, 3, A)],
+  marker: ['Маркер', () => rect(36, 36, 28, 52, I, 5) + pa('M40 36 H60 L53 10 H47 Z', A) + rect(36, 54, 28, 16, P, 2) + ln('M42 62 H58', I, 3)],
+  glue: ['Клей', () => pa('M32 12 H68 L62 76 H38 Z', I) + rect(38, 76, 24, 14, A, 3) + ln('M42 28 L45 62', P, 3)],
+  grease: ['Смазка', () => rect(20, 40, 60, 46, I, 6) + rect(16, 26, 68, 16, A, 3) + rect(30, 54, 40, 18, P, 2) + ln('M36 63 H64', I, 3)],
+  putty: ['Шпаклёвка', () => pa('M20 32 H80 L74 90 H26 Z', I) + rect(16, 20, 68, 14, A, 3) + ln('M30 48 V80 M50 48 V80 M70 48 V80', P, 2.2)],
+  tapeRoll: ['Скотч, лента', () => ring(50, 50, 30, 22, I) + pa('M80 60 L94 88 L72 84 Z', A)],
+  film: ['Плёнка, рулон', () => `<ellipse cx="50" cy="28" rx="30" ry="12" fill="${S2}"/>` + pa('M20 28 V72 A30 12 0 0 0 80 72 V28 A30 12 0 0 1 20 28 Z', I) + `<ellipse cx="50" cy="28" rx="10" ry="4" fill="${P}"/>`],
+  bearing: ['Подшипник', () => ci(50, 50, 44, I) + ci(50, 50, 32, P) + Array.from({ length: 8 }, (_, i) => ci((50 + 25.5 * Math.cos(Math.PI / 4 * i)).toFixed(1), (50 + 25.5 * Math.sin(Math.PI / 4 * i)).toFixed(1), 6.5, I)).join('') + ci(50, 50, 19, I) + ci(50, 50, 9, P)],
+  rail: ['Направляющая, вал', () => rect(6, 56, 88, 14, I, 3) + rect(28, 32, 44, 32, A, 5) + ci(38, 48, 4, P) + ci(62, 48, 4, P)],
+  spring: ['Пружина', () => ln('M26 14 L74 22 L26 32 L74 40 L26 50 L74 58 L26 68 L74 76 L26 86', I, 7)],
+  wheel: ['Колесо', () => ci(50, 50, 44, I) + ci(50, 50, 28, P) + ci(50, 50, 10, I) + radial(50, 50, 10, 28, 6, I, 4)],
+  bush: ['Втулка', () => pa('M22 30 V72 A28 12 0 0 0 78 72 V30 Z', I) + `<ellipse cx="50" cy="30" rx="28" ry="12" fill="${S2}"/><ellipse cx="50" cy="30" rx="13" ry="5" fill="${P}"/>` + ln('M30 44 V72', L, 3)],
+  shackle: ['Скоба, такелаж', () => ln('M30 18 V58 A20 20 0 0 0 70 58 V18', I, 10) + rect(18, 10, 64, 12, A, 4)],
+  swivel: ['Вертлюг', () => ring(50, 22, 14, 8, I) + rect(40, 36, 20, 28, S2, 3) + rect(36, 48, 28, 6, A, 2) + ring(50, 78, 14, 8, I)],
+  chain: ['Цепь', () => `<rect x="9" y="41" width="32" height="18" rx="9" fill="none" stroke="${I}" stroke-width="7"/>` + rect(38, 43, 24, 14, I, 7) + `<rect x="59" y="41" width="32" height="18" rx="9" fill="none" stroke="${I}" stroke-width="7"/>`],
+  clamp: ['Хомут', () => ring(50, 58, 30, 9, I) + rect(40, 8, 20, 24, A, 3) + ci(50, 20, 4, P)],
+  zap: ['Электрика', () => pa('M58 4 L22 54 H46 L38 96 L78 42 H54 Z', A)],
+  neon: ['Гибкий неон', () => ln('M8 62 Q28 20 50 52 T92 38', I, 15) + ln('M8 62 Q28 20 50 52 T92 38', A, 8)],
+  router: ['Роутер', () => rect(10, 56, 80, 28, I, 6) + rect(22, 16, 7, 42, I, 3) + rect(71, 16, 7, 42, I, 3) + ci(26, 70, 3.4, A) + ci(38, 70, 3.4, A) + ln('M56 70 H78', P, 3)],
+  ups: ['ИБП, блок', () => rect(16, 12, 68, 76, I, 8) + rect(26, 22, 48, 20, P, 3) + pa('M52 24 L38 34 H48 L44 40 L58 30 H48 Z', A) + ci(34, 62, 4, P) + ci(50, 62, 4, P) + ci(66, 62, 4, P)],
+  battery: ['Батарейка', () => rect(28, 22, 44, 68, I, 6) + rect(40, 10, 20, 13, A, 2) + rect(28, 46, 44, 14, A, 0) + ln('M50 28 V40', P, 3)],
+  plug: ['Разъём', () => rect(8, 36, 38, 28, I, 5) + rect(54, 36, 38, 28, A, 5) + ln('M46 44 H54 M46 56 H54', S2, 4) + ci(22, 50, 3, P) + ci(78, 50, 3, P)],
+  swing: ['Качели', () => ln('M26 8 L38 54 M74 8 L62 54', I, 3) + `<ellipse cx="50" cy="72" rx="32" ry="13" fill="none" stroke="${W2}" stroke-width="9"/>`],
+  seat: ['Сиденье', () => ln('M24 8 V52 M76 8 V52', I, 3) + rect(10, 50, 80, 14, W, 6) + ln('M18 57 H82', W2, 2)],
+  pallet: ['Поддон', () => rect(8, 22, 84, 12, W, 1) + rect(8, 44, 84, 10, W2, 1) + rect(8, 64, 84, 10, W, 1) + rect(10, 34, 14, 10, I, 0) + rect(43, 34, 14, 10, I, 0) + rect(76, 34, 14, 10, I, 0) + rect(10, 54, 14, 10, I, 0) + rect(43, 54, 14, 10, I, 0) + rect(76, 54, 14, 10, I, 0)],
+  cap: ['Заглушка', () => rect(14, 26, 72, 14, I, 5) + pa('M24 40 H76 L68 76 H32 Z', I) + rect(38, 76, 24, 12, A, 3)],
+  box: ['Прочее', () => pa('M50 8 L90 26 L50 44 L10 26 Z', S2) + pa('M50 44 L90 26 V70 L50 92 Z', I) + pa('M50 44 L10 26 V70 L50 92 Z', '#4a5159') + ln('M30 18 L70 36', P, 2.4)],
+};
+/** Тип → свой рисунок (первое совпадение сверху вниз; тип приходит как есть, регистр не важен). */
+const TYPE_OWN = [
+  [/вертлюг/i, 'swivel'], [/шакле|[cс]коб|такелаж/i, 'shackle'], [/[cс]труб/i, 'clamp'],
+  [/анкер/i, 'boltAnchor'], [/мебельн/i, 'boltFurn'], [/болт/i, 'bolt'],
+  [/колпачк/i, 'nutCap'], [/вставк/i, 'nutInsert'], [/рым/i, 'nutRym'], [/гайк/i, 'nut'],
+  [/гровер/i, 'washerSpring'], [/увеличен/i, 'washerBig'], [/шайб/i, 'washer'],
+  [/саморез/i, 'screw'], [/шуруп/i, 'woodScrew'], [/винт-кольц/i, 'ringScrew'], [/винт/i, 'vint'], [/шпильк/i, 'stud'],
+  [/шестигр.*закл|закл.*шестигр/i, 'rivetHex'], [/закл[её]пк/i, 'rivet'],
+  [/^труб.*нерж.*проф|^труб.*проф.*нерж/i, 'pipeProfSS'], [/^труб.*нерж/i, 'pipeRoundSS'], [/^труб.*проф/i, 'pipeProf'], [/^труб/i, 'pipeRound'],
+  [/рифл/i, 'sheetPlate'], [/^лист/i, 'sheet'], [/^профиль/i, 'angle'], [/сетк/i, 'mesh'],
+  [/сверл/i, 'drill'], [/борфрез/i, 'burr'], [/фрез/i, 'mill'], [/^бит[аы]?(\s|$)/i, 'bit'], [/цанг/i, 'collet'],
+  [/пильн/i, 'saw'], [/лепестк/i, 'flap'], [/диск|^круг/i, 'disc'], [/лезви|^нож/i, 'blade'],
+  [/молот/i, 'hammer'], [/рулетк/i, 'rule'], [/микрометр|штангенц/i, 'caliper'], [/уровень/i, 'level'], [/весы/i, 'scale'],
+  [/перчатк/i, 'gloves'], [/маска/i, 'mask'], [/костюм|пелерин/i, 'suit'],
+  [/маркер/i, 'marker'], [/спрей|краск/i, 'spray'], [/клей/i, 'glue'], [/смазк/i, 'grease'], [/шпаклев|шпаклёв/i, 'putty'],
+  [/скотч|лент/i, 'tapeRoll'], [/стрейч|рулоны|пл[её]нк|вспен|пэт/i, 'film'],
+  [/подшипник/i, 'bearing'], [/^вал(\s|$)|модуль линейн/i, 'rail'], [/пружин/i, 'spring'], [/колес/i, 'wheel'], [/втулк/i, 'bush'],
+  [/цеп/i, 'chain'], [/шакле|[cс]коб/i, 'shackle'], [/вертлюг/i, 'swivel'], [/х[ао]мут/i, 'clamp'],
+  [/неон/i, 'neon'], [/роутер|wi-?fi/i, 'router'], [/ибп|блок/i, 'ups'], [/марганц/i, 'battery'], [/разъ[её]м/i, 'plug'],
+  [/качел/i, 'swing'], [/сиден|сидень/i, 'seat'], [/поддон/i, 'pallet'], [/заглушк/i, 'cap'],
 ];
-/** SVG-разметка рисунка для типа позиции («Болт», «Гайка шестигранная»); нет рисунка — общий значок категории. */
-export function typeArt(type, categoryName = '') {
-  const hit = TYPE_SETS.find(([re]) => re.test(String(type || '').trim()));
-  if (!hit) return catArt(categoryName || type);
-  return `<svg viewBox="10 12 140 82" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">${hit[1]()}</svg>`;
+/** Запасной рисунок семейства (id семейства — core/facets.js TYPE_FAMILIES). */
+const FAMILY_ICON = { bolt: 'bolt', nut: 'nut', washer: 'washer', screw: 'woodScrew', vint: 'vint', rivet: 'rivet', rig: 'shackle', pipe: 'pipeRound', sheet: 'sheet', cut: 'drill', tool: 'hammer', ppe: 'gloves', chem: 'spray', bearing: 'bearing', elec: 'zap', play: 'swing', other: 'box' };
+
+/** Какой рисунок у типа: { own: ключ своего | null, family: ключ семейства, key: итоговый }. */
+export function typeIconKind(type) {
+  const t = String(type || '').trim();
+  const own = TYPE_OWN.find(([re]) => re.test(t))?.[1] || null;
+  const family = FAMILY_ICON[familyOf(t).id] || 'box';
+  return { own, family, key: own || family };
 }
+/** SVG-разметка рисунка для типа позиции («Болт», «Гайка шестигранная»): свой → семейства → общий. */
+export function typeArt(type, _categoryName) {
+  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">${ICONS[typeIconKind(type).key][1]()}</svg>`;
+}
+/** Все иконки с подписями (витрина #kit «Иконки типов»). */
+export const typeIconList = () => Object.entries(ICONS).map(([key, [label, draw]]) => ({ key, label, svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">${draw()}</svg>` }));

@@ -6,8 +6,9 @@ import { link, row, tabs } from './index.js';
 
 /**
  * funnel({ steps, onChange, next?, recent?, done? }) — эталон «Воронка с памятью» (docs/PATTERNS.md П-1), один вид для паспорта и склада.
- *   step: { key, label, ask? («Дальше: …» пока шаг не выбран), value? (выбрано: id или id через запятую), values:[{id,label,count,thumb?}], multi?, skip?, optional? }
+ *   step: { key, label, ask? («Дальше: …» пока шаг не выбран), value? (выбрано: id или id через запятую), values:[{id,label,count,thumb?,group?}], multi?, skip?, optional? }
  *   Шаги идут сверху вниз; следующий не показан, пока не выбран предыдущий. skip или одно значение — шаг пропущен сам.
+ *   group у значений (C039) — «полочки»: фишки одной группы подряд под подписью группы (порядок — как пришёл), без группы — отдельной строкой в конце; значения сразу фишками, без списка с поиском.
  *   optional — шаг не задерживает следующих (признаки: можно не выбирать). ≤ 7 значений — вкладки/фишки с числом, больше — список с поиском.
  *   Пройденный шаг — строка «Категория: Уличный тренажёр ✎»; нажатие = onChange(key, '') (экран сбрасывает нижние).
  *   next — текст «Дальше: …» (нет — от первого невыбранного шага); recent: [{ title, meta?, onClick }] — строка «Недавно: …»; done — шаги закрыты, видны только пройденные.
@@ -38,10 +39,21 @@ export function funnel({ steps = [], onChange, next, recent, done = false } = {}
     return out;
   }
   /** Значения по убыванию числа; «не указан / прочее» — в конце. */
-  const sorted = (s) => { const tail = (v) => v.id === 'none' || /не указан|прочее/i.test(String(v.label)); return [...(s.values || [])].sort((a, b) => tail(a) - tail(b) || (b.count ?? 0) - (a.count ?? 0)); };
+  const grouped = (s) => (s.values || []).some((v) => v.group);
+  const sorted = (s) => { if (grouped(s)) return s.values; const tail = (v) => v.id === 'none' || /не указан|прочее/i.test(String(v.label)); return [...(s.values || [])].sort((a, b) => tail(a) - tail(b) || (b.count ?? 0) - (a.count ?? 0)); };
   const open = (s, v) => onChange?.(s.key, v);
 
+  /** Фишки по полочкам: подпись группы (muted) и её фишки; значения без группы — строкой в конце без подписи. */
+  function shelves(s) {
+    const on = ids(s.value); const seen = [];
+    for (const v of s.values) if (!seen.includes(v.group || '')) seen.push(v.group || '');
+    const chip = (v) => h('button', { type: 'button', class: 'chip' + (on.includes(String(v.id)) ? ' active' : ''), 'aria-pressed': String(on.includes(String(v.id))), onclick: () => (s.multi ? open(s, (on.includes(String(v.id)) ? on.filter((x) => x !== String(v.id)) : [...on, String(v.id)]).join(',')) : open(s, v.id)) },
+      v.label, v.count != null ? h('b', null, String(v.count)) : null);
+    return h('div', { class: 'k-stack', role: 'group', 'aria-label': s.label }, ...seen.filter(Boolean).concat(seen.includes('') ? [''] : []).map((g) => h('div', { class: 'k-stack' }, g ? h('span', { class: 'muted small' }, g) : null,
+      h('div', { class: 'chips' }, ...s.values.filter((v) => (v.group || '') === g).map(chip)))));
+  }
   function chips(s) {
+    if (grouped(s)) return shelves(s);
     if (!s.multi) return tabs({ items: sorted(s).map((v) => ({ key: v.id, label: v.label, count: v.count })), value: ids(s.value)[0] ?? null, label: s.label, onChange: (k) => open(s, k) }).el;
     const on = ids(s.value);
     return h('div', { class: 'chips', role: 'group', 'aria-label': s.label }, ...sorted(s).map((v) => h('button', { type: 'button', class: 'chip' + (on.includes(String(v.id)) ? ' active' : ''), 'aria-pressed': String(on.includes(String(v.id))),
@@ -55,7 +67,7 @@ export function funnel({ steps = [], onChange, next, recent, done = false } = {}
   }
   function stepEl({ s, mode }) {
     if (mode === 'folded') return h('div', null, link({ label: `${s.label}: ${ids(s.value).map((id) => labelOf(s, id)).join(', ')} ✎`, title: `Изменить: ${s.label}`, onClick: () => open(s, '') }));
-    const long = !s.multi && s.values.length > SHORT;
+    const long = !s.multi && s.values.length > SHORT && !grouped(s);
     return h('div', { class: 'field wide', 'data-step': s.key }, h('span', null, s.label), long ? combo(s) : chips(s));
   }
 
