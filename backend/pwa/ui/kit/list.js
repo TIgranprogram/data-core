@@ -26,7 +26,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   let P = { ...params };
   const t0 = performance.now(); // замер первой отрисовки (SPEED-2): > 2 с — запись «Медленно» в ошибки сайта
   let timed = document.hidden; // скрытая вкладка — не «медленно»: браузер её тормозит нарочно
-  const stopTiming = () => { timed = true; };
+  const stopTiming = () => { timed = true; }; const firstDrawn = () => { if (!timed) { timed = true; document.removeEventListener('visibilitychange', stopTiming); } }; // доска, диаграмма, стартовые плитки — уже нарисовано: дальше ждём человека, а не сервер
   document.addEventListener('visibilitychange', stopTiming, { once: true });
   // L.defaults: фильтры по умолчанию — только при входе в раздел без параметров в адресе; «Все» их снимает и они не возвращаются
   if (L.defaults && !Object.keys(params).length) {
@@ -282,18 +282,18 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     const per = L.periods ? L.periods(P) : null;
     if (per && !isBoard) { limit = 2000; page = 1; }
     if (isGantt) {
-      countEl.textContent = '';
+      firstDrawn(); countEl.textContent = '';
       if (!gantt) { gantt = L.gantt.mount(L.gantt, L.path, query, { onOpen, onChanged: () => gantt.reload(), onTotal: (n) => { if (st().gantt) countEl.textContent = qty(n); } }); ganttBox.replaceChildren(gantt.el); }
       else gantt.setQuery(query);
       return;
     }
     if (isBoard) {
-      countEl.textContent = '';
+      firstDrawn(); countEl.textContent = '';
       if (!board) { board = (L.board.mount || mountBoard)(L.board, L.path, query, { onOpen, onChanged: () => board.reload(), onTotal: (n) => { if (st().board) countEl.textContent = qty(n); } }); boardBox.replaceChildren(board.el); }
       else board.setQuery(query);
       return;
     }
-    const my = ++seq;
+    const my = ++seq, loadT0 = performance.now(); // замер «Медленно» — от начала этой загрузки
     const infinite = !per;
     const append = infinite && !!opt.append && !!lastResp;
     if (infinite && !append && !opt.keep) pagesLoaded = 1;
@@ -302,7 +302,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       countEl.textContent = ''; foot.replaceChildren(); panel.classList.remove('loading');
       const node = await L.landing.render({ pick: (v) => patch({ [L.tiles?.key || 'groupId']: v, page: undefined }) });
       if (my !== seq) return;
-      loaded = true; rows = []; galleryBox.replaceChildren(node);
+      loaded = true; rows = []; galleryBox.replaceChildren(node); firstDrawn();
       return;
     }
     if (append) { loadingMore = true; moreNote.textContent = 'Загрузка…'; } else if (!loaded) stateRow(() => h('div', { class: 'skel-block' }, ...Array.from({ length: 6 }, () => h('div', { class: 'skel' }))));
@@ -327,7 +327,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     }
     if (my !== seq) return;
     loaded = true; loadingMore = false;
-    if (!timed) { timed = true; document.removeEventListener('visibilitychange', stopTiming); const ms = performance.now() - t0; if (ms > 2000) reportSlow(ms, t0); }
+    if (!timed) { timed = true; document.removeEventListener('visibilitychange', stopTiming); const ms = performance.now() - Math.max(t0, loadT0); if (ms > 2000) reportSlow(ms, Math.max(t0, loadT0)); }
     panel.classList.remove('loading');
     lastResp = resp; rawRows = resp.items;
     countEl.textContent = qty(resp.total);
