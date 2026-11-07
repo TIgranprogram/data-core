@@ -441,11 +441,22 @@ table.list .k-nowrap { white-space: nowrap; }
 .badge.k-dot::before { width: 12px; height: 12px; }
 /* card S: art, low, graph, expand; tileGrid; landing */
 .k-tilegrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
-@media (min-width: 720px) { .k-tilegrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (min-width: 1280px) { .k-tilegrid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* шире телефона — сколько поместится, плитка не уже 180px (названия разделов не режутся по слову) */
+@media (min-width: 720px) { .k-tilegrid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); } }
 .tile.k-art { flex-direction: row; align-items: center; gap: var(--s3); }
 .k-tile-art { flex: none; width: 40px; height: 40px; display: grid; place-items: center; }
 .k-tile-art > svg, .k-tile-art > span, .k-tile-art > span > svg { display: block; width: 100%; height: 100%; } /* рисунок может прийти в обёртке span (stock.js art) — C030 D */
+.tile.k-cover { flex-direction: column; align-items: stretch; gap: 0; padding: 0; overflow: hidden; transition: border-color .15s, box-shadow .15s, transform .15s; }
+.tile.k-cover > .k-tile-art { width: auto; height: auto; aspect-ratio: 16 / 10; background: var(--photo-bg); border-bottom: 1px solid var(--border); padding: var(--s3); }
+.tile.k-cover .k-tile-art svg { transition: transform .2s; }
+.tile.k-cover.k-hover:hover .k-tile-art svg { transform: scale(1.04); }
+.tile.k-cover > .k-tile-txt { padding: var(--s3) var(--s4) var(--s4); }
+.tile.k-cover b { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; line-height: 1.3; }
+/* раскрывающаяся плитка (card S expand): стрелка у названия — видно, что раскрывается (приёмка дизайнера C030) */
+.tile[aria-expanded] .k-tile-txt > b::after { content: ' ▾'; color: var(--muted); font-weight: 400; }
+.tile.k-open[aria-expanded] .k-tile-txt > b::after { content: ' ▴'; }
+@media (max-width: 720px) { .tile.k-cover > .k-tile-txt { padding: var(--s2) var(--s3) var(--s3); } }
+@media (prefers-reduced-motion: reduce) { .tile.k-cover, .tile.k-cover .k-tile-art svg { transition: none; } .tile.k-cover.k-hover:hover .k-tile-art svg { transform: none; } }
 .k-tile-txt { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; flex: 1; }
 .tile.k-art b { font-size: var(--fs-table); font-weight: 600; }
 .k-low { color: var(--danger); font-weight: 600; }

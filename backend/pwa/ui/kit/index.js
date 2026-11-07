@@ -63,7 +63,7 @@ function variantBody(variant, body, price) {
 }
 
 /** card({ size: 'S'|'M'|'L', tone: 'neutral'|'info'|'warn'|'danger'|'ok', title, meta, badges, actions, onClick, photo, density, cls, variant: 'long'|'table'|'fields', body, price })
- *  S: art (узел 40×40 слева, catArt), low (часть меты красным), graph (miniChart под меткой), expand: { title, action, body } — плитка раскрывает панель под собой (внутри tileGrid — на всю ширину).
+ *  S: art (узел 40×40 слева, catArt; artCover:true — рисунок сверху во всю ширину 16:10 на --photo-bg), onToggle(open) у expand, low (часть меты красным), graph (miniChart под меткой), expand: { title, action, body } — плитка раскрывает панель под собой (внутри tileGrid — на всю ширину).
  *  M variant 'fields': price + body (readonlyGroup). L: head: { title, badges, menu } + tabs: { items: [{ key, label, count? }], panes: { key: () => узел }, value } — шапка и вкладки с панелью (в DOM только активная).
  *  variant + body — слот под заголовком; onClick → класс k-hover (подъём -2px и --shadow-lg, только у кликабельных).
  *  S → .tile, M → .tcard (density 'compact' → .tcard.compact), L → .db-order. tone → .tone-X + .k-toned (полоса слева).
@@ -75,7 +75,7 @@ function cardRaw(o = {}) {
   return cardBase(o);
 }
 /** Плитка S с раскрывающейся панелью под собой: обёртка display:contents, панель занимает всю строку сетки. */
-function expandTile({ expand, onClick, ...rest }) {
+function expandTile({ expand, onClick, onToggle, ...rest }) {
   const panelEl = h('div', { class: 'k-expand', hidden: true, inert: true },
     expand.title || expand.action ? h('div', { class: 'k-expand-head' }, h('b', null, expand.title), expand.action || null) : null,
     h('div', { class: 'k-expand-body' }, ...nodes(expand.body)));
@@ -85,6 +85,7 @@ function expandTile({ expand, onClick, ...rest }) {
     panelEl.hidden = !open; panelEl.inert = !open;
     tile.classList.toggle('k-open', open); tile.setAttribute('aria-expanded', String(open));
     if (open) onClick?.();
+    onToggle?.(open);
   };
   tile = cardBase({ ...rest, onClick: toggle });
   tile.setAttribute('aria-expanded', 'false');
@@ -101,7 +102,7 @@ function headTabsCard({ head = {}, tabs: tb, tone = 'neutral', cls }) {
     h('div', { class: 'db-oh k-head' }, h('span', { class: 'db-oname' }, h('b', null, head.title)), head.badges ? h('div', { class: 'k-badges' }, ...nodes(head.badges)) : null, head.menu || null),
     t ? t.el : null, t ? pane : null);
 }
-function cardBase({ size = 'M', tone = 'neutral', title, meta, badges, actions, onClick, photo, density, cls, variant, body, price, art, low, graph } = {}) {
+function cardBase({ size = 'M', tone = 'neutral', title, meta, badges, actions, onClick, photo, density, cls, variant, body, price, art, artCover, low, graph } = {}) {
   const toned = TONES.includes(tone) ? ' tone-' + tone + ' k-toned' : '';
   const hover = onClick ? ' k-hover' : '';
   const slot = variantBody(variant, body, price);
@@ -112,7 +113,7 @@ function cardBase({ size = 'M', tone = 'neutral', title, meta, badges, actions, 
   if (size === 'S') {
     const sub = meta || low ? h('span', { class: 'muted' }, meta, low ? h('span', { class: 'k-low' }, (meta ? ' · ' : '') + low) : null) : null;
     const inner = [h('b', { title }, title), sub, graph || null, bs.length ? h('div', { class: 'k-badges' }, ...bs) : null, slot, as.length ? quiet(h('div', { class: 'k-actions' }, ...as)) : null];
-    if (art) return h('div', { class: 'tile k-s k-art' + toned + extra, ...open }, h('span', { class: 'k-tile-art', 'aria-hidden': 'true' }, art), h('div', { class: 'k-tile-txt' }, ...inner));
+    if (art) return h('div', { class: 'tile k-s k-art' + (artCover ? ' k-cover' : '') + toned + extra, ...open }, h('span', { class: 'k-tile-art', 'aria-hidden': 'true' }, art), h('div', { class: 'k-tile-txt' }, ...inner));
     return h('div', { class: 'tile k-s' + toned + extra, ...open }, ...inner);
   }
   if (size === 'L') {
