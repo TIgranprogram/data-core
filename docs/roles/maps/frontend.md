@@ -1,3 +1,7 @@
+## Сопоставление: длинные тексты (2026-11-07, не закоммичено)
+коммит: не закоммичено
+- kit: `ui/kit/index.js clamp`, `table.js` колонка `wrap`, `kit.css` .k-clamp/.k-col-wrap; витрина #kit; DESIGN §4/§8. Экраны: `matching-queue.js`, `salesorders-matching.js`, `salesorders-unassigned.js`. Карта обновлена.
+
 ## C033 п.5 форма «+ Договор» (2026-11-07, не закоммичено)
 коммит: не закоммичено
 - `sections/salesorders-memory.js`: `memoryFields` (Заказчик с числом заказов, `likeWidget` «как в прошлый раз», segment `_noMode` новый/существующий); подключён в `salesorders.js` form.fields (~665). Карта обновлена.

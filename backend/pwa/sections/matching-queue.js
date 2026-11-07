@@ -2,7 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
-import { enhanceSelect, table, tabs as kitTabs, button, section } from '../ui/kit/index.js';
+import { enhanceSelect, table, tabs as kitTabs, button, section, clamp } from '../ui/kit/index.js';
 import { toastError } from '../ui/kit/toast.js';
 import { STAGE } from './order-stage.js';
 import { openMatching } from './salesorders-matching.js';
@@ -85,9 +85,9 @@ export function unmatchedTop({ open = false } = {}) {
     return h('tr', null,
       h('td', { class: 'nowrap' }, it.productionNo ? h('b', null, it.productionNo) : h('span', { class: 'muted' }, 'нет №'), h('div', { class: 't-sub' }, STAGE[it.stage]?.label || '')),
       h('td', null, h('b', null, it.orderNo || '—'), h('div', { class: 't-sub' }, it.customer || '')),
-      h('td', null, h('div', { class: 'mq-item' }, posPic(it.photo), h('div', { class: 'mq-item-main' }, it.title))),
+      h('td', null, h('div', { class: 'mq-item' }, posPic(it.photo, 'sm'), h('div', { class: 'mq-item-main' }, clamp(it.title, { lines: 3 })))),
       h('td', { class: 'num nowrap' }, `${qty(it.qty)} ${it.unit || ''}`.trim()),
-      h('td', null, s ? h('div', { class: 'mq-item' }, posPic(s.photo), h('div', { class: 'mq-item-main' }, h('b', null, s.name), s.sku ? h('span', { class: 'muted' }, ' · ' + s.sku) : null, h('div', { class: 't-sub' }, `совпадение ${qty(s.percent)}%${it.confident ? ' · уверенно' : ''}`))) : h('span', { class: 'muted' }, write ? 'Похожих изделий нет. Нажмите «Выбрать…»' : 'Похожих изделий нет')),
+      h('td', null, s ? h('div', { class: 'mq-item' }, posPic(s.photo, 'sm'), h('div', { class: 'mq-item-main' }, clamp(h('b', null, s.name, s.sku ? h('span', { class: 'muted' }, ' · ' + s.sku) : null), { lines: 2 }), h('div', { class: 't-sub' }, `совпадение ${qty(s.percent)}%${it.confident ? ' · уверенно' : ''}`))) : h('span', { class: 'muted' }, write ? 'Похожих изделий нет. Нажмите «Выбрать…»' : 'Похожих изделий нет')),
       h('td', { class: 'mq-act-cell' }, acts));
   };
   const paint = () => {
@@ -95,7 +95,7 @@ export function unmatchedTop({ open = false } = {}) {
     bulkBtn.hidden = !write || !n;
     bulkBtn.textContent = `Подтвердить все уверенные (${n})`;
     body.replaceChildren(items.length
-      ? table({ columns: [{ label: 'Заказ' }, { label: 'Договор' }, { label: 'Что в договоре' }, { label: 'Кол-во', num: true }, { label: 'Похожее изделие' }, { label: '' }], rows: items.map(rowEl) })
+      ? table({ columns: [{ label: 'Заказ' }, { label: 'Договор' }, { label: 'Что в договоре', wrap: true }, { label: 'Кол-во', num: true }, { label: 'Похожее изделие', wrap: true }, { label: '' }], rows: items.map(rowEl) })
       : h('p', { class: 'muted' }, !loaded ? 'Загрузка…' : q || filter.productionNo || filter.orderNo || filter.stage || onlyProd ? 'По этим условиям позиций нет. Сбросьте фильтр или поиск.' : 'Всё сопоставлено — несопоставленных позиций нет.'));
     more.hidden = items.length >= total;
   };

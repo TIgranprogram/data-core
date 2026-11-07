@@ -6,7 +6,7 @@ import { matchBadge, openMatching } from './salesorders-matching.js';
 import { session } from '../core/api.js';
 import { toast } from '../ui/kit/toast.js';
 import { modal } from '../ui/kit/dialog.js';
-import { attachCombo, button, select, section } from '../ui/kit/index.js';
+import { attachCombo, button, select, section, clamp } from '../ui/kit/index.js';
 import { errText } from '../ui/kit/errors.js';
 
 /** В3: «Договоры без заказа» — выбор галочками и перенос в новый или существующий заказ (POST /production-orders/assign). */
@@ -39,7 +39,7 @@ export function unassignedPicker({ onChange } = {}) {
     body.replaceChildren(...view.map((r) => {
       const cb = h('input', { type: 'checkbox', class: 'ua-cb', checked: picked.has(r.id), onchange: (e) => { if (e.target.checked) picked.add(r.id); else picked.delete(r.id); sync(); } });
       return h('label', { class: 'ua-row' }, cb,
-        h('span', { class: 'ua-main' }, h('b', null, 'Договор ' + (r.orderNo || '—')), h('span', { class: 'muted' }, r.customer ? ' · ' + r.customer : '')),
+        h('span', { class: 'ua-main' }, clamp(h('span', null, h('b', null, 'Договор ' + (r.orderNo || '—')), h('span', { class: 'muted' }, r.customer ? ' · ' + r.customer : '')), { lines: 2 })),
         h('span', { class: 'ua-match' }, matchBadge(r), r.canAssign === false ? button({ label: 'Сопоставить', size: 'S', title: 'Сопоставить позиции договора с изделиями', onClick: (e) => { e.preventDefault(); openMatching(patch, r.id); } }) : null),
         h('span', { class: 'muted small nowrap' }, [r.date && date(r.date), `${qty(r.lineCount || 0)} поз.`, session.canMoney && r.amount ? money(r.amount) : ''].filter(Boolean).join(' · ')));
     }));

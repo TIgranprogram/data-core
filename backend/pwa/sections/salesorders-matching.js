@@ -1,7 +1,7 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
-import { attachCombo, similarBox, button, funnel, stack } from '../ui/kit/index.js';
+import { attachCombo, similarBox, button, funnel, stack, clamp } from '../ui/kit/index.js';
 import { posPic } from '../ui/pos-pic.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { current, patch } from '../core/router.js';
@@ -74,7 +74,7 @@ function lineRow(it, run, write, single) {
   const sugg = (it.suggestions || []).slice(0, 3);
   const sugList = !it.matched && sugg.length
     ? h('ul', { class: 'mt-sug' }, sugg.map((s, i) => h('li', null, posPic(s.photo),
-      h('div', { class: 'mt-sug-main' }, h('span', { class: 'muted' }, i ? 'Или: ' : 'Похоже: '), h('b', null, s.name), s.sku ? h('span', { class: 'muted' }, ' · ' + s.sku) : null, h('div', { class: 't-sub' }, `${qty(s.percent)}% · ${s.label || ''}`)),
+      h('div', { class: 'mt-sug-main' }, h('span', { class: 'muted' }, i ? 'Или: ' : 'Похоже: '), clamp(h('span', null, h('b', null, s.name), s.sku ? h('span', { class: 'muted' }, ' · ' + s.sku) : null), { lines: 2 }), h('div', { class: 't-sub' }, `${qty(s.percent)}% · ${s.label || ''}`)),
       write ? button({ label: 'Да, верно', kind: 'primary', size: 'S', onClick: (e) => { e.currentTarget.classList.add('is-busy'); confirm(s.productId); } }) : null)))
     : null;
   const sim = similarBox({ pickLabel: 'Взять это', onPick: (p) => confirm(p.id) });
@@ -129,9 +129,9 @@ function lineRow(it, run, write, single) {
   return h('li', { class: 'mt-row' + (it.matched ? '' : ' mt-open') },
     h('div', { class: 'mt-head' }, posPic(it.photo),
       h('div', { class: 'mt-head-main' },
-        h('div', { class: 'mt-title' }, (it.lineNo != null ? `поз. ${it.lineNo} · ` : '') + it.title),
+        h('div', { class: 'mt-title' }, clamp((it.lineNo != null ? `поз. ${it.lineNo} · ` : '') + it.title, { lines: 3 })),
         h('div', { class: 't-sub' }, `${qty(it.qty)} ${it.unit || ''}`.trim()))),
-    h('div', { class: 'mt-state' }, h('span', { class: 'badge ' + st.tone }, st.label), it.matched && it.productName && it.state !== 'none' ? h('span', { class: 'muted' }, ' → ' + it.productName + (it.productSku ? ` · арт. ${it.productSku}` : '')) : null),
+    h('div', { class: 'mt-state' }, h('span', { class: 'badge ' + st.tone }, st.label), it.matched && it.productName && it.state !== 'none' ? clamp(' → ' + it.productName + (it.productSku ? ` · арт. ${it.productSku}` : ''), { lines: 2, cls: 'muted' }) : null),
     sugList, acts.childNodes.length ? acts : null, write ? sim.el : null, pickBox);
 }
 
