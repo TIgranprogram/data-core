@@ -25,9 +25,16 @@ import { ZonesService } from '../zones/zones.service';
 import { personLabel } from '../zones/zone-routing';
 import { requestReturn, requestReturnText } from './supply-notices';
 import { OrgResolver } from './org-resolver';
+import { topSupplier } from '../stock/purchase-history';
 import { SupplierAliases } from './supplier-aliases';
 import { labelFromPriority, labelFromStatus, priorityFromLabel, statusFromLabel } from './supply-labels';
 import { SupplyRequest, SupplyRequestDocument } from './supply-request.schema';
+
+/** Заявки пачкой: тело `POST /supply/requests/bulk`. */
+export interface SupplyBulkInput {
+  clientUid: string;
+  items: Array<{ materialId: string; qty: number; supplierId?: string }>;
+}
 
 export interface SupplyInput {
   title?: string;
@@ -41,6 +48,8 @@ export interface SupplyInput {
   articleId?: string | null;
   materialId?: string;
   supplierName?: string;
+  /** Поставщик по id (заявки пачкой): организация должна существовать; в публичный DTO не входит. */
+  supplierId?: string;
   companyName?: string;
   orderLabel?: string;
   salesOrderId?: string;
@@ -420,7 +429,8 @@ export class SupplyService {
     }
     if (dto.materialId && Types.ObjectId.isValid(dto.materialId)) f.materialId = new Types.ObjectId(dto.materialId);
     const orgs = new OrgResolver(this.connection);
-    if (dto.supplierName !== undefined) f.supplierId = await orgs.resolve(dto.supplierName, 'supplier');
+    if (dto.supplierId) f.supplierId = new Types.ObjectId(dto.supplierId);
+    else if (dto.supplierName !== undefined) f.supplierId = await orgs.resolve(dto.supplierName, 'supplier');
     if (dto.companyName !== undefined) f.companyId = await orgs.resolve(dto.companyName, 'own');
     if (dto.statusLabel !== undefined) {
       const s = statusFromLabel(dto.statusLabel);
@@ -467,6 +477,38 @@ export class SupplyService {
     await this.adoptArticle(doc as unknown as Record<string, unknown>);
     await this.afterCreate(doc as unknown as Record<string, unknown>, userId);
     return this.get(String(doc._id));
+  }
+
+  /**
+   * Заявки пачкой (C036 Ш3): по строке на позицию. Поставщик — из прошлых закупок (чаще, затем свежее), цена — последняя у него
+   * за единицу × количество, иначе из прайса (`supplieritems`). Всё проверяется до записи; повтор с тем же `clientUid` отдаёт те же заявки.
+   */
+  async createBulk(dto: SupplyBulkInput, scope: StockScope | null, userId?: string) {
+    const db = this.connection.db!;
+    const ids = dto.items.map((i) => oid(i.materialId, 'позиции'));
+    if (new Set(ids.map(String)).size !== ids.length) throw new BadRequestException('Одна позиция указана дважды — объедините количество в одну строку');
+    const found = await db.collection('materials').find({ _id: { $in: ids }, deletedAt: null }, { projection: { _id: 1 } }).toArray();
+    if (found.length !== ids.length) throw new BadRequestException('Некоторых позиций нет в каталоге — обновите список и повторите');
+    for (const i of dto.items) await this.assertNew({ materialId: i.materialId }, scope);
+    const given = [...new Set(dto.items.map((i) => i.supplierId).filter(Boolean) as string[])].map((s) => oid(s, 'поставщика'));
+    if (given.length && (await db.collection('organizations').countDocuments({ _id: { $in: given }, deletedAt: null })) !== given.length) throw new BadRequestException('Поставщик не найден — выберите из списка');
+    const history = await this.stock.purchaseSuppliers(ids);
+    const prices = await db.collection('supplieritems').find({ materialId: { $in: ids }, deletedAt: null, priceHint: { $gt: 0 } }, { projection: { materialId: 1, supplierId: 1, priceHint: 1 } }).toArray();
+    const items: unknown[] = [];
+    for (const [n, line] of dto.items.entries()) {
+      const past = history.get(String(ids[n])) ?? [];
+      const supplierId = line.supplierId ?? (topSupplier(past)?.supplierId ? String(topSupplier(past)!.supplierId) : undefined);
+      const unit = supplierId
+        ? past.find((s) => String(s.supplierId) === supplierId)?.lastPrice
+          ?? prices.find((p) => String(p.materialId) === String(ids[n]) && String(p.supplierId) === supplierId)?.priceHint
+        : undefined;
+      items.push(await this.create({
+        materialId: line.materialId, qty: line.qty, ...(supplierId ? { supplierId } : {}),
+        ...(Number(unit) > 0 ? { priceHint: Math.round(Number(unit) * line.qty * 100) / 100 } : {}), // в заявке — сумма, не цена за единицу
+        clientUid: `${dto.clientUid}:${line.materialId}`,
+      }, userId));
+    }
+    return { items, total: items.length };
   }
 
   /** ЗО-3/5: новая заявка — личному ответственному, иначе людям зоны «Снабжение», иначе руководству («Не назначено»). Ошибки не пробрасываются. */

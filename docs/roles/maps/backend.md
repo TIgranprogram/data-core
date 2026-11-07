@@ -1,4 +1,7 @@
 # Карта роли backend
+## Заявки пачкой (C036 Ш3, 2026-11-07, не закоммичено)
+- `supply.service.ts` `createBulk` (+`SupplyInput.supplierId`, `toFields`); `supply.controller.ts` `requests/bulk`; `dto.ts` `SupplyBulkDto`; общий разбор закупок `stock/purchase-history.ts` (`foldPurchases`, `topSupplier`) — им же `stock-search.service.ts` `itemOrdered`/`purchaseSuppliers`; spec `supply.bulk.spec.ts`. Отчёт `docs/crew/C036-nomenclature-audit/REPORT-SH3.md`. коммит: —
+
 ## Каталог view=all (C036 Ш1–2, 2026-11-07, не закоммичено)
 - `supply/supplier-catalog.service.ts` `listAll`/`materialFilter`/`materialRow`, `counts.noSupplier`; spec `supplier-catalog.view.spec.ts`. Отчёт `docs/crew/C036-nomenclature-audit/REPORT-SH1-2.md`. коммит: —
 

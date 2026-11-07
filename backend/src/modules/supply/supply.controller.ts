@@ -10,7 +10,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { StockScoped } from '../../common/decorators/stock-scoped.decorator';
 import type { StockScope } from '../../common/stock-scope';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
-import { SupplyPhotoDto, SupplyReceiveDto, SupplyRequestDto } from './dto';
+import { SupplyBulkDto, SupplyPhotoDto, SupplyReceiveDto, SupplyRequestDto } from './dto';
 import { SupplyService } from './supply.service';
 import { SupplierExcelService } from './supplier-excel.service';
 import { SupplierCatalogService } from './supplier-catalog.service';
@@ -345,6 +345,14 @@ export class SupplyController {
   @ApiQuery({ name: 'search', required: false }) @ApiQuery({ name: 'limit', required: false, description: '≤500, по умолчанию 50' })
   lookup(@Query() q: Record<string, string>, @StockScoped() scope: StockScope | null) {
     return this.supply.lookup(q, scope);
+  }
+
+  /** Заявки пачкой (C036 Ш3): отметили позиции — по заявке на каждую, поставщик и цена из прошлых закупок. */
+  @Post('requests/bulk')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'supply.request.created', entityType: 'SupplyRequest' })
+  createBulk(@Body() dto: SupplyBulkDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    return this.supply.createBulk(dto, scope, user?.id);
   }
 
   @Get('requests/:id')

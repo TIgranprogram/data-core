@@ -16,6 +16,7 @@ import { matchesAll, searchTokens } from '../../common/text/search-norm';
 import { weightGOf } from './weight';
 import { attentionRank, freeQty } from './stock-rank';
 import { hangingQtyByMaterial } from './stock-hanging';
+import { foldPurchases, type PurchaseSupplier, type ReceivedRow } from './purchase-history';
 
 /** Коллекции, от которых зависят строки «Остатков» (кэш С9): изменилась любая — расчёт заново. */
 const STOCK_COLLS = ['materials', 'storageitems', 'supplyrequests', 'categories', 'warehouses'] as const;
@@ -217,20 +218,32 @@ export class StockSearchService {
     const on = new Map(orgs.map((o) => [String(o._id), String(o.shortName || o.name)]));
     const LBL: Record<string, string> = { in_progress: 'Ожидает', requested: 'Заказать', ordered: 'В работе' };
     // lastQty — сколько брали в прошлый раз: количество по умолчанию в быстром «Заказать» со склада (2026-11-06)
-    const sup = new Map<string, { name: string; count: number; lastDate: Date | null; lastPrice: number | null; lastQty: number | null }>();
-    for (const g of got) {
-      const name = g.supplierId ? on.get(String(g.supplierId)) ?? 'Поставщик не указан' : 'Поставщик не указан';
-      const s = sup.get(name) ?? { name, count: 0, lastDate: null, lastPrice: null, lastQty: null };
-      s.count++;
-      const when = (g.receivedAt ?? g.invoiceDate ?? g.requestDate) as Date | null;
-      if (s.count === 1) { s.lastDate = when ?? null; s.lastQty = Number(g.qty) > 0 ? Number(g.qty) : null; s.lastPrice = canMoney && Number(g.priceHint) > 0 && Number(g.qty) > 0 ? Math.round((Number(g.priceHint) / Number(g.qty)) * 100) / 100 : null; }
-      sup.set(name, s);
-    }
+    const suppliers = foldPurchases(got as ReceivedRow[], (id) => on.get(String(id)), canMoney).map(({ supplierId: _s, ...x }) => x); // eslint-disable-line @typescript-eslint/no-unused-vars
     return {
       open: open.map(({ supplierId, ...r }) => ({ ...r, statusLabel: r.status === 'ordered' && r.paid ? 'Оплачено' : LBL[r.status] ?? r.status, supplier: supplierId ? on.get(String(supplierId)) ?? null : null })),
       inTransit: Math.round(open.reduce((s, r) => s + r.qty, 0) * 1000) / 1000,
-      suppliers: [...sup.values()].sort((a, b) => b.count - a.count),
+      suppliers,
     };
+  }
+
+  /**
+   * Поставщики по прошлым закупкам сразу для нескольких позиций (заявки пачкой): тот же расчёт, что в `itemOrdered`,
+   * но с id поставщика. Ключ — id позиции; нет закупок — пустой список.
+   */
+  async purchaseSuppliers(materialIds: Types.ObjectId[]): Promise<Map<string, PurchaseSupplier[]>> {
+    const out = new Map<string, PurchaseSupplier[]>(materialIds.map((id) => [String(id), []]));
+    if (!materialIds.length) return out;
+    const db = this.connection.db!;
+    const got = await db.collection('supplyrequests').find({ deletedAt: null, status: 'received', materialId: { $in: materialIds } },
+      { projection: { materialId: 1, qty: 1, priceHint: 1, supplierId: 1, receivedAt: 1, invoiceDate: 1, requestDate: 1 } })
+      .sort({ receivedAt: -1, invoiceDate: -1 }).limit(materialIds.length * 200).toArray() as ReceivedRow[];
+    const orgIds = [...new Set(got.map((g) => String(g.supplierId ?? '')).filter(Boolean))].map((i) => new Types.ObjectId(i));
+    const orgs = orgIds.length ? await db.collection('organizations').find({ _id: { $in: orgIds } }, { projection: { name: 1, shortName: 1 } }).toArray() : [];
+    const on = new Map(orgs.map((o) => [String(o._id), String(o.shortName || o.name)]));
+    const by = new Map<string, ReceivedRow[]>();
+    for (const g of got) { const k = String(g.materialId); (by.get(k) ?? by.set(k, []).get(k)!).push(g); }
+    for (const [k, rows] of by) out.set(k, foldPurchases(rows.slice(0, 200), (id) => on.get(String(id))));
+    return out;
   }
 
   /** Сводка по категориям (плитки «Склада»): сколько позиций, сколько к закупке и сколько нет на складе. */

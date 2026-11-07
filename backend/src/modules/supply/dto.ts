@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { ArrayMaxSize, IsArray, IsDateString, IsMongoId, IsNumber, IsOptional, IsString, Length, Min, IsIn, IsBoolean } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ArrayMaxSize, ArrayMinSize, IsArray, ValidateNested, IsDateString, IsMongoId, IsNumber, IsOptional, IsString, Length, Min, IsIn, IsBoolean } from 'class-validator';
 
 export class SupplyRequestDto {
   @ApiPropertyOptional({ description: 'Наименование' }) @IsOptional() @IsString() @Length(0, 500) title?: string;
@@ -48,4 +49,17 @@ export class SupplyReceiveDto {
   @ApiPropertyOptional({ description: 'Получено (по умолчанию — количество в заявке)' }) @IsOptional() @IsNumber() @Min(0) qty?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
   @ApiPropertyOptional({ description: 'Частично (ЗП.4): пришло меньше заказанного — заявка остаётся открытой на остаток' }) @IsOptional() @IsBoolean() partial?: boolean;
+}
+
+export class SupplyBulkLineDto {
+  @ApiPropertyOptional({ description: 'Позиция склада (материал)' }) @IsMongoId() materialId!: string;
+  @ApiPropertyOptional({ description: 'Количество, больше нуля' }) @IsNumber() @Min(0.000001) qty!: number;
+  @ApiPropertyOptional({ description: 'Поставщик (organizations.id); пусто — из прошлых закупок' }) @IsOptional() @IsMongoId() supplierId?: string;
+}
+
+/** Заявки пачкой: по одной на строку; повтор с тем же clientUid не плодит дубли. */
+export class SupplyBulkDto {
+  @ApiPropertyOptional({ description: 'Ключ пачки; на заявку уходит «ключ:materialId»' }) @IsString() @Length(1, 60) clientUid!: string;
+  @ApiPropertyOptional({ type: [SupplyBulkLineDto], description: '1–200 строк' })
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(200) @ValidateNested({ each: true }) @Type(() => SupplyBulkLineDto) items!: SupplyBulkLineDto[];
 }

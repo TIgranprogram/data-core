@@ -58,6 +58,7 @@ export class StockService {
   lookup(scope: StockScope | null) { return this.search.lookup(scope); }
   openRequests(mats: { _id: Types.ObjectId; name?: string }[]) { return this.search.openRequests(mats); }
   itemOrdered(materialId: string, canMoney: boolean, scope: StockScope | null) { return this.search.itemOrdered(materialId, canMoney, scope); }
+  purchaseSuppliers(materialIds: Types.ObjectId[]) { return this.search.purchaseSuppliers(materialIds); }
   categorySummary(scope: StockScope | null) { return this.search.categorySummary(scope); }
   getItem(materialId: string, scope?: StockScope | null) { return this.search.getItem(materialId, scope); }
 
