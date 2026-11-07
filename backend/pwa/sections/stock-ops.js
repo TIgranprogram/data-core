@@ -83,10 +83,7 @@ async function build() {
   let all = null; // склад целиком — грузит блок шагов по первому действию (stock-ops-pick.js)
 
   // ---------- Выбор позиции: шаги «Недавно → Категория → Позиция» + поиск по всему складу (C032, П-1) ----------
-  // «Дальше: …» — та же строка kit row с акцентом, что в воронке паспорта (единый вид П-1)
-  const nextHint = h('div', { class: 'field wide' });
-  const sayNext = (t) => nextHint.replaceChildren(row({ tone: 'info', title: 'Дальше: ' + t }));
-  sayNext('выберите категорию');
+  // «Дальше: …» — внутри kit.funnel (pick.setNext), единый вид П-1
   const pickIn = h('input', { placeholder: 'Название или размер', 'aria-label': 'Найти позицию' }); // ищет по всему складу, шаги его не сужают
   const pick = stockPick({ op, input: pickIn, add: (it) => add(it), onCat: () => updNext() });
   const pickLabel = h('span', null, 'Добавить позицию');
@@ -96,7 +93,7 @@ async function build() {
     const t = !lines.length
       ? (pick.hasCats() && !pick.catChosen() ? 'выберите категорию' : 'выберите позицию — «Недавно» или поиском')
       : lines.some((l) => !(parseNum(l.qty) > 0)) ? 'укажите количество' : `нажмите «${cfg.verb}»`;
-    sayNext(t);
+    pick.setNext(t);
   };
 
   // ---------- Строки ----------
@@ -220,7 +217,7 @@ async function build() {
 
   const whyHead = op === 'reserve' ? h('div', { class: 'section-title' }, 'Под что бронируем') : null;
   // бронь: сначала выбор позиций склада, потом «под что»; у остальных — строки, затем добавить
-  const pickGrid = h('div', { class: 'form-grid' }, nextHint, pickBox);
+  const pickGrid = h('div', { class: 'form-grid' }, pickBox);
   const whatBlock = op === 'reserve'
     ? [h('div', { class: 'sop-head' }, h('div', { class: 'section-title' }, 'Что бронируем'), count), pickGrid, linesBox]
     : [h('div', { class: 'sop-head' }, h('div', { class: 'section-title' }, 'Что ' + (op === 'in' ? 'принимаем' : op === 'out' ? 'выдаём' : op === 'count' ? 'пересчитываем' : 'списываем')), count), takeAllBtn, linesBox, pickGrid];

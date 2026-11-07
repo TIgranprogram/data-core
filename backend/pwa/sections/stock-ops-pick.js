@@ -1,12 +1,12 @@
 // Шаги выбора позиции для панели операций склада (C032, паттерн П-1 «Воронка с памятью», docs/PATTERNS.md):
-// «Недавно» → «Категория» (вкладки с числом позиций; категория одна — шага нет) → «Позиция» (строки с фото и остатком).
+// kit.funnel: «Недавно» → «Категория» (вкладки с числом позиций; категория одна — шага нет) → «Позиция» (строки с фото и остатком).
 // Поиск внизу ищет по всему складу — шаги его не сужают. Запросы прежние: /stock/categories при открытии, склад — по первому действию.
 import { api } from '../core/api.js';
 import { zoneQuery } from '../core/zone.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { stockList } from '../core/stock-list.js';
-import { attachCombo, badge, empty, hint, posPic, row, tabs, STOCK_STATUS } from '../ui/kit/index.js';
+import { attachCombo, badge, empty, funnel, hint, posPic, row, stack, STOCK_STATUS } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { lookups } from './lookups.js';
 
@@ -22,8 +22,7 @@ export function rememberPick(op, it) {
 /** Шаги выбора: «Недавно → Категория → Позиция». Поле поиска (input) создаёт панель и передаёт сюда. add(it) — в пачку; onCat() — категория выбрана. */
 export function stockPick({ op, input: pickIn, add, onCat }) {
   let all = null; let loading = false; let cats = []; let cat = '';
-  const recentBox = h('div');
-  const catBox = h('div');
+  const fun = funnel({ steps: [], onChange: (_k, v) => { cat = v || ''; onCat?.(); paintCats(); if (!all) { listBox.replaceChildren(hint('Загружаю склад…')); ensureAll(); } else paintList(); } });
   const listBox = h('div');
   const combo = attachCombo(pickIn, {
     options: () => (all || []).map((i) => ({ value: i.id, label: i.name, sub: `${qty(i.quantity)} ${i.unit || ''}`.trim() })),
@@ -53,19 +52,14 @@ export function stockPick({ op, input: pickIn, add, onCat }) {
   // «Недавно» (П-1 п. 5–6): последние позиции этой операции — добавление в один клик
   function paintRecent() {
     const rec = readRecent(op);
-    recentBox.replaceChildren(h('span', { class: 'muted small' }, 'Недавно:'),
-      ...rec.map((x) => row({ title: x.name, meta: `на складе ${qty(x.quantity)} ${x.unit || ''}`.trim(),
-        onClick: async () => { await ensureAll(); const it = (all || []).find((i) => i.id === x.id); if (it) add(it); else toast('Этой позиции уже нет на складе'); } })));
-    recentBox.hidden = !rec.length;
+    fun.setRecent(rec.map((x) => ({ title: x.name, meta: `на складе ${qty(x.quantity)} ${x.unit || ''}`.trim(),
+      onClick: async () => { await ensureAll(); const it = (all || []).find((i) => i.id === x.id); if (it) add(it); else toast('Этой позиции уже нет на складе'); } })));
   }
 
   // Шаг «Категория» (П-1 п. 1–3): вкладки с числом позиций; одна категория — шаг не показывается
   function paintCats() {
-    if (cats.length < 2) { catBox.replaceChildren(); catBox.hidden = true; return; }
     const nOf = (id) => (all ? all.filter((i) => !id || i.categoryId === id).length : cats.find((c) => c.id === id)?.total);
-    const t = tabs({ items: [{ key: '', label: 'Все', count: nOf('') }, ...cats.map((c) => ({ key: c.id, label: c.name, count: nOf(c.id) }))],
-      value: cat, label: 'Категория', onChange: (k) => { cat = k; onCat?.(); if (!all) { listBox.replaceChildren(hint('Загружаю склад…')); ensureAll(); } else paintList(); } });
-    catBox.replaceChildren(t.el); catBox.hidden = false;
+    fun.update({ steps: [{ key: 'category', label: 'Категория', ask: 'выберите категорию', skip: cats.length < 2, value: cat, values: cats.map((c) => ({ id: c.id, label: c.name, count: nOf(c.id) })) }] });
     onCat?.(); // категории пришли — «Дальше: …» узнает, что шаг «Категория» появился
   }
 
@@ -87,9 +81,9 @@ export function stockPick({ op, input: pickIn, add, onCat }) {
     cats = (r.items || []).filter((c) => c.id !== 'none');
     paintCats();
     if (cats.length < 2) { listBox.replaceChildren(hint('Загружаю склад…')); ensureAll(); }
-  }).catch(() => { catBox.hidden = true; });
+  }).catch(() => { fun.update({ steps: [] }); });
   paintRecent();
 
-  const el = h('div', null, recentBox, catBox, listBox);
-  return { el, focus: () => pickIn.focus(), refreshRecent: paintRecent, hasCats: () => cats.length > 1, catChosen: () => !!cat };
+  const el = stack(fun.el, listBox);
+  return { el, focus: () => pickIn.focus(), refreshRecent: paintRecent, setNext: (t) => fun.setNext(t), hasCats: () => cats.length > 1, catChosen: () => !!cat };
 }

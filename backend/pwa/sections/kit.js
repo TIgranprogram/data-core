@@ -1,6 +1,6 @@
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
-import { hint, tileGrid, landing, miniChart, navList, photoStrip, catArt, stat, searchBox, readonlyGroup, similarBox, posPic, posPicOf, sku, section, stack, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, openPdfPreview, stageBar, headStats, qtyInput, targetPicker, toast, pick, filter, table, panel, entityPanel, select, fileButton, links, guide, SUPPLY_STATUS } from '../ui/kit/index.js';
+import { hint, tileGrid, landing, miniChart, navList, photoStrip, catArt, stat, searchBox, readonlyGroup, similarBox, posPic, posPicOf, sku, section, stack, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, openPdfPreview, stageBar, headStats, funnel, qtyInput, targetPicker, toast, pick, filter, table, panel, entityPanel, select, fileButton, links, guide, SUPPLY_STATUS } from '../ui/kit/index.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
 const LONG = 'Очень длинное название позиции для проверки переноса и обрезки текста в карточке эталона';
@@ -131,6 +131,17 @@ export const kit = {
         stack(
           stageBar({ label: 'Пример', steps: [{ key: 'a', label: 'Проектирование', done: true }, { key: 'b', label: 'Производство', done: true }, { key: 'c', label: 'Готово к отгрузке', done: true }, { key: 'd', label: 'Отгружен', current: true, note: 'частично' }, { key: 'e', label: 'Закрыт' }], onPick: () => {} }),
           headStats([{ value: '1', label: 'дог.', title: 'Договоров: 1' }, { value: '8', label: 'поз.', title: 'Позиций: 8' }, { value: '—', label: 'сумма' }, { value: '—', label: 'оплачено' }]))),
+      block('Воронка с памятью (funnel)', 'П-1: шаги сверху вниз, следующий — после выбора; ≤ 7 значений — вкладки с числом, больше — список с поиском; пройденный шаг — строка «… ✎»; над шагами «Дальше: …».',
+        (() => {
+          const kinds = [['a', 'Силовой'], ['b', 'Кардио'], ['c', 'Уличный']].map(([id, label], i) => ({ id, label, count: 12 - i * 3 }));
+          const groups = Array.from({ length: 9 }, (_, i) => ({ id: 'g' + i, label: 'Группа ' + (i + 1), count: i + 1 }));
+          const V = {};
+          const f = funnel({ steps: [], recent: [{ title: 'Силовой тренажёр', meta: 'нажмите — выбрать «Силовой»', onClick: () => set('cat', 'a') }], onChange: (k, v) => set(k, v) });
+          function set(k, v) { V[k] = v; if (k === 'cat') delete V.grp; paint(); }
+          function paint() { f.update({ steps: [{ key: 'cat', label: 'Категория', value: V.cat || '', values: kinds }, { key: 'grp', label: 'Группа', value: V.grp || '', values: groups }] }); }
+          paint();
+          return f.el;
+        })()),
       block('Окно просмотра PDF (openPdfPreview)', 'Только просмотр (КП: предпросмотр до сохранения, карточка, проверка бланка): Обновить · Печать · Скачать PDF · «Вернуться к правке». Ввод остаётся в правой панели.',
         button({ label: 'Открыть пример окна', onClick: () => openPdfPreview({ title: 'Пример', load: async () => { throw new Error('В витрине PDF не грузится'); } }) })),
       block('Карточка L (.db-order)', 'Заказ / шапка сущности.', sample(...cards('L'), card({ size: 'L', title: LONG, meta: LONG }))),

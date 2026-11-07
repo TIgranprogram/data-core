@@ -11,8 +11,8 @@ const photoOf = (p) => (typeof p === 'string' ? { url: p, thumb: p } : p);
 export function productList({ onPick, onNew, onSearch }) {
   const sb = searchBox({ placeholder: 'Название или артикул — ищет по всем изделиям', onSearch: (q) => onSearch?.(q) });
   const box = h('div', null);
-  const sec = section({ title: 'Изделие', count: 0, open: true, tone: 'main', body: [sb.el, box,
-    button({ label: '+ Новое изделие', size: 'S', title: 'Нет нужного в списке — создать по ходу', onClick: () => onNew?.() })] });
+  const newBtn = button({ label: '+ Новое изделие', size: 'S', title: 'Нет нужного в списке — создать по ходу', onClick: () => onNew?.() });
+  const sec = section({ title: 'Изделие', count: 0, open: true, tone: 'main', body: [sb.el, box, newBtn] });
 
   function paint(products) {
     const items = products?.items || [];
@@ -27,5 +27,8 @@ export function productList({ onPick, onNew, onSearch }) {
         empty: { title: 'Изделий с такими признаками нет', hint: 'Снимите признак или создайте изделие кнопкой ниже.' } }),
       total > items.length ? sideNote(`Показано ${items.length} из ${total} — уточните признаки или поиск.`) : null].filter(Boolean));
   }
-  return { el: sec, paint, q: () => sb.input.value.trim() };
+  /** Пока не выбрана категория и нет текста поиска — список и «+ Новое изделие» скрыты (нечего показывать). */
+  const gate = (on) => { box.hidden = !on; newBtn.hidden = !on; };
+  gate(false);
+  return { el: sec, paint, gate, q: () => sb.input.value.trim() };
 }
