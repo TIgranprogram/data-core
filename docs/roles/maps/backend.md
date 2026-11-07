@@ -1,4 +1,7 @@
 # Карта роли backend
+## Каталог view=all (C036 Ш1–2, 2026-11-07, не закоммичено)
+- `supply/supplier-catalog.service.ts` `listAll`/`materialFilter`/`materialRow`, `counts.noSupplier`; spec `supplier-catalog.view.spec.ts`. Отчёт `docs/crew/C036-nomenclature-audit/REPORT-SH1-2.md`. коммит: —
+
 
 ## Паспорт «воронкой» C028 B1 (2026-11-07, не закоммичено)
 - Справочники `dicts/dicts.product-facets.ts:39` (productFacetDefs); pure `common/passport/funnel.ts` (buildFunnel, suggestValue, parseWords); A2 `product-passport/passport-funnel.ts:22` (productFunnel, союз с `{sections}` в controller `funnel`); A3 `passport-gaps.ts:34` (productGaps, маршрут `showcase/:id/passport-gaps` в product-passport.controller); A5 `passport-facet-phrases.ts` + `service.texts(category, productId)`; `showcase.service.ts` `facetIds`. Скрипты `c028-facets-seed.js`, `c028-group-categories.js`. Угадывание по корню убрано (`form-values.ts:55`). Отчёт `docs/crew/C028-passport-funnel/backend-report.md`. Элементы из признаков (C028): `showcase/facet-elements.ts:20` + `showcase.service.ts:455`; `product-passport/passport-gaps.ts:16` elementFits; скрипт `scripts/c028-elements.js`; поле `kind` — `dicts.defs.ts` passportElements. коммит: —

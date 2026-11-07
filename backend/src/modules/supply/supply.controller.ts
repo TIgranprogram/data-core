@@ -177,6 +177,7 @@ export class SupplyController {
   @ApiQuery({ name: 'supplierId', required: false }) @ApiQuery({ name: 'categoryId', required: false }) @ApiQuery({ name: 'materialId', required: false })
   @ApiQuery({ name: 'search', required: false }) @ApiQuery({ name: 'unmatched', required: false, description: '1 — без связи с материалом' })
   @ApiQuery({ name: 'noPrice', required: false, description: '1 — без цены' }) @ApiQuery({ name: 'stale', required: false, description: '1 — цена старше 180 дней' })
+  @ApiQuery({ name: 'view', required: false, description: 'all — ещё и материалы без предложений (kind=material); с supplierId=none — только они' })
   @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false })
   catalogList(@Query() q: Record<string, string>, @StockScoped() scope: StockScope | null) {
     return this.catalog.list(q, scope);

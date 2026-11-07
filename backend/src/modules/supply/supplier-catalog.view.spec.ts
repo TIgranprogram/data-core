@@ -1,0 +1,70 @@
+import { Types } from 'mongoose';
+import { SupplierCatalogService, materialRow } from './supplier-catalog.service';
+
+type Doc = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+const id = () => new Types.ObjectId();
+
+/** Мини-база: find/aggregate/distinct/countDocuments возвращают заготовленное и запоминают вызовы. */
+function fake(data: Record<string, Doc[]>, aggregated: Doc[] = []) {
+  const calls: { coll: string; op: string; arg: unknown }[] = [];
+  const cur = (rows: Doc[]) => { const c: Doc = { sort: () => c, skip: () => c, limit: () => c, toArray: async () => rows }; return c; };
+  const coll = (n: string) => ({
+    find: (f: unknown) => { calls.push({ coll: n, op: 'find', arg: f }); return cur(data[n] ?? []); },
+    countDocuments: async (f: unknown) => { calls.push({ coll: n, op: 'count', arg: f }); return (data[n] ?? []).length; },
+    distinct: async () => (data[n] ?? []).map((d) => d.materialId).filter(Boolean),
+    aggregate: (p: unknown) => { calls.push({ coll: n, op: 'aggregate', arg: p }); return { toArray: async () => (n === 'supplieritems' ? aggregated : []) }; },
+  });
+  const svc = new SupplierCatalogService({ db: { collection: coll } } as never);
+  return { svc, calls };
+}
+
+describe('каталог: view=all', () => {
+  const mat = { _id: id(), name: 'Труба 20', article: 'T-20', unit: 'м', categoryId: id(), stockQty: 5 };
+
+  it('строка материала: поставщика нет, цены нет, id с префиксом m:', () => {
+    const r = materialRow(mat, 3);
+    expect(r).toMatchObject({ id: 'm:' + mat._id, kind: 'material', materialId: String(mat._id), supplierId: null, supplierName: '', priceHint: null, priceDate: null, stockQty: 3, photos: [], thumb: '', priceHistory: [] });
+    expect(r.name).toBe('Труба 20');
+  });
+
+  it('без view — прежний путь: только предложения, без kind', async () => {
+    const offer = { _id: id(), supplierId: id(), name: 'Труба', article: 'A', materialId: null, priceHint: 10, deletedAt: null };
+    const { svc, calls } = fake({ supplieritems: [offer] });
+    const r = await svc.list({});
+    expect(r.items).toHaveLength(1);
+    expect(r.items[0]).not.toHaveProperty('kind');
+    expect(calls.some((c) => c.op === 'aggregate' && c.coll === 'supplieritems' && JSON.stringify(c.arg).includes('$unionWith'))).toBe(false);
+  });
+
+  it('view=all: $unionWith по materials, total из $facet, материал без предложения в списке', async () => {
+    const offer = { _id: id(), supplierId: id(), name: 'Лист', article: 'L', materialId: null, priceHint: 5, deletedAt: null };
+    const { svc, calls } = fake(
+      { supplieritems: [offer], materials: [mat] },
+      [{ rows: [{ _id: offer._id, k: 'o' }, { _id: mat._id, k: 'm' }], total: [{ n: 2 }] }],
+    );
+    const r = await svc.list({ view: 'all' });
+    expect(r.total).toBe(2);
+    expect((r.items as Doc[]).map((x: Doc) => x.kind)).toEqual(['offer', 'material']);
+    expect(r.items[1]).toMatchObject({ id: 'm:' + mat._id, supplierId: null });
+    const pipe = JSON.stringify(calls.find((c) => c.op === 'aggregate' && c.coll === 'supplieritems')!.arg);
+    expect(pipe).toContain('$unionWith');
+    expect(pipe).toContain('"coll":"materials"');
+  });
+
+  it('view=all&supplierId=none: только материалы без предложений', async () => {
+    const { svc, calls } = fake({ supplieritems: [], materials: [mat] });
+    const r = await svc.list({ view: 'all', supplierId: 'none' });
+    expect(r.total).toBe(1);
+    expect((r.items as Doc[]).every((x: Doc) => x.kind === 'material')).toBe(true);
+    expect(calls.some((c) => c.coll === 'supplieritems' && c.op === 'find')).toBe(false);
+  });
+
+  it('view=all&unmatched=1: материалы не показываются, kind=offer', async () => {
+    const offer = { _id: id(), supplierId: id(), name: 'Лист', article: 'L', materialId: null, deletedAt: null };
+    const { svc, calls } = fake({ supplieritems: [offer], materials: [mat] });
+    const r = await svc.list({ view: 'all', unmatched: '1' });
+    expect((r.items as Doc[]).map((x: Doc) => x.kind)).toEqual(['offer']);
+    expect(calls.some((c) => c.coll === 'materials' && c.op === 'find')).toBe(false);
+  });
+});

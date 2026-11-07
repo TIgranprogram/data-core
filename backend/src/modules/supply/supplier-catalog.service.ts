@@ -5,7 +5,7 @@ import { createHash } from 'crypto';
 import * as ExcelJS from 'exceljs';
 import { Connection, Types } from 'mongoose';
 import { oid, oids } from '../../common/list-query';
-import type { StockScope } from '../../common/stock-scope';
+import { scopeMatch, type StockScope } from '../../common/stock-scope';
 import { assertDocInScope, docScopeMatch } from '../../common/supply-scope';
 import { normSearch } from '../../common/text/search-norm';
 import { SupplierAliases } from './supplier-aliases';
@@ -21,6 +21,16 @@ type Source = 'excel' | 'request' | 'stock' | 'manual';
 export interface UpsertData {
   supplierId: Types.ObjectId; article: string; color: string; name: string; unit?: string; price?: number | null;
   priceDate?: Date | null; optGroup?: string; note?: string; materialId?: Types.ObjectId | null; categoryId?: Types.ObjectId | null; source: Source;
+}
+
+/** Строка каталога для материала без предложения (view=all): те же поля, что у предложения, поставщика нет. */
+export function materialRow(m: Doc, stockQty: number | null) {
+  return {
+    id: 'm:' + String(m._id), kind: 'material', materialId: String(m._id), materialName: String(m.name ?? ''), materialArticle: String(m.article ?? ''),
+    name: String(m.name ?? ''), article: String(m.article ?? ''), unit: m.unit ? String(m.unit) : '', categoryId: m.categoryId ? String(m.categoryId) : null,
+    stockQty, supplierId: null, supplierName: '', supplierInn: '', color: '', priceHint: null, priceDate: null, optGroup: '', note: '', source: 'material',
+    inStock: null, photoUrl: '', photos: [], thumb: '', priceHistory: [], updatedAt: null,
+  };
 }
 
 const STALE_DAYS = 180;
@@ -171,9 +181,84 @@ export class SupplierCatalogService {
     return { name: dir, _id: 1 };
   }
 
+  /** Материалы, у которых есть хотя бы одно живое предложение. */
+  private offerMaterialIds() {
+    return this.items.distinct('materialId', { deletedAt: null, materialId: { $ne: null } });
+  }
+
+  /** view=all: фильтр материалов БЕЗ предложений; null — материалы в этой выборке не нужны. */
+  private async materialFilter(q: Record<string, string | undefined>, scope: StockScope | null | undefined): Promise<Doc | null> {
+    if (oids(q.supplierId).length || oids(q.materialId).length || q.unmatched === '1' || q.noPrice === '1' || q.stale === '1') return null;
+    const and: Doc[] = [{ deletedAt: null }, { _id: { $nin: await this.offerMaterialIds() } }];
+    if (q.categoryId === 'none') and.push({ categoryId: null });
+    else {
+      const cat = oids(q.categoryId);
+      if (cat.length) and.push({ categoryId: { $in: await this.withDescendants(cat) } });
+    }
+    const s = String(q.search ?? '').trim();
+    if (s) {
+      const re = new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      and.push({ $or: [{ name: re }, { article: re }] });
+    }
+    if (scope) and.push(scopeMatch(scope));
+    return { $and: and };
+  }
+
+  /** Строка каталога для материала без предложения (view=all). */
+  private async presentMaterials(mats: Doc[]) {
+    const ids = mats.map((m) => m._id);
+    const stock = ids.length ? await this.coll('storageitems').aggregate([{ $match: { materialId: { $in: ids }, deletedAt: null } }, { $group: { _id: '$materialId', qty: { $sum: '$quantity' } } }]).toArray() : [];
+    const sq = new Map(stock.map((x) => [String(x._id), Number(x.qty) || 0]));
+    return mats.map((m) => materialRow(m, sq.get(String(m._id)) ?? (typeof m.stockQty === 'number' ? m.stockQty : null)));
+  }
+
+  /** Список «вся номенклатура»: предложения + материалы без предложений, сортировка и страницы на сервере. */
+  private async listAll(q: Record<string, string | undefined>, scope: StockScope | null | undefined, page: number, limit: number) {
+    const mf = await this.materialFilter(q, scope);
+    const noOffers = q.supplierId === 'none'; // «Без поставщика» — предложений нет совсем
+    const offers = noOffers ? {} : await this.filter(q, scope);
+    if (!mf && !noOffers) { // материалы не нужны — как раньше, но с kind
+      const [docs, total] = await Promise.all([this.items.find(offers).sort(this.sortOf(q)).skip((page - 1) * limit).limit(limit).toArray(), this.items.countDocuments(offers)]);
+      return { items: (await this.present(docs)).map((r) => ({ kind: 'offer', ...r })), total, page, limit };
+    }
+    if (noOffers) {
+      const f = mf ?? { _id: { $in: [] } };
+      const sort = this.sortOf(q);
+      const [docs, total] = await Promise.all([
+        this.coll('materials').find(f).sort(sort.priceHint || sort.priceDate ? { name: 1, _id: 1 } : sort).skip((page - 1) * limit).limit(limit).toArray(),
+        this.coll('materials').countDocuments(f),
+      ]);
+      return { items: await this.presentMaterials(docs), total, page, limit };
+    }
+    const sort = this.sortOf(q);
+    const pipe: Doc[] = [
+      { $match: offers },
+      { $project: { name: 1, priceHint: 1, priceDate: 1, k: { $literal: 'o' } } },
+      { $unionWith: { coll: 'materials', pipeline: [
+        { $match: mf },
+        { $project: { name: 1, priceHint: { $literal: null }, priceDate: { $literal: null }, k: { $literal: 'm' } } },
+      ] } },
+      { $sort: sort },
+      { $facet: { rows: [{ $skip: (page - 1) * limit }, { $limit: limit }, { $project: { k: 1 } }], total: [{ $count: 'n' }] } },
+    ];
+    const [res] = await this.items.aggregate(pipe).toArray();
+    const rows = (res?.rows ?? []) as Doc[];
+    const total = Number(res?.total?.[0]?.n ?? 0);
+    const offerIds = rows.filter((r) => r.k === 'o').map((r) => r._id), matIds = rows.filter((r) => r.k === 'm').map((r) => r._id);
+    const [od, md] = await Promise.all([
+      offerIds.length ? this.items.find({ _id: { $in: offerIds } }).toArray() : [],
+      matIds.length ? this.coll('materials').find({ _id: { $in: matIds } }).toArray() : [],
+    ]);
+    const shown = new Map<string, Doc>([...(await this.present(od)).map((r) => ['o' + r.id, { kind: 'offer', ...r }] as [string, Doc]),
+      ...(await this.presentMaterials(md)).map((r) => ['m' + r.materialId, r] as [string, Doc])]);
+    const items = rows.map((r) => shown.get(r.k + String(r._id))).filter((x): x is Doc => !!x);
+    return { items, total, page, limit };
+  }
+
   async list(q: Record<string, string | undefined>, scope?: StockScope | null) {
     const page = Math.max(1, parseInt(String(q.page ?? '1'), 10) || 1);
     const limit = Math.min(500, Math.max(1, parseInt(String(q.limit ?? '100'), 10) || 100));
+    if (q.view === 'all') return this.listAll(q, scope, page, limit);
     const f = await this.filter(q, scope);
     const [docs, total] = await Promise.all([
       this.items.find(f).sort(this.sortOf(q)).skip((page - 1) * limit).limit(limit).toArray(),
@@ -186,7 +271,7 @@ export class SupplierCatalogService {
   async counts(scope?: StockScope | null) {
     const base: Doc = scope ? { deletedAt: null, $and: [await docScopeMatch(this.conn, scope)] } : { deletedAt: null };
     const stale = new Date(Date.now() - STALE_DAYS * DAY);
-    const [bySup, byCat, all, noCategory, unmatched, noPrice, old] = await Promise.all([
+    const [bySup, byCat, all, noCategory, unmatched, noPrice, old, noSupplier] = await Promise.all([
       this.items.aggregate([{ $match: base }, { $group: { _id: '$supplierId', n: { $sum: 1 }, cats: { $addToSet: '$categoryId' } } }]).toArray(),
       this.items.aggregate([{ $match: { ...base, categoryId: { $ne: null } } }, { $group: { _id: '$categoryId', n: { $sum: 1 } } }]).toArray(),
       this.items.countDocuments(base),
@@ -194,6 +279,8 @@ export class SupplierCatalogService {
       this.items.countDocuments({ ...base, materialId: null }),
       this.items.countDocuments({ ...base, priceHint: null }),
       this.items.countDocuments({ ...base, priceHint: { $ne: null }, $or: [{ priceDate: null }, { priceDate: { $lt: stale } }] }),
+      // материалы без живых предложений (view=all, «Без поставщика»)
+      this.coll('materials').countDocuments({ $and: [{ deletedAt: null }, { _id: { $nin: await this.offerMaterialIds() } }, scopeMatch(scope)] }),
     ]);
     const [orgs, cats] = await Promise.all([
       bySup.length ? this.coll('organizations').find({ _id: { $in: bySup.map((x) => x._id) } }, { projection: { name: 1, shortName: 1 } }).toArray() : [],
@@ -209,7 +296,7 @@ export class SupplierCatalogService {
     }
     const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, 'ru');
     return {
-      all, noCategory, unmatched, noPrice, stale: old,
+      all, noCategory, unmatched, noPrice, stale: old, noSupplier,
       suppliers: bySup.map((x) => ({ id: String(x._id), name: on.get(String(x._id)) ?? '(поставщик удалён)', count: x.n,
         // категории его позиций (null — «Без категории»): левая воронка показывает поставщиков выбранной категории
         cats: ((x.cats ?? []) as unknown[]).map((c) => (c ? String(c) : 'none')) })).sort(byName),

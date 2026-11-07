@@ -11,6 +11,7 @@ import { icon } from '../ui/icons.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { setCrumbTail } from '../ui/kit/crumbs.js';
 import { partnerAction } from './lookups.js';
+import { previewTable, orderPreview, orderTemplate } from './supplier-catalog-import.js';
 
 import { table, section, stack, card, badge, empty, hint, landing, tileGrid, navList, posPic, readonlyGroup, toolbar } from '../ui/kit/index.js';
 /**
@@ -47,7 +48,7 @@ const rowCache = new Map(); // строки списка — карточка о
 
 /** Параметры адреса → запрос к серверу (список и выгрузка). */
 function queryOf(P) {
-  const q = {};
+  const q = { view: 'all' }; // вся номенклатура: и предложения, и материалы без поставщика
   if (P.q) q.search = P.q;
   if (P.supplierId) q.supplierId = P.supplierId;
   if (P.subId || P.catId) q.categoryId = P.subId || P.catId; // 'none' — без категории
@@ -62,7 +63,9 @@ const STALE_MS = 183 * 86400000;
 const isStale = (r) => r.priceHint != null && (!r.priceDate || Date.now() - new Date(r.priceDate).getTime() > STALE_MS);
 const staleBadge = (priceDate) => { const b = badge(priceDate ? 'от ' + date(priceDate) + ' — устарела' : 'устарела', 'warn'); b.title = 'Цене больше 6 месяцев'; return b; }; // «Цена устарела» — badge warn
 const catTops = (c) => { const all = c.categories || []; const ids = new Set(all.map((x) => String(x.id))); return all.filter((x) => !x.parentId || !ids.has(String(x.parentId))); };
-const totalOf = (c) => (c.suppliers || []).reduce((a, s) => a + (s.count || 0), 0);
+const totalOf = (c) => (c.suppliers || []).reduce((a, s) => a + (s.count || 0), 0) + (c.noSupplier || 0);
+const isMaterial = (r) => r.kind === 'material'; // материал без предложений поставщика
+const exportQuery = (P) => { const { view, ...q } = queryOf(P); return q; }; // выгрузка — по предложениям
 
 /** Слева: воронка Категория → Подкатегория (поставщики — плитки списка), быстрые отборы, порядок, «Сбросить», «Показано N из M». */
 function sideFilters() {
@@ -84,6 +87,7 @@ function sideFilters() {
         for (let grew = true; grew;) { grew = false; for (const x of c.categories || []) if (branch.has(String(x.parentId)) && !branch.has(x.id)) { branch.add(x.id); grew = true; } }
       }
       const sups = (c.suppliers || []).filter((s) => !branch || (s.cats || []).some((k) => branch.has(k))).map((s) => ({ value: s.id, label: s.name, n: s.count }));
+      if (c.noSupplier > 0) sups.push({ value: 'none', label: 'Без поставщика', n: c.noSupplier });
       return { catId: tops, subId: subs, supplierId: sups };
     },
   });
@@ -145,7 +149,7 @@ function topBlock(reload) {
       { items: [
         { label: '⇩ Шаблон Excel', onSelect: () => download('/supply/catalog/template', {}, 'Шаблон_каталога.xlsx') },
         canWrite() ? { label: 'Загрузить Excel…', onSelect: () => openSide('pricelist', current().params.supplierId || 'x') } : null,
-        { label: 'Выгрузить в Excel', onSelect: () => download('/supply/catalog/export', queryOf(current().params), 'Каталог_поставщиков.xlsx') },
+        { label: 'Выгрузить в Excel', onSelect: () => download('/supply/catalog/export', exportQuery(current().params), 'Каталог_поставщиков.xlsx') },
       ] }] }) });
   // выход к плиткам категорий и сброс — всегда на виду сверху (жалоба 2026-10-29: «зашёл в категорию — назад не выйти»)
   const ALL = { supplierId: undefined, catId: undefined, subId: undefined, flag: undefined, ord: undefined, q: undefined, all: undefined, page: undefined };
@@ -166,48 +170,11 @@ async function download(path, query, fallback) {
   try { toast(`Скачан: ${await apiFile(path, { query, fallback })}`); } catch (e) { toastError(e, 'скачать файл'); }
 }
 
-// ---------- импорт: окно с предпросмотром ----------
-const ST = { new: ['Новая', 'ok'], price: ['Цена изменилась', 'warn'], update: ['Изменится', 'info'], same: ['Без изменений', ''], error: ['Ошибка', 'warn'] };
-
-function previewTable(res) {
-  const c = res.counts || {};
-  const rows = res.rows || [];
-  const head = hint(`Строк: ${qty(c.total)} · новых: ${qty(c.new)} · цена изменилась: ${qty(c.price)} · изменится: ${qty(c.update)} · без изменений: ${qty(c.same)} · ошибок: ${qty(c.error)}`, c.error ? undefined : 'ok');
-  const dup = res.duplicate ? hint('Этот файл уже загружали. Если загрузить ещё раз, изменений почти не будет.', 'danger') : null;
-  const note = c.error ? hint('Строки с ошибками будут пропущены, остальные загрузятся.') : null;
-  const trs = rows.slice(0, 300).map((r) => {
-    const [label, tone] = ST[r.status] || [r.status, ''];
-    return h('tr', null,
-      h('td', { class: 'muted nowrap' }, String(r.rowNum)),
-      h('td', null, h('span', { class: 'badge ' + tone }, label), r.errors?.length ? errLine(r.errors.join('; ')) : null),
-      h('td', { class: 'muted nowrap' }, r.supplierName || '—'),
-      h('td', { class: 'nowrap' }, r.article || '—'),
-      h('td', null, r.name || '—', r.materialName ? h('div', { class: 'muted small' }, '→ ' + r.materialName) : null),
-      h('td', { class: 'num nowrap' }, r.price != null ? (r.oldPrice != null && r.oldPrice !== r.price ? `${money(r.oldPrice)} → ` : '') + money(r.price) : '—'));
-  });
-  const preview = table({ columns: ['Строка', 'Что будет', 'Поставщик', 'Артикул', 'Название', 'Цена, ₽'].map((label) => ({ label })), rows: trs, maxHeight: 'M' });
-  return [head, dup, note, preview, rows.length > 300 ? h('p', { class: 'muted small' }, `Показаны первые 300 из ${rows.length}`) : null];
-}
-
-/** Предпросмотр «Заказа от поставщика» (создаёт заявки и цены каталога): строки файла. */
-function orderPreview(rows) {
-  const trs = rows.slice(0, 200).map((rw) => h('tr', null,
-    h('td', null, rw.article), h('td', { class: 'clip' }, rw.name), h('td', null, rw.color),
-    h('td', { class: 'num' }, rw.qty), h('td', null, rw.unit || 'шт'), h('td', null, rw.optGroup),
-    h('td', { class: 'num' }, rw.price != null ? rw.price.toLocaleString('ru') + ' ₽' : '—')));
-  return [hint(`Найдено строк: ${rows.length}${rows.length > 200 ? ' (показаны первые 200)' : ''}`, 'ok'),
-    table({ columns: ['Артикул', 'Название', 'Цвет', 'Кол-во', 'Ед.', 'Группа', 'Цена'].map((label) => ({ label })), rows: trs, maxHeight: 'M' })];
-}
-// 2026-10-26: «Кол-во» — сколько заказать в этих единицах (пусто = 1); «Ед. изм.» — шт / м / кг / упак (пусто = шт); «Цена» — за 1 единицу
-const orderTemplate = () => downloadXlsx('шаблон-прайса.xlsx', [['Артикул', 'Название', 'Цвет', 'Ед. изм.', 'Кол-во', 'Группа', 'Цена'],
-  ['АРТ-001', 'Качели двойные', 'Зелёный', 'шт', 1, 'Качели', 12500], ['АРТ-002', 'Труба 40×20×2', '', 'м', 6, 'Металл', 210]], 'Прайс');
-
 /**
  * Загрузка Excel — одна правая панель (П3 + Д3; раньше два окна: в каталоге и в контрагенте).
  * open = <id поставщика>|x — прайс-лист в каталог (preview → apply); order:<id> — «Заказ клиента» от поставщика: заявки + цены каталога.
  */
 const fileKey = (k) => (String(k).startsWith('order:') ? { mode: 'order', supplierId: String(k).slice(6) } : { mode: 'price', supplierId: k === 'x' ? '' : String(k) });
-const errLine = (text) => { const p = hint(text, 'danger'); p.classList.add('small'); return p; }; // строка ошибок файла, мелким
 let cur = null; // файл и предпросмотр открытой панели «Загрузить прайс»
 export const priceList = sideForm({
   id: 'pricelist', title: 'Загрузить прайс из Excel', noun: 'файл',
@@ -337,7 +304,7 @@ export const supplierCatalog = {
       : null),
     columns: [
       { key: 'photo', label: '', render: (r) => thumb(r) },
-      { key: 'supplierName', label: 'Поставщик', cls: 'clip', render: (r) => { rowCache.set(r.id, r); return r.supplierName || h('span', { class: 'muted' }, '—'); } },
+      { key: 'supplierName', label: 'Поставщик', cls: 'clip', render: (r) => { rowCache.set(r.id, r); return isMaterial(r) ? badge('Поставщика нет', 'dim') : r.supplierName || h('span', { class: 'muted' }, '—'); } },
       { key: 'article', label: 'Артикул поставщика', cls: 'nowrap', render: (r) => r.article && !r.article.startsWith('manual:') ? r.article : h('span', { class: 'muted' }, '—') },
       { key: 'name', label: 'Название у поставщика', cls: 'clip', render: (r) => h('span', { title: r.name }, r.name, r.color ? h('span', { class: 'muted' }, ' · ' + r.color) : null) },
       { key: 'material', label: 'Наш материал', cls: 'clip md-hide', render: (r) => r.materialId ? h('span', { title: r.materialArticle }, r.materialName) : h('span', { class: 'badge warn', title: 'Не связана с позицией склада' }, 'нет связи') },
@@ -360,9 +327,14 @@ export const supplierCatalog = {
     photoMain: async (r, photoId) => { const x = await api(`/supply/catalog/items/${r.id}/photos/${photoId}/main`, { method: 'PUT' }); rowCache.set(x.id, x); return x; },
     photoRemove: async (r, photoId) => { const x = await api(`/supply/catalog/items/${r.id}/photos/${photoId}`, { method: 'DELETE' }); rowCache.set(x.id, x); return x; },
     heading: (r) => r.name,
-    subheading: (r) => r.supplierName || '',
+    subheading: (r) => (isMaterial(r) ? 'Поставщика нет' : r.supplierName || ''),
     editTop: true,
+    editable: (r) => !isMaterial(r),
     top: (r, ctx) => {
+      if (isMaterial(r)) {
+        return card({ size: 'M', variant: 'fields',
+          body: readonlyGroup({ rows: [['Артикул', r.article || '—'], ['Ед. изм.', r.unit || '—'], ['Остаток', r.stockQty != null ? qty(r.stockQty) : '—']] }) });
+      }
       const art = r.article && !r.article.startsWith('manual:') ? r.article : '';
       const mat = r.materialId
         ? h('span', null, r.materialName, r.materialArticle ? h('span', { class: 'muted' }, ' · ' + r.materialArticle) : null)
@@ -380,6 +352,7 @@ export const supplierCatalog = {
     },
     view: () => [],
     extra: (r) => {
+      if (isMaterial(r)) return hint('Поставщика нет, цены нет. Чтобы появились — загрузите прайс поставщика кнопкой «Загрузить Excel» или сопоставьте его строку с этой позицией.');
       const hist = [...(r.priceHistory || [])].reverse();
       if (!hist.length) return stack(section({ title: 'История цен', tone: 'money', count: 0, body: h('p', { class: 'muted small' }, 'Истории цен пока нет.') }));
       return stack(section({ title: 'История цен', tone: 'money', count: hist.length, body:
