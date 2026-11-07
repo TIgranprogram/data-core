@@ -1,6 +1,6 @@
 # Карта роли qa
 
-коммит: 94bd200c (+незакоммичено: material-summary e2e; полный прогон 2026-11-07 — строка в TEST-LOG)
+коммит: fbad1e6a (полный прогон 2026-11-07 на fbad1e6a: юнит 279/3127, e2e 65/66 — красный только stock-catalog-atomicity; строка в TEST-LOG)
 
 - Прогоны: `cd backend; npx tsc --noEmit`; `npx jest --silent | tail -8` (148/1500 на 2026-10-25); pwa — `node --input-type=module --check < файл`; скрипты — `node --test scripts/*.test.mjs`. TEST-LOG — дописывать строкой в конец `docs/TEST-LOG.md`.
 - Паспорта «воронкой» (ПВ): сервер — `common/passport/phrase-tree.ts` (buildForest/resolveChoices/missingChoices), `product-passport.service.ts` (snapshot ~287, check ~318, choiceMissing ~351, funnel ~348), дерево справочника — `dicts/dicts.passport-phrases.ts`; клон — `showcase/showcase-clone.ts`; экран — `pwa/ui/funnel.js`, `pwa/sections/passport-tree.js`, плашка — `passports/wire-form.js` (check ~120), карточка — `passports/card-blocks.js` checkBlock.
@@ -24,3 +24,4 @@
 - C036 full (2026-11-07, 16d9c88e): e2e `backend/test/e2e/supply-catalog-bulk.e2e-spec.ts` (5: view=all/$unionWith, supplierId=none, requests/bulk идемпотентность); сервер — `supply/supplier-catalog.service.ts:237` (unionWith), `supply.service.ts:486` (createBulk). openapi.json не перегенерировался локально (export-openapi без доступа к Mongo молча не пишет файл; нет `requests/bulk`).
 - Полный прогон 2026-11-07: pwa node --test — `find backend/pwa -name '*.test.mjs'` (** в bash не разворачивается); юнит 3059/3059 (pwa-guards больше не красный); e2e — красный только stock-catalog-atomicity (12). Ошибка «exit 0» в уведомлении фонового запуска — обёртка, читать `e2e exit N` в файле.
 - C040 summary (2026-11-07): e2e `backend/test/e2e/material-summary.e2e-spec.ts` (3: admin поля не пустые, роль user — цены null, 404); сервер — `stock/stock-summary.service.ts:26`, цена за ед. = priceHint/qty (`stock-summary.ts:34`, priceHint — сумма). openapi не перегенерирован.
+- Full 2026-11-07 (fbad1e6a, по запросу координатора): юнит 279/279 suites, 3127/3127; e2e 65/66 suites, 495/507 (Docker, datacore-test). Новые e2e ✅ с первого запуска: `order-line-plan.e2e-spec.ts` (C041), `material-summary`, `supply-catalog-bulk`. Единственный красный — `stock-catalog-atomicity` (12, гейт T26 `STOCK_CATALOG_TEST_DISPOSABLE=1` + disposable URI; падение — гейт доступа по дизайну, не ошибка кода или теста). Строка в TEST-LOG записана.
