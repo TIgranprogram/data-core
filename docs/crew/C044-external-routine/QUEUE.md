@@ -17,7 +17,7 @@
 ## Задачи
 | Статус | Код | Что | ТЗ | Класс | Скиллы |
 |--|--|--|--|--|--|
-| [ ] | T1 | «Остатки»: плитки типов в 2 раза меньше, тип по существительному, «Изменить выбранные» (тип, категория, группа) | `docs/crew/C043-stock-types-bulk/TZ.md` | L | design, verify, docs-sync; роль frontend (+ backend для bulk-маршрута) |
+| [~] | T1 | «Остатки»: плитки типов в 2 раза меньше, тип по существительному, «Изменить выбранные» (тип, категория, группа) | `docs/crew/C043-stock-types-bulk/TZ.md` | L | design, verify, docs-sync; роль frontend (+ backend для bulk-маршрута) |
 | [ ] | T2 | Хвосты дизайнера C039–C041 | `docs/crew/C044-external-routine/TZ-T2.md` | M | design, verify |
 | [ ] | T3 | Помощь «?» и доки под новые экраны (каталог номенклатуры, карточка позиции, состав позиции) | `docs/crew/C044-external-routine/TZ-T3.md` | M | docs-sync, verify |
 

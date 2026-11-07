@@ -2893,6 +2893,34 @@
         ]
       }
     },
+    "/stock/items/bulk": {
+      "patch": {
+        "operationId": "StockController_bulkUpdate",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/stock/items/bulk/restore": {
+      "patch": {
+        "operationId": "StockController_bulkRestore",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
     "/stock/items/{id}/photos": {
       "post": {
         "operationId": "StockController_photo",
@@ -3434,6 +3462,30 @@
     "/stock/items/{id}/restore": {
       "post": {
         "operationId": "StockController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/materials/{id}/summary": {
+      "get": {
+        "operationId": "StockSummaryController_get",
+        "summary": "Сводка позиции: остаток и места, поставщики, история цен, заявки, выдачи, аналитика по месяцам и заказчикам (цены — только ролям с деньгами)",
         "parameters": [
           {
             "name": "id",
@@ -4118,6 +4170,13 @@
             "schema": {}
           },
           {
+            "name": "view",
+            "required": false,
+            "in": "query",
+            "description": "all — ещё и материалы без предложений (kind=material); с supplierId=none — только они",
+            "schema": {}
+          },
+          {
             "name": "stale",
             "required": false,
             "in": "query",
@@ -4646,6 +4705,30 @@
         ],
         "responses": {
           "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/requests/bulk": {
+      "post": {
+        "operationId": "SupplyController_createBulk",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupplyBulkDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
             "description": ""
           }
         },
@@ -8244,6 +8327,20 @@
         ]
       }
     },
+    "/health/backups/reminder": {
+      "get": {
+        "operationId": "BackupsController_reminder",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Сервер"
+        ]
+      }
+    },
     "/health/backups": {
       "get": {
         "operationId": "BackupsController_list",
@@ -9400,6 +9497,293 @@
         },
         "tags": [
           "Проектирование"
+        ]
+      }
+    },
+    "/orderline-plans/by-income/{incomeId}": {
+      "get": {
+        "operationId": "OrderLinePlanController_byIncome",
+        "parameters": [
+          {
+            "name": "incomeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/orderline-plans/{id}": {
+      "put": {
+        "operationId": "OrderLinePlanController_save",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavePlanDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/orderline-plans/{id}/steps/{stepId}": {
+      "patch": {
+        "operationId": "OrderLinePlanController_patchStep",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stepId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StepPatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/orderline-plans/{id}/steps/{stepId}/mark": {
+      "post": {
+        "operationId": "OrderLinePlanController_mark",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stepId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StepMarkDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/orderline-plans/{id}/check": {
+      "post": {
+        "operationId": "OrderLinePlanController_check",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/orderline-plans/{id}/apply-to-product": {
+      "post": {
+        "operationId": "OrderLinePlanController_apply",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyToProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/orderline-plans/{id}/reset-from-product": {
+      "post": {
+        "operationId": "OrderLinePlanController_reset",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/work-schedule": {
+      "get": {
+        "operationId": "WorkScheduleController_get",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Начало периода (ISO); по умолчанию — 14 дней назад",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Конец периода (ISO); по умолчанию — начало + 75 дней, не длиннее года",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "personId",
+            "required": false,
+            "in": "query",
+            "description": "Только шаги этого сотрудника",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderId",
+            "required": false,
+            "in": "query",
+            "description": "Только шаги позиций этого заказа",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "incomeId",
+            "required": false,
+            "in": "query",
+            "description": "Только шаги этой позиции",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
         ]
       }
     },
@@ -17037,6 +17421,10 @@
             "type": "object",
             "description": "Марка стали (Ст3, AISI 304); null — стереть"
           },
+          "typeName": {
+            "type": "object",
+            "description": "C043: тип позиции вручную (пусто — вычисляется из названия); пусто — стереть"
+          },
           "washed": {
             "type": "object",
             "description": "Труба: мытая (true) / не мытая (false); null — стереть"
@@ -17779,6 +18167,39 @@
           "photoId": {
             "type": "string",
             "description": "id из POST /api/photos/upload"
+          }
+        }
+      },
+      "SupplyBulkLineDto": {
+        "type": "object",
+        "properties": {
+          "materialId": {
+            "type": "string",
+            "description": "Позиция склада (материал)"
+          },
+          "qty": {
+            "type": "number",
+            "description": "Количество, больше нуля"
+          },
+          "supplierId": {
+            "type": "string",
+            "description": "Поставщик (organizations.id); пусто — из прошлых закупок"
+          }
+        }
+      },
+      "SupplyBulkDto": {
+        "type": "object",
+        "properties": {
+          "clientUid": {
+            "type": "string",
+            "description": "Ключ пачки; на заявку уходит «ключ:materialId»"
+          },
+          "items": {
+            "description": "1–200 строк",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SupplyBulkLineDto"
+            }
           }
         }
       },
@@ -19165,6 +19586,186 @@
           "text"
         ]
       },
+      "PlanPartDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "id части в плане; у новой — временный ключ"
+          },
+          "partId": {
+            "type": "string",
+            "description": "Запись справочника productParts"
+          },
+          "name": {
+            "type": "string",
+            "description": "Название; новое имя без partId сервер заводит в справочник"
+          },
+          "qty": {
+            "type": "number",
+            "description": "Сколько таких частей в изделии (по умолчанию 1)"
+          },
+          "checked": {
+            "type": "boolean",
+            "description": "Зелёная галочка «Проверено»"
+          }
+        }
+      },
+      "PlanStepPlanDto": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "string"
+          },
+          "end": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ]
+      },
+      "PlanStepDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "id шага; у нового можно не указывать"
+          },
+          "workTypeId": {
+            "type": "string",
+            "description": "Вид работ (worktypes)"
+          },
+          "partRowId": {
+            "type": "string",
+            "description": "id части плана (или временный ключ новой); нет — «Изделие целиком»"
+          },
+          "hours": {
+            "type": "number",
+            "description": "Норма часов на 1 шт."
+          },
+          "note": {
+            "type": "string"
+          },
+          "checked": {
+            "type": "boolean"
+          },
+          "assigneeId": {
+            "type": "string",
+            "description": "Исполнитель шага (Э2)"
+          },
+          "plan": {
+            "description": "Ручной план для Ганта (Э2)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlanStepPlanDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "workTypeId"
+        ]
+      },
+      "SavePlanDto": {
+        "type": "object",
+        "properties": {
+          "rev": {
+            "type": "number"
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanPartDto"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanStepDto"
+            }
+          }
+        },
+        "required": [
+          "rev",
+          "parts",
+          "steps"
+        ]
+      },
+      "StepPatchDto": {
+        "type": "object",
+        "properties": {
+          "rev": {
+            "type": "number",
+            "description": "Версия плана, которую видел экран; старая — 409"
+          },
+          "assigneeId": {
+            "type": "object",
+            "nullable": true,
+            "description": "Исполнитель (persons); null — снять"
+          },
+          "hours": {
+            "type": "number",
+            "description": "Норма часов на 1 шт."
+          },
+          "start": {
+            "type": "string",
+            "description": "Начало (ISO); без end длительность сохраняется"
+          },
+          "end": {
+            "type": "string",
+            "description": "Конец (ISO), включительно"
+          }
+        }
+      },
+      "StepMarkDto": {
+        "type": "object",
+        "properties": {
+          "what": {
+            "type": "string",
+            "enum": [
+              "start",
+              "finish"
+            ]
+          }
+        },
+        "required": [
+          "what"
+        ]
+      },
+      "CheckDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "part",
+              "step"
+            ]
+          },
+          "rowId": {
+            "type": "string"
+          },
+          "checked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "rowId",
+          "checked"
+        ]
+      },
+      "ApplyToProductDto": {
+        "type": "object",
+        "properties": {
+          "productUpdatedAt": {
+            "type": "object",
+            "description": "productUpdatedAt из ответа плана (ISO); у изделия без даты — не указывать"
+          }
+        }
+      },
       "LaunchDto": {
         "type": "object",
         "properties": {
@@ -19255,11 +19856,44 @@
           },
           "note": {
             "type": "string"
+          },
+          "partRowId": {
+            "type": "object",
+            "description": "id части изделия (parts[].id или временный ключ новой); null/нет — «Изделие целиком»"
+          },
+          "hours": {
+            "type": "number",
+            "description": "Норма часов на 1 шт."
+          },
+          "checked": {
+            "type": "boolean",
+            "description": "Зелёная галочка «Проверено»"
           }
         },
         "required": [
           "workTypeId"
         ]
+      },
+      "RoutePartDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "partId": {
+            "type": "string",
+            "description": "Запись справочника productParts"
+          },
+          "name": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "number"
+          },
+          "checked": {
+            "type": "boolean"
+          }
+        }
       },
       "RouteDto": {
         "type": "object",
@@ -19268,6 +19902,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/RouteStepDto"
+            }
+          },
+          "parts": {
+            "description": "Части изделия целиком; не указаны — части не меняются",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoutePartDto"
             }
           }
         },

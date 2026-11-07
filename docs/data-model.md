@@ -371,6 +371,7 @@ Data-core — платформенное ядро (`auth`, `user`, `role`, `perm
 | `photoIds` | `ObjectId[]` | FK → `Photos` |
 | `supplierId` | `ObjectId?` | FK → `Organization` (только организации с флагом `type: 'supplier'`) |
 | `notes` | `string` | — |
+| `typeName` | `string?` | C043: ручной тип позиции («Соединитель», «Труба») — переопределяет тип, вычисленный из названия. Поле только data-core (CRM не читает, схема kppdf не меняется); пусто — тип вычисляется клиентом из названия. |
 | `createdAt` | `Date` | — |
 | `updatedAt` | `Date` | — |
 | `deletedAt` | `Date?` | soft delete |
