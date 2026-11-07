@@ -1,7 +1,7 @@
 import { h } from '../../core/dom.js';
 import { plural, qty } from '../../core/format.js';
 import { patch } from '../../core/router.js';
-import { stepFunnel, button as kitButton } from '../../ui/kit/index.js';
+import { stepFunnel, button as kitButton, card, tileGrid, landing } from '../../ui/kit/index.js';
 import { catArt } from '../../ui/cat-art.js';
 import { groupsTree, groupsFresh, facets } from './data.js';
 
@@ -11,12 +11,8 @@ export const nItems = (n) => `${qty(n)} ${plural(n, 'изделие', 'изде�
 /** ПРД.6: самый глубокий выбранный шаг воронки (раздел → группа → подгруппа) — это groupId для сервера (он берёт всё поддерево). */
 export const deepGroup = (P) => P.sub || P.grp || P.sec || '';
 
-const catTile = (g, pick) => {
-  const art = h('div', { class: 'cat-art' });
-  art.innerHTML = catArt(g.name); // свой статичный SVG, данных пользователя нет
-  return h('button', { type: 'button', class: 'cat-tile', title: g.name, onclick: () => pick(g.id) }, art,
-    h('div', { class: 'cat-body' }, h('div', { class: 'cat-name' }, g.name), h('div', { class: 'cat-n' }, nItems(g.count || 0))));
-};
+const art = (name) => { const el = h('span'); el.innerHTML = catArt(name); return el; }; // свой статичный SVG, данных пользователя нет
+const catTile = (g, pick) => card({ size: 'S', artCover: true, art: art(g.name), title: g.name, meta: nItems(g.count || 0), onClick: () => pick(g.id) });
 const SEC_KEY = 'dc-prod-sec'; // раскрытый раздел — «назад» из галереи видит то же
 const secOpen = () => { try { return sessionStorage.getItem(SEC_KEY) || ''; } catch { return ''; } };
 const secSave = (id) => { try { if (id) sessionStorage.setItem(SEC_KEY, id); else sessionStorage.removeItem(SEC_KEY); } catch { /* приватный режим */ } };
@@ -53,35 +49,21 @@ export async function catLanding({ pick }) {
   const tops = all.filter((g) => !g.parentId);
   const kids = (t) => all.filter((g) => g.parentId === t.id);
   const total = tops.reduce((a, t) => a + (t.count || 0), 0);
-  const items = []; // { id, tile, panel } — панель раскрывается переключением класса, запрос не повторяется
-  const setOpen = (id) => {
-    secSave(id);
-    for (const it of items) {
-      const on = it.id === id;
-      it.tile.classList.toggle('active', on); it.tile.setAttribute('aria-expanded', String(on));
-      it.panel.classList.toggle('open', on); if (on) it.panel.removeAttribute('inert'); else it.panel.setAttribute('inert', '');
-    }
-  };
+  const secTiles = []; // { id, tile } — открыт один раздел, запоминаем в sessionStorage
   const secItem = (t) => {
     const ks = kids(t);
-    const art = h('div', { class: 'sec-art' });
-    art.innerHTML = catArt(t.name); // свой статичный SVG, данных пользователя нет
-    const pid = 'sec-p-' + t.id;
-    const body = h('span', { class: 'sec-body' }, h('span', { class: 'sec-name' }, t.name), h('span', { class: 'sec-n' }, nItems(t.count || 0)));
-    const tile = h('button', { type: 'button', class: 'sec-tile sec-products', title: t.name, 'aria-expanded': 'false', 'aria-controls': ks.length ? pid : undefined,
-      onclick: () => (ks.length ? setOpen(secOpen() === t.id ? '' : t.id) : pick(t.id)) }, art, body, ks.length ? h('span', { class: 'sec-chev', 'aria-hidden': 'true' }, '▾') : null);
-    const panel = h('div', { class: 'sec-panel', id: pid, inert: '' }, h('div', { class: 'sec-panel-in' },
-      h('div', { class: 'sec-panel-head' }, h('h3', null, 'Группы раздела «' + t.name + '»'),
-        kitButton({ label: 'Весь раздел →', kind: 'ghost', onClick: () => pick(t.id) })), // «Все изделия списком» — один раз, сверху (аудит Д12)
-      h('div', { class: 'cat-grid' }, ...ks.map((g) => catTile(g, pick)))));
-    items.push({ id: t.id, tile, panel });
-    return h('div', { class: 'sec-item' }, tile, ks.length ? panel : null);
+    const base = { size: 'S', artCover: true, art: art(t.name), title: t.name, meta: nItems(t.count || 0) };
+    if (!ks.length) return card({ ...base, onClick: () => pick(t.id) });
+    const el = card({ ...base,
+      onToggle: (open) => { if (open) for (const o of secTiles) if (o.id !== t.id && o.tile.classList.contains('k-open')) o.tile.click(); secSave(open ? t.id : (secOpen() === t.id ? '' : secOpen())); },
+      expand: { title: 'Группы раздела «' + t.name + '»', action: kitButton({ label: 'Весь раздел →', kind: 'ghost', size: 'S', onClick: () => pick(t.id) }), // «Все изделия списком» — один раз, сверху (аудит Д12)
+        body: tileGrid(...ks.map((g) => catTile(g, pick))) } });
+    secTiles.push({ id: t.id, tile: el.firstElementChild });
+    return el;
   };
   const main = tops.slice(0, 3); const rest = tops.slice(3);
-  const node = h('div', { class: 'cat-landing' },
-    h('div', { class: 'cat-top' }, h('p', { class: 'muted' }, `Выберите раздел · всего ${nItems(total)}`), showAll()),
-    h('div', { class: 'sec-grid' }, ...main.map(secItem)),
-    rest.length ? h('section', { class: 'cat-sec' }, h('div', { class: 'cat-sec-head' }, h('h3', null, 'Другие разделы')), h('div', { class: 'sec-grid' }, ...rest.map(secItem))) : null);
-  const was = secOpen(); setOpen(items.some((it) => it.id === was) ? was : '');
+  const node = landing({ head: `Выберите раздел · всего ${nItems(total)}`, action: showAll(),
+    body: [tileGrid(...main.map(secItem)), rest.length ? h('section', null, h('h3', null, 'Другие разделы'), tileGrid(...rest.map(secItem))) : null] });
+  const was = secOpen(); secTiles.find((it) => it.id === was)?.tile.click();
   return node;
 }

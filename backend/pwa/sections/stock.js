@@ -112,7 +112,7 @@ async function stockLanding() {
   if (!cats.length) { const box = empty({ title: 'Категорий пока нет — позиции покажутся списком.' }); box.append(all); return box; }
   const art = (name) => { const el = h('span'); el.innerHTML = catArt(name); return el; }; // свой статичный SVG, данных пользователя нет
   const low = (c) => [c.low ? `к закупке ${c.low}` : '', c.none ? `нет ${c.none}` : ''].filter(Boolean).join(' · ');
-  const catTile = (c, zoneId) => card({ size: 'S', art: art(c.name), title: c.name, meta: nPos(c.total), low: low(c) || undefined,
+  const catTile = (c, zoneId) => card({ size: 'S', artCover: true, art: art(c.name), title: c.name, meta: nPos(c.total), low: low(c) || undefined,
     onClick: () => { if (zoneId) setZone(zoneId); open({ categoryId: c.id }); } });
   const total = cats.reduce((a, c) => a + c.total, 0);
   const head = `Выберите ${zones.length > 1 ? 'склад' : 'категорию'} · всего ${nPos(total)}`;
@@ -125,7 +125,7 @@ async function stockLanding() {
   const zoneItem = (z) => {
     const zc = cats.filter((c) => zoneOf(c) === z);
     const n = zc.reduce((a, c) => a + c.total, 0);
-    const el = card({ size: 'S', art: art(z.name), title: z.name, meta: nPos(n) + (zc.length ? ` · категорий ${zc.length}` : ''),
+    const el = card({ size: 'S', artCover: true, art: art(z.name), title: z.name, meta: nPos(n) + (zc.length ? ` · категорий ${zc.length}` : ''),
       expand: { title: 'Категории склада «' + z.name + '»',
         action: kitButton({ label: 'Весь склад →', kind: 'ghost', size: 'S', onClick: () => { setZone(z.id); open({ all: '1' }); } }),
         body: zc.length ? tileGrid(...zc.map((c) => catTile(c, z.id))) : hint('Категорий нет — отметьте их в «Справочники» → «Склады».') } });

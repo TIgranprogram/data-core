@@ -744,25 +744,6 @@ table.cal.forecast td.day.gap { background: var(--danger-soft); }
 .gc-meta { color: var(--muted); font-size: var(--fs-sm); }
 @media (max-width: 720px) { .gal-box { padding: 10px; } .gal { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2); } }
 
-/* Первая страница «Продукции» (ui/cat-art.js, sections/products.js landing): разделы → плитки групп с рисунком */
-.cat-landing { display: flex; flex-direction: column; gap: var(--s5); }
-.cat-top { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; }
-.cat-top p { margin: 0; }
-.cat-sec-head { display: flex; align-items: baseline; gap: var(--s2); margin-bottom: var(--s3); }
-.cat-sec-head h3 { margin: 0; }
-.cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: var(--s4); }
-.cat-tile { display: flex; flex-direction: column; padding: 0; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); text-align: left; font: inherit; cursor: pointer; box-shadow: var(--shadow-sm); transition: border-color .15s, box-shadow .15s, transform .15s; }
-.cat-tile:hover, .cat-tile:focus-visible { border-color: var(--border-strong); box-shadow: var(--shadow-lg); transform: translateY(-2px); }
-.cat-tile:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-.cat-art, .sec-art { aspect-ratio: 16 / 10; background: var(--photo-bg); border-bottom: 1px solid var(--border); display: grid; place-items: center; padding: var(--s3); }
-.cat-art svg, .sec-art svg { width: 100%; height: 100%; transition: transform .2s; }
-.cat-tile:hover .cat-art svg { transform: scale(1.04); }
-.cat-body { padding: var(--s3) var(--s4) var(--s4); display: flex; flex-direction: column; gap: 2px; }
-.cat-name { font-weight: 600; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.cat-n { color: var(--muted); font-size: var(--fs-sm); }
-@media (prefers-reduced-motion: reduce) { .cat-tile, .cat-art svg { transition: none; } .cat-tile:hover { transform: none; } .cat-tile:hover .cat-art svg { transform: none; } }
-@media (max-width: 720px) { .cat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2); } .cat-body { padding: var(--s2) var(--s3) var(--s3); } .cat-landing { gap: var(--s4); } }
-
 /* «▾ Варианты» готовых текстов под длинным полем (ui/phrases.js) */
 .ph-btn { margin-top: 4px; font-size: var(--fs-sm); align-self: flex-start; }
 .ph-n { color: var(--muted); font-weight: 400; }
@@ -1112,41 +1093,10 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .bell-empty { padding: var(--s3); color: var(--muted); text-align: center; }
 @media (max-width: 720px) { .ntf .ntf-x { width: 44px; height: 44px; } .toasts { left: 12px; right: 12px; transform: none; width: auto; max-width: none; align-items: stretch; bottom: 16px; } .toast { width: auto; } }
 
-/* Плитки разделов «Продукции» (2026-10-27): три плитки, подкатегории раскрываются под ними */
-.sec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--s4); }
-.sec-item { display: contents; }
-.sec-tile { display: flex; flex-direction: column; position: relative; padding: 0; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); text-align: left; font: inherit; cursor: pointer; box-shadow: var(--shadow-sm); transition: border-color .15s, box-shadow .15s; }
-.sec-tile:hover { border-color: var(--border-strong); box-shadow: var(--shadow-lg); }
-.sec-tile:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-.sec-tile.active { border-color: var(--sec, var(--primary)); box-shadow: 0 0 0 1px var(--sec, var(--primary)); }
-.sec-art { border-bottom: 1px solid var(--border); display: grid; place-items: center; padding: var(--s3); }
-.sec-art svg { width: 100%; height: 100%; }
-.sec-body { display: flex; flex-direction: column; gap: 2px; align-self: stretch; min-width: 0; overflow-wrap: anywhere; padding: var(--s3) var(--s3) 36px var(--s3); }
-.sec-name { font-weight: 600; font-size: var(--fs-h3); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.sec-n { color: var(--muted); font-size: var(--fs-sm); }
-.sec-chev { position: absolute; right: var(--s3); bottom: var(--s3); color: var(--muted); transition: transform .18s; }
-.sec-tile.active .sec-chev { transform: rotate(180deg); color: var(--sec, var(--primary)); }
-.sec-panel { order: 1; grid-column: 1 / -1; margin-top: calc(-1 * var(--s4)); /* одна панель под всеми плитками (SKL-1 п.3) */ display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .18s ease, opacity .18s ease; }
-.sec-panel.open { grid-template-rows: 1fr; opacity: 1; }
-.sec-panel-in { min-height: 0; overflow: hidden; }
-.sec-panel.open .sec-panel-in { padding: var(--s4) 0 var(--s2); }
-.sec-panel-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s2); margin-bottom: var(--s3); }
-.sec-panel-head h3 { margin: 0 auto 0 0; }
-.sec-panel .cat-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 @media (max-width: 720px) {
-  .sec-grid { grid-template-columns: 1fr; gap: var(--s2); }
-  .sec-item { display: block; }
-  .sec-panel { margin-top: 0; }
-  .sec-tile { flex-direction: row; align-items: center; min-height: 72px; }
-  .sec-art { width: 96px; flex: none; align-self: stretch; aspect-ratio: auto; border-bottom: 0; border-right: 1px solid var(--border); padding: var(--s2); }
-  .sec-body { padding: var(--s2) 40px var(--s2) var(--s3); }
-  .sec-chev { bottom: auto; top: 50%; margin-top: -9px; }
-  .sec-panel-head .btn { min-height: 44px; }
-  .sec-panel .cat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .cards .thumb { width: 56px; height: 56px; }
 }
-@media (min-width: 1600px) { .cat-landing, .gal-box { max-width: 1600px; } }
-@media (prefers-reduced-motion: reduce) { .sec-panel, .sec-chev, .sec-tile { transition: none; } }
+@media (min-width: 1600px) { .gal-box { max-width: 1600px; } }
 
 /* ---------- «Сегодня»: утренний бриф (TODAY.md, этап 1) ---------- */
 .td-bellwrap { position: relative; }
@@ -1311,8 +1261,8 @@ body.has-board-bar { padding-bottom: 80px; }
 .btn.btn-warm { background: var(--gold, var(--accent)); border-color: var(--gold, var(--accent)); color: var(--on-accent, #fff); }
 
 /* Мгновенный отклик: нажатие и полоска загрузки (DESIGN §4) */
-.btn, .chip, .seg button, .tcard, table.list tbody tr, .sec-tile { transition: transform 80ms ease, filter 80ms ease, background-color 120ms ease; }
-.btn:active:not(:disabled), .chip:active, .seg button:active, .tcard:active, .sec-tile:active { transform: scale(.97); filter: brightness(.92); }
+.btn, .chip, .seg button, .tcard, table.list tbody tr { transition: transform 80ms ease, filter 80ms ease, background-color 120ms ease; }
+.btn:active:not(:disabled), .chip:active, .seg button:active, .tcard:active { transform: scale(.97); filter: brightness(.92); }
 table.list tbody tr:active { background: var(--row-hover); filter: brightness(.94); }
 [data-theme="dark"] .btn:active:not(:disabled), [data-theme="dark"] .chip:active, [data-theme="dark"] .seg button:active, [data-theme="dark"] .tcard:active { filter: brightness(1.18); }
 .btn.is-busy { pointer-events: none; }
@@ -1320,8 +1270,8 @@ table.list tbody tr:active { background: var(--row-hover); filter: brightness(.9
 .load-bar::after { content: ''; position: absolute; inset: 0 auto 0 0; width: 40%; background: var(--primary); border-radius: 2px; animation: load-bar 1.1s ease-in-out infinite; }
 @keyframes load-bar { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
 @media (prefers-reduced-motion: reduce) {
-  .btn, .chip, .seg button, .tcard, table.list tbody tr, .sec-tile { transition: none; }
-  .btn:active:not(:disabled), .chip:active, .seg button:active, .tcard:active, .sec-tile:active { transform: none; }
+  .btn, .chip, .seg button, .tcard, table.list tbody tr { transition: none; }
+  .btn:active:not(:disabled), .chip:active, .seg button:active, .tcard:active { transform: none; }
   .load-bar::after { animation-duration: 3s; }
 }
 
