@@ -1,6 +1,6 @@
 # Карта роли qa
 
-коммит: fbad1e6a (полный прогон 2026-11-07 на fbad1e6a: юнит 279/3127, e2e 65/66 — красный только stock-catalog-atomicity; строка в TEST-LOG)
+коммит: 322fe16e (full 2026-11-07 на 322fe16e: юнит 281/3144, e2e 66/67 — красный только stock-catalog-atomicity (гейт T26); строка в TEST-LOG)
 
 - Прогоны: `cd backend; npx tsc --noEmit`; `npx jest --silent | tail -8` (148/1500 на 2026-10-25); pwa — `node --input-type=module --check < файл`; скрипты — `node --test scripts/*.test.mjs`. TEST-LOG — дописывать строкой в конец `docs/TEST-LOG.md`.
 - Паспорта «воронкой» (ПВ): сервер — `common/passport/phrase-tree.ts` (buildForest/resolveChoices/missingChoices), `product-passport.service.ts` (snapshot ~287, check ~318, choiceMissing ~351, funnel ~348), дерево справочника — `dicts/dicts.passport-phrases.ts`; клон — `showcase/showcase-clone.ts`; экран — `pwa/ui/funnel.js`, `pwa/sections/passport-tree.js`, плашка — `passports/wire-form.js` (check ~120), карточка — `passports/card-blocks.js` checkBlock.
