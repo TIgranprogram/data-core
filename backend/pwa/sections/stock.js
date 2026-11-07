@@ -11,6 +11,7 @@ import { toast, toastError } from '../ui/kit/toast.js';
 import { lookups, UNITS, unitList } from './lookups.js';
 import { facetFilter, ftParams, ftQuery, parseFt } from '../ui/kit/index.js';
 import { facetLabel, pipeKey, index as facetIndex, pick as facetPick } from '../core/facets.js';
+import { typeExpand } from './stock-types.js';
 import { stockRequestsBox, requestFromHash, catalogFromHash, closeRequest } from './stock-requests.js';
 import { loadZones, setZone, zoneNow, zoneQuery } from '../core/zone.js';
 import { segmented, toolbar, catArt, section, stack, button as kitButton, badge, card, row, tileGrid, landing, hint, empty, posPic } from '../ui/kit/index.js';
@@ -42,6 +43,7 @@ import { targetNote } from '../ui/kit/target-picker.js';
 import { passportSpecField, passportSpecView, savePassportSpec } from './stock-passport.js';
 import { mobileStockDashboard } from './warehouse-mobile.js';
 import { qrBulkAction, qrPrintAction } from './qr.js';
+import { stockOrderAction } from './order-bulk.js';
 
 /** Раздел «Склад» (PRODUCT §2): materials + storageitems через /api/stock. */
 const unit = (r) => r.unit || '';
@@ -113,7 +115,7 @@ async function stockLanding() {
   const art = (name) => { const el = h('span'); el.innerHTML = catArt(name); return el; }; // свой статичный SVG, данных пользователя нет
   const low = (c) => [c.low ? `к закупке ${c.low}` : '', c.none ? `нет ${c.none}` : ''].filter(Boolean).join(' · ');
   const catTile = (c, zoneId) => card({ size: 'S', artCover: true, art: art(c.name), title: c.name, meta: nPos(c.total), low: low(c) || undefined,
-    onClick: () => { if (zoneId) setZone(zoneId); open({ categoryId: c.id }); } });
+    ...typeExpand({ categoryId: c.id, categoryName: c.name, onPick: (t) => { if (zoneId) setZone(zoneId); open({ categoryId: c.id, ft: t ? `type:${t}` : undefined }); } }) });
   const total = cats.reduce((a, c) => a + c.total, 0);
   const head = `Выберите ${zones.length > 1 ? 'склад' : 'категорию'} · всего ${nPos(total)}`;
   // один склад или ни одного — сразу категории
@@ -156,7 +158,7 @@ export const stock = {
     // признаки: список — ровно те позиции, что посчитала кнопка (ids из полного списка склада); список ещё не загружен — по словам, как раньше
     query: (P) => ({ priority: 1, ...zoneQuery(), ...(P.ft ? ftIds(P) || { search: [P.q, ftQuery(P.ft)].filter(Boolean).join(' ') || undefined, ...ftParams(P.ft) } : {}) }),
     export: 'admin',
-    bulk: { extra: [qrBulkAction('S')] }, // только «Распечатать QR» над отмеченными (без «Изменить выбранные»)
+    bulk: { extra: [stockOrderAction, qrBulkAction('S')] }, // над отмеченными: «В заявку» и «Распечатать QR» (без «Изменить выбранные»)
     headActions: () => [kitButton({ label: 'Выдать материалы', kind: 'primary', onClick: openStockIssue }), stockActions()],
     moreActions: stockMore,
     top: (_reload) => h('div', null, zoneBar(), stockRequestsBox(), mobileStockDashboard()),

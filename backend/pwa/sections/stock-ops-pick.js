@@ -5,6 +5,7 @@ import { api } from '../core/api.js';
 import { zoneQuery } from '../core/zone.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
+import { byType, index as indexFacets, typeValues } from '../core/facets.js';
 import { stockList } from '../core/stock-list.js';
 import { attachCombo, badge, empty, funnel, hint, posPic, row, stack, STOCK_STATUS } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/kit/toast.js';
@@ -21,8 +22,8 @@ export function rememberPick(op, it) {
 
 /** Шаги выбора: «Недавно → Категория → Позиция». Поле поиска (input) создаёт панель и передаёт сюда. add(it) — в пачку; onCat() — категория выбрана. */
 export function stockPick({ op, input: pickIn, add, onCat }) {
-  let all = null; let loading = false; let cats = []; let cat = '';
-  const fun = funnel({ steps: [], onChange: (_k, v) => { cat = v || ''; onCat?.(); paintCats(); if (!all) { listBox.replaceChildren(hint('Загружаю склад…')); ensureAll(); } else paintList(); } });
+  let all = null; let loading = false; let cats = []; let cat = ''; let type = ''; // type: '' не выбран, '*' — «Все типы'
+  const fun = funnel({ steps: [], onChange: (k, v) => { if (k === 'category') { cat = v || ''; type = ''; } else type = v || ''; onCat?.(); paintCats(); if (!all) { listBox.replaceChildren(hint('Загружаю склад…')); ensureAll(); } else paintList(); } });
   const listBox = h('div');
   const combo = attachCombo(pickIn, {
     options: () => (all || []).map((i) => ({ value: i.id, label: i.name, sub: `${qty(i.quantity)} ${i.unit || ''}`.trim() })),
@@ -56,17 +57,24 @@ export function stockPick({ op, input: pickIn, add, onCat }) {
       onClick: async () => { await ensureAll(); const it = (all || []).find((i) => i.id === x.id); if (it) add(it); else toast('Этой позиции уже нет на складе'); } })));
   }
 
+  const inCat = () => { if (!all) return []; if (!all[0]?._f) indexFacets(all); return all.filter((i) => !cat || i.categoryId === cat); };
+
   // Шаг «Категория» (П-1 п. 1–3): вкладки с числом позиций; одна категория — шаг не показывается
   function paintCats() {
     const nOf = (id) => (all ? all.filter((i) => !id || i.categoryId === id).length : cats.find((c) => c.id === id)?.total);
-    fun.update({ steps: [{ key: 'category', label: 'Категория', ask: 'выберите категорию', skip: cats.length < 2, value: cat, values: cats.map((c) => ({ id: c.id, label: c.name, count: nOf(c.id) })) }] });
+    const tv = typeValues(inCat()); // шаг «Тип»: только типы выбранной категории; меньше двух — шаг пропущен
+    fun.update({ steps: [
+      { key: 'category', label: 'Категория', ask: 'выберите категорию', skip: cats.length < 2, value: cat, values: cats.map((c) => ({ id: c.id, label: c.name, count: nOf(c.id) })) },
+      { key: 'type', label: 'Тип', ask: 'выберите тип', skip: tv.length < 3, value: type, values: tv },
+    ] });
     onCat?.(); // категории пришли — «Дальше: …» узнает, что шаг «Категория» появился
   }
 
   // Шаг «Позиция» (П-1 п. 2, 7): строки выбранной категории — фото, остаток, «нет» / «к закупке»; до 30 строк
   function paintList() {
     if (!cat && cats.length > 1) { listBox.replaceChildren(); return; } // сначала категория
-    const items = (all || []).filter((i) => !cat || i.categoryId === cat);
+    if (typeValues(inCat()).length > 2 && !type) { listBox.replaceChildren(hint('Выберите тип — или «Все типы». Найти позицию можно и поиском ниже.')); return; }
+    const items = byType(inCat(), type);
     if (!items.length) { listBox.replaceChildren(empty({ title: 'В категории позиций нет', hint: 'Найдите поиском ниже — он ищет по всему складу.' })); return; }
     listBox.replaceChildren(
       ...items.slice(0, 30).map((it) => row({ lead: posPic((it.photos || [])[0], 'sm'), title: it.name,

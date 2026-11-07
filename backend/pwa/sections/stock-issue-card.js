@@ -1,5 +1,6 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { byType, index, typeValues } from '../core/facets.js';
 import { plural, qty } from '../core/format.js';
 import { buildForm, busyBlock, button, card, empty, failBlock, funnel, qtyInput, sideNote, table } from '../ui/kit/index.js';
 
@@ -13,20 +14,26 @@ const LIMIT = 100;
 /** warehouseCard({ zone: { id, name }, cart, onChange, onRemove }) → { el, reload, sync } */
 export function warehouseCard({ zone, cart, onChange, onRemove }) {
   let cat = '';
+  let type = ''; // '' — не выбран, '*' — «Все типы»
   let text = '';
   let seq = 0;
   let timer = 0;
+  let catItems = []; // позиции выбранной категории склада (для шага «Тип»)
   const inputs = new Map();
   const head = h('span', null);
   const box = h('div', null, busyBlock('позиции склада'));
 
-  // П-1: «Категория» — шаг воронки (фишки с числом позиций), позиции — только после выбора категории или по тексту поиска (тогда по всему складу)
+  // П-1: «Категория» → «Тип» — шаги воронки (фишки с числом позиций), позиции — после типа (или «Все типы») либо по тексту поиска (тогда по всему складу)
   let cats = [];
-  const fun = funnel({ steps: [], onChange: (_k, v) => { cat = v || ''; paintCats(); load(); } });
-  const paintCats = () => fun.update({ steps: [{ key: 'category', label: 'Категория', ask: 'выберите категорию', skip: cats.length < 2, value: cat, values: cats.map((c) => ({ id: c.id, label: c.name, count: c.total })) }] });
+  const fun = funnel({ steps: [], onChange: (k, v) => { if (k === 'category') { cat = v || ''; type = ''; catItems = []; } else type = v || ''; paintSteps(); load(); } });
+  const paintSteps = () => fun.update({ steps: [
+    { key: 'category', label: 'Категория', ask: 'выберите категорию', skip: cats.length < 2, value: cat, values: cats.map((c) => ({ id: c.id, label: c.name, count: c.total })) },
+    { key: 'type', label: 'Тип', ask: 'выберите тип', skip: typeValues(catItems).length < 3, value: type, values: typeValues(catItems) },
+  ] });
   const filters = buildForm([{ key: 'q', type: 'text', label: 'Поиск по всему складу', placeholder: 'Название или размер' }], {});
   const input = filters.el.querySelector('[name="q"]');
-  for (const t of ['input', 'change']) input?.addEventListener(t, (e) => { clearTimeout(timer); timer = setTimeout(() => { const v = e.target.value.trim(); if (v !== text) { text = v; load(); } }, 250); });
+  // только input (change на выходе из поля дублировал бы запрос); поле не пересоздаётся, таймер 300 мс
+  input?.addEventListener('input', (e) => { clearTimeout(timer); timer = setTimeout(() => { const v = e.target.value.trim(); if (v !== text) { text = v; load(); } }, 300); });
 
   function qtyCell(it) {
     const free = it.free ?? it.quantity;
@@ -52,16 +59,30 @@ export function warehouseCard({ zone, cart, onChange, onRemove }) {
     head.textContent = total ? `${total} ${plural(total, 'позиция', 'позиции', 'позиций')}` : '';
   }
 
+  const typeSkipped = () => typeValues(catItems).length < 3; // нет типов или один — шаг «Тип» пропущен
   async function load() {
     const my = ++seq;
     if (!text && !cat && cats.length > 1) { box.replaceChildren(empty({ title: 'Выберите категорию', hint: 'Или найдите позицию поиском — он ищет по всему складу.' })); head.textContent = ''; return; }
-    box.replaceChildren(busyBlock('позиции склада'));
+    // таблица остаётся на месте, пока грузится новое: ширина карточки не прыгает; загрузочный блок — только если показывать нечего
+    if (!box.firstChild || box.firstChild.classList?.contains('state')) box.replaceChildren(busyBlock('позиции склада'));
     try {
-      const r = await api('/stock/items', { query: { zoneId: zone.id, limit: LIMIT, sort: 'name', status: 'ok,low,reserved', search: text || undefined, categoryId: text ? undefined : cat || undefined } });
-      if (my === seq) paint(r.items || [], r.total ?? (r.items || []).length);
+      if (text) {
+        const r = await api('/stock/items', { query: { zoneId: zone.id, limit: LIMIT, sort: 'name', status: 'ok,low,reserved', search: text } });
+        if (my === seq) paint(r.items || [], r.total ?? (r.items || []).length);
+        return;
+      }
+      if (!catItems.length) {
+        const r = await api('/stock/items', { query: { zoneId: zone.id, limit: 1000, sort: 'name', status: 'ok,low,reserved', categoryId: cat || undefined } });
+        if (my !== seq) return;
+        catItems = index(r.items || []);
+        paintSteps();
+      }
+      if (!type && !typeSkipped()) { box.replaceChildren(empty({ title: 'Выберите тип', hint: 'Или «Все типы» — тогда покажем всё из категории.' })); head.textContent = ''; return; }
+      const list = byType(catItems, type);
+      paint(list.slice(0, LIMIT), list.length);
     } catch (e) { if (my === seq) box.replaceChildren(failBlock(e, load)); }
   }
-  const init = () => api('/stock/categories', { query: { zoneId: zone.id } }).then((r) => { cats = (r.items || []).filter((c) => c.id !== 'none'); paintCats(); load(); })
+  const init = () => api('/stock/categories', { query: { zoneId: zone.id } }).then((r) => { cats = (r.items || []).filter((c) => c.id !== 'none'); paintSteps(); load(); })
     .catch((e) => box.replaceChildren(failBlock(e, () => { box.replaceChildren(busyBlock('позиции склада')); init(); })));
   init();
 
@@ -72,5 +93,5 @@ export function warehouseCard({ zone, cart, onChange, onRemove }) {
   });
   /** Корзина изменилась не здесь (убрали позицию справа) — перечитать числа в полях. */
   const sync = () => inputs.forEach((inp, id) => { inp.value = cart.get(id)?.qty ?? ''; });
-  return { el, reload: load, sync };
+  return { el, reload: () => { catItems = []; return load(); }, sync };
 }

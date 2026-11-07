@@ -1,6 +1,6 @@
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
-import { hint, tileGrid, landing, miniChart, navList, photoStrip, catArt, stat, searchBox, readonlyGroup, similarBox, posPic, posPicOf, sku, section, stack, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, openPdfPreview, stageBar, headStats, clamp, funnel, qtyInput, targetPicker, toast, pick, filter, table, panel, entityPanel, select, fileButton, links, guide, SUPPLY_STATUS } from '../ui/kit/index.js';
+import { hint, tileGrid, typeArt, landing, miniChart, navList, photoStrip, catArt, stat, searchBox, readonlyGroup, similarBox, posPic, posPicOf, sku, section, stack, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, openPdfPreview, stageBar, headStats, clamp, funnel, qtyInput, targetPicker, toast, pick, filter, table, panel, entityPanel, select, fileButton, links, guide, SUPPLY_STATUS } from '../ui/kit/index.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
 const LONG = 'Очень длинное название позиции для проверки переноса и обрезки текста в карточке эталона';
@@ -197,6 +197,8 @@ export const kit = {
         tileGrid(card({ size: 'S', artCover: true, title: 'Крепёж', meta: '34 позиции', low: 'мало 3', art: catArt('Крепёж'), onClick: () => toast('Клик: категория') }),
           card({ size: 'S', artCover: true, title: 'Труба', meta: '18 позиций', art: catArt('Труба'), expand: { title: 'Раздел «Труба»', body: h('p', { class: 'muted' }, 'Группы раздела') } }),
           card({ size: 'S', artCover: true, title: 'Лист', meta: '9 позиций', art: catArt('Лист') }))),
+      block('Иконки типов · C037', 'typeArt(тип, категория) — рисунок типа позиции в том же стиле, что рисунки категорий; нет рисунка — значок категории. Плитки типов на «Складе» при раскрытии категории.',
+        tileGrid(...['Болт', 'Гайка', 'Шайба', 'Саморез', 'Шуруп', 'Анкер', 'Шпилька', 'Труба профильная', 'Труба круглая', 'Лист', 'Доска', 'Уголок', 'Арматура', 'Цепь', 'Неизвестный тип'].map((t) => card({ size: 'S', artCover: true, title: t, meta: 'пример', art: (() => { const el = h('span'); el.innerHTML = typeArt(t, 'Метизы'); return el; })() })))),
       block('Посадочная (landing) · C030-2', 'landing({ head, action, body }) — строка «Выберите … · всего N», кнопка справа, ниже плитки. Где используется: склад, каталог поставщика.',
         landing({ head: 'Выберите категорию · всего 3', action: button({ label: 'Все позиции', size: 'S' }), body: tileGrid(card({ size: 'S', title: 'Крепёж', meta: '34', art: catArt('Крепёж') }), card({ size: 'S', title: 'Труба', meta: '18', art: catArt('Труба') }), card({ size: 'S', title: 'Лист', meta: '9', art: catArt('Лист') })) })),
       block('Секция: fixed, urgent, more · C030-3', 'fixed — всегда раскрыта, без стрелки; urgent — полоса danger слева; more: { limit, label } — первые limit строк и «Все (ещё N) →». Где используется: главная.',

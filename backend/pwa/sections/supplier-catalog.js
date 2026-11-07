@@ -12,6 +12,7 @@ import { toast, toastError } from '../ui/kit/toast.js';
 import { setCrumbTail } from '../ui/kit/crumbs.js';
 import { partnerAction } from './lookups.js';
 import { previewTable, orderPreview, orderTemplate } from './supplier-catalog-import.js';
+import { openOrderBulk } from './order-bulk.js';
 
 import { table, section, stack, card, badge, empty, hint, landing, tileGrid, navList, posPic, readonlyGroup, toolbar } from '../ui/kit/index.js';
 /**
@@ -269,6 +270,15 @@ function materialWidget(v, row) {
   return { el: h('div', null, wrap, createBtn, hintEl), get value() { return id ? JSON.stringify(id) : ''; }, set value(_) { /* только ввод */ } };
 }
 
+/** «В заявку» / «Заказать у поставщика» над отмеченными: предложения — с поставщиком, материалы — без; строки без позиции склада пропускаются. */
+function orderRows(rows) {
+  const sup = current().params.supplierId; const fixed = sup && sup !== 'none' ? sup : null;
+  const ok = (rows || []).filter((r) => r.materialId);
+  const skip = (rows || []).length - ok.length;
+  if (skip) toast(`${skip} строк без позиции склада — сначала сопоставьте`, { error: !ok.length });
+  openOrderBulk(ok.map((r) => ({ materialId: r.materialId, name: r.materialName || r.name, unit: r.unit, ...(isMaterial(r) ? (fixed ? { supplierId: fixed } : {}) : { supplierId: fixed || r.supplierId, supplierName: r.supplierName }) })));
+}
+
 const thumb = (r) => posPic(r.thumb ? { thumb: r.thumb, url: r.thumb } : null, 'sm');
 const num = (x) => (x === null || x === undefined || x === '' ? null : Number(x));
 
@@ -287,6 +297,7 @@ export const supplierCatalog = {
   list: {
     viewKey: 'catalog', path: '/supply/catalog/items',
     sidebar: true,
+    bulk: { extra: [{ get label() { return current().params.supplierId && current().params.supplierId !== 'none' ? 'Заказать у поставщика' : 'В заявку'; }, run: (ids, rows) => orderRows(rows) }] },
     export: false, // выгрузка — в шестерёнке (формат шаблона, можно править и загружать обратно)
     extraKeys: ['catId', 'subId', 'flag', 'ord', 'all'],
     toolbarExtra: sideFilters,

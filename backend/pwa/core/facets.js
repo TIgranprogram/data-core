@@ -107,3 +107,13 @@ export function facetValues(items, key) {
   if (key === 'pipe' || key === 'section') return [...m].sort((a, b) => bySize(a[0].split('|')[1] ?? a[0], b[0].split('|')[1] ?? b[0]) || (pipeParts(a[0]).len || 1e9) - (pipeParts(b[0]).len || 1e9));
   return [...m].sort((a, b) => (key === 'type' ? b[1] - a[1] || a[0].localeCompare(b[0], 'ru') : num(a[0]) - num(b[0]) || a[0].localeCompare(b[0])));
 }
+
+/** Шаг «Тип» воронки (П-1): значения-типы выбранных позиций (по убыванию числа) и последняя фишка «Все типы». Пусто/один тип — шаг пропускают (skip). */
+export const TYPE_ALL = '*';
+export function typeValues(items) {
+  if (items.length && !items[0]._f) index(items);
+  const vals = facetValues(items, 'type').map(([id, count]) => ({ id, label: id, count }));
+  return vals.length ? [...vals, { id: TYPE_ALL, label: 'Все типы' }] : [];
+}
+/** Позиции выбранного типа ('' или «Все типы» — все). */
+export const byType = (items, type) => (!type || type === TYPE_ALL ? items : items.filter((it) => it._f?.type === type));

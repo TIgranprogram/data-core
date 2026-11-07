@@ -1,6 +1,6 @@
 {
- "commit": "e9c8a873",
- "at": "2026-11-07T17:11:12.034Z",
+ "commit": "e4367298",
+ "at": "2026-11-07T17:24:20.279Z",
  "files": {
   "backend/admin/admin.css": "42e317d8818c",
   "backend/admin/admin.js": "12218a6cb18b",
@@ -159,7 +159,8 @@
   "backend/pwa/sections/stock-requests.js": "58bd743fe8bf",
   "backend/pwa/sections/stock-zones.js": "e1c9ff7e075a",
   "backend/pwa/sections/stock.js": "630ff62f05c8",
-  "backend/pwa/sections/supplier-catalog.js": "24ca5355031e",
+  "backend/pwa/sections/supplier-catalog-import.js": "0066f6766393",
+  "backend/pwa/sections/supplier-catalog.js": "160c7c75a761",
   "backend/pwa/sections/tech-sheet.js": "02b21c8b31c3",
   "backend/pwa/sections/trash.js": "e1d67feebcca",
   "backend/pwa/sections/warehouse-mobile.js": "8353353319c9",
