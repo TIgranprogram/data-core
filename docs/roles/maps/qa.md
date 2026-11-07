@@ -1,6 +1,6 @@
 # Карта роли qa
 
-коммит: 16d9c88e (+незакоммичено: supply-catalog-bulk e2e; ранее: C030 kit, C028 B2; полный прогон 2026-11-07 — строка в TEST-LOG)
+коммит: 94bd200c (+незакоммичено: material-summary e2e; полный прогон 2026-11-07 — строка в TEST-LOG)
 
 - Прогоны: `cd backend; npx tsc --noEmit`; `npx jest --silent | tail -8` (148/1500 на 2026-10-25); pwa — `node --input-type=module --check < файл`; скрипты — `node --test scripts/*.test.mjs`. TEST-LOG — дописывать строкой в конец `docs/TEST-LOG.md`.
 - Паспорта «воронкой» (ПВ): сервер — `common/passport/phrase-tree.ts` (buildForest/resolveChoices/missingChoices), `product-passport.service.ts` (snapshot ~287, check ~318, choiceMissing ~351, funnel ~348), дерево справочника — `dicts/dicts.passport-phrases.ts`; клон — `showcase/showcase-clone.ts`; экран — `pwa/ui/funnel.js`, `pwa/sections/passport-tree.js`, плашка — `passports/wire-form.js` (check ~120), карточка — `passports/card-blocks.js` checkBlock.
@@ -23,3 +23,4 @@
 - C028 воронка (2026-11-07): отчёт `docs/crew/C028-passport-funnel/qa-report.md`. Серверы: `product-passport/passport-funnel.ts:22` (A2), `passport-gaps.ts:34` (A3). Блокер выпуска — `pwa/sections/passports/funnel/api.js:46` (нет supplierOrgId). Обновить стенд кодом: `import('./tools/night.mjs').then(m=>m.standRefresh(...))`; скрипт-обход CDP — Chrome через `EDGE=`, QA_DIR абсолютный. `node --test` pwa — с `--experimental-vm-modules`. Миниатюры /uploads на стенде 404 (нет файлов).
 - C036 full (2026-11-07, 16d9c88e): e2e `backend/test/e2e/supply-catalog-bulk.e2e-spec.ts` (5: view=all/$unionWith, supplierId=none, requests/bulk идемпотентность); сервер — `supply/supplier-catalog.service.ts:237` (unionWith), `supply.service.ts:486` (createBulk). openapi.json не перегенерировался локально (export-openapi без доступа к Mongo молча не пишет файл; нет `requests/bulk`).
 - Полный прогон 2026-11-07: pwa node --test — `find backend/pwa -name '*.test.mjs'` (** в bash не разворачивается); юнит 3059/3059 (pwa-guards больше не красный); e2e — красный только stock-catalog-atomicity (12). Ошибка «exit 0» в уведомлении фонового запуска — обёртка, читать `e2e exit N` в файле.
+- C040 summary (2026-11-07): e2e `backend/test/e2e/material-summary.e2e-spec.ts` (3: admin поля не пустые, роль user — цены null, 404); сервер — `stock/stock-summary.service.ts:26`, цена за ед. = priceHint/qty (`stock-summary.ts:34`, priceHint — сумма). openapi не перегенерирован.
