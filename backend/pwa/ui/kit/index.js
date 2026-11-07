@@ -298,6 +298,7 @@ export { photoField } from './photos.js';
 export { guide } from './guide.js';
 export { stageBar, headStats } from './stage-bar.js';
 export { funnel } from './funnel.js';
+export { planner } from './planner.js';
 
 /** Фото позиции/изделия в таблицах и строках (клик — крупно; нет фото — «нет фото») — ui/pos-pic.js */
 export { posPic, posPicOf } from './pos-pic.js';

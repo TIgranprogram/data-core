@@ -134,6 +134,7 @@
 | fileButton | кнопка выбора файла (скрытый input внутри) | `fileButton({ label, accept, onFile(file), size?, title? })` |
 | readonlyGroup | компактная карточная группа реквизитов: h3 и ровные пары «метка — значение»; пустые группы не строятся, 0 и DOM-ссылки сохраняются | `readonlyGroup({ title, rows })`; общий `card.view` адаптирует прежние tuples/grp, без своих стилей в разделах |
 | timeline / Гант | лента времени «В работе»; стили `kit/timeline.css` | `mountGantt(cfg, path, query, hooks)` (`ui/gantt.js`) |
+| planner / планировщик цеха | строки — люди или заказы, полосы — шаги работ; перетаскивание: по горизонтали — даты, на другую строку — другой исполнитель; перегрузка дня — красная ячейка, «почти полон» — жёлтая; стили `.k-pl-*` в `kit/timeline.css`; витрина `#kit` | `planner({ rows, bars, load, from, to, scale, canEdit, rowsMovable, onOpen, onMove })` (`ui/kit/planner.js`) |
 | dialog | подтверждение или 1–3 поля; больше — правая панель | `modal({ title, body, okText, danger, wide, onOk })`, `confirmDlg(title, text, { okText, danger })` |
 | toast | результат действия, «Отменить»; сбой — `toastError`; в блоке — `failBlock` / `busyBlock` | `toast(text, { undo, actions, tone, sub })`, `toastError(e, 'действие')` |
 

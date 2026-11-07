@@ -54,4 +54,18 @@ button.gt-label:hover { background: var(--row-hover); }
 .gt-today.flash, .gt-wrap .btn.flash { animation: gt-flash .9s ease-out; }
 @keyframes gt-flash { 0%, 60% { box-shadow: 0 0 0 4px var(--danger-soft); } 100% { box-shadow: 0 0 0 0 transparent; } }
 .gt-more { margin-top: var(--s2); font-size: var(--fs-sm); }
+/* planner — эталон «планировщик цеха» (ui/kit/planner.js, C041 Э2): строки-люди/заказы, полосы шагов, подсветка перегрузки дня */
+.k-pl-row.drop { background: var(--info-soft); }
+.k-pl-label small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.k-pl-label small.over { color: var(--danger); font-weight: 600; }
+.k-pl-bar { flex-direction: column; align-items: flex-start; justify-content: center; line-height: 1.15; z-index: 1; }
+.k-pl-bar .gt-bt { width: 100%; text-align: left; }
+.k-pl-sub { font-size: var(--fs-label); opacity: .85; white-space: nowrap; }
+.k-pl-bar.ok { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); }
+.k-pl-bar.warn { background: var(--warn-soft); border-color: var(--warn); color: var(--text); }
+.k-pl-bar.danger { background: var(--danger); border-color: var(--danger); color: var(--on-danger); }
+.k-pl-bar.dim { background: var(--neutral-soft); border-color: var(--border-strong); color: var(--muted); }
+.k-pl-load { position: absolute; top: 0; bottom: 0; pointer-events: none; }
+.k-pl-load.full { background: var(--warn-soft); }
+.k-pl-load.over { background: var(--danger-soft); box-shadow: inset 0 -3px 0 var(--danger); }
 @media (max-width: 720px) { .gt-wrap { --gt-label: 112px; } .gt-row { min-height: 48px; } .gt-bar { top: 6px; height: 36px; } .gt-h { width: 20px; background-position: right; } .gt-note { top: 16px; } .gt-scroll { max-height: 75vh; } }

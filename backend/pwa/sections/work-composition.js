@@ -1,6 +1,6 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { patch } from '../core/router.js';
+import { patch, go } from '../core/router.js';
 import { failBlock } from '../ui/kit/busy.js';
 import { actions, badge, qtyInput, searchBox, stack, busyBlock, button, enhanceSelect, funnel, iconButton, link, modal, section, select, sideForm, sideNote, table, toast, toastError } from '../ui/kit/index.js';
 import { workTypes } from './work-route.js';
@@ -204,6 +204,7 @@ export const workPlan = sideForm({
           catch (er) { toastError(er, 'взять заново'); e.currentTarget.classList.remove('is-busy'); }
         } })));
     }
+    if (p.id && p.steps?.length) notes.push(sideNote('Работы расписаны? Разложите их по людям и дням на Ганте. ', button({ label: 'Запланировать', size: 'S', kind: 'primary', title: 'Открыть Гант с этой позицией', onClick: () => go('workschedule', { incomeId: String(r.incomeId) }) })));
     if (p.launchedAt) notes.push(sideNote('Задание уже запущено: правки плана его не меняют.'));
     return [
       { section: 'Состав и работы', tone: 'main', fixed: true },
