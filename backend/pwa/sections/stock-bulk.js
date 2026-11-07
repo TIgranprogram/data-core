@@ -42,7 +42,7 @@ async function stockBulkFields() {
 /** openStockBulk({ ids, done }) — правая панель «Изменить выбранные» для позиций склада (одна пачка на сервер). */
 export function openStockBulk({ ids = [], done } = {}) {
   const idsClean = [...new Set(ids.map(stockId).filter(Boolean))];
-  openBulk({ ids: idsClean, done, fields: stockBulkFields,
+  openBulk({ noun: 'позиций', ids: idsClean, done, fields: stockBulkFields,
     apply: (set) => api('/stock/items/bulk', { method: 'PATCH', body: { ids: idsClean, set } }),
     restore: (before) => api('/stock/items/bulk/restore', { method: 'PATCH', body: { items: before } }) });
 }
