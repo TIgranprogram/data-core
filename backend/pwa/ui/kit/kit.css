@@ -536,4 +536,47 @@ table.list .k-nowrap { white-space: nowrap; }
 .db-order.k-headtabs { gap: var(--s2); }
 .k-head { gap: var(--s3); flex-wrap: wrap; }
 .k-head .k-badges { margin-left: auto; }
+.k-head .db-oname { flex: 1 1 auto; min-width: 14ch; } /* название договора не сжимается до «До г…» — значки и кнопки уходят ниже (приёмка дизайнера) */
 .k-pane { min-width: 0; padding-top: var(--s2); }
+
+/* kit.row wrap: название до 2 строк (C030, панель «Изделия к проектированию») */
+.k-row-wrap .k-row-name > .clip { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* guide — эталон-путеводитель (help и обучающие схемы): cat — категория-аккордеон,
+   unit — подраздел, chain — цепочка шагов «что за чем», flow — полоса-обзор, note — примечание */
+.g-cat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.g-cat + .g-cat { margin-top: var(--s2); }
+.g-cat > summary { display: flex; align-items: center; gap: var(--s3); padding: var(--s3) var(--s4); cursor: pointer; list-style: none; border-radius: var(--radius); }
+.g-cat > summary::-webkit-details-marker { display: none; }
+.g-cat > summary:hover { background: var(--row-hover); }
+.g-cat > summary:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.g-sum { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; flex: 1; }
+.g-sum-t { font-size: var(--fs-h3); font-weight: 650; color: var(--heading); }
+.g-sum-w { color: var(--muted); font-size: var(--fs-sm); }
+.g-chips { display: flex; flex-wrap: wrap; gap: var(--s1); }
+.g-chip { color: var(--muted); font-size: var(--fs-sm); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--s1) var(--s2); white-space: nowrap; }
+.g-sum-n { color: var(--muted); font-size: var(--fs-sm); flex: none; }
+.g-sum-a { flex: none; width: 9px; height: 9px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .15s; }
+.g-cat[open] > summary .g-sum-a { transform: rotate(225deg); }
+.g-body { padding: 0 var(--s4) var(--s4); display: flex; flex-direction: column; gap: var(--s4); min-width: 0; }
+.g-unit { border-top: 1px solid var(--border); padding-top: var(--s3); display: flex; flex-direction: column; gap: var(--s2); }
+.g-unit-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s1) var(--s3); }
+.g-uname { font-weight: 600; }
+.g-uwhat { color: var(--muted); font-size: var(--fs-sm); }
+.g-chain { list-style: none; margin: 0; padding: 0; counter-reset: g-n; display: flex; flex-direction: column; }
+.g-chain li { position: relative; padding: 0 0 var(--s3) var(--s6); }
+.g-chain li:last-child { padding-bottom: var(--s1); }
+.g-chain li::before { content: counter(g-n); counter-increment: g-n; position: absolute; left: 0; top: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--surface-3); border: 1px solid var(--border-strong); color: var(--heading); font-size: var(--fs-label); font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.g-chain li:not(:last-child)::after { content: ''; position: absolute; left: 10px; top: 26px; bottom: var(--s1); width: 2px; background: var(--border); }
+.g-t { font-weight: 600; }
+.g-where { display: block; color: var(--muted); font-size: var(--fs-sm); }
+.g-d { display: block; color: var(--text); font-size: var(--fs-sm); margin-top: var(--s1); }
+.g-flow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.g-flow-sep { color: var(--muted); font-style: normal; }
+.g-flow-chip { border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); border-radius: var(--s6); padding: var(--s1) var(--s3); font: inherit; font-size: var(--fs-sm); font-weight: 600; cursor: pointer; min-height: 32px; text-align: left; }
+.g-flow-chip:hover { border-color: var(--primary); color: var(--primary); }
+.g-flow-chip:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.g-note { margin: 0; padding: var(--s2) var(--s3); border-radius: var(--radius-sm); background: var(--surface-2); font-size: var(--fs-sm); }
+.g-note b { font-weight: 600; }
+.g-note-warn { background: var(--warn-soft); }
+@media (pointer: coarse) { .g-cat > summary { min-height: 44px; } .g-flow-chip { min-height: 44px; } }

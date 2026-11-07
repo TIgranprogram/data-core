@@ -68,12 +68,14 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   // тип записи над заголовком: в панели открываются и изделие, и задача, и заказ — по названию их не различить
   const kindEl = h('div', { class: 'drawer-kind', hidden: !section.kind }, section.kind || '');
   const subEl = h('div', { class: 'muted small' });
+  const hstEl = h('div', { class: 'k-head-slot' }); // card.headStats(row): значки справа от заголовка
+  const stripEl = h('div', { class: 'k-head-strip' }); // card.headStrip(row): полоса под заголовком на всю ширину
   const upEl = h('button', { class: 'btn btn-sm drawer-up', type: 'button', hidden: true }); // ТИ-2: явный возврат «← Заказ №…»
   const menuBox = h('div', { class: 'rel' });
   const body = h('div', { class: 'drawer-body' });
   const foot = h('div', { class: 'drawer-foot' });
   const drawer = mark(h('aside', { class: 'drawer', role: 'dialog', 'aria-modal': 'true' },
-    h('div', { class: 'drawer-head' }, h('div', { class: 't' }, upEl, kindEl, titleEl, subEl), menuBox,
+    h('div', { class: 'drawer-head' }, h('div', { class: 't' }, upEl, kindEl, h('div', { class: 'k-head-row' }, titleEl, hstEl), subEl, stripEl), menuBox,
       h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Закрыть панель', 'aria-label': 'Закрыть', onclick: () => tryClose() }, '✕')),
     body, foot), 'drawer');
   makeResizable(drawer, { prefKey: 'detailW', edge: 'left', label: 'Ширина правой панели' }); // ШП
@@ -109,6 +111,8 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     drawer.classList.remove('loading');
     titleEl.replaceChildren(...parts(section.card.heading(row)));
     subEl.replaceChildren(...parts(section.card.subheading ? section.card.subheading(row) : ''));
+    hstEl.replaceChildren(...[section.card.headStats?.(row)].filter(Boolean)); hstEl.hidden = !hstEl.firstChild;
+    stripEl.replaceChildren(...[section.card.headStrip?.(row, actx())].filter(Boolean)); stripEl.hidden = !stripEl.firstChild;
     const up = section.card.parent?.(row);
     upEl.hidden = !up;
     if (up) { upEl.textContent = '← ' + up.label; upEl.title = 'Вернуться: ' + up.label; upEl.onclick = () => up.run(); }

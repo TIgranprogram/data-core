@@ -12,7 +12,7 @@
 const PHOTOS = 'dc-app-photos-v1';
 const META = 'dc-app-meta';
 const NOV = 'dc-shell-nov';
-const SHELL_FILES = ['./', './index.html', './main.js', './ui/tokens.css', './ui/base.css', './ui/list.css', './ui/form.css', './ui/screens.css', './ui/panels.css', './ui/kit/kit.css', './ui/kit/timeline.css', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
+const SHELL_FILES = ['./', './index.html', './main.js', './ui/tokens.css', './ui/base.css', './ui/list.css', './ui/form.css', './ui/screens.css', './ui/panels.css', './ui/kit/kit.css', './ui/kit/timeline.css', './ui/kit/stage-bar.css', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 
 const getMeta = async (k) => { try { const hit = await (await caches.open(META)).match('./__' + k); return hit ? await hit.json() : null; } catch { return null; } };
 const setMeta = async (k, v) => (await caches.open(META)).put('./__' + k, new Response(JSON.stringify(v)));

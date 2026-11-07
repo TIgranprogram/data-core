@@ -133,10 +133,11 @@ export const actions = (...children) => mark(h('div', { class: 'k-actions' }, ..
 
 /** row({ title, meta, tone, lead, side, qty, diff, warn, action, below, active, inCart, onClick, tag, cls, data })
  *  Строка списка/корзины: имя + мета, справа side (узлы) и action (кнопка). Если есть qty/diff — раскладка «корзина»:
+ *  wrap: true — название до 2 строк (длинные названия изделий в узкой панели), иначе — одна строка с «…».
  *  вторая строка с количеством и подсказкой; warn и below — на всю ширину. lead — слот слева (галочка). tag:'label' — вся строка кликабельна. */
-export function row({ title, meta, tone = 'neutral', lead, side, qty, diff, warn, action, below, active, inCart, onClick, tag = 'div', cls, data } = {}) {
+export function row({ title, meta, tone = 'neutral', lead, side, qty, diff, warn, action, below, active, inCart, onClick, tag = 'div', cls, data, wrap } = {}) {
   const cart = qty != null || diff != null;
-  const cn = ['k-row', cart ? 'k-cart' : '', TONES.includes(tone) ? 'tone-' + tone + ' k-toned' : '', active ? 'active' : '', inCart ? 'in-cart' : '', cls || ''].filter(Boolean).join(' ');
+  const cn = ['k-row', wrap ? 'k-row-wrap' : '', cart ? 'k-cart' : '', TONES.includes(tone) ? 'tone-' + tone + ' k-toned' : '', active ? 'active' : '', inCart ? 'in-cart' : '', cls || ''].filter(Boolean).join(' ');
   const name = h('div', { class: 'k-row-name' }, h('div', { class: 'clip', title: typeof title === 'string' ? title : null }, title), meta ? h('small', null, meta) : null);
   const kids = [lead || null, name, ...nodes(side), action ? h('div', { class: 'k-row-act' }, ...nodes(action)) : null];
   if (cart) kids.push(h('div', { class: 'k-row-qty' }, ...nodes(qty)), diff || null);
@@ -287,6 +288,10 @@ export { similarBox } from "./similar.js";
 export { searchBox } from './searchbox.js';
 export { readonlyGroup, readonlyGroups } from './readonly.js';
 export { photoField } from './photos.js';
+
+/** Путеводитель (help и обучающие схемы): cat/unit/chain/flow/note/toggle — ui/kit/guide.js */
+export { guide } from './guide.js';
+export { stageBar, headStats } from './stage-bar.js';
 
 /** Фото позиции/изделия в таблицах и строках (клик — крупно; нет фото — «нет фото») — ui/pos-pic.js */
 export { posPic, posPicOf } from './pos-pic.js';

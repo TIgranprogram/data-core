@@ -1,0 +1,25 @@
+/* stageBar + headStats — эталоны «Полоса этапов» и «Значки шапки» (ui/kit/stage-bar.js) */
+.k-stg { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; }
+.k-stg-bar { display: flex; gap: var(--s1); list-style: none; margin: 0; padding: 0; }
+.k-stg-seg { flex: 1 1 0; min-width: 0; }
+.k-stg-in { display: flex; align-items: center; width: 100%; min-height: var(--s5); padding: 0; border: 0; background: none; font: inherit; }
+button.k-stg-in { cursor: pointer; }
+.k-stg-fill { display: block; width: 100%; height: var(--s2); border-radius: var(--s1); background: var(--border); }
+.k-stg-seg.done .k-stg-fill { background: var(--ok); }
+.k-stg-seg.cur .k-stg-fill { background: var(--warn); box-shadow: 0 0 0 1px var(--warn-soft); }
+button.k-stg-in:hover .k-stg-fill { filter: brightness(.9); }
+button.k-stg-in:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: var(--s1); }
+.k-stg-cap { display: flex; justify-content: space-between; gap: var(--s2); font-size: var(--fs-sm); color: var(--text); }
+.k-stg-cap b { font-weight: 600; overflow-wrap: anywhere; }
+.k-stg-pos { color: var(--muted); white-space: nowrap; }
+@media (pointer: coarse) { .k-stg-in { min-height: var(--tap); } }
+
+.k-head-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s1) var(--s3); }
+.k-head-row h2 { flex: 0 1 auto; min-width: 0; }
+.k-head-slot { margin-left: auto; min-width: 0; }
+.k-head-strip { margin-top: var(--s2); }
+.k-hstats { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-end; gap: var(--s1) var(--s3); }
+.k-hst { display: inline-flex; align-items: baseline; gap: var(--s1); font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; cursor: default; }
+.k-hst b { font-size: var(--fs-h3); font-weight: 700; color: var(--text); }
+.k-hst.is-empty b { color: var(--muted); font-weight: 400; opacity: .6; }
+@media (max-width: 720px) { .k-head-slot { margin-left: 0; flex: 1 1 100%; } .k-hstats { justify-content: flex-start; } }
