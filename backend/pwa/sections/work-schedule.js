@@ -57,7 +57,7 @@ export const workSchedule = {
 
     const F = () => ({ order: P.order || '', line: P.incomeId || '', part: P.part || '', person: P.person || '', work: P.work || '' });
     const mode = () => (P.mode === 'orders' ? 'orders' : 'people');
-    const scale = () => (P.scale === 'day' ? 'day' : 'week');
+    const scale = () => (P.scale === 'day' || P.scale === 'week' ? P.scale : (typeof matchMedia === 'function' && matchMedia('(max-width: 720px)').matches ? 'day' : 'week'));
     const from = () => (P.from && /^\d{4}-\d{2}-\d{2}$/.test(P.from) ? P.from : iso(startOfWeek() - 7 * DAY));
     const to = () => iso(Date.parse(from() + 'T00:00:00Z') + (scale() === 'day' ? 27 : 55) * DAY);
     const set = (c) => patch(c, { replace: true });
@@ -78,7 +78,7 @@ export const workSchedule = {
 
     function paintTop() {
       const modeSeg = segmented({ items: [{ key: 'people', label: 'По людям' }, { key: 'orders', label: 'По заказам' }], value: mode(), label: 'Что в строках', onChange: (k) => set({ mode: k === 'people' ? undefined : k }) });
-      const scaleSeg = segmented({ items: [{ key: 'week', label: 'Недели' }, { key: 'day', label: 'Дни' }], value: scale(), label: 'Масштаб', onChange: (k) => set({ scale: k === 'week' ? undefined : k }) });
+      const scaleSeg = segmented({ items: [{ key: 'week', label: 'Недели' }, { key: 'day', label: 'Дни' }], value: scale(), label: 'Масштаб', onChange: (k) => set({ scale: k }) });
       top.replaceChildren(modeSeg.el, scaleSeg.el, button({ label: '←', size: 'S', title: 'Раньше', onClick: () => shift(scale() === 'day' ? -7 : -14) }),
         button({ label: 'Сегодня', size: 'S', onClick: () => set({ from: undefined }) }), button({ label: '→', size: 'S', title: 'Позже', onClick: () => shift(scale() === 'day' ? 7 : 14) }),
         Object.values(F()).some(Boolean) ? button({ label: 'Сбросить фильтры', kind: 'ghost', size: 'S', onClick: () => set({ order: undefined, incomeId: undefined, part: undefined, person: undefined, work: undefined }) }) : null);
@@ -164,6 +164,34 @@ async function stepRec(id) {
   return rec;
 }
 
+const stamp = (v) => (v ? new Date(v).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
+
+/** Факт шага: когда начали и закончили + кнопки «Начал» / «Закончил» (POST …/mark → { bar, rev }). */
+function factWidget(r) {
+  const b = r.bar;
+  const info = h('div');
+  const btns = actions();
+  const paintFact = () => {
+    info.replaceChildren(sideNote(`Начат: ${stamp(b.startedAt) || 'не отмечено'}. Закончен: ${stamp(b.finishedAt) || 'не отмечено'}.`));
+    const dis = !session.canEdit;
+    btns.replaceChildren(
+      button({ label: 'Начал', size: 'S', disabled: dis || !!b.startedAt, onClick: (ev) => mark('start', ev) }),
+      button({ label: 'Закончил', size: 'S', disabled: dis || !!b.finishedAt, onClick: (ev) => mark('finish', ev) }));
+  };
+  async function mark(what, ev) {
+    const t = ev?.currentTarget; t?.classList.add('is-busy');
+    try {
+      const res = await api(`/orderline-plans/${b.planId}/steps/${b.stepId}/mark`, { method: 'POST', body: { what } });
+      Object.assign(b, res.bar || {}); if (res.rev != null) b.rev = res.rev;
+      toast(what === 'start' ? 'Начало отмечено' : 'Окончание отмечено');
+      window.dispatchEvent(new Event('data-changed'));
+    } catch (e) { toastError(e, 'отметить шаг'); }
+    paintFact();
+  }
+  paintFact();
+  return { el: stack(info, btns), value: '' };
+}
+
 export const wsStep = sideForm({
   id: 'wsstep', title: 'Шаг плана', noun: 'шаг плана',
   canEdit: () => !!session.canEdit,
@@ -176,16 +204,19 @@ export const wsStep = sideForm({
     return [
       { section: 'Исполнитель и сроки', tone: 'main', fixed: true },
       { key: '_info', type: 'widget', label: '', wide: true, widget: () => ({ el: sideNote(`Часов по плану: ${round(b.hours)}. Работа: ${b.workTypeName || '—'}. Часть: ${partOf(b)}.`), value: '' }) },
+      { key: '_fact', type: 'widget', label: 'Факт', wide: true, widget: () => factWidget(r) },
       { key: 'assigneeId', label: 'Исполнитель', type: 'select', wide: true, options: [{ value: '', label: 'Не назначен' }, ...r.people.map((x) => ({ value: String(x.id), label: x.name }))] },
+      { key: 'hours', label: 'Часов на 1 шт.', type: 'number', min: 0, wide: true },
       { key: 'start', label: 'Начало', type: 'date', span: 1 },
       { key: 'end', label: 'Конец', type: 'date', span: 1 },
     ];
   },
-  toInitial: (r) => ({ assigneeId: r.bar.assigneeId ? String(r.bar.assigneeId) : '', start: day(r.bar.start), end: day(r.bar.end) }),
+  toInitial: (r) => ({ assigneeId: r.bar.assigneeId ? String(r.bar.assigneeId) : '', start: day(r.bar.start), end: day(r.bar.end), hours: r.bar.hoursPerUnit ?? '' }),
   save: async (v, r) => {
     const b = r.bar;
     if (v.start && v.end && v.end < v.start) { toast('Конец раньше начала — поправьте даты'); throw new Error('Конец раньше начала'); }
     const body = { assigneeId: v.assigneeId || null, start: v.start || undefined, end: v.end || undefined };
+    if (v.hours !== '' && v.hours != null && Number(v.hours) >= 0 && Number(v.hours) !== b.hoursPerUnit) body.hours = Number(v.hours);
     if (b.rev != null) body.rev = b.rev;
     try { await api(`/orderline-plans/${b.planId}/steps/${b.stepId}`, { method: 'PATCH', body }); }
     catch (e) { if (e.status === 409) toast('План изменил другой человек — откройте шаг заново'); throw e; }
