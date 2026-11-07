@@ -27,3 +27,4 @@ export class OrderLinePlan {
 
 export const OrderLinePlanSchema = SchemaFactory.createForClass(OrderLinePlan);
 OrderLinePlanSchema.index({ incomeId: 1 }, { unique: true });
+OrderLinePlanSchema.index({ 'steps.assigneeId': 1 }, { sparse: true }); // Гант: планы человека (C041 Э2)

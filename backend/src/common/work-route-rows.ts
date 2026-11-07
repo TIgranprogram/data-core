@@ -34,12 +34,15 @@ export interface StepRow {
   checkedAt?: Date;
   /** Задел Э2: исполнитель шага и ручной план для Ганта. */
   assigneeId?: Types.ObjectId;
-  plan?: { start: Date; days: number };
+  plan?: { start: Date; end: Date };
+  /** Факт (Э2 «Отметить начало/конец»; Э3 считает по нему часы). */
+  startedAt?: Date;
+  finishedAt?: Date;
 }
 
 /** Что присылает клиент. `id` — прежний id строки либо временный ключ новой. */
 export interface PartIn { id?: string; partId?: string; name?: string; qty?: number; checked?: boolean; lineId?: string }
-export interface StepIn { id?: string; workTypeId: string; partRowId?: string | null; hours?: number; lineId?: string; note?: string; checked?: boolean; assigneeId?: string; plan?: { start: string; days: number } }
+export interface StepIn { id?: string; workTypeId: string; partRowId?: string | null; hours?: number; lineId?: string; note?: string; checked?: boolean; assigneeId?: string; plan?: { start: string; end: string } }
 
 export const WHOLE_PRODUCT = 'Изделие целиком';
 export const MAX_PARTS = 50;
@@ -109,12 +112,13 @@ export function normalizeRows(input: { parts: PartIn[]; steps: StepIn[] }, prev:
     const lineId = ctx.keepLinks ? was?.lineId : isId(s.lineId) ? new Types.ObjectId(s.lineId) : undefined;
     const assigneeId = s.assigneeId !== undefined ? (isId(s.assigneeId) ? new Types.ObjectId(s.assigneeId) : undefined) : ctx.keepLinks ? was?.assigneeId : undefined;
     const plan = s.plan !== undefined
-      ? (s.plan && !Number.isNaN(Date.parse(s.plan.start)) && s.plan.days >= 1 && s.plan.days <= 365 ? { start: new Date(s.plan.start), days: Math.floor(s.plan.days) } : undefined)
+      ? (s.plan && !Number.isNaN(Date.parse(s.plan.start)) && !Number.isNaN(Date.parse(s.plan.end)) && Date.parse(s.plan.end) >= Date.parse(s.plan.start) ? { start: new Date(s.plan.start), end: new Date(s.plan.end) } : undefined)
       : ctx.keepLinks ? was?.plan : undefined;
     const row: StepRow = {
       _id: was ? was._id : isId(s.id) ? new Types.ObjectId(s.id) : new Types.ObjectId(), workTypeId, checked: false,
       ...(partRowId ? { partRowId } : {}), ...(hours !== undefined ? { hours } : {}), ...(lineId ? { lineId } : {}), ...(note ? { note } : {}),
       ...(assigneeId ? { assigneeId } : {}), ...(plan ? { plan } : {}),
+      ...(ctx.keepLinks && was?.startedAt ? { startedAt: was.startedAt } : {}), ...(ctx.keepLinks && was?.finishedAt ? { finishedAt: was.finishedAt } : {}),
     };
     return mark(row, was, s.checked, ctx);
   });

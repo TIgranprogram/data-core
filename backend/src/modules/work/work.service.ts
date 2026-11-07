@@ -171,6 +171,7 @@ export class WorkService {
     try {
       const doc = await this.model.create({
         seq, incomeId, ...(orderId ? { orderId } : {}), productId, route, generic, ...pos, openIncomeId: incomeId,
+        ...(route[0]?.assigneeId ? { assigneeId: route[0].assigneeId } : {}), // исполнитель первого шага из плана (C041 Э2)
         startedAt: new Date(), ...(by ? { createdBy: by } : {}), moves: [{ at: new Date(), ...(by ? { by } : {}), from: null, to: 0 }],
       });
       return doc.toObject() as unknown as Doc;
@@ -182,7 +183,7 @@ export class WorkService {
 
   /** Записать новое положение карточки (шаг; длина маршрута — «Готово»; null — «Ждёт запуска») и пополнить историю. */
   private async apply(cur: Doc, to: number | null, userId?: string) {
-    const route = cur.route as never as Array<{ workTypeId: Types.ObjectId | null }>;
+    const route = cur.route as never as Array<{ workTypeId: Types.ObjectId | null; assigneeId?: Types.ObjectId }>;
     const pos = positionAt(route as never, to);
     const from = (cur.stepIndex as number | null | undefined) ?? null;
     const by = this.userOid(userId);
@@ -196,6 +197,8 @@ export class WorkService {
       if (cur.status === 'done') await this.ensureNoOpen(incomeId, cur._id as Types.ObjectId);
       set.openIncomeId = incomeId;
       if (pos.status === 'work' && !cur.startedAt) set.startedAt = new Date();
+      const stepWho = pos.status === 'work' && pos.stepIndex !== null ? route[pos.stepIndex]?.assigneeId : undefined;
+      if (stepWho) set.assigneeId = stepWho; // исполнитель на шаг: переход на шаг переносит его исполнителя (C041 Э2)
     }
     const move: WorkMove = { at: new Date(), ...(by ? { by } : {}), from, to: pos.stepIndex };
     try {

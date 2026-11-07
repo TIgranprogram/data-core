@@ -15,6 +15,8 @@ export interface WorkStep {
   checked?: boolean;
   partName?: string;
   hours?: number;
+  /** Исполнитель шага из плана позиции (C041 Э2): при переходе на шаг становится исполнителем задания. */
+  assigneeId?: Types.ObjectId;
   /** Ручной план шага для Ганта; нет — вычисляется цепочкой (work-plan.ts). */
   plan?: { start: Date; days: number };
 }

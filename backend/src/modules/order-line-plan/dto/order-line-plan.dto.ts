@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsMongoId, IsNumber, IsOptional, IsString, Length, Max, Min, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsMongoId, IsNumber, IsOptional, IsString, Length, Max, Min, ValidateIf, ValidateNested } from 'class-validator';
 
 /** Часть в плане. `id` — прежний id части или временный ключ новой (на него ссылаются шаги). */
 export class PlanPartDto {
@@ -13,7 +13,7 @@ export class PlanPartDto {
 
 export class PlanStepPlanDto {
   @ApiProperty() @IsDateString() start!: string;
-  @ApiProperty() @IsInt() @Min(1) @Max(365) days!: number;
+  @ApiProperty() @IsDateString() end!: string;
 }
 
 /** Шаг плана: вид работ × часть. Задел Э2: `assigneeId`, `plan`. */
@@ -33,6 +33,19 @@ export class SavePlanDto {
   @ApiProperty() @IsInt() @Min(1) rev!: number;
   @ApiProperty({ type: [PlanPartDto] }) @IsArray() @ArrayMaxSize(50) @ValidateNested({ each: true }) @Type(() => PlanPartDto) parts!: PlanPartDto[];
   @ApiProperty({ type: [PlanStepDto] }) @IsArray() @ArrayMaxSize(100) @ValidateNested({ each: true }) @Type(() => PlanStepDto) steps!: PlanStepDto[];
+}
+
+/** Быстрая правка шага в Ганте: исполнитель и/или даты (C041 Э2). `assigneeId: null` — снять исполнителя. */
+export class StepPatchDto {
+  @ApiPropertyOptional({ description: 'Версия плана, которую видел экран; старая — 409' }) @IsOptional() @IsInt() @Min(1) rev?: number;
+  @ApiPropertyOptional({ nullable: true, description: 'Исполнитель (persons); null — снять' }) @IsOptional() @ValidateIf((o: StepPatchDto) => o.assigneeId !== null) @IsMongoId() assigneeId?: string | null;
+  @ApiPropertyOptional({ description: 'Норма часов на 1 шт.' }) @IsOptional() @IsNumber() @Min(0) @Max(1000) hours?: number;
+  @ApiPropertyOptional({ description: 'Начало (ISO); без end длительность сохраняется' }) @IsOptional() @IsDateString() start?: string;
+  @ApiPropertyOptional({ description: 'Конец (ISO), включительно' }) @IsOptional() @IsDateString() end?: string;
+}
+
+export class StepMarkDto {
+  @ApiProperty({ enum: ['start', 'finish'] }) @IsIn(['start', 'finish']) what!: 'start' | 'finish';
 }
 
 export class CheckDto {

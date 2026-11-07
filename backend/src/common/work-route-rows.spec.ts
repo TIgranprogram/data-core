@@ -54,9 +54,9 @@ describe('work-route-rows: состав работ (C041)', () => {
 
   it('задел Э2: исполнитель и план шага не теряются при правке без них; ссылка на состав — тоже', () => {
     const line = oid(), who = oid();
-    const prev = { parts: [], steps: [{ _id: oid(), workTypeId: cut, checked: false, lineId: line, assigneeId: who, plan: { start: new Date('2026-12-01'), days: 3 } }] };
+    const prev = { parts: [], steps: [{ _id: oid(), workTypeId: cut, checked: false, lineId: line, assigneeId: who, plan: { start: new Date('2026-12-01'), end: new Date('2026-12-03') } }] };
     const r = normalizeRows({ parts: [], steps: [{ workTypeId: String(cut), hours: 2 }] }, prev, ctx);
-    expect(r.steps[0]).toMatchObject({ lineId: line, assigneeId: who, plan: { days: 3 }, hours: 2 });
+    expect(r.steps[0]).toMatchObject({ lineId: line, assigneeId: who, plan: { end: new Date('2026-12-03') }, hours: 2 });
     expect(r.steps[0]._id).toEqual(prev.steps[0]._id); // тот же шаг найден по паре «вид работ × часть»
   });
 

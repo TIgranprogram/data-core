@@ -243,7 +243,8 @@ export class OrderLinePlanService implements OnModuleInit {
         steps: live.map((s): WorkStep => ({
           workTypeId: s.workTypeId, name: names.get(String(s.workTypeId))!, stepId: s._id,
           partName: s.partRowId ? partName.get(String(s.partRowId)) ?? WHOLE_PRODUCT : WHOLE_PRODUCT,
-          ...(s.hours !== undefined ? { hours: s.hours } : {}), ...(s.lineId ? { lineId: s.lineId } : {}), ...(s.note ? { note: s.note } : {}),
+          ...(s.hours !== undefined ? { hours: s.hours } : {}), ...(s.assigneeId ? { assigneeId: s.assigneeId } : {}),
+          ...(s.plan ? { plan: { start: s.plan.start, days: Math.max(1, Math.round((s.plan.end.getTime() - s.plan.start.getTime()) / 86_400_000) + 1) } } : {}), ...(s.lineId ? { lineId: s.lineId } : {}), ...(s.note ? { note: s.note } : {}),
         })),
       });
     }
