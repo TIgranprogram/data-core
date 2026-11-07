@@ -173,10 +173,21 @@ export class MatchingService {
       if (p.productId) set.productId = new Types.ObjectId(p.productId);
       await db.collection('incomes').updateOne({ _id: cur._id as Types.ObjectId }, { $set: set, ...(p.productId ? {} : { $unset: { productId: '' } }) });
       if (p.productId) await this.remember(String(cur.title ?? ''), p.productId, now);
+      if (p.productId) await this.fillOrderName(p.productId, String(cur.title ?? ''));
       await this.audit.log({ action: 'income.updated', entityType: 'Income', entityId: p.lineId, details: { partial: true, before: { productId: cur.productId ? String(cur.productId) : null, matchStatus: cur.matchStatus ?? null }, after: { productId: p.productId, matchStatus: set.matchStatus }, meta: { via: 'matching' } } as never });
       items.push({ lineId: p.lineId, state: p.productId ? 'confirmed' : 'none', productId: p.productId });
     }
     return { done: items.length, items };
+  }
+
+  /** У изделия пустое «название в договоре» (orderName, CRM его не читает) — записать название позиции договора; заполненное не трогаем. */
+  private async fillOrderName(productId: string, title: string) {
+    const name = title.trim();
+    if (!name) return;
+    await this.connection.db!.collection('products').updateOne(
+      { _id: new Types.ObjectId(productId), $or: [{ orderName: { $exists: false } }, { orderName: null }, { orderName: '' }] },
+      { $set: { orderName: name } },
+    );
   }
 
   /** Запомнить «такая формулировка = это изделие» (повтор — счётчик +1, изделие обновляется). */

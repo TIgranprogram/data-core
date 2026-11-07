@@ -288,7 +288,7 @@ export class SupplyService {
     ]);
     const pure = { ...Object.fromEntries(Object.entries(q).filter(([k]) => !['page', 'limit', 'sort', 'facets'].includes(k))), ...(scope ? { _scope: createHash('sha1').update(JSON.stringify(sc)).digest('hex') } : {}) };
     const [docs, total, [agg, byStatus]] = await Promise.all([
-      this.model.find(filter).setOptions({ includeSoftDeleted: true }).sort(sort).skip(p.skip).limit(p.limit).lean().exec(),
+      this.model.find(filter).setOptions({ includeSoftDeleted: true }).sort(sort).allowDiskUse(true).skip(p.skip).limit(p.limit).lean().exec(), // без индекса под сортировку Mongo 4.4 упирается в 32 МБ памяти («Sort operation used more than…») — разрешаем диск
       this.model.countDocuments(filter).setOptions({ includeSoftDeleted: true }).exec(),
       this.versions ? this.versions.cached('supply.totals', ['supplyrequests', 'organizations'], JSON.stringify(pure), totals) : totals(),
     ]);

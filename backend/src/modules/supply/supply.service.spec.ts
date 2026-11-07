@@ -6,7 +6,7 @@ import { labelFromPriority, labelFromStatus, priorityFromLabel, statusFromLabel 
 /** Цепочка запросов Mongoose — любой метод возвращает её же, exec отдаёт результат. */
 const chain = (result: unknown) => {
   const c: Record<string, jest.Mock> = {};
-  for (const m of ['sort', 'skip', 'limit', 'lean', 'setOptions']) c[m] = jest.fn(() => c);
+  for (const m of ['sort', 'skip', 'limit', 'lean', 'setOptions', 'allowDiskUse']) c[m] = jest.fn(() => c);
   c.exec = jest.fn(async () => result);
   return c;
 };
@@ -573,6 +573,11 @@ describe('SupplyService', () => {
       const sortArg = (model.find.mock.results[0].value as ReturnType<typeof chain>).sort.mock.calls[0][0];
       expect(Object.keys(sortArg)).toEqual(['requestDate', 'num', '_id']);
       expect(sortArg.requestDate).toBe(-1);
+    });
+
+    it('list: сортировка разрешает диск (Mongo 4.4: «Ждём поставку» падала на лимите памяти сортировки)', async () => {
+      await service.list({ status: 'ordered,paid', limit: '500' });
+      expect((model.find.mock.results[0].value as ReturnType<typeof chain>).allowDiskUse).toHaveBeenCalledWith(true);
     });
 
     it('list: нельзя сортировать по постороннему полю', async () => {

@@ -129,6 +129,14 @@ describe('MatchingService (КМ2–КМ3)', () => {
     expect(aliasUpdate.mock.calls[0][0]).toEqual({ key: 'скамейка парковая' });
     expect(aliasUpdate.mock.calls[0][1].$inc).toEqual({ count: 1 });
   });
+  it('confirm: пустое orderName изделия заполняется названием позиции (фильтр — только пустое, заполненное не перезаписывается)', async () => {
+    await svc.confirm(String(l1), String(prod));
+    const upd = incUpdate.mock.calls[1];
+    expect(upd[0]._id).toEqual(prod);
+    expect(upd[0].$or).toContainEqual({ orderName: '' });
+    expect(upd[1]).toEqual({ $set: { orderName: 'Скамейка парковая, цвет: графит' } });
+    expect(upd[0].$or).not.toContainEqual({ orderName: { $exists: true } }); // запись только при пустом orderName
+  });
   it('none: «не изделие» снимает productId, алиас не пишется', async () => {
     await svc.none(String(l2));
     expect(incUpdate.mock.calls[0][1]).toMatchObject({ $set: { matchStatus: 'none' }, $unset: { productId: '' } });

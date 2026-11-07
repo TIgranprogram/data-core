@@ -73,7 +73,7 @@
     $('#whoami').textContent = u ? `${u.username} · ${u.roleLabel || ROLE_RU[u.role] || u.role}${u.isOwner ? ' · владелец' : ''}` : '';
     // Переходы: CRM живёт на корне домена только в публичном контуре (/db/…)
     $('#crm-link').hidden = !PREFIX;
-    loadRoleList().then(() => loadUsers()); refreshHealth();
+    loadRoleList().then(() => loadUsers()); refreshHealth(); window.backupNudge?.({ api, $, el, store, saveBackup, toast });
   }
   // Встроенные роли — единственная таблица: [код, название, описание прав, «права как у» доступно]. Остальное выводится из неё.
   const BUILTIN_ROLES = [

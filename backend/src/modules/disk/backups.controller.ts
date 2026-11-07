@@ -1,18 +1,29 @@
 import { BadRequestException, Controller, Get, NotFoundException, Param, Query, Res } from '@nestjs/common';
+import { InjectConnection } from '@nestjs/mongoose';
+import type { Connection } from 'mongoose';
 import { ApiTags } from '@nestjs/swagger';
 import archiver from 'archiver';
 import type { Response } from 'express';
+import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuditService } from '../audit/audit.service';
 import { createReadStream } from 'fs';
 import path from 'path';
+import { backupReminder } from './backup-reminder';
 import { archiveName, backupDirs, backupsRoot, backupTgz, isStamp, listBackups, parsePart } from './backups';
 
 /** Резервные копии (cron backup.sh): список и скачивание ZIP «на лету». Только администратор и директор. */
 @ApiTags('Сервер')
 @Controller('health/backups')
 export class BackupsController {
-  constructor(private readonly audit: AuditService) {}
+  constructor(private readonly audit: AuditService, @InjectConnection() private readonly connection: Connection) {}
+
+  /** Напоминание при открытии админки: когда этот администратор скачал копию и сколько выпусков сайта вышло после. */
+  @Get('reminder')
+  @Roles('admin', 'director')
+  reminder(@CurrentUser() user?: AuthenticatedUser) {
+    return backupReminder(this.connection.db!, user?.id);
+  }
 
   @Get()
   @Roles('admin', 'director')
