@@ -17,7 +17,7 @@ import { mark } from './mark.js';
 const PX = { day: 36, week: 18 };
 const MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 const WD = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
-const LANE = 32;
+const touch = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 
 const dayNum = (v) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v ?? ''));
@@ -41,6 +41,7 @@ function lanes(items) {
 
 export function planner({ rows = [], bars = [], load = {}, from, to, scale = 'week', canEdit = false, rowsMovable = false, onOpen, onMove, empty } = {}) {
   const px = PX[scale] || PX.week;
+  const coarse = touch(), LANE = coarse ? 44 : 32;
   const min = dayNum(from), max = dayNum(to) + 1, W = (max - min) * px;
   const today = todayNum();
   const xOf = (n) => (n - min) * px;
@@ -76,7 +77,7 @@ export function planner({ rows = [], bars = [], load = {}, from, to, scale = 'we
     const node = h('button', { type: 'button', class: 'gt-bar k-pl-bar ' + (b.tone || 'info') + (canEdit ? ' drag' : ''), 'data-bar': String(b.id), title: [b.title, b.sub, `${dmy(s)} — ${dmy(e)}`, b.hint, canEdit ? 'Потяните, чтобы переставить' : ''].filter(Boolean).join('\n'),
       'aria-label': `${b.title}, ${dmy(s)} — ${dmy(e)}. Открыть` },
       h('span', { class: 'gt-bt' }, b.title), b.sub ? h('small', { class: 'k-pl-sub' }, b.sub) : null);
-    node.style.left = xOf(s) + 'px'; node.style.width = Math.max(10, len * px - 2) + 'px'; node.style.top = 4 + lane * LANE + 'px';
+    node.style.left = xOf(s) + 'px'; node.style.width = Math.max(coarse ? 44 : 10, len * px - 2) + 'px'; node.style.top = 4 + lane * LANE + 'px';
     let moved = false;
     node.addEventListener('click', (ev) => { if (moved) { moved = false; ev.preventDefault(); return; } onOpen?.(b); });
     if (canEdit) {
@@ -138,7 +139,8 @@ export function planner({ rows = [], bars = [], load = {}, from, to, scale = 'we
     const nLanes = Math.max(1, ...items.map((i) => i.lane + 1));
     const ld = load[r.id] || {};
     const over = r.cap ? Object.values(ld).filter((v) => v > r.cap).length : 0;
-    const label = h('div', { class: 'gt-label k-pl-label', title: r.label }, h('b', null, r.label), r.sub || over ? h('small', { class: 'gt-ttitle' + (over ? ' over' : '') }, over ? `перегрузка: ${over} дн.` : r.sub) : null);
+    const full = r.cap ? Object.values(ld).filter((v) => v <= r.cap && v >= r.cap * 0.8).length : 0;
+    const label = h('div', { class: 'gt-label k-pl-label', title: r.label }, h('b', null, r.label), r.sub || over || full ? h('small', { class: 'gt-ttitle' + (over ? ' over' : '') }, over ? `перегрузка: ${over} дн.` : full ? `почти полно: ${full} дн.` : r.sub) : null);
     const tr = track(h('div', { class: 'gt-track' }));
     if (r.cap) for (const [iso, hrs] of Object.entries(ld)) {
       const n = dayNum(iso); if (n === null || n < min || n >= max || !(hrs > 0)) continue;
@@ -156,7 +158,7 @@ export function planner({ rows = [], bars = [], load = {}, from, to, scale = 'we
   if (today >= min && today < max) { const line = h('div', { class: 'gt-today', 'aria-hidden': 'true', title: 'Сегодня, ' + dmy(today) }); line.style.left = `calc(var(--gt-label) + ${todayX}px)`; grid.append(line); }
 
   const scroller = h('div', { class: 'gt-scroll', tabindex: '-1' }, grid);
-  const el = mark(h('div', { class: 'gt-wrap k-planner' }, rows.length ? scroller : empty || null), 'planner');
+  const el = mark(h('div', { class: 'gt-wrap k-planner' }, rows.length && canEdit && coarse ? h('p', { class: 'k-pl-hint' }, 'Удерживайте полосу, чтобы переставить.') : null, rows.length ? scroller : empty || null), 'planner');
   const scrollToToday = () => requestAnimationFrame(() => { const lab = scroller.querySelector('.gt-label')?.offsetWidth || 0; scroller.scrollLeft = Math.max(0, todayX - (scroller.clientWidth + lab) / 2); });
   scrollToToday();
   return { el, scroller, scrollToToday };
