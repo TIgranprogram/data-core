@@ -1,6 +1,6 @@
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
-import { hint, tileGrid, typeArt, typeIconList, landing, miniChart, navList, photoStrip, catArt, stat, searchBox, readonlyGroup, similarBox, posPic, posPicOf, sku, section, stack, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, openPdfPreview, stageBar, headStats, clamp, funnel, qtyInput, targetPicker, toast, pick, filter, table, panel, entityPanel, select, fileButton, links, guide, SUPPLY_STATUS } from '../ui/kit/index.js';
+import { hint, tileGrid, typeArt, typeIconList, landing, miniChart, navList, photoStrip, catArt, stat, searchBox, readonlyGroup, similarBox, posPic, posPicOf, sku, section, stack, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, openPdfPreview, stageBar, headStats, clamp, funnel, planner, qtyInput, targetPicker, toast, pick, filter, table, panel, entityPanel, select, fileButton, links, guide, SUPPLY_STATUS } from '../ui/kit/index.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
 const LONG = 'Очень длинное название позиции для проверки переноса и обрезки текста в карточке эталона';
@@ -61,6 +61,15 @@ function pickDemo() {
     pick({ mode: 'multi', input: multi, options: OPTS });
   });
   return [s, sample(tags.el)];
+}
+
+function plannerDemo() {
+  const d0 = Date.now(), iso = (k) => new Date(d0 + k * 864e5).toISOString().slice(0, 10);
+  return planner({ rows: [{ id: 'a', label: 'Иван Петров', sub: '8 ч в день', cap: 8 }, { id: 'b', label: 'Сергей Ким', sub: '8 ч в день', cap: 8 }, { id: '_none', label: 'Не назначен' }],
+    bars: [{ id: '1', rowId: 'a', start: iso(0), end: iso(2), title: 'Стойки · сварка', sub: '12 ч', tone: 'info' }, { id: '2', rowId: 'a', start: iso(1), end: iso(3), title: 'Навес · раскрой', sub: '10 ч', tone: 'warn' },
+      { id: '3', rowId: 'b', start: iso(2), end: iso(5), title: 'Наполнение · покраска', sub: '16 ч', tone: 'ok' }, { id: '4', rowId: '_none', start: iso(4), end: iso(6), title: 'Изделие целиком · сборка', sub: '8 ч', tone: 'dim' }],
+    load: { a: { [iso(1)]: 14, [iso(2)]: 9, [iso(3)]: 7 }, b: { [iso(2)]: 6 } }, from: iso(-3), to: iso(14), scale: 'day', canEdit: true, rowsMovable: true,
+    onOpen: (b) => toast('Открыта полоса: ' + b.title), onMove: async (b, to) => { toast(b.title + ' → ' + to.start + ' · строка ' + to.rowId); throw new Error('демо: возвращаем на место'); } }).el;
 }
 
 export const kit = {
@@ -232,6 +241,7 @@ export const kit = {
       block('Кнопка выбора файла (fileButton)', 'Кнопка-подпись со скрытым полем файла; выбранный файл уходит в onFile.', sample(fileButton({ label: 'Загрузить файл…', accept: '.csv', onFile: (f) => toast(f.name) }))),
       block('Отметка происхождения (data-k)', 'Каждая фабрика kit (через mark / markEl из ui/kit/mark.js) ставит на корень data-k="<эталон>": button, badge, card, row, tabs, table, modal, panel, drawer, form, list, board, filter, pick, empty, mobile.* и др. Большая проверка сайта (правило s) считает элементы экрана без этой отметки — «не из kit».', sample(...[button({ label: 'button' }), badge('badge', 'ok'), empty({ title: 'empty' })].map((n) => h('span', { class: 'muted' }, n.dataset.k + ' → ', n)))),
       block('Строка поиска (searchBox)', 'Единственное поле поиска: крестик, пауза ввода, Esc — очистить, подсказка про минимум знаков. Пусто = «без поиска». Сырой input type=search в разделе нельзя.', searchBox({ placeholder: 'Поиск…', onSearch: (q) => toast('Поиск: ' + (q || 'всё')) })),
+      block('Планировщик цеха (planner)', 'Строки — люди или заказы, полосы — шаги работ. Перетащите полосу: по горизонтали — сдвиг дат, на другую строку — другой исполнитель (в демо возвращается на место). Красное — перегрузка дня, жёлтое — день почти полон. ←/→ на полосе — сдвиг на день.', plannerDemo()),
       block('Пусто и ошибка (empty)', 'Единственная фабрика пустых состояний: kind "empty" (записей нет, подсказка и ссылка), "notFound" (поиск ничего не дал, сброс), "noData" (за период пусто). Тексты «Пусто / Ничего не найдено / Нет данных» — только через empty().', empty({ title: 'Ничего нет', hint: 'Добавьте запись в панели справа.' }), empty({ kind: 'notFound', query: 'болт М99', onReset: () => toast('Сброс') }), empty({ kind: 'notFound', onReset: () => toast('Сброс') }), empty({ kind: 'noData' }), failBlock(new Error('Тестовая ошибка'), () => toast('Повтор'))),
     );
     return {};
