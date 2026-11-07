@@ -14,8 +14,9 @@ import { partnerAction } from './lookups.js';
 import { previewTable, orderPreview, orderTemplate } from './supplier-catalog-import.js';
 import { openOrderBulk } from './order-bulk.js';
 import { cardActions, createButton } from './supplier-catalog-actions.js';
+import { isMaterial, isStale, staleBadge, kindOf, subheading, cardTop, cardExtra, dropSummary } from './supplier-catalog-card.js';
 
-import { table, section, stack, card, badge, empty, hint, landing, tileGrid, navList, posPic, readonlyGroup, toolbar } from '../ui/kit/index.js';
+import { section, card, badge, empty, hint, landing, tileGrid, navList, posPic, toolbar } from '../ui/kit/index.js';
 /**
  * Каталог номенклатуры (SUPPLIER-CATALOG.md §8): один список как везде (ui/list.js).
  * Слева: воронка категория → подкатегория → поставщик (только поставщики выбранной ветки) и быстрые отборы «Без связи / Без цены / Цена устарела» (toolbarExtra) — из GET /supply/catalog/counts.
@@ -24,8 +25,7 @@ import { table, section, stack, card, badge, empty, hint, landing, tileGrid, nav
  */
 
 const canWrite = () => session.canEdit;
-const FLAGS = [['unmatched', 'Без связи — связать с позицией'], ['noPrice', 'Без цены'], ['stale', 'Цена устарела']];
-const SRC = { excel: 'Excel', request: 'Заявка', stock: 'Склад', manual: 'Вручную' };
+const FLAGS = [['unmatched', 'Не связаны со складом'], ['noPrice', 'Без цены'], ['stale', 'Цена устарела']];
 
 // ---------- данные ----------
 let countsP = null;
@@ -61,12 +61,8 @@ function queryOf(P) {
 
 // ---------- левая панель: категории и быстрые отборы ----------
 const ORDERS = [['', 'По названию'], ['price', 'Цена: сначала дешёвые'], ['-price', 'Цена: сначала дорогие'], ['-priceDate', 'Дата цены: сначала свежие'], ['priceDate', 'Дата цены: сначала старые']];
-const STALE_MS = 183 * 86400000;
-const isStale = (r) => r.priceHint != null && (!r.priceDate || Date.now() - new Date(r.priceDate).getTime() > STALE_MS);
-const staleBadge = (priceDate) => { const b = badge(priceDate ? 'от ' + date(priceDate) + ' — устарела' : 'устарела', 'warn'); b.title = 'Цене больше 6 месяцев'; return b; }; // «Цена устарела» — badge warn
 const catTops = (c) => { const all = c.categories || []; const ids = new Set(all.map((x) => String(x.id))); return all.filter((x) => !x.parentId || !ids.has(String(x.parentId))); };
 const totalOf = (c) => (c.suppliers || []).reduce((a, s) => a + (s.count || 0), 0) + (c.noSupplier || 0);
-const isMaterial = (r) => r.kind === 'material'; // материал без предложений поставщика
 const exportQuery = (P) => { const { view, ...q } = queryOf(P); return q; }; // выгрузка — по предложениям
 
 /** Слева: воронка Категория → Подкатегория (поставщики — плитки списка), быстрые отборы, порядок, «Сбросить», «Показано N из M». */
@@ -133,12 +129,12 @@ async function catLanding() {
     return card({ size: 'S', art, title: name, meta: nPos(n || 0), onClick: pick });
   };
   const tops = catTops(c);
-  if (!tops.length && !c.noCategory) { const box = empty({ title: 'Категорий пока нет — позиции покажутся списком.' }); box.append(button({ label: 'Все списком', onClick: () => go({ all: '1' }) })); return box; }
+  if (!tops.length && !c.noCategory) { const box = empty({ title: 'Категорий пока нет — позиции покажутся списком.' }); box.append(button({ label: 'Показать таблицей', onClick: () => go({ all: '1' }) })); return box; }
   const queue = c.unmatched > 0 && canWrite()
-    ? landing({ head: `Без связи со складом: ${nPos(c.unmatched)} — выберите позицию или создайте новую, не плодя дубли имени.`,
-        action: button({ label: 'Очередь «Связать с позицией»', kind: 'primary', onClick: () => go({ flag: 'unmatched', all: '1' }) }) })
+    ? landing({ head: `Не связаны с позицией склада: ${qty(c.unmatched)} ${plural(c.unmatched, 'строка', 'строки', 'строк')} прайса. Свяжите их, чтобы цена и поставщик подставлялись в заявку.`,
+        action: button({ label: 'Связать', kind: 'primary', onClick: () => go({ flag: 'unmatched', all: '1' }) }) })
     : null;
-  return landing({ head: `Выберите категорию · всего ${nPos(totalOf(c))}`, action: button({ label: 'Все списком', onClick: () => go({ all: '1' }) }),
+  return landing({ head: `Выберите категорию · всего ${nPos(totalOf(c))}`, 
     body: [queue, tileGrid(
       ...tops.map((x) => tile(x.name, x.count, () => go({ catId: x.id }))),
       c.noCategory ? tile('Без категории', c.noCategory, () => go({ catId: 'none' })) : null)] });
@@ -286,6 +282,7 @@ const num = (x) => (x === null || x === undefined || x === '' ? null : Number(x)
 export const supplierCatalog = {
   id: 'suppliercatalog',
   title: 'Каталог номенклатуры',
+  kind: kindOf,
   newTitle: 'Новая позиция каталога',
   canEdit: canWrite,
   get: async (id) => {
@@ -340,39 +337,13 @@ export const supplierCatalog = {
     photoMain: async (r, photoId) => { const x = await api(`/supply/catalog/items/${r.id}/photos/${photoId}/main`, { method: 'PUT' }); rowCache.set(x.id, x); return x; },
     photoRemove: async (r, photoId) => { const x = await api(`/supply/catalog/items/${r.id}/photos/${photoId}`, { method: 'DELETE' }); rowCache.set(x.id, x); return x; },
     heading: (r) => r.name,
-    subheading: (r) => (isMaterial(r) ? 'Поставщика нет' : r.supplierName || ''),
+    subheading,
     editTop: true,
     actions: (r) => cardActions(r),
     editable: (r) => !isMaterial(r), editLabel: 'Изменить предложение',
-    top: (r, ctx) => {
-      if (isMaterial(r)) {
-        return card({ size: 'M', variant: 'fields',
-          body: readonlyGroup({ rows: [['Артикул', r.article || '—'], ['Ед. изм.', r.unit || '—'], ['Остаток', r.stockQty != null ? qty(r.stockQty) : '—']] }) });
-      }
-      const art = r.article && !r.article.startsWith('manual:') ? r.article : '';
-      const mat = r.materialId
-        ? h('span', null, r.materialName, r.materialArticle ? h('span', { class: 'muted' }, ' · ' + r.materialArticle) : null)
-        : h('span', null, h('span', { class: 'muted' }, 'нет связи'), canWrite() ? button({ label: 'Связать с позицией', size: 'S', onClick: () => ctx.edit() }) : null);
-      return card({ size: 'M', variant: 'fields',
-        price: { value: r.priceHint != null ? `${money(r.priceHint)}${r.unit ? ' / ' + r.unit : ''}` : 'Цена не задана',
-          note: r.priceHint != null && r.priceDate ? (isStale(r) ? staleBadge(r.priceDate) : 'от ' + date(r.priceDate)) : null },
-        body: readonlyGroup({ rows: [
-          ['Артикул у поставщика', art],
-          ['Цвет', r.color], ['Группа', r.optGroup],
-          ['Остаток', r.stockQty != null ? qty(r.stockQty) : ''],
-          ['Откуда', SRC[r.source] || ''],
-          ['Наш материал', mat],
-          ['Примечание', r.note]] }) });
-    },
+    top: cardTop,
     view: () => [],
-    extra: (r) => {
-      if (isMaterial(r)) return hint('Поставщика нет, цены нет. Чтобы появились — загрузите прайс поставщика кнопкой «Загрузить Excel» или сопоставьте его строку с этой позицией.');
-      const hist = [...(r.priceHistory || [])].reverse();
-      if (!hist.length) return stack(section({ title: 'История цен', tone: 'money', count: 0, body: h('p', { class: 'muted small' }, 'Истории цен пока нет.') }));
-      return stack(section({ title: 'История цен', tone: 'money', count: hist.length, body:
-        table({ columns: [{ label: 'Дата' }, { label: 'Цена, ₽', num: true }, { label: 'Откуда' }],
-          rows: hist.map((x) => ({ cells: [x.date ? date(x.date) : '—', money(x.price), { v: SRC[x.source] || x.source || '', cls: 'muted' }] })) }) }));
-    },
+    extra: cardExtra,
   },
 
   form: {
@@ -427,7 +398,7 @@ export const supplierCatalog = {
     update: async (id, body) => {
       const saved = await api(`/supply/catalog/items/${id}`, { method: 'PATCH', body });
       rowCache.set(saved.id, saved);
-      bust();
+      bust(); dropSummary();
       return saved;
     },
   },
