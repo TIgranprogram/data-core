@@ -54,7 +54,7 @@ export class PartnersService {
     const filtered = tk.length ? items.filter((x) => matchesAll(tk, x.name, x.inn, x.email, x.phone)) : items;
     const [sup, cust, our] = await Promise.all([
       this.db.collection('organizations').countDocuments({ deletedAt: null, isOurCompany: { $ne: true }, ...NOT_CUSTOMER_ONLY }),
-      this.customers().then((c) => c.length),
+      type === 'customer' ? items.length : this.customersCount(),
       this.db.collection('organizations').countDocuments({ deletedAt: null, isOurCompany: true }),
     ]);
     return { items: filtered, total: filtered.length, page: 1, limit: filtered.length, counts: { supplier: sup, customer: cust, our } };
@@ -80,15 +80,25 @@ export class PartnersService {
     }).sort((x, y) => y.requests - x.requests || x.name.localeCompare(y.name, 'ru'));
   }
 
+  /** Число заказчиков для вкладок — без суммы по позициям (incomes): тот же набор, что в customers(), но дешевле. */
+  private async customersCount() {
+    const [names, orgs] = await Promise.all([
+      this.db.collection('salesorders').aggregate([{ $match: { deletedAt: null, customer: { $nin: [null, ''] } } }, { $group: { _id: '$customer' } }]).toArray(),
+      this.db.collection('organizations').find({ deletedAt: null, ...CUSTOMER_ORG }, { projection: { name: 1 } }).toArray(),
+    ]);
+    const keys = new Set(names.map((a) => norm(a._id)));
+    const extra = new Set(orgs.map((o) => norm(o.name)).filter((k) => !keys.has(k)));
+    return names.length + extra.size;
+  }
+
   private async customers() {
-    const agg = await this.db.collection('salesorders').aggregate([
+    const [agg, sums] = await Promise.all([this.db.collection('salesorders').aggregate([
       { $match: { deletedAt: null, customer: { $nin: [null, ''] } } },
       { $group: { _id: '$customer', n: { $sum: 1 }, active: { $sum: { $cond: [{ $in: [{ $ifNull: ['$stage', 'new'] }, ['new', 'production', 'ready', 'partly']] }, 1, 0] } }, last: { $max: '$shipDate' } } },
-    ]).toArray();
-    const sums = await this.db.collection('incomes').aggregate([
+    ]).toArray(), this.db.collection('incomes').aggregate([
       { $match: { deletedAt: null, cancelledAt: null, customer: { $nin: [null, ''] } } },
       { $group: { _id: '$customer', sum: { $sum: { $ifNull: ['$amount', 0] } } } },
-    ]).toArray();
+    ]).toArray()]);
     const sum = new Map(sums.map((x) => [String(x._id), x.sum as number]));
     // реквизиты заказчика — в организации type 'customer' с тем же названием (СП.1); заведённый без заказов — тоже в списке
     const orgs = await this.db.collection('organizations').find({ deletedAt: null, ...CUSTOMER_ORG }).toArray();
