@@ -1,4 +1,7 @@
 # Карта роли backend
+## Сводка позиции C040 (2026-11-07, не закоммичено)
+- `GET /materials/:id/summary` — `stock/stock-summary.controller.ts` (путь materials, модуль stock — без цикла), `stock-summary.service.ts:summary` (13 чтений разом), чистые расчёты `stock-summary.ts` (buildSuppliers/buildPrices/buildMonthly/topCustomers, поверх `foldPurchases`); spec `stock-summary.spec.ts`. Отчёт `docs/crew/C040-catalog-card/REPORT.md`. коммит: —
+
 ## Заявки пачкой (C036 Ш3, 2026-11-07, не закоммичено)
 - `supply.service.ts` `createBulk` (+`SupplyInput.supplierId`, `toFields`); `supply.controller.ts` `requests/bulk`; `dto.ts` `SupplyBulkDto`; общий разбор закупок `stock/purchase-history.ts` (`foldPurchases`, `topSupplier`) — им же `stock-search.service.ts` `itemOrdered`/`purchaseSuppliers`; spec `supply.bulk.spec.ts`. Отчёт `docs/crew/C036-nomenclature-audit/REPORT-SH3.md`. коммит: —
 
