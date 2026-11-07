@@ -164,12 +164,14 @@ export function iconButton({ icon, label, onClick, size = 'M', menu = false, tit
   return mark(h('button', { type: 'button', class: c, 'aria-label': label, title: title || label, 'aria-haspopup': menu ? 'menu' : null, 'aria-expanded': menu ? 'false' : null, onclick: onClick }, icon), 'iconButton');
 }
 
-/** segmented({ items: [{ key, label, tone? }], value, onChange(key), label (aria), cls? }) → { el, set(key), buttons } — .k-seg, aria-pressed; set() не зовёт onChange */
-export function segmented({ items, value, onChange, label, cls } = {}) {
+/** segmented({ items: [{ key, label, tone? }], value, onChange(key), label (aria), cls?, scroll? }) → { el, set(key), buttons } — .k-seg, aria-pressed; set() не зовёт onChange.
+ *  scroll — длинные названия: пункты не сжимаются, ряд прокручивается по горизонтали (склады). */
+export function segmented({ items, value, onChange, label, cls, scroll } = {}) {
   const set = (key) => buttons.forEach((b) => { const on = b.dataset.key === String(key); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
   const buttons = items.map((it) => h('button', { type: 'button', class: 'k-seg-btn', dataset: { key: String(it.key) }, 'data-tone': it.tone || null, 'aria-pressed': 'false', onclick: () => { set(it.key); onChange?.(it.key); } }, it.label));
-  const el = mark(h('div', { class: 'k-seg' + (cls ? ' ' + cls : ''), role: 'group', 'aria-label': label || null }, ...buttons), 'segmented');
+  const el = mark(h('div', { class: 'k-seg' + (scroll ? ' k-seg-scroll' : '') + (cls ? ' ' + cls : ''), role: 'group', 'aria-label': label || null }, ...buttons), 'segmented');
   set(value ?? items[0]?.key);
+  if (scroll) requestAnimationFrame(() => { const on = el.querySelector('.on'); if (on && el.scrollWidth > el.clientWidth) el.scrollLeft = Math.max(0, on.offsetLeft - 16); }); // выбранный пункт виден сразу
   return { el, set, buttons };
 }
 

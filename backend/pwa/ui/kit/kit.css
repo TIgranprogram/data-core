@@ -40,6 +40,9 @@
 .k-seg-btn[data-tone='danger'] { --tone: var(--danger); }
 .k-seg-btn[data-tone='dim'] { --tone: var(--muted); }
 .k-seg-btn.on, .k-seg-btn.on:hover { background: var(--tone); color: var(--surface); font-weight: 600; }
+/* segmented scroll: длинные названия не обрезаются — ряд прокручивается по горизонтали (вариант scroll) */
+.k-seg.k-seg-scroll { max-width: 100%; min-width: 0; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: thin; }
+.k-seg-scroll .k-seg-btn { flex: 0 0 auto; padding: 0 var(--s4); }
 /* iconButton: квадратная кнопка с значком */
 .btn.k-icon { width: 36px; padding: 0; justify-content: center; font-size: 18px; line-height: 1; }
 .btn.k-icon.btn-sm { width: 32px; }
@@ -80,6 +83,7 @@ label.k-row { cursor: pointer; }
 .k-feed.leaving { opacity: 0; transform: translateX(16px); }
 .k-feed:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 @media (hover: hover) { .k-feed .k-row-act { visibility: hidden; } .k-feed:hover .k-row-act, .k-feed:focus-within .k-row-act { visibility: visible; } }
+@media (max-width: 720px) { .k-row-act .btn.btn-ghost.btn-sm { font-weight: 500; color: var(--muted); padding: 0 var(--s2); } } /* на телефоне действие строки тише названия */
 @media (max-width: 720px) { .k-feed .k-row-act { visibility: visible; } .k-feed .k-row-act .btn { min-height: 44px; } }
 /* Поле выбора — один эталон: select, input формы, .k-field (sel-input / combo-input). Основа — base.css (36 px, рамка, радиус, фокус) */
 .k-field.k-arrow, select { background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 26px; }
@@ -462,6 +466,7 @@ table.list .k-nowrap { white-space: nowrap; }
 /* layout.cols */
 .k-cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s3); align-items: start; }
 @media (min-width: 1100px) { .k-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.k-cols.k-cols > .k-sec.k-sec { margin-top: 0; } /* колонки начинаются на одной высоте (без отступа «блок под блоком») */
 /* stat кликабельный */
 .stat.k-pill { display: inline-flex; align-items: baseline; gap: var(--s2); width: auto; border-radius: var(--s6); padding: var(--s2) var(--s4); font: inherit; cursor: pointer; text-align: left; color: var(--text); }
 .stat.k-pill b { display: inline; font-size: var(--fs-h2); font-weight: 700; color: var(--muted); }
