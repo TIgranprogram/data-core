@@ -1,7 +1,7 @@
 import { h } from '../../core/dom.js';
 import { PREFIX } from '../../core/api.js';
 import { badge as badgeOf } from './badges.js';
-import { mark } from './mark.js';
+import { mark, markEl } from './mark.js';
 import { hint, tileGrid, landing, miniChart, navList, photoStrip } from './blocks.js';
 
 /**
@@ -31,6 +31,18 @@ export function select({ options = [], value, onChange, label, disabled = false,
   const el = h('select', { class: 'k-select' + (cls ? ' ' + cls : ''), 'aria-label': label || null, disabled, onchange: (e) => onChange?.(e.target.value) },
     ...options.map((o) => { const [v, l] = Array.isArray(o) ? o : [o.value, o.label]; return h('option', { value: v, selected: String(v) === String(value) }, l); }));
   return mark(el, 'select');
+}
+
+/** textInput({ label, value, placeholder, hint, required, max, type, inputmode, disabled, onInput, onEnter, cls }) → { el, input, get/set value, focus() }
+ *  Однострочное поле ввода эталона формы (C044-T2): подпись сверху, подсказка под полем, Enter → onEnter; без подписи — поле без неё (label уходит в aria-label). */
+export function textInput({ label, value = '', placeholder, hint, required = false, max = 500, type = 'text', inputmode, disabled = false, onInput, onEnter, cls } = {}) {
+  const input = h('input', { type, inputmode: inputmode || (type === 'number' ? 'decimal' : undefined), placeholder, autocomplete: 'off', maxlength: max, disabled: disabled || null, 'aria-label': label || placeholder || 'Поле ввода' });
+  input.value = value ?? '';
+  input.addEventListener('input', () => onInput?.(input.value));
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); onEnter?.(input.value.trim()); } });
+  const el = h(label ? 'label' : 'div', { class: 'field k-ti' + (cls ? ' ' + cls : '') },
+    label ? h('span', null, label, required ? h('span', { class: 'req' }, ' *') : null) : null, input, hint ? h('div', { class: 'hint' }, hint) : null);
+  return markEl({ el, input, focus: () => input.focus(), get value() { return input.value; }, set value(v) { input.value = v ?? ''; } }, 'textInput');
 }
 
 /** badge(map, key) — как badges.js; badge('Текст', 'ok'|'warn'|'danger'|'info'|'dim', { dot? }) — одиночная метка → .badge.

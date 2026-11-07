@@ -61,7 +61,8 @@ export function miniChart({ type = 'bar', parts = [], points = [], label, groups
     ...parts.filter((p) => Number(p.value) > 0).map((p) => { const part = h('span', { class: 'k-bar-part tone-' + (p.tone || 'dim') }); part.style.flexGrow = String(Number(p.value) / total); return part; })), 'miniChart');
 }
 
-/** Столбики по периодам: monthBars → .k-mbars. groups: [{ label, values:[{ value, tone }] }], legend: [{ label, tone }]; пусто (все 0) — подсказка empty. Только чтение. */
+/** Столбики по периодам: monthBars → .k-mbars. groups: [{ label, values:[{ value, tone }] }], legend: [{ label, tone }]; пусто (все 0) — подсказка empty.
+ *  Под столбиками — строка значений (C044-T2): число видно без наведения (title на телефоне не работает); цвета чисел — по тонам legend. Только чтение. */
 function monthBars({ groups, legend, label, empty }) {
   const max = Math.max(0, ...groups.flatMap((g) => g.values.map((v) => Number(v.value) || 0)));
   if (!max) return h('p', { class: 'k-mbars-empty muted small' }, empty || 'Данных пока нет.');
@@ -74,8 +75,13 @@ function monthBars({ groups, legend, label, empty }) {
     });
     return h('div', { class: 'k-mb-g' }, h('div', { class: 'k-mb-plot' }, ...bars), h('span', { class: 'k-mb-l' }, g.label));
   });
+  // строка значений: «янв 4 3 2» — подпись периода и числа по тонам; дублирует title для телефона
+  const vals = groups.map((g) => h('span', { class: 'k-mb-v', title: g.label },
+    h('span', { class: 'k-mb-vl' }, g.label),
+    ...g.values.map((v) => h('em', { class: 'tone-' + (v.tone || 'dim') }, String(Number(v.value) || 0)))));
   return h('div', { class: 'k-chart k-mbars', role: 'img', 'aria-label': (label ? label + '. ' : '') + text },
     h('div', { class: 'k-mb-cols', 'aria-hidden': 'true' }, ...cols),
+    h('div', { class: 'k-mb-vals', 'aria-hidden': 'true' }, ...vals),
     legend.length ? h('div', { class: 'k-mb-legend', 'aria-hidden': 'true' }, ...legend.map((l) => h('span', { class: 'k-mb-lg tone-' + (l.tone || 'dim') }, l.label))) : null);
 }
 

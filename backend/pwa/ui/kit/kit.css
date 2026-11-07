@@ -358,6 +358,18 @@ button.m-fg-h { cursor: pointer; }
 .table-wrap.k-table-wrap { display: block; max-width: 100%; min-width: 0; overflow-x: auto; }
 .k-table-check { display: inline-flex; align-items: center; justify-content: center; min-width: calc(var(--s6) + var(--s3)); min-height: calc(var(--s6) + var(--s3)); cursor: pointer; }
 .k-table-check input { margin: 0; }
+/* C044-T2: компактная строка таблицы на телефоне — table({ cls: 'k-table-stack' }): шапка скрыта, строка карточкой
+   (первая ячейка — название), управление переносится — в панели 390 px ничего не вылезает и не скроллится вбок. */
+@media (max-width: 720px) {
+  table.k-table-stack, table.k-table-stack tbody { display: block; }
+  table.k-table-stack thead { display: none; }
+  table.k-table-stack tr { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); padding: var(--s3) 0; border-bottom: 1px solid var(--border); }
+  table.k-table-stack td { display: flex; align-items: center; padding: 0; border: 0; }
+  table.k-table-stack td.k-col-wrap { min-width: 0; max-width: none; width: auto; overflow: visible; }
+  table.k-table-stack td:first-child { flex: 1 1 100%; font-weight: 600; }
+  table.k-table-stack td.num { justify-content: flex-start; }
+  table.k-table-stack .btn { min-height: var(--tap); } /* «Отметить проверенным» и ↑↓✕ — палец, не меньше 44 px */
+}
 @media (max-width: 720px) {
   .drawer-head .btn.btn-icon { min-width: calc(var(--s6) + var(--s3)); min-height: calc(var(--s6) + var(--s3)); }
 }
@@ -423,6 +435,8 @@ button.m-fg-h { cursor: pointer; }
 .ep-hist-body { margin-top: var(--s3); }
 @media (max-width: 720px) { .ep-grid { grid-template-columns: 1fr; } }
 .k-select { min-width: 0; max-width: 100%; }
+/* C044-T2: однострочное поле ввода эталона (textInput) — в ряду с кнопками занимает остаток ширины, но не растягивается на всю панель */
+.k-ti { flex: 1 1 14em; min-width: 0; max-width: 32em; }
 
 /* Правки по замечаниям CL-D (2026-11-06): kit-кнопка с cls раскладки экрана, панель фильтров, зона нажатия */
 .ls-grid > .list-side { background: var(--surface); border: 1px solid var(--border-strong); } /* панель фильтров не сливается с колонками доски */
@@ -532,7 +546,12 @@ table.list .k-nowrap { white-space: nowrap; }
 .k-mb-g { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: var(--s1); }
 .k-mb-plot { display: flex; align-items: flex-end; justify-content: center; gap: var(--s1); width: 100%; height: 96px; border-bottom: 1px solid var(--border); }
 .k-mb-b { display: block; flex: 1 1 0; max-width: 10px; height: var(--h, 0); min-height: 2px; background: var(--tone, var(--muted)); border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
-.k-mb-l { font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: clip; max-width: 100%; }
+.k-mb-l { font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+/* C044-T2: значения видны без наведения (title на телефоне не работает) — числа под столбиками, цвет по тону legend */
+.k-mb-vals { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); font-size: var(--fs-sm); color: var(--muted); }
+.k-mb-v { display: inline-flex; align-items: baseline; gap: var(--s1); }
+.k-mb-vl { white-space: nowrap; }
+.k-mb-vals em { font-style: normal; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--tone, var(--text)); }
 .k-mb-legend { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); font-size: var(--fs-sm); color: var(--muted); }
 .k-mb-lg::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: var(--s2); border-radius: 50%; background: var(--tone, var(--muted)); }
 /* navList */

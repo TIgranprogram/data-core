@@ -43,14 +43,29 @@ export function funnel({ steps = [], onChange, next, recent, done = false } = {}
   const sorted = (s) => { if (grouped(s)) return s.values; const tail = (v) => v.id === 'none' || /не указан|прочее/i.test(String(v.label)); return [...(s.values || [])].sort((a, b) => tail(a) - tail(b) || (b.count ?? 0) - (a.count ?? 0)); };
   const open = (s, v) => onChange?.(s.key, v);
 
-  /** Фишки по полочкам: подпись группы (muted) и её фишки; значения без группы — строкой в конце без подписи. */
-  function shelves(s) {
-    const on = ids(s.value); const seen = [];
-    for (const v of s.values) if (!seen.includes(v.group || '')) seen.push(v.group || '');
-    const chip = (v) => h('button', { type: 'button', class: 'chip' + (on.includes(String(v.id)) ? ' active' : ''), 'aria-pressed': String(on.includes(String(v.id))), onclick: () => (s.multi ? open(s, (on.includes(String(v.id)) ? on.filter((x) => x !== String(v.id)) : [...on, String(v.id)]).join(',')) : open(s, v.id)) },
+  /** Группы значений в порядке появления; значения без группы — последней строкой. */
+  function shelfKeys(values) {
+    const keys = [];
+    for (const v of values) if (!keys.includes(v.group || '')) keys.push(v.group || '');
+    return keys.filter(Boolean).concat(keys.includes('') ? [''] : []);
+  }
+  /** Фишка значения: клик выбирает; у шага с несколькими — добавить или снять, выбранная подсвечена. */
+  function shelfChip(s, v, on) {
+    const id = String(v.id);
+    const pressed = on.includes(id);
+    const pick = () => (s.multi ? open(s, (pressed ? on.filter((x) => x !== id) : [...on, id]).join(',')) : open(s, v.id));
+    return h('button', { type: 'button', class: 'chip' + (pressed ? ' active' : ''), 'aria-pressed': String(pressed), onclick: pick },
       v.label, v.count != null ? h('b', null, String(v.count)) : null);
-    return h('div', { class: 'k-stack', role: 'group', 'aria-label': s.label }, ...seen.filter(Boolean).concat(seen.includes('') ? [''] : []).map((g) => h('div', { class: 'k-stack' }, g ? h('span', { class: 'muted small' }, g) : null,
-      h('div', { class: 'chips' }, ...s.values.filter((v) => (v.group || '') === g).map(chip)))));
+  }
+  /** Полка: подпись группы (muted) и фишки её значений; у значений без группы подписи нет. */
+  function shelf(s, group, on) {
+    const chips = s.values.filter((v) => (v.group || '') === group).map((v) => shelfChip(s, v, on));
+    return h('div', { class: 'k-stack' }, group ? h('span', { class: 'muted small' }, group) : null, h('div', { class: 'chips' }, ...chips));
+  }
+  /** Фишки по полочкам: подпись группы и её фишки; значения без группы — строкой в конце без подписи. */
+  function shelves(s) {
+    const on = ids(s.value);
+    return h('div', { class: 'k-stack', role: 'group', 'aria-label': s.label }, ...shelfKeys(s.values).map((g) => shelf(s, g, on)));
   }
   function chips(s) {
     if (grouped(s)) return shelves(s);
