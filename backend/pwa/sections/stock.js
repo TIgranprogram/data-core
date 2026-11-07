@@ -44,6 +44,7 @@ import { passportSpecField, passportSpecView, savePassportSpec } from './stock-p
 import { mobileStockDashboard } from './warehouse-mobile.js';
 import { qrBulkAction, qrPrintAction } from './qr.js';
 import { stockOrderAction } from './order-bulk.js';
+import { openStockBulk } from './stock-bulk.js';
 
 /** Раздел «Склад» (PRODUCT §2): materials + storageitems через /api/stock. */
 const unit = (r) => r.unit || '';
@@ -158,7 +159,7 @@ export const stock = {
     // признаки: список — ровно те позиции, что посчитала кнопка (ids из полного списка склада); список ещё не загружен — по словам, как раньше
     query: (P) => ({ priority: 1, ...zoneQuery(), ...(P.ft ? ftIds(P) || { search: [P.q, ftQuery(P.ft)].filter(Boolean).join(' ') || undefined, ...ftParams(P.ft) } : {}) }),
     export: 'admin',
-    bulk: { extra: [stockOrderAction, qrBulkAction('S')] }, // над отмеченными: «В заявку» и «Распечатать QR» (без «Изменить выбранные»)
+    bulk: { open: (ids, { done: finish }) => openStockBulk({ ids, done: () => { ftItems = null; finish(); } }), extra: [stockOrderAction, qrBulkAction('S')] }, // над отмеченными: «Изменить выбранные» (C043: тип, категория, ед., марка, сортамент), «В заявку», QR; после правки — заново считаем признаки (ftItems), иначе фильтр по типу покажет старое
     headActions: () => [kitButton({ label: 'Выдать материалы', kind: 'primary', onClick: openStockIssue }), stockActions()],
     moreActions: stockMore,
     top: (_reload) => h('div', null, zoneBar(), stockRequestsBox(), mobileStockDashboard()),

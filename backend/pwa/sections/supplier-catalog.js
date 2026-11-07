@@ -13,6 +13,7 @@ import { setCrumbTail } from '../ui/kit/crumbs.js';
 import { partnerAction } from './lookups.js';
 import { previewTable, orderPreview, orderTemplate } from './supplier-catalog-import.js';
 import { openOrderBulk } from './order-bulk.js';
+import { openStockBulk } from './stock-bulk.js';
 import { cardActions, createButton } from './supplier-catalog-actions.js';
 import { isMaterial, isStale, staleBadge, kindOf, subheading, cardTop, cardExtra, dropSummary } from './supplier-catalog-card.js';
 
@@ -295,7 +296,17 @@ export const supplierCatalog = {
   list: {
     viewKey: 'catalog', path: '/supply/catalog/items',
     sidebar: true,
-    bulk: { extra: [{ get label() { return current().params.supplierId && current().params.supplierId !== 'none' ? 'Заказать у поставщика' : 'В заявку'; }, run: (ids, rows) => orderRows(rows) }] },
+    // C043: «Изменить выбранные» для строк с позицией склада — та же панель, что в «Остатках» (sections/stock-bulk.js)
+    bulk: {
+      open: (_ids, { done, rows }) => {
+        const list = rows || [];
+        const pos = list.map((r) => (isMaterial(r) ? r.id : r.materialId)).filter(Boolean);
+        const skip = list.length - pos.length;
+        if (skip) toast(`${skip} ${plural(skip, 'строка', 'строки', 'строк')} без позиции склада — пропущены`, { error: !pos.length });
+        if (pos.length) openStockBulk({ ids: pos, done });
+      },
+      extra: [{ get label() { return current().params.supplierId && current().params.supplierId !== 'none' ? 'Заказать у поставщика' : 'В заявку'; }, run: (ids, rows) => orderRows(rows) }],
+    },
     export: false, // выгрузка — в шестерёнке (формат шаблона, можно править и загружать обратно)
     extraKeys: ['catId', 'subId', 'flag', 'ord', 'all'],
     toolbarExtra: sideFilters,

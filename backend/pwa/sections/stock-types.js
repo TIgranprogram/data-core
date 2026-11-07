@@ -19,12 +19,13 @@ export function typeTiles({ categoryId, categoryName, onPick }) {
     try {
       const items = (await stockList()).filter((it) => it.categoryId === categoryId);
       const groups = typeGroups(items);
-      const tile = (t) => card({ size: 'S', artCover: true, art: art(t.label, categoryName), title: t.label, meta: nPos(t.count), onClick: () => onPick(t.id) });
+      // C043: плитки типов в раскрытой категории — компактные (рисунок 28 px, название в одну строку): все типы видны без прокрутки
+      const tile = (t) => card({ size: 'S', artCover: true, compact: true, art: art(t.label, categoryName), title: t.label, meta: nPos(t.count), onClick: () => onPick(t.id) });
       const shelves = []; let singles = []; // одиночные типы подряд — одной сеткой без подписи
-      const flush = () => { if (singles.length) shelves.push(tileGrid(...singles.map(tile))); singles = []; };
+      const flush = () => { if (singles.length) shelves.push(tileGrid({ compact: true }, ...singles.map(tile))); singles = []; };
       for (const g of groups) {
         if (g.types.length === 1) { singles.push(g.types[0]); continue; }
-        flush(); shelves.push(landing({ head: `${g.label} · ${nPos(g.count)}`, body: tileGrid(...g.types.map(tile)) }));
+        flush(); shelves.push(landing({ head: `${g.label} · ${nPos(g.count)}`, body: tileGrid({ compact: true }, ...g.types.map(tile)) }));
       }
       flush();
       el.replaceChildren(groups.length ? stack(...shelves) : hint('Типы не определены — откройте всю категорию.'));
