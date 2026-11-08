@@ -72,8 +72,15 @@ export class DictsService {
   /** Списки выбора для полей-ссылок формы: ключ справочника → [{ value, label }]. */
   private async refsOf(d: DictDef) {
     const refs: Record<string, { value: string; label: string }[]> = {};
-    for (const f of d.fields) if (typeof f.ref === 'string') { const rd = this.def(f.ref); refs[f.ref] = (await this.docs(rd, f.refMatch)).map((x) => ({ value: String(x._id), label: rd.name(x) })).sort((a, b) => a.label.localeCompare(b.label, 'ru')); }
+    for (const f of d.fields) if (f.ref === 'users') refs.users = await this.loginOptions();
+    for (const f of d.fields) if (typeof f.ref === 'string' && f.ref !== 'users') { const rd = this.def(f.ref); refs[f.ref] = (await this.docs(rd, f.refMatch)).map((x) => ({ value: String(x._id), label: rd.name(x) })).sort((a, b) => a.label.localeCompare(b.label, 'ru')); }
     return refs;
+  }
+
+  /** C050: входы для выбора у сотрудника — действующие, не «устройства». */
+  private async loginOptions() {
+    const rows = await this.db.collection('users').find({ deletedAt: null, isActive: { $ne: false }, accountType: { $ne: 'device' } }, { projection: { username: 1, displayName: 1 } }).toArray();
+    return rows.map((u) => ({ value: String(u._id), label: String(u.displayName || u.username || '') })).sort((a, b) => a.label.localeCompare(b.label, 'ru'));
   }
 
   /** Для полей-ссылок (select + ref): рядом с id — название (workTypeId → workTypeName, parentId → parentName). */

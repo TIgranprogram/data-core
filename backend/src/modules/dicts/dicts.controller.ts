@@ -7,16 +7,28 @@ import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.inter
 import { DictsService } from './dicts.service';
 import { canSeePayroll } from '../../common/roles-hierarchy';
 import { openSectionsFor, sectionOpen } from '../../common/app-sections';
-import { hidePayroll } from './dicts.payroll';
+import { hideContacts, hideLogin, hidePayroll } from './dicts.payroll';
+import { canLinkLogin, loginBody } from './dicts.person-login';
 
 /** SK-8d: «Сотрудники» без оплаты, если раздел «ФОТ» для роли закрыт. */
-const payrollMask = <T>(key: string, user: AuthenticatedUser | undefined, res: T): T =>
-  key === 'persons' && (!canSeePayroll(user) || !sectionOpen(openSectionsFor(user), 'payroll')) ? hidePayroll(res) : res;
+const payrollMask = <T>(key: string, user: AuthenticatedUser | undefined, res: T): T => {
+  if (key !== 'persons') return res;
+  let out = !canSeePayroll(user) || !sectionOpen(openSectionsFor(user), 'payroll') ? hidePayroll(res) : res;
+  if (!canLinkLogin(user)) out = hideLogin(out); // вход сотрудника видят только администратор и директор (C050)
+  if (onlyMyTasks(user)) out = hideContacts(out); // рабочему с одним разделом «Мои задания» чужие телефоны не отдаём
+  return out;
+};
+
+/** Роль открывает только «Мои задания» (рабочий): справочник нужен ему лишь для имён. */
+const onlyMyTasks = (user: AuthenticatedUser | undefined): boolean => {
+  const open = openSectionsFor(user);
+  return !!open && open.size > 0 && [...open].every((s) => s === 'my-tasks');
+};
 
 /** Ставку и вид оплаты не принимаем от тех, кому ФОТ закрыт. */
 const payrollBody = (key: string, user: AuthenticatedUser | undefined, body: Record<string, unknown>) => {
   if (key === 'persons' && !canSeePayroll(user) && body) { delete body.salaryRate; delete body.salaryKind; }
-  return body;
+  return key === 'persons' ? loginBody(user, body) : body; // вход привязывает только администратор или директор
 };
 
 /**

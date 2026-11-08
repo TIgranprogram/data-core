@@ -26,6 +26,8 @@ export const APP_SECTIONS = [
   { id: 'offers', label: 'КП' },
   // «Склад (телефон)»: одна крупная страница приёмки и выдачи для ассистента кладовщика (pwa sections/stock-mobile.js).
   { id: 'stock-mobile', label: 'Склад · мобильный' },
+  // «Мои задания»: свои шаги плана, начал/закончил/отложил/проблема (modules/my-tasks, C050); роли «Рабочий» и «Мастер».
+  { id: 'my-tasks', label: 'Мои задания' },
 ] as const;
 
 export type AppSectionId = (typeof APP_SECTIONS)[number]['id'];

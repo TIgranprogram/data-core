@@ -91,3 +91,29 @@ describe('work-route-rows: состав работ (C041)', () => {
     expect(diffRows(swapped, base)).toMatchObject({ changed: true, edited: 1 });
   });
 });
+
+describe('work-route-rows: статус шага от рабочего (C050)', () => {
+  const partId = String(oid()), stepId = oid();
+  const at = new Date('2026-11-08T08:00:00Z'), until = new Date('2026-11-09T00:00:00Z');
+  const prev = {
+    parts: [{ _id: new Types.ObjectId(partId), name: 'Стойки', qty: 1, checked: false }],
+    steps: [{ _id: stepId, workTypeId: cut, partRowId: new Types.ObjectId(partId), checked: false, status: 'deferred' as const, statusReason: 'Нет материала', deferUntil: until, statusAt: at }],
+  };
+  const input = { parts: [{ id: partId, name: 'Стойки' }], steps: [{ id: String(stepId), workTypeId: String(cut), partRowId: partId, hours: 2 }] };
+
+  it('менеджер сохраняет план — «Отложено» и причина не стираются', () => {
+    const r = normalizeRows(input, prev, ctx);
+    expect(r.steps[0]).toMatchObject({ status: 'deferred', statusReason: 'Нет материала', deferUntil: until, statusAt: at, hours: 2 });
+  });
+
+  it('у шага без статуса полей статуса нет (нет пустых ключей)', () => {
+    const r = normalizeRows(input, { parts: prev.parts, steps: [{ ...prev.steps[0], status: undefined, statusReason: undefined, deferUntil: undefined, statusAt: undefined }] }, ctx);
+    expect(Object.keys(r.steps[0])).not.toEqual(expect.arrayContaining(['status']));
+    expect(r.steps[0]).not.toHaveProperty('statusReason');
+  });
+
+  it('статус шага не приходит от клиента: присланное status игнорируется', () => {
+    const r = normalizeRows({ parts: input.parts, steps: [{ ...input.steps[0], status: 'problem' } as never] }, { parts: prev.parts, steps: [{ ...prev.steps[0], status: undefined }] }, ctx);
+    expect(r.steps[0]).not.toHaveProperty('status');
+  });
+});

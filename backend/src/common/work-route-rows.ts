@@ -38,7 +38,19 @@ export interface StepRow {
   /** Факт (Э2 «Отметить начало/конец»; Э3 считает по нему часы). */
   startedAt?: Date;
   finishedAt?: Date;
+  /** C050 «Мои задания»: рабочий отложил шаг или сообщил о проблеме. Нет поля — обычный шаг. */
+  status?: StepStatus;
+  statusReason?: string;
+  /** «Отложено» — на какой день (начало дня UTC). */
+  deferUntil?: Date;
+  statusAt?: Date;
 }
+
+/** Статус шага от рабочего. */
+export type StepStatus = 'deferred' | 'problem';
+
+/** Поля статуса шага — их пишет рабочий (не менеджер), поэтому сохранение плана их переносит как есть. */
+export const STATUS_KEYS = ['status', 'statusReason', 'deferUntil', 'statusAt'] as const;
 
 /** Что присылает клиент. `id` — прежний id строки либо временный ключ новой. */
 export interface PartIn { id?: string; partId?: string; name?: string; qty?: number; checked?: boolean; lineId?: string }
@@ -61,6 +73,11 @@ function mark<T extends { checked: boolean; checkedBy?: Types.ObjectId; checkedA
   if (!checked) { delete row.checkedBy; delete row.checkedAt; return { ...row, checked: false }; }
   if (was?.checked) return { ...row, checked: true, ...(was.checkedBy ? { checkedBy: was.checkedBy } : {}), ...(was.checkedAt ? { checkedAt: was.checkedAt } : {}) };
   return { ...row, checked: true, ...(ctx.by ? { checkedBy: ctx.by } : {}), checkedAt: ctx.now };
+}
+
+/** Поля статуса прежнего шага (C050) — без пустых. */
+function statusOf(was: StepRow): Partial<StepRow> {
+  return Object.fromEntries(STATUS_KEYS.filter((k) => was[k] !== undefined && was[k] !== null).map((k) => [k, was[k]]));
 }
 
 /**
@@ -119,6 +136,7 @@ export function normalizeRows(input: { parts: PartIn[]; steps: StepIn[] }, prev:
       ...(partRowId ? { partRowId } : {}), ...(hours !== undefined ? { hours } : {}), ...(lineId ? { lineId } : {}), ...(note ? { note } : {}),
       ...(assigneeId ? { assigneeId } : {}), ...(plan ? { plan } : {}),
       ...(ctx.keepLinks && was?.startedAt ? { startedAt: was.startedAt } : {}), ...(ctx.keepLinks && was?.finishedAt ? { finishedAt: was.finishedAt } : {}),
+      ...(ctx.keepLinks && was ? statusOf(was) : {}),
     };
     return mark(row, was, s.checked, ctx);
   });
