@@ -52,7 +52,8 @@ function createSchedule(el, p0, set, extra0 = {}) {
 
   const F = () => ({ order: P.order || '', line: P.incomeId || '', part: P.part || '', person: P.person || '', work: P.work || '' });
   const from = () => (P.from && /^\d{4}-\d{2}-\d{2}$/.test(P.from) ? P.from : iso(startOfWeek() - (scaleK === 'month' ? 28 : 7) * DAY));
-  const to = () => iso(Date.parse(from() + 'T00:00:00Z') + SPAN[scaleK] * DAY);
+  const fitW = () => Math.max(320, (chartBox.clientWidth || document.querySelector('main')?.clientWidth || innerWidth) - (narrow() ? 148 : 232)); // до первой отрисовки chartBox ещё вне страницы
+  const to = () => iso(Date.parse(from() + 'T00:00:00Z') + Math.max(SPAN[scaleK], scaleK === 'fit' ? 0 : Math.ceil(fitW() / ({ day: 36, week: 18, month: 6 }[scaleK] || 18)) - 1) * DAY); // период — не короче окна (ширина дня как в planner PX)
   const winOf = (k) => (k === 'day' ? 'd' : k === 'month' ? 'm' : 'w');
 
   async function load() {
@@ -80,8 +81,8 @@ function createSchedule(el, p0, set, extra0 = {}) {
   }
 
   function paintBanner() {
-    const n = data.bars.filter((b) => !b.assigneeId && pass(b, F())).length;
-    bannerBox.replaceChildren(...(n ? [actions(hint(`Без исполнителя: ${n} ${n === 1 ? 'шаг' : 'шагов'} — их не видно в загрузке людей`, 'warn'), button({ label: 'Показать', size: 'S', onClick: showUnassigned }))] : []));
+    const n = lens === 'people' ? 0 : data.bars.filter((b) => !b.assigneeId && pass(b, F())).length; // «По людям» они и так первой группой
+    bannerBox.replaceChildren(...(n ? [actions(hint(`Без исполнителя: ${n} ${n === 1 ? 'шаг' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'шага' : 'шагов'} — назначьте людей`, 'warn'), button({ label: 'Показать', size: 'S', onClick: showUnassigned }))] : []));
   }
 
   function paintFilters() {
@@ -113,7 +114,7 @@ function createSchedule(el, p0, set, extra0 = {}) {
       lead: lensSeg.el,
       rowsTitle: lens === 'people' ? 'Исполнитель · позиция' : 'Заказ · позиция · часть',
       rows: bars.length ? model.rows : [], bars: model.bars, load: loadBy, from: from(), to: to(), scale: scaleK, canEdit: !!session.canEdit, rowsMovable: lens === 'people', // нет работ — подсказка, а не пустые строки людей
-      fitWidth: Math.max(320, (chartBox.clientWidth || 800) - (narrow() ? 148 : 232)),
+      fitWidth: fitW(),
       expanded: filtersOn && !touched ? new Set(model.nodeIds) : open,
       onToggle: (_id, _isOpen, set2) => { touched = true; open = new Set(set2); saveOpen(); },
       legend: data.legend.map((x) => ({ id: x.workTypeId, name: x.name, hue: x.hue })),

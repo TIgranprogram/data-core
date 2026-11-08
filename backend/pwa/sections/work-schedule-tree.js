@@ -47,13 +47,13 @@ export function buildModel({ bars: raw, people, lens }) {
     }
     for (const n of parents) bump(n.id);
     // шаги позиции — полосами в ОДНОЙ строке (как в kppdf), не строкой на каждый шаг
-    const sub = b.locked ? 'задание без плана' : [lens === 'orders' ? who(b) : '', `${round(b.hours)} ч`, b.inDesign ? 'в проектировании' : ''].filter(Boolean).join(' · ');
+    const sub = [lens === 'orders' ? who(b) : '', b.hours ? `${round(b.hours)} ч` : '', b.inDesign ? 'в проектировании' : ''].filter(Boolean).join(' · ');
     view.push({
       id: String(b.stepId), taskId: b.taskId || null, locked: !!b.locked, rowId, ownerId: lens === 'people' ? (b.assigneeId ? String(b.assigneeId) : NONE) : rowId,
       start: day(b.start), end: day(b.end), title: b.workTypeName || 'работа', sub,
       hue: b.hue || null, wt: b.workTypeId ? String(b.workTypeId) : null, status: b.status, overdue: !!b.overdue, deadline: b.deadline || null,
       tone: b.status === 'done' ? 'ok' : !b.assigneeId && lens === 'people' ? 'warn' : 'info',
-      hint: [`Заказ № ${b.orderNo || '—'}`, posLabel(b), partOf(b), who(b), b.inDesign ? 'в проектировании' : ''].filter(Boolean).join(' · '),
+      hint: [`Заказ № ${b.orderNo || '—'}`, posLabel(b), partOf(b), who(b), b.inDesign ? 'в проектировании' : '', b.locked ? 'сроки — по маршруту изделия' : ''].filter(Boolean).join(' · '),
     });
   }
   for (const r of rows) if (stepsOf.has(r.id) && !r.sub) r.sub = count(stepsOf.get(r.id));
