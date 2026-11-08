@@ -123,8 +123,10 @@ export class StockSearchService {
     const sizes = [['thickness', q.thickness], ['length', q.pipeLength]].filter(([, v]) => Number(v) > 0);
     if (sizes.length) filter.dimensions = { $all: sizes.map(([type, value]) => ({ $elemMatch: { type, value: Number(value) } })) };
     if (q.wash === '1' || q.wash === '0') filter.washed = q.wash === '1';
-    const mats = (await this.materials.find(filter).setOptions({ includeSoftDeleted: true }).lean().exec())
-      .filter((m) => matchesAll(tokens, m.name, (m as { fullName?: string }).fullName, (m as { invoiceName?: string }).invoiceName, m.article, m.sku, m.notes, m.assortment, m.materialGrade, (m as { internalArticle?: string }).internalArticle));
+    // категория хранится и ObjectId, и строкой (пишет kppdf мимо схемы) — читаем сырой коллекцией,
+    // чтобы `$in:[ObjectId, hex]` нашёл оба вида: Mongoose приводит строку к ObjectId, и строковая категория не находилась (T8).
+    const mats = (await this.connection.db!.collection('materials').find(filter).toArray() as unknown as MaterialDocument[])
+      .filter((m) => matchesAll(tokens, m.name, m.fullName, m.invoiceName, m.article, m.sku, m.notes, m.assortment, m.materialGrade, (m as { internalArticle?: string }).internalArticle));
     const ids = mats.map((m) => m._id as Types.ObjectId);
     // скорость С7: независимые чтения — разом, категории — только нужные (не все категории CRM)
     const catIds = [...new Set(mats.map((m) => m.categoryId).filter(Boolean).map(String))].filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
