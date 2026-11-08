@@ -34,7 +34,7 @@ function lanes(items) {
  * planner — эталон «планировщик цеха» (C041 Э2, C053 Э2): строки — люди или заказы (можно деревом), полосы — шаги работ, под полосами подсвечена перегрузка дня.
  * Стили — .gt-* (шапка, сетка, «сегодня») и .k-pl-* в kit/timeline.css, цвета видов работ --wt-1..7 в tokens.css.
  *
- * planner({ rows, bars, load?, from, to, scale?: 'day'|'week'|'month'|'fit', fitWidth?, canEdit?, rowsMovable?, onOpen(bar), onMove(bar, { start, end, rowId }) → Promise, empty?,
+ * planner({ lead? (элемент в начале панели), rowsTitle? (заголовок колонки строк), rows, bars, load?, from, to, scale?: 'day'|'week'|'month'|'fit', fitWidth?, canEdit?, rowsMovable?, onOpen(bar), onMove(bar, { start, end, rowId }) → Promise, empty?,
  *           expanded?: Set<id>, onToggle?(id, open, set), legend?: [{ id, name, hue }], onScale?(scale), onShift?(±1), onToday?() })
  *   rows  [{ id, label, sub?, cap?, parentId?, drop? }] — строка; cap — часов в день (подсветка перегрузки по load);
  *         parentId → дерево: у узла (есть дети) вместо полос рисуется сводная полоса min..max детей (не двигается), дети скрыты, пока узел не в expanded;
@@ -49,7 +49,7 @@ function lanes(items) {
  */
 const KINDS = ['info', 'ok', 'warn', 'danger', 'dim'];
 
-export function planner({ rows = [], bars = [], load = {}, from, to, scale = 'week', fitWidth, canEdit = false, rowsMovable = false, onOpen, onMove, empty, expanded, onToggle, legend = [], onScale, onShift, onToday } = {}) {
+export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from, to, scale = 'week', fitWidth, canEdit = false, rowsMovable = false, onOpen, onMove, empty, expanded, onToggle, legend = [], onScale, onShift, onToday } = {}) {
   const px = scale === 'fit' ? fitPx(fitWidth || 720, from, to) : PX[scale] || PX.week;
   const dayCols = scale === 'day';
   const coarse = touch(), LANE = coarse ? 44 : 32;
@@ -67,7 +67,7 @@ export function planner({ rows = [], bars = [], load = {}, from, to, scale = 'we
     if (dayCols) nums.push(h('i', { class: 'gt-n' + (wd === 0 || wd === 6 ? ' we' : '') + (n === today ? ' today' : ''), style: { left: xOf(n) + 'px', width: px + 'px' } }, String(d.getUTCDate()), h('small', null, WD[wd])));
     else if (wd === 1 && px * 7 >= 28) nums.push(h('i', { class: 'gt-n', style: { left: xOf(n) + 'px', width: px * 7 + 'px' } }, String(d.getUTCDate())));
   }
-  const head = h('div', { class: 'gt-row gt-head' }, h('div', { class: 'gt-label' }, 'Кто / что'),
+  const head = h('div', { class: 'gt-row gt-head' }, h('div', { class: 'gt-label' }, rowsTitle || 'Строки'),
     track(h('div', { class: 'gt-track gt-head-track' },
       h('div', { class: 'gt-months' }, ...months.map((x) => h('i', { class: 'gt-mo', style: { left: xOf(x.from) + 'px', width: (x.to - x.from) * px + 'px' } }, (x.to - x.from) * px > 70 ? MONTHS[x.m] + ' ' + x.y : MONTHS[x.m].slice(0, 3)))),
       h('div', { class: 'gt-nums' }, ...nums))));
@@ -101,7 +101,7 @@ export function planner({ rows = [], bars = [], load = {}, from, to, scale = 'we
     const node = h('button', { type: 'button', class: cls, 'data-bar': String(b.id), 'data-wt': b.wt == null ? null : String(b.wt),
       title: [b.title, b.sub, `${dmy(s)} — ${dmy(e)}`, b.hint, canEdit ? 'Потяните, чтобы переставить' : ''].filter(Boolean).join('\n'),
       'aria-label': `${b.title}, ${dmy(s)} — ${dmy(e)}${st === 'done' ? ', сделано' : b.overdue ? ', просрочено' : ''}. Открыть` },
-      h('span', { class: 'gt-bt' }, (st === 'done' ? '✓ ' : '') + b.title), b.sub ? h('small', { class: 'k-pl-sub' }, b.sub) : null);
+      h('span', { class: 'gt-bt' }, (st === 'done' ? '✓ ' : '') + b.title), b.sub && len * px >= 120 ? h('small', { class: 'k-pl-sub' }, b.sub) : null); // узкая полоса — одна строка, подробности в подсказке
     node.style.left = xOf(s) + 'px'; node.style.width = Math.max(coarse ? 44 : 10, len * px - 2) + 'px'; node.style.top = 4 + lane * LANE + 'px';
     if (hl) node.classList.toggle('hl-on', String(b.wt) === hl);
     let moved = false;
@@ -189,7 +189,7 @@ export function planner({ rows = [], bars = [], load = {}, from, to, scale = 'we
       const bar = h('div', { class: 'gt-bar sum k-pl-sum lv' + Math.min(depth, 2) + (sum.over ? ' over' : ''), title: `${r.label}: ${dmy(sum.s)} — ${dmy(sum.e)} · шагов: ${sum.n}` });
       bar.style.left = xOf(sum.s) + 'px'; bar.style.width = Math.max(6, (sum.e - sum.s + 1) * px - 2) + 'px'; tr.append(bar);
       diamond(sum.dl, sum.dl != null && (sum.e > sum.dl || sum.over), tr, seen);
-    } else for (const it of own) { tr.append(barNode(it, rowEl)); diamond(it.dl, it.over || (it.dl != null && it.e > it.dl), tr, seen); }
+    } else for (const it of own) { tr.append(barNode(it, rowEl)); if (!r.parentId) diamond(it.dl, it.over || (it.dl != null && it.e > it.dl), tr, seen); } // в дереве срок — ромбом только на строке-узле (не дублировать)
     return rowEl;
   }
 
@@ -223,7 +223,7 @@ export function planner({ rows = [], bars = [], load = {}, from, to, scale = 'we
   });
   const toToday = () => { if (today >= min && today < max) scrollToToday(true); else onToday?.(); };
   const paintBar = () => {
-    const bar = plannerBar({ scale, onScale, onShift, onToday: toToday, tree: tree.hasKids, onAll: setAll, legend, hl, onHl: (id) => { hl = id; paintBar(); applyHl(); } });
+    const bar = plannerBar({ lead, scale, onScale, onShift, onToday: toToday, tree: tree.hasKids, onAll: setAll, legend, hl, onHl: (id) => { hl = id; paintBar(); applyHl(); } });
     wrap.replaceChildren(...[bar, rows.length && canEdit && coarse ? h('p', { class: 'k-pl-hint' }, 'Удерживайте полосу, чтобы переставить.') : null, rows.length ? scroller : empty || null].filter(Boolean));
   };
   function applyHl() {

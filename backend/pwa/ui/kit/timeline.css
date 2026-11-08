@@ -75,19 +75,19 @@ button.gt-label:hover { background: var(--row-hover); }
 .k-pl-label { padding-left: calc(var(--s2) + var(--gt-d, 0) * var(--s3)); }
 .k-pl-label.k-pl-leaf { padding-left: calc(var(--s2) + var(--gt-d, 0) * var(--s3) + var(--s5)); }
 .k-pl-lt { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-.k-pl-lt b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.k-pl-lt b { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; line-height: 1.2; } /* название позиции — до 2 строк, не обрезать на первом слове */
 .k-pl-chev { flex: none; width: 8px; height: 8px; margin: 0 var(--s1); border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); transition: transform .12s; }
 .k-pl-node[aria-expanded='true'] .k-pl-chev { transform: rotate(45deg); }
 .wt-1 { --wt: var(--wt-1); } .wt-2 { --wt: var(--wt-2); } .wt-3 { --wt: var(--wt-3); } .wt-4 { --wt: var(--wt-4); } .wt-5 { --wt: var(--wt-5); } .wt-6 { --wt: var(--wt-6); } .wt-7 { --wt: var(--wt-7); }
 .k-pl-bar.hue { background: var(--wt); border-color: var(--wt); color: var(--on-wt); }
 .k-pl-bar.st-work { font-weight: 600; }
-.k-pl-bar.st-plan { border-width: 2px; border-style: dashed; }
-.k-pl-bar.hue.st-plan { border-color: var(--on-wt); }
-.k-pl-bar.st-done { opacity: .55; }
+.k-pl-bar.st-plan { opacity: .62; } /* ждёт — тот же цвет вида работ, приглушённо (пунктир налезал на текст) */
+.k-pl-bar.st-work { box-shadow: inset 3px 0 0 var(--on-wt, var(--text)); } /* идёт — метка слева */
+.k-pl-bar.st-done, .k-pl-bar.hue.st-done { background: var(--surface-3); border-color: var(--border-strong); color: var(--text-2, var(--muted)); } /* сделано — серая с ✓, читается */
 .k-pl-bar.late { outline: 2px solid var(--danger); outline-offset: 1px; }
 .k-pl-bar.late:focus-visible { outline-color: var(--gold); }
 .k-planner.hl .k-pl-bar:not(.hl-on) { opacity: .3; }
-.gt-bar.k-pl-sum { background: var(--muted); }
+.gt-bar.k-pl-sum { background: var(--muted); top: 15px; height: 14px; border-radius: var(--radius-sm); } /* сводная полоса узла — заметнее */
 .gt-bar.k-pl-sum.lv1 { opacity: .7; }
 .gt-bar.k-pl-sum.lv2 { opacity: .5; }
 .gt-bar.k-pl-sum.over { background: var(--danger); }
@@ -103,3 +103,4 @@ button.gt-label:hover { background: var(--row-hover); }
 
 /* Панель Ганта на касании (планшет, телефон): кнопки и масштабы не ниже 44 px (приёмка дизайнера C053) */
 @media (pointer: coarse) { .k-pl-tools .btn, .k-pl-tools .k-seg-btn { min-height: 44px; } }
+.k-pl-tools .k-seg { flex: none; } .k-pl-tools .k-seg-btn { flex: none; min-width: max-content; } /* «Уместить» не обрезается */
