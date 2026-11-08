@@ -15,7 +15,7 @@ export class SwitchController {
   @Get()
   @Roles('admin')
   @ApiOperation({ summary: 'Состояние переключения: кто главный, режим, работа, готовность второго сервера' })
-  @ApiResponse({ status: 200, description: '{ enabled, self:home|office, role:main|standby, mode:normal|readonly, job:{id,direction,step,state,startedAt,finishedAt?,error?}|null, peer:{name,version,copyAgeMin,healthy,checkedAt}, bridge:{alive}, blockers:[строки], canStart, canRefresh, canEmergency, speed:{home,office}:{p50,p95,requests,slow,probeMs} }; direction=refresh, пока идёт обновление запасного. canRefresh = главный + обычный режим + нет работы + мост жив (blockers не входят). Без HA_SELF — enabled:false и обзор соседа по HA_PEER_URL. speed не меняет переключение.' })
+  @ApiResponse({ status: 200, description: '{ enabled, self:home|office, version, autoRefresh:{enabled,minutes,lastAt}, role:main|standby, mode:normal|readonly, job:{id,direction,step,state,startedAt,finishedAt?,error?}|null, peer:{name,version,copyAgeMin,healthy,checkedAt}, bridge:{alive}, blockers:[строки], canStart, canRefresh, canEmergency, speed:{home,office}:{p50,p95,requests,slow,probeMs} }; version — сборка этого сервера (из pwa/version.json), версии соседа и своей сравниваются: разные — blockers и canStart=false (C042-A5); autoRefresh — авто-«Обновить» копии на главном (C042-A3). direction=refresh, пока идёт обновление запасного. canRefresh = главный + обычный режим + нет работы + мост жив (blockers не входят). Без HA_SELF — enabled:false и обзор соседа по HA_PEER_URL. speed не меняет переключение.' })
   
   status() {
     return this.service.status();

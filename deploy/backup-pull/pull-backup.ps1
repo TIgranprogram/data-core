@@ -65,14 +65,30 @@ try {
         $pack = "cd /var/lib/datacore/backups && tar -czf $remoteTmp mongo-$ts `$(test -d uploads-$ts && echo uploads-$ts) && echo PACKED"
         $out = (& ssh.exe @SshOpts $Target $pack) -join ""
         if ($out -notmatch "PACKED") { throw "pack failed on VM: $out" }
+        # A2 (C042): 6.11.2026 бэкап скачался обрезанным (Unexpected EOF) — теперь размер сверяется с файлом
+        # на VM, проверка архива, и до 3 попыток скачивания вместо одной. Битый .part не остаётся.
+        $remoteSizeText = (& ssh.exe @SshOpts $Target "stat -c %s $remoteTmp 2>/dev/null").Trim()
+        $remoteSize = 0
+        if ($remoteSizeText -match '^\d+$') { $remoteSize = [long]$remoteSizeText }
         $tmp = $file + ".part"
-        & scp.exe -q @SshOpts ("${Target}:" + $remoteTmp) $tmp
-        $scpExit = $LASTEXITCODE
+        $ok = $false
+        for ($try = 1; $try -le 3; $try++) {
+            if (Test-Path $tmp) { Remove-Item $tmp -Force }
+            & scp.exe -q @SshOpts ("${Target}:" + $remoteTmp) $tmp
+            $scpExit = $LASTEXITCODE
+            if ($scpExit -ne 0 -or -not (Test-Path $tmp)) { Log ("download attempt " + $try + ": scp failed (exit " + $scpExit + ")"); Start-Sleep -Seconds 5; continue }
+            $got = (Get-Item $tmp).Length
+            if ($remoteSize -gt 0 -and $got -ne $remoteSize) { Log ("download attempt " + $try + ": short file, got " + $got + " of " + $remoteSize + " bytes"); Start-Sleep -Seconds 5; continue }
+            & (Join-Path $env:SystemRoot "System32\tar.exe") -tzf $tmp | Out-Null
+            if ($LASTEXITCODE -ne 0) { Log ("download attempt " + $try + ": archive is corrupt"); Start-Sleep -Seconds 5; continue }
+            $ok = $true
+            break
+        }
         & ssh.exe @SshOpts $Target "rm -f $remoteTmp" | Out-Null
-        if ($scpExit -ne 0 -or -not (Test-Path $tmp)) { throw "scp failed (exit $scpExit)" }
-        # System tar: the Git Bash tar on PATH reads "D:" as a remote host.
-        & (Join-Path $env:SystemRoot "System32\tar.exe") -tzf $tmp | Out-Null
-        if ($LASTEXITCODE -ne 0) { Remove-Item $tmp -Force; throw "downloaded archive is corrupt" }
+        if (-not $ok) {
+            if (Test-Path $tmp) { Remove-Item $tmp -Force }
+            throw "download failed after 3 attempts: datacore-$ts.tgz (size " + $remoteSize + " bytes on VM)"
+        }
         Move-Item $tmp $file -Force
         $kb = [math]::Round((Get-Item $file).Length / 1KB)
         Log "downloaded datacore-$ts.tgz ($kb KB)"

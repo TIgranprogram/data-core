@@ -28,7 +28,22 @@ gzip -t "$TGZ" || { echo "СТОП: архив бэкапа повреждён: 
 echo "== Бэкап: $(basename "$TGZ")"
 
 echo "== Загрузка бэкапа"
-scp -q -i "$KEY" "$TGZ" "$HOST:/var/lib/datacore/backups/incoming.tgz"
+# A2 (C042): 6.11.2026 scp до Sportin оборвался (Unexpected EOF) и восстановление пошло с обрезанного архива.
+# Теперь: до 3 попыток, на каждой — сверка размера с исходником и gzip-проверка на Sportin; без целого файла дальше не идём.
+LOCAL_SIZE="$(wc -c < "$TGZ" | tr -d '[:space:]')"
+UPLOAD_OK=0
+for try in 1 2 3; do
+  echo "== Загрузка бэкапа (попытка $try из 3, $(basename "$TGZ"), $LOCAL_SIZE байт)"
+  if scp -q -i "$KEY" "$TGZ" "$HOST:/var/lib/datacore/backups/incoming.tgz"; then
+    REMOTE="$("${SSH[@]}" 'f=/var/lib/datacore/backups/incoming.tgz; s=$(stat -c %s "$f" 2>/dev/null || echo 0); if gzip -t "$f" 2>/dev/null; then echo "$s"; else echo "BAD:$s"; fi' || echo "нет-связи")"
+    if [[ "$REMOTE" == "$LOCAL_SIZE" ]]; then UPLOAD_OK=1; echo "   проверено: $REMOTE байт, архив целый"; break; fi
+    echo "   загрузка неполная или архив повреждён (на Sportin: $REMOTE, здесь: $LOCAL_SIZE)"
+  else
+    echo "   scp не удался"
+  fi
+  sleep 5
+done
+[[ $UPLOAD_OK == 1 ]] || { echo "СТОП: бэкап не загружен целиком за 3 попытки — восстановление не начато, данные не тронуты. Повторится в следующем обновлении."; exit 2; }
 
 if [[ $CODE == 1 ]]; then
   echo "== Загрузка кода $(git log --oneline -1 | cut -c1-60)"

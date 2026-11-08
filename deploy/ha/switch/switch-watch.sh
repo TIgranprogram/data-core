@@ -20,9 +20,9 @@
 # → readonly (дальше не более 10 минут) → дамп → передача → восстановление на втором (страховочный дамп с отметкой времени, хранится 3;
 # сосед сразу становится standby) → короткая досинхронизация фото → сверка записей и health → второй главный
 # → VPS (dc-switch, домен подтверждается `dc-switch status`) → цели копий вне дома выключаются здесь → этот standby+readonly.
-# kind=refresh (кнопка «Обновить», домен не трогаем): проверка без VPS → фото заранее → readonly → дамп →
-# восстановление (сосед сразу standby+normal, не readonly) → фото → код (rsync backend/deploy/compose, сборка на соседе)
-# → сверка, health, маркер last-refresh → этот сервер снова normal. VPS и смена роли главного не вызываются.
+# kind=refresh (кнопка «Обновить» и авто каждые 15 мин, домен не трогаем): проверка без VPS → фото заранее → readonly → дамп → снова normal →
+# восстановление (сосед сразу standby+normal, не readonly) → фото → код (rsync backend/deploy/compose, сборка на соседе —
+# только при другой версии) → сверка, health, маркер last-refresh. VPS и смена роли главного не вызываются.
 # Любая ошибка ДО подтверждённой смены домена: этот сервер снова пишет (mode=normal), домен не тронут, сосед снова standby.
 # Каждый цикл: если домен у соседа, а этот сервер всё ещё main (вернулся старый главный) — он сам становится standby/readonly.
 set -uo pipefail
@@ -165,7 +165,9 @@ STANDBY_NORMAL_SH="${STANDBY_NORMAL_SH%$'\n'}"
 RESTORE_SH="$CHECK_SH"$'\n'"$RESTORE_BODY"
 
 peer_health() { [[ "$(peer "$T_SSH" "curl -s -m 5 -o /dev/null -w '%{http_code}' $(printf '%q' "$PEER_API")/api/health/ready" 2>/dev/null)" == 200 ]]; }
-version_of() { sed -n 's/.*"version"[^"]*"\([^"]*\)".*/\1/p' | head -n 1 | head -c 60; }
+# Версия приложения соседа: /app/version.json {"v":"hash","n":612} → «v1.612» (как в меню приложения); без n — хеш сборки.
+# Нужна для C042-A5: backend не даёт переключиться, пока версии кода на серверах разные.
+version_of() { local s n; s="$(cat)"; n="$(sed -n 's/.*"n"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' <<<"$s" | head -n 1)"; if [[ -n "$n" ]]; then printf 'v1.%s' "$n"; else sed -n 's/.*"v"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' <<<"$s" | head -n 1 | head -c 60; fi; }
 # сосед снова запасной (и backend запущен) — после сорванного восстановления / отката
 peer_demote() {
   [[ -n "${HA_PEER_SSH:-}" ]] || return 0
@@ -370,22 +372,34 @@ do_refresh() {
   printf 'phase=restore\nkind=refresh\nid=%s\n' "$ID" > "$CURRENT"
   RESTORE_STARTED=1
   dump_local | peer "$(cap "$T_DUMP")" "cat > $(printf '%q' "$PEER_DATA")/switch/incoming.archive.gz" || fail dump "Не удалось снять и передать базу."
+  # Обновление идёт каждые 15 мин (C042-A3): запись на паузе только на время дампа (секунды), дальше главный снова пишет.
+  # Сверка ниже сравнивает с числом записей «до», снятым под паузой, — копия соответствует дампу.
+  report "$ID" dump running "" '"mode":"normal"' || fail dump "Не удалось вернуть запись на этом сервере."
+  READONLY_AT=0
 
   run_step restore
-  peer "$(cap "$T_RESTORE")" "$(peer_vars)DEMOTE_CMD=$(printf '%q' "$STANDBY_NORMAL_SH"); $RESTORE_SH" >>"$LOG" 2>&1 \
+  peer "$T_RESTORE" "$(peer_vars)DEMOTE_CMD=$(printf '%q' "$STANDBY_NORMAL_SH"); $RESTORE_SH" >>"$LOG" 2>&1 \
     || fail restore "Восстановление на втором сервере не удалось (страховочные копии — switch/before-switch-*.archive.gz на нём)."
 
   run_step photos
   sync_photos "$T_PHOTOS_RO" || fail photos "Не удалось досинхронизировать фото."
 
   run_step code
-  printf 'phase=code\nkind=refresh\nid=%s\n' "$ID" > "$CURRENT"
-  sync_code || fail code "Не удалось передать код на второй сервер."
-  peer "$(cap "$T_CODE")" "cd $(printf '%q' "$PEER_DC") && docker compose -f docker-compose.prod.yml build backend && docker compose -f docker-compose.prod.yml up -d --no-deps backend" >>"$LOG" 2>&1 \
-    || fail code "Не удалось собрать и запустить backend на втором сервере."
-  local i okh=0
-  for i in $(seq 1 40); do peer_health && { okh=1; break; }; sleep 3; done
-  [[ $okh == 1 ]] || fail code "Backend на втором сервере не поднялся после сборки."
+  # код и сборка — только когда версия на втором сервере другая (release.sh всегда меняет version.json)
+  local mine theirs
+  mine="$(version_of < "${DC_DIR}/backend/pwa/version.json" 2>/dev/null)"
+  theirs="$(peer "$T_SSH" "cat $(printf '%q' "$PEER_DC")/backend/pwa/version.json 2>/dev/null" 2>/dev/null | version_of)"
+  if [[ -n "$mine" && "$mine" == "$theirs" ]]; then
+    L "код на втором сервере тот же ($mine) — сборка не нужна"
+  else
+    printf 'phase=code\nkind=refresh\nid=%s\n' "$ID" > "$CURRENT"
+    sync_code || fail code "Не удалось передать код на второй сервер."
+    peer "$T_CODE" "cd $(printf '%q' "$PEER_DC") && docker compose -f docker-compose.prod.yml build backend && docker compose -f docker-compose.prod.yml up -d --no-deps backend" >>"$LOG" 2>&1 \
+      || fail code "Не удалось собрать и запустить backend на втором сервере."
+    local i okh=0
+    for i in $(seq 1 40); do peer_health && { okh=1; break; }; sleep 3; done
+    [[ $okh == 1 ]] || fail code "Backend на втором сервере не поднялся после сборки."
+  fi
 
   run_step verify
   local after; after="$(counts_peer)" || fail verify "Не удалось посчитать записи на втором сервере."

@@ -1,4 +1,4 @@
-import { blockedWhenReadOnly, canRefreshNow, copyAgeMin, isSwitchPath, parseSelf, readinessBlockers, routePath, secretMatches, staleReason, type SwitchJob } from './switch.rules';
+import { autoRefreshDue, blockedWhenReadOnly, canRefreshNow, copyAgeMin, isSwitchPath, parseSelf, readinessBlockers, routePath, secretMatches, staleReason, versionLabel, versionsConflict, type SwitchJob } from './switch.rules';
 
 const job = (over: Partial<SwitchJob> = {}): SwitchJob => ({ id: 'a', direction: 'home->office', step: 'dump', state: 'running', startedAt: new Date(0).toISOString(), ...over });
 
@@ -63,6 +63,41 @@ describe('переключение: правила', () => {
     expect(copyAgeMin('2026-10-31T11:30:00Z', now)).toBe(30);
     expect(copyAgeMin(undefined, now)).toBeNull();
     expect(copyAgeMin('мусор', now)).toBeNull();
+  });
+});
+
+describe('C042: версии кода и автообновление копии (A3, A5)', () => {
+  it('подпись версии: из version.json — «v1.N», без номера — хеш, мусор — null', () => {
+    expect(versionLabel({ v: 'abc1234', n: 612 })).toBe('v1.612');
+    expect(versionLabel({ v: 'abc1234' })).toBe('abc1234');
+    expect(versionLabel({})).toBeNull();
+    expect(versionLabel(null)).toBeNull();
+    expect(versionLabel('v1.1')).toBeNull();
+  });
+
+  it('версии разные — переключать нельзя; неизвестная версия сравнению не мешает', () => {
+    expect(versionsConflict('v1.612', 'v1.611')).toBe(true);
+    expect(versionsConflict('v1.612', 'v1.612')).toBe(false);
+    expect(versionsConflict('v1.612', null)).toBe(false);
+    expect(versionsConflict(null, null)).toBe(false);
+    const ok = { self: 'home' as const, peerUrlSet: true, peerHealthy: true, copyAgeMin: 10, bridgeAlive: true };
+    expect(readinessBlockers({ ...ok, selfVersion: 'v1.612', peerVersion: 'v1.611' }).join(' ')).toMatch(/Версии кода/);
+    expect(readinessBlockers({ ...ok, selfVersion: 'v1.612', peerVersion: 'v1.612' })).toEqual([]);
+  });
+
+  it('автообновление: только главный, обычный режим, без работы, мост жив, копия старая', () => {
+    const base = { role: 'main' as const, mode: 'normal' as const, busy: false, bridgeAlive: true, peerHealthy: true, copyAgeMin: 20, lastAutoAt: 0, now: Date.parse('2026-11-08T10:00:00Z'), minutes: 15 };
+    expect(autoRefreshDue(base).due).toBe(true);
+    expect(autoRefreshDue({ ...base, copyAgeMin: 5 }).due).toBe(false);
+    expect(autoRefreshDue({ ...base, copyAgeMin: null }).due).toBe(true); // копия неизвестна — обновляем
+    expect(autoRefreshDue({ ...base, role: 'standby' }).due).toBe(false);
+    expect(autoRefreshDue({ ...base, mode: 'readonly' }).due).toBe(false);
+    expect(autoRefreshDue({ ...base, busy: true }).due).toBe(false);
+    expect(autoRefreshDue({ ...base, bridgeAlive: false }).due).toBe(false);
+    expect(autoRefreshDue({ ...base, peerHealthy: null }).due).toBe(false);
+    expect(autoRefreshDue({ ...base, minutes: 0 }).due).toBe(false);
+    expect(autoRefreshDue({ ...base, lastAutoAt: base.now - 5 * 60_000 }).due).toBe(false); // только что ставили
+    expect(autoRefreshDue({ ...base, lastAutoAt: base.now - 16 * 60_000 }).due).toBe(true);
   });
 });
 

@@ -81,7 +81,7 @@
       const rows = el('dl', 'sw-kv');
       const row = (k, v, cls) => { rows.append(el('dt', '', k), el('dd', cls || '', v)); };
       if (mine) {
-        row('Работает', d.mode === 'readonly' ? 'Запись на паузе' : 'Да, в обычном режиме', d.mode === 'readonly' ? 'warn' : 'ok');
+        row('Работает', d.mode === 'readonly' ? 'Запись на паузе' : 'Да, в обычном режиме', d.mode === 'readonly' ? 'warn' : 'ok'); row('Версия', d.version || 'нет данных');
       } else {
         const p = d.peer || {};
         row('Работает', p.healthy ? 'Да' : 'Не отвечает', p.healthy ? 'ok' : 'bad');
@@ -364,7 +364,7 @@
       if (d.mode === 'readonly' && !running(d.job)) parts.push(el('p', 'cc-note warn', 'Этот сервер сейчас в режиме «только чтение»: запись на паузе.'));
       if (d.job) parts.push(progress(d.job));
       if (!running(d.job) && d.blockers && d.blockers.length) parts.push(reasons(d.blockers));
-      if (d.bridge && !d.bridge.alive) parts.push(el('p', 'cc-note warn', 'Служебный мост на сервере не отвечает: переключение недоступно, пока его не запустят.'));
+      if (d.bridge && !d.bridge.alive) parts.push(el('p', 'cc-note warn', 'Служебный мост на сервере не отвечает: переключение недоступно, пока его не запустят.')); if (d.autoRefresh && d.autoRefresh.enabled) parts.push(el('p', 'muted', 'Копия у запасного обновляется сама каждые ' + d.autoRefresh.minutes + ' мин — домашний ПК для этого не нужен.'));
       if (d.canEmergency) {
         const z = el('div', 'sw-danger');
         z.append(el('h3', '', 'Главный сервер не отвечает?'), el('p', 'muted', 'Можно включить этот сервер как главный. Данные будут на момент последнего бэкапа.'));

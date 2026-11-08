@@ -1,5 +1,7 @@
-# Daily refresh of the Sportin copy. Run once on the home PC:
+# Fallback for the Sportin copy refresh. Run once on the home PC:
 #   powershell -ExecutionPolicy Bypass -File SRV-ERP\register-refresh-task.ps1
+# C042-A3 (2026-11): the main server now refreshes the standby itself every 15 min (HA_AUTO_REFRESH_MIN),
+# the home PC is NOT needed; keep this task only as a spare path (it is harmless: refresh-copy.sh checks role/state).
 # Runs at 11:00, after "DataCore backup pull" (10:00). PC off: runs at next start.
 # Updates database and new photos only. Code: refresh-copy.sh --code.
 # ASCII only: Windows PowerShell 5.1 misreads UTF-8 without BOM.

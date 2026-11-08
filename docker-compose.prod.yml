@@ -161,6 +161,8 @@ services:
       # home|office — включает кнопку «Переключить сейчас» (HA-TWO-SERVERS); пусто — механизма нет, 404 и без проверок
       HA_SELF: "${HA_SELF:-}"
       HA_PEER_URL: "${HA_PEER_URL:-}"   # адрес второго сервера для экрана «Серверы» (обзор без включения переключения)
+      # C042-A3: главный сам обновляет копию у запасного каждые N минут (0 — выключено; домашний ПК больше не нужен)
+      HA_AUTO_REFRESH_MIN: "${HA_AUTO_REFRESH_MIN:-15}"
     volumes:
       - ${DATA_DIR}/uploads:/app/uploads
       - ./secrets:/app/secrets:ro   # ключ сервисного аккаунта Google (google-sa.json) — чтение Google-таблиц

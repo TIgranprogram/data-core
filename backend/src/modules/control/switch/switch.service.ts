@@ -7,7 +7,7 @@ import path from 'path';
 import { latency } from '../../../common/interceptors/latency-histogram';
 import type { SwitchReportDto } from './switch.dto';
 import {
-  CACHE_MS, COL_STATE, STATE_ID, canRefreshNow, copyAgeMin, readinessBlockers, defaultRole, jobBusy, parseSelf, peerOf, secretMatches, staleReason,
+  AUTO_REFRESH_MIN, CACHE_MS, COL_STATE, STATE_ID, autoRefreshDue, canRefreshNow, copyAgeMin, readinessBlockers, defaultRole, jobBusy, parseSelf, peerOf, secretMatches, staleReason, versionLabel, versionsConflict,
   type SwitchDoc, type SwitchJob, type SwitchMode, type SwitchRole, type SwitchSelf,
 } from './switch.rules';
 
@@ -29,6 +29,11 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
   private readonly log = new Logger(SwitchService.name);
   private cache: { mode: SwitchMode; role: SwitchRole } = { mode: 'normal', role: 'main' };
   private timer?: NodeJS.Timeout;
+  private autoTimer?: NodeJS.Timeout;
+  private autoKick?: NodeJS.Timeout;
+  /** Когда сами ставили автообновление копии (C042-A3); 0 — не ставили. */
+  private autoAt = 0;
+  private verCache: { at: number; label: string | null } | null = null;
   private speedAt = 0;
   private speedPeer: { ms: number; speed: PeerSpeed | null } | null = null;
 
@@ -47,8 +52,13 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
     try { await this.refresh(); } catch (e) { this.log.warn(`режим переключения: ${(e as Error).message}`); }
     this.timer = setInterval(() => void this.refresh().catch(() => undefined), CACHE_MS);
     this.timer.unref();
+    // C042-A3: главный сам обновляет копию у запасного, пока ПК дома выключен
+    this.autoTimer = setInterval(() => void this.autoRefresh().catch(() => undefined), 60_000);
+    this.autoTimer.unref();
+    this.autoKick = setTimeout(() => void this.autoRefresh().catch(() => undefined), 30_000);
+    this.autoKick.unref();
   }
-  onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
+  onModuleDestroy() { if (this.timer) clearInterval(this.timer); if (this.autoTimer) clearInterval(this.autoTimer); if (this.autoKick) clearTimeout(this.autoKick); }
 
   assertEnabled(): SwitchSelf {
     const s = this.self;
@@ -99,6 +109,52 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
     } catch { return null; }
   }
 
+  /**
+   * Версия сборки этого сервера (C042-A5) — из `backend/pwa/version.json`, который пишет release.sh
+   * (папка смонтирована в /app/pwa, поэтому версия видна без перезапуска). Нет файла — APP_VERSION из env.
+   */
+  async appVersion(): Promise<string | null> {
+    const file = process.env.PWA_VERSION_FILE || '/app/pwa/version.json';
+    try {
+      const st = await fs.stat(file);
+      if (!this.verCache || this.verCache.at !== st.mtimeMs) this.verCache = { at: st.mtimeMs, label: versionLabel(JSON.parse(await fs.readFile(file, 'utf8'))) };
+      return this.verCache.label ?? (process.env.APP_VERSION?.trim() || null);
+    } catch { return process.env.APP_VERSION?.trim() || null; }
+  }
+
+  /** Минуты между автообновлениями копии (C042-A3): HA_AUTO_REFRESH_MIN, по умолчанию 15, 0 — выключено. */
+  private autoMinutes(): number {
+    const v = Number(process.env.HA_AUTO_REFRESH_MIN);
+    return process.env.HA_AUTO_REFRESH_MIN !== undefined && Number.isFinite(v) && v >= 0 ? v : AUTO_REFRESH_MIN;
+  }
+
+  /**
+   * C042-A3: главный сам ставит обновление копии, если она старше N минут, сервер в обычном режиме,
+   * работы нет и мост жив. Ошибка не валит сервер — только запись в журнал (следующая попытка через N минут).
+   */
+  async autoRefresh(): Promise<{ queued: boolean; reason: string }> {
+    if (!this.enabled) return { queued: false, reason: 'переключение не включено' };
+    const doc = await this.refresh();
+    if (!doc) return { queued: false, reason: 'нет состояния' };
+    const due = autoRefreshDue({
+      role: doc.role, mode: doc.mode, busy: jobBusy(doc.job), bridgeAlive: await this.bridgeAlive(),
+      peerHealthy: doc.peerHealthy ?? null, copyAgeMin: copyAgeMin(doc.peerCopyAt, Date.now()),
+      lastAutoAt: this.autoAt, now: Date.now(), minutes: this.autoMinutes(),
+    });
+    if (!due.due) return { queued: false, reason: due.reason };
+    try {
+      await this.refreshPeer();
+      this.autoAt = Date.now();
+      this.log.log(`автообновление копии: заявка поставлена (${due.reason})`);
+      return { queued: true, reason: due.reason };
+    } catch (e) {
+      this.autoAt = Date.now(); // не долбим каждую минуту, если не вышло
+      const msg = e instanceof Error ? e.message : String(e);
+      this.log.warn(`автообновление копии не поставлено: ${msg}`);
+      return { queued: false, reason: msg };
+    }
+  }
+
   /** Публичная короткая справка для соседа: без данных, только роль, версия и возраст копии. */
   async ping() {
     const self = this.self;
@@ -106,7 +162,7 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
     if (self) { try { role = (await this.refresh())?.role ?? null; } catch { role = null; } }
     const snap = latency.snapshot();
     return {
-      self, role, version: process.env.APP_VERSION?.trim() || null, copyAt: await this.lastRefresh(),
+      self, role, version: await this.appVersion(), copyAt: await this.lastRefresh(),
       speed: { p50: snap.p50, p95: snap.p95, requests: snap.requests, slow: snap.slow },
     };
   }
@@ -171,7 +227,7 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
 
   /** Переключение не включено: всё равно показываем оба сервера и что мешает включить. */
   private async overview() {
-    const [peer, alive, ownCopy] = await Promise.all([this.probePeer(), this.bridgeAlive(), this.lastRefresh()]);
+    const [peer, alive, ownCopy, version] = await Promise.all([this.probePeer(), this.bridgeAlive(), this.lastRefresh(), this.appVersion()]);
     // копия у того, кто запасной: у соседа, а если этот сервер сам обновляется из бэкапа — у себя
     const copyAt = ownCopy ?? peer?.copyAt ?? undefined;
     const age = copyAgeMin(copyAt ?? undefined, Date.now());
@@ -180,7 +236,7 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
       enabled: false,
       self: null,
       selfIsCopy: !!ownCopy,
-      version: process.env.APP_VERSION?.trim() || null,
+      version,
       peer: {
         configured: !!peer,
         healthy: peer ? peer.healthy : null,
@@ -202,27 +258,29 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
     const self = this.self;
     if (!self) return this.overview();
     const doc = (await this.refresh())!;
-    const alive = await this.bridgeAlive();
+    const [alive, version, peerSpeed] = await Promise.all([this.bridgeAlive(), this.appVersion(), this.peerSpeedCached()]);
     const busy = jobBusy(doc.job);
     const age = copyAgeMin(doc.peerCopyAt, Date.now());
-    const blockers = readinessBlockers({ self, peerUrlSet: true, peerHealthy: doc.peerHealthy ?? null, copyAgeMin: age, bridgeAlive: alive });
-    const peerSpeed = await this.peerSpeedCached();
+    const peerVersion = doc.peerVersion ?? null;
+    const blockers = readinessBlockers({ self, peerUrlSet: true, peerHealthy: doc.peerHealthy ?? null, copyAgeMin: age, bridgeAlive: alive, selfVersion: version, peerVersion });
     return {
       blockers,
       enabled: true,
       self,
+      version,
+      autoRefresh: { enabled: this.autoMinutes() > 0, minutes: this.autoMinutes(), lastAt: this.autoAt ? new Date(this.autoAt).toISOString() : null },
       role: doc.role,
       mode: doc.mode,
       job: doc.job ?? null,
       peer: {
         name: peerOf(self),
-        version: doc.peerVersion ?? null,
+        version: peerVersion,
         copyAgeMin: age,
         healthy: doc.peerHealthy ?? null,
         checkedAt: doc.peerCheckedAt ?? null,
       },
       bridge: { alive },
-      canStart: doc.role === 'main' && doc.mode === 'normal' && !busy && alive,
+      canStart: doc.role === 'main' && doc.mode === 'normal' && !busy && alive && !versionsConflict(version, peerVersion),
       canRefresh: canRefreshNow(doc.role, doc.mode, busy, alive),
       canEmergency: doc.role === 'standby' && !busy && alive,
       speed: this.speedSides(self, peerSpeed),

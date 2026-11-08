@@ -6,7 +6,7 @@
 
 | Файл | Что |
 |--|--|
-| `pull-backup.ps1` | Выгрузка последнего бэкапа (SSH-доступ к VM — из gitignored `deploy/synology/config.env`). Запуск вручную: `powershell -File deploy\backup-pull\pull-backup.ps1` |
+| `pull-backup.ps1` | Выгрузка последнего бэкапа (SSH-доступ к VM — из gitignored `deploy/synology/config.env`). Запуск вручную: `powershell -File deploy\backup-pull\pull-backup.ps1`. C042-A2: размер сверяется с файлом на VM, архив проверяется `tar -tzf`, при обрыве — до 3 попыток; битый `.part` не остаётся. |
 | `register-task.ps1` | Создать/обновить задачу в Планировщике (повторный запуск безопасен) |
 
 `D:\` обычно переживает переустановку Windows (стирается `C:`). Для полной надёжности раз в месяц копируйте свежий `.tgz` на флешку или в облако — файл маленький.

@@ -121,6 +121,53 @@ export const isOverviewPath = (method: string, path: string) =>
 
 /** Копия на втором сервере старше суток с запасом — переключать на неё рано. */
 export const COPY_MAX_AGE_MIN = 26 * 60;
+/** Как часто главный сам обновляет копию у запасного (C042-A3); 0 — автообновление выключено. */
+export const AUTO_REFRESH_MIN = 15;
+
+/**
+ * Подпись версии сборки для сравнения серверов (C042-A5): из `backend/pwa/version.json` `{v:"hash",n:число}`
+ * → «v1.N» (как в меню приложения); нет n — хеш сборки. Нет файла/мусор — null.
+ */
+export function versionLabel(json: unknown): string | null {
+  if (!json || typeof json !== 'object') return null;
+  const o = json as Record<string, unknown>;
+  if (typeof o.n === 'number' && Number.isFinite(o.n)) return `v1.${Math.trunc(o.n)}`;
+  if (typeof o.v === 'string' && o.v.trim()) return o.v.trim();
+  return null;
+}
+
+/** Версии кода на серверах разошлись (сравниваем, только когда обе известны). */
+export const versionsConflict = (self: string | null | undefined, peer: string | null | undefined): boolean =>
+  !!self && !!peer && self !== peer;
+
+export interface AutoRefreshInput {
+  role: SwitchRole;
+  mode: SwitchMode;
+  busy: boolean;
+  bridgeAlive: boolean;
+  peerHealthy: boolean | null;
+  /** Возраст копии на запасном, минут; null — неизвестен (обновлять нужно). */
+  copyAgeMin: number | null;
+  /** Когда последний раз сами ставили авто-обновление (мс); 0 — не ставили. */
+  lastAutoAt: number;
+  now: number;
+  /** Минуты между обновлениями; 0 — выключено. */
+  minutes?: number;
+}
+
+/** Пора ли главному самому обновить копию у запасного (C042-A3): только главный, обычный режим, нет работы, мост жив. */
+export function autoRefreshDue(i: AutoRefreshInput): { due: boolean; reason: string } {
+  const min = i.minutes ?? AUTO_REFRESH_MIN;
+  if (!(min > 0)) return { due: false, reason: 'автообновление выключено' };
+  if (i.role !== 'main') return { due: false, reason: 'этот сервер запасной' };
+  if (i.mode !== 'normal') return { due: false, reason: 'режим «только чтение»' };
+  if (i.busy) return { due: false, reason: 'идёт работа переключения' };
+  if (!i.bridgeAlive) return { due: false, reason: 'мост переключения не запущен' };
+  if (i.peerHealthy !== true) return { due: false, reason: 'второй сервер не отвечает' };
+  if (i.lastAutoAt && i.now - i.lastAutoAt < min * 60_000) return { due: false, reason: 'рано: прошлое автообновление недавно' };
+  if (i.copyAgeMin !== null && i.copyAgeMin < min) return { due: false, reason: 'копия свежая' };
+  return { due: true, reason: i.copyAgeMin === null ? 'копия неизвестна — обновляем' : `копия ${Math.round(i.copyAgeMin)} мин` };
+}
 
 export interface ReadinessInput {
   self: SwitchSelf | null;
@@ -128,6 +175,9 @@ export interface ReadinessInput {
   peerHealthy: boolean | null;
   copyAgeMin: number | null;
   bridgeAlive: boolean;
+  /** Версии кода (C042-A5): обе известны и разные — переключать нельзя. */
+  selfVersion?: string | null;
+  peerVersion?: string | null;
 }
 
 /** Что мешает включить переключение — словами менеджера; пустой список — всё готово. */
@@ -136,6 +186,7 @@ export function readinessBlockers(i: ReadinessInput): string[] {
   if (!i.self) out.push('Этому серверу не задано, какой он: домашний или офисный.');
   if (!i.peerUrlSet) out.push('Не задан адрес второго сервера: его состояние не проверить.');
   else if (i.peerHealthy === false) out.push('Второй сервер не отвечает.');
+  if (versionsConflict(i.selfVersion, i.peerVersion)) out.push(`Версии кода на серверах разные: здесь ${i.selfVersion}, на запасном ${i.peerVersion}. Нажмите «Обновить» — запасной получит код и данные.`);
   if (i.copyAgeMin === null) out.push('Неизвестно, когда второй сервер получил копию данных.');
   else if (i.copyAgeMin > COPY_MAX_AGE_MIN) out.push('Копия данных на втором сервере старше суток.');
   if (!i.bridgeAlive) out.push('Служебный мост переключения на этом сервере не запущен.');
