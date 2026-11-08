@@ -23,3 +23,15 @@ export function crumbTrail(parts) {
     offTail?.(); offTail = null;
   });
 }
+
+/** Этап договора цветом вкладки (вместо полосы этапов, 2026-11-08): пройдено — зелёная, идёт сейчас — жёлтая, впереди — без цвета. */
+const TAB_FLOW = ['design', 'work', 'stock', 'ship', 'pass'];
+const TAB_NOW = { new: 'design', production: 'work', ready: 'stock', partly: 'ship', shipped: 'pass', closed: '' };
+export function tabTone(o, key) {
+  const i = TAB_FLOW.indexOf(key);
+  if (i < 0 || !(o.stage in TAB_NOW)) return {};
+  const now = TAB_NOW[o.stage] ? TAB_FLOW.indexOf(TAB_NOW[o.stage]) : TAB_FLOW.length;
+  if (i < now) return { tone: 'ok', title: 'Этап пройден' };
+  if (i === now) return { tone: 'warn', title: 'Этап сейчас: ' + (STAGE[o.stage]?.label || '') };
+  return {};
+}

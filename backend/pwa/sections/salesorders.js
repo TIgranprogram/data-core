@@ -1,6 +1,6 @@
-import { STAGE, crumbTrail } from './order-stage.js';
+import { STAGE, crumbTrail, tabTone } from './order-stage.js';
 import { nextStep, orderCounts } from './salesorders-next.js';
-import { stageBar, orderHead } from './order-head.js';
+import { stageBar } from './order-head.js';
 import { openPopMenu, closePopMenu, isOpenFor } from '../ui/kit/pop-menu.js';
 import { sideForm, openSide, sideNote } from '../ui/kit/side-form.js';
 import { api, session, writeHooks } from '../core/api.js';
@@ -323,7 +323,7 @@ function contractGroup(o, reload) {
     head: { title: 'Договор ' + (o.orderNo || '—') + (o.customer ? ' · ' + o.customer : ''),
       badges: [badge(STAGE, o.stage), due(o), countBadge(countOf(o))].filter(Boolean),
       menu: acts.length ? actions(...acts) : null },
-    tabs: { label: 'Разделы договора', items: defs.map(([key, label]) => ({ key, label })), value: defs[0][0],
+    tabs: { label: 'Разделы договора', fill: true, items: defs.map(([key, label]) => ({ key, label, ...tabTone(o, key) })), value: defs[0][0],
       panes: Object.fromEntries(defs.map(([key, , , make]) => [key, () => make() || h('p', { class: 'muted' }, 'Здесь пока ничего нет.')])) } });
   const show = (k) => { if (k) root.querySelector(`.chip[data-key="${k}"]`)?.click(); };
   const onTab = (ev) => {
@@ -500,9 +500,10 @@ export const salesorders = {
     heading,
     noHistory: true,
     subheading: (r) => [names(r.customers), names(r.companyNames)].filter(Boolean).join(' · '),
-    ...orderHead(openStep), // значки шапки (kit headStats) + полоса этапов (kit stageBar)
+    actionsInHead: true, zones: { extra: 'wide', fields: 'wide' }, // 2026-11-08: шапка без полосы этапов и «дог./поз.» (всё в сведениях, этап — цветом вкладок договора), кнопки в шапке, сведения и позиции — на всю ширину
     view: (r) => [
-      ['Договоры', names(r.orderNos)],
+      ['Этап', badge(STAGE, r.stage)], ['Договоры', (r.orderNos || []).length ? `${qty(r.orderNos.length)} · № ${names(r.orderNos)}` : ''], ['Позиции', qty(r.lineCount)],
+      ['Сумма', session.canMoney && r.amount ? money(r.amount) : ''], ['Оплачено', session.canMoney && r.paidAmount ? money(r.paidAmount) : ''],
       ['Заказчик', (r.customers || []).length ? h('span', null, ...(r.customers || []).flatMap((c, i) => [i ? ', ' : '', customerLink(c)])) : ''],
       ['Наша компания', names(r.companyNames) || h('span', { class: 'muted' }, 'не указана')],
       ['Срок', r.deadline ? due(r) : ''],
@@ -537,7 +538,6 @@ export const salesorders = {
         orderPdfAction, orderZipAction,
       ];
     },
-    zones: { extra: 'wide' }, // УПР-3: позиции и договоры — широким блоком
     extra: (r, ctx) => details(r, ctx),
   },
 };
