@@ -10,6 +10,7 @@ import { WHOLE_PRODUCT } from '../../common/work-route-rows';
 import { DAY_HOURS, DAY_MS, dayOf, fromWorkday, isoDay, lastDay, loadByDay, scheduleSteps, workDays } from '../../common/work-schedule';
 import type { StepPatchDto } from './dto/order-line-plan.dto';
 import { WorkFactsService } from './work-facts.service';
+import { taskBars } from './task-bars';
 
 type Doc = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 export type BarStatus = 'plan' | 'work' | 'done';
@@ -169,6 +170,8 @@ export class WorkScheduleService {
     if (person) extra['steps.assigneeId'] = person;
     const scopePlans = incomeIds || person ? await this.livePlans(extra) : null;
     const scopeBars = await this.barsOf(scopePlans ?? await this.livePlans(), today);
+    // задания без плана позиции (запущены по маршруту, до C041) — тоже в Ганте, только просмотр (C053)
+    scopeBars.push(...(await taskBars(this.db(), { incomeIds, person, today, deadline: barDeadline, overdue: barOverdue, hueOf: workTypeHue })) as Array<Bar & { startAt: Date; endAt: Date }>);
     const scope = person ? scopeBars.filter((b) => b.assigneeId === String(person)) : scopeBars;
     const inRange = (b: { startAt: Date; endAt: Date }) => b.endAt >= from && b.startAt <= to;
     // загрузка людей считается по ВСЕМ их планам (не только выбранного заказа): тянем планы только тех, кто в выборке
