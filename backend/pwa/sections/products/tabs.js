@@ -30,7 +30,7 @@ export function productTabs(r) {
         ]),
         productFilesBlock(row, session.canEdit, 'passport'),
         session.seesDocs() ? passportsBlock(row) : null) },
-    { key: 'files', label: 'Файлы', blocks: (row) => inline(session.sees('products') ? productAttachmentsBlock(row) : null, productFilesBlock(row, session.canEdit, 'drawings')) },
+    { key: 'files', label: 'Файлы', blocks: (row) => inline(session.sees('products') ? productAttachmentsBlock(row) : h('p', { class: 'muted' }, 'Вложения изделия (чертежи, документы) открыты разделу «Продукция» — попросите доступ у администратора.'), productFilesBlock(row, session.canEdit, 'drawings')) },
     { key: 'orders', label: 'Заказы', count: (r.orderLines || []).length || undefined, when: () => session.sees('salesorders'), blocks: (row) => inOrders(row) },
   ];
 }

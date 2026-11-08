@@ -145,7 +145,7 @@ export function productAttachmentsBlock(r) {
     bodies.set(t.id, box);
     const node = section({ title: t.name, tone: 'who', count: files.filter((f) => f.typeId === t.id).length, body: [box,
       t.formats ? h('p', { class: 'hint' }, 'Форматы: ' + t.formats) : null,
-      canUpload() ? actions(fileButton({ label: 'Загрузить файл', onFile: (f) => sendAll(t.id, [f]) })) : null] });
+      canUpload() ? actions(fileButton({ label: 'Загрузить файлы', multiple: true, onFiles: (fs) => sendAll(t.id, fs) })) : null] });
     if (canUpload()) wireDrop(node, (l) => sendAll(t.id, l));
     paintType(t.id);
     return node;
