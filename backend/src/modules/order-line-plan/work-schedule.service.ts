@@ -1,8 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import { personWorkTypeIds } from '../../common/catalog/person-work-types';
+import { DataVersionService } from '../../common/data-version/data-version.service';
 import { oid } from '../../common/list-query';
 import type { PartRow, StepRow } from '../../common/work-route-rows';
 import { WHOLE_PRODUCT } from '../../common/work-route-rows';
@@ -21,10 +22,19 @@ export interface Bar {
   deadline: string | null; overdue: boolean;
   /** У позиции есть незакрытая задача проектирования — метка на строке Ганта. */
   inDesign: boolean;
+  /** Для дерева Ганта: заказ, название изделия (изделие позиции, иначе название позиции), часть изделия из каталога, оттенок вида работ 1..7. */
+  orderId: string | null; productName: string; partId: string | null; hue: number | null;
 }
 const MAX_RANGE_DAYS = 366;
 const idOf = (v: unknown) => (v ? String(v) : null);
 /** Часов в рабочем дне сотрудника: целое 1–24 из карточки, иначе 8. */
+/** Оттенок вида работ 1..7: из `accentHue` (0–359) справочника, иначе стабильный хэш id — один вид работ всегда одного цвета. */
+export const workTypeHue = (id: string, accentHue?: number | null): number => {
+  if (typeof accentHue === 'number' && accentHue >= 0 && accentHue < 360) return Math.floor((accentHue / 360) * 7) + 1;
+  let h = 0;
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return (h % 7) + 1;
+};
 export const personDayHours = (p: Doc) => { const n = Number(p.hoursPerDay); return Number.isInteger(n) && n >= 1 && n <= 24 ? n : DAY_HOURS; };
 
 /** Срок заказа для полосы Ганта: изготовление, иначе отгрузка (как у заданий «В работе»). */
@@ -39,25 +49,35 @@ export const barOverdue = (deadline: Date | null, today: Date, status: BarStatus
  */
 @Injectable()
 export class WorkScheduleService {
-  constructor(@InjectConnection() private readonly connection: Connection, private readonly facts: WorkFactsService) {}
+  constructor(@InjectConnection() private readonly connection: Connection, private readonly facts: WorkFactsService, @Optional() private readonly versions?: DataVersionService) {}
 
   private db() { return this.connection.db!; }
+
+  /** Виды работ (имя и цвет) — справочник редкий, на каждый запрос Ганта не читаем (кэш по версии коллекции). */
+  private workTypes(): Promise<Doc[]> {
+    const load = async () => (await this.db().collection('worktypes').find({ deletedAt: null }, { projection: { name: 1, accentHue: 1 } }).toArray()) as Doc[];
+    return this.versions ? this.versions.cached('work-schedule.worktypes', ['worktypes'], '', load) : load();
+  }
 
   /** Полосы всех планов (с позициями «жив») — в порядке плана, с названиями и статусом по заданию «В работе». */
   private async barsOf(plans: Doc[], today: Date): Promise<Array<Bar & { startAt: Date; endAt: Date }>> {
     if (!plans.length) return [];
     const incomeIds = plans.map((p) => p.incomeId as Types.ObjectId);
-    const incomes = await this.db().collection('incomes').find({ _id: { $in: incomeIds }, deletedAt: null }, { projection: { orderNo: 1, title: 1, qty: 1, orderId: 1 } }).toArray();
+    const incomes = await this.db().collection('incomes').find({ _id: { $in: incomeIds }, deletedAt: null }, { projection: { orderNo: 1, title: 1, qty: 1, orderId: 1, productId: 1 } }).toArray();
     const orderIds = [...new Set(incomes.map((i) => i.orderId).filter(Boolean))] as Types.ObjectId[];
-    const [tasks, types, orders, designs] = await Promise.all([
+    const productIds = [...new Set(incomes.map((i) => i.productId).filter(Boolean).map(String))].map((x) => new Types.ObjectId(x));
+    const [tasks, types, orders, designs, products] = await Promise.all([
       this.db().collection('worktasks').find({ incomeId: { $in: incomeIds }, deletedAt: null, status: { $ne: 'cancelled' } }, { projection: { incomeId: 1, status: 1, stepIndex: 1, route: 1, createdAt: 1 } }).sort({ createdAt: 1 }).toArray(),
-      this.db().collection('worktypes').find({ deletedAt: null }, { projection: { name: 1 } }).toArray(),
+      this.workTypes(),
       orderIds.length ? this.db().collection('salesorders').find({ _id: { $in: orderIds } }, { projection: { productionDeadline: 1, shipDate: 1 } }).toArray() : Promise.resolve([] as Doc[]),
       this.db().collection('designtasks').find({ incomeId: { $in: incomeIds }, deletedAt: null, status: { $nin: ['done'] } }, { projection: { incomeId: 1 } }).toArray(),
+      productIds.length ? this.db().collection('products').find({ _id: { $in: productIds } }, { projection: { name: 1 } }).toArray() : Promise.resolve([] as Doc[]),
     ]);
+    const productName = new Map(products.map((p) => [String(p._id), String(p.name ?? '')]));
     const income = new Map(incomes.map((i) => [String(i._id), i as Doc]));
     const task = new Map(tasks.map((t) => [String(t.incomeId), t as Doc])); // последнее задание перекрывает прежние
     const typeName = new Map(types.map((t) => [String(t._id), String(t.name ?? '')]));
+    const hueOf = new Map(types.map((t) => [String(t._id), workTypeHue(String(t._id), t.accentHue as number | null | undefined)]));
     const deadlineOf = new Map(orders.map((o) => [String(o._id), barDeadline(o as Doc)]));
     const inDesign = new Set(designs.map((d) => String(d.incomeId))); // метка «в проектировании» на строке позиции
     const out: Array<Bar & { startAt: Date; endAt: Date }> = [];
@@ -65,7 +85,10 @@ export class WorkScheduleService {
       const inc = income.get(String(plan.incomeId));
       if (!inc) continue;
       const qty = Number(inc.qty) > 0 ? Number(inc.qty) : 1;
-      const partName = new Map(((plan.parts as PartRow[]) ?? []).map((p) => [String(p._id), p.name]));
+      const parts = (plan.parts as PartRow[]) ?? [];
+      const partName = new Map(parts.map((p) => [String(p._id), p.name]));
+      const partCatalog = new Map(parts.map((p) => [String(p._id), idOf(p.partId)]));
+      const prodName = (inc.productId && productName.get(String(inc.productId))) || String(inc.title ?? '');
       const steps = ((plan.steps as StepRow[]) ?? []).filter((s) => typeName.has(String(s.workTypeId)));
       const anchor = plan.launchedAt ? dayOf(new Date(plan.launchedAt)) : today;
       const sched = scheduleSteps(steps.map((s) => ({
@@ -89,6 +112,7 @@ export class WorkScheduleService {
           startedAt: s.startedAt ?? null, finishedAt: s.finishedAt ?? null, hoursPerUnit: s.hours ?? null, hours: Math.round(sched[i].hours * 100) / 100, status,
           deadline: dl ? isoDay(dl) : null, overdue: barOverdue(dl, today, status),
           inDesign: inDesign.has(String(plan.incomeId)),
+          orderId: idOf(inc.orderId), productName: prodName, partId: s.partRowId ? partCatalog.get(String(s.partRowId)) ?? null : null, hue: hueOf.get(String(s.workTypeId)) ?? null,
           startAt: sched[i].start, endAt: sched[i].end,
         });
       });
@@ -108,7 +132,7 @@ export class WorkScheduleService {
     // ни у кого ещё нет видов работ (только начали заполнять «Сотрудников») — показываем всех, а не пустой Гант
     const skilled = rows.filter((r) => personWorkTypeIds(r).length);
     return (skilled.length ? skilled : rows).slice(0, 500).map((r) => ({
-      id: String(r._id), name: [r.lastName, r.firstName].map((x) => String(x ?? '').trim()).filter(Boolean).join(' '), capacityHours: personDayHours(r),
+      id: String(r._id), name: [r.lastName, r.firstName].map((x) => String(x ?? '').trim()).filter(Boolean).join(' '), capacityHours: personDayHours(r), workTypeIds: personWorkTypeIds(r).map(String),
     }));
   }
 
@@ -127,25 +151,36 @@ export class WorkScheduleService {
     return { from: f, to: t, today };
   }
 
-  /** Гант: полосы за период (фильтры — человек, заказ, позиция) и загрузка людей по дням. Загрузка считается по всем планам. */
+  /** Гант: полосы за период (фильтры — человек, заказ, позиция) и загрузка людей по дням. Фильтры уходят в запрос к БД. */
   async schedule(q: { from?: string; to?: string; personId?: string; orderId?: string; incomeId?: string }) {
     const { from, to, today } = this.range(q.from, q.to);
-    const all = await this.barsOf(await this.livePlans(), today);
-    let scope = all;
+    const person = q.personId ? oid(q.personId, 'сотрудника') : null;
+    const extra: Doc = {};
+    let incomeIds: Types.ObjectId[] | null = null; // позиции заказа и/или одна позиция
     if (q.orderId) {
       const inc = await this.db().collection('incomes').find({ orderId: oid(q.orderId, 'заказа'), deletedAt: null }, { projection: { _id: 1 } }).toArray();
-      const ids = new Set(inc.map((i) => String(i._id)));
-      scope = scope.filter((b) => ids.has(b.incomeId));
+      incomeIds = inc.map((i) => i._id as Types.ObjectId);
     }
-    if (q.incomeId) scope = scope.filter((b) => b.incomeId === String(oid(q.incomeId, 'позиции')));
-    if (q.personId) scope = scope.filter((b) => b.assigneeId === String(oid(q.personId, 'сотрудника')));
+    if (q.incomeId) {
+      const one = oid(q.incomeId, 'позиции');
+      incomeIds = incomeIds ? incomeIds.filter((x) => String(x) === String(one)) : [one];
+    }
+    if (incomeIds) extra.incomeId = { $in: incomeIds };
+    if (person) extra['steps.assigneeId'] = person;
+    const scopePlans = incomeIds || person ? await this.livePlans(extra) : null;
+    const scopeBars = await this.barsOf(scopePlans ?? await this.livePlans(), today);
+    const scope = person ? scopeBars.filter((b) => b.assigneeId === String(person)) : scopeBars;
     const inRange = (b: { startAt: Date; endAt: Date }) => b.endAt >= from && b.startAt <= to;
-    const load = loadByDay(all.filter(inRange)).filter((l) => l.date >= isoDay(from) && l.date <= isoDay(to) && (!q.personId || l.personId === q.personId));
-    return {
-      people: await this.people(q.personId ? [q.personId] : undefined),
-      bars: scope.filter(inRange).map((b) => this.strip(b)),
-      load,
-    };
+    // загрузка людей считается по ВСЕМ их планам (не только выбранного заказа): тянем планы только тех, кто в выборке
+    const who = person ? [person] : [...new Set(scope.map((b) => b.assigneeId).filter(Boolean))].map((x) => new Types.ObjectId(x!));
+    const loadBars = !scopePlans || person ? scopeBars : who.length ? await this.barsOf(await this.livePlans({ 'steps.assigneeId': { $in: who } }), today) : [];
+    const load = loadByDay(loadBars.filter(inRange)).filter((l) => l.date >= isoDay(from) && l.date <= isoDay(to) && (!person || l.personId === String(person)));
+    const bars = scope.filter(inRange).map((b) => this.strip(b));
+    const types = await this.workTypes();
+    const used = new Set(bars.map((b) => b.workTypeId).filter(Boolean));
+    const legend = types.filter((t) => used.has(String(t._id))).map((t) => ({ workTypeId: String(t._id), name: String(t.name ?? ''), hue: workTypeHue(String(t._id), t.accentHue) }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+    return { people: await this.people(q.personId ? [q.personId] : undefined), bars, load, legend };
   }
 
   /** «Отметить начало / конец» шага: ставит `startedAt` / `finishedAt` (повтор — не перезаписывает), конец пишет факт-часы. */

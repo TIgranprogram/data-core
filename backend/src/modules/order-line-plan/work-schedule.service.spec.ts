@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
-import { WorkScheduleService, personDayHours, barDeadline, barOverdue } from './work-schedule.service';
+import { WorkScheduleService, personDayHours, barDeadline, barOverdue, workTypeHue } from './work-schedule.service';
 
 type Row = Record<string, any>;
 const same = (a: unknown, b: unknown) => String(a ?? null) === String(b ?? null);
 
-/** Мини-коллекция: равенство, $in, $nin, $ne (достаточно для people и patchStep). */
+/** Мини-коллекция: равенство, $in, $nin, $ne, steps.assigneeId (достаточно для people, patchStep и Ганта). */
 class Coll {
   rows: Row[] = [];
   private ok(d: Row, f: Row) {
@@ -14,6 +14,7 @@ class Coll {
       if (v && typeof v === 'object' && !(v instanceof Types.ObjectId) && '$in' in v) return v.$in.some((x: unknown) => same(d[k], x));
       if (v && typeof v === 'object' && !(v instanceof Types.ObjectId) && '$nin' in v) return !v.$nin.some((x: unknown) => same(d[k], x));
       if (v && typeof v === 'object' && !(v instanceof Types.ObjectId) && '$ne' in v) return !same(d[k], v.$ne);
+      if (k === 'steps.assigneeId') return (d.steps ?? []).some((st: Row) => same(st.assigneeId, v));
       return same(d[k], v);
     });
   }
@@ -60,6 +61,59 @@ describe('WorkScheduleService: люди Ганта и вид работ испо
   it('назначение: вид работ есть — проверка проходит', async () => {
     const r = await svc.patchStep(String(planId), String(stepId), { assigneeId: String(welder) } as never).catch((e) => e);
     expect(r).not.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('Гант-дерево (C053 Э1): фильтры в БД, поля, legend/hue', () => {
+  const id = () => new Types.ObjectId();
+  const mk = () => {
+    const c = Object.fromEntries(['persons', 'worktypes', 'incomes', 'worktasks', 'orderlineplans', 'salesorders', 'designtasks', 'products'].map((n) => [n, new Coll()])) as Record<string, Coll>;
+    const finds: Row[] = [];
+    const orig = c.orderlineplans.find;
+    c.orderlineplans.find = (f: Row = {}) => { finds.push(f); return orig(f); };
+    return { c, finds, svc: new WorkScheduleService({ db: { collection: (n: string) => c[n] } } as never, {} as never) };
+  };
+  const weld = id(), cut = id(), ann = id(), bob = id(), ord1 = id(), ord2 = id(), inc1 = id(), inc2 = id(), prod = id(), part = id(), row = id();
+  const seed = (c: Record<string, Coll>) => {
+    c.worktypes.rows.push({ _id: weld, name: 'Сварка', accentHue: 180, deletedAt: null }, { _id: cut, name: 'Резка', deletedAt: null });
+    c.persons.rows.push({ _id: ann, lastName: 'Анн', workTypeIds: [weld, cut], deletedAt: null }, { _id: bob, lastName: 'Боб', workTypeIds: [cut], deletedAt: null });
+    c.products.rows.push({ _id: prod, name: 'Беседка-1' });
+    c.incomes.rows.push({ _id: inc1, title: 'Поз1', qty: 1, orderId: ord1, productId: prod, deletedAt: null }, { _id: inc2, title: 'Поз2', qty: 1, orderId: ord2, deletedAt: null });
+    c.orderlineplans.rows.push(
+      { _id: id(), incomeId: inc1, rev: 1, deletedAt: null, parts: [{ _id: row, name: 'Рама', partId: part }], steps: [{ _id: id(), workTypeId: weld, hours: 4, assigneeId: ann, partRowId: row }] },
+      { _id: id(), incomeId: inc2, rev: 1, deletedAt: null, steps: [{ _id: id(), workTypeId: cut, hours: 4, assigneeId: bob }] },
+    );
+  };
+
+  it('поля полосы, people.workTypeIds и legend (только встречающиеся виды)', async () => {
+    const { c, svc } = mk(); seed(c);
+    const r = await svc.schedule({});
+    const a = r.bars.find((b) => b.assigneeId === String(ann))!;
+    expect([a.orderId, a.productName, a.partId, a.hue]).toEqual([String(ord1), 'Беседка-1', String(part), workTypeHue(String(weld), 180)]);
+    const b = r.bars.find((x) => x.assigneeId === String(bob))!;
+    expect([b.productName, b.partId]).toEqual(['Поз2', null]); // нет изделия — название позиции
+    expect(r.people.find((p) => p.id === String(ann))!.workTypeIds).toEqual([String(weld), String(cut)]);
+    expect(r.legend.map((l) => l.name)).toEqual(['Резка', 'Сварка']);
+    expect(r.legend.find((l) => l.name === 'Сварка')!.hue).toBe(a.hue);
+  });
+
+  it('фильтры уходят в запрос к БД: чужие планы не загружаются', async () => {
+    const { c, finds, svc } = mk(); seed(c);
+    const r = await svc.schedule({ orderId: String(ord1) });
+    expect(r.bars.map((x) => x.orderId)).toEqual([String(ord1)]);
+    expect(finds[0]).toHaveProperty('incomeId');
+    const m = mk(); seed(m.c);
+    const p = await m.svc.schedule({ personId: String(bob) });
+    expect(p.bars.map((x) => x.assigneeId)).toEqual([String(bob)]);
+    expect(m.finds[0]).toHaveProperty(['steps.assigneeId']);
+    expect(m.finds.every((f) => 'incomeId' in f || 'steps.assigneeId' in f || 'deletedAt' in f)).toBe(true);
+  });
+
+  it('workTypeHue: 1..7, стабильный; accentHue приоритетнее', () => {
+    const ids = Array.from({ length: 50 }, () => String(new Types.ObjectId()));
+    for (const x of ids) { const h = workTypeHue(x); expect(h).toBe(workTypeHue(x)); expect(h >= 1 && h <= 7).toBe(true); }
+    expect(workTypeHue('x', 0)).toBe(1);
+    expect(workTypeHue('x', 359)).toBe(7);
   });
 });
 
