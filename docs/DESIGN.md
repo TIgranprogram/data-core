@@ -122,6 +122,7 @@
 | table pic / nowrap | колонки: под posPic и без переноса строки | `table({ columns:[{ pic:true }, { nowrap:true }] })` |
 | toolbar | полоса кнопок/фильтров над списком | `toolbar(…узлы)` |
 | tabs | вкладки раздела и панели (статусы, «Заявки/Счета», колокольчик, «Сотрудники») | `tabs({ items: [{key,label,count?}], value, onChange(key), label })` → `{ el, set }` |
+| card.tabs (панель) | вкладки всей правой панели (C052): над вкладками — сведения (view) и кнопки; панель вкладки строится при открытии, открытая запоминается на раздел (prefs `cardTab:<id>`), пункт «Вид панели» скрыт | `section.card.tabs: (row, ctx) => [{ key, label, count?, tone?, when?, blocks: (row, ctx) => узлы }]`; `ctx.openTab(key)`; сборка — `buildCardTabs` (`ui/kit/card-tabs.js`) |
 | board (+ density / cardMenu / group) | доска по статусам с сервера, DnD, порции; `density` normal/compact/pics; `cardMenu` — «⋯» на карточке; `group` — группа-заказ: клик по всей карточке раскрывает, кнопка ⇕ в шапке колонки — все группы колонки, состояние запоминается (prefs) | `board(cfg, path, query, { onOpen, onChanged, onTotal })`; поля cfg — шапка `ui/kit/board.js` |
 | boardStatic | доска без сервера (малые списки) | `boardStatic({ columns: [{key,label,tone,hint?,cards,empty?}], density })` |
 | layout.split | боковой список + основная область; на телефоне список за кнопкой | `layout.split({ side, main, sideLabel })` |

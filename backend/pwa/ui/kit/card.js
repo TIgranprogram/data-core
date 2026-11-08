@@ -12,6 +12,7 @@ import { buildForm } from './form.js';
 import { toast, toastError } from './toast.js';
 import { actionText, errText, isFailure } from './errors.js';
 import { busyBlock, busyBtn, failBlock } from './busy.js';
+import { buildCardTabs } from './card-tabs.js';
 import { makeResizable } from '../resizer.js';
 import { DOCK_MIN, getPref, setPref } from '../../core/prefs.js';
 
@@ -64,6 +65,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   let saving = false;
   let building = false;
   let disposed = false;
+  let openTab = null; // T9 (C052): card.tabs — переключение вкладок панели (ctx.openTab)
   const titleEl = h('h2');
   // тип записи над заголовком: в панели открываются и изделие, и задача, и заказ — по названию их не различить
   const kindOf = (r) => (typeof section.kind === 'function' ? section.kind(r) : section.kind) || ''; // kind — строка или (row) → строка (позиция / предложение)
@@ -152,22 +154,27 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     if (fieldEl?.classList?.contains('k-readonly-groups')) [...fieldEl.children].forEach((g) => put(g, 'fields'));
     else put(fieldEl, 'fields');
     if (section.card.extra) put(section.card.extra(row, actx()), 'extra');
+    // T9 (C052): card.tabs — вкладки панели. Аддитивно: только если раздел задал section.card.tabs; сведения (view) и кнопки — над вкладками.
+    const tabDefs = section.card.tabs ? (section.card.tabs(row, actx()) || []).filter((t) => !t.when || t.when(row)) : [];
+    const hasTabs = tabDefs.length > 0;
+    openTab = null;
+    if (hasTabs) put(buildCardTabs({ tabDefs, section, row, actx, setPref, getPref, onOpenTab: (fn) => { openTab = fn; } }), 'main');
     // noHistory — у записи нет своей истории (пункт текста паспорта: история — у версии шаблона)
     const histUl = section.card.noHistory ? null : h('ul', { class: 'timeline' }, busyBlock('историю', { tag: 'li', cls: 'muted' }));
     const histWrap = histUl ? h('details', { class: 'db-blk', hidden: true }, h('summary', null, 'История изменений'), histUl) : null; // история — внизу, всегда свёрнута (ПМ-1)
     put(histWrap, 'history');
-    body.replaceChildren(...arrange(content));
+    body.replaceChildren(...arrange(content, hasTabs));
     if (histUl) loadHistory(histUl, histWrap);
 
     if (canEditSection(section) && section.form && (!section.card.editable || section.card.editable(row))) foot.append(h('button', { class: 'btn btn-primary', type: 'button', onclick: () => showForm('edit') }, section.card.editLabel || 'Изменить'));
-    buildMenu(rare);
+    buildMenu(rare, hasTabs);
   }
   /**
    * one — плоско; two/wide — поток `.dz-flow` в две колонки (balance), история/wide снизу на всю ширину.
-   * Раньше main|side оставляли все группы слева, а справа только фото.
+   * Раньше main|side оставляли все группы слева, а справа только фото. Панель с вкладками — всегда один столбец (forceOne).
    */
-  function arrange(content) {
-    const mode = layoutNow();
+  function arrange(content, forceOne = false) {
+    const mode = forceOne ? 'one' : layoutNow();
     if (mode === 'one') return content.map(([el]) => el);
     const flow = [], bottom = [];
     for (const [el, z] of content) {
@@ -179,16 +186,16 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
       flow.length ? h('div', { class: 'dz-flow', 'data-layout': mode }, ...flow) : null,
       bottom.length ? h('div', { class: 'dz-flow-wide' }, ...bottom) : null)];
   }
-  /** Единственное «⋯» шапки: вид панели (всем) + редкие действия, «Дублировать», «Удалить» (с правом правки). */
-  function buildMenu(rare) {
+  /** Единственное «⋯» шапки: вид панели (всем, кроме панелей с вкладками) + редкие действия, «Дублировать», «Удалить» (с правом правки). */
+  function buildMenu(rare, hasTabs = false) {
     const edit = canEditSection(section);
     const menu = h('div', { class: 'menu', role: 'menu', hidden: true });
     const toggle = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Ещё', 'aria-label': 'Ещё действия', 'aria-haspopup': 'menu', 'aria-expanded': 'false' }, '⋯');
     const setOpen = (v) => { menu.hidden = !v; toggle.setAttribute('aria-expanded', String(v)); };
     const away = (e) => { if (!menuBox.contains(e.target)) { setOpen(false); document.removeEventListener('click', away, true); } };
     toggle.onclick = () => { const v = menu.hidden; setOpen(v); document.removeEventListener('click', away, true); if (v) document.addEventListener('click', away, true); };
-    const items = [h('div', { class: 'menu-sub', role: 'presentation' }, 'Вид панели')];
-    for (const [k, label] of LAYOUTS) {
+    const items = hasTabs ? [] : [h('div', { class: 'menu-sub', role: 'presentation' }, 'Вид панели')];
+    if (!hasTabs) for (const [k, label] of LAYOUTS) {
       const on = layoutNow() === k;
       items.push(h('button', { type: 'button', role: 'menuitemradio', 'aria-checked': String(on), onclick: () => { setPref('panelLayout', k === 'one' ? '' : k); setOpen(false); const y = body.scrollTop; showView(row).then(() => { body.scrollTop = y; toggle.focus(); }); } }, (on ? '✓ ' : '') + label));
     }
@@ -234,6 +241,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
       edit: async (draft) => { if (await canLeave()) return showForm('edit', draft); },
       reload: async () => { if (await canLeave()) return showView(); },
       setRow: (r) => { if (!disposed) { const shown = showView(r); ctx.changed(); return shown; } }, changed: ctx.changed, close: tryClose,
+      openTab: (key) => { openTab?.(key); },
       run: async (fn) => { if (!(await canLeave())) return false; saving = true; try { await fn(); return true; } finally { saving = false; } },
     };
   }
