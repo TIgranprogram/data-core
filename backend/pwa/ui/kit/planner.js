@@ -40,7 +40,7 @@ function lanes(items) {
  *         parentId → дерево: у узла (есть дети) вместо полос рисуется сводная полоса min..max детей (не двигается), дети скрыты, пока узел не в expanded;
  *         drop — куда переносится полоса, брошенная на эту строку (по умолчанию id; null — сюда бросать нельзя)
  *   bars  [{ id, rowId, start, end, title, sub?, tone?: 'info'|'ok'|'warn'|'danger'|'dim', hue?: 1..7 (цвет вида работ), wt? (id вида работ, для подсветки из легенды),
- *           status?: 'plan'|'work'|'done' (рамка: пунктир / сплошная / бледнее с ✓), overdue? (красная рамка), deadline? ('ГГГГ-ММ-ДД' — ромб срока), ownerId? (что вернуть как rowId, если строку не меняли), hint? }]
+ *           locked? (не перетаскивается), status?: 'plan'|'work'|'done' (рамка: пунктир / сплошная / бледнее с ✓), overdue? (красная рамка), deadline? ('ГГГГ-ММ-ДД' — ромб срока), ownerId? (что вернуть как rowId, если строку не меняли), hint? }]
  *   load  { [rowId]: { 'ГГГГ-ММ-ДД': часы } } — занятость по дням (видна и на свёрнутой строке человека)
  *   expanded — раскрытые узлы (по умолчанию всё свёрнуто); панель над лентой появляется, если есть onScale/onShift/дерево/legend
  * Перетаскивание (мышь; палец — после долгого нажатия): по горизонтали — сдвиг дат (длительность сохраняется), по вертикали — другая строка.
@@ -97,16 +97,16 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
     const { b, s, e, lane } = it;
     const len = e - s + 1;
     const st = b.status === 'done' || b.status === 'work' || b.status === 'plan' ? b.status : '';
-    const cls = ['gt-bar k-pl-bar', b.hue ? 'hue wt-' + b.hue : KINDS.includes(b.tone) ? b.tone : 'info', st ? 'st-' + st : '', b.overdue ? 'late' : '', canEdit ? 'drag' : ''].filter(Boolean).join(' ');
+    const cls = ['gt-bar k-pl-bar', b.hue ? 'hue wt-' + b.hue : KINDS.includes(b.tone) ? b.tone : 'info', st ? 'st-' + st : '', b.overdue ? 'late' : '', canEdit && !b.locked ? 'drag' : ''].filter(Boolean).join(' ');
     const node = h('button', { type: 'button', class: cls, 'data-bar': String(b.id), 'data-wt': b.wt == null ? null : String(b.wt),
-      title: [b.title, b.sub, `${dmy(s)} — ${dmy(e)}`, b.hint, canEdit ? 'Потяните, чтобы переставить' : ''].filter(Boolean).join('\n'),
+      title: [b.title, b.sub, `${dmy(s)} — ${dmy(e)}`, b.hint, canEdit && !b.locked ? 'Потяните, чтобы переставить' : b.locked ? 'Задание без плана позиции — нажмите, чтобы открыть' : ''].filter(Boolean).join('\n'),
       'aria-label': `${b.title}, ${dmy(s)} — ${dmy(e)}${st === 'done' ? ', сделано' : b.overdue ? ', просрочено' : ''}. Открыть` },
       h('span', { class: 'gt-bt' }, (st === 'done' ? '✓ ' : '') + b.title), b.sub && len * px >= 120 ? h('small', { class: 'k-pl-sub' }, b.sub) : null); // узкая полоса — одна строка, подробности в подсказке
     node.style.left = xOf(s) + 'px'; node.style.width = Math.max(coarse ? 44 : 10, len * px - 2) + 'px'; node.style.top = 4 + lane * LANE + 'px';
     if (hl) node.classList.toggle('hl-on', String(b.wt) === hl);
     let moved = false;
     node.addEventListener('click', (ev) => { if (moved) { moved = false; ev.preventDefault(); return; } onOpen?.(b); });
-    if (canEdit) {
+    if (canEdit && !b.locked) { // locked — полоса только для просмотра (задание без плана позиции)
       bindDrag(node, b, s, e, rowEl, () => { moved = true; });
       node.addEventListener('keydown', (ev) => {
         if ((ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') || ev.ctrlKey || ev.metaKey || ev.altKey) return;
