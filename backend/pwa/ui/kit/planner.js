@@ -97,7 +97,7 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
     const { b, s, e, lane } = it;
     const len = e - s + 1;
     const st = b.status === 'done' || b.status === 'work' || b.status === 'plan' ? b.status : '';
-    const cls = ['gt-bar k-pl-bar', b.hue ? 'hue wt-' + b.hue : KINDS.includes(b.tone) ? b.tone : 'info', st ? 'st-' + st : '', b.overdue ? 'late' : '', canEdit && !b.locked ? 'drag' : ''].filter(Boolean).join(' ');
+    const cls = ['gt-bar k-pl-bar', b.hue ? 'hue wt-' + b.hue : KINDS.includes(b.tone) ? b.tone : 'info', st ? 'st-' + st : '', b.overdue ? 'late' : '', canEdit && !b.locked ? 'drag' : '', len * px < 72 ? 'narrow' : ''].filter(Boolean).join(' '); // narrow — подпись справа от полосы (как в kppdf), не «И…»
     const node = h('button', { type: 'button', class: cls, 'data-bar': String(b.id), 'data-wt': b.wt == null ? null : String(b.wt),
       title: [b.title, b.sub, `${dmy(s)} — ${dmy(e)}`, b.hint, canEdit && !b.locked ? 'Потяните, чтобы переставить' : b.locked ? 'Задание без плана позиции — нажмите, чтобы открыть' : ''].filter(Boolean).join('\n'),
       'aria-label': `${b.title}, ${dmy(s)} — ${dmy(e)}${st === 'done' ? ', сделано' : b.overdue ? ', просрочено' : ''}. Открыть` },

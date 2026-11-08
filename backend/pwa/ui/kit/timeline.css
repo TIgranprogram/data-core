@@ -104,3 +104,5 @@ button.gt-label:hover { background: var(--row-hover); }
 /* Панель Ганта на касании (планшет, телефон): кнопки и масштабы не ниже 44 px (приёмка дизайнера C053) */
 @media (pointer: coarse) { .k-pl-tools .btn, .k-pl-tools .k-seg-btn { min-height: 44px; } }
 .k-pl-tools .k-seg { flex: none; } .k-pl-tools .k-seg-btn { flex: none; min-width: max-content; } /* «Уместить» не обрезается */
+.k-pl-bar.narrow { overflow: visible; } .k-pl-bar.narrow .gt-bt { position: absolute; left: calc(100% + var(--s1)); top: 50%; transform: translateY(-50%); width: auto; color: var(--text); font-weight: 600; white-space: nowrap; pointer-events: none; } /* узкая полоса — подпись справа */
+.k-planner .gt-nums { height: calc(var(--s5) + var(--s3) + var(--s1)); } /* число и день недели в две строки — не вылезают под шапку (телефон) */
