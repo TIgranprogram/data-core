@@ -70,3 +70,33 @@ button.gt-label:hover { background: var(--row-hover); }
 .k-pl-hint { margin: 0 0 var(--s2); font-size: var(--fs-sm); color: var(--muted); }
 .k-pl-load.over { background: var(--danger-soft); box-shadow: inset 0 -3px 0 var(--danger); }
 @media (max-width: 720px) { .gt-wrap { --gt-label: 112px; } .gt-row { min-height: 48px; } .gt-bar { top: 6px; height: 36px; } .gt-h { width: 20px; background-position: right; } .gt-note { top: 16px; } .gt-scroll { max-height: 75vh; } }
+/* planner: дерево, цвета видов работ, статусы, легенда, ромб срока (C053 Э2) */
+.gt-wrap.tree { --gt-label: 232px; }
+.k-pl-label { padding-left: calc(var(--s2) + var(--gt-d, 0) * var(--s3)); }
+.k-pl-label.k-pl-leaf { padding-left: calc(var(--s2) + var(--gt-d, 0) * var(--s3) + var(--s5)); }
+.k-pl-lt { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.k-pl-lt b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.k-pl-chev { flex: none; width: 8px; height: 8px; margin: 0 var(--s1); border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); transition: transform .12s; }
+.k-pl-node[aria-expanded='true'] .k-pl-chev { transform: rotate(45deg); }
+.wt-1 { --wt: var(--wt-1); } .wt-2 { --wt: var(--wt-2); } .wt-3 { --wt: var(--wt-3); } .wt-4 { --wt: var(--wt-4); } .wt-5 { --wt: var(--wt-5); } .wt-6 { --wt: var(--wt-6); } .wt-7 { --wt: var(--wt-7); }
+.k-pl-bar.hue { background: var(--wt); border-color: var(--wt); color: var(--on-wt); }
+.k-pl-bar.st-work { font-weight: 600; }
+.k-pl-bar.st-plan { border-width: 2px; border-style: dashed; }
+.k-pl-bar.hue.st-plan { border-color: var(--on-wt); }
+.k-pl-bar.st-done { opacity: .55; }
+.k-pl-bar.late { outline: 2px solid var(--danger); outline-offset: 1px; }
+.k-pl-bar.late:focus-visible { outline-color: var(--gold); }
+.k-planner.hl .k-pl-bar:not(.hl-on) { opacity: .3; }
+.gt-bar.k-pl-sum { background: var(--muted); }
+.gt-bar.k-pl-sum.lv1 { opacity: .7; }
+.gt-bar.k-pl-sum.lv2 { opacity: .5; }
+.gt-bar.k-pl-sum.over { background: var(--danger); }
+.k-pl-dl { position: absolute; top: 2px; width: 10px; height: 10px; background: var(--gold-deep); transform: translateX(-50%) rotate(45deg); z-index: 1; pointer-events: none; }
+.k-pl-dl.over { background: var(--danger); }
+.k-pl-bar-top { display: flex; flex-direction: column; gap: var(--s2); margin-bottom: var(--s2); }
+.k-pl-tools, .k-pl-legend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.k-pl-lg { display: inline-flex; align-items: center; gap: var(--s1); min-height: 32px; padding: 0 var(--s2); border: 1px solid transparent; border-radius: var(--radius-sm); background: none; color: var(--text); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
+.k-pl-lg.on { border-color: var(--border-strong); background: var(--row-hover); }
+.k-pl-lg i.hue { width: 12px; height: 12px; border-radius: var(--s1); background: var(--wt); }
+@media (pointer: coarse) { .k-pl-lg { min-height: 44px; } }
+@media (max-width: 720px) { .gt-wrap.tree { --gt-label: 148px; } }

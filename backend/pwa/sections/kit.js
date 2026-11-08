@@ -73,6 +73,26 @@ function plannerDemo() {
     onOpen: (b) => toast('Открыта полоса: ' + b.title), onMove: async (b, to) => { toast(b.title + ' → ' + to.start + ' · строка ' + to.rowId); throw new Error('демо: возвращаем на место'); } }).el;
 }
 
+/** Дерево: заказ › позиция › шаги; человек с ёмкостью и перегрузкой. Масштаб/«Уместить»/«Сегодня» работают на месте (демо не ходит за данными). */
+// части эталона planner: plannerBar, buildTree, visible, fitPx
+function plannerTreeDemo() {
+  const d0 = Date.now(), iso = (k) => new Date(d0 + k * 864e5).toISOString().slice(0, 10);
+  const rows = [{ id: 'o1', label: 'Заказ № 118', sub: 'ООО «Север»' }, { id: 'p1', parentId: 'o1', label: 'Стойки', sub: '2 шага' }, { id: 's1', parentId: 'p1', label: 'Сварка', drop: null }, { id: 's2', parentId: 'p1', label: 'Покраска', drop: null },
+    { id: 'o2', label: 'Заказ № 121' }, { id: 'p2', parentId: 'o2', label: 'Навес' }, { id: 's3', parentId: 'p2', label: 'Раскрой', drop: null },
+    { id: 'u1', label: 'Иван Петров', sub: '8 ч в день', cap: 8 }];
+  const bars = [{ id: 'b1', rowId: 's1', start: iso(0), end: iso(3), title: 'Сварка', sub: '24 ч', hue: 1, wt: 'w1', status: 'work', deadline: iso(8) }, { id: 'b2', rowId: 's2', start: iso(4), end: iso(7), title: 'Покраска', sub: '16 ч', hue: 3, wt: 'w2', status: 'plan', deadline: iso(8) },
+    { id: 'b3', rowId: 's3', start: iso(-4), end: iso(-1), title: 'Раскрой', sub: '10 ч', hue: 4, wt: 'w3', status: 'work', overdue: true, deadline: iso(-2) }, { id: 'b4', rowId: 'u1', start: iso(1), end: iso(2), title: 'Подготовка', hue: 2, wt: 'w4', status: 'done' }];
+  const box = h('div');
+  const draw = (scale) => {
+    const c = planner({ rows, bars, load: { u1: { [iso(1)]: 14, [iso(2)]: 9 } }, from: iso(-7), to: iso(21), scale, fitWidth: 600, canEdit: true, expanded: new Set(['o1']),
+      legend: [{ id: 'w1', name: 'Сварка', hue: 1 }, { id: 'w2', name: 'Покраска', hue: 3 }, { id: 'w3', name: 'Раскрой', hue: 4 }, { id: 'w4', name: 'Сборка', hue: 2 }],
+      onScale: draw, onShift: () => toast('Демо: окно не сдвигается'), onToday: () => toast('Демо: сегодня уже в окне'), onOpen: (b) => toast('Открыта полоса: ' + b.title), onMove: async () => { throw new Error('демо'); } });
+    box.replaceChildren(c.el);
+  };
+  draw('day');
+  return box;
+}
+
 export const kit = {
   title: 'Эталоны',
   mount(el) {
@@ -260,6 +280,7 @@ export const kit = {
         textInput({ label: 'Название новой части', placeholder: 'Например, Стойка', onEnter: (v) => toast('Enter: ' + v) }),
         textInput({ label: 'Часов на 1 шт.', value: '1.5', inputmode: 'decimal', hint: 'Можно дробное — 1,5' }))),
       block('Планировщик цеха (planner)', 'Строки — люди или заказы, полосы — шаги работ. Перетащите полосу: по горизонтали — сдвиг дат, на другую строку — другой исполнитель (в демо возвращается на место). Красное — перегрузка дня, жёлтое — день почти полон. ←/→ на полосе — сдвиг на день.', plannerDemo()),
+      block('Планировщик деревом (planner)', 'Заказ › позиция › шаги: узел показывает сводную полосу, шеврон раскрывает; у человека видна перегрузка и на свёрнутой строке. Цвет полосы — вид работ (легенда сверху, клик подсвечивает), рамка — статус: сплошная — идёт, пунктир — ждёт, бледная с галочкой — сделано, красная — просрочено. Ромб — срок заказа. Масштаб, «Уместить», «Сегодня», «Раскрыть всё».', plannerTreeDemo()),
       block('Пусто и ошибка (empty)', 'Единственная фабрика пустых состояний: kind "empty" (записей нет, подсказка и ссылка), "notFound" (поиск ничего не дал, сброс), "noData" (за период пусто). Тексты «Пусто / Ничего не найдено / Нет данных» — только через empty().', empty({ title: 'Ничего нет', hint: 'Добавьте запись в панели справа.' }), empty({ kind: 'notFound', query: 'болт М99', onReset: () => toast('Сброс') }), empty({ kind: 'notFound', onReset: () => toast('Сброс') }), empty({ kind: 'noData' }), failBlock(new Error('Тестовая ошибка'), () => toast('Повтор'))),
     );
     return {};
