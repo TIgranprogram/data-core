@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -81,6 +81,7 @@ export class WorkController {
 
   @Patch(':id/plan')
   @Roles('admin', 'manager')
+  @ApiOperation({ deprecated: true, summary: 'Устарело: план шага правится в Ганте (PATCH /orderline-plans/:id/steps/:stepId)' })
   @AuditAction({ action: 'worktask.plan', entityType: 'WorkTask', idParam: 'id' })
   plan(@Param('id') id: string, @Body() dto: PlanDto) {
     return this.work.setPlan(id, dto);

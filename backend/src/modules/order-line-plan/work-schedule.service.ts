@@ -17,11 +17,19 @@ export interface Bar {
   assigneeId: string | null; /** 'ГГГГ-ММ-ДД', end включительно */ start: string; end: string; hours: number; status: BarStatus;
   /** Факт-отметки шага и норма на 1 шт. */
   startedAt: Date | null; finishedAt: Date | null; hoursPerUnit: number | null;
+  /** Срок заказа (ГГГГ-ММ-ДД или null) и просрочен ли шаг к сроку. */
+  deadline: string | null; overdue: boolean;
 }
 const MAX_RANGE_DAYS = 366;
 const idOf = (v: unknown) => (v ? String(v) : null);
 /** Часов в рабочем дне сотрудника: целое 1–24 из карточки, иначе 8. */
 export const personDayHours = (p: Doc) => { const n = Number(p.hoursPerDay); return Number.isInteger(n) && n >= 1 && n <= 24 ? n : DAY_HOURS; };
+
+/** Срок заказа для полосы Ганта: изготовление, иначе отгрузка (как у заданий «В работе»). */
+export const barDeadline = (o: Doc | undefined): Date | null => ((o?.productionDeadline ?? o?.shipDate) as Date | undefined) ?? null;
+/** Шаг просрочен к сроку заказа: срок прошёл, а шаг ещё не сделан. */
+export const barOverdue = (deadline: Date | null, today: Date, status: BarStatus): boolean =>
+  !!deadline && status !== 'done' && dayOf(deadline) < dayOf(today);
 
 /**
  * Гант-планирование (C041 Э2): полосы шагов планов позиций по людям и заказам и загрузка людей по дням.
@@ -37,14 +45,17 @@ export class WorkScheduleService {
   private async barsOf(plans: Doc[], today: Date): Promise<Array<Bar & { startAt: Date; endAt: Date }>> {
     if (!plans.length) return [];
     const incomeIds = plans.map((p) => p.incomeId as Types.ObjectId);
-    const [incomes, tasks, types] = await Promise.all([
-      this.db().collection('incomes').find({ _id: { $in: incomeIds }, deletedAt: null }, { projection: { orderNo: 1, title: 1, qty: 1 } }).toArray(),
+    const incomes = await this.db().collection('incomes').find({ _id: { $in: incomeIds }, deletedAt: null }, { projection: { orderNo: 1, title: 1, qty: 1, orderId: 1 } }).toArray();
+    const orderIds = [...new Set(incomes.map((i) => i.orderId).filter(Boolean))] as Types.ObjectId[];
+    const [tasks, types, orders] = await Promise.all([
       this.db().collection('worktasks').find({ incomeId: { $in: incomeIds }, deletedAt: null, status: { $ne: 'cancelled' } }, { projection: { incomeId: 1, status: 1, stepIndex: 1, route: 1, createdAt: 1 } }).sort({ createdAt: 1 }).toArray(),
       this.db().collection('worktypes').find({ deletedAt: null }, { projection: { name: 1 } }).toArray(),
+      orderIds.length ? this.db().collection('salesorders').find({ _id: { $in: orderIds } }, { projection: { productionDeadline: 1, shipDate: 1 } }).toArray() : Promise.resolve([] as Doc[]),
     ]);
     const income = new Map(incomes.map((i) => [String(i._id), i as Doc]));
     const task = new Map(tasks.map((t) => [String(t.incomeId), t as Doc])); // последнее задание перекрывает прежние
     const typeName = new Map(types.map((t) => [String(t._id), String(t.name ?? '')]));
+    const deadlineOf = new Map(orders.map((o) => [String(o._id), barDeadline(o as Doc)]));
     const out: Array<Bar & { startAt: Date; endAt: Date }> = [];
     for (const plan of plans) {
       const inc = income.get(String(plan.incomeId));
@@ -66,11 +77,13 @@ export class WorkScheduleService {
           const at = route.findIndex((r) => String(r.stepId) === String(s._id));
           if (at >= 0) status = at < t.stepIndex ? 'done' : at === t.stepIndex ? 'work' : 'plan';
         }
+        const dl = deadlineOf.get(String(inc.orderId)) ?? null;
         out.push({
           stepId: String(s._id), planId: String(plan._id), incomeId: String(plan.incomeId), orderNo: (inc.orderNo as string | undefined) ?? null, title: String(inc.title ?? ''),
           partName: s.partRowId ? partName.get(String(s.partRowId)) ?? WHOLE_PRODUCT : WHOLE_PRODUCT, workTypeName: typeName.get(String(s.workTypeId))!, workTypeId: idOf(s.workTypeId),
           assigneeId: idOf(s.assigneeId), start: isoDay(sched[i].start), end: isoDay(sched[i].end),
           startedAt: s.startedAt ?? null, finishedAt: s.finishedAt ?? null, hoursPerUnit: s.hours ?? null, hours: Math.round(sched[i].hours * 100) / 100, status,
+          deadline: dl ? isoDay(dl) : null, overdue: barOverdue(dl, today, status),
           startAt: sched[i].start, endAt: sched[i].end,
         });
       });

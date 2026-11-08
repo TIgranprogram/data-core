@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
-import { WorkScheduleService, personDayHours } from './work-schedule.service';
+import { WorkScheduleService, personDayHours, barDeadline, barOverdue } from './work-schedule.service';
 
 type Row = Record<string, any>;
 const same = (a: unknown, b: unknown) => String(a ?? null) === String(b ?? null);
@@ -29,7 +29,7 @@ describe('WorkScheduleService: люди Ганта и вид работ испо
   const welder = id(), acc = id(), old = id(), fired = id();
 
   beforeEach(() => {
-    c = Object.fromEntries(['persons', 'worktypes', 'incomes', 'worktasks', 'orderlineplans'].map((n) => [n, new Coll()]));
+    c = Object.fromEntries(['persons', 'worktypes', 'incomes', 'worktasks', 'orderlineplans', 'salesorders'].map((n) => [n, new Coll()]));
     svc = new WorkScheduleService({ db: { collection: (n: string) => c[n] } } as never, {} as never);
     c.worktypes.rows.push({ _id: weld, name: 'Сварка', deletedAt: null }, { _id: cut, name: 'Резка', deletedAt: null });
     c.persons.rows.push(
@@ -60,5 +60,40 @@ describe('WorkScheduleService: люди Ганта и вид работ испо
   it('назначение: вид работ есть — проверка проходит', async () => {
     const r = await svc.patchStep(String(planId), String(stepId), { assigneeId: String(welder) } as never).catch((e) => e);
     expect(r).not.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('срок заказа и просрочка полосы (T6 ядро)', () => {
+  it('barDeadline: изготовление, иначе отгрузка, иначе null', () => {
+    const a = new Date('2026-11-02T00:00:00Z'), b = new Date('2026-11-10T00:00:00Z');
+    expect(barDeadline({ productionDeadline: a, shipDate: b })).toBe(a);
+    expect(barDeadline({ shipDate: b })).toBe(b);
+    expect(barDeadline({})).toBeNull();
+    expect(barDeadline(undefined)).toBeNull();
+  });
+
+  it('barOverdue: срок прошёл и не сделано — просрочен; сделано/нет срока/не наступил — нет', () => {
+    const past = new Date('2026-11-02T00:00:00Z'), today = new Date('2026-11-08T00:00:00Z'), future = new Date('2026-11-20T00:00:00Z');
+    expect(barOverdue(past, today, 'plan')).toBe(true);
+    expect(barOverdue(past, today, 'work')).toBe(true);
+    expect(barOverdue(past, today, 'done')).toBe(false);
+    expect(barOverdue(null, today, 'plan')).toBe(false);
+    expect(barOverdue(future, today, 'plan')).toBe(false);
+  });
+
+  it('полоса несёт deadline и overdue из заказа', async () => {
+    const id = () => new Types.ObjectId();
+    const c = Object.fromEntries(['persons', 'worktypes', 'incomes', 'worktasks', 'orderlineplans', 'salesorders'].map((n) => [n, new Coll()])) as Record<string, Coll>;
+    const svc2 = new WorkScheduleService({ db: { collection: (n: string) => c[n] } } as never, {} as never);
+    const weld = id(), inc = id(), planId = id(), stepId = id(), orderId = id();
+    const past = new Date(Date.now() - 10 * 86400000);
+    c.worktypes.rows.push({ _id: weld, name: 'Сварка', deletedAt: null });
+    c.incomes.rows.push({ _id: inc, title: 'Беседка', qty: 1, orderNo: '34', orderId, deletedAt: null });
+    c.salesorders.rows.push({ _id: orderId, productionDeadline: past, deletedAt: null });
+    c.orderlineplans.rows.push({ _id: planId, incomeId: inc, rev: 1, deletedAt: null, steps: [{ _id: stepId, workTypeId: weld, hours: 4 }] });
+    const bars = await (svc2 as any).barsOf([c.orderlineplans.rows[0]], new Date());
+    const bar = bars.find((b: Row) => b.stepId === String(stepId));
+    expect(bar.deadline).toBe(past.toISOString().slice(0, 10));
+    expect(bar.overdue).toBe(true);
   });
 });
