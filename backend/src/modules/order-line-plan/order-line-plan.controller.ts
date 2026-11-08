@@ -18,7 +18,7 @@ export class WorkScheduleController {
 
   @Get()
   @Roles('admin', 'director', 'manager', 'user')
-  @ApiOkResponse({ description: '{people[{id,name,capacityHours,workTypeIds}], bars[{…, orderId, productName, partId, hue}], load[], legend[{workTypeId,name,hue 1..7}]}; фильтры personId/orderId/incomeId — в запросе к БД' })
+  @ApiOkResponse({ description: '{people[{id,name,capacityHours,workTypeIds}], bars[{…, orderId, productName, partId, partRowId, hue}], load[], legend[{workTypeId,name,hue 1..7}]}; фильтры personId/orderId/incomeId — в запросе к БД' })
   get(@Query() q: ScheduleQueryDto) {
     return this.schedule.schedule(q);
   }

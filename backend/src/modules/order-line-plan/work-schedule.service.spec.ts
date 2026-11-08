@@ -90,7 +90,9 @@ describe('Гант-дерево (C053 Э1): фильтры в БД, поля, le
     const r = await svc.schedule({});
     const a = r.bars.find((b) => b.assigneeId === String(ann))!;
     expect([a.orderId, a.productName, a.partId, a.hue]).toEqual([String(ord1), 'Беседка-1', String(part), workTypeHue(String(weld), 180)]);
+    expect(a.partRowId).toBe(String(row));
     const b = r.bars.find((x) => x.assigneeId === String(bob))!;
+    expect(b.partRowId).toBeNull();
     expect([b.productName, b.partId]).toEqual(['Поз2', null]); // нет изделия — название позиции
     expect(r.people.find((p) => p.id === String(ann))!.workTypeIds).toEqual([String(weld), String(cut)]);
     expect(r.legend.map((l) => l.name)).toEqual(['Резка', 'Сварка']);

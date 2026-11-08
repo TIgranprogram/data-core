@@ -23,7 +23,7 @@ export interface Bar {
   /** У позиции есть незакрытая задача проектирования — метка на строке Ганта. */
   inDesign: boolean;
   /** Для дерева Ганта: заказ, название изделия (изделие позиции, иначе название позиции), часть изделия из каталога, оттенок вида работ 1..7. */
-  orderId: string | null; productName: string; partId: string | null; hue: number | null;
+  orderId: string | null; productName: string; partId: string | null; /** id строки части в плане */ partRowId: string | null; hue: number | null;
 }
 const MAX_RANGE_DAYS = 366;
 const idOf = (v: unknown) => (v ? String(v) : null);
@@ -112,7 +112,7 @@ export class WorkScheduleService {
           startedAt: s.startedAt ?? null, finishedAt: s.finishedAt ?? null, hoursPerUnit: s.hours ?? null, hours: Math.round(sched[i].hours * 100) / 100, status,
           deadline: dl ? isoDay(dl) : null, overdue: barOverdue(dl, today, status),
           inDesign: inDesign.has(String(plan.incomeId)),
-          orderId: idOf(inc.orderId), productName: prodName, partId: s.partRowId ? partCatalog.get(String(s.partRowId)) ?? null : null, hue: hueOf.get(String(s.workTypeId)) ?? null,
+          orderId: idOf(inc.orderId), productName: prodName, partId: s.partRowId ? partCatalog.get(String(s.partRowId)) ?? null : null, partRowId: idOf(s.partRowId), hue: hueOf.get(String(s.workTypeId)) ?? null,
           startAt: sched[i].start, endAt: sched[i].end,
         });
       });
