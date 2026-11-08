@@ -71,6 +71,8 @@
   --warn-soft: #fcf0dc;
   --info: #0b6f8f;
   --info-soft: #e0f1f7;
+  /* виды работ в Ганте (ui/kit/planner.js): заливка полосы + цвет текста на ней */
+  --wt-1: #0b6f8f; --wt-2: #6a4cc2; --wt-3: #1f7a3f; --wt-4: #965700; --wt-5: #b0316a; --wt-6: #3b5bb5; --wt-7: #5d6b2a; --on-wt: #ffffff;
   --violet: #6a4cc2;
   --violet-soft: #efeafb;
   --neutral-soft: #eceef2;
@@ -141,6 +143,7 @@
   --warn-soft: rgba(235, 168, 69, .14);
   --info: #4fbadb;
   --info-soft: rgba(79, 186, 219, .14);
+  --wt-1: #4fbadb; --wt-2: #a28bf0; --wt-3: #5fc787; --wt-4: #e0a84a; --wt-5: #ee7fae; --wt-6: #7f9cf0; --wt-7: #b6c765; --on-wt: #10151a;
   --violet: #a68ff2;
   --violet-soft: rgba(166, 143, 242, .15);
   --neutral-soft: #252c39;
