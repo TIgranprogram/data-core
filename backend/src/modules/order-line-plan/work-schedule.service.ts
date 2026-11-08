@@ -87,7 +87,9 @@ export class WorkScheduleService {
     const f: Doc = { deletedAt: null, status: { $nin: ['fired'] } };
     if (ids) f._id = { $in: ids.map((i) => oid(i, 'сотрудника')) };
     const rows = (await this.db().collection('persons').find(f, { projection: { lastName: 1, firstName: 1, workTypeIds: 1, workTypeId: 1, hoursPerDay: 1 } }).sort({ lastName: 1, firstName: 1 }).toArray()) as Doc[];
-    return rows.filter((r) => personWorkTypeIds(r).length).slice(0, 500).map((r) => ({
+    // ни у кого ещё нет видов работ (только начали заполнять «Сотрудников») — показываем всех, а не пустой Гант
+    const skilled = rows.filter((r) => personWorkTypeIds(r).length);
+    return (skilled.length ? skilled : rows).slice(0, 500).map((r) => ({
       id: String(r._id), name: [r.lastName, r.firstName].map((x) => String(x ?? '').trim()).filter(Boolean).join(' '), capacityHours: personDayHours(r),
     }));
   }
