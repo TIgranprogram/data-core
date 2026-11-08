@@ -21,9 +21,9 @@ export function button({ label, kind = 'secondary', size = 'M', icon, onClick, b
   return mark(h('button', { type, class: cls, disabled: disabled || busy, title, onclick: onClick }, icon || null, label), 'button');
 }
 
-/** fileButton({ label, accept, onFile(file), size: 'M'|'S', title? }) → кнопка-подпись со скрытым file input; выбранный файл отдаётся в onFile, поле сбрасывается */
-export function fileButton({ label, accept, onFile, size = 'S', title } = {}) {
-  const input = h('input', { type: 'file', accept, hidden: true, onchange: (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) onFile?.(f); } });
+/** fileButton({ label, accept, onFile(file), size: 'M'|'S', title?, multiple?, onFiles(files[])? }) → кнопка-подпись со скрытым file input; выбранный файл отдаётся в onFile (multiple — все в onFiles), поле сбрасывается */
+export function fileButton({ label, accept, onFile, size = 'S', title, multiple = false, onFiles } = {}) {
+  const input = h('input', { type: 'file', accept, multiple, hidden: true, onchange: (e) => { const fs = [...e.target.files]; e.target.value = ''; if (!fs.length) return; if (multiple && onFiles) onFiles(fs); else onFile?.(fs[0]); } });
   return mark(h('label', { class: 'btn' + (size === 'S' ? ' btn-sm' : ''), title: title || null }, label, input), 'button');
 }
 
