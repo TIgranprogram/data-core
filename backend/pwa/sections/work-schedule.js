@@ -69,8 +69,8 @@ function createSchedule(el, p0, set, extra0 = {}) {
   }
 
   function paintTop() {
-    const lensSeg = segmented({ items: [{ key: 'orders', label: 'По заказам' }, { key: 'people', label: 'По людям' }], value: lens, label: 'Что в строках', onChange: (k) => { lens = k; savePref('lens', k); if (data) paint(); } });
-    top.replaceChildren(lensSeg.el, Object.values(F()).some(Boolean) ? button({ label: 'Сбросить фильтры', kind: 'ghost', size: 'S', onClick: () => set({ order: undefined, incomeId: undefined, part: undefined, person: undefined, work: undefined }) }) : null);
+    // переключатель «По заказам / По людям» — в одной строке с масштабом (planner lead), здесь — только «Сбросить фильтры»
+    top.replaceChildren(...(Object.values(F()).some(Boolean) ? [button({ label: 'Сбросить фильтры', kind: 'ghost', size: 'S', onClick: () => set({ order: undefined, incomeId: undefined, part: undefined, person: undefined, work: undefined }) })] : [])); // без фильтров — пусто (null дал бы текст «null»)
   }
 
   function showUnassigned() {
@@ -95,6 +95,7 @@ function createSchedule(el, p0, set, extra0 = {}) {
       { key: 'work', label: 'Вид работ', ask: 'выберите вид работ', optional: true, value: f.work, values: countBy(bars.filter((b) => pass(b, f, 'work')), (b) => b.workTypeName, (b) => b.workTypeName) },
     ].filter((s) => s.values.length || s.value);
     const fn = funnel({ steps: steps2, onChange: (key, v) => set({ [key === 'line' ? 'incomeId' : key]: v || undefined }) });
+    if (!steps2.length) { filterBox.replaceChildren(); return; } // нечего фильтровать — блока «Фильтры» нет
     filterBox.replaceChildren(section({ title: 'Фильтры', count: Object.values(f).filter(Boolean).length || undefined, tone: 'main', open: !!Object.values(f).some(Boolean), body: [fn.el] }));
   }
 
@@ -107,8 +108,11 @@ function createSchedule(el, p0, set, extra0 = {}) {
     const people = lens === 'people' ? data.people.filter((x) => !f.person || String(x.id) === f.person) : data.people;
     const model = buildModel({ bars, people, lens });
     const filtersOn = Object.values(f).some(Boolean);
+    const lensSeg = segmented({ items: [{ key: 'orders', label: 'По заказам' }, { key: 'people', label: 'По людям' }], value: lens, label: 'Что в строках', onChange: (k) => { lens = k; savePref('lens', k); if (data) paint(); } });
     chart = planner({
-      rows: model.rows, bars: model.bars, load: loadBy, from: from(), to: to(), scale: scaleK, canEdit: !!session.canEdit, rowsMovable: lens === 'people',
+      lead: lensSeg.el,
+      rowsTitle: lens === 'people' ? 'Исполнитель · позиция' : 'Заказ · позиция · часть',
+      rows: bars.length ? model.rows : [], bars: model.bars, // нет работ — подсказка, а не пустые строки людей load: loadBy, from: from(), to: to(), scale: scaleK, canEdit: !!session.canEdit, rowsMovable: lens === 'people',
       fitWidth: Math.max(320, (chartBox.clientWidth || 800) - (narrow() ? 148 : 232)),
       expanded: filtersOn && !touched ? new Set(model.nodeIds) : open,
       onToggle: (_id, _isOpen, set2) => { touched = true; open = new Set(set2); saveOpen(); },
@@ -131,7 +135,7 @@ function createSchedule(el, p0, set, extra0 = {}) {
     if (rec.bar.rev != null) body.rev = rec.bar.rev;
     try {
       await api(`/orderline-plans/${rec.bar.planId}/steps/${stepId}`, { method: 'PATCH', body });
-      toast(body.assigneeId !== undefined ? 'Шаг передан другому рабочему' : `Шаг начнётся ${dmy(dest.start)}`);
+      toast(body.assigneeId !== undefined ? 'Шаг передан другому исполнителю' : `Шаг начнётся ${dmy(dest.start)}`);
       window.dispatchEvent(new Event('data-changed'));
       await load();
     } catch (e) {

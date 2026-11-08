@@ -33,6 +33,7 @@ export const RULES = {
   q: 'A3-q: карточка не из kit (article / .tcard / .tile / .db-order без data-k)',
   r: 'A3-r: кликабельная карточка без наведения k-hover (подъём и тень отличаются)',
   t: 'панель: блоки или кнопки слиплись (зазор меньше 6px)',
+  u: 'текст кнопки / вкладки обрезан (пользователь 2026-11-08: «Уместит» в Ганте)',
 };
 
 /**
@@ -245,6 +246,8 @@ if(innerWidth<=420)for(const el of document.querySelectorAll('button,a[href],[ro
   if(!vis(el))continue;const r=el.getBoundingClientRect();
   if(el.tagName==='A'&&el.parentElement&&getComputedStyle(el).display==='inline'&&[...el.parentElement.childNodes].some(n=>n.nodeType===3&&n.textContent.trim().length>2))continue;
   const mn=Math.min(r.width,r.height);if(mn<40)add(mn<36?'g':'m',sel(el),(el.innerText||el.getAttribute('aria-label')||el.title||'').trim().slice(0,40)+' '+Math.round(r.width)+'×'+Math.round(r.height))}
+for(const el of document.querySelectorAll('button,.k-seg-btn,.chip,[role=tab]')){
+  if(!vis(el)||!el.innerText.trim())continue;if(el.scrollWidth>el.clientWidth+1)add('u',sel(el),el.innerText.trim().slice(0,40)+' '+el.clientWidth+'<'+el.scrollWidth)}
 for(const el of document.querySelectorAll('.chip[role=tab],.k-seg-btn,.chips .chip')){
   if(!vis(el))continue;const t=el.innerText.replace(/\\s+/g,' ').trim();
   if(/(^|[\\s(])0\\)?$/.test(t)&&!/^все\\b/i.test(t))add('h',sel(el),t)}
