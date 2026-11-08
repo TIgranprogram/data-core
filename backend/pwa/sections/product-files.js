@@ -84,15 +84,14 @@ export function productFilesBlock(r, canEdit) {
       ? empty({ title: 'Категория паспорта не выбрана', hint: 'Выберите её в блоке «Паспорт» — появятся нужные слоты.' })
       : kinds.length ? h('div', null, ...kinds.map((k) => slot(k, byKind.get(k), req.has(k)))) : empty({ title: 'Для этой категории рисунки не нужны' });
     const dr = drawings || [];
-    const drawingsBody = h('div', null,
-      dr.length ? h('div', null, ...dr.map(drawingRow)) : h('p', { class: 'muted small' }, canEdit ? 'Чертежей нет — загрузите PDF, DWG или DXF; большие файлы — во «Вложения».' : 'Чертежей нет'),
-      canEdit ? photoDrop({ purpose: 'drawing', drawing: true, attach: async (photoId) => { await attachProductFile(r.id, photoId, 'drawing'); return true; }, done: () => { toast('Чертёж сохранён'); paint(); } }) : null);
+    // Чертежи — одно место: «Вложения → Чертежи» (пользователь 2026-11-08: два блока «Чертежи» — дубль). Здесь только уже загруженные раньше, без новой загрузки.
+    const drawingsBody = h('div', null, h('div', null, ...dr.map(drawingRow)), h('p', { class: 'muted small' }, 'Новые чертежи загружайте во «Вложения → Чертежи».'));
     const open = new Set([...root.querySelectorAll('details.k-sec[open]')].map((d) => d.dataset.key));
     const mk = (key, title, count, body) => { const s = section({ title, count, body, open: open.has(key), tone: 'info' }); s.dataset.key = key; return s; };
     root.replaceChildren(
       mk('shop', 'Витрина', (r.photos || []).length, h('div', { class: 'muted' }, 'Фото на обложку и в списках — наверху карточки.')),
       mk('passport', 'Для паспорта', byKind.size, passport),
-      mk('drawing', 'Чертежи', dr.length, drawingsBody));
+      ...(dr.length ? [mk('drawing', 'Чертежи (раньше загруженные)', dr.length, drawingsBody)] : []));
   }
   paint();
   return root;
