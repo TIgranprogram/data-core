@@ -169,7 +169,7 @@ const toInitial = (r) => ({
 export const orders = {
   id: 'orders',
   kind: 'Позиция заказа',
-  title: 'Позиции заказов',
+  title: 'Доходы по заказам',
   newTitle: 'Новая строка заказа',
   entityType: 'Income',
   historyLabels: { 'income.created': 'Создана', 'income.updated': 'Изменена', 'income.deleted': 'Удалена', 'income.restored': 'Восстановлена' },

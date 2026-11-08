@@ -13,7 +13,7 @@ const uniq = (vals: unknown[]) => [...new Map((vals.filter(Boolean) as Oid[]).ma
 /** Шаги маршрута для карточки: сделан / идёт сейчас / впереди. */
 export function presentRoute(route: WorkStep[], stepIndex: number | null) {
   return route.map((s, i) => ({
-    index: i, workTypeId: s.workTypeId ? String(s.workTypeId) : null, name: s.name, lineId: s.lineId ? String(s.lineId) : null, note: s.note ?? null,
+    index: i, stepId: s.stepId ? String(s.stepId) : null, workTypeId: s.workTypeId ? String(s.workTypeId) : null, name: s.name, lineId: s.lineId ? String(s.lineId) : null, note: s.note ?? null,
     state: stepIndex !== null && i < stepIndex ? 'done' : stepIndex === i ? 'current' : 'next',
   }));
 }

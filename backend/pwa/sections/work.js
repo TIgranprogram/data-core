@@ -1,6 +1,6 @@
 import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { sku as kitSku, button, section, stack } from '../ui/kit/index.js';
+import { sku as kitSku, actions, busyBlock, button, section, sideNote, stack } from '../ui/kit/index.js';
 import { date, isoDay, qty } from '../core/format.js';
 import { go } from '../core/router.js';
 import { badge, ORDER_PRIORITY } from '../ui/kit/badges.js';
@@ -9,6 +9,7 @@ import { mountGantt } from '../ui/gantt.js';
 import { failBlock } from '../ui/kit/busy.js';
 import { enhanceSelect } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/kit/toast.js';
+import { markStep } from './work-facts.js';
 import { activeOrders, orderLabel } from './salesorders.js';
 export { workPlan } from './work-composition.js'; // панель «Позиция заказа» (of=workplan)
 export { workLaunch } from './work-launch.js'; // панель «Запуск в работу» (of=worklaunch)
@@ -37,7 +38,7 @@ export function dueNode(r) {
   return h('span', { class: 'due ' + cls, title: 'Срок взят из заказа' }, text);
 }
 const prioBadge = (r) => (r.priority && r.priority !== 'normal' ? badge(ORDER_PRIORITY, r.priority) : null);
-const avatar = (r) => (r.assignee ? h('span', { class: 'avatar sm', title: r.assignee.name, 'aria-label': 'Исполнитель: ' + r.assignee.name }, r.assignee.initials) : h('span', { class: 't-none' }, 'не назначен'));
+const avatar = (r) => (r.assignee ? h('span', { class: 'avatar sm', title: r.assignee.name, 'aria-label': 'Исполнитель: ' + r.assignee.name }, r.assignee.initials) : h('span', { class: 't-none' }, 'Без исполнителя'));
 const pic = (r) => (r.photo ? h('img', { class: 't-pic', src: PREFIX + r.photo, alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.remove() }) : null);
 /** Точки маршрута: сделано / сейчас / впереди. */
 export function dots(r) {
@@ -144,7 +145,7 @@ function topBlock(r) {
     ...pair('Заказ / поз.', znp ? h('a', { class: 'ref-orders', href: '#salesorders?open=' + encodeURIComponent(clean(r.productionNo) || r.orderId || '') }, '№ ' + znp) : ''),
     ...pair('Заказчик', clean(r.customer)),
     ...pair('Срок', dueNode(r)),
-    ...(can ? [] : pair('Исполнитель', r.assignee ? r.assignee.name : 'не назначен')));
+    ...(can ? [] : pair('Исполнитель', r.assignee ? r.assignee.name : 'Без исполнителя')));
   return h('div', { class: 'dc-top' },
     h('div', { class: 'dc-chips' }, badge(STATUS, r.status), prioBadge(r)),
     r.status === 'cancelled' && r.cancelReason ? h('div', { class: 'dc-pause' }, 'Отменена: ' + r.cancelReason) : null,
@@ -185,6 +186,39 @@ function assignBlock(r, ctx) {
     h('label', { class: 'field' }, h('span', null, 'Примечание'), note), h('div', { class: 'spec-acts' }, save)] });
   sel.disabled = true; fill(false).then(() => { sel.disabled = false; });
   return box;
+}
+
+/** «Начал / Закончил» текущего шага плана позиции (C047 Э3): факт ставится из карточки задания, в составе позиции — только чтение. */
+function factBlock(r) {
+  if (r.status !== 'work') return null;
+  const stepId = r.route?.[r.stepIndex]?.stepId;
+  if (!stepId) return null; // без плана позиции факт отмечается в Ганте
+  const box = h('div');
+  const stamp = (v) => (v ? new Date(v).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'не отмечено');
+  async function paint() {
+    box.replaceChildren(busyBlock('факт'));
+    try {
+      const plan = await api(`/orderline-plans/by-income/${r.incomeId}`);
+      const step = (plan.steps || []).find((s) => String(s.id) === String(stepId));
+      const started = step?.startedAt, finished = step?.finishedAt;
+      box.replaceChildren(sideNote(`Начат: ${stamp(started)}. Закончен: ${stamp(finished)}.`),
+        actions(
+          button({ label: 'Начал', size: 'S', disabled: !!started, onClick: (ev) => mark(plan.id, stepId, 'start', ev) }),
+          button({ label: 'Закончил', size: 'S', disabled: !!finished, onClick: (ev) => mark(plan.id, stepId, 'finish', ev) })));
+    } catch (e) { box.replaceChildren(failBlock(e, paint)); }
+  }
+  async function mark(planId, sid, what, ev) {
+    const t = ev?.currentTarget; t?.classList.add('is-busy');
+    try {
+      await markStep(planId, sid, what);
+      toast(what === 'start' ? 'Начало отмечено' : 'Окончание отмечено');
+      window.dispatchEvent(new CustomEvent('data-changed'));
+      await paint();
+    } catch (e) { toastError(e, 'отметить шаг'); }
+    t?.classList.remove('is-busy');
+  }
+  paint();
+  return section({ title: 'Факт работы', tone: 'who', open: true, body: box });
 }
 
 /** «Отменить»: причина обязательна. Свёрнуто, чтобы не нажать случайно. */
@@ -228,7 +262,7 @@ export const work = {
       { key: 'title', label: 'Изделие', cls: 'clip', render: (r) => h('span', { title: r.title }, r.title, subLine(r) ? h('small', { class: 'muted' }, ' ' + subLine(r)) : null) },
       { key: 'step', label: 'Где сейчас', cls: 'nowrap', render: (r) => h('span', { class: 'wk-where' }, dots(r), ' ', stepText(r)) },
       { key: 'due', label: 'Срок', cls: 'nowrap', render: dueNode },
-      { key: 'assignee', label: 'Исполнитель', cls: 'nowrap md-hide', render: (r) => (r.assignee ? r.assignee.name : h('span', { class: 'muted' }, 'не назначен')) },
+      { key: 'assignee', label: 'Исполнитель', cls: 'nowrap md-hide', render: (r) => (r.assignee ? r.assignee.name : h('span', { class: 'muted' }, 'Без исполнителя')) },
       { key: 'status', label: 'Статус', cls: 'nowrap', render: (r) => badge(STATUS, r.status) },
     ],
     card: {
@@ -273,7 +307,7 @@ export const work = {
     view: () => [],
     extra: (r, ctx) => {
       if (!session.canEdit) return r.note ? h('div', { class: 'dc-note' }, r.note) : null;
-      return stack(r.status === 'cancelled' ? (r.note ? h('div', { class: 'dc-note' }, r.note) : null) : assignBlock(r, ctx), r.status === 'waiting' || r.status === 'work' ? cancelBlock(r, ctx) : null);
+      return stack(factBlock(r), r.status === 'cancelled' ? (r.note ? h('div', { class: 'dc-note' }, r.note) : null) : assignBlock(r, ctx), r.status === 'waiting' || r.status === 'work' ? cancelBlock(r, ctx) : null);
     },
     actions: (r) => {
       const run = (fn) => async (row, ctx) => { const saved = await fn(row); if (saved) ctx.setRow(saved); };

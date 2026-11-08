@@ -5,7 +5,7 @@ import { failBlock } from '../ui/kit/busy.js';
 import { actions, badge, qtyInput, stack, busyBlock, button, enhanceSelect, funnel, iconButton, link, modal, section, select, sideForm, sideNote, table, textInput, toast, toastError } from '../ui/kit/index.js';
 import { qty } from '../core/format.js';
 import { workTypes } from './work-route.js';
-import { costBlock, factsBlock, markStep } from './work-facts.js';
+import { costBlock, factsBlock, applyNorm } from './work-facts.js';
 
 /*
  * Состав и работы (C041 Э1): части изделия (стойки, навес, наполнение) × виды работ × норма часов, галочка «Проверено».
@@ -41,7 +41,7 @@ const outStep = (s) => ({ id: s.id, workTypeId: s.workTypeId, partRowId: s.partR
  * → { el, get value() (JSON { parts, steps }), get dirty(), setData({ parts, steps, fact?, leadDays? }) }; при правке шлёт `change`.
  * check не задан — «Проверено» ставится на месте и уходит вместе с сохранением.
  */
-export function compositionEditor({ parts: p0 = [], steps: s0 = [], types = [], partsDict = [], canEdit = true, check, suggested = [], onMark, fact: fact0 = null, leadDays: lead0 = null } = {}) {
+export function compositionEditor({ parts: p0 = [], steps: s0 = [], types = [], partsDict = [], canEdit = true, canEditHours = canEdit, check, suggested = [], onMark, fact: fact0 = null, leadDays: lead0 = null } = {}) {
   let parts = p0.map(partOf), steps = s0.map(stepOf), curPart = '', dirty = false, adding = false, fact = fact0, leadDays = lead0;
   const root = stack();
   const typeName = (id) => types.find((t) => t.value === id)?.label || 'вид работ удалён';
@@ -62,7 +62,7 @@ export function compositionEditor({ parts: p0 = [], steps: s0 = [], types = [], 
       title: locked ? 'Сначала сохраните правки — потом отметьте' : row.checked ? (row.by ? 'Проверил: ' + row.by + '. Нажмите — снять' : 'Нажмите — снять отметку') : 'Отметить как проверенное', onClick: () => toggle(kind, row) });
   };
 
-  const hoursIn = (s) => !canEdit ? String(s.hours ?? '—') : qtyInput({ value: s.hours === null ? '' : String(s.hours), label: 'Часов на 1 шт.', plusLabel: '+1 час', onInput: (_n, text) => { s.hours = text; s.checked = false; touch(); totalEl.textContent = totalText(); } });
+  const hoursIn = (s) => !canEditHours ? String(s.hours ?? '—') : qtyInput({ value: s.hours === null ? '' : String(s.hours), label: 'Часов на 1 шт.', plusLabel: '+1 час', onInput: (_n, text) => { s.hours = text; s.checked = false; touch(); totalEl.textContent = totalText(); } });
   const qtyIn = (p) => !canEdit ? String(p.qty ?? 1) : qtyInput({ value: String(p.qty ?? 1), label: 'Количество', plusLabel: '+1', onInput: (_n, text) => { p.qty = text; p.checked = false; touch(); totalEl.textContent = totalText(); } });
 
   const totalText = () => {
@@ -213,18 +213,16 @@ export const workPlan = sideForm({
     const p = r.plan;
     let ed = null;
     const check = async (kind, rowId, checked) => { const x = await api(`${PLAN}/${p.id}/check`, { method: 'POST', body: { kind, rowId, checked } }); Object.assign(p, x); return x; };
-    // «▶ начал / ■ закончил»: отметка факта шага, затем перечитать план — придут факт и срок позиции
-    const onMark = async (kind, row, what) => {
-      await markStep(p.id, row.id, what);
-      const fresh = await api(`${PLAN}/by-income/${r.incomeId}`);
-      Object.assign(p, fresh);
-      ed?.setData(fresh);
-      toast(what === 'start' ? 'Начало отмечено' : 'Окончание отмечено');
-    };
     const notes = [];
-    if (session.canEdit) notes.push(sideNote('Правка часов или количества снимает отметку «Проверено» — после сохранения отметьте снова.'));
+    if (session.canEdit) notes.push(sideNote('Правка количества снимает отметку «Проверено». Норма часов правится в изделии — здесь только чтение.'));
     if (!p.productId) notes.push(sideNote('У позиции нет изделия: составьте части и работы вручную — они сохранятся только в этом заказе. Чтобы подставить из продукции, сопоставьте позицию с изделием.'));
     else notes.push(sideNote('Изделие: ' + (p.productName || '—') + (p.origin === 'product' ? '. Части и работы подставлены из продукции — проверьте и отметьте.' : '. План составлен вручную.')));
+    if (p.productId && session.canEdit) notes.push(sideNote('Фактические часы можно записать в норму изделия. ', button({ label: 'Принять как норму', size: 'S', kind: 'primary', title: 'Записать фактические часы в норму изделия', onClick: async (e) => {
+      e.currentTarget.classList.add('is-busy');
+      try { const res = await applyNorm(p.productId); toast(`Норма обновлена: ${res?.applied || 0} ${res?.applied === 1 ? 'работа' : 'работ'}`); }
+      catch (er) { toastError(er, 'принять норму'); }
+      e.currentTarget.classList.remove('is-busy');
+    } })));
     if (p.productChangedSinceCopy) {
       notes.push(sideNote('Изделие в продукции изменили после того, как план взяли в этот заказ. ',
         button({ label: 'Взять заново', size: 'S', onClick: async (e) => {
@@ -239,8 +237,8 @@ export const workPlan = sideForm({
       { section: 'Состав и работы', tone: 'main', fixed: true },
       { key: '_notes', type: 'widget', label: '', wide: true, widget: () => ({ el: stack(...notes), value: '' }) },
       { key: 'compo', type: 'widget', label: '', wide: true, summary: () => '', widget: () => {
-        ed = compositionEditor({ parts: p.parts, steps: p.steps, types: r.types, partsDict: r.partsDict, canEdit: !!session.canEdit, check,
-          fact: p.fact, leadDays: p.leadDays, onMark });
+        ed = compositionEditor({ parts: p.parts, steps: p.steps, types: r.types, partsDict: r.partsDict, canEdit: !!session.canEdit, canEditHours: false, check,
+          fact: p.fact, leadDays: p.leadDays });
         return { el: ed.el, get value() { return ed.value; }, set value(_) { /* только своё состояние */ } };
       } },
       ...(session.canMoney ? [{ key: '_cost', type: 'widget', label: '', wide: true, widget: () => ({ el: costBlock({ incomeId: r.incomeId }), value: '' }) }] : []),

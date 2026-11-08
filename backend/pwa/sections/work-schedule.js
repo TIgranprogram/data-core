@@ -2,6 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { patch } from '../core/router.js';
 import { actions, busyBlock, button, empty, failBlock, funnel, openSide, planner, section, segmented, sideForm, sideNote, stack, toast, toastError } from '../ui/kit/index.js';
+import { applyNorm } from './work-facts.js';
 
 /*
  * Гант (C041 Э2): планировщик по шагам планов позиций. GET /work-schedule?from&to → { people, bars, load }.
@@ -90,7 +91,7 @@ export const workSchedule = {
         { key: 'order', label: 'Заказ', ask: 'выберите заказ', optional: true, value: f.order, values: countBy(bars.filter((b) => pass(b, f, 'order')), (b) => b.orderNo, (b) => 'Заказ № ' + b.orderNo) },
         { key: 'line', label: 'Позиция', ask: 'выберите позицию', optional: true, value: f.line, values: countBy(bars.filter((b) => pass(b, f, 'line')), (b) => b.incomeId, (b) => b.title || 'Позиция') },
         { key: 'part', label: 'Часть', ask: 'выберите часть', optional: true, value: f.part, values: countBy(bars.filter((b) => pass(b, f, 'part')), partOf, partOf) },
-        { key: 'person', label: 'Рабочий', ask: 'выберите рабочего', optional: true, value: f.person, values: countBy(bars.filter((b) => pass(b, f, 'person')), (b) => b.assigneeId || NONE, (b) => (b.assigneeId ? data.people.find((x) => String(x.id) === String(b.assigneeId))?.name || 'Рабочий' : 'Не назначен')) },
+        { key: 'person', label: 'Исполнитель', ask: 'выберите исполнителя', optional: true, value: f.person, values: countBy(bars.filter((b) => pass(b, f, 'person')), (b) => b.assigneeId || NONE, (b) => (b.assigneeId ? data.people.find((x) => String(x.id) === String(b.assigneeId))?.name || 'Исполнитель' : 'Без исполнителя')) },
         { key: 'work', label: 'Вид работ', ask: 'выберите вид работ', optional: true, value: f.work, values: countBy(bars.filter((b) => pass(b, f, 'work')), (b) => b.workTypeName, (b) => b.workTypeName) },
       ].filter((s) => s.values.length || s.value);
       const fn = funnel({ steps: steps2, onChange: (key, v) => set({ [key === 'line' ? 'incomeId' : key]: v || undefined }) });
@@ -104,11 +105,11 @@ export const workSchedule = {
       let rows;
       if (m === 'people') {
         const unassigned = bars.some((b) => !b.assigneeId);
-        rows = [...(unassigned || !f.person ? [{ id: NONE, label: 'Не назначен', sub: `${bars.filter((b) => !b.assigneeId).length} шагов` }] : []),
+        rows = [...(unassigned || !f.person ? [{ id: NONE, label: 'Без исполнителя', sub: `${bars.filter((b) => !b.assigneeId).length} шагов` }] : []),
           ...data.people.filter((x) => !f.person || String(x.id) === f.person).sort((a, b) => String(a.name).localeCompare(String(b.name), 'ru')).map((x) => ({ id: String(x.id), label: x.name, sub: x.capacityHours ? `${round(x.capacityHours)} ч в день` : '', cap: Number(x.capacityHours) || 0 }))];
         if (f.person === NONE) rows = rows.filter((r) => r.id === NONE);
       } else rows = [...new Set(bars.map((b) => String(b.orderNo || '—')))].sort().map((o) => ({ id: o, label: 'Заказ № ' + o, sub: `${bars.filter((b) => String(b.orderNo || '—') === o).length} шагов` }));
-      const view = bars.map((b) => ({ id: String(b.stepId), rowId: rowKey(b, m), start: day(b.start), end: day(b.end), title: titleOf(b), sub: [`${round(b.hours)} ч`, m === 'people' ? '№ ' + b.orderNo : b.assigneeId ? '' : 'не назначен'].filter(Boolean).join(' · '), tone: toneOf(b, m), hint: `Заказ № ${b.orderNo}${b.title ? ' · ' + b.title : ''}` }));
+      const view = bars.map((b) => ({ id: String(b.stepId), rowId: rowKey(b, m), start: day(b.start), end: day(b.end), title: titleOf(b), sub: [`${round(b.hours)} ч`, m === 'people' ? '№ ' + b.orderNo : b.assigneeId ? '' : 'Без исполнителя', b.inDesign ? 'в проектировании' : ''].filter(Boolean).join(' · '), tone: toneOf(b, m), hint: `Заказ № ${b.orderNo}${b.title ? ' · ' + b.title : ''}${b.inDesign ? ' · в проектировании' : ''}` }));
       const chart = planner({
         rows, bars: view, load: loadBy, from: from(), to: to(), scale: scale(), canEdit: !!session.canEdit, rowsMovable: m === 'people',
         empty: empty({ title: 'В этом периоде работ нет', hint: 'Откройте заказ, в позиции нажмите «Состав» и добавьте работы, затем «Запланировать». Или сдвиньте период.' }),
@@ -233,17 +234,27 @@ export const wsStep = sideForm({
       { key: '_fact', type: 'widget', label: 'Факт', wide: true, widget: () => factWidget(r) },
       { key: 'assigneeId', label: 'Исполнитель', type: 'select', wide: true, options: assigneeOptions(r, false), mount: (fapi) => assigneeMount(r, fapi),
         hint: r.able ? 'Только сотрудники с видом работ этого шага. «Показать всех» — весь список.' : undefined },
-      { key: 'hours', label: 'Часов на 1 шт.', type: 'number', min: 0, wide: true },
+      { key: '_norm', type: 'widget', label: 'Норма', wide: true, widget: () => ({
+        el: stack(sideNote(`Часов на 1 шт.: ${round(b.hoursPerUnit)}. Правка нормы — только в изделии («Части и работы»).`),
+          session.canEdit ? button({ label: 'Принять как норму', size: 'S', kind: 'primary', title: 'Записать фактические часы в норму изделия', onClick: async (ev) => {
+            const t = ev.currentTarget; t.classList.add('is-busy');
+            try {
+              const plan = await api(`/orderline-plans/by-income/${b.incomeId}`);
+              if (!plan.productId) { toast('У позиции нет изделия — норма живёт в изделии'); return; }
+              const res = await applyNorm(plan.productId);
+              toast(`Норма обновлена: ${res?.applied ?? 0} ${res?.applied === 1 ? 'работа' : 'работ'}`);
+            } catch (e) { toastError(e, 'принять норму'); }
+            t.classList.remove('is-busy');
+          } }) : null), value: '' }) },
       { key: 'start', label: 'Начало', type: 'date', span: 1 },
       { key: 'end', label: 'Конец', type: 'date', span: 1 },
     ];
   },
-  toInitial: (r) => ({ assigneeId: r.bar.assigneeId ? String(r.bar.assigneeId) : '', start: day(r.bar.start), end: day(r.bar.end), hours: r.bar.hoursPerUnit ?? '' }),
+  toInitial: (r) => ({ assigneeId: r.bar.assigneeId ? String(r.bar.assigneeId) : '', start: day(r.bar.start), end: day(r.bar.end) }),
   save: async (v, r) => {
     const b = r.bar;
     if (v.start && v.end && v.end < v.start) { toast('Конец раньше начала — поправьте даты'); throw new Error('Конец раньше начала'); }
     const body = { assigneeId: v.assigneeId || null, start: v.start || undefined, end: v.end || undefined };
-    if (v.hours !== '' && v.hours != null && Number(v.hours) >= 0 && Number(v.hours) !== b.hoursPerUnit) body.hours = Number(v.hours);
     if (b.rev != null) body.rev = b.rev;
     try { await api(`/orderline-plans/${b.planId}/steps/${b.stepId}`, { method: 'PATCH', body }); }
     catch (e) { if (e.status === 409) toast('План изменил другой человек — откройте шаг заново'); throw e; }

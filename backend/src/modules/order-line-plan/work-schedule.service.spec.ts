@@ -29,7 +29,7 @@ describe('WorkScheduleService: люди Ганта и вид работ испо
   const welder = id(), acc = id(), old = id(), fired = id();
 
   beforeEach(() => {
-    c = Object.fromEntries(['persons', 'worktypes', 'incomes', 'worktasks', 'orderlineplans', 'salesorders'].map((n) => [n, new Coll()]));
+    c = Object.fromEntries(['persons', 'worktypes', 'incomes', 'worktasks', 'orderlineplans', 'salesorders', 'designtasks'].map((n) => [n, new Coll()]));
     svc = new WorkScheduleService({ db: { collection: (n: string) => c[n] } } as never, {} as never);
     c.worktypes.rows.push({ _id: weld, name: 'Сварка', deletedAt: null }, { _id: cut, name: 'Резка', deletedAt: null });
     c.persons.rows.push(
@@ -83,7 +83,7 @@ describe('срок заказа и просрочка полосы (T6 ядро)
 
   it('полоса несёт deadline и overdue из заказа', async () => {
     const id = () => new Types.ObjectId();
-    const c = Object.fromEntries(['persons', 'worktypes', 'incomes', 'worktasks', 'orderlineplans', 'salesorders'].map((n) => [n, new Coll()])) as Record<string, Coll>;
+    const c = Object.fromEntries(['persons', 'worktypes', 'incomes', 'worktasks', 'orderlineplans', 'salesorders', 'designtasks'].map((n) => [n, new Coll()])) as Record<string, Coll>;
     const svc2 = new WorkScheduleService({ db: { collection: (n: string) => c[n] } } as never, {} as never);
     const weld = id(), inc = id(), planId = id(), stepId = id(), orderId = id();
     const past = new Date(Date.now() - 10 * 86400000);
@@ -91,9 +91,11 @@ describe('срок заказа и просрочка полосы (T6 ядро)
     c.incomes.rows.push({ _id: inc, title: 'Беседка', qty: 1, orderNo: '34', orderId, deletedAt: null });
     c.salesorders.rows.push({ _id: orderId, productionDeadline: past, deletedAt: null });
     c.orderlineplans.rows.push({ _id: planId, incomeId: inc, rev: 1, deletedAt: null, steps: [{ _id: stepId, workTypeId: weld, hours: 4 }] });
+    c.designtasks.rows.push({ _id: id(), incomeId: inc, status: 'work', deletedAt: null });
     const bars = await (svc2 as any).barsOf([c.orderlineplans.rows[0]], new Date());
     const bar = bars.find((b: Row) => b.stepId === String(stepId));
     expect(bar.deadline).toBe(past.toISOString().slice(0, 10));
     expect(bar.overdue).toBe(true);
+    expect(bar.inDesign).toBe(true);
   });
 });

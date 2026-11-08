@@ -19,6 +19,8 @@ export interface Bar {
   startedAt: Date | null; finishedAt: Date | null; hoursPerUnit: number | null;
   /** Срок заказа (ГГГГ-ММ-ДД или null) и просрочен ли шаг к сроку. */
   deadline: string | null; overdue: boolean;
+  /** У позиции есть незакрытая задача проектирования — метка на строке Ганта. */
+  inDesign: boolean;
 }
 const MAX_RANGE_DAYS = 366;
 const idOf = (v: unknown) => (v ? String(v) : null);
@@ -47,15 +49,17 @@ export class WorkScheduleService {
     const incomeIds = plans.map((p) => p.incomeId as Types.ObjectId);
     const incomes = await this.db().collection('incomes').find({ _id: { $in: incomeIds }, deletedAt: null }, { projection: { orderNo: 1, title: 1, qty: 1, orderId: 1 } }).toArray();
     const orderIds = [...new Set(incomes.map((i) => i.orderId).filter(Boolean))] as Types.ObjectId[];
-    const [tasks, types, orders] = await Promise.all([
+    const [tasks, types, orders, designs] = await Promise.all([
       this.db().collection('worktasks').find({ incomeId: { $in: incomeIds }, deletedAt: null, status: { $ne: 'cancelled' } }, { projection: { incomeId: 1, status: 1, stepIndex: 1, route: 1, createdAt: 1 } }).sort({ createdAt: 1 }).toArray(),
       this.db().collection('worktypes').find({ deletedAt: null }, { projection: { name: 1 } }).toArray(),
       orderIds.length ? this.db().collection('salesorders').find({ _id: { $in: orderIds } }, { projection: { productionDeadline: 1, shipDate: 1 } }).toArray() : Promise.resolve([] as Doc[]),
+      this.db().collection('designtasks').find({ incomeId: { $in: incomeIds }, deletedAt: null, status: { $nin: ['done'] } }, { projection: { incomeId: 1 } }).toArray(),
     ]);
     const income = new Map(incomes.map((i) => [String(i._id), i as Doc]));
     const task = new Map(tasks.map((t) => [String(t.incomeId), t as Doc])); // последнее задание перекрывает прежние
     const typeName = new Map(types.map((t) => [String(t._id), String(t.name ?? '')]));
     const deadlineOf = new Map(orders.map((o) => [String(o._id), barDeadline(o as Doc)]));
+    const inDesign = new Set(designs.map((d) => String(d.incomeId))); // метка «в проектировании» на строке позиции
     const out: Array<Bar & { startAt: Date; endAt: Date }> = [];
     for (const plan of plans) {
       const inc = income.get(String(plan.incomeId));
@@ -84,6 +88,7 @@ export class WorkScheduleService {
           assigneeId: idOf(s.assigneeId), start: isoDay(sched[i].start), end: isoDay(sched[i].end),
           startedAt: s.startedAt ?? null, finishedAt: s.finishedAt ?? null, hoursPerUnit: s.hours ?? null, hours: Math.round(sched[i].hours * 100) / 100, status,
           deadline: dl ? isoDay(dl) : null, overdue: barOverdue(dl, today, status),
+          inDesign: inDesign.has(String(plan.incomeId)),
           startAt: sched[i].start, endAt: sched[i].end,
         });
       });
