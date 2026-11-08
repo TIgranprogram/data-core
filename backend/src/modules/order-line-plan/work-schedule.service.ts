@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
+import { personWorkTypeIds } from '../../common/catalog/person-work-types';
 import { oid } from '../../common/list-query';
 import type { PartRow, StepRow } from '../../common/work-route-rows';
 import { WHOLE_PRODUCT } from '../../common/work-route-rows';
@@ -12,13 +13,15 @@ import { WorkFactsService } from './work-facts.service';
 type Doc = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 export type BarStatus = 'plan' | 'work' | 'done';
 export interface Bar {
-  stepId: string; planId: string; incomeId: string; orderNo: string | null; title: string; partName: string; workTypeName: string;
+  stepId: string; planId: string; incomeId: string; orderNo: string | null; title: string; partName: string; workTypeName: string; /** id вида работ шага */ workTypeId: string | null;
   assigneeId: string | null; /** 'ГГГГ-ММ-ДД', end включительно */ start: string; end: string; hours: number; status: BarStatus;
   /** Факт-отметки шага и норма на 1 шт. */
   startedAt: Date | null; finishedAt: Date | null; hoursPerUnit: number | null;
 }
 const MAX_RANGE_DAYS = 366;
 const idOf = (v: unknown) => (v ? String(v) : null);
+/** Часов в рабочем дне сотрудника: целое 1–24 из карточки, иначе 8. */
+export const personDayHours = (p: Doc) => { const n = Number(p.hoursPerDay); return Number.isInteger(n) && n >= 1 && n <= 24 ? n : DAY_HOURS; };
 
 /**
  * Гант-планирование (C041 Э2): полосы шагов планов позиций по людям и заказам и загрузка людей по дням.
@@ -65,7 +68,7 @@ export class WorkScheduleService {
         }
         out.push({
           stepId: String(s._id), planId: String(plan._id), incomeId: String(plan.incomeId), orderNo: (inc.orderNo as string | undefined) ?? null, title: String(inc.title ?? ''),
-          partName: s.partRowId ? partName.get(String(s.partRowId)) ?? WHOLE_PRODUCT : WHOLE_PRODUCT, workTypeName: typeName.get(String(s.workTypeId))!,
+          partName: s.partRowId ? partName.get(String(s.partRowId)) ?? WHOLE_PRODUCT : WHOLE_PRODUCT, workTypeName: typeName.get(String(s.workTypeId))!, workTypeId: idOf(s.workTypeId),
           assigneeId: idOf(s.assigneeId), start: isoDay(sched[i].start), end: isoDay(sched[i].end),
           startedAt: s.startedAt ?? null, finishedAt: s.finishedAt ?? null, hoursPerUnit: s.hours ?? null, hours: Math.round(sched[i].hours * 100) / 100, status,
           startAt: sched[i].start, endAt: sched[i].end,
@@ -79,11 +82,14 @@ export class WorkScheduleService {
     return (await this.db().collection('orderlineplans').find({ deletedAt: null, ...extra }).toArray()) as Doc[];
   }
 
+  /** Люди Ганта: только с ≥1 видом работ (бухгалтер и офис не видны); ёмкость дня — `hoursPerDay` сотрудника, пусто — 8. */
   private async people(ids?: string[]) {
     const f: Doc = { deletedAt: null, status: { $nin: ['fired'] } };
     if (ids) f._id = { $in: ids.map((i) => oid(i, 'сотрудника')) };
-    const rows = await this.db().collection('persons').find(f, { projection: { lastName: 1, firstName: 1 } }).sort({ lastName: 1, firstName: 1 }).limit(500).toArray();
-    return rows.map((r) => ({ id: String(r._id), name: [r.lastName, r.firstName].map((x) => String(x ?? '').trim()).filter(Boolean).join(' '), capacityHours: DAY_HOURS }));
+    const rows = (await this.db().collection('persons').find(f, { projection: { lastName: 1, firstName: 1, workTypeIds: 1, workTypeId: 1, hoursPerDay: 1 } }).sort({ lastName: 1, firstName: 1 }).toArray()) as Doc[];
+    return rows.filter((r) => personWorkTypeIds(r).length).slice(0, 500).map((r) => ({
+      id: String(r._id), name: [r.lastName, r.firstName].map((x) => String(x ?? '').trim()).filter(Boolean).join(' '), capacityHours: personDayHours(r),
+    }));
   }
 
   private strip(b: Bar & { startAt: Date; endAt: Date }): Bar {
@@ -162,9 +168,14 @@ export class WorkScheduleService {
     if (dto.assigneeId !== undefined) {
       if (dto.assigneeId === null) unset[`steps.${at}.assigneeId`] = '';
       else {
-        const p = await this.db().collection('persons').findOne({ _id: oid(dto.assigneeId, 'сотрудника'), deletedAt: null }, { projection: { status: 1 } });
+        const p = await this.db().collection('persons').findOne({ _id: oid(dto.assigneeId, 'сотрудника'), deletedAt: null }, { projection: { status: 1, workTypeIds: 1, workTypeId: 1 } });
         if (!p) throw new BadRequestException('Сотрудник не найден — выберите из списка');
         if (p.status === 'fired') throw new BadRequestException('Сотрудник уволен — выберите другого');
+        const wt = steps[at].workTypeId; // шаг без вида работ — без проверки
+        if (wt && !personWorkTypeIds(p).some((x) => String(x) === String(wt))) {
+          const type = await this.db().collection('worktypes').findOne({ _id: wt as Types.ObjectId }, { projection: { name: 1 } });
+          throw new BadRequestException(`У сотрудника нет вида работ «${String(type?.name ?? 'шага')}»`);
+        }
         set[`steps.${at}.assigneeId`] = p._id;
       }
     }

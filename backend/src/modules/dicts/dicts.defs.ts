@@ -23,7 +23,7 @@ type ObjectId = mongo.ObjectId;
  */
 export type Doc = Document & { _id: ObjectId };
 /** photo — одна картинка (id фото строкой), photos — несколько (список id); в приложении — загрузка, а не ввод id (БЗ-6 Э9.7). */
-export type Field = { key: string; label: string; type?: 'text' | 'textarea' | 'select' | 'money' | 'color' | 'photo' | 'photos' | 'date'; required?: boolean; options?: { value: string; label: string }[];
+export type Field = { key: string; label: string; type?: 'text' | 'textarea' | 'select' | 'money' | 'number' | 'color' | 'photo' | 'photos' | 'date'; required?: boolean; options?: { value: string; label: string }[];
   /** Строка — ключ в `refs` для select (id записи); объект — выбор кодов из записей справочника `dict` (у двух — через запятую), хранится строка кодов через запятую. */
   ref?: string | { dict: string; multiple?: boolean };
   /** Для select со строковым ref: какие записи справочника показывать в списке выбора (например, только статьи верхнего уровня). */
@@ -552,14 +552,16 @@ const BASE: DictBase[] = [
     key: 'persons', group: 'Люди и ФОТ', title: 'Сотрудники',
     hint: 'Один список людей для всего приложения: «Кто подал» в заявках, «Кому выдано» со склада, ФОТ. Ставка видна только директору и бухгалтеру.',
     coll: 'persons', match: { deletedAt: null },
-    columns: [{ key: 'position', label: 'Должность' }, { key: 'workTypeName', label: 'Вид работ' }, { key: 'statusLabel', label: 'Статус' }, { key: 'phone', label: 'Телефон' }],
+    columns: [{ key: 'position', label: 'Должность' }, { key: 'workTypeNames', label: 'Виды работ' }, { key: 'statusLabel', label: 'Статус' }, { key: 'phone', label: 'Телефон' }],
     fields: [
       { key: 'lastName', label: 'Фамилия' },
       { key: 'firstName', label: 'Имя', required: true },
       { key: 'patronymic', label: 'Отчество' },
       { key: 'birthDate', label: 'Дата рождения', type: 'date' },
       { key: 'position', label: 'Должность' },
+      // ключ workTypeId оставлен: приложение само показывает мульти-выбор «Виды работ» (workTypeIds) по этому полю — dicts.js
       { key: 'workTypeId', label: 'Вид работ', type: 'select', ref: 'worktypes' },
+      { key: 'hoursPerDay', label: 'Часов в день', type: 'number', hint: 'Целое от 1 до 24; пусто — 8. Нужно для загрузки в Ганте' },
       { key: 'status', label: 'Статус', type: 'select', options: [{ value: 'active', label: 'Работает' }, { value: 'vacation', label: 'В отпуске' }, { value: 'fired', label: 'Уволен' }] },
       { key: 'salaryKind', label: 'Оплата', type: 'select', options: [{ value: 'month', label: 'Оклад в месяц' }, { value: 'hour', label: 'Почасовая' }] },
       { key: 'salaryRate', label: 'Ставка, ₽', type: 'money', hint: 'Оклад в месяц или цена часа' },
@@ -573,7 +575,7 @@ const BASE: DictBase[] = [
       name: personName(d), lastName: s(d.lastName), firstName: s(d.firstName), patronymic: s(d.patronymic), position: s(d.position), phone: s(d.phone), email: s(d.email), notes: s(d.notes),
       workTypeId: personWorkTypeIds(d)[0] ? String(personWorkTypeIds(d)[0]) : '', workTypeIds: personWorkTypeIds(d).map(String), payoutScheduleId: d.payoutScheduleId ? String(d.payoutScheduleId) : '',
       status: s(d.status) || 'active', statusLabel: ({ active: 'Работает', vacation: 'В отпуске', fired: 'Уволен' } as Record<string, string>)[s(d.status) || 'active'],
-      salaryKind: s(d.salaryKind), salaryRate: d.salaryRate ?? null,
+      salaryKind: s(d.salaryKind), salaryRate: d.salaryRate ?? null, hoursPerDay: d.hoursPerDay ?? null,
       birthDate: d.birthDate ? new Date(d.birthDate as Date).toISOString().slice(0, 10) : '',
     }),
     toDoc: async (b, isNew, db, id) => {
@@ -589,6 +591,7 @@ const BASE: DictBase[] = [
         const cur = !isNew && id && Types.ObjectId.isValid(id) ? await db.collection('persons').findOne({ _id: new Types.ObjectId(id) }, { projection: { workTypeId: 1, workTypeIds: 1 } }) : null;
         if (!cur || String(personWorkTypeIds(cur as Doc)[0] ?? '') !== String(one ?? '')) Object.assign(doc, workTypeFields(one ? [String(one)] : []));
       }
+      if (b.hoursPerDay !== undefined) { const n = Number(b.hoursPerDay); doc.hoursPerDay = b.hoursPerDay !== null && b.hoursPerDay !== '' && Number.isInteger(n) && n >= 1 && n <= 24 ? n : null; }
       if (b.payoutScheduleId !== undefined) doc.payoutScheduleId = oidOrNull(b.payoutScheduleId);
       if (b.birthDate !== undefined) { const t = /^\d{4}-\d{2}-\d{2}$/.test(String(b.birthDate)) ? new Date(String(b.birthDate) + 'T00:00:00Z') : null; doc.birthDate = t; }
       if (isNew) Object.assign(doc, { status: doc.status ?? 'active', deletedAt: null, createdAt: new Date() });
