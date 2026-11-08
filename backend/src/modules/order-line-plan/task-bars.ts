@@ -11,7 +11,7 @@ const DAY = 86_400_000;
 /**
  * Задания «В работе» без плана позиции (запущены по маршруту изделия, до C041) — тоже полосы Ганта (C053, регрессия v1.635:
  * на проде 8 заданий в работе, а новый Гант показывал «работ нет»). Шаги — маршрут задания, даты — `computePlan` (как в старом Ганте),
- * статус по `stepIndex`. Полоса только для просмотра (`locked`): переставлять — через план позиции («Состав» → «Запланировать»).
+ * статус по `stepIndex`. Переносится как в старом Ганте: `PATCH /work-tasks/:id/plan { stepIndex, start, days }`; сделанный шаг (`locked`) — нет.
  */
 export async function taskBars(db: Db, o: { incomeIds?: Types.ObjectId[] | null; person?: Types.ObjectId | null; today: Date;
   deadline: (order: Doc | undefined) => Date | null; overdue: (dl: Date | null, today: Date, status: 'plan' | 'work' | 'done') => boolean; hueOf: (id: string, accent?: number | null) => number }) {
@@ -49,7 +49,7 @@ export async function taskBars(db: Db, o: { incomeIds?: Types.ObjectId[] | null;
       const startAt = dayOf(p.start), endAt = new Date(dayOf(p.end).getTime() - DAY); // computePlan: end — начало следующего дня
       const wt = String(route[k].workTypeId ?? '') || null;
       out.push({
-        stepId: `task:${String(t._id)}:${k}`, planId: '', taskId: String(t._id), locked: true, incomeId: String(t.incomeId), orderNo: (i?.orderNo as string | undefined) ?? null,
+        stepId: `task:${String(t._id)}:${k}`, planId: '', taskId: String(t._id), stepIndex: k, locked: status === 'done', incomeId: String(t.incomeId), orderNo: (i?.orderNo as string | undefined) ?? null,
         title: String(i?.title ?? ''), partName: WHOLE_PRODUCT, workTypeName: route[k].name, workTypeId: wt, assigneeId: t.assigneeId ? String(t.assigneeId) : null,
         start: isoDay(startAt), end: isoDay(endAt < startAt ? startAt : endAt), hours: 0, status, startedAt: null, finishedAt: null, hoursPerUnit: null,
         deadline: dl ? isoDay(dl) : null, overdue: o.overdue(dl, o.today, status), inDesign: false,

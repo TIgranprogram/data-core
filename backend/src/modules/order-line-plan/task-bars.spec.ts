@@ -24,12 +24,12 @@ describe('C053: задания без плана позиции — полосы
   });
   const base = { today: new Date('2026-11-08T00:00:00Z'), deadline: () => null, overdue: () => false, hueOf: () => 3 };
 
-  it('шаги маршрута — цепочкой, статус по stepIndex, только просмотр', async () => {
+  it('шаги маршрута — цепочкой, статус по stepIndex, сделанный шаг не двигается', async () => {
     const db = fakeDb({ worktasks: [task(inc1, 1)], orderlineplans: [], incomes: [{ _id: inc1, title: 'Скамья', qty: 1, orderNo: '11-26' }], worktypes: [{ _id: wt1, days: 2 }, { _id: wt2, days: 3 }], salesorders: [] });
     const bars = await taskBars(db as never, base);
     expect(bars.map((b) => [b.workTypeName, b.status, b.start, b.end, b.locked])).toEqual([
       ['Резка', 'done', '2026-11-02', '2026-11-03', true],
-      ['Сварка', 'work', '2026-11-04', '2026-11-06', true],
+      ['Сварка', 'work', '2026-11-04', '2026-11-06', false],
     ]);
     expect(bars[0]).toMatchObject({ orderNo: '11-26', productName: 'Скамья', hue: 3, planId: '' });
   });

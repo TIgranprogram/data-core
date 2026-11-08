@@ -130,6 +130,7 @@ function createSchedule(el, p0, set, extra0 = {}) {
 
   async function move(stepId, dest) {
     const rec = steps.get(String(stepId)); if (!rec) return;
+    if (rec.bar.taskId) return moveTask(rec.bar, dest);
     const body = { start: dest.start, end: dest.end };
     const owner = rec.bar.assigneeId ? String(rec.bar.assigneeId) : NONE;
     if (lens === 'people' && String(dest.rowId) !== owner) body.assigneeId = dest.rowId === NONE ? null : dest.rowId;
@@ -145,6 +146,20 @@ function createSchedule(el, p0, set, extra0 = {}) {
       await load();
       throw e;
     }
+  }
+
+  /** Задание без плана позиции (запущено по маршруту изделия): срок шага — PATCH /work-tasks/:id/plan, исполнитель — PATCH /work-tasks/:id. */
+  async function moveTask(bar, dest) {
+    const owner = bar.assigneeId ? String(bar.assigneeId) : NONE;
+    const who = lens === 'people' && String(dest.rowId) !== owner ? (dest.rowId === NONE ? null : dest.rowId) : undefined;
+    const days = Math.round((Date.parse(dest.end) - Date.parse(dest.start)) / DAY) + 1;
+    try {
+      if (dest.start !== day(bar.start)) await api(`/work-tasks/${bar.taskId}/plan`, { method: 'PATCH', body: { stepIndex: bar.stepIndex, start: dest.start, days } });
+      if (who !== undefined) await api(`/work-tasks/${bar.taskId}`, { method: 'PATCH', body: { assigneeId: who } });
+      toast(who !== undefined ? 'Задание передано другому исполнителю' : `Шаг начнётся ${dmy(dest.start)}`);
+      window.dispatchEvent(new Event('data-changed'));
+      await load();
+    } catch (e) { toastError(e, 'переставить шаг'); await load(); throw e; }
   }
 
   function paint() { paintTop(); paintBanner(); paintFilters(); paintChart(); }
