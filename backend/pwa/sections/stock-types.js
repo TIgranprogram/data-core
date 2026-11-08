@@ -28,7 +28,9 @@ export function typeTiles({ categoryId, categoryName, onPick }) {
         flush(); shelves.push(landing({ head: `${g.label} · ${nPos(g.count)}`, body: tileGrid({ compact: true }, ...g.types.map(tile)) }));
       }
       flush();
-      el.replaceChildren(groups.length ? stack(...shelves) : hint('Типы не определены — откройте всю категорию.'));
+      // нет типов (металл: трубы, профиль, лист выбирают по размеру, а не по типу) — не загадка «не определены», а сразу вся категория с выбором размера
+      if (!groups.length) { el.replaceChildren(hint('Здесь выбор по размеру — открываю все позиции…')); onPick(''); return; }
+      el.replaceChildren(stack(...shelves));
     } catch (e) { el.replaceChildren(failBlock(e, load)); }
   }
   return { el, load };

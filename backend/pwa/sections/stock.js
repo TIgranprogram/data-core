@@ -114,7 +114,7 @@ async function stockLanding() {
   const all = kitButton({ label: 'Все позиции списком', onClick: () => open({ all: '1' }) });
   if (!cats.length) { const box = empty({ title: 'Категорий пока нет — позиции покажутся списком.' }); box.append(all); return box; }
   const art = (name) => { const el = h('span'); el.innerHTML = catArt(name); return el; }; // свой статичный SVG, данных пользователя нет
-  const low = (c) => [c.low ? `к закупке ${c.low}` : '', c.none ? `нет ${c.none}` : ''].filter(Boolean).join(' · ');
+  const low = (c) => [c.low ? `к закупке ${c.low}` : '', c.none ? `закончились: ${c.none}` : ''].filter(Boolean).join(' · '); // «нет 2» было непонятно (2026-11-08): N позиций с нулём на складе
   const catTile = (c, zoneId) => card({ size: 'S', artCover: true, art: art(c.name), title: c.name, meta: nPos(c.total), low: low(c) || undefined,
     ...typeExpand({ categoryId: c.id, categoryName: c.name, onPick: (t) => { if (zoneId) setZone(zoneId); open({ categoryId: c.id, ft: t ? `type:${t}` : undefined }); } }) });
   const total = cats.reduce((a, c) => a + c.total, 0);
@@ -202,7 +202,7 @@ export const stock = {
       key: 'categoryId', title: 'Категории',
       load: async () => (await api('/stock/categories', { query: zoneQuery() })).items.filter((c) => c.id !== 'none').map((c) => ({
         value: c.id, label: c.name, n: c.total,
-        sub: h('span', null, c.low || c.none ? [c.low ? h('span', { class: 'warn' }, `к закупке ${c.low}`) : null, c.low && c.none ? ' · ' : null, c.none ? `нет ${c.none}` : null] : 'всё в норме', c.ordered ? ` · заказано ${c.ordered}` : null),
+        sub: h('span', null, c.low || c.none ? [c.low ? h('span', { class: 'warn' }, `к закупке ${c.low}`) : null, c.low && c.none ? ' · ' : null, c.none ? `закончились: ${c.none}` : null] : 'всё в норме', c.ordered ? ` · заказано ${c.ordered}` : null),
       })),
     },
     columns: [
