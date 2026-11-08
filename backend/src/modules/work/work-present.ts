@@ -3,7 +3,7 @@ import { loadPhotos } from '../../common/photos';
 import { loadSeq } from '../../common/text/production-seq';
 import { orderDeadline, personView } from '../design/design-present';
 import { shortProductName } from '../showcase/order-product-name';
-import { computePlan } from './work-plan';
+import { computePlan } from '../../common/work-plan';
 import type { WorkMove, WorkStep } from './work-task.schema';
 
 type Doc = Record<string, unknown>;

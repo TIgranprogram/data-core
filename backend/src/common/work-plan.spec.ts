@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { computePlan } from './work-plan';
-import type { WorkStep } from './work-task.schema';
+import type { WorkStep } from './work-step';
 
 const a = new Types.ObjectId(), b = new Types.ObjectId();
 const days = new Map([[String(a), 2], [String(b), 0.5]]);

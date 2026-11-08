@@ -1,4 +1,4 @@
-import type { WorkStep } from './work-task.schema';
+import type { WorkStep } from './work-step';
 
 const DAY = 86_400_000;
 const dayStart = (d: Date) => new Date(Math.floor(d.getTime() / DAY) * DAY);

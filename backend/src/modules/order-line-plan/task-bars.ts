@@ -1,8 +1,8 @@
 import { Types, type Connection } from 'mongoose';
 import { WHOLE_PRODUCT } from '../../common/work-route-rows';
 import { dayOf, isoDay } from '../../common/work-schedule';
-import { computePlan } from '../work/work-plan';
-import type { WorkStep } from '../work/work-task.schema';
+import { computePlan } from '../../common/work-plan';
+import type { WorkStep } from '../../common/work-step';
 
 type Db = NonNullable<Connection['db']>;
 type Doc = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
