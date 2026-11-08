@@ -1,6 +1,7 @@
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
 import { hint, tileGrid, typeArt, typeIconList, landing, miniChart, navList, photoStrip, catArt, stat, searchBox, readonlyGroup, similarBox, posPic, posPicOf, sku, section, stack, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, openPdfPreview, stageBar, headStats, clamp, funnel, planner, qtyInput, targetPicker, toast, pick, filter, table, textInput, panel, entityPanel, select, fileButton, links, guide, SUPPLY_STATUS } from '../ui/kit/index.js';
+import { buildCardTabs } from '../ui/kit/card-tabs.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
 const LONG = 'Очень длинное название позиции для проверки переноса и обрезки текста в карточке эталона';
@@ -239,6 +240,18 @@ export const kit = {
         sample(card({ size: 'M', variant: 'fields', title: 'Труба 57×3', meta: 'арт. 32.11', price: { value: '1 250 ₽', note: 'цена на 01.11' }, body: [readonlyGroup({ title: 'Сведения', rows: [['Поставщик', 'Металл-Сервис'], ['Мин. партия', '10 м'], ['Срок', '3 дня'], ['Склад', 'Москва']] })] }))),
       block('Карточка L: шапка + вкладки · C030-11', "card({ size:'L', head:{ title, badges, menu }, tabs:{ items, panes:{ key: () => узел } } }) — в DOM только активная панель. Где используется: заказы.",
         card({ size: 'L', head: { title: 'Договор № 20-26', badges: badge('в работе', 'info'), menu: iconButton({ icon: '⋯', label: 'Ещё', menu: true }) }, tabs: { items: [{ key: 'a', label: 'Позиции', count: 2 }, { key: 'b', label: 'Оплаты' }], panes: { a: () => h('p', { class: 'muted' }, 'Панель «Позиции»'), b: () => h('p', { class: 'muted' }, 'Панель «Оплаты»') } } })),
+      block('Вкладки панели (card.tabs / buildCardTabs) · C052', 'Раздел задаёт section.card.tabs: над вкладками — сведения (view) и кнопки, ниже — tabs({ fill }) + панель вкладки строится при открытии; открытая вкладка запоминается на раздел (prefs), «Вид панели» скрыт. Пример — собранный buildCardTabs.',
+        (() => {
+          const el = buildCardTabs({
+            section: { id: 'demo' }, row: {}, actx: () => ({ close() {}, changed() {}, edit() {}, reload() {}, run: async () => true, setRow() {}, openTab() {} }),
+            setPref: () => {}, getPref: () => '', onOpenTab: () => {},
+            tabDefs: [
+              { key: 'info', label: 'Сведения', count: 2, blocks: () => h('p', { class: 'muted' }, 'Панель «Сведения»') },
+              { key: 'docs', label: 'Документы', blocks: () => h('p', { class: 'muted' }, 'Панель «Документы» (построена при первом открытии)') },
+            ],
+          });
+          return el;
+        })()),
       block('Выпадающий список (select)', 'Без поиска, до ~10 значений. Длинные списки — pick.', sample(select({ options: [['a', 'Первый'], ['b', 'Второй']], value: 'a', label: 'Образец' }))),
       block('Кнопка выбора файла (fileButton)', 'Кнопка-подпись со скрытым полем файла; выбранный файл уходит в onFile.', sample(fileButton({ label: 'Загрузить файл…', accept: '.csv', onFile: (f) => toast(f.name) }))),
       block('Отметка происхождения (data-k)', 'Каждая фабрика kit (через mark / markEl из ui/kit/mark.js) ставит на корень data-k="<эталон>": button, badge, card, row, tabs, table, modal, panel, drawer, form, list, board, filter, pick, empty, mobile.* и др. Большая проверка сайта (правило s) считает элементы экрана без этой отметки — «не из kit».', sample(...[button({ label: 'button' }), badge('badge', 'ok'), empty({ title: 'empty' })].map((n) => h('span', { class: 'muted' }, n.dataset.k + ' → ', n)))),
