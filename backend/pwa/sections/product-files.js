@@ -4,8 +4,9 @@ import { button, empty, carousel, toast, toastError, confirmDlg, section, stack,
 import { KINDS, KINDS_V2 } from '../core/passport-kinds.js';
 
 /**
- * Блок «Фото и файлы» в правой панели изделия. Группы — сворачиваемые секции kit.section (закрыты, в шапке — число файлов):
- * «Витрина» (обложка — вверху карточки), «Для паспорта» (слоты по виду рисунка), «Чертежи» (PDF, DWG, DXF, картинки).
+ * Блоки вкладок изделия (C052): part 'passport' — «Для паспорта» (слоты по виду рисунка, вкладка «Паспорт»),
+ * part 'drawings' — «Чертежи (раньше загруженные)» (вкладка «Файлы», рядом с «Вложениями»; пусто — блока нет).
+ * «Витрина» убрана: обложка — вверху карточки.
  * Нужные слоты — по POST /passports/check для категории изделия (недостающие «Рисунок: …») + уже загруженные.
  * Загрузка — общий photoDrop (перетащить, Ctrl+V, выбрать файл), как у фото витрины.
  */
@@ -42,8 +43,8 @@ export function passportKindDrop(productId, kind, done, old) {
 const fileIcon = (name) => ({ pdf: '📄', dwg: '📐', dxf: '📐' })[String(name).split('.').pop().toLowerCase()] || '🖼';
 const sizeText = (n) => (!n ? '' : n > 1048576 ? `${(n / 1048576).toFixed(1)} МБ` : `${Math.max(1, Math.round(n / 1024))} КБ`);
 
-export function productFilesBlock(r, canEdit) {
-  // ПМ-1: без заголовка-линии — сами секции (Витрина, Для паспорта, Чертежи) карточками в колонке
+export function productFilesBlock(r, canEdit, part = 'passport') {
+  // ПМ-1: без заголовка-линии — сама секция карточкой в колонке
   const root = stack(busyBlock('файлы изделия', { retry: paint }));
   const slot = (kind, rec, required) => {
     const ph = rec?.photoId;
@@ -70,9 +71,10 @@ export function productFilesBlock(r, canEdit) {
   };
   async function paint() {
     let items = [], need, drawings = [];
+    const wantP = part === 'passport';
     try {
-      [items, need, drawings] = await Promise.all([api(`/products/${r.id}/photos?purpose=passport`).then((x) => x.items || x), needKinds(r),
-        api(`/products/${r.id}/photos?purpose=drawing`).then((x) => x.items || x).catch(() => [])]);
+      [items, need, drawings] = await Promise.all([wantP ? api(`/products/${r.id}/photos?purpose=passport`).then((x) => x.items || x) : [], wantP ? needKinds(r) : [],
+        wantP ? [] : api(`/products/${r.id}/photos?purpose=drawing`).then((x) => x.items || x).catch(() => [])]);
     } catch (e) {
       root.replaceChildren(failBlock(e, paint, { text: 'Фото и файлы изделия не загрузились' }));
       return;
@@ -88,10 +90,7 @@ export function productFilesBlock(r, canEdit) {
     const drawingsBody = h('div', null, h('div', null, ...dr.map(drawingRow)), h('p', { class: 'muted small' }, 'Новые чертежи загружайте во «Вложения → Чертежи».'));
     const open = new Set([...root.querySelectorAll('details.k-sec[open]')].map((d) => d.dataset.key));
     const mk = (key, title, count, body) => { const s = section({ title, count, body, open: open.has(key), tone: 'info' }); s.dataset.key = key; return s; };
-    root.replaceChildren(
-      mk('shop', 'Витрина', (r.photos || []).length, h('div', { class: 'muted' }, 'Фото на обложку и в списках — наверху карточки.')),
-      mk('passport', 'Для паспорта', byKind.size, passport),
-      ...(dr.length ? [mk('drawing', 'Чертежи (раньше загруженные)', dr.length, drawingsBody)] : []));
+    root.replaceChildren(...(wantP ? [mk('passport', 'Для паспорта', byKind.size, passport)] : dr.length ? [mk('drawing', 'Чертежи (раньше загруженные)', dr.length, drawingsBody)] : []));
   }
   paint();
   return root;

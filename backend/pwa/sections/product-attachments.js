@@ -1,6 +1,6 @@
 import { api, session, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { button, section, stack, table, empty, actions, toast, toastError, confirmDlg, busyBlock, failBlock } from '../ui/kit/index.js';
+import { button, fileButton, section, stack, table, empty, actions, toast, toastError, confirmDlg, busyBlock, failBlock } from '../ui/kit/index.js';
 
 /**
  * Блок «Вложения» в карточке изделия (ВЛ-1, FE-1; ПМ-1 2026-11-06): одна свёрнутая секция «Вложения · N», внутри на каждый вид
@@ -92,7 +92,7 @@ export function productAttachmentsBlock(r) {
     box.replaceChildren(rows.length ? table({
       label: 'Файлы вида', rows,
       columns: [{ label: 'Файл' }, { label: 'Размер', num: true }, { label: 'Загружен', hide: true }, { label: 'Кто', hide: true }, { label: '' }],
-    }) : h('p', { class: 'muted small' }, canUpload() ? 'Файлов нет — перетащите сюда или нажмите «Загрузить файлы».' : 'Файлов нет'));
+    }) : h('p', { class: 'muted small' }, canUpload() ? 'Файлов нет — перетащите сюда или нажмите «Загрузить файл».' : 'Файлов нет'));
   };
 
   async function remove(f) {
@@ -143,10 +143,9 @@ export function productAttachmentsBlock(r) {
   const typeCard = (t) => {
     const box = h('div');
     bodies.set(t.id, box);
-    const input = h('input', { type: 'file', multiple: true, hidden: true, onchange: () => { const l = [...input.files]; input.value = ''; if (l.length) sendAll(t.id, l); } });
     const node = section({ title: t.name, tone: 'who', count: files.filter((f) => f.typeId === t.id).length, body: [box,
       t.formats ? h('p', { class: 'hint' }, 'Форматы: ' + t.formats) : null,
-      canUpload() ? actions(input, button({ label: 'Загрузить файлы', size: 'S', onClick: () => input.click() })) : null] });
+      canUpload() ? actions(fileButton({ label: 'Загрузить файл', onFile: (f) => sendAll(t.id, [f]) })) : null] });
     if (canUpload()) wireDrop(node, (l) => sendAll(t.id, l));
     paintType(t.id);
     return node;

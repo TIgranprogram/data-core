@@ -1,4 +1,5 @@
 import { h } from '../../core/dom.js';
+import { current } from '../../core/router.js';
 import { busyBlock, failBlock } from './busy.js';
 import { tabs } from './tabs.js';
 
@@ -7,6 +8,8 @@ import { tabs } from './tabs.js';
  * Вынесено из ui/kit/card.js, чтобы тот не рос сверх 400 строк. Зависимости замыкания openCard — аргументами.
  *  tabDefs: [{ key, label, count?, tone?, blocks: (row, ctx) => узлы }]; onOpenTab(fn) — отдать ctx.openTab наружу.
  */
+const fromLink = new Set(); // ссылка ?tab=… открывает вкладку один раз на запись (дальше — выбор пользователя)
+
 export function buildCardTabs({ tabDefs, section, row, actx, setPref, getPref, onOpenTab }) {
   const secKey = section.id || section.title || 'card';
   const pane = h('div', { class: 'k-pane' });
@@ -26,7 +29,11 @@ export function buildCardTabs({ tabDefs, section, row, actx, setPref, getPref, o
     }).catch((e) => { if (cur === k) pane.replaceChildren(failBlock(e, () => select(k), { text: 'Раздел не открылся' })); });
   }
   onOpenTab(select);
+  const want = current().params?.tab; // старые ссылки #раздел?open=…&tab=… открывают нужную вкладку
+  const linkKey = secKey + ':' + row?.id + ':' + want;
+  const useLink = valid(want) && !fromLink.has(linkKey);
+  if (useLink) fromLink.add(linkKey);
   const saved = getPref('cardTab:' + secKey);
-  select(valid(saved) ? saved : tabDefs[0].key);
+  select(useLink ? want : valid(saved) ? saved : tabDefs[0].key);
   return h('div', null, bar.el, pane);
 }
