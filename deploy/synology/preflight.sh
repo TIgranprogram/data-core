@@ -62,14 +62,15 @@ elif [[ $FIRST == 1 ]]; then
 else
   if [[ $UI == 1 ]]; then
     MISS=""
-    for h in $(git rev-list "$BASE..HEAD" -- backend/pwa backend/admin); do
+    # слияния веток пропускаем: метки стоят в самих слитых коммитах, они проверяются по одному
+    for h in $(git rev-list --no-merges "$BASE..HEAD" -- backend/pwa backend/admin); do
       git log -1 --format=%B "$h" | grep -qE '^Дизайнер: (принято|не нужно)' || MISS+=" $(git rev-parse --short "$h")"
     done
     [[ -z "$MISS" ]] || stop "коммиты вида без «Дизайнер: принято|не нужно»:$MISS — нужен просмотр datacore-designer"
     ok "приёмка дизайнера отмечена"
   fi
   BIG=""
-  for h in $(git rev-list "$BASE..HEAD" -- backend/src); do
+  for h in $(git rev-list --no-merges "$BASE..HEAD" -- backend/src); do
     git log -1 --format=%B "$h" | grep -qE '^Класс: (L|XL)' && { BIG="$h"; break; }
   done
   if [[ -n "$BIG" ]]; then
