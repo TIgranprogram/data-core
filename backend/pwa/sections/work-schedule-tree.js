@@ -2,8 +2,8 @@ import { NONE, day, partOf, round } from './work-schedule-shared.js';
 
 /*
  * Модель дерева Ганта: полосы сервера → строки planner (parentId) и полосы.
- *   «По заказам»: заказ › позиция › часть › шаг;  «По людям»: человек › позиция › шаг.
- * Лист — шаг (одна полоса); узлы показывают сводную полосу. Перенести можно только лист; в «По людям» бросок на человека/позицию = другой исполнитель.
+ *   «По заказам»: заказ › позиция (› часть, если частей больше одной);  «По людям»: человек › позиция. Шаги — полосами в строке позиции.
+ * Лист — позиция (или часть) со всеми шагами; узлы показывают сводную полосу. Перенести можно только лист; в «По людям» бросок на человека/позицию = другой исполнитель.
  * → { rows, bars, nodeIds }
  */
 const count = (n) => `${n} ${n % 10 === 1 && n % 100 !== 11 ? 'шаг' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'шага' : 'шагов'}`;
@@ -25,29 +25,31 @@ export function buildModel({ bars: raw, people, lens }) {
     for (const x of list) node({ id: String(x.id), label: x.name, cap: Number(x.capacityHours) || 0, sub: x.capacityHours ? round(x.capacityHours) + ' ч в день' : '' });
   }
 
+  // части позиции: уровень «часть» нужен, только если у позиции больше одной части (иначе «Изделие целиком» — лишний этаж)
+  const partsOf = new Map();
+  for (const b of bars) { const k = String(b.incomeId); (partsOf.get(k) || partsOf.set(k, new Set()).get(k)).add(b.partRowId || '_'); }
   const view = [];
   for (const b of bars) {
-    const sid = 's:' + b.stepId;
-    const leaf = { id: sid, label: b.workTypeName || 'работа', sub: lens === 'orders' ? who(b) : '', drop: null };
-    let parents;
+    let rowId, parents;
     if (lens === 'orders') {
       const o = node({ id: 'o:' + (b.orderNo || '—'), label: 'Заказ № ' + (b.orderNo || '—') });
-      const p = node({ id: 'i:' + b.incomeId, parentId: o.id, label: posLabel(b) });
-      const q = node({ id: 'p:' + b.incomeId + ':' + (b.partRowId || '_'), parentId: p.id, label: partOf(b), drop: null });
-      parents = [o, p, q];
-      leaf.parentId = q.id;
+      const multi = (partsOf.get(String(b.incomeId))?.size || 0) > 1;
+      const p = node({ id: 'i:' + b.incomeId, parentId: o.id, label: posLabel(b), drop: null });
+      parents = [o, p];
+      rowId = p.id;
+      if (multi) { const q = node({ id: 'p:' + b.incomeId + ':' + (b.partRowId || '_'), parentId: p.id, label: partOf(b), drop: null }); parents.push(q); rowId = q.id; }
     } else {
       const owner = b.assigneeId ? String(b.assigneeId) : NONE;
       if (!seen.has(owner)) node({ id: owner, label: who(b) });
       const p = node({ id: 'pi:' + owner + ':' + b.incomeId, parentId: owner, label: posLabel(b), sub: b.orderNo ? '№ ' + b.orderNo : '', drop: owner });
       parents = [seen.get(owner), p];
-      leaf.parentId = p.id;
+      rowId = p.id;
     }
-    rows.push(leaf);
     for (const n of parents) bump(n.id);
-    const sub = b.locked ? 'задание без плана' : [`${round(b.hours)} ч`, b.inDesign ? 'в проектировании' : ''].filter(Boolean).join(' · ');
+    // шаги позиции — полосами в ОДНОЙ строке (как в kppdf), не строкой на каждый шаг
+    const sub = b.locked ? 'задание без плана' : [lens === 'orders' ? who(b) : '', `${round(b.hours)} ч`, b.inDesign ? 'в проектировании' : ''].filter(Boolean).join(' · ');
     view.push({
-      id: String(b.stepId), taskId: b.taskId || null, locked: !!b.locked, rowId: sid, ownerId: lens === 'people' ? (b.assigneeId ? String(b.assigneeId) : NONE) : sid,
+      id: String(b.stepId), taskId: b.taskId || null, locked: !!b.locked, rowId, ownerId: lens === 'people' ? (b.assigneeId ? String(b.assigneeId) : NONE) : rowId,
       start: day(b.start), end: day(b.end), title: b.workTypeName || 'работа', sub,
       hue: b.hue || null, wt: b.workTypeId ? String(b.workTypeId) : null, status: b.status, overdue: !!b.overdue, deadline: b.deadline || null,
       tone: b.status === 'done' ? 'ok' : !b.assigneeId && lens === 'people' ? 'warn' : 'info',

@@ -38,7 +38,7 @@ const narrow = () => typeof matchMedia === 'function' && matchMedia('(max-width:
 function createSchedule(el, p0, set, extra0 = {}) {
   let P = p0, data = null, seq = 0, extra = extra0, touched = false, chart = null;
   let lens = LENSES.includes(P.mode) ? P.mode : pref('lens', 'orders');
-  let scaleK = SCALES.includes(P.scale) ? P.scale : pref('scale', narrow() ? 'day' : 'week');
+  let scaleK = SCALES.includes(P.scale) ? P.scale : pref('scale', 'day'); // «День» по умолчанию: на «Неделе» работа на 1–2 дня — точка
   if (!LENSES.includes(lens)) lens = 'orders';
   if (!SCALES.includes(scaleK)) scaleK = 'week';
   let open = new Set(pref('open', []));
@@ -112,7 +112,7 @@ function createSchedule(el, p0, set, extra0 = {}) {
     chart = planner({
       lead: lensSeg.el,
       rowsTitle: lens === 'people' ? 'Исполнитель · позиция' : 'Заказ · позиция · часть',
-      rows: bars.length ? model.rows : [], bars: model.bars, // нет работ — подсказка, а не пустые строки людей load: loadBy, from: from(), to: to(), scale: scaleK, canEdit: !!session.canEdit, rowsMovable: lens === 'people',
+      rows: bars.length ? model.rows : [], bars: model.bars, load: loadBy, from: from(), to: to(), scale: scaleK, canEdit: !!session.canEdit, rowsMovable: lens === 'people', // нет работ — подсказка, а не пустые строки людей
       fitWidth: Math.max(320, (chartBox.clientWidth || 800) - (narrow() ? 148 : 232)),
       expanded: filtersOn && !touched ? new Set(model.nodeIds) : open,
       onToggle: (_id, _isOpen, set2) => { touched = true; open = new Set(set2); saveOpen(); },
@@ -121,7 +121,7 @@ function createSchedule(el, p0, set, extra0 = {}) {
       onShift: (dir) => set({ from: iso(Date.parse(from() + 'T00:00:00Z') + dir * SHIFT[scaleK] * DAY) }),
       onToday: () => set({ from: undefined }),
       empty: empty({ title: 'В этом периоде работ нет', hint: 'Откройте заказ, в позиции нажмите «Состав» и добавьте работы, затем «Запланировать». Или сдвиньте период.' }),
-      onOpen: (b) => (b.locked && b.taskId ? patch({ of: 'work', open: b.taskId }, { replace: false }) : openSide('wsstep', b.id)), // задание без плана — его карточка onMove: (b, dest) => move(b.id, dest),
+      onOpen: (b) => (b.locked && b.taskId ? patch({ of: 'work', open: b.taskId }, { replace: false }) : openSide('wsstep', b.id)), onMove: (b, dest) => move(b.id, dest), // задание без плана — его карточка
     });
     chartBox.replaceChildren(chart.el);
     chart.scrollToToday();
