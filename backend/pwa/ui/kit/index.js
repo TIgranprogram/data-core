@@ -76,7 +76,7 @@ function variantBody(variant, body, price) {
 
 /** card({ size: 'S'|'M'|'L', tone: 'neutral'|'info'|'warn'|'danger'|'ok', title, meta, badges, actions, onClick, photo, density, cls, variant: 'long'|'table'|'fields', body, price })
  *  S: art (узел 40×40 слева, catArt; artCover:true — рисунок сверху во всю ширину 16:10 на --photo-bg), onToggle(open) у expand, low (часть меты красным), graph (miniChart под меткой), compact:true — плитка в 2 раза меньше/ниже (.k-compact, C043: типы в раскрытой категории), expand: { title, action, body } — плитка раскрывает панель; внутри tileGrid панель стоит под всем рядом плиток на всю ширину, открыта одна (аккордеон), по умолчанию закрыты.
- *  M variant 'fields': price + body (readonlyGroup). L: head: { title, badges, menu } + tabs: { items: [{ key, label, count? }], panes: { key: () => узел }, value } — шапка и вкладки с панелью (в DOM только активная).
+ *  M variant 'fields': price + body (readonlyGroup). L: head: { title, badges, menu } + tabs: { items: [{ key, label, count?, tone?, title? }], panes: { key: () => узел }, value, fill? } — шапка и вкладки с панелью (в DOM только активная).
  *  variant + body — слот под заголовком; onClick → класс k-hover (подъём -2px и --shadow-lg, только у кликабельных).
  *  S → .tile, M → .tcard (density 'compact' → .tcard.compact), L → .db-order. tone → .tone-X + .k-toned (полоса слева).
  *  photo — строка-адрес или { thumb, url } (с PREFIX); badges/actions — узлы или массивы; кнопки в actions не открывают карточку. */
@@ -109,7 +109,7 @@ function headTabsCard({ head = {}, tabs: tb, tone = 'neutral', cls }) {
   const toned = TONES.includes(tone) ? ' tone-' + tone + ' k-toned' : '';
   const pane = h('div', { class: 'k-pane' });
   const show = (key) => pane.replaceChildren(...nodes(tb?.panes?.[key]?.()));
-  const t = tb?.items?.length ? tabs({ items: tb.items, value: tb.value, label: head.title, onChange: show }) : null;
+  const t = tb?.items?.length ? tabs({ items: tb.items, value: tb.value, label: head.title, onChange: show, fill: tb.fill }) : null;
   if (t) show(tb.value ?? tb.items[0].key);
   return h('article', { class: 'db-order k-headtabs' + toned + (cls ? ' ' + cls : '') },
     h('div', { class: 'db-oh k-head' }, h('span', { class: 'db-oname' }, h('b', null, head.title)), head.badges ? h('div', { class: 'k-badges' }, ...nodes(head.badges)) : null, head.menu || null),
@@ -162,17 +162,18 @@ export function row({ title, meta, tone = 'neutral', lead, side, qty, diff, warn
   return mark(h(tag, { class: cn, ...(data ? { 'data-id': data } : {}), ...(onClick ? { onclick: onClick } : {}) }, ...kids), 'row');
 }
 
-/** tabs({ items: [{ key, label, count?, sub?, marks?, today? }], value, onChange(key), label (aria), layout?: 'days' }) → { el, set(key) } — .chips/.chip
+/** tabs({ items: [{ key, label, count?, sub?, marks?, today?, tone?, title? }], value, onChange(key), label (aria), layout?: 'days', fill? }) → { el, set(key) } — .chips/.chip
+ *  tone — состояние вкладки цветом (ok — сделано, warn — идёт сейчас, info); fill — вкладки делят всю ширину поровну.
  *  layout 'days' — неделя: 7 равных клеток (label — число/день, sub — подпись, marks — до 3 точек по тонам info/warn/danger/ok, today — рамка). */
-export function tabs({ items, value, onChange, label, layout: lay }) {
+export function tabs({ items, value, onChange, label, layout: lay, fill }) {
   const days = lay === 'days';
-  const el = mark(h('div', { class: days ? 'k-days' : 'chips', role: 'tablist', 'aria-label': label || null }), 'tabs');
+  const el = mark(h('div', { class: days ? 'k-days' : 'chips' + (fill ? ' k-tabs-fill' : ''), role: 'tablist', 'aria-label': label || null }), 'tabs');
   const set = (key) => el.querySelectorAll(days ? '.k-day' : '.chip').forEach((c) => { const on = c.dataset.key === String(key); c.classList.toggle('active', on); c.setAttribute('aria-selected', String(on)); });
   if (days) el.append(...items.map((it) => h('button', { type: 'button', role: 'tab', class: 'k-day' + (it.today ? ' today' : ''), dataset: { key: String(it.key) }, onclick: () => { set(it.key); onChange?.(it.key); } },
     h('b', null, it.label), it.sub ? h('span', { class: 'k-day-sub' }, it.sub) : null,
     h('span', { class: 'k-day-marks', 'aria-hidden': 'true' }, ...(it.marks || []).slice(0, 3).map((m) => h('i', { class: 'tone-' + m }))))));
-  else el.append(...items.map((it) => h('button', { type: 'button', role: 'tab', class: 'chip', dataset: { key: String(it.key) }, onclick: () => { set(it.key); onChange?.(it.key); } },
-    it.label, it.count != null ? h('b', null, String(it.count)) : null)));
+  else el.append(...items.map((it) => h('button', { type: 'button', role: 'tab', class: 'chip', dataset: { key: String(it.key) }, 'data-tone': it.tone || null, title: it.title || null, 'aria-label': it.title ? `${it.label}: ${it.title}` : null, onclick: () => { set(it.key); onChange?.(it.key); } },
+    it.tone === 'ok' ? '✓ ' : '', it.label, it.count != null ? h('b', null, String(it.count)) : null)));
   // value: null — явно «ничего не выбрано» (шаг воронки ещё не пройден): ничего не подсвечиваем; не передан — первый, как раньше
   set(value === undefined ? items[0]?.key : value);
   return { el, set };

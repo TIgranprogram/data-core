@@ -19,7 +19,7 @@ import { DOCK_MIN, getPref, setPref } from '../../core/prefs.js';
  * Карточка записи — боковая панель (CANON §2). Режимы: просмотр / правка / создание.
  * section = {
  *   title, entityType, noun ('заявку'), get(id) → row,
- *   card: { heading(row), subheading?(row), stats?(row), view(row) → [[подпись, значение]], actions?(row, ctx), extra?(row, ctx),
+ *   card: { heading(row), subheading?(row), stats?(row), view(row) → [[подпись, значение]], actions?(row, ctx), actionsInHead?, extra?(row, ctx),
  *           parent?(row) → { label, run } — кнопка «← label» над заголовком (возврат к заказу),
  *           startEdit?(row) → true — открыть сразу в правке, noHistory — без «Истории изменений»,
  *           gallery?(row) → [{ id, url, thumb }], photoAdd?(row, photoId) → row, photoRemove?(row, photoId) → row },
@@ -114,7 +114,6 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     kindEl.textContent = kindOf(row); kindEl.hidden = !kindEl.textContent;
     subEl.replaceChildren(...parts(section.card.subheading ? section.card.subheading(row) : ''));
     hstEl.replaceChildren(...[section.card.headStats?.(row)].filter(Boolean)); hstEl.hidden = !hstEl.firstChild;
-    stripEl.replaceChildren(...[section.card.headStrip?.(row, actx())].filter(Boolean)); stripEl.hidden = !stripEl.firstChild;
     const up = section.card.parent?.(row);
     upEl.hidden = !up;
     if (up) { upEl.textContent = '← ' + up.label; upEl.title = 'Вернуться: ' + up.label; upEl.onclick = () => up.run(); }
@@ -133,6 +132,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     } : null), 'photo');
     if (canPhoto) put(photoDrop({ attach: (pid) => section.card.photoAdd(row, pid), done: (r) => { actx().setRow(r); toast('Фото добавлено'); } }), 'photo');
     if (section.card.stats) put(h('div', { class: 'stats' }, section.card.stats(row).map(([l, v]) => h('div', { class: 'stat' }, h('b', { class: 'num' }, v), h('span', null, l)))), 'stats');
+    let headActs = null;
     if (canEditSection(section) && section.card.actions) {
       // «Изменить» — одна, внизу панели (пользователь 2026-10-28: две кнопки — дубль); editTop больше не дублирует её сверху
       const acts = section.card.actions(row, actx()).filter(Boolean);
@@ -141,9 +141,12 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
         const mk = (a, cls) => h('button', { class: cls || 'btn' + (a.primary ? ' btn-primary' : ''), type: 'button', disabled: !!a.disabled, title: a.title || undefined, onclick: (e) => runAction(a, e.currentTarget) }, a.label);
         rare.push(...acts.filter((a) => a.more));
         const kids = acts.filter((a) => !a.more).map((a) => mk(a));
-        if (kids.length) put(h('div', { class: 'actions' }, kids), 'actions');
+        // actionsInHead — кнопки в шапке справа под заголовком (заказ, 2026-11-08): блоку сведений — вся ширина
+        if (kids.length && section.card.actionsInHead) headActs = h('div', { class: 'actions k-head-actions' }, kids);
+        else if (kids.length) put(h('div', { class: 'actions' }, kids), 'actions');
       }
     }
+    stripEl.replaceChildren(...[section.card.headStrip?.(row, actx()), headActs].filter(Boolean)); stripEl.hidden = !stripEl.firstChild;
     // Группы полей — по одной карточке в потоке (змейка на широкой панели), не одним столбом слева.
     const fieldEl = readonlyGroups(section.card.view(row, actx()) || []);
     if (fieldEl?.classList?.contains('k-readonly-groups')) [...fieldEl.children].forEach((g) => put(g, 'fields'));

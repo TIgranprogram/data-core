@@ -643,3 +643,16 @@ table.list .k-nowrap { white-space: nowrap; }
 .k-clamp { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; min-width: 0; max-width: 100%; }
 .k-clamp-2 { -webkit-line-clamp: 2; }
 table.list td.k-col-wrap { min-width: 11rem; max-width: 0; width: 24%; overflow: hidden; }
+
+/* Вкладки на всю ширину и цвет состояния (договор в заказе, 2026-11-08): ok — сделано, warn — идёт сейчас */
+.chips.k-tabs-fill { padding: 0; }
+.chips.k-tabs-fill .chip { flex: 1 1 0; min-width: max-content; }
+.chip[data-tone] { border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+.chip[data-tone="ok"] { background: var(--ok-soft); color: var(--ok); }
+.chip[data-tone="warn"] { background: var(--warn-soft); color: var(--warn); }
+.chip[data-tone="info"] { background: var(--info-soft); color: var(--info); }
+.chip[data-tone].active { font-weight: 700; } /* активная сохраняет цвет этапа; отличие — золотое подчёркивание и жирность */
+@media (max-width: 720px) { .chips.k-tabs-fill { flex-wrap: wrap; overflow: visible; } .chips.k-tabs-fill .chip { flex: 1 1 auto; } } /* телефон: вкладки в 2 ряда, все видны */
+/* Кнопки в шапке панели — справа под заголовком (card.actionsInHead) */
+.k-head-strip > .k-head-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--s2); margin-top: var(--s3); }
+.drawer-head .t > .muted.small { font-size: var(--fs-table); } /* подзаголовок панели (заказчик · компания) — чуть крупнее (2026-11-08) */
