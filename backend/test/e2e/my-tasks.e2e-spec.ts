@@ -116,8 +116,11 @@ describe('Мои задания (рабочий)', () => {
 
   it('менеджер сохраняет план — статус «Проблема» от рабочего не стирается', async () => {
     const plan = (await http().get(`/api/orderline-plans/by-income/${incomeId}`).set(as(admin.access)).expect(200)).body;
-    const steps = plan.steps.map((s: Record<string, unknown>) => ({ id: s.id, workTypeId: s.workTypeId, partRowId: s.partRowId ?? undefined, hours: s.hours, checked: s.checked, assigneeId: s.assigneeId ?? undefined }));
-    await http().put(`/api/orderline-plans/${plan.id}`).set(as(admin.access)).send({ rev: plan.rev, parts: [], steps }).expect(200);
+    // пустые (null) поля не шлём: DTO принимает значение или отсутствие поля, null — 400
+    const steps = plan.steps.map((s: Record<string, unknown>) => Object.fromEntries(Object.entries({ id: s.id, workTypeId: s.workTypeId, partRowId: s.partRowId, hours: s.hours, checked: s.checked, assigneeId: s.assigneeId }).filter(([, v]) => v !== null && v !== undefined)));
+    // в тестовых данных два шага «Сварка» у одной части — сервер такой план не сохраняет (это правильно); оставляем по одному, шаг рабочего — точно
+    const seen = new Set<string>(); const uniq = [...steps].sort((a, b) => (a.id === myStep ? -1 : b.id === myStep ? 1 : 0)).filter((x) => { const k = `${x.partRowId ?? ''}|${x.workTypeId}`; if (seen.has(k)) return false; seen.add(k); return true; });
+    const put = await http().put(`/api/orderline-plans/${plan.id}`).set(as(admin.access)).send({ rev: plan.rev, steps: uniq, parts: (plan.parts || []).map((x: Record<string, unknown>) => Object.fromEntries(Object.entries(x).filter(([k, v]) => v !== null && v !== undefined && ['id', 'name', 'qty', 'checked', 'note'].includes(k)))) }); if (put.status !== 200) throw new Error(JSON.stringify(put.body)); // eslint-disable-line
     const stored = await db().collection('orderlineplans').findOne({});
     expect(stored!.steps.find((s: { _id: Types.ObjectId }) => String(s._id) === myStep)).toMatchObject({ status: 'problem', statusReason: 'Поломка станка' });
   });
@@ -158,7 +161,9 @@ describe('Мои задания (рабочий)', () => {
     expect(paths.length).toBeGreaterThan(20);
     const leaks: string[] = [];
     let open = 0;
-    for (const p of paths) {
+    // свой профиль (auth/me — свои телефон и почта) и счётчики версий разделов (me/versions: ключ «money» — имя раздела, не суммы) — не утечка
+    const OWN = new Set(['auth/me', 'me/versions']);
+    for (const p of paths.filter((x) => !OWN.has(x))) {
       const res = await http().get('/api/' + p).set(as(worker));
       if (res.status !== 200 || !res.body || typeof res.body !== 'object') continue;
       open++;
