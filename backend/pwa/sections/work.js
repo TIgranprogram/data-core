@@ -5,7 +5,7 @@ import { date, isoDay, qty } from '../core/format.js';
 import { go } from '../core/router.js';
 import { badge, ORDER_PRIORITY } from '../ui/kit/badges.js';
 import { mountBoard } from '../ui/board.js';
-import { mountGantt } from '../ui/gantt.js';
+import { mountScheduleView } from './work-schedule.js';
 import { failBlock } from '../ui/kit/busy.js';
 import { enhanceSelect } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/kit/toast.js';
@@ -271,7 +271,7 @@ export const work = {
       side: (r) => [badge(STATUS, r.status), r.status === 'work' ? h('span', { class: 'muted' }, ' ' + stepText(r)) : null],
       thumb: (r) => (r.photo ? h('img', { class: 'thumb', src: PREFIX + r.photo, alt: '', loading: 'lazy' }) : null),
     },
-    gantt: { mount: mountGantt, prefKey: 'dc-gantt-work', canEdit: () => !!session.canEdit }, // вид «Гант»: ui/gantt.js
+    gantt: { mount: mountScheduleView }, // вид «Гант» — тот же экран, что раздел «Гант» (work-schedule.js)
     board: {
       default: true,
       mount: mountWorkBoard,
