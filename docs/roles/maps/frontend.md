@@ -1,3 +1,7 @@
+## C030-мелочи (2026-11-07, не закоммичено)
+коммит: не закоммичено
+- kit: `ui/kit/index.js segmented` (опция scroll, 167–), `kit.css` `.k-seg-scroll`, `.k-cols.k-cols>.k-sec.k-sec`, `.k-row-act .btn-ghost.btn-sm` (телефон). Экраны: `stock.js:27`, `matching-queue.js unmatchedTop`, `salesorders-unassigned.js unassignedTop` (section вместо кнопки). Карта обновлена.
+
 ## Сопоставление: длинные тексты (2026-11-07, не закоммичено)
 коммит: не закоммичено
 - kit: `ui/kit/index.js clamp`, `table.js` колонка `wrap`, `kit.css` .k-clamp/.k-col-wrap; витрина #kit; DESIGN §4/§8. Экраны: `matching-queue.js`, `salesorders-matching.js`, `salesorders-unassigned.js`. Карта обновлена.

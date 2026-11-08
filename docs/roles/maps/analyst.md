@@ -1,6 +1,6 @@
 # Карта роли analyst
 
-коммит: не закоммичен (ЕН 2026-11-03; C011 2026-11-03; УСЛ 2026-11-04; ДЕНЬГИ 2026-11-04; C022 2026-11-04; ВЛ-1 2026-11-05; C028 2026-11-07, база 2c4c633d)
+коммит: не закоммичен (ЕН 2026-11-03; C011 2026-11-03; УСЛ 2026-11-04; ДЕНЬГИ 2026-11-04; C022 2026-11-04; ВЛ-1 2026-11-05; C028 2026-11-07; C050 2026-11-08, база a996b595)
 
 ## Паспорт воронкой (C028, 2026-11-07)
 - Данные прода: `tools/logs/c028/` (483 изделия, 342 паспорта). Признаки: `docs/crew/C028-passport-funnel/facets-seed.json`; анализ — в отчёте координатору (файл ANALYSIS.md пишет координатор).
@@ -132,3 +132,9 @@
 
 ## Склад: плитки и «Выдать материалы» (СКЛ-1, 2026-11-05)
 - План `docs/crew/SKL-1-plan.md`. Слипание: `screens.css:1118-1121` (жёсткий `grid-row:1`, рассчитано на 3 плитки), `stock.js:122-141`. Зоны: `stock-zone.schema.ts:12-18`, сид `stockzones-boards.js:17`. Выдача пачкой уже есть: `POST /stock/batch` (`stock-movements.service.ts:147`), бронь — `reserve-list` (`stock-reservations.service.ts:34`). Вопросы В1–В5. коммит: — (не закоммичено)
+
+## Части изделия × виды работ (C041-A, 2026-11-07)
+- `docs/crew/C041-work-composition/` AUDIT/PROPOSAL/QUESTIONS-C041. Есть: маршрут `products.workTypes[]` (+lineId), `worktasks.route[].plan`, Гант `ui/gantt.js`, табель `payroll_timesheets`. Нет: сущности «часть», состава в позиции, галочек, часов/денег по шагу. Решение: `products.parts[]` + `orderlineplans` + `workhours`. Вопросы Q1–Q6. коммит: —
+
+## Мои задания / роли рабочего (C050, 2026-11-08)
+- ТЗ `docs/crew/C050-my-tasks/TZ.md`. `users.role` — одна строка (`user.schema.ts:44`), своя роль = baseRole+appSections (`roles-hierarchy.ts`, `app-sections.ts`); образец узкого входа `session.onlyStockMobile` (`pwa/core/api.js:57`). `persons.userId` читается (`design.service.ts:113`), не пишется. `mark` — только admin/manager (`order-line-plan.controller.ts:57`). Решение: `users.extraRoles[]`, `/my-tasks*`, статусы deferred/problem в шаге. Вопросы 1–3 в ТЗ.
