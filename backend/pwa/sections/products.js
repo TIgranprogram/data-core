@@ -119,7 +119,7 @@ export const products = {
     // SK-8d: «В заказах» и «Паспорта» — только если эти разделы открыты роли
     extra: (r) => stack(warnNote(r), variantsBlock(r), productFilesBlock(r, session.canEdit), session.sees('products') ? productAttachmentsBlock(r) : null, compositionBlock(r), session.sees('work') ? productRoute(r) : null, session.sees('salesorders') ? inOrders(r) : null, session.seesDocs() ? passportsBlock(r) : null),
     gallery: (r) => r.photos || [],
-    photoAdd: data.photoAdd,
+    photoAdd: data.photoAdd, photoSearch: (r) => r.name, // «Найти фото в интернете»
     photoMain: data.photoMain,
     photoRemove: data.photoRemove,
     // порядок (дизайнер 2026-11-01): цена крупно → изделие → характеристики → описание → паспорт → дополнительно; артикул и статус — в шапке
