@@ -61,6 +61,7 @@ import { SalesOrdersModule } from './modules/salesorders/salesorders.module';
 import { DesignModule } from './modules/design/design.module';
 import { WorkModule } from './modules/work/work.module';
 import { OrderLinePlanModule } from './modules/order-line-plan/order-line-plan.module';
+import { MyTasksModule } from './modules/my-tasks/my-tasks.module';
 import { MatchingModule } from './modules/matching/matching.module';
 import { MaterialRequestsModule } from './modules/material-requests/material-requests.module';
 import { ProductRequestsModule } from './modules/product-requests/product-requests.module';
@@ -102,6 +103,7 @@ import { CurrenciesSeed } from './common/seed/currencies.seed';
 import { ColorReferencesSeed } from './common/seed/color-references.seed';
 import { WriteOffReasonsSeed } from './common/seed/write-off-reasons.seed';
 import { DepartmentsSeed } from './common/seed/departments.seed';
+import { WorkRolesSeed } from './common/seed/work-roles.seed';
 import { HealthController } from './health.controller';
 import { ApiRootController } from './api-root.controller';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
@@ -194,6 +196,7 @@ import { RequestMethod } from '@nestjs/common';
     ProductRequestsModule,  // /api/product-requests — заявки на создание нового изделия, коллекция productrequests (ORDER-LINES)
     DesignModule,           // /api/design-tasks — «Проектирование»: задачи на чертежи, коллекция designtasks (ПРЖ-3)
     OrderLinePlanModule,    // /api/orderline-plans — план позиции заказа: части × виды работ, «Проверено» (C041), коллекция orderlineplans
+    MyTasksModule,          // /api/my-tasks — «Мои задания»: свои шаги плана, начал/закончил/отложил/проблема (C050)
     WorkModule,             // /api/work-tasks, /api/work-routes — «В работе»: карточки позиций по шагам маршрута изделия, коллекция worktasks
     ShipmentsModule,        // /api/shipments — отгрузки заказов (ОТГ), коллекция shipments
     OffersModule,           // /api/offers — коммерческие предложения (КП-1), коллекции commercialoffers, offerbackgrounds
@@ -280,6 +283,7 @@ import { RequestMethod } from '@nestjs/common';
     ColorReferencesSeed,
     WriteOffReasonsSeed, // SK-5: справочник «Причины списания»
     DepartmentsSeed, // справочник «Отделы»: кому выдаём со склада
+    WorkRolesSeed, // роли «Рабочий» и «Мастер» (C050), только если их нет
   ],
 })
 export class AppModule implements NestModule {

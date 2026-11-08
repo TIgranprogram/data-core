@@ -9,6 +9,7 @@ import { productGroupDefs } from './dicts.product-groups';
 import { productFacetDefs } from './dicts.product-facets';
 import { expenseArticlesDef } from './dicts.expense-articles';
 import { DICT_META } from './dicts.meta';
+import { resolveLogin } from './dicts.person-login';
 type Db = mongo.Db;
 type Document = mongo.Document;
 type ObjectId = mongo.ObjectId;
@@ -568,6 +569,8 @@ const BASE: DictBase[] = [
       { key: 'payoutScheduleId', label: 'График выплат', type: 'select', ref: 'payoutSchedules' },
       { key: 'phone', label: 'Телефон' },
       { key: 'email', label: 'Почта' },
+      // C050: по этому входу рабочий видит свои задания; ref 'users' — особый список входов (dicts.service refsOf); пишет только администратор и директор
+      { key: 'userId', label: 'Вход в приложение', type: 'select', ref: 'users', hint: 'Кто из входов — этот сотрудник. Один вход — один сотрудник. Видит свои задания в «Мои задания»' },
       { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
     ],
     name: personName,
@@ -575,7 +578,7 @@ const BASE: DictBase[] = [
       name: personName(d), lastName: s(d.lastName), firstName: s(d.firstName), patronymic: s(d.patronymic), position: s(d.position), phone: s(d.phone), email: s(d.email), notes: s(d.notes),
       workTypeId: personWorkTypeIds(d)[0] ? String(personWorkTypeIds(d)[0]) : '', workTypeIds: personWorkTypeIds(d).map(String), payoutScheduleId: d.payoutScheduleId ? String(d.payoutScheduleId) : '',
       status: s(d.status) || 'active', statusLabel: ({ active: 'Работает', vacation: 'В отпуске', fired: 'Уволен' } as Record<string, string>)[s(d.status) || 'active'],
-      salaryKind: s(d.salaryKind), salaryRate: d.salaryRate ?? null, hoursPerDay: d.hoursPerDay ?? null,
+      salaryKind: s(d.salaryKind), salaryRate: d.salaryRate ?? null, hoursPerDay: d.hoursPerDay ?? null, userId: d.userId ? String(d.userId) : '',
       birthDate: d.birthDate ? new Date(d.birthDate as Date).toISOString().slice(0, 10) : '',
     }),
     toDoc: async (b, isNew, db, id) => {
@@ -594,9 +597,15 @@ const BASE: DictBase[] = [
       if (b.hoursPerDay !== undefined) { const n = Number(b.hoursPerDay); doc.hoursPerDay = b.hoursPerDay !== null && b.hoursPerDay !== '' && Number.isInteger(n) && n >= 1 && n <= 24 ? n : null; }
       if (b.payoutScheduleId !== undefined) doc.payoutScheduleId = oidOrNull(b.payoutScheduleId);
       if (b.birthDate !== undefined) { const t = /^\d{4}-\d{2}-\d{2}$/.test(String(b.birthDate)) ? new Date(String(b.birthDate) + 'T00:00:00Z') : null; doc.birthDate = t; }
+      // C050: вход — только если пришло поле (контроллер убирает его у не-директоров); уволенному вход стирается
+      if (b.userId !== undefined) doc.userId = await resolveLogin(db, b.userId, id, personName);
+      if (doc.status === 'fired') doc.userId = null;
+      else if (doc.userId && doc.status === undefined && id && Types.ObjectId.isValid(id) && (await db.collection('persons').findOne({ _id: new Types.ObjectId(id), status: 'fired' }, { projection: { _id: 1 } }))) throw new BadRequestException('Сотрудник уволен — вход не привязывают');
       if (isNew) Object.assign(doc, { status: doc.status ?? 'active', deletedAt: null, createdAt: new Date() });
       return doc;
     },
+    // удалён сотрудник — вход освобождается (уникальный индекс не держит его)
+    softDelete: { userId: null },
     usage: async (db, docs) => {
       const t = await tally(db, 'supplyrequests', 'requestedBy');
       return new Map(docs.map((d) => [String(d._id), Math.max(...personKeys(d).map((k) => t.get(k) ?? 0), 0)]));
