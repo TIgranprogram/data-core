@@ -87,7 +87,9 @@ trap cleanup_release EXIT
 # версия приложения — последний коммит, менявший backend/pwa (выкладка без правок приложения не просит «Обновить»)
 # n — номер версии: число коммитов, менявших приложение (растёт с каждым обновлением; показ «v1.n»)
 PWA_N="$(git rev-list --count HEAD -- backend/pwa)"
-PWA_VER="$(git log -1 --format='{"v":"%h","n":'"$PWA_N"',"date":"%cI"}' -- backend/pwa)"
+# b — последний коммит серверного кода: по нему два сервера сверяют версию перед переключением (C045 🔴3)
+SRV_HASH="$(git log -1 --format=%h -- backend/src backend/package.json backend/Dockerfile docker-compose.prod.yml)"
+PWA_VER="$(git log -1 --format='{"v":"%h","n":'"$PWA_N"',"b":"'"$SRV_HASH"'","date":"%cI"}' -- backend/pwa)"
 PWA_HASH="$(git log -1 --format=%h -- backend/pwa)"
 # Резервируем неизменяемую пару образ/код до первой замены; чужие прошлые копии не перезаписываем.
 "${SSH[@]}" "TS=$TS MODE=$MODE bash -s" <<'EOS'

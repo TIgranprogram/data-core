@@ -143,7 +143,7 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
     });
     if (!due.due) return { queued: false, reason: due.reason };
     try {
-      await this.refreshPeer();
+      await this.refreshPeer(true);
       this.autoAt = Date.now();
       this.log.log(`автообновление копии: заявка поставлена (${due.reason})`);
       return { queued: true, reason: due.reason };
@@ -309,17 +309,17 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** Файл-запрос для хост-моста; temp + rename, чтобы мост не прочитал половину. */
-  private async writeRequest(job: SwitchJob, kind: 'switch' | 'emergency' | 'refresh') {
+  private async writeRequest(job: SwitchJob, kind: 'switch' | 'emergency' | 'refresh', dataOnly = false) {
     const file = path.join(this.dir, 'request');
     const tmp = `${file}.${process.pid}.tmp`;
-    await fs.writeFile(tmp, `id=${job.id}\nkind=${kind}\nrequestedAt=${job.startedAt}\n`, { mode: 0o644 });
+    await fs.writeFile(tmp, `id=${job.id}\nkind=${kind}\nrequestedAt=${job.startedAt}\n${dataOnly ? 'code=0\n' : ''}`, { mode: 0o644 });
     await fs.rename(tmp, file);
   }
 
-  private async queue(role: SwitchRole, direction: string, kind: 'switch' | 'emergency' | 'refresh') {
+  private async queue(role: SwitchRole, direction: string, kind: 'switch' | 'emergency' | 'refresh', dataOnly = false) {
     const job = await this.acquire(role, direction);
     try {
-      await this.writeRequest(job, kind);
+      await this.writeRequest(job, kind, dataOnly);
     } catch (e) {
       await this.col().updateOne(this.filter({ 'job.id': job.id }), { $set: { job: null } } as never);
       this.log.error(`запись заявки: ${(e as Error).message}`);
@@ -339,9 +339,10 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** Обновить запасной: код и база, без смены домена. Только с главного, тем же захватом, что и переключение. */
-  async refreshPeer() {
+  /** dataOnly — автообновление (C045 🟡4): только данные; код на запасной — кнопкой (ступенчатая выкладка). */
+  async refreshPeer(dataOnly = false) {
     this.assertEnabled();
-    return this.queue('main', 'refresh', 'refresh');
+    return this.queue('main', 'refresh', 'refresh', dataOnly);
   }
 
   /** Секрет моста из файла рядом с заявкой; нет файла — отчёты не принимаются. */

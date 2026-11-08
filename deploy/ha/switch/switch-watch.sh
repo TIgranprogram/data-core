@@ -167,7 +167,7 @@ RESTORE_SH="$CHECK_SH"$'\n'"$RESTORE_BODY"
 peer_health() { [[ "$(peer "$T_SSH" "curl -s -m 5 -o /dev/null -w '%{http_code}' $(printf '%q' "$PEER_API")/api/health/ready" 2>/dev/null)" == 200 ]]; }
 # Версия приложения соседа: /app/version.json {"v":"hash","n":612} → «v1.612» (как в меню приложения); без n — хеш сборки.
 # Нужна для C042-A5: backend не даёт переключиться, пока версии кода на серверах разные.
-version_of() { local s n; s="$(cat)"; n="$(sed -n 's/.*"n"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' <<<"$s" | head -n 1)"; if [[ -n "$n" ]]; then printf 'v1.%s' "$n"; else sed -n 's/.*"v"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' <<<"$s" | head -n 1 | head -c 60; fi; }
+version_of() { local s n b; s="$(cat)"; n="$(sed -n 's/.*"n"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' <<<"$s" | head -n 1)"; b="$(sed -n 's/.*"b"[[:space:]]*:[[:space:]]*"\([0-9a-f]*\)".*/\1/p' <<<"$s" | head -n 1)"; if [[ -n "$n" ]]; then printf 'v1.%s%s' "$n" "${b:+ · $b}"; else sed -n 's/.*"v"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' <<<"$s" | head -n 1 | head -c 60; fi; }
 # сосед снова запасной (и backend запущен) — после сорванного восстановления / отката
 peer_demote() {
   [[ -n "${HA_PEER_SSH:-}" ]] || return 0
@@ -222,13 +222,17 @@ cap() { local l; l=$(left); (( READONLY_AT == 0 )) && { echo "$1"; return; }; ((
 check_budget() { (( READONLY_AT == 0 )) || [[ $(left) -gt 0 ]] || fail "$1" "Больше 10 минут в режиме «только чтение»: переключение отменено, сайт снова пишет."; }
 
 # ---------- провал и откат ----------
-ID=""; KIND=""; RESTORE_STARTED=0
+ID=""; KIND=""; RESTORE_STARTED=0; CRM_STOPPED=0; NOCODE=""
 fail() {   # fail STEP "понятная причина"; вызывается, только когда домен точно НЕ у соседа
-  L "ОШИБКА [$1]: $2"
+  local msg="$2"
+  [[ "${KIND:-}" == refresh ]] && msg+=" Копия на запасном не обновилась (осталась прежней); главный работает как обычно."
+  L "ОШИБКА [$1]: $msg"
+  # CRM останавливали на время переключения (C045 🔴1); домен не ушёл — запускаем обратно
+  [[ ${CRM_STOPPED:-0} == 1 ]] && { docker start kppdf-backend >/dev/null 2>&1 && L "CRM kppdf снова запущена" || L "CRM kppdf запустить не удалось — запустите вручную"; }
   if [[ $RESTORE_STARTED == 1 ]]; then
     if [[ "${KIND:-}" == refresh ]]; then peer_standby_normal; else peer_demote; fi
   else peer "$T_SSH" "docker start datacore-backend >/dev/null 2>&1; true" >/dev/null 2>&1 || true; fi
-  report "$ID" "$1" failed "$2" || L "отчёт о провале не доставлен; сервер снимет «только чтение» сам, когда мост перестанет отвечать"
+  report "$ID" "$1" failed "$msg" || L "отчёт о провале не доставлен; сервер снимет «только чтение» сам, когда мост перестанет отвечать"
   rm -f "$CURRENT"
   exit 1
 }
@@ -241,7 +245,8 @@ sync_photos() { timeout "$(cap "$1")" rsync -rt --ignore-existing --partial -e "
 # код — отдельными деревьями: --delete на весь $PEER_DC стёр бы .env и всё, чего нет в этой передаче
 sync_code() {
   local dest="${HA_PEER_SSH}:${PEER_DC}"
-  local ex=(--exclude '.env' --exclude 'node_modules' --exclude '.git' --exclude 'uploads' --exclude 'prev' --exclude 'dist')
+  # секреты и ключи хоста не копируем (C045 🔴2): у второго сервера свои
+  local ex=(--exclude '.env' --exclude '*.env' --exclude 'config.env' --exclude 'CREDENTIALS*' --exclude 'access*' --exclude 'secrets' --exclude '*.key' --exclude '*.pem' --exclude 'node_modules' --exclude '.git' --exclude 'uploads' --exclude 'prev' --exclude 'dist')
   timeout "$(cap "$T_CODE")" rsync -a --delete "${ex[@]}" -e "$RSH" "${DC_DIR}/backend/" "${dest}/backend/" >>"$LOG" 2>&1 \
     && timeout "$(cap "$T_CODE")" rsync -a --delete "${ex[@]}" -e "$RSH" "${DC_DIR}/deploy/" "${dest}/deploy/" >>"$LOG" 2>&1 \
     && timeout "$(cap "$T_CODE")" rsync -a -e "$RSH" "${DC_DIR}/docker-compose.prod.yml" "${dest}/docker-compose.prod.yml" >>"$LOG" 2>&1
@@ -253,6 +258,7 @@ finish_switched() {
   local ok=0 i note=""
   peer_report "{\"id\":\"$ID\",\"step\":\"finish\",\"state\":\"done\",\"role\":\"main\",\"mode\":\"normal\"}" >/dev/null 2>&1 || L "второй сервер: финальный отчёт не принят"
   if ! targets_off; then note="Цели копий вне дома на этом сервере выключить не удалось: выключите вручную в админке."; L "$note"; fi
+  [[ $CRM_STOPPED == 1 ]] && note="${note:+$note }CRM kppdf на старом главном остановлена: её база теперь не главная. Запустите CRM, когда главный вернётся сюда."
   for i in 1 2 3 4 5; do
     report "$ID" finish done "$note" '"role":"standby","mode":"readonly"' && { ok=1; break; }
     sleep 10
@@ -268,9 +274,10 @@ do_switch() {
   LOCAL_CREDS
   [[ -n "${HA_PEER_SSH:-}" && -n "${HA_VPS_SSH:-}" && -n "${HA_PEER_HOST:-}" ]] || fail preflight "Мост не настроен: нет HA_PEER_SSH, HA_PEER_HOST или HA_VPS_SSH (bridge.env)."
   local warn=""
-  # CRM kppdf работает с той же базой напрямую и при переключении не переезжает — предупреждаем, решение за пользователем
+  # CRM kppdf пишет в ту же базу мимо паузы записи и не переезжает (C045 🔴1; решение пользователя: на время переключения CRM выключена).
+  # Останавливаем её перед паузой записи; провал до смены домена — запускаем обратно (fail), успех — остаётся выключенной.
   local names; names=$'\n'"$(docker ps --format '{{.Names}}' 2>/dev/null)"$'\n'
-  [[ "$names" == *$'\nkppdf-backend\n'* ]] && warn="Предупреждение: CRM kppdf (kppdf-backend) запущена на этом сервере. Она не переключается и продолжит работать с этой базой."
+  [[ "$names" == *$'\nkppdf-backend\n'* ]] && warn="CRM kppdf на время переключения будет остановлена: она пишет в эту же базу и на второй сервер не переезжает."
   run_step preflight "$warn"
   peer "$T_SSH" 'echo ok' >/dev/null 2>&1 || fail preflight "Второй сервер недоступен по ssh."
   command -v rsync >/dev/null 2>&1 || fail preflight "На этом сервере нет rsync."
@@ -288,6 +295,10 @@ do_switch() {
   run_step photos_pre
   sync_photos "$T_PHOTOS" || fail photos_pre "Не удалось передать фото."
 
+  if [[ "$names" == *$'\nkppdf-backend\n'* ]]; then
+    docker stop -t 30 kppdf-backend >/dev/null 2>&1 || fail readonly "Не удалось остановить CRM kppdf: без этого её записи потеряются."
+    CRM_STOPPED=1; L "CRM kppdf остановлена на время переключения"
+  fi
   run_step readonly
   report "$ID" readonly running "" '"mode":"readonly"' || fail readonly "Не удалось включить режим «только чтение»."
   READONLY_AT=$(date +%s)
@@ -389,7 +400,9 @@ do_refresh() {
   local mine theirs
   mine="$(version_of < "${DC_DIR}/backend/pwa/version.json" 2>/dev/null)"
   theirs="$(peer "$T_SSH" "cat $(printf '%q' "$PEER_DC")/backend/pwa/version.json 2>/dev/null" 2>/dev/null | version_of)"
-  if [[ -n "$mine" && "$mine" == "$theirs" ]]; then
+  if [[ "$NOCODE" == 0 ]]; then
+    L "автообновление — только данные; код ${theirs:-?} на втором сервере не трогаю (ступенчатая выкладка: код — кнопкой «Обновить»)"
+  elif [[ -n "$mine" && "$mine" == "$theirs" ]]; then
     L "код на втором сервере тот же ($mine) — сборка не нужна"
   else
     printf 'phase=code\nkind=refresh\nid=%s\n' "$ID" > "$CURRENT"
@@ -420,6 +433,8 @@ do_emergency() {
   { domain_now; [[ -n "$DOM" ]]; } || fail preflight "VPS не отвечает на dc-switch status: без него домен не переключить."
   # «основной мёртв» — по VPS: его туннель не отвечает (а не по ssh между серверами)
   [[ "$VPS_STATUS" != *"${PEER_NAME}=up"* ]] || fail preflight "Основной сервер отвечает на VPS. Используйте обычное переключение с него."
+  # C045 🟡5: туннель лёг, а сам основной жив и пишет — это обрыв связи; второй главный дал бы две пишущие стороны
+  if [[ -n "${HA_PEER_SSH:-}" ]] && peer_health; then fail preflight "Основной сервер жив (отвечает напрямую), не отвечает только связь с VPS. Это не авария: второй главный не включаю."; fi
   [[ "$(curl -s -m 5 -o /dev/null -w '%{http_code}' "$API/api/health/ready")" == 200 ]] || fail preflight "Этот сервер не готов (health)."
   run_step vps
   printf 'phase=emergency\nid=%s\n' "$ID" > "$CURRENT"
@@ -477,7 +492,7 @@ if [[ ! -e "$REQ" ]]; then
   exit 0
 fi
 
-ID="$(sed -n 's/^id=//p' "$REQ" | head -n 1)"; KIND="$(sed -n 's/^kind=//p' "$REQ" | head -n 1)"
+ID="$(sed -n 's/^id=//p' "$REQ" | head -n 1)"; KIND="$(sed -n 's/^kind=//p' "$REQ" | head -n 1)"; NOCODE="$(sed -n 's/^code=//p' "$REQ" | head -n 1)"
 rm -f "$REQ"
 [[ "$ID" =~ ^[0-9a-f]{6,32}$ ]] || { L "заявка с неверным id отброшена"; exit 0; }
 L "=== заявка $ID ($KIND) на $SELF ==="

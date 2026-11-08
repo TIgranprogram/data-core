@@ -131,7 +131,9 @@ export const AUTO_REFRESH_MIN = 15;
 export function versionLabel(json: unknown): string | null {
   if (!json || typeof json !== 'object') return null;
   const o = json as Record<string, unknown>;
-  if (typeof o.n === 'number' && Number.isFinite(o.n)) return `v1.${Math.trunc(o.n)}`;
+  // b — коммит серверного кода (C045 🔴3): одинаковое приложение при разном backend — тоже разные версии
+  const b = typeof o.b === 'string' && /^[0-9a-f]{4,40}$/.test(o.b) ? ` · ${o.b}` : '';
+  if (typeof o.n === 'number' && Number.isFinite(o.n)) return `v1.${Math.trunc(o.n)}${b}`;
   if (typeof o.v === 'string' && o.v.trim()) return o.v.trim();
   return null;
 }

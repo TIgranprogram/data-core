@@ -69,6 +69,8 @@ describe('переключение: правила', () => {
 describe('C042: версии кода и автообновление копии (A3, A5)', () => {
   it('подпись версии: из version.json — «v1.N», без номера — хеш, мусор — null', () => {
     expect(versionLabel({ v: 'abc1234', n: 612 })).toBe('v1.612');
+    expect(versionLabel({ v: 'abc1234', n: 612, b: 'def5678' })).toBe('v1.612 · def5678');
+    expect(versionLabel({ v: 'abc1234', n: 612, b: '<x>' })).toBe('v1.612');
     expect(versionLabel({ v: 'abc1234' })).toBe('abc1234');
     expect(versionLabel({})).toBeNull();
     expect(versionLabel(null)).toBeNull();
