@@ -19,7 +19,10 @@ function deferred() {
 }
 
 /** Отдельный opt-in, без AppModule, .env и test-db.ts; запуск только координатором на disposable rs0. */
-describe('T26: Mongo atomicity каталога', () => {
+// Нужна отдельная одноразовая БД (STOCK_CATALOG_TEST_DISPOSABLE=1 + URI): без неё набор пропускается,
+// а не падает — иначе общий e2e всегда красный и настоящие сбои не видны (C049 T8).
+const T26_ON = process.env.STOCK_CATALOG_TEST_DISPOSABLE === '1' && !!process.env.STOCK_CATALOG_TEST_URI;
+(T26_ON ? describe : describe.skip)('T26: Mongo atomicity каталога', () => {
   let firstConnection: Connection;
   let secondConnection: Connection;
   const warehouseId = new Types.ObjectId();
