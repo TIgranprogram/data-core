@@ -8,7 +8,7 @@ import { toastError } from '../ui/kit/toast.js';
 import { dueNode, moveTask, people } from './design.js';
 import { STAGE } from './salesorders.js';
 
-import { table, sku as kitSku, button, section, stack, row as kitRow, actions as kitActions } from '../ui/kit/index.js';
+import { sku as kitSku, button, section, stack, row as kitRow, actions as kitActions } from '../ui/kit/index.js';
 import { go } from '../core/router.js';
 /**
  * Правая панель заказа на доске «Проектирование» (`?of=designorder&open=<id заказа>`, DESIGN §4 «Доска заказов»).
@@ -91,7 +91,6 @@ export const designOrder = {
     ],
     extra: (r, ctx) => stack(
       linesBlock(r, ctx),
-      progressBlock(r),
-      block('Что в позициях', false, r.lines.length, table({ columns: [{ label: 'Поз.' }, { label: 'Название' }, { label: 'Кол-во', num: true }, { label: 'Артикул' }], rows: r.lines.map((l) => ({ cells: [l.seqNo ?? l.lineNo ?? '', l.title, l.qty != null ? qty(l.qty) : '', kitSku(l.sku) || ''] })), empty: { title: 'Позиций нет' } }))),
+      progressBlock(r)), // позиции — один раз, в «Изделия к проектированию» (C052)
   },
 };

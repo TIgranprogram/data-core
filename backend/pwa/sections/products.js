@@ -1,5 +1,5 @@
 import { PREFIX, session } from '../core/api.js';
-import { sku as kitSku, button as kitButton, stack, toast, confirmDlg } from '../ui/kit/index.js';
+import { sku as kitSku, button as kitButton, toast, confirmDlg } from '../ui/kit/index.js';
 import { h } from '../core/dom.js';
 import { money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
@@ -11,13 +11,11 @@ import { printDialog, previewPassport } from './passports/dialogs.js';
 import { openTechSheet } from './tech-sheet.js';
 import { openBulk } from './bulk-edit.js';
 import { qrBulkAction, qrPrintAction } from './qr.js';
-import { productRoute } from './work-composition.js';
-import { productFilesBlock } from './product-files.js';
-import { productAttachmentsBlock } from './product-attachments.js';
 import * as data from './products/data.js';
 import { productForm, productBulkFields } from './products/form-fields.js';
 import { prodFunnel, catLanding, deepGroup } from './products/landing.js';
-import { STATUS, dims, grp, passportCatView, warnNote, compositionBlock, passportsBlock, inOrders, variantsBlock } from './products/card-blocks.js';
+import { STATUS, dims, grp, warnNote } from './products/card-blocks.js';
+import { productTabs } from './products/tabs.js';
 
 /*
  * «Продукция» (TASKS БЗ-4) — витрина изделий компании: разделы плитками, поиск, фото; карточка — правка (артикул,
@@ -115,15 +113,17 @@ export const products = {
     heading: (r) => [kitSku(r.sku), r.sku ? ' ' : null, r.name],
     subheading: (r) => STATUS[r.status] || r.status || '',
     editTop: true,
-    zones: { extra: 'side' },
-    // SK-8d: «В заказах» и «Паспорта» — только если эти разделы открыты роли
-    extra: (r) => stack(warnNote(r), variantsBlock(r), productFilesBlock(r, session.canEdit), session.sees('products') ? productAttachmentsBlock(r) : null, compositionBlock(r), session.sees('work') ? productRoute(r) : null, session.sees('salesorders') ? inOrders(r) : null, session.seesDocs() ? passportsBlock(r) : null),
+    zones: { fields: 'wide' }, // сведения — на всю ширину, ниже вкладки (C052, как в заказе)
+    actionsInHead: true,
+    top: (r) => warnNote(r),
+    // вкладки: Описание · Состав и работы · Паспорт · Файлы · Заказы (права — внутри productTabs)
+    tabs: (r) => productTabs(r),
     gallery: (r) => r.photos || [],
     photoAdd: data.photoAdd, photoSearch: (r) => r.name, // «Найти фото в интернете»
     photoMain: data.photoMain,
     photoRemove: data.photoRemove,
-    // порядок (дизайнер 2026-11-01): цена крупно → изделие → характеристики → описание → паспорт → дополнительно; артикул и статус — в шапке
-    view: (r, ctx) => [
+    // над вкладками (C052): цена крупно → изделие → характеристики → дополнительно; описание и паспорт — во вкладках; артикул и статус — в шапке
+    view: (r) => [
       grp('Цена'),
       ['Цена', r.price ? h('span', { class: 'kv-qty' }, money(r.price)) : h('span', { class: 'muted' }, 'не указана — изделие ещё не в продаже')],
       ...(session.canMoney && r.cost?.total ? [['Себестоимость материалов', `≈ ${money(r.cost.total)}${r.price ? ` · наценка ${Math.round((r.price / r.cost.total - 1) * 100)}%` : ''}`]] : []),
@@ -136,14 +136,6 @@ export const products = {
       grp('Характеристики'),
       ['Габариты (Д×Ш×В)', dims(r.dimensions)], ['Вес', r.weightKg ? `${qty(r.weightKg)} кг` : null], ['Ед. изм.', r.unit], ['RAL', r.ralCode],
       ['Цвета', (r.colors || []).join(', ')], ['Размеры', (r.sizes || []).join(', ')],
-      grp('Описание и материалы'),
-      ['Материалы', r.materialsText || (r.materialsSpec ? null : h('span', { class: 'muted' }, 'таблица не заполнена — «Изменить» → «Описание и материалы»'))],
-      ['Назначение', r.purpose], ['Монтаж', r.installation], ['Описание', r.description],
-      grp('Паспорт'),
-      ['Категория паспорта', passportCatView(r, ctx)],
-      ['Гарантия', r.passportDefaults?.warrantyMonths ? `${r.passportDefaults.warrantyMonths} мес.` : null],
-      ['Срок службы', r.passportDefaults?.serviceLifeYears ? `${r.passportDefaults.serviceLifeYears} лет` : null],
-      ['Поставляется разобранным', r.passportDefaults?.isKit ? 'да' : null],
       grp('Дополнительно'),
       ['Название в договоре', r.orderName && r.orderName !== r.name ? r.orderName : null], ['Название серии', r.series],
       ['Кто проектировал', r.designer ? `${r.designer.name}${r.designer.position ? ' · ' + r.designer.position : ''}` : h('span', { class: 'muted' }, 'не указан — к кому идти, если в паспорте не хватает данных')],

@@ -2,7 +2,7 @@ import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay } from '../core/format.js';
 import { current, go } from '../core/router.js';
-import { badge, board as mountBoard, button, sku as kitSku, layout, section, stack, toast, toastError, DESIGN_STATUS, ORDER_PRIORITY } from '../ui/kit/index.js';
+import { badge, board as mountBoard, button, sku as kitSku, layout, section, toast, toastError, DESIGN_STATUS, ORDER_PRIORITY } from '../ui/kit/index.js';
 import { designSide } from './design-side.js';
 import { staffOptions } from './passports/common.js';
 import { taskMenu } from './design-menu.js';
@@ -159,10 +159,7 @@ function topBlock(r, ctx) {
     ...pair('Название в договоре', clean(r.customerTitle), 'kv-full'),
     ...pair('Срок', h('span', null, dueNode(r), r.deadline && r.deadlineFromOrder ? h('span', { class: 'muted' }, ' · из заказа') : null)),
     ...pair('Исполнитель', who));
-  const gal = carousel(taskPics(r), { onAdd: can ? () => {
-    const d = document.querySelector('.dc-photos'); if (!d) return;
-    d.open = true; d.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  } : null });
+  const gal = carousel(taskPics(r), { onAdd: can ? () => ctx.openTab('media') : null }); // «+ фото» — вкладка «Фото и стикеры»
   return h('div', { class: 'dc-top' },
     h('div', { class: 'dc-chips' }, badge(STATUS, r.status), prioBadge(r)),
     (r.status === 'paused' || r.status === 'cancelled') && r.pauseReason ? h('div', { class: 'dc-pause' }, (r.status === 'cancelled' ? 'Отменена: ' : 'Пауза: ') + r.pauseReason) : null,
@@ -265,22 +262,25 @@ export const design = {
     heading: (r) => `${r.code} · ${title(r)}`,
     subheading: () => '',
     gallery: () => [],
-    top: (r, ctx) => topBlock(r, ctx),
+    top: (r, ctx) => topBlock(r, ctx), // сведения (кто, срок, кол-во, фото) — над вкладками
     view: () => [],
-    extra: (r, ctx) => {
-      const host = stack();
-      const can = session.canEdit;
-      const prod = specBlock(r);
-      if (prod) host.append(prod);
-      host.append(discussionBlock(r, ctx, () => { const i = Math.max(0, taskPics(r).findIndex((p) => p.source === 'note')); (document.querySelectorAll('.pgal-th:not(.pgal-add)')[i] || document.querySelector('.pgal-img'))?.click(); document.querySelector('.pgal')?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }));
-      const ph = photosBlock(r, ctx, can);
-      ph.classList.add('dc-photos');
-      ph.open = false;
-      host.append(ph);
-      if (r.note) host.append(noteBlock(r.note));
-      visibleStickers().then((list) => { const b = stickersBlock(r, list, ctx, can); if (b) host.append(b); });
-      return host;
-    },
+    actionsInHead: true,
+    // вкладки (C052): Задача · Обсуждение · Фото и стикеры
+    tabs: (r) => [
+      { key: 'task', label: 'Задача', blocks: (row) => {
+        const kids = [specBlock(row), row.note ? noteBlock(row.note) : null].filter(Boolean);
+        return kids.length ? kids : h('p', { class: 'muted small' }, 'Описания изделия и примечания нет — всё главное в шапке.');
+      } },
+      { key: 'talk', label: 'Обсуждение', count: r.notesCount || undefined, tone: r.openQuestions > 0 ? 'warn' : undefined,
+        blocks: (row, ctx) => discussionBlock(row, ctx, () => { const i = Math.max(0, taskPics(row).findIndex((p) => p.source === 'note')); (document.querySelectorAll('.pgal-th:not(.pgal-add)')[i] || document.querySelector('.pgal-img'))?.click(); document.querySelector('.pgal')?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }) },
+      { key: 'media', label: 'Фото и стикеры', blocks: async (row, ctx) => {
+        const can = session.canEdit;
+        const ph = photosBlock(row, ctx, can);
+        ph.classList.add('dc-photos');
+        ph.open = true;
+        return [ph, stickersBlock(row, await visibleStickers(), ctx, can)];
+      } },
+    ],
     actions: (r) => {
       const go2 = (to, label, primary, more) => ({ label, primary, more, run: async (row, ctx) => { const saved = await moveTask(row, to); if (saved) ctx.setRow(saved); } });
       const cancel = go2('cancelled', 'Отменить задачу', false, true);
