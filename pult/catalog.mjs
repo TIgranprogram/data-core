@@ -129,6 +129,17 @@ export const COMMANDS = [
   { id: 'night-down', section: 'stand', hidden: true, title: 'Стенд на копии базы: остановить', risk: 'local', time: '20 с', needs: ['docker'], run: dc('stand', 'down'),
     hint: 'Останавливает стенд на копии. База сохраняется.' },
 
+  { id: 'docker-clean-plan', section: 'stand', title: 'Docker: что лишнее на этом ПК', risk: 'read', time: '10 с', needs: ['docker'], run: { node: ['tools/docker-clean.mjs'] }, every: 14, why: 'Раз в две недели: старые стенды и кэш сборки съедают десятки ГБ',
+    hint: 'Показывает, сколько места займут старые стенды и кэш. Ничего не удаляет.' },
+  { id: 'docker-clean', section: 'stand', title: 'Docker: очистить этот ПК', risk: 'local', time: '1–3 мин', needs: ['docker'], run: { node: ['tools/docker-clean.mjs', '--clean'] },
+    confirm: 'Удалятся старые стенды, кэш сборки, образы и тома без имени. Локальный сайт, его данные и текущий стенд :3102 останутся.',
+    hint: 'Освобождает место. Следующая сборка стенда будет на пару минут дольше.' },
+  { id: 'docker-clean-vm-plan', section: 'site', title: 'Docker на сервере: что лишнее', risk: 'read', time: '15 с', needs: ['bash', 'vm'], run: { node: ['tools/docker-clean.mjs', '--server'] }, every: 30, why: 'Раз в месяц: кэш сборки на сервере растёт с каждой выкладкой',
+    hint: 'Показывает место на диске сервера и сколько займёт кэш сборки. Ничего не удаляет.' },
+  { id: 'docker-clean-vm', section: 'site', title: 'Docker на сервере: очистить кэш', risk: 'prod-write', time: '1 мин', needs: ['bash', 'vm'], run: { node: ['tools/docker-clean.mjs', '--server', '--clean'] },
+    confirm: 'На сервере удалится кэш сборки и образы без имени. Сайт, базы, CRM и образ для отката не меняются. Следующая выкладка соберётся на несколько минут дольше.',
+    hint: 'Только если на сервере мало места (диск занят больше 70 %).' },
+
   // ---------- Автозапуск / задачи Windows ----------
   { id: 'setup-task', section: 'auto', sub: 'Задачи Windows (работают и при закрытом пульте)', title: 'Ночной прогон в 23:30', risk: 'local', time: '10 с', run: { cmd: ['tools\\setup.cmd', 'task'] },
     hint: 'Создаёт задачу Windows на 23:30. Только если проверка ПК зелёная.' },
