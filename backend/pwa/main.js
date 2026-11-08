@@ -238,7 +238,7 @@ function shell() {
     navLinks.home,
     // порядок разделов — пользователь 2026-10-28: Производство, Продукция, Склад, Снабжение, Деньги
     // «Сопоставление» не в меню (C016/C017): вход из Заказов и бейджа «не сопоставлено»; #matching и права в NAV оставляем
-    group('Производство', navLinks.salesorders, navLinks.design, navLinks.work, navLinks.workschedule),
+    group('Производство', navLinks.salesorders, navLinks.design, navLinks.work), // Гант — один: «В работе → Гант» (C053); #workschedule — для старых ссылок
     group('Продукция', navLinks.products, navLinks.offers, session.canEdit ? navLinks.docs : null),
     group('Склад', navLinks.stock, navLinks['stock-mobile'], ...(navLinks.stock && (session.role === 'admin' || session.user?.isOwner) ? [link('stock?view=pipe', 'Экран трубареза', 'stock'), link('stock?view=sheet', 'Экран «Лазер лист»', 'stock')] : [])), // «Склад · мобильный» — кладовщику с телефона: выдать, принять
     group('Снабжение', navLinks.requests, navLinks.suppliercatalog, navLinks.contracts),
