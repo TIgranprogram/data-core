@@ -1,5 +1,5 @@
 import { Body, Controller, Get, HttpCode, Param, Patch, Post, Put, Query } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -18,6 +18,7 @@ export class WorkScheduleController {
 
   @Get()
   @Roles('admin', 'director', 'manager', 'user')
+  @ApiOkResponse({ description: '{people[{id,name,capacityHours,workTypeIds}], bars[{…, orderId, productName, partId, partRowId, hue}], load[], legend[{workTypeId,name,hue 1..7}]}; фильтры personId/orderId/incomeId — в запросе к БД' })
   get(@Query() q: ScheduleQueryDto) {
     return this.schedule.schedule(q);
   }
