@@ -4,7 +4,7 @@ import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { escapeRe, oid, parseList } from '../../common/list-query';
 import { loadPhotos } from '../../common/photos';
-import { checkLine } from '../incomes/line-type';
+import { checkLine } from '../../common/line-type';
 import { aliasKey } from '../matching/matching-rules';
 import { ShowcaseService } from '../showcase/showcase.service';
 import { ZonesService } from '../zones/zones.service';

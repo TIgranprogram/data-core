@@ -185,6 +185,11 @@ function cmdCheck() {
   const dsg = step('дизайн', process.execPath, ['backend/scripts/design-lint.mjs']);
   say(dsg.code === 0 ? 'дизайн (design-lint): ок' : 'дизайн (design-lint): ОШИБКИ — ' + cut(dsg.out.trim().split('\n').slice(-3)[0] || '', 110) + ' (tools/logs)');
   if (dsg.code) bad++;
+  // C049: взаимные импорты модулей сервера (A ↔ B) — новый цикл не должен пройти незаметно
+  const cyc = step('циклы модулей', process.execPath, ['backend/scripts/audit-cycles.js']);
+  const pairs = Number((cyc.out.match(/Взаимных пар модулей:\s*(\d+)/) || [])[1] ?? NaN);
+  say(pairs === 0 ? 'циклы модулей: нет' : 'циклы модулей: ' + (Number.isNaN(pairs) ? 'сбой проверки' : pairs + ' — ' + cut(cyc.out.trim().split('\n').slice(1, 3).join('; '), 100)));
+  if (pairs !== 0) bad++;
   const pult = step('пульт', process.execPath, ['--test', 'pult/test/catalog.test.mjs', 'pult/test/server.test.mjs', 'pult/test/advisor.test.mjs']);
   say(pult.code === 0 ? 'пульт: каталог совпадает с проектом' : 'пульт: ОТСТАЛ — ' + cut((pult.out.split('\n').find((l) => /Скрипт без кнопки|Команда dc без кнопки|gen-docs|✖ /.test(l)) || '').trim(), 110));
   if (pult.code) bad++;

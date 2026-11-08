@@ -18,7 +18,7 @@ import { ourProductLabel, productShortName, type Named } from '../../common/cata
 import { STAGE_LABELS, type OrderStage } from '../../common/text/order-key';
 import { productNameKey, shortProductName } from '../showcase/order-product-name';
 import type { IncomeDto } from './dto';
-import { LINE_CHECK_FIELDS, checkLine, type LineType } from './line-type';
+import { LINE_CHECK_FIELDS, checkLine, type LineType } from '../../common/line-type';
 import { Income, IncomeDocument, IncomePayment, incomeDerived, incomePayments } from './income.schema';
 
 /** Способы оплаты (подсказка формы платежа; в базе — свободный текст до 50 знаков). */
