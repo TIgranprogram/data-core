@@ -17,14 +17,19 @@ export async function uploadPhoto(f, purpose) {
  *   photoDrop({ attach: async (photoId, { url, thumb }) => row, done(row) })
  * Вставка работает, пока зона на экране и курсор не в текстовом поле.
  */
-export function photoDrop({ attach, done, pdf = false, purpose, drawing = false, idleText }) {
+export function photoDrop({ attach, done, pdf = false, purpose, drawing = false, idleText, searchText }) {
+  // searchText — название позиции: кнопка «Найти фото в интернете» откроет Яндекс.Картинки с ним (пользователь 2026-11-08);
+  // картинку оттуда: правая кнопка → «Копировать изображение» → сюда Ctrl+V (вставка ниже уже умеет)
   // purpose — назначение файла на сервере (passport, drawing); drawing: true — чертежи (PDF, DWG, DXF и картинки)
   // pdf: true — ещё и PDF (файл счёта, скан договора); фото заявок/изделий — только картинки
   const input = h('input', { type: 'file', accept: drawing ? 'image/*,application/pdf,.pdf,.dwg,.dxf' : pdf ? 'image/*,application/pdf' : 'image/*', multiple: true, hidden: true });
   const idle = idleText || (drawing ? 'Перетащите чертёж (PDF, DWG, DXF) сюда или вставьте Ctrl+V' : null) || (pdf ? 'Перетащите файл (PDF или фото) сюда или вставьте Ctrl+V' : 'Перетащите фото сюда или вставьте Ctrl+V');
   const label = h('span', { class: 'pd-text' }, idle);
   const pick = h('button', { type: 'button', class: 'btn btn-sm', onclick: () => input.click() }, 'Выбрать файл');
-  const zone = mark(h('div', { class: 'photo-drop', tabindex: '0', title: 'Можно вставить скриншот: Ctrl+V' }, h('span', { class: 'pd-ico', 'aria-hidden': 'true' }, '🖼'), label, pick, input), 'photoDrop');
+  const q = String(searchText || '').trim();
+  const find = q ? h('a', { class: 'btn btn-sm', href: 'https://yandex.ru/images/search?text=' + encodeURIComponent(q), target: '_blank', rel: 'noopener noreferrer',
+    title: 'Откроется поиск картинок. Понравилась — правая кнопка → «Копировать изображение», вернитесь сюда и нажмите Ctrl+V' }, 'Найти фото в интернете') : null;
+  const zone = mark(h('div', { class: 'photo-drop', tabindex: '0', title: 'Можно вставить скриншот: Ctrl+V' }, h('span', { class: 'pd-ico', 'aria-hidden': 'true' }, '🖼'), label, pick, find, input), 'photoDrop');
   let busy = false;
 
   async function upload(files) {

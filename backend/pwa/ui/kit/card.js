@@ -130,7 +130,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     } : null, canEditSection(section) && section.card.photoMain ? async (p) => {
       try { actx().setRow(await section.card.photoMain(row, p.id)); toast('Главное фото выбрано'); } catch (e) { toastError(e); }
     } : null), 'photo');
-    if (canPhoto) put(photoDrop({ attach: (pid) => section.card.photoAdd(row, pid), done: (r) => { actx().setRow(r); toast('Фото добавлено'); } }), 'photo');
+    if (canPhoto) put(photoDrop({ attach: (pid) => section.card.photoAdd(row, pid), done: (r) => { actx().setRow(r); toast('Фото добавлено'); }, searchText: section.card.photoSearch?.(row) }), 'photo');
     if (section.card.stats) put(h('div', { class: 'stats' }, section.card.stats(row).map(([l, v]) => h('div', { class: 'stat' }, h('b', { class: 'num' }, v), h('span', null, l)))), 'stats');
     let headActs = null;
     if (canEditSection(section) && section.card.actions) {
