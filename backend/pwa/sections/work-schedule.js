@@ -121,7 +121,7 @@ function createSchedule(el, p0, set, extra0 = {}) {
       onShift: (dir) => set({ from: iso(Date.parse(from() + 'T00:00:00Z') + dir * SHIFT[scaleK] * DAY) }),
       onToday: () => set({ from: undefined }),
       empty: empty({ title: 'В этом периоде работ нет', hint: 'Откройте заказ, в позиции нажмите «Состав» и добавьте работы, затем «Запланировать». Или сдвиньте период.' }),
-      onOpen: (b) => openSide('wsstep', b.id), onMove: (b, dest) => move(b.id, dest),
+      onOpen: (b) => (b.locked && b.taskId ? patch({ of: 'work', open: b.taskId }, { replace: false }) : openSide('wsstep', b.id)), // задание без плана — его карточка onMove: (b, dest) => move(b.id, dest),
     });
     chartBox.replaceChildren(chart.el);
     chart.scrollToToday();

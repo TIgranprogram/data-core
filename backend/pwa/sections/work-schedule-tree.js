@@ -45,9 +45,9 @@ export function buildModel({ bars: raw, people, lens }) {
     }
     rows.push(leaf);
     for (const n of parents) bump(n.id);
-    const sub = [`${round(b.hours)} ч`, b.inDesign ? 'в проектировании' : ''].filter(Boolean).join(' · ');
+    const sub = b.locked ? 'задание без плана' : [`${round(b.hours)} ч`, b.inDesign ? 'в проектировании' : ''].filter(Boolean).join(' · ');
     view.push({
-      id: String(b.stepId), rowId: sid, ownerId: lens === 'people' ? (b.assigneeId ? String(b.assigneeId) : NONE) : sid,
+      id: String(b.stepId), taskId: b.taskId || null, locked: !!b.locked, rowId: sid, ownerId: lens === 'people' ? (b.assigneeId ? String(b.assigneeId) : NONE) : sid,
       start: day(b.start), end: day(b.end), title: b.workTypeName || 'работа', sub,
       hue: b.hue || null, wt: b.workTypeId ? String(b.workTypeId) : null, status: b.status, overdue: !!b.overdue, deadline: b.deadline || null,
       tone: b.status === 'done' ? 'ok' : !b.assigneeId && lens === 'people' ? 'warn' : 'info',
