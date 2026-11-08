@@ -53,11 +53,11 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
   const px = scale === 'fit' ? fitPx(fitWidth || 720, from, to) : PX[scale] || PX.week;
   const dayCols = scale === 'day';
   const coarse = touch(), LANE = coarse ? 44 : 32;
-  const min = dayNum(from), max = dayNum(to) + 1, W = (max - min) * px;
+  const min = dayNum(from), max = Math.max(dayNum(to) + 1, scale !== 'fit' && fitWidth ? min + Math.ceil(fitWidth / px) : 0), W = (max - min) * px; // лента не короче окна — справа нет пустого поля
   const today = todayNum();
   const xOf = (n) => (n - min) * px;
   const todayX = xOf(today) + px / 2;
-  const track = (t) => { t.style.width = W + 'px'; t.style.setProperty('--gt-line', (dayCols ? px : px * 7) + 'px'); t.style.setProperty('--gt-off', xOf(dayCols ? min : min + ((8 - dow(min)) % 7)) + 'px'); return t; };
+  const track = (t) => { t.style.width = W + 'px'; t.style.setProperty('--gt-line', (dayCols ? px : px * 7) + 'px'); t.style.setProperty('--gt-off', xOf(dayCols ? min : min + ((8 - dow(min)) % 7)) + 'px'); t.style.setProperty('--gt-day', px + 'px'); t.style.setProperty('--gt-we', xOf(min + ((13 - dow(min)) % 7)) + 'px'); return t; }; // --gt-we — первая суббота: выходные полосой и в строках
 
   // шапка: месяцы и числа
   const months = []; const nums = [];

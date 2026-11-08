@@ -27,6 +27,7 @@ button.gt-label:hover { background: var(--row-hover); }
 .gt-mo { font-weight: 600; }
 .gt-n small { display: block; font-size: var(--fs-label); color: var(--muted); }
 .gt-n.we { background: var(--weekend-head); }
+.gt-body .gt-track { background-image: linear-gradient(to right, var(--border) 1px, transparent 1px), linear-gradient(to right, var(--weekend) calc(2 * var(--gt-day)), transparent 0); background-size: var(--gt-line) 100%, calc(7 * var(--gt-day)) 100%; background-position: var(--gt-off) 0, var(--gt-we) 0; } /* выходные — полосой во всех строках, как в шапке */
 .gt-n.today { background: var(--danger-soft); color: var(--danger); font-weight: 600; }
 .gt-bar { position: absolute; top: 8px; height: 28px; box-sizing: border-box; display: flex; align-items: center; padding: 0 var(--s2); border-radius: var(--radius-sm); border: 1px solid var(--info); background: var(--info); color: var(--on-primary); font: inherit; font-size: var(--fs-sm); cursor: pointer; overflow: hidden; touch-action: manipulation; }
 .gt-bar:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
