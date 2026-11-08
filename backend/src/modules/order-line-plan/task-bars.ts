@@ -31,7 +31,7 @@ export async function taskBars(db: Db, o: { incomeIds?: Types.ObjectId[] | null;
   const [incomes, types, orders] = await Promise.all([
     db.collection('incomes').find({ _id: { $in: incomeIds } }, { projection: { orderNo: 1, title: 1, qty: 1, orderId: 1 } }).toArray(),
     typeIds.length ? db.collection('worktypes').find({ _id: { $in: typeIds } }, { projection: { days: 1, accentHue: 1 } }).toArray() : Promise.resolve([] as Doc[]),
-    orderIds.length ? db.collection('salesorders').find({ _id: { $in: orderIds } }, { projection: { productionDeadline: 1, shipDate: 1 } }).toArray() : Promise.resolve([] as Doc[]),
+    orderIds.length ? db.collection('salesorders').find({ _id: { $in: orderIds } }, { projection: { orderNo: 1, productionNo: 1, productionDeadline: 1, shipDate: 1 } }).toArray() : Promise.resolve([] as Doc[]),
   ]);
   const order = new Map(orders.map((x) => [String(x._id), x as Doc]));
   const inc = new Map(incomes.map((i) => [String(i._id), i as Doc]));
@@ -49,7 +49,7 @@ export async function taskBars(db: Db, o: { incomeIds?: Types.ObjectId[] | null;
       const startAt = dayOf(p.start), endAt = new Date(dayOf(p.end).getTime() - DAY); // computePlan: end — начало следующего дня
       const wt = String(route[k].workTypeId ?? '') || null;
       out.push({
-        stepId: `task:${String(t._id)}:${k}`, planId: '', taskId: String(t._id), stepIndex: k, locked: status === 'done', incomeId: String(t.incomeId), orderNo: (i?.orderNo as string | undefined) ?? null,
+        stepId: `task:${String(t._id)}:${k}`, planId: '', taskId: String(t._id), stepIndex: k, locked: status === 'done', incomeId: String(t.incomeId), orderNo: ((orderId ? order.get(orderId)?.orderNo : null) as string | undefined) ?? (i?.orderNo as string | undefined) ?? null, productionNo: ((orderId ? order.get(orderId)?.productionNo : null) as string | undefined) || null,
         title: String(i?.title ?? ''), partName: WHOLE_PRODUCT, workTypeName: route[k].name, workTypeId: wt, assigneeId: t.assigneeId ? String(t.assigneeId) : null,
         start: isoDay(startAt), end: isoDay(endAt < startAt ? startAt : endAt), hours: 0, status, startedAt: null, finishedAt: null, hoursPerUnit: null,
         deadline: dl ? isoDay(dl) : null, overdue: o.overdue(dl, o.today, status), inDesign: false,

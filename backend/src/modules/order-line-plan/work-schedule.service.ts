@@ -15,7 +15,7 @@ import { taskBars } from './task-bars';
 type Doc = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 export type BarStatus = 'plan' | 'work' | 'done';
 export interface Bar {
-  stepId: string; planId: string; incomeId: string; orderNo: string | null; title: string; partName: string; workTypeName: string; /** id вида работ шага */ workTypeId: string | null;
+  stepId: string; planId: string; incomeId: string; orderNo: string | null; /** производственный номер заказа (C053) */ productionNo?: string | null; title: string; partName: string; workTypeName: string; /** id вида работ шага */ workTypeId: string | null;
   assigneeId: string | null; /** 'ГГГГ-ММ-ДД', end включительно */ start: string; end: string; hours: number; status: BarStatus;
   /** Факт-отметки шага и норма на 1 шт. */
   startedAt: Date | null; finishedAt: Date | null; hoursPerUnit: number | null;
@@ -70,7 +70,7 @@ export class WorkScheduleService {
     const [tasks, types, orders, designs, products] = await Promise.all([
       this.db().collection('worktasks').find({ incomeId: { $in: incomeIds }, deletedAt: null, status: { $ne: 'cancelled' } }, { projection: { incomeId: 1, status: 1, stepIndex: 1, route: 1, createdAt: 1 } }).sort({ createdAt: 1 }).toArray(),
       this.workTypes(),
-      orderIds.length ? this.db().collection('salesorders').find({ _id: { $in: orderIds } }, { projection: { productionDeadline: 1, shipDate: 1 } }).toArray() : Promise.resolve([] as Doc[]),
+      orderIds.length ? this.db().collection('salesorders').find({ _id: { $in: orderIds } }, { projection: { orderNo: 1, productionNo: 1, productionDeadline: 1, shipDate: 1 } }).toArray() : Promise.resolve([] as Doc[]),
       this.db().collection('designtasks').find({ incomeId: { $in: incomeIds }, deletedAt: null, status: { $nin: ['done'] } }, { projection: { incomeId: 1 } }).toArray(),
       productIds.length ? this.db().collection('products').find({ _id: { $in: productIds } }, { projection: { name: 1 } }).toArray() : Promise.resolve([] as Doc[]),
     ]);
@@ -80,6 +80,7 @@ export class WorkScheduleService {
     const typeName = new Map(types.map((t) => [String(t._id), String(t.name ?? '')]));
     const hueOf = new Map(types.map((t) => [String(t._id), workTypeHue(String(t._id), t.accentHue as number | null | undefined)]));
     const deadlineOf = new Map(orders.map((o) => [String(o._id), barDeadline(o as Doc)]));
+    const orderOf = new Map(orders.map((o) => [String(o._id), o as Doc])); // номер заказа и производственный (№ 11-26 в карточке задания)
     const inDesign = new Set(designs.map((d) => String(d.incomeId))); // метка «в проектировании» на строке позиции
     const out: Array<Bar & { startAt: Date; endAt: Date }> = [];
     for (const plan of plans) {
@@ -107,7 +108,7 @@ export class WorkScheduleService {
         }
         const dl = deadlineOf.get(String(inc.orderId)) ?? null;
         out.push({
-          stepId: String(s._id), planId: String(plan._id), incomeId: String(plan.incomeId), orderNo: (inc.orderNo as string | undefined) ?? null, title: String(inc.title ?? ''),
+          stepId: String(s._id), planId: String(plan._id), incomeId: String(plan.incomeId), orderNo: (orderOf.get(String(inc.orderId))?.orderNo as string | undefined) ?? (inc.orderNo as string | undefined) ?? null, productionNo: (orderOf.get(String(inc.orderId))?.productionNo as string | undefined) || null, title: String(inc.title ?? ''),
           partName: s.partRowId ? partName.get(String(s.partRowId)) ?? WHOLE_PRODUCT : WHOLE_PRODUCT, workTypeName: typeName.get(String(s.workTypeId))!, workTypeId: idOf(s.workTypeId),
           assigneeId: idOf(s.assigneeId), start: isoDay(sched[i].start), end: isoDay(sched[i].end),
           startedAt: s.startedAt ?? null, finishedAt: s.finishedAt ?? null, hoursPerUnit: s.hours ?? null, hours: Math.round(sched[i].hours * 100) / 100, status,

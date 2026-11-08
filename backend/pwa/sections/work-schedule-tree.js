@@ -32,7 +32,7 @@ export function buildModel({ bars: raw, people, lens }) {
   for (const b of bars) {
     let rowId, parents;
     if (lens === 'orders') {
-      const o = node({ id: 'o:' + (b.orderNo || '—'), label: 'Заказ № ' + (b.orderNo || '—') });
+      const o = node({ id: 'o:' + (b.orderId || b.orderNo || '—'), label: 'Заказ № ' + (b.orderNo || '—'), sub: b.productionNo ? 'в производстве № ' + b.productionNo : '' }); // группа — по заказу: у разных заказов бывает общий производственный номер
       const multi = (partsOf.get(String(b.incomeId))?.size || 0) > 1;
       const p = node({ id: 'i:' + b.incomeId, parentId: o.id, label: posLabel(b), drop: null });
       parents = [o, p];
@@ -56,7 +56,7 @@ export function buildModel({ bars: raw, people, lens }) {
       hint: [`Заказ № ${b.orderNo || '—'}`, posLabel(b), partOf(b), who(b), b.inDesign ? 'в проектировании' : ''].filter(Boolean).join(' · '),
     });
   }
-  for (const r of rows) if (stepsOf.has(r.id) && !r.sub) r.sub = count(stepsOf.get(r.id));
+  for (const r of rows) if (stepsOf.has(r.id)) r.sub = [r.sub, count(stepsOf.get(r.id))].filter(Boolean).join(' · ');
   const withKids = new Set(rows.map((r) => r.parentId));
   return { rows, bars: view, nodeIds: [...nodeIds].filter((id) => withKids.has(id)) };
 }

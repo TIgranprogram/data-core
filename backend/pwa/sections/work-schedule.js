@@ -122,7 +122,7 @@ function createSchedule(el, p0, set, extra0 = {}) {
       onShift: (dir) => set({ from: iso(Date.parse(from() + 'T00:00:00Z') + dir * SHIFT[scaleK] * DAY) }),
       onToday: () => set({ from: undefined }),
       empty: empty({ title: 'В этом периоде работ нет', hint: 'Откройте заказ, в позиции нажмите «Состав» и добавьте работы, затем «Запланировать». Или сдвиньте период.' }),
-      onOpen: (b) => (b.locked && b.taskId ? patch({ of: 'work', open: b.taskId }, { replace: false }) : openSide('wsstep', b.id)), onMove: (b, dest) => move(b.id, dest), // задание без плана — его карточка
+      onOpen: (b) => (b.taskId ? patch({ of: 'work', open: b.taskId }, { replace: false }) : openSide('wsstep', b.id)), onMove: (b, dest) => move(b.id, dest), // задание без плана — его карточка
     });
     chartBox.replaceChildren(chart.el);
     chart.scrollToToday();
@@ -137,7 +137,8 @@ function createSchedule(el, p0, set, extra0 = {}) {
     if (rec.bar.rev != null) body.rev = rec.bar.rev;
     try {
       await api(`/orderline-plans/${rec.bar.planId}/steps/${stepId}`, { method: 'PATCH', body });
-      toast(body.assigneeId !== undefined ? 'Шаг передан другому исполнителю' : `Шаг начнётся ${dmy(dest.start)}`);
+      const back = { start: day(rec.bar.start), end: day(rec.bar.end), ...(body.assigneeId !== undefined ? { assigneeId: rec.bar.assigneeId ? String(rec.bar.assigneeId) : null } : {}) };
+      toast(body.assigneeId !== undefined ? 'Шаг передан другому исполнителю' : `Шаг начнётся ${dmy(dest.start)}`, { undo: () => undoMove(() => api(`/orderline-plans/${rec.bar.planId}/steps/${stepId}`, { method: 'PATCH', body: back })) }); // случайный перенос — вернуть одной кнопкой
       window.dispatchEvent(new Event('data-changed'));
       await load();
     } catch (e) {
@@ -154,12 +155,23 @@ function createSchedule(el, p0, set, extra0 = {}) {
     const who = lens === 'people' && String(dest.rowId) !== owner ? (dest.rowId === NONE ? null : dest.rowId) : undefined;
     const days = Math.round((Date.parse(dest.end) - Date.parse(dest.start)) / DAY) + 1;
     try {
-      if (dest.start !== day(bar.start)) await api(`/work-tasks/${bar.taskId}/plan`, { method: 'PATCH', body: { stepIndex: bar.stepIndex, start: dest.start, days } });
+      const shifted = dest.start !== day(bar.start);
+      if (shifted) await api(`/work-tasks/${bar.taskId}/plan`, { method: 'PATCH', body: { stepIndex: bar.stepIndex, start: dest.start, days } });
       if (who !== undefined) await api(`/work-tasks/${bar.taskId}`, { method: 'PATCH', body: { assigneeId: who } });
-      toast(who !== undefined ? 'Задание передано другому исполнителю' : `Шаг начнётся ${dmy(dest.start)}`);
+      const oldDays = Math.round((Date.parse(day(bar.end)) - Date.parse(day(bar.start))) / DAY) + 1;
+      toast(who !== undefined ? 'Задание передано другому исполнителю' : `Шаг начнётся ${dmy(dest.start)}`, { undo: () => undoMove(async () => {
+        if (shifted) await api(`/work-tasks/${bar.taskId}/plan`, { method: 'PATCH', body: { stepIndex: bar.stepIndex, start: day(bar.start), days: oldDays } });
+        if (who !== undefined) await api(`/work-tasks/${bar.taskId}`, { method: 'PATCH', body: { assigneeId: bar.assigneeId ? String(bar.assigneeId) : null } });
+      }) });
       window.dispatchEvent(new Event('data-changed'));
       await load();
     } catch (e) { toastError(e, 'переставить шаг'); await load(); throw e; }
+  }
+
+  /** «Отменить» в сообщении о переносе: вернуть как было и перерисовать. */
+  async function undoMove(revert) {
+    try { await revert(); toast('Перенос отменён'); window.dispatchEvent(new Event('data-changed')); } catch (e) { toastError(e, 'отменить перенос'); }
+    await load();
   }
 
   function paint() { paintTop(); paintBanner(); paintFilters(); paintChart(); }
