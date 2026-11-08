@@ -100,3 +100,6 @@ button.gt-label:hover { background: var(--row-hover); }
 .k-pl-lg i.hue { width: 12px; height: 12px; border-radius: var(--s1); background: var(--wt); }
 @media (pointer: coarse) { .k-pl-lg { min-height: 44px; } }
 @media (max-width: 720px) { .gt-wrap.tree { --gt-label: 148px; } }
+
+/* Панель Ганта на касании (планшет, телефон): кнопки и масштабы не ниже 44 px (приёмка дизайнера C053) */
+@media (pointer: coarse) { .k-pl-tools .btn, .k-pl-tools .k-seg-btn { min-height: 44px; } }
