@@ -233,7 +233,7 @@ function addPicker(invoice, ctx) {
   const fromName = (f) => `счёт ${f.no ? '№' + f.no : 'без номера'}${f.status && INVOICE_STATUS[f.status] ? ' · ' + INVOICE_STATUS[f.status].label.toLowerCase() : ''}`;
   const load = async (q = '') => {
     try {
-      const [r, busy] = await Promise.all([getCandidates(invoice, { page: 1, q, limit: 80 }), getBusyRequests(invoice, { q }).catch(() => [])]);
+      const [r, busy] = await Promise.all([getCandidates(invoice, { page: 1, q, limit: 80 }), getBusyRequests(invoice, { q }).catch((e) => { toastError(e, 'заявки из других счетов'); return []; })]);
       cache = [
         ...(r.items || []).map((x) => ({
           value: x.id,
@@ -265,8 +265,7 @@ function addPicker(invoice, ctx) {
           if (o.from.status === 'paid') { toastError(new Error(`Заявка в оплаченном счёте (${fromName(o.from)}) — перенести нельзя`)); return; }
         }
         // счёт-источник останется пустым — удалим его, чтобы не копились пустые черновики
-        const emptyAfter = !!o.from && Array.isArray(o.from.requests)
-          && o.from.requests.filter((r) => !r.deletedAt && r.status !== 'cancelled' && String(r.id) !== String(o.value)).length === 0;
+        const emptyAfter = !!o.from && Array.isArray(o.from.requests) && o.from.requests.filter((r) => !r.deletedAt && r.status !== 'cancelled' && String(r.id) !== String(o.value)).length === 0;
         if (o.from && !(await confirmDlg('Перенести заявку в этот счёт?', `«${o.label}» уберётся из: ${fromName(o.from)} — и добавится сюда.${emptyAfter ? ' Тот счёт останется пустым — он удалится.' : ''}`, { okText: 'Перенести' }))) return;
         const ok = await ctx.run(async () => {
           if (o.from) await writeInvoice(o.from, session, 'remove', {}, o.value);
@@ -281,8 +280,10 @@ function addPicker(invoice, ctx) {
       } catch (e) { toastError(e); }
     },
   });
-  input.addEventListener('focus', () => { load(input.value.trim()).then(() => input.dispatchEvent(new Event('click'))); });
-  input.addEventListener('input', () => { const q = input.value.trim(); clearTimeout(input._t); input._t = setTimeout(() => load(q), 220); });
+  // список открывается щелчком (или вводом) раньше, чем пришли заявки, — после загрузки перерисовать его
+  let redraw = false; const loadAndShow = (q) => load(q).then(() => { if (document.activeElement !== input) return; redraw = true; input.dispatchEvent(new Event('input')); redraw = false; });
+  input.addEventListener('focus', () => loadAndShow(input.value.trim()));
+  input.addEventListener('input', () => { if (redraw) return; const q = input.value.trim(); clearTimeout(input._t); input._t = setTimeout(() => loadAndShow(q), 220); });
   load();
   return h('div', { class: 'iw-add-row' }, wrap, h('p', { class: 'hint' }, 'Клик по полю — список заявок. Выбор сразу добавляет позицию в счёт; заявку из другого счёта — переносит сюда.'));
 }
