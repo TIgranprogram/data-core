@@ -9,7 +9,8 @@ import { link } from './kit/index.js';
  * Данные: GET /passports/funnel?category=… → { sections: [{ id, name, section, required, children: [узел { id, name, text?, isDefault?, children? }] }] }.
  * Выбор — textChoices: { [id раздела]: id листа }. Единственный вариант и «по умолчанию» подставляются сами (в значение не пишутся,
  * сервер делает то же); шаг с выбором сворачивается в строку «Монтаж: … · Изменить», под ней текст в 2 строки.
- *   funnelBox({ value, category, canEditText }) → { el, value (JSON), setCategory(code), refresh(), stepEl(rootId), isDone(rootId) }
+ *   funnelBox({ value, category, canEditText, onPaint(sections), only }) → { el, value (JSON), setCategory(code), refresh(), stepEl(rootId), roots() }
+ * only — один корень (id, section или название) или список: в el только они. onPaint — после каждой отрисовки (можно разнести корни по разделам).
  * Событие change всплывает от el при каждом выборе.
  */
 const cache = new Map();
@@ -45,7 +46,7 @@ function autoFrom(level, path) {
 }
 const hint = (n) => (isLeaf(n) ? plain(n.text).slice(0, 70) : n.children.map((c) => c.name).slice(0, 3).join(' · '));
 
-export function funnelBox({ value, category = '', canEditText = false } = {}) {
+export function funnelBox({ value, category = '', canEditText = false, onPaint, only } = {}) {
   const parse = (v) => { if (v && typeof v === 'object') return { ...v }; try { const o = JSON.parse(v || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch { return {}; } };
   let choices = parse(value);
   let cat = category; let data = null; let failed = null; let seq = 0;
@@ -115,13 +116,19 @@ export function funnelBox({ value, category = '', canEditText = false } = {}) {
     return wrap;
   }
 
+  const wanted = (s) => {
+    if (only == null) return true;
+    const set = new Set([].concat(only).map((x) => String(x)));
+    return set.has(String(s.id)) || set.has(String(s.section || '')) || set.has(String(s.name || ''));
+  };
   function paint() {
-    if (!cat) { el.replaceChildren(h('p', { class: 'muted' }, 'Выберите категорию — здесь появятся шаги: монтаж, назначение и другие тексты.')); return; }
-    if (failed) { el.replaceChildren(failBlock(failed, () => refresh(true), { text: 'Не загрузились варианты текстов' })); return; }
-    if (!data) { el.replaceChildren(h('div', { class: 'state is-loading', role: 'status' }, 'Загружаю варианты…')); return; }
-    const secs = (data.sections || []).filter((s) => s.children && s.children.length);
-    if (!secs.length) { el.replaceChildren(h('p', { class: 'muted' }, 'Для этой категории вариантов текстов пока нет — они появятся, когда будет заполнен «Справочники → Тексты паспорта».')); return; }
+    if (!cat) { el.replaceChildren(h('p', { class: 'muted' }, 'Выберите категорию — здесь появятся шаги: монтаж, назначение и другие тексты.')); onPaint?.([]); return; }
+    if (failed) { el.replaceChildren(failBlock(failed, () => refresh(true), { text: 'Не загрузились варианты текстов' })); onPaint?.([]); return; }
+    if (!data) { el.replaceChildren(h('div', { class: 'state is-loading', role: 'status' }, 'Загружаю варианты…')); onPaint?.([]); return; }
+    const secs = (data.sections || []).filter((s) => s.children && s.children.length && wanted(s));
+    if (!secs.length) { el.replaceChildren(h('p', { class: 'muted' }, 'Для этой категории вариантов текстов пока нет — они появятся, когда будет заполнен «Справочники → Тексты паспорта».')); onPaint?.([]); return; }
     el.replaceChildren(...secs.map(step));
+    onPaint?.(secs);
   }
   async function refresh(force) {
     const my = ++seq; failed = null; data = null; paint();
@@ -162,5 +169,6 @@ export function funnelBox({ value, category = '', canEditText = false } = {}) {
       return leaf && isLeaf(leaf) && leaf.installTypeId ? String(leaf.installTypeId) : '';
     },
     stepEl: (rootId) => el.querySelector(`[data-root="${rootId}"]`),
+    roots: () => (data?.sections || []).filter((s) => s.children?.length),
   };
 }

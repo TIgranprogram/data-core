@@ -20,8 +20,21 @@ export const KINDS_V2 = [
   ['holes', 'Разметка ям под опоры', 'план с расстояниями между опорами — приложение «Схема скважин и разметки»'],
   ['assembly', 'Схема сборки (если поставляется разобранным)', 'шаги сборки по порядку — приложение «Инструкция по сборке»'],
 ];
+/** safety_zone и safety — один вид. */
+export const kindNorm = (k) => (k === 'safety_zone' ? 'safety' : String(k || ''));
 /** Название вида по коду (safety_zone — то же, что safety). */
-export const kindName = (k) => [...KINDS, ...KINDS_V2].find(([x]) => x === (k === 'safety_zone' ? 'safety' : k))?.[1] || 'другой вид';
+export const kindName = (k) => [...KINDS, ...KINDS_V2].find(([x]) => x === kindNorm(k))?.[1] || 'другой вид';
+
+/** Куда в паспорте встаёт рисунок (C056). full — только вариант «Полный». */
+export const FULL_KINDS = new Set(['view_front', 'view_side', 'view_top', 'view_3d', 'overview_callouts', 'nameplate', 'safety']);
+export const PHOTO_GROUPS = [
+  { id: 'cover', title: 'Обложка', kinds: ['overview'] },
+  { id: 'dims', title: 'Габаритные размеры и виды', kinds: ['dimensions', 'view_front', 'view_side', 'view_top', 'view_3d'] },
+  { id: 'parts', title: 'Общий вид и элементы', kinds: ['overview_callouts', 'nameplate'] },
+  { id: 'install', title: 'Установка', kinds: ['mounting', 'foundation', 'holes'] },
+  { id: 'safety', title: 'Зона безопасности', kinds: ['safety'] },
+  { id: 'assembly', title: 'Сборка', kinds: ['assembly'] },
+];
 /** Названия категорий паспорта по коду. */
 export const CAT_NAMES = { ALL: 'Для всех', TRN: 'Тренажёр', WRK: 'Воркаут', BLG: 'Благоустройство', DIO: 'Детское игровое', DSP: 'Детское спортивное' };
 /** «TRN, WRK» → «Тренажёр, Воркаут». */

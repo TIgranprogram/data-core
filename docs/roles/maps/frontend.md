@@ -1,3 +1,17 @@
+## C056 вкладка «Паспорт» одной карточкой (2026-11-09)
+коммит: этот
+- `products/tabs.js:39` вкладка без слотов и без кружка. `card-blocks.js:88` `passportPane` — карточка + таблица выпущенных; «Править шаблон» открывает `doctpl` поверх изделия.
+- `passports/template-form.js:44` `templateForm` — разделы паспорта, слоты, полоса готовности, запись сразу. `docs.js:93` форма шаблона только вызывает его. `product-files.js:22` `passportSlot`, ветка «Для паспорта» снята (`productFilesBlock` 69).
+- `core/passport-kinds.js:30` `PHOTO_GROUPS`. `ui/funnel.js:49` `only` / `onPaint` — старый `funnelBox` в `passports/form.js` без этих опций. Кнопка «Взять из PDM» — `template-form.js:136`. Часть Д (fill) не сделана. Отчёт: `docs/crew/C056-passport-tab-one-card/REPORT.md`. Карта обновлена.
+
+## C055 Э3 тексты элементов и три печати (2026-11-09, не закоммичено)
+коммит: не закоммичено
+- `passports/elements-block.js` (`elementsTexts` 11, `withElementTexts` 41): inDescription и usageRules выбранных элементов. Форма паспорта `form.js:76`, шаблон изделия `form-fields.js:147`, шаблон docs `docs.js:116`, воронка `funnel/gaps.js:31`. Кнопки карточки `products.js:149–154`: Паспорт, Техническое описание (`openTechSheet`), «Паспорт + техописание» — toast «Скоро» (контракта combined нет). Отчёт: `docs/crew/C055-tech-passport/REPORT-E3-ui.md`. Карта обновлена.
+
+## C055 Э1 техническое описание (2026-11-09, не закоммичено)
+коммит: не закоммичено
+- `sections/tech-sheet.js` — `draftRows` (25, читает `r.materialsSpec`), `openTechSheet` (45; заголовок «Техническое описание», подсказка 57: правки только для PDF). Кнопки: `products.js:149`, `products/tabs.js:24` (`techSheetBlock`). Состав пишет форма (`form-fields.js` specBody), не это окно. Отчёт: `docs/crew/C055-tech-passport/REPORT-E1.md`. Карта обновлена.
+
 ## C054 воронка паспорта F2 (2026-11-09, не закоммичено)
 коммит: не закоммичено
 - `sections/passports/traits.js` (PASSPORT_TRAITS/JOINTS, jointsPick, whenText/whenToPick/buildWhen, idsOf/itemTextOf, planNumbers/numbersOf), `passports/pdf-block.js` pdfBlock («Что попадёт в PDF», подключён в `passports.js` extra), `passports/funnel/joints.js` (+ `funnel/index.js` stagePanels), шаг joints в `passport-wizard.js`, поле joints в `form.js`/`products/form-fields.js`/`tabs.js`, `PD_KEYS` +joints (`products/data.js`). `passport-texts.js`: ownCopy/saveOwn/newCode/whenField/whenTag (ids+when). `card-blocks.js previewBlock` — номера через numbersOf. Отчёт: docs/crew/C054-passport-funnel/REPORT-frontend.md. Карта обновлена.

@@ -1,13 +1,12 @@
 import { session } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { button as kitButton, readonlyGroups, stack, section } from '../../ui/kit/index.js';
-import { jointsText } from '../passports/traits.js';
 import { productFilesBlock } from '../product-files.js';
 import { productAttachmentsBlock } from '../product-attachments.js';
 import { productRoute } from '../work-composition.js';
 import { openTechSheet } from '../tech-sheet.js';
 import { purchaseNeedsBlock } from './purchase-needs.js';
-import { grp, passportCatView, compositionBlock, passportsBlock, inOrders, variantsBlock } from './card-blocks.js';
+import { grp, compositionBlock, passportPane, inOrders, variantsBlock } from './card-blocks.js';
 
 /* Вкладки правой панели изделия (C055): Описание · Состав и работы · Техописание · Паспорт · Файлы · Заказы.
  * Техописание = состав для документов (materialsSpec); Паспорт = шаблон ГОСТ + выпущенные; Состав и работы = склад/себестоимость. */
@@ -38,19 +37,9 @@ export function productTabs(r) {
       blocks: (row) => inline(compositionBlock(row), session.sees('products') ? purchaseNeedsBlock(row) : null, session.sees('work') ? productRoute(row) : null, variantsBlock(row)) },
     { key: 'tech', label: 'Техописание', count: techN,
       blocks: (row) => techSheetBlock(row) },
-    { key: 'passport', label: 'Паспорт', count: r.passports?.total || undefined,
-      blocks: (row, ctx) => inline(
-        readonlyGroups([
-          grp('Шаблон паспорта модели'),
-          ['Категория паспорта', passportCatView(row, ctx)],
-          ['Гарантия', row.passportDefaults?.warrantyMonths ? `${row.passportDefaults.warrantyMonths} мес.` : null],
-          ['Срок службы', row.passportDefaults?.serviceLifeYears ? `${row.passportDefaults.serviceLifeYears} лет` : null],
-          ['Как соединено', jointsText(row.passportDefaults?.joints) || null],
-          ['Поставляется разобранным', row.passportDefaults?.isKit ? 'да' : null],
-        ]),
-        productFilesBlock(row, session.canEdit, 'passport'),
-        session.seesDocs() ? passportsBlock(row) : null) },
-    { key: 'files', label: 'Файлы', blocks: (row) => inline(session.sees('products') ? productAttachmentsBlock(row) : h('p', { class: 'muted' }, 'Вложения изделия (чертежи, документы) открыты разделу «Продукция» — попросите доступ у администратора.'), productFilesBlock(row, session.canEdit, 'drawings')) },
+    { key: 'passport', label: 'Паспорт',
+      blocks: (row, ctx) => (session.seesDocs() ? passportPane(row, ctx) : h('p', { class: 'muted' }, 'Паспорта открыты разделу «Документация».')) },
+    { key: 'files', label: 'Файлы', blocks: (row) => inline(session.sees('products') ? productAttachmentsBlock(row) : h('p', { class: 'muted' }, 'Вложения изделия (чертежи, документы) открыты разделу «Продукция» — попросите доступ у администратора.'), productFilesBlock(row, session.canEdit)) },
     { key: 'orders', label: 'Заказы', count: (r.orderLines || []).length || undefined, when: () => session.sees('salesorders'), blocks: (row) => inOrders(row) },
   ];
 }
