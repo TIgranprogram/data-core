@@ -125,7 +125,7 @@ function needed(section, params) {
 }
 const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог номенклатуры', 'partners'], ['contracts', 'Договоры', 'orders'], ['salesorders', 'Заказы', 'orders'], ['matching', 'Сопоставление', 'orders'], ['design', 'Проектирование', 'board'], ['work', 'В работе', 'ops'], ['workschedule', 'Гант', 'ops'], ['products', 'Продукция', 'stock'], ['offers', 'КП', 'orders'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['money', 'Доходы и расходы', 'money'], ['expenses', 'Прочие расходы', 'money'], ['payroll', 'ФОТ', 'partners'], ['staff', 'Сотрудники', 'partners'], ['stock-mobile', 'Склад · мобильный', 'stock']];
 /** Стартовый экран: роль «Ассистент кладовщика» — сразу своя страница. */
-const defaultSection = () => (session.onlyStockMobile ? 'stock-mobile' : isStockRole() ? 'stock' : 'home'); // трубарез, «Лазер лист» — сразу своя таблица (2026-11-06)
+const defaultSection = () => (session.onlyStockMobile ? 'stock-mobile' : isStockRole() ? 'stock' : 'home'); // «Труборез», «Лазер лист» — сразу своя таблица (2026-11-06)
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
 const OWNER = { passfunnel: 'docs', salesorder: 'salesorders', orderedit: 'salesorders', worklaunch: 'salesorders', workplan: 'salesorders', wsstep: 'workschedule', designorder: 'design', prodreq: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', stockissue: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', orderbulk: 'requests', invoicecard: 'requests', invoice: 'requests', contract: 'partners', staffcard: 'staff', zonecard: 'staff', incpay: 'money', incprice: 'money', expense: 'money', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog',
   kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'docs', ptextview: 'docs', ptnode: 'docs', passports: 'docs', passarchive: 'docs', orderpass: 'docs', doctpl: 'docs' };
@@ -141,9 +141,9 @@ const allowed = (section) => { const id = OWNER[section] || section; return !NAV
 const root = $('#root');
 
 // ---------- Вход ----------
-/** Роли склада: свой экран (таблица как Excel) и фон — котики у «Трубарез», собачки у «Лазер лист». */
-const isPipeRole = () => session.user?.roleLabel === 'Трубарез';
-const isSheetRole = () => session.user?.roleLabel === 'Лазер лист';
+/** Роли склада: свой экран (таблица как Excel) и фон — котики у «Труборез», собачки у «Лазер лист». */
+const isPipeRole = () => /^\s*труб[ао]рез/i.test(session.user?.roleLabel || ''); // на проде «Труборез», раньше «Трубарез» (2026-11-09)
+const isSheetRole = () => /^\s*лазер\s+лист/i.test(session.user?.roleLabel || '');
 /** Этим ролям открыт только склад: справочники, корзина и история закрыты (пользователь 2026-10-30). */
 const STOCK_ROLE_SECTIONS = new Set(['home', 'stock', 'stock-mobile', 'movements', 'help']);
 const isStockRole = () => isPipeRole() || isSheetRole(); const adminSees = (params, v) => (session.role === 'admin' || session.user?.isOwner) && params?.view === v; // админ смотрит экраны ролей склада (2026-11-06)
@@ -240,7 +240,7 @@ function shell() {
     // «Сопоставление» не в меню (C016/C017): вход из Заказов и бейджа «не сопоставлено»; #matching и права в NAV оставляем
     group('Производство', navLinks.salesorders, navLinks.design, navLinks.work), // Гант — один: «В работе → Гант» (C053); #workschedule — для старых ссылок
     group('Продукция', navLinks.products, navLinks.offers, session.canEdit ? navLinks.docs : null),
-    group('Склад', navLinks.stock, navLinks['stock-mobile'], ...(navLinks.stock && (session.role === 'admin' || session.user?.isOwner) ? [link('stock?view=pipe', 'Экран трубареза', 'stock'), link('stock?view=sheet', 'Экран «Лазер лист»', 'stock')] : [])), // «Склад · мобильный» — кладовщику с телефона: выдать, принять
+    group('Склад', navLinks.stock, navLinks['stock-mobile'], ...(navLinks.stock && (session.role === 'admin' || session.user?.isOwner) ? [link('stock?view=pipe', 'Экран «Труборез»', 'stock'), link('stock?view=sheet', 'Экран «Лазер лист»', 'stock')] : [])), // «Склад · мобильный» — кладовщику с телефона: выдать, принять
     group('Снабжение', navLinks.requests, navLinks.suppliercatalog, navLinks.contracts),
     session.canMoney ? group('Деньги', navLinks.money, navLinks.expenses, FEATURES.payroll && session.canMoney && session.canPayroll ? navLinks.payroll : null) : null,
     group('Управление', navLinks.staff),

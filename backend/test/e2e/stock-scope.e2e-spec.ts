@@ -38,7 +38,7 @@ describe('Склад по роли (СМ.4)', () => {
     const list = Array.isArray(cats) ? cats : cats.items;
     catA = list.find((c) => c.name === 'Скоуп А')!.id;
     catB = list.find((c) => c.name === 'Скоуп Б')!.id;
-    const role = (await http().post('/api/roles').set(t).send({ label: 'Трубарез скоупа', baseRole: 'manager', stockCategoryIds: [catA] }).expect(201)).body;
+    const role = (await http().post('/api/roles').set(t).send({ label: 'Труборез скоупа', baseRole: 'manager', stockCategoryIds: [catA] }).expect(201)).body;
     scopedRoleId = role.id;
     tokA = await mkUser('a', role.name);
     const free = (await http().post('/api/roles').set(t).send({ label: 'Склад без скоупа', baseRole: 'manager' }).expect(201)).body;

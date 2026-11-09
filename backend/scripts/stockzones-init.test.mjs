@@ -38,7 +38,7 @@ test('уже созданный склад не создаётся повтор�
 
 test('роли: категории -> склады; уже перенесённая и не покрытая пропускаются', () => {
   const roles = [
-    { name: 'Трубарез', stockCategoryIds: ['pipe-sq'] },
+    { name: 'Труборез', stockCategoryIds: ['pipe-sq'] },
     { name: 'Лазер', stockCategoryIds: ['sheet', 'round'] },
     { name: 'Готовая', stockCategoryIds: ['pipe'], warehouseIds: ['z'] },
     { name: 'Без складов', stockCategoryIds: ['unknown'] },
@@ -46,10 +46,10 @@ test('роли: категории -> склады; уже перенесённ�
   ];
   const p = planZones(cats, [], roles);
   const r = Object.fromEntries(p.roles.map((x) => [x.name, x]));
-  assert.deepEqual(r['Трубарез'].warehouseNames, ['Профильная труба']);
+  assert.deepEqual(r['Труборез'].warehouseNames, ['Профильная труба']);
   assert.deepEqual(r['Лазер'].warehouseNames, ['Основной', 'Листовой материал']);
   assert.match(r['Готовая'].skip, /уже выбраны/);
   assert.match(r['Без складов'].skip, /не покрыты/);
   assert.equal(r['Без ограничений'], undefined);
-  assert.ok(p.warnings.some((w) => /Трубарез/.test(w) && /шире/.test(w))); // склад «Профильная труба» шире одной подкатегории
+  assert.ok(p.warnings.some((w) => /Труборез/.test(w) && /шире/.test(w))); // склад «Профильная труба» шире одной подкатегории
 });

@@ -31,7 +31,7 @@ const API_SH = path.join(__dirname, '../../deploy/synology/api.sh').split(path.s
 const AS_OF = '10.10.2026';
 const CLIENT_UID = 'metal-import-2026-10-10';
 const CAT = { sheet: 'Листовой металл', rect: 'Профильная труба', round: 'Круглая труба' };
-const ROLES = [{ label: 'Трубарез', cats: [CAT.rect, CAT.round] }, { label: 'Лазер лист', cats: [CAT.sheet] }];
+const ROLES = [{ label: 'Труборез', cats: [CAT.rect, CAT.round] }, { label: 'Лазер лист', cats: [CAT.sheet] }];
 const GRADE = { 'st 3': 'Ст3', 'asi 304': 'AISI 304', 'asi 430': 'AISI 430', amg2: 'АМг2', zn: 'Оцинкованная сталь' };
 
 const num = (v) => { const n = Number(String(v ?? '').replace(',', '.').trim()); return Number.isFinite(n) ? n : 0; };
