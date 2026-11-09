@@ -178,6 +178,15 @@ describe('Счета: дубль номера — 409, без автоматич
     expect(model.updates.some(([, u]) => Boolean((u as Doc).$set && ((u as Doc).$set as Doc).deletedAt))).toBe(false);
   });
 
+  it('черновик: № счёта сразу копируется в заявки (доска подписывает счёт по invoiceNo заявки)', async () => {
+    const mine = cur();
+    const line = { _id: new Types.ObjectId(), invoiceId: mine._id, status: 'ordered', priceHint: 100, qty: 1, deletedAt: null };
+    const { svc, model, requests } = makeSvc({ invoices: { [String(mine._id)]: mine }, lines: [line] });
+    model.find.mockReturnValue(chain([]));
+    await svc.update(String(mine._id), { no: '258' } as never);
+    expect(requests.updateOne).toHaveBeenCalledWith({ _id: line._id }, expect.objectContaining({ $set: expect.objectContaining({ invoiceNo: '258' }) }), expect.anything());
+  });
+
   it('поиск дубля — только того же поставщика и не отменённых', async () => {
     const mine = cur();
     const { svc, model } = makeSvc({ invoices: { [String(mine._id)]: mine } });

@@ -415,9 +415,11 @@ export class SupplyInvoiceService {
       const $set: Lean = {}; const $unset: Lean = {};
       for (const [k, v] of Object.entries(set)) (v === undefined ? $unset : $set)[k] = v === undefined ? '' : v;
       await this.model.updateOne({ _id: inv._id }, { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}), $inc: { version: 1 } }, { session }).exec();
+      // № / дата / плательщик — метаданные строк, и у черновика тоже: доска заявок подписывает счёт по invoiceNo заявки
+      // (2026-11-09: черновик с номером показывался «Счёт без номера»); цены не перераспределяются (это и «слипало» строки)
+      const metaChanged = ['no', 'date', 'payerCompanyId'].some((k) => k in set);
+      if (status === 'issued' || status === 'paid' || metaChanged) await this.copyMetaToRequests({ ...next, status }, session);
       if (status === 'issued' || status === 'paid') {
-        // № / дата / плательщик — только метаданные строк; цены не перераспределяются (это и «слипало» строки)
-        await this.copyMetaToRequests({ ...next, status }, session);
         // invoice_paid — факт первоначальной оплаты. После оплаты цены меняет только отдельная корректировка.
         if (status === 'issued') await this.recordPrices({ ...next, status }, 'invoice_issued', session);
       } else if (set.supplierId) {
@@ -463,8 +465,8 @@ export class SupplyInvoiceService {
           ...(inv.status === 'paid' ? { paid: true, paidAt: addedPaidAt } : {}) } }, { session }).exec();
       const fresh = { ...inv } as Lean;
       const sum = await this.recalcAmount(fresh, session);
+      await this.copyMetaToRequests({ ...inv, amount: sum }, session); // № и дата счёта — в новые строки и у черновика
       if (inv.status === 'issued' || inv.status === 'paid') {
-        await this.copyMetaToRequests({ ...inv, amount: sum }, session);
         await this.recordPrices({ ...inv, amount: sum, ...(inv.status === 'paid' ? { date: new Date() } : {}) }, inv.status === 'paid' ? 'invoice_adjustment' : 'invoice_issued', session, ids);
       }
       if (inv.status === 'paid') await this.recordPaymentAdjustment(inv, session, { reason, actorId, operation: 'lines_added', beforeAmount: Number(inv.amount) || 0, afterAmount: sum, requestIds: docs.map((d) => d._id as Types.ObjectId) });
