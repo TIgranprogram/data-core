@@ -1,6 +1,6 @@
 # Карта роли analyst
 
-коммит: не закоммичен (ЕН 2026-11-03; C011 2026-11-03; УСЛ 2026-11-04; ДЕНЬГИ 2026-11-04; C022 2026-11-04; ВЛ-1 2026-11-05; C028 2026-11-07; C050 2026-11-08, база a996b595)
+коммит: не закоммичен (ЕН 2026-11-03; C011 2026-11-03; УСЛ 2026-11-04; ДЕНЬГИ 2026-11-04; C022 2026-11-04; ВЛ-1 2026-11-05; C028 2026-11-07; C050 2026-11-08; C054 2026-11-09, база 4e58381a)
 
 ## Паспорт воронкой (C028, 2026-11-07)
 - Данные прода: `tools/logs/c028/` (483 изделия, 342 паспорта). Признаки: `docs/crew/C028-passport-funnel/facets-seed.json`; анализ — в отчёте координатору (файл ANALYSIS.md пишет координатор).
@@ -138,3 +138,6 @@
 
 ## Мои задания / роли рабочего (C050, 2026-11-08)
 - ТЗ `docs/crew/C050-my-tasks/TZ.md`. `users.role` — одна строка (`user.schema.ts:44`), своя роль = baseRole+appSections (`roles-hierarchy.ts`, `app-sections.ts`); образец узкого входа `session.onlyStockMobile` (`pwa/core/api.js:57`). `persons.userId` читается (`design.service.ts:113`), не пишется. `mark` — только admin/manager (`order-line-plan.controller.ts:57`). Решение: `users.extraRoles[]`, `/my-tasks*`, статусы deferred/problem в шаге. Вопросы 1–3 в ТЗ.
+
+## Воронка паспорта C054 (2026-11-09)
+- `docs/crew/C054-passport-funnel/REQUIREMENTS.md`. Сборщик УЖЕ умеет условия (`passport-compose.ts:23-97`), но `legacyTemplateToBlocks :181` их не ставит; «Для всех» — в коде `passport-texts.v2.json`. Баг: `parseBom` (`pwa/sections/passports/common.js:106`) теряет `size`. Нумерация: `legacyStartNumber` + второй «Монтаж» `passport-pdf-v2-layout.ts:216`. Решение: 10 признаков `traits`, `when` строкой. Вопросы 1–5 в файле.

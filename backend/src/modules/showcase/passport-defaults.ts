@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { parseChoices } from '../../common/passport/phrase-tree';
+import { parseJoints, WhenError } from '../../common/passport/traits';
 
 /**
  * Значения паспорта по умолчанию у изделия каталога (БЗ-6 Э4b): `products.passportDefaults` — только новое поле
@@ -13,6 +14,8 @@ export interface PassportDefaults {
   passportCategory?: string; elements?: Types.ObjectId[]; materialIds?: Types.ObjectId[]; installationTypeId?: Types.ObjectId | null; isKit?: boolean;
   /** ПВ: выбор текстов воронкой { id раздела: id конечного варианта } (справочник «Тексты паспорта»). */
   textChoices?: Record<string, string>;
+  /** C054: соединения конструкции (bolts / welds / solid) — по ним считаются условные пункты текста паспорта. */
+  joints?: string[];
   [k: string]: unknown;
 }
 
@@ -40,6 +43,10 @@ export function normalizePassportDefaults(b: Record<string, unknown>): PassportD
   if (typeof b.isKit === 'boolean') out.isKit = b.isKit;
   const tc = parseChoices(b.textChoices);
   if (tc) out.textChoices = tc;
+  try {
+    const joints = parseJoints(b.joints);
+    if (joints) out.joints = joints;
+  } catch (e) { if (e instanceof WhenError) throw new BadRequestException(e.message); throw e; }
   for (const k of NUMS) {
     const raw = b[k];
     if (raw === undefined || raw === null || raw === '') continue;

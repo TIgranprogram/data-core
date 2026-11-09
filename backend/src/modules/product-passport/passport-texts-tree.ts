@@ -1,9 +1,11 @@
-import { compose, legacyStartNumber, legacyTemplateToBlocks, type LegacyTemplateLike } from './passport-compose';
+import { compose, legacyStartNumber, legacyTemplateToBlocks, sectionItems, type LegacyTemplateLike } from './passport-compose';
 
 /**
  * Дерево «раздел → пункты» для редактора «Справочники → Паспорта → Разделы и тексты» (БЗ-6 Э2d) — чистая функция.
  * Порядок и номера — ровно как у сборщика (compose): вместо текста в сборщик уходит метка «#индекс», по ней
  * пункт находится обратно. Так дерево не может разойтись с паспортом.
+ *
+ * Пункт находится по коду (ids, иначе p1…pN по позиции) — у раздела категории и «Для всех» коды совпадают у замен.
  *
  * Пометки пункта:
  *  - 'all'      — общий пункт «Для всех» (в коде, только чтение);
@@ -45,15 +47,15 @@ export interface TextsTreeSection {
 const LEAD_NUM = /^\s*\d+(?:\.\d+)*\.?\s+/;
 const OWN = '__OWN__';
 
-interface Meta { origin: 'all' | 'own'; section: number; index: number; key: string; text: string }
+interface Meta { origin: 'all' | 'own'; section: number; index: number; key: string; text: string; id: string }
 
 export function textsTree(all: LegacyTemplateLike, own?: LegacyTemplateLike | null): TextsTreeSection[] {
   const allBlocks = legacyTemplateToBlocks(all);
   const ownBlocks = own ? legacyTemplateToBlocks(own).map((b) => ({ ...b, category: OWN })) : [];
   // мета в том же порядке, в каком legacyTemplateToBlocks обходит разделы и пункты
   const meta: Meta[] = [];
-  all.sections.forEach((s, si) => s.paragraphs.forEach((p, pi) => meta.push({ origin: 'all', section: si, index: pi, key: s.key, text: p })));
-  (own?.sections || []).forEach((s, si) => s.paragraphs.forEach((p, pi) => meta.push({ origin: 'own', section: si, index: pi, key: s.key, text: p })));
+  all.sections.forEach((s, si) => sectionItems(s, false).forEach((it, pi) => meta.push({ origin: 'all', section: si, index: pi, key: s.key, text: it.text, id: it.id })));
+  (own?.sections || []).forEach((s, si) => sectionItems(s, false).forEach((it, pi) => meta.push({ origin: 'own', section: si, index: pi, key: s.key, text: it.text, id: it.id })));
   const blocks = [...allBlocks, ...ownBlocks].map((b, i) => ({ ...b, text: `#${i}`, sectionTitle: '' }));
   const r = compose(blocks, {}, OWN, { startNumber: legacyStartNumber(all) });
 
@@ -70,11 +72,13 @@ export function textsTree(all: LegacyTemplateLike, own?: LegacyTemplateLike | nu
       items: s.items.map((it) => {
         const m = meta[Number(it.text.slice(1))];
         if (m.origin === 'all') return { key: it.key, number: it.number, bullet: it.bullet, text: m.text, origin: 'all' as const, ownIndex: null, allIndex: m.index };
-        const replaced = aSec && m.index < aSec.paragraphs.length ? aSec.paragraphs[m.index] : undefined;
+        // замена — по коду пункта (ids), не по позиции: вставка нового пункта в «Для всех» не сдвигает чужие замены
+        const allIndex = aSec ? sectionItems(aSec, false).findIndex((x) => x.id === m.id) : -1;
+        const replaced = allIndex >= 0 ? aSec!.paragraphs[allIndex] : undefined;
         return {
           key: it.key, number: it.number, bullet: it.bullet, text: m.text,
           origin: replaced !== undefined ? 'override' as const : 'own' as const,
-          ownIndex: m.index, allIndex: replaced !== undefined ? m.index : null,
+          ownIndex: m.index, allIndex: replaced !== undefined ? allIndex : null,
           ...(replaced !== undefined ? { allText: replaced } : {}),
         };
       }),

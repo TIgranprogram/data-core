@@ -10,6 +10,7 @@ import { productFacetDefs } from './dicts.product-facets';
 import { expenseArticlesDef } from './dicts.expense-articles';
 import { DICT_META } from './dicts.meta';
 import { resolveLogin } from './dicts.person-login';
+import { withTraits } from './dicts.passport-traits';
 type Db = mongo.Db;
 type Document = mongo.Document;
 type ObjectId = mongo.ObjectId;
@@ -737,7 +738,7 @@ const BASE: DictBase[] = [
     ...ppUsage({ dicts: [{ dict: 'passportCategories', field: 'standards', title: 'Категория' }, { dict: 'passportElements', field: 'standard', title: 'Элемент' }] }),
     editRoles: ['director'],
   },
-  {
+  withTraits({
     ...simpleList('passportElements', 'Паспорта', 'Функциональные элементы',
       'Из чего состоит изделие по назначению (турник, брусья, горка…): фраза для описания, правила пользования и что проверять при ТО. Подставляются в текст паспорта по составу изделия.',
       [
@@ -752,8 +753,8 @@ const BASE: DictBase[] = [
       ]),
     ...ppUsage({ pp: 'elements', dicts: [{ dict: 'passportDefects', field: 'applies', title: 'Дефект' }] }),
     editRoles: ['director'],
-  },
-  {
+  }, { traits: true }),
+  withTraits({
     ...simpleList('passportMaterials', 'Паспорта', 'Материалы и покрытия',
       'Материалы изделий: фраза «изготовлено из…», уход и ремонт, типичные дефекты. Подставляются в паспорт по материалам изделия.',
       [
@@ -784,7 +785,7 @@ const BASE: DictBase[] = [
         return n;
       }),
     editRoles: ['director'],
-  },
+  }, { traits: true }),
   {
     // МИ: размеры по материалу (∅89×3, лист 2) — выбор в таблице «Материалы изделия»; размер без «мм», единица — в шаблоне материала
     ...simpleList('passportSortament', 'Паспорта', 'Размеры материалов',
@@ -833,7 +834,7 @@ const BASE: DictBase[] = [
         { $set: { 'materialsSpec.rows.$[].partIds.$[p]': to._id } }, { arrayFilters: [{ p: from._id }] })).modifiedCount),
     editRoles: ['director'],
   },
-  {
+  withTraits({
     ...simpleList('passportDefects', 'Паспорта', 'Дефекты',
       'Типовые дефекты, которые ищут при осмотре, и что с ними делать. Попадают в таблицу «Дефект — мера — период» паспорта.',
       [
@@ -847,8 +848,8 @@ const BASE: DictBase[] = [
       ]),
     ...ppUsage({ dicts: [{ dict: 'passportMaterials', field: 'defects', title: 'Материал' }] }),
     editRoles: ['director'],
-  },
-  {
+  }, { when: true }),
+  withTraits({
     ...simpleList('passportInstall', 'Паспорта', 'Способы установки',
       'Как изделие крепится на месте: текст монтажа, требования к основанию и какие рисунки обязательны.',
       [
@@ -864,7 +865,7 @@ const BASE: DictBase[] = [
       ]),
     ...ppUsage({ pp: 'installationTypeId', dicts: [{ dict: 'passportDefects', field: 'applies', title: 'Дефект' }] }),
     editRoles: ['director'],
-  },
+  }, { traits: true }),
   ...productFacetDefs(simpleList),
   passportPhrasesDef({
     // ТЭ (2026-10-23) → ПВ (2026-10-25): тексты разделов паспорта деревом «раздел → варианты → подварианты» (passportPhrasesDef:
@@ -889,7 +890,7 @@ const BASE: DictBase[] = [
     reassign: async () => 0, // выданные паспорта хранят свой текст — при объединении не переписываем
     editRoles: ['director'],
   }),
-  {
+  withTraits({
     ...simpleList('passportStyle', 'Паспорта', 'Оформление',
       'Как выглядит PDF паспорта: цвет категории, фон обложки, рамка и пиктограммы правил. Запись с «Использовать = нет» в PDF не попадает.',
       [
@@ -902,7 +903,7 @@ const BASE: DictBase[] = [
         TECH({ key: 'code', label: 'Код оформления', required: true, lockAfterCreate: true, hint: 'Короткое имя латиницей (COVER_TRN, FRAME_ALL, ICON_NO_CLIMB): по нему PDF находит нужное оформление. После создания не меняется' }),
       ]),
     editRoles: ['director'],
-  },
+  }, { when: true }),
 ];
 
 /** Подписи правой панели (2026-10-25, замечание пользователя: «новая запись чего?»): заголовок новой записи и подпись поля «Название». */

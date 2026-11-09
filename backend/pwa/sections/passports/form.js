@@ -7,7 +7,7 @@ import { formImages, imagesBody } from '../../core/passport-images.js';
 import { toast, toastError } from '../../ui/kit/toast.js';
 import { personNames } from '../../ui/dict-options.js';
 import { CAT_NAMES } from '../../core/passport-kinds.js';
-import { AFTER_PRINT, BOM_COLS, LATER_CATS, V2_CATS, V2_NUMS, bomRows, buildDescription, canEdit, categories, dictOpts, facets, imgsOf, isIssued, kindOf, kinds, keyLines, num, ourCompanies, parseBom, reqKinds, st, dictRows } from './common.js';
+import { AFTER_PRINT, BOM_COLS, BOM_EXAMPLE, LATER_CATS, V2_CATS, V2_NUMS, bomRows, buildDescription, canEdit, categories, dictOpts, facets, imgsOf, isIssued, kindOf, kinds, keyLines, num, ourCompanies, parseBom, reqKinds, st, dictRows } from './common.js';
 import { models, orders, phrases } from './models.js';
 import { productBlock } from './product-block.js';
 import { wireForm } from './wire-form.js';
@@ -145,7 +145,7 @@ export const passportForm = {
       ...kinds({ requiredImages: req }).filter(([k]) => !mainKinds.has(k)).map(([kind, label, where]) => ({ key: 'img_' + kind, label, type: 'photos', hint: where })),
       { section: 'Комплектность', tone: 'who', collapsed: true },
       { key: 'bom', label: 'Комплектность изделия (таблица 5)', type: 'widget', wide: true,
-        widget: (v) => rowsTable({ columns: BOM_COLS, rows: v, file: 'Шаблон комплектности', example: ['И-1', 'Изделие в сборе', 1, 'шт.', ''] }),
+        widget: (v) => rowsTable({ columns: BOM_COLS, rows: v, file: 'Шаблон комплектности', example: BOM_EXAMPLE }),
         hint: 'Пусто — «И-1 · Изделие в сборе · 1 шт.». Можно вставить строки из Excel (Ctrl+V в ячейку) или загрузить заполненный шаблон' },
       // ПП: заполняется после печати — пусто → в PDF линия для ручки, заполнено → значение; выпуск не блокирует
       { section: 'Заполняется после печати — можно от руки', tone: 'info', collapsed: !(r && (r.saleDate || r.customerName || r.orderNo || r.objectName || r.installedBy || r.installedAt || r.note)) },
@@ -188,7 +188,7 @@ export const passportForm = {
     body.description = s(v.description) || buildDescription(forDesc);
     // ТЭ-2: какие тексты не из справочника — видно в списке «изменено вручную»
     body.manualText = [...(v._manualText === 'yes' ? ['purpose', 'installationMethod'].filter((k) => s(body[k])) : []), ...(s(v.description) && s(v.description) !== buildDescription(forDesc) ? ['description'] : [])];
-    const bom = parseBom(v.bom);
+    const bom = parseBom(v.bom, r?.bom);
     if (bom.length || r) body.bom = bom;
     const shown = new Set(kinds().map(([k]) => k));
     // виды, которых нет в форме, сохраняются как были (safety_zone показан в «Зоне безопасности» — не «чужой»)

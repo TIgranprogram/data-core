@@ -4,7 +4,8 @@
  * Редактируется в приложении («Шаблон паспорта»), каждая правка — новая версия. В тексте: {warrantyMonths}.
  * Нумерация таблиц сквозная: 1 габариты, 2 хранение, 3 неисправности, 4 ТО, 5 комплектность.
  */
-export interface TemplateSection { key: string; title: string; paragraphs: string[] }
+/** ids — устойчивые коды пунктов, when — условия пунктов (параллельно paragraphs; см. passport-compose.ts sectionItems). Поля необязательные: kppdf и PDF v1 их не читают. */
+export interface TemplateSection { key: string; title: string; paragraphs: string[]; ids?: string[]; when?: Array<string | null> }
 export interface TemplateTable { key: string; title: string; columns: string[]; widths: number[]; rows: number }
 export interface PassportTemplateContent { sections: TemplateSection[]; tables: TemplateTable[] }
 

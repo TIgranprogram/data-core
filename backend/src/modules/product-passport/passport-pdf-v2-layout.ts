@@ -4,6 +4,7 @@ import { substituteRefs, PlannedFig, planFigures, maintenanceColumns } from './p
 import { M, CW, BOTTOM, BODY, Draw, Cell, V2Page, has, num, lines } from './passport-pdf-v2-common';
 import { shortPage, cover } from './passport-pdf-v2-cover';
 import { isBatch } from './passport-rules';
+import { planNumbers } from './passport-numbering';
 
 /** Таблица размеров (ПЧ-4): буквы как на чертеже, объём считается из габаритов. Выпущенный без новых полей печатается как был выпущен. */
 export function specRows(p: PdfV2Input['passport']): [string, unknown][] {
@@ -28,21 +29,14 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   // Текстовое значение (паспорт партии: «по таблице …») печатается как есть
   const specs = specRows(p).filter(([, v]) => has(v) || (typeof v === 'string' && v.trim() !== '')).map(([k, v]) => [String(k), has(v) ? num(v) : String(v)]);
 
-  // Номера разделов: снимок даёт свои (обычно с 3 — 1 и 2 были «Описание» и «Техданные» v1). Свободные 1…start-1 — под описание/правила.
-  const start = parseInt(sections[0]?.number ?? '', 10) || 1;
-  const lastNo = sections.reduce((m, s) => Math.max(m, parseInt(s.number, 10) || 0), 0);
-  const descrBlock = descr.length || purpose.length || specs.length;
-  const rulesBlock = rules.length > 0;
-  const before = start > 1;
-  const mergeRules = before && start === 2; // один свободный номер — правила внутри описания
-  let next = before ? 1 : lastNo + 1;
-  const descrNo = descrBlock || (mergeRules && rulesBlock) ? String(next++) : '';
-  const rulesNo = rulesBlock && !mergeRules ? String(next++) : '';
-  if (before) next = lastNo + 1;
-  const toNo = maintenance.length ? String(next++) : '';
-  const installNo = installLines.length || requirements.length ? String(next++) : '';
-  const bomNo = String(next++);
-  const journalNo = String(next++);
+  // Номера разделов (passport-numbering.ts): снимок с layout 2 — подряд 1…N, один «Монтаж»; прежние снимки — как печатались
+  // (номера текста из снимка, обычно с 3; свободные 1…start-1 — под описание и правила).
+  const plan = planNumbers({
+    sections, layout: t.layout,
+    hasDescr: !!(descr.length || purpose.length || specs.length), hasRules: rules.length > 0,
+    hasMaintenance: maintenance.length > 0, hasInstall: !!(installLines.length || requirements.length),
+  });
+  const { before, mergeRules, descrNo, rulesNo, toNo, installNo, bomNo, journalNo } = plan;
 
   // Таблицы — сквозная нумерация в порядке документа
   const tab = new Map<string, number>();
@@ -164,6 +158,11 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
     figsAfter(txt);
   };
   const paraR = (raw: string, prefix = '') => { para(`${prefix}${R(raw)}`); figsAfter(raw); };
+  /** Шаги способа установки и требования к основанию; `done` — сколько пунктов уже пронумеровано в разделе (монтаж внутри раздела текста). */
+  const installBlock = (no: string, done: number) => {
+    installLines.forEach((s, i) => paraR(s, `${no}.${done + i + 1} `));
+    if (requirements.length) { y += 2; sub('Требования к основанию:'); requirements.forEach((s) => item(s, null, true)); }
+  };
 
   // «Коротко» — одна страница
   const short = shortPage(doc, input, color, R(lines(t.purpose).join(' ') || descr[0] || ''));
@@ -187,12 +186,13 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   };
 
   if (before) { descrSection(); rulesSection(); }
-  for (const s of sections) {
-    if (!s.items?.length) continue;
-    heading(`${s.number} ${R(s.title)}`.trim());
-    for (const it of s.items) item(it.text, it.number, it.bullet);
+  sections.forEach((s, si) => {
+    if (!s.items?.length) return;
+    heading(`${plan.sectionNo[si]} ${R(s.title)}`.trim());
+    for (const it of s.items) item(it.text, plan.itemNo(si, it.number), it.bullet);
+    if (plan.mergeInstall && s.key === 'mounting') installBlock(plan.sectionNo[si], s.items.filter((it) => it.number).length);
     y += 4;
-  }
+  });
   if (!before) { descrSection(); rulesSection(); }
 
   if (toNo) {
@@ -214,8 +214,7 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   }
   if (installNo) {
     heading(`${installNo} Монтаж`);
-    installLines.forEach((s, i) => paraR(s, `${installNo}.${i + 1} `));
-    if (requirements.length) { y += 2; sub('Требования к основанию:'); requirements.forEach((s) => item(s, null, true)); }
+    installBlock(installNo, 0);
     y += 4;
   }
   // Комплектность — всегда (по умолчанию «Изделие в сборе»); миниатюры bom_item — по refCode

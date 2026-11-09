@@ -98,13 +98,27 @@ export const imgsOf = (r, kind) => (r.images || []).filter((i) => kindOf(i) === 
 export const BOM_COLS = [
   { key: 'code', label: 'Обозначение', width: '16%', placeholder: 'И-1' },
   { key: 'name', label: 'Наименование', placeholder: 'Изделие в сборе' },
-  { key: 'qty', label: 'Кол-во', width: '11%', num: true, placeholder: '1' },
-  { key: 'unit', label: 'Ед.', width: '10%', placeholder: 'шт.' },
-  { key: 'note', label: 'Примечание', width: '20%' },
+  { key: 'size', label: 'Размер, мм', width: '14%', placeholder: '1300 × 1300' },
+  { key: 'qty', label: 'Кол-во', width: '10%', num: true, placeholder: '1' },
+  { key: 'unit', label: 'Ед.', width: '9%', placeholder: 'шт.' },
+  { key: 'note', label: 'Примечание', width: '16%' },
 ];
-export const bomRows = (bom) => (bom || []).map((b) => ({ code: b.code ?? '', name: b.name ?? '', qty: b.qty == null ? '' : num(b.qty), unit: b.unit ?? '', note: b.note ?? '' }));
-export const parseBom = (rows) => (rows || []).filter((b) => b.name || b.code).map((b, i) => ({
-  pos: i + 1, code: b.code || '', name: b.name || '', qty: Number(String(b.qty || '').replace(',', '.')) || 1, unit: b.unit || 'шт.', ...(b.note ? { note: b.note } : {}) }));
+/** Пример строки для шаблона — по порядку BOM_COLS. */
+export const BOM_EXAMPLE = ['И-1', 'Изделие в сборе', '', 1, 'шт.', ''];
+export const bomRows = (bom) => (bom || []).map((b) => ({ code: b.code ?? '', name: b.name ?? '', size: b.size ?? '', qty: b.qty == null ? '' : num(b.qty), unit: b.unit ?? '', note: b.note ?? '' }));
+/** Строки таблицы → bom. Размер партии (size) сохраняется; масса и фото строки, которых нет в таблице, берутся из прежней строки с тем же обозначением и наименованием. */
+export const parseBom = (rows, prev = []) => {
+  const old = new Map((prev || []).map((b) => [`${b.code || ''}|${b.name || ''}`, b]));
+  return (rows || []).filter((b) => b.name || b.code).map((b, i) => {
+    const was = old.get(`${b.code || ''}|${b.name || ''}`) || {};
+    const size = String(b.size ?? '').trim();
+    return {
+      pos: i + 1, code: b.code || '', name: b.name || '', qty: Number(String(b.qty || '').replace(',', '.')) || 1, unit: b.unit || 'шт.',
+      ...(b.note ? { note: b.note } : {}), ...(size ? { size } : {}),
+      ...(was.mass != null ? { mass: was.mass } : {}), ...(was.photoId ? { photoId: was.photoId } : {}),
+    };
+  });
+};
 
 /** Состояние раздела между файлами: категория нового паспорта, паспорт «Новая редакция», черновик «Выпустить паспорт». */
 export const st = { newCat: '', revisionFor: null, draft: null };

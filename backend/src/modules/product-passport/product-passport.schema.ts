@@ -79,6 +79,8 @@ export class ProductPassport {
   @Prop({ type: [String], default: undefined }) manualText?: string[];
   /** Коды дефектов справочника, которых нет у этого изделия — не попадают в таблицы осмотра (например, LOOSE_THREADS у решётки без крепежа). */
   @Prop({ type: [String], default: undefined }) excludeDefects?: string[];
+  /** C054: соединения конструкции — bolts / welds / solid (можно несколько). Нет поля = не выбрано: условные пункты на болты и сварку не печатаются, выпуск просит выбор. */
+  @Prop({ type: [String], default: undefined }) joints?: string[];
   /** Воронка текстов (ПВ 2026-10-25): выбор по разделам { id раздела: id конечного варианта } — справочник «Тексты паспорта». Из выбора сервер собирает `purpose` / `installationMethod` и пункты текста. */
   @Prop({ type: Object, default: undefined }) textChoices?: Record<string, string> | null;
 
@@ -233,7 +235,7 @@ export class ProductPassport {
   /** Изготовитель, если не совпадает с поставщиком. */
   @Prop({ type: Types.ObjectId }) manufacturerOrgId?: Types.ObjectId;
   /** Снимок собранного текста на момент выдачи: правка справочника не меняет выданный паспорт. */
-  @Prop({ type: Object }) textSnapshot?: { templateVersion?: number; ownVersion?: number | null; category?: string; at?: Date; sections?: unknown[]; missing?: string[] };
+  @Prop({ type: Object }) textSnapshot?: { templateVersion?: number; ownVersion?: number | null; category?: string; at?: Date; sections?: unknown[]; missing?: string[]; traits?: string[]; traitsFrom?: Record<string, string[]>; unknownTraits?: string[]; excluded?: unknown[]; needJoints?: boolean; layout?: number };
 
   /** Когда последний раз скачали PDF. */
   @Prop()

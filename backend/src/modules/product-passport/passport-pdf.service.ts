@@ -198,7 +198,9 @@ export class PassportPdfService {
       dv.find({ dict: 'passportStyle', deletedAt: null }).toArray(),
       cat ? dv.findOne({ dict: 'passportCategories', code: cat, deletedAt: null }, { projection: { name: 1 } }) : null,
     ]);
-    const st = resolveStyle(styleRows as never, cat, { maxUsers: p.maxUsers as number | undefined });
+    const snap = p.textSnapshot as { traits?: string[]; unknownTraits?: string[] } | undefined;
+    // условия пиктограмм (when) — по признакам из снимка; в старых снимках признаков нет — пиктограммы с when не выводятся
+    const st = resolveStyle(styleRows as never, cat, { maxUsers: p.maxUsers as number | undefined, traits: snap?.traits ?? [], unknownTraits: snap?.unknownTraits ?? [] });
     return { ...st, categoryName: (catDoc?.name as string | undefined) || undefined };
   }
 

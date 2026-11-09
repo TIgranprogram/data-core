@@ -15,6 +15,8 @@ import { INSTANCE_FIELD_KEYS, missingHint, DEFAULT_BOM, buildDescription, dayUtc
 import { standardWarnings, standardsDict, type StandardDoc } from './passport-compose';
 import type { DictRec } from './passport-compose-parts';
 import { buildV2Text } from './passport-v2-text';
+import { checkSections, cleanSections, type SectionLike } from './passport-sections-check';
+import { JOINTS_MISSING, jointsMissing } from './passport-traits';
 import { editSnapshotItem, type SnapshotSection } from './passport-snapshot-edit';
 import { promoteToOwn } from './passport-promote';
 import { standardSchemes } from './passport-schemes';
@@ -131,7 +133,7 @@ export class ProductPassportService {
     const eff = await this.effectiveImages(doc);
     const productImageKinds = [...new Set(eff.filter((i) => !((doc.images as Doc[]) || []).includes(i as never)).map((i) => String(i.kind)))];
     const choiceMissing = await this.choiceMissing(doc);
-    return { ...doc, productImageKinds, imageSlots: rules.slots, fromProduct, fromProductFields, productCategory, categoryDiffers: !!productCategory && !!doc.passportCategory && productCategory !== doc.passportCategory, images, standardImages, requiredImages, missing: [...missingFieldsV2({ ...doc, images: [...eff, ...std] } as never, cat, vopts), ...choiceMissing.map((m) => m.label)], ...(choiceMissing.length ? { missingChoices: choiceMissing } : {}), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
+    return { ...doc, productImageKinds, imageSlots: rules.slots, fromProduct, fromProductFields, productCategory, categoryDiffers: !!productCategory && !!doc.passportCategory && productCategory !== doc.passportCategory, images, standardImages, requiredImages, missing: [...missingFieldsV2({ ...doc, images: [...eff, ...std] } as never, cat, vopts), ...choiceMissing.map((m) => m.label), ...jointsMissing(doc).map((m) => m.label)], ...(choiceMissing.length ? { missingChoices: choiceMissing } : {}), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
   }
 
   /** Что задаёт изделие в паспорте-черновике (только отличия от `cur`); пусто — паспорт без изделия или выдан. */
@@ -155,7 +157,7 @@ export class ProductPassportService {
     doc.set(diff);
     await doc.save();
     const snap = cur.textSnapshot as { sections?: unknown[]; editedAt?: Date } | undefined;
-    if (snap?.sections?.length && !snap.editedAt && (diff.passportCategory || diff.textChoices || diff.elements || diff.materialIds || diff.installationTypeId || diff.isKit)) await this.snapshot(id);
+    if (snap?.sections?.length && !snap.editedAt && (diff.passportCategory || diff.textChoices || diff.elements || diff.materialIds || diff.installationTypeId || diff.isKit || diff.joints)) await this.snapshot(id);
     return true;
   }
 
@@ -333,7 +335,7 @@ export class ProductPassportService {
     // паспорту без текста выбрали категорию — собрать текст сразу (как при создании); готовый текст не трогаем — «Обновить текст по справочникам»
     if (set.passportCategory && !hadText) return (await this.snapshot(String(saved._id))) ?? saved;
     // ПВ: черновик — выбор текстов изменили, значит текст и производные поля (назначение, установка) собираются заново
-    if (changed.includes('textChoices') && !issued && saved.passportCategory) return (await this.snapshot(String(saved._id))) ?? saved;
+    if ((changed.includes('textChoices') || changed.includes('joints')) && !issued && saved.passportCategory) return (await this.snapshot(String(saved._id))) ?? saved;
     return saved;
   }
 
@@ -487,24 +489,18 @@ export class ProductPassportService {
     const choices = await this.choiceMissing({ passportCategory: p.passportCategory, textChoices: parseChoices(p.textChoices), manualText: p.manualText });
     const noHint = (m: { label: string; key: string; hint?: string }) => ({ ...m, hint: m.hint ?? missingHint(m.key, m.label) });
     const keep = (m: { key: string; label: string }) => !(template && (INSTANCE_FIELD_KEYS.includes(m.key) || m.label === 'Дата' || m.label === 'Поставщик'));
-    const blanks = await this.blankLabels(p);
+    const built = p.passportCategory ? await this.buildText({ ...p }).catch(() => null) : null;
+    const blanks = blankItems(built?.text.missing ?? []);
     const listed = missingKeyed(full as never, cat, vopts);
     const extra = blanks.filter((b) => !listed.some((m) => m.key === b.key));
-    return { mode: template ? 'template' : 'instance', missing: [...listed, ...extra, ...choices].filter(keep).map(noHint), requiredImages: rules.required.map((k) => (k === 'safety_zone' ? 'safety' : k)), imageSlots: rules.slots };
-  }
-
-  /** Метки текста категории без значения (в PDF они станут линией «____»): пункт «не хватает» с подсказкой, где заполнить (в изделии). */
-  private async blankLabels(p: Doc): Promise<Array<{ label: string; key: string; hint: string }>> {
-    if (!p.passportCategory) return [];
-    const built = await this.buildText({ ...p }).catch(() => null);
-    return blankItems(built?.text.missing ?? []);
+    return { mode: template ? 'template' : 'instance', missing: [...listed, ...extra, ...choices, ...(built?.text.needJoints ? [JOINTS_MISSING] : [])].filter(keep).map(noHint), requiredImages: rules.required.map((k) => (k === 'safety_zone' ? 'safety' : k)), imageSlots: rules.slots };
   }
 
   /** ПП: чего не хватает для выпуска сохранённого паспорта — [{ label, key }] (стандартные схемы способа установки засчитываются). */
   async readiness(doc: Doc): Promise<Array<{ label: string; key: string }>> {
     const [cats, inst] = await Promise.all([this.categoryRules(), this.installs()]);
     doc = { ...doc, images: await this.effectiveImages(doc) };
-    return [...missingKeyed(this.withSchemes(doc, inst) as never, cats.get(String(doc.passportCategory ?? '')) ?? null, { variant: 'short', install: installKindOf(inst.get(String(doc.installationTypeId ?? ''))) }), ...(await this.choiceMissing(doc))];
+    return [...missingKeyed(this.withSchemes(doc, inst) as never, cats.get(String(doc.passportCategory ?? '')) ?? null, { variant: 'short', install: installKindOf(inst.get(String(doc.installationTypeId ?? ''))) }), ...(await this.choiceMissing(doc)), ...jointsMissing(doc)];
   }
 
   /** Рисунки изделия «для паспорта» (productphotos purpose:'passport'), по порядку; удалённые не берутся. */
@@ -615,6 +611,7 @@ export class ProductPassportService {
     const own = await this.ownDoc(cat);
     const sections = body.sections ?? base.sections, tables = body.tables ?? base.tables;
     if (!Array.isArray(sections) || !sections.every((s) => s && typeof s.title === 'string' && Array.isArray(s.paragraphs))) throw new BadRequestException('Тексты: ожидается список разделов sections: [{ key, title, paragraphs[] }]');
+    checkSections(sections);
     // МЦ-5: таблица материалов шаблона; не прислали — как была, прислали null/пусто — очистить
     const spec = 'materialsSpec' in body ? parseMaterialsSpec(body.materialsSpec) : (own?.materialsSpec ?? null);
     if (spec) await this.mi.check(spec);
@@ -691,7 +688,8 @@ export class ProductPassportService {
   async saveTexts(body: { category?: string; sections?: PassportTemplateContent['sections'] }, userId?: string) {
     const cat = normalizeCategory(body?.category);
     if (!Array.isArray(body.sections)) throw new BadRequestException('Тексты: ожидается список разделов sections: [{ key, title, paragraphs[] }]');
-    const sections = body.sections.map((s) => ({ key: String(s?.key || ''), title: String(s?.title ?? ''), paragraphs: Array.isArray(s?.paragraphs) ? s.paragraphs.map((p) => String(p ?? '').trim()).filter(Boolean) : [] }));
+    const stored = cat === 'ALL' ? (await this.v2All()).sections : (await this.v2Own(cat)).own?.sections;
+    const sections = cleanSections(body.sections as SectionLike[], (stored ?? []) as SectionLike[]) as PassportTemplateContent['sections'];
     if (sections.some((s) => !s.key)) throw new BadRequestException('У раздела нет ключа (key)');
     if (cat === 'ALL') {
       const cur = await this.v2All();

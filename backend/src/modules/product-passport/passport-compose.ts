@@ -12,6 +12,8 @@
  *  - плейсхолдеры другого вида ({fig:…}, {tab:…}) остаются в тексте как есть — их обрабатывает PDF.
  */
 
+import { parseWhenParts, whenCodes } from '../../common/passport/traits';
+
 export const ALL_CATEGORY = 'ALL';
 
 /**
@@ -46,6 +48,8 @@ export interface PassportTextBlock {
   /** Маркированный пункт («— …»): выводится без номера и не сбивает нумерацию. */
   bullet?: boolean;
   condition?: PassportCondition;
+  /** Условие по признакам изделия (C054): строка `when` — пробел «и», `|` «или», `!` «не»; пусто — пункт общий. Разбор — parseWhen. */
+  when?: string;
 }
 
 export type PassportFields = Record<string, unknown>;
@@ -56,11 +60,35 @@ export interface ComposeOptions {
   standards?: StandardsDict;
   /** Номер первого раздела (по умолчанию 1). */
   startNumber?: number;
+  /** Признаки, про которые ничего не известно (соединения не выбраны): пункт с `when` на них не выводится и просит выбор. */
+  unknownTraits?: string[];
 }
 
 export interface ComposedItem { key: string; number: string | null; text: string; bullet: boolean }
 export interface ComposedSection { key: string; number: string; title: string; items: ComposedItem[] }
-export interface ComposeResult { sections: ComposedSection[]; missing: string[] }
+/** Пункт, не вошедший в паспорт из-за `when`; unknown — признак не определён (не «условие ложно»). */
+export interface ExcludedItem { section: string; key: string; when: string; unknown?: true }
+export interface ComposeResult { sections: ComposedSection[]; missing: string[]; excluded: ExcludedItem[]; needJoints: boolean }
+
+/** Имя поля паспорта, по которому условия `when` смотрят признаки изделия (список кодов). */
+export const TRAITS_FIELD = 'traits';
+
+/**
+ * Строка `when` → условие для evalCondition над полем `traits`: пробел — И, `a|b` — ИЛИ, `!a` — НЕ.
+ * Пусто — undefined (пункт общий). Ошибка в строке — WhenError (traits.ts). Вычислитель один — evalCondition.
+ */
+export function parseWhen(when: unknown): PassportCondition | undefined {
+  const parts = parseWhenParts(when);
+  if (!parts.length) return undefined;
+  const leaf = (a: { code: string; not: boolean }): PassportCondition => {
+    const eq: PassportCondition = { field: TRAITS_FIELD, op: 'eq', value: a.code };
+    return a.not ? { not: eq } : eq;
+  };
+  return { all: parts.map((alts) => ({ any: alts.map(leaf) })) };
+}
+
+/** Условие из БД не должно ронять сборку: ошибочная строка читается как «условия нет» (проверка — при сохранении). */
+const safeWhen = (when: unknown): PassportCondition | undefined => { try { return parseWhen(when); } catch { return undefined; } };
 
 const isEmpty = (v: unknown): boolean =>
   v === undefined || v === null || (typeof v === 'string' && v.trim() === '') || (Array.isArray(v) && v.length === 0);
@@ -125,13 +153,29 @@ export function compose(
 
   // 1) наследование: блок категории заменяет блок ALL с тем же (sectionKey, key) независимо от порядка входа
   const picked = new Map<string, { b: PassportTextBlock; idx: number }>();
+  const allOrder = new Map<string, number | undefined>();
+  const idOf = (b: PassportTextBlock) => `${b.sectionKey}\u0000${b.key}`;
+  for (const b of blocks) { if (catOf(b) === ALL_CATEGORY && !allOrder.has(idOf(b))) allOrder.set(idOf(b), b.order); }
   blocks.forEach((b, idx) => {
     const c = catOf(b);
-    const id = `${b.sectionKey}\u0000${b.key}`;
+    const id = idOf(b);
     if (c === ALL_CATEGORY) { if (!picked.has(id)) picked.set(id, { b, idx }); }
-    else if (cat && c === cat) picked.set(id, { b, idx });
+    // пункт категории встаёт на место заменённого (его order), а не на своё по номеру: замена идёт по коду, не по позиции
+    else if (cat && c === cat) picked.set(id, { b: allOrder.has(id) ? { ...b, order: allOrder.get(id) } : b, idx });
   });
-  const chosen = [...picked.values()].filter((x) => evalCondition(x.b.condition, passport));
+  const unknown = new Set(options.unknownTraits || []);
+  const excluded: ExcludedItem[] = [];
+  let needJoints = false;
+  const chosen = [...picked.values()].filter((x) => {
+    if (!evalCondition(x.b.condition, passport)) return false;
+    const when = (x.b.when || '').trim();
+    if (!when) return true;
+    // признак не определён (соединения не выбраны): пункт не выводим и просим выбор — иначе «нет болтов» молча станет истиной
+    if (whenCodes(when).some((c) => unknown.has(c))) { excluded.push({ section: x.b.sectionKey, key: x.b.key, when, unknown: true }); needJoints = true; return false; }
+    if (evalCondition(safeWhen(when), passport)) return true;
+    excluded.push({ section: x.b.sectionKey, key: x.b.key, when });
+    return false;
+  });
 
   // 2) группировка в разделы
   const secs = new Map<string, { key: string; order: number; idx: number; items: typeof chosen }>();
@@ -163,11 +207,37 @@ export function compose(
     };
   });
 
-  return { sections, missing: [...missing] };
+  return { sections, missing: [...missing], excluded, needJoints };
 }
 
-/** Структура старого шаблона (без импорта, чтобы модуль оставался независимым). */
-export interface LegacyTemplateLike { sections: Array<{ key: string; title: string; paragraphs: string[] }> }
+/**
+ * Структура старого шаблона (без импорта, чтобы модуль оставался независимым).
+ * ids — устойчивые коды пунктов (параллельно paragraphs): по ним категория заменяет пункт «Для всех», правка снимка и воронка
+ * находят пункт; нет ids — прежние p1…pN по позиции. when — условие пункта (строка или null), тоже параллельно paragraphs.
+ * kppdf и PDF v1 читают только paragraphs.
+ */
+export interface LegacyTemplateLike { sections: Array<{ key: string; title: string; paragraphs: string[]; ids?: string[]; when?: Array<string | null> }> }
+
+export interface SectionItem { id: string; text: string; when: string | null }
+
+/**
+ * Пункты раздела: текст + код + условие. strict (сохранение, тесты): длины массивов ids / when должны совпадать с paragraphs,
+ * коды не повторяются — иначе ошибка. Не strict (сборка паспорта): повреждённые массивы читаются как «нет», чтобы одна
+ * плохая запись не роняла чужие паспорта.
+ */
+export function sectionItems(sec: { key?: string; paragraphs: string[]; ids?: string[]; when?: Array<string | null> }, strict = true): SectionItem[] {
+  const n = sec.paragraphs.length;
+  const okLen = (a: unknown[] | undefined) => !Array.isArray(a) || a.length === n;
+  if (strict) {
+    if (!okLen(sec.ids)) throw new Error(`Раздел ${sec.key ?? ''}: ids (${sec.ids?.length}) не совпадает по длине с paragraphs (${n})`);
+    if (!okLen(sec.when)) throw new Error(`Раздел ${sec.key ?? ''}: when (${sec.when?.length}) не совпадает по длине с paragraphs (${n})`);
+    const ids = (sec.ids ?? []).map(String);
+    if (new Set(ids).size !== ids.length || ids.some((x) => !x.trim())) throw new Error(`Раздел ${sec.key ?? ''}: коды пунктов ids пустые или повторяются`);
+  }
+  const ids = Array.isArray(sec.ids) && sec.ids.length === n ? sec.ids : null;
+  const when = Array.isArray(sec.when) && sec.when.length === n ? sec.when : null;
+  return sec.paragraphs.map((text, i) => ({ id: String(ids?.[i] ?? '').trim() || `p${i + 1}`, text, when: String(when?.[i] ?? '').trim() || null }));
+}
 
 const LEAD_NUM = /^\s*\d+(?:\.\d+)*\.?\s+/;
 const BULLET = /^\s*[—–-]\s+/;
@@ -181,17 +251,19 @@ const BULLET = /^\s*[—–-]\s+/;
 export function legacyTemplateToBlocks(tpl: LegacyTemplateLike): PassportTextBlock[] {
   const out: PassportTextBlock[] = [];
   tpl.sections.forEach((s, si) => {
-    s.paragraphs.forEach((p, pi) => {
+    sectionItems(s, false).forEach((it, pi) => {
+      const p = it.text;
       const bullet = BULLET.test(p);
       out.push({
         category: ALL_CATEGORY,
         sectionKey: s.key,
         sectionTitle: s.title.replace(LEAD_NUM, ''),
         sectionOrder: si,
-        key: `p${pi + 1}`,
+        key: it.id,
         order: pi,
         bullet,
         text: bullet ? p : p.replace(LEAD_NUM, ''),
+        ...(it.when ? { when: it.when } : {}),
       });
     });
   });

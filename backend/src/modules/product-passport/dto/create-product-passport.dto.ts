@@ -1,6 +1,7 @@
 import { IsArray, IsBoolean, IsDateString, IsIn, IsNumber, IsObject, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { IsObjectId } from '../../../common/decorators/is-object-id.decorator';
+import { PASSPORT_JOINT_CODES } from '../../../common/passport/traits';
 import { PASSPORT_IMAGE_KINDS } from '../product-passport.schema';
 
 /**
@@ -84,6 +85,8 @@ export class CreateProductPassportDto {
   @IsOptional() @IsArray() @IsString({ each: true }) manualText?: string[];
   /** Коды дефектов, которых нет у этого изделия (не печатаются в таблицах осмотра). */
   @IsOptional() @IsArray() @IsString({ each: true }) excludeDefects?: string[];
+  /** C054: соединения конструкции — bolts (болтовые), welds (сварные), solid (цельное). Не выбрано — паспорт просит выбор. */
+  @IsOptional() @IsArray() @IsIn(PASSPORT_JOINT_CODES, { each: true, message: 'Соединения: болтовые (bolts), сварные (welds) или цельное (solid)' }) joints?: string[];
   /** ПВ: выбор текстов воронкой { id раздела: id конечного варианта } (ключи и значения — ObjectId, проверяет сервер); null — очистить. */
   @IsOptional() @IsObject() textChoices?: Record<string, string> | null;
 }

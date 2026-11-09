@@ -16,6 +16,8 @@ export interface PdfV2Text {
   sections: ComposedSection[];
   description?: string; purpose?: string; rules?: string[];
   maintenance?: MaintenanceTable[]; install?: Partial<InstallParts>;
+  /** Раскладка PDF: 2 — нумерация в один проход, один «Монтаж» (passport-numbering.ts); нет поля — как печаталось раньше. */
+  layout?: number;
 }
 export interface PdfV2Style { color?: string; categoryName?: string; icons?: string[] }
 export interface PdfV2Input {

@@ -1,4 +1,5 @@
-import { compose, legacyStartNumber, legacyTemplateToBlocks, usedStandards, type ComposedSection, type LegacyTemplateLike, type PassportTextBlock, type StandardsDict } from './passport-compose';
+import { compose, legacyStartNumber, legacyTemplateToBlocks, usedStandards, TRAITS_FIELD, type ComposedSection, type ExcludedItem, type LegacyTemplateLike, type PassportTextBlock, type StandardsDict } from './passport-compose';
+import { collectTraits, filterByWhen } from './passport-traits';
 import { choicesObject, resolveChoices, FIELD_SECTIONS, type PhraseTreeNode, type ProductCtx } from '../../common/passport/phrase-tree';
 import { describeProduct, installText, maintenanceTables, usageRules, type DictRec, type InstallParts, type MaintenanceTable } from './passport-compose-parts';
 
@@ -31,6 +32,17 @@ export interface V2Text {
   standards: string[];
   /** Итоговый выбор по разделам воронки { rootId: leafId } (с подставленным самим единственным вариантом). */
   choices: Record<string, string>;
+  /** Признаки изделия, по которым считались условия when (справочники + «Конструкция»), и откуда каждый. */
+  traits: string[];
+  traitsFrom: Record<string, string[]>;
+  /** Признаки без ответа (соединения не выбраны): условия на них не считаются «нет». */
+  unknownTraits: string[];
+  /** Что не вошло из-за when (пункты текста и дефекты); unknown — ждёт выбора «Конструкция». PDF печатается из снимка, when при печати не считается. */
+  excluded: ExcludedItem[];
+  /** Есть условные пункты на bolts / welds, а соединения не выбраны — выпуск ждёт выбора. */
+  needJoints: boolean;
+  /** Версия раскладки PDF: 2 — нумерация в один проход, один раздел «Монтаж». Нет поля — как печаталось раньше. */
+  layout: number;
 }
 
 const idOf = (r: DictRec) => String(r.id ?? r._id ?? '');
@@ -68,7 +80,10 @@ export function buildV2Text(input: V2TextInput): V2Text {
   const elements = pick(dicts.elements, p.elements as unknown[]);
   const materials = pick(dicts.materials, p.materialIds as unknown[]);
   const install = (dicts.install || []).find((r) => idOf(r) === String(p.installationTypeId ?? '')) ?? null;
-  const r = compose(blocks, p, category, { standards, startNumber: legacyStartNumber(all) });
+  // признаки изделия: справочники + «Конструкция»; условия when пунктов и дефектов смотрят на них
+  const info = collectTraits(p.joints, { elements, materials, install });
+  const pt = { ...p, [TRAITS_FIELD]: info.traits };
+  const r = compose(blocks, pt, category, { standards, startNumber: legacyStartNumber(all), unknownTraits: info.unknown });
   const installParts = installText(install);
   if (installLeaf) installParts.text = fill((installLeaf as PhraseTreeNode).text, p, category, standards, extraMissing);
   // Вписанный вручную текст («свой текст», manualText) важнее справочника; назначение без выбора — из поля паспорта
@@ -77,6 +92,10 @@ export function buildV2Text(input: V2TextInput): V2Text {
   if (manual.includes('installationMethod') && ownText('installationMethod')) installParts.text = ownText('installationMethod');
   if (manual.includes('purpose') && ownText('purpose')) purpose = ownText('purpose');
   if (!purpose) purpose = ownText('purpose');
+  const excluded: ExcludedItem[] = [...r.excluded];
+  const exDefects = Array.isArray(p.excludeDefects) ? (p.excludeDefects as string[]) : [];
+  const byCode = (dicts.defects || []).filter((d) => !exDefects.includes(String(d?.code ?? '')));
+  const defects = filterByWhen(byCode, info, 'maintenance', excluded);
   const description = manual.includes('description') && ownText('description') ? ownText('description') : describeProduct(p as never, elements, materials);
   return {
     templateVersion: all.version ?? 0,
@@ -86,11 +105,17 @@ export function buildV2Text(input: V2TextInput): V2Text {
     purpose,
     rules: usageRules(elements),
     // excludeDefects: коды дефектов, которых нет у этого изделия (например, решётка без болтов и сварки — LOOSE_THREADS, WELD_CRACK)
-    maintenance: maintenanceTables(materials, elements, (dicts.defects || []).filter((d) => !(Array.isArray(p.excludeDefects) ? (p.excludeDefects as string[]) : []).includes(String(d?.code ?? ''))), install),
+    maintenance: maintenanceTables(materials, elements, defects.kept, install),
     install: installParts,
     sections: r.sections,
     missing: [...new Set([...r.missing, ...extraMissing])],
     standards: usedStandards([...blocks, ...used]),
     choices: choicesObject(resolved),
+    traits: info.traits,
+    traitsFrom: info.from,
+    unknownTraits: info.unknown,
+    excluded,
+    needJoints: r.needJoints || defects.needJoints,
+    layout: 2,
   };
 }

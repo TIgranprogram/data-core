@@ -4,7 +4,7 @@ import { toastError } from '../../ui/kit/toast.js';
 import { link, button } from '../../ui/kit/index.js';
 import { go } from '../../core/router.js';
 import { rowsTable } from '../../ui/rows-table.js';
-import { BOM_COLS, canEdit } from './common.js';
+import { BOM_COLS, BOM_EXAMPLE, bomRows, canEdit, parseBom } from './common.js';
 import { checkBlock } from './card-blocks.js';
 import { issueAction } from './dialogs.js';
 
@@ -152,7 +152,7 @@ function buildPhotos(row) {
 }
 
 function buildBom(row, ctx, onSaved, onSkip) {
-  const widget = rowsTable({ columns: BOM_COLS, rows: row.bom || [], file: 'Шаблон комплектности', example: ['И-1', 'Изделие в сборе', 1, 'шт.', ''] });
+  const widget = rowsTable({ columns: BOM_COLS, rows: bomRows(row.bom), file: 'Шаблон комплектности', example: BOM_EXAMPLE });
   const parseArr = (v) => {
     if (Array.isArray(v)) return v;
     try { return JSON.parse(v || '[]') || []; } catch { return []; }
@@ -161,7 +161,7 @@ function buildBom(row, ctx, onSaved, onSkip) {
   const skipBtn = button({ label: 'Пропустить', onClick: () => onSkip() });
   const saveBtn = button({ label: 'Сохранить →', kind: 'primary', onClick: async () => {
     saveBtn.disabled = true;
-    const bom = parseArr(widget.value);
+    const bom = parseBom(parseArr(widget.value), row.bom);
     const fresh = await patchPassport(row.id, ctx, { bom });
     if (fresh) onSaved(fresh, 4);
     else saveBtn.disabled = false;

@@ -1,8 +1,10 @@
 import { PdfImageV2, NEUTRAL_COLOR } from './passport-pdf-v2-types';
+import { whenVerdict } from './passport-traits';
 
-type StyleRow = { kind?: unknown; category?: unknown; color?: unknown; use?: unknown; text?: unknown; code?: unknown };
+type StyleRow = { kind?: unknown; category?: unknown; color?: unknown; use?: unknown; text?: unknown; code?: unknown; when?: unknown };
 /** Оформление из справочника `passportStyle`: цвет категории (иначе нейтральный) и тексты пиктограмм правил ({maxUsers} подставлен). */
-export function resolveStyle(rows: StyleRow[], category: string | undefined, vars: { maxUsers?: number | null } = {}): { color: string; icons: string[] } {
+/** Пиктограмма с when (C054) выводится, только если условие совпало с признаками изделия из снимка текста (traits); признак без ответа — не выводится. */
+export function resolveStyle(rows: StyleRow[], category: string | undefined, vars: { maxUsers?: number | null; traits?: string[]; unknownTraits?: string[] } = {}): { color: string; icons: string[] } {
   const on = (r: StyleRow) => String(r.use ?? '').trim().toLowerCase() !== 'нет';
   const cat = String(category || '').trim();
   const hex = (v: unknown) => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v.trim()) ? v.trim() : '');
@@ -14,6 +16,7 @@ export function resolveStyle(rows: StyleRow[], category: string | undefined, var
     if (c && c !== 'ALL' && c !== cat) continue;
     // Благоустройство (решётки, урны, скамьи): общие правила «для всех» — про занятия и спортивную обувь — не подходят
     if (cat === 'BLG' && c !== cat) continue;
+    if (whenVerdict(r.when, { traits: vars.traits ?? [], unknown: vars.unknownTraits ?? [] }) !== true) continue;
     let t = String(r.text ?? '').trim();
     if (!t) continue;
     if (t.includes('{maxUsers}')) { if (!vars.maxUsers) continue; t = t.replace(/\{maxUsers\}/g, String(vars.maxUsers)); }
