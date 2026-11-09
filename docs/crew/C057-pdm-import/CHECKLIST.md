@@ -22,10 +22,10 @@
 | 9 | pdmfiles: хранение по обозначению и версии, /uploads/pdm | K | ✅ | modules/pdm-files |
 | 10 | pdm-import: preview / apply (транзакция, 409, идемпотентно) / files | K | ✅ | modules/pdm-import |
 | 11 | Расход сырья детали (м² / м), заготовка, «Нужен размер заготовки» | K | ✅ | pdm-import |
-| 12 | «Что купить» по изделию | K | ⏳ | purchase-needs |
+| 12 | «Что купить» по изделию | K | ✅ | purchase-needs |
 | 13 | Склад/каталог скрывают part и сортамент (API) | K | ✅ | material, supply |
-| 14 | Скачивание приложения /api/apps/pdm-loader | K | ⏳ | modules/apps |
-| 15 | e2e + доки (MAP, openapi, data-model) | K | ⏳ | — |
+| 14 | Скачивание приложения /api/apps/pdm-loader | K | ✅ | modules/apps |
+| 15 | e2e + доки (MAP, openapi, data-model) | K | 🔄 e2e ✅, openapi — перед выкладкой | — |
 | **Э2** | **Приложение C#** | | | |
 | 16 | Каркас, вход в PDM, поиск | A | ⏳ | apps/pdm-loader |
 | 17 | Computed BOM + «Продвинуть» + сверка с эталоном 110/110 | A | ⏳ | — |
