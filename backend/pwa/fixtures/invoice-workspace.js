@@ -44,6 +44,7 @@ window.fetch = async (input, options = {}) => {
     if (failRefresh) { failRefresh = false; return result({ message: 'Тестовый сбой обновления показа' }, 400); }
     return result(invoice);
   }
+  if (method === 'GET' && path === '/supply/invoices/other-invoice') return result({ ...invoice, id: 'other-invoice', no: null, status: 'draft', requests: [{ id: 'busy-1', status: 'ordered' }] });
   if (method === 'GET' && path === '/supply/invoices/existing-invoice') return result({ ...invoice, id: 'existing-invoice', no: 'Дубль' });
   if (method === 'GET' && path === '/supply/requests') {
     if (url.searchParams.get('status') === 'requested,in_progress,paid') {
@@ -51,7 +52,10 @@ window.fetch = async (input, options = {}) => {
       const page = Number(url.searchParams.get('page') || 1), limit = Number(url.searchParams.get('limit') || 50);
       return result({ items: all.slice((page - 1) * limit, page * limit), total: all.length, page, limit });
     }
-    return result({ items: invoice.requests, total: invoice.requests.length, counts: { ordered: invoice.requests.length }, page: 1, limit: 30 });
+    // заявки того же поставщика в другом счёте (как на проде: status=ordered, invoiceId чужой)
+    const busy = [{ id: 'busy-1', num: 196, title: 'Заявка в другом счёте', qty: 1, unit: 'шт', status: 'ordered', priceHint: 873, invoiceId: 'other-invoice', supplierId: 'supplier', supplierName: 'Тестовый поставщик' }];
+    const items = [...invoice.requests, ...((url.searchParams.get('status') || '').includes('ordered') ? busy : [])];
+    return result({ items, total: items.length, counts: { ordered: items.length }, page: 1, limit: 30 });
   }
   if (method === 'GET' && /^\/supply\/requests\//.test(path)) return result(invoice.requests.find((line) => path.endsWith('/' + line.id)) || lines[0]);
   if (method === 'GET' && path === '/partners') return result({ items: [{ id: 'supplier', name: invoice.supplierName, kind: 'supplier' }], total: 1 });

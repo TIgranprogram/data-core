@@ -9,8 +9,23 @@
     {
       "name": "pult",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["pult/server.mjs", "--no-open"],
+      "runtimeArgs": [
+        "pult/server.mjs",
+        "--no-open"
+      ],
       "port": 47811
+    },
+    {
+      "name": "pwa-fixture",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "47830",
+        "-d",
+        "backend/pwa"
+      ],
+      "port": 47830
     }
   ]
 }
