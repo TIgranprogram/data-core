@@ -85,7 +85,8 @@ export function buildV2Text(input: V2TextInput): V2Text {
     description,
     purpose,
     rules: usageRules(elements),
-    maintenance: maintenanceTables(materials, elements, dicts.defects || [], install),
+    // excludeDefects: коды дефектов, которых нет у этого изделия (например, решётка без болтов и сварки — LOOSE_THREADS, WELD_CRACK)
+    maintenance: maintenanceTables(materials, elements, (dicts.defects || []).filter((d) => !(Array.isArray(p.excludeDefects) ? (p.excludeDefects as string[]) : []).includes(String(d?.code ?? ''))), install),
     install: installParts,
     sections: r.sections,
     missing: [...new Set([...r.missing, ...extraMissing])],

@@ -77,6 +77,8 @@ export class ProductPassport {
   @Prop({ type: [Object], default: undefined }) revisions?: Array<Record<string, unknown>>;
   /** ТЭ: поля текста, изменённые вручную для этого паспорта (не из справочника) — видно в списке. */
   @Prop({ type: [String], default: undefined }) manualText?: string[];
+  /** Коды дефектов справочника, которых нет у этого изделия — не попадают в таблицы осмотра (например, LOOSE_THREADS у решётки без крепежа). */
+  @Prop({ type: [String], default: undefined }) excludeDefects?: string[];
   /** Воронка текстов (ПВ 2026-10-25): выбор по разделам { id раздела: id конечного варианта } — справочник «Тексты паспорта». Из выбора сервер собирает `purpose` / `installationMethod` и пункты текста. */
   @Prop({ type: Object, default: undefined }) textChoices?: Record<string, string> | null;
 

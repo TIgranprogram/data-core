@@ -82,6 +82,8 @@ export class CreateProductPassportDto {
   @IsOptional() @IsBoolean() confirmNumbers?: boolean;
   /** ТЭ: какие текстовые поля изменены вручную (purpose, installationMethod, description…). */
   @IsOptional() @IsArray() @IsString({ each: true }) manualText?: string[];
+  /** Коды дефектов, которых нет у этого изделия (не печатаются в таблицах осмотра). */
+  @IsOptional() @IsArray() @IsString({ each: true }) excludeDefects?: string[];
   /** ПВ: выбор текстов воронкой { id раздела: id конечного варианта } (ключи и значения — ObjectId, проверяет сервер); null — очистить. */
   @IsOptional() @IsObject() textChoices?: Record<string, string> | null;
 }
