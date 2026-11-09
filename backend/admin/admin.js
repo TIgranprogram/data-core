@@ -1767,9 +1767,9 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
     idleBox('#bundle-box', { what: 'Один файл для переезда на другой сервер. Сборка — по кнопке, занимает 5–10 минут.', wait: 'Читаю состояние, до 10 секунд.' }, 'Показать пакеты', () => loadBundle());
   }
   $('#server-refresh').addEventListener('click', serverIdle);
-
   async function loadConnect() {
     $('#cx-base').textContent = BASE_URL;
+    loadAppCard();
     renderCode();
     try {
       if (!cxState.schema) cxState.schema = await api('/meta/schema');
