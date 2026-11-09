@@ -5,7 +5,7 @@ import { date, money, qty } from '../core/format.js';
 import { readonlyGroup, section, table, button, actions, badge, INVOICE_STATUS, SUPPLY_STATUS, confirmDlg, failBlock, toast, toastError, attachCombo, photoField, enhanceSelect } from '../ui/kit/index.js';
 import { permissions, lineAmount, pendingLines, assertOperation, lineDraft, changeLine, lineBody, metaBody, addBody } from './invoice-workspace-state.js';
 import { adminAction } from './admin-override.js';
-import { getInvoice, getCandidates, getBusyRequests, getPayers, getContracts, writeInvoice } from './invoice-workspace-api.js';
+import { getInvoice, getCandidates, getBusyRequests, getPayers, getContracts, writeInvoice, deleteInvoice } from './invoice-workspace-api.js';
 import { buildWorkspaceForm } from './invoice-workspace-forms.js';
 
 /** Router-only ссылка: сохраняет экран/фильтры/страницу; native hash проходит штатный guard. */
@@ -263,12 +263,17 @@ function addPicker(invoice, ctx) {
         const body = addBody(invoice, [o.value]);
         if (o.from) {
           if (o.from.status === 'paid') { toastError(new Error(`Заявка в оплаченном счёте (${fromName(o.from)}) — перенести нельзя`)); return; }
-          if (!(await confirmDlg('Перенести заявку в этот счёт?', `«${o.label}» уберётся из: ${fromName(o.from)} — и добавится сюда.`, { okText: 'Перенести' }))) return;
         }
+        // счёт-источник останется пустым — удалим его, чтобы не копились пустые черновики
+        const emptyAfter = !!o.from && Array.isArray(o.from.requests)
+          && o.from.requests.filter((r) => !r.deletedAt && r.status !== 'cancelled' && String(r.id) !== String(o.value)).length === 0;
+        if (o.from && !(await confirmDlg('Перенести заявку в этот счёт?', `«${o.label}» уберётся из: ${fromName(o.from)} — и добавится сюда.${emptyAfter ? ' Тот счёт останется пустым — он удалится.' : ''}`, { okText: 'Перенести' }))) return;
         const ok = await ctx.run(async () => {
           if (o.from) await writeInvoice(o.from, session, 'remove', {}, o.value);
           await writeInvoice(invoice, session, 'add', body);
-          toast(o.from ? `Заявка перенесена из: ${fromName(o.from)}` : 'Заявка добавлена в счёт');
+          let dropped = false;
+          if (emptyAfter) { try { await deleteInvoice(o.from.id); dropped = true; } catch { /* нет права или счёт занят — останется пустым */ } }
+          toast(o.from ? `Заявка перенесена из: ${fromName(o.from)}${dropped ? ' — пустой счёт удалён' : ''}` : 'Заявка добавлена в счёт');
           ctx.changed();
           await refreshInvoice(invoice, ctx);
         });

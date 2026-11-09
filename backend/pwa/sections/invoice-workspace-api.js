@@ -2,6 +2,8 @@ import { api } from '../core/api.js';
 import { assertOperation } from './invoice-workspace-state.js';
 
 export const getInvoice = (id) => api(`/supply/invoices/${id}`);
+/** Удалить пустой неоплаченный счёт (сервер сам проверит, что можно). */
+export const deleteInvoice = (id) => api(`/supply/invoices/${id}`, { noWait: true, method: 'DELETE' });
 export const getPayers = () => api('/incomes/lookups').then((r) => (r.companies || []).map((c) => ({ value: String(c.id), label: c.name })));
 export const getContracts = (supplierId) => supplierId ? api('/supply/contracts', { query: { supplierId, limit: 100, status: 'active' } }).then((r) => r.items || []) : Promise.resolve([]);
 /** total относится к исходной выборке, а не к отфильтрованным непривязанным строкам. */
