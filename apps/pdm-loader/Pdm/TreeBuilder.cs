@@ -280,9 +280,31 @@ public sealed class TreeBuilder
             item.Blank = ResolveBlank(des, vars, withFiles || withBlanks);
 
         if (withFiles && kind is "product" or "module" or "part")
+        {
             AttachDocs(item, des, kind);
+            TryPreview(item, hit);
+        }
 
         return item;
+    }
+
+    void TryPreview(PdmItem item, PdmSearch.Hit hit)
+    {
+        try
+        {
+            var pdfLocals = new List<string>();
+            foreach (var d in item.Docs.Where(x => x.Type is "pdf" or "assembly" or "install"))
+            {
+                var cached = Directory.EnumerateFiles(AppPaths.Cache, d.Name, SearchOption.AllDirectories).FirstOrDefault();
+                if (cached != null) pdfLocals.Add(cached);
+            }
+            var rel = PreviewImage.BuildForItem(_session, hit, item.Designation, pdfLocals, _hwnd);
+            if (rel != null) item.Preview = rel;
+        }
+        catch (Exception ex)
+        {
+            _warnings.Add(new PdmWarning { Designation = item.Designation, Code = "preview", Text = "Картинка: " + ex.Message });
+        }
     }
 
     BlankDto? ResolveBlank(string des, Dictionary<string, string?> vars, bool withFiles)

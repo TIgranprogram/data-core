@@ -1,6 +1,6 @@
 # REPORT C057-Э2 — приложение «Загрузка из PDM»
 
-**Статус:** приёмка по эталону 6104 выполнена (110/110). UI и пакет готовы; сайт (Э1 preview/apply) — по готовности сервера.
+**Статус:** Э2 (эталон 110/110) + **Э2б** (стенд localhost:3001, apply/files, purchase-needs, DXF 0019) готовы.
 
 ## Сделано
 
@@ -15,9 +15,11 @@
 | Переменные карточки (GetVar); запасной вид по папке PDM | ✅ / ⚠ |
 | Развёртка DXF (`0000.0000.0019` = 253,1×80, source=dxf) | ✅ |
 | Документы PDF/DXF через GetFileCopy в кэш приложения | ✅ |
-| Окно (сайт, вход, дерево, пакет, кнопки сайта) | ✅ |
-| `dotnet publish` → `apps/pdm-loader/out/DataCore.PdmLoader.exe` | ✅ |
+| Окно (сайт, вход, дерево, план, расхождения, пакет, кнопки сайта) | ✅ |
+| `publish.ps1` → `out/<версия>/DataCore.PdmLoader.exe` + `meta.json` | ✅ |
 | `samples/6104.pdm-tree.json` | ✅ |
+| Э2б: preview/apply/files на стенде, JWT refresh | ✅ |
+| Э2б: превью PNG (оболочка / первая стр. PDF) в пакет `previews/` | ✅ |
 
 ## Файлы
 
@@ -48,14 +50,32 @@ dotnet publish -c Release
 3. Дети `0000.5001.0000` из полного BOM подставляются в AsBuilt-дерево.
 4. Сверка листа: колонка «К-во» эталона; сопоставление через `aliases`/`Number` и свёртку СП↔SP.
 
+## Э2б — стенд `http://localhost:3001` (2026-11-09)
+
+Команда: `dotnet run -c Release -- stand-6104 --url http://localhost:3001 --json samples/6104.pdm-tree.json`
+
+| Шаг | Итог |
+|--|--|
+| Вход admin (сид `.env`) | ✅ |
+| Первая загрузка | **created=126**, linked=0, updated=0, skipped=0 |
+| Повторная загрузка | **created=0**, linked=126, skipped=126 |
+| `needFiles` + upload DXF `0000.0000.0019` | ✅ 1 файл |
+| `GET …/purchase-needs?qty=1` | ✅ → `samples/6104.purchase-needs.json` |
+| `GET /api/pdm-files?ownerKind=material&ownerId=<0019>` | ✅ DXF v1 current → `samples/6104.0019.pdm-files.json` |
+| `publish.ps1` | ✅ `out/1.1.0/DataCore.PdmLoader.exe` + `meta.json` (sha256 в meta) |
+
+### Ошибки / замечания сервера (не чинил)
+
+1. **`purchase-needs` не считает лист/фанеру** — в ответе только метизы и покупные; детали листа в `missingBlank` (в т.ч. `0000.0000.0019`), хотя в дереве PDM у 0019 был `blank` 253,1×80.  
+   - Запрос: `GET /api/products/<id>/purchase-needs?qty=1`  
+   - Ожидание: позиции сырья «лист 4 мм», фанера.  
+   - Факт: `items` = fasteners/purchased; сырьё отсутствует.  
+2. **Поиск `GET /api/materials?search=0000.0000.0019`** → `total:0` (деталь есть, id из `missingBlank`). Фильтр `?article=` игнорирует точное значение и отдаёт чужие записи.  
+3. **Фото на сайт** из `previews/` — сервер ещё не принимает; картинка только в zip-пакете. Нужен эндпоинт/поле фото позиции (отдельная задача сервера).
+
 ## Риски / допущения
 
-- Переменные `Вид_изделия` / `Сортамент` / `Материал` через GetVar на этой машине часто пусты; вид берётся из папки PDM (`4 Метизы`→метиз и т.д.). Числа Д/Ш/Т и Number читаются.
-- Толщина листа в `blank` при пустом сортаменте может быть `null` (не берём габарит 3D).
-- Картинки-превью (thumbnail/PDF) в этой итерации не доведены — в REPORT как недоделанное для следующей доводки.
-- Запись на сайт: `POST /api/pdm-import/preview|apply` — пока «Сайт ещё не принимает», ждать Э1.
-
-## Нужно от сервера (Э1)
-
-- `POST /api/pdm-import/preview` и `apply` (+ files) по `CONTRACT.md`
-- `GET /api/apps/pdm-loader` (версия) и раздача `DataCore.PdmLoader.exe`
+- Переменные `Вид_изделия` / `Сортамент` / `Материал` через GetVar часто пусты; вид — из папки PDM.
+- Толщина листа в `blank` при пустом сортаменте может быть `null`.
+- Превью: Shell thumbnail, иначе Windows.Data.Pdf; без SolidWorks.
+- Локальный стенд после `docker compose up -d --build`; прод не трогали.

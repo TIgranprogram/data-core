@@ -33,6 +33,7 @@ public static class Cli
                 "dump-bom" => DumpBom(map),
                 "dump-vars" => DumpVars(map),
                 "dump-blank" => DumpBlank(map),
+                "stand-6104" => Stand6104.Run(map),
                 _ => Help(),
             };
             return code;
@@ -60,6 +61,7 @@ public static class Cli
             Команды:
               check-6104 [--etalon путь.xlsx] [--json путь.json]
               export-6104 [--out путь.json] [--no-files]
+              stand-6104 [--url http://localhost:3001] [--user admin] [--pass …] [--json дерево.json] [--no-files]
               list-vaults
             """);
         return 1;

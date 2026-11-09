@@ -17,7 +17,7 @@ public sealed class PdmTree
 public sealed class ReaderInfo
 {
     [JsonPropertyName("app")] public string App { get; set; } = "DataCore PDM Loader";
-    [JsonPropertyName("version")] public string Version { get; set; } = "1.0.0";
+    [JsonPropertyName("version")] public string Version { get; set; } = "1.1.0";
     [JsonPropertyName("computer")] public string Computer { get; set; } = Environment.MachineName;
     [JsonPropertyName("user")] public string User { get; set; } = Environment.UserName;
 }
