@@ -17,13 +17,13 @@
 | 5 | Сортаменты + связь форматов (после Э1 п. 1) | D | ⏳ | c057-profiles.js |
 | 6 | `--apply` 1, 2, 5 на прод — по «да» пользователя | K | ⏳ | — |
 | **Э1** | **Сервер** | | | |
-| 7 | Новые поля materials / modules / products + индексы | K | ⏳ | material.schema.ts |
-| 8 | Ключ сравнения match-key + тесты | K | ⏳ | common/catalog/match-key.ts |
-| 9 | pdmfiles: хранение по обозначению и версии, /uploads/pdm | K | ⏳ | modules/pdm-files |
-| 10 | pdm-import: preview / apply (транзакция, 409, идемпотентно) / files | K | ⏳ | modules/pdm-import |
-| 11 | Расход сырья детали (м² / м), заготовка, «Нужен размер заготовки» | K | ⏳ | pdm-import |
+| 7 | Новые поля materials / modules / products + индексы | K | ✅ | material.schema.ts |
+| 8 | Ключ сравнения match-key + тесты | K | ✅ | common/catalog/match-key.ts |
+| 9 | pdmfiles: хранение по обозначению и версии, /uploads/pdm | K | ✅ | modules/pdm-files |
+| 10 | pdm-import: preview / apply (транзакция, 409, идемпотентно) / files | K | ✅ | modules/pdm-import |
+| 11 | Расход сырья детали (м² / м), заготовка, «Нужен размер заготовки» | K | ✅ | pdm-import |
 | 12 | «Что купить» по изделию | K | ⏳ | purchase-needs |
-| 13 | Склад/каталог скрывают part и сортамент (API) | K | ⏳ | material, supply |
+| 13 | Склад/каталог скрывают part и сортамент (API) | K | ✅ | material, supply |
 | 14 | Скачивание приложения /api/apps/pdm-loader | K | ⏳ | modules/apps |
 | 15 | e2e + доки (MAP, openapi, data-model) | K | ⏳ | — |
 | **Э2** | **Приложение C#** | | | |
