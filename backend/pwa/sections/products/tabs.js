@@ -36,7 +36,7 @@ export function productTabs(r) {
     { key: 'comp', label: 'Состав и работы', count: (r.composition || []).length || undefined,
       blocks: (row) => inline(compositionBlock(row), session.sees('products') ? purchaseNeedsBlock(row) : null, session.sees('work') ? productRoute(row) : null, variantsBlock(row)) },
     { key: 'tech', label: 'Техописание', count: techN,
-      blocks: (row) => techSheetBlock(row) },
+      blocks: (row) => inline(techSheetBlock(row), purchaseNeedsBlock(row)) },
     { key: 'passport', label: 'Паспорт',
       blocks: (row, ctx) => (session.seesDocs() ? passportPane(row, ctx) : h('p', { class: 'muted' }, 'Паспорта открыты разделу «Документация».')) },
     { key: 'files', label: 'Файлы', blocks: (row) => inline(session.sees('products') ? productAttachmentsBlock(row) : h('p', { class: 'muted' }, 'Вложения изделия (чертежи, документы) открыты разделу «Продукция» — попросите доступ у администратора.'), productFilesBlock(row, session.canEdit)) },
