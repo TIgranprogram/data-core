@@ -1,6 +1,7 @@
 # Карта роли designer
 
-коммит: 12d0d8da (+ незакоммиченное: STYLE-DECISION «картотека» 05.11 — решение по коду, без снимков). Снимка нет.
+коммит: acd518bf (+ незакоммиченное C054: воронка паспорта, вид принят по коду 09.11). Снимка нет.
+- C054 «Конструкция» и «Что попадёт в PDF» (09.11, цикл 2, принято по коду): pdf-block.js:49–52 stack(row раздел+причина, p.hint полный текст). Закрыто: count только у «Не попали»; «Цельное» в подсказке; откат меток joints.js:21. design-lint 0. Отчёт docs/crew/C054-passport-funnel/REPORT-designer.md.
 - C027 «По статьям» (06.11, по коду + импорт модуля на стенде, без входа): money-articles.js:25 TDZ `toolbar` (локальная :32 затеняет kit) — экран падает; tr.sub td muted (screens.css:131) сильнее td.click (:136); статьи с классом bal = итоги; ops в двойном panel (:27–28, эталон money.js:156/229); fill по группе — `#fill?g=exp-article` (fill.js:63). Прочие расходы expenses.js:148 склонение. Вход на :3001 — stand-login даёт 401. Отчёт docs/crew/C027-money-by-articles/designer-report.md.
 - Аудит правых панелей 06.11 (по коду, без стенда): причины — kit.css:338 `.dz-flow > *{display:block}` ломает `.actions`; list.css:76 `.drawer-body` без gap; list.css:52 `.state` padding 32/16 (пустые «Файлов нет»); product-attachments.js:89–119 (card M × вид + table.empty), product-files.js:76–97 (эталон section), card-blocks.js `.section-title`-блоки. Отчёт — у координатора (docs/crew/C-PANELS-AUDIT/REPORT.md).
 

@@ -1,18 +1,20 @@
 import { api } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { toastError } from '../../ui/kit/toast.js';
-import { link, button } from '../../ui/kit/index.js';
+import { actions, link, button } from '../../ui/kit/index.js';
 import { go } from '../../core/router.js';
 import { rowsTable } from '../../ui/rows-table.js';
 import { BOM_COLS, BOM_EXAMPLE, bomRows, canEdit, parseBom } from './common.js';
 import { checkBlock } from './card-blocks.js';
 import { issueAction } from './dialogs.js';
+import { jointsPick, jointsText } from './traits.js';
 
 /** Определения шагов мастера. */
 const STEPS = [
   { key: 'product',   label: 'Изделие',      done: (r) => !!r.productId },
   { key: 'params',    label: 'Размеры и вес', done: (r) => !!(r.height && r.length && r.width) },
   { key: 'materials', label: 'Состав',        done: (r) => !!(r.materialIds?.length > 0 || r.materials) },
+  { key: 'joints',    label: 'Конструкция',   done: (r) => (r.joints || []).length > 0 },
   { key: 'photos',    label: 'Фотографии',    done: (r) => (r.images || []).some((i) => i.url) },
   { key: 'bom',       label: 'Комплектность', done: () => false, optional: true },
   { key: 'issue',     label: 'Выпуск',        done: () => false },
@@ -54,7 +56,8 @@ function clear(el) {
 function missToStep(m) {
   if (/высот|длин|ширин/i.test(m)) return 1;
   if (/материал|элемент/i.test(m)) return 2;
-  if (/фото|рисунок/i.test(m)) return 3;
+  if (/конструкц/i.test(m)) return 3;
+  if (/фото|рисунок/i.test(m)) return 4;
   return -1;
 }
 
@@ -144,6 +147,23 @@ function buildMaterials(row) {
     h('div', { class: 'pw-actions' }, toProduct(row)));
 }
 
+/** Шаг «Конструкция»: как соединено — болты, сварка, цельное; подставляется из изделия, здесь можно поправить для этого паспорта. */
+function buildJoints(row, ctx, onSaved) {
+  const pick = jointsPick(row.joints || []);
+  const saveBtn = button({ label: 'Сохранить →', kind: 'primary', onClick: async () => {
+    const joints = JSON.parse(pick.value);
+    if (!joints.length) { toastError(new Error('Отметьте хотя бы один вариант')); return; }
+    saveBtn.disabled = true;
+    const fresh = await patchPassport(row.id, ctx, { joints });
+    if (fresh) onSaved(fresh, 3);
+    else saveBtn.disabled = false;
+  } });
+  return h('div', null,
+    h('p', { class: 'hint' }, 'Как соединены детали. Болты и сварку можно вместе; «Цельное (без крепежа)» снимает остальные. От выбора зависят пункты текста и таблица осмотра.'),
+    row.joints?.length ? h('p', { class: 'muted small' }, 'Сейчас: ' + jointsText(row.joints)) : null,
+    pick.el, actions(saveBtn));
+}
+
 function buildPhotos(row) {
   const have = (row.images || []).filter((i) => i.url).length;
   return h('div', null,
@@ -163,7 +183,7 @@ function buildBom(row, ctx, onSaved, onSkip) {
     saveBtn.disabled = true;
     const bom = parseBom(parseArr(widget.value), row.bom);
     const fresh = await patchPassport(row.id, ctx, { bom });
-    if (fresh) onSaved(fresh, 4);
+    if (fresh) onSaved(fresh, 5);
     else saveBtn.disabled = false;
   } });
 
@@ -240,8 +260,9 @@ export function passportWizard(r, ctx) {
     if (s.key === 'product')   content = buildProduct(row, ctx, onSaved);
     if (s.key === 'params')    content = buildParams(row, ctx, onSaved);
     if (s.key === 'materials') content = buildMaterials(row, ctx, onSaved);
+    if (s.key === 'joints')    content = buildJoints(row, ctx, onSaved);
     if (s.key === 'photos')    content = buildPhotos(row, ctx);
-    if (s.key === 'bom')       content = buildBom(row, ctx, onSaved, () => goTo(5));
+    if (s.key === 'bom')       content = buildBom(row, ctx, onSaved, () => goTo(6));
     if (s.key === 'issue')     content = buildIssue(row, ctx, goTo);
 
     if (content) body.appendChild(h('div', { class: 'pw-step-form' }, content));

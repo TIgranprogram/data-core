@@ -14,6 +14,7 @@ import { wireForm } from './wire-form.js';
 import { materialsFields, specBody } from './materials.js';
 import { loadMaterialDicts } from '../../ui/materials-spec.js';
 import { funnelBox } from '../../ui/funnel.js';
+import { jointsPick } from './traits.js';
 
 /** Форма паспорта: поля, сборка тела запроса, создание и сохранение. */
 /** ПИ.4: значения по умолчанию паспорта — изделию (заменяются целиком; пустые не пишутся сервером). */
@@ -25,7 +26,7 @@ export async function saveDefaults({ productId, defaults }) {
 export function v2Initial(r) {
   return {
     passportCategory: r.passportCategory || '', elements: (r.elements || []).map(String), materialIds: (r.materialIds || []).map(String),
-    installationTypeId: r.installationTypeId ? String(r.installationTypeId) : '', isKit: r.isKit ? 'yes' : 'no', schemeSource: r.schemeSource === 'own' ? 'own' : 'standard',
+    installationTypeId: r.installationTypeId ? String(r.installationTypeId) : '', joints: (r.joints || []).map(String), isKit: r.isKit ? 'yes' : 'no', schemeSource: r.schemeSource === 'own' ? 'own' : 'standard',
     ...Object.fromEntries(V2_NUMS.map(([k]) => [k, num(r[k])])), textChoices: JSON.stringify(r.textChoices || {}),
     certNumber: r.certificate?.number || '', certUntil: r.certificate?.until ? String(r.certificate.until).slice(0, 10) : '', certEac: r.certificate?.hasEac ? 'yes' : 'no',
   };
@@ -33,7 +34,7 @@ export function v2Initial(r) {
 export function v2Body(v) {
   const b = {
     elements: Array.isArray(v.elements) ? v.elements : [], materialIds: Array.isArray(v.materialIds) ? v.materialIds : [],
-    isKit: v.isKit === 'yes', textChoices: v.textChoices && typeof v.textChoices === 'object' ? v.textChoices : {},
+    joints: Array.isArray(v.joints) ? v.joints : [], isKit: v.isKit === 'yes', textChoices: v.textChoices && typeof v.textChoices === 'object' ? v.textChoices : {},
     schemeSource: v.schemeSource === 'own' ? 'own' : 'standard',
     ...Object.fromEntries(V2_NUMS.filter(([k]) => v[k] !== null && v[k] !== undefined && v[k] !== '').map(([k]) => [k, v[k]])),
   };
@@ -77,6 +78,8 @@ export const passportForm = {
         : [...materialsFields({ r, md, ctx }), materialsText]),
       { key: 'installationTypeId', label: 'Способ установки', type: 'select', options: [{ value: '', label: '—' }, ...inst.map((o) => ({ value: o.value, label: o.label }))],
         hint: 'Определяет схему монтажа в PDF (фундамент, анкеры, скважины). Текст «Установка» выше — отдельно.' },
+      { key: 'joints', label: 'Конструкция: как соединено', type: 'widget', wide: true, summary: () => '', widget: (v) => jointsPick(v),
+        hint: 'Болты и сварку можно вместе; «Цельное (без крепежа)» снимает остальные. От этого зависят пункты текста и таблица осмотра; подставляется из изделия' },
       { key: 'isKit', label: 'Поставляется разобранным', type: 'segment', options: [{ value: 'no', label: 'Нет' }, { value: 'yes', label: 'Да — нужна схема сборки' }] },
       { key: 'schemeSource', label: 'Схемы узлов (фундамент, скважины, монтаж)', type: 'segment', options: [{ value: 'standard', label: 'Стандартные, если нет своих' }, { value: 'own', label: 'Только свои' }],
         hint: 'Стандартные схемы — в «Справочники → Паспорта → Способы установки»' },
@@ -211,7 +214,7 @@ export const passportForm = {
     if (v._remember === 'yes' && pid) {
       const b2 = v2Body(v);
       body._remember = { productId: String(pid), defaults: { elements: b2.elements, materialIds: b2.materialIds,
-        ...(b2.installationTypeId ? { installationTypeId: b2.installationTypeId } : {}), isKit: b2.isKit, textChoices: b2.textChoices, ...Object.fromEntries(V2_NUMS.map(([k]) => [k, b2[k]]).filter(([, x]) => x !== undefined)),
+        ...(b2.installationTypeId ? { installationTypeId: b2.installationTypeId } : {}), ...(b2.joints.length ? { joints: b2.joints } : {}), isKit: b2.isKit, textChoices: b2.textChoices, ...Object.fromEntries(V2_NUMS.map(([k]) => [k, b2[k]]).filter(([, x]) => x !== undefined)),
         ...(v.warrantyMonths !== null && v.warrantyMonths !== undefined ? { warrantyMonths: v.warrantyMonths } : {}) } };
     }
     return body;

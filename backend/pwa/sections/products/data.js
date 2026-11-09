@@ -66,7 +66,7 @@ export const bulkApply = (ids, set, arrays) => api('/showcase/bulk', { method: '
 export const bulkRestore = (before) => api('/showcase/bulk/restore', { method: 'POST', body: { items: before } });
 
 /** Паспорт по умолчанию у изделия: категория и выбор текстов воронки (passportDefaults.textChoices). Заменяется целиком — берём известные поля. */
-export const PD_KEYS = ['passportCategory', 'elements', 'materialIds', 'installationTypeId', 'isKit', 'warrantyMonths', ...V2_NUMS.map(([k]) => k)];
+export const PD_KEYS = ['passportCategory', 'elements', 'materialIds', 'installationTypeId', 'joints', 'isKit', 'warrantyMonths', ...V2_NUMS.map(([k]) => k)];
 const putPd = (id, body) => api(`/showcase/${id}/passport-defaults`, { method: 'PUT', body });
 export async function savePd(id, pd) {
   const prev = pd.prev || {};

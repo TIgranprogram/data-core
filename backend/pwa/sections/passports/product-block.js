@@ -202,6 +202,7 @@ export async function applyProduct(api, p, catBy) {
   if (ppCat && !api.manual('passportCategory')) api.set('passportCategory', ppCat, { auto: true, src: srcText });
   for (const k of ['elements', 'materialIds']) put(k, (d[k] || []).map(String), 'из изделия');
   put('installationTypeId', d.installationTypeId ? String(d.installationTypeId) : '', 'из изделия');
+  if ((d.joints || []).length) put('joints', d.joints.map(String), 'из изделия');
   if (d.textChoices && Object.keys(d.textChoices).length) api.set('textChoices', JSON.stringify(d.textChoices), { auto: true, src: 'из изделия' });
   // МИ.4: таблица материалов изделия → таблица паспорта (метки и текст соберутся из неё); правленную вручную не трогаем
   const ms = api.input('_mspec');

@@ -12,6 +12,7 @@ import { resetProducts } from './passports/models.js';
 import { annulDialog, convertDialog, issueAction, linkDialog, numberDialog, printDialog } from './passports/dialogs.js';
 import { passportBulkFields } from './passports/bulk.js';
 import { bomBlock, checkBlock, imagesBlock, previewBlock } from './passports/card-blocks.js';
+import { pdfBlock } from './passports/pdf-block.js';
 import { numbersStrip } from './passports/numbers-strip.js';
 import { passportForm } from './passports/form.js';
 import { stepFunnel } from '../ui/kit/index.js';
@@ -178,6 +179,7 @@ export const passports = {
       return stack(
         draft && canEdit() ? passportWizard(r, ctx) : null,
         !draft || !canEdit() ? (r.passportCategory ? checkBlock(r) : (r.missing?.length ? h('div', { class: 'fill-note' }, 'Не хватает для выдачи: ', h('b', null, r.missing.join(', '))) : null)) : null,
+        r.passportCategory ? pdfBlock(r, ctx) : null,
         imagesBlock(r, ctx), bomBlock(r),
         r.passportCategory ? previewBlock(r, ctx) : null);
     },

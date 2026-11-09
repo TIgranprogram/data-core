@@ -21,7 +21,7 @@ export async function models() {
       materials: r.materials || '', installationMethod: r.installationMethod || '', purpose: r.purpose || '', description: r.description || '', supplierOrgId: r.supplierOrgId || '', warrantyMonths: num(r.warrantyMonths ?? 12),
       bom: JSON.stringify(bomRows(r.bom)),
       ...(r.passportCategory ? { passportCategory: r.passportCategory, elements: JSON.stringify((r.elements || []).map(String)), materialIds: JSON.stringify((r.materialIds || []).map(String)),
-        installationTypeId: r.installationTypeId ? String(r.installationTypeId) : '', isKit: r.isKit ? 'yes' : 'no', ...Object.fromEntries(V2_NUMS.map(([k]) => [k, num(r[k])])) } : {}) },
+        installationTypeId: r.installationTypeId ? String(r.installationTypeId) : '', joints: JSON.stringify((r.joints || []).map(String)), isKit: r.isKit ? 'yes' : 'no', ...Object.fromEntries(V2_NUMS.map(([k]) => [k, num(r[k])])) } : {}) },
   }));
   modelsCache.sort((a, b) => (a.canPassport === false) - (b.canPassport === false));
   modelsAt = Date.now();
@@ -81,6 +81,6 @@ export const productsAll = async () => {
 };
 export const mmOf = (v, unit) => { const n = Number(v); return n > 0 ? num(Math.round(n * (unit === 'м' ? 1000 : unit === 'см' ? 10 : 1))) : ''; };
 /** Поля паспорта, которые помнит изделие (passportDefaults) — флажок «Запомнить» (ПИ.4). */
-export const DEFAULT_KEYS = ['passportCategory', 'elements', 'materialIds', 'installationTypeId', 'isKit', 'textChoices', ...V2_NUMS.map(([k]) => k), 'warrantyMonths'];
+export const DEFAULT_KEYS = ['passportCategory', 'elements', 'materialIds', 'installationTypeId', 'isKit', 'textChoices', 'joints', ...V2_NUMS.map(([k]) => k), 'warrantyMonths'];
 
 export const resetProducts = () => { prodCache = null; };

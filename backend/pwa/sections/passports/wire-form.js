@@ -124,7 +124,7 @@ export function wireForm(api, { r, w, catBy, stdName, inst }) {
   const check = () => { clearTimeout(timer); timer = setTimeout(async () => {
     const my = ++seq;
     const body = { ...(r ? { date: r.date } : {}), ...Object.fromEntries(KEYS.filter((k) => api.get('_manualText') === 'yes' || !['installationMethod', 'purpose'].includes(k)).map((k) => [k, api.get(k)]).filter(([, v]) => v !== '' && v != null)),
-      elements: json('elements'), materialIds: json('materialIds'), images: formImages(Object.fromEntries(kinds().map(([k]) => ['img_' + k, json('img_' + k)])), kinds().map(([k]) => k)),
+      elements: json('elements'), materialIds: json('materialIds'), joints: json('joints'), images: formImages(Object.fromEntries(kinds().map(([k]) => ['img_' + k, json('img_' + k)])), kinds().map(([k]) => k)),
       textChoices: (() => { try { return JSON.parse(api.get('textChoices') || '{}') || {}; } catch { return {}; } })() };
     let res; try { res = await api_post('/passports/check', body); } catch { return; }
     if (my !== seq) return;

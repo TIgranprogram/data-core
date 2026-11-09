@@ -1,6 +1,7 @@
 import { session } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { readonlyGroups, stack } from '../../ui/kit/index.js';
+import { jointsText } from '../passports/traits.js';
 import { productFilesBlock } from '../product-files.js';
 import { productAttachmentsBlock } from '../product-attachments.js';
 import { productRoute } from '../work-composition.js';
@@ -26,6 +27,7 @@ export function productTabs(r) {
           ['Категория паспорта', passportCatView(row, ctx)],
           ['Гарантия', row.passportDefaults?.warrantyMonths ? `${row.passportDefaults.warrantyMonths} мес.` : null],
           ['Срок службы', row.passportDefaults?.serviceLifeYears ? `${row.passportDefaults.serviceLifeYears} лет` : null],
+          ['Как соединено', jointsText(row.passportDefaults?.joints) || null],
           ['Поставляется разобранным', row.passportDefaults?.isKit ? 'да' : null],
         ]),
         productFilesBlock(row, session.canEdit, 'passport'),

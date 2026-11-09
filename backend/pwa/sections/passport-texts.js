@@ -5,6 +5,8 @@ import { busyBlock, failBlock } from '../ui/kit/busy.js';
 import { current, patch } from '../core/router.js';
 import { confirmDlg } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
+import { badge, section, tagPick } from '../ui/kit/index.js';
+import { PASSPORT_TRAITS, buildWhen, idsOf, whenText, whenToPick } from './passports/traits.js';
 
 /**
  * «Справочники → Паспорта → Общие разделы (шаблон)» (БЗ-6 Э2d, docs/PASSPORTS-V2.md §3.3 п. 2); тексты ВАРИАНТОВ для воронки — в passport-tree.js. 
@@ -51,9 +53,14 @@ export async function loadTexts(cat, force) {
   cache.set(cat, t);
   return t;
 }
-const ownCopy = (t) => (t.own?.sections || []).map((s) => ({ key: s.key, title: s.title || '', paragraphs: [...(s.paragraphs || [])] }));
+/** Разделы версии категории для правки: коды пунктов (ids) и условия (when) идут вместе с текстом — иначе правка потеряет их. */
+const ownCopy = (t) => (t.own?.sections || []).map((s) => ({ key: s.key, title: s.title || '', paragraphs: [...(s.paragraphs || [])], ids: idsOf(s), when: (s.paragraphs || []).map((_, i) => s.when?.[i] || null) }));
+/** Код нового пункта: у замены общего — код общего пункта, иначе новый (номер не сдвигает чужие пункты). */
+const newCode = (sec, want) => (want && !sec.ids.includes(want) ? want : 'n' + Date.now().toString(36) + sec.ids.length);
+const whenAt = (sec, i) => (sec?.when?.[i] ? String(sec.when[i]) : '');
 async function saveOwn(cat, sections) {
-  const t = await api('/passports/texts', { method: 'PUT', body: { category: cat, sections } });
+  const body = sections.map((s) => ({ ...s, when: (s.when || []).some(Boolean) ? s.when : undefined }));
+  const t = await api('/passports/texts', { method: 'PUT', body: { category: cat, sections: body } });
   cache.set(cat, t);
   return t;
 }
@@ -66,8 +73,8 @@ function ensureOwnSection(t, own, key) {
   const i = own.findIndex((s) => s.key === key);
   if (i >= 0) return i;
   const ai = t.all.sections.findIndex((s) => s.key === key);
-  while (ai >= 0 && own.length < ai) own.push({ key: `_pad${own.length}`, title: '', paragraphs: [] });
-  own.push({ key, title: ai >= 0 ? t.all.sections[ai].title.replace(LEAD, '') : '', paragraphs: [] });
+  while (ai >= 0 && own.length < ai) own.push({ key: `_pad${own.length}`, title: '', paragraphs: [], ids: [], when: [] });
+  own.push({ key, title: ai >= 0 ? t.all.sections[ai].title.replace(LEAD, '') : '', paragraphs: [], ids: [], when: [] });
   return own.length - 1;
 }
 /** Куда встанет новый раздел категории: после раздела «Для всех» с тем же индексом. */
@@ -75,6 +82,13 @@ function newSectionPlace(t) {
   const n = (t.own?.sections || []).length;
   const a = t.all.sections[Math.min(n, t.all.sections.length - 1)];
   return a ? `после раздела «${a.title.replace(LEAD, '')}» (общего)` : 'в конце';
+}
+
+/** Метка условия пункта в дереве: «если: Болтовые соединения» (нет условия — метки нет). */
+function whenTag(t, it) {
+  const node = t.tree.find((x) => x.items.includes(it));
+  const w = it.origin === 'all' ? whenAt(t.all.sections[node?.allSection], it.allIndex) : whenAt(t.own?.sections?.[node?.ownSection], it.ownIndex);
+  return w ? badge('если: ' + whenText(w), 'info') : null;
 }
 
 // ─── экран (в «Справочниках» вместо таблицы) ──────────────────────────────────────────────────────
@@ -115,7 +129,8 @@ export function mountTexts() {
           return h('li', null, h('button', { type: 'button', class: 'pt-item' + (it.origin === 'all' ? ' all' : '') + (sel === id ? ' active' : ''), onclick: () => open(of, id) },
             h('span', { class: 'pt-num num' }, it.number || '—'),
             h('span', { class: 'pt-text' }, ...withVars(it.bullet ? it.text : it.text.replace(LEAD, ''))),
-            it.origin === 'all' ? h('span', { class: 'pt-tag' }, 'общий') : it.origin === 'override' ? h('span', { class: 'pt-tag own' }, 'заменяет общий') : null));
+            it.origin === 'all' ? h('span', { class: 'pt-tag' }, 'общий') : it.origin === 'override' ? h('span', { class: 'pt-tag own' }, 'заменяет общий') : null,
+            whenTag(t, it)));
         })));
     }));
   }
@@ -148,17 +163,41 @@ async function editRow(id) {
     if (text === undefined) throw new Error('Пункт не найден — список обновился. Закройте панель и выберите пункт заново.');
     const node = t.tree.find((x) => x.ownSection === Number(a));
     const item = node?.items.find((x) => x.ownIndex === Number(b) && x.origin !== 'all');
-    return { ...base, si: Number(a), pi: Number(b), text, title: s.title, number: item?.number || '', allText: item?.allText, secTitle: node?.title || s.title };
+    return { ...base, si: Number(a), pi: Number(b), text, title: s.title, number: item?.number || '', allText: item?.allText, secTitle: node?.title || s.title, when: whenAt(s, Number(b)) };
   }
   if (kind === 'n') {
     const node = t.tree.find((x) => x.key === a);
     const ai = t.all.sections.findIndex((x) => x.key === a);
     const next = node ? node.ownCount : 0;
     const allText = ai >= 0 ? t.all.sections[ai].paragraphs[next] : undefined;
-    return { ...base, key: a, text: b === 'copy' && allText ? allText : '', allText, secTitle: node?.title || '', number: node ? `${node.number}.${next + 1}` : '' };
+    const allSec = ai >= 0 ? t.all.sections[ai] : null;
+    return { ...base, key: a, text: b === 'copy' && allText ? allText : '', allText, secTitle: node?.title || '', number: node ? `${node.number}.${next + 1}` : '', code: allSec ? idsOf(allSec)[next] || '' : '', when: b === 'copy' && allSec ? whenAt(allSec, next) : '' };
   }
   if (kind === 's') return { ...base, text: '', title: '', place: newSectionPlace(t) };
   throw new Error('Неизвестный пункт');
+}
+
+/**
+ * «Когда пункт попадает в паспорт»: признаки изделия русскими подписями — «есть все из», «любой из», «нет». Пусто — пункт общий.
+ * Сложное условие (несколько «или») правится только в справочнике через сервер: показываем словами и оставляем как было.
+ */
+function whenField(raw) {
+  const simple = whenToPick(raw);
+  const opts = Object.entries(PASSPORT_TRAITS).map(([value, label]) => ({ value, label }));
+  const picks = simple ? { all: tagPick({ options: opts, value: simple.all, label: 'Нужно, чтобы было' }), any: tagPick({ options: opts, value: simple.any, label: 'Нужно хотя бы одно из' }), not: tagPick({ options: opts, value: simple.not, label: 'Нужно, чтобы не было' }) } : null;
+  const list = (k) => JSON.parse(picks[k].value);
+  const value = () => (picks ? buildWhen({ all: list('all'), any: list('any'), not: list('not') }) : raw);
+  const grp = (text, k) => h('div', { class: 'field wide' }, h('span', null, text), picks[k].el);
+  const el = section({ title: 'Когда пункт попадает в паспорт' + (raw ? ': ' + whenText(raw) : ' — всегда'), tone: 'info', open: !!raw, body: [
+    h('p', { class: 'hint' }, 'Без отметок пункт общий и попадёт в любой паспорт. Признаки берутся из вида изделия, материала, способа установки и выбора «Конструкция».'),
+    ...(picks ? [grp('Есть все из', 'all'), grp('Есть хотя бы одно из', 'any'), grp('Нет ни одного из', 'not')] : [h('p', { class: 'muted' }, 'Сложное условие: ' + whenText(raw) + '. Менять его здесь нельзя.')])] });
+  const problem = () => {
+    if (!picks) return '';
+    const all = list('all'), any = list('any'), not = list('not');
+    if (any.length === 1) return 'В «хотя бы одно из» отметьте минимум два признака — или перенесите признак в «Есть все из»';
+    return [...all, ...any].some((c) => not.includes(c)) ? 'Один признак не может быть и «есть», и «нет»' : '';
+  };
+  return { el, value, problem };
 }
 
 /** Своя форма панели: заголовок раздела (для нового раздела), текст пункта, переменные, «Убрать пункт». */
@@ -173,6 +212,7 @@ function textForm(r) {
     ta.focus(); ta.selectionStart = ta.selectionEnd = s + v.length;
   };
   const vars = h('div', { class: 'pt-vars' }, ...VARS.map((v) => h('button', { type: 'button', class: 'tag', title: v === '{std:' ? 'Норматив по коду из справочника «Нормативы»: {std:КОД}' : 'Вставить в текст', onclick: () => insert(v) }, v === '{std:' ? '{std:КОД}' : v)));
+  const cond = whenField(r.when || '');
   let removed = false;
   const del = r.kind === 'i' ? h('button', { type: 'button', class: 'btn btn-danger btn-sm', onclick: () => removeItem(r, () => { removed = true; }) }, 'Убрать пункт') : null;
   const where = r.kind === 'i' ? (r.allText !== undefined ? `Пункт ${r.number} — заменяет общий.` : `Пункт ${r.number} — только в категории.`)
@@ -184,19 +224,22 @@ function textForm(r) {
     h('label', { class: 'field wide' }, h('span', null, r.kind === 's' ? 'Первый пункт' : 'Текст пункта', h('span', { class: 'req' }, ' *')), ta, err),
     h('details', { class: 'month-group wide' }, h('summary', null, `Переменные (${VARS.length}) — клик вставляет в текст`), vars,
       h('div', { class: 'hint' }, 'Пустая переменная в паспорте видна как «[{имя} не заполнено]». Пункт с «— » в начале — маркированный, без номера.')),
+    cond.el,
     r.allText !== undefined ? h('details', { class: 'month-group wide' }, h('summary', null, 'Общий текст, который заменяется'), h('p', { class: 'muted' }, r.allText)) : null,
     del ? h('div', { class: 'wide' }, del) : null);
-  const start = JSON.stringify([title.value, ta.value]);
+  const start = JSON.stringify([title.value, ta.value, cond.value()]);
   return {
     el,
     focus: () => (r.kind === 's' ? title : ta).focus(),
-    dirty: () => !removed && JSON.stringify([title.value, ta.value]) !== start,
+    dirty: () => !removed && JSON.stringify([title.value, ta.value, cond.value()]) !== start,
     read: () => {
       err.hidden = true;
       const text = ta.value.trim();
+      const bad = cond.problem();
+      if (bad) { toast(bad, { error: true }); return { errors: { when: 1 } }; }
       if (r.kind === 's' && !title.value.trim()) { title.focus(); toast('Впишите название раздела', { error: true }); return { errors: { title: 1 } }; }
       if (!text) { err.textContent = 'Впишите текст пункта'; err.hidden = false; ta.focus(); return { errors: { text: 1 } }; }
-      return { values: { text, title: title.value.trim() } };
+      return { values: { text, title: title.value.trim(), when: cond.value() } };
     },
   };
 }
@@ -205,9 +248,10 @@ async function saveRow(id, v) {
   const r = await editRow(id);
   const own = ownCopy(r.t);
   let next;
-  if (r.kind === 'i') { own[r.si].paragraphs[r.pi] = v.text; next = `${r.cat}.i.${r.si}.${r.pi}`; }
-  else if (r.kind === 'n') { const si = ensureOwnSection(r.t, own, r.key); own[si].paragraphs.push(v.text); next = `${r.cat}.i.${si}.${own[si].paragraphs.length - 1}`; }
-  else { own.push({ key: 'c' + Date.now().toString(36), title: v.title, paragraphs: [v.text] }); next = `${r.cat}.i.${own.length - 1}.0`; }
+  const when = v.when || null;
+  if (r.kind === 'i') { own[r.si].paragraphs[r.pi] = v.text; own[r.si].when[r.pi] = when; next = `${r.cat}.i.${r.si}.${r.pi}`; }
+  else if (r.kind === 'n') { const si = ensureOwnSection(r.t, own, r.key); own[si].ids.push(newCode(own[si], r.code)); own[si].when.push(when); own[si].paragraphs.push(v.text); next = `${r.cat}.i.${si}.${own[si].paragraphs.length - 1}`; }
+  else { own.push({ key: 'c' + Date.now().toString(36), title: v.title, paragraphs: [v.text], ids: ['p1'], when: [when] }); next = `${r.cat}.i.${own.length - 1}.0`; }
   await saveOwn(r.cat, own);
   // адрес — на сохранённый пункт (после того как панель вернётся в просмотр)
   if (next !== id) setTimeout(() => patch({ of: 'ptext', open: next }), 0);
@@ -218,7 +262,7 @@ async function removeItem(r, done) {
   if (!(await confirmDlg('Убрать пункт?', `Пункт ${r.number} уйдёт из текстов категории «${catName(r.cat)}» (новая версия). ${r.allText !== undefined ? 'На его месте снова будет общий пункт.' : ''}`, { okText: 'Убрать', danger: true }))) return;
   const before = ownCopy(r.t);
   const own = ownCopy(r.t);
-  own[r.si].paragraphs.splice(r.pi, 1); // пустой раздел остаётся «распоркой» — порядок следующих разделов не сдвигается
+  for (const k of ['paragraphs', 'ids', 'when']) own[r.si][k].splice(r.pi, 1); // пустой раздел остаётся «распоркой» — порядок следующих разделов не сдвигается
   try {
     await saveOwn(r.cat, own);
     done();
@@ -238,7 +282,7 @@ export const ptext = {
     subheading: (r) => `${catName(r.cat)}${r.secTitle ? ' · ' + r.secTitle : ''}`,
     startEdit: () => true,
     noHistory: true,
-    view: (r) => [['Текст', r.text ? h('span', { class: 'pt-plain' }, r.text) : h('span', { class: 'muted' }, 'Ещё не сохранён — «Изменить»')], ['Общий текст (заменяется)', r.allText]],
+    view: (r) => [['Текст', r.text ? h('span', { class: 'pt-plain' }, r.text) : h('span', { class: 'muted' }, 'Ещё не сохранён — «Изменить»')], ['Когда попадает в паспорт', r.kind === 's' ? null : r.when ? whenText(r.when) : 'всегда (общий пункт)'], ['Общий текст (заменяется)', r.allText]],
   },
   form: {
     build: (r) => textForm(r),
@@ -264,7 +308,7 @@ async function viewRow(id) {
   if (text === undefined) throw new Error('Пункт не найден');
   // заменить можно только следующий по порядку общий пункт (ключ пункта = номер по порядку в разделе)
   const canReplace = (node?.ownCount ?? 0) === Number(idx);
-  return { id, cat, kind, key, idx, text, number: item?.number || '', secTitle: node?.title || '', canReplace };
+  return { id, cat, kind, key, idx, text, number: item?.number || '', secTitle: node?.title || '', canReplace, when: whenAt(t.all.sections[ai], Number(idx)) };
 }
 
 /** Общий пункт № idx раздела key — открыть в «Для всех» (там он свой и правится в панели). */
@@ -296,7 +340,7 @@ export const ptextview = {
     heading: (r) => (r.kind === 'p' ? 'Предпросмотр текста' : `Пункт ${r.number} · общий`),
     subheading: (r) => `${catName(r.cat)}${r.secTitle ? ' · ' + r.secTitle : ''}`,
     noHistory: true,
-    view: (r) => (r.kind === 'p' ? [] : [['Текст', h('span', { class: 'pt-plain' }, r.text)], ['Где', 'Общая часть «Для всех» — правится на чипе «Для всех»']]),
+    view: (r) => (r.kind === 'p' ? [] : [['Текст', h('span', { class: 'pt-plain' }, r.text)], ['Когда попадает в паспорт', r.when ? whenText(r.when) : 'всегда'], ['Где', 'Общая часть «Для всех» — правится на чипе «Для всех»']]),
     actions: (r) => (r.kind !== 'a' ? [] : [
       r.canReplace && { label: 'Заменить для категории', run: () => patch({ of: 'ptext', open: `${r.cat}.n.${r.key}.copy` }) },
       // общий пункт — править прямо отсюда: переход на «Для всех» с этим же пунктом (БЗ-7 шаг 2)

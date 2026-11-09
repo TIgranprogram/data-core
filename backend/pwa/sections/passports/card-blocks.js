@@ -7,6 +7,7 @@ import { confirmDlg } from '../../ui/kit/dialog.js';
 import { table, button, iconButton, section } from '../../ui/kit/index.js';
 import { date } from '../../core/format.js';
 import { canEdit, imgsOf, isRequired, kinds, V2_NUMS } from './common.js';
+import { numbersOf } from './traits.js';
 
 /** Блоки карточки паспорта: картинки, проверка, текст из снимка, комплектность. */
 /** Картинки по видам в карточке: миниатюры (клик — открыть, × — убрать) и своя зона «перетащите / Ctrl+V» у каждого вида. */
@@ -56,9 +57,6 @@ export function checkBlock(r) {
       h('ul', { class: 'timeline' }, ...warn.map((w) => h('li', { class: 'muted' }, w)))] }) : null] });
 }
 
-/** Последний номер раздела снимка (ТО и монтаж в PDF идут следующими). */
-export const lastNo = (t) => Math.max(2, ...(t.sections || []).map((s) => parseInt(s.number, 10) || 0));
-
 /** Таблица ТО одного периода: что проверить · где · мера. */
 export function periodBlock(m) {
   const row = (x) => h('li', null, x.what, h('span', { class: 'muted' }, [x.where, x.measure].filter(Boolean).map((v) => ' · ' + v).join('')));
@@ -69,8 +67,8 @@ export function periodBlock(m) {
  * Пункт текста в предпросмотре (Э5a3): «Изменить» — правка только для этого паспорта (в снимок), прямо в карточке;
  * правленый пункт помечен «изменён для этого паспорта». Перенос в справочник — «Справочники → Паспорта → Разделы и тексты».
  */
-export function snapItem(r, ctx, s, i) {
-  const view = h('p', { class: 'pp-snap-item' }, i.number ? h('b', null, i.number + ' ') : '— ', i.text,
+export function snapItem(r, ctx, s, i, no = i.number) {
+  const view = h('p', { class: 'pp-snap-item' }, no ? h('b', null, no + ' ') : '— ', i.text,
     i.edited ? h('span', { class: 'muted', title: 'Было: ' + (i.original || '') }, ' · изменён для этого паспорта') : null,
     canEdit() ? iconButton({ icon: '✎', label: `Править пункт ${i.number || ''}`.trim(), size: 'S', cls: 'pp-snap-edit', onClick: () => view.replaceWith(editor()) }) : null,
     canEdit() && i.edited ? button({ label: 'Сделать общим для категории', kind: 'ghost', size: 'S', title: 'Этот текст пункта получат новые паспорта той же категории', onClick: async () => {
@@ -91,6 +89,9 @@ export function snapItem(r, ctx, s, i) {
   return view;
 }
 
+/** Шаги монтажа по способу установки (внутри раздела «Монтаж» или отдельным разделом). */
+const installList = (t) => (t.install?.text ? h('ol', null, ...String(t.install.text).split(/\r?\n/).filter(Boolean).map((x) => h('li', null, x))) : null);
+
 /** Паспорт v2: текст из снимка (как будет в паспорте) и «Обновить текст по справочникам» (новый снимок). */
 export function previewBlock(r, ctx) {
   const t = r.textSnapshot;
@@ -102,14 +103,16 @@ export function previewBlock(r, ctx) {
   } }) : null;
   if (!t) return section({ title: 'Текст паспорта', tone: 'neutral', count: 0, body: [h('p', { class: 'muted small' }, 'Текст ещё не собран.'), refresh] });
   const part = (title, body) => (body ? section({ title, tone: 'neutral', body }) : null);
+  const plan = numbersOf(t);
   return section({ title: 'Текст паспорта', tone: 'neutral', body: [
     h('p', { class: 'muted' }, `Текст собран ${t.at ? date(t.at) : ''}${t.missing?.length ? ' · в тексте не заполнено: ' + t.missing.map((k) => V2_NUMS.find((n) => n[0] === k)?.[1] || k).join(', ') : ''}`),
-    // порядок и номера — как в PDF: 1 описание, 2 правила, разделы шаблона, затем ТО и монтаж — следующими номерами
-    part('1 Описание и назначение', t.description || t.purpose ? h('div', null, t.description ? h('p', null, t.description) : null, t.purpose ? h('p', null, t.purpose) : null) : null),
-    part(`2 Правила пользования (${(t.rules || []).length})`, t.rules?.length ? h('ol', null, ...t.rules.map((x) => h('li', null, x))) : null),
-    ...(t.sections || []).map((s) => part(`${s.number} ${s.title}`, h('div', null, ...s.items.map((i) => snapItem(r, ctx, s, i))))),
-    part(`${lastNo(t) + 1} Обслуживание по периодам (из справочников)`, t.maintenance?.length ? h('div', null, ...t.maintenance.map(periodBlock)) : null),
-    part(`${lastNo(t) + 2} Монтаж по способу установки`, t.install?.text ? h('ol', null, ...String(t.install.text).split(/\r?\n/).filter(Boolean).map((x) => h('li', null, x))) : null),
+    // порядок и номера — как в PDF (numbersOf = planNumbers сервера): новые сборки — подряд 1…N, один «Монтаж»
+    part(`${plan.descrNo || '—'} Описание и назначение`, t.description || t.purpose ? h('div', null, t.description ? h('p', null, t.description) : null, t.purpose ? h('p', null, t.purpose) : null) : null),
+    part(`${plan.rulesNo || plan.descrNo || '—'} Правила пользования (${(t.rules || []).length})`, t.rules?.length ? h('ol', null, ...t.rules.map((x) => h('li', null, x))) : null),
+    ...(t.sections || []).map((s, si) => part(`${plan.sectionNo[si]} ${s.title}`, plan.sectionNo[si] ? h('div', null, ...s.items.map((i) => snapItem(r, ctx, s, i, plan.itemNo(si, i.number))),
+      plan.mergeInstall && si === plan.mountIdx ? installList(t) : null) : null)),
+    part(`${plan.toNo} Обслуживание по периодам (из справочников)`, t.maintenance?.length ? h('div', null, ...t.maintenance.map(periodBlock)) : null),
+    plan.mergeInstall ? null : part(`${plan.installNo} Монтаж по способу установки`, installList(t)),
     refresh] });
 }
 

@@ -8,6 +8,7 @@ import { dictNames } from '../../ui/dict-options.js';
 import { loadMaterialDicts, materialsSpec, specSummary } from '../../ui/materials-spec.js';
 import { funnelBox } from '../../ui/funnel.js';
 import { canEdit as canEditPassportTexts, dictOpts, dictRows } from '../passports/common.js';
+import { jointsPick } from '../passports/traits.js';
 import { formValues, phrases, staffOptions, passportCategoryOptions, skuSearch, materialsFromComposition, createProduct, patchProduct, savePd, takePending, pendingProduct } from './data.js';
 
 /* Форма изделия в правой панели: поля (ИЗ-4: Изделие → Цена → Паспорт → Характеристики → Описание и материалы → Ещё), тело запроса, создание/правка. */
@@ -122,6 +123,7 @@ export function productForm() {
         { key: 'pdLife', label: 'Срок службы, лет', type: 'number', min: 0, span: 1 },
         { key: 'pdInstall', label: 'Способ установки', type: 'select', options: [{ value: '', label: '—' }, ...inst.map((o) => ({ value: o.value, label: o.label }))], hint: 'Определяет схему монтажа в паспорте' },
         { key: 'pdElements', label: 'Функциональные элементы', type: 'widget', wide: true, summary: () => '', widget: (v) => tagPick({ options: els, value: v, label: 'Функциональные элементы' }) },
+        { key: 'pdJoints', label: 'Как соединено (для паспорта)', type: 'widget', wide: true, summary: () => '', widget: (v) => jointsPick(v), hint: 'Болты, сварка или цельное (без крепежа) — можно несколько. Паспорт подставит это сам и выберет подходящие пункты текста' },
         { key: 'pdKit', label: 'Поставляется разобранным', type: 'segment', options: [{ value: 'no', label: 'Нет' }, { value: 'yes', label: 'Да — нужна схема сборки' }] },
         { section: 'Характеристики', tone: 'info' },
         { key: 'dimL', label: 'Длина', type: 'number', min: 0, span: 1 },
@@ -148,14 +150,14 @@ export function productForm() {
       ];
     },
     initial: () => ({ status: 'draft', unit: 'шт', dimUnit: 'мм', ...(pendingProduct()?.initial || {}) }),
-    toInitial: (r) => ({ ...r, pdCategory: r.passportDefaults?.passportCategory || r.passportCategory?.code || '', pdChoices: JSON.stringify(r.passportDefaults?.textChoices || {}), pdWarranty: r.passportDefaults?.warrantyMonths ?? '', pdLife: r.passportDefaults?.serviceLifeYears ?? '', pdInstall: r.passportDefaults?.installationTypeId ? String(r.passportDefaults.installationTypeId) : '', pdKit: r.passportDefaults?.isKit ? 'yes' : 'no', pdElements: (r.passportDefaults?.elements || []).map(String), designerName: r.designer?.name || '', colors: (r.colors || []).join(', '), sizes: (r.sizes || []).join(', '),
+    toInitial: (r) => ({ ...r, pdCategory: r.passportDefaults?.passportCategory || r.passportCategory?.code || '', pdChoices: JSON.stringify(r.passportDefaults?.textChoices || {}), pdWarranty: r.passportDefaults?.warrantyMonths ?? '', pdLife: r.passportDefaults?.serviceLifeYears ?? '', pdInstall: r.passportDefaults?.installationTypeId ? String(r.passportDefaults.installationTypeId) : '', pdKit: r.passportDefaults?.isKit ? 'yes' : 'no', pdElements: (r.passportDefaults?.elements || []).map(String), pdJoints: (r.passportDefaults?.joints || []).map(String), designerName: r.designer?.name || '', colors: (r.colors || []).join(', '), sizes: (r.sizes || []).join(', '),
       status: ['draft', 'active', 'archived'].includes(r.status) ? r.status : r.price ? 'active' : 'draft',
       dimL: r.dimensions?.length ?? '', dimW: r.dimensions?.width ?? '', dimH: r.dimensions?.height ?? '', dimUnit: r.dimensions?.unit || 'мм', weightKg: r.weightKg ?? '' }),
     toBody: (v, r) => ({ ...specBody(v, r), photoIds: v.photos || [], sku: v.sku, name: v.name, orderName: v.orderName || '', type: v.type || '', group: v.group || '', series: v.series || '', price: v.price ?? null, colors: v.colors || '', sizes: v.sizes || '', description: v.description || '', notes: v.notes || '',
       designerId: v.designerName ? designerIds.get(String(v.designerName).trim()) || null : '',
       status: v.status || 'draft', unit: v.unit || 'шт', ralCode: v.ralCode || '', weightKg: v.weightKg ?? null, purpose: v.purpose || '', installation: v.installation || '',
       dimensions: { length: v.dimL ?? null, width: v.dimW ?? null, height: v.dimH ?? null, unit: v.dimUnit || 'мм' },
-      _pd: { over: { warrantyMonths: v.pdWarranty ?? null, serviceLifeYears: v.pdLife ?? null, installationTypeId: v.pdInstall || '', elements: Array.isArray(v.pdElements) ? v.pdElements : [], isKit: v.pdKit === 'yes' }, category: v.pdCategory || '', choices: v.pdChoices && typeof v.pdChoices === 'object' ? v.pdChoices : {}, derived: r?.passportCategory?.code || '', prev: r?.passportDefaults || {} } }),
+      _pd: { over: { warrantyMonths: v.pdWarranty ?? null, serviceLifeYears: v.pdLife ?? null, installationTypeId: v.pdInstall || '', elements: Array.isArray(v.pdElements) ? v.pdElements : [], joints: Array.isArray(v.pdJoints) ? v.pdJoints : [], isKit: v.pdKit === 'yes' }, category: v.pdCategory || '', choices: v.pdChoices && typeof v.pdChoices === 'object' ? v.pdChoices : {}, derived: r?.passportCategory?.code || '', prev: r?.passportDefaults || {} } }),
     create: async (b0) => {
       const { _pd, ...b } = b0;
       const res = await createProduct(b);

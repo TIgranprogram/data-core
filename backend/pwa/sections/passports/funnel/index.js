@@ -5,6 +5,7 @@ import { canEdit } from '../common.js';
 import { getProduct } from './api.js';
 import { gapsBlock } from './gaps.js';
 import { issueBlock } from './issue.js';
+import { jointsBlock } from './joints.js';
 import { newProduct } from './new-product.js';
 import { takePending } from './open.js';
 import { pickSteps } from './pick-steps.js';
@@ -75,6 +76,7 @@ function build() {
     let loadedFor = '';
     const texts = textsBlock({ prod });
     const gapsSec = section({ title: 'Чего не хватает', tone: 'main', count: 0, open: true, body: busyBlock('данные изделия') });
+    const jointsSec = section({ title: 'Конструкция', tone: 'main', open: !(prod.passportDefaults?.joints || []).length, body: jointsBlock({ prod }).el });
     const textsSec = section({ title: 'Тексты', tone: 'info', body: texts.el });
     const issueSec = section({ title: 'Выпуск', tone: 'gold', open: false, body: [] });
     const issue = issueBlock({ prod, goGaps: () => { gapsSec.open = true; }, onIssued: () => patch({ of: undefined, new: undefined }) });
@@ -96,7 +98,7 @@ function build() {
     const gaps = gapsBlock({ prod, onLoad });
     const nextBtn = h('div', null, link({ label: 'Дальше — к выпуску →', onClick: async () => { try { const must = await gaps.commit(); if (must.length) return; gapsSec.open = false; issueSec.open = true; } catch (e) { toastError(e, 'сохранить'); } } }));
     gapsSec.querySelector('.k-sec-body').replaceChildren(gaps.el, nextBtn);
-    stages.replaceChildren(gapsSec, textsSec, issueSec);
+    stages.replaceChildren(gapsSec, jointsSec, textsSec, issueSec);
     gaps.reload().catch((e) => { gaps.el.replaceChildren(sideNote('Не удалось узнать, чего не хватает.')); toastError(e, 'проверить изделие'); });
   }
 
