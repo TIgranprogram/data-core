@@ -25,8 +25,10 @@ step "Приват-деал: только для КП"        $API PATCH "/api/o
 blank() { # $1 файл, $2 название, $3 фирма, $4 верх, $5 низ, $6 стандартные тексты
   [ -f "$BL/$1" ] || { echo "✗ нет файла бланка: $BL/$1"; bad=$((bad+1)); return; }
   cp "$BL/$1" "$T/b.jpg"
+  # путь вида C:/… — иначе Git Bash портит «/tmp/…;type=…» для curl из Windows (2026-11-09: curl 26)
+  local f="$T/b.jpg"; command -v cygpath >/dev/null && f="$(cygpath -m "$f")"
   local extra=(); [ -n "${6:-}" ] && extra=(--form "defaultTerms=$6")
-  step "Бланк: $2" $API POST /api/offers/backgrounds --form "file=@$T/b.jpg;type=image/jpeg" --form "name=$2" \
+  step "Бланк: $2" $API POST /api/offers/backgrounds --form "file=@$f;type=image/jpeg" --form "name=$2" \
     --form page=1 --form isDefault=true --form "companyId=$3" --form "textTop=$4" --form "textBottom=$5" "${extra[@]}"
 }
 blank "Бланк_СпортИН-ЮГ.jpg"   "ООО «СпортИН-ЮГ» · бланк КП"   "$SIN" 0.26 0.78 "Аванс 80 %."
