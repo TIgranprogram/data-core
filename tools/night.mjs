@@ -191,7 +191,12 @@ export async function cmdStand(sub, ctx) {
     if (!sub || sub === 'status') return await standStatus(ctx);
     if (sub === 'up') return await standUp(ctx);
     if (sub === 'down') return standDown(ctx);
-    ctx.say('dc stand [up|down|status]');
+    if (sub === 'refresh') {
+      const code = await stand.refresh(ctx);
+      if (code === 0) ctx.say('Стенд пересобран с текущим кодом: http://localhost:3102/app/');
+      return code;
+    }
+    ctx.say('dc stand [up|down|status|refresh]');
     return 2;
   } catch (e) {
     ctx.say(e.message);

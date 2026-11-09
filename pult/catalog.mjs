@@ -79,10 +79,10 @@ export const COMMANDS = [
     hint: 'Обычная выкладка после готовности кода. Сначала ворота. Копия базы делается сама.' },
   { id: 'deploy-post', section: 'deploy', title: 'Проверка после выкладки', risk: 'read', time: '15 с', needs: ['bash'], run: { bash: ['deploy/synology/post-check.sh'] },
     hint: 'Через 1–2 часа после выкладки. Новые ошибки сайта на этой версии.' },
-  { id: 'c054-passport-plan', section: 'deploy', title: 'Паспорта: записать признаки воронки', risk: 'prod-write', time: '1–3 мин', needs: ['bash', 'vm'],
+  { id: 'c054-passport-plan', section: 'deploy', title: 'Паспорта: добить признаки воронки', risk: 'prod-write', time: '1–3 мин', needs: ['bash', 'vm'],
     run: { bash: ['deploy/synology/c054-passport-plan.sh'] },
-    confirm: 'В справочники паспортов запишутся признаки и условия пунктов. Выданные паспорта и № 597 не меняются. Запускать только после выкладки воронки паспортов.',
-    hint: 'Один раз после выкладки C054. Повтор безопасен: те же значения, дублей не будет.' },
+    confirm: 'Допишет traits у решётки / листа / «Укладывается» и условия текстов «Для всех». Выданные и № 597 не меняются.',
+    hint: 'Нужно: пустые traits + ALL_V2 без when. Повтор безопасен.' },
 
   // ---------- Осмотр ----------
   { id: 'prod-doctor', section: 'site', title: 'Осмотр сайта', risk: 'read', time: '1 мин', needs: ['bash'], run: { bash: ['deploy/synology/doctor.sh'], soft: true }, every: 7, why: 'Раз в неделю: полный осмотр сайта',

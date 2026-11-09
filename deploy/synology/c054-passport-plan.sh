@@ -33,7 +33,19 @@ while IFS='|' read -r kind method path body label dict code; do
   [ -n "$kind" ] || continue
   f="$body"; command -v cygpath >/dev/null && f="$(cygpath -m "$f")"
   if [ "$kind" = "create" ]; then
-    if $API GET "/api/dicts/$dict?limit=1000" 2>/dev/null | grep -q "\"code\":\"$code\""; then echo "· $label — уже есть"; skip=$((skip+1)); continue; fi
+    # Уже есть: POST не шлём; если в плане были traits — добьём PATCH (иначе останутся пустые, как у LAID/SHEET/TREE_GRATE после первого прогона).
+    list="$($API GET "/api/dicts/$dict?limit=1000" 2>/dev/null || true)"
+    if grep -q "\"code\":\"$code\"" <<<"$list"; then
+      id="$(node -e 'const d=JSON.parse(process.argv[1]); const it=(d.items||d||[]).find(x=>x.code===process.argv[2]); if(it) process.stdout.write(String(it.id||it._id||""))' "$list" "$code" 2>/dev/null || true)"
+      traits="$(node -e 'const b=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); if(b.traits!=null) process.stdout.write(String(b.traits))' "$f" 2>/dev/null || true)"
+      if [ -n "$id" ] && [ -n "$traits" ]; then
+        node -e 'const fs=require("fs"); fs.writeFileSync(process.argv[1], JSON.stringify({traits:process.argv[2]}))' "$T/fix-$code.json" "$traits"
+        step "признаки $dict $code (запись уже была): $traits" $API PATCH "/api/dicts/$dict/$id" "$T/fix-$code.json"
+      else
+        echo "· $label — уже есть"; skip=$((skip+1))
+      fi
+      continue
+    fi
   fi
   step "$label" $API "$method" "$path" "$f"
 done < "$T/steps.txt"
