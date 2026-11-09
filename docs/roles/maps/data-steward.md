@@ -29,6 +29,6 @@
 - Проверка: scratchpad `t3.js` (fakemongo + дамп прода).
 
 ## C027 «Деньги по статьям» (2026-11-06)
-- `scripts/map-articles.js` (+ `map-articles.rules.json`): план заявки → подстатья; `--apply [--min=]` не запускался. Экспорты `classify/buildPlan/renderPlan/applyPlan`. Цели правил — путь «Статья / Подстатья» из `docs/crew/C027-money-by-articles/articles-seed.json`.
+- `scripts/map-articles.js`: план «заявка → подстатья», правила внутри файла, подстатьи — из `expensearticles`. Запуск на проде — `remote-access/run-script.sh map-articles [--apply]` (stdin; запись — пользователь, копия базы перед записью). Экспорты `classify/buildPlan/renderPlan/applyPlan`. Цель правила — путь «Статья / Подстатья».
 - Локальная Mongo: `127.0.0.1:27018` (контейнер datacore-mongo, root-пароль — `docker exec datacore-mongo printenv …`, `authSource=admin&directConnection=true`); данные только в `datacoreqa` (60 заявок), `datacore` пустая.
 - Итог: `docs/crew/C027-money-by-articles/mapping-plan.md`, отчёт — `steward-report.md`. Карта обновлена.

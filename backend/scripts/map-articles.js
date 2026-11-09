@@ -1,21 +1,421 @@
-/* C027 — заявки → подстатьи расходов (supplyrequests.articleId). Сопоставление по правилам map-articles.rules.json.
- *   MONGO_URI=… [MONGO_DB=…] node scripts/map-articles.js            — только ПЛАН: tools/logs/map-articles-<дата>.md и .csv
- *   … node scripts/map-articles.js --apply [--min=средняя|высокая]   — запись (на проде запускает пользователь после «да»)
- * --apply: бэкап {_id, articleId} в tools/logs/; пишет только заявкам без articleId (filter {_id:{$in}, articleId:{$exists:false}});
- *   подстатьи берёт из коллекции expensearticles (должна быть создана сидом бэкенда); categoryIds подстатей — только добавление.
- * Порядок правил: ручные (manual) → карта категорий → без статьи. Мягко: ничего не удаляется и не перезаписывается. */
+/* C027 — заявки → подстатьи расходов (supplyrequests.articleId). Скрипт самодостаточный: правила — ниже в файле,
+ * подстатьи — из коллекции expensearticles (сид бэкенда). Запуск на проде — кнопками пульта (remote-access/run-script.sh, через stdin):
+ *   «План скрипта» map-articles         — только план на экран, ничего не пишет
+ *   «Записать скрипт» map-articles      — копия базы (run-script) → запись только «высокой» уверенности
+ * Локально: MONGO_URI=… [MONGO_DB=…] node scripts/map-articles.js [--apply] [--min=средняя|высокая] [--out файл.json]
+ * --apply: выгрузка {_id, articleId} для отката (--out, иначе /tmp); пишет только заявкам без articleId
+ *   (filter {_id:{$in}, articleId:{$exists:false}}); categoryIds подстатей — только добавление. Ничего не удаляется и не перезаписывается.
+ * Порядок правил: ручные (manual) → карта категорий → без статьи. */
 const path = require('path');
 const fs = require('fs');
-const { MongoClient } = require(require.resolve('mongoose', { paths: [process.cwd(), path.join(__dirname, '..')] })).mongo;
+const { MongoClient, ObjectId } = require(require.resolve('mongoose', { paths: [process.cwd(), path.join(__dirname || process.cwd(), '..')] })).mongo;
 
 const norm = (s) => String(s ?? '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
-const RULES = JSON.parse(fs.readFileSync(path.join(__dirname, 'map-articles.rules.json'), 'utf8'));
-const SEED = JSON.parse(fs.readFileSync(path.join(__dirname, '../../docs/crew/C027-money-by-articles/articles-seed.json'), 'utf8'));
-const LOGS = path.join(__dirname, '../../tools/logs');
+/** Правила сопоставления (цель — путь «Статья / Подстатья» из справочника «Статьи расходов»). */
+const RULES = {
+ "_comment": "Правила C027: порядок — manual (по порядку) → categories → без статьи. Цель «Статья / Подстатья» — как в docs/crew/C027-money-by-articles/articles-seed.json. words — подстроки в нижнем регистре (ё=е); проверяются по полю: title — название заявки, category — название категории, supplier — название поставщика.",
+ "manual": [
+  {
+   "title": [
+    "перчатк"
+   ],
+   "to": "Рабочая одежда / Перчатки трикотажные"
+  },
+  {
+   "title": [
+    "краги"
+   ],
+   "to": "Рабочая одежда / Краги спилковые"
+  },
+  {
+   "title": [
+    "маска сварщ"
+   ],
+   "to": "Рабочая одежда / Маска сварщика"
+  },
+  {
+   "title": [
+    "нарукавник"
+   ],
+   "to": "Рабочая одежда / Нарукавники брезентовые"
+  },
+  {
+   "title": [
+    "фартук"
+   ],
+   "to": "Рабочая одежда / Фартук брезентовый"
+  },
+  {
+   "title": [
+    "спецодежд",
+    "спецобув",
+    "ботинки",
+    "костюм рабочий"
+   ],
+   "to": "Рабочая одежда / Спецодежда и обувь"
+  },
+  {
+   "title": [
+    "подшипник"
+   ],
+   "to": "Расходные материалы / Подшипники"
+  },
+  {
+   "title": [
+    "болт",
+    "гайк",
+    "шайб",
+    "винт ",
+    "саморез",
+    "метиз",
+    "шпильк"
+   ],
+   "to": "Расходные материалы / Болты, гайки, шайбы и др. метизы"
+  },
+  {
+   "title": [
+    "диск отрез",
+    "круг отрез",
+    "круг зачист",
+    "круг шлиф",
+    "лепестков",
+    "фреза",
+    "щетка",
+    "щётка"
+   ],
+   "to": "Расходные материалы / Круги, диски, фрезы, щётки"
+  },
+  {
+   "title": [
+    "заглушк",
+    "зацеп"
+   ],
+   "to": "Расходные материалы / Пластиковые заглушки, зацепы и др."
+  },
+  {
+   "title": [
+    "нерж"
+   ],
+   "to": "Расходные материалы / Металл - нержавейка"
+  },
+  {
+   "title": [
+    "алюмин"
+   ],
+   "to": "Расходные материалы / Металл - алюминий"
+  },
+  {
+   "title": [
+    "труба профильная",
+    "труба проф",
+    "профильная труба",
+    "арматур",
+    "швеллер",
+    "уголок",
+    "полоса стальн",
+    "лист стальн",
+    "круг стальн"
+   ],
+   "to": "Расходные материалы / Металл - сталь"
+  },
+  {
+   "title": [
+    "фанер",
+    "доска",
+    "брус",
+    "осб"
+   ],
+   "to": "Расходные материалы / Лесоматериалы и фанера",
+   "confidence": "средняя"
+  },
+  {
+   "title": [
+    "порошков"
+   ],
+   "to": "Расходные материалы / Порошковое покрытие"
+  },
+  {
+   "title": [
+    "эмаль",
+    "краска",
+    "грунтовк"
+   ],
+   "to": "Расходные материалы / Эмаль Краски Грунтовки",
+   "confidence": "средняя"
+  },
+  {
+   "title": [
+    "проволока омедн",
+    "проволока сварочн"
+   ],
+   "to": "Расходные материалы / Проволока омедненная"
+  },
+  {
+   "title": [
+    "углекислот",
+    "баллон"
+   ],
+   "to": "Расходные материалы / Углекислота и аренда балонов"
+  },
+  {
+   "title": [
+    "электрод",
+    "сопло для резак"
+   ],
+   "to": "Расходные материалы / Сопло для резака+электроды+фильтры"
+  },
+  {
+   "title": [
+    "сотовый поликарбонат"
+   ],
+   "to": "Расходные материалы / Сотовый поликарбонат"
+  },
+  {
+   "title": [
+    "монолитный поликарбонат"
+   ],
+   "to": "Расходные материалы / Монолитный поликарбонат"
+  },
+  {
+   "title": [
+    "профнастил",
+    "профлист"
+   ],
+   "to": "Расходные материалы / Лист профилированный (профнастил)"
+  },
+  {
+   "title": [
+    "композит",
+    "акп"
+   ],
+   "to": "Расходные материалы / Композит (АКП)",
+   "confidence": "средняя"
+  },
+  {
+   "title": [
+    "оракал"
+   ],
+   "to": "Расходные материалы / Оракал для инвентаря"
+  },
+  {
+   "title": [
+    "кабель",
+    "розетк",
+    "автомат выключ",
+    "провод "
+   ],
+   "to": "Расходные материалы / Электрика и комплектующие",
+   "confidence": "средняя"
+  },
+  {
+   "title": [
+    "сетка заградит",
+    "сетка спортив",
+    "сетка волейб",
+    "сетка футбол"
+   ],
+   "to": "Расходные материалы / Сетки заградительные и спортивные"
+  },
+  {
+   "title": [
+    "ветошь"
+   ],
+   "to": "Расходные материалы / Ветошь и др. ткани для чистки"
+  },
+  {
+   "title": [
+    "канат"
+   ],
+   "to": "Расходные материалы / Канат х/б для воркаут"
+  },
+  {
+   "title": [
+    "рулетка"
+   ],
+   "to": "Инструменты / Рулетка измерительная"
+  },
+  {
+   "title": [
+    "плоскогубц",
+    "бокорез"
+   ],
+   "to": "Инструменты / Плоскогубцы, бокорезы и др."
+  },
+  {
+   "title": [
+    "ключ гаечный",
+    "отвертк",
+    "отвёртк",
+    "нож "
+   ],
+   "to": "Инструменты / Гаечные ключи, отвёртки, ножи"
+  },
+  {
+   "title": [
+    "молоток",
+    "гвоздодер",
+    "лопата"
+   ],
+   "to": "Инструменты / Молоток, гвоздодёр, лопата и др."
+  },
+  {
+   "title": [
+    "шуруповерт",
+    "дрель",
+    "лобзик",
+    "электроинструмент"
+   ],
+   "to": "Инструменты / Электроинструменты",
+   "confidence": "средняя"
+  },
+  {
+   "title": [
+    "болгарк",
+    "ушм"
+   ],
+   "to": "Оборудование / Болгарки и комплектующие"
+  },
+  {
+   "title": [
+    "сварочный аппарат",
+    "сварочный полуавтомат"
+   ],
+   "to": "Оборудование / Сварочный аппарат"
+  },
+  {
+   "title": [
+    "компрессор"
+   ],
+   "to": "Оборудование / Винтовой компрессор VSD 500L IronMac",
+   "confidence": "средняя"
+  },
+  {
+   "title": [
+    "трава искусств"
+   ],
+   "to": "Материалы для площадки / Трава искусственная"
+  },
+  {
+   "title": [
+    "шовная лента"
+   ],
+   "to": "Материалы для площадки / Шовная лента и др."
+  },
+  {
+   "title": [
+    "клей полиуретан"
+   ],
+   "to": "Материалы для площадки / Клей полиуретановый"
+  },
+  {
+   "title": [
+    "крошка резин",
+    "крошка epdm"
+   ],
+   "to": "Материалы для площадки / Крошка резиновая 2-4 мм",
+   "confidence": "средняя"
+  },
+  {
+   "title": [
+    "бетон"
+   ],
+   "to": "Материалы для площадки / Бетон М"
+  },
+  {
+   "title": [
+    "асфальт"
+   ],
+   "to": "Материалы для площадки / Асфальтобетон мелкозернистый",
+   "confidence": "средняя"
+  },
+  {
+   "title": [
+    "бордюр",
+    "бортов"
+   ],
+   "to": "Материалы для площадки / Камень бортовой (бордюры)"
+  },
+  {
+   "title": [
+    "щебень"
+   ],
+   "to": "Материалы для площадки / Щебень фракции 5-20 мм",
+   "confidence": "средняя"
+  },
+  {
+   "title": [
+    "гпс",
+    "гравийно"
+   ],
+   "to": "Материалы для площадки / Гравийно-песчаная смесь (ГПС)"
+  },
+  {
+   "title": [
+    "песок"
+   ],
+   "to": "Материалы для площадки / Песок кварцевый"
+  },
+  {
+   "title": [
+    "цемент"
+   ],
+   "to": "Материалы для площадки / Цемент М 200-400"
+  },
+  {
+   "title": [
+    "геотекстил"
+   ],
+   "to": "Материалы для площадки / Геотекстиль нетканый"
+  },
+  {
+   "title": [
+    "краска разметоч"
+   ],
+   "to": "Материалы для площадки / Краска разметочная"
+  },
+  {
+   "title": [
+    "доставка тк",
+    "транспортная компани"
+   ],
+   "to": "Транспортировка товаров / Доставка через ТК"
+  },
+  {
+   "title": [
+    "доставка",
+    "перевозк",
+    "грузоперевоз"
+   ],
+   "to": "Транспортировка товаров / Доставка наёмным а/м",
+   "confidence": "средняя"
+  },
+  {
+   "title": [
+    "аренда спецтехник",
+    "экскаватор",
+    "автокран"
+   ],
+   "to": "Аренда спецтехники / Комиссия 19% (потери при переводе)",
+   "confidence": "средняя",
+   "_note": "в списке директора у статьи только одна подстатья — проверить"
+  },
+  {
+   "title": [
+    "сиденье"
+   ],
+   "to": "Расходные материалы / Сиденья пластиковые для трибун",
+   "confidence": "средняя"
+  }
+ ],
+ "categories": {
+  "Профильная труба": "Расходные материалы / Металл - сталь",
+  "Металлы": "Расходные материалы / Металл - сталь",
+  "Метизы": "Расходные материалы / Болты, гайки, шайбы и др. метизы",
+  "Дерево": "Расходные материалы / Лесоматериалы и фанера"
+ },
+ "categoriesConfidence": "средняя"
+};
 const RANK = { 'нет': 0, 'средняя': 1, 'высокая': 2 };
-
-const seedPaths = new Set();
-for (const a of SEED) for (const c of a.children) seedPaths.add(`${a.name} / ${c}`);
 
 /** Чистая функция: заявка → { to, rule, conf }. ctx: { categoryName, supplierName } */
 function classify(req, ctx) {
@@ -56,7 +456,10 @@ async function buildPlan(db) {
   for (const [cn, to] of Object.entries(RULES.categories || {})) {
     if (cats.some((c) => norm(c.name) === norm(cn))) (catSug.get(to) || catSug.set(to, new Set()).get(to)).add(cn);
   }
-  const badTargets = [...new Set([...RULES.manual.map((r) => r.to), ...Object.values(RULES.categories || {})])].filter((p) => !seedPaths.has(p));
+  const subs = await db.collection('expensearticles').find({ deletedAt: null, parentId: { $ne: null } }, { projection: { name: 1, parentId: 1 } }).toArray();
+  const parents = new Map((await db.collection('expensearticles').find({ deletedAt: null, parentId: null }, { projection: { name: 1 } }).toArray()).map((a) => [String(a._id), a.name]));
+  const known = new Set(subs.map((x) => `${parents.get(String(x.parentId))} / ${x.name}`));
+  const badTargets = [...new Set([...RULES.manual.map((r) => r.to), ...Object.values(RULES.categories || {})])].filter((t) => !known.has(t));
   return { rows, catSug, badTargets, total: reqs.length };
 }
 
@@ -70,7 +473,7 @@ function renderPlan(p) {
   const md = [`# Сопоставление заявок со статьями — план (${stamp()})`, '',
     `Заявок без статьи: ${p.total}. Высокая уверенность: ${by('высокая')}, средняя: ${by('средняя')}, не сопоставлено: ${by('нет')}.`,
     `Сумма сопоставленных: ${Math.round(sum(p.rows.filter((r) => r.to)))} ₽; несопоставленных: ${Math.round(sum(unm))} ₽.`, '',
-    p.badTargets.length ? `⚠ Правила ссылаются на подстатьи, которых нет в articles-seed.json: ${p.badTargets.join('; ')}` : 'Все цели правил есть в articles-seed.json.', '',
+    p.badTargets.length ? `⚠ Правила ссылаются на подстатьи, которых нет в справочнике «Статьи расходов»: ${p.badTargets.join('; ')}` : 'Все цели правил есть в справочнике «Статьи расходов».', '',
     '## Топ несопоставленных', '', ...(topList.length ? topList.map(([k, o]) => `- ${k} — ${o.n} заявок, ${Math.round(o.s)} ₽`) : ['- нет']), '',
     '## Предложение categoryIds (категория → подстатья)', '', ...(p.catSug.size ? [...p.catSug].map(([t, s]) => `- ${t} ← ${[...s].join(', ')}`) : ['- нет']), '',
     '## Было → станет', '', '| № | Название | Категория | Поставщик | Сумма | → Подстатья | Правило | Уверенность |', '|--|--|--|--|--|--|--|--|',
@@ -80,15 +483,13 @@ function renderPlan(p) {
   return { md: md.join('\n'), csv };
 }
 
-async function applyPlan(db, p, minConf) {
+async function applyPlan(db, p, minConf, outFile) {
   const subs = await db.collection('expensearticles').find({ deletedAt: null, parentId: { $ne: null } }).toArray();
   const parents = new Map((await db.collection('expensearticles').find({ deletedAt: null, parentId: null }).toArray()).map((a) => [String(a._id), a.name]));
   if (!subs.length) throw new Error('Коллекция expensearticles пуста — сначала запустите бэкенд с сидом статей.');
   const idByPath = new Map(subs.map((s) => [`${parents.get(String(s.parentId))} / ${s.name}`, s._id]));
   const todo = p.rows.filter((r) => r.to && RANK[r.conf] >= RANK[minConf] && idByPath.has(r.to));
-  fs.mkdirSync(LOGS, { recursive: true });
-  const bak = path.join(LOGS, `map-articles-backup-${stamp()}-${Date.now()}.json`);
-  const ObjectId = require(require.resolve('mongoose', { paths: [process.cwd(), path.join(__dirname, '..')] })).mongo.ObjectId;
+  const bak = outFile || `/tmp/map-articles-backup-${stamp()}-${Date.now()}.json`;
   const ids = todo.map((r) => new ObjectId(r.id));
   const before = await db.collection('supplyrequests').find({ _id: { $in: ids } }, { projection: { articleId: 1 } }).toArray();
   fs.writeFileSync(bak, JSON.stringify(before.map((b) => ({ _id: String(b._id), articleId: b.articleId ?? null }))));
@@ -110,24 +511,30 @@ async function applyPlan(db, p, minConf) {
 
 module.exports = { classify, buildPlan, renderPlan, applyPlan };
 
-if (require.main === module) (async () => {
+// require.main нет при запуске через stdin (remote-access/run-script.sh: node -)
+if (require.main === module || String(module.id).includes('[stdin]')) (async () => {
   if (!process.env.MONGO_URI) { console.error('Нужен MONGO_URI'); process.exit(2); }
   const c = await MongoClient.connect(process.env.MONGO_URI);
   try {
     const db = c.db(process.env.MONGO_DB || undefined);
     const p = await buildPlan(db);
+    const { md } = renderPlan(p);
+    const NL = String.fromCharCode(10);
+    const lines = md.split(NL);
+    const cut = lines.findIndex((l) => l.startsWith('## Было → станет'));
+    console.log(lines.slice(0, cut < 0 ? lines.length : cut).join(NL));
+    const show = p.rows.filter((r) => r.to).slice(0, 80);
+    if (show.length) console.log('## Что станет (первые ' + show.length + ')' + NL + show.map((r) => `- №${r.no} ${r.title} → ${r.to} (${r.conf})`).join(NL));
     if (process.argv.includes('--apply')) {
       const min = arg('--min') || 'высокая';
       if (!(min in RANK)) throw new Error('--min: высокая | средняя');
-      const r = await applyPlan(db, p, min);
-      console.log(`Записано заявок: ${r.written} из ${r.planned}; подстатей с новыми категориями: ${r.catAdded}; бэкап: ${r.backup}`);
+      const i = process.argv.indexOf('--out');
+      const r = await applyPlan(db, p, min, i > 0 ? process.argv[i + 1] : null);
+      console.log(NL + `Записано заявок: ${r.written} из ${r.planned} (уверенность «${min}» и выше); подстатей с новыми категориями: ${r.catAdded}; выгрузка для отката: ${r.backup}`);
     } else {
-      fs.mkdirSync(LOGS, { recursive: true });
-      const { md, csv } = renderPlan(p);
-      const base = path.join(LOGS, `map-articles-${stamp()}`);
-      fs.writeFileSync(base + '.md', md); fs.writeFileSync(base + '.csv', csv);
-      console.log(md.split('\n').slice(0, 14).join('\n'));
-      console.log(`\nПлан: ${base}.md / .csv (только план, ничего не записано)`);
+      const i = process.argv.indexOf('--out');
+      if (i > 0) { const { csv } = renderPlan(p); fs.writeFileSync(process.argv[i + 1], csv); console.log('Таблица: ' + process.argv[i + 1]); }
+      console.log(NL + 'Только план, ничего не записано. Записать: --apply (только «высокая» уверенность).');
     }
   } finally { await c.close(); }
 })().catch((e) => { console.error(e.message || e); process.exit(1); });
