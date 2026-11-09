@@ -1,4 +1,7 @@
 import request from 'supertest';
+import sharp from 'sharp';
+import { createHash } from 'crypto';
+import { Types } from 'mongoose';
 import type { INestApplication } from '@nestjs/common';
 import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
@@ -176,6 +179,31 @@ describe('PDM import (C057)', () => {
     expect(list.body.items[0]).toMatchObject({ docKind: 'dxf', pdmVersion: 2, isCurrent: true });
     const preview2 = await preview(tree()).expect(201);
     expect(preview2.body.needFiles).toEqual([]);
+  });
+
+  it('превью: фото под владельцем и главное; повтор — stored:false; фото менеджера не перебивается; не из дерева — 400', async () => {
+    const png = await sharp({ create: { width: 32, height: 32, channels: 3, background: '#336699' } }).png().toBuffer();
+    const sha = createHash('sha256').update(png).digest('hex');
+    const send = (buf: Buffer, designation = '0000.1005.0001', hash = createHash('sha256').update(buf).digest('hex')) => {
+      let r = http().post('/api/pdm-import/preview-image').set(authHeader(admin));
+      for (const [k, v] of Object.entries({ importId: firstPlan, designation, sha256: hash })) r = r.field(k, v);
+      return r.attach('file', buf, 'p.png');
+    };
+    const first = await send(png).expect(201);
+    expect(first.body).toMatchObject({ stored: true, main: true });
+    const part = await col('materials').findOne({ article: '0000.1005.0001' });
+    expect(String(part!.mainPhotoId)).toBe(first.body.photoId);
+    expect(await col('photos').findOne({ _id: part!.mainPhotoId })).toMatchObject({ source: 'pdm', sha256: sha });
+    expect((await send(png).expect(201)).body).toMatchObject({ stored: false, photoId: first.body.photoId });
+    // менеджер ставит своё главное фото — следующее превью из PDM его не перебивает
+    const mine = new Types.ObjectId();
+    await col('photos').insertOne({ _id: mine, storageUrl: '/uploads/mine.png', variant: 'original', deletedAt: null });
+    await col('materials').updateOne({ _id: part!._id }, { $set: { mainPhotoId: mine } });
+    const png2 = await sharp({ create: { width: 16, height: 16, channels: 3, background: '#aa3333' } }).png().toBuffer();
+    expect((await send(png2).expect(201)).body).toMatchObject({ stored: true, main: false });
+    expect(String((await col('materials').findOne({ _id: part!._id }))!.mainPhotoId)).toBe(String(mine));
+    await send(png, '9999.0000.0000').expect(400);
+    await send(Buffer.from('not an image'), '0000.1005.0001', 'a'.repeat(64)).expect(400);
   });
 
   describe('«Что купить» и приложение', () => {

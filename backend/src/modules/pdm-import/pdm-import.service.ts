@@ -173,7 +173,7 @@ export class PdmImportService {
     await this.writeFasteners(group('fastener', 'purchased'), out, org, session);
     await this.writeComposite(group('module'), lines, out, org, session, this.modules as unknown as AnyModel, newModule);
     await this.writeComposite(group('product'), lines, out, org, session, this.products as unknown as AnyModel, newProduct);
-    for (const f of fins.values()) if (f.item.docs?.length) owners[f.item.designation] = { kind: ownerKindOf(f.item.kind), id: f.id };
+    for (const f of fins.values()) if (f.item.docs?.length || f.item.preview) owners[f.item.designation] = { kind: ownerKindOf(f.item.kind), id: f.id };
 
     const result: ApplyResult = { importId: String(imp._id), ...out, needFiles };
     await this.imports.updateOne({ _id: imp._id }, { $set: { status: 'applied', decisions: plain(Object.fromEntries(decisions)), result, owners, appliedAt: new Date() } }, { session });

@@ -123,3 +123,10 @@ export class PdmFileFormDto {
   @IsOptional() @IsString() @Length(0, 64) modified?: string;
   @IsString() @Matches(SHA, { message: SHA_MSG }) sha256!: string;
 }
+
+/** Поля формы `POST /pdm-import/preview-image` (картинка-превью изделия, модуля или детали). */
+export class PdmPreviewFormDto {
+  @IsString() importId!: string;
+  @IsString() @Length(1, 128) designation!: string;
+  @IsString() @Matches(SHA, { message: SHA_MSG }) sha256!: string;
+}

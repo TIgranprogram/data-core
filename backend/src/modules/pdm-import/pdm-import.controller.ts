@@ -5,16 +5,17 @@ import { Throttle } from '@nestjs/throttler';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuditAction } from '../../common/interceptors/audit.interceptor';
-import { decodeMulterOriginalName } from '../photos/image-upload.options';
+import { decodeMulterOriginalName, IMAGE_UPLOAD_MAX_BYTES } from '../photos/image-upload.options';
 import { PDM_MAX_BYTES } from '../pdm-files/pdm-paths';
-import { PdmApplyDto, PdmFileFormDto, PdmTreeDto } from './dto/pdm-tree.dto';
+import { PdmApplyDto, PdmFileFormDto, PdmPreviewFormDto, PdmTreeDto } from './dto/pdm-tree.dto';
 import { PdmImportService } from './pdm-import.service';
+import { PdmPreviewService } from './pdm-preview.service';
 
 /** Загрузка изделий из PDM (C057): предпросмотр → применение → файлы. Только администратор. Формат — docs/crew/C057-pdm-import/CONTRACT.md. */
 @ApiTags('Загрузка из PDM')
 @Controller('pdm-import')
 export class PdmImportController {
-  constructor(private readonly service: PdmImportService) {}
+  constructor(private readonly service: PdmImportService, private readonly previews: PdmPreviewService) {}
 
   @Post('preview')
   @Roles('admin')
@@ -42,5 +43,17 @@ export class PdmImportController {
     if (!file) throw new BadRequestException('Файл не передан (поле формы file)');
     file.originalname = decodeMulterOriginalName(file.originalname);
     return this.service.saveFile(form, file.buffer, user);
+  }
+
+  /** Multipart: `file` (PNG/JPEG до 10 МБ) + importId, designation, sha256. Главное фото менеджера не перебивается; повтор — `stored:false`. */
+  @Post('preview-image')
+  @Roles('admin')
+  @Throttle({ short: { ttl: 60_000, limit: 600 } })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: IMAGE_UPLOAD_MAX_BYTES, files: 1 } }))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  previewImage(@UploadedFile() file: Express.Multer.File | undefined, @Body() form: PdmPreviewFormDto, @CurrentUser() user: AuthenticatedUser) {
+    if (!file) throw new BadRequestException('Файл не передан (поле формы file)');
+    return this.previews.save(form, file.buffer, user);
   }
 }

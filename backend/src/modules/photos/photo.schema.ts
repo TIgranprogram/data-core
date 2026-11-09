@@ -60,6 +60,10 @@ export class Photo {
    * JSON registration remains available for pre-uploaded external URLs.
    */
 
+  /** C057: откуда фото ('pdm' — превью из приложения PDM) и sha256 файла, чтобы не грузить повторно. */
+  @Prop({ type: String }) source?: string;
+  @Prop({ type: String }) sha256?: string;
+
   /** TZ-CORE-302: soft-delete timestamp; null = active. */
   @Prop({ type: Date, default: null, index: true })
   deletedAt?: Date | null;

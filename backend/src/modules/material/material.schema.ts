@@ -73,6 +73,11 @@ export class Material {
   @Prop({ type: Number, min: 0 })
   weightKg?: number;
 
+  /** 'kg' — weightKg записан в кг; без пометки — старые записи в граммах (stock/weight.ts weightGOf). Склад пишет поле
+   *  драйвером напрямую; в схеме — чтобы запись через модель (импорт PDM C057) не выбрасывала его. */
+  @Prop({ type: String })
+  weightUnit?: string;
+
   @Prop({ unique: true, sparse: true, index: true })
   sku?: string;
 
