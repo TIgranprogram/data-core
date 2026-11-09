@@ -144,9 +144,76 @@ function offerFields(r, ctx) {
       ['Откуда', SRC[r.source] || ''], ['Наш материал', mat], ['Примечание', r.note]] }) });
 }
 
+function dimsText(d) {
+  if (!d) return '';
+  if (typeof d === 'string') return d;
+  const parts = ['length', 'width', 'height', 'thickness', 'diameter'].map((k) => (d[k] != null && d[k] !== '' ? String(d[k]) : '')).filter(Boolean);
+  return parts.length ? parts.join(' × ') + (d.unit ? ' ' + d.unit : '') : '';
+}
+
 function materialFields(r) {
-  return card({ size: 'M', variant: 'fields',
-    body: readonlyGroup({ rows: [['Артикул', r.article || '—'], ['Единица', r.unit || '—'], ['Категория', r.categoryName]] }) });
+  const part = r.materialKind === 'part';
+  const rows = [
+    ['Артикул', r.article || '—'],
+    ['Единица', r.unit || '—'],
+    ['Категория', r.categoryName],
+  ];
+  if (part) {
+    rows.push(
+      ['Вид', 'Деталь'],
+      ['Размеры', dimsText(r.dimensions) || '—'],
+      ['Масса', r.weightKg != null ? `${qty(r.weightKg)} кг` : '—'],
+      ['RAL', (r.colors || []).join(', ') || r.ralCode || '—'],
+      ['Нужно название', r.needsName ? badge('да — впишите понятное имя', 'warn') : 'нет'],
+    );
+  }
+  return card({ size: 'M', variant: 'fields', body: readonlyGroup({ rows }) });
+}
+
+/** C057 Э3: сырьё-заготовка детали + файлы PDM с версиями. */
+function partBomBlock(comp) {
+  const lines = comp?.items || comp?.composition || (Array.isArray(comp) ? comp : []);
+  if (!lines.length) return section({ title: 'Заготовка и сырьё', tone: 'warn', body: hint('Размера заготовки нет — укажите в составе детали (сырьё + размеры).') });
+  return section({
+    title: 'Заготовка и сырьё', tone: 'gold', count: lines.length,
+    body: table({
+      columns: [{ label: 'Сырьё' }, { label: 'Заготовка' }, { label: 'Расход', num: true }],
+      rows: lines.map((l) => ({
+        cells: [
+          l.name || l.materialName || '—',
+          dimsText(l.overrideDimensions) || l.sizeText || '—',
+          `${qty(l.quantity)}${l.unit ? ' ' + l.unit : ''}`,
+        ],
+      })),
+    }),
+  });
+}
+
+function pdmFilesBlock(ownerKind, ownerId) {
+  const box = stack(busyBlock('файлы PDM'));
+  const paint = () => {
+    box.replaceChildren(busyBlock('файлы PDM', { retry: paint }));
+    api('/pdm-files', { query: { ownerKind, ownerId } }).then((res) => {
+      const items = res.items || res || [];
+      if (!items.length) { box.replaceChildren(hint('Файлов из PDM пока нет.')); return; }
+      box.replaceChildren(section({
+        title: 'Файлы из PDM', tone: 'info', count: items.length,
+        body: table({
+          columns: [{ label: 'Файл' }, { label: 'Вид' }, { label: 'Версии' }, { label: 'Текущая' }],
+          rows: items.map((f) => ({
+            cells: [
+              f.name || f.designation || '—',
+              f.kind || f.role || '—',
+              `Версии (${f.versions?.length || f.versionCount || 1})`,
+              f.version != null ? String(f.version) : (f.isCurrent ? 'текущая' : '—'),
+            ],
+          })),
+        }),
+      }));
+    }).catch((e) => box.replaceChildren(failBlock(e, paint, { text: 'Файлы PDM не загрузились' })));
+  };
+  paint();
+  return box;
 }
 
 /** Шапка панели: подзаголовок. */
@@ -166,6 +233,25 @@ export function cardTop(r, ctx) {
 /** Блоки паспорта позиции (после верха). Нет позиции склада — только история цен предложения. */
 export function cardExtra(r) {
   if (!r.materialId) {
+    if (isMaterial(r) && r.materialKind === 'part') {
+      const mid = r.id;
+      const box = stack();
+      const load = () => {
+        box.replaceChildren(busyBlock('состав детали'));
+        Promise.all([
+          api(`/materials/${mid}/composition`).catch(() => ({ items: [] })),
+          api(`/materials/${mid}`).catch(() => r),
+        ]).then(([comp, full]) => {
+          box.replaceChildren(
+            partBomBlock(comp),
+            pdmFilesBlock('material', mid),
+            full?.needsName ? hint('Нужно название: сейчас в карточке обозначение — впишите понятное имя менеджера.') : null,
+          );
+        }).catch((e) => box.replaceChildren(failBlock(e, load, { text: 'Состав детали не загрузился' })));
+      };
+      load();
+      return box;
+    }
     if (isMaterial(r)) return hint('Поставщика нет, цены нет. Чтобы появились — загрузите прайс поставщика кнопкой «Загрузить Excel» или сопоставьте его строку с этой позицией.');
     const hist = [...(r.priceHistory || [])].reverse();
     return stack(section({ title: 'История цен', tone: 'money', count: hist.length,
