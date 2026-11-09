@@ -22,8 +22,17 @@
 | 14 | Д8 категория + вариант — наверх | ⏳ | docs.js:205 |
 | 15 | Д9 одно название у рисунка | ⏳ | passport-kinds.js |
 | 16 | funnelBox: вывод одного корня в свой раздел | ⏳ | ui/funnel.js |
-| 17 | Одна кнопка «Сохранить» для всего; dirty() по всем полям | ⏳ | template-form.js |
+| 17 | Сохранение сразу в изделие, без кнопок (как воронка) | ⏳ | passports/fill |
 | 18 | «Полный» — доп. поля; «Упрощённый» — скрыты | ⏳ | — |
+| **Д** | **Один эталон: шаблон = воронка** | | |
+| 18а | Проверить A3 passport-gaps: коды рисунков, все поля (иначе — правка сервера) | ⏳ | modules/showcase |
+| 18б | Новый компонент passports/fill (template / issue) | ⏳ | sections/passports/fill/ |
+| 18в | Тексты: плитки funnelBox + «по признаку — первыми» | ⏳ | ui/funnel.js |
+| 18г | Заполненное — строкой ✎; пустое — открыто | ⏳ | fill |
+| 18д | Воронка шаги 5–6 → passportFill('issue') | ⏳ | funnel/index.js |
+| 18е | Шаблон → passportFill('template') | ⏳ | docs.js |
+| 18ж | Удалить funnel/gaps.js, texts.js, joints.js | ⏳ | — |
+| 18з | PATTERNS П-1: эталон заполнения | ⏳ | docs/PATTERNS.md |
 | **В** | **Уборка и проверка** | | |
 | 19 | Мёртвая ветка 'passport' в product-files.js | ⏳ | product-files.js |
 | 20 | Помощь «?»: новый путь к рисункам | ⏳ | help-*-data.js |
