@@ -42,10 +42,10 @@ describe('Новые эндпоинты 2026-11-01', () => {
     await http().post('/api/admin/users').set(A()).send({ username, password: 'role-pass-123', role }).expect(201);
     return (await http().post('/api/auth/login').send({ username, password: 'role-pass-123' }).expect(200)).body.access as string;
   };
-  /** Изделие, готовое к выпуску: категория BLG, габариты, вес, материал, способ установки, сроки; фото «для паспорта» — addImg. */
+  /** Изделие, готовое к выпуску: категория BLG, габариты, вес, материал, способ установки, конструкция, сроки; фото «для паспорта» — addImg. */
   const mkProduct = async (name: string, over: Record<string, unknown> = {}) =>
     String((await db().collection('products').insertOne({ name, sku: `NE-${new Types.ObjectId()}`, deletedAt: null, weightKg: 12.5, dimensions: { length: 400, width: 400, height: 800 }, purpose: 'Для сбора мусора', installation: 'На ровное основание',
-      passportDefaults: { passportCategory: 'BLG', materialIds: [matId], installationTypeId: instId, serviceLifeYears: 10, warrantyMonths: 12 }, ...over })).insertedId);
+      passportDefaults: { passportCategory: 'BLG', materialIds: [matId], installationTypeId: instId, joints: ['solid'], serviceLifeYears: 10, warrantyMonths: 12 }, ...over })).insertedId);
   const addImg = async (productId: string, kind = 'overview') => {
     const ph = (await db().collection('photos').insertOne({ storageUrl: '/uploads/ne.png', originalFilename: 'ne.png', mimeType: 'image/png' })).insertedId;
     await db().collection('productphotos').insertOne({ productId: new Types.ObjectId(productId), photoId: ph, purpose: 'passport', kind, sortOrder: 0, deletedAt: null, createdAt: new Date() });
