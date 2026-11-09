@@ -10,11 +10,11 @@
 | 0.3 | Совет opus | K | ✅ | DECISIONS |
 | 0.4 | Договор pdm-tree/1 | K | ✅ | CONTRACT |
 | **Э0** | **Данные прода** | | | |
-| 1 | Разметка materialKind по категории (+ проверка составов) | D | ⏳ | c057-kind.js |
-| 2 | Разбор названий в typeName/standardRef/materialGrade/dimensions | D | ⏳ | c057-parse-names.js |
-| 3 | Отчёт веса (граммы в «кг») | D | ⏳ | c057-weight-report.js |
-| 4 | Отчёт дублей по ключу | D | ⏳ | c057-dupes-report.js |
-| 5 | Сортаменты + связь форматов (после Э1 п. 1) | D | ⏳ | c057-profiles.js |
+| 1 | Разметка materialKind по категории (+ проверка составов) | D | ✅ план | c057-kind.js |
+| 2 | Разбор названий в typeName/standardRef/materialGrade/dimensions | D | ✅ план | c057-parse-names.js |
+| 3 | Отчёт веса (граммы в «кг») | D | ✅ план | c057-weight-report.js |
+| 4 | Отчёт дублей по ключу | D | ✅ план | c057-dupes-report.js |
+| 5 | Сортаменты + связь форматов (после Э1 п. 1) | D | ✅ план | c057-profiles.js |
 | 6 | `--apply` 1, 2, 5 на прод — по «да» пользователя | K | ⏳ | — |
 | **Э1** | **Сервер** | | | |
 | 7 | Новые поля materials / modules / products + индексы | K | ✅ | material.schema.ts |
