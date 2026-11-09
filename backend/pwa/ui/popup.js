@@ -35,7 +35,15 @@ export function placeList(box) {
     box.style.left = Math.max(12, Math.min(a.left, vw - 12 - w)) + 'px';
     const below = vh - a.bottom - 10, above = a.top - 10, up = below < 220 && above > below;
     box.style.maxHeight = Math.max(120, (up ? above : below) - GAP) + 'px';
-    if (up) box.style.bottom = (vh - a.top + 2) + 'px'; else box.style.top = (a.bottom + 2) + 'px';
+    const left = Math.max(12, Math.min(a.left, vw - 12 - w));
+    // вверх — top из CSS (100% + 2px) снять, иначе список сжат между top и bottom до 2 px (2026-11-09)
+    if (up) { box.style.top = 'auto'; box.style.bottom = (vh - a.top + 2) + 'px'; } else box.style.top = (a.bottom + 2) + 'px';
+    // предок с transform (выезжающая панель .drawer) делает fixed относительным к себе — список уезжал за экран
+    // (счёт: «Добавить заявку» пустой, 2026-11-09). Мерим, где встал, и сдвигаем на разницу.
+    const r = box.getBoundingClientRect();
+    const dx = r.left - left, dy = up ? r.bottom - (a.top - 2) : r.top - (a.bottom + 2);
+    if (Math.abs(dx) > 1) box.style.left = (left - dx) + 'px';
+    if (Math.abs(dy) > 1) { if (up) box.style.bottom = (vh - a.top + 2 + dy) + 'px'; else box.style.top = (a.bottom + 2 - dy) + 'px'; }
     return;
   }
   // высота — до низа экрана с отступом GAP (≈2 см), меньше прокрутки (пользователь 2026-10-28)
