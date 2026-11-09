@@ -1,6 +1,6 @@
 import request from 'supertest';
 import type { INestApplication } from '@nestjs/common';
-import { rmSync } from 'fs';
+import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import type { Connection } from 'mongoose';
 import { uploadsRoot } from '../../src/common/uploads/safe-path';
@@ -176,5 +176,63 @@ describe('PDM import (C057)', () => {
     expect(list.body.items[0]).toMatchObject({ docKind: 'dxf', pdmVersion: 2, isCurrent: true });
     const preview2 = await preview(tree()).expect(201);
     expect(preview2.body.needFiles).toEqual([]);
+  });
+
+  describe('«Что купить» и приложение', () => {
+    let productId = '';
+    const needs = (qty?: string, token = admin) => http().get(`/api/products/${productId}/purchase-needs${qty ? `?qty=${qty}` : ''}`).set(authHeader(token));
+    const byName = (items: Array<{ name: string; note?: string }>, re: RegExp) => items.find((i) => re.test(i.name))!;
+
+    beforeAll(async () => { productId = String((await col('products').findOne({ sku: '6104.0000.0000' }))!._id); });
+
+    it('лист 4 мм и фанера 21 — в м² (нет формата), шайба — в штуках; детали без заготовки нет', async () => {
+      const res = await needs().expect(200);
+      expect(res.body.missingBlank).toEqual([]);
+      const sheet = byName(res.body.items, /Лист/), ply = byName(res.body.items, /Фанера/), washer = res.body.items.find((i: { name: string }) => /SHP08/.test(i.name));
+      expect(sheet).toMatchObject({ unit: 'м²', need: 0.060744, have: 0, buy: 0.060744, buyUnit: 'м²' });
+      expect(sheet.note).toContain('Нет формата');
+      expect(ply).toMatchObject({ unit: 'м²', need: 0.48, buy: 0.48 });
+      expect(washer).toMatchObject({ kind: 'fastener', unit: 'шт', need: 8, have: 0, buy: 8 });
+    });
+
+    it('есть формат на складе: остаток вычитается, покупка — целыми листами; qty умножает', async () => {
+      const profile = await col('materials').findOne({ isProfile: true, assortment: /^Лист/ });
+      await col('materials').insertOne({
+        name: 'Лист 4 мм 1250×2500', article: 'T-LIST-4', unit: 'шт', materialKind: 'raw', profileId: profile!._id, isDefaultFormat: true, stockQty: 1,
+        dimensions: [{ type: 'length', value: 2500, isImmutable: false }, { type: 'width', value: 1250, isImmutable: false }], deletedAt: null,
+      });
+      const one = byName((await needs().expect(200)).body.items, /Лист/);
+      expect(one).toMatchObject({ have: 3.125, buy: 0, buyUnit: 'шт', format: { name: 'Лист 4 мм 1250×2500' } });
+      const many = byName((await needs('100').expect(200)).body.items, /Лист/);
+      expect(many).toMatchObject({ need: 6.0744, have: 3.125, buy: 1, buyUnit: 'шт' });
+      const lots = byName((await needs('200').expect(200)).body.items, /Лист/);
+      expect(lots).toMatchObject({ need: 12.1488, buy: 3 });
+    });
+
+    it('плохое количество — 400, нет изделия — 404, без входа — 401', async () => {
+      await needs('0').expect(400);
+      await needs('abc').expect(400);
+      await http().get('/api/products/507f1f77bcf86cd799439011/purchase-needs').set(authHeader(admin)).expect(404);
+      await http().get(`/api/products/${productId}/purchase-needs`).expect(401);
+    });
+
+    it('приложение: нет файла — 404 по-русски, не админ — 403, после выкладки — сведения и файл', async () => {
+      const dir = join(uploadsRoot(), 'apps');
+      rmSync(dir, { recursive: true, force: true });
+      const none = await http().get('/api/apps/pdm-loader').set(authHeader(admin)).expect(404);
+      expect(JSON.stringify(none.body)).toContain('Приложение ещё не выложено');
+      await http().get('/api/apps/pdm-loader').set(authHeader(manager)).expect(403);
+      await http().get('/api/apps/pdm-loader/download').set(authHeader(manager)).expect(403);
+      const vdir = join(dir, 'pdm-loader', '1.2.0');
+      mkdirSync(vdir, { recursive: true });
+      writeFileSync(join(vdir, 'DataCore.PdmLoader.exe'), 'MZtest');
+      try {
+        const info = await http().get('/api/apps/pdm-loader').set(authHeader(admin)).expect(200);
+        expect(info.body).toMatchObject({ version: '1.2.0', size: 6 });
+        const file = await http().get('/api/apps/pdm-loader/download').set(authHeader(admin)).buffer(true).expect(200);
+        expect(file.headers['content-disposition']).toContain('attachment');
+        expect(file.headers['x-content-type-options']).toBe('nosniff');
+      } finally { rmSync(dir, { recursive: true, force: true }); }
+    });
   });
 });

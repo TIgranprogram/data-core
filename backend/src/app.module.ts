@@ -31,6 +31,7 @@ import { ProductPhotoModule } from './modules/product-photo/product-photo.module
 import { ProductModuleModule } from './modules/product-module/product-module.module';
 import { ProductModulePhotoModule } from './modules/product-module-photo/product-module-photo.module';
 import { PhotosModule } from './modules/photos/photos.module';
+import { AppsModule } from './modules/apps/apps.module';
 import { PdmFilesModule } from './modules/pdm-files/pdm-files.module';
 import { PdmImportModule } from './modules/pdm-import/pdm-import.module';
 import { CurrencyModule } from './modules/currency/currency.module';
@@ -182,6 +183,7 @@ import { RequestMethod } from '@nestjs/common';
     AdminModule,            // TZ-257: /api/admin/users + /api/admin/roles (read-only slice)
     DeviceEnrollmentModule, // TZ-AUTH-303: /api/device/* + /api/admin/devices/*
     IdempotencyModule,      // TZ-247.A: registers IdempotencyStorageService + IdempotencyMiddleware
+    AppsModule,             // /api/apps/pdm-loader[/download] — ДО AppDataModule: иначе его :app/:collection перехватывает путь (C057)
     AppDataModule,          // P1: /api/apps/:app/:collection — до EntityAttributeValueModule (коллизия маршрутов)
     StockModule,            // /api/stock — склад на общих коллекциях CRM (materials, storageitems, stockmovements, reservations)
     StockZonesModule,       // /api/stockzones — справочник «Склады» (зоны доступа к позициям), кэш доступа для stock/supply
