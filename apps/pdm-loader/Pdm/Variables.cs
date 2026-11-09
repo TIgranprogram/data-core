@@ -23,6 +23,10 @@ public static class Variables
         ("Описание", ["Описание", "Description", "Title"]),
     ];
 
+    /// <summary>
+    /// Читает переменные карточки: сначала конфигурация родителя (BOM),
+    /// пустое значение → общие свойства файла «@» (C057-Э2в).
+    /// </summary>
     public static Dictionary<string, string?> Read(IEdmFile5 file, string? config)
     {
         var map = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
@@ -34,11 +38,11 @@ public static class Variables
         }
         if (ev == null) return map;
 
+        // Порядок: конфигурация, на которую ссылается родитель → «@».
         var configs = new List<string>();
-        if (!string.IsNullOrWhiteSpace(config)) configs.Add(config!);
-        if (!configs.Contains("00 Стандартная")) configs.Add("00 Стандартная");
-        if (!configs.Contains("00")) configs.Add("00");
-        if (!configs.Contains("")) configs.Add("");
+        if (!string.IsNullOrWhiteSpace(config) && !config.Equals("@", StringComparison.Ordinal))
+            configs.Add(config!);
+        configs.Add("@");
 
         foreach (var (canon, aliases) in VarMap)
         {

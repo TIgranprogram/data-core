@@ -1,16 +1,15 @@
 ﻿Стенд: http://localhost:3001, пользователь: admin
 Вход: ок
-Дерево из JSON: D:\invSportiN\Сайт\01_Проекты_CRM\data-core\docs\crew\C057-pdm-import\samples\6104.pdm-tree.json, позиций 126
+Дерево из JSON: ..\..\docs\crew\C057-pdm-import\samples\6104.pdm-tree.json, позиций 126
 POST /api/pdm-import/preview …
-planId=6af20e08b187aa6ef5152cc4 summary={"create":0,"link":0,"suggest":0,"conflict":0,"same":126}
+planId=6af21098b187aa6ef5152e20 summary={"create":26,"link":59,"suggest":0,"conflict":12,"same":29}
 Решений: 126
 POST /api/pdm-import/apply (первый раз) …
-apply#1 created=0 linked=126 updated=0 skipped=126
-needFiles: 1
-  файл ок: 0000.0000.0019.DXF
-Файлов загружено: 1
+apply#1 created=26 linked=100 updated=71 skipped=29
+needFiles: 0
+Файлов загружено: 0
 Повтор: preview + apply …
-apply#2 created=0 linked=126 updated=0 skipped=126
-purchase-needs → samples/6104.purchase-needs.json (8439 байт)
+apply#2 created=0 linked=126 updated=84 skipped=42
+purchase-needs → samples/6104.purchase-needs.json (6636 байт)
 pdm-files 0019 → samples/6104.0019.pdm-files.json
   файл: dxf v1 current=True name=0000.0000.0019.DXF

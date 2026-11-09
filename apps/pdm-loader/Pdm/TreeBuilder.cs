@@ -199,11 +199,18 @@ public sealed class TreeBuilder
                     kind = Variables.KindFromPdm(pdmKind, false);
                 else
                 {
+                    // Вид_изделия пуст даже в «@» — запасной путь: папка PDM (с warning).
                     kind = Variables.KindFromPath(hit.Path);
                     if (kind == "product") kind = null; // изделие — только корень
                     var ext = Path.GetExtension(hit.Path ?? hit.Name ?? "").ToLowerInvariant();
                     if (kind == null && ext is ".sldasm") kind = "module";
                     kind ??= "part";
+                    _warnings.Add(new PdmWarning
+                    {
+                        Designation = des,
+                        Code = "kind-from-folder",
+                        Text = $"Вид_изделия пуст — взят из папки PDM ({kind})",
+                    });
                 }
             }
             pdmKind ??= Variables.PdmKindLabel(kind!);

@@ -86,6 +86,8 @@ public static class Stand6104
         Log($"needFiles: {need.Count}");
         int uploaded = UploadNeeded(site, tree, importId, need, Log);
         Log($"Файлов загружено: {uploaded}");
+        int pics = UploadPreviews(site, tree, importId, Log);
+        Log($"Картинок загружено: {pics}");
 
         // --- 4) preview + apply #2 ---
         Log("Повтор: preview + apply …");
@@ -243,6 +245,41 @@ public static class Stand6104
             catch (Exception ex)
             {
                 log($"  файл ошибка {pair.Doc.Name}: {ex.Message}");
+            }
+        }
+        return ok;
+    }
+
+    /// <summary>После apply: PNG из previews/ → POST /pdm-import/preview-image. 404 = сервер ещё без эндпоинта.</summary>
+    static int UploadPreviews(SiteClient site, PdmTree tree, string importId, Action<string> log)
+    {
+        int ok = 0;
+        foreach (var it in tree.Items.Where(x => !string.IsNullOrEmpty(x.Preview)))
+        {
+            var name = Path.GetFileName(it.Preview!);
+            var local = Directory.EnumerateFiles(AppPaths.CacheFor("previews"), name, SearchOption.AllDirectories).FirstOrDefault()
+                ?? Directory.EnumerateFiles(AppPaths.Cache, name, SearchOption.AllDirectories).FirstOrDefault();
+            if (local == null)
+            {
+                log($"  нет превью в кэше: {name}");
+                continue;
+            }
+            try
+            {
+                using var fs = File.OpenRead(local);
+                var sha = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(fs)).ToLowerInvariant();
+                site.UploadPreviewImageAsync(importId, it.Designation, sha, local).GetAwaiter().GetResult();
+                ok++;
+                log($"  картинка ок: {it.Designation}");
+            }
+            catch (SiteException ex) when (ex.StatusCode == 404)
+            {
+                log("  картинки: сайт ещё без POST /pdm-import/preview-image (жду выкладки координатора)");
+                break;
+            }
+            catch (Exception ex)
+            {
+                log($"  картинка ошибка {it.Designation}: {ex.Message}");
             }
         }
         return ok;

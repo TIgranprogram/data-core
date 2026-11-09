@@ -122,6 +122,39 @@ public sealed class SiteClient : IDisposable
         throw new SiteException(401, "Не удалось загрузить файл после обновления входа");
     }
 
+    /// <summary>Картинка-превью после apply (CONTRACT §3 preview-image). Повтор того же sha256 → stored:false.</summary>
+    public async Task<JsonDocument> UploadPreviewImageAsync(
+        string importId, string designation, string sha256, string localPath, CancellationToken ct = default)
+    {
+        await EnsureAccessAsync(ct);
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            using var form = new MultipartFormDataContent();
+            form.Add(new StringContent(importId), "importId");
+            form.Add(new StringContent(designation), "designation");
+            form.Add(new StringContent(sha256), "sha256");
+            var bytes = await File.ReadAllBytesAsync(localPath, ct);
+            var fileContent = new ByteArrayContent(bytes);
+            var ext = Path.GetExtension(localPath).ToLowerInvariant();
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(ext is ".jpg" or ".jpeg" ? "image/jpeg" : "image/png");
+            form.Add(fileContent, "file", Path.GetFileName(localPath));
+
+            using var req = new HttpRequestMessage(HttpMethod.Post, "/api/pdm-import/preview-image") { Content = form };
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _access);
+            using var resp = await _http.SendAsync(req, ct);
+            var text = await resp.Content.ReadAsStringAsync(ct);
+            if (resp.StatusCode == HttpStatusCode.Unauthorized && attempt == 0)
+            {
+                await RefreshAsync(ct);
+                continue;
+            }
+            if (!resp.IsSuccessStatusCode)
+                throw new SiteException((int)resp.StatusCode, MessageOf(text, "Ошибка загрузки картинки"));
+            return JsonDocument.Parse(text);
+        }
+        throw new SiteException(401, "Не удалось загрузить картинку после обновления входа");
+    }
+
     public async Task<JsonDocument> GetAsync(string path, CancellationToken ct = default)
         => await SendJsonAsync(HttpMethod.Get, path, null, ct);
 

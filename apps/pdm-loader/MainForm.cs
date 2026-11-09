@@ -545,11 +545,44 @@ public sealed class MainForm : Form
                 }
             }
 
+            int pics = 0, picFail = 0, picSkip = 0;
+            var withPreview = _current.Items.Where(x => !string.IsNullOrEmpty(x.Preview)).ToList();
+            if (withPreview.Count > 0)
+            {
+                _status.Text = $"Загружаю картинки 0/{withPreview.Count}…";
+                int i = 0;
+                foreach (var it in withPreview)
+                {
+                    i++;
+                    _status.Text = $"Загружаю картинки {i}/{withPreview.Count}…";
+                    var name = Path.GetFileName(it.Preview!);
+                    var local = Directory.EnumerateFiles(AppPaths.CacheFor("previews"), name, SearchOption.AllDirectories).FirstOrDefault()
+                        ?? Directory.EnumerateFiles(AppPaths.Cache, name, SearchOption.AllDirectories).FirstOrDefault();
+                    if (local == null) { picFail++; continue; }
+                    try
+                    {
+                        await using var fs = File.OpenRead(local);
+                        var sha = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(fs)).ToLowerInvariant();
+                        using var _ = await _siteClient.UploadPreviewImageAsync(importId, it.Designation, sha, local);
+                        pics++;
+                    }
+                    catch (SiteException ex) when (ex.StatusCode == 404)
+                    {
+                        picSkip = withPreview.Count - pics;
+                        break; // сервер ещё без preview-image
+                    }
+                    catch { picFail++; }
+                }
+            }
+
             MessageBox.Show(
                 $"Создано: {created}\nСвязано: {linked}\nОбновлено: {updated}\nБез изменений: {skipped}\nФайлов: {uploaded}" +
-                (failed > 0 ? $"\nФайлов с ошибкой: {failed}" : ""),
+                (failed > 0 ? $"\nФайлов с ошибкой: {failed}" : "") +
+                $"\nКартинок: {pics}" +
+                (picSkip > 0 ? $"\nКартинки: сайт ещё не принимает ({picSkip} пропущено)" : "") +
+                (picFail > 0 ? $"\nКартинок с ошибкой: {picFail}" : ""),
                 "Загрузка на сайт");
-            _status.Text = $"Готово: +{created} / связь {linked} / файлы {uploaded}";
+            _status.Text = $"Готово: +{created} / связь {linked} / файлы {uploaded} / картинки {pics}";
         }
         catch (SiteException ex)
         {

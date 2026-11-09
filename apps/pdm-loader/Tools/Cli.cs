@@ -129,7 +129,7 @@ public static class Cli
             "Длина", "Ширина", "Толщина", "Масса", "Number", "RAL", "Длина_заготовки",
             "Описание", "Description", "Title",
         ];
-        string[] cfgs = ["00 Стандартная", "00", "", "Default", "Стандартная"];
+        string[] cfgs = ["00 Стандартная", "00", "@", "", "Default", "Стандартная"];
         try
         {
             object[]? cfgNames = null;
