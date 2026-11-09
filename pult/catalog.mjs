@@ -212,6 +212,7 @@ export const ADVICE = [
 export const NOT_ON_BUTTONS = {
   'tools/c039-types.mjs': 'разовый отчёт покрытия иконок типов для ИИ (C039), не для администратора',
   'deploy/synology/api.sh': 'вход для агента datacore-access; запрос собирается вручную',
+  'deploy/synology/kp-data-fill.sh': 'разовая запись данных КП на прод (KP-2, 2026-11-09): реквизиты, НДС, бланки фирм; запускает пользователь один раз',
   'deploy/synology/sync-dir.sh': 'часть выкладки и отката на сервере; вручную не запускается',
   'deploy/synology/backup.sh': 'cron 03:00 и выкладка; отдельной кнопки нет',
   'deploy/synology/bundle-pc.sh': 'пакет сервера — в админке, вкладка «Сервер»',

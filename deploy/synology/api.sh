@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Вход агента-доступа в API без показа пароля: сам логинится и делает ОДИН запрос.
 #   bash deploy/synology/api.sh <local|prod> <GET|POST|PATCH|DELETE> </путь> [файл-с-телом.json]
+#   загрузка файла (multipart): ... </путь> --form 'file=@путь' --form 'name=…' [--form …]
 # Печатает только ответ API. Пароль берёт из deploy/synology/config.env (ADMIN_PASSWORD) или
 # из локального gitignored deploy/synology/access.env (ACCESS_USER, ACCESS_PASSWORD) — если админ сменил пароль.
 # Запись на прод (POST/PATCH/DELETE) — только после разрешения пользователя (решает координатор).
@@ -29,5 +30,7 @@ if [ -z "$token" ]; then
   (umask 077; printf '%s' "$token" > "$cache")
 fi
 args=(-sS -X "$method" "$base$path" -H "Authorization: Bearer $token")
-[ -n "$body" ] && args+=(-H 'Content-Type: application/json' --data @"$body")
+if [ "$body" = "--form" ]; then
+  shift 3; while [ "$#" -ge 2 ] && [ "$1" = "--form" ]; do args+=(-F "$2"); shift 2; done
+elif [ -n "$body" ]; then args+=(-H 'Content-Type: application/json' --data @"$body"); fi
 curl "${args[@]}"
