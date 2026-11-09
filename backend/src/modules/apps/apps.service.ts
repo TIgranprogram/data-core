@@ -40,7 +40,8 @@ export class AppsService {
     const { version, dir, file } = await this.latest();
     const stat = await fs.stat(file);
     let meta: { sha256?: unknown; uploadedAt?: unknown } = {};
-    try { meta = JSON.parse(await fs.readFile(join(dir, 'meta.json'), 'utf8')); } catch { /* meta.json необязателен */ }
+    // publish.ps1 (PowerShell 5.1, Set-Content utf8) пишет BOM — снимаем, иначе JSON.parse падает
+    try { meta = JSON.parse((await fs.readFile(join(dir, 'meta.json'), 'utf8')).replace(/^﻿/, '')); } catch { /* meta.json необязателен */ }
     const sha256 = typeof meta.sha256 === 'string' && /^[0-9a-f]{64}$/i.test(meta.sha256) ? meta.sha256.toLowerCase() : await this.hash(file);
     const at = typeof meta.uploadedAt === 'string' && !Number.isNaN(Date.parse(meta.uploadedAt)) ? new Date(meta.uploadedAt) : stat.mtime;
     return { version, size: stat.size, sha256, uploadedAt: at.toISOString() };

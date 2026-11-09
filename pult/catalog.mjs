@@ -144,11 +144,6 @@ export const COMMANDS = [
     confirm: 'На сервере удалится кэш сборки и образы без имени. Сайт, базы, CRM и образ для отката не меняются. Следующая выкладка соберётся на несколько минут дольше.',
     hint: 'Только если на сервере мало места (диск занят больше 70 %).' },
 
-  // ---------- Приложение «Загрузка из PDM» (C057) ----------
-  { id: 'pdm-loader-build', section: 'deploy', sub: 'Приложение «Загрузка из PDM»', title: 'Собрать приложение PDM', risk: 'local', time: '1–2 мин',
-    run: { cmd: ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', 'apps\\pdm-loader\\publish.ps1'] },
-    hint: 'Собирает один файл DataCore.PdmLoader.exe и его описание (версия, размер, контрольная сумма) в apps\\pdm-loader\\out\\<версия>. Нужен .NET 8 SDK. Сайт не меняет. Выложить файл для скачивания администраторами — следующим шагом выкладки' },
-
   // ---------- Автозапуск / задачи Windows ----------
   { id: 'setup-task', section: 'auto', sub: 'Задачи Windows (работают и при закрытом пульте)', title: 'Ночной прогон в 23:30', risk: 'local', time: '10 с', run: { cmd: ['tools\\setup.cmd', 'task'] },
     hint: 'Создаёт задачу Windows на 23:30. Только если проверка ПК зелёная.' },
@@ -249,6 +244,7 @@ export const NOT_ON_BUTTONS = {
   'tools/dc.mjs find': 'поиск по докам для ИИ',
   'tools/dc.mjs doc': 'чтение архива доков для ИИ',
   'tools/dc.mjs night': 'часть полной проверки (dc full); отдельной кнопки нет',
+  'apps/pdm-loader/publish.ps1': 'приложение PDM собирает и выкладывает release.sh сам (шаг 6б), отдельная кнопка не нужна',
   'tools/kit/make-kit.sh': 'просит пароль; без пароля выдал бы все доступы',
   'tools/site-audit.mjs': 'кнопка «Большая проверка сайта» через dc audit',
   'tools/night.mjs': 'библиотека dc',

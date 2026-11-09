@@ -47,7 +47,8 @@ elif ! git cat-file -e "$PREV^{commit}" 2>/dev/null || ! git merge-base --is-anc
 elif [[ "$VMOK" != yes ]]; then WHY="экраны на сервере ещё не подключены папкой"
 else
   # --no-renames: перенос файла из backend/src в pwa виден и старым путём
-  OTHER="$(git diff --no-renames --name-only "$PREV" HEAD | grep -vE '^backend/(pwa|admin)/|^(docs|tools|pult)/|^[^/]+\.md$' || true)"
+  # apps/ — настольное приложение PDM (C057): сервер не пересобирается, exe кладёт шаг 6б
+  OTHER="$(git diff --no-renames --name-only "$PREV" HEAD | grep -vE '^backend/(pwa|admin)/|^(docs|tools|pult|apps)/|^[^/]+\.md$' || true)"
   if [[ -n "$OTHER" ]]; then WHY="менялся не только вид: $(echo "$OTHER" | head -3 | tr '\n' ' ')"; else MODE=fast; fi
 fi
 echo "== Путь: $([[ $MODE == fast ]] && echo 'быстрый (только экраны)' || echo полный)${WHY:+ — $WHY}"
@@ -206,6 +207,21 @@ if [[ $DROP == 1 ]]; then
     docker exec -w /app -e OUT_DIR=/tmp/archive-export datacore-backend node scripts/drop-archive-collections.js --apply
     mkdir -p $D; docker cp datacore-backend:/tmp/archive-export/. $D/; docker exec datacore-backend rm -rf /tmp/archive-export; ls -la $D | tail -6; rm -f /tmp/drop-archive-collections.js'
 fi
+echo "== 6б. Приложение «Загрузка из PDM» (C057; сбой не валит выкладку)"
+# Версия — <Version> в csproj. На сервере такой версии нет → собрать на этом ПК (.NET 8 SDK) и положить в контейнер:
+# /app/uploads/apps/pdm-loader/<версия>/DataCore.PdmLoader.exe + meta.json. Админ скачивает в админке «Приложения».
+APP_VER="$(sed -n 's:.*<Version>\([0-9][0-9.]*\)</Version>.*:\1:p' apps/pdm-loader/DataCore.PdmLoader.csproj 2>/dev/null | head -1)"
+APP_DIR="/app/uploads/apps/pdm-loader/$APP_VER"
+if [[ ! "$APP_VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "версия приложения не найдена в csproj — пропуск"
+elif "${SSH[@]}" "docker exec datacore-backend test -f $APP_DIR/DataCore.PdmLoader.exe" 2>/dev/null; then echo "на сайте уже v$APP_VER — пропуск"
+elif ! command -v dotnet >/dev/null 2>&1; then echo "на этом ПК нет .NET 8 SDK — приложение v$APP_VER не выложено (сайт не затронут)"
+elif powershell.exe -NoProfile -ExecutionPolicy Bypass -File apps/pdm-loader/publish.ps1 > "$TMP/pdm-publish.log" 2>&1 \
+  && scp -i "$KEY" -o BatchMode=yes "apps/pdm-loader/out/$APP_VER/DataCore.PdmLoader.exe" "apps/pdm-loader/out/$APP_VER/meta.json" "$VM:/tmp/" \
+  && "${SSH[@]}" "set -e; docker exec datacore-backend mkdir -p $APP_DIR; docker cp /tmp/DataCore.PdmLoader.exe datacore-backend:$APP_DIR/; docker cp /tmp/meta.json datacore-backend:$APP_DIR/; rm -f /tmp/DataCore.PdmLoader.exe /tmp/meta.json"; then
+  echo "приложение v$APP_VER выложено — админка → «Приложения» → «Скачать»"
+else echo "приложение v$APP_VER не выложено (сайт не затронут), журнал сборки: $TMP/pdm-publish.log"; tail -5 "$TMP/pdm-publish.log" 2>/dev/null || true
+fi
+
 echo "== 7. История проекта (импорт в devlog; сбой не валит выкладку)"
 node backend/scripts/devlog-import.js prod --apply 2>&1 | tail -15 || echo "импорт истории не прошёл — выкладка не затронута"
 
