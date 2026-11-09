@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { withTraits } from './dicts.passport-traits';
 import { normalizePassportDefaults } from '../showcase/passport-defaults';
-import type { DictBase } from './dicts.defs';
+import { DICT, type DictBase } from './dicts.defs';
 
 const base = { fields: [{ key: 'name', label: 'Название' }], row: (d: Record<string, unknown>) => ({ name: d.name }), toDoc: async (b: Record<string, unknown>) => ({ name: String(b.name ?? '') }) } as unknown as DictBase;
 const db = {} as never;
@@ -34,6 +34,12 @@ describe('признаки и условия в справочниках пас�
     expect(def.fields.map((f) => f.key)).toEqual(['name', 'traits', 'when']);
     expect(def.fields.filter((f) => f.tech).map((f) => f.key)).toEqual(['traits', 'when']);
     expect(def.row({ name: 'x', traits: 'wood' } as never)).toEqual({ name: 'x', traits: 'wood', when: '' });
+  });
+
+  it('PATCH только traits у passportElements — name в $set не попадает', async () => {
+    const doc = await DICT.get('passportElements')!.toDoc({ traits: 'moving' }, false, db);
+    expect(doc).toEqual({ traits: 'moving', updatedAt: expect.any(Date) });
+    expect('name' in doc).toBe(false);
   });
 });
 

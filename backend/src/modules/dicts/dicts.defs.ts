@@ -157,7 +157,14 @@ function simpleList(key: string, group: string, title: string, hint: string, ext
     fields: [{ key: 'name', label: 'Название', required: true, wide: true }, ...extra],
     name: (d) => s(d.name),
     row: (d) => ({ name: s(d.name), ...Object.fromEntries(extra.map((f) => [f.key, d[f.key] ?? ''])) }),
-    toDoc: async (b, isNew) => ({ ...(isNew ? { dict: key, deletedAt: null, createdAt: new Date() } : {}), name: s(b.name), ...Object.fromEntries(extra.map((f) => [f.key, fieldValue(f, b[f.key])])), updatedAt: new Date() }),
+    // PATCH: только пришедшие поля — иначе { traits } без name стирает название → 400 «Укажите название» (C054)
+    toDoc: async (b, isNew) => {
+      if (isNew) return { dict: key, deletedAt: null, createdAt: new Date(), name: s(b.name), ...Object.fromEntries(extra.map((f) => [f.key, fieldValue(f, b[f.key])])), updatedAt: new Date() };
+      const out: Document = { updatedAt: new Date() };
+      if ('name' in b) out.name = s(b.name);
+      for (const f of extra) if (f.key in b) out[f.key] = fieldValue(f, b[f.key]);
+      return out;
+    },
     usage: async (db, docs) => {
       if (!usage) return new Map();
       const t = await tally(db, usage.coll, usage.field);
