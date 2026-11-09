@@ -15,6 +15,7 @@ import { materialsFields, specBody } from './materials.js';
 import { loadMaterialDicts } from '../../ui/materials-spec.js';
 import { funnelBox } from '../../ui/funnel.js';
 import { jointsPick } from './traits.js';
+import { withElementTexts } from './elements-block.js';
 
 /** Форма паспорта: поля, сборка тела запроса, создание и сохранение. */
 /** ПИ.4: значения по умолчанию паспорта — изделию (заменяются целиком; пустые не пишутся сервером). */
@@ -47,7 +48,7 @@ export function v2Body(v) {
 export const passportForm = {
   fields: async (r) => {
     const [cats, ours, f] = await Promise.all([categories(), ourCompanies(), facets()]);
-    const [els, mats, inst, catRows, stdRows, md] = await Promise.all([dictOpts('passportElements'), dictOpts('passportMaterials'), dictOpts('passportInstall'), dictRows('passportCategories'), dictRows('passportStandards'), loadMaterialDicts()]);
+    const [els, elRows, mats, inst, catRows, stdRows, md] = await Promise.all([dictOpts('passportElements'), dictRows('passportElements'), dictOpts('passportMaterials'), dictOpts('passportInstall'), dictRows('passportCategories'), dictRows('passportStandards'), loadMaterialDicts()]);
     // МИ.4: выпущенный (без «Новой редакции») — как был: метки и свободный текст; невыпущенный — таблица и собранный текст
     const legacy = !!r && isIssued(r) && st.revisionFor !== r.id;
     const ctx = { cat: () => '', ms: null, api: null };
@@ -72,8 +73,10 @@ export const passportForm = {
       { key: '_std', label: 'Нормативы категории', type: 'widget', wide: true, widget: () => ({ el: w.std, value: '' }), summary: () => '' },
     ];
     const v2Fields = [
+      { section: 'Функциональные элементы', tone: 'info' },
+      { key: 'elements', label: 'Что это за изделие', type: 'widget', wide: true, widget: (v) => (w.el = withElementTexts(tagPick({ options: els, value: v, label: 'Что это за изделие', productOnly: true }), elRows, v)),
+        hint: 'Ниже — фраза для раздела «Описание» и правила пользования из справочника. Пустое допишите в «Справочники → Элементы».' },
       { section: 'Состав и материалы', tone: 'main', collapsed: true },
-      { key: 'elements', label: 'Функциональные элементы', type: 'widget', wide: true, widget: (v) => (w.el = tagPick({ options: els, value: v, label: 'Функциональные элементы' })) },
       ...(legacy ? [{ key: 'materialIds', label: 'Материалы', type: 'widget', wide: true, widget: (v) => (w.mat = tagPick({ options: mats, value: v, label: 'Материалы' })) }]
         : [...materialsFields({ r, md, ctx }), materialsText]),
       { key: 'installationTypeId', label: 'Способ установки', type: 'select', options: [{ value: '', label: '—' }, ...inst.map((o) => ({ value: o.value, label: o.label }))],
@@ -96,10 +99,13 @@ export const passportForm = {
       { key: 'certUntil', label: 'Действует до', type: 'date' },
       { key: 'certEac', label: 'Знак ЕАС', type: 'segment', options: [{ value: 'no', label: 'Не ставить' }, { value: 'yes', label: 'Ставить' }] },
     ];
-    // ПИ.4: правили «умолчательные» поля паспорта с изделием — запомнить их у изделия для следующих паспортов
-    const remember = { key: '_remember', label: 'Запомнить для следующих паспортов этого изделия', type: 'segment', wide: true,
-      options: [{ value: 'no', label: 'Нет' }, { value: 'yes', label: 'Да — категория, состав, ограничения, срок, гарантия' }],
-      hint: 'Появляется, если вы поправили подставленное. Запишется в изделие — следующий паспорт подставит это сам' };
+    // ПИ.4: правили «умолчательные» поля — можно дополнительно записать в шаблон изделия
+    const remember = { key: '_remember', label: 'Куда сохранить правки', type: 'segment', wide: true,
+      options: [
+        { value: 'no', label: 'Только в этот паспорт' },
+        { value: 'yes', label: 'И в шаблон изделия' },
+      ],
+      hint: 'Шаблон изделия — для следующих паспортов этой модели. Этот паспорт заказа от выбора не меняется' };
     const all = [
       // ФП: что ещё нужно для выпуска — ссылки к полям; обновляется при каждом изменении формы
       { key: '_need', label: 'Готовность к выпуску', type: 'widget', wide: true, widget: () => ({ el: w.need, value: '' }), summary: () => '' },

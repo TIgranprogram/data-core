@@ -61,11 +61,28 @@ export async function download(r, query, what) {
 export const passportVariant = { value: 'short' };
 export const VARIANT_HINT = 'Полный — с зоной размещения и доп. рисунками, если заполнены';
 
-/** Предпросмотр паспорта изделия: POST /passports/preview (PDF с «ЧЕРНОВИК», ничего не пишет). */
-export async function previewPassport(productId) {
+/** Предпросмотр паспорта изделия: POST /passports/preview (PDF с «ЧЕРНОВИК», ничего не пишет). pack — C055: passport|tech|combined. */
+export async function previewPassport(productId, { pack } = {}) {
   const done = toast('Готовлю предпросмотр… это может занять до минуты', { ms: 180000 });
-  try { await apiFile('/passports/preview', { method: 'POST', body: { productId, mode: 'pages', variant: passportVariant.value }, fallback: 'Предпросмотр_паспорта.pdf' }); done(); }
-  catch (e) { done(); toastError(e); }
+  try {
+    await apiFile('/passports/preview', {
+      method: 'POST',
+      body: { productId, mode: 'pages', variant: passportVariant.value, ...(pack ? { pack } : {}) },
+      fallback: pack === 'combined' ? 'Паспорт_и_техописание.pdf' : pack === 'tech' ? 'Техническое_описание.pdf' : 'Предпросмотр_паспорта.pdf',
+    });
+    done();
+  } catch (e) { done(); toastError(e); }
+}
+
+/** C055 Э2: один PDF «паспорт + техописание» — выпущенный паспорт или предпросмотр модели. */
+export async function downloadCombined(productRow, getPassport) {
+  const id = productRow.passports?.items?.[0]?.id;
+  if (id && getPassport) {
+    const r = await getPassport(id);
+    await download(r, { pack: 'combined', mode: 'pages', variant: passportVariant.value }, 'паспорт + техописание');
+    return;
+  }
+  await previewPassport(productRow.id, { pack: 'combined' });
 }
 
 // Значки форматов (замечание пользователя 2026-10-22: «показать визуально, книжная или альбомная»)

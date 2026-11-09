@@ -833,7 +833,7 @@ const BASE: DictBase[] = [
       [
         { key: 'genPlural', label: 'Родительный падеж, мн. ч.', hint: '«стоек» — так в тексте «Состоит из…»' },
         { key: 'genSingular', label: 'Родительный падеж, ед. ч.', hint: '«стойки»' },
-        { key: 'categories', label: 'Для каких категорий', wide: true, hint: 'Категории паспортов, где эта часть бывает; пусто — для всех' },
+        { key: 'categories', label: 'Для каких категорий', wide: true, hint: 'Коды через запятую: TRN, WRK, BLG, DIO, DSP. Пусто — часть не предложат в таблице материалов при выбранной категории (только «Показать все части»)' },
       ]),
     ...withProducts(noUsage,
       async (_db, d) => ({ 'materialsSpec.rows.partIds': d._id }),

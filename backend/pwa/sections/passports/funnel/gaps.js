@@ -1,6 +1,7 @@
 import { h } from '../../../core/dom.js';
 import { buildForm, button, empty, enhanceSelect, link, row, section, select, sideNote, stack, toastError } from '../../../ui/kit/index.js';
-import { V2_NUMS } from '../common.js';
+import { V2_NUMS, dictRows } from '../common.js';
+import { elementsTexts } from '../elements-block.js';
 import { loadGaps, patchProduct, putDefaults, setFacets } from './api.js';
 
 /**
@@ -28,13 +29,16 @@ export function gapsBlock({ prod, onLoad }) {
   function control(m) {
     if (m.kind === 'image') return toCard(prod, 'Рисунок добавляется в карточке изделия — блок «Фото и рисунки».');
     if (m.kind === 'elements') {
+      const view = elementsTexts([]);
+      dictRows('passportElements').then((rows) => view.setRows(rows)).catch(() => {});
       const f = buildForm([{ key: 'els', label: 'Не больше трёх вариантов', type: 'combo', multi: true, options: optsOf(m).map(([value, label]) => ({ value, label })), hint: 'Начните печатать — список подскажет' }], {});
       f.el.addEventListener('change', () => {
         const names = String(f.read().values?.els || '').split(',').map((x) => x.trim()).filter(Boolean);
         const list = [...new Set(names.map((n) => (m.options || []).find((o) => o.label === n)?.id).filter(Boolean))].slice(0, 3);
+        view.setIds(list);
         if (list.length) save(() => putDefaults(prod, { elements: list }));
       });
-      return stack(sideNote('Укажите, что это за изделие (не больше трёх вариантов) — по этому в паспорте собираются правила пользования и осмотр.'), f.el);
+      return stack(sideNote('Укажите, что это за изделие (не больше трёх вариантов). Ниже — фраза для описания и правила пользования из справочника.'), f.el, view.el);
     }
     if (m.kind === 'field' && m.key === 'height') { // «Габариты»: три размера изделия, мм — в изделие
       const d = prod.dimensions && (prod.dimensions.unit || 'мм') === 'мм' ? prod.dimensions : {};
@@ -74,7 +78,7 @@ export function gapsBlock({ prod, onLoad }) {
   function paint() {
     if (!missing.length) { box.replaceChildren(empty({ title: 'Всё заполнено', hint: 'Для паспорта хватает данных изделия.' })); return; }
     box.replaceChildren(sideNote('Заполните только пустое — ответы сохраняются в изделие и больше не спрашиваются.'),
-      ...[...missing].sort((a, b) => rank(a) - rank(b)).map((m) => section({ title: (m.kind === 'elements' ? 'Что это за изделие' : m.label) + (m.required ? '' : ' — по желанию'), tone: m.required ? 'main' : 'neutral', open: !!m.required, body: control(m) })));
+      ...[...missing].sort((a, b) => rank(a) - rank(b)).map((m) => section({ title: (m.kind === 'elements' ? 'Функциональные элементы' : m.label) + (m.required ? '' : ' — по желанию'), tone: m.required ? 'main' : 'neutral', open: !!m.required, body: control(m) })));
   }
 
   async function reload() {

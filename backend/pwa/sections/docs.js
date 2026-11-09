@@ -7,14 +7,15 @@ import { mountList } from '../ui/kit/list.js';
 import { funnelBox } from '../ui/funnel.js';
 import { passports, issuePassport } from './passports.js';
 import { numbersStrip } from './passports/numbers-strip.js';
-import { canEdit as canEditTexts, statusOf, V2_NUMS, passportCategoryOptions } from './passports/common.js';
+import { canEdit as canEditTexts, statusOf, V2_NUMS, passportCategoryOptions, dictRows } from './passports/common.js';
+import { elementsTexts } from './passports/elements-block.js';
 import { linkDialog, printDialog, previewPassport, passportVariant, VARIANT_HINT } from './passports/dialogs.js';
 import { savePd, products, PD_KEYS } from './products.js';
 import { passportKindDrop } from './product-files.js';
 import { mountOrdersTab } from './docs-orders.js';
 import { mountQueueTab } from './docs-queue.js';
 import { openPassportFunnel } from './passports/funnel/open.js';
-import { buildForm, tabs as kitTabs, badge as kitBadge, segmented, sku as kitSku, link as kitLink, crumbTail, button, enhanceSelect } from '../ui/kit/index.js';
+import { buildForm, tabs as kitTabs, badge as kitBadge, segmented, sku as kitSku, link as kitLink, crumbTail, button, enhanceSelect, section } from '../ui/kit/index.js';
 
 
 /*
@@ -110,6 +111,9 @@ export const doctpl = {
       sel.value = r.passportDefaults?.passportCategory || derived || '';
       const fb = funnelBox({ value: JSON.stringify(r.passportDefaults?.textChoices || {}), category: sel.value, canEditText: canEditTexts() });
       sel.addEventListener('change', () => fb.setCategory(sel.value));
+      const fn = elementsTexts(await dictRows('passportElements'));
+      fn.setIds(r.passportDefaults?.elements || []);
+      const fnSec = section({ title: 'Функциональные элементы', tone: 'info', open: true, fixed: true, body: fn.el });
       // ── «Собрано автоматически» и «Не хватает для паспорта» (один редактор; ввод — здесь же)
       const NUM_KEYS = new Set(V2_NUMS.map(([k]) => k));
       const autoBox = h('div');
@@ -137,7 +141,7 @@ export const doctpl = {
         const body = { ...Object.fromEntries(PD_KEYS.filter((k) => merged[k] !== undefined && merged[k] !== null && merged[k] !== '').map((k) => [k, merged[k]])), textChoices: r.passportDefaults?.textChoices || {} };
         await api(`/showcase/${r.id}/passport-defaults`, { method: 'PUT', body });
       };
-      const refresh = async () => { Object.assign(r, await api(`/showcase/${r.id}`)); auto(); checkNeed(); };
+      const refresh = async () => { Object.assign(r, await api(`/showcase/${r.id}`)); fn.setIds(r.passportDefaults?.elements || []); auto(); checkNeed(); };
       const plainItem = (m) => h('div', { class: 'field wide' }, h('span', null, m.label), h('div', { class: 'hint' }, m.hint || HINTS[m.key] || 'Заполняется в изделии.'));
       const needItem = async (m) => {
         const hint = h('div', { class: 'hint' }, m.hint || HINTS[m.key] || '');
@@ -148,7 +152,8 @@ export const doctpl = {
         else if (NUM_KEYS.has(m.key)) fields = [{ key: m.key, label: m.label, type: 'number', min: 0 }];
         if (!fields?.length) return plainItem(m);
         const one = fields.length === 1;
-        const f = buildForm(fields.map((x) => ({ ...x, ...(one ? { label: m.label } : {}), span: undefined, wide: one || x.wide })), NUM_KEYS.has(m.key) ? { [m.key]: r.passportDefaults?.[m.key] ?? '' } : products.form.toInitial(r));
+        const fieldLabel = (m.key === 'purpose' || m.key === 'elements') ? 'Что это за изделие' : m.label;
+        const f = buildForm(fields.map((x) => ({ ...x, ...(one ? { label: fieldLabel } : {}), span: undefined, wide: one || x.wide })), NUM_KEYS.has(m.key) ? { [m.key]: r.passportDefaults?.[m.key] ?? '' } : products.form.toInitial(r));
         const btn = button({ label: 'Сохранить в изделии', kind: 'primary', size: 'S' });
         btn.onclick = async () => {
           const res = f.read(); if (res.errors) return;
@@ -181,6 +186,9 @@ export const doctpl = {
         const list = (res?.missing || []).filter((m) => m && typeof m === 'object');
         const head = (n) => h('div', { class: 'section-title' }, n ? `Не хватает для паспорта (${n})` : 'Не хватает для паспорта');
         if (!res) { needBox.replaceChildren(head(0), h('p', { class: 'muted' }, 'Не удалось проверить. Попробуйте открыть изделие ещё раз.')); return; }
+        const editingEls = (res.missing || []).some((m) => m && (m.key === 'elements' || m.key === 'purpose'));
+        fnSec.hidden = editingEls;
+        fn.setIds(r.passportDefaults?.elements || []);
         if (!list.length) { needBox.replaceChildren(head(0), h('p', null, kitBadge('Всё готово', 'ok'), ' Паспорт можно печатать.')); return; }
         const seen = new Set();
         const items = await Promise.all(list.filter((m) => { const k = FIELD_OF[m.key]?.[0] || m.key; return seen.has(k) ? false : (seen.add(k), true); }).map(needItem));
@@ -197,6 +205,7 @@ export const doctpl = {
         h('label', { class: 'field wide' }, h('span', null, 'Категория паспорта'), sel,
           h('div', { class: 'hint' }, 'Обычно определяется по разделу и группе; укажите, если нужна другая. От неё зависят варианты ниже.')),
         h('div', { class: 'field wide' }, h('span', null, 'Тексты паспорта — выбор (монтаж, назначение…)'), fb.el),
+        h('div', { class: 'wide' }, fnSec),
         h('div', { class: 'actions wide' }, button({ label: 'Предпросмотр', title: 'PDF с пометкой «ЧЕРНОВИК» по сохранённому шаблону; паспорт не выпускается', onClick: (e) => { const b = e.currentTarget; b.classList.add('is-busy'); previewPassport(r.id).finally(() => b.classList.remove('is-busy')); } })));
       const values = () => ({ category: sel.value, choices: JSON.parse(fb.value || '{}'), over: {} });
       const start = JSON.stringify(values());

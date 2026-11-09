@@ -38,7 +38,7 @@ export const passportCategoryOptions = async () => (await cachedFetch('dicts:pas
   .filter((c) => c.code && c.code !== 'ALL').map((c) => ({ value: String(c.code), label: c.name }));
 export const codeList = (s) => String(s || '').split(/[,;\s]+/).filter(Boolean);
 /** Записи справочника для выбора: cats — к каким категориям паспорта относится (пусто — ко всем; ФП — фильтр по категории). */
-export const dictOpts = async (key) => (await dictRows(key)).map((d) => ({ value: d.id, code: d.code, label: d.name, sub: catNames(d.categories), cats: codeList(d.categories) }));
+export const dictOpts = async (key) => (await dictRows(key)).map((d) => ({ value: d.id, code: d.code, label: d.name, sub: catNames(d.categories), cats: codeList(d.categories), kind: d.kind || '' }));
 /** Обязательные виды картинок категории — как на сервере (requiredImageKinds): по строке, «(если разборное)» — только у разборных; safety_zone = safety. */
 export const reqKinds = (cat, isKit) => {
   const out = [];

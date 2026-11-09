@@ -27,8 +27,11 @@ export async function renderPassportPdfV2(input: PdfV2Input): Promise<Buffer> {
   return renderPassportsPdfV2([input]);
 }
 
-/** Несколько паспортов в одном PDF подряд (паспорта заказа, ПНЗ): тот же рендер, у каждого своя нумерация страниц и подвал. */
-export async function renderPassportsPdfV2(inputs: PdfV2Input[], title?: string): Promise<Buffer> {
+/**
+ * Несколько паспортов в одном PDF подряд (паспорта заказа, ПНЗ): тот же рендер, у каждого своя нумерация страниц и подвал.
+ * `after` — дописать листы в тот же файл до закрытия (техописание A4 после паспорта, C055).
+ */
+export async function renderPassportsPdfV2(inputs: PdfV2Input[], title?: string, after?: (doc: PDFKit.PDFDocument) => void): Promise<Buffer> {
   const first = inputs[0];
   const dir = fontDir();
   const doc = guardDoc(new PDFDocument({ autoFirstPage: false, size: first.mode === 'print' ? [A4L.w, A4L.h] : [A5.w, A5.h], margin: 0, info: { Title: title ?? `Паспорт № ${first.passport.passportNumber ?? ''}`, Author: first.org?.name ?? '' } }), 'Паспорт');
@@ -38,6 +41,7 @@ export async function renderPassportsPdfV2(inputs: PdfV2Input[], title?: string)
   doc.on('data', (c: Buffer) => chunks.push(c));
   const done = new Promise<Buffer>((ok, fail) => { doc.on('end', () => ok(Buffer.concat(chunks))); doc.on('error', fail); });
   for (const input of inputs) drawOne(doc, input);
+  after?.(doc);
   doc.end();
   return done;
 }

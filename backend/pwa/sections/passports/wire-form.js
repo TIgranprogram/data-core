@@ -143,7 +143,7 @@ export function wireForm(api, { r, w, catBy, stdName, inst }) {
   // плашка — первым элементом формы (липкой её делает общий родитель); пустую обёртку поля убираем
   const needField = api.field('_need'); w.need.className = 'pp-need-sticky'; api.root.prepend(w.need); needField?.closest('.form-grid')?.remove();
   api.root.addEventListener('input', check); api.root.addEventListener('change', check);
-  // ПИ.4: «Запомнить» — только если есть изделие и поправлены поля, которые изделие помнит
+  // ПИ.4: «Куда сохранить правки» — только если есть изделие и поправлены поля шаблона
   const rememberField = api.field('_remember');
   const showRemember = () => { if (rememberField) rememberField.hidden = !(api.get('productId') && DEFAULT_KEYS.some((k) => api.manual(k))); };
   api.root.addEventListener('input', showRemember); api.root.addEventListener('click', () => setTimeout(showRemember));

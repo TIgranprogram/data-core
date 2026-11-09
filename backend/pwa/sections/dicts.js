@@ -13,8 +13,8 @@ import { mountTree, TREE_KEY } from './passport-tree.js';
 import { mountZones, ZONES_KEY } from './stock-zones.js';
 import { catChipsField, refChipsField } from '../ui/cat-chips.js';
 import { dupeCounts, qualityBadges, qualityFilter } from '../ui/quality.js';
-import { normSearch, searchTokens } from '../core/facets.js';
 import { passportCategoryOptions } from './passports/common.js';
+import { dictSearchTokens, dictHaystack } from './dicts-search.js';
 
 /**
  * «Справочники» (TASKS СП.4–СП.8, DESIGN §4 «Справочники»): слева группы (на телефоне — один select), справа
@@ -53,7 +53,7 @@ export function mountDicts(params) {
   const title = h('h2', null, '…');
   const hintEl = hintKit('');
   // общий поиск (ПО.3): пусто — весь справочник
-  const sbx = searchBox({ placeholder: 'Найти значение…', label: 'Поиск значения', delay: 150, onSearch: (v) => { q = v.toLowerCase(); renderTable(); } });
+  const sbx = searchBox({ placeholder: 'Найти по названию или коду…', label: 'Поиск значения', delay: 150, onSearch: (v) => { q = v; renderTable(); } });
   const search = sbx.el;
   const searchWrap = h('div', { class: 'search' }, search);
   let texts = null; // экран «Общие разделы» (создаётся при первом открытии)
@@ -97,19 +97,25 @@ export function mountDicts(params) {
     const { dict } = data;
     const cols = dict.columns.filter((c) => !(c.key === 'salaryRate' && !session.canPayroll));
     const fieldOf = (k) => dict.fields.find((f) => f.key === k);
-    // слова в любом порядке, ё = е, M10 = М10 (как поиск на складе)
-    const tk = searchTokens(q);
-    // дубль — то же название У ТОГО ЖЕ материала (сортамент: «2» у листа и «2» у трубы — разные записи; 2026-10-25)
-    const dup = dupeCounts(data.items, (x) => (x.material ? `${x.material}|${x.name}` : x.name));
+    const tk = dictSearchTokens(q); // GALV_HOT / оцинк — dicts-search.js
+    const dup = dupeCounts(data.items, (x) => (x.material ? `${x.material}|${x.name}` : x.name)); // дубль имени у того же материала
     if (!dup.size) qf = 'all';
-    const rows = data.items.filter((x) => (qf !== 'dupes' || dup.has(x.id)) && (!tk.length || ((s) => tk.every((w) => s.includes(w)))(normSearch(Object.values(x).filter((v) => typeof v !== 'object').join(' ')))));
+    const rows = data.items.filter((x) => (qf !== 'dupes' || dup.has(x.id)) && (!tk.length || tk.every((w) => dictHaystack(x).includes(w))));
     if (!data.items.length) {
       body.replaceChildren(empty({ title: 'Здесь пока ничего нет.', hint: canEditDict() ? 'Нажмите «+ Добавить» или «Найти в данных…» — возьмём то, что уже встречается в заявках и на складе.' : undefined }));
       return;
     }
     if (!rows.length) { body.replaceChildren(empty({ title: `Ничего не найдено по «${sbx.input.value}».`, hint: 'Попробуйте другое слово.' })); return; }
-    const descOf = (r) => cols.filter((c) => c.key !== 'name').map((c) => (c.key === 'hex' && r.hex ? [colorBadge(r.hex), r.hex] : fmt(fieldOf(c.key), r[c.key], dict.refs) || (c.key === 'workTypeName' ? r.workTypeName : '')))
-      .filter((x) => x && x.length !== 0).flatMap((x, i) => (i ? [' · ', x] : [x]));
+    const descOf = (r) => {
+      const bits = [];
+      if (dict.key === 'passportMaterials') bits.push(badge(r.kind === 'coating' ? 'покрытие' : 'материал', r.kind === 'coating' ? 'info' : 'dim'));
+      if (r.code) bits.push(h('span', { class: 'muted' }, String(r.code)));
+      for (const c of cols.filter((col) => col.key !== 'name')) {
+        const v = c.key === 'hex' && r.hex ? [colorBadge(r.hex), r.hex] : fmt(fieldOf(c.key), r[c.key], dict.refs) || (c.key === 'workTypeName' ? r.workTypeName : '');
+        if (v && v.length !== 0) bits.push(v);
+      }
+      return bits.flatMap((x, i) => (i ? [' · ', x] : [x]));
+    };
     const list = stack();
     for (const r of rows) {
       const lock = isLocked(dict, r);

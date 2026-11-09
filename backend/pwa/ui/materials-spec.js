@@ -7,8 +7,8 @@ import { toast, toastError } from './kit/toast.js';
 
 /*
  * Материалы изделия таблицей (Фаза МИ.2/МИ.4/МИ.5): поле `type: 'widget'` правой панели, вид — как «Комплектность» (.rt-table).
- * Строка: Материал (только из «Материалов и покрытий», тип «материал») · Размеры (метки, из «Сортамента» материала или свои)
- * · Из чего (метки, «Части изделия») · ×; ниже — Покрытие (метки, тип «покрытие») и собранный текст (POST /showcase/materials-text).
+ * Строка (C055 Э0): Часть (метки, «Части изделия») · Материал (тип «материал») · Размеры (из «Сортамента» или свои) · ×;
+ * ниже — Покрытие (тип «покрытие») и собранный текст (POST /showcase/materials-text).
  * Новое значение, которого нет в справочнике, — «Сохранить в справочник?» (директор / админ; без дублей — поиск «как на складе»);
  * остальным размер остаётся просто значением строки, часть без справочника в изделие не попадает (сервер берёт только записи).
  *   materialsSpec({ value, dicts, text?, scope?(), actions?: [{ label, title, run(w) }], preview = true, onText?(t) })
@@ -52,9 +52,28 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
   const partKeys = (p) => [p.name, p.genSingular, p.genPlural].map(normSearch).filter(Boolean);
   const findPart = (t) => { const k = normSearch(t); return k ? d.parts.find((p) => partKeys(p).includes(k)) : null; };
   const canDict = canEditPassportDicts();
-  const own = (cats) => { const c = scope(); return !c || !codes(cats).length || codes(cats).includes(c); };
-  const sorted = (list) => { const c = scope(); return c ? [...list.filter((x) => own(x.categories)), ...list.filter((x) => !own(x.categories))] : list; };
-  const groupOf = (x) => (scope() ? (own(x.categories) ? 'Для категории паспорта' : 'Другие') : undefined);
+  // материалы/покрытия: пустые categories = «для всех»; части: пустые = «ещё не размечены» — при категории не показываем
+  const own = (cats, { strict = false } = {}) => {
+    const c = scope(); if (!c) return true;
+    const list = codes(cats); if (!list.length) return !strict;
+    return list.includes(c);
+  };
+  const sorted = (list, strict = false) => {
+    const c = scope(); if (!c) return list;
+    return [...list.filter((x) => own(x.categories, { strict })), ...list.filter((x) => !own(x.categories, { strict }))];
+  };
+  const groupOf = (x, strict = false) => (scope() ? (own(x.categories, { strict }) ? 'Для категории паспорта' : 'Другие') : undefined);
+  let showAllParts = false;
+  const partsBtn = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', hidden: true, onclick: () => {
+    showAllParts = !showAllParts; partsBtn.textContent = showAllParts ? 'Только части категории' : 'Показать все части';
+    rows.forEach((r) => r.paint?.());
+  } }, 'Показать все части');
+  const syncPartsBtn = () => {
+    const c = scope();
+    const foreign = c ? d.parts.filter((p) => !own(p.categories, { strict: true })).length : 0;
+    partsBtn.hidden = !c || (!foreign && !showAllParts);
+    if (!showAllParts) partsBtn.textContent = foreign ? `Показать все части (ещё ${foreign})` : 'Показать все части';
+  };
 
   const body = h('tbody');
   const rows = []; // { tr, materialId, sizes[], parts[{ id, name }], matIn, paint() }
@@ -127,10 +146,23 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
       onRemove: (i) => { row.sizes.splice(i, 1); sizes.paint(); paintNew(); changed(); },
     });
     const parts = chipCell({
-      label: 'Из чего', placeholder: '+ часть',
-      options: () => sorted(d.parts.filter((p) => !row.parts.some((x) => x.id === String(p.id)))).map((p) => ({ value: String(p.id), label: p.name, group: groupOf(p) })),
-      empty: (t) => (t ? (canDict ? 'Нет в «Частях изделия» — Enter добавит, справочник предложит сохранить' : 'Нет в «Частях изделия» — добавить может директор или администратор') : 'Справочник «Части изделия» пуст'),
-      chips: () => row.parts.map((p) => ({ text: p.name, foreign: !p.id, title: p.id ? '' : canDict ? 'Нет в справочнике «Части изделия» — сохраните его (ниже), иначе в изделие не попадёт' : 'Нет в справочнике «Части изделия» — в изделие не попадёт; добавить может директор или администратор' })),
+      label: 'Часть', placeholder: '+ часть',
+      options: () => {
+        const free = d.parts.filter((p) => !row.parts.some((x) => x.id === String(p.id)));
+        const list = (scope() && !showAllParts) ? free.filter((p) => own(p.categories, { strict: true })) : sorted(free, true);
+        syncPartsBtn();
+        return list.map((p) => ({ value: String(p.id), label: p.name, group: groupOf(p, true) }));
+      },
+      empty: (t) => {
+        if (t) return canDict ? 'Нет в «Частях изделия» — Enter добавит, справочник предложит сохранить' : 'Нет в «Частях изделия» — добавить может директор или администратор';
+        if (scope() && !showAllParts) return 'Нет частей этой категории — «Показать все части» или добавьте свою';
+        return 'Справочник «Части изделия» пуст';
+      },
+      chips: () => row.parts.map((p) => {
+        const rec = p.id ? partBy().get(String(p.id)) : null;
+        const foreign = !p.id || (scope() && rec && !own(rec.categories, { strict: true }));
+        return { text: p.name, foreign, title: !p.id ? (canDict ? 'Нет в справочнике — сохраните ниже' : 'Нет в справочнике — в изделие не попадёт') : foreign ? 'Не для этой категории паспорта' : '' };
+      }),
       onAdd: (t) => {
         for (const n of t.split(/\s*[;,]\s*/).map(s).filter(Boolean)) {
           const hit = findPart(n); const p = hit ? { id: String(hit.id), name: hit.name } : { id: null, name: n };
@@ -145,9 +177,9 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
     });
     const tr = h('tr', null,
       h('td', { class: 'rt-n' }),
+      h('td', { 'data-label': 'Часть' }, parts.el),
       h('td', { 'data-label': 'Материал' }, matWrap),
       h('td', { 'data-label': 'Размеры' }, sizes.el),
-      h('td', { 'data-label': 'Из чего' }, parts.el),
       h('td', { class: 'ms-del' }, h('button', { type: 'button', class: 'btn btn-ghost btn-sm btn-icon', title: 'Убрать строку', 'aria-label': 'Убрать строку',
         onclick: () => { rows.splice(rows.indexOf(row), 1); tr.remove(); if (!rows.length) addRow(); renum(); paintNew(); changed(); } }, '×')));
     Object.assign(row, { tr, matIn, paint: () => { sizes.paint(); parts.paint(); } });
@@ -208,22 +240,47 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
   // покрытия — метками (обычно одно-два)
   const coatOpts = d.mats.filter((m) => isCoat(m) && offered(m, parseSpec(value).coatingIds)).map((m) => ({ value: String(m.id), label: m.name, cats: codes(m.categories) }));
   const coat = tagPick({ options: coatOpts, value: [], label: 'Покрытие' });
+  const syncCoat = () => { try { coat.setScope(scope() || ''); } catch { /* scope ещё не готов */ } };
+  syncCoat();
   coat.el.addEventListener('change', (e) => { e.stopPropagation(); changed(); });
-  const coatBox = h('div', { class: 'ms-coat' }, h('div', { class: 'ms-sub' }, 'Покрытие'),
+  const coatLink = h('a', { href: '#dicts?d=passportMaterials', class: 'hint', title: 'Справочники → Паспорта → Материалы и покрытия. Поиск: «цинк» или GALV_HOT' }, 'Править в справочнике');
+  const coatBox = h('div', { class: 'ms-coat' }, h('div', { class: 'ms-sub' }, 'Покрытие · ', coatLink),
     coatOpts.length ? coat.el : h('span', { class: 'muted' }, 'В «Материалах и покрытиях» нет записей с типом «покрытие»'));
 
-  // вставка из Excel: колонки Материал · Размеры (через «;») · Из чего (через запятую)
+  // вставка из Excel: по умолчанию Часть · Материал · Размеры; шапка или старый порядок Материал · Размеры · Часть — тоже
   body.addEventListener('paste', (e) => {
     const t = e.clipboardData?.getData('text') || '';
     if (!/[\t\n]/.test(t.trim()) || !e.target.closest('td')) return;
     e.preventDefault();
     let lines = t.split(/\r?\n/).filter((l) => l.trim()).map((l) => l.split('\t'));
-    if (lines.length && /материал/i.test(lines[0][0] || '')) lines = lines.slice(1);
+    let order = 'part-mat-size'; // C055 Э0
+    if (lines.length) {
+      const hdr = lines[0].map((c) => normSearch(c));
+      const looksHead = hdr.some((c) => /материал|размер|часть|изчего/.test(c));
+      if (looksHead) {
+        const iP = hdr.findIndex((c) => /часть|изчего/.test(c));
+        const iM = hdr.findIndex((c) => /материал/.test(c));
+        const iZ = hdr.findIndex((c) => /размер/.test(c));
+        lines = lines.slice(1);
+        if (iM === 0 && (iZ === 1 || iP === 2)) order = 'mat-size-part';
+        else if (iP >= 0 || iM >= 0) {
+          for (const cols of lines) {
+            const p = iP >= 0 ? cols[iP] : ''; const m = iM >= 0 ? cols[iM] : ''; const z = iZ >= 0 ? cols[iZ] : '';
+            cols[0] = p; cols[1] = m; cols[2] = z;
+          }
+          order = 'part-mat-size';
+        }
+      }
+    }
     // строка, в которую вставили, пустая — её заменяют вставленные; иначе строки добавляются в конец
     const r0 = rows.find((r) => r.tr === e.target.closest('tr'));
     if (r0 && !r0.materialId && !r0.sizes.length && !r0.parts.length && !r0.matIn.value.trim()) { rows.splice(rows.indexOf(r0), 1); r0.tr.remove(); }
     emitting = true;
-    for (const [m = '', z = '', p = ''] of lines) if (!addRow({ matText: m.trim(), sizes: splitSizes(z), partNames: p.split(/\s*[;,]\s*/).filter(Boolean) })) break;
+    for (const cols of lines) {
+      const [a = '', b = '', c = ''] = cols;
+      const [p, m, z] = order === 'mat-size-part' ? [c, a, b] : [a, b, c];
+      if (!addRow({ matText: m.trim(), sizes: splitSizes(z), partNames: String(p).split(/\s*[;,]\s*/).filter(Boolean) })) break;
+    }
     if (!rows.length) addRow();
     renum();
     emitting = false;
@@ -336,6 +393,7 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
   let tplFor = null;
   const tplCheck = async () => {
     let c = ""; try { c = scope() || ""; } catch {} tplSave.hidden = !c || !canDict;
+    syncCoat(); syncPartsBtn();
     if (!c) { tplBtn.hidden = true; tplFor = null; return; }
     if (tplFor === c) return; tplFor = c;
     try { tplBtn.hidden = !parseSpec((await api(tplUrl())).materialsSpec).rows.length; } catch { tplBtn.hidden = true; }
@@ -345,18 +403,18 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
 
   el.append(
     h('div', { class: 'rt-wrap' }, h('table', { class: 'rt-table ms-table' },
-      h('thead', null, h('tr', null, h('th', { class: 'rt-n' }, '№'), h('th', { class: 'ms-c-mat' }, 'Материал'), h('th', { class: 'ms-c-z' }, 'Размеры'), h('th', { class: 'ms-c-p' }, 'Из чего'), h('th'))),
+      h('thead', null, h('tr', null, h('th', { class: 'rt-n' }, '№'), h('th', { class: 'ms-c-p' }, 'Часть'), h('th', { class: 'ms-c-mat' }, 'Материал'), h('th', { class: 'ms-c-z' }, 'Размеры'), h('th'))),
       body)),
     h('div', { class: 'rt-acts' },
-      h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { addRow()?.matIn.focus(); changed(); } }, '+ Строка'),
-      copyBtn, tplBtn, tplSave,
+      h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { const r = addRow(); r?.tr.querySelector('.ms-add')?.focus(); changed(); } }, '+ Строка'),
+      copyBtn, tplBtn, tplSave, partsBtn,
       ...actions.map((a) => h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: a.title || '', onclick: async (e) => {
         const b = e.currentTarget; const label = b.textContent;
         b.disabled = true; b.classList.add('is-busy'); b.textContent = a.busy || 'Готовлю…';
         try { await a.run(w); } catch (er) { toastError(er); } finally { b.disabled = false; b.classList.remove('is-busy'); b.textContent = label; }
       } }, a.label)),
       h('span', { class: 'spacer' }),
-      h('span', { class: 'hint' }, 'Размер — Enter; из Excel — Ctrl+V: Материал · Размеры · Из чего')),
+      h('span', { class: 'hint' }, 'Сначала часть, потом материал и размер; из Excel — Ctrl+V: Часть · Материал · Размеры')),
     copyBox, newBox, coatBox, textBox);
 
   const w = {

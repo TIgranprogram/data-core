@@ -33,13 +33,27 @@ export function passportCatView(r, ctx) {
   return h('span', { class: 'muted' }, `У ${where} не задана категория паспорта. Выберите её в «Продукция → Категории» (строка ${r.group ? 'группы' : 'раздела'}, поле «Категория паспорта»)`);
 }
 
-// Пометка скрипта переноса каталога («⚠ Проверить …»): жёлтая плашка; «Готово» снимает строки с ⚠ из примечания
+// Пометка скрипта переноса каталога («⚠ Проверить …»): напоминание, не мастер объединения.
+// Кнопки: открыть похожий артикул (если указан) · «Это разные» — только снять ⚠ из примечания.
 export function warnNote(r) {
   if (!r.notes || !r.notes.startsWith('⚠')) return null;
   const rest = r.notes.split('\n').filter((l) => !l.trim().startsWith('⚠')).join('\n').trim();
-  return h('div', { style: 'background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;padding:.6rem .8rem;margin-bottom:.8rem;display:flex;gap:.8rem;align-items:flex-start;justify-content:space-between' },
-    h('div', { style: 'white-space:pre-wrap' }, r.notes),
-    session.canEdit ? kitButton({ label: 'Готово', size: 'S', title: 'Проверено — убрать пометку', onClick: () => clearNoteWarning(r, rest) }) : null);
+  const warnLines = r.notes.split('\n').map((l) => l.trim()).filter((l) => l.startsWith('⚠'));
+  const skuHit = warnLines.join(' ').match(/\b(\d[\w.-]{1,20})\s*[«"]/);
+  const otherSku = skuHit?.[1] || '';
+  const acts = [];
+  if (otherSku) {
+    acts.push(kitButton({ label: `Открыть ${otherSku}`, size: 'S', title: 'Сравнить с похожим изделием из пометки',
+      onClick: () => go('products', { search: otherSku }) }));
+  }
+  if (session.canEdit) {
+    acts.push(kitButton({ label: 'Это разные — убрать пометку', size: 'S', title: 'Вы проверили: изделия разные или уже разобрались. Пометка исчезнет; объединение/удаление — отдельно в списке изделий',
+      onClick: () => clearNoteWarning(r, rest) }));
+  }
+  return h('div', { class: 'fill-note fill-warn' },
+    h('div', { class: 'u-pre' }, warnLines.join('\n')),
+    h('p', { class: 'hint u-tight' }, 'Это напоминание после загрузки каталога, не кнопка «объединить». Сравните карточки сами; лишнее удалите в списке «Продукция». Здесь только снять пометку.'),
+    acts.length ? h('div', { class: 'actions' }, ...acts) : null);
 }
 
 // «Состав» (БЗ-5): материалы склада, из которых сделано изделие; правка — в правой панели.
@@ -67,12 +81,14 @@ export function compositionBlock(r) {
       h('span', { class: 'muted' }, cost.missing ? ` · без цены: ${cost.missing} — в сумму не вошли` : ' · материалы — по последним закупкам, изделия — по их составу')) : null] });
 }
 
-// «Паспорта» (БЗ-5): выпущенные паспорта этого изделия — по ссылке или по названию
+// Выпущенные паспорта этой модели (C055: не путать с техописанием и с очередью «Паспорта» по заказам)
 export function passportsBlock(r) {
   const p = r.passports;
-  const tpl = h('div', null, session.canEdit && session.seesDocs() ? kitButton({ label: 'Создать паспорт', kind: 'primary', size: 'S', title: 'Только недостающее — и PDF', onClick: () => openPassportFunnel({ productId: r.id }) }) : null, kitButton({ label: 'Шаблон паспорта', size: 'S', onClick: () => go('docs', { tab: 'templates', of: 'doctpl', open: r.id }) }));
-  if (!p?.total) return section({ title: 'Документация', tone: 'neutral', count: 0, body: [none('Паспортов пока нет. В шаблоне видно, что собрано и чего не хватает.'), tpl] });
-  return section({ title: 'Документация', tone: 'neutral', count: p.total, body: [tpl,
+  const tpl = h('div', { class: 'actions' },
+    session.canEdit && session.seesDocs() ? kitButton({ label: 'Выпустить паспорт', kind: 'primary', size: 'S', title: 'Новый паспорт с номером по этой модели', onClick: () => openPassportFunnel({ productId: r.id }) }) : null,
+    kitButton({ label: 'Править шаблон модели', size: 'S', title: 'Категория и тексты по умолчанию для следующих паспортов', onClick: () => go('docs', { tab: 'templates', of: 'doctpl', open: r.id }) }));
+  if (!p?.total) return section({ title: 'Выпущенные паспорта', tone: 'neutral', count: 0, body: [none('По этой модели паспортов ещё нет. Сначала заполните техописание и шаблон, затем «Выпустить паспорт».'), tpl] });
+  return section({ title: 'Выпущенные паспорта', tone: 'neutral', count: p.total, body: [tpl,
     h('ul', { class: 'timeline' }, ...p.items.map((x) => h('li', null,
       h('a', { href: '#passports?open=' + x.id }, `№ ${x.passportNumber || '—'}`),
       h('span', { class: 'muted clip' }, [date(x.date), x.customer, x.orderNo ? 'заказ ' + x.orderNo : ''].filter(Boolean).join(' · '))))),

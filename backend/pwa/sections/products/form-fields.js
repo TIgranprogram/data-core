@@ -9,6 +9,7 @@ import { loadMaterialDicts, materialsSpec, specSummary } from '../../ui/material
 import { funnelBox } from '../../ui/funnel.js';
 import { canEdit as canEditPassportTexts, dictOpts, dictRows } from '../passports/common.js';
 import { jointsPick } from '../passports/traits.js';
+import { withElementTexts } from '../passports/elements-block.js';
 import { formValues, phrases, staffOptions, passportCategoryOptions, skuSearch, materialsFromComposition, createProduct, patchProduct, savePd, takePending, pendingProduct } from './data.js';
 
 /* Форма изделия в правой панели: поля (ИЗ-4: Изделие → Цена → Паспорт → Характеристики → Описание и материалы → Ещё), тело запроса, создание/правка. */
@@ -74,7 +75,9 @@ export function productForm() {
       designerIds = new Map(staff.map((p) => [p.label, p.value]));
       // «Паспорт»: категория и выбор текстов воронки — паспорт возьмёт их из изделия сам
       const pd0 = r?.passportDefaults || {}; let pdFunnel = null;
-      const [els, inst, catRows] = await Promise.all([dictOpts('passportElements'), dictOpts('passportInstall'), dictRows('passportCategories')]);
+      const [els, elRows, inst, catRows] = await Promise.all([dictOpts('passportElements'), dictRows('passportElements'), dictOpts('passportInstall'), dictRows('passportCategories')]);
+      let pdElPick = null;
+      let matCat = pd0.passportCategory || r?.passportCategory?.code || '';
       const pc = r?.passportCategory;
       const sim = similarBox({ onPick: (it) => go('products', { open: it.id }) });
       const catHint = pc?.own ? 'Задана в самом изделии. Паспорт берёт категорию отсюда' : pc?.inherited || pc?.code ? 'Сейчас — по группе или разделу. Укажите свою, если нужна другая. Паспорт берёт категорию отсюда' : 'Обычно определяется по разделу и группе; укажите, если нужна другая. Паспорт берёт категорию отсюда';
@@ -106,7 +109,11 @@ export function productForm() {
                 if (String(cur) !== String(v)) api.set(k, v, { auto: true, src: 'из категории' });
               }
             };
-            api.on('pdCategory', () => { pdFunnel?.setCategory(api.get('pdCategory')); fill(); }); fill();
+            api.on('pdCategory', () => {
+              matCat = api.get('pdCategory') || r?.passportCategory?.code || '';
+              pdFunnel?.setCategory(api.get('pdCategory'));
+              fill();
+            }); fill();
           } },
         { key: 'pdChoices', label: 'Тексты паспорта — выбор (монтаж, назначение…)', type: 'widget', wide: true, summary: () => '',
           widget: (v) => (pdFunnel = funnelBox({ value: v, category: pd0.passportCategory || r?.passportCategory?.code || '', canEditText: canEditPassportTexts() })),
@@ -121,10 +128,33 @@ export function productForm() {
           } },
         { key: 'pdWarranty', label: 'Гарантия, мес.', type: 'number', min: 0, span: 1 },
         { key: 'pdLife', label: 'Срок службы, лет', type: 'number', min: 0, span: 1 },
-        { key: 'pdInstall', label: 'Способ установки', type: 'select', options: [{ value: '', label: '—' }, ...inst.map((o) => ({ value: o.value, label: o.label }))], hint: 'Определяет схему монтажа в паспорте' },
-        { key: 'pdElements', label: 'Функциональные элементы', type: 'widget', wide: true, summary: () => '', widget: (v) => tagPick({ options: els, value: v, label: 'Функциональные элементы' }) },
+        { key: 'pdInstall', label: 'Способ установки', type: 'select', options: [{ value: '', label: '—' }, ...inst.map((o) => ({ value: o.value, label: o.label }))], hint: 'Определяет схему монтажа в паспорте',
+          mount: (api) => {
+            const sel = api.input('pdInstall');
+            const sync = () => {
+              if (!sel) return;
+              const code = api.get('pdCategory') || r?.passportCategory?.code || '';
+              const cur = sel.value;
+              const own = (o) => !code || !(o.cats || []).length || o.cats.includes(code);
+              const list = inst.filter((o) => own(o) || o.value === cur);
+              sel.replaceChildren(h('option', { value: '' }, '—'), ...list.map((o) => h('option', { value: o.value }, own(o) ? o.label : `${o.label} — не для этой категории`)));
+              sel.value = cur;
+            };
+            api.on('pdCategory', sync); sync();
+          } },
         { key: 'pdJoints', label: 'Как соединено (для паспорта)', type: 'widget', wide: true, summary: () => '', widget: (v) => jointsPick(v), hint: 'Болты, сварка или цельное (без крепежа) — можно несколько. Паспорт подставит это сам и выберет подходящие пункты текста' },
         { key: 'pdKit', label: 'Поставляется разобранным', type: 'segment', options: [{ value: 'no', label: 'Нет' }, { value: 'yes', label: 'Да — нужна схема сборки' }] },
+        { section: 'Функциональные элементы', tone: 'info' },
+        { key: 'pdElements', label: 'Что это за изделие', type: 'widget', wide: true, summary: () => '',
+          widget: (v) => (pdElPick = withElementTexts(tagPick({ options: els, value: v, label: 'Что это за изделие', productOnly: true }), elRows, v)),
+          hint: 'Только виды своей категории паспорта (для тренажёра — тренажёры, без якорей и беседок). Ниже — фраза для описания и правила пользования из справочника.',
+          mount: (api) => {
+            const sync = () => {
+              const code = api.get('pdCategory') || r?.passportCategory?.code || '';
+              pdElPick?.setScope(code);
+            };
+            api.on('pdCategory', sync); sync();
+          } },
         { section: 'Характеристики', tone: 'info' },
         { key: 'dimL', label: 'Длина', type: 'number', min: 0, span: 1 },
         { key: 'dimW', label: 'Ширина', type: 'number', min: 0, span: 1 },
@@ -136,7 +166,7 @@ export function productForm() {
         { section: 'Описание и материалы', tone: 'info', collapsed: !(r?.purpose || r?.installation || r?.materialsSpec || r?.description) },
         // МИ.2: материалы таблицей — текст «Изготовлено из…» собирается сам (сервер), паспорт берёт его из изделия
         { key: 'materialsSpec', label: 'Материалы изделия', type: 'widget', wide: true, summary: specSummary,
-          widget: (v) => materialsSpec({ value: v, dicts: md, text: r?.materialsText || '', scope: () => r?.passportCategory?.code || '', actions: r ? [fromComposition(r)] : [] }),
+          widget: (v) => materialsSpec({ value: v, dicts: md, text: r?.materialsText || '', scope: () => matCat || r?.passportCategory?.code || '', actions: r ? [fromComposition(r)] : [] }),
           hint: r ? 'Материал — из справочника; размеры и части — выбрать или вписать (Enter). «Взять из состава» — строки по материалам состава изделия' : 'Материал — из справочника; размеры и части — выбрать или вписать (Enter). «Взять из состава» — после «Создать», когда заполнен состав' },
         { key: 'purpose', label: 'Назначение', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('purpose'), by: 'group', title: 'Варианты' } },
         { key: 'installation', label: 'Монтаж', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('installationMethod'), by: 'group', title: 'Варианты' } },

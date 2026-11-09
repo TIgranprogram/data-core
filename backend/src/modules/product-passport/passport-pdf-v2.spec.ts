@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import sharp from 'sharp';
 import { maintenanceColumns, planFigures, renderPassportPdfV2, renderPassportsPdfV2, renderStandPdf, resolveStyle, shortTiles, standRules, substituteRefs, NEUTRAL_COLOR, type PdfV2Input, type PdfV2Text } from './passport-pdf-v2';
+import { appendTechSheet } from '../../common/print/tech-sheet-pdf';
 
 /** Образцы PDF для просмотра: PDFV2_OUT=<папка> npx jest passport-pdf-v2 */
 const OUT = process.env.PDFV2_OUT;
@@ -172,5 +173,19 @@ describe('PDF паспорта v2 (БЗ-6 Э6)', () => {
     const two = await renderPassportsPdfV2([BASE, { ...BASE, passport: { ...BASE.passport, passportNumber: '701' } }], 'Паспорта заказа 12-3');
     expect(count(two)).toBe(count(one) * 2);
     expect(two.subarray(0, 5).toString()).toBe('%PDF-');
+  });
+
+  it('C055: вместе — сначала страницы паспорта, затем техописание A4', async () => {
+    const passport = await renderPassportPdfV2(BASE);
+    const both = await renderPassportsPdfV2([BASE], 'Паспорт и техническое описание', (doc) => appendTechSheet(doc, {
+      title: 'Комплекс игровой', rows: [{ name: 'Стойка', text: 'Труба стальная, толщина стенки не менее 2 и не более 4 мм' }], photo: null,
+    }));
+    const box = (b: Buffer) => [...b.toString('latin1').matchAll(/\/MediaBox \[([^\]]+)\]/g)].map((m) => m[1].replace(/\s+/g, ' ').trim());
+    const a5 = box(passport);
+    const all = box(both);
+    expect(all.slice(0, a5.length)).toEqual(a5);
+    expect(all.length).toBeGreaterThan(a5.length);
+    expect(all.slice(a5.length).every((x) => x === '0 0 595.28 841.89')).toBe(true);
+    expect(count(both)).toBeGreaterThan(count(passport));
   });
 });

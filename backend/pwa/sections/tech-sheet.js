@@ -6,8 +6,9 @@ import { loadMaterialDicts } from '../ui/materials-spec.js';
 import { toast } from '../ui/kit/toast.js';
 
 /**
- * «Техническое описание» изделия: фото слева, справа таблица с допусками. Строки подставляются из изделия, всё правится здесь же,
- * документ собирается по кнопке и не хранится. Допуски ориентировочные: стенка ±1 мм, габариты ±10 %.
+ * «Техническое описание» изделия (PDF). Строки читаются из materialsSpec вкладки «Техописание».
+ * Правки в этом окне только для текущего PDF — состав изделия здесь не переписывается.
+ * Допуски ориентировочные: стенка ±1 мм, габариты ±10 %.
  */
 const round10 = (n) => Math.round(n / 10) * 10;
 const range = (a, b, unit) => `не менее ${String(a).replace('.', ',')} и не более ${String(b).replace('.', ',')} ${unit}`;
@@ -53,7 +54,7 @@ export async function openTechSheet(r) {
   paint();
   await modal({
     title: 'Техническое описание', okText: '⇩ Скачать PDF', wide: true,
-    body: h('div', null, h('p', { class: 'hint' }, 'Данные взяты из изделия, допуски примерные — проверьте и поправьте. Документ не сохраняется.'),
+    body: h('div', null, h('p', { class: 'hint' }, 'Состав берётся из вкладки «Техописание». Правки строк здесь только для этого PDF — в изделие не пишутся.'),
       h('label', { class: 'field' }, h('span', null, 'Название'), title),
       h('div', { class: 'ts-row ts-head' }, h('span', null, 'Часть'), h('span', null, 'Материал и допуски'), h('span')), box,
       button({ label: '+ Строка', kind: 'ghost', size: 'S', onClick: () => { rows.push({ name: '', text: '' }); paint(); } })),

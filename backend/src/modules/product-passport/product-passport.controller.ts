@@ -10,6 +10,7 @@ import { PassportPdfService } from './passport-pdf.service';
 import { CreateProductPassportDto } from './dto/create-product-passport.dto';
 import { variantOf } from './passport-variants';
 import { PassportPreviewDto } from './dto/preview.dto';
+import { packOf } from './print-pack';
 import { OrderIssueDto } from './dto/order-issue.dto';
 import { NextPassportNumberDto } from './dto/next-number.dto';
 import { UpdateProductPassportDto } from './dto/update-product-passport.dto';
@@ -228,7 +229,7 @@ export class ProductPassportController {
   @Post('passports/preview')
   @Roles(...EDIT)
   async preview(@Body() dto: PassportPreviewDto, @Res({ passthrough: true }) res: Response) {
-    const r = await this.pdfs.preview(dto.productId, { mode: dto.mode, mono: dto.bw, variant: dto.variant });
+    const r = await this.pdfs.preview(dto.productId, { mode: dto.mode, mono: dto.bw, variant: dto.variant, pack: dto.pack });
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': attachment(r.filename) });
     return new StreamableFile(r.buf);
   }
@@ -272,6 +273,8 @@ export class ProductPassportController {
   /**
    * PDF паспорта: ?stamp=1 — с печатью и подписью организации-поставщика; ?mode=print — буклет 2 стр. на A4 альбомный;
    * ?mode=stand — лист «Правила пользования» для стенда, A3 книжный (паспорт без категории — 400).
+   * ?pack=passport|tech|combined — только паспорт (умолч.), только техописание из состава, или паспорт и затем техописание.
+   * variant=short|full — объём текста паспорта, не путать с pack.
    */
   @Get('passports/:id/pdf')
   @Roles(...EDIT)
@@ -281,8 +284,11 @@ export class ProductPassportController {
   @ApiQuery({ name: 'seal', required: false, description: 'при stamp=1: 0 — без печати (только подпись)' })
   @ApiQuery({ name: 'sign', required: false, description: 'при stamp=1: 0 — без подписи (только печать)' })
   @ApiQuery({ name: 'variant', required: false, enum: ['short', 'full'], description: 'short — только обязательные разделы (умолч.); full — плюс необязательные, если заполнены' })
-  async pdf(@Param('id') id: string, @Query('stamp') stamp: string, @Query('mode') mode: string, @Query('bw') bw: string, @Query('seal') seal: string, @Query('sign') sign: string, @Query('variant') variant: string, @Res({ passthrough: true }) res: Response) {
-    const r = mode === 'stand' ? await this.pdfs.stand(id) : await this.pdfs.pdf(id, { stamp: stamp === '1', seal: seal !== '0', sign: sign !== '0', mode: mode === 'print' ? 'print' : 'pages', mono: bw === '1', variant: variantOf(variant) });
+  @ApiQuery({ name: 'pack', required: false, enum: ['passport', 'tech', 'combined'], description: 'passport — только паспорт (умолч., старые клиенты); tech — только техническое описание из состава; combined — паспорт, затем техописание одним PDF. Не путать с variant.' })
+  async pdf(@Param('id') id: string, @Query('stamp') stamp: string, @Query('mode') mode: string, @Query('bw') bw: string, @Query('seal') seal: string, @Query('sign') sign: string, @Query('variant') variant: string, @Query('pack') pack: string, @Res({ passthrough: true }) res: Response) {
+    const kind = packOf(pack);
+    if (mode === 'stand' && kind !== 'passport') throw new BadRequestException('Лист для стенда печатается отдельно от технического описания');
+    const r = mode === 'stand' ? await this.pdfs.stand(id) : await this.pdfs.pdf(id, { stamp: stamp === '1', seal: seal !== '0', sign: sign !== '0', mode: mode === 'print' ? 'print' : 'pages', mono: bw === '1', variant: variantOf(variant), pack: kind });
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': attachment(r.filename) });
     return new StreamableFile(r.buf);
   }

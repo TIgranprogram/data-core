@@ -1,0 +1,99 @@
+[
+  {
+    "id": "6ada091046ad81616709da3e",
+    "name": "Баскетбольная стойка",
+    "was": {
+      "categories": "WRK, TRN"
+    }
+  },
+  {
+    "id": "6ae3a041793eb93d71b3f3c1",
+    "name": "Борт",
+    "was": {
+      "kind": ""
+    }
+  },
+  {
+    "id": "6ada091046ad81616709da40",
+    "name": "Ворота для мини-футбола",
+    "was": {
+      "categories": "WRK"
+    }
+  },
+  {
+    "id": "6ae3a045793eb93d71b3f3d7",
+    "name": "Корпус (ёмкость)",
+    "was": {
+      "inDescription": "корпус (ёмкость)",
+      "kind": ""
+    }
+  },
+  {
+    "id": "6ae3a043793eb93d71b3f3cd",
+    "name": "Кровля (крыша)",
+    "was": {
+      "inDescription": "кровля",
+      "kind": ""
+    }
+  },
+  {
+    "id": "6ae3a03f793eb93d71b3f3b7",
+    "name": "Лестница",
+    "was": {
+      "inDescription": "лестница",
+      "usageRules": ""
+    }
+  },
+  {
+    "id": "6ae3a039793eb93d71b3f39e",
+    "name": "Маховик",
+    "was": {
+      "inDescription": "маховик"
+    }
+  },
+  {
+    "id": "6ae3a03e793eb93d71b3f3b2",
+    "name": "Ограждение (перила)",
+    "was": {
+      "usageRules": "",
+      "categories": "DIO, BLG"
+    }
+  },
+  {
+    "id": "6ae3a025793eb93d71b3f346",
+    "name": "Опора",
+    "was": {
+      "kind": ""
+    }
+  },
+  {
+    "id": "6ae3a03d793eb93d71b3f3ad",
+    "name": "Площадка",
+    "was": {
+      "usageRules": "",
+      "categories": "DIO, WRK"
+    }
+  },
+  {
+    "id": "6ae3a042793eb93d71b3f3c8",
+    "name": "Подвес",
+    "was": {
+      "kind": ""
+    }
+  },
+  {
+    "id": "6ae3a040793eb93d71b3f3bc",
+    "name": "Скат",
+    "was": {
+      "kind": ""
+    }
+  },
+  {
+    "id": "6ae3a044793eb93d71b3f3d2",
+    "name": "Столешница",
+    "was": {
+      "inDescription": "столешница",
+      "kind": ""
+    }
+  }
+]

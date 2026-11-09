@@ -1,9 +1,12 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { printableText } from './passport-blanks';
 import { InjectConnection } from '@nestjs/mongoose';
 import { promises as fs } from 'fs';
 import { Types, type Connection } from 'mongoose';
 import sharp from 'sharp';
+import { presentMaterialsSpec } from '../../common/catalog/materials-table';
+import { appendTechSheet, renderTechSheetPdf, type TechSheetInput } from '../../common/print/tech-sheet-pdf';
+import { techSheetRows } from '../../common/print/tech-sheet-rows';
 import { ProductPassportService } from './product-passport.service';
 import { isDraftNumber, isIssued } from './passport-consts';
 import type { PdfOrg } from './passport-pdf';
@@ -12,6 +15,7 @@ import { safeUploadPath } from '../../common/uploads/safe-path';
 import { filterImagesByKind, installKindOf, variantOf, type PassportVariant } from './passport-variants';
 import { standardSchemes } from './passport-schemes';
 import { renderPassportPdfV2, renderPassportsPdfV2, renderStandPdf, resolveStyle, type PdfImageV2, type PdfV2Style, type PdfV2Text } from './passport-pdf-v2';
+import { packOf, type PrintPack } from './print-pack';
 
 type Doc = Record<string, unknown>;
 type PdfOpts = { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean; variant?: PassportVariant };
@@ -70,20 +74,33 @@ export class PassportPdfService {
   /** НМ: черновик — PDF с пометкой «ЧЕРНОВИК» и без номера; аннулированный — «АННУЛИРОВАН». Выпущенный — как есть. */
   private watermark(raw: Doc): string | undefined { return raw.status === 'draft' ? 'ЧЕРНОВИК' : raw.status === 'annulled' ? 'АННУЛИРОВАН' : undefined; }
 
-  async pdf(id: string, opts: { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean; variant?: PassportVariant } = {}) {
+  async pdf(id: string, opts: { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean; variant?: PassportVariant; pack?: PrintPack } = {}) {
+    const pack = packOf(opts.pack);
     await this.passports.syncFromProduct(id); // черновик с изделием печатается с категорией и полями изделия
     const raw = (await this.passports.findById(id)).toObject() as unknown as Doc;
+    if (pack === 'tech') {
+      const tech = await this.sheetOf(raw, raw.productId);
+      return { buf: await renderTechSheetPdf(tech), filename: packFileName(raw, 'tech') };
+    }
     const p = noDraftNumber(await this.withText(raw));
-    const buf = await this.render(p, opts);
-    if (isIssued(raw)) await this.passports.markIssued(p._id as Types.ObjectId); // «PDF скачан» — только у выпущенного
-    return { buf, filename: fileName(p, opts.stamp) };
+    const tech = pack === 'combined' ? await this.sheetOf(p, p.productId) : null;
+    const buf = await this.render(p, opts, tech);
+    if (isIssued(raw)) await this.passports.markIssued(p._id as Types.ObjectId); // «PDF скачан» — только у выпущенного; одно техописание выпуск не отмечает
+    return { buf, filename: packFileName(p, pack, opts.stamp) };
   }
 
-  /** Предпросмотр по изделию: тот же рендер, «ЧЕРНОВИК», без номера; в базу ничего не пишется и «выдан» не отмечается. */
-  async preview(productId: string, opts: { mode?: 'pages' | 'print'; mono?: boolean; variant?: PassportVariant } = {}) {
+  /** Предпросмотр по изделию: тот же рендер, «ЧЕРНОВИК», без номера; в базу ничего не пишется и «выдан» не отмечается. pack=tech — только состав, категория паспорта не нужна. */
+  async preview(productId: string, opts: { mode?: 'pages' | 'print'; mono?: boolean; variant?: PassportVariant; pack?: PrintPack } = {}) {
+    const pack = packOf(opts.pack);
+    if (pack === 'tech') {
+      const prod = await this.productDoc(productId);
+      const tech = await this.sheetOf(prod, prod._id);
+      return { buf: await renderTechSheetPdf(tech), filename: packFileName(prod, 'tech') };
+    }
     const p = noDraftNumber(await this.passports.previewDoc(productId) as Doc);
-    const buf = await this.render(p, opts);
-    return { buf, filename: `Предпросмотр_${fileName(p).replace(/^Паспорт_/, '')}` };
+    const tech = pack === 'combined' ? await this.sheetOf(p, productId) : null;
+    const buf = await this.render(p, opts, tech);
+    return { buf, filename: pack === 'combined' ? packFileName(p, 'combined') : `Предпросмотр_${fileName(p).replace(/^Паспорт_/, '')}` };
   }
 
   /**
@@ -112,8 +129,63 @@ export class PassportPdfService {
     return zipStore(files);
   }
 
-  private async render(p: Doc, opts: PdfOpts) {
-    return renderPassportPdfV2(await this.input(p, opts));
+  private async render(p: Doc, opts: PdfOpts, tech?: TechSheetInput | null) {
+    const input = await this.input(p, opts);
+    if (!tech) return renderPassportPdfV2(input);
+    const title = `Паспорт и техническое описание${p.name ? `: ${p.name}` : ''}`;
+    return renderPassportsPdfV2([input], title, (doc) => appendTechSheet(doc, tech));
+  }
+
+  /** Изделие для техописания без паспорта. Нет или в корзине — 404. */
+  private async productDoc(id: string): Promise<Doc> {
+    if (!Types.ObjectId.isValid(id)) throw new NotFoundException(`Изделие ${id} не найдено`);
+    const prod = await this.connection.collection('products').findOne({ _id: new Types.ObjectId(id), deletedAt: null });
+    if (!prod) throw new NotFoundException(`Изделие ${id} не найдено`);
+    return prod as Doc;
+  }
+
+  /**
+   * Техническое описание из состава. У паспорта — снимок `materialsSpec` и поля паспорта;
+   * у изделия — `dimensions` / `weightKg` / `installation`. Пусто — 400.
+   * Фото — главное фото изделия (2 чтения: изделие, фото).
+   */
+  private async sheetOf(src: Doc, productId: unknown): Promise<TechSheetInput> {
+    const spec = presentMaterialsSpec(src.materialsSpec);
+    const matIds = [...(spec?.rows ?? []).map((r) => r.materialId), ...(spec?.coatingIds ?? [])].filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
+    const partIds = (spec?.rows ?? []).flatMap((r) => r.partIds).filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
+    const dv = this.connection.collection('dict_values');
+    const [mats, parts] = await Promise.all([
+      matIds.length ? dv.find({ dict: 'passportMaterials', _id: { $in: matIds } }, { projection: { name: 1 } }).toArray() : [],
+      partIds.length ? dv.find({ dict: 'passportParts', _id: { $in: partIds } }, { projection: { name: 1 } }).toArray() : [],
+    ]);
+    const dm = (src.dimensions && typeof src.dimensions === 'object' ? src.dimensions : {}) as Doc;
+    const num = (v: unknown) => { const n = Number(v); return n > 0 ? n : undefined; };
+    const rows = techSheetRows({
+      spec,
+      mats: mats.map((x) => ({ id: String(x._id), name: String(x.name ?? '') })),
+      parts: parts.map((x) => ({ id: String(x._id), name: String(x.name ?? '') })),
+      length: num(src.length ?? dm.length),
+      width: num(src.width ?? dm.width),
+      height: num(src.height ?? dm.height),
+      unit: String(dm.unit || 'мм'),
+      weight: num(src.weight ?? src.weightKg),
+      purpose: String(src.purpose ?? ''),
+      installation: String(src.installationMethod ?? src.installation ?? ''),
+    });
+    if (!rows.length) throw new BadRequestException('Нет состава для технического описания — заполните материалы изделия');
+    const title = String(src.name || 'Изделие').slice(0, 300);
+    return { title, rows, photo: await this.sheetPhoto(productId) };
+  }
+
+  /** Главное фото изделия → JPEG для листа техописания. Нет фото — null, PDF без картинки. */
+  private async sheetPhoto(productId: unknown): Promise<Buffer | null> {
+    const id = productId instanceof Types.ObjectId ? productId : (Types.ObjectId.isValid(String(productId ?? '')) ? new Types.ObjectId(String(productId)) : null);
+    if (!id) return null;
+    const prod = await this.connection.collection('products').findOne({ _id: id }, { projection: { mainPhotoId: 1, photoIds: 1 } });
+    const pid = (prod?.mainPhotoId ?? (Array.isArray(prod?.photoIds) ? prod.photoIds[0] : null)) as Types.ObjectId | undefined;
+    if (!pid) return null;
+    const ph = await this.connection.collection('photos').findOne({ _id: pid }, { projection: { storageUrl: 1 } });
+    return (await this.file(ph?.storageUrl as string | undefined)) ?? null;
   }
 
   /** ПНЗ: один PDF со всеми выпущенными паспортами заказа (тот же рендер, подряд). Нет выпущенных — 404 от вызывающего. */
@@ -227,4 +299,14 @@ export function standFileName(p: Doc): string {
 export function fileName(p: Doc, stamp?: boolean): string {
   const name = String(p.name ?? '').replace(/[\\/:*?"<>|«»]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80);
   return `Паспорт_${p.passportNumber || 'черновик'}${name ? `_${name}` : ''}${stamp ? '' : '_без печати'}.pdf`;
+}
+
+/** Имя файла режима pack. passport — как раньше; tech и combined — свои, чтобы не путать с «ТО» (техобслуживание). */
+export function packFileName(p: Doc, pack: 'passport' | 'tech' | 'combined', stamp?: boolean): string {
+  if (pack === 'tech') {
+    const name = String(p.name ?? '').replace(/[\\/:*?"<>|«»]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    return `Техническое описание${name ? ` ${name}` : ''}.pdf`;
+  }
+  if (pack === 'combined') return fileName(p, stamp).replace(/^Паспорт_/, 'Паспорт_и_описание_');
+  return fileName(p, stamp);
 }

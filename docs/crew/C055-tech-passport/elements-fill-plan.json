@@ -1,0 +1,596 @@
+[
+  {
+    "id": "6ae3a02a793eb93d71b3f35a",
+    "code": "ANCHOR",
+    "name": "Анкер",
+    "kind": "fastener",
+    "categories": "TRN,WRK,BLG,DIO,DSP",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ada090c7536f8509feb4227",
+    "code": "BALANCE_SEESAW",
+    "name": "Балансир",
+    "kind": "product",
+    "categories": "DIO",
+    "action": "keep",
+    "note": "⚠ Спорно. Балансир — DIO. Тип «Качели, качалка» помечен BLG. Категорию не расширять без «да»."
+  },
+  {
+    "id": "6ada091046ad81616709da3e",
+    "code": "BASKETBALL_STAND",
+    "name": "Баскетбольная стойка",
+    "kind": "product",
+    "categories": "WRK,DSP",
+    "action": "patch",
+    "set": {
+      "categories": "WRK,DSP"
+    },
+    "was": {
+      "categories": "WRK"
+    },
+    "note": "Тип «Баскетбольная стойка» — WRK. Детский щит ниже взрослого — DSP, как кольцо и щит в плане частей C054. Не TRN."
+  },
+  {
+    "id": "6adb17107920f392cb442fce",
+    "code": "GAZEBO",
+    "name": "Беседка",
+    "kind": "product",
+    "categories": "BLG",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ae3a041793eb93d71b3f3c1",
+    "code": "SIDE_WALL",
+    "name": "Борт",
+    "kind": "part",
+    "categories": "DIO",
+    "action": "patch",
+    "set": {
+      "kind": "part"
+    },
+    "was": {
+      "kind": "product"
+    },
+    "note": "Борт ската — узел горки, не снаряд. Описание «боковые борта ската» оставляем. Горка уже несёт правила катания."
+  },
+  {
+    "id": "6ada090c7536f8509feb4220",
+    "code": "PARALLEL_BARS",
+    "name": "Брусья",
+    "kind": "product",
+    "categories": "WRK,DSP",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6adb17107920f392cb442fcd",
+    "code": "FLOWER_POT",
+    "name": "Вазон / цветочница",
+    "kind": "product",
+    "categories": "BLG",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6adb17107920f392cb442fd1",
+    "code": "BIKE_RACK",
+    "name": "Велопарковка",
+    "kind": "product",
+    "categories": "BLG",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ada091046ad81616709da3f",
+    "code": "VOLLEYBALL_POSTS",
+    "name": "Волейбольные стойки",
+    "kind": "product",
+    "categories": "WRK",
+    "action": "keep",
+    "note": "⚠ Спорно. Только WRK, как тип «Волейбол, теннис». Детский спорт (DSP) в частях C054 для волейбола не размечен. Не добавлять DSP без «да»."
+  },
+  {
+    "id": "6ada091046ad81616709da40",
+    "code": "MINI_FOOTBALL_GOAL",
+    "name": "Ворота для мини-футбола",
+    "kind": "product",
+    "categories": "WRK,DSP",
+    "action": "patch",
+    "set": {
+      "categories": "WRK,DSP"
+    },
+    "was": {
+      "categories": "WRK"
+    },
+    "note": "Тип «Ворота» — WRK. Детские ворота — DSP, как крючок сетки в плане частей C054. Не TRN."
+  },
+  {
+    "id": "6ae3a033793eb93d71b3f385",
+    "code": "BUSHING",
+    "name": "Втулка",
+    "kind": "part",
+    "categories": "TRN,DIO",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ada090c7536f8509feb4224",
+    "code": "SLIDE",
+    "name": "Горка",
+    "kind": "product",
+    "categories": "DIO",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ae3a02e793eb93d71b3f371",
+    "code": "END_CAP",
+    "name": "Заглушка",
+    "kind": "fastener",
+    "categories": "TRN,WRK,BLG,DIO,DSP",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ae3a029793eb93d71b3f355",
+    "code": "EMBED_PART",
+    "name": "Закладная деталь",
+    "kind": "fastener",
+    "categories": "TRN,WRK,BLG,DIO,DSP",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ae3a046793eb93d71b3f3dc",
+    "code": "INFO_PLATE",
+    "name": "Информационная табличка",
+    "kind": "part",
+    "categories": "TRN,WRK,BLG,DIO,DSP",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6adb17107920f392cb442fd0",
+    "code": "INFO_STAND",
+    "name": "Информационный стенд",
+    "kind": "product",
+    "categories": "BLG",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ada090c7536f8509feb4228",
+    "code": "ROPE_NET",
+    "name": "Канатная сеть",
+    "kind": "product",
+    "categories": "DIO,DSP",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ada091046ad81616709da45",
+    "code": "CARDIO_TRAINER",
+    "name": "Кардиотренажёр",
+    "kind": "product",
+    "categories": "TRN",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ae3a03b793eb93d71b3f3a3",
+    "code": "CARRIAGE",
+    "name": "Каретка (платформа)",
+    "kind": "part",
+    "categories": "TRN",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ae3a023793eb93d71b3f341",
+    "code": "FRAME_BODY",
+    "name": "Каркас",
+    "kind": "part",
+    "categories": "TRN,WRK,BLG,DIO,DSP",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ada090c7536f8509feb4226",
+    "code": "CAROUSEL",
+    "name": "Карусель",
+    "kind": "product",
+    "categories": "DIO",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ada090c7536f8509feb4225",
+    "code": "SWING",
+    "name": "Качели",
+    "kind": "product",
+    "categories": "DIO",
+    "action": "keep",
+    "note": "⚠ Спорно. Элемент — DIO (ГОСТ 34614.2, детские качели). Тип изделий «Качели, качалка» в seed-passport-types помечен BLG. BLG не добавлять: в паспорте беседки всплывут качели. Решает пользователь."
+  },
+  {
+    "id": "6ae3a045793eb93d71b3f3d7",
+    "code": "BODY_CONTAINER",
+    "name": "Корпус (ёмкость)",
+    "kind": "part",
+    "categories": "BLG",
+    "action": "patch",
+    "set": {
+      "inDescription": "корпус ёмкости для мусора",
+      "kind": "part"
+    },
+    "was": {
+      "inDescription": "корпус (ёмкость)",
+      "kind": "product"
+    },
+    "note": "Узел урны. Снаряд — «Урна». Справочник частей «Корпус» не сливать с этой записью."
+  },
+  {
+    "id": "6ae3a032793eb93d71b3f380",
+    "code": "GUSSET",
+    "name": "Косынка (ребро жёсткости)",
+    "kind": "part",
+    "categories": "TRN,WRK,BLG,DIO,DSP",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ae3a02c793eb93d71b3f36c",
+    "code": "FASTENERS",
+    "name": "Крепёж",
+    "kind": "fastener",
+    "categories": "TRN,WRK,BLG,DIO,DSP",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ae3a043793eb93d71b3f3cd",
+    "code": "ROOF",
+    "name": "Кровля (крыша)",
+    "kind": "part",
+    "categories": "BLG,DIO",
+    "action": "patch",
+    "set": {
+      "inDescription": "кровля на опорах",
+      "kind": "part"
+    },
+    "was": {
+      "inDescription": "кровля",
+      "kind": "product"
+    },
+    "note": "Узел навеса и домика, не отдельный снаряд. В списке «Что это» мешает беседке и перголе. Часть «Кровля» в passportParts не трогаем."
+  },
+  {
+    "id": "6ae3a02f793eb93d71b3f376",
+    "code": "BRACKET",
+    "name": "Кронштейн",
+    "kind": "fastener",
+    "categories": "TRN,WRK,BLG,DIO,DSP",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ae3a03f793eb93d71b3f3b7",
+    "code": "LADDER",
+    "name": "Лестница",
+    "kind": "product",
+    "categories": "WRK,DIO,DSP",
+    "action": "patch",
+    "set": {
+      "inDescription": "лестница с поручнями для подъёма",
+      "usageRules": "Подниматься и спускаться лицом к ступеням, держась за поручни\nНе стоять вдвоём на одной ступени\nНе пользоваться лестницей, если ступени мокрые или обледенели"
+    },
+    "was": {
+      "inDescription": "лестница",
+      "usageRules": ""
+    },
+    "note": "В описании было одно слово «лестница». Правила пустые, а лестница выбирается как снаряд (ДИО, детский спорт, полоса)."
+  },
+  {
+    "id": "6ae3a039793eb93d71b3f39e",
+    "code": "FLYWHEEL",
+    "name": "Маховик",
+    "kind": "part",
+    "categories": "TRN",
+    "action": "patch",
+    "set": {
+      "inDescription": "маховик подвижного узла"
+    },
+    "was": {
+      "inDescription": "маховик"
+    },
+    "note": "Деталь тренажёра. В описании было одно слово «маховик»."
+  },
+  {
+    "id": "6ada091046ad81616709da43",
+    "code": "PERGOLA",
+    "name": "Навес / пергола",
+    "kind": "product",
+    "categories": "BLG",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ae3a031793eb93d71b3f37b",
+    "code": "COVER_PLATE",
+    "name": "Накладка",
+    "kind": "part",
+    "categories": "TRN,WRK,BLG,DIO,DSP",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ae3a03e793eb93d71b3f3b2",
+    "code": "RAILING",
+    "name": "Ограждение (перила)",
+    "kind": "product",
+    "categories": "BLG,DIO,DSP",
+    "action": "patch",
+    "set": {
+      "usageRules": "Не перелезать через ограждение\nНе сидеть и не стоять на перилах\nНе раскачивать ограждение",
+      "categories": "BLG,DIO,DSP"
+    },
+    "was": {
+      "usageRules": "",
+      "categories": "DIO, BLG"
+    },
+    "note": "Перила площадки и беседки. Детский спорт добавляем: на комплексе ГОСТ Р 55677 перила есть. Это не секция забора «Ограждение площадки»."
+  },
+  {
+    "id": "6ada091046ad81616709da41",
+    "code": "FENCE",
+    "name": "Ограждение площадки",
+    "kind": "product",
+    "categories": "BLG",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ae3a037793eb93d71b3f394",
+    "code": "STOP_LIMITER",
+    "name": "Ограничитель хода",
+    "kind": "part",
+    "categories": "TRN",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ae3a025793eb93d71b3f346",
+    "code": "SUPPORT_POST",
+    "name": "Опора",
+    "kind": "part",
+    "categories": "BLG,DIO",
+    "action": "patch",
+    "set": {
+      "kind": "part"
+    },
+    "was": {
+      "kind": "product"
+    },
+    "note": "Опора в основании — узел, не снаряд. Беседка и навес уже есть отдельно. Часть «Опора» в passportParts не сливать."
+  },
+  {
+    "id": "6ae3a028793eb93d71b3f350",
+    "code": "BASE_PLATE",
+    "name": "Опорная пластина",
+    "kind": "part",
+    "categories": "TRN,WRK,BLG,DIO,DSP",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ae3a027793eb93d71b3f34b",
+    "code": "BASE",
+    "name": "Основание",
+    "kind": "part",
+    "categories": "TRN,BLG",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ae3a035793eb93d71b3f38a",
+    "code": "AXLE",
+    "name": "Ось",
+    "kind": "part",
+    "categories": "TRN,DIO",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ae3a038793eb93d71b3f399",
+    "code": "PEDAL",
+    "name": "Педаль",
+    "kind": "part",
+    "categories": "TRN",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ae3a03d793eb93d71b3f3ad",
+    "code": "PLATFORM",
+    "name": "Площадка",
+    "kind": "product",
+    "categories": "WRK,DIO,DSP",
+    "action": "patch",
+    "set": {
+      "usageRules": "Не бегать и не толкаться на площадке\nНе вставать на ограждение\nСпускаться на землю по лестнице, а не прыжком",
+      "categories": "WRK,DIO,DSP"
+    },
+    "was": {
+      "usageRules": "",
+      "categories": "DIO, WRK"
+    },
+    "note": "Площадка для стояния есть у комплекса ДИО и у детского спорта (ГОСТ Р 55677). Правил не было — в паспорте раздел пустел. TRN и BLG не ставить."
+  },
+  {
+    "id": "6ae3a042793eb93d71b3f3c8",
+    "code": "SWING_HANGER",
+    "name": "Подвес",
+    "kind": "part",
+    "categories": "DIO",
+    "action": "patch",
+    "set": {
+      "kind": "part"
+    },
+    "was": {
+      "kind": "product"
+    },
+    "note": "Подвес — узел качелей. Правила сидения уже у элемента «Качели». Часть «Подвес» в passportParts не трогаем."
+  },
+  {
+    "id": "6ae3a036793eb93d71b3f38f",
+    "code": "BEARING_UNIT",
+    "name": "Подшипниковый узел",
+    "kind": "part",
+    "categories": "TRN,DIO",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ae3a03c793eb93d71b3f3a8",
+    "code": "HANDRAIL",
+    "name": "Поручень",
+    "kind": "part",
+    "categories": "TRN,WRK,BLG,DIO,DSP",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ada090c7536f8509feb4223",
+    "code": "MONKEY_BARS",
+    "name": "Рукоход",
+    "kind": "product",
+    "categories": "WRK,DIO,DSP",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ada090c7536f8509feb422a",
+    "code": "BENCH",
+    "name": "Скамья",
+    "kind": "product",
+    "categories": "BLG,DIO,DSP",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ada090c7536f8509feb4221",
+    "code": "ABS_BENCH",
+    "name": "Скамья для пресса",
+    "kind": "product",
+    "categories": "WRK",
+    "action": "keep",
+    "note": "⚠ Спорно. Оставить WRK: тип «Скамья воркаут» и правка 2026-11-07 сняли TRN вместе с турником. Признак trn.muscles.core всё ещё ссылается на эту скамью. TRN не возвращать без «да»."
+  },
+  {
+    "id": "6ae3a040793eb93d71b3f3bc",
+    "code": "SLIDE_CHUTE",
+    "name": "Скат",
+    "kind": "part",
+    "categories": "DIO",
+    "action": "patch",
+    "set": {
+      "kind": "part"
+    },
+    "was": {
+      "kind": "product"
+    },
+    "note": "Скат — узел горки. Отдельный снаряд «Горка» уже описывает скат и правила съезда. Иначе в паспорте два элемента об одном."
+  },
+  {
+    "id": "6adb17107920f392cb442fcf",
+    "code": "OUTDOOR_TABLE",
+    "name": "Стол уличный",
+    "kind": "product",
+    "categories": "BLG",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ae3a044793eb93d71b3f3d2",
+    "code": "TABLE_TOP",
+    "name": "Столешница",
+    "kind": "part",
+    "categories": "BLG",
+    "action": "patch",
+    "set": {
+      "inDescription": "столешница уличного стола",
+      "kind": "part"
+    },
+    "was": {
+      "inDescription": "столешница",
+      "kind": "product"
+    },
+    "note": "Узел стола. Снаряд — «Стол уличный», у него правила уже есть. Одно слово «столешница» в описание не годится."
+  },
+  {
+    "id": "6ada091046ad81616709da47",
+    "code": "TWISTER",
+    "name": "Твистер",
+    "kind": "product",
+    "categories": "TRN",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ada091046ad81616709da46",
+    "code": "CHEST_BACK_TRAINER",
+    "name": "Тренажёр для мышц груди и спины",
+    "kind": "product",
+    "categories": "TRN",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ada091046ad81616709da44",
+    "code": "LEG_TRAINER",
+    "name": "Тренажёр для мышц ног и ягодиц",
+    "kind": "product",
+    "categories": "TRN",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ada090c7536f8509feb4229",
+    "code": "MOVING_TRAINER",
+    "name": "Тренажёр с подвижными узлами",
+    "kind": "product",
+    "categories": "TRN",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ada090c7536f8509feb421f",
+    "code": "HORIZONTAL_BAR",
+    "name": "Турник",
+    "kind": "product",
+    "categories": "WRK,DSP",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ada091046ad81616709da42",
+    "code": "LITTER_BIN",
+    "name": "Урна",
+    "kind": "product",
+    "categories": "BLG",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  },
+  {
+    "id": "6ada090c7536f8509feb4222",
+    "code": "WALL_BARS",
+    "name": "Шведская стенка",
+    "kind": "product",
+    "categories": "WRK,DSP",
+    "action": "keep",
+    "note": "Описание есть. Правила снаряда есть, либо это деталь или крепёж без своих шагов."
+  }
+]

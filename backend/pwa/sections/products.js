@@ -7,8 +7,9 @@ import { pic } from './stock.js';
 import { kpAdd, kpCount } from './kp.js';
 import { setCompositionTarget } from './composition.js';
 // УПР-1/Д11: issuePassport и passports.canEdit() убраны — вход только через панель паспорта
-import { printDialog, previewPassport } from './passports/dialogs.js';
+import { printDialog, previewPassport, downloadCombined } from './passports/dialogs.js';
 import { openTechSheet } from './tech-sheet.js';
+import { toastError } from '../ui/kit/toast.js';
 import { openBulk } from './bulk-edit.js';
 import { qrBulkAction, qrPrintAction } from './qr.js';
 import * as data from './products/data.js';
@@ -116,7 +117,7 @@ export const products = {
     zones: { fields: 'wide' }, // сведения — на всю ширину, ниже вкладки (C052, как в заказе)
     actionsInHead: true,
     top: (r) => warnNote(r),
-    // вкладки: Описание · Состав и работы · Паспорт · Файлы · Заказы (права — внутри productTabs)
+    // вкладки: Описание · Состав и работы · Техописание · Паспорт · Файлы · Заказы (C055)
     tabs: (r) => productTabs(r),
     gallery: (r) => r.photos || [],
     photoAdd: data.photoAdd, photoSearch: (r) => r.name, // «Найти фото в интернете»
@@ -145,13 +146,15 @@ export const products = {
     actions: (r) => [{ label: 'В КП', title: 'Добавить в коммерческое предложение', run: (row) => { kpAdd(row); toast(`В КП — всего ${kpCount()}`); } },
       ...(session.canEdit ? [{ label: 'Изменить состав', run: (row) => { setCompositionTarget(row); patch({ of: 'composition', new: '1', open: undefined }); } }] : []),
       { label: 'Заказы с этим изделием', more: true, run: (row) => go('salesorders', { productId: row.id }) }, // ПМ-1: на виду ≤ 3 кнопок, связь — секция «В заказах»
-      // один вход: есть паспорт — печать; нет — редактор шаблона (там видно, чего не хватает)
-      ...(session.seesDocs() ? [{ label: 'Печать паспорта', title: 'Есть паспорт — PDF и печать; нет — откроется шаблон с недостающим', run: async (row) => {
+      // C055: три печати на виду — паспорт, техническое описание, оба вместе
+      ...(session.seesDocs() ? [{ label: 'Паспорт', title: 'Есть выпущенный — PDF; нет — черновик по шаблону модели', run: async (row) => {
         if (row.passports?.items?.[0]) printDialog(await data.getPassport(row.passports.items[0].id));
         else await previewPassport(row.id);
       } }] : []),
-      // УПР-1/Д11: «Выпустить паспорт» убрана — единственный вход в passports.js (панель паспорта)
-      { label: 'Техническое описание', more: true, title: 'PDF для заказчика: фото, части, материалы и допуски', run: (row) => openTechSheet(row) },
+      { label: 'Техническое описание', title: 'PDF из состава вкладки Техописание. Правки строк в окне — только для этого файла.', run: (row) => openTechSheet(row) },
+      ...(session.seesDocs() ? [{ label: 'Паспорт + техописание', title: 'Один PDF: паспорт, затем техническое описание', run: async (row) => {
+        try { await downloadCombined(row, data.getPassport); } catch (e) { toastError(e); }
+      } }] : []),
       // ПРЖ-4: артикул по номеру группы (сервер: assign-sku; без confirm — только проверка и число паспортов)
       ...(session.canEdit ? [{ label: 'Присвоить артикул группы', more: true, title: 'Новый артикул по номеру группы изделия (например 34 → 3411)', run: async (row, ctx) => {
         const chk = await data.assignSku(row.id);

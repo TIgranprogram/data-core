@@ -1,6 +1,7 @@
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { button, empty, carousel, toast, toastError, confirmDlg, section, stack, row, link, photoDrop, busyBlock, failBlock } from '../ui/kit/index.js';
+import { button, empty, toast, toastError, confirmDlg, section, stack, row, link, photoDrop, busyBlock, failBlock } from '../ui/kit/index.js';
+import { openZoom } from '../ui/kit/gallery.js';
 import { KINDS, KINDS_V2 } from '../core/passport-kinds.js';
 
 /**
@@ -33,11 +34,19 @@ export async function attachProductFile(productId, photoId, purpose, kind, old) 
   catch (e) { toast('Новый файл сохранён, но прежний убрать не удалось — уберите его вручную: ' + (e?.message || 'ошибка'), { ms: 9000 }); }
 }
 
-/** Зона загрузки рисунка паспорта нужного вида — тот же photoDrop, что у фото витрины. */
-export function passportKindDrop(productId, kind, done, old) {
-  return photoDrop({ purpose: 'passport', idleText: 'Перетащите рисунок сюда или вставьте Ctrl+V',
+/** Зона загрузки рисунка паспорта. compact — маленькая карточка в сетке (C055). */
+export function passportKindDrop(productId, kind, done, old, { compact = false } = {}) {
+  const drop = photoDrop({ purpose: 'passport',
+    idleText: compact ? '＋ фото' : 'Перетащите рисунок сюда или вставьте Ctrl+V',
     attach: async (photoId) => { await attachProductFile(productId, photoId, 'passport', kind, old); return true; },
     done: () => { toast('Рисунок сохранён'); done?.(); } });
+  if (compact) {
+    drop.classList.add('pp-slot-drop');
+    drop.querySelector('.btn')?.replaceWith(); // «Выбрать файл» — клик по карточке / Ctrl+V
+    drop.title = 'Перетащите сюда, вставьте Ctrl+V или нажмите, чтобы выбрать файл';
+    drop.addEventListener('click', (e) => { if (e.target.closest('input')) return; drop.querySelector('input[type=file]')?.click(); });
+  }
+  return drop;
 }
 
 const fileIcon = (name) => ({ pdf: '📄', dwg: '📐', dxf: '📐' })[String(name).split('.').pop().toLowerCase()] || '🖼';
@@ -48,16 +57,30 @@ export function productFilesBlock(r, canEdit, part = 'passport') {
   const root = stack(busyBlock('файлы изделия', { retry: paint }));
   const slot = (kind, rec, required) => {
     const ph = rec?.photoId;
-    const pics = ph && ph.storageUrl ? [{ url: ph.storageUrl, thumb: ph.variants?.thumb?.storageUrl || ph.storageUrl, medium: ph.variants?.medium?.storageUrl }] : [];
-    const del = async () => {
+    const thumb = ph?.variants?.thumb?.storageUrl || ph?.storageUrl || '';
+    const full = ph?.storageUrl || thumb;
+    const label = LABEL.get(kind) || kind;
+    const del = async (e) => {
+      e?.stopPropagation?.();
       if (!(await confirmDlg('Убрать фото?', 'Файл останется в выпущенных паспортах.', { okText: 'Убрать' }))) return;
-      try { await api(`/products/${r.id}/photos/${rec.id}`, { method: 'DELETE' }); await paint(); } catch (e) { toastError(e); }
+      try { await api(`/products/${r.id}/photos/${rec.id}`, { method: 'DELETE' }); await paint(); } catch (er) { toastError(er); }
     };
-    return h('div', { class: 'field' },
-      h('span', null, LABEL.get(kind) || kind, required && !pics.length ? ' *' : ''),
-      pics.length ? carousel(pics).el : null,
-      canEdit ? passportKindDrop(r.id, kind, paint, rec?.id) : (pics.length ? null : h('div', { class: 'muted' }, 'не загружено')),
-      canEdit && pics.length ? h('div', { class: 'actions' }, button({ label: 'Убрать фото', size: 'S', kind: 'ghost', onClick: del })) : null);
+    const cap = h('div', { class: 'pp-slot-cap', title: label }, label, required && !thumb ? h('span', { class: 'need' }, ' *') : null);
+    if (thumb) {
+      const src = (u) => (u.startsWith('http') || u.startsWith(PREFIX) ? u : PREFIX + u);
+      const zoom = () => openZoom([{ url: src(full) }]);
+      return h('div', { class: 'pp-slot' },
+        h('div', { class: 'pp-slot-pic' },
+          h('div', { class: 'pp-slot-zoom', role: 'button', tabindex: '0', title: 'Открыть крупно', 'aria-label': label,
+            onclick: zoom, onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); zoom(); } } },
+            h('img', { src: src(thumb), alt: label, loading: 'lazy' })),
+          canEdit ? button({ label: '×', kind: 'ghost', size: 'S', cls: 'pp-slot-x', title: 'Убрать фото', onClick: del }) : null),
+        cap,
+        canEdit ? h('div', { class: 'pp-slot-replace', title: 'Заменить фото' }, passportKindDrop(r.id, kind, paint, rec.id, { compact: true })) : null);
+    }
+    return h('div', { class: 'pp-slot' + (required ? ' need' : '') },
+      canEdit ? passportKindDrop(r.id, kind, paint, null, { compact: true }) : h('div', { class: 'pp-slot-empty muted' }, 'нет'),
+      cap);
   };
   const drawingRow = (rec) => {
     const f = rec.photoId || {};
@@ -84,7 +107,7 @@ export function productFilesBlock(r, canEdit, part = 'passport') {
     const kinds = ORDER.filter((k) => req.has(k) || byKind.has(k));
     const passport = need === null && !kinds.length
       ? empty({ title: 'Категория паспорта не выбрана', hint: 'Выберите её в блоке «Паспорт» — появятся нужные слоты.' })
-      : kinds.length ? h('div', null, ...kinds.map((k) => slot(k, byKind.get(k), req.has(k)))) : empty({ title: 'Для этой категории рисунки не нужны' });
+      : kinds.length ? h('div', { class: 'pp-slots' }, ...kinds.map((k) => slot(k, byKind.get(k), req.has(k)))) : empty({ title: 'Для этой категории рисунки не нужны' });
     const dr = drawings || [];
     // Чертежи — одно место: «Вложения → Чертежи» (пользователь 2026-11-08: два блока «Чертежи» — дубль). Здесь только уже загруженные раньше, без новой загрузки.
     const drawingsBody = h('div', null, h('div', null, ...dr.map(drawingRow)), h('p', { class: 'muted small' }, 'Новые чертежи загружайте во «Вложения → Чертежи».'));
