@@ -1,5 +1,5 @@
 ## C056 вкладка «Паспорт» одной карточкой (2026-11-09)
-коммит: этот
+коммит: 2485e8fd
 - `products/tabs.js:39` вкладка без слотов и без кружка. `card-blocks.js:88` `passportPane` — карточка + таблица выпущенных; «Править шаблон» открывает `doctpl` поверх изделия.
 - `passports/template-form.js:44` `templateForm` — разделы паспорта, слоты, полоса готовности, запись сразу. `docs.js:93` форма шаблона только вызывает его. `product-files.js:22` `passportSlot`, ветка «Для паспорта» снята (`productFilesBlock` 69).
 - `core/passport-kinds.js:30` `PHOTO_GROUPS`. `ui/funnel.js:49` `only` / `onPaint` — старый `funnelBox` в `passports/form.js` без этих опций. Кнопка «Взять из PDM» — `template-form.js:136`. Часть Д (fill) не сделана. Отчёт: `docs/crew/C056-passport-tab-one-card/REPORT.md`. Карта обновлена.
