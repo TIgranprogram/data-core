@@ -12,6 +12,8 @@ export function resolveStyle(rows: StyleRow[], category: string | undefined, var
     if (r.kind !== 'пиктограмма правил' || !on(r)) continue;
     const c = String(r.category ?? '').trim();
     if (c && c !== 'ALL' && c !== cat) continue;
+    // Благоустройство (решётки, урны, скамьи): общие правила «для всех» — про занятия и спортивную обувь — не подходят
+    if (cat === 'BLG' && c !== cat) continue;
     let t = String(r.text ?? '').trim();
     if (!t) continue;
     if (t.includes('{maxUsers}')) { if (!vars.maxUsers) continue; t = t.replace(/\{maxUsers\}/g, String(vars.maxUsers)); }
