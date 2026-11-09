@@ -71,11 +71,18 @@ export function buildV2Text(input: V2TextInput): V2Text {
   const r = compose(blocks, p, category, { standards, startNumber: legacyStartNumber(all) });
   const installParts = installText(install);
   if (installLeaf) installParts.text = fill((installLeaf as PhraseTreeNode).text, p, category, standards, extraMissing);
+  // Вписанный вручную текст («свой текст», manualText) важнее справочника; назначение без выбора — из поля паспорта
+  const manual = Array.isArray(p.manualText) ? (p.manualText as string[]) : [];
+  const ownText = (k: string) => (typeof p[k] === 'string' ? (p[k] as string).trim() : '');
+  if (manual.includes('installationMethod') && ownText('installationMethod')) installParts.text = ownText('installationMethod');
+  if (manual.includes('purpose') && ownText('purpose')) purpose = ownText('purpose');
+  if (!purpose) purpose = ownText('purpose');
+  const description = manual.includes('description') && ownText('description') ? ownText('description') : describeProduct(p as never, elements, materials);
   return {
     templateVersion: all.version ?? 0,
     ownVersion: own?.version ?? null,
     category,
-    description: describeProduct(p as never, elements, materials),
+    description,
     purpose,
     rules: usageRules(elements),
     maintenance: maintenanceTables(materials, elements, dicts.defects || [], install),
