@@ -142,11 +142,14 @@ const root = $('#root');
 
 // ---------- Вход ----------
 /** Роли склада: свой экран (таблица как Excel) и фон — котики у «Труборез», собачки у «Лазер лист». */
-const isPipeRole = () => /^\s*труб[ао]рез/i.test(session.user?.roleLabel || ''); // на проде «Труборез», раньше «Трубарез» (2026-11-09)
-const isSheetRole = () => /^\s*лазер\s+лист/i.test(session.user?.roleLabel || '');
+const isPipeRole = () => /труб[ао]рез/i.test(String(session.user?.roleLabel || '')); // «Труборез» / старое «Трубарез»; без ^ — не ломается от пробела/BOM (2026-11-09)
+const isSheetRole = () => /лазер\s+лист/i.test(String(session.user?.roleLabel || ''));
 /** Этим ролям открыт только склад: справочники, корзина и история закрыты (пользователь 2026-10-30). */
 const STOCK_ROLE_SECTIONS = new Set(['home', 'stock', 'stock-mobile', 'movements', 'help']);
 const isStockRole = () => isPipeRole() || isSheetRole(); const adminSees = (params, v) => (session.role === 'admin' || session.user?.isOwner) && params?.view === v; // админ смотрит экраны ролей склада (2026-11-06)
+/** Фон и подпись меню склада: после входа, «Смотреть как» и обновления /me — иначе котики не появляются. */
+const stockTheme = () => { if (isPipeRole()) startRain('cats'); else if (isSheetRole()) startRain('dogs'); else stopRain(); };
+const stockNavLabel = () => (isPipeRole() ? 'Трубы' : isSheetRole() ? 'Листы' : 'Остатки');
 
 function showLogin(message) {
   stopRain();
@@ -214,7 +217,7 @@ function shell() {
   const link = (id, label, ico) => h('a', { class: 'side-link' + (SEC_OF[id] ? ' sec-' + SEC_OF[id] : ''), href: '#' + id, title: label, onclick: () => shellEl.classList.remove('nav-open') },
     icon(ico), h('span', { class: 'lbl' }, label), h('span', { class: 'cnt', hidden: true }));
   // SK-8b: только разделы, отмеченные у роли (нет отметок — все, как раньше)
-  navLinks = Object.fromEntries(NAV.filter(([id]) => session.sees(id)).map(([id, label, ico]) => [id, link(id, label, ico)]));
+  navLinks = Object.fromEntries(NAV.filter(([id]) => session.sees(id)).map(([id, label, ico]) => [id, link(id, id === 'stock' ? stockNavLabel() : label, ico)]));
   const group = (title, ...links) => (links.some(Boolean) ? [h('div', { class: 'side-group' }, title), ...links] : null);
   let gsb;
   // Ищет сразу при вводе (от 2 знаков, пауза 0,4 с); в истории — один шаг «Поиск», а не каждая буква. Enter — сразу.
@@ -288,6 +291,7 @@ function viewAsBar() {
 /** Меню заново — как после смены разделов роли. Карточка откроется снова, если адрес её держит. */
 function rebuildShell() {
   if (!ui) return;
+  stockTheme(); // «Смотреть как Труборез» / смена роли — котики и таблица труб, не обычные «Остатки»
   closeCard();
   ui = shell();
   mounted = null;
@@ -491,7 +495,7 @@ function openRecord(section, id) {
 }
 
 /** Название экрана по адресу — для подсказок ‹ › и заголовка вкладки. */
-const titleOf = (n) => SECTIONS[n]?.title || NAMES[n] || NAV.find(([id]) => id === n)?.[1];
+const titleOf = (n) => (n === 'stock' ? stockNavLabel() : null) || SECTIONS[n]?.title || NAMES[n] || NAV.find(([id]) => id === n)?.[1];
 const NAMES = { chat: 'Чат', home: 'Сегодня', docs: 'Документация', payroll: 'ФОТ', dicts: 'Справочники', staff: 'Сотрудники', fill: 'Требуют заполнения', money: 'Деньги', trash: 'Корзина', search: 'Поиск' };
 function screenTitle(url) {
   const [sec, qs = ''] = String(url || '').replace(/^#\/?/, '').split('?');
@@ -557,7 +561,7 @@ function syncCard(section, params) {
 
 async function showApp() {
   startPrefs(session.realUser); // ШП: ширины панелей этого пользователя из браузера — до первой отрисовки
-  if (isPipeRole()) startRain('cats'); else if (isSheetRole()) startRain('dogs'); else stopRain();
+  stockTheme();
   startLiveSync({ busy: isBusy, onChange: onVersions });
   ui = shell();
   mounted = null; card = null;
@@ -573,15 +577,17 @@ function refreshMe() {
   return api('/auth/me').then(async (me) => {
     if (!(me?.id || me?.username)) return;
     const was = JSON.stringify(session.user?.sections ?? null);
+    const wasStock = `${isPipeRole() ? 'p' : ''}${isSheetRole() ? 's' : ''}|${session.user?.roleLabel || ''}`;
     const face = (u) => `${u?.avatar ?? ''}|${u?.displayName ?? ''}`;
     const wasFace = face(session.realUser);
     session.user = { ...session.realUser, ...me };
     serverPrefs(me.uiPrefs); // ШП: с сервера перекрывают локальные (с другого ПК)
+    const nowStock = `${isPipeRole() ? 'p' : ''}${isSheetRole() ? 's' : ''}|${session.user?.roleLabel || ''}`;
     let rebuilt = false;
     if (getViewAs() && !session.canViewAs) rebuilt = setViewAs(null) !== false && !getViewAs();
     else if (getViewAs() && session.canViewAs) {
       try { rebuilt = await syncViewAsRoles(api); } catch { /* снимок прежний, меню по нему */ }
-    } else if (JSON.stringify(session.user?.sections ?? null) !== was) { rebuildShell(); rebuilt = true; }
+    } else if (JSON.stringify(session.user?.sections ?? null) !== was || nowStock !== wasStock) { rebuildShell(); rebuilt = true; }
     if (!rebuilt && face(session.realUser) !== wasFace) window.dispatchEvent(new CustomEvent('dc:profile'));
   }).catch(() => {});
 }

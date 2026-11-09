@@ -206,7 +206,7 @@ function mapBox(data) {
 // ---------- страница ----------
 const ALL_SECS = [...new Set(GROUPS.flatMap((g) => g.secs))];
 const SEC_OWNER = { movements: 'stock' }; // журнал движений открывается вместе со складом
-const isStockRole = () => /^\s*(труб[ао]рез|лазер\s+лист)/i.test(session.user?.roleLabel || ''); // то же правило, что в main.js
+const isStockRole = () => /(труб[ао]рез|лазер\s+лист)/i.test(String(session.user?.roleLabel || '')); // то же правило, что в main.js
 
 /** Виден ли раздел роли — тем же правилом, что строит меню (main.js). */
 function sees(id) {
