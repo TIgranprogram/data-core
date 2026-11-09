@@ -14,7 +14,7 @@ export async function getCandidates(invoice, { page = 1, q = '', limit = 50 } = 
  * У каждой — `from` (счёт-источник: id, no, status) для подписи и проверки «оплачен — не переносим».
  */
 export async function getBusyRequests(invoice, { q = '', limit = 80 } = {}) {
-  const result = await api('/supply/requests', { query: { status: 'ordered', ...(invoice.supplierId ? { supplierId: String(invoice.supplierId) } : {}), page: 1, limit, ...(q ? { search: q } : {}) } });
+  const result = await api('/supply/requests', { query: { status: 'requested,ordered,in_progress', ...(invoice.supplierId ? { supplierId: String(invoice.supplierId) } : {}), page: 1, limit, ...(q ? { search: q } : {}) } });
   const items = (result.items || []).filter((r) => r.invoiceId && String(r.invoiceId) !== String(invoice.id) && !r.deletedAt);
   const ids = [...new Set(items.map((r) => String(r.invoiceId)))];
   const invs = new Map((await Promise.all(ids.map((id) => getInvoice(id).catch(() => null)))).filter(Boolean).map((v) => [String(v.id), v]));
