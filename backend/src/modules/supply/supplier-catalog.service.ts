@@ -4,6 +4,7 @@ import { InjectConnection } from '@nestjs/mongoose';
 import { createHash } from 'crypto';
 import * as ExcelJS from 'exceljs';
 import { Connection, Types } from 'mongoose';
+import { STOCK_VISIBLE, withPartsOf } from '../../common/catalog/stock-visible';
 import { oid, oids } from '../../common/list-query';
 import { scopeMatch, type StockScope } from '../../common/stock-scope';
 import { assertDocInScope, docScopeMatch } from '../../common/supply-scope';
@@ -190,6 +191,7 @@ export class SupplierCatalogService {
   private async materialFilter(q: Record<string, string | undefined>, scope: StockScope | null | undefined): Promise<Doc | null> {
     if (oids(q.supplierId).length || oids(q.materialId).length || q.unmatched === '1' || q.noPrice === '1' || q.stale === '1') return null;
     const and: Doc[] = [{ deletedAt: null }, { _id: { $nin: await this.offerMaterialIds() } }];
+    if (!withPartsOf(q.withParts)) and.push({ ...STOCK_VISIBLE }); // C057: детали PDM и сортаменты скрыты
     if (q.categoryId === 'none') and.push({ categoryId: null });
     else {
       const cat = oids(q.categoryId);
@@ -280,7 +282,7 @@ export class SupplierCatalogService {
       this.items.countDocuments({ ...base, priceHint: null }),
       this.items.countDocuments({ ...base, priceHint: { $ne: null }, $or: [{ priceDate: null }, { priceDate: { $lt: stale } }] }),
       // материалы без живых предложений (view=all, «Без поставщика»)
-      this.coll('materials').countDocuments({ $and: [{ deletedAt: null }, { _id: { $nin: await this.offerMaterialIds() } }, scopeMatch(scope)] }),
+      this.coll('materials').countDocuments({ $and: [{ deletedAt: null }, { _id: { $nin: await this.offerMaterialIds() } }, { ...STOCK_VISIBLE }, scopeMatch(scope)] }),
     ]);
     const [orgs, cats] = await Promise.all([
       bySup.length ? this.coll('organizations').find({ _id: { $in: bySup.map((x) => x._id) } }, { projection: { name: 1, shortName: 1 } }).toArray() : [],

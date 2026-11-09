@@ -67,4 +67,15 @@ describe('каталог: view=all', () => {
     expect((r.items as Doc[]).map((x: Doc) => x.kind)).toEqual(['offer']);
     expect(calls.some((c) => c.coll === 'materials' && c.op === 'find')).toBe(false);
   });
+
+  it('C057: материалы без withParts — без деталей PDM и сортаментов; withParts=1 — все', async () => {
+    const hidden = (c: { coll: string; op: string; arg: unknown }) => c.coll === 'materials' && c.op === 'find' && JSON.stringify(c.arg).includes('"materialKind":{"$ne":"part"}') && JSON.stringify(c.arg).includes('"isProfile":{"$ne":true}');
+    const a = fake({ supplieritems: [], materials: [mat] });
+    await a.svc.list({ view: 'all', supplierId: 'none' });
+    expect(a.calls.some(hidden)).toBe(true);
+    const b = fake({ supplieritems: [], materials: [mat] });
+    await b.svc.list({ view: 'all', supplierId: 'none', withParts: '1' });
+    expect(b.calls.some((c) => c.coll === 'materials' && c.op === 'find')).toBe(true);
+    expect(b.calls.some(hidden)).toBe(false);
+  });
 });

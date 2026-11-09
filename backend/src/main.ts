@@ -133,8 +133,8 @@ async function bootstrap() {
     prefix: '/uploads/',
     setHeaders: (res: { setHeader(name: string, value: string): void }, path: string) => {
       const p = path.split(String.fromCharCode(92)).join('/').toLowerCase();
-      if (p.includes('/drawing/')) {
-        // чертежи — только скачивание (XSS: PDF/DXF не открываются в окне сайта)
+      if (p.includes('/drawing/') || p.includes('/pdm/')) {
+        // чертежи (и файлы из PDM) — только скачивание (XSS: PDF/DXF не открываются в окне сайта)
         res.setHeader('X-Content-Type-Options', 'nosniff');
         res.setHeader('Content-Type', 'application/octet-stream');
         res.setHeader('Content-Disposition', 'attachment');

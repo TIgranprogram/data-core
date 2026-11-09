@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 import { CompositionLine, CompositionLineSchema } from './composition-line.schema';
+import type { PdmMeta } from './pdm-meta.dto';
 
 @Schema({ _id: false })
 class ModuleDimensionsSchema {
@@ -68,6 +69,10 @@ export class ProductModule {
   @Prop({ type: [ModuleMaterialSchemaFactory], default: [] }) materials!: { materialId: Types.ObjectId; quantity: number; unit: string; isPurchased: boolean; overrideDimensions?: { length?: number; width?: number; height?: number; unit?: string }; sortOrder: number }[];
   /** TZ-CATALOG-302: nested module/material composition. Product lines arrive in TZ-CATALOG-305. */
   @Prop({ type: [CompositionLineSchema], default: [] }) composition!: CompositionLine[];
+  /** C057: откуда загружено из PDM (версия файла). Без default — CRM-документы поле не получают. */
+  @Prop({ type: Object, required: false }) pdm?: PdmMeta;
+  /** C057: название ещё не вписано (name = обозначение) — «Требуют заполнения». */
+  @Prop({ type: Boolean, required: false }) needsName?: boolean;
 }
 
 export const ProductModuleSchema = SchemaFactory.createForClass(ProductModule);

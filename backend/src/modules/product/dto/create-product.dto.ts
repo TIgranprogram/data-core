@@ -15,6 +15,8 @@ import {
   ValidateNested,
 } from 'class-validator';
 
+import { PdmMetaDto } from '../../../common/catalog/pdm-meta.dto';
+
 /** HTML/select empty string → null so @IsOptional skips MongoId check. */
 const emptyStringToNull = ({ value }: { value: unknown }) =>
   value === '' ? null : value;
@@ -197,4 +199,15 @@ export class CreateProductDto {
   @IsOptional()
   @IsObject()
   attributes?: Record<string, unknown>;
+
+  @ApiPropertyOptional({ type: PdmMetaDto, description: 'Откуда загружено из PDM и версия' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PdmMetaDto)
+  pdm?: PdmMetaDto;
+
+  @ApiPropertyOptional({ description: 'Название не вписано — нужно заполнить' })
+  @IsOptional()
+  @IsBoolean()
+  needsName?: boolean;
 }

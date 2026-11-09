@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 import { optimisticLockPlugin } from '../mongoose';
 import { CompositionLine, CompositionLineSchema } from './composition-line.schema';
+import type { PdmMeta } from './pdm-meta.dto';
 
 @Schema({ _id: false })
 class ProdDimensionsSchema {
@@ -75,6 +76,10 @@ export class Product {
   @Prop() installation?: string;
   @Prop({ required: false, sparse: true, index: true }) organizationId?: Types.ObjectId;
   @Prop({ default: false }) isSystem?: boolean;
+  /** C057: откуда загружено из PDM (версия файла). Без default — CRM-документы поле не получают. */
+  @Prop({ type: Object, required: false }) pdm?: PdmMeta;
+  /** C057: название ещё не вписано (name = обозначение) — «Требуют заполнения». */
+  @Prop({ type: Boolean, required: false }) needsName?: boolean;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

@@ -13,6 +13,7 @@ import { CreateCompositionLineDto, UpdateCompositionLineDto } from '../../common
 import { CompositionLineDocumentShape } from '../../common/catalog/composition-line.schema';
 import { isUsedByCrm, isUsedInComposition } from '../../common/catalog/catalog-references';
 import { mergePassportSpec, presentPassportSpec, type StoredPassportSpec } from '../../common/catalog/passport-link';
+import { STOCK_VISIBLE } from '../../common/catalog/stock-visible';
 import { blankMissingUploadUrls } from '../document-render/document-render.utils';
 
 @Injectable()
@@ -69,7 +70,7 @@ export class MaterialService {
     if (categoryId ? !scope.categoryIds.includes(String(categoryId)) : !scope.noCategory) throw new ForbiddenException('Эта категория не из вашего склада');
   }
 
-  async findAll(q: { page?: number; limit?: number; search?: string; categoryId?: string; supplierId?: string; materialKind?: CreateMaterialDto['materialKind'] } = {}, organizationId?: string | null, scope: StockScope | null = null) {
+  async findAll(q: { page?: number; limit?: number; search?: string; categoryId?: string; supplierId?: string; materialKind?: CreateMaterialDto['materialKind']; withParts?: boolean } = {}, organizationId?: string | null, scope: StockScope | null = null) {
     const page = Math.max(1, q.page ?? 1); const limit = Math.min(100, Math.max(1, q.limit ?? 20));
     const filter: Record<string, unknown> = { deletedAt: null, ...this.organizationFilter(organizationId) };
     if (q.search) { const escaped = q.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); const re = new RegExp(escaped, 'i'); filter.$or = [{ name: re }, { article: re }, { sku: re }]; }
@@ -80,6 +81,8 @@ export class MaterialService {
     if (q.categoryId) filter.categoryId = { $in: [new Types.ObjectId(q.categoryId), q.categoryId] };
     if (q.supplierId) filter.supplierId = { $in: [new Types.ObjectId(q.supplierId), q.supplierId] };
     if (q.materialKind) filter.materialKind = q.materialKind;
+    // C057 (Л1): детали из PDM и сортаменты склад не показывает; withParts=1 — показать. Явный фильтр materialKind=part — тоже показывает.
+    if (!q.withParts) { filter.isProfile = STOCK_VISIBLE.isProfile; if (!q.materialKind) filter.materialKind = STOCK_VISIBLE.materialKind; }
     if (scope) filter.$and = [scopeMatch(scope)];
     const [items, total] = await Promise.all([
       // тексты паспорта (МЦ-6) в список не идут — только в карточку
@@ -214,7 +217,7 @@ export class MaterialService {
     // TZ-SUPPLY-320: same reason as photoIds — the audit plugin re-sets the update
     // in a pre-hook, which bypasses Mongoose casting. Without an explicit cast the
     // FK lands as a string and every `?categoryId=` / `?supplierId=` filter misses it.
-    for (const key of ['categoryId', 'supplierId', 'mainPhotoId'] as const) {
+    for (const key of ['categoryId', 'supplierId', 'mainPhotoId', 'profileId'] as const) {
       const value = $set[key];
       if (typeof value === 'string' && Types.ObjectId.isValid(value)) {
         $set[key] = new Types.ObjectId(value);

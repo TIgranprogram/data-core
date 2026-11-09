@@ -1,5 +1,5 @@
 /** Папки новых загрузок: uploads/<назначение>/<ГГГГ-ММ>/<файл>. Старые файлы лежат плоско в uploads/ и не переносятся. */
-export const UPLOAD_FOLDERS = ['passport', 'showcase', 'drawing', 'supply', 'other'] as const;
+export const UPLOAD_FOLDERS = ['passport', 'showcase', 'drawing', 'supply', 'pdm', 'other'] as const;
 export type UploadFolder = (typeof UPLOAD_FOLDERS)[number];
 
 /** Неизвестное или пустое назначение — `other` (имя от клиента в путь не попадает). */

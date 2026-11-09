@@ -279,6 +279,32 @@ describe('MaterialService (TZ-MATERIALS-303/307)', () => {
     });
   });
 
+  describe('findAll: детали PDM и сортаменты скрыты на складе (C057)', () => {
+    it('по умолчанию исключает part и isProfile', async () => {
+      const { service, find } = buildService();
+      await service.findAll({});
+      const [filter] = find.mock.calls[0] as [Record<string, unknown>];
+      expect(filter.materialKind).toEqual({ $ne: 'part' });
+      expect(filter.isProfile).toEqual({ $ne: true });
+    });
+
+    it('withParts показывает всё', async () => {
+      const { service, find } = buildService();
+      await service.findAll({ withParts: true });
+      const [filter] = find.mock.calls[0] as [Record<string, unknown>];
+      expect(filter).not.toHaveProperty('materialKind');
+      expect(filter).not.toHaveProperty('isProfile');
+    });
+
+    it('явный materialKind=part остаётся как есть, сортаменты скрыты', async () => {
+      const { service, find } = buildService();
+      await service.findAll({ materialKind: 'part' });
+      const [filter] = find.mock.calls[0] as [Record<string, unknown>];
+      expect(filter.materialKind).toBe('part');
+      expect(filter.isProfile).toEqual({ $ne: true });
+    });
+  });
+
   describe('findAll category filter (TZ-SUPPLY-320)', () => {
     it('matches both the ObjectId and the legacy string form of categoryId', async () => {
       const { service, find, countDocuments } = buildService();

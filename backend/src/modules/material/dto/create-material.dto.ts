@@ -13,7 +13,8 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { MATERIAL_KINDS, type MaterialKind } from '../material.schema';
+import { PdmMetaDto } from '../../../common/catalog/pdm-meta.dto';
+import { DIM_SOURCES, MATERIAL_KINDS, type DimSource, type MaterialKind } from '../material.schema';
 
 export { MATERIAL_KINDS };
 
@@ -156,4 +157,55 @@ export class CreateMaterialDto {
   @IsString()
   @Length(0, 2000)
   notes?: string;
+
+  @ApiPropertyOptional({ description: 'Обозначение PDM (метизы, покупные)' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 128)
+  pdmCode?: string;
+
+  @ApiPropertyOptional({ type: [String], description: 'Другие написания обозначения PDM' })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  pdmAliases?: string[];
+
+  @ApiPropertyOptional({ type: PdmMetaDto, description: 'Откуда загружено из PDM и версия' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PdmMetaDto)
+  pdm?: PdmMetaDto;
+
+  @ApiPropertyOptional({ enum: DIM_SOURCES, description: 'Откуда размеры детали' })
+  @IsOptional()
+  @IsIn(DIM_SOURCES)
+  dimSource?: DimSource;
+
+  @ApiPropertyOptional({ description: 'Сортамент (сырьё без формата)' })
+  @IsOptional()
+  @IsBoolean()
+  isProfile?: boolean;
+
+  @ApiPropertyOptional({ description: 'Складской формат: ID сортамента' })
+  @IsOptional()
+  @IsMongoId()
+  profileId?: string;
+
+  @ApiPropertyOptional({ description: 'Основной формат сортамента' })
+  @IsOptional()
+  @IsBoolean()
+  isDefaultFormat?: boolean;
+
+  @ApiPropertyOptional({ example: 1.1, description: 'Коэффициент отходов сортамента, не меньше 1' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  scrapFactor?: number;
+
+  @ApiPropertyOptional({ description: 'Название не вписано — нужно заполнить' })
+  @IsOptional()
+  @IsBoolean()
+  needsName?: boolean;
 }

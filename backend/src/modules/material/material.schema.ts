@@ -2,11 +2,14 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 import { optimisticLockPlugin } from '../../common/mongoose';
 import { CompositionLine, CompositionLineSchema } from '../../common/catalog/composition-line.schema';
+import type { PdmMeta } from '../../common/catalog/pdm-meta.dto';
 
 export type MaterialDocument = HydratedDocument<Material>;
 
 export const MATERIAL_KINDS = ['raw', 'part', 'fastener', 'purchased', 'other'] as const;
 export type MaterialKind = (typeof MATERIAL_KINDS)[number];
+export const DIM_SOURCES = ['dxf', 'pdm', 'manual'] as const;
+export type DimSource = (typeof DIM_SOURCES)[number];
 
 /** One measured material dimension; values use the project-wide millimetre convention. */
 @Schema({ _id: false })
@@ -153,6 +156,43 @@ export class Material {
 
   @Prop({ default: false })
   isSystem?: boolean;
+
+  // ── C057 «Загрузка из PDM»: только data-core, CRM поля не читает. Без default — CRM-документы их не получают. ──
+  /** Обозначение PDM в одном написании (метизы, покупные). Уникально в организации среди заполненных. */
+  @Prop({ type: String, required: false, trim: true })
+  pdmCode?: string;
+
+  /** Другие написания обозначения (Number, кириллица). */
+  @Prop({ type: [String], default: undefined })
+  pdmAliases?: string[];
+
+  /** Откуда загружено и какая версия (детали). */
+  @Prop({ type: Object, required: false })
+  pdm?: PdmMeta;
+
+  /** Откуда размеры детали: развёртка DXF, карточка PDM, вручную. */
+  @Prop({ type: String, enum: DIM_SOURCES, required: false })
+  dimSource?: DimSource;
+
+  /** Сортамент (сырьё без формата): детали ссылаются на него, склад и снабжение его скрывают. */
+  @Prop({ type: Boolean, required: false })
+  isProfile?: boolean;
+
+  /** Складской формат → его сортамент. */
+  @Prop({ type: Types.ObjectId, ref: 'Material', required: false })
+  profileId?: Types.ObjectId;
+
+  /** Основной формат сортамента (для «что купить» и цены м²/м). */
+  @Prop({ type: Boolean, required: false })
+  isDefaultFormat?: boolean;
+
+  /** Коэффициент отходов сортамента (≥ 1). */
+  @Prop({ type: Number, min: 1, required: false })
+  scrapFactor?: number;
+
+  /** Название не вписано (name = обозначение) — «Требуют заполнения». */
+  @Prop({ type: Boolean, required: false })
+  needsName?: boolean;
 }
 
 export const MaterialSchema = SchemaFactory.createForClass(Material);
@@ -161,3 +201,7 @@ MaterialSchema.index({ supplierId: 1 });
 MaterialSchema.index({ 'passportSpec.materialId': 1 }, { sparse: true });
 MaterialSchema.index({ organizationId: 1, article: 1 }, { unique: true, sparse: true });
 MaterialSchema.index({ deletedAt: 1, organizationId: 1 });
+// C057: partialFilterExpression, а не sparse — на составном ключе sparse не отсеивает документы без pdmCode (organizationId есть почти у всех)
+MaterialSchema.index({ organizationId: 1, pdmCode: 1 }, { unique: true, partialFilterExpression: { pdmCode: { $type: 'string' } } });
+MaterialSchema.index({ organizationId: 1, pdmAliases: 1 }, { partialFilterExpression: { pdmAliases: { $type: 'string' } } });
+MaterialSchema.index({ profileId: 1 }, { sparse: true });

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsMongoId, IsNumber, IsObject, IsOptional, IsString, Length, Min, ValidateNested } from 'class-validator';
+import { PdmMetaDto } from '../../../common/catalog/pdm-meta.dto';
+import { IsArray, IsBoolean, IsMongoId, IsNumber, IsObject, IsOptional, IsString, Length, Min, ValidateNested } from 'class-validator';
 
 class ModuleDimensionsDto {
   @ApiPropertyOptional({ description: 'Ширина' })
@@ -87,4 +88,15 @@ export class CreateProductModuleDto {
   @IsOptional()
   @IsMongoId({ message: 'Некорректный ID главного фото' })
   mainPhotoId?: string | null;
+
+  @ApiPropertyOptional({ type: PdmMetaDto, description: 'Откуда загружено из PDM и версия' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PdmMetaDto)
+  pdm?: PdmMetaDto;
+
+  @ApiPropertyOptional({ description: 'Название не вписано — нужно заполнить' })
+  @IsOptional()
+  @IsBoolean()
+  needsName?: boolean;
 }

@@ -1,4 +1,5 @@
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
+import { withPartsOf } from '../../common/catalog/stock-visible';
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseInterceptors } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
@@ -33,10 +34,11 @@ export class MaterialController {
   @ApiQuery({ name: 'search', required: false, description: 'Search by name' })
   @ApiQuery({ name: 'categoryId', required: false, description: 'Filter by category' })
   @ApiQuery({ name: 'materialKind', required: false, enum: MATERIAL_KINDS, description: 'Filter by catalog kind' })
+  @ApiQuery({ name: 'withParts', required: false, description: '1 — показать и детали из PDM, и сортаменты (по умолчанию скрыты)' })
   @ApiResponse({ status: 200, description: 'Paginated list of materials' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  list(@CurrentUser() user: AuthenticatedUser, @StockScoped() scope: StockScope | null, @Query('page') page = '1', @Query('limit') limit = '20', @Query('search') search?: string, @Query('categoryId') categoryId?: string, @Query('materialKind') materialKind?: CreateMaterialDto['materialKind']) {
-    return this.service.findAll({ page: parseInt(page, 10), limit: parseInt(limit, 10), search, categoryId, materialKind }, user.organizationId, scope);
+  list(@CurrentUser() user: AuthenticatedUser, @StockScoped() scope: StockScope | null, @Query('page') page = '1', @Query('limit') limit = '20', @Query('search') search?: string, @Query('categoryId') categoryId?: string, @Query('materialKind') materialKind?: CreateMaterialDto['materialKind'], @Query('withParts') withParts?: string) {
+    return this.service.findAll({ page: parseInt(page, 10), limit: parseInt(limit, 10), search, categoryId, materialKind, withParts: withPartsOf(withParts) }, user.organizationId, scope);
   }
 
   @AppSection('stock', 'requests')
