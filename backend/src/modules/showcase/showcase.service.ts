@@ -480,8 +480,11 @@ export class ShowcaseService {
     if (used) throw new ConflictException(`Изделие входит в состав «${used.name}» — удалить нельзя`);
     if (await isUsedByCrm(this.connection, 'product', _id)) throw new ConflictException('На изделие ссылаются заказы / документы CRM — удалить нельзя');
     // CANON: нельзя удалить то, на что ссылаются — позиции заказов, паспорта, задания
+    // Аннулированный паспорт номер держит, но изделие не блокирует (иначе дубль с выпущенным паспортом не убрать)
     for (const [coll, what] of [['incomes', 'позициях заказов'], ['productpassports', 'паспортах'], ['designtasks', 'заданиях проектирования'], ['worktasks', 'заданиях «В работе»']] as const) {
-      const n = await this.db.collection(coll).countDocuments({ productId: _id, deletedAt: null });
+      const q: Record<string, unknown> = { productId: _id, deletedAt: null };
+      if (coll === 'productpassports') q.status = { $ne: 'annulled' };
+      const n = await this.db.collection(coll).countDocuments(q);
       if (n) throw new ConflictException(`Изделие используется в ${what} (${n}) — удалить нельзя`);
     }
     const r = await this.db.collection('products').updateOne({ _id, deletedAt: null }, { $set: { deletedAt: new Date() } });

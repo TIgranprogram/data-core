@@ -4,9 +4,14 @@ import { ShowcaseService } from './showcase.service';
 
 function setup(used: Record<string, number>) {
   const updateOne = jest.fn(async () => ({ matchedCount: 1 }));
-  const coll = (n: string) => ({ findOne: async () => null, countDocuments: async () => used[n] ?? 0, updateOne });
+  const queries: Record<string, unknown>[] = [];
+  const coll = (n: string) => ({
+    findOne: async () => null,
+    countDocuments: async (q: Record<string, unknown>) => { queries.push({ coll: n, ...q }); return used[n] ?? 0; },
+    updateOne,
+  });
   const svc = new ShowcaseService({ db: { collection: coll }, collection: coll } as never, {} as never);
-  return { svc, updateOne };
+  return { svc, updateOne, queries };
 }
 
 describe('HARDEN-1 п.15: удаление изделия', () => {
@@ -22,5 +27,10 @@ describe('HARDEN-1 п.15: удаление изделия', () => {
   });
   it('тип ошибки — Conflict', async () => {
     await expect(setup({ worktasks: 1 }).svc.remove(id)).rejects.toBeInstanceOf(ConflictException);
+  });
+  it('аннулированный паспорт в проверке не считается', async () => {
+    const t = setup({});
+    await t.svc.remove(id);
+    expect(t.queries.find((q) => q.coll === 'productpassports')).toMatchObject({ status: { $ne: 'annulled' } });
   });
 });
