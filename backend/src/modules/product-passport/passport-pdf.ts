@@ -19,7 +19,7 @@ export interface PdfPassport {
   warrantyMonths?: number; note?: string;
   /** ПП: заполняется после печати — пусто → линия для ручки */
   customerName?: string; orderNo?: string; objectName?: string; saleDate?: Date | string | null; installedBy?: string; installedAt?: Date | string | null;
-  bom?: Array<{ pos?: number; code?: string; name?: string; qty?: number; unit?: string; note?: string }>;
+  bom?: Array<{ pos?: number; code?: string; name?: string; qty?: number; unit?: string; note?: string; size?: string }>;
 }
 export interface PdfInput {
   passport: PdfPassport;

@@ -126,6 +126,12 @@ export interface PassportLike {
   height?: number | null; length?: number | null; width?: number | null; weight?: number | null;
   materials?: string; installationMethod?: string; purpose?: string; description?: string; category?: string;
   supplierOrgId?: unknown; customerName?: string; objectName?: string; images?: Array<{ kind: string }>;
+  bom?: Array<{ size?: string }>;
+}
+
+/** Паспорт партии: в комплектности ≥ 2 строк с размером — длина и ширина каждого изделия в таблице, в габаритах только толщина (высота). */
+export function isBatch(p: { bom?: Array<{ size?: string }> }): boolean {
+  return (p.bom || []).filter((b) => b.size && String(b.size).trim()).length >= 2;
 }
 
 /** Чего не хватает до выдачи (подписи полей — для «Требуют заполнения» и проверки перед PDF). */
@@ -137,7 +143,7 @@ export function missingFields(p: PassportLike): string[] {
   if (empty(p.category)) m.push('Категория');
   if (empty(p.date)) m.push('Дата');
   if (empty(p.supplierOrgId)) m.push('Поставщик');
-  if (empty(p.height) || empty(p.length) || empty(p.width)) m.push('Габариты');
+  if (empty(p.height) || (!isBatch(p) && (empty(p.length) || empty(p.width)))) m.push('Габариты');
   if (empty(p.weight)) m.push('Вес');
   if (empty(p.materials)) m.push('Материалы');
   if (empty(p.installationMethod)) m.push('Установка');

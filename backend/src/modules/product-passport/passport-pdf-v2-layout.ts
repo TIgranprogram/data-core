@@ -3,9 +3,12 @@ import { PdfV2Input } from './passport-pdf-v2-types';
 import { substituteRefs, PlannedFig, planFigures, maintenanceColumns } from './passport-pdf-v2-refs';
 import { M, CW, BOTTOM, BODY, Draw, Cell, V2Page, has, num, lines } from './passport-pdf-v2-common';
 import { shortPage, cover } from './passport-pdf-v2-cover';
+import { isBatch } from './passport-rules';
 
 /** Таблица размеров (ПЧ-4): буквы как на чертеже, объём считается из габаритов. Выпущенный без новых полей печатается как был выпущен. */
 export function specRows(p: PdfV2Input['passport']): [string, unknown][] {
+  // Партия: размеры каждого изделия — в таблице «Комплектность», здесь толщина и масса партии
+  if (isBatch(p)) return [['Длина и ширина, мм', 'по таблице «Комплектность»'], ['Высота (толщина), мм', p.height], ['Вес партии, кг', p.weight]];
   const added = [p.seatWidth, p.seatHeight, p.supports, p.shipVolume].some(has);
   if (p.status !== 'draft' && !added) return [['Высота, мм', p.height], ['Длина, мм', p.length], ['Ширина, мм', p.width], ['Вес, кг', p.weight]];
   const volume = p.shipVolume ?? (p.length && p.width && p.height ? Math.round((p.length * p.width * p.height) / 1e7) / 100 : undefined);
@@ -220,12 +223,17 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   for (const im of images.bom_item || []) if (im.refCode && !thumbs.has(im.refCode)) thumbs.set(im.refCode, im.buf);
   const bom = p.bom?.length ? p.bom : [{ pos: 1, code: 'И-1', name: 'Изделие в сборе', qty: 1, unit: 'шт.' }];
   const withImg = bom.some((b) => b.code && thumbs.has(b.code));
+  const batch = isBatch(p);
   const bomRows: Cell[][] = bom.map((b, i) => {
-    const row: Cell[] = [String(b.pos ?? i + 1), b.code ?? '', b.name ?? '', b.qty === undefined ? '' : String(b.qty), b.unit ?? ''];
+    const row: Cell[] = batch
+      ? [String(b.pos ?? i + 1), b.name ?? '', b.size ?? '', b.qty === undefined ? '' : String(b.qty), b.unit ?? '']
+      : [String(b.pos ?? i + 1), b.code ?? '', b.name ?? '', b.qty === undefined ? '' : String(b.qty), b.unit ?? ''];
     if (withImg) row.push({ img: b.code ? thumbs.get(b.code) : undefined, h: b.code && thumbs.has(b.code) ? 40 : 11 });
     return row;
   });
-  table(`Таблица ${tab.get('bom')} — Комплектность изделия`, ['Поз.', 'Обозначение', 'Наименование', 'Кол-во', 'Ед. изм.', ...(withImg ? ['Изображение'] : [])],
+  if (batch) table(`Таблица ${tab.get('bom')} — Комплектность и размеры изделий`, ['Поз.', 'Наименование', 'Размеры, мм', 'Кол-во', 'Ед. изм.', ...(withImg ? ['Изображение'] : [])],
+    withImg ? [7, 26, 27, 9, 9, 22] : [8, 32, 38, 11, 11], bomRows);
+  else table(`Таблица ${tab.get('bom')} — Комплектность изделия`, ['Поз.', 'Обозначение', 'Наименование', 'Кол-во', 'Ед. изм.', ...(withImg ? ['Изображение'] : [])],
     withImg ? [7, 17, 36, 9, 9, 22] : [8, 20, 50, 11, 11], bomRows);
 
   // Журналы для заказчика (решение 2026-11-01, ПТ-2): пустые таблицы хранения и неисправностей — в обоих вариантах

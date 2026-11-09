@@ -1,4 +1,5 @@
 import { specRows } from './passport-pdf-v2-layout';
+import { missingFields } from './passport-rules';
 
 const base = { height: 860, length: 1500, width: 610, weight: 37 };
 const rows = (p: object) => Object.fromEntries(specRows(p as never));
@@ -9,6 +10,15 @@ describe('Таблица размеров паспорта (ПЧ-4)', () => {
     expect(r['Длина (L), мм']).toBe(1500);
     expect(r['Ширина посадки (Bп), мм']).toBe(470);
     expect(r['Объём перевозки (V), куб. м']).toBe(0.79);
+  });
+  it('партия: длина и ширина — по таблице комплектности, габариты без длины не пустые', () => {
+    const bom = [{ name: 'Решётка 1', size: '1700 × 1310', qty: 1 }, { name: 'Решётка 2', size: '1300 × 1300', qty: 1 }];
+    const r = rows({ height: 12, weight: 9325, status: 'issued', bom });
+    expect(r['Длина и ширина, мм']).toBe('по таблице «Комплектность»');
+    expect(r['Высота (толщина), мм']).toBe(12);
+    expect(r['Длина (L), мм']).toBeUndefined();
+    expect(missingFields({ height: 12, bom })).not.toContain('Габариты');
+    expect(missingFields({ height: 12, bom: [bom[0]] })).toContain('Габариты');
   });
   it('вписанный объём важнее расчётного', () => {
     expect(rows({ ...base, status: 'draft', shipVolume: 1 })['Объём перевозки (V), куб. м']).toBe(1);
