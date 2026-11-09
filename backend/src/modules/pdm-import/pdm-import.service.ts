@@ -17,7 +17,7 @@ import { fastenerPatch, newMaterial, newModule, newProduct, newSortament, parseD
 
 const STALE = 'Данные на сайте изменились — проверьте ещё раз';
 const WITH_DELETED = { includeSoftDeleted: true } as QueryOptions;
-const MATERIAL_FIELDS = 'name article sku materialKind isProfile pdmCode pdmAliases pdm dimensions weightKg colors composition assortment standardRef materialGrade typeName updatedAt deletedAt';
+const MATERIAL_FIELDS = 'name article sku materialKind isProfile pdmCode pdmAliases pdm dimensions weightKg weightUnit colors composition assortment standardRef materialGrade typeName updatedAt deletedAt';
 const COMPOSITE_FIELDS = 'name article sku composition pdm updatedAt deletedAt';
 
 export interface ApplyResult { importId: string; created: number; linked: number; updated: number; skipped: number; needFiles: string[] }

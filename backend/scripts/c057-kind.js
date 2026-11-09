@@ -14,7 +14,8 @@
 const C = require('./lib/c057-common');
 const { groupOf } = require('./lib/c057-parse');
 
-const BY_CATEGORY = { 'Метизы': 'fastener', 'Покупные изделия': 'purchased', 'Оборудование': 'other', 'Услуги': 'other' };
+// «Расходники» → other: решение пользователя 2026-11-09 (биты, диски, краска — не материал изделий)
+const BY_CATEGORY = { 'Метизы': 'fastener', 'Покупные изделия': 'purchased', 'Оборудование': 'other', 'Услуги': 'other', 'Расходники': 'other' };
 
 function targetKind(m) {
   if (m.catName) return { to: BY_CATEGORY[m.catName] || 'raw', why: BY_CATEGORY[m.catName] ? `категория «${m.catName}»` : `сырьё: категория «${m.catName}»` };
@@ -53,7 +54,7 @@ function render(plan, source, total) {
     '## Проверка «сырьё в составе изделия» (делается первой)', '',
     plan.blocked.length ? C.table(['Позиция', 'Категория', 'Изделия'], plan.blocked.map((b) => [b.name, b.category, b.products.join('; ')])) : 'Нет ни одной: ни одна позиция, которая станет сырьём (raw), не стоит прямо в составе изделия. Блокировок нет.', '',
     '## Спорное — решает пользователь', '',
-    `- «Расходники» (бита, диски, краска, фрезы…) — по правилу «прочее сырьё» получают raw (${plan.items.filter((i) => i.category === 'Расходники').length} шт). Это не материал изделий; если нужен вид «прочее» (other) — скажите, поменяем одно правило в скрипте.`,
+    `- «Расходники» (бита, диски, краска, фрезы…) → other (${plan.items.filter((i) => i.category === 'Расходники').length} шт): не материал изделий — решение пользователя 2026-11-09.`,
     '- ИБП APC (сейчас raw, категория «Оборудование») → other — по ТЗ.', ''];
   const odd = plan.items.filter((i) => i.category === '—' || i.from);
   if (odd.length) L.push('## Особые', '', C.table(['Позиция', 'Категория', 'Было', 'Станет', 'Почему'], odd.map((i) => [i.name, i.category, i.from || '—', i.to, i.why])), '');

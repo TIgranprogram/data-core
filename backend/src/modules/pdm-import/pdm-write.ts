@@ -38,7 +38,8 @@ export function newMaterial(item: PdmItemDto, id: Types.ObjectId, lines: Planned
   const base = { _id: id, name: item.designation, article: item.designation, unit: 'шт', materialKind: item.kind, needsName: true, ...org(organizationId) };
   if (item.kind === 'part') {
     return {
-      ...base, dimensions: dimRows(item), ...(item.massKg ? { weightKg: item.massKg } : {}), ...(item.ral?.length ? { colors: item.ral } : {}),
+      // weightUnit 'kg': без пометки приложение читает weightKg как граммы (stock/weight.ts weightGOf)
+      ...base, dimensions: dimRows(item), ...(item.massKg ? { weightKg: item.massKg, weightUnit: 'kg' } : {}), ...(item.ral?.length ? { colors: item.ral } : {}),
       composition: storedLines(lines), ...(item.file ? { pdm: pdmMeta(item) } : {}), ...(lines.length && item.blank?.source ? { dimSource: item.blank.source } : {}),
     };
   }
@@ -91,7 +92,7 @@ export function updateOf({ item, existing, take, lines, renameToPdm }: UpdateInp
   if (take.has('composition')) set.composition = storedLines(lines, existing.composition);
   if (item.kind === 'part') {
     if (take.has('dimensions')) set.dimensions = dimRows(item);
-    if (take.has('weightKg') && item.massKg) set.weightKg = item.massKg;
+    if (take.has('weightKg') && item.massKg) { set.weightKg = item.massKg; set.weightUnit = 'kg'; }
     if (take.has('colors')) set.colors = item.ral;
     if (take.has('composition') && lines.length && item.blank?.source) set.dimSource = item.blank.source;
   }

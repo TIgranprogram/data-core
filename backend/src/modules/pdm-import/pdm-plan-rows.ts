@@ -24,6 +24,7 @@ export interface SiteDoc {
   pdm?: { version?: number; state?: string };
   dimensions?: DimRow[];
   weightKg?: number;
+  weightUnit?: string;
   colors?: string[];
   composition?: SiteLine[];
   assortment?: string;
@@ -81,7 +82,9 @@ export function exactHit(item: PdmItemDto, docs: SiteDoc[]): { by: PlanBy; docs:
 
 const found = (coll: PdmFound['coll'], d: SiteDoc): PdmFound => ({ coll, id: d._id, updatedAt: d.updatedAt ?? null });
 const versionChanged = (d: SiteDoc, item: PdmItemDto) => item.file?.version != null && (d.pdm?.version !== item.file.version || d.pdm?.state !== item.file.state);
-export const siteOf = (d: SiteDoc) => ({ dimensions: d.dimensions, weightKg: d.weightKg, colors: d.colors, composition: d.composition });
+/** Вес сайта в кг: старые записи без weightUnit хранят граммы (stock/weight.ts weightGOf). */
+const siteKg = (d: SiteDoc) => (d.weightKg == null ? d.weightKg : d.weightUnit === 'kg' ? d.weightKg : d.weightKg / 1000);
+export const siteOf = (d: SiteDoc) => ({ dimensions: d.dimensions, weightKg: siteKg(d), colors: d.colors, composition: d.composition });
 
 export function buildPlan(tree: PdmTreeDto, look: Lookup): Plan {
   const blockers = checkTree(tree);

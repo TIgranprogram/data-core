@@ -28,7 +28,7 @@ describe('план загрузки', () => {
   });
 
   it('деталь и тот же размер на сайте — «same»; другой вес — расхождение «сайт | PDM»', () => {
-    const base = { article: '0000.0000.2002', materialKind: 'part', pdm: { version: 1, state: 'Утверждено' }, dimensions: [{ type: 'length', value: 600 }, { type: 'width', value: 400 }, { type: 'thickness', value: 21 }], weightKg: 3.5 };
+    const base = { article: '0000.0000.2002', materialKind: 'part', pdm: { version: 1, state: 'Утверждено' }, dimensions: [{ type: 'length', value: 600 }, { type: 'width', value: 400 }, { type: 'thickness', value: 21 }], weightKg: 3.5, weightUnit: 'kg' };
     const t = tree();
     // состав сайта = состав PDM: ссылка на сортамент, количество 0.24 м²
     const prof = doc({ assortment: 'Фанера, 21 мм', materialGrade: 'ФСФ', isProfile: true, materialKind: 'raw' });
@@ -37,6 +37,9 @@ describe('план загрузки', () => {
     expect(rowOf(same, '0000.0000.2002').action).toBe('same');
     const diff = buildPlan(t, { ...empty(), materials: [doc({ ...withLines, weightKg: 4 })], profiles: [prof] });
     expect(rowOf(diff, '0000.0000.2002')).toMatchObject({ action: 'conflict', fields: [{ field: 'weightKg', site: 4, pdm: 3.5 }] });
+    // старая запись без weightUnit хранит граммы: 3500 г = 3,5 кг — расхождения нет
+    const grams = buildPlan(t, { ...empty(), materials: [doc({ ...withLines, weightKg: 3500, weightUnit: undefined })], profiles: [prof] });
+    expect(rowOf(grams, '0000.0000.2002').action).toBe('same');
   });
 
   it('метиз: точное совпадение по pdmCode, по другому написанию; один по ключу — link, несколько — suggest', () => {
