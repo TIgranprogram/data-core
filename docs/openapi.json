@@ -2152,6 +2152,34 @@
         }
       }
     },
+    "/apps/pdm-loader": {
+      "get": {
+        "operationId": "AppsController_info",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Приложения"
+        ]
+      }
+    },
+    "/apps/pdm-loader/download": {
+      "get": {
+        "operationId": "AppsController_download",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Приложения"
+        ]
+      }
+    },
     "/apps": {
       "get": {
         "operationId": "AppDataController_listApps",
@@ -7349,6 +7377,15 @@
             }
           },
           {
+            "name": "withParts",
+            "required": false,
+            "in": "query",
+            "description": "1 — показать и детали из PDM, и сортаменты (по умолчанию скрыты)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "materialKind",
             "required": false,
             "in": "query",
@@ -9779,7 +9816,7 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "{people[{id,name,capacityHours,workTypeIds}], bars[{…, orderId, productName, partId, partRowId, hue}], load[], legend[{workTypeId,name,hue 1..7}]}; фильтры personId/orderId/incomeId — в запросе к БД"
           }
         },
         "tags": [
@@ -9861,6 +9898,184 @@
         },
         "tags": [
           "В работе"
+        ]
+      }
+    },
+    "/my-tasks": {
+      "get": {
+        "operationId": "MyTasksController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Мои задания"
+        ]
+      }
+    },
+    "/my-tasks/{planId}/{stepId}/start": {
+      "post": {
+        "operationId": "MyTasksController_start",
+        "parameters": [
+          {
+            "name": "planId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stepId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MyTaskActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Мои задания"
+        ]
+      }
+    },
+    "/my-tasks/{planId}/{stepId}/finish": {
+      "post": {
+        "operationId": "MyTasksController_finish",
+        "parameters": [
+          {
+            "name": "planId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stepId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MyTaskActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Мои задания"
+        ]
+      }
+    },
+    "/my-tasks/{planId}/{stepId}/defer": {
+      "post": {
+        "operationId": "MyTasksController_defer",
+        "parameters": [
+          {
+            "name": "planId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stepId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MyTaskActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Мои задания"
+        ]
+      }
+    },
+    "/my-tasks/{planId}/{stepId}/problem": {
+      "post": {
+        "operationId": "MyTasksController_problem",
+        "parameters": [
+          {
+            "name": "planId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stepId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MyTaskActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Мои задания"
         ]
       }
     },
@@ -10158,6 +10373,8 @@
     "/work-tasks/{id}/plan": {
       "patch": {
         "operationId": "WorkController_plan",
+        "summary": "Устарело: план шага правится в Ганте (PATCH /orderline-plans/:id/steps/:stepId)",
+        "deprecated": true,
         "parameters": [
           {
             "name": "id",
@@ -14889,6 +15106,38 @@
         ]
       }
     },
+    "/products/{id}/purchase-needs": {
+      "get": {
+        "operationId": "ProductController_purchaseNeedsOf",
+        "summary": "Что купить на N изделий: сырьё по сортаментам, метизы, покупные",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "qty",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Справочники — Продукты"
+        ]
+      }
+    },
     "/products/{id}": {
       "get": {
         "operationId": "ProductController_findOne",
@@ -16469,6 +16718,20 @@
               ],
               "type": "string"
             }
+          },
+          {
+            "name": "pack",
+            "required": false,
+            "in": "query",
+            "description": "passport — только паспорт (умолч., старые клиенты); tech — только техническое описание из состава; combined — паспорт, затем техописание одним PDF. Не путать с variant.",
+            "schema": {
+              "enum": [
+                "passport",
+                "tech",
+                "combined"
+              ],
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -16672,6 +16935,152 @@
         },
         "tags": [
           "Паспорта изделий"
+        ]
+      }
+    },
+    "/pdm-files": {
+      "get": {
+        "operationId": "PdmFilesController_list",
+        "parameters": [
+          {
+            "name": "ownerKind",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "product",
+                "module",
+                "material"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "ownerId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Файлы PDM"
+        ]
+      }
+    },
+    "/pdm-import/preview": {
+      "post": {
+        "operationId": "PdmImportController_preview",
+        "summary": "Сравнить дерево pdm-tree/1 с сайтом: что создать, что связать, где расхождения (ничего не записывает в номенклатуру)",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PdmTreeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Загрузка из PDM"
+        ]
+      }
+    },
+    "/pdm-import/apply": {
+      "post": {
+        "operationId": "PdmImportController_apply",
+        "summary": "Записать план одной транзакцией. Повтор того же planId возвращает прежний итог; 409, если данные на сайте изменились",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PdmApplyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Загрузка из PDM"
+        ]
+      }
+    },
+    "/pdm-import/files": {
+      "post": {
+        "operationId": "PdmImportController_files",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Загрузка из PDM"
+        ]
+      }
+    },
+    "/pdm-import/preview-image": {
+      "post": {
+        "operationId": "PdmImportController_previewImage",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Загрузка из PDM"
         ]
       }
     },
@@ -17027,7 +17436,8 @@
                 "design",
                 "work",
                 "offers",
-                "stock-mobile"
+                "stock-mobile",
+                "my-tasks"
               ]
             }
           },
@@ -17132,7 +17542,8 @@
                 "design",
                 "work",
                 "offers",
-                "stock-mobile"
+                "stock-mobile",
+                "my-tasks"
               ]
             }
           },
@@ -19094,6 +19505,35 @@
           "value"
         ]
       },
+      "PdmMetaDto": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "number",
+            "description": "Номер файла в PDM"
+          },
+          "version": {
+            "type": "number",
+            "description": "Версия файла в PDM"
+          },
+          "state": {
+            "type": "string",
+            "description": "Состояние в PDM («Утверждено»…)"
+          },
+          "path": {
+            "type": "string",
+            "description": "Путь файла в хранилище PDM"
+          },
+          "configuration": {
+            "type": "string",
+            "description": "Конфигурация, которую использует родитель"
+          },
+          "syncedAt": {
+            "type": "string",
+            "description": "Когда последний раз загружено из PDM"
+          }
+        }
+      },
       "CreateMaterialDto": {
         "type": "object",
         "properties": {
@@ -19193,6 +19633,55 @@
           "notes": {
             "type": "string",
             "description": "Заметки"
+          },
+          "pdmCode": {
+            "type": "string",
+            "description": "Обозначение PDM (метизы, покупные)"
+          },
+          "pdmAliases": {
+            "description": "Другие написания обозначения PDM",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pdm": {
+            "description": "Откуда загружено из PDM и версия",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PdmMetaDto"
+              }
+            ]
+          },
+          "dimSource": {
+            "type": "string",
+            "enum": [
+              "dxf",
+              "pdm",
+              "manual"
+            ],
+            "description": "Откуда размеры детали"
+          },
+          "isProfile": {
+            "type": "boolean",
+            "description": "Сортамент (сырьё без формата)"
+          },
+          "profileId": {
+            "type": "string",
+            "description": "Складской формат: ID сортамента"
+          },
+          "isDefaultFormat": {
+            "type": "boolean",
+            "description": "Основной формат сортамента"
+          },
+          "scrapFactor": {
+            "type": "number",
+            "example": 1.1,
+            "description": "Коэффициент отходов сортамента, не меньше 1"
+          },
+          "needsName": {
+            "type": "boolean",
+            "description": "Название не вписано — нужно заполнить"
           }
         },
         "required": [
@@ -19300,6 +19789,55 @@
           "notes": {
             "type": "string",
             "description": "Заметки"
+          },
+          "pdmCode": {
+            "type": "string",
+            "description": "Обозначение PDM (метизы, покупные)"
+          },
+          "pdmAliases": {
+            "description": "Другие написания обозначения PDM",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pdm": {
+            "description": "Откуда загружено из PDM и версия",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PdmMetaDto"
+              }
+            ]
+          },
+          "dimSource": {
+            "type": "string",
+            "enum": [
+              "dxf",
+              "pdm",
+              "manual"
+            ],
+            "description": "Откуда размеры детали"
+          },
+          "isProfile": {
+            "type": "boolean",
+            "description": "Сортамент (сырьё без формата)"
+          },
+          "profileId": {
+            "type": "string",
+            "description": "Складской формат: ID сортамента"
+          },
+          "isDefaultFormat": {
+            "type": "boolean",
+            "description": "Основной формат сортамента"
+          },
+          "scrapFactor": {
+            "type": "number",
+            "example": 1.1,
+            "description": "Коэффициент отходов сортамента, не меньше 1"
+          },
+          "needsName": {
+            "type": "boolean",
+            "description": "Название не вписано — нужно заполнить"
           }
         }
       },
@@ -19840,6 +20378,23 @@
           "productUpdatedAt": {
             "type": "object",
             "description": "productUpdatedAt из ответа плана (ISO); у изделия без даты — не указывать"
+          }
+        }
+      },
+      "MyTaskActionDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Причина: нет материала, нет чертежа, ждёт другого участка, поломка, другое + текст"
+          },
+          "until": {
+            "type": "string",
+            "description": "Отложить до (ГГГГ-ММ-ДД); пусто — завтра"
+          },
+          "clientTime": {
+            "type": "string",
+            "description": "Время нажатия на телефоне (работа без связи); не из будущего и не старше суток"
           }
         }
       },
@@ -21686,6 +22241,18 @@
           "attributes": {
             "type": "object",
             "description": "EAV: { attributeName: value }"
+          },
+          "pdm": {
+            "description": "Откуда загружено из PDM и версия",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PdmMetaDto"
+              }
+            ]
+          },
+          "needsName": {
+            "type": "boolean",
+            "description": "Название не вписано — нужно заполнить"
           }
         },
         "required": [
@@ -21779,6 +22346,18 @@
           "mainPhotoId": {
             "type": "object",
             "description": "Главное фото (ID из photoIds; null = авто)"
+          },
+          "pdm": {
+            "description": "Откуда загружено из PDM и версия",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PdmMetaDto"
+              }
+            ]
+          },
+          "needsName": {
+            "type": "boolean",
+            "description": "Название не вписано — нужно заполнить"
           }
         },
         "required": [
@@ -21834,6 +22413,18 @@
           "mainPhotoId": {
             "type": "object",
             "description": "Главное фото (ID из photoIds; null = авто)"
+          },
+          "pdm": {
+            "description": "Откуда загружено из PDM и версия",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PdmMetaDto"
+              }
+            ]
+          },
+          "needsName": {
+            "type": "boolean",
+            "description": "Название не вписано — нужно заполнить"
           }
         }
       },
@@ -21881,6 +22472,15 @@
               "full"
             ],
             "description": "short — только обязательное (умолч.); full — плюс необязательные разделы"
+          },
+          "pack": {
+            "type": "string",
+            "enum": [
+              "passport",
+              "tech",
+              "combined"
+            ],
+            "description": "passport — только паспорт (умолч.); tech — техническое описание из состава; combined — паспорт, затем техописание одним PDF"
           }
         },
         "required": [
@@ -21910,6 +22510,72 @@
       "UpdateProductPassportDto": {
         "type": "object",
         "properties": {}
+      },
+      "PdmItemDto": {
+        "type": "object",
+        "properties": {
+          "designation": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "product",
+              "module",
+              "part",
+              "fastener",
+              "purchased"
+            ]
+          }
+        },
+        "required": [
+          "designation",
+          "kind"
+        ]
+      },
+      "PdmTreeDto": {
+        "type": "object",
+        "properties": {
+          "schema": {
+            "type": "string",
+            "example": "pdm-tree/1"
+          },
+          "root": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PdmItemDto"
+            }
+          }
+        },
+        "required": [
+          "schema",
+          "root",
+          "items"
+        ]
+      },
+      "PdmApplyDto": {
+        "type": "object",
+        "properties": {
+          "planId": {
+            "type": "string",
+            "description": "Номер плана из предпросмотра"
+          },
+          "tree": {
+            "description": "Или то же дерево, что в предпросмотре (план найдётся по хэшу)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PdmTreeDto"
+              }
+            ]
+          },
+          "decisions": {
+            "type": "object",
+            "description": "Обозначение → { action: create|link|update-all|keep-site, targetId?, fields?: { поле: site|pdm } }"
+          }
+        }
       },
       "CreateAttributeDefinitionDto": {
         "type": "object",

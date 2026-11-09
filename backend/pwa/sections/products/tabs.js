@@ -6,6 +6,7 @@ import { productFilesBlock } from '../product-files.js';
 import { productAttachmentsBlock } from '../product-attachments.js';
 import { productRoute } from '../work-composition.js';
 import { openTechSheet } from '../tech-sheet.js';
+import { purchaseNeedsBlock } from './purchase-needs.js';
 import { grp, passportCatView, compositionBlock, passportsBlock, inOrders, variantsBlock } from './card-blocks.js';
 
 /* Вкладки правой панели изделия (C055): Описание · Состав и работы · Техописание · Паспорт · Файлы · Заказы.
@@ -34,7 +35,7 @@ export function productTabs(r) {
       ['Назначение', row.purpose], ['Монтаж', row.installation], ['Описание', row.description],
     ]) },
     { key: 'comp', label: 'Состав и работы', count: (r.composition || []).length || undefined,
-      blocks: (row) => inline(compositionBlock(row), session.sees('work') ? productRoute(row) : null, variantsBlock(row)) },
+      blocks: (row) => inline(compositionBlock(row), session.sees('products') ? purchaseNeedsBlock(row) : null, session.sees('work') ? productRoute(row) : null, variantsBlock(row)) },
     { key: 'tech', label: 'Техописание', count: techN,
       blocks: (row) => techSheetBlock(row) },
     { key: 'passport', label: 'Паспорт', count: r.passports?.total || undefined,
