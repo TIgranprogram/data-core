@@ -67,7 +67,7 @@ export function photoDrop({ attach, done, pdf = false, purpose, drawing = false,
     const visible = [...document.querySelectorAll('.photo-drop')].filter((z) => z.offsetParent);
     if (visible.length > 1) {
       const a = document.activeElement;
-      const hostOf = (z) => z.closest('.inv-row, .pp-kind, .field') || z.parentElement;
+      const hostOf = (z) => z.closest('.inv-row, .pp-kind, .pp-slot, .field') || z.parentElement;
       const aimed = (z) => { const hs = hostOf(z); return (a && hs.contains(a)) || hs.matches(':hover'); };
       if (!aimed(zone)) {
         if (zone === visible[0] && !visible.some(aimed)) toastError(new Error('Куда вставить? Наведите курсор на нужный вид картинки (или щёлкните по нему) и нажмите Ctrl+V ещё раз'));

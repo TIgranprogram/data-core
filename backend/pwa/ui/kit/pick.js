@@ -160,16 +160,21 @@ export function enhanceSelect(sel, { force = false } = {}, tries = 0) {
 /**
  * Выбор нескольких значений метками (поле формы `type: 'widget'`; паспорт v2 — элементы, материалы; БЗ-6 Э5a1).
  * Метки — общий класс `.tag` (`.active` — выбрано), подпись снизу — `small`. Значение — JSON-список value.
- *   tagPick({ options: [{ value, label, sub?, cats? }], value, label? }) → { el, value, set value, focus, setScope(code) → [чужие выбранные] }
+ *   tagPick({ options: [{ value, label, sub?, cats?, kind? }], value, label?, productOnly? }) → { el, value, set value, focus, setScope(code) → [чужие выбранные] }
  * cats — коды категорий, к которым относится значение (пусто — ко всем). setScope(code): видны только свои;
+ * productOnly — как на сервере elementFits: только kind «product» или пустой (детали/крепеж скрыты);
  * уже выбранные чужие остаются с пометкой «не для этой категории» (`.tag.foreign`); «Показать все» — под списком (ФП).
  */
-export function tagPick({ options, value, label }) {
+export function tagPick({ options, value, label, productOnly = false }) {
   const parse = (v) => { if (Array.isArray(v)) return v.map(String); try { return (JSON.parse(v || '[]') || []).map(String); } catch { return []; } };
   let cur = new Set(parse(value));
   let scope = ''; let showAll = false;
   const box = mark(h('div', { class: 'tag-pick', role: 'group', 'aria-label': label || 'Выбор' }), 'pick');
-  const mine = (o) => !scope || !(o.cats || []).length || o.cats.includes(scope);
+  const asProduct = (o) => { const k = String(o.kind || '').trim(); return !k || k === 'product'; };
+  const mine = (o) => {
+    if (productOnly && !asProduct(o)) return false;
+    return !scope || !(o.cats || []).length || o.cats.includes(scope);
+  };
   const items = options.map((o) => {
     const note = h('small', null, o.sub || '');
     const b = h('button', { type: 'button', class: 'tag', 'aria-pressed': 'false', title: o.sub || '', onclick: () => { cur.has(String(o.value)) ? cur.delete(String(o.value)) : cur.add(String(o.value)); paint(); box.dispatchEvent(new Event('change', { bubbles: true })); } },
@@ -185,12 +190,13 @@ export function tagPick({ options, value, label }) {
       b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on));
       b.classList.toggle('foreign', !own);
       // категория выбрана — перечень категорий значения не нужен (ПК: в форме только своё); без категории — как раньше
-      note.textContent = !own && on ? 'не для этой категории' : scope ? '' : o.sub || '';
+      const why = productOnly && !asProduct(o) ? 'не изделие' : 'не для этой категории';
+      note.textContent = !own && on ? why : scope ? '' : o.sub || '';
       b.hidden = !own && !on && !showAll;
       if (!own && !on) hidden++;
     }
-    more.hidden = !scope || (!hidden && !showAll);
-    more.textContent = showAll ? 'Только для этой категории' : `Показать все (ещё ${hidden})`;
+    more.hidden = !(scope || productOnly) || (!hidden && !showAll);
+    more.textContent = showAll ? (productOnly ? 'Только изделия категории' : 'Только для этой категории') : `Показать все (ещё ${hidden})`;
   };
   box.append(...(items.length ? [...items.map((x) => x.b), more] : [h('span', { class: 'muted' }, 'Справочник пуст — заполните его в «Справочники → Паспорта»')]));
   paint();
