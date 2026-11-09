@@ -25,7 +25,8 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   const rules = (t.rules || []).map((x) => String(x).trim()).filter(Boolean);
   const descr = lines(t.description || p.description);
   const purpose = lines(t.purpose);
-  const specs = specRows(p).filter(([, v]) => has(v)).map(([k, v]) => [String(k), num(v)]);
+  // Текстовое значение (паспорт партии: «по таблице …») печатается как есть
+  const specs = specRows(p).filter(([, v]) => has(v) || (typeof v === 'string' && v.trim() !== '')).map(([k, v]) => [String(k), has(v) ? num(v) : String(v)]);
 
   // Номера разделов: снимок даёт свои (обычно с 3 — 1 и 2 были «Описание» и «Техданные» v1). Свободные 1…start-1 — под описание/правила.
   const start = parseInt(sections[0]?.number ?? '', 10) || 1;
