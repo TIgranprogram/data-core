@@ -49,6 +49,7 @@ const RULES = {
    "title": [
     "спецодежд",
     "спецобув",
+    "пескоструйщик",
     "ботинки",
     "костюм рабочий"
    ],
@@ -68,7 +69,12 @@ const RULES = {
     "винт ",
     "саморез",
     "метиз",
-    "шпильк"
+    "шпильк",
+    "скоба",
+    "шакле",
+    "цепь",
+    "заклеп",
+    "заклёп"
    ],
    "to": "Расходные материалы / Болты, гайки, шайбы и др. метизы"
   },
@@ -391,13 +397,32 @@ const RULES = {
   },
   {
    "title": [
-    "аренда спецтехник",
-    "экскаватор",
     "автокран"
    ],
-   "to": "Аренда спецтехники / Комиссия 19% (потери при переводе)",
-   "confidence": "средняя",
-   "_note": "в списке директора у статьи только одна подстатья — проверить"
+   "to": "Аренда спецтехники / Аренда автокрана",
+   "confidence": "средняя"
+  },
+  {
+   "title": [
+    "манипулятор"
+   ],
+   "to": "Аренда спецтехники / Аренда манипулятора",
+   "confidence": "средняя"
+  },
+  {
+   "title": [
+    "экскаватор",
+    "погрузчик"
+   ],
+   "to": "Аренда спецтехники / Аренда экскаватора и погрузчика",
+   "confidence": "средняя"
+  },
+  {
+   "title": [
+    "аренда спецтехник"
+   ],
+   "to": "Аренда спецтехники / Аренда прочей техники",
+   "confidence": "средняя"
   },
   {
    "title": [
@@ -447,7 +472,7 @@ async function buildPlan(db) {
   const rows = reqs.map((r) => {
     const categoryName = r.categoryId ? catName.get(String(r.categoryId)) || '' : '';
     const supplierName = r.supplierId ? orgName.get(String(r.supplierId)) || '' : '';
-    const amount = r.lineTotal ?? (r.priceHint != null ? r.priceHint * (r.qty || 1) : null);
+    const amount = r.priceHint != null ? Number(r.priceHint) : (r.lineTotal ?? null); // priceHint — сумма за всю позицию (как в «Деньгах»)
     const m = classify(r, { categoryName, supplierName });
     return { id: String(r._id), no: r.requestNo ?? r.number ?? r.num ?? '', title: r.title || '', categoryName, supplierName, amount, ...m };
   });
