@@ -60,6 +60,14 @@ export class PdmFilesService {
     return { id: String(doc._id), stored: true };
   }
 
+  /** Какие из файлов (обозначение + вид + sha256) ещё не лежат на сервере: список sha256 без повторов — для needFiles. */
+  async missingSha(docs: Array<{ designation: string; docKind: string; sha256: string }>, organizationId?: string | null): Promise<string[]> {
+    if (!docs.length) return [];
+    const rows = (await this.model.find({ sha256: { $in: docs.map((d) => d.sha256.toLowerCase()) }, deletedAt: null, ...this.orgFilter(organizationId) }).select('designation docKind sha256').lean().exec()) as unknown as Array<{ designation: string; docKind: string; sha256: string }>;
+    const have = new Set(rows.map((r) => `${r.designation}|${r.docKind}|${r.sha256}`));
+    return [...new Set(docs.filter((d) => !have.has(`${d.designation}|${d.docKind}|${d.sha256.toLowerCase()}`)).map((d) => d.sha256.toLowerCase()))];
+  }
+
   /** Текущие файлы владельца; у каждого — `versions` (все версии по этому обозначению и виду, новые первыми). */
   async list(ownerKind: unknown, ownerId: unknown, organizationId?: string | null) {
     if (!PDM_OWNER_KINDS.includes(ownerKind as PdmOwnerKind)) throw new BadRequestException('Укажите ownerKind: product, module или material');

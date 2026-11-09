@@ -347,7 +347,7 @@ Data-core — платформенное ядро (`auth`, `user`, `role`, `perm
 
 C057 (загрузка из PDM, всё необязательное, CRM не читает): `Material` — `pdmCode` (уникален в организации среди заполненных), `pdmAliases[]`,
 `pdm{fileId,version,state,path,configuration,syncedAt}`, `dimSource` (`dxf|pdm|manual`), `isProfile` (сортамент), `profileId` (формат → сортамент),
-`isDefaultFormat`, `scrapFactor` (≥ 1), `needsName`; `ProductModule`, `Product` — `pdm{…}`, `needsName`. Файлы PDF/DXF — коллекция `pdmfiles`.
+`isDefaultFormat`, `scrapFactor` (≥ 1), `needsName`; `ProductModule`, `Product` — `pdm{…}`, `needsName`. Файлы PDF/DXF — коллекция `pdmfiles`. Журнал загрузок — `pdmimports` (дерево, план, найденные записи с `updatedAt`, решения, итог; `status` planned|applied).
 
 Целевой состав (302+): `CompositionLine` с `_id`, `lineType`, `refId`,
 `quantity`, `sortOrder`, …; ≤1000 строк; единственный write после 304.

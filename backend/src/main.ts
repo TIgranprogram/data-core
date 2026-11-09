@@ -72,7 +72,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
   });
-  app.useBodyParser('json', { limit: '1mb' }); // POST /api/devlog/import — тело до 1 МБ
+  app.useBodyParser('json', { limit: '2mb' }); // /api/devlog/import — до 1 МБ; /api/pdm-import — дерево PDM до 2 МБ
   // Загрузка вложений до 512 МБ на узком канале идёт дольше 5 минут (по умолчанию Node рвёт запрос): час, переменной можно изменить; 0 — без предела
   app.getHttpServer().requestTimeout = Number(process.env.HTTP_REQUEST_TIMEOUT_MS ?? 3_600_000);
 

@@ -32,6 +32,7 @@ import { ProductModuleModule } from './modules/product-module/product-module.mod
 import { ProductModulePhotoModule } from './modules/product-module-photo/product-module-photo.module';
 import { PhotosModule } from './modules/photos/photos.module';
 import { PdmFilesModule } from './modules/pdm-files/pdm-files.module';
+import { PdmImportModule } from './modules/pdm-import/pdm-import.module';
 import { CurrencyModule } from './modules/currency/currency.module';
 import { SiteModule } from './modules/site/site.module';
 // TZ-PRODUCTS-301: справочник цветов (RAL) — продуктовая словарная сущность
@@ -238,6 +239,7 @@ import { RequestMethod } from '@nestjs/common';
     ProductModulePhotoModule, // TZ-83 Фаза A.7: новая entity
     ProductPassportModule,
     PdmFilesModule, // /api/pdm-files — файлы PDF/DXF из PDM с версиями (C057)
+    PdmImportModule, // /api/pdm-import — загрузка изделий из PDM: предпросмотр, применение, файлы (C057)
     PhotosModule, // загрузка изображений (логотипы и т.п.)
     // ─── EAV-инфраструктура (нужна product) ───────────────────────────
     AttributeDefinitionModule,
