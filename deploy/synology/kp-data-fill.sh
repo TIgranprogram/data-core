@@ -2,6 +2,7 @@
 # KP-2 (2026-11-09, разрешено пользователем): данные КП на проде — реквизиты и НДС 22 % трёх наших фирм,
 # «Приват-деал» только для КП, бланки фирм с зонами текста. Запускает пользователь (запись на прод).
 #   bash deploy/synology/kp-data-fill.sh
+# ВЫПОЛНЕН 2026-11-09 (7/7). Повтор загрузит бланки ещё раз (дубли) — не запускать без нужды.
 # Бланки берутся из папки КП (в репо не лежат: в них подписи и печати).
 set -uo pipefail
 cd "$(dirname "$0")/../.."
@@ -27,8 +28,11 @@ blank() { # $1 файл, $2 название, $3 фирма, $4 верх, $5 н�
   cp "$BL/$1" "$T/b.jpg"
   # путь вида C:/… — иначе Git Bash портит «/tmp/…;type=…» для curl из Windows (2026-11-09: curl 26)
   local f="$T/b.jpg"; command -v cygpath >/dev/null && f="$(cygpath -m "$f")"
-  local extra=(); [ -n "${6:-}" ] && extra=(--form "defaultTerms=$6")
-  step "Бланк: $2" $API POST /api/offers/backgrounds --form "file=@$f;type=image/jpeg" --form "name=$2" \
+  # русский текст — из файла (name=<файл): аргументом curl из PowerShell он уходит в cp1251 (2026-11-09: «��»)
+  printf '%s' "$2" > "$T/name.txt"; printf '%s' "${6:-}" > "$T/terms.txt"
+  local nf="$T/name.txt" tf="$T/terms.txt"; command -v cygpath >/dev/null && { nf="$(cygpath -m "$nf")"; tf="$(cygpath -m "$tf")"; }
+  local extra=(); [ -n "${6:-}" ] && extra=(--form "defaultTerms=<$tf")
+  step "Бланк: $2" $API POST /api/offers/backgrounds --form "file=@$f;type=image/jpeg" --form "name=<$nf" \
     --form page=1 --form isDefault=true --form "companyId=$3" --form "textTop=$4" --form "textBottom=$5" "${extra[@]}"
 }
 blank "Бланк_СпортИН-ЮГ.jpg"   "ООО «СпортИН-ЮГ» · бланк КП"   "$SIN" 0.26 0.78 "Аванс 80 %."
