@@ -5,7 +5,7 @@ import { date, money, qty } from '../core/format.js';
 import { readonlyGroup, section, table, button, actions, badge, INVOICE_STATUS, SUPPLY_STATUS, confirmDlg, failBlock, toast, toastError, attachCombo, photoField, enhanceSelect } from '../ui/kit/index.js';
 import { permissions, lineAmount, pendingLines, assertOperation, lineDraft, changeLine, lineBody, metaBody, addBody } from './invoice-workspace-state.js';
 import { adminAction } from './admin-override.js';
-import { getInvoice, getCandidates, getPayers, getContracts, writeInvoice } from './invoice-workspace-api.js';
+import { getInvoice, getCandidates, getBusyRequests, getPayers, getContracts, writeInvoice } from './invoice-workspace-api.js';
 import { buildWorkspaceForm } from './invoice-workspace-forms.js';
 
 /** Router-only ссылка: сохраняет экран/фильтры/страницу; native hash проходит штатный guard. */
@@ -230,28 +230,45 @@ function addPicker(invoice, ctx) {
   let cache = [];
   const input = h('input', { type: 'search', class: 'iw-add-inp', placeholder: 'Добавить заявку…', 'aria-label': 'Добавить существующую заявку в счёт', autocomplete: 'off' });
   const wrap = h('div', { class: 'iw-add has-combo' }, h('span', { class: 'iw-add-plus', 'aria-hidden': 'true' }, '+'), input);
+  const fromName = (f) => `счёт ${f.no ? '№' + f.no : 'без номера'}${f.status && INVOICE_STATUS[f.status] ? ' · ' + INVOICE_STATUS[f.status].label.toLowerCase() : ''}`;
   const load = async (q = '') => {
     try {
-      const r = await getCandidates(invoice, { page: 1, q, limit: 80 });
-      cache = (r.items || []).map((x) => ({
-        value: x.id,
-        label: lineTitle(x),
-        sub: [`${qty(x.qty)} ${x.unit || ''}`.trim(), SUPPLY_STATUS[x.status === 'ordered' && x.paid ? 'paid' : x.status]?.label].filter(Boolean).join(' · '),
-      }));
+      const [r, busy] = await Promise.all([getCandidates(invoice, { page: 1, q, limit: 80 }), getBusyRequests(invoice, { q }).catch(() => [])]);
+      cache = [
+        ...(r.items || []).map((x) => ({
+          value: x.id,
+          label: lineTitle(x),
+          sub: [`${qty(x.qty)} ${x.unit || ''}`.trim(), SUPPLY_STATUS[x.status === 'ordered' && x.paid ? 'paid' : x.status]?.label].filter(Boolean).join(' · '),
+          ...(busy.length ? { group: 'Свободные заявки' } : {}),
+        })),
+        // заявки в другом счёте: выбор — перенос сюда (из оплаченного — нельзя, деньги уже ушли)
+        ...busy.map((x) => ({
+          value: x.id,
+          label: lineTitle(x),
+          sub: [`${qty(x.qty)} ${x.unit || ''}`.trim(), `сейчас в: ${fromName(x.from)}`, x.from.status === 'paid' ? 'оплачен — перенести нельзя' : 'выбрать — перенести сюда'].join(' · '),
+          group: 'В других счетах',
+          from: x.from,
+        })),
+      ];
     } catch (e) { toastError(e, 'загрузить заявки'); cache = []; }
     return cache;
   };
   attachCombo(input, {
     options: () => cache,
-    empty: () => 'Нет свободных заявок — создайте новую ниже',
+    empty: () => 'Нет свободных заявок и заявок в других счетах — создайте новую ниже',
     onPick: async (o) => {
       input.value = '';
       try {
         assertOperation(invoice, session, 'add');
         const body = addBody(invoice, [o.value]);
+        if (o.from) {
+          if (o.from.status === 'paid') { toastError(new Error(`Заявка в оплаченном счёте (${fromName(o.from)}) — перенести нельзя`)); return; }
+          if (!(await confirmDlg('Перенести заявку в этот счёт?', `«${o.label}» уберётся из: ${fromName(o.from)} — и добавится сюда.`, { okText: 'Перенести' }))) return;
+        }
         const ok = await ctx.run(async () => {
+          if (o.from) await writeInvoice(o.from, session, 'remove', {}, o.value);
           await writeInvoice(invoice, session, 'add', body);
-          toast('Заявка добавлена в счёт');
+          toast(o.from ? `Заявка перенесена из: ${fromName(o.from)}` : 'Заявка добавлена в счёт');
           ctx.changed();
           await refreshInvoice(invoice, ctx);
         });
@@ -262,7 +279,7 @@ function addPicker(invoice, ctx) {
   input.addEventListener('focus', () => { load(input.value.trim()).then(() => input.dispatchEvent(new Event('click'))); });
   input.addEventListener('input', () => { const q = input.value.trim(); clearTimeout(input._t); input._t = setTimeout(() => load(q), 220); });
   load();
-  return h('div', { class: 'iw-add-row' }, wrap, h('p', { class: 'hint' }, 'Клик по полю — список заявок. Выбор сразу добавляет позицию в счёт.'));
+  return h('div', { class: 'iw-add-row' }, wrap, h('p', { class: 'hint' }, 'Клик по полю — список заявок. Выбор сразу добавляет позицию в счёт; заявку из другого счёта — переносит сюда.'));
 }
 
 /** Компактная форма новой заявки внизу экрана счёта — без перехода в раздел «Заявки». */

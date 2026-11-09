@@ -9,6 +9,17 @@ export async function getCandidates(invoice, { page = 1, q = '', limit = 50 } = 
   const result = await api('/supply/requests', { query: { status: 'requested,ordered,paid,in_progress', ...(invoice.supplierId ? { supplierId: String(invoice.supplierId) } : {}), page, limit, ...(q ? { search: q } : {}) } });
   return { ...result, page, limit, items: (result.items || []).filter((r) => !r.invoiceId && !r.deletedAt) };
 }
+/**
+ * Заявки того же поставщика, которые уже лежат в ДРУГОМ счёте (ещё не приняты): их можно перенести сюда.
+ * У каждой — `from` (счёт-источник: id, no, status) для подписи и проверки «оплачен — не переносим».
+ */
+export async function getBusyRequests(invoice, { q = '', limit = 80 } = {}) {
+  const result = await api('/supply/requests', { query: { status: 'ordered', ...(invoice.supplierId ? { supplierId: String(invoice.supplierId) } : {}), page: 1, limit, ...(q ? { search: q } : {}) } });
+  const items = (result.items || []).filter((r) => r.invoiceId && String(r.invoiceId) !== String(invoice.id) && !r.deletedAt);
+  const ids = [...new Set(items.map((r) => String(r.invoiceId)))];
+  const invs = new Map((await Promise.all(ids.map((id) => getInvoice(id).catch(() => null)))).filter(Boolean).map((v) => [String(v.id), v]));
+  return items.map((r) => ({ ...r, from: invs.get(String(r.invoiceId)) || { id: String(r.invoiceId), no: r.invoiceNo || null, status: null } }));
+}
 /** Одна команда = один write. Здесь нет GET после write, повтора, merge, toast или маршрутизации. */
 export function writeInvoice(invoice, rights, operation, body = {}, lineId) {
   assertOperation(invoice, rights, operation, lineId);
