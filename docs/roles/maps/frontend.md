@@ -1,3 +1,7 @@
+## C054 воронка паспорта F2 (2026-11-09, не закоммичено)
+коммит: не закоммичено
+- `sections/passports/traits.js` (PASSPORT_TRAITS/JOINTS, jointsPick, whenText/whenToPick/buildWhen, idsOf/itemTextOf, planNumbers/numbersOf), `passports/pdf-block.js` pdfBlock («Что попадёт в PDF», подключён в `passports.js` extra), `passports/funnel/joints.js` (+ `funnel/index.js` stagePanels), шаг joints в `passport-wizard.js`, поле joints в `form.js`/`products/form-fields.js`/`tabs.js`, `PD_KEYS` +joints (`products/data.js`). `passport-texts.js`: ownCopy/saveOwn/newCode/whenField/whenTag (ids+when). `card-blocks.js previewBlock` — номера через numbersOf. Отчёт: docs/crew/C054-passport-funnel/REPORT-frontend.md. Карта обновлена.
+
 ## C030-мелочи (2026-11-07, не закоммичено)
 коммит: не закоммичено
 - kit: `ui/kit/index.js segmented` (опция scroll, 167–), `kit.css` `.k-seg-scroll`, `.k-cols.k-cols>.k-sec.k-sec`, `.k-row-act .btn-ghost.btn-sm` (телефон). Экраны: `stock.js:27`, `matching-queue.js unmatchedTop`, `salesorders-unassigned.js unassignedTop` (section вместо кнопки). Карта обновлена.

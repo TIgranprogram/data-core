@@ -82,7 +82,9 @@ describe('PASSPORT_TEXTS_V2', () => {
     for (const s of PASSPORT_TEXTS_V2[c].sections) if (all[s.key]) expect(s.paragraphs).toHaveLength(1);
     const t = build(c);
     const svc = t.sections.find((s) => s.key === 'service')!;
-    expect(svc.items).toHaveLength(all.service.paragraphs.length);
+    // пункты с условием (when) без признаков не печатаются (C054): болты/сварка не выбраны
+    const conditional = (all.service.when || []).filter(Boolean).length;
+    expect(svc.items).toHaveLength(all.service.paragraphs.length - conditional);
     expect(svc.items[1].text).toBe(all.service.paragraphs[1]);
   });
 

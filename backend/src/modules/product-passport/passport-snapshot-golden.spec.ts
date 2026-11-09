@@ -16,8 +16,9 @@ const GOLDEN: Record<string, string> = {
   DIO: '85e1cf53d5c10aa48f887aab3136b3f007b803e78dfbc879e678f147c62aca4f',
 };
 
+// B4 добавил условия (when) в тексты — они меняют снимок нарочно; эталон проверяет только коды пунктов, поэтому when снимается всегда
 const build = (cat: string, strip = false) => {
-  const noIds = (t: { sections: object[] } & Record<string, unknown>) => (strip ? { ...t, sections: t.sections.map((x) => { const { ids, when, ...s } = x as Record<string, unknown>; void ids; void when; return s; }) } : t) as never;
+  const noIds = (t: { sections: object[] } & Record<string, unknown>) => ({ ...t, sections: t.sections.map((x) => { const { ids, when, ...s } = x as Record<string, unknown>; void when; return strip ? s : { ...s, ...(ids ? { ids } : {}) }; }) }) as never;
   const t = buildV2Text({
     passport: { name: 'Изделие', passportCategory: cat, warrantyMonths: 12, serviceLifeYears: 10 },
     all: noIds({ ...PASSPORT_TEXTS_V2.ALL, version: 1 }),

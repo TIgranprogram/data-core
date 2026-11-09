@@ -1,0 +1,16 @@
+{
+  "ALL/mounting/p8": "concrete|bolts",
+  "ALL/service/p7": "bolts|welds",
+  "ALL/disposal/p4": "keep",
+  "TRN/use/p10": "moving",
+  "TRN/moving/p5": "moving",
+  "DIO/inspections/p5": "keep",
+  "defect/PLAY_MOVING": "moving",
+  "defect/FOUNDATION_SHIFT": "keep",
+  "ALL/service/p6": "keep",
+  "ALL/warranty/p16": "keep",
+  "BLG/care/p1": "!walkable",
+  "TRN/use/p14": "!walkable",
+  "WRK/use/p6": "keep",
+  "DIO/inspections/p2": "keep"
+}
