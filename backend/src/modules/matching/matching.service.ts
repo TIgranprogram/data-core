@@ -53,10 +53,10 @@ export class MatchingService {
   }
 
   /** Картинки для сравнения: у позиции — первое фото (Excel «Вид» или загруженное), у предложений — первое фото изделия. Одним запросом на страницу. */
-  private async withPhotos<T extends { suggestions: Suggestion[] }>(lines: Doc[], items: T[]) {
+  private async withPhotos<T extends { suggestions: Suggestion[]; productId?: string | null }>(lines: Doc[], items: T[]) {
     const db = this.connection.db!;
     const first = (d?: Doc) => ((d?.photoIds as Types.ObjectId[] | undefined) ?? [])[0];
-    const pids = [...new Set(items.flatMap((it) => it.suggestions.map((s) => s.productId)))].map((x) => new Types.ObjectId(x));
+    const pids = [...new Set(items.flatMap((it) => [...it.suggestions.map((s) => s.productId), ...(it.productId ? [String(it.productId)] : [])]))].filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
     const prods = pids.length ? await db.collection('products').find({ _id: { $in: pids } }, { projection: { photoIds: 1 } }).toArray() : [];
     const prodPhoto = new Map(prods.map((p) => [String(p._id), first(p)]));
     const ids = [...lines.map(first), ...prodPhoto.values()].filter(Boolean) as Types.ObjectId[];
@@ -67,7 +67,8 @@ export class MatchingService {
     const thumb = new Map(th.map((p) => [String(p.parentPhotoId), String(p.storageUrl)]));
     const photos = new Map<string, Photo>(ph.map((p) => [String(p._id), { url: String(p.storageUrl), thumb: thumb.get(String(p._id)) ?? String(p.storageUrl) }]));
     const at = (id?: Types.ObjectId) => (id ? photos.get(String(id)) ?? null : null);
-    return items.map((it, i) => ({ ...it, photo: at(first(lines[i])), suggestions: it.suggestions.map((s) => ({ ...s, photo: at(prodPhoto.get(s.productId)) })) }));
+    // productPhoto — фото выбранного изделия («Наше»), photo — фото позиции договора (2026-11-10, таблица сопоставления)
+    return items.map((it, i) => ({ ...it, photo: at(first(lines[i])), productPhoto: it.productId ? at(prodPhoto.get(String(it.productId))) : null, suggestions: it.suggestions.map((s) => ({ ...s, photo: at(prodPhoto.get(s.productId)) })) }));
   }
 
   /** Справочник соответствий одним запросом: ключ названия → изделие. */

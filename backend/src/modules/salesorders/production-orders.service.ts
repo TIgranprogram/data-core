@@ -147,7 +147,7 @@ export class ProductionOrdersService {
     const pure = Object.fromEntries(Object.entries(q).filter(([k]) => k !== 'page' && k !== 'limit'));
     const build = () => this.groupsAndCounts(q, p.sort);
     const { shown, counts, fresh } = this.versions
-      ? await this.versions.cached('production-orders.list', ['salesorders', 'designtasks', 'designorders', 'shipments'], JSON.stringify(pure), build)
+      ? await this.versions.cached('production-orders.list', ['salesorders', 'incomes', 'designtasks', 'designorders', 'shipments'], JSON.stringify(pure), build) // incomes: сопоставление и отмена позиций меняют счётчики (2026-11-10)
       : await build();
     const n = (ss: readonly string[]) => ss.reduce((a, s) => a + (counts[s] ?? 0), 0);
     const page = shown.slice(p.skip, p.skip + p.limit);

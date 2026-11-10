@@ -1,7 +1,7 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
-import { attachCombo, similarBox, button, funnel, stack, clamp } from '../ui/kit/index.js';
+import { attachCombo, similarBox, button, funnel, stack, clamp, table } from '../ui/kit/index.js';
 import { posPic } from '../ui/pos-pic.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { current, patch } from '../core/router.js';
@@ -135,6 +135,42 @@ function lineRow(it, run, write, single) {
     sugList, acts.childNodes.length ? acts : null, write ? sim.el : null, pickBox);
 }
 
+/**
+ * Весь договор — компактная таблица (2026-11-10, пользователь: «нет номера позиции, куча пустого места, данные хаотично»):
+ * № · позиция договора · наше изделие (фото, название, артикул) · статус · «Выбрать / Заменить». Выбор — в виде «одна позиция».
+ */
+function contractTable(items, orderId, write, run) {
+  const sug = (it) => (!it.matched && it.state !== 'none' ? (it.suggestions || [])[0] : null);
+  const ourPic = (it) => (it.matched && it.productName && it.state !== 'none' ? posPic(it.productPhoto || it.photo) : sug(it) ? posPic(sug(it).photo) : '');
+  const ourCell = (it) => {
+    if (it.state === 'none') return h('span', { class: 'muted' }, 'не изделие — монтаж, доставка');
+    if (it.matched && it.productName) return h('div', null, clamp(it.productName, { lines: 2 }), it.productSku ? h('div', { class: 't-sub' }, 'арт. ' + it.productSku) : null);
+    const s = sug(it);
+    if (!s) return h('span', { class: 'muted' }, 'похожих нет — выберите');
+    return h('div', null, h('div', { class: 't-sub' }, `Похоже · ${qty(s.percent)}%`), clamp(s.name, { lines: 2 }),
+      write ? button({ label: 'Да, верно', kind: 'primary', size: 'S', onClick: (e) => { e.stopPropagation(); e.currentTarget.classList.add('is-busy'); run(() => api('/matching/confirm', { method: 'POST', body: { lineId: it.lineId, productId: s.productId } })); } }) : null);
+  };
+  const open = (it) => openMatching(patch, orderId, it.lineId);
+  return table({
+    clickable: write, cls: 'k-table-stack', // на телефоне — строка-карточка, без горизонтальной прокрутки
+    columns: [{ label: '№', nowrap: true }, { label: 'Позиция договора', wrap: true }, { label: '', pic: true }, { label: 'Наше изделие', wrap: true }, { label: 'Статус', nowrap: true }, ...(write ? [{ label: '' }] : [])],
+    rows: items.map((it, i) => {
+      const st = STATE[it.state] || STATE.unmatched;
+      return {
+        onClick: write ? () => open(it) : undefined,
+        cells: [
+          { v: it.lineNo ?? i + 1, cls: 'muted' },
+          h('div', null, clamp(it.title, { lines: 2 }), h('div', { class: 't-sub' }, `${qty(it.qty)} ${it.unit || ''}`.trim())),
+          ourPic(it),
+          ourCell(it),
+          h('span', { class: 'badge ' + st.tone }, st.label),
+          ...(write ? [button({ label: it.matched ? 'Заменить' : 'Выбрать', size: 'S', onClick: (e) => { e.stopPropagation(); open(it); } })] : []),
+        ],
+      };
+    }),
+  });
+}
+
 export const matching = {
   id: 'matching',
   title: 'Сопоставление',
@@ -170,7 +206,9 @@ export const matching = {
           : h('div', { class: 'mt-top' }, h('b', null, `Сопоставлено ${qty(r.matched ?? 0)} из ${qty(r.total ?? items.length)}`), r.unmatched ? h('span', { class: 'muted' }, ` · осталось ${qty(r.unmatched)}`) : null),
         write ? null : h('p', { class: 'hint' }, 'Только просмотр: сопоставлять могут администратор и менеджер.'),
         bulk,
-        items.length ? h('ul', { class: 'mt-list' }, items.map((it) => lineRow(it, run, write, single))) : h('p', { class: 'muted' }, 'В договоре нет позиций.'));
+        !items.length ? h('p', { class: 'muted' }, 'В договоре нет позиций.')
+          : single ? h('ul', { class: 'mt-list' }, items.map((it) => lineRow(it, run, write, single)))
+            : contractTable(items, r.orderId, write, run));
     },
   },
 };

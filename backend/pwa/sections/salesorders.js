@@ -272,10 +272,10 @@ function contractGroup(o, reload) {
   const lineMenu = (l, btn) => {
     const items = l.cancelledAt
       ? [{ label: 'Вернуть позицию', onSelect: () => restoreLine(l).then(done).catch((e) => toastError(e)) }]
-      : [{ label: 'Отменить позицию', danger: true, onSelect: () => cancelLine(l, o).then(done).catch((e) => toastError(e)) }, { label: 'Перенести в другой договор', onSelect: () => moveLine(l, o).then(done).catch((e) => toastError(e)) }];
+      : [{ label: 'Заменить изделие', onSelect: () => patch({ of: 'matching', open: `${l.orderId || o.id}.${l.id}`, new: undefined }, { replace: false }) }, ...(lineAct(l) ? [{ label: 'Отменить позицию', danger: true, onSelect: () => cancelLine(l, o).then(done).catch((e) => toastError(e)) }, { label: 'Перенести в другой договор', onSelect: () => moveLine(l, o).then(done).catch((e) => toastError(e)) }] : [])]; // 2026-11-10: замена изделия — прямо из строки, без поиска номера в договоре
     if (isOpenFor(btn)) closePopMenu(true); else openPopMenu({ anchor: btn, side: 'down', groups: [{ items }] });
   };
-  const rowDots = (l) => { const b = iconButton({ icon: '⋯', label: 'Действия с позицией', title: 'Отменить или перенести позицию', size: 'S', menu: true, cls: 'so-dots', onClick: (e) => { e.stopPropagation(); lineMenu(l, b); } }); return b; };
+  const rowDots = (l) => { const b = iconButton({ icon: '⋯', label: 'Действия с позицией', title: 'Заменить изделие, отменить или перенести позицию', size: 'S', menu: true, cls: 'so-dots', onClick: (e) => { e.stopPropagation(); lineMenu(l, b); } }); return b; };
   const paidOf = (l) => (Number(l.paidAmount) || (l.paidDate ? Number(l.amount) || 0 : 0));
   const payCells = (l) => {
     if (!session.canMoney) return [];
@@ -290,7 +290,7 @@ function contractGroup(o, reload) {
     ? table({ clickable: true, columns: [{ label: '№' }, { label: '' }, { label: 'Название' }, { label: 'Кол-во', num: true }, { label: 'Отгружено', num: true }, { label: 'Цвет' }, ...(session.canMoney ? [{ label: 'Сумма', num: true }, { label: 'Оплачено', num: true }, { label: 'Долг', num: true }] : []), ...(payOn ? [{ label: '' }] : []), ...(can ? [{ label: '' }] : [])],
       rows: lines.map((l, i) => l.cancelledAt ? cancelledRow(l, i, o, can && canChangeLines(o) ? rowDots(l) : null) : h('tr', { onclick: () => patch({ of: 'orders', open: l.id }, { replace: false }), title: 'Открыть позицию: фото, сумма, отгрузка, оплата (назад — к заказу)' },
         h('td', { class: 'muted' }, seq(l, i)), h('td', null, posPic(l.photo, l.photo?.url || l.photo?.thumb ? 'lg' : 'sm')), h('td', null, l.title, ourLine(l), l.unassigned !== undefined || l.lineType ? h('span', null, ' ', lineMark(l)) : null, l.unassigned === undefined && !l.lineType && l.matched === false ? h('a', { class: 'badge warn', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null), h('td', { class: 'num nowrap' }, `${qty(l.qty)} ${l.unit || ''}`),
-        h('td', { class: 'num nowrap muted' }, l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : ''), h('td', { class: 'muted' }, l.color || ''), session.canMoney ? h('td', { class: 'num' }, l.amount ? money(l.amount) : '') : null, ...payCells(l), can ? h('td', { class: 'nowrap' }, lineAct(l) ? rowDots(l) : '') : null)) })
+        h('td', { class: 'num nowrap muted' }, l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : ''), h('td', { class: 'muted' }, l.color || ''), session.canMoney ? h('td', { class: 'num' }, l.amount ? money(l.amount) : '') : null, ...payCells(l), can ? h('td', { class: 'nowrap' }, rowDots(l)) : null)) })
     : h('p', { class: 'muted' }, 'В этом договоре позиций пока нет — нажмите «+ Позиция».');
   // одна «+ Позиция» — под таблицей позиций, открывает полную форму справа (название, количество, цена, фото)
   const add = can && !closedStage(o)
