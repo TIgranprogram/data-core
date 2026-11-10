@@ -82,7 +82,7 @@ describe('соединения не выбраны — «неизвестно»,
     expect(t.excluded.filter((e) => e.unknown).map((e) => `${e.section}/${e.key}`)).toEqual(['service/p1', 'service/p2', 'maintenance/LOOSE', 'maintenance/WELD', 'maintenance/FAST']);
   });
   it('«не хватает» для выпуска: Конструкция: выберите — только когда в тексте есть такие пункты', () => {
-    expect(jointsMissing({ textSnapshot: t })).toEqual([expect.objectContaining({ label: 'Конструкция: выберите', key: 'joints' })]);
+    expect(jointsMissing({ textSnapshot: t })).toEqual([expect.objectContaining({ label: 'Как соединены части (болты, сварка)', key: 'joints' })]);
     const plain = buildV2Text({ passport: noJoints, all: { version: 1, sections: [{ key: 'm', title: 'Монтаж', paragraphs: ['Общий.'] }] } });
     expect(plain.needJoints).toBe(false);
     expect(jointsMissing({ textSnapshot: plain })).toEqual([]);

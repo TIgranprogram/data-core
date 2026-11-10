@@ -12,7 +12,9 @@ export const PASSPORT_TRAITS = {
 };
 /** Как соединено: коды сервера bolts / welds / solid; подписи для менеджера. */
 export const PASSPORT_JOINTS = { bolts: 'Болты', welds: 'Сварка', solid: 'Цельное (без крепежа)' };
-export const JOINT_OPTIONS = Object.entries(PASSPORT_JOINTS).map(([value, label]) => ({ value, label }));
+// 2026-11-10 (пользователь: «не понимаю, что значит болты, сварка»): подпись — что это и что попадёт в паспорт
+const JOINT_HELP = { bolts: 'части скручены болтами → «подтягивать болты»', welds: 'рама или части сварены → «осматривать швы»', solid: 'бетон, литьё, без болтов и сварки' };
+export const JOINT_OPTIONS = Object.entries(PASSPORT_JOINTS).map(([value, label]) => ({ value, label, sub: JOINT_HELP[value] }));
 export const jointsText = (list) => (Array.isArray(list) && list.length ? list.map((c) => PASSPORT_JOINTS[c] || c).join(', ') : '');
 
 /** Выбор «Как соединено»: несколько вариантов; «цельное» исключает болты и сварку. Возвращает tagPick (el, value). */
