@@ -1,0 +1,8 @@
+---
+description: Проверка изменения: tsc, юнит, e2e, live-smoke, openapi — скилл datacore-verify
+alwaysApply: false
+---
+
+# Скилл datacore-verify
+
+Перед этой работой прочитай и выполни `.claude/skills/datacore-verify/SKILL.md` (и файлы, на которые он ссылается). Это та же инструкция, что у Claude Code; копию здесь не держим.

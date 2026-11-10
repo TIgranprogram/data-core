@@ -1,0 +1,8 @@
+---
+description: Выкладка на прод (release.sh), проверка выкладки, откат — скилл datacore-deploy
+alwaysApply: false
+---
+
+# Скилл datacore-deploy
+
+Перед этой работой прочитай и выполни `.claude/skills/datacore-deploy/SKILL.md` (и файлы, на которые он ссылается). Это та же инструкция, что у Claude Code; копию здесь не держим.
