@@ -225,7 +225,7 @@ public sealed class TreeBuilder
             {
                 Designation = des,
                 Code = "number-mismatch",
-                Text = $"Number {number} не совпадает с именем файла",
+                Text = $"Обозначение в карточке PDM «{number}» не совпадает с именем файла — на сайте найдётся по обоим", // 2026-11-10: было «Number …»
             });
         }
 

@@ -296,8 +296,7 @@ public sealed class MainForm : Form
             PaintPlan();
             PaintTree();
             _btnUpdateAll.Enabled = _decisions.Values.Any(x => x.Fields.Count > 0 || x.Action is "update-all" or "conflict");
-            var summary = root.TryGetProperty("summary", out var s) ? s.ToString() : "";
-            _status.Text = $"План {_planId}: {summary}";
+            _status.Text = PlanSummary(root); // 2026-11-10: было «План <id>: {"create":126,…}» — коды на экране
             if (root.TryGetProperty("blockers", out var bl) && bl.GetArrayLength() > 0)
                 MessageBox.Show("Есть препятствия:\n" + string.Join("\n", bl.EnumerateArray().Select(x => x.ToString())), Text);
         }
@@ -655,6 +654,16 @@ public sealed class MainForm : Form
             try { Directory.Delete(tmp, true); } catch { }
         }
         _status.Text = "Пакет сохранён";
+    }
+
+    /// <summary>Итог проверки по-русски: «Проверено: новых 126, связать 0, …».</summary>
+    static string PlanSummary(JsonElement root)
+    {
+        if (!root.TryGetProperty("summary", out var s) || s.ValueKind != JsonValueKind.Object) return "Проверено";
+        int n(string k) => s.TryGetProperty(k, out var v) && v.TryGetInt32(out var i) ? i : 0;
+        var parts = new[] { ("create", "новых"), ("link", "связать с имеющимися"), ("suggest", "похожие — выбрать"), ("conflict", "расхождений"), ("same", "без изменений") }
+            .Select(p => $"{p.Item2} {n(p.Item1)}");
+        return "Проверено: " + string.Join(", ", parts) + ". Дальше — «Загрузить на сайт».";
     }
 
     string ApiBase()

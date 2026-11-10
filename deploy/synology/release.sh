@@ -222,7 +222,8 @@ APP_DIR="/app/uploads/apps/pdm-loader/$APP_VER"
 if [[ ! "$APP_VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "версия приложения не найдена в csproj — пропуск"
 elif "${SSH[@]}" "docker exec datacore-backend test -f $APP_DIR/DataCore.PdmLoader.exe" 2>/dev/null; then echo "на сайте уже v$APP_VER — пропуск"
 elif ! command -v dotnet >/dev/null 2>&1; then echo "на этом ПК нет .NET 8 SDK — приложение v$APP_VER не выложено (сайт не затронут)"
-elif powershell.exe -NoProfile -ExecutionPolicy Bypass -File apps/pdm-loader/publish.ps1 > "$TMP/pdm-publish.log" 2>&1 \
+# 2026-11-10: готовый out/<версия> (exe + meta.json) не пересобираем — exe мог быть запущен у пользователя (файл занят → сборка падала)
+elif { [[ -f "apps/pdm-loader/out/$APP_VER/DataCore.PdmLoader.exe" && -f "apps/pdm-loader/out/$APP_VER/meta.json" ]] || powershell.exe -NoProfile -ExecutionPolicy Bypass -File apps/pdm-loader/publish.ps1 > "$TMP/pdm-publish.log" 2>&1; } \
   && scp -i "$KEY" -o BatchMode=yes "apps/pdm-loader/out/$APP_VER/DataCore.PdmLoader.exe" "apps/pdm-loader/out/$APP_VER/meta.json" "$VM:/tmp/" \
   && "${SSH[@]}" "set -e; docker exec datacore-backend mkdir -p $APP_DIR; docker cp /tmp/DataCore.PdmLoader.exe datacore-backend:$APP_DIR/; docker cp /tmp/meta.json datacore-backend:$APP_DIR/; rm -f /tmp/DataCore.PdmLoader.exe /tmp/meta.json"; then
   echo "приложение v$APP_VER выложено — админка → «Приложения» → «Скачать»"
