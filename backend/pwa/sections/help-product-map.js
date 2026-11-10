@@ -1,5 +1,5 @@
 import { h } from '../core/dom.js';
-import { guide, table } from '../ui/kit/index.js';
+import { guide, table, toast } from '../ui/kit/index.js';
 
 /**
  * «?» → «Как устроена продукция» (просьба пользователя 2026-11-09): изделие в центре, вокруг — из чего состоит,
@@ -19,17 +19,17 @@ const TONE = {
 };
 const B = [
   // источники
-  { id: 'pdm', x: 20, y: 110, w: 230, hh: 120, tone: 'src', t: 'PDM (SolidWorks)', l: ['обозначения, дерево сборки,', 'размеры, масса, сортамент,', 'чертежи PDF и DXF'], go: '' },
+  { id: 'pdm', x: 20, y: 110, w: 230, hh: 120, tone: 'src', t: 'PDM (SolidWorks)', l: ['обозначения, дерево сборки,', 'размеры, масса, сортамент,', 'чертежи PDF и DXF'], note: 'Приложение «Загрузка из PDM»: админка → «Подключение» → «Скачать приложение». Запускается на ПК с SolidWorks PDM.' },
   { id: 'dict', x: 20, y: 330, w: 230, hh: 100, tone: 'src', t: 'Справочники паспорта', l: ['категории, тексты, элементы,', 'способы установки, части'], go: '#dicts' },
   { id: 'stock', x: 20, y: 520, w: 230, hh: 110, tone: 'src', t: 'Склад и поставщики', l: ['форматы листа и трубы,', 'остатки, цены закупки'], go: '#stock' },
   // изделие и состав
   { id: 'prod', x: 430, y: 300, w: 240, hh: 120, tone: 'core', t: 'ИЗДЕЛИЕ', l: ['артикул = обозначение PDM,', 'название, фото, категория,', 'габариты, масса, цвет'], go: '#products', big: true },
   { id: 'work', x: 440, y: 30, w: 220, hh: 80, tone: 'part', t: 'Работы', l: ['виды работ и маршрут'], go: '#products' },
-  { id: 'mod', x: 290, y: 150, w: 200, hh: 90, tone: 'part', t: 'Модули ♻', l: ['узлы из деталей и метизов;', 'общие — для многих изделий'] },
-  { id: 'part', x: 610, y: 150, w: 200, hh: 90, tone: 'part', t: 'Детали ♻', l: ['номенклатура «деталь»:', 'размер, заготовка, RAL'] },
-  { id: 'raw', x: 290, y: 490, w: 200, hh: 90, tone: 'part', t: 'Сырьё-сортамент ♻', l: ['«Лист 4 мм Ст3» в м²,', '«Труба 25×2,8» в м'] },
+  { id: 'mod', x: 290, y: 150, w: 200, hh: 90, tone: 'part', t: 'Модули ♻', l: ['узлы из деталей и метизов;', 'общие — для многих изделий'], go: '#products', note: 'Отдельного раздела нет: модули — в карточке изделия, вкладка «Состав и работы» → «Состав».' },
+  { id: 'part', x: 610, y: 150, w: 200, hh: 90, tone: 'part', t: 'Детали ♻', l: ['номенклатура «деталь»:', 'размер, заготовка, RAL'], go: '#suppliercatalog', note: 'Детали — позиции «Каталога номенклатуры»: найдите по обозначению (например 6104.0000.S001).' },
+  { id: 'raw', x: 290, y: 490, w: 200, hh: 90, tone: 'part', t: 'Сырьё-сортамент ♻', l: ['«Лист 4 мм Ст3» в м²,', '«Труба 25×2,8» в м'], go: '#suppliercatalog' },
   { id: 'hw', x: 610, y: 490, w: 200, hh: 90, tone: 'part', t: 'Метизы и покупные ♻', l: ['номенклатура склада,', 'артикул склада + код PDM'], go: '#suppliercatalog' },
-  { id: 'files', x: 440, y: 610, w: 220, hh: 80, tone: 'part', t: 'Файлы ♻', l: ['PDF и DXF с версиями'] },
+  { id: 'files', x: 440, y: 610, w: 220, hh: 80, tone: 'part', t: 'Файлы ♻', l: ['PDF и DXF с версиями'], go: '#products', note: 'Файлы — в карточке изделия или детали, вкладка «Файлы».' },
   // куда уходит
   { id: 'pass', x: 860, y: 30, w: 220, hh: 100, tone: 'out', t: 'Паспорт', l: ['категория, тексты, части,', 'материалы, рисунки'], go: '#passports' },
   { id: 'tech', x: 860, y: 160, w: 220, hh: 100, tone: 'out', t: 'Техописание', l: ['часть → материал →', 'размеры'], go: '#products' },
@@ -71,13 +71,13 @@ function diagram() {
   const light = (id) => lines.forEach((l) => l.setAttribute('opacity', !id ? '.55' : (l.dataset.a === id || l.dataset.b === id) ? '1' : '.1'));
   for (const b of B) {
     const [fill, stroke] = TONE[b.tone];
-    const g = s('g', { tabindex: '0', ...(b.go ? { cursor: 'pointer' } : {}) },
+    const g = s('g', { tabindex: '0', cursor: 'pointer' }, // 2026-11-10: нажимается каждый блок (пользователь: «не всё кликабельно»)
       s('rect', { x: b.x, y: b.y, width: b.w, height: b.hh, rx: '10', fill, stroke, 'stroke-width': b.big ? '2.5' : '1.4' }),
       s('text', { x: b.x + 12, y: b.y + 24, fill: 'var(--heading)', 'font-size': b.big ? '17' : '15', 'font-weight': '700' }, b.t),
       ...b.l.map((t, i) => s('text', { x: b.x + 12, y: b.y + 46 + i * 18, fill: 'var(--muted)', 'font-size': '13' }, t)));
     g.addEventListener('mouseenter', () => light(b.id)); g.addEventListener('focus', () => light(b.id));
     g.addEventListener('mouseleave', () => light(null)); g.addEventListener('blur', () => light(null));
-    if (b.go) g.addEventListener('click', () => { location.hash = b.go; });
+    g.addEventListener('click', () => { if (b.note) toast(b.note, { ms: 8000 }); if (b.go) location.hash = b.go; });
     svg.append(g);
   }
   return svg;
@@ -99,7 +99,7 @@ export function productMapCat() {
   const legend = h('p', { class: 'muted small' },
     'Серое — откуда приходят данные · синее — из чего состоит изделие · жёлтое — куда уходит. ',
     'Пунктир — данные приходят, сплошная — входит в состав, золотая — уходит в документ или работу. ',
-    '♻ — запись одна на весь каталог: правите в одном месте — меняется во всех изделиях. Наведите на блок — подсветятся его связи; нажмите — откроется раздел.');
+    '♻ — запись одна на весь каталог: правите в одном месте — меняется во всех изделиях. Наведите на блок — подсветятся его связи; нажмите — откроется раздел или подсказка, где это найти.');
   const tbl = table({ label: 'Где живёт и где править', columns: ['Что', 'Где живёт', 'Где править', 'Переиспользуется', 'Куда уходит'].map((label) => ({ label, wrap: true })),
     rows: ROWS.map((r) => ({ cells: r })) });
   return guide.cat({ title: 'Как устроена продукция', what: 'Из чего состоит изделие, что переиспользуется и куда уходит — в паспорт, работу, закупку', count: 'схема', name: 'hp-product',

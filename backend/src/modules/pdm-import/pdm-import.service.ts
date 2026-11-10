@@ -40,6 +40,23 @@ export class PdmImportService {
     private readonly files: PdmFilesService,
   ) {}
 
+  /**
+   * 2026-11-10 (пользователь: «ни группу, ни тип не подставил, хотя из PDM понятно»): группа изделия — по папке PDM
+   * «61 Детские игровые комплексы» → группа с номером 61 (categories.groupNo; тип = её раздел). Вес — из PDM.
+   * Только в пустые поля: группу и вес, заданные на сайте, не трогаем.
+   */
+  private async fillProductFromFolder(fins: Array<{ item: PdmItemDto; id: Types.ObjectId }>, session: ClientSession) {
+    const cats = typeof this.connection.collection === 'function' ? this.connection.collection('categories') : null; // в юнит-тестах соединение — заглушка
+    if (!cats) return;
+    for (const f of fins) {
+      const no = /^(\d{1,3})\s/.exec(String(f.item.folder ?? '').trim())?.[1];
+      const g = no ? await cats.findOne({ groupNo: no, deletedAt: null }, { projection: { _id: 1 }, session }) : null;
+      if (g) await this.products.updateOne({ _id: f.id, $or: [{ categoryId: null }, { categoryId: { $exists: false } }] }, { $set: { categoryId: g._id } }, { session }).exec();
+      const kg = Number(f.item.massKg);
+      if (kg > 0) await this.products.updateOne({ _id: f.id, $or: [{ weightKg: null }, { weightKg: { $exists: false } }, { weightKg: 0 }] }, { $set: { weightKg: Math.round(kg * 10) / 10 } }, { session }).exec();
+    }
+  }
+
   private orgFilter(organizationId?: string | null): Record<string, unknown> {
     return organizationId ? { organizationId: oid(organizationId, 'организации') } : {};
   }
@@ -173,6 +190,7 @@ export class PdmImportService {
     await this.writeFasteners(group('fastener', 'purchased'), out, org, session);
     await this.writeComposite(group('module'), lines, out, org, session, this.modules as unknown as AnyModel, newModule);
     await this.writeComposite(group('product'), lines, out, org, session, this.products as unknown as AnyModel, newProduct);
+    await this.fillProductFromFolder(group('product'), session);
     for (const f of fins.values()) if (f.item.docs?.length || f.item.preview) owners[f.item.designation] = { kind: ownerKindOf(f.item.kind), id: f.id };
 
     const result: ApplyResult = { importId: String(imp._id), ...out, needFiles };
