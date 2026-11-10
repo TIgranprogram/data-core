@@ -128,7 +128,9 @@ public sealed class MainForm : Form
             {
                 using var ver = await _siteClient.GetAsync("api/apps/pdm-loader");
                 var remote = ver.RootElement.TryGetProperty("version", out var rv) ? rv.GetString() : null;
-                if (remote != null && remote != "1.1.0" && CompareVer(remote, "1.1.0") > 0)
+                // 2026-11-10: было жёстко «1.1.0» — версия 1.1.2 просила скачать сама себя; своя версия — из сборки (csproj <Version>)
+                var mine = typeof(MainForm).Assembly.GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "0.0.0";
+                if (remote != null && CompareVer(remote, mine) > 0)
                     MessageBox.Show($"На сайте версия {remote}. Скачайте новую версию приложения.", "Версия");
             }
             catch { /* приложение на сервере ещё не выложено */ }
