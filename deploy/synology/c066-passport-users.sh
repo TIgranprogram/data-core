@@ -30,7 +30,8 @@ fs.writeFileSync(path.join(dir, "steps.txt"), out.join("\n") + "\n");
 while IFS='|' read -r id add label; do
   [ -n "$id" ] || continue
   cur="$T/cur-$id.json"
-  if ! $API GET "/api/showcase/$id" > "$cur" 2>/dev/null; then echo "✗ $label: не прочиталось"; bad=$((bad+1)); continue; fi
+  got=0; for try in 1 2 3 4; do sleep 0.3; if $API GET "/api/showcase/$id" > "$cur" 2>/dev/null && grep -q "\"id\"" "$cur"; then got=1; break; fi; sleep $((try*2)); done  # частые GET сервер отклоняет — пауза и повтор
+  if [ "$got" != 1 ]; then echo "✗ $label: не прочиталось: $(head -c 150 "$cur")"; bad=$((bad+1)); continue; fi
   body="$T/pd-$id.json"
   res="$(node -e '
 const fs = require("fs"); const [curF, addF, out] = process.argv.slice(1);
