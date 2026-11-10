@@ -6,6 +6,8 @@
 //   node tools/ai-tester/run.mjs --stop             попросить остановиться (закончит текущий шаг, напишет отчёт)
 //   node tools/ai-tester/run.mjs --cleanup          убрать записи ТЕСТ-ИИ, созданные сегодня (и раньше)
 //   node tools/ai-tester/run.mjs --last             коротко: последний отчёт
+//   node tools/ai-tester/run.mjs --watchdog         сторож (Планировщик Windows, раз в 10 мин и при входе): упал — продолжить до конца срока
+//   node tools/ai-tester/run.mjs --resume           продолжить прерванный запуск (зовёт сторож)
 // Отчёт: tools/logs/ai-tester/<дата>/REPORT.md, снимки — там же. Код выхода: 0 норма · 1 есть ошибки сайта · 2 сбой.
 import { spawn, spawnSync } from 'child_process';
 import crypto from 'crypto';
@@ -28,8 +30,52 @@ const say = (s) => console.log(s);
 const pad = (n) => String(n).padStart(2, '0');
 const nowTime = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 const d0 = new Date();
-const DAY = `${d0.getFullYear()}-${pad(d0.getMonth() + 1)}-${pad(d0.getDate())}`;
+const RUN_FILE = path.join(LOGS, 'run.json'); // идущий запуск: { until, day, pid, beat } — по нему сторож видит обрыв
+const readRun = () => { try { return JSON.parse(fs.readFileSync(RUN_FILE, 'utf8')); } catch { return null; } };
+// продолжение после обрыва пишет в отчёт того же дня, что и начало (даже после полуночи)
+let DAY = `${d0.getFullYear()}-${pad(d0.getMonth() + 1)}-${pad(d0.getDate())}`;
+if (args.includes('--resume') && readRun()?.day) DAY = readRun().day;
 const OUT = path.join(LOGS, DAY);
+const STATE_FILE = path.join(OUT, 'state.json'); // задания и находки — чтобы продолжение дописало отчёт, а не начало с нуля
+const BEAT_MS = 60000; const DEAD_MS = 4 * BEAT_MS;
+const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+
+/** Сторож: запуск должен идти, а процесса нет (перезагрузка, свет, сбой) — продолжить скрыто до конца срока. */
+function watchdog() {
+  const r = readRun();
+  if (!r) return 0;
+  if (fs.existsSync(STOP_FILE) || Date.now() >= r.until) { fs.rmSync(RUN_FILE, { force: true }); return 0; }
+  if (Date.now() - (r.beat || 0) < DEAD_MS && alive(r.pid)) return 0; // работает
+  fs.mkdirSync(LOGS, { recursive: true });
+  const log = fs.openSync(path.join(LOGS, 'watchdog.log'), 'a');
+  fs.writeSync(log, `
+${new Date().toISOString()} сторож: тестировщик не работает — продолжаю до ${new Date(r.until).toLocaleTimeString('ru-RU')}
+`);
+  const ch = spawn(process.execPath, [path.join(HERE, 'run.mjs'), '--resume'], { cwd: ROOT, detached: true, windowsHide: true, stdio: ['ignore', log, log] });
+  ch.unref();
+  return 0;
+}
+
+/** Задача Планировщика Windows: при входе и раз в 10 мин — сторож. Без прав администратора, только для этого пользователя. */
+function ensureWatchdogTask() {
+  if (process.platform !== 'win32') return;
+  const vbs = path.join(HERE, 'watchdog.vbs');
+  const ps = `$a=New-ScheduledTaskAction -Execute 'wscript.exe' -Argument '//B "${vbs}"';` +
+    `$t1=New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME;` +
+    `$t2=New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 10);` +
+    `$st=New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 5);` +
+    `Register-ScheduledTask -TaskName 'DataCore AI tester watchdog' -Action $a -Trigger $t1,$t2 -Settings $st -Force | Out-Null`;
+  const r = spawnSync('powershell', ['-NoProfile', '-Command', ps], { encoding: 'utf8', windowsHide: true });
+  say(r.status ? '⚠ Сторож не поставлен в Планировщик — при обрыве тестировщик не продолжит сам.' : 'Сторож включён: при обрыве тестировщик продолжит сам (проверка раз в 10 мин и при входе в Windows).');
+}
+
+/** Не давать Windows уснуть, пока идёт этот процесс (SetThreadExecutionState; настройки питания не меняются). */
+function keepAwake() {
+  if (process.platform !== 'win32') return null;
+  const ps = `$k=Add-Type -MemberDefinition '[DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint f);' -Name K -Namespace W -PassThru;` +
+    `while (Get-Process -Id ${process.pid} -ErrorAction SilentlyContinue) { [void]$k::SetThreadExecutionState(0x80000001); Start-Sleep 30 }`;
+  return spawn('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', ps], { stdio: 'ignore', windowsHide: true });
+}
 
 // ---------- настройки ----------
 function loadSettings() {
@@ -116,7 +162,7 @@ async function ensureStand(base) {
     // поднятый стенд мог остаться на старом коде — тогда находки ложные (как в «Большой проверке сайта»)
     say('Стенд работает — обновляю его до текущего кода (около 2 минут)…');
     const { standRefresh } = await import('../night.mjs');
-    await standRefresh({ say: () => {}, log: () => {} });
+    try { await standRefresh({ say: () => {}, log: () => {} }); } catch (e) { say('⚠ Стенд не обновился (' + String(e.message).slice(0, 120) + ') — работаю на том, что есть.'); }
     for (let i = 0; i < 60 && !(await standReady(base)); i++) await sleep(2000);
     return standReady(base);
   }
@@ -129,7 +175,7 @@ async function ensureStand(base) {
   // сохранённый стенд стартует со старым образом (compose start) — пересобрать под текущий код, иначе находки ложные (2026-11-10: 400 на client-errors после исправления)
   say('Обновляю стенд до текущего кода (около 2 минут)…');
   const { standRefresh } = await import('../night.mjs');
-  await standRefresh({ say: () => {}, log: () => {} });
+  try { await standRefresh({ say: () => {}, log: () => {} }); } catch (e) { say('⚠ Стенд не обновился (' + String(e.message).slice(0, 120) + ') — работаю на том, что есть.'); }
   for (let i = 0; i < 60 && !(await standReady(base)); i++) await sleep(2000);
   return standReady(base);
 }
@@ -505,20 +551,36 @@ async function main() {
   { const i = args.indexOf('--model'); if (i >= 0 && args[i + 1]) s.model = args[i + 1]; } // сравнение моделей без правки настроек
   if (has('--check')) return check(s);
   if (has('--cleanup')) return cleanup(s);
+  if (has('--watchdog')) return watchdog();
+  const resume = has('--resume');
+  const prevRun = readRun();
+  if (prevRun && prevRun.pid !== process.pid && alive(prevRun.pid) && Date.now() - (prevRun.beat || 0) < DEAD_MS) {
+    say('Тестировщик уже работает. Остановить — кнопка «Остановить тестировщика».'); return 0;
+  }
+  if (resume && (!prevRun || Date.now() >= prevRun.until)) { fs.rmSync(RUN_FILE, { force: true }); return 0; }
 
   if (!isLocalStand(s.stand)) { say('❌ Тестировщик работает только на стенде этого ПК. Рабочий сайт он не трогает.'); return 2; }
-  if (await check(s)) return 2;
-  const minutes = num('--minutes', 480);
-  try { fs.rmSync(STOP_FILE, { force: true }); } catch { /* нет */ }
+  if (await check(s)) return 2; // при продолжении run.json остаётся — сторож попробует снова через 10 мин (Docker ещё не встал)
+  const until = resume ? prevRun.until : Date.now() + num('--minutes', 480) * 60000;
+  const minutes = Math.max(1, Math.round((until - Date.now()) / 60000));
+  if (!resume) try { fs.rmSync(STOP_FILE, { force: true }); } catch { /* нет */ }
   fs.mkdirSync(OUT, { recursive: true });
+  const beat = () => fs.writeFileSync(RUN_FILE, JSON.stringify({ until, day: DAY, pid: process.pid, beat: Date.now() }));
+  beat(); const beatTimer = setInterval(beat, BEAT_MS); beatTimer.unref();
+  const awake = keepAwake();
+  process.on('exit', () => { try { awake?.kill(); } catch { /* уже нет */ } });
+  if (!resume) ensureWatchdogTask(); else say(`
+Продолжаю после обрыва до ${new Date(until).toLocaleTimeString('ru-RU')}.`);
   if (!(await ensureStand(s.stand))) { say('❌ Стенд не поднялся.'); return 2; }
   const login = await standLogin(s.stand);
   if (!login) { say('❌ Не удалось войти на стенд. Запустите один раз «Большая проверка сайта» — она создаст вход.'); return 2; }
   const nav = readNav();
   if (!nav.length) { say('❌ Не нашёл меню приложения.'); return 2; }
 
-  const state = { tasks: [], findings: [], garbage: new Set(), llmErrors: 0, until: Date.now() + minutes * 60000 };
-  const startedAt = Date.now();
+  const saved = (() => { try { return resume ? JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) : null; } catch { return null; } })();
+  const state = { tasks: saved?.tasks || [], findings: saved?.findings || [], garbage: new Set(), llmErrors: 0, until };
+  const startedAt = saved?.startedAt || Date.now();
+  if (saved) state.tasks.push({ at: nowTime(), title: '— обрыв: продолжил сторож —', result: 'не получилось', steps: 0, summary: 'тестировщик был прерван (перезагрузка, свет или сбой) и продолжил сам' });
   const created = loadCreated();
   const writeReport = (removed = null) => fs.writeFileSync(path.join(OUT, 'REPORT.md'), buildReport({ day: DAY, model: s.model, startedAt, now: Date.now(), tasks: state.tasks, findings: state.findings, created, removed }));
   say(`\nИИ-тестировщик работает ${minutes} мин на ${s.stand}. Остановить — кнопка «Остановить». Отчёт: tools/logs/ai-tester/${DAY}/REPORT.md\n`);
@@ -543,6 +605,7 @@ async function main() {
       for (const c of b.created.splice(0)) if (!created.some((x) => x.id === c.id)) created.push({ ...c, at: new Date().toISOString() });
       saveCreated(created);
       writeReport();
+      fs.writeFileSync(STATE_FILE, JSON.stringify({ startedAt, tasks: state.tasks, findings: state.findings }));
       if (state.llmErrors >= 3) { say('❌ ИИ трижды не ответил — останавливаюсь. Проверьте LM Studio кнопкой «Проверить».'); break; }
     }
   } catch (e) {
@@ -554,6 +617,9 @@ async function main() {
   const before = loadCreated().length;
   await cleanup(s);
   writeReport(before - loadCreated().length);
+  // срок вышел или нажали «Остановить» — запуск закончен; иначе (сбой браузера, ИИ не отвечает) run.json остаётся и сторож продолжит
+  clearInterval(beatTimer);
+  if (fs.existsSync(STOP_FILE) || Date.now() >= until - 60000) fs.rmSync(RUN_FILE, { force: true });
   try { fs.rmSync(STOP_FILE, { force: true }); } catch { /* нет */ }
   const errs = state.findings.filter((f) => f.kind === 'ошибка').length;
   say(`\nГотово. Заданий: ${state.tasks.length}, ошибок сайта: ${errs}, замечаний ИИ: ${state.findings.length - errs}.`);

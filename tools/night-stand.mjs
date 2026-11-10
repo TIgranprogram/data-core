@@ -110,6 +110,9 @@ export function createNightStand({ docker, sh, root, composeFile, nightDir, back
   }
   async function refresh(ctx, src = root) {
     const run = current(); if (!run || !run.initialized) bad('нет готового собственного стенда');
+    // оборванная пересборка (закрыли окно, перезагрузка) могла оставить новый контейнер этого же запуска вне паспорта:
+    // метки dc.night.run/project/БД — только наши, проверяет captureCreated; принять его в паспорт, чужое по-прежнему — отказ
+    captureCreated(run, inventoryFn(run)); save(run);
     inventory(run);
     checked(compose(run, ['up', '-d', '--no-deps', '--build', 'backend'], src, { capture: true }), 'пересборка backend', ctx);
     await wait('backend health', () => healthFn(run), ctx);

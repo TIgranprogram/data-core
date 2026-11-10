@@ -189,8 +189,10 @@ export const COMMANDS = [
     hint: 'Обновляет папку проекта с GitHub. Если ИИ сейчас правит код здесь — дождитесь конца.' },
   { id: 'git-push', section: 'setup', title: 'Отправить в GitHub', risk: 'local', time: '10 с', run: { git: ['push'] },
     hint: 'Отправляет готовые коммиты. Без этого выкладка на сайт не начнётся.' },
-  { id: 'setup-shortcut', section: 'setup', title: 'Ярлык пульта на рабочий стол', risk: 'local', time: '2 с', run: { powershell: ['pult/shortcut.ps1', '-Name', 'Пульт DataCore'] },
-    hint: 'Ярлык «Пульт DataCore». Сам просит права администратора.' },
+  { id: 'setup-shortcut', section: 'setup', title: 'Установить пульт в Windows', risk: 'local', time: '2 с', run: { powershell: ['pult/shortcut.ps1', '-Name', 'Пульт DataCore', '-Where', 'all'] },
+    hint: 'Один раз на ПК: ярлык на рабочем столе, пункт в меню «Пуск» и запуск пульта вместе с Windows. Пульт обновляется сам — из папки проекта.' },
+  { id: 'setup-autostart-off', section: 'setup', title: 'Не запускать пульт с Windows', risk: 'local', time: '2 с', run: { powershell: ['pult/shortcut.ps1', '-Name', 'Пульт DataCore', '-Where', 'startup', '-Remove'] },
+    hint: 'Убирает только автозапуск. Ярлык на столе и в «Пуске» остаются.' },
 
   // ---------- Ссылки ----------
   { id: 'link-srv-synology', section: 'links', title: 'Рабочий сайт', risk: 'read', time: 'сразу', run: { open: 'https://kppdf-crm.ru/db/app/' },
