@@ -148,6 +148,9 @@ export class ShowcaseService {
     // NAV B2: состояние — draft (нет цены) / archived / active (в продаже: всё, кроме черновиков и архива)
     if (q.status === 'draft' || q.status === 'archived') filter.status = q.status;
     else if (q.status === 'active') filter.status = { $nin: ['draft', 'archived'] };
+    // 2026-11-10 (пользователь: «если удалить нельзя — хотя бы в каталоге пусть не светится»): архив без явного status=archived
+    // не показывается — ни в каталоге, ни в выборе изделия; status=all — всё; корзина (deleted=1) — как была
+    else if (q.status !== 'all' && String(q.deleted) !== '1') filter.status = { $ne: 'archived' };
     if (q.series) filter.series = String(q.series).trim();
     if (q.groupId) {
       const g = oid(String(q.groupId), 'группы');
