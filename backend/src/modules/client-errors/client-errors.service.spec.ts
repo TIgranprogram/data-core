@@ -42,6 +42,11 @@ describe('CreateClientErrorDto', () => {
     expect(errors).toHaveLength(0);
   });
 
+  it('kind garbage — мусор в тексте экрана принимается (ИИ-тестировщик 2026-11-10: был 400)', async () => {
+    const { errors } = await check({ message: 'undefined', name: 'GarbageText', kind: 'garbage', status: 0, section: '#salesorders' });
+    expect(errors).toHaveLength(0);
+  });
+
   it('минимальное тело — message + kind', async () => {
     const { errors } = await check({ message: 'x', kind: 'action' });
     expect(errors).toHaveLength(0);
