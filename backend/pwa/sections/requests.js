@@ -22,7 +22,7 @@ import { wireFill } from './request-fill.js';
 import { adminAction, isAdmin, withReason } from './admin-override.js';
 import { ordersLookup } from '../core/orders-lookup.js';
 import { advance, bulkOrder, invoiceBlock, missingFor, nextStep, stageStrip } from './request-step.js';
-import { acceptRequests } from './ops.js'; import { articleTree, requestArticleField } from './expenses.js';
+import { acceptRequests } from './ops.js'; import { linkStockFields } from './request-link.js'; import { articleTree, requestArticleField } from './expenses.js';
 
 /** Раздел «Заявки» (PRODUCT §1) — коллекция supplyrequests через /api/supply. */
 /** «+ Новый заказчик «…»» и «Заказчик: X · Объект: Y» под списком поля «Заказчик» (TASKS ЗЧ.2). */
@@ -171,9 +171,9 @@ const fields = async (r) => {
   const linked = !!r?.materialId; // связана со складом — название/артикул/категория не правятся здесь
   return [
     { section: 'Что заказать', tone: 'main', fixed: true },
-    r ? null : { key: '_pick', type: 'pick', load: pastItems, target: 'title' },
-    { key: 'materialId', type: 'hidden' },
-    { key: 'num', type: 'hidden' },
+    r ? null : { key: '_pick', type: 'pick', load: pastItems, target: 'title' }, // C036 Ш7: старая заявка без позиции склада — выбрать или создать
+    ...(r && !linked ? linkStockFields(r, { past: pastItems, onLinked: () => { pastCache = null; } }) : []),
+    { key: 'materialId', type: 'hidden' }, { key: 'num', type: 'hidden' },
     linked
       ? { key: '_stk_open', type: 'widget', label: 'Позиция склада', hint: 'Чтобы изменить название или реквизиты — откройте карточку позиции', widget: () => ({
         el: h('div', { class: 'rq-stock-ref' },
