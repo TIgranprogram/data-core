@@ -46,7 +46,8 @@
 
 ### Где уже есть
 
-- Создание паспорта: `pwa/sections/passports/funnel/` (C028, `docs/crew/C028-passport-funnel/ANALYSIS.md` §4).
+- Создание паспорта: `pwa/sections/passports/funnel/` (C028, `docs/crew/C028-passport-funnel/ANALYSIS.md` §4). Шаги 5–6 — эталон заполнения `pwa/sections/passports/fill/` (C056).
+- Заполнение объекта: `passports/fill` — режимы `template` (правка шаблона) и `issue` (новый паспорт). Новый экран «заполни объект» строится на нём.
 - Частично — фильтр «Продукции» «Раздел → Группа → Подгруппа → Серия» (`pwa/sections/products/landing.js`): правила 1–3 есть, памяти нет (это фильтр, а не ввод).
 
 Где применить ещё — аудит `docs/audit/AUDIT-PATTERN-FUNNEL.md`.

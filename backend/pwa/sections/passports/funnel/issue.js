@@ -5,7 +5,7 @@ import { issueFromProduct } from './api.js';
 
 /**
  * Шаг 7 «Выпуск»: номер и дата ставятся сами; «Заполнить после печати» свёрнуто и выпуск не держит;
- * «Выпустить PDF» доступна, когда нет обязательного пустого, иначе рядом список со ссылкой на шаг.
+ * «Выпустить PDF» — главная, когда нет обязательного пустого; пока есть пробелы — второстепенная и выключена.
  * После выпуска открывается окно PDF и печати (то же, что в архиве паспортов).
  *   issueBlock({ prod, goGaps(), onIssued(passport) }) → { el, paint(missingRequired[]) }
  */
@@ -14,7 +14,7 @@ export function issueBlock({ prod, goGaps, onIssued }) {
 
   function paint(missing = []) {
     const ready = !missing.length;
-    const go = button({ label: 'Выпустить PDF', kind: 'primary', disabled: !ready, title: ready ? 'Присвоить номер и талон, затем скачать или распечатать' : 'Сначала заполните недостающее',
+    const go = button({ label: 'Выпустить PDF', kind: ready ? 'primary' : 'ghost', disabled: !ready, title: ready ? 'Присвоить номер и талон, затем скачать или распечатать' : 'Сначала заполните недостающее',
       onClick: async () => {
         try {
           const res = await issueFromProduct(prod.id);

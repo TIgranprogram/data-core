@@ -11,3 +11,4 @@
 - 2026-10-30 · задача «тест рядом с /me/counters» — такого e2e не было (grep `me/counters` и `counters` по test/ — пусто): сначала grep по пути контроллера, потом решать, куда класть; новый спек — отдельный файл
 - 2026-11-04 · VIEW-AS режет запись только в `api()`; `apiFile` с method POST, `confirmPassword` и `apiQuiet` идут в `raw()` · не чинить в чужих экранах, если ТЗ держит ворота в `api()` · `docs/crew/C019-admin-view-as-role/QA.md`
 - 2026-11-04 · MONEY-SHOW: `DESIGNER.md` в папке аудита — вид до правки, это не «дизайнер принято»; кнопка остатков смотрит `session.role === 'admin'`, не `isAdmin` · `docs/crew/C021-money-audit/QA.md`
+- 2026-11-10 · node --test `fill/model.js` тянет `traits.js` → kit → `document` на загрузке · заглушка DOM до import, интервалы сбросить после import · `fill/model.test.mjs`

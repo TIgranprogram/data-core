@@ -1,6 +1,8 @@
 # Карта роли qa
 
-коммит: 322fe16e (full 2026-11-07 на 322fe16e: юнит 281/3144, e2e 66/67 — красный только stock-catalog-atomicity (гейт T26); строка в TEST-LOG)
+коммит: 7def859a (+ незакоммиченное C056 Д). full 2026-11-10: tsc 0, юнит 308/3617, e2e 70/71 (skip T26, 538/550); строка в TEST-LOG
+
+- C056 Д (2026-11-10): эталон `pwa/sections/passports/fill/` — `index.js:22` passportFill, `:95` facetFirst, `:125` установка в изделие, `:186` «Готово» пишет отложенное. Режим issue — `funnel/index.js:94`; шаблон — `docs.js:94`. Свёртка — `paint.js:60,165`; слот сборки в issue не прячется `:101`; без категории `:89`; раздел «Сборка» `:149`. Правила — `model.js:12` SECTIONS, `:45` gapSection, `:103` kitText, `:111` slotKinds. Старое окно — `form.js:72` без facetFirst (`ui/funnel.js:68`). A3 — `passport-gaps.ts:34`. Тест — `fill/model.test.mjs` (6). Отчёт `docs/crew/C056-passport-tab-one-card/REPORT-qa-D.md`.
 
 - Прогоны: `cd backend; npx tsc --noEmit`; `npx jest --silent | tail -8` (148/1500 на 2026-10-25); pwa — `node --input-type=module --check < файл`; скрипты — `node --test scripts/*.test.mjs`. TEST-LOG — дописывать строкой в конец `docs/TEST-LOG.md`.
 - Паспорта «воронкой» (ПВ): сервер — `common/passport/phrase-tree.ts` (buildForest/resolveChoices/missingChoices), `product-passport.service.ts` (snapshot ~287, check ~318, choiceMissing ~351, funnel ~348), дерево справочника — `dicts/dicts.passport-phrases.ts`; клон — `showcase/showcase-clone.ts`; экран — `pwa/ui/funnel.js`, `pwa/sections/passport-tree.js`, плашка — `passports/wire-form.js` (check ~120), карточка — `passports/card-blocks.js` checkBlock.

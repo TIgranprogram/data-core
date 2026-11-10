@@ -8,7 +8,7 @@ import { passports, issuePassport } from './passports.js';
 import { numbersStrip } from './passports/numbers-strip.js';
 import { canEdit as canEditTexts, statusOf } from './passports/common.js';
 import { linkDialog, printDialog, previewPassport } from './passports/dialogs.js';
-import { templateForm } from './passports/template-form.js';
+import { passportFill } from './passports/template-form.js';
 import { savePd } from './products.js';
 import { mountOrdersTab } from './docs-orders.js';
 import { mountQueueTab } from './docs-queue.js';
@@ -61,6 +61,7 @@ export const doctpl = {
   card: {
     heading: (r) => [kitSku(r.sku), r.sku ? ' ' : null, r.name],
     editTitle: (r) => ['Шаблон паспорта · ', kitSku(r.sku), r.sku ? ' ' : null, r.name],
+    editSub: () => 'Ответы записываются сразу',
     subheading: (r) => [r.type, r.group].filter(Boolean).join(' → '),
     editTop: true,
     startEdit: () => canTpl(),
@@ -90,7 +91,7 @@ export const doctpl = {
     },
   },
   form: {
-    build: (r) => templateForm(r),
+    build: (r) => passportFill({ prod: r, mode: 'template' }),
     toInitial: (r) => r,
     toBody: (v, r) => ({ category: v.category || '', choices: v.choices || {}, over: v.over || {}, derived: r?.passportCategory?.code || '', prev: r?.passportDefaults || {} }),
     update: async (id, b) => { await savePd(id, b); return api(`/showcase/${id}`); },

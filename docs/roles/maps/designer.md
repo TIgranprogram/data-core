@@ -1,6 +1,8 @@
 # Карта роли designer
 
-коммит: acd518bf (+ незакоммиченное C054: воронка паспорта, вид принят по коду 09.11). Снимка нет.
+коммит: 7def859a (+ незакоммиченное C056 Д, принято по коду 10.11). Снимка нет. Журнал review-scope не закрыт.
+- C056 Д финал (10.11, по коду, принято): одна главная — пробелы «Дальше» primary / PDF ghost (`funnel/index.js:81–101`), выпуск наоборот (`issue.js:17`). Крестик телефона `.btn.pp-slot-x` 44px `--tap` (`kit.css:687`); мышь >720px — 24px. design-lint 0. Отчёт docs/crew/C056-passport-tab-one-card/REPORT-designer-D3.md. Снимка нет.
+- C056 Д повторно (10.11, по коду, не принято): 🔴 снят (`fill/control.js:74` `ctx.elRows`). Поля, полоса, «Готово» и техописание сняты. Осталось было: две primary; крестик 24px. Закрыто в D3.
 - C054 «Конструкция» и «Что попадёт в PDF» (09.11, цикл 2, принято по коду): pdf-block.js:49–52 stack(row раздел+причина, p.hint полный текст). Закрыто: count только у «Не попали»; «Цельное» в подсказке; откат меток joints.js:21. design-lint 0. Отчёт docs/crew/C054-passport-funnel/REPORT-designer.md.
 - C027 «По статьям» (06.11, по коду + импорт модуля на стенде, без входа): money-articles.js:25 TDZ `toolbar` (локальная :32 затеняет kit) — экран падает; tr.sub td muted (screens.css:131) сильнее td.click (:136); статьи с классом bal = итоги; ops в двойном panel (:27–28, эталон money.js:156/229); fill по группе — `#fill?g=exp-article` (fill.js:63). Прочие расходы expenses.js:148 склонение. Вход на :3001 — stand-login даёт 401. Отчёт docs/crew/C027-money-by-articles/designer-report.md.
 - Аудит правых панелей 06.11 (по коду, без стенда): причины — kit.css:338 `.dz-flow > *{display:block}` ломает `.actions`; list.css:76 `.drawer-body` без gap; list.css:52 `.state` padding 32/16 (пустые «Файлов нет»); product-attachments.js:89–119 (card M × вид + table.empty), product-files.js:76–97 (эталон section), card-blocks.js `.section-title`-блоки. Отчёт — у координатора (docs/crew/C-PANELS-AUDIT/REPORT.md).

@@ -1,24 +1,21 @@
 import { h } from '../../../core/dom.js';
 import { patch } from '../../../core/router.js';
-import { busyBlock, link, section, sideNote, stack, toastError } from '../../../ui/kit/index.js';
+import { button, link, section, stack, toastError } from '../../../ui/kit/index.js';
 import { canEdit } from '../common.js';
+import { passportFill } from '../fill/index.js';
 import { getProduct } from './api.js';
-import { gapsBlock } from './gaps.js';
 import { issueBlock } from './issue.js';
-import { jointsBlock } from './joints.js';
 import { newProduct } from './new-product.js';
 import { takePending } from './open.js';
 import { pickSteps } from './pick-steps.js';
 import { productList } from './product-list.js';
-import { textsBlock } from './texts.js';
 
 /**
  * Воронка «Новый паспорт» (C028, docs/crew/C028-passport-funnel/ANALYSIS.md §4): одна правая панель, сверху вниз
- * Категория → Группа → признаки → Изделие → Чего не хватает → Тексты → Выпуск. Ответы пишутся в изделие и не спрашиваются дважды.
+ * Категория → Группа → признаки → Изделие → Заполнение (fill, режим issue) → Выпуск. Ответы пишутся в изделие и не спрашиваются дважды.
  * Шаги и «Дальше: …» — эталон kit.funnel (П-1); пройденное — строка «Категория: … ✎».
  */
 const FACET_FREE = (P) => Object.entries(P).filter(([k, v]) => v && k !== 'category' && k !== 'group').flatMap(([, v]) => String(v).split(',')).filter((id) => id && id !== 'none');
-const setCount = (sec, n) => sec.querySelector('.k-sec-head .k-sec-n')?.replaceChildren(String(n));
 
 function build() {
   const entry = takePending();
@@ -68,38 +65,43 @@ function build() {
       S.prod = prod; pickBox.hidden = true; newBox.hidden = true; ps.setDone(true); title('Паспорт: ' + (prod.name || 'изделие'));
       const sku = prod.sku ? prod.sku + ' ' : '';
       recap.replaceChildren(link({ label: `Изделие: ${sku}${prod.name} ✎`, title: 'Выбрать другое изделие', onClick: showPick }));
-      stagePanels(prod);
+      await stagePanels(prod);
     } catch (e) { toastError(e, 'открыть изделие'); }
   }
 
-  function stagePanels(prod) {
-    let loadedFor = '';
-    const texts = textsBlock({ prod });
-    const gapsSec = section({ title: 'Чего не хватает', tone: 'main', count: 0, open: true, body: busyBlock('данные изделия') });
-    const jointsSec = section({ title: 'Конструкция', tone: 'main', open: !(prod.passportDefaults?.joints || []).length, body: jointsBlock({ prod }).el });
-    const textsSec = section({ title: 'Тексты', tone: 'info', body: texts.el });
+  async function stagePanels(prod) {
     const issueSec = section({ title: 'Выпуск', tone: 'gold', open: false, body: [] });
-    const issue = issueBlock({ prod, goGaps: () => { gapsSec.open = true; }, onIssued: () => patch({ of: undefined, new: undefined }) });
-    issueSec.querySelector('.k-sec-body').replaceChildren(issue.el);
-    const catCode = () => prod.category?.code || prod.passportDefaults?.passportCategory || '';
-    textsSec.addEventListener('toggle', () => {
-      if (!textsSec.open || loadedFor === catCode()) return;
-      if (!catCode()) { texts.el.replaceChildren(sideNote('Сначала укажите категорию в блоке «Чего не хватает».')); return; }
-      loadedFor = catCode(); texts.load(loadedFor);
+    const issue = issueBlock({
+      prod,
+      goGaps: () => stages.querySelector('[data-gap]')?.scrollIntoView({ block: 'start' }),
+      onIssued: () => patch({ of: undefined, new: undefined }),
     });
-
-    const onLoad = (missing) => {
-      const must = missing.filter((m) => m.required);
-      setCount(gapsSec, missing.length);
-      issue.paint(must);
-      say(must.length ? `укажите «${must[0].label}»` : 'выпустите PDF (тексты уже подставлены)');
-      if (!must.length) { gapsSec.open = false; issueSec.open = true; }
-    };
-    const gaps = gapsBlock({ prod, onLoad });
-    const nextBtn = h('div', null, link({ label: 'Дальше — к выпуску →', onClick: async () => { try { const must = await gaps.commit(); if (must.length) return; gapsSec.open = false; issueSec.open = true; } catch (e) { toastError(e, 'сохранить'); } } }));
-    gapsSec.querySelector('.k-sec-body').replaceChildren(gaps.el, nextBtn);
-    stages.replaceChildren(gapsSec, jointsSec, textsSec, issueSec);
-    gaps.reload().catch((e) => { gaps.el.replaceChildren(sideNote('Не удалось узнать, чего не хватает.')); toastError(e, 'проверить изделие'); });
+    issueSec.querySelector('.k-sec-body').replaceChildren(issue.el);
+    // одна главная на этап: пробелы — «Дальше»; выпуск открыт — «Выпустить PDF» (вторая ghost)
+    const onePrimary = (btn, primary) => { btn.classList.toggle('btn-primary', primary); btn.classList.toggle('btn-ghost', !primary); };
+    let fill;
+    const next = button({
+      label: 'Дальше — к выпуску', kind: 'primary',
+      onClick: async () => {
+        try {
+          const must = await fill.missingRequired();
+          if (must.length) { stages.querySelector('[data-gap]')?.scrollIntoView({ block: 'start' }); return; }
+          issueSec.open = true;
+          onePrimary(next, false);
+        } catch (e) { toastError(e, 'сохранить'); }
+      },
+    });
+    fill = await passportFill({
+      prod, mode: 'issue',
+      onStatus: ({ required }) => {
+        issue.paint(required);
+        const first = required[0];
+        say(first ? `укажите «${first.label}»` : 'выпустите PDF (тексты уже подставлены)');
+        if (!first) issueSec.open = true;
+        onePrimary(next, !!first);
+      },
+    });
+    stages.replaceChildren(fill.el, next, issueSec);
   }
 
   // старт: вход Б — сразу к изделию; вход А — с категории

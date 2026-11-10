@@ -1,12 +1,13 @@
-## C056 вкладка «Паспорт» одной карточкой (2026-11-09)
-коммит: 2485e8fd
-- `products/tabs.js:39` вкладка без слотов и без кружка. `card-blocks.js:88` `passportPane` — карточка + таблица выпущенных; «Править шаблон» открывает `doctpl` поверх изделия.
-- `passports/template-form.js:44` `templateForm` — разделы паспорта, слоты, полоса готовности, запись сразу. `docs.js:93` форма шаблона только вызывает его. `product-files.js:22` `passportSlot`, ветка «Для паспорта» снята (`productFilesBlock` 69).
-- `core/passport-kinds.js:30` `PHOTO_GROUPS`. `ui/funnel.js:49` `only` / `onPaint` — старый `funnelBox` в `passports/form.js` без этих опций. Кнопка «Взять из PDM» — `template-form.js:136`. Часть Д (fill) не сделана. Отчёт: `docs/crew/C056-passport-tab-one-card/REPORT.md`. Карта обновлена.
+## C056 вкладка «Паспорт» + эталон fill (2026-11-10)
+коммит: не закоммичено (Д-fix2)
+- `products/tabs.js:39` вкладка без слотов. `card-blocks.js:88` `passportPane`. `product-files.js:22` `passportSlot`. `core/passport-kinds.js:30` `PHOTO_GROUPS`.
+- `passports/fill/index.js:22` `passportFill({prod, mode})`. `template-form.js:2` реэкспорт. `docs.js:94` режим `template`, `docs.js:64` `editSub`. `funnel/index.js:84` «Дальше — к выпуску»; `:101` одна главная (`onePrimary`): пробелы — она, выпуск открыт — ghost, главная «Выпустить PDF» (`issue.js:17`). `kit.css:687` `.btn.pp-slot-x` на телефоне `--tap`. `fill/control.js:73` `elementsEditor` (справочник `ctx.elRows`, `index.js:50`), `:23` `commitPending`. `index.js:185` «Готово» = `doneLabel` + `beforeClose` (`ui/kit/card.js:357`). `fill/model.js:103` `kitText`. `fill/paint.js:24` пустое открыто в обоих режимах.
+- `ui/funnel.js:68` `facetFirst` и `load` — плитки «по признаку» первыми. `passports/form.js:72` эти опции не передаёт. Удалены `funnel/gaps.js`, `texts.js`, `joints.js`.
+- Отчёт: `docs/crew/C056-passport-tab-one-card/REPORT-D-fix2.md`. Карта обновлена.
 
 ## C055 Э3 тексты элементов и три печати (2026-11-09, не закоммичено)
 коммит: не закоммичено
-- `passports/elements-block.js` (`elementsTexts` 11, `withElementTexts` 41): inDescription и usageRules выбранных элементов. Форма паспорта `form.js:76`, шаблон изделия `form-fields.js:147`, шаблон docs `docs.js:116`, воронка `funnel/gaps.js:31`. Кнопки карточки `products.js:149–154`: Паспорт, Техническое описание (`openTechSheet`), «Паспорт + техописание» — toast «Скоро» (контракта combined нет). Отчёт: `docs/crew/C055-tech-passport/REPORT-E3-ui.md`. Карта обновлена.
+- `passports/elements-block.js` (`elementsTexts` 11, `withElementTexts` 41): inDescription и usageRules выбранных элементов. Форма паспорта `form.js:76`, шаблон изделия `form-fields.js:147`, заполнение `passports/fill` (раздел «Назначение»). Кнопки карточки `products.js:149–154`: Паспорт, Техническое описание (`openTechSheet`), «Паспорт + техописание» — toast «Скоро» (контракта combined нет). Отчёт: `docs/crew/C055-tech-passport/REPORT-E3-ui.md`. Карта обновлена.
 
 ## C055 Э1 техническое описание (2026-11-09, не закоммичено)
 коммит: не закоммичено
@@ -14,7 +15,7 @@
 
 ## C054 воронка паспорта F2 (2026-11-09, не закоммичено)
 коммит: не закоммичено
-- `sections/passports/traits.js` (PASSPORT_TRAITS/JOINTS, jointsPick, whenText/whenToPick/buildWhen, idsOf/itemTextOf, planNumbers/numbersOf), `passports/pdf-block.js` pdfBlock («Что попадёт в PDF», подключён в `passports.js` extra), `passports/funnel/joints.js` (+ `funnel/index.js` stagePanels), шаг joints в `passport-wizard.js`, поле joints в `form.js`/`products/form-fields.js`/`tabs.js`, `PD_KEYS` +joints (`products/data.js`). `passport-texts.js`: ownCopy/saveOwn/newCode/whenField/whenTag (ids+when). `card-blocks.js previewBlock` — номера через numbersOf. Отчёт: docs/crew/C054-passport-funnel/REPORT-frontend.md. Карта обновлена.
+- `sections/passports/traits.js` (PASSPORT_TRAITS/JOINTS, jointsPick, whenText/whenToPick/buildWhen, idsOf/itemTextOf, planNumbers/numbersOf), `passports/pdf-block.js` pdfBlock («Что попадёт в PDF», подключён в `passports.js` extra). Выбор «как соединено» — в `passports/fill` (C056 Д; `funnel/joints.js` удалён). Шаг joints в `passport-wizard.js`, поле joints в `form.js`/`products/form-fields.js`/`tabs.js`, `PD_KEYS` +joints (`products/data.js`). `passport-texts.js`: ownCopy/saveOwn/newCode/whenField/whenTag (ids+when). `card-blocks.js previewBlock` — номера через numbersOf. Отчёт: docs/crew/C054-passport-funnel/REPORT-frontend.md. Карта обновлена.
 
 ## C030-мелочи (2026-11-07, не закоммичено)
 коммит: не закоммичено
@@ -42,7 +43,7 @@
 
 ## Паспорт воронкой F1 (C028, 2026-11-07, не закоммичено)
 коммит: не закоммичено
-- `sections/passports/funnel/`: `index.js` (build панели `of=passfunnel`, `choose`, `stagePanels`), `open.js` (`openPassportFunnel`, `takePending`), `api.js` (A2–A5, `putDefaults`, `issueFromProduct`), `pick-steps.js` (stepFunnel локально), `product-list.js`, `gaps.js`, `texts.js`, `issue.js`, `new-product.js`. Входы: `docs.js` page-head «Новый паспорт», `products/card-blocks.js passportsBlock` «Создать паспорт». kit: `filter.js stepFunnel` onChange/multi/thumbIcon, `ui/kit/pos-pic.js`. Старые мастер/форма живы до F3. Отчёт: `docs/crew/C028-passport-funnel/frontend-report.md`. Карта обновлена.
+- `sections/passports/funnel/`: `index.js` (build панели `of=passfunnel`, `choose`, `stagePanels` → `fill` режим issue), `open.js` (`openPassportFunnel`, `takePending`), `api.js` (A2–A5, `putDefaults`, `issueFromProduct`), `pick-steps.js` (stepFunnel локально), `product-list.js`, `issue.js`, `new-product.js`. Шаги 5–6 — `passports/fill/` (`passportFill`). `gaps.js` / `texts.js` / `joints.js` удалены (C056 Д). Входы: `docs.js` page-head «Новый паспорт», `products/card-blocks.js passportsBlock` «Создать паспорт». kit: `filter.js stepFunnel` onChange/multi/thumbIcon, `ui/kit/pos-pic.js`. Старые мастер/форма живы до F3. Отчёт: `docs/crew/C028-passport-funnel/frontend-report.md`. Карта обновлена.
 
 ## C027 «Деньги по статьям» (2026-11-06, не закоммичено)
 commit: не закоммичено
@@ -96,7 +97,7 @@ commit: не закоммичено
 - `models.js` — модели прошлых паспортов, `issuePassport`, `DEFAULT_KEYS` (+textChoices). `common.js` — V2_CATS/V2_NUMS, dictRows, canEdit, dims, st.
 
 ## Воронка и общие кусочки (backend/pwa/ui/*)
-- `funnel.js` — `funnelBox({value,category,canEditText})` → {el, value(JSON {rootId:leafId}), setCategory, refresh, stepEl}; `loadFunnel(cat)` = GET /passports/funnel?category (кэш 60 с). Единственный/«по умолчанию» вариант — отображается как «подставлено», в value не пишется. «Править текст» — ссылка в новой вкладке на `#dicts?d=passportPhrases&of=ptnode&open=<leafId>`.
+- `funnel.js` — `funnelBox({value,category,canEditText,onPaint,only,productId,facetFirst,load})` → {el, value(JSON {rootId:leafId}), setCategory, refresh, stepEl}; `loadFunnel(cat)` = GET /passports/funnel?category (кэш 60 с). `facetFirst` + `load` — порядок «по признаку» (C056); без них вызов как раньше. Единственный/«по умолчанию» вариант — отображается как «подставлено», в value не пишется. «Править текст» — ссылка в новой вкладке на `#dicts?d=passportPhrases&of=ptnode&open=<leafId>`.
 - `cat-chips.js` — `catChips({options,value,all})` (галочки категорий, «Для всех» первым), `catChipsField` (виджет формы, value = JSON-строка кодов).
 - `quality.js` — `normKey`, `dupeCounts`, `qualityBadges({empty,dupe})`, `qualityFilter` («Все · Пустые · Дубли»).
 - `form.js` — секция формы принимает `sumOf(get)` (своя сводка свёрнутого блока).

@@ -9,11 +9,12 @@ import { link } from './kit/index.js';
  * Данные: GET /passports/funnel?category=… → { sections: [{ id, name, section, required, children: [узел { id, name, text?, isDefault?, children? }] }] }.
  * Выбор — textChoices: { [id раздела]: id листа }. Единственный вариант и «по умолчанию» подставляются сами (в значение не пишутся,
  * сервер делает то же); шаг с выбором сворачивается в строку «Монтаж: … · Изменить», под ней текст в 2 строки.
- *   funnelBox({ value, category, canEditText, onPaint(sections), only }) → { el, value (JSON), setCategory(code), refresh(), stepEl(rootId), roots(),
+ *   funnelBox({ value, category, canEditText, onPaint(sections), only, productId, facetFirst, load }) → { el, value (JSON), setCategory(code), refresh(), stepEl(rootId), roots(),
  *     install(), installLeaf(), installTypeId(), choose(rootId, leafId) }
  * productId — изделие: сервер не пришлёт тексты, привязанные к чужим признакам и группам («грузовой блок» у тренажёра без грузов).
  * only — один корень (id, section или название) или список: в el только они. onPaint — после каждой отрисовки (можно разнести корни по разделам).
- * Событие change всплывает от el при каждом выборе.
+ * facetFirst — плитки с byFacet (подходит признаку изделия) идут первыми. load(category, productId, force) — свой источник дерева { sections }, иначе GET /passports/funnel.
+ * Без facetFirst и load вызов как раньше (окно «Новый паспорт» в passports/form.js). Событие change всплывает от el при каждом выборе.
  */
 const cache = new Map();
 export function loadFunnel(category, force, productId = '') {
@@ -62,7 +63,9 @@ const hint = (n, lead = '') => {
   return (lead && t.startsWith(lead) ? '…' + t.slice(lead.length) : t).slice(0, 70);
 };
 
-export function funnelBox({ value, category = '', canEditText = false, onPaint, only, productId = '' } = {}) {
+const facetRank = (n) => (n?.byFacet || (n?.children || []).some((c) => facetRank(c) === 0) ? 0 : 1);
+
+export function funnelBox({ value, category = '', canEditText = false, onPaint, only, productId = '', facetFirst = false, load = null } = {}) {
   const parse = (v) => { if (v && typeof v === 'object') return { ...v }; try { const o = JSON.parse(v || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch { return {}; } };
   let choices = parse(value);
   let cat = category; let data = null; let failed = null; let seq = 0;
@@ -90,9 +93,10 @@ export function funnelBox({ value, category = '', canEditText = false, onPaint, 
     paint(); fire();
   }
   const optRow = (s, depth, nodes, chosen) => {
-    const lead = commonLead(nodes);
+    const list = facetFirst ? [...(nodes || [])].sort((a, b) => facetRank(a) - facetRank(b)) : (nodes || []);
+    const lead = commonLead(list);
     return h('div', { class: 'pf-opts pp-opts', role: 'radiogroup', 'aria-label': depth ? 'Уточнение' : s.name },
-      ...nodes.map((n) => h('button', { type: 'button', role: 'radio', class: 'pf-opt', 'aria-checked': String(chosen?.id === n.id), onclick: () => pick(s, depth, n) },
+      ...list.map((n) => h('button', { type: 'button', role: 'radio', class: 'pf-opt', 'aria-checked': String(chosen?.id === n.id), onclick: () => pick(s, depth, n) },
         h('b', null, n.name), hint(n, lead) ? h('small', null, hint(n, lead)) : null)));
   };
 
@@ -149,10 +153,11 @@ export function funnelBox({ value, category = '', canEditText = false, onPaint, 
     el.replaceChildren(...secs.map(step));
     onPaint?.(secs);
   }
+  const pull = (force) => (load ? Promise.resolve(load(cat, productId, force)) : loadFunnel(cat, force, productId));
   async function refresh(force) {
     const my = ++seq; failed = null; data = null; paint();
     if (!cat) return;
-    try { const d = await loadFunnel(cat, force, productId); if (my === seq) data = d; } catch (e) { if (my === seq) failed = e; }
+    try { const d = await pull(force); if (my === seq) data = d; } catch (e) { if (my === seq) failed = e; }
     if (my === seq) { paint(); fire(); }
   }
   // вернулись из справочника (правили текст в соседней вкладке) — подтянуть свежее
@@ -162,7 +167,7 @@ export function funnelBox({ value, category = '', canEditText = false, onPaint, 
     seen = true;
     if (!cat || !data) return;
     const my = seq;
-    loadFunnel(cat, true, productId).then((d) => { if (my === seq && el.isConnected) { data = d; paint(); } }).catch(() => {});
+    pull(true).then((d) => { if (my === seq && el.isConnected) { data = d; paint(); } }).catch(() => {});
   };
   window.addEventListener('focus', onFocus);
   refresh();
