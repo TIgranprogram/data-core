@@ -25,6 +25,8 @@ export class WorkTaskPatchDto {
 }
 
 export class RouteStepDto {
+  // 2026-11-10: экран шлёт шаги с id (сервер отдаёт id каждому объекту) — без поля 400 «steps.0.id: лишнее поле»
+  @ApiPropertyOptional({ description: 'id шага; у нового можно не указывать' }) @IsOptional() @IsString() @Length(1, 40) id?: string;
   @ApiProperty({ description: 'Вид работ (worktypes)' }) @IsMongoId() workTypeId!: string;
   @ApiPropertyOptional({ description: 'Часть состава изделия (composition[]._id)' }) @IsOptional() @IsMongoId() lineId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 300) note?: string;
