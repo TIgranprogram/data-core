@@ -289,7 +289,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     if (isNew) titleEl.replaceChildren(section.newTitle || 'Новая запись');
     else if (custom) titleEl.replaceChildren(...parts(custom));
     else titleEl.replaceChildren(...(what && String(who[0]) !== what ? [what, ' · ', ...who] : who));
-    subEl.replaceChildren(isNew ? '' : 'изменение');
+    subEl.replaceChildren(isNew ? '' : (section.card.editSub?.(row) || 'изменение'));
     body.replaceChildren(h('div', { class: 'skel', style: { width: '60%' } }), h('p', { class: 'muted' }, 'Загрузка…'));
     foot.replaceChildren();
     let flds;
@@ -349,8 +349,14 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
       if (isNew) ctx.opened?.(saved.id);
       showView(saved);
     };
-    // form.readonly — только просмотр (нет права записи): одна кнопка «Закрыть»
-    if (form.readonly) { cancel.textContent = 'Закрыть'; foot.replaceChildren(cancel); } else foot.replaceChildren(save, cancel);
+    // readonly: одна кнопка (doneLabel или «Закрыть»); beforeClose пишет отложенные умолчания до возврата к карточке
+    if (form.readonly) {
+      cancel.textContent = form.doneLabel || 'Закрыть';
+      if (form.doneLabel) cancel.classList.add('btn-primary');
+      const back = cancel.onclick;
+      if (form.beforeClose) cancel.onclick = async () => { if (saving || building || form?.busy?.()) return; try { await form.beforeClose(); } catch (e) { toastError(e, 'сохранить'); return; } return back?.(); };
+      foot.replaceChildren(cancel);
+    } else foot.replaceChildren(save, cancel);
     // ИЗ-13: без автофокуса при открытии — курсор ставит сам человек (фокус только на поле с ошибкой)
   }
 
