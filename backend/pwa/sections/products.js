@@ -151,7 +151,7 @@ export const products = {
         if (row.passports?.items?.[0]) printDialog(await data.getPassport(row.passports.items[0].id));
         else await previewPassport(row.id);
       } }] : []),
-      { label: 'Техническое описание', title: 'PDF из состава вкладки Техописание. Правки строк в окне — только для этого файла.', run: (row) => openTechSheet(row) },
+      { label: 'Техническое описание', title: 'Части и материалы из справочников, габариты и вес из изделия — в правой панели', run: (row) => openTechSheet(row) },
       ...(session.seesDocs() ? [{ label: 'Паспорт + техописание', title: 'Один PDF: паспорт, затем техническое описание', run: async (row) => {
         try { await downloadCombined(row, data.getPassport); } catch (e) { toastError(e); }
       } }] : []),

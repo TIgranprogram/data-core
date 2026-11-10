@@ -74,6 +74,7 @@ const LAZY = {
   bulkedit: [() => import('./sections/bulk-edit.js'), [['bulkedit','bulkEdit']]],
   stockop: [() => import('./sections/stock-ops.js'), [['stockop','stockOp']]],
   orderbulk: [() => import('./sections/order-bulk.js'), [['orderbulk','orderBulk']]],
+  techsheet: [() => import('./sections/tech-sheet.js'), [['techsheet','techSheet']]],
   stockissue: [() => import('./sections/stock-issue.js'), [['stockissue','stockIssue']]],
   passfunnel: [() => import('./sections/passports/funnel/index.js'), [['passfunnel','passFunnel']]],
   resedit: [() => import('./sections/reservation-edit.js'), [['resedit','resEdit']]],
@@ -127,7 +128,7 @@ const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'r
 /** Стартовый экран: роль «Ассистент кладовщика» — сразу своя страница. */
 const defaultSection = () => (session.onlyStockMobile ? 'stock-mobile' : isStockRole() ? 'stock' : 'home'); // «Труборез», «Лазер лист» — сразу своя таблица (2026-11-06)
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
-const OWNER = { passfunnel: 'docs', salesorder: 'salesorders', orderedit: 'salesorders', worklaunch: 'salesorders', workplan: 'salesorders', wsstep: 'workschedule', designorder: 'design', prodreq: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', stockissue: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', orderbulk: 'requests', invoicecard: 'requests', invoice: 'requests', contract: 'partners', staffcard: 'staff', zonecard: 'staff', incpay: 'money', incprice: 'money', expense: 'money', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog',
+const OWNER = { passfunnel: 'docs', salesorder: 'salesorders', orderedit: 'salesorders', worklaunch: 'salesorders', workplan: 'salesorders', wsstep: 'workschedule', designorder: 'design', prodreq: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', stockissue: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', orderbulk: 'requests', techsheet: 'products', invoicecard: 'requests', invoice: 'requests', contract: 'partners', staffcard: 'staff', zonecard: 'staff', incpay: 'money', incprice: 'money', expense: 'money', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog',
   kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', ptext: 'docs', ptextview: 'docs', ptnode: 'docs', passports: 'docs', passarchive: 'docs', orderpass: 'docs', doctpl: 'docs' };
 // ЦВ-1: раздел данных → цвет (--sec-*)
 const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', contracts: 'supply', stock: 'stock', movements: 'stock', salesorders: 'orders', matching: 'orders', design: 'orders', work: 'orders', workschedule: 'orders', docs: 'orders', products: 'products', offers: 'products', orders: 'money', money: 'money', expenses: 'money' };

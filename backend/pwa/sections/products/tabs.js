@@ -20,8 +20,8 @@ function techSheetBlock(row) {
     h('p', { class: 'muted' }, 'Части, материалы и размеры для печати техописания и паспорта. Складской «Состав и работы» — отдельно (себестоимость).'),
     h('p', null, summary
       ? h('span', null, summary, row.materialsText ? h('div', { class: 'hint' }, row.materialsText) : null)
-      : h('span', { class: 'muted' }, 'Таблица ещё пуста — «Изменить» → блок «Описание и материалы» или кнопка ниже.')),
-    kitButton({ label: 'Техническое описание (PDF)', kind: 'primary', size: 'S', title: 'Строки из состава изделия. Правки в окне — только для этого PDF.', onClick: () => openTechSheet(row) }),
+      : h('span', { class: 'muted' }, 'Таблица ещё пуста — нажмите «Техническое описание (PDF)»: там части и материалы выбираются из справочников.')),
+    kitButton({ label: 'Техническое описание (PDF)', kind: 'primary', size: 'S', title: 'Части и материалы из справочников, габариты и вес из изделия', onClick: () => openTechSheet(row) }),
   ];
   return section({ title: 'Техническое описание', tone: 'info', count: n || undefined, body });
 }

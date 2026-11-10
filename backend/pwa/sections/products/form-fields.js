@@ -23,7 +23,7 @@ const costInfo = (r) => {
   return { el: h('p', { class: 'muted' }, text), value: '' };
 };
 /** МИ.2: «Взять из состава» — предложение таблицы по материалам «Состава изделия»; запишется по «Сохранить». */
-const fromComposition = (r) => ({ label: 'Взять из состава', busy: 'Собираю…', title: 'Строки по материалам «Состава изделия»: труба 89×3 → Труба стальная ∅89×3',
+export const fromComposition = (r) => ({ label: 'Взять из состава', busy: 'Собираю…', title: 'Строки по материалам «Состава изделия»: труба 89×3 → Труба стальная ∅89×3',
   run: async (w) => {
     const res = await materialsFromComposition(r);
     const rows = res.materialsSpec?.rows || [];
