@@ -437,6 +437,10 @@ button.m-fg-h { cursor: pointer; }
 .k-select { min-width: 0; max-width: 100%; }
 /* C044-T2: однострочное поле ввода эталона (textInput) — в ряду с кнопками занимает остаток ширины, но не растягивается на всю панель */
 .k-ti { flex: 1 1 14em; min-width: 0; max-width: 32em; }
+/* в колонке (stack) 14em стали бы высотой поля — пустые 200 px между полями (пользователь 2026-11-10, шаблон паспорта) */
+.k-stack > .k-ti { flex: none; }
+.k-fieldrow { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: flex-end; }
+.k-fieldrow > .k-ti { flex: 1 1 12em; max-width: 20em; }
 
 /* Правки по замечаниям CL-D (2026-11-06): kit-кнопка с cls раскладки экрана, панель фильтров, зона нажатия */
 .ls-grid > .list-side { background: var(--surface); border: 1px solid var(--border-strong); } /* панель фильтров не сливается с колонками доски */
