@@ -3,6 +3,7 @@
 // выполняет задания, создаёт записи с меткой ТЕСТ-ИИ и пишет отчёт. Рабочий сайт не трогает (только localhost).
 //   node tools/ai-tester/run.mjs --check            проверить, всё ли готово (по шагам, с подсказками)
 //   node tools/ai-tester/run.mjs [--minutes N]      работать N минут (по умолчанию 480 = рабочий день)
+//   node tools/ai-tester/run.mjs --detach --minutes N  то же в фоне (кнопка пульта): пульт не ждёт, окно можно закрыть
 //   node tools/ai-tester/run.mjs --stop             попросить остановиться (закончит текущий шаг, напишет отчёт)
 //   node tools/ai-tester/run.mjs --cleanup          убрать записи ТЕСТ-ИИ, созданные сегодня (и раньше)
 //   node tools/ai-tester/run.mjs --last             коротко: последний отчёт
@@ -530,7 +531,7 @@ async function cleanup(s) {
 }
 
 // ---------- проверка готовности (по шагам) ----------
-async function check(s) {
+async function check(s, { hint = true } = {}) {
   let bad = 0;
   const ok = (t) => say('✅ ' + t);
   const no = (t, hint) => { bad++; say('❌ ' + t); for (const h of hint) say('   → ' + h); };
@@ -572,7 +573,7 @@ async function check(s) {
     if (!(await ensureDocker())) no('5. Docker не запущен — стенд поднять нельзя', ['Откройте программу Docker Desktop (значок кита).', 'Дождитесь внизу слева зелёной надписи «Engine running».', 'Нажмите эту кнопку ещё раз.']);
     else say('➖ 5. Стенд не запущен — тестировщик запустит его сам при старте (3–10 мин).');
   }
-  say(bad ? `\nНе готово: ${bad}. Сделайте шаги со стрелкой → и нажмите «Проверить готовность» ещё раз.` : '\nВсё готово. Нажмите «Запустить ИИ-тестировщика».');
+  if (hint || bad) say(bad ? `\nНе готово: ${bad}. Сделайте шаги со стрелкой → и нажмите «Проверить готовность» ещё раз.` : '\nВсё готово. Нажмите «Запустить ИИ-тестировщика».');
   return bad ? 1 : 0;
 }
 
@@ -610,8 +611,29 @@ async function main() {
   if (resume && (!prevRun || Date.now() >= prevRun.until)) { fs.rmSync(RUN_FILE, { force: true }); return 0; }
 
   if (!isLocalStand(s.stand)) { say('❌ Тестировщик работает только на стенде этого ПК. Рабочий сайт он не трогает.'); return 2; }
-  if (await check(s)) return 2; // при продолжении run.json остаётся — сторож попробует снова через 10 мин (Docker ещё не встал)
-  const until = resume ? prevRun.until : Date.now() + num('--minutes', 480) * 60000;
+  if (!has('--no-check')) {
+    let bad = await check(s, { hint: false });
+    if (bad && !resume) { // первый раз на этом ПК или LM Studio без модели — настроить ИИ самому, без отдельной кнопки
+      say('Настраиваю ИИ на этом ПК (один раз, до 30 минут)…');
+      spawnSync(process.execPath, [path.join(HERE, 'setup.mjs')], { stdio: 'inherit', windowsHide: true });
+      bad = await check(s, { hint: false });
+    }
+    if (bad) return 2; // при продолжении run.json остаётся — сторож попробует снова через 10 мин (Docker ещё не встал)
+  }
+  if (has('--detach')) {
+    // кнопка пульта: тестировщик работает отдельно от пульта — пульт свободен (обновляется, закрывается), окно не держит запуск
+    const until = Date.now() + num('--minutes', 480) * 60000;
+    fs.mkdirSync(OUT, { recursive: true });
+    const log = fs.openSync(path.join(OUT, 'run.log'), 'a');
+    const ch = spawn(process.execPath, [path.join(HERE, 'run.mjs'), '--no-check', '--until', String(until)], { cwd: ROOT, detached: true, windowsHide: true, stdio: ['ignore', log, log] });
+    ch.unref();
+    fs.writeFileSync(RUN_FILE, JSON.stringify({ until, day: DAY, pid: ch.pid, beat: Date.now() })); // второе нажатие сразу видит «уже работает»
+    say(`
+✅ ИИ-тестировщик запущен в фоне до ${new Date(until).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}.`);
+    say('Окно пульта можно закрыть. Отчёт Claude разберёт сам в начале следующей сессии.');
+    return 0;
+  }
+  const until = resume ? prevRun.until : num('--until', 0) || Date.now() + num('--minutes', 480) * 60000;
   const minutes = Math.max(1, Math.round((until - Date.now()) / 60000));
   if (!resume) try { fs.rmSync(STOP_FILE, { force: true }); } catch { /* нет */ }
   fs.mkdirSync(OUT, { recursive: true });

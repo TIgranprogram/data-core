@@ -104,6 +104,8 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
   const token = crypto.randomBytes(24).toString('hex');
   const jobs = new Map();
   let restartAt = 0; // время, когда пульт ушёл на перезапуск после обновления кода
+  let pulledAt = 0; // автообновление из GitHub (не чаще раза в 10 минут)
+  const autoPull = statusFn === readStatus; // только с настоящим состоянием (не в тестах)
   const clients = new Set();
   let port = 0;
   let idleTimer = null;
@@ -406,6 +408,12 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
           ? 'Файлы пульта изменились — окно скоро перезагрузится'
           : (catalogLag.length ? `Каталог кнопок отстал: ${catalogLag[0]}` : ''),
       };
+      // «Забрать обновления» сам: GitHub впереди, в папке нет правок и своих коммитов, ничего не идёт — git pull --ff-only.
+      // Правки Claude в папке (dirty) или неотправленные коммиты — не трогаем; новый код пульта → он перезапустится сам.
+      if (autoPull && status.behind > 0 && status.dirty === 0 && !status.ahead && running().length === 0 && Date.now() - pulledAt > 600000) {
+        pulledAt = Date.now();
+        execFile('git', ['pull', '--ff-only', '--quiet'], { cwd: root, windowsHide: true }, () => {});
+      }
       return json(res, 200, { ...status, runs: brief, advice: advise(status, runs, catalog.COMMANDS, Date.now(), readTodo()), restarting: restarting || !!restartAt, pult });
     }
     if (req.method === 'GET' && url.pathname === '/api/jobs') return json(res, 200, { items: [...jobs.values()].map((j) => ({ ...summary(j), lines: j.lines })) });

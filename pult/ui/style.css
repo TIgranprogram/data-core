@@ -47,6 +47,7 @@ h1, h2, p { margin: 0; }
 .nav-item { display: flex; gap: 9px; align-items: center; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none; text-align: left; cursor: pointer; }
 .nav-item .ico { width: 20px; text-align: center; }
 .nav-item .n { margin-left: auto; color: var(--muted); font-size: 12px; }
+.nav-all { margin-top: 14px; color: var(--muted); font-size: 12px; justify-content: center; border: 1px dashed var(--line, #ccc); }
 .nav-item .n.alert { padding: 0 7px; border-radius: 999px; background: var(--bad); color: var(--panel); font-weight: 700; }
 .nav-group { margin: 12px 0 3px; padding: 0 10px; color: var(--muted); font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .nav-item:hover { background: var(--panel-2); }

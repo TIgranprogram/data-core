@@ -32,10 +32,12 @@ export const GROUPS = [
 
 // Раздел now — экран «Что делать сейчас» (advisor.mjs). Раздел auto — автозапуск (SCHEDULE) плюс задачи Windows.
 // subs — порядок подзаголовков внутри раздела (поле sub у команды): сверху главное, ниже — редкое.
+// extra: true (у команды или раздела) — не для человека: видно только в режиме «Все кнопки». Это делают Claude и расписание;
+// понадобится человеку — пункт в «Что делать сейчас» (advisor/todo) с этой же кнопкой.
 export const SECTIONS = [
   { id: 'now', group: 'start', title: 'Что делать сейчас', icon: '🧭', hint: 'Пульт смотрит на проект и подсказывает, что запустить' },
-  { id: 'day', group: 'site', title: 'Проверить сайт', icon: '☀', hint: 'Как дела у рабочего сайта: ошибки, осмотр, что заполнить. Ничего не меняет', subs: ['Каждый день', 'Раз в неделю', 'Открыть'] },
-  { id: 'deploy', group: 'site', title: 'Выложить обновление', icon: '🚀', hint: 'По порядку: 1 → 2 → 3', subs: ['По порядку', 'Если не выкладывается'] },
+  { id: 'day', group: 'site', title: 'Сайт', icon: '☀', hint: 'Открыть рабочий сайт и выложить обновление. Проверки сайта Claude делает сам', subs: ['Открыть', 'Выложить обновление', 'Каждый день', 'Раз в неделю'] },
+  { id: 'deploy', group: 'site', title: 'Выкладка: шаги', icon: '🚀', hint: 'Отдельные шаги выкладки. Обычно не нужны — «Выложить на сайт» делает их сам', subs: ['По порядку', 'Если не выкладывается'] },
   { id: 'datafix', group: 'site', title: 'Правки данных', icon: '🧩', hint: 'Кнопки от Claude под конкретную задачу. Каждую — один раз после выкладки; повтор безопасен' },
   { id: 'check', group: 'checks', title: 'Тесты кода и экранов', icon: '🧪', hint: 'Код и экраны сайта на этом ПК. Рабочий сайт не трогают. Итог читает Claude и чинит', subs: ['Тесты кода', 'Обход всех экранов'] },
   { id: 'aitester', group: 'checks', title: 'ИИ-тестировщик', icon: '🤖', hint: 'ИИ ходит по копии сайта как менеджер, ищет ошибки и пишет отчёт', subs: ['Главное', 'Один раз на ПК и если что-то не так'] },
@@ -43,8 +45,8 @@ export const SECTIONS = [
   { id: 'backups', group: 'copies', title: 'Копии базы и сервер', icon: '💾', hint: 'Копия базы на этот ПК, учебное восстановление, место на сервере', subs: ['Копии базы', 'Место на сервере'] },
   { id: 'sportin', group: 'copies', title: 'Sportin', icon: '🖥', hint: 'Второй сервер: обновить, бэкап, проверка копии' },
   { id: 'setup', group: 'pc', title: 'Настройка ПК', icon: '⚙', hint: 'GitHub, установка пульта, разовая подготовка компьютера', subs: ['GitHub', 'Один раз на ПК', 'Папки и ссылки'] },
-  { id: 'stand', group: 'pc', title: 'Стенды и Docker', icon: '🧰', hint: 'Сайт на этом ПК для проверок. Занимает память — остановите, когда не нужен' },
-  { id: 'auto', group: 'pc', title: 'Автозапуск', icon: '⏰', hint: 'Что пульт запускает сам, пока открыт' },
+  { id: 'stand', group: 'pc', title: 'Стенды и Docker', icon: '🧰', hint: 'Сайт на этом ПК для проверок. Стендом управляют тестировщик и Claude', extra: true },
+  { id: 'auto', group: 'pc', title: 'Автозапуск', icon: '⏰', hint: 'Что пульт запускает сам, пока открыт', extra: true },
 ];
 
 export const SCHEDULE = [
@@ -60,28 +62,28 @@ const dc = (...args) => ({ node: ['tools/dc.mjs', ...args], soft: true });
 
 export const COMMANDS = [
   // ---------- Каждый день ----------
-  { id: 'day-start', section: 'day', sub: 'Каждый день', title: 'Начало работы', risk: 'read', time: '20 с', needs: ['bash'], run: dc('start'), every: 1, why: 'Первая кнопка за день: ошибки сайта и состояние кода',
+  { id: 'day-start', section: 'day', extra: true, sub: 'Каждый день', title: 'Начало работы', risk: 'read', time: '20 с', needs: ['bash'], run: dc('start'), every: 1, why: 'Первая кнопка за день: ошибки сайта и состояние кода',
     hint: 'Первая кнопка за день. Ветка, отставание от GitHub, незакоммиченное и ошибки сайта за сутки.' },
-  { id: 'day-status', section: 'day', sub: 'Каждый день', title: 'Быстрая проверка сайта', risk: 'read', time: '20 с', needs: ['bash'], run: dc('status'),
+  { id: 'day-status', section: 'day', extra: true, sub: 'Каждый день', title: 'Быстрая проверка сайта', risk: 'read', time: '20 с', needs: ['bash'], run: dc('status'),
     hint: 'Живой запрос к рабочему сайту: здоровье, возраст копии, версия. Ничего не меняет.' },
-  { id: 'day-errors', section: 'day', sub: 'Каждый день', title: 'Ошибки с сайта', risk: 'read', time: '15 с', needs: ['bash'], run: dc('errors', '{hours}'),
+  { id: 'day-errors', section: 'day', extra: true, sub: 'Каждый день', title: 'Ошибки с сайта', risk: 'read', time: '15 с', needs: ['bash'], run: dc('errors', '{hours}'),
     params: [{ name: 'hours', label: 'За какой срок', type: 'select', default: '24', options: [
       { value: '2', label: '2 часа' }, { value: '24', label: 'Сутки' }, { value: '72', label: '3 дня' }, { value: '168', label: 'Неделя' }] }],
     hint: 'Какие ошибки видели люди на сайте и на каких экранах. Новые — чинить первыми.' },
-  { id: 'day-data', section: 'day', sub: 'Раз в неделю', title: 'Что заполнить в данных', risk: 'read', time: '15 с', needs: ['bash'], run: dc('data'), every: 7, why: 'Раз в неделю: сколько записей ждут заполнения',
+  { id: 'day-data', section: 'day', extra: true, sub: 'Раз в неделю', title: 'Что заполнить в данных', risk: 'read', time: '15 с', needs: ['bash'], run: dc('data'), every: 7, why: 'Раз в неделю: сколько записей ждут заполнения',
     hint: 'Сводка «Требуют заполнения»: сколько записей без важных полей. Только чтение.' },
 
   // ---------- Выкладка ----------
-  { id: 'deploy-gate', section: 'deploy', sub: 'По порядку', title: '1. Проверить ворота', risk: 'read', time: '1–5 мин', needs: ['bash'], run: { bash: ['deploy/synology/preflight.sh'] },
+  { id: 'deploy-gate', section: 'deploy', extra: true, sub: 'По порядку', title: 'Проверить ворота', risk: 'read', time: '1–5 мин', needs: ['bash'], run: { bash: ['deploy/synology/preflight.sh'] },
     hint: 'Можно ли выкладывать: всё закоммичено, в GitHub, тесты зелёные. Сайт не меняет.' },
-  { id: 'deploy-link', section: 'deploy', sub: 'Если не выкладывается', title: 'Проверить связь с сервером', risk: 'read', time: '30 с', needs: ['bash', 'vm'], run: { bash: ['remote-access/check.sh'] },
+  { id: 'deploy-link', section: 'deploy', extra: true, sub: 'Если не выкладывается', title: 'Проверить связь с сервером', risk: 'read', time: '30 с', needs: ['bash', 'vm'], run: { bash: ['remote-access/check.sh'] },
     hint: 'Цепочка до домашнего сервера. Нажмите, если выкладка не может зайти.' },
-  { id: 'deploy-release', section: 'deploy', sub: 'По порядку', title: '2. Выложить на сайт', risk: 'prod-write', time: '5–10 мин', needs: ['bash', 'vm'], run: { deploy: [] },
+  { id: 'deploy-release', section: 'day', sub: 'Выложить обновление', title: 'Выложить на сайт', risk: 'prod-write', time: '5–10 мин', needs: ['bash', 'vm'], run: { deploy: [] },
     confirm: 'Новая версия уйдёт на рабочий сайт. Порядок: ворота, копия базы, замена файлов, сборка, перезапуск, проверка.',
     hint: 'Обычная выкладка после готовности кода. Сначала ворота. Копия базы делается сама.' },
-  { id: 'deploy-post', section: 'deploy', sub: 'По порядку', title: '3. Проверка после выкладки', risk: 'read', time: '15 с', needs: ['bash'], run: { bash: ['deploy/synology/post-check.sh'] },
+  { id: 'deploy-post', section: 'deploy', extra: true, sub: 'По порядку', title: 'Проверка после выкладки', risk: 'read', time: '15 с', needs: ['bash'], run: { bash: ['deploy/synology/post-check.sh'] },
     hint: 'Через 1–2 часа после выкладки. Новые ошибки сайта на этой версии.' },
-  { id: 'c054-passport-plan', section: 'datafix', title: 'Паспорта: записать признаки воронки', risk: 'prod-write', time: '1–3 мин', needs: ['bash', 'vm'],
+  { id: 'c054-passport-plan', section: 'datafix', extra: true, title: 'Паспорта: записать признаки воронки', risk: 'prod-write', time: '1–3 мин', needs: ['bash', 'vm'],
     run: { bash: ['deploy/synology/c054-passport-plan.sh'] },
     confirm: 'В справочники паспортов запишутся признаки и условия пунктов. Выданные паспорта и № 597 не меняются. Запускать только после выкладки воронки паспортов.',
     hint: 'Один раз после выкладки C054. Повтор безопасен: те же значения, дублей не будет.' },
@@ -105,30 +107,30 @@ export const COMMANDS = [
     run: { bash: ['deploy/synology/c061-trainers-load.sh'] },
     confirm: 'У 92 тренажёров запишется признак «Нагрузка»: 18 — «Изменяемая (грузы)», 74 — «Собственный вес». 4 тренажёра перейдут в группу «Тренажеры». Артикулы и выданные паспорта не меняются.',
     hint: 'Список — docs/crew/C061-trainers-load/REVIEW.md. Повтор безопасен: те же значения.' },
-  { id: 'c061-wrong-category', section: 'datafix', title: 'Паспорта: 8 изделий — не «Уличный тренажёр»', risk: 'prod-write', time: '1 мин', needs: ['bash', 'vm'],
+  { id: 'c061-wrong-category', section: 'datafix', extra: true, title: 'Паспорта: 8 изделий — не «Уличный тренажёр»', risk: 'prod-write', time: '1 мин', needs: ['bash', 'vm'],
     run: { bash: ['deploy/synology/c061-wrong-category.sh'] },
     confirm: 'У 8 изделий (воркаут, ограждение, помост, стойки, павильон) снимется своя категория паспорта «Уличный тренажёр». Будет действовать категория группы: «Воркаут и спортивное оборудование» или «Благоустройство». Выданные паспорта не меняются.',
     hint: 'Список — docs/crew/C061-trainers-load/wrong-category.json. Повтор безопасен.' },
 
-  { id: 'prod-doctor', section: 'day', sub: 'Раз в неделю', title: 'Полный осмотр сайта', risk: 'read', time: '1 мин', needs: ['bash'], run: { bash: ['deploy/synology/doctor.sh'], soft: true }, every: 7, why: 'Раз в неделю: полный осмотр сайта',
+  { id: 'prod-doctor', section: 'day', extra: true, sub: 'Раз в неделю', title: 'Полный осмотр сайта', risk: 'read', time: '1 мин', needs: ['bash'], run: { bash: ['deploy/synology/doctor.sh'], soft: true }, every: 7, why: 'Раз в неделю: полный осмотр сайта',
     hint: 'Диск, копии, целостность, скорость. Итог ✓ / ⚠ / ✗. Раз в неделю и после выкладки.' },
 
   // ---------- Тесты ----------
-  { id: 'code-check', section: 'check', sub: 'Тесты кода', title: 'Тесты кода: быстро', risk: 'read', time: '2–4 мин', run: dc('check'), every: 1, why: 'Каждый день: типы, тесты и пульт. Замечание остаётся, пока проверка не станет зелёной',
+  { id: 'code-check', section: 'check', extra: true, sub: 'Тесты кода', title: 'Тесты кода: быстро', risk: 'read', time: '2–4 мин', run: dc('check'), every: 1, why: 'Каждый день: типы, тесты и пульт. Замечание остаётся, пока проверка не станет зелёной',
     hint: 'Типы, юнит-тесты, импорты, дизайн и пульт. Те же шаги, что в воротах. Утром пульт запускает сам, если открыт.' },
-  { id: 'check-full', section: 'check', sub: 'Тесты кода', title: 'Тесты кода: все (перед большой выкладкой)', risk: 'local', time: '20–60 мин', needs: ['docker'], run: dc('full'),
+  { id: 'check-full', section: 'check', extra: true, sub: 'Тесты кода', title: 'Тесты кода: все (перед большой выкладкой)', risk: 'local', time: '20–60 мин', needs: ['docker'], run: dc('full'),
     hint: 'Долгий прогон на отдельном стенде: типы, юнит, сквозные тесты и обходы. Рабочий сайт не трогает. Итог — локальный отчёт.' },
-  { id: 'site-audit', section: 'check', sub: 'Обход всех экранов', title: 'Обойти все экраны сайта', risk: 'local', time: '10–30 мин', needs: ['docker'], run: dc('audit'),
+  { id: 'site-audit', section: 'check', extra: true, sub: 'Обход всех экранов', title: 'Обойти все экраны сайта', risk: 'local', time: '10–30 мин', needs: ['docker'], run: dc('audit'),
     hint: 'Обходит экраны на трёх ширинах, снимки, мусор в тексте, ошибки API. Поднимает стенд сама. Отчёт читает ИИ и чинит точечно.' },
-  { id: 'order-progress', section: 'check', sub: 'Обход всех экранов', title: 'Сколько экранов по эталону', risk: 'read', time: '5 с', run: dc('order'),
+  { id: 'order-progress', section: 'check', extra: true, sub: 'Обход всех экранов', title: 'Сколько экранов по эталону', risk: 'read', time: '5 с', run: dc('order'),
     hint: 'Одна строка: сколько экранов собрано из эталонов и сколько нарушений дизайна осталось. Число пишется в журнал.' },
-  { id: 'site-audit-last', section: 'check', sub: 'Обход всех экранов', title: 'Итог обхода экранов', risk: 'read', time: '2 с', run: dc('audit', 'last'),
+  { id: 'site-audit-last', section: 'check', extra: true, sub: 'Обход всех экранов', title: 'Итог обхода экранов', risk: 'read', time: '2 с', run: dc('audit', 'last'),
     hint: 'Короткая сводка и путь к отчёту большой проверки.' },
 
   // ---------- Копии ----------
-  { id: 'setup-backup', section: 'backups', sub: 'Копии базы', title: 'Скачать копию базы на этот ПК', risk: 'local', time: '5–15 мин', needs: ['vm'], run: { powershell: ['deploy/backup-pull/pull-backup.ps1'], vmEnv: true },
+  { id: 'setup-backup', section: 'backups', extra: true, sub: 'Копии базы', title: 'Скачать копию базы на этот ПК', risk: 'local', time: '5–15 мин', needs: ['vm'], run: { powershell: ['deploy/backup-pull/pull-backup.ps1'], vmEnv: true },
     hint: 'Кладёт свежий бэкап в D:\\datacore-backups. Нужен стенду на копии. В архиве рабочие данные — никому не передавайте.' },
-  { id: 'prod-drill', section: 'backups', sub: 'Копии базы', title: 'Учебное восстановление (дом)', risk: 'prod-write', time: '5–15 мин', needs: ['bash', 'vm'], run: { vm: 'cd /opt/data-core && bash deploy/synology/restore-drill.sh' }, every: 30, why: 'Раз в месяц: проверка, что копия дома восстанавливается',
+  { id: 'prod-drill', section: 'backups', extra: true, sub: 'Копии базы', title: 'Учебное восстановление (дом)', risk: 'prod-write', time: '5–15 мин', needs: ['bash', 'vm'], run: { vm: 'cd /opt/data-core && bash deploy/synology/restore-drill.sh' }, every: 30, why: 'Раз в месяц: проверка, что копия дома восстанавливается',
     confirm: 'Последняя копия развернётся во временную базу, числа сверятся, база удалится. Рабочая база не меняется.',
     hint: 'Раз в месяц. Доказывает, что домашняя копия восстанавливается.' },
 
@@ -136,15 +138,15 @@ export const COMMANDS = [
   { id: 'sportin-version', section: 'sportin', title: 'Обновить версию (код + база + фото)', risk: 'local', time: '15–40 мин', needs: ['bash'], run: { bash: ['SRV-ERP/refresh-copy.sh', '--code'] },
     confirm: 'Sportin получит код с этого ПК и свежую копию базы Дома. Изменения на Sportin пропадут. Дом не меняется.',
     hint: 'Главная кнопка обновления второго сервера. Нужен включённый домашний ПК и свежая копия базы.' },
-  { id: 'sportin-copy', section: 'sportin', title: 'Обновить только базу и фото', risk: 'local', time: '10–40 мин', needs: ['bash'], run: { bash: ['SRV-ERP/refresh-copy.sh'] },
+  { id: 'sportin-copy', section: 'sportin', extra: true, title: 'Обновить только базу и фото', risk: 'local', time: '10–40 мин', needs: ['bash'], run: { bash: ['SRV-ERP/refresh-copy.sh'] },
     confirm: 'База на Sportin заменится копией Дома. Изменения на Sportin пропадут. Дом не меняется.',
     hint: 'Без кода. Так же каждый день в 11:00 делает задача Windows (раздел «Автозапуск»).' },
-  { id: 'sportin-backup', section: 'sportin', title: 'Сделать бэкап сейчас', risk: 'local', time: '1–5 мин', needs: ['bash'], run: { bash: ['SRV-ERP/backup-now.sh'] },
+  { id: 'sportin-backup', section: 'sportin', extra: true, title: 'Сделать бэкап сейчас', risk: 'local', time: '1–5 мин', needs: ['bash'], run: { bash: ['SRV-ERP/backup-now.sh'] },
     hint: 'Копия базы и фото на втором сервере, не дожидаясь ночи.' },
-  { id: 'sportin-drill', section: 'sportin', title: 'Учебное восстановление', risk: 'local', time: '1–3 мин', needs: ['bash'], run: { bash: ['SRV-ERP/restore-drill-erp.sh'] }, every: 30,
+  { id: 'sportin-drill', section: 'sportin', extra: true, title: 'Учебное восстановление', risk: 'local', time: '1–3 мин', needs: ['bash'], run: { bash: ['SRV-ERP/restore-drill-erp.sh'] }, every: 30,
     why: 'Раз в месяц: проверка, что копия Sportin восстанавливается',
     hint: 'Разворачивает последнюю копию во временную базу и удаляет её. Рабочая база не меняется.' },
-  { id: 'sportin-smb', section: 'sportin', title: 'Включить ночной бэкап и копии на NAS', risk: 'local', time: '1–3 мин', needs: ['bash'], run: { bash: ['SRV-ERP/push-smb.sh'] },
+  { id: 'sportin-smb', section: 'sportin', extra: true, title: 'Включить ночной бэкап и копии на NAS', risk: 'local', time: '1–3 мин', needs: ['bash'], run: { bash: ['SRV-ERP/push-smb.sh'] },
     confirm: 'На втором сервере появится ночной бэкап и отправка копий на NAS. Рабочий сайт Дома не меняется.',
     hint: 'Разово после обновления версии. Повтор ничего не дублирует.' },
 
@@ -158,39 +160,39 @@ export const COMMANDS = [
   { id: 'night-down', section: 'stand', hidden: true, title: 'Стенд на копии базы: остановить', risk: 'local', time: '20 с', needs: ['docker'], run: dc('stand', 'down'),
     hint: 'Останавливает стенд на копии. База сохраняется.' },
 
-  { id: 'docker-clean-plan', section: 'stand', title: 'Docker: что лишнее на этом ПК', risk: 'read', time: '10 с', needs: ['docker'], run: { node: ['tools/docker-clean.mjs'] }, every: 14, why: 'Раз в две недели: старые стенды и кэш сборки съедают десятки ГБ',
+  { id: 'docker-clean-plan', section: 'stand', extra: true, title: 'Docker: что лишнее на этом ПК', risk: 'read', time: '10 с', needs: ['docker'], run: { node: ['tools/docker-clean.mjs'] }, every: 14, why: 'Раз в две недели: старые стенды и кэш сборки съедают десятки ГБ',
     hint: 'Показывает, сколько места займут старые стенды и кэш. Ничего не удаляет.' },
-  { id: 'docker-clean', section: 'stand', title: 'Docker: очистить этот ПК', risk: 'local', time: '1–3 мин', needs: ['docker'], run: { node: ['tools/docker-clean.mjs', '--clean'] },
+  { id: 'docker-clean', section: 'stand', extra: true, title: 'Docker: очистить этот ПК', risk: 'local', time: '1–3 мин', needs: ['docker'], run: { node: ['tools/docker-clean.mjs', '--clean'] },
     confirm: 'Удалятся старые стенды, кэш сборки, образы и тома без имени. Локальный сайт, его данные и текущий стенд :3102 останутся.',
     hint: 'Освобождает место. Следующая сборка стенда будет на пару минут дольше.' },
-  { id: 'docker-clean-vm-plan', section: 'backups', sub: 'Место на сервере', title: 'Docker на сервере: что лишнее', risk: 'read', time: '15 с', needs: ['bash', 'vm'], run: { node: ['tools/docker-clean.mjs', '--server'] }, every: 30, why: 'Раз в месяц: кэш сборки на сервере растёт с каждой выкладкой',
+  { id: 'docker-clean-vm-plan', section: 'backups', extra: true, sub: 'Место на сервере', title: 'Docker на сервере: что лишнее', risk: 'read', time: '15 с', needs: ['bash', 'vm'], run: { node: ['tools/docker-clean.mjs', '--server'] }, every: 30, why: 'Раз в месяц: кэш сборки на сервере растёт с каждой выкладкой',
     hint: 'Показывает место на диске сервера и сколько займёт кэш сборки. Ничего не удаляет.' },
-  { id: 'docker-clean-vm', section: 'backups', sub: 'Место на сервере', title: 'Docker на сервере: очистить кэш', risk: 'prod-write', time: '1 мин', needs: ['bash', 'vm'], run: { node: ['tools/docker-clean.mjs', '--server', '--clean'] },
+  { id: 'docker-clean-vm', section: 'backups', extra: true, sub: 'Место на сервере', title: 'Docker на сервере: очистить кэш', risk: 'prod-write', time: '1 мин', needs: ['bash', 'vm'], run: { node: ['tools/docker-clean.mjs', '--server', '--clean'] },
     confirm: 'На сервере удалится кэш сборки и образы без имени. Сайт, базы, CRM и образ для отката не меняются. Следующая выкладка соберётся на несколько минут дольше.',
     hint: 'Только если на сервере мало места (диск занят больше 70 %).' },
 
   // ---------- Автозапуск / задачи Windows ----------
-  { id: 'setup-task', section: 'auto', sub: 'Задачи Windows (работают и при закрытом пульте)', title: 'Ночной прогон в 23:30', risk: 'local', time: '10 с', run: { cmd: ['tools\\setup.cmd', 'task'] },
+  { id: 'setup-task', section: 'auto', extra: true, sub: 'Задачи Windows (работают и при закрытом пульте)', title: 'Ночной прогон в 23:30', risk: 'local', time: '10 с', run: { cmd: ['tools\\setup.cmd', 'task'] },
     hint: 'Создаёт задачу Windows на 23:30. Только если проверка ПК зелёная.' },
-  { id: 'setup-pull-task', section: 'auto', sub: 'Задачи Windows (работают и при закрытом пульте)', title: 'Копия базы на ПК в 10:00', risk: 'local', time: '5 с', run: { powershell: ['deploy/backup-pull/register-task.ps1'] },
+  { id: 'setup-pull-task', section: 'auto', extra: true, sub: 'Задачи Windows (работают и при закрытом пульте)', title: 'Копия базы на ПК в 10:00', risk: 'local', time: '5 с', run: { powershell: ['deploy/backup-pull/register-task.ps1'] },
     hint: 'Один раз. В 10:00 скачивает свежую копию базы на этот ПК.' },
-  { id: 'setup-refresh-task', section: 'auto', sub: 'Задачи Windows (работают и при закрытом пульте)', title: 'Sportin: автообновление в 11:00', risk: 'local', time: '5 с', run: { powershell: ['SRV-ERP/register-refresh-task.ps1'] },
+  { id: 'setup-refresh-task', section: 'auto', extra: true, sub: 'Задачи Windows (работают и при закрытом пульте)', title: 'Sportin: автообновление в 11:00', risk: 'local', time: '5 с', run: { powershell: ['SRV-ERP/register-refresh-task.ps1'] },
     hint: 'Один раз. В 11:00 переносит базу Дома на Sportin (без кода).' },
 
   // ---------- Настройка ПК ----------
-  { id: 'setup-check', section: 'setup', sub: 'Один раз на ПК', title: 'Проверить этот ПК', risk: 'read', time: '10 с', run: { cmd: ['tools\\setup.cmd'] },
+  { id: 'setup-check', section: 'setup', extra: true, sub: 'Один раз на ПК', title: 'Проверить этот ПК', risk: 'read', time: '10 с', run: { cmd: ['tools\\setup.cmd'] },
     hint: 'Node, Git, Docker, Edge и папка копий. Строка [!!] — что исправить.' },
-  { id: 'setup-control-key', section: 'setup', sub: 'Один раз на ПК', title: 'Сохранить ключ ночного прогона', risk: 'local', time: '1 с', run: { node: ['tools/set-control-key.mjs'] },
+  { id: 'setup-control-key', section: 'setup', extra: true, sub: 'Один раз на ПК', title: 'Сохранить ключ ночного прогона', risk: 'local', time: '1 с', run: { node: ['tools/set-control-key.mjs'] },
     hint: 'Ключ из буфера — в файл на этом ПК. Нужен, чтобы итог ночной проверки был в «Состоянии» на сайте.' },
-  { id: 'setup-work', section: 'setup', sub: 'Один раз на ПК', title: 'Подготовить рабочий ПК', risk: 'local', time: '20 с', needs: ['bash'], run: { bash: ['remote-access/setup-work-pc.sh'] },
+  { id: 'setup-work', section: 'setup', extra: true, sub: 'Один раз на ПК', title: 'Подготовить рабочий ПК', risk: 'local', time: '20 с', needs: ['bash'], run: { bash: ['remote-access/setup-work-pc.sh'] },
     hint: 'Один раз. Ключ в ~/.ssh и вход на сервер. Нужна папка remote-access/secret с флешки.' },
   { id: 'git-pull', section: 'setup', sub: 'GitHub', title: 'Забрать обновления из GitHub', risk: 'local', time: '10 с', run: { git: ['pull', '--ff-only'] },
     hint: 'Обновляет папку проекта с GitHub. Если ИИ сейчас правит код здесь — дождитесь конца.' },
-  { id: 'git-push', section: 'setup', sub: 'GitHub', title: 'Отправить в GitHub', risk: 'local', time: '10 с', run: { git: ['push'] },
+  { id: 'git-push', section: 'setup', extra: true, sub: 'GitHub', title: 'Отправить в GitHub', risk: 'local', time: '10 с', run: { git: ['push'] },
     hint: 'Отправляет готовые коммиты. Без этого выкладка на сайт не начнётся.' },
   { id: 'setup-shortcut', section: 'setup', sub: 'Один раз на ПК', title: 'Установить пульт в Windows', risk: 'local', time: '2 с', run: { powershell: ['pult/shortcut.ps1', '-Name', 'Пульт DataCore', '-Where', 'all'] },
     hint: 'Один раз на ПК: ярлык на рабочем столе, пункт в меню «Пуск» и запуск пульта вместе с Windows. Пульт обновляется сам — из папки проекта.' },
-  { id: 'setup-autostart-off', section: 'setup', sub: 'Один раз на ПК', title: 'Не запускать пульт с Windows', risk: 'local', time: '2 с', run: { powershell: ['pult/shortcut.ps1', '-Name', 'Пульт DataCore', '-Where', 'startup', '-Remove'] },
+  { id: 'setup-autostart-off', section: 'setup', extra: true, sub: 'Один раз на ПК', title: 'Не запускать пульт с Windows', risk: 'local', time: '2 с', run: { powershell: ['pult/shortcut.ps1', '-Name', 'Пульт DataCore', '-Where', 'startup', '-Remove'] },
     hint: 'Убирает только автозапуск. Ярлык на столе и в «Пуске» остаются.' },
 
   // ---------- Ссылки (разложены по разделам) ----------
@@ -200,11 +202,11 @@ export const COMMANDS = [
     hint: '31.222.224.247:8080/app/' },
   { id: 'link-admin', section: 'day', sub: 'Открыть', title: 'Открыть админку', risk: 'read', time: 'сразу', run: { open: 'https://kppdf-crm.ru/db/admin/' },
     hint: 'Админка рабочего сайта.' },
-  { id: 'link-local', section: 'setup', sub: 'Папки и ссылки', title: 'Открыть локальный сайт', risk: 'read', time: 'сразу', run: { open: 'http://localhost:3001/app/' },
+  { id: 'link-local', section: 'setup', extra: true, sub: 'Папки и ссылки', title: 'Открыть локальный сайт', risk: 'read', time: 'сразу', run: { open: 'http://localhost:3001/app/' },
     hint: 'Если запущен стенд «Локальный сайт».' },
-  { id: 'link-project', section: 'setup', sub: 'Папки и ссылки', title: 'Папка проекта', risk: 'read', time: 'сразу', run: { folder: '.' },
+  { id: 'link-project', section: 'setup', extra: true, sub: 'Папки и ссылки', title: 'Папка проекта', risk: 'read', time: 'сразу', run: { folder: '.' },
     hint: 'Открывает проект в проводнике.' },
-  { id: 'link-logs', section: 'setup', sub: 'Папки и ссылки', title: 'Журналы пульта', risk: 'read', time: 'сразу', run: { folder: 'pult/logs' },
+  { id: 'link-logs', section: 'setup', extra: true, sub: 'Папки и ссылки', title: 'Журналы пульта', risk: 'read', time: 'сразу', run: { folder: 'pult/logs' },
     hint: 'Полный вывод каждого запуска.' },
 
   // ---------- Локальный ИИ (C019) ----------
@@ -214,29 +216,29 @@ export const COMMANDS = [
     hint: 'Локальный ИИ читает inbox и пишет файл в out/. Потом импортируйте на сайте сами.' },
   { id: 'lai-out', section: 'localai', title: 'Готовый Excel', risk: 'read', time: 'сразу', run: { folder: 'tools/local-ai-order/out' },
     hint: 'Готовый Excel для «Заказы → Импорт Excel» на сайте.' },
-  { id: 'lai-check', section: 'localai', title: 'Проверить связь с ИИ', risk: 'local', time: '5 с', run: { node: ['tools/local-ai-order/run.mjs', '--check'] },
+  { id: 'lai-check', section: 'localai', extra: true, title: 'Проверить связь с ИИ', risk: 'local', time: '5 с', run: { node: ['tools/local-ai-order/run.mjs', '--check'] },
     hint: 'Запрос /v1/models. LM Studio должен быть Running, CORS включён.' },
-  { id: 'lai-setup', section: 'aitester', sub: 'Один раз на ПК и если что-то не так', title: 'Установить ИИ на этом ПК', risk: 'local', time: '1 мин – 30 мин', run: { node: ['tools/ai-tester/setup.mjs'] },
+  { id: 'lai-setup', section: 'aitester', extra: true, sub: 'Один раз на ПК и если что-то не так', title: 'Установить ИИ на этом ПК', risk: 'local', time: '1 мин – 30 мин', run: { node: ['tools/ai-tester/setup.mjs'] },
     hint: 'Один раз на каждом компьютере (дом, работа). Сам настроит LM Studio, подберёт модель под видеокарту, скачает и загрузит.' },
   // ИИ-тестировщик: локальная модель ходит по стенду этого ПК, записи с меткой ТЕСТ-ИИ, в конце убирает их сама
-  { id: 'ait-check', section: 'aitester', sub: 'Один раз на ПК и если что-то не так', title: 'Проверить готовность', risk: 'local', time: '10 с – 2 мин', run: { node: ['tools/ai-tester/run.mjs', '--check'] },
+  { id: 'ait-check', section: 'aitester', extra: true, sub: 'Один раз на ПК и если что-то не так', title: 'Проверить готовность', risk: 'local', time: '10 с – 2 мин', run: { node: ['tools/ai-tester/run.mjs', '--check'] },
     hint: 'Проверяет по шагам: LM Studio, модель, браузер, Docker и стенд. Что не готово — пишет, что нажать.' },
-  { id: 'ait-run', section: 'aitester', sub: 'Главное', title: 'Запустить ИИ-тестировщика', risk: 'local', time: 'сколько выберете', run: { node: ['tools/ai-tester/run.mjs', '--minutes', '{minutes}'] },
+  { id: 'ait-run', section: 'aitester', sub: 'Главное', title: 'Запустить ИИ-тестировщика', risk: 'local', time: 'сколько выберете', run: { node: ['tools/ai-tester/run.mjs', '--detach', '--minutes', '{minutes}'] },
     params: [{ name: 'minutes', label: 'Сколько работать', type: 'select', default: '480', options: [
       { value: '15', label: '15 минут (проба)' }, { value: '60', label: '1 час' }, { value: '240', label: '4 часа' }, { value: '480', label: 'Рабочий день (8 часов)' }, { value: '720', label: '12 часов' }, { value: '1440', label: 'Сутки (24 часа)' }] }],
-    hint: 'Ходит по стенду как менеджер, создаёт записи «ТЕСТ-ИИ». В конце сам их убирает и пишет отчёт. Рабочий сайт не трогает.' },
+    hint: 'ИИ ходит по копии сайта как менеджер и ищет ошибки. Работает в фоне — окно пульта можно закрыть. Сам ставит ИИ, Docker и свежую базу; отчёт Claude разбирает сам. Рабочий сайт не трогает.' },
   { id: 'ait-stop', section: 'aitester', sub: 'Главное', title: 'Остановить ИИ-тестировщика', risk: 'local', time: 'до 2 мин', run: { node: ['tools/ai-tester/run.mjs', '--stop'] },
     hint: 'Тестировщик закончит шаг, уберёт тестовые записи и допишет отчёт.' },
-  { id: 'ait-report', section: 'aitester', sub: 'Главное', title: 'Отчёт ИИ-тестировщика', risk: 'read', time: 'сразу', run: { node: ['tools/ai-tester/run.mjs', '--last'] },
+  { id: 'ait-report', section: 'aitester', extra: true, sub: 'Главное', title: 'Отчёт ИИ-тестировщика', risk: 'read', time: 'сразу', run: { node: ['tools/ai-tester/run.mjs', '--last'] },
     hint: 'Итог последнего дня: ошибки сайта и замечания ИИ. Потом скажите Claude «посмотри отчёт тестировщика».' },
-  { id: 'ait-cleanup', section: 'aitester', sub: 'Один раз на ПК и если что-то не так', title: 'Убрать тестовые записи', risk: 'local', time: '30 с', run: { node: ['tools/ai-tester/run.mjs', '--cleanup'] },
+  { id: 'ait-cleanup', section: 'aitester', extra: true, sub: 'Один раз на ПК и если что-то не так', title: 'Убрать тестовые записи', risk: 'local', time: '30 с', run: { node: ['tools/ai-tester/run.mjs', '--cleanup'] },
     hint: 'Обычно не нужно — тестировщик убирает сам. Нужно, если компьютер выключился во время работы.' },
 ];
 
 export const SWITCHES = [
-  { id: 'sw-local', section: 'stand', title: 'Локальный сайт', state: 'localSite', start: 'stand-up', stop: 'stand-down', link: 'http://localhost:3001/app/',
+  { id: 'sw-local', section: 'stand', extra: true, title: 'Локальный сайт', state: 'localSite', start: 'stand-up', stop: 'stand-down', link: 'http://localhost:3001/app/',
     hint: 'Сайт на этом ПК. Адрес: localhost:3001. Данные при остановке остаются.' },
-  { id: 'sw-night', section: 'stand', title: 'Стенд на копии базы', state: 'nightStand', start: 'night-up', stop: 'night-down', link: 'http://localhost:3102/app/',
+  { id: 'sw-night', section: 'stand', extra: true, title: 'Стенд на копии базы', state: 'nightStand', start: 'night-up', stop: 'night-down', link: 'http://localhost:3102/app/',
     hint: 'Стенд на localhost:3102 из копии. Остановка сохраняет данные.' },
 ];
 

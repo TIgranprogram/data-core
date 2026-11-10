@@ -42,24 +42,36 @@ function toast(text) {
 
 // ---------- разделы и карточки ----------
 
+// «Все кнопки»: служебные (extra — проверки, отчёты, копии; их делают Claude и расписание) видны только по переключателю
+const allMode = () => { try { return localStorage.getItem('pult.all') === '1'; } catch { return false; } };
+const shownCmd = (c) => !c.hidden && (S.all || !c.extra);
+const sectionCount = (s) => (s.id === 'auto' && S.schedule ? S.schedule.items.filter((r) => r.enabled).length
+  : S.catalog.commands.filter((c) => c.section === s.id && shownCmd(c)).length + (S.all ? S.catalog.switches.filter((w) => w.section === s.id).length : 0));
+const sectionShown = (s) => s.id === 'now' || ((S.all || !s.extra) && sectionCount(s) > 0);
+
 function renderNav() {
   const box = $('nav');
   box.replaceChildren();
   const todo = (S.advice?.items || []).filter((x) => x.level !== 'soon');
+  if (!S.catalog.sections.some((s) => s.id === S.section && sectionShown(s))) S.section = 'now';
   for (const g of S.catalog.groups) {
+    const secs = S.catalog.sections.filter((x) => x.group === g.id && sectionShown(x));
+    if (!secs.length) continue;
     if (g.title) { const h = el('div', 'nav-group', g.title); h.dataset.color = g.color; box.append(h); }
-    for (const s of S.catalog.sections.filter((x) => x.group === g.id)) {
-      const count = s.id === 'auto' && S.schedule ? S.schedule.items.filter((r) => r.enabled).length
-        : S.catalog.commands.filter((c) => c.section === s.id && !c.hidden).length + S.catalog.switches.filter((w) => w.section === s.id).length;
+    for (const s of secs) {
       const b = el('button', `nav-item${s.id === S.section && !S.query ? ' on' : ''}`);
       b.dataset.color = g.color;
       b.title = s.hint;
-      const n = s.id === 'now' ? el('span', `n${todo.length ? ' alert' : ''}`, todo.length ? String(todo.length) : '') : el('span', 'n', String(count));
+      const n = s.id === 'now' ? el('span', `n${todo.length ? ' alert' : ''}`, todo.length ? String(todo.length) : '') : el('span', 'n', String(sectionCount(s)));
       b.append(el('span', 'ico', s.icon), el('span', '', s.title), n);
       b.onclick = () => { S.section = s.id; S.query = ''; $('search').value = ''; render(); };
       box.append(b);
     }
   }
+  const t = el('button', 'nav-item nav-all', S.all ? 'Скрыть служебные кнопки' : 'Все кнопки (служебные)');
+  t.title = 'Проверки, отчёты, копии и стенды делают Claude и расписание сами. Нужны — откройте здесь';
+  t.onclick = () => { S.all = !S.all; try { localStorage.setItem('pult.all', S.all ? '1' : '0'); } catch { /* без памяти */ } render(); };
+  box.append(t);
 }
 
 function renderLegend() {
@@ -74,7 +86,7 @@ function renderLegend() {
 
 function visible() {
   const q = S.query.trim().toLowerCase();
-  const shown = S.catalog.commands.filter((c) => !c.hidden);
+  const shown = S.catalog.commands.filter(shownCmd);
   if (!q) {
     // подзаголовки — в порядке раздела (subs): сверху главное, ниже редкое; внутри — порядок каталога
     const subs = S.catalog.sections.find((s) => s.id === S.section)?.subs || [];
@@ -581,8 +593,10 @@ async function loadStatus() {
       pv.textContent = 'Пульт · ?';
       pv.title = 'Сервер не прислал версию пульта';
     } else if (s.restarting || (p.disk && p.stamp && p.disk !== p.stamp)) {
+      // обновится сам, как только закончатся идущие запуски (их нельзя оборвать)
+      const busy = [...S.jobs.values()].some((j) => j.state === 'running');
       pv.className = 'pill warn';
-      pv.textContent = 'Пульт · обновляется';
+      pv.textContent = busy ? 'Пульт · обновится после текущего запуска' : 'Пульт · обновляется';
       pv.title = p.reason || `Отпечаток ${p.stamp} → ${p.disk}`;
     } else if (!p.current) {
       pv.className = 'pill warn';
@@ -598,6 +612,7 @@ async function loadStatus() {
 
 async function start() {
   S.catalog = await api('/api/catalog');
+  S.all = allMode();
   S.schedule = await api('/api/schedule').catch(() => null);
   renderLegend();
   render();
