@@ -103,6 +103,10 @@ export const COMMANDS = [
     run: { bash: ['deploy/synology/c061-trainers-load.sh'] },
     confirm: 'У 92 тренажёров запишется признак «Нагрузка»: 18 — «Изменяемая (грузы)», 74 — «Собственный вес». 4 тренажёра перейдут в группу «Тренажеры». Артикулы и выданные паспорта не меняются.',
     hint: 'Список — docs/crew/C061-trainers-load/REVIEW.md. Повтор безопасен: те же значения.' },
+  { id: 'c061-wrong-category', section: 'deploy', title: 'Паспорта: 8 изделий — не «Уличный тренажёр»', risk: 'prod-write', time: '1 мин', needs: ['bash', 'vm'],
+    run: { bash: ['deploy/synology/c061-wrong-category.sh'] },
+    confirm: 'У 8 изделий (воркаут, ограждение, помост, стойки, павильон) снимется своя категория паспорта «Уличный тренажёр». Будет действовать категория группы: «Воркаут и спортивное оборудование» или «Благоустройство». Выданные паспорта не меняются.',
+    hint: 'Список — docs/crew/C061-trainers-load/wrong-category.json. Повтор безопасен.' },
 
   // ---------- Осмотр ----------
   { id: 'prod-doctor', section: 'site', title: 'Осмотр сайта', risk: 'read', time: '1 мин', needs: ['bash'], run: { bash: ['deploy/synology/doctor.sh'], soft: true }, every: 7, why: 'Раз в неделю: полный осмотр сайта',
