@@ -83,6 +83,10 @@ export const COMMANDS = [
     run: { bash: ['deploy/synology/c054-passport-plan.sh'] },
     confirm: 'В справочники паспортов запишутся признаки и условия пунктов. Выданные паспорта и № 597 не меняются. Запускать только после выкладки воронки паспортов.',
     hint: 'Один раз после выкладки C054. Повтор безопасен: те же значения, дублей не будет.' },
+  { id: 'c061-trainers-load', section: 'deploy', title: 'Тренажёры: грузоблочные и суставные', risk: 'prod-write', time: '1–3 мин', needs: ['bash', 'vm'],
+    run: { bash: ['deploy/synology/c061-trainers-load.sh'] },
+    confirm: 'У 87 тренажёров запишется признак «Нагрузка»: 13 — «Изменяемая (грузы)», 74 — «Собственный вес». 4 тренажёра перейдут в группу «Тренажеры». Артикулы и выданные паспорта не меняются.',
+    hint: 'Список — docs/crew/C061-trainers-load/REVIEW.md. Повтор безопасен: те же значения.' },
 
   // ---------- Осмотр ----------
   { id: 'prod-doctor', section: 'site', title: 'Осмотр сайта', risk: 'read', time: '1 мин', needs: ['bash'], run: { bash: ['deploy/synology/doctor.sh'], soft: true }, every: 7, why: 'Раз в неделю: полный осмотр сайта',
