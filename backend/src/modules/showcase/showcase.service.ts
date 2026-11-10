@@ -454,6 +454,17 @@ export class ShowcaseService {
   async update(id: string, dto: Record<string, unknown>) {
     const _id = oid(id, 'изделия');
     const set = await this.fields(dto, dto.series !== undefined ? (await this.db.collection('products').findOne({ _id }, { projection: { series: 1 } }))?.series : undefined); // серия, которая у изделия уже есть, не перепроверяется
+    // 2026-11-10: пустой артикул в правке — как в создании (подсказка формы обещает «присвоен автоматически»):
+    // у изделия артикул уже есть — не трогаем; нет — следующий по номеру группы; у группы нет номера — понятная ошибка
+    if (dto.sku !== undefined && !clean(dto.sku)) {
+      const cur = await this.db.collection('products').findOne({ _id }, { projection: { sku: 1, categoryId: 1 } });
+      if (cur && clean(cur.sku)) delete dto.sku;
+      else {
+        const auto = await nextSku(this.db, this.counter, ((set.categoryId ?? cur?.categoryId) as Types.ObjectId | null) ?? null);
+        if (!auto) throw new BadRequestException('Укажите артикул или задайте группе номер: Справочники → Группы изделий');
+        dto.sku = auto.sku;
+      }
+    }
     if (dto.sku !== undefined) {
       const sku = clean(dto.sku); if (!sku) throw new BadRequestException('Артикул не может быть пустым');
       // замок префикса: у группы есть номер — меняется только хвост из двух цифр (тот же артикул, что уже у изделия, не трогаем: форма шлёт его целиком)
