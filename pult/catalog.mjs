@@ -223,7 +223,7 @@ export const COMMANDS = [
     hint: 'Проверяет по шагам: LM Studio, модель, браузер, Docker и стенд. Что не готово — пишет, что нажать.' },
   { id: 'ait-run', section: 'aitester', sub: 'Главное', title: 'Запустить ИИ-тестировщика', risk: 'local', time: 'сколько выберете', run: { node: ['tools/ai-tester/run.mjs', '--minutes', '{minutes}'] },
     params: [{ name: 'minutes', label: 'Сколько работать', type: 'select', default: '480', options: [
-      { value: '15', label: '15 минут (проба)' }, { value: '60', label: '1 час' }, { value: '240', label: '4 часа' }, { value: '480', label: 'Рабочий день (8 часов)' }] }],
+      { value: '15', label: '15 минут (проба)' }, { value: '60', label: '1 час' }, { value: '240', label: '4 часа' }, { value: '480', label: 'Рабочий день (8 часов)' }, { value: '720', label: '12 часов' }, { value: '1440', label: 'Сутки (24 часа)' }] }],
     hint: 'Ходит по стенду как менеджер, создаёт записи «ТЕСТ-ИИ». В конце сам их убирает и пишет отчёт. Рабочий сайт не трогает.' },
   { id: 'ait-stop', section: 'aitester', sub: 'Главное', title: 'Остановить ИИ-тестировщика', risk: 'local', time: 'до 2 мин', run: { node: ['tools/ai-tester/run.mjs', '--stop'] },
     hint: 'Тестировщик закончит шаг, уберёт тестовые записи и допишет отчёт.' },
