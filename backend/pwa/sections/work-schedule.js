@@ -80,9 +80,29 @@ function createSchedule(el, p0, set, extra0 = {}) {
     chartBox.querySelector(`[data-row="${NONE}"]`)?.scrollIntoView({ block: 'nearest' });
   }
 
+  /** C053 Э4 «Что горит»: раскрыть строки заказов (или людей) и прокрутить к первой. */
+  function reveal(toLens, ids) {
+    if (!ids.length) return;
+    lens = toLens; savePref('lens', lens); touched = true;
+    for (const id of ids) open.add(id);
+    saveOpen(); paint();
+    const leaf = ids.filter((id) => !id.startsWith('o:')).map((id) => chartBox.querySelector(`[data-row="${CSS.escape(id)}"]`)).find(Boolean); // первая раскрытая позиция, а не заголовок заказа
+    (leaf || chartBox.querySelector(`[data-row="${CSS.escape(ids[0])}"]`))?.scrollIntoView({ block: 'nearest' });
+  }
+  const orderRows = (b) => ['o:' + (b.orderId || b.orderNo || '—'), 'i:' + b.incomeId, 'p:' + b.incomeId + ':' + (b.partRowId || '_')];
+
   function paintBanner() {
-    const n = lens === 'people' ? 0 : data.bars.filter((b) => !b.assigneeId && pass(b, F())).length; // «По людям» они и так первой группой
-    bannerBox.replaceChildren(...(n ? [actions(hint(`Без исполнителя: ${n} ${n === 1 ? 'шаг' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'шага' : 'шагов'} — назначьте людей`, 'warn'), button({ label: 'Показать', size: 'S', onClick: showUnassigned }))] : []));
+    const live = data.bars.filter((b) => b.status !== 'done' && pass(b, F()));
+    const over = live.filter((b) => b.overdue), none = live.filter((b) => !b.assigneeId), design = live.filter((b) => b.inDesign);
+    const cap = new Map(data.people.map((x) => [String(x.id), Number(x.capacityHours) || 0]));
+    const heavy = [...new Set(data.load.filter((l) => cap.get(String(l.personId)) && l.hours > cap.get(String(l.personId))).map((l) => String(l.personId)))];
+    const items = [
+      over.length && button({ label: `Просрочено: ${over.length}`, kind: 'danger', size: 'S', title: 'Показать просроченные шаги', onClick: () => reveal('orders', over.flatMap(orderRows)) }),
+      none.length && button({ label: `Без исполнителя: ${none.length}`, size: 'S', title: 'Показать шаги без исполнителя', onClick: showUnassigned }),
+      heavy.length && button({ label: `Перегружены: ${heavy.length} чел.`, size: 'S', title: 'Показать людей, у кого часов больше, чем в рабочем дне', onClick: () => reveal('people', heavy) }),
+      design.length && button({ label: `В проектировании: ${design.length}`, kind: 'ghost', size: 'S', title: 'Показать шаги, которые ждут проектирования', onClick: () => reveal('orders', design.flatMap(orderRows)) }),
+    ].filter(Boolean);
+    bannerBox.replaceChildren(...(items.length ? [actions(hint('Что горит:'), ...items)] : []));
   }
 
   function paintFilters() {
