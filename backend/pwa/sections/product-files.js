@@ -41,7 +41,8 @@ export function passportSlot({ productId, kind, label, rec, canEdit, required, o
           h('img', { src: src(thumb), alt: name, loading: 'lazy' })),
         canEdit ? button({ label: '×', kind: 'ghost', size: 'S', cls: 'pp-slot-x', title: 'Убрать фото', onClick: del }) : null),
       cap,
-      canEdit ? h('div', { class: 'pp-slot-replace', title: 'Заменить фото' }, passportKindDrop(productId, k, onChange, rec.id, { compact: true })) : null);
+      // 2026-11-10: было «＋ фото» — пользователь загрузил 3 фото, видел одно: в слоте один рисунок, кнопка заменяет
+      canEdit ? h('div', { class: 'pp-slot-replace', title: 'Заменить фото: в паспорт идёт один рисунок этого вида' }, passportKindDrop(productId, k, onChange, rec.id, { compact: true, idle: '⟳ Заменить' })) : null);
   }
   return h('div', { class: 'pp-slot' + (required ? ' need' : '') },
     canEdit ? passportKindDrop(productId, k, onChange, null, { compact: true }) : h('div', { class: 'pp-slot-empty muted' }, 'нет'),
@@ -49,11 +50,11 @@ export function passportSlot({ productId, kind, label, rec, canEdit, required, o
 }
 
 /** Зона загрузки рисунка паспорта. compact — маленькая карточка в сетке (C055). */
-export function passportKindDrop(productId, kind, done, old, { compact = false } = {}) {
+export function passportKindDrop(productId, kind, done, old, { compact = false, idle } = {}) {
   const drop = photoDrop({ purpose: 'passport',
-    idleText: compact ? '＋ фото' : 'Перетащите рисунок сюда или вставьте Ctrl+V',
+    idleText: idle || (compact ? '＋ фото' : 'Перетащите рисунок сюда или вставьте Ctrl+V'),
     attach: async (photoId) => { await attachProductFile(productId, photoId, 'passport', kind, old); return true; },
-    done: () => { toast('Рисунок сохранён'); done?.(); } });
+    done: () => { toast(old ? 'Рисунок заменён — в паспорте один рисунок этого вида' : 'Рисунок сохранён'); done?.(); } });
   if (compact) {
     drop.classList.add('pp-slot-drop');
     drop.querySelector('.btn')?.replaceWith(); // «Выбрать файл» — клик по карточке / Ctrl+V
