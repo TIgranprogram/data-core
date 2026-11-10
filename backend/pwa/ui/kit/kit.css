@@ -686,3 +686,8 @@ table.list td.k-col-wrap { min-width: 11rem; max-width: 0; width: 24%; overflow:
 .fill-note.fill-warn { background: var(--warn-soft); border: 1px solid var(--warn); border-radius: var(--radius-sm); padding: var(--s2) var(--s3); margin-bottom: var(--s3); display: flex; flex-direction: column; gap: var(--s2); }
 .u-pre { white-space: pre-wrap; }
 .hint.u-tight { margin: 0; }
+
+/* Панель в отдельном окне браузера (popout.js, 2026-11-10): на всё окно, без затемнения и полоски ширины */
+.drawer.solo { left: 0; width: 100% !important; max-width: none; box-shadow: none; border-left: 0; animation: none; }
+.drawer.solo > .resizer { display: none; }
+@media (max-width: 720px) { .drawer-head .btn-icon[aria-label="В отдельном окне"] { display: none; } } /* на телефоне отдельных окон нет */

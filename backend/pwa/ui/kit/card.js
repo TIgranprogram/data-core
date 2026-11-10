@@ -15,6 +15,7 @@ import { busyBlock, busyBtn, failBlock } from './busy.js';
 import { buildCardTabs } from './card-tabs.js';
 import { makeResizable } from '../resizer.js';
 import { DOCK_MIN, getPref, setPref } from '../../core/prefs.js';
+import { isSolo, popout, setPopout, soloGeometry } from '../../core/popout.js'; // панель в отдельном окне (2026-11-10)
 
 /**
  * Карточка записи — боковая панель (CANON §2). Режимы: просмотр / правка / создание.
@@ -75,15 +76,20 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   const stripEl = h('div', { class: 'k-head-strip' }); // card.headStrip(row): полоса под заголовком на всю ширину
   const upEl = h('button', { class: 'btn btn-sm drawer-up', type: 'button', hidden: true }); // ТИ-2: явный возврат «← Заказ №…»
   const menuBox = h('div', { class: 'rel' });
+  const solo = isSolo(); const sid = section.id || ''; // в отдельном окне: панель на всё окно, ✕ закрывает окно
+  const popBtn = !sid || mode !== 'view' ? null : solo
+    ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', title: 'Следующие карточки будут открываться справа в основном окне', onclick: () => { setPopout(sid, false); window.close(); } }, 'Открывать в панели')
+    : h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Открыть в отдельном окне — его можно перенести на другой монитор; следующие карточки тоже откроются там', 'aria-label': 'В отдельном окне', onclick: () => { if (popout(sid)) tryClose(); else toast('Браузер не дал открыть окно — разрешите всплывающие окна для сайта', { error: true }); } }, '↗');
   const body = h('div', { class: 'drawer-body' });
   const foot = h('div', { class: 'drawer-foot' });
   const drawer = mark(h('aside', { class: 'drawer', role: 'dialog', 'aria-modal': 'true' },
-    h('div', { class: 'drawer-head' }, h('div', { class: 't' }, upEl, kindEl, h('div', { class: 'k-head-row' }, titleEl, hstEl), subEl, stripEl), menuBox,
-      h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Закрыть панель', 'aria-label': 'Закрыть', onclick: () => tryClose() }, '✕')),
+    h('div', { class: 'drawer-head' }, h('div', { class: 't' }, upEl, kindEl, h('div', { class: 'k-head-row' }, titleEl, hstEl), subEl, stripEl), menuBox, popBtn,
+      h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: solo ? 'Закрыть окно' : 'Закрыть панель', 'aria-label': 'Закрыть', onclick: () => tryClose() }, '✕')),
     body, foot), 'drawer');
   makeResizable(drawer, { prefKey: 'detailW', edge: 'left', label: 'Ширина правой панели' }); // ШП
   const back = h('div', { class: 'drawer-back', onclick: () => tryClose() });
-  const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-back')) tryClose(); };
+  const onKey = (e) => { if (e.key === 'Escape' && !solo && !document.querySelector('.modal-back')) tryClose(); };
+  if (solo) { drawer.classList.add('solo'); back.hidden = true; soloGeometry(); }
   const applyDock = () => { const d = docked(); drawer.classList.toggle('docked', d); back.hidden = d; drawer.setAttribute('aria-modal', d ? 'false' : 'true'); document.body.classList.toggle('detail-open', d); };
   document.addEventListener('keydown', onKey);
   window.addEventListener('resize', applyDock);
@@ -98,6 +104,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   async function tryClose() {
     if (!(await canLeave())) return;
     destroy(); ctx.close();
+    if (solo) window.close();
   }
 
   // ---------- Просмотр ----------

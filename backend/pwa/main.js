@@ -9,7 +9,7 @@ import { $, h } from './core/dom.js';
 import { closeStep, current, go, onChange, onNav, patch, setGuard } from './core/router.js';
 import { confirmDlg, modal } from './ui/kit/dialog.js';
 import { searchBox } from './ui/kit/searchbox.js';
-import { openCard } from './ui/kit/card.js';
+import { openCard } from './ui/kit/card.js'; import { popout, popoutWanted } from './core/popout.js';
 import { installGlobalErrors } from './ui/kit/errors.js';
 import { toast, toastError } from './ui/kit/toast.js';
 import { icon } from './ui/icons.js';
@@ -556,6 +556,8 @@ function syncCard(section, params) {
     });
     card = { key, of: ofName, handle: openCard(sec, { mode: 'create', initial }, ctx) };
   } else {
+    // выбрано «в отдельном окне» для раздела — карточка уходит туда, основное окно не перекрывается (2026-11-10)
+    if (sec.id && !params.fill && popoutWanted(sec.id) && popout(sec.id, { remember: false })) { ctx.close(); return; }
     card = { key, of: ofName, handle: openCard(sec, { id: params.open, fill: params.fill }, ctx) };
   }
 }
