@@ -115,6 +115,11 @@ if [[ $MODE == fast ]]; then
   # папки обновляются на месте (их держит привязка контейнера); version.json — последним, чтобы приложение не закэшировало смесь
   "${SSH[@]}" "TS=$TS bash -s" <<'EOS'
 set -e; R=/tmp/dc-scr-$TS; mkdir -p $R; tar -xzf /tmp/dc-screens.tgz -C $R; cd /opt/data-core
+# ВЫКЛАДКА-404: контейнер должен видеть ту же папку экранов, что на диске (тот же inode); иначе — пересоздать до замены
+for d in pwa admin; do
+  host=$(stat -c %i backend/$d); inside=$(docker exec datacore-backend stat -c %i /app/$d 2>/dev/null || echo нет)
+  if [ "$host" != "$inside" ]; then echo "привязка /app/$d устарела ($inside ≠ $host) — пересоздаю контейнер"; docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate backend >/dev/null; break; fi
+done
 cp -a backend backend.prev-$TS
 rm -f .release-commit
 bash $R/deploy/synology/sync-dir.sh $R/backend/pwa backend/pwa --skip version.json
@@ -142,7 +147,9 @@ mv $R/backend backend; mv $R/deploy deploy; cp $R/docker-compose.prod.yml docker
 EOS
 
 echo "== 3. Сборка и перезапуск backend (mongo не трогаем)"
-"${SSH[@]}" 'set -e; cd /opt/data-core; docker compose -f docker-compose.prod.yml build backend >/tmp/dc-build.log 2>&1; tail -2 /tmp/dc-build.log; docker compose -f docker-compose.prod.yml up -d --no-deps backend'
+"${SSH[@]}" 'set -e; cd /opt/data-core; docker compose -f docker-compose.prod.yml build backend >/tmp/dc-build.log 2>&1; tail -2 /tmp/dc-build.log; docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate backend'
+# 2026-11-10 (ВЫКЛАДКА-404): --force-recreate обязателен. Образ не менялся (выложено только приложение/доки) → без него контейнер
+# не пересоздаётся и держит привязку к backend.replacing-$TS (папка удаляется ниже) → следующий быстрый путь кладёт экраны мимо → /app 404.
 
 # 2026-10-24: кэш сборки Docker копился с каждой выкладкой (42 ГБ) — держим не больше 10 ГБ (2026-10-30: по времени разрослось до 55 ГБ)
 "${SSH[@]}" 'docker builder prune -f --max-used-space 10GB >/dev/null 2>&1; docker image prune -f >/dev/null 2>&1' || true
