@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { buildForest, checkChoices, checkNode, depthOf, missingChoices, parseChoices, presentForest, resolveChoices, toNode, type PhraseNode } from './phrase-tree';
+import { buildForest, forProduct, checkChoices, checkNode, depthOf, missingChoices, parseChoices, presentForest, resolveChoices, toNode, type PhraseNode } from './phrase-tree';
 
 /** Дерево текстов паспорта (воронка, ПВ): видимость, глубина, автовыбор единственного, проверки. */
 const hex = (n: number) => String(n).padStart(24, '0');
@@ -123,5 +123,24 @@ describe('выбор из запроса', () => {
   it('toNode читает запись справочника', () => {
     const n = toNode({ _id: hex(3), name: ' А ', parentId: hex(2), allCategories: true, order: '2', slot: 0, text: 'Т\nТ' });
     expect(n).toEqual(expect.objectContaining({ id: hex(3), name: 'А', parentId: hex(2), allCategories: true, order: 2, slot: 1, text: 'Т\nТ' }));
+  });
+});
+
+describe('forProduct: тексты под изделие (2026-11-10, «грузовой блок» у тренажёра без грузов)', () => {
+  const root = node({ name: 'Обслуживание грузового блока', section: 'maintenance', categories: 'TRN' });
+  const leaf = node({ name: 'Текст', parentId: root.id, text: 'Проверяют фиксаторы грузов.', categories: 'TRN', facetValueIds: ['w'] });
+  const free = node({ name: 'Общий уход', section: 'care', categories: 'TRN' });
+  const freeLeaf = node({ name: 'Текст', parentId: free.id, text: 'Осмотр раз в месяц.', categories: 'TRN' });
+  const forest = buildForest([root, leaf, free, freeLeaf], 'TRN');
+  it('изделие без признака — раздел пропадает целиком, общий остаётся', () => {
+    expect(forProduct(forest, { facetValueIds: new Set(), groupIds: new Set() }).map((r) => r.name)).toEqual(['Общий уход']);
+  });
+  it('изделие с признаком — раздел есть', () => {
+    expect(forProduct(forest, { facetValueIds: new Set(['w']), groupIds: new Set() }).map((r) => r.name)).toEqual(['Обслуживание грузового блока', 'Общий уход']);
+  });
+  it('без изделия — дерево как есть, общий кэш не меняется', () => {
+    expect(forProduct(forest)).toBe(forest);
+    forProduct(forest, { facetValueIds: new Set(), groupIds: new Set() });
+    expect(forest.length).toBe(2);
   });
 });

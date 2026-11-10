@@ -33,7 +33,7 @@ import { PassportIssue } from './passport-issue';
 import { orderIssue, orderPlan, type OrderHost } from './passport-order';
 import { PassportNumbers } from './passport-numbers';
 import { PassportQueries, choiceMissingIn } from './passport-queries';
-import { buildForest, parseChoices, presentForest, resolveChoices, toNode, type PhraseTreeNode, type ProductCtx } from '../../common/passport/phrase-tree';
+import { buildForest, forProduct, parseChoices, presentForest, resolveChoices, toNode, type PhraseTreeNode, type ProductCtx } from '../../common/passport/phrase-tree';
 import { MaterialsSpecRefs, parseMaterialsSpec, type StoredSpec } from '../../common/catalog/materials-table';
 
 @Injectable()
@@ -449,8 +449,8 @@ export class ProductPassportService {
     const load = (d: string) => dv.find({ dict: d, deletedAt: null }).toArray() as unknown as Promise<DictRec[]>;
     const [elements, materials, defects, install] = await Promise.all([load('passportElements'), load('passportMaterials'), load('passportDefects'), load('passportInstall')]);
     // воронка (ПВ): выбор по разделам; вариант раздела «Установка» сам ставит способ установки (схемы, рисунки, основание — в нём)
-    const forest = await this.forest(cat);
     const product = await this.productCtx(p.productId);
+    const forest = forProduct(await this.forest(cat), product); // тексты, привязанные к чужим признакам, изделию не идут
     const resolved = resolveChoices(forest, p.textChoices as Record<string, string> | undefined, product);
     const instRoot = forest.find((r) => r.section === 'installation');
     const instLeaf = instRoot ? resolved.leaves.get(instRoot.id)?.leaf : undefined;
@@ -543,8 +543,8 @@ export class ProductPassportService {
     return this.versions ? this.versions.cached('passports.funnel', ['dict_values'], cat, make) : make();
   }
 
-  /** GET passports/funnel?category=TRN → { sections: [раздел → варианты → подварианты → текст] }. */
-  async funnel(category?: string) { return { sections: presentForest(await this.forest(category)) }; }
+  /** GET passports/funnel?category=TRN&productId= → { sections: [раздел → варианты → подварианты → текст] }; с изделием — без текстов чужих признаков. */
+  async funnel(category?: string, productId?: string) { return { sections: presentForest(forProduct(await this.forest(category), await this.productCtx(productId))) }; }
 
   /** GET passports/funnel?category=&group=&f=&q= → шаги воронки создания паспорта (категория → группа → признаки) и изделия (C028, A2). */
   productFunnel(q: Record<string, unknown>) { return productFunnel(this.connection.db!, q); }
@@ -555,7 +555,7 @@ export class ProductPassportService {
   /** Обязательные разделы воронки без выбора → [{ label, key: 'choice:<id раздела>' }]; текст, набранный вручную, раздел закрывает. */
   private async choiceMissing(d: Doc): Promise<Array<{ label: string; key: string }>> {
     if (!d.passportCategory) return [];
-    return choiceMissingIn(await this.forest(String(d.passportCategory)), d);
+    return choiceMissingIn(forProduct(await this.forest(String(d.passportCategory)), await this.productCtx(d.productId)), d);
   }
 
   /** Черновик с собранным текстом пересобирается при открытии, если «Тексты паспорта» менялись позже снимка; правленный руками и выпущенный — нет. */

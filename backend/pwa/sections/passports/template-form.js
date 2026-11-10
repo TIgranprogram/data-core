@@ -1,6 +1,6 @@
 import { api, PREFIX, session } from '../../core/api.js';
 import { h } from '../../core/dom.js';
-import { actions, badge, button, enhanceSelect, hint, section, segmented, select, stack, tagPick, textInput, toast, toastError } from '../../ui/kit/index.js';
+import { actions, badge, button, enhanceSelect, fieldRow, hint, section, segmented, select, stack, tagPick, textInput, toast, toastError } from '../../ui/kit/index.js';
 import { FULL_KINDS, kindName, kindNorm } from '../../core/passport-kinds.js';
 import { canEdit as canEditTexts, dictRows, passportCategoryOptions } from './common.js';
 import { elementsTexts } from './elements-block.js';
@@ -80,11 +80,24 @@ export async function templateForm(r) {
       if (node) hosts[boxOf(s)].append(node);
     }
     if (secs.other) secs.other.hidden = !hosts.other.childNodes.length;
-    installBox.hidden = !!apiBox.fb.installTypeId();
+    // один выбор способа установки: плитки «Установка», если их варианты сопоставимы со справочником; иначе — отдельный список
+    const inst = apiBox.fb.install();
+    installBox.hidden = inst.leaves.some((l) => typeOfLeaf(l));
+    syncInstall(inst);
+  }
+  /** Уже выбранный способ установки (старое поле) — отметить соответствующую плитку текста один раз. */
+  let synced = false;
+  function syncInstall(inst) {
+    if (synced || !inst.section || !inst.leaves.length) return;
+    synced = true;
+    const was = String(r.passportDefaults?.installationTypeId || '');
+    if (inst.chosen || !was) return;
+    const leaf = inst.leaves.find((l) => typeOfLeaf(l) === was);
+    if (leaf && can) setTimeout(() => apiBox.fb.choose(inst.section.id, leaf.id), 0);
   }
   apiBox.fb = funnelBox({
     value: JSON.stringify(r.passportDefaults?.textChoices || {}),
-    category: catSel.value, canEditText: can, onPaint: place,
+    category: catSel.value, canEditText: can, onPaint: place, productId: r.id,
   });
 
   const els = elementsTexts(elRows);
@@ -123,6 +136,15 @@ export async function templateForm(r) {
     const cats = String(d.categories || '').split(/[,;\s]+/).filter(Boolean);
     return !cats.length || cats.includes(catSel.value);
   }).map((d) => [String(d.id || d._id), d.name || '']);
+  /** Способ установки по варианту текста: привязка из справочника, иначе по слову («Анкерное крепление» ↔ «Анкеры на фундамент»). */
+  const STEMS = [/анкер/i, /бетон/i, /заклад/i, /свобод|без креп/i];
+  const stemOf = (s) => STEMS.findIndex((re) => re.test(String(s || '')));
+  function typeOfLeaf(leaf) {
+    if (!leaf) return '';
+    if (leaf.installTypeId) return String(leaf.installTypeId);
+    const i = stemOf(leaf.name);
+    return i < 0 ? '' : instOpts.find(([, n]) => stemOf(n) === i)?.[0] || '';
+  }
   const instSel = select({
     label: 'Способ установки',
     options: [['', 'Выберите…'], ...instOpts],
@@ -131,7 +153,7 @@ export async function templateForm(r) {
     onChange: (v) => { if (v) save(() => putDefaults(r, { installationTypeId: v })); },
   });
   if (instOpts.length > 12) enhanceSelect(instSel);
-  installBox.replaceChildren(hint('В текстах «Установка» нет привязки — выберите способ здесь.'), instSel);
+  installBox.replaceChildren(hint('Вариант текста не подсказывает способ установки — выберите его здесь.'), instSel);
 
   function pdmBtn(kind, title) {
     const file = pdm.find((f) => f.docKind === kind && f.url);
@@ -147,11 +169,11 @@ export async function templateForm(r) {
 
   const general = block('general', 'Общие сведения', [slotHost.general, users]);
   const purpose = block('purpose', 'Назначение и элементы', [elPick.el, hosts.purpose, elTexts]);
-  const dimSec = block('dims', 'Габариты и виды', [stack(...dims, weight), slotHost.dims]);
+  const dimSec = block('dims', 'Габариты и виды', [fieldRow(...dims, weight), slotHost.dims]);
   const struct = block('struct', 'Конструкция и материалы', [joints.el, hint('Как поставляется'), kitSeg.el, matLine, matBtn, slotHost.struct]);
   const instSec = block('install', 'Установка', [installBox, hosts.install, slotHost.install]);
   const assembly = block('assembly', 'Сборка', [hosts.assembly, slotHost.assembly]);
-  const opsSec = block('ops', 'Эксплуатация и гарантия', [stack(...ops), hosts.ops]);
+  const opsSec = block('ops', 'Эксплуатация и гарантия', [fieldRow(...ops), hosts.ops]);
   const other = block('other', 'Другие тексты', hosts.other);
   assembly.hidden = !r.passportDefaults?.isKit;
 
@@ -172,7 +194,7 @@ export async function templateForm(r) {
   async function saveTexts() {
     if (!can) return;
     const choices = JSON.parse(apiBox.fb.value || '{}');
-    const inst = apiBox.fb.installTypeId();
+    const inst = typeOfLeaf(apiBox.fb.installLeaf());
     const change = { textChoices: choices };
     if (catSel.value) change.passportCategory = catSel.value;
     if (inst) change.installationTypeId = inst;

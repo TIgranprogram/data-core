@@ -126,9 +126,10 @@ export class ProductPassportController {
   @ApiQuery({ name: 'group', required: false, description: 'C028: id группы изделий' })
   @ApiQuery({ name: 'f', required: false, description: 'C028: id значений признаков через запятую; none:<id или код признака> — изделия без значения' })
   @ApiQuery({ name: 'q', required: false, description: 'C028: поиск по всем изделиям (название, артикул); шаги не сужают' })
+  @ApiQuery({ name: 'productId', required: false, description: 'Изделие: тексты, привязанные к чужим признакам и группам, не приходят' })
   async funnel(@Query() q: Record<string, string>) {
     // тексты воронки ({ sections }) — как раньше; шаги создания паспорта ({ category, steps, products }) добавлены рядом (C028)
-    return { ...(await this.service.funnel(q.category)), ...(await this.service.productFunnel(q)) };
+    return { ...(await this.service.funnel(q.category, q.productId)), ...(await this.service.productFunnel(q)) };
   }
 
   /** C028: чего не хватает изделию для паспорта — { category, missing[] }, только пустое. */

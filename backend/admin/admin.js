@@ -1769,7 +1769,7 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
   $('#server-refresh').addEventListener('click', serverIdle);
   async function loadConnect() {
     $('#cx-base').textContent = BASE_URL;
-    loadAppCard();
+    window.appsCard?.({ $, api, authFetch, fmtDate, toast });
     renderCode();
     try {
       if (!cxState.schema) cxState.schema = await api('/meta/schema');

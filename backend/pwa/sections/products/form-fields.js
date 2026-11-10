@@ -116,7 +116,7 @@ export function productForm() {
             }); fill();
           } },
         { key: 'pdChoices', label: 'Тексты паспорта — выбор (монтаж, назначение…)', type: 'widget', wide: true, summary: () => '',
-          widget: (v) => (pdFunnel = funnelBox({ value: v, category: pd0.passportCategory || r?.passportCategory?.code || '', canEditText: canEditPassportTexts() })),
+          widget: (v) => (pdFunnel = funnelBox({ value: v, category: pd0.passportCategory || r?.passportCategory?.code || '', canEditText: canEditPassportTexts(), productId: r?.id || '' })),
           // выбранная «Установка» задаёт способ установки сама (сервер так и делает) — отдельный список не нужен
           mount: (api) => {
             const sync = () => {

@@ -4,11 +4,11 @@ import { busyBlock, failBlock } from '../ui/kit/busy.js';
 import { current, patch } from '../core/router.js';
 import { confirmDlg, modal } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
-import { button, select, empty } from '../ui/kit/index.js';
+import { button, select, empty, tagPick } from '../ui/kit/index.js';
 import { catChips } from '../ui/cat-chips.js';
 import { dupeCounts, qualityBadges, qualityFilter } from '../ui/quality.js';
 import { LATER_CATS, dictRows } from './passports/common.js';
-import { VARS, canEditTexts } from './passport-texts.js';
+import { VARS, VAR_LABELS, canEditTexts } from './passport-texts.js';
 
 /**
  * «Справочники → Паспорта → Тексты паспорта» (ПВ, 2026-10-25): слева дерево «раздел → вариант → подвариант» с метками «пусто» / «дубль · N»
@@ -100,6 +100,14 @@ export function mountTree() {
 }
 
 // ─── правая панель ───────────────────────────────────────────────────────────────────────────────
+/** Значения признаков изделий для «К каким изделиям»: подпись — значение, под ней — признак. */
+async function facetOptions() {
+  const [vals, facets] = await Promise.all([dictRows('productFacetValues'), dictRows('productFacets')]);
+  const fname = new Map(facets.map((f) => [String(f.id || f._id), f.name]));
+  return vals.map((v) => ({ value: String(v.id || v._id), label: v.name || 'без названия', sub: fname.get(String(v.parentId)) || '' }));
+}
+const groupOptions = async () => (await dictRows('productGroups')).map((g) => ({ value: String(g.id || g._id), label: g.name || 'без названия' }));
+
 async function getNode(id) {
   const d = await loadTree();
   const m = shape(d.items);
@@ -108,10 +116,11 @@ async function getNode(id) {
     if (!parent) throw new Error('Раздел не найден — список обновился. Закройте панель и выберите заново.');
     return { id, kind: 'new', parentId: parent.id, rootName: m.rootOf(parent).name, pathText: m.path(parent).join(' › '), cats: d.cats, text: '', name: '', allCategories: true, categories: '', order: (m.children(parent.id).at(-1)?.order || 0) + 1 };
   }
-  const full = await api(`${DICT}/${id}`);
+  const [full, facetOpts, groupOpts] = await Promise.all([api(`${DICT}/${id}`), facetOptions(), groupOptions()]);
   const n = norm(full);
   if (!m.byId.has(n.id)) m.byId.set(n.id, n);
-  return { ...full, ...n, kind: 'node', cats: d.cats, hasChildren: m.children(n.id).length > 0, isRoot: !n.parentId, pathText: m.path(n).slice(0, -1).join(' › '), rootName: m.rootOf(n).name,
+  return { ...full, ...n, kind: 'node', cats: d.cats, facetOpts, groupOpts,
+    facetValueIds: (full.facetValueIds || []).map(String), groupIds: (full.groupIds || []).map(String), hasChildren: m.children(n.id).length > 0, isRoot: !n.parentId, pathText: m.path(n).slice(0, -1).join(' › '), rootName: m.rootOf(n).name,
     siblings: m.leavesOf(m.rootOf(n).id).filter((l) => l.id !== n.id && l.parentId).map((l) => ({ id: l.id, name: l.name, text: l.text })) };
 }
 
@@ -126,7 +135,11 @@ function nodeForm(r) {
   const chips = !isRoot ? catChips({ options: r.cats, value: r.categories || '', all: r.allCategories, label: 'К каким категориям подходит текст', later: LATER_CATS }) : null;
   const err = h('div', { class: 'err', hidden: true });
   const insert = (v) => { const s = ta.selectionStart ?? ta.value.length, e = ta.selectionEnd ?? s; ta.value = ta.value.slice(0, s) + v + ta.value.slice(e); ta.focus(); ta.selectionStart = ta.selectionEnd = s + v.length; };
-  const vars = h('div', { class: 'pt-vars' }, ...VARS.map((v) => h('button', { type: 'button', class: 'tag', onclick: () => insert(v) }, v === '{std:' ? '{std:КОД}' : v)));
+  const vars = h('div', { class: 'pt-vars' }, ...VARS.map((v) => h('button', { type: 'button', class: 'tag', title: 'В текст вставится ' + (v === '{std:' ? '{std:КОД}' : v), onclick: () => insert(v) }, VAR_LABELS[v] || v)));
+  // к каким изделиям: значения признаков и группы (пусто — всем изделиям категории); чужим изделиям текст не предлагается и в паспорт не идёт
+  const facetPick = r.facetOpts?.length ? tagPick({ label: 'Значения признаков', options: r.facetOpts, value: r.facetValueIds || [] }) : null;
+  const groupPick = r.groupOpts?.length ? tagPick({ label: 'Группы изделий', options: r.groupOpts, value: r.groupIds || [] }) : null;
+  const ids = (p) => { try { return JSON.parse(p.value || '[]'); } catch { return []; } };
   const tools = [];
   if (r.kind === 'node' && !isRoot && !r.hasChildren) tools.push(button({ label: 'Объединить с…', size: 'S', onClick: () => mergeInto(r) }));
   if (r.kind === 'node' && !isRoot) tools.push(button({ label: 'Убрать', kind: 'danger', size: 'S', onClick: () => removeNode(r) }));
@@ -136,14 +149,18 @@ function nodeForm(r) {
     h('p', { class: 'hint wide' }, where, ' Выданные паспорта не меняются; черновики подхватят новый текст при открытии.'),
     h('label', { class: 'field wide' }, h('span', null, isRoot ? 'Название раздела' : 'Название варианта', h('span', { class: 'req' }, ' *')), name),
     leaf ? h('label', { class: 'field wide' }, h('span', null, 'Текст'), ta, err) : null,
-    leaf ? h('details', { class: 'month-group wide' }, h('summary', null, `Переменные (${VARS.length}) — клик вставляет в текст`), vars, h('div', { class: 'hint' }, 'Пустая переменная в паспорте видна как «[{имя} не заполнено]».')) : null,
+    leaf ? h('details', { class: 'month-group wide' }, h('summary', null, `Переменные (${VARS.length}) — клик вставляет в текст`), vars, h('div', { class: 'hint' }, 'Если у изделия значение не заполнено, в паспорте будет «[… не заполнено]».')) : null,
+    facetPick || groupPick ? h('div', { class: 'field wide' }, h('span', null, 'К каким изделиям'),
+      facetPick ? h('div', { class: 'hint' }, 'По признакам — например, «Изменяемая (грузы)»: текст получат только изделия с этим значением.') : null, facetPick?.el,
+      groupPick ? h('div', { class: 'hint' }, 'По группам изделий. Ничего не отмечено — текст для всех изделий выбранных категорий.') : null, groupPick?.el) : null,
     chips ? h('div', { class: 'field wide' }, h('span', null, 'К каким категориям', h('span', { class: 'req' }, ' *')), chips.el, h('div', { class: 'hint' }, '«Для всех» — подходит любой категории; иначе отметьте нужные.')) : null,
     h('label', { class: 'field span-1' }, h('span', null, 'Порядок'), order),
     !isRoot ? h('label', { class: 'pt-check span-2' }, def, ' По умолчанию (подставляется, пока не выбран другой)') : null,
     isRoot ? h('label', { class: 'pt-check span-2' }, req, ' Обязательный раздел (без выбора паспорт не выпустить)') : null,
     tools.length ? h('div', { class: 'wide actions' }, ...tools) : null);
   const values = () => ({ name: name.value.trim(), ...(leaf ? { text: ta.value.trim() } : {}), ...(chips ? { categories: chips.value, allCategories: chips.all } : {}),
-    ...(order.value.trim() ? { order: Number(order.value.replace(',', '.')) || 0 } : {}), ...(isRoot ? { required: req.checked } : { isDefault: def.checked }) });
+    ...(order.value.trim() ? { order: Number(order.value.replace(',', '.')) || 0 } : {}), ...(isRoot ? { required: req.checked } : { isDefault: def.checked }),
+    ...(facetPick ? { facetValueIds: ids(facetPick) } : {}), ...(groupPick ? { groupIds: ids(groupPick) } : {}) });
   const start = JSON.stringify(values());
   let removed = false; r.onRemoved = () => { removed = true; };
   return {

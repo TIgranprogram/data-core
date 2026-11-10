@@ -80,3 +80,9 @@ test('ДС-1: вид карточки и правила наведения', asy
   assert.equal(hoverRuleFindings([{ sel: '.k-hover:hover', transform: 'translateY(-2px)', shadow: 'var(--shadow-lg)' }]).length, 1);
   assert.equal(hoverRuleFindings([{ sel: '.col-body .tcard:hover', transform: 'translateY(-1px)', shadow: '' }]).length, 1);
 });
+
+test('правило v: поле выше содержимого', async () => {
+  const { fieldHeightFindings } = await import('./site-audit.mjs');
+  assert.deepEqual(fieldHeightFindings([{ sel: 'f', label: 'Гарантия', height: 260, content: 66 }]).map((x) => x.rule), ['v']);
+  assert.equal(fieldHeightFindings([{ sel: 'f', label: 'Гарантия', height: 70, content: 66 }]).length, 0);
+});

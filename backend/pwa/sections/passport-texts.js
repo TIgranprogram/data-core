@@ -35,6 +35,15 @@ export const CATS = [
 /** Переменные (§3.3 п. 8) — подсказка; клик вставляет в текст. */
 export const VARS = ['{name}', '{article}', '{code}', '{serialNo}', '{ageFrom}', '{ageTo}', '{heightMin}', '{heightMax}', '{weightMax}', '{maxUsers}', '{fallHeight}',
   '{siteL}', '{siteW}', '{serviceLifeYears}', '{warrantyMonths}', '{tempMin}', '{tempMax}', '{manufacturer}', '{std:', '{fig:overview}', '{tab:defects-daily}'];
+/** Русские подписи переменных для кнопок «вставить в текст» (пользователь 2026-11-10: «непонятные кружочки» — коды на экране не видны). */
+export const VAR_LABELS = {
+  '{name}': 'Название изделия', '{article}': 'Артикул', '{code}': 'Код изделия', '{serialNo}': 'Заводской номер',
+  '{ageFrom}': 'Возраст от', '{ageTo}': 'Возраст до', '{heightMin}': 'Рост от', '{heightMax}': 'Рост до',
+  '{weightMax}': 'Вес пользователя до', '{maxUsers}': 'Пользователей одновременно', '{fallHeight}': 'Высота падения',
+  '{siteL}': 'Площадка: длина', '{siteW}': 'Площадка: ширина', '{serviceLifeYears}': 'Срок службы', '{warrantyMonths}': 'Гарантия',
+  '{tempMin}': 'Температура от', '{tempMax}': 'Температура до', '{manufacturer}': 'Изготовитель',
+  '{std:': 'Ссылка на стандарт (ГОСТ)', '{fig:overview}': 'Рисунок «Общий вид»', '{tab:defects-daily}': 'Таблица ежедневного осмотра',
+};
 const LEAD = /^\s*\d+(?:\.\d+)*\.?\s+/;
 
 const catOf = (c) => (CATS.some((x) => x.code === c) ? c : 'TRN');

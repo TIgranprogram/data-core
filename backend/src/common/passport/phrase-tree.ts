@@ -104,6 +104,22 @@ const matchesProduct = (n: PhraseTreeNode, ctx?: ProductCtx) =>
   !!ctx && (!!n.facetValueIds?.some((x) => ctx.facetValueIds.has(x)) || !!n.groupIds?.some((x) => ctx.groupIds.has(x)));
 
 /**
+ * Дерево под изделие (2026-11-10, «Обслуживание грузового блока» у тренажёра без грузов): узел, привязанный к признакам/группам,
+ * которых у изделия нет, убирается вместе с веткой; ветка и раздел без вариантов — тоже. Без `ctx` (изделие неизвестно) — как есть.
+ * Возвращает новые объекты: общий кэшированный лес не меняется.
+ */
+export function forProduct(forest: PhraseTreeNode[], ctx?: ProductCtx): PhraseTreeNode[] {
+  if (!ctx) return forest;
+  const cut = (n: PhraseTreeNode): PhraseTreeNode | null => {
+    if (isBound(n) && !matchesProduct(n, ctx)) return null;
+    if (!n.children.length) return n;
+    const kids = n.children.map(cut).filter((c): c is PhraseTreeNode => !!c);
+    return kids.length ? { ...n, children: kids } : null;
+  };
+  return forest.map(cut).filter((r): r is PhraseTreeNode => !!r);
+}
+
+/**
  * От узла вниз до листа: единственный вариант — сам; несколько — отмеченный «по умолчанию»; иначе выбора нет (null).
  * С `ctx` (C028 B2): сначала вариант, привязанный к признакам/группе изделия; лист, привязанный к чужим, сам не выбирается никогда.
  */

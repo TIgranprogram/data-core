@@ -34,6 +34,9 @@ export const RULES = {
   r: 'A3-r: кликабельная карточка без наведения k-hover (подъём и тень отличаются)',
   t: 'панель: блоки или кнопки слиплись (зазор меньше 6px)',
   u: 'текст кнопки / вкладки обрезан (пользователь 2026-11-08: «Уместит» в Ганте)',
+  v: 'поле формы выше своего содержимого — пустое место под полем (пользователь 2026-11-10: шаблон паспорта)',
+  w: 'кнопка или метка без видимого текста — пустой «кружок» (пользователь 2026-11-10: переменные текстов паспорта)',
+  y: 'загрузка не закончилась: «Проверяю… / Загружаю…» осталось на экране (пользователь 2026-11-10: карточка приложения PDM)',
 };
 
 /**
@@ -77,6 +80,33 @@ export function gapSnapshot(doc = document) {
     groups.push({ sel: '.drawer .actions', dir: 'row', rects: [...row.children].filter((el) => el.matches('button,a,.btn') && shown(el)).map(rect) });
   }
   return groups;
+}
+
+
+/**
+ * Правило v (пользователь 2026-11-10: «много пустых мест» в шаблоне паспорта — поле textInput растянулось в колонке на 200 px).
+ * fields = [{ sel, label, height, content }] — высота поля и сумма высот его видимых детей с зазорами; лишнее больше slack — находка.
+ */
+export function fieldHeightFindings(fields = [], slack = 24) {
+  const out = [];
+  for (const f of fields) {
+    const extra = Math.round(f.height - f.content);
+    if (extra > slack) out.push({ rule: 'v', sel: f.sel, text: `поле «${f.label || '—'}»: пустое место ${extra}px` });
+  }
+  return out;
+}
+
+/** Снимок для fieldHeightFindings в браузере: поля форм правой панели. */
+export function fieldHeightSnapshot(doc = document) {
+  const out = [];
+  for (const el of doc.querySelectorAll('.drawer .field')) {
+    const r = el.getBoundingClientRect(); if (!r.height) continue;
+    const kids = [...el.children].map((c) => c.getBoundingClientRect()).filter((k) => k.height);
+    if (!kids.length) continue;
+    const content = Math.max(...kids.map((k) => k.bottom)) - Math.min(...kids.map((k) => k.top));
+    out.push({ sel: '.drawer .field', label: (el.querySelector('span')?.textContent || '').trim().slice(0, 40), height: r.height, content });
+  }
+  return out;
 }
 
 // ---------- чистые функции (проверяются в site-audit.test.mjs) ----------
@@ -281,6 +311,9 @@ for(const el of document.querySelectorAll('main :is(article,.tcard,.tile,.db-ord
   else if(getComputedStyle(el).cursor==='pointer'&&!el.classList.contains('k-hover'))add('r',sel(el),(el.innerText||'').trim().slice(0,40)||'карточка без текста')}
 for(const f of (${panelStructureFindings.toString()}) ((${panelStructureSnapshot.toString()})()))add(f.rule,f.sel,f.text);
 for(const f of (${gapFindings.toString()}) ((${gapSnapshot.toString()})()))add(f.rule,f.sel,f.text);
+for(const f of (${fieldHeightFindings.toString()}) ((${fieldHeightSnapshot.toString()})()))add(f.rule,f.sel,f.text);
+for(const n of document.querySelectorAll('p,span,div')){if(n.children.length)continue;const t=(n.textContent||'').trim();const q=n.getBoundingClientRect();if(q.width&&/^(Проверяю|Загружаю|Читаю)[^.]{0,40}…$/.test(t))add('y',n.id?'#'+n.id:n.tagName.toLowerCase(),t)}
+for(const b of document.querySelectorAll('button,.tag,.chip')){const q=b.getBoundingClientRect();if(!q.width||!q.height)continue;if(!(b.innerText||'').trim()&&!b.querySelector('svg,img,.ico,[class*=icon]')&&!b.getAttribute('aria-label'))add('w',b.className?'.'+String(b.className).split(' ')[0]:b.tagName.toLowerCase(),'пустая кнопка: '+(b.title||b.outerHTML.slice(0,60)))}
 return out})()`;
 
 const JS_TOKENS = (() => {

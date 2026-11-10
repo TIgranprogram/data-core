@@ -9,16 +9,19 @@ import { link } from './kit/index.js';
  * Данные: GET /passports/funnel?category=… → { sections: [{ id, name, section, required, children: [узел { id, name, text?, isDefault?, children? }] }] }.
  * Выбор — textChoices: { [id раздела]: id листа }. Единственный вариант и «по умолчанию» подставляются сами (в значение не пишутся,
  * сервер делает то же); шаг с выбором сворачивается в строку «Монтаж: … · Изменить», под ней текст в 2 строки.
- *   funnelBox({ value, category, canEditText, onPaint(sections), only }) → { el, value (JSON), setCategory(code), refresh(), stepEl(rootId), roots() }
+ *   funnelBox({ value, category, canEditText, onPaint(sections), only }) → { el, value (JSON), setCategory(code), refresh(), stepEl(rootId), roots(),
+ *     install(), installLeaf(), installTypeId(), choose(rootId, leafId) }
+ * productId — изделие: сервер не пришлёт тексты, привязанные к чужим признакам и группам («грузовой блок» у тренажёра без грузов).
  * only — один корень (id, section или название) или список: в el только они. onPaint — после каждой отрисовки (можно разнести корни по разделам).
  * Событие change всплывает от el при каждом выборе.
  */
 const cache = new Map();
-export function loadFunnel(category, force) {
-  const hit = cache.get(category);
+export function loadFunnel(category, force, productId = '') {
+  const key = category + '|' + productId;
+  const hit = cache.get(key);
   if (!force && hit && Date.now() - hit.at < 60000) return hit.p;
-  const p = api('/passports/funnel', { query: { category } }).catch((e) => { cache.delete(category); throw e; });
-  cache.set(category, { at: Date.now(), p });
+  const p = api('/passports/funnel', { query: { category, ...(productId ? { productId } : {}) } }).catch((e) => { cache.delete(key); throw e; });
+  cache.set(key, { at: Date.now(), p });
   return p;
 }
 export const resetFunnel = () => cache.clear();
@@ -44,9 +47,22 @@ function autoFrom(level, path) {
   }
   return out;
 }
-const hint = (n) => (isLeaf(n) ? plain(n.text).slice(0, 70) : n.children.map((c) => c.name).slice(0, 3).join(' · '));
+/** Общее начало текстов соседних вариантов (по словам): в подсказке плитки его не показываем — иначе у всех одно и то же. */
+function commonLead(nodes) {
+  const texts = nodes.filter(isLeaf).map((n) => plain(n.text)).filter(Boolean);
+  if (texts.length < 2) return '';
+  const words = texts.map((t) => t.split(' '));
+  let i = 0;
+  while (words.every((w) => i < w.length - 1 && w[i] === words[0][i])) i++;
+  return i >= 3 ? words[0].slice(0, i).join(' ') : '';
+}
+const hint = (n, lead = '') => {
+  if (!isLeaf(n)) return n.children.map((c) => c.name).slice(0, 3).join(' · ');
+  const t = plain(n.text);
+  return (lead && t.startsWith(lead) ? '…' + t.slice(lead.length) : t).slice(0, 70);
+};
 
-export function funnelBox({ value, category = '', canEditText = false, onPaint, only } = {}) {
+export function funnelBox({ value, category = '', canEditText = false, onPaint, only, productId = '' } = {}) {
   const parse = (v) => { if (v && typeof v === 'object') return { ...v }; try { const o = JSON.parse(v || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch { return {}; } };
   let choices = parse(value);
   let cat = category; let data = null; let failed = null; let seq = 0;
@@ -73,9 +89,12 @@ export function funnelBox({ value, category = '', canEditText = false, onPaint, 
     if (isLeaf(full[full.length - 1])) { choices[s.id] = full[full.length - 1].id; delete partial[s.id]; editing.delete(s.id); }
     paint(); fire();
   }
-  const optRow = (s, depth, nodes, chosen) => h('div', { class: 'pf-opts pp-opts', role: 'radiogroup', 'aria-label': depth ? 'Уточнение' : s.name },
-    ...nodes.map((n) => h('button', { type: 'button', role: 'radio', class: 'pf-opt', 'aria-checked': String(chosen?.id === n.id), onclick: () => pick(s, depth, n) },
-      h('b', null, n.name), hint(n) ? h('small', null, hint(n)) : null)));
+  const optRow = (s, depth, nodes, chosen) => {
+    const lead = commonLead(nodes);
+    return h('div', { class: 'pf-opts pp-opts', role: 'radiogroup', 'aria-label': depth ? 'Уточнение' : s.name },
+      ...nodes.map((n) => h('button', { type: 'button', role: 'radio', class: 'pf-opt', 'aria-checked': String(chosen?.id === n.id), onclick: () => pick(s, depth, n) },
+        h('b', null, n.name), hint(n, lead) ? h('small', null, hint(n, lead)) : null)));
+  };
 
   function textBlock(s, leaf) {
     const full = plain(leaf.text);
@@ -133,7 +152,7 @@ export function funnelBox({ value, category = '', canEditText = false, onPaint, 
   async function refresh(force) {
     const my = ++seq; failed = null; data = null; paint();
     if (!cat) return;
-    try { const d = await loadFunnel(cat, force); if (my === seq) data = d; } catch (e) { if (my === seq) failed = e; }
+    try { const d = await loadFunnel(cat, force, productId); if (my === seq) data = d; } catch (e) { if (my === seq) failed = e; }
     if (my === seq) { paint(); fire(); }
   }
   // вернулись из справочника (правили текст в соседней вкладке) — подтянуть свежее
@@ -143,7 +162,7 @@ export function funnelBox({ value, category = '', canEditText = false, onPaint, 
     seen = true;
     if (!cat || !data) return;
     const my = seq;
-    loadFunnel(cat, true).then((d) => { if (my === seq && el.isConnected) { data = d; paint(); } }).catch(() => {});
+    loadFunnel(cat, true, productId).then((d) => { if (my === seq && el.isConnected) { data = d; paint(); } }).catch(() => {});
   };
   window.addEventListener('focus', onFocus);
   refresh();
@@ -162,12 +181,23 @@ export function funnelBox({ value, category = '', canEditText = false, onPaint, 
       if (had && cat) toast('Категория сменилась — выберите шаги текста заново');
     },
     /** Способ установки, который задаёт выбранный вариант раздела «Установка» ('' — не задаёт или не выбран). */
-    installTypeId() {
-      const s = (data?.sections || []).find((x) => x.section === 'installation');
-      if (!s) return '';
-      const e = effective(s); const leaf = e.path[e.path.length - 1];
-      return leaf && isLeaf(leaf) && leaf.installTypeId ? String(leaf.installTypeId) : '';
+    installTypeId() { const leaf = this.installLeaf(); return leaf?.installTypeId ? String(leaf.installTypeId) : ''; },
+    /** Раздел «Установка»: { section, leaves — все конечные варианты, chosen — выбран ли вариант руками }; нет раздела — section null. */
+    install() {
+      const s = (data?.sections || []).find((x) => x.section === 'installation') || null;
+      const leaves = []; const walk = (ns) => { for (const n of ns || []) { if (isLeaf(n)) leaves.push(n); else walk(n.children); } };
+      if (s) walk(s.children);
+      return { section: s, leaves, chosen: !!(s && choices[s.id]) };
     },
+    /** Выбранный (или подставленный) конечный вариант раздела «Установка»; null — не выбран. */
+    installLeaf() {
+      const { section: s } = this.install();
+      if (!s) return null;
+      const e = effective(s); const leaf = e.path[e.path.length - 1];
+      return leaf && isLeaf(leaf) ? leaf : null;
+    },
+    /** Выбрать вариант раздела программно (как нажатие на плитку). */
+    choose(rootId, leafId) { choices[rootId] = leafId; delete partial[rootId]; editing.delete(rootId); paint(); fire(); },
     stepEl: (rootId) => el.querySelector(`[data-root="${rootId}"]`),
     roots: () => (data?.sections || []).filter((s) => s.children?.length),
   };
