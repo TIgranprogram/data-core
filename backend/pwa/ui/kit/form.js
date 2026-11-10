@@ -90,7 +90,7 @@ export function buildForm(fields, initial = {}) {
       continue;
     }
     if (f.type === 'pick') {
-      let items = null; let catSel = '';
+      let items = null; let catSel = ''; const picked = new Set();
       const load = async () => { items ??= await f.load().catch(() => []); return items; };
       const cat = h('input', { placeholder: 'Выберите категорию', 'aria-label': 'Категория' });
 const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиция из «${name}» — начните печатать или выберите` : 'Сначала выберите категорию'; };
@@ -112,12 +112,13 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
           options: () => (catSel ? items.filter((x) => x.cat === catSel).map((x) => ({ label: x.label, sub: x.sub, x })) : []),
           empty: () => (catSel ? null : (cat.classList.add('need'), setTimeout(() => cat.classList.remove('need'), 1600), '← Сначала выберите категорию — тогда здесь будут её позиции')),
           onPick: (o) => {
-            for (const [k, val] of Object.entries(o.x.values || {})) { const xx = inputs.get(k); if (xx && val != null && val !== '') { xx.input.value = String(val); if (xx.input.type === 'hidden') xx.input.dispatchEvent(new Event('change', { bubbles: true })); } }
+            for (const [k, val] of Object.entries(o.x.values || {})) { const xx = inputs.get(k); if (xx && val != null && val !== '') { xx.input.value = String(val); if (xx.input.type === 'hidden') { picked.add(k); xx.input.dispatchEvent(new Event('change', { bubbles: true })); } } }
             lock(true); summarize();
           },
         });
       });
-      clear.addEventListener('click', () => { lock(false); item.value = ''; const tg = inputs.get(f.target || 'title'); tg?.input.focus?.(); });
+      // «× вручную» снимает и скрытые значения выбора (materialId): иначе ручное название сохранится со ссылкой на чужую позицию
+      clear.addEventListener('click', () => { lock(false); item.value = ''; for (const k of picked) { const xx = inputs.get(k); if (xx) xx.input.value = ''; } picked.clear(); const tg = inputs.get(f.target || 'title'); tg?.input.focus?.(); });
       continue;
     }
     if (f.type === 'widget') {
