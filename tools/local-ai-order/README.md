@@ -1,9 +1,9 @@
 # Локальный ИИ → Excel заказа
 
-1. В LM Studio включите Local API (`…/v1`), CORS.
-2. Скопируйте `settings.example.json` → `settings.json`, укажите `baseUrl` (как на экране LM Studio).
+1. Один раз на этом ПК: пульт → «ИИ-тестировщик» → «0. Установить ИИ на этом ПК». Кнопка сама настроит LM Studio и `settings.json`.
+2. Свой адрес ИИ (другой ПК) — впишите `baseUrl` в `settings.json`. Кнопка установки его не перезапишет, если он отвечает.
 3. Положите документы заказа в `inbox/`.
-4. Запустите из пульта «Собрать Excel заказа» или: `node tools/local-ai-order/run.mjs`
+4. Запустите из пульта: «Excel заказа (ИИ)» → «Собрать Excel заказа» или: `node tools/local-ai-order/run.mjs`
 5. Заберите файл из `out/` → на сайте «Заказы» → «Импорт Excel».
 
 `settings.json` в git не кладём.

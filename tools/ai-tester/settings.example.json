@@ -1,0 +1,8 @@
+{
+  "baseUrl": "http://localhost:1235/v1",
+  "apiKey": "lm-studio",
+  "model": "google/gemma-4-12b-qat",
+  "temperature": 0.3,
+  "stepsPerTask": 20,
+  "stand": "http://localhost:3102"
+}

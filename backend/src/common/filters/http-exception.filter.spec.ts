@@ -151,6 +151,23 @@ describe('HttpExceptionFilter', () => {
     expect(String(json.mock.calls[0][0].message)).toMatch(/_id/);
   });
 
+  it('повтор уникального значения (E11000) → 409 с полем и значением, не 500', () => {
+    const json = jest.fn();
+    const status = jest.fn().mockReturnValue({ json });
+    const host = { switchToHttp: () => ({ getResponse: () => ({ status }), getRequest: () => ({ url: '/api/partners', method: 'POST' }) }) } as unknown as ArgumentsHost;
+    // форма с прода стенда 2026-11-10: POST /api/partners с ИНН, который уже есть
+    const err = Object.assign(new Error('E11000 duplicate key error collection: datacore.organizations index: inn_1 dup key: { inn: "1234567890" }'), {
+      name: 'MongoServerError', code: 11000, keyValue: { inn: '1234567890' },
+    });
+    new HttpExceptionFilter().catch(err, host);
+    expect(status).toHaveBeenCalledWith(409);
+    const msg = String(json.mock.calls[0][0].message);
+    expect(msg).toMatch(/уже есть/);
+    expect(msg).toMatch(/ИНН/);
+    expect(msg).toMatch(/1234567890/);
+    expect(json.mock.calls[0][0].errorId).toBeUndefined();
+  });
+
   it('ЧН: Mongoose ValidationError → 400 с полем, не 500', () => {
     const json = jest.fn();
     const status = jest.fn().mockReturnValue({ json });

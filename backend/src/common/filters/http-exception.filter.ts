@@ -216,6 +216,19 @@ const fieldErrorText = (e: MongooseFieldError) => {
   return `Поле «${fieldRu(leaf)}»: ${KIND_RU[String(e.kind)] ?? 'неверное значение'}${v ? ` (сейчас «${v}»)` : ''}`;
 };
 
+/**
+ * Повтор уникального значения (MongoServerError E11000: ИНН, артикул, логин уже есть) — ошибка данных, не сервера:
+ * 409 «Такая запись уже есть: «ИНН» = «…»» вместо «Сбой на сервере» (2026-11-10, нашёл ИИ-тестировщик на создании контрагента).
+ */
+function duplicateKeyText(exception: unknown): string | undefined {
+  const e = exception as { code?: unknown; keyValue?: Record<string, unknown> };
+  if (!(exception instanceof Error) || e.code !== 11000) return undefined;
+  const [key, value] = Object.entries(e.keyValue ?? {})[0] ?? [];
+  if (!key) return 'Такая запись уже есть (повтор уникального значения).';
+  const v = value === undefined || value === null ? '' : String(value).slice(0, 60);
+  return `Такая запись уже есть: «${fieldRu(key.split('.').pop() || key)}»${v ? ` = «${v}»` : ''}. Найдите её в списке или измените значение.`;
+}
+
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
@@ -234,18 +247,23 @@ export class HttpExceptionFilter implements ExceptionFilter {
       : undefined;
 
     const fieldErrors = exception instanceof HttpException ? undefined : mongooseFieldErrors(exception);
+    const duplicate = exception instanceof HttpException ? undefined : duplicateKeyText(exception);
 
     const status =
       exception instanceof HttpException
         ? exception.getStatus()
-        : castPath !== undefined || fieldErrors
-          ? HttpStatus.BAD_REQUEST
-          : HttpStatus.INTERNAL_SERVER_ERROR;
+        : duplicate
+          ? HttpStatus.CONFLICT
+          : castPath !== undefined || fieldErrors
+            ? HttpStatus.BAD_REQUEST
+            : HttpStatus.INTERNAL_SERVER_ERROR;
 
     const payload =
       exception instanceof HttpException
         ? exception.getResponse()
-        : fieldErrors
+        : duplicate
+          ? duplicate
+          : fieldErrors
           ? { message: fieldErrors.map(fieldErrorText), missing: fieldErrors.map((e) => ({ key: String(e.path ?? '').split('.')[0], label: fieldRu(String(e.path ?? '').split('.').pop() || '') })) }
           : castPath !== undefined
             ? `Некорректный идентификатор «${castPath}»: ожидается 24-символьный hex`

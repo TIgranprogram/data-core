@@ -61,3 +61,4 @@ tools/.night/
 # Локальные материалы сессии: снимки до правок, тестовые дампы, отчёты и итоговые файлы
 /.work/
 /outputs/
+tools/ai-tester/settings.json

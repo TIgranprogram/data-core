@@ -24,6 +24,7 @@ export const RISKS = {
 export const GROUPS = [
   { id: 'start', title: '', color: 'start' },
   { id: 'site', title: 'Рабочий сайт', color: 'site' },
+  { id: 'checks', title: 'Проверки и ИИ', color: 'dev' },
   { id: 'copies', title: 'Копии и Sportin', color: 'copies' },
   { id: 'pc', title: 'Этот компьютер', color: 'pc' },
 ];
@@ -32,17 +33,19 @@ export const GROUPS = [
 // Раздел auto — автозапуск (SCHEDULE) плюс задачи Windows.
 export const SECTIONS = [
   { id: 'now', group: 'start', title: 'Что делать сейчас', icon: '🧭', hint: 'Пульт смотрит на проект и подсказывает, что запустить' },
-  { id: 'check', group: 'start', title: 'Проверки', icon: '✅', hint: 'Ресурсоёмкие проверки на этом ПК. Итог — для ИИ, правки точечные' },
-  { id: 'day', group: 'site', title: 'Каждый день', icon: '☀', hint: 'Обзор проекта и ошибки сайта. Ничего не меняет' },
+  { id: 'day', group: 'start', title: 'Каждый день', icon: '☀', hint: 'Состояние рабочего сайта и его ошибки. Ничего не меняет' },
   { id: 'deploy', group: 'site', title: 'Выкладка', icon: '🚀', hint: 'По порядку: ворота → выкладка → проверка после' },
-  { id: 'site', group: 'site', title: 'Осмотр сайта', icon: '🌐', hint: 'Раз в неделю и после выкладки' },
+  { id: 'datafix', group: 'site', title: 'Разовые правки данных', icon: '🧩', hint: 'Кнопки от Claude под конкретную задачу. Каждую — один раз после выкладки; повтор безопасен' },
+  { id: 'site', group: 'site', title: 'Сервер', icon: '🗄', hint: 'Место на диске сервера. Раз в месяц' },
+  { id: 'check', group: 'checks', title: 'Проверки на этом ПК', icon: '✅', hint: 'Код и экраны сайта на стенде этого ПК. Итог читает Claude и чинит точечно' },
+  { id: 'aitester', group: 'checks', title: 'ИИ-тестировщик', icon: '🤖', hint: 'Локальный ИИ ходит по стенду как менеджер и пишет отчёт. По порядку: 0 → 1 → 2' },
+  { id: 'localai', group: 'checks', title: 'Excel заказа (ИИ)', icon: '📄', hint: 'Документы заказа → локальный ИИ → Excel → импорт на сайт' },
   { id: 'backups', group: 'copies', title: 'Копии базы', icon: '💾', hint: 'Скачать копию на этот ПК и учебное восстановление' },
   { id: 'sportin', group: 'copies', title: 'Sportin', icon: '🖥', hint: 'Второй сервер: обновить, бэкап, проверка копии' },
   { id: 'stand', group: 'pc', title: 'Стенды', icon: '🧰', hint: 'Сайт на этом ПК для длинных проверок. Занимает память — остановите, когда не нужен' },
   { id: 'auto', group: 'pc', title: 'Автозапуск', icon: '⏰', hint: 'Что пульт запускает сам, пока открыт' },
   { id: 'setup', group: 'pc', title: 'Настройка ПК', icon: '⚙', hint: 'Разовая подготовка этого компьютера' },
   { id: 'links', group: 'pc', title: 'Ссылки и папки', icon: '🔗', hint: 'Сайт, админка и рабочие папки' },
-  { id: 'localai', group: 'pc', title: 'Локальный ИИ', icon: '🤖', hint: 'Папка документов → Excel заказа → импорт на сайт' },
 ];
 
 export const SCHEDULE = [
@@ -60,7 +63,7 @@ export const COMMANDS = [
   // ---------- Каждый день ----------
   { id: 'day-start', section: 'day', title: 'Начало работы', risk: 'read', time: '20 с', needs: ['bash'], run: dc('start'), every: 1, why: 'Первая кнопка за день: ошибки сайта и состояние кода',
     hint: 'Первая кнопка за день. Ветка, отставание от GitHub, незакоммиченное и ошибки сайта за сутки.' },
-  { id: 'day-status', section: 'day', title: 'Проверить рабочий сайт', risk: 'read', time: '20 с', needs: ['bash'], run: dc('status'),
+  { id: 'day-status', section: 'day', title: 'Рабочий сайт: быстрая проверка', risk: 'read', time: '20 с', needs: ['bash'], run: dc('status'),
     hint: 'Живой запрос к рабочему сайту: здоровье, возраст копии, версия. Ничего не меняет.' },
   { id: 'day-errors', section: 'day', title: 'Ошибки с сайта', risk: 'read', time: '15 с', needs: ['bash'], run: dc('errors', '{hours}'),
     params: [{ name: 'hours', label: 'За какой срок', type: 'select', default: '24', options: [
@@ -79,37 +82,36 @@ export const COMMANDS = [
     hint: 'Обычная выкладка после готовности кода. Сначала ворота. Копия базы делается сама.' },
   { id: 'deploy-post', section: 'deploy', title: 'Проверка после выкладки', risk: 'read', time: '15 с', needs: ['bash'], run: { bash: ['deploy/synology/post-check.sh'] },
     hint: 'Через 1–2 часа после выкладки. Новые ошибки сайта на этой версии.' },
-  { id: 'c054-passport-plan', section: 'deploy', title: 'Паспорта: записать признаки воронки', risk: 'prod-write', time: '1–3 мин', needs: ['bash', 'vm'],
+  { id: 'c054-passport-plan', section: 'datafix', title: 'Паспорта: записать признаки воронки', risk: 'prod-write', time: '1–3 мин', needs: ['bash', 'vm'],
     run: { bash: ['deploy/synology/c054-passport-plan.sh'] },
     confirm: 'В справочники паспортов запишутся признаки и условия пунктов. Выданные паспорта и № 597 не меняются. Запускать только после выкладки воронки паспортов.',
     hint: 'Один раз после выкладки C054. Повтор безопасен: те же значения, дублей не будет.' },
-  { id: 'c054-parts-coatings', section: 'deploy', title: 'Паспорта: части и покрытия по категориям', risk: 'prod-write', time: '1–3 мин', needs: ['bash', 'vm'],
+  { id: 'c054-parts-coatings', section: 'datafix', title: 'Паспорта: части и покрытия по категориям', risk: 'prod-write', time: '1–3 мин', needs: ['bash', 'vm'],
     run: { bash: ['deploy/synology/c054-parts-coatings.sh'] },
     confirm: 'У 39 частей и 39 материалов/покрытий проставятся категории (TRN/WRK/BLG/DIO/DSP). Пустые больше не считаются «для всех». Новые части не создаются. Выданные паспорта не меняются.',
     hint: 'Планы — docs/crew/C054-passport-funnel/REPORT-parts.md и REPORT-coatings.md. Повтор безопасен: совпадающие пропускаются.' },
-  { id: 'c063-joints-materials', section: 'deploy', title: 'Паспорта: конструкция и материалы', risk: 'prod-write', time: '3–8 мин', needs: ['bash', 'vm'],
+  { id: 'c063-joints-materials', section: 'datafix', title: 'Паспорта: конструкция и материалы', risk: 'prod-write', time: '3–8 мин', needs: ['bash', 'vm'],
     run: { bash: ['deploy/synology/c063-joints-materials.sh'] },
     confirm: '476 изделий получат конструкцию «Болтовые + Сварные», 207 — «Из чего сделано» — из своего выпущенного паспорта (труба, профиль, лист, покрытие…). Пишется только в пустую таблицу; выданные паспорта не меняются.',
     hint: 'Список — docs/crew/C063-joints-materials/REVIEW.md. Повтор безопасен: заполненное пропускается.' },
-  { id: 'c062-passport-purpose', section: 'deploy', title: 'Паспорта: назначение, элементы, установка', risk: 'prod-write', time: '3–8 мин', needs: ['bash', 'vm'],
+  { id: 'c062-passport-purpose', section: 'datafix', title: 'Паспорта: назначение, элементы, установка', risk: 'prod-write', time: '3–8 мин', needs: ['bash', 'vm'],
     run: { bash: ['deploy/synology/c062-passport-purpose.sh'] },
     confirm: 'У изделий с пустыми полями запишутся «Назначение» (вариант текста), «Элементы» и «Способ установки» — по названию и группе. Заполненное не меняется, выданные паспорта не меняются.',
     hint: 'Список — docs/crew/C062-passport-purpose/REVIEW.md. Повтор безопасен: заполненное пропускается.' },
-  { id: 'c066-passport-users', section: 'deploy', title: 'Паспорта: пользователи, возраст, рост, вес', risk: 'prod-write', time: '3–8 мин', needs: ['bash', 'vm'],
+  { id: 'c066-passport-users', section: 'datafix', title: 'Паспорта: пользователи, возраст, рост, вес', risk: 'prod-write', time: '3–8 мин', needs: ['bash', 'vm'],
     run: { bash: ['deploy/synology/c066-passport-users.sh'] },
     confirm: 'В пустые умолчания паспорта запишутся maxUsers / возраст / рост / вес — из выпущенного паспорта, по группе (≥80 %) или «тренажёр → 1 пользователь». Заполненное не меняется, выданные паспорта не меняются.',
     hint: 'Список — docs/crew/C066-passport-users/REVIEW.md. Повтор безопасен: заполненное пропускается.' },
-  { id: 'c061-trainers-load', section: 'deploy', title: 'Тренажёры: грузоблочные и суставные', risk: 'prod-write', time: '1–3 мин', needs: ['bash', 'vm'],
+  { id: 'c061-trainers-load', section: 'datafix', title: 'Тренажёры: грузоблочные и суставные', risk: 'prod-write', time: '1–3 мин', needs: ['bash', 'vm'],
     run: { bash: ['deploy/synology/c061-trainers-load.sh'] },
     confirm: 'У 92 тренажёров запишется признак «Нагрузка»: 18 — «Изменяемая (грузы)», 74 — «Собственный вес». 4 тренажёра перейдут в группу «Тренажеры». Артикулы и выданные паспорта не меняются.',
     hint: 'Список — docs/crew/C061-trainers-load/REVIEW.md. Повтор безопасен: те же значения.' },
-  { id: 'c061-wrong-category', section: 'deploy', title: 'Паспорта: 8 изделий — не «Уличный тренажёр»', risk: 'prod-write', time: '1 мин', needs: ['bash', 'vm'],
+  { id: 'c061-wrong-category', section: 'datafix', title: 'Паспорта: 8 изделий — не «Уличный тренажёр»', risk: 'prod-write', time: '1 мин', needs: ['bash', 'vm'],
     run: { bash: ['deploy/synology/c061-wrong-category.sh'] },
     confirm: 'У 8 изделий (воркаут, ограждение, помост, стойки, павильон) снимется своя категория паспорта «Уличный тренажёр». Будет действовать категория группы: «Воркаут и спортивное оборудование» или «Благоустройство». Выданные паспорта не меняются.',
     hint: 'Список — docs/crew/C061-trainers-load/wrong-category.json. Повтор безопасен.' },
 
-  // ---------- Осмотр ----------
-  { id: 'prod-doctor', section: 'site', title: 'Осмотр сайта', risk: 'read', time: '1 мин', needs: ['bash'], run: { bash: ['deploy/synology/doctor.sh'], soft: true }, every: 7, why: 'Раз в неделю: полный осмотр сайта',
+  { id: 'prod-doctor', section: 'day', title: 'Рабочий сайт: полный осмотр (раз в неделю)', risk: 'read', time: '1 мин', needs: ['bash'], run: { bash: ['deploy/synology/doctor.sh'], soft: true }, every: 7, why: 'Раз в неделю: полный осмотр сайта',
     hint: 'Диск, копии, целостность, скорость. Итог ✓ / ⚠ / ✗. Раз в неделю и после выкладки.' },
 
   // ---------- Проверки ----------
@@ -121,7 +123,7 @@ export const COMMANDS = [
     hint: 'Обходит экраны на трёх ширинах, снимки, мусор в тексте, ошибки API. Поднимает стенд сама. Отчёт читает ИИ и чинит точечно.' },
   { id: 'order-progress', section: 'check', title: 'Порядок интерфейса', risk: 'read', time: '5 с', run: dc('order'),
     hint: 'Одна строка: сколько экранов собрано из эталонов и сколько нарушений дизайна осталось. Число пишется в журнал.' },
-  { id: 'site-audit-last', section: 'check', title: 'Итог последней проверки', risk: 'read', time: '2 с', run: dc('audit', 'last'),
+  { id: 'site-audit-last', section: 'check', title: 'Итог большой проверки', risk: 'read', time: '2 с', run: dc('audit', 'last'),
     hint: 'Короткая сводка и путь к отчёту большой проверки.' },
 
   // ---------- Копии ----------
@@ -205,16 +207,29 @@ export const COMMANDS = [
     hint: 'Полный вывод каждого запуска.' },
 
   // ---------- Локальный ИИ (C019) ----------
-  { id: 'lai-inbox', section: 'localai', title: 'Открыть входящие', risk: 'read', time: 'сразу', run: { folder: 'tools/local-ai-order/inbox' },
+  { id: 'lai-inbox', section: 'localai', title: 'Входящие документы', risk: 'read', time: 'сразу', run: { folder: 'tools/local-ai-order/inbox' },
     hint: 'Сюда кладите ТЗ, ВОР, КП, контракт. Затем «Собрать Excel заказа».' },
-  { id: 'lai-out', section: 'localai', title: 'Открыть готовое', risk: 'read', time: 'сразу', run: { folder: 'tools/local-ai-order/out' },
-    hint: 'Готовый Excel для «Заказы → Импорт Excel» на сайте.' },
-  { id: 'lai-settings', section: 'localai', title: 'Открыть настройки ИИ', risk: 'read', time: 'сразу', run: { folder: 'tools/local-ai-order' },
-    hint: 'Скопируйте settings.example.json → settings.json и укажите baseUrl LM Studio (…/v1).' },
-  { id: 'lai-check', section: 'localai', title: 'Проверить связь с ИИ', risk: 'local', time: '5 с', run: { node: ['tools/local-ai-order/run.mjs', '--check'] },
-    hint: 'Запрос /v1/models. LM Studio должен быть Running, CORS включён.' },
   { id: 'lai-build', section: 'localai', title: 'Собрать Excel заказа', risk: 'local', time: '1–10 мин', run: { node: ['tools/local-ai-order/run.mjs'] },
     hint: 'Локальный ИИ читает inbox и пишет файл в out/. Потом импортируйте на сайте сами.' },
+  { id: 'lai-out', section: 'localai', title: 'Готовый Excel', risk: 'read', time: 'сразу', run: { folder: 'tools/local-ai-order/out' },
+    hint: 'Готовый Excel для «Заказы → Импорт Excel» на сайте.' },
+  { id: 'lai-check', section: 'localai', title: 'Проверить связь с ИИ', risk: 'local', time: '5 с', run: { node: ['tools/local-ai-order/run.mjs', '--check'] },
+    hint: 'Запрос /v1/models. LM Studio должен быть Running, CORS включён.' },
+  { id: 'lai-setup', section: 'aitester', title: '0. Установить ИИ на этом ПК', risk: 'local', time: '1 мин – 30 мин', run: { node: ['tools/ai-tester/setup.mjs'] },
+    hint: 'Один раз на каждом компьютере (дом, работа). Сам настроит LM Studio, подберёт модель под видеокарту, скачает и загрузит.' },
+  // ИИ-тестировщик: локальная модель ходит по стенду этого ПК, записи с меткой ТЕСТ-ИИ, в конце убирает их сама
+  { id: 'ait-check', section: 'aitester', title: '1. Проверить готовность тестировщика', risk: 'local', time: '10 с – 2 мин', run: { node: ['tools/ai-tester/run.mjs', '--check'] },
+    hint: 'Проверяет по шагам: LM Studio, модель, браузер, Docker и стенд. Что не готово — пишет, что нажать.' },
+  { id: 'ait-run', section: 'aitester', title: '2. Запустить тестировщика', risk: 'local', time: 'сколько выберете', run: { node: ['tools/ai-tester/run.mjs', '--minutes', '{minutes}'] },
+    params: [{ name: 'minutes', label: 'Сколько работать', type: 'select', default: '480', options: [
+      { value: '15', label: '15 минут (проба)' }, { value: '60', label: '1 час' }, { value: '240', label: '4 часа' }, { value: '480', label: 'Рабочий день (8 часов)' }] }],
+    hint: 'Ходит по стенду как менеджер, создаёт записи «ТЕСТ-ИИ». В конце сам их убирает и пишет отчёт. Рабочий сайт не трогает.' },
+  { id: 'ait-stop', section: 'aitester', title: 'Остановить тестировщика', risk: 'local', time: 'до 2 мин', run: { node: ['tools/ai-tester/run.mjs', '--stop'] },
+    hint: 'Тестировщик закончит шаг, уберёт тестовые записи и допишет отчёт.' },
+  { id: 'ait-report', section: 'aitester', title: 'Отчёт тестировщика', risk: 'read', time: 'сразу', run: { node: ['tools/ai-tester/run.mjs', '--last'] },
+    hint: 'Итог последнего дня: ошибки сайта и замечания ИИ. Потом скажите Claude «посмотри отчёт тестировщика».' },
+  { id: 'ait-cleanup', section: 'aitester', title: 'Убрать тестовые записи', risk: 'local', time: '30 с', run: { node: ['tools/ai-tester/run.mjs', '--cleanup'] },
+    hint: 'Обычно не нужно — тестировщик убирает сам. Нужно, если компьютер выключился во время работы.' },
 ];
 
 export const SWITCHES = [
