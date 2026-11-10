@@ -6,7 +6,7 @@ import { section, table, hint, textInput, stack } from '../../ui/kit/index.js';
 
 /**
  * C057 Э3: «Что купить» для изделия — GET /products/:id/purchase-needs?qty=
- * Стоит во вкладке изделия «Состав и работы» (tabs.js), под составом.
+ * Стоит во вкладке изделия «Техописание» (tabs.js), под листом материалов.
  */
 export function purchaseNeedsBlock(row) {
   let qtyVal = 1;
