@@ -1,0 +1,362 @@
+[
+  {
+    "id": "6ae3a048793eb93d71b3f3e1",
+    "name": "Горячее цинкование",
+    "code": "GALV_HOT",
+    "kind": "coating",
+    "categories": "TRN,WRK,BLG,DIO,DSP",
+    "action": "patch",
+    "note": "Металл. Все пять категорий, где бывает сталь. В текстах паспортов цинк пока не назван — запись остаётся в выборе."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4f6",
+    "name": "Грунт и полиуретановая эмаль",
+    "code": "COAT_PRIMER_PU",
+    "kind": "coating",
+    "categories": "BLG",
+    "action": "patch",
+    "note": "⚠ Спорно. Фраза про металл, но в текстах только навесы (3 паспорта). Не порошок: в тренажёр и воркаут не ставлю. Если эмалью кроют шире — добавить категории."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4f9",
+    "name": "Защитная пропитка древесины",
+    "code": "COAT_IMPREG",
+    "kind": "coating",
+    "categories": "WRK,BLG,DIO,DSP",
+    "action": "patch",
+    "note": "Дерево. BLG — скамьи, урны, качели. WRK — полоса препятствий в seed-passport-types.js. DIO/DSP — брус, фанера и пеньки площадок. TRN нет: сиденье тренажёра — ламинированная фанера."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4f8",
+    "name": "Масло для древесины",
+    "code": "COAT_OIL",
+    "kind": "coating",
+    "categories": "WRK,BLG,DIO,DSP",
+    "action": "patch",
+    "note": "Как пропитка. WRK обязателен: тип «Скамья воркаут» уже ставит COAT_OIL. TRN нет."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4f5",
+    "name": "Порошковая окраска",
+    "code": "COAT_POWDER",
+    "kind": "coating",
+    "categories": "TRN,WRK,BLG,DIO,DSP",
+    "action": "patch",
+    "note": "Металл. Основное покрытие стали во всех пяти категориях (в типах — покрытие по умолчанию)."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4f7",
+    "name": "Резиновое покрытие металла",
+    "code": "COAT_RUBBER",
+    "kind": "coating",
+    "categories": "TRN,WRK",
+    "action": "patch",
+    "note": "Обрезиненные ручки и упоры тренажёра и воркаута. Не крошка площадки (это RUBBER_SURFACE)."
+  },
+  {
+    "id": "6ae3a049793eb93d71b3f3e6",
+    "name": "Цинкование и порошковая окраска",
+    "code": "ZINC_POWDER",
+    "kind": "coating",
+    "categories": "TRN,WRK,BLG,DIO,DSP",
+    "action": "patch",
+    "note": "Металл. Цинк плюс порошок — те же пять категорий, что у горячего цинка и порошка."
+  },
+  {
+    "id": "6ae3a04a793eb93d71b3f3eb",
+    "name": "Цинконаполненный грунт",
+    "code": "ZINC_PRIMER",
+    "kind": "coating",
+    "categories": "TRN,WRK,BLG,DIO,DSP",
+    "action": "patch",
+    "note": "Металл. Холодный цинк — те же пять категорий."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4f3",
+    "name": "Бетон",
+    "code": "CONCRETE",
+    "kind": "material",
+    "categories": "BLG",
+    "action": "patch",
+    "note": "Боковины велопарковки и бетонные МАФ. Основание изделия — это установка, не этот материал."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4eb",
+    "name": "Бревно оцилиндрованное",
+    "code": "WOOD_LOG",
+    "kind": "material",
+    "categories": "BLG,DIO",
+    "action": "patch",
+    "note": "Пергола и пеньки игровых комплексов. Не тренажёр."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4e3",
+    "name": "Двутавр стальной",
+    "code": "BEAM_STEEL",
+    "kind": "material",
+    "categories": "BLG",
+    "action": "patch",
+    "note": "Навес, беседка, пергола. В каркасах тренажёра и воркаута двутавра нет."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4ea",
+    "name": "Древесина лиственницы",
+    "code": "WOOD_LARCH",
+    "kind": "material",
+    "categories": "WRK,BLG,DIO,DSP",
+    "action": "patch",
+    "note": "Те же места, что у хвойных: рейки и брус скамьи, дерево площадок. ⚠ DSP снять, если детский спорт только из металла."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4e9",
+    "name": "Древесина хвойных пород",
+    "code": "WOOD_SOFT",
+    "kind": "material",
+    "categories": "WRK,BLG,DIO,DSP",
+    "action": "patch",
+    "note": "Сид: скамья воркаут, рейки BLG, доска полосы. Площадки — DIO/DSP."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4f4",
+    "name": "Камыш кровельный",
+    "code": "REED",
+    "kind": "material",
+    "categories": "BLG",
+    "action": "patch",
+    "note": "Кровля навеса и беседки."
+  },
+  {
+    "id": "6ada090c7536f8509feb4232",
+    "name": "Канат армированный",
+    "code": "ROPE_REINFORCED",
+    "kind": "material",
+    "categories": "WRK,BLG,DIO,DSP",
+    "action": "patch",
+    "note": "Канат воркаута, подвес качелей, сетки площадок."
+  },
+  {
+    "id": "6ada090c7536f8509feb422e",
+    "name": "Клеёная древесина",
+    "code": "WOOD_GLUED",
+    "kind": "material",
+    "categories": "WRK,BLG,DIO",
+    "action": "patch",
+    "note": "Клеёный брус скамьи и игровых комплексов. В DSP отдельно не видел."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4e4",
+    "name": "Круг стальной",
+    "code": "ROD_STEEL",
+    "kind": "material",
+    "categories": "TRN,WRK,BLG",
+    "action": "patch",
+    "note": "⚠ Спорно. Ручка тренажёра в аудите спорит с трубой. DIO и DSP не ставлю: круга там не видно."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4e6",
+    "name": "Лист нержавеющий",
+    "code": "SHEET_STAINLESS",
+    "kind": "material",
+    "categories": "TRN,BLG,DIO",
+    "action": "patch",
+    "note": "Ногоступ тренажёра, велопарковка, горка."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4e2",
+    "name": "Лист стальной",
+    "code": "SHEET_STEEL",
+    "kind": "material",
+    "categories": "TRN,WRK,BLG,DIO,DSP",
+    "action": "patch",
+    "note": "Пятки, хомуты, заглушки, корпуса. Металл во всех пяти."
+  },
+  {
+    "id": "6ada090c7536f8509feb422d",
+    "name": "Нержавеющая сталь",
+    "code": "STEEL_STAINLESS",
+    "kind": "",
+    "categories": "TRN,WRK,BLG,DIO",
+    "action": "patch",
+    "note": "Родовая нержавейка, kind пустой. Те же места, что лист и труба нержавеющие. DSP не ставлю."
+  },
+  {
+    "id": "6ada090c7536f8509feb422c",
+    "name": "Оцинкованная сталь",
+    "code": "STEEL_GALV",
+    "kind": "",
+    "categories": "TRN,WRK,BLG,DIO,DSP",
+    "action": "patch",
+    "note": "Родовой металл без формы, kind пустой. Как сталь: все пять. Покрытие цинком — отдельные записи GALV_HOT и ZINC_POWDER."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4ef",
+    "name": "Панель алюминиевая композитная",
+    "code": "ACP",
+    "kind": "material",
+    "categories": "WRK,BLG",
+    "action": "patch",
+    "note": "Табличка ГТО и щит стелы, кровля. Не каркас."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4f1",
+    "name": "Пластик",
+    "code": "PLASTIC",
+    "kind": "material",
+    "categories": "WRK,DIO,DSP",
+    "action": "patch",
+    "note": "Сиденья трибуны. Детские детали — DIO и DSP."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4ee",
+    "name": "Поликарбонат монолитный",
+    "code": "POLYCARBONATE",
+    "kind": "material",
+    "categories": "WRK,BLG,DSP",
+    "action": "patch",
+    "note": "Щит баскетбола (WRK и детский DSP) и кровля навеса (BLG)."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4f0",
+    "name": "Полиэтилен низкого давления (HDPE)",
+    "code": "PE_HD",
+    "kind": "material",
+    "categories": "TRN,DIO",
+    "action": "patch",
+    "note": "Сиденье маятникового тренажёра и горка. В текстах ПНД редок."
+  },
+  {
+    "id": "6ae3267ba3f6de10abf0363d",
+    "name": "Полиэтилен низкой плотности",
+    "code": "PE_LD",
+    "kind": "material",
+    "categories": "BLG",
+    "action": "patch",
+    "note": "⚠ Спорно. В типах изделий нет. Ставлю BLG, чтобы не светился везде. Подтвердить или сузить."
+  },
+  {
+    "id": "6ada090c7536f8509feb4231",
+    "name": "Полиэтилен ротоформованный",
+    "code": "PE_ROTO",
+    "kind": "",
+    "categories": "DIO",
+    "action": "patch",
+    "note": "Игровые формы. kind пустой — это материал, не покрытие."
+  },
+  {
+    "id": "6ada090c7536f8509feb4233",
+    "name": "Резиновое покрытие",
+    "code": "RUBBER_SURFACE",
+    "kind": "",
+    "categories": "BLG,DIO,DSP",
+    "action": "patch",
+    "note": "⚠ Не TRN,WRK. Это крошка площадки и геопластика. Обрезиненный металл — запись COAT_RUBBER. kind пустой."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4f2",
+    "name": "Сталь",
+    "code": "STEEL",
+    "kind": "material",
+    "categories": "TRN,WRK,BLG,DIO,DSP",
+    "action": "patch",
+    "note": "Родовая сталь. Все пять, как труба и лист."
+  },
+  {
+    "id": "6ada090c7536f8509feb422b",
+    "name": "Сталь с порошковой окраской",
+    "code": "STEEL_POWDER",
+    "kind": "",
+    "categories": "TRN,WRK,BLG,DIO,DSP",
+    "action": "patch",
+    "note": "Гибрид «труба + порошок». hideInNew уже включён. Категории — если фильтр всё же покажет скрытую запись. В новых не предлагать: труба и покрытие отдельно."
+  },
+  {
+    "id": "6af1cc83bde492a73d513dc3",
+    "name": "Сталь с порошковой окраской (лист)",
+    "code": "STEEL_POWDER_SHEET",
+    "kind": "",
+    "categories": "BLG",
+    "action": "keep",
+    "note": "Уже BLG, под приствольную решётку. Не расширяю: это гибрид, в новых лучше лист и покрытие порошком."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4e8",
+    "name": "Трос стальной",
+    "code": "CABLE_STEEL",
+    "kind": "material",
+    "categories": "TRN,WRK",
+    "action": "patch",
+    "note": "⚠ Спорно. В типах троса нет. Ставлю тренажёр и воркаут (блочные тяги). BLG и площадки не ставлю."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4e5",
+    "name": "Труба нержавеющая",
+    "code": "PIPE_STAINLESS",
+    "kind": "material",
+    "categories": "TRN,BLG,DIO",
+    "action": "patch",
+    "note": "Накопитель дисков, велопарковка, каркас игрового комплекса."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4e0",
+    "name": "Труба стальная",
+    "code": "PIPE_STEEL",
+    "kind": "material",
+    "categories": "TRN,WRK,BLG,DIO,DSP",
+    "action": "patch",
+    "note": "Основной прокат стоек и перекладин. Все пять."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4e1",
+    "name": "Труба стальная профильная",
+    "code": "PIPE_STEEL_PROFILE",
+    "kind": "material",
+    "categories": "TRN,WRK,BLG,DIO,DSP",
+    "action": "patch",
+    "note": "Рамы тренажёров, каркасы, ограждения. Все пять."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4ec",
+    "name": "Фанера",
+    "code": "PLYWOOD",
+    "kind": "material",
+    "categories": "WRK,BLG,DIO,DSP",
+    "action": "patch",
+    "note": "Скалодром и полоса (WRK), щиты и панели площадок. Не путать с ламинированной (сиденье TRN)."
+  },
+  {
+    "id": "6ada090c7536f8509feb422f",
+    "name": "Фанера ламинированная",
+    "code": "PLYWOOD_LAM",
+    "kind": "material",
+    "categories": "TRN,BLG",
+    "action": "patch",
+    "note": "Сиденье и спинка силового тренажёра. Гнутые скамьи — BLG. Маслом это покрытие не заменяю."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4ed",
+    "name": "Фанера ФСФ влагостойкая",
+    "code": "PLYWOOD_FSF",
+    "kind": "material",
+    "categories": "WRK,BLG,DIO,DSP",
+    "action": "patch",
+    "note": "Щит баскетбола и панели комплексов. Детский щит — DSP."
+  },
+  {
+    "id": "6adceeeb3ca001b9b3b0e4e7",
+    "name": "Цепь нержавеющая",
+    "code": "CHAIN_STAINLESS",
+    "kind": "material",
+    "categories": "WRK,BLG,DIO,DSP",
+    "action": "patch",
+    "note": "Подвес колец и качелей. Детский спорт — если кольца ведут как DSP."
+  },
+  {
+    "id": "6ada090c7536f8509feb4230",
+    "name": "HPL-панель",
+    "code": "HPL",
+    "kind": "",
+    "categories": "BLG,DIO",
+    "action": "patch",
+    "note": "⚠ Спорно. В типах нет. Панели МАФ и площадок. kind пустой."
+  }
+]
