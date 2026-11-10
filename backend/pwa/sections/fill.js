@@ -6,6 +6,7 @@ import { go, patch } from '../core/router.js';
 import { opThumb } from '../ui/op-row.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { empty, button } from '../ui/kit/index.js';
+import { withReason } from './admin-override.js';
 
 /**
  * «Требуют заполнения» по категориям (TASKS ТЗ.3–ТЗ.4). Данные — `/api/fill-audit`: группа = что не заполнено,
@@ -35,7 +36,12 @@ function quickRow(g, x, done) {
     }
     if (!Object.keys(body).length) { toast(g.quick.includes('unitPrice') ? 'Впишите цену' : 'Впишите № счёта, дату или сумму'); inputs[g.quick[0]].focus(); return; }
     btn.disabled = true;
-    try { await api(`${g.quickPath || '/supply/requests'}/${x.id}`, { method: 'PATCH', body }); toast('Сохранено'); done(); }
+    // администратор правит закрытую строку счёта — сервер просит причину (REASON_REQUIRED): спросить окном и повторить (ИИ-тестировщик 2026-11-10)
+    try {
+      const r = await withReason((reason) => api(`${g.quickPath || '/supply/requests'}/${x.id}`, { method: 'PATCH', body: reason ? { ...body, reason } : body }), 'Изменить заявку по счёту');
+      if (r === null) { btn.disabled = false; return; }
+      toast('Сохранено'); done();
+    }
     catch (e) { toastError(e, 'сохранить'); btn.disabled = false; }
   }
   return h('li', { class: 'q-row fill-qrow' + (x.thumb ? ' has-pic' : '') },

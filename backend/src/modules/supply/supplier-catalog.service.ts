@@ -149,6 +149,13 @@ export class SupplierCatalogService {
   }
 
   async get(id: string, scope?: StockScope | null) {
+    // строка «позиция склада без предложения» (view=all) имеет id `m:<materialId>` — открыть её по прямой ссылке (ИИ-тестировщик 2026-11-10: «Некорректный id записи»)
+    if (id.startsWith('m:')) {
+      const m = await this.coll('materials').findOne({ _id: oid(id.slice(2)), deletedAt: null });
+      if (!m) throw new NotFoundException('Позиция склада не найдена — возможно, удалена');
+      await assertDocInScope(this.conn, scope, { materialId: m._id, categoryId: m.categoryId }, 'Эта позиция не из вашего склада');
+      return (await this.presentMaterials([m]))[0];
+    }
     const d = await this.items.findOne({ _id: oid(id), deletedAt: null });
     if (!d) throw new NotFoundException('Позиция каталога не найдена — возможно, удалена');
     await assertDocInScope(this.conn, scope, d, 'Эта позиция каталога не из вашего склада');

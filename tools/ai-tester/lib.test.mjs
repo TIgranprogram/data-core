@@ -1,7 +1,7 @@
 // node --test tools/ai-tester/lib.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TAG, isLocalStand, tagText, createdFrom, groupFindings, screenGarbage, blockedClick, buildReport } from './lib.mjs';
+import { TAG, isLocalStand, tagText, createdFrom, groupFindings, screenGarbage, blockedClick, buildReport, screenChange } from './lib.mjs';
 
 test('работает только на стенде этого ПК', () => {
   assert.equal(isLocalStand('http://localhost:3102'), true);
@@ -60,4 +60,13 @@ test('отчёт собирается', () => {
   assert.match(md, /Заданий: 1 \(получилось 1/);
   assert.match(md, /Ошибок сайта: 1, замечаний ИИ: 1/);
   assert.match(md, /убрано: 1/);
+});
+
+test('после действия модель узнаёт, изменился ли экран (иначе жмёт ту же строку по кругу)', () => {
+  const a = { hash: '#salesorders', layer: '', text: 'список', els: ['[1] строка «Заказ 24»'] };
+  assert.match(screenChange(a, { ...a }), /не изменился/);
+  assert.match(screenChange(a, { ...a, layer: 'Заказ № 24' }), /Открылась панель «Заказ № 24»/);
+  assert.match(screenChange({ ...a, layer: 'Заказ № 24' }, a), /закрылась/);
+  assert.match(screenChange(a, { ...a, hash: '#money' }), /другой экран/);
+  assert.match(screenChange(a, { ...a, text: 'список 2' }), /обновился/);
 });

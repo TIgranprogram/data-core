@@ -13,7 +13,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { TAG, isLocalStand, tagText, createdFrom, screenGarbage, blockedClick, buildReport } from './lib.mjs';
+import { TAG, isLocalStand, tagText, createdFrom, screenGarbage, blockedClick, buildReport, screenChange } from './lib.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
@@ -125,7 +125,13 @@ async function ensureStand(base) {
   if (docker.status) { say('❌ Docker не запущен. Откройте программу Docker Desktop, дождитесь зелёной надписи «Running» и нажмите кнопку ещё раз.'); return false; }
   const { standUp } = await import('../night.mjs');
   const code = await standUp({ say, log: () => {} });
-  return !code && standReady(base);
+  if (code) return false;
+  // сохранённый стенд стартует со старым образом (compose start) — пересобрать под текущий код, иначе находки ложные (2026-11-10: 400 на client-errors после исправления)
+  say('Обновляю стенд до текущего кода (около 2 минут)…');
+  const { standRefresh } = await import('../night.mjs');
+  await standRefresh({ say: () => {}, log: () => {} });
+  for (let i = 0; i < 60 && !(await standReady(base)); i++) await sleep(2000);
+  return standReady(base);
 }
 
 // ---------- список разделов из меню приложения ----------
@@ -139,16 +145,16 @@ function readNav() {
 const TASKS = [
   { id: 'partner', section: 'partners', make: true, task: 'Создай нового контрагента — поставщика. Название придумай. Заполни, что сможешь (ИНН — 10 любых цифр, телефон). Сохрани. Найди его в списке и открой карточку.' },
   { id: 'request', section: 'requests', make: true, task: 'Создай новую заявку на закупку. Добавь 1–2 материала из предложенных и количество. Сохрани. Убедись, что заявка видна в списке.' },
-  { id: 'expense', section: 'expenses', make: true, task: 'Добавь прочий расход на 1500 рублей с комментарием. Сохрани. Найди его в списке.' },
+  { id: 'expense', section: 'expenses', make: true, task: 'Нажми кнопку добавления расхода. Заполни сумму 1500 и комментарий, остальные обязательные поля выбери из списков. Нажми «Сохранить» один раз. Если сайт пишет, что не так, — исправь это поле. Затем finish.' },
   { id: 'staff', section: 'staff', task: 'Осмотри «Сотрудников»: найди кого-нибудь поиском, открой карточку, посмотри вкладки. Ничего не меняй, новых пользователей не создавай.' },
   { id: 'stock', section: 'stock', task: 'Найди через поиск любой материал (например «труба»). Открой карточку, посмотри все вкладки. Ничего не меняй.' },
-  { id: 'orders', section: 'salesorders', task: 'Открой по очереди 2–3 заказа. В каждом посмотри вкладки карточки. Ничего не меняй.' },
-  { id: 'products', section: 'products', task: 'Найди изделие через поиск. Открой карточку, посмотри вкладки (состав, документация). Ничего не меняй.' },
+  { id: 'orders', section: 'salesorders', task: 'Нажми на строку одного заказа — справа откроется панель. В панели нажми 2 разные вкладки. Затем finish. Ничего не меняй.' },
+  { id: 'products', section: 'products', task: 'Нажми на строку одного изделия — справа откроется панель. В панели нажми 2 разные вкладки. Затем finish. Ничего не меняй.' },
   { id: 'money', section: 'money', task: 'Осмотри раздел: переключи вкладки и фильтры, открой одну запись. Проверь, что суммы и даты выглядят нормально. Ничего не меняй.' },
   { id: 'home', section: 'home', task: 'Осмотри экран «Сегодня». Нажми на 2–3 карточки или ссылки и проверь, что открывается нужное. Ничего не меняй.' },
-  { id: 'work', section: 'work', task: 'Осмотри раздел «В работе»: открой 2 записи, посмотри, всё ли понятно. Ничего не меняй.' },
+  { id: 'work', section: 'work', task: 'Осмотри раздел «В работе»: нажми на одну запись, посмотри, что открылось. Если что-то непонятно — report_problem. Затем finish. Ничего не меняй.' },
   { id: 'docs', section: 'docs', task: 'Осмотри «Документацию»: пройди по вкладкам, открой одну запись. Ничего не меняй.' },
-  { id: 'contracts', section: 'contracts', task: 'Осмотри «Договоры»: открой 2 договора, посмотри вкладки. Ничего не меняй.' },
+  { id: 'contracts', section: 'contracts', task: 'Нажми на строку одного договора — справа откроется панель. В панели нажми 2 разные вкладки. Затем finish. Ничего не меняй.' },
   { id: 'catalog', section: 'suppliercatalog', task: 'Осмотри «Каталог номенклатуры»: найди что-нибудь поиском, открой карточку. Ничего не меняй.' },
   { id: 'free', section: null, task: 'Свободный осмотр этого раздела: нажимай кнопки и вкладки, которые выглядят важными, ищи ошибки и непонятные места. Чужие записи не меняй.' },
 ];
@@ -260,7 +266,8 @@ const LOOK = `(() => {
   });
   const scope = layer || document.querySelector('main, #app, .content') || document.body;
   const toast = [...document.querySelectorAll('.toast, .k-toast, .alert, [role=alert], .error')].filter(vis).map((x) => clean(x.innerText)).filter(Boolean).slice(0, 3);
-  return { hash: location.hash, layer: layer ? clean((layer.querySelector('h1,h2,h3,.drawer-title,.k-title') || {}).innerText) || 'открыта' : '', toast, text: clean(scope.innerText).slice(0, 1100), all: clean(document.body.innerText).slice(0, 6000), els: out };
+  const bad = [...document.querySelectorAll('.err, [aria-invalid=true], .invalid')].filter(vis).map((x) => fieldLabel(x)).filter(Boolean).slice(0, 5);
+  return { hash: location.hash, layer: layer ? clean((layer.querySelector('h1,h2,h3,.drawer-title,.k-title') || {}).innerText) || 'открыта' : '', toast, bad, text: clean(scope.innerText).slice(0, 1100), all: clean(document.body.innerText).slice(0, 6000), els: out };
 })()`;
 
 async function look(b) {
@@ -271,6 +278,7 @@ function lookText(o, nav) {
   const cur = nav.find((n) => (o.hash || '').replace(/^#/, '').split(/[?/]/)[0] === n.id);
   return [`Раздел: ${cur?.title || o.hash || '—'}${o.layer ? ` · Открыта панель: ${o.layer}` : ''}`,
     o.toast.length ? `Сообщения: ${o.toast.join(' / ')}` : '',
+    o.bad?.length ? `Поля с ошибкой (заполни их): ${o.bad.join(', ')}` : '',
     `Текст: ${o.text}`, 'Элементы:', ...o.els, `Разделы меню: ${nav.map((n) => n.title).join(', ')}`].filter(Boolean).join('\n');
 }
 
@@ -288,10 +296,12 @@ async function act(b, call, nav, ctxText) {
   if (call.name === 'fill') {
     const info = await b.ev(`(()=>{const e=${el(a.n)};if(!e)return null;return {tag:e.tagName.toLowerCase(),type:e.type||'',search:e.type==='search'||/поиск|найти|search/i.test((e.placeholder||'')+(e.getAttribute('aria-label')||'')),combo:e.getAttribute('role')==='combobox'||!!e.getAttribute('list')||!!e.getAttribute('aria-autocomplete'),ce:e.isContentEditable}})()`);
     if (!info) return `Поля [${a.n}] нет.`;
+    if (info.tag === 'select') return `[${a.n}] — выпадающий список, в него не пишут. Вызови choose с n=${a.n} и вариантом.`;
     const text = tagText(a.text, info);
     await b.ev(`(()=>{const e=${el(a.n)};e.scrollIntoView({block:'center'});e.focus();
       if(e.isContentEditable){e.innerText=${JSON.stringify(text)};}
-      else{const pr=e.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(pr,'value').set.call(e,${JSON.stringify(text)});}
+      else if(e.tagName==='INPUT'||e.tagName==='TEXTAREA'){const pr=e.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(pr,'value').set.call(e,${JSON.stringify(text)});}
+      else{return 0;}
       e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return 1})()`);
     return `Ввёл «${text}».`;
   }
@@ -395,7 +405,9 @@ async function runTask(s, b, nav, t, state) {
       if (++refused >= 4) { rec.summary = 'ходил по кругу — задание закрыто программой'; break; }
       result = 'Ты уже делал это, и ничего не изменилось — ты ходишь по кругу. Прочитай сообщения на экране. Если сайт мешает выполнить задание — вызови report_problem, затем finish. Иначе сделай другое действие.';
     } else { try { result = await act(b, call, nav, o.text); } catch (e) { result = 'Не вышло: ' + e.message.slice(0, 120); } }
+    const prev = o;
     o = await look(b).catch(() => o);
+    if (!loop && call.name !== 'fill') result += ' ' + screenChange(prev, o);
     for (const text of autoFindings(b, o, state.garbage)) add({ kind: 'ошибка', text, where: o.hash, task: title, shot: await b.shot(`${t.id}-${Date.now()}`) });
     msgs.push({ role: 'tool', tool_call_id: tc.id, content: `${result}\n\nЭкран сейчас:\n${lookText(o, nav)}` });
   }

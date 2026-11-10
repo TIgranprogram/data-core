@@ -107,3 +107,13 @@ export function buildReport({ day, model, startedAt, now, tasks, findings, creat
   L.push('');
   return L.join('\n');
 }
+
+/** Что поменялось на экране после действия — подсказка модели, чтобы она не нажимала то же самое ещё раз. */
+export function screenChange(a, b) {
+  if (!a || !b) return '';
+  if (b.layer && b.layer !== a.layer) return `Открылась панель «${b.layer}» — её вкладки и кнопки в списке первыми, помечены «(в панели)». Не нажимай строку списка снова.`;
+  if (a.layer && !b.layer) return 'Панель закрылась.';
+  if (a.hash !== b.hash) return 'Открылся другой экран.';
+  if (a.text === b.text && String(a.els) === String(b.els)) return 'Экран не изменился. Это действие ничего не дало — выбери другое (или report_problem, если сайт мешает).';
+  return 'Экран обновился.';
+}

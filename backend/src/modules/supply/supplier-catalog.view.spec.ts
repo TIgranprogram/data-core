@@ -12,6 +12,7 @@ function fake(data: Record<string, Doc[]>, aggregated: Doc[] = []) {
   const coll = (n: string) => ({
     find: (f: unknown) => { calls.push({ coll: n, op: 'find', arg: f }); return cur(data[n] ?? []); },
     countDocuments: async (f: unknown) => { calls.push({ coll: n, op: 'count', arg: f }); return (data[n] ?? []).length; },
+    findOne: async (f: Doc) => { calls.push({ coll: n, op: 'findOne', arg: f }); return (data[n] ?? []).find((d) => String(d._id) === String(f._id)) ?? null; },
     distinct: async () => (data[n] ?? []).map((d) => d.materialId).filter(Boolean),
     aggregate: (p: unknown) => { calls.push({ coll: n, op: 'aggregate', arg: p }); return { toArray: async () => (n === 'supplieritems' ? aggregated : []) }; },
   });
@@ -26,6 +27,13 @@ describe('каталог: view=all', () => {
     const r = materialRow(mat, 3);
     expect(r).toMatchObject({ id: 'm:' + mat._id, kind: 'material', materialId: String(mat._id), supplierId: null, supplierName: '', priceHint: null, priceDate: null, stockQty: 3, photos: [], thumb: '', priceHistory: [] });
     expect(r.name).toBe('Труба 20');
+  });
+
+  it('открыть строку материала по прямой ссылке: get("m:<id>") → та же строка, не 400', async () => {
+    const { svc } = fake({ materials: [mat] });
+    const r = await svc.get('m:' + mat._id);
+    expect(r).toMatchObject({ id: 'm:' + mat._id, kind: 'material', materialId: String(mat._id), name: 'Труба 20' });
+    await expect(svc.get('m:' + id())).rejects.toThrow(/не найдена/);
   });
 
   it('без view — прежний путь: только предложения, без kind', async () => {
