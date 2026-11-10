@@ -76,9 +76,19 @@ export function compositionBlock(r) {
   const line = (l) => kitRow({ title: l.name, meta: `${qty(l.quantity)} ${l.unit}${l.article ? ' · ' + l.article : ''}${priceText(l)}`,
     below: l.lineType === 'product' && l.children?.length ? h('details', { class: 'comp-nested' }, h('summary', null, `его состав: ${l.children.length}`),
       h('ul', null, ...l.children.map((c) => h('li', null, `${c.name} · ${qty(c.quantity)} ${c.unit}`)))) : null });
-  const groups = [['material', 'Материалы'], ['product', 'Изделия'], ['module', 'Модули (CRM)']].map(([t, title]) => [title, items.filter((l) => (l.lineType || 'material') === t || (t === 'module' && l.raw))]).filter(([, l]) => l.length);
+  // 2026-11-10 (пользователь: «закинул всё в состав пачкой»): разделы по виду строки — модули, детали, метизы, покупные, сырьё
+  const KINDS = [
+    ['Модули', (l) => l.lineType === 'module' || l.raw], ['Изделия', (l) => l.lineType === 'product'],
+    ['Детали', (l) => l.kind === 'part'], ['Метизы', (l) => l.kind === 'fastener'], ['Покупные изделия', (l) => l.kind === 'purchased'],
+    ['Сырьё (лист, труба)', (l) => l.kind === 'raw'],
+  ];
+  const left = new Set(items);
+  const groups = KINDS.map(([title, ok]) => { const list = items.filter((l) => left.has(l) && ok(l)); list.forEach((l) => left.delete(l)); return [title, list]; });
+  groups.push(['Материалы', [...left]]);
+  const shown = groups.filter(([, l]) => l.length);
   return section({ title: 'Состав', tone: 'gold', count: items.length, body: [
-    items.length ? h('div', null, ...groups.map(([title, list]) => h('div', null, groups.length > 1 ? h('b', null, title) : null, h('div', null, ...list.map(line)))))
+    items.length ? (shown.length === 1 ? h('div', null, ...items.map(line))
+      : stack(...shown.map(([title, list], i) => section({ title, count: list.length, tone: 'neutral', open: i === 0 || list.length <= 10, body: list.map(line) }))))
       : none('Не заполнен — «Изменить состав» в действиях карточки.'),
     cost ? h('p', null, h('b', null, `Себестоимость ≈ ${money(cost.total)}`),
       h('span', { class: 'muted' }, cost.missing ? ` · без цены: ${cost.missing} — в сумму не вошли` : ' · материалы — по последним закупкам, изделия — по их составу')) : null] });

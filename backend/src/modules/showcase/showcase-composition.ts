@@ -19,7 +19,7 @@ export class ShowcaseComposition {
     if (!lines.length) return [];
     const ids = (t: string) => lines.filter((l) => l.lineType === t).map((l) => l.refId as Types.ObjectId);
     const [mats, prods, mods] = await Promise.all([
-      this.db.collection('materials').find({ _id: { $in: ids('material') } }, { projection: { name: 1, article: 1, unit: 1, deletedAt: 1 } }).toArray(),
+      this.db.collection('materials').find({ _id: { $in: ids('material') } }, { projection: { name: 1, article: 1, unit: 1, deletedAt: 1, materialKind: 1, isProfile: 1 } }).toArray(),
       this.db.collection('products').find({ _id: { $in: ids('product') } }, { projection: { name: 1, sku: 1, unit: 1, photoIds: 1, composition: 1, deletedAt: 1 } }).toArray(),
       this.db.collection('productmodules').find({ _id: { $in: ids('module') } }, { projection: { name: 1, sku: 1, unit: 1 } }).toArray(),
     ]);
@@ -36,7 +36,9 @@ export class ShowcaseComposition {
       const base = { id: String(l._id ?? ''), lineType: String(l.lineType ?? ''), refId: String(l.refId ?? ''), quantity: Number(l.quantity) || 0, notes: (l.notes as string) ?? null };
       if (l.lineType === 'material') {
         const m = mBy.get(base.refId);
-        return { ...base, materialId: base.refId, name: String(m?.name ?? '(материал удалён)'), article: (m?.article as string) ?? null, unit: String(l.unit ?? m?.unit ?? 'шт'), missing: !m || !!m.deletedAt };
+        return { ...base, materialId: base.refId, name: String(m?.name ?? '(материал удалён)'), article: (m?.article as string) ?? null, unit: String(l.unit ?? m?.unit ?? 'шт'), missing: !m || !!m.deletedAt,
+          // вид для раскладки «Состава» по разделам (2026-11-10): part / fastener / purchased / raw / прочее
+          kind: m?.isProfile ? 'raw' : String(m?.materialKind ?? '') || null };
       }
       if (l.lineType === 'product') {
         const p = pBy.get(base.refId);
