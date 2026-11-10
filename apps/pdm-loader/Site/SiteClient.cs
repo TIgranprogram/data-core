@@ -24,9 +24,10 @@ public sealed class SiteClient : IDisposable
 
     public SiteClient(string baseUrl)
     {
-        BaseUrl = baseUrl.Trim().TrimEnd('/');
+        BaseUrl = NormalizeSite(baseUrl);
         _handler = new HttpClientHandler { CookieContainer = _cookies, UseCookies = true };
-        _http = new HttpClient(_handler) { BaseAddress = new Uri(BaseUrl), Timeout = TimeSpan.FromMinutes(10) };
+        // «/» в конце + пути без ведущего «/» («api/…»): префикс «/db» сохраняется, запрос не уходит в корень домена (CRM)
+        _http = new HttpClient(_handler) { BaseAddress = new Uri(BaseUrl + "/"), Timeout = TimeSpan.FromMinutes(10) };
     }
 
     public bool IsLoggedIn => !string.IsNullOrEmpty(_access);
@@ -34,7 +35,7 @@ public sealed class SiteClient : IDisposable
     public async Task LoginAsync(string username, string password, CancellationToken ct = default)
     {
         var body = JsonSerializer.Serialize(new { username, password });
-        using var resp = await _http.PostAsync("/api/auth/login", JsonContent(body), ct);
+        using var resp = await _http.PostAsync("api/auth/login", JsonContent(body), ct);
         var text = await resp.Content.ReadAsStringAsync(ct);
         if (!resp.IsSuccessStatusCode)
             throw new SiteException((int)resp.StatusCode, MessageOf(text, "Ошибка входа"));
@@ -56,7 +57,7 @@ public sealed class SiteClient : IDisposable
     {
         if (string.IsNullOrEmpty(_refresh))
             throw new SiteException(401, "Нет токена обновления — войдите снова");
-        using var req = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");
+        using var req = new HttpRequestMessage(HttpMethod.Post, "api/auth/refresh");
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _refresh);
         req.Content = JsonContent("{}");
         using var resp = await _http.SendAsync(req, ct);
@@ -71,7 +72,7 @@ public sealed class SiteClient : IDisposable
     public async Task<JsonDocument> PreviewAsync(PdmTree tree, CancellationToken ct = default)
     {
         var json = TreeBuilderJson(tree);
-        return await SendJsonAsync(HttpMethod.Post, "/api/pdm-import/preview", json, ct);
+        return await SendJsonAsync(HttpMethod.Post, "api/pdm-import/preview", json, ct);
     }
 
     public async Task<JsonDocument> ApplyAsync(string planId, Dictionary<string, DecisionDto> decisions, PdmTree? tree = null, CancellationToken ct = default)
@@ -80,7 +81,7 @@ public sealed class SiteClient : IDisposable
             ? new { planId, decisions }
             : new { planId, decisions, tree = JsonSerializer.Deserialize<JsonElement>(TreeBuilderJson(tree)) };
         var json = JsonSerializer.Serialize(payload, JsonOpts);
-        return await SendJsonAsync(HttpMethod.Post, "/api/pdm-import/apply", json, ct);
+        return await SendJsonAsync(HttpMethod.Post, "api/pdm-import/apply", json, ct);
     }
 
     public async Task<JsonDocument> UploadFileAsync(
@@ -106,7 +107,7 @@ public sealed class SiteClient : IDisposable
             fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
             form.Add(fileContent, "file", Path.GetFileName(localPath));
 
-            using var req = new HttpRequestMessage(HttpMethod.Post, "/api/pdm-import/files") { Content = form };
+            using var req = new HttpRequestMessage(HttpMethod.Post, "api/pdm-import/files") { Content = form };
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _access);
             using var resp = await _http.SendAsync(req, ct);
             var text = await resp.Content.ReadAsStringAsync(ct);
@@ -139,7 +140,7 @@ public sealed class SiteClient : IDisposable
             fileContent.Headers.ContentType = new MediaTypeHeaderValue(ext is ".jpg" or ".jpeg" ? "image/jpeg" : "image/png");
             form.Add(fileContent, "file", Path.GetFileName(localPath));
 
-            using var req = new HttpRequestMessage(HttpMethod.Post, "/api/pdm-import/preview-image") { Content = form };
+            using var req = new HttpRequestMessage(HttpMethod.Post, "api/pdm-import/preview-image") { Content = form };
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _access);
             using var resp = await _http.SendAsync(req, ct);
             var text = await resp.Content.ReadAsStringAsync(ct);
@@ -223,13 +224,41 @@ public sealed class SiteClient : IDisposable
             using var doc = JsonDocument.Parse(json);
             if (doc.RootElement.TryGetProperty("message", out var m))
             {
-                if (m.ValueKind == JsonValueKind.String) return m.GetString() ?? fallback;
+                if (m.ValueKind == JsonValueKind.String) return Ru(m.GetString() ?? fallback);
                 if (m.ValueKind == JsonValueKind.Array)
                     return string.Join("; ", m.EnumerateArray().Select(x => x.ToString()));
             }
         }
         catch { /* */ }
-        return string.IsNullOrWhiteSpace(json) ? fallback : json.Length > 400 ? json[..400] + "…" : json;
+        // не JSON (страница nginx, HTML) — не показываем разметку, только понятный текст
+        return string.IsNullOrWhiteSpace(json) || json.TrimStart().StartsWith("<") ? fallback : json.Length > 400 ? json[..400] + "…" : json;
+    }
+
+    /// <summary>Стандартные английские ответы сервера → по-русски (2026-11-10: «Internal server error» — пользователю непонятно).</summary>
+    static string Ru(string msg) => msg.Trim() switch
+    {
+        "Internal server error" => "Ошибка на сайте. Проверьте адрес сайта (должен быть https://kppdf-crm.ru/db) и повторите; не помогло — сообщите время и что нажимали.",
+        "Unauthorized" => "Нужно войти на сайт заново.",
+        "Forbidden" or "Forbidden resource" => "Нет прав: загружать из PDM может администратор.",
+        "Not Found" or "Cannot POST" => "Сайт не знает такой команды — проверьте адрес сайта (https://kppdf-crm.ru/db).",
+        "Payload Too Large" => "Слишком большой пакет — загрузите изделие частями.",
+        "Bad Request" => "Сайт не принял данные.",
+        _ => msg,
+    };
+
+    /// <summary>
+    /// Адрес сайта из поля: «https://kppdf-crm.ru/db/app/#home» → «https://kppdf-crm.ru/db» (без «#…», «?…», «/app», «/admin»).
+    /// 2026-11-10: из адреса с «/app/#home» запросы уходили в корень домена — в CRM kppdf, а не на сайт.
+    /// </summary>
+    public static string NormalizeSite(string raw)
+    {
+        var s = (raw ?? "").Trim();
+        var cut = s.IndexOfAny(new[] { '#', '?' });
+        if (cut >= 0) s = s[..cut];
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"/(app|admin)(/.*)?$", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        s = s.TrimEnd('/');
+        if (s.Length > 0 && !s.Contains("://")) s = "https://" + s;
+        return s;
     }
 
     public void Dispose()

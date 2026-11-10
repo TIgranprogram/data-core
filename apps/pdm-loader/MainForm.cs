@@ -8,7 +8,7 @@ namespace DataCore.PdmLoader;
 
 public sealed class MainForm : Form
 {
-    readonly TextBox _site = new() { Text = "http://localhost:3001", Width = 260 };
+    readonly TextBox _site = new() { Text = "https://kppdf-crm.ru/db", Width = 260 }; // 2026-11-10: было localhost
     readonly TextBox _user = new() { Width = 100 };
     readonly TextBox _pass = new() { Width = 100, UseSystemPasswordChar = true };
     readonly TextBox _number = new() { Text = "6104.0000.0000", Width = 160 };
@@ -126,7 +126,7 @@ public sealed class MainForm : Form
             _status.Text = "Вход выполнен";
             try
             {
-                using var ver = await _siteClient.GetAsync("/api/apps/pdm-loader");
+                using var ver = await _siteClient.GetAsync("api/apps/pdm-loader");
                 var remote = ver.RootElement.TryGetProperty("version", out var rv) ? rv.GetString() : null;
                 if (remote != null && remote != "1.1.0" && CompareVer(remote, "1.1.0") > 0)
                     MessageBox.Show($"На сайте версия {remote}. Скачайте новую версию приложения.", "Версия");
@@ -657,7 +657,7 @@ public sealed class MainForm : Form
 
     string ApiBase()
     {
-        var s = _site.Text.Trim().TrimEnd('/');
+        var s = SiteClient.NormalizeSite(_site.Text);
         return s;
     }
 }
