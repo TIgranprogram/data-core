@@ -39,6 +39,12 @@ export function tidyText(s: string): string {
 }
 
 const SENTENCE = /[\s\S]*?[.!?](?=\s|$)|[\s\S]+$/g;
+/** Точка после сокращения («мес.», «рис.», «табл.») — не конец предложения (C064: иначе остаётся обрывок «со дня…»). \b не видит кириллицу. */
+const ABBR = /(?<![\p{L}\p{N}_])(мес|г|ул|пр|стр|корп|оф|тел|рис|табл|см)\./giu;
+const splitSentences = (s: string): string[] => {
+  const protected_ = s.replace(ABBR, (m) => `${m.slice(0, -1)}\uE000`);
+  return (protected_.match(SENTENCE) ?? [protected_]).map((p) => p.replace(/\uE000/g, '.'));
+};
 
 /** Подставляет вместо незаполненных меток линию или убирает необязательные фразы. Текст без меток возвращается как есть. */
 export function fillBlanks(text: string, rules: BlankRules = {}): string {
@@ -52,7 +58,7 @@ export function fillBlanks(text: string, rules: BlankRules = {}): string {
     const esc = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     s = s.replace(new RegExp(String.raw`\s+(?:до|от)\s+(?:\[\{${esc}\}(?: не заполнено| не найден)?\]|\{${esc}\})`, 'g'), '');
   }
-  const out = (s.match(SENTENCE) ?? [s]).map((sent) => {
+  const out = splitSentences(s).map((sent) => {
     const marks = [...sent.matchAll(new RegExp(MARK, 'g'))];
     if (!marks.length) return sent;
     if (marks.some((m) => isOptional(nameOf(m)))) return '';

@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { printableText } from './passport-blanks';
+import { printableText, type PrintGap } from './passport-blanks';
+import { has as hasNum } from './passport-pdf-v2-common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { promises as fs } from 'fs';
 import { Types, type Connection } from 'mongoose';
@@ -111,7 +112,7 @@ export class PassportPdfService {
     const raw = (await this.passports.findById(id)).toObject() as unknown as Doc;
     const p = noDraftNumber(await this.withText(raw));
     const { orgIn, asset } = await this.orgOf(p);
-    const buf = await renderStandPdf({ passport: p as never, org: orgIn, text: printableText(p.textSnapshot as PdfV2Text), style: await this.styleOf(p), logo: await this.asset(asset('logo')) });
+    const buf = await renderStandPdf({ passport: p as never, org: orgIn, text: printableText(p.textSnapshot as PdfV2Text, { draft: p.status === 'draft' }), style: await this.styleOf(p), logo: await this.asset(asset('logo')) });
     return { buf, filename: standFileName(p) };
   }
 
@@ -228,7 +229,18 @@ export class PassportPdfService {
     // «с печатью»: печать и подпись можно отключить по отдельности (seal / sign = false), по умолчанию — обе
     const seal = stamp && opts.seal !== false ? await this.asset(asset('seal')) : undefined;
     const signature = stamp && opts.sign !== false ? await this.asset(asset('signature')) : undefined;
-    const text = printableText(p.textSnapshot as PdfV2Text, { variant: variantOf(opts.variant), certificate: p.certificate as { number?: string } | undefined, category: String(p.passportCategory ?? '') }); // метки без значения → линия (passport-blanks.ts)
+    const draft = p.status === 'draft';
+    // материалы — метка в description (describeProduct); конструкция — needJoints в снимке
+    const gaps: PrintGap[] = [];
+    if (!hasNum(p.height) && !hasNum(p.length) && !hasNum(p.width) && !hasNum(p.weight)) gaps.push('dimensions');
+    if (!Object.values(images).some((list) => (list?.length ?? 0) > 0)) gaps.push('images');
+    const text = printableText(p.textSnapshot as PdfV2Text, {
+      variant: variantOf(opts.variant),
+      certificate: p.certificate as { number?: string } | undefined,
+      category: String(p.passportCategory ?? ''),
+      draft,
+      gaps: draft ? gaps : undefined,
+    }); // выпуск: пустые фразы выпадают; черновик: «не заполнено» (passport-blanks.ts)
     return {
       watermark: this.watermark(p),
       passport: p as never,

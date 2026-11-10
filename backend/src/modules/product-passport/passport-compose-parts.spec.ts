@@ -21,10 +21,10 @@ describe('describeProduct', () => {
     expect(describeProduct({ name: 'Комплекс', elements: ['e1', 'e2'], materialIds: ['m1', 'm2'] }, els, mats))
       .toBe('Комплекс (далее — изделие) состоит из: перекладины для подтягиваний, параллельных брусьев; изготовлено из стальной трубы и клеёного бруса.');
   });
-  it('пропускает пустые части', () => {
+  it('пропускает пустые части; нет материалов — метка для черновика', () => {
     expect(describeProduct({ name: 'Комплекс', materialIds: ['m1'] }, els, mats)).toBe('Комплекс (далее — изделие) изготовлено из стальной трубы.');
-    expect(describeProduct({}, [], [])).toBe('');
-    expect(describeProduct({ name: 'Х' }, undefined as any, undefined as any)).toBe('Х (далее — изделие).');
+    expect(describeProduct({}, [], [])).toBe('Изготовлено из [{materials} не заполнено].');
+    expect(describeProduct({ name: 'Х' }, undefined as any, undefined as any)).toBe('Х (далее — изделие). Изготовлено из [{materials} не заполнено].');
   });
 });
 

@@ -16,16 +16,25 @@ describe('паспорт: печать без «{…}»', () => {
     expect(unknown).toEqual([]);
   });
 
-  it('шаблон с пустыми значениями → нет «{», есть линия; необязательная фраза исчезла', () => {
+  it('шаблон с пустыми значениями → нет «{»/«не заполнено»; пустые фразы исчезли', () => {
     const t = buildV2Text({ passport: { passportCategory: 'TRN' }, all, own: { ...texts.TRN, version: 1 } as never });
     expect(t.missing.length).toBeGreaterThan(0);
     const p = printableText(t);
     const flat = p.sections.flatMap((s) => s.items.map((i) => i.text)).join('\n');
     expect(hasLeak(flat.replace(/{(fig|tab):[^}]+}/g, ''))).toBe(false); // {fig}/{tab} ставит PDF
-    expect(flat).toContain('________');
+    expect(flat).not.toMatch(/не заполнено|\[\{/);
     expect(flat).not.toMatch(/ростом не менее|Масса тела пользователя|Одновременно на тренажёре/); // пределы без значения не печатаются
+    expect(flat).not.toMatch(/со дня передачи изделия покупателю/); // «мес.» не режет предложение (C064)
     expect(flat).not.toMatch(/,\s*,|\s{2,}|\s[.,]/);
     p.sections.forEach((s) => s.items.filter((i) => !i.bullet).forEach((i, n) => expect(i.number).toBe(`${s.number}.${n + 1}`)));
+  });
+
+  it('черновик: метки «не заполнено» остаются заметными', () => {
+    const t = buildV2Text({ passport: { passportCategory: 'TRN' }, all, own: { ...texts.TRN, version: 1 } as never });
+    const p = printableText(t, { draft: true, gaps: ['dimensions', 'images'] });
+    const flat = [...p.sections.flatMap((s) => s.items.map((i) => i.text)), p.description ?? ''].join('\n');
+    expect(flat).toMatch(/не заполнено/);
+    expect(flat).toMatch(/Габариты и вес|Рисунки/);
   });
 
   it('«до {ageTo}» выпадает хвостом', () => {

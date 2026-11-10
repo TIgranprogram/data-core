@@ -8,12 +8,13 @@ import { PASSPORT_TEXTS_V2 } from './passport-texts.v2';
  */
 const OLD_KEYS = ['templateVersion', 'ownVersion', 'category', 'description', 'purpose', 'rules', 'maintenance', 'install', 'sections', 'missing', 'standards', 'choices'] as const;
 const CATS = ['TRN', 'WRK', 'DSP', 'BLG', 'DIO'] as const;
+/** C064: в description без материалов — метка «[{materials} не заполнено]»; эталон обновлён 2026-11-10. */
 const GOLDEN: Record<string, string> = {
-  TRN: '7b39f2c72571cc01530312ea62ebf8346b96361eb47fa8ab0bba75b34a63845c',
-  WRK: '84f114c3e7ad02444a734bbd6b1b99d2eea27080f9235e19a877ef2a75ac74e1',
-  DSP: '8a03725140be3b835ce5af1d8f5aa389e49654ed4b0c2d69189ccf078b9c2ff9',
-  BLG: 'ead7bf2bb392bcee51dd89a3a1970cb0b08b95f54b7a229f3eb9eb75b697dda5',
-  DIO: '85e1cf53d5c10aa48f887aab3136b3f007b803e78dfbc879e678f147c62aca4f',
+  TRN: '30db7e58a3bfaf03482d27a3aa9a15f8ce8a8ddc07c6682313595170c928d759',
+  WRK: 'c6c6b94d24f945e485166c6a2a7e42e1c2b3818ab407c436a70f609dcb05beee',
+  DSP: '20e13e9805bb7b001e550a137acca249badd9ccde9accc54135f6156ac5375ca',
+  BLG: 'd7b12bcdeb5a776803738370cfe512eff21647b519b6d93fec05879bbcbe6155',
+  DIO: 'a0990541f1c31655111537341ec77c82f303cbf61b2c15a9ece4f3b42b640654',
 };
 
 // B4 добавил условия (when) в тексты — они меняют снимок нарочно; эталон проверяет только коды пунктов, поэтому when снимается всегда

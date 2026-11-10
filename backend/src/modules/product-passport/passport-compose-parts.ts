@@ -69,17 +69,26 @@ function joinAnd(items: string[]): string {
   return `${items.slice(0, -1).join(', ')} и ${items[items.length - 1]}`;
 }
 
-/** Описание: «<Наименование> (далее — изделие) состоит из …; изготовлено из … и ….» */
+/**
+ * Описание: «<Наименование> (далее — изделие) состоит из …; изготовлено из … и ….».
+ * Нет материалов — отдельное предложение с меткой «[{materials} не заполнено]» (черновик видит; выпуск через printableText убирает).
+ */
 export function describeProduct(passport: PassportLike, elements: DictRec[], materials: DictRec[]): string {
   const name = str(passport?.name);
   const parts = uniq(pick(passport?.elements, elements).map((e) => stripEnd(str(e.inDescription))).filter(Boolean));
   const mats = uniq(pick(passport?.materialIds, materials).map((m) => stripEnd(str(m.madeOf))).filter(Boolean));
   const head = name ? `${stripEnd(name)} (далее — изделие)` : 'Изделие';
-  const clauses: string[] = [];
-  if (parts.length) clauses.push(`состоит из: ${parts.join(', ')}`);
-  if (mats.length) clauses.push(`изготовлено из ${joinAnd(mats)}`);
-  if (!clauses.length) return name ? `${head}.` : '';
-  return `${head} ${clauses.join('; ')}.`;
+  const out: string[] = [];
+  if (parts.length && mats.length) out.push(`${head} состоит из: ${parts.join(', ')}; изготовлено из ${joinAnd(mats)}.`);
+  else if (parts.length) {
+    out.push(`${head} состоит из: ${parts.join(', ')}.`);
+    out.push('Изготовлено из [{materials} не заполнено].');
+  } else if (mats.length) out.push(`${head} изготовлено из ${joinAnd(mats)}.`);
+  else if (name) {
+    out.push(`${head}.`);
+    out.push('Изготовлено из [{materials} не заполнено].');
+  } else out.push('Изготовлено из [{materials} не заполнено].');
+  return out.join(' ');
 }
 
 /** Шаги раздела «Правила пользования»: уникальные строки из правил элементов. */
