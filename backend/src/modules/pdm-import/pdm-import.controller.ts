@@ -35,7 +35,8 @@ export class PdmImportController {
   /** Multipart: поле `file` (PDF/DXF до 50 МБ) и поля формы из CONTRACT §3. Повтор того же файла — `stored:false`. */
   @Post('files')
   @Roles('admin')
-  @Throttle({ short: { ttl: 60_000, limit: 600 } })
+  // 2026-11-10: общий минутный лимит (long 100/мин) резал пачку — 114 файлов + 101 картинка; поднимаем оба окна
+  @Throttle({ short: { ttl: 60_000, limit: 600 }, long: { ttl: 60_000, limit: 1200 } })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: PDM_MAX_BYTES, files: 1 } }))
   @ApiConsumes('multipart/form-data')
   @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
@@ -48,7 +49,8 @@ export class PdmImportController {
   /** Multipart: `file` (PNG/JPEG до 10 МБ) + importId, designation, sha256. Главное фото менеджера не перебивается; повтор — `stored:false`. */
   @Post('preview-image')
   @Roles('admin')
-  @Throttle({ short: { ttl: 60_000, limit: 600 } })
+  // 2026-11-10: общий минутный лимит (long 100/мин) резал пачку — 114 файлов + 101 картинка; поднимаем оба окна
+  @Throttle({ short: { ttl: 60_000, limit: 600 }, long: { ttl: 60_000, limit: 1200 } })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: IMAGE_UPLOAD_MAX_BYTES, files: 1 } }))
   @ApiConsumes('multipart/form-data')
   @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })

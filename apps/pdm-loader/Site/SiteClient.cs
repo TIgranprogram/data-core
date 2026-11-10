@@ -90,7 +90,7 @@ public sealed class SiteClient : IDisposable
         string localPath, CancellationToken ct = default)
     {
         await EnsureAccessAsync(ct);
-        for (int attempt = 0; attempt < 3; attempt++)
+        for (int attempt = 0; attempt < 6; attempt++)
         {
             using var form = new MultipartFormDataContent();
             form.Add(new StringContent(importId), "importId");
@@ -128,7 +128,7 @@ public sealed class SiteClient : IDisposable
         string importId, string designation, string sha256, string localPath, CancellationToken ct = default)
     {
         await EnsureAccessAsync(ct);
-        for (int attempt = 0; attempt < 3; attempt++)
+        for (int attempt = 0; attempt < 6; attempt++)
         {
             using var form = new MultipartFormDataContent();
             form.Add(new StringContent(importId), "importId");
@@ -149,8 +149,15 @@ public sealed class SiteClient : IDisposable
                 await RefreshAsync(ct);
                 continue;
             }
+            // 2026-11-10: сервер ограничивает частоту (429) — подождать и повторить, а не терять картинку
+            if ((int)resp.StatusCode == 429)
+            {
+                var wait = resp.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(10 * (attempt + 1));
+                await Task.Delay(wait, ct);
+                continue;
+            }
             if (!resp.IsSuccessStatusCode)
-                throw new SiteException((int)resp.StatusCode, MessageOf(text, "Ошибка загрузки картинки"));
+                throw new SiteException((int)resp.StatusCode, (int)resp.StatusCode == 429 ? "Сайт просит отправлять реже — повторите позже" : MessageOf(text, "Ошибка загрузки картинки"));
             return JsonDocument.Parse(text);
         }
         throw new SiteException(401, "Не удалось загрузить картинку после обновления входа");

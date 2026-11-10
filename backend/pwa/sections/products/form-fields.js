@@ -3,14 +3,14 @@ import { h } from '../../core/dom.js';
 import { money, qty } from '../../core/format.js';
 import { go } from '../../core/router.js';
 import { skuKey } from '../../core/facets.js';
-import { tagPick, toast, confirmDlg, similarBox } from '../../ui/kit/index.js';
+import { button, tagPick, toast, toastError, confirmDlg, similarBox } from '../../ui/kit/index.js';
 import { dictNames } from '../../ui/dict-options.js';
 import { loadMaterialDicts, materialsSpec, specSummary } from '../../ui/materials-spec.js';
 import { funnelBox } from '../../ui/funnel.js';
 import { canEdit as canEditPassportTexts, dictOpts, dictRows } from '../passports/common.js';
 import { jointsPick } from '../passports/traits.js';
 import { withElementTexts } from '../passports/elements-block.js';
-import { formValues, phrases, staffOptions, passportCategoryOptions, skuSearch, materialsFromComposition, createProduct, patchProduct, savePd, takePending, pendingProduct } from './data.js';
+import { formValues, phrases, staffOptions, passportCategoryOptions, skuSearch, materialsFromComposition, createProduct, patchProduct, savePd, takePending, pendingProduct, assignSku } from './data.js';
 
 /* Форма изделия в правой панели: поля (ИЗ-4: Изделие → Цена → Паспорт → Характеристики → Описание и материалы → Ещё), тело запроса, создание/правка. */
 
@@ -51,6 +51,19 @@ const groupsOf = (fv) => (get) => {
   return mine.length ? mine : rest;
 };
 // дубль артикула — по тому же правилу, что на сервере (регистр, KC-01 = КС-01), и в корзине тоже
+/** Кнопка под полем «Артикул» (пользователь 2026-11-10): «Присвоить артикул группы» — сразу, с проверкой выпущенных паспортов; был только в меню «⋯». */
+const skuButton = (r) => (fa) => {
+  if (!r?.id || !session.canEdit) return;
+  fa.field('sku')?.append(button({ label: 'Присвоить артикул группы', kind: 'ghost', size: 'S', title: 'Новый артикул по номеру группы (например 34 → 3411)', onClick: async () => {
+    try {
+      const chk = await assignSku(r.id);
+      if (!chk.confirmRequired) { fa.set('sku', chk.sku); toast(chk.changed ? `Артикул: ${chk.sku}` : `Артикул ${chk.sku} уже по номеру группы`); return; }
+      if (!(await confirmDlg('Присвоить новый артикул?', `Сейчас: ${chk.sku || 'нет'}. ${chk.warning || ''}`, { okText: 'Присвоить' }))) return;
+      const res = await assignSku(r.id, true);
+      fa.set('sku', res.sku); r.sku = res.sku; toast(`Новый артикул: ${res.sku}`);
+    } catch (e) { toastError(e, 'присвоить артикул'); }
+  } }));
+};
 const skuTaken = (r) => async (v) => {
   const { live, trash } = await skuSearch(v);
   const hit = (x) => skuKey(x.sku) === skuKey(v) && x.id !== r?.id;
@@ -90,7 +103,7 @@ export function productForm() {
         { key: 'type', label: 'Тип оборудования', type: 'combo', required: true, max: 100, options: fv.sections.map(opt), hint: 'Из списка или своё; серым — сколько изделий и категория паспорта' },
         { key: 'group', label: 'Группа изделий', type: 'combo', max: 100, options: groupsOf(fv), hint: 'Только группы выбранного типа; тип не выбран — все' },
         { key: 'series', label: 'Название серии', type: 'combo', max: 100, options: fv.series.map(opt), strict: true, strictText: 'Выберите серию из справочника', extra: () => [{ label: 'Открыть справочник серий', run: () => go('dicts', { d: 'productSeries' }) }], hint: 'Нет нужной — добавьте в справочнике. Справочник серий не привязан к группам' },
-        { key: 'sku', label: 'Артикул', max: 64, span: 1, warn: skuTaken(r), hint: 'Оставьте пустым — будет присвоен автоматически по номеру группы' },
+        { key: 'sku', label: 'Артикул', max: 64, span: 1, warn: skuTaken(r), hint: 'Оставьте пустым — присвоится по номеру группы (временный «ПС-…» заменится)', mount: skuButton(r) },
         { key: 'status', label: 'Статус', type: 'segment', options: [{ value: 'draft', label: 'Черновик' }, { value: 'active', label: 'В продаже', tone: 'ok' }, { value: 'archived', label: 'Архив' }],
           hint: 'С ценой черновик сам становится «в продаже»' },
         { section: 'Цена', tone: 'money' },

@@ -546,7 +546,7 @@ public sealed class MainForm : Form
                 }
             }
 
-            int pics = 0, picFail = 0, picSkip = 0;
+            int pics = 0, picFail = 0, picSkip = 0; string? picWhy = null; // первая причина — в итоговое окно (2026-11-10: было только число)
             var withPreview = _current.Items.Where(x => !string.IsNullOrEmpty(x.Preview)).ToList();
             if (withPreview.Count > 0)
             {
@@ -572,7 +572,7 @@ public sealed class MainForm : Form
                         picSkip = withPreview.Count - pics;
                         break; // сервер ещё без preview-image
                     }
-                    catch { picFail++; }
+                    catch (Exception ex) { picFail++; picWhy ??= $"{it.Designation}: {ex.Message}"; }
                 }
             }
 
@@ -581,7 +581,7 @@ public sealed class MainForm : Form
                 (failed > 0 ? $"\nФайлов с ошибкой: {failed}" : "") +
                 $"\nКартинок: {pics}" +
                 (picSkip > 0 ? $"\nКартинки: сайт ещё не принимает ({picSkip} пропущено)" : "") +
-                (picFail > 0 ? $"\nКартинок с ошибкой: {picFail}" : ""),
+                (picFail > 0 ? $"\nКартинок с ошибкой: {picFail}" + (picWhy != null ? $"\nПричина (первая): {picWhy}\nНажмите «Загрузить на сайт» ещё раз — загруженное не задвоится." : "") : ""),
                 "Загрузка на сайт");
             _status.Text = $"Готово: +{created} / связь {linked} / файлы {uploaded} / картинки {pics}";
         }

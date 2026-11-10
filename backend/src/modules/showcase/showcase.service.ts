@@ -458,9 +458,14 @@ export class ShowcaseService {
     // у изделия артикул уже есть — не трогаем; нет — следующий по номеру группы; у группы нет номера — понятная ошибка
     if (dto.sku !== undefined && !clean(dto.sku)) {
       const cur = await this.db.collection('products').findOne({ _id }, { projection: { sku: 1, categoryId: 1 } });
-      if (cur && clean(cur.sku)) delete dto.sku;
+      const gid = ((set.categoryId ?? cur?.categoryId) as Types.ObjectId | null) ?? null;
+      const g = await groupNoOf(this.db, gid);
+      // артикул уже правильный для группы — не трогаем; временный «ПС-…» или чужой группы — новый по номеру группы
+      // (пользователь 2026-11-10: очистил поле у «ПС-DBBA03», ждал нормальный артикул — остался «ПС-…»)
+      const fits = !!cur && !!clean(cur.sku) && !/^ПС-/i.test(clean(cur.sku)) && (!g || !skuPrefixError(g.groupNo, clean(cur.sku)));
+      if (fits) delete dto.sku;
       else {
-        const auto = await nextSku(this.db, this.counter, ((set.categoryId ?? cur?.categoryId) as Types.ObjectId | null) ?? null);
+        const auto = await nextSku(this.db, this.counter, gid);
         if (!auto) throw new BadRequestException('Укажите артикул или задайте группе номер: Справочники → Группы изделий');
         dto.sku = auto.sku;
       }
