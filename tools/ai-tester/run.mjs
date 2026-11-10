@@ -528,7 +528,7 @@ async function check(s) {
     if (docker.status) no('5. Docker не запущен — стенд поднять нельзя', ['Откройте программу Docker Desktop (значок кита).', 'Дождитесь внизу слева зелёной надписи «Engine running».', 'Нажмите эту кнопку ещё раз.']);
     else say('➖ 5. Стенд не запущен — тестировщик запустит его сам при старте (3–10 мин).');
   }
-  say(bad ? `\nНе готово: ${bad}. Сделайте шаги со стрелкой → и нажмите «Проверить» ещё раз.` : '\nВсё готово. Нажмите «Запустить ИИ-тестировщика».');
+  say(bad ? `\nНе готово: ${bad}. Сделайте шаги со стрелкой → и нажмите «Проверить готовность» ещё раз.` : '\nВсё готово. Нажмите «Запустить ИИ-тестировщика».');
   return bad ? 1 : 0;
 }
 
@@ -555,7 +555,7 @@ async function main() {
   const resume = has('--resume');
   const prevRun = readRun();
   if (prevRun && prevRun.pid !== process.pid && alive(prevRun.pid) && Date.now() - (prevRun.beat || 0) < DEAD_MS) {
-    say('Тестировщик уже работает. Остановить — кнопка «Остановить тестировщика».'); return 0;
+    say('Тестировщик уже работает. Остановить — кнопка «Остановить ИИ-тестировщика».'); return 0;
   }
   if (resume && (!prevRun || Date.now() >= prevRun.until)) { fs.rmSync(RUN_FILE, { force: true }); return 0; }
 
@@ -583,7 +583,7 @@ async function main() {
   if (saved) state.tasks.push({ at: nowTime(), title: '— обрыв: продолжил сторож —', result: 'не получилось', steps: 0, summary: 'тестировщик был прерван (перезагрузка, свет или сбой) и продолжил сам' });
   const created = loadCreated();
   const writeReport = (removed = null) => fs.writeFileSync(path.join(OUT, 'REPORT.md'), buildReport({ day: DAY, model: s.model, startedAt, now: Date.now(), tasks: state.tasks, findings: state.findings, created, removed }));
-  say(`\nИИ-тестировщик работает ${minutes} мин на ${s.stand}. Остановить — кнопка «Остановить». Отчёт: tools/logs/ai-tester/${DAY}/REPORT.md\n`);
+  say(`\nИИ-тестировщик работает ${minutes} мин на ${s.stand}. Остановить — кнопка «Остановить ИИ-тестировщика». Отчёт: tools/logs/ai-tester/${DAY}/REPORT.md\n`);
 
   let b;
   const relogin = async () => {
@@ -606,7 +606,7 @@ async function main() {
       saveCreated(created);
       writeReport();
       fs.writeFileSync(STATE_FILE, JSON.stringify({ startedAt, tasks: state.tasks, findings: state.findings }));
-      if (state.llmErrors >= 3) { say('❌ ИИ трижды не ответил — останавливаюсь. Проверьте LM Studio кнопкой «Проверить».'); break; }
+      if (state.llmErrors >= 3) { say('❌ ИИ трижды не ответил — останавливаюсь. Проверьте LM Studio кнопкой «Проверить готовность».'); break; }
     }
   } catch (e) {
     say('❌ Сбой: ' + e.message);

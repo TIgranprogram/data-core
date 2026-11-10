@@ -75,7 +75,12 @@ function renderLegend() {
 function visible() {
   const q = S.query.trim().toLowerCase();
   const shown = S.catalog.commands.filter((c) => !c.hidden);
-  if (!q) return shown.filter((c) => c.section === S.section);
+  if (!q) {
+    // подзаголовки — в порядке раздела (subs): сверху главное, ниже редкое; внутри — порядок каталога
+    const subs = S.catalog.sections.find((s) => s.id === S.section)?.subs || [];
+    const at = (c) => { const i = subs.indexOf(c.sub); return i < 0 ? subs.length : i; };
+    return shown.filter((c) => c.section === S.section).map((c, i) => [c, i]).sort((a, b) => at(a[0]) - at(b[0]) || a[1] - b[1]).map(([c]) => c);
+  }
   return shown.filter((c) => `${c.title} ${c.hint}`.toLowerCase().includes(q));
 }
 
@@ -196,9 +201,9 @@ function renderCheck(a) {
   const text = el('div', 'now-check-text');
   const cmdId = check?.cmd || 'code-check';
   const cmd = S.catalog.commands.find((c) => c.id === cmdId);
-  const title = cmd?.title || 'Быстрая проверка';
+  const title = cmd?.title || 'Тесты кода: быстро';
   if (!check) {
-    text.append(el('b', '', 'Проверок с этого пульта ещё не было.'), el('span', '', 'Нажмите «Быстрая проверка». Она скажет, всё ли в порядке.'));
+    text.append(el('b', '', 'Проверок с этого пульта ещё не было.'), el('span', '', 'Нажмите «Тесты кода: быстро». Они скажут, всё ли в порядке.'));
   } else if (check.code !== 0) {
     text.append(el('b', '', `${title} не прошла ${whenText(check.at)}.`), el('span', '', check.last || 'Подробности в журнале справа.'));
   } else {
