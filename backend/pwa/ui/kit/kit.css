@@ -165,9 +165,18 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .db-order.k-gfold .db-oh { gap: 6px; align-items: flex-start; }
 .db-order.k-gfold .db-oh-main { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; flex: 1; }
 .db-order.k-gfold .db-oname { cursor: pointer; text-align: left; font: inherit; color: inherit; } /* эталон L / design-side; группы-счёт — чип */
-.db-order.k-gfold .db-inv-chip { flex: none; max-width: 100%; text-decoration: none; font-weight: 600; }
+.db-order.k-gfold .db-inv-chip { flex: none; max-width: 100%; text-decoration: none; font-weight: 600; white-space: normal; overflow-wrap: anywhere; text-align: left; justify-content: flex-start; height: auto; } /* 2026-11-10: длинный № счёта вылезал из карточки (кнопка — одна строка по центру) */
 .db-order.k-gfold .db-inv-chip.is-static { display: inline-flex; align-items: center; min-height: 28px; padding: 0 8px; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text); font-weight: 600; font-size: var(--fs-sm); }
 .db-order.k-gfold .db-cust { color: var(--muted); font-size: var(--fs-sm); }
+/* C067: карточка группы-счёта крупнее — № счёта и сумма заметнее, поставщик и дата отдельной строкой, кнопки счёта внизу */
+.col-body .db-order.k-gfold { gap: var(--s2); padding: var(--s3) var(--s3) var(--s3) var(--s2); }
+.db-order.k-gfold .db-inv-chip { font-size: var(--fs-h3); }
+.db-order.k-gfold .db-gsub { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); padding-left: var(--s2); }
+.db-order.k-gfold .db-gsum { color: var(--heading); font-weight: 700; font-size: var(--fs-h3); white-space: nowrap; }
+.col-body .db-order.k-gfold .db-ocnt { align-items: baseline; }
+.db-order.k-gfold > .k-actions { margin-top: var(--s1); padding-left: var(--s2); }
+.db-order.k-gfold > .k-actions .btn { flex: 1 1 auto; justify-content: center; }
+@media (max-width: 720px) { .db-order.k-gfold > .k-actions .btn { min-height: 44px; } }
 .db-order.k-gfold .db-chev { pointer-events: none; display: inline-flex; align-items: center; justify-content: center; }
 .db-order.k-gfold .db-lines { cursor: default; user-select: auto; }
 .db-order.k-gfold .db-lines .tcard { transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease; }

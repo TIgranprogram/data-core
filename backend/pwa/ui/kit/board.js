@@ -8,7 +8,7 @@ import { paintOrder } from '../../core/order-color.js';
 import { toastError } from './toast.js';
 import { draggable } from './drag.js';
 import { openPopMenu } from './pop-menu.js';
-import { link, iconButton } from './index.js';
+import { link, iconButton, button, actions } from './index.js';
 import { getPref, setPref } from '../../core/prefs.js';
 
 /**
@@ -25,7 +25,8 @@ import { getPref, setPref } from '../../core/prefs.js';
  *   headCount — сумма по колонкам уходит в onTotal (счётчик в шапке)
  *   columns[].hint — строка «что здесь делать» под названием; columns[].money — сумма колонки (resp.sum) для денежных ролей;
  *   columns[].multi = { label, run(rows) → число переведённых } — чекбоксы на карточках и полоса «Выбрано N · label»;
- *   group(row) → { key, label, sub? } | null — позиции одной группы (счёт) собраны в карточку ▸/▾, как заказ на доске «Проектирование»; groupSum(row) — сумма группы
+ *   group(row) → { key, label, sub?, date?, actions? } | null — позиции одной группы (счёт) собраны в карточку ▸/▾, как заказ на доске «Проектирование»; groupSum(row) — сумма группы
+ *   groupActions?(rows) → [{ label, kind, title, run(rows) → true (доска перечитается) | иначе ничего }] — кнопки внизу карточки группы (клик не раскрывает группу); то же можно положить в group().actions
 
  * density?: 'normal'|'compact'|'pics' — плотность карточек доски (kit)
  *   cardMenu?(row, column) → [{ label, run(row) → false|… , danger?, sep? }] — кнопка «⋯» на карточке (общее меню действий); после run доска перечитывается
@@ -179,6 +180,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
     let sum = rs.reduce((a, r) => a + (Number(board.groupSum?.(r)) || 0), 0);
     if (!sum) sum = Math.max(0, ...rs.map((r) => Number(board.groupTotal?.(r)) || 0));
     const body = h('div', { class: 'db-lines b-glines' });
+    const acts = (g.actions || board.groupActions?.(rs) || []).filter(Boolean);
     const chev = h('span', { class: 'db-chev', 'aria-hidden': 'true' }, '▸');
     const invChip = g.open
       ? quiet(typeof g.open === 'object' && g.open.href
@@ -194,11 +196,19 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
       onkeydown: (e) => { if (e.target === card && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(); } },
     },
       h('div', { class: 'db-oh' },
-        h('div', { class: 'db-oh-main' }, invChip, g.sub ? h('span', { class: 'db-cust' }, g.sub) : null),
+        h('div', { class: 'db-oh-main' }, invChip),
         chev),
+      g.sub || g.date ? h('div', { class: 'db-gsub' }, g.sub ? h('span', { class: 'db-cust' }, g.sub) : null, g.date ? h('span', { class: 'db-cust' }, g.date) : null) : null,
       h('div', { class: 'db-ocnt' },
         h('span', { class: 'db-cnt' }, 'позиций ' + rs.length),
-        sum && session.canMoney ? h('span', { class: 'db-cnt num' }, money(sum)) : null),
+        sum && session.canMoney ? h('span', { class: 'db-gsum num' }, money(sum)) : null),
+      acts.length ? quiet(actions(...acts.map((a) => {
+        const b = button({ label: a.label, kind: a.kind || 'secondary', size: 'S', title: a.title, onClick: async () => {
+          b.disabled = true; b.classList.add('is-busy');
+          try { if ((await a.run(rs)) === true) onChanged(); } catch (ex) { toastError(ex); } finally { b.disabled = false; b.classList.remove('is-busy'); }
+        } });
+        return b;
+      }))) : null,
       body), k);
     const paint = () => {
       const open = isOpen(ck, k);
