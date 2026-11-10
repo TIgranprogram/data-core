@@ -8,6 +8,7 @@
 //   node tools/ai-tester/run.mjs --last             коротко: последний отчёт
 //   node tools/ai-tester/run.mjs --watchdog         сторож (Планировщик Windows, раз в 10 мин и при входе): упал — продолжить до конца срока
 //   node tools/ai-tester/run.mjs --resume           продолжить прерванный запуск (зовёт сторож)
+//   node tools/ai-tester/run.mjs --reviewed [дата]  отчёт разобран — dc start его больше не показывает
 // Отчёт: tools/logs/ai-tester/<дата>/REPORT.md, снимки — там же. Код выхода: 0 норма · 1 есть ошибки сайта · 2 сбой.
 import { spawn, spawnSync } from 'child_process';
 import crypto from 'crypto';
@@ -157,7 +158,41 @@ async function standLogin(base) {
   if (r.status) return null;
   return apiLogin(base, creds);
 }
+const DAY_MS = 86400000;
+const fmtDay = (t) => (t ? new Date(t).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) : '?');
+let STAND_BASE = ''; // для шапки отчёта: из какой копии база стенда
+
+/** Docker не запущен (например, после перезагрузки) — запустить Docker Desktop и подождать до 4 минут. */
+async function ensureDocker() {
+  if (!spawnSync('docker', ['info'], { encoding: 'utf8', windowsHide: true }).status) return true;
+  const exe = [path.join(process.env.LOCALAPPDATA || '', 'Programs', 'DockerDesktop', 'Docker Desktop.exe'), path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Docker', 'Docker', 'Docker Desktop.exe')].find((f) => fs.existsSync(f));
+  if (!exe) return false;
+  say('Docker не запущен — запускаю Docker Desktop (до 4 минут)…');
+  spawn(exe, [], { detached: true, stdio: 'ignore' }).unref();
+  for (let i = 0; i < 48; i++) { await sleep(5000); if (!spawnSync('docker', ['info'], { encoding: 'utf8', windowsHide: true }).status) { say('Docker запущен.'); return true; } }
+  return false;
+}
+
+/**
+ * База стенда должна быть свежей: есть копия новее, а базе стенда больше 2 дней — новый стенд из свежей копии
+ * (старый откладывается без удаления). Копия на самом ПК старше 2 дней — предупреждение (её качает задача «Копия базы на ПК в 10:00»).
+ */
+async function ensureFreshBase() {
+  const { standInfo, standRenew } = await import('../night.mjs');
+  let i; try { i = standInfo(); } catch (e) { say('⚠ Не узнал, из какой копии база стенда: ' + e.message.slice(0, 100)); return; }
+  if (!i.latest) { say('⚠ На этом ПК нет копии базы — стенд не обновить. Пульт → Копии базы и сервер → «Скачать копию базы на этот ПК».'); STAND_BASE = 'копии на ПК нет'; }
+  else if (Date.now() - i.latestAt > 2 * DAY_MS) say(`⚠ Копия базы на ПК старая (от ${fmtDay(i.latestAt)}). Пульт → Копии базы и сервер → «Скачать копию базы на этот ПК».`);
+  const newer = i.latest && i.latestAt && (!i.dataAt || i.latestAt > i.dataAt) && i.backup !== i.latest;
+  if (i.run && newer && (!i.dataAt || Date.now() - i.dataAt > 2 * DAY_MS)) {
+    say(`База стенда от ${fmtDay(i.dataAt)}, на ПК есть копия от ${fmtDay(i.latestAt)} — собираю стенд из свежей копии (5–15 минут). Рабочий сайт не затрагивается.`);
+    try { await standRenew({ say, log: () => {} }); } catch (e) { say('⚠ Новый стенд не собрался (' + e.message.slice(0, 120) + ') — работаю на прежнем.'); }
+    try { i = standInfo(); } catch { /* ниже — что есть */ }
+  }
+  if (!STAND_BASE) STAND_BASE = i.run ? `копия от ${fmtDay(i.dataAt)}${i.backup ? ` (${i.backup})` : ''}` : 'стенд будет создан из последней копии';
+}
+
 async function ensureStand(base) {
+  await ensureFreshBase();
   if (await standReady(base)) {
     // поднятый стенд мог остаться на старом коде — тогда находки ложные (как в «Большой проверке сайта»)
     say('Стенд работает — обновляю его до текущего кода (около 2 минут)…');
@@ -189,7 +224,7 @@ function readNav() {
 // ---------- задания ----------
 // make: создаёт запись (название получит метку ТЕСТ-ИИ). look: только смотрит.
 const TASKS = [
-  { id: 'partner', section: 'partners', make: true, task: 'Создай нового контрагента — поставщика. Название придумай. Заполни, что сможешь (ИНН — 10 любых цифр, телефон). Сохрани. Найди его в списке и открой карточку.' },
+  { id: 'partner', section: 'partners', make: true, task: 'Создай нового контрагента — поставщика. Название придумай. Заполни, что сможешь (ИНН — ровно {inn}, телефон). Сохрани. Найди его в списке и открой карточку.' },
   { id: 'request', section: 'requests', make: true, task: 'Создай новую заявку на закупку. Добавь 1–2 материала из предложенных и количество. Сохрани. Убедись, что заявка видна в списке.' },
   { id: 'expense', section: 'expenses', make: true, task: 'Нажми кнопку добавления расхода. Заполни сумму 1500 и комментарий, остальные обязательные поля выбери из списков. Нажми «Сохранить» один раз. Если сайт пишет, что не так, — исправь это поле. Затем finish.' },
   { id: 'staff', section: 'staff', task: 'Осмотри «Сотрудников»: найди кого-нибудь поиском, открой карточку, посмотри вкладки. Ничего не меняй, новых пользователей не создавай.' },
@@ -226,6 +261,15 @@ const TOOLS = [
 ].map((f) => ({ type: 'function', function: f }));
 
 // ---------- браузер (Chrome DevTools Protocol, без зависимостей) ----------
+/** После обрыва остаются браузеры без окна и их временные профили (ai-tester-*) — убрать перед новым запуском. */
+function cleanLeftovers() {
+  if (process.platform === 'win32') {
+    const ps = "Get-CimInstance Win32_Process -Filter \"Name='msedge.exe' OR Name='chrome.exe'\" | Where-Object { $_.CommandLine -like '*--user-data-dir=*ai-tester-*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }";
+    spawnSync('powershell', ['-NoProfile', '-Command', ps], { windowsHide: true });
+  }
+  for (const d of fs.readdirSync(os.tmpdir()).filter((n) => n.startsWith('ai-tester-'))) { try { fs.rmSync(path.join(os.tmpdir(), d), { recursive: true, force: true }); } catch { /* занят */ } }
+}
+
 function findBrowser() {
   return [process.env.EDGE, 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Microsoft/Edge/Application/msedge.exe'].filter(Boolean).find((p) => fs.existsSync(p));
 }
@@ -379,7 +423,8 @@ function autoFindings(b, o, seenGarbage) {
   for (const n of b.net.splice(0)) {
     const p = n.url.split('?')[0];
     if (n.status >= 500) out.push(`сервер ответил ошибкой ${n.status} на ${n.method} ${p}`);
-    else if (n.status >= 400 && n.status !== 401 && n.method !== 'GET') out.push(`сохранение не прошло: ${n.method} ${p} → ${n.status}${n.msg ? ` «${n.msg}»` : ''}`);
+    // 409 «такая запись уже есть» — сайт верно отказал на повтор (модель ввела то же), не ошибка сайта
+    else if (n.status >= 400 && n.status !== 401 && n.status !== 409 && n.method !== 'GET') out.push(`сохранение не прошло: ${n.method} ${p} → ${n.status}${n.msg ? ` «${n.msg}»` : ''}`);
     else if (n.status === 404 && n.method === 'GET') out.push(`нет данных по адресу ${p} (404)`);
     if (n.ms > 3000) out.push(`медленно: ${n.method} ${p} — ${(n.ms / 1000).toFixed(1)} с`);
   }
@@ -400,7 +445,7 @@ async function runTask(s, b, nav, t, state) {
   await sleep(2500);
   b.net.length = 0; b.jsErrors.length = 0;
   let o = await look(b);
-  const msgs = [{ role: 'system', content: SYSTEM }, { role: 'user', content: `Задание: ${t.task}\n\nЭкран сейчас:\n${lookText(o, nav)}` }];
+  const msgs = [{ role: 'system', content: SYSTEM }, { role: 'user', content: `Задание: ${t.task.replace('{inn}', String(Math.floor(1e9 + Math.random() * 9e9)))}\n\nЭкран сейчас:\n${lookText(o, nav)}` }];
   const add = (f) => {
     state.findings.push(f);
     say(`  ⚠ ${f.kind}: ${f.text}`);
@@ -524,8 +569,7 @@ async function check(s) {
   if (!isLocalStand(s.stand)) no(`5. Адрес стенда «${s.stand}» не на этом ПК`, ['Тестировщик работает только на стенде этого компьютера. Верните "stand": "http://localhost:3102".']);
   else if (await standReady(s.stand)) ok(`5. Стенд работает (${s.stand})`);
   else {
-    const docker = spawnSync('docker', ['info'], { encoding: 'utf8' });
-    if (docker.status) no('5. Docker не запущен — стенд поднять нельзя', ['Откройте программу Docker Desktop (значок кита).', 'Дождитесь внизу слева зелёной надписи «Engine running».', 'Нажмите эту кнопку ещё раз.']);
+    if (!(await ensureDocker())) no('5. Docker не запущен — стенд поднять нельзя', ['Откройте программу Docker Desktop (значок кита).', 'Дождитесь внизу слева зелёной надписи «Engine running».', 'Нажмите эту кнопку ещё раз.']);
     else say('➖ 5. Стенд не запущен — тестировщик запустит его сам при старте (3–10 мин).');
   }
   say(bad ? `\nНе готово: ${bad}. Сделайте шаги со стрелкой → и нажмите «Проверить готовность» ещё раз.` : '\nВсё готово. Нажмите «Запустить ИИ-тестировщика».');
@@ -552,6 +596,12 @@ async function main() {
   if (has('--check')) return check(s);
   if (has('--cleanup')) return cleanup(s);
   if (has('--watchdog')) return watchdog();
+  if (has('--reviewed')) { // координатор разобрал отчёт: dc start его больше не показывает
+    const i = args.indexOf('--reviewed'); const day = /^\d{4}-\d{2}-\d{2}$/.test(args[i + 1] || '') ? args[i + 1] : DAY;
+    const dir = path.join(LOGS, day);
+    if (!fs.existsSync(path.join(dir, 'REPORT.md'))) { say(`Отчёта за ${day} нет.`); return 2; }
+    fs.writeFileSync(path.join(dir, 'REVIEWED'), new Date().toISOString()); say(`Отчёт за ${day} отмечен как разобранный.`); return 0;
+  }
   const resume = has('--resume');
   const prevRun = readRun();
   if (prevRun && prevRun.pid !== process.pid && alive(prevRun.pid) && Date.now() - (prevRun.beat || 0) < DEAD_MS) {
@@ -565,6 +615,7 @@ async function main() {
   const minutes = Math.max(1, Math.round((until - Date.now()) / 60000));
   if (!resume) try { fs.rmSync(STOP_FILE, { force: true }); } catch { /* нет */ }
   fs.mkdirSync(OUT, { recursive: true });
+  cleanLeftovers();
   const beat = () => fs.writeFileSync(RUN_FILE, JSON.stringify({ until, day: DAY, pid: process.pid, beat: Date.now() }));
   beat(); const beatTimer = setInterval(beat, BEAT_MS); beatTimer.unref();
   const awake = keepAwake();
@@ -577,12 +628,13 @@ async function main() {
   const nav = readNav();
   if (!nav.length) { say('❌ Не нашёл меню приложения.'); return 2; }
 
-  const saved = (() => { try { return resume ? JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) : null; } catch { return null; } })();
+  const saved = (() => { try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch { return null; } })(); // тот же день — отчёт дописывается
   const state = { tasks: saved?.tasks || [], findings: saved?.findings || [], garbage: new Set(), llmErrors: 0, until };
   const startedAt = saved?.startedAt || Date.now();
-  if (saved) state.tasks.push({ at: nowTime(), title: '— обрыв: продолжил сторож —', result: 'не получилось', steps: 0, summary: 'тестировщик был прерван (перезагрузка, свет или сбой) и продолжил сам' });
+  if (saved && !resume) state.tasks.push({ at: nowTime(), title: '— новый запуск в этот же день —', result: 'получилось', steps: 0, summary: 'отчёт дописывается' });
+  if (saved && resume) state.tasks.push({ at: nowTime(), title: '— обрыв: продолжил сторож —', result: 'не получилось', steps: 0, summary: 'тестировщик был прерван (перезагрузка, свет или сбой) и продолжил сам' });
   const created = loadCreated();
-  const writeReport = (removed = null) => fs.writeFileSync(path.join(OUT, 'REPORT.md'), buildReport({ day: DAY, model: s.model, startedAt, now: Date.now(), tasks: state.tasks, findings: state.findings, created, removed }));
+  const writeReport = (removed = null) => fs.writeFileSync(path.join(OUT, 'REPORT.md'), buildReport({ day: DAY, model: s.model, base: STAND_BASE, startedAt, now: Date.now(), tasks: state.tasks, findings: state.findings, created, removed }));
   say(`\nИИ-тестировщик работает ${minutes} мин на ${s.stand}. Остановить — кнопка «Остановить ИИ-тестировщика». Отчёт: tools/logs/ai-tester/${DAY}/REPORT.md\n`);
 
   let b;

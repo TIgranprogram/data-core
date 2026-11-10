@@ -246,6 +246,26 @@ export function backupWord(body) {
     return { bad: b.status !== 'up', text: b.message || b.note || b.status };
   } catch { return { bad: true, text: 'не отвечает' }; }
 }
+/** Отчёты ИИ-тестировщика без отметки «разобрано» (REVIEWED) — координатор разбирает их первыми. Идущий сегодня запуск не считается. */
+export function testerReports(dir = path.join(LOGS, 'ai-tester')) {
+  if (!fs.existsSync(dir)) return [];
+  let running = null; try { const r = JSON.parse(fs.readFileSync(path.join(dir, 'run.json'), 'utf8')); if (Date.now() - r.beat < 4 * 60000) running = r.day; } catch { /* не идёт */ }
+  return fs.readdirSync(dir).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d) && d !== running)
+    .filter((d) => fs.existsSync(path.join(dir, d, 'REPORT.md')) && !fs.existsSync(path.join(dir, d, 'REVIEWED')))
+    .sort().map((d) => {
+      const t = fs.readFileSync(path.join(dir, d, 'REPORT.md'), 'utf8');
+      const m = t.match(/Ошибок сайта: (\d+), замечаний ИИ: (\d+)/);
+      return { day: d, errors: m ? +m[1] : null, notes: m ? +m[2] : null, file: `tools/logs/ai-tester/${d}/REPORT.md` };
+    });
+}
+function testerLine() {
+  const list = testerReports();
+  if (!list.length) { say('ИИ-тестировщик: неразобранных отчётов нет'); return false; }
+  say(`ИИ-тестировщик: не разобрано отчётов ${list.length} — разобрать (ошибки сайта → чинить), затем node tools/ai-tester/run.mjs --reviewed <дата>`);
+  for (const r of list.slice(-5)) say(`  ${r.day}: ошибок сайта ${r.errors ?? '?'}, замечаний ИИ ${r.notes ?? '?'} → ${r.file}`);
+  return true;
+}
+
 function backupsLine() {
   let bad = false; const parts = [];
   for (const [name, url] of BACKUP_SOURCES) {
@@ -277,6 +297,7 @@ function cmdStart() {
   if (st.changed) code = 1;
   if (ab?.behind) { code = 1; say('Отстаёт от origin: нужен git pull (чужие правки — сначала спросить)'); }
   if (backupsLine()) code = Math.max(code, 1);
+  if (testerLine()) code = Math.max(code, 1);
   const e = cmdErrors(24);
   if (e.code === 2) code = 2; else if (e.count) code = Math.max(code, 1);
   return code;

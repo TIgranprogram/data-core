@@ -175,6 +175,8 @@ const docker = (args, o) => sh('docker', args, o);
 const stand = createNightStand({ docker, sh, root: ROOT, composeFile: COMPOSE, nightDir: NIGHT_DIR, backupDir: BACKUPS });
 export const standUp = (ctx, src = ROOT, run = null) => stand.up(ctx, src, run);
 export const standRefresh = (ctx, src = ROOT) => stand.refresh(ctx, src);
+export const standRenew = (ctx) => stand.renew(ctx); // новый стенд из свежей копии, старый — отложен без удаления
+export const standInfo = () => stand.info();
 export const standDown = (ctx, run) => stand.down(ctx, run);
 export const standStatus = (ctx) => stand.status(ctx);
 
@@ -192,6 +194,7 @@ export async function cmdStand(sub, ctx) {
     if (sub === 'up') return await standUp(ctx);
     if (sub === 'down') return standDown(ctx);
     if (sub === 'refresh') return await standRefresh(ctx); // код с диска → в стенд, база не трогается
+    if (sub === 'renew') return await standRenew(ctx); // база посвежее: новый стенд из последней копии на ПК
     ctx.say('dc stand [up|down|status|refresh]');
     return 2;
   } catch (e) {

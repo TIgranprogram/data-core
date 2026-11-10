@@ -66,7 +66,7 @@ export function createNightStand({ docker, sh, root, composeFile, nightDir, back
     const bootstrap = checked(evalMongo(run, `var d=db.getSiblingDB('${run.db}');var u=d.users.findOne({isOwner:true},{username:1})||d.users.findOne({role:'admin'},{username:1});print(JSON.stringify({username:u?u.username:null,collections:d.getCollectionNames().length}))`), 'проверка восстановленной копии', ctx);
     let restored; try { restored = JSON.parse(bootstrap.stdout?.trim() || ''); } catch { bad('результат restore неизвестен'); }
     if (restored.collections < 1 || typeof restored.username !== 'string' || !/^[\p{L}\p{N}_.@+-]{1,128}$/u.test(restored.username)) bad('restore не подтвердил коллекции и bootstrap');
-    run.adminUsername = restored.username; save(run);
+    run.adminUsername = restored.username; run.backup = bk; run.restoredAt = new Date().toISOString(); save(run); // из какой копии база — тестировщик сверяет со свежей
     const e = credentials(run);
     checked(evalMongo(run, `db.getSiblingDB('admin').createUser({user:'dcnight',pwd:'${e.NIGHT_APP_PW}',roles:[{role:'readWrite',db:'${run.db}'}]})`), 'пользователь стенда', ctx);
     checked(compose(run, ['up', '-d', '--build', 'proxy'], src, { capture: true }), 'backend/шлюз не поднялись', ctx);
@@ -118,6 +118,46 @@ export function createNightStand({ docker, sh, root, composeFile, nightDir, back
     await wait('backend health', () => healthFn(run), ctx);
     return 0;
   }
+  /**
+   * Новый стенд из самой свежей копии на ПК на том же адресе. Старый стенд только останавливается и откладывается
+   * (паспорт → retired.json) — данные не удаляются; место освобождает кнопка «Docker: очистить этот ПК».
+   */
+  async function renew(ctx) {
+    const old = current();
+    if (old) {
+      try { down(ctx, old); } catch (e) { ctx.say('Старый стенд не остановлен: ' + e.message); throw e; }
+      fs.renameSync(currentFile, path.join(dir(old), 'retired.json'));
+      ctx.say('Старый стенд отложен (данные не удалены): ' + old.project);
+    }
+    try {
+      const code = await up(ctx);
+      // новый стенд работает — пустые сети отложенного убрать (данных в них нет); иначе сети копятся и у Docker кончаются адреса
+      if (old) for (const n of [`${old.project}_default`, `${old.project}_access`]) docker(['network', 'rm', n]);
+      return code;
+    } catch (error) {
+      // новый не собрался (2026-11-10: у Docker кончились адреса сетей) — отложить его и вернуть прежний стенд
+      const fresh = current();
+      if (fresh && fresh.id !== old?.id) fs.renameSync(currentFile, path.join(dir(fresh), 'retired.json'));
+      if (old) {
+        fs.renameSync(path.join(dir(old), 'retired.json'), currentFile);
+        ctx.say('Новый стенд не собрался — вернул прежний: ' + old.project);
+        try { await up(ctx); } catch (e) { ctx.say('Прежний стенд не запустился: ' + e.message); }
+      }
+      throw error;
+    }
+  }
+  /** Из какой копии база стенда и какая копия на ПК самая свежая (для тестировщика). */
+  function info() {
+    const run = current();
+    const names = fs.existsSync(backupDir) ? fs.readdirSync(backupDir).filter((n) => /^datacore-[\d_-]+\.tgz$/.test(n)).sort() : [];
+    const latest = names.at(-1) || null;
+    let dataAt = run?.restoredAt ? Date.parse(run.restoredAt) : null;
+    if (run && !dataAt) { // стенд создан до этой записи — дата создания его Mongo
+      const r = docker(['inspect', '-f', '{{.Created}}', `${run.project}-mongo`]);
+      dataAt = r.code === 0 ? Date.parse(String(r.stdout || r.out).trim()) || null : null;
+    }
+    return { run, backup: run?.backup || null, dataAt, latest, latestAt: latest ? fs.statSync(path.join(backupDir, latest)).mtimeMs : null };
+  }
   async function status(ctx) {
     const run = current();
     if (!run) { ctx.say('Собственный night стенд не создан. Legacy dcnight не управляется.'); return 1; }
@@ -126,5 +166,5 @@ export function createNightStand({ docker, sh, root, composeFile, nightDir, back
     ctx.say(`Project ${run.project} · БД ${run.db} · volumes сохранены`);
     return s.containers.some((c) => c.running) ? 0 : 1;
   }
-  return { up, down, refresh, status, credentials, current, runDir: dir, compose, inventory };
+  return { up, down, refresh, renew, info, status, credentials, current, runDir: dir, compose, inventory };
 }

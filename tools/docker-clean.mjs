@@ -40,15 +40,16 @@ function local() {
   const rows = lines(sh('docker', ['ps', '-a', '--format', '{{.Names}}\t{{.Label "com.docker.compose.project"}}\t{{.State}}'])).map((l) => l.split('\t'));
   const vols = lines(sh('docker', ['volume', 'ls', '--format', '{{.Name}}']));
   const imgs = lines(sh('docker', ['images', '--format', '{{.Repository}}']));
+  const nets = lines(sh('docker', ['network', 'ls', '--format', '{{.Name}}']));
   const stand = /^dc-([0-9a-f]{24})-night$/;
-  const projects = new Set([...rows.map((r) => r[1]), ...vols.map((v) => v.split('_')[0]), ...imgs.map((i) => i.replace(/-backend$/, ''))].filter((p) => stand.test(p || '')));
+  const projects = new Set([...rows.map((r) => r[1]), ...vols.map((v) => v.split('_')[0]), ...imgs.map((i) => i.replace(/-backend$/, '')), ...nets.map((n) => n.split('_')[0])].filter((p) => stand.test(p || '')));
   const stale = [...projects].filter((p) => p !== cur).sort();
   const running = stale.filter((p) => rows.some((r) => r[1] === p && r[2] === 'running'));
   const foreign = vols.filter((v) => !/^[0-9a-f]{64}$/.test(v) && !stand.test(v.split('_')[0]) && !v.startsWith('data-core_'));
   say(`Этот ПК: старых стендов ${stale.length} (из них работают ${running.length}); оставляю текущий стенд ${cur || '—'} и локальный сайт.`);
   reclaim(sh('docker', ['system', 'df', '--format', '{{.Type}}\t{{.Size}}\t{{.Reclaimable}}'])).forEach((l) => say('  ' + l));
   if (foreign.length) say(`  чужие тома (не трогаю): ${foreign.join(', ')}`);
-  if (!APPLY) { say('План: удалить старые стенды (контейнеры, тома, образы, папки), кэш сборки, образы и тома без имени.'); return; }
+  if (!APPLY) { say('План: удалить старые стенды (контейнеры, тома, сети, образы, папки), кэш сборки, образы и тома без имени.'); return; }
   let left = 0;
   for (const p of stale) {
     const ids = lines(sh('docker', ['ps', '-aq', '--filter', `label=com.docker.compose.project=${p}`]));
@@ -56,6 +57,9 @@ function local() {
     const pv = vols.filter((v) => v.startsWith(p + '_'));
     if (pv.length) sh('docker', ['volume', 'rm', ...pv]);
     if (imgs.includes(p + '-backend')) sh('docker', ['rmi', p + '-backend:latest']);
+    // сети старого стенда: без этого они копятся, и Docker пишет «all predefined address pools have been fully subnetted» (2026-11-10)
+    const pn = nets.filter((n) => n.startsWith(p + '_'));
+    if (pn.length) sh('docker', ['network', 'rm', ...pn]);
     const dir = path.join(ROOT, 'tools/.night/stands', p.match(stand)[1]);
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch { left++; } // папку держит Windows (профиль браузера) — не беда, Docker уже чист
   }

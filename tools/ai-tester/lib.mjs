@@ -85,13 +85,14 @@ export function duration(ms) {
 }
 
 /** Отчёт за день — Markdown на языке пользователя. */
-export function buildReport({ day, model, startedAt, now, tasks, findings, created, removed }) {
+export function buildReport({ day, model, base = '', startedAt, now, tasks, findings, created, removed }) {
   const ok = tasks.filter((t) => t.result === 'получилось').length;
   const errs = groupFindings(findings.filter((f) => f.kind === 'ошибка'));
   const notes = groupFindings(findings.filter((f) => f.kind !== 'ошибка'));
   const L = [];
   L.push(`# ИИ-тестировщик — отчёт за ${day}`, '');
   L.push(`- Работал: ${duration(now - startedAt)}, модель: ${model}`);
+  if (base) L.push(`- База стенда: ${base}`);
   L.push(`- Заданий: ${tasks.length} (получилось ${ok}, не получилось ${tasks.length - ok})`);
   L.push(`- Ошибок сайта: ${errs.length}, замечаний ИИ: ${notes.length}`);
   L.push(`- Создано тестовых записей: ${created.length}${removed != null ? `, убрано: ${removed}` : ''}`);
