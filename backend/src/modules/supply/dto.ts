@@ -13,6 +13,8 @@ export class SupplyRequestDto {
   @ApiPropertyOptional({ description: 'Категория по названию (создаётся, если нет)' }) @IsOptional() @IsString() @Length(0, 100) categoryName?: string;
   @ApiPropertyOptional({ description: 'Позиция склада (материал)' }) @IsOptional() @IsMongoId() materialId?: string;
   @ApiPropertyOptional({ description: 'Поставщик по названию (организация создаётся, если нет)' }) @IsOptional() @IsString() @Length(0, 200) supplierName?: string;
+  // 2026-11-10: «+ Новая заявка» из счёта шлёт поставщика счёта по id — без поля 400 «supplierId: лишнее поле» (сервис его уже принимает)
+  @ApiPropertyOptional({ description: 'Поставщик (organizations.id); важнее supplierName' }) @IsOptional() @IsMongoId() supplierId?: string;
   @ApiPropertyOptional({ description: 'Наша компания по названию' }) @IsOptional() @IsString() @Length(0, 200) companyName?: string;
   @ApiPropertyOptional({ description: 'Заказчик / участок' }) @IsOptional() @IsString() @Length(0, 300) orderLabel?: string;
   @ApiPropertyOptional({ description: 'Заказ заказчика (salesorders.id); "" — отвязать' }) @IsOptional() @IsString() @Length(0, 30) salesOrderId?: string;
