@@ -1,6 +1,6 @@
 # Карта роли data-steward
 
-коммит: 61b18c6 (2026-10-25, работа ПВ — правки не закоммичены)
+коммит: не закоммичено (роль не коммитит). C055 Э3 план элементов — `docs/crew/C055-tech-passport/`. C054 части и покрытия — тоже без коммита.
 
 ## Законы (выжимка)
 - CANON §5: одна сущность — одна таблица; данные священны. AGENTS «Жёсткие правила» №2 (без deleteMany/drop без «да»), №4 (общая база с kppdf: таблицы `kind:'crm'` и схемы общих коллекций не ломать).
@@ -28,7 +28,30 @@
 - Выгрузка прода — одна JSON-строка в конце `для анализа/паспорта-2026-10-25/pp-dicts.json` (до неё — mongo-shell мусор). `{std:КОД}` в полях справочников НЕ подставляется (только блоки шаблона «Для всех»).
 - Проверка: scratchpad `t3.js` (fakemongo + дамп прода).
 
+## C054-P «Части изделия» (2026-11-09)
+- План категорий 43 `passportParts`: `docs/crew/C054-passport-funnel/parts-categories-plan.json` (keep 4, patch 39). Новые не создавать: `parts-new-suggest.json`. Отчёт: `REPORT-parts.md`.
+- Пустое `categories` UI считал «для всех». Калитка, задвижка, зацеп, дуга, кольцо баскетбольное, щит, сетка, крючок сетки — без TRN.
+- Состав типов — `backend/scripts/seed-passport-types.js`. Рукоять = уже «Ручка». Фланец = «Опорная пятка». На прод не писалось.
+
+## C055 Э3 «Функциональные элементы» (2026-11-09)
+- Аудит 56 `passportElements`: `inDescription`, `usageRules`, `categories` по TRN/WRK/BLG/DIO/DSP. Пустых описания и категорий нет. 10 снарядов без правил.
+- План: `docs/crew/C055-tech-passport/elements-fill-plan.json` (patch 13, keep 43). Отчёт: `REPORT-E3-steward.md`.
+- Скрипт `backend/scripts/data-passport-elements-e3.js`: план по выгрузке C054 (`--dump` / файл по умолчанию) или Mongo; `--apply` не трогает базу `datacore`. На прод не писалось.
+- Узлы состава (скат, борт, кровля, подвес, опора, столешница, корпус) → `kind=part`, без удаления. `passportParts` не сливать. Баскетбол и ворота — WRK,DSP, не TRN.
+- Спорно: качели/балансир DIO при типе BLG; скамья для пресса остаётся WRK (TRN сняли 2026-11-07); волейбол без DSP.
+
+## C054 покрытия (2026-11-09)
+- План категорий 40 `passportMaterials`: `docs/crew/C054-passport-funnel/coatings-categories-plan.json` (patch 39, keep 1 — лист+порошок уже BLG). Отчёт: `REPORT-coatings.md`.
+- Пустое `categories` у покрытия = «везде». Цинк и порошок — TRN,WRK,BLG,DIO,DSP. Масло и пропитка — WRK,BLG,DIO,DSP (не TRN). Резина металла `COAT_RUBBER` — TRN,WRK. Крошка `RUBBER_SURFACE` — BLG,DIO,DSP. Эмаль — только BLG. На прод не писалось.
+
 ## C027 «Деньги по статьям» (2026-11-06)
 - `scripts/map-articles.js`: план «заявка → подстатья», правила внутри файла, подстатьи — из `expensearticles`. Запуск на проде — `remote-access/run-script.sh map-articles [--apply]` (stdin; запись — пользователь, копия базы перед записью). Экспорты `classify/buildPlan/renderPlan/applyPlan`. Цель правила — путь «Статья / Подстатья».
 - Локальная Mongo: `127.0.0.1:27018` (контейнер datacore-mongo, root-пароль — `docker exec datacore-mongo printenv …`, `authSource=admin&directConnection=true`); данные только в `datacoreqa` (60 заявок), `datacore` пустая.
 - Итог: `docs/crew/C027-money-by-articles/mapping-plan.md`, отчёт — `steward-report.md`. Карта обновлена.
+
+## C057-Э0 «Номенклатура к загрузке из PDM» (2026-11-09)
+- Скрипты `backend/scripts/c057-{kind,parse-names,weight-report,dupes-report,profiles}.js`; общее — `scripts/lib/c057-{common,parse,match}.js`. Тесты: `node --test scripts/c057-lib.test.mjs` (34 названия прода, ключ JS = TS).
+- Режимы: `--from <выгрузка>` (план без базы), без него — чтение базы (`MONGO_URI`+`MONGO_DB`), `--apply [--out]` только в базу. Планы — `docs/crew/C057-pdm-import/data/*.md|json`. Идемпотентность проверена на локальной Mongo (27018, тестовая БД, удалена).
+- `lib/c057-match.js` — копия `common/catalog/match-key.ts` (transpileModule); правка TS → пересоздать, тест упадёт при расхождении.
+- Вес без `weightUnit:'kg'` = граммы (stock/weight.ts); сортамент: name = «сортамент, марка» (ключ = ключ PDM), article `Сортамент: <name>`, unit м²/м.
+- На прод не писалось. коммит: не закоммичено.
