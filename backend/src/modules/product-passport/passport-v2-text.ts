@@ -1,5 +1,6 @@
 import { compose, legacyStartNumber, legacyTemplateToBlocks, usedStandards, TRAITS_FIELD, type ComposedSection, type ExcludedItem, type LegacyTemplateLike, type PassportTextBlock, type StandardsDict } from './passport-compose';
 import { collectTraits, filterByWhen } from './passport-traits';
+import { overrideFor } from '../../common/passport/text-overrides';
 import { choicesObject, resolveChoices, FIELD_SECTIONS, type PhraseTreeNode, type ProductCtx } from '../../common/passport/phrase-tree';
 import { describeProduct, installText, maintenanceTables, usageRules, type DictRec, type InstallParts, type MaintenanceTable } from './passport-compose-parts';
 
@@ -18,6 +19,21 @@ export interface V2TextInput {
   funnel?: { forest: PhraseTreeNode[]; choices?: Record<string, unknown> | null; product?: ProductCtx };
 }
 
+/** Текст раздела воронки, как он входит в паспорт этого изделия (C060): таблица «Тексты этого изделия» в шаблоне. */
+export interface FunnelText {
+  id: string; section: string; name: string; variant: string;
+  /** Текст с подставленными значениями; у убранного раздела — текст варианта, которого в паспорте не будет. */
+  text: string;
+  /** Свой текст изделия вместо варианта справочника. */
+  own: boolean;
+  /** Раздел убран из паспорта этого изделия. */
+  off: boolean;
+  /** Раздел можно убрать (назначение и установка идут в поля паспорта — их только заменяют). */
+  canOff: boolean;
+  /** Текст варианта справочника (когда задан свой) — для «Вернуть». */
+  original?: string;
+}
+
 export interface V2Text {
   templateVersion: number;
   ownVersion: number | null;
@@ -30,6 +46,8 @@ export interface V2Text {
   sections: ComposedSection[];
   missing: string[];
   standards: string[];
+  /** C060: тексты разделов воронки этого изделия (с учётом своих правок) — для таблицы в шаблоне. */
+  funnel: FunnelText[];
   /** Итоговый выбор по разделам воронки { rootId: leafId } (с подставленным самим единственным вариантом). */
   choices: Record<string, string>;
   /** Признаки изделия, по которым считались условия when (справочники + «Конструкция»), и откуда каждый. */
@@ -66,15 +84,22 @@ export function buildV2Text(input: V2TextInput): V2Text {
   let purpose = '';
   let installLeaf: PhraseTreeNode | null = null;
   const used: Array<{ text: string; sectionTitle?: string }> = [];
+  const funnelTexts: FunnelText[] = [];
   for (const root of input.funnel?.forest ?? []) {
     const leaf = resolved.leaves.get(root.id)?.leaf;
     if (!leaf) continue;
-    used.push({ text: leaf.text });
-    if (root.section === 'purpose') purpose = purpose || fill(leaf.text, p, category, standards, extraMissing);
-    else if (root.section === 'installation') installLeaf = installLeaf ?? leaf;
+    // C060: свой текст изделия вместо варианта справочника / раздел убран
+    const ov = overrideFor(p.textOverrides, root.id, root.section);
+    const text = ov.text ?? leaf.text;
+    const sink = new Set<string>();
+    funnelTexts.push({ id: root.id, section: root.section, name: root.name, variant: leaf.name, text: fill(text, p, category, standards, sink), own: !!ov.text, off: !!ov.off, canOff: !(FIELD_SECTIONS as readonly string[]).includes(root.section), ...(ov.text ? { original: fill(leaf.text, p, category, standards, sink) } : {}) });
+    if (ov.off) continue;
+    used.push({ text });
+    if (root.section === 'purpose') purpose = purpose || fill(text, p, category, standards, extraMissing);
+    else if (root.section === 'installation') installLeaf = installLeaf ?? { ...leaf, text };
     else if (!(FIELD_SECTIONS as readonly string[]).includes(root.section)) {
       const host = blocks.find((b) => b.sectionKey === root.section);
-      blocks.push({ category, sectionKey: root.section, sectionTitle: host?.sectionTitle || root.name, sectionOrder: host?.sectionOrder, key: `p${root.slot}`, order: root.slot - 1, text: leaf.text });
+      blocks.push({ category, sectionKey: root.section, sectionTitle: host?.sectionTitle || root.name, sectionOrder: host?.sectionOrder, key: `p${root.slot}`, order: root.slot - 1, text });
     }
   }
   const elements = pick(dicts.elements, p.elements as unknown[]);
@@ -110,6 +135,7 @@ export function buildV2Text(input: V2TextInput): V2Text {
     sections: r.sections,
     missing: [...new Set([...r.missing, ...extraMissing])],
     standards: usedStandards([...blocks, ...used]),
+    funnel: funnelTexts,
     choices: choicesObject(resolved),
     traits: info.traits,
     traitsFrom: info.from,

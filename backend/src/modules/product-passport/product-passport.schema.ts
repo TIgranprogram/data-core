@@ -72,6 +72,8 @@ export class ProductPassport {
   @Prop() issuedAt?: Date;
   @Prop() annulledAt?: Date;
   @Prop({ trim: true }) annulReason?: string;
+  /** C060: прежние номер / номер изделия / талон аннулированного паспорта, чьи номера взял новый паспорт той же позиции договора и изделия. */
+  @Prop({ type: Object, default: undefined }) annulledNumbers?: Record<string, unknown>;
   /** Редакция выпущенного паспорта (1, 2…); прежние — в revisions. */
   @Prop() revision?: number;
   @Prop({ type: [Object], default: undefined }) revisions?: Array<Record<string, unknown>>;
@@ -83,6 +85,8 @@ export class ProductPassport {
   @Prop({ type: [String], default: undefined }) joints?: string[];
   /** Воронка текстов (ПВ 2026-10-25): выбор по разделам { id раздела: id конечного варианта } — справочник «Тексты паспорта». Из выбора сервер собирает `purpose` / `installationMethod` и пункты текста. */
   @Prop({ type: Object, default: undefined }) textChoices?: Record<string, string> | null;
+  /** C060: свои тексты изделия по разделам воронки { id раздела: { text?, off? } } — подменяют выбранный вариант / убирают раздел. Из `products.passportDefaults.textOverrides`. */
+  @Prop({ type: Object, default: undefined }) textOverrides?: Record<string, { text?: string; off?: boolean }> | null;
 
   /** Числовой № паспорта — для сортировки и счётчика (`passportNumber` — строка, как у kppdf). */
   @Prop({ index: true })

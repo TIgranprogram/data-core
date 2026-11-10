@@ -6,6 +6,7 @@ import { canEdit as canEditTexts, dictRows, passportCategoryOptions } from './co
 import { elementsTexts } from './elements-block.js';
 import { passportVariant, previewPassport, VARIANT_HINT } from './dialogs.js';
 import { jointsPick } from './traits.js';
+import { ownTexts } from './template-texts.js';
 import { patchProduct, putDefaults } from './funnel/api.js';
 import { savePd } from '../products/data.js';
 import { passportSlot } from '../product-files.js';
@@ -175,6 +176,7 @@ export async function templateForm(r) {
   const assembly = block('assembly', 'Сборка', [hosts.assembly, slotHost.assembly]);
   const opsSec = block('ops', 'Эксплуатация и гарантия', [fieldRow(...ops), hosts.ops]);
   const other = block('other', 'Другие тексты', hosts.other);
+  const own = ownTexts({ r, can, save: (job) => save(job) });
   assembly.hidden = !r.passportDefaults?.isKit;
 
   async function save(job) {
@@ -206,7 +208,7 @@ export async function templateForm(r) {
     elPick.setScope(v);
     try {
       if (!v) await savePd(r.id, { category: '', choices: {}, over: {}, derived: r.passportCategory?.code || '', prev: r.passportDefaults || {} });
-      else await putDefaults(r, { passportCategory: v, textChoices: {} });
+      else await putDefaults(r, { passportCategory: v, textChoices: {}, textOverrides: {} }); // свои тексты привязаны к разделам категории
       Object.assign(r, await api(`/showcase/${r.id}`));
       await reload();
     } catch (e) { toastError(e, 'сохранить категорию'); }
@@ -282,12 +284,13 @@ export async function templateForm(r) {
     pdm = files || [];
     assembly.hidden = !r.passportDefaults?.isKit && !asked.has('assembly');
     paintSlots(); paintStrip();
+    own.load();
   }
 
   const el = stack(
     hint('Категория паспорта'), catSel,
     hint('Вариант паспорта'), variant.el, hint(VARIANT_HINT),
-    strip, general, purpose, dimSec, struct, instSec, assembly, opsSec, other,
+    strip, general, purpose, dimSec, struct, instSec, assembly, opsSec, other, own.el,
     actions(button({
       label: 'Предпросмотр', title: 'PDF с пометкой «ЧЕРНОВИК». Паспорт не выпускается',
       onClick: () => previewPassport(r.id),

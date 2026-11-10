@@ -4,6 +4,7 @@ import { parseList } from '../../common/list-query';
 import { tokensFilter } from '../../common/text/search-norm';
 import type { ProductPassportDocument } from './product-passport.schema';
 import { missingFieldsV2 } from './passport-rules';
+import { overrideFor } from '../../common/passport/text-overrides';
 import { missingChoices, resolveChoices, type PhraseTreeNode } from '../../common/passport/phrase-tree';
 import { MODEL_FIELDS, SORT, escapeRe, readinessOf, type Doc } from './passport-consts';
 
@@ -22,7 +23,9 @@ export interface QueriesHost {
 /** Обязательные разделы воронки без выбора (текст, набранный вручную, раздел закрывает) — одно правило для карточки и списка. */
 export function choiceMissingIn(forest: PhraseTreeNode[], d: Doc): Array<{ label: string; key: string }> {
   const manual = (d.manualText as string[] | undefined) ?? [];
-  return missingChoices(resolveChoices(forest, d.textChoices as Record<string, string> | undefined), (r) => (r.section === 'purpose' && manual.includes('purpose')) || (r.section === 'installation' && manual.includes('installationMethod')));
+  // C060: раздел, убранный из паспорта изделия или набранный своим текстом, выбора не требует
+  const own = (r: PhraseTreeNode) => { const o = overrideFor(d.textOverrides, r.id, r.section); return !!(o.off || o.text); };
+  return missingChoices(resolveChoices(forest, d.textChoices as Record<string, string> | undefined), (r) => own(r) || (r.section === 'purpose' && manual.includes('purpose')) || (r.section === 'installation' && manual.includes('installationMethod')));
 }
 
 /** Список, фильтры, модели и готовые тексты паспортов (чтение); вызывается из ProductPassportService. */

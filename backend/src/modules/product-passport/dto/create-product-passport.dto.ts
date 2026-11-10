@@ -89,4 +89,6 @@ export class CreateProductPassportDto {
   @IsOptional() @IsArray() @IsIn(PASSPORT_JOINT_CODES, { each: true, message: 'Соединения: болтовые (bolts), сварные (welds) или цельное (solid)' }) joints?: string[];
   /** ПВ: выбор текстов воронкой { id раздела: id конечного варианта } (ключи и значения — ObjectId, проверяет сервер); null — очистить. */
   @IsOptional() @IsObject() textChoices?: Record<string, string> | null;
+  /** C060: свои тексты изделия по разделам { id раздела: { text?, off? } } — приходят из изделия; null — очистить. */
+  @IsOptional() @IsObject() textOverrides?: Record<string, { text?: string; off?: boolean }> | null;
 }

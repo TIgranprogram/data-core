@@ -226,6 +226,15 @@ export class ProductPassportController {
     return new StreamableFile(buf);
   }
 
+  /** C060: тексты разделов воронки изделия с его правками — { category, items:[{ id, section, name, variant, text, own, off, canOff, original? }] }. */
+  @AppSection('passports', 'products')
+  @Get('passports/product-texts')
+  @Roles(...VIEW)
+  @ApiQuery({ name: 'productId', required: true, description: 'Изделие' })
+  productTexts(@Query('productId') productId: string) {
+    return this.service.productTexts(String(productId ?? ''));
+  }
+
   /** Предпросмотр PDF по изделию без выпуска: «ЧЕРНОВИК», без номера, в базу ничего не пишется. Нет категории у изделия — 400. */
   @Post('passports/preview')
   @Roles(...EDIT)

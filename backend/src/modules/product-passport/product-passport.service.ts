@@ -14,7 +14,7 @@ import { mergeProductImages, type PassportImageLike, type ProductImageRow } from
 import { INSTANCE_FIELD_KEYS, missingHint, DEFAULT_BOM, buildDescription, dayUtc, missingFieldsV2, imageRules, nextSeq, warrantyCodeFor, type CounterColl, missingKeyed } from './passport-rules';
 import { standardWarnings, standardsDict, type StandardDoc } from './passport-compose';
 import type { DictRec } from './passport-compose-parts';
-import { buildV2Text } from './passport-v2-text';
+import { buildV2Text, type FunnelText } from './passport-v2-text';
 import { checkSections, cleanSections, type SectionLike } from './passport-sections-check';
 import { JOINTS_MISSING, jointsMissing } from './passport-traits';
 import { editSnapshotItem, type SnapshotSection } from './passport-snapshot-edit';
@@ -435,6 +435,16 @@ export class ProductPassportService {
     return { ...p, textSnapshot: { ...built.text, at: new Date() } };
   }
 
+  /** C060: тексты разделов воронки изделия (с его правками) — таблица «Тексты этого изделия»; нет изделия — 404, нет категории — пусто. */
+  async productTexts(productId: string): Promise<{ category: string; items: FunnelText[] }> {
+    if (!Types.ObjectId.isValid(productId)) throw new NotFoundException(`Изделие ${productId} не найдено`);
+    const prod = await this.connection.collection('products').findOne({ _id: new Types.ObjectId(productId), deletedAt: null });
+    if (!prod) throw new NotFoundException(`Изделие ${productId} не найдено`);
+    const p: Doc = { _id: new Types.ObjectId(), productId: prod._id, status: 'draft', passportNumber: '', ...(await productPatch(this.connection.db!, prod as Doc)) };
+    const built = await this.buildText(p);
+    return { category: String(p.passportCategory ?? ''), items: built?.text.funnel ?? [] };
+  }
+
   /** Текст паспорта по справочникам для `p` (без записи; выбранный способ установки кладёт в `p.installationTypeId`); нет категории — null. */
   private async buildText(p: Doc) {
     if (!p.passportCategory) return null;
@@ -486,7 +496,7 @@ export class ProductPassportService {
     const full = this.withSchemes(p, inst);
     const vopts = { variant: variantOf(body.variant), install: installKindOf(inst.get(String(p.installationTypeId ?? ''))) };
     const rules = imageRules(p as never, cat, { category: String(p.passportCategory ?? ''), ...vopts });
-    const choices = await this.choiceMissing({ passportCategory: p.passportCategory, textChoices: parseChoices(p.textChoices), manualText: p.manualText });
+    const choices = await this.choiceMissing({ passportCategory: p.passportCategory, textChoices: parseChoices(p.textChoices), textOverrides: p.textOverrides, manualText: p.manualText });
     const noHint = (m: { label: string; key: string; hint?: string }) => ({ ...m, hint: m.hint ?? missingHint(m.key, m.label) });
     const keep = (m: { key: string; label: string }) => !(template && (INSTANCE_FIELD_KEYS.includes(m.key) || m.label === 'Дата' || m.label === 'Поставщик'));
     const built = p.passportCategory ? await this.buildText({ ...p }).catch(() => null) : null;

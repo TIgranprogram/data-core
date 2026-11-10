@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Types, type ClientSession, type Connection, type Model } from 'mongoose';
 import type { ProductPassportDocument } from './product-passport.schema';
 import { dayUtc } from './passport-rules';
+import { takeOverNumbers } from './passport-reuse';
 import { escapeRe, isDraftNumber, isIssued, type Doc } from './passport-consts';
 
 /** Что выпуску нужно от сервиса паспортов. */
@@ -39,7 +40,7 @@ export class PassportIssue {
       await session.withTransaction(async () => {
         const draft = await this.h.model.findOne({ _id, status: 'draft' }).session(session).lean().exec();
         if (!draft) return; // уже выпущен параллельным запросом
-        const set: Doc = {};
+        const set: Doc = (await takeOverNumbers(this.h.model, draft as unknown as Doc, session)) ?? {}; // C060: позиция договора + изделие — один номер
         await this.h.allocate(set, (draft.date as Date) || dayUtc(), session);
         await this.h.assertFree(set, _id, session);
         await this.h.model.updateOne({ _id, status: 'draft' }, { $set: { ...set, status: 'issued', issuedAt: new Date(), revision: 1 } }, { session }).exec();
