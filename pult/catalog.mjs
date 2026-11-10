@@ -85,7 +85,7 @@ export const COMMANDS = [
     hint: 'Один раз после выкладки C054. Повтор безопасен: те же значения, дублей не будет.' },
   { id: 'c063-joints-materials', section: 'deploy', title: 'Паспорта: конструкция и материалы', risk: 'prod-write', time: '3–8 мин', needs: ['bash', 'vm'],
     run: { bash: ['deploy/synology/c063-joints-materials.sh'] },
-    confirm: 'У изделий с пустыми полями запишутся «Конструкция» (болты / сварка — по составу) и «Из чего сделано» (из состава). Заполненное не меняется, выданные паспорта не меняются.',
+    confirm: '207 изделий получат «Из чего сделано» — из своего выпущенного паспорта (труба, профиль, лист, покрытие…). Пишется только в пустую таблицу; выданные паспорта не меняются.',
     hint: 'Список — docs/crew/C063-joints-materials/REVIEW.md. Повтор безопасен: заполненное пропускается.' },
   { id: 'c062-passport-purpose', section: 'deploy', title: 'Паспорта: назначение, элементы, установка', risk: 'prod-write', time: '3–8 мин', needs: ['bash', 'vm'],
     run: { bash: ['deploy/synology/c062-passport-purpose.sh'] },
