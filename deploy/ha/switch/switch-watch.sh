@@ -241,15 +241,16 @@ run_step() {   # run_step STEP [ПРЕДУПРЕЖДЕНИЕ] — сообщит
   L "шаг: $1"; check_budget "$1"
   report "$ID" "$1" running "${2:-}" || fail "$1" "Сервер не принял отчёт моста. Проверьте секрет и HA_SELF."
 }
-sync_photos() { timeout "$(cap "$1")" rsync -rt --ignore-existing --partial -e "$RSH" "${DATA_DIR}/uploads/" "${HA_PEER_SSH}:${PEER_DATA}/uploads/" >>"$LOG" 2>&1; }
+# C058: rsync может жить в $HOME/bin (без apt/sudo); --rsync-path с одинарными кавычками — HOME на удалённой стороне.
+sync_photos() { timeout "$(cap "$1")" env PATH="$HOME/bin:/usr/bin:/bin" rsync --rsync-path='$HOME/bin/rsync' -rt --ignore-existing --partial -e "$RSH" "${DATA_DIR}/uploads/" "${HA_PEER_SSH}:${PEER_DATA}/uploads/" >>"$LOG" 2>&1; }
 # код — отдельными деревьями: --delete на весь $PEER_DC стёр бы .env и всё, чего нет в этой передаче
 sync_code() {
   local dest="${HA_PEER_SSH}:${PEER_DC}"
   # секреты и ключи хоста не копируем (C045 🔴2): у второго сервера свои
   local ex=(--exclude '.env' --exclude '*.env' --exclude 'config.env' --exclude 'CREDENTIALS*' --exclude 'access*' --exclude 'secrets' --exclude '*.key' --exclude '*.pem' --exclude 'node_modules' --exclude '.git' --exclude 'uploads' --exclude 'prev' --exclude 'dist')
-  timeout "$(cap "$T_CODE")" rsync -a --delete "${ex[@]}" -e "$RSH" "${DC_DIR}/backend/" "${dest}/backend/" >>"$LOG" 2>&1 \
-    && timeout "$(cap "$T_CODE")" rsync -a --delete "${ex[@]}" -e "$RSH" "${DC_DIR}/deploy/" "${dest}/deploy/" >>"$LOG" 2>&1 \
-    && timeout "$(cap "$T_CODE")" rsync -a -e "$RSH" "${DC_DIR}/docker-compose.prod.yml" "${dest}/docker-compose.prod.yml" >>"$LOG" 2>&1
+  timeout "$(cap "$T_CODE")" env PATH="$HOME/bin:/usr/bin:/bin" rsync --rsync-path='$HOME/bin/rsync' -a --delete "${ex[@]}" -e "$RSH" "${DC_DIR}/backend/" "${dest}/backend/" >>"$LOG" 2>&1 \
+    && timeout "$(cap "$T_CODE")" env PATH="$HOME/bin:/usr/bin:/bin" rsync --rsync-path='$HOME/bin/rsync' -a --delete "${ex[@]}" -e "$RSH" "${DC_DIR}/deploy/" "${dest}/deploy/" >>"$LOG" 2>&1 \
+    && timeout "$(cap "$T_CODE")" env PATH="$HOME/bin:/usr/bin:/bin" rsync --rsync-path='$HOME/bin/rsync' -a -e "$RSH" "${DC_DIR}/docker-compose.prod.yml" "${dest}/docker-compose.prod.yml" >>"$LOG" 2>&1
 }
 
 # после подтверждённой смены домена: сосед главный, здесь цели копий выключаем, роль здесь standby+readonly
@@ -280,8 +281,8 @@ do_switch() {
   [[ "$names" == *$'\nkppdf-backend\n'* ]] && warn="CRM kppdf на время переключения будет остановлена: она пишет в эту же базу и на второй сервер не переезжает."
   run_step preflight "$warn"
   peer "$T_SSH" 'echo ok' >/dev/null 2>&1 || fail preflight "Второй сервер недоступен по ssh."
-  command -v rsync >/dev/null 2>&1 || fail preflight "На этом сервере нет rsync."
-  peer "$T_SSH" 'command -v rsync >/dev/null' >/dev/null 2>&1 || fail preflight "На втором сервере нет rsync."
+  PATH="$HOME/bin:/usr/bin:/bin" command -v rsync >/dev/null 2>&1 || fail preflight "На этом сервере нет rsync."
+  peer "$T_SSH" 'PATH="$HOME/bin:/usr/bin:/bin" command -v rsync >/dev/null' >/dev/null 2>&1 || fail preflight "На втором сервере нет rsync."
   [[ "$(peer "$T_SSH" 'docker inspect -f "{{.State.Running}}" datacore-mongo 2>/dev/null')" == true ]] || fail preflight "На втором сервере не запущена база (datacore-mongo)."
   local free; free="$(peer "$T_SSH" "df --output=avail -k $(printf '%q' "$PEER_DATA") | tail -n 1" 2>/dev/null | tr -dc 0-9)"
   [[ -n "$free" && "$free" -gt 1048576 ]] || fail preflight "На втором сервере меньше 1 ГБ свободного места."
@@ -359,8 +360,8 @@ do_refresh() {
   [[ "$names" == *$'\nkppdf-backend\n'* ]] && warn="Предупреждение: CRM kppdf (kppdf-backend) запущена на этом сервере. Она не переключается и продолжит работать с этой базой."
   run_step preflight "$warn"
   peer "$T_SSH" 'echo ok' >/dev/null 2>&1 || fail preflight "Второй сервер недоступен по ssh."
-  command -v rsync >/dev/null 2>&1 || fail preflight "На этом сервере нет rsync."
-  peer "$T_SSH" 'command -v rsync >/dev/null' >/dev/null 2>&1 || fail preflight "На втором сервере нет rsync."
+  PATH="$HOME/bin:/usr/bin:/bin" command -v rsync >/dev/null 2>&1 || fail preflight "На этом сервере нет rsync."
+  peer "$T_SSH" 'PATH="$HOME/bin:/usr/bin:/bin" command -v rsync >/dev/null' >/dev/null 2>&1 || fail preflight "На втором сервере нет rsync."
   [[ "$(peer "$T_SSH" 'docker inspect -f "{{.State.Running}}" datacore-mongo 2>/dev/null')" == true ]] || fail preflight "На втором сервере не запущена база (datacore-mongo)."
   local free; free="$(peer "$T_SSH" "df --output=avail -k $(printf '%q' "$PEER_DATA") | tail -n 1" 2>/dev/null | tr -dc 0-9)"
   [[ -n "$free" && "$free" -gt 1048576 ]] || fail preflight "На втором сервере меньше 1 ГБ свободного места."
