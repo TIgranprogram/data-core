@@ -48,7 +48,8 @@ export const photoMain = (r, photoId) => setPhotoOrder(r, [photoId, ...photoIds(
 export const photoRemove = (r, photoId) => setPhotoOrder(r, photoIds(r).filter((x) => x !== photoId));
 
 /** Пометка скрипта переноса снята: оставляем только текст без строк «⚠». */
-export const clearNoteWarning = async (r, rest) => { await patchProduct(r.id, { notes: rest }); patch({}); };
+// 2026-11-10: был только patch({}) — карточка не перерисовывалась, пометка оставалась на экране
+export const clearNoteWarning = async (r, rest) => { await patchProduct(r.id, { notes: rest }); r.notes = rest || null; window.dispatchEvent(new Event('data-changed')); };
 
 /** МИ.2: предложение таблицы материалов по «Составу изделия». */
 export const materialsFromComposition = (r) => api(`/showcase/${r.id}/materials-spec/from-composition`);

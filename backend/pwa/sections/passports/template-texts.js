@@ -1,6 +1,6 @@
 import { api } from '../../core/api.js';
 import { h } from '../../core/dom.js';
-import { actions, badge, button, buildForm, clamp, empty, hint, section, stack, table, toast } from '../../ui/kit/index.js';
+import { actions, badge, button, buildForm, empty, hint, section, stack, table, toast } from '../../ui/kit/index.js';
 
 /**
  * Последний блок шаблона паспорта: «Тексты этого изделия» (C060). Таблица текстов, которые войдут в паспорт именно этого изделия
@@ -41,16 +41,8 @@ export function ownTexts({ r, can, save }) {
     );
   }
 
-  function textCell(item) {
-    const holder = h('div');
-    const short = () => { holder.replaceChildren(clamp(item.text, { lines: 2 }), more); more.textContent = 'Развернуть'; };
-    const full = () => { holder.replaceChildren(h('div', null, item.text), more); more.textContent = 'Свернуть'; };
-    let open = false;
-    const more = button({ label: 'Развернуть', size: 'S', kind: 'ghost', onClick: () => { open = !open; (open ? full : short)(); } });
-    if (item.text.length < 140) { holder.replaceChildren(h('div', null, item.text)); return holder; }
-    short();
-    return holder;
-  }
+  // 2026-11-10 (пользователь: «кнопка не нужна, места под текст много»): текст целиком, без «Развернуть»
+  const textCell = (item) => h('div', null, item.text);
 
   function actionCell(item) {
     if (!can) return '';
@@ -71,7 +63,8 @@ export function ownTexts({ r, can, save }) {
       hint('Индивидуальные тексты этого изделия, которые встанут в паспорт. Общие тексты «Для всех» здесь не показаны.'),
       table({
         label: 'Тексты этого изделия',
-        columns: [{ label: 'Раздел', nowrap: true }, { label: 'Текст', wrap: true }, { label: 'Действия', nowrap: true }],
+        cls: 'k-table-stack', // текст — вся свободная ширина; на телефоне строка-карточка
+        columns: [{ label: 'Раздел', nowrap: true }, { label: 'Текст' }, { label: 'Действия', nowrap: true }],
         rows: items.map((it) => ({
           cells: [
             h('div', null, it.name, it.own ? badge('Свой текст', 'info') : null, it.off ? badge('Убрано из паспорта', 'warn') : null),

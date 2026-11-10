@@ -51,7 +51,7 @@ export function warnNote(r) {
   }
   if (session.canEdit) {
     acts.push(kitButton({ label: 'Это разные — убрать пометку', size: 'S', title: 'Вы проверили: изделия разные или уже разобрались. Пометка исчезнет; объединение/удаление — отдельно в списке изделий',
-      onClick: () => clearNoteWarning(r, rest) }));
+      onClick: async (e) => { const box = e.currentTarget.closest('.fill-note'); try { await clearNoteWarning(r, rest); box?.remove(); toast('Пометка снята'); } catch (er) { toastError(er, 'снять пометку'); } } }));
   }
   return h('div', { class: 'fill-note fill-warn' },
     h('div', { class: 'u-pre' }, warnLines.join('\n')),

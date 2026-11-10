@@ -165,13 +165,13 @@ export async function templateForm(r) {
 
   const nSpec = r.materialsSpec?.rows?.length || 0;
   const coat = (r.materialsSpec?.coatingIds || []).length;
-  const matLine = hint(nSpec || coat ? `Материалы: ${nSpec} строк${coat ? ', покрытие задано' : ''}` : 'Техописание не заполнено');
+  const matLine = hint(nSpec || coat ? `Из чего сделано: ${nSpec} строк${coat ? ', покрытие задано' : ''}` : 'Не указано, из чего сделано изделие — нажмите «Открыть техописание» и выберите части и материалы (можно «Взять из состава»).', nSpec || coat ? undefined : 'warn');
   const matBtn = button({ label: 'Открыть техописание', size: 'S', onClick: () => openTechSheet(r) });
 
   const general = block('general', 'Общие сведения', [slotHost.general, users]);
   const purpose = block('purpose', 'Назначение и элементы', [elPick.el, hosts.purpose, elTexts]);
-  const dimSec = block('dims', 'Габариты и виды', [fieldRow(...dims, weight), slotHost.dims]);
-  const struct = block('struct', 'Конструкция и материалы', [joints.el, hint('Как поставляется'), kitSeg.el, matLine, matBtn, slotHost.struct]);
+  const dimSec = block('dims', 'Габариты и виды', [fieldRow(...dims, weight), hint('Рисунок — один: чертёж с габаритами. На нём можно показать сразу все виды (спереди, сбоку, сверху). Отдельные места под каждый вид — в варианте паспорта «Полный».'), slotHost.dims]);
+  const struct = block('struct', 'Конструкция и материалы', [hint('Как соединены детали — выберите одно или оба. От этого зависят пункты осмотра в паспорте: болты — «подтягивать», сварка — «осматривать швы». «Цельное» — без болтов и сварки.'), joints.el, hint('Как поставляется заказчику'), kitSeg.el, matLine, matBtn, slotHost.struct]);
   const instSec = block('install', 'Установка', [installBox, hosts.install, slotHost.install]);
   const assembly = block('assembly', 'Сборка', [hosts.assembly, slotHost.assembly]);
   const opsSec = block('ops', 'Эксплуатация и гарантия', [fieldRow(...ops), hosts.ops]);
