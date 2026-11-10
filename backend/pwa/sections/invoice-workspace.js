@@ -128,7 +128,7 @@ function positions(invoice, ctx, { editable = true, commands = true, receiveChec
     }
     return { data: line.id, cells };
   });
-  return table({ label: 'Позиции счёта', columns, rows, maxHeight: 'L', empty: { title: 'В счёте пока нет позиций', hint: p.add ? 'Добавьте заявку полем «+» под таблицей.' : 'Этот счёт доступен только для просмотра.' } });
+  return table({ label: 'Позиции счёта', columns, rows, maxHeight: 'L', empty: { title: 'В счёте пока нет позиций', hint: p.add ? 'Добавьте позицию полем под таблицей или «+ Новая позиция».' : 'Этот счёт доступен только для просмотра.' } });
 }
 
 /** Администратор: снять оплату со счёта или отменить приёмку позиции (окно с последствиями и причиной). */
@@ -228,7 +228,7 @@ function addPicker(invoice, ctx) {
   const p = permissions(invoice, session);
   if (!p.add) return null;
   let cache = [];
-  const input = h('input', { type: 'search', class: 'iw-add-inp', placeholder: 'Добавить заявку…', 'aria-label': 'Добавить существующую заявку в счёт', autocomplete: 'off' });
+  const input = h('input', { type: 'search', class: 'iw-add-inp', placeholder: 'Добавить позицию из заявок…', 'aria-label': 'Добавить в счёт позицию из заявок', autocomplete: 'off' });
   const wrap = h('div', { class: 'iw-add has-combo' }, h('span', { class: 'iw-add-plus', 'aria-hidden': 'true' }, '+'), input);
   const fromName = (f) => `счёт ${f.no ? '№' + f.no : 'без номера'}${f.status && INVOICE_STATUS[f.status] ? ' · ' + INVOICE_STATUS[f.status].label.toLowerCase() : ''}`;
   const load = async (q = '') => {
@@ -285,7 +285,7 @@ function addPicker(invoice, ctx) {
   input.addEventListener('focus', () => loadAndShow(input.value.trim()));
   input.addEventListener('input', () => { if (redraw) return; const q = input.value.trim(); clearTimeout(input._t); input._t = setTimeout(() => loadAndShow(q), 220); });
   load();
-  return h('div', { class: 'iw-add-row' }, wrap, h('p', { class: 'hint' }, 'Клик по полю — список заявок. Выбор сразу добавляет позицию в счёт; заявку из другого счёта — переносит сюда.'));
+  return h('div', { class: 'iw-add-row' }, wrap, h('p', { class: 'hint' }, 'Позиция счёта — это заявка. Клик по полю — список заявок к заказу; выбор сразу добавляет позицию в счёт. Позицию из другого счёта — переносит сюда. Нет в списке (доставка, услуга) — «+ Новая позиция».'));
 }
 
 /** Компактная форма новой заявки внизу экрана счёта — без перехода в раздел «Заявки». */
@@ -293,10 +293,10 @@ function newRequestBar(invoice, ctx) {
   const p = permissions(invoice, session);
   if (!p.add) return null;
   const panel = h('div', { class: 'iw-new', hidden: true });
-  const title = h('input', { name: 'title', maxlength: 500, placeholder: 'Название позиции', 'aria-label': 'Название новой заявки' });
+  const title = h('input', { name: 'title', maxlength: 500, placeholder: 'Название позиции', 'aria-label': 'Название новой позиции' });
   const qtyInp = h('input', { name: 'qty', type: 'number', min: '0', step: 'any', value: '1', inputmode: 'decimal', 'aria-label': 'Количество' });
   const unit = h('input', { name: 'unit', maxlength: 40, value: 'шт', 'aria-label': 'Единица' });
-  const toggle = button({ label: '+ Новая заявка', kind: 'ghost', onClick: () => { panel.hidden = !panel.hidden; if (!panel.hidden) title.focus(); } });
+  const toggle = button({ label: '+ Новая позиция', kind: 'ghost', onClick: () => { panel.hidden = !panel.hidden; if (!panel.hidden) title.focus(); } });
   const create = button({ label: 'Создать и добавить', kind: 'primary', onClick: async () => {
     const name = title.value.trim();
     if (!name) { toast('Впишите название', { error: true }); title.focus(); return; }

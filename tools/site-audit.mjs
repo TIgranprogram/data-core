@@ -37,6 +37,7 @@ export const RULES = {
   v: 'поле формы выше своего содержимого — пустое место под полем (пользователь 2026-11-10: шаблон паспорта)',
   w: 'кнопка или метка без видимого текста — пустой «кружок» (пользователь 2026-11-10: переменные текстов паспорта)',
   y: 'загрузка не закончилась: «Проверяю… / Загружаю…» осталось на экране (пользователь 2026-11-10: карточка приложения PDM)',
+  z: 'текст вылезает за границы карточки (пользователь 2026-11-10: № счёта на доске заявок)',
 };
 
 /**
@@ -313,6 +314,7 @@ for(const f of (${panelStructureFindings.toString()}) ((${panelStructureSnapshot
 for(const f of (${gapFindings.toString()}) ((${gapSnapshot.toString()})()))add(f.rule,f.sel,f.text);
 for(const f of (${fieldHeightFindings.toString()}) ((${fieldHeightSnapshot.toString()})()))add(f.rule,f.sel,f.text);
 for(const n of document.querySelectorAll('p,span,div')){if(n.children.length)continue;const t=(n.textContent||'').trim();const q=n.getBoundingClientRect();if(q.width&&/^(Проверяю|Загружаю|Читаю)[^.]{0,40}…$/.test(t))add('y',n.id?'#'+n.id:n.tagName.toLowerCase(),t)}
+for(const c of document.querySelectorAll('.db-order,.tcard,.k-card,.tile')){const R=c.getBoundingClientRect();if(!R.width)continue;for(const e of c.querySelectorAll('*')){if(e.children.length)continue;const q=e.getBoundingClientRect();if(q.width&&(q.left<R.left-2||q.right>R.right+2)){add('z','.'+String(c.className).split(' ')[0],(e.textContent||'').trim().slice(0,60)||e.tagName);break}}}
 for(const b of document.querySelectorAll('button,.tag,.chip')){const q=b.getBoundingClientRect();if(!q.width||!q.height)continue;if(!(b.innerText||'').trim()&&!b.querySelector('svg,img,.ico,[class*=icon]')&&!b.getAttribute('aria-label'))add('w',b.className?'.'+String(b.className).split(' ')[0]:b.tagName.toLowerCase(),'пустая кнопка: '+(b.title||b.outerHTML.slice(0,60)))}
 return out})()`;
 

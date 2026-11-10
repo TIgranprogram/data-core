@@ -10,7 +10,7 @@ import { current, go, patch } from '../core/router.js';
 const invoiceHref = (id) => { const route = current(); return '#' + (route.section || 'requests') + '?' + new URLSearchParams(Object.entries({ ...route.params, of: 'invoicecard', open: id, new: undefined, fill: undefined }).filter(([, value]) => value !== undefined && value !== '')).toString(); };
 import { stockLookup } from '../core/stock-list.js';
 import { badge, COST_CENTER, PRIORITY, SUPPLY_STATUS, supplyKey } from '../ui/kit/badges.js';
-import { modal } from '../ui/kit/dialog.js';
+import { modal, confirmDlg } from '../ui/kit/dialog.js';
 import { quickAdd } from '../ui/quick.js';
 import { openSide, sideForm } from '../ui/kit/side-form.js';
 import { toast, toastError } from '../ui/kit/toast.js';
@@ -22,7 +22,7 @@ import { wireFill } from './request-fill.js';
 import { adminAction, isAdmin, withReason } from './admin-override.js';
 import { ordersLookup } from '../core/orders-lookup.js';
 import { advance, bulkOrder, invoiceBlock, missingFor, nextStep, stageStrip } from './request-step.js';
-import { acceptRequests } from './ops.js'; import { linkStockFields } from './request-link.js'; import { articleTree, requestArticleField } from './expenses.js';
+import { invoiceActions } from './request-invoice-actions.js'; import { acceptRequests } from './ops.js'; import { linkStockFields } from './request-link.js'; import { articleTree, requestArticleField } from './expenses.js';
 
 /** Раздел «Заявки» (PRODUCT §1) — коллекция supplyrequests через /api/supply. */
 /** «+ Новый заказчик «…»» и «Заказчик: X · Объект: Y» под списком поля «Заказчик» (TASKS ЗЧ.2). */
@@ -219,7 +219,7 @@ const fields = async (r) => {
 /** Что делать в колонке (одна строка под названием) и что писать, когда колонка пуста. */
 const COLUMN_HINT = {
   requested: 'Выберите позиции и закажите у поставщика.',
-  ordered: 'Ждём счёт и оплату. Оплатили — «Счёт оплачен».',
+  ordered: 'Ждём оплату. Оплатили — «Счёт оплачен» на карточке счёта (одна кнопка на весь счёт).',
   paid: 'Оплачено, ждём поставку. Пришло — «Принять».',
   received: 'Принято на склад. Делать ничего не нужно.',
   in_progress: 'Ждут решения: заказывать или отменить.',
@@ -237,7 +237,7 @@ const COLUMN_EMPTY = {
 /** Низ карточки доски: короткая метка «не хватает» (kit.badge warn) и ОДНА кнопка-глагол в k-actions (kit.card actions). */
 function stepFoot(r, ctx) {
   const st = nextStep(r);
-  if (!st) return null;
+  if (!st || (r.invoiceId && st.to === 'paid')) return null; // позиция в счёте: «Счёт оплачен» — одна кнопка на карточке счёта (C067)
   const miss = st.kind === 'receive' ? [] : missingFor(r, st.to);
   const btn = button({ label: st.verb, size: 'S', kind: st.kind === 'receive' ? 'primary' : 'secondary', title: st.kind === 'receive' ? 'Принять на склад' : 'Статус → «' + SUPPLY_STATUS[st.to].label + '»', onClick: async () => {
     btn.disabled = true; btn.classList.add('is-busy');
@@ -336,7 +336,7 @@ export const requests = {
       '': 'Все заявки. Кнопка в строке — следующий шаг: «Заказал у поставщика» → «Счёт оплачен» → «Принять» на склад.',
       in_progress: 'Ждут решения: заказывать («Заказать») или отменить в карточке.',
       requested: 'Нужно заказать у поставщика. Заказали — «Заказал у поставщика».',
-      ordered: 'Заказано, ждём счёт и оплату. Оплатили — «Счёт оплачен» (понадобятся № и дата счёта).',
+      ordered: 'Заказано, ждём счёт и оплату. Оплатили — «Счёт оплачен» на карточке счёта (нужны № и дата счёта).',
       paid: 'Оплачено, ждём поставку. Пришло — «Принять»: товар встанет на склад.',
       received: 'Получено и принято на склад. Делать ничего не нужно.',
       cancelled: 'Отменённые заявки — в расчёты не идут.',
@@ -361,8 +361,8 @@ export const requests = {
     },
     board: {
       // карточки одного счёта — рядом, своим цветом (как заказы на доске «Проектирование»)
-      group: (r) => (r.invoiceId || r.invoiceNo ? { key: String(r.invoiceId || 'n:' + r.invoiceNo), label: r.invoiceNo ? 'Счёт № ' + r.invoiceNo : 'Счёт без номера', sub: r.supplierName || '', ...(r.invoiceId ? { open: { href: invoiceHref(r.invoiceId) } } : {}) } : null),
-      groupSum: (r) => r.priceHint, // сумма счёта на карточке группы
+      group: (r) => (r.invoiceId || r.invoiceNo ? { key: String(r.invoiceId || 'n:' + r.invoiceNo), label: r.invoiceNo ? 'Счёт № ' + r.invoiceNo : 'Счёт без номера', sub: r.supplierName || '', date: r.invoiceDate ? 'от ' + date(r.invoiceDate) : '', ...(r.invoiceId ? { open: { href: invoiceHref(r.invoiceId) } } : {}) } : null),
+      groupActions: invoiceActions, groupSum: (r) => r.priceHint, // кнопки счёта (C067); сумма счёта на карточке группы
       groupTotal: (r) => r.invoiceAmount, // нет цен у позиций — сумма из записи счёта (ждёт invoiceAmount от сервера)
       colOf: (r) => supplyKey(r), // колонка доски по записи — для точечного обновления после смены статуса
       cls: 'board-pics',
