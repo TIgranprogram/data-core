@@ -1,5 +1,5 @@
 {
-  "at": "2026-11-10T09:56:08.571Z",
+  "at": "2026-11-10T10:02:13.463Z",
   "spec": [
     {
       "id": "6adaff2e2a8dad6034b14563",
@@ -8390,6 +8390,5252 @@
       "why": "в паспорте нет материалов"
     }
   ],
-  "joints": [],
-  "jointsManual": []
+  "joints": [
+    {
+      "id": "6adaff2e2a8dad6034b14563",
+      "sku": "1_1",
+      "name": "Стойка баскетбольная Г образная, вынос 3,25м",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adafee92a8dad6034b14513",
+      "sku": "1_4",
+      "name": "Стойка баскетбольная «Г» образная, вынос 1,2м (со щитом из влагостойкой фанеры)",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adafeeb2a8dad6034b14514",
+      "sku": "1_5",
+      "name": "Стойка баскетбольная «Г» образная, вынос 1,2м (со щитом из влагостойкой фанеры)",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff282a8dad6034b14534",
+      "sku": "2_1",
+      "name": "Стойки волейбольные (комплект, без сетки)",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff302a8dad6034b14577",
+      "sku": "2_1-2",
+      "name": "Стойки волейбольные ∅89 мм с механизмом плавной регулировки высоты и лебедочным механизмом натяжения «STREET IRON»",
+      "group": "Спорт оборудование",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff372a8dad6034b145a5",
+      "sku": "2_1-3",
+      "name": "Стойки волейбольные с механизмом натяжения сетки с сеткой",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2e2a8dad6034b14560",
+      "sku": "3_1_1",
+      "name": "Воркаут «брусья разноуровневые для отжиманий»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2e2a8dad6034b14561",
+      "sku": "3_1_2",
+      "name": "Воркаут «брусья двухуровневые»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff342a8dad6034b1458e",
+      "sku": "3_1_4",
+      "name": "Брусья разноуровневые двойные для воркаут",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff382a8dad6034b145ad",
+      "sku": "3_1_5",
+      "name": "Брусья разноуровневые двойные для воркаут, d трубы 89 мм",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff382a8dad6034b145ae",
+      "sku": "3_1_6",
+      "name": "Длинные (гнутые) брусья",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3a2a8dad6034b145bc",
+      "sku": "3_1_7",
+      "name": "Брусья «Жук», d трубы 108 мм",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3a2a8dad6034b145bb",
+      "sku": "3_1_8",
+      "name": "Брусья разноуровневые двойные для воркаут, d трубы 108 мм",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3e2a8dad6034b145df",
+      "sku": "3_1_9",
+      "name": "Брусья разноуровневые с возможностью занятий для инвалидов и лиц с ограниченными возможностями здоровья",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3f2a8dad6034b145e8",
+      "sku": "3_1_10",
+      "name": "Гимнастический снаряд для развития верхних плечевых мышц и мышц брюшного пресса, в том числе для инвалидов и лиц с ограниченными возможностями",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2d2a8dad6034b14559",
+      "sku": "3_2_1",
+      "name": "Воркаут «Скамья гимнастическая для измерения гибкости»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adcaa606abdac3554cb4b13",
+      "sku": "3_2_2",
+      "name": "Скамья для пресса",
+      "group": "Воркаут",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2d2a8dad6034b1455b",
+      "sku": "3_2_3",
+      "name": "Воркаут «Скамья горизонтальная»",
+      "group": "Скамьи",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2d2a8dad6034b1455e",
+      "sku": "3_2_4",
+      "name": "Воркаут «Скамья для пресса с наклоном 20°»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2e2a8dad6034b1455f",
+      "sku": "3_2_5",
+      "name": "Воркаут «Скамья для пресса с наклоном 35°»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff382a8dad6034b145ab",
+      "sku": "3_2_6",
+      "name": "Скамья для пресса с наклоном 15° бетонирование",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3e2a8dad6034b145e1",
+      "sku": "3_2_7",
+      "name": "Гимнастическая скамья с платформой для фиксации результатов (для выполнения испытания (теста) Всероссийского физкультурно-спортивного комплекса «Готов к труду и обороне» (ГТО) (далее – ГТО) «Сгибание-разгибание рук в упоре лежа на полу»).",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3f2a8dad6034b145e2",
+      "sku": "3_2_8",
+      "name": "Горизонтальная гимнастическая скамья двойная разноуровневая (для выполнения испытаний (тестов) ГТО «Сгибание и разгибание рук в упорео гимнастическую скамью», «Сгибание и разгибание рук в упоре о сиденье стула»)",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3f2a8dad6034b145e3",
+      "sku": "3_2_9",
+      "name": "Горизонтальная гимнастическая скамья с фиксацией ступней (для выполнения испытания (теста) ГТО «Поднимание туловища из положения лежа на спине»)",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3f2a8dad6034b145e4",
+      "sku": "3_2_10",
+      "name": "Горизонтальная гимнастическая скамья, к которой прикреплены две раздвижные антивандальные измерительные линейки с диапазоном измерения от +35 до -10 см (для выполнения испытания (теста) ГТО «Наклон вперед из положения стоя на гимнастической скамье»)",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adee7b61b264bcc1d20b3cb",
+      "sku": "3_2_11",
+      "name": "Скамья для пресса с упором для ног воркаут, d трубы 89 мм",
+      "group": "Скамьи",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2d2a8dad6034b1455a",
+      "sku": "3_3_1",
+      "name": "Воркаут «Прыжок в длину (с разметкой до 3.2 м)»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2d2a8dad6034b1455c",
+      "sku": "3_4_1",
+      "name": "Воркаут «Турник разноуровневый для отжиманий и подтягиваний»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adafec72a8dad6034b14505",
+      "sku": "3_4_2",
+      "name": "Воркаут Турник тройной каскад «STREET IRON»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff372a8dad6034b145aa",
+      "sku": "3_4_3",
+      "name": "Гексагон из турников",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3f2a8dad6034b145e6",
+      "sku": "3_4_11",
+      "name": "Перекладина с регулируемой высотой от 90 до 260 см",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3f2a8dad6034b145e7",
+      "sku": "3_4_12",
+      "name": "Перекладины стационарные разноуровневые (для выполнения испытания (теста) ГТО «Подтягивание из виса на высокой перекладине»)",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff442a8dad6034b14607",
+      "sku": "3_4_13",
+      "name": "Турник воркаут классический с кольцами",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adafb622a8dad6034b1421a",
+      "sku": "3_5_1",
+      "name": "Спорткомплекс Воркаут площадка",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adafbc32a8dad6034b14294",
+      "sku": "3_5_2",
+      "name": "Воркаут комплекс ГТО №3",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff352a8dad6034b1459a",
+      "sku": "3_5_3",
+      "name": "Рукоход разноуровневый с каскадом турников 6628х1588х2600 мм",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adafbeb2a8dad6034b142e5",
+      "sku": "3_5_5",
+      "name": "Комплекс воркаут «Скамья-Шведская стенка-Турники_4шт",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adafcec2a8dad6034b143d7",
+      "sku": "3_5_6",
+      "name": "Комплекс воркаут «Скамья-стенка-турники-рукоходы»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adafd302a8dad6034b14434",
+      "sku": "3_5_7",
+      "name": "Комплекс воркаут «Скамья_2шт-Турники_2шт-Рукоходы_2шт-Брусья»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adafd5b2a8dad6034b14485",
+      "sku": "3_5_8",
+      "name": "Комплекс воркаут «Скамья-Шведская стенка-Турники_5шт-Брусья»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff342a8dad6034b14593",
+      "sku": "3_5_9",
+      "name": "Комплекс воркаут 1 «Скамья 2шт-Турники 1шт-Кольца 1шт-Рукоходы 2шт-Брусья»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff392a8dad6034b145b8",
+      "sku": "3_5_10",
+      "name": "Комплекс воркаут из 5 турников, шведской стенки и рукохода «Зигзаг»",
+      "group": "Воркаут",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff392a8dad6034b145b9",
+      "sku": "3_5_11",
+      "name": "Комплекс воркаут «Скамья-турник разноуровневый»",
+      "group": "Воркаут",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff392a8dad6034b145ba",
+      "sku": "3_5_12",
+      "name": "Воркаут Комплекс «Турник-брусья-вертикальный пресс»",
+      "group": "Тренажеры",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff452a8dad6034b14614",
+      "sku": "3_5_13",
+      "name": "Спортивный комплекс: Турник-брусья-шведская стенка",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adb0109a752c827a514a84d",
+      "sku": "3_5_15",
+      "name": "Комплекс воркаут П-обр_Скамья-брусья-стенка-турник_СК014",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff442a8dad6034b14608",
+      "sku": "3_5_16",
+      "name": "Комплекс воркаут «Турник - брусья - стенка - рукоход»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff462a8dad6034b1461b",
+      "sku": "3_5_17",
+      "name": "Комплекс воркаут «Пять турников-стенка-рукоход-змеевик» d трубы 89 мм",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adb23215e482abfeb5142e0",
+      "sku": "3_5_18",
+      "name": "Комплекс воркаут «Две скамьи-стенка-турники-кольца",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adb58eecba2f46cef61072f",
+      "sku": "3_5_19",
+      "name": "Комплекс воркаут «Три турника, два рукохода с подъёмом»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adb6022c9a484a4e33b0526",
+      "sku": "3_5_20",
+      "name": "Комплекс воркаут «Шесть турников-два рукохода»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adb666759f13dfae44586c9",
+      "sku": "3_5_21",
+      "name": "Комплекс воркаут «Стенка, кольца, канат, скалодром»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff302a8dad6034b14576",
+      "sku": "3_6_1",
+      "name": "Шведская стенка воркаут «STREET IRON»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff372a8dad6034b145a7",
+      "sku": "3_7_1",
+      "name": "Рукоход кольцевой",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff372a8dad6034b145a8",
+      "sku": "3_7_2",
+      "name": "Рукоход двухуровневый d трубы 89 мм",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff372a8dad6034b145a9",
+      "sku": "3_7_3",
+      "name": "Рукоход змейка",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3e2a8dad6034b145e0",
+      "sku": "3_7_4",
+      "name": "Рукоход двухуровневый воркаут, d трубы 89 мм",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff382a8dad6034b145ac",
+      "sku": "3_8_1",
+      "name": "Гимнастические кольца",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff382a8dad6034b145af",
+      "sku": "3_9_1",
+      "name": "Канат",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff382a8dad6034b145b0",
+      "sku": "3_10_1",
+      "name": "Скалодром",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff402a8dad6034b145f1",
+      "sku": "4_1",
+      "name": "Стойки для большого тенниса, круглые, со стаканами",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff332a8dad6034b1458d",
+      "sku": "5_1",
+      "name": "Ограждение 5-1",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff342a8dad6034b14595",
+      "sku": "5_2",
+      "name": "Столб для ограждения 40х60 мм",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2e2a8dad6034b14567",
+      "sku": "6_1",
+      "name": "Скамейка TORUDA «Прага» без спинки",
+      "group": "Скамьи",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff332a8dad6034b14589",
+      "sku": "6_3",
+      "name": "Скамья",
+      "group": "Скамьи",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3b2a8dad6034b145c3",
+      "sku": "6_5",
+      "name": "Скамья радиусная",
+      "group": "Скамьи",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3a2a8dad6034b145bd",
+      "sku": "6_6",
+      "name": "Скамья",
+      "group": "Скамьи",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3b2a8dad6034b145c0",
+      "sku": "6_7_1",
+      "name": "Пенек",
+      "group": "Скамьи",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3c2a8dad6034b145cc",
+      "sku": "6_10",
+      "name": "Кресло крутящееся со столиком",
+      "group": "Скамьи",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3e2a8dad6034b145da",
+      "sku": "6_11",
+      "name": "Скамья парковая",
+      "group": "Скамьи",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff402a8dad6034b145ec",
+      "sku": "6_12",
+      "name": "Скамья ЛСДП_2000.740.930",
+      "group": "Скамьи",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2a2a8dad6034b14548",
+      "sku": "7_1",
+      "name": "Уличный тренажёр «Жим от груди лежа»",
+      "group": "Спорт оборудование",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2c2a8dad6034b14553",
+      "sku": "7_3",
+      "name": "Тренажёр «Трицепс жим вниз»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2c2a8dad6034b14554",
+      "sku": "7_11",
+      "name": "Уличный тренажёр «жим от груди сидя с изменяемой нагрузкой»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff0d2a8dad6034b14521",
+      "sku": "7_12",
+      "name": "Уличный тренажёр «жим ногами»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff1a2a8dad6034b14529",
+      "sku": "7_14",
+      "name": "Уличный тренажёр силовой «Мультиштанга» «STREET IRON»",
+      "group": "Спорт оборудование",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2a2a8dad6034b14549",
+      "sku": "7_15",
+      "name": "Уличный тренажёр силовой «Гравитрон»",
+      "group": "Спорт оборудование",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff452a8dad6034b14613",
+      "sku": "7_17",
+      "name": "Тренажёр «Рычажная тяга на себя» с изменяемой нагрузкой из положения сидя",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff452a8dad6034b14612",
+      "sku": "7_18",
+      "name": "Тренажёр «Приседание» с изменяемой нагрузкой",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2e2a8dad6034b14566",
+      "sku": "7_23",
+      "name": "Уличный тренажёр из покрышек с Т-образной боксерской стойкой",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2f2a8dad6034b1456d",
+      "sku": "7_24",
+      "name": "Уличный тренажёр Жим ногами Флекс «STREET IRON»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2f2a8dad6034b1456e",
+      "sku": "7_25",
+      "name": "Уличный тренажёр Диск+Твист «STREET IRON»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2f2a8dad6034b1456f",
+      "sku": "7_26",
+      "name": "Уличный тренажёр Жим+Подтягивание «STREET IRON»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2f2a8dad6034b14571",
+      "sku": "7_28",
+      "name": "Уличный тренажёр Хипс+Шейкер «STREET IRON»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff302a8dad6034b14572",
+      "sku": "7_29",
+      "name": "Уличный тренажёр Степ+Вело «STREET IRON»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff302a8dad6034b14573",
+      "sku": "7_30",
+      "name": "Уличный тренажёр Лыжники «STREET IRON»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff282a8dad6034b14539",
+      "sku": "7_31",
+      "name": "Уличный тренажёр Скороход «STREET IRON»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff302a8dad6034b14574",
+      "sku": "7_32",
+      "name": "Уличный тренажёр Орбитрек «STREET IRON»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adafef72a8dad6034b1451b",
+      "sku": "7_33",
+      "name": "Тренажёр «Жим от плеч»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff322a8dad6034b14583",
+      "sku": "7_34",
+      "name": "Эллипсоид с безынерционным нагрузочным механизмом",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff322a8dad6034b14584",
+      "sku": "7_35",
+      "name": "Качели-маятник",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff392a8dad6034b145b6",
+      "sku": "7_36",
+      "name": "Уличный тренажёр Сведение рук (баттерфляй)",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2a2a8dad6034b14544",
+      "sku": "7_37",
+      "name": "Уличный тренажёр Жим ногами сидя STREET IRON",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff342a8dad6034b1458f",
+      "sku": "7_39",
+      "name": "Уличный тренажёр - Подтягивание «STREET IRON»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff392a8dad6034b145b4",
+      "sku": "7_39-2",
+      "name": "Верхняя тяга",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff342a8dad6034b14590",
+      "sku": "7_40",
+      "name": "Уличный тренажёр - Тяга на себя «STREET IRON»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff352a8dad6034b14599",
+      "sku": "7_41",
+      "name": "Т-образная боксерская стойка 2400х80х2600 мм",
+      "group": "Спорт оборудование",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff352a8dad6034b1459b",
+      "sku": "7_42",
+      "name": "Стойка для набивания ног 700х700х2000 мм",
+      "group": "Спорт оборудование",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff382a8dad6034b145b1",
+      "sku": "7_54",
+      "name": "Эллиптический",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff382a8dad6034b145b2",
+      "sku": "7_56",
+      "name": "Уличный тренажёр - Вело безынерционный",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff392a8dad6034b145b5",
+      "sku": "7_58",
+      "name": "Гиперэкстензия",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff442a8dad6034b14606",
+      "sku": "7_61",
+      "name": "Уличный тренажёр - Гребная тяга «STREET IRON»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff452a8dad6034b14615",
+      "sku": "7_62",
+      "name": "Силовой тренажёр «Жим вверх»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff462a8dad6034b14616",
+      "sku": "7_63",
+      "name": "Силовой тренажёр «Жим от груди»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff462a8dad6034b14617",
+      "sku": "7_64",
+      "name": "Силовой тренажёр Жим ногами",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff462a8dad6034b14618",
+      "sku": "7_65",
+      "name": "Силовой тренажёр Бицепс",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae3208aa3f6de10abf02ae4",
+      "sku": "7_66",
+      "name": "Велотренажёр горизонтальный с нагрузочным механизмом",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2a2a8dad6034b14547",
+      "sku": "9_1",
+      "name": "Ворота мини-футбольные стационарные «STREET IRON» 3х2 со стаканами",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff302a8dad6034b14578",
+      "sku": "9_1-2",
+      "name": "Ворота мини-футбольные 3х2 свободностоящие, крепления анкерные. «STREET IRON»",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff362a8dad6034b145a4",
+      "sku": "9_2",
+      "name": "Ворота футбольные тренировочные 5х2 м с сеткой",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3d2a8dad6034b145d5",
+      "sku": "9_3",
+      "name": "Ворота мини-футбольные для детского сада со стритбольным фанерным щитом, фермой, усиленным б/б кольцом",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2e2a8dad6034b14564",
+      "sku": "10_1",
+      "name": "Фонарь уличный Стрит-4 H 3,6м",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2e2a8dad6034b14565",
+      "sku": "10_2",
+      "name": "Фонарь уличный Техно-М-1 Н 4,2м",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff322a8dad6034b14581",
+      "sku": "11_3",
+      "name": "Подвес качели",
+      "group": "Качели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff322a8dad6034b14586",
+      "sku": "11_4",
+      "name": "Качалка-балансир для четверых",
+      "group": "Качалка-балансир",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff332a8dad6034b14587",
+      "sku": "11_5",
+      "name": "Качели",
+      "group": "Качели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3b2a8dad6034b145c1",
+      "sku": "11_8",
+      "name": "Качель Гнездо двойная (арка)",
+      "group": "Качели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adafed32a8dad6034b1450d",
+      "sku": "11_9",
+      "name": "Качели",
+      "group": "Качели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3b2a8dad6034b145c2",
+      "sku": "11_10",
+      "name": "Качели круговые",
+      "group": "Качели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3d2a8dad6034b145d2",
+      "sku": "11_11",
+      "name": "Качели",
+      "group": "Качели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff402a8dad6034b145ef",
+      "sku": "11_12",
+      "name": "Качели",
+      "group": "Качели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2f2a8dad6034b14569",
+      "sku": "12_1",
+      "name": "Урна парковая TORUDA 30 (металл)",
+      "group": "Урны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff312a8dad6034b1457b",
+      "sku": "12_2",
+      "name": "Урна городская Forest 063",
+      "group": "Урны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff332a8dad6034b14588",
+      "sku": "12_3",
+      "name": "Урна",
+      "group": "Урны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3b2a8dad6034b145be",
+      "sku": "12_4",
+      "name": "Урна CHOICE SHADOW YP 023",
+      "group": "Урны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3d2a8dad6034b145d8",
+      "sku": "12_5",
+      "name": "Урна",
+      "group": "Урны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff402a8dad6034b145eb",
+      "sku": "12_6",
+      "name": "Урна УСДК-800.400",
+      "group": "Урны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff322a8dad6034b14585",
+      "sku": "13_1",
+      "name": "Муравейник геопластика. Холм с деревянным тоннелем, деревянными столбами, пеньками и мет. Поручнем",
+      "group": "Геопластика",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff322a8dad6034b1457f",
+      "sku": "13_2",
+      "name": "Пузырь с тоннелем",
+      "group": "Геопластика",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff332a8dad6034b1458a",
+      "sku": "13_3",
+      "name": "Дубль-холм. Геопластика из 2-х холмов с нерж. тоннелями",
+      "group": "Геопластика",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3e2a8dad6034b145de",
+      "sku": "13_5",
+      "name": "Геопластика",
+      "group": "Геопластика",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3f2a8dad6034b145e9",
+      "sku": "13_6",
+      "name": "Геопластика",
+      "group": "Геопластика",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3f2a8dad6034b145ea",
+      "sku": "13_7",
+      "name": "«Пончик» из геопластики",
+      "group": "Геопластика",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff302a8dad6034b14579",
+      "sku": "15_1",
+      "name": "Судейская вышка универсальная с пластиковым сиденьем «STREET IRON»",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff312a8dad6034b1457a",
+      "sku": "16_1",
+      "name": "Скамейка на 5 мест, сиденья - пластик. «STREET IRON»",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3d2a8dad6034b145d4",
+      "sku": "16_1-2",
+      "name": "Трибуна на 5 мест",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff372a8dad6034b145a6",
+      "sku": "16_2",
+      "name": "Трибуна на 30 мест",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff442a8dad6034b1460b",
+      "sku": "16_2-2",
+      "name": "Трибуна спортивная 10 мест, сиденья - пластик",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff312a8dad6034b1457c",
+      "sku": "17_1",
+      "name": "Флагшток 6м",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff312a8dad6034b1457e",
+      "sku": "19_2",
+      "name": "Пергола 8",
+      "group": "Навесы",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff322a8dad6034b14580",
+      "sku": "19_2-2",
+      "name": "Пергола Pimko",
+      "group": "Навесы",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3c2a8dad6034b145c7",
+      "sku": "19_4",
+      "name": "Пергола с защитой от дождя",
+      "group": "Навесы",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3e2a8dad6034b145dc",
+      "sku": "19_6",
+      "name": "Пергола радиальная с лавочками, качелями",
+      "group": "Навесы",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3e2a8dad6034b145db",
+      "sku": "19_7",
+      "name": "Пергола Треугольник круговая с качелями",
+      "group": "Навесы",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3e2a8dad6034b145dd",
+      "sku": "19_8",
+      "name": "Пергола «clouds optimal»",
+      "group": "Навесы",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff332a8dad6034b1458b",
+      "sku": "21_1",
+      "name": "Игровой комплекс «Сокровище»",
+      "group": "Детские игровые комплексы",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3d2a8dad6034b145d7",
+      "sku": "21_3",
+      "name": "Детский игровой комплекс ИКС-13",
+      "group": "Детские игровые комплексы",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff402a8dad6034b145ed",
+      "sku": "21_5",
+      "name": "Игровой комплекс с горкой (ЦАРЬ ГОРЫ) 17500х11575х4060",
+      "group": "Детские игровые комплексы",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff402a8dad6034b145ee",
+      "sku": "21_6",
+      "name": "Горка (ЦАРЬ ГОРЫ) 11340х5500х4060",
+      "group": "Детское игровое оборудование",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff402a8dad6034b145f0",
+      "sku": "21_7",
+      "name": "Детская музыкальная площадка",
+      "group": "Детские игровые комплексы",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff332a8dad6034b1458c",
+      "sku": "22_1",
+      "name": "Качалка на пружине 22-1",
+      "group": "Качалка на пружине",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff342a8dad6034b14591",
+      "sku": "23_1",
+      "name": "Информационная Стела",
+      "group": "Тренажеры",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3c2a8dad6034b145cb",
+      "sku": "23_2",
+      "name": "Входная навигационная стела",
+      "group": "Информационные стенды и указатели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3d2a8dad6034b145cf",
+      "sku": "23_3",
+      "name": "Средняя информационная стела",
+      "group": "Информационные стенды и указатели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff342a8dad6034b14596",
+      "sku": "24_1",
+      "name": "Навес над рингом боксерским (7х7х5,45 м)",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff342a8dad6034b14597",
+      "sku": "24_2",
+      "name": "Навес над помостом для единоборств (15х15х5,45 м)",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff352a8dad6034b14598",
+      "sku": "25_1",
+      "name": "Помост для единоборств (15х15х0,5 м) с 4 лесенками",
+      "group": "Спорт оборудование",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3b2a8dad6034b145c4",
+      "sku": "26_2",
+      "name": "Беседка детская",
+      "group": "Навесы",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3b2a8dad6034b145c5",
+      "sku": "26_3",
+      "name": "Беседка МЗДАХ",
+      "group": "Навесы",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3b2a8dad6034b145c6",
+      "sku": "26_4",
+      "name": "Беседка с камышовой крышей",
+      "group": "Навесы",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3c2a8dad6034b145cd",
+      "sku": "27_1",
+      "name": "Пуфик ⌀800 мм",
+      "group": "Скамьи",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff352a8dad6034b1459c",
+      "sku": "28_1",
+      "name": "Элемент «Лабиринт»",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff352a8dad6034b1459d",
+      "sku": "28_2",
+      "name": "Элемент «Забор с наклонной доской»",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff362a8dad6034b1459e",
+      "sku": "28_3",
+      "name": "Элемент «Разрушенный мост»",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff362a8dad6034b1459f",
+      "sku": "28_4",
+      "name": "Элемент «Разрушенная лестница»",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff362a8dad6034b145a0",
+      "sku": "28_5",
+      "name": "Элемент «Стена с проломами»",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff362a8dad6034b145a1",
+      "sku": "28_6",
+      "name": "Элемент «Одиночный окоп» для школьников",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff362a8dad6034b145a2",
+      "sku": "28_7",
+      "name": "Элемент полосы препятствий Разрушенный бум",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff362a8dad6034b145a3",
+      "sku": "28_8",
+      "name": "Брусья разновысотные уличные",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff392a8dad6034b145b7",
+      "sku": "29_1",
+      "name": "Торговый павильон",
+      "group": "Навесы",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3c2a8dad6034b145c8",
+      "sku": "30_1",
+      "name": "Амфитеатр МЗДАХ",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3b2a8dad6034b145bf",
+      "sku": "31_1",
+      "name": "Уличный стол со скамьями",
+      "group": "Столы",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3c2a8dad6034b145c9",
+      "sku": "32_1",
+      "name": "Стенд детский Бизиборд (Птицы)",
+      "group": "Информационные стенды и указатели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3e2a8dad6034b145d9",
+      "sku": "32_2",
+      "name": "Информационный стенд",
+      "group": "Информационные стенды и указатели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3f2a8dad6034b145e5",
+      "sku": "32_3",
+      "name": "Информационная стойка с описанием нормативов испытаний (тестов) ГТО",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3c2a8dad6034b145ca",
+      "sku": "33_1",
+      "name": "Флаговый указатель 2600",
+      "group": "Информационные стенды и указатели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3d2a8dad6034b145d0",
+      "sku": "33_2",
+      "name": "Указатель направления",
+      "group": "Информационные стенды и указатели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3c2a8dad6034b145ce",
+      "sku": "34_1",
+      "name": "Костровая",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1268ce36900370537a2b5",
+      "sku": "1001",
+      "name": "Подтягивание",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1268de36900370537a2ba",
+      "sku": "1002",
+      "name": "Жим от плеч",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1268ee36900370537a2bf",
+      "sku": "1003",
+      "name": "Тяга на себя",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1268fe36900370537a2c4",
+      "sku": "1004",
+      "name": "Брусья жим",
+      "group": "Тренажеры",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12691e36900370537a2c9",
+      "sku": "1005",
+      "name": "Гиперэкстензия",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12692e36900370537a2ce",
+      "sku": "1006",
+      "name": "Гребная тяга",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12693e36900370537a2d3",
+      "sku": "1007",
+      "name": "Скороход",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12694e36900370537a2d8",
+      "sku": "1008",
+      "name": "Орбитрек",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12696e36900370537a2e4",
+      "sku": "1010",
+      "name": "Диск",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12697e36900370537a2e9",
+      "sku": "1011",
+      "name": "Твистер сидя",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12698e36900370537a2ee",
+      "sku": "1012",
+      "name": "Степпер",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1269ae36900370537a2f3",
+      "sku": "1013",
+      "name": "Хипс",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1269be36900370537a2f8",
+      "sku": "1014",
+      "name": "Маятник",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1269ce36900370537a2fd",
+      "sku": "1015",
+      "name": "Вело инерционный",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1269de36900370537a302",
+      "sku": "1016",
+      "name": "Подтягивание+Жим",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1269ee36900370537a307",
+      "sku": "1017",
+      "name": "Жим ногами+Флекс",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1269fe36900370537a30c",
+      "sku": "1018",
+      "name": "Степ+Вело",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126a0e36900370537a311",
+      "sku": "1019",
+      "name": "Хипс+Шейкер",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126a2e36900370537a316",
+      "sku": "1020",
+      "name": "Твист+Диск",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126a4e36900370537a320",
+      "sku": "1022",
+      "name": "Пресс+Гиперэкстензия",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126a5e36900370537a325",
+      "sku": "1023",
+      "name": "Жим от плеч",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126a7e36900370537a32a",
+      "sku": "1024",
+      "name": "Жим от груди лежа",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126a8e36900370537a32f",
+      "sku": "1025",
+      "name": "Мультиштанга",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126a9e36900370537a334",
+      "sku": "1026",
+      "name": "Приседания",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126abe36900370537a33e",
+      "sku": "1028",
+      "name": "Жим вниз на трицепс",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126ade36900370537a343",
+      "sku": "1029",
+      "name": "Жим от груди сидя",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126afe36900370537a34d",
+      "sku": "1031",
+      "name": "Сведение рук сидя",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126b0e36900370537a352",
+      "sku": "1032",
+      "name": "Тяга рычажная сидя",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126b2e36900370537a357",
+      "sku": "1033",
+      "name": "Гравитрон",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126b3e36900370537a35c",
+      "sku": "1034",
+      "name": "Велотренажёр",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126b4e36900370537a363",
+      "sku": "1035",
+      "name": "Велоорбитрек",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126b5e36900370537a368",
+      "sku": "1036",
+      "name": "Эллипсоид",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2b2a8dad6034b1454e",
+      "sku": "1037",
+      "name": "Уличный тренажёр «тяга к поясу стоя с изменяемой нагрузкой»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd770c93bb8ea2a6e3954",
+      "sku": "1101",
+      "name": "Ворота мини-футбольные",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd770c93bb8ea2a6e3957",
+      "sku": "1102",
+      "name": "Ворота мини-футбольные с закладными стаканами",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126b7e36900370537a36d",
+      "sku": "1103",
+      "name": "Ворота футбольные тренировочные",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126b8e36900370537a372",
+      "sku": "1104",
+      "name": "Ворота футбольные пляжные",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126b9e36900370537a377",
+      "sku": "1105",
+      "name": "Ворота футбольные полноразмерные",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126bae36900370537a37c",
+      "sku": "1106",
+      "name": "Баскетбольная стойка Г-образная вынос 1,2 м, щит игровой - поликарбонат",
+      "group": "Спорт оборудование",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126bbe36900370537a381",
+      "sku": "1107",
+      "name": "Стойка баскетбольная Г-образная, вынос 1,2 м; щит тренировочный - поликарбонат",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126bce36900370537a386",
+      "sku": "1108",
+      "name": "Баскетбольная стойка Г-образная вынос 1,2 м, щит игровой - фанера",
+      "group": "Спорт оборудование",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126bde36900370537a38b",
+      "sku": "1109",
+      "name": "Стойка баскетбольная Г-образная, вынос 1,2 м; щит тренировочный - фанера",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126bfe36900370537a390",
+      "sku": "1110",
+      "name": "Баскетбольная стойка, поворотная с выносом 7,20 м",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126c0e36900370537a395",
+      "sku": "1111",
+      "name": "Баскетбольная стойка с выносом 8,36 м - поворотная",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126c1e36900370537a39a",
+      "sku": "1112",
+      "name": "Баскетбольная стойка вынос фермы 1,2 м, щит игровой - поликарбонат",
+      "group": "Спорт оборудование",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126c2e36900370537a39f",
+      "sku": "1113",
+      "name": "Баскетбольная стойка вынос фермы 2,25 м, щит игровой - поликарбонат",
+      "group": "Спорт оборудование",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126c3e36900370537a3a4",
+      "sku": "1114",
+      "name": "Баскетбольная стойка вынос фермы 3,25 м, щит игровой - поликарбонат",
+      "group": "Спорт оборудование",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126c4e36900370537a3a9",
+      "sku": "1115",
+      "name": "Баскетбольная стойка вынос фермы 1,2 м, щит игровой - фанера",
+      "group": "Спорт оборудование",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126c5e36900370537a3ae",
+      "sku": "1116",
+      "name": "Баскетбольная стойка вынос фермы 2,25 м, щит игровой - фанера",
+      "group": "Спорт оборудование",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126c7e36900370537a3b3",
+      "sku": "1117",
+      "name": "Баскетбольная стойка вынос фермы 3,25 м, щит игровой - фанера",
+      "group": "Спорт оборудование",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd770c93bb8ea2a6e395a",
+      "sku": "1118",
+      "name": "Стойки волейбольные с механизмом натяжения сетки",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126c8e36900370537a3b8",
+      "sku": "1119",
+      "name": "Судейская вышка универсальная с пластиковым сиденьем",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126c9e36900370537a3bd",
+      "sku": "1120",
+      "name": "Судейская вышка мобильная с пластиковым сиденьем",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126cae36900370537a3c2",
+      "sku": "1121",
+      "name": "Стойки для большого тенниса, круглые, со стаканами",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126cbe36900370537a3c7",
+      "sku": "1122",
+      "name": "Стойки для бадминтона со стаканами",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126cce36900370537a3cc",
+      "sku": "1123",
+      "name": "Ворота хоккейные",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126cde36900370537a3d1",
+      "sku": "1124",
+      "name": "Цель для метания",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126cfe36900370537a3d6",
+      "sku": "1125",
+      "name": "Стол для армрестлинга антивандальный",
+      "group": "Спорт оборудование",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126d0e36900370537a3db",
+      "sku": "1126",
+      "name": "Комплекс для выполнения испытания «Прыжок в длину с места»",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126d1e36900370537a3e0",
+      "sku": "1127",
+      "name": "Комплекс для выполнения испытания «Рывок гири 16 кг»",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126d2e36900370537a3e5",
+      "sku": "1128",
+      "name": "Мишень на стойках квадратная",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126d3e36900370537a3ec",
+      "sku": "1129",
+      "name": "Мишень на стойках круглая",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126d4e36900370537a3f1",
+      "sku": "1130",
+      "name": "Ворота футбольные тренировочные",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126d6e36900370537a3f6",
+      "sku": "1201",
+      "name": "Турник воркаут уличный одноуровневый",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126d7e36900370537a3fb",
+      "sku": "1202",
+      "name": "Турник воркаут двойной разноуровневый",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126d8e36900370537a400",
+      "sku": "1203",
+      "name": "Турник воркаут двойной Г-образный",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126d9e36900370537a405",
+      "sku": "1204",
+      "name": "Турник тройной каскад",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126dae36900370537a40a",
+      "sku": "1205",
+      "name": "Турник тройной уличный",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126dbe36900370537a40f",
+      "sku": "1206",
+      "name": "Турник тройной «Треугольник»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126dde36900370537a414",
+      "sku": "1207",
+      "name": "Турник тройной «Звезда»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adeee5a1b264bcc1d20b809",
+      "sku": "1208",
+      "name": "Турник воркаут «Двойной Треугольник»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126dee36900370537a419",
+      "sku": "1209",
+      "name": "Турник для воркаут «Призма»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126dfe36900370537a41e",
+      "sku": "1210",
+      "name": "Турник для воркаут «Фристайл»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126e0e36900370537a423",
+      "sku": "1211",
+      "name": "Турник воркаут классический с кольцами",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126e2e36900370537a428",
+      "sku": "1212",
+      "name": "Брусья параллельные",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126e3e36900370537a42d",
+      "sku": "1213",
+      "name": "Брусья конусные",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126e4e36900370537a432",
+      "sku": "1214",
+      "name": "Брусья параллельные двойные",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126e5e36900370537a437",
+      "sku": "1215",
+      "name": "Брусья разноуровневые двойные",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126e7e36900370537a43c",
+      "sku": "1216",
+      "name": "Брусья низкие",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126e8e36900370537a441",
+      "sku": "1217",
+      "name": "Брусья параллельные малые",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126e9e36900370537a446",
+      "sku": "1218",
+      "name": "Брусья тройные малые",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126eae36900370537a44b",
+      "sku": "1219",
+      "name": "Брусья малые с упорами",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126ece36900370537a450",
+      "sku": "1220",
+      "name": "Рукоход двухуровневый",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126ede36900370537a455",
+      "sku": "1221",
+      "name": "Рукоход ломаный",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126eee36900370537a45a",
+      "sku": "1222",
+      "name": "Рукоход змейка",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126efe36900370537a45f",
+      "sku": "1223",
+      "name": "Шведская стенка воркаут",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126f0e36900370537a464",
+      "sku": "1224",
+      "name": "Стенд информационный",
+      "group": "Воркаут",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126f2e36900370537a46b",
+      "sku": "1225",
+      "name": "Столбики для отжиманий",
+      "group": "Воркаут",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126f3e36900370537a470",
+      "sku": "1226",
+      "name": "Комплекс воркаут «Турник-брусья»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126f4e36900370537a475",
+      "sku": "1227",
+      "name": "Комплекс воркаут «Два турника-брусья»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126f6e36900370537a47a",
+      "sku": "1228",
+      "name": "Комплекс воркаут «Турник-шведская стенка»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126f7e36900370537a47f",
+      "sku": "1229",
+      "name": "Комплекс воркаут «Два турника-шведская стенка»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126f8e36900370537a484",
+      "sku": "1230",
+      "name": "Комплекс воркаут «Два турника-шведская стенка» Г-обр",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126f9e36900370537a489",
+      "sku": "1231",
+      "name": "Комплекс воркаут «Два турника-шведская стенка» П-обр",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126fae36900370537a48e",
+      "sku": "1232",
+      "name": "Комплекс воркаут «Турник-брусья-вертикальный пресс»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126fbe36900370537a493",
+      "sku": "1233",
+      "name": "Комплекс воркаут «Турник-брусья-стенка-пресс»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126fce36900370537a498",
+      "sku": "1234",
+      "name": "Комплекс воркаут «Три турника-шведская стенка-брусья»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126fee36900370537a49d",
+      "sku": "1235",
+      "name": "Комплекс воркаут «Турник-брусья-шведская стенка»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae126ffe36900370537a4a2",
+      "sku": "1236",
+      "name": "Комплекс воркаут «Два турника-брусья-шведская стенка»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12700e36900370537a4a7",
+      "sku": "1237",
+      "name": "Комплекс воркаут «Турник-брусья-стенка-рукоход»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12701e36900370537a4ac",
+      "sku": "1238",
+      "name": "Комплекс воркаут «Турники «два треугольника»-рукоход»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12702e36900370537a4b1",
+      "sku": "1239",
+      "name": "Комплекс воркаут «Турники «два треугольника»-шведская стенка»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12703e36900370537a4b6",
+      "sku": "1240",
+      "name": "Комплекс воркаут «Пять турников-стенка-рукоход змеевик»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12704e36900370537a4bb",
+      "sku": "1241",
+      "name": "Комплекс воркаут «Два турника-брусья-стенка-рукоход»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12706e36900370537a4c0",
+      "sku": "1242",
+      "name": "Комплекс воркаут «Два турника-шведская стенка-два рукохода»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12707e36900370537a4c5",
+      "sku": "1243",
+      "name": "Комплекс воркаут «Шесть турников-два рукохода»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12708e36900370537a4ca",
+      "sku": "1244",
+      "name": "Скамья для пресса",
+      "group": "Воркаут",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12709e36900370537a4cf",
+      "sku": "1245",
+      "name": "Скамья для пресса с упором",
+      "group": "Воркаут",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1270ae36900370537a4d4",
+      "sku": "1246",
+      "name": "Скамья для пресса наклонная",
+      "group": "Воркаут",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1270be36900370537a4d9",
+      "sku": "1247",
+      "name": "Комплекс воркаут «Скамья для пресса-два турника»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1270ce36900370537a4de",
+      "sku": "1248",
+      "name": "Комплекс воркаут «Скамья-брусья-турник»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1270de36900370537a4e3",
+      "sku": "1249",
+      "name": "Комплекс воркаут «Скамья-турник разноуровневый»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1270fe36900370537a4e8",
+      "sku": "1250",
+      "name": "Комплекс воркаут «Две скамьи-два турника-стенка»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12710e36900370537a4ed",
+      "sku": "1251",
+      "name": "Комплекс воркаут П-обр «Скамья-брусья-стенка-турник»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12711e36900370537a4f4",
+      "sku": "1252",
+      "name": "Комплекс воркаут «Две скамьи-три турника-стенка»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12712e36900370537a4f9",
+      "sku": "1253",
+      "name": "Комплекс воркаут «Скамья-стенка-брусья-турник»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12713e36900370537a4fe",
+      "sku": "1254",
+      "name": "Комплекс воркаут «Скамья-стенка-два турника-брусья»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12714e36900370537a503",
+      "sku": "1255",
+      "name": "Комплекс воркаут «Скамья-стенка-турники-рукоходы»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12715e36900370537a508",
+      "sku": "1256",
+      "name": "Комплекс воркаут «Скамья-брусья-стенка-турник-кольца»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12717e36900370537a50d",
+      "sku": "1257",
+      "name": "Комплекс воркаут «Скамья-брусья-стенка-турники-кольца»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12718e36900370537a512",
+      "sku": "1258",
+      "name": "Комплекс воркаут «Скамья-брусья-турники-рукоходы»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12719e36900370537a517",
+      "sku": "1259",
+      "name": "Комплекс воркаут «Две скамьи-стенка-турники-кольца»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1271ae36900370537a51c",
+      "sku": "1260",
+      "name": "Комплекс воркаут «Две скамьи-стенка-рукоход-два турника-брусья»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1271be36900370537a521",
+      "sku": "1261",
+      "name": "Комплекс воркаут «Две скамьи-стенка-два рукохода-два турника-брусья»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1271de36900370537a526",
+      "sku": "1262",
+      "name": "Комплекс воркаут «Стенка-кольца-канат-скаладром»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1271ee36900370537a52b",
+      "sku": "1263",
+      "name": "Комплекс воркаут «Три турника-два рукохода с подъемом»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1271fe36900370537a530",
+      "sku": "1264",
+      "name": "Мобильный комплекс воркаут «Турники-брусья-стенка»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12720e36900370537a535",
+      "sku": "1265",
+      "name": "Мобильный комплекс воркаут «Турники-рукоход-стенка»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12721e36900370537a53a",
+      "sku": "1266",
+      "name": "Мобильный комплекс воркаут «Турники разноуровневые-брусья-стенка»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12723e36900370537a53f",
+      "sku": "1267",
+      "name": "Скамья горизонтальная двойная разноуровневая гимнастическая",
+      "group": "Воркаут",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12724e36900370537a544",
+      "sku": "1268",
+      "name": "Скамья горизонтальная гимнастическая с фиксацией ступней",
+      "group": "Воркаут",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12725e36900370537a549",
+      "sku": "1269",
+      "name": "Скамья горизонтальная гимнастическая с измерительными линейками",
+      "group": "Воркаут",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12726e36900370537a54e",
+      "sku": "1270",
+      "name": "Перекладины стационарные разноуровневые",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12727e36900370537a553",
+      "sku": "1271",
+      "name": "Перекладины стационарные разноуровневые с упором для ног",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12729e36900370537a558",
+      "sku": "1272",
+      "name": "Помост для выполнения испытания «Сгибание-разгибание рук»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1272ae36900370537a55d",
+      "sku": "1273",
+      "name": "Турник-перекладина с регулируемой высотой от 90 см до 260 см",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1272be36900370537a562",
+      "sku": "1274",
+      "name": "Брусья разноуровневые для инвалидов и лиц с ограниченными возможностями",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1272ce36900370537a567",
+      "sku": "1275",
+      "name": "Комплекс для тренировки мышц верхнего плечевого пояса и пресса",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1272ee36900370537a56c",
+      "sku": "1276",
+      "name": "Гимнастический снаряд П-образный рукоход",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1272fe36900370537a571",
+      "sku": "1277",
+      "name": "Разнохватовый турник",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12730e36900370537a578",
+      "sku": "1278",
+      "name": "Рукоход с изменением высоты и с вспомогательными рукоятками",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12731e36900370537a57d",
+      "sku": "1279",
+      "name": "Гимнастический снаряд «Шведская стенка»",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd770c93bb8ea2a6e395d",
+      "sku": "3101",
+      "name": "Пергола с подвесами (1 гнездо, 1 скамейка со спинкой)",
+      "group": "Навесы",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd770c93bb8ea2a6e3960",
+      "sku": "3102",
+      "name": "Пергола",
+      "group": "Навесы",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff442a8dad6034b14609",
+      "sku": "3103",
+      "name": "Пергола Г-образная",
+      "group": "Навесы",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12732e36900370537a582",
+      "sku": "3104",
+      "name": "Пергола с качелью",
+      "group": "Навесы",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd770c93bb8ea2a6e3963",
+      "sku": "3201",
+      "name": "Скамейка на цепях",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd770c93bb8ea2a6e3966",
+      "sku": "3202",
+      "name": "Нестационарные торговые объекты",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff432a8dad6034b14600",
+      "sku": "3203",
+      "name": "Деревянный мост",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff432a8dad6034b14605",
+      "sku": "3204",
+      "name": "Арка",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff432a8dad6034b14602",
+      "sku": "3205",
+      "name": "Качели городские Wood",
+      "group": "Качели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff432a8dad6034b14604",
+      "sku": "3206",
+      "name": "Качели",
+      "group": "Качели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd770c93bb8ea2a6e3969",
+      "sku": "3207",
+      "name": "Стелла",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd770c93bb8ea2a6e396c",
+      "sku": "3208",
+      "name": "Качели",
+      "group": "Качели",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd770c93bb8ea2a6e396f",
+      "sku": "3209",
+      "name": "Качели",
+      "group": "Качели",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd770c93bb8ea2a6e3972",
+      "sku": "3210",
+      "name": "Мостик",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd770c93bb8ea2a6e3975",
+      "sku": "3211",
+      "name": "Деревянный гамак",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd770c93bb8ea2a6e3978",
+      "sku": "3212",
+      "name": "Шезлонг",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd770c93bb8ea2a6e397b",
+      "sku": "3213",
+      "name": "Арт объект: Деревянные качели",
+      "group": "Качели",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd770c93bb8ea2a6e397e",
+      "sku": "3214",
+      "name": "Прочие МАФы",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd770c93bb8ea2a6e3981",
+      "sku": "3215",
+      "name": "Экотропа 120 м.п.",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd771c93bb8ea2a6e3984",
+      "sku": "3216",
+      "name": "Ограждение деревянное 28 м.п.",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff442a8dad6034b1460a",
+      "sku": "3217",
+      "name": "Качели",
+      "group": "Качели",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae440f6f08b6a47889f4859",
+      "sku": "3218",
+      "name": "Прочие МАФы 4 1800х2000х1400 (смета)",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae5a2e30aef6d386c0ac64e",
+      "sku": "3219",
+      "name": "Питьевой фонтан Cubo",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6aeb05439257daffedf6ae86",
+      "sku": "3220",
+      "name": "Вазон световой «Кольцо» (вазон из стеклопластика, подсветка светодиодная 24в.)",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6aeb05449257daffedf6ae8c",
+      "sku": "3221",
+      "name": "Стойка декоративная (основание из светящийся стеклопластика, подсветка светодиодная 24в.)",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12733e36900370537a587",
+      "sku": "3301",
+      "name": "Секция ограждения 2396х1900",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12734e36900370537a58c",
+      "sku": "3302",
+      "name": "Калитка ограждения 985х1900",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff452a8dad6034b1460f",
+      "sku": "3303",
+      "name": "Ограждение тип 6 H-500 (МФ 95.6.01)",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff452a8dad6034b14610",
+      "sku": "3304",
+      "name": "Столбик конечный",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff452a8dad6034b14611",
+      "sku": "3305",
+      "name": "Столбик промежуточный",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12735e36900370537a591",
+      "sku": "3306",
+      "name": "Столбик угловой для 3303",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff252a8dad6034b1452e",
+      "sku": "3307",
+      "name": "Элементы конструктивные вспомогательного назначения, с преобладанием профильного проката, собираемые из двух и более деталей, с отверстиями и без отверстий, соединяемые на сварке (Ограждение (тип 5, тип 6)",
+      "group": "Ограждения",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12737e36900370537a596",
+      "sku": "3308",
+      "name": "Ограждение Староминский район",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adf13c6c8b59ed4f1211208",
+      "sku": "3309",
+      "name": "Металлопрофильная секция ограждения 1900х2420 мм",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adf31c4a7c2b11c4264f16f",
+      "sku": "3310",
+      "name": "Опорный столб ограждения 80х80х4000 мм",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adf3ecfa7c2b11c4264f42b",
+      "sku": "3311",
+      "name": "Металлопрофильная секция ограждения 1900х2420 мм с калиткой",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd771c93bb8ea2a6e3987",
+      "sku": "3401",
+      "name": "Скамейка",
+      "group": "Скамьи",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd771c93bb8ea2a6e398a",
+      "sku": "3402",
+      "name": "Скамейка",
+      "group": "Скамьи",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd771c93bb8ea2a6e398d",
+      "sku": "3403",
+      "name": "Скамья",
+      "group": "Скамьи",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd771c93bb8ea2a6e3990",
+      "sku": "3404",
+      "name": "Скамья Ultu",
+      "group": "Скамьи",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff432a8dad6034b14601",
+      "sku": "3405",
+      "name": "Скамья Улитка",
+      "group": "Скамьи",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd771c93bb8ea2a6e3993",
+      "sku": "3406",
+      "name": "Скамья для шахматного стола",
+      "group": "Скамьи",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff452a8dad6034b1460d",
+      "sku": "3407",
+      "name": "Бордо - Кованые скамейки (сосна)",
+      "group": "Скамьи",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff442a8dad6034b1460c",
+      "sku": "3408",
+      "name": "Скамья парковая",
+      "group": "Скамьи",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12738e36900370537a59b",
+      "sku": "3409",
+      "name": "Скамейка",
+      "group": "Скамьи",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae58bb7ef6c7562ae8d2dce",
+      "sku": "3410",
+      "name": "Скамья парковая ПС-7",
+      "group": "Скамьи",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6aeb05419257daffedf6ae80",
+      "sku": "3411",
+      "name": "Скамейка «Книга» (основание из стеклопластика, подсветка светодиодная 24в.)",
+      "group": "Скамьи",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd771c93bb8ea2a6e3996",
+      "sku": "3501",
+      "name": "Урна",
+      "group": "Урны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd771c93bb8ea2a6e3999",
+      "sku": "3502",
+      "name": "Урна",
+      "group": "Урны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd771c93bb8ea2a6e399c",
+      "sku": "3503",
+      "name": "Урна",
+      "group": "Урны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd772c93bb8ea2a6e399f",
+      "sku": "3504",
+      "name": "Деревянная урна",
+      "group": "Урны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff452a8dad6034b1460e",
+      "sku": "3505",
+      "name": "Модена - Уличные урны",
+      "group": "Урны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12739e36900370537a5a0",
+      "sku": "3506",
+      "name": "Урна",
+      "group": "Урны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae58b71ef6c7562ae8d2d82",
+      "sku": "3507",
+      "name": "Урна УП-2",
+      "group": "Урны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd772c93bb8ea2a6e39a2",
+      "sku": "3601",
+      "name": "Шахматный стол со стульями",
+      "group": "Столы",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd772c93bb8ea2a6e39a5",
+      "sku": "3801",
+      "name": "Велопарковки на территории МО «Город Майкоп»",
+      "group": "Велопарковки",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd772c93bb8ea2a6e39a8",
+      "sku": "3802",
+      "name": "Велопарковки на территории МО «Город Майкоп»",
+      "group": "Велопарковки",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1273ae36900370537a5a5",
+      "sku": "3901",
+      "name": "Стенд информационный",
+      "group": "Информационные стенды и указатели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1273be36900370537a5aa",
+      "sku": "3902",
+      "name": "Информационная стойка с описанием нормативов испытаний",
+      "group": "Информационные стенды и указатели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd772c93bb8ea2a6e39ab",
+      "sku": "3903",
+      "name": "Навигационная стела",
+      "group": "Информационные стенды и указатели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd772c93bb8ea2a6e39ae",
+      "sku": "3904",
+      "name": "Навигационная стела",
+      "group": "Информационные стенды и указатели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff432a8dad6034b14603",
+      "sku": "3905",
+      "name": "Арт объект Деревянные указатели",
+      "group": "Информационные стенды и указатели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd772c93bb8ea2a6e39b1",
+      "sku": "3906",
+      "name": "Деревянная табличка на цепи",
+      "group": "Информационные стенды и указатели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd772c93bb8ea2a6e39b4",
+      "sku": "3907",
+      "name": "Стенд",
+      "group": "Информационные стенды и указатели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1273ce36900370537a5af",
+      "sku": "4001",
+      "name": "Трибуна спортивная 5 мест, сиденья - пластик",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1273de36900370537a5b4",
+      "sku": "4002",
+      "name": "Трибуна спортивная 10 мест, сиденья - пластик",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1273fe36900370537a5b9",
+      "sku": "4003",
+      "name": "Трибуна спортивная 15 мест сиденья - пластик",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12740e36900370537a5be",
+      "sku": "4004",
+      "name": "Трибуна с перилами 15 мест сиденья - пластик",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12741e36900370537a5c3",
+      "sku": "4005",
+      "name": "Трибуна спортивная 20 мест сиденья - пластик",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12742e36900370537a5c8",
+      "sku": "4006",
+      "name": "Трибуна с перилами 20 мест сиденья - пластик",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12743e36900370537a5cd",
+      "sku": "4007",
+      "name": "Трибуна спортивная 25 мест сиденья - пластик",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12744e36900370537a5d2",
+      "sku": "4008",
+      "name": "Трибуна с перилами 25 мест сиденья - пластик",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12745e36900370537a5d7",
+      "sku": "4009",
+      "name": "Трибуна 5 мест с сиденьями из доски",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12746e36900370537a5dc",
+      "sku": "4010",
+      "name": "Трибуна 2х-ярусная 10 мест сиденья - доска",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12748e36900370537a5e1",
+      "sku": "4011",
+      "name": "Трибуна спортивная 15 мест сиденья - доска",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12749e36900370537a5e6",
+      "sku": "4012",
+      "name": "Трибуна с перилами 15 мест сиденья - доска",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1274ae36900370537a5eb",
+      "sku": "4013",
+      "name": "Трибуна на 20 мест сиденья - доска",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1274be36900370537a5f0",
+      "sku": "4014",
+      "name": "Трибуна с перилами на 20 мест сиденья - доска",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1274ce36900370537a5f5",
+      "sku": "4015",
+      "name": "Подъем для трибуны 3х-ярусный, с пластиковыми сиденьями",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1274de36900370537a5fa",
+      "sku": "4016",
+      "name": "Подъем для трибуны 3х-ярусный, с пластиковыми сиденьями и перилами",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1274ee36900370537a601",
+      "sku": "4017",
+      "name": "Подъем для трибуны 4х-ярусный, с пластиковыми сиденьями",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12750e36900370537a606",
+      "sku": "4018",
+      "name": "Подъем для трибуны 4х-ярусный, с пластиковыми сиденьями и перилами",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12751e36900370537a60b",
+      "sku": "4019",
+      "name": "Подъем для трибуны 5-ярусный, с пластиковыми сиденьями",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12752e36900370537a610",
+      "sku": "4020",
+      "name": "Подъем для трибуны 5-ярусный, с пластиковыми сиденьями и перилами",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12753e36900370537a615",
+      "sku": "4021",
+      "name": "Подъем для трибуны 3 яруса, с сиденьями из доски",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12754e36900370537a61a",
+      "sku": "4022",
+      "name": "Подъем для трибуны 3 яруса, с сиденьями из доски и перилами",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12756e36900370537a61f",
+      "sku": "4023",
+      "name": "Подъем для трибуны 4 яруса, с сиденьями из доски",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12757e36900370537a624",
+      "sku": "4024",
+      "name": "Подъем для трибуны 4 яруса, с сиденьями из доски и перилами",
+      "group": "Трибуны",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd772c93bb8ea2a6e39b7",
+      "sku": "5101",
+      "name": "Качели",
+      "group": "Качели",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae58501d8417c8a63cb5acf",
+      "sku": "5102",
+      "name": "Качели",
+      "group": "Качели",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd772c93bb8ea2a6e39ba",
+      "sku": "5201",
+      "name": "Карусель",
+      "group": "Карусели",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12758e36900370537a629",
+      "sku": "5202",
+      "name": "Карусель",
+      "group": "Карусели",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd772c93bb8ea2a6e39bd",
+      "sku": "5301",
+      "name": "Качалка-балансир «Мишка»",
+      "group": "Качалка-балансир",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae12759e36900370537a62e",
+      "sku": "5302",
+      "name": "Качалка-балансир",
+      "group": "Качалка-балансир",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae58b51ef6c7562ae8d2d3c",
+      "sku": "5303",
+      "name": "Балансир «Мячик»",
+      "group": "Качалка-балансир",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd772c93bb8ea2a6e39c0",
+      "sku": "5401",
+      "name": "Качалка",
+      "group": "Качалка на пружине",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae1275ae36900370537a633",
+      "sku": "5402",
+      "name": "Качалка мотоцикл",
+      "group": "Качалка на пружине",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae58530d8417c8a63cb5b44",
+      "sku": "5601",
+      "name": "Песочница ПС-2",
+      "group": "Детское игровое оборудование",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd772c93bb8ea2a6e39c3",
+      "sku": "6001",
+      "name": "Игровой элемент",
+      "group": "Детское игровое оборудование",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6ae5855bd8417c8a63cb5bd9",
+      "sku": "6002",
+      "name": "Игровая сетка «Дворики Юга»",
+      "group": "Детское игровое оборудование",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd772c93bb8ea2a6e39c6",
+      "sku": "6101",
+      "name": "Игровой комплекс",
+      "group": "Детские игровые комплексы",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd772c93bb8ea2a6e39c9",
+      "sku": "6102",
+      "name": "Игровой комплекс",
+      "group": "Детские игровые комплексы",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd772c93bb8ea2a6e39cc",
+      "sku": "6103",
+      "name": "Игровой комплекс",
+      "group": "Детские игровые комплексы",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd772c93bb8ea2a6e39cf",
+      "sku": "6104",
+      "name": "Игровой комплекс",
+      "group": "Детские игровые комплексы",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd772c93bb8ea2a6e39d2",
+      "sku": "6105",
+      "name": "Детский игровой комплекс",
+      "group": "Детские игровые комплексы",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6addd772c93bb8ea2a6e39d5",
+      "sku": "6106",
+      "name": "Игровой комплекс",
+      "group": "Детские игровые комплексы",
+      "category": "DIO",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2f2a8dad6034b1456a",
+      "sku": "ПС-1AF53D",
+      "name": "Уличный тренажёр «жим на трицепс»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff292a8dad6034b1453d",
+      "sku": "ПС-1F57C0",
+      "name": "Велотренажёр",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff412a8dad6034b145f8",
+      "sku": "ПС-2BC5E6",
+      "name": "Секция ограждения СУ-2160 Street Iron 2160х1900(h) мм",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff292a8dad6034b14543",
+      "sku": "ПС-4B2AAF",
+      "name": "Модульная оградительная система для спортивных площадок",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff292a8dad6034b14542",
+      "sku": "ПС-4B14A0",
+      "name": "Ограждение спортивной площадки из металлопрофиля Габариты: 2000х3000 мм",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff4a2a8dad6034b14622",
+      "sku": "ПС-4B14A0-2",
+      "name": "Ограждение спортивной площадки из металлопрофиля Габариты: 2000х3000 мм",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2d2a8dad6034b14558",
+      "sku": "ПС-6B669C",
+      "name": "Уличный тренажёр «покрышка для функционального тренинга»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff292a8dad6034b1453c",
+      "sku": "ПС-6CAB18",
+      "name": "Брусья параллельные",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2c2a8dad6034b14551",
+      "sku": "ПС-6CAE94",
+      "name": "Уличный тренажёр «приседание голень стоя с изменяемой нагрузкой»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2b2a8dad6034b1454b",
+      "sku": "ПС-6D80B5",
+      "name": "Уличный тренажёр «пресс гиперэкстензия (Римский стул)»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff282a8dad6034b14533",
+      "sku": "ПС-06E955",
+      "name": "Стойка баскетбольная (щит поликарбонат, каркас ферма с креплением на ворота)",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff342a8dad6034b14592",
+      "sku": "ПС-07B338",
+      "name": "Уличный тренажёр Силовой Приседание «STREET IRON»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2c2a8dad6034b14555",
+      "sku": "ПС-9CA446",
+      "name": "Уличный тренажёр «бицепс сидя с изменяемой нагрузкой»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff312a8dad6034b1457d",
+      "sku": "ПС-44F989",
+      "name": "Пергола 42",
+      "group": "Навесы",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff422a8dad6034b145fb",
+      "sku": "ПС-57F8AC",
+      "name": "Калитка КУ-1015 Street Iron 1015х1900(h) мм",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2b2a8dad6034b1454d",
+      "sku": "ПС-61A533",
+      "name": "Уличный тренажёр «вертикальная тяга стоя с изменяемой нагрузкой»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff412a8dad6034b145f4",
+      "sku": "ПС-189BDF",
+      "name": "Секция ограждения СУ-2420 Street Iron 2420х1900(h) мм",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff432a8dad6034b145ff",
+      "sku": "ПС-194EC7",
+      "name": "Стойка камеры наблюдения",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff282a8dad6034b14535",
+      "sku": "ПС-228C37",
+      "name": "Ворота мини-футбольные (без сетки)",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff282a8dad6034b14538",
+      "sku": "ПС-253FCD",
+      "name": "Уличный тренажёр Жим ТГО 2025 STREET IRON",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff282a8dad6034b1453b",
+      "sku": "ПС-452F7C",
+      "name": "Скамья для пресса",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2b2a8dad6034b1454c",
+      "sku": "ПС-746FDC",
+      "name": "Уличный тренажёр «жим от груди с конвергенцией в положении стоя»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff322a8dad6034b14582",
+      "sku": "ПС-00806A",
+      "name": "Карусель с сиденьями",
+      "group": "Карусели",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2a2a8dad6034b1454a",
+      "sku": "ПС-856C18",
+      "name": "Уличный тренажёр силовой «Комбинированный станок»",
+      "group": "Спорт оборудование",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff462a8dad6034b1461a",
+      "sku": "ПС-2193E8",
+      "name": "Велопарковка с нержавеющими стойками",
+      "group": "Велопарковки",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff412a8dad6034b145f5",
+      "sku": "ПС-2254BC",
+      "name": "Секция ограждения СУ-1015 Street Iron 1015х1900(h) мм",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff292a8dad6034b1453f",
+      "sku": "ПС-4499B1",
+      "name": "Секция ограждения с калиткой STREET IRON",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2d2a8dad6034b14557",
+      "sku": "ПС-7451A8",
+      "name": "Уличный тренажёр «разгибание ног стоя с изменяемой нагрузкой»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff422a8dad6034b145f9",
+      "sku": "ПС-81001C",
+      "name": "Секция ограждения СУ-1325 Street Iron 1325х1900(h) мм",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2a2a8dad6034b14546",
+      "sku": "ПС-120314",
+      "name": "Стойка баскетбольная «Г» образная, вынос 1,2м (щит -поликарбонат)",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2d2a8dad6034b14556",
+      "sku": "ПС-181450",
+      "name": "Уличный тренажёр «сгибание ноги стоя с изменяемой нагрузкой»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff422a8dad6034b145fc",
+      "sku": "ПС-A4AB19",
+      "name": "Стойка СО-5000 Street Iron h=5000 мм",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff412a8dad6034b145f7",
+      "sku": "ПС-A43236",
+      "name": "Секция ограждения СУ-1420 Street Iron 1420х1900(h) мм",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff282a8dad6034b1453a",
+      "sku": "ПС-AD56EE",
+      "name": "Спортивный комплекс шведская стенка с кольцами",
+      "group": "Воркаут",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff422a8dad6034b145fa",
+      "sku": "ПС-AF52AD",
+      "name": "Секция ограждения СУ-1825 Street Iron 1825х1900(h) мм",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2c2a8dad6034b14552",
+      "sku": "ПС-B3A156",
+      "name": "Уличный тренажёр «отведение бедра + Глют машина»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff292a8dad6034b14540",
+      "sku": "ПС-B45163",
+      "name": "Секция ограждения 1000 STREET IRON",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff282a8dad6034b14537",
+      "sku": "ПС-C0D96D",
+      "name": "Скамья парковая CHOICE SHADOW 1500 мм",
+      "group": "Скамьи",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2b2a8dad6034b1454f",
+      "sku": "ПС-DB8BE3",
+      "name": "Уличный тренажёр «жим вверх сидя с изменяемой нагрузкой»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff292a8dad6034b14541",
+      "sku": "ПС-DBEBDD",
+      "name": "Флагшток 4 метра",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff412a8dad6034b145f6",
+      "sku": "ПС-E0B350",
+      "name": "Секция ограждения СУ-1065 Street Iron 1065х1900(h) мм",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff422a8dad6034b145fd",
+      "sku": "ПС-E6B691",
+      "name": "Стойка СО-3000 Street Iron h=3000 мм",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff432a8dad6034b145fe",
+      "sku": "ПС-F2C782",
+      "name": "Баскетбольная стойка Г-образная (с фермой) вынос 2,25 м в комплекте: щит баскетбольный игровой из монолитного поликарбоната 10 мм на металлической раме, 180х105 см, кольцо баскетбольное усиленное, сетка баскетбольная, D нити 6,0 мм",
+      "group": "Спорт оборудование",
+      "category": "WRK",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff402a8dad6034b145f2",
+      "sku": "ПС-F4D83A",
+      "name": "Воркаут ВС-70",
+      "group": "Воркаут",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2c2a8dad6034b14550",
+      "sku": "ПС-F2948A",
+      "name": "Уличный тренажёр «становая тяга с изменяемой нагрузкой»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff292a8dad6034b1453e",
+      "sku": "ПС-FAC5EA",
+      "name": "Секция ограждения STREET IRON",
+      "group": "Ограждения",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2e2a8dad6034b14568",
+      "sku": "ПС-FD9036",
+      "name": "Уличный тренажёр силовой «Рычажная Тяга» «STREET IRON»",
+      "group": "Тренажеры",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff2a2a8dad6034b14545",
+      "sku": "ПС-FFA135",
+      "name": "Модульная оградительная система для спортивных площадок тип 2_3м",
+      "group": "Ограждения",
+      "category": "TRN",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6adaff3d2a8dad6034b145d3",
+      "sku": "ф_временные",
+      "name": "Стойка для крепления сетки заградительной",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    },
+    {
+      "id": "6af1a3ae4a9243614293be26",
+      "sku": "RPS-12-LIST",
+      "name": "Решётка приствольная",
+      "group": "Благоустройство (оборудование невошедшее в другие группы)",
+      "category": "BLG",
+      "joints": [
+        "bolts",
+        "welds"
+      ]
+    }
+  ],
+  "jointsManual": [
+    {
+      "id": "6adaff462a8dad6034b14619",
+      "sku": "ПС-08153E",
+      "name": "Велопарковка с бетонными боковинами",
+      "group": "Велопарковки",
+      "category": "BLG",
+      "why": "есть бетонная часть — выберите в шаблоне паспорта"
+    }
+  ]
 }

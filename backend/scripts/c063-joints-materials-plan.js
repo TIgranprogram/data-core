@@ -93,8 +93,10 @@ function buildPlan(jmDir, passports, dict, jointsDefault) {
     }
     if (!(p.passportDefaults?.joints || []).length) {
       if (!jointsDefault) continue;
-      const lt = lower(`${p.name} ${pp?.materials || ''}`);
-      plan.joints.push({ ...row, joints: /бетон/.test(lt) ? ['solid'] : ['bolts', 'welds'] });
+      // «бетон» в тексте паспорта — чаще «бетонирование» (установка), поэтому смотрим только название:
+      // бетонная часть изделия («бетонными боковинами», «бетонная урна») — вручную, остальное — болты + сварка
+      if (/бетонн|из бетона/.test(lower(p.name))) plan.jointsManual.push({ ...row, why: 'есть бетонная часть — выберите в шаблоне паспорта' });
+      else plan.joints.push({ ...row, joints: ['bolts', 'welds'] });
     }
   }
   const bySku = (a, b) => String(a.sku).localeCompare(String(b.sku), 'ru', { numeric: true });
