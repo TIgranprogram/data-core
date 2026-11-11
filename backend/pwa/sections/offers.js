@@ -8,6 +8,7 @@ import { confirmDlg } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { incomeLookups } from './orders.js';
 import { isAdmin, withReason } from './admin-override.js';
+import { packBlock, packCopyDialog, packListMark } from './offer-pack.js';
 
 /**
  * Раздел «КП» (KP-1): коммерческие предложения хранятся на сервере (/offers), у каждого номер, статус и PDF с фоном.
@@ -245,6 +246,7 @@ const actions = (r) => {
   if (r.orderId) out.unshift({ label: 'Открыть заказ', primary: true, run: () => go('salesorders', { open: r.orderId }) });
   else if (['accepted', 'paid'].includes(r.status)) out.push({ label: 'Сделать заказ', primary: r.status === 'accepted', run: (row, ctx) => makeOrder(row, ctx) });
   out.push({ label: 'Копия для другой фирмы', more: true, run: () => copyDialog(r) });
+  out.push({ label: 'КП от других фирм', more: true, run: (row, ctx) => packCopyDialog(row, { refresh: async () => ctx.setRow(await api(`/offers/${row.id}`)) }) });
   if (r.status === 'draft') out.push(to('sent', 'Отметить: отправлено клиенту', { primary: true }));
   if (r.status === 'sent') out.push(to('accepted', 'Отметить: принято клиентом', { primary: true }));
   if (r.status === 'accepted') out.push(to('paid', 'Отметить: оплачено', { primary: true }));
@@ -294,7 +296,7 @@ export const offers = {
         count: (resp, v) => (v === '' ? Object.values(resp.counts || {}).reduce((s, n) => s + (Number(n) || 0), 0) : resp.counts?.[v] || 0) },
     ],
     columns: [
-      { key: 'number', label: '№ КП', sort: 'number', cls: 'nowrap', render: (r) => h('b', null, r.number || '—') },
+      { key: 'number', label: '№ КП', sort: 'number', cls: 'nowrap', render: (r) => { const mark = packListMark(r); return h('span', null, h('b', null, r.number || '—'), mark ? h('span', null, ' ', mark) : null); } },
       { key: 'date', label: 'Дата', sort: 'date', cls: 'nowrap', render: (r) => date(r.date) },
       { key: 'companyName', label: 'Наша фирма', cls: 'clip nowrap', render: (r) => cell(r.companyName) },
       { key: 'customer', label: 'Заказчик', cls: 'clip', render: (r) => cell(r.customer) },
@@ -303,7 +305,7 @@ export const offers = {
     ],
     card: {
       title: (r) => [r.number || 'КП', r.customer].filter(Boolean).join(' · '),
-      sub: (r) => [r.companyName, date(r.date), r.total ? money(r.total) : 'без цены'].filter(Boolean).join(' · '),
+      sub: (r) => [r.companyName, date(r.date), r.total ? money(r.total) : 'без цены', r.packSize > 1 ? `пакет из ${r.packSize}` : ''].filter(Boolean).join(' · '),
       side: (r) => [badge(STATUS, r.status)],
     },
   },
@@ -319,20 +321,26 @@ export const offers = {
       ['Условия', r.terms], ['Примечание', r.notes],
       ['Статус', badge(STATUS, r.status)],
     ],
-    extra: (r) => stack(section({ title: 'Изделия', tone: 'money', count: (r.items || []).length, open: true, cls: 'of-view', body: [
-      r.status === 'paid' ? h('p', { class: 'hint' }, isAdmin() && !r.orderId ? 'КП оплачено. Администратор может его править и вернуть статус — нужна причина.' : 'КП оплачено — править его нельзя.') : null,
-      r.status === 'draft' && (r.items || []).some((l) => !l.unitPrice) ? h('p', { class: 'hint' }, 'Чтобы отметить «отправлено клиенту», укажите цену у каждой строки.') : null,
-      r.status === 'accepted' ? h('p', { class: 'hint' }, 'После отметки «оплачено» КП нельзя править.') : null,
-      r.status === 'paid' && !r.orderId ? h('p', { class: 'hint' }, 'КП оплачено — нажмите «Сделать заказ», чтобы завести договор с позициями и ценами из КП.') : null,
-      r.orderId ? h('p', { class: 'hint' }, 'По этому КП уже есть заказ — откройте кнопкой «Открыть заказ».') : null,
-      h('ol', { class: 'of-items' }, ...(r.items || []).map((l) => h('li', null,
-        h('b', null, l.productName), h('span', { class: 'muted' }, [l.color, l.size].filter(Boolean).map((x) => ' · ' + x).join('')),
-        h('div', { class: 'muted small' }, `${l.quantity} ${l.unit || 'шт'}${l.unitPrice ? ` × ${money(l.unitPrice)} = ${money(l.total ?? lineSum(l))}` : ' · цена не указана'}`))))] })),
+    extra: (r) => stack(
+      packBlock(r),
+      section({ title: 'Изделия', tone: 'money', count: (r.items || []).length, open: true, cls: 'of-view', body: [
+        r.status === 'paid' ? h('p', { class: 'hint' }, isAdmin() && !r.orderId ? 'КП оплачено. Администратор может его править и вернуть статус — нужна причина.' : 'КП оплачено — править его нельзя.') : null,
+        r.status === 'draft' && (r.items || []).some((l) => !l.unitPrice) ? h('p', { class: 'hint' }, 'Чтобы отметить «отправлено клиенту», укажите цену у каждой строки.') : null,
+        r.status === 'accepted' ? h('p', { class: 'hint' }, 'После отметки «оплачено» КП нельзя править.') : null,
+        r.status === 'paid' && !r.orderId ? h('p', { class: 'hint' }, 'КП оплачено — нажмите «Сделать заказ», чтобы завести договор с позициями и ценами из КП.') : null,
+        r.orderId ? h('p', { class: 'hint' }, 'По этому КП уже есть заказ — откройте кнопкой «Открыть заказ».') : null,
+        h('ol', { class: 'of-items' }, ...(r.items || []).map((l) => h('li', null,
+          h('b', null, l.productName),
+          h('span', { class: 'muted' }, [l.color, l.size].filter(Boolean).map((x) => ' · ' + x).join('')),
+          h('div', { class: 'muted small' }, `${l.quantity} ${l.unit || 'шт'}${l.unitPrice ? ` × ${money(l.unitPrice)} = ${money(l.total ?? lineSum(l))}` : ' · цена не указана'}`),
+        ))),
+      ] }),
+    ),
     actions,
   },
   form: {
     fields,
-    initial: () => ({ date: isoDay(), validUntil: isoDay(new Date(Date.now() + 10 * 86400000)), items: [] }), // срок КП по умолчанию — 10 дней
+    initial: () => ({ date: isoDay(), validUntil: isoDay(new Date(Date.now() + 10 * 86400000)), items: [] }), // срок КП по умолчанию — 10 дней (как в форме; корзина kp.js — то же)
     toInitial: (r) => ({ ...r, companyId: r.companyId ? String(r.companyId) : '', date: day(r.date), validUntil: day(r.validUntil), bg1Id: r.bg1Id ? String(r.bg1Id) : '', bg2Id: r.bg2Id ? String(r.bg2Id) : '', vatMode: r.vatMode || '', delivery: r.delivery || '', objectName: r.objectName || '', items: r.items || [] }),
     toBody,
     create: (b) => api('/offers', { method: 'POST', body: strip(b) }),

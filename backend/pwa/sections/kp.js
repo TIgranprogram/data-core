@@ -63,14 +63,28 @@ ${d.note ? `<div class="note">${esc(d.note)}</div>` : ''}</body></html>`;
 }
 
 async function buildKpForm() {
-  const [lk, il] = await Promise.all([lookups().catch(() => ({})), incomeLookups().catch(() => ({ companies: [], customers: [] }))]);
+  const [lk, il, offerCos] = await Promise.all([
+    lookups().catch(() => ({})),
+    incomeLookups().catch(() => ({ companies: [], customers: [] })),
+    api('/offers/companies').then((r) => r?.items || []).catch(() => []),
+  ]);
   let lines = load();
   const field = (label, el, cls = '') => h('label', { class: 'field ' + cls }, h('span', null, label), el);
-  const company = select({ options: (il.companies || []).map((c) => [c.id, c.name]), label: 'Наша компания' });
+  // фирмы для КП — /offers/companies (включая «только для КП»); fallback — список из доходов
+  const cos = (offerCos.length ? offerCos : (il.companies || [])).map((c) => [c.id, c.name]);
+  const note = h('textarea', { rows: 3, placeholder: 'Срок изготовления, условия оплаты и доставки…' });
+  const applyDefaults = async (id) => {
+    if (!id) return;
+    try {
+      const d = await api(`/offers/defaults?companyId=${encodeURIComponent(id)}`);
+      if (d?.terms && !note.value.trim()) note.value = d.terms;
+    } catch { /* без умолчаний — менеджер впишет сам */ }
+  };
+  const company = select({ options: cos, label: 'Наша компания', onChange: applyDefaults });
+  if (company.value) applyDefaults(company.value);
   const customer = h('input', { maxlength: 300, placeholder: 'Кому: заказчик' });
   const custBox = h('div', { class: 'has-combo' }, customer); // поле сначала в обёртку — список крепится к родителю
   attachCombo(customer, { options: () => (il.customers || lk.customers || []).map((x) => ({ label: x })) });
-  const note = h('textarea', { rows: 3, placeholder: 'Срок изготовления, условия оплаты и доставки…' });
   const list = h('div', { class: 'kp-lines' });
   const total = h('div', { class: 'kp-total num' });
   const searchInput = h('input', { placeholder: 'Добавить изделие: название или артикул…', class: 'kp-search-input' });
@@ -128,7 +142,8 @@ async function buildKpForm() {
       if (!lines.length) throw new Error('Добавьте изделия в КП');
       if (!customer.value.trim()) { customer.focus(); throw new Error('Впишите заказчика'); }
       const day = (add) => { const t = new Date(); t.setDate(t.getDate() + add); return t.toISOString().slice(0, 10); };
-      const offer = await createOffer({ companyId: company.value || undefined, customer: customer.value.trim(), date: day(0), validUntil: day(14), terms: note.value.trim() || undefined,
+      // срок действия — как в форме КП (10 дней), не 14
+      const offer = await createOffer({ companyId: company.value || undefined, customer: customer.value.trim(), date: day(0), validUntil: day(10), terms: note.value.trim() || undefined,
         items: lines.map((l) => ({
           productId: l.id, productSku: l.sku, productName: l.name,
           quantity: Number(l.qty) || 1, unit: l.unit || 'шт',
