@@ -57,7 +57,7 @@ test('в списке скриптов только с режимом плана
   const list = listProdScripts();
   assert.ok(list.length > 10);
   assert.ok(!list.some((n) => n.startsWith('drop-')));
-  assert.ok(list.includes('fix-sport-passports'));
+  assert.ok(list.includes('products-fill-defaults'));
   assert.ok(!list.includes('mongo-create-appuser'), 'скрипт без --apply записал бы сразу');
 });
 

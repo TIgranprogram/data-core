@@ -9,7 +9,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const DATA_DIR = path.join(__dirname, '..', '..', '..', 'docs', 'crew', 'C057-pdm-import', 'data');
+const DATA_DIR = path.join(__dirname, '..', '..', '..', '..', 'docs', 'crew', 'C057-pdm-import', 'data');
 
 function args(argv = process.argv.slice(2)) {
   const a = { apply: false, from: null, out: null, dataDir: DATA_DIR, rest: [] };
@@ -36,7 +36,7 @@ function normalize(m, cats) {
 }
 
 function connectMongo() {
-  const { MongoClient } = require(require.resolve('mongoose', { paths: [process.cwd(), path.join(__dirname, '..', '..')] })).mongo;
+  const { MongoClient } = require(require.resolve('mongoose', { paths: [process.cwd(), path.join(__dirname, '..', '..', '..')] })).mongo;
   if (!process.env.MONGO_URI) { console.error('Нужен MONGO_URI (и MONGO_DB), либо --from <папка выгрузки>'); process.exit(2); }
   return MongoClient.connect(process.env.MONGO_URI);
 }
