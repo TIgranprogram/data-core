@@ -8,7 +8,7 @@ import { dictNames } from '../../ui/dict-options.js';
 import { loadMaterialDicts, materialsSpec, specSummary } from '../../ui/materials-spec.js';
 import { funnelBox } from '../../ui/funnel.js';
 import { canEdit as canEditPassportTexts, dictOpts, dictRows } from '../passports/common.js';
-import { jointsPick } from '../passports/traits.js';
+import { jointsPick, JOINT_OPTIONS } from '../passports/traits.js';
 import { withElementTexts } from '../passports/elements-block.js';
 import { formValues, phrases, staffOptions, passportCategoryOptions, skuSearch, materialsFromComposition, createProduct, patchProduct, savePd, takePending, pendingProduct, assignSku } from './data.js';
 
@@ -238,5 +238,12 @@ export async function productBulkFields() {
     { key: 'pd.passportCategory', label: 'Паспорт по умолчанию: категория', type: 'select', options: cats },
     { key: 'pd.serviceLifeYears', label: 'Паспорт по умолчанию: срок службы, лет', type: 'number', map: n },
     { key: 'pd.warrantyMonths', label: 'Паспорт по умолчанию: гарантия, мес.', type: 'number', map: n },
+    { key: 'pd.maxUsers', label: 'Паспорт по умолчанию: пользователей одновременно', type: 'number', map: n },
+    { key: 'pd.ageFrom', label: 'Паспорт по умолчанию: возраст от, лет', type: 'number', map: n },
+    { key: 'pd.ageTo', label: 'Паспорт по умолчанию: возраст до, лет', type: 'number', map: n },
+    { key: 'pd.heightMin', label: 'Паспорт по умолчанию: рост пользователя от, мм', type: 'number', map: n },
+    { key: 'pd.weightMax', label: 'Паспорт по умолчанию: вес пользователя до, кг', type: 'number', map: n },
+    { key: 'pd.joints', label: 'Паспорт по умолчанию: как соединено', type: 'tags', options: JOINT_OPTIONS, hint: 'Болты, сварка или цельное. Пусто — снять' },
+    { key: 'pd.isKit', label: 'Паспорт по умолчанию: поставляется разобранным', type: 'select', options: [{ value: 'no', label: 'Нет' }, { value: 'yes', label: 'Да — нужна схема сборки' }], map: (v) => v === 'yes' },
   ];
 }
