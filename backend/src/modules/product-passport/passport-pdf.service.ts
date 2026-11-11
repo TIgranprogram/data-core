@@ -17,6 +17,7 @@ import { filterImagesByKind, installKindOf, variantOf, type PassportVariant } fr
 import { standardSchemes } from './passport-schemes';
 import { renderPassportPdfV2, renderPassportsPdfV2, renderStandPdf, resolveStyle, type PdfImageV2, type PdfV2Style, type PdfV2Text } from './passport-pdf-v2';
 import { packOf, type PrintPack } from './print-pack';
+import { readPrintFile } from './passport-print-file';
 
 type Doc = Record<string, unknown>;
 type PdfOpts = { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean; variant?: PassportVariant };
@@ -82,6 +83,14 @@ export class PassportPdfService {
     if (pack === 'tech') {
       const tech = await this.sheetOf(raw, raw.productId);
       return { buf: await renderTechSheetPdf(tech), filename: packFileName(raw, 'tech') };
+    }
+    // C062: свой PDF номера. Техописание и комплект собираются как раньше — файл это паспорт, не состав.
+    if (pack === 'passport') {
+      const attached = await readPrintFile(raw);
+      if (attached) {
+        if (isIssued(raw)) await this.passports.markIssued(raw._id as Types.ObjectId);
+        return attached;
+      }
     }
     const p = noDraftNumber(await this.withText(raw));
     const tech = pack === 'combined' ? await this.sheetOf(p, p.productId) : null;

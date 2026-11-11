@@ -80,6 +80,6 @@ describe('паспорта на весь заказ', () => {
   it('план: нет «нашей фирмы» и нет поставщика у черновика — готовая позиция blocked с причиной', async () => {
     const r = await orderPlan(make({ hasOurSupplier: async () => false }).host, String(o));
     expect(r.lines[0]).toMatchObject({ state: 'blocked' });
-    expect(r.lines[0].missing[0]).toMatch(/Поставщик/);
+    expect(r.lines[0].missing[0]).toMatch(/фирм/);
   });
 });

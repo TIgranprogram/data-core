@@ -97,6 +97,15 @@ export const FORMATS = [
  * (значками: A5, буклет A4, стенд A3), ч/б — у паспорта нового образца. Окно не закрывается, пока PDF готовится.
  */
 export async function printDialog(r) {
+  if (r.printSource === 'file' || r.printFile?.hasFile) {
+    const name = r.printFile?.name || r.printFile?.originalName;
+    await modal({
+      title: `${heading(r)} — файл`, okText: 'Скачать',
+      body: h('p', null, `Печать отдаст прикреплённый файл${name ? ' «' + name + '»' : ''}. Номер паспорта не меняется.`),
+      onOk: async () => { await download(r, {}, 'файл'); return true; },
+    });
+    return;
+  }
   const hasCat = !!r.passportCategory; // текст по справочникам сервер соберёт сам, если его ещё нет
   const o = r.supplierOrg;
   const chk = (label, on, note) => { const cb = h('input', { type: 'checkbox', checked: on }); return { cb, el: h('label', null, cb, label, note ? h('span', { class: 'muted small' }, ` (${note})`) : null) }; };

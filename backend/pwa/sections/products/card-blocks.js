@@ -2,9 +2,9 @@ import { api, session } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { date, money, qty } from '../../core/format.js';
 import { go } from '../../core/router.js';
-import { actions, badge, busyBlock, button as kitButton, empty, failBlock, hint, readonlyGroup, row as kitRow, section, stack, table, toast, toastError } from '../../ui/kit/index.js';
+import { actions, badge, busyBlock, button as kitButton, empty, enhanceSelect, failBlock, hint, readonlyGroup, row as kitRow, section, select, stack, table, toast, toastError } from '../../ui/kit/index.js';
 import { kindName, kindNorm } from '../../core/passport-kinds.js';
-import { passportVariant } from '../passports/dialogs.js';
+import { download, passportVariant } from '../passports/dialogs.js';
 import { jointsText } from '../passports/traits.js';
 import { suggestLink } from '../../ui/composition-suggest.js';
 import { clearNoteWarning, resetPdCategory } from './data.js';
@@ -147,20 +147,60 @@ export function passportPane(row, ctx) {
         ),
       ],
     });
-    const p = row.passports;
-    const items = p?.items || [];
-    const issued = items.length
-      ? table({
-        label: 'Выпущенные паспорта', clickable: true,
-        columns: [{ key: 'n', label: '№', nowrap: true }, { key: 'd', label: 'Дата', nowrap: true }, { key: 'c', label: 'Заказчик' }, { key: 'o', label: 'Заказ', nowrap: true }],
-        rows: items.map((x) => ({
-          onClick: () => go('passports', { open: x.id }),
-          cells: [x.passportNumber || '—', date(x.date) || '—', x.customer || x.customerName || '—', x.orderNo || '—'],
-        })),
-      })
-      : empty({ title: 'По этой модели паспортов ещё нет' });
-    const more = p?.total > items.length ? hint(`показаны последние ${items.length}`) : null;
-    host.replaceChildren(card, issued, more);
+    let items = row.passports?.items || [];
+    let total = row.passports?.total || items.length;
+    try {
+      const d = await api('/passports', { query: { productId: row.id, status: 'issued', limit: 50 } });
+      if (Array.isArray(d?.items)) {
+        const prev = new Map((row.passports?.items || []).map((x) => [String(x.id), x]));
+        items = d.items.map((x) => {
+          const s = prev.get(String(x.id)) || {};
+          return { ...s, ...x, printSource: x.printSource || s.printSource, printFile: x.printFile || s.printFile, supplierOrg: x.supplierOrg || s.supplierOrg, supplier: x.supplier || s.supplier, productCode: x.productCode || s.productCode };
+        });
+        total = d.total ?? items.length;
+      }
+    } catch { /* список карточки изделия */ }
+    items = items.filter((x) => x.status !== 'annulled' && x.status !== 'draft' && !String(x.passportNumber || '').startsWith('draft-'));
+    const firmName = (x) => x.supplierOrg?.name || x.supplier || '';
+    const fromFile = (x) => x.printSource === 'file' || !!x.printFile?.hasFile;
+    const firms = [...new Set(items.map(firmName).filter(Boolean))];
+    let firmFilter = '';
+    const printRow = async (x, btn) => {
+      btn.classList.add('is-busy'); btn.disabled = true;
+      try { await download(x, fromFile(x) ? {} : { mode: 'print', variant: passportVariant.value }, fromFile(x) ? 'файл' : 'паспорт'); }
+      catch (e) { toastError(e, 'печать'); }
+      finally { btn.classList.remove('is-busy'); btn.disabled = false; }
+    };
+    const showIssued = () => {
+      const shown = firmFilter ? items.filter((x) => firmName(x) === firmFilter) : items;
+      const firmSel = firms.length > 1 ? select({ label: 'Фирма', value: firmFilter, options: [['', 'Все фирмы'], ...firms.map((n) => [n, n])], onChange: (v) => { firmFilter = v; showIssued(); } }) : null;
+      const filter = firmSel ? h('label', { class: 'field' }, h('span', null, 'Фирма'), firmSel) : null;
+      const issued = shown.length
+        ? table({
+          label: 'Выпущенные паспорта', clickable: true, cls: 'k-table-stack',
+          columns: [
+            { label: '№', nowrap: true }, { label: 'Заводской №', nowrap: true }, { label: 'Фирма', wrap: true }, { label: 'Источник' },
+            { label: 'Дата', nowrap: true }, { label: 'Заказчик', hide: true }, { label: '' },
+          ],
+          rows: shown.map((x) => ({
+            onClick: () => go('passports', { open: x.id }),
+            cells: [
+              (x.passportNumber && !String(x.passportNumber).startsWith('draft-') ? x.passportNumber : '—'),
+              x.productCode || '—',
+              firmName(x) || '—',
+              fromFile(x) ? badge('Файл', 'info') : badge('С сайта', 'ok'),
+              date(x.date) || '—',
+              x.customer || x.customerName || '—',
+              kitButton({ label: 'Печать', size: 'S', title: 'Тот же номер, без нового паспорта', onClick: (e) => { e.stopPropagation(); printRow(x, e.currentTarget); } }),
+            ],
+          })),
+        })
+        : empty({ title: firmFilter ? 'Нет паспортов этой фирмы' : 'По этой модели паспортов ещё нет' });
+      const more = total > items.length ? hint(`показаны последние ${items.length}`) : null;
+      host.replaceChildren(card, filter, issued, more);
+      if (firmSel) enhanceSelect(firmSel);
+    };
+    showIssued();
   }
   paint();
   return host;

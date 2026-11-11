@@ -7,6 +7,7 @@ import { missingFieldsV2 } from './passport-rules';
 import { overrideFor } from '../../common/passport/text-overrides';
 import { missingChoices, resolveChoices, type PhraseTreeNode } from '../../common/passport/phrase-tree';
 import { MODEL_FIELDS, SORT, escapeRe, readinessOf, type Doc } from './passport-consts';
+import { presentPrint } from './passport-print-file';
 
 /** Что спискам и подсказкам нужно от сервиса паспортов. */
 export interface QueriesHost {
@@ -63,6 +64,7 @@ export class PassportQueries {
     const rows = q.incomplete === '1' || q.incomplete === 'true' ? all.filter((d) => d.missing.length) : all;
     const items = rows.slice(p.skip, p.skip + p.limit).map((d) => ({ ...d }));
     await this.attachThumbs(items);
+    await this.attachBind(items);
     return { items, total: rows.length, page: p.page, limit: p.limit, incomplete: all.filter((d) => d.missing.length).length };
   }
 
@@ -120,6 +122,20 @@ export class PassportQueries {
     const url = new Map(orig.map((x) => [String(x._id), x.storageUrl as string]));
     const th = new Map(thumbs.map((x) => [String(x.parentPhotoId), x.storageUrl as string]));
     for (const d of items) { const id = first(d); if (!id) continue; d.photoUrl = url.get(String(id)) ?? null; d.thumb = th.get(String(id)) ?? d.photoUrl; }
+  }
+
+  /** C062: фирма (`supplierOrg`) и источник печати. Путь файла в список не кладём. */
+  private async attachBind(items: Doc[]) {
+    for (const d of items) Object.assign(d, presentPrint(d));
+    const ids = [...new Set(items.map((d) => (d.supplierOrgId ? String(d.supplierOrgId) : '')).filter((x) => Types.ObjectId.isValid(x)))].map((x) => new Types.ObjectId(x));
+    if (!ids.length) { for (const d of items) d.supplierOrg = null; return; }
+    const orgs = await this.h.connection.collection('organizations').find({ _id: { $in: ids } }, { projection: { name: 1, shortName: 1 } }).toArray();
+    const name = new Map(orgs.map((o) => [String(o._id), String(o.shortName || o.name || '')]));
+    for (const d of items) {
+      const id = d.supplierOrgId ? String(d.supplierOrgId) : '';
+      const n = id ? name.get(id) : '';
+      d.supplierOrg = id && n ? { id, name: n } : null;
+    }
   }
 
   /**

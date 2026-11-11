@@ -1,6 +1,5 @@
 import { api } from '../../../core/api.js';
 import { PD_KEYS } from '../../products/data.js';
-import { facets } from '../common.js';
 
 /** Запросы воронки паспорта (C028, договор API A1–A5). Сервер: docs/crew/C028-passport-funnel/TZ.md. */
 const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== ''));
@@ -43,11 +42,17 @@ export async function loadTexts(category, productId) {
   return keep(tree);
 }
 
-/** Паспорт изделия: черновик из изделия → проверка → выпуск. Не хватает — черновик убирается, возвращается список. */
-export async function issueFromProduct(productId) {
-  // поставщик по умолчанию — наша компания с наибольшим числом паспортов (как в прежней форме, passports/form.js «initial»)
-  const supplierOrgId = (await facets().catch(() => ({ suppliers: [] }))).suppliers?.[0]?.value || undefined;
-  const draft = await api('/passports', { method: 'POST', body: clean({ productId, supplierOrgId }) });
+/**
+ * Паспорт изделия: черновик из изделия → проверка → выпуск. Не хватает — черновик убирается, возвращается список.
+ * Фирму выбирает менеджер (все isOurCompany). Первую из нескольких молча не подставляем.
+ * extra: { supplierOrgId, incomeId?, salesOrderId?, orderNo?, customerName? }
+ */
+export async function issueFromProduct(productId, extra = {}) {
+  const supplierOrgId = extra.supplierOrgId || undefined;
+  if (!supplierOrgId) throw new Error('Выберите фирму');
+  const draft = await api('/passports', { method: 'POST', body: clean({
+    productId, supplierOrgId, incomeId: extra.incomeId, salesOrderId: extra.salesOrderId, orderNo: extra.orderNo, customerName: extra.customerName,
+  }) });
   const id = draft.id || draft._id;
   const full = await api(`/passports/${id}`);
   if (full.missing?.length) { await api(`/passports/${id}`, { method: 'DELETE' }).catch(() => {}); return { missing: full.missing }; }

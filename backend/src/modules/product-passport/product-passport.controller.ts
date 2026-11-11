@@ -1,7 +1,10 @@
 import { AppSection } from '../../common/decorators/app-section.decorator';
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Res, StreamableFile } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Res, StreamableFile, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { memoryStorage } from 'multer';
+import { PDF_UPLOAD_MAX_BYTES } from '../photos/image-upload.options';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -301,6 +304,23 @@ export class ProductPassportController {
     const r = mode === 'stand' ? await this.pdfs.stand(id) : await this.pdfs.pdf(id, { stamp: stamp === '1', seal: seal !== '0', sign: sign !== '0', mode: mode === 'print' ? 'print' : 'pages', mono: bw === '1', variant: variantOf(variant), pack: kind });
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': attachment(r.filename) });
     return new StreamableFile(r.buf);
+  }
+
+  /** C062: свой PDF к номеру. Ответ — паспорт с printFile { name, hasFile:true }. */
+  @Post('passports/:id/print-file')
+  @Roles(...EDIT)
+  @AuditAction({ action: 'passport.printFile', entityType: 'ProductPassport', idParam: 'id' })
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: PDF_UPLOAD_MAX_BYTES, files: 1 } }))
+  savePrintFile(@Param('id') id: string, @UploadedFile() file: { buffer?: Buffer; mimetype?: string; size?: number; originalname?: string } | undefined, @CurrentUser() user?: AuthenticatedUser) {
+    return this.service.savePrintFile(id, file, user?.id);
+  }
+
+  /** Снять свой PDF: печать снова собирает паспорт на сайте. */
+  @Delete('passports/:id/print-file')
+  @Roles(...EDIT)
+  @AuditAction({ action: 'passport.printFile', entityType: 'ProductPassport', idParam: 'id', details: () => ({ meta: { removed: true } }) })
+  removePrintFile(@Param('id') id: string) {
+    return this.service.removePrintFile(id);
   }
 
   /** Черновики паспортов на все позиции заказа без живого паспорта → { created, skipped, items:[{incomeId, passportId}] }. Тела нет; повтор безопасен. */

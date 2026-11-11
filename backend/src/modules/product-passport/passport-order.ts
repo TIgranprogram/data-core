@@ -66,10 +66,10 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string)
     const productId = inc.productId ? String(inc.productId) : null;
     let missing: string[] = [];
     if (!issued) missing = !productId ? ['К позиции не привязано изделие'] : brief(await h.templateMissing(productId, variant));
-    // выпуск требует поставщика: у черновика он есть, иначе берётся «наша фирма» — нет ни того ни другого, позиция не готова уже на плане
+    // выпуск требует фирму: у черновика она есть, иначе подставляется, только если наша компания одна (C062)
     if (!issued && productId && !missing.length && !p?.supplierOrgId) {
       ourSupplier ??= await h.hasOurSupplier();
-      if (!ourSupplier) missing = ['Поставщик (отметьте «нашу фирму» в организациях)'];
+      if (!ourSupplier) missing = ['Выберите фирму'];
     }
     lines.push({
       incomeId: String(inc._id), lineNo: (inc.lineNo as number) ?? null, title: String(inc.title ?? ''), productId, productName: productId ? pname.get(productId) ?? null : null, article: productId ? psku.get(productId) ?? null : null, qty: (inc.qty as number) ?? null,

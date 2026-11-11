@@ -3,6 +3,7 @@ import { Types, type ClientSession, type Connection, type Model } from 'mongoose
 import type { ProductPassportDocument } from './product-passport.schema';
 import { dayUtc } from './passport-rules';
 import { takeOverNumbers } from './passport-reuse';
+import { assertOneLive } from './passport-bind';
 import { escapeRe, isDraftNumber, isIssued, type Doc } from './passport-consts';
 
 /** Что выпуску нужно от сервиса паспортов. */
@@ -30,6 +31,7 @@ export class PassportIssue {
     const first = (await this.h.findById(id)).toObject() as unknown as Doc;
     if (isIssued(first)) return this.h.findById(id);
     if (first.status === 'annulled') throw new ConflictException('Паспорт аннулирован — выпустить нельзя');
+    if (first.incomeId) await assertOneLive(this.h.model, first.incomeId, new Types.ObjectId(id));
     const missing = await this.h.readiness(first);
     if (missing.length) throw new BadRequestException({ message: `Не хватает для выпуска: ${missing.map((m) => m.label).join(', ')}`, missing });
     await this.h.freezeImages(id);
@@ -40,6 +42,7 @@ export class PassportIssue {
       await session.withTransaction(async () => {
         const draft = await this.h.model.findOne({ _id, status: 'draft' }).session(session).lean().exec();
         if (!draft) return; // уже выпущен параллельным запросом
+        if (draft.incomeId) await assertOneLive(this.h.model, draft.incomeId, _id, session);
         const set: Doc = (await takeOverNumbers(this.h.model, draft as unknown as Doc, session)) ?? {}; // C060: позиция договора + изделие — один номер
         await this.h.allocate(set, (draft.date as Date) || dayUtc(), session);
         await this.h.assertFree(set, _id, session);

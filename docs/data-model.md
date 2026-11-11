@@ -844,6 +844,7 @@ Write-paths, которые должны быть all-or-nothing, использ
 | `dict_values` (`passportMaterials`) | `kind`, `genSingular`, `genPlural`, `sizeTemplate`, `phrase` | material / coating (пусто — material); род. п. ед. / мн. ч. (по числу размеров); шаблон размера с `{sizes}` («толщиной {sizes} мм»); фраза покрытия |
 | `dict_values` (`passportSortament`) | `name`, `material` | размер без «мм» + код материала (`passportMaterials.code`); дубль — пара «материал + размер» |
 | `dict_values` (`passportParts`) | `name`, `genSingular`, `genPlural`, `categories` | часть изделия; в тексте — род. п. мн. ч. («Состоит из стоек…») |
+| `productpassports` | `printFile` | только data-core (C062, CRM не читает): `{ path, originalName, uploadedAt, uploadedBy? }` — свой PDF номера. В API путь не отдаётся: `printFile: { name, hasFile }`, `printSource: file\|app`. Нет файла — PDF собирает сайт |
 
 
 ### ФОТ и «Старт учёта» (2026-10-28, модули `payroll`, `finance`)

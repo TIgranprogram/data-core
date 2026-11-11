@@ -112,10 +112,10 @@ export async function loadQueue(db: Db, q: { due?: string; search?: string; limi
   return buildQueue({ works, tasks, incomes, orders, passports, products, seq: await loadSeq(db, orderIds) }, q);
 }
 
-/** Наша организация-изготовитель (isOurCompany) — поставщик паспорта по умолчанию; одна на план и выпуск. */
+/** Наша фирма, только если она ровно одна (C062). Несколько или ни одной — null: фирму выбирают. */
 export async function ourSupplierId(db: Db): Promise<Types.ObjectId | null> {
-  const o = await db.collection('organizations').findOne({ isOurCompany: true, deletedAt: null }, { projection: { _id: 1 }, sort: { createdAt: 1, _id: 1 } });
-  return (o?._id as Types.ObjectId | undefined) ?? null;
+  const rows = await db.collection('organizations').find({ isOurCompany: true, deletedAt: null }, { projection: { _id: 1 } }).limit(2).toArray();
+  return rows.length === 1 ? (rows[0]._id as Types.ObjectId) : null;
 }
 
 /** Паспорт «из очереди»: по позиции подставляются заказ, № заказа, изделие, заказчик (явно переданное не затирается). */

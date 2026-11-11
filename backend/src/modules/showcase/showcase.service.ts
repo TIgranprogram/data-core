@@ -283,10 +283,17 @@ export class ShowcaseService {
     const filter = { deletedAt: null, $or: [{ productId: d._id }, ...(name ? [{ name: sameName(name) }] : [])] };
     const coll = this.db.collection('productpassports');
     const [docs, total] = await Promise.all([
-      coll.find(filter, { projection: { passportNumber: 1, date: 1, customerName: 1, objectName: 1, orderNo: 1 } }).sort({ date: -1, _id: -1 }).limit(30).toArray(),
+      coll.find(filter, { projection: { passportNumber: 1, date: 1, customerName: 1, objectName: 1, orderNo: 1, productCode: 1, supplier: 1, supplierOrgId: 1, printFile: 1 } }).sort({ date: -1, _id: -1 }).limit(30).toArray(),
       coll.countDocuments(filter),
     ]);
-    return { total, items: docs.map((x) => ({ id: String(x._id), passportNumber: x.passportNumber ?? null, date: x.date ?? null, customer: x.customerName || x.objectName || null, orderNo: x.orderNo ?? null })) };
+    const orgIds = [...new Set(docs.map((x) => (x.supplierOrgId ? String(x.supplierOrgId) : '')).filter((x) => Types.ObjectId.isValid(x)))].map((x) => new Types.ObjectId(x));
+    const orgs = orgIds.length ? await this.db.collection('organizations').find({ _id: { $in: orgIds } }, { projection: { name: 1, shortName: 1 } }).toArray() : [];
+    const firm = new Map(orgs.map((o) => [String(o._id), String(o.shortName || o.name || '')]));
+    return { total, items: docs.map((x) => {
+      const name = (x.supplierOrgId && firm.get(String(x.supplierOrgId))) || (x.supplier ? String(x.supplier) : null);
+      const hasFile = !!(x.printFile as { path?: string } | undefined)?.path;
+      return { id: String(x._id), passportNumber: x.passportNumber ?? null, productCode: x.productCode ?? null, date: x.date ?? null, customer: x.customerName || x.objectName || null, orderNo: x.orderNo ?? null, supplier: name || null, printSource: hasFile ? 'file' as const : 'app' as const };
+    }) };
   }
 
   /** Где изделие в заказах: позиции со ссылкой productId или с тем же названием (без регистра), до 30 штук (БЗ-5). */

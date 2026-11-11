@@ -4,7 +4,7 @@ import { photoDrop } from '../../ui/kit/photos.js';
 import { imagesBody } from '../../core/passport-images.js';
 import { toast, toastError } from '../../ui/kit/toast.js';
 import { confirmDlg } from '../../ui/kit/dialog.js';
-import { table, button, iconButton, section } from '../../ui/kit/index.js';
+import { actions, button, fileButton, hint, iconButton, section, table } from '../../ui/kit/index.js';
 import { date } from '../../core/format.js';
 import { canEdit, imgsOf, isRequired, kinds, V2_NUMS } from './common.js';
 import { numbersOf } from './traits.js';
@@ -114,6 +114,43 @@ export function previewBlock(r, ctx) {
     part(`${plan.toNo} Обслуживание по периодам (из справочников)`, t.maintenance?.length ? h('div', null, ...t.maintenance.map(periodBlock)) : null),
     plan.mergeInstall ? null : part(`${plan.installNo} Монтаж по способу установки`, installList(t)),
     refresh] });
+}
+
+/** Файл печати номера: свой PDF или сборка сайта. Печать ходит в GET /passports/:id/pdf. */
+const fileOn = (r) => r.printSource === 'file' || !!r.printFile?.hasFile;
+const fileTitle = (r) => r.printFile?.name || r.printFile?.originalName || 'PDF';
+
+export function printFileBlock(r, ctx) {
+  const has = fileOn(r);
+  let busy = false;
+  const upload = async (file) => {
+    if (busy || !file) return;
+    if (file.type && file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name || '')) { toast('Нужен файл PDF', { error: true }); return; }
+    busy = true;
+    const done = toast('Прикрепляю PDF…', { ms: 120000, notice: false });
+    try {
+      const fd = new FormData(); fd.append('file', file, file.name || 'passport.pdf');
+      await api(`/passports/${r.id}/print-file`, { method: 'POST', body: fd });
+      done();
+      ctx.setRow(await api(`/passports/${r.id}`));
+      toast('Файл прикреплён. Печать отдаст его.');
+    } catch (e) { done(); toastError(e, 'прикрепить файл'); } finally { busy = false; }
+  };
+  const remove = async () => {
+    if (!(await confirmDlg('Убрать файл?', 'Печать снова соберёт паспорт на сайте. Номер не изменится.', { okText: 'Убрать' }))) return;
+    try {
+      await api(`/passports/${r.id}/print-file`, { method: 'DELETE' });
+      ctx.setRow(await api(`/passports/${r.id}`));
+      toast('Файл убран. Печать снова собирает паспорт на сайте.');
+    } catch (e) { toastError(e, 'убрать файл'); }
+  };
+  return section({ title: 'Файл для печати', tone: 'info', body: [
+    has ? hint(`Прикреплён файл «${fileTitle(r)}». Печать отдаёт его.`) : hint('Файла нет. Печать собирает паспорт на сайте.'),
+    canEdit() ? actions(
+      has ? button({ label: 'Убрать файл', kind: 'ghost', size: 'S', onClick: remove }) : null,
+      fileButton({ label: has ? 'Заменить PDF' : 'Прикрепить PDF', accept: 'application/pdf,.pdf', title: 'Свой PDF этого номера. Печать отдаст файл.', onFile: upload }),
+    ) : null,
+  ] });
 }
 
 export function bomBlock(r) {

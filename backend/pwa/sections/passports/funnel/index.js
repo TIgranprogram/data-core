@@ -19,7 +19,7 @@ const FACET_FREE = (P) => Object.entries(P).filter(([k, v]) => v && k !== 'categ
 
 function build() {
   const entry = takePending();
-  const S = { P: {}, q: '', prod: null };
+  const S = { P: {}, q: '', prod: null, order: entry && (entry.salesOrderId || entry.incomeId) ? entry : null };
   const recap = stack();
   const stages = stack();
   const newBox = h('div', null);
@@ -73,6 +73,7 @@ function build() {
     const issueSec = section({ title: 'Выпуск', tone: 'gold', open: false, body: [] });
     const issue = issueBlock({
       prod,
+      order: S.order,
       goGaps: () => stages.querySelector('[data-gap]')?.scrollIntoView({ block: 'start' }),
       onIssued: () => patch({ of: undefined, new: undefined }),
     });
@@ -105,7 +106,7 @@ function build() {
   }
 
   // старт: вход Б — сразу к изделию; вход А — с категории
-  if (entry) { say('проверьте недостающее'); choose(entry.productId); } else ps.update({});
+  if (entry?.productId) { say('проверьте недостающее'); choose(entry.productId); } else ps.update({});
 
   const el = stack(ps.el, recap, pickBox, newBox, stages);
   return { el, readonly: true, dirty: () => false, focus: () => {}, read: () => ({ values: {} }) };

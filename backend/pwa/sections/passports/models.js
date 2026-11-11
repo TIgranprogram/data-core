@@ -58,6 +58,12 @@ export async function issuePassport({ productId, name, article, orderNo, salesOr
     pid = (article && all.find((p) => n(p.sku) === n(article)))?.id || (name && all.find((p) => n(p.name) === n(name)))?.id || null;
   }
   // ПРЖ-4: из позиции заказа в паспорт идёт название заказчика (правится); из изделия — наше. Выпущенные не меняются.
+  // из заказа, но не из позиции — воронка спросит позицию; из позиции incomeId уже есть
+  if (salesOrderId && !incomeId) {
+    const { openPassportFunnel } = await import('./funnel/open.js');
+    openPassportFunnel({ productId: pid || undefined, salesOrderId, orderNo, customerName });
+    return true;
+  }
   st.keepName = customerTitle || '';
   st.draft = { productId: pid || '', salesOrderId, ...(incomeId ? { incomeId } : {}), orderNo, customerName, ...(customerTitle ? { name: customerTitle } : {}), ...(pid ? {} : { _searchName: name || article || '' }) };
   patch({ of: 'passports', new: '1', open: undefined });

@@ -1,3 +1,10 @@
+## C062 фирма, позиция, файл паспорта (2026-11-11)
+коммит: не закоммичено
+- Воронка: `funnel/open.js:10` `openPassportFunnel({salesOrderId, incomeId})`. `funnel/api.js:50` `issueFromProduct` шлёт выбранный `supplierOrgId`, первую из нескольких не ставит. `funnel/issue.js:19` `issueBlock` — список фирм (`ourCompanies`) и позиция, если заказ без `incomeId`. `order-passport-plan.js:90` «Паспорт по позиции». `models.js:62` заказ без позиции уходит в воронку. `form.js:138` «Фирма», пусто пока фирм больше одной.
+- Вкладка изделия: `products/card-blocks.js:98` `passportPane`, таблица `:182` № / заводской № / фирма / «Файл»|«С сайта», фильтр фирмы, «Печать» `:194` (GET pdf, тот же номер).
+- Карточка: `passports/card-blocks.js:123` `printFileBlock` (POST/DELETE `/print-file`, поле `file`). `passports.js:181` блок в карточке. `dialogs.js:100` печать файла — тот же GET pdf.
+- Отчёт: `docs/crew/C062-passport-bind-audit/REPORT-frontend.md`. Карта обновлена.
+
 ## C056 вкладка «Паспорт» + эталон fill (2026-11-10)
 коммит: не закоммичено (Д-fix2)
 - `products/tabs.js:39` вкладка без слотов. `card-blocks.js:88` `passportPane`. `product-files.js:22` `passportSlot`. `core/passport-kinds.js:30` `PHOTO_GROUPS`.

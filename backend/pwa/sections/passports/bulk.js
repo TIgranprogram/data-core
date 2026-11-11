@@ -16,7 +16,7 @@ export async function passportBulkFields() {
     { key: 'serviceLifeYears', label: 'Срок службы, лет', type: 'number', map: n },
     { key: 'warrantyMonths', label: 'Гарантия, мес.', type: 'number', map: n },
     ...V2_NUMS.filter(([k]) => k !== 'serviceLifeYears').map(([k, l]) => ({ key: k, label: l, type: 'number', map: n })),
-    { key: 'supplierOrgId', label: 'Поставщик (наша компания)', type: 'select', options: ours.map((o) => ({ value: o.id, label: o.name })) },
+    { key: 'supplierOrgId', label: 'Фирма', type: 'select', options: ours.map((o) => ({ value: o.id, label: o.name })) },
     { key: 'customerName', label: 'Заказчик', type: 'combo', options: f.customers.map((c) => c.value) },
     { key: 'orderNo', label: '№ договора', type: 'text' },
     { key: 'objectName', label: 'Адрес установки', type: 'text' },

@@ -11,7 +11,7 @@ import { MONTHS, STATUS_LABEL, canEdit, dims, facets, facetsFor, heading, isIssu
 import { resetProducts } from './passports/models.js';
 import { annulDialog, convertDialog, issueAction, linkDialog, numberDialog, printDialog } from './passports/dialogs.js';
 import { passportBulkFields } from './passports/bulk.js';
-import { bomBlock, checkBlock, imagesBlock, previewBlock } from './passports/card-blocks.js';
+import { bomBlock, checkBlock, imagesBlock, previewBlock, printFileBlock } from './passports/card-blocks.js';
 import { pdfBlock } from './passports/pdf-block.js';
 import { numbersStrip } from './passports/numbers-strip.js';
 import { passportForm } from './passports/form.js';
@@ -64,14 +64,14 @@ export const passports = {
       { key: 'category', label: 'Категория', type: 'hidden' },
       { key: 'year', label: 'Год', type: 'hidden' },
       { key: 'month', label: 'Месяц', type: 'hidden' },
-      { key: 'supplierOrgId', label: 'Поставщик', type: 'hidden' },
+      { key: 'supplierOrgId', label: 'Фирма', type: 'hidden' },
       { key: 'customer', label: 'Заказчик', type: 'hidden' },
     ],
     sidebar: true,
     chipsTop: true,
     toolbarExtra: () => stepFunnel({
       steps: [{ key: 'category', label: 'Категория' }, { key: 'year', label: 'Год' }, { key: 'month', label: 'Месяц', when: (P) => !!P.year },
-        { key: 'supplierOrgId', label: 'Поставщик' }, { key: 'customer', label: 'Заказчик' }],
+        { key: 'supplierOrgId', label: 'Фирма' }, { key: 'customer', label: 'Заказчик' }],
       load: async (P) => {
         const pick = ['category', 'year', 'month', 'supplierOrgId', 'customer', 'status', 'legacy'];
         const f = await facetsFor(Object.fromEntries(pick.filter((k) => P[k]).map((k) => [k, P[k]])));
@@ -148,7 +148,8 @@ export const passports = {
       ['Заказчик', r.customerName],
       ['№ договора', r.orderNo],
       ['Объект', r.objectName],
-      ['Поставщик', r.supplierOrg ? `${r.supplierOrg.name}${r.supplierOrg.hasSeal ? '' : ' (печать не загружена)'}` : r.supplier],
+      ['Фирма', r.supplierOrg ? `${r.supplierOrg.name}${r.supplierOrg.hasSeal ? '' : ' (печать не загружена)'}` : r.supplier],
+      ['Источник', (r.printSource === 'file' || r.printFile?.hasFile) ? 'Файл' : 'С сайта'],
       ['PDF скачан', r.pdfIssuedAt ? date(r.pdfIssuedAt) : ''],
       ['Заметки', r.note],
     ],
@@ -177,6 +178,7 @@ export const passports = {
     extra: (r, ctx) => {
       const draft = statusOf(r) === 'draft';
       return stack(
+        printFileBlock(r, ctx),
         draft && canEdit() ? passportWizard(r, ctx) : null,
         !draft || !canEdit() ? (r.passportCategory ? checkBlock(r) : (r.missing?.length ? h('div', { class: 'fill-note' }, 'Не хватает для выдачи: ', h('b', null, r.missing.join(', '))) : null)) : null,
         r.passportCategory ? pdfBlock(r, ctx) : null,

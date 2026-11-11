@@ -28,7 +28,9 @@ import { productFunnel } from './passport-funnel';
 import { productGaps } from './passport-gaps';
 import { facetPhrases, groupChain } from './passport-facet-phrases';
 import { diffPatch, followsProduct, productCategories, productPatch } from './passport-from-product';
-import { fromIncome, loadQueue, ourSupplierId } from './passport-queue';
+import { loadQueue, ourSupplierId } from './passport-queue';
+import { assertOneLive, bindDraft } from './passport-bind';
+import { assertPdf, presentPrint, storePrintPdf, unlinkPrint } from './passport-print-file';
 import { PassportIssue } from './passport-issue';
 import { orderIssue, orderPlan, type OrderHost } from './passport-order';
 import { PassportNumbers } from './passport-numbers';
@@ -133,7 +135,7 @@ export class ProductPassportService {
     const eff = await this.effectiveImages(doc);
     const productImageKinds = [...new Set(eff.filter((i) => !((doc.images as Doc[]) || []).includes(i as never)).map((i) => String(i.kind)))];
     const choiceMissing = await this.choiceMissing(doc);
-    return { ...doc, productImageKinds, imageSlots: rules.slots, fromProduct, fromProductFields, productCategory, categoryDiffers: !!productCategory && !!doc.passportCategory && productCategory !== doc.passportCategory, images, standardImages, requiredImages, missing: [...missingFieldsV2({ ...doc, images: [...eff, ...std] } as never, cat, vopts), ...choiceMissing.map((m) => m.label), ...jointsMissing(doc).map((m) => m.label)], ...(choiceMissing.length ? { missingChoices: choiceMissing } : {}), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
+    return { ...doc, ...presentPrint(doc), productImageKinds, imageSlots: rules.slots, fromProduct, fromProductFields, productCategory, categoryDiffers: !!productCategory && !!doc.passportCategory && productCategory !== doc.passportCategory, images, standardImages, requiredImages, missing: [...missingFieldsV2({ ...doc, images: [...eff, ...std] } as never, cat, vopts), ...choiceMissing.map((m) => m.label), ...jointsMissing(doc).map((m) => m.label)], ...(choiceMissing.length ? { missingChoices: choiceMissing } : {}), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
   }
 
   /** Что задаёт изделие в паспорте-черновике (только отличия от `cur`); пусто — паспорт без изделия или выдан. */
@@ -223,7 +225,8 @@ export class ProductPassportService {
 
   /** Новый паспорт: номера выдаёт сервер (если не заданы явно), описание собирается из частей, комплектность по умолчанию. */
   async create(dto: CreateProductPassportDto): Promise<ProductPassportDocument> {
-    const set = this.normalize(await fromIncome(this.connection.db!, dto));
+    const set = this.normalize(await bindDraft(this.connection.db!, dto));
+    if (set.incomeId) await assertOneLive(this.model, set.incomeId);
     await this.mi.check((set.materialsSpec as StoredSpec | null | undefined) ?? null);
     const date = (set.date as Date) || dayUtc();
     set.date = date;
@@ -258,8 +261,14 @@ export class ProductPassportService {
     let skipped = 0;
     for (const inc of incomes) {
       if (await this.model.exists({ incomeId: inc._id, status: { $ne: 'annulled' } })) { skipped++; continue; }
-      const doc = await this.create({ incomeId: String(inc._id), ...(inc.title ? { name: String(inc.title) } : {}) } as CreateProductPassportDto);
-      items.push({ incomeId: String(inc._id), passportId: String(doc._id) });
+      try {
+        const doc = await this.create({ incomeId: String(inc._id), ...(inc.title ? { name: String(inc.title) } : {}) } as CreateProductPassportDto);
+        items.push({ incomeId: String(inc._id), passportId: String(doc._id) });
+      } catch (e) {
+        const msg = e instanceof ConflictException ? String((e.getResponse() as { message?: string })?.message ?? e.message) : '';
+        if (msg.includes('позицию')) { skipped++; continue; }
+        throw e;
+      }
     }
     return { created: items.length, skipped, items };
   }
@@ -327,6 +336,7 @@ export class ProductPassportService {
     // МИ: ссылки на справочники проверяются, только если таблицу меняли (прежняя может ссылаться на запись из корзины)
     if (changed.includes('materialsSpec')) await this.mi.check((set.materialsSpec as StoredSpec | null) ?? null);
     await this.assertFree(set, doc._id);
+    if (set.incomeId && String(set.incomeId) !== String(cur.incomeId ?? '')) await assertOneLive(this.model, set.incomeId, doc._id);
     const hadText = !!((doc.toObject() as unknown as Doc).textSnapshot as { sections?: unknown[] } | undefined)?.sections?.length;
     doc.set(set);
     const saved = await doc.save();
@@ -348,6 +358,29 @@ export class ProductPassportService {
     await this.model.updateOne({ _id: new Types.ObjectId(String(id)) }, { $set: { pdfIssuedAt: new Date() } }).exec();
   }
 
+  /** C062: свой PDF к номеру. Ответ — карточка, `printFile: { name, hasFile }`, без пути на диск. */
+  async savePrintFile(id: string, file: { mimetype?: string; size?: number; buffer?: Buffer; originalname?: string } | undefined, userId?: string) {
+    const doc = await this.findById(id);
+    const buf = assertPdf(file);
+    const stored = await storePrintPdf(buf, file?.originalname, userId);
+    const prev = (doc.toObject() as unknown as Doc).printFile as { path?: string } | undefined;
+    doc.set('printFile', stored);
+    await doc.save();
+    if (prev?.path && prev.path !== stored.path) await unlinkPrint(prev.path);
+    return this.get(id);
+  }
+
+  /** Снять свой PDF: дальше печать снова собирает паспорт на сайте. */
+  async removePrintFile(id: string) {
+    const doc = await this.findById(id);
+    const prev = (doc.toObject() as unknown as Doc).printFile as { path?: string } | undefined;
+    if (prev?.path) {
+      await this.model.updateOne({ _id: doc._id }, { $unset: { printFile: '' } }).exec();
+      await unlinkPrint(prev.path);
+    }
+    return this.get(id);
+  }
+
   async remove(id: string): Promise<void> {
     const doc = await this.findById(id);
     if (isIssued(doc.toObject() as unknown as Doc) || doc.status === 'annulled') throw new ConflictException('Выпущенный паспорт не удаляется — «Аннулировать» (номер останется занятым)');
@@ -356,8 +389,11 @@ export class ProductPassportService {
 
   async restore(id: string) {
     if (!Types.ObjectId.isValid(id)) throw new NotFoundException(`Паспорт ${id} не найден`);
-    const r = await this.model.updateOne({ _id: new Types.ObjectId(id), deletedAt: { $ne: null } }, { $set: { deletedAt: null } }).setOptions({ includeSoftDeleted: true }).exec();
-    if (!r.matchedCount) throw new NotFoundException(`Паспорт ${id} не найден в корзине`);
+    const _id = new Types.ObjectId(id);
+    const gone = await this.model.findOne({ _id, deletedAt: { $ne: null } }).setOptions({ includeSoftDeleted: true }).select('incomeId').lean().exec();
+    if (!gone) throw new NotFoundException(`Паспорт ${id} не найден в корзине`);
+    if (gone.incomeId) await assertOneLive(this.model, gone.incomeId, _id);
+    await this.model.updateOne({ _id, deletedAt: { $ne: null } }, { $set: { deletedAt: null } }).setOptions({ includeSoftDeleted: true }).exec();
     return this.findById(id);
   }
 

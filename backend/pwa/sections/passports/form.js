@@ -135,7 +135,7 @@ export const passportForm = {
       // ПП: выпуск — дата (номер талона), поставщик, гарантия; кому и куда — в «после печати» (можно от руки)
       { section: 'Выпуск', tone: 'who' },
       ...(r ? [] : [{ key: 'date', label: 'Дата выпуска', type: 'date', required: true, hint: 'По дате и номеру строится гарантийный талон' }]),
-      { key: 'supplierOrgId', label: 'Поставщик (наша компания)', type: 'select', options: ours.map((o) => ({ value: o.id, label: o.name })), hint: 'Реквизиты, печать и подпись в PDF — из карточки компании' },
+      { key: 'supplierOrgId', label: 'Фирма', type: 'select', required: ours.length !== 1, options: (ours.length === 1 ? ours : [{ id: '', name: 'Выберите фирму' }, ...ours]).map((o) => ({ value: o.id, label: o.name })), hint: 'Наша компания. Реквизиты, печать и подпись в PDF — из её карточки' },
       { key: 'warrantyMonths', label: 'Гарантия, мес.', type: 'number', min: 0, span: 1 },
       // свой текст — запасной путь: обычно хватает выбора выше; паспорт будет помечен «изменено вручную»
       { section: 'Свой текст вместо выбранного', tone: 'info', collapsed: !(r && r.manualText?.length) },
@@ -170,12 +170,13 @@ export const passportForm = {
     // выпущенный без «Новой редакции»: открыт только блок, который можно менять; остальное свёрнуто (и не «фиксировано»)
     return !legacy ? all : all.map((f) => (f.section ? { ...f, fixed: false, collapsed: !f.section.startsWith('Заполняется после печати') } : f));
   },
-  // поставщик по умолчанию — наша компания, у которой больше всего паспортов (у модели свой — подставится при выборе)
+  // фирма: одна наша компания — она видна в списке; несколько — менеджер выбирает сам, первую молча не ставим
   // черновик «Выпустить паспорт» (issuePassport) — поверх, пустые значения не затирают умолчания
   initial: async () => {
     const d = st.draft; st.draft = null;
     st.newCat = d?.passportCategory || '';
-    return { _manualText: 'no', date: isoDay(), warrantyMonths: '12', supplierOrgId: (await facets()).suppliers[0]?.value || '',
+    const ours = await ourCompanies().catch(() => []);
+    return { _manualText: 'no', date: isoDay(), warrantyMonths: '12', supplierOrgId: ours.length === 1 ? ours[0].id : '',
       ...Object.fromEntries(Object.entries(d || {}).filter(([, v]) => v !== '' && v !== null && v !== undefined)) };
   },
   toInitial: (r) => ({ ...r, saleDate: r.saleDate ? String(r.saleDate).slice(0, 10) : '', installedAt: r.installedAt ? String(r.installedAt).slice(0, 10) : '', height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight), warrantyMonths: num(r.warrantyMonths ?? 12), bom: bomRows(r.bom),
@@ -228,10 +229,19 @@ export const passportForm = {
   create: async (body) => {
     const { _copyFrom, _imagesFinal, _remember, ...rest } = body;
     if (!rest.passportCategory) throw new Error('Выберите категорию паспорта');
+    if (!_copyFrom && !rest.productId) throw new Error('Выберите изделие');
+    if (!rest.supplierOrgId) throw new Error('Выберите фирму');
     if (_remember) await saveDefaults(_remember);
+    const post = async (path, payload) => {
+      try { return await api(path, { method: 'POST', body: payload }); }
+      catch (e) {
+        if (e?.status === 409) throw new Error(/[а-яё]/i.test(e.message || '') ? e.message : 'На эту позицию заказа паспорт уже есть. Откройте его и нажмите «Печать».');
+        throw e;
+      }
+    };
     // ПП: карточке после сохранения — полный паспорт («не хватает», строгий выпуск), а не голый ответ создания
     const full = async (doc) => (doc?.id || doc?._id ? api(`/passports/${doc.id || doc._id}`) : doc);
-    if (!_copyFrom) return full(await api('/passports', { method: 'POST', body: rest }));
+    if (!_copyFrom) return full(await post('/passports', rest));
     // модель выбрана: сервер берёт её поля; картинки модели уже разложены по видам в форме (_imagesFinal) — их и шлём;
     // не успели загрузиться — свои добавляются к картинкам модели (каждая в своём виде, без дублей)
     if (!_imagesFinal && rest.images?.length) {
@@ -241,7 +251,7 @@ export const passportForm = {
       for (const i of [...imagesBody(m.images || []).map((x) => ({ ...x, kind: kindOf(x) })), ...rest.images]) (vals['img_' + i.kind] ||= []).push(i.photoId);
       rest.images = formImages(vals, ks);
     }
-    return full(await api(`/passports/${_copyFrom}/copy`, { method: 'POST', body: rest }));
+    return full(await post(`/passports/${_copyFrom}/copy`, rest));
   },
   update: async (id, body) => {
     const { _remember, _issued, ...rest } = body; if (_remember) await saveDefaults(_remember);

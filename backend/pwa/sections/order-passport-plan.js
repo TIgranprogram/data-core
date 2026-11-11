@@ -87,7 +87,7 @@ function body(row, ctx) {
     kit.stats([{ value: row.issued || 0, label: 'выпущено' }, { value: readyN, label: 'готово к выпуску' }, { value: row.blocked || 0, label: 'не хватает данных' }]),
     seg.el,
     table, skipped,
-    kit.actions(issueBtn, printBtn),
+    kit.actions(issueBtn, printBtn, editable ? kit.button({ label: 'Паспорт по позиции', title: 'Выбрать позицию заказа и выпустить один паспорт', onClick: async () => { const { openPassportFunnel } = await import('./passports/funnel/open.js'); openPassportFunnel({ salesOrderId: row.orderId, orderNo: row.orderNo, customerName: row.customerName }); } }) : null),
     row.total ? h('p', { class: 'muted small' }, `Всего ${row.total} ${plural(row.total, 'позиция', 'позиции', 'позиций')}. Выпускаются только позиции, где заполнены все данные паспорта.`) : null);
 }
 

@@ -245,6 +245,10 @@ export class ProductPassport {
   @Prop()
   pdfIssuedAt?: Date;
 
+  /** Свой PDF к номеру (C062). Только data-core, CRM не читает. path — `/uploads/passport/…`. */
+  @Prop({ type: Object })
+  printFile?: { path: string; originalName: string; uploadedAt: Date; uploadedBy?: Types.ObjectId };
+
   /** Откуда запись: 'sheet:Pasports' (перенос), 'app' (создан в приложении). */
   @Prop()
   source?: string;

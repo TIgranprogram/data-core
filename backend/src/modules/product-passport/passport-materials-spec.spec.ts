@@ -6,7 +6,8 @@ import { ProductPassportService } from './product-passport.service';
 const id = () => new Types.ObjectId();
 const pipe = id(), post = id(), gone = id();
 const live = [{ _id: pipe, dict: 'passportMaterials' }, { _id: post, dict: 'passportParts' }];
-const db = { collection: () => ({ find: (q: { dict: string; _id: { $in: Types.ObjectId[] } }) => ({ toArray: async () => live.filter((x) => x.dict === q.dict && q._id.$in.some((i) => i.equals(x._id))) }) }) };
+const collection = () => ({ find: (q: { dict: string; _id: { $in: Types.ObjectId[] } }) => ({ toArray: async () => live.filter((x) => x.dict === q.dict && q._id.$in.some((i) => i.equals(x._id))) }), findOne: async () => null });
+const db = { collection };
 
 /** Паспорт в «базе»: findById → документ с set/save; create → то, что записали. */
 function make(cur: Record<string, unknown>) {
@@ -15,7 +16,7 @@ function make(cur: Record<string, unknown>) {
   const chain = (v: unknown) => ({ setOptions: () => chain(v), select: () => chain(v), lean: () => chain(v), exec: async () => v });
   const created: Record<string, unknown>[] = [];
   const model = { findById: () => chain(doc), findOne: () => chain(null), create: async (s: Record<string, unknown>) => { created.push(s); return s; } };
-  const svc = new ProductPassportService(model as never, {} as never, { db } as never);
+  const svc = new ProductPassportService(model as never, {} as never, { db, collection } as never);
   return { svc, state, created };
 }
 const spec = (materialId: Types.ObjectId, partIds: Types.ObjectId[] = []) => ({ rows: [{ materialId: String(materialId), sizes: ['Ø89x3'], partIds: partIds.map(String) }], coatingIds: [] });
@@ -23,7 +24,7 @@ const spec = (materialId: Types.ObjectId, partIds: Types.ObjectId[] = []) => ({ 
 describe('materialsSpec паспорта', () => {
   it('создание: тот же разбор, что у изделия (одно написание размера, ObjectId)', async () => {
     const { svc, created } = make({});
-    await svc.create({ name: 'Турник', materialsSpec: spec(pipe, [post]) } as never);
+    await svc.create({ name: 'Турник', productId: String(id()), supplierOrgId: String(id()), materialsSpec: spec(pipe, [post]) } as never);
     const sp = created[0].materialsSpec as { rows: { materialId: Types.ObjectId; sizes: string[]; partIds: Types.ObjectId[] }[] };
     expect(sp.rows[0].materialId.equals(pipe)).toBe(true);
     expect(sp.rows[0].sizes).toEqual(['∅89×3']);
@@ -31,8 +32,9 @@ describe('materialsSpec паспорта', () => {
   });
   it('создание: ссылка не из справочника — 400', async () => {
     const { svc } = make({});
-    await expect(svc.create({ materialsSpec: spec(gone) } as never)).rejects.toThrow('«Материалы и покрытия»');
-    await expect(svc.create({ materialsSpec: { rows: [{ sizes: ['2'] }] } } as never)).rejects.toThrow(BadRequestException);
+    const bound = { productId: String(id()), supplierOrgId: String(id()) };
+    await expect(svc.create({ ...bound, materialsSpec: spec(gone) } as never)).rejects.toThrow('«Материалы и покрытия»');
+    await expect(svc.create({ ...bound, materialsSpec: { rows: [{ sizes: ['2'] }] } } as never)).rejects.toThrow(BadRequestException);
   });
   it('черновик: таблицу можно сменить и снять (null); прежняя с записью из корзины не мешает сохранить другое', async () => {
     const { svc, state } = make({ _id: id(), status: 'draft', passportNumber: 'draft-x', materialsSpec: { rows: [{ materialId: gone, sizes: [], partIds: [] }], coatingIds: [] } });
