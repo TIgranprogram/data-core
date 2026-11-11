@@ -6,7 +6,7 @@ import { toast, toastError } from '../../ui/kit/toast.js';
 import { confirmDlg } from '../../ui/kit/dialog.js';
 import { actions, button, fileButton, hint, iconButton, section, table } from '../../ui/kit/index.js';
 import { date } from '../../core/format.js';
-import { canEdit, imgsOf, isRequired, kinds, V2_NUMS } from './common.js';
+import { canEdit, humanBlanks, imgsOf, isRequired, kinds, V2_NUMS } from './common.js';
 import { numbersOf } from './traits.js';
 
 /** Блоки карточки паспорта: картинки, проверка, текст из снимка, комплектность. */
@@ -68,7 +68,7 @@ export function periodBlock(m) {
  * правленый пункт помечен «изменён для этого паспорта». Перенос в справочник — «Справочники → Паспорта → Разделы и тексты».
  */
 export function snapItem(r, ctx, s, i, no = i.number) {
-  const view = h('p', { class: 'pp-snap-item' }, no ? h('b', null, no + ' ') : '— ', i.text,
+  const view = h('p', { class: 'pp-snap-item' }, no ? h('b', null, no + ' ') : '— ', humanBlanks(i.text),
     i.edited ? h('span', { class: 'muted', title: 'Было: ' + (i.original || '') }, ' · изменён для этого паспорта') : null,
     canEdit() ? iconButton({ icon: '✎', label: `Править пункт ${i.number || ''}`.trim(), size: 'S', cls: 'pp-snap-edit', onClick: () => view.replaceWith(editor()) }) : null,
     canEdit() && i.edited ? button({ label: 'Сделать общим для категории', kind: 'ghost', size: 'S', title: 'Этот текст пункта получат новые паспорта той же категории', onClick: async () => {
@@ -107,8 +107,8 @@ export function previewBlock(r, ctx) {
   return section({ title: 'Текст паспорта', tone: 'neutral', body: [
     h('p', { class: 'muted' }, `Текст собран ${t.at ? date(t.at) : ''}${t.missing?.length ? ' · в тексте не заполнено: ' + t.missing.map((k) => V2_NUMS.find((n) => n[0] === k)?.[1] || k).join(', ') : ''}`),
     // порядок и номера — как в PDF (numbersOf = planNumbers сервера): новые сборки — подряд 1…N, один «Монтаж»
-    part(`${plan.descrNo || '—'} Описание и назначение`, t.description || t.purpose ? h('div', null, t.description ? h('p', null, t.description) : null, t.purpose ? h('p', null, t.purpose) : null) : null),
-    part(`${plan.rulesNo || plan.descrNo || '—'} Правила пользования (${(t.rules || []).length})`, t.rules?.length ? h('ol', null, ...t.rules.map((x) => h('li', null, x))) : null),
+    part(`${plan.descrNo || '—'} Описание и назначение`, t.description || t.purpose ? h('div', null, t.description ? h('p', null, humanBlanks(t.description)) : null, t.purpose ? h('p', null, humanBlanks(t.purpose)) : null) : null),
+    part(`${plan.rulesNo || plan.descrNo || '—'} Правила пользования (${(t.rules || []).length})`, t.rules?.length ? h('ol', null, ...t.rules.map((x) => h('li', null, humanBlanks(x)))) : null),
     ...(t.sections || []).map((s, si) => part(`${plan.sectionNo[si]} ${s.title}`, plan.sectionNo[si] ? h('div', null, ...s.items.map((i) => snapItem(r, ctx, s, i, plan.itemNo(si, i.number))),
       plan.mergeInstall && si === plan.mountIdx ? installList(t) : null) : null)),
     part(`${plan.toNo} Обслуживание по периодам (из справочников)`, t.maintenance?.length ? h('div', null, ...t.maintenance.map(periodBlock)) : null),

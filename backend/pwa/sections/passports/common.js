@@ -27,6 +27,11 @@ export const V2_NUMS = [
   ['fallHeight', 'Высота свободного падения, мм', ''], ['siteLength', 'Площадка: длина, мм', 'С зоной безопасности'],
   ['siteWidth', 'Площадка: ширина, мм', ''], ['serviceLifeYears', 'Срок службы, лет', ''],
 ];
+/** Метка пустой переменной «[{имя} не заполнено]» / «[{std:КОД} не найден]» → русскими словами: служебное имя на экран не идёт
+ *  (сторож core/garbage.js иначе прячет весь пункт). Только показ; правка и сервер работают с исходным текстом. */
+const BLANK_LABELS = { dimensions: 'габариты и вес', images: 'рисунки', materials: 'материалы', joints: 'конструкция', warrantyMonths: 'гарантия, мес.', name: 'наименование' };
+export const humanBlanks = (s) => String(s ?? '').replace(/\[\{([^}]+)\} (не заполнено|не найден)\]/g, (_, k, w) =>
+  `[${w}: ${k.startsWith('std:') ? 'норматив ' + k.slice(4) : (V2_NUMS.find((n) => n[0] === k)?.[1] || BLANK_LABELS[k] || 'значение').toLowerCase()}]`);
 export const dictRows = async (key) => (await api(`/dicts/${key}`).catch(() => ({ items: [] }))).items || [];
 /** Сотрудники (/dicts/persons) целиком, ответ кэшируется на минуту: форма изделия, проектирование, выдача делят один запрос. */
 export const persons = () => cachedFetch('dicts:persons', 60000, () => api('/dicts/persons'));
