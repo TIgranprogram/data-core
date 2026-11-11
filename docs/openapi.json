@@ -11029,6 +11029,40 @@
         ]
       }
     },
+    "/offers/{id}/copies": {
+      "post": {
+        "operationId": "OffersController_copyMany",
+        "summary": "Несколько копий КП для разных фирм (C071); общий packId",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfferCopiesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "{ packId, items[] }"
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      }
+    },
     "/offers/{id}/restore": {
       "post": {
         "operationId": "OffersController_restore",
@@ -20928,6 +20962,36 @@
         },
         "required": [
           "companyId"
+        ]
+      },
+      "OfferCopyCompanyDto": {
+        "type": "object",
+        "properties": {
+          "companyId": {
+            "type": "string"
+          },
+          "markupPercent": {
+            "type": "number",
+            "default": 0,
+            "description": "Наценка, % (−50…200)"
+          }
+        },
+        "required": [
+          "companyId"
+        ]
+      },
+      "OfferCopiesDto": {
+        "type": "object",
+        "properties": {
+          "companies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OfferCopyCompanyDto"
+            }
+          }
+        },
+        "required": [
+          "companies"
         ]
       },
       "OfferStatusDto": {
