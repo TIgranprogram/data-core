@@ -333,7 +333,7 @@ export class IncomesService {
     });
     // новое изделие → заявка проектировщику (та же заявка на то же название)
     if (f.lineType === 'new_product') await this.requests?.attachIncome(doc.toObject() as unknown as Record<string, unknown>, userId);
-    await this.maybeAutoDesign(doc.get('orderId') ?? f.orderId, userId);
+    await this.maybeAutoDesign((doc as { orderId?: unknown }).orderId ?? f.orderId, userId);
     return this.get(String(doc._id));
   }
 

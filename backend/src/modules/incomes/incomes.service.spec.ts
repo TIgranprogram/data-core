@@ -75,7 +75,7 @@ describe('IncomesService', () => {
       updateOne: jest.fn(() => chain({ matchedCount: 1 })),
       distinct: jest.fn(() => chain([])),
     };
-    service = new IncomesService(connection as never, model as never);
+    service = new IncomesService(connection as never, model as never, { get: () => { throw new Error('no design'); } } as never);
   });
 
   describe('менеджер в производстве (этап 3)', () => {
@@ -400,7 +400,7 @@ describe('СВ-11 (3): новый платёж у позиции без дого
   const run = async (order: Record<string, unknown> | null, f: Record<string, unknown>, cur: Record<string, unknown>) => {
     const notifyZone = jest.fn(async () => ({}));
     const conn = { db: { collection: () => ({ findOne: async () => order }) } };
-    const svc = new IncomesService(conn as never, {} as never, { notifyZone } as never);
+    const svc = new IncomesService(conn as never, {} as never, { get: () => { throw new Error('no design'); } } as never, { notifyZone } as never);
     await svc.notifyNoContract({ _id: new Types.ObjectId(), customer: 'ООО А', ...cur }, f);
     return notifyZone;
   };
@@ -425,7 +425,7 @@ describe('HARDEN-1: платежи не теряются', () => {
     upd = jest.fn(() => chain2({ matchedCount: 1 }));
     const model = { findOne: jest.fn(() => chain2(current)), updateOne: upd };
     const conn = { db: { collection: () => ({ findOne: async () => null, find: () => ({ toArray: async () => [] }) }) } };
-    service = new IncomesService(conn as never, model as never);
+    service = new IncomesService(conn as never, model as never, { get: () => { throw new Error('no design'); } } as never);
   });
   const id = () => String(current._id);
 
