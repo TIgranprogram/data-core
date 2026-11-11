@@ -198,7 +198,7 @@ export const design = {
     headActions: () => (session.role === 'admin' || session.user?.isOwner === true ? [button({ label: 'Настройки доски', title: 'Какие стикеры показывать на карточках', onClick: () => { const P = current().params; go('design', { ...P, of: 'designsettings', open: 'board', new: undefined }, { replace: !!P.open, kind: 'card' }); } })] : []),
     export: false,
     searchPlaceholder: 'Поиск: D-12, название, № заказа, заказчик, артикул…',
-    emptyText: 'Задач проектирования пока нет.', emptyHint: 'Добавьте заказ на доске или нажмите «Передать в проектирование» в карточке заказа.',
+    emptyText: 'Задач проектирования пока нет.', emptyHint: 'В карточке заказа нажмите «Передать в проектирование» — задачи появятся здесь.',
     query: (P) => ({ status: P.status || 'queue,work' }),
     filters: [
       { key: 'status', label: 'Статус', type: 'chips', noAll: true, defaultValue: 'queue,work',
@@ -230,7 +230,7 @@ export const design = {
       mount: withRequestsTab((b, path, q, o) => {
         const inner = mountBoard(b, path, q, o);
         if (!stk.length) visibleStickers().then((l) => { if (l.length) { stk = l; inner.reload(); } });
-        const side = designSide({ query: q, env: b.env, onBoard: () => inner.reload() });
+        const side = designSide({ query: q, env: { people: b.env.people }, onBoard: () => inner.reload() });
         return {
           ...inner, el: layout.split({ side: side.el, main: inner.el, sideLabel: 'Заказы в проектировании' }),
           reload: () => { inner.reload(); side.reload(); },
@@ -238,7 +238,7 @@ export const design = {
           setQuery: (qq) => { inner.setQuery(qq); side.setQuery(qq); },
         };
       }),
-      env: { people, activeOrders },
+      env: { people },
       headCount: true,
       density: 'pics',
       groupOpen: true,

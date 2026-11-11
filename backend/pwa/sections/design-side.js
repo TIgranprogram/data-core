@@ -3,15 +3,16 @@ import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { current, go } from '../core/router.js';
 import { paintOrder } from '../core/order-color.js';
-import { sku as kitSku, button, card, badge, empty, modal, toast, toastError, failBlock, busyBlock, attachCombo, openPopMenu, draggable, afterDrag, DESIGN_STATUS } from '../ui/kit/index.js';
-import { addToBoard, clean, createTask, distributeOrder, dropOrder, loadLines, normBoard, orderName } from './design-data.js';
+import { sku as kitSku, button, card, badge, empty, toast, toastError, failBlock, busyBlock, openPopMenu, draggable, afterDrag, DESIGN_STATUS } from '../ui/kit/index.js';
+import { clean, createTask, distributeOrder, dropOrder, loadLines, normBoard, orderName } from './design-data.js';
 import { copyLink } from './design-menu.js';
-import { orderLabel } from './salesorders.js';
 
 /**
- * Левая панель «Проектирования» (kit.layout.split): заказы доски, раскрываются в изделия; изделие без задачи перетаскивают в колонку доски
- * (создаётся задача) или берут кнопкой. Сервер: GET /design-board, GET /design-board/:id/lines, POST /design-board, DELETE /design-board/:id.
- * env = { people(), activeOrders() }; onBoard() — перечитать доску после действия.
+ * Левая панель «Проектирования» (kit.layout.split): заказы с открытой работой.
+ * Заказ появляется сам после «Передать в проектирование» в карточке заказа (сервер подхватывает
+ * метку designorders ∪ открытые задачи). Кнопок «добавить заказ» нет — принимать позиции
+ * можно на карточке: «На распределение» / «Взять в работу» или перетаскиванием на доску.
+ * env = { people() }; onBoard() — перечитать доску после действия.
  */
 const COLS = ['queue', 'work', 'paused', 'done', 'cancelled'];
 const SHORT = { queue: 'распределение', work: 'в работе', paused: 'пауза', done: 'готово', cancelled: 'отменено' };
@@ -19,17 +20,21 @@ const plain = (s) => String(s ?? '').toLowerCase().replace(/ё/g, 'е');
 const isPhone = () => window.matchMedia('(max-width: 720px)').matches;
 const dotted = (...xs) => xs.map(clean).filter(Boolean).join(' · ');
 
+/** Нужна работа проектировщика: есть позиции без задачи или открытые задачи. */
+const needsWork = (o) => {
+  const c = o.counts || {};
+  return (c.free || 0) > 0 || (c.queue || 0) + (c.work || 0) + (c.paused || 0) > 0;
+};
+
 export function designSide({ query, env, onBoard }) {
   const canEdit = session.canEdit;
   let q = query, showAll = false, seq = 0;
   const S = { orders: [], tasks: [], lines: new Map(), loading: new Set(), expanded: new Set(), error: null, ready: false };
   const el = h('div', { class: 'k-side-item' });
-  // Слева — «входящие»: заказы, где есть позиции без задачи (решение пользователя 2026-11-01). Всё распределено — заказ живёт только на досках.
-  const isOpen = (o) => (o.counts.free == null ? (o.counts.queue + o.counts.work + o.counts.paused) > 0 : o.counts.free > 0);
   const taskText = (t) => plain([t.code, t.title, t.productName, t.sku, t.productionNo, t.orderNo, t.customerTitle].join(' '));
   const visible = () => {
     const s = plain(q.search);
-    return S.orders.filter((o) => (showAll || s || q.orderId || isOpen(o)) && (!q.orderId || o.orderId === q.orderId)
+    return S.orders.filter((o) => (showAll || s || q.orderId || needsWork(o)) && (!q.orderId || o.orderId === q.orderId)
       && (!s || plain([o.productionNo, o.orderNo, o.customer].join(' ')).includes(s) || S.tasks.some((t) => t.orderId === o.orderId && taskText(t).includes(s))));
   };
   const openTask = (t) => go('design', { ...current().params, of: undefined, open: t.id, new: undefined }, { kind: 'card' });
@@ -79,31 +84,17 @@ export function designSide({ query, env, onBoard }) {
     const body = !open ? null : S.loading.has(o.orderId) && !lines ? busyBlock('изделия') : lines?.length ? h('div', { class: 'k-side-item' }, ...lines.map((l) => lineNode(o, l))) : empty({ title: 'В заказе нет позиций.' });
     return h('div', { class: 'k-side-item' }, head, body);
   }
-  async function addOrder() {
-    let all;
-    try { all = await env.activeOrders(); } catch (e) { toastError(e, 'загрузить заказы'); return; }
-    const have = new Set(S.orders.map((o) => o.orderId));
-    const opts = all.filter((o) => !have.has(String(o.id))).map((o) => ({ value: o.id, label: orderLabel(o) }));
-    let picked = null;
-    const inp = h('input', { placeholder: '№ заказа или заказчик', 'aria-label': 'Заказ', maxlength: 100, autocomplete: 'off' });
-    attachCombo(inp, { options: () => opts, onPick: (o) => { picked = o.value; }, empty: () => 'Нет подходящих заказов. Добавлены все заказы в работе, либо заказа нет — проверьте раздел «Заказы».' });
-    inp.addEventListener('input', () => { picked = null; });
-    const cb = h('input', { type: 'checkbox', checked: true });
-    const r = await modal({ title: 'Добавить заказ в проектирование', okText: 'Добавить',
-      body: h('div', null, h('label', { class: 'field' }, h('span', null, 'Заказ'), inp), h('label', { class: 'field' }, h('span', null, 'Позиции'), h('span', null, cb, ' Сразу поставить все позиции на распределение'))),
-      onOk: () => { if (!picked) throw new Error('Выберите заказ из списка.'); return { id: picked, distribute: cb.checked }; } });
-    if (!r) return;
-    await act(async () => { const res = await addToBoard(r.id, r.distribute); S.expanded.add(String(r.id)); toast(r.distribute && res.created ? `Заказ добавлен, на распределение: ${res.created} поз.` : 'Заказ добавлен в проектирование'); });
-    if (S.expanded.has(String(r.id))) fetchLines(String(r.id));
-  }
   function paint() {
     const vis = visible();
-    const hidden = S.orders.filter((o) => !isOpen(o)).length;
-    const bar = h('div', { class: 'toolbar' }, h('b', null, 'Заказы · ', String(vis.length)), canEdit ? button({ label: '+ Добавить заказ', kind: 'primary', size: 'S', onClick: addOrder }) : null,
-      hidden ? button({ label: showAll ? 'Только входящие' : `Показать все (+${hidden})`, kind: 'ghost', size: 'S', title: 'Заказы, где все позиции уже распределены по доскам', onClick: () => { showAll = !showAll; paint(); } }) : null);
+    const doneOnly = S.orders.filter((o) => !needsWork(o)).length;
+    const bar = h('div', { class: 'toolbar' }, h('b', null, 'Заказы · ', String(vis.length)),
+      doneOnly ? button({ label: showAll ? 'Только в работе' : `Завершённые (+${doneOnly})`, kind: 'ghost', size: 'S', title: 'Заказы, где все позиции уже завершены или без открытой работы', onClick: () => { showAll = !showAll; paint(); } }) : null);
     if (!S.ready) { el.replaceChildren(bar, busyBlock('заказы')); return; }
     if (S.error) { el.replaceChildren(bar, failBlock(S.error, () => load(), { text: 'Доска не загрузилась' })); return; }
-    el.replaceChildren(bar, ...(vis.length ? vis.map(orderNode) : [empty({ title: S.orders.length ? 'Всё распределено.' : 'Заказов пока нет.', hint: S.orders.length ? 'Новые позиции появятся здесь. «Показать все» — заказы, уже разошедшиеся по доскам.' : 'Добавьте заказ, который нужно проектировать — кнопка выше.' })]));
+    const emptyHint = S.orders.length
+      ? 'Новые появятся после «Передать в проектирование» в карточке заказа. «Завершённые» — уже закрытые.'
+      : 'В карточке заказа нажмите «Передать в проектирование» — заказ появится здесь сам.';
+    el.replaceChildren(bar, ...(vis.length ? vis.map(orderNode) : [empty({ title: S.orders.length ? 'Сейчас всё в колонках справа.' : 'Заказов в проектировании пока нет.', hint: emptyHint })]));
   }
   async function load() {
     const my = ++seq;
