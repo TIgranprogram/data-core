@@ -1,7 +1,7 @@
 import type { Connection, Types } from 'mongoose';
 import { shortProductName } from '../showcase/order-product-name';
 import { loadPhotos } from '../../common/photos';
-import { isMatched } from '../matching/matching-rules';
+import { isMatched } from '../../common/line-match-state';
 import { loadSeq } from '../../common/text/production-seq';
 
 type Doc = Record<string, unknown>;

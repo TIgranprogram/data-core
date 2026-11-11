@@ -7,7 +7,7 @@ import { oid, oids, parseList } from '../../common/list-query';
 import { CounterService } from '../counter/counter.service';
 import { ZonesService } from '../zones/zones.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { isUnassigned } from '../matching/matching-rules';
+import { isUnassigned } from '../../common/line-match-state';
 import { ProductionOrdersService } from '../salesorders/production-orders.service';
 import type { DesignTaskDto, FromOrderDto } from './dto/design-task.dto';
 import { DesignOrder, type DesignOrderDocument } from './design-order.schema';

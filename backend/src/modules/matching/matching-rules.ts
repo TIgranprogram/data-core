@@ -1,28 +1,10 @@
 import { searchTokens, normSearch } from '../../common/text/search-norm';
 import { shortProductName } from '../showcase/order-product-name';
+import { isMatched } from '../../common/line-match-state';
 
-/**
- * Сопоставление позиций договора (`incomes`) с изделиями (`products`) — чистые правила (КМ2).
- * Состояние позиции: confirmed | none | legacy (есть изделие, статуса нет — старые данные, считаются сопоставленными)
- * | auto (предложено, не подтверждено) | unmatched | request («Новое изделие»: заявка проектировщику ещё не подтверждена).
- * ORDER-LINES: услуга (lineType service) всегда сопоставлена («не изделие»).
- */
-export type LineState = 'confirmed' | 'none' | 'legacy' | 'auto' | 'unmatched' | 'request';
+/** Сопоставление позиций договора с изделиями — подсказки и сводка. Состояние позиции — `common/line-match-state` (реэкспорт ниже). */
+export { lineState, isMatched, isUnassigned, type LineState } from '../../common/line-match-state';
 type Doc = Record<string, unknown>;
-
-export const lineState = (l: Doc): LineState => {
-  if (l.lineType === 'service') return 'none';
-  if (l.lineType === 'new_product' && !l.productId) return 'request';
-  const st = l.matchStatus;
-  if (st === 'none') return 'none';
-  if (st === 'confirmed') return l.productId ? 'confirmed' : 'unmatched';
-  if (st === 'auto') return 'auto';
-  return l.productId ? 'legacy' : 'unmatched';
-};
-export const isMatched = (l: Doc): boolean => ['confirmed', 'none', 'legacy'].includes(lineState(l));
-
-/** «Не распределена»: у позиции нет изделия, и это не услуга и не «не изделие». */
-export const isUnassigned = (l: Doc): boolean => !l.productId && !isMatched(l);
 
 /** Ключ справочника соответствий: короткое название позиции, нормализованное для поиска. */
 export const aliasKey = (title: unknown): string => normSearch(shortProductName(String(title ?? '')));

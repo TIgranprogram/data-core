@@ -7,7 +7,7 @@ import { shortProductName } from '../showcase/order-product-name';
 import { loadPhotos } from '../../common/photos';
 import { DesignOrder, type DesignOrderDocument } from './design-order.schema';
 import { DesignTask, type DesignTaskDocument } from './design-task.schema';
-import { isMatched } from '../matching/matching-rules';
+import { isMatched } from '../../common/line-match-state';
 import { orderDeadline, presentTasks } from './design-present';
 import { DesignService } from './design.service';
 import { DesignStickerService } from './design-sticker.service';
