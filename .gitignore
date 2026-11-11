@@ -62,3 +62,8 @@ tools/.night/
 /.work/
 /outputs/
 tools/ai-tester/settings.json
+
+# Выгрузки с прода для заданий crew — только локально (данные, не код)
+docs/crew/*/data/
+# Личные тестовые материалы пользователя — только локально
+tests_ai_tiit/
