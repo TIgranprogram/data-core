@@ -151,6 +151,7 @@
 | 2026-11-11 | C062 паспорта: фирма/файл/списки + фикс DI заявок + e2e под C059 auto design | tsc ✅; юнит ✅ 310/310 suites, 3633/3633 | e2e ✅ 70/71 suites (1 skipped — T26), 538/550 (12 skipped); БД datacore-test, Docker | full перед выкладкой L |
 | 2026-11-11 | 19522b7d C062 | tsc 0; unit 3633/3633 | e2e ✅ 70/71, 538/550 | full before L |
 | 2026-11-11 | 8ac57b91 пачка C068-1/3/9, C070-П2/П3, C071, C072 | tsc 0; unit 3680/3680 | e2e ✅ 72/73, 547/559 | full before L |
+| 2026-11-11 | C084 деньги для директора, C079–C081 (паспорта, КП), перед выкладкой | tsc 0; unit 3728/3728 | e2e ✅ 73/74 (1 пропущен), 548/560 (12 пропущено) | full before L; первый прогон поймал T27 — B6 откатан |
 
 > Разбор C058 (office→home / ProxyCommand) — `docs/crew/C058-two-servers-finish/TEST-NOTES.md`.
 > Учёт ошибок ИИ-тестировщика и чек-лист усиления — `docs/crew/C069-cursor-routine/AI-TESTER-NOTES.md`.

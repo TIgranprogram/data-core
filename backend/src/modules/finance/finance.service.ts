@@ -10,7 +10,6 @@ import { PayrollService } from '../payroll/payroll.service';
 import { firstPhotoThumbs } from '../../common/photo-thumbs';
 import { ExpenseArticlesService } from '../expense-articles/expense-articles.service';
 import { articleOfCategory, PAYROLL_CODE } from '../expense-articles/articles-tree';
-import { adjustedIds, adjustedLines, type Adjustment } from './invoice-lines';
 import { buildByArticles, opsOfCell, type ByArticlesOpts } from './by-articles';
 import { buildForecast, expectedOps, invoiceStaleSince, type ExpenseSrc, type IncomeSrc } from './forecast';
 
@@ -104,7 +103,7 @@ export class FinanceService {
       db.collection('categories').find({}, { projection: { name: 1 } }).toArray(),
       db.collection('organizations').find({}, { projection: { name: 1, shortName: 1 } }).toArray(),
       db.collection('supplyinvoices').find({ status: 'paid', deletedAt: null, 'paymentSnapshot.paidAt': range },
-        { projection: { paymentSnapshot: 1, paymentAdjustments: 1, no: 1, payerCompanyId: 1 } }).toArray(),
+        { projection: { paymentSnapshot: 1, no: 1, payerCompanyId: 1 } }).toArray(),
       this.articles.tree(),
       // прочие расходы (факт без заявки): по дате оплаты, наши компании
       db.collection('expenses').find({ deletedAt: null, amount: { $gt: 0 }, companyId: { $in: companyIds }, date: range }).toArray(),
@@ -112,19 +111,14 @@ export class FinanceService {
     const cat = new Map(cats.map((c) => [String(c._id), String(c.name)]));
     const org = new Map(orgs.map((o) => [String(o._id), String(o.shortName || o.name)]));
     const thumbMap = await firstPhotoThumbs(db, reqs);
-    type Snap = { paidAt?: Date; lines?: Array<Record<string, unknown>> };
-    const snapOf = (invoice: (typeof paidInvoices)[number]) => invoice.paymentSnapshot as Snap | undefined;
-    const adjOf = (invoice: (typeof paidInvoices)[number]) => invoice.paymentAdjustments as Adjustment[] | undefined;
-    // заявки строк счёта: статья и объект — по заявке (запасной путь: категория строки); сумма правленой строки — из заявки (C084 B6)
-    const wantedIds = new Set(paidInvoices.flatMap((invoice) => [...(snapOf(invoice)?.lines ?? []).map((l) => String(l.requestId)), ...adjustedIds(snapOf(invoice), adjOf(invoice))]));
-    const lineReqs = wantedIds.size ? await db.collection('supplyrequests').find({ _id: { $in: [...wantedIds].filter((i) => Types.ObjectId.isValid(i)).map((i) => new Types.ObjectId(i)) } },
-      { projection: { articleId: 1, categoryId: 1, salesOrderId: 1, invoiceId: 1, priceHint: 1, status: 1, deletedAt: 1, companyId: 1, supplierId: 1, supplierName: 1, costCenter: 1, title: 1, num: 1 } }).toArray() : [];
-    const lineReq = new Map(lineReqs.map((r) => [String(r._id), r]));
     const snapshotLines = paidInvoices.flatMap((invoice) => {
-      const snapshot = snapOf(invoice);
-      return adjustedLines(invoice._id, snapshot, adjOf(invoice), lineReq, invoice.no).map((line) => ({ invoice, snapshot, line }));
+      const snapshot = invoice.paymentSnapshot as { paidAt?: Date; lines?: Array<Record<string, unknown>> } | undefined;
+      return (snapshot?.lines ?? []).map((line) => ({ invoice, snapshot, line }));
     });
     const snapshotRequestIds = new Set(snapshotLines.map(({ line }) => String(line.requestId)));
+    // статья и объект строки счёта — по её заявке (запасной путь: категория строки)
+    const lineReqs = snapshotRequestIds.size ? await db.collection('supplyrequests').find({ _id: { $in: [...snapshotRequestIds].filter((i) => Types.ObjectId.isValid(i)).map((i) => new Types.ObjectId(i)) } }, { projection: { articleId: 1, categoryId: 1, salesOrderId: 1 } }).toArray() : [];
+    const lineReq = new Map(lineReqs.map((r) => [String(r._id), r]));
     const articleOf = (articleId: unknown, categoryId: unknown) => (articleId ? String(articleId) : articleOfCategory(tree, categoryId)?.id);
     const payrollArticle = tree.flatMap((n) => n.children).find((c) => c.code === PAYROLL_CODE)?.id;
     // позиции доходов без orderId — по номеру заказа (объект = заказ с тем же orderNo)
