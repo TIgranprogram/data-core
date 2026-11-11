@@ -272,7 +272,7 @@ describe('DesignService', () => {
       expect(marks.rows[0]).toMatchObject({ deletedAt: null, addedAt });
     });
 
-    it('GET: метки ∪ заказы с открытыми задачами; завершённые без метки и заказы, удалённые в CRM, не показываются; в базу не пишет', async () => {
+    it('GET: метки ∪ открытые задачи ∪ stage=new с позициями; завершённые без метки и удалённые в CRM — нет; в базу не пишет', async () => {
       const { o2, l } = order2();
       const o3 = id(); orders.rows.push({ _id: o3, orderNo: '22-26', deletedAt: new Date() }); // удалён в CRM
       await board.addOrder({ orderId: String(orderId) });
@@ -283,13 +283,17 @@ describe('DesignService', () => {
       const o4 = id(); orders.rows.push({ _id: o4, orderNo: '23-26', deletedAt: null });
       tasks.rows.push({ _id: id(), seq: 52, status: 'done', orderId: o4, incomeId: id(), deletedAt: null });
       tasks.rows.push({ _id: id(), seq: 53, status: 'queue', title: 'Без заказа', deletedAt: null });
+      // этап «Проектирование» в Заказах без метки и без задач — тоже на доске
+      const o5 = id(); orders.rows.push({ _id: o5, orderNo: '37-26', productionNo: '37-26', stage: 'new', deletedAt: null });
+      incomes.rows.push({ _id: id(), orderId: o5, lineNo: 1, title: 'Геопластика', deletedAt: null });
       const before = [marks.rows.length, tasks.rows.length, JSON.stringify(marks.rows)];
 
       const r = await board.board();
-      expect(r.orders.map((o) => o.orderNo)).toEqual(['109-П', '21-26']);
-      expect(r.ordersTotal).toBe(2);
+      expect(r.orders.map((o) => o.orderNo)).toEqual(['109-П', '21-26', '37-26']);
+      expect(r.ordersTotal).toBe(3);
       expect(r.orders[0]).toMatchObject({ orderId: String(orderId), customer: null, priority: 'urgent', linesCount: 2, counts: { queue: 0, work: 0, paused: 0, done: 0, free: 2 } });
       expect(r.orders[1]).toMatchObject({ orderNo: '21-26', customer: 'ООО Ромашка', addedAt: null, linesCount: 1, counts: { queue: 1, free: 0 } });
+      expect(r.orders[2]).toMatchObject({ orderNo: '37-26', linesCount: 1, counts: { free: 1 } });
       expect(r.tasks.map((t) => t.seq)).toEqual([50, 53]);
       expect(r.tasksTotal).toBe(2);
       expect([marks.rows.length, tasks.rows.length, JSON.stringify(marks.rows)]).toEqual(before); // GET ничего не пишет

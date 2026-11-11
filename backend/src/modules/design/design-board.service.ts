@@ -19,7 +19,9 @@ const OPEN = ['queue', 'work', 'paused'];
 const ORDERS_CAP = 200, TASKS_CAP = 500;
 
 /**
- * Доска проектирования: заказы слева = живые метки `designorders` ∪ заказы с открытыми задачами (подхват без миграции).
+ * Доска проектирования: заказы слева =
+ * живые метки `designorders` ∪ заказы с открытыми задачами ∪ договоры этапа `new` («Проектирование» в Заказах) с позициями.
+ * Так колонка «Проектирование» в Заказах и раздел «Проектирование» показывают одни и те же заказы.
  * GET ничего не пишет. Выдача пакетом (по одному `$in`), цен и сумм нет.
  */
 @Injectable()
@@ -55,6 +57,16 @@ export class DesignBoardService {
     const ids = new Map<string, Oid>();
     for (const m of marks) ids.set(String(m.orderId), m.orderId as Oid);
     for (const g of grouped) if (OPEN.includes(g._id.status) && g.n > 0) ids.set(String(g._id.orderId), g._id.orderId);
+
+    // этап «Проектирование» в Заказах (stage=new) с живыми позициями — сразу на доске, без ручного «Передать»
+    const stageNew = await this.db().collection('salesorders').find(
+      { stage: 'new', deletedAt: null },
+      { projection: { _id: 1 } },
+    ).toArray();
+    await Promise.all(stageNew.map(async (o) => {
+      const n = await this.db().collection('incomes').countDocuments({ orderId: o._id, deletedAt: null, cancelledAt: null });
+      if (n > 0) ids.set(String(o._id), o._id as Oid);
+    }));
 
     // заказы, удалённые в CRM, отсекаются
     const orders = ids.size ? await this.db().collection('salesorders').find(
