@@ -20,6 +20,15 @@ export function isLate(r, today = new Date().toISOString().slice(0, 10)) {
   return !!d && !['shipped', 'closed', 'cancelled'].includes(r.stage) && String(d).slice(0, 10) < today;
 }
 
+/** C075: на «Готов» и «Отгружено» следующий шаг — паспорта. Один договор открывает панель, несколько — карточку заказа. */
+function passportsStep(r, k) {
+  const ids = Array.isArray(r.orderIds) ? r.orderIds.map(String).filter(Boolean) : [];
+  const href = ids.length === 1
+    ? `#docs?tab=orders&of=orderpass&open=${q(ids[0])}`
+    : `#salesorders?open=${k}`;
+  return { text: 'Паспорта заказа', tone: 'muted', btn: { label: 'Паспорта заказа', href } };
+}
+
 export function nextStep(r) {
   const k = q(r.key || r.id || '');
   const n = orderCounts(r);
@@ -33,9 +42,9 @@ export function nextStep(r) {
   else if (r.stage === 'production' && n.work > 0) s = { text: `Изготовление: ${n.work} заданий в работе`, tone: 'muted', btn: { label: 'Работа', href: `#work?q=${k}` } };
   else if (r.stage === 'production' && r.readiness?.ready) s = { text: 'Всё готово — отметьте готовность к отгрузке', tone: 'ok', btn: { label: 'Готов к отгрузке', stage: 'ready' } };
   else if (r.stage === 'production') s = { text: 'Не готово: см. «Готовность» в заказе', tone: 'muted', btn: open };
-  else if (r.stage === 'ready') s = { text: 'Оформите отгрузку', tone: 'muted', btn: { label: 'Отгрузка', href: `#salesorders?open=${k}&tab=ship` } };
+  else if (r.stage === 'ready') s = passportsStep(r, k);
   else if (r.stage === 'partly') s = { text: 'Отгружено частично — досдайте остаток', tone: 'muted', btn: { label: 'Отгрузка', href: `#salesorders?open=${k}&tab=ship` } };
-  else if (r.stage === 'shipped') s = { text: 'Отгружено. Проверьте паспорта и оплату, затем завершите', tone: 'muted', btn: { label: 'Завершить заказ', stage: 'closed' } };
+  else if (r.stage === 'shipped') s = passportsStep(r, k);
   else s = { text: '', tone: 'muted' };
   if (r.stagesDiffer && s.text) s.text += ' (у договоров разные этапы)';
   if (r.priority === 'urgent' && isLate(r)) s.late = 'Срок прошёл';

@@ -293,16 +293,28 @@ export class ProductPassportService {
     return {
       db: () => this.connection.db!,
       templateMissing: async (productId, variant) => (await this.check({ productId, mode: 'template', variant })).missing.map((m) => m.label),
-      createDraft: async (incomeId, title) => ({ id: String((await this.create({ incomeId, ...(title ? { name: title } : {}) } as CreateProductPassportDto))._id) }),
+      createDraft: async (incomeId, title, supplierOrgId) => ({ id: String((await this.create({ incomeId, ...(title ? { name: title } : {}), ...(supplierOrgId ? { supplierOrgId } : {}) } as CreateProductPassportDto))._id) }),
+      setSupplier: async (passportId, supplierOrgId) => {
+        if (!Types.ObjectId.isValid(passportId) || !Types.ObjectId.isValid(supplierOrgId)) return;
+        const org = await this.connection.db!.collection('organizations').findOne(
+          { _id: new Types.ObjectId(supplierOrgId), isOurCompany: true, deletedAt: null },
+          { projection: { name: 1, shortName: 1 } },
+        );
+        if (!org) throw new BadRequestException('Выберите фирму');
+        await this.model.updateOne(
+          { _id: new Types.ObjectId(passportId), status: 'draft', deletedAt: null, $or: [{ supplierOrgId: null }, { supplierOrgId: { $exists: false } }] },
+          { $set: { supplierOrgId: org._id, supplier: String(org.shortName || org.name || '') } },
+        ).exec();
+      },
       hasOurSupplier: async () => !!(await ourSupplierId(this.connection.db!)),
       issue: (id) => this.issue(id),
       discard: (id) => this.discardDraft(id),
     };
   }
   /** План по заказу: позиции, изделия, паспорта, готовность к выпуску и чего не хватает. */
-  orderPlan(orderId: string, variant?: string) { return orderPlan(this.orderHost(), orderId, variant); }
+  orderPlan(orderId: string, variant?: string, supplierOrgId?: string) { return orderPlan(this.orderHost(), orderId, variant, supplierOrgId); }
   /** Выпуск паспортов для готовых позиций заказа; неготовые и уже выпущенные — в skipped с причиной. */
-  orderIssue(orderId: string, opts: { lines?: string[]; variant?: string } = {}) { return orderIssue(this.orderHost(), orderId, opts); }
+  orderIssue(orderId: string, opts: { lines?: string[]; variant?: string; supplierOrgId?: string } = {}) { return orderIssue(this.orderHost(), orderId, opts); }
   /** Выпущенные паспорта заказа по порядку позиций (для общего PDF). */
   async issuedOfOrder(orderId: string): Promise<{ items: Doc[]; orderNo: string | null }> {
     const db = this.connection.db!;

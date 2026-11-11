@@ -265,12 +265,13 @@ export class ProductPassportController {
     return new StreamableFile(r.buf);
   }
 
-  /** ПНЗ: план по заказу — позиции { incomeId, title, qty, productName, passport, state: issued|ready|blocked, missing[] } + счётчики. */
+  /** ПНЗ: план по заказу — позиции { state, missing[] } + счётчики; C075: firm и firmChoices. supplierOrgId — выбранная фирма, ещё не в заказе. */
   @Get('passports/order/:orderId/plan')
   @Roles(...EDIT)
   @ApiQuery({ name: 'variant', required: false, enum: ['short', 'full'] })
-  orderPlan(@Param('orderId') orderId: string, @Query('variant') variant?: string) {
-    return this.service.orderPlan(orderId, variant === 'full' ? 'full' : 'short');
+  @ApiQuery({ name: 'supplierOrgId', required: false, description: 'Наша фирма для плана, если в заказе её нет' })
+  orderPlan(@Param('orderId') orderId: string, @Query('variant') variant?: string, @Query('supplierOrgId') supplierOrgId?: string) {
+    return this.service.orderPlan(orderId, variant === 'full' ? 'full' : 'short', supplierOrgId);
   }
 
   /** ПНЗ: выпуск паспортов для готовых позиций заказа → { issued:[{incomeId,passportId}], skipped:[{incomeId,title,reason}], counts }. Повтор дублей не плодит. */

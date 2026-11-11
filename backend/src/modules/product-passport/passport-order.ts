@@ -10,13 +10,17 @@ export interface OrderHost {
   db: () => Db;
   /** Чего не хватает у изделия (шаблон): список подписей. */
   templateMissing: (productId: string, variant?: string) => Promise<string[]>;
-  /** Черновик на позицию (поля заказа подтягиваются из позиции). */
-  createDraft: (incomeId: string, title?: string) => Promise<{ id: string }>;
+  /** Черновик на позицию. `supplierOrgId` — выбранная фирма, если в заказе её ещё нет. */
+  createDraft: (incomeId: string, title?: string, supplierOrgId?: string) => Promise<{ id: string }>;
+  /** Дописать фирму в черновик без поставщика (выпуск пачки, когда в заказе фирмы нет). */
+  setSupplier?: (passportId: string, supplierOrgId: string) => Promise<void>;
   /** Есть ли «наша фирма» — поставщик новых паспортов по умолчанию. */
   hasOurSupplier: () => Promise<boolean>;
   issue: (id: string) => Promise<unknown>;
   discard: (id: string) => Promise<void>;
 }
+
+export interface OrderFirm { id: string; name: string }
 
 export interface PlanLine {
   incomeId: string;
@@ -45,18 +49,33 @@ async function orderOf(db: Db, orderId: string) {
   return order;
 }
 
-/** У заказа есть наша компания — черновик подставит её как фирму паспорта (C063). */
-async function orderHasOurFirm(db: Db, companyId: unknown): Promise<boolean> {
-  if (!companyId || !Types.ObjectId.isValid(String(companyId))) return false;
+const firmName = (org: Doc) => String(org.shortName || org.name || 'Фирма');
+
+/** Наша фирма заказа (`companyId`), если запись живая. */
+async function orderFirm(db: Db, companyId: unknown): Promise<OrderFirm | null> {
+  if (!companyId || !Types.ObjectId.isValid(String(companyId))) return null;
   const org = await db.collection('organizations').findOne(
     { _id: new Types.ObjectId(String(companyId)), isOurCompany: true, deletedAt: null },
-    { projection: { _id: 1 } },
+    { projection: { name: 1, shortName: 1 } },
   );
-  return !!org;
+  return org ? { id: String(org._id), name: firmName(org) } : null;
 }
 
-/** План «Паспорта на весь заказ»: по каждой позиции заказа — изделие, количество, паспорт, готовность и чего не хватает. */
-export async function orderPlan(h: OrderHost, orderId: string, variant?: string) {
+/** Все наши фирмы — выбор в панели, когда у заказа фирмы нет (C075). */
+async function ourFirmList(db: Db): Promise<OrderFirm[]> {
+  const rows = await db.collection('organizations').find(
+    { isOurCompany: true, deletedAt: null },
+    { projection: { name: 1, shortName: 1 } },
+  ).sort({ name: 1 }).toArray();
+  return rows.map((org) => ({ id: String(org._id), name: firmName(org) }));
+}
+
+/**
+ * План «Паспорта на весь заказ»: по каждой позиции — изделие, количество, паспорт, готовность и чего не хватает.
+ * `firm` — наша фирма из заказа; `firmChoices` — наши фирмы.
+ * `supplierOrgId` — выбранная в панели фирма, ещё не записанная в заказ: снимает тупик «Выберите фирму» только для этого плана.
+ */
+export async function orderPlan(h: OrderHost, orderId: string, variant?: string, supplierOrgId?: string) {
   const db = h.db();
   const order = await orderOf(db, orderId);
   const incomes = await db.collection('incomes').find({ orderId: order._id, deletedAt: null, cancelledAt: null }, { projection: { title: 1, qty: 1, lineNo: 1, productId: 1 } }).sort({ lineNo: 1, _id: 1 }).toArray();
@@ -69,6 +88,9 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string)
   const pname = new Map(prods.map((p) => [String(p._id), String(p.name ?? '')]));
   const psku = new Map(prods.map((p) => [String(p._id), p.sku ? String(p.sku) : null]));
   const lines: PlanLine[] = [];
+  const firm = await orderFirm(db, order.companyId);
+  const firmChoices = await ourFirmList(db);
+  const picked = !firm && supplierOrgId ? firmChoices.find((f) => f.id === String(supplierOrgId)) ?? null : null;
   let ourSupplier: boolean | null = null;
   for (const inc of incomes) {
     const p = byIncome.get(String(inc._id));
@@ -76,13 +98,10 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string)
     const productId = inc.productId ? String(inc.productId) : null;
     let missing: string[] = [];
     if (!issued) missing = !productId ? ['К позиции не привязано изделие'] : brief(await h.templateMissing(productId, variant));
-    // выпуск требует фирму: у черновика; иначе companyId заказа (C063); иначе одна наша (C062)
-    if (!issued && productId && !missing.length && !p?.supplierOrgId) {
-      const fromOrder = await orderHasOurFirm(db, order.companyId);
-      if (!fromOrder) {
-        ourSupplier ??= await h.hasOurSupplier();
-        if (!ourSupplier) missing = ['Выберите фирму'];
-      }
+    // выпуск требует фирму: у черновика; иначе фирма заказа или выбранная в панели (C075); иначе одна наша (C062)
+    if (!issued && productId && !missing.length && !p?.supplierOrgId && !firm && !picked) {
+      ourSupplier ??= await h.hasOurSupplier();
+      if (!ourSupplier) missing = ['Выберите фирму'];
     }
     lines.push({
       incomeId: String(inc._id), lineNo: (inc.lineNo as number) ?? null, title: String(inc.title ?? ''), productId, productName: productId ? pname.get(productId) ?? null : null, article: productId ? psku.get(productId) ?? null : null, qty: (inc.qty as number) ?? null,
@@ -91,15 +110,21 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string)
     });
   }
   const count = (s: PlanLine['state']) => lines.filter((l) => l.state === s).length;
-  return { orderId: String(order._id), orderNo: (order.orderNo as string) ?? null, customerName: (order.customer as string) ?? null, total: lines.length, issued: count('issued'), ready: count('ready'), blocked: count('blocked'), lines };
+  return {
+    orderId: String(order._id), orderNo: (order.orderNo as string) ?? null, customerName: (order.customer as string) ?? null,
+    total: lines.length, issued: count('issued'), ready: count('ready'), blocked: count('blocked'), lines,
+    firm, firmChoices,
+  };
 }
 
 /**
  * Выпуск паспортов для готовых позиций заказа. Каждый паспорт — своя транзакция выпуска (номер из счётчика атомарно);
  * неготовые и уже выпущенные пропускаются с причиной, повтор не плодит дубли (черновик позиции переиспользуется).
  */
-export async function orderIssue(h: OrderHost, orderId: string, opts: { lines?: string[]; variant?: string } = {}) {
-  const plan = await orderPlan(h, orderId, opts.variant);
+export async function orderIssue(h: OrderHost, orderId: string, opts: { lines?: string[]; variant?: string; supplierOrgId?: string } = {}) {
+  const plan = await orderPlan(h, orderId, opts.variant, opts.supplierOrgId);
+  // фирма панели — только пока в заказе своей нет; записанная в заказ важнее
+  const pick = !plan.firm && opts.supplierOrgId && plan.firmChoices.some((f) => f.id === String(opts.supplierOrgId)) ? String(opts.supplierOrgId) : undefined;
   const want = opts.lines?.length ? new Set(opts.lines.map(String)) : null;
   const issued: Array<{ incomeId: string; passportId: string }> = [];
   const skipped: SkipLine[] = [];
@@ -109,8 +134,12 @@ export async function orderIssue(h: OrderHost, orderId: string, opts: { lines?: 
     if (l.state === 'issued') { skip(`Паспорт № ${l.passport?.number} уже выпущен`); continue; }
     if (l.state === 'blocked') { skip(`Не готово: ${l.missing.join(', ')}`); continue; }
     const fresh = !l.passport;
-    const id = l.passport ? l.passport.id : (await h.createDraft(l.incomeId, l.title)).id;
-    try { await h.issue(id); issued.push({ incomeId: l.incomeId, passportId: id }); }
+    const id = l.passport ? l.passport.id : (await h.createDraft(l.incomeId, l.title, pick)).id;
+    try {
+      if (pick && h.setSupplier) await h.setSupplier(id, pick);
+      await h.issue(id);
+      issued.push({ incomeId: l.incomeId, passportId: id });
+    }
     catch (e) {
       if (fresh) await h.discard(id).catch(() => undefined); // свой черновик, который не выпустился, не оставляем
       skip(`Не выпущен: ${(e as { response?: { message?: string } }).response?.message ?? (e as Error).message}`);

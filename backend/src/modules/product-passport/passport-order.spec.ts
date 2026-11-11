@@ -11,26 +11,32 @@ describe('паспорта на весь заказ', () => {
     { _id: i3, title: 'Без изделия', qty: 1, lineNo: 3, productId: null },
     { _id: i4, title: 'Уже выпущена', qty: 1, lineNo: 4, productId: p1 },
   ];
-  const make = (over: Partial<OrderHost> = {}) => {
+  const make = (over: Partial<OrderHost> = {}, opt: { orgs?: Array<Record<string, unknown>>; companyId?: Types.ObjectId } = {}) => {
     const passports: Array<Record<string, unknown>> = [{ _id: new Types.ObjectId(), incomeId: i4, status: 'issued', passportNumber: '777' }];
-    const made: string[] = [], issuedIds: string[] = [], discarded: string[] = [];
+    const orgs = opt.orgs || [];
+    const made: string[] = [], drafts: string[] = [], issuedIds: string[] = [], discarded: string[] = [], supplied: string[] = [];
     const col = (name: string) => ({
-      findOne: async () => (name === 'salesorders' ? { _id: o, orderNo: '12-3', customer: 'Школа' } : null),
+      findOne: async (q?: { _id?: Types.ObjectId }) => {
+        if (name === 'salesorders') return { _id: o, orderNo: '12-3', customer: 'Школа', companyId: opt.companyId };
+        if (name === 'organizations' && q?._id) return orgs.find((x) => String(x._id) === String(q._id)) ?? null;
+        return null;
+      },
       find: (q: { incomeId?: { $in: Types.ObjectId[] } }) => ({
-        sort: () => ({ toArray: async () => (name === 'incomes' ? incomes : name === 'productpassports' ? passports.filter((p) => q.incomeId!.$in.some((x) => x.equals(p.incomeId as Types.ObjectId))) : []) }),
+        sort: () => ({ toArray: async () => (name === 'incomes' ? incomes : name === 'productpassports' ? passports.filter((p) => q.incomeId!.$in.some((x) => x.equals(p.incomeId as Types.ObjectId))) : name === 'organizations' ? orgs : []) }),
         toArray: async () => (name === 'products' ? [{ _id: p1, name: 'Урна «А»', sku: 'У-1' }, { _id: p2, name: 'Урна «Б»' }] : []),
       }),
     });
     const host: OrderHost = {
       db: () => ({ collection: col }) as never,
       templateMissing: async (id) => (id === String(p2) ? ['Категория паспорта', 'Размеры'] : []),
-      createDraft: async (incomeId) => { const _id = new Types.ObjectId(); made.push(incomeId); passports.push({ _id, incomeId: new Types.ObjectId(incomeId), status: 'draft', passportNumber: 'draft' }); return { id: String(_id) }; },
+      createDraft: async (incomeId, _title, supplierOrgId) => { const _id = new Types.ObjectId(); made.push(incomeId); if (supplierOrgId) drafts.push(supplierOrgId); passports.push({ _id, incomeId: new Types.ObjectId(incomeId), status: 'draft', passportNumber: 'draft' }); return { id: String(_id) }; },
+      setSupplier: async (_id, supplierOrgId) => { supplied.push(supplierOrgId); },
       hasOurSupplier: async () => true,
       issue: async (id) => { issuedIds.push(id); const p = passports.find((x) => String(x._id) === id)!; p.status = 'issued'; p.passportNumber = String(100 + issuedIds.length); },
       discard: async (id) => { discarded.push(id); },
       ...over,
     };
-    return { host, made, issuedIds, discarded };
+    return { host, made, drafts, issuedIds, discarded, supplied };
   };
 
   it('план: выпущен / готов / не хватает', async () => {
@@ -41,6 +47,8 @@ describe('паспорта на весь заказ', () => {
     expect(r.lines[1].missing).toEqual(['Категория паспорта', 'Размеры']);
     expect(r.lines[2].missing).toEqual(['К позиции не привязано изделие']);
     expect(r.lines[3].passport).toMatchObject({ status: 'issued', number: '777' });
+    expect(r.firm).toBeNull();
+    expect(r.firmChoices).toEqual([]);
   });
 
   it('выпуск: готовые выпускаются, неготовые и выпущенные — в пропусках с причиной', async () => {
@@ -81,5 +89,36 @@ describe('паспорта на весь заказ', () => {
     const r = await orderPlan(make({ hasOurSupplier: async () => false }).host, String(o));
     expect(r.lines[0]).toMatchObject({ state: 'blocked' });
     expect(r.lines[0].missing[0]).toMatch(/фирм/);
+    expect(r.firm).toBeNull();
+  });
+
+  it('план: несколько наших фирм и нет фирмы заказа — firmChoices и тупик, пока фирму не выбрали', async () => {
+    const a = new Types.ObjectId(), b = new Types.ObjectId();
+    const orgs = [{ _id: a, shortName: 'СИЮ', name: 'СпортИнЮг' }, { _id: b, name: 'СтройСнабЮг' }];
+    const r = await orderPlan(make({ hasOurSupplier: async () => false }, { orgs }).host, String(o));
+    expect(r.firm).toBeNull();
+    expect(r.firmChoices.map((f) => f.name)).toEqual(['СИЮ', 'СтройСнабЮг']);
+    expect(r.lines[0]).toMatchObject({ state: 'blocked', missing: ['Выберите фирму'] });
+    const picked = await orderPlan(make({ hasOurSupplier: async () => false }, { orgs }).host, String(o), undefined, String(a));
+    expect(picked.firm).toBeNull();
+    expect(picked.lines[0].state).toBe('ready');
+  });
+
+  it('план: фирма заказа снимает тупик, даже если наших фирм несколько', async () => {
+    const a = new Types.ObjectId(), b = new Types.ObjectId();
+    const orgs = [{ _id: a, shortName: 'СИЮ', name: 'СпортИнЮг' }, { _id: b, shortName: 'ССЮ' }];
+    const r = await orderPlan(make({ hasOurSupplier: async () => false }, { orgs, companyId: a }).host, String(o));
+    expect(r.firm).toEqual({ id: String(a), name: 'СИЮ' });
+    expect(r.lines[0].state).toBe('ready');
+  });
+
+  it('выпуск с выбранной фирмой передаёт её в черновик', async () => {
+    const a = new Types.ObjectId(), b = new Types.ObjectId();
+    const orgs = [{ _id: a, shortName: 'СИЮ' }, { _id: b, shortName: 'ССЮ' }];
+    const { host, drafts, supplied } = make({ hasOurSupplier: async () => false }, { orgs });
+    const r = await orderIssue(host, String(o), { supplierOrgId: String(a) });
+    expect(r.issued).toHaveLength(1);
+    expect(drafts).toEqual([String(a)]);
+    expect(supplied).toEqual([String(a)]);
   });
 });
