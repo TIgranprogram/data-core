@@ -13,8 +13,8 @@ API="bash deploy/synology/api.sh prod"
 PLAN="docs/crew/C061-trainers-load/plan.json"
 [ -f "$PLAN" ] || { echo "✗ нет файла плана: $PLAN"; exit 2; }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
-ok=0; bad=0
-step() { local name="$1"; shift; local out; out="$("$@" 2>&1)"; if grep -qE '"statusCode":\s*[45][0-9][0-9]|вход не удался|^curl:' <<<"$out"; then echo "✗ $name: $out" | cut -c1-300; bad=$((bad+1)); else echo "✓ $name"; ok=$((ok+1)); fi; }
+ok=0; bad=0; gone=0
+step() { local name="$1"; shift; local out; out="$("$@" 2>&1)"; if grep -q 'Изделие не найдено' <<<"$out"; then echo "· изделие удалено с сайта — пропуск"; gone=$((gone+1)); elif grep -qE '"statusCode":\s*[45][0-9][0-9]|вход не удался|^curl:' <<<"$out"; then echo "✗ $name: $out" | cut -c1-300; bad=$((bad+1)); else echo "✓ $name"; ok=$((ok+1)); fi; }
 
 # План → строки «путь|файл-тела|подпись» (тела — в файлах: русский текст не идёт аргументом)
 node -e '
@@ -35,5 +35,5 @@ while IFS='|' read -r path body label; do
   step "$label" $API PATCH "$path" "$f"
 done < "$T/steps.txt"
 
-echo "Итог: записано $ok, ошибок $bad"
+echo "Итог: записано $ok, удалено с сайта $gone, ошибок $bad"
 [ "$bad" -eq 0 ]

@@ -12,7 +12,7 @@ API="bash deploy/synology/api.sh prod"
 PLAN="docs/crew/C063-joints-materials/plan.json"
 [ -f "$PLAN" ] || { echo "✗ нет файла плана: $PLAN"; exit 2; }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
-ok=0; bad=0; skip=0
+ok=0; bad=0; gone=0; skip=0
 win() { local f="$1"; command -v cygpath >/dev/null && f="$(cygpath -m "$f")"; echo "$f"; }
 
 node -e '
@@ -29,6 +29,7 @@ while IFS='|' read -r kind id arg label; do
   [ -n "$kind" ] || continue
   cur="$T/cur-$id.json"
   got=0; for try in 1 2 3 4; do sleep 0.3; if $API GET "/api/showcase/$id" > "$cur" 2>/dev/null && grep -q "\"id\"" "$cur"; then got=1; break; fi; sleep $((try*2)); done  # частые GET сервер отклоняет — пауза и повтор
+  if [ "$got" != 1 ] && grep -q 'Изделие не найдено' "$cur" 2>/dev/null; then echo "· $label: изделие удалено с сайта — пропуск"; gone=$((gone+1)); continue; fi
   if [ "$got" != 1 ]; then echo "✗ $label: не прочиталось: $(head -c 150 "$cur")"; bad=$((bad+1)); continue; fi
   if [ "$kind" = "joints" ]; then
     body="$T/pd-$id.json"
@@ -47,9 +48,9 @@ fs.writeFileSync(out, JSON.stringify(body)); console.log("put");
     if node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); process.exit((r.materialsSpec?.rows||[]).length ? 0 : 1)' "$cur" < /dev/null; then echo "· материалы уже есть: $label"; skip=$((skip+1)); continue; fi
     out="$($API PATCH "/api/showcase/$id" "$(win "$arg")" 2>&1)"
   fi
-  if grep -qE '"statusCode":\s*[45][0-9][0-9]|вход не удался|^curl:' <<<"$out"; then echo "✗ $kind $label: $out" | cut -c1-300; bad=$((bad+1)); else echo "✓ $kind $label"; ok=$((ok+1)); fi
+  if grep -q 'Изделие не найдено' <<<"$out"; then echo "· изделие удалено с сайта — пропуск"; gone=$((gone+1)); elif grep -qE '"statusCode":\s*[45][0-9][0-9]|вход не удался|^curl:' <<<"$out"; then echo "✗ $kind $label: $out" | cut -c1-300; bad=$((bad+1)); else echo "✓ $kind $label"; ok=$((ok+1)); fi
   sleep 0.3
 done < "$T/steps.txt"
 
-echo "Итог: записано $ok, пропущено (уже заполнено) $skip, ошибок $bad"
+echo "Итог: записано $ok, пропущено (уже заполнено) $skip, удалено с сайта $gone, ошибок $bad"
 [ "$bad" -eq 0 ]
