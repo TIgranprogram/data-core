@@ -173,9 +173,12 @@ export async function passportFill({ prod, mode = 'template', onStatus } = {}) {
   const foot = mode === 'template' ? actions(
     button({ label: 'Предпросмотр', title: 'PDF с пометкой «ЧЕРНОВИК». Паспорт не выпускается', onClick: () => previewPassport(prod.id) }),
   ) : null;
+  // C070-П3: при выпуске категория (из группы изделия) и вариант (запомнен) — не вопросы: свёрнуты одной строкой
+  const setup = mode === 'issue'
+    ? [catSuggest, section({ title: `Категория: ${catOpts.find((c) => c.value === codeOf())?.label || 'не задана'} · вариант паспорта`, open: !codeOf(), tone: 'neutral', body: [catSel, variant.el, hint(VARIANT_HINT)] })]
+    : [hint('Категория паспорта'), catSel, catSuggest, hint('Вариант паспорта'), variant.el, hint(VARIANT_HINT)];
   const el = stack(
-    hint('Категория паспорта'), catSel, catSuggest,
-    hint('Вариант паспорта'), variant.el, hint(VARIANT_HINT),
+    ...setup,
     strip, summary, ...SECTIONS.map(([id]) => secs[id]), own?.el, foot, fb.el,
   );
   ctx.root = el;

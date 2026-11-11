@@ -100,6 +100,7 @@ function build() {
         say(first ? `укажите «${first.label}»` : 'выпустите PDF (тексты уже подставлены)');
         if (!first) issueSec.open = true;
         onePrimary(next, !!first);
+        next.hidden = !first; // C070-П3: всё заполнено — на экране одна главная кнопка «Выпустить PDF»
       },
     });
     stages.replaceChildren(fill.el, next, issueSec);
