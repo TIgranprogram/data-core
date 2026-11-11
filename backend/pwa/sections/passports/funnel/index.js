@@ -6,7 +6,7 @@ import { passportFill } from '../fill/index.js';
 import { getProduct } from './api.js';
 import { issueBlock } from './issue.js';
 import { newProduct } from './new-product.js';
-import { takePending } from './open.js';
+import { peekReady, takePending } from './open.js';
 import { pickSteps } from './pick-steps.js';
 import { productList } from './product-list.js';
 import { readyPanel } from './ready.js';
@@ -18,13 +18,10 @@ import { readyPanel } from './ready.js';
  */
 const FACET_FREE = (P) => Object.entries(P).filter(([k, v]) => v && k !== 'category' && k !== 'group').flatMap(([, v]) => String(v).split(',')).filter((id) => id && id !== 'none');
 
-/** «Добавить готовый паспорт» (C072) — та же правая панель, другие шаги; заголовок ставим после вставки панели. */
+/** «Добавить готовый паспорт» (C072) — та же правая панель, другие шаги. */
 let readyMode = false; // какая панель открыта сейчас — для заголовка карточки
 function buildReady(entry) {
-  const p = readyPanel(entry);
-  const title = (again = true) => { const hd = p.el.closest('.drawer, .k-panel')?.querySelector('h2'); if (hd) hd.textContent = 'Готовый паспорт'; else if (again) setTimeout(() => title(false), 0); };
-  title();
-  return p;
+  return readyPanel(entry);
 }
 
 function build() {
@@ -126,8 +123,9 @@ function build() {
 }
 
 export const passFunnel = {
-  id: 'passfunnel', title: 'Паспорта', newTitle: 'Новый паспорт', canEdit,
-  card: { heading: () => (readyMode ? 'Готовый паспорт' : 'Новый паспорт') },
+  id: 'passfunnel', title: 'Паспорта', canEdit,
+  get newTitle() { return (readyMode || peekReady()) ? 'Готовый паспорт' : 'Новый паспорт'; },
+  card: { heading: () => (readyMode || peekReady()) ? 'Готовый паспорт' : 'Новый паспорт' },
   get: async () => ({}),
   form: { build, toBody: (v) => v, create: () => ({}), closeAfterCreate: true },
 };

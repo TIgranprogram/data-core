@@ -23,3 +23,7 @@ export function takePending() {
   pending = null;
   return p;
 }
+/** Не снимая вход: заголовок панели «Готовый паспорт» до build (иначе мигает «Новый паспорт»). */
+export function peekReady() {
+  return !!(pending?.ready && Date.now() - pending.at < 60000);
+}

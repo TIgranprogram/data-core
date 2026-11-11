@@ -25,10 +25,14 @@ export function lastNumbersTop() {
   return box;
 }
 
-/** Отбор «№ от — до»: два поля, применяются по Enter и при уходе из поля. */
+/** Отбор «№ от — до»: placeholder без подписи сверху — высота как у select.opt (без «перепада»). */
 function rangeFilter() {
   const apply = () => patch({ numberFrom: from.value.trim() || undefined, numberTo: to.value.trim() || undefined, page: undefined });
-  const make = (label) => { const f = textInput({ label, inputmode: 'numeric', max: 9, onEnter: apply }); f.input.addEventListener('change', apply); return f; };
+  const make = (ph) => {
+    const f = textInput({ placeholder: ph, inputmode: 'numeric', max: 9, onEnter: apply });
+    f.input.addEventListener('change', apply);
+    return f;
+  };
   const from = make('№ от'); const to = make('№ до');
   return { el: fieldRow(from.el, to.el), update: (P) => { from.value = P.numberFrom || ''; to.value = P.numberTo || ''; } };
 }
