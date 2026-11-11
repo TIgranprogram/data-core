@@ -34,10 +34,11 @@ export async function assertOneLive(model: Model<ProductPassportDocument>, incom
   if (!id) return;
   const q: Record<string, unknown> = { incomeId: id, status: { $ne: 'annulled' } };
   if (exceptId) q._id = { $ne: exceptId };
-  const found = model.findOne(q).select('passportNumber');
+  const found = model.findOne(q).select('passportNumber name');
   if (session) found.session(session);
   const twin = await found.lean().exec();
   if (!twin) return;
   const no = twin.passportNumber && !isDraftNumber(twin.passportNumber) ? ` № ${twin.passportNumber}` : '';
-  throw new ConflictException(`На эту позицию уже есть паспорт${no}`);
+  const title = String(twin.name ?? '').trim();
+  throw new ConflictException(`На эту позицию уже есть паспорт${no}${title ? ` «${title}»` : ''}`);
 }

@@ -34,6 +34,9 @@ import { assertPdf, presentPrint, storePrintPdf, unlinkPrint } from './passport-
 import { PassportIssue } from './passport-issue';
 import { orderIssue, orderPlan, type OrderHost } from './passport-order';
 import { PassportNumbers } from './passport-numbers';
+import { lastByFirm } from './passport-last-numbers';
+import { createReadyPassport } from './passport-ready';
+import type { ReadyPassportDto } from './dto/ready-passport.dto';
 import { PassportQueries, choiceMissingIn } from './passport-queries';
 import { buildForest, forProduct, parseChoices, presentForest, resolveChoices, toNode, type PhraseTreeNode, type ProductCtx } from '../../common/passport/phrase-tree';
 import { MaterialsSpecRefs, parseMaterialsSpec, type StoredSpec } from '../../common/catalog/materials-table';
@@ -93,6 +96,18 @@ export class ProductPassportService {
   nextNumbers() { return this.numbers.nextNumbers(); }
   /** ПН: задать № следующего выпущенного паспорта. */
   setNextNumber(want: { next?: number; nextProductCode?: number }) { return this.numbers.setNext(want); }
+
+  /** C072: последний № — общий и по каждой нашей фирме (ряд общий, по фирмам — показ). */
+  async lastNumbers() {
+    const [{ lastPassportNo }, byFirm] = await Promise.all([this.numbers.nextNumbers(), lastByFirm(this.model, this.connection)]);
+    return { last: lastPassportNo, byFirm };
+  }
+
+  /** C072: готовый паспорт — файл сделан отдельно; сразу выпущен, номер на выбор или следующий (passport-ready.ts). */
+  async createReady(dto: ReadyPassportDto, file: { mimetype?: string; size?: number; buffer?: Buffer; originalname?: string } | undefined, userId?: string) {
+    const doc = await createReadyPassport({ model: this.model, connection: this.connection, allocate: (set, date, session) => this.allocate(set, date, session), assertFree: (set, selfId, session) => this.assertFree(set, selfId, session) }, dto, file, userId);
+    return this.get(String(doc._id));
+  }
 
   duplicates(q: Record<string, unknown>) { return this.issueOps.duplicates(q); }
 

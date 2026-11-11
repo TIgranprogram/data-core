@@ -202,7 +202,10 @@ export class PassportQueries {
     if (q.customer) f.customerName = new RegExp(`^${escapeRe(String(q.customer))}$`, 'i');
     if (q.productId) f.productId = this.h.oid(q.productId);
     // NAV B1: «Архив паспортов» — старые (перенос: source не 'app', в т. ч. без поля); только чтение
-    if (q.legacy === '1' || q.legacy === 'true') f.source = { $ne: 'app' };
+    if (q.legacy === '1' || q.legacy === 'true') f.source = { $nin: ['app', 'ready-file'] };
+    // C072: диапазон по числовой части номера (включительно); нечисло — игнорируем
+    const from = Number(q.numberFrom) || 0, to = Number(q.numberTo) || 0;
+    if (from > 0 || to > 0) f.passportNo = { ...(from > 0 ? { $gte: from } : {}), ...(to > 0 ? { $lte: to } : {}) };
     if (q.salesOrderId) f.salesOrderId = this.h.oid(q.salesOrderId);
     if (q.orderNo) f.orderNo = new RegExp(`^\\s*${escapeRe(String(q.orderNo).trim())}\\s*$`, 'i');
     // готовность: своя или по умолчанию (выпущенный — готов, черновик — не готов); аннулированные не считаются

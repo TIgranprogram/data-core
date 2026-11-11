@@ -16,6 +16,7 @@ import { PassportPreviewDto } from './dto/preview.dto';
 import { packOf } from './print-pack';
 import { OrderIssueDto } from './dto/order-issue.dto';
 import { NextPassportNumberDto } from './dto/next-number.dto';
+import { ReadyPassportDto } from './dto/ready-passport.dto';
 import { UpdateProductPassportDto } from './dto/update-product-passport.dto';
 import type { PassportTemplateContent } from './passport-template.default';
 
@@ -81,6 +82,22 @@ export class ProductPassportController {
     return this.service.setNextNumber(dto);
   }
 
+  /** C072: последний № паспорта — общий и по каждой нашей фирме → { last, byFirm:[{ orgId, name, last|null, count }] }. */
+  @Get('passports/last-numbers')
+  @Roles(...VIEW)
+  lastNumbers() {
+    return this.service.lastNumbers();
+  }
+
+  /** C072: готовый паспорт. multipart: file (PDF) + productId, supplierOrgId, salesOrderId?, incomeId?, number?. Ответ — карточка (как GET /passports/:id). */
+  @Post('passports/ready')
+  @Roles(...EDIT)
+  @AuditAction({ action: 'passport.ready', entityType: 'ProductPassport' })
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: PDF_UPLOAD_MAX_BYTES, files: 1 } }))
+  createReady(@Body() dto: ReadyPassportDto, @UploadedFile() file: { buffer?: Buffer; mimetype?: string; size?: number; originalname?: string } | undefined, @CurrentUser() user?: AuthenticatedUser) {
+    return this.service.createReady(dto, file, user?.id);
+  }
+
   @Get('passports')
   @Roles(...VIEW)
   @ApiQuery({ name: 'search', required: false, description: '№ паспорта, талон, номер изделия, наименование, артикул, заказчик, объект, № заказа' })
@@ -88,6 +105,7 @@ export class ProductPassportController {
   @ApiQuery({ name: 'category', required: false }) @ApiQuery({ name: 'supplierOrgId', required: false }) @ApiQuery({ name: 'customer', required: false })
   @ApiQuery({ name: 'noImages', required: false, description: '1 — без картинок' }) @ApiQuery({ name: 'incomplete', required: false, description: '1 — не хватает данных для выдачи' })
   @ApiQuery({ name: 'salesOrderId', required: false }) @ApiQuery({ name: 'orderNo', required: false }) @ApiQuery({ name: 'readiness', required: false, description: 'ready | notReady | rework' })
+  @ApiQuery({ name: 'numberFrom', required: false, description: 'C072: № паспорта от (включительно)' }) @ApiQuery({ name: 'numberTo', required: false, description: 'C072: № паспорта до (включительно)' })
   @ApiQuery({ name: 'productId', required: false }) @ApiQuery({ name: 'deleted', required: false, description: '1 — корзина' })
   @ApiQuery({ name: 'legacy', required: false, description: '1 — только старые (перенос: source не app)' })
   @ApiQuery({ name: 'sort', required: false, description: 'passportNo | date | name | category | customerName | createdAt | updatedAt; «-» — по убыванию (умолч. -passportNo)' })
@@ -273,7 +291,8 @@ export class ProductPassportController {
   @ApiQuery({ name: 'bw', required: false, description: '1 — чёрно-белый' })
   async orderPdf(@Param('orderId') orderId: string, @Query('variant') variant: string, @Query('stamp') stamp: string, @Query('mode') mode: string, @Query('bw') bw: string, @Res({ passthrough: true }) res: Response) {
     const r = await this.pdfs.orderPdf(orderId, { stamp: stamp === '1', mode: mode === 'print' ? 'print' : 'pages', mono: bw === '1', variant: variantOf(variant) });
-    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': attachment(r.filename) });
+    // C072: паспорта со своим PDF в общий файл не входят — их список в заголовке X-Skipped-Passports (JSON, encodeURIComponent)
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': attachment(r.filename), ...(r.skipped.length ? { 'X-Skipped-Passports': encodeURIComponent(JSON.stringify(r.skipped)), 'Access-Control-Expose-Headers': 'X-Skipped-Passports' } : {}) });
     return new StreamableFile(r.buf);
   }
 

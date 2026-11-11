@@ -131,6 +131,9 @@ export class PassportPdfService {
     const files: Array<{ name: string; data: Buffer }> = [];
     for (const raw of items as Doc[]) {
       if (!isIssued(raw)) continue; // НМ: в пакет — только выпущенные (черновики и аннулированные — нет)
+      // C072: свой PDF номера кладём в архив как есть (склеивать PDF нечем); собирать вместо него с сайта нельзя
+      const attached = await readPrintFile(raw).catch(() => null);
+      if (attached) { files.push({ name: fileName(raw, opts.stamp), data: attached.buf }); await this.passports.markIssued(raw._id as Types.ObjectId); continue; }
       const it = await this.withText(raw).catch(() => null);
       if (!it) continue; // без категории PDF не собирается — в архив не попадает
       files.push({ name: fileName(it, opts.stamp), data: await this.render(it, opts) });
@@ -202,13 +205,20 @@ export class PassportPdfService {
   async orderPdf(orderId: string, opts: PdfOpts = {}) {
     const { items, orderNo } = await this.passports.issuedOfOrder(orderId);
     const inputs = [];
+    // C072: паспорт со своим PDF в общий файл не склеить — отдаём списком, экран покажет ссылки на `GET /passports/:id/pdf`
+    const skipped: Array<{ id: string; passportNumber: string; name: string }> = [];
     for (const raw of items) {
-      const p = await this.withText(raw as Doc).catch(() => null);
+      const r = raw as Doc;
+      if ((r.printFile as { path?: string } | undefined)?.path) { skipped.push({ id: String(r._id), passportNumber: String(r.passportNumber ?? ''), name: String(r.name ?? '') }); continue; }
+      const p = await this.withText(r).catch(() => null);
       if (p) inputs.push(await this.input(p, opts));
     }
-    if (!inputs.length) throw new BadRequestException('По заказу нет выпущенных паспортов, которые можно напечатать');
+    if (!inputs.length) {
+      if (skipped.length) throw new BadRequestException({ message: `Все паспорта заказа — готовые файлы, отдельным файлом: № ${skipped.map((x) => x.passportNumber).join(', ')}`, skipped });
+      throw new BadRequestException('По заказу нет выпущенных паспортов, которые можно напечатать');
+    }
     for (const it of items) await this.passports.markIssued((it as Doc)._id as Types.ObjectId);
-    return { buf: await renderPassportsPdfV2(inputs, `Паспорта заказа ${orderNo ?? ''}`.trim()), filename: `Паспорта_заказа_${String(orderNo ?? orderId).replace(/[\/:*?"<>|«»]/g, '').replace(/s+/g, ' ').trim()}.pdf`, count: inputs.length };
+    return { skipped, buf: await renderPassportsPdfV2(inputs, `Паспорта заказа ${orderNo ?? ''}`.trim()), filename: `Паспорта_заказа_${String(orderNo ?? orderId).replace(/[\/:*?"<>|«»]/g, '').replace(/s+/g, ' ').trim()}.pdf`, count: inputs.length };
   }
 
   private async input(p: Doc, opts: PdfOpts) {
