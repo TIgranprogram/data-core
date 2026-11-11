@@ -78,6 +78,28 @@ describe('«Чего не хватает»: элементы (C028)', () => {
     const prod = { _id: oid(), name: 'Станок', passportDefaults: { passportCategory: 'TRN', elements: [oid()] } };
     expect((await productGaps(checker(miss), fakeDb(prod), String(prod._id))).missing.some((m) => m.key === 'elements')).toBe(false);
   });
+  it('подсказка по названию: элемент и назначение одним «Да, верно»', async () => {
+    const hoop = { _id: oid(), dict: 'passportElements', name: 'Баскетбольная стойка', categories: 'WRK', kind: 'product', deletedAt: null };
+    const root = { _id: oid(), dict: 'passportPhrases', name: 'Назначение', section: 'purpose', deletedAt: null };
+    const leaf = { _id: oid(), dict: 'passportPhrases', name: 'Баскетбол', parentId: root._id, categories: 'WRK', text: 'Для баскетбола.', deletedAt: null };
+    const undo = withEl([hoop, root, leaf]);
+    const prod = { _id: oid(), name: 'Стойка баскетбольная', passportDefaults: { passportCategory: 'WRK' } };
+    const r = await productGaps(checker([{ label: 'Элементы', key: 'elements' }]), fakeDb(prod), String(prod._id));
+    undo();
+    expect(r.missing.find((m) => m.key === 'elements')).toMatchObject({ suggest: { id: String(hoop._id), label: 'Баскетбольная стойка' } });
+    expect(r.missing.find((m) => m.kind === 'purpose')).toMatchObject({
+      key: `choice:${root._id}`, label: 'Назначение', required: false, suggest: { id: String(leaf._id), label: 'Баскетбол' },
+    });
+  });
+  it('назначение уже выбрано — подсказки нет', async () => {
+    const root = { _id: oid(), dict: 'passportPhrases', name: 'Назначение', section: 'purpose', deletedAt: null };
+    const leaf = { _id: oid(), dict: 'passportPhrases', name: 'Баскетбол', parentId: root._id, categories: 'WRK', text: 'Для баскетбола.', deletedAt: null };
+    const undo = withEl([root, leaf]);
+    const prod = { _id: oid(), name: 'Стойка баскетбольная', passportDefaults: { passportCategory: 'WRK', textChoices: { [String(root._id)]: String(leaf._id) } } };
+    const r = await productGaps(checker([]), fakeDb(prod), String(prod._id));
+    undo();
+    expect(r.missing.some((m) => m.kind === 'purpose')).toBe(false);
+  });
   it('элементы приходят из признака — строки нет', async () => {
     const power = { ...kinds[0], elementIds: [oid()] };
     dictRows.push(power);

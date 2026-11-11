@@ -37,7 +37,7 @@ function scalars(ctx) {
   });
   return [
     numAt('maxUsers', 'Пользователей одновременно', ''),
-    { key: 'elements', section: 'purpose', label: 'Что это за изделие', ask: 'both', text: elText(ctx.prod, ctx.elNames), editor: (gap) => elementsEditor(ctx, gap?.options) },
+    { key: 'elements', section: 'purpose', label: 'Что это за изделие', ask: 'both', text: elText(ctx.prod, ctx.elNames), editor: (gap) => elementsEditor(ctx, gap) },
     { key: 'height', section: 'dims', label: 'Габариты', ask: 'template', text: dimText(ctx.prod), editor: () => dimsEditor(ctx) },
     { key: 'weight', section: 'dims', label: 'Вес', ask: 'template', text: ctx.prod.weightKg ? `${ctx.prod.weightKg} кг` : '', editor: () => weightEditor(ctx) },
     { key: 'joints', section: 'struct', label: 'Как соединено', ask: 'both', text: jointsLine(ctx.prod), editor: () => jointsEditor(ctx) },
@@ -173,9 +173,12 @@ export function syncChrome(ctx) {
 }
 
 export function placeTexts(ctx, list) {
+  const rootId = String((ctx.missing || []).find((m) => m.kind === 'purpose')?.key || '').replace(/^choice:/, '');
   for (const host of Object.values(ctx.textHost)) host.replaceChildren();
   for (const s of list || []) {
     const node = ctx.fb.stepEl(s.id);
-    if (node) ctx.textHost[boxOf(s)].append(node);
+    if (!node) continue;
+    node.hidden = !!(rootId && String(s.id) === rootId);
+    ctx.textHost[boxOf(s)].append(node);
   }
 }

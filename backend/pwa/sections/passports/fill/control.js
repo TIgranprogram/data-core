@@ -8,14 +8,17 @@ import { num } from './model.js';
 const CAT_NUMS = new Set([...V2_NUMS.map(([k]) => k), 'warrantyMonths']);
 const optsOf = (m) => (m.options || []).map((o) => [o.id, o.label]);
 
-/** «Похоже: … — верно?» — одна кнопка, без молчаливой записи (П-1 правило 6). */
+/** «Похоже: … — верно?» — одна кнопка, без молчаливой записи (П-1 правило 6). Несколько id — состав изделия. */
 export function suggestRow(m, write, save) {
-  if (!m?.suggest?.id) return null;
+  const ids = (m?.suggest?.ids || []).map(String).filter(Boolean);
+  const one = m?.suggest?.id || ids[0];
+  if (!one) return null;
+  const payload = ids.length > 1 ? ids : one;
   return row({
     tone: 'info',
     title: `Похоже: ${m.suggest.label} — верно?`,
     meta: m.suggest.word ? `по слову «${m.suggest.word}» в названии` : null,
-    action: button({ label: 'Да, верно', size: 'S', onClick: () => save(() => write(m.suggest.id)) }),
+    action: button({ label: 'Да, верно', size: 'S', onClick: () => save(() => write(payload)) }),
   });
 }
 
@@ -69,11 +72,8 @@ export function weightEditor(ctx) {
   return f.el;
 }
 
-/** Элементы — список до трёх. Варианты пункта A3, иначе справочник ctx.elRows. */
-export function elementsEditor(ctx, options) {
-  const given = (options || []).map((o) => ({ id: String(o.id), label: o.label || o.name || 'без названия' }));
-  const dict = (ctx.elRows || []).map((d) => ({ id: String(d.id || d._id), label: d.name || 'без названия' }));
-  const rows = (given.length ? given : dict);
+/** Список элементов до трёх. Варианты пункта A3, иначе справочник ctx.elRows. */
+function elementsCombo(ctx, rows) {
   const cur = (ctx.prod.passportDefaults?.elements || []).map(String);
   const labels = cur.map((id) => rows.find((o) => o.id === id)?.label).filter(Boolean);
   const f = buildForm([{
@@ -88,7 +88,52 @@ export function elementsEditor(ctx, options) {
     ctx.els.setIds(list);
     ctx.save(() => putDefaults(ctx.prod, { elements: list }));
   });
-  return stack(sideNote('Укажите, что это за изделие (не больше трёх вариантов). Ниже — фраза для описания и правила пользования.'), f.el);
+  return f.el;
+}
+
+/** Элементы. Есть подсказка — одно «Да, верно», список открывается по «Другой вариант». */
+export function elementsEditor(ctx, gap) {
+  const given = (gap?.options || []).map((o) => ({ id: String(o.id), label: o.label || o.name || 'без названия' }));
+  const dict = (ctx.elRows || []).map((d) => ({ id: String(d.id || d._id), label: d.name || 'без названия' }));
+  const rows = given.length ? given : dict;
+  const note = sideNote('Укажите, что это за изделие (не больше трёх вариантов). Ниже — фраза для описания и правила пользования.');
+  const write = (v) => {
+    const list = (Array.isArray(v) ? v : [v]).map(String).filter(Boolean).slice(0, 3);
+    ctx.els.setIds(list);
+    return putDefaults(ctx.prod, { elements: list });
+  };
+  const suggest = suggestRow(gap, write, ctx.save);
+  if (!suggest) return stack(note, elementsCombo(ctx, rows));
+  let box;
+  const other = link({ label: 'Другой вариант', title: 'Выбрать элементы из списка', onClick: () => { box.replaceChildren(note, elementsCombo(ctx, rows)); } });
+  box = stack(note, suggest, other);
+  return box;
+}
+
+/** Назначение. Есть подсказка — «Да, верно»; «Другой вариант» открывает шаг воронки текстов. */
+function purposeEditor(ctx, m) {
+  const rootId = String(m.key || '').replace(/^choice:/, '');
+  const write = (v) => {
+    const prev = ctx.prod.passportDefaults?.textChoices || {};
+    return putDefaults(ctx.prod, { textChoices: { ...prev, [rootId]: v } });
+  };
+  const suggest = suggestRow(m, write, ctx.save);
+  if (!suggest) return null;
+  let box;
+  const other = link({
+    label: 'Другой вариант', title: 'Выбрать другое назначение',
+    onClick: () => {
+      const node = ctx.fb?.stepEl(rootId);
+      if (node) { node.hidden = false; ctx.textHost?.purpose?.append(node); box.replaceChildren(); return; }
+      const sel = select({
+        label: 'Назначение', options: [['', 'Выберите…'], ...optsOf(m)], value: '',
+        onChange: (v) => { if (v) ctx.save(() => write(v)); },
+      });
+      box.replaceChildren(sel);
+    },
+  });
+  box = stack(suggest, other);
+  return box;
 }
 
 export function jointsEditor(ctx) {
@@ -139,7 +184,8 @@ export function installEditor(ctx, gap) {
 /** Поле из A3, которого нет среди постоянных полей разделов (признак, категория, прочее). Рисунок сюда не входит. */
 export function controlGap(m, ctx) {
   if (!m || m.kind === 'image') return null;
-  if (m.kind === 'elements') return elementsEditor(ctx, m.options);
+  if (m.kind === 'elements') return elementsEditor(ctx, m);
+  if (m.kind === 'purpose') return purposeEditor(ctx, m);
   if (m.kind === 'field' && m.key === 'height') return dimsEditor(ctx);
   if (m.kind === 'field' && (m.key === 'weight' || m.key === 'weightKg')) return weightEditor(ctx);
   if (m.kind === 'field' && !CAT_NUMS.has(m.key)) {

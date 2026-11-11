@@ -45,7 +45,7 @@ export const gapLabel = (m) => (m?.kind === 'image' || String(m?.key || '').star
 export function gapSection(m) {
   const key = String(m?.key || '');
   if (m?.kind === 'image' || key.startsWith('img_')) return PLACE[imageKind(m)] || 'other';
-  if (m?.kind === 'elements' || key === 'elements') return 'purpose';
+  if (m?.kind === 'purpose' || m?.kind === 'elements' || key === 'elements') return 'purpose';
   if (m?.kind === 'install' || key === 'installationTypeId' || key === 'installationMethod') return 'install';
   if (key === 'height' || key === 'weight' || key === 'weightKg') return 'dims';
   if (key === 'joints' || key === 'materials' || key === 'materialIds') return 'struct';
