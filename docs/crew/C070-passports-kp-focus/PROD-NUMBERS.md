@@ -60,3 +60,18 @@
 - НДС для ССЮ по `/offers/defaults` не запрашивался (взято 22 из КП).
 - Запросов к проду: 23 GET, все только чтение; ни одной записи.
 - Выгрузки для расчётов лежат в scratchpad агента (вне репо), токены и персональные данные в файлы не писались.
+
+## Категории паспорта: обязательные поля и значения по умолчанию (2026-11-11)
+
+Источник: прод, `GET /api/dicts/passportCategories`, 1 запрос, только чтение. Всего категорий: 6.
+
+| code | Название | Срок службы, лет | Гарантия, мес. | requiredFields | allowedFields | fieldDefaults | fieldHints (коротко) |
+|--|--|--|--|--|--|--|--|
+| BLG | Благоустройство | 5 | 12 | serviceLifeYears | maxUsers; siteLength; siteWidth; serviceLifeYears | — (пусто) | maxUsers — число мест; siteLength — место с проходами; serviceLifeYears — обычно 5 |
+| WRK | Воркаут и спортивное оборудование | 10 | 12 | maxUsers; siteLength; siteWidth; serviceLifeYears | heightMin; heightMax; weightMax; maxUsers; siteLength; siteWidth; serviceLifeYears | — (пусто) | maxUsers — одновременно занимаются; weightMax — вес занимающегося; siteLength — с зоной безопасности |
+| DIO | Детское игровое оборудование | 10 | 12 | ageFrom; ageTo; maxUsers; fallHeight; siteLength; siteWidth; serviceLifeYears | ageFrom; ageTo; maxUsers; fallHeight; siteLength; siteWidth; serviceLifeYears | ageFrom — 3 | ageFrom — обычно от 3 лет; fallHeight — по проекту; siteLength — с зоной приземления |
+| DSP | Детское спортивное оборудование | 10 | 12 | ageFrom; maxUsers; siteLength; siteWidth; serviceLifeYears | ageFrom; ageTo; heightMin; maxUsers; fallHeight; siteLength; siteWidth; serviceLifeYears | ageFrom — 7 | ageFrom — обычно от 7 лет; siteLength — с зоной безопасности |
+| TRN | Уличный тренажёр | 10 | 12 | heightMin; weightMax; maxUsers; siteLength; siteWidth; serviceLifeYears | heightMin; heightMax; weightMax; maxUsers; siteLength; siteWidth; serviceLifeYears | heightMin — 1400; weightMax — 120 | heightMin и weightMax — указывает изготовитель; serviceLifeYears — назначает изготовитель |
+| ALL | Для всех | — (пусто) | 12 | — (пусто) | — (пусто) | — (пусто) | служебная: тексты для всех категорий |
+
+Пустой `fieldDefaults` — у категорий BLG, WRK и ALL. Заполнен — у DIO, DSP, TRN.

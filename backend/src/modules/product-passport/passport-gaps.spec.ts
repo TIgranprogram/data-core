@@ -1,5 +1,13 @@
 import { Types } from 'mongoose';
-import { gapKind, productGaps } from './passport-gaps';
+import { categoryFieldDefaults, gapKind, productGaps } from './passport-gaps';
+
+describe('C070-П2: числа категории по умолчанию', () => {
+  it('строки «ключ — значение», срок службы и гарантия; пустое и нули пропускаются', () => {
+    expect(categoryFieldDefaults({ serviceLifeYears: '10', warrantyMonths: '12', fieldDefaults: 'heightMin — 1400\nweightMax - 120\r\nmaxUsers — 0\nбез значения\nsiteLength — 4,5' }))
+      .toEqual({ heightMin: 1400, weightMax: 120, siteLength: 4.5, serviceLifeYears: 10, warrantyMonths: 12 });
+    expect(categoryFieldDefaults(undefined)).toEqual({});
+  });
+});
 
 const oid = () => new Types.ObjectId();
 type Row = Record<string, unknown>;

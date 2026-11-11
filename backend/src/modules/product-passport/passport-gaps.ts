@@ -38,9 +38,27 @@ export function gapKind(key: string): GapItem['kind'] {
   return 'field';
 }
 
+type CategoryRule = { name?: string; serviceLifeYears?: string; warrantyMonths?: string; fieldDefaults?: string };
+
+/**
+ * Числа категории по умолчанию (C070-П2): «Срок службы», «Гарантия» и строки справочника «Значения полей по умолчанию»
+ * («ключ — значение», по строке: heightMin — 1400). Только положительные числа; строки без значения пропускаются.
+ */
+export function categoryFieldDefaults(rule?: CategoryRule): Record<string, number> {
+  const out: Record<string, number> = {};
+  const put = (k: string, v: unknown) => { const n = Number(String(v ?? '').replace(',', '.').trim()); if (k && String(v ?? '').trim() && Number.isFinite(n) && n > 0) out[k] = n; };
+  for (const line of String(rule?.fieldDefaults ?? '').split(/\r?\n/)) {
+    const [k, ...v] = line.trim().split(/\s+[—–-]\s+/);
+    if (v.length) put(s(k), v.join(' '));
+  }
+  put('serviceLifeYears', rule?.serviceLifeYears);
+  put('warrantyMonths', rule?.warrantyMonths);
+  return out;
+}
+
 interface Checker {
   check(body: Record<string, unknown>): Promise<{ missing: Array<{ label: string; key: string }> }>;
-  categoryRules(): Promise<Map<string, { name?: string; serviceLifeYears?: string; warrantyMonths?: string }>>;
+  categoryRules(): Promise<Map<string, CategoryRule>>;
 }
 
 /**
@@ -81,7 +99,7 @@ export async function productGaps(svc: Checker, db: mongo.Db, id: string) {
       db.collection('dict_values').find({ dict: 'passportElements', deletedAt: null }, { projection: { name: 1, categories: 1, kind: 1 } }).toArray(),
     ]) : [[], []];
   const forCat = (d: Record<string, unknown>) => { const l = s(d.categories).split(/[,;\s]+/).filter(Boolean); return !l.length || l.includes(code); };
-  const life = Number(String(rules.get(code)?.serviceLifeYears ?? '').replace(',', '.'));
+  const defaults = categoryFieldDefaults(rules.get(code));
   for (const m of rows) {
     const kind = gapKind(m.key);
     const item: GapItem = { key: m.key, label: m.label, kind, required: true };
@@ -91,7 +109,7 @@ export async function productGaps(svc: Checker, db: mongo.Db, id: string) {
       if (def) item.default = { id: String(def._id), label: s(def.name) };
     } else if (kind === 'elements') {
       item.options = elements.filter((d) => elementFits(d, code)).map((d) => ({ id: String(d._id), label: s(d.name) })).sort((a, b) => a.label.localeCompare(b.label, 'ru'));
-    } else if (m.key === 'serviceLifeYears' && life > 0) item.default = life;
+    } else if (kind === 'field' && defaults[m.key] !== undefined) item.default = defaults[m.key];
     missing.push(item);
   }
   return { category, missing };
