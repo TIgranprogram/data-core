@@ -61,6 +61,12 @@ export const SCHEDULE = [
 const dc = (...args) => ({ node: ['tools/dc.mjs', ...args], soft: true });
 
 export const COMMANDS = [
+  { id: 'local-checks', section: 'check', sub: 'Тесты кода', title: 'Все локальные проверки', risk: 'read', time: '3–20 мин', run: { node: ['tools/local-checks.mjs'], soft: true },
+    hint: 'Один ручной запуск: готовность ПК, код, тесты и доступные проверки вида. Единый отчёт; недоступное отмечается как пропуск. Без облака и записи в базу.' },
+  { id: 'local-checks-ready', section: 'check', sub: 'Тесты кода', title: 'Готов ли компьютер к проверкам', risk: 'read', time: '20 с', run: { node: ['tools/local-checks.mjs', '--ready-only'], soft: true },
+    hint: 'Проверяет Node, Git, Docker, зависимости и браузер. Ничего не устанавливает.' },
+  { id: 'local-checks-last', section: 'check', sub: 'Тесты кода', title: 'Итог локальной проверки', risk: 'read', time: '1 с', run: { node: ['tools/local-checks.mjs', '--last'], soft: true },
+    hint: 'Показывает итог и путь к единому отчёту последнего запуска. Тесты повторно не выполняются.' },
   // ---------- Каждый день ----------
   { id: 'day-start', section: 'day', extra: true, sub: 'Каждый день', title: 'Начало работы', risk: 'read', time: '20 с', needs: ['bash'], run: dc('start'), every: 1, why: 'Первая кнопка за день: ошибки сайта и состояние кода',
     hint: 'Первая кнопка за день. Ветка, отставание от GitHub, незакоммиченное и ошибки сайта за сутки.' },
