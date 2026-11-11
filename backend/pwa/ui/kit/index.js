@@ -147,7 +147,7 @@ function cardBase({ size = 'M', tone = 'neutral', title, meta, badges, actions, 
 export const actions = (...children) => mark(h('div', { class: 'k-actions' }, ...nodes(children)), 'actions');
 
 /** clamp(text, { lines: 2 | 3 }) — длинный текст (позиция договора) в N строк с «…», полный текст в title; ширину контейнера не раздвигает. */
-export const clamp = (text, { lines = 3, cls } = {}) => mark(h('span', { class: 'k-clamp k-clamp-' + (lines === 2 ? 2 : 3) + (cls ? ' ' + cls : ''), title: text == null ? null : String(text) }, text), 'clamp');
+export const clamp = (text, { lines = 3, cls } = {}) => mark(h('span', { class: 'k-clamp k-clamp-' + (lines === 2 ? 2 : 3) + (cls ? ' ' + cls : ''), title: text == null ? null : typeof text === 'object' ? text.textContent || null : String(text) }, text), 'clamp');
 
 /** row({ title, meta, tone, lead, side, qty, diff, warn, action, below, active, inCart, onClick, tag, cls, data })
  *  Строка списка/корзины: имя + мета, справа side (узлы) и action (кнопка). Если есть qty/diff — раскладка «корзина»:
