@@ -50,6 +50,39 @@ describe('паспорта на весь заказ', () => {
     expect(r.firm).toBeNull();
     expect(r.firmChoices).toEqual([]);
   });
+  it('повторные позиции одного изделия используют одну проверку, битое фото блокирует обе', async () => {
+    const templateMissing = jest.fn<Promise<string[]>, [string]>(async () => ['Обязательный рисунок не читается: Фото изделия']);
+    const { host } = make({ templateMissing });
+    const db = host.db();
+    host.db = () => ({ collection: (name: string) => name === 'productpassports'
+      ? { find: () => ({ sort: () => ({ toArray: async () => [] }) }) }
+      : db.collection(name) }) as never;
+    const result = await orderPlan(host, String(o));
+    const repeated = result.lines.filter((line) => line.productId === String(p1));
+    expect(repeated).toHaveLength(2);
+    expect(repeated.every((line) => line.state === 'blocked' && line.missing[0].includes('Фото изделия'))).toBe(true);
+    expect(templateMissing.mock.calls.filter(([id]) => id === String(p1))).toHaveLength(1);
+  });
+  it('категории разных групп и общего родителя читаются двумя пакетами', async () => {
+    const host = make().host;
+    const base = host.db();
+    const g1 = new Types.ObjectId(), g2 = new Types.ObjectId(), parent = new Types.ObjectId();
+    const reads: string[] = [];
+    host.db = () => ({ collection: (name: string) => {
+      if (!['products', 'categories', 'dict_values'].includes(name)) return base.collection(name);
+      return { find: (q: { _id?: { $in: Types.ObjectId[] }; deletedAt?: unknown }) => ({ toArray: async () => {
+        reads.push(name);
+        if (name === 'products') return [{ _id: p1, categoryId: g1 }, { _id: p2, categoryId: g2 }];
+        if (name === 'dict_values') return [{ code: 'BLG', name: 'Благоустройство' }, { code: 'TRN', name: 'Тренажёры' }];
+        expect(q.deletedAt).toBeNull();
+        return q._id!.$in.some((id) => id.equals(parent)) ? [{ _id: parent, name: 'Раздел', passportCategory: 'BLG' }] : [{ _id: g1, name: 'Группа 1', parentId: parent }, { _id: g2, name: 'Группа 2', parentId: parent, passportCategory: 'TRN' }];
+      } }) };
+    } }) as never;
+    const r = await orderPlan(host, String(o));
+    expect(r.lines.slice(0, 2).map((l) => l.categoryName)).toEqual(['Благоустройство', 'Тренажёры']);
+    expect(reads.filter((n) => n === 'categories')).toHaveLength(2);
+    expect(reads.filter((n) => n === 'dict_values')).toHaveLength(1);
+  });
 
   it('выпуск: готовые выпускаются, неготовые и выпущенные — в пропусках с причиной', async () => {
     const { host, made } = make();

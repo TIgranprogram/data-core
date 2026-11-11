@@ -1,0 +1,26 @@
+{
+  "label": "Заполнить: Габариты →",
+  "active": "INPUT",
+  "activeLabel": "Длина, мм",
+  "overflow": false,
+  "targets": [
+    {
+      "text": "Длина, мм\nШирина, мм\nВысота, мм",
+      "top": 449.203125,
+      "bottom": 595.453125,
+      "hidden": false
+    }
+  ],
+  "scrolls": [
+    {
+      "cls": "drawer-body",
+      "top": 1031
+    }
+  ],
+  "targetInViewport": true,
+  "activeInput": true,
+  "pageErrors": [],
+  "servedPaintHash": "a22179cff0b188b9445f342af33f3eb54fcc904c8cf4ff5894e14ceec68a31f5",
+  "localPaintHash": "a22179cff0b188b9445f342af33f3eb54fcc904c8cf4ff5894e14ceec68a31f5",
+  "paintMatches": true
+}

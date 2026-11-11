@@ -6,7 +6,7 @@ import { toast } from '../ui/kit/toast.js';
 import { mountList } from '../ui/kit/list.js';
 import { passports, issuePassport } from './passports.js';
 import { numbersStrip } from './passports/numbers-strip.js';
-import { canEdit as canEditTexts, statusOf } from './passports/common.js';
+import { canWorkPassport as canEditTexts, statusOf } from './passports/common.js';
 import { linkDialog, printDialog, previewPassport } from './passports/dialogs.js';
 import { passportFill } from './passports/template-form.js';
 import { savePd } from './products.js';

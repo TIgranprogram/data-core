@@ -135,10 +135,10 @@ export class ShowcaseController {
   @Roles('admin', 'director', 'manager', 'user')
   compositionSimilar(@Param('id') id: string) { return this.s.compositionSimilar(id); }
 
-  /** Значения паспорта по умолчанию (БЗ-6 Э4b): { passportCategory, elements[], materialIds[], installationTypeId, isKit, ageFrom… }. Правят директор и админ (как паспорта). */
+  /** Значения паспорта по умолчанию (БЗ-6 Э4b): { passportCategory, elements[], materialIds[], installationTypeId, isKit, ageFrom… }. Правят менеджер, директор и админ. */
   @AppSection('products', 'passports')
   @Put(':id/passport-defaults')
-  @Roles('admin', 'director')
+  @Roles('admin', 'director', 'manager')
   @AuditAction({ action: 'showcase.passportDefaults', entityType: 'Product', idParam: 'id' })
   setPassportDefaults(@Param('id') id: string, @Body() b: Record<string, unknown>) { return this.s.setPassportDefaults(id, b ?? {}); }
 

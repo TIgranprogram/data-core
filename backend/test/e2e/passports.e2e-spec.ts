@@ -3,6 +3,9 @@ import type { INestApplication } from '@nestjs/common';
 import { createTestApp, type TestContext } from '../setup/test-db';
 import { authHeader, loginAsAdmin, type AuthTokens } from '../setup/admin.fixture';
 import { Types } from 'mongoose';
+import { promises as fs } from 'fs';
+import path from 'path';
+import sharp from 'sharp';
 
 /**
  * Паспорта изделий (TASKS ПС): паспорт = экземпляр, номера выдаёт сервер (счётчики после максимума),
@@ -17,11 +20,16 @@ describe('Паспорта изделий', () => {
   const db = () => ctx!.connection.db!;
   const http = () => request(app.getHttpServer());
   const as = (t: string) => authHeader(t);
+  const imageName = `e2e-passports-${new Types.ObjectId()}.png`;
+  const imagePath = path.resolve('uploads', imageName);
 
   beforeAll(async () => {
     ctx = await createTestApp();
     app = ctx.app;
     admin = await loginAsAdmin(app);
+    await fs.mkdir(path.dirname(imagePath), { recursive: true });
+    await sharp({ create: { width: 4, height: 4, channels: 3, background: '#ffffff' } }).png().toFile(imagePath);
+    await db().collection('photos').insertOne({ _id: new Types.ObjectId(photo), storageUrl: `/uploads/${imageName}`, mimeType: 'image/png', deletedAt: null });
     for (const c of ['productpassports', 'passporttemplates', 'counters']) await db().collection(c).deleteMany({});
     const username = `ps-manager-${Date.now()}`;
     await http().post('/api/admin/users').set(as(admin.access)).send({ username, password: 'role-pass-123', role: 'manager' }).expect(201);
@@ -38,6 +46,7 @@ describe('Паспорта изделий', () => {
 
   afterAll(async () => {
     await ctx?.cleanup();
+    await fs.unlink(imagePath).catch(() => undefined);
   });
 
   let first = '';
@@ -124,11 +133,19 @@ describe('Паспорта изделий', () => {
     expect(Object.keys(ph)).toEqual(['materials', 'installationMethod', 'purpose']);
   });
 
-  it('права: менеджер смотрит, но не создаёт, не выпускает и не скачивает PDF', async () => {
+  it('права: менеджер создаёт и выпускает, пользователь не получает рабочие права', async () => {
     await http().get(`/api/passports/${first}`).set(as(manager)).expect(200);
-    await http().post('/api/passports').set(as(manager)).send({ name: 'x' }).expect(403);
-    await http().post(`/api/passports/${copyId}/issue`).set(as(manager)).expect(403);
-    await http().get(`/api/passports/${first}/pdf`).set(as(manager)).expect(403);
+    const created = (await http().post('/api/passports').set(as(manager)).send({ name: 'Черновик менеджера' }).expect(201)).body;
+    expect(created).toMatchObject({ name: 'Черновик менеджера', status: 'draft' });
+    expect(created.id).toBeTruthy();
+    const issued = (await http().post(`/api/passports/${first}/issue`).set(as(manager)).expect(200)).body;
+    expect(issued).toMatchObject({ id: first, status: 'issued', passportNumber: '550' });
+    const username = `ps-user-${Date.now()}`;
+    await http().post('/api/admin/users').set(as(admin.access)).send({ username, password: 'role-pass-123', role: 'user' }).expect(201);
+    const user = (await http().post('/api/auth/login').send({ username, password: 'role-pass-123' }).expect(200)).body.access;
+    await http().post('/api/passports').set(as(user)).send({ name: 'Запрещено' }).expect(403);
+    await http().post(`/api/passports/${first}/issue`).set(as(user)).expect(403);
+    await http().get(`/api/passports/${first}/pdf`).set(as(user)).expect(403);
   });
 
   it('шаблон: встроенный (версия 0) → правка = новая версия', async () => {
@@ -184,7 +201,7 @@ describe('Паспорта изделий', () => {
 
   it('PDF: выпущенный — с номером и отметкой выдачи; черновик — тоже можно, с пометкой «ЧЕРНОВИК», без отметки выдачи', async () => {
     const bin = (res: NodeJS.ReadableStream, cb: (e: Error | null, b: Buffer) => void) => { const b: Buffer[] = []; res.on('data', (c: Buffer) => b.push(c)); res.on('end', () => cb(null, Buffer.concat(b))); };
-    const r = await http().get(`/api/passports/${first}/pdf`).set(as(admin.access)).buffer(true).parse(bin as never).expect(200);
+    const r = await http().get(`/api/passports/${first}/pdf`).set(as(manager)).buffer(true).parse(bin as never).expect(200);
     expect(r.headers['content-type']).toContain('application/pdf');
     expect(String(r.headers['content-disposition'])).toContain('filename*=UTF-8');
     expect((r.body as Buffer).subarray(0, 5).toString()).toBe('%PDF-');
@@ -263,7 +280,9 @@ describe('Паспорта изделий', () => {
     expect(conv.textSnapshot?.category).toBe('TRN');
     const again = (await http().patch(`/api/passports/${old.id}`).set(as(admin.access)).send({ note: 'заметка' }).expect(200)).body;
     expect(again.textSnapshot.at).toBe(conv.textSnapshot.at);
-    await http().post(`/api/passports/${created.id}/snapshot`).set(as(manager)).expect(403);
+    const managerSnapshot = (await http().post(`/api/passports/${created.id}/snapshot`).set(as(manager)).expect(200)).body;
+    expect(managerSnapshot.id).toBe(created.id);
+    expect(JSON.stringify(managerSnapshot.textSnapshot.sections)).toContain('Новый пункт для проверки снимка.');
   });
   it('БЗ-9: массовое изменение выбранных — общие поля, элементы «добавить», отмена; номера не меняются', async () => {
     const a = (await http().post('/api/passports').set(as(admin.access)).send({ name: 'Массово 1', passportCategory: 'WRK', warrantyMonths: 12 }).expect(201)).body;
@@ -283,7 +302,9 @@ describe('Паспорта изделий', () => {
     expect(a3.customerName ?? '').toBe('');
     expect(a3.textSnapshot?.category).toBe('WRK');
     await http().post('/api/passports/bulk').set(as(admin.access)).send({ ids: [a.id], set: { name: 'x' } }).expect(400); // только не-массовые — «отметьте, что изменить»
-    await http().post('/api/passports/bulk').set(as(manager)).send({ ids: [a.id], set: { warrantyMonths: 1 } }).expect(403);
+    const managerBulk = (await http().post('/api/passports/bulk').set(as(manager)).send({ ids: [a.id], set: { warrantyMonths: 1 } }).expect(200)).body;
+    expect(managerBulk).toMatchObject({ updated: 1, failed: [] });
+    expect((await http().get(`/api/passports/${a.id}`).set(as(manager)).expect(200)).body.warrantyMonths).toBe(1);
   });
 
   it('ПВ: воронка — дерево по категории, выбор собирает назначение и установку, обязательный раздел блокирует выпуск, правка справочника пересобирает черновик', async () => {

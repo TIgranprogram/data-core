@@ -96,6 +96,11 @@ function drawOne(doc: PDFKit.PDFDocument, input: PdfV2Input, bgCache: Map<Buffer
     doc.rect(0, 0, A5.w, A5.h).clip();
     paintBg(doc, p.kind === 'cover' ? input.look?.cover : input.look?.page, bgCache);
     for (const d of p.draws) d.draw(doc, d.y);
+    if (input.watermark) {
+      doc.save().opacity(0.16).rotate(-35, { origin: [A5.w / 2, A5.h / 2] });
+      doc.font('gost').fontSize(42).fillColor('#000').text(input.watermark, 0, A5.h / 2 - 22, { width: A5.w, align: 'center', lineBreak: false });
+      doc.restore();
+    }
     if (p.no && p.footer) {
       const pb = input.look?.pageBox;
       const fl = pb ? pb.l : M.l;

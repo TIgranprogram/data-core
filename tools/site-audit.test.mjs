@@ -109,3 +109,27 @@ test('правило v: поле выше содержимого', async () => {
   assert.deepEqual(fieldHeightFindings([{ sel: 'f', label: 'Гарантия', height: 260, content: 66 }]).map((x) => x.rule), ['v']);
   assert.equal(fieldHeightFindings([{ sel: 'f', label: 'Гарантия', height: 70, content: 66 }]).length, 0);
 });
+
+test('правило 1 (C086): список без подписи, переключатель на всю ширину, короткое число шириной в текст', async () => {
+  const { formLookFindings } = await import('./site-audit.mjs');
+  // как было у владельца: «Выберите…» без подписи, «Упрощённый / Полный» на 1180px, «Возраст от» на 448px
+  const before = [
+    { kind: 'select', sel: 's', name: 'Выберите…', caption: false, width: 134, box: 1100 },
+    { kind: 'seg', sel: 'g', name: 'Вариант паспорта', caption: true, width: 1180, box: 1180, buttons: 2 },
+    { kind: 'seg', sel: 'g', name: 'Цельное', caption: false, width: 1270, box: 1270, buttons: 2 },
+    { kind: 'num', sel: 'n', name: 'Возраст от, лет', caption: true, width: 448, box: 1270 },
+  ];
+  const found = formLookFindings(before);
+  assert.equal(found.every((x) => x.rule === '1'), true);
+  assert.equal(found.filter((x) => /без видимой подписи/.test(x.text)).length, 2);
+  assert.equal(found.filter((x) => /растянут/.test(x.text)).length, 2);
+  assert.equal(found.filter((x) => /короткое число/.test(x.text)).length, 1);
+  // как стало: подписи есть, переключатель по содержимому, число 9em; на телефоне переключатель во всю ширину — не ошибка
+  const after = [
+    { kind: 'select', sel: 's', name: 'Материал', caption: true, width: 224, box: 1100 },
+    { kind: 'seg', sel: 'g', name: 'Вариант паспорта', caption: true, width: 210, box: 1180, buttons: 2 },
+    { kind: 'seg', sel: 'g', name: 'Вариант паспорта', caption: true, width: 350, box: 358, buttons: 2 },
+    { kind: 'num', sel: 'n', name: 'Срок службы, лет', caption: true, width: 144, box: 1270 },
+  ];
+  assert.deepEqual(formLookFindings(after), []);
+});

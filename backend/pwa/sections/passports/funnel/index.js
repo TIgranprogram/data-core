@@ -1,7 +1,7 @@
 import { h } from '../../../core/dom.js';
 import { patch } from '../../../core/router.js';
 import { button, hint, link, section, stack, toastError } from '../../../ui/kit/index.js';
-import { canEdit } from '../common.js';
+import { canWorkPassport } from '../common.js';
 import { passportFill } from '../fill/index.js';
 import { getProduct } from './api.js';
 import { issueBlock, openPositions, orderStep } from './issue.js';
@@ -155,7 +155,7 @@ function build() {
 }
 
 export const passFunnel = {
-  id: 'passfunnel', title: 'Паспорта', canEdit,
+  id: 'passfunnel', title: 'Паспорта', canEdit: canWorkPassport,
   get newTitle() { return (readyMode || peekReady()) ? 'Готовый паспорт' : 'Новый паспорт'; },
   card: { heading: () => (readyMode || peekReady()) ? 'Готовый паспорт' : 'Новый паспорт' },
   get: async () => ({}),

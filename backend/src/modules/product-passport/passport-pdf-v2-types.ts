@@ -38,6 +38,8 @@ export interface PdfV2Input {
   org: PdfOrg | null;
   text: PdfV2Text;
   images: Partial<Record<string, PdfImageV2[]>>;
+  /** Только черновик: подписанные места обязательных рисунков, которых ещё нет или файл не читается. */
+  missingImages?: Array<{ kind: string; label: string }>;
   style?: PdfV2Style;
   logo?: Buffer; seal?: Buffer; signature?: Buffer;
   /** Миниатюры дефектов для таблиц ТО: photoId → картинка (Э6d). */

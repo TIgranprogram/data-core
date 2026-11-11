@@ -39,6 +39,17 @@ describe('buildV2Text', () => {
     expect(t.maintenance).toEqual([]);
     expect(t.sections.length).toBeGreaterThan(0);
   });
+  it('применимость берёт только действующие метки: заменённый и исключённый текст не добавляют поля', () => {
+    const usedFields = new Set<string>();
+    const result = buildV2Text({
+      passport: { passportCategory: 'BLG', maxUsers: 2, joints: ['none'] }, usedFields,
+      all: { sections: [{ key: 'usage', title: 'Правила', paragraphs: ['Рост {heightMin}.', 'Падение {fallHeight}.'], when: [null, 'bolts'] }] },
+      own: { sections: [{ key: 'usage', title: 'Правила', paragraphs: ['Пользователей {maxUsers}.'] }] },
+    });
+    expect([...usedFields]).toEqual(['maxUsers']);
+    expect(result.missing).not.toContain('maxUsers');
+    expect(result).not.toHaveProperty('usedFields');
+  });
 });
 
 /** Воронка (ПВ): выбор текстов идёт верхним слоем; «Назначение» — только из дерева. */

@@ -6,6 +6,19 @@ import { assertRun, assertOwned, captureCreated, dockerInventory, newStandRun, p
 
 const bad = (text) => { throw Object.assign(new Error('Защита стенда: ' + text), { code: 2 }); };
 const secretKeys = [['NIGHT_ROOT_PW', 12], ['NIGHT_APP_PW', 12], ['NIGHT_JWT', 24], ['NIGHT_JWT_REFRESH', 24], ['NIGHT_ADMIN_PW', 12], ['NIGHT_KEYFILE', 48], ['NIGHT_QA_PW', 12]];
+/** Свидетельство сохранности: относительные имена, пустые каталоги и SHA-256; ссылки запрещены. */
+export function uploadsManifest(root) {
+  const result = {};
+  function walk(dir, prefix = '') {
+    for (const name of fs.readdirSync(dir).sort()) {
+      const file = path.join(dir, name), key = prefix + name, stat = fs.lstatSync(file);
+      if (stat.isDirectory()) { result[key + '/'] = 'directory'; walk(file, key + '/'); }
+      else if (stat.isFile()) result[key] = crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+      else bad('uploads содержит ссылку или специальный файл; пересоздание запрещено');
+    }
+  }
+  walk(root); return result;
+}
 export function createNightStand({ docker, sh, root, composeFile, nightDir, backupDir, inventoryFn = (run) => dockerInventory(run, docker), portFreeFn = portFree, healthFn = async (run) => { try { return (await fetch(`http://127.0.0.1:${run.apiPort}/api/health/ready`, { signal: AbortSignal.timeout(5000) })).status === 200; } catch { return false; } }, sleepFn = (ms) => new Promise((r) => setTimeout(r, ms)), bootFn } = {}) {
   const currentFile = path.join(nightDir, 'current-stand.json');
   const dir = (run) => path.join(nightDir, 'stands', assertRun(run).id);
@@ -113,8 +126,41 @@ export function createNightStand({ docker, sh, root, composeFile, nightDir, back
     // оборванная пересборка (закрыли окно, перезагрузка) могла оставить новый контейнер этого же запуска вне паспорта:
     // метки dc.night.run/project/БД — только наши, проверяет captureCreated; принять его в паспорт, чужое по-прежнему — отказ
     captureCreated(run, inventoryFn(run)); save(run);
-    inventory(run);
-    checked(compose(run, ['up', '-d', '--no-deps', '--build', 'backend'], src, { capture: true }), 'пересборка backend', ctx);
+    const before = inventory(run);
+    const backend = before.containers.find(c => c.service === 'backend');
+    if (!backend) bad('backend отсутствует; сохранность uploads не подтверждена');
+    const mounted = backend.mounts?.some(m => m.name === `${run.project}_uploads` && m.destination === '/app/uploads');
+    let migration = run.uploadsMigration;
+    if (migration && (!/^uploads-[a-f0-9]{24}$/.test(migration.folder || '') || !['saved', 'verified'].includes(migration.state))) bad('повреждён журнал миграции uploads');
+    if (!mounted && migration?.state === 'verified') bad('ранее сохранённый том uploads отключён; автоматическое пересоздание запрещено');
+    if (!mounted && !migration) {
+      if (before.volumes.some(v => v.name === `${run.project}_uploads`)) bad('uploads volume уже существует без журнала миграции; не перезаписываю');
+      // Даже остановленный контейнер допускает docker cp. Ошибка копирования — запрет recreate.
+      if (backend.running) checked(command(run, ['container', 'stop', backend.id]), 'остановка backend для сохранения uploads', ctx);
+      const folder = `uploads-${crypto.randomBytes(12).toString('hex')}`;
+      const backup = path.join(dir(run), folder); fs.mkdirSync(backup);
+      checked(command(run, ['cp', `${backend.id}:/app/uploads/.`, backup]), 'резервная копия uploads; backend не пересоздан', ctx);
+      const manifest = uploadsManifest(backup);
+      fs.writeFileSync(path.join(dir(run), folder + '.json'), JSON.stringify(manifest), { flag: 'wx' });
+      migration = run.uploadsMigration = { folder, state: 'saved' }; save(run);
+      ctx.say('Uploads сохранены перед пересозданием: ' + backup);
+    }
+    if (migration?.state === 'saved') {
+      const backup = path.join(dir(run), migration.folder);
+      const manifest = JSON.parse(fs.readFileSync(backup + '.json', 'utf8'));
+      if (JSON.stringify(uploadsManifest(backup)) !== JSON.stringify(manifest)) bad('резервная копия uploads изменена; пересоздание запрещено');
+      // У compose create нет --no-deps. up --no-start создаёт только backend без запуска зависимостей.
+      checked(compose(run, ['up', '--no-start', '--no-deps', '--build', 'backend'], src, { capture: true }), 'создание backend с uploads', ctx);
+      const target = inventory(run).containers.find(c => c.service === 'backend');
+      if (!target || target.running || !target.mounts?.some(m => m.name === `${run.project}_uploads` && m.destination === '/app/uploads')) bad('новый backend не подтверждён остановленным с uploads');
+      checked(command(run, ['cp', backup + '/.', `${target.id}:/app/uploads`]), 'восстановление uploads', ctx);
+      const verify = path.join(dir(run), `uploads-verify-${crypto.randomBytes(12).toString('hex')}`); fs.mkdirSync(verify);
+      checked(command(run, ['cp', `${target.id}:/app/uploads/.`, verify]), 'контрольная копия uploads', ctx);
+      const actual = uploadsManifest(verify);
+      if (Object.entries(manifest).some(([name, hash]) => actual[name] !== hash)) bad('файлы uploads не совпали; backend не запускаю');
+      migration.state = 'verified'; save(run);
+      checked(compose(run, ['start', 'backend'], src), 'старт backend после сохранения uploads', ctx);
+    } else checked(compose(run, ['up', '-d', '--no-deps', '--build', 'backend'], src, { capture: true }), 'пересборка backend', ctx);
     await wait('backend health', () => healthFn(run), ctx);
     return 0;
   }

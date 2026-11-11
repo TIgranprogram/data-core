@@ -47,7 +47,7 @@ export function mountTrash() {
     api(src.path, { query: { deleted: 1, sort: '-deletedAt', limit: 100 } }).then((r) => {
       holder.replaceChildren(table({ columns: [{ label: 'Запись' }, { label: 'Удалено', num: true }, { label: '' }], empty: { title: 'Корзина пуста', hint: 'Удалённое хранится здесь, его можно вернуть.' }, rows: r.items.map((row) => {
         const v = src.section.searchRow(row);
-        const btn = session.canEdit ? h('button', { class: 'btn btn-sm', type: 'button', onclick: async (e) => {
+        const btn = session.canEdit && src.section.remove?.restore ? h('button', { class: 'btn btn-sm', type: 'button', onclick: async (e) => {
           e.currentTarget.disabled = true;
           try { const go = () => src.section.remove.restore(row); if (src.section.remove.password) { if ((await withConfirm(go, { text: 'Восстановление требует вашего пароля.' })) === null) { e.target.disabled = false; return; } } else await go(); toast('Восстановлено'); load(); } catch (ex) { toastError(ex); e.target.disabled = false; }
         } }, 'Восстановить') : null;

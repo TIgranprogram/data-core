@@ -4,7 +4,7 @@ import { go } from '../core/router.js';
 import { modal } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { searchBox, autoMore, empty, tabs, button, badge, enhanceSelect } from '../ui/kit/index.js';
-import { statusOf, canEdit as canEditTexts } from './passports/common.js';
+import { statusOf, canWorkPassport as canEditTexts } from './passports/common.js';
 import { printDialog } from './passports/dialogs.js';
 import { orderPassportsButton } from './order-passport-plan.js';
 

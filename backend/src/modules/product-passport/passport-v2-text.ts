@@ -10,6 +10,8 @@ import { describeProduct, installText, maintenanceTables, usageRules, type DictR
  * Результат кладётся в паспорт как снимок `textSnapshot` — правка справочников и шаблонов выданный паспорт не меняет.
  */
 export interface V2TextInput {
+  /** Внутренний сбор полей фактически выбранных текстов независимо от заполненности. */
+  usedFields?: Set<string>;
   passport: Record<string, unknown> & { passportCategory?: string; elements?: unknown[]; materialIds?: unknown[]; installationTypeId?: unknown };
   all: LegacyTemplateLike & { version?: number };
   own?: (LegacyTemplateLike & { version?: number }) | null;
@@ -67,8 +69,8 @@ const idOf = (r: DictRec) => String(r.id ?? r._id ?? '');
 const pick = (list: DictRec[] = [], ids: unknown[] = []) => { const want = new Set(ids.map(String)); return list.filter((r) => want.has(idOf(r))); };
 
 /** Текст листа воронки с подстановкой {переменных}; недостающие — в missing. */
-function fill(text: string, passport: V2TextInput['passport'], category: string, standards: StandardsDict, missing: Set<string>): string {
-  const r = compose([{ sectionKey: 'x', key: 'p1', text }], passport, category, { standards });
+function fill(text: string, passport: V2TextInput['passport'], category: string, standards: StandardsDict, missing: Set<string>, usedFields?: Set<string>): string {
+  const r = compose([{ sectionKey: 'x', key: 'p1', text }], passport, category, { standards, usedFields });
   r.missing.forEach((m) => missing.add(m));
   return r.sections[0]?.items[0]?.text ?? '';
 }
@@ -95,7 +97,7 @@ export function buildV2Text(input: V2TextInput): V2Text {
     funnelTexts.push({ id: root.id, section: root.section, name: root.name, variant: leaf.name, text: fill(text, p, category, standards, sink), own: !!ov.text, off: !!ov.off, canOff: !(FIELD_SECTIONS as readonly string[]).includes(root.section), ...(ov.text ? { original: fill(leaf.text, p, category, standards, sink) } : {}) });
     if (ov.off) continue;
     used.push({ text });
-    if (root.section === 'purpose') purpose = purpose || fill(text, p, category, standards, extraMissing);
+    if (root.section === 'purpose') purpose = purpose || fill(text, p, category, standards, extraMissing, input.usedFields);
     else if (root.section === 'installation') installLeaf = installLeaf ?? { ...leaf, text };
     else if (!(FIELD_SECTIONS as readonly string[]).includes(root.section)) {
       const host = blocks.find((b) => b.sectionKey === root.section);
@@ -108,9 +110,9 @@ export function buildV2Text(input: V2TextInput): V2Text {
   // признаки изделия: справочники + «Конструкция»; условия when пунктов и дефектов смотрят на них
   const info = collectTraits(p.joints, { elements, materials, install });
   const pt = { ...p, [TRAITS_FIELD]: info.traits };
-  const r = compose(blocks, pt, category, { standards, startNumber: legacyStartNumber(all), unknownTraits: info.unknown });
+  const r = compose(blocks, pt, category, { standards, startNumber: legacyStartNumber(all), unknownTraits: info.unknown, usedFields: input.usedFields });
   const installParts = installText(install);
-  if (installLeaf) installParts.text = fill((installLeaf as PhraseTreeNode).text, p, category, standards, extraMissing);
+  if (installLeaf) installParts.text = fill((installLeaf as PhraseTreeNode).text, p, category, standards, extraMissing, input.usedFields);
   // Вписанный вручную текст («свой текст», manualText) важнее справочника; назначение без выбора — из поля паспорта
   const manual = Array.isArray(p.manualText) ? (p.manualText as string[]) : [];
   const ownText = (k: string) => (typeof p[k] === 'string' ? (p[k] as string).trim() : '');

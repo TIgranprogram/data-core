@@ -116,8 +116,8 @@ export function planFigures(texts: string[], rawImages: Partial<Record<string, P
 export function maintenanceColumns(rows: Array<{ photoId?: string }>, defectImages: Record<string, Buffer> = {}): { cols: string[]; widths: number[]; withImg: boolean } {
   const withImg = rows.some((r) => !!r.photoId && !!defectImages[r.photoId]);
   return withImg
-    ? { cols: ['Отм.', 'Что проверить', 'Вид', 'Где', 'Как проверить', 'Норма'], widths: [7, 27, 15, 17, 17, 17], withImg }
-    : { cols: ['Отм.', 'Что проверить', 'Где', 'Как проверить', 'Норма'], widths: [7, 33, 20, 20, 20], withImg };
+    ? { cols: ['Отм.', 'Что проверить', 'Вид', 'Где', 'Что сделать при отклонении', 'Норма'], widths: [7, 27, 15, 17, 17, 17], withImg }
+    : { cols: ['Отм.', 'Что проверить', 'Где', 'Что сделать при отклонении', 'Норма'], widths: [7, 33, 20, 20, 20], withImg };
 }
 
 // ─────────────────────────── вёрстка ───────────────────────────

@@ -2,8 +2,9 @@ import { api, apiFile } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { go } from '../core/router.js';
 import * as kit from '../ui/kit/index.js';
-import { canEdit } from './passports/common.js';
+import { canWorkPassport as canEdit } from './passports/common.js';
 import { download, passportVariant } from './passports/dialogs.js';
+import { displayName } from './passports/fill/model.js';
 
 /*
  * ПНЗ.2 / C075: правая панель «Паспорта заказа» (of=orderpass&open=<orderId>).
@@ -53,7 +54,7 @@ function summaryRow(row) {
   const lack = lackText(row);
   return kit.row({
     title: `Готово ${done} из ${row.total || 0}${lack ? ' · ' + lack : ''}`,
-    tone: row.blocked ? 'warn' : 'ok',
+    tone: row.blocked ? 'warn' : 'ok', wrap: true,
   });
 }
 
@@ -66,7 +67,7 @@ async function mountFill(line, host, reload) {
     let dirty = false;
     let kicked = false;
     const fill = await passportFill({
-      prod, mode: 'issue',
+      prod, mode: 'issue', showVariant: false, // вариант — один на заказ, в шапке панели
       onStatus: ({ required }) => {
         if (first) { first = false; dirty = false; return; }
         if (!dirty || (required && required.length) || kicked) return;
@@ -89,13 +90,16 @@ async function mountFill(line, host, reload) {
 
 function lineView(l, reload) {
   const [label, tone] = STATE[l.state] || ['—', 'dim'];
-  const name = `${l.lineNo ?? '—'} · ${l.title || 'Позиция'}`;
-  const meta = [l.article, l.productName, l.qty != null ? `${l.qty} шт` : ''].filter(Boolean).join(' · ');
+  const name = `${l.lineNo ?? '—'} · ${displayName(l.title) || 'Позиция'}`;
+  const meta = [l.article, l.productName && l.productName !== l.title ? displayName(l.productName) : '', l.productId ? (l.categoryName || 'категория не выбрана') : '', l.qty != null ? `${l.qty} шт` : ''].filter(Boolean).join(' · ');
   if (l.state === 'blocked' && l.productId && !firmOnly(l)) {
     const host = h('div');
+    // C086: название — обычным текстом; что не так и что делать — второй строкой; состояние — меткой справа, а не цветом всей строки
+    const n = (l.missing || []).length;
     const sec = kit.section({
-      title: `${name} — ${missingText(l.missing)}`,
-      tone: 'warn',
+      title: name, plain: true, tone: 'neutral',
+      sub: [meta, `Заполнить: ${missingText(l.missing)}`].filter(Boolean).join(' · '),
+      side: kit.badge(n ? `не хватает ${n}` : label, tone),
       body: [host],
     });
     sec.addEventListener('toggle', () => {
@@ -108,7 +112,7 @@ function lineView(l, reload) {
   const below = l.state === 'issued'
     ? (l.passport?.number ? '№ ' + l.passport.number : 'выпущен')
     : l.state === 'ready' ? 'можно выпускать' : missingText(l.missing);
-  return kit.row({ title: name, meta: meta || null, side: [kit.badge(label, tone)], below });
+  return kit.row({ title: name, meta: [meta, below].filter(Boolean).join(' · ') || null, side: [kit.badge(label, tone)], wrap: true });
 }
 
 function firmBlock(row, reload) {
@@ -169,7 +173,7 @@ function body(row, ctx) {
   const pick = !row.firm ? pickOf(row.orderId) : null;
 
   const seg = kit.segmented({
-    label: 'Вариант паспорта',
+    label: 'Вариант паспорта', fit: true,
     items: [{ key: 'short', label: 'Упрощённый' }, { key: 'full', label: 'Полный' }],
     value: passportVariant.value,
     onChange: async (k) => { passportVariant.value = k; try { await reload(); } catch (e) { kit.toastError(e, 'обновить план паспортов'); } },
@@ -224,9 +228,7 @@ function body(row, ctx) {
 
   const buttons = printPrimary ? [printBtn, issueBtn] : [issueBtn, printBtn];
   return h('div', null,
-    summaryRow(row),
-    firmBlock(row, reload),
-    seg.el,
+    kit.headbar(h('div', null, summaryRow(row), firmBlock(row, reload)), seg.el),
     lines, skipped,
     kit.actions(...buttons, editable ? kit.button({ label: 'Паспорт по позиции', kind: 'ghost', title: 'Выбрать позицию заказа и выпустить один паспорт', onClick: async () => { const { openPassportFunnel } = await import('./passports/funnel/open.js'); openPassportFunnel({ salesOrderId: row.orderId, orderNo: row.orderNo, customerName: row.customerName }); } }) : null,
       editable ? kit.button({ label: 'Добавить готовый паспорт', kind: 'ghost', title: 'Паспорт сделан отдельно: приложить файл PDF к этому заказу', onClick: async () => { const { openReadyPassport } = await import('./passports/funnel/open.js'); openReadyPassport({ salesOrderId: row.orderId, orderNo: row.orderNo, customerName: row.customerName }); } }) : null),

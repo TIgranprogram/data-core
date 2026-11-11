@@ -1,8 +1,8 @@
 import { api, session } from '../../../core/api.js';
 import { h } from '../../../core/dom.js';
-import { actions, button, enhanceSelect, hint, section, segmented, select, stack, toastError } from '../../../ui/kit/index.js';
+import { actions, button, clamp, enhanceSelect, field, headbar, hint, link, section, segmented, select, stack, toastError } from '../../../ui/kit/index.js';
 import { kindNorm } from '../../../core/passport-kinds.js';
-import { canEdit as canEditTexts, dictRows, passportCategoryOptions } from '../common.js';
+import { canEdit as canEditTexts, canWorkPassport, dictRows, passportCategoryOptions } from '../common.js';
 import { elementsTexts } from '../elements-block.js';
 import { passportVariant, previewPassport, VARIANT_HINT } from '../dialogs.js';
 import { loadGaps, loadTexts, putDefaults } from '../funnel/api.js';
@@ -10,7 +10,7 @@ import { savePd } from '../../products/data.js';
 import { openTechSheet } from '../../tech-sheet.js';
 import { ownTexts } from '../template-texts.js';
 import { commitPending } from './control.js';
-import { SECTIONS, imageKind, matText, typeOfLeaf } from './model.js';
+import { SECTIONS, displayName, imageKind, matText, typeOfLeaf } from './model.js';
 import { paintFields, paintSlots, placeTexts, syncChrome } from './paint.js';
 
 /**
@@ -19,8 +19,8 @@ import { paintFields, paintSlots, placeTexts, syncChrome } from './paint.js';
  * mode issue — шаги 5–6 «Нового паспорта»: заполненное одной строкой, открыто только пустое.
  *   passportFill({ prod, mode, onStatus }) → { el, reload(), missingRequired() }
  */
-export async function passportFill({ prod, mode = 'template', onStatus } = {}) {
-  const can = !!(session.canEdit && canEditTexts());
+export async function passportFill({ prod, mode = 'template', onStatus, showVariant = true } = {}) {
+  const can = !!(session.canEdit && canWorkPassport());
   const [catOpts, elRows, instRows] = await Promise.all([
     passportCategoryOptions(), dictRows('passportElements'), dictRows('passportInstall'),
   ]);
@@ -29,12 +29,12 @@ export async function passportFill({ prod, mode = 'template', onStatus } = {}) {
   for (const [id, title] of SECTIONS) {
     fieldHost[id] = h('div'); textHost[id] = h('div'); slotHost[id] = h('div'); titles[id] = title;
     const body = [fieldHost[id], textHost[id], slotHost[id]];
-    if (id === 'dims') body.unshift(hint('Рисунок — один: чертёж с габаритами. На нём можно показать сразу все виды. Отдельные места под каждый вид — в варианте «Полный».'));
+    if (id === 'dims') body.unshift(hint('В каждое место вставьте одно изображение. Для габаритов — один чертёж с размерами: виды спереди, сбоку и сверху можно объединить на одном листе. Отдельные места для видов доступны в варианте «Полный». Звёздочкой отмечены обязательные рисунки.'));
     secs[id] = section({ title, fixed: true, tone: 'info', body });
   }
   const els = elementsTexts(elRows);
   const elSec = section({ title: 'Тексты элементов', open: false, tone: 'neutral', body: els.el });
-  const strip = h('div'); const summary = h('div'); const catSuggest = h('div');
+  const strip = h('div'); const summary = h('div'); const catSuggest = h('div'); const context = h('div');
   const pending = new Map(); const editing = new Set();
   let seq = 0; let ready = false; let mute = 1; let synced = false; let fb;
 
@@ -62,7 +62,7 @@ export async function passportFill({ prod, mode = 'template', onStatus } = {}) {
   });
   if (catOpts.length > 12) enhanceSelect(catSel);
   const variant = segmented({
-    label: 'Вариант паспорта', value: passportVariant.value,
+    label: 'Вариант паспорта', value: passportVariant.value, fit: true,
     items: [{ key: 'short', label: 'Упрощённый' }, { key: 'full', label: 'Полный' }],
     onChange: (k) => { passportVariant.value = k; ctx.repaint(); },
   });
@@ -77,6 +77,23 @@ export async function passportFill({ prod, mode = 'template', onStatus } = {}) {
     const inst = fb?.install?.();
     ctx.covered = !!(inst?.leaves || []).some((l) => typeOfLeaf(l, ctx.instOpts));
     paintFields(ctx); paintSlots(ctx); syncChrome(ctx);
+    paintContext();
+  }
+
+  /** Шапка: изделие, категория и тип видны сразу (C086). Тип нужен, но неизвестен — так и сказано, без догадки. */
+  function paintContext() {
+    const cat = catOpts.find((c) => c.value === ctx.code)?.label || '';
+    const t = ctx.applicable?.type;
+    const typeText = !t?.needed ? '' : t.known ? t.label : 'не определён — уточните назначение';
+    const from = { purpose: 'по назначению', group: 'по группе каталога', facet: 'по признаку' }[t?.source] || '';
+    context.replaceChildren(
+      clamp(h('span', null, h('b', null, displayName(prod.name)), prod.sku ? h('span', { class: 'muted' }, ' · ' + prod.sku) : null), { lines: 2 }),
+      h('div', { class: 'muted small' },
+        'Категория: ', h(cat ? 'span' : 'b', null, cat || 'не выбрана'),
+        typeText ? ' · Тип: ' : null, typeText ? h(t.known ? 'span' : 'b', { title: from || null }, typeText) : null,
+        mode === 'issue' ? ' · ' : null,
+        mode === 'issue' ? link({ label: catBox.hidden ? 'изменить' : 'скрыть', title: 'Категория паспорта изделия', onClick: () => { catBox.hidden = !catBox.hidden; paintContext(); } }) : null),
+    );
   }
 
   function maybeSync() {
@@ -92,7 +109,7 @@ export async function passportFill({ prod, mode = 'template', onStatus } = {}) {
 
   fb = funnelBox({
     value: JSON.stringify(prod.passportDefaults?.textChoices || {}),
-    category: catSel.value, canEditText: can, productId: prod.id, facetFirst: true,
+    category: catSel.value, canEditText: canEditTexts(), productId: prod.id, facetFirst: true,
     load: async (cat) => ({ sections: await loadTexts(cat, prod.id) }),
     onPaint: (list) => {
       if (!fb) return;
@@ -153,6 +170,7 @@ export async function passportFill({ prod, mode = 'template', onStatus } = {}) {
     if (my !== seq) return ctx.missing;
     if (gaps.category) prod.category = gaps.category;
     ctx.missing = gaps.missing || [];
+    ctx.applicable = gaps.applicable || null; // C086: что относится к изделию — одно правило с сервером
     ctx.byKind = new Map((photos || []).map((x) => [kindNorm(x.kind), x]));
     ctx.asked = new Set(ctx.missing.filter((m) => m.kind === 'image' || String(m.key || '').startsWith('img_')).map(imageKind));
     ctx.pdm = files || [];
@@ -173,15 +191,19 @@ export async function passportFill({ prod, mode = 'template', onStatus } = {}) {
   const foot = mode === 'template' ? actions(
     button({ label: 'Предпросмотр', title: 'PDF с пометкой «ЧЕРНОВИК». Паспорт не выпускается', onClick: () => previewPassport(prod.id) }),
   ) : null;
-  // C070-П3: при выпуске категория (из группы изделия) и вариант (запомнен) — не вопросы: свёрнуты одной строкой
-  const setup = mode === 'issue'
-    ? [catSuggest, section({ title: `Категория: ${catOpts.find((c) => c.value === codeOf())?.label || 'не задана'} · вариант паспорта`, open: !codeOf(), tone: 'neutral', body: [catSel, variant.el, hint(VARIANT_HINT)] })]
-    : [hint('Категория паспорта'), catSel, catSuggest, hint('Вариант паспорта'), variant.el, hint(VARIANT_HINT)];
+  // C086: шапка — изделие, категория и тип слева, вариант компактно справа (на узкой панели переносится).
+  // При выпуске категория (из группы изделия) — не вопрос: список открывается по «изменить» или сам, если категории нет (C070-П3).
+  const catBox = h('div', null, field('Категория паспорта', catSel));
+  catBox.hidden = mode === 'issue' && !!codeOf();
+  variant.el.title = VARIANT_HINT;
+  const setup = [
+    headbar(context, showVariant ? variant.el : null),
+    catBox, catSuggest,
+  ];
   const el = stack(
     ...setup,
     strip, summary, ...SECTIONS.map(([id]) => secs[id]), own?.el, foot, fb.el,
   );
-  ctx.root = el;
   await reload();
   return {
     el, reload, missingRequired, readonly: true, dirty: () => false,

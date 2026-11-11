@@ -98,6 +98,8 @@
 | stack | блоки правой панели колонкой с одним зазором (секции «Состав», «Вложения», «В заказах»…); пустая секция — одна строка внутри, без большой плашки (ПМ-1, 2026-11-06) | `stack(...блоки)` → `div.k-stack` |
 | link | встроенная ссылка: переход (`href`) или короткое действие в тексте | `link({ label, href?, onClick?, title?, target? })` |
 | segmented | переключатель вида/режима, 2–4 пункта; `scroll: true` — длинные названия (склады), ряд прокручивается, не обрезается | `segmented({ items: [{key,label,tone?}], value, onChange(key), label, scroll? })` → `{ el, set }` |
+| headbar | шапка формы: контекст слева, режим справа (`segmented({ fit: true })`); на узкой панели режим переносится под контекст, не обрезается (C086) | `headbar(main, side?)` |
+| photoDrop: вставка | Ctrl+V получает ровно одна зона: в фокусе, иначе под мышью, иначе единственная; щелчок по зоне — фокус, файл — кнопкой «Выбрать файл» (C086) | `pasteTarget(zones, { active, hovered, hostOf })` в `ui/kit/photos.js` |
 | card S / M / L + tone | S — плитка быстрого фильтра; M — карточка списка/доски (`density: 'compact'`); L — группа-заказ; `tone` info/warn/danger/ok — полоса слева | `card({ size, tone, title, meta, badges, actions, onClick, photo, density })` |
 | actions | Ряд кнопок внизу карточки доски (кнопка шага) — клик не открывает карточку | `actions(button({ label, size: 'S' }), …)` → `.k-actions` |
 | clamp | длинный текст (позиция договора) в 2–3 строки с «…», полный в title; в таблице колонка `wrap:true` не раздвигает ширину | `clamp(text,{lines:2|3,cls})` |

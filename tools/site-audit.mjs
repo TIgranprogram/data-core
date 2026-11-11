@@ -166,6 +166,40 @@ export function fieldHeightSnapshot(doc = document) {
   return out;
 }
 
+export function formLookFindings(items = [], { wide = 480, numMax = 320 } = {}) {
+  const out = [];
+  for (const it of items) {
+    const name = String(it.name || '—').slice(0, 40);
+    if ((it.kind === 'select' || it.kind === 'seg') && !it.caption) out.push({ rule: '1', sel: it.sel, text: `${it.kind === 'seg' ? 'переключатель' : 'список'} «${name}» без видимой подписи` });
+    if (it.kind === 'seg' && (it.buttons || 0) <= 3 && it.box >= wide && it.width >= it.box * 0.9) out.push({ rule: '1', sel: it.sel, text: `переключатель «${name}» растянут на всю ширину: ${Math.round(it.width)}px` });
+    if (it.kind === 'num' && it.width > numMax) out.push({ rule: '1', sel: it.sel, text: `короткое число «${name}» шириной ${Math.round(it.width)}px` });
+  }
+  return out;
+}
+
+/** Снимок для formLookFindings в браузере: списки, переключатели и числа в формах правой панели (не фильтры и не строки таблиц). */
+export function formLookSnapshot(doc = document) {
+  const out = [];
+  const shown = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  // .k-headbar — компактный переключатель режима в шапке: подписи кнопок говорят сами, отдельная подпись не нужна
+  const skip = (el) => !!el.closest('table, .toolbar, .filters, .k-row, .chips, .k-pl-tools, .tp-panel, .mq-bar, .k-headbar');
+  const caption = (el) => {
+    const f = el.closest('.field, label');
+    if (f && [...f.children].some((c) => c !== el && !c.contains(el) && c.matches('span, .tp-label') && (c.textContent || '').trim())) return true;
+    if (el.id && doc.querySelector(`label[for="${el.id}"]`)) return true;
+    const prev = el.previousElementSibling;
+    return !!(prev && prev.matches('label, .form-sec-t, h2, h3, h4') && (prev.textContent || '').trim());
+  };
+  for (const el of doc.querySelectorAll('.drawer select, .drawer .k-seg, .drawer input[type=number]')) {
+    if (!shown(el) || skip(el)) continue;
+    const kind = el.matches('select') ? 'select' : el.matches('.k-seg') ? 'seg' : 'num';
+    const box = (el.closest('.field') || el).parentElement?.getBoundingClientRect().width || 0;
+    const name = el.getAttribute('aria-label') || el.closest('.field')?.querySelector('span')?.textContent || (kind === 'select' ? el.options?.[el.selectedIndex]?.text : el.textContent) || '';
+    out.push({ kind, sel: kind === 'select' ? '.drawer select' : kind === 'seg' ? '.drawer .k-seg' : '.drawer input[type=number]', name: String(name).trim(), caption: kind === 'num' ? true : caption(el), width: el.getBoundingClientRect().width, box, buttons: kind === 'seg' ? el.querySelectorAll('.k-seg-btn').length : 0 });
+  }
+  return out;
+}
+
 // ---------- чистые функции (проверяются в site-audit.test.mjs) ----------
 
 /** Стиль «картотека» (ДС-1, DESIGN §2.2): радиус 10, рамка 1px, тени в покое нет. card = { radius, borderTop, shadow, selected }. Выполняется и внутри браузера. */
@@ -370,6 +404,7 @@ for(const f of (${panelStructureFindings.toString()}) ((${panelStructureSnapshot
 for(const f of (${gapFindings.toString()}) ((${gapSnapshot.toString()})()))add(f.rule,f.sel,f.text);
 for(const f of (${formControlFindings.toString()}) ((${formControlSnapshot.toString()})()))add(f.rule,f.sel,f.text);
 for(const f of (${fieldHeightFindings.toString()}) ((${fieldHeightSnapshot.toString()})()))add(f.rule,f.sel,f.text);
+for(const f of (${formLookFindings.toString()}) ((${formLookSnapshot.toString()})()))add(f.rule,f.sel,f.text);
 for(const n of document.querySelectorAll('p,span,div')){if(n.children.length)continue;const t=(n.textContent||'').trim();const q=n.getBoundingClientRect();if(q.width&&/^(Проверяю|Загружаю|Читаю)[^.]{0,40}…$/.test(t))add('y',n.id?'#'+n.id:n.tagName.toLowerCase(),t)}
 for(const c of document.querySelectorAll('.db-order,.tcard,.k-card,.tile')){const R=c.getBoundingClientRect();if(!R.width)continue;for(const e of c.querySelectorAll('*')){if(e.children.length)continue;const q=e.getBoundingClientRect();if(q.width&&(q.left<R.left-2||q.right>R.right+2)){add('z','.'+String(c.className).split(' ')[0],(e.textContent||'').trim().slice(0,60)||e.tagName);break}}}
 for(const b of document.querySelectorAll('button,.tag,.chip')){const q=b.getBoundingClientRect();if(!q.width||!q.height)continue;if(!(b.innerText||'').trim()&&!b.querySelector('svg,img,.ico,[class*=icon]')&&!b.getAttribute('aria-label'))add('w',b.className?'.'+String(b.className).split(' ')[0]:b.tagName.toLowerCase(),'пустая кнопка: '+(b.title||b.outerHTML.slice(0,60)))}

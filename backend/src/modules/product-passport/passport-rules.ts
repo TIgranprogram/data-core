@@ -214,7 +214,8 @@ export function requiredImageKinds(p: { isKit?: boolean }, cat?: { requiredImage
  * нужны этому изделию (зона безопасности — только DIO, фундамент — не при анкере, дополнительные виды — только в полном).
  */
 export function imageRules(p: { isKit?: boolean }, cat: { requiredImages?: string } | null | undefined, ctx: VariantCtx): { required: string[]; slots: string[] } {
-  const required = requiredImageKinds(p, cat, ctx);
+  // Фото изделия обязательно уже в общих missingFields; тот же состав нужен check, выпуску и PDF.
+  const required = [...new Set(['overview', ...requiredImageKinds(p, cat, ctx)])];
   const slots = PASSPORT_IMAGE_KINDS.filter((k) => k !== 'safety' && (imageKindAllowed(k, ctx) || required.includes(k)));
   return { required, slots: [...slots] };
 }

@@ -1,6 +1,6 @@
 import { session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { canEdit } from './passports/common.js';
+import { canWorkPassport as canEdit } from './passports/common.js';
 import { orderPassportsButton } from './order-passport-plan.js';
 
 /**

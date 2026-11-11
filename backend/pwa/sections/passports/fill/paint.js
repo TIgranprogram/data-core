@@ -1,11 +1,11 @@
 import { PREFIX } from '../../../core/api.js';
 import { h } from '../../../core/dom.js';
-import { actions, badge, button, hint, link, row, stack } from '../../../ui/kit/index.js';
+import { actions, badge, button, fieldRow, hint, link, row, stack } from '../../../ui/kit/index.js';
 import { passportSlot } from '../../product-files.js';
 import {
   controlGap, dimsEditor, elementsEditor, installEditor, jointsEditor, kitEditor, materialsEditor, numEditor, suggestRow, weightEditor,
 } from './control.js';
-import { OPS, PLACE, boxOf, dimText, elText, gapLabel, gapSection, instText, jointsLine, kitText, matText, opText, slotKinds } from './model.js';
+import { OPS, PLACE, boxOf, dimText, elText, gapLabel, gapSection, imageKind, instText, jointsLine, kitText, matText, opText, slotKinds } from './model.js';
 
 const href = (u) => (!u ? '' : (String(u).startsWith('http') || String(u).startsWith(PREFIX) ? u : PREFIX + u));
 
@@ -20,18 +20,36 @@ function gapOf(spec, missing) {
   });
 }
 
-/** filled — строка «Подпись: значение ✎»; open — поле; skip — способ установки уже выбран текстом. Пустое открыто в обоих режимах. */
-function decide(ctx, spec, gap, text) {
+/**
+ * Состояние поля (C086): filled — строка «Подпись: значение ✎»; open — поле; later — применимо, но необязательно и пусто
+ * (при выпуске свёрнуто в «Необязательное»); foreign — сохранено, но к изделию не относится; skip — не показывать.
+ * Применимость приходит с сервера (`applicable`); её нет — категория не выбрана или сервер старый, тогда всё применимо.
+ */
+export function decide(ctx, spec, gap, text) {
+  // сервер назвал поле недостающим (обязательное по категории или подстановка в тексте изделия) — оно применимо без оговорок
+  const applies = gap ? 'required' : appliesOf(ctx.applicable, spec);
+  if (applies === 'na') return text ? 'foreign' : 'skip';
   if (spec.key === 'installationTypeId' && ctx.covered) return 'skip';
   if (spec.key === 'materials') return 'open';
   if (ctx.editing.has(spec.key)) return 'open';
   if (text && !gap) return 'filled';
+  if (!gap && applies === 'optional' && ctx.mode === 'issue' && !ctx.more) return 'later';
   return 'open';
+}
+
+/** required | optional | na — по правилам сервера: числа, элементы и «как поставляется» зависят от категории и типа. */
+export function appliesOf(applicable, spec) {
+  if (!applicable) return 'required';
+  if (spec.key === 'elements') return applicable.elements || 'required';
+  if (spec.key === 'isKit') return applicable.kit || 'optional';
+  if (spec.key === 'joints') return 'optional';
+  if (spec.num) return applicable.fields?.[spec.key] || 'na';
+  return 'required';
 }
 
 function scalars(ctx) {
   const numAt = (key, label, unit) => ({
-    key, section: key === 'maxUsers' ? 'general' : 'ops', label, ask: 'template', unit,
+    key, section: key === 'maxUsers' ? 'general' : 'ops', label, ask: 'template', unit, num: true,
     text: opText(ctx.prod, key, unit),
     editor: (gap) => numEditor(ctx, key, unit ? `${label}, ${unit}` : label, gap?.default),
   });
@@ -55,28 +73,44 @@ function filledLink(ctx, spec, text) {
 /** Поля разделов: пустое открыто, заполненное — строка. В режиме issue заполненное прячется в одну строку сверху. */
 export function paintFields(ctx) {
   ctx.filled = [];
+  ctx.later = [];
   const used = new Set();
   for (const host of Object.values(ctx.fieldHost)) host.replaceChildren();
   const showRow = ctx.mode === 'template' || ctx.reveal;
+  const nums = {}; // короткие числа раздела — одним рядом, а не колонкой на всю ширину
+  const wrap = (spec, node) => h('div', { dataset: { gap: spec.key } }, node);
   for (const spec of scalars(ctx)) {
     const gap = gapOf(spec, ctx.missing);
     if (gap) used.add(gap.key);
     const text = spec.text;
     const state = decide(ctx, spec, gap, text);
     if (state === 'skip') continue;
+    if (state === 'later') { ctx.later.push(spec.label); continue; }
     const host = ctx.fieldHost[spec.section];
-    if (state === 'filled') {
+    if (state === 'foreign') {
+      if (showRow) host.append(wrap(spec, hint(`${spec.label}: ${text} — в паспорт этой категории не входит. Значение сохранено в изделии, в паспорт не печатается.`)));
+    } else if (state === 'filled') {
       ctx.filled.push(spec.key);
-      if (showRow) host.append(h('div', { dataset: { gap: spec.key } }, filledLink(ctx, spec, text)));
-    } else host.append(h('div', { dataset: { gap: spec.key } }, spec.editor(gap)));
+      if (showRow) host.append(wrap(spec, filledLink(ctx, spec, text)));
+    } else if (spec.num) (nums[spec.section] ||= []).push(wrap(spec, spec.editor(gap)));
+    else host.append(wrap(spec, spec.editor(gap)));
   }
   for (const m of ctx.missing) {
     if (m.kind === 'image' || m.kind === 'category' || used.has(m.key)) continue;
+    // «Назначение» как обязательное поле и уточнение назначения — один вопрос, а не два
+    if (m.key === 'purpose' && ctx.missing.some((x) => x.kind === 'purpose')) continue;
+    // необязательный признак без подсказки при выпуске не спрашиваем: он в «Необязательном»
+    if (m.kind === 'facet' && !m.required && !m.suggest && ctx.mode === 'issue' && !ctx.more) { ctx.later.push(m.label || 'признак'); continue; }
     const node = controlGap(m, ctx);
-    if (node) ctx.fieldHost[gapSection(m)].append(h('div', { dataset: { gap: String(m.key) } }, node));
+    if (!node) continue;
+    const box = h('div', { dataset: { gap: String(m.key) } }, node);
+    if (m.kind === 'field' && node.classList?.contains('k-ti')) (nums[gapSection(m)] ||= []).push(box);
+    else ctx.fieldHost[gapSection(m)].append(box);
   }
+  for (const [id, list] of Object.entries(nums)) ctx.fieldHost[id].append(fieldRow(...list));
+  const elOn = appliesOf(ctx.applicable, { key: 'elements' }) !== 'na';
   const elOpen = ctx.editing.has('elements') || ctx.missing.some((m) => m.kind === 'elements' || m.key === 'elements');
-  if (ctx.mode === 'template' || ctx.reveal || elOpen) ctx.fieldHost.purpose.append(ctx.elSec);
+  if (elOn && (ctx.mode === 'template' || ctx.reveal || elOpen)) ctx.fieldHost.purpose.append(ctx.elSec);
   ctx.els.setIds(ctx.prod.passportDefaults?.elements || []);
   const catGap = ctx.missing.find((m) => m.kind === 'category');
   const suggest = catGap && suggestRow(catGap, (v) => ctx.onCategory(v), (job) => job());
@@ -130,16 +164,22 @@ function textDone(ctx) {
   return n;
 }
 
-function focusGap(ctx, m) {
-  const key = String(m.key || '');
-  const n = [...ctx.root.querySelectorAll('[data-gap]')].find((el) => el.dataset.gap === key);
-  (n || ctx.secs[gapSection(m)])?.scrollIntoView({ block: 'start' });
+export function focusGap(ctx, m) {
+  const section = ctx.secs[gapSection(m)];
+  const key = m.kind === 'image' ? 'img_' + imageKind(m) : String(m.key || '');
+  const target = [...(section?.querySelectorAll('[data-gap]') || [])]
+    .find((el) => el.dataset.gap === key && el.getClientRects().length);
+  const control = [...(target?.querySelectorAll('input:not([type="hidden"]), select, textarea, button') || [])]
+    .find((el) => !el.matches(':disabled') && el.getClientRects().length);
+  control?.focus({ preventScroll: true });
+  (target || section)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 
 /** Полоса «Готово N из M», подписи разделов и строка «Уже заполнено». */
 export function syncChrome(ctx) {
   const done = (ctx.filled?.length || 0) + textDone(ctx) + (ctx.photoFilled || 0);
-  const miss = ctx.missing.length;
+  const need = ctx.missing.filter((m) => m.required); // выпуску мешает только обязательное; уточнения и необязательное — не «не хватает»
+  const miss = need.length;
   const kitOn = ctx.prod.passportDefaults?.isKit === true;
   const asm = ctx.asked.has('assembly') || ctx.byKind.has('assembly');
   for (const [id, sec] of Object.entries(ctx.secs)) {
@@ -153,32 +193,45 @@ export function syncChrome(ctx) {
   if (!ctx.code) ctx.strip.replaceChildren(hint('Сначала выберите категорию паспорта', 'warn'));
   else if (!miss) ctx.strip.replaceChildren(badge('Паспорт можно выпускать', 'ok'));
   else {
-    const chips = ctx.missing.slice(0, 12).map((m) => button({
-      label: gapLabel(m), kind: 'ghost', title: 'Перейти к полю', onClick: () => focusGap(ctx, m),
-    }));
+    const next = link({
+      label: `Заполнить: ${gapLabel(need[0])} →`, title: 'Перейти к следующему обязательному полю',
+      onClick: () => focusGap(ctx, need[0]),
+    });
     ctx.strip.replaceChildren(stack(
-      row({ title: `Готово ${done} из ${done + miss}`, tone: 'info' }),
-      actions(...chips),
+      row({ title: `Осталось заполнить: ${miss}`, meta: `Готово ${done} из ${done + miss}`, tone: 'info' }),
+      actions(next),
     ));
   }
   const summaryN = done;
+  const lines = [];
   if (ctx.mode === 'issue' && summaryN) {
-    ctx.summary.replaceChildren(link({
+    lines.push(link({
       label: ctx.reveal ? 'Скрыть заполненное' : `Уже заполнено: ${summaryN} ✎ (раскрыть)`,
       title: 'Показать, что уже записано в изделии',
       onClick: () => { ctx.reveal = !ctx.reveal; ctx.repaint(); },
     }));
-  } else ctx.summary.replaceChildren();
+  }
+  // C086: применимое, но необязательное при выпуске не спрашивается — одна строка, раскрывается по желанию
+  if (ctx.mode === 'issue' && (ctx.later?.length || ctx.more)) {
+    lines.push(link({
+      label: ctx.more ? 'Скрыть необязательное' : `Необязательное: ${ctx.later.length} (показать)`,
+      title: ctx.more ? 'Оставить только то, без чего паспорт не выпустить' : `Можно указать, выпуску не мешает: ${ctx.later.join(', ')}`,
+      onClick: () => { ctx.more = !ctx.more; ctx.repaint(); },
+    }));
+  }
+  ctx.summary.replaceChildren(lines.length ? actions(...lines) : null);
   ctx.onStatus?.({ required: ctx.missing.filter((m) => m.required) });
 }
 
 export function placeTexts(ctx, list) {
-  const rootId = String((ctx.missing || []).find((m) => m.kind === 'purpose')?.key || '').replace(/^choice:/, '');
+  const purposeGap = (ctx.missing || []).find((m) => m.kind === 'purpose');
+  const rootId = String(purposeGap?.key || '').replace(/^choice:/, '');
   for (const host of Object.values(ctx.textHost)) host.replaceChildren();
   for (const s of list || []) {
     const node = ctx.fb.stepEl(s.id);
     if (!node) continue;
-    node.hidden = !!(rootId && String(s.id) === rootId);
+    // шаг «Назначение» прячем, только пока есть подсказка «Да, верно»; уточнение без подсказки (C086) оставляет список на месте
+    node.hidden = !!(rootId && String(s.id) === rootId && purposeGap?.suggest);
     ctx.textHost[boxOf(s)].append(node);
   }
 }

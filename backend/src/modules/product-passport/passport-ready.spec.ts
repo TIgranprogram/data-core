@@ -28,7 +28,7 @@ function mem(over: { twinNumber?: string; liveOnIncome?: boolean; noProduct?: bo
   const connection = {
     db: {
       collection: (name: string) => ({
-        findOne: async (q: { _id?: Types.ObjectId; isOurCompany?: boolean }) => {
+        findOne: async () => {
           if (name === 'products') return over.noProduct ? null : { _id: product, name: 'Стойка', article: 'A1' };
           if (name === 'organizations') return over.notOur ? null : { _id: firm, name: 'СИЮ' };
           if (name === 'salesorders') return { _id: order, orderNo: '12', customer: 'Парк' };

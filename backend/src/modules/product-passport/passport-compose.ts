@@ -57,6 +57,8 @@ export type PassportFields = Record<string, unknown>;
 export type StandardsDict = Record<string, string>;
 
 export interface ComposeOptions {
+  /** Внутренний сбор используемых полей до подстановки значений; в ответ/снимок не попадает. */
+  usedFields?: Set<string>;
   standards?: StandardsDict;
   /** Номер первого раздела (по умолчанию 1). */
   startNumber?: number;
@@ -126,13 +128,14 @@ export function evalCondition(cond: PassportCondition | undefined, passport: Pas
 
 const VAR_RE = /\{(std:[^}\s]+|[A-Za-z][A-Za-z0-9_]*)\}/g;
 
-function substitute(text: string, passport: PassportFields, standards: StandardsDict, missing: Set<string>): string {
+function substitute(text: string, passport: PassportFields, standards: StandardsDict, missing: Set<string>, usedFields?: Set<string>): string {
   return text.replace(VAR_RE, (_m, name: string) => {
     if (name.startsWith('std:')) {
       const val = standards[name.slice(4)];
       if (isEmpty(val)) { missing.add(name); return `[{${name}} не найден]`; }
       return val;
     }
+    usedFields?.add(name);
     const v = passport?.[name];
     if (isEmpty(v)) { missing.add(name); return `[{${name}} не заполнено]`; }
     return fmt(v);
@@ -198,11 +201,11 @@ export function compose(
     return {
       key: s.key,
       number: num,
-      title: substitute(title, passport, standards, missing),
+      title: substitute(title, passport, standards, missing, options.usedFields),
       items: items.map((x) => {
         const bullet = !!x.b.bullet;
         if (!bullet) n += 1;
-        return { key: x.b.key, number: bullet ? null : `${num}.${n}`, bullet, text: substitute(x.b.text, passport, standards, missing) };
+        return { key: x.b.key, number: bullet ? null : `${num}.${n}`, bullet, text: substitute(x.b.text, passport, standards, missing, options.usedFields) };
       }),
     };
   });

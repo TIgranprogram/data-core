@@ -153,6 +153,9 @@ describe('PDF паспорта v2 (БЗ-6 Э6)', () => {
     expect(on.withImg).toBe(true);
     expect(on.cols).toContain('Вид');
     expect(on.widths).toHaveLength(on.cols.length);
+    // C086: в колонке — мера при отклонении (measure), не способ проверки
+    expect(on.cols).toContain('Что сделать при отклонении');
+    expect(on.cols).not.toContain('Как проверить');
     const text: PdfV2Text = { ...TEXT, maintenance: [{ period: 'ежемесячно', rows: [{ what: 'Коррозия', where: 'Стойки', measure: 'Зачистить', tolerance: 'Нет', photoId: 'a' }, { what: 'Крепёж', where: 'Узлы', measure: '', tolerance: '' }] }] };
     const buf = await renderPassportPdfV2({ ...BASE, text, defectImages: { a: pic } });
     expect(buf.subarray(0, 5).toString()).toBe('%PDF-');

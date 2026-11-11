@@ -42,7 +42,7 @@ export function passportSlot({ productId, kind, label, rec, canEdit, required, o
         canEdit ? button({ label: '×', kind: 'ghost', size: 'S', cls: 'pp-slot-x', title: 'Убрать фото', onClick: del }) : null),
       cap,
       // 2026-11-10: было «＋ фото» — пользователь загрузил 3 фото, видел одно: в слоте один рисунок, кнопка заменяет
-      canEdit ? h('div', { class: 'pp-slot-replace', title: 'Заменить фото: в паспорт идёт один рисунок этого вида' }, passportKindDrop(productId, k, onChange, rec.id, { compact: true, idle: '⟳ Заменить' })) : null);
+      canEdit ? h('div', { class: 'pp-slot-replace', title: 'Заменить фото: в паспорт идёт один рисунок этого вида' }, passportKindDrop(productId, k, onChange, rec.id, { compact: true, idle: 'Ctrl+V или', pick: 'Заменить' })) : null);
   }
   return h('div', { class: 'pp-slot' + (required ? ' need' : '') },
     canEdit ? passportKindDrop(productId, k, onChange, null, { compact: true }) : h('div', { class: 'pp-slot-empty muted' }, 'нет'),
@@ -50,17 +50,13 @@ export function passportSlot({ productId, kind, label, rec, canEdit, required, o
 }
 
 /** Зона загрузки рисунка паспорта. compact — маленькая карточка в сетке (C055). */
-export function passportKindDrop(productId, kind, done, old, { compact = false, idle } = {}) {
-  const drop = photoDrop({ purpose: 'passport',
-    idleText: idle || (compact ? '＋ фото' : 'Перетащите рисунок сюда или вставьте Ctrl+V'),
+export function passportKindDrop(productId, kind, done, old, { compact = false, idle, pick } = {}) {
+  const drop = photoDrop({ purpose: 'passport', ...(pick ? { pickText: pick } : {}),
+    idleText: idle || (compact ? 'Ctrl+V или перетащите' : 'Перетащите рисунок сюда или вставьте Ctrl+V'),
     attach: async (photoId) => { await attachProductFile(productId, photoId, 'passport', kind, old); return true; },
     done: () => { toast(old ? 'Рисунок заменён — в паспорте один рисунок этого вида' : 'Рисунок сохранён'); done?.(); } });
-  if (compact) {
-    drop.classList.add('pp-slot-drop');
-    drop.querySelector('.btn')?.replaceWith(); // «Выбрать файл» — клик по карточке / Ctrl+V
-    drop.title = 'Перетащите сюда, вставьте Ctrl+V или нажмите, чтобы выбрать файл';
-    drop.addEventListener('click', (e) => { if (e.target.closest('input')) return; drop.querySelector('input[type=file]')?.click(); });
-  }
+  // C086: слот ведёт себя как любая зона загрузки — щелчок даёт фокус для Ctrl+V, диалог открывает кнопка
+  if (compact) drop.classList.add('pp-slot-drop');
   return drop;
 }
 

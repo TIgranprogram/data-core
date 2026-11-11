@@ -34,6 +34,19 @@ export const OPS = [
 ];
 const OPS_KEYS = new Set(OPS.map(([k]) => k));
 
+/**
+ * Название для показа (C086): лишние пробелы убраны; набранное сплошь заглавными — обычным регистром, первая буква заглавная.
+ * Смешанный регистр (артикулы, «STREET», «ГТО» внутри обычного текста) не трогаем. Данные изделия не меняются.
+ */
+export function displayName(raw) {
+  const t = String(raw ?? '').replace(/\s+/g, ' ').trim();
+  if (!t) return '';
+  const letters = t.replace(/[^A-Za-zА-Яа-яЁё]/g, '');
+  if (letters.length < 4 || letters !== letters.toUpperCase()) return t;
+  const low = t.toLowerCase();
+  return low.charAt(0).toUpperCase() + low.slice(1);
+}
+
 export const num = (v) => {
   const n = Number(String(v ?? '').replace(',', '.'));
   return Number.isFinite(n) && String(v).trim() !== '' ? n : null;
@@ -45,7 +58,7 @@ export const gapLabel = (m) => (m?.kind === 'image' || String(m?.key || '').star
 export function gapSection(m) {
   const key = String(m?.key || '');
   if (m?.kind === 'image' || key.startsWith('img_')) return PLACE[imageKind(m)] || 'other';
-  if (m?.kind === 'purpose' || m?.kind === 'elements' || key === 'elements') return 'purpose';
+  if (m?.kind === 'purpose' || m?.kind === 'elements' || key === 'elements' || key === 'purpose') return 'purpose';
   if (m?.kind === 'install' || key === 'installationTypeId' || key === 'installationMethod') return 'install';
   if (key === 'height' || key === 'weight' || key === 'weightKg') return 'dims';
   if (key === 'joints' || key === 'materials' || key === 'materialIds') return 'struct';

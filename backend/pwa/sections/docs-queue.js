@@ -6,7 +6,7 @@ import { failBlock } from '../ui/kit/busy.js';
 import { emptyState } from '../ui/kit/empty.js';
 import { toastError } from '../ui/kit/toast.js';
 import { issuePassport } from './passports.js';
-import { canEdit as canEditTexts } from './passports/common.js';
+import { canWorkPassport as canEditTexts } from './passports/common.js';
 
 import { table, tabs, button, badge, searchBox } from '../ui/kit/index.js';
 /**

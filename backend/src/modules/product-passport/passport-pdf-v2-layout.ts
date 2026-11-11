@@ -9,12 +9,12 @@ import { planNumbers } from './passport-numbering';
 /** Таблица размеров (ПЧ-4): буквы как на чертеже, объём считается из габаритов. Выпущенный без новых полей печатается как был выпущен. */
 export function specRows(p: PdfV2Input['passport']): [string, unknown][] {
   // Партия: размеры каждого изделия — в таблице «Комплектность», здесь толщина и масса партии
-  if (isBatch(p)) return [['Длина и ширина, мм', 'по таблице «Комплектность»'], ['Высота (толщина), мм', p.height], ['Вес партии, кг', p.weight]];
+  if (isBatch(p)) return [['Длина и ширина, мм', 'по таблице «Комплектность»'], ['Высота (толщина), мм', p.height], ['Масса партии, кг', p.weight]];
   const added = [p.seatWidth, p.seatHeight, p.supports, p.shipVolume].some(has);
-  if (p.status !== 'draft' && !added) return [['Высота, мм', p.height], ['Длина, мм', p.length], ['Ширина, мм', p.width], ['Вес, кг', p.weight]];
+  if (p.status !== 'draft' && !added) return [['Высота, мм', p.height], ['Длина, мм', p.length], ['Ширина, мм', p.width], ['Масса, кг', p.weight]];
   const volume = p.shipVolume ?? (p.length && p.width && p.height ? Math.round((p.length * p.width * p.height) / 1e7) / 100 : undefined);
   return [['Длина (L), мм', p.length], ['Ширина (B), мм', p.width], ['Высота (H), мм', p.height], ['Ширина посадки (Bп), мм', p.seatWidth], ['Высота посадки (Hп), мм', p.seatHeight],
-    ['Количество опор, шт', p.supports], ['Объём перевозки (V), куб. м', volume], ['Вес, кг', p.weight]];
+    ['Количество опор, шт', p.supports], ['Объём перевозки (V), куб. м', volume], ['Масса, кг', p.weight]];
 }
 
 export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: string): V2Page[] {
@@ -51,6 +51,9 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   tab.set('bom', ++tn);
   tab.set('storage', ++tn);
   tab.set('faults', ++tn);
+  // C086: тексты ссылаются на журналы ТО и ремонтов ({tab:service}, {tab:repairs}) — таблицы есть в разделе «Журналы»
+  tab.set('service', ++tn);
+  tab.set('repairs', ++tn);
 
   // Рисунки — по первой ссылке в тексте (тексты в порядке документа)
   const secTexts = sections.flatMap((s) => [s.title, ...s.items.map((i) => i.text)]);
@@ -241,15 +244,30 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   else table(`Таблица ${tab.get('bom')} — Комплектность изделия`, ['Поз.', 'Обозначение', 'Наименование', 'Кол-во', 'Ед. изм.', ...(withImg ? ['Изображение'] : [])],
     withImg ? [7, 17, 36, 9, 9, 22] : [8, 20, 50, 11, 11], bomRows);
 
-  // Журналы для заказчика (решение 2026-11-01, ПТ-2): пустые таблицы хранения и неисправностей — в обоих вариантах
+  // Журналы для заказчика (решение 2026-11-01, ПТ-2): пустые таблицы хранения и неисправностей — в обоих вариантах;
+  // C086: плюс журналы ТО и ремонтов, на которые ссылаются разделы «Обслуживание», «Ремонт», «Журналы эксплуатации»
   heading(`${journalNo} Журналы`);
   const blank = (n: number): Cell[][] => Array.from({ length: n }, () => [{ h: 16 }, { h: 16 }, { h: 16 }, { h: 16 }]);
   table(`Таблица ${tab.get('storage')} — Сведения о хранении`, ['Дата установки на хранение', 'Дата снятия с хранения', 'Условия хранения', 'Должность, ФИО, подпись ответственного лица'], [18, 18, 34, 30], blank(9));
   table(`Таблица ${tab.get('faults')} — Учёт неисправностей`, ['Дата', 'Вид неисправности', 'Принятые меры', 'Должность, ФИО, подпись ответственного лица'], [14, 30, 30, 26], blank(9));
+  table(`Таблица ${tab.get('service')} — Журнал технического обслуживания`, ['Дата', 'Вид работ (осмотр, обслуживание)', 'Результат, выполненные работы', 'Должность, ФИО, подпись ответственного лица'], [14, 30, 30, 26], blank(6));
+  table(`Таблица ${tab.get('repairs')} — Журнал ремонтов`, ['Дата', 'Вид ремонта', 'Заменённые части', 'Исполнитель: должность, ФИО, подпись'], [14, 30, 30, 26], blank(6));
 
   // Рисунки «по месту», которые не встали (ссылка только в непоказанном абзаце), и очередь — до приложений
   for (const [k, list] of figs.inline) if (!placedKinds.has(k)) { placedKinds.add(k); pending.push(...list); }
   if (pending.length) newPage();
+  // Черновик помогает заполнить рисунки: видимые рамки с назначением вместо исчезнувших приложений.
+  if (p.status === 'draft' && input.missingImages?.length) {
+    if (cur.draws.length) newPage();
+    heading('ЧЕРНОВИК — добавьте обязательные рисунки', 12, 0);
+    for (const image of input.missingImages) {
+      place(126, (d, yy) => {
+        d.save().lineWidth(1).strokeColor('#666').rect(L, yy, Wd, 110).stroke().restore();
+        d.font('gost').fontSize(12).fillColor('#000').text(image.label, L + 12, yy + 25, { width: Wd - 24, align: 'center' });
+        d.font('gost-i').fontSize(10).text('Рисунок не загружен или файл не читается.\nЗагрузите его в это поле паспорта.', L + 12, yy + 52, { width: Wd - 24, align: 'center' });
+      });
+    }
+  }
   // Приложения с рисунками
   // ряд рисунков: 1 колонка — рисунок на всю ширину; 2 колонки — сетка (4 на лист), подпись под каждым
   const figRow = (row: PlannedFig[], maxH: number, cols: number) => {

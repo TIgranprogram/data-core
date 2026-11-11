@@ -58,6 +58,8 @@ export const keyLines = (s) => String(s || '').split(/\r?\n/).map((l) => l.trim(
 export const kvLines = (s) => Object.fromEntries(String(s || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => { const [k, ...v] = l.split(/\s+[—-]\s+/); return [k.trim(), v.join(' - ').trim()]; }).filter(([k, v]) => k && v));
 export const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
 export const canEdit = () => ['admin', 'director'].includes(session.role) || session.user?.isOwner === true;
+// Работа с паспортом изделия; общие тексты и настройки по-прежнему canEdit.
+export const canWorkPassport = () => canEdit() || session.role === 'manager';
 export const num = (v) => (v === undefined || v === null || v === '' ? '' : String(v).replace('.', ','));
 export const dims = (r) => (r.height || r.length || r.width ? `${num(r.height) || '—'} × ${num(r.length) || '—'} × ${num(r.width) || '—'} мм` : '');
 // НМ: статус паспорта — черновик (без номера) / выпущен / аннулирован; старый без статуса с номером — выпущен

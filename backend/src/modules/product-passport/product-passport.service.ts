@@ -11,7 +11,7 @@ import { DEFAULT_PASSPORT_TEMPLATE, type PassportTemplateContent } from './passp
 import { CreateProductPassportDto } from './dto/create-product-passport.dto';
 import { UpdateProductPassportDto } from './dto/update-product-passport.dto';
 import { mergeProductImages, type PassportImageLike, type ProductImageRow } from './passport-product-images';
-import { INSTANCE_FIELD_KEYS, missingHint, DEFAULT_BOM, buildDescription, dayUtc, missingFieldsV2, imageRules, nextSeq, warrantyCodeFor, type CounterColl, missingKeyed } from './passport-rules';
+import { IMAGE_KIND_LABELS, INSTANCE_FIELD_KEYS, missingHint, DEFAULT_BOM, buildDescription, dayUtc, missingFieldsV2, imageRules, nextSeq, warrantyCodeFor, type CounterColl, missingKeyed } from './passport-rules';
 import { standardWarnings, standardsDict, type StandardDoc } from './passport-compose';
 import type { DictRec } from './passport-compose-parts';
 import { buildV2Text, type FunnelText } from './passport-v2-text';
@@ -26,6 +26,7 @@ import { ALL_V2, AFTER_PRINT_FIELDS, DRAFT_PREFIX, MODEL_FIELDS, NUMBER_FIELDS, 
 import { PassportBulk } from './passport-bulk';
 import { productFunnel } from './passport-funnel';
 import { productGaps } from './passport-gaps';
+import { unreadableRequiredImages } from './passport-image-files';
 import { facetPhrases, groupChain } from './passport-facet-phrases';
 import { diffPatch, followsProduct, productCategories, productPatch } from './passport-from-product';
 import { loadQueue, ourSupplierId } from './passport-queue';
@@ -509,7 +510,7 @@ export class ProductPassportService {
   }
 
   /** Текст паспорта по справочникам для `p` (без записи; выбранный способ установки кладёт в `p.installationTypeId`); нет категории — null. */
-  private async buildText(p: Doc) {
+  private async buildText(p: Doc, usedFields?: Set<string>) {
     if (!p.passportCategory) return null;
     // v2: общая часть — тексты v2 из кода (шаблон «Для всех» в базе остаётся для PDF v1); версия категории — из базы, иначе из кода
     const cat = String(p.passportCategory);
@@ -528,7 +529,7 @@ export class ProductPassportService {
     const instRoot = forest.find((r) => r.section === 'installation');
     const instLeaf = instRoot ? resolved.leaves.get(instRoot.id)?.leaf : undefined;
     if (instLeaf?.installTypeId) p.installationTypeId = new Types.ObjectId(instLeaf.installTypeId);
-    const text = buildV2Text({ passport: p, all, own, standards, dicts: { elements, materials, defects, install }, funnel: { forest, choices: p.textChoices as Record<string, string> | undefined, product } });
+    const text = buildV2Text({ passport: p, all, own, standards, usedFields, dicts: { elements, materials, defects, install }, funnel: { forest, choices: p.textChoices as Record<string, string> | undefined, product } });
     return { text, instLeaf };
   }
 
@@ -536,7 +537,7 @@ export class ProductPassportService {
    * Проверка черновика формы (ФП): чего не хватает для выпуска — те же правила, что у сохранённого паспорта
    * (категория, справочник, стандартные схемы способа установки). Ничего не пишет.
    */
-  async check(body: Record<string, unknown>) {
+  async check(body: Record<string, unknown>, usedFields?: Set<string>) {
     const numOr = (v: unknown) => (v === null || v === undefined || v === '' ? undefined : Number(String(v).replace(',', '.')));
     // изделие — единственный источник своих полей (решение 9): берём всё из него, тело дополняет и перекрывает
     const p: Doc = {};
@@ -562,9 +563,16 @@ export class ProductPassportService {
     const choices = await this.choiceMissing({ passportCategory: p.passportCategory, textChoices: parseChoices(p.textChoices), textOverrides: p.textOverrides, manualText: p.manualText });
     const noHint = (m: { label: string; key: string; hint?: string }) => ({ ...m, hint: m.hint ?? missingHint(m.key, m.label) });
     const keep = (m: { key: string; label: string }) => !(template && (INSTANCE_FIELD_KEYS.includes(m.key) || m.label === 'Дата' || m.label === 'Поставщик'));
-    const built = p.passportCategory ? await this.buildText({ ...p }).catch(() => null) : null;
+    const built = p.passportCategory ? await this.buildText({ ...p }, usedFields).catch(() => null) : null;
     const blanks = blankItems(built?.text.missing ?? []);
-    const listed = missingKeyed(full as never, cat, vopts);
+    // C086: назначение, выбранное в текстах (раздел «Назначение»), и есть назначение паспорта — не требовать его второй раз через «Элементы»
+    const purposeDone = !!String(built?.text.purpose ?? '').trim();
+    const listed = missingKeyed(full as never, cat, vopts).filter((m) => !(purposeDone && m.key === 'purpose'));
+    const broken = await unreadableRequiredImages(this.connection.db!, (full.images ?? []) as Array<{ kind?: unknown; photoId?: unknown }>, rules.required);
+    for (const kind of broken) {
+      const key = 'img_' + (kind === 'safety_zone' ? 'safety' : kind);
+      if (!listed.some((m) => m.key === key)) listed.push({ key, label: `Обязательный рисунок не читается: ${IMAGE_KIND_LABELS[kind] ?? kind}. Загрузите изображение заново` });
+    }
     const extra = blanks.filter((b) => !listed.some((m) => m.key === b.key));
     return { mode: template ? 'template' : 'instance', missing: [...listed, ...extra, ...choices, ...(built?.text.needJoints ? [JOINTS_MISSING] : [])].filter(keep).map(noHint), requiredImages: rules.required.map((k) => (k === 'safety_zone' ? 'safety' : k)), imageSlots: rules.slots };
   }
@@ -573,7 +581,17 @@ export class ProductPassportService {
   async readiness(doc: Doc): Promise<Array<{ label: string; key: string }>> {
     const [cats, inst] = await Promise.all([this.categoryRules(), this.installs()]);
     doc = { ...doc, images: await this.effectiveImages(doc) };
-    return [...missingKeyed(this.withSchemes(doc, inst) as never, cats.get(String(doc.passportCategory ?? '')) ?? null, { variant: 'short', install: installKindOf(inst.get(String(doc.installationTypeId ?? ''))) }), ...(await this.choiceMissing(doc)), ...jointsMissing(doc)];
+    const full = this.withSchemes(doc, inst);
+    const cat = cats.get(String(doc.passportCategory ?? '')) ?? null;
+    const ctx = { category: String(doc.passportCategory ?? ''), variant: 'short' as const, install: installKindOf(inst.get(String(doc.installationTypeId ?? ''))) };
+    const missing = [...missingKeyed(full as never, cat, ctx), ...(await this.choiceMissing(doc)), ...jointsMissing(doc)];
+    const required = imageRules(full, cat, ctx).required;
+    const broken = await unreadableRequiredImages(this.connection.db!, (full.images ?? []) as Array<{ kind?: unknown; photoId?: unknown }>, required);
+    for (const kind of broken) {
+      const key = 'img_' + (kind === 'safety_zone' ? 'safety' : kind);
+      if (!missing.some((m) => m.key === key)) missing.push({ key, label: `Обязательный рисунок не читается: ${IMAGE_KIND_LABELS[kind] ?? kind}. Загрузите изображение заново` });
+    }
+    return missing;
   }
 
   /** Рисунки изделия «для паспорта» (productphotos purpose:'passport'), по порядку; удалённые не берутся. */

@@ -24,7 +24,7 @@ describe('Таблица размеров паспорта (ПЧ-4)', () => {
     expect(rows({ ...base, status: 'draft', shipVolume: 1 })['Объём перевозки (V), куб. м']).toBe(1);
   });
   it('выпущенный без новых полей печатается как раньше', () => {
-    expect(Object.keys(rows({ ...base, status: 'issued' }))).toEqual(['Высота, мм', 'Длина, мм', 'Ширина, мм', 'Вес, кг']);
+    expect(Object.keys(rows({ ...base, status: 'issued' }))).toEqual(['Высота, мм', 'Длина, мм', 'Ширина, мм', 'Масса, кг']);
   });
   it('выпущенный с новыми полями — с буквами', () => {
     expect(rows({ ...base, status: 'issued', supports: 2 })['Количество опор, шт']).toBe(2);

@@ -4,7 +4,7 @@ import { toastError } from '../../ui/kit/toast.js';
 import { actions, link, button } from '../../ui/kit/index.js';
 import { go } from '../../core/router.js';
 import { rowsTable } from '../../ui/rows-table.js';
-import { BOM_COLS, BOM_EXAMPLE, bomRows, canEdit, parseBom } from './common.js';
+import { BOM_COLS, BOM_EXAMPLE, bomRows, canWorkPassport as canEdit, parseBom } from './common.js';
 import { checkBlock } from './card-blocks.js';
 import { issueAction } from './dialogs.js';
 import { jointsPick, jointsText } from './traits.js';

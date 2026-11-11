@@ -6856,7 +6856,7 @@
             "name": "status",
             "required": false,
             "in": "query",
-            "description": "draft | active | archived",
+            "description": "draft | active | archived | all; без него архив не показывается",
             "schema": {}
           },
           {
@@ -8836,97 +8836,6 @@
         ]
       }
     },
-    "/material-requests": {
-      "post": {
-        "operationId": "MaterialRequestsController_create",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateMaterialRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Заявки на новую позицию склада"
-        ]
-      },
-      "get": {
-        "operationId": "MaterialRequestsController_list",
-        "parameters": [
-          {
-            "name": "status",
-            "required": false,
-            "in": "query",
-            "description": "open (умолч.) | done | rejected | all",
-            "schema": {}
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Заявки на новую позицию склада"
-        ]
-      }
-    },
-    "/material-requests/count": {
-      "get": {
-        "operationId": "MaterialRequestsController_count",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Заявки на новую позицию склада"
-        ]
-      }
-    },
-    "/material-requests/{id}/close": {
-      "post": {
-        "operationId": "MaterialRequestsController_close",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CloseMaterialRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Заявки на новую позицию склада"
-        ]
-      }
-    },
     "/design-tasks": {
       "get": {
         "operationId": "DesignController_list",
@@ -9534,6 +9443,97 @@
         },
         "tags": [
           "Проектирование"
+        ]
+      }
+    },
+    "/material-requests": {
+      "post": {
+        "operationId": "MaterialRequestsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMaterialRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заявки на новую позицию склада"
+        ]
+      },
+      "get": {
+        "operationId": "MaterialRequestsController_list",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "open (умолч.) | done | rejected | all",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заявки на новую позицию склада"
+        ]
+      }
+    },
+    "/material-requests/count": {
+      "get": {
+        "operationId": "MaterialRequestsController_count",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заявки на новую позицию склада"
+        ]
+      }
+    },
+    "/material-requests/{id}/close": {
+      "post": {
+        "operationId": "MaterialRequestsController_close",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseMaterialRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заявки на новую позицию склада"
         ]
       }
     },
@@ -10849,7 +10849,7 @@
             "name": "customer",
             "required": false,
             "in": "query",
-            "description": "Точное название заказчика, без учёта регистра и лишних пробелов",
+            "description": "Точное название, без учёта регистра и лишних пробелов",
             "schema": {
               "type": "string"
             }
@@ -10866,7 +10866,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Последнее не отменённое КП или null"
+            "description": ""
           }
         },
         "tags": [
@@ -11065,7 +11065,6 @@
     "/offers/{id}/copies": {
       "post": {
         "operationId": "OffersController_copyMany",
-        "summary": "Несколько копий КП для разных фирм (C071); общий packId",
         "parameters": [
           {
             "name": "id",
@@ -11088,7 +11087,31 @@
         },
         "responses": {
           "201": {
-            "description": "{ packId, items[] }"
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      }
+    },
+    "/offers/pack": {
+      "post": {
+        "operationId": "OffersController_createPack",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfferPackDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
           }
         },
         "tags": [
@@ -11167,30 +11190,6 @@
         ],
         "responses": {
           "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "КП"
-        ]
-      }
-    },
-    "/offers/pack": {
-      "post": {
-        "operationId": "OffersController_createPack",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/OfferPackDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
             "description": ""
           }
         },
@@ -16094,6 +16093,44 @@
         ]
       }
     },
+    "/passports/last-numbers": {
+      "get": {
+        "operationId": "ProductPassportController_lastNumbers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/ready": {
+      "post": {
+        "operationId": "ProductPassportController_createReady",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadyPassportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
     "/passports": {
       "get": {
         "operationId": "ProductPassportController_list",
@@ -16135,6 +16172,20 @@
             "name": "productId",
             "required": false,
             "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "numberTo",
+            "required": false,
+            "in": "query",
+            "description": "C072: № паспорта до (включительно)",
+            "schema": {}
+          },
+          {
+            "name": "numberFrom",
+            "required": false,
+            "in": "query",
+            "description": "C072: № паспорта от (включительно)",
             "schema": {}
           },
           {
@@ -16313,6 +16364,13 @@
       "get": {
         "operationId": "ProductPassportController_funnel",
         "parameters": [
+          {
+            "name": "productId",
+            "required": false,
+            "in": "query",
+            "description": "Изделие: тексты, привязанные к чужим признакам и группам, не приходят",
+            "schema": {}
+          },
           {
             "name": "q",
             "required": false,
@@ -16554,6 +16612,30 @@
         ]
       }
     },
+    "/passports/product-texts": {
+      "get": {
+        "operationId": "ProductPassportController_productTexts",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": true,
+            "in": "query",
+            "description": "Изделие",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
     "/passports/preview": {
       "post": {
         "operationId": "ProductPassportController_preview",
@@ -16599,6 +16681,15 @@
                 "short",
                 "full"
               ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "supplierOrgId",
+            "required": false,
+            "in": "query",
+            "description": "Наша фирма для плана, если в заказе её нет",
+            "schema": {
               "type": "string"
             }
           }
@@ -16696,6 +16787,143 @@
             "required": false,
             "in": "query",
             "description": "1 — чёрно-белый",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/look/{companyId}": {
+      "get": {
+        "operationId": "ProductPassportController_look",
+        "parameters": [
+          {
+            "name": "companyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      },
+      "patch": {
+        "operationId": "ProductPassportController_saveLook",
+        "parameters": [
+          {
+            "name": "companyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePassportLookDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/look/{companyId}/preview": {
+      "get": {
+        "operationId": "ProductPassportController_lookPreview",
+        "parameters": [
+          {
+            "name": "companyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/look/{companyId}/{slot}": {
+      "post": {
+        "operationId": "ProductPassportController_uploadLook",
+        "parameters": [
+          {
+            "name": "companyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slot",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      },
+      "delete": {
+        "operationId": "ProductPassportController_removeLook",
+        "parameters": [
+          {
+            "name": "companyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slot",
+            "required": true,
+            "in": "path",
             "schema": {
               "type": "string"
             }
@@ -16881,6 +17109,50 @@
                 "tech",
                 "combined"
               ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/{id}/print-file": {
+      "post": {
+        "operationId": "ProductPassportController_savePrintFile",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      },
+      "delete": {
+        "operationId": "ProductPassportController_removePrintFile",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
               "type": "string"
             }
           }
@@ -17490,1217 +17762,6 @@
             "description": ""
           }
         }
-      }
-    },
-    "/api/showcase/from-passports": {
-      "get": {
-        "operationId": "ShowcaseController_passportGroups",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
-        ]
-      },
-      "post": {
-        "operationId": "ShowcaseController_fromPassports",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Продукция"
-        ]
-      }
-    },
-    "/api/passports/duplicates": {
-      "get": {
-        "operationId": "ProductPassportController_duplicates",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/queue": {
-      "get": {
-        "operationId": "ProductPassportController_queue",
-        "parameters": [
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "due",
-            "required": false,
-            "in": "query",
-            "description": "overdue | soon | all (умолч.)",
-            "schema": {}
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/next-numbers": {
-      "get": {
-        "operationId": "ProductPassportController_nextNumbers",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/next-number": {
-      "put": {
-        "operationId": "ProductPassportController_setNextNumber",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/NextPassportNumberDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/last-numbers": {
-      "get": {
-        "operationId": "ProductPassportController_lastNumbers",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/ready": {
-      "post": {
-        "operationId": "ProductPassportController_createReady",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReadyPassportDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports": {
-      "get": {
-        "operationId": "ProductPassportController_list",
-        "parameters": [
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "sort",
-            "required": false,
-            "in": "query",
-            "description": "passportNo | date | name | category | customerName | createdAt | updatedAt; «-» — по убыванию (умолч. -passportNo)",
-            "schema": {}
-          },
-          {
-            "name": "legacy",
-            "required": false,
-            "in": "query",
-            "description": "1 — только старые (перенос: source не app)",
-            "schema": {}
-          },
-          {
-            "name": "deleted",
-            "required": false,
-            "in": "query",
-            "description": "1 — корзина",
-            "schema": {}
-          },
-          {
-            "name": "productId",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "numberTo",
-            "required": false,
-            "in": "query",
-            "description": "C072: № паспорта до (включительно)",
-            "schema": {}
-          },
-          {
-            "name": "numberFrom",
-            "required": false,
-            "in": "query",
-            "description": "C072: № паспорта от (включительно)",
-            "schema": {}
-          },
-          {
-            "name": "readiness",
-            "required": false,
-            "in": "query",
-            "description": "ready | notReady | rework",
-            "schema": {}
-          },
-          {
-            "name": "orderNo",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "salesOrderId",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "incomplete",
-            "required": false,
-            "in": "query",
-            "description": "1 — не хватает данных для выдачи",
-            "schema": {}
-          },
-          {
-            "name": "noImages",
-            "required": false,
-            "in": "query",
-            "description": "1 — без картинок",
-            "schema": {}
-          },
-          {
-            "name": "customer",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "supplierOrgId",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "category",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "month",
-            "required": false,
-            "in": "query",
-            "description": "1–12, вместе с year",
-            "schema": {}
-          },
-          {
-            "name": "year",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "description": "№ паспорта, талон, номер изделия, наименование, артикул, заказчик, объект, № заказа",
-            "schema": {}
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      },
-      "post": {
-        "operationId": "ProductPassportController_create",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateProductPassportDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/by-order": {
-      "get": {
-        "operationId": "ProductPassportController_byOrder",
-        "parameters": [
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "readiness",
-            "required": false,
-            "in": "query",
-            "description": "ready | notReady | rework",
-            "schema": {}
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/facets": {
-      "get": {
-        "operationId": "ProductPassportController_facets",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/phrases": {
-      "get": {
-        "operationId": "ProductPassportController_phrases",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/funnel": {
-      "get": {
-        "operationId": "ProductPassportController_funnel",
-        "parameters": [
-          {
-            "name": "productId",
-            "required": false,
-            "in": "query",
-            "description": "Изделие: тексты, привязанные к чужим признакам и группам, не приходят",
-            "schema": {}
-          },
-          {
-            "name": "q",
-            "required": false,
-            "in": "query",
-            "description": "C028: поиск по всем изделиям (название, артикул); шаги не сужают",
-            "schema": {}
-          },
-          {
-            "name": "f",
-            "required": false,
-            "in": "query",
-            "description": "C028: id значений признаков через запятую; none:<id или код признака> — изделия без значения",
-            "schema": {}
-          },
-          {
-            "name": "group",
-            "required": false,
-            "in": "query",
-            "description": "C028: id группы изделий",
-            "schema": {}
-          },
-          {
-            "name": "category",
-            "required": false,
-            "in": "query",
-            "description": "Код категории паспорта: TRN, WRK, BLG, DIO, DSP",
-            "schema": {}
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/models": {
-      "get": {
-        "operationId": "ProductPassportController_models",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/template": {
-      "get": {
-        "operationId": "ProductPassportController_template",
-        "parameters": [
-          {
-            "name": "category",
-            "required": false,
-            "in": "query",
-            "description": "Категория блока текста; нет версии категории — «Для всех»",
-            "schema": {
-              "enum": [
-                "ALL",
-                "DIO",
-                "DSP",
-                "TRN",
-                "WRK",
-                "BLG"
-              ],
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      },
-      "put": {
-        "operationId": "ProductPassportController_saveTemplate",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/texts": {
-      "get": {
-        "operationId": "ProductPassportController_texts",
-        "parameters": [
-          {
-            "name": "category",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "enum": [
-                "DIO",
-                "DSP",
-                "TRN",
-                "WRK",
-                "BLG"
-              ],
-              "type": "string"
-            }
-          },
-          {
-            "name": "productId",
-            "required": false,
-            "in": "query",
-            "description": "C028: изделие — в phrases фразы по его признакам идут первыми (byFacet)",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      },
-      "put": {
-        "operationId": "ProductPassportController_saveTexts",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/bulk": {
-      "post": {
-        "operationId": "ProductPassportController_bulk",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/bulk/restore": {
-      "post": {
-        "operationId": "ProductPassportController_bulkRestore",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/check": {
-      "post": {
-        "operationId": "ProductPassportController_check",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/texts/preview": {
-      "post": {
-        "operationId": "ProductPassportController_textsPreview",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/zip": {
-      "get": {
-        "operationId": "ProductPassportController_zip",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/product-texts": {
-      "get": {
-        "operationId": "ProductPassportController_productTexts",
-        "parameters": [
-          {
-            "name": "productId",
-            "required": true,
-            "in": "query",
-            "description": "Изделие",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/preview": {
-      "post": {
-        "operationId": "ProductPassportController_preview",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PassportPreviewDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/order/{orderId}/plan": {
-      "get": {
-        "operationId": "ProductPassportController_orderPlan",
-        "parameters": [
-          {
-            "name": "orderId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "variant",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "enum": [
-                "short",
-                "full"
-              ],
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/order/{orderId}/issue": {
-      "post": {
-        "operationId": "ProductPassportController_orderIssue",
-        "parameters": [
-          {
-            "name": "orderId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/OrderIssueDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/order/{orderId}/pdf": {
-      "get": {
-        "operationId": "ProductPassportController_orderPdf",
-        "parameters": [
-          {
-            "name": "orderId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "variant",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "enum": [
-                "short",
-                "full"
-              ],
-              "type": "string"
-            }
-          },
-          {
-            "name": "stamp",
-            "required": false,
-            "in": "query",
-            "description": "1 — с печатью и подписью",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "mode",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "enum": [
-                "pages",
-                "print"
-              ],
-              "type": "string"
-            }
-          },
-          {
-            "name": "bw",
-            "required": false,
-            "in": "query",
-            "description": "1 — чёрно-белый",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/{id}": {
-      "get": {
-        "operationId": "ProductPassportController_findOne",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      },
-      "patch": {
-        "operationId": "ProductPassportController_update",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "newRevision",
-            "required": false,
-            "in": "query",
-            "description": "1 — новая редакция выпущенного паспорта (номер тот же, редакция +1)",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateProductPassportDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      },
-      "delete": {
-        "operationId": "ProductPassportController_remove",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/{id}/pdf": {
-      "get": {
-        "operationId": "ProductPassportController_pdf",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "stamp",
-            "required": false,
-            "in": "query",
-            "description": "1 — с печатью и подписью",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "mode",
-            "required": false,
-            "in": "query",
-            "description": "pages — A5 постранично (умолч.); print — буклет на A4; stand — лист для стенда A3 (только v2)",
-            "schema": {
-              "enum": [
-                "pages",
-                "print",
-                "stand"
-              ],
-              "type": "string"
-            }
-          },
-          {
-            "name": "bw",
-            "required": false,
-            "in": "query",
-            "description": "1 — чёрно-белый (только v2; без цвета категории)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "seal",
-            "required": false,
-            "in": "query",
-            "description": "при stamp=1: 0 — без печати (только подпись)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "sign",
-            "required": false,
-            "in": "query",
-            "description": "при stamp=1: 0 — без подписи (только печать)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "variant",
-            "required": false,
-            "in": "query",
-            "description": "short — только обязательные разделы (умолч.); full — плюс необязательные, если заполнены",
-            "schema": {
-              "enum": [
-                "short",
-                "full"
-              ],
-              "type": "string"
-            }
-          },
-          {
-            "name": "pack",
-            "required": false,
-            "in": "query",
-            "description": "passport — только паспорт (умолч., старые клиенты); tech — только техническое описание из состава; combined — паспорт, затем техописание одним PDF. Не путать с variant.",
-            "schema": {
-              "enum": [
-                "passport",
-                "tech",
-                "combined"
-              ],
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/{id}/print-file": {
-      "post": {
-        "operationId": "ProductPassportController_savePrintFile",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      },
-      "delete": {
-        "operationId": "ProductPassportController_removePrintFile",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/salesorders/{id}/passports/draft-all": {
-      "post": {
-        "operationId": "ProductPassportController_draftAll",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/{id}/snapshot-item": {
-      "patch": {
-        "operationId": "ProductPassportController_editSnapshotItem",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/{id}/snapshot-item/promote": {
-      "post": {
-        "operationId": "ProductPassportController_promoteSnapshotItem",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/{id}/snapshot": {
-      "post": {
-        "operationId": "ProductPassportController_snapshot",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/{id}/issue": {
-      "post": {
-        "operationId": "ProductPassportController_issue",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/{id}/annul": {
-      "post": {
-        "operationId": "ProductPassportController_annul",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/{id}/copy": {
-      "post": {
-        "operationId": "ProductPassportController_copy",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateProductPassportDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
-      }
-    },
-    "/api/passports/{id}/restore": {
-      "post": {
-        "operationId": "ProductPassportController_restore",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Паспорта изделий"
-        ]
       }
     }
   },
@@ -20094,6 +19155,10 @@
             "type": "string",
             "description": "Поставщик по названию (организация создаётся, если нет)"
           },
+          "supplierId": {
+            "type": "string",
+            "description": "Поставщик (organizations.id); важнее supplierName"
+          },
           "companyName": {
             "type": "string",
             "description": "Наша компания по названию"
@@ -21262,45 +20327,6 @@
           "items"
         ]
       },
-      "CreateMaterialRequestDto": {
-        "type": "object",
-        "properties": {
-          "text": {
-            "type": "string",
-            "description": "Что нужно завести (свободный текст)"
-          },
-          "qty": {
-            "type": "number",
-            "description": "Сколько нужно (необязательно)"
-          },
-          "zoneId": {
-            "type": "string",
-            "description": "Склад (stockzones); чужой склад — 403"
-          }
-        },
-        "required": [
-          "text"
-        ]
-      },
-      "CloseMaterialRequestDto": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string",
-            "enum": [
-              "done",
-              "rejected"
-            ]
-          },
-          "materialId": {
-            "type": "string",
-            "description": "Созданная позиция склада (при done)"
-          }
-        },
-        "required": [
-          "status"
-        ]
-      },
       "FromOrderDto": {
         "type": "object",
         "properties": {
@@ -21561,6 +20587,45 @@
         },
         "required": [
           "text"
+        ]
+      },
+      "CreateMaterialRequestDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Что нужно завести (свободный текст)"
+          },
+          "qty": {
+            "type": "number",
+            "description": "Сколько нужно (необязательно)"
+          },
+          "zoneId": {
+            "type": "string",
+            "description": "Склад (stockzones); чужой склад — 403"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "CloseMaterialRequestDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "done",
+              "rejected"
+            ]
+          },
+          "materialId": {
+            "type": "string",
+            "description": "Созданная позиция склада (при done)"
+          }
+        },
+        "required": [
+          "status"
         ]
       },
       "PlanPartDto": {
@@ -21840,6 +20905,10 @@
       "RouteStepDto": {
         "type": "object",
         "properties": {
+          "id": {
+            "type": "string",
+            "description": "id шага; у нового можно не указывать"
+          },
           "workTypeId": {
             "type": "string",
             "description": "Вид работ (worktypes)"
@@ -22292,26 +21361,6 @@
           "companyId"
         ]
       },
-      "OfferPackDto": {
-        "type": "object",
-        "properties": {
-          "customer": { "type": "string" },
-          "counterpartyId": { "type": "string" },
-          "title": { "type": "string" },
-          "date": { "type": "string", "description": "ГГГГ-ММ-ДД, умолч. сегодня" },
-          "validUntil": { "type": "string" },
-          "items": { "type": "array", "items": { "$ref": "#/components/schemas/OfferItemDto" } },
-          "prepaymentPercent": { "type": "number" },
-          "productionDays": { "type": "number" },
-          "deliveryDays": { "type": "number" },
-          "objectName": { "type": "string" },
-          "delivery": { "type": "string", "enum": ["included", "excluded"] },
-          "terms": { "type": "string", "description": "Пусто — стандартные тексты каждой фирмы" },
-          "notes": { "type": "string" },
-          "companies": { "type": "array", "items": { "$ref": "#/components/schemas/OfferCopyCompanyDto" }, "description": "Фирмы и наценка, % — по одному КП на фирму" }
-        },
-        "required": ["customer", "items", "companies"]
-      },
       "OfferCopyCompanyDto": {
         "type": "object",
         "properties": {
@@ -22339,6 +21388,71 @@
           }
         },
         "required": [
+          "companies"
+        ]
+      },
+      "OfferPackDto": {
+        "type": "object",
+        "properties": {
+          "customer": {
+            "type": "string"
+          },
+          "counterpartyId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "description": "ГГГГ-ММ-ДД, умолч. сегодня"
+          },
+          "validUntil": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OfferItemDto"
+            }
+          },
+          "prepaymentPercent": {
+            "type": "number"
+          },
+          "productionDays": {
+            "type": "number"
+          },
+          "deliveryDays": {
+            "type": "number"
+          },
+          "objectName": {
+            "type": "string"
+          },
+          "delivery": {
+            "type": "string",
+            "enum": [
+              "included",
+              "excluded"
+            ]
+          },
+          "terms": {
+            "type": "string",
+            "description": "Пусто — стандартные тексты каждой фирмы"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "companies": {
+            "description": "Фирмы и наценка, % — по одному КП на фирму",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OfferCopyCompanyDto"
+            }
+          }
+        },
+        "required": [
+          "customer",
+          "items",
           "companies"
         ]
       },
@@ -22901,9 +22015,10 @@
               "action",
               "background",
               "unhandled",
-              "slow"
+              "slow",
+              "garbage"
             ],
-            "description": "action — действие человека, background — фоновая загрузка, unhandled — необработанная, slow — медленный экран (message «Медленно: <раздел> <мс> мс»)"
+            "description": "action — действие человека, background — фоновая загрузка, unhandled — необработанная, slow — медленный экран (message «Медленно: <раздел> <мс> мс»), garbage — служебный мусор в тексте экрана ({…}, undefined, null)"
           },
           "status": {
             "type": "number",
@@ -23859,6 +22974,36 @@
           }
         }
       },
+      "ReadyPassportDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "description": "Изделие (обязательно)"
+          },
+          "supplierOrgId": {
+            "type": "string",
+            "description": "Наша фирма (обязательно)"
+          },
+          "salesOrderId": {
+            "type": "string",
+            "description": "Заказ"
+          },
+          "incomeId": {
+            "type": "string",
+            "description": "Позиция заказа (на неё один живой паспорт)"
+          },
+          "number": {
+            "type": "string",
+            "description": "№ паспорта из файла; нет — следующий свободный",
+            "example": "612"
+          }
+        },
+        "required": [
+          "productId",
+          "supplierOrgId"
+        ]
+      },
       "PassportPreviewDto": {
         "type": "object",
         "properties": {
@@ -23916,6 +23061,45 @@
               "full"
             ],
             "description": "вариант паспорта для проверки готовности"
+          },
+          "supplierOrgId": {
+            "type": "string",
+            "description": "Наша фирма для этого выпуска, если в заказе её ещё нет (C075). В заказ само не пишется."
+          }
+        }
+      },
+      "UpdatePassportLookDto": {
+        "type": "object",
+        "properties": {
+          "color": {
+            "type": "object",
+            "description": "#RRGGBB; пусто — чёрные линии"
+          },
+          "coverTop": {
+            "type": "object",
+            "description": "Обложка: отступ сверху, мм"
+          },
+          "coverRight": {
+            "type": "object"
+          },
+          "coverBottom": {
+            "type": "object"
+          },
+          "coverLeft": {
+            "type": "object"
+          },
+          "pageTop": {
+            "type": "object",
+            "description": "Страницы: отступ сверху, мм"
+          },
+          "pageRight": {
+            "type": "object"
+          },
+          "pageBottom": {
+            "type": "object"
+          },
+          "pageLeft": {
+            "type": "object"
           }
         }
       },
@@ -24004,36 +23188,6 @@
       "SetAttributeValueDto": {
         "type": "object",
         "properties": {}
-      },
-      "ReadyPassportDto": {
-        "type": "object",
-        "properties": {
-          "productId": {
-            "type": "string",
-            "description": "Изделие (обязательно)"
-          },
-          "supplierOrgId": {
-            "type": "string",
-            "description": "Наша фирма (обязательно)"
-          },
-          "salesOrderId": {
-            "type": "string",
-            "description": "Заказ"
-          },
-          "incomeId": {
-            "type": "string",
-            "description": "Позиция заказа (на неё один живой паспорт)"
-          },
-          "number": {
-            "type": "string",
-            "description": "№ паспорта из файла; нет — следующий свободный",
-            "example": "612"
-          }
-        },
-        "required": [
-          "productId",
-          "supplierOrgId"
-        ]
       }
     }
   }

@@ -63,6 +63,7 @@ services:
     volumes:
       - ${NIGHT_SRC}/backend/admin:/app/admin:ro
       - ${NIGHT_SRC}/backend/pwa:/app/pwa:ro
+      - uploads:/app/uploads
   proxy:
     image: alpine/socat@sha256:466c8a0383e16463fabdb7df01008292fb78d07da60224a46cb5d3142ce122ed
     container_name: ${NIGHT_PROJECT:?}-proxy
@@ -85,6 +86,8 @@ volumes:
   mongo-data:
     labels: *owner
   mongo-config:
+    labels: *owner
+  uploads:
     labels: *owner
 networks:
   default:

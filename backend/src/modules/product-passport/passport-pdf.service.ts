@@ -19,6 +19,8 @@ import { renderPassportCoverPreview, renderPassportPdfV2, renderPassportsPdfV2, 
 import { PassportLookService } from './passport-look.service';
 import { packOf, type PrintPack } from './print-pack';
 import { readPrintFile } from './passport-print-file';
+import { IMAGE_KIND_LABELS, imageRules } from './passport-rules';
+import { readPassportImage } from './passport-image-files';
 
 type Doc = Record<string, unknown>;
 type PdfOpts = { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean; variant?: PassportVariant };
@@ -44,7 +46,7 @@ export class PassportPdfService {
   private cached(key: string, make: () => Promise<Buffer | undefined>) {
     let p = this.prepared.get(key);
     if (!p) {
-      p = make();
+      p = make().then((value) => { if (!value) this.prepared.delete(key); return value; });
       this.prepared.set(key, p);
       if (this.prepared.size > 60) this.prepared.delete(this.prepared.keys().next().value!);
     }
@@ -55,15 +57,12 @@ export class PassportPdfService {
   private async file(storageUrl?: string): Promise<Buffer | undefined> {
     const path = safeUploadPath(storageUrl);
     if (!path) return undefined; // ссылка не в папку загрузок — картинку пропускаем (М1)
-    return this.cached('f:' + storageUrl, async () => {
-      try {
-        const raw = await fs.readFile(path);
-        return await sharp(raw).rotate().resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true }).flatten({ background: '#ffffff' }).jpeg({ quality: 85 }).toBuffer();
-      } catch (e) {
-        this.log.warn(`картинка ${storageUrl}: ${(e as Error).message}`);
-        return undefined;
-      }
-    });
+    try {
+      return await readPassportImage(storageUrl);
+    } catch (e) {
+      this.log.warn(`картинка ${storageUrl}: ${(e as Error).message}`);
+      return undefined;
+    }
   }
 
   /** Печать/подпись/логотип — PNG с прозрачностью (без flatten), не больше 800 px: в PDF они ~3–5 см. */
@@ -226,7 +225,7 @@ export class PassportPdfService {
   private async input(p: Doc, opts: PdfOpts) {
     // черновик/предпросмотр: рисунки изделия по видам, остальные из паспорта; выпущенный — как раньше (его images[])
     const imgs = ((await this.passports.effectiveImages(p) as unknown as Array<{ kind: string; photoId: Types.ObjectId; order?: number; caption?: string; refCode?: string }>) || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-    const photos = imgs.length ? await this.connection.collection('photos').find({ _id: { $in: imgs.map((i) => i.photoId) } }, { projection: { storageUrl: 1 } }).toArray() : [];
+    const photos = imgs.length ? await this.connection.collection('photos').find({ _id: { $in: imgs.map((i) => i.photoId) }, deletedAt: null }, { projection: { storageUrl: 1 } }).toArray() : [];
     const url = new Map(photos.map((x) => [String(x._id), x.storageUrl as string]));
     const byKind: Record<string, PdfImageV2[]> = { overview: [], dimensions: [], safety: [], mounting: [] };
     for (const i of imgs) {
@@ -238,12 +237,16 @@ export class PassportPdfService {
     // стандартные схемы узлов способа установки — по видам, где своих нет (Э9.5)
     {
       const std = standardSchemes(p as never, (await this.passports.installs()).get(String(p.installationTypeId ?? '')) ?? null);
-      const sp = std.length ? await this.connection.collection('photos').find({ _id: { $in: std.map((x) => new Types.ObjectId(x.photoId)) } }, { projection: { storageUrl: 1 } }).toArray() : [];
+      const sp = std.length ? await this.connection.collection('photos').find({ _id: { $in: std.map((x) => new Types.ObjectId(x.photoId)) }, deletedAt: null }, { projection: { storageUrl: 1 } }).toArray() : [];
       const su = new Map(sp.map((x) => [String(x._id), x.storageUrl as string]));
       for (const x of std) { const buf = await this.file(su.get(x.photoId)); if (buf) (byKind[x.kind] ||= []).push({ buf }); }
     }
     // вариант паспорта, категория и способ установки решают, какие рисунки печатать (passport-variants.ts)
-    const images = filterImagesByKind(byKind, { category: String(p.passportCategory ?? ''), install: installKindOf((await this.passports.installs()).get(String(p.installationTypeId ?? ''))), variant: variantOf(opts.variant) });
+    const ctx = { category: String(p.passportCategory ?? ''), install: installKindOf((await this.passports.installs()).get(String(p.installationTypeId ?? ''))), variant: variantOf(opts.variant) };
+    const images = filterImagesByKind(byKind, ctx);
+    const cat = (await this.passports.categoryRules()).get(ctx.category);
+    const absent = imageRules(p, cat, ctx).required.map((kind) => kind === 'safety' ? 'safety_zone' : kind).filter((kind) => !images[kind]?.length);
+    if (absent.length && p.status !== 'draft') throw new BadRequestException(`PDF не сформирован: обязательные рисунки отсутствуют или не читаются — ${absent.map((kind) => IMAGE_KIND_LABELS[kind] ?? kind).join(', ')}. Загрузите изображения заново в соответствующие поля паспорта.`);
     const { orgIn, asset } = await this.orgOf(p);
     const stamp = !!opts.stamp;
     const mode: 'pages' | 'print' = opts.mode === 'print' ? 'print' : 'pages';
@@ -268,6 +271,7 @@ export class PassportPdfService {
       org: orgIn,
       text,
       images,
+      missingImages: p.status === 'draft' ? absent.map((kind) => ({ kind, label: IMAGE_KIND_LABELS[kind] ?? kind })) : [],
       style: await this.styleOf(p),
       logo: await this.asset(asset('logo')),
       defectImages: await this.defectImages(text),

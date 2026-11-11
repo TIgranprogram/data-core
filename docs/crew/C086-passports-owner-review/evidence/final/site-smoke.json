@@ -1,0 +1,179 @@
+{
+  "width": 1280,
+  "rows": [
+    {
+      "hash": "home",
+      "opened": false,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "requests",
+      "opened": true,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "stock",
+      "opened": false,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "suppliercatalog",
+      "opened": false,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "contracts",
+      "opened": true,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "salesorders",
+      "opened": true,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "matching",
+      "opened": true,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "design",
+      "opened": true,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "work",
+      "opened": true,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "workschedule",
+      "opened": false,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "products",
+      "opened": false,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "offers",
+      "opened": true,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "docs",
+      "opened": true,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "partners",
+      "opened": true,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "money",
+      "opened": false,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "expenses",
+      "opened": true,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "payroll",
+      "opened": false,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "staff",
+      "opened": false,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "money?tab=calendar",
+      "opened": false,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "money?tab=debts",
+      "opened": true,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "money?tab=forecast",
+      "opened": false,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "docs?tab=queue",
+      "opened": true,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "docs?tab=orders",
+      "opened": false,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "docs?tab=archive",
+      "opened": true,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "movements",
+      "opened": true,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "dicts",
+      "opened": true,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "trash",
+      "opened": true,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "history",
+      "opened": true,
+      "errors": [],
+      "wide": false
+    },
+    {
+      "hash": "help",
+      "opened": true,
+      "errors": [],
+      "wide": false
+    }
+  ]
+}

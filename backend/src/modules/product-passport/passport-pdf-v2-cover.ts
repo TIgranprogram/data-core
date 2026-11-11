@@ -84,7 +84,7 @@ export function cover(input: PdfV2Input): V2Page {
     const nameFs = coverNameFontSize(p.name ?? '', (t, fs) => { d.font('gost-i').fontSize(fs); return d.heightOfString(t, { width: cw - 20, align: 'center' }); });
     d.font('gost-i').fontSize(nameFs).text(p.name ?? '', l + 10, d.y + 8, { width: cw - 20, align: 'center' });
     yy = d.y + 6;
-    if (p.productCode) { d.font('gost-i').fontSize(10).fillColor('#000').text(`Артикул: ${p.productCode}`, l, yy, { width: cw, align: 'center' }); yy = d.y + 6; }
+    if (p.productCode) { d.font('gost-i').fontSize(10).fillColor('#000').text(`Номер изделия: ${p.productCode}`, l, yy, { width: cw, align: 'center' }); yy = d.y + 6; }
     const cat = style?.categoryName || p.passportCategory || '';
     const age = has(p.ageFrom) ? `${num(p.ageFrom)}+` : '';
     if (cat || age) {

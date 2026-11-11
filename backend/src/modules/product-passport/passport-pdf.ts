@@ -69,7 +69,8 @@ export function afterPrintLines(p: PdfPassport): Array<{ label: string; text: st
   return [
     row('Дата продажи:', p.saleDate ? fullDateLine(p.saleDate) : '', saleDateLine(p.date)),
     row('Покупатель:', v(p.customerName), '______________________________________'),
-    row('№ договора:', v(p.orderNo), '____________________'),
+    // C086: orderNo — номер заказа; если в нём уже «Договор № …», печатаем как есть, без чужой подписи
+    /договор/i.test(v(p.orderNo)) ? row('Основание:', v(p.orderNo), '') : row('№ заказа:', v(p.orderNo), '____________________'),
     row('Адрес установки:', v(p.objectName), '__________________________________'),
     row('Монтаж выполнил:', v(p.installedBy), '__________________________________'),
     row('Дата монтажа:', p.installedAt ? fullDateLine(p.installedAt) : '', '«____» ________________ 20____ г.'),

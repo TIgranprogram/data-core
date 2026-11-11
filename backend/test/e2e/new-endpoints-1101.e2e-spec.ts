@@ -1,6 +1,9 @@
 import request from 'supertest';
 import type { INestApplication } from '@nestjs/common';
 import { Types } from 'mongoose';
+import { promises as fs } from 'fs';
+import path from 'path';
+import sharp from 'sharp';
 import { createTestApp, type TestContext } from '../setup/test-db';
 import { authHeader, loginAsAdmin, type AuthTokens } from '../setup/admin.fixture';
 
@@ -19,11 +22,15 @@ describe('Новые эндпоинты 2026-11-01', () => {
   const bin = (res: NodeJS.ReadableStream, cb: (e: Error | null, b: Buffer) => void) => { const b: Buffer[] = []; res.on('data', (c: Buffer) => b.push(c)); res.on('end', () => cb(null, Buffer.concat(b))); };
   const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
   let orgId = '', instId = '', matId = '';
+  const imageName = `e2e-endpoints-${new Types.ObjectId()}.png`;
+  const imagePath = path.resolve('uploads', imageName);
 
   beforeAll(async () => {
     ctx = await createTestApp();
     app = ctx.app;
     admin = await loginAsAdmin(app);
+    await fs.mkdir(path.dirname(imagePath), { recursive: true });
+    await sharp({ create: { width: 4, height: 4, channels: 3, background: '#ffffff' } }).png().toFile(imagePath);
     for (const c of ['productpassports', 'products', 'productphotos', 'photos', 'dict_values', 'salesorders', 'incomes', 'counters', 'commercialoffers']) await db().collection(c).deleteMany({});
     await db().collection('dict_values').insertMany([
       { dict: 'passportCategories', code: 'BLG', name: 'Благоустройство', deletedAt: null },
@@ -35,7 +42,7 @@ describe('Новые эндпоинты 2026-11-01', () => {
     for (const c of ['MINTRUD_883N', 'SP_70', 'GOST_15150', 'GOST_9_014', 'GOST_26653', 'GOST_12_3_009', 'SP_325']) await dv.insertOne({ dict: 'passportStandards', code: c, name: c, status: 'действует', checkedAt: new Date().toISOString().slice(0, 10), deletedAt: null });
     orgId = (await http().post('/api/partners').set(A()).send({ kind: 'our', name: 'ООО «СпортИнЮг» НЭ', inn: '2310181417', kpp: '231201001', phone: '8 (918) 633-91-91', email: 'sportin-yug@mail.ru', trademark: 'STREET IRON', directorName: 'Тен А.Т.' }).expect(201)).body.id;
   });
-  afterAll(async () => { await ctx?.cleanup(); });
+  afterAll(async () => { await ctx?.cleanup(); await fs.unlink(imagePath).catch(() => undefined); });
 
   const mkUser = async (role: string, tag: string) => {
     const username = `ne-${tag}-${Date.now()}`;
@@ -47,12 +54,12 @@ describe('Новые эндпоинты 2026-11-01', () => {
     String((await db().collection('products').insertOne({ name, sku: `NE-${new Types.ObjectId()}`, deletedAt: null, weightKg: 12.5, dimensions: { length: 400, width: 400, height: 800 }, purpose: 'Для сбора мусора', installation: 'На ровное основание',
       passportDefaults: { passportCategory: 'BLG', materialIds: [matId], installationTypeId: instId, joints: ['solid'], serviceLifeYears: 10, warrantyMonths: 12 }, ...over })).insertedId);
   const addImg = async (productId: string, kind = 'overview') => {
-    const ph = (await db().collection('photos').insertOne({ storageUrl: '/uploads/ne.png', originalFilename: 'ne.png', mimeType: 'image/png' })).insertedId;
+    const ph = (await db().collection('photos').insertOne({ storageUrl: `/uploads/${imageName}`, originalFilename: imageName, mimeType: 'image/png', deletedAt: null })).insertedId;
     await db().collection('productphotos').insertOne({ productId: new Types.ObjectId(productId), photoId: ph, purpose: 'passport', kind, sortOrder: 0, deletedAt: null, createdAt: new Date() });
   };
 
   describe('1. preview и check (шаблон)', () => {
-    it('POST /passports/preview: PDF без записи в базу; short и full; без категории — 400; менеджеру — 403', async () => {
+    it('POST /passports/preview: PDF без записи в базу; short и full; без категории — 400; менеджеру доступен, пользователю — 403', async () => {
       const pid = await mkProduct('Урна предпросмотр');
       await addImg(pid);
       const before = await db().collection('productpassports').countDocuments({});
@@ -67,7 +74,11 @@ describe('Новые эндпоинты 2026-11-01', () => {
       await http().post('/api/passports/preview').set(A()).send({ productId: nocat }).expect(400);
       await http().post('/api/passports/preview').set(A()).send({ productId: pid, variant: 'huge' }).expect(400);
       await http().post('/api/passports/preview').set(A()).send({}).expect(400);
-      await http().post('/api/passports/preview').set(as(await mkUser('manager', 'pv'))).send({ productId: pid }).expect(403);
+      const preview = await http().post('/api/passports/preview').set(as(await mkUser('manager', 'pv'))).send({ productId: pid }).buffer(true).parse(bin as never).expect(201);
+      expect(preview.headers['content-type']).toContain('application/pdf');
+      expect((preview.body as Buffer).subarray(0, 5).toString()).toBe('%PDF-');
+      expect(await db().collection('productpassports').countDocuments({})).toBe(before);
+      await http().post('/api/passports/preview').set(as(await mkUser('user', 'pv-denied'))).send({ productId: pid }).expect(403);
     });
 
     it('POST /passports/check с productId: mode template — поля экземпляра не требуются, «Способ установки» один раз', async () => {
@@ -110,7 +121,10 @@ describe('Новые эндпоинты 2026-11-01', () => {
       expect(by(noCatLine).missing).toEqual(expect.arrayContaining(['Категория']));
       expect((await http().get(`/api/passports/order/${orderId}/plan`).query({ variant: 'full' }).set(A()).expect(200)).body.total).toBe(4);
       await http().get(`/api/passports/order/${new Types.ObjectId()}/plan`).set(A()).expect(404);
-      await http().get(`/api/passports/order/${orderId}/plan`).set(as(await mkUser('manager', 'pnz'))).expect(403);
+      const managerPlan = (await http().get(`/api/passports/order/${orderId}/plan`).set(as(await mkUser('manager', 'pnz'))).expect(200)).body;
+      expect(managerPlan).toMatchObject({ orderId, total: 4, ready: 2, blocked: 2, issued: 0 });
+      expect(managerPlan.lines.find((line: { incomeId: string }) => line.incomeId === okLine)).toMatchObject({ state: 'ready', missing: [], qty: 2 });
+      await http().get(`/api/passports/order/${orderId}/plan`).set(as(await mkUser('user', 'pnz-denied'))).expect(403);
     });
 
     it('pdf до выпуска — 400', async () => {

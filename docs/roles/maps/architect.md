@@ -1,6 +1,7 @@
 # Карта роли architect
 
-коммит: 66ff0b61
+коммит: 205808f9 (12.11.2026: только исправления C086 в main + незакоммиченный diff; общий хвост architect не закрыт)
+C086: прежние 3 находки закрыты: compose.ts:138 → gaps.ts:175 сохраняют применимость заполненных чисел; gaps.ts:103,106 проверяет сохранённое назначение; order.ts:96,98 — два пакета групп (ещё нужен deletedAt:null). PDF отдельного прохода не проверен. Отчёт: docs/crew/C086-passports-owner-review/ARCH-REVIEW.md.
 C022 волна B (2026-11-04): открытие «Склада» несколько раз бьёт GET /stock/items?limit=10000 и /stock/categories; 325 с в SlowScreen — таймер плиток, не один запрос. Кэш клиента гасит data-changed (stock-list.js:41, stock.js:24, :98). Серверный stock.items сбрасывает запись CRM в materials/storageitems/supplyrequests/categories/warehouses. Отчёт: docs/crew/C022-stock-order/ARCHITECT.md.
 аудит C013: без коммита кода, HEAD на чтении 23ff7ff7 (2026-11-03).
 

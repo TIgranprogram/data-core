@@ -28,7 +28,7 @@ export function assertOwned(run, snapshot, { fresh = false, capture = false } = 
   assertRun(run);
   if (!snapshot || !['containers', 'volumes', 'networks'].every((k) => Array.isArray(snapshot[k]))) fail('не удалось прочитать Docker inventory');
   if (fresh && Object.values(snapshot).some((rows) => rows.length)) fail('project уже существует; ничего не пересоздаю');
-  const volumeNames = [`${run.project}_mongo-data`, `${run.project}_secrets`, `${run.project}_mongo-config`];
+  const volumeNames = [`${run.project}_mongo-data`, `${run.project}_secrets`, `${run.project}_mongo-config`, `${run.project}_uploads`];
   for (const v of snapshot.volumes) if (!volumeNames.includes(v.name) || !own(v, run)) fail('чужой или неизвестный volume');
   for (const n of snapshot.networks) if (!own(n, run) || !((n.name === `${run.project}_default` && n.internal === true) || (n.name === `${run.project}_access` && n.internal === false))) fail('чужая или неверно изолированная сеть');
   for (const c of snapshot.containers) {
@@ -40,6 +40,8 @@ export function assertOwned(run, snapshot, { fresh = false, capture = false } = 
       for (const [key, port] of [['27017/tcp', run.mongoPort], ['3000/tcp', run.apiPort]]) { const bindings = c.ports?.[key]; if (!Array.isArray(bindings) || bindings.length !== 1 || bindings[0].HostIp !== '127.0.0.1' || bindings[0].HostPort !== String(port)) fail('порты шлюза не совпадают с loopback-паспортом'); }
     } else if (Object.keys(c.ports || {}).length) fail('Mongo/backend не должны публиковать порт напрямую');
     for (const m of c.mounts || []) {
+      if (m.name === `${run.project}_uploads` && (c.service !== 'backend' || m.destination !== '/app/uploads')) fail('uploads подключён не к backend');
+      if (c.service === 'backend' && (m.destination === '/app/uploads' || m.destination?.startsWith('/app/uploads/')) && (m.type !== 'volume' || m.name !== `${run.project}_uploads` || m.destination !== '/app/uploads')) fail('чужое хранилище uploads');
       if (m.type === 'volume' && (!volumeNames.includes(m.name) || !snapshot.volumes.some((v) => v.name === m.name))) fail('container подключён к чужому volume');
       if (c.service === 'mongo' && m.type !== 'volume') fail('Mongo использует неизвестные данные');
     }
