@@ -132,9 +132,9 @@ function readinessBlock(r, after) {
     };
     const btn = can ? button({ label: 'Отметить: готов к отгрузке', kind: bad.length ? 'ghost' : 'primary', cls: bad.length ? '' : 'btn-warm', onClick: (e) => mark(e.currentTarget) }) : null;
     box.replaceChildren(section({ title: 'Готовность к отгрузке', tone: 'main', open: true, cls: 'rdy', body: [
-      ...checks.map((c) => kitRow({ tone: c.ok ? 'ok' : 'neutral',
-        title: (c.ok ? '✓ ' : '○ ') + c.label,
-        below: [!c.ok && c.hint ? h('span', { class: 'muted small' }, ' — ' + c.hint) : null,
+      ...checks.map((c) => kitRow({ tone: c.ok && c.state !== 'unknown' ? 'ok' : 'neutral',
+        title: (c.state === 'unknown' ? '? ' : c.ok ? '✓ ' : '○ ') + c.label,
+        below: [(!c.ok || c.state === 'unknown') && c.hint ? h('span', { class: 'muted small' }, ' — ' + c.hint) : null,
           !c.ok && c.href ? h('a', { href: c.href.startsWith('#') ? c.href : '#' + c.href.replace(/^\//, ''), class: 'small' }, ' Открыть') : null] })), btn] }));
   };
   const load = () => api(`/production-orders/${encodeURIComponent(r.key)}/readiness`).then(paint)

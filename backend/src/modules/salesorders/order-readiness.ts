@@ -7,11 +7,12 @@ type ObjectId = Types.ObjectId;
  * Готовность заказа к отгрузке — подсказка менеджеру, этап сам не меняется (решение 2026-10-28).
  * Считается из того, что уже есть: задачи проектирования, заявки снабжения, брони склада, позиции.
  */
-export interface ReadinessFacts { lines: number; openDesign: number; openRequests: number; activeReservations: number; workTotal: number; openWork: number }
-export interface ReadinessCheck { key: string; label: string; ok: boolean; hint: string; href: string }
+export interface ReadinessFacts { lines: number; openDesign: number; openRequests: number; activeReservations: number; issued: number; workTotal: number; openWork: number }
+/** `state` — подробнее, чем `ok`: 'unknown' = проверить нечем (C068-1: броней и выдач по заказу не было — пункт не зелёный, но и не мешает). */
+export interface ReadinessCheck { key: string; label: string; ok: boolean; hint: string; href: string; state?: 'ok' | 'wait' | 'unknown' }
 export interface Readiness { ready: boolean; checks: ReadinessCheck[] }
 
-export const EMPTY_FACTS: ReadinessFacts = { lines: 0, openDesign: 0, openRequests: 0, activeReservations: 0, workTotal: 0, openWork: 0 };
+export const EMPTY_FACTS: ReadinessFacts = { lines: 0, openDesign: 0, openRequests: 0, activeReservations: 0, issued: 0, workTotal: 0, openWork: 0 };
 
 const left = (n: number, one: string, many: string) => `${n} ${n % 10 === 1 && n % 100 !== 11 ? one : many}`;
 
@@ -21,7 +22,9 @@ export function readinessChecks(f: ReadinessFacts, key: string, firstId: string)
     { key: 'lines', label: 'В заказе есть позиции', ok: f.lines > 0, hint: f.lines > 0 ? '' : 'Добавьте позиции в договор', href: `#salesorders?open=${firstId}` },
     { key: 'design', label: 'Проектирование завершено', ok: f.openDesign === 0, hint: f.openDesign ? `Не закончено: ${left(f.openDesign, 'задача', 'задач')}` : '', href: `#design?q=${encodeURIComponent(key)}` },
     { key: 'requests', label: 'Все заявки получены', ok: f.openRequests === 0, hint: f.openRequests ? `Ждём: ${left(f.openRequests, 'заявка', 'заявок')}` : '', href: `#requests?q=${encodeURIComponent(key)}` },
-    { key: 'issued', label: 'Материалы со склада выданы', ok: f.activeReservations === 0, hint: f.activeReservations ? `Не выдано: ${left(f.activeReservations, 'бронь', 'броней')}` : '', href: `#salesorders?open=${firstId}` },
+    f.activeReservations === 0 && f.issued === 0
+      ? { key: 'issued', label: 'Материалы со склада: не бронировались и не выдавались', ok: true, state: 'unknown', hint: 'Проверьте, нужны ли материалы со склада под этот заказ', href: `#salesorders?open=${firstId}` }
+      : { key: 'issued', label: 'Материалы со склада выданы', ok: f.activeReservations === 0, hint: f.activeReservations ? `Не выдано: ${left(f.activeReservations, 'бронь', 'броней')}` : '', href: `#salesorders?open=${firstId}` },
   ];
   // «Изготовлено»: только если по заказу запускались задания «В работе»; нет заданий — пункта нет
   if (f.workTotal > 0) checks.splice(2, 0, { key: 'made', label: 'Изделия изготовлены', ok: f.openWork === 0, hint: f.openWork ? `Ещё в работе: ${left(f.openWork, 'задание', 'заданий')}` : '', href: `#work?q=${encodeURIComponent(key)}` });
@@ -32,7 +35,7 @@ export function readinessChecks(f: ReadinessFacts, key: string, firstId: string)
 export const readinessWarnings = (r: Readiness): string[] => r.checks.filter((c) => !c.ok).map((c) => (c.hint ? `${c.label}: ${c.hint}` : c.label));
 
 /**
- * Факты по группам договоров одним проходом (6 агрегаций на любое число заказов, без N+1).
+ * Факты по группам договоров одним проходом (8 агрегаций на любое число заказов, без N+1).
  * `groups`: ключ заказа → id его действующих (не отменённых) договоров.
  */
 export async function loadReadinessFacts(db: Db, groups: Map<string, ObjectId[]>): Promise<Map<string, ReadinessFacts>> {
@@ -52,6 +55,9 @@ export async function loadReadinessFacts(db: Db, groups: Map<string, ObjectId[]>
     count('worktasks', 'orderId', { status: { $in: ['waiting', 'work'] } }, 'openWork'),
     count('supplyrequests', 'salesOrderId', { status: { $nin: ['received', 'cancelled'] } }, 'openRequests'),
     count('reservations', 'salesOrderId', { status: 'active' }, 'activeReservations'),
+    // «выдано»: исполненные брони и расход со склада под заказ (C068-1)
+    count('reservations', 'salesOrderId', { status: 'fulfilled' }, 'issued'),
+    count('stockmovements', 'salesOrderId', { type: 'out' }, 'issued'),
   ]);
   return out;
 }

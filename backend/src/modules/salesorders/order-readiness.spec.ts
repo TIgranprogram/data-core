@@ -1,7 +1,7 @@
 import { EMPTY_FACTS, loadReadinessFacts, readinessChecks, readinessWarnings } from './order-readiness';
 
 describe('готовность заказа', () => {
-  const ok = { lines: 3, openDesign: 0, openRequests: 0, activeReservations: 0, workTotal: 0, openWork: 0 };
+  const ok = { lines: 3, openDesign: 0, openRequests: 0, activeReservations: 0, issued: 2, workTotal: 0, openWork: 0 };
 
   it('все пункты выполнены — ready', () => {
     const r = readinessChecks(ok, '21-26', 'abc');
@@ -25,6 +25,14 @@ describe('готовность заказа', () => {
     expect(readinessChecks({ ...ok, workTotal: 2 }, 'k', 'id').ready).toBe(true);
   });
 
+  it('C068-1: броней и выдач не было — пункт «не проверено», не зелёный, готовности не мешает', () => {
+    const r = readinessChecks({ ...ok, issued: 0 }, 'k', 'id');
+    expect(r.checks.find((x) => x.key === 'issued')).toMatchObject({ ok: true, state: 'unknown', label: 'Материалы со склада: не бронировались и не выдавались' });
+    expect(r.ready).toBe(true);
+    expect(readinessChecks(ok, 'k', 'id').checks.find((x) => x.key === 'issued')!.state).toBeUndefined();
+    expect(readinessChecks({ ...ok, issued: 0, activeReservations: 1 }, 'k', 'id').checks.find((x) => x.key === 'issued')).toMatchObject({ ok: false, hint: 'Не выдано: 1 бронь' });
+  });
+
   it('без позиций — не готов', () => {
     expect(readinessChecks(EMPTY_FACTS, 'k', 'id').ready).toBe(false);
   });
@@ -34,8 +42,8 @@ describe('готовность заказа', () => {
     const calls: string[] = [];
     const db = { collection: (c: string) => ({ aggregate: () => ({ toArray: async () => { calls.push(c); return c === 'designtasks' ? [{ _id: 'b', n: 2 }] : c === 'incomes' ? [{ _id: 'a', n: 1 }, { _id: 'b', n: 4 }] : []; } }) }) };
     const f = await loadReadinessFacts(db as never, new Map([['K1', [ids[0]]], ['K2', [ids[1]]]]));
-    expect(calls.sort()).toEqual(['designtasks', 'incomes', 'reservations', 'supplyrequests', 'worktasks', 'worktasks']);
-    expect(f.get('K1')).toEqual({ lines: 1, openDesign: 0, openRequests: 0, activeReservations: 0, workTotal: 0, openWork: 0 });
-    expect(f.get('K2')).toEqual({ lines: 4, openDesign: 2, openRequests: 0, activeReservations: 0, workTotal: 0, openWork: 0 });
+    expect(calls.sort()).toEqual(['designtasks', 'incomes', 'reservations', 'reservations', 'stockmovements', 'supplyrequests', 'worktasks', 'worktasks']);
+    expect(f.get('K1')).toEqual({ lines: 1, openDesign: 0, openRequests: 0, activeReservations: 0, issued: 0, workTotal: 0, openWork: 0 });
+    expect(f.get('K2')).toEqual({ lines: 4, openDesign: 2, openRequests: 0, activeReservations: 0, issued: 0, workTotal: 0, openWork: 0 });
   });
 });
