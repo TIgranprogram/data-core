@@ -1,4 +1,7 @@
 # Карта роли backend
+## Деньги «По статьям» C084 этап 1 (2026-11-11, не закоммичено)
+- `finance/by-articles.ts` buildByArticles (`incomeRows`, `:self`, листья у всех подстатей) и `opsOfCell` (+`counterparty`/`doc`); `cashflow.ts` buildSummary `expensesByArticle`; `finance/invoice-lines.ts` adjustedLines (оплаченный счёт с корректировками), подключён в `finance.service.ts` ops(). Отчёт `docs/crew/C084-money-director/backend.md`. openapi правлен вручную. коммит: —
+
 ## Паспорт: фирма, файл, замок позиции C062 (2026-11-11, не закоммичено)
 - Фирма = `supplierOrgId`. `passport-bind.ts:15` bindDraft, `:30` assertOneLive; `passport-queue.ts:116` ourSupplierId (ровно одна фирма). Замок: `product-passport.service.ts:228` create, `:339` смена incomeId, `:395` restore; `passport-issue.ts:34` и `:45` (в транзакции до номера). Индекса unique нет. Файл: `product-passport.schema.ts:250` printFile; `passport-print-file.ts:22` presentPrint, `:29` readPrintFile, `:51` storePrintPdf; `product-passport.controller.ts:310` POST и `:319` DELETE `/passports/:id/print-file`; `passport-pdf.service.ts:88` pdf отдаёт файл при pack=passport. Список: `passport-queries.ts:128` attachBind. Вкладка изделия: `showcase.service.ts:281` passports (`productCode`, `supplier`, `printSource`). Юниты: `passport-bind.spec.ts`, `passport-print-file.spec.ts`. e2e и openapi не трогались. Отчёт `docs/crew/C062-passport-bind-audit/REPORT-backend.md`. коммит: —
 

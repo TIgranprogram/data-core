@@ -11805,6 +11805,20 @@
             "schema": {}
           },
           {
+            "name": "doc",
+            "required": false,
+            "in": "query",
+            "description": "Точный документ (для доходов — «заказ 123»); «Без заказа» — пустой",
+            "schema": {}
+          },
+          {
+            "name": "counterparty",
+            "required": false,
+            "in": "query",
+            "description": "Точное имя контрагента/заказчика; «Контрагент не указан» / «Заказчик не указан» — пустое",
+            "schema": {}
+          },
+          {
             "name": "month",
             "required": false,
             "in": "query",
@@ -11815,7 +11829,7 @@
             "name": "articleId",
             "required": true,
             "in": "query",
-            "description": "id подстатьи / статьи | none | income | expense | unallocated",
+            "description": "id подстатьи / статьи | <id статьи>:self («Без подстатьи») | none | income | expense | unallocated",
             "schema": {}
           }
         ],

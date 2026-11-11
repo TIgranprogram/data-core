@@ -1,5 +1,5 @@
 import type { ArticleNode } from '../expense-articles/articles-tree';
-import { buildByArticles, opsOfCell, NO_COUNTERPARTY, type ByArticlesOpts } from './by-articles';
+import { buildByArticles, opsOfCell, NO_COUNTERPARTY, NO_CUSTOMER, NO_ORDER, type ByArticlesOpts } from './by-articles';
 import type { Op } from './cashflow';
 
 const tree: ArticleNode[] = [
@@ -63,10 +63,12 @@ describe('buildByArticles', () => {
     expect(t.result.ratio[5]).toBeNull();
   });
 
-  it('третий уровень — подрядчики, только у «Субподрядных работ»', () => {
+  it('третий уровень — контрагенты, если их несколько или единственный назван', () => {
     const sub = t.rows[1].children[0];
     expect(sub.children!.map((l) => [l.name, l.total])).toEqual([['ООО Монтаж', 70], [NO_COUNTERPARTY, 30]]);
-    expect(t.rows[0].children[0].children).toBeUndefined();
+    expect(t.rows[0].children[0].children).toBeUndefined(); // единственный «не указан» — уровня нет
+    const named = buildByArticles([op({ date: '2026-01-10', amount: 10, articleId: 'S1', counterparty: 'Сталь-Опт' })], tree, 2026, TODAY, company);
+    expect(named.rows[0].children[0].children!.map((l) => l.name)).toEqual(['Сталь-Опт']);
   });
 
   it('будущие месяцы и чужой год — нули', () => {
@@ -76,6 +78,51 @@ describe('buildByArticles', () => {
   it('нет двойного учёта: одна операция — одна строка (заявка и строка снимка приходят одной операцией)', () => {
     const once = buildByArticles([op({ date: '2026-02-01', amount: 100, articleId: 'S1', source: 'invoice', id: 'r1' })], tree, 2026, TODAY, company);
     expect(once.head.totals.expense).toBe(100);
+  });
+});
+
+describe('buildByArticles: доходы по заказчикам и «Без подстатьи» (C084)', () => {
+  const ops = [
+    op({ type: 'income', date: '2026-01-10', amount: 300, counterparty: 'ООО Заказчик', doc: 'заказ 1' }),
+    op({ type: 'income', date: '2026-02-10', amount: 200, counterparty: 'ООО Заказчик', doc: 'заказ 2' }),
+    op({ type: 'income', date: '2026-02-11', amount: 100, counterparty: 'ООО Заказчик' }),
+    op({ type: 'income', date: '2026-03-10', amount: 900, counterparty: 'ИП Иванов', doc: 'заказ 3' }),
+    op({ type: 'income', date: '2026-03-11', amount: 50 }),
+    op({ date: '2026-01-05', amount: 40, articleId: 'T1' }), // расход прямо на статью верхнего уровня
+    op({ date: '2026-01-06', amount: 60, articleId: 'S1' }),
+  ];
+  const t = buildByArticles(ops, tree, 2026, TODAY, company);
+
+  it('incomeRows: заказчик → заказы, по убыванию, доли от всех доходов', () => {
+    expect(t.incomeRows.map((r) => [r.id, r.name, r.total, r.pct])).toEqual([
+      ['cp:ИП Иванов', 'ИП Иванов', 900, 58.1], ['cp:ООО Заказчик', 'ООО Заказчик', 600, 38.7], ['cp:' + NO_CUSTOMER, NO_CUSTOMER, 50, 3.2],
+    ]);
+    const c = t.incomeRows[1];
+    expect(c.children.map((x) => [x.id, x.name, x.total])).toEqual([['ord:заказ 1', 'заказ 1', 300], ['ord:заказ 2', 'заказ 2', 200], ['ord:', NO_ORDER, 100]]);
+    expect(c.values.slice(0, 3)).toEqual([300, 300, 0]);
+  });
+
+  it('сумма incomeRows = доходы в шапке', () => {
+    expect(t.incomeRows.reduce((s, r) => s + r.total, 0)).toBe(t.head.totals.income);
+    expect(t.incomeRows.every((r) => r.children.reduce((s, x) => s + x.total, 0) === r.total)).toBe(true);
+  });
+
+  it('расход на статью верхнего уровня → строка «Без подстатьи», не «Без статьи»', () => {
+    const mat = t.rows[0];
+    expect(mat.children.map((c) => [c.id, c.name, c.total])).toEqual([['S1', 'Металл - сталь', 60], ['T1:self', 'Без подстатьи', 40]]);
+    expect(t.unassigned.total).toBe(0);
+    expect(t.rows.reduce((s, r) => s + r.total, 0) + t.unassigned.total).toBe(t.head.totals.expense);
+  });
+
+  it('opsOfCell: :self, counterparty, doc', () => {
+    const amounts = (a: string, extra = {}) => opsOfCell(ops, tree, 2026, TODAY, company, a, undefined, extra).map((o) => o.amount);
+    expect(amounts('T1:self')).toEqual([40]);
+    expect(amounts('T1')).toEqual([40, 60]);
+    expect(amounts('none')).toEqual([]);
+    expect(amounts('income', { counterparty: 'ООО Заказчик' })).toEqual([300, 200, 100]);
+    expect(amounts('income', { counterparty: NO_CUSTOMER })).toEqual([50]);
+    expect(amounts('income', { counterparty: 'ООО Заказчик', doc: 'заказ 2' })).toEqual([200]);
+    expect(amounts('income', { counterparty: 'ООО Заказчик', doc: NO_ORDER })).toEqual([100]);
   });
 });
 

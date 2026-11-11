@@ -56,8 +56,10 @@ export class FinanceController {
   /** Операции одной ячейки «По статьям»: articleId — подстатья, статья, none, income, expense, unallocated; month — ГГГГ-ММ. */
   @Get('by-articles/ops')
   @Roles('admin', 'accountant', 'manager')
-  @ApiQuery({ name: 'articleId', required: true, description: 'id подстатьи / статьи | none | income | expense | unallocated' })
+  @ApiQuery({ name: 'articleId', required: true, description: 'id подстатьи / статьи | <id статьи>:self («Без подстатьи») | none | income | expense | unallocated' })
   @ApiQuery({ name: 'month', required: false, description: 'ГГГГ-ММ; пусто — весь год' })
+  @ApiQuery({ name: 'counterparty', required: false, description: 'Точное имя контрагента/заказчика; «Контрагент не указан» / «Заказчик не указан» — пустое' })
+  @ApiQuery({ name: 'doc', required: false, description: 'Точный документ (для доходов — «заказ 123»); «Без заказа» — пустой' })
   @ApiQuery({ name: 'year', required: false }) @ApiQuery({ name: 'org', required: false }) @ApiQuery({ name: 'mode', required: false }) @ApiQuery({ name: 'salesOrderId', required: false })
   byArticlesOps(@Query() q: Record<string, string>) {
     return this.finance.byArticlesOps(q);

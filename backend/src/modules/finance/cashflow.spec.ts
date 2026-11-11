@@ -53,6 +53,25 @@ describe('Платёжный календарь (ОДР)', () => {
       { category: 'Метизы', byCompany: { СИЮ: 100, ССЮ: 40 }, total: 140 },
     ]);
   });
+
+  it('сводка: расходы по статьям верхнего уровня + «Без статьи», крупные сверху (C084 B5)', () => {
+    const tree = [
+      { id: 'T1', name: 'Материалы', sortOrder: 1, children: [{ id: 'S1', name: 'Металл', sortOrder: 1, categoryIds: [] }] },
+      { id: 'T2', name: 'Аренда', sortOrder: 2, children: [{ id: 'S2', name: 'Офис', sortOrder: 1, categoryIds: [] }] },
+    ];
+    const ops = [
+      op('expense', '2026-10-05', 100, 'СИЮ', { articleId: 'S1' }), op('expense', '2026-10-06', 30, 'ССЮ', { articleId: 'T1' }),
+      op('expense', '2026-10-07', 70, 'СИЮ', { articleId: 'S2' }), op('expense', '2026-10-08', 5, 'СИЮ'), op('income', '2026-10-09', 999, 'СИЮ'),
+    ];
+    const s = buildSummary(ops, '2026-10-01', '2026-10-31', ['СИЮ', 'ССЮ'], tree);
+    expect(s.expensesByArticle).toEqual([
+      { article: 'Материалы', byCompany: { СИЮ: 100, ССЮ: 30 }, total: 130 },
+      { article: 'Аренда', byCompany: { СИЮ: 70, ССЮ: 0 }, total: 70 },
+      { article: 'Без статьи', byCompany: { СИЮ: 5, ССЮ: 0 }, total: 5 },
+    ]);
+    expect(s.expensesByCategory.reduce((t, c) => t + c.total, 0)).toBe(s.expensesByArticle.reduce((t, c) => t + c.total, 0));
+    expect(buildSummary(ops, '2026-10-01', '2026-10-31', ['СИЮ', 'ССЮ']).expensesByArticle).toEqual([{ article: 'Без статьи', byCompany: { СИЮ: 175, ССЮ: 30 }, total: 205 }]);
+  });
 });
 
 describe('Старт учёта и «ещё не деньги»', () => {

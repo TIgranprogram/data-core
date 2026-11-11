@@ -3,6 +3,8 @@
  * Правило: closing = opening + income − expense; opening следующего дня = closing предыдущего;
  * opening первого дня = начальный остаток.
  */
+import type { ArticleNode } from '../expense-articles/articles-tree';
+
 export interface Op {
   type: 'income' | 'expense';
   id: string;
@@ -133,7 +135,8 @@ export function buildCashflow(ops: Op[], from: string, to: string, opening: numb
 }
 
 /** Итоги по месяцам (доход/расход/прибыль по компаниям) и расходы по категориям. */
-export function buildSummary(ops: Op[], from: string, to: string, companies: string[]) {
+/** `tree` — дерево статей расходов: по нему расход относится к статье верхнего уровня (нет дерева или статьи — «Без статьи»). */
+export function buildSummary(ops: Op[], from: string, to: string, companies: string[], tree: ArticleNode[] = []) {
   const months: string[] = [];
   for (let d = new Date(from.slice(0, 7) + '-01T00:00:00Z'); d.toISOString().slice(0, 7) <= to.slice(0, 7); d.setUTCMonth(d.getUTCMonth() + 1)) months.push(d.toISOString().slice(0, 7));
   const cell = () => Object.fromEntries(companies.map((c) => [c, { income: 0, expense: 0, profit: 0 }])) as Record<string, { income: number; expense: number; profit: number }>;
@@ -141,6 +144,9 @@ export function buildSummary(ops: Op[], from: string, to: string, companies: str
   const categories = new Map<string, Record<string, number>>();
   const centers = new Map<string, Record<string, number>>();
   const suppliers = new Map<string, number>();
+  const articles = new Map<string, Record<string, number>>();
+  const topOf = new Map<string, string>();
+  for (const top of tree) { topOf.set(top.id, top.name); for (const c of top.children) topOf.set(c.id, top.name); }
   for (const op of ops) {
     if (!(op.amount > 0) || op.date < from || op.date > to) continue;
     const m = byMonth.get(op.date.slice(0, 7));
@@ -151,6 +157,10 @@ export function buildSummary(ops: Op[], from: string, to: string, companies: str
       const row = categories.get(name) ?? Object.fromEntries(companies.map((x) => [x, 0]));
       row[op.company] = r2((row[op.company] ?? 0) + op.amount);
       categories.set(name, row);
+      const art = (op.articleId && topOf.get(op.articleId)) || 'Без статьи';
+      const ra = articles.get(art) ?? Object.fromEntries(companies.map((x) => [x, 0]));
+      ra[op.company] = r2((ra[op.company] ?? 0) + op.amount);
+      articles.set(art, ra);
       const cc = op.costCenter || 'Не указано';
       const rc = centers.get(cc) ?? Object.fromEntries(companies.map((x) => [x, 0]));
       rc[op.company] = r2((rc[op.company] ?? 0) + op.amount);
@@ -166,6 +176,9 @@ export function buildSummary(ops: Op[], from: string, to: string, companies: str
     total,
     expensesByCategory: [...categories.entries()].map(([category, by]) => ({ category, byCompany: by, total: r2(Object.values(by).reduce((s, v) => s + v, 0)) }))
       .sort((a, b) => a.category.localeCompare(b.category, 'ru')),
+    /** На что тратили: статьи верхнего уровня + «Без статьи», крупные сверху. */
+    expensesByArticle: [...articles.entries()].map(([article, by]) => ({ article, byCompany: by, total: r2(Object.values(by).reduce((s, v) => s + v, 0)) }))
+      .sort((a, b) => b.total - a.total),
     /** Кому платили больше всего (топ-15). */
     expensesBySupplier: [...suppliers.entries()].map(([supplier, total]) => ({ supplier, total })).sort((a, b) => b.total - a.total).slice(0, 15),
     /** Куда тратили: Цех / Офис / СМР / Заказы / Не указано. */
