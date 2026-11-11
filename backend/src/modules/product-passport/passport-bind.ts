@@ -8,10 +8,9 @@ import { fromIncome, ourSupplierId } from './passport-queue';
 type Db = NonNullable<Connection['db']>;
 
 /**
- * C062: фирма (`supplierOrgId`) — ровно одна наша подставить; несколько — 400 «Выберите фирму»;
- * ноль — черновик без фирмы (выпуск всё равно просит поставщика).
- * Изделие воронка шлёт сама; API без изделия оставляем (legacy/e2e и «новое изделие» по позиции).
- * Черновик заказа берёт поля у позиции (`fromIncome`).
+ * Фирма (`supplierOrgId`): явная → companyId заказа (наша) → одна наша;
+ * несколько наших и не из чего взять — 400 «Выберите фирму»; ноль — черновик без фирмы.
+ * Черновик с позицией/заказом — `fromIncome` (C062/C063).
  */
 export async function bindDraft(db: Db, dto: CreateProductPassportDto): Promise<CreateProductPassportDto> {
   const filled = await fromIncome(db, dto);

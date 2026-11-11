@@ -118,19 +118,55 @@ export async function ourSupplierId(db: Db): Promise<Types.ObjectId | null> {
   return rows.length === 1 ? (rows[0]._id as Types.ObjectId) : null;
 }
 
-/** Паспорт «из очереди»: по позиции подставляются заказ, № заказа, изделие, заказчик (явно переданное не затирается). */
+/** Наша фирма заказа (`salesorders.companyId`), если запись живая и isOurCompany. */
+async function firmFromOrder(db: Db, order: { companyId?: unknown } | null): Promise<string | undefined> {
+  const cid = order?.companyId;
+  if (!cid || !Types.ObjectId.isValid(String(cid))) return undefined;
+  const org = await db.collection('organizations').findOne(
+    { _id: new Types.ObjectId(String(cid)), isOurCompany: true, deletedAt: null },
+    { projection: { _id: 1 } },
+  );
+  return org ? String(org._id) : undefined;
+}
+
+/**
+ * Паспорт «из очереди» / с заказа: позиция → заказ, №, изделие, заказчик;
+ * фирма — явная, иначе companyId заказа (наша), иначе единственная наша (C063).
+ */
 export async function fromIncome(db: Db, dto: CreateProductPassportDto): Promise<CreateProductPassportDto> {
-  if (!dto.incomeId) return dto;
-  const inc = await db.collection('incomes').findOne({ _id: new Types.ObjectId(dto.incomeId), deletedAt: null }, { projection: { orderId: 1, productId: 1 } });
-  if (!inc) throw new BadRequestException('Позиция заказа не найдена');
-  const o = inc.orderId ? await db.collection('salesorders').findOne({ _id: inc.orderId, deletedAt: null }, { projection: { orderNo: 1, customer: 1 } }) : null;
-  return {
-    ...dto,
-    salesOrderId: dto.salesOrderId ?? (o ? String(o._id) : undefined),
-    orderNo: dto.orderNo ?? (o?.orderNo as string | undefined),
-    customerName: dto.customerName ?? (o?.customer as string | undefined),
-    productId: dto.productId ?? (inc.productId ? String(inc.productId) : undefined),
-    supplierOrgId: dto.supplierOrgId ?? ((await ourSupplierId(db))?.toString()),
-  };
+  let filled: CreateProductPassportDto = { ...dto };
+  let order: { _id?: unknown; orderNo?: unknown; customer?: unknown; companyId?: unknown; productionNo?: unknown } | null = null;
+
+  if (dto.incomeId) {
+    const inc = await db.collection('incomes').findOne({ _id: new Types.ObjectId(dto.incomeId), deletedAt: null }, { projection: { orderId: 1, productId: 1 } });
+    if (!inc) throw new BadRequestException('Позиция заказа не найдена');
+    order = inc.orderId
+      ? await db.collection('salesorders').findOne({ _id: inc.orderId, deletedAt: null }, { projection: { orderNo: 1, productionNo: 1, customer: 1, companyId: 1 } })
+      : null;
+    filled = {
+      ...filled,
+      salesOrderId: dto.salesOrderId ?? (order ? String(order._id) : undefined),
+      orderNo: dto.orderNo ?? (order?.orderNo as string | undefined) ?? (order?.productionNo as string | undefined),
+      customerName: dto.customerName ?? (order?.customer as string | undefined),
+      productId: dto.productId ?? (inc.productId ? String(inc.productId) : undefined),
+    };
+  } else if (dto.salesOrderId && Types.ObjectId.isValid(String(dto.salesOrderId))) {
+    order = await db.collection('salesorders').findOne(
+      { _id: new Types.ObjectId(String(dto.salesOrderId)), deletedAt: null },
+      { projection: { orderNo: 1, productionNo: 1, customer: 1, companyId: 1 } },
+    );
+    if (order) {
+      filled = {
+        ...filled,
+        orderNo: dto.orderNo ?? (order.orderNo as string | undefined) ?? (order.productionNo as string | undefined),
+        customerName: dto.customerName ?? (order.customer as string | undefined),
+      };
+    }
+  }
+
+  if (!filled.supplierOrgId) {
+    filled.supplierOrgId = (await firmFromOrder(db, order)) ?? (await ourSupplierId(db))?.toString();
+  }
+  return filled;
 }
 

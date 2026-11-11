@@ -40,9 +40,19 @@ const brief = (labels: string[]) => (labels.length > MAX_MISSING ? [...labels.sl
 
 async function orderOf(db: Db, orderId: string) {
   const _id = Types.ObjectId.isValid(orderId) ? new Types.ObjectId(orderId) : null;
-  const order = _id ? await db.collection('salesorders').findOne({ _id, deletedAt: null }, { projection: { orderNo: 1, customer: 1 } }) : null;
+  const order = _id ? await db.collection('salesorders').findOne({ _id, deletedAt: null }, { projection: { orderNo: 1, customer: 1, companyId: 1 } }) : null;
   if (!order) throw new NotFoundException('Заказ не найден');
   return order;
+}
+
+/** У заказа есть наша компания — черновик подставит её как фирму паспорта (C063). */
+async function orderHasOurFirm(db: Db, companyId: unknown): Promise<boolean> {
+  if (!companyId || !Types.ObjectId.isValid(String(companyId))) return false;
+  const org = await db.collection('organizations').findOne(
+    { _id: new Types.ObjectId(String(companyId)), isOurCompany: true, deletedAt: null },
+    { projection: { _id: 1 } },
+  );
+  return !!org;
 }
 
 /** План «Паспорта на весь заказ»: по каждой позиции заказа — изделие, количество, паспорт, готовность и чего не хватает. */
@@ -66,10 +76,13 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string)
     const productId = inc.productId ? String(inc.productId) : null;
     let missing: string[] = [];
     if (!issued) missing = !productId ? ['К позиции не привязано изделие'] : brief(await h.templateMissing(productId, variant));
-    // выпуск требует фирму: у черновика она есть, иначе подставляется, только если наша компания одна (C062)
+    // выпуск требует фирму: у черновика; иначе companyId заказа (C063); иначе одна наша (C062)
     if (!issued && productId && !missing.length && !p?.supplierOrgId) {
-      ourSupplier ??= await h.hasOurSupplier();
-      if (!ourSupplier) missing = ['Выберите фирму'];
+      const fromOrder = await orderHasOurFirm(db, order.companyId);
+      if (!fromOrder) {
+        ourSupplier ??= await h.hasOurSupplier();
+        if (!ourSupplier) missing = ['Выберите фирму'];
+      }
     }
     lines.push({
       incomeId: String(inc._id), lineNo: (inc.lineNo as number) ?? null, title: String(inc.title ?? ''), productId, productName: productId ? pname.get(productId) ?? null : null, article: productId ? psku.get(productId) ?? null : null, qty: (inc.qty as number) ?? null,

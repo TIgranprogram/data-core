@@ -5,17 +5,23 @@ import { assertOneLive, bindDraft } from './passport-bind';
 const chain = (v: unknown) => ({ select: () => chain(v), session: () => chain(v), lean: () => chain(v), exec: async () => v });
 
 /** Память вместо Mongo: организации (наши фирмы) и одна позиция заказа. */
-function mem(opts: { orgs?: Types.ObjectId[]; income?: Record<string, unknown> | null } = {}) {
+function mem(opts: { orgs?: Types.ObjectId[]; income?: Record<string, unknown> | null; orderCompanyId?: Types.ObjectId } = {}) {
   const orgs = opts.orgs ?? [];
   return {
     collection(name: string) {
       return {
         countDocuments: async () => (name === 'organizations' ? orgs.length : 0),
         find: () => ({ limit: () => ({ toArray: async () => (name === 'organizations' ? orgs.map((_id) => ({ _id })) : []) }) }),
-        findOne: async (q: { _id?: Types.ObjectId }) => {
-          if (name === 'organizations' && orgs.length === 1) return { _id: orgs[0] };
+        findOne: async (q: { _id?: Types.ObjectId; isOurCompany?: boolean }) => {
+          if (name === 'organizations') {
+            if (q._id && orgs.some((id) => String(id) === String(q._id))) return { _id: q._id };
+            if (orgs.length === 1 && !q._id) return { _id: orgs[0] };
+            return null;
+          }
           if (name === 'incomes') return opts.income && q._id && String(opts.income._id) === String(q._id) ? opts.income : null;
-          if (name === 'salesorders' && opts.income?.orderId) return { _id: opts.income.orderId, orderNo: '12', customer: 'Парк' };
+          if (name === 'salesorders' && opts.income?.orderId) {
+            return { _id: opts.income.orderId, orderNo: '12', customer: 'Парк', ...(opts.orderCompanyId ? { companyId: opts.orderCompanyId } : {}) };
+          }
           return null;
         },
       };
@@ -46,7 +52,7 @@ describe('bindDraft', () => {
     expect(r.supplierOrgId).toBe(String(other));
   });
 
-  it('черновик позиции берёт изделие у позиции; при двух фирмах фирму не угадывает', async () => {
+  it('черновик позиции берёт изделие у позиции; при двух фирмах без companyId — 400', async () => {
     const income = new Types.ObjectId();
     const order = new Types.ObjectId();
     await expect(bindDraft(mem({ orgs: [firm, other], income: { _id: income, productId: product, orderId: order } }), { incomeId: String(income) })).rejects.toBeInstanceOf(BadRequestException);
@@ -54,6 +60,21 @@ describe('bindDraft', () => {
     expect(one.productId).toBe(String(product));
     expect(one.supplierOrgId).toBe(String(firm));
     expect(one.orderNo).toBe('12');
+  });
+
+  it('C063: при двух фирмах берёт companyId заказа; явная фирма важнее', async () => {
+    const income = new Types.ObjectId();
+    const order = new Types.ObjectId();
+    const fromOrder = await bindDraft(
+      mem({ orgs: [firm, other], income: { _id: income, productId: product, orderId: order }, orderCompanyId: firm }),
+      { incomeId: String(income) },
+    );
+    expect(fromOrder.supplierOrgId).toBe(String(firm));
+    const explicit = await bindDraft(
+      mem({ orgs: [firm, other], income: { _id: income, productId: product, orderId: order }, orderCompanyId: firm }),
+      { incomeId: String(income), supplierOrgId: String(other) },
+    );
+    expect(explicit.supplierOrgId).toBe(String(other));
   });
 });
 

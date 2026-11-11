@@ -94,6 +94,16 @@ export function compositionBlock(r) {
       h('span', { class: 'muted' }, cost.missing ? ` · без цены: ${cost.missing} — в сумму не вошли` : ' · материалы — по последним закупкам, изделия — по их составу')) : null] });
 }
 
+/** Ячейка «Заказ» в истории паспортов изделия (C063): номер + переход в заказ. */
+function orderCell(x) {
+  const no = String(x.orderNo || x.productionNo || '').trim();
+  const oid = x.salesOrderId ? String(x.salesOrderId) : '';
+  if (!no && !oid) return '—';
+  const label = no ? `№ ${no}` : 'Заказ';
+  if (!oid) return label;
+  return h('a', { href: `#salesorders?open=${oid}`, onClick: (e) => e.stopPropagation() }, label);
+}
+
 /** Вкладка «Паспорт»: одна карточка и таблица выпущенных (C056). Рисунки — в правке шаблона. */
 export function passportPane(row, ctx) {
   const host = stack(busyBlock('паспорт изделия', { retry: paint }));
@@ -179,7 +189,8 @@ export function passportPane(row, ctx) {
         ? table({
           label: 'Выпущенные паспорта', clickable: true, cls: 'k-table-stack',
           columns: [
-            { label: '№', nowrap: true }, { label: 'Заводской №', nowrap: true }, { label: 'Фирма', wrap: true }, { label: 'Источник' },
+            { label: '№', nowrap: true }, { label: 'Заводской №', nowrap: true }, { label: 'Заказ', wrap: true },
+            { label: 'Фирма', wrap: true }, { label: 'Источник' },
             { label: 'Дата', nowrap: true }, { label: 'Заказчик', hide: true }, { label: '' },
           ],
           rows: shown.map((x) => ({
@@ -187,6 +198,7 @@ export function passportPane(row, ctx) {
             cells: [
               (x.passportNumber && !String(x.passportNumber).startsWith('draft-') ? x.passportNumber : '—'),
               x.productCode || '—',
+              orderCell(x),
               firmName(x) || '—',
               fromFile(x) ? badge('Файл', 'info') : badge('С сайта', 'ok'),
               date(x.date) || '—',

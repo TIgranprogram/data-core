@@ -9,7 +9,7 @@ import { issueFromProduct } from './api.js';
  * Шаг 7 «Выпуск»: номер и дата ставятся сами; «Заполнить после печати» свёрнуто и выпуск не держит;
  * «Выпустить PDF» — главная, когда нет обязательного пустого; пока есть пробелы — второстепенная и выключена.
  * После выпуска открывается окно PDF и печати (то же, что в архиве паспортов).
- * Фирма — список всех наших компаний, не первая молча. Из заказа без позиции — список позиций.
+ * Фирма — список наших компаний; из заказа предвыбор companyId (можно сменить). Без позиции — список позиций.
  *   issueBlock({ prod, order?, goGaps(), onIssued(passport) }) → { el, paint(missingRequired[]) }
  *   order: { salesOrderId?, incomeId?, orderNo?, customerName? } — incomeId уже выбран, список позиций не нужен.
  */
@@ -80,17 +80,22 @@ export function issueBlock({ prod, order, goGaps, onIssued }) {
 
   (async () => {
     try { firms = (await ourCompanies()).map((o) => ({ id: String(o.id), name: o.name || 'Фирма' })); } catch { firms = []; }
-    if (firms.length === 1) firmId = firms[0].id;
-    if (needLine) {
+    // заказ нужен и для позиций, и для предвыбора фирмы (companyId заказа — C063)
+    if (order?.salesOrderId) {
       try {
         orderDoc = await api(`/salesorders/${order.salesOrderId}`);
-        const all = (orderDoc.lines || []).filter((l) => !l.cancelledAt && l.status !== 'cancelled').map((l, i) => ({ ...l, id: String(l.id || l._id), _i: i }));
-        const mine = all.filter((l) => String(l.productId || '') === String(prod.id));
-        mismatch = !mine.length && all.length > 0;
-        lines = mine.length ? mine : all;
-        if (lines.length === 1) lineId = lines[0].id;
-      } catch { lineErr = true; lines = []; }
+        if (needLine) {
+          const all = (orderDoc.lines || []).filter((l) => !l.cancelledAt && l.status !== 'cancelled').map((l, i) => ({ ...l, id: String(l.id || l._id), _i: i }));
+          const mine = all.filter((l) => String(l.productId || '') === String(prod.id));
+          mismatch = !mine.length && all.length > 0;
+          lines = mine.length ? mine : all;
+          if (lines.length === 1) lineId = lines[0].id;
+        }
+      } catch { if (needLine) { lineErr = true; lines = []; } }
     }
+    const orderFirm = String(orderDoc?.companyId || orderDoc?.company?.id || '');
+    if (orderFirm && firms.some((f) => f.id === orderFirm)) firmId = orderFirm;
+    else if (firms.length === 1) firmId = firms[0].id;
     listsReady = true;
     paint(miss);
   })();
