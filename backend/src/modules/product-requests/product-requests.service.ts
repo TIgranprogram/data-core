@@ -6,6 +6,8 @@ import { escapeRe, oid, parseList } from '../../common/list-query';
 import { loadPhotos } from '../../common/photos';
 import { checkLine } from '../../common/line-type';
 import { aliasKey } from '../matching/matching-rules';
+import { ModuleRef } from '@nestjs/core';
+import { DesignService } from '../design/design.service';
 import { ShowcaseService } from '../showcase/showcase.service';
 import { ZonesService } from '../zones/zones.service';
 import type { CreateProductRequestDto } from './dto';
@@ -19,6 +21,7 @@ const uid = (id?: string) => (id && Types.ObjectId.isValid(id) ? new Types.Objec
  * Заявки на создание нового изделия (ORDER-LINES). Менеджер добавляет в заказ «Новое изделие» — позиция получает `productRequestId`;
  * проектировщик подтверждает (создаётся изделие в «Продукции», позиции привязываются) или отклоняет как дубль (позиции переходят на
  * существующее изделие). Пишет `productrequests` и поля сопоставления в `incomes`; в `products` — только через ShowcaseService.create.
+ * После привязки изделия — авто проектирование, если заказ полностью распределён.
  */
 @Injectable()
 export class ProductRequestsService {
@@ -26,6 +29,7 @@ export class ProductRequestsService {
     @InjectConnection() private readonly connection: Connection,
     @InjectModel(ProductRequest.name) private readonly model: Model<ProductRequestDocument>,
     private readonly showcase: ShowcaseService,
+    private readonly moduleRef: ModuleRef,
     @Optional() private readonly zones?: ZonesService,
   ) {}
 
@@ -181,6 +185,12 @@ export class ProductRequestsService {
     for (const key of new Set(lines.map((l) => aliasKey(l.title)).filter(Boolean))) {
       await this.db.collection('productaliases').updateOne({ key }, { $set: { productId, lastAt: now, updatedAt: now }, $inc: { count: 1 }, $setOnInsert: { createdAt: now } }, { upsert: true });
     }
+    // Полностью распределённый заказ → задачи проектирования
+    const orderIds = [...new Set(lines.map((l) => String(l.orderId ?? '')).filter((id) => Types.ObjectId.isValid(id)))];
+    try {
+      const design = this.moduleRef.get(DesignService, { strict: false });
+      for (const oidStr of orderIds) await design.autoFromOrderIfReady(oidStr, userId);
+    } catch { /* DesignModule ещё не готов */ }
     return lines.length;
   }
 

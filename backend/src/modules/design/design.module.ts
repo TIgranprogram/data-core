@@ -24,5 +24,6 @@ import { DesignService } from './design.service';
   imports: [MongooseModule.forFeature([{ name: DesignTask.name, schema: DesignTaskSchema }, { name: DesignOrder.name, schema: DesignOrderSchema }, { name: DesignSticker.name, schema: DesignStickerSchema }, { name: DesignNote.name, schema: DesignNoteSchema }]), AuditModule, CounterModule, NotificationsModule, ZonesModule, SalesOrdersModule],
   controllers: [DesignController, DesignBoardController, DesignStickerController, DesignNoteController],
   providers: [DesignService, DesignBoardService, DesignStickerService, DesignExtrasService, DesignNoteService],
+  exports: [DesignService],
 })
 export class DesignModule {}

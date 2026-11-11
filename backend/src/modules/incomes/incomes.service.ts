@@ -1,5 +1,6 @@
 import { photoToFront } from '../../common/photo-main';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { customerNames } from '../partners/customer-names';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
@@ -8,6 +9,7 @@ import { Types } from 'mongoose';
 import { INCOME_NO_CONTRACT_DEDUPE_DAYS, incomeNoContractText, noContract } from '../zones/zone-events';
 import { ProductRequestsService } from '../product-requests/product-requests.service';
 import { ZonesService } from '../zones/zones.service';
+import { DesignService } from '../design/design.service';
 import { offersOnlyIds } from '../../common/offers-only';
 import { parseSheetDate } from '../../common/date-parse';
 import { dateRange, oid, oids, parseList } from '../../common/list-query';
@@ -56,9 +58,19 @@ export class IncomesService {
   constructor(
     @InjectConnection() private readonly connection: Connection,
     @InjectModel(Income.name) private readonly model: Model<IncomeDocument>,
+    private readonly moduleRef: ModuleRef,
     @Optional() private readonly zones?: ZonesService,
     @Optional() private readonly requests?: ProductRequestsService,
   ) {}
+
+  /** Полное распределение заказа → задачи проектирования (ModuleRef — без цикла Nest-модулей). */
+  private async maybeAutoDesign(orderId: unknown, userId?: string) {
+    if (!orderId) return;
+    try {
+      const design = this.moduleRef.get(DesignService, { strict: false });
+      await design.autoFromOrderIfReady(orderId as string | Types.ObjectId, userId);
+    } catch { /* DesignModule ещё не готов */ }
+  }
 
   private async present(docs: Array<Record<string, unknown>>) {
     const companies = await ourCompanies(this.connection);
@@ -321,6 +333,7 @@ export class IncomesService {
     });
     // новое изделие → заявка проектировщику (та же заявка на то же название)
     if (f.lineType === 'new_product') await this.requests?.attachIncome(doc.toObject() as unknown as Record<string, unknown>, userId);
+    await this.maybeAutoDesign(doc.get('orderId') ?? f.orderId, userId);
     return this.get(String(doc._id));
   }
 
@@ -349,6 +362,9 @@ export class IncomesService {
     if (opts.guard && !res.matchedCount) throw new ConflictException('Оплату уже изменили, обновите карточку');
     await this.notifyNoContract(cur as Record<string, unknown>, f, actor).catch(() => undefined);
     await this.syncRequest(cur as Record<string, unknown>, f, actor?.id);
+    if ('productId' in f || 'lineType' in f || 'matchStatus' in f) {
+      await this.maybeAutoDesign(orderId, actor?.id);
+    }
     return this.get(id);
   }
 

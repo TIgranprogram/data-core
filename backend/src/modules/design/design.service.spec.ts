@@ -149,6 +149,23 @@ describe('DesignService', () => {
     await expect(service.fromOrder({ orderId: String(orderId), lineIds: [String(id())] })).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('autoFromOrderIfReady: нераспределённые — no-op; все распределены — задачи + метка; повтор безопасен', async () => {
+    const o = id();
+    orders.rows.push({ _id: o, orderNo: '37-26', productionNo: '37-26', stage: 'new', deletedAt: null });
+    const a = id(); const b = id();
+    incomes.rows.push(
+      { _id: a, orderId: o, lineNo: 1, title: 'А', deletedAt: null },
+      { _id: b, orderId: o, lineNo: 2, title: 'Б', productId: id(), matchStatus: 'confirmed', deletedAt: null },
+    );
+    expect(await service.autoFromOrderIfReady(o)).toMatchObject({ created: 0, skipped: 0 });
+    expect(tasks.rows.filter((t) => String(t.orderId) === String(o))).toHaveLength(0);
+    incomes.rows.find((r) => String(r._id) === String(a))!.matchStatus = 'none'; // «не изделие»
+    const r = await service.autoFromOrderIfReady(String(o));
+    expect(r).toMatchObject({ created: 2, skipped: 0 });
+    expect(marks.rows.some((m) => String(m.orderId) === String(o) && !m.deletedAt)).toBe(true);
+    expect(await service.autoFromOrderIfReady(o)).toMatchObject({ created: 0, skipped: 2 });
+  });
+
   it('срок и приоритет заказа меняются — задача видит новые, пока их не правили вручную', async () => {
     const [t] = (await service.fromOrder({ orderId: String(orderId) })).items;
     orders.rows[0].productionDeadline = undefined; orders.rows[0].priority = 'low';
@@ -272,7 +289,7 @@ describe('DesignService', () => {
       expect(marks.rows[0]).toMatchObject({ deletedAt: null, addedAt });
     });
 
-    it('GET: метки ∪ открытые задачи ∪ stage=new с позициями; завершённые без метки и удалённые в CRM — нет; в базу не пишет', async () => {
+    it('GET: метки ∪ открытые задачи; stage=new без метки/задач — нет; завершённые без метки и удалённые в CRM — нет; в базу не пишет', async () => {
       const { o2, l } = order2();
       const o3 = id(); orders.rows.push({ _id: o3, orderNo: '22-26', deletedAt: new Date() }); // удалён в CRM
       await board.addOrder({ orderId: String(orderId) });
@@ -283,17 +300,16 @@ describe('DesignService', () => {
       const o4 = id(); orders.rows.push({ _id: o4, orderNo: '23-26', deletedAt: null });
       tasks.rows.push({ _id: id(), seq: 52, status: 'done', orderId: o4, incomeId: id(), deletedAt: null });
       tasks.rows.push({ _id: id(), seq: 53, status: 'queue', title: 'Без заказа', deletedAt: null });
-      // этап «Проектирование» в Заказах без метки и без задач — тоже на доске
+      // этап new без метки и задач — на доску не попадает (только после распределения автоматом)
       const o5 = id(); orders.rows.push({ _id: o5, orderNo: '37-26', productionNo: '37-26', stage: 'new', deletedAt: null });
-      incomes.rows.push({ _id: id(), orderId: o5, lineNo: 1, title: 'Геопластика', deletedAt: null });
+      incomes.rows.push({ _id: id(), orderId: o5, lineNo: 1, title: 'Геопластика', productId: id(), matchStatus: 'confirmed', deletedAt: null });
       const before = [marks.rows.length, tasks.rows.length, JSON.stringify(marks.rows)];
 
       const r = await board.board();
-      expect(r.orders.map((o) => o.orderNo)).toEqual(['109-П', '21-26', '37-26']);
-      expect(r.ordersTotal).toBe(3);
+      expect(r.orders.map((o) => o.orderNo)).toEqual(['109-П', '21-26']);
+      expect(r.ordersTotal).toBe(2);
       expect(r.orders[0]).toMatchObject({ orderId: String(orderId), customer: null, priority: 'urgent', linesCount: 2, counts: { queue: 0, work: 0, paused: 0, done: 0, free: 2 } });
       expect(r.orders[1]).toMatchObject({ orderNo: '21-26', customer: 'ООО Ромашка', addedAt: null, linesCount: 1, counts: { queue: 1, free: 0 } });
-      expect(r.orders[2]).toMatchObject({ orderNo: '37-26', linesCount: 1, counts: { free: 1 } });
       expect(r.tasks.map((t) => t.seq)).toEqual([50, 53]);
       expect(r.tasksTotal).toBe(2);
       expect([marks.rows.length, tasks.rows.length, JSON.stringify(marks.rows)]).toEqual(before); // GET ничего не пишет

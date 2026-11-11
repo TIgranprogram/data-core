@@ -5,6 +5,7 @@ import { Types } from 'mongoose';
 import { escapeRe, oid } from '../../common/list-query';
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { AuditService } from '../audit/audit.service';
+import { DesignService } from '../design/design.service';
 import { aliasKey, isConfident, lineState, suggest, type MatchProduct, type Suggestion } from './matching-rules';
 import { ProductAlias, ProductAliasDocument } from './product-alias.schema';
 
@@ -16,6 +17,7 @@ const NO_ORDER = '-'; // значение фильтра «заказ без №
 /**
  * Сопоставление позиций договора с изделиями (КМ2–КМ3): подбор, подтверждение, «не изделие», пачкой.
  * Пишет только `incomes.productId/matchStatus/matchedAt/matchedBy` (необязательные поля) и `productaliases`.
+ * После полного распределения заказа — авто создание задач проектирования.
  */
 @Injectable()
 export class MatchingService {
@@ -24,6 +26,7 @@ export class MatchingService {
     @InjectModel(ProductAlias.name) private readonly aliases: Model<ProductAliasDocument>,
     private readonly audit: AuditService,
     @Optional() private readonly versions?: DataVersionService,
+    @Optional() private readonly design?: DesignService,
   ) {}
 
   /** Позиции договора с состоянием и предложениями (топ-3 для ещё не сопоставленных). */
@@ -177,6 +180,11 @@ export class MatchingService {
       if (p.productId) await this.fillOrderName(p.productId, String(cur.title ?? ''));
       await this.audit.log({ action: 'income.updated', entityType: 'Income', entityId: p.lineId, details: { partial: true, before: { productId: cur.productId ? String(cur.productId) : null, matchStatus: cur.matchStatus ?? null }, after: { productId: p.productId, matchStatus: set.matchStatus }, meta: { via: 'matching' } } as never });
       items.push({ lineId: p.lineId, state: p.productId ? 'confirmed' : 'none', productId: p.productId });
+    }
+    // полное распределение → задачи проектирования сами
+    if (this.design) {
+      const orderIds = [...new Set(lines.map((l) => l.orderId).filter(Boolean).map(String))];
+      for (const oidStr of orderIds) await this.design.autoFromOrderIfReady(oidStr, userId).catch(() => undefined);
     }
     return { done: items.length, items };
   }

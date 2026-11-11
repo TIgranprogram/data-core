@@ -28,7 +28,7 @@ export function nextStep(r) {
   if (r.stage === 'new' && !r.lineCount) s = { text: 'Добавьте позиции', tone: 'neg', btn: open };
   else if (n.unassigned > 0 && ['new', 'production'].includes(r.stage)) s = { text: `Распределите ${n.unassigned} поз.: выберите изделие или услугу`, tone: 'neg', btn: { label: 'Распределить', href: `#salesorders?open=${k}` } };
   else if (r.stage === 'new' && n.design > 0) s = { text: `Проектирование: ${n.design} задач в работе`, tone: 'muted', btn: { label: 'В проектирование', href: `#design?q=${q(r.productionNo || r.key || '')}` } };
-  else if (r.stage === 'new') s = { text: 'Заказ на этапе проектирования — откройте раздел «Проектирование»', tone: 'muted', btn: { label: 'В проектирование', href: `#design?q=${q(r.productionNo || r.key || '')}` } };
+  else if (r.stage === 'new') s = { text: 'Позиции распределены — заказ появится в «Проектирование» сам', tone: 'muted' };
   else if (r.stage === 'production' && n.requests > 0) s = { text: `Ждём материалы: ${n.requests} заявок`, tone: 'muted', btn: { label: 'Заявки', href: `#requests?q=${k}` } };
   else if (r.stage === 'production' && n.work > 0) s = { text: `Изготовление: ${n.work} заданий в работе`, tone: 'muted', btn: { label: 'Работа', href: `#work?q=${k}` } };
   else if (r.stage === 'production' && r.readiness?.ready) s = { text: 'Всё готово — отметьте готовность к отгрузке', tone: 'ok', btn: { label: 'Готов к отгрузке', stage: 'ready' } };

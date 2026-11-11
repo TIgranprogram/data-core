@@ -7,6 +7,7 @@ import { oid, oids, parseList } from '../../common/list-query';
 import { CounterService } from '../counter/counter.service';
 import { ZonesService } from '../zones/zones.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { isUnassigned } from '../matching/matching-rules';
 import { ProductionOrdersService } from '../salesorders/production-orders.service';
 import type { DesignTaskDto, FromOrderDto } from './dto/design-task.dto';
 import { DesignOrder, type DesignOrderDocument } from './design-order.schema';
@@ -241,6 +242,25 @@ export class DesignService {
     }
     await this.markQuiet(orderId, userId);
     return { created: created.length, skipped, items: await presentTasks(this.connection, created) };
+  }
+
+  /**
+   * После распределения позиций: если у заказа есть строки и среди них нет «не распределено» —
+   * создать задачи проектирования (fromOrder) и метку на доске. Иначе — тихий no-op.
+   */
+  async autoFromOrderIfReady(orderIdRaw: string | Types.ObjectId, userId?: string) {
+    const orderId = typeof orderIdRaw === 'string' ? oid(String(orderIdRaw), 'заказа') : orderIdRaw;
+    const lines = await this.db().collection('incomes').find(
+      { orderId, deletedAt: null, cancelledAt: null },
+      { projection: { productId: 1, matchStatus: 1, lineType: 1 } },
+    ).toArray();
+    if (!lines.length || lines.some((l) => isUnassigned(l as Doc))) return { created: 0, skipped: 0 };
+    try {
+      return await this.fromOrder({ orderId: String(orderId) }, userId);
+    } catch (e) {
+      this.log.warn(`Авто проектирование заказа ${String(orderId)}: ${(e as Error).message}`);
+      return { created: 0, skipped: 0 };
+    }
   }
 
   async update(id: string, dto: DesignTaskDto, userId?: string) {
