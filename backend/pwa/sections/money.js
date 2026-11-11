@@ -21,7 +21,7 @@ import { articlesView } from './money-articles.js';
  */
 const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
 /** Пустые значения в долях «Куда / На что / Кому» → группа «Требуют заполнения» (sections/fill.js). */
-const UNSET = { 'Не указано': 'exp-cost', 'Без категории': 'exp-category', 'Поставщик не указан': 'exp-supplier' };
+const UNSET = { 'Не указано': 'exp-cost', 'Без категории': 'exp-category', 'Без статьи': 'exp-article', 'Поставщик не указан': 'exp-supplier' };
 const WD = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
 const cur = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
 const lastDay = (m) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo, 0)).getUTCDate(); };
@@ -293,7 +293,8 @@ export function mountMoney(params) {
       hasPrev ? null : h('p', { class: 'hint' }, `Сравнение с ${py} годом появится, когда в базе будут операции ${py} года за тот же период (сейчас их нет).`),
       h('div', { class: 'dash-grid' },
         shares('Куда тратили', 'Цех / офис / СМР / заказы', (s.expensesByCostCenter || []).map((x) => ({ label: x.center, total: x.total }))),
-        shares('На что тратили', 'По категориям', (s.expensesByCategory || []).map((x) => ({ label: x.category, total: x.total })).sort((a, b) => b.total - a.total)),
+        (s.expensesByArticle ? shares('На что тратили', 'По статьям расходов', s.expensesByArticle.map((x) => ({ label: x.article, total: x.total })).sort((a, b) => b.total - a.total))
+          : shares('На что тратили', 'По категориям', (s.expensesByCategory || []).map((x) => ({ label: x.category, total: x.total })).sort((a, b) => b.total - a.total))),
         shares('Кому платили', 'Топ поставщиков', (s.expensesBySupplier || []).map((x) => ({ label: x.supplier, total: x.total })))),
       h('div', { class: 'panel', style: { marginTop: '16px' } }, h('div', { class: 'q-head' }, h('h3', null, `Поступления и выплаты по месяцам — ${year}`)),
         table({ cls: 'sum-tbl', columns: [{ label: 'Период' }, { label: 'Поступления', num: true }, { label: 'Выплаты', num: true }, { label: 'Итог', num: true }, ...(hasPrev ? [{ label: `Итог ${py}`, num: true }] : [])],
@@ -342,7 +343,7 @@ export function mountMoney(params) {
       if (tab() === 'fill') { go('fill', {}, { replace: true }); return; }
       if (tab() === 'articles') {
         renderChrome(settings?.companies);
-        content = [articlesView({ year: m.slice(0, 4), org: org(), mode: P.mode, order: P.order, opRow })];
+        content = [articlesView({ year: m.slice(0, 4), org: org(), mode: P.mode, order: P.order, opRow, noIncomeText: zeroIncomeText(hasStart() ? settings.startDate : null, openingIsZero(org())) })];
       } else if (tab() === 'forecast') {
         const days = [30, 60, 90].includes(Number(P.days)) ? Number(P.days) : 30;
         const f = await api('/finance/forecast', { query: { days, org: org(), ...(hasStart() ? {} : { opening: opening.value.trim().replace(',', '.') || 0 }) } });

@@ -1,6 +1,6 @@
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
-import { hint, tileGrid, typeArt, typeIconList, landing, miniChart, navList, photoStrip, catArt, stat, searchBox, readonlyGroup, similarBox, posPic, posPicOf, sku, section, stack, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, openPdfPreview, stageBar, headStats, clamp, funnel, planner, qtyInput, targetPicker, toast, pick, filter, table, textInput, fieldRow, panel, entityPanel, select, fileButton, links, guide, SUPPLY_STATUS } from '../ui/kit/index.js';
+import { hint, tileGrid, typeArt, typeIconList, landing, miniChart, navList, photoStrip, catArt, stat, searchBox, readonlyGroup, similarBox, posPic, posPicOf, sku, section, stack, button, iconButton, segmented, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, openPdfPreview, stageBar, headStats, clamp, funnel, planner, qtyInput, targetPicker, toast, pick, filter, table, treeTable, textInput, fieldRow, panel, entityPanel, select, fileButton, links, guide, SUPPLY_STATUS } from '../ui/kit/index.js';
 import { buildCardTabs } from '../ui/kit/card-tabs.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
@@ -31,6 +31,18 @@ function filterFunnelLocal() {
     load: async () => vals, onChange: (P) => f.update(P) });
   f.update({});
   return f.el;
+}
+
+/** «Дерево в таблице»: 3 уровня, «Ещё N» (10 детей), текущий месяц, вставка с операциями под строкой. */
+function treeDemo() {
+  const money = (n) => (n ? String(n).replace(/\B(?=(\d{3})+$)/g, ' ') : '');
+  const mk = (id, label, base, kids) => ({ id, label, cells: Array.from({ length: 4 }, (_, i) => ({ v: money(base * (i + 1)), click: () => t.insert(id, { title: label + ' · квартал ' + (i + 1) }).body.append(h('p', { class: 'hint' }, 'Здесь список операций (q-list).')) })),
+    total: { v: money(base * 10), click: () => t.insert(id, { title: label + ' · год' }).body.append(h('p', { class: 'hint' }, 'Все операции года.')) }, share: { text: '12,5%', ratio: base / 100 }, kids });
+  const subs = Array.from({ length: 10 }, (_, i) => mk('s' + i, 'Подстатья ' + (i + 1), 90 - i * 7, i === 0 ? [mk('c1', 'ООО «Поставщик»', 40), mk('c2', LONG, 20)] : undefined));
+  const t = treeTable({ label: 'Пример', periods: [{ label: 'I кв.' }, { label: 'II кв.', today: true }, { label: 'III кв.' }, { label: 'IV кв.' }], totalLabel: 'Итого', shareLabel: 'Доля',
+    open: new Set(['a']), moreLabel: (rest) => 'Ещё ' + rest.length + ' · ' + money(rest.reduce((a, r) => a + r.total.v.replace(/\s/g, '') * 1, 0)) + ' ₽',
+    rows: [mk('a', 'Материалы', 100, subs), mk('b', 'Аренда', 30), mk('d', 'Без подстатей', 10)] });
+  return t.el;
 }
 
 function liveBoard() {
@@ -207,6 +219,8 @@ export const kit = {
           foot: [h('tr', null, h('td', null, 'Итого'), h('td', { class: 'num' }, '123'), h('td', { class: 'num' }, '1 212,50'))] }),
         table({ columns: [{ label: 'Название' }, { label: 'Кол-во', num: true }], rows: [], empty: { title: 'Строк нет', hint: 'Добавьте запись.' } }),
         table({ mode: 'input', columns: [{ key: 'name', label: 'Название' }, { key: 'qty', label: 'Кол-во', num: true }], rows: [{ name: 'Болт', qty: '4' }], file: 'Образец' }).el),
+      block('Дерево в таблице (treeTable)', 'Вариант table.cal: статья › подстатья › контрагент. Шеврон раскрывает без запроса и без перерисовки (≤ .2s, в prefers-reduced-motion без движения); строка под курсором подсвечена, открытая — золотая полоса; колонка текущего периода выделена; у раскрытой строки больше 8 детей — 7 + «Ещё N»; нажатие на сумму открывает вставку под строкой (Esc или «Скрыть» закрывают); у статей колонка «Доля» — число и полоска.',
+        treeDemo()),
       block('Правая панель (panel)', 'Шапка (тип записи, заголовок, подзаголовок, ✕), блоки полей, подвал с кнопками. Здесь — образец содержимого; настоящая панель открывается через openCard.',
         panel({ kind: 'Изделие', title: 'Качели двойные', sub: 'Артикул КЧ-02', onClose: () => toast('Закрыть'),
           blocks: [{ title: 'Основное', body: h('p', { class: 'muted' }, 'Поля блока') }, { title: 'Дополнительно', body: h('p', { class: 'muted' }, 'Ещё поля') }],

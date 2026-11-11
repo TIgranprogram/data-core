@@ -1,3 +1,7 @@
+## C084 «Деньги → По статьям» для директора (2026-11-11, не закоммичено)
+коммит: не закоммичено
+- `ui/kit/tree-table.js` `treeTable` (эталон «дерево в таблице»: depth, «Ещё N», `insert` строка-вставка, фокус назад, resize `--w`); CSS — конец `ui/kit/kit.css`; витрина `sections/kit.js:37` `treeDemo`; DESIGN §4/§8. `ui/kit/index.js` `stat` tone. Экран `sections/money-articles.js` (`articlesView`: `node`, `showOps`, `incomeKids`, `expenseRows`, кварталы `dc-money-articles-period`); `money.js` Сводка `expensesByArticle`, UNSET 'Без статьи'. `offer-pack.js` — confirmDlg перед «Отправить пакет». Отчёт: docs/crew/C084-money-director/frontend.md. Карта обновлена.
+
 ## C072 готовый паспорт и «По номерам» (2026-11-11, не закоммичено)
 коммит: не закоммичено
 - `passports/funnel/ready.js` `readyPanel` (шаги файл→фирма→изделие→заказ→номер, POST /passports/ready); вход — панель `passfunnel` через `open.js openReadyPassport` (`funnel/index.js buildReady`). Кнопки: `docs.js` page-head, `products/card-blocks.js passportPane`, `order-passport-plan.js` (+ ссылки на файлы под кнопками).
