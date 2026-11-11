@@ -95,7 +95,7 @@ export async function loadOrderHistory(db: Db, orderId: Types.ObjectId, q: Recor
     const c = (l.changes as Array<{ field: string; from: unknown; to: unknown }>).find((x) => x.field === 'status');
     if (!c || l.first) continue;
     const task = tasks.find((t) => String(t._id) === String(l.entityId));
-    visible.push({ at: l.createdAt, type: 'design', who: l.userName ?? null, title: `Задача D-${task?.seq ?? ''}`, text: `Статус: ${DESIGN_STATUS[String(c.from)] ?? c.from ?? 'пусто'} → ${DESIGN_STATUS[String(c.to)] ?? c.to}`, link: { kind: 'designTask', id: String(l.entityId) } });
+    visible.push({ at: l.createdAt, type: 'design', who: l.userName ?? null, title: `Задача D-${task?.seq ?? ''}`, text: `Статус: ${DESIGN_STATUS[String(c.from)] ?? c.from ?? 'не задан'} → ${DESIGN_STATUS[String(c.to)] ?? c.to ?? 'не задан'}`, link: { kind: 'designTask', id: String(l.entityId) } });
   }
   for (const p of passports) {
     const link = { kind: 'passport', id: String(p._id) };
