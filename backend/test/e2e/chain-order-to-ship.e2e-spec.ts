@@ -48,9 +48,13 @@ describe('Цепочка: заказ до отгрузки', () => {
   });
 
   it('проектирование: from-order создаёт задачи, «Завершено» — позиции появляются в очереди паспортов «нет паспорта»', async () => {
+    // C059: при полном распределении позиции задачи могли уже создаться автоматом
     const r = (await http().post('/api/design-tasks/from-order').set(auth()).send({ orderId }).expect(200)).body;
-    expect(r).toMatchObject({ created: 2, skipped: 0 });
-    for (const t of r.items) {
+    expect(r.created + r.skipped).toBe(2);
+    const open = (await http().get('/api/design-tasks').query({ status: 'queue' }).set(auth()).expect(200)).body.items
+      .filter((t: { orderId?: string }) => String(t.orderId) === orderId) as Array<{ id: string }>;
+    expect(open).toHaveLength(2);
+    for (const t of open) {
       await http().patch(`/api/design-tasks/${t.id}`).set(auth()).send({ status: 'work', assigneeId: personId }).expect(200);
       const done = (await http().patch(`/api/design-tasks/${t.id}`).set(auth()).send({ status: 'done' }).expect(200)).body;
       expect(done.status).toBe('done');

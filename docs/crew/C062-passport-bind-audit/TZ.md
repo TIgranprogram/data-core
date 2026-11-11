@@ -17,7 +17,7 @@
 ## Shared pack
 - Решение: гибрид C; ПР-1…6 приняты. Фирма = `supplierOrgId` (не новое поле). Файл печати = новое поле только data-core.
 - Контракт:
-  - `POST /passports` — `productId` обязателен (кроме внутреннего draft-all с productId из позиции); `supplierOrgId` обязателен при ручном.
+  - `POST /passports` — воронка шлёт `productId` + `supplierOrgId`; API без изделия — legacy. Фирма: 1 наша → сама; >1 → обязательна; 0 → черновик без фирмы.
   - `POST /passports/:id/print-file` — multipart PDF → сохраняет путь; ответ паспорт с `printFile: { name, hasFile:true }`.
   - `DELETE /passports/:id/print-file` — снять файл.
   - `GET /passports/:id/pdf` — если есть файл → отдать его; иначе сборка как сейчас.

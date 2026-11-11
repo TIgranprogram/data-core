@@ -65,8 +65,11 @@ describe('Паспорта изделий', () => {
 
   it('НМ: неполный черновик не выпускается (400 со списком); двойной клик — один номер; два выпуска подряд — номера без пропусков', async () => {
     const bare = (await http().post('/api/passports').set(as(admin.access)).send({ name: 'Скамья' }).expect(201)).body;
+    // C062: одна наша фирма подставляется сама — в missing нет supplierOrgId
+    expect(bare.supplierOrgId).toBe(orgId);
     const no = (await http().post(`/api/passports/${bare.id}/issue`).set(as(admin.access)).expect(400)).body;
-    expect(no.missing).toEqual(expect.arrayContaining([expect.objectContaining({ key: 'supplierOrgId' })]));
+    expect(no.missing.length).toBeGreaterThan(0);
+    expect(no.missing.map((m: { key: string }) => m.key)).not.toContain('supplierOrgId');
     const [a, b] = await Promise.all([1, 2].map(() => http().post('/api/passports').set(as(admin.access)).send(full({ name: 'Скамья парковая' }))));
     const twice = await Promise.all([a, a].map((x) => http().post(`/api/passports/${x.body.id}/issue`).set(as(admin.access))));
     expect(twice.map((x) => x.status)).toEqual([200, 200]);

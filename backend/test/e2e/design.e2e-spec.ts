@@ -48,12 +48,15 @@ describe('Design tasks (Проектирование)', () => {
 
   let taskId = '';
   it('from-order: задача на каждую позицию, повтор — 0 новых; срок и приоритет из заказа', async () => {
+    // C059: первая позиция с изделием могла уже получить задачу автоматом (пока вторая ещё не создана)
     const r = (await http().post('/api/design-tasks/from-order').set(auth()).send({ orderId }).expect(200)).body;
-    expect(r).toMatchObject({ created: 2, skipped: 0 });
-    const t = r.items.find((x: { sku: string | null }) => x.sku === '3410');
-    taskId = t.id;
+    expect(r.created + r.skipped).toBe(2);
+    const list = (await http().get('/api/design-tasks').query({ status: 'queue' }).set(auth()).expect(200)).body.items as Array<{ id: string; sku: string | null; title: string; priority: string; priorityFromOrder: boolean; deadlineFromOrder: boolean; deadline: string; incomeId?: string }>;
+    const t = list.find((x) => x.sku === '3410') ?? r.items.find((x: { sku: string | null }) => x.sku === '3410');
+    expect(t).toBeTruthy();
+    taskId = t!.id;
     expect(t).toMatchObject({ status: 'queue', title: expect.stringContaining('Чертежи 3410 № 20-26'), priority: 'urgent', priorityFromOrder: true, deadlineFromOrder: true });
-    expect(t.deadline.slice(0, 10)).toBe('2026-12-01');
+    expect(String(t!.deadline).slice(0, 10)).toBe('2026-12-01');
     expect((await http().post('/api/design-tasks/from-order').set(auth()).send({ orderId }).expect(200)).body).toMatchObject({ created: 0, skipped: 2 });
     await http().post('/api/design-tasks').set(auth()).send({ incomeId: lineId }).expect(409);
   });

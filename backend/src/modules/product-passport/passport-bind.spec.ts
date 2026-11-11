@@ -6,11 +6,14 @@ const chain = (v: unknown) => ({ select: () => chain(v), session: () => chain(v)
 
 /** Память вместо Mongo: организации (наши фирмы) и одна позиция заказа. */
 function mem(opts: { orgs?: Types.ObjectId[]; income?: Record<string, unknown> | null } = {}) {
+  const orgs = opts.orgs ?? [];
   return {
     collection(name: string) {
       return {
-        find: () => ({ limit: () => ({ toArray: async () => (name === 'organizations' ? (opts.orgs ?? []).map((_id) => ({ _id })) : []) }) }),
+        countDocuments: async () => (name === 'organizations' ? orgs.length : 0),
+        find: () => ({ limit: () => ({ toArray: async () => (name === 'organizations' ? orgs.map((_id) => ({ _id })) : []) }) }),
         findOne: async (q: { _id?: Types.ObjectId }) => {
+          if (name === 'organizations' && orgs.length === 1) return { _id: orgs[0] };
           if (name === 'incomes') return opts.income && q._id && String(opts.income._id) === String(q._id) ? opts.income : null;
           if (name === 'salesorders' && opts.income?.orderId) return { _id: opts.income.orderId, orderNo: '12', customer: 'Парк' };
           return null;
@@ -25,18 +28,17 @@ describe('bindDraft', () => {
   const firm = new Types.ObjectId();
   const other = new Types.ObjectId();
 
-  it('без изделия — 400', async () => {
-    await expect(bindDraft(mem({ orgs: [firm] }), {})).rejects.toThrow('Укажите изделие');
-  });
-
   it('несколько фирм и фирма не выбрана — 400', async () => {
     await expect(bindDraft(mem({ orgs: [firm, other] }), { productId: String(product) })).rejects.toThrow('Выберите фирму');
   });
 
-  it('одна фирма — подставляется сама', async () => {
+  it('одна фирма — подставляется сама; ноль фирм — черновик без фирмы; без изделия — можно (legacy)', async () => {
     const r = await bindDraft(mem({ orgs: [firm] }), { productId: String(product) });
     expect(r.supplierOrgId).toBe(String(firm));
     expect(r.productId).toBe(String(product));
+    const bare = await bindDraft(mem({ orgs: [] }), { productId: String(product) });
+    expect(bare.supplierOrgId).toBeUndefined();
+    await expect(bindDraft(mem({ orgs: [] }), {})).resolves.toMatchObject({});
   });
 
   it('переданная фирма не затирается', async () => {

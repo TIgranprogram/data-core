@@ -8,17 +8,20 @@ import { fromIncome, ourSupplierId } from './passport-queue';
 type Db = NonNullable<Connection['db']>;
 
 /**
- * C062: ручное создание требует изделие и фирму (`supplierOrgId`).
- * Фирма подставляется сама, только если наша компания ровно одна; иначе 400 «Выберите фирму».
- * Черновик заказа берёт изделие у позиции (`fromIncome`).
+ * C062: фирма (`supplierOrgId`) — ровно одна наша подставить; несколько — 400 «Выберите фирму»;
+ * ноль — черновик без фирмы (выпуск всё равно просит поставщика).
+ * Изделие воронка шлёт сама; API без изделия оставляем (legacy/e2e и «новое изделие» по позиции).
+ * Черновик заказа берёт поля у позиции (`fromIncome`).
  */
 export async function bindDraft(db: Db, dto: CreateProductPassportDto): Promise<CreateProductPassportDto> {
   const filled = await fromIncome(db, dto);
-  if (!filled.productId) throw new BadRequestException('Укажите изделие');
   if (!filled.supplierOrgId) {
-    const only = await ourSupplierId(db);
-    if (!only) throw new BadRequestException('Выберите фирму');
-    filled.supplierOrgId = String(only);
+    const n = await db.collection('organizations').countDocuments({ isOurCompany: true, deletedAt: null });
+    if (n > 1) throw new BadRequestException('Выберите фирму');
+    if (n === 1) {
+      const only = await ourSupplierId(db);
+      if (only) filled.supplierOrgId = String(only);
+    }
   }
   return filled;
 }

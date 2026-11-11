@@ -148,6 +148,7 @@
 | 2026-11-10 | (C064 пустые поля в PDF паспорта; C065 панель в отдельном окне) | tsc ✅; юнит ✅ 308/308 suites, 3615/3615 | e2e ✅ 70/71 suites (1 skipped — T26), 538/550 (12 skipped); БД datacore-test, Docker | full перед выкладкой L |
 | 2026-11-10 | 7def859a + незакоммиченное C056 Д (эталон fill) | tsc ✅ exit 0; юнит ✅ 308/308 suites, 3617/3617; pwa-guards 269; design-lint 0 новых (6362); node --check 10; node --test fill/model 6/6 | e2e ✅ 70/71 suites (1 skipped — T26), 538/550 (12 skipped); БД datacore-test, Docker | full перед выкладкой L |
 | 2026-11-11 | C058 A7 (два сервера) | live: home→office switch finish ~97с, сайт 200; office→home photos_pre fail (ProxyCommand); аварийный возврат dc-switch home + роли Mongo — Дом main, SITE=200, CRM up | не юнит/e2e — учебное переключение | C058 PARTIAL; лог tools/logs/c058-a7-*.log |
+| 2026-11-11 | C062 паспорта: фирма/файл/списки + фикс DI заявок + e2e под C059 auto design | tsc ✅; юнит ✅ 310/310 suites, 3633/3633 | e2e ✅ 70/71 suites (1 skipped — T26), 538/550 (12 skipped); БД datacore-test, Docker | full перед выкладкой L |
 
 ## Разбор C058: почему office→home ломается на photos / ProxyCommand (2026-11-11)
 

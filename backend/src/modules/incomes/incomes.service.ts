@@ -60,8 +60,12 @@ export class IncomesService {
     @InjectModel(Income.name) private readonly model: Model<IncomeDocument>,
     private readonly moduleRef: ModuleRef,
     @Optional() private readonly zones?: ZonesService,
-    @Optional() private readonly requests?: ProductRequestsService,
   ) {}
+
+  /** ProductRequests через ModuleRef — иначе цикл Incomes ↔ ProductRequests глушит DI (@Optional = undefined). */
+  private productRequests(): ProductRequestsService | undefined {
+    try { return this.moduleRef.get(ProductRequestsService, { strict: false }); } catch { return undefined; }
+  }
 
   /** Полное распределение заказа → задачи проектирования (ModuleRef — без цикла Nest-модулей). */
   private async maybeAutoDesign(orderId: unknown, userId?: string) {
@@ -332,7 +336,14 @@ export class IncomesService {
       createdBy: userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined,
     });
     // новое изделие → заявка проектировщику (та же заявка на то же название)
-    if (f.lineType === 'new_product') await this.requests?.attachIncome(doc.toObject() as unknown as Record<string, unknown>, userId);
+    if (f.lineType === 'new_product') {
+      const req = this.productRequests();
+      if (!req) throw new BadRequestException('Сервис заявок на изделие не доступен');
+      const raw = (typeof (doc as { toObject?: () => Record<string, unknown> }).toObject === 'function'
+        ? (doc as { toObject: () => Record<string, unknown> }).toObject()
+        : doc) as Record<string, unknown>;
+      await req.attachIncome(raw, userId);
+    }
     await this.maybeAutoDesign((doc as { orderId?: unknown }).orderId ?? f.orderId, userId);
     return this.get(String(doc._id));
   }
@@ -370,12 +381,13 @@ export class IncomesService {
 
   /** ORDER-LINES: после правки позиции — привязать к заявке (новое изделие) или пересчитать количество заявки. */
   private async syncRequest(cur: Record<string, unknown>, f: Record<string, unknown>, userId?: string) {
-    if (!this.requests) return;
+    const req = this.productRequests();
+    if (!req) return;
     const type = 'lineType' in f ? f.lineType : cur.lineType;
     const titleChanged = 'title' in f && String(f.title ?? '') !== String(cur.title ?? '');
     if (type === 'new_product' && (!cur.productRequestId || cur.lineType !== 'new_product' || titleChanged)) {
-      await this.requests.attachIncome({ ...cur, ...Object.fromEntries(Object.entries(f).filter(([, v]) => v !== undefined)) }, userId);
-    } else if (cur.productRequestId && ('qty' in f || 'lineType' in f)) await this.requests.recalc(cur.productRequestId);
+      await req.attachIncome({ ...cur, ...Object.fromEntries(Object.entries(f).filter(([, v]) => v !== undefined)) }, userId);
+    } else if (cur.productRequestId && ('qty' in f || 'lineType' in f)) await req.recalc(cur.productRequestId);
   }
 
   /** СВ-11 (3): появился новый платёж у позиции без договора — сообщить Бухгалтерии (один раз на позицию). */
@@ -427,7 +439,7 @@ export class IncomesService {
     }
     const res = await this.model.updateOne({ _id: oid(id, 'дохода'), deletedAt: null }, { $set: { deletedAt: new Date(), editedInApp: true } }).exec();
     if (!res.matchedCount) throw new NotFoundException('Запись дохода не найдена');
-    if (cur?.productRequestId) await this.requests?.recalc(cur.productRequestId);
+    if (cur?.productRequestId) await this.productRequests()?.recalc(cur.productRequestId);
     return { id, deleted: true };
   }
 
