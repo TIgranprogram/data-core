@@ -129,19 +129,34 @@ async function firmFromOrder(db: Db, order: { companyId?: unknown } | null): Pro
   return org ? String(org._id) : undefined;
 }
 
+type OrderHead = { _id?: unknown; orderNo?: unknown; customer?: unknown; companyId?: unknown; productionNo?: unknown; offerId?: unknown };
+
+/** Адрес установки: у заказа своего поля нет — берём объект связанного КП, если менеджер не вписал свой. */
+async function addressFromOrder(db: Db, order: OrderHead | null): Promise<string | undefined> {
+  const id = order?.offerId;
+  if (!id || !Types.ObjectId.isValid(String(id))) return undefined;
+  const off = await db.collection('offers').findOne(
+    { _id: new Types.ObjectId(String(id)), deletedAt: null },
+    { projection: { objectName: 1 } },
+  );
+  const name = String(off?.objectName ?? '').trim();
+  return name || undefined;
+}
+
 /**
- * Паспорт «из очереди» / с заказа: позиция → заказ, №, изделие, заказчик;
+ * Паспорт «из очереди» / с заказа: позиция → заказ, №, изделие, заказчик, адрес (объект КП);
  * фирма — явная, иначе companyId заказа (наша), иначе единственная наша (C063).
  */
 export async function fromIncome(db: Db, dto: CreateProductPassportDto): Promise<CreateProductPassportDto> {
   let filled: CreateProductPassportDto = { ...dto };
-  let order: { _id?: unknown; orderNo?: unknown; customer?: unknown; companyId?: unknown; productionNo?: unknown } | null = null;
+  let order: OrderHead | null = null;
+  const head = { projection: { orderNo: 1, productionNo: 1, customer: 1, companyId: 1, offerId: 1 } };
 
   if (dto.incomeId) {
     const inc = await db.collection('incomes').findOne({ _id: new Types.ObjectId(dto.incomeId), deletedAt: null }, { projection: { orderId: 1, productId: 1 } });
     if (!inc) throw new BadRequestException('Позиция заказа не найдена');
     order = inc.orderId
-      ? await db.collection('salesorders').findOne({ _id: inc.orderId, deletedAt: null }, { projection: { orderNo: 1, productionNo: 1, customer: 1, companyId: 1 } })
+      ? await db.collection('salesorders').findOne({ _id: inc.orderId, deletedAt: null }, head) as OrderHead | null
       : null;
     filled = {
       ...filled,
@@ -153,8 +168,8 @@ export async function fromIncome(db: Db, dto: CreateProductPassportDto): Promise
   } else if (dto.salesOrderId && Types.ObjectId.isValid(String(dto.salesOrderId))) {
     order = await db.collection('salesorders').findOne(
       { _id: new Types.ObjectId(String(dto.salesOrderId)), deletedAt: null },
-      { projection: { orderNo: 1, productionNo: 1, customer: 1, companyId: 1 } },
-    );
+      head,
+    ) as OrderHead | null;
     if (order) {
       filled = {
         ...filled,
@@ -164,6 +179,10 @@ export async function fromIncome(db: Db, dto: CreateProductPassportDto): Promise
     }
   }
 
+  if (!filled.objectName) {
+    const addr = await addressFromOrder(db, order);
+    if (addr) filled.objectName = addr;
+  }
   if (!filled.supplierOrgId) {
     filled.supplierOrgId = (await firmFromOrder(db, order)) ?? (await ourSupplierId(db))?.toString();
   }

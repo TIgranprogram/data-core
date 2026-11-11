@@ -5,7 +5,7 @@ import { assertOneLive, bindDraft } from './passport-bind';
 const chain = (v: unknown) => ({ select: () => chain(v), session: () => chain(v), lean: () => chain(v), exec: async () => v });
 
 /** Память вместо Mongo: организации (наши фирмы) и одна позиция заказа. */
-function mem(opts: { orgs?: Types.ObjectId[]; income?: Record<string, unknown> | null; orderCompanyId?: Types.ObjectId } = {}) {
+function mem(opts: { orgs?: Types.ObjectId[]; income?: Record<string, unknown> | null; orderCompanyId?: Types.ObjectId; offerId?: Types.ObjectId; objectName?: string } = {}) {
   const orgs = opts.orgs ?? [];
   return {
     collection(name: string) {
@@ -20,8 +20,9 @@ function mem(opts: { orgs?: Types.ObjectId[]; income?: Record<string, unknown> |
           }
           if (name === 'incomes') return opts.income && q._id && String(opts.income._id) === String(q._id) ? opts.income : null;
           if (name === 'salesorders' && opts.income?.orderId) {
-            return { _id: opts.income.orderId, orderNo: '12', customer: 'Парк', ...(opts.orderCompanyId ? { companyId: opts.orderCompanyId } : {}) };
+            return { _id: opts.income.orderId, orderNo: '12', customer: 'Парк', ...(opts.offerId ? { offerId: opts.offerId } : {}), ...(opts.orderCompanyId ? { companyId: opts.orderCompanyId } : {}) };
           }
+          if (name === 'offers' && opts.offerId && q._id && String(q._id) === String(opts.offerId)) return { _id: opts.offerId, objectName: opts.objectName || '' };
           return null;
         },
       };
@@ -75,6 +76,17 @@ describe('bindDraft', () => {
       { incomeId: String(income), supplierOrgId: String(other) },
     );
     expect(explicit.supplierOrgId).toBe(String(other));
+  });
+
+  it('C077: адрес — объект КП заказа; свой адрес менеджера важнее', async () => {
+    const income = new Types.ObjectId();
+    const order = new Types.ObjectId();
+    const offer = new Types.ObjectId();
+    const base = { orgs: [firm], income: { _id: income, productId: product, orderId: order }, offerId: offer, objectName: 'ул. Ленина, 1' };
+    const r = await bindDraft(mem(base), { incomeId: String(income) });
+    expect(r).toMatchObject({ customerName: 'Парк', orderNo: '12', objectName: 'ул. Ленина, 1' });
+    const own = await bindDraft(mem(base), { incomeId: String(income), objectName: 'свой адрес' });
+    expect(own.objectName).toBe('свой адрес');
   });
 });
 

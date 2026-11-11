@@ -6,7 +6,7 @@ import { patch } from '../../../core/router.js';
  * Изделие входа Б передаётся через pending (как draft в issuePassport): адрес остаётся коротким.
  */
 let pending = null;
-/** productId — сразу к изделию. salesOrderId без incomeId — в выпуске спросить позицию. incomeId — позиция уже выбрана. */
+/** productId без заказа — воронка спросит «Для заказа», если есть открытые позиции. salesOrderId без incomeId — в выпуске спросить позицию. incomeId — позиция уже выбрана. */
 export function openPassportFunnel({ productId, salesOrderId, incomeId, orderNo, customerName } = {}) {
   pending = (productId || salesOrderId || incomeId)
     ? { productId: productId ? String(productId) : undefined, salesOrderId: salesOrderId ? String(salesOrderId) : undefined, incomeId: incomeId ? String(incomeId) : undefined, orderNo, customerName, at: Date.now() }

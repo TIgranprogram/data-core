@@ -45,13 +45,13 @@ export async function loadTexts(category, productId) {
 /**
  * Паспорт изделия: черновик из изделия → проверка → выпуск. Не хватает — черновик убирается, возвращается список.
  * Фирму выбирает менеджер (все isOurCompany). Первую из нескольких молча не подставляем.
- * extra: { supplierOrgId, incomeId?, salesOrderId?, orderNo?, customerName? }
+ * extra: { supplierOrgId, incomeId?, salesOrderId?, orderNo?, customerName?, objectName? }
  */
 export async function issueFromProduct(productId, extra = {}) {
   const supplierOrgId = extra.supplierOrgId || undefined;
   if (!supplierOrgId) throw new Error('Выберите фирму');
   const draft = await api('/passports', { method: 'POST', body: clean({
-    productId, supplierOrgId, incomeId: extra.incomeId, salesOrderId: extra.salesOrderId, orderNo: extra.orderNo, customerName: extra.customerName,
+    productId, supplierOrgId, incomeId: extra.incomeId, salesOrderId: extra.salesOrderId, orderNo: extra.orderNo, customerName: extra.customerName, objectName: extra.objectName,
   }) });
   const id = draft.id || draft._id;
   const full = await api(`/passports/${id}`);

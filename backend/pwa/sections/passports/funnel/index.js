@@ -1,10 +1,10 @@
 import { h } from '../../../core/dom.js';
 import { patch } from '../../../core/router.js';
-import { button, link, section, stack, toastError } from '../../../ui/kit/index.js';
+import { button, hint, link, section, stack, toastError } from '../../../ui/kit/index.js';
 import { canEdit } from '../common.js';
 import { passportFill } from '../fill/index.js';
 import { getProduct } from './api.js';
-import { issueBlock } from './issue.js';
+import { issueBlock, openPositions, orderStep } from './issue.js';
 import { newProduct } from './new-product.js';
 import { peekReady, takePending } from './open.js';
 import { pickSteps } from './pick-steps.js';
@@ -28,7 +28,9 @@ function build() {
   const entry = takePending();
   readyMode = !!entry?.ready;
   if (entry?.ready) return buildReady(entry);
-  const S = { P: {}, q: '', prod: null, order: entry && (entry.salesOrderId || entry.incomeId) ? entry : null };
+  const lockedOrder = !!(entry && (entry.salesOrderId || entry.incomeId));
+  const S = { P: {}, q: '', prod: null, order: lockedOrder ? entry : null };
+  let stageSeq = 0;
   const recap = stack();
   const stages = stack();
   const newBox = h('div', null);
@@ -63,8 +65,19 @@ function build() {
   newBox.hidden = true;
 
   function showPick() {
-    S.prod = null; stages.replaceChildren(); recap.replaceChildren(); title('Новый паспорт');
+    stageSeq += 1;
+    S.prod = null; if (!lockedOrder) S.order = null; stages.replaceChildren(); recap.replaceChildren(); title('Новый паспорт');
     newBox.hidden = true; pickBox.hidden = false; ps.setDone(false); say(null); ps.update(S.P);
+  }
+
+  function paintRecap(prod) {
+    const sku = prod.sku ? prod.sku + ' ' : '';
+    const bits = [link({ label: `Изделие: ${sku}${prod.name} ✎`, title: 'Выбрать другое изделие', onClick: showPick })];
+    if (S.order && !S.order.quiet && !lockedOrder) {
+      const text = S.order.noOrder ? 'Заказ: без заказа ✎' : `Заказ: ${S.order.orderText || 'выбран'} ✎`;
+      bits.push(link({ label: text, title: 'Выбрать другой заказ', onClick: () => { S.order = null; stagePanels(prod); } }));
+    }
+    recap.replaceChildren(...bits);
   }
 
   // ── шаги 5–7 ──
@@ -72,13 +85,31 @@ function build() {
     try {
       const prod = typeof src === 'string' ? await getProduct(src) : src;
       S.prod = prod; pickBox.hidden = true; newBox.hidden = true; ps.setDone(true); title('Паспорт: ' + (prod.name || 'изделие'));
-      const sku = prod.sku ? prod.sku + ' ' : '';
-      recap.replaceChildren(link({ label: `Изделие: ${sku}${prod.name} ✎`, title: 'Выбрать другое изделие', onClick: showPick }));
       await stagePanels(prod);
     } catch (e) { toastError(e, 'открыть изделие'); }
   }
 
   async function stagePanels(prod) {
+    const my = ++stageSeq;
+    paintRecap(prod);
+    // C077: с изделия, если заказ ещё не выбран — необязательный шаг «Для заказа»
+    if (!S.order) {
+      say('выберите заказ или «Без заказа»');
+      stages.replaceChildren(hint('Ищу открытые позиции с этим изделием…'));
+      let positions = [];
+      try { positions = await openPositions(prod.id); } catch { positions = []; }
+      if (my !== stageSeq) return;
+      if (!positions.length) S.order = { noOrder: true, quiet: true };
+      else {
+        stages.replaceChildren(orderStep({
+          positions,
+          onPick: (p) => { S.order = p; stagePanels(prod); },
+          onNone: () => { S.order = { noOrder: true }; stagePanels(prod); },
+        }));
+        return;
+      }
+      paintRecap(prod);
+    }
     const issueSec = section({ title: 'Выпуск', tone: 'gold', open: false, body: [] });
     const issue = issueBlock({
       prod,
@@ -112,6 +143,7 @@ function build() {
         next.hidden = !first; // C070-П3: всё заполнено — на экране одна главная кнопка «Выпустить PDF»
       },
     });
+    if (my !== stageSeq) return;
     stages.replaceChildren(fill.el, next, issueSec);
   }
 
