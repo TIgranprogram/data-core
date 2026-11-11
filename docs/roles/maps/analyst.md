@@ -1,6 +1,10 @@
 # Карта роли analyst
 
-коммит: не закоммичен (ЕН 2026-11-03; C011 2026-11-03; УСЛ 2026-11-04; ДЕНЬГИ 2026-11-04; C022 2026-11-04; ВЛ-1 2026-11-05; C028 2026-11-07; C050 2026-11-08; C054 2026-11-09, база 4e58381a; C061 2026-11-11; C062-логика 2026-11-11)
+коммит: не закоммичен (ЕН 2026-11-03; C011 2026-11-03; УСЛ 2026-11-04; ДЕНЬГИ 2026-11-04; C022 2026-11-04; ВЛ-1 2026-11-05; C028 2026-11-07; C050 2026-11-08; C054 2026-11-09, база 4e58381a; C061 2026-11-11; C062-логика 2026-11-11; C070-П 2026-11-11)
+
+## Паспорта: удобно и быстро (C070-П, 2026-11-11)
+- Отчёт `docs/crew/C070-passports-kp-focus/PASSPORTS.md`; вопросы ПП-1…5 в QUESTIONS. Воронка: `passports/funnel/index.js`, `issue.js`; заполнение — `passports/fill/{index,paint,control}.js`; сервер «не хватает» — `product-passport/passport-gaps.ts:85-96`; план заказа — `passport-order.ts`, экран `order-passport-plan.js`.
+- Дыры: 5 кнопок пульта `hidden: true` (c054-parts-coatings, c061-trainers-load, c062, c063, c066) без пунктов в `pult/todo.json`; `fieldDefaults` категории читает только `wire-form.js:43`, не воронка; «Взять из PDM» открывает файл, не кладёт в слот; ИИ в рантайме нет.
 
 ## Фирма паспорта и заказ (C062-логика, 2026-11-11)
 - Сверка `docs/crew/C062-passport-bind-audit/LOGIC-AUDIT.md`. Шаблон = `passportDefaults`. Экземпляр = `productpassports` (`incomeId`, `salesOrderId`, `supplierOrgId`).
