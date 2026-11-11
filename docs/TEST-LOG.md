@@ -149,62 +149,8 @@
 | 2026-11-10 | 7def859a + незакоммиченное C056 Д (эталон fill) | tsc ✅ exit 0; юнит ✅ 308/308 suites, 3617/3617; pwa-guards 269; design-lint 0 новых (6362); node --check 10; node --test fill/model 6/6 | e2e ✅ 70/71 suites (1 skipped — T26), 538/550 (12 skipped); БД datacore-test, Docker | full перед выкладкой L |
 | 2026-11-11 | C058 A7 (два сервера) | live: home→office switch finish ~97с, сайт 200; office→home photos_pre fail (ProxyCommand); аварийный возврат dc-switch home + роли Mongo — Дом main, SITE=200, CRM up | не юнит/e2e — учебное переключение | C058 PARTIAL; лог tools/logs/c058-a7-*.log |
 | 2026-11-11 | C062 паспорта: фирма/файл/списки + фикс DI заявок + e2e под C059 auto design | tsc ✅; юнит ✅ 310/310 suites, 3633/3633 | e2e ✅ 70/71 suites (1 skipped — T26), 538/550 (12 skipped); БД datacore-test, Docker | full перед выкладкой L |
-
-## Разбор C058: почему office→home ломается на photos / ProxyCommand (2026-11-11)
-
-**Контекст A7 (~02:00 МСК).** Дом→Sportin мостом прошёл (`direction=home->office`, finish done ~97 с, сайт 200). Обратный `office->home` упал на шаге `photos_pre` с «Не удалось передать фото». Сайт при этом оставался 200 (домен уже был на Sportin). Дом вернули **не** кнопкой, а вручную.
-
-### Что рвётся в автоматической цепочке
-
-1. **Направление асимметрично.** Home→office: Sportin доступен с VM **напрямую** по SSH (`HA_PEER_SSH=erpadmin@…`, без Proxy). Office→home: с Sportin до VM только через **VPS hop** — в `bridge.env` у office есть `HA_PEER_PORT=4222` и `HA_PEER_PROXY=ssh -i …/dc_hop … -W %h:%p root@VPS`.
-2. **Мост собирает `RSH` для rsync** (`deploy/ha/switch/switch-watch.sh` ~80–86): опции SSH (в т.ч. `-i` ключ и `-o ProxyCommand=…`) кладутся в массив, затем склеиваются через `printf '%q'` в одну строку `RSH`, и rsync вызывается как `-e "$RSH"`.
-3. **На `photos_pre` с office** в `/var/lib/datacore/switch/switch.log` (Sportin):
-   - `Warning: Identity file \ not accessible`
-   - `command-line line 0: no argument after keyword "\\"`
-   - `rsync error: unexplained error (code 255)`
-   То есть **ломается разбор аргументов внешнего `ssh`**: `-i` из ProxyCommand (внутренний hop) воспринимается как `-i` внешнего ssh, путь к ключу превращается в `\`. До передачи фото/данных дело не доходит — рвётся сам SSH-канал peer.
-4. **Почему `peer()` ssh в preflight мог пройти, а rsync — нет.** Вызов `ssh "${PEER_OPTS[@]}"` передаёт ProxyCommand одним элементом массива. Вызов `rsync -e "$RSH"` снова прогоняет ту же строку через shell; вложенный `ProxyCommand=ssh -i …` при склейке/`%q` на office даёт поломанный argv. Home→office без Proxy эту ловушку не трогает.
-
-### Что сработало вручную (авария)
-
-1. С VM: `dc-switch home` на VPS → nginx `/db/` снова на порт **4201** (туннель Дома).
-2. Mongo на обоих: `app_control_state` → Дом `role=main, mode=normal, job=null`; Sportin `role=standby, mode=normal`.
-3. `docker start kppdf-backend` на Доме (CRM мост останавливал при switch).
-4. Итог: `GET /api/control/switch` — `self=home`, `role=main`, `enabled=true`, SITE `/db/api/health/ready` = 200. **Фото/rsync при возврате не гонялись** — домен и роли выставили в обход шага photos.
-
-### Что нужно для автоматического office→home
-
-1. **Починить RSH+ProxyCommand** в `switch-watch.sh` (и/или `bridge.env` на office): чтобы `-e` для rsync не ломал вложенный `-i` hop. Надёжные варианты: отдельный `ssh` wrapper / `Include`/`-F` config-файл вместо склейки ProxyCommand в одну quoted-строку; либо тест `rsync -e …` в preflight на office до `photos_pre`.
-2. Повторить A7: Дом→Sportin→Дом кнопкой, оба направления finish done, счётчики/health, без `dc-switch` руками.
-3. Хвосты (не блокер разбора Proxy): выровнять `BACKUP_SECRET_KEY` (хеши), закрепить bind `:3001` только localhost на Sportin в репо, C045-6/8.
-
-См. также `docs/crew/C058-two-servers-finish/REPORT.md`, логи `tools/logs/c058-a7-*.log`.
-
-## Учёт ошибок сайта из ИИ-тестировщика 2026-11-10
-
-Источник: `tools/logs/ai-tester/2026-11-10/REPORT.md` (4 «Ошибки сайта»). Отдельных пунктов в TASKS до 2026-11-11 не было (общие дубли справочников — БЗ-14, не эти кейсы). Заведены:
-
-| ID | Суть | TASKS |
-|--|--|--|
-| AIT-1 | `POST /partners` 409 дубль ИНН | `docs/TASKS.md` AIT-1 |
-| AIT-2 | дубль названия контрагента + 400 «КПП — 9 цифр» | AIT-2 |
-| AIT-3 | `PATCH` заявки из fill: поля общие для счёта | AIT-3 |
-| AIT-4 | `PATCH` заявки: админ-обход без причины (≥3 символа) | AIT-4 |
-
-**Чинить сейчас при живом 24ч-тестере?** Не сейчас на стенде/проде: тестер пишет в копию стенда (`ТЕСТ-ИИ…`, заявки) и сам натыкается на эти 400/409; правка UX/валидации во время прогона даст шум в отчёте и риск сломать текущий `--resume`. Безопасно: завести задачи (сделано) → чинить после `--stop` / конца суток, либо только в коде + юнит без выкладки на стенд тестера.
-
-## Чек-лист: усилить ИИ-тестировщик (обзор 2026-11-11)
-
-По коду `tools/ai-tester/` (run.mjs, lib.mjs) и отчёту `2026-11-10` (~35 % «получилось», 4 ошибки сайта vs 250+ замечаний ИИ). Порядок — по пользе.
-
-- [ ] **1. Known-bugs / allowlist + дедуп по fingerprint.** Сейчас `groupFindings` только склеивает строки в отчёте; повторные 409/400 и «договоров нет» каждый день заново. Файл `known-bugs.json` (ключ = method+path+status+нормализованный текст): known → не в «Ошибки сайта», а в «известные»; новый → топ. Иначе AIT-1…4 тонут в шуме.
-- [ ] **2. Не считать ожидаемые 4xx ошибками сайта.** `autoFindings` уже исключает 409, но ловит 400 (КПП, «причина», «поля счёта») — часто это верный отказ + кривой ввод модели. Классифицировать: `expected_reject` vs `site_bug` (5xx, JS, garbage, неожиданный 4xx на happy-path). Итог «ошибок сайта» станет честным.
-- [ ] **3. Критерии pass/fail задания — не только `finish` от модели.** Сейчас «получилось» = самооценка LLM; «не получилось» часто «ходил по кругу». Для `make: true` — assert: POST 2xx + запись с `ТЕСТ-ИИ` в created; для look — hash сменился / панель открылась. Иначе 35 % success бесполезен как метрика.
-- [ ] **4. Сценарии критических потоков (не только shuffle TASKS).** Явные сценарии: заявка→счёт→оплата; выдача со склада; заказ→позиция; вход по роли. Сейчас random order + free + пустые договоры → много ложных fail. Покрытие 80/20 вместо 770 однотипных проходов.
-- [ ] **5. Автоучёт находок → TASKS/очередь (не GitHub issue вслепую).** Нет создания issues; отчёт ждёт человека/`dc start`. После прогона: новые site_bug → черновик пунктов в `docs/TASKS.md` или `docs/QUESTIONS.md` / crew (с fingerprint), без дублей known. GitHub — опционально по флагу.
-- [ ] **6. Резать шум ИИ (`report_problem`).** 254 замечания: пустые договоры (задание требует строку), поиск «Тигран»→заявки, дубли ТЕСТ-ИИ. Skip/адаптация задания если экран пуст; уникальные имена/ИНН на каждый make; не слать в LLM задание, которое data-state не позволяет. Kind «непонятно»/«неудобно» — отдельный лимит/сэмпл в отчёте.
-- [ ] **7. Алерт при реальной аварии стенда.** Watchdog только `--resume` процесс. Нет сигнала при 5xx шторме, падении LM, 0 заданий/час, росте новых site_bug. Минимум: строка в `dc start` / пульт + опционально файл `ALERT.md` в дневной папке.
-- [ ] **8. Стабильность прогона (много `--resume`).** Десятки процессов `run.mjs --resume` — признак частых обрывов. Один lock/PID, не плодить resume; health LM перед каждым task; в отчёте — число resume и причина. Иначе 24ч = много коротких кусков, а не один прогон.
-
 | 2026-11-11 | 19522b7d C062 | tsc 0; unit 3633/3633 | e2e ✅ 70/71, 538/550 | full before L |
+
+> Разбор C058 (office→home / ProxyCommand) — `docs/crew/C058-two-servers-finish/TEST-NOTES.md`.
+> Учёт ошибок ИИ-тестировщика и чек-лист усиления — `docs/crew/C069-cursor-routine/AI-TESTER-NOTES.md`.
 
