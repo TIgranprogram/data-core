@@ -221,6 +221,12 @@ export const COMMANDS = [
   { id: 'lai-setup', section: 'aitester', extra: true, sub: 'Один раз на ПК и если что-то не так', title: 'Установить ИИ на этом ПК', risk: 'local', time: '1 мин – 30 мин', run: { node: ['tools/ai-tester/setup.mjs'] },
     hint: 'Один раз на каждом компьютере (дом, работа). Сам настроит LM Studio, подберёт модель под видеокарту, скачает и загрузит.' },
   // ИИ-тестировщик: локальная модель ходит по стенду этого ПК, записи с меткой ТЕСТ-ИИ, в конце убирает их сама
+  { id: 'design-checks-install', section: 'aitester', extra: true, sub: 'Один раз на ПК и если что-то не так', title: 'Установить проверки дизайна', risk: 'local', time: '1 мин', run: { cmd: ['npm', 'ci', '--prefix', 'tools/design-checks', '--ignore-scripts', '--no-fund', '--no-audit'] },
+    hint: 'Сравнение снимков и проверка доступности. Используется установленный Edge, другой браузер не скачивается.' },
+  { id: 'design-vision-run', section: 'aitester', sub: 'Главное', title: 'Проверить снимки локальным ИИ', risk: 'local', time: 'до 5 мин', run: { node: ['tools/ai-tester/vision-review.mjs', '--latest-audit', '--limit', '3'] },
+    hint: 'До трёх изображений последнего обхода экранов. Повторные снимки берутся из кэша. Это замечания для проверки, не приёмка дизайна.' },
+  { id: 'design-vision-report', section: 'aitester', extra: true, sub: 'Главное', title: 'Отчёт проверки снимков', risk: 'read', time: 'сразу', run: { node: ['tools/ai-tester/vision-review.mjs', '--last'] },
+    hint: 'Краткая сводка локальной проверки: обработано, кэш, сбои и путь к полному отчёту. Модель не вызывается.' },
   { id: 'ait-check', section: 'aitester', extra: true, sub: 'Один раз на ПК и если что-то не так', title: 'Проверить готовность', risk: 'local', time: '10 с – 2 мин', run: { node: ['tools/ai-tester/run.mjs', '--check'] },
     hint: 'Проверяет по шагам: LM Studio, модель, браузер, Docker и стенд. Что не готово — пишет, что нажать.' },
   { id: 'ait-run', section: 'aitester', sub: 'Главное', title: 'Запустить ИИ-тестировщика', risk: 'local', time: 'сколько выберете', run: { node: ['tools/ai-tester/run.mjs', '--detach', '--minutes', '{minutes}'] },
@@ -256,6 +262,7 @@ export const ADVICE = [
 
 // Скрипты без кнопки: ИИ / внутренние / убраны из пульта администратора.
 export const NOT_ON_BUTTONS = {
+  'tools/design-checks/compare.mjs': 'служебное сравнение двух явно выбранных снимков; координатор задаёт принятый эталон и проверяемый снимок, автоматически эталоны не утверждаются',
   'backend/scripts/passport-items-audit.js': 'аудит пунктов паспортов для ИИ (C054): отчёт → решения пользователя в чате → --apply делает координатор',
   'tools/c039-types.mjs': 'разовый отчёт покрытия иконок типов для ИИ (C039), не для администратора',
   'deploy/synology/api.sh': 'вход для агента datacore-access; запрос собирается вручную',

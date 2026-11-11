@@ -38,7 +38,63 @@ export const RULES = {
   w: 'кнопка или метка без видимого текста — пустой «кружок» (пользователь 2026-11-10: переменные текстов паспорта)',
   y: 'загрузка не закончилась: «Проверяю… / Загружаю…» осталось на экране (пользователь 2026-11-10: карточка приложения PDM)',
   z: 'текст вылезает за границы карточки (пользователь 2026-11-10: № счёта на доске заявок)',
+  fl: 'поле формы без видимой подписи (aria-label и placeholder не заменяют подпись)',
+  fg: 'соседние поля формы слиплись или перекрылись',
+  ax: 'axe: нарушение доступности (автоматическая проверка)',
+  axcheck: 'axe: проверка доступности не выполнена',
 };
+
+/** C087: поля проверяются независимо от наличия правильного класса контейнера. */
+export function formControlFindings(fields = []) {
+  const out = [];
+  for (const f of fields) {
+    if (!f.labelled) out.push({ rule: 'fl', sel: f.sel, text: 'Нет видимой подписи поля' });
+  }
+  for (let i = 1; i < fields.length; i++) {
+    const a = fields[i - 1], b = fields[i];
+    if (a.group !== b.group || a.right <= b.left || b.right <= a.left || b.top < a.top) continue;
+    const gap = b.top - a.bottom;
+    if (gap < 6) out.push({ rule: 'fg', sel: b.sel, text: gap < 0 ? 'Поля перекрываются' : `Поля слиплись: зазор ${Math.round(gap)}px` });
+  }
+  return out;
+}
+
+/** Только геометрия и наличие подписей; значения полей и секреты не читаются. */
+export function formControlSnapshot(doc = document) {
+  const shown = (el) => {
+    if (!el) return false;
+    const r = el.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return false;
+    for (let node = el; node; node = node.parentElement) {
+      const style = doc.defaultView?.getComputedStyle(node);
+      if (style?.visibility === 'hidden' || style?.display === 'none' || style?.opacity === '0') return false;
+    }
+    return true;
+  };
+  const groups = new Map();
+  const out = [];
+  for (const el of doc.querySelectorAll('.drawer input,.drawer select,.drawer textarea,form input,form select,form textarea')) {
+    if (!shown(el) || /^(hidden|file|checkbox|radio|submit|button|reset|search|range|color)$/i.test(el.type || '')) continue;
+    if (el.closest('table,[role="table"],[role="grid"],[data-k="search"],[role="combobox"]')) continue;
+    const labelVisible = (label) => {
+      if (!shown(label)) return false;
+      // Читаем видимые текстовые узлы, не текст скрытых span или options внутри select.
+      const hasText = (node) => {
+        if (node.nodeType === 3) return Boolean(node.textContent?.trim());
+        if (!shown(node) || /^(INPUT|SELECT|TEXTAREA|BUTTON|SCRIPT|STYLE)$/.test(node.tagName)) return false;
+        return [...node.childNodes].some(hasText);
+      };
+      return hasText(label);
+    };
+    const byIds = String(el.getAttribute('aria-labelledby') || '').split(/\s+/).filter(Boolean).map(id => doc.getElementById(id));
+    const labelled = [...(el.labels || []), ...byIds].some(labelVisible);
+    const group = el.closest('.k-sec,fieldset,form,.drawer');
+    if (!groups.has(group)) groups.set(group, groups.size);
+    const r = el.getBoundingClientRect();
+    out.push({ sel: el.id ? '#' + el.id : el.tagName.toLowerCase() + '[поле ' + (out.length + 1) + ']', labelled, group: groups.get(group), top: r.top, bottom: r.bottom, left: r.left, right: r.right });
+  }
+  return out;
+}
 
 /**
  * Правило t (пользователь 2026-11-06: «слипшийся» — секции «Вложения», «Состав» и кнопки панели без зазора).
@@ -312,6 +368,7 @@ for(const el of document.querySelectorAll('main :is(article,.tcard,.tile,.db-ord
   else if(getComputedStyle(el).cursor==='pointer'&&!el.classList.contains('k-hover'))add('r',sel(el),(el.innerText||'').trim().slice(0,40)||'карточка без текста')}
 for(const f of (${panelStructureFindings.toString()}) ((${panelStructureSnapshot.toString()})()))add(f.rule,f.sel,f.text);
 for(const f of (${gapFindings.toString()}) ((${gapSnapshot.toString()})()))add(f.rule,f.sel,f.text);
+for(const f of (${formControlFindings.toString()}) ((${formControlSnapshot.toString()})()))add(f.rule,f.sel,f.text);
 for(const f of (${fieldHeightFindings.toString()}) ((${fieldHeightSnapshot.toString()})()))add(f.rule,f.sel,f.text);
 for(const n of document.querySelectorAll('p,span,div')){if(n.children.length)continue;const t=(n.textContent||'').trim();const q=n.getBoundingClientRect();if(q.width&&/^(Проверяю|Загружаю|Читаю)[^.]{0,40}…$/.test(t))add('y',n.id?'#'+n.id:n.tagName.toLowerCase(),t)}
 for(const c of document.querySelectorAll('.db-order,.tcard,.k-card,.tile')){const R=c.getBoundingClientRect();if(!R.width)continue;for(const e of c.querySelectorAll('*')){if(e.children.length)continue;const q=e.getBoundingClientRect();if(q.width&&(q.left<R.left-2||q.right>R.right+2)){add('z','.'+String(c.className).split(' ')[0],(e.textContent||'').trim().slice(0,60)||e.tagName);break}}}
@@ -443,10 +500,25 @@ async function main() {
       return `tools/logs/audit/${DAY}/${name}`;
     };
     const all = []; const tcards = {}; let screens = 0, panels = 0;
+    const axeFile = path.join(ROOT, 'tools/design-checks/node_modules/axe-core/axe.min.js');
+    const axeSource = fs.existsSync(axeFile) ? fs.readFileSync(axeFile, 'utf8') : null;
+    let axeChecks = 0;
+    if (!axeSource) all.push({ rule: 'axcheck', sel: 'axe', text: 'Пакет не установлен: пульт → Установить проверки дизайна', screen: 'проверки' });
     const take = async (screen, w, kind, shotName) => {
       const found = (await ev(SCAN(kind))) || [];
       const file = await shot(shotName);
       for (const f of found) all.push({ ...f, screen: kind === 'main' ? screen : `${screen} [${kind}]`, w, shot: file });
+      // Один размер на состояние: доступность не требует одинаковых повторов на всех ширинах.
+      if (axeSource && w === 1024) {
+        try {
+          if (!(await ev('typeof axe !== "undefined"'))) await ev(axeSource);
+          const axeResult = await ev(`Promise.race([axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}}).then(r=>({violations:r.violations.map(v=>({id:v.id,help:v.help,nodes:v.nodes.map(n=>n.target.join(' '))})),incomplete:r.incomplete.map(v=>v.id)})),new Promise(resolve=>setTimeout(()=>resolve(null),10000))])`);
+          if (!axeResult) throw new Error('axe timeout');
+          axeChecks++;
+          for (const v of axeResult.violations) for (const target of v.nodes) all.push({ rule: 'ax', sel: target, text: `${v.id}: ${v.help}`, screen: `${screen} [${kind}]`, w, shot: file });
+          if (axeResult.incomplete.length) all.push({ rule: 'axcheck', sel: 'axe', text: 'Нужна ручная проверка: ' + axeResult.incomplete.join(', '), screen: `${screen} [${kind}]`, w, shot: file });
+        } catch { all.push({ rule: 'axcheck', sel: 'axe', text: 'Проверка состояния не завершена', screen: `${screen} [${kind}]`, w, shot: file }); }
+      }
       return file;
     };
     for (const w of WIDTHS) {
@@ -502,7 +574,7 @@ async function main() {
     const code = codeSteps();
     for (const c of code) if (c.code) all.push({ rule: 'x', sel: c.name, text: c.line, screen: 'код' });
     const findings = mergeFindings(all);
-    const meta = { date: DAY, base: BASE, screens, panels, code: code.map((c) => c.line) };
+    const meta = { date: DAY, base: BASE, screens, panels, code: [...code.map((c) => c.line), `axe: проверено состояний ${axeChecks}, ширина 1024; прочее — по находкам axcheck`] };
     fs.writeFileSync(path.join(AUDIT_DIR, 'REPORT.md'), buildReport(findings, meta));
     const byRule = Object.fromEntries(Object.keys(RULES).map((k) => [k, findings.filter((f) => f.rule === k).length]));
     fs.writeFileSync(path.join(AUDIT_DIR, 'summary.json'), JSON.stringify({ ...meta, total: findings.length, byRule, findings }, null, 1));

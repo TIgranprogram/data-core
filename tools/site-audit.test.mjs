@@ -24,6 +24,29 @@ test('summaryLines до 15 строк', () => {
 
 const { panelStructureFindings, panelStructureSnapshot, gapFindings, RULES } = await import('./site-audit.mjs');
 
+test('C087: голые поля без kit-контейнера — подписи, слипание и перекрытие', async () => {
+  const { formControlFindings } = await import('./site-audit.mjs');
+  const field = (top, labelled = true, group = 0, left = 0) => ({ sel: 'select', top, bottom: top + 36, left, right: left + 200, labelled, group });
+  assert.deepEqual(formControlFindings([field(0, false), field(36, false)]).map(x => x.rule), ['fl', 'fl', 'fg']);
+  assert.deepEqual(formControlFindings([field(0), field(48)]), []);
+  assert.deepEqual(formControlFindings([field(0), field(0, true, 0, 220)]), []);
+  assert.deepEqual(formControlFindings([field(0), field(36, true, 1)]), []);
+  assert.match(formControlFindings([field(0), field(30)])[0].text, /перекрываются/);
+});
+
+test('C087: snapshot не считает aria-label видимой подписью, не читает value', async () => {
+  const { formControlSnapshot } = await import('./site-audit.mjs');
+  const group = {};
+  const label = { tagName: 'LABEL', getBoundingClientRect: () => ({ width: 100, height: 20 }), childNodes: [{ nodeType: 3, textContent: 'Категория' }] };
+  const input = (labels = []) => ({ tagName: 'SELECT', type: 'select-one', labels, id: '',
+    get value() { throw new Error('Нельзя читать значения'); },
+    getBoundingClientRect: () => ({ width: 200, height: 36, top: 20, bottom: 56, left: 0, right: 200 }),
+    getAttribute: (name) => name === 'aria-label' ? 'Категория' : '',
+    closest: (s) => s.startsWith('table') ? null : group });
+  const doc = { querySelectorAll: () => [input(), input([label])], defaultView: { getComputedStyle: () => ({}) } };
+  assert.deepEqual(formControlSnapshot(doc).map(x => x.labelled), [false, true]);
+});
+
 test('t: слипшиеся блоки и кнопки панели — находка; зазор 12px, перенос строки и другая колонка — нет', () => {
   const col = (tops) => tops.map(([t, b]) => ({ top: t, bottom: b, left: 0, right: 300 }));
   assert.deepEqual(gapFindings([{ sel: 's', dir: 'col', rects: col([[0, 60], [60, 120]]) }]).map((x) => x.rule), ['t']);

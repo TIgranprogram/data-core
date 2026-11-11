@@ -155,4 +155,4 @@
 
 > Разбор C058 (office→home / ProxyCommand) — `docs/crew/C058-two-servers-finish/TEST-NOTES.md`.
 > Учёт ошибок ИИ-тестировщика и чек-лист усиления — `docs/crew/C069-cursor-routine/AI-TESTER-NOTES.md`.
-
+| 2026-11-12 | C087, только локальные инструменты/процесс | tsc 0; Jest 322/322 suites, 3728/3728 последовательно; node tests: vision 10, audit 13, PNG/Edge/axe 4, каталог 17 PASS; LM 3/3 и cache 3 | e2e не запускались, backend не менялся | первый dc check: timeout 5с одного control.spec; повтор всей Jest PASS; REPORT в crew/C087-local-design-checks |

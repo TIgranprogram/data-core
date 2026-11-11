@@ -1,0 +1,82 @@
+---
+name: datacore-verify
+description: Проверка изменений в data-core — typecheck, юнит, eslint, e2e, live-smoke через Docker, перегенерация openapi.json. Использовать после любой правки backend/ или admin/ и перед тем, как сказать «готово».
+---
+
+# Проверка изменений (data-core)
+
+Работай из `backend/`. pnpm может отсутствовать в PATH → `npx`. Долгие команды — в фоне.
+
+## 0. Уровень проверки — smoke или full (сначала это)
+
+| Уровень | Когда | Что |
+|--|--|--|
+| — | только доки | ничего |
+| smoke | только `backend/pwa/**`, `backend/admin/**` | `node backend/scripts/pwa-import-check.mjs` (синтаксис и импорты всех файлов, 0,4 с) + `npx jest src/pwa-guards --silent`; QA не пересобирать (pwa/admin смонтированы папками) |
+| smoke | `backend/src/**` (одна область) | `npx tsc --noEmit` + `npx jest src/modules/<модуль> --silent` + eslint модуля; e2e — только своего файла |
+| full | перед выкладкой L/XL; класс XL; если с последней строки `docs/TEST-LOG.md` менялся `backend/src`/`backend/test` | весь юнит + e2e (нужен Docker) → строка в TEST-LOG; без изменений с прошлой записи — не повторять |
+
+Приёмка UI — `docs/UI-ACCEPTANCE.md`, экономная последовательность — `docs/DESIGN-WORKFLOW.md`. Снимки изменённых состояний входят в порученную проверку интерфейса. Пересборка QA — только при изменении `backend/src`. Длинные прогоны и разбор падений — агенту qa (sonnet).
+
+## 1. Команды
+
+```bash
+npx tsc --noEmit            # норма: exit 0
+npx jest --silent           # норма: все suites passed (числа — docs/TEST-LOG.md)
+npx eslint "src/**/*.ts"    # норма: 0 errors (warnings no-explicit-any допустимы)
+```
+
+Точечно: `npx jest src/modules/<m>` — только тесты модуля.
+
+## 2. Если менял маршруты/DTO/guards — e2e
+
+Нужен живой Mongo rs0 (Docker Desktop запущен, `docker compose up -d` из корня).
+- Харнесс `test/setup/test-db.ts` берёт `MONGO_URI`, **подменяет имя БД на `MONGO_DB_TEST` (умолч. `datacore-test`) и дропает там все коллекции**. Никогда не ставь `MONGO_DB_TEST=datacore`.
+- Пользователь `datacore` имеет права только на БД `datacore` → для e2e нужен URI с root: `mongodb://root:<MONGO_ROOT_PASSWORD>@localhost:<MONGO_PORT>/x?replicaSet=rs0&directConnection=true&authSource=admin` (пароль из корневого `.env`, в чат не выводить).
+```bash
+MONGO_URI='...' npx jest --config ./test/jest-e2e.json --runInBand --forceExit
+```
+Норма: все suites passed (числа — docs/TEST-LOG.md).
+`jest-e2e-env.ts` (`setupFiles`) читает оба `.env` (backend/ и корневой) и строит root URI автоматически. Если `.env` нет — передай `MONGO_URI`, `JWT_SECRET`, `JWT_REFRESH_SECRET` (≥16 симв.) и `ADMIN_PASSWORD` прямо в команде.
+
+## 3. Live-smoke (если менял рантайм/админку)
+
+```bash
+docker compose up -d --build backend        # из корня
+curl -sf http://localhost:3001/api/health/ready
+```
+Логин: `POST /api/auth/login` (лимит 5/мин — не долби). Админка: `http://localhost:3001/admin` (правки `backend/admin/` видны без пересборки — смонтирован том). Браузерная проверка — встроенный браузер.
+Деструктивные действия на живой БД (`datacore`) — **запрещены** без «да» пользователя.
+
+> Добавил `import` нового пакета или менял `main.ts`/Dockerfile → обязательно `docker compose build backend` + health: тесты не ловят отсутствующие в prod-образе зависимости.
+
+## 3а. Стенд на копии прод-данных (обязателен для проверки приложения, CANON §6)
+
+Проверять интерфейс на пустой базе нельзя — только на копии реальных данных. Рабочую БД `datacore` не трогаем: копия живёт в отдельной БД `datacoreqa`.
+1. Свежий бэкап — `D:\datacore-backups\datacore-<дата>.tgz` (тянется с VM каждую ночь). Распаковать в scratchpad (`tar --force-local -xzf …`).
+2. `docker cp <распаковано>/mongo-*/datacore datacore-mongo:/tmp/prod-dump`, затем в контейнере от root (переменные контейнера, пароль не печатать): `mongorestore --db datacoreqa /tmp/prod-dump` (БД новая — `--drop` не нужен; если `datacoreqa` уже есть и нужна свежая — сначала спросить пользователя).
+3. Один раз: Mongo-пользователь `datacoreqa` (readWrite только на `datacoreqa`), пароль сгенерировать и держать в scratchpad.
+4. `QA_MONGO_PW=… docker compose -f docker-compose.yml -f docker-compose.qa.yml up -d --build backend-qa` → `http://localhost:3002/app/`. Код поменял — `build backend-qa` + `up -d --no-deps --force-recreate backend-qa` (без этого контейнер может остаться старым).
+5. Вход: тестовый пользователь в `datacoreqa.users` (bcryptjs-хеш из контейнера: `node -e "console.log(require('bcryptjs').hashSync(pw,10))"`), пароль генерируется, в чат не выводится. Для входа пользователя на стенд (решение пользователя 2026-10-22): пользователь `admin` с простым паролем, который знает пользователь (в репо не писать), в `datacoreqa.users` — после свежего восстановления копии выставить заново (только на `datacoreqa`, не на `datacore`).
+
+6. Снимки на разных ширинах (CANON §2 — 1920, 2560, 1024, 390): `QA_DIR=<scratchpad с qa-login.txt> node backend/scripts/qa-screenshot.mjs 1920 1080 '#requests?view=board' out.png` → открыть png и посмотреть. Встроенный браузер шире своей панели показывает неправильно — для широких экранов только так.
+
+e2e без root-пароля: Mongo-пользователь `datacoretest` (readWrite только на `datacore-test`) и `MONGO_URI=mongodb://datacoretest:<pw>@localhost:27018/datacore-test?authSource=admin&replicaSet=rs0&directConnection=true` + тестовые `JWT_SECRET`/`JWT_REFRESH_SECRET`/`ADMIN_PASSWORD` в команде.
+
+## 3б. Обход всех экранов (код экранов больше ничем не проверяется)
+
+Стенд `:3002` запущен (раздел 3а): `QA_DIR=<папка с qa-login.txt> node backend/scripts/qa-smoke.mjs [ширина]`. Открывает каждый раздел и первую запись, ловит исключения, ответы 5xx и блоки «Не открылось»; только чтение. Обязателен перед выкладкой правки экранов класса L/XL.
+
+## 4. Если изменился контракт API — openapi
+
+В Git Bash на Windows перед обеими командами — `MSYS_NO_PATHCONV=1`: иначе путь `/app/openapi.json` искажается и файл не находится.
+
+```bash
+docker compose exec backend node dist/src/export-openapi.js /app/openapi.json
+docker compose cp backend:/app/openapi.json docs/openapi.json
+```
+(образ должен быть пересобран с изменением). Затем skill `datacore-docs-sync`.
+
+## Отчёт
+
+Пиши фактические числа (suites/tests, exit-коды). Не удалось прогнать (нет Docker) — так и скажи, не выдавай за пройденное.

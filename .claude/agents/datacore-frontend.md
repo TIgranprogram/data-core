@@ -27,7 +27,7 @@ model: sonnet
 - Новый модуль — `node backend/scripts/pwa-preload.mjs`. Импорт с именем глобального объекта (`history`, `location`) — нельзя.
 
 ## Проверка
-smoke — skill `datacore-verify` §0: `node --input-type=module --check < файл` каждого изменённого + `npx jest src/pwa-guards --silent`. Снимки — только с разрешения пользователя через координатора.
+smoke — skill `datacore-verify` §0: `node --input-type=module --check < файл` каждого изменённого + `npx jest src/pwa-guards --silent`. Снимки изменённых состояний входят в задачу по `docs/UI-ACCEPTANCE.md`; бюджет и местные проверки — `docs/DESIGN-WORKFLOW.md`.
 
 ## Зона
 `backend/pwa/**`, `backend/admin/**`, `docs/DESIGN.md` §4/§8, свои уроки и карта. Сервер — «нужно от backend: …».

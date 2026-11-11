@@ -16,7 +16,7 @@ description: Проверка изменений в data-core — typecheck, ю�
 | smoke | `backend/src/**` (одна область) | `npx tsc --noEmit` + `npx jest src/modules/<модуль> --silent` + eslint модуля; e2e — только своего файла |
 | full | перед выкладкой L/XL; класс XL; если с последней строки `docs/TEST-LOG.md` менялся `backend/src`/`backend/test` | весь юнит + e2e (нужен Docker) → строка в TEST-LOG; без изменений с прошлой записи — не повторять |
 
-Снимки — только по просьбе пользователя (CLAUDE.md). Пересборка QA — только при изменении `backend/src`. Длинные прогоны и разбор падений — агенту qa (sonnet).
+Приёмка UI — `docs/UI-ACCEPTANCE.md`, экономная последовательность — `docs/DESIGN-WORKFLOW.md`. Снимки изменённых состояний входят в порученную проверку интерфейса. Пересборка QA — только при изменении `backend/src`. Длинные прогоны и разбор падений — агенту qa (sonnet).
 
 ## 1. Команды
 
