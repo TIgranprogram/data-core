@@ -7,6 +7,12 @@
 > транзакционные домены (Sales, Warehouse, Procurement, Documents,
 > Production-ордера, Finance-акты и т.п.) из этого документа убраны.
 
+## Коллекции, которых нет в этом документе
+
+Истина — `*.schema.ts` и `GET /api/meta/schema`. Ниже имена коллекций со схемой в `backend/src`, которых нет в разделах этого файла (сверка C069 / C068-12; в отчёте C068 было «41», сейчас **43**):
+
+`attributedefinitions`, `auditlogs`, `browserdevicegrants`, `color_references`, `counterparties`, `counterpartyroles`, `counters`, `designnotes`, `desktop_pairing_keys`, `deviceinvites`, `devlog_commits`, `devlog_docs`, `devlog_items`, `devlog_kit`, `devlog_releases`, `devlog_sessions`, `dictionary_labels`, `entityattributevalues`, `entitystatuses`, `expenses`, `featureflags`, `handoffs`, `idempotency_records`, `materialrequests`, `messagereads`, `messages`, `notifications`, `organizationcontacts`, `orgroles`, `productaliases`, `productattachments`, `productmodulephotos`, `productphotos`, `qrcodes`, `rate_limit_entries`, `sites`, `statusworkflows`, `stockmovements`, `storageitems`, `supplieritems`, `units`, `users`, `zoneassignments`.
+
 ## Обзор
 
 Data-core — платформенное ядро (`auth`, `user`, `role`, `permissions`, `audit`, `setting`, `feature-flag`, `rate-limit`, устройства/desktop, `status`) плюс канонические справочники (организации, контрагенты, люди, площадки, категории, единицы, валюты, цвета, материалы, изделия, модули изделий, фото, EAV-атрибуты, виды работ). Описано **~28 сущностей**, сгруппированных в **7 доменов**, с явным указанием типов полей, FK-связей и обнаруженных аномалий. Актуальный состав модулей — `ROADMAP.md` (P1.5) и `backend/src/app.module.ts` (около 60 модулей

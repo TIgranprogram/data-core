@@ -2,6 +2,9 @@
 
 > Все пути относительно `backend/src/`. Маршруты — под префиксом `/api`. Точные контракты: grep по `docs/openapi.json`.
 > Типовой модуль: `modules/<m>/{<m>.module,.controller,.service,.schema}.ts` + `dto/` + `*.spec.ts`. Открывай только нужный файл.
+>
+> **Общие правила состояния позиции** — `common/line-match-state.ts` (confirmed/none/legacy/auto/unmatched/request; читают «Сопоставление» и «Проектирование», без цикла модулей).
+> **`document-render`** — `modules/document-render/` (утилиты PDF/картинок, без своего Nest-модуля в `app.module`; общий набор).
 
 ## Платформенное ядро
 
