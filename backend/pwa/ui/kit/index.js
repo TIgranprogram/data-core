@@ -226,7 +226,7 @@ export const fieldRow = (...children) => mark(h('div', { class: 'k-fieldrow' }, 
 /** stat({ value, label, onClick?, tone?, active? }) → .stat; stats([...]) → .stats. onClick — кликабельная пилюля (button.k-pill): число красное при tone danger, приглушённое при 0; active — рамка. */
 export const stat = ({ value, label, onClick, tone, active = false }) => {
   const kids = [h('b', { class: 'num' }, String(value ?? '—')), h('span', null, label)];
-  if (!onClick) return mark(h('div', { class: 'stat' }, ...kids), 'stat');
+  if (!onClick) return mark(h('div', { class: 'stat' + (tone ? ' tone-' + tone : '') }, ...kids), 'stat');
   const zero = Number(value) === 0;
   return mark(h('button', { type: 'button', class: 'stat k-pill' + (zero ? ' zero' : '') + (tone ? ' tone-' + tone : '') + (active ? ' active' : ''), 'aria-pressed': String(!!active), onclick: onClick }, ...kids), 'stat');
 };
@@ -238,6 +238,7 @@ export const toolbar = (...children) => mark(h('div', { class: 'toolbar' }, ...n
 /** Доска с данными с сервера (колонки, DnD, порции) — ui/kit/board.js */
 export { mountBoard as board } from './board.js';
 export { table } from './table.js';
+export { treeTable } from './tree-table.js';
 export { hint, tileGrid, landing, miniChart, navList, photoStrip };
 export { links } from './links.js';
 export { panel } from './panel.js';
