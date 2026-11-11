@@ -34,9 +34,20 @@ export function select({ options = [], value, onChange, label, disabled = false,
   return mark(el, 'select');
 }
 
-/** textInput({ label, value, placeholder, hint, required, max, type, inputmode, disabled, onInput, onEnter, cls }) → { el, input, get/set value, focus() }
- *  Однострочное поле ввода эталона формы (C044-T2): подпись сверху, подсказка под полем, Enter → onEnter; без подписи — поле без неё (label уходит в aria-label). */
-export function textInput({ label, value = '', placeholder, hint, required = false, max = 500, type = 'text', inputmode, disabled = false, onInput, onEnter, cls } = {}) {
+/** field(label, control, { hint?, required?, cls? }) → .field.k-field: видимая подпись над любым контролом (select, segmented, combo) — C086.
+ *  select() и segmented() сами подпись не рисуют (label у них — aria); в форме их ставят через field(), чтобы поле читалось без догадок. */
+export function field(label, control, { hint, required = false, cls } = {}) {
+  const el = control?.el || control;
+  const single = el?.tagName === 'SELECT' || el?.tagName === 'INPUT';
+  return mark(h(single ? 'label' : 'div', { class: 'field k-field' + (cls ? ' ' + cls : ''), role: single ? null : 'group', 'aria-label': single ? null : label },
+    h('span', null, label, required ? h('span', { class: 'req' }, ' *') : null), el, hint ? h('div', { class: 'hint' }, hint) : null), 'field');
+}
+
+/** textInput({ label, value, placeholder, hint, required, max, type, inputmode, disabled, onInput, onEnter, cls, short }) → { el, input, get/set value, focus() }
+ *  Однострочное поле ввода эталона формы (C044-T2): подпись сверху, подсказка под полем, Enter → onEnter; без подписи — поле без неё (label уходит в aria-label).
+ *  short — короткое число (лет, мм, кг): ширина по содержимому, не как у длинного текста (C086). */
+export function textInput({ label, value = '', placeholder, hint, required = false, max = 500, type = 'text', inputmode, disabled = false, onInput, onEnter, cls, short = false } = {}) {
+  if (short) cls = 'k-ti-short' + (cls ? ' ' + cls : '');
   const input = h('input', { type, inputmode: inputmode || (type === 'number' ? 'decimal' : undefined), placeholder, autocomplete: 'off', maxlength: max, disabled: disabled || null, 'aria-label': label || placeholder || 'Поле ввода' });
   input.value = value ?? '';
   input.addEventListener('input', () => onInput?.(input.value));
@@ -172,9 +183,13 @@ export function iconButton({ icon, label, onClick, size = 'M', menu = false, tit
   return mark(h('button', { type: 'button', class: c, 'aria-label': label, title: title || label, 'aria-haspopup': menu ? 'menu' : null, 'aria-expanded': menu ? 'false' : null, onclick: onClick }, icon), 'iconButton');
 }
 
+/** headbar(main, side?) → .k-headbar: шапка формы — контекст слева, режим справа (segmented({ fit })); на узкой панели правая часть уходит под контекст (C086). */
+export const headbar = (main, side) => mark(h('div', { class: 'k-headbar' }, main, side || null), 'headbar');
+
 /** segmented({ items: [{ key, label, tone? }], value, onChange(key), label (aria), cls?, scroll? }) → { el, set(key), buttons } — .k-seg, aria-pressed; set() не зовёт onChange.
  *  scroll — длинные названия: пункты не сжимаются, ряд прокручивается по горизонтали (склады). */
-export function segmented({ items, value, onChange, label, cls, scroll } = {}) {
+export function segmented({ items, value, onChange, label, cls, scroll, fit } = {}) {
+  if (fit) cls = 'k-seg-fit' + (cls ? ' ' + cls : ''); // fit — компактный: ширина по подписям, не на всю строку (режим в шапке, C086)
   const set = (key) => buttons.forEach((b) => { const on = b.dataset.key === String(key); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
   const buttons = items.map((it) => h('button', { type: 'button', class: 'k-seg-btn', dataset: { key: String(it.key) }, 'data-tone': it.tone || null, 'aria-pressed': 'false', onclick: () => { set(it.key); onChange?.(it.key); } }, it.label));
   const el = mark(h('div', { class: 'k-seg' + (scroll ? ' k-seg-scroll' : '') + (cls ? ' ' + cls : ''), role: 'group', 'aria-label': label || null }, ...buttons), 'segmented');
@@ -199,7 +214,9 @@ export const sku = (text) => (text == null || String(text).trim() === '' ? null 
 /** section({ title, count?, open?, body, cls?, tone?, fixed? (всегда раскрыта, без стрелки), urgent? (полоса danger), more?: { limit, label, onMore } (первые limit строк + «Все (ещё N) →») }) → <details class="form-block k-sec">: сворачиваемая секция правой панели (по умолчанию закрыта).
  *  tone — цвет категории (полоса слева и заголовок): main · info · money · who · gold · neutral (ПМ-1, 2026-11-06).
  *  В шапке — заголовок, число (count) и стрелка; открывается Enter/Пробел/щелчком. body — узлы или массив. Свёрнутое состояние не хранится. */
-export function section({ title, count, open = false, body, cls, tone = 'main', fixed = false, urgent = false, more } = {}) {
+export function section({ title, count, open = false, body, cls, tone = 'main', fixed = false, urgent = false, more, plain = false, sub, side } = {}) {
+  // plain — строка-раскрывашка списка (C086): название как текст (не капсом и не цветом тона), sub — вторая строка, side — состояние справа
+  if (plain) cls = 'k-sec-plain' + (cls ? ' ' + cls : '');
   const kids = nodes(body);
   let moreEl = null;
   if (more && kids.length > (more.limit ?? 5)) {
@@ -213,7 +230,8 @@ export function section({ title, count, open = false, body, cls, tone = 'main', 
       h('div', { class: 'k-sec-fhead' }, h('h2', null, title), count != null ? h('span', { class: 'k-sec-n num' }, String(count)) : null),
       h('div', { class: 'k-sec-body' }, ...kids, moreEl)), 'section');
   }
-  const sum = h('summary', { class: 'form-sec k-sec-head' }, h('span', { class: 'form-sec-t' }, title),
+  const sum = h('summary', { class: 'form-sec k-sec-head' }, h('span', { class: 'form-sec-t' }, title, sub ? h('small', { class: 'k-sec-sub' }, sub) : null),
+    side ? h('span', { class: 'k-sec-side' }, ...nodes(side)) : null,
     count != null ? h('span', { class: 'badge dim k-sec-n' }, String(count)) : null, h('span', { class: 'form-sec-chev', 'aria-hidden': 'true' }, '›'));
   return mark(h('details', { class: 'form-block k-sec' + (cls ? ' ' + cls : ''), 'data-tone': tone, open: open || null }, sum, h('div', { class: 'k-sec-body' }, ...kids, moreEl)), 'section');
 }

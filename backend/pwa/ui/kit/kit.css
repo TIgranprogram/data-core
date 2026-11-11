@@ -451,6 +451,27 @@ button.m-fg-h { cursor: pointer; }
 .k-stack > .k-ti { flex: none; }
 .k-fieldrow { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: flex-end; }
 .k-fieldrow > .k-ti { flex: 1 1 12em; max-width: 20em; }
+/* C086: короткое число (лет, мм, кг) — не шире своего значения; подпись переносится, поле не растягивается */
+.k-ti.k-ti-short, .k-fieldrow > .k-ti.k-ti-short { flex: 0 1 9em; width: 9em; max-width: 100%; }
+/* C086: field() — видимая подпись над select / segmented / combo; ширина по содержимому, не на всю панель */
+.k-field { min-width: 0; max-width: 32em; align-items: flex-start; }
+.k-field > .k-select, .k-field > .sel-wrap { width: auto; min-width: min(14em, 100%); max-width: 100%; }
+.k-field > .hint { color: var(--muted); font-size: var(--fs-sm); }
+.k-fieldrow > .k-field { flex: 0 1 auto; }
+/* C086: segmented({ fit }) — компактный переключатель режима: ширина по подписям */
+.k-seg.k-seg-fit { display: inline-flex; flex: none; width: auto; max-width: 100%; }
+.k-seg-fit .k-seg-btn { flex: 0 1 auto; padding: 0 var(--s4); }
+/* C086: шапка формы — контекст слева, режим справа; на узкой панели режим переносится под контекст без обрезания */
+.k-headbar { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--s2) var(--s4); min-width: 0; }
+.k-headbar > :first-child { flex: 1 1 14em; min-width: 0; }
+.k-headbar > .k-seg-fit, .k-headbar > .k-headbar-side { flex: none; margin-left: auto; }
+/* C086: tagPick с пояснением — на узкой панели вариант переносится, а не уходит за край (390: «Как соединены части») */
+.tag-pick > .tag { flex: 0 1 auto; max-width: 100%; min-width: 0; height: auto; min-height: 28px; padding-block: var(--s1); white-space: normal; flex-wrap: wrap; text-align: left; overflow-wrap: anywhere; }
+/* C086: section({ plain }) — строка-раскрывашка списка: название обычным регистром и цветом текста, вторая строка — пояснение, справа состояние */
+.k-sec.k-sec-plain > .k-sec-head { align-items: flex-start; gap: var(--s3); }
+.k-sec-plain > .k-sec-head .form-sec-t { flex: 1 1 auto; min-width: 0; text-transform: none; letter-spacing: 0; font-size: var(--fs-md, 14px); font-weight: 500; color: var(--text); overflow-wrap: anywhere; }
+.k-sec-plain > .k-sec-head .k-sec-sub { display: block; margin-top: var(--s1); font-size: var(--fs-sm); font-weight: 400; color: var(--muted); }
+.k-sec-plain > .k-sec-head .k-sec-side { flex: none; display: inline-flex; align-items: center; gap: var(--s2); }
 
 /* Правки по замечаниям CL-D (2026-11-06): kit-кнопка с cls раскладки экрана, панель фильтров, зона нажатия */
 .ls-grid > .list-side { background: var(--surface); border: 1px solid var(--border-strong); } /* панель фильтров не сливается с колонками доски */
@@ -676,9 +697,9 @@ table.list td.k-col-wrap { min-width: 11rem; max-width: 0; width: 24%; overflow:
 
 /* C055: слоты рисунков паспорта (product-files) + колонка «Часть» materials-spec */
 .ms-table .ms-c-p { width: 28%; }
-.pp-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: var(--s2); }
+.pp-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: var(--s3); }
 .pp-slot { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; }
-.pp-slot-cap { font-size: var(--fs-label); line-height: 1.25; color: var(--text); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.pp-slot-cap { font-size: var(--fs-label); line-height: 1.25; color: var(--text); overflow-wrap: anywhere; } /* C086: назначение рисунка читается целиком, без «…» */
 .pp-slot-cap .need { color: var(--warn); }
 .pp-slot-pic { position: relative; aspect-ratio: 1; border-radius: var(--radius-sm); overflow: hidden; background: var(--photo-bg); border: 1px solid var(--border); }
 .pp-slot-zoom { display: block; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; cursor: zoom-in; }
@@ -687,7 +708,9 @@ table.list td.k-col-wrap { min-width: 11rem; max-width: 0; width: 24%; overflow:
 .pp-slot-x:hover { background: var(--danger); color: var(--on-danger); }
 @media (pointer: coarse), (max-width: 720px) { .btn.pp-slot-x { width: var(--tap); height: var(--tap); min-width: var(--tap); min-height: var(--tap); } } /* телефон: зона пальца, превью с overflow режет вынос */
 .pp-slot-empty { aspect-ratio: 1; display: grid; place-items: center; border: 1px dashed var(--border); border-radius: var(--radius-sm); font-size: var(--fs-sm); }
-.pp-slot-drop.photo-drop { flex-direction: column; align-items: center; justify-content: center; gap: var(--s1); margin: 0; padding: var(--s2); aspect-ratio: 1; min-height: 0; text-align: center; cursor: pointer; }
+.pp-slot-drop.photo-drop { flex-direction: column; align-items: center; justify-content: center; gap: var(--s1); margin: 0; padding: var(--s2); aspect-ratio: 1; min-height: 0; text-align: center; cursor: default; } /* C086: рамка, фокус и «над зоной» — общие .photo-drop; щелчок = фокус, файл = кнопка */
+.pp-slot-drop .btn { max-width: 100%; white-space: normal; }
+.pp-slot-replace .pp-slot-drop { flex-direction: row; flex-wrap: wrap; }
 .pp-slot-drop .pd-ico { font-size: var(--fs-h3); }
 .pp-slot-drop .pd-text { flex: none; min-width: 0; font-size: var(--fs-label); }
 .pp-slot.need .pp-slot-drop { border-color: var(--warn); }
