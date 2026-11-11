@@ -7,7 +7,7 @@ import { confirmDlg, modal } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { lookups } from './lookups.js';
 import { KINDS, KINDS_V2, kindName } from '../core/passport-kinds.js';
-import { searchBox, tagPick, button, select, enhanceSelect, navList, layout, toolbar, row, stack, section, actions, badge, empty, hint as hintKit, photoStrip as kitPhotoStrip } from '../ui/kit/index.js';
+import { searchBox, tagPick, button, select, enhanceSelect, navList, layout, toolbar, row, section, actions, badge, empty, hint as hintKit, photoStrip as kitPhotoStrip } from '../ui/kit/index.js'; // row — кандидаты «Найти в данных…»
 import { mountTexts, TEXTS_KEY } from './passport-texts.js';
 import { mountTree, TREE_KEY } from './passport-tree.js';
 import { mountZones, ZONES_KEY } from './stock-zones.js';
@@ -15,7 +15,7 @@ import { catChipsField, refChipsField } from '../ui/cat-chips.js';
 import { dupeCounts, qualityBadges, qualityFilter } from '../ui/quality.js';
 import { passportCategoryOptions } from './passports/common.js';
 import { dictSearchTokens, dictHaystack } from './dicts-search.js';
-import { sortProductGroups, productGroupTitle, productGroupMeta, productGroupSortBtns } from './dicts-sort.js';
+import { dictsTable } from './dicts-sort.js';
 
 /**
  * «Справочники» (TASKS СП.4–СП.8, DESIGN §4 «Справочники»): слева группы (на телефоне — один select), справа
@@ -95,42 +95,22 @@ export function mountDicts(params) {
     const tk = dictSearchTokens(q); // GALV_HOT / оцинк — dicts-search.js
     const dup = dupeCounts(data.items, (x) => (x.material ? `${x.material}|${x.name}` : x.name)); // дубль имени у того же материала
     if (!dup.size) qf = 'all';
-    let rows = data.items.filter((x) => (qf !== 'dupes' || dup.has(x.id)) && (!tk.length || tk.every((w) => dictHaystack(x).includes(w))));
-    if (dict.key === 'productGroups') rows = sortProductGroups(rows, sortMode);
+    const rows = data.items.filter((x) => (qf !== 'dupes' || dup.has(x.id)) && (!tk.length || tk.every((w) => dictHaystack(x).includes(w))));
     if (!data.items.length) {
       body.replaceChildren(empty({ title: 'Здесь пока ничего нет.', hint: canEditDict() ? 'Нажмите «+ Добавить» или «Найти в данных…» — возьмём то, что уже встречается в заявках и на складе.' : undefined }));
       return;
     }
     if (!rows.length) { body.replaceChildren(empty({ title: `Ничего не найдено по «${sbx.input.value}».`, hint: 'Попробуйте другое слово.' })); return; }
-    const descOf = (r) => {
-      if (dict.key === 'productGroups') return productGroupMeta(r);
-      const bits = [];
-      if (dict.key === 'passportMaterials') bits.push(badge(r.kind === 'coating' ? 'покрытие' : 'материал', r.kind === 'coating' ? 'info' : 'dim'));
-      if (r.code) bits.push(h('span', { class: 'muted' }, String(r.code)));
-      for (const c of cols.filter((col) => col.key !== 'name')) {
-        const v = c.key === 'hex' && r.hex ? [colorBadge(r.hex), r.hex] : fmt(fieldOf(c.key), r[c.key], dict.refs) || (c.key === 'workTypeName' ? r.workTypeName : '');
-        if (v && v.length !== 0) bits.push(v);
-      }
-      return bits.flatMap((x, i) => (i ? [' · ', x] : [x]));
-    };
-    const list = stack();
-    for (const r of rows) {
-      const lock = isLocked(dict, r);
-      const acts = [];
-      if (canEditDict()) {
-        acts.push(button({ label: 'Изменить', kind: 'ghost', size: 'S', onClick: () => patch({ of: 'dict', open: r.id, new: undefined }) }));
-        acts.push(lock ? lockBadge()
-          : button({ label: 'Удалить', kind: 'ghost', size: 'S', onClick: (e) => removeItem(r, e.currentTarget) }));
-      } else if (lock) acts.push(lockBadge());
-      list.append(row({ title: dict.key === 'productGroups' ? productGroupTitle(r) : r.name, meta: descOf(r),
-        side: qualityBadges({ dupe: dup.get(r.id) || 0, dupeHint: 'Такое же название есть у другой записи — объедините' }),
-        action: acts,
-        onClick: canEditDict() ? (e) => { if (!e.target.closest('button')) patch({ of: 'dict', open: r.id, new: undefined }); } : undefined }));
-    }
-    const tools = [];
-    if (dict.key === 'productGroups') tools.push(...productGroupSortBtns(sortMode, (m) => { sortMode = m; renderTable(); }));
-    if (dup.size) tools.push(qualityFilter({ value: qf, counts: { dupes: dup.size }, onChange: (v) => { qf = v; renderTable(); } }));
-    body.replaceChildren(...(tools.length ? [toolbar(...tools)] : []), list);
+    const extra = dup.size ? [qualityFilter({ value: qf, counts: { dupes: dup.size }, onChange: (v) => { qf = v; renderTable(); } })] : [];
+    body.replaceChildren(dictsTable({
+      dictKey: dict.key, rows, cols, sortMode, onSort: (m) => { sortMode = m; renderTable(); },
+      canEdit: canEditDict(), isLocked: (r) => isLocked(dict, r), lockBadge, colorBadge,
+      fieldOf: (k) => fieldOf(k), fmt: (f, v) => fmt(f, v, dict.refs), dup,
+      qualityCell: (r) => { const m = qualityBadges({ dupe: dup.get(r.id) || 0, dupeHint: 'Такое же название есть у другой записи — объедините' }); return m.length ? h('span', null, ...m) : ''; },
+      onOpen: (r) => patch({ of: 'dict', open: r.id, new: undefined }),
+      onEdit: (r) => patch({ of: 'dict', open: r.id, new: undefined }),
+      onRemove: (r, btn) => removeItem(r, btn), extraTools: extra,
+    }));
   }
 
   // Удаление из списка: свободное — подтверждение; занятое — замена (только админ), иначе текст
