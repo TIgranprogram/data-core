@@ -11175,6 +11175,30 @@
         ]
       }
     },
+    "/offers/pack": {
+      "post": {
+        "operationId": "OffersController_createPack",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfferPackDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      }
+    },
     "/offers/packs/{packId}/send": {
       "post": {
         "operationId": "OffersController_sendPack",
@@ -22267,6 +22291,26 @@
         "required": [
           "companyId"
         ]
+      },
+      "OfferPackDto": {
+        "type": "object",
+        "properties": {
+          "customer": { "type": "string" },
+          "counterpartyId": { "type": "string" },
+          "title": { "type": "string" },
+          "date": { "type": "string", "description": "ГГГГ-ММ-ДД, умолч. сегодня" },
+          "validUntil": { "type": "string" },
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/OfferItemDto" } },
+          "prepaymentPercent": { "type": "number" },
+          "productionDays": { "type": "number" },
+          "deliveryDays": { "type": "number" },
+          "objectName": { "type": "string" },
+          "delivery": { "type": "string", "enum": ["included", "excluded"] },
+          "terms": { "type": "string", "description": "Пусто — стандартные тексты каждой фирмы" },
+          "notes": { "type": "string" },
+          "companies": { "type": "array", "items": { "$ref": "#/components/schemas/OfferCopyCompanyDto" }, "description": "Фирмы и наценка, % — по одному КП на фирму" }
+        },
+        "required": ["customer", "items", "companies"]
       },
       "OfferCopyCompanyDto": {
         "type": "object",

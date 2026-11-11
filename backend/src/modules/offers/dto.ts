@@ -96,6 +96,25 @@ export class OfferCopiesDto {
   companies!: OfferCopyCompanyDto[];
 }
 
+/** C081: «Новое КП» воронкой — N КП (по числу фирм) одним вызовом; общий packId, если фирм больше одной. */
+export class OfferPackDto {
+  @ApiProperty() @IsString() @IsNotEmpty({ message: 'Укажите заказчика' }) @MaxLength(300) customer!: string;
+  @ApiPropertyOptional() @IsOptional() @IsObjectId() counterpartyId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(300) title?: string;
+  @ApiPropertyOptional({ description: 'ГГГГ-ММ-ДД, умолч. сегодня' }) @IsOptional() @IsDateString() date?: string;
+  @ApiPropertyOptional() @IsOptional() @IsDateString() validUntil?: string;
+  @ApiProperty({ type: [OfferItemDto] }) @IsArray() @ArrayMinSize(1, { message: 'Добавьте хотя бы одну строку в КП' }) @ArrayMaxSize(300) @ValidateNested({ each: true }) @Type(() => OfferItemDto) items!: OfferItemDto[];
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) @Max(100) prepaymentPercent?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) productionDays?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) deliveryDays?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(500) objectName?: string;
+  @ApiPropertyOptional({ enum: ['included', 'excluded'] }) @IsOptional() @IsIn(['included', 'excluded'], { message: 'Доставка — «включена» или «не включена»' }) delivery?: 'included' | 'excluded';
+  @ApiPropertyOptional({ description: 'Пусто — стандартные тексты каждой фирмы' }) @IsOptional() @IsString() @MaxLength(3000) terms?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) notes?: string;
+  @ApiProperty({ type: [OfferCopyCompanyDto], description: 'Фирмы и наценка, % — по одному КП на фирму' }) @IsArray() @ArrayMinSize(1, { message: 'Отметьте хотя бы одну фирму' }) @ArrayMaxSize(10, { message: 'Не больше 10 фирм за раз' }) @ValidateNested({ each: true }) @Type(() => OfferCopyCompanyDto)
+  companies!: OfferCopyCompanyDto[];
+}
+
 /** Показать/скрыть фирму в «Деньгах»: «только для КП» — в доходах, расходах, календаре её нет. */
 export class OfferCompanyDto {
   @ApiProperty() @IsBoolean() offersOnly!: boolean;

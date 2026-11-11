@@ -8,7 +8,7 @@ import { confirmDlg } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { incomeLookups } from './orders.js';
 import { isAdmin, withReason } from './admin-override.js';
-import { packBlock, openOfferPack, packListMark } from './offer-pack.js';
+import { packBlock, openOfferPack, packListMark, funnelButton } from './offer-pack.js';
 import { LAST_KEYS, applyLastToForm, bindCustomer, lastOfferBanner, loadOfferParties, partyOptions, partyPick, rubWas } from './offer-memory.js';
 
 /**
@@ -324,7 +324,7 @@ export const offers = {
     viewKey: 'offers',
     sortDefault: '-date',
     export: false,
-    createLabel: 'КП',
+    createLabel: 'КП', headActions: () => [funnelButton()],
     searchPlaceholder: 'Поиск: номер, заказчик…',
     emptyText: 'КП пока нет.',
     emptyHint: 'Добавьте изделия из «Продукции» кнопкой «В КП» или нажмите «+ КП».',

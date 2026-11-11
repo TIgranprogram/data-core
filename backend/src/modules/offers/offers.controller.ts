@@ -8,7 +8,7 @@ import { AppSection } from '../../common/decorators/app-section.decorator';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { CreateOfferDto, OfferCompanyDto, OfferCopiesDto, OfferCopyDto, OfferCreateOrderDto, OfferStatusDto, UpdateBackgroundDto, UpdateOfferDto, UploadBackgroundDto } from './dto';
+import { CreateOfferDto, OfferCompanyDto, OfferCopiesDto, OfferCopyDto, OfferCreateOrderDto, OfferPackDto, OfferStatusDto, UpdateBackgroundDto, UpdateOfferDto, UploadBackgroundDto } from './dto';
 import { BG_MAX_BYTES, BG_MIME, OfferBackgroundsService } from './offer-backgrounds.service';
 import { OffersService } from './offers.service';
 
@@ -153,6 +153,14 @@ export class OffersController {
   @AuditAction({ action: 'offer.copied.pack', entityType: 'CommercialOffer', idParam: 'id' })
   copyMany(@Param('id') id: string, @Body() dto: OfferCopiesDto, @CurrentUser() user: AuthenticatedUser) {
     return this.offers.copyMany(id, dto, user);
+  }
+
+  /** C081: воронка «Новое КП» — N КП (по числу фирм) одним вызовом; сбой — созданные откатываются. */
+  @Post('pack')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'offer.pack.created', entityType: 'CommercialOffer' })
+  createPack(@Body() dto: OfferPackDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.offers.createPack(dto, user);
   }
 
   /** Мягкое удаление. */

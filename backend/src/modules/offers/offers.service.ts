@@ -13,7 +13,7 @@ import { CounterService } from '../counter/counter.service';
 import { IncomesService, ourCompanies } from '../incomes/incomes.service';
 import { SalesOrdersService } from '../salesorders/salesorders.service';
 import { offersOnlyIds, saveOffersOnlyIds } from '../../common/offers-only';
-import type { CreateOfferDto, OfferCopiesDto, OfferCopyDto, OfferCreateOrderDto, UpdateOfferDto } from './dto';
+import type { CreateOfferDto, OfferCopiesDto, OfferPackDto, OfferCopyDto, OfferCreateOrderDto, UpdateOfferDto } from './dto';
 import { OfferBackgroundsService } from './offer-backgrounds.service';
 import { offerProblems, packProblems } from './offer-ready';
 import { renderOfferPdf } from './offer-pdf';
@@ -437,6 +437,58 @@ export class OffersService {
       items.push(this.present(c.doc.toObject() as Doc, await this.companyName(c.companyId), packSize));
     }
     return { packId, items };
+  }
+
+  /**
+   * C081: воронка «Новое КП» — по одному КП на фирму. Все проверки до записи; сбой на k-м КП —
+   * удаляем созданные этим вызовом (Mongo 4.4, без транзакций) и отдаём ошибку.
+   */
+  async createPack(dto: OfferPackDto, user: AuthenticatedUser) {
+    const rows = dto.companies ?? [];
+    if (!rows.length) throw new BadRequestException('Отметьте хотя бы одну фирму');
+    if (rows.length > 10) throw new BadRequestException('Не больше 10 фирм за раз');
+    if (!clean(dto.customer)) throw new BadRequestException('Укажите заказчика');
+    if (!dto.items?.length) throw new BadRequestException('Добавьте хотя бы одну строку в КП');
+    const base = this.mapItems(dto.items);
+    const seen = new Set<string>();
+    const firms: Array<{ companyId: Types.ObjectId; pct: number }> = [];
+    for (const row of rows) {
+      const cid = String(row.companyId);
+      if (seen.has(cid)) throw new BadRequestException('Одна фирма указана дважды — уберите повтор');
+      seen.add(cid);
+      const companyId = await this.ourCompany(cid);
+      const name = (await this.companyName(companyId)) || 'без названия';
+      if (!(await this.companyHasBlank(companyId))) {
+        throw new BadRequestException(`У фирмы «${name}» нет бланка КП. Загрузите бланк: Контрагенты → Наши компании`);
+      }
+      firms.push({ companyId, pct: Number(row.markupPercent ?? 0) });
+    }
+    const packId = firms.length > 1 ? randomBytes(12).toString('hex') : null;
+    const date = day(dto.date);
+    const created: Types.ObjectId[] = [];
+    try {
+      const out = [];
+      for (const f of firms) {
+        const { items, total } = calcTotals(base.items.map((i) => ({ ...i, unitPrice: i.unitPrice === null || i.unitPrice === undefined ? i.unitPrice : markedUp(i.unitPrice, f.pct) })));
+        const defs = await this.defaults(String(f.companyId));
+        const number = await this.counters.next('CommercialOffer', 'КП');
+        const doc = await this.model.create({
+          number, date, validUntil: dto.validUntil ? day(dto.validUntil) : undefined, companyId: f.companyId, customer: clean(dto.customer),
+          counterpartyId: dto.counterpartyId ? oid(dto.counterpartyId, 'контрагента') : undefined, title: clean(dto.title) || undefined,
+          status: 'draft', items, total, prepaymentPercent: dto.prepaymentPercent, productionDays: dto.productionDays, deliveryDays: dto.deliveryDays,
+          objectName: clean(dto.objectName) || undefined, delivery: dto.delivery, vatMode: defs.vatMode, vatRate: defs.vatRate,
+          terms: clean(dto.terms) || defs.terms || undefined, notes: clean(dto.notes) || undefined,
+          ...(packId ? { packId } : {}),
+          statusHistory: [{ status: 'draft', at: new Date(), by: user?.username }],
+        });
+        created.push(doc._id as Types.ObjectId);
+        out.push(this.present(doc.toObject() as unknown as Doc, await this.companyName(f.companyId), packId ? firms.length : null));
+      }
+      return { packId, items: out };
+    } catch (e) {
+      if (created.length) await this.model.collection.deleteMany({ _id: { $in: created } }).catch(() => undefined);
+      throw e;
+    }
   }
 
   /**

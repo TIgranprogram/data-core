@@ -69,6 +69,9 @@ export function openOfferPack(offerId) {
   patch({ of: 'offerpack', open: String(offerId), new: undefined });
 }
 
+/** C081: кнопка «Новое КП по шагам» в шапке списка КП — открывает воронку в правой панели. */
+export const funnelButton = () => button({ label: 'Новое КП по шагам', title: 'Заказчик, изделия, фирмы — по шагам, сразу все КП', onClick: () => patch({ of: 'offerfunnel', new: '1', open: undefined }) });
+
 function blankNote(names) {
   return stack(
     h('p', { class: 'muted small' },
