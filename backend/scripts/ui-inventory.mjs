@@ -4,7 +4,7 @@ import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const ROOT = new URL('../pwa/', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
-const out = process.argv[2] || join(ROOT, '../../docs/audit/ui-inventory.md');
+const out = process.argv[2] || join(ROOT, '../../tools/logs/ui-inventory.md');
 const files = ['sections', 'ui', 'core'].flatMap((d) => readdirSync(join(ROOT, d)).filter((f) => f.endsWith('.js') && !f.endsWith('.test.mjs')).map((f) => join(ROOT, d, f)))
   .concat(join(ROOT, 'main.js'));
 

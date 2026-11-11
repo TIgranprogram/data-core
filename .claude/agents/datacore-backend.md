@@ -1,6 +1,6 @@
 ---
 name: datacore-backend
-description: Разработчик сервера data-core (NestJS 10 / Mongoose 8 / MongoDB 4.4). Использовать для выполнения ТЗ по серверной части — модули, сервисы, контроллеры, DTO, схемы, скрипты данных, серверные тесты к своей логике. Работает только по ТЗ координатора (docs/roles/tz/*.md) и только в backend/src, backend/test, backend/scripts. Не коммитит и не выкладывает.
+description: Разработчик сервера data-core (NestJS 10 / Mongoose 8 / MongoDB 4.4). Использовать для выполнения ТЗ по серверной части — модули, сервисы, контроллеры, DTO, схемы, скрипты данных, серверные тесты к своей логике. Работает только по ТЗ координатора (docs/crew/Cxxx-…/TZ.md) и только в backend/src, backend/test, backend/scripts. Не коммитит и не выкладывает.
 tools: Read, Grep, Glob, Bash, Edit, Write, WebSearch, WebFetch
 model: sonnet
 ---
