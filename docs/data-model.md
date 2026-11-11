@@ -894,6 +894,10 @@ Write-paths, которые должны быть all-or-nothing, использ
 
 `name`, `page` (1 — первая страница, 2 — вторая и следующие), `file` (`/uploads/offers/<uuid>.png|jpg`), `isDefault`. Без записей действуют встроенные фоны `backend/assets/offers/`.
 
+### `PassportLook` (Вид паспорта фирмы) — коллекция `passportlooks`
+
+Только data-core (C076). Одна запись на нашу компанию: `companyId` (unique → `organizations`), `color?` (`#RRGGBB`), `coverFile?` / `pageFile?` (`/uploads/passport-look/…`), отступы мм `coverTop|Right|Bottom|Left` и `pageTop|Right|Bottom|Left` (пусто — поля как у паспорта без бланка). Нет картинок — PDF не меняется. Выданные паспорта пакетом не перепечатываются.
+
 ### `StockZone` (Склад-зона — справочник «Склады») — коллекция `stockzones`, модуль `modules/stock-zones` (WZ)
 
 Только data-core (CRM не читает; физические склады `warehouses` не трогаем). `name`, `categoryIds[]` (→ `categories` type material; подкатегории входят сами), `includeMaterialIds[]` / `excludeMaterialIds[]` (→ `materials`: добавки и исключения поштучно), `isDefault` («Основной»: ещё и позиции без категории; один), `order`, `deletedAt`. Доступ роли = объединение складов (`Role.warehouseIds`); правила — `common/stock-scope.ts`, `docs/MAP.md` строка `stock-zones`.

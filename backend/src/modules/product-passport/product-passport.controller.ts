@@ -1,7 +1,7 @@
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Res, StreamableFile, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiConsumes, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { memoryStorage } from 'multer';
 import { PDF_UPLOAD_MAX_BYTES } from '../photos/image-upload.options';
@@ -10,6 +10,8 @@ import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { ProductPassportService } from './product-passport.service';
 import { PassportPdfService } from './passport-pdf.service';
+import { LOOK_MAX_BYTES, LOOK_MIME, PassportLookService } from './passport-look.service';
+import { UpdatePassportLookDto } from './dto/passport-look.dto';
 import { CreateProductPassportDto } from './dto/create-product-passport.dto';
 import { variantOf } from './passport-variants';
 import { PassportPreviewDto } from './dto/preview.dto';
@@ -32,7 +34,7 @@ const attachment = (name: string) => `attachment; filename="passport.${name.ends
 @AppSection('passports')
 @Controller()
 export class ProductPassportController {
-  constructor(private readonly service: ProductPassportService, private readonly pdfs: PassportPdfService) {}
+  constructor(private readonly service: ProductPassportService, private readonly pdfs: PassportPdfService, private readonly looks: PassportLookService) {}
 
   /** Совместимость с kppdf: последний паспорт изделия-модели. */
   @Get('products/:productId/passport')
@@ -295,6 +297,54 @@ export class ProductPassportController {
     // C072: паспорта со своим PDF в общий файл не входят — их список в заголовке X-Skipped-Passports (JSON, encodeURIComponent)
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': attachment(r.filename), ...(r.skipped.length ? { 'X-Skipped-Passports': encodeURIComponent(JSON.stringify(r.skipped)), 'Access-Control-Expose-Headers': 'X-Skipped-Passports' } : {}) });
     return new StreamableFile(r.buf);
+  }
+
+  /** C076: вид паспорта нашей фирмы. Нет записи — пустые поля. Картинок нет — печать как раньше. */
+  @AppSection('partners', 'passports')
+  @Get('passports/look/:companyId')
+  @Roles('user')
+  look(@Param('companyId') companyId: string) {
+    return this.looks.get(companyId);
+  }
+
+  /** Первая страница-образец: бланк, цвет, отступы. Паспорт не создаёт. */
+  @AppSection('partners', 'passports')
+  @Get('passports/look/:companyId/preview')
+  @Roles('user')
+  async lookPreview(@Param('companyId') companyId: string, @Res({ passthrough: true }) res: Response) {
+    const r = await this.pdfs.previewLook(companyId);
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': attachment(r.filename) });
+    return new StreamableFile(r.buf);
+  }
+
+  @AppSection('partners', 'passports')
+  @Patch('passports/look/:companyId')
+  @Roles('manager')
+  @AuditAction({ action: 'passport.look', entityType: 'Organization', idParam: 'companyId' })
+  saveLook(@Param('companyId') companyId: string, @Body() dto: UpdatePassportLookDto) {
+    return this.looks.save(companyId, dto);
+  }
+
+  @AppSection('partners', 'passports')
+  @Post('passports/look/:companyId/:slot')
+  @Roles('manager')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: memoryStorage(),
+    limits: { fileSize: LOOK_MAX_BYTES, files: 1 },
+    fileFilter: (_req, file, cb) => cb(null, LOOK_MIME.test(file.mimetype)),
+  }))
+  @AuditAction({ action: 'passport.look', entityType: 'Organization', idParam: 'companyId' })
+  uploadLook(@Param('companyId') companyId: string, @Param('slot') slot: string, @UploadedFile() file: { buffer: Buffer; mimetype: string; size: number } | undefined) {
+    return this.looks.upload(companyId, slot, file);
+  }
+
+  @AppSection('partners', 'passports')
+  @Delete('passports/look/:companyId/:slot')
+  @Roles('manager')
+  @AuditAction({ action: 'passport.look', entityType: 'Organization', idParam: 'companyId' })
+  removeLook(@Param('companyId') companyId: string, @Param('slot') slot: string) {
+    return this.looks.remove(companyId, slot);
   }
 
   @Get('passports/:id')

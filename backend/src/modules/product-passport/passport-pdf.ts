@@ -85,27 +85,32 @@ export function imposition(P: number): Array<[number, number]> {
   return out;
 }
 
-export function warranty(input: Pick<PdfInput, 'passport' | 'org' | 'withStamp' | 'seal' | 'signature'>): Page {
+export function warranty(input: Pick<PdfInput, 'passport' | 'org' | 'withStamp' | 'seal' | 'signature'>, box?: { l: number; r: number; t: number; b: number } | null): Page {
   const { passport: p, org, withStamp, seal, signature } = input;
+  // Без полей бланка — те же числа, что раньше. С полями текст сдвигается внутрь рамки.
+  const l = box ? box.l : M.l;
+  const cw = box ? A5.w - box.l - box.r : CW;
+  const bottom = box ? A5.h - box.b : BOTTOM;
+  const dy = box ? box.t - M.t : 0;
   const seller = `${org?.signerPosition || 'Генеральный директор'} ${docName(org)} ${shortFio(org?.directorName || org?.signerName)}`.replace(/\s+/g, ' ').trim();
   const draws: Page['draws'] = [{ y: 0, draw: (d) => {
-    d.font('gost').fontSize(14).fillColor('#000').text(`ГАРАНТИЙНЫЙ ТАЛОН № ${p.warrantyCode ?? ''}`, M.l, M.t, { width: CW, align: 'center' });
-    d.font('gost-i').fontSize(12).text(p.name ?? '', M.l, d.y + 4, { width: CW, align: 'center' });
-    d.font('gost-i').fontSize(13).text(`Номер изделия: ${p.productCode ?? ''}`, M.l, d.y + 14, { width: CW, align: 'center' });
+    d.font('gost').fontSize(14).fillColor('#000').text(`ГАРАНТИЙНЫЙ ТАЛОН № ${p.warrantyCode ?? ''}`, l, M.t + dy, { width: cw, align: 'center' });
+    d.font('gost-i').fontSize(12).text(p.name ?? '', l, d.y + 4, { width: cw, align: 'center' });
+    d.font('gost-i').fontSize(13).text(`Номер изделия: ${p.productCode ?? ''}`, l, d.y + 14, { width: cw, align: 'center' });
     // ПП: «после печати» — значение или линия; адрес — одной строкой (длинный — с многоточием)
     const ap = afterPrintLines(p);
-    const put = (i: number, yy: number) => d.font('gost-i').fontSize(11).fillColor('#000').text(`${ap[i].label} ${ap[i].text}`, M.l, yy, { width: CW, height: 14, ellipsis: true, lineBreak: false });
-    put(0, 214); put(1, 236); put(2, 258); put(3, 280);
-    const sy = 318;
-    d.font('gost-i').fontSize(11).text('Продавец: ______________', M.l, sy, { continued: false });
-    d.font('gost-i').fontSize(10).text(seller, M.l + 128, sy + 1, { width: CW - 128 });
-    d.font('gost-i').fontSize(11).text('М.П.', M.l + 120, sy + 34);
-    if (withStamp && signature) { try { d.image(signature, M.l + 46, sy - 22, { fit: [80, 40] }); } catch { /* без подписи */ } }
-    if (withStamp && seal) { try { d.image(seal, M.l + 84, sy - 16, { fit: [104, 104] }); } catch { /* без печати */ } }
-    d.font('gost-i').fontSize(10.5).text('Покупатель с условиями гарантийного обслуживания ознакомлен, претензий по виду и комплектации не имеет.', M.l, 418, { width: CW });
-    d.font('gost-i').fontSize(11).text('Подпись покупателя ____________________', M.l, 456);
-    put(4, 488); put(5, 510);
-    d.font('gost-i').fontSize(11).text('Страна происхождения: Россия', M.l, BOTTOM - 14, { width: CW, align: 'center' });
+    const put = (i: number, yy: number) => d.font('gost-i').fontSize(11).fillColor('#000').text(`${ap[i].label} ${ap[i].text}`, l, yy, { width: cw, height: 14, ellipsis: true, lineBreak: false });
+    put(0, 214 + dy); put(1, 236 + dy); put(2, 258 + dy); put(3, 280 + dy);
+    const sy = 318 + dy;
+    d.font('gost-i').fontSize(11).text('Продавец: ______________', l, sy, { continued: false });
+    d.font('gost-i').fontSize(10).text(seller, l + 128, sy + 1, { width: cw - 128 });
+    d.font('gost-i').fontSize(11).text('М.П.', l + 120, sy + 34);
+    if (withStamp && signature) { try { d.image(signature, l + 46, sy - 22, { fit: [80, 40] }); } catch { /* без подписи */ } }
+    if (withStamp && seal) { try { d.image(seal, l + 84, sy - 16, { fit: [104, 104] }); } catch { /* без печати */ } }
+    d.font('gost-i').fontSize(10.5).text('Покупатель с условиями гарантийного обслуживания ознакомлен, претензий по виду и комплектации не имеет.', l, 418 + dy, { width: cw });
+    d.font('gost-i').fontSize(11).text('Подпись покупателя ____________________', l, 456 + dy);
+    put(4, 488 + dy); put(5, 510 + dy);
+    d.font('gost-i').fontSize(11).text('Страна происхождения: Россия', l, bottom - 14, { width: cw, align: 'center' });
   } }];
   return { kind: 'warranty', draws };
 }

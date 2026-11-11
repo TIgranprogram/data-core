@@ -9,6 +9,7 @@ import { openSide } from '../ui/kit/side-form.js';
 import { STAGE } from './salesorders.js';
 import { badge, SUPPLY_STATUS, supplyKey } from '../ui/kit/badges.js';
 import { contractsBlock } from './contracts.js';
+import { passportLookBlock } from './partners-passport-look.js';
 
 /**
  * «Контрагенты» (TASKS фаза 4): поставщики (из заявок), заказчики (из заказов), наши компании.
@@ -192,7 +193,7 @@ function kpBgBlock(r, ctx) {
 
 function related(r, ctx) {
   const items = r.related || [];
-  if (r.kind === 'our') return stack(stampBlock(r, ctx), kpBgBlock(r, ctx), relatedRest(r, items));
+  if (r.kind === 'our') return stack(stampBlock(r, ctx), kpBgBlock(r, ctx), passportLookBlock(r, ctx), relatedRest(r, items));
   if (r.kind === 'supplier') return stack(contractsBlock(r), relatedRest(r, items));
   return stack(relatedRest(r, items));
 }

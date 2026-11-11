@@ -1,7 +1,7 @@
 import { warranty } from './passport-pdf';
 import { PdfV2Input } from './passport-pdf-v2-types';
 import { substituteRefs, PlannedFig, planFigures, maintenanceColumns } from './passport-pdf-v2-refs';
-import { M, CW, BOTTOM, BODY, Draw, Cell, V2Page, has, num, lines } from './passport-pdf-v2-common';
+import { A5, M, CW, BOTTOM, BODY, Draw, Cell, V2Page, has, num, lines } from './passport-pdf-v2-common';
 import { shortPage, cover } from './passport-pdf-v2-cover';
 import { isBatch } from './passport-rules';
 import { planNumbers } from './passport-numbering';
@@ -19,6 +19,11 @@ export function specRows(p: PdfV2Input['passport']): [string, unknown][] {
 
 export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: string): V2Page[] {
   const { passport: p, text: t, images } = input;
+  const pb = input.look?.pageBox;
+  const L = pb ? pb.l : M.l;
+  const T = pb ? pb.t : M.t;
+  const Btm = pb ? A5.h - pb.b : BOTTOM;
+  const Wd = pb ? A5.w - pb.l - pb.r : CW;
   const sections = (t.sections || []).filter((s) => s.items?.length || s.title);
   const maintenance = (t.maintenance || []).filter((m) => m.rows?.length);
   const installLines = lines(t.install?.text);
@@ -59,25 +64,25 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
 
   const body: V2Page[] = [];
   let cur: V2Page = { kind: 'body', draws: [], footer: true };
-  let y = M.t;
+  let y = T;
   // Рисунки «по месту» (§3.6): не помещается после абзаца — ждёт в очереди и встаёт первым на следующей странице
   // (текст продолжает заполнять текущую); порядок рисунков сохраняется.
   const pending: PlannedFig[] = [];
   const placedKinds = new Set<string>();
-  const breakPage = () => { body.push(cur); cur = { kind: 'body', draws: [], footer: true }; y = M.t; };
+  const breakPage = () => { body.push(cur); cur = { kind: 'body', draws: [], footer: true }; y = T; };
   const figSize = (f: PlannedFig) => {
     let ar = 0.62;
     try { const im = (doc as unknown as { openImage(b: Buffer): { width: number; height: number } }).openImage(f.img.buf); if (im.width > 0 && im.height > 0) ar = im.height / im.width; } catch { /* битая — пропорция по умолчанию */ }
     const capH = textH('gost-i', 9, f.caption) + 4;
-    const h = Math.max(60, Math.min(CW * ar, BOTTOM - M.t - capH - 14));
+    const h = Math.max(60, Math.min(Wd * ar, Btm - T - capH - 14));
     return { h, capH, total: h + capH + 10 };
   };
   const putFig = (f: PlannedFig) => {
     const { h, total } = figSize(f);
-    if (y + total > BOTTOM && cur.draws.length) breakPage();
+    if (y + total > Btm && cur.draws.length) breakPage();
     cur.draws.push({ y, draw: (d, yy) => {
-      try { d.image(f.img.buf, M.l, yy + 2, { fit: [CW, h], align: 'center', valign: 'center' }); } catch { d.font('gost-i').fontSize(9).fillColor('#000').text('[картинка не читается]', M.l, yy + h / 2, { width: CW, align: 'center' }); }
-      d.font('gost-i').fontSize(9).fillColor('#000').text(f.caption, M.l, yy + h + 5, { width: CW, align: 'center' });
+      try { d.image(f.img.buf, L, yy + 2, { fit: [Wd, h], align: 'center', valign: 'center' }); } catch { d.font('gost-i').fontSize(9).fillColor('#000').text('[картинка не читается]', L, yy + h / 2, { width: Wd, align: 'center' }); }
+      d.font('gost-i').fontSize(9).fillColor('#000').text(f.caption, L, yy + h + 5, { width: Wd, align: 'center' });
     } });
     y += total;
   };
@@ -91,49 +96,49 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
       if (placedKinds.has(k) || !figs.inline.has(k)) continue;
       placedKinds.add(k);
       for (const f of figs.inline.get(k) || []) {
-        if (!pending.length && y + figSize(f).total <= BOTTOM) putFig(f);
+        if (!pending.length && y + figSize(f).total <= Btm) putFig(f);
         else pending.push(f);
       }
     }
   };
   const place = (h: number, draw: Draw, keep = 0) => {
-    if (y + h + keep > BOTTOM && cur.draws.length) newPage();
+    if (y + h + keep > Btm && cur.draws.length) newPage();
     cur.draws.push({ y, draw }); y += h;
   };
-  const textH = (font: string, size: number, s: string, w = CW) => { doc.font(font).fontSize(size); return doc.heightOfString(s, { width: w, lineGap: 0.6 }); };
+  const textH = (font: string, size: number, s: string, w = Wd) => { doc.font(font).fontSize(size); return doc.heightOfString(s, { width: w, lineGap: 0.6 }); };
   const heading = (s: string, size = 12, keep = 40) => {
     const h = textH('gost', size, s) + 10;
     place(h + 4, (d, yy) => {
-      d.font('gost').fontSize(size).fillColor('#000').text(s, M.l, yy + 4, { width: CW, lineGap: 0.6 });
-      const ly = yy + 4 + d.heightOfString(s, { width: CW, lineGap: 0.6 }) + 2;
-      d.lineWidth(1.4).strokeColor(color).moveTo(M.l, ly).lineTo(M.l + CW, ly).stroke();
+      d.font('gost').fontSize(size).fillColor('#000').text(s, L, yy + 4, { width: Wd, lineGap: 0.6 });
+      const ly = yy + 4 + d.heightOfString(s, { width: Wd, lineGap: 0.6 }) + 2;
+      d.lineWidth(1.4).strokeColor(color).moveTo(L, ly).lineTo(L + Wd, ly).stroke();
     }, keep);
   };
-  const sub = (s: string) => { const h = textH('gost', 9.5, s) + 3; place(h, (d, yy) => d.font('gost').fontSize(9.5).fillColor('#000').text(s, M.l, yy, { width: CW, lineGap: 0.6 }), 20); };
+  const sub = (s: string) => { const h = textH('gost', 9.5, s) + 3; place(h, (d, yy) => d.font('gost').fontSize(9.5).fillColor('#000').text(s, L, yy, { width: Wd, lineGap: 0.6 }), 20); };
   const para = (s: string, size = BODY, font = 'gost-i', indent = 0) => {
     if (!s) return;
-    const h = textH(font, size, s, CW - indent) + 1.6;
-    place(h, (d, yy) => d.font(font).fontSize(size).fillColor('#000').text(s, M.l + indent, yy, { width: CW - indent, lineGap: 0.6 }));
+    const h = textH(font, size, s, Wd - indent) + 1.6;
+    place(h, (d, yy) => d.font(font).fontSize(size).fillColor('#000').text(s, L + indent, yy, { width: Wd - indent, lineGap: 0.6 }));
   };
   const table = (title: string, cols: string[], widths: number[], rows: Cell[][], cellSize = 8) => {
-    const ws = widths.map((w) => (w / widths.reduce((a, b) => a + b, 0)) * CW);
+    const ws = widths.map((w) => (w / widths.reduce((a, b) => a + b, 0)) * Wd);
     doc.font('gost-i').fontSize(7.2);
     const headH = Math.max(18, ...cols.map((c, i) => doc.heightOfString(c, { width: ws[i] - 4 }) + 6));
     const titleH = textH('gost', 9, title) + 4;
     const drawHead = (d: PDFKit.PDFDocument, yy: number) => {
-      let x = M.l;
+      let x = L;
       d.lineWidth(0.4).strokeColor('#000');
       cols.forEach((c, i) => { d.rect(x, yy, ws[i], headH).stroke(); d.font('gost').fontSize(7.2).fillColor('#000').text(c, x + 2, yy + 3, { width: ws[i] - 4, align: 'center' }); x += ws[i]; });
-      d.lineWidth(0.75).strokeColor('#000').moveTo(M.l, yy + headH).lineTo(M.l + CW, yy + headH).stroke();
+      d.lineWidth(0.75).strokeColor('#000').moveTo(L, yy + headH).lineTo(L + Wd, yy + headH).stroke();
     };
-    place(titleH, (d, yy) => d.font('gost').fontSize(9).fillColor('#000').text(title, M.l, yy, { width: CW }), headH + 30);
+    place(titleH, (d, yy) => d.font('gost').fontSize(9).fillColor('#000').text(title, L, yy, { width: Wd }), headH + 30);
     place(headH, drawHead);
     for (const r of rows) {
       doc.font('gost-i').fontSize(cellSize);
       const h = Math.max(15, ...r.map((c, i) => (typeof c === 'string' ? (c ? doc.heightOfString(c, { width: ws[i] - 6 }) + 6 : 0) : 'h' in c ? c.h + 4 : 0)));
-      if (y + h > BOTTOM) { newPage(); place(headH, drawHead); }
+      if (y + h > Btm) { newPage(); place(headH, drawHead); }
       place(h, (d, yy) => {
-        let x = M.l;
+        let x = L;
         d.lineWidth(0.4).strokeColor('#000');
         r.forEach((c, i) => {
           d.rect(x, yy, ws[i], h).stroke();
@@ -165,7 +170,7 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   };
 
   // «Коротко» — одна страница
-  const short = shortPage(doc, input, color, R(lines(t.purpose).join(' ') || descr[0] || ''));
+  const short = shortPage(doc, input, color, R(lines(t.purpose).join(' ') || descr[0] || ''), pb);
   if (short) body.push(short);
 
   const descrSection = () => {
@@ -248,11 +253,11 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   // Приложения с рисунками
   // ряд рисунков: 1 колонка — рисунок на всю ширину; 2 колонки — сетка (4 на лист), подпись под каждым
   const figRow = (row: PlannedFig[], maxH: number, cols: number) => {
-    const gap = 10, cw = (CW - gap * (cols - 1)) / cols;
+    const gap = 10, cw = (Wd - gap * (cols - 1)) / cols;
     const capH = Math.max(...row.map((f) => textH('gost-i', 9, f.caption, cw))) + 4;
     place(maxH + capH + 6, (d, yy) => {
       row.forEach((f, ci) => {
-        const x = M.l + ci * (cw + gap);
+        const x = L + ci * (cw + gap);
         try { d.image(f.img.buf, x, yy, { fit: [cw, maxH], align: 'center', valign: 'center' }); } catch { d.font('gost-i').fontSize(9).fillColor('#000').text('[картинка не читается]', x, yy + maxH / 2, { width: cw, align: 'center' }); }
         d.font('gost-i').fontSize(9).fillColor('#000').text(f.caption, x, yy + maxH + 3, { width: cw, align: 'center' });
       });
@@ -267,8 +272,8 @@ ${a.title}`, 11, 0);
       const slice = a.figs.slice(i, i + a.perPage);
       const rows: PlannedFig[][] = [];
       for (let r = 0; r < slice.length; r += cols) rows.push(slice.slice(r, r + cols));
-      const room = BOTTOM - y - 4;
-      const capMax = Math.max(...slice.map((f) => textH('gost-i', 9, f.caption, (CW - 10 * (cols - 1)) / cols)));
+      const room = Btm - y - 4;
+      const capMax = Math.max(...slice.map((f) => textH('gost-i', 9, f.caption, (Wd - 10 * (cols - 1)) / cols)));
       // при рядах из одного рисунка делим лист на perPage/cols рядов (а не на фактическое число — чтобы одиночный не растягивался)
       const nRows = Math.max(rows.length, a.perPage / cols);
       const maxH = Math.max(60, room / nRows - capMax - 12);
@@ -281,7 +286,7 @@ ${a.title}`, 11, 0);
   if (cur.draws.length) body.push(cur);
   body.forEach((pg, i) => { pg.no = i + 1; });
   if (input.mode === 'print') while ((body.length + 2) % 4) body.push({ kind: 'body', draws: [] });
-  return [cover(input), ...body, warranty({ ...input, passport: p })];
+  return [cover(input), ...body, warranty({ ...input, passport: p }, pb)];
 }
 
 /** «Коротко» (§3.7): плитки, «для чего», ключевые правила-пиктограммы. Пусто — страницы нет. */

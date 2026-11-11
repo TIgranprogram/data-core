@@ -20,6 +20,19 @@ export interface PdfV2Text {
   layout?: number;
 }
 export interface PdfV2Style { color?: string; categoryName?: string; icons?: string[] }
+/** Поля набора в пунктах: слева, справа, сверху, снизу. */
+export interface PdfBox { l: number; r: number; t: number; b: number }
+/**
+ * Бланк фирмы (C076). Нет обоих JPEG — печать как раньше, цвет не применяется.
+ * Картинка вкладывается в PDF один раз и рисуется на своих страницах.
+ */
+export interface PdfLook {
+  cover?: Buffer | null;
+  page?: Buffer | null;
+  color?: string | null;
+  coverBox?: PdfBox | null;
+  pageBox?: PdfBox | null;
+}
 export interface PdfV2Input {
   passport: PdfPassportV2;
   org: PdfOrg | null;
@@ -35,6 +48,8 @@ export interface PdfV2Input {
   watermark?: string;
   /** Чёрно-белый: без цвета категории и заливки шапки обложки — для печати на ч/б принтере (решение пользователя 2026-10-22). */
   mono?: boolean;
+  /** Бланк и цвет фирмы. Нет — прежний чёрно-белый вид. */
+  look?: PdfLook;
 }
 
 export const NEUTRAL_COLOR = '#546E7A';

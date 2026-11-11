@@ -15,7 +15,8 @@ import { zipStore } from './zip';
 import { safeUploadPath } from '../../common/uploads/safe-path';
 import { filterImagesByKind, installKindOf, variantOf, type PassportVariant } from './passport-variants';
 import { standardSchemes } from './passport-schemes';
-import { renderPassportPdfV2, renderPassportsPdfV2, renderStandPdf, resolveStyle, type PdfImageV2, type PdfV2Style, type PdfV2Text } from './passport-pdf-v2';
+import { renderPassportCoverPreview, renderPassportPdfV2, renderPassportsPdfV2, renderStandPdf, resolveStyle, type PdfImageV2, type PdfV2Style, type PdfV2Text } from './passport-pdf-v2';
+import { PassportLookService } from './passport-look.service';
 import { packOf, type PrintPack } from './print-pack';
 import { readPrintFile } from './passport-print-file';
 
@@ -31,6 +32,7 @@ export class PassportPdfService {
   private readonly log = new Logger(PassportPdfService.name);
   constructor(
     private readonly passports: ProductPassportService,
+    private readonly looks: PassportLookService,
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
@@ -270,7 +272,40 @@ export class PassportPdfService {
       logo: await this.asset(asset('logo')),
       defectImages: await this.defectImages(text),
       seal, signature, withStamp: stamp, mode, mono: !!opts.mono,
+      look: await this.looks.forPdf(p.supplierOrgId),
     };
+  }
+
+  /**
+   * Обложка-образец фирмы (экран «Вид паспорта»). Паспорт не создаёт и выданные не отмечает.
+   * Фона нет — та же обложка, что печатается сейчас.
+   */
+  async previewLook(companyId: string) {
+    const org = await this.looks.orgCard(companyId) as Doc;
+    const assets = (org.assets as Array<{ role: string; storageUrl: string }> | undefined) || [];
+    const name = String(org.shortName || org.name || 'Фирма');
+    const buf = await renderPassportCoverPreview({
+      passport: { passportNumber: '—', name: 'Образец паспорта', productCode: 'ОБР-1' },
+      org: {
+        name: String(org.name || ''),
+        shortName: org.shortName ? String(org.shortName) : undefined,
+        fullName: org.fullName ? String(org.fullName) : undefined,
+        inn: org.inn ? String(org.inn) : undefined,
+        kpp: org.kpp ? String(org.kpp) : undefined,
+        phone: org.phone ? String(org.phone) : undefined,
+        email: org.email ? String(org.email) : undefined,
+        trademark: org.trademark ? String(org.trademark) : undefined,
+      },
+      text: { sections: [] },
+      images: {},
+      style: { categoryName: 'Образец' },
+      withStamp: false,
+      mode: 'pages',
+      look: await this.looks.forPdf(org._id),
+      logo: await this.asset(assets.find((a) => a.role === 'logo')?.storageUrl),
+    });
+    const safe = name.replace(/[\\/:*?"<>|«»]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    return { buf, filename: `Вид паспорта ${safe || 'фирма'}.pdf` };
   }
 
   /**
