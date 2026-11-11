@@ -73,6 +73,8 @@ export class CommercialOffer {
   @Prop({ type: String, enum: ['included', 'excluded'] }) delivery?: 'included' | 'excluded';
   /** КП, с которого сделана копия для другой фирмы. */
   @Prop({ type: Types.ObjectId }) copyOf?: Types.ObjectId;
+  /** Пакет КП от нескольких фирм (C071): общий id у исходного и копий; sparse. */
+  @Prop({ type: String, sparse: true, index: true }) packId?: string;
   /** Заказ, созданный из КП (этап 2). */
   @Prop({ type: Types.ObjectId }) orderId?: Types.ObjectId;
   /** Снимки до правки после «Отправлено» / «Принято». */

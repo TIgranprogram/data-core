@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { promises as fs } from 'fs';
 import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
@@ -12,7 +13,7 @@ import { CounterService } from '../counter/counter.service';
 import { IncomesService, ourCompanies } from '../incomes/incomes.service';
 import { SalesOrdersService } from '../salesorders/salesorders.service';
 import { offersOnlyIds, saveOffersOnlyIds } from '../../common/offers-only';
-import type { CreateOfferDto, OfferCopyDto, OfferCreateOrderDto, UpdateOfferDto } from './dto';
+import type { CreateOfferDto, OfferCopiesDto, OfferCopyDto, OfferCreateOrderDto, UpdateOfferDto } from './dto';
 import { OfferBackgroundsService } from './offer-backgrounds.service';
 import { renderOfferPdf } from './offer-pdf';
 import { calcTotals, checkEditable, checkMove, markedUp, resolveVat } from './offer-rules';
@@ -39,12 +40,13 @@ export class OffersService {
 
   private db() { return this.connection.db!; }
 
-  private present(o: Doc, companyName?: string | null) {
+  private present(o: Doc, companyName?: string | null, packSize?: number | null) {
     return {
       id: String(o._id), number: o.number, date: o.date, validUntil: o.validUntil ?? null,
       companyId: String(o.companyId), companyName: companyName ?? null,
       customer: o.customer, counterpartyId: o.counterpartyId ? String(o.counterpartyId) : null, title: o.title ?? null,
       objectName: o.objectName ?? null, vatMode: o.vatMode ?? null, vatRate: o.vatRate ?? null, delivery: o.delivery ?? null, copyOf: o.copyOf ? String(o.copyOf) : null,
+      packId: o.packId ? String(o.packId) : null, packSize: packSize ?? null,
       status: o.status as OfferStatus,
       items: (o.items as Doc[]).map((i) => ({
         productId: i.productId ? String(i.productId) : null, productName: i.productName, productSku: i.productSku ?? null, description: i.description ?? null,
@@ -151,6 +153,8 @@ export class OffersService {
       if (!(OFFER_STATUSES as readonly string[]).includes(st)) throw new BadRequestException('Неизвестный статус');
       filter.status = st;
     }
+    const packId = clean(q.packId);
+    if (packId) filter.packId = packId;
     const opt = { includeSoftDeleted: true };
     const [rows, total, grouped] = await Promise.all([
       this.model.find(filter).setOptions(opt).sort({ ...p.sort, _id: -1 }).skip(p.skip).limit(p.limit).lean().exec() as unknown as Promise<Doc[]>,
@@ -160,7 +164,11 @@ export class OffersService {
     const counts: Record<string, number> = { all: 0, ...Object.fromEntries(OFFER_STATUSES.map((s) => [s, 0])) };
     for (const g of grouped) { counts[g._id] = g.n; counts.all += g.n; }
     const names = await this.companyNames(rows.map((r) => r.companyId));
-    return { items: rows.map((r) => this.present(r, names.get(String(r.companyId)) ?? null)), total, page: p.page, limit: p.limit, counts };
+    const packSizes = await this.packSizes(rows.map((r) => r.packId as string | undefined));
+    return {
+      items: rows.map((r) => this.present(r, names.get(String(r.companyId)) ?? null, packSizes.get(String(r.packId ?? '')) ?? null)),
+      total, page: p.page, limit: p.limit, counts,
+    };
   }
 
   private async find(id: string): Promise<Doc> {
@@ -171,7 +179,9 @@ export class OffersService {
 
   async get(id: string) {
     const o = await this.find(id);
-    return this.present(o, await this.companyName(o.companyId));
+    const packId = o.packId ? String(o.packId) : '';
+    const packSizes = await this.packSizes([packId || undefined]);
+    return this.present(o, await this.companyName(o.companyId), packSizes.get(packId) ?? null);
   }
 
   async create(dto: CreateOfferDto, user: AuthenticatedUser) {
@@ -308,7 +318,59 @@ export class OffersService {
   async copy(id: string, dto: OfferCopyDto, user: AuthenticatedUser) {
     const cur = await this.find(id);
     const companyId = await this.ourCompany(dto.companyId);
-    const pct = dto.markupPercent ?? 0;
+    const doc = await this.createCopyDoc(cur, companyId, dto.markupPercent ?? 0, user, null, false);
+    return this.present(doc.toObject() as unknown as Doc, await this.companyName(companyId));
+  }
+
+  /**
+   * Несколько копий КП для разных фирм (C071). Сначала все проверки, потом запись.
+   * Исходное и копии получают общий packId; у исходного packId появляется, если его ещё не было.
+   */
+  async copyMany(id: string, dto: OfferCopiesDto, user: AuthenticatedUser) {
+    const cur = await this.find(id);
+    const rows = dto.companies ?? [];
+    if (!rows.length) throw new BadRequestException('Отметьте хотя бы одну фирму');
+    if (rows.length > 10) throw new BadRequestException('Не больше 10 фирм за раз');
+    const seen = new Set<string>();
+    const resolved: Array<{ companyId: Types.ObjectId; pct: number; name: string }> = [];
+    for (const row of rows) {
+      const cid = String(row.companyId);
+      if (cid === String(cur.companyId)) throw new BadRequestException('Нельзя копировать на ту же фирму, что у исходного КП');
+      if (seen.has(cid)) throw new BadRequestException('Одна фирма указана дважды — уберите повтор');
+      seen.add(cid);
+      const companyId = await this.ourCompany(cid);
+      const name = (await this.companyName(companyId)) || 'без названия';
+      if (!(await this.companyHasBlank(companyId))) {
+        throw new BadRequestException(`У фирмы «${name}» нет бланка КП. Загрузите бланк: Контрагенты → Наши компании`);
+      }
+      resolved.push({ companyId, pct: Number(row.markupPercent ?? 0), name });
+    }
+    let packId = cur.packId ? String(cur.packId) : '';
+    if (!packId) {
+      packId = randomBytes(12).toString('hex');
+      await this.model.updateOne({ _id: cur._id }, { $set: { packId } }).exec();
+      cur.packId = packId;
+    }
+    const created: Array<{ doc: { toObject: () => Doc }; companyId: Types.ObjectId }> = [];
+    for (const row of resolved) {
+      const doc = await this.createCopyDoc(cur, row.companyId, row.pct, user, packId, true);
+      created.push({ doc, companyId: row.companyId });
+    }
+    const packSize = await this.packSizeOf(packId);
+    const items = [];
+    for (const c of created) {
+      items.push(this.present(c.doc.toObject() as Doc, await this.companyName(c.companyId), packSize));
+    }
+    return { packId, items };
+  }
+
+  /**
+   * Документ-копия. useDefaults — НДС и стандартные тексты новой фирмы (пакет C071);
+   * одиночная копия оставляет terms исходного (как раньше).
+   */
+  private async createCopyDoc(
+    cur: Doc, companyId: Types.ObjectId, pct: number, user: AuthenticatedUser, packId: string | null, useDefaults: boolean,
+  ) {
     const { items, total } = calcTotals((cur.items as Doc[]).map((i) => ({
       productId: i.productId, productName: i.productName, productSku: i.productSku, description: i.description, color: i.color, size: i.size, photoUrl: i.photoUrl,
       quantity: i.quantity, unit: i.unit || 'шт', unitPrice: i.unitPrice === null || i.unitPrice === undefined ? i.unitPrice : markedUp(i.unitPrice, pct),
@@ -316,19 +378,62 @@ export class OffersService {
     const number = await this.counters.next('CommercialOffer', 'КП');
     const date = day();
     const span = cur.validUntil ? Math.round((new Date(cur.validUntil).getTime() - new Date(cur.date).getTime()) / 86400000) : 0;
-    const doc = await this.model.create({
+    let terms = cur.terms;
+    let vatMode = cur.vatMode;
+    let vatRate = cur.vatRate;
+    if (useDefaults) {
+      const defs = await this.defaults(String(companyId));
+      terms = defs.terms || undefined;
+      vatMode = defs.vatMode;
+      vatRate = defs.vatRate;
+    }
+    return this.model.create({
       number, date, validUntil: span > 0 ? new Date(date.getTime() + span * 86400000) : undefined, companyId, customer: cur.customer,
       counterpartyId: cur.counterpartyId, title: cur.title, status: 'draft', items, total, prepaymentPercent: cur.prepaymentPercent,
       productionDays: cur.productionDays, deliveryDays: cur.deliveryDays, objectName: cur.objectName, delivery: cur.delivery,
-      terms: cur.terms, notes: cur.notes, copyOf: cur._id, statusHistory: [{ status: 'draft', at: new Date(), by: user?.username }],
+      vatMode, vatRate, terms, notes: cur.notes, copyOf: cur._id,
+      ...(packId ? { packId } : {}),
+      statusHistory: [{ status: 'draft', at: new Date(), by: user?.username }],
     });
-    return this.present(doc.toObject() as unknown as Doc, await this.companyName(companyId));
   }
 
-  /** Наши фирмы для КП — все, вместе с «только для КП» (в «Деньгах» их нет). */
+  private async companyHasBlank(companyId: Types.ObjectId): Promise<boolean> {
+    const n = await this.db().collection('offerbackgrounds').countDocuments({ companyId, page: 1 });
+    return n > 0;
+  }
+
+  private async packSizeOf(packId: string): Promise<number> {
+    if (!packId) return 0;
+    return this.model.countDocuments({ packId, deletedAt: null }).exec();
+  }
+
+  private async packSizes(packIds: Array<string | undefined | null>): Promise<Map<string, number>> {
+    const ids = [...new Set(packIds.filter((p): p is string => !!p))];
+    const map = new Map<string, number>();
+    if (!ids.length) return map;
+    const rows = await this.model.aggregate<{ _id: string; n: number }>([
+      { $match: { packId: { $in: ids }, deletedAt: null } },
+      { $group: { _id: '$packId', n: { $sum: 1 } } },
+    ]).exec();
+    for (const r of rows) map.set(String(r._id), r.n);
+    return map;
+  }
+
+  /** Наши фирмы для КП — все, вместе с «только для КП» (в «Деньгах» их нет); hasBlank — бланк 1-й стр. */
   async companies() {
     const [list, only] = await Promise.all([ourCompanies(this.connection, { withOffersOnly: true }), offersOnlyIds(this.db())]);
-    const items = list.map((c) => ({ id: String(c.id), name: c.name, offersOnly: only.includes(String(c.id)) }));
+    const oids = list.map((c) => new Types.ObjectId(String(c.id)));
+    const withBlank = new Set<string>();
+    if (oids.length) {
+      const blanks = await this.db().collection('offerbackgrounds').find(
+        { companyId: { $in: oids }, page: 1 },
+        { projection: { companyId: 1 } },
+      ).toArray();
+      for (const b of blanks) if (b.companyId) withBlank.add(String(b.companyId));
+    }
+    const items = list.map((c) => ({
+      id: String(c.id), name: c.name, offersOnly: only.includes(String(c.id)), hasBlank: withBlank.has(String(c.id)),
+    }));
     return { items, total: items.length };
   }
 

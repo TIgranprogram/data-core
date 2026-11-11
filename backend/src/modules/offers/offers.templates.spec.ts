@@ -74,9 +74,12 @@ describe('OffersService: шаблоны КП', () => {
     expect(await svc.defaults(String(company))).toEqual({ terms: 'Аванс 80 %.', vatMode: 'with', vatRate: 22 });
   });
 
-  it('список фирм КП: «только для КП» помечена', async () => {
+  it('список фирм КП: «только для КП» помечена; hasBlank без бланка — false', async () => {
     const r = await svc.companies();
-    expect(r.items).toEqual([{ id: String(company), name: 'СпортИН-ЮГ', offersOnly: false }, { id: String(other), name: 'Приват-деал', offersOnly: true }]);
+    expect(r.items).toEqual([
+      { id: String(company), name: 'СпортИН-ЮГ', offersOnly: false, hasBlank: false },
+      { id: String(other), name: 'Приват-деал', offersOnly: true, hasBlank: false },
+    ]);
     expect(r.total).toBe(2);
   });
 

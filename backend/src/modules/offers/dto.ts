@@ -84,6 +84,18 @@ export class OfferCopyDto {
   @ApiPropertyOptional({ default: 0, description: 'Наценка на цены строк, % (−50…100); цена округляется до рубля' }) @IsOptional() @IsNumber() @Min(-50, { message: 'Наценка — от −50 до 100 %' }) @Max(100, { message: 'Наценка — от −50 до 100 %' }) markupPercent?: number;
 }
 
+/** Одна фирма в пакете копий КП (C071). */
+export class OfferCopyCompanyDto {
+  @ApiProperty() @IsObjectId() companyId!: string;
+  @ApiPropertyOptional({ default: 0, description: 'Наценка, % (−50…200)' }) @IsOptional() @IsNumber() @Min(-50, { message: 'Наценка — от −50 до 200 %' }) @Max(200, { message: 'Наценка — от −50 до 200 %' }) markupPercent?: number;
+}
+
+/** Несколько копий КП для разных фирм одним действием (C071). */
+export class OfferCopiesDto {
+  @ApiProperty({ type: [OfferCopyCompanyDto] }) @IsArray() @ArrayMinSize(1, { message: 'Отметьте хотя бы одну фирму' }) @ArrayMaxSize(10, { message: 'Не больше 10 фирм за раз' }) @ValidateNested({ each: true }) @Type(() => OfferCopyCompanyDto)
+  companies!: OfferCopyCompanyDto[];
+}
+
 /** Показать/скрыть фирму в «Деньгах»: «только для КП» — в доходах, расходах, календаре её нет. */
 export class OfferCompanyDto {
   @ApiProperty() @IsBoolean() offersOnly!: boolean;
