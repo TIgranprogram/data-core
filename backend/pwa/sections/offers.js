@@ -8,7 +8,7 @@ import { confirmDlg } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { incomeLookups } from './orders.js';
 import { isAdmin, withReason } from './admin-override.js';
-import { packBlock, packCopyDialog, packListMark } from './offer-pack.js';
+import { packBlock, openOfferPack, packListMark } from './offer-pack.js';
 
 /**
  * Раздел «КП» (KP-1): коммерческие предложения хранятся на сервере (/offers), у каждого номер, статус и PDF с фоном.
@@ -246,7 +246,7 @@ const actions = (r) => {
   if (r.orderId) out.unshift({ label: 'Открыть заказ', primary: true, run: () => go('salesorders', { open: r.orderId }) });
   else if (['accepted', 'paid'].includes(r.status)) out.push({ label: 'Сделать заказ', primary: r.status === 'accepted', run: (row, ctx) => makeOrder(row, ctx) });
   out.push({ label: 'Копия для другой фирмы', more: true, run: () => copyDialog(r) });
-  out.push({ label: 'КП от других фирм', more: true, run: (row, ctx) => packCopyDialog(row, { refresh: async () => ctx.setRow(await api(`/offers/${row.id}`)) }) });
+  out.push({ label: 'КП от других фирм', more: true, run: (row) => openOfferPack(row.id) });
   if (r.status === 'draft') out.push(to('sent', 'Отметить: отправлено клиенту', { primary: true }));
   if (r.status === 'sent') out.push(to('accepted', 'Отметить: принято клиентом', { primary: true }));
   if (r.status === 'accepted') out.push(to('paid', 'Отметить: оплачено', { primary: true }));

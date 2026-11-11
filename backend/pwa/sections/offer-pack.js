@@ -1,12 +1,12 @@
 /**
- * C071: «КП от других фирм» — выбор фирм с наценкой, блок «Пакет», ZIP PDF.
- * Только фабрики kit и базовые классы (muted/small/hint/num) — без of-* и сырых button/input (design-lint L2/L3).
+ * C071: «КП от других фирм» — правая панель (?of=offerpack&open=<id>), блок «Пакет», ZIP PDF.
+ * Только фабрики kit и базовые классы (design-lint L2/L3).
  */
 import { api, apiBlob } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { money } from '../core/format.js';
-import { go } from '../core/router.js';
-import { button, modal, badge, stack, section, tagPick, textInput } from '../ui/kit/index.js';
+import { go, patch } from '../core/router.js';
+import { button, badge, stack, section, tagPick, textInput, row } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 
 const PREF_KEY = 'dc-offer-pack-prefs';
@@ -63,11 +63,24 @@ async function downloadPackZip(items, packLabel) {
   setTimeout(() => URL.revokeObjectURL(a.href), 30000);
 }
 
-/** Модалка: фирмы (tagPick) + наценка на фирму → POST /copies. */
-export async function packCopyDialog(r, { refresh } = {}) {
+/** Открыть правую панель «КП от других фирм» для исходного КП. */
+export function openOfferPack(offerId) {
+  patch({ of: 'offerpack', open: String(offerId), new: undefined });
+}
+
+function blankNote(names) {
+  return stack(
+    h('p', { class: 'muted small' },
+      `Нет бланка КП: ${names.join(', ')}. Загрузите бланк в Контрагенты → Наши компании`),
+    button({ label: 'Загрузить бланк', size: 'S', kind: 'secondary', onClick: () => go('partners') }),
+  );
+}
+
+/** Форма панели: фирмы + наценка (строки один раз; при вводе — только текст суммы). */
+async function buildPackForm(row) {
+  const r = row;
   const all = await api('/offers/companies').then((x) => x?.items || []).catch(() => []);
   const others = all.filter((c) => String(c.id) !== String(r.companyId));
-  if (!others.length) { toast('Других наших фирм нет'); return; }
   const withBlank = others.filter((c) => c.hasBlank);
   const noBlank = others.filter((c) => !c.hasBlank);
   const prefs = readPrefs();
@@ -75,34 +88,70 @@ export async function packCopyDialog(r, { refresh } = {}) {
   const prefIds = (prefs.companies || []).map((p) => String(p.id)).filter((id) => withBlank.some((c) => c.id === id));
 
   const markups = new Map(withBlank.map((c) => [c.id, prefMap.has(c.id) ? prefMap.get(c.id) : 0]));
+  const rowsById = new Map(); // id → { el, sumEl, ti }
+  let selected = prefIds.slice();
+  let setSave = () => {};
+
   const summary = h('p', { class: 'hint' }, '');
   const sums = stack();
-  const markupFields = new Map();
+  const blankBox = stack();
 
-  const paintSums = (ids) => {
-    summary.textContent = ids.length
-      ? `Получится ${ids.length + 1} КП: ${r.companyName || 'исходное'}, ${withBlank.filter((c) => ids.includes(c.id)).map((c) => c.name).join(', ')}`
-      : 'Отметьте фирмы — получится пакет с исходным КП.';
-    const okBtn = summary.closest?.('form')?.querySelector?.('.modal-foot .btn-primary');
-    if (okBtn) okBtn.textContent = ids.length ? `Создать ${ids.length} КП` : 'Создать КП';
+  const syncBlank = () => {
+    blankBox.replaceChildren(noBlank.length ? blankNote(noBlank.map((c) => c.name)) : null);
+  };
+
+  const syncSave = () => {
+    const n = selected.length;
+    summary.textContent = n ? `Получится ${n + 1} КП` : 'Отметьте фирмы — получится пакет с исходным КП.';
+    setSave(n > 0 && withBlank.length > 0, n ? `Создать ${n} КП` : 'Создать КП');
+  };
+
+  const updateSumText = (id) => {
+    const rowRef = rowsById.get(id);
+    if (!rowRef) return;
+    const pct = Number(markups.get(id) ?? 0);
+    rowRef.sumEl.textContent = `+${pct} % · ${money(marked(Number(r.total) || 0, pct))}`;
+  };
+
+  /** Строки фирм — только при смене выбора (не при каждой цифре). */
+  const rebuildRows = (ids) => {
+    selected = ids;
+    const keep = new Set(ids);
+    for (const id of [...rowsById.keys()]) if (!keep.has(id)) rowsById.delete(id);
     sums.replaceChildren(...ids.map((id) => {
+      let ref = rowsById.get(id);
+      if (ref) return ref.el;
       const c = withBlank.find((x) => x.id === id);
       if (!c) return null;
-      let ti = markupFields.get(id);
-      if (!ti) {
-        ti = textInput({
-          label: `Наценка для ${c.name}, %`,
-          value: String(markups.get(id) ?? 0),
-          type: 'number',
-          onInput: (v) => { markups.set(id, Number(v) || 0); paintSums(ids); },
-        });
-        markupFields.set(id, ti);
-      }
-      const pct = Number(markups.get(id) ?? 0);
-      const sum = marked(Number(r.total) || 0, pct);
-      return stack(ti.el, h('p', { class: 'muted small' }, `+${pct} % · ${money(sum)}`));
+      const sumEl = h('p', { class: 'muted small' }, '');
+      const ti = textInput({
+        label: `Наценка для ${c.name}, %`,
+        value: String(markups.get(id) ?? 0),
+        type: 'number',
+        onInput: (v) => { markups.set(id, Number(v) || 0); updateSumText(id); },
+      });
+      const el = stack(ti.el, sumEl);
+      ref = { el, sumEl, ti };
+      rowsById.set(id, ref);
+      updateSumText(id);
+      return el;
     }).filter(Boolean));
+    syncSave();
   };
+
+  if (!others.length || !withBlank.length) {
+    // некого выбрать (нет фирм или все без бланка) — та же подсказка, не toast «Других фирм нет»
+    const names = noBlank.length ? noBlank.map((c) => c.name) : ['добавьте другую нашу фирму с бланком'];
+    const el = stack(
+      h('p', { class: 'muted small' }, `Исходное КП ${r.number || ''} · ${money(r.total || 0)}.`),
+      blankNote(names),
+    );
+    return {
+      el, dirty: () => false, focus: () => {},
+      bindSave: (fn) => { setSave = fn; setSave(false, 'Создать КП'); },
+      read: () => ({ errors: { firms: 1 } }),
+    };
+  }
 
   const tp = tagPick({
     label: 'Фирмы',
@@ -111,47 +160,76 @@ export async function packCopyDialog(r, { refresh } = {}) {
   });
   tp.el.addEventListener('change', () => {
     let ids = [];
-    try { ids = JSON.parse(tp.value) || []; } catch { ids = []; }
-    paintSums(ids.map(String));
+    try { ids = (JSON.parse(tp.value) || []).map(String); } catch { ids = []; }
+    rebuildRows(ids);
   });
-  paintSums(prefIds);
 
-  const noBlankNote = noBlank.length
-    ? h('p', { class: 'muted small' },
-      `Без бланка (нельзя выбрать): ${noBlank.map((c) => c.name).join(', ')}. `,
-      button({ label: 'Наши компании', size: 'S', kind: 'ghost', onClick: () => go('partners') }))
-    : null;
+  syncBlank();
+  rebuildRows(prefIds);
 
-  const body = stack(
+  const el = stack(
     h('p', { class: 'muted small' }, `Исходное КП ${r.number || ''} · ${money(r.total || 0)}. У каждой фирмы — своя наценка; бланк и НДС подставятся сами.`),
-    summary, tp.el, sums, noBlankNote);
+    summary,
+    tp.el,
+    blankBox,
+    sums,
+  );
 
-  const n0 = prefIds.length;
-  await modal({
-    title: 'КП от других фирм',
-    okText: n0 ? `Создать ${n0} КП` : 'Создать КП',
-    wide: true,
-    body,
-    onOk: async () => {
-      let ids = [];
-      try { ids = (JSON.parse(tp.value) || []).map(String); } catch { ids = []; }
-      const picked = withBlank.filter((c) => ids.includes(c.id));
-      if (!picked.length) throw new Error('Отметьте хотя бы одну фирму');
-      for (const c of picked) {
-        const pct = Number(markups.get(c.id) ?? 0);
-        if (pct < -50 || pct > 200) throw new Error(`Наценка для «${c.name}» — от −50 до 200 %`);
-      }
-      writePrefs({ companies: picked.map((c) => ({ id: c.id, markup: Number(markups.get(c.id) ?? 0) })) });
-      const res = await api(`/offers/${r.id}/copies`, {
-        method: 'POST',
-        body: { companies: picked.map((c) => ({ companyId: c.id, markupPercent: Number(markups.get(c.id) ?? 0) })) },
-      });
-      toast(`Создано КП: ${res.items?.length || picked.length}`);
-      if (typeof refresh === 'function') await refresh(res);
-      else go('offers', { open: r.id });
-      return true;
-    },
-  });
+  return {
+    el,
+    dirty: () => true,
+    focus: () => {},
+    bindSave: (fn) => { setSave = fn; syncSave(); },
+    read: () => ({
+      values: {
+        save: async () => {
+          let ids = [];
+          try { ids = (JSON.parse(tp.value) || []).map(String); } catch { ids = []; }
+          const picked = withBlank.filter((c) => ids.includes(c.id));
+          if (!picked.length) throw new Error('Отметьте хотя бы одну фирму');
+          for (const c of picked) {
+            const pct = Number(markups.get(c.id) ?? 0);
+            if (pct < -50 || pct > 200) throw new Error(`Наценка для «${c.name}» — от −50 до 200 %`);
+          }
+          writePrefs({ companies: picked.map((c) => ({ id: c.id, markup: Number(markups.get(c.id) ?? 0) })) });
+          const res = await api(`/offers/${r.id}/copies`, {
+            method: 'POST',
+            body: { companies: picked.map((c) => ({ companyId: c.id, markupPercent: Number(markups.get(c.id) ?? 0) })) },
+          });
+          toast(`Создано КП: ${res.items?.length || picked.length}`);
+          return res;
+        },
+      },
+    }),
+  };
+}
+
+/** Раздел правой панели: ?of=offerpack&open=<id КП>. */
+export const offerPack = {
+  id: 'offerpack',
+  title: 'КП',
+  newTitle: 'КП от других фирм',
+  get: (id) => api(`/offers/${id}`),
+  card: {
+    heading: () => 'КП от других фирм',
+    subheading: (r) => [r.number, r.companyName, r.total ? money(r.total) : null].filter(Boolean).join(' · '),
+    editTitle: () => 'КП от других фирм',
+    startEdit: () => true,
+    view: () => [],
+    noHistory: true,
+  },
+  form: {
+    build: (row) => buildPackForm(row),
+    toBody: (v) => v,
+    update: async (id, v) => { await v.save(); return { id }; },
+    closeAfterCreate: true,
+    saveLabel: 'Создать КП',
+  },
+};
+
+/** @deprecated модалка убрана — открываем панель. */
+export function packCopyDialog(r) {
+  openOfferPack(r.id);
 }
 
 /** Блок «Пакет» в карточке КП. */
@@ -163,7 +241,7 @@ export function packBlock(r) {
       const list = await api('/offers', { query: { packId: r.packId, limit: 50 } });
       const items = list.items || [];
       const zipBtn = button({
-        label: 'Скачать все PDF', size: 'S',
+        label: `Скачать все PDF (${items.length})`, size: 'S',
         onClick: async () => {
           try {
             await downloadPackZip(items, r.number || r.packId.slice(0, 8));
@@ -172,18 +250,19 @@ export function packBlock(r) {
         },
       });
       box.replaceChildren(
-        stack(h('b', null, `Пакет из ${items.length}`), zipBtn),
+        zipBtn,
         ...items.map((o) => {
           const mine = String(o.id) === String(r.id);
-          const label = [o.companyName || '—', o.number || '', o.total ? money(o.total) : 'без цены'].filter(Boolean).join(' · ');
-          return stack(
-            button({
-              label: mine ? `● ${label}` : label,
-              size: 'S',
-              kind: mine ? 'secondary' : 'ghost',
-              onClick: () => go('offers', { open: o.id }),
-            }),
-            badge(STATUS, o.status));
+          return row({
+            title: o.companyName || '—',
+            meta: stack(
+              h('span', { class: 'num' }, o.total ? money(o.total) : 'без цены'),
+              badge(STATUS, o.status),
+              mine ? h('span', { class: 'muted small' }, 'это КП') : null,
+            ),
+            side: mine ? null : button({ label: 'Открыть', size: 'S', kind: 'ghost', onClick: () => go('offers', { open: o.id }) }),
+            wrap: true,
+          });
         }),
       );
     } catch {
@@ -191,7 +270,7 @@ export function packBlock(r) {
     }
   };
   load();
-  return stack(section({ title: 'Пакет', tone: 'who', open: true, body: [box] }));
+  return stack(section({ title: 'Пакет', tone: 'money', open: true, body: [box] }));
 }
 
 /** Метка в списке: «пакет из N». */
