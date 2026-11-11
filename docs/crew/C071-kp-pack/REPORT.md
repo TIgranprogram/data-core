@@ -40,4 +40,7 @@
 - Приёмка дизайнером.
 
 ## Коммиты
-(см. git log по путям C071; отдельно `docs:` с этим REPORT.)
+- `8591657d` feat(offers): packId + POST copies
+- `84d53cd8` feat(pwa): пакет / ZIP / kp.js (`Дизайнер: не нужно` — хук; приёмку вида делает координатор)
+- `cbbeb84b` docs: REPORT + MAP + openapi  
+Пуш — нет.
