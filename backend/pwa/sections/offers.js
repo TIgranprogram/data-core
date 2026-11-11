@@ -9,6 +9,7 @@ import { toast, toastError } from '../ui/kit/toast.js';
 import { incomeLookups } from './orders.js';
 import { isAdmin, withReason } from './admin-override.js';
 import { packBlock, openOfferPack, packListMark } from './offer-pack.js';
+import { LAST_KEYS, applyLastToForm, bindCustomer, lastOfferBanner, loadOfferParties, partyOptions, partyPick, rubWas } from './offer-memory.js';
 
 /**
  * Раздел «КП» (KP-1): коммерческие предложения хранятся на сервере (/offers), у каждого номер, статус и PDF с фоном.
@@ -59,7 +60,7 @@ function bgWidget(page, initial, companies) {
 
 // ---------- строки ----------
 /** Таблица строк КП: название*, кол-во*, ед., цена, цвет, размер. Значение — JSON списка. */
-function itemsWidget(initial) {
+function itemsWidget(initial, ctx) {
   const rows = (Array.isArray(initial) ? initial : []).map((l) => ({ ...l }));
   const box = h('div', { class: 'of-lines' });
   const total = h('div', { class: 'of-total num' });
@@ -83,17 +84,27 @@ function itemsWidget(initial) {
       unitInp.setAttribute('list', uid);
       const unitDl = h('datalist', { id: uid }, ...['шт', 'компл.', 'пар', 'м', 'м²', 'кг'].map((u) => h('option', { value: u })));
       l._name = name; l._qty = q;
+      price.addEventListener('input', () => { l.fromLast = false; price.parentElement?.querySelector('[data-mark]')?.remove(); });
       sumRow();
+      const pid = String(l.productId || '');
+      const past = pid && ctx?.prices?.get(pid);
+      const cur = num(l.unitPrice);
+      const differ = typeof past === 'number' && !Number.isNaN(past) && (!(cur > 0) || Math.round(cur * 100) !== Math.round(past * 100));
+      const take = differ ? button({ label: `в прошлом КП было ${rubWas(past)} — взять?`, size: 'S', kind: 'ghost', onClick: () => { l.unitPrice = String(past); l.fromLast = true; paint(); } }) : null;
+      const from = l.fromLast && !differ ? h('span', { class: 'muted small', 'data-mark': 'last' }, 'из прошлого КП') : null;
+      const desc = l.description ? h('div', { class: 'muted small', title: 'из изделия' }, String(l.description).slice(0, 200), ' · из изделия') : null;
       return h('div', { class: 'of-line' },
         h('div', { class: 'of-l1' },
           h('b', { class: 'of-n' }, String(i + 1)), name,
-          q, unitInp, price, sumEl,
+          q, unitInp, h('div', null, price, from, take), sumEl,
           iconButton({ icon: '×', label: 'Убрать строку', title: 'Убрать строку', size: 'S', onClick: () => { rows.splice(i, 1); paint(); } }),
           unitDl),
+        desc,
         h('div', { class: 'of-l3' }, inp('color', 'Цвет', { max: 80 }), inp('size', 'Размер', { max: 80 })));
     }), h('div', { class: 'of-add' }, button({ label: '+ Строка', size: 'S', onClick: () => { rows.push({ productName: '', quantity: '1', unit: 'шт', unitPrice: '' }); paint(); rows.at(-1)._name.focus(); } }), total));
   };
   if (!rows.length) rows.push({ productName: '', quantity: '1', unit: 'шт', unitPrice: '' });
+  if (ctx) ctx.repaint = paint;
   paint();
   return {
     el: box,
@@ -150,8 +161,31 @@ function previewWidget() {
   };
 }
 
-const fields = async () => {
-  const [il, companies] = await Promise.all([incomeLookups().catch(() => ({ companies: [], customers: [] })), ourCompanies()]);
+const fields = async (row) => {
+  partyPick.id = row?.counterpartyId ? String(row.counterpartyId) : '';
+  const [il, companies, loaded] = await Promise.all([
+    incomeLookups().catch(() => ({ companies: [], customers: [] })),
+    ourCompanies(),
+    loadOfferParties(),
+  ]);
+  const source = { parties: loaded.parties, recent: loaded.recent, extra: il.customers || [], partyId: partyPick.id, options: [] };
+  source.options = partyOptions(source.parties, source.recent, source.extra);
+  const bag = { fapi: null, prices: new Map(), repaint() {} };
+  const gap = (fa, k) => {
+    if (!fa || fa.manual(k)) return false;
+    const cur = String(fa.get(k) ?? '').trim();
+    if (!cur) return true;
+    const src = fa.field(k)?.querySelector?.(':scope > span')?.dataset.src || '';
+    return src === 'из шаблона фирмы' || src === 'из настроек фирмы';
+  };
+  const hint = lastOfferBanner({
+    customer: () => bag.fapi?.get('customer') || '',
+    get partyId() { return partyPick.id; },
+    setPrices: (m) => { bag.prices = m; },
+    repaint: () => bag.repaint(),
+    apply: (d) => applyLastToForm(bag.fapi, d),
+    hasGap: () => LAST_KEYS.some((k) => gap(bag.fapi, k)),
+  });
   const pw = previewWidget();
   return [
     { section: 'Предложение', tone: 'main', fixed: true },
@@ -162,21 +196,24 @@ const fields = async () => {
         if (!id) return;
         const d = await api('/offers/defaults', { query: { companyId: id } }).catch(() => null);
         if (!d) return;
-        if (d.terms && !fapi.get('terms').trim()) fapi.set('terms', d.terms, { auto: true, src: 'из шаблона фирмы' });
-        if (d.vatMode && !fapi.get('vatMode')) fapi.set('vatMode', d.vatMode, { auto: true, src: 'из настроек фирмы' });
-        if (d.vatRate != null && String(fapi.get('vatRate')) === '') fapi.set('vatRate', String(d.vatRate), { auto: true, src: 'из настроек фирмы' });
+        if (d.terms && gap(fapi, 'terms')) fapi.set('terms', d.terms, { auto: true, src: 'из шаблона фирмы' });
+        if (d.vatMode && gap(fapi, 'vatMode')) fapi.set('vatMode', d.vatMode, { auto: true, src: 'из настроек фирмы' });
+        if (d.vatRate != null && gap(fapi, 'vatRate')) fapi.set('vatRate', String(d.vatRate), { auto: true, src: 'из настроек фирмы' });
       }) },
-    { key: 'customer', label: 'Заказчик', type: 'combo', required: true, max: 300, options: (il.customers || []).map((x) => ({ value: x, label: x })), hint: 'Кому адресовано предложение' },
-    { key: 'objectName', label: 'Объект', type: 'textarea', max: 500, wide: true, hint: 'Печатается жирным под заказчиком. Необязательно' },
+    { key: 'customer', label: 'Заказчик', type: 'combo', required: true, max: 300, options: () => source.options, hint: 'Контрагент из списка (недавние сверху) или новое название',
+      mount: (fa) => bindCustomer(fa, source, () => hint.ask()) },
+    { key: '_last', label: '', type: 'widget', wide: true, widget: () => hint, mount: (fa) => { bag.fapi = fa; if (String(fa.get('customer') || '').trim() || partyPick.id) hint.ask(); } },
     { key: 'date', label: 'Дата', type: 'date', required: true },
     { key: 'validUntil', label: 'Действительно до', type: 'date', required: true },
     { key: 'title', label: 'Тема', max: 200, wide: true, hint: 'Необязательно — для себя, в PDF не попадает' },
+    { section: 'Объект и доставка', tone: 'neutral', collapsed: !(row?.objectName || row?.delivery) },
+    { key: 'objectName', label: 'Объект', type: 'textarea', max: 500, wide: true, hint: 'Печатается жирным под заказчиком. Необязательно' },
+    { key: 'delivery', label: 'Доставка до объекта', type: 'select', options: DELIVERY_OPTS },
     { section: 'Изделия', tone: 'money', fixed: true },
-    { key: 'items', label: 'Строки', type: 'widget', wide: true, widget: (v) => (formItems = itemsWidget(v)) },
+    { key: 'items', label: 'Строки', type: 'widget', wide: true, widget: (v) => (formItems = itemsWidget(v, bag)) },
     { section: 'Условия', tone: 'info' },
     { key: 'vatMode', label: 'НДС', type: 'select', options: VAT_OPTS },
     { key: 'vatRate', label: 'Ставка НДС, %', type: 'number', min: 0, hint: 'Пусто — ставка фирмы' },
-    { key: 'delivery', label: 'Доставка до объекта', type: 'select', options: DELIVERY_OPTS },
     { key: 'prepaymentPercent', label: 'Предоплата, %', type: 'number', min: 0 },
     { key: 'productionDays', label: 'Срок изготовления, дн.', type: 'number', min: 0 },
     { key: 'deliveryDays', label: 'Срок доставки, дн.', type: 'number', min: 0 },
@@ -196,7 +233,7 @@ const toBody = (v) => {
   if (!items.length) throw new Error('Добавьте хотя бы одну строку');
   const clean = (s) => (s === null || s === undefined ? '' : String(s).trim());
   return {
-    companyId: v.companyId, customer: clean(v.customer), date: v.date, validUntil: v.validUntil, title: clean(v.title),
+    companyId: v.companyId, customer: clean(v.customer), counterpartyId: partyPick.id || null, date: v.date, validUntil: v.validUntil, title: clean(v.title),
     items,
     prepaymentPercent: numOrNull(v.prepaymentPercent), productionDays: numOrNull(v.productionDays), deliveryDays: numOrNull(v.deliveryDays),
     objectName: clean(v.objectName), vatMode: v.vatMode || '', vatRate: numOrNull(v.vatRate), delivery: v.delivery || '',

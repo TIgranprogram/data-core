@@ -1,37 +1,34 @@
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { sku as kitSku, button, iconButton, select, fileButton, section } from '../ui/kit/index.js';
+import { sku as kitSku, attachCombo, button, iconButton, select, fileButton, section, textInput } from '../ui/kit/index.js';
 import { busyBtn } from '../ui/kit/busy.js';
 import { money, parseNum, plural, qty } from '../core/format.js';
 import { readTableFile } from '../core/xlsx-read.js';
 import { downloadXlsx } from '../core/xlsx-write.js';
-import { attachCombo } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { lookups } from './lookups.js';
 import { incomeLookups } from './orders.js';
 import { errText } from '../ui/kit/errors.js';
 import { go } from '../core/router.js';
 import { createOffer } from './offers.js';
+import { lastOfferBanner, loadOfferParties, partyOptions, rubWas } from './offer-memory.js';
 
-/*
- * Коммерческое предложение (TASKS БЗ-4) и загрузка каталога — свои формы в правой панели (как «+ Счёт»).
- * КП: изделия из «Продукции» («В КП»), количество и цена по строкам, наша компания, заказчик → «Создать КП» —
- * КП сохраняется на сервере (sections/offers.js) и открывается в правой панели. Печать HTML — только для старого сервера без /offers.
- */
 const KEY = 'dc-kp';
 const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
 const save = (a) => { try { localStorage.setItem(KEY, JSON.stringify(a)); } catch { /* приватный режим */ } };
 export const kpCount = () => load().length;
 export function kpAdd(r) {
   const a = load();
+  const desc = String(r.description || '').trim();
   const x = a.find((y) => y.id === r.id);
-  if (x) x.qty += 1;
+  if (x) { x.qty += 1; if (!x.description && desc) x.description = desc; }
   else a.push({
     id: r.id, sku: r.sku, name: r.name, price: r.price ?? 0, qty: 1,
     unit: r.unit || 'шт',
     color: r.color || (Array.isArray(r.colors) && r.colors[0]) || '',
     size: r.size || (Array.isArray(r.sizes) && r.sizes[0]) || '',
     photoUrl: r.photo?.thumb || r.photo?.url || null,
+    description: desc,
   });
   save(a);
 }
@@ -62,29 +59,95 @@ ${d.note ? `<div class="note">${esc(d.note)}</div>` : ''}</body></html>`;
   if (!w) throw new Error('Браузер не дал открыть вкладку — разрешите всплывающие окна для сайта');
 }
 
+const partyKey = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('ru-RU');
+
 async function buildKpForm() {
-  const [lk, il, offerCos] = await Promise.all([
+  const [lk, il, offerCos, loaded] = await Promise.all([
     lookups().catch(() => ({})),
     incomeLookups().catch(() => ({ companies: [], customers: [] })),
     api('/offers/companies').then((r) => r?.items || []).catch(() => []),
+    loadOfferParties(),
   ]);
   let lines = load();
-  const field = (label, el, cls = '') => h('label', { class: 'field ' + cls }, h('span', null, label), el);
-  // фирмы для КП — /offers/companies (включая «только для КП»); fallback — список из доходов
+  await Promise.all(lines.filter((l) => l.id && !l.description).slice(0, 20).map(async (l) => {
+    const p = await api(`/showcase/${l.id}`).catch(() => null);
+    const d = String(p?.description || '').trim();
+    if (d) l.description = d;
+  }));
+  const field = (label, el, cls = '') => {
+    const span = h('span', null, label);
+    if (el?.dataset?.src) span.dataset.src = el.dataset.src;
+    return h('label', { class: 'field ' + cls }, span, el);
+  };
   const cos = (offerCos.length ? offerCos : (il.companies || [])).map((c) => [c.id, c.name]);
   const note = h('textarea', { rows: 3, placeholder: 'Срок изготовления, условия оплаты и доставки…' });
+  const bare = (o) => textInput(o).input;
+  const prepay = bare({ placeholder: '%', inputmode: 'decimal' });
+  const prodDays = bare({ placeholder: 'дн.', inputmode: 'decimal' });
+  const delDays = bare({ placeholder: 'дн.', inputmode: 'decimal' });
+  const vatRate = bare({ placeholder: '%', inputmode: 'decimal' });
+  const object = bare({ placeholder: 'Площадка, адрес', max: 500 });
+  const delivery = select({ label: 'Доставка до объекта', options: [['', 'Не указывать'], ['included', 'Включена в стоимость'], ['excluded', 'Не входит в стоимость']] });
+  const vatMode = select({ label: 'НДС', options: [['', 'Как у фирмы'], ['with', 'С НДС'], ['without', 'Без НДС']], onChange: () => paintTotal() });
+  const touched = new Set();
+  const watch = (el, key) => {
+    const clear = () => {
+      touched.add(key); delete el.dataset.auto; delete el.dataset.src;
+      const sp = el.closest('.field')?.querySelector(':scope > span'); if (sp) delete sp.dataset.src;
+    };
+    el.addEventListener('input', clear); el.addEventListener('change', clear);
+  };
+  for (const [el, key] of [[note, 'terms'], [prepay, 'prepaymentPercent'], [prodDays, 'productionDays'], [delDays, 'deliveryDays'], [vatRate, 'vatRate'], [object, 'objectName'], [delivery, 'delivery'], [vatMode, 'vatMode']]) watch(el, key);
+  const put = (key, el, v, src) => {
+    if (v === null || v === undefined || v === '') return;
+    if (typeof v === 'number' && v <= 0) return;
+    if (touched.has(key)) return;
+    if (el.dataset.src === 'из прошлого КП' && src !== 'из прошлого КП') return;
+    const cur = String(el.value || '').trim();
+    if (cur && el.dataset.auto !== '1') return;
+    el.value = String(v); el.dataset.auto = '1'; el.dataset.src = src;
+    const sp = el.closest('.field')?.querySelector(':scope > span'); if (sp) sp.dataset.src = src;
+  };
   const applyDefaults = async (id) => {
     if (!id) return;
     try {
-      const d = await api(`/offers/defaults?companyId=${encodeURIComponent(id)}`);
-      if (d?.terms && !note.value.trim()) note.value = d.terms;
+      const d = await api('/offers/defaults', { query: { companyId: id } });
+      if (!d) return;
+      put('terms', note, d.terms, 'из шаблона фирмы');
+      put('vatMode', vatMode, d.vatMode, 'из настроек фирмы');
+      put('vatRate', vatRate, d.vatRate, 'из настроек фирмы');
+      paintTotal();
     } catch { /* без умолчаний — менеджер впишет сам */ }
   };
   const company = select({ options: cos, label: 'Наша компания', onChange: applyDefaults });
   if (company.value) applyDefaults(company.value);
+  const source = { parties: loaded.parties, recent: loaded.recent, extra: il.customers || lk.customers || [], options: [] };
+  source.options = partyOptions(source.parties, source.recent, source.extra);
+  let partyId = '';
   const customer = h('input', { maxlength: 300, placeholder: 'Кому: заказчик' });
-  const custBox = h('div', { class: 'has-combo' }, customer); // поле сначала в обёртку — список крепится к родителю
-  attachCombo(customer, { options: () => (il.customers || lk.customers || []).map((x) => ({ label: x })) });
+  const custBox = h('div', { class: 'has-combo' }, customer);
+  let partyTimer; let lastQ = '';
+  const syncParty = () => {
+    const hit = source.options.find((o) => partyKey(o.label) === partyKey(customer.value) && o.value);
+    partyId = hit ? String(hit.value) : '';
+  };
+  const combo = attachCombo(customer, { options: () => source.options, onPick: (o) => { partyId = o.value ? String(o.value) : ''; } });
+  customer.addEventListener('input', () => {
+    clearTimeout(partyTimer);
+    partyTimer = setTimeout(async () => {
+      syncParty(); banner.ask();
+      const q = customer.value.trim();
+      if (q.length < 2 || q === lastQ) return;
+      lastQ = q;
+      const more = await api('/counterparties', { query: { search: q, limit: 30 } }).then((r) => r?.items || []).catch(() => []);
+      const ids = new Set(source.parties.map((p) => String(p.id)));
+      let add = false;
+      for (const p of more) if (p?.id && !ids.has(String(p.id))) { source.parties.push(p); add = true; }
+      if (!add) return;
+      source.options = partyOptions(source.parties, source.recent, source.extra);
+      combo.refresh();
+    }, 350);
+  });
   const list = h('div', { class: 'kp-lines' });
   const total = h('div', { class: 'kp-total num' });
   const searchInput = h('input', { placeholder: 'Добавить изделие: название или артикул…', class: 'kp-search-input' });
@@ -111,7 +174,24 @@ async function buildKpForm() {
   });
   searchDrop.addEventListener('mousedown', (e) => e.preventDefault()); // клик по пункту не снимает фокус с поля — blur не закрывает список раньше клика
   searchInput.addEventListener('blur', () => searchDrop.replaceChildren());
-  const paintTotal = () => { total.textContent = `Итого: ${money(lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.price) || 0), 0))}`; };
+  const vatNote = () => {
+    if (vatMode.value === 'without') return ' · без НДС';
+    if (vatMode.value === 'with') return vatRate.value ? ` · с НДС ${String(vatRate.value).replace('.', ',')} %` : ' · с НДС';
+    return '';
+  };
+  const paintTotal = () => { total.textContent = `Итого: ${money(lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.price) || 0), 0))}${vatNote()}`; };
+  let pastPrices = new Map();
+  let extraOpen = false;
+  const extraBox = h('div', { class: 'wide' });
+  const paintExtra = () => {
+    const filled = object.value.trim() || delivery.value;
+    if (!extraOpen && !filled) {
+      extraBox.replaceChildren(button({ label: '+ объект, доставка', size: 'S', kind: 'ghost', onClick: () => { extraOpen = true; paintExtra(); } }));
+      return;
+    }
+    extraOpen = true;
+    extraBox.replaceChildren(field('Объект', object, 'wide'), field('Доставка до объекта', delivery));
+  };
   const render = () => {
     save(lines);
     paintTotal();
@@ -123,36 +203,73 @@ async function buildKpForm() {
       const c = h('input', { value: l.color || '', maxlength: 100, placeholder: 'цвет', 'aria-label': 'Цвет' });
       const s = h('input', { value: l.size || '', maxlength: 100, placeholder: 'размер', 'aria-label': 'Размер' });
       q.addEventListener('input', () => { l.qty = parseNum(q.value) || 0; save(lines); paintTotal(); });
-      p.addEventListener('input', () => { l.price = parseNum(p.value) || 0; save(lines); paintTotal(); });
+      p.addEventListener('input', () => { l.price = parseNum(p.value) || 0; l.fromLast = false; save(lines); paintTotal(); p.parentElement?.querySelector('[data-mark]')?.remove(); });
       u.addEventListener('input', () => { l.unit = u.value; save(lines); });
       c.addEventListener('input', () => { l.color = c.value; save(lines); });
       s.addEventListener('input', () => { l.size = s.value; save(lines); });
-      return h('div', { class: 'kp-line' }, h('div', { class: 'kp-name' }, h('b', null, l.name), h('div', null, kitSku(l.sku))),
-        field('Кол-во', q), field('Ед.', u), field('Цена, ₽', p), field('Цвет', c), field('Размер', s),
+      const past = l.id && pastPrices.get(String(l.id));
+      const cur = Number(l.price) || 0;
+      const differ = typeof past === 'number' && !Number.isNaN(past) && (!(cur > 0) || Math.round(cur * 100) !== Math.round(past * 100));
+      const take = differ ? button({ label: `в прошлом КП было ${rubWas(past)} — взять?`, size: 'S', kind: 'ghost', onClick: () => { l.price = past; l.fromLast = true; render(); } }) : null;
+      const from = l.fromLast && !differ ? h('span', { class: 'muted small', 'data-mark': 'last' }, 'из прошлого КП') : null;
+      const desc = l.description ? h('div', { class: 'muted small', title: 'из изделия' }, String(l.description).slice(0, 200), ' · из изделия') : null;
+      return h('div', { class: 'kp-line' }, h('div', { class: 'kp-name' }, h('b', null, l.name), h('div', null, kitSku(l.sku)), desc),
+        field('Кол-во', q), field('Ед.', u), field('Цена, ₽', h('div', null, p, from, take)), field('Цвет', c), field('Размер', s),
         iconButton({ icon: '×', label: 'Убрать', size: 'S', onClick: () => { lines.splice(i, 1); render(); } }));
     }));
   };
+  const banner = lastOfferBanner({
+    customer: () => customer.value,
+    get partyId() { return partyId; },
+    setPrices: (m) => { pastPrices = m; },
+    repaint: () => render(),
+    apply: (d) => {
+      put('objectName', object, d.objectName, 'из прошлого КП');
+      put('delivery', delivery, d.delivery, 'из прошлого КП');
+      put('terms', note, d.terms, 'из прошлого КП');
+      put('prepaymentPercent', prepay, d.prepaymentPercent, 'из прошлого КП');
+      put('productionDays', prodDays, d.productionDays, 'из прошлого КП');
+      put('deliveryDays', delDays, d.deliveryDays, 'из прошлого КП');
+      if (d.objectName || d.delivery) { extraOpen = true; paintExtra(); }
+    },
+    hasGap: () => ['objectName', 'delivery', 'terms', 'prepaymentPercent', 'productionDays', 'deliveryDays'].some((k) => {
+      const el = { objectName: object, delivery, terms: note, prepaymentPercent: prepay, productionDays: prodDays, deliveryDays: delDays }[k];
+      if (touched.has(k)) return false;
+      if (!String(el.value || '').trim()) return true;
+      return el.dataset.auto === '1';
+    }),
+  });
   render();
+  paintExtra();
   const el = h('div', { class: 'kp-form' },
     h('p', { class: 'hint' }, 'Корзина КП хранится только в этом браузере (localStorage). На другом устройстве список будет пуст — перед созданием КП проверьте строки здесь.'),
-    searchBox, list, total, h('div', { class: 'form-grid' }, field('Наша компания', company), field('Заказчик', custBox), field('Условия, примечание', note, 'wide')));
+    searchBox, list, total, h('div', { class: 'form-grid' },
+      field('Наша компания', company), field('Заказчик', custBox), banner.el,
+      field('Предоплата, %', prepay), field('Изготовление, дн.', prodDays), field('Доставка, дн.', delDays),
+      field('НДС', vatMode), field('Ставка НДС, %', vatRate),
+      field('Условия', note, 'wide'), extraBox));
   return {
     el, focus: () => customer.focus(), dirty: () => false,
     read: () => ({ values: { save: async () => {
       if (!lines.length) throw new Error('Добавьте изделия в КП');
       if (!customer.value.trim()) { customer.focus(); throw new Error('Впишите заказчика'); }
       const day = (add) => { const t = new Date(); t.setDate(t.getDate() + add); return t.toISOString().slice(0, 10); };
-      // срок действия — как в форме КП (10 дней), не 14
-      const offer = await createOffer({ companyId: company.value || undefined, customer: customer.value.trim(), date: day(0), validUntil: day(10), terms: note.value.trim() || undefined,
+      const numOr = (el) => { const n = parseNum(el.value); return Number.isFinite(n) ? n : undefined; };
+      const textOr = (el) => el.value.trim() || undefined;
+      const offer = await createOffer({
+        companyId: company.value || undefined, customer: customer.value.trim(), ...(partyId ? { counterpartyId: partyId } : {}),
+        date: day(0), validUntil: day(10), terms: textOr(note), objectName: textOr(object),
+        delivery: delivery.value || undefined, vatMode: vatMode.value || undefined, vatRate: numOr(vatRate),
+        prepaymentPercent: numOr(prepay), productionDays: numOr(prodDays), deliveryDays: numOr(delDays),
         items: lines.map((l) => ({
           productId: l.id, productSku: l.sku, productName: l.name,
           quantity: Number(l.qty) || 1, unit: l.unit || 'шт',
           ...(Number(l.price) > 0 ? { unitPrice: Number(l.price) } : {}),
           ...(l.color ? { color: l.color } : {}), ...(l.size ? { size: l.size } : {}),
           ...(l.photoUrl ? { photoUrl: l.photoUrl } : {}),
+          ...(l.description ? { description: l.description } : {}),
         })) });
       if (offer) { save([]); go('offers', { open: offer.id }); return { id: offer.id, stay: true }; }
-      // старый сервер без /offers — прежняя печать
       const d = await api('/showcase/kp', { method: 'POST', body: { items: lines.map((l) => ({ id: l.id, qty: Number(l.qty) || 1, price: Number(l.price) || 0 })), companyId: company.value || undefined, customer: customer.value.trim() || undefined, note: note.value.trim() || undefined } });
       printKp(d);
       return { id: null, number: d.number };
@@ -189,8 +306,6 @@ async function buildImportForm() {
   };
 }
 
-// Изделия из заказов (БЗ-5): весь список «что можно создать» с галочками и названием, которое можно поправить;
-// создаются только отмеченные. Позиции заказов не меняются, кроме ссылки на изделие; неотмеченные остаются без изделия.
 async function buildFromOrdersForm() {
   const r = await api('/showcase/from-orders', { method: 'POST', body: { apply: false } });
   const rows = (r.items || r.preview).map((p) => ({ p,
@@ -218,8 +333,6 @@ async function buildFromOrdersForm() {
   };
 }
 
-// Изделия из паспортов (БЗ-8): группы похожих моделей — выбрать главный вариант (лучший по заполнению уже выбран) и
-// «Объединить» или «Это разные изделия»; «Создать для остальных» — изделие на каждую одиночную модель. Паспорта не меняются, кроме ссылки.
 async function buildFromPassportsForm() {
   const r = await api('/showcase/from-passports');
   const art = (m) => [m.article ? `арт. ${m.article}` : 'без артикула', `${m.n} ${plural(m.n, 'паспорт', 'паспорта', 'паспортов')}`, `заполнено ${m.score}`].join(' · ');

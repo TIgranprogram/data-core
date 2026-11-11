@@ -1,7 +1,7 @@
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, Res, StreamableFile, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiConsumes, ApiTags } from '@nestjs/swagger';
+import { ApiConsumes, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { memoryStorage } from 'multer';
 import { AppSection } from '../../common/decorators/app-section.decorator';
@@ -81,6 +81,15 @@ export class OffersController {
   @Roles('admin', 'director', 'manager', 'user')
   defaults(@Query('companyId') companyId: string) {
     return this.offers.defaults(companyId);
+  }
+
+  /** Последнее не отменённое КП заказчику. Нет — null. Объявлено до `:id`. */
+  @Get('last')
+  @Roles('admin', 'director', 'manager', 'user')
+  @ApiQuery({ name: 'customer', required: false, description: 'Точное название, без учёта регистра и лишних пробелов' })
+  @ApiQuery({ name: 'counterpartyId', required: false, description: 'Если есть КП с этим контрагентом — оно важнее названия' })
+  last(@Query('customer') customer?: string, @Query('counterpartyId') counterpartyId?: string) {
+    return this.offers.last({ customer, counterpartyId });
   }
 
   /** Предпросмотр PDF до сохранения: в базу не пишет, номер не тратит. */

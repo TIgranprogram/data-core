@@ -10841,6 +10841,33 @@
         ]
       }
     },
+    "/offers/last": {
+      "get": {
+        "operationId": "OffersController_last",
+        "parameters": [
+          {
+            "name": "customer",
+            "required": false,
+            "in": "query",
+            "description": "Точное название заказчика, без учёта регистра и лишних пробелов",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "counterpartyId",
+            "required": false,
+            "in": "query",
+            "description": "Если есть КП с этим контрагентом — оно важнее названия",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Последнее не отменённое КП или null"
+          }
+        },
+        "tags": ["КП"]
+      }
+    },
     "/offers/preview": {
       "post": {
         "operationId": "OffersController_preview",

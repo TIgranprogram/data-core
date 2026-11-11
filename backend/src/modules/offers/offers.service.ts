@@ -17,6 +17,7 @@ import type { CreateOfferDto, OfferCopiesDto, OfferCopyDto, OfferCreateOrderDto,
 import { OfferBackgroundsService } from './offer-backgrounds.service';
 import { renderOfferPdf } from './offer-pdf';
 import { calcTotals, checkEditable, checkMove, markedUp, resolveVat } from './offer-rules';
+import { customerNameRegex, offerCustomerKey, pickLastOffer, presentLastOffer, type LastOfferRow } from './offer-last';
 import { CommercialOffer, OFFER_STATUSES, type OfferDocument, type OfferStatus } from './offer.schema';
 
 type Doc = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -305,6 +306,29 @@ export class OffersService {
       terms: clean(dto.terms) || undefined, notes: clean(dto.notes) || undefined, bg1Id: dto.bg1Id, bg2Id: dto.bg2Id,
     };
     return { buf: await this.render(o, true), filename: 'КП-черновик.pdf' };
+  }
+
+  /**
+   * Последнее не отменённое КП заказчику (C073).
+   * Сначала counterpartyId, иначе точное название без регистра и лишних пробелов. Нет — null.
+   * Среди свежих 40: если у заказчика больше, берём самое новое из них.
+   */
+  async last(q: { customer?: string; counterpartyId?: string }) {
+    const customer = clean(q.customer);
+    const counterpartyId = clean(q.counterpartyId);
+    if (!counterpartyId && !offerCustomerKey(customer)) return null;
+    const base: Doc = { deletedAt: null, status: { $ne: 'cancelled' } };
+    const load = (filter: Doc) => this.model.find(filter).sort({ date: -1, createdAt: -1, _id: -1 }).limit(40).lean().exec() as unknown as Promise<LastOfferRow[]>;
+    if (counterpartyId && Types.ObjectId.isValid(counterpartyId)) {
+      const rows = await load({ ...base, counterpartyId: new Types.ObjectId(counterpartyId) });
+      const hit = pickLastOffer(rows, { counterpartyId, customer: '' });
+      if (hit) return presentLastOffer(hit);
+    }
+    const re = customerNameRegex(customer);
+    if (!re) return null;
+    const rows = await load({ ...base, customer: re });
+    const hit = pickLastOffer(rows, { customer, counterpartyId: '' });
+    return hit ? presentLastOffer(hit) : null;
   }
 
   /** Стандартные тексты и НДС для формы нового КП выбранной фирмы. */
