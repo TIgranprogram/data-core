@@ -9,6 +9,7 @@
 //   node tools/ai-tester/run.mjs --last             коротко: последний отчёт
 //   node tools/ai-tester/run.mjs --watchdog         сторож (Планировщик Windows, раз в 10 мин и при входе): упал — продолжить до конца срока
 //   node tools/ai-tester/run.mjs --resume           продолжить прерванный запуск (зовёт сторож)
+//   node tools/ai-tester/run.mjs --session-stdin --no-watchdog --minutes 15  разовая проба с готовой сессией стенда
 //   node tools/ai-tester/run.mjs --reviewed [дата]  отчёт разобран — dc start его больше не показывает
 // Отчёт: tools/logs/ai-tester/<дата>/REPORT.md, снимки — там же. Код выхода: 0 норма · 1 есть ошибки сайта · 2 сбой.
 import { spawn, spawnSync } from 'child_process';
@@ -18,6 +19,7 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { TAG, isLocalStand, tagText, createdFrom, screenGarbage, blockedClick, buildReport, screenChange } from './lib.mjs';
+import { sessionFromStdin } from './stand-session.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
@@ -26,6 +28,8 @@ const STOP_FILE = path.join(LOGS, 'STOP');
 const CREATED_FILE = path.join(LOGS, 'created.json');
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
+const suppliedSession = has('--session-stdin') ? sessionFromStdin(process.stdin) : null;
+const noWatchdog = Boolean(suppliedSession) || has('--no-watchdog');
 const num = (f, d) => { const i = args.indexOf(f); return i >= 0 && Number(args[i + 1]) > 0 ? Number(args[i + 1]) : d; };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const say = (s) => console.log(s);
@@ -45,7 +49,7 @@ const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { retu
 /** Сторож: запуск должен идти, а процесса нет (перезагрузка, свет, сбой) — продолжить скрыто до конца срока. */
 function watchdog() {
   const r = readRun();
-  if (!r) return 0;
+  if (!r || r.noWatchdog) return 0;
   if (fs.existsSync(STOP_FILE) || Date.now() >= r.until) { fs.rmSync(RUN_FILE, { force: true }); return 0; }
   if (Date.now() - (r.beat || 0) < DEAD_MS && alive(r.pid)) return 0; // работает
   fs.mkdirSync(LOGS, { recursive: true });
@@ -149,6 +153,16 @@ async function apiLogin(base, { login, password }) {
 }
 /** Вход на стенд; нет пользователя — заводит его тем же скриптом, что «Большая проверка сайта». */
 async function standLogin(base) {
+  if (suppliedSession) {
+    const session = await suppliedSession(base);
+    try {
+      const response = await fetch(`${base}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${session.access}` }, redirect: 'error', signal: AbortSignal.timeout(5000),
+      });
+      if (response.ok) return session;
+    } catch { /* У сессии из stdin нет запасного входа. */ }
+    return null;
+  }
   const creds = readLogin();
   let login = await apiLogin(base, creds);
   if (login) return login;
@@ -279,7 +293,7 @@ async function openBrowser(base) {
   const exe = findBrowser();
   const port = 9600 + Math.floor(Math.random() * 300);
   const prof = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-tester-'));
-  const br = spawn(exe, ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${prof}`, '--no-first-run', 'about:blank'], { stdio: 'ignore' });
+  const br = spawn(exe, ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${prof}`, '--no-first-run', ...(suppliedSession ? ['--incognito'] : []), 'about:blank'], { stdio: 'ignore' });
   let list;
   for (let i = 0; i < 50; i++) { try { list = await (await fetch(`http://127.0.0.1:${port}/json`)).json(); if (list.length) break; } catch { /* ждём */ } await sleep(200); }
   if (!list?.length) { br.kill(); throw new Error('Браузер не запустился'); }
@@ -511,23 +525,27 @@ async function runTask(s, b, nav, t, state) {
 function loadCreated() { try { return JSON.parse(fs.readFileSync(CREATED_FILE, 'utf8')); } catch { return []; } }
 function saveCreated(list) { fs.mkdirSync(LOGS, { recursive: true }); fs.writeFileSync(CREATED_FILE, JSON.stringify(list, null, 1)); }
 
-async function cleanup(s) {
+async function cleanup(s, browserAccess) {
   const list = loadCreated();
   if (!list.length) { say('Тестовых записей нет — убирать нечего.'); return 0; }
   if (!isLocalStand(s.stand)) { say('❌ Адрес стенда не на этом ПК — отказ.'); return 2; }
   if (!(await standReady(s.stand))) { say('❌ Стенд не запущен. Записи остались в списке — уберу при следующем запуске.'); return 2; }
-  const login = await standLogin(s.stand);
+  const login = browserAccess ? { access: browserAccess } : await standLogin(s.stand);
   if (!login) { say('❌ Не удалось войти на стенд.'); return 2; }
   const left = []; const refusedDel = []; let ok = 0;
   for (const c of list) {
     try {
-      const r = await fetch(`${s.stand}/api${c.path}/${c.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${login.access}` }, signal: AbortSignal.timeout(15000) });
-      if (r.ok || r.status === 404) ok++; else refusedDel.push(`${c.path} (${r.status})`);
+      const r = await fetch(`${s.stand}/api${c.path}/${c.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${login.access}` }, redirect: suppliedSession ? 'error' : 'follow', signal: AbortSignal.timeout(15000) });
+      if (r.ok || r.status === 404) ok++;
+      else {
+        refusedDel.push(`${c.path} (${r.status})`);
+        if (suppliedSession) left.push(c);
+      }
     } catch { left.push(c); } // нет связи — попробуем в следующий раз
   }
   saveCreated(left);
   say(`Убрано тестовых записей: ${ok}.${refusedDel.length ? ` Сайт не дал удалить: ${refusedDel.join(', ')} — на стенде это не мешает, копия базы обновится.` : ''}`);
-  return 0;
+  return suppliedSession && left.length ? 2 : 0;
 }
 
 // ---------- проверка готовности (по шагам) ----------
@@ -590,6 +608,9 @@ function last() {
 
 // ---------- основной ход ----------
 async function main() {
+  if (suppliedSession && ['--detach', '--resume', '--watchdog', '--check', '--cleanup', '--stop', '--last', '--reviewed'].some(has)) {
+    say('❌ Вход через stdin доступен только для запуска в текущем процессе.'); return 2;
+  }
   if (has('--stop')) { fs.mkdirSync(LOGS, { recursive: true }); fs.writeFileSync(STOP_FILE, new Date().toISOString()); say('Попросил тестировщика остановиться. Он закончит текущий шаг, уберёт тестовые записи и напишет отчёт (до 2 минут).'); return 0; }
   if (has('--last')) return last();
   const s = loadSettings();
@@ -605,13 +626,16 @@ async function main() {
   }
   const resume = has('--resume');
   const prevRun = readRun();
+  if (resume && prevRun?.noWatchdog) return 0;
   if (prevRun && prevRun.pid !== process.pid && alive(prevRun.pid) && Date.now() - (prevRun.beat || 0) < DEAD_MS) {
-    say('Тестировщик уже работает. Остановить — кнопка «Остановить ИИ-тестировщика».'); return 0;
+    say('Тестировщик уже работает. Остановить — кнопка «Остановить ИИ-тестировщика».'); return suppliedSession ? 2 : 0;
   }
   if (resume && (!prevRun || Date.now() >= prevRun.until)) { fs.rmSync(RUN_FILE, { force: true }); return 0; }
 
   if (!isLocalStand(s.stand)) { say('❌ Тестировщик работает только на стенде этого ПК. Рабочий сайт он не трогает.'); return 2; }
-  if (!has('--no-check')) {
+  const loginFromStdin = suppliedSession ? await standLogin(s.stand) : null;
+  if (suppliedSession && !loginFromStdin) { say('❌ Стенд отклонил сессию из stdin.'); return 2; }
+  if (!has('--no-check') && !suppliedSession) {
     let bad = await check(s, { hint: false });
     if (bad && !resume) { // первый раз на этом ПК или LM Studio без модели — настроить ИИ самому, без отдельной кнопки
       say('Настраиваю ИИ на этом ПК (один раз, до 30 минут)…');
@@ -625,9 +649,9 @@ async function main() {
     const until = Date.now() + num('--minutes', 480) * 60000;
     fs.mkdirSync(OUT, { recursive: true });
     const log = fs.openSync(path.join(OUT, 'run.log'), 'a');
-    const ch = spawn(process.execPath, [path.join(HERE, 'run.mjs'), '--no-check', '--until', String(until)], { cwd: ROOT, detached: true, windowsHide: true, stdio: ['ignore', log, log] });
+    const ch = spawn(process.execPath, [path.join(HERE, 'run.mjs'), '--no-check', '--until', String(until), ...(noWatchdog ? ['--no-watchdog'] : [])], { cwd: ROOT, detached: true, windowsHide: true, stdio: ['ignore', log, log] });
     ch.unref();
-    fs.writeFileSync(RUN_FILE, JSON.stringify({ until, day: DAY, pid: ch.pid, beat: Date.now() })); // второе нажатие сразу видит «уже работает»
+    fs.writeFileSync(RUN_FILE, JSON.stringify({ until, day: DAY, pid: ch.pid, beat: Date.now(), noWatchdog: !!noWatchdog })); // второе нажатие сразу видит «уже работает»
     say(`
 ✅ ИИ-тестировщик запущен в фоне до ${new Date(until).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}.`);
     say('Окно пульта можно закрыть. Отчёт Claude разберёт сам в начале следующей сессии.');
@@ -638,14 +662,18 @@ async function main() {
   if (!resume) try { fs.rmSync(STOP_FILE, { force: true }); } catch { /* нет */ }
   fs.mkdirSync(OUT, { recursive: true });
   cleanLeftovers();
-  const beat = () => fs.writeFileSync(RUN_FILE, JSON.stringify({ until, day: DAY, pid: process.pid, beat: Date.now() }));
+  const beat = () => fs.writeFileSync(RUN_FILE, JSON.stringify({ until, day: DAY, pid: process.pid, beat: Date.now(), noWatchdog: !!noWatchdog }));
   beat(); const beatTimer = setInterval(beat, BEAT_MS); beatTimer.unref();
   const awake = keepAwake();
-  process.on('exit', () => { try { awake?.kill(); } catch { /* уже нет */ } });
-  if (!resume) ensureWatchdogTask(); else say(`
+  process.on('exit', () => {
+    try { awake?.kill(); } catch { /* уже нет */ }
+    if (noWatchdog && readRun()?.pid === process.pid) fs.rmSync(RUN_FILE, { force: true });
+  });
+  if (!resume && !noWatchdog) ensureWatchdogTask();
+  if (resume) say(`
 Продолжаю после обрыва до ${new Date(until).toLocaleTimeString('ru-RU')}.`);
-  if (!(await ensureStand(s.stand))) { say('❌ Стенд не поднялся.'); return 2; }
-  const login = await standLogin(s.stand);
+  if (!(await (suppliedSession ? standReady(s.stand) : ensureStand(s.stand)))) { say(suppliedSession ? '❌ Стенд не готов.' : '❌ Стенд не поднялся.'); return 2; }
+  const login = loginFromStdin || await standLogin(s.stand);
   if (!login) { say('❌ Не удалось войти на стенд. Запустите один раз «Большая проверка сайта» — она создаст вход.'); return 2; }
   const nav = readNav();
   if (!nav.length) { say('❌ Не нашёл меню приложения.'); return 2; }
@@ -659,11 +687,13 @@ async function main() {
   const writeReport = (removed = null) => fs.writeFileSync(path.join(OUT, 'REPORT.md'), buildReport({ day: DAY, model: s.model, base: STAND_BASE, startedAt, now: Date.now(), tasks: state.tasks, findings: state.findings, created, removed }));
   say(`\nИИ-тестировщик работает ${minutes} мин на ${s.stand}. Остановить — кнопка «Остановить ИИ-тестировщика». Отчёт: tools/logs/ai-tester/${DAY}/REPORT.md\n`);
 
-  let b;
+  let b; let browserAccess; let failed = false;
   const relogin = async () => {
-    const lg = await standLogin(s.stand);
+    const lg = loginFromStdin || await standLogin(s.stand);
     await b.cmd('Page.navigate', { url: s.stand + '/app/' }); await sleep(2000);
-    await b.ev(`localStorage.setItem('dca_access',${JSON.stringify(lg.access)});localStorage.setItem('dca_refresh',${JSON.stringify(lg.refresh ?? '')});localStorage.setItem('dca_user',${JSON.stringify(JSON.stringify(lg.user ?? {}))});1`);
+    const originCheck = suppliedSession ? `if (location.origin !== ${JSON.stringify(s.stand)}) return 0;` : '';
+    const stored = await b.ev(`(() => { ${originCheck} localStorage.setItem('dca_access',${JSON.stringify(lg.access)});localStorage.setItem('dca_refresh',${JSON.stringify(lg.refresh ?? '')});localStorage.setItem('dca_user',${JSON.stringify(JSON.stringify(lg.user ?? {}))});return 1; })()`);
+    if (suppliedSession && stored !== 1) throw new Error('Браузер не открыл стенд для входа.');
     await b.cmd('Page.reload', { ignoreCache: true }); await sleep(2500);
     b.net.length = 0; b.jsErrors.length = 0;
   };
@@ -674,7 +704,7 @@ async function main() {
     const order = [...TASKS].sort(() => Math.random() - 0.5);
     while (Date.now() < state.until && !fs.existsSync(STOP_FILE)) {
       const t = order[i++ % order.length];
-      if (i % order.length === 0) await relogin(); // круг заданий пройден — свежий вход (токен живёт недолго)
+      if (!suppliedSession && i % order.length === 0) await relogin(); // браузер сам обновляет сессию из stdin
       await runTask(s, b, nav, t, state);
       for (const c of b.created.splice(0)) if (!created.some((x) => x.id === c.id)) created.push({ ...c, at: new Date().toISOString() });
       saveCreated(created);
@@ -683,13 +713,17 @@ async function main() {
       if (state.llmErrors >= 3) { say('❌ ИИ трижды не ответил — останавливаюсь. Проверьте LM Studio кнопкой «Проверить готовность».'); break; }
     }
   } catch (e) {
-    say('❌ Сбой: ' + e.message);
+    say('❌ Сбой: ' + (suppliedSession ? 'проверка сессии стенда прервана.' : e.message));
+    failed = Boolean(suppliedSession);
   } finally {
+    if (suppliedSession && b) {
+      browserAccess = await b.ev(`location.origin === ${JSON.stringify(s.stand)} ? localStorage.getItem('dca_access') : null`).catch(() => null);
+    }
     await b?.close();
   }
   say('\nУбираю тестовые записи…');
   const before = loadCreated().length;
-  await cleanup(s);
+  const cleanupCode = await cleanup(s, browserAccess);
   writeReport(before - loadCreated().length);
   // срок вышел или нажали «Остановить» — запуск закончен; иначе (сбой браузера, ИИ не отвечает) run.json остаётся и сторож продолжит
   clearInterval(beatTimer);
@@ -698,7 +732,7 @@ async function main() {
   const errs = state.findings.filter((f) => f.kind === 'ошибка').length;
   say(`\nГотово. Заданий: ${state.tasks.length}, ошибок сайта: ${errs}, замечаний ИИ: ${state.findings.length - errs}.`);
   say(`Отчёт: tools/logs/ai-tester/${DAY}/REPORT.md — скажите Claude «посмотри отчёт тестировщика».`);
-  return errs ? 1 : 0;
+  return suppliedSession && (failed || cleanupCode || state.llmErrors >= 3) ? 2 : errs ? 1 : 0;
 }
 
-main().then((c) => process.exit(c ?? 0), (e) => { console.error('Сбой: ' + (e?.stack || e)); process.exit(2); });
+main().then((c) => process.exit(c ?? 0), (e) => { console.error('Сбой: ' + (suppliedSession ? 'запуск с сессией из stdin отклонён.' : (e?.stack || e))); process.exit(2); });

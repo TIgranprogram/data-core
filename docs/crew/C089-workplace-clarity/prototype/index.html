@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>[ПРОТОТИП C089] Паспорт — Деревянные указатели</title>
+<style>
+/* ============================================================
+   ТОКЕНЫ (копия tokens.css — светлая + тёмная тема)
+   ============================================================ */
+:root {
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --fs: 14px; --fs-sm: 12.5px; --fs-h1: 26px; --fs-h2: 19px; --fs-h3: 16px;
+  --fs-label: 11.5px;
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
+  --radius: 10px; --radius-sm: 7px;
+  --shadow: 0 1px 2px rgba(20,26,38,.05), 0 2px 8px rgba(20,26,38,.06);
+  --shadow-lg: 0 12px 40px rgba(20,26,38,.18), 0 0 0 1px rgba(210,170,60,.12);
+  --topbar-h: 56px;
+  --sidebar-w: 220px;
+  /* светлая тема */
+  --bg: #f1f4f3; --surface: #fff; --surface-2: #f6f9f8; --surface-3: #e9eeec;
+  --photo-bg: #f6f7f9;
+  --text: #17201c; --muted: #5d6964; --heading: #0e3b2b;
+  --border: #e0e6e3; --border-strong: #cad4cf;
+  --primary: #0f7d55; --primary-hover: #0b6646; --primary-soft: #e2f3ea; --on-primary: #fff;
+  --focus: #8a6a14; --gold: #d9ab33; --gold-soft: #f8eccb; --gold-deep: #8a6a14;
+  --danger: #c2372d; --danger-soft: #fbe9e7; --on-danger: #fff;
+  --ok: #1f7a3f; --ok-soft: #e3f3e8;
+  --warn: #965700; --warn-soft: #fcf0dc;
+  --info: #0b6f8f; --info-soft: #e0f1f7;
+  --link: #0b7350;
+  --row-hover: #f5f9f7; --row-selected: #e9f6ef;
+  --side: #171c26; --side-text: #aeb5c2; --side-head: #d4ae4f; --side-2: #222938;
+  --sec-orders: #66499f; --sec-orders-soft: #eee9f7;
+  --sec-products: #3d5fa0; --sec-products-soft: #e6ecf7;
+  --scheme: light;
+}
+:root[data-theme='dark'] {
+  --bg: #0f131a; --surface: #171c25; --surface-2: #1c222d; --surface-3: #252c39;
+  --photo-bg: #1c222d;
+  --text: #d3dbd8; --muted: #8ea89c; --heading: #6fe0b0;
+  --border: #262f3c; --border-strong: #384454;
+  --primary: #3fcf8e; --primary-hover: #33bd7e; --primary-soft: rgba(63,207,142,.12); --on-primary: #06140d;
+  --focus: #f0cf7a; --gold: #f0cf7a; --gold-soft: rgba(240,207,122,.12); --gold-deep: #f0cf7a;
+  --danger: #f0756d; --danger-soft: rgba(240,117,109,.1); --on-danger: #fff;
+  --ok: #5fd8a4; --ok-soft: rgba(95,216,164,.1);
+  --warn: #eba845; --warn-soft: rgba(235,168,69,.1);
+  --info: #57c8e8; --info-soft: rgba(87,200,232,.1);
+  --link: #5fd8a4;
+  --row-hover: rgba(255,255,255,.04); --row-selected: rgba(63,207,142,.08);
+  --scheme: dark;
+}
+
+/* ============================================================
+   RESET + BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body { font-family: var(--font); font-size: var(--fs); color: var(--text); background: var(--bg); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+h2 { font-size: var(--fs-h2); font-weight: 650; color: var(--heading); line-height: 1.3; }
+h3 { font-size: var(--fs-h3); font-weight: 650; color: var(--heading); line-height: 1.3; }
+*:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ============================================================
+   SHELL
+   ============================================================ */
+.shell { display: flex; height: 100vh; overflow: hidden; }
+.sidebar {
+  width: var(--sidebar-w); flex-shrink: 0;
+  background: var(--side); color: var(--side-text);
+  display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden;
+  transition: width .2s;
+}
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+.sidebar-logo {
+  padding: 14px 16px 10px;
+  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--side-head); border-bottom: 1px solid rgba(255,255,255,.07);
+  white-space: nowrap; overflow: hidden;
+}
+.side-group { padding: 8px 0 4px; }
+.side-group-title {
+  padding: 0 16px 4px; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .07em; text-transform: uppercase;
+  color: var(--side-head); opacity: .75;
+}
+.side-link {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 16px; cursor: pointer; font-size: var(--fs-sm);
+  color: var(--side-text); text-decoration: none; border: none;
+  background: none; width: 100%; text-align: left;
+  border-left: 3px solid transparent; transition: background .1s;
+  white-space: nowrap; overflow: hidden;
+}
+.side-link:hover { background: rgba(255,255,255,.06); color: #fff; }
+.side-link.active { background: rgba(255,255,255,.08); color: #fff; border-left-color: var(--sec-orders); }
+.side-icon { font-size: 16px; min-width: 20px; text-align: center; opacity: .7; }
+.side-link.active .side-icon { opacity: 1; }
+
+/* ============================================================
+   TOPBAR
+   ============================================================ */
+.topbar {
+  height: var(--topbar-h); background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: var(--s3); padding: 0 var(--s4);
+  flex-shrink: 0; z-index: 10;
+}
+.topbar-title { font-size: var(--fs-h2); font-weight: 650; color: var(--heading); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar-sub { font-size: var(--fs-sm); color: var(--muted); }
+.topbar-sep { color: var(--border-strong); }
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0 14px; height: 36px; border: none; border-radius: var(--radius-sm);
+  font: inherit; font-size: var(--fs-sm); cursor: pointer; white-space: nowrap;
+  transition: background .12s, color .12s; text-decoration: none; flex-shrink: 0;
+}
+.btn-primary { background: var(--primary); color: var(--on-primary); font-weight: 600; }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--surface-3); }
+.btn-ghost { background: none; color: var(--muted); border: 1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); background: var(--surface-2); }
+.btn-danger { background: var(--danger); color: var(--on-danger); font-weight: 600; }
+.btn-sm { height: 30px; padding: 0 10px; font-size: var(--fs-sm); }
+.btn-icon { width: 36px; padding: 0; justify-content: center; font-size: 18px; line-height: 1; }
+.btn-icon.btn-sm { width: 30px; height: 30px; font-size: 15px; }
+.file-btn input[type=file] { display: none; }
+
+/* ============================================================
+   PAGE BODY: content + detail panel
+   ============================================================ */
+.page-body { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+
+.page-content {
+  flex: 1; min-width: 0; overflow-y: auto;
+  padding: var(--s4) var(--s5);
+  display: flex; flex-direction: column; gap: var(--s4);
+}
+
+/* ============================================================
+   DETAIL PANEL
+   ============================================================ */
+.detail {
+  --pw: 480px;
+  width: var(--pw); flex-shrink: 0;
+  background: var(--surface); border-left: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+  position: relative; transition: width .18s ease;
+  min-width: 0;
+}
+.detail.closed { width: 0; border-left-color: transparent; }
+.detail.dragging { transition: none; }
+.detail.over {
+  position: fixed; top: var(--topbar-h); right: 0; bottom: 0;
+  box-shadow: var(--shadow-lg); z-index: 50;
+  border-left-color: var(--border);
+}
+/* backdrop when over */
+.detail-backdrop {
+  display: none; position: fixed; inset: 0; z-index: 49;
+  background: rgba(0,0,0,.35); backdrop-filter: blur(1px);
+}
+.detail.over:not(.closed) ~ .detail-backdrop { display: block; }
+
+/* drag handle */
+.detail-drag {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 8px; cursor: col-resize; z-index: 20; touch-action: none;
+}
+.detail-drag::after {
+  content: ''; position: absolute; left: 2px; top: 50%;
+  transform: translateY(-50%);
+  height: 48px; width: 3px; border-radius: 2px;
+  background: var(--border-strong); opacity: 0; transition: opacity .15s;
+}
+.detail-drag:hover::after { opacity: 1; }
+.detail.dragging .detail-drag::after { opacity: 1; }
+
+/* panel header — compact, sticky */
+.panel-head {
+  display: flex; align-items: flex-start; gap: var(--s2);
+  padding: var(--s3) var(--s4) var(--s3) calc(var(--s4) + 4px);
+  border-bottom: 1px solid var(--border); background: var(--surface);
+  flex-shrink: 0;
+}
+.panel-head-info { flex: 1; min-width: 0; }
+.panel-head-info h2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel-head-meta { font-size: var(--fs-sm); color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.panel-head-actions { display: flex; gap: var(--s1); align-items: center; flex-shrink: 0; }
+
+/* panel scroll area */
+.panel-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; }
+.panel-inner {
+  padding: var(--s3) var(--s4) var(--s5) calc(var(--s4) + 4px);
+  display: flex; flex-direction: column; gap: var(--s3);
+}
+
+/* ============================================================
+   ADAPTIVE PANEL GRID (JS-driven class "wide" on .detail)
+   Wide = panel >= 580px => two-column groups
+   ============================================================ */
+.p-row { display: grid; gap: var(--s3); grid-template-columns: 1fr; }
+.detail.wide .p-row.p-2col { grid-template-columns: 1fr 1fr; }
+.detail.wide .p-row.p-photo-side { grid-template-columns: 150px minmax(0,1fr); align-items: start; }
+.p-span { grid-column: 1 / -1; }
+
+/* ============================================================
+   STEP TRACKER
+   ============================================================ */
+.steps { display: flex; align-items: center; gap: 0; }
+.step-item { display: flex; align-items: center; gap: 0; flex: 1; }
+.step-item:last-child { flex: 0; }
+.step-dot {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+  border: 2px solid var(--border-strong); background: var(--surface-2); color: var(--muted);
+  transition: all .15s;
+}
+.step-dot.done { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); }
+.step-dot.current { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.step-line { flex: 1; height: 2px; background: var(--border); }
+.step-line.done { background: var(--ok); }
+
+/* ============================================================
+   NEXT STEP BANNER
+   ============================================================ */
+.next-step {
+  background: var(--primary-soft); border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
+  border-radius: var(--radius); padding: var(--s3) var(--s4);
+  display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap;
+}
+.next-step-text { flex: 1; min-width: 0; }
+.next-step-text strong { display: block; color: var(--heading); font-weight: 650; font-size: var(--fs-h3); }
+.next-step-text span { font-size: var(--fs-sm); color: var(--muted); }
+
+/* ============================================================
+   FORM SECTION (details/summary)
+   ============================================================ */
+.form-block { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.form-block summary {
+  list-style: none; display: flex; align-items: center; gap: var(--s2);
+  padding: var(--s3) var(--s4); cursor: pointer;
+  font-weight: 650; font-size: var(--fs-h3); color: var(--heading);
+  user-select: none; background: var(--surface-2);
+  border-bottom: 1px solid transparent;
+}
+.form-block[open] summary { border-bottom-color: var(--border); }
+.form-block summary::-webkit-details-marker { display: none; }
+.sec-tone { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sec-tone-info { background: var(--info); }
+.sec-tone-warn { background: var(--warn); }
+.sec-tone-ok { background: var(--ok); }
+.sec-count { font-size: var(--fs-sm); font-weight: 400; color: var(--muted); background: var(--surface-3); border-radius: 10px; padding: 1px 7px; }
+.sec-arrow { margin-left: auto; color: var(--muted); font-size: 12px; transition: transform .15s; }
+.form-block[open] .sec-arrow { transform: rotate(90deg); }
+.form-block-body { padding: var(--s3) var(--s4); display: flex; flex-direction: column; gap: var(--s3); }
+
+/* ============================================================
+   FORM FIELDS
+   ============================================================ */
+.f-label {
+  font-size: var(--fs-label); font-weight: 650; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .06em;
+  display: flex; align-items: center; gap: 4px; margin-bottom: var(--s1);
+}
+.f-req { color: var(--warn); font-size: 14px; font-weight: 700; }
+.f-hint { font-size: var(--fs-sm); color: var(--muted); line-height: 1.4; margin-top: var(--s1); }
+.f-input {
+  width: 100%; padding: 7px var(--s3);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs);
+}
+.f-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent); }
+.f-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235d6964' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
+.f-wrap { display: flex; flex-direction: column; }
+.f-row { display: grid; gap: var(--s3); grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+
+/* ============================================================
+   PHOTO SLOT
+   ============================================================ */
+.photo-slot {
+  background: var(--photo-bg); border: 2px dashed var(--border-strong);
+  border-radius: var(--radius);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--s2); min-height: 110px; cursor: pointer;
+  transition: border-color .15s, background .15s;
+  padding: var(--s3); text-align: center; position: relative;
+  overflow: hidden;
+}
+.photo-slot:hover { border-color: var(--primary); background: var(--primary-soft); }
+.photo-slot.required { border-color: var(--warn); }
+.photo-slot.has-photo { padding: 0; border-style: solid; border-color: var(--border); min-height: 110px; }
+.photo-slot.has-photo img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: calc(var(--radius) - 1px); }
+.slot-icon { font-size: 26px; color: var(--muted); line-height: 1; }
+.slot-label { font-size: var(--fs-sm); color: var(--muted); line-height: 1.3; max-width: 120px; }
+.slot-req { font-size: var(--fs-sm); color: var(--warn); margin-top: 1px; }
+.photo-slot input[type=file] { display: none; }
+
+/* photo + data side layout */
+.photo-unit { display: flex; flex-direction: column; gap: var(--s2); }
+.photo-unit-caption { font-size: var(--fs-sm); color: var(--muted); line-height: 1.4; }
+.photo-unit-actions { display: flex; gap: var(--s2); flex-wrap: wrap; }
+
+/* paste zone */
+.paste-zone {
+  border: 2px dashed var(--border-strong); border-radius: var(--radius-sm);
+  padding: var(--s2) var(--s3); background: var(--surface-2);
+  font-size: var(--fs-sm); color: var(--muted); text-align: center;
+  cursor: pointer; transition: border-color .15s, background .15s;
+}
+.paste-zone:hover, .paste-zone.active { border-color: var(--primary); background: var(--primary-soft); color: var(--heading); }
+.paste-zone:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ============================================================
+   CHIPS / BADGES
+   ============================================================ */
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 10px; font-size: var(--fs-sm); font-weight: 500; background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); white-space: nowrap; }
+.chip-warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.chip-ok { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.chip-info { background: var(--info-soft); color: var(--info); border-color: transparent; }
+.chip-orders { background: var(--sec-orders-soft); color: var(--sec-orders); border-color: transparent; }
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+.dot-warn { background: var(--warn); }
+.dot-ok { background: var(--ok); }
+.dot-info { background: var(--info); }
+
+/* ============================================================
+   MAIN AREA CARDS
+   ============================================================ */
+.page-head { display: flex; align-items: center; gap: var(--s3); }
+.page-head h2 { flex: 1; }
+.count-badge { font-size: var(--fs-sm); color: var(--muted); background: var(--surface-3); border-radius: 10px; padding: 2px 8px; }
+.cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px,1fr)); gap: var(--s3); }
+.list-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: var(--s3) var(--s4);
+  cursor: pointer; transition: box-shadow .12s, border-color .12s;
+  display: flex; flex-direction: column; gap: var(--s2);
+}
+.list-card:hover { box-shadow: var(--shadow); }
+.list-card.active { border-color: var(--gold); box-shadow: inset 3px 0 0 var(--gold); }
+.list-card:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.card-title { font-weight: 500; color: var(--text); line-height: 1.3; }
+.card-sku { font-size: var(--fs-sm); color: var(--muted); font-family: ui-monospace, Consolas, monospace; letter-spacing: .02em; }
+.card-row { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--muted); }
+
+/* ============================================================
+   PROTOTYPE BANNER
+   ============================================================ */
+.proto-banner {
+  background: var(--gold-soft); border: 1px solid var(--gold);
+  border-radius: var(--radius-sm); padding: var(--s2) var(--s3);
+  font-size: var(--fs-sm); color: var(--gold-deep);
+  display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap;
+}
+
+/* ============================================================
+   TODAY WIDGET (пункт 7)
+   ============================================================ */
+.today-widget { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.today-head { background: var(--surface-2); padding: var(--s2) var(--s4); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: var(--s3); }
+.today-lanes { display: grid; grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 600px) { .today-lanes { grid-template-columns: 1fr; } }
+.today-lane { border-right: 1px solid var(--border); min-width: 0; }
+.today-lane:last-child { border-right: none; }
+.lane-head { padding: var(--s2) var(--s3); font-size: var(--fs-label); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
+.lane-cnt { background: var(--surface-3); border-radius: 8px; padding: 1px 6px; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.lane-cnt.warn { background: var(--warn-soft); color: var(--warn); }
+.lane-cnt.ok { background: var(--ok-soft); color: var(--ok); }
+.today-card { border-bottom: 1px solid var(--border); }
+.today-card:last-child { border-bottom: none; }
+.tc-head { display: flex; align-items: start; gap: var(--s2); padding: var(--s3); cursor: pointer; user-select: none; }
+.tc-head:hover { background: var(--row-hover); }
+.tc-title { flex: 1; min-width: 0; font-size: var(--fs-sm); font-weight: 500; line-height: 1.4; }
+.tc-arr { color: var(--muted); font-size: 11px; padding-top: 3px; transition: transform .15s; flex-shrink: 0; }
+.today-card.open .tc-arr { transform: rotate(90deg); }
+.tc-body { padding: var(--s1) var(--s3) var(--s3); display: none; flex-direction: column; gap: var(--s2); }
+.today-card.open .tc-body { display: flex; }
+.tc-reason { background: var(--surface-2); border-radius: var(--radius-sm); padding: var(--s2) var(--s3); font-size: var(--fs-sm); color: var(--muted); line-height: 1.4; }
+.tc-next { font-size: var(--fs-sm); color: var(--link); text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; }
+.tc-next:hover { text-decoration: underline; }
+
+/* ============================================================
+   MISCELLANEOUS
+   ============================================================ */
+hr { border: none; border-top: 1px solid var(--border); }
+.muted { color: var(--muted); }
+.small { font-size: var(--fs-sm); }
+.flex { display: flex; }
+.flex-wrap { flex-wrap: wrap; }
+.gap-2 { gap: var(--s2); }
+.gap-3 { gap: var(--s3); }
+.align-center { align-items: center; }
+.ml-auto { margin-left: auto; }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 720px) {
+  :root { --sidebar-w: 0px; }
+  .sidebar { display: none; }
+  .page-content { padding: var(--s3); }
+  .topbar { padding: 0 var(--s3); gap: var(--s2); }
+  .topbar-sub { display: none; }
+  .detail { position: fixed; top: var(--topbar-h); right: 0; bottom: 0; z-index: 50; box-shadow: var(--shadow-lg); width: 92vw !important; max-width: 440px !important; min-width: 0 !important; border-left-color: var(--border); }
+  .detail.closed { width: 0 !important; }
+  .detail-drag { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- =========================================================
+     SHELL
+     ========================================================= -->
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" aria-label="Навигация">
+    <div class="sidebar-logo">⬡ Data-core</div>
+
+    <div class="side-group">
+      <div class="side-group-title">Работа</div>
+      <a href="#" class="side-link" tabindex="0"><span class="side-icon">📋</span>Сегодня</a>
+      <a href="#" class="side-link" tabindex="0"><span class="side-icon">📦</span>Заявки</a>
+      <a href="#" class="side-link" tabindex="0"><span class="side-icon">🧾</span>Заказы</a>
+    </div>
+
+    <div class="side-group">
+      <div class="side-group-title">Продукция</div>
+      <a href="#" class="side-link active" tabindex="0" aria-current="page"><span class="side-icon">🗂</span>Паспорта</a>
+      <a href="#" class="side-link" tabindex="0"><span class="side-icon">📐</span>Изделия</a>
+    </div>
+
+    <div class="side-group">
+      <div class="side-group-title">Склад</div>
+      <a href="#" class="side-link" tabindex="0"><span class="side-icon">🏪</span>Материалы</a>
+      <a href="#" class="side-link" tabindex="0"><span class="side-icon">📊</span>Движения</a>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <button class="btn btn-icon btn-ghost" id="btn-sidebar-toggle" title="Скрыть меню" aria-label="Скрыть меню">☰</button>
+      <span class="topbar-title">Паспорта изделий</span>
+      <span class="topbar-sub">
+        <span class="topbar-sep">/</span>
+        <span>Деревянные указатели</span>
+      </span>
+      <div class="flex gap-2 align-center ml-auto">
+        <button class="btn btn-ghost btn-sm" id="btn-theme" title="Переключить тему" aria-label="Переключить тему">☀ / ☽</button>
+        <button class="btn btn-primary btn-sm" id="btn-open-panel" aria-label="Открыть панель паспорта">
+          + Паспорт
+        </button>
+      </div>
+    </header>
+
+    <!-- PAGE BODY -->
+    <div class="page-body">
+
+      <!-- PAGE CONTENT (list area) -->
+      <main class="page-content" id="page-content">
+
+        <!-- prototype banner -->
+        <div class="proto-banner" role="status" aria-live="polite">
+          <strong>⚠ ПРОТОТИП C089</strong>
+          <span>Данные тестовые — деревянные указатели. Изменения в браузере; API не вызывается.</span>
+        </div>
+
+        <!-- list header -->
+        <div class="page-head">
+          <h2>Паспорта <span class="count-badge">4</span></h2>
+          <button class="btn btn-secondary btn-sm">Фильтры</button>
+        </div>
+
+        <!-- product cards -->
+        <div class="cards-grid" id="cards-grid" role="list">
+        </div>
+
+        <!-- TODAY widget -->
+        <div class="today-widget" aria-label="Сегодня">
+          <div class="today-head">
+            <h3>Сегодня</h3>
+            <span class="chip chip-warn">3 требуют внимания</span>
+          </div>
+          <div class="today-lanes" role="list" aria-label="Три очереди">
+            <div class="today-lane" role="listitem">
+              <div class="lane-head">
+                <span>Требует внимания</span>
+                <span class="lane-cnt warn">3</span>
+              </div>
+              <div class="today-card open" role="listitem">
+                <div class="tc-head" role="button" tabindex="0" aria-expanded="true" onclick="toggleTc(this)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleTc(this)">
+                  <span class="tc-title">Указатель «Выход на природу» — нет фото вида спереди</span>
+                  <span class="tc-arr" aria-hidden="true">▶</span>
+                </div>
+                <div class="tc-body">
+                  <div class="tc-reason">Паспорт не может быть выдан без обязательного рисунка габаритов. Категория «Деревянный указатель» требует чертёж с видом спереди.</div>
+                  <a href="#" class="tc-next" onclick="openProduct(0); return false;">→ Заполнить раздел «Габариты»</a>
+                </div>
+              </div>
+              <div class="today-card">
+                <div class="tc-head" role="button" tabindex="0" aria-expanded="false" onclick="toggleTc(this)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleTc(this)">
+                  <span class="tc-title">Указатель маршрута — не выбрана категория паспорта</span>
+                  <span class="tc-arr" aria-hidden="true">▶</span>
+                </div>
+                <div class="tc-body">
+                  <div class="tc-reason">Без категории невозможно определить список обязательных разделов и рисунков. Выберите категорию из справочника.</div>
+                  <a href="#" class="tc-next" onclick="openProduct(2); return false;">→ Выбрать категорию</a>
+                </div>
+              </div>
+              <div class="today-card">
+                <div class="tc-head" role="button" tabindex="0" aria-expanded="false" onclick="toggleTc(this)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleTc(this)">
+                  <span class="tc-title">Указатель «Лесная тропа №3» — устаревший шаблон</span>
+                  <span class="tc-arr" aria-hidden="true">▶</span>
+                </div>
+                <div class="tc-body">
+                  <div class="tc-reason">Шаблон категории обновлён 11 ноября: добавлено поле «Материал покрытия». Нужно перезаполнить раздел «Материал».</div>
+                  <a href="#" class="tc-next" onclick="openProduct(1); return false;">→ Обновить раздел «Материал»</a>
+                </div>
+              </div>
+            </div>
+
+            <div class="today-lane" role="listitem">
+              <div class="lane-head">
+                <span>В работе</span>
+                <span class="lane-cnt">2</span>
+              </div>
+              <div class="today-card">
+                <div class="tc-head" role="button" tabindex="0" aria-expanded="false" onclick="toggleTc(this)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleTc(this)">
+                  <span class="tc-title">Указатель «Выход на природу» — заполняется</span>
+                  <span class="tc-arr" aria-hidden="true">▶</span>
+                </div>
+                <div class="tc-body">
+                  <div class="tc-reason">Начато вчера. Заполнены разделы: Материал, Элементы. Осталось: Габариты (обязательный чертёж), Монтаж.</div>
+                  <a href="#" class="tc-next" onclick="openProduct(0); return false;">→ Продолжить</a>
+                </div>
+              </div>
+              <div class="today-card">
+                <div class="tc-head" role="button" tabindex="0" aria-expanded="false" onclick="toggleTc(this)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleTc(this)">
+                  <span class="tc-title">Информационная доска — ждёт проверки типа</span>
+                  <span class="tc-arr" aria-hidden="true">▶</span>
+                </div>
+                <div class="tc-body">
+                  <div class="tc-reason">Тип «Деревянная доска» не найден в справочнике. Нужно уточнить у специалиста или добавить тип.</div>
+                  <a href="#" class="tc-next">→ Открыть справочник типов</a>
+                </div>
+              </div>
+            </div>
+
+            <div class="today-lane" role="listitem">
+              <div class="lane-head">
+                <span>Ждём других</span>
+                <span class="lane-cnt ok">1</span>
+              </div>
+              <div class="today-card">
+                <div class="tc-head" role="button" tabindex="0" aria-expanded="false" onclick="toggleTc(this)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleTc(this)">
+                  <span class="tc-title">Указатель маршрута — на согласовании у руководителя</span>
+                  <span class="tc-arr" aria-hidden="true">▶</span>
+                </div>
+                <div class="tc-body">
+                  <div class="tc-reason">Паспорт отправлен на согласование 10 ноября. Ожидаем подтверждения категории от руководителя производства.</div>
+                  <span class="small muted">Ответственный: Иванов А. П. · Срок: 13 ноября</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </main><!-- /page-content -->
+
+      <!-- DETAIL PANEL -->
+      <aside class="detail closed" id="detail" aria-label="Панель паспорта" role="complementary">
+        <div class="detail-drag" id="detail-drag" aria-hidden="true"></div>
+
+        <!-- Panel header -->
+        <header class="panel-head">
+          <div class="panel-head-info">
+            <h2 id="panel-title">Паспорт изделия</h2>
+            <div class="panel-head-meta" id="panel-meta">Выберите изделие из списка</div>
+          </div>
+          <div class="panel-head-actions">
+            <button class="btn btn-ghost btn-sm btn-icon" id="btn-close-panel" title="Закрыть" aria-label="Закрыть панель">✕</button>
+          </div>
+        </header>
+
+        <!-- Panel scroll -->
+        <div class="panel-scroll" id="panel-scroll">
+          <div class="panel-inner" id="panel-inner">
+            <!-- dynamically filled -->
+          </div>
+        </div>
+      </aside>
+
+    </div><!-- /page-body -->
+
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<!-- Backdrop for mobile overlay -->
+<div class="detail-backdrop" id="detail-backdrop" role="presentation"></div>
+
+<!-- =========================================================
+     JAVASCRIPT
+     ========================================================= -->
+<script>
+/* ============================================================
+   TEST DATA (явно тестовые — деревянные указатели)
+   ============================================================ */
+const PRODUCTS = [
+  {
+    id: 'p1',
+    name: 'Указатель «Выход на природу»',
+    sku: 'УК-001',
+    category: 'wooden-sign',
+    categoryLabel: 'Деревянный указатель',
+    status: 'in-progress',
+    statusLabel: 'Заполняется',
+    statusTone: 'warn',
+    sections: {
+      dims: { filled: false, required: true },
+      material: { filled: true, required: true },
+      elements: { filled: true, required: false },
+      install: { filled: false, required: false },
+    },
+    dims: {
+      length: '450', width: '120', height: '25',
+      material: 'Лиственница, сорт А',
+    },
+    material: {
+      base: 'Лиственница сибирская',
+      coating: 'Лаковое покрытие Tikkurila',
+      color: 'RAL 1024 Охряный жёлтый',
+    },
+  },
+  {
+    id: 'p2',
+    name: 'Указатель «Лесная тропа №3»',
+    sku: 'УК-002',
+    category: 'wooden-sign',
+    categoryLabel: 'Деревянный указатель',
+    status: 'ready',
+    statusLabel: 'Готов',
+    statusTone: 'ok',
+  },
+  {
+    id: 'p3',
+    name: 'Указатель маршрута',
+    sku: 'УК-003',
+    category: null,
+    categoryLabel: null,
+    status: 'draft',
+    statusLabel: 'Черновик',
+    statusTone: null,
+  },
+  {
+    id: 'p4',
+    name: 'Информационная доска',
+    sku: 'ИД-001',
+    category: null,
+    categoryLabel: null,
+    status: 'review',
+    statusLabel: 'Согласование',
+    statusTone: 'info',
+  },
+];
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let activeIdx = null;
+let panelOpen = false;
+
+/* ============================================================
+   DOM REFS
+   ============================================================ */
+const detail    = document.getElementById('detail');
+const panelInner = document.getElementById('panel-inner');
+const panelTitle = document.getElementById('panel-title');
+const panelMeta  = document.getElementById('panel-meta');
+const cardsGrid  = document.getElementById('cards-grid');
+const detailDrag = document.getElementById('detail-drag');
+const backdrop   = document.getElementById('detail-backdrop');
+const btnClose   = document.getElementById('btn-close-panel');
+const btnOpen    = document.getElementById('btn-open-panel');
+const btnTheme   = document.getElementById('btn-theme');
+const btnSidebar = document.getElementById('btn-sidebar-toggle');
+
+/* ============================================================
+   RENDER CARDS
+   ============================================================ */
+function renderCards() {
+  cardsGrid.innerHTML = '';
+  PRODUCTS.forEach((p, i) => {
+    const card = document.createElement('div');
+    card.className = 'list-card' + (activeIdx === i ? ' active' : '');
+    card.tabIndex = 0;
+    card.setAttribute('role', 'listitem');
+    card.setAttribute('aria-label', p.name);
+    card.setAttribute('aria-pressed', activeIdx === i ? 'true' : 'false');
+    const tone = p.statusTone;
+    const dotCls = tone ? ` dot-${tone}` : '';
+    card.innerHTML = `
+      <div class="card-title">${p.name}</div>
+      <div class="card-sku">${p.sku}</div>
+      <div class="card-row">
+        <span class="dot${dotCls}"></span>
+        <span>${p.statusLabel}</span>
+        ${p.categoryLabel ? `<span class="chip chip-orders" style="margin-left:auto">${p.categoryLabel}</span>` : '<span class="chip chip-warn" style="margin-left:auto">Нет категории</span>'}
+      </div>
+    `;
+    card.addEventListener('click', () => openProduct(i));
+    card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openProduct(i); } });
+    cardsGrid.appendChild(card);
+  });
+}
+
+/* ============================================================
+   OPEN PRODUCT
+   ============================================================ */
+function openProduct(idx) {
+  activeIdx = idx;
+  renderCards();
+  buildPanel(PRODUCTS[idx]);
+  openPanel();
+}
+
+/* ============================================================
+   PANEL OPEN / CLOSE
+   ============================================================ */
+function openPanel() {
+  panelOpen = true;
+  detail.classList.remove('closed');
+  btnClose.focus();
+}
+
+function closePanel() {
+  panelOpen = false;
+  detail.classList.add('closed');
+  activeIdx = null;
+  renderCards();
+}
+
+btnClose.addEventListener('click', closePanel);
+backdrop.addEventListener('click', closePanel);
+btnOpen.addEventListener('click', () => openProduct(0));
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && panelOpen) closePanel(); });
+
+/* ============================================================
+   BUILD PANEL CONTENT
+   ============================================================ */
+function buildPanel(prod) {
+  panelTitle.textContent = prod.name;
+  panelMeta.textContent = (prod.categoryLabel || 'Категория не выбрана') + ' · ' + prod.sku;
+
+  const html = [];
+
+  /* Steps */
+  const steps = [
+    { label: '1', title: 'Категория', done: !!prod.category },
+    { label: '2', title: 'Данные', done: !!(prod.dims || prod.material) },
+    { label: '3', title: 'Рисунки', done: false },
+    { label: '4', title: 'Готово', done: prod.status === 'ready' },
+  ];
+  const stepsHtml = steps.map((s, i) => {
+    const cls = s.done ? 'done' : (i === steps.findIndex(x => !x.done) ? 'current' : '');
+    const lineCls = s.done ? 'done' : '';
+    return `
+      <div class="step-item">
+        <div class="step-dot ${cls}" title="${s.title}" aria-label="${s.title}: ${s.done ? 'выполнено' : 'не выполнено'}">${s.done ? '✓' : s.label}</div>
+        ${i < steps.length - 1 ? `<div class="step-line ${lineCls}"></div>` : ''}
+      </div>
+    `;
+  }).join('');
+  html.push(`<div class="steps" aria-label="Шаги заполнения">${stepsHtml}</div>`);
+
+  /* Next step banner */
+  if (!prod.sections?.dims?.filled) {
+    html.push(`
+      <div class="next-step" role="status">
+        <div class="next-step-text">
+          <strong>Следующий шаг — Габариты</strong>
+          <span>Добавьте чертёж и укажите размеры. Это обязательно для выдачи паспорта.</span>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="document.getElementById('sec-dims').open=true; document.getElementById('sec-dims').scrollIntoView({behavior:'smooth'})">Перейти</button>
+      </div>
+    `);
+  } else if (prod.status === 'ready') {
+    html.push(`
+      <div class="next-step" role="status">
+        <div class="next-step-text">
+          <strong>Паспорт заполнен</strong>
+          <span>Все обязательные разделы готовы. Можно выдать паспорт.</span>
+        </div>
+        <button class="btn btn-primary btn-sm">Выдать паспорт</button>
+      </div>
+    `);
+  }
+
+  /* Category */
+  html.push(`
+    <details class="form-block" open>
+      <summary>
+        <span class="sec-tone ${prod.category ? 'sec-tone-ok' : 'sec-tone-warn'}"></span>
+        Категория и тип
+        <span class="sec-count">${prod.category ? 'выбрана' : '!'}</span>
+        <span class="sec-arrow" aria-hidden="true">▶</span>
+      </summary>
+      <div class="form-block-body">
+        <div class="f-wrap">
+          <label class="f-label" for="f-category">Категория паспорта <span class="f-req" aria-label="обязательное">*</span></label>
+          <select id="f-category" class="f-input f-select" aria-required="true">
+            <option value="">— по разделу и группе —</option>
+            <option value="wooden-sign" ${prod.category === 'wooden-sign' ? 'selected' : ''}>Деревянный указатель</option>
+            <option value="wooden-board">Деревянная доска</option>
+            <option value="wooden-stand">Стенд деревянный</option>
+          </select>
+          <span class="f-hint">Определяет обязательные разделы и форму выдаваемого паспорта.</span>
+        </div>
+        <div class="p-row p-2col">
+          <div class="f-wrap">
+            <label class="f-label" for="f-type">Вариант</label>
+            <select id="f-type" class="f-input f-select">
+              <option value="short" selected>Упрощённый</option>
+              <option value="full">Полный</option>
+            </select>
+          </div>
+          <div class="f-wrap">
+            <label class="f-label" for="f-status">Статус</label>
+            <select id="f-status" class="f-input f-select">
+              <option value="draft" ${prod.status === 'draft' ? 'selected' : ''}>Черновик</option>
+              <option value="in-progress" ${prod.status === 'in-progress' ? 'selected' : ''}>Заполняется</option>
+              <option value="review" ${prod.status === 'review' ? 'selected' : ''}>Согласование</option>
+              <option value="ready" ${prod.status === 'ready' ? 'selected' : ''}>Готов</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </details>
+  `);
+
+  /* Dims section */
+  html.push(`
+    <details class="form-block" id="sec-dims">
+      <summary>
+        <span class="sec-tone ${prod.sections?.dims?.filled ? 'sec-tone-ok' : 'sec-tone-warn'}"></span>
+        Габариты
+        <span class="sec-count">${prod.sections?.dims?.filled ? '✓' : 'обяз.'}</span>
+        <span class="sec-arrow" aria-hidden="true">▶</span>
+      </summary>
+      <div class="form-block-body">
+        <p class="small muted">Вставьте один чертёж с видом спереди. Виды сбоку и сверху можно объединить на одном листе. Звёздочкой отмечены обязательные рисунки.</p>
+
+        <!-- Photo + fields side by side on wide panel -->
+        <div class="p-row p-photo-side">
+          <!-- photo column -->
+          <div class="photo-unit">
+            <label
+              class="photo-slot required"
+              tabindex="0"
+              role="button"
+              aria-label="Добавить чертёж «Вид спереди» (обязательно). Нажмите или нажмите Enter для выбора файла."
+              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); this.querySelector('input').click()}"
+            >
+              <input type="file" accept="image/*,.pdf" aria-hidden="true">
+              <span class="slot-icon" aria-hidden="true">🖼</span>
+              <span class="slot-label">Вид спереди <strong>*</strong></span>
+              <span class="slot-req">обязательный рисунок</span>
+            </label>
+            <div class="photo-unit-actions">
+              <div class="file-btn">
+                <input type="file" accept="image/*,.pdf" aria-hidden="true">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="this.previousElementSibling.click()">Выбрать файл</button>
+              </div>
+            </div>
+            <div
+              class="paste-zone"
+              tabindex="0"
+              role="button"
+              aria-label="Зона вставки. Нажмите Ctrl+V для вставки изображения из буфера обмена."
+              onkeydown="activatePaste(this, event)"
+            >
+              Ctrl+V — вставить
+            </div>
+          </div>
+          <!-- fields column -->
+          <div class="f-wrap">
+            <div class="f-label">Размеры (мм)</div>
+            <div class="f-row">
+              <div class="f-wrap">
+                <label class="f-label" for="f-length">Длина</label>
+                <input id="f-length" class="f-input" type="number" min="1" max="9999" inputmode="numeric" value="${prod.dims?.length || ''}" placeholder="450">
+              </div>
+              <div class="f-wrap">
+                <label class="f-label" for="f-width">Ширина</label>
+                <input id="f-width" class="f-input" type="number" min="1" max="9999" inputmode="numeric" value="${prod.dims?.width || ''}" placeholder="120">
+              </div>
+              <div class="f-wrap">
+                <label class="f-label" for="f-height">Высота</label>
+                <input id="f-height" class="f-input" type="number" min="1" max="9999" inputmode="numeric" value="${prod.dims?.height || ''}" placeholder="25">
+              </div>
+            </div>
+            <div class="f-wrap" style="margin-top: var(--s3)">
+              <label class="f-label" for="f-dm">Материал основы</label>
+              <input id="f-dm" class="f-input" type="text" value="${prod.dims?.material || ''}" placeholder="Лиственница, сорт А">
+            </div>
+          </div>
+        </div>
+
+        <!-- second drawing — not required, narrower slot -->
+        <div class="p-row p-photo-side">
+          <div class="photo-unit">
+            <label
+              class="photo-slot"
+              tabindex="0"
+              role="button"
+              aria-label="Добавить рисунок «Вид сбоку». Нажмите Enter или пробел для выбора файла."
+              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); this.querySelector('input').click()}"
+            >
+              <input type="file" accept="image/*,.pdf" aria-hidden="true">
+              <span class="slot-icon" aria-hidden="true">🖼</span>
+              <span class="slot-label">Вид сбоку</span>
+            </label>
+            <div class="photo-unit-actions">
+              <div class="file-btn">
+                <input type="file" accept="image/*,.pdf" aria-hidden="true">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="this.previousElementSibling.click()">Выбрать файл</button>
+              </div>
+            </div>
+          </div>
+          <div class="f-wrap">
+            <div class="f-label small muted">Дополнительный вид (необязательно)</div>
+            <p class="small muted" style="margin-top: var(--s2); line-height: 1.5">Отдельный вид сбоку нужен только при сложной форме торца или установке в скрытый паз. Для простых изделий достаточно основного чертежа.</p>
+          </div>
+        </div>
+      </div>
+    </details>
+  `);
+
+  /* Material section */
+  html.push(`
+    <details class="form-block" ${prod.sections?.material?.filled ? 'open' : ''}>
+      <summary>
+        <span class="sec-tone ${prod.sections?.material?.filled ? 'sec-tone-ok' : 'sec-tone-info'}"></span>
+        Материал и покрытие
+        <span class="sec-count">${prod.sections?.material?.filled ? '✓' : '…'}</span>
+        <span class="sec-arrow" aria-hidden="true">▶</span>
+      </summary>
+      <div class="form-block-body">
+        <div class="p-row p-2col">
+          <div class="f-wrap">
+            <label class="f-label" for="f-mat-base">Материал основы <span class="f-req" aria-label="обязательное">*</span></label>
+            <input id="f-mat-base" class="f-input" type="text" value="${prod.material?.base || ''}" placeholder="Лиственница сибирская" aria-required="true">
+          </div>
+          <div class="f-wrap">
+            <label class="f-label" for="f-mat-coat">Покрытие</label>
+            <input id="f-mat-coat" class="f-input" type="text" value="${prod.material?.coating || ''}" placeholder="Лаковое покрытие Tikkurila">
+          </div>
+          <div class="f-wrap">
+            <label class="f-label" for="f-mat-color">Цвет / RAL</label>
+            <input id="f-mat-color" class="f-input" type="text" value="${prod.material?.color || ''}" placeholder="RAL 1024 Охряный жёлтый">
+          </div>
+          <div class="f-wrap">
+            <label class="f-label" for="f-mat-tech">Технология нанесения</label>
+            <input id="f-mat-tech" class="f-input" type="text" placeholder="Пневматическое распыление">
+          </div>
+        </div>
+      </div>
+    </details>
+  `);
+
+  /* Elements section */
+  html.push(`
+    <details class="form-block">
+      <summary>
+        <span class="sec-tone ${prod.sections?.elements?.filled ? 'sec-tone-ok' : 'sec-tone-info'}"></span>
+        Элементы и текст
+        <span class="sec-count">${prod.sections?.elements?.filled ? '✓' : '…'}</span>
+        <span class="sec-arrow" aria-hidden="true">▶</span>
+      </summary>
+      <div class="form-block-body">
+        <div class="p-row p-photo-side">
+          <div class="photo-unit">
+            <label
+              class="photo-slot has-photo"
+              tabindex="0"
+              role="button"
+              aria-label="Текущее фото: Гравировка стрелка-лист. Нажмите Enter для замены."
+              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); this.querySelector('input').click()}"
+            >
+              <input type="file" accept="image/*" aria-hidden="true">
+              <!-- placeholder SVG instead of real photo -->
+              <svg width="100%" height="110" viewBox="0 0 200 110" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <rect width="200" height="110" fill="#f6f7f9"/>
+                <path d="M50 55 L80 35 L80 48 L150 48 L150 62 L80 62 L80 75 Z" fill="#cad4cf"/>
+                <text x="100" y="92" text-anchor="middle" font-size="9" fill="#5d6964" font-family="system-ui">тестовое изображение</text>
+              </svg>
+            </label>
+            <div class="photo-unit-actions">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="this.closest('.photo-unit').querySelector('input[type=file]').click()">Заменить</button>
+            </div>
+            <div class="photo-unit-caption">Гравировка «Стрелка-лист». Добавлено: 11 нояб.</div>
+          </div>
+          <div class="f-wrap">
+            <div class="f-wrap">
+              <label class="f-label" for="f-el-name">Название элемента</label>
+              <input id="f-el-name" class="f-input" type="text" value="Стрелка-лист" placeholder="Гравировка, пиктограмма…">
+            </div>
+            <div class="f-wrap" style="margin-top: var(--s3)">
+              <label class="f-label" for="f-el-desc">Описание</label>
+              <textarea id="f-el-desc" class="f-input" rows="3" placeholder="Гравированная стрелка с листовым орнаментом, нанесена лазером">${prod.sections?.elements?.filled ? 'Гравированная стрелка с листовым орнаментом, нанесена лазером глубиной 1,5 мм' : ''}</textarea>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm" style="align-self: flex-start">+ Добавить элемент</button>
+      </div>
+    </details>
+  `);
+
+  /* Install section */
+  html.push(`
+    <details class="form-block">
+      <summary>
+        <span class="sec-tone sec-tone-info"></span>
+        Монтаж
+        <span class="sec-count">…</span>
+        <span class="sec-arrow" aria-hidden="true">▶</span>
+      </summary>
+      <div class="form-block-body">
+        <div class="p-row p-photo-side">
+          <div class="photo-unit">
+            <label
+              class="photo-slot"
+              tabindex="0"
+              role="button"
+              aria-label="Добавить схему монтажа. Нажмите Enter или пробел."
+              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); this.querySelector('input').click()}"
+            >
+              <input type="file" accept="image/*,.pdf" aria-hidden="true">
+              <span class="slot-icon" aria-hidden="true">📐</span>
+              <span class="slot-label">Схема монтажа</span>
+            </label>
+            <div class="photo-unit-actions">
+              <div class="file-btn">
+                <input type="file" accept="image/*,.pdf" aria-hidden="true">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="this.previousElementSibling.click()">Выбрать файл</button>
+              </div>
+            </div>
+          </div>
+          <div class="f-wrap">
+            <div class="f-wrap">
+              <label class="f-label" for="f-inst-type">Способ крепления</label>
+              <select id="f-inst-type" class="f-input f-select">
+                <option value="">— выбрать —</option>
+                <option>Шурупы в дюбель</option>
+                <option>Болты сквозные</option>
+                <option>Клей-пена</option>
+                <option>Забивные гайки</option>
+              </select>
+            </div>
+            <div class="f-wrap" style="margin-top: var(--s3)">
+              <label class="f-label" for="f-inst-note">Примечание к монтажу</label>
+              <textarea id="f-inst-note" class="f-input" rows="2" placeholder="Шурупы 4,5×50 мм в дюбель Ø8 мм, 4 точки крепления"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </details>
+  `);
+
+  /* Footer actions */
+  html.push(`
+    <div class="flex gap-2 flex-wrap">
+      <button class="btn btn-primary">💾 Сохранить</button>
+      <button class="btn btn-secondary">👁 Предпросмотр</button>
+      <button class="btn btn-ghost ml-auto">Удалить черновик</button>
+    </div>
+  `);
+
+  panelInner.innerHTML = html.join('');
+
+  /* init paste zones */
+  panelInner.querySelectorAll('.paste-zone').forEach(initPasteZone);
+
+  /* init file inputs in slots */
+  panelInner.querySelectorAll('.photo-slot input[type=file], .file-btn input[type=file]').forEach(inp => {
+    inp.addEventListener('change', e => handleFileInput(e, inp));
+  });
+
+  /* update wide class */
+  updateWideClass();
+}
+
+/* ============================================================
+   DRAG RESIZE
+   ============================================================ */
+let dragStartX = 0;
+let dragStartW = 0;
+
+detailDrag.addEventListener('pointerdown', startDrag);
+
+function startDrag(e) {
+  e.preventDefault();
+  dragStartX = e.clientX;
+  dragStartW = detail.offsetWidth;
+  detail.classList.add('dragging');
+  document.addEventListener('pointermove', onDragMove);
+  document.addEventListener('pointerup', stopDrag);
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+}
+
+function onDragMove(e) {
+  const dx = dragStartX - e.clientX;
+  let newW = dragStartW + dx;
+  const minW = 320;
+  const maxW = Math.min(760, window.innerWidth * 0.6);
+  newW = Math.max(minW, Math.min(maxW, newW));
+  detail.style.setProperty('--pw', newW + 'px');
+  updateWideClass();
+}
+
+function stopDrag() {
+  detail.classList.remove('dragging');
+  document.removeEventListener('pointermove', onDragMove);
+  document.removeEventListener('pointerup', stopDrag);
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+}
+
+/* ResizeObserver: update wide class when panel size changes */
+const ro = new ResizeObserver(() => updateWideClass());
+ro.observe(detail);
+
+function updateWideClass() {
+  const w = detail.offsetWidth;
+  detail.classList.toggle('wide', w >= 580);
+}
+
+/* ============================================================
+   TODAY CARDS
+   ============================================================ */
+function toggleTc(headEl) {
+  const card = headEl.closest('.today-card');
+  const wasOpen = card.classList.contains('open');
+  card.classList.toggle('open', !wasOpen);
+  headEl.setAttribute('aria-expanded', !wasOpen);
+}
+window.toggleTc = toggleTc;
+
+/* ============================================================
+   THEME TOGGLE
+   ============================================================ */
+btnTheme.addEventListener('click', () => {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
+});
+
+/* ============================================================
+   SIDEBAR TOGGLE
+   ============================================================ */
+btnSidebar.addEventListener('click', () => {
+  const sidebar = document.querySelector('.sidebar');
+  const isHidden = getComputedStyle(sidebar).width === '0px';
+  sidebar.style.width = isHidden ? '' : '0';
+  sidebar.style.overflow = isHidden ? '' : 'hidden';
+});
+
+/* ============================================================
+   PASTE ZONE
+   ============================================================ */
+function initPasteZone(zone) {
+  zone.addEventListener('focus', () => zone.classList.add('active'));
+  zone.addEventListener('blur', () => zone.classList.remove('active'));
+}
+
+function activatePaste(zone, e) {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    zone.classList.add('active');
+    setTimeout(() => zone.classList.remove('active'), 300);
+  }
+}
+window.activatePaste = activatePaste;
+
+document.addEventListener('paste', e => {
+  if (!panelOpen) return;
+  const items = Array.from(e.clipboardData?.items || []);
+  const imgItem = items.find(it => it.type.startsWith('image/'));
+  if (!imgItem) return;
+  /* find active paste zone or hovered photo slot */
+  const activeZone = panelInner.querySelector('.paste-zone.active');
+  if (activeZone) {
+    const file = imgItem.getAsFile();
+    if (file) showPhotoPreview(activeZone.closest('.photo-unit')?.querySelector('.photo-slot') || null, file);
+  }
+});
+
+function handleFileInput(e, inp) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const slot = inp.closest('.photo-slot') || inp.closest('.file-btn')?.closest('.photo-unit')?.querySelector('.photo-slot');
+  if (slot) showPhotoPreview(slot, file);
+  inp.value = '';
+}
+
+function showPhotoPreview(slot, file) {
+  if (!slot) return;
+  const url = URL.createObjectURL(file);
+  slot.classList.add('has-photo');
+  slot.classList.remove('required');
+  const previous = slot.querySelector('img');
+  if (previous) URL.revokeObjectURL(previous.src);
+  const input = slot.querySelector('input');
+  const preview = document.createElement('img');
+  preview.src = url;
+  preview.alt = 'Загруженный рисунок (тест)';
+  slot.replaceChildren(input, preview);
+  input.value = '';
+  slot.setAttribute('aria-label', 'Заменить изображение');
+  const action = slot.closest('.photo-unit').querySelector('.file-btn button');
+  if (action) action.textContent = 'Заменить';
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+renderCards();
+openProduct(0);
+
+/* ============================================================
+   KEYBOARD: width resize shortcuts for testing
+   ============================================================ */
+document.addEventListener('keydown', e => {
+  if (!panelOpen) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  if (e.key === '[') { resizeTo(390); }
+  if (e.key === ']') { resizeTo(640); }
+  if (e.key === '\\') { resizeTo(760); }
+});
+function resizeTo(w) {
+  const maxW = Math.min(760, window.innerWidth * 0.6);
+  const newW = Math.max(320, Math.min(maxW, w));
+  detail.style.setProperty('--pw', newW + 'px');
+  updateWideClass();
+}
+window.openProduct = openProduct;
+window.resizeTo = resizeTo;
+</script>
+</body>
+</html>
