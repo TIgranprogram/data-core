@@ -15,6 +15,7 @@ import { catChipsField, refChipsField } from '../ui/cat-chips.js';
 import { dupeCounts, qualityBadges, qualityFilter } from '../ui/quality.js';
 import { passportCategoryOptions } from './passports/common.js';
 import { dictSearchTokens, dictHaystack } from './dicts-search.js';
+import { sortProductGroups, productGroupTitle, productGroupMeta, productGroupSortBtns } from './dicts-sort.js';
 
 /**
  * «Справочники» (TASKS СП.4–СП.8, DESIGN §4 «Справочники»): слева группы (на телефоне — один select), справа
@@ -56,20 +57,14 @@ export function mountDicts(params) {
   const sbx = searchBox({ placeholder: 'Найти по названию или коду…', label: 'Поиск значения', delay: 150, onSearch: (v) => { q = v; renderTable(); } });
   const search = sbx.el;
   const searchWrap = h('div', { class: 'search' }, search);
-  let texts = null; // экран «Общие разделы» (создаётся при первом открытии)
-  let tree = null; // экран «Тексты паспорта» (дерево вариантов)
-  let zonesView = null; // экран «Склады» (только администратор)
-  let qf = 'all'; // фильтр качества таблицы: все / дубли
+  let texts = null, tree = null, zonesView = null; // экраны: общие разделы / тексты / склады
+  let qf = 'all'; // фильтр качества: все / дубли
+  let sortMode = 'no'; // productGroups: no | name
   const addBtn = button({ label: '+ Добавить', kind: 'primary', onClick: () => patch({ of: 'dict', new: '1', open: undefined }) }); addBtn.hidden = !session.canEdit;
   const candBtn = button({ label: 'Найти в данных…', title: 'Значения, которые уже встречаются в заявках, на складе и в Google-таблице, но ещё не в справочнике', onClick: () => toggleCandidates() }); candBtn.hidden = !session.canEdit;
-  const cand = h('div', { hidden: true });
-  const body = h('div');
-  const box = h('section', { class: 'panel' },
-    toolbar(title, hintEl, searchWrap, candBtn, addBtn),
-    cand, body);
-  const el = h('div',
-    h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Справочники'), h('div', { class: 'sub' }, 'Здесь меняются значения выпадающих списков: добавить, исправить, удалить. Изменение сразу видно во всех разделах'))),
-    layout.split({ side: nav, main: box, sideLabel: 'Справочники' }));
+  const cand = h('div', { hidden: true }); const body = h('div');
+  const box = h('section', { class: 'panel' }, toolbar(title, hintEl, searchWrap, candBtn, addBtn), cand, body);
+  const el = h('div', h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Справочники'), h('div', { class: 'sub' }, 'Здесь меняются значения выпадающих списков: добавить, исправить, удалить. Изменение сразу видно во всех разделах'))), layout.split({ side: nav, main: box, sideLabel: 'Справочники' }));
 
   // Меню: серверные группы → 4 понятные + «Контрагенты»; «Документы» свёрнуты, пока не выбран справочник из неё
   function menuGroups() {
@@ -100,13 +95,15 @@ export function mountDicts(params) {
     const tk = dictSearchTokens(q); // GALV_HOT / оцинк — dicts-search.js
     const dup = dupeCounts(data.items, (x) => (x.material ? `${x.material}|${x.name}` : x.name)); // дубль имени у того же материала
     if (!dup.size) qf = 'all';
-    const rows = data.items.filter((x) => (qf !== 'dupes' || dup.has(x.id)) && (!tk.length || tk.every((w) => dictHaystack(x).includes(w))));
+    let rows = data.items.filter((x) => (qf !== 'dupes' || dup.has(x.id)) && (!tk.length || tk.every((w) => dictHaystack(x).includes(w))));
+    if (dict.key === 'productGroups') rows = sortProductGroups(rows, sortMode);
     if (!data.items.length) {
       body.replaceChildren(empty({ title: 'Здесь пока ничего нет.', hint: canEditDict() ? 'Нажмите «+ Добавить» или «Найти в данных…» — возьмём то, что уже встречается в заявках и на складе.' : undefined }));
       return;
     }
     if (!rows.length) { body.replaceChildren(empty({ title: `Ничего не найдено по «${sbx.input.value}».`, hint: 'Попробуйте другое слово.' })); return; }
     const descOf = (r) => {
+      if (dict.key === 'productGroups') return productGroupMeta(r);
       const bits = [];
       if (dict.key === 'passportMaterials') bits.push(badge(r.kind === 'coating' ? 'покрытие' : 'материал', r.kind === 'coating' ? 'info' : 'dim'));
       if (r.code) bits.push(h('span', { class: 'muted' }, String(r.code)));
@@ -125,12 +122,15 @@ export function mountDicts(params) {
         acts.push(lock ? lockBadge()
           : button({ label: 'Удалить', kind: 'ghost', size: 'S', onClick: (e) => removeItem(r, e.currentTarget) }));
       } else if (lock) acts.push(lockBadge());
-      list.append(row({ title: r.name, meta: descOf(r),
+      list.append(row({ title: dict.key === 'productGroups' ? productGroupTitle(r) : r.name, meta: descOf(r),
         side: qualityBadges({ dupe: dup.get(r.id) || 0, dupeHint: 'Такое же название есть у другой записи — объедините' }),
         action: acts,
         onClick: canEditDict() ? (e) => { if (!e.target.closest('button')) patch({ of: 'dict', open: r.id, new: undefined }); } : undefined }));
     }
-    body.replaceChildren(...(dup.size ? [toolbar(qualityFilter({ value: qf, counts: { dupes: dup.size }, onChange: (v) => { qf = v; renderTable(); } }))] : []), list);
+    const tools = [];
+    if (dict.key === 'productGroups') tools.push(...productGroupSortBtns(sortMode, (m) => { sortMode = m; renderTable(); }));
+    if (dup.size) tools.push(qualityFilter({ value: qf, counts: { dupes: dup.size }, onChange: (v) => { qf = v; renderTable(); } }));
+    body.replaceChildren(...(tools.length ? [toolbar(...tools)] : []), list);
   }
 
   // Удаление из списка: свободное — подтверждение; занятое — замена (только админ), иначе текст

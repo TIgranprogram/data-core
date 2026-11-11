@@ -117,7 +117,17 @@ export class DictsService {
     const items = docs.map((x) => (used ? { ...this.item(d, x), used: used.get(String(x._id)) ?? 0 } : this.item(d, x)) as Record<string, unknown>)
       .map((x) => this.refNames(d, x, refs))
       .filter((x) => matchesAll(tk, ...Object.values(x).filter((v) => typeof v === 'string' || typeof v === 'number')))
-      .sort((a, b) => String((a as { name?: unknown }).name).localeCompare(String((b as { name?: unknown }).name), 'ru'));
+      .sort((a, b) => {
+        // Группы изделий: по номеру (для артикула), без номера — в конце; иначе по названию
+        if (key === 'productGroups') {
+          const na = Number((a as { groupNo?: unknown }).groupNo);
+          const nb = Number((b as { groupNo?: unknown }).groupNo);
+          const aa = Number.isFinite(na) ? na : 999;
+          const bb = Number.isFinite(nb) ? nb : 999;
+          if (aa !== bb) return aa - bb;
+        }
+        return String((a as { name?: unknown }).name).localeCompare(String((b as { name?: unknown }).name), 'ru');
+      });
     await this.attachPhotos(d, items);
     const locked = d.locked ? docs.flatMap((x) => { const reason = d.locked!(x); return reason ? [{ id: String(x._id), code: s(x.code), reason }] : []; }) : [];
     return { items, total: items.length, page: 1, limit: items.length, dict: { key: d.key, title: d.title, newTitle: DICT_UI[d.key]?.newTitle, group: d.group, hint: d.hint, columns: d.columns, fields: uiFields(d), refs, sections: d.sections, refBy: d.refBy, locked } };
