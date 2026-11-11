@@ -150,6 +150,7 @@
 | 2026-11-11 | C058 A7 (два сервера) | live: home→office switch finish ~97с, сайт 200; office→home photos_pre fail (ProxyCommand); аварийный возврат dc-switch home + роли Mongo — Дом main, SITE=200, CRM up | не юнит/e2e — учебное переключение | C058 PARTIAL; лог tools/logs/c058-a7-*.log |
 | 2026-11-11 | C062 паспорта: фирма/файл/списки + фикс DI заявок + e2e под C059 auto design | tsc ✅; юнит ✅ 310/310 suites, 3633/3633 | e2e ✅ 70/71 suites (1 skipped — T26), 538/550 (12 skipped); БД datacore-test, Docker | full перед выкладкой L |
 | 2026-11-11 | 19522b7d C062 | tsc 0; unit 3633/3633 | e2e ✅ 70/71, 538/550 | full before L |
+| 2026-11-11 | 8ac57b91 пачка C068-1/3/9, C070-П2/П3, C071, C072 | tsc 0; unit 3680/3680 | e2e ✅ 72/73, 547/559 | full before L |
 
 > Разбор C058 (office→home / ProxyCommand) — `docs/crew/C058-two-servers-finish/TEST-NOTES.md`.
 > Учёт ошибок ИИ-тестировщика и чек-лист усиления — `docs/crew/C069-cursor-routine/AI-TESTER-NOTES.md`.
