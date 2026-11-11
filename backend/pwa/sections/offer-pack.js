@@ -8,6 +8,7 @@ import { money } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { button, badge, stack, section, tagPick, textInput, row } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/kit/toast.js';
+import { confirmDlg } from '../ui/kit/dialog.js';
 
 const PREF_KEY = 'dc-offer-pack-prefs';
 const STATUS = {
@@ -232,14 +233,51 @@ export function packCopyDialog(r) {
   openOfferPack(r.id);
 }
 
+const READY = { ok: { label: 'Можно отправлять', tone: 'ok' }, bad: { label: 'Не хватает', tone: 'danger' } };
+
+/** C080: список «чего не хватает» или зелёная строка «Можно отправлять». */
+function readyLines(problems) {
+  if (!problems.length) return stack(badge(READY, 'ok'));
+  return stack(badge(READY, 'bad'), ...problems.map((p) => h('p', { class: 'hint' }, p)));
+}
+
+/** C080: проверка одного КП (не в пакете) перед отправкой; только для черновика. */
+function readyBlock(r) {
+  if (r.packId || r.status !== 'draft') return null;
+  const box = stack(h('p', { class: 'muted small' }, 'Проверяю КП…'));
+  api(`/offers/${r.id}/check`)
+    .then((c) => box.replaceChildren(readyLines(c.offer?.problems || [])))
+    .catch(() => box.replaceChildren(h('p', { class: 'muted small' }, 'Не удалось проверить КП')));
+  return stack(section({ title: 'Проверка перед отправкой', tone: 'money', open: true, body: [box] }));
+}
+
 /** Блок «Пакет» в карточке КП. */
 export function packBlock(r) {
-  if (!r.packId) return null;
+  if (!r.packId) return readyBlock(r); // C080: КП вне пакета — своя проверка
   const box = stack(h('p', { class: 'muted' }, 'Загрузка пакета…'));
   const load = async () => {
     try {
-      const list = await api('/offers', { query: { packId: r.packId, limit: 50 } });
+      const [list, chk] = await Promise.all([
+        api('/offers', { query: { packId: r.packId, limit: 50 } }),
+        api(`/offers/${r.id}/check`).catch(() => null),
+      ]);
       const items = list.items || [];
+      const hasDraft = items.some((o) => o.status === 'draft');
+      const checkBox = chk?.pack ? stack(
+        readyLines(chk.pack.problems || []),
+        hasDraft ? button({
+          label: 'Отправить пакет', size: 'S', kind: 'primary', disabled: !chk.pack.ready,
+          onClick: async () => {
+            const n = items.filter((o) => o.status === 'draft').length;
+            if (!(await confirmDlg('Отправить пакет', `Отправить ${n} КП?`, { okText: 'Отправить' }))) return;
+            try {
+              const res = await api(`/offers/packs/${r.packId}/send`, { method: 'POST', body: {} });
+              toast(`Отправлено КП: ${res.sent}`);
+              await load();
+            } catch (e) { toastError(e, 'отправить пакет'); }
+          },
+        }) : null,
+      ) : null;
       const zipBtn = button({
         label: `Скачать все PDF (${items.length})`, size: 'S',
         onClick: async () => {
@@ -250,6 +288,7 @@ export function packBlock(r) {
         },
       });
       box.replaceChildren(
+        ...(checkBox ? [checkBox] : []),
         zipBtn,
         ...items.map((o) => {
           const mine = String(o.id) === String(r.id);

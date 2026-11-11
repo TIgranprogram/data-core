@@ -15,6 +15,7 @@ import { SalesOrdersService } from '../salesorders/salesorders.service';
 import { offersOnlyIds, saveOffersOnlyIds } from '../../common/offers-only';
 import type { CreateOfferDto, OfferCopiesDto, OfferCopyDto, OfferCreateOrderDto, UpdateOfferDto } from './dto';
 import { OfferBackgroundsService } from './offer-backgrounds.service';
+import { offerProblems, packProblems } from './offer-ready';
 import { renderOfferPdf } from './offer-pdf';
 import { calcTotals, checkEditable, checkMove, markedUp, resolveVat } from './offer-rules';
 import { customerNameRegex, offerCustomerKey, pickLastOffer, presentLastOffer, type LastOfferRow } from './offer-last';
@@ -245,6 +246,56 @@ export class OffersService {
     await this.model.updateOne({ _id: cur._id }, { $set: { status: to }, $push: { statusHistory: { status: to, at: new Date(), by: user?.username } } }).exec();
     if (bypass) await adminOverride(this.audit, { rule: 'offer.status_jump', entityType: 'CommercialOffer', entityId: cur._id, before: { status: cur.status }, after: { status: to }, reason, actor: user });
     return this.get(id);
+  }
+
+  /** C080: есть ли фото у каждой строки (своё или главное у изделия витрины). */
+  private async itemPhotos(items: Doc[]): Promise<boolean[]> {
+    return Promise.all(items.map(async (i) => {
+      if (i.photoUrl) return true;
+      if (!i.productId) return false;
+      const prod = await this.db().collection('showcaseitems').findOne(
+        { _id: i.productId, deletedAt: null },
+        { projection: { 'photo.thumb': 1, 'photo.url': 1 } },
+      );
+      return !!((prod as Doc | null)?.photo?.thumb || (prod as Doc | null)?.photo?.url);
+    }));
+  }
+
+  /** C080: проверка перед отправкой — КП и (если есть) весь его пакет. Только чтение. */
+  async check(id: string) {
+    const cur = await this.find(id);
+    const packId = cur.packId ? String(cur.packId) : '';
+    const rows: Doc[] = packId
+      ? await this.model.find({ packId, deletedAt: null }).lean().exec() as unknown as Doc[]
+      : [cur];
+    const [names, companies] = await Promise.all([this.companyNames(rows.map((r) => r.companyId)), this.companies()]);
+    const blank = new Map(companies.items.map((c) => [c.id, c.hasBlank]));
+    const today = day();
+    const offers = await Promise.all(rows.map(async (r) => ({
+      id: String(r._id), number: r.number as string, status: r.status as string, customer: r.customer as string,
+      companyName: names.get(String(r.companyId)) ?? null,
+      problems: offerProblems(r as never, { hasBlank: !!blank.get(String(r.companyId)), photos: await this.itemPhotos((r.items as Doc[]) ?? []), today }),
+    })));
+    const own = offers.find((o) => o.id === String(cur._id))!;
+    const pack = packId ? packProblems(offers) : own.problems;
+    return {
+      offer: { problems: own.problems, ready: !own.problems.length },
+      pack: packId ? { packId, size: offers.length, offers, problems: pack, ready: !pack.length } : null,
+    };
+  }
+
+  /** C080: «Отправить пакет» — все черновики пакета → «Отправлено»; есть замечания — 400 со списком, ничего не меняем. */
+  async sendPack(packId: string, user: AuthenticatedUser) {
+    const first = await this.model.findOne({ packId: clean(packId), deletedAt: null }).lean().exec() as unknown as Doc | null;
+    if (!first) throw new NotFoundException('Пакет не найден');
+    const { pack } = await this.check(String(first._id));
+    if (!pack!.ready) throw new BadRequestException(`Пакет отправить нельзя: ${pack!.problems.join('; ')}`);
+    const sent: string[] = [];
+    for (const o of pack!.offers.filter((x) => x.status === 'draft')) {
+      await this.setStatus(o.id, 'sent', user);
+      sent.push(o.id);
+    }
+    return { packId, sent: sent.length, ids: sent };
   }
 
   /** Фото строки для PDF: `/uploads/…` → маленький JPEG; нет файла или не картинка — null. */

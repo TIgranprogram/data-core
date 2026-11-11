@@ -10850,14 +10850,18 @@
             "required": false,
             "in": "query",
             "description": "Точное название заказчика, без учёта регистра и лишних пробелов",
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "counterpartyId",
             "required": false,
             "in": "query",
             "description": "Если есть КП с этим контрагентом — оно важнее названия",
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -10865,7 +10869,9 @@
             "description": "Последнее не отменённое КП или null"
           }
         },
-        "tags": ["КП"]
+        "tags": [
+          "КП"
+        ]
       }
     },
     "/offers/preview": {
@@ -11136,6 +11142,52 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      }
+    },
+    "/offers/{id}/check": {
+      "get": {
+        "operationId": "OffersController_check",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      }
+    },
+    "/offers/packs/{packId}/send": {
+      "post": {
+        "operationId": "OffersController_sendPack",
+        "parameters": [
+          {
+            "name": "packId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""

@@ -182,6 +182,22 @@ export class OffersController {
     return this.offers.setStatus(id, dto.status, user, dto.reason);
   }
 
+  /** C080: чего не хватает КП и его пакету перед отправкой (только чтение). */
+  @Get(':id/check')
+  @Roles('admin', 'director', 'manager', 'user')
+  check(@Param('id') id: string) {
+    return this.offers.check(id);
+  }
+
+  /** C080: отправить пакет — все черновики пакета → «Отправлено»; есть замечания — 400. */
+  @Post('packs/:packId/send')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'offer.pack.sent', entityType: 'CommercialOffer' })
+  sendPack(@Param('packId') packId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.offers.sendPack(packId, user);
+  }
+
   @Get(':id/pdf')
   @Roles('admin', 'director', 'manager', 'user')
   async pdf(@Param('id') id: string, @Res({ passthrough: true }) res: Response) {
