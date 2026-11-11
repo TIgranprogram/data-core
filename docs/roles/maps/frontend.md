@@ -1,3 +1,8 @@
+## C072 готовый паспорт и «По номерам» (2026-11-11, не закоммичено)
+коммит: не закоммичено
+- `passports/funnel/ready.js` `readyPanel` (шаги файл→фирма→изделие→заказ→номер, POST /passports/ready); вход — панель `passfunnel` через `open.js openReadyPassport` (`funnel/index.js buildReady`). Кнопки: `docs.js` page-head, `products/card-blocks.js passportPane`, `order-passport-plan.js` (+ ссылки на файлы под кнопками).
+- `passports/numbers-view.js`: `passnums` (вкладка `docs.js` tab=numbers, карточка — passarchive), `lastNumbersTop` (GET /passports/last-numbers; также в архиве). Справка: `help-guide-data.js` docs. Отчёт: docs/crew/C072-passport-numbers-ready/. Карта обновлена.
+
 ## C062 фирма, позиция, файл паспорта (2026-11-11)
 коммит: не закоммичено
 - Воронка: `funnel/open.js:10` `openPassportFunnel({salesOrderId, incomeId})`. `funnel/api.js:50` `issueFromProduct` шлёт выбранный `supplierOrgId`, первую из нескольких не ставит. `funnel/issue.js:19` `issueBlock` — список фирм (`ourCompanies`) и позиция, если заказ без `incomeId`. `order-passport-plan.js:90` «Паспорт по позиции». `models.js:62` заказ без позиции уходит в воронку. `form.js:138` «Фирма», пусто пока фирм больше одной.

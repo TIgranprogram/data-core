@@ -8,7 +8,7 @@ import { download, passportVariant } from '../passports/dialogs.js';
 import { jointsText } from '../passports/traits.js';
 import { suggestLink } from '../../ui/composition-suggest.js';
 import { clearNoteWarning, resetPdCategory } from './data.js';
-import { openPassportFunnel } from '../passports/funnel/open.js';
+import { openPassportFunnel, openReadyPassport } from '../passports/funnel/open.js';
 
 /* Блоки правой панели изделия (вид): примечание-предупреждение, состав, документация, «В заказах», категория паспорта.
  * ПМ-1 (2026-11-06): каждый блок — свёрнутая секция kit.section с числом; пустой — одна строка внутри. */
@@ -153,6 +153,7 @@ export function passportPane(row, ctx) {
         draw, ready,
         actions(
           session.canEdit && session.seesDocs() ? kitButton({ label: 'Выпустить паспорт', kind: 'primary', size: 'S', title: 'Новый паспорт с номером по этой модели', onClick: () => openPassportFunnel({ productId: row.id }) }) : null,
+          session.canEdit && session.seesDocs() ? kitButton({ label: 'Добавить готовый паспорт', size: 'S', title: 'Паспорт сделан отдельно: приложить файл PDF к этому изделию', onClick: () => openReadyPassport({ productId: row.id }) }) : null,
           kitButton({ label: 'Править шаблон', size: 'S', title: 'Категория, тексты и рисунки по разделам паспорта', onClick: openTemplate }),
         ),
       ],

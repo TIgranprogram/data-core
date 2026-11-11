@@ -13,6 +13,11 @@ export function openPassportFunnel({ productId, salesOrderId, incomeId, orderNo,
     : null;
   patch({ of: 'passfunnel', new: '1', open: undefined });
 }
+/** «Добавить готовый паспорт» (C072): те же входы — из карточки изделия (productId) и из заказа (salesOrderId, orderNo, customerName). */
+export function openReadyPassport({ productId, salesOrderId, incomeId, orderNo, customerName } = {}) {
+  pending = { ready: true, productId: productId ? String(productId) : undefined, salesOrderId: salesOrderId ? String(salesOrderId) : undefined, incomeId: incomeId ? String(incomeId) : undefined, orderNo, customerName, at: Date.now() };
+  patch({ of: 'passfunnel', new: '1', open: undefined });
+}
 export function takePending() {
   const p = pending && Date.now() - pending.at < 60000 ? pending : null;
   pending = null;

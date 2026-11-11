@@ -9,6 +9,7 @@ import { newProduct } from './new-product.js';
 import { takePending } from './open.js';
 import { pickSteps } from './pick-steps.js';
 import { productList } from './product-list.js';
+import { readyPanel } from './ready.js';
 
 /**
  * Воронка «Новый паспорт» (C028, docs/crew/C028-passport-funnel/ANALYSIS.md §4): одна правая панель, сверху вниз
@@ -17,8 +18,19 @@ import { productList } from './product-list.js';
  */
 const FACET_FREE = (P) => Object.entries(P).filter(([k, v]) => v && k !== 'category' && k !== 'group').flatMap(([, v]) => String(v).split(',')).filter((id) => id && id !== 'none');
 
+/** «Добавить готовый паспорт» (C072) — та же правая панель, другие шаги; заголовок ставим после вставки панели. */
+let readyMode = false; // какая панель открыта сейчас — для заголовка карточки
+function buildReady(entry) {
+  const p = readyPanel(entry);
+  const title = (again = true) => { const hd = p.el.closest('.drawer, .k-panel')?.querySelector('h2'); if (hd) hd.textContent = 'Готовый паспорт'; else if (again) setTimeout(() => title(false), 0); };
+  title();
+  return p;
+}
+
 function build() {
   const entry = takePending();
+  readyMode = !!entry?.ready;
+  if (entry?.ready) return buildReady(entry);
   const S = { P: {}, q: '', prod: null, order: entry && (entry.salesOrderId || entry.incomeId) ? entry : null };
   const recap = stack();
   const stages = stack();
@@ -115,7 +127,7 @@ function build() {
 
 export const passFunnel = {
   id: 'passfunnel', title: 'Паспорта', newTitle: 'Новый паспорт', canEdit,
-  card: { heading: () => 'Новый паспорт' },
+  card: { heading: () => (readyMode ? 'Готовый паспорт' : 'Новый паспорт') },
   get: async () => ({}),
   form: { build, toBody: (v) => v, create: () => ({}), closeAfterCreate: true },
 };

@@ -4,7 +4,7 @@ import { go } from '../core/router.js';
 import { plural } from '../core/format.js';
 import * as kit from '../ui/kit/index.js';
 import { canEdit } from './passports/common.js';
-import { passportVariant } from './passports/dialogs.js';
+import { download, passportVariant } from './passports/dialogs.js';
 
 /*
  * ПНЗ.2: правая панель «Паспорта заказа» (of=orderpass&open=<orderId>).
@@ -83,11 +83,24 @@ function body(row, ctx) {
     body: row._skipped.map((s) => kit.row({ title: s.title || 'Позиция', meta: s.reason, tone: 'warn' })),
   }) : null;
 
+  // C072: паспорта-файлы в общий PDF не входят — показываем их ссылками под кнопкой
+  const filesBox = h('div');
+  if (row.issued) {
+    api('/passports', { query: { salesOrderId: row.orderId, status: 'issued', limit: 200 } }).then((d) => {
+      const files = (d.items || []).filter((x) => x.printSource === 'file' || x.printFile?.hasFile);
+      if (!files.length) return;
+      filesBox.replaceChildren(h('p', { class: 'muted small' }, 'В общий PDF не входят, скачиваются отдельным файлом: ',
+        ...files.flatMap((x, i) => [i ? ', ' : null, kit.link({ label: '№ ' + x.passportNumber, title: x.name || 'Скачать файл', onClick: () => download(x, {}, 'файл').catch((e) => kit.toastError(e, 'скачать файл')) })])));
+    }).catch(() => {});
+  }
+
   return h('div', null,
     kit.stats([{ value: row.issued || 0, label: 'выпущено' }, { value: readyN, label: 'готово к выпуску' }, { value: row.blocked || 0, label: 'не хватает данных' }]),
     seg.el,
     table, skipped,
-    kit.actions(issueBtn, printBtn, editable ? kit.button({ label: 'Паспорт по позиции', title: 'Выбрать позицию заказа и выпустить один паспорт', onClick: async () => { const { openPassportFunnel } = await import('./passports/funnel/open.js'); openPassportFunnel({ salesOrderId: row.orderId, orderNo: row.orderNo, customerName: row.customerName }); } }) : null),
+    kit.actions(issueBtn, printBtn, editable ? kit.button({ label: 'Паспорт по позиции', title: 'Выбрать позицию заказа и выпустить один паспорт', onClick: async () => { const { openPassportFunnel } = await import('./passports/funnel/open.js'); openPassportFunnel({ salesOrderId: row.orderId, orderNo: row.orderNo, customerName: row.customerName }); } }) : null,
+      editable ? kit.button({ label: 'Добавить готовый паспорт', title: 'Паспорт сделан отдельно: приложить файл PDF к этому заказу', onClick: async () => { const { openReadyPassport } = await import('./passports/funnel/open.js'); openReadyPassport({ salesOrderId: row.orderId, orderNo: row.orderNo, customerName: row.customerName }); } }) : null),
+    filesBox,
     row.total ? h('p', { class: 'muted small' }, `Всего ${row.total} ${plural(row.total, 'позиция', 'позиции', 'позиций')}. Выпускаются только позиции, где заполнены все данные паспорта.`) : null);
 }
 
