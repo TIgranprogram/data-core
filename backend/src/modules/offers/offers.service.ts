@@ -82,6 +82,8 @@ export class OffersService {
       header: { orderNo, productionNo, customer: o.customer, companyId: String(o.companyId), companyName: companyName ?? '', title: `По ${o.number}`, stage: 'new' as const },
       lines: (o.items as Doc[]).map((i) => ({
         productId: i.productId ? String(i.productId) : null, title: i.productName, qty: i.quantity, unit: i.unit || 'шт', color: i.color ?? null, size: i.size ?? null,
+        // цена КП идёт в позицию заказа (решение владельца 2026-11-11, C068-3); НДС в КП — внутри цены
+        unitPrice: typeof i.unitPrice === 'number' && i.unitPrice > 0 ? i.unitPrice : null,
       })),
     };
   }
@@ -104,7 +106,7 @@ export class OffersService {
       n += 1;
       await this.incomes.create({
         orderId, title: line.title, qty: line.qty, unit: line.unit, color: line.color ?? undefined, size: line.size ?? undefined,
-        productId: line.productId ?? undefined, lineNo: n, clientUid: `${uid}-line-${n}`,
+        productId: line.productId ?? undefined, unitPrice: line.unitPrice ?? undefined, lineNo: n, clientUid: `${uid}-line-${n}`,
       }, user?.id, user);
     }
     await this.model.updateOne({ _id: o._id }, { $set: { orderId: oid(orderId, 'заказа') } }).exec();

@@ -323,7 +323,7 @@ export const offers = {
       r.status === 'paid' ? h('p', { class: 'hint' }, isAdmin() && !r.orderId ? 'КП оплачено. Администратор может его править и вернуть статус — нужна причина.' : 'КП оплачено — править его нельзя.') : null,
       r.status === 'draft' && (r.items || []).some((l) => !l.unitPrice) ? h('p', { class: 'hint' }, 'Чтобы отметить «отправлено клиенту», укажите цену у каждой строки.') : null,
       r.status === 'accepted' ? h('p', { class: 'hint' }, 'После отметки «оплачено» КП нельзя править.') : null,
-      r.status === 'paid' && !r.orderId ? h('p', { class: 'hint' }, 'КП оплачено — нажмите «Сделать заказ», чтобы завести договор без цен из строк КП.') : null,
+      r.status === 'paid' && !r.orderId ? h('p', { class: 'hint' }, 'КП оплачено — нажмите «Сделать заказ», чтобы завести договор с позициями и ценами из КП.') : null,
       r.orderId ? h('p', { class: 'hint' }, 'По этому КП уже есть заказ — откройте кнопкой «Открыть заказ».') : null,
       h('ol', { class: 'of-items' }, ...(r.items || []).map((l) => h('li', null,
         h('b', null, l.productName), h('span', { class: 'muted' }, [l.color, l.size].filter(Boolean).map((x) => ' · ' + x).join('')),
