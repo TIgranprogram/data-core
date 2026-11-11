@@ -103,7 +103,7 @@ async function llm(s, body, ms = 240000) {
  * (ставится вместе с LM Studio). Память модели — 16 тыс. токенов: по умолчанию её меньше, и длинный экран не влезает.
  */
 const LMS = path.join(os.homedir(), '.lmstudio', 'bin', process.platform === 'win32' ? 'lms.exe' : 'lms');
-async function llmUp(s) { try { return (await (await fetch(`${s.baseUrl}/models`, { signal: AbortSignal.timeout(6000) })).json())?.data || null; } catch { return null; } }
+async function llmUp(s) { try { return (await (await fetch(`${s.baseUrl}/models`, { headers: { Authorization: `Bearer ${s.apiKey}` }, signal: AbortSignal.timeout(6000) })).json())?.data || null; } catch { return null; } }
 async function modelLoaded(s) {
   try { const j = await (await fetch(s.baseUrl.replace(/\/v1$/, '') + '/api/v0/models', { signal: AbortSignal.timeout(6000) })).json(); return j.data?.find((m) => m.id === s.model)?.state === 'loaded'; } catch { return false; }
 }

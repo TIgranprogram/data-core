@@ -33,7 +33,15 @@ function vram() {
   return r.status === 0 ? Math.max(...String(r.stdout).split(/\r?\n/).map(Number).filter(Boolean), 0) : 0;
 }
 
-async function up() { try { return (await (await fetch(`${BASE}/models`, { signal: AbortSignal.timeout(5000) })).json())?.data || null; } catch { return null; } }
+/** LM Studio отвечает, но требует ключ доступа (Developer → Server Settings → Require Authentication). */
+let needToken = false;
+async function up() {
+  try {
+    const j = await (await fetch(`${BASE}/models`, { headers: { Authorization: 'Bearer lm-studio' }, signal: AbortSignal.timeout(5000) })).json();
+    needToken = !j?.data && /token|authentication/i.test(JSON.stringify(j?.error || ''));
+    return j?.data || null;
+  } catch { return null; }
+}
 
 /** Записать JSON-настройку, не трогая остальные поля. */
 function mergeJson(file, patch, backup) {
@@ -75,6 +83,13 @@ async function main() {
     say(`   Запускаю сервер LM Studio на порту ${PORT}…`);
     lms(['server', 'start', '--port', PORT], 90000);
     for (let i = 0; i < 20 && !(await up()); i++) await sleep(1500);
+  }
+  if (!(await up()) && needToken) {
+    say(`❌ 3. Сервер LM Studio работает на порту ${PORT}, но требует ключ доступа — тестировщик без ключа не пройдёт.`);
+    say('   → Откройте LM Studio → слева «Developer» → «Server Settings».');
+    say('   → Выключите «Require Authentication» (сервер виден только этому компьютеру).');
+    say('   → Нажмите эту кнопку ещё раз.');
+    return 1;
   }
   if (!(await up())) {
     say(`❌ 3. Сервер LM Studio не запустился на порту ${PORT}.`);
