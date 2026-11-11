@@ -17,6 +17,22 @@ const defects = [
 ];
 
 describe('describeProduct', () => {
+  it('полный справочник состава не возвращает исключённый старый материал в описание', () => {
+    const id = '65a000000000000000000001';
+    const all = [{ id, name: 'Сосна', madeOf: 'сосны', when: 'wood' }];
+    const p = { name: 'Указатель', materialIds: [id], materials: 'Сталь' };
+    expect(describeProduct(p, [], [], all)).toContain('Материалы: Сталь.');
+    expect(describeProduct({ ...p, materialsSpec: { rows: [{ materialId: id }] } }, [], [], all)).toContain('Материалы: Сосна.');
+  });
+  it('печатает существующий текст материалов без выдуманного склонения', () => {
+    const p = { name: 'Указатель', materials: 'Сосна, лак' };
+    expect(describeProduct(p, [], [])).toBe('Указатель (далее — изделие). Материалы: Сосна, лак.');
+  });
+  it('таблица материалов главнее свободного текста и старого выбора', () => {
+    const id = '65a000000000000000000001';
+    expect(describeProduct({ name: 'Указатель', materialsSpec: { rows: [{ materialId: id, sizes: [], partIds: [] }] }, materials: 'Сталь', materialIds: ['m1'] }, [], [...mats, { id, name: 'Сосна' }]))
+      .toBe('Указатель (далее — изделие). Материалы: Сосна.');
+  });
   it('собирает фразу без двойных точек', () => {
     expect(describeProduct({ name: 'Комплекс', elements: ['e1', 'e2'], materialIds: ['m1', 'm2'] }, els, mats))
       .toBe('Комплекс (далее — изделие) состоит из: перекладины для подтягиваний, параллельных брусьев; изготовлено из стальной трубы и клеёного бруса.');

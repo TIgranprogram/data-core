@@ -2,6 +2,16 @@
 
 Статус автоматической проверки: PASS, full + проверка последующих дельт. Приёмку UI этот отчёт не заменяет.
 
+## После v1.714: материалы каталога в PDF, 2026-11-12
+
+PASS: после freeze исполнителя (включая сохранение legacy when-фильтра) создан отдельный `D:/qa-c086/candidate-materials-v5`, HEAD `8843d3e357fbecf724b252e9e495d422cbd9c5b5` + исправление. SHA256 `manifest-materials-v5.json`: `4b9c09564551a3ccbee3a26511d0f21a924c547293a1f664ea1bf3ffd2538385`.
+
+Сверка backend/src и backend/test с manifest-v4: изменены ровно пять согласованных файлов — passport-from-product.ts/spec.ts, passport-compose-parts.ts/spec.ts, passport-v2-text.ts; иных изменений, добавлений или удалений серверного кода/тестов нет. После прогона исходники повторно совпали с новым снимком.
+
+Affected e2e `passports.e2e-spec.ts` и `new-endpoints-1101.e2e-spec.ts`: PASS, 2 suites / 35 tests, failed 0, skip 0, exit 0; машинный протокол в `D:/qa-c086/materials-results-1794438946662/batch-01.json`. Проверка выполнилась на новом коде Jest in-process, в owned `datacore-test-986b9160c40716ed39d10a2e-night`; запускались только собственные Mongo/proxy (:56536), прежний backend оставался остановлен. После проверки контур остановлен, volumes сохранены. Прод, :3102, пользователи прода не затронуты.
+
+Полный backend unit повторно не запускался (поручен preflight). Реальный PDF после выкладки проверяет координатор; эти e2e подтверждают регрессии затронутого потока, но не заменяют просмотр производственного PDF. Детали исправления — MATERIAL-PDF-FIX.md.
+
 ## Узкая сверка перед коммитом, 2026-11-12
 
 PASS: все 1150 файлов `backend/src` и `backend/test` совпадают по SHA256 с manifest-v4; отсутствующих, изменённых и новых tracked/untracked файлов вне снимка нет. Новых непроверенных серверных изменений не обнаружено. Полный QA не повторялся.

@@ -4,6 +4,8 @@
  * Все функции терпимы к пустым и отсутствующим полям.
  */
 
+import { presentMaterialsSpec } from '../../common/catalog/materials-table';
+
 export type DictRec = { id?: unknown; _id?: unknown; code?: string; name?: string; [k: string]: unknown };
 
 export interface PassportLike {
@@ -73,12 +75,21 @@ function joinAnd(items: string[]): string {
  * Описание: «<Наименование> (далее — изделие) состоит из …; изготовлено из … и ….».
  * Нет материалов — отдельное предложение с меткой «[{materials} не заполнено]» (черновик видит; выпуск через printableText убирает).
  */
-export function describeProduct(passport: PassportLike, elements: DictRec[], materials: DictRec[]): string {
+export function describeProduct(passport: PassportLike, elements: DictRec[], materials: DictRec[], specMaterials: DictRec[] = materials): string {
   const name = str(passport?.name);
   const parts = uniq(pick(passport?.elements, elements).map((e) => stripEnd(str(e.inDescription))).filter(Boolean));
   const mats = uniq(pick(passport?.materialIds, materials).map((m) => stripEnd(str(m.madeOf))).filter(Boolean));
+  // Таблица состава главнее старого справочника; свободный текст сохраняем без склонения и догадок.
+  const spec = presentMaterialsSpec(passport.materialsSpec);
+  const specMats = uniq(pick(spec?.rows.map((r) => r.materialId), specMaterials).map((m) => stripEnd(str(m.name))).filter(Boolean));
+  const fallback = stripEnd(str(passport.materials));
   const head = name ? `${stripEnd(name)} (далее — изделие)` : 'Изделие';
   const out: string[] = [];
+  if (specMats.length || (!mats.length && fallback)) {
+    out.push(parts.length ? `${head} состоит из: ${parts.join(', ')}.` : `${head}.`);
+    out.push(`Материалы: ${specMats.length ? specMats.join(', ') : fallback}.`);
+    return out.join(' ');
+  }
   if (parts.length && mats.length) out.push(`${head} состоит из: ${parts.join(', ')}; изготовлено из ${joinAnd(mats)}.`);
   else if (parts.length) {
     out.push(`${head} состоит из: ${parts.join(', ')}.`);

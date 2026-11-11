@@ -123,7 +123,7 @@ export function buildV2Text(input: V2TextInput): V2Text {
   const exDefects = Array.isArray(p.excludeDefects) ? (p.excludeDefects as string[]) : [];
   const byCode = (dicts.defects || []).filter((d) => !exDefects.includes(String(d?.code ?? '')));
   const defects = filterByWhen(byCode, info, 'maintenance', excluded);
-  const description = manual.includes('description') && ownText('description') ? ownText('description') : describeProduct(p as never, elements, materials);
+  const description = manual.includes('description') && ownText('description') ? ownText('description') : describeProduct(p as never, elements, materials, dicts.materials ?? []);
   return {
     templateVersion: all.version ?? 0,
     ownVersion: own?.version ?? null,

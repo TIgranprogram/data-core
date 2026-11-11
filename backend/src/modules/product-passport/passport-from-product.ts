@@ -35,6 +35,7 @@ export async function productPatch(db: mongo.Db, prod: Doc): Promise<Doc> {
   put('installationMethod', String(prod.installation ?? '').trim());
   put('description', String(prod.description ?? '').trim());
   put('materialsSpec', prod.materialsSpec);
+  put('materials', typeof prod.materialsText === 'string' ? prod.materialsText.trim() : undefined);
   const pd = (prod.passportDefaults ?? {}) as Doc;
   for (const k of DEFAULT_KEYS) put(k, pd[k]);
   put('passportCategory', await productPassportCode(db, prod));

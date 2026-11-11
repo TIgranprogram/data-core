@@ -190,3 +190,6 @@
 
 ## QR-коды (QR-CODES п.1–5, 2026-11-01, не закоммичено)
 - `modules/qr/`: `qr-code.ts` (makeCode/CODE_RE/qrUrl), `qr.service.ts:ensureCode`/`resolve`/`print`, `qr-pdf.ts:renderQrSheet`, `qr.controller.ts` (+`QrRedirectController` `/q/:code`, исключён из префикса в `main.ts`), `qr.schema.ts`; `scripts/qr-backfill.js` (+test), `ensure-indexes.js` MODELS. Кнопки пульта — общие «Скрипт» (prodScripts). Хука «при создании позиции» нет — код выдаётся при печати/backfill. коммит: —
+
+## C086 — материалы описания PDF (2026-11-12)
+- `backend/src/modules/product-passport/passport-from-product.ts:38`: materialsText → materials; `passport-compose-parts.ts:84`: таблица → справочник → текст; `passport-v2-text.ts:126`: полный справочник для строк состава. Тест повторной сборки `passport-from-product.spec.ts:25`. 50 suites / 559 tests, tsc/eslint PASS. коммит: — (не выполнен).

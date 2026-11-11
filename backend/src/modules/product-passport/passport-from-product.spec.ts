@@ -1,5 +1,7 @@
 import { Types } from 'mongoose';
 import { diffPatch, followsProduct, productPatch, productCategories } from './passport-from-product';
+import { buildV2Text } from './passport-v2-text';
+import { printableText } from './passport-blanks';
 
 /** Фальшивая БД: categories, dict_values, products. */
 const fakeDb = (cols: Record<string, Array<Record<string, unknown>>>) => ({
@@ -16,6 +18,20 @@ const db = fakeDb({
 });
 
 describe('паспорт из изделия', () => {
+  it('переносит существующий текст материалов в сохраняемое поле паспорта', async () => {
+    expect(await productPatch(db, { materialsText: ' Сосна, лак ' })).toEqual({ materials: 'Сосна, лак' });
+    expect(await productPatch(db, { materialsText: '  ' })).not.toHaveProperty('materials');
+  });
+  it('повторная сборка печатного текста берёт материалы изделия; выпущенный снимок остаётся прежним', async () => {
+    const prod = { name: 'Указатель', materialsText: 'Сосна, лак' };
+    const render = async () => printableText(buildV2Text({ passport: await productPatch(db, prod), all: { sections: [] } }), { draft: true });
+    const snapshot = await render();
+    expect(snapshot.description).toBe('Указатель (далее — изделие). Материалы: Сосна, лак.');
+    expect((await render()).description).toBe(snapshot.description);
+    prod.materialsText = 'Берёза';
+    expect((await render()).description).toContain('Берёза');
+    expect(snapshot.description).toContain('Сосна, лак');
+  });
   it('следует за изделием только черновик с productId', () => {
     expect(followsProduct({ status: 'draft', productId: 'x' })).toBe(true);
     expect(followsProduct({ status: 'issued', productId: 'x' })).toBe(false);
