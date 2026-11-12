@@ -1,0 +1,17 @@
+{
+  "id": "6af5cb410bbf082f04329060",
+  "title": "QA C094 редактор элемента 1794493311985",
+  "writes": [
+    {
+      "method": "POST",
+      "status": 201
+    },
+    {
+      "method": "PUT",
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "elementId": "6af5cb810bbf082f04329126",
+  "reloaded": true
+}

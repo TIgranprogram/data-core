@@ -1,0 +1,223 @@
+[
+  {
+    "theme": "light",
+    "width": 375,
+    "steps": [
+      {
+        "step": "editor",
+        "overflow": 0,
+        "scroll": 0
+      },
+      {
+        "step": "post-failed",
+        "overflow": 0,
+        "scroll": 0
+      },
+      {
+        "step": "attach-failed",
+        "overflow": 0,
+        "scroll": 0
+      },
+      {
+        "step": "saved-return",
+        "overflow": 0,
+        "scroll": 712
+      }
+    ],
+    "errors": [],
+    "writes": [
+      {
+        "method": "PUT",
+        "kind": "defaults",
+        "status": 200,
+        "elements": [
+          "111111111111111111111111"
+        ]
+      },
+      {
+        "method": "POST",
+        "kind": "element",
+        "status": 500,
+        "lines": [
+          "Первая строка правила.",
+          "Вторая строка правила."
+        ],
+        "categories": "BLG",
+        "elementKind": "product"
+      },
+      {
+        "method": "POST",
+        "kind": "element",
+        "status": 201,
+        "lines": [
+          "Первая строка правила.",
+          "Вторая строка правила."
+        ],
+        "categories": "BLG",
+        "elementKind": "product"
+      },
+      {
+        "method": "PUT",
+        "kind": "defaults",
+        "status": 500,
+        "elements": [
+          "111111111111111111111111",
+          "222222222222222222222222"
+        ]
+      },
+      {
+        "method": "PATCH",
+        "kind": "element",
+        "status": 200,
+        "lines": [
+          "Первая строка правила.",
+          "Вторая строка правила."
+        ],
+        "categories": "BLG",
+        "elementKind": "product"
+      },
+      {
+        "method": "PUT",
+        "kind": "defaults",
+        "status": 200,
+        "elements": [
+          "111111111111111111111111",
+          "222222222222222222222222"
+        ]
+      }
+    ],
+    "telemetry": [
+      {
+        "expected": true
+      },
+      {
+        "expected": true
+      }
+    ],
+    "readyBefore": false,
+    "scroll": {
+      "before": 777,
+      "after": 777
+    },
+    "readyAfter": true
+  },
+  {
+    "theme": "dark",
+    "width": 375,
+    "steps": [
+      {
+        "step": "editor",
+        "overflow": 0,
+        "scroll": 0
+      },
+      {
+        "step": "saved-return",
+        "overflow": 0,
+        "scroll": 777
+      }
+    ],
+    "errors": [],
+    "writes": [
+      {
+        "method": "POST",
+        "kind": "element",
+        "status": 201,
+        "lines": [
+          "Первая строка правила.",
+          "Вторая строка правила."
+        ],
+        "categories": "BLG",
+        "elementKind": "part"
+      }
+    ],
+    "telemetry": [],
+    "readyBefore": false,
+    "scroll": {
+      "before": 777,
+      "after": 777
+    }
+  },
+  {
+    "theme": "light",
+    "width": 1920,
+    "steps": [
+      {
+        "step": "editor",
+        "overflow": 0,
+        "scroll": 0
+      },
+      {
+        "step": "cancel-return",
+        "overflow": 0,
+        "scroll": 0
+      }
+    ],
+    "errors": [],
+    "writes": [
+      {
+        "method": "PUT",
+        "kind": "defaults",
+        "status": 200,
+        "elements": [
+          "111111111111111111111111"
+        ]
+      }
+    ],
+    "telemetry": [],
+    "readyBefore": false
+  },
+  {
+    "theme": "dark",
+    "width": 1920,
+    "steps": [
+      {
+        "step": "editor",
+        "overflow": 0,
+        "scroll": 0
+      },
+      {
+        "step": "saved-return",
+        "overflow": 0,
+        "scroll": 8
+      }
+    ],
+    "errors": [],
+    "writes": [
+      {
+        "method": "POST",
+        "kind": "element",
+        "status": 201,
+        "lines": [
+          "Первая строка правила.",
+          "Вторая строка правила."
+        ],
+        "categories": "BLG",
+        "elementKind": "product"
+      }
+    ],
+    "telemetry": [],
+    "readyBefore": true,
+    "scroll": {
+      "before": 8,
+      "after": 8
+    }
+  },
+  {
+    "theme": "dark",
+    "width": 375,
+    "variant": "category",
+    "steps": [
+      {
+        "step": "editor",
+        "overflow": 0,
+        "scroll": 0
+      }
+    ],
+    "errors": [
+      "locator.click: Timeout 8500ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.drawer:visible').last().locator('.cat-chips').first().locator('button[data-v=BLG]')\u001b[22m\n"
+    ],
+    "writes": [],
+    "telemetry": [],
+    "readyBefore": false
+  }
+]

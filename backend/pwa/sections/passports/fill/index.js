@@ -36,6 +36,8 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
   const elSec = section({ title: 'Тексты элементов', open: false, tone: 'neutral', body: els.el });
   const strip = h('div'); const summary = h('div'); const catSuggest = h('div'); const context = h('div');
   const pending = new Map(); const editing = new Set();
+  let paused = false; let pauseEpoch = 0;
+  const saves = new Set();
   let seq = 0; let ready = false; let mute = 1; let synced = false; let fb;
 
   const codeOf = () => prod.passportDefaults?.passportCategory || prod.passportCategory?.code || '';
@@ -45,6 +47,9 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
   }).map((d) => [String(d.id || d._id), d.name || '']);
 
   const ctx = {
+    pause: () => { paused = true; pauseEpoch++; seq++; return () => { paused = false; }; },
+    waitForSaves: () => Promise.all([...saves]),
+    refreshStatus: () => refreshStatus(),
     prod, mode, can, pending, editing, reveal: false, missing: [], byKind: new Map(), asked: new Set(), pdm: [],
     fieldHost, textHost, slotHost, titles, secs, strip, summary, catSuggest, els, elSec,
     elRows, elNames: new Map(elRows.map((d) => [String(d.id || d._id), d.name || 'без названия'])),
@@ -68,6 +73,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
   });
 
   function draw() {
+    if (paused) return;
     ctx.instOpts = instOptsOf();
     ctx.instNames = new Map(ctx.instOpts);
     ctx.code = catSel.value || codeOf();
@@ -113,6 +119,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
     load: async (cat) => ({ sections: await loadTexts(cat, prod.id) }),
     onPaint: (list) => {
       if (!fb) return;
+      if (paused) return;
       placeTexts(ctx, list);
       fb.el.hidden = !fb.el.childNodes.length;
       maybeSync();
@@ -125,7 +132,11 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
 
   async function save(job) {
     if (!can) return;
-    try { await job(); await reload(); } catch (e) { toastError(e, 'сохранить в изделие'); }
+    const epoch = pauseEpoch;
+    const task = Promise.resolve().then(job);
+    saves.add(task);
+    try { await task; if (epoch === pauseEpoch) await reload(); } catch (e) { toastError(e, 'сохранить в изделие'); }
+    finally { saves.delete(task); }
   }
   ctx.save = save;
 
@@ -154,6 +165,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
   }
 
   async function reload() {
+    if (paused) return ctx.missing;
     const my = ++seq;
     let photos = []; let files = []; let gaps;
     try {
@@ -163,11 +175,12 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
       ]);
       gaps = await loadGaps(prod.id);
     } catch (e) {
+      if (paused || my !== seq) return ctx.missing;
       toastError(e, 'проверить изделие');
       strip.replaceChildren(hint('Не удалось узнать, чего не хватает. Откройте форму ещё раз.', 'warn'));
       return ctx.missing;
     }
-    if (my !== seq) return ctx.missing;
+    if (paused || my !== seq) return ctx.missing;
     if (gaps.category) prod.category = gaps.category;
     ctx.missing = gaps.missing || [];
     ctx.applicable = gaps.applicable || null; // C086: что относится к изделию — одно правило с сервером
@@ -179,6 +192,20 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
     own?.load();
     draw();
     return ctx.missing;
+  }
+
+  /** Обновить готовность после справочника, сохранив DOM всех полей и черновиков. */
+  async function refreshStatus() {
+    try {
+      const gaps = await loadGaps(prod.id);
+      ctx.missing = gaps.missing || [];
+      ctx.applicable = gaps.applicable || null;
+      const hasElements = !!prod.passportDefaults?.elements?.length;
+      const needsElements = ctx.missing.some((m) => m.kind === 'elements' || m.key === 'elements');
+      ctx.filled = (ctx.filled || []).filter((key) => key !== 'elements');
+      if (hasElements && !needsElements) ctx.filled.push('elements');
+      syncChrome(ctx);
+    } catch (e) { toastError(e, 'проверить готовность паспорта'); }
   }
 
   async function missingRequired() {

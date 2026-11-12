@@ -312,11 +312,11 @@ export const dict = {
   },
   form: {
     // поля и списки выбора — с сервера (описание справочника), чтобы форма всегда совпадала с тем, что он хранит
-    fields: async (r) => {
-      const info = r?.dictInfo || (await api(`/dicts/${dictKey()}`)).dict;
+    fields: async (r, key = dictKey()) => {
+      const info = r?.dictInfo || (await api(`/dicts/${key}`)).dict;
       photoKeys = new Map(info.fields.filter(isPhoto).map((f) => [f.key, f.type]));
       // «К каким категориям» — галочками-чипами (общий кусочек ui/cat-chips.js), а не строкой кодов «TRN, WRK»
-      const catField = info.fields.find((f) => f.key === 'categories' && dictKey() !== 'passportCategories');
+      const catField = info.fields.find((f) => f.key === 'categories' && key !== 'passportCategories');
       const catOpts = catField ? (await passportCategoryOptions()).map((c) => ({ code: c.value, name: c.label })) : [];
       // выбор из справочника вместо строки кодов (ref: { dict, multiple }) — списки грузим один раз на форму
       const refOpts = {};
@@ -326,11 +326,11 @@ export const dict = {
       }
       const isNew = !r?.id;
       // productGroups (новая запись): список существующих для предупреждения о дублях по имени и номеру
-      const pgItems = isNew && dictKey() === 'productGroups'
+      const pgItems = isNew && key === 'productGroups'
         ? await api('/dicts/productGroups').then((x) => x.items).catch(() => null)
         : null;
       // «Используется в: …» из /usage (сбой — без строки; правка при этом работает)
-      const u = isNew ? null : await api(`/dicts/${dictKey()}/${r.id}/usage`).catch(() => null);
+      const u = isNew ? null : await api(`/dicts/${key}/${r.id}/usage`).catch(() => null);
       const secs = (u?.sections || []).join(', ') || 'других разделах';
       const NAME_KEYS = ['name', 'firstName', 'lastName'];
       const usageField = isNew ? null : { key: '_usage', label: '', type: 'widget', wide: true, summary: () => '',
@@ -340,7 +340,7 @@ export const dict = {
         get value() { return ''; }, set value(x) { void x; }, focus() {} }) };
       // «Виды работ» сотрудника — несколько, галочками (workTypeIds; от них зависит, кого предложат на карточку в «В работе»)
       const wtOpts = (info.refs?.worktypes || []).map((o) => ({ code: String(o.value), name: o.label }));
-      const one = (f) => (dictKey() === 'persons' && f.key === 'workTypeId' ? { key: 'workTypeIds', label: 'Виды работ', type: 'widget', wide: true, hint: 'Можно несколько. Только такие люди видны в Ганте и получают шаги этих работ.', summary: () => '',
+      const one = (f) => (key === 'persons' && f.key === 'workTypeId' ? { key: 'workTypeIds', label: 'Виды работ', type: 'widget', wide: true, hint: 'Можно несколько. Только такие люди видны в Ганте и получают шаги этих работ.', summary: () => '',
         widget: (v) => refChipsField(wtOpts, { label: 'Виды работ', value: v, multiple: true }) }
         : f === catField && catOpts.length ? { key: f.key, label: f.label, type: 'widget', wide: true, hint: f.hint || '«Для всех» — подходит любой категории', summary: () => '',
         widget: (v) => catChipsField(catOpts, { label: f.label, value: v, later: ['DIO', 'DSP'] }) }

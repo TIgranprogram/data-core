@@ -70,7 +70,7 @@ async function modules({ invoice = base(), money = true, call, confirm = true } 
     const mod = new vm.SourceTextModule(text, { context, identifier: file }); cache.set(file, mod);
     await mod.link(async (specifier) => {
       const url = new URL(specifier, new URL(file, root)); const rel = url.pathname.slice(root.pathname.length);
-      if (rel.includes('invoice-workspace') || rel === 'ui/kit/readonly.js' || rel === 'ui/kit/auto-more.js') return load(rel);
+      if (rel.includes('invoice-workspace') || rel === 'ui/kit/card-parent.js' || rel === 'ui/kit/readonly.js' || rel === 'ui/kit/auto-more.js') return load(rel);
       const match = [...text.matchAll(/import\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/g)].find((m) => m[2] === specifier);
       const names = match[1].split(',').map((name) => name.trim().split(/\s+as\s+/)[0]);
       return new vm.SyntheticModule(names, function () { for (const name of names) this.setExport(name, common[name] ?? (() => {})); }, { context });

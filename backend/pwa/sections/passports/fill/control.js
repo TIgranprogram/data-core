@@ -1,5 +1,6 @@
+import { openCard } from '../../../ui/kit/card.js';
 import { api } from '../../../core/api.js';
-import { actions, buildForm, button, enhanceSelect, field, fieldRow, hint, link, row, segmented, select, sideNote, stack, textInput, toast, toastError } from '../../../ui/kit/index.js';
+import { buildForm, button, enhanceSelect, field, fieldRow, hint, link, row, segmented, select, sideNote, stack, textInput, toast } from '../../../ui/kit/index.js';
 import { V2_NUMS, canEdit as canEditTexts } from '../common.js';
 import { patchProduct, putDefaults, setFacets } from '../funnel/api.js';
 import { jointsPick } from '../traits.js';
@@ -7,6 +8,7 @@ import { num } from './model.js';
 
 const CAT_NUMS = new Set([...V2_NUMS.map(([k]) => k), 'warrantyMonths']);
 const optsOf = (m) => (m.options || []).map((o) => [o.id, o.label]);
+const fitsElement = (d, code) => (!d.kind || d.kind === 'product') && String(d.categories || '').split(/[,;\s]+/).filter(Boolean).includes(code);
 
 /** «Похоже: … — верно?» — одна кнопка, без молчаливой записи (П-1 правило 6). Несколько id — состав изделия. */
 export function suggestRow(m, write, save) {
@@ -91,53 +93,62 @@ function elementsCombo(ctx, rows) {
   return f.el;
 }
 
-/**
- * «Нет в списке? Добавить элемент» (владелец 2026-11-12: искал «Указатель», которого в справочнике нет).
- * Короткая форма на месте: название и тексты. Элемент создаётся в справочнике «Функциональные элементы» как изделие
- * для категории этого паспорта и сразу выбирается. Только тем, кто правит общие тексты (директор, администратор).
- */
-function addElement(ctx) {
+/** Справочник открывается отдельной панелью; шаблон и незавершённый ввод остаются на месте. */
+function addElement(ctx, refresh) {
   if (!canEditTexts() || !ctx.code) return null;
-  const box = stack();
-  const closed = () => link({ label: 'Нет в списке? Добавить элемент', title: 'Новый элемент попадёт в справочник «Функциональные элементы» и сразу выберется', onClick: open });
-  function open() {
-    const form = buildForm([
-      { key: 'name', label: 'Название элемента', required: true, max: 200, wide: true, hint: 'Одно-два слова в единственном числе: «Указатель», «Скамья»' },
-      { key: 'inDescription', label: 'В описании', type: 'textarea', wide: true, max: 1000, hint: 'Фраза для раздела «Описание»' },
-      { key: 'usageRules', label: 'Правила пользования', type: 'textarea', wide: true, max: 4000, hint: 'По строке на правило; можно дописать позже' },
-    ], {});
-    const save = button({ label: 'Добавить и выбрать', kind: 'primary', size: 'S', onClick: async () => {
-      const r = form.read();
-      if (r.errors) return;
-      save.disabled = true;
-      try {
-        const v = r.values;
-        const row = await api('/dicts/passportElements', { method: 'POST', body: { name: v.name, kind: 'product', categories: ctx.code, inDescription: v.inDescription || '', usageRules: v.usageRules || '' } });
-        const id = String(row.id || row._id);
-        ctx.elRows.push(row); ctx.elNames?.set(id, row.name);
-        ctx.els.setRows(ctx.elRows);
-        const cur = (ctx.prod.passportDefaults?.elements || []).map(String);
-        if (cur.length >= 3) { toast(`Элемент «${row.name}» добавлен в справочник. Выбрано уже три — замените один из них в списке.`); box.replaceChildren(closed()); return; }
-        const list = [...cur, id];
-        ctx.els.setIds(list);
-        toast(`Элемент «${row.name}» добавлен и выбран`);
-        box.replaceChildren(closed()); // форма закрывается сразу, не дожидаясь перерисовки паспорта
-        ctx.save(() => putDefaults(ctx.prod, { elements: list }));
-      } catch (e) { toastError(e, 'добавить элемент'); save.disabled = false; }
-    } });
-    box.replaceChildren(form.el, actions(save, button({ label: 'Отмена', kind: 'ghost', size: 'S', onClick: () => box.replaceChildren(closed()) })));
-    setTimeout(() => form.focus?.(), 0);
-  }
-  box.replaceChildren(closed());
-  return box;
+  const trigger = link({
+    label: 'Нет в списке? Добавить элемент',
+    title: 'Открыть справочник «Функциональные элементы» и вернуться в шаблон',
+    onClick: () => {
+      const resume = ctx.pause();
+      let created = null;
+      const editor = {
+        id: 'dict', title: 'Функциональные элементы', newTitle: 'Новый функциональный элемент',
+        canEdit: canEditTexts, card: {},
+        form: {
+          fields: async () => {
+            const { dict } = await import('../../dicts.js');
+            editor.form.toBody = dict.form.toBody;
+            return dict.form.fields(null, 'passportElements');
+          },
+          toBody: (v) => v,
+          saveLabel: 'Сохранить и вернуться', closeAfterCreate: true,
+          create: async (body) => {
+            // После успешного POST повтор привязки не создаёт второй элемент.
+            created = created
+              ? await api(`/dicts/passportElements/${created.id || created._id}`, { method: 'PATCH', body })
+              : await api('/dicts/passportElements', { method: 'POST', body });
+            const id = String(created.id || created._id);
+            const at = ctx.elRows.findIndex((r) => String(r.id || r._id) === id);
+            if (at < 0) ctx.elRows.push(created); else ctx.elRows[at] = created;
+            ctx.elNames?.set(id, created.name);
+            ctx.els.setRows(ctx.elRows);
+            await ctx.waitForSaves();
+            const cur = (ctx.prod.passportDefaults?.elements || []).map(String);
+            const fits = fitsElement(created, ctx.code);
+            if (fits && !cur.includes(id) && cur.length < 3) await putDefaults(ctx.prod, { elements: [...cur, id] });
+            ctx.els.setIds(ctx.prod.passportDefaults?.elements || []);
+            await ctx.refreshStatus();
+            if (!fits) toast('Элемент сохранён в справочнике. Для выбора в этом паспорте нужны вид «Изделие» и категория паспорта.');
+            else if (!cur.includes(id) && cur.length >= 3) toast('Элемент сохранён в справочнике. Уже выбрано три — замените один из них.');
+            return created;
+          },
+        },
+      };
+      openCard(editor, { mode: 'create', initial: { kind: 'product', categories: ctx.code }, parent: trigger }, {
+        changed() {},
+        close: () => { resume(); if (created) refresh(); },
+      });
+    },
+  });
+  return trigger;
 }
 
 /** Элементы. Есть подсказка — одно «Да, верно», список открывается по «Другой вариант». */
 export function elementsEditor(ctx, gap) {
   const given = (gap?.options || []).map((o) => ({ id: String(o.id), label: o.label || o.name || 'без названия' }));
   // без пункта A3 (правка заполненного) — тот же отбор, что на сервере (`elementFits`): только своя категория и только изделия/снаряды
-  const fits = (d) => (!d.kind || d.kind === 'product') && String(d.categories || '').split(/[,;\s]+/).filter(Boolean).includes(ctx.code);
-  const dict = (ctx.elRows || []).filter(fits).map((d) => ({ id: String(d.id || d._id), label: d.name || 'без названия' }));
+  const dict = (ctx.elRows || []).filter((d) => fitsElement(d, ctx.code)).map((d) => ({ id: String(d.id || d._id), label: d.name || 'без названия' }));
   const rows = given.length ? given : dict;
   const note = sideNote('Укажите, что это за изделие (не больше трёх вариантов). Ниже — фраза для описания и правила пользования.');
   const write = (v) => {
@@ -146,12 +157,22 @@ export function elementsEditor(ctx, gap) {
     return putDefaults(ctx.prod, { elements: list });
   };
   const suggest = suggestRow(gap, write, ctx.save);
-  if (!rows.length) return stack(hint('Для этой категории в справочнике «Функциональные элементы» вариантов нет. Поле можно оставить пустым.'), addElement(ctx));
-  if (!suggest) return stack(note, elementsCombo(ctx, rows), addElement(ctx));
+  const editor = stack();
+  const refresh = () => {
+    const body = editor.closest('.drawer-body'); const scroll = body?.scrollTop;
+    const focused = editor.contains(document.activeElement);
+    editor.replaceChildren(elementsEditor(ctx));
+    if (body) body.scrollTop = scroll;
+    if (focused) editor.querySelector('button')?.focus({ preventScroll: true });
+  };
+  const add = () => addElement(ctx, refresh);
+  if (!rows.length) { editor.append(stack(hint('Для этой категории в справочнике «Функциональные элементы» вариантов нет. Поле можно оставить пустым.'), add())); return editor; }
+  if (!suggest) { editor.append(stack(note, elementsCombo(ctx, rows), add())); return editor; }
   let box;
-  const other = link({ label: 'Другой вариант', title: 'Выбрать элементы из списка', onClick: () => { box.replaceChildren(...[note, elementsCombo(ctx, rows), addElement(ctx)].filter(Boolean)); } });
+  const other = link({ label: 'Другой вариант', title: 'Выбрать элементы из списка', onClick: () => { box.replaceChildren(...[note, elementsCombo(ctx, rows), add()].filter(Boolean)); } });
   box = stack(note, suggest, other);
-  return box;
+  editor.append(box);
+  return editor;
 }
 
 /** Назначение. Есть подсказка — «Да, верно»; «Другой вариант» открывает шаг воронки текстов. */

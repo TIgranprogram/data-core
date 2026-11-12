@@ -1,3 +1,4 @@
+import { openCard } from '../ui/kit/card.js';
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
 import { hint, tileGrid, typeArt, typeIconList, landing, miniChart, navList, photoStrip, catArt, stat, searchBox, readonlyGroup, similarBox, posPic, posPicOf, sku, section, stack, button, iconButton, segmented, headbar, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, openPdfPreview, stageBar, headStats, clamp, funnel, planner, qtyInput, targetPicker, toast, pick, filter, table, treeTable, textInput, fieldRow, panel, entityPanel, select, fileButton, links, guide, SUPPLY_STATUS } from '../ui/kit/index.js';
@@ -227,6 +228,23 @@ export const kit = {
         panel({ kind: 'Изделие', title: 'Качели двойные', sub: 'Артикул КЧ-02', onClose: () => toast('Закрыть'),
           blocks: [{ title: 'Основное', body: h('p', { class: 'muted' }, 'Поля блока') }, { title: 'Дополнительно', body: h('p', { class: 'muted' }, 'Ещё поля') }],
           footer: [button({ label: 'Сохранить', kind: 'primary' }), button({ label: 'Отмена' })] }).el),
+      // Внутренние cardParent/registerCardParent проверяются через публичный openCard(parent).
+      block('Дочерний редактор справочника (openCard parent)', 'Введите черновик, откройте дочернюю панель и вернитесь: ввод и прокрутка остаются. Enter в многострочном поле переносит строку.',
+        button({ label: 'Проверить возврат из справочника', onClick: () => {
+          const demo = {
+            title: 'Шаблон', newTitle: 'Исходный шаблон', card: {},
+            form: { build: () => {
+              const draft = textInput({ label: 'Черновик', value: 'Не потерять при возврате' });
+              const next = button({ label: 'Добавить в справочник', onClick: () => openCard({
+                title: 'Справочник', newTitle: 'Новый элемент', card: {},
+                form: { fields: () => [{ key: 'name', label: 'Название', required: true }, { key: 'rules', label: 'Правила', type: 'textarea' }],
+                  toBody: (v) => v, create: async () => ({ id: 'demo' }), closeAfterCreate: true, saveLabel: 'Сохранить и вернуться' },
+              }, { mode: 'create', parent: next }, { close() {}, changed() {} }) });
+              return { el: stack(draft.el, next), readonly: true, dirty: () => false };
+            } },
+          };
+          openCard(demo, { mode: 'create' }, { close() {}, changed() {} });
+        } })),
       block('Правая панель v2 (entityPanel)', 'Сверху вниз: «раздел › сущность», главный блок раздела, карточки связей (сетка от 240 px, активная с рамкой), история внизу свёрнута. Нажатие на связь меняет главный блок, страница слева остаётся.',
         (() => { const p = entityPanel({ section: 'Деньги', title: 'Счёт № 4521', kind: 'Счёт', onClose: () => toast('Закрыть'), main: h('p', { class: 'muted' }, 'Главный блок: данные и кнопки раздела'), active: 'money',
           related: [{ key: 'money', title: 'Деньги', meta: 'Оплаты и график', onOpen: (r) => { p.setActive(r.key); p.setMain(h('p', null, 'Деньги')); } }, { key: 'stock', title: 'Склад', meta: 'Приёмка', count: 3, onOpen: (r) => { p.setActive(r.key); p.setMain(h('p', null, 'Склад')); } }],

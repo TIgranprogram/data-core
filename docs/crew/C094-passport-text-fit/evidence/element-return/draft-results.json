@@ -1,0 +1,32 @@
+[
+  {
+    "theme": "light",
+    "width": 1920,
+    "steps": [
+      {
+        "step": "editor",
+        "overflow": 0,
+        "scroll": 0
+      },
+      {
+        "step": "draft-preserved",
+        "overflow": 0,
+        "scroll": 484
+      }
+    ],
+    "errors": [],
+    "writes": [
+      {
+        "method": "PUT",
+        "kind": "defaults",
+        "status": 200,
+        "elements": [
+          "111111111111111111111111"
+        ]
+      }
+    ],
+    "telemetry": [],
+    "readyBefore": false,
+    "actualDraftPreserved": true
+  }
+]

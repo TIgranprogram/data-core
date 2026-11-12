@@ -1,0 +1,39 @@
+[
+  {
+    "theme": "dark",
+    "width": 375,
+    "variant": "category",
+    "steps": [
+      {
+        "step": "editor",
+        "overflow": 0,
+        "scroll": 0
+      },
+      {
+        "step": "saved-return",
+        "overflow": 0,
+        "scroll": 777
+      }
+    ],
+    "errors": [],
+    "writes": [
+      {
+        "method": "POST",
+        "kind": "element",
+        "status": 201,
+        "lines": [
+          "Первая строка правила.",
+          "Вторая строка правила."
+        ],
+        "categories": "WRK",
+        "elementKind": "product"
+      }
+    ],
+    "telemetry": [],
+    "readyBefore": false,
+    "scroll": {
+      "before": 777,
+      "after": 777
+    }
+  }
+]

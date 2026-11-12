@@ -1,3 +1,9 @@
+## C094 добавление элемента с возвратом (2026-11-12)
+коммит: готовится после независимой приёмки
+- `sections/passports/fill/control.js`: редактор существующего справочника, повтор после ошибки без дубля, максимум три подходящих элемента. `fill/index.js`: ожидание записей и защита от отложенной перерисовки.
+- `sections/dicts.js`: явный ключ справочника. `ui/kit/card.js` и внутренний `card-parent.js`: optional parent, сохранение DOM/скролла/фокуса; `sections/kit.js` — пример.
+- Отчёты: C094/ELEMENT-RETURN-FIX.md и ELEMENT-RETURN-UI.md. Рабочий стол не использовался.
+
 ## C089 компактный паспорт (2026-11-12)
 коммит: не закоммичено
 - `backend/pwa/ui/kit/index.js:281` layout.related, CSS `ui/kit/kit.css:552`, витрина `sections/kit.js:258`; паспорт `sections/passports/fill/index.js:31`, скрытие пустых групп `fill/paint.js:187`.
