@@ -1,0 +1,105 @@
+{
+  "orderKey": "36-26",
+  "productId": "6af5d441666bfe78eb421f30",
+  "emptyId": "6ae126bae36900370537a37c",
+  "results": [
+    {
+      "theme": "light",
+      "width": 375,
+      "steps": [
+        {
+          "name": "photos",
+          "left": 0,
+          "right": 360,
+          "screen": 375,
+          "overflow": 0
+        },
+        {
+          "name": "cleared",
+          "left": 0,
+          "right": 360,
+          "screen": 375,
+          "overflow": 0
+        }
+      ],
+      "errors": [],
+      "cardReadsInMenu": [],
+      "complete": true
+    },
+    {
+      "theme": "light",
+      "width": 1920,
+      "steps": [
+        {
+          "name": "photos",
+          "left": 786,
+          "right": 1050,
+          "screen": 1920,
+          "overflow": 0
+        },
+        {
+          "name": "guard"
+        },
+        {
+          "name": "cleared",
+          "left": 786,
+          "right": 1050,
+          "screen": 1920,
+          "overflow": 0
+        }
+      ],
+      "errors": [],
+      "cardReadsInMenu": [],
+      "complete": true
+    },
+    {
+      "theme": "dark",
+      "width": 375,
+      "steps": [
+        {
+          "name": "photos",
+          "left": 0,
+          "right": 360,
+          "screen": 375,
+          "overflow": 0
+        },
+        {
+          "name": "cleared",
+          "left": 0,
+          "right": 360,
+          "screen": 375,
+          "overflow": 0
+        }
+      ],
+      "errors": [],
+      "cardReadsInMenu": [],
+      "complete": true
+    },
+    {
+      "theme": "dark",
+      "width": 1920,
+      "steps": [
+        {
+          "name": "photos",
+          "left": 786,
+          "right": 1050,
+          "screen": 1920,
+          "overflow": 0
+        },
+        {
+          "name": "guard"
+        },
+        {
+          "name": "cleared",
+          "left": 786,
+          "right": 1050,
+          "screen": 1920,
+          "overflow": 0
+        }
+      ],
+      "errors": [],
+      "cardReadsInMenu": [],
+      "complete": true
+    }
+  ]
+}

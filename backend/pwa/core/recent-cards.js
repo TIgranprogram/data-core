@@ -1,11 +1,21 @@
 /** Последние просмотренные карточки: только локальные адреса, отдельный ключ каждого пользователя. */
 const word = (v) => typeof v === 'string' && /^[a-z][a-z0-9-]{0,63}$/i.test(v) ? v : '';
 const label = (v) => typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, 240) : '';
+/** Текстовый ключ допустим только у производственного заказа; он всегда кодируется URLSearchParams. */
+const recordId = (v, of) => typeof v === 'string' && (/^[a-f0-9]{24}$/i.test(v) ||
+  (of === 'salesorders' && v.trim() && v.length <= 160 && !/[\u0000-\u001f\u007f\\]/.test(v) && !v.includes('://'))) ? v : '';
+/** Только локальный файл изображения, без query, внешнего адреса и обхода каталога uploads. */
+export function recentThumb(value) {
+  if (typeof value !== 'string' || value.length > 1024) return '';
+  let path; try { path = decodeURIComponent(value); } catch { return ''; }
+  if (!/^\/(?:db\/)?uploads\/[\p{L}\p{N}_ .()/-]+\.(?:jpe?g|png|webp|gif|avif)$/iu.test(path) || path.split('/').some((s) => s === '.' || s === '..')) return '';
+  return encodeURI(path);
+}
 export function recentEntry(v) {
-  if (!v || !word(v.section) || !word(v.of) || !/^[a-f0-9]{24}$/i.test(v.id || '')) return null;
+  if (!v || !word(v.section) || !word(v.of) || !recordId(v.id, v.of)) return null;
   const title = label(v.title);
   if (!title) return null;
-  return { section: word(v.section), of: word(v.of), id: v.id, title, kind: label(v.kind),
+  return { section: word(v.section), of: word(v.of), id: v.id, title, kind: label(v.kind), ...(recentThumb(v.thumb) ? { thumb: recentThumb(v.thumb) } : {}),
     ...(word(v.tab) ? { tab: word(v.tab) } : {}), ...(word(v.d) ? { d: word(v.d) } : {}) };
 }
 const same = (a, b) => a.of === b.of && a.id === b.id && a.d === b.d;

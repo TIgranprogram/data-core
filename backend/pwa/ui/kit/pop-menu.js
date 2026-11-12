@@ -9,7 +9,7 @@ const isPhone = () => window.matchMedia?.('(max-width: 760px)').matches;
 
 export function closePopMenu(refocus = false) { if (current) current.close(refocus); }
 
-/** groups: [{ title?, items:[{ label, icon?, href?, onSelect?, danger?, sub? }], sep?: true }]; head: узел сверху (имя/роль). */
+/** groups: [{ title?, items:[{ label, icon?, lead?, href?, onSelect?, danger?, sub? }], sep?: true }]; head: узел сверху (имя/роль). */
 export function openPopMenu({ anchor, groups, head, side = 'up', cls = '' }) {
   closePopMenu();
   const phone = isPhone();
@@ -17,7 +17,7 @@ export function openPopMenu({ anchor, groups, head, side = 'up', cls = '' }) {
   const done = (refocus) => { close(refocus); };
   const mkItem = (it) => {
     const attrs = { class: 'pm-item' + (it.danger ? ' danger' : ''), role: 'menuitem', tabindex: '-1' };
-    const kids = [it.icon ? icon(it.icon) : null, h('span', { class: 'pm-lbl' }, it.label)];
+    const kids = [it.lead || (it.icon ? icon(it.icon) : null), h('span', { class: 'pm-lbl' }, it.label)];
     const el = it.href
       ? h('a', { ...attrs, href: it.href, onclick: () => done(false) }, ...kids)
       : h('button', { ...attrs, type: 'button', onclick: (e) => { e.preventDefault(); done(false); it.onSelect?.(); } }, ...kids);
