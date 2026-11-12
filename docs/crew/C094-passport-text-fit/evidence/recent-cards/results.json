@@ -1,0 +1,96 @@
+[
+  {
+    "theme": "light",
+    "width": 375,
+    "errors": [],
+    "steps": [
+      {
+        "name": "menu",
+        "left": 0,
+        "right": 360,
+        "width": 360,
+        "screen": 375
+      },
+      {
+        "name": "cleared",
+        "left": 0,
+        "right": 360,
+        "width": 360,
+        "screen": 375
+      }
+    ],
+    "complete": true
+  },
+  {
+    "theme": "light",
+    "width": 1920,
+    "errors": [],
+    "steps": [
+      {
+        "name": "menu",
+        "left": 786,
+        "right": 1050,
+        "width": 264,
+        "screen": 1920
+      },
+      {
+        "name": "dirty-guard"
+      },
+      {
+        "name": "cleared",
+        "left": 786,
+        "right": 1050,
+        "width": 264,
+        "screen": 1920
+      }
+    ],
+    "complete": true
+  },
+  {
+    "theme": "dark",
+    "width": 375,
+    "errors": [],
+    "steps": [
+      {
+        "name": "menu",
+        "left": 0,
+        "right": 360,
+        "width": 360,
+        "screen": 375
+      },
+      {
+        "name": "cleared",
+        "left": 0,
+        "right": 360,
+        "width": 360,
+        "screen": 375
+      }
+    ],
+    "complete": true
+  },
+  {
+    "theme": "dark",
+    "width": 1920,
+    "errors": [],
+    "steps": [
+      {
+        "name": "menu",
+        "left": 786,
+        "right": 1050,
+        "width": 264,
+        "screen": 1920
+      },
+      {
+        "name": "dirty-guard"
+      },
+      {
+        "name": "cleared",
+        "left": 786,
+        "right": 1050,
+        "width": 264,
+        "screen": 1920
+      }
+    ],
+    "complete": true
+  }
+]

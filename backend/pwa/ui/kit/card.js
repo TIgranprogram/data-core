@@ -18,7 +18,6 @@ import { buildCardTabs } from './card-tabs.js';
 import { makeResizable } from '../resizer.js';
 import { DOCK_MIN, getPref, setPref } from '../../core/prefs.js';
 import { isSolo, popout, setPopout, soloGeometry } from '../../core/popout.js'; // панель в отдельном окне (2026-11-10)
-
 /**
  * Карточка записи: просмотр / правка / создание (CANON §2).
  * section: title, entityType, noun, get(id); card: heading, view и необязательные subheading/stats/actions/extra/parent/startEdit/noHistory.
@@ -163,6 +162,7 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
     const histWrap = histUl ? h('details', { class: 'db-blk', hidden: true }, h('summary', null, 'История изменений'), histUl) : null; // история — внизу, всегда свёрнута (ПМ-1)
     put(histWrap, 'history');
     body.replaceChildren(...arrange(content, hasTabs));
+    ctx.viewed?.(row, titleEl.textContent, kindOf(row));
     if (histUl) loadHistory(histUl, histWrap);
 
     if (canEditSection(section) && section.form && (!section.card.editable || section.card.editable(row))) foot.append(h('button', { class: 'btn btn-primary', type: 'button', onclick: () => showForm('edit') }, section.card.editLabel || 'Изменить'));

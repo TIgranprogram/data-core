@@ -56,7 +56,7 @@ class Element {
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
-async function fixture({ pending = true, commit, solo = false } = {}) {
+async function fixture({ pending = true, commit, solo = false, viewed } = {}) {
   const body = new Element('body');
   const reports = [];
   let windowCloses = 0, geometryCalls = 0;
@@ -125,7 +125,7 @@ async function fixture({ pending = true, commit, solo = false } = {}) {
         if (pending) { calls.commit++; await commit?.(); pending = false; }
       },
     }) },
-  }, { id: '3905' }, { close: () => assert.fail('Должен открыться просмотр карточки'), changed: noop });
+  }, { id: '3905' }, { close: () => assert.fail('Должен открыться просмотр карточки'), changed: noop, viewed });
   await tick();
   const done = body.find((el) => el.localName === 'button' && el.textContent === 'Готово');
   assert.ok(done);
@@ -241,4 +241,9 @@ test('дочерняя панель в отдельном окне не насл
   await child.find((el) => el.localName === 'button' && el.textContent === '✕').click();
   assert.equal(f.windowCloses, 0);
   assert.equal(parent.hidden, false);
+});
+
+test("Успешный просмотр сообщает карточку для истории", async () => {
+ const seen=[]; await fixture({viewed:(row,title,kind)=>seen.push({id:row.id,title,kind})});
+ assert.equal(seen.length,1); assert.equal(seen[0].id,"3905"); assert.equal(seen[0].title,"Указатель");
 });
