@@ -58,6 +58,7 @@ const LAZY = {
   designsettings: [() => import('./sections/design-settings.js'), [['designsettings','designSettings']]],
   chat: [() => import('./sections/chat.js'), [['chat','chat']]],
   help: [() => import('./sections/help.js'), [['help','help']]],
+  atlas: [() => import('./sections/atlas.js'), [['atlas','atlas']]],
   shipdo: [() => import('./sections/order-shipments.js'), [['shipdo','shipdo']]],
   partners: [() => import('./sections/partners.js'), [['partners','partners']]],
   contract: [() => import('./sections/contracts.js'), [['contract','contract'],['contracts','contracts']]],
@@ -149,7 +150,7 @@ const root = $('#root');
 const isPipeRole = () => /труб[ао]рез/i.test(String(session.user?.roleLabel || '')); // «Труборез» / старое «Трубарез»; без ^ — не ломается от пробела/BOM (2026-11-09)
 const isSheetRole = () => /лазер\s+лист/i.test(String(session.user?.roleLabel || ''));
 /** Этим ролям открыт только склад: справочники, корзина и история закрыты (пользователь 2026-10-30). */
-const STOCK_ROLE_SECTIONS = new Set(['home', 'stock', 'stock-mobile', 'movements', 'help']);
+const STOCK_ROLE_SECTIONS = new Set(['home', 'stock', 'stock-mobile', 'movements', 'help', 'atlas']);
 const isStockRole = () => isPipeRole() || isSheetRole(); const adminSees = (params, v) => (session.role === 'admin' || session.user?.isOwner) && params?.view === v; // админ смотрит экраны ролей склада (2026-11-06)
 /** Фон и подпись меню склада: после входа, «Смотреть как» и обновления /me — иначе котики не появляются. */
 const stockTheme = () => { if (isPipeRole()) startRain('cats'); else if (isSheetRole()) startRain('dogs'); else stopRain(); };
@@ -270,7 +271,7 @@ function shell() {
     h('div', { class: 'gsearch' }, gsb.el, h('kbd', null, '/')),
     chatButton(),
     bellButton(),
-    h('a', { class: 'btn btn-ghost btn-icon hide-sm', href: '#help', title: 'Работа с сайтом: с чего начать', 'aria-label': 'Работа с сайтом' }, icon('help')),
+    h('a', { class: 'btn btn-ghost btn-icon hide-sm', href: '#atlas', title: 'Карта сайта: как всё устроено и связано', 'aria-label': 'Карта сайта' }, icon('help')),
     themeButton(),
     recentCardsButton(id => (NAV_IDS.has(id) || Object.hasOwn(OWNER, id)) && allowed(id)),
     avatarButton());

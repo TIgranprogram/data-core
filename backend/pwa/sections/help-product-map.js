@@ -55,7 +55,7 @@ function edgePoint(b, tx, ty) {
   return [cx + dx * k, cy + dy * k];
 }
 
-function diagram() {
+export function diagram() {
   const svg = s('svg', { viewBox: '0 0 1100 710', role: 'img', 'aria-label': 'Схема: из чего состоит изделие и куда уходят его данные' });
   svg.setAttribute('width', '100%'); // схема ужимается по ширине; на телефоне то же самое — таблицей ниже
   svg.append(s('defs', {}, ...Object.entries(EDGE).map(([k, c]) => s('marker', { id: `pm-${k}`, viewBox: '0 0 10 10', refX: '9', refY: '5', markerWidth: '7', markerHeight: '7', orient: 'auto-start-reverse' },
