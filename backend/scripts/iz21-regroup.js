@@ -44,18 +44,18 @@ const D = {
   'ПС-00806A': ['fix', 'DIO', 'высокая', 'карусель'],
   '1004': ['fix', 'TRN', 'средняя', '«Брусья жим» — тренажёр'],
   // (в) спорно — решает владелец
-  '1125': ['disp', 'WRK', 'низкая', 'армрестлинг: оставить в «Спорт оборудование» (WRK) или в «Столы» (BLG)'],
-  '1117': ['disp', 'WRK', 'низкая', 'баскетбол: DIO -> WRK (как группа) или перенос в «Детское спортивное оборудование» (DSP)'],
-  '1116': ['disp', 'WRK', 'низкая', 'то же'],
-  '1115': ['disp', 'WRK', 'низкая', 'то же'],
-  '1114': ['disp', 'WRK', 'низкая', 'то же'],
-  '1113': ['disp', 'WRK', 'низкая', 'то же'],
-  '1112': ['disp', 'WRK', 'низкая', 'то же'],
-  '1108': ['disp', 'WRK', 'низкая', 'то же'],
-  '1106': ['disp', 'WRK', 'низкая', 'то же'],
-  '3209': ['disp', 'BLG', 'низкая', '«Качели» в городских с DIO: детские или городские?'],
-  '3208': ['disp', 'BLG', 'низкая', 'то же'],
-  '3217': ['disp', 'BLG', 'низкая', 'качели с WRK: скорее BLG, проверить'],
+  '1125': ['fix', 'WRK', 'высокая', 'решение владельца: остаётся в «Спорт оборудование», категория от группы'],
+  '1117': ['fix', 'WRK', 'высокая', 'решение владельца: остаётся в «Спорт оборудование», категория от группы'],
+  '1116': ['fix', 'WRK', 'высокая', 'решение владельца: остаётся в «Спорт оборудование», категория от группы'],
+  '1115': ['fix', 'WRK', 'высокая', 'решение владельца: остаётся в «Спорт оборудование», категория от группы'],
+  '1114': ['fix', 'WRK', 'высокая', 'решение владельца: остаётся в «Спорт оборудование», категория от группы'],
+  '1113': ['fix', 'WRK', 'высокая', 'решение владельца: остаётся в «Спорт оборудование», категория от группы'],
+  '1112': ['fix', 'WRK', 'высокая', 'решение владельца: остаётся в «Спорт оборудование», категория от группы'],
+  '1108': ['fix', 'WRK', 'высокая', 'решение владельца: остаётся в «Спорт оборудование», категория от группы'],
+  '1106': ['fix', 'WRK', 'высокая', 'решение владельца: остаётся в «Спорт оборудование», категория от группы'],
+  '3209': ['move', 'Благоустройство (оборудование невошедшее в другие группы)', 'средняя', 'правило владельца: артикул 32.. = группа 32'],
+  '3208': ['move', 'Благоустройство (оборудование невошедшее в другие группы)', 'средняя', 'правило владельца: артикул 32.. = группа 32'],
+  '3217': ['move', 'Благоустройство (оборудование невошедшее в другие группы)', 'средняя', 'правило владельца: артикул 32.. = группа 32'],
   '11_12': ['disp', 'DIO', 'низкая', '«Качели» в детских с BLG: детские (DIO) или перенос в «Качели городские»'],
   '11_11': ['disp', 'DIO', 'низкая', 'то же'],
   '11_5': ['disp', 'DIO', 'низкая', 'то же'],
@@ -68,7 +68,7 @@ async function load() {
     const cats = JSON.parse(fs.readFileSync(dump + '/cats.json', 'utf8'));
     return {
       items: items.map((p) => ({ _id: p._id, sku: String(p.sku), name: p.name, cat: p.categoryId && String(p.categoryId.id || p.categoryId), pc: (p.passportDefaults || {}).passportCategory || '' })),
-      cats: cats.map((c) => ({ _id: c.id, name: c.name, parentId: c.parentId, pc: c.passportCategory || '' })),
+      cats: cats.map((c) => ({ _id: c.id, name: c.name, parentId: c.parentId, groupNo: c.groupNo, pc: c.passportCategory || '' })),
       db: null,
     };
   }
@@ -76,7 +76,7 @@ async function load() {
   const client = await new MongoClient(process.env.MONGO_URI).connect();
   const db = client.db(process.env.MONGO_DB || 'datacore');
   const cats = (await db.collection('categories').find({ type: 'product', deletedAt: null }).toArray())
-    .map((c) => ({ _id: String(c._id), name: c.name, parentId: c.parentId && String(c.parentId), pc: c.passportCategory || '' }));
+    .map((c) => ({ _id: String(c._id), name: c.name, parentId: c.parentId && String(c.parentId), groupNo: c.groupNo, pc: c.passportCategory || '' }));
   const items = (await db.collection('products').find({ deletedAt: null }).toArray())
     .map((p) => ({ _id: String(p._id), raw: p._id, sku: String(p.sku), name: p.name, cat: p.categoryId && String(p.categoryId), pc: (p.passportDefaults || {}).passportCategory || '' }));
   return { items, cats, db, client, ObjectId };
@@ -100,8 +100,40 @@ function buildPlan({ items, cats }) {
   });
 }
 
+// (г) правило владельца: первые две цифры артикула = номер группы (groupNo). Артикулы без двух цифр в начале пропускаются.
+function byArticle({ items, cats }) {
+  const byId = new Map(cats.map((c) => [c._id, c]));
+  const byNo = new Map(cats.filter((c) => c.groupNo).map((c) => [String(c.groupNo), c]));
+  const out = { rows: [], skipped: 0, ok: 0 };
+  for (const p of items) {
+    const m = p.sku.match(/^(\d{2})/);
+    if (!m) { out.skipped++; continue; }
+    const g = byId.get(p.cat);
+    if (g && String(g.groupNo) === m[1]) { out.ok++; continue; }
+    const t = byNo.get(m[1]);
+    out.rows.push({ sku: p.sku, name: p.name, _id: p._id, group: g && g.name, groupNo: g && g.groupNo, was: { cat: p.cat, pc: p.pc }, toGroup: t && t.name, toNo: m[1], newCat: t && t._id, newPc: t && p.pc === t.pc ? '' : p.pc, act: 'move' });
+  }
+  return out;
+}
+
 (async () => {
   const L = await load();
+  if (has('--by-article')) {
+    const r = byArticle(L);
+    for (const x of r.rows) console.log(`${x.sku.padEnd(16)} ${String(x.name).slice(0, 36).padEnd(36)} лежит в ${x.group} (${x.groupNo}) -> должно быть ${x.toNo} ${x.toGroup || 'ТАКОЙ ГРУППЫ НЕТ'}`);
+    const movable = r.rows.filter((x) => x.newCat && !D[x.sku]);
+    console.log(`
+совпало ${r.ok}, не совпало ${r.rows.length} (есть целевая группа: ${movable.length}), без двух цифр в начале ${r.skipped}`);
+    if (!has('--apply')) { console.log('ПЛАН. Запись — только с --apply. Много «NN_k» — старая нумерация: проверить перед записью.'); return; }
+    if (!L.db) throw new Error('--apply нужна база (MONGO_URI)');
+    if (arg('--out')) fs.writeFileSync(arg('--out'), JSON.stringify(movable.map((x) => ({ _id: x._id, sku: x.sku, categoryId: x.was.cat, passportCategory: x.was.pc })), null, 1));
+    for (const x of movable) {
+      const p = L.items.find((i) => i._id === x._id), upd = { $set: { categoryId: new L.ObjectId(x.newCat), updatedAt: new Date() } };
+      if (x.newPc) upd.$set['passportDefaults.passportCategory'] = x.newPc; else upd.$unset = { 'passportDefaults.passportCategory': '' };
+      await L.db.collection('products').updateOne({ _id: p.raw }, upd);
+    }
+    console.log('записано: ' + movable.length); await L.client.close(); return;
+  }
   const plan = buildPlan(L);
   const doApply = has('--apply'), withDisp = has('--with-disputed');
   const todo = plan.filter((r) => r.act !== 'disp' || withDisp);
