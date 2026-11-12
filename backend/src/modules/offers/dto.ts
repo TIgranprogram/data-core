@@ -96,6 +96,11 @@ export class OfferCopiesDto {
   companies!: OfferCopyCompanyDto[];
 }
 
+/** C092 (К7): текст заявки заказчика для разбора ИИ. */
+export class OfferIntakeDto {
+  @ApiProperty({ description: 'Текст заявки: письмо, список, строки из таблицы' }) @IsString() @IsNotEmpty({ message: 'Вставьте текст заявки' }) @MaxLength(20000, { message: 'Заявка длиннее 20000 знаков — разбейте её на части' }) text!: string;
+}
+
 /** C081: «Новое КП» воронкой — N КП (по числу фирм) одним вызовом; общий packId, если фирм больше одной. */
 export class OfferPackDto {
   @ApiProperty() @IsString() @IsNotEmpty({ message: 'Укажите заказчика' }) @MaxLength(300) customer!: string;

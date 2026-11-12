@@ -10874,6 +10874,42 @@
         ]
       }
     },
+    "/offers/intake": {
+      "get": {
+        "operationId": "OffersController_intakeStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      },
+      "post": {
+        "operationId": "OffersController_intakeParse",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfferIntakeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      }
+    },
     "/offers/preview": {
       "post": {
         "operationId": "OffersController_preview",
@@ -21121,6 +21157,18 @@
         },
         "required": [
           "offersOnly"
+        ]
+      },
+      "OfferIntakeDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Текст заявки: письмо, список, строки из таблицы"
+          }
+        },
+        "required": [
+          "text"
         ]
       },
       "OfferItemDto": {
