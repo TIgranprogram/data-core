@@ -21,7 +21,7 @@ const secSave = (id) => { try { if (id) sessionStorage.setItem(SEC_KEY, id); els
 export function prodFunnel() {
   const kids = (all, pid) => all.filter((g) => (pid ? g.parentId === pid : !g.parentId)).map((g) => ({ value: g.id, label: g.name, n: g.count }));
   const f = stepFunnel({
-    title: 'Раздел → серия',
+    title: 'Раздел → группа → серия',
     steps: [{ key: 'sec', label: 'Раздел', always: true, icon: (o) => { const i = h('span', { class: 'ff-ico', 'aria-hidden': 'true' }); i.innerHTML = catArt(o.label); return i; } }, { key: 'grp', label: 'Группа', when: (P) => P.sec }, { key: 'sub', label: 'Подгруппа', when: (P) => P.grp }, { key: 'series', label: 'Серия' }],
     load: async (P) => {
       const all = await groupsTree();

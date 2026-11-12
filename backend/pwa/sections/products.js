@@ -57,7 +57,7 @@ export const products = {
       extra: [{ label: 'В КП', run: (_ids, rows) => { rows.forEach(kpAdd); toast(`В КП: ${rows.length} изд. — всего ${kpCount()}`); refreshKpButtons(); } }] }, // права — canEditSection в списке
     searchPlaceholder: 'Поиск: наименование, артикул, серия…',
     emptyText: 'Изделий пока нет.', emptyHint: 'Нажмите «⇩ Загрузить каталог»: Excel с колонками Тип, Группа, Артикул, Наименование, Серия, Цена.',
-    // левая панель (NAV F3): поиск → «Тип · Группа изделий» → «Серия» → «Состояние»; цену и габариты не фильтруем
+    // левая панель (NAV F3): поиск → «Раздел → Группа» → «Серия» → «Состояние»; цену и габариты не фильтруем
     sidebar: true,
     chipsTop: true, // «Состояние» — строкой над списком, слева — только «что ищем»
     extraKeys: ['sec', 'grp', 'sub'],
@@ -98,7 +98,7 @@ export const products = {
       { key: 'pic', label: '', cls: 'pic-cell', export: false, render: (r) => { const p = pic(r.photo); p?.classList.add('pic-lg'); return p; } },
       { key: 'sku', label: 'Артикул', sort: 'sku', cls: 'nowrap', render: (r) => kitSku(r.sku) },
       { key: 'name', label: 'Название', sort: 'name', cls: 'name-2', render: (r) => h('span', { title: r.name }, r.name) },
-      { key: 'group', label: 'Тип · Группа', cls: 'md-hide', render: (r) => [r.type, r.group].filter(Boolean).join(' → ') },
+      { key: 'group', label: 'Раздел · Группа', cls: 'md-hide', render: (r) => [r.type, r.group].filter(Boolean).join(' → ') },
       { key: 'series', label: 'Серия', sort: 'series', cls: 'md-hide', render: (r) => r.series || '' },
       { key: 'price', money: true, label: 'Цена', sort: 'price', cls: 'num right', render: (r) => (r.price ? money(r.price) : h('span', { class: 'muted' }, 'нет цены')) },
     ],
@@ -133,7 +133,7 @@ export const products = {
         h('span', { class: 'muted' }, 'фото из паспорта'),
         session.canEdit ? kitButton({ label: '← своей обложкой', size: 'S', title: 'Скопировать фото из паспорта в карточку изделия — станет «своим»',
           onClick: async () => { await data.setPhotoOrder(r, [r.photo.id]); patch({}); } }) : null)] : null,
-      ['Тип оборудования', r.type], ['Группа изделий', r.group],
+      ['Раздел', r.type], ['Группа', r.group],
       grp('Характеристики'),
       ['Габариты (Д×Ш×В)', dims(r.dimensions)], ['Вес', r.weightKg ? `${qty(r.weightKg)} кг` : null], ['Ед. изм.', r.unit], ['RAL', r.ralCode],
       ['Цвета', (r.colors || []).join(', ')], ['Размеры', (r.sizes || []).join(', ')],

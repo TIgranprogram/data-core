@@ -32,7 +32,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
     if (id === 'dims') body.unshift(hint('В каждое место вставьте одно изображение. Для габаритов — один чертёж с размерами: виды спереди, сбоку и сверху можно объединить на одном листе. Отдельные места для видов доступны в варианте «Полный». Звёздочкой отмечены обязательные рисунки.'));
     secs[id] = section({ title, fixed: true, tone: 'info', body });
   }
-  const els = elementsTexts(elRows);
+  const els = elementsTexts(elRows, { canEdit: canEditTexts, onSaved: () => reload() }); // тексты элемента правятся здесь же, не в справочнике
   const elSec = section({ title: 'Тексты элементов', open: false, tone: 'neutral', body: els.el });
   const strip = h('div'); const summary = h('div'); const catSuggest = h('div'); const context = h('div');
   const pending = new Map(); const editing = new Set();

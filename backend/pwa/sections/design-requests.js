@@ -116,7 +116,7 @@ function askProduct() {
 const norm = (x) => (x === null || x === undefined ? '' : String(x).trim());
 const sameName = (a, b) => norm(a).toLowerCase() === norm(b).toLowerCase();
 
-/** «Тип → Группа» воронкой (kit.funnel, П-1): группы — только выбранного типа, с числом изделий. value поля = JSON {type, group}. */
+/** «Раздел → Группа» воронкой (kit.funnel, П-1): группы — только выбранного раздела, с числом изделий. value поля = JSON {type, group}. */
 function typeGroupWidget(fv) {
   const types = (fv.sections || []).map((x) => ({ name: norm(x.value ?? x), n: x.n })).filter((x) => x.name);
   return () => {
@@ -125,8 +125,8 @@ function typeGroupWidget(fv) {
     const steps = () => {
       const gs = type ? groupsOf(type) : [];
       return [
-        { key: 'type', label: 'Тип оборудования', ask: 'выберите тип оборудования', value: type ? String(types.findIndex((x) => x.name === type)) : '', values: types.map((x, i) => ({ id: String(i), label: x.name, count: x.n })) },
-        { key: 'group', label: 'Группа изделий', ask: 'выберите группу или оставьте без группы', optional: true, skip: !gs.length, value: group ? String(gs.findIndex((x) => x.name === group)) : '', values: gs.map((x, i) => ({ id: String(i), label: x.name, count: x.n })) },
+        { key: 'type', label: 'Раздел', ask: 'выберите раздел продукции', value: type ? String(types.findIndex((x) => x.name === type)) : '', values: types.map((x, i) => ({ id: String(i), label: x.name, count: x.n })) },
+        { key: 'group', label: 'Группа', ask: 'выберите группу или оставьте без группы', optional: true, skip: !gs.length, value: group ? String(gs.findIndex((x) => x.name === group)) : '', values: gs.map((x, i) => ({ id: String(i), label: x.name, count: x.n })) },
       ];
     };
     const f = funnel({ steps: steps(), onChange: (key, id) => {
@@ -178,7 +178,7 @@ export const designRequest = {
       return [
         { section: 'Новое изделие', tone: 'main', fixed: true },
         { key: 'name', label: 'Название', wide: true, required: true, max: 300 },
-        { key: 'tg', label: 'Тип и группа', type: 'widget', wide: true, required: true, hint: 'Сначала тип оборудования, затем группа этого типа. Число — сколько изделий уже есть', widget: typeGroupWidget(fv), summary: () => '' },
+        { key: 'tg', label: 'Раздел и группа', type: 'widget', wide: true, required: true, hint: 'Сначала раздел продукции, затем группа этого раздела. Число — сколько изделий уже есть', widget: typeGroupWidget(fv), summary: () => '' },
         { key: 'sku', label: 'Артикул', max: 64, hint: 'Оставьте пустым — будет присвоен автоматически' },
         { key: 'price', money: true, label: 'Цена', type: 'number', hint: 'Пусто — возьмётся из позиций заказов' },
         { key: 'description', label: 'Описание', type: 'textarea', wide: true, rows: 3, max: 2000 },
@@ -190,7 +190,7 @@ export const designRequest = {
     toBody: (v) => {
       if (!norm(v.name)) throw new Error('Впишите название изделия.');
       const tg = v.tg || {};
-      if (!norm(tg.type)) throw new Error('Выберите тип оборудования.');
+      if (!norm(tg.type)) throw new Error('Выберите раздел продукции.');
       const b = { name: norm(v.name), type: norm(tg.type) };
       if (norm(tg.group)) b.group = norm(tg.group);
       for (const k of ['sku', 'description']) if (norm(v[k])) b[k] = norm(v[k]);

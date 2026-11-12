@@ -53,7 +53,7 @@ function funnelOf(opts, onPick) {
     const groups = tally(ofType, 'group').filter((g) => g.name);
     const ofGroup = ofType.filter((p) => !sel.group || p.group === sel.group);
     return [
-      { key: 'type', label: 'Тип', ask: 'выберите тип оборудования', value: sel.type, values: types.map((t) => ({ id: t.name || NONE, label: t.name || NONE, count: t.n })) },
+      { key: 'type', label: 'Раздел', ask: 'выберите раздел продукции', value: sel.type, values: types.map((t) => ({ id: t.name || NONE, label: t.name || NONE, count: t.n })) },
       { key: 'group', label: 'Группа', ask: 'выберите группу или сразу изделие', optional: true, skip: !groups.length, value: sel.group, values: groups.map((g) => ({ id: g.name, label: g.name, count: g.n })) },
       { key: 'product', label: 'Изделие', ask: 'выберите изделие', value: '', values: ofGroup.map((p) => ({ id: p.value, label: p.label + (p.sub ? ` · ${p.sub}` : '') })) },
     ];

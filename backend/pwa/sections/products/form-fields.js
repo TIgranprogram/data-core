@@ -41,7 +41,7 @@ const specBody = (v, r) => {
 
 const opt = (x) => ({ value: x.value, label: x.value, sub: x.n ? `${qty(x.n)} изд.` : '' });
 const same = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
-// «Тип → Группа»: у выбранного типа есть группы — показываем только их, нет — все (с типом в подписи); одно название — один раз
+// «Раздел → Группа»: у выбранного раздела есть группы — показываем только их, нет — все (с разделом в подписи); одно название — один раз
 const groupsOf = (fv) => (get) => {
   const sec = get('type').trim(); const seen = new Set();
   const mine = sec ? fv.groups.filter((g) => same(g.section, sec)).map((g) => ({ ...opt(g), group: `Раздел «${sec}»` })) : [];
@@ -100,8 +100,9 @@ export function productForm() {
         { key: 'name', label: 'Короткое название', required: true, max: 256, span: 3, hint: 'Для списков, фильтров, поиска и паспорта' },
         { key: '_similar', type: 'widget', wide: true, summary: () => '', widget: () => ({ el: sim.el, value: '' }),
           mount: (api) => { const run = () => sim.check(api.get('name'), r?.id); api.on('name', run); run(); } },
-        { key: 'type', label: 'Тип оборудования', type: 'combo', required: true, max: 100, options: fv.sections.map(opt), hint: 'Из списка или своё; серым — сколько изделий и категория паспорта' },
-        { key: 'group', label: 'Группа изделий', type: 'combo', max: 100, options: groupsOf(fv), hint: 'Только группы выбранного типа; тип не выбран — все' },
+        // только существующие разделы (n > 0) и только из списка: «своё» название молча создавало новый раздел, а в списке были ещё и названия категорий паспорта
+        { key: 'type', label: 'Раздел', type: 'combo', required: true, max: 100, options: fv.sections.filter((x) => x.n > 0).map(opt), strict: true, strictText: 'Выберите раздел из списка', extra: () => [{ label: 'Открыть справочник групп изделий', run: () => go('dicts', { d: 'productGroups' }) }], hint: 'Тот же раздел, что в отборе слева; серым — сколько в нём изделий. Новый раздел заводят в справочнике групп' },
+        { key: 'group', label: 'Группа', type: 'combo', max: 100, options: groupsOf(fv), hint: 'Только группы выбранного раздела; раздел не выбран — все' },
         { key: 'series', label: 'Название серии', type: 'combo', max: 100, options: fv.series.map(opt), strict: true, strictText: 'Выберите серию из справочника', extra: () => [{ label: 'Открыть справочник серий', run: () => go('dicts', { d: 'productSeries' }) }], hint: 'Нет нужной — добавьте в справочнике. Справочник серий не привязан к группам' },
         { key: 'sku', label: 'Артикул', max: 64, span: 1, warn: skuTaken(r), hint: 'Оставьте пустым — присвоится по номеру группы (временный «ПС-…» заменится)', mount: skuButton(r) },
         { key: 'status', label: 'Статус', type: 'segment', options: [{ value: 'draft', label: 'Черновик' }, { value: 'active', label: 'В продаже', tone: 'ok' }, { value: 'archived', label: 'Архив' }],
@@ -225,8 +226,8 @@ export async function productBulkFields() {
   const ids = new Map(staff.map((p) => [p.label, p.value]));
   const n = (v) => (v === '' ? null : v);
   return [
-    { key: 'type', label: 'Тип оборудования', type: 'combo', options: fv.sections.map((x) => x.value), hint: 'Группа у каждого изделия останется своя' },
-    { key: 'group', label: 'Группа изделий', type: 'combo', options: fv.groups.map((g) => ({ value: g.value, label: g.value, sub: g.section })), hint: 'Тип у каждого изделия останется свой' },
+    { key: 'type', label: 'Раздел', type: 'combo', options: fv.sections.filter((x) => x.n > 0).map((x) => x.value), strict: true, strictText: 'Выберите раздел из списка', hint: 'Группа у каждого изделия останется своя' },
+    { key: 'group', label: 'Группа', type: 'combo', options: fv.groups.map((g) => ({ value: g.value, label: g.value, sub: g.section })), hint: 'Раздел у каждого изделия останется свой' },
     { key: 'series', label: 'Название серии', type: 'combo', options: fv.series.map((x) => x.value), strict: true, strictText: 'Выберите серию из справочника', extra: () => [{ label: 'Открыть справочник серий', run: () => go('dicts', { d: 'productSeries' }) }], hint: 'Нет нужной — добавьте в справочнике' },
     { key: 'status', label: 'Статус', type: 'select', options: [{ value: 'draft', label: 'Черновик' }, { value: 'active', label: 'В продаже' }, { value: 'archived', label: 'Архив' }] },
     { key: 'price', money: true, label: 'Цена, ₽ — одна для всех', type: 'number', map: n },
