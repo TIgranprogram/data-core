@@ -41,7 +41,13 @@ export function moduleVariantsBox({ value, dims = () => '' }) {
     renum();
     return it;
   }
-  const renum = () => items.forEach((it, i) => { it.row.querySelector('[data-mv-no]').textContent = `Вариант ${i + 1}`; });
+  // номер варианта — и в подписях полей (читалка различает варианты, как в rowsTable)
+  const LABELS = { name: 'Название варианта', size: 'Габариты варианта', qty: 'Количество, шт., вариант' };
+  const renum = () => items.forEach((it, i) => {
+    it.row.querySelector('[data-mv-no]').textContent = `Вариант ${i + 1}`;
+    for (const [k, l] of Object.entries(LABELS)) it.row.querySelector(`[data-mv=${k}] input`)?.setAttribute('aria-label', `${l} ${i + 1}`);
+    it.row.querySelector('.mv-head button')?.setAttribute('aria-label', `Убрать вариант ${i + 1}`);
+  });
   const filled = () => items.map((it) => it.read()).filter((m) => m.name || m.size || m.qty);
   function recount() {
     const ok = filled().filter((m) => m.name && Number.isInteger(m.qty) && m.qty > 0);
