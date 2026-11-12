@@ -142,6 +142,33 @@ describe('Sales orders (заказы заказчиков)', () => {
     await http().post(`/api/salesorders/${orderId}/restore`).set(auth()).expect(404);
   });
 
+  it('C090: обе сводки учитывают частичные и старые оплаты, исключают удалённые и отменённые позиции', async () => {
+    const paidDate = new Date('2026-11-01');
+    const cases = [
+      { name: 'частичная', fields: { paidAmount: 300 }, paid: 300, count: 1 },
+      { name: 'полная', fields: { paidDate, paidAmount: 1000 }, paid: 1000, count: 1 },
+      { name: 'старая полная', fields: { paidDate }, paid: 1000, count: 1 },
+      { name: 'дата важнее суммы', fields: { paidDate, paidAmount: 1200 }, paid: 1000, count: 1 },
+      { name: 'неоплаченная', fields: {}, paid: 0, count: 1 },
+      { name: 'нулевая оплата', fields: { paidAmount: null }, paid: 0, count: 1 },
+      { name: 'удалённая', fields: { paidAmount: 300, deletedAt: paidDate }, paid: 0, count: 0 },
+      { name: 'отменённая', fields: { paidDate, cancelledAt: paidDate }, paid: 0, count: 0 },
+    ];
+    // Сырые фикстуры сохраняют старый формат без paidAmount, который API уже пересчитывает.
+    for (const [index, test] of cases.entries()) {
+      const id = new Types.ObjectId();
+      const orderNo = `C090-payment-${index}`;
+      await db().collection('salesorders').insertOne({ _id: id, orderNo, stage: 'new', createdAt: paidDate, deletedAt: null });
+      await db().collection('incomes').insertOne({ orderId: id, title: test.name, amount: 1000, deletedAt: null, cancelledAt: null, ...test.fields });
+      const expected = { amount: 1000 * test.count, paidAmount: test.paid, lineCount: test.count };
+      for (const route of ['salesorders', 'production-orders']) {
+        const response = await http().get(`/api/${route}`).query({ search: orderNo }).set(auth()).expect(200);
+        expect(response.body.items).toHaveLength(1);
+        expect(response.body.items[0]).toMatchObject(expected);
+      }
+    }
+  });
+
   it('без входа — 401', async () => {
     await http().get('/api/salesorders').expect(401);
   });

@@ -1,6 +1,6 @@
 # Карта роли qa
 
-коммит: 205808f9 (+ незакоммиченное C086, QA 2026-11-12). Full + дельты: tsc 0, юнит 325/3794; финальная passport/PWA дельта 51/836; совокупный e2e 74/560, skip 0; строка в TEST-LOG.
+коммит: f669a462 (+ незакоммиченное C090, QA 2026-11-12). Целевой e2e 2/13 PASS; full C086 сохранён ниже.
 
 - C086: `docs/crew/C086-passports-owner-review/QA-FINAL.md:3`, пофайловые результаты `QA-EVIDENCE.json`. Права manager: `backend/test/e2e/new-endpoints-1101.e2e-spec.ts:77` preview, `:124` plan; `backend/test/e2e/passports.e2e-spec.ts:136` create/issue/user-denied, `:283` snapshot, `:305` bulk. Реальные PNG-fixtures: `passports.e2e-spec.ts:23`, `new-endpoints-1101.e2e-spec.ts:25`. Refresh uploads: `tools/night-stand.mjs:153`; реальный Docker PASS, checksum PNG сохранён при смене контейнера, собственный контур остановлен. E2E после OOM запускать группами; T26 каждый повтор требует новую disposable БД (существующая counters ломает setup). Main backend/tools SHA256 совпал с manifest-v4; UI-приёмка — отдельно.
 
@@ -31,3 +31,5 @@
 - Полный прогон 2026-11-07: pwa node --test — `find backend/pwa -name '*.test.mjs'` (** в bash не разворачивается); юнит 3059/3059 (pwa-guards больше не красный); e2e — красный только stock-catalog-atomicity (12). Ошибка «exit 0» в уведомлении фонового запуска — обёртка, читать `e2e exit N` в файле.
 - C040 summary (2026-11-07): e2e `backend/test/e2e/material-summary.e2e-spec.ts` (3: admin поля не пустые, роль user — цены null, 404); сервер — `stock/stock-summary.service.ts:26`, цена за ед. = priceHint/qty (`stock-summary.ts:34`, priceHint — сумма). openapi не перегенерирован.
 - Full 2026-11-07 (fbad1e6a, по запросу координатора): юнит 279/279 suites, 3127/3127; e2e 65/66 suites, 495/507 (Docker, datacore-test). Новые e2e ✅ с первого запуска: `order-line-plan.e2e-spec.ts` (C041), `material-summary`, `supply-catalog-bulk`. Единственный красный — `stock-catalog-atomicity` (12, гейт T26 `STOCK_CATALOG_TEST_DISPOSABLE=1` + disposable URI; падение — гейт доступа по дизайну, не ошибка кода или теста). Строка в TEST-LOG записана.
+
+- C090 (2026-11-12): docs/crew/C090-small-fixes/QA.md:2; тест backend/test/e2e/salesorders.e2e-spec.ts:145; агрегаты backend/src/modules/salesorders/salesorders.service.ts:63 и production-orders.service.ts:162. Docker Mongo4.4 loopback :27990, datacore-test-c090, 2 suites/13 tests PASS, exit 0. Одноразовый setup блокирует чтение .env; обязательно MONGO_REPLICA_SET=c090. Контейнер остановлен; full не выполнялся.

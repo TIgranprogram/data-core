@@ -159,7 +159,7 @@ export class ProductionOrdersService {
     const [agg, companies] = await Promise.all([
       ids.length ? this.connection.db!.collection('incomes').aggregate([
         { $match: { orderId: { $in: ids }, deletedAt: null, cancelledAt: null } },
-        { $group: { _id: '$orderId', lines: { $sum: 1 }, unassigned: { $sum: { $cond: [UNASSIGNED, 1, 0] } }, amount: { $sum: '$amount' }, paid: { $sum: { $cond: [{ $ifNull: ['$paidDate', false] }, '$amount', 0] } } } },
+        { $group: { _id: '$orderId', lines: { $sum: 1 }, unassigned: { $sum: { $cond: [UNASSIGNED, 1, 0] } }, amount: { $sum: '$amount' }, paid: { $sum: { $cond: [{ $ifNull: ['$paidDate', false] }, '$amount', { $ifNull: ['$paidAmount', 0] }] } } } },
       ]).toArray() : [],
       ourCompanies(this.connection),
     ]);

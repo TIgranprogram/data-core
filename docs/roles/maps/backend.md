@@ -193,3 +193,6 @@
 
 ## C086 — материалы описания PDF (2026-11-12)
 - `backend/src/modules/product-passport/passport-from-product.ts:38`: materialsText → materials; `passport-compose-parts.ts:84`: таблица → справочник → текст; `passport-v2-text.ts:126`: полный справочник для строк состава. Тест повторной сборки `passport-from-product.spec.ts:25`. 50 suites / 559 tests, tsc/eslint PASS. коммит: — (не выполнен).
+
+## C090 — частичные оплаты (2026-11-12)
+- `backend/src/modules/salesorders/salesorders.service.ts:63`, `production-orders.service.ts:162`: paidDate → amount, иначе paidAmount ?? 0; фильтры deletedAt/cancelledAt сохранены. Регрессия: `backend/test/e2e/salesorders.e2e-spec.ts:145` (8 случаев × 2 сводки). Отчёт: `docs/crew/C090-small-fixes/BACKEND.md`. коммит: — (не выполнялся).

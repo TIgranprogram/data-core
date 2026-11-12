@@ -60,7 +60,7 @@ export class SalesOrdersService {
     const ids = docs.map((d) => d._id as Types.ObjectId);
     const agg = ids.length ? await this.incomes().aggregate([
       { $match: { orderId: { $in: ids }, deletedAt: null, cancelledAt: null } },
-      { $group: { _id: '$orderId', lines: { $sum: 1 }, unassigned: { $sum: { $cond: [UNASSIGNED, 1, 0] } }, amount: { $sum: '$amount' }, paid: { $sum: { $cond: [{ $ifNull: ['$paidDate', false] }, '$amount', 0] } } } },
+      { $group: { _id: '$orderId', lines: { $sum: 1 }, unassigned: { $sum: { $cond: [UNASSIGNED, 1, 0] } }, amount: { $sum: '$amount' }, paid: { $sum: { $cond: [{ $ifNull: ['$paidDate', false] }, '$amount', { $ifNull: ['$paidAmount', 0] }] } } } },
     ]).toArray() : [];
     const sum = new Map(agg.map((a) => [String(a._id), a]));
     return docs.map((d) => {

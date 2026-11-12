@@ -1,0 +1,1 @@
+/c090-qa-mongo-20261112 running=false ports={"27017/tcp":[{"HostIp":"127.0.0.1","HostPort":"27990"}]}
