@@ -775,3 +775,15 @@ table.cal.k-tree tr.k-tree-ins > td { padding: 0; white-space: normal; text-alig
 .pm-thumb { display: grid; place-items: center; inline-size: var(--s6); block-size: var(--s6); flex: none; overflow: hidden; border-radius: var(--radius-sm); background: var(--surface-2); }
 .pm-thumb img { inline-size: 100%; block-size: 100%; object-fit: contain; }
 .pm-item .pm-lbl { min-width: 0; overflow-wrap: anywhere; }
+
+/* C095: варианты модуля в форме паспорта */
+.mv { display: flex; flex-direction: column; gap: var(--s2); }
+.mv-list { display: flex; flex-direction: column; gap: var(--s2); }
+.mv-item { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); padding: var(--s2); display: flex; flex-direction: column; gap: var(--s2); }
+.mv-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
+.mv-fields { display: grid; grid-template-columns: 2fr 2fr 1fr; gap: var(--s2); }
+.mv-f { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; }
+.mv-l { font-size: var(--fs-label); color: var(--muted); }
+.mv-foot { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s3); }
+.mv-total { margin: 0; }
+@media (max-width: 640px) { .mv-fields { grid-template-columns: 1fr; } }

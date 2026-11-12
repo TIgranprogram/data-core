@@ -296,6 +296,7 @@ export { errText } from './errors.js';
 export { mountList } from './list.js';
 export { autoMore } from './auto-more.js';
 export { qtyInput } from './qty-input.js';
+export { moduleVariantsBox } from './module-variants.js';
 export { targetPicker, targetNote, targetShort, orderLines, lineCode } from './target-picker.js';
 export { openCard } from './card.js';
 export { pick, enhanceSelect, isLong, attachCombo, tagPick, attachSuggest } from './pick.js';
