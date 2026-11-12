@@ -108,7 +108,7 @@ export function buildV2Text(input: V2TextInput): V2Text {
   const materials = pick(dicts.materials, p.materialIds as unknown[]);
   const install = (dicts.install || []).find((r) => idOf(r) === String(p.installationTypeId ?? '')) ?? null;
   // признаки изделия: справочники + «Конструкция»; условия when пунктов и дефектов смотрят на них
-  const info = collectTraits(p.joints, { elements, materials, install });
+  const info = collectTraits(p.joints, { elements, materials, install }, category);
   const pt = { ...p, [TRAITS_FIELD]: info.traits };
   const r = compose(blocks, pt, category, { standards, startNumber: legacyStartNumber(all), unknownTraits: info.unknown, usedFields: input.usedFields });
   const installParts = installText(install);

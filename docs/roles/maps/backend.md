@@ -1,4 +1,6 @@
 # Карта роли backend
+## C094 тексты паспорта по изделию (2026-11-12, не закоммичено)
+- Признаки: `common/passport/traits.ts` (users/guards/bin/bars/landing, `ELEMENT_TRAITS`, `MATERIAL_TRAITS`), `product-passport/passport-traits.ts:23` collectTraits (+category, запас «вид/материал не указан»). Скрипты данных `scripts/c094-materials.js`, `c094-traits.js`, `c094-texts-v3.js` (обёртки `deploy/synology/c094-*.sh`, пульт c094-*). Тесты `passport-fit.spec.ts`, `passport-c094-scripts.spec.ts`. Отчёт `docs/crew/C094-passport-text-fit/BACKEND.md`. коммит: —
 ## Деньги «По статьям» C084 этап 1 (2026-11-11, не закоммичено)
 - `finance/by-articles.ts` buildByArticles (`incomeRows`, `:self`, листья у всех подстатей) и `opsOfCell` (+`counterparty`/`doc`); `cashflow.ts` buildSummary `expensesByArticle`
 

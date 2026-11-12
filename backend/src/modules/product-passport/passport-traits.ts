@@ -1,4 +1,4 @@
-import { JOINT_TRAITS, PASSPORT_TRAIT_CODES, whenCodes } from '../../common/passport/traits';
+import { ELEMENT_TRAITS, JOINT_TRAITS, MATERIAL_TRAITS, PASSPORT_TRAIT_CODES, USERS_CATEGORIES, whenCodes } from '../../common/passport/traits';
 import { evalCondition, parseWhen, TRAITS_FIELD, type ExcludedItem, type PassportCondition } from './passport-compose';
 import type { DictRec } from './passport-compose-parts';
 
@@ -20,7 +20,7 @@ export interface TraitSources { elements: DictRec[]; materials: DictRec[]; insta
 
 const codesOf = (v: unknown): string[] => (Array.isArray(v) ? v : String(v ?? '').split(/[,;\s]+/)).map((x) => String(x ?? '').trim()).filter((c) => PASSPORT_TRAIT_CODES.includes(c));
 
-export function collectTraits(joints: unknown, src: TraitSources): TraitsInfo {
+export function collectTraits(joints: unknown, src: TraitSources, category = ''): TraitsInfo {
   const have = new Set<string>();
   const from: Record<string, string[]> = {};
   const add = (code: string, why: string) => {
@@ -35,6 +35,13 @@ export function collectTraits(joints: unknown, src: TraitSources): TraitsInfo {
   src.elements.forEach((r) => take('Вид изделия', r));
   src.materials.forEach((r) => take('Материал', r));
   take('Способ установки', src.install);
+  // C094: вид или материал не указан — пункты безопасности остаются; категория BLG людей не подразумевает, остальные (и пустая) — да
+  // вид изделия — запись справочника не «часть» и не «крепёж»; материал — не «покрытие»
+  const hasKind = src.elements.some((r) => !['part', 'fastener'].includes(String(r.kind ?? '')));
+  const hasMaterial = src.materials.some((r) => String(r.kind ?? '') !== 'coating');
+  if (!hasKind) for (const c of ELEMENT_TRAITS) add(c, 'Вид изделия не указан');
+  if (!hasMaterial) for (const c of MATERIAL_TRAITS) add(c, 'Материал не указан');
+  if (!category || USERS_CATEGORIES.includes(category)) add('users', category ? 'Категория паспорта' : 'Категория не указана');
   const j = (Array.isArray(joints) ? joints : []).map(String);
   for (const c of ['bolts', 'welds']) if (j.includes(c)) add(c, 'Конструкция');
   const traits = PASSPORT_TRAIT_CODES.filter((c) => have.has(c));

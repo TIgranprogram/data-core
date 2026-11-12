@@ -1,8 +1,8 @@
 import { parseJoints, parseTraits, parseWhenParts, PASSPORT_TRAITS, PASSPORT_TRAIT_CODES, whenCodes, whenProblem, WhenError } from './traits';
 
 describe('признаки паспорта (C054)', () => {
-  it('10 признаков, у каждого русская подпись без латиницы', () => {
-    expect(PASSPORT_TRAIT_CODES).toHaveLength(10);
+  it('15 признаков, у каждого русская подпись без латиницы', () => {
+    expect(PASSPORT_TRAIT_CODES).toHaveLength(15);
     for (const c of PASSPORT_TRAIT_CODES) expect(PASSPORT_TRAITS[c]).toMatch(/^[А-ЯЁ]/);
   });
 

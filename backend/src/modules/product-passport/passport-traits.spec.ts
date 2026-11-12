@@ -93,8 +93,9 @@ describe('соединения не выбраны — «неизвестно»,
 describe('collectTraits / whenVerdict / filterByWhen', () => {
   it('три состояния соединений', () => {
     expect(collectTraits(undefined, { elements: [], materials: [], install: null }).unknown).toEqual(['bolts', 'welds']);
-    expect(collectTraits(['solid'], { elements: [], materials: [], install: null })).toMatchObject({ traits: [], unknown: [] });
-    expect(collectTraits(['bolts'], { elements: [], materials: [], install: null })).toMatchObject({ traits: ['bolts'], unknown: [] });
+    expect(collectTraits(['solid'], { elements: [], materials: [], install: null })).toMatchObject({ unknown: [] });
+    expect(collectTraits(['bolts'], { elements: [], materials: [], install: null })).toMatchObject({ unknown: [] });
+    expect(collectTraits(['bolts'], { elements: [], materials: [], install: null }).traits).toContain('bolts');
     // способ установки сам несёт bolts — по нему ответ известен
     expect(collectTraits(undefined, { elements: [], materials: [], install: { name: 'Болтовое', traits: 'bolts' } }).unknown).toEqual(['welds']);
   });

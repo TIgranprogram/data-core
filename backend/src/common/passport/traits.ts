@@ -17,6 +17,11 @@ export const PASSPORT_TRAITS: Readonly<Record<string, string>> = {
   moving: 'Подвижные части',
   walkable: 'По изделию можно ходить',
   atTree: 'Приствольное размещение',
+  users: 'Изделием пользуются люди',
+  guards: 'Ограждения и поручни',
+  bin: 'Ёмкость для мусора',
+  bars: 'Перекладины, брусья, рукоходы',
+  landing: 'Зона приземления',
 };
 export const PASSPORT_TRAIT_CODES: readonly string[] = Object.keys(PASSPORT_TRAITS);
 
@@ -26,6 +31,17 @@ export const PASSPORT_JOINT_CODES: readonly string[] = Object.keys(PASSPORT_JOIN
 
 /** Признаки, про которые пока ничего не известно, если не выбраны соединения (три состояния: да / нет / неизвестно). */
 export const JOINT_TRAITS: readonly string[] = ['bolts', 'welds'];
+
+/** Категории паспорта, где изделием пользуются люди (признак users берётся из категории, не из справочника). */
+export const USERS_CATEGORIES: readonly string[] = ['TRN', 'WRK', 'DIO', 'DSP'];
+
+/**
+ * Признаки, которые даёт вид изделия. Вид не указан — пункт безопасности остаётся (решение владельца C094-2),
+ * поэтому такой паспорт получает все эти признаки: лишний пункт лучше пропавшего требования.
+ */
+export const ELEMENT_TRAITS: readonly string[] = ['moving', 'guards', 'bin', 'bars', 'landing'];
+/** То же для материала (C094-3): материал не указан — пункты на металл и древесину остаются. */
+export const MATERIAL_TRAITS: readonly string[] = ['metal', 'wood'];
 
 /** Одна часть условия: «любой из» кодов; у каждого кода признак `not` (`!код`). */
 export interface WhenAlt { code: string; not: boolean }
