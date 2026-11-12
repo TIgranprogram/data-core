@@ -1,0 +1,78 @@
+{
+  "source": "GET /api/dicts/...; prod and stand, before QA patch",
+  "group": {
+    "id": "6addd76fc93bb8ea2a6e3945",
+    "label": "Информационные стенды и указатели"
+  },
+  "prod": {
+    "element": {
+      "id": "6adb17107920f392cb442fd0",
+      "dict": "passportElements",
+      "code": "INFO_STAND",
+      "name": "Информационный стенд",
+      "kind": "product",
+      "categories": "BLG",
+      "inDescription": "стенд для размещения информации на опорах",
+      "inspect": "Крепление опор к основанию\nЦелостность информационного поля и защитного покрытия\nЧитаемость правил пользования площадкой",
+      "usageRules": "Не повисать на стенде и не раскачивать его\nОбъявления крепить только на информационное поле",
+      "traits": "",
+      "updatedAt": "2026-11-07T05:57:09.048Z"
+    },
+    "purpose": {
+      "id": "6adb5ab2edd024ba63d7f1a4",
+      "dict": "passportPhrases",
+      "name": "Информирование",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 21,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для размещения информации.",
+      "updatedAt": "2026-10-25T05:47:50.657Z"
+    },
+    "mountingP8": {
+      "version": 3,
+      "when": "concrete|bolts",
+      "text": "Во время монтажа контролируют вертикальность стоек, горизонтальность элементов и затяжку крепёжных соединений."
+    }
+  },
+  "qaBefore": {
+    "element": {
+      "id": "6adb17107920f392cb442fd0",
+      "dict": "passportElements",
+      "code": "INFO_STAND",
+      "name": "Информационный стенд",
+      "kind": "product",
+      "categories": "BLG",
+      "inDescription": "стенд для размещения информации на опорах",
+      "inspect": "Крепление опор к основанию\nЦелостность информационного поля и защитного покрытия\nЧитаемость правил пользования площадкой",
+      "usageRules": "Не повисать на стенде и не раскачивать его\nОбъявления крепить только на информационное поле",
+      "traits": "",
+      "updatedAt": "2026-11-07T05:57:09.048Z"
+    },
+    "purpose": {
+      "id": "6adb5ab2edd024ba63d7f1a4",
+      "dict": "passportPhrases",
+      "name": "Информирование",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 21,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для размещения информации.",
+      "updatedAt": "2026-10-25T05:47:50.657Z"
+    }
+  }
+}
