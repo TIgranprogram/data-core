@@ -5,6 +5,7 @@
 // Запускается только то, что есть в catalog.mjs. Подтверждение рабочего сайта проверяет сервер, не страница.
 import { spawn, execFile } from 'node:child_process';
 import crypto from 'node:crypto';
+import { testerState } from './tester.mjs';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
@@ -36,7 +37,7 @@ const STAMP = codeStamp();
 const SELF = fileURLToPath(import.meta.url);
 /** Новый процесс пульта на том же порту (окно не открывать: старое окно перезагрузится само). */
 function respawn(port) {
-  const child = spawn(process.execPath, [SELF, '--no-open', '--respawned'], { cwd: ROOT, detached: true, stdio: 'ignore', env: { ...process.env, PULT_PORT: String(port) } });
+  const child = spawn(process.execPath, [SELF, '--no-open', '--respawned'], { cwd: ROOT, detached: true, windowsHide: true, stdio: 'ignore', env: { ...process.env, PULT_PORT: String(port) } });
   child.unref();
 }
 const STATIC = { '/app.js': 'text/javascript; charset=utf-8', '/chain.mjs': 'text/javascript; charset=utf-8', '/style.css': 'text/css; charset=utf-8', '/icon.svg': 'image/svg+xml' };
@@ -200,7 +201,7 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
   }
 
   function rotateLogs() {
-    const files = fs.readdirSync(logDir).filter((f) => f.endsWith('.log')).sort();
+    const files = fs.readdirSync(logDir).filter((f) => f.endsWith('.log') && !/-ait-(run|stop|report|check|cleanup)\.log$/.test(f)).sort();
     for (const f of files.slice(0, Math.max(0, files.length - KEEP_LOGS))) fs.unlinkSync(path.join(logDir, f));
   }
 
@@ -277,6 +278,7 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     try { values = validateParams(cmd, params, prodScripts()); } catch (e) { return { status: 400, error: e.message }; }
     if ((NEEDS_CONFIRM.has(cmd.risk) || cmd.confirm) && confirmed !== true) return { status: 403, error: 'Нужно подтверждение' };
     if (cmd.word && word !== cmd.word) return { status: 403, error: `Для запуска введите слово ${cmd.word}` };
+    if (id === 'ait-run' && testerState(root, readRuns(), [...jobs.values()]).busy) return { status: 409, error: 'Проверка уже запускается или работает. Дождитесь её завершения; при обрыве откройте результаты.' };
     const spec = buildRun(cmd, values, machine, root);
     if (spec.open || spec.folder) { openExternal(spec.open || spec.folder); return { opened: true }; }
     const live = running();
@@ -414,7 +416,7 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
         pulledAt = Date.now();
         execFile('git', ['pull', '--ff-only', '--quiet'], { cwd: root, windowsHide: true }, () => {});
       }
-      return json(res, 200, { ...status, runs: brief, advice: advise(status, runs, catalog.COMMANDS, Date.now(), readTodo()), restarting: restarting || !!restartAt, pult });
+      return json(res, 200, { ...status, tester: testerState(root, runs, [...jobs.values()]), runs: brief, advice: advise(status, runs, catalog.COMMANDS, Date.now(), readTodo()), restarting: restarting || !!restartAt, pult });
     }
     if (req.method === 'GET' && url.pathname === '/api/jobs') return json(res, 200, { items: [...jobs.values()].map((j) => ({ ...summary(j), lines: j.lines })) });
     if (req.method === 'GET' && url.pathname === '/api/schedule') return json(res, 200, scheduleView());

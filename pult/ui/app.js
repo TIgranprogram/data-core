@@ -139,6 +139,58 @@ function card(c) {
   return box;
 }
 
+// Один путь проверки; установка остаётся частью существующего --detach.
+function renderTester() {
+  const t = S.status?.tester;
+  const states = {
+    empty: ['Проверок ещё нет', 'Выберите длительность и нажмите «Проверить сайт».'],
+    preparing: ['Подготовка', 'Проверяем готовность и настраиваем нужные программы. Ход подготовки — в журнале выполнения.'],
+    starting: ['Запуск отправлен', 'Ожидаем подтверждение фонового обхода. Это ещё не результат проверки.'],
+    running: ['Проверка работает', 'Обход идёт в фоне. Окно пульта можно закрыть.'],
+    stopping: ['Останавливаем проверку', 'Запрос отправлен. Ждём окончания шага и сохранения отчёта.'],
+    finished: ['Проверка закончена', 'Отчёт сохранён. Откройте результаты: там могут быть найденные ошибки.'],
+    failed: ['Подготовка или запуск не удались', 'Откройте журнал выполнения, выполните указанный там шаг и повторите «Проверить сайт».'],
+    interrupted: ['Нет сигнала от тестировщика', 'Обход мог прерваться. Откройте результаты и передайте журнал агенту; новый запуск пока закрыт.'],
+    missing: ['Нет отчёта последнего запуска', 'Запуск был отправлен, но завершение не подтверждено. Откройте журнал и передайте его агенту.'],
+  };
+  const live = [...S.jobs.values()].filter(j => j.state === 'running');
+  const preparing = S.testerPending || live.some(j => j.cmdId === 'ait-run');
+  const state = preparing ? 'preparing' : t?.state;
+  const [title, hint] = states[state] || ['Проверяем состояние…', 'Читаем сохранённые журналы.'];
+  const c = S.catalog.commands.find(x => x.id === 'ait-run');
+  const box = card(c);
+  box.classList.add('tester-main');
+  box.querySelector('h3').textContent = title;
+  box.querySelector('p').textContent = hint;
+  box.setAttribute('aria-live', 'polite');
+  const b = box.querySelector('button.run');
+  b.textContent = preparing ? 'Подготовка…' : 'Проверить сайт';
+  b.disabled = b.disabled || !t || t.busy || !!preparing;
+  b.onclick = async () => {
+    S.testerPending = true; renderTester();
+    await press(c); S.testerPending = false; await loadStatus(); renderTester();
+  };
+  const actions = el('div', 'tester-actions');
+  const report = el('button', 'ghost', 'Результаты');
+  report.onclick = () => press(S.catalog.commands.find(x => x.id === 'ait-report'));
+  actions.append(report);
+  if (t?.active) {
+    const stop = el('button', 'ghost', 'Остановить');
+    stop.disabled = t.state === 'stopping' || live.some(j => j.cmdId === 'ait-stop');
+    stop.onclick = async () => { stop.disabled = true; await press(S.catalog.commands.find(x => x.id === 'ait-stop')); await loadStatus(); };
+    actions.append(stop);
+  }
+  box.append(actions, el('p', 'tester-path', t?.report ? `Последний сохранённый отчёт: ${t.report.path}` : 'Сохранённых отчётов пока нет.'), el('p', 'tester-path', 'Ошибки и снимки: tools/logs/ai-tester · журнал запуска: pult/logs'));
+  const details = el('details', 'tester-extra');
+  details.open = !!S.testerExtra;
+  details.ontoggle = () => { S.testerExtra = details.open; };
+  details.append(el('summary', '', 'Дополнительно'));
+  const cards = el('div', 'cards');
+  cards.append(...S.catalog.commands.filter(x => x.section === 'aitester' && !['ait-run', 'ait-stop', 'ait-report'].includes(x.id) && !x.hidden).map(card));
+  details.append(cards);
+  $('cards').replaceChildren(box, details);
+}
+
 function switchCard(w) {
   const on = S.status ? !!S.status[w.state] : null;
   const live = [...S.jobs.values()].find((j) => [w.start, w.stop].includes(j.cmdId) && j.state === 'running');
@@ -283,6 +335,7 @@ function render() {
   const sec = S.catalog.sections.find((s) => s.id === S.section);
   $('title').textContent = S.query ? 'Поиск' : `${sec.icon} ${sec.title}`;
   $('subtitle').textContent = S.query ? `По запросу «${S.query}»` : sec.hint;
+  if (S.section === 'aitester' && !S.query) { renderTester(); return; }
   const list = visible();
   const box = $('cards');
   const nodes = S.query ? [] : S.catalog.switches.filter((w) => w.section === S.section).map(switchCard);
@@ -451,7 +504,7 @@ function renderTabs() {
     const j = S.jobs.get(id);
     const t = el('div', `tab ${j.state}${id === S.current ? ' on' : ''}`);
     const name = el('button', 'tab-name', j.title);
-    name.title = `${j.title}: ${STATE_TEXT[j.state]}`;
+    name.title = `${j.title}: ${jobStateText(j)}`;
     name.onclick = () => select(id);
     t.append(name);
     if (j.state !== 'running') {
@@ -486,6 +539,12 @@ function duration(j) {
   return sec < 60 ? `${sec} с` : `${Math.floor(sec / 60)} мин ${sec % 60} с`;
 }
 
+function jobStateText(j) {
+  if (j.state === 'ok' && j.cmdId === 'ait-run') return 'Фоновый запуск отправлен';
+  if (j.state === 'ok' && j.cmdId === 'ait-stop') return 'Запрос остановки отправлен';
+  return STATE_TEXT[j.state];
+}
+
 function renderHead() {
   const j = S.jobs.get(S.current);
   $('empty').hidden = !!j;
@@ -495,7 +554,7 @@ function renderHead() {
   const st = $('jobState');
   st.className = `state ${j.state}`;
   const code = j.state === 'fail' ? `, код ${j.code}` : '';
-  st.textContent = `${STATE_TEXT[j.state]}${code} · ${duration(j)}`;
+  st.textContent = `${jobStateText(j)}${code} · ${duration(j)}`;
   $('stopBtn').hidden = j.state !== 'running';
   const adv = $('advice');
   adv.hidden = !j.advice?.length;
@@ -569,11 +628,12 @@ async function loadStatus() {
     return;
   }
   if (s.restarting) { toast('Пульт обновился — перезагружаю окно…'); setTimeout(() => location.reload(), 2500); }
+  const testerChanged = JSON.stringify(S.status?.tester) !== JSON.stringify(s.tester);
   S.status = s;
   S.advice = s.advice;
   S.runs = s.runs;
   S.schedule = await api('/api/schedule').catch(() => S.schedule);
-  if (S.query || !['now', 'stand', 'auto'].includes(S.section)) renderNav(); else render();
+  if (S.query || !['now', 'stand', 'auto', 'aitester'].includes(S.section) || (S.section === 'aitester' && !testerChanged)) renderNav(); else render();
   const list = [
     s.site == null ? pill('warn', 'Прод не проверялся', 'Отдельная кнопка «Проверить прод» выполняет live-запрос') : s.site ? pill('ok', `Сайт работает${s.version ? ` · ${s.version}` : ''}`) : pill('bad', 'Сайт не отвечает', 'Запустите «Сервер сайта → Осмотр сайта»'),
     s.gateFiles.length
@@ -626,6 +686,7 @@ async function start() {
   if (S.order.length) select(S.order[S.order.length - 1]);
   loadStatus();
   setInterval(loadStatus, 60000);
+  setInterval(() => { if (S.section === 'aitester' && !document.hidden) loadStatus(); }, 5000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') loadStatus(); });
   connectEvents();
   setInterval(() => { if (S.jobs.get(S.current)?.state === 'running') renderHead(); }, 1000);
