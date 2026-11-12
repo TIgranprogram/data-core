@@ -169,7 +169,7 @@ async function standLogin(base) {
   let backend = null;
   try { backend = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/.night/current-stand.json'), 'utf8'))?.project; } catch { /* нет паспорта */ }
   if (!backend) return null;
-  const r = spawnSync('docker', ['exec', '-i', '-w', '/app', '-e', 'STAND=1', '-e', `STAND_PASSWORD=${creds.password}`, `${backend}-backend`, 'node', '-'], { input: fs.readFileSync(path.join(ROOT, 'backend/scripts/stand-test-user.js')), encoding: 'utf8', env: { ...process.env, MSYS_NO_PATHCONV: '1' } });
+  const r = spawnSync('docker', ['exec', '-i', '-w', '/app', '-e', 'STAND=1', '-e', `STAND_PASSWORD=${creds.password}`, `${backend}-backend`, 'node', '-'], { input: fs.readFileSync(path.join(ROOT, 'backend/scripts/stand-test-user.js')), encoding: 'utf8', windowsHide: true, env: { ...process.env, MSYS_NO_PATHCONV: '1' } });
   if (r.status) return null;
   return apiLogin(base, creds);
 }
@@ -217,7 +217,7 @@ async function ensureStand(base) {
     return standReady(base);
   }
   say('Стенд не запущен — запускаю его (3–10 минут)…');
-  const docker = spawnSync('docker', ['info'], { encoding: 'utf8' });
+  const docker = spawnSync('docker', ['info'], { encoding: 'utf8', windowsHide: true });
   if (docker.status) { say('❌ Docker не запущен. Откройте программу Docker Desktop, дождитесь зелёной надписи «Running» и нажмите кнопку ещё раз.'); return false; }
   const { standUp } = await import('../night.mjs');
   const code = await standUp({ say, log: () => {} });
@@ -675,17 +675,17 @@ async function main() {
   if (!(await (suppliedSession ? standReady(s.stand) : ensureStand(s.stand)))) { say(suppliedSession ? '❌ Стенд не готов.' : '❌ Стенд не поднялся.'); return 2; }
   const login = loginFromStdin || await standLogin(s.stand);
   if (!login) { say('❌ Не удалось войти на стенд. Запустите один раз «Большая проверка сайта» — она создаст вход.'); return 2; }
+  const nav = readNav();
+  if (!nav.length) { say('❌ Не нашёл меню приложения.'); return 2; }
+
+  const saved = (() => { try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch { return null; } })(); // тот же день — отчёт дописывается
+  const state = { tasks: saved?.tasks || [], findings: saved?.findings || [], garbage: new Set(), llmErrors: 0, until, tokenRenewals: saved?.tokenRenewals || 0, sessionRole: '' };
   // определяем роль: в отчёте видно, что проверяется именно менеджерский UX
   try {
     const meRes = await fetch(`${s.stand}/api/auth/me`, { headers: { Authorization: `Bearer ${login.access}` }, signal: AbortSignal.timeout(8000) });
     if (meRes.ok) { const me = await meRes.json(); state.sessionRole = me?.role || me?.user?.role || ''; say(`Вход: ${login.user?.username || 'stand-test'}, роль «${state.sessionRole || '—'}».`); }
     else say(`⚠ /api/auth/me вернул ${meRes.status} — роль неизвестна.`);
   } catch (e) { say('⚠ Не проверил роль: ' + e.message.slice(0, 60)); }
-  const nav = readNav();
-  if (!nav.length) { say('❌ Не нашёл меню приложения.'); return 2; }
-
-  const saved = (() => { try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch { return null; } })(); // тот же день — отчёт дописывается
-  const state = { tasks: saved?.tasks || [], findings: saved?.findings || [], garbage: new Set(), llmErrors: 0, until, tokenRenewals: saved?.tokenRenewals || 0, sessionRole: '' };
   const startedAt = saved?.startedAt || Date.now();
   if (saved && !resume) state.tasks.push({ at: nowTime(), title: '— новый запуск в этот же день —', result: 'получилось', steps: 0, summary: 'отчёт дописывается' });
   if (saved && resume) state.tasks.push({ at: nowTime(), title: '— обрыв: продолжил сторож —', result: 'не получилось', steps: 0, summary: 'тестировщик был прерван (перезагрузка, свет или сбой) и продолжил сам' });
