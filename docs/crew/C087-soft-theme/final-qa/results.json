@@ -1,0 +1,53 @@
+{
+  "cases": [
+    {
+      "name": "390-soft-products",
+      "status": "PASS",
+      "theme": "soft",
+      "stored": "soft",
+      "overflow": false,
+      "focus": {
+        "tag": "A",
+        "text": "Рабочее местоединая база",
+        "visible": true,
+        "outline": "rgb(16, 16, 16) auto 1px",
+        "border": "rgb(255, 255, 255)"
+      },
+      "background": "rgb(211, 213, 208)"
+    },
+    {
+      "name": "390-soft-passport",
+      "status": "PASS",
+      "theme": "soft",
+      "stored": "soft",
+      "overflow": false,
+      "focus": {
+        "tag": "BUTTON",
+        "text": "⇩ PDF и печать…",
+        "visible": true,
+        "outline": "rgb(217, 171, 51) solid 2px",
+        "border": "rgb(23, 94, 73)"
+      },
+      "background": "rgb(211, 213, 208)"
+    },
+    {
+      "name": "1440-soft-passport",
+      "status": "PASS",
+      "theme": "soft",
+      "stored": "soft",
+      "overflow": false,
+      "focus": {
+        "tag": "BUTTON",
+        "text": "⇩ PDF и печать…",
+        "visible": true,
+        "outline": "rgb(217, 171, 51) solid 2px",
+        "border": "rgb(23, 94, 73)"
+      },
+      "background": "rgb(211, 213, 208)"
+    }
+  ],
+  "errors": [],
+  "mutations": [],
+  "reloadPersisted": true,
+  "contentWrites": []
+}

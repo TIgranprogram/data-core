@@ -60,3 +60,5 @@
 - C096 четыре исправления Claude: [E4-FIX-DESIGN](../../crew/C096-passport-system-audit/E4-FIX-DESIGN.md), «Дизайнер: принято». Новый F1 длинной CTA на390 закрыт коротким текстом и2свежими снимками/light-dark; partial/возврат/категории проверены по новым evidence. Single-group и real facets live раздельно; C097/atlas на фоне исключён. Версия bc3ea81 + рабочие исправления.
 
 - C098: [UI-REVIEW](../../crew/C098-auto-pagination/UI-REVIEW.md), «Дизайнер: принято». Live30/30; целевые footer/loading/error/fallback обе темы просмотрены. Mobile40px исправлено до44px, свежий focusPNG иEnter→200 подтверждены. HEADb84781c+kit diff; atlas исключён.
+
+- C087 финальное уточнение13.11: UI-REVIEW для746933262d006f48540fa7431c436e90140fb3fb PARTIAL только из-за390softpassport кадра во времяfade;390products/1440passport просмотреныPASS, reload/focusPASS. Один устойчивый mobileкадр отложен координатором. ПроцессныйSTOPне снят.
