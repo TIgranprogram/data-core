@@ -1,5 +1,5 @@
-import { money } from '../../../core/format.js';
-import { button, hint, iconButton, qtyInput, row, searchBox, section, select, sku, stack } from '../../../ui/kit/index.js';
+import { money, parseNum } from '../../../core/format.js';
+import { button, hint, iconButton, qtyInput, row, searchBox, section, select, stack, textInput } from '../../../ui/kit/index.js';
 import { findProducts } from './api.js';
 
 /**
@@ -26,8 +26,10 @@ export function itemsStep(S, { onChange, onDone }) {
     else {
       const colors = Array.isArray(p.colors) ? p.colors.filter(Boolean) : [];
       const sizes = Array.isArray(p.sizes) ? p.sizes.filter(Boolean) : [];
+      const price = Number(S.prices?.get(String(p.id)) ?? p.price) || 0;
       S.lines.push({
-        id: p.id, sku: p.sku, name: p.name, unit: p.unit || 'шт', qty: 1, price: S.prices?.get(String(p.id)) ?? p.price ?? 0,
+        askPrice: !(price > 0), // цены нет ни в прошлом КП, ни в каталоге — спрашиваем здесь, одна на все фирмы пакета
+        id: p.id, sku: p.sku, name: p.name, unit: p.unit || 'шт', qty: 1, price,
         colors, sizes, color: p.color || colors[0] || '', size: p.size || sizes[0] || '',
         photoUrl: p.photo?.thumb || p.photo?.url || '', description: String(p.description || '').trim(),
       });
@@ -40,13 +42,17 @@ export function itemsStep(S, { onChange, onDone }) {
   warn.hidden = true;
   const done = button({ label: 'Дальше', kind: 'primary', onClick: () => { if (S.lines.some((l) => !(l.qty > 0))) { warn.textContent = 'Укажите количество больше нуля.'; warn.hidden = false; return; } onDone(); } });
   function paint() {
-    list.replaceChildren(...S.lines.map((l) => row({
-      title: l.name, meta: sku(l.sku), wrap: true,
+    list.replaceChildren(...S.lines.flatMap((l) => [row({
+      title: l.name, meta: [l.sku, l.askPrice ? '' : money(l.price)].filter(Boolean).join(' · '), wrap: true,
       side: [
         qtyInput({ value: String(l.qty), label: `Количество: ${l.name}`, onInput: (n) => { l.qty = n > 0 ? n : 0; onChange(); } }),
         iconButton({ icon: '×', label: `Убрать: ${l.name}`, size: 'S', onClick: () => { S.lines = S.lines.filter((x) => x !== l); paint(); onChange(); } }),
       ],
-    })));
+    }), l.askPrice ? textInput({
+      label: `Цена за единицу, ₽ — ${l.name}`, value: l.price > 0 ? String(l.price) : '', inputmode: 'decimal',
+      hint: 'Цены в каталоге нет. Впишите — подставится в КП всех фирм.',
+      onInput: (v) => { const n = parseNum(v); l.price = n > 0 ? n : 0; onChange(); },
+    }).el : null].filter(Boolean)));
     done.hidden = !S.lines.length; empty.hidden = !!S.lines.length; warn.hidden = true;
   }
   const el = section({ title: 'Изделия', open: true, tone: 'main', body: [stack(sb.el, found, empty, list, warn, done)] });
