@@ -42,6 +42,13 @@ const fmt = (f, v, refs) => {
 const GROUP_NAME = { 'Склад и позиции': 'Склад и продукция', 'Люди и ФОТ': 'Люди и работа', 'Заявки и счета': 'Заявки и оплата', 'Паспорта': 'Документы (паспорта)' };
 const GROUP_ORDER = ['Склад и продукция', 'Люди и работа', 'Заявки и оплата', 'Документы (паспорта)'];
 const PASS_GROUP = 'Документы (паспорта)';
+// Справочников паспортов 14 — одной лентой их приходилось вычитывать (жалоба владельца 2026-11-12). Делим по смыслу: о чём справочник.
+const PASS_SUBS = [
+  ['Паспорта · что за изделие', ['passportCategories', 'passportTypes', 'passportElements', 'passportParts', 'productFacets', 'productFacetValues']],
+  ['Паспорта · из чего сделано', ['passportMaterials', 'passportSortament']],
+  ['Паспорта · тексты и правила', ['passportPhrases', '__texts', 'passportInstall', 'passportDefects', 'passportStandards']],
+  ['Паспорта · вид документа', ['passportStyle']],
+];
 const isAdmin = () => session.role === 'admin' || session.user?.isOwner === true;
 const isLocked = (meta, r) => (meta?.locked || []).some((l) => (l.id && String(l.id) === String(r.id)) || (l.code && r.code && String(l.code) === String(r.code)));
 
@@ -49,7 +56,6 @@ export function mountDicts(params) {
   let groups = [];
   let data = null;
   let q = '';
-  const openGroups = new Set(); // свёрнутая группа «Документы», открытая вручную
   const nav = h('nav', { class: 'panel', 'aria-label': 'Справочники' });
   const title = h('h2', null, '…');
   const hintEl = hintKit('');
@@ -75,13 +81,19 @@ export function mountDicts(params) {
   }
   function renderNav() {
     const cur = dictKey();
-    const gs = menuGroups().map((g) => {
+    const gs = menuGroups().flatMap((g) => {
       const pass = g.name === PASS_GROUP;
       const here = g.items.some((d) => d.key === cur) || cur === ZONES_KEY || (pass && cur === TEXTS_KEY);
       const items = [...g.items.map((d) => ({ key: d.key, label: d.title, count: d.count }))];
       if (g.name === GROUP_ORDER[0] && isAdmin()) items.push({ key: ZONES_KEY, label: 'Склады' });
       if (pass) items.push({ key: TEXTS_KEY, label: 'Общие разделы (шаблон)' });
-      return { title: g.name, items, fold: pass, open: !pass || here || openGroups.has(g.name) };
+      if (!pass) return [{ title: g.name, items, fold: false, open: true }];
+      // подгруппы по смыслу; справочник, которого нет в раскладке, не теряется — уходит в «прочее»
+      const known = new Set(PASS_SUBS.flatMap(([, keys]) => keys));
+      const subs = PASS_SUBS.map(([title, keys]) => ({ title, items: keys.map((k) => items.find((it) => it.key === (k === '__texts' ? TEXTS_KEY : k))).filter(Boolean) }));
+      const rest = items.filter((it) => !known.has(it.key) && it.key !== TEXTS_KEY);
+      if (rest.length) subs.push({ title: 'Паспорта · прочее', items: rest });
+      return subs.filter((s) => s.items.length).map((s) => ({ ...s, fold: true, open: here }));
     });
     gs.push({ title: 'Контрагенты', items: [{ key: '#partners', label: 'Поставщики, заказчики, наши компании', href: '#partners' }] });
     nav.replaceChildren(navList({ groups: gs, value: cur, label: 'Справочники', onPick: (k) => go('dicts', { d: k }, { replace: true }) }).el);

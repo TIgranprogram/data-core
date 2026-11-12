@@ -1,7 +1,11 @@
 import { h } from '../../core/dom.js';
-import { hint, row } from '../../ui/kit/index.js';
+import { hint, link, row } from '../../ui/kit/index.js';
 
-/** Тексты справочника «Элементы» по выбранным id: фраза для описания и правила пользования. */
+const DICT = 'Функциональные элементы'; // так справочник назван в меню «Справочники → Документы (паспорта)»
+/** Ссылка в справочник в новой вкладке: паспорт остаётся открытым (жалоба владельца 2026-11-12: «не пойму, где искать»). */
+const dictLink = (label, id) => link({ label, href: '#dicts?d=passportElements' + (id ? '&of=dict&open=' + encodeURIComponent(id) : ''), target: '_blank', title: `Справочники → Документы (паспорта) → ${DICT}` });
+
+/** Тексты справочника «Функциональные элементы» по выбранным id: фраза для описания и правила пользования. */
 const asIds = (raw) => {
   if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
   try { const v = JSON.parse(raw || '[]'); return Array.isArray(v) ? v.map(String).filter(Boolean) : []; } catch { return []; }
@@ -15,7 +19,8 @@ export function elementsTexts(rows) {
   const paint = () => {
     const byId = new Map(list.map((d) => [String(d.id || d._id || ''), d]));
     if (!last.length) {
-      el.replaceChildren(hint('Элементы не выбраны. Отметьте «Что это за изделие» — здесь будут фраза для описания и правила пользования.'));
+      el.replaceChildren(hint('Элементы не выбраны. Отметьте «Что это за изделие» — здесь будут фраза для описания и правила пользования.'),
+        dictLink(`Открыть справочник «${DICT}» ↗`));
       return;
     }
     el.replaceChildren(...last.map((id) => {
@@ -26,10 +31,11 @@ export function elementsTexts(rows) {
         title: d?.name || 'Элемент не найден в справочнике',
         wrap: true,
         below: h('div', null,
-          h('p', null, desc || 'В описании текста нет — допишите в справочнике «Элементы»'),
+          h('p', null, desc || `В описании текста нет — допишите в справочнике «${DICT}».`),
           rules.length
             ? h('div', null, hint('Правила пользования'), ...rules.map((t) => h('p', null, t)))
-            : hint('Правил пользования нет')),
+            : hint('Правил пользования нет'),
+          d ? dictLink('Изменить тексты в справочнике ↗', id) : dictLink(`Открыть справочник «${DICT}» ↗`)),
       });
     }));
   };

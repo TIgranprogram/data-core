@@ -104,7 +104,7 @@ export function elementsEditor(ctx, gap) {
     return putDefaults(ctx.prod, { elements: list });
   };
   const suggest = suggestRow(gap, write, ctx.save);
-  if (!rows.length) return hint('Для этой категории в справочнике «Элементы» вариантов нет. Поле можно оставить пустым.');
+  if (!rows.length) return hint('Для этой категории в справочнике «Функциональные элементы» вариантов нет. Поле можно оставить пустым.');
   if (!suggest) return stack(note, elementsCombo(ctx, rows));
   let box;
   const other = link({ label: 'Другой вариант', title: 'Выбрать элементы из списка', onClick: () => { box.replaceChildren(note, elementsCombo(ctx, rows)); } });
