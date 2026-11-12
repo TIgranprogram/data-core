@@ -115,6 +115,20 @@ for (const file of files) {
   visit(info.sf);
 }
 
+// 3) имена без объявления и без импорта (2026-11-12: в шаге «Изделия» воронки КП забыли импорт h — форма не открывалась).
+//    Только модули: у них нет общих имён между файлами. Код 2304 — «Cannot find name».
+const modules = files.filter((f) => parsed.get(f)?.isModule);
+const program = ts.createProgram(modules, { allowJs: true, checkJs: true, noEmit: true, noResolve: true, types: [], target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext, lib: ['lib.esnext.d.ts', 'lib.dom.d.ts', 'lib.dom.iterable.d.ts', 'lib.webworker.importscripts.d.ts'] });
+const wanted = new Set(modules.map((f) => path.resolve(f)));
+for (const sf of program.getSourceFiles()) {
+  if (!wanted.has(path.resolve(sf.fileName))) continue;
+  for (const d of program.getSemanticDiagnostics(sf)) {
+    if (d.code !== 2304 && d.code !== 2552) continue;
+    const name = sf.text.slice(d.start, d.start + d.length);
+    errors.push(`${rel(path.resolve(sf.fileName))}:${sf.getLineAndCharacterOfPosition(d.start).line + 1} — имя «${name}» не объявлено и не импортировано`);
+  }
+}
+
 for (const e of errors) console.log(e);
 console.log(`импорты и синтаксис: ${files.length} файлов, ошибок ${errors.length}`);
 process.exit(errors.length ? 1 : 0);

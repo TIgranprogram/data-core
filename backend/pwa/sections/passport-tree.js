@@ -135,7 +135,7 @@ function nodeForm(r) {
   const chips = !isRoot ? catChips({ options: r.cats, value: r.categories || '', all: r.allCategories, label: 'К каким категориям подходит текст', later: LATER_CATS }) : null;
   const err = h('div', { class: 'err', hidden: true });
   const insert = (v) => { const s = ta.selectionStart ?? ta.value.length, e = ta.selectionEnd ?? s; ta.value = ta.value.slice(0, s) + v + ta.value.slice(e); ta.focus(); ta.selectionStart = ta.selectionEnd = s + v.length; };
-  const vars = h('div', { class: 'pt-vars' }, ...VARS.map((v) => h('button', { type: 'button', class: 'tag', title: 'В текст вставится ' + (v === '{std:' ? '{std:КОД}' : v), onclick: () => insert(v) }, VAR_LABELS[v] || v)));
+  const vars = h('div', { class: 'pt-vars' }, ...VARS.map((v) => h('button', { type: 'button', class: 'tag', title: `Вставить в текст: ${VAR_LABELS[v] || 'значение изделия'}`, onclick: () => insert(v) }, VAR_LABELS[v] || v)));
   // к каким изделиям: значения признаков и группы (пусто — всем изделиям категории); чужим изделиям текст не предлагается и в паспорт не идёт
   const facetPick = r.facetOpts?.length ? tagPick({ label: 'Значения признаков', options: r.facetOpts, value: r.facetValueIds || [] }) : null;
   const groupPick = r.groupOpts?.length ? tagPick({ label: 'Группы изделий', options: r.groupOpts, value: r.groupIds || [] }) : null;

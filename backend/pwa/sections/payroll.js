@@ -32,7 +32,7 @@ export const payout = sideForm({
     return { month, people, companies: l.companies || [], person: key === 'new' ? null : people.find((p) => String(p.id) === String(key)) || null, _key: key };
   },
   heading: (r) => (r.person ? 'Выплата: ' + r.person.name : 'Выплата сотруднику'),
-  subheading: (r) => label(r.month),
+  subheading: (r) => (r?.month ? label(r.month) : ''), // после сохранения карточка зовёт подзаголовок с пустой записью
   saveLabel: 'Сохранить выплату',
   fields: (r) => {
     const byId = (id) => r.people.find((p) => String(p.id) === String(id));

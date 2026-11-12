@@ -10,8 +10,8 @@ import { findProducts } from './api.js';
 const many = (a) => Array.isArray(a) && a.length > 1;
 
 export function itemsStep(S, { onChange, onDone }) {
-  const found = h('div', null);
-  const list = h('div', null);
+  const found = stack();
+  const list = stack();
   const sb = searchBox({ placeholder: 'Название или артикул изделия', minLength: 2, onSearch: async (q) => {
     if (q.trim().length < 2) { found.replaceChildren(); return; }
     const items = await findProducts(q.trim());
