@@ -1,0 +1,705 @@
+{
+  "head": "6099b3222bdb64c24259be1fe4e4718218fee119",
+  "manifestSha256": "b003f1bbf05d37c3156b573777518fffec0e3ca246a56ee1c6cef460014b20d3",
+  "manifestUnchanged": false,
+  "isolatedSnapshotMatches": true,
+  "mongoContainer": "c094-qa-mongo-c6ad3afa",
+  "mongoStopped": true,
+  "suitesExpected": 74,
+  "groups": [
+    {
+      "group": 1,
+      "exitCode": 0,
+      "suites": 8,
+      "passedSuites": 8,
+      "failedSuites": 0,
+      "skippedSuites": 0,
+      "tests": 80,
+      "passed": 80,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "test/e2e/app-sections.e2e-spec.ts",
+          "status": "passed",
+          "passed": 21,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/app-data.e2e-spec.ts",
+          "status": "passed",
+          "passed": 24,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/chain-order-to-ship.e2e-spec.ts",
+          "status": "passed",
+          "passed": 10,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/catalog-composition.e2e-spec.ts",
+          "status": "passed",
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/auth.e2e-spec.ts",
+          "status": "passed",
+          "passed": 9,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/admin-users-id.e2e-spec.ts",
+          "status": "passed",
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/audit-context.e2e-spec.ts",
+          "status": "passed",
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/audit-logs.e2e-spec.ts",
+          "status": "passed",
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "group": 2,
+      "exitCode": 0,
+      "suites": 8,
+      "passedSuites": 8,
+      "failedSuites": 0,
+      "skippedSuites": 0,
+      "tests": 56,
+      "passed": 56,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "test/e2e/control-questions.e2e-spec.ts",
+          "status": "passed",
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/chain-supply-to-stock.e2e-spec.ts",
+          "status": "passed",
+          "passed": 10,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/client-errors.e2e-spec.ts",
+          "status": "passed",
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/collections-admin-drop.e2e-spec.ts",
+          "status": "passed",
+          "passed": 10,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/chain-stock-race.e2e-spec.ts",
+          "status": "passed",
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/chat.e2e-spec.ts",
+          "status": "passed",
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/chain-payment-form.e2e-spec.ts",
+          "status": "passed",
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/collections-admin-docs.e2e-spec.ts",
+          "status": "passed",
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "group": 3,
+      "exitCode": 0,
+      "suites": 8,
+      "passedSuites": 8,
+      "failedSuites": 0,
+      "skippedSuites": 0,
+      "tests": 51,
+      "passed": 51,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "test/e2e/finance.e2e-spec.ts",
+          "status": "passed",
+          "passed": 9,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/design.e2e-spec.ts",
+          "status": "passed",
+          "passed": 10,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/device-enrollment.e2e-spec.ts",
+          "status": "passed",
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/custom-roles.e2e-spec.ts",
+          "status": "passed",
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/control-switch.e2e-spec.ts",
+          "status": "passed",
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/dicts.e2e-spec.ts",
+          "status": "passed",
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/control.e2e-spec.ts",
+          "status": "passed",
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/fill-audit.e2e-spec.ts",
+          "status": "passed",
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "group": 4,
+      "exitCode": 0,
+      "suites": 8,
+      "passedSuites": 8,
+      "failedSuites": 0,
+      "skippedSuites": 0,
+      "tests": 44,
+      "passed": 44,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "test/e2e/my-tasks.e2e-spec.ts",
+          "status": "passed",
+          "passed": 9,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/matching-assign.e2e-spec.ts",
+          "status": "passed",
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/manager-zones-auth.e2e-spec.ts",
+          "status": "passed",
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/materials.e2e-spec.ts",
+          "status": "passed",
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/key-scopes.e2e-spec.ts",
+          "status": "passed",
+          "passed": 10,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/material-summary.e2e-spec.ts",
+          "status": "passed",
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/meta.e2e-spec.ts",
+          "status": "passed",
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/me-versions.e2e-spec.ts",
+          "status": "passed",
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "group": 5,
+      "exitCode": 0,
+      "suites": 8,
+      "passedSuites": 8,
+      "failedSuites": 0,
+      "skippedSuites": 0,
+      "tests": 58,
+      "passed": 58,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "test/e2e/new-endpoints-1101.e2e-spec.ts",
+          "status": "passed",
+          "passed": 18,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/orders-cancel.e2e-spec.ts",
+          "status": "passed",
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/order-lines.e2e-spec.ts",
+          "status": "passed",
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/offers-kp2.e2e-spec.ts",
+          "status": "passed",
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/offers.e2e-spec.ts",
+          "status": "passed",
+          "passed": 9,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/order-line-plan.e2e-spec.ts",
+          "status": "passed",
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/offers-pack.e2e-spec.ts",
+          "status": "passed",
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/offers-last.e2e-spec.ts",
+          "status": "passed",
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "group": 6,
+      "exitCode": 0,
+      "suites": 8,
+      "passedSuites": 8,
+      "failedSuites": 0,
+      "skippedSuites": 0,
+      "tests": 65,
+      "passed": 65,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "test/e2e/passports.e2e-spec.ts",
+          "status": "passed",
+          "passed": 17,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/pdm-import.e2e-spec.ts",
+          "status": "passed",
+          "passed": 19,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/partners.e2e-spec.ts",
+          "status": "passed",
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/organization-assets.e2e-spec.ts",
+          "status": "passed",
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/owner-invariant.e2e-spec.ts",
+          "status": "passed",
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/passports-ready.e2e-spec.ts",
+          "status": "passed",
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/passport-traits.e2e-spec.ts",
+          "status": "passed",
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/permissions-admin.e2e-spec.ts",
+          "status": "passed",
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "group": 7,
+      "exitCode": 0,
+      "suites": 8,
+      "passedSuites": 8,
+      "failedSuites": 0,
+      "skippedSuites": 0,
+      "tests": 40,
+      "passed": 40,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "test/e2e/salesorders.e2e-spec.ts",
+          "status": "passed",
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/products-order.e2e-spec.ts",
+          "status": "passed",
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/production-orders.e2e-spec.ts",
+          "status": "passed",
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/roles-money.e2e-spec.ts",
+          "status": "passed",
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/products-attach-modules.e2e-spec.ts",
+          "status": "passed",
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/product-module-photos.e2e-spec.ts",
+          "status": "passed",
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/product-modules.e2e-spec.ts",
+          "status": "passed",
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/products.e2e-spec.ts",
+          "status": "passed",
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "group": 8,
+      "exitCode": 0,
+      "suites": 8,
+      "passedSuites": 8,
+      "failedSuites": 0,
+      "skippedSuites": 0,
+      "tests": 71,
+      "passed": 71,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "test/e2e/stock-supply.e2e-spec.ts",
+          "status": "passed",
+          "passed": 22,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/showcase.e2e-spec.ts",
+          "status": "passed",
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/stock-scope.e2e-spec.ts",
+          "status": "passed",
+          "passed": 14,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/stock-zones.e2e-spec.ts",
+          "status": "passed",
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/shipments.e2e-spec.ts",
+          "status": "passed",
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/stock-items-bulk.e2e-spec.ts",
+          "status": "passed",
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/supplier-catalog-ux.e2e-spec.ts",
+          "status": "passed",
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/search-empty.e2e-spec.ts",
+          "status": "passed",
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "group": 9,
+      "exitCode": 0,
+      "suites": 8,
+      "passedSuites": 8,
+      "failedSuites": 0,
+      "skippedSuites": 0,
+      "tests": 62,
+      "passed": 62,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "test/e2e/supply-invoices.e2e-spec.ts",
+          "status": "passed",
+          "passed": 10,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/trash-lists.e2e-spec.ts",
+          "status": "passed",
+          "passed": 15,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/supplier-contracts.e2e-spec.ts",
+          "status": "passed",
+          "passed": 9,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/trash-docs-orders.e2e-spec.ts",
+          "status": "passed",
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/work-facts.e2e-spec.ts",
+          "status": "passed",
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/work.e2e-spec.ts",
+          "status": "passed",
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/user-organizationId.e2e-spec.ts",
+          "status": "passed",
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "test/e2e/supply-catalog-bulk.e2e-spec.ts",
+          "status": "passed",
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "group": 10,
+      "exitCode": 0,
+      "suites": 1,
+      "passedSuites": 1,
+      "failedSuites": 0,
+      "skippedSuites": 0,
+      "tests": 12,
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "test/e2e/stock-catalog-atomicity.e2e-spec.ts",
+          "status": "passed",
+          "passed": 12,
+          "failed": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "group": 11,
+      "exitCode": 0,
+      "suites": 1,
+      "passedSuites": 1,
+      "failedSuites": 0,
+      "skippedSuites": 0,
+      "tests": 22,
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "test/reset-password.e2e-spec.ts",
+          "status": "passed",
+          "passed": 22,
+          "failed": 0,
+          "skipped": 0
+        }
+      ]
+    }
+  ],
+  "finalManifestSha256": "1eac33b8080ddd6c266c679c908322dc748b10bfb6bff95994d1b7a8af4a89e7",
+  "sourceDelta": [
+    "src/modules/product-passport/passport-gaps.spec.ts",
+    "src/modules/product-passport/passport-gaps.ts"
+  ],
+  "runtimeEmitWithoutCommentsMatches": true,
+  "outerRunnerExit": 1,
+  "outerRunnerExitReason": "Контроль манифеста заметил добавленный регрессионный тест и комментарий. Повторная сверка исключила прочие отличия; transpile без комментариев совпал.",
+  "unit": {
+    "fullSuites": 328,
+    "fullTests": 3836,
+    "log": "tools/logs/20261112-120257-check.log",
+    "regression3905": true
+  },
+  "typecheck": {
+    "exitCode": 0
+  },
+  "eslint": {
+    "errors": 0,
+    "warnings": 6,
+    "rule": "@typescript-eslint/no-explicit-any"
+  }
+}

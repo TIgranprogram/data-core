@@ -232,7 +232,13 @@ export class PassportPdfService {
       const buf = await this.file(url.get(String(i.photoId)));
       // safety (форма, v1) = safety_zone (v2): иначе зона безопасности печаталась в «Инструкции по монтажу»; без вида — общий вид
       const k = i.kind === 'safety' ? 'safety_zone' : i.kind || 'overview';
-      if (buf) (byKind[k] ||= []).push({ buf, caption: i.caption, refCode: i.refCode });
+      if (buf) {
+        // Габаритный PNG часто содержит поля целого листа САПР. Убираем их только в копии для PDF.
+        const image = k === 'dimensions'
+          ? await sharp(buf).trim({ background: '#ffffff', threshold: 24 }).jpeg({ quality: 90 }).toBuffer().catch(() => buf)
+          : buf;
+        (byKind[k] ||= []).push({ buf: image, caption: i.caption, refCode: i.refCode });
+      }
     }
     // стандартные схемы узлов способа установки — по видам, где своих нет (Э9.5)
     {

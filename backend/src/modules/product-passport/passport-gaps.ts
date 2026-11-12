@@ -133,7 +133,7 @@ export async function productGaps(svc: Checker, db: mongo.Db, id: string) {
   // признаки категории без значения у изделия
   const { facets, values } = await loadFacets(db);
   const have = new Set(((prod.facetValueIds as unknown[]) ?? []).map(String));
-  // C086: тип изделия — выбранное назначение, уже указанный признак типа или группа каталога; подсказка по названию типом не считается
+  // C086: тип изделия — выбранное назначение, конкретная группа каталога или запасной признак типа; подсказка по названию типом не считается
   const facetCodes = facets.filter((f) => values.some((v) => v.parentId === f.id && have.has(v.id))).map((f) => f.code);
   const untyped = productType(code, { facetCodes, group });
   const purpose = await purposeState(db, prod, code, group, untyped.needed && !untyped.known);

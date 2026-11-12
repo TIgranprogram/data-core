@@ -123,7 +123,7 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
     const h = textH(font, size, s, Wd - indent) + 1.6;
     place(h, (d, yy) => d.font(font).fontSize(size).fillColor('#000').text(s, L + indent, yy, { width: Wd - indent, lineGap: 0.6 }));
   };
-  const table = (title: string, cols: string[], widths: number[], rows: Cell[][], cellSize = 8) => {
+  const table = (title: string, cols: string[], widths: number[], rows: Cell[][], cellSize = 8, keepTogether = false) => {
     const ws = widths.map((w) => (w / widths.reduce((a, b) => a + b, 0)) * Wd);
     doc.font('gost-i').fontSize(7.2);
     const headH = Math.max(18, ...cols.map((c, i) => doc.heightOfString(c, { width: ws[i] - 4 }) + 6));
@@ -134,11 +134,14 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
       cols.forEach((c, i) => { d.rect(x, yy, ws[i], headH).stroke(); d.font('gost').fontSize(7.2).fillColor('#000').text(c, x + 2, yy + 3, { width: ws[i] - 4, align: 'center' }); x += ws[i]; });
       d.lineWidth(0.75).strokeColor('#000').moveTo(L, yy + headH).lineTo(L + Wd, yy + headH).stroke();
     };
-    place(titleH, (d, yy) => d.font('gost').fontSize(9).fillColor('#000').text(title, L, yy, { width: Wd }), headH + 30);
+    doc.font('gost-i').fontSize(cellSize);
+    const heights = rows.map((r) => Math.max(15, ...r.map((c, i) => (typeof c === 'string' ? (c ? doc.heightOfString(c, { width: ws[i] - 6 }) + 6 : 0) : 'h' in c ? c.h + 4 : 0))));
+    const rowsH = heights.reduce((sum, h) => sum + h, 0);
+    const keep = keepTogether && titleH + headH + rowsH <= Btm - T ? rowsH : 30;
+    place(titleH, (d, yy) => d.font('gost').fontSize(9).fillColor('#000').text(title, L, yy, { width: Wd }), headH + keep);
     place(headH, drawHead);
-    for (const r of rows) {
-      doc.font('gost-i').fontSize(cellSize);
-      const h = Math.max(15, ...r.map((c, i) => (typeof c === 'string' ? (c ? doc.heightOfString(c, { width: ws[i] - 6 }) + 6 : 0) : 'h' in c ? c.h + 4 : 0)));
+    for (const [index, r] of rows.entries()) {
+      const h = heights[index];
       if (y + h > Btm) { newPage(); place(headH, drawHead); }
       place(h, (d, yy) => {
         let x = L;
@@ -251,7 +254,7 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   table(`Таблица ${tab.get('storage')} — Сведения о хранении`, ['Дата установки на хранение', 'Дата снятия с хранения', 'Условия хранения', 'Должность, ФИО, подпись ответственного лица'], [18, 18, 34, 30], blank(9));
   table(`Таблица ${tab.get('faults')} — Учёт неисправностей`, ['Дата', 'Вид неисправности', 'Принятые меры', 'Должность, ФИО, подпись ответственного лица'], [14, 30, 30, 26], blank(9));
   table(`Таблица ${tab.get('service')} — Журнал технического обслуживания`, ['Дата', 'Вид работ (осмотр, обслуживание)', 'Результат, выполненные работы', 'Должность, ФИО, подпись ответственного лица'], [14, 30, 30, 26], blank(6));
-  table(`Таблица ${tab.get('repairs')} — Журнал ремонтов`, ['Дата', 'Вид ремонта', 'Заменённые части', 'Исполнитель: должность, ФИО, подпись'], [14, 30, 30, 26], blank(6));
+  table(`Таблица ${tab.get('repairs')} — Журнал ремонтов`, ['Дата', 'Вид ремонта', 'Заменённые части', 'Исполнитель: должность, ФИО, подпись'], [14, 30, 30, 26], blank(6), 8, true);
 
   // Рисунки «по месту», которые не встали (ссылка только в непоказанном абзаце), и очередь — до приложений
   for (const [k, list] of figs.inline) if (!placedKinds.has(k)) { placedKinds.add(k); pending.push(...list); }

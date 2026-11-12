@@ -107,7 +107,8 @@ export function planFigures(texts: string[], rawImages: Partial<Record<string, P
     const ordered = kinds.map((k, ki) => ({ k, ki, r: firstRef(k) })).sort((a, b) => (a.r - b.r) || (a.ki - b.ki));
     const figs: PlannedFig[] = [];
     for (const { k } of ordered) (images[k] || []).forEach((img, i) => figs.push(mk(k, img, i)));
-    appendices.push({ title: g.title, perPage: g.perPage, figs });
+    const singleDimensions = g.key === 'views' && figs.length === 1 && figs[0].kind === 'dimensions';
+    appendices.push({ title: g.title, perPage: singleDimensions ? 1 : g.perPage, figs });
   }
   return { appendices, inline, fig };
 }

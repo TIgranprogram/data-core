@@ -21,10 +21,10 @@ const install = { _id: oid(), dict: 'passportInstall', code: 'EMBEDDED', name: '
 const dictRows: Row[] = [...fv, ...kinds, install,
   { _id: oid(), dict: 'passportCategories', code: 'TRN', name: 'Уличный тренажёр', deletedAt: null }];
 
-function fakeDb(product: Row | null) {
+function fakeDb(product: Row | null, category: Row | null = null) {
   return {
     collection: (name: string) => ({
-      findOne: async () => (name === 'products' ? product : null),
+      findOne: async () => (name === 'products' ? product : name === 'categories' ? category : null),
       find: (q: Row) => ({ toArray: async () => (name === 'dict_values' ? dictRows.filter((r) => (q.dict && typeof q.dict === 'object' ? ((q.dict as { $in: string[] }).$in).includes(r.dict as string) : r.dict === q.dict)) : []) }),
     }),
   } as never;
@@ -75,6 +75,21 @@ describe('C086: применимость в «чего не хватает» (б
   const run = async (prod: Row) => { dictRows.push(...rows); try { return await productGaps(blg, fakeDb(prod), String(prod._id)); } finally { for (const r of rows) dictRows.splice(dictRows.indexOf(r), 1); } };
   const facetKeys = (r: { missing: Array<{ key: string; kind: string }> }) => r.missing.filter((m) => m.kind === 'facet').map((m) => m.key);
   const pd = (extra: Row = {}) => ({ passportCategory: 'BLG', ...extra });
+
+  it('3905: группа указателей перекрывает старую спинку, сохраняет подсказку назначения', async () => {
+    const oldRail = rows.find((r) => r.parentId === rail._id)!;
+    const group = { _id: oid(), name: 'Информационные стенды и указатели', parentId: oid() };
+    const prod = { _id: oid(), name: 'Арт объект Деревянные указатели', categoryId: group._id,
+      facetValueIds: [oldRail._id], passportDefaults: pd() };
+    dictRows.push(...rows);
+    try {
+      const r = await productGaps(blg, fakeDb(prod, group), String(prod._id));
+      expect(r.applicable!.type).toMatchObject({ code: 'other', source: 'group' });
+      expect(facetKeys(r)).toEqual(['blg.material']);
+      expect(r.missing.find((m) => m.kind === 'purpose')?.suggest?.label).toBe('Информирование');
+      expect(prod.facetValueIds).toEqual([oldRail._id]);
+    } finally { for (const row of rows) dictRows.splice(dictRows.indexOf(row), 1); }
+  });
 
   it('указатель, назначение подтверждено: только материал; без ограждения, мест, сиденья и перил', async () => {
     const r = await run({ _id: oid(), name: 'Деревянные указатели 1100х1200 (смета)', passportDefaults: pd({ textChoices: { [String(root._id)]: String(info._id) } }) });

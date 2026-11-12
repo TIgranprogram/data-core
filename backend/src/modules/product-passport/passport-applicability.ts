@@ -51,7 +51,7 @@ const FACET_TYPES: Record<string, readonly BlgType[]> = {
 export interface ProductType { code: BlgType | null; label: string | null; source: 'purpose' | 'facet' | 'group' | null; known: boolean; needed: boolean }
 
 /**
- * Тип изделия. Порядок: выбранное назначение → уже указанный признак типа → группа каталога.
+ * Тип изделия. Порядок: выбранное назначение → группа каталога → уже указанный признак типа.
  * Категории, кроме BLG, типа не требуют (`needed: false`). Подсказка по названию типом не считается, пока её не подтвердили.
  */
 export function productType(code: string, src: { purposeName?: string; facetCodes?: string[]; group?: string }): ProductType {
@@ -59,12 +59,13 @@ export function productType(code: string, src: { purposeName?: string; facetCode
   const hit = (t: BlgType, source: ProductType['source']): ProductType => ({ code: t, label: BLG_TYPE_LABELS[t], source, known: true, needed: true });
   const byPurpose = TYPE_BY_PURPOSE[String(src.purposeName ?? '').trim()];
   if (byPurpose) return hit(byPurpose, 'purpose');
+  // Конкретная группа сильнее старых признаков, оставшихся после переноса изделия.
+  const g = String(src.group ?? '').trim();
+  for (const [re, t] of TYPE_BY_GROUP) if (re.test(g)) return hit(t, 'group');
   for (const fc of src.facetCodes ?? []) {
     const types = FACET_TYPES[fc];
     if (types?.length === 1) return hit(types[0], 'facet');
   }
-  const g = String(src.group ?? '').trim();
-  for (const [re, t] of TYPE_BY_GROUP) if (re.test(g)) return hit(t, 'group');
   return { code: null, label: null, source: null, known: false, needed: true };
 }
 

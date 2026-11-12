@@ -25,6 +25,19 @@ describe('C086: тип изделия благоустройства', () => {
   it('выбранное назначение сильнее группы', () => {
     expect(productType('BLG', { purposeName: 'Информирование', group: 'Ограждения' }).code).toBe('other');
   });
+  it.each([
+    ['Информационные стенды и указатели', 'blg.rail', 'other'],
+    ['Ограждения', 'blg.seat', 'fence'],
+    ['Скамьи', 'blg.fence', 'seating'],
+  ])('группа %s сильнее старого признака %s', (group, facet, expected) => {
+    const type = productType('BLG', { group, facetCodes: [facet] });
+    expect(type).toMatchObject({ code: expected, source: 'group', known: true });
+    expect(facetApplies(facet, type)).toBe(false);
+  });
+  it('широкая группа сохраняет определение по признакам', () => {
+    expect(productType('BLG', { group: 'Благоустройство', facetCodes: ['blg.seat'] }))
+      .toMatchObject({ code: 'seating', source: 'facet' });
+  });
 });
 
 describe('C086: признаки по типу', () => {

@@ -1,0 +1,22 @@
+{
+  "pages": 11,
+  "repairs": [
+    {
+      "page": 9,
+      "table_rows_with_header": 7,
+      "row_y": [
+        272.15,
+        293.21,
+        313.21,
+        333.21,
+        353.21,
+        373.21,
+        393.21
+      ],
+      "table_bottom": 413.208984375,
+      "page_height": 595.280029296875
+    }
+  ],
+  "dimensions": [],
+  "outside": []
+}

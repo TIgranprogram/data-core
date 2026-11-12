@@ -83,6 +83,12 @@ describe('PDF паспорта v2 (БЗ-6 Э6)', () => {
     if (process.env.PROBE_PDF) require('fs').writeFileSync(process.env.PROBE_PDF, pdf);
   });
 
+  it('один габаритный чертёж занимает весь лист приложения', async () => {
+    const buf = await png(300, 200, '#fff');
+    const plan = planFigures([], { dimensions: [{ buf }] });
+    expect(plan.appendices[0]).toMatchObject({ title: 'Габаритные размеры и виды', perPage: 1 });
+  });
+
   it('оформление: цвет категории или нейтральный, пиктограммы с {maxUsers}, «нет» — выключено', () => {
     const rows = [
       { kind: 'цвет категории', category: 'DIO', color: '#2E7D32', use: 'да' },
