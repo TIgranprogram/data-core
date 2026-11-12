@@ -51,6 +51,8 @@ test('упавшая выкладка — срочно, если код ещё �
   const runs = { ...allFresh, 'deploy-release': { at: NOW - 1000, code: 1, last: 'ВОРОТА: СТОП' } };
   assert.equal(find(plan({ undeployed: 2, version: 'abc' }, runs), 'deploy-release').level, 'urgent');
   assert.ok(!find(plan({ undeployed: 0, version: 'abc' }, runs), 'deploy-release'), 'сайт уже свежий — не тревожить');
+  assert.ok(!find(plan({ undeployed: 0, version: undefined }, runs), 'deploy-release'), 'без версии сайта не предлагать повтор');
+  assert.ok(!find(plan({ undeployed: 2, version: 'abc', gateFiles: ['backend/a.ts'] }, runs), 'deploy-release'), 'закрытые ворота не предлагать обойти');
 });
 
 test('поручение выложить уходит само, когда код уже на сайте', () => {

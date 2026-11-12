@@ -53,7 +53,9 @@ export function advise(s, runs, commands, now = Date.now(), todo = []) {
   const doctor = runs['prod-doctor'];
   if (doctor?.bad?.length) add('urgent', 'prod-doctor', `Прошлый осмотр нашёл: ${cut(doctor.bad[0], 130)} Передайте это Claude, затем повторите осмотр.`);
   const release = runs['deploy-release'];
-  if (release && release.code !== 0 && !siteHasCurrentCode(s)) add('urgent', 'deploy-release', `Выкладка не прошла: ${cut(release.last || 'причина в журнале', 130)}`);
+  if (release && release.code !== 0 && s.version && s.undeployed > 0 && !gateFiles.length) {
+    add('urgent', 'deploy-release', `Выкладка не прошла: ${cut(release.last || 'причина в журнале', 130)}`);
+  }
   if (s.route === null) add('urgent', 'setup-work', 'На этом ПК нет ключа входа на сервер. Кнопки сервера не работают.');
 
   const open = todo.filter((t) => !todoDone(t, runs, s));
