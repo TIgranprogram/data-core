@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // dc — одна команда вместо россыпи шагов. Без зависимостей, на обоих ПК.
-//   node tools/dc.mjs start | errors [часы] | check | data | status | logs [имя]
+//   node tools/dc.mjs start | errors [часы] | check | data | status | logs [имя] | atlas [блок|слово] [--json]
 //                     full (полная проверка одной кнопкой) · audit [last] (большая проверка сайта) · order (порядок интерфейса одной строкой) · stand [up|down|status] (ночной стенд на копии прода) | night [--quick] (ночной прогон в worktree)
 // Полный вывод — tools/logs/<дата-время>-<команда>.log, в консоль — короткий итог (до 15 строк).
 // Коды выхода: 0 норма · 1 есть находки · 2 сбой инструмента.
@@ -9,7 +9,7 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { cmdStand, cmdNight } from './night.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -168,7 +168,47 @@ function step(label, cmd, args, opts) {
   return r;
 }
 
-function cmdCheck() {
+// ---------- «Карта сайта» (C097): сводка блока для ИИ и проверка карты ----------
+const atlasMod = () => import(pathToFileURL(path.join(ROOT, 'backend/pwa/sections/atlas-brief.js')).href);
+
+/** Проверка карты: структура (atlas-brief) + файлы кода, документы, адреса разделов, «код новее карты». */
+export async function atlasCheck() {
+  const m = await atlasMod();
+  const { NODES } = await import(pathToFileURL(path.join(ROOT, 'backend/pwa/sections/atlas-data.js')).href);
+  const errors = m.atlasProblems(), warns = [];
+  const mainJs = fs.readFileSync(path.join(ROOT, 'backend/pwa/main.js'), 'utf8');
+  const gitTime = (paths) => Number(run('git', ['log', '-1', '--format=%ct', '--', ...paths]).stdout.trim()) || 0;
+  const mapTime = gitTime(['backend/pwa/sections/atlas-data.js']);
+  for (const n of NODES) {
+    for (const c of n.code || []) if (!fs.existsSync(path.join(ROOT, c))) errors.push(`${n.id}: нет файла кода ${c}`);
+    for (const d of n.docs || []) { const p = m.docRef(d).path; if (!fs.existsSync(path.join(ROOT, p))) warns.push(`${n.id}: документа ${p} нет в репо (архив — dc doc)`); }
+    const key = (m.atlasJson(n.id).route || '').replace(/^#/, '').split('?')[0];
+    if (key && !mainJs.includes(`['${key}',`) && !new RegExp(String.raw`(^|\n)\s*'?` + key + String.raw`'?\s*:\s*\[`).test(mainJs)) errors.push(`${n.id}: адрес #${key} не найден в main.js`);
+    if (!n.plan && (n.code || []).length && mapTime && gitTime(n.code) > mapTime) warns.push(`${n.id}: код менялся после последней правки карты — сверить блок`);
+  }
+  return { errors, warns };
+}
+
+async function cmdAtlas(argv) {
+  const m = await atlasMod();
+  const json = argv.includes('--json');
+  const q = argv.filter((a) => !a.startsWith('--')).join(' ');
+  const NL = '\n';
+  if (argv.includes('--check')) {
+    const r = await atlasCheck();
+    console.log(r.errors.length ? 'Карта: ошибки' + NL + r.errors.map((e) => '- ' + e).join(NL) : 'Карта: структура в порядке');
+    if (r.warns.length) console.log('Сверить:' + NL + r.warns.map((e) => '- ' + e).join(NL));
+    process.exit(r.errors.length ? 1 : 0);
+  }
+  if (!q) { console.log(m.atlasList() + NL + 'Сводка блока: dc atlas <блок|слово> [--json]'); process.exit(0); }
+  const found = m.findNodes(q);
+  if (!found.length) { console.log(`На карте нет блока «${q}». Блоки:` + NL + m.atlasList()); process.exit(1); }
+  if (found.length > 1 && !found.some((n) => n.id === q)) { console.log(`Подходят: ${found.map((n) => n.id).join(', ')} — уточните.`); if (!json) console.log(NL + m.atlasBrief(found[0].id)); process.exit(0); }
+  console.log(json ? JSON.stringify(m.atlasJson(found[0].id), null, 2) : m.atlasBrief(found[0].id));
+  process.exit(0);
+}
+
+async function cmdCheck() {
   const be = path.join(ROOT, 'backend');
   let bad = 0;
   const tsc = step('tsc', process.execPath, [path.join(be, 'node_modules', 'typescript', 'bin', 'tsc'), '--noEmit'], { cwd: be });
@@ -190,6 +230,10 @@ function cmdCheck() {
   const pairs = Number((cyc.out.match(/Взаимных пар модулей:\s*(\d+)/) || [])[1] ?? NaN);
   say(pairs === 0 ? 'циклы модулей: нет' : 'циклы модулей: ' + (Number.isNaN(pairs) ? 'сбой проверки' : pairs + ' — ' + cut(cyc.out.trim().split('\n').slice(1, 3).join('; '), 100)));
   if (pairs !== 0) bad++;
+  const atl = await atlasCheck();
+  log('\n=== карта сайта ===\n' + ([...atl.errors, ...atl.warns].join('\n') || 'ок'));
+  say(atl.errors.length ? `карта сайта: ОШИБКИ ${atl.errors.length} — ${cut(atl.errors[0], 90)} (dc atlas --check)` : `карта сайта: ок${atl.warns.length ? `, сверить ${atl.warns.length} (dc atlas --check)` : ''}`);
+  if (atl.errors.length) bad++;
   const pult = step('пульт', process.execPath, ['--test', 'pult/test/catalog.test.mjs', 'pult/test/server.test.mjs', 'pult/test/advisor.test.mjs']);
   say(pult.code === 0 ? 'пульт: каталог совпадает с проектом' : 'пульт: ОТСТАЛ — ' + cut((pult.out.split('\n').find((l) => /Скрипт без кнопки|Команда dc без кнопки|gen-docs|✖ /.test(l)) || '').trim(), 110));
   if (pult.code) bad++;
@@ -413,6 +457,7 @@ async function main(argv) {
   const [cmd, arg] = argv;
   try {
     if (cmd === 'logs') return cmdLogs(arg);
+    if (cmd === 'atlas') return await cmdAtlas(argv.slice(1));
     const table = {
       start: () => cmdStart(),
       errors: () => cmdErrors(Number(arg) > 0 ? Number(arg) : 24).code,

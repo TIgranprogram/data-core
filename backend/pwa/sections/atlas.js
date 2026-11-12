@@ -1,25 +1,12 @@
 // «Карта сайта» (#atlas, кнопка «?» в шапке): весь сайт одной схемой сверху вниз — от заказчика до денег.
 // Нажатие на блок не уводит со страницы: справа открывается окно «что внутри» — части раздела, откуда приходят
 // сведения, куда уходят, что учитывать при изменении, шаги и где описано (для ИИ). Данные — atlas-data.js.
-// Бывшая «Работа с сайтом» (#help) влита сюда: шаги — в окнах блоков, «С чего начать?» — под картой; #help открывает эту же карту.
+// Бывшая «Работа с сайтом» (#help) влита сюда; #help открывает эту же карту. Окно блока — atlas-window.js, помощники — atlas-util.js, сводка для ИИ — atlas-brief.js.
 import { h } from '../core/dom.js';
-import { guide, button, toolbar, entityPanel, card, tileGrid } from '../ui/kit/index.js';
-import { SECTIONS, SCENARIOS } from './help-guide-data.js';
-import { productMapCat } from './help-product-map.js';
+import { entityPanel, card, tileGrid } from '../ui/kit/index.js';
 import { BANDS, NODES, LINKS } from './atlas-data.js';
-
-const NS = 'http://www.w3.org/2000/svg';
-const s = (tag, attrs = {}, ...kids) => {
-  const e = document.createElementNS(NS, tag);
-  for (const [k, v] of Object.entries(attrs)) if (v != null) e.setAttribute(k, v);
-  e.append(...kids.flat().filter((k) => k != null)); return e;
-};
-
-const byId = new Map(NODES.map((n) => [n.id, n]));
-const bandOf = new Map(BANDS.map((b, i) => [b.id, { ...b, i }]));
-const tone = (n) => bandOf.get(n.band).tok;
-const nameOf = (n) => (n.t === 'ИЗДЕЛИЕ' ? 'Изделие' : n.t);
-const hrefOf = (n) => n.href || (n.sec ? SECTIONS[n.sec]?.href : null);
+import { s, byId, bandOf, tone, nameOf, fit, wrap, roundPath, planLabel } from './atlas-util.js';
+import { detail } from './atlas-window.js';
 
 // ---------- общая схема: слой = полоса, блок = раздел ----------
 const W = 1230, LBL = 150, COL0 = 180, COLW = 262, NW = 222, NH = 92, BAND_H = 168, TOP = 36;
@@ -97,19 +84,6 @@ function routes() {
   });
 }
 
-/** Ломаная с чуть скруглёнными углами (радиус r): прямые отрезки, без дуг-«макарон». */
-function roundPath(pts, r) {
-  let d = `M${pts[0][0]},${pts[0][1]}`;
-  for (let i = 1; i < pts.length - 1; i++) {
-    const [px, py] = pts[i - 1], [x, y] = pts[i], [nx, ny] = pts[i + 1];
-    const r1 = Math.min(r, Math.hypot(x - px, y - py) / 2, Math.hypot(nx - x, ny - y) / 2);
-    const ax = x - Math.sign(x - px) * r1, ay = y - Math.sign(y - py) * r1, bx = x + Math.sign(nx - x) * r1, by = y + Math.sign(ny - y) * r1;
-    d += ` L${ax},${ay} Q${x},${y} ${bx},${by}`;
-  }
-  const [lx, ly] = pts[pts.length - 1];
-  return d + ` L${lx},${ly}`;
-}
-
 function bigMap(open) {
   const H = TOP + BANDS.length * BAND_H + 6;
   const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', role: 'group', 'aria-label': 'Карта сайта: разделы и связи сверху вниз' });
@@ -159,7 +133,7 @@ function bigMap(open) {
         stroke: plan ? 'var(--muted)' : n.big ? 'var(--primary)' : `var(--sec-${tok})`, 'stroke-width': n.big ? 2.6 : 1.4, 'stroke-dasharray': plan ? '6 4' : null, 'fill-opacity': plan ? '.6' : null, 'stroke-opacity': plan ? '.7' : null }),
       s('text', { x: g0.x + 12, y: g0.y + 25, fill: 'var(--heading)', 'font-size': n.big ? 17 : 15, 'font-weight': 700 }, n.t),
       desc, ...rel,
-      plan ? s('text', { x: g0.x + g0.w - 10, y: g0.y + g0.h - 9, 'text-anchor': 'end', fill: 'var(--muted)', 'font-size': 12, 'font-weight': 700 }, 'в разработке')
+      plan ? s('text', { x: g0.x + g0.w - 10, y: g0.y + g0.h - 9, 'text-anchor': 'end', fill: 'var(--muted)', 'font-size': 12, 'font-weight': 700 }, planLabel(plan))
         : parts ? s('text', { x: g0.x + g0.w - 10, y: g0.y + g0.h - 9, 'text-anchor': 'end', fill: n.big ? 'var(--primary)' : `var(--sec-${tok})`, 'font-size': 12, 'font-weight': 700 }, `внутри: ${parts} ›`) : null);
     g.addEventListener('mouseenter', () => light(n.id)); g.addEventListener('mouseleave', () => light(null));
     g.addEventListener('focus', () => light(n.id)); g.addEventListener('blur', () => light(null));
@@ -194,152 +168,15 @@ function legend() {
     s('text', { x: 350, y: 51, fill: 'var(--primary)', 'font-size': 12, 'font-weight': 700 }, 'внутри: 5 ›'),
     s('text', { x: 432, y: 51, fill: 'var(--heading)', 'font-size': 13, 'font-weight': 600 }, 'сколько шагов и частей'),
     s('rect', { x: 630, y: 36, width: 34, height: 20, rx: 5, fill: 'var(--surface-2)', stroke: 'var(--muted)', 'stroke-dasharray': '5 3', opacity: '.7' }),
-    s('text', { x: 672, y: 51, fill: 'var(--heading)', 'font-size': 13, 'font-weight': 600 }, 'в разработке — запланировано, ещё не сделано'),
+    s('text', { x: 672, y: 51, fill: 'var(--heading)', 'font-size': 13, 'font-weight': 600 }, 'в разработке или идея — ещё не сделано'),
     s('text', { x: 0, y: 80, fill: 'var(--muted)', 'font-size': 13 }, 'Наведите на блок — останутся только его связи, в соседях — что передаётся.'));
   return svg;
-}
-
-// ---------- окно «что внутри»: шаги сверху вниз; слева — что и в какой шаг приходит, справа — откуда уходит ----------
-function inner(n, open) {
-  const parts = n.inside || [], chain = parts.filter((p) => !p.alt), extra = parts.filter((p) => p.alt);
-  const ins = LINKS.filter(([, b]) => b === n.id), outs = LINKS.filter(([a]) => a === n.id);
-  const W2 = 960, SW = 210, SH = 58, PW = 300, PH = 58, CX = 330, RX = W2 - 10 - SW;
-  const GAP = n.seq ? 30 : 14, TOPY = 70;
-  // где стоит каждая часть: цепочка, затем «ещё в разделе»
-  const pos = new Map();
-  let y = TOPY;
-  chain.forEach((p) => { pos.set(p, y); y += PH + GAP; });
-  const extraY = y + (extra.length ? 10 : 0);
-  if (extra.length) y = extraY + 22;
-  extra.forEach((p) => { pos.set(p, y); y += PH + 14; });
-  const partsBottom = y - (extra.length ? 14 : GAP);
-  const partOf = (key, id) => parts.find((p) => (p[key] || []).includes(id)) || (key === 'in' ? parts[0] : parts[parts.length - 1]);
-  // соседи: напротив своего шага, без наложений
-  const place = (list, key) => {
-    // связь может касаться нескольких шагов (например, счёт до оплаты и после): блок соседа — напротив первого, линии — ко всем
-    const rows = list.map((l) => { const id = key === 'in' ? l[0] : l[1]; const all = parts.filter((p) => (p[key] || []).includes(id));
-      return { l, id, part: all[0] || partOf(key, id), parts: all.length ? all : [partOf(key, id)] }; })
-      .map((r) => ({ ...r, want: pos.get(r.part) + PH / 2 - SH / 2 })).sort((a, b) => a.want - b.want);
-    let next = 10;
-    rows.forEach((r) => { r.y = Math.max(r.want, next); next = r.y + SH + 10; });
-    return rows;
-  };
-  const L = place(ins, 'in'), R = place(outs, 'out');
-  const H = Math.max(partsBottom, ...L.map((r) => r.y + SH), ...R.map((r) => r.y + SH)) + 16;
-  const svg = s('svg', { viewBox: `0 0 ${W2} ${H}`, width: '100%', role: 'group', 'aria-label': `${nameOf(n)}: шаги и связи` });
-  const toks = [...new Set([tone(n), ...BANDS.map((b) => b.tok)])];
-  svg.append(s('defs', {}, ...toks.map((t) => s('marker', { id: `at-in-${t}`, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto' },
-    s('path', { d: 'M0,0 L10,5 L0,10 z', fill: `var(--sec-${t})` })))));
-  const tok = tone(n);
-  // рамка раздела
-  svg.append(s('rect', { x: CX - 18, y: 8, width: PW + 36, height: partsBottom - 8 + 14, rx: 14, fill: n.plan ? 'var(--surface-2)' : n.big ? 'var(--primary-soft)' : `var(--sec-${tok}-soft)`,
-    stroke: n.plan ? 'var(--muted)' : n.big ? 'var(--primary)' : `var(--sec-${tok})`, 'stroke-width': 2, 'stroke-dasharray': n.plan ? '6 4' : null }),
-    s('text', { x: CX, y: 36, fill: 'var(--heading)', 'font-size': 18, 'font-weight': 700 }, nameOf(n)),
-    s('text', { x: CX, y: 55, fill: 'var(--muted)', 'font-size': 12 }, n.seq ? 'шаги по порядку, сверху вниз' : 'из чего состоит'));
-  if (extra.length) svg.append(s('text', { x: CX, y: extraY + 12, fill: 'var(--muted)', 'font-size': 12, 'font-weight': 700 }, 'Ещё в разделе'));
-  // линии соседей: прямые отрезки, у каждой своя вертикаль
-  const lines = (rows, left) => {
-    const per = new Map(); rows.forEach((r) => r.parts.forEach((pt) => per.set(pt, (per.get(pt) || 0) + 1)));
-    const seen = new Map();
-    rows.forEach((r, k) => r.parts.forEach((part) => {
-      const m = per.get(part), q = (seen.set(part, (seen.get(part) || 0) + 1).get(part)) - 1;
-      const yp = pos.get(part) + PH / 2 + (q - (m - 1) / 2) * 12, ys = r.y + SH / 2;
-      const t = tone(byId.get(r.id));
-      const xa = left ? 10 + SW : CX + PW, xb = left ? CX : RX;
-      const xc = left ? 10 + SW + 22 + k * 11 : CX + PW + 22 + k * 11;
-      const pts = Math.abs(yp - ys) < 1 ? [[xa, ys], [xb, ys]] : left ? [[xa, ys], [xc, ys], [xc, yp], [xb, yp]] : [[xa, yp], [xc, yp], [xc, ys], [xb, ys]];
-      svg.append(s('path', { d: roundPath(pts, 6), fill: 'none', stroke: `var(--sec-${t})`, 'stroke-width': 1.8, 'marker-end': `url(#at-in-${t})` }));
-    }));
-  };
-  lines(L, true); lines(R, false);
-  // шаги
-  chain.forEach((p, i) => {
-    const py = pos.get(p);
-    if (n.seq && i < chain.length - 1) svg.append(s('path', { d: `M${CX + PW / 2},${py + PH} L${CX + PW / 2},${py + PH + GAP}`, stroke: `var(--sec-${tok})`, 'stroke-width': 2, 'marker-end': `url(#at-in-${tok})` }));
-  });
-  parts.forEach((p, i) => {
-    const py = pos.get(p), num = n.seq && !p.alt ? chain.indexOf(p) + 1 : null, tx = CX + (num ? 38 : 12);
-    svg.append(s('g', {}, s('rect', { x: CX, y: py, width: PW, height: PH, rx: 9, fill: p.plan ? 'var(--surface-2)' : 'var(--surface)', stroke: p.plan ? 'var(--muted)' : p.alt ? 'var(--border)' : 'var(--border-strong)', 'stroke-dasharray': p.alt || p.plan ? '4 3' : null, 'stroke-opacity': p.plan ? '.7' : null }),
-      p.plan ? s('text', { x: CX + PW - 10, y: py + 22, 'text-anchor': 'end', fill: 'var(--muted)', 'font-size': 12, 'font-weight': 700 }, 'в разработке') : null,
-      num ? s('circle', { cx: CX + 19, cy: py + PH / 2, r: 11, fill: `var(--sec-${tok})` }) : null,
-      num ? s('text', { x: CX + 19, y: py + PH / 2 + 4, 'text-anchor': 'middle', fill: 'var(--surface)', 'font-size': 12, 'font-weight': 700 }, String(num)) : null,
-      s('text', { x: tx, y: py + 22, fill: 'var(--heading)', 'font-size': 13, 'font-weight': 700 }, p.t),
-      ...fit(p.l, num ? 37 : 41, 2).map((t, j) => s('text', { x: tx, y: py + 39 + j * 14, fill: 'var(--muted)', 'font-size': 12 }, t))));
-  });
-  // соседи
-  const sideBox = (r, x, left) => {
-    const m = byId.get(r.id), t = tone(m);
-    const g = s('g', { tabindex: 0, role: 'button', cursor: 'pointer', 'aria-label': `Перейти: ${nameOf(m)}${m.plan ? ' (в разработке)' : ''}` },
-      s('rect', { x, y: r.y, width: SW, height: SH, rx: 9, fill: m.plan ? 'var(--surface-2)' : `var(--sec-${t}-soft)`, stroke: m.plan ? 'var(--muted)' : `var(--sec-${t})`, 'stroke-dasharray': m.plan ? '5 3' : null, 'stroke-opacity': m.plan ? '.7' : null }),
-      s('text', { x: x + 10, y: r.y + 21, fill: 'var(--heading)', 'font-size': 14, 'font-weight': 700 }, nameOf(m)),
-      ...fit((left ? 'даёт: ' : 'получает: ') + r.l[2], 28, 2).map((tt, j) => s('text', { x: x + 10, y: r.y + 38 + j * 14, fill: 'var(--muted)', 'font-size': 12 }, tt)));
-    g.addEventListener('click', () => open(r.id));
-    g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(r.id); } });
-    return g;
-  };
-  L.forEach((r) => svg.append(sideBox(r, 10, true)));
-  R.forEach((r) => svg.append(sideBox(r, RX, false)));
-  return svg;
-}
-
-/** Узкий экран: та же декомпозиция словами — откуда, что внутри, куда (соседи — кнопки). */
-function innerList(n, open) {
-  const ins = LINKS.filter(([, b]) => b === n.id), outs = LINKS.filter(([a]) => a === n.id);
-  const near = (list, pick) => h('ul', null, ...list.map((l) => h('li', null, button({ label: nameOf(byId.get(pick(l))), size: 'S', onClick: () => open(pick(l)) }), ' — ', l[2])));
-  return h('div', null,
-    ins.length ? guide.unit({ name: 'Откуда приходят сведения', foot: near(ins, (l) => l[0]) }) : null,
-    guide.unit({ name: n.seq ? 'Шаги по порядку' : 'Из чего состоит', foot: h(n.seq ? 'ol' : 'ul', null, ...(n.inside || []).map((p) => h('li', null, h('b', null, p.t), ' — ', p.l, p.alt ? ' (ещё в разделе)' : ''))) }),
-    outs.length ? guide.unit({ name: 'Куда уходят', foot: near(outs, (l) => l[1]) }) : null);
-}
-
-/** Перенос по словам в lines строк; не влезло — многоточие в последней. */
-function fit(t, max, lines) {
-  const out = wrap(t, max);
-  if (out.length > lines) { out.length = lines; out[lines - 1] = out[lines - 1].slice(0, max - 1).replace(/[\s;,]+$/, '') + '…'; }
-  return out;
-}
-
-function wrap(t, max) {
-  const out = [];
-  for (const w of t.split(' ')) { const last = out[out.length - 1]; if (last && (last + ' ' + w).length <= max) out[out.length - 1] = last + ' ' + w; else out.push(w); }
-  return out;
-}
-
-/** К какому блоку относится карточка «Я хочу…»: по адресу раздела, иначе по ключу раздела. */
-const baseHref = (x) => (x || '').split('?')[0];
-function scenarioNode(sc) {
-  return (NODES.find((m) => !m.plan && baseHref(hrefOf(m)) === baseHref(sc.href)) || NODES.find((m) => m.sec === sc.sec))?.id;
-}
-
-function detail(n, open, back, close) {
-  const sec = n.sec ? SECTIONS[n.sec] : null, href = hrefOf(n);
-  const what = sec?.what || n.l.join(' ');
-  const go = n.plan ? h('span', { class: 'muted small' }, 'На сайте пока нет — в разработке')
-    : href ? button({ label: `Открыть раздел «${nameOf(n)}»`, kind: 'primary', onClick: () => { close(); location.hash = href; } })
-      : h('span', { class: 'muted small' }, `Где найти: ${n.where || 'из карточек и поиска'}`);
-  const wants = SCENARIOS.filter((sc) => scenarioNode(sc) === n.id);
-  const nav = toolbar(back ? button({ label: `← ${nameOf(back)}`, onClick: () => open(back.id, true) }) : null, go);
-  const ins = LINKS.filter(([, b]) => b === n.id).length, outs = LINKS.filter(([a]) => a === n.id).length;
-  return [
-    nav,
-    n.plan ? guide.note({ label: 'В разработке', text: 'Раздела пока нет на сайте. Ниже — как он задуман.', tone: 'warn' }) : null,
-    h('p', null, what),
-    h('p', { class: 'muted small' }, `${n.seq ? 'Шаги идут сверху вниз по порядку. ' : ''}Слева — что приходит (${ins}) и в какой шаг, справа — что уходит (${outs}) и откуда. Нажмите соседний блок — окно перейдёт к нему.`),
-    window.matchMedia('(min-width: 1100px)').matches ? inner(n, open) : innerList(n, open),
-    // «Я хочу…» — частые задачи этого раздела (бывший общий блок «С чего начать?», 2026-11-12)
-    wants.length ? h('section', null, h('h3', null, 'Частые задачи'), h('div', { class: 'g-wants' }, ...wants.map((sc) => guide.want({ tok: sc.tok, want: sc.want, menu: sc.menu, href: sc.href, start: sc.start })))) : null,
-    n.productMap ? productMapCat() : null, // схема изделия и таблица «Где живёт и где править» (бывшая #help)
-    n.rules?.length ? h('div', null, ...n.rules.map((t) => guide.note({ label: 'Учитывать', text: t, tone: 'warn' }))) : null,
-    sec?.steps?.length ? guide.cat({ title: 'Как работать — по шагам', what: 'Что за чем нажимать в этом разделе', count: `${sec.steps.length} шаг.`, body: [guide.chain(sec.steps)] }) : null,
-    n.docs?.length || n.tech ? guide.cat({ title: 'Где описано', what: 'Документы проекта — для ИИ и разработчика', count: 'доки',
-      body: [h('ul', null, ...(n.docs || []).map((d) => h('li', null, d))), n.tech ? h('p', { class: 'muted small' }, `Таблицы базы: ${n.tech}`) : null] }) : null,
-  ];
 }
 
 // ---------- телефон и узкий экран: те же блоки плитками по слоям ----------
 function narrowList(open) {
   return h('div', null, ...BANDS.map((b) => h('section', null, h('h2', null, b.name),
-    tileGrid(...NODES.filter((n) => n.band === b.id).map((n) => card({ size: 'S', title: nameOf(n), meta: (n.plan ? 'В разработке. ' : '') + n.l.join(' '), onClick: () => open(n.id) }))))));
+    tileGrid(...NODES.filter((n) => n.band === b.id).map((n) => card({ size: 'S', title: nameOf(n), meta: (n.plan ? (n.plan === 'идея' ? 'Идея. ' : 'В разработке. ') : '') + n.l.join(' '), onClick: () => open(n.id) }))))));
 }
 
 export const atlas = {

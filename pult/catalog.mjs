@@ -319,6 +319,7 @@ export const NOT_ON_BUTTONS = {
   'tools/dc.mjs logs': 'список журналов; ИИ читает tools/logs',
   'tools/dc.mjs find': 'поиск по докам для ИИ',
   'tools/dc.mjs doc': 'чтение архива доков для ИИ',
+  'tools/dc.mjs atlas': 'сводка блока «Карты сайта» для ИИ (dc atlas <блок> [--json]); проверка карты — шаг dc check, кнопка «Проверки»',
   'tools/dc.mjs night': 'часть полной проверки (dc full); отдельной кнопки нет',
   'apps/pdm-loader/publish.ps1': 'приложение PDM собирает и выкладывает release.sh сам (шаг 6б), отдельная кнопка не нужна',
   'tools/kit/make-kit.sh': 'просит пароль; без пароля выдал бы все доступы',
