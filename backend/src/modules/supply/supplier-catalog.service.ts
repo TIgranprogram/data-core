@@ -226,7 +226,12 @@ export class SupplierCatalogService {
     const ids = mats.map((m) => m._id);
     const stock = ids.length ? await this.coll('storageitems').aggregate([{ $match: { materialId: { $in: ids }, deletedAt: null } }, { $group: { _id: '$materialId', qty: { $sum: '$quantity' } } }]).toArray() : [];
     const sq = new Map(stock.map((x) => [String(x._id), Number(x.qty) || 0]));
-    return mats.map((m) => materialRow(m, sq.get(String(m._id)) ?? (typeof m.stockQty === 'number' ? m.stockQty : null)));
+    // фото позиции склада: без них карточка «без поставщика» не показывала только что добавленное фото (владелец 2026-11-12)
+    const pu = await this.photoUrls(mats.flatMap((m) => (m.photoIds as Types.ObjectId[] | undefined) ?? []));
+    return mats.map((m) => {
+      const photos = ((m.photoIds as Types.ObjectId[] | undefined) ?? []).filter((p) => pu.has(String(p))).map((p) => ({ id: String(p), ...pu.get(String(p))! }));
+      return { ...materialRow(m, sq.get(String(m._id)) ?? (typeof m.stockQty === 'number' ? m.stockQty : null)), photos, thumb: photos[0]?.thumb ?? '' };
+    });
   }
 
   /** Список «вся номенклатура»: предложения + материалы без предложений, сортировка и страницы на сервере. */

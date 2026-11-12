@@ -49,6 +49,20 @@ async function loadSuppliers() {
 
 const rowCache = new Map(); // строки списка — карточка открывается без отдельного запроса (GET по id на сервере нет)
 
+/**
+ * Фото карточки. У позиции склада без предложения поставщика id строки — «m:<позиция>»: фото хранит сама позиция
+ * (маршруты склада), затем строка перечитывается. Раньше запрос шёл в предложения и падал «Некорректный id записи» (владелец 2026-11-12).
+ */
+async function photoCall(r, tail, opts) {
+  let x;
+  if (isMaterial(r)) {
+    await api(`/stock/items/${r.materialId}/photos${tail}`, opts);
+    x = await api(`/supply/catalog/items/${r.id}`);
+  } else x = await api(`/supply/catalog/items/${r.id}/photos${tail}`, opts);
+  rowCache.set(x.id, x);
+  return x;
+}
+
 /** Параметры адреса → запрос к серверу (список и выгрузка). */
 function queryOf(P) {
   const q = { view: 'all' }; // вся номенклатура: и предложения, и материалы без поставщика
@@ -345,9 +359,9 @@ export const supplierCatalog = {
   card: {
     gallery: (r) => r.photos || [],
     photoSearch: (r) => r.name, // «Найти фото в интернете» по названию позиции
-    photoAdd: async (r, photoId) => { const x = await api(`/supply/catalog/items/${r.id}/photos`, { method: 'POST', body: { photoId } }); rowCache.set(x.id, x); return x; },
-    photoMain: async (r, photoId) => { const x = await api(`/supply/catalog/items/${r.id}/photos/${photoId}/main`, { method: 'PUT' }); rowCache.set(x.id, x); return x; },
-    photoRemove: async (r, photoId) => { const x = await api(`/supply/catalog/items/${r.id}/photos/${photoId}`, { method: 'DELETE' }); rowCache.set(x.id, x); return x; },
+    photoAdd: (r, photoId) => photoCall(r, '', { method: 'POST', body: { photoId } }),
+    photoMain: (r, photoId) => photoCall(r, `/${photoId}/main`, { method: 'PUT' }),
+    photoRemove: (r, photoId) => photoCall(r, `/${photoId}`, { method: 'DELETE' }),
     heading: (r) => r.name,
     subheading,
     editTop: true,

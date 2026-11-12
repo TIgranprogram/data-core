@@ -36,6 +36,14 @@ describe('каталог: view=all', () => {
     await expect(svc.get('m:' + id())).rejects.toThrow(/не найдена/);
   });
 
+  it('строка материала показывает фото самой позиции склада', async () => {
+    const p = id();
+    const { svc } = fake({ materials: [{ ...mat, photoIds: [p] }], photos: [{ _id: p, storageUrl: '/uploads/a.jpg' }] });
+    const r = await svc.get('m:' + mat._id);
+    expect(r.photos).toHaveLength(1);
+    expect(r.photos[0].id).toBe(String(p));
+  });
+
   it('без view — прежний путь: только предложения, без kind', async () => {
     const offer = { _id: id(), supplierId: id(), name: 'Труба', article: 'A', materialId: null, priceHint: 10, deletedAt: null };
     const { svc, calls } = fake({ supplieritems: [offer] });
