@@ -1,0 +1,86 @@
+[
+  {
+    "theme": "light",
+    "width": 375,
+    "errors": [],
+    "steps": [
+      {
+        "name": "history",
+        "overflow": 0
+      },
+      {
+        "name": "stock",
+        "overflow": 0
+      },
+      {
+        "name": "materials",
+        "overflow": 0
+      }
+    ],
+    "garbageTrace": [],
+    "complete": true
+  },
+  {
+    "theme": "light",
+    "width": 1920,
+    "errors": [],
+    "steps": [
+      {
+        "name": "history",
+        "overflow": 0
+      },
+      {
+        "name": "stock",
+        "overflow": 0
+      },
+      {
+        "name": "materials",
+        "overflow": 0
+      }
+    ],
+    "garbageTrace": [],
+    "complete": true
+  },
+  {
+    "theme": "dark",
+    "width": 375,
+    "errors": [],
+    "steps": [
+      {
+        "name": "history",
+        "overflow": 0
+      },
+      {
+        "name": "stock",
+        "overflow": 0
+      },
+      {
+        "name": "materials",
+        "overflow": 0
+      }
+    ],
+    "garbageTrace": [],
+    "complete": true
+  },
+  {
+    "theme": "dark",
+    "width": 1920,
+    "errors": [],
+    "steps": [
+      {
+        "name": "history",
+        "overflow": 0
+      },
+      {
+        "name": "stock",
+        "overflow": 0
+      },
+      {
+        "name": "materials",
+        "overflow": 0
+      }
+    ],
+    "garbageTrace": [],
+    "complete": true
+  }
+]

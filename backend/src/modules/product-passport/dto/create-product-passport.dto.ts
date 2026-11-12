@@ -55,7 +55,7 @@ export class CreateProductPassportDto {
   @IsOptional() @IsArray() @IsObjectId({ each: true }) elements?: string[];
   @IsOptional() @IsArray() @IsObjectId({ each: true }) materialIds?: string[];
   /** МИ: таблица «Материалы изделия» — снимок изделия с правкой; null — убрать. Разбор — common/catalog/materials-table.ts. */
-  @IsOptional() @IsObject() materialsSpec?: { rows?: Array<{ materialId?: string; sizes?: string[]; partIds?: string[] }>; coatingIds?: string[] } | null;
+  @IsOptional() @IsObject() materialsSpec?: { rows?: Array<{ materialId?: string; sizes?: string[]; partIds?: string[]; passportText?: string; techText?: string }>; coatingIds?: string[]; coatingTexts?: Array<{ materialId: string; passportText?: string; techText?: string }> } | null;
   @IsOptional() @IsObjectId() installationTypeId?: string;
   @IsOptional() @IsBoolean() isKit?: boolean;
   @IsOptional() @IsIn(['standard', 'own']) schemeSource?: string;

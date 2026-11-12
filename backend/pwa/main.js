@@ -25,6 +25,7 @@ import { recoverStale, versionLabel, watchUpdates } from './core/update-check.js
 import { avatarNode } from './ui/avatars.js';
 import { bellButton } from './ui/bell.js';
 import { chatButton } from './ui/chat-button.js';
+import { recentCardsButton, recentRecorder } from './ui/kit/recent-cards.js';
 import { serverPrefs, startPrefs } from './core/prefs.js';
 import { makeResizable } from './ui/resizer.js';
 import { reportError } from './core/errors.js';
@@ -271,6 +272,7 @@ function shell() {
     bellButton(),
     h('a', { class: 'btn btn-ghost btn-icon hide-sm', href: '#help', title: 'Работа с сайтом: с чего начать', 'aria-label': 'Работа с сайтом' }, icon('help')),
     themeButton(),
+    recentCardsButton(id => (NAV_IDS.has(id) || Object.hasOwn(OWNER, id)) && allowed(id)),
     avatarButton());
   const main = h('main', { class: 'page', id: 'page' });
   makeResizable(sidebar, { prefKey: 'sidebarW', edge: 'right', label: 'Ширина меню' }); // ШП
@@ -545,6 +547,7 @@ function syncCard(section, params) {
   const clear = { open: undefined, new: undefined, of: undefined, fill: undefined, title: undefined, unit: undefined, categoryName: undefined, op: undefined, materialId: undefined, rid: undefined, orderId: undefined, productionNo: undefined, lid: undefined, dstatus: undefined, lineId: undefined, article: undefined, supplierName: undefined, supplierId: undefined, priceHint: undefined, productUrl: undefined };
   const ctx = {
     close: () => { card = null; closeStep(clear); }, // открыта шагом — «назад», иначе убрать open= без нового шага (НВ.2)
+    viewed: recentRecorder(ofName),
     changed: () => onDataChanged(), // тот же debounce, что у dc:changed: запись + это событие = одно обновление
     opened: (id) => { card.key = ofName + 'open:' + id; patch({ ...clear, of: ofName !== section ? ofName : undefined, open: id }); },
   };

@@ -27,10 +27,11 @@ export const fromComposition = (r) => ({ label: 'Взять из состава'
   run: async (w) => {
     const res = await materialsFromComposition(r);
     const rows = res.materialsSpec?.rows || [];
-    if (!rows.length) { toast(res.unmatched?.length ? `Материалы состава не нашлись в справочнике: ${res.unmatched.join(', ')} — заполните строки вручную` : 'В составе нет материалов склада — «Изменить состав» в карточке', { ms: 8000 }); return; }
+    if (!rows.length && !res.materialsSpec?.coatingIds?.length) { toast(res.unmatched?.length ? `Материалы состава не нашлись в справочнике: ${res.unmatched.join(', ')} — заполните строки вручную` : 'В составе нет материалов склада — «Изменить состав» в карточке', { ms: 8000 }); return; }
     if (!w.isEmpty() && !(await confirmDlg('Заменить таблицу материалов?', 'Строки заменятся предложением по «Составу изделия». В изделие запишется по «Сохранить».', { okText: 'Заменить' }))) return;
     const hint = res.hinted?.length ? ' Подсказка по названию, проверьте: ' + res.hinted.join(', ') + '.' : '';
-    w.set({ rows, coatingIds: [...new Set([...(JSON.parse(w.value || 'null')?.coatingIds || []), ...(res.materialsSpec.coatingIds || [])])] });
+    const currentSpec = JSON.parse(w.value || 'null');
+    w.set({ rows, coatingIds: [...new Set([...(currentSpec?.coatingIds || []), ...(res.materialsSpec.coatingIds || [])])], coatingTexts: [...(currentSpec?.coatingTexts || []), ...(res.materialsSpec.coatingTexts || [])] });
     toast((res.unmatched?.length ? `Строк: ${rows.length}. Не нашлись в справочнике: ${res.unmatched.join(', ')} — добавьте вручную` : `Строк из состава: ${rows.length} — проверьте и сохраните`) + hint, { ms: res.unmatched?.length || hint ? 9000 : undefined });
   } });
 /** materialsSpec — при создании, а при правке — только если таблицу меняли (не трогаем изделие с удалённой записью справочника). */

@@ -86,9 +86,10 @@ describe('МИ.6 / МЦ-7: закупка → состав изделия → п
     const accepted = (await http().post('/api/stock/composition-suggest/accept').set(auth()).send({ salesOrderLineId }).expect(200)).body;
     expect(accepted.applied).toMatchObject([{ materialId: position.id, quantity: 2 }]);
     const fromComposition = (await http().get(`${productPath}/materials-spec/from-composition`).set(auth()).expect(200)).body;
-    const oldSpec = { rows: [{ materialId: pipeId, sizes: ['∅57×3'], partIds: [] }], coatingIds: [] };
+    const oldSpec = { rows: [{ materialId: pipeId, sizes: ['∅57×3'], partIds: [], passportText: 'Паспортная формулировка МЦ', techText: 'Техническая формулировка МЦ' }], coatingIds: [] };
     expect(fromComposition).toMatchObject({ materialsSpec: oldSpec, unmatched: [], hinted: [] });
-    expect(fromComposition.materialsText).toContain('контрольной трубы ∅57×3 мм');
+    expect(fromComposition.materialsText).toContain('Материалы: Паспортная формулировка МЦ');
+    expect(fromComposition.materialsText).not.toContain('∅57×3');
     expect((await http().get(productPath).set(auth()).expect(200)).body.materialsSpec ?? null).toBeNull();
     await http().patch(productPath).set(auth()).send({ materialsSpec: fromComposition.materialsSpec }).expect(200);
 
@@ -98,11 +99,15 @@ describe('МИ.6 / МЦ-7: закупка → состав изделия → п
     }).expect(201)).body;
     const oldDraft = await makeDraft();
     expect(oldDraft).toMatchObject({ materialsSpec: oldSpec, materials: manualMaterials });
-    expect(oldDraft.textSnapshot.description).toContain('Труба контрольная МЦ');
+    expect(oldDraft.textSnapshot.description).toContain('Паспортная формулировка МЦ');
     await http().post(`/api/passports/${oldDraft.id}/issue`).set(auth()).expect(200);
     const issued = await findPassport(oldDraft.id);
     expect(issued.textSnapshot.drawingLayout).toBe(2);
     const oldPdf = await pdf(issued.id);
+    // Снимок принятого состава не перечитывает ручные формулировки со склада.
+    await http().patch(linkPath).set(auth()).send({ passportText: 'Новая фраза склада', techText: 'Новая техника склада' }).expect(200);
+    expect((await findPassport(issued.id)).textSnapshot).toEqual(issued.textSnapshot);
+    expect(withoutPdfMetadata(await pdf(issued.id))).toBe(withoutPdfMetadata(oldPdf));
 
     const draft = await makeDraft();
     const draftPdf = await pdf(draft.id);

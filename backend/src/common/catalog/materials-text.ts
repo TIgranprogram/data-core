@@ -5,8 +5,10 @@
  * `passportMaterials` (kind material|coating, genSingular, genPlural, sizeTemplate с {sizes}, phrase, madeOf),
  * `passportParts` (genSingular, genPlural), `passportSortament` (name — размер без «мм», material — код материала).
  */
-export type SpecRow = { materialId: string; sizes: string[]; partIds: string[] };
-export type MaterialsSpec = { rows: SpecRow[]; coatingIds: string[] };
+export type ManualTexts = { passportText?: string; techText?: string };
+export type CoatingText = ManualTexts & { materialId: string };
+export type SpecRow = ManualTexts & { materialId: string; sizes: string[]; partIds: string[] };
+export type MaterialsSpec = { rows: SpecRow[]; coatingIds: string[]; coatingTexts?: CoatingText[] };
 export type MatRec = { name?: unknown; code?: unknown; kind?: unknown; genSingular?: unknown; genPlural?: unknown; madeOf?: unknown; sizeTemplate?: unknown; phrase?: unknown };
 export type PartRec = { name?: unknown; genSingular?: unknown; genPlural?: unknown };
 
@@ -40,8 +42,10 @@ export function composeMaterialsText(spec: MaterialsSpec | null | undefined, mat
   if (!spec) return '';
   const byMat = new Map<string, string[]>();
   const partIds: string[] = [];
+  const manual: string[] = [];
   for (const r of spec.rows ?? []) {
     for (const p of r.partIds ?? []) if (parts.has(p) && !partIds.includes(p)) partIds.push(p);
+    if (s(r.passportText)) { if (!manual.includes(s(r.passportText))) manual.push(s(r.passportText)); continue; }
     if (!mats.has(r.materialId)) continue;
     const list = byMat.get(r.materialId) ?? [];
     for (const z of (r.sizes ?? []).map(normSize).filter(Boolean)) if (!list.includes(z)) list.push(z);
@@ -57,9 +61,15 @@ export function composeMaterialsText(spec: MaterialsSpec | null | undefined, mat
     return `${gen} ${tpl.includes('{sizes}') ? tpl.replace('{sizes}', joinRu(sizes)) : `${joinRu(sizes)} ${tpl}`}`;
   }).filter(Boolean);
   const partNames = [...new Set(partIds.map((id) => { const p = parts.get(id)!; return s(p.genPlural) || s(p.genSingular) || low(p.name); }).filter(Boolean))];
-  const coats = [...new Set((spec.coatingIds ?? []).filter((id) => mats.has(id)).map((id) => { const c = mats.get(id)!; return sentence(s(c.phrase) || (s(c.name) ? `Покрытие: ${low(c.name)}` : '')); }).filter(Boolean))];
+  const coats = [...new Set((spec.coatingIds ?? []).flatMap((id) => {
+    const texts = (spec.coatingTexts ?? []).filter((c) => c.materialId === id).map((c) => s(c.passportText)).filter(Boolean);
+    if (texts.length) return texts.map((t) => sentence(`Покрытие: ${t}`));
+    const c = mats.get(id);
+    return c ? [sentence(s(c.phrase) || (s(c.name) ? `Покрытие: ${low(c.name)}` : ''))] : [];
+  }).filter(Boolean))];
   return [
     made.length ? `Изготовлено из ${made.join(', ')}.` : '',
+    ...manual.map((t) => sentence(`Материалы: ${t}`)),
     partNames.length ? `Состоит из ${joinRu(partNames)}.` : '',
     ...coats,
   ].filter(Boolean).join(' ');
@@ -108,7 +118,7 @@ export function sizeFromStock(text: string, rec: MatRec): string {
 }
 
 /** `link` — связь позиции склада с материалом паспорта (МЦ-2, `materials.passportSpec`); без неё — подсказка по названию. */
-export type StockLine = { name: string; text: string; link?: { materialId: string; sizes: string[]; isCoating: boolean } | null };
+export type StockLine = { name: string; text: string; link?: ManualTexts & { materialId: string; sizes: string[]; isCoating: boolean } | null };
 /**
  * «Взять из состава» (МИ.2): позиции склада из «Состава изделия» → строки таблицы. Сначала связь позиции (МЦ-2,
  * `link`; запись справочника удалена/нет среди `recs` — связи нет), иначе подсказка по названию — такие названия
@@ -120,11 +130,17 @@ export function specFromComposition(lines: StockLine[], recs: (MatRec & { id: st
   const mats = recs.filter((r) => s(r.kind) !== 'coating');
   const coats = recs.filter((r) => s(r.kind) === 'coating');
   const rows: SpecRow[] = []; const coatingIds: string[] = []; const unmatched: string[] = []; const hinted: string[] = [];
+  const coatingTexts: CoatingText[] = [];
   for (const l of lines) {
     if (l.link && recs.some((r) => r.id === l.link!.materialId)) {
-      if (l.link.isCoating) { if (!coatingIds.includes(l.link.materialId)) coatingIds.push(l.link.materialId); continue; }
-      let lr = rows.find((r) => r.materialId === l.link!.materialId);
-      if (!lr) rows.push((lr = { materialId: l.link.materialId, sizes: [], partIds: [] }));
+      const texts: ManualTexts = { ...(s(l.link.passportText) ? { passportText: s(l.link.passportText) } : {}), ...(s(l.link.techText) ? { techText: s(l.link.techText) } : {}) };
+      if (l.link.isCoating) {
+        if (!coatingIds.includes(l.link.materialId)) coatingIds.push(l.link.materialId);
+        if (Object.keys(texts).length && !coatingTexts.some((c) => c.materialId === l.link!.materialId && c.passportText === texts.passportText && c.techText === texts.techText)) coatingTexts.push({ materialId: l.link.materialId, ...texts });
+        continue;
+      }
+      let lr = rows.find((r) => r.materialId === l.link!.materialId && r.passportText === texts.passportText && r.techText === texts.techText);
+      if (!lr) rows.push((lr = { materialId: l.link.materialId, sizes: [], partIds: [], ...texts }));
       for (const z of l.link.sizes) if (!lr.sizes.some((x) => low(normSize(x)) === low(normSize(z)))) lr.sizes.push(z);
       continue;
     }
@@ -136,9 +152,9 @@ export function specFromComposition(lines: StockLine[], recs: (MatRec & { id: st
     let size = sizeFromStock(l.text, mat);
     const known = sortament.find((x) => s(x.material) === s(mat.code) && low(normSize(x.name)) === low(size));
     if (known) size = s(known.name);
-    let row = rows.find((r) => r.materialId === mat.id);
+    let row = rows.find((r) => r.materialId === mat.id && !r.passportText && !r.techText);
     if (!row) rows.push((row = { materialId: mat.id, sizes: [], partIds: [] }));
     if (size && !row.sizes.includes(size)) row.sizes.push(size);
   }
-  return { rows, coatingIds, unmatched, hinted };
+  return { rows, coatingIds, ...(coatingTexts.length ? { coatingTexts } : {}), unmatched, hinted };
 }

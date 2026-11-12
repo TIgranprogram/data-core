@@ -105,3 +105,22 @@ describe('«Взять из состава» (МИ.2)', () => {
     expect(specFromComposition([], recs, [])).toEqual({ rows: [], coatingIds: [], unmatched: [], hinted: [] });
   });
 });
+
+describe('МЦ-7 ручные формулировки', () => {
+  it('не объединяет разные тексты и не подмешивает размеры в ручную фразу', () => {
+    const recs = [...mats].map(([id, r]) => ({ id, ...r }));
+    const lines = ['А', 'Б'].flatMap((suffix) => [
+      { name: 'Труба', text: '', link: { materialId: 'pipe', sizes: ['89×3'], isCoating: false, passportText: `Труба ${suffix}`, techText: `Техника ${suffix}` } },
+      { name: 'Краска', text: '', link: { materialId: 'powder', sizes: [], isCoating: true, passportText: `Краска ${suffix}`, techText: `Покрытие ${suffix}` } },
+    ]);
+    const spec = specFromComposition([...lines, ...lines], recs, []);
+    expect(spec.rows).toHaveLength(2);
+    expect(spec.coatingTexts).toHaveLength(2);
+    const result = composeMaterialsText(spec, mats, parts);
+    expect(result).toContain('Материалы: Труба А.');
+    expect(result).toContain('Материалы: Труба Б.');
+    expect(result).toContain('Покрытие: Краска А.');
+    expect(result).not.toContain('89×3');
+    expect(result).not.toContain('Изготовлено из');
+  });
+});

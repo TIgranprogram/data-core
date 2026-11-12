@@ -39,3 +39,21 @@ describe('materialsSpec изделия и паспорта', () => {
     await expect(mi.check(parseMaterialsSpec({ rows: [{ materialId: String(pipe), partIds: [String(wood)] }] }))).rejects.toThrow('«Части изделия»');
   });
 });
+
+describe('МЦ-7 снимок формулировок', () => {
+  const materialId = String(id());
+  it('сохраняет оба текста и варианты покрытия; убирает текст снятого покрытия', () => {
+    const spec = { rows: [{ materialId, sizes: [], partIds: [], passportText: 'Фраза', techText: 'Техника' }], coatingIds: [materialId], coatingTexts: [{ materialId, passportText: 'Первое' }, { materialId, passportText: 'Второе' }] };
+    expect(presentMaterialsSpec(parseMaterialsSpec(spec))).toEqual(spec);
+    expect(presentMaterialsSpec(parseMaterialsSpec({ ...spec, coatingIds: [] }))?.coatingTexts).toBeUndefined();
+  });
+  it('проверяет тип и предел 2000 символов для строк и покрытий', () => {
+    for (const key of ['passportText', 'techText']) {
+      for (const bad of [33, 'я'.repeat(2001)]) {
+        expect(() => parseMaterialsSpec({ rows: [{ materialId, [key]: bad }] })).toThrow(BadRequestException);
+        expect(() => parseMaterialsSpec({ coatingIds: [materialId], coatingTexts: [{ materialId, [key]: bad }] })).toThrow(BadRequestException);
+      }
+      expect(presentMaterialsSpec(parseMaterialsSpec({ rows: [{ materialId, [key]: 'я'.repeat(2000) }] }))?.rows[0][key as 'passportText']).toHaveLength(2000);
+    }
+  });
+});

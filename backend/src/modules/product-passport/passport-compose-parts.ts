@@ -81,13 +81,16 @@ export function describeProduct(passport: PassportLike, elements: DictRec[], mat
   const mats = uniq(pick(passport?.materialIds, materials).map((m) => stripEnd(str(m.madeOf))).filter(Boolean));
   // Таблица состава главнее старого справочника; свободный текст сохраняем без склонения и догадок.
   const spec = presentMaterialsSpec(passport.materialsSpec);
-  const specMats = uniq(pick(spec?.rows.map((r) => r.materialId), specMaterials).map((m) => stripEnd(str(m.name))).filter(Boolean));
+  const specBy = new Map((specMaterials ?? []).map((m) => [recId(m), m]));
+  const specMats = uniq((spec?.rows ?? []).map((r) => str(r.passportText) || stripEnd(str(specBy.get(r.materialId)?.name))).filter(Boolean));
+  const coatTexts = uniq((spec?.coatingTexts ?? []).filter((c) => spec?.coatingIds.includes(c.materialId)).map((c) => str(c.passportText)).filter(Boolean));
   const fallback = stripEnd(str(passport.materials));
   const head = name ? `${stripEnd(name)} (далее — изделие)` : 'Изделие';
   const out: string[] = [];
-  if (specMats.length || (!mats.length && fallback)) {
+  if (specMats.length || coatTexts.length || (!mats.length && fallback)) {
     out.push(parts.length ? `${head} состоит из: ${parts.join(', ')}.` : `${head}.`);
-    out.push(`Материалы: ${specMats.length ? specMats.join(', ') : fallback}.`);
+    if (specMats.length || fallback) out.push(`Материалы: ${specMats.length ? specMats.join(', ') : fallback}.`);
+    if (coatTexts.length) out.push(`Покрытие: ${coatTexts.join('; ')}.`);
     return out.join(' ');
   }
   if (parts.length && mats.length) out.push(`${head} состоит из: ${parts.join(', ')}; изготовлено из ${joinAnd(mats)}.`);

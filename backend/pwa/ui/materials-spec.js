@@ -18,6 +18,8 @@ const MAX_ROWS = 50, MAX_SIZES = 20, MAX_PARTS = 30;
 const s = (v) => String(v ?? '').replace(/\s+/g, ' ').trim();
 /** Размер — одно написание, как на сервере (normSize): без «мм», ∅ и ×, десятичная запятая. */
 export const normSize = (v) => s(v).replace(/\s*мм\.?$/i, '').replace(/^[∅Ø⌀ø]\s*/, '∅').replace(/(\d)\s*[xхXХ*×]\s*(?=\d)/g, '$1×').replace(/(\d)\.(?=\d)/g, '$1,');
+const manualTexts = (r) => Object.fromEntries(['passportText', 'techText'].map((k) => [k, s(r?.[k])]).filter(([, v]) => v));
+const partKey = (r, id) => JSON.stringify([String(id), String(r.materialId || ''), s(r.passportText), s(r.techText)]);
 const sizeKey = (v) => normSearch(normSize(v));
 /** «∅89×3; ∅33,5×2,8» или «2, 6» → список (запятая между цифрами — десятичная, не разделитель). */
 export const splitSizes = (t) => String(t ?? '').split(/\s*;\s*|,\s+|\n/).map(normSize).filter(Boolean);
@@ -36,7 +38,7 @@ export async function loadMaterialDicts() {
 const parseSpec = (v) => {
   let x = v;
   if (typeof x === 'string') { try { x = JSON.parse(x || 'null'); } catch { x = null; } }
-  return x && typeof x === 'object' && !Array.isArray(x) ? { rows: Array.isArray(x.rows) ? x.rows : [], coatingIds: Array.isArray(x.coatingIds) ? x.coatingIds.map(String) : [] } : { rows: [], coatingIds: [] };
+  return x && typeof x === 'object' && !Array.isArray(x) ? { rows: Array.isArray(x.rows) ? x.rows : [], coatingIds: Array.isArray(x.coatingIds) ? x.coatingIds.map(String) : [], coatingTexts: Array.isArray(x.coatingTexts) ? x.coatingTexts.map((r) => ({ materialId: String(r?.materialId || ''), ...manualTexts(r) })) : [] } : { rows: [], coatingIds: [], coatingTexts: [] };
 };
 
 export function materialsSpec({ value, dicts, text = '', scope = () => '', actions = [], preview: showPreview = true, onText }) {
@@ -104,7 +106,7 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
     if (rows.length >= MAX_ROWS) { toast(`Не больше ${MAX_ROWS} строк`); return null; }
     const pb = partBy();
     const row = {
-      materialId: String(data.materialId || ''), sizes: (data.sizes || []).map(normSize).filter(Boolean),
+      ...manualTexts(data), materialId: String(data.materialId || ''), sizes: (data.sizes || []).map(normSize).filter(Boolean),
       parts: (data.partIds || []).map((id) => ({ id: String(id), name: pb.get(String(id))?.name || 'запись удалена из справочника' })).concat((data.partNames || []).map((n) => { const p = findPart(n); return p ? { id: String(p.id), name: p.name } : { id: null, name: s(n) }; })),
     };
     const code = () => String(matBy().get(row.materialId)?.code || '').toUpperCase();
@@ -116,6 +118,7 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
     });
     const resolveMat = () => {
       const t = matIn.value.trim(); const hit = findMat(t, row.materialId);
+      if (String(hit?.id || '') !== row.materialId) { delete row.passportText; delete row.techText; }
       if (hit) { row.materialId = String(hit.id); matIn.value = hit.name; } else row.materialId = '';
       matIn.classList.toggle('ms-bad', !!t && !hit);
       matIn.title = t && !hit ? 'Только из справочника «Материалы и покрытия»' : matIn.value;
@@ -239,10 +242,11 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
 
   // покрытия — метками (обычно одно-два)
   const coatOpts = d.mats.filter((m) => isCoat(m) && offered(m, parseSpec(value).coatingIds)).map((m) => ({ value: String(m.id), label: m.name, cats: codes(m.categories) }));
+  let coatingTexts = [];
   const coat = tagPick({ options: coatOpts, value: [], label: 'Покрытие' });
   const syncCoat = () => { try { coat.setScope(scope() || ''); } catch { /* scope ещё не готов */ } };
   syncCoat();
-  coat.el.addEventListener('change', (e) => { e.stopPropagation(); changed(); });
+  coat.el.addEventListener('change', (e) => { e.stopPropagation(); coatingTexts = coatingTexts.filter((r) => JSON.parse(coat.value || '[]').includes(r.materialId)); changed(); });
   const coatLink = h('a', { href: '#dicts?d=passportMaterials', class: 'hint', title: 'Справочники → Паспорта → Материалы и покрытия. Поиск: «цинк» или GALV_HOT' }, 'Править в справочнике');
   const coatBox = h('div', { class: 'ms-coat' }, h('div', { class: 'ms-sub' }, 'Покрытие · ', coatLink),
     coatOpts.length ? coat.el : h('span', { class: 'muted' }, 'В «Материалах и покрытиях» нет записей с типом «покрытие»'));
@@ -299,7 +303,7 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
   let cur = text || ''; let seq = 0; let timer;
   const problem = () => { const i = rows.findIndex((r) => !r.materialId && (r.sizes.length || r.parts.length || r.matIn.value.trim())); return i < 0 ? '' : `Строка ${i + 1}: выберите материал из списка`; };
   // без предпросмотра (паспорт: текст — в своём поле) блок виден только с ошибкой строки
-  const show = (t, bad = false) => { textEl.textContent = t; textEl.classList.toggle('ms-bad-text', bad); textNote.hidden = bad || !cur; textBox.hidden = !showPreview && !bad; };
+  const show = (t, bad = false) => { textNote.textContent = rows.some((r) => r.passportText || r.techText) || coatingTexts.length ? 'Тексты взяты из состава или скопированной таблицы; сохранятся вместе с изделием.' : 'собрано автоматически'; textEl.textContent = t; textEl.classList.toggle('ms-bad-text', bad); textNote.hidden = bad || !cur; textBox.hidden = !showPreview && !bad; };
   const emitText = (t) => { cur = t; w.onText?.(t); };
   function preview() {
     clearTimeout(timer);
@@ -317,10 +321,11 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
   }
 
   function spec() {
-    const out = rows.map((r) => ({ materialId: r.materialId, sizes: [...r.sizes], partIds: r.parts.filter((p) => p.id).map((p) => p.id) }))
+    const out = rows.map((r) => ({ ...manualTexts(r), materialId: r.materialId, sizes: [...r.sizes], partIds: r.parts.filter((p) => p.id).map((p) => p.id) }))
       .filter((r) => r.materialId || r.sizes.length || r.partIds.length);
     const coatingIds = JSON.parse(coat.value || '[]');
-    return out.length || coatingIds.length ? { rows: out, coatingIds } : null;
+    const texts = [...new Map(coatingTexts.filter((r) => coatingIds.includes(r.materialId) && (r.passportText || r.techText)).map((r) => [JSON.stringify(r), r])).values()];
+    return out.length || coatingIds.length ? { rows: out, coatingIds, ...(texts.length ? { coatingTexts: texts } : {}) } : null;
   }
   function set(v, { fetch = true } = {}) {
     const sp = parseSpec(v);
@@ -328,6 +333,7 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
     rows.splice(0); body.replaceChildren(); pending.splice(0);
     (sp.rows.length ? sp.rows : [{}]).forEach((r) => addRow(r));
     coat.value = sp.coatingIds;
+    coatingTexts = sp.coatingTexts.filter((r) => sp.coatingIds.includes(r.materialId));
     emitting = false;
     paintNew();
     if (fetch) { el.dispatchEvent(new Event('input', { bubbles: true })); preview(); }
@@ -348,13 +354,8 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
     try {
       const sp = parseSpec((await api(`/showcase/${hit.id}`)).materialsSpec);
       if (!sp.rows.length && !sp.coatingIds.length) { toast(`У изделия «${hit.name}» таблица материалов не заполнена`, { ms: 6000 }); return; }
-      const have = new Set(rows.flatMap((r) => r.parts.map((p) => p.id).filter(Boolean)));
-      const fresh = sp.rows.filter((r) => !(r.partIds || []).length || (r.partIds || []).some((id) => !have.has(String(id))));
-      const cur = parseSpec(w.value);
-      const room = MAX_ROWS - cur.rows.length;
-      const take = fresh.map((r) => ({ ...r, partIds: (r.partIds || []).filter((id) => !have.has(String(id))) })).slice(0, Math.max(room, 0));
-      w.set({ rows: [...cur.rows, ...take], coatingIds: [...new Set([...cur.coatingIds, ...sp.coatingIds])] });
-      toast(take.length ? `Добавлено строк: ${take.length} — проверьте и сохраните` : 'Все части уже есть в таблице — ничего не добавлено');
+      const n = mergeSpec(sp);
+      toast(n ? `Добавлено строк: ${n} — проверьте и сохраните` : 'Таблица объединена — проверьте покрытия и сохраните');
     } catch (e) { toastError(e); }
   });
   const copyBtn = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Добавить строки таблицы другого изделия', onclick: async (e) => {
@@ -367,11 +368,11 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
 
   // «Шаблон по категории»: строки шаблона категории добавляются так же, как при копировании из изделия
   const mergeSpec = (sp) => {
-    const have = new Set(rows.flatMap((r) => r.parts.map((p) => p.id).filter(Boolean)));
     const cur = parseSpec(w.value);
-    const take = sp.rows.filter((r) => !(r.partIds || []).length || (r.partIds || []).some((id) => !have.has(String(id))))
-      .map((r) => ({ ...r, partIds: (r.partIds || []).filter((id) => !have.has(String(id))) })).slice(0, Math.max(MAX_ROWS - cur.rows.length, 0));
-    w.set({ rows: [...cur.rows, ...take], coatingIds: [...new Set([...cur.coatingIds, ...sp.coatingIds])] });
+    const have = new Set(cur.rows.flatMap((r) => (r.partIds || []).map((id) => partKey(r, id))));
+    const take = sp.rows.filter((r) => !(r.partIds || []).length || (r.partIds || []).some((id) => !have.has(partKey(r, id))))
+      .map((r) => ({ ...r, partIds: (r.partIds || []).filter((id) => !have.has(partKey(r, id))) })).slice(0, Math.max(MAX_ROWS - cur.rows.length, 0));
+    w.set({ rows: [...cur.rows, ...take], coatingIds: [...new Set([...cur.coatingIds, ...sp.coatingIds])], coatingTexts: [...cur.coatingTexts, ...sp.coatingTexts] });
     return take.length;
   };
   const tplUrl = () => '/passports/template?category=' + encodeURIComponent(scope());

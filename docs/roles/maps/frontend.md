@@ -1,3 +1,10 @@
+## C094 МЦ-7 тексты материалов (2026-11-12)
+коммит: не закоммичено
+- `backend/pwa/ui/materials-spec.js:21` — manualTexts/partKey; `:245` очистка покрытий; `:323` сохранение снимков; `:370` копирование разных фраз без потерь.
+- `backend/pwa/sections/products/form-fields.js:26` — fromComposition переносит coatingTexts с подтверждением; `backend/pwa/sections/tech-sheet.js:32` — ручной techText без размеров, покрытия по серверному правилу.
+- `backend/pwa/sections/stock-passport.js:55` — object/legacy JSON, нормализованное сравнение; `backend/pwa/sections/stock.js:377` — ошибка блока паспорта сохраняет форму; `stock-passport.test.mjs` — 5 регрессий, включая `stock.js:65`: targetNote сохраняется DOM-узлом в истории движений.
+- `backend/pwa/ui/materials-spec.test.mjs:70` — 7 связных регрессий; отчёт C094/MC7-FRONTEND.md. Карта обновлена.
+
 ## C094 добавление элемента с возвратом (2026-11-12)
 коммиты: 545448fa (kit), a9b3860b (паспорт); v1.730, независимая приёмка PASS
 - `sections/passports/fill/control.js`: редактор существующего справочника, повтор после ошибки без дубля, максимум три подходящих элемента. `fill/index.js`: ожидание записей и защита от отложенной перерисовки.

@@ -1,0 +1,196 @@
+{
+  "theme": "light",
+  "width": 375,
+  "tag": "QA МЦ-7 1794495629424",
+  "ids": {
+    "productId": "6af5d441666bfe78eb421f30",
+    "orderId": "6af5d463666bfe78eb421f45",
+    "lineId": "6af5d464666bfe78eb421f51",
+    "requestId": "6af5d48e666bfe78eb421fe2",
+    "invoiceId": "6af5d48f666bfe78eb421ffb",
+    "materialId": "6af5d493666bfe78eb4221bf",
+    "stockBatch": "6af5d62c666bfe78eb422707",
+    "movements": [],
+    "passportId": "6af5d825666bfe78eb423a9e"
+  },
+  "steps": [
+    {
+      "step": "01-request",
+      "overflow": 0
+    },
+    {
+      "step": "02-paid-invoice",
+      "overflow": 0
+    },
+    {
+      "step": "03-received",
+      "overflow": 0
+    },
+    {
+      "step": "04-stock-link",
+      "overflow": 0
+    },
+    {
+      "step": "04-stock-link",
+      "overflow": 0
+    },
+    {
+      "step": "04-stock-link",
+      "overflow": 0
+    },
+    {
+      "step": "05-suggestion",
+      "overflow": 0
+    },
+    {
+      "step": "05-suggestion",
+      "overflow": 0
+    },
+    {
+      "step": "06-proposed-materials",
+      "overflow": 0
+    },
+    {
+      "step": "07-passport-preview",
+      "overflow": 0
+    },
+    {
+      "step": "08-issue-ready",
+      "overflow": 0
+    }
+  ],
+  "writes": [
+    {
+      "method": "POST",
+      "path": "/api/supply/requests",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/supply/invoices",
+      "status": 201
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/supply/invoices/6af5d48f666bfe78eb421ffb",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/supply/invoices/6af5d48f666bfe78eb421ffb",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/supply/invoices/6af5d48f666bfe78eb421ffb",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/supply/invoices/6af5d48f666bfe78eb421ffb",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/supply/invoices/6af5d48f666bfe78eb421ffb/pay",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/supply/invoices/6af5d48f666bfe78eb421ffb/receive",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/stock/items/6af5d493666bfe78eb4221bf",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/stock/items/6af5d493666bfe78eb4221bf",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/materials/6af5d493666bfe78eb4221bf/passport-spec",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/stock/batch",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/stock/composition-suggest/accept",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/showcase/materials-text",
+      "status": 200,
+      "hasManual": true
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/showcase/6af5d441666bfe78eb421f30",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/showcase/6af5d441666bfe78eb421f30/tech-sheet",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/preview",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/check",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/check",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/check",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/check",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/check",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6af5d825666bfe78eb423a9e/issue",
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "blocked": [],
+  "techPdfBytes": 9523,
+  "passportPdfBytes": 114653,
+  "issuedPdfBytes": 108915,
+  "issuePath": [
+    "order",
+    "order",
+    "without order clicked"
+  ],
+  "complete": true
+}

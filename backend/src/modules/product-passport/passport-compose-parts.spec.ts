@@ -89,3 +89,14 @@ describe('installText', () => {
     expect(installText({})).toEqual({ text: '', requirements: [], requiredImages: [] });
   });
 });
+
+it('МЦ-7 описание берёт ручные паспортные фразы без склонения и размеров', () => {
+  const description = describeProduct({ name: 'Стенд', materialsSpec: {
+    rows: [{ materialId: 'm1', sizes: ['89×3'], partIds: [], passportText: 'Особая сталь' }],
+    coatingIds: ['c1'], coatingTexts: [{ materialId: 'c1', passportText: 'Слой А' }, { materialId: 'c1', passportText: 'Слой Б' }, { materialId: 'c2', passportText: 'Снято' }],
+  } }, [], mats);
+  expect(description).toContain('Материалы: Особая сталь.');
+  expect(description).toContain('Покрытие: Слой А; Слой Б.');
+  expect(description).not.toContain('89×3');
+  expect(description).not.toContain('Снято');
+});

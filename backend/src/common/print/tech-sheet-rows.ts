@@ -44,10 +44,13 @@ export function techSheetRows(i: TechRowsInput): { name: string; text: string }[
     const wall = wallOf(row.sizes?.[0] || '');
     const tol = wall && wall > 1 ? `, толщина ${range(wall - 1, wall + 1, 'мм')}` : '';
     const name = (row.partIds || []).map((id) => partBy.get(String(id))).filter(Boolean).join(', ') || 'Материал';
-    const text = [mat, sizes].filter(Boolean).join(' ') + tol;
+    const text = String(row.techText || '').trim() || [mat, sizes].filter(Boolean).join(' ') + tol;
     if (name || text) rows.push({ name, text });
   }
-  const coats = (i.spec?.coatingIds ?? []).map((id) => matBy.get(String(id))).filter(Boolean);
+  const coats = (i.spec?.coatingIds ?? []).flatMap((id) => {
+    const texts = (i.spec?.coatingTexts ?? []).filter((c) => String(c.materialId) === String(id)).map((c) => String(c.techText || '').trim()).filter(Boolean);
+    return texts.length ? [...new Set(texts)] : [matBy.get(String(id))];
+  }).filter(Boolean);
   if (coats.length) rows.push({ name: 'Покрытие', text: coats.join(', ') });
   const unit = String(i.unit || 'мм').trim() || 'мм';
   for (const [k, label] of [['length', 'Длина'], ['width', 'Ширина'], ['height', 'Высота']] as const) {

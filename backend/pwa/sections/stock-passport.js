@@ -5,11 +5,13 @@ import { loadMaterialDicts, normSize, splitSizes } from '../ui/materials-spec.js
 
 /*
  * МЦ-3/МЦ-6: блок «Для паспорта» позиции склада — связь с материалом паспорта (materials.passportSpec).
- *   passportSpecField(row) → поле формы (type 'widget') | null;  savePassportSpec(id, json) → PATCH /materials/:id/passport-spec
+ *   passportSpecField(row) → поле формы (type 'widget') | null;  savePassportSpec(id, object|json) → PATCH /materials/:id/passport-spec
  *   passportSpecView(r) → блок для карточки (читает GET /materials/:id).
  */
 const norm = (t) => String(t || '').trim();
 const origs = new Map();
+const specBody = (v) => ({ materialId: v.materialId || null, passportText: norm(v.passportText) || null, techText: norm(v.techText) || null,
+  ...(v.materialId ? { sizes: v.sizes || [], isCoating: !!v.isCoating } : {}) });
 const load = (id) => api(`/materials/${id}`).then((m) => m.passportSpec || null);
 
 /** Поле формы: материал (из справочника) · размеры · покрытие · два текста. value — JSON {materialId, sizes, isCoating, passportText, techText}. */
@@ -19,7 +21,7 @@ export async function passportSpecField(row) {
   const mats = dicts.mats;
   const byId = new Map(mats.map((m) => [String(m.id), m]));
   const st = { materialId: spec?.materialId ? String(spec.materialId) : '', sizes: spec?.sizes || [], isCoating: !!spec?.isCoating, passportText: spec?.passportText || '', techText: spec?.techText || '' };
-  origs.set(row.id, JSON.stringify(st));
+  origs.set(String(row.id), JSON.stringify(specBody(st)));
   const emit = (el) => el.dispatchEvent(new Event('input', { bubbles: true }));
   const el = h('div', { class: 'pspec' });
   const matIn = h('input', { placeholder: 'Не связан — выберите материал паспорта', 'aria-label': 'Материал паспорта' });
@@ -51,13 +53,15 @@ export async function passportSpecField(row) {
 }
 
 /** Записать, если менялось: ключи заменяются, пустое снимает; без материала размеры не шлём (сервер вернёт 400). */
-export async function savePassportSpec(id, json) {
-  if (!json) return;
-  const v = JSON.parse(json);
-  if (json === origs.get(id)) return;
-  const body = { materialId: v.materialId || null, passportText: norm(v.passportText) || null, techText: norm(v.techText) || null };
-  if (v.materialId) { body.sizes = v.sizes || []; body.isCoating = !!v.isCoating; }
+export async function savePassportSpec(id, value) {
+  if (value == null || value === '') return;
+  const v = typeof value === 'string' ? JSON.parse(value) : value;
+  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new Error('Данные блока «Для паспорта» не распознаны. Повторите сохранение.');
+  const body = specBody(v);
+  const saved = JSON.stringify(body);
+  if (saved === origs.get(String(id))) return;
   await api(`/materials/${id}/passport-spec`, { method: 'PATCH', body });
+  origs.set(String(id), saved);
 }
 
 /** Блок «Для паспорта» в карточке (только чтение; правка — «Изменить»). */

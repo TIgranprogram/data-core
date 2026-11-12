@@ -62,9 +62,9 @@ function recentMoves(r) {
   const paint = (count) => box.replaceChildren(section({ tone: 'gold', title: 'Последние записи', count, open: box.querySelector('details.k-sec')?.open || false, body: [list, more] })); paint(null);
   const show = (res, full) => {
     paint(res.total ?? res.items.length); if (!res.items.length) { list.replaceChildren(hint('Движений нет. Приход и списание — кнопки в карточке позиции.')); more.replaceChildren(); return; }
-    list.replaceChildren(...res.items.map((m) => row({ lead: date(m.date), title: HIST[m.type] || m.type,
+    list.replaceChildren(...res.items.map((m) => { const target = targetNote(m); return row({ lead: date(m.date), title: HIST[m.type] || m.type,
       side: h('span', { class: 'num' + negCls(m) }, (m.type === 'in' ? '+' : m.type === 'out' ? '−' : '') + qty(m.qty)),
-      below: [targetNote(m), m.note].filter(Boolean).join(' · ') || null })));
+      below: target || m.note ? h('span', null, target, target && m.note ? ' · ' : null, m.note || null) : null }); }));
     more.replaceChildren(...[
       !full && res.total > res.items.length ? kitButton({ label: `Вся история (${res.total})`, kind: 'ghost', size: 'S', onClick: async (e) => {
         const free = busyBtn(e.currentTarget, null);
@@ -377,9 +377,9 @@ export const stock = {
     update: async (id, body) => {
       const { photoIds, passportSpec, ...rest } = body;
       let r = await api(`/stock/items/${id}`, { method: 'PATCH', body: rest });
-      // Название уже записано — сбой паспорта/фото не должен выглядеть как «ничего не сохранилось».
+      // Основные данные уже записаны; сбой паспорта оставляет форму с текстами для повторного сохранения.
       try { await savePassportSpec(id, passportSpec); }
-      catch (e) { toast(`Название сохранено. Блок «Для паспорта» не записался: ${errText(e)}. Откройте карточку снова.`, { error: true }); }
+      catch (e) { throw new Error(`Основные данные сохранены. Блок «Для паспорта» не записался: ${errText(e)} Повторите сохранение.`, { cause: e }); }
       try {
         const have = new Set((r.photos || []).map((p) => p.id));
         for (const photoId of photoIds || []) if (!have.has(photoId)) r = await api(`/stock/items/${id}/photos`, { method: 'POST', body: { photoId } });

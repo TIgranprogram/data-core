@@ -32,13 +32,18 @@ export function wallOf(size) {
 export function specRows(spec, dicts) {
   const matBy = new Map(dicts.mats.map((m) => [String(m.id), m]));
   const partBy = new Map(dicts.parts.map((p) => [String(p.id), p]));
-  return (spec?.rows || []).map((row) => {
+  const materials = (spec?.rows || []).map((row) => {
     const mat = matBy.get(String(row.materialId))?.name || '';
     const sizes = (row.sizes || []).join(', ');
     const wall = wallOf(row.sizes?.[0]);
     const tol = wall && wall > 1 ? `, толщина ${range(wall - 1, wall + 1, 'мм')}` : '';
-    return { name: (row.partIds || []).map((id) => partBy.get(String(id))?.name).filter(Boolean).join(', ') || 'Материал', text: [mat, sizes].filter(Boolean).join(' ') + tol };
+    return { name: (row.partIds || []).map((id) => partBy.get(String(id))?.name).filter(Boolean).join(', ') || 'Материал', text: String(row.techText || '').trim() || [mat, sizes].filter(Boolean).join(' ') + tol };
   });
+  const coatings = (spec?.coatingIds || []).flatMap((id) => {
+    const texts = (spec.coatingTexts || []).filter((r) => String(r.materialId) === String(id)).map((r) => String(r.techText || '').trim()).filter(Boolean);
+    return texts.length ? texts : [matBy.get(String(id))?.name || ''];
+  }).filter(Boolean);
+  return [...materials, ...(coatings.length ? [{ name: 'Покрытие', text: [...new Set(coatings)].join(', ') }] : [])];
 }
 
 /** Строки, которые подставляются из изделия: габариты (±10 %), вес, назначение, монтаж. */
@@ -85,7 +90,7 @@ export const techSheet = sideForm({
     return [
       { section: 'Части и материалы', tone: 'main', fixed: true },
       { key: 'materialsSpec', label: 'Из чего сделано', type: 'widget', wide: true, summary: specSummary,
-        hint: 'Часть, материал, размер и покрытие — выберите из списков или впишите (Enter). «Взять из состава» — строки по материалам состава изделия. Сохранится в изделие — паспорт возьмёт то же.',
+        hint: 'Часть, материал, размер и покрытие — выберите из списков или впишите (Enter). «Взять из состава» переносит материалы и их ручные тексты; размеры к ручному тексту не дописываются. Сохранится в изделие — паспорт возьмёт то же.',
         widget: (v) => materialsSpec({ value: v, dicts: r.dicts, text: r.materialsText || '', scope: () => r.passportCategory?.code || '', actions: session.canEdit ? [fromComposition(r)] : [] }) },
       { section: 'Подставится из изделия', tone: 'info' },
       { key: '_auto', label: '', type: 'widget', wide: true, widget: () => ({

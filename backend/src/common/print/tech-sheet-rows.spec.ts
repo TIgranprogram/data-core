@@ -28,3 +28,10 @@ describe('строки технического описания из соста
     expect(rows).toEqual([{ name: 'Материал', text: '1' }]);
   });
 });
+
+it('МЦ-7 печатает только ручную техническую фразу и выбранные покрытия', () => {
+  expect(techSheetRows({ mats: [], parts: [], spec: {
+    rows: [{ materialId: pipe, sizes: ['∅89×3'], partIds: [], passportText: 'Паспорт', techText: 'Ручная техника' }],
+    coatingIds: [coat], coatingTexts: [{ materialId: coat, techText: 'Слой А' }, { materialId: coat, techText: 'Слой Б' }, { materialId: pipe, techText: 'Снято' }],
+  } })).toEqual([{ name: 'Материал', text: 'Ручная техника' }, { name: 'Покрытие', text: 'Слой А, Слой Б' }]);
+});

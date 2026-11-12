@@ -135,3 +135,6 @@
 ## Каталог склада — атомарность T26 (2026-11-03)
 
 `modules/stock/stock-catalog-name.schema.ts` → внутренняя `stock_catalog_name_reservations`. Постоянный `_id` нормализованного имени и `revision` сериализуют exact-name check + создание/переименование Material в Mongo-транзакции. TTL, удаления и усыновления существующих дублей нет. Регистрация: `stock.module.ts`; правила: `stock-catalog.service.ts`; конкурентная проверка: `test/e2e/stock-catalog-atomicity.e2e-spec.ts`. Коллекция скрыта из meta schema и админского списка. Общая CRM-схема materials и публичные маршруты stock не изменены.
+
+### МЦ-7: ручные тексты материалов (12.11.2026)
+`GET /api/showcase/:id/materials-spec/from-composition` (точное имя маршрута см. строку showcase) переносит `materials.passportSpec.passportText/techText` в предложение таблицы: optional `rows[].passportText/techText` и `coatingTexts:[{materialId,passportText?,techText?}]`. Запрос не записывает изделие. Сохранение выполняет существующий PATCH изделия/паспорта; разные пары текстов не объединяются. Подробнее: `crew/C094-passport-text-fit/MC7-TZ.md`.
