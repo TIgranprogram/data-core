@@ -1,5 +1,7 @@
 # C096 — независимая проверка нового изделия (внешний Claude)
 
+**Формат сдачи обязателен:** полный отчёт только в `CLAUDE-E4-REVIEW.md`. Ответ в чат — максимум 3 строки: итог, путь к файлу, блокер (если есть). Не пересказывать отчёт в чат.
+
 Задача только чтением, без кода, API-записей, деплоя и повторного full-прогона. Работай в отдельном worktree или читай текущие файлы без изменений: координатор правит Э4.
 
 Прочти AGENTS.md, docs/PATTERNS.md, C096/E4-TZ.md и DECISIONS.md. Узкий scope: `pwa/sections/passports/funnel/new-product.js`, `funnel/index.js`, `products/form-fields.js`, `products/data.js`, `passports/product-block.js`; серверные источники только при конкретном вопросе.
