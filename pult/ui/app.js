@@ -418,7 +418,7 @@ function paramsOf(c) {
 }
 
 async function press(c) {
-  if (CONFIRM_RISKS.has(c.risk) || c.confirm) return askConfirm(c);
+  if (c.id === 'ai-key-local' || CONFIRM_RISKS.has(c.risk) || c.confirm) return askConfirm(c);
   return launch(c, {});
 }
 
@@ -465,27 +465,35 @@ function askConfirm(c) {
   $('cTitle').textContent = c.title;
   $('cRisk').textContent = S.catalog.risks[c.risk].label;
   $('cRisk').className = `badge ${c.risk}`;
-  $('cText').textContent = c.confirm;
+  const needsSecret = c.id === 'ai-key-local';
+  $('cText').textContent = needsSecret ? 'Вставьте секретный ключ из Anthropic → API Keys.' : c.confirm;
   const shown = c.params.map((p) => `${p.label}: ${p.options.find((o) => o.value === paramValue(c, p))?.label ?? '—'}`);
   $('cParams').hidden = !shown.length;
   $('cParams').textContent = shown.join(' · ');
   $('cWordBox').hidden = !c.word;
   $('cWordHint').textContent = c.word || '';
   const word = $('cWord');
+  const secret = $('cSecret');
   const ok = $('cOk');
   word.value = '';
+  secret.value = '';
+  $('cSecretBox').hidden = !needsSecret;
+  const canSubmit = () => (!c.word || word.value === c.word) && (!needsSecret || !!secret.value.trim());
   ok.className = buttonClass(c);
-  ok.disabled = !!c.word;
-  word.oninput = () => { ok.disabled = word.value !== c.word; };
+  ok.disabled = !canSubmit();
+  word.oninput = secret.oninput = () => { ok.disabled = !canSubmit(); };
+  d.onclose = () => { secret.value = ''; };
   $('cCancel').onclick = () => d.close();
   $('confirmForm').onsubmit = (ev) => {
     ev.preventDefault();
-    if (c.word && word.value !== c.word) return;
+    if (!canSubmit()) return;
+    const key = needsSecret ? secret.value.trim() : undefined;
+    secret.value = '';
     d.close();
-    launch(c, { confirmed: true, word: c.word ? word.value : undefined });
+    launch(c, { confirmed: true, word: c.word ? word.value : undefined, secret: key });
   };
   d.showModal();
-  if (c.word) word.focus(); else $('cCancel').focus();
+  if (needsSecret) secret.focus(); else if (c.word) word.focus(); else $('cCancel').focus();
 }
 
 // ---------- журнал ----------

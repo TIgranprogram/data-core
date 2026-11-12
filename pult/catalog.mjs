@@ -193,7 +193,7 @@ export const COMMANDS = [
   { id: 'setup-check', section: 'setup', extra: true, sub: 'Один раз на ПК', title: 'Проверить этот ПК', risk: 'read', time: '10 с', run: { cmd: ['tools\\setup.cmd'] },
     hint: 'Node, Git, Docker, Edge и папка копий. Строка [!!] — что исправить.' },
   { id: 'ai-key-local', section: 'setup', extra: true, sub: 'Один раз на ПК', title: 'Ключ ИИ для КП — на стенд этого ПК', risk: 'local', time: '20 с', needs: ['bash'], run: { bash: ['deploy/synology/set-ai-key.sh', 'local'] },
-    hint: 'Ключ sk-ant-… из буфера — в настройки стенда. Нужен, чтобы проверить «Разобрать заявку» до выкладки.' },
+    hint: 'Вставьте ключ sk-ant-… в скрытое поле. Он включает «Разобрать заявку» на стенде этого ПК.' },
   { id: 'ai-key-prod', section: 'setup', extra: true, sub: 'Один раз на ПК', title: 'Ключ ИИ для КП — на сайт', risk: 'prod-write', time: '1–2 мин', needs: ['bash', 'vm'], run: { bash: ['deploy/synology/set-ai-key.sh', 'prod'] },
     confirm: 'Ключ ИИ запишется в настройки сервера сайта, сервер перезапустится (1–2 мин). Данные не меняются.',
     hint: 'Ключ sk-ant-… из буфера — в настройки сервера сайта, сервер перезапускается. Включает кнопку «Разобрать заявку» в «Новом КП».' },

@@ -9,8 +9,16 @@ cd "$(git rev-parse --show-toplevel)"
 WHERE="${1:-}"
 [ "$WHERE" = local ] || [ "$WHERE" = prod ] || { echo "usage: set-ai-key.sh local|prod"; exit 2; }
 
-# Через base64: кодировка консоли Windows не портит текст буфера.
-KEY="$(powershell.exe -NoProfile -Command '[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string](Get-Clipboard -Raw)))' 2>/dev/null | tr -d '\r\n' | base64 -d 2>/dev/null | tr -d '\r\n \t' || true)"
+if [ "${2:-}" = --stdin ]; then
+  IFS= read -r KEY || { echo "✗ Не удалось прочитать ключ из поля ввода."; exit 1; }
+  if ! [[ "$KEY" =~ ^sk-ant-[A-Za-z0-9_-]{20,}$ ]] || [ "${#KEY}" -gt 400 ]; then
+    echo "✗ Вставьте секретный ключ Anthropic вида sk-ant-…."
+    exit 1
+  fi
+else
+  # Через base64: кодировка консоли Windows не портит текст буфера.
+  KEY="$(powershell.exe -NoProfile -Command '[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string](Get-Clipboard -Raw)))' 2>/dev/null | tr -d '\r\n' | base64 -d 2>/dev/null | tr -d '\r\n \t' || true)"
+fi
 if ! [[ "$KEY" =~ ^sk-ant-[A-Za-z0-9_-]{20,}$ ]] || [ "${#KEY}" -gt 400 ]; then
   case "$KEY" in
     kppd_*) echo "✗ В буфере машинный ключ data-core (kppd_, ${#KEY} знаков). Для КП нужен ключ Anthropic (sk-ant-…)." ;;

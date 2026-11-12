@@ -205,7 +205,7 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     for (const f of files.slice(0, Math.max(0, files.length - KEEP_LOGS))) fs.unlinkSync(path.join(logDir, f));
   }
 
-  function startJob(cmd, spec, auto = false) {
+  function startJob(cmd, spec, auto = false, secret) {
     fs.mkdirSync(logDir, { recursive: true });
     const stamp = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().replace(/\D/g, '').slice(0, 14);
     const id = crypto.randomBytes(6).toString('hex');
@@ -216,11 +216,11 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     sh('git', ['rev-parse', 'HEAD']).then((r) => { job.commit = r.out.trim(); });
     send({ type: 'start', job: summary(job) });
 
-    const child = spawn(spec.file, spec.args, { cwd: spec.cwd, env: { ...childEnv(machine), ...spec.env }, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    const child = spawn(spec.file, spec.args, { cwd: spec.cwd, env: { ...childEnv(machine), ...spec.env }, stdio: [secret ? 'pipe' : 'ignore', 'pipe', 'pipe'], windowsHide: true });
     job.pid = child.pid;
     let pending = '';
     const emit = (raw) => {
-      const line = cleanLine(raw);
+      const line = cleanLine(secret ? raw.replaceAll(secret, '[скрыто]') : raw);
       if (job.lines.length < MAX_JOB_LINES) job.lines.push(line);
       log.write(`${line}\n`);
       send({ type: 'line', id, line });
@@ -237,6 +237,10 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     let failedToStart = false;
     child.on('error', (e) => { failedToStart = true; emit(`Не удалось запустить: ${e.message}`); finish(127); });
     child.on('close', (code) => { if (!failedToStart) finish(code ?? 1); });
+    if (secret) {
+      child.stdin.on('error', () => emit('Не удалось передать ключ скрипту.'));
+      child.stdin.end(`${secret}\n`);
+    }
 
     let closed = false;
     function finish(code) {
@@ -269,7 +273,7 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
   }
 
   /** Одна кнопка: проверки → запуск. Ошибка — { status, error }. */
-  function runCommand({ id, params, confirmed, word, auto = false }) {
+  function runCommand({ id, params, confirmed, word, secret, auto = false }) {
     const cmd = catalog.COMMANDS.find((c) => c.id === id);
     if (!cmd) return { status: 404, error: 'Такой команды нет в каталоге' };
     const blocked = missingNeeds(cmd, machine);
@@ -280,6 +284,12 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     if (cmd.word && word !== cmd.word) return { status: 403, error: `Для запуска введите слово ${cmd.word}` };
     if (id === 'ait-run' && testerState(root, readRuns(), [...jobs.values()]).busy) return { status: 409, error: 'Проверка уже запускается или работает. Дождитесь её завершения; при обрыве откройте результаты.' };
     const spec = buildRun(cmd, values, machine, root);
+    if (id === 'ai-key-local') {
+      if (typeof secret !== 'string' || secret.length > 400 || !/^sk-ant-[A-Za-z0-9_-]{20,}$/.test(secret) || /\s/.test(secret)) {
+        return { status: 400, error: 'Вставьте секретный ключ Anthropic вида sk-ant-….' };
+      }
+      spec.args.push('--stdin');
+    }
     if (spec.open || spec.folder) { openExternal(spec.open || spec.folder); return { opened: true }; }
     const live = running();
     if (live.some((j) => j.cmdId === id)) return { status: 409, error: 'Эта команда уже идёт' };
@@ -287,7 +297,7 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     if (testBusy) return { status: 409, error: `Проверки делят одну тестовую базу. Сначала дождитесь: ${testBusy.title}` };
     const busy = live.find((j) => NEEDS_CONFIRM.has(j.risk));
     if (NEEDS_CONFIRM.has(cmd.risk) && busy) return { status: 409, error: `Сначала дождитесь: ${busy.title}` };
-    const job = startJob(cmd, spec, auto); job.params = values;
+    const job = startJob(cmd, spec, auto, id === 'ai-key-local' ? secret : undefined); job.params = values;
     return { job: summary(job) };
   }
 

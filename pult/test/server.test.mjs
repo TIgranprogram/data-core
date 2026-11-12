@@ -14,6 +14,8 @@ const fake = {
   ADVICE: [{ match: 'СТОП', say: 'совет' }],
   NOT_ON_BUTTONS: {},
   COMMANDS: [
+    { id: 'ai-key-local', section: 's', title: 'Ключ ИИ', risk: 'local',
+      run: { node: ['-e', "if (!process.argv.includes('--stdin')) process.exit(2); process.stdin.pipe(process.stdout)", '--'] } },
     { id: 'hello', section: 's', title: 'Привет', hint: 'h', time: '1', risk: 'read', run: say("console.log('привет'); console.log('A_PASSWORD=qwe')") },
     { id: 'fail', section: 's', title: 'Сбой', hint: 'h', time: '1', risk: 'read', run: say("console.log('СТОП'); process.exit(3)") },
     { id: 'soft', section: 's', title: 'Находки', hint: 'h', time: '1', risk: 'read', run: { ...say("console.log('✗ плохо'); process.exit(1)"), soft: true } },
@@ -90,6 +92,18 @@ test('вывод, маска пароля, журнал на диске', async 
   await new Promise((r) => setTimeout(r, 50));
   const text = fs.readFileSync(path.join(logDir, file), 'utf8');
   assert.ok(text.includes('привет') && !text.includes('qwe'));
+});
+
+test('ключ ИИ передаётся через stdin и скрывается в журнале', async () => {
+  const id = 'ai-key-local';
+  assert.equal((await api('/api/run', { id, secret: 'kppd_test' })).status, 400);
+  const secret = 'sk-ant-' + 'x'.repeat(24);
+  const { job } = (await api('/api/run', { id, secret })).json();
+  const result = await finished(job.id);
+  assert.equal(result.code, 0);
+  assert.deepEqual(result.lines, ['[скрыто]']);
+  const output = fs.readFileSync(path.join(logDir, path.basename(result.logFile)), 'utf8');
+  assert.equal(output.trim(), '[скрыто]');
 });
 
 test('код ошибки и подсказка', async () => {
