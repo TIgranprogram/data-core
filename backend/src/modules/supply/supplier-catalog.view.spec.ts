@@ -87,3 +87,25 @@ describe('каталог: view=all', () => {
     expect(b.calls.some(hidden)).toBe(false);
   });
 });
+
+describe('каталог: поиск по названию категории (AIT-6)', () => {
+  const top = { _id: id(), name: 'Метизы', parentId: null };
+  const sub = { _id: id(), name: 'Болты', parentId: top._id };
+  const other = { _id: id(), name: 'Расходники', parentId: null };
+  const orOf = (calls: { coll: string; op: string; arg: unknown }[]) => (calls.find((c) => c.coll === 'supplieritems' && c.op === 'find')!.arg as Doc).$or as Doc[];
+
+  it('слово совпало с категорией — в условие входят она и её подкатегории', async () => {
+    const { svc, calls } = fake({ categories: [top, sub, other], supplieritems: [] });
+    await svc.list({ search: 'метиз' });
+    const cat = orOf(calls).find((x) => x.categoryId)!;
+    expect(cat.categoryId.$in.map(String).sort()).toEqual([String(top._id), String(sub._id)].sort());
+    expect(orOf(calls)).toHaveLength(4); // название, артикул, примечание, категория
+  });
+
+  it('категории с таким словом нет — поиск как раньше, без условия по категории', async () => {
+    const { svc, calls } = fake({ categories: [top, sub, other], supplieritems: [] });
+    await svc.list({ search: 'труба' });
+    expect(orOf(calls).some((x) => x.categoryId)).toBe(false);
+    expect(orOf(calls)).toHaveLength(3);
+  });
+});

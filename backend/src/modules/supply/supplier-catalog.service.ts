@@ -53,6 +53,20 @@ export class SupplierCatalogService {
     return { cats, parent: new Map(cats.map((c) => [String(c._id), c.parentId ? String(c.parentId) : null])) };
   }
 
+  /**
+   * Условия поиска: название, артикул (и примечание у предложений) либо название категории —
+   * на плитках написано «Метизы», человек так и ищет (находка ИИ-тестировщика 2026-11-11, AIT-6).
+   */
+  private async searchOr(s: string, withNote: boolean): Promise<Doc[]> {
+    const re = new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    const or: Doc[] = [{ name: re }, { article: re }];
+    if (withNote) or.push({ note: re });
+    const { cats } = await this.catParents();
+    const hit = cats.filter((c) => re.test(String(c.name ?? ''))).map((c) => c._id as Types.ObjectId);
+    if (hit.length) or.push({ categoryId: { $in: await this.withDescendants(hit) } });
+    return or;
+  }
+
   /** Выбранные категории + все их потомки. */
   private async withDescendants(ids: Types.ObjectId[]) {
     const { parent } = await this.catParents();
@@ -80,10 +94,7 @@ export class SupplierCatalogService {
     if (q.noPrice === '1') f.priceHint = null;
     if (q.stale === '1') f.$and = [{ priceHint: { $ne: null } }, { $or: [{ priceDate: null }, { priceDate: { $lt: new Date(Date.now() - STALE_DAYS * DAY) } }] }];
     const s = String(q.search ?? '').trim();
-    if (s) {
-      const re = new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      f.$or = [{ name: re }, { article: re }, { note: re }];
-    }
+    if (s) f.$or = await this.searchOr(s, true);
     if (scope) f.$and = [...((f.$and as unknown[] | undefined) ?? []), await docScopeMatch(this.conn, scope)]; // склады (WZ)
     return f;
   }
@@ -205,10 +216,7 @@ export class SupplierCatalogService {
       if (cat.length) and.push({ categoryId: { $in: await this.withDescendants(cat) } });
     }
     const s = String(q.search ?? '').trim();
-    if (s) {
-      const re = new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      and.push({ $or: [{ name: re }, { article: re }] });
-    }
+    if (s) and.push({ $or: await this.searchOr(s, false) });
     if (scope) and.push(scopeMatch(scope));
     return { $and: and };
   }

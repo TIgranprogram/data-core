@@ -318,7 +318,7 @@ export const supplierCatalog = {
     landing: { when: (P) => !P.supplierId && !P.catId && !P.subId && !P.q && !P.flag && !P.all, render: catLanding },
     createLabel: false, // «+ Создать» — меню позиция / предложение (headActions)
     headActions: () => (canWrite() ? [createButton()] : []),
-    searchPlaceholder: 'Артикул, название, примечание…',
+    searchPlaceholder: 'Название, артикул, категория…',
     emptyText: 'В каталоге пока пусто.', emptyHint: 'Загрузите прайс поставщика по шаблону: шестерёнка → «⇩ Шаблон Excel», затем «Загрузить Excel…».',
     rowAction: (r) => (!r.materialId && canWrite()
       ? { label: 'Связать с позицией', title: 'Выбрать позицию склада или создать новую', run: () => { patch({ open: r.id, fill: 'material' }); return false; } }
