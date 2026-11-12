@@ -1,6 +1,7 @@
 import { api, canEditSection, PREFIX, session } from '../../core/api.js';
 import { reportError } from '../../core/errors.js';
 import { mark } from './mark.js';
+import { cardParent, registerCardParent } from './card-parent.js';
 import { h } from '../../core/dom.js';
 import { readonlyGroups } from './readonly.js';
 import { go } from '../../core/router.js';
@@ -27,7 +28,6 @@ import { isSolo, popout, setPopout, soloGeometry } from '../../core/popout.js'; 
  * На широком экране (≥ DOCK_MIN) панель пристыкована без затемнения; список остаётся кликабельным.
  * Зоны: card.zones или data-zone (main/side/wide), DESIGN §4; раскладка выбирается в меню «⋯» (prefs panelLayout).
  */
-
 /** Фото записи: большое + миниатюры; клик — на весь экран (Esc / клик — закрыть). pics: [{ url, thumb }] */
 function gallery(pics, onRemove, onMain) {
   const big = h('img', { class: 'g-big', src: PREFIX + (pics[0].medium || pics[0].url), alt: '', loading: 'lazy', decoding: 'async' });
@@ -52,7 +52,7 @@ const layoutNow = () => { const v = getPref('panelLayout'); return LAYOUTS.some(
 const docked = () => window.innerWidth >= DOCK_MIN;
 /** Заголовок панели: строка, узел или массив (с null) → список без пустых мест; узел никогда не склеивается в строку. */
 const parts = (x) => [].concat(x ?? []).filter((n) => n !== null && n !== undefined && n !== false && n !== '');
-export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
+export function openCard(section, { id, mode = 'view', initial, fill, parent }, ctx) {
   let row = null;
   let form = null;
   let saving = false;
@@ -68,8 +68,8 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
   const stripEl = h('div', { class: 'k-head-strip' }); // card.headStrip(row): полоса под заголовком на всю ширину
   const upEl = h('button', { class: 'btn btn-sm drawer-up', type: 'button', hidden: true }); // ТИ-2: явный возврат «← Заказ №…»
   const menuBox = h('div', { class: 'rel' });
-  const solo = isSolo(); const sid = section.id || ''; // в отдельном окне: панель на всё окно, ✕ закрывает окно
-  const popBtn = !sid || mode !== 'view' ? null : solo
+  const solo = isSolo() && !parent; const sid = section.id || ''; // в отдельном окне: панель на всё окно, ✕ закрывает окно
+  const popBtn = parent || !sid || mode !== 'view' ? null : solo
     ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', title: 'Следующие карточки будут открываться справа в основном окне', onclick: () => { setPopout(sid, false); window.close(); } }, 'Открывать в панели')
     : h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Открыть в отдельном окне — его можно перенести на другой монитор; следующие карточки тоже откроются там', 'aria-label': 'В отдельном окне', onclick: () => { if (popout(sid)) tryClose(); else toast('Браузер не дал открыть окно — разрешите всплывающие окна для сайта', { error: true }); } }, '↗');
   const body = h('div', { class: 'drawer-body' });
@@ -80,23 +80,23 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     body, foot), 'drawer');
   makeResizable(drawer, { prefKey: 'detailW', edge: 'left', label: 'Ширина правой панели' }); // ШП
   const back = h('div', { class: 'drawer-back', onclick: () => tryClose() });
-  const onKey = (e) => { if (e.key === 'Escape' && !solo && !document.querySelector('.modal-back')) tryClose(); };
+  const onKey = (e) => { if (!drawer.inert && e.key === 'Escape' && !solo && !document.querySelector('.modal-back')) tryClose(); };
   if (solo) { drawer.classList.add('solo'); back.hidden = true; soloGeometry(); }
-  const applyDock = () => { const d = docked(); drawer.classList.toggle('docked', d); back.hidden = d; drawer.setAttribute('aria-modal', d ? 'false' : 'true'); document.body.classList.toggle('detail-open', d); };
+  const applyDock = () => { if (drawer.inert) return; const d = docked(); drawer.classList.toggle('docked', d); back.hidden = d; drawer.setAttribute('aria-modal', d ? 'false' : 'true'); document.body.classList.toggle('detail-open', d); };
   document.addEventListener('keydown', onKey);
   window.addEventListener('resize', applyDock);
   document.body.append(back, drawer);
   applyDock();
 
-  function destroy() { disposed = true; document.removeEventListener('keydown', onKey); window.removeEventListener('resize', applyDock); document.body.classList.remove('detail-open'); back.remove(); drawer.remove(); }
+  function destroy() { if (disposed) return; disposed = true; document.removeEventListener('keydown', onKey); window.removeEventListener('resize', applyDock); document.body.classList.remove('detail-open'); back.remove(); drawer.remove(); cardParent(drawer)?.destroy(); }
   async function canLeave() {
-    if (saving || building || form?.busy?.()) return false;
+    if (saving || building || form?.busy?.() || (cardParent(drawer)?.child && !(await cardParent(drawer).child.canLeave()))) return false;
     return !form?.dirty() || await confirmDlg('Выйти без сохранения?', 'Изменения в форме не сохранены.', { okText: 'Выйти' });
   }
   async function tryClose() {
     if (!(await canLeave())) return;
     destroy(); ctx.close();
-    if (solo) window.close();
+    if (solo && !parent) window.close();
   }
 
   // ---------- Просмотр ----------
@@ -372,16 +372,15 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     label.scrollIntoView({ block: 'center' });
     setTimeout(() => input.focus(), 50);
   }
-
   if (mode === 'create') showForm('create', initial);
   else if (fill && section.form && canEditSection(section)) showView().then(() => (row ? showForm('edit') : null)).then(() => { if (form && fill !== 'edit') markFill(fill); });
   // card.startEdit(row) — открыть сразу правкой (текст пункта паспорта: панель = поле ввода)
   else if (section.card.startEdit && section.form && canEditSection(section)) showView().then(() => (row && section.card.startEdit(row) ? showForm('edit') : null));
   else showView();
-  return {
+  const handle = {
     close: destroy,
     canLeave,
-    get saving() { return saving || building || !!form?.busy?.(); },
+    get saving() { return !!cardParent(drawer)?.child?.saving || saving || building || !!form?.busy?.(); },
     /** Другая запись в той же панели. false — если в форме несохранённые правки и пользователь остался. */
     async load(nextId) {
       if (!(await canLeave())) return false;
@@ -394,6 +393,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     },
     get editing() { return !!form; },
     /** В форме несохранённые правки (НВ.4: «Назад» спросит «Выйти без сохранения?»). */
-    isDirty: () => saving || building || !!form?.busy?.() || !!(form && form.dirty()),
+    isDirty: () => !!cardParent(drawer)?.child || saving || building || !!form?.busy?.() || !!(form && form.dirty()),
   };
+  return registerCardParent(drawer, body, back, parent, handle, applyDock, () => disposed);
 }
