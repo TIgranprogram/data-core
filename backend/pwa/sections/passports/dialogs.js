@@ -67,7 +67,7 @@ export async function previewPassport(productId, { pack } = {}) {
   try {
     await apiFile('/passports/preview', {
       method: 'POST',
-      body: { productId, mode: 'pages', variant: passportVariant.value, ...(pack ? { pack } : {}) },
+      body: { productId, mode: 'print', variant: passportVariant.value, ...(pack ? { pack } : {}) },
       fallback: pack === 'combined' ? 'Паспорт_и_техописание.pdf' : pack === 'tech' ? 'Техническое_описание.pdf' : 'Предпросмотр_паспорта.pdf',
     });
     done();
@@ -79,7 +79,7 @@ export async function downloadCombined(productRow, getPassport) {
   const id = productRow.passports?.items?.[0]?.id;
   if (id && getPassport) {
     const r = await getPassport(id);
-    await download(r, { pack: 'combined', mode: 'pages', variant: passportVariant.value }, 'паспорт + техописание');
+    await download(r, { pack: 'combined', mode: 'print', variant: passportVariant.value }, 'паспорт + техописание');
     return;
   }
   await previewPassport(productRow.id, { pack: 'combined' });
@@ -87,14 +87,13 @@ export async function downloadCombined(productRow, getPassport) {
 
 // Значки форматов (замечание пользователя 2026-10-22: «показать визуально, книжная или альбомная»)
 export const FORMATS = [
-  { mode: 'pages', title: 'Файл A5', sub: 'книжный, постранично — отправить по почте', icon: 'sheetA5' },
   { mode: 'print', title: 'Буклет A4', sub: 'альбомный лист, сложить пополам — распечатать', icon: 'sheetBooklet' },
   { mode: 'stand', title: 'Лист для стенда A3', sub: 'правила пользования, книжный, без печати', icon: 'sheetA3' },
 ];
 
 /**
  * Скачать / распечатать паспорт (замечание пользователя 2026-10-22): сначала — печать и подпись (галочки), потом вид
- * (значками: A5, буклет A4, стенд A3), ч/б — у паспорта нового образца. Окно не закрывается, пока PDF готовится.
+ * (значками: буклет A4, стенд A3; A5 убран — решение пользователя 2026-11-12), ч/б — у паспорта нового образца. Окно не закрывается, пока PDF готовится.
  */
 export async function printDialog(r) {
   if (r.printSource === 'file' || r.printFile?.hasFile) {
@@ -143,8 +142,8 @@ export async function printDialog(r) {
       try {
         if (mode === 'stand') { await download(r, { mode: 'stand', variant: passportVariant.value }, 'лист для стенда'); return true; }
         const s = seal.cb.checked, g = sign.cb.checked;
-        const q = { variant: passportVariant.value, ...(s || g ? { stamp: 1, ...(s ? {} : { seal: 0 }), ...(g ? {} : { sign: 0 }) } : {}), ...(mode === 'print' ? { mode: 'print' } : {}), ...(mono.cb.checked ? { bw: 1 } : {}) };
-        await download(r, q, mode === 'print' ? 'буклет A4' : 'PDF');
+        const q = { variant: passportVariant.value, ...(s || g ? { stamp: 1, ...(s ? {} : { seal: 0 }), ...(g ? {} : { sign: 0 }) } : {}), mode: 'print', ...(mono.cb.checked ? { bw: 1 } : {}) };
+        await download(r, q, 'буклет A4');
         return true;
       } finally { free(); }
     },

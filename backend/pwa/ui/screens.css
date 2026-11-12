@@ -1040,7 +1040,8 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .pt-merge { display: grid; gap: var(--s2); }
 @media (max-width: 720px) {
   .pp-opts { grid-template-columns: 1fr; }
-  .pp-need-sticky { max-height: 28vh; }
+  /* C095: на телефоне плашка не липнет — иначе закрывает до трети экрана и поле, к которому прокрутили */
+  .pp-need-sticky { position: static; max-height: none; }
   .q-filter { width: 100%; height: 44px; }
 }
 .pt-check { display: flex; align-items: center; gap: var(--s2); min-height: 36px; cursor: pointer; }

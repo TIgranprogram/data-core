@@ -258,7 +258,10 @@ export class PassportPdfService {
     if (absent.length && p.status !== 'draft') throw new BadRequestException(`PDF не сформирован: обязательные рисунки отсутствуют или не читаются — ${absent.map((kind) => IMAGE_KIND_LABELS[kind] ?? kind).join(', ')}. Загрузите изображения заново в соответствующие поля паспорта.`);
     const { orgIn, asset } = await this.orgOf(p);
     const stamp = !!opts.stamp;
-    const mode: 'pages' | 'print' = opts.mode === 'print' ? 'print' : 'pages';
+    // Решение пользователя 2026-11-12: A5 во всех паспортах не нужен — только A4 альбомный буклет (спуск полос).
+    // Параметр mode=pages по-прежнему принимается (контракт API), но печатается тот же буклет A4.
+    const mode: 'pages' | 'print' = 'print';
+    void opts.mode;
     // «с печатью»: печать и подпись можно отключить по отдельности (seal / sign = false), по умолчанию — обе
     const seal = stamp && opts.seal !== false ? await this.asset(asset('seal')) : undefined;
     const signature = stamp && opts.sign !== false ? await this.asset(asset('signature')) : undefined;

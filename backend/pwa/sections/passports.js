@@ -137,8 +137,9 @@ export const passports = {
       ['Название', r.name],
       ['Категория', r.category],
       ['Артикул', r.article],
-      ['Габариты (В × Д × Ш)', dims(r)],
-      ['Вес', r.weight ? num(r.weight) + ' кг' : ''],
+      // C095: у сборного изделия габариты — по вариантам модуля, массы сборки нет
+      ['Габариты (В × Д × Ш)', r.moduleVariants?.length ? 'по вариантам модуля' : dims(r)],
+      ['Вес', r.weight && !r.moduleVariants?.length ? num(r.weight) + ' кг' : ''],
       // C095: варианты модуля — как в PDF: габариты, количество, есть ли рисунок; при нескольких — всего
       ...(r.moduleVariants?.length ? [grp('Варианты модуля'),
         ...r.moduleVariants.map((m) => [m.name, [m.size, `${m.qty} шт.`, m.photoId ? 'с рисунком' : 'без рисунка'].filter(Boolean).join(' · ')]),
@@ -158,7 +159,7 @@ export const passports = {
       ['Заметки', r.note],
     ],
     actions: (r) => [
-      // одно окно: печать/подпись галочками, вид значками (A5, буклет A4, стенд A3), ч/б — у нового образца
+      // одно окно: печать/подпись галочками, вид значками (буклет A4, стенд A3), ч/б — у нового образца
       // НМ: черновик — «Выпустить» (номер — сейчас, последним шагом); PDF черновика — с пометкой «ЧЕРНОВИК»
       statusOf(r) === 'draft' && canWorkPassport() && { label: 'Выпустить', primary: true, run: (row, ctx) => issueAction(row, ctx),
         ...(r.missing?.length ? { disabled: true, title: `Не хватает для выпуска: ${r.missing.join(', ')}` } : { title: 'Присвоить номер и талон; текст будет заморожен' }) },

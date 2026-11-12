@@ -9,6 +9,8 @@ import { cleanModules } from './passport-modules';
 
 /** Таблица размеров (ПЧ-4): буквы как на чертеже, объём считается из габаритов. Выпущенный без новых полей печатается как был выпущен. */
 export function specRows(p: PdfV2Input['passport']): [string, unknown][] {
+  // C095: сборное изделие — габариты и масса из карточки относятся к одному модулю, а не ко всей сборке; размеры — в «Варианты модуля»
+  if (cleanModules(p.moduleVariants).length) return [['Габаритные размеры', 'по таблице «Варианты модуля»']];
   // Партия: размеры каждого изделия — в таблице «Комплектность», здесь толщина и масса партии
   if (isBatch(p)) return [['Длина и ширина, мм', 'по таблице «Комплектность»'], ['Высота (толщина), мм', p.height], ['Масса партии, кг', p.weight]];
   const added = [p.seatWidth, p.seatHeight, p.supports, p.shipVolume].some(has);
@@ -49,10 +51,13 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   let tn = 0;
   if (specs.length) tab.set('specs', ++tn);
   maintenance.forEach((m, i) => { const n = ++tn; tab.set(`to:${m.period}`, n); if (i === 0) { tab.set('to', n); tab.set('maintenance', n); } });
-  tab.set('bom', ++tn);
-  // C095: варианты модуля — своя таблица сразу после комплектности; нет вариантов — номера таблиц как раньше
+  // C095: варианты модуля. Комплектность по умолчанию («Изделие в сборе, 1 шт.») при вариантах не печатается —
+  // комплектностью служит таблица вариантов (тот же номер); своя комплектность — отдельной таблицей перед вариантами.
   const modules = cleanModules(p.moduleVariants);
-  if (modules.length) tab.set('modules', ++tn);
+  const defaultBom = !p.bom?.length || (p.bom.length === 1 && String(p.bom[0].name ?? '').trim() === 'Изделие в сборе');
+  const modulesAsBom = modules.length > 0 && defaultBom;
+  tab.set('bom', ++tn);
+  if (modules.length) tab.set('modules', modulesAsBom ? tn : ++tn);
   tab.set('storage', ++tn);
   tab.set('faults', ++tn);
   // C086: тексты ссылаются на журналы ТО и ремонтов ({tab:service}, {tab:repairs}) — таблицы есть в разделе «Журналы»
@@ -189,7 +194,7 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
     heading(`${descrNo} Описание и назначение`);
     if (descr.length) { sub(`${descrNo}.${++k} Описание изделия`); descr.forEach((s) => paraR(s)); y += 3; }
     if (purpose.length) { sub(`${descrNo}.${++k} Назначение`); purpose.forEach((s) => paraR(s)); y += 3; }
-    if (specs.length) { sub(`${descrNo}.${++k} Основные технические данные`); table(`Таблица ${tab.get('specs')} — Габаритные размеры и масса изделия`, ['Наименование', 'Значение'], [70, 30], specs, 9); }
+    if (specs.length) { sub(`${descrNo}.${++k} Основные технические данные`); table(`Таблица ${tab.get('specs')} — ${modules.length ? 'Габаритные размеры' : 'Габаритные размеры и масса изделия'}`, ['Наименование', 'Значение'], [70, 30], specs, 9); }
     if (mergeRules && rules.length) { sub(`${descrNo}.${++k} Правила пользования`); rules.forEach((s) => item(s, null, true)); }
     y += 4;
   };
@@ -246,21 +251,34 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
     if (withImg) row.push({ img: b.code ? thumbs.get(b.code) : undefined, h: b.code && thumbs.has(b.code) ? 40 : 11 });
     return row;
   });
-  if (batch) table(`Таблица ${tab.get('bom')} — Комплектность и размеры изделий`, ['Поз.', 'Наименование', 'Размеры, мм', 'Кол-во', 'Ед. изм.', ...(withImg ? ['Изображение'] : [])],
+  if (modulesAsBom) { /* комплектность — таблица вариантов ниже */ }
+  else if (batch) table(`Таблица ${tab.get('bom')} — Комплектность и размеры изделий`, ['Поз.', 'Наименование', 'Размеры, мм', 'Кол-во', 'Ед. изм.', ...(withImg ? ['Изображение'] : [])],
     withImg ? [7, 26, 27, 9, 9, 22] : [8, 32, 38, 11, 11], bomRows);
   else table(`Таблица ${tab.get('bom')} — Комплектность изделия`, ['Поз.', 'Обозначение', 'Наименование', 'Кол-во', 'Ед. изм.', ...(withImg ? ['Изображение'] : [])],
     withImg ? [7, 17, 36, 9, 9, 22] : [8, 20, 50, 11, 11], bomRows);
   if (modules.length) {
     const mi = input.moduleImages || {};
-    const modImg = modules.some((m) => m.photoId && mi[m.photoId]);
-    const modRows: Cell[][] = modules.map((m, i) => {
-      const row: Cell[] = [String(i + 1), m.name, m.size, String(m.qty), 'шт.'];
-      if (modImg) row.push({ img: m.photoId ? mi[m.photoId] : undefined, h: m.photoId && mi[m.photoId] ? 48 : 11 });
-      return row;
-    });
-    if (modules.length > 1) modRows.push(['', 'Всего модулей', '', String(modules.reduce((s, m) => s + m.qty, 0)), 'шт.', ...(modImg ? [''] : [])]);
-    table(`Таблица ${tab.get('modules')} — Варианты модуля`, ['№', 'Вариант модуля', 'Габариты', 'Кол-во', 'Ед. изм.', ...(modImg ? ['Рисунок'] : [])],
-      modImg ? [6, 26, 24, 9, 9, 26] : [7, 37, 34, 11, 11], modRows);
+    const pics = modules.map((m, i) => ({ m, no: i + 1, buf: m.photoId ? mi[m.photoId] : undefined })).filter((x) => x.buf);
+    const modRows: Cell[][] = modules.map((m, i) => [String(i + 1), m.name, m.size, String(m.qty), 'шт.', ...(pics.length ? [m.photoId && mi[m.photoId] ? 'ниже' : '—'] : [])]);
+    if (modules.length > 1) modRows.push(['', 'Всего модулей', '', String(modules.reduce((s, m) => s + m.qty, 0)), 'шт.', ...(pics.length ? [''] : [])]);
+    table(`Таблица ${tab.get('modules')} — ${modulesAsBom ? 'Комплектность: варианты модуля' : 'Варианты модуля'}`, ['№', 'Вариант модуля', 'Габариты', 'Кол-во', 'Ед. изм.', ...(pics.length ? ['Рисунок'] : [])],
+      pics.length ? [6, 34, 30, 9, 9, 12] : [7, 37, 34, 11, 11], modRows);
+    // рисунки вариантов — крупно, на ширину страницы: размерные линии и подписи чертежа должны читаться
+    // не крупнее натурального размера × 1,25 (точка на пиксель): мелкий исходник не растягивается в «пиксели»
+    for (const x of pics) {
+      const caption = `Вариант ${x.no} — ${x.m.name}${x.m.size ? `, ${x.m.size}` : ''}`;
+      let iw = Wd, ih = Wd * 0.62;
+      try { const im = (doc as unknown as { openImage(b: Buffer): { width: number; height: number } }).openImage(x.buf as Buffer); if (im.width > 0 && im.height > 0) { iw = im.width * 1.25; ih = im.height * 1.25; } } catch { /* битая — по ширине */ }
+      const capH = textH('gost-i', 9, caption) + 4;
+      const k = Math.min(1, Wd / iw, (Btm - T - capH - 14) / ih);
+      const w = iw * k, h = Math.max(40, ih * k);
+      if (y + h + capH + 10 > Btm && cur.draws.length) newPage();
+      cur.draws.push({ y, draw: (d, yy) => {
+        try { d.image(x.buf as Buffer, L + (Wd - w) / 2, yy + 2, { fit: [w, h], align: 'center', valign: 'center' }); } catch { d.font('gost-i').fontSize(9).fillColor('#000').text('[картинка не читается]', L, yy + h / 2, { width: Wd, align: 'center' }); }
+        d.font('gost-i').fontSize(9).fillColor('#000').text(caption, L, yy + h + 5, { width: Wd, align: 'center' });
+      } });
+      y += h + capH + 10;
+    }
   }
 
   // Журналы для заказчика (решение 2026-11-01, ПТ-2): пустые таблицы хранения и неисправностей — в обоих вариантах;

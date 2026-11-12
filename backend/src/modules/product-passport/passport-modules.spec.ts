@@ -2,6 +2,8 @@ import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import sharp from 'sharp';
 import { cleanModules, modulesTotal } from './passport-modules';
+import { missingFields } from './passport-rules';
+import { specRows } from './passport-pdf-v2-layout';
 import { renderPassportPdfV2, renderPassportsPdfV2, type PdfV2Input } from './passport-pdf-v2';
 
 /** Образцы PDF C095: MODULES_OUT=<папка> npx jest passport-modules */
@@ -66,5 +68,20 @@ describe('C095 DTO варианта модуля', () => {
     expect(await errs([{ name: 'Секция', qty: 1.5 }])).toBeGreaterThan(0);
     expect(await errs([{ qty: 2 }])).toBeGreaterThan(0);
     expect(await errs([])).toBe(0);
+  });
+});
+
+describe('C095 сборное изделие: габариты и масса одного модуля не выдаются за сборку', () => {
+  const base = { name: 'Ограждение', category: 'Благоустройство', date: new Date(), supplierOrgId: 'x', materials: 'сталь', installationMethod: 'бетон', purpose: 'ограждение', description: 'd', images: [{ kind: 'overview' }] };
+  it('выпуск: без габаритов и массы — не хватает только у обычного паспорта', () => {
+    expect(missingFields(base as never)).toEqual(expect.arrayContaining(['Габариты', 'Вес']));
+    const asm = missingFields({ ...base, moduleVariants: [{ name: 'Секция', qty: 10 }] } as never);
+    expect(asm).not.toContain('Габариты');
+    expect(asm).not.toContain('Вес');
+  });
+  it('таблица 1 PDF: при вариантах — ссылка на таблицу вариантов, без размеров и массы секции', () => {
+    const p = { length: 2420, width: 40, height: 1900, weight: 42.9, moduleVariants: [{ name: 'Секция СУ-2420', qty: 10 }] };
+    expect(specRows(p as never)).toEqual([['Габаритные размеры', 'по таблице «Варианты модуля»']]);
+    expect(specRows({ ...p, moduleVariants: [] } as never).some(([k]) => String(k).startsWith('Масса'))).toBe(true);
   });
 });

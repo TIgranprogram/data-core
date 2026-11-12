@@ -1,3 +1,4 @@
+import { cleanModules, ModuleVariant } from './passport-modules';
 import { PASSPORT_IMAGE_KINDS } from './product-passport.schema';
 import { imageKindAllowed, foundationRequired, variantOf, OPTIONAL_FIELDS, type InstallKind, type PassportVariant, type VariantCtx } from './passport-variants';
 
@@ -143,8 +144,10 @@ export function missingFields(p: PassportLike): string[] {
   if (empty(p.category)) m.push('Категория');
   if (empty(p.date)) m.push('Дата');
   if (empty(p.supplierOrgId)) m.push('Поставщик');
-  if (empty(p.height) || (!isBatch(p) && (empty(p.length) || empty(p.width)))) m.push('Габариты');
-  if (empty(p.weight)) m.push('Вес');
+  // C095: сборное изделие — габариты задаются по вариантам модуля, массы сборки в этом режиме нет
+  const assembly = cleanModules((p as { moduleVariants?: ModuleVariant[] }).moduleVariants).length > 0;
+  if (!assembly && (empty(p.height) || (!isBatch(p) && (empty(p.length) || empty(p.width))))) m.push('Габариты');
+  if (!assembly && empty(p.weight)) m.push('Вес');
   if (empty(p.materials)) m.push('Материалы');
   if (empty(p.installationMethod)) m.push('Установка');
   if (empty(p.purpose)) m.push('Назначение');

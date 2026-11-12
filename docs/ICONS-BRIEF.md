@@ -159,7 +159,7 @@
 
 Склад и производство: qr, scan, in, out, writeoff, count, reserve, warehouse, truck, material, tool, photo, photoReplace.
 
-Форматы и файлы: sheetA5 (книжный лист), sheetBooklet (альбомный лист со сгибом пунктиром), sheetA3 (высокий лист), filePdf, fileDwg, fileDxf, fileImage, fileExcel, fileWord, fileOther.
+Форматы и файлы: sheetBooklet (альбомный лист со сгибом пунктиром), sheetA3 (высокий лист), filePdf, fileDwg, fileDxf, fileImage, fileExcel, fileWord, fileOther.
 
 ### Б. Фирменные элементы (цветные, две темы)
 

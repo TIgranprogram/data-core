@@ -5,6 +5,7 @@ import { formImages, modelImagesToForm } from '../../core/passport-images.js';
 import { toast } from '../../ui/kit/toast.js';
 import { V2_NUMS, api_get, api_post, codeList, isIssued, keyLines, kinds, kvLines, num, reqKinds, st } from './common.js';
 import { DEFAULT_KEYS } from './models.js';
+import { moduleVariantsBody } from './module-variants.js';
 
 /** Связи формы паспорта (категория → состав, готовность к выпуску), замок выпущенного, «кто проектировал». */
 /**
@@ -125,7 +126,8 @@ export function wireForm(api, { r, w, catBy, stdName, inst }) {
     const my = ++seq;
     const body = { ...(r ? { date: r.date } : {}), ...Object.fromEntries(KEYS.filter((k) => api.get('_manualText') === 'yes' || !['installationMethod', 'purpose'].includes(k)).map((k) => [k, api.get(k)]).filter(([, v]) => v !== '' && v != null)),
       elements: json('elements'), materialIds: json('materialIds'), joints: json('joints'), images: formImages(Object.fromEntries(kinds().map(([k]) => ['img_' + k, json('img_' + k)])), kinds().map(([k]) => k)),
-      textChoices: (() => { try { return JSON.parse(api.get('textChoices') || '{}') || {}; } catch { return {}; } })() };
+      textChoices: (() => { try { return JSON.parse(api.get('textChoices') || '{}') || {}; } catch { return {}; } })(),
+      moduleVariants: moduleVariantsBody(api.get('moduleVariants')) }; // C095: сборка — габариты и масса не требуются
     let res; try { res = await api_post('/passports/check', body); } catch { return; }
     if (my !== seq) return;
     const miss = res.missing || [];
