@@ -7,6 +7,9 @@ export const writePrefs = (o) => { try { localStorage.setItem(PREF_KEY, JSON.str
 
 export const loadFirms = () => api('/offers/companies').then((x) => x?.items || []).catch(() => []);
 export const findProducts = (q) => api('/showcase', { query: { search: q, limit: 12 } }).then((x) => x?.items || []).catch(() => []);
+/** «Разобрать заявку» ИИ (C092): подключён ли ИИ и разбор текста. В базу не пишет. */
+export const intakeStatus = () => api('/offers/intake').then((x) => !!x?.enabled).catch(() => false);
+export const parseIntake = (text) => api('/offers/intake', { method: 'POST', body: { text }, timeout: 90000 });
 export const createPack = (body) => api('/offers/pack', { method: 'POST', body });
 
 /** Цена с наценкой — как на сервере (offer-rules markedUp). */
