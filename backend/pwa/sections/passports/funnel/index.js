@@ -1,6 +1,6 @@
 import { h } from '../../../core/dom.js';
 import { patch } from '../../../core/router.js';
-import { button, hint, link, section, stack, toastError } from '../../../ui/kit/index.js';
+import { button, confirmDlg, hint, link, section, stack, toastError } from '../../../ui/kit/index.js';
 import { canWorkPassport } from '../common.js';
 import { passportFill } from '../fill/index.js';
 import { getProduct } from './api.js';
@@ -31,6 +31,7 @@ function build() {
   const lockedOrder = !!(entry && (entry.salesOrderId || entry.incomeId));
   const S = { P: {}, q: '', prod: null, order: lockedOrder ? entry : null };
   let stageSeq = 0;
+  let activeFill = null; let creation = null;
   const recap = stack();
   const stages = stack();
   const newBox = h('div', null);
@@ -46,26 +47,37 @@ function build() {
       const s = (resp.steps || []).find((x) => !S.P[x.key] && !x.skip && (x.values || []).length > 1);
       say(s ? null : 'выберите изделие в списке');
     },
-    onChange: (P, key) => {
+    onChange: async (P, key) => {
+      if (!(await leaveStage())) { ps.update(S.P); return; }
       const order = ps.order(); const i = order.indexOf(key);
       order.slice(i + 1).forEach((k) => delete P[k]);
       S.P = Object.fromEntries(Object.entries(P).filter(([, v]) => v));
-      if (S.prod || !newBox.hidden) showPick(); else ps.update(S.P);
+      if (S.prod || !newBox.hidden) showPick({ checked: true }); else ps.update(S.P);
     },
   });
   const pl = productList({
     onPick: (it) => choose(it.id),
     onSearch: (q) => { S.q = q; ps.update(S.P); },
     onNew: () => {
-      newBox.replaceChildren(newProduct({ group: ps.labelOf('group', S.P.group), facetIds: FACET_FREE(S.P), onCreated: (p) => choose(p), onPickExisting: (it) => choose(it.id), onCancel: showPick }).el);
+      creation = newProduct({ group: ps.labelOf('group', S.P.group), facetIds: FACET_FREE(S.P), onCreated: (p) => choose(p), onPickExisting: (it) => choose(it.id), onCancel: showPick });
+      newBox.replaceChildren(creation.el);
       pickBox.hidden = true; newBox.hidden = false; ps.setDone(true); say('введите название нового изделия');
     },
   });
   const pickBox = stack(pl.el);
   newBox.hidden = true;
 
-  function showPick() {
+  async function leaveStage() {
+    if (creation?.busy()) return false;
+    if (creation?.dirty() && !(await confirmDlg('Вернуться к выбору?', 'Данные нового изделия ещё не сохранены.', { okText: 'Вернуться' }))) return false;
+    try { await activeFill?.beforeClose?.(); return true; }
+    catch (e) { toastError(e, 'сохранить изделие перед переходом'); return false; }
+  }
+
+  async function showPick({ checked = false } = {}) {
+    if (!checked && !(await leaveStage())) return;
     stageSeq += 1;
+    activeFill = null; creation = null;
     S.prod = null; if (!lockedOrder) S.order = null; stages.replaceChildren(); recap.replaceChildren(); title('Новый паспорт');
     newBox.hidden = true; pickBox.hidden = false; ps.setDone(false); say(null); ps.update(S.P);
   }
@@ -82,8 +94,12 @@ function build() {
 
   // ── шаги 5–7 ──
   async function choose(src) {
+    if (creation?.dirty() && !(await leaveStage())) return;
+    const selecting = ++stageSeq;
     try {
       const prod = typeof src === 'string' ? await getProduct(src) : src;
+      if (selecting !== stageSeq) return;
+      creation = null;
       S.prod = prod; pickBox.hidden = true; newBox.hidden = true; ps.setDone(true); title('Паспорт: ' + (prod.name || 'изделие'));
       await stagePanels(prod);
     } catch (e) { toastError(e, 'открыть изделие'); }
@@ -144,6 +160,7 @@ function build() {
       },
     });
     if (my !== stageSeq) return;
+    activeFill = fill;
     stages.replaceChildren(fill.el, next, issueSec);
   }
 
@@ -151,7 +168,7 @@ function build() {
   if (entry?.productId) { say('проверьте недостающее'); choose(entry.productId); } else ps.update({});
 
   const el = stack(ps.el, recap, pickBox, newBox, stages);
-  return { el, readonly: true, dirty: () => false, focus: () => {}, read: () => ({ values: {} }) };
+  return { el, readonly: true, busy: () => !!creation?.busy() || !!activeFill?.busy?.(), dirty: () => !!creation?.dirty() || !!activeFill?.dirty?.(), beforeClose: () => activeFill?.beforeClose?.(), focus: () => {}, read: () => ({ values: {} }) };
 }
 
 export const passFunnel = {

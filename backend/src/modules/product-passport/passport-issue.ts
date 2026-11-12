@@ -14,7 +14,8 @@ export interface IssueHost {
   readiness: (doc: Doc) => Promise<Array<{ label: string; key: string }>>;
   /** Рисунки изделия -> images[] паспорта (заморозка при выпуске). */
   freezeImages: (id: string) => Promise<void>;
-  snapshot: (id: string) => Promise<unknown>;
+  /** C096 Э1: текст черновика по текущим полям с переносом ручных пунктов; конфликт ручной правки — 409 до номера. */
+  refresh: (id: string) => Promise<unknown>;
   allocate: (set: Doc, date: Date, session?: ClientSession) => Promise<void>;
   assertFree: (set: Doc, selfId?: Types.ObjectId, session?: ClientSession) => Promise<void>;
 }
@@ -32,16 +33,23 @@ export class PassportIssue {
     if (isIssued(first)) return this.h.findById(id);
     if (first.status === 'annulled') throw new ConflictException('Паспорт аннулирован — выпустить нельзя');
     if (first.incomeId) await assertOneLive(this.h.model, first.incomeId, new Types.ObjectId(id));
-    const missing = await this.h.readiness(first);
+    // Сначала обновляем источники, затем проверяем именно тот текст и поля, которые выпускаем.
+    await this.h.refresh(id);
+    const current = (await this.h.findById(id)).toObject() as unknown as Doc;
+    if (isIssued(current)) return this.h.findById(id);
+    if (current.status !== 'draft') throw new ConflictException('Состояние паспорта изменилось — обновите карточку');
+    const missing = await this.h.readiness(current);
     if (missing.length) throw new BadRequestException({ message: `Не хватает для выпуска: ${missing.map((m) => m.label).join(', ')}`, missing });
+    // текст по справочникам на момент выпуска (ручные пункты сохраняются); конфликт — до заморозки рисунков и номера
     await this.h.freezeImages(id);
-    if (first.passportCategory) await this.h.snapshot(id); // текст по справочникам на момент выпуска
     const _id = new Types.ObjectId(id);
     const session = await this.h.connection.startSession();
     try {
       await session.withTransaction(async () => {
         const draft = await this.h.model.findOne({ _id, status: 'draft' }).session(session).lean().exec();
         if (!draft) return; // уже выпущен параллельным запросом
+        const latestMissing = await this.h.readiness(draft as unknown as Doc);
+        if (latestMissing.length) throw new BadRequestException({ message: 'Данные паспорта изменились — заполните недостающее', missing: latestMissing });
         if (draft.incomeId) await assertOneLive(this.h.model, draft.incomeId, _id, session);
         const set: Doc = (await takeOverNumbers(this.h.model, draft as unknown as Doc, session)) ?? {}; // C060: позиция договора + изделие — один номер
         await this.h.allocate(set, (draft.date as Date) || dayUtc(), session);

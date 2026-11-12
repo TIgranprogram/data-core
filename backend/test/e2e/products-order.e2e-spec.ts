@@ -3,6 +3,7 @@ import { Types } from 'mongoose';
 import type { INestApplication } from '@nestjs/common';
 import { createTestApp, type TestContext } from '../setup/test-db';
 import { authHeader, loginAsAdmin, type AuthTokens } from '../setup/admin.fixture';
+import { ProductPassportService } from '../../src/modules/product-passport/product-passport.service';
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const fillDefaults = require('../../scripts/products-fill-defaults.js');
@@ -61,16 +62,45 @@ describe('Изделия: порядок (ИЗ)', () => {
     expect(u.name).toBe('Без изделия');
   });
 
-  it('снимок с ручной правкой (editedAt) не пересобирается при смене категории изделия', async () => {
+  it('смена категории с исчезнувшим ручным пунктом не теряет текст и запрещает выпуск', async () => {
     const pid = await prod();
     const p = (await http().post('/api/passports').set(as()).send({ productId: String(pid) }).expect(201)).body;
     const at = new Date('2026-01-01');
-    await db().collection('productpassports').updateOne({ _id: new Types.ObjectId(p.id) }, { $set: { 'textSnapshot.editedAt': at, 'textSnapshot.marker': 'ручной' } });
+    const sections = [{ key: 'c096-manual-only', title: 'Особое правило', number: '1', items: [{ key: 'own', number: null, text: 'Ручной текст владельца', original: 'Прежний текст', edited: true, bullet: false }] }];
+    await db().collection('productpassports').updateOne({ _id: new Types.ObjectId(p.id) }, { $set: { 'textSnapshot.editedAt': at, 'textSnapshot.sections': sections } });
     await db().collection('products').updateOne({ _id: pid }, { $set: { 'passportDefaults.passportCategory': 'BLG' } });
-    await http().get(`/api/passports/${p.id}`).set(as()).expect(200);
+    const conflicted = (await http().get(`/api/passports/${p.id}`).set(as()).expect(200)).body;
+    expect(conflicted.syncWarning).toContain('Ручные правки');
     const raw = await db().collection('productpassports').findOne({ _id: new Types.ObjectId(p.id) });
-    expect(raw!.textSnapshot.marker).toBe('ручной');
+    expect(raw!.textSnapshot.sections).toEqual(sections);
     expect(raw!.textSnapshot.editedAt).toEqual(at);
+    expect(raw!.passportCategory).toBe('TRN');
+    await http().patch(`/api/passports/${p.id}`).set(as()).send({ note: 'Правка' }).expect(409);
+    await http().post(`/api/passports/${p.id}/issue`).set(as()).send({}).expect(409);
+    const after = await db().collection('productpassports').findOne({ _id: new Types.ObjectId(p.id) });
+    expect(after!.status).toBe('draft');
+    expect(after!.textSnapshot.sections).toEqual(sections);
+  });
+
+  it.each(['issued', 'manual'])('запоздавшая синхронизация не затирает параллельное действие %s', async (action) => {
+    const pid = await prod();
+    const p = (await http().post('/api/passports').set(as()).send({ productId: String(pid) }).expect(201)).body;
+    await db().collection('products').updateOne({ _id: pid }, { $set: { name: 'Обновлённое изделие' } });
+    const svc = app.get(ProductPassportService);
+    const internals = svc as unknown as { buildText: (doc: Record<string, unknown>) => Promise<unknown> };
+    const build = internals.buildText.bind(svc);
+    const otherSnapshot = { ...p.textSnapshot, sections: [{ key: 'manual', title: 'Ручной', items: [{ key: 'a', text: 'Сохранён человеком', edited: true }] }] };
+    const spy = jest.spyOn(internals, 'buildText').mockImplementationOnce(async (doc) => {
+      const result = await build(doc);
+      await db().collection('productpassports').updateOne({ _id: new Types.ObjectId(p.id) }, { $set: action === 'issued' ? { status: 'issued' } : { textSnapshot: otherSnapshot } });
+      return result;
+    });
+    try { await expect(svc.syncFromProduct(p.id, true)).rejects.toThrow('изменён другим действием'); }
+    finally { spy.mockRestore(); }
+    const raw = await db().collection('productpassports').findOne({ _id: new Types.ObjectId(p.id) });
+    expect(raw!.name).toBe('Турник');
+    if (action === 'issued') expect(raw!.status).toBe('issued');
+    else expect(raw!.textSnapshot.sections).toEqual(otherSnapshot.sections);
   });
 
   it('fullName изделие не пишет; серия — только из справочника', async () => {

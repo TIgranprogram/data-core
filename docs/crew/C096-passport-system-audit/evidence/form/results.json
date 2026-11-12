@@ -1,0 +1,450 @@
+{
+  "at": "2026-11-12T19:53:45.353Z",
+  "origin": "http://localhost:3102",
+  "fixture": {
+    "productId": "6af61949aa7697483f45747f",
+    "templateId": "6af61949aa7697483f457484",
+    "category": "BLG",
+    "sourceId": "6adaff3f2a8dad6034b145ea",
+    "passportIds": [
+      "6af6194aaa7697483f4574ac",
+      "6af61950aa7697483f4577ef",
+      "6af61957aa7697483f457b4a",
+      "6af6195eaa7697483f457ec2",
+      "6af61964aa7697483f45820e",
+      "6af6196baa7697483f458591"
+    ]
+  },
+  "cases": [
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "sources-cert-return",
+      "status": "PASS",
+      "before": {
+        "actualTheme": "light",
+        "overflow": false,
+        "drawers": [
+          {
+            "width": 375,
+            "scrollWidth": 375,
+            "clientWidth": 375
+          }
+        ]
+      },
+      "saved": {
+        "warrantyMonths": 18,
+        "name": "QA C096 · источник 390 light"
+      },
+      "persistence": "реальные PATCH → GET"
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "retry-check",
+      "status": "PASS",
+      "aborted": true,
+      "retry": "реальный ответ сервера после одного контролируемого HTTP 400"
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "partial-dimensions",
+      "status": "PASS",
+      "geometry": {
+        "actualTheme": "light",
+        "overflow": false,
+        "drawers": [
+          {
+            "width": 375,
+            "scrollWidth": 375,
+            "clientWidth": 375
+          }
+        ]
+      },
+      "saved": {
+        "length": 321,
+        "width": 456,
+        "height": null,
+        "unit": "мм"
+      },
+      "reopened": true
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "accept-default",
+      "status": "PASS",
+      "proposed": 12,
+      "saved": 12,
+      "closeWithoutWrite": true
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "runtime-errors",
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "sources-cert-return",
+      "status": "PASS",
+      "before": {
+        "actualTheme": "dark",
+        "overflow": false,
+        "drawers": [
+          {
+            "width": 375,
+            "scrollWidth": 375,
+            "clientWidth": 375
+          }
+        ]
+      },
+      "saved": {
+        "warrantyMonths": 18,
+        "name": "QA C096 · источник 390 dark"
+      },
+      "persistence": "реальные PATCH → GET"
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "retry-check",
+      "status": "PASS",
+      "aborted": true,
+      "retry": "реальный ответ сервера после одного контролируемого HTTP 400"
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "partial-dimensions",
+      "status": "PASS",
+      "geometry": {
+        "actualTheme": "dark",
+        "overflow": false,
+        "drawers": [
+          {
+            "width": 375,
+            "scrollWidth": 375,
+            "clientWidth": 375
+          }
+        ]
+      },
+      "saved": {
+        "length": 321,
+        "width": 456,
+        "height": null,
+        "unit": "мм"
+      },
+      "reopened": true
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "accept-default",
+      "status": "PASS",
+      "proposed": 12,
+      "saved": 12,
+      "closeWithoutWrite": true
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "runtime-errors",
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "width": 1024,
+      "theme": "light",
+      "name": "sources-cert-return",
+      "status": "PASS",
+      "before": {
+        "actualTheme": "light",
+        "overflow": false,
+        "drawers": [
+          {
+            "width": 760,
+            "scrollWidth": 760,
+            "clientWidth": 760
+          }
+        ]
+      },
+      "saved": {
+        "warrantyMonths": 18,
+        "name": "QA C096 · источник 1024 light"
+      },
+      "persistence": "реальные PATCH → GET"
+    },
+    {
+      "width": 1024,
+      "theme": "light",
+      "name": "retry-check",
+      "status": "PASS",
+      "aborted": true,
+      "retry": "реальный ответ сервера после одного контролируемого HTTP 400"
+    },
+    {
+      "width": 1024,
+      "theme": "light",
+      "name": "partial-dimensions",
+      "status": "PASS",
+      "geometry": {
+        "actualTheme": "light",
+        "overflow": false,
+        "drawers": [
+          {
+            "width": 760,
+            "scrollWidth": 760,
+            "clientWidth": 760
+          }
+        ]
+      },
+      "saved": {
+        "length": 321,
+        "width": 456,
+        "height": null,
+        "unit": "мм"
+      },
+      "reopened": true
+    },
+    {
+      "width": 1024,
+      "theme": "light",
+      "name": "accept-default",
+      "status": "PASS",
+      "proposed": 12,
+      "saved": 12,
+      "closeWithoutWrite": true
+    },
+    {
+      "width": 1024,
+      "theme": "light",
+      "name": "runtime-errors",
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "width": 1024,
+      "theme": "dark",
+      "name": "sources-cert-return",
+      "status": "PASS",
+      "before": {
+        "actualTheme": "dark",
+        "overflow": false,
+        "drawers": [
+          {
+            "width": 760,
+            "scrollWidth": 760,
+            "clientWidth": 760
+          }
+        ]
+      },
+      "saved": {
+        "warrantyMonths": 18,
+        "name": "QA C096 · источник 1024 dark"
+      },
+      "persistence": "реальные PATCH → GET"
+    },
+    {
+      "width": 1024,
+      "theme": "dark",
+      "name": "retry-check",
+      "status": "PASS",
+      "aborted": true,
+      "retry": "реальный ответ сервера после одного контролируемого HTTP 400"
+    },
+    {
+      "width": 1024,
+      "theme": "dark",
+      "name": "partial-dimensions",
+      "status": "PASS",
+      "geometry": {
+        "actualTheme": "dark",
+        "overflow": false,
+        "drawers": [
+          {
+            "width": 760,
+            "scrollWidth": 760,
+            "clientWidth": 760
+          }
+        ]
+      },
+      "saved": {
+        "length": 321,
+        "width": 456,
+        "height": null,
+        "unit": "мм"
+      },
+      "reopened": true
+    },
+    {
+      "width": 1024,
+      "theme": "dark",
+      "name": "accept-default",
+      "status": "PASS",
+      "proposed": 12,
+      "saved": 12,
+      "closeWithoutWrite": true
+    },
+    {
+      "width": 1024,
+      "theme": "dark",
+      "name": "runtime-errors",
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "sources-cert-return",
+      "status": "PASS",
+      "before": {
+        "actualTheme": "light",
+        "overflow": false,
+        "drawers": [
+          {
+            "width": 760,
+            "scrollWidth": 759,
+            "clientWidth": 759
+          }
+        ]
+      },
+      "saved": {
+        "warrantyMonths": 18,
+        "name": "QA C096 · источник 1920 light"
+      },
+      "persistence": "реальные PATCH → GET"
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "retry-check",
+      "status": "PASS",
+      "aborted": true,
+      "retry": "реальный ответ сервера после одного контролируемого HTTP 400"
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "partial-dimensions",
+      "status": "PASS",
+      "geometry": {
+        "actualTheme": "light",
+        "overflow": false,
+        "drawers": [
+          {
+            "width": 760,
+            "scrollWidth": 759,
+            "clientWidth": 759
+          }
+        ]
+      },
+      "saved": {
+        "length": 321,
+        "width": 456,
+        "height": null,
+        "unit": "мм"
+      },
+      "reopened": true
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "accept-default",
+      "status": "PASS",
+      "proposed": 12,
+      "saved": 12,
+      "closeWithoutWrite": true
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "runtime-errors",
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "sources-cert-return",
+      "status": "PASS",
+      "before": {
+        "actualTheme": "dark",
+        "overflow": false,
+        "drawers": [
+          {
+            "width": 760,
+            "scrollWidth": 759,
+            "clientWidth": 759
+          }
+        ]
+      },
+      "saved": {
+        "warrantyMonths": 18,
+        "name": "QA C096 · источник 1920 dark"
+      },
+      "persistence": "реальные PATCH → GET"
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "retry-check",
+      "status": "PASS",
+      "aborted": true,
+      "retry": "реальный ответ сервера после одного контролируемого HTTP 400"
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "partial-dimensions",
+      "status": "PASS",
+      "geometry": {
+        "actualTheme": "dark",
+        "overflow": false,
+        "drawers": [
+          {
+            "width": 760,
+            "scrollWidth": 759,
+            "clientWidth": 759
+          }
+        ]
+      },
+      "saved": {
+        "length": 321,
+        "width": 456,
+        "height": null,
+        "unit": "мм"
+      },
+      "reopened": true
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "accept-default",
+      "status": "PASS",
+      "proposed": 12,
+      "saved": 12,
+      "closeWithoutWrite": true
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "runtime-errors",
+      "status": "PASS",
+      "errors": []
+    }
+  ],
+  "skipped": [
+    {
+      "scenario": "syncWarning",
+      "reason": "Конфликт ручных пунктов требует отдельной серверной фикстуры Э1; синтетическая подмена ответа не используется."
+    }
+  ],
+  "notes": [
+    "Открытие редакторов через штатный openCard; ввод и нажатия — Playwright. API не подменяется; один контролируемый HTTP 400 только /passports/check проверяет повтор; дальнейшие ответы реальные.",
+    "Проверка внешнего вида требует открытия сохранённых PNG человеком/агентом."
+  ]
+}

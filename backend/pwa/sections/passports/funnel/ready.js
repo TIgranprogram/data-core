@@ -1,3 +1,4 @@
+import { readyFileNumber, readyFileDirty } from '../form-state.js';
 import { api } from '../../../core/api.js';
 import { h } from '../../../core/dom.js';
 import { patch } from '../../../core/router.js';
@@ -18,7 +19,7 @@ const isPdf = (f) => !f.type ? /\.pdf$/i.test(f.name || '') : f.type === 'applic
 
 export function readyPanel(entry = {}) {
   const S = { file: null, firmId: '', prod: null, orderId: entry.salesOrderId || '', orderText: entry.orderNo ? `№ ${entry.orderNo}${entry.customerName ? ' · ' + entry.customerName : ''}` : '', noOrder: false, incomeId: entry.incomeId || '', number: '', suggested: '' };
-  let firms = []; let orders = null; let editing = ''; let found = []; let numErr = ''; let saving = false; let seq = 0;
+  let firms = []; let orders = null; let editing = ''; let found = []; let numErr = ''; let saving = false; let saved = false; let seq = 0;
   const nextEl = h('div'); const body = stack(); const box = stack(nextEl, body);
   const say = (t) => nextEl.replaceChildren(t ? sideNote('Дальше: ' + t) : '');
 
@@ -110,9 +111,9 @@ export function readyPanel(entry = {}) {
     } else { found = []; numNote(); }
   };
   const numNoteEl = h('div');
-  const saveBtn = () => button({ label: 'Сохранить паспорт', kind: 'primary', disabled: saving || !!found.length || !!numErr || (S.number !== '' && !/^\d+$/.test(S.number)), onClick: save });
+  const saveBtn = () => button({ label: 'Сохранить паспорт', kind: 'primary', disabled: saving || !!found.length || !!numErr || !/^\d+$/.test(S.number), onClick: save });
   const numNote = () => {
-    const bad = S.number !== '' && !/^\d+$/.test(S.number);
+    const bad = !/^\d+$/.test(S.number);
     const msg = bad ? 'Номер — целое число' : numErr || (found.length ? `Номер ${S.number} уже у паспорта «${found[0].name || 'без названия'}»` : '');
     numNoteEl.replaceChildren(...[msg ? hint(msg, 'warn') : null, h('div', null, saveBtn())].filter(Boolean));
   };
@@ -150,6 +151,7 @@ export function readyPanel(entry = {}) {
 
   async function save() {
     if (saving) return;
+    if (!/^\d+$/.test(S.number)) { toast('Укажите номер из файла', { error: true }); return; }
     saving = true; numNote();
     try {
       const fd = new FormData();
@@ -159,9 +161,10 @@ export function readyPanel(entry = {}) {
       if (S.orderId) fd.append('salesOrderId', S.orderId);
       const inc = await lineFor();
       if (inc) fd.append('incomeId', inc);
-      if (S.number && S.number !== S.suggested) fd.append('number', S.number);
+      fd.append('number', readyFileNumber(S));
       const r = await api('/passports/ready', { method: 'POST', body: fd });
       toast(`Паспорт № ${r.passportNumber || ''} добавлен`.replace('  ', ' '));
+      saved = true;
       window.dispatchEvent(new CustomEvent('data-changed'));
       patch({ of: undefined, new: undefined });
     } catch (e) {
@@ -183,5 +186,5 @@ export function readyPanel(entry = {}) {
   })();
   paint();
 
-  return { el: box, readonly: true, dirty: () => false, focus: () => {}, read: () => ({ values: {} }) };
+  return { el: box, readonly: true, dirty: () => readyFileDirty(S, saved), focus: () => {}, read: () => ({ values: {} }) };
 }

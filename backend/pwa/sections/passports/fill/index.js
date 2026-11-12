@@ -1,15 +1,16 @@
 import { api, session } from '../../../core/api.js';
 import { h } from '../../../core/dom.js';
-import { actions, button, clamp, enhanceSelect, field, headbar, hint, layout, link, section, segmented, select, stack, toastError } from '../../../ui/kit/index.js';
+import { actions, button, clamp, confirmDlg, enhanceSelect, field, headbar, hint, layout, link, section, segmented, select, stack, toastError } from '../../../ui/kit/index.js';
 import { kindNorm } from '../../../core/passport-kinds.js';
 import { canEdit as canEditTexts, canWorkPassport, dictRows, passportCategoryOptions } from '../common.js';
 import { elementsTexts } from '../elements-block.js';
 import { passportVariant, previewPassport, VARIANT_HINT } from '../dialogs.js';
 import { loadGaps, loadTexts, putDefaults } from '../funnel/api.js';
-import { savePd } from '../../products/data.js';
+import { resetPdCategory } from '../../products/data.js';
+import { changeCategory } from './category-change.js';
+import { saveQueue } from './save-queue.js';
 import { openTechSheet } from '../../tech-sheet.js';
 import { ownTexts } from '../template-texts.js';
-import { commitPending } from './control.js';
 import { SECTIONS, displayName, imageKind, matText, typeOfLeaf } from './model.js';
 import { paintFields, paintSlots, placeTexts, syncChrome } from './paint.js';
 
@@ -37,7 +38,9 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
   const strip = h('div'); const summary = h('div'); const catSuggest = h('div'); const context = h('div');
   const pending = new Map(); const editing = new Set();
   let paused = false; let pauseEpoch = 0;
-  const saves = new Set();
+  const writes = saveQueue(); const saves = writes.pending;
+  const saveError = stack();
+  let changingCategory = false;
   let seq = 0; let ready = false; let mute = 1; let synced = false; let fb;
 
   const codeOf = () => prod.passportDefaults?.passportCategory || prod.passportCategory?.code || '';
@@ -73,7 +76,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
   });
 
   function draw() {
-    if (paused) return;
+    if (paused || writes.failed()) return;
     ctx.instOpts = instOptsOf();
     ctx.instNames = new Map(ctx.instOpts);
     ctx.code = catSel.value || codeOf();
@@ -119,7 +122,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
     load: async (cat) => ({ sections: await loadTexts(cat, prod.id) }),
     onPaint: (list) => {
       if (!fb) return;
-      if (paused) return;
+      if (paused || writes.failed()) return;
       placeTexts(ctx, list);
       fb.el.hidden = !fb.el.childNodes.length;
       maybeSync();
@@ -133,15 +136,39 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
   async function save(job) {
     if (!can) return;
     const epoch = pauseEpoch;
-    const task = Promise.resolve().then(job);
-    saves.add(task);
-    try { await task; if (epoch === pauseEpoch) await reload(); } catch (e) { toastError(e, 'сохранить в изделие'); }
-    finally { saves.delete(task); }
+    try { const result = await writes.add(job); if (result !== false && !writes.failed() && !saves.size && epoch === pauseEpoch) await reload(); }
+    catch (e) { showSaveError(); toastError(e, 'сохранить в изделие'); }
   }
   ctx.save = save;
 
+  function lockAfterError(locked) {
+    for (const child of el.children) if (child !== saveError) child.inert = locked;
+  }
+  function showSaveError() {
+    lockAfterError(true);
+    let resolving = false;
+    const resolve = async (action) => {
+      if (resolving) return;
+      resolving = true; retry.disabled = true; discard.disabled = true;
+      try { await action(); } finally { resolving = false; retry.disabled = false; discard.disabled = false; }
+    };
+    const retry = button({ label: 'Повторить сохранение', onClick: () => resolve(async () => {
+        try { await writes.retry(); if (writes.failed()) return; saveError.replaceChildren(); lockAfterError(false); await reload(); }
+        catch (e) { toastError(e, 'повторить сохранение'); }
+      }) });
+    const discard = button({ label: 'Отменить несохранённые правки', kind: 'ghost', onClick: () => resolve(async () => {
+        if (!(await confirmDlg('Отменить несохранённые правки?', 'Останутся только сведения, которые сервер уже сохранил.', { okText: 'Отменить правки' }))) return;
+        try {
+          const fresh = await api(`/showcase/${prod.id}`);
+          await writes.discard(); saveError.replaceChildren(); lockAfterError(false);
+          Object.assign(prod, fresh); await reload();
+        } catch (e) { toastError(e, 'прочитать сохранённое изделие'); }
+      }) });
+    saveError.replaceChildren(hint('Правка не сохранилась. Ввод оставлен на экране; следующие изменения ждут повтора.', 'warn'), actions(retry, discard));
+  }
+
   async function saveTexts() {
-    if (!can) return;
+    if (!can || changingCategory) return;
     const choices = JSON.parse(fb.value || '{}');
     const inst = typeOfLeaf(fb.installLeaf(), instOptsOf());
     const prev = prod.passportDefaults || {};
@@ -154,18 +181,26 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
   }
 
   async function onCategory(v) {
-    mute += 2; synced = false;
-    fb.setCategory(v);
+    catSel.value = codeOf();
+    if (catSel.disabled) return;
+    catSel.disabled = true;
+    changingCategory = true;
+    const wasInert = fb.el.inert; fb.el.inert = true;
     try {
-      if (!v) await savePd(prod.id, { category: '', choices: {}, over: {}, derived: prod.passportCategory?.code || '', prev: prod.passportDefaults || {} });
-      else await putDefaults(prod, { passportCategory: v, textChoices: {}, textOverrides: {} });
-      Object.assign(prod, await api(`/showcase/${prod.id}`));
-      await reload();
-    } catch (e) { toastError(e, 'сохранить категорию'); }
+      await save(async () => {
+        const changed = await changeCategory(prod, v, {
+          approve: () => confirmDlg('Сменить категорию паспорта?', 'Выбранные тексты и ручные правки шаблона этого изделия будут очищены. Остальные сведения сохранятся. Выпущенные паспорта не изменятся.', { okText: 'Сменить и очистить тексты' }),
+          put: putDefaults, reset: resetPdCategory, read: (id) => api(`/showcase/${id}`),
+        });
+        if (!changed) return false;
+        catSel.value = codeOf(); mute += 2; synced = false;
+        fb.setCategory(codeOf());
+      });
+    } finally { catSel.value = codeOf(); catSel.disabled = false; fb.el.inert = wasInert || writes.failed(); changingCategory = false; }
   }
 
   async function reload() {
-    if (paused) return ctx.missing;
+    if (paused || writes.failed()) return ctx.missing;
     const my = ++seq;
     let photos = []; let files = []; let gaps;
     try {
@@ -177,7 +212,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
     } catch (e) {
       if (paused || my !== seq) return ctx.missing;
       toastError(e, 'проверить изделие');
-      strip.replaceChildren(hint('Не удалось узнать, чего не хватает. Откройте форму ещё раз.', 'warn'));
+      strip.replaceChildren(hint('Не удалось узнать, чего не хватает.', 'warn'), button({ label: 'Повторить', size: 'S', onClick: () => reload() }));
       return ctx.missing;
     }
     if (paused || my !== seq) return ctx.missing;
@@ -209,15 +244,16 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
   }
 
   async function missingRequired() {
-    await commitPending(prod, pending);
+    await Promise.all([...saves]);
+    if (writes.failed()) throw new Error('Сначала повторите сохранение или отмените несохранённые правки');
     await reload();
     return ctx.missing.filter((m) => m.required);
   }
 
   const own = mode === 'template' ? ownTexts({ r: prod, can, save }) : null;
-  const foot = mode === 'template' ? actions(
+  const foot = actions(
     button({ label: 'Предпросмотр', title: 'PDF с пометкой «ЧЕРНОВИК». Паспорт не выпускается', onClick: () => previewPassport(prod.id) }),
-  ) : null;
+  );
   // C086: шапка — изделие, категория и тип слева, вариант компактно справа (на узкой панели переносится).
   // При выпуске категория (из группы изделия) — не вопрос: список открывается по «изменить» или сам, если категории нет (C070-П3).
   const catBox = h('div', null, field('Категория паспорта', catSel));
@@ -228,14 +264,15 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
     catBox, catSuggest,
   ];
   const el = stack(
+    saveError,
     ...setup,
     strip, summary, ...SECTIONS.map(([id]) => secs[id]), own?.el, foot, fb.el,
   );
   await reload();
   return {
-    el, reload, missingRequired, readonly: true, dirty: () => false,
+    el, reload, missingRequired, readonly: true, dirty: () => writes.failed(), busy: () => saves.size > 0,
     doneLabel: mode === 'template' ? 'Готово' : undefined,
-    beforeClose: () => commitPending(prod, pending),
+    beforeClose: async () => { await Promise.all([...saves]); if (writes.failed()) throw new Error('Сначала повторите сохранение или отмените несохранённые правки'); },
     focus: () => catSel.focus?.(),
     read: () => ({ values: { category: catSel.value, choices: JSON.parse(fb.value || '{}'), over: {} } }),
   };

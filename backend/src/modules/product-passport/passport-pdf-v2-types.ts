@@ -18,6 +18,8 @@ export interface PdfV2Text {
   maintenance?: MaintenanceTable[]; install?: Partial<InstallParts>;
   /** Раскладка PDF: 2 — нумерация в один проход, один «Монтаж» (passport-numbering.ts); нет поля — как печаталось раньше. */
   layout?: number;
+  /** C096: таблица размеров новых выпусков; без метки старый выпущенный паспорт сохраняет прежний вид. */
+  sizeLayout?: number;
 }
 export interface PdfV2Style { color?: string; categoryName?: string; icons?: string[] }
 /** Поля набора в пунктах: слева, справа, сверху, снизу. */

@@ -21,6 +21,22 @@ export function years(n: number): string {
 export const range = (a: unknown, b: unknown, unit: string) => (has(a) && has(b) ? `${num(a)}–${num(b)} ${unit}` : has(a) ? `от ${num(a)} ${unit}` : has(b) ? `до ${num(b)} ${unit}` : '');
 export const lines = (s?: string) => String(s ?? '').split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
 
+/** Делим по измеренной высоте; длинное слово тоже делится, символы не теряются. */
+export function fitText(s: string, height: number, measure: (s: string) => number): [string, string] {
+  if (measure(s) <= height) return [s, ''];
+  let lo = 0, hi = s.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (measure(s.slice(0, mid)) <= height) lo = mid;
+    else hi = mid - 1;
+  }
+  // Не разрываем суррогатную пару; граница слова предпочтительнее середины слова.
+  if (lo && /[\uD800-\uDBFF]/.test(s[lo - 1])) lo--;
+  const space = s.slice(0, lo).search(/\s+\S*$/);
+  if (space > 0) lo = space + 1;
+  return [s.slice(0, lo), s.slice(lo)];
+}
+
 /** Плитки «Коротко» (§3.7): только заполненные. */
 export function shortTiles(p: PdfPassportV2): Array<{ label: string; value: string }> {
   return [

@@ -1,0 +1,78 @@
+{
+  "at": "2026-11-12T20:06:17.828Z",
+  "cases": [
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "old-return-and-defaults-retry",
+      "status": "PASS",
+      "productId": "6af61c3baa7697483f45a087",
+      "postCount": 1,
+      "cancelRetained": true,
+      "certRetained": true,
+      "manualRetained": true,
+      "dimensionsRetained": true,
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "old-return-and-defaults-retry",
+      "status": "PASS",
+      "productId": "6af61c3daa7697483f45a116",
+      "postCount": 1,
+      "cancelRetained": true,
+      "certRetained": true,
+      "manualRetained": true,
+      "dimensionsRetained": true,
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "old-return-and-defaults-retry",
+      "status": "PASS",
+      "productId": "6af61c3faa7697483f45a1a8",
+      "postCount": 1,
+      "cancelRetained": true,
+      "certRetained": true,
+      "manualRetained": true,
+      "dimensionsRetained": true,
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "old-return-and-defaults-retry",
+      "status": "PASS",
+      "productId": "6af61c42aa7697483f45a237",
+      "postCount": 1,
+      "cancelRetained": true,
+      "certRetained": true,
+      "manualRetained": true,
+      "dimensionsRetained": true,
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    }
+  ],
+  "created": [
+    "6af61c3baa7697483f45a087",
+    "6af61c3daa7697483f45a116",
+    "6af61c3faa7697483f45a1a8",
+    "6af61c42aa7697483f45a237"
+  ],
+  "notes": [
+    "Настоящий passFunnel и реальные API; fault injection только один HTTP400 assign-sku, после успешного POST. Номера паспортов не выпускаются."
+  ]
+}

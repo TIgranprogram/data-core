@@ -6,6 +6,7 @@ import { session } from '../core/api.js';
 import { guide, button, toolbar } from '../ui/kit/index.js';
 import { GROUPS, SECTIONS, SCENARIOS, LANES, NODES, EDGES } from './help-guide-data.js';
 import { productMapCat } from './help-product-map.js';
+import { relationsCat } from './help-relations.js';
 
 // ---------- карта (SVG): дорожки = строки, шаги = колонки, справочники — список справа ----------
 const NS = 'http://www.w3.org/2000/svg';
@@ -297,6 +298,7 @@ export const help = {
         flow ? block('Как идти в целом', flow, h('p', { class: 'muted small' }, 'Нажмите группу — раскроется ниже.')) : null,
         scs.length ? block('С чего начать?', h('div', { class: 'g-wants' }, scs.map(scenarioCard))) : null,
         cats.length ? block('Разделы — что где делать', ...cats) : null,
+        relationsCat(on),
         productMapCat(),
         h('div', { class: 'hp-sec' }, guide.cat({ title: 'Карта работы', what: 'Вся цепочка на одной схеме — кто за кем идёт', count: 'схема', name: 'hp-extra',
           body: [legend(), mapBox(data), mapList(data)] })));

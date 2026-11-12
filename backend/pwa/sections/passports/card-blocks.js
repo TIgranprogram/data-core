@@ -24,11 +24,11 @@ export function imagesBlock(r, ctx) {
         h('div', { class: 'pp-kind-head' }, h('b', null, label), isRequired(r, kind) ? h('span', { class: 'req' }, ' · обязательно') : null, h('span', { class: 'muted' }, ` · ${where}${list.length ? ' · ' + list.length : ''}`)),
         list.length ? h('div', { class: 'pf-strip' }, ...list.map((i) => h('div', { class: 'pf-item' },
           i.url ? h('a', { href: PREFIX + i.url, target: '_blank', rel: 'noopener', title: i.caption || 'Открыть', 'aria-label': `${label}: открыть картинку` }, h('img', { src: PREFIX + i.url, alt: i.caption || label })) : h('span', { class: 'muted' }, 'нет файла'),
-          editable ? h('button', { type: 'button', class: 'pf-del', title: 'Убрать картинку', 'aria-label': 'Убрать картинку', onclick: () => save((r.images || []).filter((x) => x !== i)) }, '×') : null))) : null,
+          editable ? h('button', { type: 'button', class: 'pf-del', title: 'Убрать картинку', 'aria-label': 'Убрать картинку', onclick: async () => { if (await confirmDlg('Убрать картинку?', 'Картинка исчезнет из этого черновика.', { okText: 'Убрать' })) await save((r.images || []).filter((x) => x !== i)); } }, '×') : null))) : null,
         // Э9.5: своих нет — стандартная схема способа установки (в паспорт попадёт она; своя загруженная её заменит)
         !list.length && std(kind).length ? h('div', null, h('div', { class: 'hint' }, 'Стандартная схема способа установки — попадёт в паспорт' + (editable ? '; загрузите свою, чтобы заменить' : '')),
           h('div', { class: 'pf-strip' }, ...std(kind).map((i) => h('a', { class: 'pf-item', href: PREFIX + i.url, target: '_blank', rel: 'noopener', 'aria-label': `${label}: стандартная схема` }, h('img', { src: PREFIX + i.url, alt: label }))))) : null,
-        editable ? photoDrop({ attach: async (photoId) => { r.images = [...(r.images || []), { kind, photoId, order: list.length }]; return r; }, done: () => save(r.images) }) : null);
+        editable ? photoDrop({ attach: async (photoId) => { await save([...(r.images || []), { kind, photoId, order: list.length }]); return r; }, done: () => {} }) : null);
     }) });
 }
 
@@ -38,7 +38,7 @@ export const IMG_BY_LABEL = { 'Фото изделия': 'overview', 'Чертё
 export function checkBlock(r) {
   const miss = r.missing || [];
   const warn = r.standardWarnings || [];
-  if (!miss.length && !warn.length) return section({ title: 'Проверка', tone: 'neutral', count: 0, body: h('p', { class: 'muted small' }, 'Всё заполнено — паспорт можно выдавать.') });
+  if (!miss.length && !warn.length && !r.syncWarning) return section({ title: 'Проверка', tone: 'neutral', count: 0, body: h('p', { class: 'muted small' }, 'Всё заполнено — паспорт можно выдавать.') });
   const goTo = (kind) => {
     const zone = document.querySelector(`.pp-kind[data-kind="${kind}"]`);
     if (!zone) return;
@@ -46,7 +46,8 @@ export function checkBlock(r) {
     zone.scrollIntoView({ behavior: 'smooth', block: 'center' });
     zone.classList.add('fill-here'); setTimeout(() => zone.classList.remove('fill-here'), 2500);
   };
-  return section({ title: miss.length ? (r.strict ? 'Не готов к выпуску — не хватает' : 'Проверка — не хватает') : 'Проверка', tone: 'neutral', count: miss.length || warn.length, open: miss.length > 0, body: [
+  return section({ title: miss.length ? (r.strict ? 'Не готов к выпуску — не хватает' : 'Проверка — не хватает') : 'Проверка', tone: 'neutral', count: miss.length + warn.length + (r.syncWarning ? 1 : 0), open: miss.length > 0 || !!r.syncWarning, body: [
+    r.syncWarning ? hint(r.syncWarning, 'warn') : null,
     r.strict && miss.length ? h('p', { class: 'hint' }, 'PDF и печать станут доступны, когда заполните отмеченное. «Заполняется после печати» (покупатель, адрес, монтаж) выпуск не задерживает.') : null,
     h('ul', { class: 'timeline pp-check' }, ...miss.map((m) => {
       const img = m.startsWith('Рисунок: ') || m === 'Фото изделия' ? IMG_BY_LABEL[m.replace(/^Рисунок: /, '')] : null;

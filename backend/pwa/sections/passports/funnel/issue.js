@@ -3,7 +3,7 @@ import { h } from '../../../core/dom.js';
 import { ordersLookup } from '../../../core/orders-lookup.js';
 import { button, enhanceSelect, hint, link, section, select, sideNote, stack, table, toast, toastError } from '../../../ui/kit/index.js';
 import { ourCompanies } from '../common.js';
-import { printDialog } from '../dialogs.js';
+import { printDialog, previewPassport } from '../dialogs.js';
 import { issueFromProduct } from './api.js';
 
 /**
@@ -139,6 +139,7 @@ export function issueBlock({ prod, order, goGaps, onIssued }) {
       gaps ? null : sideNote('Не хватает для выпуска: ',
         ...miss.flatMap((m, i) => [i ? ', ' : null, link({ label: m.label, onClick: () => goGaps?.() })])),
       section({ title: 'Заполнить после печати', tone: 'neutral', body: sideNote(laterNote()) }),
+      button({ label: 'Предпросмотр без номера', title: 'Проверить PDF до выпуска', onClick: () => previewPassport(prod.id) }),
       go].filter(Boolean));
     if (firmSel) enhanceSelect(firmSel);
     if (lineSel) enhanceSelect(lineSel);

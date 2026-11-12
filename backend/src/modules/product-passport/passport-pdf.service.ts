@@ -80,7 +80,7 @@ export class PassportPdfService {
 
   async pdf(id: string, opts: { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean; variant?: PassportVariant; pack?: PrintPack } = {}) {
     const pack = packOf(opts.pack);
-    await this.passports.syncFromProduct(id); // черновик с изделием печатается с категорией и полями изделия
+    await this.passports.syncFromProduct(id, true); // конфликт ручного текста запрещает печать устаревшего черновика
     const raw = (await this.passports.findById(id)).toObject() as unknown as Doc;
     if (pack === 'tech') {
       const tech = await this.sheetOf(raw, raw.productId);
@@ -119,7 +119,7 @@ export class PassportPdfService {
    * Лист для информационного стенда A3 (БЗ-6 Э6d). Паспорт выданным не отмечается.
    */
   async stand(id: string) {
-    await this.passports.syncFromProduct(id);
+    await this.passports.syncFromProduct(id, true);
     const raw = (await this.passports.findById(id)).toObject() as unknown as Doc;
     const p = noDraftNumber(await this.withText(raw));
     const { orgIn, asset } = await this.orgOf(p);

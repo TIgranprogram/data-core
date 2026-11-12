@@ -1,0 +1,26 @@
+[
+  {
+    "sheet": 1,
+    "side": "front",
+    "left": 5,
+    "right": 1
+  },
+  {
+    "sheet": 1,
+    "side": "back",
+    "left": 2,
+    "right": null
+  },
+  {
+    "sheet": 2,
+    "side": "front",
+    "left": null,
+    "right": 3
+  },
+  {
+    "sheet": 2,
+    "side": "back",
+    "left": 4,
+    "right": null
+  }
+]

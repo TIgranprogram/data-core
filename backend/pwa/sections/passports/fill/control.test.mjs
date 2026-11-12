@@ -98,3 +98,66 @@ test('чужая категория или компонент сохраняют
     assert.equal(f.ctx.elRows[0].id, 'new');
   }
 });
+
+async function editors(prod = {}) {
+  const requests = []; const fields = []; const notices = [];
+  const node = (...children) => ({ children });
+  const kit = Object.fromEntries(['buildForm', 'enhanceSelect', 'field', 'fieldRow', 'link', 'row', 'segmented', 'select', 'sideNote', 'stack', 'hint'].map((key) => [key, node]));
+  kit.button = (opts) => opts;
+  kit.toast = (message) => notices.push(message);
+  kit.textInput = (opts) => {
+    const handlers = {}; const field = { value: opts.value, el: node(), input: { addEventListener: (event, fn) => { handlers[event] = fn; } }, change: () => handlers.change() };
+    fields.push(field); return field;
+  };
+  const context = createContext({});
+  const deps = {
+    '../../../ui/kit/card.js': { openCard() {} }, '../../../core/api.js': { api() {} },
+    '../../../ui/kit/index.js': kit, '../common.js': { V2_NUMS: [], canEdit() {} },
+    '../funnel/api.js': { setFacets() {}, patchProduct: async (id, body) => requests.push(body), putDefaults: async (prod, body) => { requests.push(body); Object.assign(prod.passportDefaults, body); } },
+    '../traits.js': { jointsPick() {} }, './model.js': { num: (v) => String(v ?? '').trim() && Number.isFinite(Number(v)) ? Number(v) : null },
+  };
+  const mod = new SourceTextModule(readFileSync(new URL('./control.js', import.meta.url), 'utf8'), { context });
+  await mod.link((key) => new SyntheticModule(Object.keys(deps[key]), function () { for (const [k, v] of Object.entries(deps[key])) this.setExport(k, v); }, { context }));
+  await mod.evaluate();
+  const saves = [];
+  const ctx = { prod: { id: 'p', passportDefaults: {}, ...prod }, can: true, pending: new Map(), save: (job) => { const task = job(); saves.push(task); return task; } };
+  return { ctx, requests, fields, notices, mod: mod.namespace, wait: () => Promise.all(saves) };
+}
+
+test('значение по умолчанию не записывается до явного принятия', async () => {
+  const f = await editors();
+  const tree = f.mod.numEditor(f.ctx, 'warrantyMonths', 'Гарантия', 24);
+  assert.equal(f.requests.length, 0);
+  assert.equal(f.fields[0].value, 24);
+  await tree.children[1].onClick();
+  assert.equal(f.ctx.prod.passportDefaults.warrantyMonths, 24);
+  assert.equal(f.ctx.pending.size, 0);
+});
+
+test('частичные размеры сохраняются, очистка не уничтожает соседние значения', async () => {
+  const f = await editors({ dimensions: { length: 100, width: 200, unit: 'мм' } });
+  f.mod.dimsEditor(f.ctx);
+  f.fields[0].value = ''; f.fields[0].change(); await f.wait();
+  assert.equal(f.requests[0].dimensions.length, null);
+  assert.equal(f.requests[0].dimensions.width, 200);
+  assert.equal(f.requests[0].dimensions.height, null);
+});
+
+test('габариты в сантиметрах переводятся без потери перед правкой', async () => {
+  const f = await editors({ dimensions: { length: 10, width: 20, unit: 'см' } });
+  f.mod.dimsEditor(f.ctx);
+  assert.equal(f.fields[0].value, 100);
+  f.fields[2].value = 300; f.fields[2].change(); await f.wait();
+  assert.equal(f.requests[0].dimensions.width, 200);
+  assert.equal(f.requests[0].dimensions.unit, 'мм');
+});
+
+test('очистка веса отправляется, ошибочное число показывает сообщение', async () => {
+  const f = await editors({ weightKg: 12 });
+  f.mod.weightEditor(f.ctx);
+  f.fields[0].value = ''; f.fields[0].change(); await f.wait();
+  assert.equal(f.requests[0].weightKg, null);
+  f.fields[0].value = -1; f.fields[0].change();
+  assert.equal(f.requests.length, 1);
+  assert.equal(f.notices.length, 1);
+});

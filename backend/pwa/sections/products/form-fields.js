@@ -1,4 +1,5 @@
 import { session } from '../../core/api.js';
+import { createSession } from './create-session.js';
 import { h } from '../../core/dom.js';
 import { money, qty } from '../../core/format.js';
 import { go } from '../../core/router.js';
@@ -78,8 +79,17 @@ const skuTaken = (r) => async (v) => {
  * Форма изделия для mountList (`products.form`). ФИО → id сотрудника («Кто проектировал») держит замыкание этой фабрики:
  * fields() заполняет, toBody() читает — модульной переменной нет.
  */
-export function productForm() {
+export function productForm({ onSimilar, usePending = true } = {}) {
   let designerIds = new Map();
+  let saveNew;
+  const newSession = () => createSession({
+    create: ({ _pd, ...body }) => createProduct(body),
+    update: (id, { _pd, ...body }) => patchProduct(id, body),
+    complete: async (res, { _pd }) => {
+      if (_pd.category || Object.keys(_pd.choices).length || Object.values(_pd.over).some((x) => x && !(Array.isArray(x) && !x.length))) await savePd(res.id, { ..._pd, prev: {} });
+      return res;
+    },
+  });
   return {
     // ФИ: раздел, группа, серия, цвета, размеры — списки из того, что уже есть (одно написание); своё вписать можно
     fields: async (r) => {
@@ -93,7 +103,7 @@ export function productForm() {
       let pdElPick = null;
       let matCat = pd0.passportCategory || r?.passportCategory?.code || '';
       const pc = r?.passportCategory;
-      const sim = similarBox({ onPick: (it) => go('products', { open: it.id }) });
+      const sim = similarBox({ onPick: (it) => onSimilar ? onSimilar(it, sim.el) : go('products', { open: it.id }) });
       const catHint = pc?.own ? 'Задана в самом изделии. Паспорт берёт категорию отсюда' : pc?.inherited || pc?.code ? 'Сейчас — по группе или разделу. Укажите свою, если нужна другая. Паспорт берёт категорию отсюда' : 'Обычно определяется по разделу и группе; укажите, если нужна другая. Паспорт берёт категорию отсюда';
       return [
         { section: 'Изделие', tone: 'main', fixed: true },
@@ -194,7 +204,7 @@ export function productForm() {
         { key: 'notes', label: 'Примечание', type: 'textarea', wide: true, rows: 2, max: 2000 },
       ];
     },
-    initial: () => ({ status: 'draft', unit: 'шт', dimUnit: 'мм', ...(pendingProduct()?.initial || {}) }),
+    initial: () => { saveNew = newSession(); return { status: 'draft', unit: 'шт', dimUnit: 'мм', ...(pendingProduct()?.initial || {}) }; },
     toInitial: (r) => ({ ...r, pdCategory: r.passportDefaults?.passportCategory || r.passportCategory?.code || '', pdChoices: JSON.stringify(r.passportDefaults?.textChoices || {}), pdWarranty: r.passportDefaults?.warrantyMonths ?? '', pdLife: r.passportDefaults?.serviceLifeYears ?? '', pdInstall: r.passportDefaults?.installationTypeId ? String(r.passportDefaults.installationTypeId) : '', pdKit: r.passportDefaults?.isKit ? 'yes' : 'no', pdElements: (r.passportDefaults?.elements || []).map(String), pdJoints: (r.passportDefaults?.joints || []).map(String), designerName: r.designer?.name || '', colors: (r.colors || []).join(', '), sizes: (r.sizes || []).join(', '),
       status: ['draft', 'active', 'archived'].includes(r.status) ? r.status : r.price ? 'active' : 'draft',
       dimL: r.dimensions?.length ?? '', dimW: r.dimensions?.width ?? '', dimH: r.dimensions?.height ?? '', dimUnit: r.dimensions?.unit || 'мм', weightKg: r.weightKg ?? '' }),
@@ -204,10 +214,9 @@ export function productForm() {
       dimensions: { length: v.dimL ?? null, width: v.dimW ?? null, height: v.dimH ?? null, unit: v.dimUnit || 'мм' },
       _pd: { over: { warrantyMonths: v.pdWarranty ?? null, serviceLifeYears: v.pdLife ?? null, installationTypeId: v.pdInstall || '', elements: Array.isArray(v.pdElements) ? v.pdElements : [], joints: Array.isArray(v.pdJoints) ? v.pdJoints : [], isKit: v.pdKit === 'yes' }, category: v.pdCategory || '', choices: v.pdChoices && typeof v.pdChoices === 'object' ? v.pdChoices : {}, derived: r?.passportCategory?.code || '', prev: r?.passportDefaults || {} } }),
     create: async (b0) => {
-      const { _pd, ...b } = b0;
-      const res = await createProduct(b);
-      if (_pd.category || Object.keys(_pd.choices).length || Object.values(_pd.over).some((x) => x && !(Array.isArray(x) && !x.length))) await savePd(res.id, { ..._pd, prev: {} });
-      const p = takePending();
+      saveNew ||= newSession();
+      const res = await saveNew(b0);
+      const p = usePending ? takePending() : null;
       if (p) setTimeout(() => p.then(res), 50); // вернуться в паспорт, из которого создавали
       return res;
     },

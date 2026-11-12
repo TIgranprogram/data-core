@@ -1,0 +1,76 @@
+{
+  "1": {
+    "pages": 1,
+    "a4_sides": 2,
+    "sheets": 1,
+    "blank_slots": 3,
+    "actual_pdf_text_matches_mapping": true
+  },
+  "2": {
+    "pages": 2,
+    "a4_sides": 2,
+    "sheets": 1,
+    "blank_slots": 2,
+    "actual_pdf_text_matches_mapping": true
+  },
+  "3": {
+    "pages": 3,
+    "a4_sides": 2,
+    "sheets": 1,
+    "blank_slots": 1,
+    "actual_pdf_text_matches_mapping": true
+  },
+  "4": {
+    "pages": 4,
+    "a4_sides": 2,
+    "sheets": 1,
+    "blank_slots": 0,
+    "actual_pdf_text_matches_mapping": true
+  },
+  "5": {
+    "pages": 5,
+    "a4_sides": 4,
+    "sheets": 2,
+    "blank_slots": 3,
+    "actual_pdf_text_matches_mapping": true
+  },
+  "7": {
+    "pages": 7,
+    "a4_sides": 4,
+    "sheets": 2,
+    "blank_slots": 1,
+    "actual_pdf_text_matches_mapping": true
+  },
+  "8": {
+    "pages": 8,
+    "a4_sides": 4,
+    "sheets": 2,
+    "blank_slots": 0,
+    "actual_pdf_text_matches_mapping": true
+  },
+  "9": {
+    "pages": 9,
+    "a4_sides": 6,
+    "sheets": 3,
+    "blank_slots": 3,
+    "actual_pdf_text_matches_mapping": true
+  },
+  "12": {
+    "pages": 12,
+    "a4_sides": 6,
+    "sheets": 3,
+    "blank_slots": 0,
+    "actual_pdf_text_matches_mapping": true
+  },
+  "short": {
+    "logical_pages": 5,
+    "a4_sides": 4,
+    "no_empty_logical_pages": true
+  },
+  "long": {
+    "logical_pages": 18,
+    "a4_sides": 10,
+    "no_empty_logical_pages": true,
+    "long_text_complete": true
+  }
+}

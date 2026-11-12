@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "passportId": "6af4eca9d1d524348905c67f",
+  "updatedAt": "2026-11-12T19:57:31.892Z",
+  "issuedUnchanged": true,
+  "contentFieldsDeepEqual": true,
+  "excludedServiceFields": [
+    "pdfIssuedAt",
+    "updatedAt"
+  ],
+  "textSnapshotUnchanged": true,
+  "note": "Два GET PDF вызывают штатную отметку скачивания pdfIssuedAt/updatedAt; исключены явно. Все остальные поля и снимок совпали. До этого один диагностический GET выявил служебную запись; продолжение согласовано координатором.",
+  "pdfPageCounts": [
+    12,
+    12
+  ],
+  "pdfExtractedTextEqual": true
+}

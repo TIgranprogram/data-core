@@ -1,3 +1,10 @@
+## C096 Э4 создание изделия и достоверный возврат (2026-11-12)
+коммит: не закоммичено
+- `backend/pwa/sections/products/create-session.js:2` — продолжение после успешного POST, один in-flight; `form-fields.js:82` — отдельная фабрика для вложенной формы, `:216` resumable create.
+- `backend/pwa/sections/passports/product-block.js:163` — seq выбора, `:209` вложенное создание с полным сохранением DOM; `form-state.js:11` — снять только автоматические значения. `wire-form.js:98` — поздние картинки прежнего изделия не применяются.
+- `backend/pwa/sections/passports/funnel/new-product.js:13` — busy/dirty, признаки только прежней группы; `funnel/index.js:70` — перед сменой дождаться записи, сохранить или явно отменить новый ввод.
+- `backend/pwa/sections/passports/fill/category-change.js:2` — подтверждённая очистка текстов и reset к наследованию; `fill/index.js:183` — очередь смены категории. `fill/save-queue.js:2`, `fill/index.js:147` — ошибка удерживает DOM/последующие записи, явный retry/discard.
+- Проверки: targeted23/23; live30/30 от access, evidence/new-product; подробности C096/E4-REPORT.md. Независимая визуальная приёмка — координатор. Карта обновлена.
 ## C094 история: фото и заказы (2026-11-12)
 коммит: 92ea3dca; витрина faa87f09, выложено v1.734
 - `backend/pwa/core/recent-cards.js:5` — текстовый id только salesorders; `:8` recentThumb, только локальные uploads.

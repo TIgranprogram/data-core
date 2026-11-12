@@ -2,6 +2,7 @@ import { api } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { CAT_NAMES } from '../../core/passport-kinds.js';
 import { formImages, modelImagesToForm } from '../../core/passport-images.js';
+import { button } from '../../ui/kit/index.js';
 import { toast } from '../../ui/kit/toast.js';
 import { V2_NUMS, api_get, api_post, codeList, isIssued, keyLines, kinds, kvLines, num, reqKinds, st } from './common.js';
 import { DEFAULT_KEYS } from './models.js';
@@ -96,9 +97,10 @@ export function wireForm(api, { r, w, catBy, stdName, inst }) {
     const id = api.get('_copyFrom'); if (!id) return;
     try {
       const m = await api_get(`/passports/${id}`);
+      if (api.get('_copyFrom') !== id) return; // изделие сменили, пока грузились картинки прежнего паспорта
       const by = modelImagesToForm(m.images || [], kinds().map(([k]) => k));
-      for (const [k, list] of Object.entries(by)) { if (!list.length) continue; const cur = JSON.parse(api.get('img_' + k) || '[]'); if (!cur.length) api.set('img_' + k, JSON.stringify(list)); }
-      api.set('_imgsFrom', id);
+      for (const [k, list] of Object.entries(by)) { if (!list.length) continue; const cur = JSON.parse(api.get('img_' + k) || '[]'); if (!cur.length && !api.manual('img_' + k)) api.set('img_' + k, JSON.stringify(list), { auto: true, src: 'из прошлого паспорта этого изделия' }); }
+      api.set('_imgsFrom', id, { auto: true });
       check();
     } catch { /* картинки добавит сервер при сохранении */ }
   });
@@ -107,6 +109,7 @@ export function wireForm(api, { r, w, catBy, stdName, inst }) {
   let timer; let seq = 0;
   const json = (k) => { try { return JSON.parse(api.get(k) || '[]') || []; } catch { return []; } };
   const goTo = (key0) => {
+    if (String(key0).startsWith('choice:') && api.field('textChoices')?.inert) { api.root.querySelector('[data-edit-product]')?.click(); return; }
     if (String(key0).startsWith('choice:')) { // шаг воронки: показать его и подсветить
       const step = w.funnel?.stepEl(String(key0).slice(7)) || api.field('textChoices');
       if (step) { step.scrollIntoView({ behavior: 'smooth', block: 'center' }); step.classList.add('fill-here'); setTimeout(() => step.classList.remove('fill-here'), 2500); step.querySelector('button')?.focus({ preventScroll: true }); }
@@ -115,6 +118,7 @@ export function wireForm(api, { r, w, catBy, stdName, inst }) {
     const key = key0 === 'materialIds' && api.field('_mspec') ? '_mspec' : key0; // МИ.4: метки материалов — из таблицы
     api.open(key);
     const fld = api.field(key); if (!fld) return;
+    if (fld.inert) { api.root.querySelector('[data-edit-product]')?.click(); return; }
     fld.scrollIntoView({ behavior: 'smooth', block: 'center' });
     fld.classList.add('fill-here'); setTimeout(() => fld.classList.remove('fill-here'), 2500);
     (api.input(key)?.focus || (() => {})).call(api.input(key));
@@ -126,7 +130,7 @@ export function wireForm(api, { r, w, catBy, stdName, inst }) {
     const body = { ...(r ? { date: r.date } : {}), ...Object.fromEntries(KEYS.filter((k) => api.get('_manualText') === 'yes' || !['installationMethod', 'purpose'].includes(k)).map((k) => [k, api.get(k)]).filter(([, v]) => v !== '' && v != null)),
       elements: json('elements'), materialIds: json('materialIds'), joints: json('joints'), images: formImages(Object.fromEntries(kinds().map(([k]) => ['img_' + k, json('img_' + k)])), kinds().map(([k]) => k)),
       textChoices: (() => { try { return JSON.parse(api.get('textChoices') || '{}') || {}; } catch { return {}; } })() };
-    let res; try { res = await api_post('/passports/check', body); } catch { return; }
+    let res; try { res = await api_post('/passports/check', body); } catch { if (my === seq) w.need.replaceChildren(h('div', { class: 'fill-note' }, 'Не удалось проверить готовность. ', button({ label: 'Повторить', size: 'S', onClick: check }))); return; }
     if (my !== seq) return;
     const miss = res.missing || [];
     const who = miss.length ? await designerLine(api.get('productId')) : null;

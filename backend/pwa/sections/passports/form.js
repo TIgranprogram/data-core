@@ -176,10 +176,10 @@ export const passportForm = {
     const d = st.draft; st.draft = null;
     st.newCat = d?.passportCategory || '';
     const ours = await ourCompanies().catch(() => []);
-    return { _manualText: 'no', date: isoDay(), warrantyMonths: '12', supplierOrgId: ours.length === 1 ? ours[0].id : '',
+    return { _manualText: 'no', date: isoDay(), warrantyMonths: '', supplierOrgId: ours.length === 1 ? ours[0].id : '',
       ...Object.fromEntries(Object.entries(d || {}).filter(([, v]) => v !== '' && v !== null && v !== undefined)) };
   },
-  toInitial: (r) => ({ ...r, saleDate: r.saleDate ? String(r.saleDate).slice(0, 10) : '', installedAt: r.installedAt ? String(r.installedAt).slice(0, 10) : '', height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight), warrantyMonths: num(r.warrantyMonths ?? 12), bom: bomRows(r.bom),
+  toInitial: (r) => ({ ...r, saleDate: r.saleDate ? String(r.saleDate).slice(0, 10) : '', installedAt: r.installedAt ? String(r.installedAt).slice(0, 10) : '', height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight), warrantyMonths: num(r.warrantyMonths), bom: bomRows(r.bom),
     ...v2Initial(r), _manualText: r.manualText?.length ? 'yes' : 'no', _mspec: r.materialsSpec || '',
     ...Object.fromEntries(kinds().map(([kind]) => ['img_' + kind, imgsOf(r, kind).filter((i) => i.url).map((i) => ({ id: String(i.photoId), url: i.url, thumb: i.url }))])) }),
   // ФП: картинки — каждая в своём виде (formImages); у модели они уже разложены в форме (_imgsFrom) — отправляем как есть
@@ -255,11 +255,13 @@ export const passportForm = {
   },
   update: async (id, body) => {
     const { _remember, _issued, ...rest } = body; if (_remember) await saveDefaults(_remember);
-    const rev = st.revisionFor === id; st.revisionFor = null;
+    const rev = st.revisionFor === id;
     // НМ-1: выпущенный без «Новой редакции» — отправляем только «после печати» (остальное заблокировано в форме)
     const send = _issued && !rev ? Object.fromEntries(Object.entries(rest).filter(([k]) => AFTER_PRINT.includes(k))) : rest;
     await api(`/passports/${id}`, { method: 'PATCH', body: send, query: rev ? { newRevision: 1 } : undefined });
-    if (rev) toast('Новая редакция сохранена — номер тот же, прежняя редакция в истории');
+    // C096 Э1: намерение «Новая редакция» снимается только после успешного PATCH: ошибка — повтор уйдёт целиком с newRevision;
+    // PATCH прошёл, а чтение ниже упало — повтор уже не создаст ещё одну редакцию
+    if (rev) { st.revisionFor = null; toast('Новая редакция сохранена — номер тот же, прежняя редакция в истории'); }
     return api(`/passports/${id}`);
   },
 };

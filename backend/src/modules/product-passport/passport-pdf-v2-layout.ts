@@ -1,17 +1,17 @@
 import { warranty } from './passport-pdf';
 import { PdfV2Input } from './passport-pdf-v2-types';
 import { substituteRefs, PlannedFig, planFigures, maintenanceColumns } from './passport-pdf-v2-refs';
-import { A5, M, CW, BOTTOM, BODY, Draw, Cell, V2Page, has, num, lines } from './passport-pdf-v2-common';
+import { A5, M, CW, BOTTOM, BODY, Draw, Cell, V2Page, has, num, lines, fitText } from './passport-pdf-v2-common';
 import { shortPage, cover } from './passport-pdf-v2-cover';
 import { isBatch } from './passport-rules';
 import { planNumbers } from './passport-numbering';
 
 /** Таблица размеров (ПЧ-4): буквы как на чертеже, объём считается из габаритов. Выпущенный без новых полей печатается как был выпущен. */
-export function specRows(p: PdfV2Input['passport']): [string, unknown][] {
+export function specRows(p: PdfV2Input['passport'], modern = false): [string, unknown][] {
   // Партия: размеры каждого изделия — в таблице «Комплектность», здесь толщина и масса партии
   if (isBatch(p)) return [['Длина и ширина, мм', 'по таблице «Комплектность»'], ['Высота (толщина), мм', p.height], ['Масса партии, кг', p.weight]];
   const added = [p.seatWidth, p.seatHeight, p.supports, p.shipVolume].some(has);
-  if (p.status !== 'draft' && !added) return [['Высота, мм', p.height], ['Длина, мм', p.length], ['Ширина, мм', p.width], ['Масса, кг', p.weight]];
+  if (p.status !== 'draft' && !added && !modern) return [['Высота, мм', p.height], ['Длина, мм', p.length], ['Ширина, мм', p.width], ['Масса, кг', p.weight]];
   const volume = p.shipVolume ?? (p.length && p.width && p.height ? Math.round((p.length * p.width * p.height) / 1e7) / 100 : undefined);
   return [['Длина (L), мм', p.length], ['Ширина (B), мм', p.width], ['Высота (H), мм', p.height], ['Ширина посадки (Bп), мм', p.seatWidth], ['Высота посадки (Hп), мм', p.seatHeight],
     ['Количество опор, шт', p.supports], ['Объём перевозки (V), куб. м', volume], ['Масса, кг', p.weight]];
@@ -32,7 +32,7 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   const descr = lines(t.description || p.description);
   const purpose = lines(t.purpose);
   // Текстовое значение (паспорт партии: «по таблице …») печатается как есть
-  const specs = specRows(p).filter(([, v]) => has(v) || (typeof v === 'string' && v.trim() !== '')).map(([k, v]) => [String(k), has(v) ? num(v) : String(v)]);
+  const specs = specRows(p, t.sizeLayout === 2).filter(([, v]) => has(v) || (typeof v === 'string' && v.trim() !== '')).map(([k, v]) => [String(k), has(v) ? num(v) : String(v)]);
 
   // Номера разделов (passport-numbering.ts): снимок с layout 2 — подряд 1…N, один «Монтаж»; прежние снимки — как печатались
   // (номера текста из снимка, обычно с 3; свободные 1…start-1 — под описание и правила).
@@ -72,7 +72,7 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   // (текст продолжает заполнять текущую); порядок рисунков сохраняется.
   const pending: PlannedFig[] = [];
   const placedKinds = new Set<string>();
-  const breakPage = () => { body.push(cur); cur = { kind: 'body', draws: [], footer: true }; y = T; };
+  const breakPage = () => { if (cur.draws.length) body.push(cur); cur = { kind: 'body', draws: [], footer: true }; y = T; };
   const figSize = (f: PlannedFig) => {
     let ar = 0.62;
     try { const im = (doc as unknown as { openImage(b: Buffer): { width: number; height: number } }).openImage(f.img.buf); if (im.width > 0 && im.height > 0) ar = im.height / im.width; } catch { /* битая — пропорция по умолчанию */ }
@@ -106,6 +106,7 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   };
   const place = (h: number, draw: Draw, keep = 0) => {
     if (y + h + keep > Btm && cur.draws.length) newPage();
+    if (y + h + keep > Btm && h + keep <= Btm - T && cur.draws.length) breakPage();
     cur.draws.push({ y, draw }); y += h;
   };
   const textH = (font: string, size: number, s: string, w = Wd) => { doc.font(font).fontSize(size); return doc.heightOfString(s, { width: w, lineGap: 0.6 }); };
@@ -120,12 +121,22 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   const sub = (s: string) => { const h = textH('gost', 9.5, s) + 3; place(h, (d, yy) => d.font('gost').fontSize(9.5).fillColor('#000').text(s, L, yy, { width: Wd, lineGap: 0.6 }), 20); };
   const para = (s: string, size = BODY, font = 'gost-i', indent = 0) => {
     if (!s) return;
-    const h = textH(font, size, s, Wd - indent) + 1.6;
-    place(h, (d, yy) => d.font(font).fontSize(size).fillColor('#000').text(s, L + indent, yy, { width: Wd - indent, lineGap: 0.6 }));
+    let rest = s;
+    while (rest) {
+      const [part, tail] = fitText(rest, Btm - y - 1.6, (v) => textH(font, size, v, Wd - indent));
+      if (!part) {
+        if (!cur.draws.length) throw new Error('Поле паспорта слишком мало для строки текста');
+        newPage(); continue;
+      }
+      const h = textH(font, size, part, Wd - indent) + 1.6;
+      place(h, (d, yy) => d.font(font).fontSize(size).fillColor('#000').text(part, L + indent, yy, { width: Wd - indent, lineGap: 0.6 }));
+      rest = tail;
+      if (rest) newPage();
+    }
   };
   const table = (title: string, cols: string[], widths: number[], rows: Cell[][], cellSize = 8, keepTogether = false) => {
     const ws = widths.map((w) => (w / widths.reduce((a, b) => a + b, 0)) * Wd);
-    doc.font('gost-i').fontSize(7.2);
+    doc.font('gost').fontSize(7.2);
     const headH = Math.max(18, ...cols.map((c, i) => doc.heightOfString(c, { width: ws[i] - 4 }) + 6));
     const titleH = textH('gost', 9, title) + 4;
     const drawHead = (d: PDFKit.PDFDocument, yy: number) => {
@@ -135,14 +146,34 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
       d.lineWidth(0.75).strokeColor('#000').moveTo(L, yy + headH).lineTo(L + Wd, yy + headH).stroke();
     };
     doc.font('gost-i').fontSize(cellSize);
-    const heights = rows.map((r) => Math.max(15, ...r.map((c, i) => (typeof c === 'string' ? (c ? doc.heightOfString(c, { width: ws[i] - 6 }) + 6 : 0) : 'h' in c ? c.h + 4 : 0))));
+    const rowHeight = (r: Cell[]) => {
+      doc.font('gost-i').fontSize(cellSize);
+      return Math.max(15, ...r.map((c, i) => (typeof c === 'string' ? (c ? doc.heightOfString(c, { width: ws[i] - 6 }) + 6 : 0) : 'h' in c ? c.h + 4 : 0)));
+    };
+    // Огромная строка продолжается под повторной шапкой; картинки и отметки только в первом фрагменте.
+    const fragments: Cell[][] = [];
+    for (const row of rows) {
+      let rest = row;
+      while (rowHeight(rest) > Btm - T - headH - titleH) {
+        const tail: Cell[] = [];
+        const part = rest.map((c, i) => {
+          if (typeof c !== 'string') { tail.push(''); return c; }
+          const [a, b] = fitText(c, Btm - T - headH - titleH - 6, (v) => doc.heightOfString(v, { width: ws[i] - 6 }));
+          tail.push(b); return a;
+        });
+        if (part.every((c) => c === '')) throw new Error('Поле паспорта слишком мало для строки таблицы');
+        fragments.push(part); rest = tail;
+      }
+      fragments.push(rest);
+    }
+    const heights = fragments.map(rowHeight);
     const rowsH = heights.reduce((sum, h) => sum + h, 0);
-    const keep = keepTogether && titleH + headH + rowsH <= Btm - T ? rowsH : 30;
+    const keep = keepTogether && titleH + headH + rowsH <= Btm - T ? rowsH : (heights[0] ?? 0);
     place(titleH, (d, yy) => d.font('gost').fontSize(9).fillColor('#000').text(title, L, yy, { width: Wd }), headH + keep);
     place(headH, drawHead);
-    for (const [index, r] of rows.entries()) {
+    for (const [index, r] of fragments.entries()) {
       const h = heights[index];
-      if (y + h > Btm) { newPage(); place(headH, drawHead); }
+      if (y + h > Btm) { newPage(); if (y + headH + h > Btm && cur.draws.length) breakPage(); place(headH, drawHead); }
       place(h, (d, yy) => {
         let x = L;
         d.lineWidth(0.4).strokeColor('#000');

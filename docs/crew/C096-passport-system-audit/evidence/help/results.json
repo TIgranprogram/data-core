@@ -1,0 +1,210 @@
+[
+  {
+    "width": 390,
+    "theme": "light",
+    "wide": false,
+    "actualTheme": "light",
+    "themeApi": true,
+    "scripts": [
+      "theme.js",
+      "main.js"
+    ],
+    "selected": [
+      "Документация",
+      "Заказы",
+      "Заявки",
+      "Деньги"
+    ],
+    "keyboard": true,
+    "restricted": {
+      "heading": "Остатки",
+      "links": [
+        "#stock"
+      ],
+      "hiddenProducts": true
+    },
+    "errors": []
+  },
+  {
+    "width": 390,
+    "theme": "dark",
+    "wide": false,
+    "actualTheme": "dark",
+    "themeApi": true,
+    "scripts": [
+      "theme.js",
+      "main.js"
+    ],
+    "selected": [
+      "Документация",
+      "Заказы",
+      "Заявки",
+      "Деньги"
+    ],
+    "keyboard": true,
+    "restricted": {
+      "heading": "Остатки",
+      "links": [
+        "#stock"
+      ],
+      "hiddenProducts": true
+    },
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "theme": "light",
+    "wide": false,
+    "actualTheme": "light",
+    "themeApi": true,
+    "scripts": [
+      "theme.js",
+      "main.js"
+    ],
+    "selected": [
+      "Документация",
+      "Заказы",
+      "Заявки",
+      "Деньги"
+    ],
+    "keyboard": true,
+    "restricted": {
+      "heading": "Остатки",
+      "links": [
+        "#stock"
+      ],
+      "hiddenProducts": true
+    },
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "theme": "dark",
+    "wide": false,
+    "actualTheme": "dark",
+    "themeApi": true,
+    "scripts": [
+      "theme.js",
+      "main.js"
+    ],
+    "selected": [
+      "Документация",
+      "Заказы",
+      "Заявки",
+      "Деньги"
+    ],
+    "keyboard": true,
+    "restricted": {
+      "heading": "Остатки",
+      "links": [
+        "#stock"
+      ],
+      "hiddenProducts": true
+    },
+    "errors": []
+  },
+  {
+    "width": 1920,
+    "theme": "light",
+    "wide": false,
+    "actualTheme": "light",
+    "themeApi": true,
+    "scripts": [
+      "theme.js",
+      "main.js"
+    ],
+    "selected": [
+      "Документация",
+      "Заказы",
+      "Заявки",
+      "Деньги"
+    ],
+    "keyboard": true,
+    "restricted": {
+      "heading": "Остатки",
+      "links": [
+        "#stock"
+      ],
+      "hiddenProducts": true
+    },
+    "errors": []
+  },
+  {
+    "width": 1920,
+    "theme": "dark",
+    "wide": false,
+    "actualTheme": "dark",
+    "themeApi": true,
+    "scripts": [
+      "theme.js",
+      "main.js"
+    ],
+    "selected": [
+      "Документация",
+      "Заказы",
+      "Заявки",
+      "Деньги"
+    ],
+    "keyboard": true,
+    "restricted": {
+      "heading": "Остатки",
+      "links": [
+        "#stock"
+      ],
+      "hiddenProducts": true
+    },
+    "errors": []
+  },
+  {
+    "width": 2560,
+    "theme": "light",
+    "wide": false,
+    "actualTheme": "light",
+    "themeApi": true,
+    "scripts": [
+      "theme.js",
+      "main.js"
+    ],
+    "selected": [
+      "Документация",
+      "Заказы",
+      "Заявки",
+      "Деньги"
+    ],
+    "keyboard": true,
+    "restricted": {
+      "heading": "Остатки",
+      "links": [
+        "#stock"
+      ],
+      "hiddenProducts": true
+    },
+    "errors": []
+  },
+  {
+    "width": 2560,
+    "theme": "dark",
+    "wide": false,
+    "actualTheme": "dark",
+    "themeApi": true,
+    "scripts": [
+      "theme.js",
+      "main.js"
+    ],
+    "selected": [
+      "Документация",
+      "Заказы",
+      "Заявки",
+      "Деньги"
+    ],
+    "keyboard": true,
+    "restricted": {
+      "heading": "Остатки",
+      "links": [
+        "#stock"
+      ],
+      "hiddenProducts": true
+    },
+    "errors": []
+  }
+]

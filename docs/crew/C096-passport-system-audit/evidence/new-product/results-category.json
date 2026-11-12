@@ -1,0 +1,70 @@
+{
+  "at": "2026-11-12T20:04:27.445Z",
+  "cases": [
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "category-cancel-confirm-reset",
+      "status": "PASS",
+      "productId": "6af61bcbaa7697483f4599f5",
+      "cancelKeptText": true,
+      "confirmedClearedOnlyTexts": true,
+      "resetInherited": "BLG",
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "category-cancel-confirm-reset",
+      "status": "PASS",
+      "productId": "6af61bccaa7697483f459ae5",
+      "cancelKeptText": true,
+      "confirmedClearedOnlyTexts": true,
+      "resetInherited": "BLG",
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "category-cancel-confirm-reset",
+      "status": "PASS",
+      "productId": "6af61bceaa7697483f459c31",
+      "cancelKeptText": true,
+      "confirmedClearedOnlyTexts": true,
+      "resetInherited": "BLG",
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "category-cancel-confirm-reset",
+      "status": "PASS",
+      "productId": "6af61bcfaa7697483f459d36",
+      "cancelKeptText": true,
+      "confirmedClearedOnlyTexts": true,
+      "resetInherited": "BLG",
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    }
+  ],
+  "created": [
+    "6af61bcbaa7697483f4599f5",
+    "6af61bccaa7697483f459ae5",
+    "6af61bceaa7697483f459c31",
+    "6af61bcfaa7697483f459d36"
+  ],
+  "notes": [
+    "Настоящий passFunnel и реальные API; fault injection только один HTTP400 assign-sku, после успешного POST. Номера паспортов не выпускаются."
+  ]
+}

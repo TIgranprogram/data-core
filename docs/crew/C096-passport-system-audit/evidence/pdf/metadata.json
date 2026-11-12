@@ -1,0 +1,25 @@
+{
+  "sourceId": "6adaff432a8dad6034b14603",
+  "sourceSku": "3905",
+  "cloneId": "6af6180908a1cfa1a596a8de",
+  "sourceFile": "D:/data-core/docs/crew/C094-passport-text-fit/evidence/final-visual/qa-3905-trimmed-source.jpeg",
+  "realDimensions": true,
+  "note": "Размерный чертёж проверен визуально; прочие рисунки унаследованы из QA и могут содержать ОБРАЗЕЦ",
+  "pdfs": [
+    {
+      "mode": "pages",
+      "bytes": 68840
+    },
+    {
+      "mode": "print",
+      "bytes": 64459
+    }
+  ],
+  "dimensions": {
+    "length": 1097,
+    "width": 176,
+    "height": 2000,
+    "unit": "мм"
+  },
+  "correction": "Только QA-копия: размеры таблицы согласованы с настоящим чертежом; исходное изделие и прод не менялись."
+}

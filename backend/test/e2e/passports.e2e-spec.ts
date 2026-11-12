@@ -240,7 +240,7 @@ describe('Паспорта изделий', () => {
     const n = (await http().post('/api/passports').set(as(admin.access)).send(full({ name: 'После аннулирования' })).expect(201)).body;
     expect(Number((await http().post(`/api/passports/${n.id}/issue`).set(as(admin.access)).expect(200)).body.passportNumber)).toBe(553);
   });
-  it('v2: паспорт с категорией — снимок текста; правка шаблона не меняет выданный, «обновить текст» — меняет (БЗ-6 Э4c)', async () => {
+  it('v2: черновик с категорией обновляет снимок после правки шаблона; явное обновление доступно (C096)', async () => {
     const dv = db().collection('dict_values');
     await dv.deleteMany({ dict: { $in: ['passportElements', 'passportMaterials', 'passportCategories'] } });
     const el = await dv.insertOne({ dict: 'passportElements', code: 'BAR', name: 'Турник', inDescription: 'перекладина для подтягиваний', purpose: 'подтягиваний', usageRules: 'Перед занятием осмотрите изделие', deletedAt: null });
@@ -261,25 +261,29 @@ describe('Паспорта изделий', () => {
     expect(keyOf['Рост пользователя от']).toBeUndefined();
     expect(keyOf['Рисунок: Зона безопасности']).toBeUndefined(); // safety из формы = safety_zone категории
     expect(chk.requiredImages).toEqual(expect.arrayContaining(['overview']));
-    // правка шаблона категории — выданный паспорт не меняется
+    // C096: черновик получает актуальный шаблон при следующем чтении.
     const tpl = (await http().get('/api/passports/template').query({ category: 'TRN' }).set(as(admin.access)).expect(200)).body;
     const sections = tpl.sections.map((x: { paragraphs: string[] }, i: number) => (i === 0 ? { ...x, paragraphs: [...x.paragraphs, 'Новый пункт для проверки снимка.'] } : x));
     await http().put('/api/passports/template').set(as(admin.access)).send({ category: 'TRN', sections, tables: tpl.tables }).expect(200);
     const after = (await http().get(`/api/passports/${created.id}`).set(as(admin.access)).expect(200)).body;
-    expect(JSON.stringify(after.textSnapshot.sections)).toBe(before);
+    expect(JSON.stringify(after.textSnapshot.sections)).not.toBe(before);
+    expect(JSON.stringify(after.textSnapshot.sections)).toContain('Новый пункт для проверки снимка.');
     // «обновить текст по справочникам» — новый пункт появился
     const re = (await http().post(`/api/passports/${created.id}/snapshot`).set(as(admin.access)).expect(200)).body;
     expect(JSON.stringify(re.textSnapshot.sections)).toContain('Новый пункт для проверки снимка.');
     // паспорт v1 (без категории) — снимок не нужен
     const bare = (await http().post('/api/passports').set(as(admin.access)).send({ name: 'Паспорт без категории' }).expect(201)).body;
     await http().post(`/api/passports/${bare.id}/snapshot`).set(as(admin.access)).expect(400);
-    // БЗ-7: паспорту без категории выбрали категорию правкой — текст собирается сразу; повторная правка готовый текст не пересобирает
+    // БЗ-7/C096: категория собирает текст сразу; повтор одинаковой правки не меняет снимок.
     const old = (await http().post('/api/passports').set(as(admin.access)).send({ name: 'Старый тренажёр' }).expect(201)).body;
     expect(old.textSnapshot ?? null).toBeNull();
     const conv = (await http().patch(`/api/passports/${old.id}`).set(as(admin.access)).send({ passportCategory: 'TRN' }).expect(200)).body;
     expect(conv.textSnapshot?.category).toBe('TRN');
     const again = (await http().patch(`/api/passports/${old.id}`).set(as(admin.access)).send({ note: 'заметка' }).expect(200)).body;
-    expect(again.textSnapshot.at).toBe(conv.textSnapshot.at);
+    expect(again.note).toBe('заметка');
+    const unchanged = (await http().patch(`/api/passports/${old.id}`).set(as(admin.access)).send({ note: 'заметка' }).expect(200)).body;
+    expect({ ...unchanged.textSnapshot, at: null }).toEqual({ ...again.textSnapshot, at: null });
+    expect(unchanged.textSnapshot.at).toBe(again.textSnapshot.at);
     const managerSnapshot = (await http().post(`/api/passports/${created.id}/snapshot`).set(as(manager)).expect(200)).body;
     expect(managerSnapshot.id).toBe(created.id);
     expect(JSON.stringify(managerSnapshot.textSnapshot.sections)).toContain('Новый пункт для проверки снимка.');

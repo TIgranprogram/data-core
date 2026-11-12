@@ -18,6 +18,7 @@ import { buildV2Text, type FunnelText } from './passport-v2-text';
 import { checkSections, cleanSections, type SectionLike } from './passport-sections-check';
 import { JOINTS_MISSING, jointsMissing } from './passport-traits';
 import { editSnapshotItem, type SnapshotSection } from './passport-snapshot-edit';
+import { canon, carryManual, manualConflict, sameSnapshot, type Snap } from './passport-snapshot-refresh';
 import { promoteToOwn } from './passport-promote';
 import { standardSchemes } from './passport-schemes';
 import { PASSPORT_TEXTS_V2 } from './passport-texts.v2';
@@ -53,7 +54,7 @@ export class ProductPassportService {
     // тяжёлые части вынесены в отдельные файлы (ПР-1); публичные методы сервиса прежние
     this.queries = new PassportQueries({ model, connection, versions, categoryRules: () => this.categoryRules(), installs: () => this.installs(), withSchemes: (d, i) => this.withSchemes(d, i), oid: (v) => this.oid(v), forest: (c) => this.forest(c) });
     this.bulkOps = new PassportBulk({ model, findById: (id) => this.findById(id), update: (id, p) => this.update(id, p), snapshot: (id) => this.snapshot(id), oid: (v) => this.oid(v) });
-    this.issueOps = new PassportIssue({ model, connection, findById: (id) => this.findById(id), readiness: (d) => this.readiness(d), freezeImages: (id) => this.freezeImages(id), snapshot: (id) => this.snapshot(id), allocate: (set, date, session) => this.allocate(set, date, session), assertFree: (set, selfId, session) => this.assertFree(set, selfId, session) });
+    this.issueOps = new PassportIssue({ model, connection, findById: (id) => this.findById(id), readiness: (d) => this.readiness(d), freezeImages: (id) => this.freezeImages(id), refresh: (id) => this.refreshDraftText(id), allocate: (set, date, session) => this.allocate(set, date, session), assertFree: (set, selfId, session) => this.assertFree(set, selfId, session) });
     this.numbers = new PassportNumbers({
       connection, maxOf: (f, s) => this.maxOf(f, s),
     });
@@ -122,9 +123,14 @@ export class ProductPassportService {
 
   /** Карточка: паспорт + чего не хватает + поставщик (для печати/подписи) + картинки с адресами. */
   async get(id: string) {
-    await this.syncFromProduct(id);
-    await this.refreshDraft(id);
+    let syncWarning: string | undefined;
+    try { await this.syncFromProduct(id, true); }
+    catch (e) {
+      if (!(e instanceof ConflictException)) throw e;
+      syncWarning = e.message;
+    }
     const doc = (await this.findById(id)).toObject() as unknown as Doc;
+    if (syncWarning) doc.syncWarning = syncWarning;
     // фронтенду: fromProduct — поля из изделия только для чтения; productCategory / categoryDiffers — знак «категория отличается от изделия» (у выданных)
     const prod = doc.productId ? await this.connection.collection('products').findOne({ _id: doc.productId as Types.ObjectId }) : null;
     const productCategory = prod ? (await productCategories(this.connection.db!, [prod._id])).get(String(prod._id)) ?? null : null;
@@ -162,23 +168,52 @@ export class ProductPassportService {
   }
 
   /**
-   * Черновик с изделием: категория и общие поля берутся у изделия при чтении, сохранении и печати.
-   * Текст по справочникам пересобирается, если его не правили руками (`editedAt`). Выданные и паспорта без изделия не трогаем.
+   * Черновик при чтении и печати (C096 Э1): категория и общие поля — у изделия; собранный текст — по текущим полям, шаблону
+   * и справочникам, ручные пункты переносятся. Ничего не изменилось — записи нет. Конфликт ручной правки при чтении
+   * паспорт не меняет (ни поля, ни текст): ошибку покажут сохранение и выпуск. Выданные и аннулированные не трогаем.
    */
-  async syncFromProduct(id: string): Promise<boolean> {
+  async syncFromProduct(id: string, strict = false): Promise<boolean> {
+    return this.syncDraft(id, { strict, build: false });
+  }
+
+  /** Перед выпуском: то же, но конфликт — 409, и текст собирается, если его ещё нет. */
+  async refreshDraftText(id: string): Promise<boolean> {
+    return this.syncDraft(id, { strict: true, build: true });
+  }
+
+  private async syncDraft(id: string, opts: { strict: boolean; build: boolean }): Promise<boolean> {
     if (!Types.ObjectId.isValid(id)) return false;
     const doc = await this.model.findById(id).exec();
     if (!doc) return false;
     const cur = doc.toObject() as unknown as Doc;
+    if (cur.status !== 'draft') return false;
     const diff = await this.fromProductDiff(cur);
-    if (!Object.keys(diff).length) return false;
-    doc.set(diff);
-    const snap = cur.textSnapshot as { sections?: unknown[]; editedAt?: Date } | undefined;
-    const textChanged = diff.passportCategory || diff.textChoices || diff.elements || diff.materialIds || diff.installationTypeId ||
-      diff.isKit || diff.joints || 'materialsSpec' in diff || 'materials' in diff;
-    if (snap?.sections?.length && !snap.editedAt && textChanged) await this.applySnapshot(doc, { ...cur, ...diff });
-    await doc.save();
+    const next = { ...cur, ...diff };
+    if (Object.keys(diff).length) doc.set(diff);
+    let rebuilt = false;
+    const hasText = Array.isArray((cur.textSnapshot as Snap | undefined)?.sections);
+    if (next.passportCategory && (hasText || opts.build)) {
+      try { rebuilt = hasText ? await this.rebuildSafe(doc, next) : await this.applySnapshot(doc, next); }
+      catch (e) {
+        if (!opts.strict && e instanceof ConflictException) return false; // документ не сохраняем — паспорт остаётся прежним
+        throw e;
+      }
+    }
+    if (!Object.keys(diff).length && !rebuilt) return false;
+    await this.saveCurrent(doc, cur);
     return true;
+  }
+
+  /** Запоздавшая пересборка не может затереть ручную правку или уже выпущенный снимок. */
+  private async saveCurrent(doc: ProductPassportDocument, previous: Doc): Promise<ProductPassportDocument> {
+    doc.$where = { ...doc.$where, status: previous.status ?? { $exists: false },
+      ...(previous.updatedAt ? { updatedAt: previous.updatedAt } : {}),
+      textSnapshot: previous.textSnapshot === undefined ? { $exists: false } : previous.textSnapshot };
+    try { return await doc.save(); }
+    catch (e) {
+      if (e instanceof Error && e.name === 'DocumentNotFoundError') throw new ConflictException('Паспорт изменён другим действием. Обновите карточку и повторите сохранение.');
+      throw e;
+    }
   }
 
   /** Совместимость с kppdf: последний паспорт изделия-модели. */
@@ -367,19 +402,18 @@ export class ProductPassportService {
     if (changed.includes('materialsSpec')) await this.mi.check((set.materialsSpec as StoredSpec | null) ?? null);
     await this.assertFree(set, doc._id);
     if (set.incomeId && String(set.incomeId) !== String(cur.incomeId ?? '')) await assertOneLive(this.model, set.incomeId, doc._id);
-    const hadText = !!((doc.toObject() as unknown as Doc).textSnapshot as { sections?: unknown[] } | undefined)?.sections?.length;
+    const hadText = Array.isArray((cur.textSnapshot as Snap | undefined)?.sections);
     doc.set(set);
-    const snap = cur.textSnapshot as { editedAt?: Date } | undefined;
-    const rebuilt = !issued && !snap?.editedAt && changed.some((key) => key === 'materialsSpec' || key === 'materials')
-      && await this.applySnapshot(doc, { ...cur, ...set });
-    const saved = await doc.save();
-    if (rebuilt) return saved;
-    // НМ: новая редакция — текст заново по справочникам и снова заморожен; черновику с категорией текст собирается при выпуске
-    if (set.revision && saved.passportCategory) return (await this.snapshot(String(saved._id))) ?? saved;
-    // паспорту без текста выбрали категорию — собрать текст сразу (как при создании); готовый текст не трогаем — «Обновить текст по справочникам»
-    if (set.passportCategory && !hadText) return (await this.snapshot(String(saved._id))) ?? saved;
-    // ПВ: черновик — выбор текстов изменили, значит текст и производные поля (назначение, установка) собираются заново
-    if ((changed.includes('textChoices') || changed.includes('joints')) && !issued && saved.passportCategory) return (await this.snapshot(String(saved._id))) ?? saved;
+    // C096 Э1: черновик с категорией — текст по текущим полям в том же сохранении; ручные пункты переносятся,
+    // конфликт — 409 до записи (категория и текст остаются прежними). Без текста — собрать сразу (как при создании).
+    const after = { ...cur, ...set };
+    if ((!issued || set.revision) && after.passportCategory) {
+      // Новая редакция, поля и снимок сохраняются атомарно; ручные абзацы не исчезают при пересборке.
+      if (set.revision) after.textSnapshot = { ...(cur.textSnapshot as Snap ?? {}), sizeLayout: 2 };
+      if (hadText) await this.rebuildSafe(doc, after);
+      else await this.applySnapshot(doc, after);
+    }
+    const saved = await this.saveCurrent(doc, cur);
     return saved;
   }
 
@@ -453,10 +487,11 @@ export class ProductPassportService {
   /** Правка пункта текста только для этого паспорта (Э5a3): меняется снимок, справочники — нет. */
   async editSnapshotItem(id: string, b: { sectionKey?: string; itemKey?: string; text?: string }) {
     const doc = await this.findById(id);
-    const snap = (doc.toObject() as unknown as Doc).textSnapshot as { sections?: SnapshotSection[] } | undefined;
+    const previous = doc.toObject() as unknown as Doc;
+    const snap = previous.textSnapshot as { sections?: SnapshotSection[] } | undefined;
     if (!snap?.sections) throw new BadRequestException('У паспорта нет собранного текста — выберите категорию в «Изменить»');
     doc.set('textSnapshot', { ...snap, sections: editSnapshotItem(snap.sections, String(b.sectionKey ?? ''), String(b.itemKey ?? ''), String(b.text ?? '')), editedAt: new Date() });
-    return doc.save();
+    return this.saveCurrent(doc, previous);
   }
 
   /** «Перенести правку в справочник» (Э5a4): пункт из снимка → новая версия шаблона категории паспорта. */
@@ -475,14 +510,45 @@ export class ProductPassportService {
 
   async snapshot(id: string): Promise<ProductPassportDocument | null> {
     const doc = await this.findById(id);
-    const p = doc.toObject() as unknown as Doc;
+    const previous = doc.toObject() as unknown as Doc;
+    const p = { ...previous };
     // черновик с изделием: поля и категория — из изделия (в память; запишет doc.save() в конце)
     const fp = await this.fromProductDiff(p);
     if (Object.keys(fp).length) { doc.set(fp); Object.assign(p, fp); }
-    return await this.applySnapshot(doc, p) ? doc.save() : null;
+    return await this.applySnapshot(doc, p) ? this.saveCurrent(doc, previous) : null;
   }
 
-  /** Снимок и его исходные поля сохраняются одним doc.save(). */
+  /**
+   * C096 Э1: пересборка снимка черновика без потери ручных пунктов (в `doc`, без сохранения).
+   * false — содержимое и производные поля те же (запись не нужна); конфликт ключа ручной правки — 409, `doc` не меняется.
+   */
+  private async rebuildSafe(doc: ProductPassportDocument, p: Doc): Promise<boolean> {
+    const q: Doc = { ...p };
+    const built = await this.buildText(q);
+    if (!built) return false;
+    const { text, instLeaf } = built;
+    const prev = p.textSnapshot as Snap | undefined;
+    const { sections, conflicts } = carryManual(prev?.sections, (text.sections ?? []) as unknown as SnapshotSection[]);
+    if (conflicts.length) throw manualConflict(conflicts);
+    const modernDrawing = p.status === 'draft' || prev?.drawingLayout === 2;
+    const next: Snap = { ...(text as unknown as Snap), sections, ...(modernDrawing ? { drawingLayout: 2 } : {}), ...(p.status === 'draft' || prev?.sizeLayout === 2 ? { sizeLayout: 2 } : {}), ...(prev?.editedAt ? { editedAt: prev.editedAt } : {}) };
+    const manual = (p.manualText as string[] | undefined) ?? [];
+    const derived: Doc = {
+      installationTypeId: q.installationTypeId ?? p.installationTypeId,
+      purpose: text.purpose && !manual.includes('purpose') ? text.purpose : p.purpose,
+      installationMethod: instLeaf && !manual.includes('installationMethod') ? text.install.text : p.installationMethod,
+    };
+    const was: Doc = { installationTypeId: doc.get('installationTypeId'), purpose: doc.get('purpose'), installationMethod: doc.get('installationMethod') };
+    const str = (o: Doc) => canon(Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v === undefined || v === null || v === '' ? null : String(v)])));
+    if (sameSnapshot(doc.get('textSnapshot') as Snap | undefined, next) && str(derived) === str(was)) return false;
+    if (q.installationTypeId) doc.set('installationTypeId', q.installationTypeId);
+    if (text.purpose && !manual.includes('purpose')) doc.set('purpose', text.purpose);
+    if (instLeaf && !manual.includes('installationMethod')) doc.set('installationMethod', text.install.text);
+    doc.set('textSnapshot', { ...next, at: new Date() });
+    return true;
+  }
+
+  /** Снимок и его исходные поля сохраняются одним doc.save(). Ручные пункты не переносятся — для явной пересборки и нового текста. */
   private async applySnapshot(doc: ProductPassportDocument, p: Doc): Promise<boolean> {
     const built = await this.buildText(p);
     if (!built) return false;
@@ -493,7 +559,7 @@ export class ProductPassportService {
     if (text.purpose && !manual.includes('purpose')) doc.set('purpose', text.purpose);
     if (instLeaf && !manual.includes('installationMethod')) doc.set('installationMethod', text.install.text);
     const modernDrawing = p.status === 'draft' || (p.textSnapshot as { drawingLayout?: number } | undefined)?.drawingLayout === 2;
-    doc.set('textSnapshot', { ...text, ...(modernDrawing ? { drawingLayout: 2 } : {}), at: new Date() });
+    doc.set('textSnapshot', { ...text, ...(modernDrawing ? { drawingLayout: 2 } : {}), ...(p.status === 'draft' || (p.textSnapshot as Snap | undefined)?.sizeLayout === 2 ? { sizeLayout: 2 } : {}), at: new Date() });
     return true;
   }
 
@@ -508,7 +574,7 @@ export class ProductPassportService {
     const p: Doc = { _id: new Types.ObjectId(), productId: prod._id, status: 'draft', passportNumber: '', ...(await productPatch(this.connection.db!, prod as Doc)) };
     const built = await this.buildText(p);
     if (!built) throw new BadRequestException('У изделия не выбрана категория паспорта — PDF собирается по ней. Укажите категорию в карточке изделия');
-    return { ...p, textSnapshot: { ...built.text, at: new Date() } };
+    return { ...p, textSnapshot: { ...built.text, sizeLayout: 2, at: new Date() } };
   }
 
   /** C060: тексты разделов воронки изделия (с его правками) — таблица «Тексты этого изделия»; нет изделия — 404, нет категории — пусто. */
@@ -659,20 +725,6 @@ export class ProductPassportService {
   private async choiceMissing(d: Doc): Promise<Array<{ label: string; key: string }>> {
     if (!d.passportCategory) return [];
     return choiceMissingIn(forProduct(await this.forest(String(d.passportCategory)), await this.productCtx(d.productId)), d);
-  }
-
-  /** Черновик с собранным текстом пересобирается при открытии, если «Тексты паспорта» менялись позже снимка; правленный руками и выпущенный — нет. */
-  private async refreshDraft(id: string) {
-    if (!Types.ObjectId.isValid(id)) return;
-    const p = await this.model.findById(id, { status: 1, passportCategory: 1, 'textSnapshot.at': 1, 'textSnapshot.editedAt': 1 }).lean().exec() as { status?: string; passportCategory?: string; textSnapshot?: { at?: Date; editedAt?: Date } } | null;
-    if (!p || p.status !== 'draft' || !p.passportCategory || !p.textSnapshot?.at || p.textSnapshot.editedAt) return;
-    const dv = this.connection.collection('dict_values');
-    const [a, b] = await Promise.all([
-      dv.find({ dict: 'passportPhrases' }, { projection: { updatedAt: 1 } }).sort({ updatedAt: -1 }).limit(1).toArray(),
-      dv.find({ dict: 'passportPhrases', deletedAt: { $ne: null } }, { projection: { deletedAt: 1 } }).sort({ deletedAt: -1 }).limit(1).toArray(),
-    ]);
-    const last = Math.max(+(a[0]?.updatedAt ?? 0), +(b[0]?.deletedAt ?? 0));
-    if (last > +p.textSnapshot.at) await this.snapshot(id);
   }
 
   /** Способы установки (справочник) по id — для стандартных схем узлов (Э9.5). */

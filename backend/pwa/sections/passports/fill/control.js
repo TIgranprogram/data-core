@@ -24,14 +24,6 @@ export function suggestRow(m, write, save) {
   });
 }
 
-/** Не тронутые умолчания — одним запросом, когда идём дальше (как раньше commit в воронке). */
-export async function commitPending(prod, pending) {
-  if (!pending.size) return;
-  const change = Object.assign({}, ...[...pending.values()].map((p) => p.patch));
-  await putDefaults(prod, change);
-  pending.clear();
-}
-
 function numEditor(ctx, key, label, dflt) {
   const cur = ctx.prod.passportDefaults?.[key];
   const empty = cur == null || cur === '';
@@ -39,25 +31,30 @@ function numEditor(ctx, key, label, dflt) {
   if (empty && dflt != null && dflt !== '') ctx.pending.set(key, { patch: { [key]: num(dflt) ?? dflt } });
   const f = textInput({
     label: label || 'Значение', value: shown, type: 'number', disabled: !ctx.can, short: true,
-    hint: empty && dflt != null ? 'По умолчанию — можно не менять' : undefined,
+    hint: empty && dflt != null ? 'По умолчанию — не сохранено. Нажмите «Принять».' : undefined,
   });
   f.input.addEventListener('change', () => {
     const v = num(f.value);
-    if (v === null) return;
+    if (v === null && String(f.value).trim()) { toast("Введите число", { error: true }); return; }
     ctx.pending.delete(key);
     ctx.save(() => putDefaults(ctx.prod, { [key]: v }));
   });
-  return f.el;
+  return stack(f.el, empty && dflt != null && dflt !== '' ? button({ label: 'Принять', size: 'S', disabled: !ctx.can, onClick: () => ctx.save(async () => {
+    await putDefaults(ctx.prod, { [key]: num(f.value) ?? dflt }); ctx.pending.delete(key);
+  }) }) : null);
 }
 
 export function dimsEditor(ctx) {
-  const d = ctx.prod.dimensions && (ctx.prod.dimensions.unit || 'мм') === 'мм' ? ctx.prod.dimensions : {};
+  const source = ctx.prod.dimensions || {};
+  const factor = ({ 'мм': 1, 'см': 10, 'м': 1000 })[source.unit || 'мм'];
+  if (!factor) return hint('Неизвестная единица габаритов. Исправьте её в изделии.', 'warn');
+  const d = Object.fromEntries(['length', 'width', 'height'].map((k) => [k, source[k] == null ? '' : source[k] * factor]));
   const fs = ['length', 'width', 'height'].map((key, i) => textInput({
     label: ['Длина, мм', 'Ширина, мм', 'Высота, мм'][i], value: d[key] ?? '', type: 'number', disabled: !ctx.can, short: true,
   }));
   const saveDims = () => {
     const [length, width, height] = fs.map((f) => num(f.value));
-    if (!(length && width && height)) return;
+    if (fs.some((f) => String(f.value).trim() && (num(f.value) === null || num(f.value) < 0))) { toast('Габариты — неотрицательные числа', { error: true }); return; }
     ctx.save(() => patchProduct(ctx.prod.id, { dimensions: { length, width, height, unit: 'мм' } })
       .then(() => { ctx.prod.dimensions = { length, width, height, unit: 'мм' }; }));
   };
@@ -69,7 +66,8 @@ export function weightEditor(ctx) {
   const f = textInput({ label: 'Вес изделия, кг', value: ctx.prod.weightKg ?? '', type: 'number', disabled: !ctx.can, short: true });
   f.input.addEventListener('change', () => {
     const v = num(f.value);
-    if (v) ctx.save(() => patchProduct(ctx.prod.id, { weightKg: v }).then(() => { ctx.prod.weightKg = v; }));
+    if (v === null && String(f.value).trim() || v < 0) { toast('Вес — неотрицательное число', { error: true }); return; }
+    ctx.save(() => patchProduct(ctx.prod.id, { weightKg: v }).then(() => { ctx.prod.weightKg = v; }));
   });
   return f.el;
 }
@@ -85,6 +83,7 @@ function elementsCombo(ctx, rows) {
   }], { els: labels.join(', ') });
   f.el.addEventListener('change', () => {
     const names = String(f.read().values?.els || '').split(',').map((s) => s.trim()).filter(Boolean);
+    if (names.some((n) => !rows.some((o) => o.label === n))) { toast('Элемента нет в справочнике. Нажмите «Добавить элемент».', { error: true }); return; }
     let list = [...new Set(names.map((n) => rows.find((o) => o.label === n)?.id).filter(Boolean))];
     if (list.length > 3) { list = list.slice(0, 3); toast('Не больше трёх элементов'); }
     ctx.els.setIds(list);
@@ -237,16 +236,17 @@ export function installEditor(ctx, gap) {
     options: [['', 'Выберите…'], ...ctx.instOpts],
     value: cur,
     disabled: !ctx.can,
-    onChange: (v) => { ctx.pending.delete('installationTypeId'); if (v) ctx.save(() => putDefaults(ctx.prod, { installationTypeId: v })); },
+    onChange: (v) => { ctx.pending.delete('installationTypeId'); ctx.save(() => putDefaults(ctx.prod, { installationTypeId: v })); },
   });
   if (ctx.instOpts.length > 12) enhanceSelect(sel);
   const write = (v) => putDefaults(ctx.prod, { installationTypeId: v });
-  return stack(field('Способ установки', sel, { hint: 'Вариант текста не подсказывает способ установки — выберите его здесь.' }), suggestRow(gap, write, ctx.save));
+  return stack(field('Способ установки', sel, { hint: 'Вариант текста не подсказывает способ установки — выберите его здесь.' }), dflt && !ctx.prod.passportDefaults?.installationTypeId ? stack(hint('По умолчанию — не сохранено'), button({ label: 'Принять', size: 'S', disabled: !ctx.can, onClick: () => ctx.save(async () => { await write(sel.value); ctx.pending.delete('installationTypeId'); }) })) : null, suggestRow(gap, write, ctx.save));
 }
 
 /** Поле из A3, которого нет среди постоянных полей разделов (признак, категория, прочее). Рисунок сюда не входит. */
 export function controlGap(m, ctx) {
   if (!m || m.kind === 'image') return null;
+  if (m.kind === 'install') return installEditor(ctx, m);
   if (m.kind === 'elements') return elementsEditor(ctx, m);
   if (m.kind === 'purpose') return purposeEditor(ctx, m);
   if (m.kind === 'field' && m.key === 'height') return dimsEditor(ctx);

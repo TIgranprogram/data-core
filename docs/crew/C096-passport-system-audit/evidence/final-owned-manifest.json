@@ -1,0 +1,166 @@
+[
+  {
+    "path": "backend/pwa/sections/help-relations-data.js",
+    "sha256": "4C3A6BE4C71720FC36A14F52F79C74590711184FE9C0201B333995B4C71B0FBE"
+  },
+  {
+    "path": "backend/pwa/sections/help-relations.js",
+    "sha256": "B8998851225F339E75ED010A190FBD94DD60E7A2304FAC224283416F91DC0AF5"
+  },
+  {
+    "path": "backend/pwa/sections/help-relations.test.mjs",
+    "sha256": "4C4E53C9B0C3E35E515F5B90D25F5D749A42B8CDB47216E1439CDB865997C53F"
+  },
+  {
+    "path": "backend/pwa/sections/help.js",
+    "sha256": "690B5818600EE789543E2A61CEB82D71AEDE7184264FB1204B8B9B1C04821CB2"
+  },
+  {
+    "path": "backend/pwa/sections/kit.js",
+    "sha256": "A0ED1218A952094F4EA0A714C83A51FACEFB6EC9CBDEFEEE7180779D8F086CF6"
+  },
+  {
+    "path": "backend/pwa/sections/passports/card-blocks.js",
+    "sha256": "63E4F2F7B6A7E3FA658E58E691A054DA5CE25DC00A34312B80FA7BE12C168BDE"
+  },
+  {
+    "path": "backend/pwa/sections/passports/fill/category-change.js",
+    "sha256": "26D00A6B38E8A1E954A7BB26578DCBBA0A4EA31CB37623CFFFFC8723A7EBC7A9"
+  },
+  {
+    "path": "backend/pwa/sections/passports/fill/category-change.test.mjs",
+    "sha256": "77B7A181024CFAC0DA6104242F6836D281139990792080E3CCF8B89C81484BB7"
+  },
+  {
+    "path": "backend/pwa/sections/passports/fill/control.js",
+    "sha256": "5EA79E0D0DB22E3676366E9F46D419B5FA9C24E39079F6E4A9D0525E4E8AF299"
+  },
+  {
+    "path": "backend/pwa/sections/passports/fill/control.test.mjs",
+    "sha256": "A477AAF32C0700AAA62A3E9E7F4DAEFC2B4899348042234809066DBE6ABA8382"
+  },
+  {
+    "path": "backend/pwa/sections/passports/fill/index.js",
+    "sha256": "40D95428538BFDAFE7466F97CBDD612D81A5676A3826C3A71DD45312A9426DB9"
+  },
+  {
+    "path": "backend/pwa/sections/passports/fill/save-queue.js",
+    "sha256": "57EEBB29AEB7DBF95822832E1A85D47E43557F62D050450C1EBA16FD4BE22D11"
+  },
+  {
+    "path": "backend/pwa/sections/passports/fill/save-queue.test.mjs",
+    "sha256": "1179DE1A125B7C33AFE321115CA06C3B992D6D83406575F4BC1756C22F615E2B"
+  },
+  {
+    "path": "backend/pwa/sections/passports/form-revision.test.mjs",
+    "sha256": "383378129EBAC8E9074C0411998C457A9A8DDCD33B4AC6A00AD2D343CFB0E8AA"
+  },
+  {
+    "path": "backend/pwa/sections/passports/form-state.js",
+    "sha256": "6E69192DA1326BB82219C49399442C795524D5DB431C46BBAF430387735A8D25"
+  },
+  {
+    "path": "backend/pwa/sections/passports/form-state.test.mjs",
+    "sha256": "2B0997C3E03915759AED7B3055A8E4675F41C371021279065DC4EB78159B6A32"
+  },
+  {
+    "path": "backend/pwa/sections/passports/form.js",
+    "sha256": "DA02D01C11F6EB69368D847EE71ABDA81ED163D69DE47F7BAD404AF7DD543C21"
+  },
+  {
+    "path": "backend/pwa/sections/passports/funnel/index.js",
+    "sha256": "29B4530B8BB658A96FEB69A1191102667C54F367F94ECC444B8D5649E79C0D50"
+  },
+  {
+    "path": "backend/pwa/sections/passports/funnel/issue.js",
+    "sha256": "DEBD8238BDC0BB18EEBCFEB1E8C4FC43B435A54ECD60826DF6D21FE8FE1AADF4"
+  },
+  {
+    "path": "backend/pwa/sections/passports/funnel/new-product.js",
+    "sha256": "B2F9F6AEFFDAE0EB8577398FF0504931735BE0E8219DD10080AB355BCAEA0320"
+  },
+  {
+    "path": "backend/pwa/sections/passports/funnel/ready.js",
+    "sha256": "D4EC421027D838ECEA1206C7F171F5FD56C6E6DC77365E29BD1714F8A9FDA2AD"
+  },
+  {
+    "path": "backend/pwa/sections/passports/product-block.js",
+    "sha256": "C2B0776AD2794CF2A441ED476021553CDC9187EA4DA72FCE2CDA3CF50A7D6A26"
+  },
+  {
+    "path": "backend/pwa/sections/passports/product-block.test.mjs",
+    "sha256": "19EFF099EC6CBAC82FFE5E30E87895F0F8012FF45FC69CB33FC598F84EF18585"
+  },
+  {
+    "path": "backend/pwa/sections/passports/wire-form.js",
+    "sha256": "4444C1ECAD1D3818AB0CA32E7E970C49D1167335F285C1C22C2AAAB92B2ABFEB"
+  },
+  {
+    "path": "backend/pwa/sections/products/create-session.js",
+    "sha256": "95AB1146FE893252FB7FE365A3C1CF239053B9EFA300D0DCE55F0C98E79F1100"
+  },
+  {
+    "path": "backend/pwa/sections/products/create-session.test.mjs",
+    "sha256": "E12ED11C4E46A8C7AFF742F5D821CC701D6AC4CB823626332CDEE8F136725812"
+  },
+  {
+    "path": "backend/pwa/sections/products/form-fields.js",
+    "sha256": "5D80C2153A35448EE86510CAF1056146F76E9874A3BFAB40EC3FF2D65F93A610"
+  },
+  {
+    "path": "backend/pwa/ui/kit/guide.js",
+    "sha256": "15C0D3FFFD933D0E57498ACD5B49BC56B833E959783962AC536E02308FC75628"
+  },
+  {
+    "path": "backend/pwa/ui/kit/kit.css",
+    "sha256": "0071C058B3BAC4349471422E11A7EB236DD4798ADE2C16D02C497C31577A6089"
+  },
+  {
+    "path": "backend/src/modules/product-passport/passport-issue.ts",
+    "sha256": "231C54281D73305B2036DB70C06BE1674E2B593E475855C7D4E02A91A17DD6B4"
+  },
+  {
+    "path": "backend/src/modules/product-passport/passport-pdf-v2-common.ts",
+    "sha256": "0569CAB7EF0F38D5EADC0493BD47241C01E05F3007DF5D56E3FD01DCFF1C8EF6"
+  },
+  {
+    "path": "backend/src/modules/product-passport/passport-pdf-v2-layout.ts",
+    "sha256": "813E03602D95451D15E524D94C4DA0792EA4CE52520AAB6335DFF7B98690CED9"
+  },
+  {
+    "path": "backend/src/modules/product-passport/passport-pdf-v2-pagination.spec.ts",
+    "sha256": "1D9C4345DA43BD61DBB7ECDA37AC6810DCAD769C76F9AB6029BBBF49BE32F6F1"
+  },
+  {
+    "path": "backend/src/modules/product-passport/passport-pdf-v2-types.ts",
+    "sha256": "4ACC650D452959E4E803E3CC9F84687CE8E2EB3D3D8CEC3E1AC2A82E58F0C168"
+  },
+  {
+    "path": "backend/src/modules/product-passport/passport-pdf.service.ts",
+    "sha256": "6DB194868D960C6ED125CE84BF7629A905F57D1935830E4BE6A4F7AD24B9881A"
+  },
+  {
+    "path": "backend/src/modules/product-passport/passport-snapshot-refresh.spec.ts",
+    "sha256": "CAF5FABD78976FAB0BF5CB0C62EE0FC932DD1D7FDC89EE08B48BBF45C59ED815"
+  },
+  {
+    "path": "backend/src/modules/product-passport/passport-snapshot-refresh.ts",
+    "sha256": "309D6451565873ADAA0AE794C8C8E4A667AE9B7C2DD60610092CB19333BF27B4"
+  },
+  {
+    "path": "backend/src/modules/product-passport/product-passport.service.ts",
+    "sha256": "B9C79831F82131535A3354773EE7E52D88CC57A2C30665975526BC19E9ECA69C"
+  },
+  {
+    "path": "backend/test/e2e/passports.e2e-spec.ts",
+    "sha256": "5D6D7AD0ED6AE5B6AB9F1672752B9947DD583C178E68C7AE4135F4CDBCA361DA"
+  },
+  {
+    "path": "backend/test/e2e/products-order.e2e-spec.ts",
+    "sha256": "AEF1A47103714A29D2836F769EBC2DFD2CC1CF599191CDB2FB4705C23C7A631D"
+  },
+  {
+    "path": "docs/DESIGN.md",
+    "sha256": "5CC03F43DBAAB8564BCAC533E4792E7EFACC1A73058603CF129ABF1D65DC1D65"
+  }
+]

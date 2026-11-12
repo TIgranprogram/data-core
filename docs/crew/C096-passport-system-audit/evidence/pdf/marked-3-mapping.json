@@ -1,0 +1,14 @@
+[
+  {
+    "sheet": 1,
+    "side": "front",
+    "left": null,
+    "right": 1
+  },
+  {
+    "sheet": 1,
+    "side": "back",
+    "left": 2,
+    "right": 3
+  }
+]

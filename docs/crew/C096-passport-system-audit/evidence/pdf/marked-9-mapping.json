@@ -1,0 +1,38 @@
+[
+  {
+    "sheet": 1,
+    "side": "front",
+    "left": null,
+    "right": 1
+  },
+  {
+    "sheet": 1,
+    "side": "back",
+    "left": 2,
+    "right": null
+  },
+  {
+    "sheet": 2,
+    "side": "front",
+    "left": null,
+    "right": 3
+  },
+  {
+    "sheet": 2,
+    "side": "back",
+    "left": 4,
+    "right": 9
+  },
+  {
+    "sheet": 3,
+    "side": "front",
+    "left": 8,
+    "right": 5
+  },
+  {
+    "sheet": 3,
+    "side": "back",
+    "left": 6,
+    "right": 7
+  }
+]

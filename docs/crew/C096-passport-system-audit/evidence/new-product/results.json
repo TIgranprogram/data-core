@@ -1,0 +1,242 @@
+{
+  "at": "2026-11-12T20:02:19.059Z",
+  "cases": [
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "required-and-missing-group",
+      "status": "PASS",
+      "noPost": true,
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "partial-success-retry-and-fill",
+      "status": "PASS",
+      "productId": "6af61b4daa7697483f459022",
+      "postCount": 1,
+      "reopened": true,
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "similar-explicit-pick",
+      "status": "PASS",
+      "productId": "6af61b4daa7697483f459022",
+      "noPost": true,
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "changed-group",
+      "status": "PASS",
+      "productId": "6af61b50aa7697483f459148",
+      "group": "Скамьи",
+      "facets": [],
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "runtime-errors",
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "required-and-missing-group",
+      "status": "PASS",
+      "noPost": true,
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "partial-success-retry-and-fill",
+      "status": "PASS",
+      "productId": "6af61b52aa7697483f4591cb",
+      "postCount": 1,
+      "reopened": true,
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "similar-explicit-pick",
+      "status": "PASS",
+      "productId": "6af61b52aa7697483f4591cb",
+      "noPost": true,
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "changed-group",
+      "status": "PASS",
+      "productId": "6af61b55aa7697483f45934b",
+      "group": "Скамьи",
+      "facets": [],
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "runtime-errors",
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "required-and-missing-group",
+      "status": "PASS",
+      "noPost": true,
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "partial-success-retry-and-fill",
+      "status": "PASS",
+      "productId": "6af61b58aa7697483f4593ce",
+      "postCount": 1,
+      "reopened": true,
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "similar-explicit-pick",
+      "status": "PASS",
+      "productId": "6af61b58aa7697483f4593ce",
+      "noPost": true,
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "changed-group",
+      "status": "PASS",
+      "productId": "6af61b5baa7697483f4594f4",
+      "group": "Скамьи",
+      "facets": [],
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "runtime-errors",
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "required-and-missing-group",
+      "status": "PASS",
+      "noPost": true,
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "partial-success-retry-and-fill",
+      "status": "PASS",
+      "productId": "6af61b5daa7697483f459576",
+      "postCount": 1,
+      "reopened": true,
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "similar-explicit-pick",
+      "status": "PASS",
+      "productId": "6af61b5daa7697483f459576",
+      "noPost": true,
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "changed-group",
+      "status": "PASS",
+      "productId": "6af61b60aa7697483f45969c",
+      "group": "Скамьи",
+      "facets": [],
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "runtime-errors",
+      "status": "PASS",
+      "errors": []
+    }
+  ],
+  "created": [
+    "6af61b4daa7697483f459022",
+    "6af61b50aa7697483f459148",
+    "6af61b52aa7697483f4591cb",
+    "6af61b55aa7697483f45934b",
+    "6af61b58aa7697483f4593ce",
+    "6af61b5baa7697483f4594f4",
+    "6af61b5daa7697483f459576",
+    "6af61b60aa7697483f45969c"
+  ],
+  "notes": [
+    "Настоящий passFunnel и реальные API; fault injection только один HTTP400 assign-sku, после успешного POST. Номера паспортов не выпускаются."
+  ]
+}

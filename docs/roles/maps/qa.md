@@ -1,6 +1,6 @@
 # Карта роли qa
 
-коммит: 73aff678 (C090 full backend, QA 2026-11-12). Unit 325/3803, e2e 74/561, fail 0 skip 0; manifest src/test неизменен, TEST-LOG обновлён.
+коммит: c41e60de (C096 QA 2026-11-12, рабочие изменения без коммита). Full unit331/3889; финальный passport55/627; e2e75 suites PASS совокупно, OOM134 компенсирован отдельными последовательными запусками.
 
 - C086: `docs/crew/C086-passports-owner-review/QA-FINAL.md:3`, пофайловые результаты `QA-EVIDENCE.json`. Права manager: `backend/test/e2e/new-endpoints-1101.e2e-spec.ts:77` preview, `:124` plan; `backend/test/e2e/passports.e2e-spec.ts:136` create/issue/user-denied, `:283` snapshot, `:305` bulk. Реальные PNG-fixtures: `passports.e2e-spec.ts:23`, `new-endpoints-1101.e2e-spec.ts:25`. Refresh uploads: `tools/night-stand.mjs:153`; реальный Docker PASS, checksum PNG сохранён при смене контейнера, собственный контур остановлен. E2E после OOM запускать группами; T26 каждый повтор требует новую disposable БД (существующая counters ломает setup). Main backend/tools SHA256 совпал с manifest-v4; UI-приёмка — отдельно.
 
@@ -35,3 +35,5 @@
 - C090 (2026-11-12): docs/crew/C090-small-fixes/QA.md:2; тест backend/test/e2e/salesorders.e2e-spec.ts:145; агрегаты backend/src/modules/salesorders/salesorders.service.ts:63 и production-orders.service.ts:162. Docker Mongo4.4 loopback :27990, datacore-test-c090, 2 suites/13 tests PASS, exit 0. Одноразовый setup блокирует чтение .env; обязательно MONGO_REPLICA_SET=c090. Контейнер остановлен; full не выполнялся.
 
 - C090 full (2026-11-12): docs/crew/C090-small-fixes/QA-FULL.md:2; evidence/full-results.json:1; manifest SHA256 0c729f713bbab591ff1759a57f595db08e41d1de082814e053bb01604053de11. Unit 325/3803, e2e 74/561 PASS, T26 12 PASS. При сборе full искать *.e2e-spec.ts во всём backend/test: backend/test/reset-password.e2e-spec.ts расположен вне e2e/. Изолированный Mongo4.4 остановлен, src/test совпали до/после.
+
+- C096 (2026-11-12): docs/crew/C096-passport-system-audit/QA-REPORT.md:2; evidence/qa-e2e-aggregate.json:1. Регрессии backend/test/e2e/passports.e2e-spec.ts:269 (автообновление шаблона), :284 (повтор PATCH, snapshot.at); products-order.e2e-spec.ts:84 (CAS issued/manual). Стык syncWarning: product-passport.service.ts:126 → pwa/sections/passports/card-blocks.js:50. Mongo minimize убирает choices:{}: нормализовать только пустой choices, не все объекты; helper passport-snapshot-refresh.ts:53. Docker c096-test-mongo :27196 оставлен координатору. Карта обновлена.
