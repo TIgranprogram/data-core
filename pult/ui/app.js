@@ -164,6 +164,15 @@ function renderTester() {
   box.querySelector('p').textContent = hint;
   box.setAttribute('aria-live', 'polite');
   const b = box.querySelector('button.run');
+  // порядок C088: готовность → проверить (проба 20 мин — первый вариант) → результаты → остановить
+  const check = S.catalog.commands.find(x => x.id === 'ait-check');
+  if (check) {
+    const ready = el('button', 'ghost', 'Готовность');
+    ready.disabled = !!preparing || live.some(j => j.cmdId === 'ait-check');
+    ready.onclick = () => press(check);
+    ready.style.justifySelf = 'start'; ready.style.alignSelf = 'flex-start'; // как «Результаты», не на всю ширину
+    (box.querySelector('label.param') || b).before(ready); // до выбора длительности
+  }
   b.textContent = preparing ? 'Подготовка…' : 'Проверить сайт';
   b.disabled = b.disabled || !t || t.busy || !!preparing;
   b.onclick = async () => {
@@ -186,7 +195,7 @@ function renderTester() {
   details.ontoggle = () => { S.testerExtra = details.open; };
   details.append(el('summary', '', 'Дополнительно'));
   const cards = el('div', 'cards');
-  cards.append(...S.catalog.commands.filter(x => x.section === 'aitester' && !['ait-run', 'ait-stop', 'ait-report'].includes(x.id) && !x.hidden).map(card));
+  cards.append(...S.catalog.commands.filter(x => x.section === 'aitester' && !['ait-run', 'ait-stop', 'ait-report', 'ait-check'].includes(x.id) && !x.hidden).map(card));
   details.append(cards);
   $('cards').replaceChildren(box, details);
 }

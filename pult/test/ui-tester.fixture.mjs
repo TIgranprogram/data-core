@@ -25,10 +25,10 @@ try {
  await page.getByRole('heading',{name:'Проверок ещё нет'}).waitFor();
  await page.getByRole('button',{name:'Результаты',exact:true}).click();
  assert.equal(calls.at(-1).id,'ait-report');
- await page.locator('.tester-main select').selectOption('15');
+ await page.locator('.tester-main select').selectOption('20');
  await page.getByRole('button',{name:'Проверить сайт',exact:true}).click();
  await page.getByRole('heading',{name:'Проверка работает'}).waitFor();
- assert.deepEqual(calls.at(-1),{id:'ait-run',params:{minutes:'15'}});
+ assert.deepEqual(calls.at(-1),{id:'ait-run',params:{minutes:'20'}});
  assert.ok(await page.getByRole('button',{name:'Проверить сайт',exact:true}).isDisabled());
  await page.screenshot({path:path.join(out,'ui-running-wide.png'),fullPage:true});
  await page.getByRole('button',{name:'Остановить',exact:true}).click();
@@ -42,7 +42,7 @@ try {
  state='finished';await page.locator('#refresh').click();
  await page.getByRole('heading',{name:'Проверка закончена'}).waitFor();
  await page.getByText('Дополнительно',{exact:true}).click();
- assert.ok(await page.getByRole('heading',{name:'Проверить готовность',exact:true}).isVisible());
+ assert.ok(await page.getByRole('button',{name:'Готовность',exact:true}).isVisible()); // C088: готовность — в главной панели, первой
  await page.getByText('Дополнительно',{exact:true}).click();
  await page.getByRole('button',{name:'Результаты',exact:true}).click();
  assert.equal(calls.at(-1).id,'ait-report');
