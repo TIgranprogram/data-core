@@ -776,3 +776,6 @@ table.cal.k-tree tr.k-tree-ins > td { padding: 0; white-space: normal; text-alig
 .pm-thumb { display: grid; place-items: center; inline-size: var(--s6); block-size: var(--s6); flex: none; overflow: hidden; border-radius: var(--radius-sm); background: var(--surface-2); }
 .pm-thumb img { inline-size: 100%; block-size: 100%; object-fit: contain; }
 .pm-item .pm-lbl { min-width: 0; overflow-wrap: anywhere; }
+/* Карты помощи: читаемый текстовый дубль остаётся на узких экранах. */
+.k-guide-diagram { width: 100%; }
+@media (max-width: 1200px) { .k-guide-diagram { display: none; } }

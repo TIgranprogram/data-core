@@ -70,4 +70,7 @@ export function toggle({ label, checked = false, onChange }) {
   return mark(h('label', { class: 'check' }, input, ' ', label), 'guide');
 }
 
-export const guide = { cat, unit, chain, flow, want, note, toggle };
+/** Схема с текстовым дублем у потребителя: на узком экране оставляем читаемый список вместо миниатюрных кнопок. */
+export function diagram(body) { return mark(h('div', { class: 'k-guide-diagram' }, body), 'guide'); }
+
+export const guide = { cat, unit, chain, flow, want, note, toggle, diagram };
