@@ -3,6 +3,7 @@
 #   bash deploy/synology/set-ai-key.sh local   - стенд на этом ПК (./.env)
 #   bash deploy/synology/set-ai-key.sh prod    - сайт (/opt/data-core/.env на VM, копия .env рядом)
 # Пишет строку ANTHROPIC_API_KEY=… в .env и пересоздаёт только контейнер backend (Mongo не трогает).
+set +x
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 WHERE="${1:-}"
@@ -11,14 +12,31 @@ WHERE="${1:-}"
 # Через base64: кодировка консоли Windows не портит текст буфера.
 KEY="$(powershell.exe -NoProfile -Command '[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string](Get-Clipboard -Raw)))' 2>/dev/null | tr -d '\r\n' | base64 -d 2>/dev/null | tr -d '\r\n \t' || true)"
 if ! [[ "$KEY" =~ ^sk-ant-[A-Za-z0-9_-]{20,}$ ]] || [ "${#KEY}" -gt 400 ]; then
-  P="не похоже на ключ"; [[ "$KEY" == sk-* ]] && P="начало «${KEY:0:7}…»"
-  echo "В буфере: ${#KEY} знаков, $P."
-  echo "✗ В буфере обмена нет ключа вида sk-ant-… Откройте console.anthropic.com → API Keys → создайте ключ, скопируйте и нажмите кнопку снова."
+  case "$KEY" in
+    kppd_*) echo "✗ В буфере машинный ключ data-core (kppd_, ${#KEY} знаков). Для КП нужен ключ Anthropic (sk-ant-…)." ;;
+    apikey_*) echo "✗ В буфере идентификатор ключа Anthropic (apikey_, ${#KEY} знаков). Для КП нужно секретное значение ключа (sk-ant-…)." ;;
+    "") echo "✗ Буфер пуст или его не удалось прочитать." ;;
+    *) echo "✗ В буфере ${#KEY} знаков. Ожидается ключ Anthropic вида sk-ant-…." ;;
+  esac
+  echo "В консоли Anthropic откройте API Keys. Если секретное значение уже не видно, создайте новый ключ, скопируйте его из окна создания и снова нажмите кнопку пульта."
   exit 1
 fi
 
 # Обновить строку в .env: прочитать ключ из stdin, заменить или дописать.
-UPDATE='f="$1"; IFS= read -r k; touch "$f"; cp "$f" "$f.bak-aikey"; grep -v "^ANTHROPIC_API_KEY=" "$f.bak-aikey" > "$f.tmp" || true; printf "ANTHROPIC_API_KEY=%s\n" "$k" >> "$f.tmp"; cat "$f.tmp" > "$f"; rm -f "$f.tmp"'
+UPDATE='set -eu
+umask 077
+f="$1"
+IFS= read -r k
+touch "$f"
+tmp="$(mktemp "$f.aikey.XXXXXX")"
+cleanup() { rm -f -- "$tmp"; }
+trap cleanup EXIT
+cat "$f" > "$tmp"
+mv -f -- "$tmp" "$f.bak-aikey"
+tmp="$(mktemp "$f.aikey.XXXXXX")"
+grep -v "^ANTHROPIC_API_KEY=" "$f.bak-aikey" > "$tmp" || [ "$?" -eq 1 ]
+printf "ANTHROPIC_API_KEY=%s\n" "$k" >> "$tmp"
+cat "$tmp" > "$f"'
 
 if [ "$WHERE" = local ]; then
   printf '%s\n' "$KEY" | bash -c "$UPDATE" _ ./.env
