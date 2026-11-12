@@ -18,7 +18,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { TAG, isLocalStand, tagText, createdFrom, screenGarbage, blockedClick, buildReport, screenChange } from './lib.mjs';
+import { TAG, isLocalStand, isLocalModel, standMatchesPassport, newRunId, netFinding, cleanupAllowed, tagText, createdFrom, screenGarbage, blockedClick, buildReport, screenChange } from './lib.mjs';
 import { sessionFromStdin } from './stand-session.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -29,7 +29,8 @@ const CREATED_FILE = path.join(LOGS, 'created.json');
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
 const suppliedSession = has('--session-stdin') ? sessionFromStdin(process.stdin) : null;
-const noWatchdog = Boolean(suppliedSession) || has('--no-watchdog');
+// продолжение запуска без сторожа остаётся без сторожа (проба C088: после --resume в meta было watchdog:true)
+const noWatchdog = Boolean(suppliedSession) || has('--no-watchdog') || (has('--resume') && (() => { try { return JSON.parse(fs.readFileSync(path.join(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..'), 'tools', 'logs', 'ai-tester', 'run.json'), 'utf8')).noWatchdog === true; } catch { return false; } })());
 const num = (f, d) => { const i = args.indexOf(f); return i >= 0 && Number(args[i + 1]) > 0 ? Number(args[i + 1]) : d; };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const say = (s) => console.log(s);
@@ -41,8 +42,12 @@ const readRun = () => { try { return JSON.parse(fs.readFileSync(RUN_FILE, 'utf8'
 // продолжение после обрыва пишет в отчёт того же дня, что и начало (даже после полуночи)
 let DAY = `${d0.getFullYear()}-${pad(d0.getMonth() + 1)}-${pad(d0.getDate())}`;
 if (args.includes('--resume') && readRun()?.day) DAY = readRun().day;
-const OUT = path.join(LOGS, DAY);
-const STATE_FILE = path.join(OUT, 'state.json'); // задания и находки — чтобы продолжение дописало отчёт, а не начало с нуля
+const OUT = path.join(LOGS, DAY); // REPORT.md дня = копия отчёта последнего запуска (его читает dc start)
+// каждый запуск — своя папка: настройки, код, длительность, итог, снимки, созданные записи; продолжение после обрыва — тот же ID
+const argRunId = (() => { const i = args.indexOf('--run-id'); return i >= 0 && /^\d{8}-\d{6}-[0-9a-f]{6}$/.test(args[i + 1] || '') ? args[i + 1] : ''; })();
+const RUN_ID = argRunId || (args.includes('--resume') && readRun()?.runId) || newRunId(d0);
+const RUN_DIR = path.join(OUT, 'runs', RUN_ID);
+const STATE_FILE = path.join(RUN_DIR, 'state.json'); // задания и находки этого запуска — продолжение дописывает их, другие запуски не смешиваются
 const BEAT_MS = 60000; const DEAD_MS = 4 * BEAT_MS;
 const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
 
@@ -65,6 +70,8 @@ ${new Date().toISOString()} сторож: тестировщик не работ
 /** Задача Планировщика Windows: при входе и раз в 10 мин — сторож. Без прав администратора, только для этого пользователя. */
 function ensureWatchdogTask() {
   if (process.platform !== 'win32') return;
+  // задача одна на пользователя: из второго worktree она переписала бы сторожа основной папки
+  if (fs.statSync(path.join(ROOT, '.git')).isFile()) { say('⚠ Запуск из отдельного worktree: сторож Планировщика не меняю. После обрыва — вручную: node tools/ai-tester/run.mjs --resume'); return; }
   const vbs = path.join(HERE, 'watchdog.vbs');
   const ps = `$a=New-ScheduledTaskAction -Execute 'wscript.exe' -Argument '//B "${vbs}"';` +
     `$t1=New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME;` +
@@ -87,7 +94,7 @@ function keepAwake() {
 function loadSettings() {
   const f = path.join(HERE, 'settings.json');
   if (!fs.existsSync(f)) fs.copyFileSync(path.join(HERE, 'settings.example.json'), f);
-  const s = JSON.parse(fs.readFileSync(f, 'utf8'));
+  const s = JSON.parse(fs.readFileSync(f, 'utf8').replace(/^﻿/, ''));
   return { stepsPerTask: 20, temperature: 0.3, apiKey: 'lm-studio', stand: 'http://localhost:3102', ...s, baseUrl: String(s.baseUrl || '').replace(/\/+$/, ''), stand: String(s.stand || 'http://localhost:3102').replace(/\/+$/, '') };
 }
 
@@ -112,6 +119,7 @@ async function modelLoaded(s) {
   try { const j = await (await fetch(s.baseUrl.replace(/\/v1$/, '') + '/api/v0/models', { signal: AbortSignal.timeout(6000) })).json(); return j.data?.find((m) => m.id === s.model)?.state === 'loaded'; } catch { return false; }
 }
 async function ensureLLM(s, log = say) {
+  if (!isLocalModel(s.baseUrl)) return false; // внешний адрес модели не трогаем вовсе
   let local = false; let port = '1234';
   try { const u = new URL(s.baseUrl); local = ['localhost', '127.0.0.1'].includes(u.hostname); port = u.port || '1234'; } catch { /* адрес кривой */ }
   if (!(await llmUp(s))) {
@@ -165,13 +173,33 @@ async function standLogin(base) {
   }
   const creds = readLogin();
   let login = await apiLogin(base, creds);
-  if (login) return login;
+  // вход есть, но роль не manager (старый стенд создавал admin) — тем же скриптом вернуть manager
+  if (login && (await whoAmI(base, login.access))?.role === 'manager') return login;
   let backend = null;
-  try { backend = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/.night/current-stand.json'), 'utf8'))?.project; } catch { /* нет паспорта */ }
+  try { backend = (await standPassport(base)).project; } catch { /* чужой или неизвестный стенд — пользователя не заводим */ }
   if (!backend) return null;
   const r = spawnSync('docker', ['exec', '-i', '-w', '/app', '-e', 'STAND=1', '-e', `STAND_PASSWORD=${creds.password}`, `${backend}-backend`, 'node', '-'], { input: fs.readFileSync(path.join(ROOT, 'backend/scripts/stand-test-user.js')), encoding: 'utf8', windowsHide: true, env: { ...process.env, MSYS_NO_PATHCONV: '1' } });
   if (r.status) return null;
   return apiLogin(base, creds);
+}
+/** Кто вошёл — по API, а не по названию учётки: { id, username, role, isOwner } или null. */
+async function whoAmI(base, access) {
+  try {
+    const r = await fetch(`${base}/api/auth/me`, { headers: { Authorization: `Bearer ${access}` }, redirect: 'error', signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return null;
+    const j = await r.json(); const u = j?.user || j || {};
+    return { id: String(u.id || u._id || ''), username: u.username || '', role: u.role || '', isOwner: Boolean(u.isOwner), sections: Array.isArray(u.sections) ? u.sections : null };
+  } catch { return null; }
+}
+/**
+ * Изоляция доказывается паспортом, а не словом localhost: паспорт собственного стенда этого checkout,
+ * его Docker-ресурсы с метками владельца, и порт адреса = порт паспорта. Иначе — исключение с причиной.
+ */
+async function standPassport(base) {
+  const { standOwned } = await import('../night.mjs');
+  const run = standOwned();
+  if (!standMatchesPassport(base, run)) throw new Error(`адрес ${base} не совпадает с собственным стендом этого ПК (порт ${run.apiPort})`);
+  return run;
 }
 const DAY_MS = 86400000;
 const fmtDay = (t) => (t ? new Date(t).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) : '?');
@@ -206,9 +234,24 @@ async function ensureFreshBase() {
   if (!STAND_BASE) STAND_BASE = i.run ? `копия от ${fmtDay(i.dataAt)}${i.backup ? ` (${i.backup})` : ''}` : 'стенд будет создан из последней копии';
 }
 
-async function ensureStand(base) {
+/**
+ * maintain=false (продолжение после обрыва): стенд только запускается как есть — без пересборки и обновления базы,
+ * чтобы обход не менял код/uploads стенда посреди запуска.
+ */
+async function ensureStand(base, { maintain = true } = {}) {
+  const port = Number(new URL(base).port);
+  const ports = { apiPort: port, mongoPort: port === 3102 ? 27118 : 27118 + (port - 3102) };
+  if (!maintain) {
+    if (await standReady(base)) return true;
+    const { standUp } = await import('../night.mjs');
+    if (await standUp({ say, log: () => {} }, ROOT, null, ports)) return false;
+    for (let i = 0; i < 60 && !(await standReady(base)); i++) await sleep(2000);
+    return standReady(base);
+  }
   await ensureFreshBase();
   if (await standReady(base)) {
+    // по адресу отвечает чей-то сайт — обновлять/входить можно, только если это собственный стенд этого checkout
+    try { await standPassport(base); } catch (e) { say('❌ ' + e.message + '. Чужой стенд не трогаю.'); return false; }
     // поднятый стенд мог остаться на старом коде — тогда находки ложные (как в «Большой проверке сайта»)
     say('Стенд работает — обновляю его до текущего кода (около 2 минут)…');
     const { standRefresh } = await import('../night.mjs');
@@ -220,7 +263,7 @@ async function ensureStand(base) {
   const docker = spawnSync('docker', ['info'], { encoding: 'utf8', windowsHide: true });
   if (docker.status) { say('❌ Docker не запущен. Откройте программу Docker Desktop, дождитесь зелёной надписи «Running» и нажмите кнопку ещё раз.'); return false; }
   const { standUp } = await import('../night.mjs');
-  const code = await standUp({ say, log: () => {} });
+  const code = await standUp({ say, log: () => {} }, ROOT, null, ports);
   if (code) return false;
   // сохранённый стенд стартует со старым образом (compose start) — пересобрать под текущий код, иначе находки ложные (2026-11-10: 400 на client-errors после исправления)
   say('Обновляю стенд до текущего кода (около 2 минут)…');
@@ -239,7 +282,7 @@ function readNav() {
 // ---------- задания ----------
 // make: создаёт запись (название получит метку ТЕСТ-ИИ). look: только смотрит.
 const TASKS = [
-  { id: 'partner', section: 'partners', make: true, task: 'Создай нового контрагента — поставщика. Название придумай. Заполни, что сможешь (ИНН — ровно {inn}, телефон). Сохрани. Найди его в списке и открой карточку.' },
+  { id: 'partner', section: 'partners', make: true, task: 'Создай нового контрагента — поставщика. Название — «Поставщик {n}» (ровно так, с этим номером). Заполни, что сможешь (ИНН — ровно {inn}, телефон). Сохрани. Найди его в списке и открой карточку.' },
   { id: 'request', section: 'requests', make: true, task: 'Создай новую заявку на закупку. Добавь 1–2 материала из предложенных и количество. Сохрани. Убедись, что заявка видна в списке.' },
   { id: 'expense', section: 'expenses', make: true, task: 'Нажми кнопку добавления расхода. Заполни сумму 1500 и комментарий, остальные обязательные поля выбери из списков. Нажми «Сохранить» один раз. Если сайт пишет, что не так, — исправь это поле. Затем finish.' },
   { id: 'staff', section: 'staff', task: 'Осмотри «Сотрудников»: найди кого-нибудь поиском, открой карточку, посмотри вкладки. Ничего не меняй, новых пользователей не создавай.' },
@@ -277,12 +320,14 @@ const TOOLS = [
 
 // ---------- браузер (Chrome DevTools Protocol, без зависимостей) ----------
 /** После обрыва остаются браузеры без окна и их временные профили (ai-tester-*) — убрать перед новым запуском. */
+// профиль браузера помечен этим checkout: уборка остатков не задевает браузер тестировщика из другой папки
+const PROFILE_PREFIX = `ai-tester-${crypto.createHash('sha1').update(ROOT.toLowerCase()).digest('hex').slice(0, 8)}-`;
 function cleanLeftovers() {
   if (process.platform === 'win32') {
-    const ps = "Get-CimInstance Win32_Process -Filter \"Name='msedge.exe' OR Name='chrome.exe'\" | Where-Object { $_.CommandLine -like '*--user-data-dir=*ai-tester-*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }";
+    const ps = `Get-CimInstance Win32_Process -Filter "Name='msedge.exe' OR Name='chrome.exe'" | Where-Object { $_.CommandLine -like '*--user-data-dir=*${PROFILE_PREFIX}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`;
     spawnSync('powershell', ['-NoProfile', '-Command', ps], { windowsHide: true });
   }
-  for (const d of fs.readdirSync(os.tmpdir()).filter((n) => n.startsWith('ai-tester-'))) { try { fs.rmSync(path.join(os.tmpdir(), d), { recursive: true, force: true }); } catch { /* занят */ } }
+  for (const d of fs.readdirSync(os.tmpdir()).filter((n) => n.startsWith(PROFILE_PREFIX))) { try { fs.rmSync(path.join(os.tmpdir(), d), { recursive: true, force: true }); } catch { /* занят */ } }
 }
 
 function findBrowser() {
@@ -292,7 +337,8 @@ function findBrowser() {
 async function openBrowser(base) {
   const exe = findBrowser();
   const port = 9600 + Math.floor(Math.random() * 300);
-  const prof = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-tester-'));
+  const prof = fs.mkdtempSync(path.join(os.tmpdir(), PROFILE_PREFIX));
+  if (!exe) throw new Error('нет браузера Edge/Chrome');
   const br = spawn(exe, ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${prof}`, '--no-first-run', ...(suppliedSession ? ['--incognito'] : []), 'about:blank'], { stdio: 'ignore' });
   let list;
   for (let i = 0; i < 50; i++) { try { list = await (await fetch(`http://127.0.0.1:${port}/json`)).json(); if (list.length) break; } catch { /* ждём */ } await sleep(200); }
@@ -327,7 +373,7 @@ async function openBrowser(base) {
   });
   b.ev = async (expr) => { const r = (await cmd('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true })).result; if (r?.exceptionDetails) throw new Error('JS: ' + (r.exceptionDetails.exception?.description || r.exceptionDetails.text).split('\n')[0]); return r?.result?.value; };
   b.cmd = cmd;
-  b.shot = async (name) => { try { const r = await cmd('Page.captureScreenshot', { format: 'png' }); fs.mkdirSync(path.join(OUT, 'shots'), { recursive: true }); const f = path.join(OUT, 'shots', name + '.png'); fs.writeFileSync(f, Buffer.from(r.result.data, 'base64')); return path.relative(ROOT, f).replace(/\\/g, '/'); } catch { return ''; } };
+  b.shot = async (name) => { try { const r = await cmd('Page.captureScreenshot', { format: 'png' }); fs.mkdirSync(path.join(RUN_DIR, 'shots'), { recursive: true }); const f = path.join(RUN_DIR, 'shots', name + '.png'); fs.writeFileSync(f, Buffer.from(r.result.data, 'base64')); return path.relative(ROOT, f).replace(/\\/g, '/'); } catch { return ''; } };
   b.key = async (key) => { const code = key === 'Enter' ? 13 : 27; for (const type of ['keyDown', 'keyUp']) await cmd('Input.dispatchKeyEvent', { type, key, code: key, windowsVirtualKeyCode: code, nativeVirtualKeyCode: code }); };
   b.close = async () => { try { ws.close(); } catch { /* закрыт */ } br.kill(); await sleep(400); try { fs.rmSync(prof, { recursive: true, force: true }); } catch { /* занят */ } };
   await cmd('Runtime.enable'); await cmd('Network.enable'); await cmd('Page.enable');
@@ -435,19 +481,15 @@ async function act(b, call, nav, ctxText) {
 /** Ошибки, которые видит программа (не модель): исключения, ответы 5xx, отказы при сохранении, медленно, мусор на экране. */
 function autoFindings(b, o, seenGarbage) {
   const out = [];
-  for (const n of b.net.splice(0)) {
-    const p = n.url.split('?')[0];
-    if (n.status >= 500) out.push(`сервер ответил ошибкой ${n.status} на ${n.method} ${p}`);
-    // 409 «такая запись уже есть» — сайт верно отказал на повтор (модель ввела то же), не ошибка сайта
-    else if (n.status >= 400 && n.status !== 401 && n.status !== 409 && n.method !== 'GET') out.push(`сохранение не прошло: ${n.method} ${p} → ${n.status}${n.msg ? ` «${n.msg}»` : ''}`);
-    else if (n.status === 404 && n.method === 'GET') out.push(`нет данных по адресу ${p} (404)`);
-    if (n.ms > 3000) out.push(`медленно: ${n.method} ${p} — ${(n.ms / 1000).toFixed(1)} с`);
-  }
-  for (const e of b.jsErrors.splice(0)) out.push(`сбой в странице: ${e}`);
+  for (const n of b.net.splice(0)) out.push(...netFinding(n)); // 5xx — ошибка; 4xx — отказ (проверить); 401/409 — норма
+  for (const e of b.jsErrors.splice(0)) out.push({ kind: 'ошибка', text: `сбой в странице: ${e}` });
   const g = screenGarbage(o?.all);
-  if (g && !seenGarbage.has(o.hash + g)) { seenGarbage.add(o.hash + g); out.push(`служебное значение на экране: «${g}»`); }
+  if (g && !seenGarbage.has(o.hash + g)) { seenGarbage.add(o.hash + g); out.push({ kind: 'ошибка', text: `служебное значение на экране: «${g}»` }); }
   return out;
 }
+
+/** Сбой самого тестировщика (модель, браузер, зацикливание) — отдельный список, в ошибки сайта не идёт. */
+function fault(state, text) { state.faults.push({ at: nowTime(), text: String(text).slice(0, 240) }); say('  ✗ сбой тестировщика: ' + String(text).slice(0, 120)); }
 
 // ---------- запуск одного задания ----------
 async function runTask(s, b, nav, t, state) {
@@ -460,7 +502,7 @@ async function runTask(s, b, nav, t, state) {
   await sleep(2500);
   b.net.length = 0; b.jsErrors.length = 0;
   let o = await look(b);
-  const msgs = [{ role: 'system', content: SYSTEM }, { role: 'user', content: `Задание: ${t.task.replace('{inn}', String(Math.floor(1e9 + Math.random() * 9e9)))}\n\nЭкран сейчас:\n${lookText(o, nav)}` }];
+  const msgs = [{ role: 'system', content: SYSTEM }, { role: 'user', content: `Задание: ${t.task.replace('{inn}', String(Math.floor(1e9 + Math.random() * 9e9))).replace('{n}', String(Date.now()).slice(-6))}\n\nЭкран сейчас:\n${lookText(o, nav)}` }];
   const add = (f) => {
     state.findings.push(f);
     say(`  ⚠ ${f.kind}: ${f.text}`);
@@ -479,13 +521,13 @@ async function runTask(s, b, nav, t, state) {
       await sleep(5000);
       await ensureLLM(s, say);
       try { res = await llm(s, { messages: msgs, tools: TOOLS, tool_choice: 'required', max_tokens: 700 }); }
-      catch (e2) { rec.summary = 'ИИ не ответил: ' + e2.message.slice(0, 150); state.llmErrors++; break; }
+      catch (e2) { rec.summary = 'ИИ не ответил: ' + e2.message.slice(0, 150); state.llmErrors++; fault(state, `${title}: ${rec.summary}`); break; }
     }
     state.llmErrors = 0;
     const m = res.choices?.[0]?.message || {};
     const tc = (m.tool_calls || [])[0];
     if (!tc) {
-      if (++idle > 2) { rec.summary = 'ИИ перестал вызывать инструменты'; break; }
+      if (++idle > 2) { rec.summary = 'ИИ перестал вызывать инструменты'; fault(state, `${title}: ${rec.summary}`); break; }
       msgs.push({ role: 'assistant', content: m.content || '' }, { role: 'user', content: 'Вызови один инструмент (click, fill, choose, key, open_section, report_problem или finish).' });
       continue;
     }
@@ -493,7 +535,7 @@ async function runTask(s, b, nav, t, state) {
     let callArgs = {}; try { callArgs = JSON.parse(tc.function.arguments || '{}'); } catch { /* пусто */ }
     const call = { name: tc.function.name, args: callArgs };
     msgs.push({ role: 'assistant', content: '', tool_calls: [{ id: tc.id, type: 'function', function: { name: call.name, arguments: tc.function.arguments || '{}' } }] });
-    fs.appendFileSync(path.join(OUT, 'steps.log'), `${nowTime()} ${title} #${step} ${call.name} ${JSON.stringify(callArgs)}\n`);
+    fs.appendFileSync(path.join(RUN_DIR, 'steps.log'), `${nowTime()} ${title} #${step} ${call.name} ${JSON.stringify(callArgs)}\n`);
     if (call.name === 'finish') { rec.result = callArgs.result === 'получилось' ? 'получилось' : 'не получилось'; rec.summary = callArgs.summary || ''; break; }
     if (call.name === 'report_problem') {
       const shot = await b.shot(`${t.id}-${Date.now()}`);
@@ -508,13 +550,13 @@ async function runTask(s, b, nav, t, state) {
     history.push(sig);
     let result;
     if (loop) {
-      if (++refused >= 4) { rec.summary = 'ходил по кругу — задание закрыто программой'; break; }
+      if (++refused >= 4) { rec.summary = 'ходил по кругу — задание закрыто программой'; fault(state, `${title}: ${rec.summary}`); break; }
       result = 'Ты уже делал это, и ничего не изменилось — ты ходишь по кругу. Прочитай сообщения на экране. Если сайт мешает выполнить задание — вызови report_problem, затем finish. Иначе сделай другое действие.';
     } else { try { result = await act(b, call, nav, o.text); } catch (e) { result = 'Не вышло: ' + e.message.slice(0, 120); } }
     const prev = o;
     o = await look(b).catch(() => o);
     if (!loop && call.name !== 'fill') result += ' ' + screenChange(prev, o);
-    for (const text of autoFindings(b, o, state.garbage)) add({ kind: 'ошибка', text, where: o.hash, task: title, shot: await b.shot(`${t.id}-${Date.now()}`) });
+    for (const f of autoFindings(b, o, state.garbage)) add({ ...f, where: o.hash, task: title, step, action: `${call.name} ${JSON.stringify(callArgs)}`.slice(0, 160), shot: await b.shot(`${t.id}-${Date.now()}`) });
     msgs.push({ role: 'tool', tool_call_id: tc.id, content: `${result}\n\nЭкран сейчас:\n${lookText(o, nav)}` });
   }
   state.tasks.push(rec);
@@ -525,27 +567,50 @@ async function runTask(s, b, nav, t, state) {
 function loadCreated() { try { return JSON.parse(fs.readFileSync(CREATED_FILE, 'utf8')); } catch { return []; } }
 function saveCreated(list) { fs.mkdirSync(LOGS, { recursive: true }); fs.writeFileSync(CREATED_FILE, JSON.stringify(list, null, 1)); }
 
-async function cleanup(s, browserAccess) {
-  const list = loadCreated();
-  if (!list.length) { say('Тестовых записей нет — убирать нечего.'); return 0; }
-  if (!isLocalStand(s.stand)) { say('❌ Адрес стенда не на этом ПК — отказ.'); return 2; }
-  if (!(await standReady(s.stand))) { say('❌ Стенд не запущен. Записи остались в списке — уберу при следующем запуске.'); return 2; }
+/**
+ * Уборка только записей из журнала created.json (только этого запуска, если задан runId). Каждая запись перед DELETE
+ * читается: удаляется, только если в ней метка ТЕСТ-ИИ или её создал вход тестировщика после начала запуска.
+ * Поиска и удаления по названию нет. Возврат: { code, removed, left }.
+ */
+async function cleanup(s, browserAccess, { runId = '', since = 0 } = {}) {
+  const all = loadCreated();
+  const mine = runId ? all.filter((c) => c.runId === runId) : all;
+  const others = runId ? all.filter((c) => c.runId !== runId) : [];
+  if (!mine.length) { say('Тестовых записей этого запуска нет — убирать нечего.'); return { code: 0, removed: 0, left: [] }; }
+  if (!isLocalStand(s.stand)) { say('❌ Адрес стенда не на этом ПК — отказ.'); return { code: 2, removed: 0, left: mine }; }
+  if (!suppliedSession) { try { await standPassport(s.stand); } catch (e) { say('❌ ' + e.message + ' — уборку не делаю.'); return { code: 2, removed: 0, left: mine }; } }
+  if (!(await standReady(s.stand))) { say('❌ Стенд не запущен. Записи остались в списке — уберу при следующем запуске.'); return { code: 2, removed: 0, left: mine }; }
+  // свежий вход: access из начала запуска давно истёк (живёт 15 мин)
   const login = browserAccess ? { access: browserAccess } : await standLogin(s.stand);
-  if (!login) { say('❌ Не удалось войти на стенд.'); return 2; }
-  const left = []; const refusedDel = []; let ok = 0;
-  for (const c of list) {
+  if (!login) { say('❌ Не удалось войти на стенд.'); return { code: 2, removed: 0, left: mine }; }
+  const me = await whoAmI(s.stand, login.access); // автор записей — вход тестировщика (manager)
+  // manager удалять не может (403, проба C088) — удаляет служебный admin «qa» собственного стенда; пароль из паспорта стенда, не выводится
+  let deleter = login;
+  if (!suppliedSession) {
     try {
-      const r = await fetch(`${s.stand}/api${c.path}/${c.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${login.access}` }, redirect: suppliedSession ? 'error' : 'follow', signal: AbortSignal.timeout(15000) });
-      if (r.ok || r.status === 404) ok++;
-      else {
-        refusedDel.push(`${c.path} (${r.status})`);
-        if (suppliedSession) left.push(c);
-      }
-    } catch { left.push(c); } // нет связи — попробуем в следующий раз
+      const run = await standPassport(s.stand);
+      const pw = fs.readFileSync(path.join(ROOT, 'tools', '.night', 'stands', run.id, 'qa-login.txt'), 'utf8').trim();
+      deleter = (await apiLogin(s.stand, { login: 'qa', password: pw })) || login;
+    } catch { /* нет служебного входа — пробуем входом тестировщика */ }
   }
-  saveCreated(left);
-  say(`Убрано тестовых записей: ${ok}.${refusedDel.length ? ` Сайт не дал удалить: ${refusedDel.join(', ')} — на стенде это не мешает, копия базы обновится.` : ''}`);
-  return suppliedSession && left.length ? 2 : 0;
+  const auth = { Authorization: `Bearer ${deleter.access}` };
+  const opt = { headers: auth, redirect: suppliedSession ? 'error' : 'follow', signal: AbortSignal.timeout(15000) };
+  const left = []; let removed = 0;
+  for (const c of mine) {
+    try {
+      const g = await fetch(`${s.stand}/api${c.path}/${c.id}`, opt);
+      if (g.status === 404) { removed++; continue; } // уже нет
+      if (!g.ok) { left.push({ ...c, reason: `чтение перед удалением: ${g.status}` }); continue; }
+      const rec = await g.json().catch(() => null);
+      const from = since || (Date.parse(c.at || '') - 30 * 60000) || 0;
+      if (!cleanupAllowed(rec, { userId: me?.id, since: from })) { left.push({ ...c, reason: `нет метки ${TAG} и автор не тестировщик — не удаляю` }); continue; }
+      const r = await fetch(`${s.stand}/api${c.path}/${c.id}`, { ...opt, method: 'DELETE', signal: AbortSignal.timeout(15000) });
+      if (r.ok || r.status === 404) removed++; else left.push({ ...c, reason: `сайт не дал удалить: ${r.status}` });
+    } catch { left.push({ ...c, reason: 'нет связи' }); } // попробуем в следующий раз
+  }
+  saveCreated([...others, ...left]);
+  say(`Убрано тестовых записей: ${removed}.${left.length ? ` Не убрано: ${left.length} (${left.map((c) => `${c.path} — ${c.reason}`).join('; ').slice(0, 300)}).` : ''}`);
+  return { code: left.length ? 1 : 0, removed, left };
 }
 
 // ---------- проверка готовности (по шагам) ----------
@@ -554,6 +619,11 @@ async function check(s, { hint = true } = {}) {
   const ok = (t) => say('✅ ' + t);
   const no = (t, hint) => { bad++; say('❌ ' + t); for (const h of hint) say('   → ' + h); };
   say('Проверяю ИИ-тестировщика по шагам:\n');
+  // 0. модель — только этого ПК: облако и чужой компьютер запрещены программно
+  if (!isLocalModel(s.baseUrl)) {
+    no(`0. Адрес модели «${s.baseUrl}» не на этом ПК — запрещено`, ['В настройках тестировщика (tools/ai-tester/settings.json) "baseUrl" должен быть http://localhost:<порт>/v1 (LM Studio этого ПК).']);
+    return 1;
+  }
   // 1. LM Studio (закрыт — запускаем сами)
   await ensureLLM(s, say);
   let data = await llmUp(s);
@@ -586,8 +656,18 @@ async function check(s, { hint = true } = {}) {
   if (findBrowser()) ok('4. Браузер Edge/Chrome найден'); else no('4. Нет браузера Edge или Chrome', ['Установите Google Chrome или Microsoft Edge.']);
   // 5. стенд
   if (!isLocalStand(s.stand)) no(`5. Адрес стенда «${s.stand}» не на этом ПК`, ['Тестировщик работает только на стенде этого компьютера. Верните "stand": "http://localhost:3102".']);
-  else if (await standReady(s.stand)) ok(`5. Стенд работает (${s.stand})`);
-  else {
+  else if (await standReady(s.stand)) {
+    let run = null;
+    try { run = await standPassport(s.stand); ok(`5. Стенд работает и он собственный (${s.stand}, ${run.project}, БД ${run.db})`); }
+    catch (e) { no('5. По адресу отвечает не собственный стенд: ' + e.message, ['Тестировщик не работает на чужом стенде. Укажите в "stand" адрес своего стенда или освободите порт.']); }
+    // 6. роль — по API, не по названию учётки
+    if (run && !suppliedSession) {
+      const login = await standLogin(s.stand);
+      const me = login && await whoAmI(s.stand, login.access);
+      if (me?.role === 'manager' && !me.isOwner) ok(`6. Вход тестировщика: роль manager (по /api/auth/me)`);
+      else no(`6. Вход тестировщика не manager (роль «${me?.role || 'вход не удался'}»)`, ['Менеджерская проверка под admin не засчитывается. Нажмите «Проверить готовность» ещё раз — учётка stand-test будет переведена в manager.']);
+    }
+  } else {
     if (!(await ensureDocker())) no('5. Docker не запущен — стенд поднять нельзя', ['Откройте программу Docker Desktop (значок кита).', 'Дождитесь внизу слева зелёной надписи «Engine running».', 'Нажмите эту кнопку ещё раз.']);
     else say('➖ 5. Стенд не запущен — тестировщик запустит его сам при старте (3–10 мин).');
   }
@@ -597,6 +677,10 @@ async function check(s, { hint = true } = {}) {
 
 // ---------- последний отчёт ----------
 function last() {
+  const r = readRun();
+  if (r && alive(r.pid) && Date.now() - (r.beat || 0) < DEAD_MS) say(`▶ Идёт запуск ${r.runId || ''} до ${new Date(r.until).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}. Отчёт ниже дописывается после каждого задания.\n`);
+  else if (r && Date.now() < r.until) say(`⚠ Запуск ${r.runId || ''} прерван (процесса нет). ${r.noWatchdog ? 'Продолжить: node tools/ai-tester/run.mjs --resume' : 'Сторож продолжит его в течение 10 минут.'}\n`);
+  else say('Сейчас тестировщик не работает.\n');
   if (!fs.existsSync(LOGS)) { say('Отчётов ещё нет.'); return 0; }
   const days = fs.readdirSync(LOGS).filter((d) => /^\d{4}-\d\d-\d\d$/.test(d)).sort();
   const f = days.length && path.join(LOGS, days.at(-1), 'REPORT.md');
@@ -615,8 +699,9 @@ async function main() {
   if (has('--last')) return last();
   const s = loadSettings();
   { const i = args.indexOf('--model'); if (i >= 0 && args[i + 1]) s.model = args[i + 1]; } // сравнение моделей без правки настроек
+  if (!isLocalModel(s.baseUrl) && !has('--watchdog') && !has('--reviewed')) { say(`❌ Адрес модели «${s.baseUrl}» не на этом ПК. Разрешена только LM Studio этого компьютера (localhost). Облако и чужие адреса запрещены.`); return 2; }
   if (has('--check')) return check(s);
-  if (has('--cleanup')) return cleanup(s);
+  if (has('--cleanup')) return (await cleanup(s)).code;
   if (has('--watchdog')) return watchdog();
   if (has('--reviewed')) { // координатор разобрал отчёт: dc start его больше не показывает
     const i = args.indexOf('--reviewed'); const day = /^\d{4}-\d{2}-\d{2}$/.test(args[i + 1] || '') ? args[i + 1] : DAY;
@@ -626,7 +711,7 @@ async function main() {
   }
   const resume = has('--resume');
   const prevRun = readRun();
-  if (resume && prevRun?.noWatchdog) return 0;
+  // запуск без сторожа сторож не продолжает (см. watchdog); ручной --resume продолжает тот же запуск (тот же ID)
   if (prevRun && prevRun.pid !== process.pid && alive(prevRun.pid) && Date.now() - (prevRun.beat || 0) < DEAD_MS) {
     say('Тестировщик уже работает. Остановить — кнопка «Остановить ИИ-тестировщика».'); return suppliedSession ? 2 : 0;
   }
@@ -647,11 +732,11 @@ async function main() {
   if (has('--detach')) {
     // кнопка пульта: тестировщик работает отдельно от пульта — пульт свободен (обновляется, закрывается), окно не держит запуск
     const until = Date.now() + num('--minutes', 480) * 60000;
-    fs.mkdirSync(OUT, { recursive: true });
-    const log = fs.openSync(path.join(OUT, 'run.log'), 'a');
-    const ch = spawn(process.execPath, [path.join(HERE, 'run.mjs'), '--no-check', '--until', String(until), ...(noWatchdog ? ['--no-watchdog'] : [])], { cwd: ROOT, detached: true, windowsHide: true, stdio: ['ignore', log, log] });
+    fs.mkdirSync(RUN_DIR, { recursive: true });
+    const log = fs.openSync(path.join(RUN_DIR, 'run.log'), 'a');
+    const ch = spawn(process.execPath, [path.join(HERE, 'run.mjs'), '--no-check', '--run-id', RUN_ID, '--until', String(until), ...(noWatchdog ? ['--no-watchdog'] : [])], { cwd: ROOT, detached: true, windowsHide: true, stdio: ['ignore', log, log] });
     ch.unref();
-    fs.writeFileSync(RUN_FILE, JSON.stringify({ until, day: DAY, pid: ch.pid, beat: Date.now(), noWatchdog: !!noWatchdog })); // второе нажатие сразу видит «уже работает»
+    fs.writeFileSync(RUN_FILE, JSON.stringify({ until, day: DAY, runId: RUN_ID, pid: ch.pid, beat: Date.now(), noWatchdog: !!noWatchdog })); // второе нажатие сразу видит «уже работает»
     say(`
 ✅ ИИ-тестировщик запущен в фоне до ${new Date(until).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}.`);
     say('Окно пульта можно закрыть. Отчёт Claude разберёт сам в начале следующей сессии.');
@@ -662,7 +747,8 @@ async function main() {
   if (!resume) try { fs.rmSync(STOP_FILE, { force: true }); } catch { /* нет */ }
   fs.mkdirSync(OUT, { recursive: true });
   cleanLeftovers();
-  const beat = () => fs.writeFileSync(RUN_FILE, JSON.stringify({ until, day: DAY, pid: process.pid, beat: Date.now(), noWatchdog: !!noWatchdog }));
+  fs.mkdirSync(RUN_DIR, { recursive: true });
+  const beat = () => fs.writeFileSync(RUN_FILE, JSON.stringify({ until, day: DAY, runId: RUN_ID, pid: process.pid, beat: Date.now(), noWatchdog: !!noWatchdog }));
   beat(); const beatTimer = setInterval(beat, BEAT_MS); beatTimer.unref();
   const awake = keepAwake();
   process.on('exit', () => {
@@ -672,26 +758,44 @@ async function main() {
   if (!resume && !noWatchdog) ensureWatchdogTask();
   if (resume) say(`
 Продолжаю после обрыва до ${new Date(until).toLocaleTimeString('ru-RU')}.`);
-  if (!(await (suppliedSession ? standReady(s.stand) : ensureStand(s.stand)))) { say(suppliedSession ? '❌ Стенд не готов.' : '❌ Стенд не поднялся.'); return 2; }
+  if (!(await (suppliedSession ? standReady(s.stand) : ensureStand(s.stand, { maintain: !resume })))) { say(suppliedSession ? '❌ Стенд не готов.' : '❌ Стенд не поднялся.'); return 2; }
+  let passport;
+  try { passport = await standPassport(s.stand); } catch (e) { say('❌ ' + e.message + '. Работаю только на собственном стенде этого checkout.'); return 2; }
   const login = loginFromStdin || await standLogin(s.stand);
   if (!login) { say('❌ Не удалось войти на стенд. Запустите один раз «Большая проверка сайта» — она создаст вход.'); return 2; }
-  const nav = readNav();
-  if (!nav.length) { say('❌ Не нашёл меню приложения.'); return 2; }
+  // менеджерская приёмка — только под фактической ролью manager (проверка по API, не по названию учётки)
+  const me = await whoAmI(s.stand, login.access);
+  if (me?.role !== 'manager' || me.isOwner) { say(`❌ Вход на стенд с ролью «${me?.role || 'неизвестна'}»${me?.isOwner ? ' (владелец)' : ''}, нужен manager. Под admin менеджерская проверка не засчитывается — запуск отменён.`); return 2; }
+  // разделы — только те, что приложение показало этой роли в меню (после входа, см. ниже): задания в закрытые разделы
+  // давали ложные «не получилось» и «ошибки» (проба C088). sections из /auth/me неполный (нет «Договоров», «Прочих расходов»).
+  const allNav = readNav();
+  if (!allNav.length) { say('❌ Не нашёл меню приложения.'); return 2; }
+  let nav = allNav; let tasks = TASKS; let skipped = [];
 
   const saved = (() => { try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch { return null; } })(); // тот же день — отчёт дописывается
-  const state = { tasks: saved?.tasks || [], findings: saved?.findings || [], garbage: new Set(), llmErrors: 0, until, tokenRenewals: saved?.tokenRenewals || 0, sessionRole: '' };
-  // определяем роль: в отчёте видно, что проверяется именно менеджерский UX
-  try {
-    const meRes = await fetch(`${s.stand}/api/auth/me`, { headers: { Authorization: `Bearer ${login.access}` }, signal: AbortSignal.timeout(8000) });
-    if (meRes.ok) { const me = await meRes.json(); state.sessionRole = me?.role || me?.user?.role || ''; say(`Вход: ${login.user?.username || 'stand-test'}, роль «${state.sessionRole || '—'}».`); }
-    else say(`⚠ /api/auth/me вернул ${meRes.status} — роль неизвестна.`);
-  } catch (e) { say('⚠ Не проверил роль: ' + e.message.slice(0, 60)); }
+  const state = { tasks: saved?.tasks || [], findings: saved?.findings || [], faults: saved?.faults || [], garbage: new Set(), llmErrors: 0, until, tokenRenewals: saved?.tokenRenewals || 0, sessionRole: me.role };
+  say(`Вход: ${me.username || 'stand-test'}, роль «${me.role}» (проверено по /api/auth/me). Стенд: ${passport.project}, БД ${passport.db}.`);
   const startedAt = saved?.startedAt || Date.now();
-  if (saved && !resume) state.tasks.push({ at: nowTime(), title: '— новый запуск в этот же день —', result: 'получилось', steps: 0, summary: 'отчёт дописывается' });
-  if (saved && resume) state.tasks.push({ at: nowTime(), title: '— обрыв: продолжил сторож —', result: 'не получилось', steps: 0, summary: 'тестировщик был прерван (перезагрузка, свет или сбой) и продолжил сам' });
+  if (saved && resume) state.tasks.push({ at: nowTime(), title: '— обрыв: запуск продолжен —', result: 'не получилось', steps: 0, summary: 'тестировщик был прерван (перезагрузка, свет, сбой или остановка процесса) и продолжил тот же запуск' });
+  const git = (a) => { const r = spawnSync('git', a, { cwd: ROOT, encoding: 'utf8', windowsHide: true }); return r.status ? '' : r.stdout.trim(); };
+  const META_FILE = path.join(RUN_DIR, 'run-meta.json');
+  const prevMeta = (() => { try { return JSON.parse(fs.readFileSync(META_FILE, 'utf8')); } catch { return null; } })();
+  const meta = {
+    id: RUN_ID, day: DAY, commit: (git(['rev-parse', '--short', 'HEAD']) || '?') + (git(['status', '--porcelain', '--', 'tools/ai-tester', 'backend']) ? '+правки' : ''),
+    stand: s.stand, standProject: passport.project, db: passport.db, baseUrl: s.baseUrl, model: s.model, stepsPerTask: s.stepsPerTask, temperature: s.temperature,
+    role: me.role, startedAt: new Date(startedAt).toISOString(), until: new Date(until).toISOString(), plannedMin: prevMeta?.plannedMin || minutes,
+    resumes: (prevMeta?.resumes || 0) + (resume ? 1 : 0), status: 'идёт', watchdog: !noWatchdog,
+  };
+  const saveMeta = () => fs.writeFileSync(META_FILE, JSON.stringify(meta, null, 2));
+  saveMeta();
   const created = loadCreated();
-  const writeReport = (removed = null) => fs.writeFileSync(path.join(OUT, 'REPORT.md'), buildReport({ day: DAY, model: s.model, base: STAND_BASE, startedAt, now: Date.now(), tasks: state.tasks, findings: state.findings, created, removed, renewals: state.tokenRenewals, role: state.sessionRole }));
-  say(`\nИИ-тестировщик работает ${minutes} мин на ${s.stand}. Остановить — кнопка «Остановить ИИ-тестировщика». Отчёт: tools/logs/ai-tester/${DAY}/REPORT.md\n`);
+  const mineCreated = () => created.filter((c) => c.runId === RUN_ID);
+  const writeReport = (removed = null, left = null) => {
+    const md = buildReport({ day: DAY, model: s.model, base: STAND_BASE, startedAt, now: Date.now(), tasks: state.tasks, findings: state.findings, created: mineCreated(), removed, renewals: state.tokenRenewals, role: state.sessionRole, run: meta, faults: state.faults, left });
+    fs.writeFileSync(path.join(RUN_DIR, 'REPORT.md'), md);
+    fs.writeFileSync(path.join(OUT, 'REPORT.md'), md + `\n_Это отчёт последнего запуска дня. Все запуски — tools/logs/ai-tester/${DAY}/runs/._\n`);
+  };
+  say(`\nИИ-тестировщик работает ${minutes} мин на ${s.stand}. Запуск ${RUN_ID}. Остановить — кнопка «Остановить ИИ-тестировщика». Отчёт: tools/logs/ai-tester/${DAY}/runs/${RUN_ID}/REPORT.md\n`);
 
   let b; let browserAccess; let failed = false;
   let lastKnownToken = null; // для трекинга автоматического обновления access-токена браузером
@@ -708,45 +812,70 @@ async function main() {
   try {
     b = await openBrowser(s.stand);
     await relogin();
+    const menu = await b.ev(`[...document.querySelectorAll('aside.sidebar a[href^="#"]')].map(a => a.getAttribute('href').slice(1).split(/[?/]/)[0])`).catch(() => []);
+    if (menu?.length) {
+      // открыт = есть в меню ИЛИ в sections из API (Контрагенты открыты, но в меню их нет — вход из других экранов)
+      nav = allNav.filter((n) => menu.includes(n.id) || (me.sections || []).includes(n.id));
+      tasks = TASKS.filter((t) => !t.section || nav.some((n) => n.id === t.section));
+      skipped = TASKS.filter((t) => !tasks.includes(t)).map((t) => t.id);
+      if (skipped.length) say(`Разделы, закрытые для роли (нет в меню), пропущены: ${skipped.join(', ')}.`);
+    } else fault(state, 'не прочитал меню приложения — задания идут по полному списку');
+    meta.sections = nav.map((n) => n.id); meta.skippedTasks = skipped; saveMeta();
     let i = 0;
-    const order = [...TASKS].sort(() => Math.random() - 0.5);
+    const order = [...tasks].sort(() => Math.random() - 0.5);
     while (Date.now() < state.until && !fs.existsSync(STOP_FILE)) {
       const t = order[i++ % order.length];
-      if (!suppliedSession && i % order.length === 0) await relogin(); // браузер сам обновляет сессию из stdin
+      // вход — один раз: дальше сессию продлевает само приложение (access 15 мин → /auth/refresh). Плановых перевходов нет,
+      // иначе истечение токена никогда не проверяется (проба C088: перевход каждые ~7 мин → продлений 0)
       await runTask(s, b, nav, t, state);
-      // трекинг авто-продления access-токена приложением (PWA обновляет его в localStorage по 401)
       try {
-        const curToken = await b.ev(`localStorage.getItem('dca_access')`);
-        if (curToken && lastKnownToken && curToken !== lastKnownToken) { state.tokenRenewals++; say(`  ✓ Токен доступа обновлён автоматически (${nowTime()}, всего: ${state.tokenRenewals})`); }
-        if (curToken) lastKnownToken = curToken;
+        const curToken = await b.ev(`localStorage.getItem('dca_access') || sessionStorage.getItem('dca_access')`);
+        if (!curToken) {
+          state.sessionLost = (state.sessionLost || 0) + 1;
+          fault(state, 'сессия потеряна (приложение не продлило вход) — повторный вход');
+          await relogin();
+        } else {
+          if (lastKnownToken && curToken !== lastKnownToken) { state.tokenRenewals++; say(`  ✓ Токен доступа обновлён приложением (${nowTime()}, всего: ${state.tokenRenewals})`); }
+          lastKnownToken = curToken;
+        }
       } catch { /* браузер закрылся */ }
-      for (const c of b.created.splice(0)) if (!created.some((x) => x.id === c.id)) created.push({ ...c, at: new Date().toISOString() });
-      saveCreated(created);
+      // журнал созданного перечитывается: другой процесс (ручная уборка) мог его изменить — чужие строки не теряем
+      const onDisk = loadCreated();
+      for (const c of b.created.splice(0)) if (!created.some((x) => x.id === c.id)) created.push({ ...c, runId: RUN_ID, at: new Date().toISOString() });
+      for (const c of created) if (!onDisk.some((x) => x.id === c.id)) onDisk.push(c);
+      saveCreated(onDisk);
       writeReport();
-      fs.writeFileSync(STATE_FILE, JSON.stringify({ startedAt, tasks: state.tasks, findings: state.findings, tokenRenewals: state.tokenRenewals }));
-      if (state.llmErrors >= 3) { say('❌ ИИ трижды не ответил — останавливаюсь. Проверьте LM Studio кнопкой «Проверить готовность».'); break; }
+      fs.writeFileSync(STATE_FILE, JSON.stringify({ startedAt, tasks: state.tasks, findings: state.findings, faults: state.faults, tokenRenewals: state.tokenRenewals }));
+      if (state.llmErrors >= 3) { fault(state, 'ИИ трижды не ответил — запуск прерван'); say('❌ ИИ трижды не ответил — останавливаюсь. Проверьте LM Studio кнопкой «Проверить готовность».'); failed = true; break; }
     }
   } catch (e) {
     say('❌ Сбой: ' + (suppliedSession ? 'проверка сессии стенда прервана.' : e.message));
-    failed = Boolean(suppliedSession);
+    fault(state, 'сбой браузера или тестировщика: ' + (suppliedSession ? 'сессия стенда' : String(e.message)));
+    failed = true;
   } finally {
     if (suppliedSession && b) {
       browserAccess = await b.ev(`location.origin === ${JSON.stringify(s.stand)} ? localStorage.getItem('dca_access') : null`).catch(() => null);
     }
     await b?.close();
   }
-  say('\nУбираю тестовые записи…');
-  const before = loadCreated().length;
-  const cleanupCode = await cleanup(s, browserAccess);
-  writeReport(before - loadCreated().length);
+  const stopped = fs.existsSync(STOP_FILE); const expired = Date.now() >= until - 60000;
+  say('\nУбираю тестовые записи этого запуска…');
+  const cl = await cleanup(s, browserAccess, { runId: RUN_ID, since: startedAt - 60000 });
+  if (cl.code === 2) fault(state, 'уборка не выполнена (нет входа или стенда) — записи остались в created.json');
   // срок вышел или нажали «Остановить» — запуск закончен; иначе (сбой браузера, ИИ не отвечает) run.json остаётся и сторож продолжит
   clearInterval(beatTimer);
-  if (fs.existsSync(STOP_FILE) || Date.now() >= until - 60000) fs.rmSync(RUN_FILE, { force: true });
-  try { fs.rmSync(STOP_FILE, { force: true }); } catch { /* нет */ }
+  meta.status = stopped ? 'остановлен кнопкой' : expired ? 'срок вышел' : 'прерван сбоем (сторож может продолжить)';
+  meta.endedAt = new Date().toISOString(); meta.durationMin = Math.round((Date.now() - startedAt) / 60000);
   const errs = state.findings.filter((f) => f.kind === 'ошибка').length;
-  say(`\nГотово. Заданий: ${state.tasks.length}, ошибок сайта: ${errs}, замечаний ИИ: ${state.findings.length - errs}.`);
-  say(`Отчёт: tools/logs/ai-tester/${DAY}/REPORT.md — скажите Claude «посмотри отчёт тестировщика».`);
-  return suppliedSession && (failed || cleanupCode || state.llmErrors >= 3) ? 2 : errs ? 1 : 0;
+  Object.assign(meta, { tasks: state.tasks.length, siteErrors: errs, refusals: state.findings.filter((f) => f.kind === 'отказ' || f.kind === 'медленно').length, aiNotes: state.findings.filter((f) => String(f.kind).startsWith('ИИ')).length, testerFaults: state.faults.length, created: mineCreated().length, removed: cl.removed, left: cl.left.length, tokenRenewals: state.tokenRenewals, sessionLost: state.sessionLost || 0 });
+  saveMeta(); writeReport(cl.removed, cl.left);
+  fs.writeFileSync(STATE_FILE, JSON.stringify({ startedAt, tasks: state.tasks, findings: state.findings, faults: state.faults, tokenRenewals: state.tokenRenewals }));
+  if (stopped || expired) fs.rmSync(RUN_FILE, { force: true });
+  try { fs.rmSync(STOP_FILE, { force: true }); } catch { /* нет */ }
+  say(`\nГотово (${meta.status}). Заданий: ${state.tasks.length}, ошибок сайта: ${errs}, отказов/медленно: ${meta.refusals}, гипотез ИИ: ${meta.aiNotes}, сбоев тестировщика: ${state.faults.length}. Убрано записей: ${cl.removed}, не убрано: ${cl.left.length}.`);
+  say(`Отчёт: tools/logs/ai-tester/${DAY}/runs/${RUN_ID}/REPORT.md — скажите Claude «посмотри отчёт тестировщика».`);
+  if (failed || cl.code === 2) return 2; // сбой тестировщика — не «ошибка сайта»
+  return errs ? 1 : 0;
 }
 
 main().then((c) => process.exit(c ?? 0), (e) => { console.error('Сбой: ' + (suppliedSession ? 'запуск с сессией из stdin отклонён.' : (e?.stack || e))); process.exit(2); });

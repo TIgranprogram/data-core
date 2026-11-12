@@ -95,7 +95,7 @@ export function createNightStand({ docker, sh, root, composeFile, nightDir, back
     ctx.say('Стенд остановлен. База, volumes и сеть сохранены: ' + run.project);
     return 0;
   }
-  async function up(ctx, src = root, supplied = null) {
+  async function up(ctx, src = root, supplied = null, ports = {}) {
     let run = supplied || current();
     if (run && !supplied) {
       inventory(run);
@@ -105,7 +105,7 @@ export function createNightStand({ docker, sh, root, composeFile, nightDir, back
       ctx.say(`Стенд запущен с сохранённой базой: http://localhost:${run.apiPort}/app/`);
       return 0;
     }
-    run ||= newStandRun();
+    run ||= newStandRun(ports); // свой порт — второй стенд рядом с занятым 3102 (ИИ-тестировщик в отдельном worktree)
     inventory(run, { fresh: true });
     for (const p of [run.apiPort, run.mongoPort]) if (!(await portFreeFn(p))) bad(`порт ${p} занят; существующий стенд не меняю`);
     if (fs.existsSync(dir(run))) bad('ID запуска уже использован');
@@ -176,7 +176,7 @@ export function createNightStand({ docker, sh, root, composeFile, nightDir, back
       ctx.say('Старый стенд отложен (данные не удалены): ' + old.project);
     }
     try {
-      const code = await up(ctx);
+      const code = await up(ctx, root, null, old ? { apiPort: old.apiPort, mongoPort: old.mongoPort } : {});
       // новый стенд работает — пустые сети отложенного убрать (данных в них нет); иначе сети копятся и у Docker кончаются адреса
       if (old) for (const n of [`${old.project}_default`, `${old.project}_access`]) docker(['network', 'rm', n]);
       return code;
@@ -212,5 +212,13 @@ export function createNightStand({ docker, sh, root, composeFile, nightDir, back
     ctx.say(`Project ${run.project} · БД ${run.db} · volumes сохранены`);
     return s.containers.some((c) => c.running) ? 0 : 1;
   }
-  return { up, down, refresh, renew, info, status, credentials, current, runDir: dir, compose, inventory };
+  /** Готовый собственный стенд с проверенными метками владельца (только чтение Docker); иначе — отказ. */
+  function owned() {
+    const run = current();
+    if (!run || !run.initialized) bad('нет готового собственного стенда в этом checkout');
+    const s = inventory(run);
+    if (!s.containers.some((c) => c.service === 'backend' && c.running)) bad('backend собственного стенда не запущен');
+    return run;
+  }
+  return { up, down, refresh, renew, info, status, owned, credentials, current, runDir: dir, compose, inventory };
 }

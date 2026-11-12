@@ -11,6 +11,54 @@ export function isLocalStand(url) {
   } catch { return false; }
 }
 
+/** Модель — только LM Studio этого ПК: внешний адрес (облако, другой компьютер) — отказ. */
+export function isLocalModel(url) {
+  try {
+    const u = new URL(url);
+    return ['http:', 'https:'].includes(u.protocol) && ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname) && !u.username && !u.password;
+  } catch { return false; }
+}
+
+/** Стенд годится, только если адрес совпадает с паспортом собственного стенда этого checkout. */
+export function standMatchesPassport(url, run) {
+  if (!isLocalStand(url) || !run) return false;
+  const u = new URL(url);
+  return Number(u.port) === Number(run.apiPort);
+}
+
+/** ID запуска: время + случайный хвост. Папка запуска — tools/logs/ai-tester/<день>/runs/<id>/. */
+export function newRunId(d = new Date(), rnd = Math.random) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}-${Math.floor(rnd() * 0xffffff).toString(16).padStart(6, '0')}`;
+}
+
+/**
+ * Находка программы по сетевому ответу → вид:
+ * «ошибка» — подтверждена программой (5xx); «отказ» — сайт отказал на действие модели (4xx): проверить, ошибка ли ввода;
+ * «медленно» — ответ дольше 3 с. 401 (продление входа) и 409 (повтор) — не находка.
+ */
+export function netFinding(n) {
+  const p = String(n.url || '').split('?')[0];
+  const out = [];
+  if (n.status >= 500) out.push({ kind: 'ошибка', text: `сервер ответил ошибкой ${n.status} на ${n.method} ${p}` });
+  else if (n.status >= 400 && n.status !== 401 && n.status !== 409 && n.method !== 'GET') out.push({ kind: 'отказ', text: `сайт отказал: ${n.method} ${p} → ${n.status}${n.msg ? ` «${n.msg}»` : ''}` });
+  else if (n.status === 404 && n.method === 'GET') out.push({ kind: 'отказ', text: `нет данных по адресу ${p} (404)` });
+  if (n.ms > 3000) out.push({ kind: 'медленно', text: `медленно: ${n.method} ${p} — ${(n.ms / 1000).toFixed(1)} с` });
+  return out;
+}
+
+/**
+ * Можно ли удалить запись при уборке: в записи есть метка ТЕСТ-ИИ, либо её создал вход тестировщика
+ * не раньше начала запуска. Иначе — не трогать (массового удаления по названию нет).
+ */
+export function cleanupAllowed(record, { userId = '', since = 0 } = {}) {
+  if (!record || typeof record !== 'object') return false;
+  if (JSON.stringify(record).includes(TAG)) return true;
+  const author = String(record.createdBy?.id || record.createdBy?._id || record.createdBy || record.author || '');
+  const at = Date.parse(record.createdAt || '');
+  return Boolean(userId) && author === String(userId) && Number.isFinite(at) && at >= since;
+}
+
 /**
  * Текст, который модель вводит в поле. В поле записи (название, комментарий) — с меткой ТЕСТ-ИИ в начале;
  * поиск, числа, даты, суммы, телефоны, ИНН — как есть.
@@ -85,26 +133,38 @@ export function duration(ms) {
 }
 
 /** Отчёт за день — Markdown на языке пользователя. */
-export function buildReport({ day, model, base = '', startedAt, now, tasks, findings, created, removed, renewals = 0, role = '' }) {
+export function buildReport({ day, model, base = '', startedAt, now, tasks, findings, created, removed, renewals = 0, role = '', run = null, faults = [], left = null }) {
   const ok = tasks.filter((t) => t.result === 'получилось').length;
   const errs = groupFindings(findings.filter((f) => f.kind === 'ошибка'));
-  const notes = groupFindings(findings.filter((f) => f.kind !== 'ошибка'));
+  const refusals = groupFindings(findings.filter((f) => f.kind === 'отказ' || f.kind === 'медленно'));
+  const notes = groupFindings(findings.filter((f) => String(f.kind).startsWith('ИИ')));
+  const line = (e) => `- ${e.kind !== 'ошибка' ? `[${e.kind}] ` : ''}${e.text}${e.count > 1 ? ` — ×${e.count}` : ''} · где: ${e.where || '—'} · задание: ${e.tasks.join(', ')}${e.shot ? ` · снимок: ${e.shot}` : ''}`;
   const L = [];
-  L.push(`# ИИ-тестировщик — отчёт за ${day}`, '');
+  L.push(`# ИИ-тестировщик — отчёт за ${day}${run?.id ? ` · запуск ${run.id}` : ''}`, '');
+  if (run?.id) L.push(`- Запуск: ${run.id} · код ${run.commit || '?'} · стенд ${run.stand || '?'} · модель ${run.baseUrl || '?'} · шагов на задание ${run.stepsPerTask ?? '?'}`);
+  if (run?.status) L.push(`- Итог запуска: ${run.status}${run.plannedMin ? ` · план ${run.plannedMin} мин` : ''}${run.resumes ? ` · продолжений после обрыва: ${run.resumes}` : ''}`);
   L.push(`- Работал: ${duration(now - startedAt)}, модель: ${model}`);
-  if (role) L.push(`- Роль: ${role} (что тестируется — менеджерский UX)`);
+  if (role) L.push(`- Роль: ${role}${role === 'manager' ? ' (проверен менеджерский UX)' : ' — НЕ manager, менеджерская приёмка не засчитывается'}`);
   if (base) L.push(`- База стенда: ${base}`);
-  L.push(`- Заданий: ${tasks.length} (получилось ${ok}, не получилось ${tasks.length - ok})`);
+  L.push(`- Заданий: ${tasks.length} (получилось ${ok}, не получилось ${tasks.length - ok}) — итог «получилось» сообщает модель, это не приёмка`);
   L.push(`- Ошибок сайта: ${errs.length}, замечаний ИИ: ${notes.length}`);
-  L.push(`- Создано тестовых записей: ${created.length}${removed != null ? `, убрано: ${removed}` : ''}`);
-  if (renewals > 0) L.push(`- Токен доступа обновлён автоматически: ${renewals} раз (сессия не прерывалась)`);
+  L.push(`- Отказов и медленных ответов (проверить): ${refusals.length} · сбоев тестировщика: ${faults.length}`);
+  L.push(`- Создано тестовых записей: ${created.length}${removed != null ? `, убрано: ${removed}` : ''}${left?.length ? `, оставлено: ${left.length}` : ''}`);
+  L.push(`- Токен доступа обновлён автоматически: ${renewals} раз`);
   L.push('');
-  L.push('## Ошибки сайта (нашла программа, без догадок ИИ)', '');
+  L.push('## Ошибки сайта (подтвердила программа: 5xx, сбой страницы, служебный текст на экране)', '');
   if (!errs.length) L.push('Нет.');
-  for (const e of errs) L.push(`- ${e.text}${e.count > 1 ? ` — ×${e.count}` : ''} · где: ${e.where || '—'} · задание: ${e.tasks.join(', ')}${e.shot ? ` · снимок: ${e.shot}` : ''}`);
-  L.push('', '## Замечания ИИ (проверить глазами — бывают ложные)', '');
+  for (const e of errs) L.push(line(e));
+  L.push('', '## Отказы сайта и медленные ответы (не обязательно ошибка: модель могла ввести не то)', '');
+  if (!refusals.length) L.push('Нет.');
+  for (const e of refusals) L.push(line(e));
+  L.push('', '## Замечания ИИ — гипотезы (проверить глазами — бывают ложные)', '');
   if (!notes.length) L.push('Нет.');
-  for (const e of notes) L.push(`- [${e.kind}] ${e.text}${e.count > 1 ? ` — ×${e.count}` : ''} · где: ${e.where || '—'} · задание: ${e.tasks.join(', ')}${e.shot ? ` · снимок: ${e.shot}` : ''}`);
+  for (const e of notes) L.push(line(e));
+  L.push('', '## Сбои тестировщика (не ошибки сайта)', '');
+  if (!faults.length) L.push('Нет.');
+  for (const f of faults) L.push(`- ${f.at || ''} ${f.text}`);
+  if (left?.length) { L.push('', '## Не убрано (проверить вручную, ничего не удалено без проверки)', ''); for (const c of left) L.push(`- ${c.path}/${c.id}: ${c.reason || 'нет связи'}`); }
   L.push('', '## Задания', '', '| Время | Задание | Итог | Шагов | Что сказал ИИ |', '|--|--|--|--|--|');
   for (const t of tasks) L.push(`| ${t.at} | ${t.title} | ${t.result} | ${t.steps} | ${String(t.summary || '').replace(/\|/g, '/').replace(/\s+/g, ' ').slice(0, 200)} |`);
   L.push('');

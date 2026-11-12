@@ -173,7 +173,8 @@ export function runAsync(cmd, args, { cwd = ROOT, env = process.env, timeoutMs =
 
 const docker = (args, o) => sh('docker', args, o);
 const stand = createNightStand({ docker, sh, root: ROOT, composeFile: COMPOSE, nightDir: NIGHT_DIR, backupDir: BACKUPS });
-export const standUp = (ctx, src = ROOT, run = null) => stand.up(ctx, src, run);
+export const standUp = (ctx, src = ROOT, run = null, ports = {}) => stand.up(ctx, src, run, ports);
+export const standOwned = () => stand.owned();
 export const standRefresh = (ctx, src = ROOT) => stand.refresh(ctx, src);
 export const standRenew = (ctx) => stand.renew(ctx); // новый стенд из свежей копии, старый — отложен без удаления
 export const standInfo = () => stand.info();
