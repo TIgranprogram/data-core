@@ -846,7 +846,18 @@ async function main() {
       saveCreated(onDisk);
       writeReport();
       fs.writeFileSync(STATE_FILE, JSON.stringify({ startedAt, tasks: state.tasks, findings: state.findings, faults: state.faults, tokenRenewals: state.tokenRenewals }));
-      if (state.llmErrors >= 3) { fault(state, 'ИИ трижды не ответил — запуск прерван'); say('❌ ИИ трижды не ответил — останавливаюсь. Проверьте LM Studio кнопкой «Проверить готовность».'); failed = true; break; }
+      if (state.llmErrors >= 3) {
+        // модель занята или зависла (8-часовой прогон C088: видеокарту заняли AutoCAD/Inventor пользователя) — не бросать запуск,
+        // а ждать по 10 мин и пробовать снова до конца срока; каждая пауза — сбой тестировщика в отчёте
+        state.llmPauses = (state.llmPauses || 0) + 1;
+        fault(state, `ИИ трижды не ответил — пауза 10 мин (${state.llmPauses}-я), затем продолжаю`);
+        const resumeAt = Math.min(Date.now() + 10 * 60000, state.until);
+        while (Date.now() < resumeAt && !fs.existsSync(STOP_FILE)) await sleep(15000);
+        await ensureLLM(s, say);
+        state.llmErrors = 0;
+        // после паузы страница могла устареть — заново открыть приложение с той же сессией (не перевход)
+        try { await b.cmd('Page.navigate', { url: s.stand + '/app/' }); await sleep(2500); b.net.length = 0; b.jsErrors.length = 0; } catch { /* браузер закрыт — catch ниже */ }
+      }
     }
   } catch (e) {
     say('❌ Сбой: ' + (suppliedSession ? 'проверка сессии стенда прервана.' : e.message));
@@ -867,7 +878,7 @@ async function main() {
   meta.status = stopped ? 'остановлен кнопкой' : expired ? 'срок вышел' : 'прерван сбоем (сторож может продолжить)';
   meta.endedAt = new Date().toISOString(); meta.durationMin = Math.round((Date.now() - startedAt) / 60000);
   const errs = state.findings.filter((f) => f.kind === 'ошибка').length;
-  Object.assign(meta, { tasks: state.tasks.length, siteErrors: errs, refusals: state.findings.filter((f) => f.kind === 'отказ' || f.kind === 'медленно').length, aiNotes: state.findings.filter((f) => String(f.kind).startsWith('ИИ')).length, testerFaults: state.faults.length, created: mineCreated().length, removed: cl.removed, left: cl.left.length, tokenRenewals: state.tokenRenewals, sessionLost: state.sessionLost || 0 });
+  Object.assign(meta, { tasks: state.tasks.length, siteErrors: errs, refusals: state.findings.filter((f) => f.kind === 'отказ' || f.kind === 'медленно').length, aiNotes: state.findings.filter((f) => String(f.kind).startsWith('ИИ')).length, testerFaults: state.faults.length, created: mineCreated().length, removed: cl.removed, left: cl.left.length, tokenRenewals: state.tokenRenewals, sessionLost: state.sessionLost || 0, llmPauses: state.llmPauses || 0 });
   saveMeta(); writeReport(cl.removed, cl.left);
   fs.writeFileSync(STATE_FILE, JSON.stringify({ startedAt, tasks: state.tasks, findings: state.findings, faults: state.faults, tokenRenewals: state.tokenRenewals }));
   if (stopped || expired) fs.rmSync(RUN_FILE, { force: true });
