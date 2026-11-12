@@ -64,6 +64,11 @@ label.k-row { cursor: pointer; }
 .k-row-name .clip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
 .k-row-name small { color: var(--muted); font-size: 12px; }
 .k-row-act { display: flex; gap: 8px; margin-left: auto; }
+@media (max-width: 720px) {
+  .k-row-stack-action { flex-wrap: wrap; }
+  .k-row-stack-action .k-row-act { flex-basis: 100%; justify-content: flex-end; }
+  .k-row-stack-action .k-row-act .btn { min-height: var(--tap); }
+}
 .k-row.k-cart { display: grid; grid-template-columns: minmax(0, 1fr) 130px; grid-template-areas: "name x" "qty diff"; gap: 6px var(--s3); padding: 10px var(--s4); }
 .k-cart .k-row-name { grid-area: name; }
 .k-cart .k-row-act { grid-area: x; justify-self: end; }
