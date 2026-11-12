@@ -87,6 +87,7 @@
   ],
   "valid": true,
   "draftEditable": true,
+  "summaryFallback": true,
   "errors": [],
   "complete": true
 }
