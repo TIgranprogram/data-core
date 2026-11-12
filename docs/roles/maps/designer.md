@@ -1,5 +1,9 @@
 # Карта роли designer
 
+- C094 PDF (12.11): PASS назначенных состояний карточки и предупреждения до скачивания на заполненной копии 3102. Обе темы и 390/1024/1920, №522 без чертежа, положительный issued, режим А3 и черновик. Четыре просмотренных PNG, матрица без горизонтального переполнения. [UI-REVIEW](../../crew/C094-passport-text-fit/UI-REVIEW.md).
+
+коммит: d86523ad (+ рабочие правки C094 в `card-blocks.js` и `dialogs.js`). Общий review-scope не закрыт, проверены два назначенных файла.
+
 - C089 (12.11): независимый PASS назначенной геометрии passportFill/drawer/layout.related на prod-GET replay; 3 PNG открыты, 24 измерения без overflow, drag 600→760. Полная приёмка PARTIAL: реальный основной раздел и zoom не доказаны; дополнительно Tab/ShiftTab/Enter/Escape PASS, второй синтетический drawer 8/8 PASS. Save/PDF/photo-actions не перепроверены. docs/crew/C089-workplace-clarity/DESIGNER-FINAL.md.
 
 - C091 (12.11): desktop-пульт, безопасная browser fixture и 3 открытых снимка; PASS назначенного UI, 9 состояний × обе темы × 1024/1440/1920 без горизонтального overflow. interrupted: повтор disabled, следующий шаг — журнал агенту. P2: общая подсказка журнала ещё говорит «Запустить»/«слева». Доказательства: docs/crew/C091-pult-test-flow/UI-REVIEW.md. Реальный обход не запускался.

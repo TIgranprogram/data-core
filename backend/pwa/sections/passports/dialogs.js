@@ -1,11 +1,11 @@
 import { api, apiFile } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { busyBtn } from '../../ui/kit/busy.js';
-import { attachCombo, select } from '../../ui/kit/index.js';
+import { attachCombo, hint, select } from '../../ui/kit/index.js';
 import { toast, toastError } from '../../ui/kit/toast.js';
 import { confirmDlg, modal } from '../../ui/kit/dialog.js';
 import { icon } from '../../ui/icons.js';
-import { LATER_CATS, V2_CATS, heading, numberOf } from './common.js';
+import { LATER_CATS, V2_CATS, heading, imgsOf, isRequired, kinds, numberOf, statusOf } from './common.js';
 import { productsAll } from './models.js';
 
 /** Окна карточки паспорта: выпуск, аннулирование, номер, PDF / печать, категория, привязка к изделию. */
@@ -106,7 +106,15 @@ export async function printDialog(r) {
     });
     return;
   }
+  if (r.id && statusOf(r) !== 'draft' && !Array.isArray(r.requiredImages)) {
+    try { r = await api(`/passports/${r.id}`); }
+    catch (err) { toastError(err); return; }
+  }
   const hasCat = !!r.passportCategory; // текст по справочникам сервер соберёт сам, если его ещё нет
+  const missingImages = statusOf(r) === 'draft' ? [] : kinds(r)
+    .filter(([kind]) => isRequired(r, kind) && !imgsOf(r, kind).some((i) => i.url)
+      && !(r.standardImages || []).some((i) => i.kind === kind && i.url))
+    .map(([, label]) => label);
   const o = r.supplierOrg;
   const chk = (label, on, note) => { const cb = h('input', { type: 'checkbox', checked: on }); return { cb, el: h('label', null, cb, label, note ? h('span', { class: 'muted small' }, ` (${note})`) : null) }; };
   const seal = chk('Печать', !!o?.hasSeal, !o ? 'поставщик не выбран' : o.hasSeal ? '' : 'не загружена');
@@ -117,12 +125,13 @@ export async function printDialog(r) {
     const b = h('button', { type: 'button', class: 'pf-opt', role: 'radio', 'data-mode': f.mode, onclick: () => pick(f.mode) }, icon(f.icon, 'pf-ico'), h('b', null, f.title), h('small', null, f.sub));
     return b;
   });
-  const pick = (m) => { mode = m; opts.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === m))); stampBox.hidden = m === 'stand'; };
+  const pick = (m) => { mode = m; opts.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === m))); stampBox.hidden = m === 'stand'; imageWarning.hidden = m === 'stand' || !missingImages.length; };
   const stampBox = h('div', { class: 'pf-checks' }, seal.el, sign.el);
+  const imageWarning = hint(`Для PDF не хватает обязательных рисунков: ${missingImages.join(', ')}. Рисунки выпущенного паспорта добавляются через «Новую редакцию».`, 'warn');
   const body = h('div', { class: 'pf' },
     h('div', { class: 'section-title' }, 'Печать и подпись'), stampBox,
     h('div', { class: 'section-title' }, 'Вид'), h('div', { class: 'pf-opts', role: 'radiogroup', 'aria-label': 'Вид PDF' }, opts),
-    h('div', { class: 'pf-checks' }, mono.el),
+    h('div', { class: 'pf-checks' }, mono.el), imageWarning,
     hasCat ? null : h('p', { class: 'form-error' }, 'У паспорта не выбрана категория — PDF собирается по ней. «Выбрать категорию» в действиях карточки.'));
   pick(mode);
   await modal({

@@ -1,0 +1,92 @@
+{
+  "rows": [
+    {
+      "theme": "light",
+      "width": 390,
+      "badControls": 0,
+      "observed": {
+        "show": true,
+        "text": "Для PDF не хватает обязательных рисунков: Габаритные размеры — чертёж Д×Ш×В. Рисунки выпущенного паспорта добавляются через «Новую редакцию».",
+        "overflow": 0,
+        "viewport": 390
+      },
+      "hiddenStand": true,
+      "shownAgain": true,
+      "ok": true
+    },
+    {
+      "theme": "light",
+      "width": 1024,
+      "badControls": 0,
+      "observed": {
+        "show": true,
+        "text": "Для PDF не хватает обязательных рисунков: Габаритные размеры — чертёж Д×Ш×В. Рисунки выпущенного паспорта добавляются через «Новую редакцию».",
+        "overflow": 0,
+        "viewport": 1024
+      },
+      "hiddenStand": true,
+      "shownAgain": true,
+      "ok": true
+    },
+    {
+      "theme": "light",
+      "width": 1920,
+      "badControls": 0,
+      "observed": {
+        "show": true,
+        "text": "Для PDF не хватает обязательных рисунков: Габаритные размеры — чертёж Д×Ш×В. Рисунки выпущенного паспорта добавляются через «Новую редакцию».",
+        "overflow": 0,
+        "viewport": 1920
+      },
+      "hiddenStand": true,
+      "shownAgain": true,
+      "ok": true
+    },
+    {
+      "theme": "dark",
+      "width": 390,
+      "badControls": 0,
+      "observed": {
+        "show": true,
+        "text": "Для PDF не хватает обязательных рисунков: Габаритные размеры — чертёж Д×Ш×В. Рисунки выпущенного паспорта добавляются через «Новую редакцию».",
+        "overflow": 0,
+        "viewport": 390
+      },
+      "hiddenStand": true,
+      "shownAgain": true,
+      "ok": true
+    },
+    {
+      "theme": "dark",
+      "width": 1024,
+      "badControls": 0,
+      "observed": {
+        "show": true,
+        "text": "Для PDF не хватает обязательных рисунков: Габаритные размеры — чертёж Д×Ш×В. Рисунки выпущенного паспорта добавляются через «Новую редакцию».",
+        "overflow": 0,
+        "viewport": 1024
+      },
+      "hiddenStand": true,
+      "shownAgain": true,
+      "ok": true
+    },
+    {
+      "theme": "dark",
+      "width": 1920,
+      "badControls": 0,
+      "observed": {
+        "show": true,
+        "text": "Для PDF не хватает обязательных рисунков: Габаритные размеры — чертёж Д×Ш×В. Рисунки выпущенного паспорта добавляются через «Новую редакцию».",
+        "overflow": 0,
+        "viewport": 1920
+      },
+      "hiddenStand": true,
+      "shownAgain": true,
+      "ok": true
+    }
+  ],
+  "valid": true,
+  "draftEditable": true,
+  "errors": [],
+  "complete": true
+}

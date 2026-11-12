@@ -6,12 +6,13 @@ import { toast, toastError } from '../../ui/kit/toast.js';
 import { confirmDlg } from '../../ui/kit/dialog.js';
 import { actions, button, fileButton, hint, iconButton, section, table } from '../../ui/kit/index.js';
 import { date } from '../../core/format.js';
-import { canEdit, humanBlanks, imgsOf, isRequired, kinds, V2_NUMS } from './common.js';
+import { canEdit, humanBlanks, imgsOf, isRequired, kinds, statusOf, V2_NUMS } from './common.js';
 import { numbersOf } from './traits.js';
 
 /** Блоки карточки паспорта: картинки, проверка, текст из снимка, комплектность. */
 /** Картинки по видам в карточке: миниатюры (клик — открыть, × — убрать) и своя зона «перетащите / Ctrl+V» у каждого вида. */
 export function imagesBlock(r, ctx) {
+  const editable = canEdit() && statusOf(r) === 'draft';
   const save = async (images) => {
     try { ctx.setRow(await api(`/passports/${r.id}`, { method: 'PATCH', body: { images: imagesBody(images) } }).then(() => api(`/passports/${r.id}`))); } catch (e) { toastError(e); }
   };
@@ -23,11 +24,11 @@ export function imagesBlock(r, ctx) {
         h('div', { class: 'pp-kind-head' }, h('b', null, label), isRequired(r, kind) ? h('span', { class: 'req' }, ' · обязательно') : null, h('span', { class: 'muted' }, ` · ${where}${list.length ? ' · ' + list.length : ''}`)),
         list.length ? h('div', { class: 'pf-strip' }, ...list.map((i) => h('div', { class: 'pf-item' },
           i.url ? h('a', { href: PREFIX + i.url, target: '_blank', rel: 'noopener', title: i.caption || 'Открыть', 'aria-label': `${label}: открыть картинку` }, h('img', { src: PREFIX + i.url, alt: i.caption || label })) : h('span', { class: 'muted' }, 'нет файла'),
-          canEdit() ? h('button', { type: 'button', class: 'pf-del', title: 'Убрать картинку', 'aria-label': 'Убрать картинку', onclick: () => save((r.images || []).filter((x) => x !== i)) }, '×') : null))) : null,
+          editable ? h('button', { type: 'button', class: 'pf-del', title: 'Убрать картинку', 'aria-label': 'Убрать картинку', onclick: () => save((r.images || []).filter((x) => x !== i)) }, '×') : null))) : null,
         // Э9.5: своих нет — стандартная схема способа установки (в паспорт попадёт она; своя загруженная её заменит)
-        !list.length && std(kind).length ? h('div', null, h('div', { class: 'hint' }, 'Стандартная схема способа установки — попадёт в паспорт; загрузите свою, чтобы заменить'),
+        !list.length && std(kind).length ? h('div', null, h('div', { class: 'hint' }, 'Стандартная схема способа установки — попадёт в паспорт' + (editable ? '; загрузите свою, чтобы заменить' : '')),
           h('div', { class: 'pf-strip' }, ...std(kind).map((i) => h('a', { class: 'pf-item', href: PREFIX + i.url, target: '_blank', rel: 'noopener', 'aria-label': `${label}: стандартная схема` }, h('img', { src: PREFIX + i.url, alt: label }))))) : null,
-        canEdit() ? photoDrop({ attach: async (photoId) => { r.images = [...(r.images || []), { kind, photoId, order: list.length }]; return r; }, done: () => save(r.images) }) : null);
+        editable ? photoDrop({ attach: async (photoId) => { r.images = [...(r.images || []), { kind, photoId, order: list.length }]; return r; }, done: () => save(r.images) }) : null);
     }) });
 }
 
@@ -51,7 +52,7 @@ export function checkBlock(r) {
       const img = m.startsWith('Рисунок: ') || m === 'Фото изделия' ? IMG_BY_LABEL[m.replace(/^Рисунок: /, '')] : null;
       // не картинка — «Заполнить»: открыть правку паспорта (та же кнопка «Изменить» карточки)
       const fill = () => [...document.querySelectorAll('.drawer button')].find((b) => b.textContent.trim() === 'Изменить')?.click();
-      return h('li', null, m, !canEdit() ? null : img ? button({ label: 'Загрузить', size: 'S', onClick: () => goTo(img) }) : button({ label: 'Заполнить', size: 'S', onClick: fill }));
+      return h('li', null, m, !canEdit() || statusOf(r) !== 'draft' ? null : img ? button({ label: 'Загрузить', size: 'S', onClick: () => goTo(img) }) : button({ label: 'Заполнить', size: 'S', onClick: fill }));
     })),
     warn.length ? section({ title: 'Нормативы — проверить', tone: 'neutral', count: warn.length, body: [h('p', { class: 'hint' }, 'Статус и дату проверки — в «Справочники → Паспорта → Нормативы». Паспорт выдавать можно.'),
       h('ul', { class: 'timeline' }, ...warn.map((w) => h('li', { class: 'muted' }, w)))] }) : null] });
