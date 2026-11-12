@@ -2,14 +2,16 @@ import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.inter
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, Res, StreamableFile, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { memoryStorage } from 'multer';
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { CreateOfferDto, OfferCompanyDto, OfferCopiesDto, OfferCopyDto, OfferCreateOrderDto, OfferPackDto, OfferStatusDto, UpdateBackgroundDto, UpdateOfferDto, UploadBackgroundDto } from './dto';
+import { CreateOfferDto, OfferCompanyDto, OfferCopiesDto, OfferCopyDto, OfferCreateOrderDto, OfferIntakeDto, OfferPackDto, OfferStatusDto, UpdateBackgroundDto, UpdateOfferDto, UploadBackgroundDto } from './dto';
 import { BG_MAX_BYTES, BG_MIME, OfferBackgroundsService } from './offer-backgrounds.service';
+import { OfferIntakeService } from './offer-intake.service';
 import { OffersService } from './offers.service';
 
 /** Коммерческие предложения. Смотреть — все роли с разделом «КП»; создавать, править, менять статус, загружать фоны — admin и manager. */
@@ -18,7 +20,7 @@ import { OffersService } from './offers.service';
 @UseInterceptors(MoneyMaskInterceptor)
 @Controller('offers')
 export class OffersController {
-  constructor(private readonly offers: OffersService, private readonly bgs: OfferBackgroundsService) {}
+  constructor(private readonly offers: OffersService, private readonly bgs: OfferBackgroundsService, private readonly intake: OfferIntakeService) {}
 
   /** `{ items, total, page, limit, counts }`; фильтры `status`, `q`, `sort=-date`. */
   @Get()
@@ -90,6 +92,22 @@ export class OffersController {
   @ApiQuery({ name: 'counterpartyId', required: false, description: 'Если есть КП с этим контрагентом — оно важнее названия' })
   last(@Query('customer') customer?: string, @Query('counterpartyId') counterpartyId?: string) {
     return this.offers.last({ customer, counterpartyId });
+  }
+
+  /** К7: подключён ли разбор заявки ИИ (на сервере задан ключ). Объявлено до `:id`. */
+  @Get('intake')
+  @Roles('admin', 'director', 'manager', 'user')
+  intakeStatus() {
+    return { enabled: this.intake.enabled() };
+  }
+
+  /** К7: текст заявки заказчика → строки с вариантами изделий. В базу не пишет; текст уходит во внешний ИИ — только по кнопке. */
+  @Post('intake')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @Throttle({ short: { ttl: 10_000, limit: 2 }, long: { ttl: 3_600_000, limit: 60 } })
+  intakeParse(@Body() dto: OfferIntakeDto) {
+    return this.intake.parse(dto.text);
   }
 
   /** Предпросмотр PDF до сохранения: в базу не пишет, номер не тратит. */
