@@ -9,7 +9,7 @@ WHERE="${1:-}"
 [ "$WHERE" = local ] || [ "$WHERE" = prod ] || { echo "usage: set-ai-key.sh local|prod"; exit 2; }
 
 KEY="$(powershell.exe -NoProfile -Command 'Get-Clipboard -Raw' 2>/dev/null | tr -d '\r\n ' || true)"
-if ! [[ "$KEY" =~ ^sk-ant-[A-Za-z0-9_-]{20,300}$ ]]; then
+if ! [[ "$KEY" =~ ^sk-ant-[A-Za-z0-9_-]{20,}$ ]] || [ "${#KEY}" -gt 400 ]; then
   echo "✗ В буфере обмена нет ключа вида sk-ant-… Откройте console.anthropic.com → API Keys → создайте ключ, скопируйте и нажмите кнопку снова."
   exit 1
 fi
