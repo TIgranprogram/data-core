@@ -1,5 +1,6 @@
-import { buildForm, button, enhanceSelect, field, fieldRow, hint, link, row, segmented, select, sideNote, stack, textInput, toast } from '../../../ui/kit/index.js';
-import { V2_NUMS } from '../common.js';
+import { api } from '../../../core/api.js';
+import { actions, buildForm, button, enhanceSelect, field, fieldRow, hint, link, row, segmented, select, sideNote, stack, textInput, toast, toastError } from '../../../ui/kit/index.js';
+import { V2_NUMS, canEdit as canEditTexts } from '../common.js';
 import { patchProduct, putDefaults, setFacets } from '../funnel/api.js';
 import { jointsPick } from '../traits.js';
 import { num } from './model.js';
@@ -90,6 +91,47 @@ function elementsCombo(ctx, rows) {
   return f.el;
 }
 
+/**
+ * «Нет в списке? Добавить элемент» (владелец 2026-11-12: искал «Указатель», которого в справочнике нет).
+ * Короткая форма на месте: название и тексты. Элемент создаётся в справочнике «Функциональные элементы» как изделие
+ * для категории этого паспорта и сразу выбирается. Только тем, кто правит общие тексты (директор, администратор).
+ */
+function addElement(ctx) {
+  if (!canEditTexts() || !ctx.code) return null;
+  const box = stack();
+  const closed = () => link({ label: 'Нет в списке? Добавить элемент', title: 'Новый элемент попадёт в справочник «Функциональные элементы» и сразу выберется', onClick: open });
+  function open() {
+    const form = buildForm([
+      { key: 'name', label: 'Название элемента', required: true, max: 200, wide: true, hint: 'Одно-два слова в единственном числе: «Указатель», «Скамья»' },
+      { key: 'inDescription', label: 'В описании', type: 'textarea', wide: true, max: 1000, hint: 'Фраза для раздела «Описание»' },
+      { key: 'usageRules', label: 'Правила пользования', type: 'textarea', wide: true, max: 4000, hint: 'По строке на правило; можно дописать позже' },
+    ], {});
+    const save = button({ label: 'Добавить и выбрать', kind: 'primary', size: 'S', onClick: async () => {
+      const r = form.read();
+      if (r.errors) return;
+      save.disabled = true;
+      try {
+        const v = r.values;
+        const row = await api('/dicts/passportElements', { method: 'POST', body: { name: v.name, kind: 'product', categories: ctx.code, inDescription: v.inDescription || '', usageRules: v.usageRules || '' } });
+        const id = String(row.id || row._id);
+        ctx.elRows.push(row); ctx.elNames?.set(id, row.name);
+        ctx.els.setRows(ctx.elRows);
+        const cur = (ctx.prod.passportDefaults?.elements || []).map(String);
+        if (cur.length >= 3) { toast(`Элемент «${row.name}» добавлен в справочник. Выбрано уже три — замените один из них в списке.`); box.replaceChildren(closed()); return; }
+        const list = [...cur, id];
+        ctx.els.setIds(list);
+        toast(`Элемент «${row.name}» добавлен и выбран`);
+        box.replaceChildren(closed()); // форма закрывается сразу, не дожидаясь перерисовки паспорта
+        ctx.save(() => putDefaults(ctx.prod, { elements: list }));
+      } catch (e) { toastError(e, 'добавить элемент'); save.disabled = false; }
+    } });
+    box.replaceChildren(form.el, actions(save, button({ label: 'Отмена', kind: 'ghost', size: 'S', onClick: () => box.replaceChildren(closed()) })));
+    setTimeout(() => form.focus?.(), 0);
+  }
+  box.replaceChildren(closed());
+  return box;
+}
+
 /** Элементы. Есть подсказка — одно «Да, верно», список открывается по «Другой вариант». */
 export function elementsEditor(ctx, gap) {
   const given = (gap?.options || []).map((o) => ({ id: String(o.id), label: o.label || o.name || 'без названия' }));
@@ -104,10 +146,10 @@ export function elementsEditor(ctx, gap) {
     return putDefaults(ctx.prod, { elements: list });
   };
   const suggest = suggestRow(gap, write, ctx.save);
-  if (!rows.length) return hint('Для этой категории в справочнике «Функциональные элементы» вариантов нет. Поле можно оставить пустым.');
-  if (!suggest) return stack(note, elementsCombo(ctx, rows));
+  if (!rows.length) return stack(hint('Для этой категории в справочнике «Функциональные элементы» вариантов нет. Поле можно оставить пустым.'), addElement(ctx));
+  if (!suggest) return stack(note, elementsCombo(ctx, rows), addElement(ctx));
   let box;
-  const other = link({ label: 'Другой вариант', title: 'Выбрать элементы из списка', onClick: () => { box.replaceChildren(note, elementsCombo(ctx, rows)); } });
+  const other = link({ label: 'Другой вариант', title: 'Выбрать элементы из списка', onClick: () => { box.replaceChildren(...[note, elementsCombo(ctx, rows), addElement(ctx)].filter(Boolean)); } });
   box = stack(note, suggest, other);
   return box;
 }
