@@ -139,6 +139,10 @@ export const passports = {
       ['Артикул', r.article],
       ['Габариты (В × Д × Ш)', dims(r)],
       ['Вес', r.weight ? num(r.weight) + ' кг' : ''],
+      // C095: варианты модуля — как в PDF: габариты, количество, есть ли рисунок; при нескольких — всего
+      ...(r.moduleVariants?.length ? [grp('Варианты модуля'),
+        ...r.moduleVariants.map((m) => [m.name, [m.size, `${m.qty} шт.`, m.photoId ? 'с рисунком' : 'без рисунка'].filter(Boolean).join(' · ')]),
+        ...(r.moduleVariants.length > 1 ? [['Всего модулей', `${r.moduleVariants.reduce((s, m) => s + (Number(m.qty) || 0), 0)} шт.`]] : [])] : []),
       grp('Описание'),
       ['Материалы', r.materials],
       ['Установка', r.installationMethod],
