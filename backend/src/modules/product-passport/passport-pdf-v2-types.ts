@@ -44,6 +44,8 @@ export interface PdfV2Input {
   logo?: Buffer; seal?: Buffer; signature?: Buffer;
   /** Миниатюры дефектов для таблиц ТО: photoId → картинка (Э6d). */
   defectImages?: Record<string, Buffer>;
+  /** C095: рисунки вариантов модуля: photoId → картинка. */
+  moduleImages?: Record<string, Buffer>;
   withStamp: boolean;
   mode: 'pages' | 'print';
   /** НМ: надпись поперёк каждой страницы — «ЧЕРНОВИК» (без номера) / «АННУЛИРОВАН». */

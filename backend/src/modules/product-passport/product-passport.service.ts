@@ -1,3 +1,4 @@
+import { cleanModules, ModuleVariant } from './passport-modules';
 import { installKindOf, variantOf } from './passport-variants';
 import { blankItems } from './passport-blanks';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional, ForbiddenException } from '@nestjs/common';
@@ -134,6 +135,12 @@ export class ProductPassportService {
     const photos = photoIds.length ? await this.connection.collection('photos').find({ _id: { $in: photoIds } }, { projection: { storageUrl: 1, thumbId: 1 } }).toArray() : [];
     const url = new Map(photos.map((p) => [String(p._id), p.storageUrl as string]));
     const images = ((doc.images as Array<Doc>) || []).map((i) => ({ ...i, url: url.get(String(i.photoId)) ?? null }));
+    // C095: адреса рисунков вариантов модуля — для формы
+    const mvList = (doc.moduleVariants as Array<Doc> | undefined) || [];
+    const mvIds = mvList.map((m) => m.photoId).filter(Boolean) as Types.ObjectId[];
+    const mvPhotos = mvIds.length ? await this.connection.collection('photos').find({ _id: { $in: mvIds } }, { projection: { storageUrl: 1 } }).toArray() : [];
+    const mvUrl = new Map(mvPhotos.map((x) => [String(x._id), x.storageUrl as string]));
+    if (mvList.length) doc.moduleVariants = mvList.map((m) => ({ ...m, photoId: m.photoId ? String(m.photoId) : undefined, url: m.photoId ? mvUrl.get(String(m.photoId)) ?? null : null }));
     const supplierOrg = doc.supplierOrgId ? await this.connection.collection('organizations').findOne({ _id: doc.supplierOrgId as Types.ObjectId }, { projection: { name: 1, shortName: 1, assets: 1 } }) : null;
     const cat = doc.passportCategory ? (await this.categoryRules()).get(String(doc.passportCategory)) : null;
     // v2: предупреждения по нормативам из снимка (статус не «действует», проверка старше года)
@@ -236,6 +243,7 @@ export class ProductPassportService {
     if (set.images) set.images = (set.images as Array<Doc>).map((i, k) => ({ kind: i.kind || 'overview', photoId: this.oid(i.photoId), order: i.order ?? k, ...(i.caption ? { caption: i.caption } : {}), ...(i.refCode ? { refCode: i.refCode } : {}) }));
     for (const f of ['elements', 'materialIds'] as const) if (Array.isArray(set[f])) set[f] = (set[f] as unknown[]).map((x) => this.oid(x));
     if ('textChoices' in set) set.textChoices = parseChoices(set.textChoices); // ПВ: пусто — выбор снят
+    if ('moduleVariants' in set) { const mv = cleanModules(set.moduleVariants as ModuleVariant[]).map((m) => ({ name: m.name, ...(m.size ? { size: m.size } : {}), qty: m.qty, ...(m.photoId ? { photoId: this.oid(m.photoId) } : {}) })); set.moduleVariants = mv.length ? mv : null; } // C095: пусто — обычный паспорт
     if ('materialsSpec' in set) set.materialsSpec = parseMaterialsSpec(set.materialsSpec); // МИ: тот же разбор, что у изделия; пусто — null
     if (set.passportNumber !== undefined) set.passportNo = Number(set.passportNumber) || undefined;
     return set;

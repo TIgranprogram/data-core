@@ -284,6 +284,7 @@ export class PassportPdfService {
       style: await this.styleOf(p),
       logo: await this.asset(asset('logo')),
       defectImages: await this.defectImages(text),
+      moduleImages: await this.moduleImages(p),
       seal, signature, withStamp: stamp, mode, mono: !!opts.mono,
       look: await this.looks.forPdf(p.supplierOrgId),
     };
@@ -353,6 +354,16 @@ export class PassportPdfService {
     // условия пиктограмм (when) — по признакам из снимка; в старых снимках признаков нет — пиктограммы с when не выводятся
     const st = resolveStyle(styleRows as never, cat, { maxUsers: p.maxUsers as number | undefined, traits: snap?.traits ?? [], unknownTraits: snap?.unknownTraits ?? [] });
     return { ...st, categoryName: (catDoc?.name as string | undefined) || undefined };
+  }
+
+  /** C095: рисунки вариантов модуля: photoId → картинка. Нет файла — вариант печатается без рисунка. */
+  private async moduleImages(p: Doc): Promise<Record<string, Buffer>> {
+    const ids = ((p.moduleVariants as Array<{ photoId?: unknown }> | undefined) || []).map((m) => String(m.photoId ?? '')).filter((x) => /^[0-9a-f]{24}$/i.test(x));
+    if (!ids.length) return {};
+    const photos = await this.connection.collection('photos').find({ _id: { $in: ids.map((x) => new Types.ObjectId(x)) }, deletedAt: null }, { projection: { storageUrl: 1 } }).toArray();
+    const out: Record<string, Buffer> = {};
+    for (const ph of photos) { const buf = await this.file(ph.storageUrl as string | undefined); if (buf) out[String(ph._id)] = buf; }
+    return out;
   }
 
   /** Миниатюры дефектов из снимка ТО (photoId строк) → photos.storageUrl → картинка (Э6d). */

@@ -1,8 +1,16 @@
-import { IsArray, IsBoolean, IsDateString, IsIn, IsNumber, IsObject, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { ArrayMaxSize, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNumber, IsObject, IsOptional, IsString, Max, MaxLength, Min, ValidateNested } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import { IsObjectId } from '../../../common/decorators/is-object-id.decorator';
 import { PASSPORT_JOINT_CODES } from '../../../common/passport/traits';
 import { PASSPORT_IMAGE_KINDS } from '../product-passport.schema';
+
+/** C095: вариант модуля — название, габариты одной строкой, количество (шт., целое > 0), рисунок. */
+export class ModuleVariantDto {
+  @IsString() @MaxLength(200) name!: string;
+  @IsOptional() @IsString() @MaxLength(200) size?: string;
+  @IsInt() @Min(1) @Max(100000) qty!: number;
+  @IsOptional() @IsObjectId() photoId?: string;
+}
 
 /**
  * Паспорт изделия (ПС.1). Номера (`passportNumber`, `productCode`, `warrantyCode`) не передавать —
@@ -73,6 +81,8 @@ export class CreateProductPassportDto {
   @IsOptional() @IsObjectId() manufacturerOrgId?: string;
   /** Заметки — лист «Для заметок» в PDF (нет заметки — нет листа). */
   @IsOptional() @IsString() @MaxLength(4000) note?: string;
+  /** C095: варианты модуля [{ name, size, qty, photoId }]; пустой массив — снять. */
+  @IsOptional() @IsArray() @ArrayMaxSize(50) @ValidateNested({ each: true }) @Type(() => ModuleVariantDto) moduleVariants?: ModuleVariantDto[];
   // ПП: заполняется после печати (можно от руки) — пусто допустимо
   @IsOptional() @IsDateString() saleDate?: string;
   @IsOptional() @IsString() @MaxLength(300) installedBy?: string;

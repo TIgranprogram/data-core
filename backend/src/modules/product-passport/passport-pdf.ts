@@ -20,6 +20,8 @@ export interface PdfPassport {
   /** ПП: заполняется после печати — пусто → линия для ручки */
   customerName?: string; orderNo?: string; objectName?: string; saleDate?: Date | string | null; installedBy?: string; installedAt?: Date | string | null;
   bom?: Array<{ pos?: number; code?: string; name?: string; qty?: number; unit?: string; note?: string; size?: string }>;
+  /** C095: варианты модуля (passport-modules.ts). */
+  moduleVariants?: Array<{ name?: string; size?: string; qty?: number; photoId?: unknown }>;
 }
 export interface PdfInput {
   passport: PdfPassport;

@@ -200,6 +200,10 @@ export class ProductPassport {
   @Prop({ type: [PassportBomLineSchema], default: undefined })
   bom?: PassportBomLine[];
 
+  /** C095: варианты модуля сборного изделия — название, габариты строкой, количество (шт.), рисунок. Нет — обычный паспорт. Только data-core. */
+  @Prop({ type: [Object], default: undefined })
+  moduleVariants?: Array<{ name: string; size?: string; qty: number; photoId?: Types.ObjectId }>;
+
   /** Заметки — лист «Для заметок» в PDF (нет заметки — нет листа; 2026-10-22). Поле только data-core, kppdf его не читает. */
   @Prop({ trim: true })
   note?: string;

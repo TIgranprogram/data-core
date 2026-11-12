@@ -16,6 +16,8 @@ import { loadMaterialDicts } from '../../ui/materials-spec.js';
 import { funnelBox } from '../../ui/funnel.js';
 import { jointsPick } from './traits.js';
 import { withElementTexts } from './elements-block.js';
+import { moduleVariantsBox } from '../../ui/kit/index.js';
+import { moduleVariantsBody, moduleVariantsBad } from './module-variants.js';
 
 /** Форма паспорта: поля, сборка тела запроса, создание и сохранение. */
 /** ПИ.4: значения по умолчанию паспорта — изделию (заменяются целиком; пустые не пишутся сервером). */
@@ -156,6 +158,12 @@ export const passportForm = {
       { key: 'bom', label: 'Комплектность изделия (таблица 5)', type: 'widget', wide: true,
         widget: (v) => rowsTable({ columns: BOM_COLS, rows: v, file: 'Шаблон комплектности', example: BOM_EXAMPLE }),
         hint: 'Пусто — «И-1 · Изделие в сборе · 1 шт.». Можно вставить строки из Excel (Ctrl+V в ячейку) или загрузить заполненный шаблон' },
+      // C095: сборное изделие — варианты модуля (габариты, рисунок, количество); пусто — обычный паспорт
+      { section: 'Варианты модуля (сборное изделие)', tone: 'who', collapsed: !(r && r.moduleVariants?.length) },
+      { key: 'moduleVariants', label: 'Варианты модуля', type: 'widget', wide: true,
+        summary: (raw) => { const m = moduleVariantsBody(raw); return m.length ? `вариантов: ${m.length}, модулей: ${m.reduce((s, x) => s + x.qty, 0)} шт.` : ''; },
+        widget: (v) => moduleVariantsBox({ value: v, dims: () => { const d = ['length', 'height', 'width'].map((k) => String(w.api?.get(k) ?? '').trim()).filter(Boolean); return d.length ? `${d.join(' × ')} мм` : ''; } }),
+        mount: (api) => { w.api = api; } },
       // ПП: заполняется после печати — пусто → в PDF линия для ручки, заполнено → значение; выпуск не блокирует
       { section: 'Заполняется после печати — можно от руки', tone: 'info', collapsed: !(r && (r.saleDate || r.customerName || r.orderNo || r.objectName || r.installedBy || r.installedAt || r.note)) },
       { key: '_afterHint', type: 'widget', wide: true, label: '', widget: () => ({ el: h('p', { class: 'hint' }, 'Если заполнить — подставится в паспорт. Пусто — в PDF будет линия, впишут ручкой при продаже и монтаже. Выпуск не задерживает.'), value: '' }), summary: () => '' },
@@ -179,7 +187,7 @@ export const passportForm = {
     return { _manualText: 'no', date: isoDay(), warrantyMonths: '12', supplierOrgId: ours.length === 1 ? ours[0].id : '',
       ...Object.fromEntries(Object.entries(d || {}).filter(([, v]) => v !== '' && v !== null && v !== undefined)) };
   },
-  toInitial: (r) => ({ ...r, saleDate: r.saleDate ? String(r.saleDate).slice(0, 10) : '', installedAt: r.installedAt ? String(r.installedAt).slice(0, 10) : '', height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight), warrantyMonths: num(r.warrantyMonths ?? 12), bom: bomRows(r.bom),
+  toInitial: (r) => ({ ...r, saleDate: r.saleDate ? String(r.saleDate).slice(0, 10) : '', installedAt: r.installedAt ? String(r.installedAt).slice(0, 10) : '', height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight), warrantyMonths: num(r.warrantyMonths ?? 12), bom: bomRows(r.bom), moduleVariants: r.moduleVariants || [],
     ...v2Initial(r), _manualText: r.manualText?.length ? 'yes' : 'no', _mspec: r.materialsSpec || '',
     ...Object.fromEntries(kinds().map(([kind]) => ['img_' + kind, imgsOf(r, kind).filter((i) => i.url).map((i) => ({ id: String(i.photoId), url: i.url, thumb: i.url }))])) }),
   // ФП: картинки — каждая в своём виде (formImages); у модели они уже разложены в форме (_imgsFrom) — отправляем как есть
@@ -200,6 +208,10 @@ export const passportForm = {
     body.manualText = [...(v._manualText === 'yes' ? ['purpose', 'installationMethod'].filter((k) => s(body[k])) : []), ...(s(v.description) && s(v.description) !== buildDescription(forDesc) ? ['description'] : [])];
     const bom = parseBom(v.bom, r?.bom);
     if (bom.length || r) body.bom = bom;
+    const mv = moduleVariantsBody(v.moduleVariants);
+    if (mv.length || r) body.moduleVariants = mv; // C095: пустой список у сохранённого — варианты сняты
+    const mvBad = moduleVariantsBad(v.moduleVariants);
+    if (mvBad) body._mvBad = mvBad;
     const shown = new Set(kinds().map(([k]) => k));
     // виды, которых нет в форме, сохраняются как были (safety_zone показан в «Зоне безопасности» — не «чужой»)
     const kept = imagesBody((r?.images || []).filter((i) => !shown.has(kindOf(i))));
@@ -227,7 +239,8 @@ export const passportForm = {
     return body;
   },
   create: async (body) => {
-    const { _copyFrom, _imagesFinal, _remember, ...rest } = body;
+    const { _copyFrom, _imagesFinal, _remember, _mvBad, ...rest } = body;
+    if (_mvBad) throw new Error(_mvBad);
     if (!rest.passportCategory) throw new Error('Выберите категорию паспорта');
     if (!_copyFrom && !rest.productId) throw new Error('Выберите изделие');
     if (!rest.supplierOrgId) throw new Error('Выберите фирму');
@@ -254,7 +267,9 @@ export const passportForm = {
     return full(await post(`/passports/${_copyFrom}/copy`, rest));
   },
   update: async (id, body) => {
-    const { _remember, _issued, ...rest } = body; if (_remember) await saveDefaults(_remember);
+    const { _remember, _issued, _mvBad, ...rest } = body;
+    if (_mvBad && !(_issued && st.revisionFor !== id)) throw new Error(_mvBad);
+    if (_remember) await saveDefaults(_remember);
     const rev = st.revisionFor === id; st.revisionFor = null;
     // НМ-1: выпущенный без «Новой редакции» — отправляем только «после печати» (остальное заблокировано в форме)
     const send = _issued && !rev ? Object.fromEntries(Object.entries(rest).filter(([k]) => AFTER_PRINT.includes(k))) : rest;

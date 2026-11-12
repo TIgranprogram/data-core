@@ -5,6 +5,7 @@ import { A5, M, CW, BOTTOM, BODY, Draw, Cell, V2Page, has, num, lines } from './
 import { shortPage, cover } from './passport-pdf-v2-cover';
 import { isBatch } from './passport-rules';
 import { planNumbers } from './passport-numbering';
+import { cleanModules } from './passport-modules';
 
 /** Таблица размеров (ПЧ-4): буквы как на чертеже, объём считается из габаритов. Выпущенный без новых полей печатается как был выпущен. */
 export function specRows(p: PdfV2Input['passport']): [string, unknown][] {
@@ -49,6 +50,9 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   if (specs.length) tab.set('specs', ++tn);
   maintenance.forEach((m, i) => { const n = ++tn; tab.set(`to:${m.period}`, n); if (i === 0) { tab.set('to', n); tab.set('maintenance', n); } });
   tab.set('bom', ++tn);
+  // C095: варианты модуля — своя таблица сразу после комплектности; нет вариантов — номера таблиц как раньше
+  const modules = cleanModules(p.moduleVariants);
+  if (modules.length) tab.set('modules', ++tn);
   tab.set('storage', ++tn);
   tab.set('faults', ++tn);
   // C086: тексты ссылаются на журналы ТО и ремонтов ({tab:service}, {tab:repairs}) — таблицы есть в разделе «Журналы»
@@ -246,6 +250,18 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
     withImg ? [7, 26, 27, 9, 9, 22] : [8, 32, 38, 11, 11], bomRows);
   else table(`Таблица ${tab.get('bom')} — Комплектность изделия`, ['Поз.', 'Обозначение', 'Наименование', 'Кол-во', 'Ед. изм.', ...(withImg ? ['Изображение'] : [])],
     withImg ? [7, 17, 36, 9, 9, 22] : [8, 20, 50, 11, 11], bomRows);
+  if (modules.length) {
+    const mi = input.moduleImages || {};
+    const modImg = modules.some((m) => m.photoId && mi[m.photoId]);
+    const modRows: Cell[][] = modules.map((m, i) => {
+      const row: Cell[] = [String(i + 1), m.name, m.size, String(m.qty), 'шт.'];
+      if (modImg) row.push({ img: m.photoId ? mi[m.photoId] : undefined, h: m.photoId && mi[m.photoId] ? 48 : 11 });
+      return row;
+    });
+    if (modules.length > 1) modRows.push(['', 'Всего модулей', '', String(modules.reduce((s, m) => s + m.qty, 0)), 'шт.', ...(modImg ? [''] : [])]);
+    table(`Таблица ${tab.get('modules')} — Варианты модуля`, ['№', 'Вариант модуля', 'Габариты', 'Кол-во', 'Ед. изм.', ...(modImg ? ['Рисунок'] : [])],
+      modImg ? [6, 26, 24, 9, 9, 26] : [7, 37, 34, 11, 11], modRows);
+  }
 
   // Журналы для заказчика (решение 2026-11-01, ПТ-2): пустые таблицы хранения и неисправностей — в обоих вариантах;
   // C086: плюс журналы ТО и ремонтов, на которые ссылаются разделы «Обслуживание», «Ремонт», «Журналы эксплуатации»
