@@ -255,6 +255,8 @@ export const kit = {
           section({ title: 'Показатели', count: 3, fixed: true, body: h('p', { class: 'muted' }, 'Содержимое') }),
           section({ title: 'Просрочено', count: 2, fixed: true, urgent: true, body: h('p', { class: 'muted' }, 'Срочные дела') }),
           section({ title: 'Заявки', count: 6, fixed: true, more: { limit: 3, label: 'Все' }, body: Array.from({ length: 6 }, (_, i) => row({ title: 'Заявка ' + (i + 1), meta: 'Труба 57×3' })) }))),
+      block('Связанные поля и рисунки (layout.related)', 'По ширине самого блока: поля, затем рисунок; на узкой панели одна колонка.',
+        layout.related({ main: stack(textInput({ label: 'Длина, мм', value: '1200', short: true }).el, textInput({ label: 'Ширина, мм', value: '600', short: true }).el, textInput({ label: 'Высота, мм', value: '900', short: true }).el), side: section({ title: 'Габаритный чертёж', fixed: true, body: hint('Связанный рисунок и действия с ним') }) })),
       block('Две колонки (layout.cols) · C030-4', '2 колонки от 1100 px, ниже одна. Где используется: главная.',
         layout.cols(section({ title: 'Слева', count: 1, fixed: true, body: h('p', { class: 'muted' }, 'Блок 1') }), section({ title: 'Справа', count: 1, fixed: true, body: h('p', { class: 'muted' }, 'Блок 2') }))),
       block('Показатель-пилюля (stat с onClick) · C030-5', 'stat({ value, label, onClick, tone, active }): число красное при tone danger и > 0, приглушённое при 0; active — рамка. Где используется: главная.',

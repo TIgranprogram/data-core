@@ -1,0 +1,2156 @@
+{
+  "date": "2026-11-12",
+  "baseHead": "73aff678",
+  "manifestSha256": "0c729f713bbab591ff1759a57f595db08e41d1de082814e053bb01604053de11",
+  "sourceAndTestsUnchanged": true,
+  "allE2eFilesCovered": true,
+  "unit": {
+    "suites": 325,
+    "tests": 3803
+  },
+  "e2e": {
+    "suites": 74,
+    "tests": 561
+  },
+  "runs": [
+    {
+      "label": "unit",
+      "exit": 0,
+      "suites": 325,
+      "passedSuites": 325,
+      "tests": 3803,
+      "passed": 3803,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "backend/src/modules/product-passport/passport-manager-access.spec.ts",
+          "status": "passed",
+          "tests": 30
+        },
+        {
+          "file": "backend/src/modules/supply/supply-invoice.http.spec.ts",
+          "status": "passed",
+          "tests": 8
+        },
+        {
+          "file": "backend/src/modules/supply/supplier-catalog-import.spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/src/modules/product/product-stock-readonly.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/today/today.service.spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/src/modules/supply/supply-invoice.service.spec.ts",
+          "status": "passed",
+          "tests": 66
+        },
+        {
+          "file": "backend/src/modules/control/control.service.spec.ts",
+          "status": "passed",
+          "tests": 20
+        },
+        {
+          "file": "backend/src/modules/auth/auth.service.spec.ts",
+          "status": "passed",
+          "tests": 24
+        },
+        {
+          "file": "backend/src/modules/disk/offsite.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/modules/supply/supply.bulk.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/modules/photos/photos.service.spec.ts",
+          "status": "passed",
+          "tests": 9
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-compose-parts.spec.ts",
+          "status": "passed",
+          "tests": 14
+        },
+        {
+          "file": "backend/src/modules/salesorders/salesorders.remove.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-pdf-v2.spec.ts",
+          "status": "passed",
+          "tests": 12
+        },
+        {
+          "file": "backend/src/common/print/print-documents.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-numbering.spec.ts",
+          "status": "passed",
+          "tests": 163
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-pdf-images.spec.ts",
+          "status": "passed",
+          "tests": 9
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-gaps.spec.ts",
+          "status": "passed",
+          "tests": 21
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-texts.v2.spec.ts",
+          "status": "passed",
+          "tests": 38
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-images-product.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-draft-all.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-blanks.spec.ts",
+          "status": "passed",
+          "tests": 8
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-snapshot-golden.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/supply/supply.service.spec.ts",
+          "status": "passed",
+          "tests": 93
+        },
+        {
+          "file": "backend/src/modules/productattachments/order-zip.spec.ts",
+          "status": "passed",
+          "tests": 13
+        },
+        {
+          "file": "backend/src/modules/supply/supplier-catalog.view.spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/src/modules/design/design.service.spec.ts",
+          "status": "passed",
+          "tests": 25
+        },
+        {
+          "file": "backend/src/modules/offers/offer-last.spec.ts",
+          "status": "passed",
+          "tests": 8
+        },
+        {
+          "file": "backend/src/modules/product/product.service.spec.ts",
+          "status": "passed",
+          "tests": 25
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-look.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/productattachments/productattachments.spec.ts",
+          "status": "passed",
+          "tests": 21
+        },
+        {
+          "file": "backend/src/modules/client-errors/client-errors.service.spec.ts",
+          "status": "passed",
+          "tests": 19
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-check-product.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-pdf-v2-layout2.spec.ts",
+          "status": "passed",
+          "tests": 1
+        },
+        {
+          "file": "backend/src/modules/auth/profile.spec.ts",
+          "status": "passed",
+          "tests": 14
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-materials-spec.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/disk/disk.service.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/photos/photos.controller.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/common/catalog/catalog-delete-guards.spec.ts",
+          "status": "passed",
+          "tests": 25
+        },
+        {
+          "file": "backend/src/modules/work/work.service.spec.ts",
+          "status": "passed",
+          "tests": 10
+        },
+        {
+          "file": "backend/src/modules/salesorders/salesorders.service.spec.ts",
+          "status": "passed",
+          "tests": 12
+        },
+        {
+          "file": "backend/src/modules/auth/strategies/jwt.strategy.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/auth/ui-prefs.spec.ts",
+          "status": "passed",
+          "tests": 33
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-print-file.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/photos/image-shrink.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/offers/offers.qa-kp2.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/desktop/desktop-pairing-key.service.spec.ts",
+          "status": "passed",
+          "tests": 11
+        },
+        {
+          "file": "backend/src/modules/stock/count-guard.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/stock/stock-spec.service.spec.ts",
+          "status": "passed",
+          "tests": 8
+        },
+        {
+          "file": "backend/src/modules/disk/backups.spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-queries.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-preview.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-variants.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/pdm-files/pdm-files.spec.ts",
+          "status": "passed",
+          "tests": 21
+        },
+        {
+          "file": "backend/src/modules/control/questions/question.rules.spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/src/modules/stock/stock-movements.service.spec.ts",
+          "status": "passed",
+          "tests": 10
+        },
+        {
+          "file": "backend/src/modules/admin/users-admin.controller.spec.ts",
+          "status": "passed",
+          "tests": 17
+        },
+        {
+          "file": "backend/src/modules/control/questions/questions.service.spec.ts",
+          "status": "passed",
+          "tests": 38
+        },
+        {
+          "file": "backend/src/common/guards/throttler-behind-auth.guard.spec.ts",
+          "status": "passed",
+          "tests": 10
+        },
+        {
+          "file": "backend/src/modules/device-enrollment/device-enrollment.service.spec.ts",
+          "status": "passed",
+          "tests": 12
+        },
+        {
+          "file": "backend/src/modules/stock/stock-reservations.service.spec.ts",
+          "status": "passed",
+          "tests": 15
+        },
+        {
+          "file": "backend/src/modules/material/material.catalog-301.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/showcase/showcase-bulk.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/pdm-import/pdm-plan-rows.spec.ts",
+          "status": "passed",
+          "tests": 8
+        },
+        {
+          "file": "backend/src/modules/offers/offers.admin.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/modules/payroll/payroll.service.spec.ts",
+          "status": "passed",
+          "tests": 1
+        },
+        {
+          "file": "backend/src/modules/showcase/showcase-sku-lock.spec.ts",
+          "status": "passed",
+          "tests": 9
+        },
+        {
+          "file": "backend/src/modules/person/person.service.spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-import.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/control/switch/switch.service.spec.ts",
+          "status": "passed",
+          "tests": 15
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-rules.spec.ts",
+          "status": "passed",
+          "tests": 21
+        },
+        {
+          "file": "backend/src/modules/work-type/work-type.service.spec.ts",
+          "status": "passed",
+          "tests": 9
+        },
+        {
+          "file": "backend/src/modules/offers/offer-pdf.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/offers/offers.templates.spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/src/pwa-guards.spec.ts",
+          "status": "passed",
+          "tests": 281
+        },
+        {
+          "file": "backend/src/modules/dicts/dicts.edit-roles.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/qr/qr.service.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/modules/color-reference/color-reference.service.spec.ts",
+          "status": "passed",
+          "tests": 34
+        },
+        {
+          "file": "backend/src/modules/dicts/dicts.code-lock.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/common/idempotency/idempotency-storage.service.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/stock/stock-summary.spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/src/modules/partners/partners.list.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/shipments/shipments.service.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/admin/roles-admin.controller.spec.ts",
+          "status": "passed",
+          "tests": 10
+        },
+        {
+          "file": "backend/src/common/guards/key-scope.spec.ts",
+          "status": "passed",
+          "tests": 34
+        },
+        {
+          "file": "backend/src/common/passport/funnel.parity.spec.ts",
+          "status": "passed",
+          "tests": 483
+        },
+        {
+          "file": "backend/src/modules/audit/audit-sections.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-traits.spec.ts",
+          "status": "passed",
+          "tests": 11
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-ready.spec.ts",
+          "status": "passed",
+          "tests": 9
+        },
+        {
+          "file": "backend/src/modules/stock/stock-catalog.service.spec.ts",
+          "status": "passed",
+          "tests": 12
+        },
+        {
+          "file": "backend/src/modules/showcase/tech-sheet-pdf.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/dicts/dicts.stock-role.spec.ts",
+          "status": "passed",
+          "tests": 1
+        },
+        {
+          "file": "backend/src/modules/category/dto/create-category.dto.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/offers/offers.pack.spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/src/modules/material/material-price.calc.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/modules/material-requests/material-requests.service.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/common/idempotency/idempotency.middleware.spec.ts",
+          "status": "passed",
+          "tests": 10
+        },
+        {
+          "file": "backend/src/modules/order-line-plan/work-schedule.service.spec.ts",
+          "status": "passed",
+          "tests": 10
+        },
+        {
+          "file": "backend/src/modules/photos/photos.backfill.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/dicts/dicts.rename.spec.ts",
+          "status": "passed",
+          "tests": 21
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-check.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-spec-rows.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-pdf-gaps.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/supply/supplier-contract.service.spec.ts",
+          "status": "passed",
+          "tests": 16
+        },
+        {
+          "file": "backend/src/modules/finance/cashflow.spec.ts",
+          "status": "passed",
+          "tests": 12
+        },
+        {
+          "file": "backend/src/modules/counterparty/counterparty.spec.ts",
+          "status": "passed",
+          "tests": 18
+        },
+        {
+          "file": "backend/src/modules/role/role.controller.spec.ts",
+          "status": "passed",
+          "tests": 14
+        },
+        {
+          "file": "backend/src/modules/product/product.schema.tz240.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/product-module-photo/product-module-photo.service.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/showcase/showcase-clone.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/matching/matching.spec.ts",
+          "status": "passed",
+          "tests": 16
+        },
+        {
+          "file": "backend/src/modules/offers/offers.create-pack.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/organization/organization.spec.ts",
+          "status": "passed",
+          "tests": 19
+        },
+        {
+          "file": "backend/src/modules/messages/messages.service.spec.ts",
+          "status": "passed",
+          "tests": 11
+        },
+        {
+          "file": "backend/src/modules/material/material.service.spec.ts",
+          "status": "passed",
+          "tests": 35
+        },
+        {
+          "file": "backend/src/common/catalog/catalog-graph.service.spec.ts",
+          "status": "passed",
+          "tests": 14
+        },
+        {
+          "file": "backend/src/modules/pdm-import/pdm-import.service.spec.ts",
+          "status": "passed",
+          "tests": 12
+        },
+        {
+          "file": "backend/src/modules/stock/stock-composition.service.spec.ts",
+          "status": "passed",
+          "tests": 11
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-from-product.spec.ts",
+          "status": "passed",
+          "tests": 9
+        },
+        {
+          "file": "backend/src/modules/dictionary-label/dictionary-label.service.spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/src/modules/devlog/devlog.spec.ts",
+          "status": "passed",
+          "tests": 10
+        },
+        {
+          "file": "backend/src/modules/my-tasks/my-tasks.spec.ts",
+          "status": "passed",
+          "tests": 15
+        },
+        {
+          "file": "backend/src/modules/dicts/dicts.lines.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-rules-v2.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/modules/order-line-plan/order-line-plan.service.spec.ts",
+          "status": "passed",
+          "tests": 9
+        },
+        {
+          "file": "backend/src/modules/expenses/expenses.service.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/modules/showcase/showcase-remove.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/common/catalog/materials-table.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/setting/setting.service.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/disk/integrity.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/notifications/notifications.unread.spec.ts",
+          "status": "passed",
+          "tests": 1
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-v2-text-bound.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/dicts/dicts.passport-phrases.spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/src/common/guards/system-role.guard.spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/src/modules/desktop/desktop-pairing.controller.spec.ts",
+          "status": "passed",
+          "tests": 17
+        },
+        {
+          "file": "backend/src/modules/category/category.group-no.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/dictionary-label/dictionary-label.controller.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/unit/unit.controller.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/app-data/app-data.validation.spec.ts",
+          "status": "passed",
+          "tests": 87
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-text-overrides.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/modules/pdm-import/pdm-preview.service.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/health.controller.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/incomes/incomes.service.spec.ts",
+          "status": "passed",
+          "tests": 62
+        },
+        {
+          "file": "backend/src/modules/stock/stock-t8-category.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-v2-text.spec.ts",
+          "status": "passed",
+          "tests": 8
+        },
+        {
+          "file": "backend/src/common/guards/owner-target.guard.spec.ts",
+          "status": "passed",
+          "tests": 15
+        },
+        {
+          "file": "backend/src/common/seed/work-roles.seed.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/product-passport/dto/text-choices.dto.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/offers/offers.order-prices.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-applicability.spec.ts",
+          "status": "passed",
+          "tests": 16
+        },
+        {
+          "file": "backend/src/common/eav/eav.service.spec.ts",
+          "status": "passed",
+          "tests": 13
+        },
+        {
+          "file": "backend/src/modules/dicts/dicts.passport-traits.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/modules/admin/permissions-admin.controller.spec.ts",
+          "status": "passed",
+          "tests": 8
+        },
+        {
+          "file": "backend/src/modules/document-render/document-render.utils.spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/src/modules/category/category.service.spec.ts",
+          "status": "passed",
+          "tests": 10
+        },
+        {
+          "file": "backend/src/modules/stock/stock-target.spec.ts",
+          "status": "passed",
+          "tests": 24
+        },
+        {
+          "file": "backend/src/modules/partners/partners.merge.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/notifications/notifications.safe.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/meta/meta-schema.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-by-order.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/role/role.service.spec.ts",
+          "status": "passed",
+          "tests": 24
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-numbers.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/common/interceptors/audit.interceptor.spec.ts",
+          "status": "passed",
+          "tests": 8
+        },
+        {
+          "file": "backend/src/modules/user/user.service.spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/src/modules/showcase/passport-defaults.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/dicts/dicts.materials-spec.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-reuse.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/counter/counter.service.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-order.spec.ts",
+          "status": "passed",
+          "tests": 11
+        },
+        {
+          "file": "backend/src/modules/stock/stock-bulk.spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/src/modules/stock-zones/stock-zones.service.spec.ts",
+          "status": "passed",
+          "tests": 9
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-after-print.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/fill-audit/fill-audit.sections.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/modules/zones/zone-events.spec.ts",
+          "status": "passed",
+          "tests": 8
+        },
+        {
+          "file": "backend/src/modules/stock/stock-category-summary.spec.ts",
+          "status": "passed",
+          "tests": 1
+        },
+        {
+          "file": "backend/src/modules/zones/zones.service.spec.ts",
+          "status": "passed",
+          "tests": 12
+        },
+        {
+          "file": "backend/src/modules/organization/asset-image.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/partners/partners.create-race.spec.ts",
+          "status": "passed",
+          "tests": 1
+        },
+        {
+          "file": "backend/src/common/guards/last-admin.guard.spec.ts",
+          "status": "passed",
+          "tests": 12
+        },
+        {
+          "file": "backend/src/modules/showcase/showcase-sku.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/modules/dicts/dicts.passport-usage.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/expense-articles/expense-articles.service.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/role/dto/role-dto.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/dicts/dicts.product-groups.spec.ts",
+          "status": "passed",
+          "tests": 8
+        },
+        {
+          "file": "backend/src/modules/unit/unit.service.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/permissions/permissions.service.spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/src/modules/control/control.runs.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/common/seed/currencies.seed.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/common/passport/traits.spec.ts",
+          "status": "passed",
+          "tests": 20
+        },
+        {
+          "file": "backend/src/common/catalog/composition-line.service.spec.ts",
+          "status": "passed",
+          "tests": 19
+        },
+        {
+          "file": "backend/src/modules/stock/stock-catalog-name.service.spec.ts",
+          "status": "passed",
+          "tests": 17
+        },
+        {
+          "file": "backend/src/modules/product-photo/product-photo.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/modules/product-module/product-module.service.spec.ts",
+          "status": "passed",
+          "tests": 23
+        },
+        {
+          "file": "backend/src/modules/order-line-plan/task-bars.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/apps/apps.service.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/common/interceptors/id-normalize.interceptor.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/modules/admin/collection-docs.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/common/mongoose/optimistic-lock.plugin.spec.ts",
+          "status": "passed",
+          "tests": 1
+        },
+        {
+          "file": "backend/src/common/data-version/data-version.service.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/site/site.service.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/offers/offer-backgrounds.service.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/audit/audit-query.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/showcase/showcase-composition.spec.ts",
+          "status": "passed",
+          "tests": 1
+        },
+        {
+          "file": "backend/src/modules/status/status.service.spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/src/common/guards/roles.guard.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/common/guards/permissions.guard.spec.ts",
+          "status": "passed",
+          "tests": 25
+        },
+        {
+          "file": "backend/src/common/photo-main.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/showcase/facet-elements.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/common/data-version/data-version.snapshot.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/common/text/shipment-ready.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/common/guards/roles.guard.hierarchy.spec.ts",
+          "status": "passed",
+          "tests": 14
+        },
+        {
+          "file": "backend/src/common/catalog/passport-link.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/common/work-route-rows.spec.ts",
+          "status": "passed",
+          "tests": 13
+        },
+        {
+          "file": "backend/src/modules/dicts/dicts.metal.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/work/work-flow.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-when.spec.ts",
+          "status": "passed",
+          "tests": 31
+        },
+        {
+          "file": "backend/src/modules/salesorders/production-orders.assign.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/common/filters/error-messages-ru.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/dicts/dicts.person-login.spec.ts",
+          "status": "passed",
+          "tests": 9
+        },
+        {
+          "file": "backend/src/modules/design/design-present.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/common/stock-scope.spec.ts",
+          "status": "passed",
+          "tests": 10
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-bind.spec.ts",
+          "status": "passed",
+          "tests": 9
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-queue.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/common/decorators/current-user.decorator.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/common/guards/confirm-token.guard.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/salesorders/production-orders.spec.ts",
+          "status": "passed",
+          "tests": 9
+        },
+        {
+          "file": "backend/src/modules/product-passport/print-pack.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/config/secret-validation.service.spec.ts",
+          "status": "passed",
+          "tests": 20
+        },
+        {
+          "file": "backend/src/modules/pdm-import/pdm-plan.spec.ts",
+          "status": "passed",
+          "tests": 25
+        },
+        {
+          "file": "backend/src/common/decorators/is-object-id.decorator.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/common/guards/app-section.guard.spec.ts",
+          "status": "passed",
+          "tests": 9
+        },
+        {
+          "file": "backend/src/modules/showcase/showcase-similar.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/common/roles-custom.spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/src/modules/salesorders/order-pdf.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/common/filters/http-exception.filter.spec.ts",
+          "status": "passed",
+          "tests": 14
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-promote.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/common/middleware/permissions-boot-validator.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/common/contracts/rbac-contract.spec.ts",
+          "status": "passed",
+          "tests": 28
+        },
+        {
+          "file": "backend/src/common/photos.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/offers/offer-rules.spec.ts",
+          "status": "passed",
+          "tests": 13
+        },
+        {
+          "file": "backend/src/modules/today/today-scope.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/common/catalog/purchase-needs.spec.ts",
+          "status": "passed",
+          "tests": 8
+        },
+        {
+          "file": "backend/src/common/interceptors/money-mask.interceptor.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/common/interceptors/slow-request.interceptor.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/common/passport/phrase-tree.spec.ts",
+          "status": "passed",
+          "tests": 21
+        },
+        {
+          "file": "backend/src/modules/photos/image-upload.options.spec.ts",
+          "status": "passed",
+          "tests": 10
+        },
+        {
+          "file": "backend/src/common/role-money.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/modules/disk/backup-reminder.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/common/confirm-token.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/notifications/notification-kind.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/common/guards/owner-only.guard.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/common/work-plan.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/finance/by-articles.spec.ts",
+          "status": "passed",
+          "tests": 16
+        },
+        {
+          "file": "backend/src/modules/disk/bundle.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/common/line-type.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/common/work-facts.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/common/login-softlock/login-softlock.service.spec.ts",
+          "status": "passed",
+          "tests": 10
+        },
+        {
+          "file": "backend/src/modules/desktop/desktop-compat.service.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/matching/matching-lines.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/salesorders/order-history.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/photos/image-orientation.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/control/control.catalog.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/common/roles-hierarchy.spec.ts",
+          "status": "passed",
+          "tests": 18
+        },
+        {
+          "file": "backend/src/common/interceptors/latency-histogram.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-snapshot-edit.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-template-select.spec.ts",
+          "status": "passed",
+          "tests": 1
+        },
+        {
+          "file": "backend/src/modules/finance/forecast.spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/src/common/date-parse.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/common/text/search-norm.spec.ts",
+          "status": "passed",
+          "tests": 8
+        },
+        {
+          "file": "backend/src/common/catalog/materials-text.spec.ts",
+          "status": "passed",
+          "tests": 11
+        },
+        {
+          "file": "backend/src/common/catalog/names.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/common/print/tech-sheet-rows.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/admin/admin-list-query.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/common/passport/funnel.spec.ts",
+          "status": "passed",
+          "tests": 11
+        },
+        {
+          "file": "backend/src/modules/offers/offer-layout.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/common/catalog/match-key.spec.ts",
+          "status": "passed",
+          "tests": 46
+        },
+        {
+          "file": "backend/src/modules/disk/disk-usage.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/common/issued-net.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/stock/article-clean.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/partners/customer-names.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/common/uploads/safe-path.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/common/guards/user-activity-cache.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/modules/admin/toClientUser.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/control/switch/switch.rules.spec.ts",
+          "status": "passed",
+          "tests": 13
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-compose.spec.ts",
+          "status": "passed",
+          "tests": 20
+        },
+        {
+          "file": "backend/src/modules/audit/record-history.spec.ts",
+          "status": "passed",
+          "tests": 8
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-texts-tree.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/showcase/order-product-name.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/audit/action-ru.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/control/control.rollup.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/common/app-sections.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/stock/article.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/payroll/payroll-calc.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/today/today-feed.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/stock/stock-match.spec.ts",
+          "status": "passed",
+          "tests": 13
+        },
+        {
+          "file": "backend/src/database/soft-delete-coverage.spec.ts",
+          "status": "passed",
+          "tests": 1
+        },
+        {
+          "file": "backend/src/common/passport/name-suggest.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/modules/offers/offer-ready.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/modules/dicts/dicts.payroll.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/device-enrollment/device-cookie.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/common/work-schedule.spec.ts",
+          "status": "passed",
+          "tests": 9
+        },
+        {
+          "file": "backend/src/modules/showcase/passport-models.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/common/catalog/product-match.spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/src/modules/supply/supply-invoice-rules.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/product-requests/product-request-rules.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/common/print/fill-text.spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/src/common/passport/form-values.spec.ts",
+          "status": "passed",
+          "tests": 9
+        },
+        {
+          "file": "backend/src/common/logging/quiet-nest-logger.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/supply/supply-notices.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/stock/weight.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/stock/metal.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-product-images.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/common/text/order-key.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/showcase/series-dict.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/showcase/catalog-rows.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-pdf-v2-cover.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/device-enrollment/device-crypto.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/design/znp-line.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/modules/stock/stock-rank.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/design/design-note-rules.spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/src/common/text/shipment-calc.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/common/uploads/upload-folder.spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/src/modules/showcase/composition-cycle.spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/src/modules/salesorders/order-readiness.spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/src/modules/product-passport/passport-schemes.spec.ts",
+          "status": "passed",
+          "tests": 3
+        }
+      ]
+    },
+    {
+      "label": "e2e-01",
+      "exit": 0,
+      "suites": 8,
+      "passedSuites": 8,
+      "tests": 80,
+      "passed": 80,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "backend/test/e2e/app-sections.e2e-spec.ts",
+          "status": "passed",
+          "tests": 21
+        },
+        {
+          "file": "backend/test/e2e/app-data.e2e-spec.ts",
+          "status": "passed",
+          "tests": 24
+        },
+        {
+          "file": "backend/test/e2e/chain-order-to-ship.e2e-spec.ts",
+          "status": "passed",
+          "tests": 10
+        },
+        {
+          "file": "backend/test/e2e/catalog-composition.e2e-spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/test/e2e/auth.e2e-spec.ts",
+          "status": "passed",
+          "tests": 9
+        },
+        {
+          "file": "backend/test/e2e/admin-users-id.e2e-spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/test/e2e/audit-context.e2e-spec.ts",
+          "status": "passed",
+          "tests": 1
+        },
+        {
+          "file": "backend/test/e2e/audit-logs.e2e-spec.ts",
+          "status": "passed",
+          "tests": 5
+        }
+      ]
+    },
+    {
+      "label": "e2e-02",
+      "exit": 0,
+      "suites": 8,
+      "passedSuites": 8,
+      "tests": 56,
+      "passed": 56,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "backend/test/e2e/control-questions.e2e-spec.ts",
+          "status": "passed",
+          "tests": 8
+        },
+        {
+          "file": "backend/test/e2e/chain-supply-to-stock.e2e-spec.ts",
+          "status": "passed",
+          "tests": 10
+        },
+        {
+          "file": "backend/test/e2e/client-errors.e2e-spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/test/e2e/collections-admin-drop.e2e-spec.ts",
+          "status": "passed",
+          "tests": 10
+        },
+        {
+          "file": "backend/test/e2e/chain-stock-race.e2e-spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/test/e2e/chat.e2e-spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/test/e2e/chain-payment-form.e2e-spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/test/e2e/collections-admin-docs.e2e-spec.ts",
+          "status": "passed",
+          "tests": 5
+        }
+      ]
+    },
+    {
+      "label": "e2e-03",
+      "exit": 0,
+      "suites": 8,
+      "passedSuites": 8,
+      "tests": 51,
+      "passed": 51,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "backend/test/e2e/finance.e2e-spec.ts",
+          "status": "passed",
+          "tests": 9
+        },
+        {
+          "file": "backend/test/e2e/design.e2e-spec.ts",
+          "status": "passed",
+          "tests": 10
+        },
+        {
+          "file": "backend/test/e2e/device-enrollment.e2e-spec.ts",
+          "status": "passed",
+          "tests": 8
+        },
+        {
+          "file": "backend/test/e2e/custom-roles.e2e-spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/test/e2e/control-switch.e2e-spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/test/e2e/dicts.e2e-spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/test/e2e/control.e2e-spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/test/e2e/fill-audit.e2e-spec.ts",
+          "status": "passed",
+          "tests": 3
+        }
+      ]
+    },
+    {
+      "label": "e2e-04",
+      "exit": 0,
+      "suites": 8,
+      "passedSuites": 8,
+      "tests": 44,
+      "passed": 44,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "backend/test/e2e/my-tasks.e2e-spec.ts",
+          "status": "passed",
+          "tests": 9
+        },
+        {
+          "file": "backend/test/e2e/matching-assign.e2e-spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/test/e2e/manager-zones-auth.e2e-spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/test/e2e/materials.e2e-spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/test/e2e/key-scopes.e2e-spec.ts",
+          "status": "passed",
+          "tests": 10
+        },
+        {
+          "file": "backend/test/e2e/material-summary.e2e-spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/test/e2e/meta.e2e-spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/test/e2e/me-versions.e2e-spec.ts",
+          "status": "passed",
+          "tests": 2
+        }
+      ]
+    },
+    {
+      "label": "e2e-05",
+      "exit": 0,
+      "suites": 8,
+      "passedSuites": 8,
+      "tests": 58,
+      "passed": 58,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "backend/test/e2e/new-endpoints-1101.e2e-spec.ts",
+          "status": "passed",
+          "tests": 18
+        },
+        {
+          "file": "backend/test/e2e/orders-cancel.e2e-spec.ts",
+          "status": "passed",
+          "tests": 8
+        },
+        {
+          "file": "backend/test/e2e/offers-kp2.e2e-spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/test/e2e/order-lines.e2e-spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/test/e2e/offers.e2e-spec.ts",
+          "status": "passed",
+          "tests": 9
+        },
+        {
+          "file": "backend/test/e2e/order-line-plan.e2e-spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/test/e2e/offers-pack.e2e-spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/test/e2e/offers-last.e2e-spec.ts",
+          "status": "passed",
+          "tests": 1
+        }
+      ]
+    },
+    {
+      "label": "e2e-06",
+      "exit": 0,
+      "suites": 8,
+      "passedSuites": 8,
+      "tests": 65,
+      "passed": 65,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "backend/test/e2e/passports.e2e-spec.ts",
+          "status": "passed",
+          "tests": 17
+        },
+        {
+          "file": "backend/test/e2e/pdm-import.e2e-spec.ts",
+          "status": "passed",
+          "tests": 19
+        },
+        {
+          "file": "backend/test/e2e/partners.e2e-spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/test/e2e/organization-assets.e2e-spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/test/e2e/owner-invariant.e2e-spec.ts",
+          "status": "passed",
+          "tests": 8
+        },
+        {
+          "file": "backend/test/e2e/passports-ready.e2e-spec.ts",
+          "status": "passed",
+          "tests": 6
+        },
+        {
+          "file": "backend/test/e2e/passport-traits.e2e-spec.ts",
+          "status": "passed",
+          "tests": 3
+        },
+        {
+          "file": "backend/test/e2e/permissions-admin.e2e-spec.ts",
+          "status": "passed",
+          "tests": 2
+        }
+      ]
+    },
+    {
+      "label": "e2e-07",
+      "exit": 0,
+      "suites": 8,
+      "passedSuites": 8,
+      "tests": 40,
+      "passed": 40,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "backend/test/e2e/salesorders.e2e-spec.ts",
+          "status": "passed",
+          "tests": 8
+        },
+        {
+          "file": "backend/test/e2e/products-order.e2e-spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/test/e2e/production-orders.e2e-spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/test/e2e/products-attach-modules.e2e-spec.ts",
+          "status": "passed",
+          "tests": 8
+        },
+        {
+          "file": "backend/test/e2e/roles-money.e2e-spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/test/e2e/product-module-photos.e2e-spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/test/e2e/product-modules.e2e-spec.ts",
+          "status": "passed",
+          "tests": 2
+        },
+        {
+          "file": "backend/test/e2e/products.e2e-spec.ts",
+          "status": "passed",
+          "tests": 3
+        }
+      ]
+    },
+    {
+      "label": "e2e-08",
+      "exit": 0,
+      "suites": 8,
+      "passedSuites": 8,
+      "tests": 79,
+      "passed": 79,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "backend/test/e2e/stock-supply.e2e-spec.ts",
+          "status": "passed",
+          "tests": 22
+        },
+        {
+          "file": "backend/test/e2e/showcase.e2e-spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/test/e2e/stock-scope.e2e-spec.ts",
+          "status": "passed",
+          "tests": 14
+        },
+        {
+          "file": "backend/test/e2e/stock-zones.e2e-spec.ts",
+          "status": "passed",
+          "tests": 8
+        },
+        {
+          "file": "backend/test/e2e/stock-catalog-atomicity.e2e-spec.ts",
+          "status": "passed",
+          "tests": 12
+        },
+        {
+          "file": "backend/test/e2e/shipments.e2e-spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/test/e2e/stock-items-bulk.e2e-spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/test/e2e/search-empty.e2e-spec.ts",
+          "status": "passed",
+          "tests": 6
+        }
+      ]
+    },
+    {
+      "label": "e2e-09",
+      "exit": 0,
+      "suites": 8,
+      "passedSuites": 8,
+      "tests": 62,
+      "passed": 62,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "backend/test/e2e/supply-invoices.e2e-spec.ts",
+          "status": "passed",
+          "tests": 10
+        },
+        {
+          "file": "backend/test/e2e/trash-lists.e2e-spec.ts",
+          "status": "passed",
+          "tests": 15
+        },
+        {
+          "file": "backend/test/e2e/supplier-contracts.e2e-spec.ts",
+          "status": "passed",
+          "tests": 9
+        },
+        {
+          "file": "backend/test/e2e/trash-docs-orders.e2e-spec.ts",
+          "status": "passed",
+          "tests": 5
+        },
+        {
+          "file": "backend/test/e2e/work-facts.e2e-spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/test/e2e/user-organizationId.e2e-spec.ts",
+          "status": "passed",
+          "tests": 7
+        },
+        {
+          "file": "backend/test/e2e/supplier-catalog-ux.e2e-spec.ts",
+          "status": "passed",
+          "tests": 4
+        },
+        {
+          "file": "backend/test/e2e/supply-catalog-bulk.e2e-spec.ts",
+          "status": "passed",
+          "tests": 5
+        }
+      ]
+    },
+    {
+      "label": "e2e-10",
+      "exit": 0,
+      "suites": 1,
+      "passedSuites": 1,
+      "tests": 4,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "backend/test/e2e/work.e2e-spec.ts",
+          "status": "passed",
+          "tests": 4
+        }
+      ]
+    },
+    {
+      "label": "e2e-11",
+      "exit": 0,
+      "suites": 1,
+      "passedSuites": 1,
+      "tests": 22,
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        {
+          "file": "backend/test/reset-password.e2e-spec.ts",
+          "status": "passed",
+          "tests": 22
+        }
+      ]
+    }
+  ]
+}

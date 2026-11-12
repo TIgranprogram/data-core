@@ -1,5 +1,7 @@
 # Карта роли designer
 
+- C089 (12.11): независимый PASS назначенной геометрии passportFill/drawer/layout.related на prod-GET replay; 3 PNG открыты, 24 измерения без overflow, drag 600→760. Полная приёмка PARTIAL: реальный основной раздел и zoom не доказаны; дополнительно Tab/ShiftTab/Enter/Escape PASS, второй синтетический drawer 8/8 PASS. Save/PDF/photo-actions не перепроверены. docs/crew/C089-workplace-clarity/DESIGNER-FINAL.md.
+
 - C091 (12.11): desktop-пульт, безопасная browser fixture и 3 открытых снимка; PASS назначенного UI, 9 состояний × обе темы × 1024/1440/1920 без горизонтального overflow. interrupted: повтор disabled, следующий шаг — журнал агенту. P2: общая подсказка журнала ещё говорит «Запустить»/«слева». Доказательства: docs/crew/C091-pult-test-flow/UI-REVIEW.md. Реальный обход не запускался.
 
 коммит: d9ca8bd2 (+ незакоммиченное C091, desktop fixture PASS 12.11). Журнал review-scope не закрывался: проверен только назначенный C091.

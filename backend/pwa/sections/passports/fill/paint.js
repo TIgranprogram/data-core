@@ -184,7 +184,11 @@ export function syncChrome(ctx) {
   const asm = ctx.asked.has('assembly') || ctx.byKind.has('assembly');
   for (const [id, sec] of Object.entries(ctx.secs)) {
     const hosts = [ctx.fieldHost[id], ctx.textHost[id], ctx.slotHost[id]];
-    const has = hosts.some((host) => [...host.childNodes].some((n) => !n.hidden));
+    const visible = (host) => [...host.childNodes].some((n) => !n.hidden);
+    const main = ctx.fieldHost[id].parentElement;
+    main.hidden = !visible(ctx.fieldHost[id]) && !visible(ctx.textHost[id]);
+    ctx.slotHost[id].hidden = !visible(ctx.slotHost[id]);
+    const has = hosts.some(visible);
     if (id === 'other') sec.hidden = !has;
     else if (id === 'assembly') sec.hidden = !(kitOn || asm);
     else if (ctx.mode === 'issue') sec.hidden = !has;

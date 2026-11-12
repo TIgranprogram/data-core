@@ -168,7 +168,7 @@ function renderTester() {
   b.disabled = b.disabled || !t || t.busy || !!preparing;
   b.onclick = async () => {
     S.testerPending = true; renderTester();
-    await press(c); S.testerPending = false; await loadStatus(); renderTester();
+    await press(c); S.testerPending = false; await loadStatus(); render();
   };
   const actions = el('div', 'tester-actions');
   const report = el('button', 'ghost', 'Результаты');

@@ -1,3 +1,9 @@
+## C089 компактный паспорт (2026-11-12)
+коммит: не закоммичено
+- `backend/pwa/ui/kit/index.js:281` layout.related, CSS `ui/kit/kit.css:552`, витрина `sections/kit.js:258`; паспорт `sections/passports/fill/index.js:31`, скрытие пустых групп `fill/paint.js:187`.
+- Слоты рисунков `ui/kit/kit.css:704` (ограниченная ширина, contain); каркас панели `:761` (head/foot без сжатия, прокрутка body). Существующие resize/prefs без изменений.
+- Проверки и оставшаяся браузерная приёмка: `docs/crew/C089-workplace-clarity/IMPLEMENTED.md`. Карта обновлена.
+
 ## C084 «Деньги → По статьям» для директора (2026-11-11, не закоммичено)
 коммит: не закоммичено
 - `ui/kit/tree-table.js` `treeTable` (эталон «дерево в таблице»: depth, «Ещё N», `insert` строка-вставка, фокус назад, resize `--w`); CSS — конец `ui/kit/kit.css`; витрина `sections/kit.js:37` `treeDemo`; DESIGN §4/§8. `ui/kit/index.js` `stat` tone. Экран `sections/money-articles.js` (`articlesView`: `node`, `showOps`, `incomeKids`, `expenseRows`, кварталы `dc-money-articles-period`); `money.js` Сводка `expensesByArticle`, UNSET 'Без статьи'. `offer-pack.js` — confirmDlg перед «Отправить пакет». Отчёт: docs/crew/C084-money-director/frontend.md. Карта обновлена.

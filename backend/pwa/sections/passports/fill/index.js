@@ -1,6 +1,6 @@
 import { api, session } from '../../../core/api.js';
 import { h } from '../../../core/dom.js';
-import { actions, button, clamp, enhanceSelect, field, headbar, hint, link, section, segmented, select, stack, toastError } from '../../../ui/kit/index.js';
+import { actions, button, clamp, enhanceSelect, field, headbar, hint, layout, link, section, segmented, select, stack, toastError } from '../../../ui/kit/index.js';
 import { kindNorm } from '../../../core/passport-kinds.js';
 import { canEdit as canEditTexts, canWorkPassport, dictRows, passportCategoryOptions } from '../common.js';
 import { elementsTexts } from '../elements-block.js';
@@ -28,7 +28,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
   const fieldHost = {}; const textHost = {}; const slotHost = {}; const titles = {}; const secs = {};
   for (const [id, title] of SECTIONS) {
     fieldHost[id] = h('div'); textHost[id] = h('div'); slotHost[id] = h('div'); titles[id] = title;
-    const body = [fieldHost[id], textHost[id], slotHost[id]];
+    const body = [layout.related({ main: stack(fieldHost[id], textHost[id]), side: slotHost[id] })];
     if (id === 'dims') body.unshift(hint('В каждое место вставьте одно изображение. Для габаритов — один чертёж с размерами: виды спереди, сбоку и сверху можно объединить на одном листе. Отдельные места для видов доступны в варианте «Полный». Звёздочкой отмечены обязательные рисунки.'));
     secs[id] = section({ title, fixed: true, tone: 'info', body });
   }
