@@ -549,6 +549,10 @@ table.list .k-nowrap { white-space: nowrap; }
 .k-sec-more { padding-top: var(--s2); }
 .k-sec-more[hidden], .k-sec-body > [hidden] { display: none; }
 /* layout.cols */
+.k-related { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s3); min-width: 0; }
+.k-related > :first-child { flex: 1 1 calc(var(--s5) * 12); min-width: 0; }
+.k-related > :last-child { flex: 1 1 calc(var(--s5) * 9); min-width: 0; }
+.k-related > [hidden] { display: none; }
 .k-cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s3); align-items: start; }
 @media (min-width: 1100px) { .k-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .k-cols.k-cols > .k-sec.k-sec { margin-top: 0; } /* колонки начинаются на одной высоте (без отступа «блок под блоком») */
@@ -697,13 +701,13 @@ table.list td.k-col-wrap { min-width: 11rem; max-width: 0; width: 24%; overflow:
 
 /* C055: слоты рисунков паспорта (product-files) + колонка «Часть» materials-spec */
 .ms-table .ms-c-p { width: 28%; }
-.pp-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: var(--s3); }
+.pp-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(var(--s5) * 6)), calc(var(--s5) * 8))); gap: var(--s3); }
 .pp-slot { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; }
 .pp-slot-cap { font-size: var(--fs-label); line-height: 1.25; color: var(--text); overflow-wrap: anywhere; } /* C086: назначение рисунка читается целиком, без «…» */
 .pp-slot-cap .need { color: var(--warn); }
 .pp-slot-pic { position: relative; aspect-ratio: 1; border-radius: var(--radius-sm); overflow: hidden; background: var(--photo-bg); border: 1px solid var(--border); }
 .pp-slot-zoom { display: block; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; cursor: zoom-in; }
-.pp-slot-zoom img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pp-slot-zoom img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .pp-slot-x { position: absolute; top: var(--s1); right: var(--s1); width: var(--s5); height: var(--s5); border: 0; border-radius: var(--s6); background: color-mix(in srgb, var(--text) 55%, transparent); color: var(--on-primary); cursor: pointer; font-size: var(--fs-sm); line-height: 1; padding: 0; min-width: 0; }
 .pp-slot-x:hover { background: var(--danger); color: var(--on-danger); }
 @media (pointer: coarse), (max-width: 720px) { .btn.pp-slot-x { width: var(--tap); height: var(--tap); min-width: var(--tap); min-height: var(--tap); } } /* телефон: зона пальца, превью с overflow режет вынос */
@@ -753,3 +757,8 @@ table.cal.k-tree .k-tree-share .share-bar i { width: var(--w, 0); }
 table.cal.k-tree tr.k-tree-ins > td { padding: 0; white-space: normal; text-align: left; background: var(--surface); border-bottom: 2px solid var(--gold); }
 .k-tree-ins-body { position: sticky; left: 0; width: var(--w, 100%); max-width: 100%; box-sizing: border-box; padding: var(--s3) var(--s4); }
 @media (prefers-reduced-motion: reduce) { .k-tree-arrow { transition: none; } table.cal.k-tree tr.k-tree-in > td { animation: none; } }
+
+/* C089: шапка и подвал не сжимаются; прокрутка внутри тела панели. */
+.drawer-head, .drawer-foot { flex-shrink: 0; }
+.drawer-body { min-height: 0; min-width: 0; }
+.drawer-head { padding: var(--s3) var(--s4); }

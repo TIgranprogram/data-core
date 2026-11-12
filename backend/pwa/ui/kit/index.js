@@ -278,6 +278,8 @@ export const layout = {
     const el = mark(h('div', { class: 'k-split' }, toggle, h('aside', { class: 'k-split-side', 'aria-label': sideLabel }, side), h('div', { class: 'k-split-main' }, main)), 'layout.split');
     return el;
   },
+  /** layout.related({ main, side }) — связанные поля и рисунки рядом по доступной ширине; порядок DOM неизменен. */
+  related: ({ main, side }) => mark(h('div', { class: 'k-related' }, main, side), 'layout.related'),
   /** layout.cols(...блоки) → 2 колонки от 1100 px, ниже одна */
   cols: (...blocks) => mark(h('div', { class: 'k-cols' }, ...nodes(blocks)), 'layout.cols'),
 };
