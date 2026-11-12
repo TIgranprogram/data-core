@@ -1,0 +1,112 @@
+{
+  "element": {
+    "id": "6adb17107920f392cb442fd0",
+    "changedFields": [
+      "inDescription",
+      "inspect",
+      "usageRules"
+    ]
+  },
+  "newLeaf": {
+    "id": "6af5b27ae665aeae7f9513f8",
+    "name": "Информирование — указатели и стенды",
+    "groupIds": [
+      "6addd76fc93bb8ea2a6e3945"
+    ],
+    "isDefault": false,
+    "duplicates": 0
+  },
+  "originalLeaf": {
+    "id": "6adb5ab2edd024ba63d7f1a4",
+    "groupIds": [],
+    "unchanged": true
+  },
+  "all": {
+    "oldVersion": 3,
+    "version": 4,
+    "changed": [
+      "mounting.p8"
+    ],
+    "idsAndConditionsUnchanged": true,
+    "tablesUnchanged": true
+  },
+  "products": [
+    {
+      "sku": "3905",
+      "variant": "Информирование — указатели и стенды",
+      "savedChoice": null,
+      "defaultsUnchanged": true
+    },
+    {
+      "sku": "3207",
+      "variant": "Информирование",
+      "savedChoice": "6adb5ab2edd024ba63d7f1a4",
+      "defaultsUnchanged": true
+    },
+    {
+      "sku": "3901",
+      "variant": "Информирование",
+      "savedChoice": "6adb5ab2edd024ba63d7f1a4",
+      "defaultsUnchanged": true
+    }
+  ],
+  "issued": [
+    {
+      "number": "500",
+      "revision": 1,
+      "sections": 12,
+      "sha256": "07c462e33fd81a0f67f71bfb7411ef1299d5fbdb2aff1eff726d28b01f923474",
+      "unchanged": true
+    },
+    {
+      "number": "522",
+      "revision": 1,
+      "sections": 12,
+      "sha256": "43748e5a499fc4531724f501b6a0688d9e98abf92f56f6ec052d71dbcb3cf186",
+      "unchanged": true
+    },
+    {
+      "number": "597",
+      "revision": 5,
+      "sections": 12,
+      "sha256": "0615a60120d5f413db628d2fd3f824caae278349078eec3d4685af67fb40d391",
+      "unchanged": true
+    }
+  ],
+  "rerun": {
+    "element": "skip",
+    "leaf": "skip",
+    "all": "skip"
+  },
+  "preview": {
+    "pdfBytes": 117634,
+    "pdfPages": 13,
+    "phrases": {
+      "конструкции для размещения информации": [
+        3
+      ],
+      "Надёжность установки и крепления изделия": [
+        7
+      ],
+      "Целостность конструкции и защитного покрытия": [
+        7
+      ],
+      "Сохранность и читаемость размещённой информации": [
+        7
+      ],
+      "Не забираться на изделие, не повисать на нём и не раскачивать его": [
+        3
+      ],
+      "Дополнительные материалы размещать только в местах, предусмотренных конструкцией изделия": [
+        3
+      ],
+      "Предназначено для размещения информации.": [
+        2,
+        3
+      ],
+      "Во время монтажа контролируют соответствие положения изделия монтажной схеме, включая вертикальность и горизонтальность, а также затяжку крепёжных соединений при их наличии.": [
+        4
+      ]
+    }
+  }
+}
