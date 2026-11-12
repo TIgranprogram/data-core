@@ -1,5 +1,5 @@
 ## C094 история: фото и заказы (2026-11-12)
-коммит: не закоммичено
+коммит: 92ea3dca; витрина faa87f09, выложено v1.734
 - `backend/pwa/core/recent-cards.js:5` — текстовый id только salesorders; `:8` recentThumb, только локальные uploads.
 - `backend/pwa/ui/kit/recent-cards.js:15` — canonical key/legacy alias, текущая вкладка, клиент и фото; `:31` миниатюра/fallback; `:49` одна ссылка без повтора типа.
 - `backend/pwa/ui/kit/pop-menu.js:20` — optional lead; `ui/kit/kit.css:775` — миниатюра на токенах; `sections/kit.js:323` — витрина. Тесты10/10; отчёт C094/RECENT-PHOTOS-FRONTEND.md. Карта обновлена.
