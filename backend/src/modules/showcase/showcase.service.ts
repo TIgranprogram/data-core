@@ -185,7 +185,9 @@ export class ShowcaseService {
   async groups() {
     const cats = await this.db.collection('categories').find({ type: 'product', deletedAt: null }, { projection: { name: 1, parentId: 1, groupNo: 1 } }).sort({ name: 1 }).toArray();
     const counts = await this.db.collection('products').aggregate([{ $match: LIVE }, { $group: { _id: '$categoryId', n: { $sum: 1 } } }]).toArray();
-    const n = new Map(counts.map((c) => [String(c._id), c.n as number]));
+    // ИЗ-21: categoryId бывает и ObjectId, и строкой — $group даёт две записи на одну группу, их складываем
+    const n = new Map<string, number>();
+    for (const c of counts) n.set(String(c._id), (n.get(String(c._id)) ?? 0) + (c.n as number));
     // ПРД.5: число = всё поддерево (то же, что покажет список по этой группе)
     const total = (id: Types.ObjectId) => subtreeIds(id, cats).reduce((sum, x) => sum + (n.get(String(x)) ?? 0), 0);
     return cats.map((c) => ({ id: String(c._id), name: String(c.name), parentId: c.parentId ? String(c.parentId) : null, groupNo: c.groupNo ? String(c.groupNo) : null, count: total(c._id as Types.ObjectId) }))
