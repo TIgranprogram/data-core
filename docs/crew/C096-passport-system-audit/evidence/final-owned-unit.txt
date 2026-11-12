@@ -1,0 +1,466 @@
+PASS src/modules/supply/supply-invoice.service.spec.ts (7.572 s)
+PASS src/modules/supply/supply.service.spec.ts
+PASS src/modules/design/design.service.spec.ts
+[Nest] 9872  - 12.11.2026, 23:12:37    WARN [DesignService] Метка заказа на доске не поставлена: mongo недоступен
+PASS src/modules/incomes/incomes.service.spec.ts
+PASS src/modules/control/questions/questions.service.spec.ts
+PASS src/modules/material/material.service.spec.ts
+[Nest] 9872  - 12.11.2026, 23:12:38    WARN [AuthService] login_attempt_unknown_user username=ghost ip=127.0.0.1
+[Nest] 9872  - 12.11.2026, 23:12:38    WARN [AuthService] login_attempt_unknown_user username=ghost ip=127.0.0.1
+[Nest] 9872  - 12.11.2026, 23:12:38    WARN [AuthService] login_attempt_wrong_password username=alice ip=127.0.0.1
+[Nest] 9872  - 12.11.2026, 23:12:38    WARN [AuthService] login_attempt_wrong_password username=alice ip=127.0.0.1
+[Nest] 9872  - 12.11.2026, 23:12:38    WARN [AuthService] login_attempt_unknown_user username=ghost ip=127.0.0.1
+[Nest] 9872  - 12.11.2026, 23:12:38    WARN [AuthService] login_attempt_wrong_password username=alice ip=127.0.0.1
+[Nest] 9872  - 12.11.2026, 23:12:38    WARN [LoginSoftlockService] Login softlock TRIGGERED username=locked-user lockedUntil=2026-11-12T20:27:38.651Z
+[Nest] 9872  - 12.11.2026, 23:12:38    WARN [AuthService] login_attempt_locked_out username=locked-user lockedUntil=2026-11-12T20:27:38.651Z ip=127.0.0.1
+PASS src/modules/auth/auth.service.spec.ts
+[Nest] 9872  - 12.11.2026, 23:12:38    WARN [AuthService] login_attempt_unknown_user username=ghost ip=127.0.0.1
+[Nest] 9872  - 12.11.2026, 23:12:38    WARN [AuthService] login_attempt_wrong_password username=alice ip=127.0.0.1
+[Nest] 9872  - 12.11.2026, 23:12:38    WARN [LoginSoftlockService] Login softlock TRIGGERED username=lockout-user lockedUntil=2026-11-12T20:27:38.693Z
+[Nest] 9872  - 12.11.2026, 23:12:38    WARN [AuthService] login_attempt_locked_out username=lockout-user lockedUntil=2026-11-12T20:27:38.693Z ip=127.0.0.1
+[Nest] 9872  - 12.11.2026, 23:12:38    WARN [AuthService] Refusing privileged role escalation: alice attempted role=manager; coerced to 'user' (TZ-249 §2.2)
+[Nest] 9872  - 12.11.2026, 23:12:38     LOG [AuthService] User registered: alice (user)
+[Nest] 9872  - 12.11.2026, 23:12:38     LOG [AuthService] User registered: bob (manager)
+[Nest] 9872  - 12.11.2026, 23:12:38     LOG [AuthService] User registered: carol (user)
+[Nest] 9872  - 12.11.2026, 23:12:38     LOG [AuthService] User logged in: alice
+[Nest] 9872  - 12.11.2026, 23:12:38     LOG [AuthService] User logged in: alice
+[Nest] 9872  - 12.11.2026, 23:12:38     LOG [AuthService] User logged in: alice
+PASS src/modules/product/product.service.spec.ts
+[Nest] 9872  - 12.11.2026, 23:12:38    WARN [ProductService] QR не выдан: boom
+PASS src/modules/product-passport/passport-gaps.spec.ts
+PASS src/modules/color-reference/color-reference.service.spec.ts
+[Nest] 9872  - 12.11.2026, 23:12:39     LOG [ColorReferenceService] Created color reference ral-9003-signalny-belyy
+[Nest] 9872  - 12.11.2026, 23:12:39     LOG [ColorReferenceService] Created color reference ne-vybran
+[Nest] 9872  - 12.11.2026, 23:12:39     LOG [ColorReferenceService] Created color reference ral-9003-signalny-belyy
+PASS src/modules/work/work.service.spec.ts
+PASS src/modules/product-module/product-module.service.spec.ts
+PASS src/modules/product-passport/passport-pdf-v2.spec.ts
+PASS src/modules/dicts/dicts.rename.spec.ts
+PASS src/modules/product-passport/passport-snapshot-refresh.spec.ts
+PASS src/modules/control/control.service.spec.ts
+PASS src/common/catalog/catalog-graph.service.spec.ts
+PASS src/modules/role/role.service.spec.ts
+[Nest] 9872  - 12.11.2026, 23:12:42     LOG [RoleService] Role created: x
+[Nest] 9872  - 12.11.2026, 23:12:42     LOG [RoleService] Role created: x
+[Nest] 9872  - 12.11.2026, 23:12:42     LOG [RoleService] Role updated: manager
+[Nest] 9872  - 12.11.2026, 23:12:42     LOG [RoleService] Role updated: r-abc123
+[Nest] 9872  - 12.11.2026, 23:12:42     LOG [RoleService] Role updated: admin
+[Nest] 9872  - 12.11.2026, 23:12:42     LOG [RoleService] Role updated: manager
+[Nest] 9872  - 12.11.2026, 23:12:42     LOG [RoleService] Role updated: r-abc123
+[Nest] 9872  - 12.11.2026, 23:12:42     LOG [RoleService] Role deleted: r-abc123
+[Nest] 9872  - 12.11.2026, 23:12:42     LOG [RoleService] Role created: r-956521
+[Nest] 9872  - 12.11.2026, 23:12:42     LOG [RoleService] Role updated: r-kl
+[Nest] 9872  - 12.11.2026, 23:12:42     LOG [RoleService] Role updated: r-kl
+[Nest] 9872  - 12.11.2026, 23:12:42     LOG [RoleService] Role updated: r-kl
+[Nest] 9872  - 12.11.2026, 23:12:42     LOG [RoleService] Role deleted: r-kl
+PASS src/modules/control/switch/switch.service.spec.ts
+[Nest] 9872  - 12.11.2026, 23:12:42    WARN [SwitchService] переключение 371bd53f8d04: Мост переключения перестал отвечать. Сервер вернулся в обычный режим.
+PASS src/modules/pdm-import/pdm-import.service.spec.ts
+PASS src/modules/counterparty/counterparty.spec.ts
+PASS src/modules/organization/organization.spec.ts
+[Nest] 9872  - 12.11.2026, 23:12:43    WARN [OrganizationService] Нормализация слота «logo» не удалась, берём оригинал: Input file is missing: uploads\abc.png
+[Nest] 9872  - 12.11.2026, 23:12:43    WARN [OrganizationService] Нормализация слота «logo» не удалась, берём оригинал: Input file is missing: uploads\abc.png
+[Nest] 9872  - 12.11.2026, 23:12:43    WARN [OrganizationService] Нормализация слота «logo» не удалась, берём оригинал: Input file is missing: uploads\abc.png
+[Nest] 9872  - 12.11.2026, 23:12:43    WARN [OrganizationService] Не удалось удалить прежний файл слота «logo» (6af61dbb38cab873de31d7b9): gone
+[Nest] 9872  - 12.11.2026, 23:12:43    WARN [OrganizationService] Нормализация слота «seal» не удалась, берём оригинал: Input file is missing: uploads\abc.png
+PASS src/modules/matching/matching.spec.ts
+PASS src/modules/admin/users-admin.controller.spec.ts
+PASS src/modules/productattachments/productattachments.spec.ts
+PASS src/modules/stock/stock-catalog.service.spec.ts
+[Nest] 9872  - 12.11.2026, 23:12:44    WARN [StockCatalogService] QR не выдан: QR unavailable
+PASS src/modules/productattachments/order-zip.spec.ts
+[Nest] 9872  - 12.11.2026, 23:12:44    WARN [ProductAttachments] Не стёрт файл вложения b: path escapes root
+[Nest] 9872  - 12.11.2026, 23:12:44     LOG [ProductAttachments] Стёрто файлов убранных вложений: 1
+PASS src/modules/client-errors/client-errors.service.spec.ts
+PASS src/config/secret-validation.service.spec.ts
+[Nest] 9872  - 12.11.2026, 23:12:45    WARN [Bootstrap] ⚠️ Weak secret markers detected (TZ-248 — allow-listed in dev/test, will FAIL in production):
+  - INSECURE_JWT_SECRET_TOO_SHORT length=3 required>=32
+[Nest] 9872  - 12.11.2026, 23:12:45    WARN [Bootstrap] ⚠️ Weak secret markers detected (TZ-248 — allow-listed in dev/test, will FAIL in production):
+  - INSECURE_JWT_SECRET_TOO_SHORT length=5 required>=32
+  - INSECURE_JWT_REFRESH_SECRET_TOO_SHORT length=5 required>=32
+  - INSECURE_ADMIN_PASSWORD_TOO_SHORT length=5 required>=12
+  - INSECURE_JWT_REFRESH_SECRET_SAME_AS_ACCESS must differ from JWT_SECRET
+[Nest] 9872  - 12.11.2026, 23:12:45    WARN [Bootstrap] ⏭️  SecretValidationService disabled via DISABLE_SECRET_VALIDATION=1 (TZ-248 opt-out)
+PASS src/modules/finance/by-articles.spec.ts
+PASS src/common/passport/phrase-tree.spec.ts
+PASS src/modules/product-passport/passport-traits.spec.ts
+PASS src/modules/product-passport/passport-compose.spec.ts
+PASS src/modules/product-passport/passport-order.spec.ts
+[Nest] 9872  - 12.11.2026, 23:12:45   ERROR [EavService] EAV bulkWrite failed for product 6af61dbd1dc063639126bf60: connection-reset
+Error: connection-reset
+    at Object.<anonymous> (C:\Users\User\.codex\worktrees\c096-verification\data-core\backend\src\common\eav\eav.service.spec.ts:229:48)
+    at Promise.then.completed (D:\data-core\backend\node_modules\.pnpm\jest-circus@29.7.0\node_modules\jest-circus\build\utils.js:298:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (D:\data-core\backend\node_modules\.pnpm\jest-circus@29.7.0\node_modules\jest-circus\build\utils.js:231:10)
+    at _callCircusTest (D:\data-core\backend\node_modules\.pnpm\jest-circus@29.7.0\node_modules\jest-circus\build\run.js:316:40)
+    at async _runTest (D:\data-core\backend\node_modules\.pnpm\jest-circus@29.7.0\node_modules\jest-circus\build\run.js:252:3)
+    at async _runTestsForDescribeBlock (D:\data-core\backend\node_modules\.pnpm\jest-circus@29.7.0\node_modules\jest-circus\build\run.js:126:9)
+    at async _runTestsForDescribeBlock (D:\data-core\backend\node_modules\.pnpm\jest-circus@29.7.0\node_modules\jest-circus\build\run.js:121:9)
+    at async _runTestsForDescribeBlock (D:\data-core\backend\node_modules\.pnpm\jest-circus@29.7.0\node_modules\jest-circus\build\run.js:121:9)
+    at async run (D:\data-core\backend\node_modules\.pnpm\jest-circus@29.7.0\node_modules\jest-circus\build\run.js:71:3)
+    at async runAndTransformResultsToJestFormat (D:\data-core\backend\node_modules\.pnpm\jest-circus@29.7.0\node_modules\jest-circus\build\legacy-code-todo-rewrite\jestAdapterInit.js:122:21)
+    at async jestAdapter (D:\data-core\backend\node_modules\.pnpm\jest-circus@29.7.0\node_modules\jest-circus\build\legacy-code-todo-rewrite\jestAdapter.js:79:19)
+    at async runTestInternal (D:\data-core\backend\node_modules\.pnpm\jest-runner@29.7.0\node_modules\jest-runner\build\runTest.js:367:16)
+    at async runTest (D:\data-core\backend\node_modules\.pnpm\jest-runner@29.7.0\node_modules\jest-runner\build\runTest.js:444:34)
+PASS src/common/eav/eav.service.spec.ts
+PASS src/common/guards/permissions.guard.spec.ts
+PASS src/modules/order-line-plan/work-schedule.service.spec.ts
+PASS src/modules/auth/ui-prefs.spec.ts
+PASS src/modules/my-tasks/my-tasks.spec.ts
+PASS src/common/catalog/materials-text.spec.ts
+PASS src/modules/app-data/app-data.validation.spec.ts
+PASS src/modules/photos/photos.service.spec.ts
+PASS src/common/contracts/rbac-contract.spec.ts
+[Nest] 9872  - 12.11.2026, 23:12:47    WARN [PhotosService] Failed to rotate other/2026-11/broken.png: Input file contains unsupported image format
+[Nest] 9872  - 12.11.2026, 23:12:47    WARN [PhotosService] Failed to generate thumb for other/2026-11/broken.png: Input file contains unsupported image format
+PASS src/modules/order-line-plan/order-line-plan.service.spec.ts
+PASS src/common/work-route-rows.spec.ts
+PASS src/modules/finance/cashflow.spec.ts
+PASS src/modules/supply/supplier-contract.service.spec.ts
+PASS src/modules/salesorders/salesorders.service.spec.ts
+PASS src/modules/stock/stock-reservations.service.spec.ts
+PASS src/common/idempotency/idempotency.middleware.spec.ts
+PASS src/modules/product-passport/passport-when.spec.ts
+PASS src/modules/pdm-import/pdm-plan.spec.ts
+PASS src/modules/desktop/desktop-pairing-key.service.spec.ts
+PASS src/common/guards/owner-target.guard.spec.ts
+PASS src/common/guards/last-admin.guard.spec.ts
+PASS src/modules/product-passport/passport-pdf-images.spec.ts
+[Nest] 9872  - 12.11.2026, 23:12:49    WARN [print] Паспорт: в печать просилось {dimensions} — заменено линией
+PASS src/modules/product-passport/passport-rules.spec.ts
+PASS src/common/filters/http-exception.filter.spec.ts
+PASS src/common/catalog/composition-line.service.spec.ts
+PASS src/modules/product-passport/passport-import.spec.ts
+PASS src/modules/stock/stock-spec.service.spec.ts
+PASS src/modules/category/category.service.spec.ts
+PASS src/modules/devlog/devlog.spec.ts
+PASS src/modules/admin/roles-admin.controller.spec.ts
+PASS src/common/catalog/match-key.spec.ts
+PASS src/modules/stock/stock-movements.service.spec.ts
+PASS src/modules/product-passport/passport-compose-parts.spec.ts
+PASS src/modules/device-enrollment/device-enrollment.service.spec.ts
+PASS src/modules/stock/stock-target.spec.ts
+[Nest] 9872  - 12.11.2026, 23:12:51     LOG [DeviceEnrollmentService] Regular device invite created by=aaaaaaaaaaaaaaaaaaaaaaaa role=manager ttlDays=3
+PASS src/modules/product-passport/passport-applicability.spec.ts
+PASS src/modules/product-passport/passport-ready.spec.ts
+PASS src/modules/supply/supplier-catalog.view.spec.ts
+PASS src/modules/control/switch/switch.rules.spec.ts
+PASS src/modules/zones/zones.service.spec.ts
+PASS src/common/interceptors/audit.interceptor.spec.ts
+PASS src/modules/product-passport/passport-texts.v2.spec.ts
+PASS src/modules/product-passport/passport-v2-text.spec.ts
+PASS src/modules/stock/stock-bulk.spec.ts
+PASS src/modules/messages/messages.service.spec.ts
+PASS src/modules/stock/stock-summary.spec.ts
+PASS src/modules/stock/stock-composition.service.spec.ts
+PASS src/modules/zones/zone-events.spec.ts
+PASS src/modules/pdm-files/pdm-files.spec.ts
+PASS src/modules/supply/supply.bulk.spec.ts
+ts-jest[ts-compiler] (WARN) Got a `.js` file to compile while `allowJs` option is not set to `true` (file: C:\Users\User\.codex\worktrees\c096-verification\data-core\backend\scripts\c094-texts-v3.js). To fix this:
+  - if you want TypeScript to process JS files, set `allowJs` to `true` in your TypeScript config (usually tsconfig.json)
+  - if you do not want TypeScript to process your `.js` files, in your Jest config change the `transform` key which value is `ts-jest` so that it does not match `.js` files anymore
+ts-jest[ts-compiler] (WARN) Got a `.js` file to compile while `allowJs` option is not set to `true` (file: C:\Users\User\.codex\worktrees\c096-verification\data-core\backend\scripts\c094-traits.js). To fix this:
+  - if you want TypeScript to process JS files, set `allowJs` to `true` in your TypeScript config (usually tsconfig.json)
+  - if you do not want TypeScript to process your `.js` files, in your Jest config change the `transform` key which value is `ts-jest` so that it does not match `.js` files anymore
+ts-jest[ts-compiler] (WARN) Got a `.js` file to compile while `allowJs` option is not set to `true` (file: C:\Users\User\.codex\worktrees\c096-verification\data-core\backend\scripts\c094-materials.js). To fix this:
+  - if you want TypeScript to process JS files, set `allowJs` to `true` in your TypeScript config (usually tsconfig.json)
+  - if you do not want TypeScript to process your `.js` files, in your Jest config change the `transform` key which value is `ts-jest` so that it does not match `.js` files anymore
+PASS src/modules/product-passport/passport-c094-scripts.spec.ts
+PASS src/modules/pdm-import/pdm-plan-rows.spec.ts
+PASS src/modules/product-passport/passport-pdf-v2-pagination.spec.ts
+PASS src/common/guards/key-scope.spec.ts
+PASS src/modules/product-passport/passport-bind.spec.ts
+PASS src/modules/dicts/dicts.materials-spec.spec.ts
+PASS src/common/stock-scope.spec.ts
+PASS src/common/guards/throttler-behind-auth.guard.spec.ts
+PASS src/modules/product-passport/passport-blanks.spec.ts
+PASS src/modules/offers/offers.pack.spec.ts
+PASS src/modules/today/today.service.spec.ts
+PASS src/modules/product-passport/passport-pdf-gaps.spec.ts
+PASS src/modules/offers/offers.templates.spec.ts
+PASS src/common/catalog/catalog-delete-guards.spec.ts
+PASS src/modules/dicts/dicts.person-login.spec.ts
+PASS src/modules/work-type/work-type.service.spec.ts
+PASS src/common/passport/funnel.spec.ts
+PASS src/modules/stock-zones/stock-zones.service.spec.ts
+PASS src/modules/product-passport/passport-fit.spec.ts
+PASS src/modules/disk/offsite.spec.ts
+PASS src/modules/offers/offer-last.spec.ts
+PASS src/common/guards/system-role.guard.spec.ts
+PASS src/modules/finance/forecast.spec.ts
+PASS src/modules/product-passport/passport-numbering.spec.ts
+PASS src/common/passport/form-values.spec.ts
+PASS src/modules/product-passport/passport-materials-spec.spec.ts
+PASS src/modules/offers/offer-rules.spec.ts
+PASS src/modules/offers/offer-intake.spec.ts
+[Nest] 9872  - 12.11.2026, 23:13:00     LOG [OfferIntakeService] Разбор заявки: знаков 30, позиций 1, токены 10/5
+[Nest] 9872  - 12.11.2026, 23:13:00     LOG [OfferIntakeService] Разбор заявки: знаков 5, позиций 2, токены 10/5
+[Nest] 9872  - 12.11.2026, 23:13:00     LOG [OfferIntakeService] Разбор заявки: знаков 12, позиций 0, токены 10/5
+PASS src/modules/pdm-import/pdm-preview.service.spec.ts
+PASS src/modules/user/user.service.spec.ts
+[Nest] 9872  - 12.11.2026, 23:13:00     LOG [UserService] Password reset by admin for user: alice
+[Nest] 9872  - 12.11.2026, 23:13:00     LOG [UserService] Password reset by admin for user: alice
+[Nest] 9872  - 12.11.2026, 23:13:00     LOG [UserService] User updated: bob
+[Nest] 9872  - 12.11.2026, 23:13:00     LOG [UserService] User updated: bob
+PASS src/modules/salesorders/production-orders.spec.ts
+PASS src/modules/stock/stock-catalog-name.service.spec.ts
+PASS src/common/catalog/materials-table.spec.ts
+PASS src/common/work-schedule.spec.ts
+PASS src/modules/fill-audit/fill-audit.sections.spec.ts
+PASS src/modules/product-passport/passport-from-product.spec.ts
+PASS src/modules/disk/bundle.spec.ts
+PASS src/common/catalog/purchase-needs.spec.ts
+PASS src/common/login-softlock/login-softlock.service.spec.ts
+[Nest] 9872  - 15.11.2023, 01:13:20    WARN [LoginSoftlockService] Login softlock TRIGGERED username=alice lockedUntil=2023-11-14T22:28:20.000Z
+[Nest] 9872  - 15.11.2023, 01:13:20    WARN [LoginSoftlockService] Login softlock TRIGGERED username=alice lockedUntil=2023-11-14T22:28:20.000Z
+[Nest] 9872  - 15.11.2023, 01:13:20    WARN [LoginSoftlockService] Login softlock TRIGGERED username=alice lockedUntil=2023-11-14T22:28:20.000Z
+[Nest] 9872  - 15.11.2023, 01:13:20    WARN [LoginSoftlockService] Login softlock TRIGGERED username=admin lockedUntil=2023-11-14T22:28:20.000Z
+[Nest] 9872  - 15.11.2023, 01:13:20    WARN [LoginSoftlockService] Login softlock TRIGGERED username=alice lockedUntil=2023-11-14T22:28:20.000Z
+[Nest] 9872  - 15.11.2023, 01:13:20    WARN [LoginSoftlockService] Login softlock TRIGGERED username=alice lockedUntil=2023-11-14T22:28:20.000Z
+PASS src/modules/supply/supply-invoice.http.spec.ts
+PASS src/modules/auth/strategies/jwt.strategy.spec.ts
+PASS src/modules/offers/offers.create-pack.spec.ts
+PASS src/modules/dicts/dicts.product-groups.spec.ts
+PASS src/modules/supply/supplier-catalog-import.spec.ts
+PASS src/modules/qr/qr.service.spec.ts
+PASS src/modules/product/product-stock-readonly.spec.ts
+PASS src/common/guards/app-section.guard.spec.ts
+PASS src/modules/product-passport/passport-text-overrides.spec.ts
+PASS src/modules/stock/article-clean.spec.ts
+PASS src/modules/product-passport/passport-texts-tree.spec.ts
+PASS src/modules/unit/unit.service.spec.ts
+PASS src/modules/dicts/dicts.passport-phrases.spec.ts
+[Nest] 9872  - 12.11.2026, 23:13:03     LOG [UnitService] Unit deleted: kg
+[Nest] 9872  - 12.11.2026, 23:13:03     LOG [UnitService] Unit created: kg
+PASS src/modules/product-passport/passport-rules-v2.spec.ts
+PASS src/modules/product-passport/passport-by-order.spec.ts
+PASS src/modules/product-passport/passport-images-product.spec.ts
+PASS src/modules/photos/photos.backfill.spec.ts
+PASS src/modules/offers/offers.admin.spec.ts
+PASS src/common/roles-custom.spec.ts
+PASS src/modules/product-passport/passport-queue.spec.ts
+PASS src/modules/stock/stock-t8-category.spec.ts
+PASS src/modules/expenses/expenses.service.spec.ts
+PASS src/common/idempotency/idempotency-storage.service.spec.ts
+PASS src/modules/dictionary-label/dictionary-label.service.spec.ts
+PASS src/modules/dicts/dicts.passport-usage.spec.ts
+[Nest] 9872  - 12.11.2026, 23:13:05     LOG [DictionaryLabelService] Dictionary labels seeded: 8 defaults checked
+[Nest] 9872  - 12.11.2026, 23:13:05     LOG [DictionaryLabelService] Dictionary labels seeded: 8 defaults checked
+PASS src/modules/product-passport/passport-v2-text-bound.spec.ts
+PASS src/pwa-guards.spec.ts
+PASS src/modules/stock/stock-match.spec.ts
+PASS src/modules/person/person.service.spec.ts
+PASS src/modules/dicts/dicts.passport-traits.spec.ts
+[Nest] 9872  - 12.11.2026, 23:13:06     LOG [PersonService] Person soft-deleted: 6af61dd2281d561cabb42753
+PASS src/modules/photos/image-upload.options.spec.ts
+PASS src/modules/control/questions/question.rules.spec.ts
+PASS src/common/filters/error-messages-ru.spec.ts
+PASS src/modules/admin/permissions-admin.controller.spec.ts
+PASS src/modules/salesorders/order-readiness.spec.ts
+PASS src/modules/audit/record-history.spec.ts
+PASS src/common/passport/name-suggest.spec.ts
+PASS src/common/guards/roles.guard.hierarchy.spec.ts
+PASS src/modules/document-render/document-render.utils.spec.ts
+PASS src/modules/product-passport/passport-look.spec.ts
+PASS src/modules/salesorders/order-history.spec.ts
+PASS src/modules/admin/toClientUser.spec.ts
+PASS src/modules/partners/partners.merge.spec.ts
+PASS src/modules/status/status.service.spec.ts
+PASS src/modules/dicts/dicts.metal.spec.ts
+PASS src/modules/salesorders/order-pdf.spec.ts
+PASS src/common/roles-hierarchy.spec.ts
+PASS src/modules/showcase/passport-defaults.spec.ts
+PASS src/modules/product-passport/passport-reuse.spec.ts
+PASS src/modules/disk/backups.spec.ts
+PASS src/modules/product-photo/product-photo.spec.ts
+PASS src/modules/dicts/dicts.code-lock.spec.ts
+PASS src/modules/showcase/showcase-sku.spec.ts
+PASS src/modules/product-passport/passport-numbers.spec.ts
+PASS src/common/role-money.spec.ts
+PASS src/modules/showcase/showcase-clone.spec.ts
+PASS src/modules/work/work-flow.spec.ts
+PASS src/modules/desktop/desktop-pairing.controller.spec.ts
+PASS src/modules/control/control.runs.spec.ts
+PASS src/modules/expense-articles/expense-articles.service.spec.ts
+PASS src/common/data-version/data-version.service.spec.ts
+PASS src/modules/product-passport/passport-variants.spec.ts
+[Nest] 9872  - 12.11.2026, 23:13:12     LOG [DataVersion] кэш списков включён (поток изменений MongoDB)
+[Nest] 9872  - 12.11.2026, 23:13:12     LOG [DataVersion] кэш списков включён (поток изменений MongoDB)
+[Nest] 9872  - 12.11.2026, 23:13:12    WARN [DataVersion] поток изменений недоступен (нет прав) — кэш списков выключен, повтор каждые 30 с
+[Nest] 9872  - 12.11.2026, 23:13:45     LOG [DataVersion] кэш списков включён (поток изменений MongoDB)
+[Nest] 9872  - 12.11.2026, 23:13:12     LOG [DataVersion] кэш списков включён (поток изменений MongoDB)
+[Nest] 9872  - 12.11.2026, 23:13:09     LOG [PermissionsService] Permissions seeded: 0 inserted, 0 updated
+PASS src/modules/permissions/permissions.service.spec.ts
+PASS src/modules/product-passport/passport-manager-access.spec.ts
+PASS src/modules/apps/apps.service.spec.ts
+PASS src/modules/offers/offer-layout.spec.ts
+PASS src/modules/salesorders/production-orders.assign.spec.ts
+PASS src/modules/product-passport/passport-after-print.spec.ts
+PASS src/common/print/print-documents.spec.ts
+[Nest] 9872  - 12.11.2026, 23:13:10    WARN [print] КП: в печать просилось {customer} — заменено линией
+[Nest] 9872  - 12.11.2026, 23:13:10    WARN [print] КП: в печать просилось undefined — заменено линией
+[Nest] 9872  - 12.11.2026, 23:13:10    WARN [print] КП: в печать просилось {pay} — заменено линией
+[Nest] 9872  - 12.11.2026, 23:13:10    WARN [print] Накладная: в печать просилось undefined — заменено линией
+[Nest] 9872  - 12.11.2026, 23:13:10    WARN [print] Накладная: в печать просилось {customer} — заменено линией
+[Nest] 9872  - 12.11.2026, 23:13:10    WARN [print] Накладная: в печать просилось null — заменено линией
+[Nest] 9872  - 12.11.2026, 23:13:10    WARN [print] Накладная: в печать просилось {fio} — заменено линией
+PASS src/modules/shipments/shipments.service.spec.ts
+[Nest] 9872  - 12.11.2026, 23:13:10    WARN [print] Накладная: в печать просилось {fio} — заменено линией
+[Nest] 9872  - 12.11.2026, 23:13:10    WARN [print] Техописание: в печать просилось {name} — заменено линией
+[Nest] 9872  - 12.11.2026, 23:13:10    WARN [print] Техописание: в печать просилось undefined — заменено линией
+[Nest] 9872  - 12.11.2026, 23:13:10    WARN [print] Паспорт: в печать просилось null — заменено линией
+[Nest] 9872  - 12.11.2026, 23:13:10    WARN [print] Паспорт: в печать просилось {x} — заменено линией
+[Nest] 9872  - 12.11.2026, 23:13:10    WARN [print] Паспорт: в печать просилось {serviceLifeYears}, undefined — заменено линией
+[Nest] 9872  - 12.11.2026, 23:13:10    WARN [print] Паспорт: в печать просилось null — заменено линией
+[Nest] 9872  - 12.11.2026, 23:13:10    WARN [print] Стенд паспорта: в печать просилось {name} — заменено линией
+[Nest] 9872  - 12.11.2026, 23:13:10    WARN [print] Стенд паспорта: в печать просилось {x} — заменено линией
+[Nest] 9872  - 12.11.2026, 23:13:10    WARN [print] Стенд паспорта: в печать просилось undefined — заменено линией
+PASS src/modules/role/role.controller.spec.ts
+PASS src/modules/order-line-plan/task-bars.spec.ts
+PASS src/modules/admin/collection-docs.spec.ts
+PASS src/modules/photos/photos.controller.spec.ts
+PASS src/modules/product-module-photo/product-module-photo.service.spec.ts
+PASS src/modules/product-passport/passport-check-product.spec.ts
+PASS src/modules/design/design-present.spec.ts
+PASS src/modules/product-passport/passport-snapshot-golden.spec.ts
+PASS src/modules/site/site.service.spec.ts
+PASS src/common/text/search-norm.spec.ts
+PASS src/modules/product-passport/passport-queries.spec.ts
+PASS src/modules/showcase/catalog-rows.spec.ts
+PASS src/common/passport/traits.spec.ts
+PASS src/common/print/tech-sheet-rows.spec.ts
+PASS src/modules/offers/offer-backgrounds.service.spec.ts
+PASS src/common/print/fill-text.spec.ts
+PASS src/modules/product-passport/passport-dimension-image.spec.ts
+PASS src/modules/meta/meta-schema.spec.ts
+PASS src/common/guards/user-activity-cache.spec.ts
+PASS src/modules/product-passport/passport-pdf-v2-layout2.spec.ts
+PASS src/modules/showcase/showcase-sku-lock.spec.ts
+PASS src/common/interceptors/money-mask.interceptor.spec.ts
+PASS src/modules/today/today-feed.spec.ts
+PASS src/modules/organization/asset-image.spec.ts
+PASS src/modules/material/material.catalog-301.spec.ts
+PASS src/modules/offers/offers.order-prices.spec.ts
+PASS src/modules/product/product.schema.tz240.spec.ts
+PASS src/modules/product-passport/passport-print-file.spec.ts
+PASS src/modules/showcase/passport-models.spec.ts
+PASS src/modules/offers/offers.qa-kp2.spec.ts
+PASS src/modules/offers/offer-pdf.spec.ts
+PASS src/common/line-type.spec.ts
+PASS src/modules/material/material-price.calc.spec.ts
+PASS src/modules/offers/offer-ready.spec.ts
+PASS src/modules/device-enrollment/device-cookie.spec.ts
+PASS src/modules/product-passport/passport-preview.spec.ts
+PASS src/modules/product-passport/passport-spec-rows.spec.ts
+PASS src/modules/product-passport/passport-draft-all.spec.ts
+PASS src/common/catalog/passport-link.spec.ts
+PASS src/modules/auth/profile.spec.ts
+PASS src/modules/disk/integrity.spec.ts
+PASS src/common/guards/roles.guard.spec.ts
+PASS src/modules/stock/weight.spec.ts
+PASS src/common/seed/currencies.seed.spec.ts
+[Nest] 9872  - 12.11.2026, 23:13:16     LOG [CurrenciesSeed] Currency seeded: RUB
+PASS src/modules/salesorders/salesorders.remove.spec.ts
+PASS src/common/interceptors/slow-request.interceptor.spec.ts
+PASS src/modules/showcase/showcase-bulk.spec.ts
+PASS src/common/interceptors/id-normalize.interceptor.spec.ts
+PASS src/common/text/shipment-calc.spec.ts
+PASS src/modules/desktop/desktop-compat.service.spec.ts
+PASS src/common/work-facts.spec.ts
+PASS src/modules/showcase/showcase-composition.spec.ts
+PASS src/common/text/shipment-ready.spec.ts
+PASS src/modules/showcase/facet-elements.spec.ts
+PASS src/modules/disk/disk-usage.spec.ts
+PASS src/modules/product-passport/passport-promote.spec.ts
+PASS src/modules/disk/backup-reminder.spec.ts
+PASS src/modules/disk/disk.service.spec.ts
+PASS src/common/confirm-token.spec.ts
+PASS src/modules/product-passport/passport-snapshot-edit.spec.ts
+PASS src/common/photos.spec.ts
+PASS src/modules/partners/partners.list.spec.ts
+PASS src/modules/showcase/showcase-remove.spec.ts
+PASS src/common/middleware/permissions-boot-validator.spec.ts
+PASS src/modules/photos/image-shrink.spec.ts
+PASS src/modules/category/category.group-no.spec.ts
+PASS src/common/passport/funnel.parity.spec.ts
+PASS src/modules/stock/article.spec.ts
+PASS src/modules/audit/audit-query.spec.ts
+PASS src/modules/notifications/notifications.safe.spec.ts
+PASS src/modules/design/znp-line.spec.ts
+[Nest] 9872  - 12.11.2026, 23:13:19    WARN [NotificationsService] Уведомление «x» не отправлено: boom
+PASS src/modules/setting/setting.service.spec.ts
+PASS src/common/interceptors/latency-histogram.spec.ts
+PASS src/common/issued-net.spec.ts
+PASS src/modules/control/control.rollup.spec.ts
+PASS src/common/logging/quiet-nest-logger.spec.ts
+PASS src/database/soft-delete-coverage.spec.ts
+PASS src/modules/notifications/notification-kind.spec.ts
+PASS src/modules/product-passport/passport-product-images.spec.ts
+PASS src/modules/product-passport/passport-check.spec.ts
+PASS src/common/guards/owner-only.guard.spec.ts
+ts-jest[ts-compiler] (WARN) Got a `.js` file to compile while `allowJs` option is not set to `true` (file: C:\Users\User\.codex\worktrees\c096-verification\data-core\backend\scripts\series-dict-fill.js). To fix this:
+  - if you want TypeScript to process JS files, set `allowJs` to `true` in your TypeScript config (usually tsconfig.json)
+  - if you do not want TypeScript to process your `.js` files, in your Jest config change the `transform` key which value is `ts-jest` so that it does not match `.js` files anymore
+PASS src/modules/showcase/series-dict.spec.ts
+PASS src/common/guards/confirm-token.guard.spec.ts
+PASS src/common/work-plan.spec.ts
+PASS src/modules/product-passport/dto/text-choices.dto.spec.ts
+PASS src/modules/stock/metal.spec.ts
+PASS src/modules/role/dto/role-dto.spec.ts
+PASS src/common/decorators/is-object-id.decorator.spec.ts
+PASS src/modules/control/control.catalog.spec.ts
+PASS src/modules/payroll/payroll.service.spec.ts
+PASS src/common/photo-main.spec.ts
+PASS src/modules/matching/matching-lines.spec.ts
+PASS src/modules/today/today-scope.spec.ts
+PASS src/modules/supply/supply-invoice-rules.spec.ts
+PASS src/modules/counter/counter.service.spec.ts
+PASS src/modules/partners/partners.create-race.spec.ts
+PASS src/modules/payroll/payroll-calc.spec.ts
+PASS src/common/date-parse.spec.ts
+PASS src/common/app-sections.spec.ts
+PASS src/common/seed/work-roles.seed.spec.ts
+PASS src/modules/audit/audit-sections.spec.ts
+[Nest] 9872  - 12.11.2026, 23:13:21     LOG [WorkRolesSeed] Role seeded: master
+PASS src/modules/product-requests/product-request-rules.spec.ts
+PASS src/modules/admin/admin-list-query.spec.ts
+PASS src/modules/showcase/composition-cycle.spec.ts
+PASS src/modules/partners/customer-names.spec.ts
+PASS src/modules/design/design-note-rules.spec.ts
+PASS src/modules/photos/image-orientation.spec.ts
+PASS src/common/decorators/current-user.decorator.spec.ts
+PASS src/modules/dicts/dicts.edit-roles.spec.ts
+PASS src/modules/showcase/tech-sheet-pdf.spec.ts
+PASS src/modules/stock/stock-category-summary.spec.ts
+PASS src/common/text/order-key.spec.ts
+PASS src/modules/category/dto/create-category.dto.spec.ts
+PASS src/modules/notifications/notifications.unread.spec.ts
+PASS src/common/uploads/upload-folder.spec.ts
+PASS src/modules/material-requests/material-requests.service.spec.ts
+PASS src/modules/stock/stock-rank.spec.ts
+PASS src/common/catalog/names.spec.ts
+PASS src/modules/dictionary-label/dictionary-label.controller.spec.ts
+PASS src/modules/unit/unit.controller.spec.ts
+PASS src/modules/device-enrollment/device-crypto.spec.ts
+PASS src/modules/dicts/dicts.payroll.spec.ts
+PASS src/modules/product-passport/passport-schemes.spec.ts
+PASS src/modules/stock/count-guard.spec.ts
+PASS src/modules/supply/supply-notices.spec.ts
+PASS src/modules/showcase/order-product-name.spec.ts
+PASS src/common/data-version/data-version.snapshot.spec.ts
+PASS src/common/uploads/safe-path.spec.ts
+PASS src/modules/dicts/dicts.lines.spec.ts
+PASS src/common/mongoose/optimistic-lock.plugin.spec.ts
+PASS src/modules/showcase/showcase-similar.spec.ts
+PASS src/common/catalog/product-match.spec.ts
+PASS src/modules/audit/action-ru.spec.ts
+PASS src/modules/product-passport/print-pack.spec.ts
+PASS src/modules/dicts/dicts.stock-role.spec.ts
+PASS src/modules/product-passport/passport-pdf-v2-cover.spec.ts
+PASS src/health.controller.spec.ts
+PASS src/modules/product-passport/passport-template-select.spec.ts
+
+Test Suites: 331 passed, 331 total
+Tests:       3893 passed, 3893 total
+Snapshots:   0 total
+Time:        55.681 s
