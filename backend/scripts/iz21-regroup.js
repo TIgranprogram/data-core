@@ -134,7 +134,11 @@ function byArticle({ items, cats }) {
   }
   const n = (a) => plan.filter((r) => r.act === a).length;
   console.log(`\nвсего ${plan.length}: перенос ${n('move')}, исправить категорию ${n('fix')}, спорно ${n('disp')}`);
-  if (!doApply) { console.log('ПЛАН. Запись — только с --apply.'); return; }
+  if (!doApply) {
+    console.log('ПЛАН. Запись — только с --apply.');
+    if (L.client) await L.client.close();
+    return;
+  }
   if (!L.db) throw new Error('--apply нужна база (MONGO_URI), не --dump');
   const bad = todo.filter((r) => { const p = L.items.find((x) => x._id === r._id); return !p || p.cat !== r.was.cat || p.pc !== r.was.pc; });
   if (bad.length) throw new Error('база изменилась, «было» не совпало: ' + bad.map((r) => r.sku).join(', '));
