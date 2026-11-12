@@ -65,8 +65,7 @@ function routes() {
       const y1 = down ? A.y + A.h : A.y, y2 = down ? B.y : B.y + B.h, m = (y1 + y2) / 2;
       pts = [[x1, y1], [x1, m], [x2, m], [x2, y2]];
     }
-    const mid = [0, 1].map((j) => (pts[0][j] + 3 * pts[1][j] + 3 * pts[2][j] + pts[3][j]) / 8);
-    return { a, b, label: LINKS[k][2], d: `M${pts[0]} C${pts[1]} ${pts[2]} ${pts[3]}`, mid };
+    return { a, b, label: LINKS[k][2], d: `M${pts[0]} C${pts[1]} ${pts[2]} ${pts[3]}` };
   });
 }
 
@@ -86,8 +85,6 @@ function bigMap(open) {
   });
   const R = routes();
   const lines = R.map((r) => s('path', { d: r.d, fill: 'none', stroke: `var(--sec-${tone(byId.get(r.a))})`, 'stroke-width': 1.7, opacity: '.42', 'marker-end': `url(#at-arr-${tone(byId.get(r.a))})` }));
-  const labels = R.map((r) => s('text', { x: r.mid[0], y: r.mid[1] + 4, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 600, fill: 'var(--heading)',
-    stroke: 'var(--surface)', 'stroke-width': 4, 'paint-order': 'stroke', opacity: 0, 'pointer-events': 'none' }, r.label));
   svg.append(...lines);
   const boxes = new Map();
   let pinned = null;
@@ -98,25 +95,32 @@ function bigMap(open) {
       const hit = on && (r.a === on || r.b === on);
       lines[i].setAttribute('opacity', !on ? '.42' : hit ? '1' : '.07');
       lines[i].setAttribute('stroke-width', hit ? '2.6' : '1.7');
-      labels[i].setAttribute('opacity', hit ? '1' : '0');
     });
-    boxes.forEach((g, nid) => g.setAttribute('opacity', !on || near.has(nid) ? '1' : '.38'));
+    // подпись связи — внутри карточки соседа, на месте её описания: так тексты не налезают друг на друга (просьба 2026-11-12)
+    boxes.forEach((b, nid) => {
+      b.g.setAttribute('opacity', !on || near.has(nid) ? '1' : '.38');
+      const rel = on && nid !== on ? R.filter((r) => (r.a === on && r.b === nid) || (r.b === on && r.a === nid))
+        .map((r) => (r.b === nid ? 'получает: ' : 'даёт: ') + r.label).join('; ') : '';
+      b.desc.setAttribute('visibility', rel ? 'hidden' : 'visible');
+      b.rel.forEach((t, i) => { t.textContent = rel ? fit(rel, 27, 2)[i] || '' : ''; });
+    });
   };
   for (const n of NODES) {
     const g0 = geo(n), tok = tone(n), parts = n.inside?.length || 0;
+    const desc = s('g', {}, ...n.l.map((t, i) => s('text', { x: g0.x + 12, y: g0.y + 47 + i * 17, fill: 'var(--muted)', 'font-size': 13 }, t)));
+    const rel = [0, 1].map((i) => s('text', { x: g0.x + 12, y: g0.y + 47 + i * 17, fill: 'var(--heading)', 'font-size': 13, 'font-weight': 600 }));
     const g = s('g', { tabindex: 0, role: 'button', cursor: 'pointer', 'aria-label': `${nameOf(n)}: открыть, что внутри` },
       s('rect', { x: g0.x, y: g0.y, width: g0.w, height: g0.h, rx: 10, fill: n.big ? 'var(--primary-soft)' : `var(--sec-${tok}-soft)`,
         stroke: n.big ? 'var(--primary)' : `var(--sec-${tok})`, 'stroke-width': n.big ? 2.6 : 1.4 }),
       s('text', { x: g0.x + 12, y: g0.y + 25, fill: 'var(--heading)', 'font-size': n.big ? 17 : 15, 'font-weight': 700 }, n.t),
-      ...n.l.map((t, i) => s('text', { x: g0.x + 12, y: g0.y + 47 + i * 17, fill: 'var(--muted)', 'font-size': 13 }, t)),
+      desc, ...rel,
       parts ? s('text', { x: g0.x + g0.w - 10, y: g0.y + g0.h - 9, 'text-anchor': 'end', fill: n.big ? 'var(--primary)' : `var(--sec-${tok})`, 'font-size': 12, 'font-weight': 700 }, `внутри: ${parts} ›`) : null);
     g.addEventListener('mouseenter', () => light(n.id)); g.addEventListener('mouseleave', () => light(null));
     g.addEventListener('focus', () => light(n.id)); g.addEventListener('blur', () => light(null));
     g.addEventListener('click', () => open(n.id));
     g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(n.id); } });
-    boxes.set(n.id, g); svg.append(g);
+    boxes.set(n.id, { g, desc, rel }); svg.append(g);
   }
-  svg.append(...labels);
   const pin = (id) => { pinned = id; light(null); };
   return { svg, pin };
 }
@@ -124,10 +128,10 @@ function bigMap(open) {
 // ---------- окно «что внутри»: источники слева, раздел с частями в центре, результат справа ----------
 function inner(n, open) {
   const ins = LINKS.filter(([, b]) => b === n.id), outs = LINKS.filter(([a]) => a === n.id);
-  const parts = n.inside || [], cols = 2, PW = 190, PH = 56, GAP = 10;
+  const parts = n.inside || [], cols = 2, PW = 214, PH = 70, GAP = 10;
   const rows = Math.ceil(parts.length / cols);
   const CW = cols * PW + (cols + 1) * GAP, CX = 255, CH = 52 + rows * (PH + GAP);
-  const SW = 200, SH = 52, side = Math.max(ins.length, outs.length);
+  const SW = 200, SH = 64, side = Math.max(ins.length, outs.length);
   const H = Math.max(CH, side * (SH + 12)) + 20, CY = (H - CH) / 2;
   const svg = s('svg', { viewBox: `0 0 ${CX * 2 + CW} ${H}`, width: '100%', role: 'group', 'aria-label': `${nameOf(n)}: что внутри и с чем связано` });
   svg.append(s('defs', {}, s('marker', { id: 'at-arr2', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto' }, s('path', { d: 'M0,0 L10,5 L0,10 z', fill: 'var(--muted)' }))));
@@ -137,7 +141,7 @@ function inner(n, open) {
     const g = s('g', { tabindex: 0, role: 'button', cursor: 'pointer', 'aria-label': `Перейти: ${nameOf(m)}` },
       s('rect', { x, y, width: SW, height: SH, rx: 9, fill: `var(--sec-${t}-soft)`, stroke: `var(--sec-${t})` }),
       s('text', { x: x + 10, y: y + 22, fill: 'var(--heading)', 'font-size': 14, 'font-weight': 700 }, nameOf(m)),
-      s('text', { x: x + 10, y: y + 41, fill: 'var(--muted)', 'font-size': 12 }, (left ? 'даёт: ' : 'получает: ') + label));
+      ...fit((left ? 'даёт: ' : 'получает: ') + label, 27, 2).map((t, j) => s('text', { x: x + 10, y: y + 40 + j * 15, fill: 'var(--muted)', 'font-size': 12 }, t)));
     g.addEventListener('click', () => open(id));
     g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(id); } });
     return g;
@@ -159,7 +163,7 @@ function inner(n, open) {
     const x = CX + GAP + (i % cols) * (PW + GAP), y = CY + 48 + Math.floor(i / cols) * (PH + GAP);
     svg.append(s('g', {}, s('rect', { x, y, width: PW, height: PH, rx: 8, fill: 'var(--surface)', stroke: 'var(--border-strong)' }),
       s('text', { x: x + 9, y: y + 21, fill: 'var(--heading)', 'font-size': 13, 'font-weight': 700 }, p.t),
-      ...wrap(p.l, 29).slice(0, 2).map((t, j) => s('text', { x: x + 9, y: y + 38 + j * 14, fill: 'var(--muted)', 'font-size': 12 }, t))));
+      ...fit(p.l, 28, 3).map((t, j) => s('text', { x: x + 9, y: y + 38 + j * 14, fill: 'var(--muted)', 'font-size': 12 }, t))));
   });
   return svg;
 }
@@ -172,6 +176,13 @@ function innerList(n, open) {
     ins.length ? guide.unit({ name: 'Откуда приходят сведения', foot: near(ins, (l) => l[0]) }) : null,
     guide.unit({ name: 'Что внутри', foot: h('ul', null, ...(n.inside || []).map((p) => h('li', null, h('b', null, p.t), ' — ', p.l))) }),
     outs.length ? guide.unit({ name: 'Куда уходят', foot: near(outs, (l) => l[1]) }) : null);
+}
+
+/** Перенос по словам в lines строк; не влезло — многоточие в последней. */
+function fit(t, max, lines) {
+  const out = wrap(t, max);
+  if (out.length > lines) { out.length = lines; out[lines - 1] = out[lines - 1].slice(0, max - 1).replace(/[\s;,]+$/, '') + '…'; }
+  return out;
 }
 
 function wrap(t, max) {
