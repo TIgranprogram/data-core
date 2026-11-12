@@ -1,7 +1,8 @@
 /* Тестовый вход для ДОМАШНЕГО стенда (проверка экранов ИИ и дизайнером). На проде не запускать.
  *
  *   docker exec -w /app -e STAND=1 -e STAND_PASSWORD=… datacore-backend node scripts/stand-test-user.js
- *   Логин: stand-test (роль admin). Есть — пароль обновляется. Пароль — из STAND_PASSWORD (≥ 12 знаков).
+ *   Логин: stand-test (роль manager). Есть — пароль обновляется. Пароль — из STAND_PASSWORD (≥ 12 знаков).
+ *   Роль manager: ИИ-тестировщик проверяет менеджерский UX; admin-функции (паспорта, настройки) не тестируются.
  *   Защита: отказ, если STAND=1 не задан (задаётся в вызове docker exec).
  */
 const path = require('path');
@@ -18,9 +19,9 @@ const path = require('path');
     const users = client.db(process.env.MONGO_DB || undefined).collection('users');
     const now = new Date(); const passwordHash = await bcrypt.hash(pass, 10);
     const r = await users.updateOne({ username: 'stand-test' }, {
-      $set: { passwordHash, isActive: true, role: 'admin', deletedAt: null, updatedAt: now },
-      $setOnInsert: { username: 'stand-test', email: 'stand-test@stand.test', displayName: 'Проверка (стенд)', fullName: 'Проверка (стенд)', permissions: [], createdAt: now },
+      $set: { passwordHash, isActive: true, role: 'manager', deletedAt: null, updatedAt: now },
+      $setOnInsert: { username: 'stand-test', email: 'stand-test@stand.test', displayName: 'ИИ-тестировщик (стенд)', fullName: 'ИИ-тестировщик (стенд)', permissions: [], createdAt: now },
     }, { upsert: true });
-    console.log(r.upsertedCount ? 'Создан вход stand-test' : 'Пароль stand-test обновлён');
+    console.log(r.upsertedCount ? 'Создан вход stand-test (manager)' : 'Пароль stand-test обновлён (manager)');
   } finally { await client.close(); }
 })().catch((e) => { console.error(e.message || e); process.exit(1); });

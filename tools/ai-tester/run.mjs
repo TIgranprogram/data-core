@@ -675,19 +675,26 @@ async function main() {
   if (!(await (suppliedSession ? standReady(s.stand) : ensureStand(s.stand)))) { say(suppliedSession ? '❌ Стенд не готов.' : '❌ Стенд не поднялся.'); return 2; }
   const login = loginFromStdin || await standLogin(s.stand);
   if (!login) { say('❌ Не удалось войти на стенд. Запустите один раз «Большая проверка сайта» — она создаст вход.'); return 2; }
+  // определяем роль: в отчёте видно, что проверяется именно менеджерский UX
+  try {
+    const meRes = await fetch(`${s.stand}/api/auth/me`, { headers: { Authorization: `Bearer ${login.access}` }, signal: AbortSignal.timeout(8000) });
+    if (meRes.ok) { const me = await meRes.json(); state.sessionRole = me?.role || me?.user?.role || ''; say(`Вход: ${login.user?.username || 'stand-test'}, роль «${state.sessionRole || '—'}».`); }
+    else say(`⚠ /api/auth/me вернул ${meRes.status} — роль неизвестна.`);
+  } catch (e) { say('⚠ Не проверил роль: ' + e.message.slice(0, 60)); }
   const nav = readNav();
   if (!nav.length) { say('❌ Не нашёл меню приложения.'); return 2; }
 
   const saved = (() => { try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch { return null; } })(); // тот же день — отчёт дописывается
-  const state = { tasks: saved?.tasks || [], findings: saved?.findings || [], garbage: new Set(), llmErrors: 0, until };
+  const state = { tasks: saved?.tasks || [], findings: saved?.findings || [], garbage: new Set(), llmErrors: 0, until, tokenRenewals: saved?.tokenRenewals || 0, sessionRole: '' };
   const startedAt = saved?.startedAt || Date.now();
   if (saved && !resume) state.tasks.push({ at: nowTime(), title: '— новый запуск в этот же день —', result: 'получилось', steps: 0, summary: 'отчёт дописывается' });
   if (saved && resume) state.tasks.push({ at: nowTime(), title: '— обрыв: продолжил сторож —', result: 'не получилось', steps: 0, summary: 'тестировщик был прерван (перезагрузка, свет или сбой) и продолжил сам' });
   const created = loadCreated();
-  const writeReport = (removed = null) => fs.writeFileSync(path.join(OUT, 'REPORT.md'), buildReport({ day: DAY, model: s.model, base: STAND_BASE, startedAt, now: Date.now(), tasks: state.tasks, findings: state.findings, created, removed }));
+  const writeReport = (removed = null) => fs.writeFileSync(path.join(OUT, 'REPORT.md'), buildReport({ day: DAY, model: s.model, base: STAND_BASE, startedAt, now: Date.now(), tasks: state.tasks, findings: state.findings, created, removed, renewals: state.tokenRenewals, role: state.sessionRole }));
   say(`\nИИ-тестировщик работает ${minutes} мин на ${s.stand}. Остановить — кнопка «Остановить ИИ-тестировщика». Отчёт: tools/logs/ai-tester/${DAY}/REPORT.md\n`);
 
   let b; let browserAccess; let failed = false;
+  let lastKnownToken = null; // для трекинга автоматического обновления access-токена браузером
   const relogin = async () => {
     const lg = loginFromStdin || await standLogin(s.stand);
     await b.cmd('Page.navigate', { url: s.stand + '/app/' }); await sleep(2000);
@@ -696,6 +703,7 @@ async function main() {
     if (suppliedSession && stored !== 1) throw new Error('Браузер не открыл стенд для входа.');
     await b.cmd('Page.reload', { ignoreCache: true }); await sleep(2500);
     b.net.length = 0; b.jsErrors.length = 0;
+    lastKnownToken = lg.access; // сброс: новый токен выдан явно, не авто-обновлением
   };
   try {
     b = await openBrowser(s.stand);
@@ -706,10 +714,16 @@ async function main() {
       const t = order[i++ % order.length];
       if (!suppliedSession && i % order.length === 0) await relogin(); // браузер сам обновляет сессию из stdin
       await runTask(s, b, nav, t, state);
+      // трекинг авто-продления access-токена приложением (PWA обновляет его в localStorage по 401)
+      try {
+        const curToken = await b.ev(`localStorage.getItem('dca_access')`);
+        if (curToken && lastKnownToken && curToken !== lastKnownToken) { state.tokenRenewals++; say(`  ✓ Токен доступа обновлён автоматически (${nowTime()}, всего: ${state.tokenRenewals})`); }
+        if (curToken) lastKnownToken = curToken;
+      } catch { /* браузер закрылся */ }
       for (const c of b.created.splice(0)) if (!created.some((x) => x.id === c.id)) created.push({ ...c, at: new Date().toISOString() });
       saveCreated(created);
       writeReport();
-      fs.writeFileSync(STATE_FILE, JSON.stringify({ startedAt, tasks: state.tasks, findings: state.findings }));
+      fs.writeFileSync(STATE_FILE, JSON.stringify({ startedAt, tasks: state.tasks, findings: state.findings, tokenRenewals: state.tokenRenewals }));
       if (state.llmErrors >= 3) { say('❌ ИИ трижды не ответил — останавливаюсь. Проверьте LM Studio кнопкой «Проверить готовность».'); break; }
     }
   } catch (e) {

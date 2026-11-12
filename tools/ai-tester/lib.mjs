@@ -85,17 +85,19 @@ export function duration(ms) {
 }
 
 /** Отчёт за день — Markdown на языке пользователя. */
-export function buildReport({ day, model, base = '', startedAt, now, tasks, findings, created, removed }) {
+export function buildReport({ day, model, base = '', startedAt, now, tasks, findings, created, removed, renewals = 0, role = '' }) {
   const ok = tasks.filter((t) => t.result === 'получилось').length;
   const errs = groupFindings(findings.filter((f) => f.kind === 'ошибка'));
   const notes = groupFindings(findings.filter((f) => f.kind !== 'ошибка'));
   const L = [];
   L.push(`# ИИ-тестировщик — отчёт за ${day}`, '');
   L.push(`- Работал: ${duration(now - startedAt)}, модель: ${model}`);
+  if (role) L.push(`- Роль: ${role} (что тестируется — менеджерский UX)`);
   if (base) L.push(`- База стенда: ${base}`);
   L.push(`- Заданий: ${tasks.length} (получилось ${ok}, не получилось ${tasks.length - ok})`);
   L.push(`- Ошибок сайта: ${errs.length}, замечаний ИИ: ${notes.length}`);
   L.push(`- Создано тестовых записей: ${created.length}${removed != null ? `, убрано: ${removed}` : ''}`);
+  if (renewals > 0) L.push(`- Токен доступа обновлён автоматически: ${renewals} раз (сессия не прерывалась)`);
   L.push('');
   L.push('## Ошибки сайта (нашла программа, без догадок ИИ)', '');
   if (!errs.length) L.push('Нет.');
