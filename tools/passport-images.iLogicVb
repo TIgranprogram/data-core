@@ -1,0 +1,507 @@
+AddReference "System.Net.Http.dll"
+AddReference "System.Net.Primitives.dll"
+AddReference "System.Private.Uri.dll"
+AddReference "System.Memory.dll"
+AddReference "System.Text.Json.dll"
+
+' Внешнее правило Inventor 2027. Запуск из сохранённой сборки или детали.
+Sub Main()
+    Dim app As Inventor.Application = ThisApplication
+    Dim doc As Inventor.Document = app.ActiveDocument
+    If doc Is Nothing Then Return
+    Dim stage As String = "Открытие документа"
+
+    Try
+        Select Case doc.DocumentType
+            Case Inventor.DocumentTypeEnum.kAssemblyDocumentObject,
+                 Inventor.DocumentTypeEnum.kPartDocumentObject
+                Prepare(app, doc, stage)
+            Case Inventor.DocumentTypeEnum.kDrawingDocumentObject
+                MessageBox.Show("Для нового комплекта запустите правило из модели.")
+            Case Else
+                MessageBox.Show("Откройте сборку или деталь.")
+        End Select
+    Catch ex As Exception
+        MessageBox.Show(stage & vbCrLf & ex.Message, "Картинки для паспорта")
+    End Try
+End Sub
+
+Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage As String)
+    If String.IsNullOrWhiteSpace(model.FullFileName) Then
+        Throw New InvalidOperationException("Сначала сохраните модель.")
+    End If
+    Dim orientationChoice As DialogResult = MessageBox.Show(
+        "Повернуть габаритные виды на 90° вокруг вертикали?" & vbCrLf &
+        "Да — взять вид справа как фронт." & vbCrLf &
+        "Нет — оставить стандартный вид спереди.",
+        "Ориентация габаритного листа", MessageBoxButtons.YesNoCancel,
+        MessageBoxIcon.Question, MessageBoxDefaultButton.Button2)
+    If orientationChoice = DialogResult.Cancel Then Return
+    Dim rotate As Boolean = orientationChoice = DialogResult.Yes
+
+    stage = "Поиск метрического шаблона ГОСТ"
+    Dim template As String = app.FileManager.GetTemplateFile(
+        Inventor.DocumentTypeEnum.kDrawingDocumentObject,
+        Inventor.SystemOfMeasureEnum.kMetricSystemOfMeasure,
+        Inventor.DraftingStandardEnum.kGOST_DraftingStandard)
+    If Not String.IsNullOrWhiteSpace(template) AndAlso
+       Not String.Equals(System.IO.Path.GetFileNameWithoutExtension(template), "GOST", StringComparison.OrdinalIgnoreCase) Then
+        template = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(template),
+            "GOST" & System.IO.Path.GetExtension(template))
+    End If
+    If Not System.IO.File.Exists(template) OrElse
+       Not String.Equals(System.IO.Path.GetFileNameWithoutExtension(template), "GOST", StringComparison.OrdinalIgnoreCase) Then
+        Dim publicDocuments As String = Global.System.Environment.GetFolderPath(
+            Global.System.Environment.SpecialFolder.CommonDocuments)
+        Dim installedTemplates As String = System.IO.Path.Combine(
+            publicDocuments, "Autodesk", "Inventor 2027", "Templates")
+        template = System.IO.Path.Combine(installedTemplates, "ru-RU", "Metric", "GOST.idw")
+        If Not System.IO.File.Exists(template) Then
+            template = System.IO.Path.Combine(installedTemplates, "GOST.idw")
+        End If
+        If Not System.IO.File.Exists(template) Then
+            Throw New InvalidOperationException("Не найден шаблон GOST.idw в " & installedTemplates)
+        End If
+    End If
+    Dim folder As String = System.IO.Path.Combine(
+        System.IO.Path.GetDirectoryName(model.FullFileName),
+        System.IO.Path.GetFileNameWithoutExtension(model.FullFileName) & " — картинки паспорта",
+        DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss-fff"))
+    stage = "Создание папки: " & folder
+    System.IO.Directory.CreateDirectory(folder)
+
+    stage = "Экспорт общего вида"
+    model.Activate()
+    Dim view As Inventor.View = app.ActiveView
+    Dim original As Inventor.Camera = view.Camera
+    Dim camera As Inventor.Camera = view.Camera
+    Dim restoreVisibility As New Global.System.Collections.Generic.List(Of Action)
+    Dim assembly As Inventor.AssemblyDocument = TryCast(model, Inventor.AssemblyDocument)
+    Dim visibility As Inventor.ObjectVisibility
+    If assembly Is Nothing Then
+        visibility = CType(model, Inventor.PartDocument).ObjectVisibility
+    Else
+        visibility = assembly.ObjectVisibility
+    End If
+    Try
+        model.SelectSet.Clear()
+        HideForExport(visibility, restoreVisibility)
+        view.Update()
+        camera.ViewOrientationType = Inventor.ViewOrientationTypeEnum.kIsoTopRightViewOrientation
+        camera.Perspective = False
+        camera.Fit()
+        camera.ApplyWithoutTransition()
+        SavePng(app, camera, folder, "01_Общий вид.png", 1800)
+    Finally
+        For Each restore As Action In restoreVisibility
+            restore()
+        Next
+        original.ApplyWithoutTransition()
+    End Try
+
+    stage = "Создание листа A4"
+    Dim drawing As Inventor.DrawingDocument = CType(app.Documents.Add(
+        Inventor.DocumentTypeEnum.kDrawingDocumentObject, template, True),
+        Inventor.DrawingDocument)
+    Dim sheet As Inventor.Sheet = drawing.Sheets.Item(1)
+    ' Если Inventor оставит бумагу непрозрачной, она будет белой.
+    drawing.SheetSettings.SheetColor = app.TransientObjects.CreateColor(255, 255, 255)
+    If sheet.TitleBlock IsNot Nothing Then sheet.TitleBlock.Delete()
+    If sheet.Border IsNot Nothing Then sheet.Border.Delete()
+    ClearTemplateGraphics(sheet)
+    sheet.Size = Inventor.DrawingSheetSizeEnum.kA4DrawingSheetSize
+
+    stage = "Построение вида спереди"
+    Dim tg As Inventor.TransientGeometry = app.TransientGeometry
+    Dim viewOptions As Inventor.NameValueMap = app.TransientObjects.CreateNameValueMap()
+    viewOptions.Add("Include3DAnnotations", False)
+    If assembly IsNot Nothing Then
+        Dim representation As Inventor.DesignViewRepresentation =
+            assembly.ComponentDefinition.RepresentationsManager.ActiveDesignViewRepresentation
+        If representation IsNot Nothing AndAlso
+           representation.DesignViewType = Inventor.DesignViewTypeEnum.kPublicDesignViewType Then
+            viewOptions.Add("DesignViewRepresentation", representation.Name)
+            viewOptions.Add("DesignViewAssociative", False)
+        End If
+    End If
+    Dim frontOrientation As Inventor.ViewOrientationTypeEnum =
+        If(rotate, Inventor.ViewOrientationTypeEnum.kRightViewOrientation,
+                   Inventor.ViewOrientationTypeEnum.kFrontViewOrientation)
+    Dim front As Inventor.DrawingView = sheet.DrawingViews.AddBaseView(
+        model, tg.CreatePoint2d(sheet.Width * 0.46, sheet.Height * 0.74), 1,
+        frontOrientation,
+        Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle, AdditionalOptions:=viewOptions)
+    stage = "Построение вида сверху"
+    Dim top As Inventor.DrawingView = sheet.DrawingViews.AddBaseView(
+        model, tg.CreatePoint2d(sheet.Width * 0.46, sheet.Height * 0.31), 1,
+        Inventor.ViewOrientationTypeEnum.kTopViewOrientation,
+        Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle, AdditionalOptions:=viewOptions)
+    front.IncludeSurfaceBodies = False
+    top.IncludeSurfaceBodies = False
+    If rotate Then top.Rotation = -Math.PI / 2
+    drawing.Update()
+
+    ' Общий масштаб оставляет место для выносных и размерных линий.
+    Dim viewWidth As Double = Math.Max(front.Width, top.Width)
+    Dim viewHeight As Double = Math.Max(front.Height, top.Height)
+    If front.Width <= 0 OrElse front.Height <= 0 OrElse
+       top.Width <= 0 OrElse top.Height <= 0 Then
+        Throw New InvalidOperationException("Виды пустые. Проверьте видимость компонентов.")
+    End If
+    stage = "Масштабирование видов"
+    front.Scale = front.Scale * Math.Min(sheet.Width * 0.72 / viewWidth,
+                                         sheet.Height * 0.32 / viewHeight)
+    top.Scale = front.Scale
+    drawing.Update()
+    stage = "Построение габаритных линий"
+    Dim dimensions As Double() = AddDimensions(sheet, front, top, tg)
+    drawing.Update()
+
+    stage = "Создание листа «Схема установки»"
+    Dim installationSheet As Inventor.Sheet = drawing.Sheets.Add(
+        Inventor.DrawingSheetSizeEnum.kA4DrawingSheetSize,
+        Inventor.PageOrientationTypeEnum.kLandscapePageOrientation, "Схема установки")
+    If installationSheet.TitleBlock IsNot Nothing Then installationSheet.TitleBlock.Delete()
+    If installationSheet.Border IsNot Nothing Then installationSheet.Border.Delete()
+    ClearTemplateGraphics(installationSheet)
+    Dim installationView As Inventor.DrawingView = installationSheet.DrawingViews.AddBaseView(
+        model, tg.CreatePoint2d(installationSheet.Width * 0.5, installationSheet.Height * 0.6),
+        front.Scale, frontOrientation,
+        Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle, AdditionalOptions:=viewOptions)
+    installationView.IncludeSurfaceBodies = False
+    drawing.Update()
+
+    Dim drawingPath As String = System.IO.Path.Combine(
+        folder, "Габаритные размеры" & If(drawing.IsInventorDWG, ".dwg", ".idw"))
+    stage = "Сохранение чертежа: " & drawingPath
+    drawing.SaveAs(drawingPath, False)
+
+    stage = "Экспорт габаритного листа в PNG"
+    drawing.Activate()
+    sheet.Activate()
+    drawing.SelectSet.Clear()
+    Dim drawingView As Inventor.View = app.ActiveView
+    drawingView.Fit()
+    drawingView.Update()
+    ' Сохраняем пропорции окна, в которое Inventor вписал лист.
+    Dim imageHeight As Integer = CInt(2400.0 * drawingView.Height / drawingView.Width)
+    drawingView.SaveAsBitmapWithOptions(
+        System.IO.Path.Combine(folder, "02_Габаритные размеры.png"), 2400, imageHeight,
+        TransparentPngOptions(app))
+    installationSheet.Activate()
+
+    stage = "Загрузка рисунков на сайт"
+    If MessageBox.Show("Загрузить оба рисунка на сайт?", "Картинки для паспорта",
+                       MessageBoxButtons.YesNo, MessageBoxIcon.Question,
+                       MessageBoxDefaultButton.Button2) = DialogResult.Yes Then
+        Dim productId As String = UploadPassportImages(model, folder, dimensions, stage)
+        If productId <> "" Then
+            stage = "Открытие шаблона паспорта на сайте"
+            Dim templateUrl As String = "https://kppdf-crm.ru/db/app/#docs?tab=templates&of=doctpl&open=" & productId
+            System.Diagnostics.Process.Start(New System.Diagnostics.ProcessStartInfo(templateUrl) With {.UseShellExecute = True})
+            Return
+        End If
+    End If
+    stage = "Открытие папки в Проводнике"
+    System.Diagnostics.Process.Start("explorer.exe", """" & folder & """")
+End Sub
+
+Sub ClearTemplateGraphics(sheet As Inventor.Sheet)
+    ' Шаблон ГОСТ хранит дополнительные графы отдельно от рамки и штампа.
+    For i As Integer = sheet.SketchedSymbols.Count To 1 Step -1
+        sheet.SketchedSymbols.Item(i).Delete()
+    Next
+    For i As Integer = sheet.Sketches.Count To 1 Step -1
+        sheet.Sketches.Item(i).Delete()
+    Next
+End Sub
+
+Sub HideForExport(v As Inventor.ObjectVisibility,
+                  restore As Global.System.Collections.Generic.List(Of Action))
+    HideVisible(v.OriginWorkPlanes, Sub(onValue) v.OriginWorkPlanes = onValue, restore)
+    HideVisible(v.OriginWorkAxes, Sub(onValue) v.OriginWorkAxes = onValue, restore)
+    HideVisible(v.OriginWorkPoints, Sub(onValue) v.OriginWorkPoints = onValue, restore)
+    HideVisible(v.UserWorkPlanes, Sub(onValue) v.UserWorkPlanes = onValue, restore)
+    HideVisible(v.UserWorkAxes, Sub(onValue) v.UserWorkAxes = onValue, restore)
+    HideVisible(v.UserWorkPoints, Sub(onValue) v.UserWorkPoints = onValue, restore)
+    HideVisible(v.UCSWorkPlanes, Sub(onValue) v.UCSWorkPlanes = onValue, restore)
+    HideVisible(v.UCSWorkAxes, Sub(onValue) v.UCSWorkAxes = onValue, restore)
+    HideVisible(v.UCSWorkPoints, Sub(onValue) v.UCSWorkPoints = onValue, restore)
+    HideVisible(v.UCSTriads, Sub(onValue) v.UCSTriads = onValue, restore)
+    HideVisible(v.Sketches, Sub(onValue) v.Sketches = onValue, restore)
+    HideVisible(v.Sketches3D, Sub(onValue) v.Sketches3D = onValue, restore)
+    HideVisible(v.SketchDimensions, Sub(onValue) v.SketchDimensions = onValue, restore)
+    HideVisible(v.ConstructionSurfaces, Sub(onValue) v.ConstructionSurfaces = onValue, restore)
+    HideVisible(v.Annotations3D, Sub(onValue) v.Annotations3D = onValue, restore)
+    HideVisible(v.ComponentAnnotations3D, Sub(onValue) v.ComponentAnnotations3D = onValue, restore)
+End Sub
+
+Sub HideVisible(visible As Boolean, setVisible As Action(Of Boolean),
+                restore As Global.System.Collections.Generic.List(Of Action))
+    If Not visible Then Return
+    restore.Add(Sub() setVisible(True))
+    setVisible(False)
+End Sub
+
+Function UploadPassportImages(model As Inventor.Document, folder As String,
+                              dimensions As Double(), ByRef stage As String) As String
+    Dim fileName As String = System.IO.Path.GetFileNameWithoutExtension(model.FullFileName)
+    Dim proposal As String = System.Text.RegularExpressions.Regex.Match(fileName, "^\d+(?=\.)").Value
+    If proposal = "" Then proposal = fileName
+    Dim sku As String = Microsoft.VisualBasic.Interaction.InputBox(
+        "Укажите точный артикул изделия на сайте.", "Загрузка рисунков", proposal).Trim()
+    If sku = "" Then Return ""
+
+    Dim key As String = Global.System.Environment.GetEnvironmentVariable(
+        "DATACORE_API_KEY", Global.System.EnvironmentVariableTarget.User)
+    If String.IsNullOrWhiteSpace(key) Then
+        key = Global.System.Environment.GetEnvironmentVariable("DATACORE_API_KEY")
+    End If
+    If String.IsNullOrWhiteSpace(key) OrElse Not key.Trim().StartsWith("kppd_", StringComparison.Ordinal) Then
+        Throw New InvalidOperationException("Задайте машинный ключ kppd_… в переменной DATACORE_API_KEY.")
+    End If
+
+    Using handler As New Global.System.Net.Http.HttpClientHandler()
+        handler.AllowAutoRedirect = False
+        Using client As New Global.System.Net.Http.HttpClient(handler)
+            client.BaseAddress = New Global.System.Uri("https://kppdf-crm.ru/db/api/")
+            client.Timeout = TimeSpan.FromSeconds(90)
+            client.DefaultRequestHeaders.Authorization =
+                New System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key.Trim())
+
+            stage = "Поиск изделия по артикулу " & sku
+            Dim productId As String = Nothing
+            Dim productName As String = Nothing
+            Dim page As Integer = 1
+            Const pageSize As Integer = 100
+            Do
+                Dim result As Global.System.Text.Json.JsonElement = RequestJson(client, Global.System.Net.Http.HttpMethod.Get,
+                    "showcase?search=" & Global.System.Uri.EscapeDataString(sku) & "&limit=" & pageSize & "&page=" & page)
+                For Each item As Global.System.Text.Json.JsonElement In result.GetProperty("items").EnumerateArray()
+                    If Not String.Equals(JsonString(item, "sku"), sku, StringComparison.OrdinalIgnoreCase) Then Continue For
+                    If productId IsNot Nothing Then
+                        Throw New InvalidOperationException("Найдено несколько изделий с этим артикулом.")
+                    End If
+                    productId = ApiId(item)
+                    productName = JsonString(item, "name")
+                Next
+                If page * pageSize >= result.GetProperty("total").GetInt32() Then Exit Do
+                page += 1
+            Loop
+            If productId Is Nothing Then Throw New InvalidOperationException("Изделие с точным артикулом не найдено.")
+            If MessageBox.Show("Артикул: " & sku & vbCrLf & "Изделие: " & productName & vbCrLf &
+                               "Записать Д × Ш × В: " & FormatMm(dimensions(0)) & " × " &
+                               FormatMm(dimensions(1)) & " × " & FormatMm(dimensions(2)) &
+                               " мм и загрузить два рисунка?",
+                               "Подтвердите изделие", MessageBoxButtons.YesNo, MessageBoxIcon.Question,
+                               MessageBoxDefaultButton.Button2) <> DialogResult.Yes Then Return ""
+
+            Dim photosPath As String = "products/" & productId & "/photos"
+            stage = "Проверка существующих рисунков"
+            Dim previous As Global.System.Collections.Generic.Dictionary(Of String, String) = ReadPassportSlots(client, photosPath)
+            If previous.Count > 0 Then
+                Dim overviewCount As Integer = Global.System.Linq.Enumerable.Count(previous.Values, Function(kind) kind = "overview")
+                Dim dimensionsCount As Integer = Global.System.Linq.Enumerable.Count(previous.Values, Function(kind) kind = "dimensions")
+                If MessageBox.Show("На сайте уже есть рисунки:" & vbCrLf &
+                                   "Общий вид: " & overviewCount & vbCrLf &
+                                   "Габаритные размеры: " & dimensionsCount & vbCrLf & "Заменить их?",
+                                   "Подтвердите замену", MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
+                                   MessageBoxDefaultButton.Button2) <> DialogResult.Yes Then Return ""
+            End If
+
+            stage = "Загрузка PNG общего вида"
+            Dim overviewId As String = UploadPng(client, System.IO.Path.Combine(folder, "01_Общий вид.png"))
+            stage = "Загрузка PNG габаритных размеров"
+            Dim dimensionsId As String = UploadPng(client, System.IO.Path.Combine(folder, "02_Габаритные размеры.png"))
+            stage = "Повторная проверка существующих рисунков"
+            Dim current As Global.System.Collections.Generic.Dictionary(Of String, String) = ReadPassportSlots(client, photosPath)
+            If current.Count <> previous.Count OrElse
+               Global.System.Linq.Enumerable.Any(previous, Function(entry) Not current.ContainsKey(entry.Key) OrElse current(entry.Key) <> entry.Value) Then
+                Throw New InvalidOperationException("Рисунки изделия изменились во время загрузки. Проверьте их на сайте.")
+            End If
+
+            Dim newLinks As New Global.System.Collections.Generic.List(Of String)
+            Try
+                stage = "Привязка общего вида"
+                newLinks.Add(AttachPassportImage(client, photosPath, overviewId, "overview"))
+                stage = "Привязка габаритных размеров"
+                newLinks.Add(AttachPassportImage(client, photosPath, dimensionsId, "dimensions"))
+                stage = "Запись длины, ширины и высоты в карточку изделия"
+                Dim json As String = Global.System.Text.Json.JsonSerializer.Serialize(
+                    New With {.dimensions = New With {
+                        .length = dimensions(0), .width = dimensions(1),
+                        .height = dimensions(2), .unit = "мм"}})
+                Using body As New Global.System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json")
+                    RequestJson(client, New Global.System.Net.Http.HttpMethod("PATCH"), "showcase/" & productId, body)
+                End Using
+            Catch
+                For Each linkId As String In newLinks
+                    Try
+                        RequestJson(client, Global.System.Net.Http.HttpMethod.Delete, photosPath & "/" & linkId)
+                    Catch
+                        MessageBox.Show("Не удалось отменить новую привязку. Проверьте рисунки изделия на сайте.")
+                    End Try
+                Next
+                Throw
+            End Try
+
+            stage = "Отключение прежних рисунков. Оба новых рисунка уже привязаны"
+            For Each linkId As String In previous.Keys
+                RequestJson(client, Global.System.Net.Http.HttpMethod.Delete, photosPath & "/" & linkId)
+            Next
+            Return productId
+        End Using
+    End Using
+End Function
+
+Function ReadPassportSlots(client As Global.System.Net.Http.HttpClient, path As String) As Global.System.Collections.Generic.Dictionary(Of String, String)
+    Dim slots As New Global.System.Collections.Generic.Dictionary(Of String, String)(StringComparer.Ordinal)
+    Dim result As Global.System.Text.Json.JsonElement = RequestJson(client, Global.System.Net.Http.HttpMethod.Get, path & "?purpose=passport")
+    For Each item As Global.System.Text.Json.JsonElement In result.EnumerateArray()
+        Dim kind As String = JsonString(item, "kind")
+        If kind = "overview" OrElse kind = "dimensions" Then slots.Add(ApiId(item), kind)
+    Next
+    Return slots
+End Function
+
+Function UploadPng(client As Global.System.Net.Http.HttpClient, path As String) As String
+    Using form As New Global.System.Net.Http.MultipartFormDataContent()
+        Dim file As New Global.System.Net.Http.StreamContent(System.IO.File.OpenRead(path))
+        file.Headers.ContentType = New System.Net.Http.Headers.MediaTypeHeaderValue("image/png")
+        form.Add(file, "file", System.IO.Path.GetFileName(path))
+        Return ApiId(RequestJson(client, Global.System.Net.Http.HttpMethod.Post, "photos/upload?purpose=passport", form))
+    End Using
+End Function
+
+Function AttachPassportImage(client As Global.System.Net.Http.HttpClient, path As String, photoId As String, kind As String) As String
+    Dim json As String = Global.System.Text.Json.JsonSerializer.Serialize(New With { .photoId = photoId, .purpose = "passport", .kind = kind })
+    Using body As New Global.System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json")
+        Return ApiId(RequestJson(client, Global.System.Net.Http.HttpMethod.Post, path, body))
+    End Using
+End Function
+
+Function RequestJson(client As Global.System.Net.Http.HttpClient, method As Global.System.Net.Http.HttpMethod, path As String,
+                     Optional body As Global.System.Net.Http.HttpContent = Nothing) As Global.System.Text.Json.JsonElement
+    Using request As New Global.System.Net.Http.HttpRequestMessage(method, path)
+        request.Content = body
+        Using response As Global.System.Net.Http.HttpResponseMessage = client.SendAsync(request).GetAwaiter().GetResult()
+            If Not response.IsSuccessStatusCode Then
+                Throw New InvalidOperationException("Сайт вернул HTTP " & CInt(response.StatusCode) & " для " & method.Method & " " & path)
+            End If
+            If response.StatusCode = Global.System.Net.HttpStatusCode.NoContent Then Return Nothing
+            Using json As Global.System.Text.Json.JsonDocument = Global.System.Text.Json.JsonDocument.Parse(response.Content.ReadAsStringAsync().GetAwaiter().GetResult())
+                Return json.RootElement.Clone()
+            End Using
+        End Using
+    End Using
+End Function
+
+Function JsonString(item As Global.System.Text.Json.JsonElement, name As String) As String
+    Dim value As Global.System.Text.Json.JsonElement
+    If item.TryGetProperty(name, value) AndAlso value.ValueKind = Global.System.Text.Json.JsonValueKind.String Then Return value.GetString()
+    Return ""
+End Function
+
+Function ApiId(item As Global.System.Text.Json.JsonElement) As String
+    Dim id As String = JsonString(item, "id")
+    If id = "" Then id = JsonString(item, "_id")
+    If Not System.Text.RegularExpressions.Regex.IsMatch(id, "\A[0-9a-fA-F]{24}\z") Then
+        Throw New InvalidOperationException("Сайт не вернул корректный идентификатор.")
+    End If
+    Return id
+End Function
+
+Function AddDimensions(sheet As Inventor.Sheet, front As Inventor.DrawingView,
+                       top As Inventor.DrawingView, tg As Inventor.TransientGeometry) As Double()
+    ' Если опоры заглублены, укажите расстояние от низа модели до покрытия в мм.
+    Const groundAboveBottomMm As Double = 0
+    Dim frontLeft As Double = front.Left
+    Dim frontRight As Double = frontLeft + front.Width
+    Dim frontBottom As Double = front.Top - front.Height
+    Dim ground As Double = frontBottom + groundAboveBottomMm * front.Scale / 10
+    Dim topBottom As Double = top.Top - top.Height
+    Dim lengthMm As Double = front.Width / front.Scale * 10
+    Dim widthMm As Double = top.Height / top.Scale * 10
+    Dim heightMm As Double = (front.Top - ground) / front.Scale * 10
+    If heightMm <= 0 Then
+        Throw New InvalidOperationException("Линия покрытия должна быть ниже верха изделия.")
+    End If
+
+    Dim lengthY As Double = frontBottom - 0.75
+    Dim heightX As Double = frontRight + 0.85
+    Dim widthX As Double = top.Left + top.Width + 0.85
+    Dim sketch As Inventor.DrawingSketch = sheet.Sketches.Add()
+    sketch.Edit()
+    Try
+        AddLine(sketch, tg, frontLeft, frontBottom, frontLeft, lengthY - 0.15)
+        AddLine(sketch, tg, frontRight, frontBottom, frontRight, lengthY - 0.15)
+        AddArrowLine(sketch, tg, frontLeft, lengthY, frontRight, lengthY)
+        AddLine(sketch, tg, frontRight, ground, heightX + 0.15, ground)
+        AddLine(sketch, tg, frontRight, front.Top, heightX + 0.15, front.Top)
+        AddArrowLine(sketch, tg, heightX, ground, heightX, front.Top)
+        AddLine(sketch, tg, top.Left + top.Width, topBottom, widthX + 0.15, topBottom)
+        AddLine(sketch, tg, top.Left + top.Width, top.Top, widthX + 0.15, top.Top)
+        AddArrowLine(sketch, tg, widthX, topBottom, widthX, top.Top)
+    Finally
+        sketch.ExitEdit()
+    End Try
+
+    Dim notes As Inventor.GeneralNotes = sheet.DrawingNotes.GeneralNotes
+    AddLabel(notes, tg, (frontLeft + frontRight) / 2, lengthY + 0.4, "Д")
+    AddLabel(notes, tg, heightX + 0.4, (ground + front.Top) / 2, "В")
+    AddLabel(notes, tg, widthX + 0.4, (topBottom + top.Top) / 2, "Ш")
+    AddLabel(notes, tg, sheet.Width / 2, sheet.Height * 0.08,
+        "Габаритные размеры (Д × Ш × В): " & FormatMm(lengthMm) & " × " &
+        FormatMm(widthMm) & " × " & FormatMm(heightMm) & " мм")
+    Return New Double() {RoundMm(lengthMm), RoundMm(widthMm), RoundMm(heightMm)}
+End Function
+
+Sub AddLine(sketch As Inventor.DrawingSketch, tg As Inventor.TransientGeometry,
+            x1 As Double, y1 As Double, x2 As Double, y2 As Double)
+    sketch.SketchLines.AddByTwoPoints(tg.CreatePoint2d(x1, y1), tg.CreatePoint2d(x2, y2))
+End Sub
+
+Sub AddArrowLine(sketch As Inventor.DrawingSketch, tg As Inventor.TransientGeometry,
+                 x1 As Double, y1 As Double, x2 As Double, y2 As Double)
+    Dim span As Double = Math.Sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
+    If span <= 0 Then Return
+    AddLine(sketch, tg, x1, y1, x2, y2)
+    Dim head As Double = Math.Min(0.24, span / 3)
+    Dim dx As Double = (x2 - x1) / span * head
+    Dim dy As Double = (y2 - y1) / span * head
+    AddLine(sketch, tg, x1, y1, x1 + dx - dy / 3, y1 + dy + dx / 3)
+    AddLine(sketch, tg, x1, y1, x1 + dx + dy / 3, y1 + dy - dx / 3)
+    AddLine(sketch, tg, x2, y2, x2 - dx - dy / 3, y2 - dy + dx / 3)
+    AddLine(sketch, tg, x2, y2, x2 - dx + dy / 3, y2 - dy - dx / 3)
+End Sub
+
+Sub AddLabel(notes As Inventor.GeneralNotes, tg As Inventor.TransientGeometry,
+             x As Double, y As Double, label As String)
+    Dim point As Inventor.Point2d = tg.CreatePoint2d(x, y)
+    Dim note As Inventor.GeneralNote = notes.AddFitted(point, label)
+    Dim bounds As Inventor.Box2d = note.RangeBox
+    Dim centerX As Double = (bounds.MinPoint.X + bounds.MaxPoint.X) / 2
+    Dim centerY As Double = (bounds.MinPoint.Y + bounds.MaxPoint.Y) / 2
+    Dim position As Inventor.Point2d = note.Position
+    note.Position = tg.CreatePoint2d(position.X + x - centerX, position.Y + y - centerY)
+End Sub
+
+Function FormatMm(value As Double) As String
+    Return RoundMm(value).ToString("0", System.Globalization.CultureInfo.GetCultureInfo("ru-RU"))
+End Function
+
+Function RoundMm(value As Double) As Double
+    Return Math.Round(value, MidpointRounding.AwayFromZero)
+End Function
+Sub SavePng(app As Inventor.Application, camera As Inventor.Camera,
+            folder As String, name As String, height As Integer)
+    camera.SaveAsBitmapWithOptions(
+        System.IO.Path.Combine(folder, name), 2400, height, TransparentPngOptions(app))
+End Sub
+
+Function TransparentPngOptions(app As Inventor.Application) As Inventor.NameValueMap
+    Dim options As Inventor.NameValueMap = app.TransientObjects.CreateNameValueMap()
+    options.Add("TransparentBackground", True)
+    Return options
+End Function
+

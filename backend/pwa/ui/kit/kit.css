@@ -32,7 +32,7 @@
 .tcard:has(.k-menu-btn) .t-title { padding-right: 30px; }
 .tcard:has(.t-pick) .k-menu-btn { top: auto; bottom: 2px; } /* галочка сверху справа, меню — снизу справа */
 /* segmented: переключатель на 2–4 варианта */
-.k-seg { display: flex; height: 36px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface); }
+.k-seg { display: flex; height: var(--control-height); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface); }
 .k-seg-btn { --tone: var(--primary); flex: 1; min-width: 0; height: 100%; margin: 0; border: 0; border-radius: 0; box-shadow: none; background: none; padding: 0 8px; font: inherit; font-size: var(--fs-sm); color: var(--muted); cursor: pointer; white-space: nowrap; transition: background .12s, color .12s; }
 .k-seg-btn + .k-seg-btn { border-left: 1px solid var(--border); }
 .k-seg-btn:hover { color: var(--text); background: var(--surface-2); }
@@ -44,9 +44,9 @@
 .k-seg.k-seg-scroll { max-width: 100%; min-width: 0; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: thin; }
 .k-seg-scroll .k-seg-btn { flex: 0 0 auto; padding: 0 var(--s4); }
 /* iconButton: квадратная кнопка с значком */
-.btn.k-icon { width: 36px; padding: 0; justify-content: center; font-size: 18px; line-height: 1; }
-.btn.k-icon.btn-sm { width: 32px; }
-@media (pointer: coarse), (max-width: 720px) { .btn.k-icon, .btn.k-icon.btn-sm { width: 44px; min-width: 44px; min-height: 44px; } }
+.btn.k-icon { width: var(--control-height); padding: 0; justify-content: center; font-size: 18px; line-height: 1; }
+.btn.k-icon.btn-sm { width: var(--control-compact); }
+@media (pointer: coarse), (max-width: 720px) { .btn.k-icon, .btn.k-icon.btn-sm { width: var(--tap); min-width: var(--tap); min-height: var(--tap); } }
 /* заголовок карточки доски — одно правило для всех досок */
 .tcard .t-title, .db-line .t-title, .db-prow .t-title { font-size: var(--fs-sm); font-weight: 550; line-height: 1.3; }
 @media (max-width: 720px) { .k-seg { height: auto; min-height: 44px; } .k-seg-btn { min-height: 44px; } }
@@ -130,7 +130,8 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .k-funnel .chips { flex-wrap: wrap; overflow: visible; row-gap: var(--s1); }
 .k-funnel .chips { gap: var(--s2); padding-left: 0; border-bottom: 0; }
 /* фишка шага воронки — кнопка-пилюля: рамка и фон, видно что нажимается (приёмка дизайнера C033-0) */
-.k-funnel .chip { white-space: normal; height: auto; min-height: 40px; padding: var(--s2) var(--s3); text-align: left; margin-bottom: 0; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface-2); color: var(--text); }
+.k-funnel .chip { white-space: normal; height: auto; min-height: var(--control-height); padding: var(--s2) var(--s3); text-align: left; margin-bottom: 0; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface-2); color: var(--text); }
+@media (pointer: coarse), (max-width: 720px) { .k-funnel .chip { min-height: var(--tap); } }
 .k-funnel .chip:hover { border-color: var(--primary); }
 .k-funnel .chip.active { border-color: var(--primary); background: var(--primary-soft); }
 .k-funnel .chip:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

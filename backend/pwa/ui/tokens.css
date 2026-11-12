@@ -24,6 +24,8 @@
 
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
   --radius: 10px;
+  --control-height: 36px;
+  --control-compact: 30px;
   --tap: 44px; /* минимальная зона нажатия на телефоне */
   /* Стиль «картотека» (ДС-1, STYLE-DECISION): псевдонимы карточки, один бренд — одна правка */
   --card-pad: var(--s3) var(--s4); --card-gap: var(--s3); --card-min: 240px; --cell-pad: var(--s2) var(--s3);
@@ -107,6 +109,87 @@
    Текст не чисто белый, а мягкий мятно-серый (не слепит); заголовки, ссылки, кнопки и выбранный пункт меню — зелёные.
    Контраст к фону: основной текст ≈ 12:1, второстепенный ≈ 6.5:1, зелёный ≈ 9:1, тёмный текст на зелёных кнопках ≈ 9:1.
    Жёлтый/оранжевый оставлены только для «требует внимания». Меню слева тёмное в обеих темах. */
+/* Светлая палитра рабочего места и светлое меню. */
+:root[data-workplace-theme][data-theme='light'] {
+  --bg: #dce4e0;
+  --surface: #eef2ef;
+  --surface-2: #e6ede9;
+  --surface-3: #d6e1db;
+  --col-bg: #cfdad4;
+  --col-border: #b8c7bf;
+  --photo-bg: #e7ece9;
+  --border: #c5d1ca;
+  --border-strong: #a8bbb0;
+  --muted: #485851;
+  --primary: #106e4c;
+  --link: #0c6245;
+  --gold-deep: #745810;
+  --danger: #ac3028;
+  --ok: #1a6635;
+  --warn: #814900;
+  --info: #095e7a;
+  --violet: #6041ab;
+  --sec-products: #285e50;
+  --sec-products-soft: #dbe9e0;
+  --sec-products-side-soft: var(--sec-products-soft);
+  --sec-stock: #195f6b;
+  --topbar-bg: rgba(220, 228, 224, .94);
+  --row-hover: #e3ede7;
+  --row-selected: #d9ebe0;
+  --side: #e6ede9;
+  --side-2: #d6e1db;
+  --side-text: #36483f;
+  --side-text-hi: #164f3b;
+  --side-head: #705416;
+  --side-brand: #233c31;
+  --side-brand-note: var(--side-head);
+  --sec-products-side: var(--sec-products);
+  --sec-orders-side: var(--sec-orders);
+  --sec-supply-side: var(--sec-supply);
+  --sec-stock-side: var(--sec-stock);
+  --sec-money-side: var(--sec-money);
+}
+
+/* Средняя тема: нейтральный серый фон, светлые панели и графитовое меню. */
+:root[data-theme='soft'] {
+  --bg: #d3d5d0;
+  --surface: #e9ebe6;
+  --surface-2: #dfe2dc;
+  --surface-3: #d5d9d2;
+  --col-bg: #cdd2cb;
+  --col-border: #adb6ad;
+  --photo-bg: #dfe3dd;
+  --border: #bbc3bb;
+  --border-strong: #909c92;
+  --text: #252824;
+  --muted: #41443e;
+  --heading: #233e35;
+  --side: #363d39;
+  --side-2: #474f49;
+  --side-text: #d9dcd2;
+  --side-text-hi: #edfae9;
+  --side-head: #ead394;
+  --primary: #175e49;
+  --link: #164e3d;
+  --gold-deep: #5c4513;
+  --danger: #862c24;
+  --warn: #653e09;
+  --ok: #225731;
+  --info: #214d62;
+  --violet: #4f3685;
+  --sec-products: #275646;
+  --sec-products-soft: #d1dacb;
+  --sec-products-side: #b2cfb7;
+  --sec-products-side-soft: rgba(178, 207, 183, .17);
+  --sec-orders: #4c3778;
+  --sec-supply: #703a24;
+  --sec-stock: #24515b;
+  --sec-money: #6d344b;
+  --topbar-bg: rgba(211, 213, 208, .95);
+  --row-hover: #e1e6df;
+  --row-selected: #d7e2d8;
+}
+
 :root[data-theme='dark'] {
   --bg: #0f131a;
   --surface: #171c25;

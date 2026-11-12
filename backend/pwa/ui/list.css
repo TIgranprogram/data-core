@@ -81,9 +81,9 @@ table.list td.clip { max-width: 0; width: 34%; overflow: hidden; text-overflow: 
 .fields dt { color: var(--muted); font-size: var(--fs-sm); padding-top: 1px; }
 .fields dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
 @media (max-width: 480px) { .fields { grid-template-columns: minmax(0, 1fr); gap: 2px; } .fields dd { margin-bottom: 8px; } }
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: var(--s2); margin-bottom: var(--s4); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 148px), 1fr)); gap: var(--s2); margin-bottom: var(--s4); }
 .stat { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--s3); }
-.stat b { display: block; font-size: 22px; font-weight: 650; }
+.stat b { display: block; font-size: 22px; font-weight: 650; overflow-wrap: anywhere; }
 .stat span { color: var(--muted); font-size: var(--fs-sm); }
 .section-title { margin: var(--s5) 0 var(--s3); padding-bottom: 6px; border-bottom: 2px solid var(--primary); font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .07em; color: var(--heading); font-weight: 700; }
 .timeline { list-style: none; margin: 0; padding: 0; font-size: var(--fs-sm); }
