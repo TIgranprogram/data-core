@@ -1,0 +1,66 @@
+{
+  "at": "2026-11-12T20:40:11.021Z",
+  "cases": [
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "old-partial-close",
+      "status": "PASS",
+      "productId": "6af6242caa7697483f45bd6a",
+      "ownCategory": null,
+      "category": "TRN",
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "old-partial-close",
+      "status": "PASS",
+      "productId": "6af6242daa7697483f45bdda",
+      "ownCategory": null,
+      "category": "TRN",
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "old-partial-close",
+      "status": "PASS",
+      "productId": "6af6242faa7697483f45be4c",
+      "ownCategory": null,
+      "category": "TRN",
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "old-partial-close",
+      "status": "PASS",
+      "productId": "6af62431aa7697483f45bebc",
+      "ownCategory": null,
+      "category": "TRN",
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    }
+  ],
+  "created": [
+    "6af6242caa7697483f45bd6a",
+    "6af6242daa7697483f45bdda",
+    "6af6242faa7697483f45be4c",
+    "6af62431aa7697483f45bebc"
+  ],
+  "notes": [
+    "Настоящий passFunnel и реальные API; fault injection только один HTTP400 assign-sku, после успешного POST. Номера паспортов не выпускаются."
+  ]
+}

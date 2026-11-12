@@ -213,6 +213,8 @@ export function productForm({ onSimilar, usePending = true } = {}) {
       status: v.status || 'draft', unit: v.unit || 'шт', ralCode: v.ralCode || '', weightKg: v.weightKg ?? null, purpose: v.purpose || '', installation: v.installation || '',
       dimensions: { length: v.dimL ?? null, width: v.dimW ?? null, height: v.dimH ?? null, unit: v.dimUnit || 'мм' },
       _pd: { over: { warrantyMonths: v.pdWarranty ?? null, serviceLifeYears: v.pdLife ?? null, installationTypeId: v.pdInstall || '', elements: Array.isArray(v.pdElements) ? v.pdElements : [], joints: Array.isArray(v.pdJoints) ? v.pdJoints : [], isKit: v.pdKit === 'yes' }, category: v.pdCategory || '', choices: v.pdChoices && typeof v.pdChoices === 'object' ? v.pdChoices : {}, derived: r?.passportCategory?.code || '', prev: r?.passportDefaults || {} } }),
+    /** C096 Э4: изделие создано, а умолчания паспорта не записались (повтор продолжит эту же запись). */
+    partial: () => saveNew?.partial?.() || null,
     create: async (b0) => {
       saveNew ||= newSession();
       const res = await saveNew(b0);

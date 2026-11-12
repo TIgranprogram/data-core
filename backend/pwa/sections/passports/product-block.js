@@ -9,7 +9,8 @@ import { openCard } from '../../ui/kit/card.js';
 import { products } from '../products.js';
 import { productForm } from '../products/form-fields.js';
 import { modal, segmented, button } from '../../ui/kit/index.js';
-import { toastError } from '../../ui/kit/toast.js';
+import { toast, toastError } from '../../ui/kit/toast.js';
+import { confirmDlg } from '../../ui/kit/dialog.js';
 import { LATER_CATS, kinds, STATUS_LABEL, V2_CATS, V2_NUMS, api_get, canEdit, dims, num, st } from './common.js';
 import { mmOf, models, productsAll, resetProducts } from './models.js';
 
@@ -208,6 +209,7 @@ export function productBlock(api, { r, catBy }) {
     let t; input.addEventListener('input', () => { q = input.value; clearTimeout(t); t = setTimeout(fill, 150); });
     add.onclick = () => {
       // Родительская форма остаётся в DOM: сохраняются все поля, ручные метки и прокрутка, включая отмену создания.
+      // C096 Э4: фильтр категории не становится «своей» категорией изделия — она по группе; своя — только явным выбором в форме.
       const code = filterCat || api.get('passportCategory');
       const section = String(catBy.get(code)?.catalogNames || '').split(/[,;]/).map((s) => s.trim()).filter(Boolean)[0] || '';
       const form = productForm({ usePending: false, onSimilar: (item, parent) => openCard(products, { id: item.id, parent }, { changed: () => resetProducts(), close: () => {} }) }); let created;
@@ -216,8 +218,15 @@ export function productBlock(api, { r, catBy }) {
       form.closeAfterCreate = true;
       openCard({ ...products, newTitle: 'Новое изделие для паспорта', form }, {
         mode: 'create', parent: add,
-        initial: { status: 'draft', unit: 'шт', dimUnit: 'мм', name: q, pdCategory: code || '', ...(section ? { type: section } : {}) },
-      }, { changed: () => resetProducts(), close: () => { if (created) pick(created); } });
+        initial: { status: 'draft', unit: 'шт', dimUnit: 'мм', name: q, ...(section ? { type: section } : {}) },
+      }, { changed: () => resetProducts(), close: async () => {
+        if (created) { pick(created); return; }
+        // C096 Э4: запись создана, а умолчания паспорта не записались — не прятать её при закрытии
+        const made = form.partial?.();
+        if (!made) return;
+        if (await confirmDlg('Изделие уже создано', `«${made.name || 'Новое изделие'}» уже есть в «Продукции», но сведения для паспорта не записались. Выбрать его для этого паспорта? Недостающее можно дописать в изделии.`, { okText: 'Выбрать это изделие' })) pick(made);
+        else toast(`«${made.name || 'Новое изделие'}» осталось в «Продукции»`);
+      } });
     };
     const noProduct = button({ label: 'Изделия нет в «Продукции» — взять данные из прошлого паспорта', kind: 'ghost', size: 'S', onClick: () => { lock(false); api.open('name'); box.replaceChildren(h('p', { class: 'muted' }, 'Без изделия: начните печатать наименование — возьмите данные из прошлого паспорта.')); setTimeout(() => api.input('name')?.focus?.()); } });
     box.replaceChildren(h('p', { class: 'hint' }, 'Сначала изделие: выберите — паспорт заполнится из него (серым — подставленное, можно поправить).'),

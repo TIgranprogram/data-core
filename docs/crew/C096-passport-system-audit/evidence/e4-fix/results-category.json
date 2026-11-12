@@ -1,0 +1,40 @@
+{
+  "at": "2026-11-12T20:41:00.030Z",
+  "cases": [
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "category-group-confirm",
+      "status": "PASS",
+      "productId": "6af6245daa7697483f45c269",
+      "cancelNoPost": true,
+      "actualCategory": "BLG",
+      "noOwnCategory": true,
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "category-group-confirm",
+      "status": "PASS",
+      "productId": "6af6245faa7697483f45c2d3",
+      "cancelNoPost": true,
+      "actualCategory": "BLG",
+      "noOwnCategory": true,
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    }
+  ],
+  "created": [
+    "6af6245daa7697483f45c269",
+    "6af6245faa7697483f45c2d3"
+  ],
+  "notes": [
+    "Настоящий passFunnel и реальные API; fault injection только один HTTP400 assign-sku, после успешного POST. Номера паспортов не выпускаются."
+  ]
+}

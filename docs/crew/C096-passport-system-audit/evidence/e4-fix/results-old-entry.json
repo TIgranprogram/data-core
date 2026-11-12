@@ -1,0 +1,154 @@
+{
+  "at": "2026-11-12T20:36:45.367Z",
+  "cases": [
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "old-inherited",
+      "status": "PASS",
+      "productId": "6af6235eaa7697483f45ac26",
+      "ownCategory": null,
+      "category": "TRN",
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "old-explicit",
+      "status": "PASS",
+      "productId": "6af6235faa7697483f45ac96",
+      "ownCategory": "BLG",
+      "category": "BLG",
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "old-partial-close",
+      "status": "FAIL",
+      "error": "locator.waitFor: Timeout 12000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Выбрать это изделие', exact: true }) to be visible\u001b[22m\n"
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "old-inherited",
+      "status": "PASS",
+      "productId": "6af6236daa7697483f45ad96",
+      "ownCategory": null,
+      "category": "TRN",
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "old-explicit",
+      "status": "PASS",
+      "productId": "6af6236faa7697483f45ae06",
+      "ownCategory": "BLG",
+      "category": "BLG",
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "old-partial-close",
+      "status": "FAIL",
+      "error": "locator.waitFor: Timeout 12000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Выбрать это изделие', exact: true }) to be visible\u001b[22m\n"
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "old-inherited",
+      "status": "PASS",
+      "productId": "6af6237daa7697483f45aff2",
+      "ownCategory": null,
+      "category": "TRN",
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "old-explicit",
+      "status": "PASS",
+      "productId": "6af6237eaa7697483f45b062",
+      "ownCategory": "BLG",
+      "category": "BLG",
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "old-partial-close",
+      "status": "FAIL",
+      "error": "locator.waitFor: Timeout 12000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Выбрать это изделие', exact: true }) to be visible\u001b[22m\n"
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "old-inherited",
+      "status": "PASS",
+      "productId": "6af6238daa7697483f45b1d8",
+      "ownCategory": null,
+      "category": "TRN",
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "old-explicit",
+      "status": "PASS",
+      "productId": "6af6238eaa7697483f45b261",
+      "ownCategory": "BLG",
+      "category": "BLG",
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "old-partial-close",
+      "status": "FAIL",
+      "error": "locator.waitFor: Timeout 12000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Выбрать это изделие', exact: true }) to be visible\u001b[22m\n"
+    }
+  ],
+  "created": [
+    "6af6235eaa7697483f45ac26",
+    "6af6235faa7697483f45ac96",
+    "6af62360aa7697483f45ad16",
+    "6af6236daa7697483f45ad96",
+    "6af6236faa7697483f45ae06",
+    "6af62370aa7697483f45ae7a",
+    "6af6237daa7697483f45aff2",
+    "6af6237eaa7697483f45b062",
+    "6af6237faa7697483f45b0fc",
+    "6af6238daa7697483f45b1d8",
+    "6af6238eaa7697483f45b261",
+    "6af6238faa7697483f45b32e"
+  ],
+  "notes": [
+    "Настоящий passFunnel и реальные API; fault injection только один HTTP400 assign-sku, после успешного POST. Номера паспортов не выпускаются."
+  ]
+}

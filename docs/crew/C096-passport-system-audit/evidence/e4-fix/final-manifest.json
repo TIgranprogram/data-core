@@ -1,0 +1,54 @@
+[
+  {
+    "path": "backend/pwa/sections/passports/funnel/index.js",
+    "sha256": "DFF5E45725690540CDBAB67DFE42E382840B2B57819FF58B4A8A214745B67973"
+  },
+  {
+    "path": "backend/pwa/sections/passports/funnel/new-product.js",
+    "sha256": "A7FDFB9C94D087D5B0BB1468817F59D4D85C678AFD0FB26074F029B6E01F5D24"
+  },
+  {
+    "path": "backend/pwa/sections/passports/funnel/pick-steps.js",
+    "sha256": "F251CE71FEBB6191D079893DF74ABB8D0203A9BAEDC55FACC0019DDF819BECC1"
+  },
+  {
+    "path": "backend/pwa/sections/passports/product-block.js",
+    "sha256": "C5AFB1D4111F10877AD510DF968BFF274BB3407348CCFE93391984388D0A7519"
+  },
+  {
+    "path": "backend/pwa/sections/products/create-session.js",
+    "sha256": "F59A5750DC9DF60D3F7697C6235C10EBBCE79676BCD3EF70B338699047C6F79C"
+  },
+  {
+    "path": "backend/pwa/sections/products/create-session.test.mjs",
+    "sha256": "BE3FDC23BC4DABEF1EDA507C4DB5CB01EC5BFF139E30F5673D495B4AB1A77A47"
+  },
+  {
+    "path": "backend/pwa/sections/products/form-fields.js",
+    "sha256": "3943FED7EE4ECE10E4129DB038F516A88BA0F7F37672A03ADEFD02C4203C0523"
+  },
+  {
+    "path": "backend/pwa/sections/passports/funnel/index-partial.test.mjs",
+    "sha256": "82E4923F9F654362E109DC487951A0879B27F826328EF68550D6C12D18EF34EF"
+  },
+  {
+    "path": "backend/pwa/sections/passports/funnel/new-product.test.mjs",
+    "sha256": "6B2790F8FF70A104E83249361D5C5866CC137D18DBD3C24ABDE7CAFC4D2F0626"
+  },
+  {
+    "path": "backend/pwa/sections/passports/funnel/pick-steps.test.mjs",
+    "sha256": "3894D1ED84BDEECCEC7D3FAF3F770BF3AF597EB91784F5906956961C32E3F078"
+  },
+  {
+    "path": "backend/pwa/sections/passports/funnel/test-vm.mjs",
+    "sha256": "FB15BA5554BE7D0B1B60E413D6E198F75FCA3CBB7C8900420C80CADAA5311977"
+  },
+  {
+    "path": "backend/pwa/sections/passports/product-block-create.test.mjs",
+    "sha256": "773FD96FBA58FFED5FAACEEBD0D0A4D97147B623437883DBAEE034F65E7F9720"
+  },
+  {
+    "path": "backend/pwa/sections/products/data-pd.test.mjs",
+    "sha256": "76552F48F4BB13667F78CA88E432A401AB349A38F6EB75A1C6129EE315C57019"
+  }
+]

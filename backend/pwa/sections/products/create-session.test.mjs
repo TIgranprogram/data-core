@@ -43,3 +43,13 @@ test('после успешно записанных признаков и сб�
   await save({ group: 'Б' });
   assert.deepEqual(writes, [['facetA'], []]);
 });
+
+test('C096 Э4: partial() — созданная запись видна до конца заполнения и пропадает после успеха', async () => {
+  let fail = true;
+  const save = createSession({ create: async () => ({ id: 'new', name: 'Горка' }), update: async (id) => ({ id, name: 'Горка' }), complete: async (made) => { if (fail) { fail = false; throw new Error('артикул'); } return made; } });
+  assert.equal(save.partial(), null);
+  await assert.rejects(save({}));
+  assert.equal(save.partial().id, 'new');
+  await save({});
+  assert.equal(save.partial(), null);
+});

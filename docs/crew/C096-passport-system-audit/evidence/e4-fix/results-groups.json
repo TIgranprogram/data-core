@@ -1,0 +1,124 @@
+{
+  "at": "2026-11-12T20:40:29.548Z",
+  "cases": [
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "single-skipped-group",
+      "status": "PASS",
+      "productId": "6af6243eaa7697483f45bf17",
+      "effectiveGroup": "Информационные стенды и указатели",
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "explicit-group-real-facet",
+      "status": "PASS",
+      "productId": "6af6243faa7697483f45bf82",
+      "facetIds": [
+        "6aeea9373b8b9255839ab43b"
+      ],
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "single-skipped-group",
+      "status": "PASS",
+      "productId": "6af62440aa7697483f45bfe4",
+      "effectiveGroup": "Информационные стенды и указатели",
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "explicit-group-real-facet",
+      "status": "PASS",
+      "productId": "6af62440aa7697483f45c04f",
+      "facetIds": [
+        "6aeea9373b8b9255839ab43b"
+      ],
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "single-skipped-group",
+      "status": "PASS",
+      "productId": "6af62442aa7697483f45c0b1",
+      "effectiveGroup": "Информационные стенды и указатели",
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "explicit-group-real-facet",
+      "status": "PASS",
+      "productId": "6af62442aa7697483f45c11e",
+      "facetIds": [
+        "6aeea9373b8b9255839ab43b"
+      ],
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "single-skipped-group",
+      "status": "PASS",
+      "productId": "6af62443aa7697483f45c182",
+      "effectiveGroup": "Информационные стенды и указатели",
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "explicit-group-real-facet",
+      "status": "PASS",
+      "productId": "6af62444aa7697483f45c1ee",
+      "facetIds": [
+        "6aeea9373b8b9255839ab43b"
+      ],
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    }
+  ],
+  "created": [
+    "6af6243daa7697483f45bee9",
+    "6af6243eaa7697483f45bf17",
+    "6af6243faa7697483f45bf82",
+    "6af62440aa7697483f45bfe4",
+    "6af62440aa7697483f45c04f",
+    "6af62442aa7697483f45c0b1",
+    "6af62442aa7697483f45c11e",
+    "6af62443aa7697483f45c182",
+    "6af62444aa7697483f45c1ee"
+  ],
+  "notes": [
+    "Настоящий passFunnel и реальные API; fault injection только один HTTP400 assign-sku, после успешного POST. Номера паспортов не выпускаются.",
+    "Комбинация skipped+facets SKIP live: DSP не имеет признаков; отдельно single-group и TRNfacet."
+  ]
+}

@@ -1,0 +1,108 @@
+{
+  "at": "2026-11-12T20:37:05.842Z",
+  "cases": [
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "partial-back-resume",
+      "status": "PASS",
+      "productId": "6af62372aa7697483f45aed9",
+      "postCount": 1,
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "category-group-confirm",
+      "status": "FAIL",
+      "error": "locator.click: Timeout 12000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Создать и продолжить', exact: true })\u001b[22m\n\u001b[2m    - locator resolved to <button disabled type=\"button\" data-k=\"button\" aria-busy=\"true\" class=\"btn btn-primary is-busy\">Создать и продолжить</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not enabled\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    23 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is not visible\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n"
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "partial-back-resume",
+      "status": "PASS",
+      "productId": "6af62386aa7697483f45b128",
+      "postCount": 1,
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "category-group-confirm",
+      "status": "FAIL",
+      "error": "locator.click: Timeout 12000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Создать и продолжить', exact: true })\u001b[22m\n\u001b[2m    - locator resolved to <button disabled type=\"button\" data-k=\"button\" aria-busy=\"true\" class=\"btn btn-primary is-busy\">Создать и продолжить</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not enabled\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m    - element is not enabled\u001b[22m\n\u001b[2m  2 × retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m      - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m  22 × retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n\u001b[2m       - waiting for el"
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "partial-back-resume",
+      "status": "PASS",
+      "productId": "6af6239baa7697483f45b366",
+      "postCount": 1,
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "category-group-confirm",
+      "status": "PASS",
+      "productId": "6af6239daa7697483f45b3d7",
+      "cancelNoPost": true,
+      "actualCategory": "BLG",
+      "noOwnCategory": true,
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "partial-back-resume",
+      "status": "PASS",
+      "productId": "6af6239eaa7697483f45b441",
+      "postCount": 1,
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "category-group-confirm",
+      "status": "PASS",
+      "productId": "6af6239faa7697483f45b4b4",
+      "cancelNoPost": true,
+      "actualCategory": "BLG",
+      "noOwnCategory": true,
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    }
+  ],
+  "created": [
+    "6af62372aa7697483f45aed9",
+    "6af62379aa7697483f45af4e",
+    "6af62386aa7697483f45b128",
+    "6af6238faa7697483f45b29e",
+    "6af6239baa7697483f45b366",
+    "6af6239daa7697483f45b3d7",
+    "6af6239eaa7697483f45b441",
+    "6af6239faa7697483f45b4b4"
+  ],
+  "notes": [
+    "Настоящий passFunnel и реальные API; fault injection только один HTTP400 assign-sku, после успешного POST. Номера паспортов не выпускаются."
+  ]
+}

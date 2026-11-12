@@ -1,6 +1,6 @@
 import { h } from '../../../core/dom.js';
 import { patch } from '../../../core/router.js';
-import { button, confirmDlg, hint, link, section, stack, toastError } from '../../../ui/kit/index.js';
+import { button, confirmDlg, hint, link, section, stack, toast, toastError } from '../../../ui/kit/index.js';
 import { canWorkPassport } from '../common.js';
 import { passportFill } from '../fill/index.js';
 import { getProduct } from './api.js';
@@ -32,6 +32,7 @@ function build() {
   const S = { P: {}, q: '', prod: null, order: lockedOrder ? entry : null };
   let stageSeq = 0;
   let activeFill = null; let creation = null;
+  let parked = null; // C096 Э4: изделие создано, заполнение не закончено — та же форма и та же запись при следующем «+ Новое изделие»
   const recap = stack();
   const stages = stack();
   const newBox = h('div', null);
@@ -58,18 +59,49 @@ function build() {
   const pl = productList({
     onPick: (it) => choose(it.id),
     onSearch: (q) => { S.q = q; ps.update(S.P); },
-    onNew: () => {
-      creation = newProduct({ group: ps.labelOf('group', S.P.group), facetIds: FACET_FREE(S.P), onCreated: (p) => choose(p), onPickExisting: (it) => choose(it.id), onCancel: showPick });
-      newBox.replaceChildren(creation.el);
-      pickBox.hidden = true; newBox.hidden = false; ps.setDone(true); say('введите название нового изделия');
-    },
+    onNew: () => openNew(),
   });
+
+  /** Выбор воронки для нового изделия: группа — выбранная или единственная (шаг пропущен), категория и её группы. */
+  function creationContext() {
+    const cat = ps.effective('category');
+    return { group: ps.effective('group')?.label || '', facetIds: FACET_FREE(S.P), category: cat ? { code: cat.id, label: cat.label } : null, knownGroups: ps.valuesOf('group') };
+  }
+
+  function openNew({ fresh = false } = {}) {
+    const c = creationContext();
+    if (fresh && parked?.partial()) toast(`«${parked.partial().name || 'Новое изделие'}» осталось в «Продукции» с незавершённым заполнением`);
+    if (!fresh && parked?.partial()) { creation = parked; creation.setContext(c); }
+    else {
+      if (fresh && creation?.partial()) toast(`«${creation.partial().name || 'Новое изделие'}» осталось в «Продукции» с незавершённым заполнением`);
+      creation = newProduct({ ...c, onCreated: (p) => { parked = null; followCategory(p); choose(p, { fromCreation: true }); }, onPickExisting: (it) => choose(it.id, { fromCreation: true }), onCancel: showPick, onFresh: () => openNew({ fresh: true }) });
+    }
+    parked = null;
+    newBox.replaceChildren(creation.el);
+    pickBox.hidden = true; newBox.hidden = false; ps.setDone(true); say('введите название нового изделия');
+  }
+
+  /** C096 Э4: категория паспорта нового изделия — по его группе; шаги выше не должны показывать другую. */
+  function followCategory(prod) {
+    const pc = prod?.passportCategory;
+    const code = String(pc?.own?.code || pc?.inherited?.code || pc?.code || prod?.passportDefaults?.passportCategory || '');
+    const was = ps.effective('category');
+    if (!was || was.id === code) return;
+    S.P = code ? { category: code } : {};
+    ps.update(S.P);
+    toast(code ? `Категория паспорта — по группе изделия: ${ps.labelOf('category', code) || code}` : 'У группы изделия нет категории паспорта — выберите её ниже');
+  }
   const pickBox = stack(pl.el);
   newBox.hidden = true;
 
   async function leaveStage() {
     if (creation?.busy()) return false;
-    if (creation?.dirty() && !(await confirmDlg('Вернуться к выбору?', 'Данные нового изделия ещё не сохранены.', { okText: 'Вернуться' }))) return false;
+    const made = creation?.partial?.();
+    if (made) {
+      // C096 Э4: запись уже есть — не говорим «не сохранено»; форма откладывается и продолжит эту же запись
+      if (!(await confirmDlg('Изделие уже создано', `«${made.name || 'Новое изделие'}» уже есть в «Продукции», но заполнение не завершилось. «+ Новое изделие» продолжит эту же запись — второе не создастся.`, { okText: 'Вернуться к списку' }))) return false;
+      parked = creation;
+    } else if (creation?.dirty() && !(await confirmDlg('Вернуться к выбору?', 'Данные нового изделия ещё не сохранены.', { okText: 'Вернуться' }))) return false;
     try { await activeFill?.beforeClose?.(); return true; }
     catch (e) { toastError(e, 'сохранить изделие перед переходом'); return false; }
   }
@@ -93,8 +125,10 @@ function build() {
   }
 
   // ── шаги 5–7 ──
-  async function choose(src) {
-    if (creation?.dirty() && !(await leaveStage())) return;
+  async function choose(src, { fromCreation = false } = {}) {
+    // из формы нового изделия: созданное или выбранное похожее уже подтверждено там (частичный успех не прячется)
+    if (!(fromCreation && creation?.partial?.()) && creation?.dirty() && !(await leaveStage())) return;
+    if (fromCreation) parked = null;
     const selecting = ++stageSeq;
     try {
       const prod = typeof src === 'string' ? await getProduct(src) : src;
@@ -168,7 +202,7 @@ function build() {
   if (entry?.productId) { say('проверьте недостающее'); choose(entry.productId); } else ps.update({});
 
   const el = stack(ps.el, recap, pickBox, newBox, stages);
-  return { el, readonly: true, busy: () => !!creation?.busy() || !!activeFill?.busy?.(), dirty: () => !!creation?.dirty() || !!activeFill?.dirty?.(), beforeClose: () => activeFill?.beforeClose?.(), focus: () => {}, read: () => ({ values: {} }) };
+  return { el, readonly: true, busy: () => !!creation?.busy() || !!activeFill?.busy?.(), dirty: () => !!creation?.dirty() || !!activeFill?.dirty?.(), beforeClose: () => { const m = creation?.partial?.() || parked?.partial?.(); if (m) toast(`«${m.name || 'Новое изделие'}» уже создано в «Продукции» с незавершённым заполнением — допишите в карточке изделия`, { ms: 8000 }); return activeFill?.beforeClose?.(); }, focus: () => {}, read: () => ({ values: {} }) };
 }
 
 export const passFunnel = {

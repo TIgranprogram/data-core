@@ -1,0 +1,380 @@
+{
+  "status": "PASS_WITH_FIXTURE_SKIP",
+  "cases": [
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "partial-back-resume",
+      "status": "PASS",
+      "productId": "6af62372aa7697483f45aed9",
+      "postCount": 1,
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "partial-back-resume",
+      "status": "PASS",
+      "productId": "6af62386aa7697483f45b128",
+      "postCount": 1,
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "partial-back-resume",
+      "status": "PASS",
+      "productId": "6af6239baa7697483f45b366",
+      "postCount": 1,
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "category-group-confirm",
+      "status": "PASS",
+      "productId": "6af6239daa7697483f45b3d7",
+      "cancelNoPost": true,
+      "actualCategory": "BLG",
+      "noOwnCategory": true,
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "partial-back-resume",
+      "status": "PASS",
+      "productId": "6af6239eaa7697483f45b441",
+      "postCount": 1,
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "category-group-confirm",
+      "status": "PASS",
+      "productId": "6af6239faa7697483f45b4b4",
+      "cancelNoPost": true,
+      "actualCategory": "BLG",
+      "noOwnCategory": true,
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "old-inherited",
+      "status": "PASS",
+      "productId": "6af6235eaa7697483f45ac26",
+      "ownCategory": null,
+      "category": "TRN",
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "old-explicit",
+      "status": "PASS",
+      "productId": "6af6235faa7697483f45ac96",
+      "ownCategory": "BLG",
+      "category": "BLG",
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "old-inherited",
+      "status": "PASS",
+      "productId": "6af6236daa7697483f45ad96",
+      "ownCategory": null,
+      "category": "TRN",
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "old-explicit",
+      "status": "PASS",
+      "productId": "6af6236faa7697483f45ae06",
+      "ownCategory": "BLG",
+      "category": "BLG",
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "old-inherited",
+      "status": "PASS",
+      "productId": "6af6237daa7697483f45aff2",
+      "ownCategory": null,
+      "category": "TRN",
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "old-explicit",
+      "status": "PASS",
+      "productId": "6af6237eaa7697483f45b062",
+      "ownCategory": "BLG",
+      "category": "BLG",
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "old-inherited",
+      "status": "PASS",
+      "productId": "6af6238daa7697483f45b1d8",
+      "ownCategory": null,
+      "category": "TRN",
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "old-explicit",
+      "status": "PASS",
+      "productId": "6af6238eaa7697483f45b261",
+      "ownCategory": "BLG",
+      "category": "BLG",
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "old-partial-close",
+      "status": "PASS",
+      "productId": "6af6242caa7697483f45bd6a",
+      "ownCategory": null,
+      "category": "TRN",
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "old-partial-close",
+      "status": "PASS",
+      "productId": "6af6242daa7697483f45bdda",
+      "ownCategory": null,
+      "category": "TRN",
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "old-partial-close",
+      "status": "PASS",
+      "productId": "6af6242faa7697483f45be4c",
+      "ownCategory": null,
+      "category": "TRN",
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "old-partial-close",
+      "status": "PASS",
+      "productId": "6af62431aa7697483f45bebc",
+      "ownCategory": null,
+      "category": "TRN",
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "single-skipped-group",
+      "status": "PASS",
+      "productId": "6af6243eaa7697483f45bf17",
+      "effectiveGroup": "Информационные стенды и указатели",
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "explicit-group-real-facet",
+      "status": "PASS",
+      "productId": "6af6243faa7697483f45bf82",
+      "facetIds": [
+        "6aeea9373b8b9255839ab43b"
+      ],
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "single-skipped-group",
+      "status": "PASS",
+      "productId": "6af62440aa7697483f45bfe4",
+      "effectiveGroup": "Информационные стенды и указатели",
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "explicit-group-real-facet",
+      "status": "PASS",
+      "productId": "6af62440aa7697483f45c04f",
+      "facetIds": [
+        "6aeea9373b8b9255839ab43b"
+      ],
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "single-skipped-group",
+      "status": "PASS",
+      "productId": "6af62442aa7697483f45c0b1",
+      "effectiveGroup": "Информационные стенды и указатели",
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "explicit-group-real-facet",
+      "status": "PASS",
+      "productId": "6af62442aa7697483f45c11e",
+      "facetIds": [
+        "6aeea9373b8b9255839ab43b"
+      ],
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "single-skipped-group",
+      "status": "PASS",
+      "productId": "6af62443aa7697483f45c182",
+      "effectiveGroup": "Информационные стенды и указатели",
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "explicit-group-real-facet",
+      "status": "PASS",
+      "productId": "6af62444aa7697483f45c1ee",
+      "facetIds": [
+        "6aeea9373b8b9255839ab43b"
+      ],
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "category-group-confirm",
+      "status": "PASS",
+      "productId": "6af6245daa7697483f45c269",
+      "cancelNoPost": true,
+      "actualCategory": "BLG",
+      "noOwnCategory": true,
+      "geometry": {
+        "theme": "light",
+        "overflow": false
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "category-group-confirm",
+      "status": "PASS",
+      "productId": "6af6245faa7697483f45c2d3",
+      "cancelNoPost": true,
+      "actualCategory": "BLG",
+      "noOwnCategory": true,
+      "geometry": {
+        "theme": "dark",
+        "overflow": false
+      }
+    }
+  ],
+  "pass": 28,
+  "fail": 0,
+  "skipped": [
+    {
+      "scenario": "единственная пропущенная группа + выбранные признаки в одном срезе",
+      "reason": "Все категории с реальными признаками в QA многогрупповые. Только новые QA-копии с DSP образуют одногрупповой срез; у DSP нет признаков. Проверены отдельно single-group и перенос реального TRNfacet. Справочники не менялись; комбинированная ветка покрыта unit."
+    }
+  ],
+  "notes": [
+    "Mobile длинная CTA перекрывала Отмена и вызывала создание. Root сократил CTA. Финальные2mobilePASS; старые FAIL сохранены как диагностика, superseded финальными файлами."
+  ]
+}
