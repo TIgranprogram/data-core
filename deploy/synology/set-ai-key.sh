@@ -11,6 +11,8 @@ WHERE="${1:-}"
 # Через base64: кодировка консоли Windows не портит текст буфера.
 KEY="$(powershell.exe -NoProfile -Command '[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string](Get-Clipboard -Raw)))' 2>/dev/null | tr -d '\r\n' | base64 -d 2>/dev/null | tr -d '\r\n \t' || true)"
 if ! [[ "$KEY" =~ ^sk-ant-[A-Za-z0-9_-]{20,}$ ]] || [ "${#KEY}" -gt 400 ]; then
+  P="не похоже на ключ"; [[ "$KEY" == sk-* ]] && P="начало «${KEY:0:7}…»"
+  echo "В буфере: ${#KEY} знаков, $P."
   echo "✗ В буфере обмена нет ключа вида sk-ant-… Откройте console.anthropic.com → API Keys → создайте ключ, скопируйте и нажмите кнопку снова."
   exit 1
 fi
