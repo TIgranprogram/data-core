@@ -112,7 +112,18 @@ function lineView(l, reload) {
   const below = l.state === 'issued'
     ? (l.passport?.number ? '№ ' + l.passport.number : 'выпущен')
     : l.state === 'ready' ? 'можно выпускать' : missingText(l.missing);
-  return kit.row({ title: name, meta: [meta, below].filter(Boolean).join(' · ') || null, side: [kit.badge(label, tone)], wrap: true });
+  let action = null;
+  if (l.state === 'ready' && l.productId && canEdit()) {
+    action = kit.button({ label: 'Редактировать', size: 'S', kind: 'ghost',
+      title: 'Открыть шаблон паспорта изделия для правки перед выпуском',
+      onClick: () => go('docs', { tab: 'templates', of: 'doctpl', open: l.productId }, { kind: 'card' }) });
+  } else if (l.state === 'issued' && l.passport?.id) {
+    action = kit.button({ label: 'Открыть паспорт', size: 'S', kind: 'ghost',
+      title: 'Открыть карточку для печати и создания новой редакции',
+      onClick: () => go('docs', { tab: 'orders', of: 'passports', open: l.passport.id }, { kind: 'card' }) });
+  }
+  return kit.row({ title: name, meta: [meta, below].filter(Boolean).join(' · ') || null,
+    side: [kit.badge(label, tone)], action, wrap: true, cls: action ? 'k-row-stack-action' : undefined });
 }
 
 function firmBlock(row, reload) {

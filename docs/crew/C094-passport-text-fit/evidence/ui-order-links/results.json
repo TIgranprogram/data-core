@@ -1,0 +1,172 @@
+{
+  "rows": [
+    {
+      "theme": "light",
+      "width": 390,
+      "state": "ready",
+      "observations": {
+        "label": "Редактировать",
+        "height": 40,
+        "overflow": 0,
+        "inside": true,
+        "destination": "template"
+      },
+      "ok": false
+    },
+    {
+      "theme": "light",
+      "width": 390,
+      "state": "issued",
+      "observations": {
+        "label": "Открыть паспорт",
+        "height": 40,
+        "overflow": 0,
+        "inside": true,
+        "destination": "full"
+      },
+      "ok": false
+    },
+    {
+      "theme": "light",
+      "width": 390,
+      "state": "blocked",
+      "observations": {
+        "found": true,
+        "wrongAction": false,
+        "open": true
+      },
+      "ok": true
+    },
+    {
+      "theme": "light",
+      "width": 1920,
+      "state": "ready",
+      "observations": {
+        "label": "Редактировать",
+        "height": 30,
+        "overflow": 0,
+        "inside": true,
+        "destination": "template"
+      },
+      "ok": true
+    },
+    {
+      "theme": "light",
+      "width": 1920,
+      "state": "issued",
+      "observations": {
+        "label": "Открыть паспорт",
+        "height": 30,
+        "overflow": 0,
+        "inside": true,
+        "destination": "full"
+      },
+      "ok": true
+    },
+    {
+      "theme": "light",
+      "width": 1920,
+      "state": "blocked",
+      "observations": {
+        "found": true,
+        "wrongAction": false,
+        "open": true
+      },
+      "ok": true
+    },
+    {
+      "theme": "dark",
+      "width": 390,
+      "state": "ready",
+      "observations": {
+        "label": "Редактировать",
+        "height": 40,
+        "overflow": 0,
+        "inside": true,
+        "destination": "template"
+      },
+      "ok": false
+    },
+    {
+      "theme": "dark",
+      "width": 390,
+      "state": "issued",
+      "observations": {
+        "label": "Открыть паспорт",
+        "height": 40,
+        "overflow": 0,
+        "inside": true,
+        "destination": "full"
+      },
+      "ok": false
+    },
+    {
+      "theme": "dark",
+      "width": 390,
+      "state": "blocked",
+      "observations": {
+        "found": true,
+        "wrongAction": false,
+        "open": true
+      },
+      "ok": true
+    },
+    {
+      "theme": "dark",
+      "width": 1920,
+      "state": "ready",
+      "observations": {
+        "label": "Редактировать",
+        "height": 30,
+        "overflow": 0,
+        "inside": true,
+        "destination": "template"
+      },
+      "ok": true
+    },
+    {
+      "theme": "dark",
+      "width": 1920,
+      "state": "issued",
+      "observations": {
+        "label": "Открыть паспорт",
+        "height": 30,
+        "overflow": 0,
+        "inside": true,
+        "destination": "full"
+      },
+      "ok": true
+    },
+    {
+      "theme": "dark",
+      "width": 1920,
+      "state": "blocked",
+      "observations": {
+        "found": true,
+        "wrongAction": false,
+        "open": true
+      },
+      "ok": true
+    }
+  ],
+  "fixtures": {
+    "blocked": {
+      "localFixture": false
+    },
+    "ready": {
+      "localFixture": true
+    },
+    "issued": {
+      "localFixture": true
+    }
+  },
+  "inventory": {
+    "withFirm": 42,
+    "withoutFirm": 0,
+    "withChoices": 42,
+    "withIssued": 0,
+    "withReady": 0
+  },
+  "errors": [],
+  "complete": false
+}
