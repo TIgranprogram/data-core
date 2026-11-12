@@ -3,6 +3,7 @@
  * ИЗ-21 (C093): изделия, у которых ручная категория паспорта не совпадает с категорией группы.
  * По умолчанию — только план. Запись — только `--apply` (после «да» владельца).
  *   MONGO_URI=… MONGO_DB=… node backend/scripts/iz21-regroup.js [--apply] [--out откат.json] [--with-disputed]
+ *   На проде: bash remote-access/run-script.sh iz21-regroup [--apply] (без --out откат печатается в вывод).
  *   node backend/scripts/iz21-regroup.js --dump папка   (план без базы: в папке items.json + cats.json)
  * Действия: move — перенести в группу `to` (ручная категория снимается, если равна категории новой группы);
  *           fix  — поставить ручную категорию `to` (если равна категории группы — снять);
@@ -33,7 +34,6 @@ const D = {
   'ПС-F4D83A': ['fix', 'WRK', 'высокая', 'Воркаут ВС-70 в группе Воркаут'],
   '3408': ['fix', 'BLG', 'высокая', 'парковая скамья'],
   '3307': ['fix', 'BLG', 'высокая', 'ограждение'],
-  '3213': ['fix', 'BLG', 'средняя', 'арт-объект, городские качели'],
   '21_7': ['fix', 'DIO', 'высокая', 'детская площадка'],
   '21_6': ['fix', 'DIO', 'высокая', 'детская горка'],
   '21_5': ['fix', 'DIO', 'высокая', 'детский игровой комплекс'],
@@ -43,7 +43,8 @@ const D = {
   '11_4': ['fix', 'DIO', 'высокая', 'качалка-балансир'],
   'ПС-00806A': ['fix', 'DIO', 'высокая', 'карусель'],
   '1004': ['fix', 'TRN', 'средняя', '«Брусья жим» — тренажёр'],
-  // (в) спорно — решает владелец
+  // решено владельцем 2026-11-12
+  // Качели 3205, 3206, 3208, 3209, 3213, 3217 НЕ трогать: владелец поменяет вручную позже вместе с PDM (в плане их нет).
   '1125': ['fix', 'WRK', 'высокая', 'решение владельца: остаётся в «Спорт оборудование», категория от группы'],
   '1117': ['fix', 'WRK', 'высокая', 'решение владельца: остаётся в «Спорт оборудование», категория от группы'],
   '1116': ['fix', 'WRK', 'высокая', 'решение владельца: остаётся в «Спорт оборудование», категория от группы'],
@@ -53,12 +54,9 @@ const D = {
   '1112': ['fix', 'WRK', 'высокая', 'решение владельца: остаётся в «Спорт оборудование», категория от группы'],
   '1108': ['fix', 'WRK', 'высокая', 'решение владельца: остаётся в «Спорт оборудование», категория от группы'],
   '1106': ['fix', 'WRK', 'высокая', 'решение владельца: остаётся в «Спорт оборудование», категория от группы'],
-  '3209': ['move', 'Благоустройство (оборудование невошедшее в другие группы)', 'средняя', 'правило владельца: артикул 32.. = группа 32'],
-  '3208': ['move', 'Благоустройство (оборудование невошедшее в другие группы)', 'средняя', 'правило владельца: артикул 32.. = группа 32'],
-  '3217': ['move', 'Благоустройство (оборудование невошедшее в другие группы)', 'средняя', 'правило владельца: артикул 32.. = группа 32'],
-  '11_12': ['disp', 'DIO', 'низкая', '«Качели» в детских с BLG: детские (DIO) или перенос в «Качели городские»'],
-  '11_11': ['disp', 'DIO', 'низкая', 'то же'],
-  '11_5': ['disp', 'DIO', 'низкая', 'то же'],
+  '11_12': ['move', 'Качели городские', 'высокая', 'решение владельца: городские, группа 41'],
+  '11_11': ['move', 'Качели городские', 'высокая', 'решение владельца: городские, группа 41'],
+  '11_5': ['move', 'Качели городские', 'высокая', 'решение владельца: городские, группа 41'],
 };
 
 async function load() {
@@ -72,7 +70,8 @@ async function load() {
       db: null,
     };
   }
-  const { MongoClient, ObjectId } = require('mongodb');
+  const path = require('path');
+  const { MongoClient, ObjectId } = require(require.resolve('mongoose', { paths: [process.cwd(), path.join(__dirname || process.cwd(), '..')] })).mongo;
   const client = await new MongoClient(process.env.MONGO_URI).connect();
   const db = client.db(process.env.MONGO_DB || 'datacore');
   const cats = (await db.collection('categories').find({ type: 'product', deletedAt: null }).toArray())
@@ -124,15 +123,7 @@ function byArticle({ items, cats }) {
     const movable = r.rows.filter((x) => x.newCat && !D[x.sku]);
     console.log(`
 совпало ${r.ok}, не совпало ${r.rows.length} (есть целевая группа: ${movable.length}), без двух цифр в начале ${r.skipped}`);
-    if (!has('--apply')) { console.log('ПЛАН. Запись — только с --apply. Много «NN_k» — старая нумерация: проверить перед записью.'); return; }
-    if (!L.db) throw new Error('--apply нужна база (MONGO_URI)');
-    if (arg('--out')) fs.writeFileSync(arg('--out'), JSON.stringify(movable.map((x) => ({ _id: x._id, sku: x.sku, categoryId: x.was.cat, passportCategory: x.was.pc })), null, 1));
-    for (const x of movable) {
-      const p = L.items.find((i) => i._id === x._id), upd = { $set: { categoryId: new L.ObjectId(x.newCat), updatedAt: new Date() } };
-      if (x.newPc) upd.$set['passportDefaults.passportCategory'] = x.newPc; else upd.$unset = { 'passportDefaults.passportCategory': '' };
-      await L.db.collection('products').updateOne({ _id: p.raw }, upd);
-    }
-    console.log('записано: ' + movable.length); await L.client.close(); return;
+    console.log('ОТЧЁТ. Ничего не пишется: «NN_k» часто старая нумерация. Применять по артикулу нельзя.'); if (L.client) await L.client.close(); return;
   }
   const plan = buildPlan(L);
   const doApply = has('--apply'), withDisp = has('--with-disputed');
@@ -147,7 +138,8 @@ function byArticle({ items, cats }) {
   if (!L.db) throw new Error('--apply нужна база (MONGO_URI), не --dump');
   const bad = todo.filter((r) => { const p = L.items.find((x) => x._id === r._id); return !p || p.cat !== r.was.cat || p.pc !== r.was.pc; });
   if (bad.length) throw new Error('база изменилась, «было» не совпало: ' + bad.map((r) => r.sku).join(', '));
-  if (arg('--out')) fs.writeFileSync(arg('--out'), JSON.stringify(todo.map((r) => ({ _id: r._id, sku: r.sku, categoryId: r.was.cat, passportCategory: r.was.pc })), null, 1));
+  const undo = JSON.stringify(todo.map((r) => ({ _id: r._id, sku: r.sku, categoryId: r.was.cat, passportCategory: r.was.pc })), null, 1);
+  if (arg('--out')) fs.writeFileSync(arg('--out'), undo); else console.log('ОТКАТ (сохранить): ' + undo.replace(/s+/g, ' '));
   const col = L.db.collection('products');
   for (const r of todo) {
     const p = L.items.find((x) => x._id === r._id);
