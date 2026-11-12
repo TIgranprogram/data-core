@@ -57,7 +57,7 @@ const LAZY = {
   matching: [() => import('./sections/matching-queue.js'), [['@mountMatchingQueue','mountMatchingQueue'], ['matching','matching']]],
   designsettings: [() => import('./sections/design-settings.js'), [['designsettings','designSettings']]],
   chat: [() => import('./sections/chat.js'), [['chat','chat']]],
-  help: [() => import('./sections/help.js'), [['help','help']]],
+  help: [() => import('./sections/atlas.js'), [['help','atlas']]], // старый адрес «Работы с сайтом» — открывает карту сайта
   atlas: [() => import('./sections/atlas.js'), [['atlas','atlas']]],
   shipdo: [() => import('./sections/order-shipments.js'), [['shipdo','shipdo']]],
   partners: [() => import('./sections/partners.js'), [['partners','partners']]],
@@ -352,7 +352,7 @@ function avatarButton() {
         head: h('div', { class: 'pm-who' }, h('b', null, session.name || ''), h('span', null, session.user?.roleLabel || roleName(session.user?.role))),
         groups: [
           { items: [{ label: 'Мой профиль', icon: 'admin', onSelect: () => go(current().section, { ...current().params, of: 'profile', open: 'me' }) },
-            { label: 'Работа с сайтом', icon: 'help', onSelect: () => { window.location.hash = '#help'; } },
+            { label: 'Карта сайта', icon: 'help', onSelect: () => { window.location.hash = '#atlas'; } },
             { label: 'Тема: ' + (window.dcTheme?.name() || 'как в системе'), icon: 'theme', onSelect: () => window.dcTheme?.cycle() }] },
           { sep: true, items: [{ label: 'Выйти', icon: 'logout', danger: true, onSelect: logout }] }] });
     } });

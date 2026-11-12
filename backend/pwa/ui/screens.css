@@ -1439,42 +1439,6 @@ body:has(.drawer:not(.docked)) .chat-win { z-index: 40; }
 }
 @media (prefers-reduced-motion: reduce) { .chat-win { animation: none; } }
 
-/* Работа с сайтом (#help): карта-схема (исключение §4 DESIGN). Карточки сценариев — эталон guide.want (kit.css).
-   Тон — переменные --tone/--tone-soft (стандарт kit), шрифты — токены. */
-.hp-sec { margin-top: 20px; }
-.hp-sec h2 { font-size: var(--fs-h3); margin: 0 0 10px; }
-.hp-sec, .hp-mapwrap { min-width: 0; max-width: 100%; }
-.hp-maptools { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; margin-bottom: 6px; }
-.hp-map { width: 100%; max-width: 100%; min-width: 0; overflow-x: auto; overflow-y: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px; }
-.hp-svg { display: block; font-family: inherit; max-width: none; }
-.hp-map.is-fit { overflow: hidden; }
-.hp-map.is-fit .hp-svg { width: 100%; height: auto; }
-.hp-band { fill: var(--tone-soft); opacity: .6; }
-.hp-band-ref { fill: var(--surface-2); stroke: var(--border-strong); stroke-dasharray: 4 4; opacity: 1; }
-.hp-lane { fill: var(--tone); font-size: var(--fs-h3); font-weight: 700; }
-.hp-refhead { fill: var(--muted); font-size: var(--fs-sm); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
-.hp-node.is-ref rect { stroke: var(--border-strong); stroke-width: 1.5; }
-.hp-node rect { fill: var(--surface); stroke: var(--tone); stroke-width: 2; }
-.hp-t { fill: var(--text); font-size: var(--fs); font-weight: 700; }
-.hp-w { fill: var(--muted); font-size: var(--fs-sm); }
-.hp-edge { fill: none; stroke: var(--muted); stroke-width: 1.5; }
-.hp-edge.is-dashed { stroke-dasharray: 5 4; }
-.hp-arrow { fill: var(--muted); }
-.hp-elabel { fill: var(--muted); font-size: var(--fs-sm); font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 6px; stroke-linejoin: round; }
-.hp-legend { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s5); font-size: var(--fs-sm); color: var(--muted); margin-bottom: 8px; align-items: center; }
-.hp-legend span { display: inline-flex; align-items: center; gap: var(--s1); }
-.hp-chip { width: 14px; height: 14px; border-radius: 4px; background: var(--sec-supply-soft); border: 1.5px solid var(--sec-supply); display: inline-block; }
-.hp-list { display: none; }
-.hp-lane-row { border-left: 4px solid var(--tone); background: var(--tone-soft); border-radius: var(--radius-sm); padding: 8px 10px; margin-bottom: 8px; }
-.hp-lane-name { font-weight: 600; color: var(--tone); margin-bottom: var(--s1); font-size: var(--fs-sm); }
-.hp-steps { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s2); align-items: center; }
-.hp-step { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--s1) var(--s2); display: flex; flex-direction: column; font-size: var(--fs-sm); }
-.hp-step small { color: var(--muted); font-size: var(--fs-label); }
-.hp-arr-s { color: var(--muted); }
-@media (max-width: 700px) {
-  .hp-map, .hp-legend, .hp-maptools { display: none; }
-  .hp-list { display: block; }
-}
 .inv-ro { padding: 6px 0; font-weight: 500; color: var(--text); }
 .pf-pdf { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 100%; height: 100%; padding: 4px; font-size: 22px; text-decoration: none; color: var(--text); background: var(--surface-2); border-radius: var(--radius-sm); }
 .pf-pdf-name { font-size: 11px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

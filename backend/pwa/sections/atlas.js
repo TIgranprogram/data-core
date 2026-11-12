@@ -1,11 +1,11 @@
 // «Карта сайта» (#atlas, кнопка «?» в шапке): весь сайт одной схемой сверху вниз — от заказчика до денег.
 // Нажатие на блок не уводит со страницы: справа открывается окно «что внутри» — части раздела, откуда приходят
 // сведения, куда уходят, что учитывать при изменении, шаги и где описано (для ИИ). Данные — atlas-data.js.
-// Пошаговые инструкции по разделам остались на #help («Работа с сайтом»).
+// Бывшая «Работа с сайтом» (#help) влита сюда: шаги — в окнах блоков, «С чего начать?» — под картой; #help открывает эту же карту.
 import { h } from '../core/dom.js';
 import { guide, button, toolbar, entityPanel, card, tileGrid } from '../ui/kit/index.js';
-import { SECTIONS } from './help-guide-data.js';
-import { diagram as productDiagram } from './help-product-map.js';
+import { SECTIONS, SCENARIOS } from './help-guide-data.js';
+import { productMapCat } from './help-product-map.js';
 import { BANDS, NODES, LINKS, COMMON } from './atlas-data.js';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -296,7 +296,7 @@ function detail(n, open, back, close) {
     h('p', null, what),
     h('p', { class: 'muted small' }, `${n.seq ? 'Шаги идут сверху вниз по порядку. ' : ''}Слева — что приходит (${ins}) и в какой шаг, справа — что уходит (${outs}) и откуда. Нажмите соседний блок — окно перейдёт к нему.`),
     window.matchMedia('(min-width: 1100px)').matches ? inner(n, open) : innerList(n, open),
-    n.productMap ? guide.cat({ title: 'Подробно: из чего состоит изделие', what: 'PDM, модули, детали, сырьё, файлы — и куда они уходят', count: 'схема', body: [productDiagram()] }) : null,
+    n.productMap ? productMapCat() : null, // схема изделия и таблица «Где живёт и где править» (бывшая #help)
     n.rules?.length ? h('div', null, ...n.rules.map((t) => guide.note({ label: 'Учитывать', text: t, tone: 'warn' }))) : null,
     sec?.steps?.length ? guide.cat({ title: 'Как работать — по шагам', what: 'Что за чем нажимать в этом разделе', count: `${sec.steps.length} шаг.`, body: [guide.chain(sec.steps)] }) : null,
     n.docs?.length || n.tech ? guide.cat({ title: 'Где описано', what: 'Документы проекта — для ИИ и разработчика', count: 'доки',
@@ -350,6 +350,9 @@ export const atlas = {
         h('span', { class: 'muted small' }, 'Как устроен сайт сверху вниз: от заказчика до денег. Нажмите блок — справа откроется, что внутри и с чем он связан.')),
       wide ? legend() : null,
       wide ? map.svg : narrowList(open),
+      // «С чего начать?» — карточки «Я хочу…» перенесены со старой «Работы с сайтом» (#help удалена 2026-11-12)
+      h('section', null, h('h2', null, 'С чего начать?'), h('p', { class: 'muted small' }, 'Частые задачи: куда идти и что нажать первым.'),
+        h('div', { class: 'g-wants' }, ...SCENARIOS.map((sc) => guide.want({ tok: sc.tok, want: sc.want, menu: sc.menu, href: sc.href, start: sc.start })))),
       h('section', null, h('h2', null, 'Всегда под рукой'), h('p', { class: 'muted small' }, 'Работают со всеми разделами сразу.'),
         tileGrid(...COMMON.map((c) => card({ size: 'S', title: c.t, meta: c.l, onClick: () => { location.hash = c.href; } })))));
     if (params?.n && byId.has(params.n)) open(params.n);

@@ -10,7 +10,7 @@
 
 - `modules/product-passport/passport-snapshot-refresh.ts`: перенос ручных пунктов по ключам раздела/пункта, сравнение снимков без служебных дат и пустой `choices` (Mongo minimize). `product-passport.service.ts`: `syncDraft/rebuildSafe/saveCurrent`, условная запись по прежнему статусу/времени/снимку; конфликт — 409. `GET /passports/:id` дополнительно возвращает необязательную строку `syncWarning`, если безопасное обновление черновика невозможно. PDF использует строгую синхронизацию. Issued автоматически не обновляется.
 - `passport-pdf-v2-common.ts`, `-layout.ts`: перенос длинных текстов и строк таблиц; новый формат размеров только при `textSnapshot.sizeLayout: 2`. Старый `layout: 2` не является признаком новой таблицы. Маршруты и DTO не менялись; экспорт OpenAPI на изолированной test-БД совпал с текущими 502 путями.
-- `backend/pwa/sections/help-relations{,-data}.js`: карта связей существующих разделов, фильтр видимости роли. `ui/kit/guide.js` → `guide.diagram` с читаемым списком связей для узкого экрана; эталон в `sections/kit.js`.
+- Карта связей разделов перенесена в «Карту сайта» (`backend/pwa/sections/atlas{,-data}.js`, `#atlas`; `#help` открывает её же, 2026-11-12). `ui/kit/guide.js` → `guide.diagram` с читаемым списком связей для узкого экрана; эталон в `sections/kit.js`.
 - `backend/pwa/sections/passports/form-state.js`: проверка номера и несохранённого готового файла. `product-block.js`: карта реально наследуемых полей, ручные исключения и возврат из карточки изделия. Э4 создания нового изделия описан в `docs/crew/C096-passport-system-audit/E4-TZ.md`.
 
 ## Платформенное ядро
