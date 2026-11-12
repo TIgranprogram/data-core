@@ -138,8 +138,8 @@ if (!module.parent && !process.env.JEST_WORKER_ID) (async () => {
     const lack = await traitsReady(db);
     if (lack.length) console.log(`⚠ у видов изделия нет признаков: ${lack.join(', ')} — сначала c094-traits`);
     // ARCH C094 п.5: выданный паспорт без снимка текста при печати соберёт текст по новой версии — тогда не пишем.
-    const bare = await db.collection('productpassports').find({ status: 'issued', deletedAt: null, $or: [{ 'textSnapshot.sections': { $exists: false } }, { 'textSnapshot.sections': { $size: 0 } }] }).project({ number: 1 }).toArray();
-    console.log(`выданных паспортов без снимка текста: ${bare.length}${bare.length ? ' — № ' + bare.slice(0, 20).map((x) => x.number).join(', ') : ''}`);
+    const bare = await db.collection('productpassports').find({ status: 'issued', deletedAt: null, $or: [{ 'textSnapshot.sections': { $exists: false } }, { 'textSnapshot.sections': { $size: 0 } }] }).project({ passportNumber: 1 }).toArray();
+    console.log(`выданных паспортов без снимка текста: ${bare.length}${bare.length ? ' — ' + bare.slice(0, 20).map((x) => `№ ${x.passportNumber || 'без номера'} (id ${x._id})`).join(', ') : ''}`);
     if (!apply) { console.log('ПЛАН. Запись — только с --apply.'); return; }
     if (bare.length) throw new Error('стоп: есть выданные паспорта без снимка текста — их печать изменится; сначала снимок');
     if (lack.length) throw new Error('стоп: сначала запишите признаки видов (c094-traits), иначе пункты выпадут у изделий с видом');
