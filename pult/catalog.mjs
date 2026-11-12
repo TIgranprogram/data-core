@@ -192,6 +192,11 @@ export const COMMANDS = [
   // ---------- Настройка ПК ----------
   { id: 'setup-check', section: 'setup', extra: true, sub: 'Один раз на ПК', title: 'Проверить этот ПК', risk: 'read', time: '10 с', run: { cmd: ['tools\\setup.cmd'] },
     hint: 'Node, Git, Docker, Edge и папка копий. Строка [!!] — что исправить.' },
+  { id: 'ai-key-local', section: 'setup', extra: true, sub: 'Один раз на ПК', title: 'Ключ ИИ для КП — на стенд этого ПК', risk: 'local', time: '20 с', needs: ['bash'], run: { bash: ['deploy/synology/set-ai-key.sh', 'local'] },
+    hint: 'Ключ sk-ant-… из буфера — в настройки стенда. Нужен, чтобы проверить «Разобрать заявку» до выкладки.' },
+  { id: 'ai-key-prod', section: 'setup', extra: true, sub: 'Один раз на ПК', title: 'Ключ ИИ для КП — на сайт', risk: 'prod-write', time: '1–2 мин', needs: ['bash', 'vm'], run: { bash: ['deploy/synology/set-ai-key.sh', 'prod'] },
+    confirm: 'Ключ ИИ запишется в настройки сервера сайта, сервер перезапустится (1–2 мин). Данные не меняются.',
+    hint: 'Ключ sk-ant-… из буфера — в настройки сервера сайта, сервер перезапускается. Включает кнопку «Разобрать заявку» в «Новом КП».' },
   { id: 'setup-control-key', section: 'setup', extra: true, sub: 'Один раз на ПК', title: 'Сохранить ключ ночного прогона', risk: 'local', time: '1 с', run: { node: ['tools/set-control-key.mjs'] },
     hint: 'Ключ из буфера — в файл на этом ПК. Нужен, чтобы итог ночной проверки был в «Состоянии» на сайте.' },
   { id: 'setup-work', section: 'setup', extra: true, sub: 'Один раз на ПК', title: 'Подготовить рабочий ПК', risk: 'local', time: '20 с', needs: ['bash'], run: { bash: ['remote-access/setup-work-pc.sh'] },
