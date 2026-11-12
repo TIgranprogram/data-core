@@ -145,3 +145,5 @@
 
 ### МЦ-7: ручные тексты материалов (12.11.2026)
 `GET /api/showcase/:id/materials-spec/from-composition` (точное имя маршрута см. строку showcase) переносит `materials.passportSpec.passportText/techText` в предложение таблицы: optional `rows[].passportText/techText` и `coatingTexts:[{materialId,passportText?,techText?}]`. Запрос не записывает изделие. Сохранение выполняет существующий PATCH изделия/паспорта; разные пары текстов не объединяются. Подробнее: `crew/C094-passport-text-fit/MC7-TZ.md`.
+
+C098: backend/pwa/ui/kit/{list,auto-more}.js — общий scroll-root таблицы, наблюдатель1px, резервная кнопка, защита append/устаревших ответов. Потребители autoMore: invoices-tab,invoice-workspace-forms,design-requests,docs-orders; общие списки — mountList. Тест auto-more.test.mjs, отчёт crew/C098-auto-pagination/REPORT.md.

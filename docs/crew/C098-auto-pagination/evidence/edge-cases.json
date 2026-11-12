@@ -1,0 +1,40 @@
+{
+  "cases": [
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "near-end-200px",
+      "geometry": {
+        "height": 776,
+        "scrollHeight": 6505,
+        "scrollTop": 5529,
+        "remaining": 200,
+        "sentinelHeight": 1
+      },
+      "loaded": 200,
+      "status": "PASS"
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "resize-table-to-cards",
+      "progression": [
+        200,
+        250
+      ],
+      "total": 250,
+      "status": "PASS"
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "filter-stale-append",
+      "status": "FAIL",
+      "error": "The expression evaluated to a falsy value:\n\n  assert(delayed)\n"
+    }
+  ],
+  "notes": [
+    "QA чтение без изменения записей. Настоящая прокрутка DOM контейнера; API IDs сверены с независимым постраничным чтением."
+  ],
+  "fatal": "Остановлено на первом FAIL: filter-stale-append"
+}

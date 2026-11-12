@@ -10,27 +10,28 @@ import { mark } from './mark.js';
  *   load      — запрос одной порции (page с 1); ответ в контракте { items, total }, прочие поля (sum…) уходят в resp
  *   render    — рисует ВСЕ показанные строки (items — накопленные); вызывается после каждой порции
  *   root      — место списка: на первой порции `.is-busy` (или скелет при skeleton), при сбое первой порции — failBlock «Повторить»
- *   el        — подвал: «Показано N из M» + сентинел (+ «Показать ещё», если у браузера нет IntersectionObserver); ставит вызывающий
+ *   el        — подвал: «Показано N из M» + сентинел + доступная кнопка «Показать ещё»; ставит вызывающий
  *   cls       — класс подвала (по умолчанию pager); summary(shown, total, resp) → узел вместо «Показано N из M»
  *   text      — { fail, moreFail } подписи сбоев; onError(e, append) — например toastError
  *   reload()  — первая порция (смена фильтра/поиска); reload({ keep:true }) — перечитать уже показанные порции (после правки строки)
  *   repaint() — перерисовать без запроса (свёрнуть/развернуть группу)
  * Сбой следующей порции: failBlock в подвале, показанные строки остаются.
  *
- * moreSentinel({ hasMore, onMore }) → { el, native, rewatch, destroy } — только наблюдатель за прокруткой,
+ * moreSentinel({ hasMore, onMore, root? }) → { el, native, rewatch, destroy } — наблюдатель за нужной областью прокрутки,
  * когда загрузку ведёт сам экран (kit/list.js).
  */
-export function moreSentinel({ hasMore, onMore, margin = '300px 0px' } = {}) {
-  const el = h('div', { 'aria-hidden': 'true' });
-  const io = typeof IntersectionObserver === 'function'
-    ? new IntersectionObserver((es) => { if (es.some((x) => x.isIntersecting) && hasMore()) onMore(); }, { rootMargin: margin })
-    : null;
+export function moreSentinel({ hasMore, onMore, root = null, margin = '300px 0px' } = {}) {
+  const el = h('div', { class: 'k-more-sentinel', 'aria-hidden': 'true' });
+  let destroyed = false; let io = null;
+  try {
+    if (typeof IntersectionObserver === 'function') io = new IntersectionObserver((es) => { if (!destroyed && es.some((x) => x.isIntersecting) && hasMore()) onMore(); }, { root, rootMargin: margin });
+  } catch { /* Наблюдатель недоступен — остаётся кнопка подгрузки. */ }
   io?.observe(el);
-  return { el, native: !!io, rewatch() { if (io) { io.unobserve(el); io.observe(el); } }, destroy() { io?.disconnect(); } };
+  return { el, native: !!io, rewatch() { if (io && !destroyed) { io.unobserve(el); io.observe(el); } }, destroy() { destroyed = true; io?.disconnect(); } };
 }
 
 export function autoMore({ load, render, root, limit = 30, skeleton = false, cls = 'pager', summary, text = {}, onError } = {}) {
-  const S = { items: [], total: 0, page: 0, resp: null, seq: 0, busy: false };
+  const S = { items: [], total: 0, page: 0, resp: null, seq: 0, busy: false, destroyed: false };
   const foot = mark(h('div', { class: cls }), 'autoMore');
   const rest = () => S.items.length < S.total;
   const sen = moreSentinel({ hasMore: () => !S.busy && rest(), onMore: () => run({ append: true }) });
@@ -40,12 +41,11 @@ export function autoMore({ load, render, root, limit = 30, skeleton = false, cls
     foot.replaceChildren(
       summary ? summary(S.items.length, S.total, S.resp) : h('span', { class: 'muted' }, `Показано ${S.items.length} из ${S.total}`),
       sen.el,
-      !sen.native && rest() ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => run({ append: true }) }, 'Показать ещё') : null);
-    sen.rewatch();
+      rest() ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => run({ append: true }) }, 'Показать ещё') : null);
   }
 
   async function run({ append = false, keep = false } = {}) {
-    if (append && (!rest() || !S.page)) return;
+    if (S.destroyed || (append && (S.busy || !rest() || !S.page))) return;
     const my = ++S.seq;
     const want = keep ? Math.max(S.page, 1) : 1;
     if (append) { S.busy = true; foot.replaceChildren(h('span', { class: 'muted' }, 'Загрузка…')); }
@@ -63,6 +63,7 @@ export function autoMore({ load, render, root, limit = 30, skeleton = false, cls
         items = [...S.items, ...(resp.items || [])];
       } else {
         resp = await load(1, { limit }); got = 1;
+        if (my !== S.seq) return;
         items = resp.items || [];
         while (got < want && items.length < (resp.total ?? items.length)) {
           const r = await load(got + 1, { limit });
@@ -84,7 +85,7 @@ export function autoMore({ load, render, root, limit = 30, skeleton = false, cls
       }
       onError?.(e, append);
     } finally {
-      if (my === S.seq) { S.busy = false; if (!skeleton) root?.classList.remove('is-busy'); }
+      if (my === S.seq) { S.busy = false; if (!skeleton) root?.classList.remove('is-busy'); sen.rewatch(); }
     }
   }
 
@@ -92,11 +93,11 @@ export function autoMore({ load, render, root, limit = 30, skeleton = false, cls
     el: foot,
     reload: (opt) => run({ keep: !!opt?.keep }),
     more: () => run({ append: true }),
-    repaint: () => { if (S.resp) { render(S.items, S.resp); paintFoot(); } },
+    repaint: () => { if (S.resp) { render(S.items, S.resp); paintFoot(); sen.rewatch(); } },
     get items() { return S.items; },
     get total() { return S.total; },
     get resp() { return S.resp; },
     get busy() { return S.busy; },
-    destroy: () => { S.seq++; sen.destroy(); },
+    destroy: () => { S.destroyed = true; S.seq++; sen.destroy(); },
   };
 }

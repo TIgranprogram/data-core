@@ -1,0 +1,564 @@
+{
+  "cases": [
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "requests-table-or-cards",
+      "progression": [
+        100,
+        200,
+        250
+      ],
+      "uniqueIds": 250,
+      "total": 250,
+      "scroll": {
+        "root": "document.scrollingElement",
+        "top": 32386,
+        "h": 1000,
+        "sh": 33386
+      },
+      "pages": [
+        1,
+        2,
+        3
+      ],
+      "stoppedAtTotal": true,
+      "status": "PASS"
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "products-gallery-page",
+      "progression": [
+        100,
+        200,
+        300,
+        400,
+        500,
+        590
+      ],
+      "total": 590,
+      "uniqueIds": 590,
+      "pages": [
+        1,
+        2,
+        3,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "scroll": {
+        "root": "document.scrollingElement",
+        "top": 66598,
+        "h": 1000,
+        "sh": 67598
+      },
+      "status": "PASS"
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "name": "invoices-autoMore",
+      "progression": [
+        30,
+        49
+      ],
+      "total": 49,
+      "uniqueIds": 49,
+      "status": "PASS"
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "requests-table-or-cards",
+      "progression": [
+        100,
+        200,
+        250
+      ],
+      "uniqueIds": 250,
+      "total": 250,
+      "scroll": {
+        "root": "document.scrollingElement",
+        "top": 32386,
+        "h": 1000,
+        "sh": 33386
+      },
+      "pages": [
+        1,
+        2,
+        3
+      ],
+      "stoppedAtTotal": true,
+      "status": "PASS"
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "products-gallery-page",
+      "progression": [
+        100,
+        200,
+        300,
+        400,
+        500,
+        590
+      ],
+      "total": 590,
+      "uniqueIds": 590,
+      "pages": [
+        1,
+        2,
+        1,
+        3,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "scroll": {
+        "root": "document.scrollingElement",
+        "top": 66598,
+        "h": 1000,
+        "sh": 67598
+      },
+      "status": "PASS"
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "name": "invoices-autoMore",
+      "progression": [
+        30,
+        49
+      ],
+      "total": 49,
+      "uniqueIds": 49,
+      "status": "PASS"
+    },
+    {
+      "width": 1024,
+      "theme": "light",
+      "name": "requests-table-or-cards",
+      "progression": [
+        100,
+        200,
+        250
+      ],
+      "uniqueIds": 250,
+      "total": 250,
+      "scroll": {
+        "root": ".table-wrap",
+        "top": 13453,
+        "h": 776,
+        "sh": 14229
+      },
+      "pages": [
+        1,
+        2,
+        3
+      ],
+      "stoppedAtTotal": true,
+      "status": "PASS"
+    },
+    {
+      "width": 1024,
+      "theme": "light",
+      "name": "products-gallery-page",
+      "progression": [
+        100,
+        200,
+        300,
+        400,
+        500,
+        590
+      ],
+      "total": 590,
+      "uniqueIds": 590,
+      "pages": [
+        1,
+        2,
+        3,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "scroll": {
+        "root": "document.scrollingElement",
+        "top": 97093,
+        "h": 1000,
+        "sh": 98093
+      },
+      "status": "PASS"
+    },
+    {
+      "width": 1024,
+      "theme": "light",
+      "name": "invoices-autoMore",
+      "progression": [
+        30,
+        49
+      ],
+      "total": 49,
+      "uniqueIds": 49,
+      "status": "PASS"
+    },
+    {
+      "width": 1024,
+      "theme": "dark",
+      "name": "requests-table-or-cards",
+      "progression": [
+        100,
+        200,
+        250
+      ],
+      "uniqueIds": 250,
+      "total": 250,
+      "scroll": {
+        "root": ".table-wrap",
+        "top": 13453,
+        "h": 776,
+        "sh": 14229
+      },
+      "pages": [
+        1,
+        2,
+        3
+      ],
+      "stoppedAtTotal": true,
+      "status": "PASS"
+    },
+    {
+      "width": 1024,
+      "theme": "dark",
+      "name": "products-gallery-page",
+      "progression": [
+        100,
+        200,
+        300,
+        400,
+        500,
+        590
+      ],
+      "total": 590,
+      "uniqueIds": 590,
+      "pages": [
+        1,
+        2,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "scroll": {
+        "root": "document.scrollingElement",
+        "top": 97093,
+        "h": 1000,
+        "sh": 98093
+      },
+      "status": "PASS"
+    },
+    {
+      "width": 1024,
+      "theme": "dark",
+      "name": "invoices-autoMore",
+      "progression": [
+        30,
+        49
+      ],
+      "total": 49,
+      "uniqueIds": 49,
+      "status": "PASS"
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "requests-table-or-cards",
+      "progression": [
+        100,
+        200,
+        250
+      ],
+      "uniqueIds": 250,
+      "total": 250,
+      "scroll": {
+        "root": ".table-wrap",
+        "top": 13514,
+        "h": 776,
+        "sh": 14290
+      },
+      "pages": [
+        1,
+        2,
+        3
+      ],
+      "stoppedAtTotal": true,
+      "status": "PASS"
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "products-gallery-page",
+      "progression": [
+        100,
+        200,
+        300,
+        400,
+        500,
+        590
+      ],
+      "total": 590,
+      "uniqueIds": 590,
+      "pages": [
+        1,
+        2,
+        1,
+        3,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "scroll": {
+        "root": "document.scrollingElement",
+        "top": 35626,
+        "h": 1000,
+        "sh": 36626
+      },
+      "status": "PASS"
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "invoices-autoMore",
+      "progression": [
+        30,
+        49
+      ],
+      "total": 49,
+      "uniqueIds": 49,
+      "status": "PASS"
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "requests-table-or-cards",
+      "progression": [
+        100,
+        200,
+        250
+      ],
+      "uniqueIds": 250,
+      "total": 250,
+      "scroll": {
+        "root": ".table-wrap",
+        "top": 13484,
+        "h": 776,
+        "sh": 14260
+      },
+      "pages": [
+        1,
+        2,
+        3
+      ],
+      "stoppedAtTotal": true,
+      "status": "PASS"
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "products-gallery-page",
+      "progression": [
+        100,
+        200,
+        300,
+        400,
+        500,
+        590
+      ],
+      "total": 590,
+      "uniqueIds": 590,
+      "pages": [
+        1,
+        2,
+        3,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "scroll": {
+        "root": "document.scrollingElement",
+        "top": 35626,
+        "h": 1000,
+        "sh": 36626
+      },
+      "status": "PASS"
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "name": "invoices-autoMore",
+      "progression": [
+        30,
+        49
+      ],
+      "total": 49,
+      "uniqueIds": 49,
+      "status": "PASS"
+    },
+    {
+      "width": 2560,
+      "theme": "light",
+      "name": "requests-table-or-cards",
+      "progression": [
+        100,
+        200,
+        250
+      ],
+      "uniqueIds": 250,
+      "total": 250,
+      "scroll": {
+        "root": ".table-wrap",
+        "top": 13484,
+        "h": 776,
+        "sh": 14260
+      },
+      "pages": [
+        1,
+        2,
+        3
+      ],
+      "stoppedAtTotal": true,
+      "status": "PASS"
+    },
+    {
+      "width": 2560,
+      "theme": "light",
+      "name": "products-gallery-page",
+      "progression": [
+        100,
+        200,
+        300,
+        400,
+        500,
+        590
+      ],
+      "total": 590,
+      "uniqueIds": 590,
+      "pages": [
+        1,
+        2,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "scroll": {
+        "root": "document.scrollingElement",
+        "top": 31719,
+        "h": 1000,
+        "sh": 32719
+      },
+      "status": "PASS"
+    },
+    {
+      "width": 2560,
+      "theme": "light",
+      "name": "invoices-autoMore",
+      "progression": [
+        30,
+        49
+      ],
+      "total": 49,
+      "uniqueIds": 49,
+      "status": "PASS"
+    },
+    {
+      "width": 2560,
+      "theme": "dark",
+      "name": "requests-table-or-cards",
+      "progression": [
+        100,
+        200,
+        250
+      ],
+      "uniqueIds": 250,
+      "total": 250,
+      "scroll": {
+        "root": ".table-wrap",
+        "top": 13484,
+        "h": 776,
+        "sh": 14260
+      },
+      "pages": [
+        1,
+        2,
+        3
+      ],
+      "stoppedAtTotal": true,
+      "status": "PASS"
+    },
+    {
+      "width": 2560,
+      "theme": "dark",
+      "name": "products-gallery-page",
+      "progression": [
+        100,
+        200,
+        300,
+        400,
+        500,
+        590
+      ],
+      "total": 590,
+      "uniqueIds": 590,
+      "pages": [
+        1,
+        2,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "scroll": {
+        "root": "document.scrollingElement",
+        "top": 31719,
+        "h": 1000,
+        "sh": 32719
+      },
+      "status": "PASS"
+    },
+    {
+      "width": 2560,
+      "theme": "dark",
+      "name": "invoices-autoMore",
+      "progression": [
+        30,
+        49
+      ],
+      "total": 49,
+      "uniqueIds": 49,
+      "status": "PASS"
+    }
+  ],
+  "notes": [
+    "QA чтение без изменения записей. Настоящая прокрутка DOM контейнера; API IDs сверены с независимым постраничным чтением."
+  ]
+}

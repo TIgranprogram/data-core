@@ -1,0 +1,44 @@
+{
+  "cases": [
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "filter-stale-append",
+      "staleIgnored": true,
+      "rows": 0,
+      "status": "PASS"
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "append-error-retry",
+      "retained": 100,
+      "retriedTotal": 250,
+      "status": "PASS"
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "no-observer-list-fallback",
+      "progression": [
+        100,
+        200,
+        250
+      ],
+      "status": "PASS"
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "name": "no-observer-autoMore-fallback",
+      "progression": [
+        30,
+        49
+      ],
+      "status": "PASS"
+    }
+  ],
+  "notes": [
+    "QA чтение без изменения записей. Настоящая прокрутка DOM контейнера; API IDs сверены с независимым постраничным чтением."
+  ]
+}

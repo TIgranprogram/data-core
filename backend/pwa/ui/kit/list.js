@@ -19,7 +19,6 @@ import { paintTiles } from './list-tiles.js';
 import { paintChips } from './list-chips.js';
 import { periodState, paintPeriods } from './list-periods.js';
 import { rowActions, longPress, paintGallery, paintRows, emptyBlock } from './list-rows.js';
-
 // Контракт section.list (все опции) описан в ./list-view.js
 export function mountList(section, params, { onOpen, onCreate, quick, onChanged }) {
   const L = { ...section.list, columns: section.list.columns.filter((c) => !c.money || session.canMoney) };
@@ -35,7 +34,6 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   }
   const { savedView, saveView, st } = viewStore(L, () => P);
   let rows = [];
-
   // ---------- Шапка ----------
   const countEl = h('span', { class: 'count' });
   const btnTable = h('button', { type: 'button', onclick: () => { saveView(L.board?.default || L.gallery?.default ? 'table' : ''); patch({ view: 'table', page: undefined }); } }, icon('table'), L.gantt ? 'Список' : 'Таблица'); // явный view: иначе адрес не меняется и go() не перерисовывает
@@ -70,7 +68,6 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     ...(L.headActions && canEditSection(section) ? L.headActions(() => load()) : []),
     exportBtn,
     canCreate ? h('button', { class: 'btn btn-primary', type: 'button', onclick: onCreate, title: 'Клавиша N' }, '+ ' + (L.createLabel || 'Создать')) : null);
-
   // ---------- Поиск и фильтры (создаются один раз) ----------
   // общий поиск (ПО.3): пусто = весь список — q убирается из адреса и запроса, страница — на первую
   const sb = searchBox({ value: P.q || '', placeholder: L.searchPlaceholder || 'Поиск…', onSearch: (q) => patch({ q: q || undefined, page: undefined }) });
@@ -117,7 +114,6 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     sb.set('', true);
     patch(clear);
   }
-
   // Чипы: варианты загружаются один раз, счётчики — с каждым ответом
   const chipsBox = h('div', { class: sideChips ? 'ls-chips' : 'chips' });
   const hintBox = h('div', { class: 'list-hint', hidden: true });
@@ -254,7 +250,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   }
 
   // ---------- Загрузка ----------
-  let seq = 0;
+  let seq = 0; let destroyed = false;
   let loaded = false;
   /** Параметры запроса из адреса: поиск, свои параметры раздела, фильтры. */
   function currentQuery(isBoard = false) {
@@ -270,12 +266,15 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   // ПГ-1: автоподгрузка — строки добавляются при прокрутке к низу; адресный page не используется
   let pagesLoaded = 1, loadingMore = false;
   const moreNote = h('span', { class: 'muted' });
-  const canMore = () => !loadingMore && lastResp && rows.length < lastResp.total && !panel.classList.contains('loading');
+  const canMore = () => !destroyed && !loadingMore && lastResp && rows.length < lastResp.total && !panel.classList.contains('loading') && !st().board && !st().gantt && !L.periods?.(P);
   // таблица прокручивается в своём окне .table-wrap: подвал вне окна всегда виден и тянул бы страницы подряд → в окне свой наблюдатель, у подвала — только без таблицы (карточки, галерея)
   const watch = moreSentinel({ hasMore: () => canMore() && !tableWrap.offsetParent, onMore: () => load({ append: true }) }), sentinel = watch.el;
-  const watchIn = moreSentinel({ hasMore: canMore, onMore: () => load({ append: true }) }); tableWrap.append(watchIn.el);
+  const watchIn = moreSentinel({ root: tableWrap, hasMore: canMore, onMore: () => load({ append: true }) }); tableWrap.append(watchIn.el);
   const rewatch = () => { watch.rewatch(); watchIn.rewatch(); };
   async function load(opt = {}) {
+    if (destroyed || (opt.append && !canMore())) return;
+    const my = ++seq, loadT0 = performance.now();
+    if (!opt.append) loadingMore = false;
     let { limit, page, sort, board: isBoard, gallery: isGallery, gantt: isGantt } = st();
     if (isGallery) { limit = Number(P.limit) || L.gallery.limit || 100; sort = P.sort || L.gallery.sort || sort; }
     const query = currentQuery(isBoard);
@@ -293,7 +292,6 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       else board.setQuery(query);
       return;
     }
-    const my = ++seq, loadT0 = performance.now(); // замер «Медленно» — от начала этой загрузки
     const infinite = !per;
     const append = infinite && !!opt.append && !!lastResp;
     if (infinite && !append && !opt.keep) pagesLoaded = 1;
@@ -314,11 +312,11 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
         if (my === seq) { resp = { ...resp, items: [...rawRows, ...resp.items] }; pagesLoaded++; }
       } else if (infinite && opt.keep && pagesLoaded > 1) {
         const n = pagesLoaded; resp = await api(L.path, { query: { ...query, page: 1, limit, sort } });
-        for (let p = 2; p <= n && resp.items.length < resp.total; p++) { const r = await api(L.path, { query: { ...query, page: p, limit, sort } }); resp.items = [...resp.items, ...r.items]; }
+        for (let p = 2; my === seq && p <= n && resp.items.length < resp.total; p++) { const r = await api(L.path, { query: { ...query, page: p, limit, sort } }); if (my !== seq) return; resp.items = [...resp.items, ...r.items]; }
       } else resp = await api(L.path, { query: { ...query, page, limit, sort } });
     } catch (e) {
-      loadingMore = false;
       if (my !== seq) return;
+      loadingMore = false;
       if (append) { moreNote.textContent = ''; foot.replaceChildren(failBlock(e, () => load({ append: true }))); return; }
       panel.classList.remove('loading');
       stateRow(() => failBlock(e, () => load()));
@@ -351,6 +349,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       h('span', null, resp.total ? `Показано ${qty(rows.length)} из ${qty(resp.total)}` : ''),
       L.footer ? L.footer(resp) : null,
       rows.length < resp.total ? moreNote : null,
+      rows.length < resp.total ? button({ label: 'Показать ещё', size: 'S', onClick: () => load({ append: true }) }) : null,
       sentinel].filter(Boolean));
     rewatch();
   }
@@ -394,6 +393,6 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     // после записи (dc:changed): строки, числа плиток и шаги «Уточнить» обновляются на месте, без мигания
     reload: (row) => { if (tilesBox) loadTiles(true); extra?.update(P); if (st().gantt && gantt) return gantt.reload(); return st().board && board ? (row && board.reloadFor ? board.reloadFor(row) : board.reload()) : load({ keep: true }); },
     focusSearch: () => sb.focus(),
-    destroy: () => { document.removeEventListener('keydown', onKey); watch.destroy(); watchIn.destroy(); },
+    destroy: () => { destroyed = true; seq++; document.removeEventListener('keydown', onKey); watch.destroy(); watchIn.destroy(); },
   };
 }

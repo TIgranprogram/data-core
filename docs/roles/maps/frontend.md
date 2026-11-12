@@ -1,3 +1,8 @@
+## C098 автоподгрузка общих списков (2026-11-12)
+коммит: не закоммичено
+- `backend/pwa/ui/kit/auto-more.js:23` — moreSentinel с root, постоянный fallback, busy/seq/destroy. `ui/kit/list.js:270` — отдельный root таблицы, защита append, fallback.
+- `backend/pwa/ui/kit/kit.css:106` — ненулевой sentinel; mobile pager/list-foot —44px. `auto-more.test.mjs:40` — native Chromium4/4 (порог200px,250уникальных,resize,ошибка/retry,noIO,гонки).
+- Smoke imports296/0,guards292/292; liveaccess30/30. Точный отказ исходного скриншота не воспроизведён; доказаны viewportmargin/нетfallback. C098/IMPLEMENT.md. Карта обновлена.
 ## C096 Э4 создание изделия и достоверный возврат (2026-11-12)
 коммит: не закоммичено
 - `backend/pwa/sections/products/create-session.js:2` — продолжение после успешного POST, один in-flight; `form-fields.js:82` — отдельная фабрика для вложенной формы, `:216` resumable create.

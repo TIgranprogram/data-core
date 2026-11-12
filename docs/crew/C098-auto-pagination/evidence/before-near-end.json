@@ -1,0 +1,120 @@
+{
+  "counts": {
+    "/supply/requests?limit=1": 250,
+    "/showcase?limit=1": 590,
+    "/production-orders?limit=1": 35,
+    "/product-requests?limit=1": 0,
+    "/passports/by-order?limit=1": 10,
+    "/supply/invoices?limit=1": 49
+  },
+  "before": {
+    "rows": 100,
+    "containers": [
+      {
+        "tag": "DIV",
+        "cls": "main",
+        "h": 1216,
+        "sh": 1216,
+        "overflow": "visible"
+      },
+      {
+        "tag": "MAIN",
+        "cls": "page",
+        "h": 1116,
+        "sh": 1116,
+        "overflow": "visible"
+      },
+      {
+        "tag": "DIV",
+        "cls": "panel list-panel bulk-mode",
+        "h": 920,
+        "sh": 920,
+        "overflow": "visible"
+      },
+      {
+        "tag": "DIV",
+        "cls": "table-wrap",
+        "h": 776,
+        "sh": 6621,
+        "overflow": "auto"
+      }
+    ],
+    "sentinels": [
+      {
+        "cls": "",
+        "rect": {
+          "x": 577,
+          "y": 6984.984375,
+          "width": 1295,
+          "height": 0,
+          "top": 6984.984375,
+          "right": 1872,
+          "bottom": 6984.984375,
+          "left": 577
+        },
+        "parent": "table-wrap"
+      }
+    ]
+  },
+  "after": {
+    "rows": 200,
+    "containers": [
+      {
+        "tag": "DIV",
+        "cls": "main",
+        "h": 1216,
+        "sh": 1216,
+        "overflow": "visible"
+      },
+      {
+        "tag": "MAIN",
+        "cls": "page",
+        "h": 1116,
+        "sh": 1116,
+        "overflow": "visible"
+      },
+      {
+        "tag": "DIV",
+        "cls": "panel list-panel bulk-mode",
+        "h": 920,
+        "sh": 920,
+        "overflow": "visible"
+      },
+      {
+        "tag": "DIV",
+        "cls": "table-wrap",
+        "h": 776,
+        "sh": 10504,
+        "overflow": "auto"
+      }
+    ],
+    "sentinels": [
+      {
+        "cls": "",
+        "rect": {
+          "x": 577,
+          "y": 6044.109375,
+          "width": 1295,
+          "height": 0,
+          "top": 6044.109375,
+          "right": 1872,
+          "bottom": 6044.109375,
+          "left": 577
+        },
+        "parent": "table-wrap"
+      }
+    ]
+  },
+  "calls": [
+    {
+      "url": "http://localhost:3102/api/supply/requests?page=1&limit=100&sort=-requestDate",
+      "count": 100,
+      "total": 250
+    },
+    {
+      "url": "http://localhost:3102/api/supply/requests?page=2&limit=100&sort=-requestDate",
+      "count": 100,
+      "total": 250
+    }
+  ]
+}
