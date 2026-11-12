@@ -1,6 +1,6 @@
 # МЦ-7 и история карточек — интеграция 12.11.2026
 
-Кандидат ещё не выложен. Итоговая приёмка — MC7-UI.md и RECENT-CARDS.md; полный серверный прогон — MC7-BACKEND.md / TEST-LOG.
+Выложено v1.732 (7fca02e1), штатный release exit0; итог — MC7-RELEASE.md. Итоговая приёмка — MC7-UI.md и RECENT-CARDS.md; полный серверный прогон — MC7-BACKEND.md / TEST-LOG.
 
 ## Изменения
 
