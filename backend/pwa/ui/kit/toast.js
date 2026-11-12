@@ -3,6 +3,7 @@ import { h } from '../../core/dom.js';
 import { actionText, isFailure } from './errors.js';
 import { noticeCard, splitReason } from '../notice-card.js';
 import { addNotice } from '../notices.js';
+import { reportError } from '../../core/errors.js';
 
 /**
  * Всплывающее сообщение — тот же вид, что строка в колокольчике (DESIGN §4 «Уведомление»).
@@ -38,6 +39,7 @@ export function toast(text, { error = false, undo, ms, actions, tone, sub, notic
 const lastShown = new Map();
 export const toastError = (e, action) => {
   if (e?.viewAs) return; // текст уже показан в api() — второе окно не нужно
+  reportError(e, { action: typeof action === 'string' ? action : undefined });
   const t = actionText(typeof action === 'string' ? action : '', e);
   const gap = isFailure(e) ? 30000 : 4000;
   if (Date.now() - (lastShown.get(t) || 0) < gap) return;

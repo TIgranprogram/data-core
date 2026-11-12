@@ -1,0 +1,136 @@
+{
+  "results": [
+    {
+      "name": "Базовая версия: открыть без правок",
+      "ok": true,
+      "network": [
+        {
+          "phase": "Базовая версия: открыть без правок",
+          "status": 200,
+          "path": "/api/dicts/passportElements"
+        },
+        {
+          "phase": "Базовая версия: открыть без правок",
+          "status": 200,
+          "path": "/api/showcase/6adaff432a8dad6034b14603/passport-defaults"
+        }
+      ]
+    },
+    {
+      "name": "Базовая версия: Готово без правок",
+      "ok": true,
+      "network": []
+    },
+    {
+      "name": "Открытие шаблона",
+      "ok": true,
+      "network": [
+        {
+          "phase": "Открытие шаблона",
+          "status": 200,
+          "path": "/api/dicts/passportElements"
+        }
+      ]
+    },
+    {
+      "name": "Готово без правок",
+      "ok": true,
+      "network": []
+    },
+    {
+      "name": "Повторное открытие перед правками",
+      "ok": true,
+      "network": [
+        {
+          "phase": "Повторное открытие перед правками",
+          "status": 200,
+          "path": "/api/dicts/passportElements"
+        }
+      ]
+    },
+    {
+      "name": "Выбор бетонирования",
+      "ok": true,
+      "network": []
+    },
+    {
+      "name": "Правка элемента",
+      "ok": true,
+      "network": [
+        {
+          "phase": "Правка элемента",
+          "status": 200,
+          "path": "/api/dicts/passportElements/6adb17107920f392cb442fd0"
+        }
+      ]
+    },
+    {
+      "name": "Индивидуальный текст",
+      "ok": true,
+      "network": [
+        {
+          "phase": "Индивидуальный текст",
+          "status": 200,
+          "path": "/api/showcase/6adaff432a8dad6034b14603/passport-defaults"
+        }
+      ]
+    },
+    {
+      "name": "Кнопка Готово",
+      "ok": true,
+      "network": []
+    },
+    {
+      "name": "Двойное Готово",
+      "ok": true,
+      "network": [
+        {
+          "phase": "Двойное Готово",
+          "status": 200,
+          "path": "/api/dicts/passportElements"
+        }
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "phase": "Базовая версия: Готово без правок",
+      "console": "[приложение] внутренняя ошибка: TypeError: Cannot read properties of null (reading 'beforeClose')\n    at cancel.onclick (http://localhost:3102/app/ui/kit/card.js:357:127)",
+      "stack": [
+        {
+          "functionName": "errText",
+          "url": "http://localhost:3102/app/ui/kit/errors.js",
+          "lineNumber": 23,
+          "columnNumber": 10
+        },
+        {
+          "functionName": "actionText",
+          "url": "http://localhost:3102/app/ui/kit/errors.js",
+          "lineNumber": 40,
+          "columnNumber": 12
+        },
+        {
+          "functionName": "toastError",
+          "url": "http://localhost:3102/app/ui/kit/toast.js",
+          "lineNumber": 42,
+          "columnNumber": 12
+        },
+        {
+          "functionName": "cancel.onclick",
+          "url": "http://localhost:3102/app/ui/kit/card.js",
+          "lineNumber": 356,
+          "columnNumber": 155
+        }
+      ]
+    }
+  ],
+  "reports": [
+    {
+      "phase": "Базовая версия: Готово без правок",
+      "message": "Cannot read properties of null (reading 'beforeClose')",
+      "stack": "TypeError: Cannot read properties of null (reading 'beforeClose')\n    at cancel.onclick (http://localhost:3102/app/ui/kit/card.js:357:127)",
+      "action": "сохранить",
+      "kind": "action"
+    }
+  ]
+}

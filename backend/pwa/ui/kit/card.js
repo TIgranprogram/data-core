@@ -1,4 +1,5 @@
 import { api, canEditSection, PREFIX, session } from '../../core/api.js';
+import { reportError } from '../../core/errors.js';
 import { mark } from './mark.js';
 import { h } from '../../core/dom.js';
 import { readonlyGroups } from './readonly.js';
@@ -18,22 +19,13 @@ import { DOCK_MIN, getPref, setPref } from '../../core/prefs.js';
 import { isSolo, popout, setPopout, soloGeometry } from '../../core/popout.js'; // панель в отдельном окне (2026-11-10)
 
 /**
- * Карточка записи — боковая панель (CANON §2). Режимы: просмотр / правка / создание.
- * section = {
- *   title, entityType, noun ('заявку'), get(id) → row,
- *   card: { heading(row), subheading?(row), stats?(row), view(row) → [[подпись, значение]], actions?(row, ctx), actionsInHead?, extra?(row, ctx),
- *           parent?(row) → { label, run } — кнопка «← label» над заголовком (возврат к заказу),
- *           startEdit?(row) → true — открыть сразу в правке, noHistory — без «Истории изменений»,
- *           gallery?(row) → [{ id, url, thumb }], photoAdd?(row, photoId) → row, photoRemove?(row, photoId) → row },
- *   form?: { fields(row|null) → поля, toBody(values, row|null), create(body) → row, update(id, body) → row, initial?() },
- *   remove?: { run(row), restore(row), text(row), blocked?(row) → причина | null },
- *   duplicate?(row) → начальные значения новой записи,
- * }
- * ctx: { close(), changed() — перерисовать список }.
- * На широком экране (≥ DOCK_MIN) карточка «пристыкована» справа рядом со списком: без затемнения, список виден и кликается.
- * Зоны блоков (docs/DESIGN.md §4, «Раскладка панели»): card.zones = { top|stats|fields|extra: 'main'|'side'|'wide' } или data-zone="…" на самом блоке; без зоны — main.
- * Вид выбирает пользователь в «⋯» шапки (prefs panelLayout: one — как раньше, two — две колонки, wide — две и широкий блок снизу).
- * load(id) — показать другую запись в той же панели (стрелки ↑/↓ в списке), без закрытия-открытия.
+ * Карточка записи: просмотр / правка / создание (CANON §2).
+ * section: title, entityType, noun, get(id); card: heading, view и необязательные subheading/stats/actions/extra/parent/startEdit/noHistory.
+ * Изображения: card.gallery(row), photoAdd/Remove(row, photoId); форма: fields/build, toBody, create/update, initial.
+ * section.remove: run/restore/text/blocked; duplicate(row) возвращает начальные значения копии.
+ * ctx.close() закрывает панель; ctx.changed() обновляет список; load(id) показывает соседнюю запись.
+ * На широком экране (≥ DOCK_MIN) панель пристыкована без затемнения; список остаётся кликабельным.
+ * Зоны: card.zones или data-zone (main/side/wide), DESIGN §4; раскладка выбирается в меню «⋯» (prefs panelLayout).
  */
 
 /** Фото записи: большое + миниатюры; клик — на весь экран (Esc / клик — закрыть). pics: [{ url, thumb }] */
@@ -307,8 +299,17 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     form.bindSave?.((enabled, label) => { save.disabled = !enabled; if (label) { saveLabel = label; save.textContent = label; } });
     const cancel = h('button', { class: 'btn', type: 'button', onclick: async () => {
       if (saving || building || form?.busy?.()) return;
-      if (form.dirty() && !(await confirmDlg('Отменить изменения?', 'Введённые данные не сохранятся.', { okText: 'Да, отменить' }))) return;
-      if (isNew && !row) { destroy(); ctx.close(); } else showView(row);
+      const closingForm = form;
+      if (!closingForm) return;
+      if (closingForm.readonly && closingForm.beforeClose) {
+        saving = true;
+        try { await closingForm.beforeClose(); }
+        catch (e) { toastError(e, 'сохранить'); return; }
+        finally { saving = false; }
+      }
+      if (disposed || form !== closingForm) return;
+      if (closingForm.dirty() && !(await confirmDlg('Отменить изменения?', 'Введённые данные не сохранятся.', { okText: 'Да, отменить' }))) return;
+      if (isNew && !row) { destroy(); ctx.close(); } else return showView(row);
     } }, 'Отмена');
     save.onclick = async () => {
       let saved;
@@ -326,6 +327,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
         saved = isNew ? await section.form.create(bodyData) : await section.form.update(row.id, bodyData);
       } catch (e) {
         // ОШ2.4: сбой — «Не удалось сохранить: нет связи… Проверьте интернет…»; ответ сервера — «Не сохранено: Укажите…»
+        reportError(e, { action: isNew ? 'создать запись' : 'сохранить' });
         err.textContent = isFailure(e) ? actionText(isNew ? 'создать запись' : 'сохранить', e) : 'Не сохранено: ' + errText(e); err.hidden = false;
         if (e?.fields) form.markErrors?.(e.fields);
         form.onError?.(e);
@@ -353,8 +355,7 @@ export function openCard(section, { id, mode = 'view', initial, fill }, ctx) {
     if (form.readonly) {
       cancel.textContent = form.doneLabel || 'Закрыть';
       if (form.doneLabel) cancel.classList.add('btn-primary');
-      const back = cancel.onclick;
-      if (form.beforeClose) cancel.onclick = async () => { if (saving || building || form?.busy?.()) return; try { await form.beforeClose(); } catch (e) { toastError(e, 'сохранить'); return; } return back?.(); };
+      // h() регистрирует onclick через addEventListener: второй onclick здесь вызвал бы закрытие дважды.
       foot.replaceChildren(cancel);
     } else foot.replaceChildren(save, cancel);
     // ИЗ-13: без автофокуса при открытии — курсор ставит сам человек (фокус только на поле с ошибкой)

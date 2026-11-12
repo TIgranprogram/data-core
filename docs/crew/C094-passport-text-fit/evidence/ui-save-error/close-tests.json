@@ -1,0 +1,132 @@
+{
+  "results": [
+    {
+      "name": "Базовая версия: открыть без правок",
+      "ok": true,
+      "network": [
+        {
+          "phase": "Базовая версия: открыть без правок",
+          "status": 200,
+          "path": "/api/dicts/passportElements"
+        }
+      ]
+    },
+    {
+      "name": "Базовая версия: Готово без правок",
+      "ok": true,
+      "network": []
+    },
+    {
+      "name": "Открытие шаблона",
+      "ok": true,
+      "network": [
+        {
+          "phase": "Открытие шаблона",
+          "status": 200,
+          "path": "/api/dicts/passportElements"
+        }
+      ]
+    },
+    {
+      "name": "Готово без правок",
+      "ok": true,
+      "network": []
+    },
+    {
+      "name": "Отложенный default: двойное Готово",
+      "ok": true,
+      "network": [
+        {
+          "phase": "Отложенный default: двойное Готово",
+          "status": 200,
+          "path": "/api/dicts/passportElements"
+        },
+        {
+          "phase": "Отложенный default: двойное Готово",
+          "status": 200,
+          "path": "/api/showcase/6adaff432a8dad6034b14603/passport-defaults"
+        }
+      ]
+    },
+    {
+      "name": "Отложенный default: PUT 500",
+      "ok": true,
+      "network": [
+        {
+          "phase": "Отложенный default: PUT 500",
+          "status": 200,
+          "path": "/api/dicts/passportElements"
+        },
+        {
+          "phase": "Отложенный default: PUT 500",
+          "status": 500,
+          "path": "/api/showcase/6adaff432a8dad6034b14603/passport-defaults"
+        }
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "phase": "Базовая версия: Готово без правок",
+      "console": "[приложение] внутренняя ошибка: TypeError: Cannot read properties of null (reading 'beforeClose')\n    at cancel.onclick (http://localhost:3102/app/ui/kit/card.js:357:127)",
+      "stack": [
+        {
+          "functionName": "errText",
+          "url": "http://localhost:3102/app/ui/kit/errors.js",
+          "lineNumber": 23,
+          "columnNumber": 10
+        },
+        {
+          "functionName": "actionText",
+          "url": "http://localhost:3102/app/ui/kit/errors.js",
+          "lineNumber": 40,
+          "columnNumber": 12
+        },
+        {
+          "functionName": "toastError",
+          "url": "http://localhost:3102/app/ui/kit/toast.js",
+          "lineNumber": 42,
+          "columnNumber": 12
+        },
+        {
+          "functionName": "cancel.onclick",
+          "url": "http://localhost:3102/app/ui/kit/card.js",
+          "lineNumber": 356,
+          "columnNumber": 155
+        }
+      ]
+    }
+  ],
+  "reports": [
+    {
+      "phase": "Базовая версия: Готово без правок",
+      "message": "Cannot read properties of null (reading 'beforeClose')",
+      "stack": "TypeError: Cannot read properties of null (reading 'beforeClose')\n    at cancel.onclick (http://localhost:3102/app/ui/kit/card.js:357:127)",
+      "action": "сохранить",
+      "kind": "action"
+    },
+    {
+      "phase": "Отложенный default: PUT 500",
+      "message": "Сбой на сервере — мы уже знаем, попробуйте ещё раз. Введённое не потеряно.",
+      "stack": "Error: Сбой на сервере — мы уже знаем, попробуйте ещё раз. Введённое не потеряно.\n    at errorOf (http://localhost:3102/app/core/api.js:155:60)\n    at async send (http://localhost:3102/app/core/api.js:314:22)\n    at async withWriteRetry (http://localhost:3102/app/core/write-retry.js:33:19)\n    at async call (http://localhost:3102/app/core/api.js:262:45)",
+      "action": "запись",
+      "kind": "action"
+    }
+  ],
+  "scenarios": [
+    {
+      "mode": "delay",
+      "remains": false,
+      "canRetry": false,
+      "mockWrites": 1,
+      "ok": true
+    },
+    {
+      "mode": "fail",
+      "remains": true,
+      "canRetry": true,
+      "mockWrites": 1,
+      "ok": true
+    }
+  ]
+}
