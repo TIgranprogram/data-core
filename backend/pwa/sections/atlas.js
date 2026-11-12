@@ -22,14 +22,17 @@ const nameOf = (n) => (n.t === 'ИЗДЕЛИЕ' ? 'Изделие' : n.t);
 const hrefOf = (n) => n.href || (n.sec ? SECTIONS[n.sec]?.href : null);
 
 // ---------- общая схема: слой = полоса, блок = раздел ----------
-const W = 1200, LBL = 150, COL0 = 178, COLW = 255, NW = 228, NH = 92, BAND_H = 168, TOP = 36;
+const W = 1230, LBL = 150, COL0 = 180, COLW = 262, NW = 222, NH = 92, BAND_H = 168, TOP = 36;
 const geo = (n) => {
   const b = bandOf.get(n.band);
   return { x: COL0 + n.col * COLW, y: TOP + b.i * BAND_H + 38, w: NW, h: NH, row: b.i };
 };
 const cx = (g) => g.x + g.w / 2;
 
-/** Пути связей: соседи в слое — сбоку, дальние в слое — дугой сверху, между слоями — сверху вниз (или снизу вверх). */
+/** Пути связей — только прямые отрезки под прямым углом (просьба 2026-11-12): горизонтали идут в промежутках
+ *  между рядами, вертикали через ряды — в промежутках между колонками; у каждой линии своя дорожка, чтобы не сливались. */
+const rowTop = (r) => TOP + r * BAND_H + 38;
+const chX = (c) => COL0 + c * COLW + NW + (COLW - NW) / 2; // промежуток справа от колонки c
 function routes() {
   const ports = {}; // node:side → список [linkIndex, x другого конца]
   const put = (id, side, k, other) => { (ports[`${id}:${side}`] ||= []).push([k, other]); };
@@ -47,26 +50,54 @@ function routes() {
   const portX = (id, side, k) => {
     const list = (ports[`${id}:${side}`] || []).slice().sort((p, q) => p[1] - q[1]);
     const i = list.findIndex((p) => p[0] === k), n = list.length;
-    return cx(geo(byId.get(id))) + (i - (n - 1) / 2) * Math.min(26, (NW - 40) / Math.max(1, n - 1));
+    // верхние и нижние гнёзда сдвинуты на 8 px: линия, уходящая вниз, не ложится на линию, входящую в блок ниже
+    return cx(geo(byId.get(id))) + (side === 'top' ? 4 : -4) + (i - (n - 1) / 2) * Math.min(26, (NW - 40) / Math.max(1, n - 1));
   };
+  // дорожки: в промежутке над рядом r — горизонтали, в промежутке справа от колонки c — вертикали
+  const gapUsed = {}, chUsed = {};
+  const gapY = (r) => {
+    const k = (gapUsed[r] = (gapUsed[r] || 0) + 1) - 1;
+    const top = r ? rowTop(r - 1) + NH : TOP - 8, bottom = rowTop(r), n = Math.max(1, Math.floor((bottom - top - 20) / 8));
+    return top + 12 + (k % n) * 8;
+  };
+  const chanX = (c) => { const k = (chUsed[c] = (chUsed[c] || 0) + 1) - 1; return chX(c) + ((k % 5) - 2) * 7; };
   return plan.map((p) => {
     const { A, B, a, b, k } = p;
     let pts;
     if (p.kind === 'side') {
       const right = B.x > A.x, y = A.y + A.h / 2;
-      const x1 = right ? A.x + A.w : A.x, x2 = right ? B.x : B.x + B.w;
-      pts = [[x1, y], [(x1 + x2) / 2, y], [(x1 + x2) / 2, y], [x2, y]];
+      pts = [[right ? A.x + A.w : A.x, y], [right ? B.x : B.x + B.w, y]];
     } else if (p.kind === 'arc') {
-      const x1 = portX(a, 'top', k), x2 = portX(b, 'top', k), lift = 26 + Math.abs(x2 - x1) / 30;
-      pts = [[x1, A.y], [x1, A.y - lift], [x2, B.y - lift], [x2, B.y]];
+      const x1 = portX(a, 'top', k), x2 = portX(b, 'top', k), y = gapY(A.row);
+      pts = [[x1, A.y], [x1, y], [x2, y], [x2, B.y]];
     } else {
       const down = p.kind === 'down';
       const x1 = portX(a, down ? 'bottom' : 'top', k), x2 = portX(b, down ? 'top' : 'bottom', k);
-      const y1 = down ? A.y + A.h : A.y, y2 = down ? B.y : B.y + B.h, m = (y1 + y2) / 2;
-      pts = [[x1, y1], [x1, m], [x2, m], [x2, y2]];
+      const y1 = down ? A.y + A.h : A.y, y2 = down ? B.y : B.y + B.h;
+      const gA = down ? A.row + 1 : A.row, gB = down ? B.row : B.row + 1; // промежутки у начала и у конца
+      if (gA === gB) { const y = gapY(gA); pts = [[x1, y1], [x1, y], [x2, y], [x2, y2]]; }
+      else {
+        let c = 0, best = Infinity; // ближайший к обоим концам коридор между колонками
+        for (let i = 0; i < 4; i++) { const d = Math.abs(chX(i) - x1) + Math.abs(chX(i) - x2); if (d < best) { best = d; c = i; } }
+        const xc = chanX(c), ya = gapY(gA), yb = gapY(gB);
+        pts = [[x1, y1], [x1, ya], [xc, ya], [xc, yb], [x2, yb], [x2, y2]];
+      }
     }
-    return { a, b, label: LINKS[k][2], d: `M${pts[0]} C${pts[1]} ${pts[2]} ${pts[3]}` };
+    return { a, b, label: LINKS[k][2], d: roundPath(pts, 6) };
   });
+}
+
+/** Ломаная с чуть скруглёнными углами (радиус r): прямые отрезки, без дуг-«макарон». */
+function roundPath(pts, r) {
+  let d = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const [px, py] = pts[i - 1], [x, y] = pts[i], [nx, ny] = pts[i + 1];
+    const r1 = Math.min(r, Math.hypot(x - px, y - py) / 2, Math.hypot(nx - x, ny - y) / 2);
+    const ax = x - Math.sign(x - px) * r1, ay = y - Math.sign(y - py) * r1, bx = x + Math.sign(nx - x) * r1, by = y + Math.sign(ny - y) * r1;
+    d += ` L${ax},${ay} Q${x},${y} ${bx},${by}`;
+  }
+  const [lx, ly] = pts[pts.length - 1];
+  return d + ` L${lx},${ly}`;
 }
 
 function bigMap(open) {
@@ -125,46 +156,108 @@ function bigMap(open) {
   return { svg, pin };
 }
 
-// ---------- окно «что внутри»: источники слева, раздел с частями в центре, результат справа ----------
+/** Легенда над картой (просьба 2026-11-12): цветные стрелки слоёв с подписями, затем что значат блок и «внутри». */
+function legend() {
+  const items = [];
+  for (const b of BANDS) {
+    const same = items.find((it) => it.tok === b.tok);
+    if (same) same.name += ' и ' + b.name.toLowerCase(); else items.push({ tok: b.tok, name: b.name });
+  }
+  const svg = s('svg', { viewBox: `0 0 ${W} 62`, width: '100%', role: 'img', 'aria-label': 'Легенда: цвет стрелки — из какого слоя идут сведения' });
+  svg.append(s('defs', {}, ...items.map((it) => s('marker', { id: `at-lg-${it.tok}`, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto' },
+    s('path', { d: 'M0,0 L10,5 L0,10 z', fill: `var(--sec-${it.tok})` })))));
+  svg.append(s('text', { x: 0, y: 19, fill: 'var(--muted)', 'font-size': 13 }, 'Стрелка — куда идут сведения. Цвет — откуда:'));
+  let x = 340;
+  for (const it of items) {
+    svg.append(s('path', { d: `M${x},15 L${x + 34},15`, stroke: `var(--sec-${it.tok})`, 'stroke-width': 2.4, 'marker-end': `url(#at-lg-${it.tok})` }),
+      s('text', { x: x + 42, y: 19, fill: 'var(--heading)', 'font-size': 13, 'font-weight': 600 }, it.name));
+    x += 42 + it.name.length * 7.6 + 26;
+  }
+  // вторая строка: блок, «внутри», наведение
+  svg.append(s('rect', { x: 0, y: 36, width: 34, height: 20, rx: 5, fill: 'var(--surface-3)', stroke: 'var(--border-strong)' }),
+    s('text', { x: 42, y: 51, fill: 'var(--heading)', 'font-size': 13, 'font-weight': 600 }, 'раздел — нажмите, откроется, что внутри'),
+    s('text', { x: 350, y: 51, fill: 'var(--primary)', 'font-size': 12, 'font-weight': 700 }, 'внутри: 5 ›'),
+    s('text', { x: 432, y: 51, fill: 'var(--heading)', 'font-size': 13, 'font-weight': 600 }, 'сколько шагов и частей'),
+    s('text', { x: 640, y: 51, fill: 'var(--muted)', 'font-size': 13 }, 'Наведите на блок — останутся только его связи, в соседях — что передаётся.'));
+  return svg;
+}
+
+// ---------- окно «что внутри»: шаги сверху вниз; слева — что и в какой шаг приходит, справа — откуда уходит ----------
 function inner(n, open) {
+  const parts = n.inside || [], chain = parts.filter((p) => !p.alt), extra = parts.filter((p) => p.alt);
   const ins = LINKS.filter(([, b]) => b === n.id), outs = LINKS.filter(([a]) => a === n.id);
-  const parts = n.inside || [], cols = 2, PW = 214, PH = 70, GAP = 10;
-  const rows = Math.ceil(parts.length / cols);
-  const CW = cols * PW + (cols + 1) * GAP, CX = 255, CH = 52 + rows * (PH + GAP);
-  const SW = 200, SH = 64, side = Math.max(ins.length, outs.length);
-  const H = Math.max(CH, side * (SH + 12)) + 20, CY = (H - CH) / 2;
-  const svg = s('svg', { viewBox: `0 0 ${CX * 2 + CW} ${H}`, width: '100%', role: 'group', 'aria-label': `${nameOf(n)}: что внутри и с чем связано` });
-  svg.append(s('defs', {}, s('marker', { id: 'at-arr2', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto' }, s('path', { d: 'M0,0 L10,5 L0,10 z', fill: 'var(--muted)' }))));
+  const W2 = 960, SW = 210, SH = 58, PW = 300, PH = 58, CX = 330, RX = W2 - 10 - SW;
+  const GAP = n.seq ? 30 : 14, TOPY = 70;
+  // где стоит каждая часть: цепочка, затем «ещё в разделе»
+  const pos = new Map();
+  let y = TOPY;
+  chain.forEach((p) => { pos.set(p, y); y += PH + GAP; });
+  const extraY = y + (extra.length ? 10 : 0);
+  if (extra.length) y = extraY + 22;
+  extra.forEach((p) => { pos.set(p, y); y += PH + 14; });
+  const partsBottom = y - (extra.length ? 14 : GAP);
+  const partOf = (key, id) => parts.find((p) => (p[key] || []).includes(id)) || (key === 'in' ? parts[0] : parts[parts.length - 1]);
+  // соседи: напротив своего шага, без наложений
+  const place = (list, key) => {
+    const rows = list.map((l) => ({ l, id: key === 'in' ? l[0] : l[1], part: partOf(key, key === 'in' ? l[0] : l[1]) }))
+      .map((r) => ({ ...r, want: pos.get(r.part) + PH / 2 - SH / 2 })).sort((a, b) => a.want - b.want);
+    let next = 10;
+    rows.forEach((r) => { r.y = Math.max(r.want, next); next = r.y + SH + 10; });
+    return rows;
+  };
+  const L = place(ins, 'in'), R = place(outs, 'out');
+  const H = Math.max(partsBottom, ...L.map((r) => r.y + SH), ...R.map((r) => r.y + SH)) + 16;
+  const svg = s('svg', { viewBox: `0 0 ${W2} ${H}`, width: '100%', role: 'group', 'aria-label': `${nameOf(n)}: шаги и связи` });
+  const toks = [...new Set([tone(n), ...BANDS.map((b) => b.tok)])];
+  svg.append(s('defs', {}, ...toks.map((t) => s('marker', { id: `at-in-${t}`, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto' },
+    s('path', { d: 'M0,0 L10,5 L0,10 z', fill: `var(--sec-${t})` })))));
   const tok = tone(n);
-  const sideBox = (id, x, y, label, left) => {
-    const m = byId.get(id), t = tone(m);
+  // рамка раздела
+  svg.append(s('rect', { x: CX - 18, y: 8, width: PW + 36, height: partsBottom - 8 + 14, rx: 14, fill: n.big ? 'var(--primary-soft)' : `var(--sec-${tok}-soft)`, stroke: n.big ? 'var(--primary)' : `var(--sec-${tok})`, 'stroke-width': 2 }),
+    s('text', { x: CX, y: 36, fill: 'var(--heading)', 'font-size': 18, 'font-weight': 700 }, nameOf(n)),
+    s('text', { x: CX, y: 55, fill: 'var(--muted)', 'font-size': 12 }, n.seq ? 'шаги по порядку, сверху вниз' : 'из чего состоит'));
+  if (extra.length) svg.append(s('text', { x: CX, y: extraY + 12, fill: 'var(--muted)', 'font-size': 12, 'font-weight': 700 }, 'Ещё в разделе'));
+  // линии соседей: прямые отрезки, у каждой своя вертикаль
+  const lines = (rows, left) => {
+    const per = new Map(); rows.forEach((r) => per.set(r.part, (per.get(r.part) || 0) + 1));
+    const seen = new Map();
+    rows.forEach((r, k) => {
+      const m = per.get(r.part), q = (seen.set(r.part, (seen.get(r.part) || 0) + 1).get(r.part)) - 1;
+      const yp = pos.get(r.part) + PH / 2 + (q - (m - 1) / 2) * 12, ys = r.y + SH / 2;
+      const t = tone(byId.get(r.id));
+      const xa = left ? 10 + SW : CX + PW, xb = left ? CX : RX;
+      const xc = left ? 10 + SW + 22 + k * 11 : CX + PW + 22 + k * 11;
+      const pts = Math.abs(yp - ys) < 1 ? [[xa, ys], [xb, ys]] : left ? [[xa, ys], [xc, ys], [xc, yp], [xb, yp]] : [[xa, yp], [xc, yp], [xc, ys], [xb, ys]];
+      svg.append(s('path', { d: roundPath(pts, 6), fill: 'none', stroke: `var(--sec-${t})`, 'stroke-width': 1.8, 'marker-end': `url(#at-in-${t})` }));
+    });
+  };
+  lines(L, true); lines(R, false);
+  // шаги
+  chain.forEach((p, i) => {
+    const py = pos.get(p);
+    if (n.seq && i < chain.length - 1) svg.append(s('path', { d: `M${CX + PW / 2},${py + PH} L${CX + PW / 2},${py + PH + GAP}`, stroke: `var(--sec-${tok})`, 'stroke-width': 2, 'marker-end': `url(#at-in-${tok})` }));
+  });
+  parts.forEach((p, i) => {
+    const py = pos.get(p), num = n.seq && !p.alt ? chain.indexOf(p) + 1 : null, tx = CX + (num ? 38 : 12);
+    svg.append(s('g', {}, s('rect', { x: CX, y: py, width: PW, height: PH, rx: 9, fill: 'var(--surface)', stroke: p.alt ? 'var(--border)' : 'var(--border-strong)', 'stroke-dasharray': p.alt ? '4 3' : null }),
+      num ? s('circle', { cx: CX + 19, cy: py + PH / 2, r: 11, fill: `var(--sec-${tok})` }) : null,
+      num ? s('text', { x: CX + 19, y: py + PH / 2 + 4, 'text-anchor': 'middle', fill: 'var(--surface)', 'font-size': 12, 'font-weight': 700 }, String(num)) : null,
+      s('text', { x: tx, y: py + 22, fill: 'var(--heading)', 'font-size': 13, 'font-weight': 700 }, p.t),
+      ...fit(p.l, num ? 37 : 41, 2).map((t, j) => s('text', { x: tx, y: py + 39 + j * 14, fill: 'var(--muted)', 'font-size': 12 }, t))));
+  });
+  // соседи
+  const sideBox = (r, x, left) => {
+    const m = byId.get(r.id), t = tone(m);
     const g = s('g', { tabindex: 0, role: 'button', cursor: 'pointer', 'aria-label': `Перейти: ${nameOf(m)}` },
-      s('rect', { x, y, width: SW, height: SH, rx: 9, fill: `var(--sec-${t}-soft)`, stroke: `var(--sec-${t})` }),
-      s('text', { x: x + 10, y: y + 22, fill: 'var(--heading)', 'font-size': 14, 'font-weight': 700 }, nameOf(m)),
-      ...fit((left ? 'даёт: ' : 'получает: ') + label, 27, 2).map((t, j) => s('text', { x: x + 10, y: y + 40 + j * 15, fill: 'var(--muted)', 'font-size': 12 }, t)));
-    g.addEventListener('click', () => open(id));
-    g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(id); } });
+      s('rect', { x, y: r.y, width: SW, height: SH, rx: 9, fill: `var(--sec-${t}-soft)`, stroke: `var(--sec-${t})` }),
+      s('text', { x: x + 10, y: r.y + 21, fill: 'var(--heading)', 'font-size': 14, 'font-weight': 700 }, nameOf(m)),
+      ...fit((left ? 'даёт: ' : 'получает: ') + r.l[2], 28, 2).map((tt, j) => s('text', { x: x + 10, y: r.y + 38 + j * 14, fill: 'var(--muted)', 'font-size': 12 }, tt)));
+    g.addEventListener('click', () => open(r.id));
+    g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(r.id); } });
     return g;
   };
-  const colY = (i, cnt) => (H - cnt * (SH + 12) + 12) / 2 + i * (SH + 12);
-  ins.forEach(([a, , label], i) => {
-    const y = colY(i, ins.length) + SH / 2;
-    svg.append(s('path', { d: `M${10 + SW},${y} C${CX - 20},${y} ${CX - 40},${H / 2} ${CX},${H / 2}`, fill: 'none', stroke: 'var(--muted)', 'stroke-width': 1.5, 'marker-end': 'url(#at-arr2)' }));
-    svg.append(sideBox(a, 10, colY(i, ins.length), label, true));
-  });
-  outs.forEach(([, b, label], i) => {
-    const y = colY(i, outs.length) + SH / 2, x0 = CX + CW, x1 = CX * 2 + CW - 10 - SW;
-    svg.append(s('path', { d: `M${x0},${H / 2} C${x0 + 40},${H / 2} ${x1 - 20},${y} ${x1},${y}`, fill: 'none', stroke: 'var(--muted)', 'stroke-width': 1.5, 'marker-end': 'url(#at-arr2)' }));
-    svg.append(sideBox(b, x1, colY(i, outs.length), label, false));
-  });
-  svg.append(s('rect', { x: CX, y: CY, width: CW, height: CH, rx: 12, fill: n.big ? 'var(--primary-soft)' : `var(--sec-${tok}-soft)`, stroke: n.big ? 'var(--primary)' : `var(--sec-${tok})`, 'stroke-width': 2.2 }),
-    s('text', { x: CX + 14, y: CY + 32, fill: 'var(--heading)', 'font-size': 18, 'font-weight': 700 }, nameOf(n)));
-  parts.forEach((p, i) => {
-    const x = CX + GAP + (i % cols) * (PW + GAP), y = CY + 48 + Math.floor(i / cols) * (PH + GAP);
-    svg.append(s('g', {}, s('rect', { x, y, width: PW, height: PH, rx: 8, fill: 'var(--surface)', stroke: 'var(--border-strong)' }),
-      s('text', { x: x + 9, y: y + 21, fill: 'var(--heading)', 'font-size': 13, 'font-weight': 700 }, p.t),
-      ...fit(p.l, 28, 3).map((t, j) => s('text', { x: x + 9, y: y + 38 + j * 14, fill: 'var(--muted)', 'font-size': 12 }, t))));
-  });
+  L.forEach((r) => svg.append(sideBox(r, 10, true)));
+  R.forEach((r) => svg.append(sideBox(r, RX, false)));
   return svg;
 }
 
@@ -174,7 +267,7 @@ function innerList(n, open) {
   const near = (list, pick) => h('ul', null, ...list.map((l) => h('li', null, button({ label: nameOf(byId.get(pick(l))), size: 'S', onClick: () => open(pick(l)) }), ' — ', l[2])));
   return h('div', null,
     ins.length ? guide.unit({ name: 'Откуда приходят сведения', foot: near(ins, (l) => l[0]) }) : null,
-    guide.unit({ name: 'Что внутри', foot: h('ul', null, ...(n.inside || []).map((p) => h('li', null, h('b', null, p.t), ' — ', p.l))) }),
+    guide.unit({ name: n.seq ? 'Шаги по порядку' : 'Из чего состоит', foot: h(n.seq ? 'ol' : 'ul', null, ...(n.inside || []).map((p) => h('li', null, h('b', null, p.t), ' — ', p.l, p.alt ? ' (ещё в разделе)' : ''))) }),
     outs.length ? guide.unit({ name: 'Куда уходят', foot: near(outs, (l) => l[1]) }) : null);
 }
 
@@ -201,7 +294,7 @@ function detail(n, open, back, close) {
   return [
     nav,
     h('p', null, what),
-    h('p', { class: 'muted small' }, `Слева — откуда приходят сведения (${ins}), справа — куда уходят (${outs}). Нажмите соседний блок — окно перейдёт к нему.`),
+    h('p', { class: 'muted small' }, `${n.seq ? 'Шаги идут сверху вниз по порядку. ' : ''}Слева — что приходит (${ins}) и в какой шаг, справа — что уходит (${outs}) и откуда. Нажмите соседний блок — окно перейдёт к нему.`),
     window.matchMedia('(min-width: 1100px)').matches ? inner(n, open) : innerList(n, open),
     n.productMap ? guide.cat({ title: 'Подробно: из чего состоит изделие', what: 'PDM, модули, детали, сырьё, файлы — и куда они уходят', count: 'схема', body: [productDiagram()] }) : null,
     n.rules?.length ? h('div', null, ...n.rules.map((t) => guide.note({ label: 'Учитывать', text: t, tone: 'warn' }))) : null,
@@ -255,7 +348,7 @@ export const atlas = {
     el.append(
       h('div', { class: 'page-head' }, h('h1', null, 'Карта сайта'),
         h('span', { class: 'muted small' }, 'Как устроен сайт сверху вниз: от заказчика до денег. Нажмите блок — справа откроется, что внутри и с чем он связан.')),
-      wide ? h('p', { class: 'muted small' }, 'Цвет — слой. Стрелка — куда идут сведения. Наведите на блок — подсветятся его связи и подписи.') : null,
+      wide ? legend() : null,
       wide ? map.svg : narrowList(open),
       h('section', null, h('h2', null, 'Всегда под рукой'), h('p', { class: 'muted small' }, 'Работают со всеми разделами сразу.'),
         tileGrid(...COMMON.map((c) => card({ size: 'S', title: c.t, meta: c.l, onClick: () => { location.hash = c.href; } })))));
