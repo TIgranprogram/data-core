@@ -76,6 +76,21 @@ describe('C086: применимость в «чего не хватает» (б
   const facetKeys = (r: { missing: Array<{ key: string; kind: string }> }) => r.missing.filter((m) => m.kind === 'facet').map((m) => m.key);
   const pd = (extra: Row = {}) => ({ passportCategory: 'BLG', ...extra });
 
+  it('автоматическое назначение группы уже заполнено; чужая группа и битый ручной выбор не скрываются', async () => {
+    const group = { _id: oid(), name: 'Информационные стенды и указатели', parentId: oid() };
+    const bound = { ...leaf('Информирование — указатели и стенды'), groupIds: [String(group._id)] };
+    dictRows.push(...rows, bound);
+    try {
+      const prod = { _id: oid(), name: 'Деревянные указатели', categoryId: group._id, passportDefaults: pd() };
+      const result = await productGaps(blg, fakeDb(prod, group), String(prod._id));
+      expect(result.missing.some((m) => m.kind === 'purpose')).toBe(false);
+      const foreign = { ...prod, categoryId: oid() };
+      expect((await productGaps(blg, fakeDb(foreign), String(prod._id))).missing.some((m) => m.kind === 'purpose')).toBe(true);
+      const invalid = { ...prod, passportDefaults: pd({ textChoices: { [String(root._id)]: String(oid()) } }) };
+      expect((await productGaps(blg, fakeDb(invalid, group), String(prod._id))).missing.find((m) => m.kind === 'purpose')?.required).toBe(true);
+    } finally { for (const row of [...rows, bound]) dictRows.splice(dictRows.indexOf(row), 1); }
+  });
+
   it('3905: группа указателей перекрывает старую спинку, сохраняет подсказку назначения', async () => {
     const oldRail = rows.find((r) => r.parentId === rail._id)!;
     const group = { _id: oid(), name: 'Информационные стенды и указатели', parentId: oid() };
@@ -204,7 +219,8 @@ describe('«Чего не хватает»: элементы (C028)', () => {
     const hoop = { _id: oid(), dict: 'passportElements', name: 'Баскетбольная стойка', categories: 'WRK', kind: 'product', deletedAt: null };
     const root = { _id: oid(), dict: 'passportPhrases', name: 'Назначение', section: 'purpose', deletedAt: null };
     const leaf = { _id: oid(), dict: 'passportPhrases', name: 'Баскетбол', parentId: root._id, categories: 'WRK', text: 'Для баскетбола.', deletedAt: null };
-    const undo = withEl([hoop, root, leaf]);
+    const alternative = { ...leaf, _id: oid(), name: 'Спортивные упражнения', text: 'Для спортивных упражнений.' };
+    const undo = withEl([hoop, root, leaf, alternative]);
     const prod = { _id: oid(), name: 'Стойка баскетбольная', passportDefaults: { passportCategory: 'WRK' } };
     const r = await productGaps(checker([{ label: 'Элементы', key: 'elements' }]), fakeDb(prod), String(prod._id));
     undo();

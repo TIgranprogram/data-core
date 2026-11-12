@@ -1,0 +1,92 @@
+{
+  "3905": {
+    "pages": 13,
+    "images": 4,
+    "p7": true,
+    "p2": true,
+    "groupAuto": true,
+    "hasQAPlaceholder": false,
+    "gapsAfterSync": [
+      {
+        "key": "blg.material",
+        "label": "Материал",
+        "kind": "facet",
+        "required": false,
+        "multi": false,
+        "suggest": {
+          "id": "6aeea9383b8b9255839ab45f",
+          "label": "Дерево (или металл с деревом)",
+          "word": "дерев"
+        },
+        "options": [
+          {
+            "id": "6aeea9383b8b9255839ab45e",
+            "label": "Металл"
+          },
+          {
+            "id": "6aeea9383b8b9255839ab45f",
+            "label": "Дерево (или металл с деревом)"
+          },
+          {
+            "id": "6aeea9383b8b9255839ab460",
+            "label": "Бетон"
+          },
+          {
+            "id": "6aeea9383b8b9255839ab461",
+            "label": "Стеклопластик с подсветкой"
+          }
+        ]
+      }
+    ],
+    "installationUpdated": true
+  },
+  "3905-print": {
+    "pages": 8,
+    "images": 4,
+    "p7": true,
+    "p2": true,
+    "groupAuto": true,
+    "hasQAPlaceholder": false,
+    "installationUpdated": true
+  },
+  "3410": {
+    "pages": 11,
+    "images": 0,
+    "p7": true,
+    "p2": true,
+    "newElement": true
+  },
+  "3410-print": {
+    "pages": 6,
+    "images": 0,
+    "p7": true,
+    "p2": true,
+    "newElement": true
+  },
+  "3216": {
+    "pages": 11,
+    "images": 0,
+    "p7": true,
+    "p2": true,
+    "newElement": true
+  },
+  "3216-print": {
+    "pages": 6,
+    "images": 0,
+    "p7": true,
+    "p2": true,
+    "newElement": true
+  },
+  "6102": {
+    "pages": 12,
+    "images": 0,
+    "p7": true,
+    "p2": true
+  },
+  "6102-print": {
+    "pages": 6,
+    "images": 0,
+    "p7": true,
+    "p2": true
+  }
+}

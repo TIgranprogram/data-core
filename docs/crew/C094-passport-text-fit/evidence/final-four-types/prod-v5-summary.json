@@ -1,0 +1,76 @@
+{
+  "3905": {
+    "pages": 13,
+    "sha256": "84d115c8c8d420d82c324438faa847bb0a3b81f0566d81955469baa1f4e7290d",
+    "serviceP7": true,
+    "disposalP2": true,
+    "elementOrInstallation": true
+  },
+  "3905-print": {
+    "pages": 8,
+    "sha256": "4aeabe9cf2d2bb2b7f5f1343c7c84a4c198b40b2e992c6fba15d013d59f35d52",
+    "serviceP7": true,
+    "disposalP2": true,
+    "elementOrInstallation": true
+  },
+  "3410": {
+    "pages": 11,
+    "sha256": "f9c81f7bded4c84dea7e072d423f43e8de9bc70339c1a61edbeab00b2e964dcb",
+    "serviceP7": true,
+    "disposalP2": true,
+    "elementOrInstallation": true
+  },
+  "3410-print": {
+    "pages": 6,
+    "sha256": "4270410abb12745e53a0df0cc2a0d86c0a434e43430f4eaa520a434fce084b86",
+    "serviceP7": true,
+    "disposalP2": true,
+    "elementOrInstallation": true
+  },
+  "3216": {
+    "pages": 11,
+    "sha256": "2d5a4ec8cb308b28a19265c139d5127e45a258df10ed6b16b3f58bd183aa8872",
+    "serviceP7": true,
+    "disposalP2": true,
+    "elementOrInstallation": true
+  },
+  "3216-print": {
+    "pages": 6,
+    "sha256": "4fcbbb2d85abd17e5aa493954e325b045de96706a54eef5531df6c0c0d987307",
+    "serviceP7": true,
+    "disposalP2": true,
+    "elementOrInstallation": true
+  },
+  "6102": {
+    "pages": 12,
+    "sha256": "a7fe4bc39c0ac472e370ec7c57eb426d75fbd1cdf8a615ba7ddc9bc15da5940a",
+    "serviceP7": true,
+    "disposalP2": true
+  },
+  "6102-print": {
+    "pages": 6,
+    "sha256": "3a4931f053c15067f52de1cd6a98e35a5a950cd2cff393f108628c2d61677ec1",
+    "serviceP7": true,
+    "disposalP2": true
+  },
+  "issued": {
+    "500": {
+      "sameUpdatedAt": true,
+      "sameSnapshot": true,
+      "updatedAt": "2026-11-11T10:45:43.324Z",
+      "sha256": "07c462e33fd81a0f67f71bfb7411ef1299d5fbdb2aff1eff726d28b01f923474"
+    },
+    "522": {
+      "sameUpdatedAt": true,
+      "sameSnapshot": true,
+      "updatedAt": "2026-11-12T07:58:37.573Z",
+      "sha256": "43748e5a499fc4531724f501b6a0688d9e98abf92f56f6ec052d71dbcb3cf186"
+    },
+    "597": {
+      "sameUpdatedAt": true,
+      "sameSnapshot": true,
+      "updatedAt": "2026-11-09T11:56:27.022Z",
+      "sha256": "0615a60120d5f413db628d2fd3f824caae278349078eec3d4685af67fb40d391"
+    }
+  }
+}

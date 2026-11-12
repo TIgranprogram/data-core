@@ -9,6 +9,7 @@ import { ProductPassportService } from './product-passport.service';
 import { readPassportImage, unreadableRequiredImages } from './passport-image-files';
 import { renderPassportPdfV2, type PdfV2Input } from './passport-pdf-v2';
 import PDFDocument from 'pdfkit';
+import * as dimensionImage from './passport-dimension-image';
 
 describe('C086: обязательный рисунок должен читаться при выпуске и печати', () => {
   let dir: string;
@@ -37,7 +38,7 @@ describe('C086: обязательный рисунок должен читат�
     };
     const svc = new PassportPdfService(passports as never, { forPdf: async () => ({}) } as never, db as never);
     Object.assign(svc, { orgOf: async () => ({ orgIn: {}, asset: () => undefined }), styleOf: async () => ({}), defectImages: async () => ({}), log: { warn: jest.fn() } });
-    const input = (status = 'issued') => (svc as unknown as { input(p: object, opts: object): Promise<PdfV2Input> }).input({ passportCategory: 'BLG', status, textSnapshot: { sections: [] } }, {});
+    const input = (status = 'issued', drawingLayout?: number) => (svc as unknown as { input(p: object, opts: object): Promise<PdfV2Input> }).input({ passportCategory: 'BLG', status, textSnapshot: { sections: [], drawingLayout } }, {});
     return { db, images, passports, svc, input };
   };
 
@@ -54,6 +55,19 @@ describe('C086: обязательный рисунок должен читат�
     expect(await unreadableRequiredImages(db as never, images, ['dimensions'])).toEqual([]);
     const pdf = await renderPassportPdfV2(result);
     expect(pdf.toString('latin1')).toContain('/Subtype /Image');
+  });
+  it('новая обрезка только у черновика; выпущенный, аннулированный и старый паспорт печатаются прежним способом', async () => {
+    const spy = jest.spyOn(dimensionImage, 'prepareDimensionImage');
+    try {
+      const { input } = make('good.png');
+      for (const status of ['issued', 'annulled', '']) await input(status);
+      expect(spy).not.toHaveBeenCalled();
+      await input('draft');
+      expect(spy).toHaveBeenCalledTimes(1);
+      await input('issued', 2);
+      await input('annulled', 2);
+      expect(spy).toHaveBeenCalledTimes(3);
+    } finally { spy.mockRestore(); }
   });
   it('необязательный отсутствующий файл не блокирует PDF', async () => {
     const { input } = make('missing.png', '');

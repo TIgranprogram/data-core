@@ -1,0 +1,444 @@
+{
+  "3905": {
+    "productId": "6adaff432a8dad6034b14603",
+    "category": {
+      "code": "BLG",
+      "name": "Благоустройство",
+      "via": "изделие (задана вручную)",
+      "source": "own",
+      "own": {
+        "code": "BLG",
+        "name": "Благоустройство"
+      },
+      "inherited": {
+        "code": "BLG",
+        "name": "Благоустройство",
+        "via": "группа «Информационные стенды и указатели»",
+        "source": "group"
+      }
+    },
+    "materialRows": 2,
+    "imageKinds": [
+      "overview",
+      "dimensions",
+      "foundation"
+    ],
+    "pages": {
+      "count": 13,
+      "sha256": "f97c2285685b928bc768321a03e6d7a0ffebe753c8c1f5b3a5517e6dc61dd1d1",
+      "standards": [
+        {
+          "id": "6ada090a4e688d0cb2ce48ef",
+          "code": "GOST_12_3_009",
+          "name": "ГОСТ 12.3.009–76"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ec",
+          "code": "GOST_15150",
+          "name": "ГОСТ 15150–69"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ed",
+          "code": "GOST_26653",
+          "name": "ГОСТ 26653–2015"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48f0",
+          "code": "MINTRUD_883N",
+          "name": "Приказ Минтруда России № 883н от 11.12.2020"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48f3",
+          "code": "SP_325",
+          "name": "СП 325.1325800.2017"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48f2",
+          "code": "SP_70",
+          "name": "СП 70.13330.2012"
+        }
+      ]
+    },
+    "print": {
+      "count": 8,
+      "sha256": "f3b587b762aeb991c98f05ef9edf77a9396c09d10357a682ff0f271bd474128f",
+      "standards": [
+        {
+          "id": "6ada090a4e688d0cb2ce48ef",
+          "code": "GOST_12_3_009",
+          "name": "ГОСТ 12.3.009–76"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ec",
+          "code": "GOST_15150",
+          "name": "ГОСТ 15150–69"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ed",
+          "code": "GOST_26653",
+          "name": "ГОСТ 26653–2015"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48f0",
+          "code": "MINTRUD_883N",
+          "name": "Приказ Минтруда России № 883н от 11.12.2020"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48f3",
+          "code": "SP_325",
+          "name": "СП 325.1325800.2017"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48f2",
+          "code": "SP_70",
+          "name": "СП 70.13330.2012"
+        }
+      ]
+    }
+  },
+  "3410": {
+    "productId": "6ae58bb7ef6c7562ae8d2dce",
+    "category": {
+      "code": "BLG",
+      "name": "Благоустройство",
+      "via": "изделие (задана вручную)",
+      "source": "own",
+      "own": {
+        "code": "BLG",
+        "name": "Благоустройство"
+      },
+      "inherited": {
+        "code": "BLG",
+        "name": "Благоустройство",
+        "via": "группа «Скамьи»",
+        "source": "group"
+      }
+    },
+    "materialRows": 0,
+    "imageKinds": [],
+    "pages": {
+      "count": 11,
+      "sha256": "1c395d8aaec23fe87b0df64ef646aefcf78c5908c9409260ed71d94da66d92ff",
+      "standards": [
+        {
+          "id": "6ada090a4e688d0cb2ce48ef",
+          "code": "GOST_12_3_009",
+          "name": "ГОСТ 12.3.009–76"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ec",
+          "code": "GOST_15150",
+          "name": "ГОСТ 15150–69"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ed",
+          "code": "GOST_26653",
+          "name": "ГОСТ 26653–2015"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ee",
+          "code": "GOST_9_014",
+          "name": "ГОСТ 9.014–78"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48f0",
+          "code": "MINTRUD_883N",
+          "name": "Приказ Минтруда России № 883н от 11.12.2020"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48f3",
+          "code": "SP_325",
+          "name": "СП 325.1325800.2017"
+        }
+      ]
+    },
+    "print": {
+      "count": 6,
+      "sha256": "ca846df77b2e2b85d9c6d3d1d7a52bbd9f7004e4fd2c755151a082b1424c9c08",
+      "standards": [
+        {
+          "id": "6ada090a4e688d0cb2ce48ef",
+          "code": "GOST_12_3_009",
+          "name": "ГОСТ 12.3.009–76"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ec",
+          "code": "GOST_15150",
+          "name": "ГОСТ 15150–69"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ed",
+          "code": "GOST_26653",
+          "name": "ГОСТ 26653–2015"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ee",
+          "code": "GOST_9_014",
+          "name": "ГОСТ 9.014–78"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48f0",
+          "code": "MINTRUD_883N",
+          "name": "Приказ Минтруда России № 883н от 11.12.2020"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48f3",
+          "code": "SP_325",
+          "name": "СП 325.1325800.2017"
+        }
+      ]
+    }
+  },
+  "3216": {
+    "productId": "6addd771c93bb8ea2a6e3984",
+    "category": {
+      "code": "BLG",
+      "name": "Благоустройство",
+      "via": "изделие (задана вручную)",
+      "source": "own",
+      "own": {
+        "code": "BLG",
+        "name": "Благоустройство"
+      },
+      "inherited": {
+        "code": "BLG",
+        "name": "Благоустройство",
+        "via": "группа «Благоустройство (оборудование невошедшее в другие группы)»",
+        "source": "group"
+      }
+    },
+    "materialRows": 0,
+    "imageKinds": [],
+    "pages": {
+      "count": 11,
+      "sha256": "17dcbd194fd31e19cf121d5548804465e927996d2e3fd0ff00eb93604b18ed64",
+      "standards": [
+        {
+          "id": "6ada090a4e688d0cb2ce48ef",
+          "code": "GOST_12_3_009",
+          "name": "ГОСТ 12.3.009–76"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ec",
+          "code": "GOST_15150",
+          "name": "ГОСТ 15150–69"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ed",
+          "code": "GOST_26653",
+          "name": "ГОСТ 26653–2015"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ee",
+          "code": "GOST_9_014",
+          "name": "ГОСТ 9.014–78"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48f0",
+          "code": "MINTRUD_883N",
+          "name": "Приказ Минтруда России № 883н от 11.12.2020"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48f3",
+          "code": "SP_325",
+          "name": "СП 325.1325800.2017"
+        }
+      ]
+    },
+    "print": {
+      "count": 6,
+      "sha256": "94b593eaee50a77b1f8f8f859419e95d350a0490deda0c9b6d923a1dc73622db",
+      "standards": [
+        {
+          "id": "6ada090a4e688d0cb2ce48ef",
+          "code": "GOST_12_3_009",
+          "name": "ГОСТ 12.3.009–76"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ec",
+          "code": "GOST_15150",
+          "name": "ГОСТ 15150–69"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ed",
+          "code": "GOST_26653",
+          "name": "ГОСТ 26653–2015"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ee",
+          "code": "GOST_9_014",
+          "name": "ГОСТ 9.014–78"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48f0",
+          "code": "MINTRUD_883N",
+          "name": "Приказ Минтруда России № 883н от 11.12.2020"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48f3",
+          "code": "SP_325",
+          "name": "СП 325.1325800.2017"
+        }
+      ]
+    }
+  },
+  "6102": {
+    "productId": "6addd772c93bb8ea2a6e39c9",
+    "category": {
+      "code": "DIO",
+      "name": "Детское игровое оборудование",
+      "via": "изделие (задана вручную)",
+      "source": "own",
+      "own": {
+        "code": "DIO",
+        "name": "Детское игровое оборудование"
+      },
+      "inherited": {
+        "code": "DIO",
+        "name": "Детское игровое оборудование",
+        "via": "группа «Детские игровые комплексы»",
+        "source": "group"
+      }
+    },
+    "materialRows": 0,
+    "imageKinds": [],
+    "pages": {
+      "count": 12,
+      "sha256": "086819fb31f9adb7c52c75e5d853751a3d1b6da6c78e230a59035adacd522c2a",
+      "standards": [
+        {
+          "id": "6ada090a4e688d0cb2ce48ef",
+          "code": "GOST_12_3_009",
+          "name": "ГОСТ 12.3.009–76"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ec",
+          "code": "GOST_15150",
+          "name": "ГОСТ 15150–69"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ed",
+          "code": "GOST_26653",
+          "name": "ГОСТ 26653–2015"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48e1",
+          "code": "GOST_34614_1",
+          "name": "ГОСТ 34614.1–2019"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48e3",
+          "code": "GOST_34615",
+          "name": "ГОСТ 34615–2019"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ee",
+          "code": "GOST_9_014",
+          "name": "ГОСТ 9.014–78"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48e4",
+          "code": "GOST_R_52301",
+          "name": "ГОСТ Р 52301–2013"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48f0",
+          "code": "MINTRUD_883N",
+          "name": "Приказ Минтруда России № 883н от 11.12.2020"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48f3",
+          "code": "SP_325",
+          "name": "СП 325.1325800.2017"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48e0",
+          "code": "TR_EAEU_042",
+          "name": "ТР ЕАЭС 042/2017"
+        }
+      ]
+    },
+    "print": {
+      "count": 6,
+      "sha256": "fcb8f2e15534d6a80ec00b9ba25cab6b3c13e26dc7d4a6d8476534c43f9e42d4",
+      "standards": [
+        {
+          "id": "6ada090a4e688d0cb2ce48ef",
+          "code": "GOST_12_3_009",
+          "name": "ГОСТ 12.3.009–76"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ec",
+          "code": "GOST_15150",
+          "name": "ГОСТ 15150–69"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ed",
+          "code": "GOST_26653",
+          "name": "ГОСТ 26653–2015"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48e1",
+          "code": "GOST_34614_1",
+          "name": "ГОСТ 34614.1–2019"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48e3",
+          "code": "GOST_34615",
+          "name": "ГОСТ 34615–2019"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48ee",
+          "code": "GOST_9_014",
+          "name": "ГОСТ 9.014–78"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48e4",
+          "code": "GOST_R_52301",
+          "name": "ГОСТ Р 52301–2013"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48f0",
+          "code": "MINTRUD_883N",
+          "name": "Приказ Минтруда России № 883н от 11.12.2020"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48f3",
+          "code": "SP_325",
+          "name": "СП 325.1325800.2017"
+        },
+        {
+          "id": "6ada090a4e688d0cb2ce48e0",
+          "code": "TR_EAEU_042",
+          "name": "ТР ЕАЭС 042/2017"
+        }
+      ]
+    }
+  },
+  "issued": {
+    "500": {
+      "id": "6ad8d491371b65d090d8c88e",
+      "updatedAt": "2026-11-11T10:45:43.324Z",
+      "sameUpdatedAt": true,
+      "sameSnapshot": true,
+      "snapshotPresent": true,
+      "snapshotSha256": "07c462e33fd81a0f67f71bfb7411ef1299d5fbdb2aff1eff726d28b01f923474"
+    },
+    "522": {
+      "id": "6ad8d493371b65d090d8c8c0",
+      "updatedAt": "2026-11-12T07:58:37.573Z",
+      "sameUpdatedAt": true,
+      "sameSnapshot": true,
+      "snapshotPresent": true,
+      "snapshotSha256": "43748e5a499fc4531724f501b6a0688d9e98abf92f56f6ec052d71dbcb3cf186"
+    },
+    "597": {
+      "id": "6af1a3af4a9243614293be2f",
+      "updatedAt": "2026-11-09T11:56:27.022Z",
+      "sameUpdatedAt": true,
+      "sameSnapshot": true,
+      "snapshotPresent": true,
+      "snapshotSha256": "0615a60120d5f413db628d2fd3f824caae278349078eec3d4685af67fb40d391"
+    }
+  }
+}

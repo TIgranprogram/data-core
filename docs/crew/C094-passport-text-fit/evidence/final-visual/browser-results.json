@@ -1,0 +1,584 @@
+[
+  {
+    "theme": "light",
+    "width": 375,
+    "states": [
+      {
+        "key": "product",
+        "measure": [
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          }
+        ],
+        "bounds": {
+          "x": 34,
+          "y": 590.171875,
+          "width": 259.546875,
+          "height": 48
+        }
+      },
+      {
+        "key": "materials",
+        "measure": [
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          }
+        ],
+        "bounds": {
+          "x": 16,
+          "y": 844,
+          "width": 91.71875,
+          "height": 44
+        }
+      },
+      {
+        "key": "template",
+        "measure": [
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          },
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          }
+        ],
+        "bounds": {
+          "x": 16,
+          "y": 840,
+          "width": 328,
+          "height": 48
+        }
+      },
+      {
+        "key": "preview",
+        "measure": [
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          },
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          }
+        ],
+        "bounds": {
+          "x": 16,
+          "y": 169.4375,
+          "width": 147.4375,
+          "height": 44
+        }
+      }
+    ],
+    "errors": [],
+    "blocked": [],
+    "imageResponses": [
+      {
+        "path": "/uploads/f85cf2a6-9e8b-4782-ab98-7cf89fed9436.png",
+        "status": 404
+      },
+      {
+        "path": "/uploads/f85cf2a6-9e8b-4782-ab98-7cf89fed9436.png",
+        "status": 404
+      }
+    ],
+    "techState": [
+      "В КП",
+      "Изменить состав",
+      "Паспорт",
+      "Техническое описание",
+      "Паспорт + техописание",
+      "⋯",
+      "✕",
+      "Убрать фото",
+      "Выбрать файл",
+      "Описание",
+      "Состав и работы",
+      "Техописание2",
+      "Паспорт",
+      "Файлы",
+      "Заказы2",
+      "Техническое описание (PDF)",
+      "Изменить"
+    ],
+    "materialNames": [
+      "Часть",
+      "Материал, строка 1",
+      "Размеры",
+      "Часть",
+      "Материал, строка 2",
+      "Размеры"
+    ],
+    "templateImages": [
+      {
+        "local": true,
+        "path": "/uploads/f85cf2a6-9e8b-4782-ab98-7cf89fed9436.png",
+        "loaded": false,
+        "alt": ""
+      },
+      {
+        "local": true,
+        "path": "/uploads/other/2026-11/bb1af39f-3559-441d-8cea-899a56cfaa65.png",
+        "loaded": true,
+        "alt": "Общий вид (фото на обложку)"
+      },
+      {
+        "local": true,
+        "path": "/uploads/other/2026-11/20713146-1e7d-4809-9c34-1d7e0a29a8dd.png",
+        "loaded": false,
+        "alt": "Габаритные размеры — чертёж Д×Ш×В"
+      },
+      {
+        "local": true,
+        "path": "/uploads/other/2026-11/e3e6cc37-253b-45fe-b306-e13abcab2663.png",
+        "loaded": false,
+        "alt": "Схема фундамента и анкеров"
+      }
+    ],
+    "preview": {
+      "status": 201,
+      "bytes": 114457,
+      "valid": true,
+      "downloaded": true
+    }
+  },
+  {
+    "theme": "light",
+    "width": 1920,
+    "states": [
+      {
+        "key": "product",
+        "measure": [
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          }
+        ],
+        "bounds": {
+          "x": 1188,
+          "y": 578.140625,
+          "width": 202.875,
+          "height": 30
+        }
+      },
+      {
+        "key": "materials",
+        "measure": [
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          }
+        ],
+        "bounds": {
+          "x": 1397.765625,
+          "y": 852,
+          "width": 83.875,
+          "height": 36
+        }
+      },
+      {
+        "key": "template",
+        "measure": [
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          },
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          }
+        ],
+        "bounds": {
+          "x": 1170,
+          "y": 852,
+          "width": 77.265625,
+          "height": 36
+        }
+      },
+      {
+        "key": "preview",
+        "measure": [
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          },
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          }
+        ],
+        "bounds": {
+          "x": 1170,
+          "y": 91.25,
+          "width": 135.875,
+          "height": 36
+        }
+      }
+    ],
+    "errors": [],
+    "blocked": [],
+    "imageResponses": [
+      {
+        "path": "/uploads/f85cf2a6-9e8b-4782-ab98-7cf89fed9436.png",
+        "status": 404
+      },
+      {
+        "path": "/uploads/f85cf2a6-9e8b-4782-ab98-7cf89fed9436.png",
+        "status": 404
+      }
+    ],
+    "techState": [
+      "В КП",
+      "Изменить состав",
+      "Паспорт",
+      "Техническое описание",
+      "Паспорт + техописание",
+      "⋯",
+      "↗",
+      "✕",
+      "Убрать фото",
+      "Выбрать файл",
+      "Описание",
+      "Состав и работы",
+      "Техописание2",
+      "Паспорт",
+      "Файлы",
+      "Заказы2",
+      "Техническое описание (PDF)",
+      "Изменить"
+    ],
+    "materialNames": [
+      "Часть",
+      "Материал, строка 1",
+      "Размеры",
+      "Часть",
+      "Материал, строка 2",
+      "Размеры"
+    ],
+    "templateImages": [
+      {
+        "local": true,
+        "path": "/uploads/f85cf2a6-9e8b-4782-ab98-7cf89fed9436.png",
+        "loaded": false,
+        "alt": ""
+      },
+      {
+        "local": true,
+        "path": "/uploads/other/2026-11/bb1af39f-3559-441d-8cea-899a56cfaa65.png",
+        "loaded": true,
+        "alt": "Общий вид (фото на обложку)"
+      },
+      {
+        "local": true,
+        "path": "/uploads/other/2026-11/20713146-1e7d-4809-9c34-1d7e0a29a8dd.png",
+        "loaded": true,
+        "alt": "Габаритные размеры — чертёж Д×Ш×В"
+      },
+      {
+        "local": true,
+        "path": "/uploads/other/2026-11/e3e6cc37-253b-45fe-b306-e13abcab2663.png",
+        "loaded": true,
+        "alt": "Схема фундамента и анкеров"
+      }
+    ],
+    "preview": {
+      "status": 201,
+      "bytes": 114457,
+      "valid": true,
+      "downloaded": true
+    }
+  },
+  {
+    "theme": "dark",
+    "width": 375,
+    "states": [
+      {
+        "key": "product",
+        "measure": [
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          }
+        ],
+        "bounds": {
+          "x": 34,
+          "y": 590.171875,
+          "width": 259.546875,
+          "height": 48
+        }
+      },
+      {
+        "key": "materials",
+        "measure": [
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          }
+        ],
+        "bounds": {
+          "x": 16,
+          "y": 844,
+          "width": 91.71875,
+          "height": 44
+        }
+      },
+      {
+        "key": "template",
+        "measure": [
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          },
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          }
+        ],
+        "bounds": {
+          "x": 16,
+          "y": 840,
+          "width": 328,
+          "height": 48
+        }
+      },
+      {
+        "key": "preview",
+        "measure": [
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          },
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          }
+        ],
+        "bounds": {
+          "x": 16,
+          "y": 169.4375,
+          "width": 147.4375,
+          "height": 44
+        }
+      }
+    ],
+    "errors": [],
+    "blocked": [],
+    "imageResponses": [
+      {
+        "path": "/uploads/f85cf2a6-9e8b-4782-ab98-7cf89fed9436.png",
+        "status": 404
+      },
+      {
+        "path": "/uploads/f85cf2a6-9e8b-4782-ab98-7cf89fed9436.png",
+        "status": 404
+      }
+    ],
+    "techState": [
+      "В КП",
+      "Изменить состав",
+      "Паспорт",
+      "Техническое описание",
+      "Паспорт + техописание",
+      "⋯",
+      "✕",
+      "Убрать фото",
+      "Выбрать файл",
+      "Описание",
+      "Состав и работы",
+      "Техописание2",
+      "Паспорт",
+      "Файлы",
+      "Заказы2",
+      "Техническое описание (PDF)",
+      "Изменить"
+    ],
+    "materialNames": [
+      "Часть",
+      "Материал, строка 1",
+      "Размеры",
+      "Часть",
+      "Материал, строка 2",
+      "Размеры"
+    ],
+    "templateImages": [
+      {
+        "local": true,
+        "path": "/uploads/f85cf2a6-9e8b-4782-ab98-7cf89fed9436.png",
+        "loaded": false,
+        "alt": ""
+      },
+      {
+        "local": true,
+        "path": "/uploads/other/2026-11/bb1af39f-3559-441d-8cea-899a56cfaa65.png",
+        "loaded": true,
+        "alt": "Общий вид (фото на обложку)"
+      },
+      {
+        "local": true,
+        "path": "/uploads/other/2026-11/20713146-1e7d-4809-9c34-1d7e0a29a8dd.png",
+        "loaded": false,
+        "alt": "Габаритные размеры — чертёж Д×Ш×В"
+      },
+      {
+        "local": true,
+        "path": "/uploads/other/2026-11/e3e6cc37-253b-45fe-b306-e13abcab2663.png",
+        "loaded": false,
+        "alt": "Схема фундамента и анкеров"
+      }
+    ],
+    "preview": {
+      "status": 201,
+      "bytes": 114457,
+      "valid": true,
+      "downloaded": true
+    }
+  },
+  {
+    "theme": "dark",
+    "width": 1920,
+    "states": [
+      {
+        "key": "product",
+        "measure": [
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          }
+        ],
+        "bounds": {
+          "x": 1188,
+          "y": 578.140625,
+          "width": 202.875,
+          "height": 30
+        }
+      },
+      {
+        "key": "materials",
+        "measure": [
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          }
+        ],
+        "bounds": {
+          "x": 1397.765625,
+          "y": 852,
+          "width": 83.875,
+          "height": 36
+        }
+      },
+      {
+        "key": "template",
+        "measure": [
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          },
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          }
+        ],
+        "bounds": {
+          "x": 1170,
+          "y": 852,
+          "width": 77.265625,
+          "height": 36
+        }
+      },
+      {
+        "key": "preview",
+        "measure": [
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          },
+          {
+            "overflow": 0,
+            "pageOverflow": -15
+          }
+        ],
+        "bounds": {
+          "x": 1170,
+          "y": 91.25,
+          "width": 135.875,
+          "height": 36
+        }
+      }
+    ],
+    "errors": [],
+    "blocked": [],
+    "imageResponses": [
+      {
+        "path": "/uploads/f85cf2a6-9e8b-4782-ab98-7cf89fed9436.png",
+        "status": 404
+      },
+      {
+        "path": "/uploads/f85cf2a6-9e8b-4782-ab98-7cf89fed9436.png",
+        "status": 404
+      }
+    ],
+    "techState": [
+      "В КП",
+      "Изменить состав",
+      "Паспорт",
+      "Техническое описание",
+      "Паспорт + техописание",
+      "⋯",
+      "↗",
+      "✕",
+      "Убрать фото",
+      "Выбрать файл",
+      "Описание",
+      "Состав и работы",
+      "Техописание2",
+      "Паспорт",
+      "Файлы",
+      "Заказы2",
+      "Техническое описание (PDF)",
+      "Изменить"
+    ],
+    "materialNames": [
+      "Часть",
+      "Материал, строка 1",
+      "Размеры",
+      "Часть",
+      "Материал, строка 2",
+      "Размеры"
+    ],
+    "templateImages": [
+      {
+        "local": true,
+        "path": "/uploads/f85cf2a6-9e8b-4782-ab98-7cf89fed9436.png",
+        "loaded": false,
+        "alt": ""
+      },
+      {
+        "local": true,
+        "path": "/uploads/other/2026-11/bb1af39f-3559-441d-8cea-899a56cfaa65.png",
+        "loaded": true,
+        "alt": "Общий вид (фото на обложку)"
+      },
+      {
+        "local": true,
+        "path": "/uploads/other/2026-11/20713146-1e7d-4809-9c34-1d7e0a29a8dd.png",
+        "loaded": true,
+        "alt": "Габаритные размеры — чертёж Д×Ш×В"
+      },
+      {
+        "local": true,
+        "path": "/uploads/other/2026-11/e3e6cc37-253b-45fe-b306-e13abcab2663.png",
+        "loaded": true,
+        "alt": "Схема фундамента и анкеров"
+      }
+    ],
+    "preview": {
+      "status": 201,
+      "bytes": 114457,
+      "valid": true,
+      "downloaded": true
+    }
+  }
+]

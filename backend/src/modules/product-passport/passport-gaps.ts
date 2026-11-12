@@ -3,6 +3,8 @@ import { Types, type mongo } from 'mongoose';
 import { suggestValue } from '../../common/passport/funnel';
 import { suggestElementNames, suggestPurposeName } from '../../common/passport/name-suggest';
 import { inheritedPassportCategory } from '../../common/passport/passport-inherit';
+import { buildForest, forProduct, resolveChoices, toNode } from '../../common/passport/phrase-tree';
+import { groupChain } from './passport-facet-phrases';
 import { loadFacets } from './passport-funnel';
 import { applicability, facetApplies, productType, USER_FIELDS } from './passport-applicability';
 
@@ -93,7 +95,7 @@ async function purposeState(db: mongo.Db, prod: Record<string, unknown>, code: s
   const choices = ((prod.passportDefaults as { textChoices?: Record<string, string> } | undefined)?.textChoices) || {};
   const phrases = await db.collection('dict_values').find(
     { dict: 'passportPhrases', deletedAt: null },
-    { projection: { name: 1, parentId: 1, section: 1, categories: 1, allCategories: 1, text: 1 } },
+    { projection: { name: 1, parentId: 1, section: 1, categories: 1, allCategories: 1, text: 1, groupIds: 1, facetValueIds: 1, isDefault: 1, order: 1 } },
   ).toArray();
   const root = phrases.find((p) => s(p.section) === 'purpose' && !p.parentId && !s(p.text));
   if (!root) return { chosen: '', gap: null };
@@ -101,6 +103,14 @@ async function purposeState(db: mongo.Db, prod: Record<string, unknown>, code: s
   const picked = choices[String(root._id)];
   const selected = leaves.find((l) => String(l._id) === String(picked));
   if (selected && fitsCat(selected, code)) return { chosen: s(selected.name), gap: null };
+  // Используем тот же выбор по группе/признакам, что и PDF: автоматическое назначение уже заполнено.
+  if (!picked) {
+    const groupIds = phrases.some((p) => Array.isArray(p.groupIds) && p.groupIds.length) ? await groupChain(db, prod.categoryId) : new Set<string>();
+    const ctx = { facetValueIds: new Set(((prod.facetValueIds as unknown[]) ?? []).map(String)), groupIds };
+    const forest = forProduct(buildForest(phrases.map(toNode), code), ctx);
+    const auto = resolveChoices(forest, choices, ctx).leaves.get(String(root._id));
+    if (auto) return { chosen: auto.leaf.name, gap: null };
+  }
   const options = leaves.filter((l) => fitsCat(l, code)).map((l) => ({ id: String(l._id), label: s(l.name) }));
   const base = { key: `choice:${String(root._id)}`, label: 'Назначение', kind: 'purpose' as const, required: false, options };
   if (picked) return { chosen: '', gap: { ...base, required: true, label: 'Выберите назначение заново: сохранённый вариант удалён или не подходит категории' } };

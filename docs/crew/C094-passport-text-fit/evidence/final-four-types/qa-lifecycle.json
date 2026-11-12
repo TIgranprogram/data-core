@@ -1,0 +1,57 @@
+{
+  "draft-pages": {
+    "pages": 13,
+    "pixels": [
+      499,
+      732
+    ],
+    "placedSize": [
+      311.573,
+      457.057
+    ],
+    "digest": "08ca9be6002fdc2cfdef9cc60696e084"
+  },
+  "draft-print": {
+    "pages": 8,
+    "pixels": [
+      499,
+      732
+    ],
+    "placedSize": [
+      311.573,
+      457.057
+    ],
+    "digest": "08ca9be6002fdc2cfdef9cc60696e084"
+  },
+  "issued-pages": {
+    "pages": 12,
+    "pixels": [
+      499,
+      732
+    ],
+    "placedSize": [
+      311.573,
+      457.057
+    ],
+    "digest": "08ca9be6002fdc2cfdef9cc60696e084"
+  },
+  "issued-print": {
+    "pages": 6,
+    "pixels": [
+      499,
+      732
+    ],
+    "placedSize": [
+      311.573,
+      457.057
+    ],
+    "digest": "08ca9be6002fdc2cfdef9cc60696e084"
+  },
+  "reopened": {
+    "id": "6af5c5ba668a8ca0f09050f4",
+    "number": "599",
+    "status": "issued",
+    "drawingLayout": 2,
+    "sameSnapshotAfterDownloads": true
+  }
+}

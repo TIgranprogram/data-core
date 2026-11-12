@@ -173,9 +173,11 @@ export class ProductPassportService {
     const diff = await this.fromProductDiff(cur);
     if (!Object.keys(diff).length) return false;
     doc.set(diff);
-    await doc.save();
     const snap = cur.textSnapshot as { sections?: unknown[]; editedAt?: Date } | undefined;
-    if (snap?.sections?.length && !snap.editedAt && (diff.passportCategory || diff.textChoices || diff.elements || diff.materialIds || diff.installationTypeId || diff.isKit || diff.joints)) await this.snapshot(id);
+    const textChanged = diff.passportCategory || diff.textChoices || diff.elements || diff.materialIds || diff.installationTypeId ||
+      diff.isKit || diff.joints || 'materialsSpec' in diff || 'materials' in diff;
+    if (snap?.sections?.length && !snap.editedAt && textChanged) await this.applySnapshot(doc, { ...cur, ...diff });
+    await doc.save();
     return true;
   }
 
@@ -367,7 +369,11 @@ export class ProductPassportService {
     if (set.incomeId && String(set.incomeId) !== String(cur.incomeId ?? '')) await assertOneLive(this.model, set.incomeId, doc._id);
     const hadText = !!((doc.toObject() as unknown as Doc).textSnapshot as { sections?: unknown[] } | undefined)?.sections?.length;
     doc.set(set);
+    const snap = cur.textSnapshot as { editedAt?: Date } | undefined;
+    const rebuilt = !issued && !snap?.editedAt && changed.some((key) => key === 'materialsSpec' || key === 'materials')
+      && await this.applySnapshot(doc, { ...cur, ...set });
     const saved = await doc.save();
+    if (rebuilt) return saved;
     // НМ: новая редакция — текст заново по справочникам и снова заморожен; черновику с категорией текст собирается при выпуске
     if (set.revision && saved.passportCategory) return (await this.snapshot(String(saved._id))) ?? saved;
     // паспорту без текста выбрали категорию — собрать текст сразу (как при создании); готовый текст не трогаем — «Обновить текст по справочникам»
@@ -473,16 +479,22 @@ export class ProductPassportService {
     // черновик с изделием: поля и категория — из изделия (в память; запишет doc.save() в конце)
     const fp = await this.fromProductDiff(p);
     if (Object.keys(fp).length) { doc.set(fp); Object.assign(p, fp); }
+    return await this.applySnapshot(doc, p) ? doc.save() : null;
+  }
+
+  /** Снимок и его исходные поля сохраняются одним doc.save(). */
+  private async applySnapshot(doc: ProductPassportDocument, p: Doc): Promise<boolean> {
     const built = await this.buildText(p);
-    if (!built) return null;
+    if (!built) return false;
     const { text, instLeaf } = built;
     if (p.installationTypeId) doc.set('installationTypeId', p.installationTypeId);
     // purpose / installationMethod — производные от выбора (их читают kppdf и PDF v1); набранные вручную («свой текст») не трогаем
     const manual = (p.manualText as string[] | undefined) ?? [];
     if (text.purpose && !manual.includes('purpose')) doc.set('purpose', text.purpose);
     if (instLeaf && !manual.includes('installationMethod')) doc.set('installationMethod', text.install.text);
-    doc.set('textSnapshot', { ...text, at: new Date() });
-    return doc.save();
+    const modernDrawing = p.status === 'draft' || (p.textSnapshot as { drawingLayout?: number } | undefined)?.drawingLayout === 2;
+    doc.set('textSnapshot', { ...text, ...(modernDrawing ? { drawingLayout: 2 } : {}), at: new Date() });
+    return true;
   }
 
   /**

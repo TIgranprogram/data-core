@@ -5,6 +5,7 @@ import { InjectConnection } from '@nestjs/mongoose';
 import { promises as fs } from 'fs';
 import { Types, type Connection } from 'mongoose';
 import sharp from 'sharp';
+import { prepareDimensionImage } from './passport-dimension-image';
 import { presentMaterialsSpec } from '../../common/catalog/materials-table';
 import { appendTechSheet, renderTechSheetPdf, type TechSheetInput } from '../../common/print/tech-sheet-pdf';
 import { techSheetRows } from '../../common/print/tech-sheet-rows';
@@ -235,7 +236,9 @@ export class PassportPdfService {
       if (buf) {
         // Габаритный PNG часто содержит поля целого листа САПР. Убираем их только в копии для PDF.
         const image = k === 'dimensions'
-          ? await sharp(buf).trim({ background: '#ffffff', threshold: 24 }).jpeg({ quality: 90 }).toBuffer().catch(() => buf)
+          ? p.status !== 'draft' && (p.textSnapshot as { drawingLayout?: number } | undefined)?.drawingLayout !== 2
+            ? await sharp(buf).trim({ background: '#ffffff', threshold: 24 }).jpeg({ quality: 90 }).toBuffer().catch(() => buf)
+            : await prepareDimensionImage(buf)
           : buf;
         (byKind[k] ||= []).push({ buf: image, caption: i.caption, refCode: i.refCode });
       }
