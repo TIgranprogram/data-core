@@ -19,14 +19,25 @@ const secSave = (id) => { try { if (id) sessionStorage.setItem(SEC_KEY, id); els
 
 /** ПРД.6: воронка «Раздел → Группа → Подгруппа → Серия», у значений — число изделий. Числа групп — /showcase/groups, серий — facets. */
 export function prodFunnel() {
-  const kids = (all, pid) => all.filter((g) => (pid ? g.parentId === pid : !g.parentId)).map((g) => ({ value: g.id, label: g.name, n: g.count }));
+  const kids = (all, pid) => all
+    .filter((g) => (pid ? g.parentId === pid : !g.parentId))
+    .map((g) => ({
+      value: g.id,
+      label: g.groupNo ? `${g.groupNo} · ${g.name}` : g.name,
+      n: g.count,
+    }));
   const f = stepFunnel({
     title: 'Раздел → группа → серия',
     steps: [{ key: 'sec', label: 'Раздел', always: true, icon: (o) => { const i = h('span', { class: 'ff-ico', 'aria-hidden': 'true' }); i.innerHTML = catArt(o.label); return i; } }, { key: 'grp', label: 'Группа', when: (P) => P.sec }, { key: 'sub', label: 'Подгруппа', when: (P) => P.grp }, { key: 'series', label: 'Серия' }],
     load: async (P) => {
       const all = await groupsTree();
       const r = await facets({ ...(deepGroup(P) ? { groupId: deepGroup(P) } : {}), ...(P.status ? { status: P.status } : {}), ...(P.q ? { search: P.q } : {}) });
-      return { sec: kids(all, null), grp: P.sec ? kids(all, P.sec) : [], sub: P.grp ? kids(all, P.grp) : [], series: r.facets?.series || [] };
+      // У серий нет отдельного номера в справочнике. Показываем их порядок в текущем списке.
+      const series = (r.facets?.series || []).map((item, index) => ({
+        ...item,
+        label: `${index + 1}. ${item.value}`,
+      }));
+      return { sec: kids(all, null), grp: P.sec ? kids(all, P.sec) : [], sub: P.grp ? kids(all, P.grp) : [], series };
     },
   });
   return { el: f.el, update: async (P) => {
