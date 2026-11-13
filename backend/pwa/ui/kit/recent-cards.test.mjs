@@ -55,7 +55,9 @@ test('заказ с productionNo/key и legacy id сохраняется оди�
  record(row,'Заказ '+key,'Заказ');assert.equal(f.entries()[0].id,key);assert.match(f.entries()[0].title,/Школа № 2/);
  f.route({section:'salesorders',params:{open:legacy}});record(row,'Заказ '+key,'Заказ');assert.equal(f.entries().length,1);assert.equal(f.entries()[0].id,key);
  f.route({section:'salesorders',params:{open:'другой'}});record(row,'Чужой ответ','Заказ');assert.equal(f.entries()[0].title,'Заказ '+key+' · Школа № 2');
- f.button(()=>true).attrs.onclick();assert.equal(f.menu.groups[0].items[0].label,'Заказ '+key+' · Школа № 2');
+ f.button(()=>true).attrs.onclick();
+ // C102: вид — отдельной строкой (pm-rc-kind), название — без повтора вида
+ const lbl=f.menu.groups[0].items[0].label;assert.equal(lbl.children[0].children[0],'Заказ');assert.equal(lbl.children[1].children[0],key+' · Школа № 2');assert.equal(f.menu.groups[0].items[0].cls,'rc-orders');
 });
 
 test('переиспользованный recorder записывает текущую вкладку и раздел, но не чужой id',async()=>{

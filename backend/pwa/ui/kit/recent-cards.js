@@ -45,7 +45,7 @@ const areaOf = (e) => AREA[e.of] || AREA[e.section] || '';
 /** Строка записи: вид (цветом раздела) отдельной строкой, название — до двух строк. */
 function entryLabel(e) {
   const kind = e.kind || '';
-  const title = kind && e.title.startsWith(kind) ? e.title.slice(kind.length).replace(/^\s*·\s*/, '') : e.title;
+  const title = (kind && e.title.startsWith(kind) ? e.title.slice(kind.length).replace(/^\s*·?\s*/, '') : e.title) || e.title;
   return h('span', { class: 'pm-rc' }, kind ? h('small', { class: 'pm-rc-kind' }, kind) : null, h('span', { class: 'pm-rc-title', title }, title));
 }
 /** Эталон pop-menu: на телефоне нижний лист, на широком экране меню у кнопки. */
