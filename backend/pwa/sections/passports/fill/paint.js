@@ -1,6 +1,6 @@
-import { PREFIX } from '../../../core/api.js';
+import { PREFIX, api } from '../../../core/api.js';
 import { h } from '../../../core/dom.js';
-import { actions, badge, button, fieldRow, hint, link, row, section as kitSection, stack } from '../../../ui/kit/index.js';
+import { actions, badge, button, fieldRow, hint, link, row, section as kitSection, stack, toastError } from '../../../ui/kit/index.js';
 import { passportSlot } from '../../product-files.js';
 import { modulesEditor, modulesSummary } from '../modules.js';
 import {
@@ -178,8 +178,18 @@ export function paintSlots(ctx) {
   }
   for (const [id, nodes] of Object.entries(buckets)) ctx.slotHost[id].replaceChildren(h('div', { class: 'pp-slots' }, ...nodes));
   const pdm = (kind, title) => {
-    const file = (ctx.pdm || []).find((f) => f.docKind === kind && f.url);
-    return file ? button({ label: 'Взять из PDM', size: 'S', title, onClick: () => window.open(href(file.url), '_blank', 'noopener') }) : null;
+    const file = (ctx.pdm || []).find((f) => f.docKind === kind && f.id);
+    // Файл PDM — по одноразовой ссылке (C109): прямой путь /uploads/pdm/ закрыт.
+    const get = async (e) => {
+      const b = e.currentTarget; b.classList.add('is-busy');
+      try {
+        const t = await api(`/pdm-files/${file.id}/download-ticket`, { method: 'POST' });
+        const a = document.createElement('a');
+        a.href = href(t.url); a.download = file.name || '';
+        document.body.append(a); a.click(); a.remove();
+      } catch (er) { toastError(er); } finally { b.classList.remove('is-busy'); }
+    };
+    return file ? button({ label: 'Взять из PDM', size: 'S', title, onClick: get }) : null;
   };
   const extra = [pdm('assembly', 'Сборочный чертёж из PDM'), ctx.unnamed ? hint('У детали нет названия', 'warn') : null];
   if (extra.some(Boolean)) ctx.slotHost.dims.append(...extra);

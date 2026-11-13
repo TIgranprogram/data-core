@@ -21,14 +21,14 @@ export function resolveInside(root: string, rel: string): string {
   return abs;
 }
 
-/** Адрес запроса ведёт в закрытую папку (вложения изделий, приложения для скачивания) — с учётом `%61`, `..`, `//`, регистра, обратных слэшей. */
+/** Адрес запроса ведёт в закрытую папку (вложения изделий, приложения для скачивания, файлы PDM — C109) — с учётом `%61`, `..`, `//`, регистра, обратных слэшей. */
 export function isAttachmentsUrl(url: string | undefined): boolean {
   let p = String(url ?? '').split('?')[0].split('#')[0];
   for (let i = 0; i < 3; i++) {
     try { const d = decodeURIComponent(p); if (d === p) break; p = d; } catch { return true; } // битая кодировка — не пускаем
   }
   p = path.posix.normalize(p.replace(/\\/g, '/')).toLowerCase();
-  return /^\/+uploads\/+(attachments|apps)(\/|$)/.test(p);
+  return /^\/+uploads\/+(attachments|apps|pdm)(\/|$)/.test(p);
 }
 
 /** Имя для скачивания: без путей и управляющих символов, без точки в начале, не длиннее 200 знаков. */

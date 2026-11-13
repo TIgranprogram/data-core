@@ -100,9 +100,9 @@ describe('вложения: пути', () => {
     expect(() => resolveInside('/srv/uploads', '/etc/passwd')).toThrow();
   });
   it('публичная раздача: все обходы папки вложений закрыты', () => {
-    for (const u of ['/uploads/attachments/a/b/c.pdf', '/uploads/Attachments/x', '/uploads/%61ttachments/x', '/uploads//attachments/x', '/uploads/x/../attachments/y', '/uploads\\attachments\\y', '/uploads/attachments', '/uploads/%2561ttachments/x', '/uploads/attachments/x?v=1', '/uploads/%E0%A4%A', '/uploads/apps/pdm-loader/1.0.0/DataCore.PdmLoader.exe', '/uploads/%61pps/x'])
+    for (const u of ['/uploads/attachments/a/b/c.pdf', '/uploads/Attachments/x', '/uploads/%61ttachments/x', '/uploads//attachments/x', '/uploads/x/../attachments/y', '/uploads\\attachments\\y', '/uploads/attachments', '/uploads/%2561ttachments/x', '/uploads/attachments/x?v=1', '/uploads/%E0%A4%A', '/uploads/apps/pdm-loader/1.0.0/DataCore.PdmLoader.exe', '/uploads/%61pps/x', '/uploads/pdm/0000.0000.0019/v3/0000.0000.0019.DXF', '/uploads/PDM/x', '/uploads/%70dm/x'])
       expect([u, isAttachmentsUrl(u)]).toEqual([u, true]);
-    for (const u of ['/uploads/2026-11/a.jpg', '/uploads/drawing/a.pdf', '/uploads/attachments-old/a.jpg', '/api/products/1/attachments'])
+    for (const u of ['/uploads/2026-11/a.jpg', '/uploads/drawing/a.pdf', '/uploads/attachments-old/a.jpg', '/uploads/pdm-old/a.jpg', '/api/products/1/attachments'])
       expect([u, isAttachmentsUrl(u)]).toEqual([u, false]);
   });
   it('имя для скачивания очищено', () => {

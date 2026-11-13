@@ -30,8 +30,13 @@ export function pdmAbs(root: string, rel: string): string {
   return abs;
 }
 
-/** Ссылка для скачивания: `/uploads/pdm/...` (кириллица кодируется). */
-export const pdmUrl = (rel: string): string => `/uploads/${rel.split('/').map(encodeURIComponent).join('/')}`;
+/**
+ * Адрес файла для клиента API (с заголовком авторизации). `/uploads/pdm/…` наружу не раздаётся (C109):
+ * путь собран из обозначения детали и угадывается. Браузер скачивает по одноразовому тикету.
+ */
+export const pdmUrl = (id: string): string => `/api/pdm-files/${encodeURIComponent(id)}/download`;
+/** Адрес по тикету — для `<a href>` и `window.open` в браузере. */
+export const pdmTicketUrl = (id: string, ticket: string): string => `/api/pdm-files/${encodeURIComponent(id)}/file?t=${encodeURIComponent(ticket)}`;
 
 /** Проверка содержимого: расширение вида, размер, сигнатура PDF/DXF. Текст ошибки — для пользователя. */
 export function assertPdmContent(docKind: PdmDocKind, name: string, buf: Buffer): void {

@@ -1,13 +1,14 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { createHash } from 'crypto';
-import { mkdir, writeFile } from 'fs/promises';
+import { mkdir, stat, writeFile } from 'fs/promises';
 import { dirname } from 'path';
 import { Model, Types } from 'mongoose';
 import { oid } from '../../common/list-query';
 import { uploadsRoot } from '../../common/uploads/safe-path';
+import { DownloadTickets } from '../productattachments/download-tickets';
 import { PDM_DOC_KINDS, PDM_OWNER_KINDS, PdmFile, type PdmDocKind, type PdmFileDocument, type PdmOwnerKind } from './pdm-file.schema';
-import { assertPdmContent, pdmAbs, pdmRel, pdmUrl } from './pdm-paths';
+import { assertPdmContent, pdmAbs, pdmRel, pdmTicketUrl, pdmUrl } from './pdm-paths';
 
 /** Метаданные файла от приложения (CONTRACT §3 «Файлы»). Запись в коллекцию — только через `save` сервиса импорта. */
 export interface PdmFileInput {
@@ -21,8 +22,35 @@ type Row = Record<string, unknown> & { _id: Types.ObjectId; designation: string;
 export class PdmFilesService {
   constructor(@InjectModel(PdmFile.name) private readonly model: Model<PdmFileDocument>) {}
 
+  private readonly tickets = new DownloadTickets();
+
   private orgFilter(organizationId?: string | null): Record<string, unknown> {
     return organizationId ? { organizationId: oid(organizationId, 'организации') } : {};
+  }
+
+  /** Файл на диске по id записи (с учётом организации). Нет записи или файла — 404. */
+  async file(id: string, organizationId?: string | null): Promise<{ id: string; abs: string; size: number; name: string }> {
+    if (!Types.ObjectId.isValid(id)) throw new NotFoundException('Файл PDM не найден.');
+    const doc = (await this.model.findOne({ _id: new Types.ObjectId(id), deletedAt: null, ...this.orgFilter(organizationId) }).select('path name').lean().exec()) as { _id: Types.ObjectId; path?: string; name?: string } | null;
+    if (!doc?.path) throw new NotFoundException('Файл PDM не найден.');
+    const abs = pdmAbs(uploadsRoot(), doc.path);
+    const st = await stat(abs).catch(() => null);
+    if (!st?.isFile()) throw new NotFoundException('Файл не найден на сервере. Сообщите администратору.');
+    return { id: String(doc._id), abs, size: st.size, name: String(doc.name ?? 'file') };
+  }
+
+  /** Одноразовая ссылка (60 с) для браузера: `<a href>` не шлёт заголовок авторизации. */
+  async ticket(id: string, userId: string, organizationId?: string | null) {
+    const f = await this.file(id, organizationId);
+    const t = this.tickets.issue(f.id, userId);
+    return { ...t, url: pdmTicketUrl(f.id, t.ticket) };
+  }
+
+  /** Погасить тикет и вернуть файл. Чужой, просроченный или повторный тикет — 403. */
+  async fileByTicket(id: string, ticket: string) {
+    const f = await this.file(id);
+    if (!this.tickets.consume(ticket, f.id)) throw new HttpException('Ссылка на скачивание устарела. Нажмите кнопку ещё раз.', 403);
+    return f;
   }
 
   /**
@@ -73,7 +101,7 @@ export class PdmFilesService {
     if (!PDM_OWNER_KINDS.includes(ownerKind as PdmOwnerKind)) throw new BadRequestException('Укажите ownerKind: product, module или material');
     const rows = (await this.model.find({ ownerKind, ownerId: oid(ownerId, 'владельца'), deletedAt: null, ...this.orgFilter(organizationId) }).sort({ pdmVersion: -1 }).lean().exec()) as unknown as Row[];
     // путь на диске клиенту не отдаём — только ссылка
-    const view = (r: Row) => { const out: Record<string, unknown> = { ...r, url: pdmUrl(r.path) }; for (const k of ['path', 'deletedAt', '__v']) delete out[k]; return out; };
+    const view = (r: Row) => { const out: Record<string, unknown> = { ...r, url: pdmUrl(String(r._id)) }; for (const k of ['path', 'deletedAt', '__v']) delete out[k]; return out; };
     const items = rows.filter((r) => r.isCurrent).map((r) => ({ ...view(r), versions: rows.filter((v) => v.designation === r.designation && v.docKind === r.docKind).map(view) }));
     return { items, total: items.length };
   }

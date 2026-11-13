@@ -16432,7 +16432,7 @@
             "name": "category",
             "required": false,
             "in": "query",
-            "description": "Код категории паспорта: TRN, WRK, BLG, DIO, DSP",
+            "description": "Код типа паспорта: TRN, WRK, BLG, DIO, DSP",
             "schema": {}
           }
         ],
@@ -16823,6 +16823,33 @@
             "required": false,
             "in": "query",
             "description": "1 — чёрно-белый",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seal",
+            "required": false,
+            "in": "query",
+            "description": "при stamp=1: 0 — без печати (только подпись)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sign",
+            "required": false,
+            "in": "query",
+            "description": "при stamp=1: 0 — без подписи (только печать)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ids",
+            "required": false,
+            "in": "query",
+            "description": "C104: id паспортов через запятую — только они (выпущенные этого заказа); пусто — все",
             "schema": {
               "type": "string"
             }
@@ -17416,6 +17443,83 @@
           },
           {
             "name": "ownerId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Файлы PDM"
+        ]
+      }
+    },
+    "/pdm-files/{id}/download": {
+      "get": {
+        "operationId": "PdmFilesController_download",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Файлы PDM"
+        ]
+      }
+    },
+    "/pdm-files/{id}/download-ticket": {
+      "post": {
+        "operationId": "PdmFilesController_ticket",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Файлы PDM"
+        ]
+      }
+    },
+    "/pdm-files/{id}/file": {
+      "get": {
+        "operationId": "PdmFileByTicketController_file",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "t",
             "required": true,
             "in": "query",
             "schema": {
@@ -18971,6 +19075,14 @@
       "PatchInvoiceDto": {
         "type": "object",
         "properties": {
+          "deliveryDate": {
+            "type": "string",
+            "description": "Дата доставки, пустая строка очищает поле"
+          },
+          "note": {
+            "type": "string",
+            "description": "Примечание к счёту"
+          },
           "no": {
             "type": "string",
             "description": "№ счёта"
@@ -22477,7 +22589,7 @@
           "passportCategory": {
             "type": "string",
             "example": "BLG",
-            "description": "Категория паспорта группы/раздела (код: DIO, DSP, TRN, WRK, BLG; пусто — снять). Изделия наследуют"
+            "description": "Тип паспорта группы/раздела (код: DIO, DSP, TRN, WRK, BLG; пусто — снять). Изделия наследуют"
           },
           "isActive": {
             "type": "boolean",
@@ -22535,7 +22647,7 @@
           "passportCategory": {
             "type": "string",
             "example": "BLG",
-            "description": "Категория паспорта группы/раздела (код: DIO, DSP, TRN, WRK, BLG; пусто — снять). Изделия наследуют"
+            "description": "Тип паспорта группы/раздела (код: DIO, DSP, TRN, WRK, BLG; пусто — снять). Изделия наследуют"
           },
           "isActive": {
             "type": "boolean",

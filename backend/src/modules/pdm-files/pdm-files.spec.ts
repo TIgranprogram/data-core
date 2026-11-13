@@ -5,7 +5,8 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { Types } from 'mongoose';
 import { PdmFilesService, type PdmFileInput } from './pdm-files.service';
-import { assertPdmContent, pdmRel, pdmUrl, safeSegment } from './pdm-paths';
+import { HttpException, NotFoundException } from '@nestjs/common';
+import { assertPdmContent, pdmRel, pdmTicketUrl, pdmUrl, safeSegment } from './pdm-paths';
 
 const PDF = Buffer.from('%PDF-1.4\nтест');
 const DXF = Buffer.from('  0\r\nSECTION\r\n  2\r\nHEADER\r\n');
@@ -23,8 +24,9 @@ describe('pdm-paths', () => {
     expect(() => pdmRel('A1', -1, 'a.pdf')).toThrow(BadRequestException);
     expect(() => pdmRel('A1', 1.5, 'a.pdf')).toThrow(BadRequestException);
   });
-  it('ссылка кодирует кириллицу', () => {
-    expect(pdmUrl('pdm/СК/v1/a.pdf')).toBe('/uploads/pdm/%D0%A1%D0%9A/v1/a.pdf');
+  it('ссылка — через API по id, не путь на диске (C109)', () => {
+    expect(pdmUrl('65a1b2c3d4e5f60718293a4b')).toBe('/api/pdm-files/65a1b2c3d4e5f60718293a4b/download');
+    expect(pdmTicketUrl('65a1b2c3d4e5f60718293a4b', 'ab12')).toBe('/api/pdm-files/65a1b2c3d4e5f60718293a4b/file?t=ab12');
   });
   it('сигнатура и расширение', () => {
     expect(() => assertPdmContent('pdf', 'a.pdf', PDF)).not.toThrow();
@@ -110,9 +112,25 @@ describe('PdmFilesService.save', () => {
     const model = { find: () => ({ sort: () => ({ lean: () => ({ exec: async () => found }) }) }) };
     const r = await new PdmFilesService(model as any).list('product', String(new Types.ObjectId()));
     expect(r.total).toBe(1);
-    expect(r.items[0]).toMatchObject({ pdmVersion: 2, url: '/uploads/pdm/D/v2/D.pdf' });
+    expect(r.items[0]).toMatchObject({ pdmVersion: 2, url: '/api/pdm-files/1/download' });
     expect((r.items[0] as any).versions.map((v: any) => v.pdmVersion)).toEqual([2, 1]);
     expect((r.items[0] as any).path).toBeUndefined();
     await expect(new PdmFilesService(model as any).list('order', 'x')).rejects.toThrow(BadRequestException);
+  });
+
+  it('скачивание по тикету: один раз, только свой файл (C109)', async () => {
+    const m = fakeModel(); const s = new PdmFilesService(m as any);
+    const a = await s.save(meta({ designation: 'E.5' }), DXF);
+    const b = await s.save(meta({ designation: 'F.6' }), DXF);
+    const t = await s.ticket(a.id, 'u1');
+    expect(t.url).toBe(`/api/pdm-files/${a.id}/file?t=${t.ticket}`);
+    const f = await s.fileByTicket(a.id, t.ticket);
+    expect(f).toMatchObject({ id: a.id, name: '0000.0000.0019.DXF', size: DXF.length });
+    await expect(s.fileByTicket(a.id, t.ticket)).rejects.toThrow(HttpException); // повтор
+    const t2 = await s.ticket(a.id, 'u1');
+    await expect(s.fileByTicket(b.id, t2.ticket)).rejects.toThrow(HttpException); // чужой файл
+    await expect(s.fileByTicket(a.id, 'нет-такого')).rejects.toThrow(HttpException);
+    await expect(s.ticket('не-id', 'u1')).rejects.toThrow(NotFoundException);
+    await expect(s.ticket(String(new Types.ObjectId()), 'u1')).rejects.toThrow(NotFoundException);
   });
 });
