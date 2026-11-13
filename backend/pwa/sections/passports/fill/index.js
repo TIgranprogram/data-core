@@ -249,7 +249,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
     await Promise.all([...saves]);
     if (writes.failed()) throw new Error('Сначала повторите сохранение или отмените несохранённые правки');
     await reload();
-    return ctx.missing.filter((m) => m.required);
+    return ctx.missing.filter((m) => m.required && !m.defaulted);
   }
 
   const own = mode === 'template' ? ownTexts({ r: prod, can, save }) : null;

@@ -54,7 +54,7 @@ function scalars(ctx) {
   const numAt = (key, label, unit) => ({
     key, section: key === 'maxUsers' ? 'general' : key === 'foundationDepth' ? 'install' : 'ops', label, ask: 'template', unit, num: true,
     text: opText(ctx.prod, key, unit),
-    editor: (gap) => numEditor(ctx, key, unit ? `${label}, ${unit}` : label, gap?.default),
+    editor: (gap) => numEditor(ctx, key, unit ? `${label}, ${unit}` : label, gap?.default, gap?.defaulted === true),
   });
   return [
     { key: 'kind', section: 'purpose', label: 'Вид изделия', ask: 'both', text: ctx.kind?.name || '', note: kindNote(ctx), editor: (gap) => kindEditor(ctx, gap) },
@@ -114,8 +114,8 @@ export function paintFields(ctx) {
     } else if (state === 'filled') {
       ctx.filled.push(spec.key);
       if (showRow) host.append(wrap(spec, filledLink(ctx, spec, text), 'k-fill-done'));
-    } else if (spec.num) (nums[spec.section] ||= []).push(wrap(spec, spec.editor(gap), gap?.required ? 'k-fill-need' : ''));
-    else host.append(wrap(spec, spec.editor(gap), gap?.required ? 'k-fill-need' : ''));
+    } else if (spec.num) (nums[spec.section] ||= []).push(wrap(spec, spec.editor(gap), gap?.required && !gap.defaulted ? 'k-fill-need' : ''));
+    else host.append(wrap(spec, spec.editor(gap), gap?.required && !gap.defaulted ? 'k-fill-need' : ''));
   }
   for (const m of ctx.missing) {
     if (m.kind === 'image' || m.kind === 'category' || used.has(m.key)) continue;
@@ -224,7 +224,7 @@ export function focusGap(ctx, m) {
 /** Полоса «Готово N из M», подписи разделов и строка «Уже заполнено». */
 export function syncChrome(ctx) {
   const done = (ctx.filled?.length || 0) + textDone(ctx) + (ctx.photoFilled || 0);
-  const need = ctx.missing.filter((m) => m.required); // выпуску мешает только обязательное; уточнения и необязательное — не «не хватает»
+  const need = ctx.missing.filter((m) => m.required && !m.defaulted); // выпуску мешает только обязательное; уточнения и необязательное — не «не хватает»
   const miss = need.length;
   const kitOn = ctx.prod.passportDefaults?.isKit === true;
   const asm = ctx.asked.has('assembly') || ctx.byKind.has('assembly');
@@ -270,7 +270,7 @@ export function syncChrome(ctx) {
     }));
   }
   ctx.summary.replaceChildren(lines.length ? actions(...lines) : null);
-  ctx.onStatus?.({ required: ctx.missing.filter((m) => m.required) });
+  ctx.onStatus?.({ required: ctx.missing.filter((m) => m.required && !m.defaulted) });
 }
 
 export function placeTexts(ctx, list) {

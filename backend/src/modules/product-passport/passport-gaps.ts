@@ -14,7 +14,7 @@ export const DEFAULT_INSTALL: Record<string, string> = { TRN: 'EMBEDDED', WRK: '
 
 export interface GapItem {
   key: string; label: string; kind: 'category' | 'facet' | 'field' | 'install' | 'elements' | 'purpose' | 'image' | 'kind'; required: boolean;
-  multi?: boolean; default?: unknown; options?: Array<{ id: string; label: string }>;
+  multi?: boolean; default?: unknown; defaulted?: boolean; options?: Array<{ id: string; label: string }>;
 }
 
 /** Элемент для списка «Что это за изделие»: строго по категории (пустая — никому) и только изделие/снаряд (без kind — как изделие до разметки). */
@@ -60,8 +60,19 @@ export function categoryFieldDefaults(rule?: CategoryRule): Record<string, numbe
   return out;
 }
 
+/**
+ * C112 А1: умолчание типа паспорта считается заполненным. Подставляет в пустые поля `p` числа категории (в изделие не пишет —
+ * `p` это копия для проверки и текста) и возвращает ключи, которые подставило.
+ */
+export function applyCategoryDefaults(p: Record<string, unknown>, rule?: CategoryRule | null): string[] {
+  const empty = (v: unknown) => v === undefined || v === null || v === '' || (typeof v === 'number' && !Number.isFinite(v)) || (Array.isArray(v) && !v.length);
+  const used: string[] = [];
+  for (const [k, v] of Object.entries(categoryFieldDefaults(rule ?? undefined))) if (empty(p[k])) { p[k] = v; used.push(k); }
+  return used;
+}
+
 interface Checker {
-  check(body: Record<string, unknown>, usedFields?: Set<string>): Promise<{ missing: Array<{ label: string; key: string }> }>;
+  check(body: Record<string, unknown>, usedFields?: Set<string>): Promise<{ missing: Array<{ label: string; key: string }>; defaulted?: Array<{ label: string; key: string }> }>;
   categoryRules(): Promise<Map<string, CategoryRule>>;
 }
 
@@ -145,7 +156,9 @@ export async function productGaps(svc: Checker, db: mongo.Db, id: string) {
   }
   // обязательные поля и рисунки категории
   const usedFields = new Set<string>();
-  let rows = (await svc.check({ productId: id, mode: 'template' }, usedFields)).missing.filter((m) => !m.key.startsWith('choice:') && m.key !== 'category');
+  const checked = await svc.check({ productId: id, mode: 'template' }, usedFields);
+  const notChoice = (m: { key: string }) => !m.key.startsWith('choice:') && m.key !== 'category';
+  let rows = checked.missing.filter(notChoice);
   // C028: элементы дают признаки (elementIds значений) — шаг нужен, только если у изделия их нет ни своих, ни из признаков
   if (rows.some((m) => m.key === 'elements') && (await hasElements(db, prod, rk))) rows = rows.filter((m) => m.key !== 'elements');
   const [installs, elements] = rows.some((m) => m.key === 'installationTypeId' || m.key === 'elements')
@@ -166,6 +179,10 @@ export async function productGaps(svc: Checker, db: mongo.Db, id: string) {
       item.options = elements.filter((d) => elementFits(d, code)).map((d) => ({ id: String(d._id), label: s(d.name) })).sort((a, b) => a.label.localeCompare(b.label, 'ru'));
     } else if (kind === 'field' && defaults[m.key] !== undefined) item.default = defaults[m.key];
     missing.push(item);
+  }
+  // C112 А1: поле с умолчанием типа паспорта в проверке заполнено; на экране остаётся пунктом «по умолчанию — из типа паспорта»
+  for (const m of (checked.defaulted ?? []).filter(notChoice)) {
+    if (gapKind(m.key) === 'field' && defaults[m.key] !== undefined) missing.push({ key: m.key, label: m.label, kind: 'field', required: false, default: defaults[m.key], defaulted: true });
   }
   if (purpose.gap) missing.push(purpose.gap);
   // нет вида, а элементы или назначение пусты — один вопрос «Вид изделия» (C100): виды этой категории, нет таких — все

@@ -36,14 +36,16 @@ export function kindEditor(ctx, gap) {
   return stack(field('Вид изделия', sel, { required: !!gap?.required, hint: 'Выбранный вид сохраняется в изделии. Паспорт берёт из него тип, назначение и элементы, если они не заданы отдельно.' }), toDict(), refresh());
 }
 
-function numEditor(ctx, key, label, dflt) {
+function numEditor(ctx, key, label, dflt, defaulted = false) {
   const cur = ctx.prod.passportDefaults?.[key];
   const empty = cur == null || cur === '';
   const shown = empty ? (dflt != null ? dflt : '') : cur;
-  if (empty && dflt != null && dflt !== '') ctx.pending.set(key, { patch: { [key]: num(dflt) ?? dflt } });
+  const hasDflt = empty && dflt != null && dflt !== '';
+  // сервер считает умолчание заполненным (defaulted) — подтверждать не нужно; без флага — как раньше
+  if (hasDflt && !defaulted) ctx.pending.set(key, { patch: { [key]: num(dflt) ?? dflt } });
   const f = textInput({
     label: label || 'Значение', value: shown, type: 'number', disabled: !ctx.can, short: true,
-    hint: empty && dflt != null ? 'По умолчанию — не сохранено. Нажмите «Принять».' : undefined,
+    hint: hasDflt ? (defaulted ? 'По умолчанию — из типа паспорта. Можно изменить.' : 'По умолчанию — не сохранено. Нажмите «Принять».') : undefined,
   });
   f.input.addEventListener('change', () => {
     const v = num(f.value);
@@ -51,9 +53,10 @@ function numEditor(ctx, key, label, dflt) {
     ctx.pending.delete(key);
     ctx.save(() => putDefaults(ctx.prod, { [key]: v }));
   });
-  return stack(f.el, empty && dflt != null && dflt !== '' ? button({ label: 'Принять', size: 'S', disabled: !ctx.can, onClick: () => ctx.save(async () => {
+  const pin = hasDflt ? button({ label: defaulted ? 'Закрепить в изделии' : 'Принять', size: 'S', disabled: !ctx.can, onClick: () => ctx.save(async () => {
     await putDefaults(ctx.prod, { [key]: num(f.value) ?? dflt }); ctx.pending.delete(key);
-  }) }) : null);
+  }) }) : null;
+  return stack(f.el, pin);
 }
 
 export function dimsEditor(ctx) {
@@ -237,7 +240,7 @@ export function controlGap(m, ctx) {
     return stack(sideNote(`«${m.label || 'Поле'}» заполняется в карточке изделия.`),
       link({ label: 'Открыть карточку изделия →', href: '#products?open=' + ctx.prod.id, target: '_blank', title: 'Откроется в новой вкладке — паспорт здесь останется' }));
   }
-  if (m.kind === 'field') return numEditor(ctx, m.key, m.label, m.default);
+  if (m.kind === 'field') return numEditor(ctx, m.key, m.label, m.default, m.defaulted === true);
   const write = (v) => (m.kind === 'facet'
     ? setFacets(ctx.prod.id, [...(ctx.prod.facetValueIds || []), v]).then(() => { ctx.prod.facetValueIds = [...(ctx.prod.facetValueIds || []), v]; })
     : putDefaults(ctx.prod, { installationTypeId: v }));

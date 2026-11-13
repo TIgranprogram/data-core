@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { categoryFieldDefaults, gapKind, productGaps } from './passport-gaps';
+import { applyCategoryDefaults, categoryFieldDefaults, gapKind, productGaps } from './passport-gaps';
 import { buildV2Text } from './passport-v2-text';
 
 describe('C070-П2: числа категории по умолчанию', () => {
@@ -7,6 +7,16 @@ describe('C070-П2: числа категории по умолчанию', () =
     expect(categoryFieldDefaults({ serviceLifeYears: '10', warrantyMonths: '12', fieldDefaults: 'heightMin — 1400\nweightMax - 120\r\nmaxUsers — 0\nбез значения\nsiteLength — 4,5' }))
       .toEqual({ heightMin: 1400, weightMax: 120, siteLength: 4.5, serviceLifeYears: 10, warrantyMonths: 12 });
     expect(categoryFieldDefaults(undefined)).toEqual({});
+  });
+});
+
+describe('C112 А1: умолчание типа паспорта — заполнено', () => {
+  const rule = { serviceLifeYears: '10', fieldDefaults: 'heightMin — 1400' };
+  it('пустые поля получают умолчание (в missing не попадут), свои значения не трогаются', () => {
+    const p: Record<string, unknown> = { heightMin: undefined, serviceLifeYears: 7, name: 'x' };
+    expect(applyCategoryDefaults(p, rule)).toEqual(['heightMin']);
+    expect(p).toMatchObject({ heightMin: 1400, serviceLifeYears: 7 });
+    expect(applyCategoryDefaults({}, undefined)).toEqual([]);
   });
 });
 
@@ -55,6 +65,12 @@ describe('«Чего не хватает» изделию (A3)', () => {
     expect(r.missing.find((m) => m.key === 'installationTypeId')).toMatchObject({ kind: 'install', required: true, default: { label: 'Закладные' } });
     expect(r.missing.find((m) => m.key === 'serviceLifeYears')).toMatchObject({ kind: 'field', default: 10 });
     expect(r.missing.some((m) => m.key.startsWith('choice:'))).toBe(false);
+  });
+  it('поле закрыто умолчанием типа: пункт остаётся с defaulted, не обязательный', async () => {
+    const prod = { _id: oid(), name: 'Жим ногами', passportDefaults: { passportCategory: 'TRN' } };
+    const chk = { ...checker([]), check: async () => ({ missing: [], defaulted: [{ label: 'Срок службы', key: 'serviceLifeYears' }] }) };
+    const r = await productGaps(chk, fakeDb(prod), String(prod._id));
+    expect(r.missing.find((m) => m.key === 'serviceLifeYears')).toMatchObject({ kind: 'field', required: false, default: 10, defaulted: true });
   });
   it('признак уже указан — не в списке', async () => {
     const prod = { _id: oid(), name: 'Жим', passportDefaults: { passportCategory: 'TRN' }, facetValueIds: [kinds[0]._id] };
