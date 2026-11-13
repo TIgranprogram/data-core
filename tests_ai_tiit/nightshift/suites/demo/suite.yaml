@@ -1,4 +1,0 @@
-name: demo
-command: [python, suites/demo/run_all.py]
-timeout_sec: 30
-expected_failure: true

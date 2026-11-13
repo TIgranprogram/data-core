@@ -1,4 +1,0 @@
-name: soak
-command: []
-implemented: false
-reason: 'Не реализовано; не является QA gate'

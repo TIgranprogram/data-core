@@ -86,3 +86,10 @@ test('оценка итога и наряд на правку после дву�
   assert.equal(needsFix({ ...job, mtime: 25 }, bad), false); // наряд поправили после первого плохого
   assert.equal(needsFix(job, [{ id: '005', at: 30, quality: 'плохо' }, { id: '005', at: 20, quality: 'хорошо' }]), false);
 });
+
+test('разовый наряд с итогом «готово», но оценкой «плохо» — берётся снова', async () => {
+  const { pickNext } = await import('./lib.mjs');
+  const job = { id: '004', mtime: 5, meta: { status: 'ready', priority: 1 } };
+  assert.equal(pickNext([job], [{ id: '004', at: 10, result: 'готово', quality: 'плохо' }]).id, '004');
+  assert.equal(pickNext([job], [{ id: '004', at: 10, result: 'готово', quality: 'хорошо' }]), null);
+});

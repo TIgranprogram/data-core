@@ -1,4 +1,0 @@
-name: regression
-command: [python, -m, suites.regression.run]
-timeout_sec: 120
-needs_stand: true

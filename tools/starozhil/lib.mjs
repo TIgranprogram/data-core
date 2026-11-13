@@ -30,7 +30,8 @@ export function pickNext(jobs, history, now = Date.now()) {
     .filter((j) => !needsFix(j, runs(j.id)))
     .filter((j) => {
       const h = last(j.id); if (!h) return true;
-      if (!j.meta.repeat) return h.result !== 'готово';
+      // разовый закрыт, только если итог «готово» и программа не оценила его «плохо» (иначе — повторить после правки наряда)
+      if (!j.meta.repeat) return h.result !== 'готово' || h.quality === 'плохо';
       return now - h.at >= (Number(j.meta.everyHours) || 24) * 3600000;
     })
     .sort((a, b) => (Number(a.meta.priority) || 99) - (Number(b.meta.priority) || 99) || a.id.localeCompare(b.id))[0] || null;

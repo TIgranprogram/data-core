@@ -16,6 +16,15 @@ const sections = [...(main.match(/const NAV = \[(.+?)\];/s)?.[1] ?? '').matchAll
 // разделы и вкладки, которых нет в главном меню
 const hashes = [...new Set([...sections, 'money?tab=calendar', 'money?tab=debts', 'money?tab=forecast', 'docs?tab=queue', 'docs?tab=orders', 'docs?tab=archive', 'stock', 'movements', 'dicts', 'trash', 'history', 'help'])];
 
+// брошенные профили прошлых запусков (Edge держал файлы, удаление не прошло) — убрать, если старше 6 ч: по 480 МБ каждый
+for (const d of fs.existsSync(dir) ? fs.readdirSync(dir) : []) {
+  const p = path.join(dir, d);
+  try { if (d.startsWith('edge-smoke-') && Date.now() - fs.statSync(p).mtimeMs > 6 * 3600000) fs.rmSync(p, { recursive: true, force: true }); } catch { /* занят */ }
+}
+/** Профиль браузера убрать: Edge отпускает файлы не сразу — повторять до 10 с. */
+async function dropProfile() {
+  for (let i = 0; i < 20; i++) { try { fs.rmSync(prof, { recursive: true, force: true }); return; } catch { await new Promise((r) => setTimeout(r, 500)); } }
+}
 const port = 9300 + Math.floor(Math.random() * 500);
 const prof = path.resolve(dir, 'edge-smoke-' + port); // полный путь: относительный Edge ищет от своей папки и падает окном «Не удалось создать каталог данных»
 const br = spawn(process.env.EDGE || 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
@@ -38,7 +47,7 @@ await cmd('Runtime.enable'); await cmd('Network.enable'); await cmd('Page.enable
 await cmd('Emulation.setDeviceMetricsOverride', { width: WIDTH, height: 900, deviceScaleFactor: 1, mobile: WIDTH < 720 });
 await cmd('Page.navigate', { url: BASE + '/app/' }); await sleep(1500);
 const login = JSON.parse(await ev(`fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:${JSON.stringify(USER)},password:${JSON.stringify(PW)}})}).then(r=>r.text())`));
-if (!login.access) { console.log('вход не удался'); br.kill(); process.exit(2); }
+if (!login.access) { console.log('вход не удался'); br.kill(); await dropProfile(); process.exit(2); }
 await ev(`localStorage.setItem('dca_access',${JSON.stringify(login.access)});localStorage.setItem('dca_refresh',${JSON.stringify(login.refresh ?? '')});localStorage.setItem('dca_user',${JSON.stringify(JSON.stringify(login.user ?? {}))});1`);
 await cmd('Page.reload', { ignoreCache: true }); await sleep(2500);
 
@@ -63,5 +72,5 @@ for (const hash of hashes) {
 const n = rows.filter((r) => r.bad.length).length;
 console.log(`\nэкранов ${rows.length}, со сбоями ${n}, ширина ${WIDTH}, пользователь ${USER}`);
 ws.close(); br.kill(); await sleep(500);
-try { fs.rmSync(prof, { recursive: true, force: true }); } catch { /* профиль занят — не важно */ }
+await dropProfile();
 process.exit(n ? 1 : 0);

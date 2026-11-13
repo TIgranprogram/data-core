@@ -1,6 +1,0 @@
-night_end: "07:00"
-stop_long_at: "06:00"
-degradation_percent: 10
-max_cpu_temp_c: 85
-min_free_disk_gb: 30
-min_free_space_gb: 30

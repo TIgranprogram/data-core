@@ -1,5 +1,0 @@
-# Код берётся относительно текущей рабочей копии, не из D:/data-core.
-project_path: ../..
-exclude: [tests_ai_tiit/, pult/]
-# Backup выбирается только явным аргументом stand refresh --backup.
-# DB, volume и project генерируются заново; production fallback отсутствует.

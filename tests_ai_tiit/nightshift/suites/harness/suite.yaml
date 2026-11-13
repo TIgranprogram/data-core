@@ -1,4 +1,0 @@
-name: harness
-command: [python, -m, pytest, -q]
-timeout_sec: 180
-failure_category: harness_failure
