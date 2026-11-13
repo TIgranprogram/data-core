@@ -247,7 +247,7 @@ export const COMMANDS = [
   { id: 'lai-check', section: 'localai', extra: true, title: 'Проверить связь с ИИ', risk: 'local', time: '5 с', run: { node: ['tools/local-ai-order/run.mjs', '--check'] },
     hint: 'Запрос /v1/models. LM Studio должен быть Running, CORS включён.' },
   // Старожил: наряды локальному ИИ (starozhil/jobs), итог — tools/logs/starozhil; модель только читает проект
-  { id: 'sz-next', section: 'starozhil', sub: 'Главное', title: 'Запустить следующий наряд', risk: 'local', time: '1–3 ч в фоне', run: { node: ['tools/starozhil/run.mjs', '--next', '--detach'] },
+  { id: 'sz-next', section: 'starozhil', sub: 'Главное', title: 'Запустить следующий наряд', risk: 'local', time: '1–3 ч в фоне', run: { node: ['tools/starozhil/run.mjs', '--next', '--detach'] }, every: 1, why: 'Раз в день, лучше вечером: локальный ИИ ночью делает наряд из очереди (карточки знаний, разбор кода). Утром Claude принимает итог.',
     hint: 'Локальный ИИ берёт первый наряд из очереди и работает в фоне — окно пульта можно закрыть. Пока работает тестировщик, наряд не начнётся. Итог Claude прочитает сам.' },
   { id: 'sz-list', section: 'starozhil', sub: 'Главное', title: 'Очередь нарядов', risk: 'read', time: 'сразу', run: { node: ['tools/starozhil/run.mjs', '--list'] },
     hint: 'Какие наряды ждут, какой следующий (▶), что уже сделано.' },
