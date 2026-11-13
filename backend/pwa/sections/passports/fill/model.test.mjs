@@ -78,7 +78,7 @@ test('следующий шаг фокусирует открытое поле �
   focusGap({ secs: { dims: { querySelectorAll: () => [hidden, editor] } } }, { kind: 'field', key: 'height' });
   assert.deepEqual(calls, [
     ['focus', { preventScroll: true }],
-    ['scroll', { block: 'nearest', inline: 'nearest' }],
+    ['scroll', { block: 'center', inline: 'nearest' }],
   ]);
 });
 

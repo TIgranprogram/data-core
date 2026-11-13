@@ -133,6 +133,13 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
     catch (e) { showSaveError(); toastError(e, 'сохранить в изделие'); }
   }
   ctx.save = save;
+  ctx.saveModules = async (modules) => {
+    const result = await writes.add(async () => {
+      try { await putDefaults(prod, { modules }); return true; }
+      catch (e) { return e; }
+    });
+    if (result !== true) throw result || new Error('Сначала завершите сохранение предыдущих изменений.');
+  };
 
   function lockAfterError(locked) {
     for (const child of el.children) if (child !== saveError) child.inert = locked;
@@ -263,7 +270,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
   return {
     el, reload, missingRequired, readonly: true, dirty: () => writes.failed(), busy: () => saves.size > 0,
     doneLabel: mode === 'template' ? 'Готово' : undefined,
-    beforeClose: async () => { await Promise.all([...saves]); if (writes.failed()) throw new Error('Сначала повторите сохранение или отмените несохранённые правки'); },
+    beforeClose: async () => { await ctx.modulesEditor?.flush(); await Promise.all([...saves]); if (writes.failed()) throw new Error('Сначала повторите сохранение или отмените несохранённые правки'); },
     focus: () => {},
     read: () => ({ values: { category: ctx.code, choices: JSON.parse(fb.value || '{}'), over: {} } }),
   };

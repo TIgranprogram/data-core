@@ -1,3 +1,4 @@
+import { putDefaults } from './funnel/api.js';
 import { api } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { isoDay } from '../../core/format.js';
@@ -9,6 +10,7 @@ import { personNames } from '../../ui/dict-options.js';
 import { CAT_NAMES } from '../../core/passport-kinds.js';
 import { AFTER_PRINT, BOM_COLS, BOM_EXAMPLE, LATER_CATS, V2_CATS, V2_NUMS, bomRows, buildDescription, canEdit, categories, dictOpts, facets, imgsOf, isIssued, kindOf, kinds, keyLines, num, ourCompanies, parseBom, reqKinds, st, dictRows } from './common.js';
 import { models, orders, phrases } from './models.js';
+import { moduleRows, modulesEditor } from './modules.js';
 import { productBlock } from './product-block.js';
 import { wireForm } from './wire-form.js';
 import { materialsFields, specBody } from './materials.js';
@@ -20,7 +22,7 @@ import { withElementTexts } from './elements-block.js';
 /** Форма паспорта: поля, сборка тела запроса, создание и сохранение. */
 /** ПИ.4: значения по умолчанию паспорта — изделию (заменяются целиком; пустые не пишутся сервером). */
 export async function saveDefaults({ productId, defaults }) {
-  try { await api(`/showcase/${productId}/passport-defaults`, { method: 'PUT', body: defaults }); toast('Запомнено для следующих паспортов изделия'); }
+  try { await putDefaults(await api(`/showcase/${productId}`), defaults); toast('Запомнено для следующих паспортов изделия'); }
   catch (e) { toastError(e); }
 }
 /** Паспорт v2 (БЗ-6 Э5a1): поля формы ↔ тело запроса. */
@@ -116,6 +118,10 @@ export const passportForm = {
       { key: '_searchName', type: 'hidden' },
       ...funnelFields,
       // изделие — главный источник: здесь сводка в одну строку (ниже в блоке «Изделие»), поля — свёрнуты «Править здесь»
+      { key: 'modules', label: 'Модули изделия', type: 'widget', wide: true,
+        widget: (v) => (w.modules = modulesEditor({ value: v, productId: () => String(w.form?.get('productId') || r?.productId || ''), canEdit: canEdit() })),
+        mount: (form) => { w.form = form; form.on('productId', () => w.modules.loadPhotos()); w.modules.loadPhotos(); },
+        summary: (v) => v?.length ? `Видов модулей: ${v.length}` : '' },
       { section: 'Данные изделия — берутся из изделия', tone: 'main', collapsed: true },
       { key: '_copyFrom', type: 'hidden' }, { key: '_imgsFrom', type: 'hidden' }, { key: 'productId', type: 'hidden' }, { key: 'salesOrderId', type: 'hidden' }, { key: 'incomeId', type: 'hidden' },
       { key: 'name', label: 'Наименование (в PDF паспорта)', required: true, wide: true, max: 500,
@@ -200,6 +206,7 @@ export const passportForm = {
     body.manualText = [...(v._manualText === 'yes' ? ['purpose', 'installationMethod'].filter((k) => s(body[k])) : []), ...(s(v.description) && s(v.description) !== buildDescription(forDesc) ? ['description'] : [])];
     const bom = parseBom(v.bom, r?.bom);
     if (bom.length || r) body.bom = bom;
+    if (Array.isArray(v.modules)) body.modules = moduleRows(v.modules);
     const shown = new Set(kinds().map(([k]) => k));
     // виды, которых нет в форме, сохраняются как были (safety_zone показан в «Зоне безопасности» — не «чужой»)
     const kept = imagesBody((r?.images || []).filter((i) => !shown.has(kindOf(i))));

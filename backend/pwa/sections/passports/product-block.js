@@ -276,6 +276,9 @@ export async function applyProduct(api, p, catBy, isCurrent = () => true) {
   if ((full.photos || []).length && !JSON.parse(api.get('img_overview') || '[]').length) api.set('img_overview', full.photos.map((x) => ({ id: x.id, url: x.url, thumb: x.thumb })), { auto: true, src: 'из изделия' });
   // 2. значения паспорта по умолчанию у изделия; категория — первой (за ней wireForm подставит умолчания категории в пустое)
   if (ppCat && !api.manual('passportCategory')) api.set('passportCategory', ppCat, { auto: true, src: srcText });
+  if (api.input('modules') && !api.manual('modules')) {
+    api.set('modules', JSON.stringify(d.modules || []), { auto: true, src: 'из изделия' });
+  }
   for (const k of ['elements', 'materialIds']) put(k, (d[k] || []).map(String), 'из изделия');
   put('installationTypeId', d.installationTypeId ? String(d.installationTypeId) : '', 'из изделия');
   if ((d.joints || []).length) put('joints', d.joints.map(String), 'из изделия');

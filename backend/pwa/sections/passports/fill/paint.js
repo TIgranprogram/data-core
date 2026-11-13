@@ -1,7 +1,8 @@
 import { PREFIX } from '../../../core/api.js';
 import { h } from '../../../core/dom.js';
-import { actions, badge, button, fieldRow, hint, link, row, stack } from '../../../ui/kit/index.js';
+import { actions, badge, button, fieldRow, hint, link, row, section as kitSection, stack } from '../../../ui/kit/index.js';
 import { passportSlot } from '../../product-files.js';
+import { modulesEditor, modulesSummary } from '../modules.js';
 import {
   controlGap, dimsEditor, elementsEditor, installEditor, jointsEditor, kitEditor, materialsEditor, kindEditor, numEditor, weightEditor,
 } from './control.js';
@@ -64,7 +65,7 @@ function scalars(ctx) {
     { key: 'weight', section: 'dims', label: 'Вес', ask: 'template', text: ctx.prod.weightKg ? `${ctx.prod.weightKg} кг` : '', editor: () => weightEditor(ctx) },
     { key: 'joints', section: 'struct', label: 'Как соединено', ask: 'both', text: jointsLine(ctx.prod), editor: () => jointsEditor(ctx) },
     { key: 'isKit', section: 'struct', label: 'Как поставляется', ask: 'both', text: kitText(ctx.prod), editor: () => kitEditor(ctx) },
-    { key: 'materials', section: 'struct', label: 'Из чего сделано', ask: 'both', text: matText(ctx.prod), editor: () => materialsEditor(ctx) },
+    { key: 'materials', section: 'struct', label: 'Материалы', ask: 'both', text: matText(ctx.prod), editor: () => materialsEditor(ctx) },
     { key: 'installationTypeId', section: 'install', label: 'Способ установки', ask: 'template', text: instText(ctx.prod, ctx.instNames), editor: (gap) => installEditor(ctx, gap) },
     ...OPS.map(([key, label, unit]) => numAt(key, label, unit)),
   ];
@@ -128,6 +129,23 @@ export function paintFields(ctx) {
     if (m.kind === 'field' && node.classList?.contains('k-ti')) (nums[gapSection(m)] ||= []).push(box);
     else ctx.fieldHost[gapSection(m)].append(box);
   }
+  if (ctx.mode === 'template') {
+    const modules = ctx.prod.passportDefaults?.modules || [];
+    const spec = { key: 'modules', label: 'Модули' };
+    if (modules.length && !ctx.editing.has(spec.key) && !ctx.modulesEditor) {
+      ctx.fieldHost.general.append(wrap(spec, filledLink(ctx, spec, modulesSummary(modules)), 'k-fill-done'));
+    } else {
+      if (!ctx.modulesEditor) {
+        ctx.modulesEditor = modulesEditor({
+          value: modules, productId: () => ctx.prod.id, canEdit: ctx.can,
+          save: ctx.saveModules,
+          onDone: () => { ctx.modulesEditor = null; ctx.editing.delete(spec.key); ctx.repaint(); },
+        });
+        ctx.modulesEditor.loadPhotos();
+      }
+      ctx.fieldHost.general.append(wrap(spec, kitSection({ title: 'Модули изделия', fixed: true, body: ctx.modulesEditor.el })));
+    }
+  }
   for (const [id, list] of Object.entries(nums)) ctx.fieldHost[id].append(fieldRow(...list));
   const elOn = appliesOf(ctx.applicable, { key: 'elements' }) !== 'na';
   const elOpen = ctx.editing.has('elements') || ctx.missing.some((m) => m.kind === 'elements' || m.key === 'elements');
@@ -190,7 +208,7 @@ export function focusGap(ctx, m) {
   const control = [...(target?.querySelectorAll('input:not([type="hidden"]), select, textarea, button') || [])]
     .find((el) => !el.matches(':disabled') && el.getClientRects().length);
   control?.focus({ preventScroll: true });
-  (target || section)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  (target || section)?.scrollIntoView({ block: target ? 'center' : 'nearest', inline: 'nearest' });
 }
 
 /** Полоса «Готово N из M», подписи разделов и строка «Уже заполнено». */

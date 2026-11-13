@@ -203,8 +203,7 @@ export function kitEditor(ctx) {
 }
 
 export function materialsEditor(ctx) {
-  const text = ctx.matLine || 'Не указано, из чего сделано изделие';
-  return field('Из чего сделано', button({ label: 'Открыть техописание', size: 'S', onClick: () => ctx.openTech() }), { hint: text });
+  return field('Материалы', button({ label: 'Заполнить материалы', kind: 'primary', size: 'S', onClick: () => ctx.openTech() }), { hint: 'Добавьте материалы в техописании изделия и сохраните. Они появятся в паспорте.' });
 }
 
 export function installEditor(ctx, gap) {
