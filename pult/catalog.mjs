@@ -41,6 +41,7 @@ export const SECTIONS = [
   { id: 'datafix', group: 'site', title: 'Правки данных', icon: '🧩', hint: 'Кнопки от Claude под конкретную задачу. Каждую — один раз после выкладки; повтор безопасен' },
   { id: 'check', group: 'checks', title: 'Тесты кода и экранов', icon: '🧪', hint: 'Код и экраны сайта на этом ПК. Рабочий сайт не трогают. Итог читает Claude и чинит', subs: ['Тесты кода', 'Обход всех экранов'] },
   { id: 'aitester', group: 'checks', title: 'ИИ-тестировщик', icon: '🤖', hint: 'ИИ ходит по копии сайта как менеджер, ищет ошибки и пишет отчёт', subs: ['Главное', 'Один раз на ПК и если что-то не так'] },
+  { id: 'starozhil', group: 'tools', title: 'Старожил', icon: '🧠', hint: 'Наряды для локального ИИ: ночью читает проект и пишет итог. Утром итог разбирает Claude', subs: ['Главное', 'Если что-то не так'] },
   { id: 'localai', group: 'tools', title: 'Excel заказа (ИИ)', icon: '📄', hint: 'Документы заказа → локальный ИИ → Excel → импорт на сайт' },
   { id: 'backups', group: 'copies', title: 'Копии базы и сервер', icon: '💾', hint: 'Копия базы на этот ПК, учебное восстановление, место на сервере', subs: ['Копии базы', 'Место на сервере'] },
   { id: 'sportin', group: 'copies', title: 'Sportin', icon: '🖥', hint: 'Второй сервер: обновить, бэкап, проверка копии' },
@@ -245,6 +246,17 @@ export const COMMANDS = [
     hint: 'Готовый Excel для «Заказы → Импорт Excel» на сайте.' },
   { id: 'lai-check', section: 'localai', extra: true, title: 'Проверить связь с ИИ', risk: 'local', time: '5 с', run: { node: ['tools/local-ai-order/run.mjs', '--check'] },
     hint: 'Запрос /v1/models. LM Studio должен быть Running, CORS включён.' },
+  // Старожил: наряды локальному ИИ (starozhil/jobs), итог — tools/logs/starozhil; модель только читает проект
+  { id: 'sz-next', section: 'starozhil', sub: 'Главное', title: 'Запустить следующий наряд', risk: 'local', time: '1–3 ч в фоне', run: { node: ['tools/starozhil/run.mjs', '--next', '--detach'] },
+    hint: 'Локальный ИИ берёт первый наряд из очереди и работает в фоне — окно пульта можно закрыть. Пока работает тестировщик, наряд не начнётся. Итог Claude прочитает сам.' },
+  { id: 'sz-list', section: 'starozhil', sub: 'Главное', title: 'Очередь нарядов', risk: 'read', time: 'сразу', run: { node: ['tools/starozhil/run.mjs', '--list'] },
+    hint: 'Какие наряды ждут, какой следующий (▶), что уже сделано.' },
+  { id: 'sz-stop', section: 'starozhil', sub: 'Если что-то не так', title: 'Остановить наряд', risk: 'local', time: 'до 5 мин', run: { node: ['tools/starozhil/run.mjs', '--stop'] },
+    hint: 'ИИ закончит шаг и запишет итог по тому, что успел.' },
+  { id: 'sz-last', section: 'starozhil', extra: true, sub: 'Главное', title: 'Итог последнего наряда', risk: 'read', time: 'сразу', run: { node: ['tools/starozhil/run.mjs', '--last'] },
+    hint: 'Коротко, до 30 строк. Читает Claude.' },
+  { id: 'sz-cards', section: 'starozhil', extra: true, sub: 'Если что-то не так', title: 'Проверить карточки знаний', risk: 'read', time: 'сразу', run: { node: ['tools/starozhil/cards.mjs', '--check'] },
+    hint: 'Свежие, устаревшие (код изменился) и сломанные карточки.' },
   { id: 'lai-setup', section: 'aitester', extra: true, sub: 'Один раз на ПК и если что-то не так', title: 'Установить ИИ на этом ПК', risk: 'local', time: '1 мин – 30 мин', run: { node: ['tools/ai-tester/setup.mjs'] },
     hint: 'Один раз на каждом компьютере (дом, работа). Сам настроит LM Studio, подберёт модель под видеокарту, скачает и загрузит.' },
   // ИИ-тестировщик: локальная модель ходит по стенду этого ПК, записи с меткой ТЕСТ-ИИ, в конце убирает их сама
@@ -289,6 +301,8 @@ export const ADVICE = [
 
 // Скрипты без кнопки: ИИ / внутренние / убраны из пульта администратора.
 export const NOT_ON_BUTTONS = {
+  'tools/starozhil/module-facts.mjs': 'подготовка фактов о модулях для наряда Старожила (prepare в наряде), не человек',
+  'tools/starozhil/tasks-facts.mjs': 'подготовка фактов для наряда Старожила: запускает исполнитель нарядов (prepare в наряде), не человек',
   'tools/design-checks/compare.mjs': 'служебное сравнение двух явно выбранных снимков; координатор задаёт принятый эталон и проверяемый снимок, автоматически эталоны не утверждаются',
   'backend/scripts/passport-items-audit.js': 'аудит пунктов паспортов для ИИ (C054): отчёт → решения пользователя в чате → --apply делает координатор',
   'tools/c039-types.mjs': 'разовый отчёт покрытия иконок типов для ИИ (C039), не для администратора',

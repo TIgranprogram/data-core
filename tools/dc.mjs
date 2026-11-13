@@ -234,6 +234,10 @@ async function cmdCheck() {
   log('\n=== карта сайта ===\n' + ([...atl.errors, ...atl.warns].join('\n') || 'ок'));
   say(atl.errors.length ? `карта сайта: ОШИБКИ ${atl.errors.length} — ${cut(atl.errors[0], 90)} (dc atlas --check)` : `карта сайта: ок${atl.warns.length ? `, сверить ${atl.warns.length} (dc atlas --check)` : ''}`);
   if (atl.errors.length) bad++;
+  // Старожил: карточка без источника — ошибка; источник изменился — сверить (наряд пересоберёт)
+  const sz = step('карточки', process.execPath, ['tools/starozhil/cards.mjs', '--check']);
+  say('карточки Старожила: ' + cut(sz.out.trim().split('\n')[0].replace(/^карточки:\s*/, ''), 110) + (sz.code ? ' — ОШИБКИ (node tools/starozhil/cards.mjs --check)' : ''));
+  if (sz.code) bad++;
   const pult = step('пульт', process.execPath, ['--test', 'pult/test/catalog.test.mjs', 'pult/test/server.test.mjs', 'pult/test/advisor.test.mjs']);
   say(pult.code === 0 ? 'пульт: каталог совпадает с проектом' : 'пульт: ОТСТАЛ — ' + cut((pult.out.split('\n').find((l) => /Скрипт без кнопки|Команда dc без кнопки|gen-docs|✖ /.test(l)) || '').trim(), 110));
   if (pult.code) bad++;
