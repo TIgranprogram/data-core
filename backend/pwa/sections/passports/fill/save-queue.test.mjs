@@ -36,3 +36,33 @@ test('два повтора используют одну попытку и жд
   release(); await Promise.all([first, second]);
   assert.equal(queue.pending.size, 0); assert.equal(queue.failed(), false);
 });
+
+test('Р2: сервер на паузе — очередь сама повторяет после retryAfter, ввод не теряется', async () => {
+  const timers = []; const waits = []; let resumed = 0;
+  const queue = saveQueue({ auto: {
+    delayOf: (e) => (e.readOnly ? (e.retryAfter || 30) * 1000 : 0), max: 5,
+    setTimer: (fn, ms) => { timers.push({ fn, ms }); return timers.length; }, clearTimer: () => {},
+    onWait: (ms) => waits.push(ms), onResume: () => { resumed++; },
+  } });
+  let calls = 0; const written = [];
+  const paused = () => Object.assign(new Error('503'), { readOnly: true, status: 503, retryAfter: 30 });
+  await assert.rejects(queue.add(async () => { if (++calls === 1) throw paused(); written.push('вес'); }));
+  assert.equal(queue.failed(), true); assert.equal(queue.waiting(), true);
+  assert.deepEqual(waits, [30000]); assert.equal(timers[0].ms, 30000);
+  assert.equal(await queue.add(async () => { written.push('рост'); }), false); // соседняя правка ждёт, не теряется
+  timers[0].fn(); await new Promise((r) => setTimeout(r, 0)); await queue.pending.size && Promise.all([...queue.pending]);
+  await new Promise((r) => setTimeout(r, 5));
+  assert.deepEqual(written, ['вес', 'рост']); assert.equal(queue.failed(), false); assert.equal(resumed, 1);
+});
+
+test('Р2: обычная ошибка (400) автоповтор не запускает; повторы ограничены max', async () => {
+  const timers = [];
+  const queue = saveQueue({ auto: { delayOf: (e) => (e.readOnly ? 1000 : 0), max: 2, setTimer: (fn, ms) => { timers.push({ fn, ms }); return timers.length; }, clearTimer: () => {} } });
+  await assert.rejects(queue.add(async () => { throw Object.assign(new Error('bad'), { status: 400 }); }));
+  assert.equal(timers.length, 0); assert.equal(queue.waiting(), false);
+  await queue.discard();
+  const ro = () => Object.assign(new Error('503'), { readOnly: true });
+  await assert.rejects(queue.add(async () => { throw ro(); }));
+  for (let i = 0; i < 4; i++) { const t = timers.shift(); if (t) { t.fn(); await new Promise((r) => setTimeout(r, 5)); } }
+  assert.equal(queue.waiting(), false); assert.equal(queue.failed(), true); // после max попыток — ждёт ручного повтора
+});

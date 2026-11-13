@@ -9,6 +9,7 @@ import { loadGaps, loadTexts, putDefaults } from '../funnel/api.js';
 import { resetPdCategory } from '../../products/data.js';
 import { changeCategory } from './category-change.js';
 import { saveQueue } from './save-queue.js';
+import { retryDelay } from '../../../core/write-retry.js';
 import { openTechSheet } from '../../tech-sheet.js';
 import { ownTexts } from '../template-texts.js';
 import { SECTIONS, displayName, imageKind, matText, typeOfLeaf } from './model.js';
@@ -39,8 +40,14 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
   const strip = h('div'); const summary = h('div'); const context = h('div');
   const pending = new Map(); const editing = new Set();
   let paused = false; let pauseEpoch = 0;
-  const writes = saveQueue(); const saves = writes.pending;
   const saveError = stack();
+  let waitNote = ''; // Р2: «сохраню, когда сервер вернётся» — пока очередь сама ждёт повтор
+  const writes = saveQueue({ auto: {
+    delayOf: retryDelay, max: 5,
+    onWait: (ms) => { waitNote = `Сервер на паузе или нет связи. Сохраню сам через ${Math.round(ms / 1000)} с — ввод остаётся на экране.`; showSaveError(); },
+    onResume: () => { waitNote = ''; saveError.replaceChildren(); lockAfterError(false); reload(); },
+  } });
+  const saves = writes.pending;
   let changingCategory = false;
   let seq = 0; let ready = false; let mute = 1; let synced = false; let fb;
 
@@ -164,7 +171,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
           Object.assign(prod, fresh); await reload();
         } catch (e) { toastError(e, 'прочитать сохранённое изделие'); }
       }) });
-    saveError.replaceChildren(hint('Правка не сохранилась. Ввод оставлен на экране; следующие изменения ждут повтора.', 'warn'), actions(retry, discard));
+    saveError.replaceChildren(hint(waitNote || 'Правка не сохранилась. Ввод оставлен на экране; следующие изменения ждут повтора.', 'warn'), actions(retry, discard));
   }
 
   async function saveTexts() {

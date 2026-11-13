@@ -1,5 +1,5 @@
 import { h } from '../../../core/dom.js';
-import { button, posPic, searchBox, section, sideNote, sku, table } from '../../../ui/kit/index.js';
+import { button, clamp, posPic, searchBox, section, sideNote, sku, table } from '../../../ui/kit/index.js';
 
 /**
  * Шаг 4 «Изделие»: поиск по всем изделиям, таблица подходящих (фото, артикул, название, «паспортов: N»), «+ Новое изделие».
@@ -19,11 +19,11 @@ export function productList({ onPick, onNew, onSearch }) {
     const total = products?.total ?? items.length;
     sec.querySelector('.k-sec-head .k-sec-n')?.replaceChildren(String(total));
     box.replaceChildren(...[
-      table({ label: 'Изделия', clickable: true, maxHeight: 'M',
+      table({ label: 'Изделия', clickable: true, // Ф2: без своего окна — одна прокрутка панели, без горизонтальной (название в 2 строки, колонка wrap)
         // артикул — строкой под названием (DESIGN §4 «sku»): на 375 таблица не режется (приёмка D1)
-        columns: [{ label: '' }, { label: 'Изделие' }, { label: 'Паспортов', num: true, hide: true }],
+        columns: [{ label: '', pic: true }, { label: 'Изделие', wrap: true }, { label: 'Паспортов', num: true, hide: true }],
         rows: items.map((it) => ({ onClick: () => onPick?.(it), data: it.id,
-          cells: [posPic(photoOf(it.photo), 'sm'), h('div', null, h('div', { title: it.name }, it.name), sku(it.sku)), it.passportsCount ? `паспортов: ${it.passportsCount}` : '—'] })),
+          cells: [posPic(photoOf(it.photo), 'sm'), h('div', null, clamp(h('span', { title: it.name }, it.name), { lines: 2 }), sku(it.sku)), it.passportsCount ? `паспортов: ${it.passportsCount}` : '—'] })),
         empty: { title: 'Изделий с такими признаками нет', hint: 'Снимите признак или создайте изделие кнопкой ниже.' } }),
       total > items.length ? sideNote(`Показано ${items.length} из ${total} — уточните признаки или поиск.`) : null].filter(Boolean));
   }

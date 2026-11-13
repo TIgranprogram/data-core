@@ -186,7 +186,7 @@ export function funnelBox({ value, category = '', canEditText = false, onPaint, 
       cat = code || '';
       choices = {}; for (const k of Object.keys(partial)) delete partial[k]; editing.clear();
       fire(); refresh();
-      if (had && cat) toast('Категория сменилась — выберите шаги текста заново');
+      if (had && cat) toast('Тип паспорта сменился — выберите шаги текста заново');
     },
     /** Способ установки, который задаёт выбранный вариант раздела «Установка» ('' — не задаёт или не выбран). */
     installTypeId() { const leaf = this.installLeaf(); return leaf?.installTypeId ? String(leaf.installTypeId) : ''; },

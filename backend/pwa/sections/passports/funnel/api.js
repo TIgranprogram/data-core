@@ -59,3 +59,6 @@ export async function issueFromProduct(productId, extra = {}) {
   await api(`/passports/${id}/issue`, { method: 'POST' });
   return { passport: await api(`/passports/${id}`) };
 }
+
+/** План паспортов заказа (позиции, state issued|ready|blocked) — для «Следующая позиция» после выпуска (C112 Ф4). */
+export const orderPlan = (orderId, variant) => api(`/passports/order/${orderId}/plan`, { query: variant ? { variant } : {} });

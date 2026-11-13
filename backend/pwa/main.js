@@ -35,7 +35,7 @@ import { setCrumbs, crumbsEl } from './ui/kit/crumbs.js';
 events.onFail = (e, { url, method }) => reportError(e, { kind: method === 'GET' ? 'background' : 'action', action: method === 'GET' ? 'загрузка' : 'запись', url });
 // ОШ: любая необработанная ошибка — в сборщик и понятным русским текстом (детали — в консоль), без повторов;
 // нет связи — уже видна полоса «нет связи», всплывашка не нужна
-installGlobalErrors((e) => { reportError(e, { kind: 'unhandled' }); if (e?.status !== 0) toastError(e); });
+installGlobalErrors((e) => { if (recoverStale(e)) return; reportError(e, { kind: 'unhandled' }); if (e?.status !== 0) toastError(e); });
 
 // Скорость: разделы грузятся при первом открытии (import() с кэшем промиса), а не все сразу при старте (канал медленный).
 const SECTIONS = {};   // имя раздела -> описание (заполняется по мере загрузки)

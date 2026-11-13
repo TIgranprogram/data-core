@@ -33,3 +33,10 @@ test('в строках исходников приложения нет оши�
   }
   assert.deepEqual(found, []);
 });
+
+test('nextLine: «Дальше:» с одним двоеточием', async () => {
+  const { nextLine } = await import('./grammar.js');
+  assert.equal(nextLine('выберите тип паспорта'), 'Дальше: выберите тип паспорта');
+  assert.equal(nextLine('уточните: нагрузка — по желанию'), 'Дальше: уточните — нагрузка — по желанию');
+  assert.equal((nextLine('а: б: в').match(/:/g) || []).length, 1);
+});

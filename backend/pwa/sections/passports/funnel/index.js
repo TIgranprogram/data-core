@@ -1,10 +1,11 @@
 import { h } from '../../../core/dom.js';
-import { patch } from '../../../core/router.js';
-import { button, confirmDlg, hint, link, section, stack, toast, toastError } from '../../../ui/kit/index.js';
+import { actions, button, confirmDlg, hint, link, section, stack, toast, toastError } from '../../../ui/kit/index.js';
 import { canWorkPassport } from '../common.js';
 import { passportFill } from '../fill/index.js';
-import { getProduct } from './api.js';
+import { getProduct, orderPlan } from './api.js';
+import { passportVariant, printDialog } from '../dialogs.js';
 import { issueBlock, openPositions, orderStep } from './issue.js';
+import { barText } from './bar.js';
 import { newProduct } from './new-product.js';
 import { peekReady, takePending } from './open.js';
 import { pickSteps } from './pick-steps.js';
@@ -36,6 +37,24 @@ function build() {
   const recap = stack();
   const stages = stack();
   const newBox = h('div', null);
+  // Ф1 (C112): закреплённая полоса панели (подвал карточки): «Осталось N: … →» и «Выпустить». Подвал kit.card, form.foot.
+  const barStatus = link({ label: '', onClick: () => bar.go?.() });
+  const barNote = h('span', { class: 'muted small' });
+  const barGo = button({ label: 'Выпустить', kind: 'ghost', disabled: true, onClick: (e) => bar.issue?.run(e.currentTarget) });
+  const bar = { required: [], issue: null, go: null, done: false };
+  const foot = [barStatus, barNote, barGo];
+  function paintBar() {
+    const on = !!bar.issue && !bar.done;
+    foot.forEach((n) => { n.hidden = !on; });
+    if (!on) return;
+    const st = bar.issue.status();
+    const t = barText(bar.required, st);
+    barStatus.hidden = !t.left; barStatus.textContent = t.left || '';
+    barNote.hidden = !!t.left; barNote.textContent = t.left ? '' : t.ok;
+    barGo.disabled = !t.ready; barGo.title = t.ready ? st.why : t.title;
+    barGo.classList.toggle('btn-primary', t.ready); barGo.classList.toggle('btn-ghost', !t.ready);
+  }
+  paintBar();
   const say = (t) => ps.setNext(t); // «Дальше: …» — строка kit.funnel над шагами
   // заголовок панели называет изделие (приёмка дизайнера D1); до выбора — «Новый паспорт»
   const title = (t, again = true) => { const hd = ps.el.closest('.drawer, .k-panel')?.querySelector('h2'); if (hd) hd.textContent = t; else if (again) setTimeout(() => title(t, false), 0); }; // вход из карточки: панель ещё не вставлена
@@ -109,7 +128,7 @@ function build() {
   async function showPick({ checked = false } = {}) {
     if (!checked && !(await leaveStage())) return;
     stageSeq += 1;
-    activeFill = null; creation = null;
+    activeFill = null; creation = null; bar.issue = null; bar.done = false; bar.required = []; paintBar();
     S.prod = null; if (!lockedOrder) S.order = null; stages.replaceChildren(); recap.replaceChildren(); title('Новый паспорт');
     newBox.hidden = true; pickBox.hidden = false; ps.setDone(false); say(null); ps.update(S.P);
   }
@@ -161,48 +180,76 @@ function build() {
       paintRecap(prod);
     }
     const issueSec = section({ title: 'Выпуск', tone: 'gold', open: false, body: [] });
+    bar.done = false; bar.required = [];
     const issue = issueBlock({
       prod,
       order: S.order,
       goGaps: () => stages.querySelector('[data-gap]')?.scrollIntoView({ block: 'start' }),
-      onIssued: () => patch({ of: undefined, new: undefined }),
+      onState: () => paintBar(),
+      onIssued: (passport) => afterIssue(prod, passport),
     });
+    bar.issue = issue;
+    // «Осталось N: … →» ведёт к первому пробелу анкеты, а если пробелов нет — к выбору фирмы / позиции в разделе «Выпуск»
+    bar.go = () => {
+      const gap = stages.querySelector('[data-gap]');
+      if (bar.required.length && gap) { gap.scrollIntoView({ block: 'start' }); return; }
+      issueSec.open = true; issueSec.scrollIntoView({ block: 'center' });
+    };
     issueSec.querySelector('.k-sec-body').replaceChildren(issue.el);
-    // одна главная на этап: пробелы — «Дальше»; выпуск открыт — «Выпустить PDF» (вторая ghost)
-    const onePrimary = (btn, primary) => { btn.classList.toggle('btn-primary', primary); btn.classList.toggle('btn-ghost', !primary); };
-    let fill;
-    const next = button({
-      label: 'Дальше — к выпуску', kind: 'primary',
-      onClick: async () => {
-        try {
-          const must = await fill.missingRequired();
-          if (must.length) { stages.querySelector('[data-gap]')?.scrollIntoView({ block: 'start' }); return; }
-          issueSec.open = true;
-          onePrimary(next, false);
-        } catch (e) { toastError(e, 'сохранить'); }
-      },
-    });
-    fill = await passportFill({
+    const fill = await passportFill({
       prod, mode: 'issue',
       onStatus: ({ required }) => {
+        bar.required = required;
         issue.paint(required);
         const first = required[0];
         say(first ? `укажите «${first.label}»` : 'выпустите PDF (тексты уже подставлены)');
         if (!first) issueSec.open = true;
-        onePrimary(next, !!first);
-        next.hidden = !first; // C070-П3: всё заполнено — на экране одна главная кнопка «Выпустить PDF»
+        paintBar();
       },
     });
     if (my !== stageSeq) return;
     activeFill = fill;
-    stages.replaceChildren(fill.el, next, issueSec);
+    stages.replaceChildren(fill.el, issueSec);
+    paintBar();
+  }
+
+  /** Ф4: после выпуска панель остаётся — «Печать…» и, если паспорт из заказа, «Следующая позиция». */
+  async function afterIssue(prod, passport) {
+    bar.done = true; paintBar(); activeFill = null;
+    const num = passport?.passportNumber ? ' № ' + passport.passportNumber : '';
+    say(null); ps.setDone(true);
+    const next = button({ label: 'Следующая позиция', kind: 'primary', onClick: () => nextPosition(next.dataset.pid, next) });
+    next.hidden = true;
+    const note = hint('');
+    stages.replaceChildren(stack(
+      hint('Выпущен паспорт' + num + '. Окно печати открыто — его можно открыть ещё раз.', 'ok'),
+      actions(button({ label: 'Печать…', kind: 'secondary', onClick: () => printDialog(passport) }), next),
+      note));
+    const orderId = S.order?.salesOrderId;
+    if (!orderId) return;
+    try {
+      const plan = await orderPlan(orderId, passportVariant.value);
+      const line = (plan?.lines || []).find((l) => l.state !== 'issued' && l.productId && String(l.incomeId) !== String(S.order?.incomeId || ''));
+      if (line) { next.dataset.pid = JSON.stringify({ productId: line.productId, incomeId: line.incomeId }); next.hidden = false; }
+      else note.textContent = 'Все позиции заказа выпущены.';
+    } catch { /* без плана кнопки «Следующая позиция» нет — «Печать…» остаётся */ }
+  }
+
+  async function nextPosition(raw, btn) {
+    let p; try { p = JSON.parse(raw); } catch { return; }
+    btn.disabled = true;
+    try {
+      S.order = { ...S.order, incomeId: p.incomeId };
+      bar.issue = null; bar.done = false; bar.required = []; paintBar();
+      await choose(String(p.productId));
+    } catch (e) { toastError(e, 'открыть следующую позицию'); btn.disabled = false; }
   }
 
   // старт: вход Б — сразу к изделию; вход А — с категории
   if (entry?.productId) { say('проверьте недостающее'); choose(entry.productId); } else ps.update({});
 
   const el = stack(ps.el, recap, pickBox, newBox, stages);
-  return { el, readonly: true, busy: () => !!creation?.busy() || !!activeFill?.busy?.(), dirty: () => !!creation?.dirty() || !!activeFill?.dirty?.(), beforeClose: () => { const m = creation?.partial?.() || parked?.partial?.(); if (m) toast(`«${m.name || 'Новое изделие'}» уже создано в «Продукции» с незавершённым заполнением — допишите в карточке изделия`, { ms: 8000 }); return activeFill?.beforeClose?.(); }, focus: () => {}, read: () => ({ values: {} }) };
+  return { el, foot, readonly: true, busy: () => !!creation?.busy() || !!activeFill?.busy?.(), dirty: () => !!creation?.dirty() || !!activeFill?.dirty?.(), beforeClose: () => { const m = creation?.partial?.() || parked?.partial?.(); if (m) toast(`«${m.name || 'Новое изделие'}» уже создано в «Продукции» с незавершённым заполнением — допишите в карточке изделия`, { ms: 8000 }); return activeFill?.beforeClose?.(); }, focus: () => {}, read: () => ({ values: {} }) };
 }
 
 export const passFunnel = {

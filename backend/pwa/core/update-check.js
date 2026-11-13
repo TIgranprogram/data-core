@@ -1,5 +1,6 @@
 import { h } from './dom.js';
 import { toast } from '../ui/kit/toast.js';
+import { isStale, mayReload } from './stale.js';
 
 /**
  * Новая версия приложения (замечание 2026-10-22: установленное на Windows приложение «не обновилось»; затем —
@@ -73,12 +74,15 @@ export function watchUpdates() {
  * Раздел не загрузился из-за старой копии приложения (2026-11-06, труборез: копия от 04.11, файлы ui/* переехали в ui/kit —
  * старый модуль ищет их на сервере и не находит). Один раз за сеанс сами переключаемся на новую версию.
  */
-const STALE = /dynamically imported module|Importing a module script failed|error loading dynamically|Приложение обновилось/i;
+/** true — запущена мягкая перезагрузка (Р6, C112: «does not provide an export» после выкладки): ошибку показывать не нужно. */
+let reloading = false;
 export function recoverStale(e) {
-  if (!STALE.test(String(e?.message || ''))) return;
-  try { if (sessionStorage.getItem('dc-stale-reload')) return; sessionStorage.setItem('dc-stale-reload', '1'); } catch { return; }
+  if (!isStale(e)) return false;
+  if (reloading) return true; // уже перезагружаемся — вторую ошибку не показываем
+  try { if (!mayReload(sessionStorage.getItem('dc-stale-reload'))) return false; sessionStorage.setItem('dc-stale-reload', String(Date.now())); reloading = true; } catch { return false; }
   toast('Загружаю новую версию приложения…');
   reloadApp();
+  return true;
 }
 
 /** Обновить: проверить service worker и перезагрузить. */

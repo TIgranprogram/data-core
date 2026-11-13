@@ -57,9 +57,12 @@ export function numbersStrip() {
     el.replaceChildren(h('span', { class: 'pn-lab' }, f[0]), h('span', { class: 'pn-form' }, inp, save, cancel), err);
     inp.focus();
   };
-  const refresh = async () => {
-    try { render(await api('/passports/next-numbers')); } catch { box.replaceChildren(); }
+  // Р7 (C112): номера не грузим при открытии раздела (1,4 с) — только по кнопке
+  const refresh = async (btn) => {
+    if (btn) { btn.classList.add('is-busy'); btn.disabled = true; }
+    try { render(await api('/passports/next-numbers')); } catch (e) { box.replaceChildren(); toastError(e, 'показать номера'); }
   };
-  refresh();
+  const open = button({ label: 'Номера паспортов', kind: 'ghost', title: 'Последний и следующий номера паспорта, талон, номер изделия', onClick: () => refresh(open) });
+  box.replaceChildren(open);
   return box;
 }

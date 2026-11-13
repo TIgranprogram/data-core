@@ -68,13 +68,19 @@ export async function printOrderDialog(row) {
         const v = po.value();
         const all = ids.length === issued.length;
         const query = printQuery({ variant: passportVariant.value, ...v, ids: all ? null : ids });
-        const name = await apiFile(`/passports/order/${row.orderId}/pdf`, { query, timeout: 600000, fallback: `Паспорта_заказ_${row.orderNo || ''}.pdf` });
+        let name;
+        try { name = await apiFile(`/passports/order/${row.orderId}/pdf`, { query, timeout: 600000, onFailed: (list) => kit.toast(`Не вошли в PDF: ${list.length}`, { error: true, sub: failedText(list), ms: 15000 }), fallback: `Паспорта_заказ_${row.orderNo || ''}.pdf` }); }
+        catch (e) { if (e?.data?.failed) throw new Error(`Ни один паспорт не собрался.
+${failedText(e.data.failed)}`); throw e; }
         kit.toast(`Скачан: ${name}`);
         return true;
       } finally { ok.classList.remove('is-busy'); }
     },
   });
 }
+
+/** Р5 (C112): несобранные паспорта — по строке на каждый: «№ — название: причина». */
+export const failedText = (list) => (list || []).map((f) => `${f.passportNumber ? '№ ' + f.passportNumber + ' — ' : ''}${f.name || 'паспорт'}: ${f.reason || 'не собрался'}`).join('\n');
 
 const fetchPlan = (id) => {
   const pick = pickOf(id);

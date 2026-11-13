@@ -8,10 +8,10 @@ import { issueFromProduct } from './api.js';
 
 /**
  * Шаг 7 «Выпуск»: номер и дата ставятся сами; «Заполнить после печати» свёрнуто и выпуск не держит;
- * «Выпустить PDF» — главная, когда нет обязательного пустого; пока есть пробелы — второстепенная и выключена.
+ * C112 Ф1: кнопка «Выпустить» живёт в закреплённой полосе панели (funnel/index.js), здесь — run() и status().
  * После выпуска открывается окно PDF и печати (то же, что в архиве паспортов).
  * Фирма — список наших компаний; из заказа предвыбор companyId (можно сменить). Без позиции — список позиций.
- *   issueBlock({ prod, order?, goGaps(), onIssued(passport) }) → { el, paint(missingRequired[]) }
+ *   issueBlock({ prod, order?, goGaps(), onIssued(passport) }) → { el, paint(missingRequired[]), run(btn), status() → { ready, why, need: [{label}] } }
  *   order: { salesOrderId?, incomeId?, orderNo?, customerName?, noOrder? } — incomeId уже выбран, список позиций не нужен.
  *   noOrder — шаг «Без заказа»: фирма «как в прошлый раз» у этого менеджера (localStorage).
  */
@@ -58,7 +58,7 @@ export function orderStep({ positions, onPick, onNone }) {
   );
 }
 
-export function issueBlock({ prod, order, goGaps, onIssued }) {
+export function issueBlock({ prod, order, goGaps, onIssued, onState }) {
   const box = h('div', null);
   const needLine = !!(order?.salesOrderId && !order.incomeId);
   let miss = [];
@@ -74,6 +74,8 @@ export function issueBlock({ prod, order, goGaps, onIssued }) {
   let addressState = 'none'; // none — у заказа нет объекта; value — есть; unknown — КП не прочиталось, сервер допишет сам
   let fromMemory = false;
   const forOrder = !!(order?.salesOrderId || order?.incomeId) && !order?.noOrder;
+  let running = false;
+  let state = { ready: false, why: 'Загружаю фирмы…', need: [] };
 
   const fromOrderNote = () => {
     if (!forOrder) return null;
@@ -91,6 +93,32 @@ export function issueBlock({ prod, order, goGaps, onIssued }) {
     return 'Покупатель и номер уже из заказа. Адрес, монтаж и дату продажи можно вписать позже.';
   };
 
+  /** Выпустить: вызывает полоса панели (Ф1); btn — её кнопка (занята на время запроса). */
+  async function run(b) {
+    if (!state.ready || running) return;
+    running = true;
+    if (b) { b.classList.add('is-busy'); b.disabled = true; }
+    try {
+      const res = await issueFromProduct(prod.id, {
+        supplierOrgId: firmId,
+        incomeId: forOrder ? (order?.incomeId || lineId || undefined) : undefined,
+        salesOrderId: forOrder ? order?.salesOrderId : undefined,
+        orderNo: forOrder ? (order?.orderNo || orderDoc?.orderNo || orderDoc?.productionNo) : undefined,
+        customerName: forOrder ? (order?.customerName || orderDoc?.customer) : undefined,
+        objectName: forOrder ? (objectName || undefined) : undefined,
+      });
+      if (res.missing) { toast('Для выпуска не хватает: ' + res.missing.join(', '), { error: true }); return; }
+      rememberFirm(firmId);
+      toast(`Выпущен паспорт № ${res.passport.passportNumber}`);
+      window.dispatchEvent(new CustomEvent('data-changed'));
+      onIssued?.(res.passport);
+      printDialog(res.passport);
+    } catch (err) {
+      if (locked(err)) toast(/[а-яё]/i.test(err.message || '') ? err.message : 'На эту позицию заказа паспорт уже есть. Откройте его и нажмите «Печать».', { error: true });
+      else toastError(err, 'выпустить паспорт');
+    } finally { running = false; if (b) { b.classList.remove('is-busy'); b.disabled = !state.ready; } }
+  }
+
   function paint(missing = miss) {
     miss = missing;
     if (!listsReady) { box.replaceChildren(hint('Загружаю фирмы…')); return; }
@@ -99,33 +127,12 @@ export function issueBlock({ prod, order, goGaps, onIssued }) {
     const lineOk = !needLine || !!lineId;
     const ready = gaps && firmOk && lineOk;
     const why = !firmOk ? 'Выберите фирму' : !lineOk ? 'Выберите позицию заказа' : 'Сначала заполните недостающее';
+    state = { ready, why: ready ? 'Присвоить номер и талон, затем скачать или распечатать' : why, need: [...(firmOk ? [] : [{ label: 'фирма' }]), ...(lineOk ? [] : [{ label: 'позиция заказа' }])] };
+    onState?.(state);
     const firmOpts = firms.length > 1 ? [['', 'Выберите фирму'], ...firms.map((o) => [o.id, o.name])] : firms.map((o) => [o.id, o.name]);
     const firmSel = firms.length ? select({ label: 'Фирма', value: firmId, options: firmOpts, onChange: (v) => { firmId = v; fromMemory = false; if (v) rememberFirm(v); paint(miss); } }) : null;
     const lineOpts = needLine && lines.length > 1 ? [['', 'Выберите позицию'], ...lines.map((l, i) => [l.id, lineName(l, i)])] : lines.map((l, i) => [l.id, lineName(l, i)]);
     const lineSel = needLine && lines.length ? select({ label: 'Позиция заказа', value: lineId, options: lineOpts, onChange: (v) => { lineId = v; paint(miss); } }) : null;
-    const go = button({ label: 'Выпустить PDF', kind: ready ? 'primary' : 'ghost', disabled: !ready, title: ready ? 'Присвоить номер и талон, затем скачать или распечатать' : why,
-      onClick: async (e) => {
-        const b = e.currentTarget; b.classList.add('is-busy'); b.disabled = true;
-        try {
-          const res = await issueFromProduct(prod.id, {
-            supplierOrgId: firmId,
-            incomeId: forOrder ? (order?.incomeId || lineId || undefined) : undefined,
-            salesOrderId: forOrder ? order?.salesOrderId : undefined,
-            orderNo: forOrder ? (order?.orderNo || orderDoc?.orderNo || orderDoc?.productionNo) : undefined,
-            customerName: forOrder ? (order?.customerName || orderDoc?.customer) : undefined,
-            objectName: forOrder ? (objectName || undefined) : undefined,
-          });
-          if (res.missing) { toast('Для выпуска не хватает: ' + res.missing.join(', '), { error: true }); return; }
-          rememberFirm(firmId);
-          toast(`Выпущен паспорт № ${res.passport.passportNumber}`);
-          window.dispatchEvent(new CustomEvent('data-changed'));
-          onIssued?.(res.passport);
-          printDialog(res.passport);
-        } catch (err) {
-          if (locked(err)) toast(/[а-яё]/i.test(err.message || '') ? err.message : 'На эту позицию заказа паспорт уже есть. Откройте его и нажмите «Печать».', { error: true });
-          else toastError(err, 'выпустить паспорт');
-        } finally { b.classList.remove('is-busy'); b.disabled = !ready; }
-      } });
     box.replaceChildren(...[
       sideNote('Номер, гарантийный талон и дату система поставит сама при выпуске.'),
       fromOrderNote(),
@@ -139,8 +146,7 @@ export function issueBlock({ prod, order, goGaps, onIssued }) {
       gaps ? null : sideNote('Не хватает для выпуска: ',
         ...miss.flatMap((m, i) => [i ? ', ' : null, link({ label: m.label, onClick: () => goGaps?.() })])),
       section({ title: 'Заполнить после печати', tone: 'neutral', body: sideNote(laterNote()) }),
-      button({ label: 'Предпросмотр без номера', title: 'Проверить PDF до выпуска', onClick: () => previewPassport(prod.id) }),
-      go].filter(Boolean));
+      button({ label: 'Предпросмотр без номера', title: 'Проверить PDF до выпуска', onClick: () => previewPassport(prod.id) })].filter(Boolean));
     if (firmSel) enhanceSelect(firmSel);
     if (lineSel) enhanceSelect(lineSel);
   }
@@ -175,5 +181,5 @@ export function issueBlock({ prod, order, goGaps, onIssued }) {
     listsReady = true;
     paint(miss);
   })();
-  return { el: box, paint };
+  return { el: box, paint, run, status: () => state };
 }

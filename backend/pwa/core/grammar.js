@@ -39,3 +39,6 @@ export function grammarSlips(text) {
 
 /** Источники регулярных выражений — для вставки в браузерный скрипт обхода (site-audit / ai-tester). */
 export const GRAMMAR_SRC = GRAMMAR.map((g) => ({ src: g.re.source, flags: g.re.flags, hint: g.hint }));
+
+/** Строка «Дальше: …» (Ф3, C112): одно двоеточие. Лишние двоеточия внутри подсказки («уточните: нагрузка») становятся тире. */
+export const nextLine = (text) => `Дальше: ${String(text ?? '').trim().replace(/\s*:\s*/g, ' — ').replace(/\s{2,}/g, ' ')}`;

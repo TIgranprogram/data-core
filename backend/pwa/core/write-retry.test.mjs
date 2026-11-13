@@ -1,7 +1,7 @@
 // node --test backend/pwa/core/write-retry.test.mjs
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { WRITE_LIMIT, isBackgroundPath, newKey, waitable, withWriteRetry, writeDelay } from './write-retry.js';
+import { WRITE_LIMIT, isBackgroundPath, newKey, retryDelay, waitable, withWriteRetry, writeDelay } from './write-retry.js';
 
 const down = () => Object.assign(new Error('x'), { status: 0 });
 const ro = () => Object.assign(new Error('x'), { status: 503, readOnly: true });
@@ -58,4 +58,12 @@ test('ошибка после ожидания (400) — полоса снята
   const ev = [];
   await assert.rejects(withWriteRetry(async (i) => { throw i === 0 ? down() : Object.assign(new Error('bad'), { status: 400 }); }, { ...clock(), onStart: () => ev.push('s'), onEnd: (ok) => ev.push(ok) }));
   assert.deepEqual(ev, ['s', false]);
+});
+
+test('retryDelay: retryAfter сервера в секундах, нет — 30 с, не ждём обычные ошибки', () => {
+  assert.equal(retryDelay(Object.assign(ro(), { retryAfter: 30 })), 30000);
+  assert.equal(retryDelay(ro()), 30000);
+  assert.equal(retryDelay(Object.assign(ro(), { retryAfter: 1 })), 5000);
+  assert.equal(retryDelay(Object.assign(ro(), { retryAfter: 9999 })), 120000);
+  assert.equal(retryDelay(Object.assign(new Error('x'), { status: 400 })), 0);
 });

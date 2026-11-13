@@ -21,6 +21,9 @@ export function newKey() {
 /** Ждать ли: сервер на паузе записи (503 READ_ONLY) или нет связи / шлюз моргнул. Долгий ответ (timeout, 504) — не ждём: запрос мог дойти и выполняться. */
 export const waitable = (e) => !!e && (e.readOnly === true || (e.status === 0 && !e.timeout) || e.status === 502 || e.status === 503);
 
+/** Через сколько мс повторить запись, сорвавшуюся на паузе сервера (retryAfter в секундах от сервера; нет — 30 с; не короче 5 с, не длиннее 2 мин). 0 — повторять нельзя. */
+export const retryDelay = (e) => (waitable(e) ? Math.min(120000, Math.max(5000, (Number(e.retryAfter) > 0 ? Number(e.retryAfter) : 30) * 1000)) : 0);
+
 /**
  * Выполнить attempt() с повторами. Ошибка не из «ждём» или срок вышел — бросаем её как есть (форма не теряет данные).
  * hooks: sleep(ms), now(), onStart(), onEnd(ok) — для теста и для полосы «Нет соединения».

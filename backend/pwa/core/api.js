@@ -157,8 +157,9 @@ async function errorOf(res) {
   if (res.status === 400 && Array.isArray(data?.unmatched)) err.data = { unmatched: data.unmatched }; // КМ: договоры с несопоставленными позициями
   if (res.status === 400 && Array.isArray(data?.details)) err.data = { ...(err.data || {}), details: data.details }; // склад: таблица нехватки (need/have/free/lack)
   if (res.status === 409 && data?.existingInvoiceId) err.data = { ...(err.data || {}), existingInvoiceId: data.existingInvoiceId, existingNo: data.existingNo, existingStatus: data.existingStatus }; // счета: дубль № — выбор в диалоге
+  if (res.status === 400 && Array.isArray(data?.failed)) err.data = { ...(err.data || {}), failed: data.failed }; // Р5: ни один паспорт не собрался
   if (data?.code === 'REASON_REQUIRED') err.data = { ...(err.data || {}), code: 'REASON_REQUIRED' }; // ЗЯ-1: админ обходит запрет — нужна причина
-  if (data?.code === 'READ_ONLY') err.readOnly = true; // SW-6: идёт переключение сервера, запись на паузе
+  if (data?.code === 'READ_ONLY') { err.readOnly = true; if (Number(data.retryAfter) > 0) err.retryAfter = Number(data.retryAfter); } // SW-6: идёт переключение сервера, запись на паузе
   if (data?.code === 'STALE') err.stale = true; // C049-1: запись уже изменил другой — перечитать
   if (Array.isArray(fields)) err.fields = fields.map((f) => (typeof f === 'string' ? { key: f } : f)); // ОШ: подсветить поля в форме
   return err;
@@ -182,7 +183,8 @@ export async function apiFile(path, opts = {}) {
   return fileGet(path, opts).catch((e) => failed(e, path, opts.method || 'GET'));
 }
 async function fileGet(path, opts = {}) {
-  const { blob, name } = await fileFetch(path, opts);
+  const { blob, name, failed } = await fileFetch(path, opts);
+  if (failed.length) opts.onFailed?.(failed); // Р5: часть паспортов не собралась — PDF скачан без них
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 30000);
   return name;
@@ -204,7 +206,9 @@ async function fileFetch(path, { query, fallback = 'file', timeout = 180000, met
   const cd = res.headers.get('content-disposition') || '';
   const m = /filename\*=UTF-8''([^;]+)/i.exec(cd);
   const name = m ? decodeURIComponent(m[1]) : fallback;
-  return { blob: await res.blob(), name };
+  let failed = []; // Р5: заголовок X-Failed-Passports = encodeURIComponent(JSON [{passportNumber,name,reason}])
+  try { const hv = res.headers.get('x-failed-passports'); if (hv) failed = JSON.parse(decodeURIComponent(hv)); } catch { /* заголовок не разобран — PDF всё равно отдаём */ }
+  return { blob: await res.blob(), name, failed };
 }
 
 /** Проверка пароля текущего пользователя → токен подтверждения. Неверный пароль (401/403) не выбрасывает из системы. */

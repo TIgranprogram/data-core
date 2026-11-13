@@ -235,6 +235,9 @@ export const kit = {
         panel({ kind: 'Изделие', title: 'Качели двойные', sub: 'Артикул КЧ-02', onClose: () => toast('Закрыть'),
           blocks: [{ title: 'Основное', body: h('p', { class: 'muted' }, 'Поля блока') }, { title: 'Дополнительно', body: h('p', { class: 'muted' }, 'Ещё поля') }],
           footer: [button({ label: 'Сохранить', kind: 'primary' }), button({ label: 'Отмена' })] }).el),
+      block('Закреплённая полоса панели · C112 Ф1', 'Подвал панели (panel footer; в openCard — form.foot слева от «Закрыть»): ссылка «Осталось N: что →» ведёт к первому пробелу, «Выпустить» неактивна, пока что-то осталось, причина — в тексте и в title. Где используется: воронка «Новый паспорт».',
+        panel({ title: 'Паспорт: Брусья жим', blocks: [{ title: 'Анкета', body: h('p', { class: 'muted' }, 'Разделы анкеты') }],
+          footer: [link({ label: 'Осталось 2: Вес и ещё 1 →', onClick: () => toast('К первому пробелу') }), button({ label: 'Выпустить', kind: 'ghost', disabled: true, title: 'Сначала: Вес и ещё 1' }), button({ label: 'Закрыть' })] }).el),
       // Внутренние cardParent/registerCardParent проверяются через публичный openCard(parent).
       block('Дочерний редактор справочника (openCard parent)', 'Введите черновик, откройте дочернюю панель и вернитесь: ввод и прокрутка остаются. Enter в многострочном поле переносит строку.',
         button({ label: 'Проверить возврат из справочника', onClick: () => {
