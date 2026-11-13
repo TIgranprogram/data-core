@@ -61,27 +61,37 @@ Sub Main()
         drawing.Update()
         log.AppendLine(stage & ": ок, " & Math.Round(section.Width, 1) & " × " & Math.Round(section.Height, 1) & " см, видов на листе " & sheet.DrawingViews.Count)
 
-        stage = "6. Крупно и по центру"
+        stage = "6. Снять привязку разреза к виду спереди"
+        ' разрез выровнен по виду-основе: двигаешь основу — едет и разрез (так он и ушёл за лист в прошлый раз)
+        Dim unaligned As String = "нет метода"
+        Try
+            Dim o As Object = section
+            o.RemoveAlignment()
+            unaligned = "RemoveAlignment — ок"
+        Catch ex1 As Exception
+            unaligned = "RemoveAlignment: " & ex1.Message
+        End Try
+        log.AppendLine(stage & ": " & unaligned)
+
+        stage = "7. Крупно и по центру, основа — за край листа"
         section.ScaleFromBase = False
         section.Scale = section.Scale * Math.Min(sheet.Width * 0.75 / section.Width, sheet.Height * 0.65 / section.Height)
         drawing.Update()
-        section.Position = tg.CreatePoint2d(sheet.Width * 0.5, sheet.Height * 0.5)
         front.Position = tg.CreatePoint2d(sheet.Width + front.Width, sheet.Height * 0.5)
         drawing.Update()
-        log.AppendLine(stage & ": ок, масштаб разреза " & Math.Round(section.Scale, 4))
+        section.Position = tg.CreatePoint2d(sheet.Width * 0.5, sheet.Height * 0.5)
+        drawing.Update()
+        Dim onSheet As Boolean = section.Left >= 0 AndAlso section.Left + section.Width <= sheet.Width AndAlso section.Top <= sheet.Height AndAlso section.Top - section.Height >= 0
+        log.AppendLine(stage & ": масштаб " & Math.Round(section.Scale, 4) & ", центр разреза (" & Math.Round(section.Position.X, 1) & "; " & Math.Round(section.Position.Y, 1) & "), " & If(onSheet, "НА ЛИСТЕ", "ЗА ЛИСТОМ") & "; основа в (" & Math.Round(front.Position.X, 1) & "; " & Math.Round(front.Position.Y, 1) & ")")
 
-        stage = "7. Подпись без масштаба"
-        If section.ShowLabel Then
-            Dim t As String = section.Label.FormattedText
-            Dim s As String = System.Text.RegularExpressions.Regex.Replace(t, "\s*\(\s*<DrawingViewScale[^>]*/>\s*\)", "")
-            s = System.Text.RegularExpressions.Regex.Replace(s, "\s*<DrawingViewScale[^>]*/>", "")
-            section.Label.FormattedText = s
-            log.AppendLine(stage & ": было «" & t & "» → стало «" & s & "»")
-        Else
-            log.AppendLine(stage & ": подпись выключена")
-        End If
+        stage = "8. Подпись «А-А»"
+        ' стиль ГОСТ даёт «СЕЧЕНИЕ <имя>-<имя><Br/>МАСШТАБ <масштаб>» — оставляем только «<имя>-<имя>»
+        section.ShowLabel = True
+        Dim t As String = section.Label.FormattedText
+        section.Label.FormattedText = "<DrawingViewName/>-<DrawingViewName/>"
+        log.AppendLine(stage & ": было «" & t & "» → стало «" & section.Label.FormattedText & "»")
 
-        stage = "8. Габариты по разрезу"
+        stage = "9. Габариты по разрезу"
         Dim l As Double = section.Left, r As Double = section.Left + section.Width
         Dim tp As Double = section.Top, bt As Double = section.Top - section.Height
         Dim dy As Double = bt - 0.8, dx As Double = r + 0.9
