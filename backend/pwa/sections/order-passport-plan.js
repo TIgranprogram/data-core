@@ -286,7 +286,8 @@ function body(row, ctx) {
   return h('div', null,
     kit.headbar(h('div', null, summaryRow(row), firmBlock(row, reload)), seg.el),
     lines, skipped,
-    kit.actions(...buttons, editable ? kit.button({ label: 'Паспорт по позиции', kind: 'ghost', title: 'Выбрать позицию заказа и выпустить один паспорт', onClick: async () => { const { openPassportFunnel } = await import('./passports/funnel/open.js'); openPassportFunnel({ salesOrderId: row.orderId, orderNo: row.orderNo, customerName: row.customerName }); } }) : null,
+    // «Паспорт по позиции» убрана (2026-11-13): открывала общую воронку выбора изделия — повтор строки позиции «›»
+    kit.actions(...buttons,
       editable ? kit.button({ label: 'Добавить готовый паспорт', kind: 'ghost', title: 'Паспорт сделан отдельно: приложить файл PDF к этому заказу', onClick: async () => { const { openReadyPassport } = await import('./passports/funnel/open.js'); openReadyPassport({ salesOrderId: row.orderId, orderNo: row.orderNo, customerName: row.customerName }); } }) : null),
     filesBox);
 }
