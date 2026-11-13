@@ -71,15 +71,12 @@ export const doctpl = {
     noHistory: true,
     actions: (r) => [
       { label: 'Предпросмотр', title: 'PDF с пометкой «ЧЕРНОВИК» по текущему шаблону изделия; паспорт не выпускается', run: (row) => previewPassport(row.id) },
-      { label: 'Печать паспорта', primary: true, run: async (row) => {
-        const last = row.passports?.items?.[0];
-        if (last) { printDialog(await api(`/passports/${last.id}`)); return; }
-        await previewPassport(row.id);
-      } },
-      session.sees('docs') && canEditTexts() && { label: 'Выпустить паспорт', run: async (row) => {
+      // 2026-11-13: «Печать паспорта» с шаблона убрана — печатала последний выпущенный паспорт без номера и заказа на экране;
+      // выпущенные печатаются из заказа или «Архива». Здесь: посмотреть черновик или выпустить новый.
+      session.sees('docs') && canEditTexts() && { label: 'Выпустить паспорт', primary: true, title: 'Новый паспорт с номером по этому шаблону', run: async (row) => {
         if (!(await issuePassport({ productId: row.id, name: row.name, article: row.sku }))) toast('Паспортов этой модели ещё не было — заполните габариты, описание и картинки');
       } },
-      { label: 'Открыть изделие', run: (row) => go('products', { open: row.id }) },
+      { label: 'Открыть изделие', more: true, run: (row) => go('products', { open: row.id }) },
     ],
     view: (r) => {
       const d = r.passportDefaults;
