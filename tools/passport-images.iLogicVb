@@ -199,16 +199,19 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     If installationSheet.Border IsNot Nothing Then installationSheet.Border.Delete()
     ClearTemplateGraphics(installationSheet)
     Dim installationView As Inventor.DrawingView = installationSheet.DrawingViews.AddBaseView(
-        model, tg.CreatePoint2d(installationSheet.Width * 0.5, installationSheet.Height * 0.6),
+        model, tg.CreatePoint2d(installationSheet.Width * 0.5, installationSheet.Height * 0.3),
         front.Scale, frontOrientation,
         Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle, AdditionalOptions:=viewOptions)
     installationView.IncludeSurfaceBodies = False
     drawing.Update()
 
-    ' На листе — один вид: разрез по плоскости XZ модели (план опор), подпись «А-А» без масштаба (2026-11-13).
-    ' Вид спереди нужен только как основа разреза — уводим его за правый край листа.
+    ' На листе — один вид: разрез по плоскости XZ модели, взгляд сверху на землю (план опор), подпись «А-А» (2026-11-13,
+    ' проверено тестом tools/passport-section-test.iLogicVb на 3211). Вид спереди — только основа разреза, уходит под лист.
     stage = "Разрез по плоскости XZ на листе «Схема установки»"
     Dim cutY As Double = installationView.ModelToSheetSpace(tg.CreatePoint(0, 0, 0)).Y
+    Dim viewBottom As Double = installationView.Top - installationView.Height
+    ' начало координат вне изделия — режем на 10 % высоты от низа, чтобы попасть в опоры
+    If cutY < viewBottom OrElse cutY > installationView.Top Then cutY = viewBottom + installationView.Height * 0.1
     Dim viewLeft As Double = installationView.Left, viewRight As Double = installationView.Left + installationView.Width
     Dim cutSketch As Inventor.DrawingSketch = installationView.Sketches.Add()
     cutSketch.Edit()
@@ -219,18 +222,22 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     Finally
         cutSketch.ExitEdit()
     End Try
+    ' направление взгляда задаёт место разреза: ВЫШЕ линии разреза — смотрим сверху вниз, на землю
     Dim section As Inventor.SectionDrawingView = installationSheet.DrawingViews.AddSectionView(
-        installationView, cutSketch, tg.CreatePoint2d(installationSheet.Width * 0.5, installationSheet.Height * 0.5),
+        installationView, cutSketch, tg.CreatePoint2d(installationSheet.Width * 0.5, Math.Max(installationView.Top + 3, installationSheet.Height * 0.8)),
         Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle, Scale:=installationView.Scale, ShowLabel:=True, Name:="А")
     drawing.Update()
-    ' крупно и по центру: 80 % листа по ширине или высоте
+    ' крупно и по центру. Разрез привязан к основе по вертикали (снять привязку в API 2027 нельзя): X общий, Y свободен —
+    ' основа по центру листа по X и под листом, разрез — в центр листа
     section.ScaleFromBase = False
-    section.Scale = section.Scale * Math.Min(installationSheet.Width * 0.8 / section.Width, installationSheet.Height * 0.7 / section.Height)
+    section.Scale = section.Scale * Math.Min(installationSheet.Width * 0.75 / section.Width, installationSheet.Height * 0.65 / section.Height)
+    drawing.Update()
+    installationView.Position = tg.CreatePoint2d(installationSheet.Width * 0.5, -installationView.Height)
     drawing.Update()
     section.Position = tg.CreatePoint2d(installationSheet.Width * 0.5, installationSheet.Height * 0.5)
-    installationView.Position = tg.CreatePoint2d(installationSheet.Width + installationView.Width, installationSheet.Height * 0.5)
     drawing.Update()
-    RemoveScaleFromLabels(drawing)
+    ' подпись — только «А-А» (стиль ГОСТ даёт «СЕЧЕНИЕ А-А / МАСШТАБ …»)
+    section.Label.FormattedText = "<DrawingViewName/>-<DrawingViewName/>"
 
     ' Габариты по разрезу: длина — под планом, ширина — справа; числа в мм по размеру разреза и его масштабу (2026-11-13)
     stage = "Габариты по разрезу"
