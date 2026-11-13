@@ -183,8 +183,8 @@ export function iconButton({ icon, label, onClick, size = 'M', menu = false, tit
   return mark(h('button', { type: 'button', class: c, 'aria-label': label, title: title || label, 'aria-haspopup': menu ? 'menu' : null, 'aria-expanded': menu ? 'false' : null, onclick: onClick }, icon), 'iconButton');
 }
 
-/** headbar(main, side?) → .k-headbar: шапка формы — контекст слева, режим справа (segmented({ fit })); на узкой панели правая часть уходит под контекст (C086). */
-export const headbar = (main, side) => mark(h('div', { class: 'k-headbar' }, main, side || null), 'headbar');
+/** headbar(main, side?, { inset? }) → .k-headbar (inset — внутри рамки группы, C111): шапка формы — контекст слева, режим справа (segmented({ fit })); на узкой панели правая часть уходит под контекст (C086). */
+export const headbar = (main, side, { inset } = {}) => mark(h('div', { class: 'k-headbar' + (inset ? ' k-headbar-inset' : '') }, main, side || null), 'headbar');
 
 /** segmented({ items: [{ key, label, tone? }], value, onChange(key), label (aria), cls?, scroll? }) → { el, set(key), buttons } — .k-seg, aria-pressed; set() не зовёт onChange.
  *  scroll — длинные названия: пункты не сжимаются, ряд прокручивается по горизонтали (склады). */

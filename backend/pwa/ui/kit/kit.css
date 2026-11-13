@@ -478,6 +478,11 @@ button.m-fg-h { cursor: pointer; }
 .k-headbar { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--s2) var(--s4); min-width: 0; }
 .k-headbar > :first-child { flex: 1 1 14em; min-width: 0; }
 .k-headbar > .k-seg-fit, .k-headbar > .k-headbar-side { flex: none; margin-left: auto; }
+/* C111: headbar({ inset }) — шапка внутри рамки (группа списка): кнопки по центру высоты и не у самой рамки */
+.k-headbar.k-headbar-inset { align-items: center; padding-right: var(--s3); }
+/* C111 Ш7: tabs({ scroll }) — главные вкладки раздела: не влезли (открыта панель) — видна тонкая полоса прокрутки; на телефоне скрыта */
+.chips.k-tabs-scroll { scrollbar-width: thin; }
+@media (pointer: coarse), (max-width: 720px) { .chips.k-tabs-scroll { scrollbar-width: none; } }
 /* C086: tagPick с пояснением — на узкой панели вариант переносится, а не уходит за край (390: «Как соединены части») */
 .tag-pick > .tag { flex: 0 1 auto; max-width: 100%; min-width: 0; height: auto; min-height: 28px; padding-block: var(--s1); white-space: normal; flex-wrap: wrap; text-align: left; overflow-wrap: anywhere; }
 /* C086: section({ plain }) — строка-раскрывашка списка: название обычным регистром и цветом текста, вторая строка — пояснение, справа состояние */
