@@ -487,8 +487,9 @@ export class SupplyService {
     const db = this.connection.db!;
     const ids = dto.items.map((i) => oid(i.materialId, 'позиции'));
     if (new Set(ids.map(String)).size !== ids.length) throw new BadRequestException('Одна позиция указана дважды — объедините количество в одну строку');
-    const found = await db.collection('materials').find({ _id: { $in: ids }, deletedAt: null }, { projection: { _id: 1 } }).toArray();
+    const found = await db.collection('materials').find({ _id: { $in: ids }, deletedAt: null }, { projection: { _id: 1, unit: 1 } }).toArray();
     if (found.length !== ids.length) throw new BadRequestException('Некоторых позиций нет в каталоге — обновите список и повторите');
+    const units = new Map(found.map((m) => [String(m._id), String(m.unit ?? '').trim()]));
     for (const i of dto.items) await this.assertNew({ materialId: i.materialId }, scope);
     const given = [...new Set(dto.items.map((i) => i.supplierId).filter(Boolean) as string[])].map((s) => oid(s, 'поставщика'));
     if (given.length && (await db.collection('organizations').countDocuments({ _id: { $in: given }, deletedAt: null })) !== given.length) throw new BadRequestException('Поставщик не найден — выберите из списка');
@@ -504,6 +505,7 @@ export class SupplyService {
         : undefined;
       items.push(await this.create({
         materialId: line.materialId, qty: line.qty, ...(supplierId ? { supplierId } : {}),
+        unit: units.get(String(ids[n])) || undefined,
         ...(Number(unit) > 0 ? { priceHint: Math.round(Number(unit) * line.qty * 100) / 100 } : {}), // в заявке — сумма, не цена за единицу
         clientUid: `${dto.clientUid}:${line.materialId}`,
       }, userId));

@@ -184,12 +184,12 @@ const fields = async (r) => {
       : { key: 'title', mount: wireFill, label: 'Название', required: true, max: 500, suggest: r ? undefined : pastItems, suggestTitle: 'Уже заказывали / есть на складе — выберите, чтобы не завести дубль', hint: r ? undefined : 'Начните печатать — появятся ранее заказанные позиции', span: 3 },
     linked ? fromStock('Артикул', r.article) : { key: 'article', label: 'Артикул', max: 100, span: 1 },
     { key: 'qty', label: 'Количество', type: 'number', required: true, min: 0, span: 1 },
-    linked ? fromStock('Единица', r.unit) : { key: 'unit', label: 'Единица', type: 'combo', options: unitList(lk), max: 30, span: 1 },
+    linked && r.unit ? fromStock('Единица', r.unit) : { key: 'unit', label: 'Единица', type: 'combo', options: unitList(lk), max: 30, span: 1 },
     { key: 'priority', label: 'Приоритет', type: 'segment', options: Object.entries(PRIORITY).map(([value, p]) => ({ value, label: p.label, tone: value === 'urgent' ? 'danger' : value === 'low' ? 'dim' : '' })) },
     { section: 'Детали товара', tone: 'info', collapsed: true },
     linked ? fromStock('Категория', r.categoryName) : { key: 'categoryName', label: 'Категория', type: 'combo', options: lk.categories.map((c) => c.name), max: 100 },
     linked ? fromStock('Цвет', r.color) : { key: 'color', label: 'Цвет', type: 'combo', max: 100, load: dictNames('colors') },
-    linked ? fromStock('Ссылка на товар', r.productUrl) : { key: 'productUrl', label: 'Ссылка на товар', max: 1000, placeholder: 'https://…', wide: true },
+    { key: 'productUrl', label: 'Ссылка на товар', max: 1000, placeholder: 'https://…', wide: true },
     { key: 'deliveryNote', label: 'Доставка', max: 300, wide: true },
     { key: 'photos', label: 'Фото', type: 'photos', hint: 'Своё фото заявки показывается вместо фото позиции склада' },
     { key: 'notes', label: 'Примечание', type: 'textarea', wide: true },
@@ -485,13 +485,13 @@ export const requests = {
         statusLabel: SUPPLY_STATUS[v.status]?.label, priorityLabel: PRIORITY[v.priority]?.label,
         photoIds: v.photos || [],
       };
+      if ('unit' in v) body.unit = s(v.unit);
+      if ('productUrl' in v) body.productUrl = s(v.productUrl);
       if (!linked) {
         body.title = s(v.title);
-        body.unit = s(v.unit);
         body.categoryName = s(v.categoryName);
         body.article = s(v.article);
         body.color = s(v.color);
-        body.productUrl = s(v.productUrl);
       }
       body.priceHint = v.priceHint; // пусто — null: сумму можно стереть (В.7)
       if (v.requestDate) body.requestDate = v.requestDate;

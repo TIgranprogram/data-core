@@ -1,3 +1,4 @@
+import { compareCatalogRows } from './supplier-catalog-compare.js';
 import { api, apiFile, session, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, money, qty, plural } from '../core/format.js';
@@ -18,6 +19,8 @@ import { cardActions, createButton } from './supplier-catalog-actions.js';
 import { isMaterial, isStale, staleBadge, kindOf, subheading, cardTop, cardExtra, dropSummary } from './supplier-catalog-card.js';
 
 import { section, card, badge, empty, hint, landing, tileGrid, navList, posPic, toolbar } from '../ui/kit/index.js';
+
+
 /**
  * Каталог номенклатуры (SUPPLIER-CATALOG.md §8): один список как везде (ui/list.js).
  * Слева: воронка категория → подкатегория → поставщик (только поставщики выбранной ветки) и быстрые отборы «Без связи / Без цены / Цена устарела» (toolbarExtra) — из GET /supply/catalog/counts.
@@ -319,7 +322,10 @@ export const supplierCatalog = {
         if (skip) toast(`${skip} ${plural(skip, 'строка', 'строки', 'строк')} без позиции склада — пропущены`, { error: !pos.length });
         if (pos.length) openStockBulk({ ids: pos, done });
       },
-      extra: [{ get label() { return current().params.supplierId && current().params.supplierId !== 'none' ? 'Заказать у поставщика' : 'В заявку'; }, run: (ids, rows) => orderRows(rows) }],
+      extra: [
+        { label: 'Сравнить…', when: (rows) => rows.length === 2, run: (_ids, rows) => compareCatalogRows(rows) },
+        { get label() { return current().params.supplierId && current().params.supplierId !== 'none' ? 'Заказать у поставщика' : 'В заявку'; }, run: (_ids, rows) => orderRows(rows) },
+      ],
     },
     export: false, // выгрузка — в шестерёнке (формат шаблона, можно править и загружать обратно)
     extraKeys: ['catId', 'subId', 'flag', 'ord', 'all'],

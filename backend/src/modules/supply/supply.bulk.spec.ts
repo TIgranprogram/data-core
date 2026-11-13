@@ -44,7 +44,7 @@ describe('SupplyService.createBulk', () => {
   beforeEach(() => {
     saved = [];
     colls = {
-      materials: [{ _id: m1 }, { _id: m2 }, { _id: m3 }],
+      materials: [{ _id: m1, unit: 'м' }, { _id: m2 }, { _id: m3 }],
       organizations: [{ _id: sA, name: 'Альфа' }, { _id: sB, name: 'Бета' }],
       supplieritems: [{ materialId: m3, supplierId: sB, priceHint: 40 }],
     };
@@ -88,7 +88,7 @@ describe('SupplyService.createBulk', () => {
     ]), null, undefined);
     expect(r.total).toBe(3);
     expect(saved).toHaveLength(3);
-    expect(saved[0]).toMatchObject({ qty: 10, priceHint: 125, clientUid: `u1:${m1}` });
+    expect(saved[0]).toMatchObject({ qty: 10, unit: 'м', priceHint: 125, clientUid: `u1:${m1}` });
     expect(String(saved[0].materialId)).toBe(String(m1));
     expect(String(saved[0].supplierId)).toBe(String(sA));
     expect(saved[1].supplierId).toBeUndefined();
