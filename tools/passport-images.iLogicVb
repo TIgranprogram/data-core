@@ -90,10 +90,21 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
             Throw New InvalidOperationException("Не найден шаблон GOST.idw в " & installedTemplates)
         End If
     End If
+    ' Одна папка на модель: прежний комплект удаляется целиком, новый пишется на его место (пользователь 2026-11-13)
     Dim folder As String = System.IO.Path.Combine(
         System.IO.Path.GetDirectoryName(model.FullFileName),
-        System.IO.Path.GetFileNameWithoutExtension(model.FullFileName) & " — картинки паспорта",
-        DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss-fff"))
+        System.IO.Path.GetFileNameWithoutExtension(model.FullFileName) & " — картинки паспорта")
+    If System.IO.Directory.Exists(folder) Then
+        stage = "Удаление прежней папки: " & folder
+        ' открытый прежний чертёж держит файл — закрыть без сохранения (это копия, её всё равно заменяем)
+        Dim prefix As String = System.IO.Path.GetFullPath(folder).TrimEnd("\"c) & "\"
+        For i As Integer = app.Documents.Count To 1 Step -1
+            Dim d As Inventor.Document = app.Documents.Item(i)
+            If Not String.IsNullOrEmpty(d.FullFileName) AndAlso
+               d.FullFileName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) Then d.Close(True)
+        Next
+        System.IO.Directory.Delete(folder, True)
+    End If
     stage = "Создание папки: " & folder
     System.IO.Directory.CreateDirectory(folder)
 
