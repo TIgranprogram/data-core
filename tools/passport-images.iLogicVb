@@ -17,7 +17,11 @@ Sub Main()
                  Inventor.DocumentTypeEnum.kPartDocumentObject
                 Prepare(app, doc, stage)
             Case Inventor.DocumentTypeEnum.kDrawingDocumentObject
-                MessageBox.Show("Для нового комплекта запустите правило из модели.")
+                ' На чертеже (например, лист «Схема установки» с разрезом А-А) — убрать масштаб из подписей видов (2026-11-13)
+                stage = "Подписи видов без масштаба"
+                Dim changed As Integer = RemoveScaleFromLabels(CType(doc, Inventor.DrawingDocument))
+                MessageBox.Show(If(changed > 0, "Масштаб убран из подписей видов: " & changed & "." & vbCrLf & "Для нового комплекта картинок запустите правило из модели.",
+                    "Подписей с масштабом нет." & vbCrLf & "Для нового комплекта картинок запустите правило из модели."), "Картинки для паспорта")
             Case Else
                 MessageBox.Show("Откройте сборку или деталь.")
         End Select
@@ -25,6 +29,26 @@ Sub Main()
         MessageBox.Show(stage & vbCrLf & ex.Message, "Картинки для паспорта")
     End Try
 End Sub
+
+' Подпись вида «А-А (0,08 : 1)» → «А-А»: из текста подписи убирается масштаб (тег DrawingViewScale) вместе со скобками.
+' Масштаб на рисунке паспорта ни о чём не говорит: картинка растягивается под страницу. Возвращает число изменённых подписей.
+Function RemoveScaleFromLabels(drawing As Inventor.DrawingDocument) As Integer
+    Dim n As Integer = 0
+    For Each sh As Inventor.Sheet In drawing.Sheets
+        For Each v As Inventor.DrawingView In sh.DrawingViews
+            If Not v.ShowLabel Then Continue For
+            Dim t As String = v.Label.FormattedText
+            Dim s As String = System.Text.RegularExpressions.Regex.Replace(t, "\s*\(\s*<DrawingViewScale[^>]*/>\s*\)", "")
+            s = System.Text.RegularExpressions.Regex.Replace(s, "\s*<DrawingViewScale[^>]*/>", "")
+            If s <> t Then
+                v.Label.FormattedText = s
+                n += 1
+            End If
+        Next
+    Next
+    If n > 0 Then drawing.Update()
+    Return n
+End Function
 
 Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage As String)
     If String.IsNullOrWhiteSpace(model.FullFileName) Then
