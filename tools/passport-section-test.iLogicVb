@@ -43,9 +43,30 @@ Sub Main()
         log.AppendLine(stage & ": Y = " & Math.Round(groundY, 2) & " см (вид: низ " & Math.Round(fBottom, 2) & ", верх " & Math.Round(fTop, 2) & "); Г = " & depthMm & " мм")
         If groundY <= fBottom Then log.AppendLine("   ВНИМАНИЕ: плоскость XZ на уровне низа или ниже — изделие не заглублено, Г = 0")
 
-        stage = "4. Линия земли, штриховка, размер Г"
-        Dim gl As Double = fLeft - 1.6, gr As Double = fRight + 1.2
-        Dim dimX As Double = fLeft - 0.9
+        stage = "4. Линия разреза по земле (на виде спереди)"
+        Dim cut As Inventor.DrawingSketch = front.Sketches.Add()
+        cut.Edit()
+        Try
+            cut.SketchLines.AddByTwoPoints(cut.SheetToSketchSpace(tg.CreatePoint2d(fLeft - 0.5, groundY)),
+                                          cut.SheetToSketchSpace(tg.CreatePoint2d(fRight + 0.5, groundY)))
+        Finally
+            cut.ExitEdit()
+        End Try
+        log.AppendLine(stage & ": ок")
+
+        stage = "5. Разрез А-А"
+        ' направление взгляда задаёт место разреза при создании: ВЫШЕ линии — смотрит вниз, на землю
+        Dim section As Inventor.SectionDrawingView = sheet.DrawingViews.AddSectionView(front, cut,
+            tg.CreatePoint2d(sheet.Width * 0.5, fTop + 4), Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle,
+            Scale:=front.Scale, ShowLabel:=True, Name:="А")
+        drawing.Update()
+        ' пока масштаб общий и X общий — края разреза = крайние опоры на виде спереди
+        Dim postsLeft As Double = section.Left, postsRight As Double = section.Left + section.Width
+        log.AppendLine(stage & ": ок, опоры на виде спереди от " & Math.Round(postsLeft, 2) & " до " & Math.Round(postsRight, 2) & " см")
+
+        stage = "6. Линия земли, штриховка, размер Г у левой опоры"
+        Dim gl As Double = fLeft - 0.8, gr As Double = fRight + 0.8
+        Dim dimX As Double = postsLeft - 0.9
         Dim sk As Inventor.DrawingSketch = sheet.Sketches.Add()
         sk.Edit()
         Try
@@ -57,53 +78,46 @@ Sub Main()
                 x += 0.5
             End While
             If depthMm > 0 Then
-                Line(sk, tg, fLeft, fBottom, dimX - 0.15, fBottom)          ' выносная от низа изделия
+                Line(sk, tg, postsLeft, fBottom, dimX - 0.2, fBottom)       ' короткая выносная от низа опоры
                 Arrow(sk, tg, dimX, fBottom, dimX, groundY)                  ' размерная линия Г
             End If
         Finally
             sk.ExitEdit()
         End Try
         Dim notes As Inventor.GeneralNotes = sheet.DrawingNotes.GeneralNotes
-        If depthMm > 0 Then notes.AddFitted(tg.CreatePoint2d(dimX - 0.6, (fBottom + groundY) / 2 + 0.25), "Г")
+        If depthMm > 0 Then notes.AddFitted(tg.CreatePoint2d(dimX - 0.75, (fBottom + groundY) / 2 + 0.3), Big("Г"))
         log.AppendLine(stage & ": ок")
 
-        stage = "5. Линия разреза по земле (на виде спереди)"
-        Dim cut As Inventor.DrawingSketch = front.Sketches.Add()
-        cut.Edit()
-        Try
-            cut.SketchLines.AddByTwoPoints(cut.SheetToSketchSpace(tg.CreatePoint2d(fLeft - 0.5, groundY)),
-                                          cut.SheetToSketchSpace(tg.CreatePoint2d(fRight + 0.5, groundY)))
-        Finally
-            cut.ExitEdit()
-        End Try
-        log.AppendLine(stage & ": ок")
-
-        stage = "6. Разрез А-А"
-        ' направление взгляда задаёт место разреза при создании: ВЫШЕ линии — смотрит вниз, на землю. Потом переносим вниз листа.
-        Dim section As Inventor.SectionDrawingView = sheet.DrawingViews.AddSectionView(front, cut,
-            tg.CreatePoint2d(sheet.Width * 0.5, fTop + 4), Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle,
-            Scale:=front.Scale, ShowLabel:=True, Name:="А")
+        stage = "7. Разрез крупнее, сразу под видом спереди"
+        section.ScaleFromBase = False
+        section.Scale = section.Scale * Math.Min(sheet.Width * 0.6 / section.Width, sheet.Height * 0.2 / section.Height)
         drawing.Update()
-        section.Position = tg.CreatePoint2d(sheet.Width * 0.5, sheet.Height * 0.25)
+        Dim secY As Double = Math.Max(fBottom - 2.5 - section.Height / 2, section.Height / 2 + 3)
+        section.Position = tg.CreatePoint2d(sheet.Width * 0.5, secY)
         drawing.Update()
         section.Label.FormattedText = "<DrawingViewName/>-<DrawingViewName/>"
         Dim onSheet As Boolean = section.Left >= 0 AndAlso section.Left + section.Width <= sheet.Width AndAlso section.Top <= sheet.Height AndAlso section.Top - section.Height >= 0
-        log.AppendLine(stage & ": " & Math.Round(section.Width, 1) & " × " & Math.Round(section.Height, 1) & " см, центр (" & Math.Round(section.Position.X, 1) & "; " & Math.Round(section.Position.Y, 1) & "), " & If(onSheet, "НА ЛИСТЕ", "ЗА ЛИСТОМ"))
+        log.AppendLine(stage & ": масштаб " & Math.Round(section.Scale, 4) & ", " & Math.Round(section.Width, 1) & " × " & Math.Round(section.Height, 1) & " см, " & If(onSheet, "НА ЛИСТЕ", "ЗА ЛИСТОМ"))
 
-        stage = "7. Габариты по разрезу"
+        stage = "8. Габариты по разрезу, подпись А-А под ними"
         Dim l As Double = section.Left, r As Double = section.Left + section.Width
         Dim tp As Double = section.Top, bt As Double = section.Top - section.Height
-        Dim dy As Double = bt - 0.8, dx As Double = r + 0.9
+        Dim dy As Double = bt - 0.9, dx As Double = r + 0.9
         Dim dims As Inventor.DrawingSketch = sheet.Sketches.Add()
         dims.Edit()
         Try
-            Line(dims, tg, l, bt, l, dy - 0.15) : Line(dims, tg, r, bt, r, dy - 0.15) : Arrow(dims, tg, l, dy, r, dy)
-            Line(dims, tg, r, tp, dx + 0.15, tp) : Line(dims, tg, r, bt, dx + 0.15, bt) : Arrow(dims, tg, dx, bt, dx, tp)
+            Line(dims, tg, l, bt, l, dy - 0.2) : Line(dims, tg, r, bt, r, dy - 0.2) : Arrow(dims, tg, l, dy, r, dy)
+            Line(dims, tg, r, tp, dx + 0.2, tp) : Line(dims, tg, r, bt, dx + 0.2, bt) : Arrow(dims, tg, dx, bt, dx, tp)
         Finally
             dims.ExitEdit()
         End Try
-        notes.AddFitted(tg.CreatePoint2d((l + r) / 2 - 0.5, dy + 0.6), Math.Round(section.Width / section.Scale * 10).ToString())
-        notes.AddFitted(tg.CreatePoint2d(dx + 0.3, (tp + bt) / 2 + 0.2), Math.Round(section.Height / section.Scale * 10).ToString())
+        notes.AddFitted(tg.CreatePoint2d((l + r) / 2 - 0.5, dy + 0.65), Num(Math.Round(section.Width / section.Scale * 10).ToString()))
+        notes.AddFitted(tg.CreatePoint2d(dx + 0.3, (tp + bt) / 2 + 0.25), Num(Math.Round(section.Height / section.Scale * 10).ToString()))
+        Try
+            section.Label.Position = tg.CreatePoint2d((l + r) / 2, dy - 1.0)
+        Catch exL As Exception
+            log.AppendLine("   подпись не сдвинулась: " & exL.Message)
+        End Try
         drawing.Update()
         log.AppendLine(stage & ": ок, " & Math.Round(section.Width / section.Scale * 10) & " × " & Math.Round(section.Height / section.Scale * 10) & " мм")
 
@@ -114,6 +128,14 @@ Sub Main()
         MessageBox.Show("ОШИБКА на шаге: " & stage & vbCrLf & ex.Message & vbCrLf & vbCrLf & "Журнал:" & vbCrLf & log.ToString(), "Тест схемы установки")
     End Try
 End Sub
+
+Function Big(text As String) As String
+    Return "<StyleOverride FontSize='0.5'>" & text & "</StyleOverride>"
+End Function
+
+Function Num(text As String) As String
+    Return "<StyleOverride FontSize='0.35'>" & text & "</StyleOverride>"
+End Function
 
 Sub Line(sk As Inventor.DrawingSketch, tg As Inventor.TransientGeometry, x1 As Double, y1 As Double, x2 As Double, y2 As Double)
     sk.SketchLines.AddByTwoPoints(tg.CreatePoint2d(x1, y1), tg.CreatePoint2d(x2, y2))
