@@ -209,6 +209,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
         } });
         return b;
       }))) : null,
+      g.details || null,
       body), k);
     const paint = () => {
       const open = isOpen(ck, k);
