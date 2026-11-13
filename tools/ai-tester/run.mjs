@@ -18,7 +18,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { TAG, isLocalStand, tagText, createdFrom, screenGarbage, blockedClick, buildReport, screenChange } from './lib.mjs';
+import { TAG, isLocalStand, tagText, createdFrom, screenGarbage, screenGrammar, blockedClick, buildReport, screenChange } from './lib.mjs';
 import { sessionFromStdin } from './stand-session.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -446,6 +446,10 @@ function autoFindings(b, o, seenGarbage) {
   for (const e of b.jsErrors.splice(0)) out.push(`сбой в странице: ${e}`);
   const g = screenGarbage(o?.all);
   if (g && !seenGarbage.has(o.hash + g)) { seenGarbage.add(o.hash + g); out.push(`служебное значение на экране: «${g}»`); }
+  for (const s of screenGrammar(o?.all || '')) {
+    if (seenGarbage.has('gr' + s.text)) continue; // одна и та же фраза — один раз за прогон
+    seenGarbage.add('gr' + s.text); out.push(`ошибка в тексте (${s.hint}): «${s.text}»`);
+  }
   return out;
 }
 

@@ -70,6 +70,9 @@ export function screenGarbage(text) {
   return m ? m[0] : '';
 }
 
+/** Ошибка в тексте экрана: склонение после предлога, повтор слова (правило — backend/pwa/core/grammar.js, пользователь 2026-11-13). */
+export { grammarSlips as screenGrammar } from '../../backend/pwa/core/grammar.js';
+
 /** Можно ли нажать кнопку: выход и удаление чужих записей — нет. */
 export function blockedClick(label, context = '') {
   const l = String(label || '').trim();

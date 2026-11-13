@@ -38,6 +38,7 @@ export const RULES = {
   w: 'кнопка или метка без видимого текста — пустой «кружок» (пользователь 2026-11-10: переменные текстов паспорта)',
   y: 'загрузка не закончилась: «Проверяю… / Загружаю…» осталось на экране (пользователь 2026-11-10: карточка приложения PDM)',
   z: 'текст вылезает за границы карточки (пользователь 2026-11-10: № счёта на доске заявок)',
+  gr: 'ошибка в тексте: падеж после предлога, повтор слова (пользователь 2026-11-13: «из вид «…»»; правило — pwa/core/grammar.js)',
   fl: 'поле формы без видимой подписи (aria-label и placeholder не заменяют подпись)',
   fg: 'соседние поля формы слиплись или перекрылись',
   ax: 'axe: нарушение доступности (автоматическая проверка)',
@@ -339,9 +340,11 @@ const vis=el=>{const r=el.getBoundingClientRect();return r.width>0&&r.height>0&&
 const sel=el=>{let s=el.tagName.toLowerCase();if(el.id)s+='#'+el.id;const c=[...el.classList].slice(0,3).join('.');if(c)s+='.'+c;return s};
 const HOOKS=new Set(${JSON.stringify(JS_TOKENS)});
 const GARB=new RegExp(${JSON.stringify(GARBAGE_SRC)},'u');
+const GRAM=${JSON.stringify(GRAMMAR_SRC)}.map(g=>({re:new RegExp(g.src,g.flags),hint:g.hint}));
 const text=document.body.innerText.split('\\n');
 for(const l of text){
   if(GARB.test(l))add('a','body',l);
+  for(const g of GRAM){const m=l.match(g.re);if(m)add('gr','body',g.hint+': «'+m[0].trim()+'» — '+l)}
   if(/(^|[^\\p{L}«])(скоро|в разработке|todo)([^\\p{L}.]|$)/iu.test(l))add('c','body',l);
   if(/\\b(BLG|WRK|TRN|DIO|DSP|MAF)\\b|\\bimg_[\\w-]+|\\b[0-9a-f]{24}\\b/.test(l))add('i','body',l);
 }
@@ -421,6 +424,7 @@ const GARBAGE_SRC = await (async () => {
   const { GARBAGE } = await import(pathToFileURL(path.join(ROOT, 'backend/pwa/core/garbage.js')).href);
   return GARBAGE.source;
 })();
+const GRAMMAR_SRC = (await import(pathToFileURL(path.join(ROOT, 'backend/pwa/core/grammar.js')).href)).GRAMMAR_SRC;
 
 // характеристики карточки .tcard для правила l
 const TCARD = `(()=>{const c=document.querySelector('article.tcard,.tcard');if(!c)return null;
