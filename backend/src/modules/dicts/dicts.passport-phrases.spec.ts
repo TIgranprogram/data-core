@@ -45,6 +45,12 @@ describe('passportPhrases: удаление и дубли', () => {
     await expect(d.beforeRemove!(db, root as never)).rejects.toThrow(/сначала уберите варианты/);
     await expect(d.beforeRemove!(db, leaf as never)).resolves.toBeUndefined();
   });
+  it('вариант, выбранный у изделий или назначенный виду, удалить нельзя (409 с числом)', async () => {
+    const prod = { _id: oid(), deletedAt: null, [`passportDefaults.textChoices.${root._id}`]: String(leaf._id) };
+    await expect(d.beforeRemove!(fakeDb([root, leaf, prod]), leaf as never)).rejects.toThrow(/выбран у изделий \(1\)/);
+    const kind = { _id: oid(), dict: 'passportKinds', deletedAt: null, purposeLeafId: leaf._id };
+    await expect(d.beforeRemove!(fakeDb([root, leaf, kind]), leaf as never)).rejects.toThrow(/назначен видам изделий \(1\)/);
+  });
   it('одинаковое название под разными разделами — не дубль', () => {
     expect(d.dupKey!({ ...leaf, parentId: oid() } as never)).not.toBe(d.dupKey!(leaf as never));
   });

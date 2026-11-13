@@ -109,6 +109,16 @@ export function passportPhrasesDef(base: DictBase): DictBase {
       if (await db.collection('dict_values').countDocuments({ dict: 'passportPhrases', deletedAt: null, parentId: d._id })) {
         throw new ConflictException(`У «${s(d.name)}» есть варианты — сначала уберите варианты`);
       }
+      // C112 А2: вариант, выбранный у живых изделий (textChoices) или назначенный виду изделий, не удаляется — иначе у них «Выберите заново»
+      const id = String(d._id);
+      const root = rootOf(await loadNodes(db), id);
+      const [products, kinds] = await Promise.all([
+        root ? db.collection('products').countDocuments({ deletedAt: null, [`passportDefaults.textChoices.${root}`]: id }) : 0,
+        db.collection('dict_values').countDocuments({ dict: 'passportKinds', deletedAt: null, purposeLeafId: d._id }),
+      ]);
+      if (products || kinds) {
+        throw new ConflictException(`«${s(d.name)}» нельзя удалить: он выбран у изделий (${products})${kinds ? ` и назначен видам изделий (${kinds})` : ''} — сначала замените вариант`);
+      }
     },
     // «Используется»: выборы воронки в паспортах (textChoices) и изделиях (passportDefaults.textChoices) + старое сравнение по тексту
     usage: async (db, docs) => {
