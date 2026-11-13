@@ -25,10 +25,10 @@ Sub Main()
         log.AppendLine(stage & ": ок, лист " & Math.Round(sheet.Width, 1) & " × " & Math.Round(sheet.Height, 1) & " см")
 
         stage = "2. Вид спереди (основа разреза)"
-        Dim front As Inventor.DrawingView = sheet.DrawingViews.AddBaseView(model, tg.CreatePoint2d(sheet.Width * 0.3, sheet.Height * 0.6), 1,
+        Dim front As Inventor.DrawingView = sheet.DrawingViews.AddBaseView(model, tg.CreatePoint2d(sheet.Width * 0.5, sheet.Height * 0.3), 1,
             Inventor.ViewOrientationTypeEnum.kFrontViewOrientation, Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle)
         drawing.Update()
-        front.Scale = front.Scale * Math.Min(sheet.Width * 0.4 / front.Width, sheet.Height * 0.6 / front.Height)
+        front.Scale = front.Scale * Math.Min(sheet.Width * 0.4 / front.Width, sheet.Height * 0.4 / front.Height)
         drawing.Update()
         log.AppendLine(stage & ": ок, масштаб " & Math.Round(front.Scale, 4) & ", " & Math.Round(front.Width, 1) & " × " & Math.Round(front.Height, 1) & " см")
 
@@ -47,38 +47,28 @@ Sub Main()
         Dim sk As Inventor.DrawingSketch = front.Sketches.Add()
         sk.Edit()
         Try
-            ' справа налево: стрелки разреза смотрят вниз — вид сверху на землю (слева направо смотрели вверх, прогон 2026-11-13)
-            sk.SketchLines.AddByTwoPoints(sk.SheetToSketchSpace(tg.CreatePoint2d(front.Left + front.Width + 0.5, cutY)),
-                                         sk.SheetToSketchSpace(tg.CreatePoint2d(front.Left - 0.5, cutY)))
+            sk.SketchLines.AddByTwoPoints(sk.SheetToSketchSpace(tg.CreatePoint2d(front.Left - 0.5, cutY)),
+                                         sk.SheetToSketchSpace(tg.CreatePoint2d(front.Left + front.Width + 0.5, cutY)))
         Finally
             sk.ExitEdit()
         End Try
         log.AppendLine(stage & ": ок")
 
         stage = "5. Разрез А-А"
+        ' направление взгляда задаёт место разреза: ставим ВЫШЕ линии разреза — смотрим сверху вниз, на землю (ниже — смотрел вверх, прогон 2026-11-13)
         Dim section As Inventor.SectionDrawingView = sheet.DrawingViews.AddSectionView(front, sk,
-            tg.CreatePoint2d(sheet.Width * 0.7, sheet.Height * 0.5), Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle,
+            tg.CreatePoint2d(sheet.Width * 0.5, Math.Max(front.Top + 3, sheet.Height * 0.8)), Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle,
             Scale:=front.Scale, ShowLabel:=True, Name:="А")
         drawing.Update()
         log.AppendLine(stage & ": ок, " & Math.Round(section.Width, 1) & " × " & Math.Round(section.Height, 1) & " см, видов на листе " & sheet.DrawingViews.Count)
 
-        stage = "6. Снять привязку разреза к виду спереди"
-        ' разрез выровнен по виду-основе: двигаешь основу — едет и разрез (так он и ушёл за лист в прошлый раз)
-        Dim unaligned As String = "нет метода"
-        Try
-            Dim o As Object = section
-            o.RemoveAlignment()
-            unaligned = "RemoveAlignment — ок"
-        Catch ex1 As Exception
-            unaligned = "RemoveAlignment: " & ex1.Message
-        End Try
-        log.AppendLine(stage & ": " & unaligned)
-
-        stage = "7. Крупно и по центру, основа — за край листа"
+        stage = "6–7. Крупно и по центру, основа — за нижний край листа"
+        ' разрез привязан к основе по вертикали (снять привязку в API 2027 нельзя): X у них общий, Y разреза двигается свободно.
+        ' Поэтому основа — по центру листа по X и ниже листа; разрез — в центр листа.
         section.ScaleFromBase = False
         section.Scale = section.Scale * Math.Min(sheet.Width * 0.75 / section.Width, sheet.Height * 0.65 / section.Height)
         drawing.Update()
-        front.Position = tg.CreatePoint2d(sheet.Width + front.Width, sheet.Height * 0.5)
+        front.Position = tg.CreatePoint2d(sheet.Width * 0.5, -front.Height)
         drawing.Update()
         section.Position = tg.CreatePoint2d(sheet.Width * 0.5, sheet.Height * 0.5)
         drawing.Update()
