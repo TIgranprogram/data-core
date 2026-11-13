@@ -19,7 +19,7 @@ describe('ProductPassportService.previewDoc', () => {
     const svc = make({ _id: pid });
     (svc as unknown as Record<string, unknown>).buildText = jest.fn().mockResolvedValue(null);
     await expect(svc.previewDoc(String(pid))).rejects.toThrow(BadRequestException);
-    await expect(svc.previewDoc(String(pid))).rejects.toThrow(/категори/);
+    await expect(svc.previewDoc(String(pid))).rejects.toThrow(/тип паспорта/);
     expect(write).not.toHaveBeenCalled();
   });
   it('изделия нет — 404', async () => {

@@ -8,9 +8,10 @@ import { download, passportVariant } from '../passports/dialogs.js';
 import { jointsText } from '../passports/traits.js';
 import { suggestLink } from '../../ui/composition-suggest.js';
 import { clearNoteWarning, resetPdCategory } from './data.js';
+import { productTypeLine } from '../passports/common.js';
 import { openPassportFunnel, openReadyPassport } from '../passports/funnel/open.js';
 
-/* Блоки правой панели изделия (вид): примечание-предупреждение, состав, документация, «В заказах», категория паспорта.
+/* Блоки правой панели изделия (вид): примечание-предупреждение, состав, документация, «В заказах», тип паспорта.
  * ПМ-1 (2026-11-06): каждый блок — свёрнутая секция kit.section с числом; пустой — одна строка внутри. */
 const none = (text) => h('p', { class: 'muted small' }, text);
 
@@ -18,22 +19,12 @@ export const STATUS = { draft: 'без цены', active: 'в продаже', n
 export const dims = (d) => (d ? `${['length', 'width', 'height'].map((k) => (d[k] ? qty(d[k]) : '—')).join(' × ')} ${d.unit || 'мм'}` : null);
 export { grp } from '../../ui/kit/index.js';
 
-/** Категория паспорта в карточке: что задано в изделии, что унаследовано от группы/раздела, куда идти, если не задано. */
+/** Тип паспорта в карточке (только чтение): своё у изделия, из группы/вида, не задан. Задаётся в группе или виде изделия (C103). */
 export function passportCatView(r, ctx) {
-  const pc = r.passportCategory;
-  const lbl = (c) => (c ? `${c.name || c.code}` : '');
-  const where = r.group ? `группы «${r.group}»` : r.type ? `раздела «${r.type}»` : '';
-  if (pc?.own) {
-    const inh = pc.inherited;
-    const reset = kitButton({ label: 'Сбросить', kind: 'ghost', size: 'S', onClick: async () => {
-      try { const fresh = await resetPdCategory(r); toast('Категория сброшена'); ctx?.setRow?.(fresh); } catch (e) { toastError(e); }
-    } });
-    return h('span', null, `${lbl(pc.own)} — задана в самом изделии`, inh && inh.code !== pc.own.code ? ` (${r.group ? `у группы «${r.group}»` : 'по группе'}: ${lbl(inh)})` : '', ' ', reset);
-  }
-  const cur = pc?.inherited || (pc && pc.code ? pc : null);
-  if (cur) return `${cur.name || cur.code}${cur.via ? ` (${cur.via})` : ''}`;
-  if (!where) return null;
-  return h('span', { class: 'muted' }, `У ${where} не задана категория паспорта. Выберите её в «Продукция → Категории» (строка ${r.group ? 'группы' : 'раздела'}, поле «Категория паспорта»)`);
+  const reset = session.canEdit ? async () => {
+    try { const fresh = await resetPdCategory(r); toast('Тип паспорта теперь берётся из группы'); ctx?.setRow?.(fresh); } catch (e) { toastError(e); }
+  } : null;
+  return productTypeLine(r, { onReset: reset });
 }
 
 // Пометка скрипта переноса каталога («⚠ Проверить …»): напоминание, не мастер объединения.
@@ -134,7 +125,7 @@ export function passportPane(row, ctx) {
     const have = Math.max(0, uniq.length - lackIn.length);
     const names = [...new Set(lackIn)].map(kindName).join(', ');
     const draw = !cat()
-      ? hint('Сначала выберите категорию паспорта', 'warn')
+      ? hint('Тип паспорта не задан: его задают в группе изделия или в виде изделия', 'warn')
       : uniq.length
         ? hint(`Рисунки: ${have} из ${uniq.length}` + (names ? ` · не хватает: ${names}` : ''))
         : hint('Рисунки не требуются');
@@ -144,7 +135,7 @@ export function passportPane(row, ctx) {
       title: 'Паспорт', fixed: true, tone: 'info',
       body: [
         readonlyGroup({ title: 'Паспорт', rows: [
-          ['Категория паспорта', passportCatView(row, ctx) || 'Сначала выберите категорию паспорта'],
+          ['Тип паспорта', passportCatView(row, ctx)],
           ['Гарантия', row.passportDefaults?.warrantyMonths ? `${row.passportDefaults.warrantyMonths} мес.` : null],
           ['Срок службы', row.passportDefaults?.serviceLifeYears ? `${row.passportDefaults.serviceLifeYears} лет` : null],
           ['Как соединено', jointsText(row.passportDefaults?.joints) || null],
@@ -154,7 +145,7 @@ export function passportPane(row, ctx) {
         actions(
           session.canEdit && session.seesDocs() ? kitButton({ label: 'Выпустить паспорт', kind: 'primary', size: 'S', title: 'Новый паспорт с номером по этой модели', onClick: () => openPassportFunnel({ productId: row.id }) }) : null,
           session.canEdit && session.seesDocs() ? kitButton({ label: 'Добавить готовый паспорт', size: 'S', title: 'Паспорт сделан отдельно: приложить файл PDF к этому изделию', onClick: () => openReadyPassport({ productId: row.id }) }) : null,
-          kitButton({ label: 'Править шаблон', size: 'S', title: 'Категория, тексты и рисунки по разделам паспорта', onClick: openTemplate }),
+          kitButton({ label: 'Править шаблон', size: 'S', title: 'Тексты и рисунки по разделам паспорта', onClick: openTemplate }),
         ),
       ],
     });

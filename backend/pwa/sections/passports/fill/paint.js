@@ -23,7 +23,7 @@ function gapOf(spec, missing) {
 /**
  * Состояние поля (C086): filled — строка «Подпись: значение ✎»; open — поле; later — применимо, но необязательно и пусто
  * (при выпуске свёрнуто в «Необязательное»); foreign — сохранено, но к изделию не относится; skip — не показывать.
- * Применимость приходит с сервера (`applicable`); её нет — категория не выбрана или сервер старый, тогда всё применимо.
+ * Применимость приходит с сервера (`applicable`); её нет — тип паспорта не задан или сервер старый, тогда всё применимо.
  */
 export function decide(ctx, spec, gap, text) {
   // сервер назвал поле недостающим (обязательное по категории или подстановка в тексте изделия) — оно применимо без оговорок
@@ -37,7 +37,7 @@ export function decide(ctx, spec, gap, text) {
   return 'open';
 }
 
-/** required | optional | na — по правилам сервера: числа, элементы и «как поставляется» зависят от категории и типа. */
+/** required | optional | na — по правилам сервера: числа, элементы и «как поставляется» зависят от типа паспорта и назначения. */
 export function appliesOf(applicable, spec) {
   if (!applicable) return 'required';
   if (spec.key === 'elements') return applicable.elements || 'required';
@@ -106,7 +106,7 @@ export function paintFields(ctx) {
     if (state === 'later') { ctx.later.push(spec.label); continue; }
     const host = ctx.fieldHost[spec.section];
     if (state === 'foreign') {
-      if (showRow) host.append(wrap(spec, hint(`${spec.label}: ${text} — в паспорт этой категории не входит. Значение сохранено в изделии, в паспорт не печатается.`)));
+      if (showRow) host.append(wrap(spec, hint(`${spec.label}: ${text} — в паспорт этого типа не входит. Значение сохранено в изделии, в паспорт не печатается.`)));
     } else if (state === 'filled') {
       ctx.filled.push(spec.key);
       if (showRow) host.append(wrap(spec, filledLink(ctx, spec, text)));
@@ -136,7 +136,7 @@ export function paintFields(ctx) {
 export function paintSlots(ctx) {
   for (const host of Object.values(ctx.slotHost)) host.replaceChildren();
   if (!ctx.code) {
-    ctx.slotHost.general.replaceChildren(hint('Сначала выберите категорию паспорта'));
+    ctx.slotHost.general.replaceChildren(hint('Тип паспорта не задан: он берётся из группы или вида изделия.'));
     ctx.photoFilled = 0;
     return;
   }
@@ -209,7 +209,7 @@ export function syncChrome(ctx) {
     else if (ctx.mode === 'issue') sec.hidden = !has;
     else sec.hidden = false;
   }
-  if (!ctx.code) ctx.strip.replaceChildren(hint('Сначала выберите категорию паспорта', 'warn'));
+  if (!ctx.code) ctx.strip.replaceChildren(hint('Тип паспорта не задан: задайте его в группе изделия или в виде изделия.', 'warn'));
   else if (!miss) ctx.strip.replaceChildren(badge('Паспорт можно выпускать', 'ok'));
   else {
     const next = link({

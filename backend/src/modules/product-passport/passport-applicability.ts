@@ -86,7 +86,7 @@ export interface Applicability {
   type: ProductType;
 }
 
-/** Применимость по категории и типу. `cat` — запись справочника «Категории паспортов» (обязательные поля и рисунки). */
+/** Применимость по категории и типу. `cat` — запись справочника «Типы паспортов» (обязательные поля и рисунки). */
 export function applicability(code: string, cat: { requiredFields?: string; requiredImages?: string } | null | undefined, type: ProductType): Applicability {
   const fields: Record<string, Applies> = {};
   for (const k of COMMON_FIELDS) fields[k] = 'optional';

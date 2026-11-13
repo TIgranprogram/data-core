@@ -225,7 +225,7 @@ function attachmentTypesList(): DictBase {
 function productPartsList(): DictBase {
   const base = simpleList('productParts', 'Продукция', 'Части изделия (для работ)',
     'Из каких частей делают изделие: стойки, навес, наполнение… К частям в позиции заказа и в карточке изделия привязываются виды работ. Новая часть из позиции заказа появляется здесь сама.',
-    [{ key: 'categories', label: 'Для каких категорий', wide: true, hint: 'Необязательно: категории изделий, где эта часть бывает; пусто — для всех' }, { key: 'sortOrder', label: 'Порядок', hint: 'Число: чем меньше, тем выше в списке' }],
+    [{ key: 'categories', label: 'Для каких типов паспорта', wide: true, hint: 'Необязательно: категории изделий, где эта часть бывает; пусто — для всех' }, { key: 'sortOrder', label: 'Порядок', hint: 'Число: чем меньше, тем выше в списке' }],
     undefined, ['Стойки', 'Навес', 'Крыша', 'Наполнение', 'Основание', 'Рама', 'Несущая рама', 'Настил', 'Сиденье', 'Спинка', 'Опорная пятка', 'Поручень', 'Ручка', 'Рычаг', 'Ногоступ', 'Накопитель дисков', 'Гриф', 'Маятник']);
   return {
     ...base,
@@ -719,14 +719,14 @@ const BASE: DictBase[] = [
   // ПВ2 (2026-10-25): порядок полей = порядок в карточке — частое сверху; коды и настроечное (tech) — внизу, не столбцы таблицы.
   // code у существующей записи не меняется (на него ссылаются тексты и изделия); у новой можно не вводить — сервер сделает из названия.
   {
-    ...simpleList('passportCategories', 'Паспорта', 'Категории паспортов',
+    ...simpleList('passportCategories', 'Паспорта', 'Типы паспортов',
       'Вид изделия для паспорта: какие разделы, нормативы, обязательные рисунки и значения по умолчанию. ALL — «Для всех»: его тексты получают все категории. Не путать с категориями каталога — связь в поле «Категории каталога».',
       [
         { key: 'serviceLifeYears', label: 'Срок службы, лет' },
         { key: 'warrantyMonths', label: 'Гарантия, мес.' },
         { key: 'standards', label: 'Нормативы', wide: true, hint: 'На какие ГОСТ и регламенты ссылаются паспорта этой категории — выберите из списка', ref: { dict: 'passportStandards', multiple: true } },
         TECH({ key: 'code', label: 'Код категории', required: true, lockAfterCreate: true, hint: 'Короткое имя латиницей (ALL, DIO, DSP, TRN, WRK, BLG): по нему тексты, шаблоны и паспорта находят категорию. После создания не меняется' }),
-        TECH({ key: 'catalogNames', label: 'Какие категории каталога сюда относятся', wide: true, hint: 'Устарело: задайте категорию паспорта в группе каталога («Группы изделий»). Названия категорий каталога через запятую, как в карточке изделия: «Уличный тренажёр, Тренажёр уличный». По ним изделие получает эту категорию паспорта' }),
+        TECH({ key: 'catalogNames', label: 'Какие категории каталога сюда относятся', wide: true, hint: 'Устарело: задайте тип паспорта в группе каталога («Группы изделий»). Названия категорий каталога через запятую, как в карточке изделия: «Уличный тренажёр, Тренажёр уличный». По ним изделие получает эту тип паспорта' }),
         TECH({ key: 'requiredFields', label: 'Какие поля паспорта обязательны', type: 'textarea', wide: true, hint: 'Без них паспорт не выпустить. По строке ключ поля: ageFrom, ageTo, heightMin, heightMax, weightMax, maxUsers, fallHeight, siteLength, siteWidth, serviceLifeYears (можно «ключ — подпись»). Пусто — как в программе по умолчанию' }),
         TECH({ key: 'allowedFields', label: 'Какие поля показывать в форме', type: 'textarea', wide: true, hint: 'Поля раздела «Ограничения и техданные», которые бывают у этой категории: по строке ключ (ageFrom, heightMin, maxUsers…). Пусто — все. Обязательные добавятся сами' }),
         TECH({ key: 'fieldHints', label: 'Подсказки к полям формы', type: 'textarea', wide: true, hint: 'Серая подсказка под полем в форме паспорта, только для этой категории. По строке «ключ — подсказка»: heightMin — обычно от 1400 мм' }),
@@ -760,7 +760,7 @@ const BASE: DictBase[] = [
         { key: 'inspect', label: 'Что проверять при ТО', type: 'textarea', wide: true, hint: 'По строке на пункт' },
         { key: 'standard', label: 'Норматив', hint: 'На какой норматив опирается элемент — выберите из списка', ref: { dict: 'passportStandards', multiple: false } },
         { key: 'kind', label: 'Что это', type: 'select', hint: 'Изделие / снаряд — выбирается как «Что это за изделие»; деталь и крепёж в список выбора не попадают', options: [{ value: 'product', label: 'Изделие / снаряд' }, { value: 'part', label: 'Деталь' }, { value: 'fastener', label: 'Крепёж' }] },
-        { key: 'categories', label: 'Для каких категорий', wide: true, hint: 'Категории паспортов, где этот элемент бывает — отметьте нужные' },
+        { key: 'categories', label: 'Для каких типов паспорта', wide: true, hint: 'Типы паспортов, где этот элемент бывает — отметьте нужные' },
         TECH({ key: 'code', label: 'Код элемента', required: true, lockAfterCreate: true, hint: 'Короткое имя латиницей (HORIZONTAL_BAR): по нему изделия и дефекты ссылаются на элемент. После создания не меняется' }),
       ]),
     ...ppUsage({ pp: 'elements', dicts: [{ dict: 'passportDefects', field: 'applies', title: 'Дефект' }] }),
@@ -774,7 +774,7 @@ const BASE: DictBase[] = [
         { key: 'care', label: 'Уход и ремонт', type: 'textarea', wide: true, hint: 'По строке на пункт' },
         { key: 'phrase', label: 'Фраза покрытия', wide: true, hint: 'Только у покрытия, целым предложением: «Окрашено порошковой краской методом запекания в заводских условиях.»' },
         { key: 'defects', label: 'Типичные дефекты', wide: true, hint: 'Какие дефекты ищут у этого материала при осмотре — выберите из списка', ref: { dict: 'passportDefects', multiple: true } },
-        { key: 'categories', label: 'Для каких категорий', wide: true, hint: 'Категории паспортов, где этот материал бывает; пусто — для всех' },
+        { key: 'categories', label: 'Для каких типов паспорта', wide: true, hint: 'Типы паспортов, где этот материал бывает; пусто — для всех' },
         // МИ: устаревшая запись — на неё ссылаются выпущенные паспорта, удалять нельзя; в новых таблицах не предлагается
         YES_NO('hideInNew', 'Не предлагать в новых', 'Да — нет в выборе таблицы материалов новых изделий и паспортов; где уже выбрана — остаётся как есть'),
         // МИ: материалы изделия таблицей — текст «Изготовлено из…» собирается из этих полей (common/catalog/materials-text.ts)
@@ -822,15 +822,6 @@ const BASE: DictBase[] = [
       }),
     editRoles: ['director'],
   },
-  // ПЧ-3: тип изделия подставляет части и материалы в таблицу паспорта
-  simpleList('passportTypes', 'Паспорта', 'Типы изделий',
-    'Части и материалы по умолчанию. В паспорте: «Подставить по типу» подбирает тип по словам в названии, размеры сверяют с чертежом.',
-    [
-      { key: 'category', label: 'Категория паспорта', hint: 'Код: TRN, WRK, BLG' },
-      { key: 'words', label: 'Слова в названии', wide: true, hint: 'Через |: лыжн|скороход|маятник' },
-      { key: 'composition', label: 'Состав', type: 'textarea', wide: true, hint: 'Строка: часть; код материала; размер. Например: Стойка; PIPE_STEEL; ∅89×3' },
-      { key: 'coatings', label: 'Покрытия', wide: true, hint: 'Коды через запятую: COAT_POWDER, COAT_OIL' },
-    ]),
   {
     // МИ: «Состоит из стоек, перекладин и хомутов» — части в таблице материалов изделия
     ...simpleList('passportParts', 'Паспорта', 'Части изделия',
@@ -838,7 +829,7 @@ const BASE: DictBase[] = [
       [
         { key: 'genPlural', label: 'Родительный падеж, мн. ч.', hint: '«стоек» — так в тексте «Состоит из…»' },
         { key: 'genSingular', label: 'Родительный падеж, ед. ч.', hint: '«стойки»' },
-        { key: 'categories', label: 'Для каких категорий', wide: true, hint: 'Коды через запятую: TRN, WRK, BLG, DIO, DSP. Пусто — часть не предложат в таблице материалов при выбранной категории (только «Показать все части»)' },
+        { key: 'categories', label: 'Для каких типов паспорта', wide: true, hint: 'Коды через запятую: TRN, WRK, BLG, DIO, DSP. Пусто — часть не предложат в таблице материалов при выбранной категории (только «Показать все части»)' },
       ]),
     ...withProducts(noUsage,
       async (_db, d) => ({ 'materialsSpec.rows.partIds': d._id }),
@@ -871,7 +862,7 @@ const BASE: DictBase[] = [
         { key: 'schemesFoundation', label: 'Стандартные схемы: фундамент / опоры', type: 'photos', wide: true, hint: 'Разрез узла: покрытие, грунт, бетон, щебень, размеры' },
         { key: 'schemesHoles', label: 'Стандартные схемы: скважины / разметка', type: 'photos', wide: true, hint: 'План с расстояниями между опорами' },
         { key: 'schemesMounting', label: 'Стандартные схемы: монтаж', type: 'photos', wide: true },
-        { key: 'categories', label: 'Для каких категорий', wide: true, hint: 'Категории паспортов, где этот способ бывает; пусто — для всех' },
+        { key: 'categories', label: 'Для каких типов паспорта', wide: true, hint: 'Типы паспортов, где этот способ бывает; пусто — для всех' },
         TECH({ key: 'requiredImages', label: 'Какие рисунки обязательны', type: 'textarea', wide: true, hint: 'Без этих картинок паспорт с этим способом установки не выпустить. По строке: foundation, holes…' }),
         TECH({ key: 'code', label: 'Код способа', required: true, lockAfterCreate: true, hint: 'Короткое имя латиницей (CONCRETE_POSTS): по нему паспорта и изделия находят способ. После создания не меняется' }),
       ]),
@@ -924,7 +915,7 @@ export const DICT_UI: Record<string, { newTitle: string; nameLabel?: string }> =
   categories: { newTitle: 'Новая категория' }, units: { newTitle: 'Новая единица измерения' }, colors: { newTitle: 'Новый цвет' },
   persons: { newTitle: 'Новый сотрудник' }, worktypes: { newTitle: 'Новый вид работ' }, paymentForms: { newTitle: 'Новая форма оплаты' },
   writeOffReasons: { newTitle: 'Новая причина списания' }, departments: { newTitle: 'Новый отдел' }, payoutSchedules: { newTitle: 'Новый график выплат' }, invoiceTypes: { newTitle: 'Новый тип счёта' },
-  services: { newTitle: 'Новая услуга' }, passportCategories: { newTitle: 'Новая категория паспорта' }, passportStandards: { newTitle: 'Новый норматив', nameLabel: 'Обозначение (коротко)' },
+  services: { newTitle: 'Новая услуга' }, passportCategories: { newTitle: 'Новый тип паспорта' }, passportStandards: { newTitle: 'Новый норматив', nameLabel: 'Обозначение (коротко)' },
   passportElements: { newTitle: 'Новый функциональный элемент' }, passportMaterials: { newTitle: 'Новый материал или покрытие' },
   passportSortament: { newTitle: 'Новый размер материала', nameLabel: 'Размер (∅89×3, 2, 27×120)' }, passportParts: { newTitle: 'Новая часть изделия' },
   passportDefects: { newTitle: 'Новый дефект' }, passportInstall: { newTitle: 'Новый способ установки' }, passportPhrases: { newTitle: 'Новый текст паспорта' },

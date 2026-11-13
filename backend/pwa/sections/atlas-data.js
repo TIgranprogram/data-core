@@ -82,11 +82,11 @@ export const NODES = [
     code: ['backend/src/modules/matching', 'backend/pwa/sections/matching-queue.js', 'backend/pwa/sections/salesorders-matching.js'] },
 
   // ── Продукция
-  { id: 'dicts', band: 'prod', col: 0, sec: 'dicts', href: '#dicts', t: 'Справочники', l: ['категории, тексты,', 'цвета, виды работ'],
+  { id: 'dicts', band: 'prod', col: 0, sec: 'dicts', href: '#dicts', t: 'Справочники', l: ['типы паспортов, тексты,', 'цвета, виды работ'],
     inside: [
       { id: 'kategorii-izdelii', t: 'Категории изделий', l: 'Раздел → Группа → Подгруппа → Серия', out: ['products'] },
       { id: 'cveta-ral-i', t: 'Цвета RAL и виды работ', l: 'для деталей, изделий и производства', out: ['products'] },
-      { id: 'teksty-i-chasti', t: 'Тексты и части паспорта', l: 'общие на категорию или «Для всех»', out: ['docs'] },
+      { id: 'teksty-i-chasti', t: 'Тексты и части паспорта', l: 'общие на тип паспорта или «Для всех»', out: ['docs'] },
       { id: 'stati-rashodov', t: 'Статьи расходов', l: 'дерево статей для «Денег»', out: ['expenses'] },
     ],
     rules: ['Запись справочника используют многие изделия. Перед правкой проверьте, кому она подходит.', 'Выпущенный паспорт не получает новые тексты сам.'],
@@ -118,13 +118,13 @@ export const NODES = [
     seq: true, inside: [
       { id: 'ochered', t: 'Очередь', l: '«Нужно сделать паспорт» по заказам', in: ['salesorders'] },
       { id: 'chernovik', t: 'Черновик', l: 'общее — из изделия, своё — у экземпляра', in: ['products'] },
-      { id: 'vid-izdeliya', t: 'Вид изделия', l: 'что это, назначение и категория — из вида группы или своё', in: ['dicts'] },
-      { id: 'shablon-kategorii', t: 'Шаблон категории', l: 'тексты и рисунки из справочников', in: ['dicts'] },
+      { id: 'vid-izdeliya', t: 'Вид изделия', l: 'что это, назначение и тип паспорта — из вида группы или своё', in: ['dicts'] },
+      { id: 'shablon-kategorii', t: 'Шаблон типа паспорта', l: 'тексты и рисунки из справочников', in: ['dicts'] },
       { id: 'vypusk-pdf', t: 'Выпуск PDF', l: 'текст и рисунки фиксируются', out: ['warranty'] },
       { id: 'novaya-redakciya', t: 'Новая редакция', l: 'единственный способ изменить выпущенный', alt: true },
       { id: 'pasporta-zakaza', t: 'Паспорта заказа', l: '«Готово N из M» — печать на весь заказ', alt: true },
     ],
-    rules: ['Без категории PDF не выпускается.', 'Выпущенный паспорт меняется только новой редакцией.'],
+    rules: ['Без типа паспорта PDF не выпускается.', 'Выпущенный паспорт меняется только новой редакцией.'],
     docs: ['docs/PASSPORTS-V2.md', 'docs/crew/C096-passport-system-audit/', 'docs/MAP.md — product-passport'], tech: 'productpassports, passporttemplates',
     code: ['backend/src/modules/product-passport', 'backend/pwa/sections/passports.js', 'backend/pwa/sections/passports/', 'backend/pwa/sections/docs.js', 'backend/pwa/sections/docs-queue.js'] },
 

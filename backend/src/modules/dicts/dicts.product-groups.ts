@@ -11,12 +11,12 @@ const isOid = (v: unknown) => Types.ObjectId.isValid(String(v ?? '')) && String(
 const GROUPS = { type: 'product', deletedAt: null, parentId: { $ne: null } };
 const SECTIONS = { type: 'product', deletedAt: null, parentId: null };
 
-export const PP_FIELD: import('./dicts.defs').Field = { key: 'passportCategory', label: 'Категория паспорта', type: 'select', hint: 'Изделия этой группы получают её в паспорте сами. Своя категория, заданная в изделии вручную, главнее. Пусто — берётся из раздела', options: [{ value: 'DIO', label: 'Детское (DIO)' }, { value: 'DSP', label: 'Спортивное (DSP)' }, { value: 'TRN', label: 'Уличный тренажёр (TRN)' }, { value: 'WRK', label: 'Воркаут (WRK)' }, { value: 'BLG', label: 'Благоустройство (BLG)' }] };
-/** Код категории паспорта из тела запроса: пусто — снять; неизвестный — 400. */
+export const PP_FIELD: import('./dicts.defs').Field = { key: 'passportCategory', label: 'Тип паспорта', type: 'select', hint: 'Изделия этой группы получают её в паспорте сами. Свой тип, заданный в изделии вручную, главнее. Пусто — берётся из раздела', options: [{ value: 'DIO', label: 'Детское (DIO)' }, { value: 'DSP', label: 'Спортивное (DSP)' }, { value: 'TRN', label: 'Уличный тренажёр (TRN)' }, { value: 'WRK', label: 'Воркаут (WRK)' }, { value: 'BLG', label: 'Благоустройство (BLG)' }] };
+/** Код типа паспорта из тела запроса: пусто — снять; неизвестный — 400. */
 export function ppCode(v: unknown): string | null {
   const c = s(v);
   if (!c) return null;
-  if (!PP_FIELD.options!.some((o) => o.value === c)) throw new BadRequestException('Категория паспорта: одна из ' + PP_FIELD.options!.map((o) => o.value).join(', '));
+  if (!PP_FIELD.options!.some((o) => o.value === c)) throw new BadRequestException('Тип паспорта: одна из ' + PP_FIELD.options!.map((o) => o.value).join(', '));
   return c;
 }
 
@@ -27,7 +27,7 @@ async function kindRef(db: Db, v: unknown, groupCategory: string | null): Promis
   if (!isOid(id)) throw new BadRequestException('Некорректный вид изделия');
   const kind = await db.collection('dict_values').findOne({ _id: new Types.ObjectId(id), dict: 'passportKinds', deletedAt: null }, { projection: { name: 1, passportCategory: 1 } });
   if (!kind) throw new BadRequestException('Вид изделия не найден — выберите из списка');
-  if (groupCategory && s(kind.passportCategory) && s(kind.passportCategory) !== groupCategory) throw new BadRequestException(`Вид «${s(kind.name)}» относится к другой категории паспорта, чем группа`);
+  if (groupCategory && s(kind.passportCategory) && s(kind.passportCategory) !== groupCategory) throw new BadRequestException(`Вид «${s(kind.name)}» относится к другому типу паспорта, чем группа`);
   return kind._id as Types.ObjectId;
 }
 
@@ -62,7 +62,7 @@ export function productGroupDefs({ translit }: Ctx): DictBase[] {
       { key: 'groupNo', label: 'Номер группы', required: true, lockAfterCreate: true, hint: 'Первые две цифры артикула изделий этой группы; менять нельзя — иначе путаница в артикулах' },
       { key: 'parentId', label: 'Раздел', type: 'select', ref: 'productSections', required: true, hint: 'Нет нужного раздела — сначала создайте его в «Разделах изделий»' },
       PP_FIELD,
-      { key: 'passportKindId', label: 'Вид изделия по умолчанию', type: 'select', ref: 'passportKinds', hint: 'Изделия группы получают этот вид: что это за изделие, назначение и категория паспорта берутся из него. Своё значение изделия главнее. Пусто — вид выбирается у каждого изделия' },
+      { key: 'passportKindId', label: 'Вид изделия по умолчанию', type: 'select', ref: 'passportKinds', hint: 'Изделия группы получают этот вид: что это за изделие, назначение и тип паспорта берутся из него. Своё значение изделия главнее. Пусто — вид выбирается у каждого изделия' },
     ],
     name: (d) => s(d.name),
     row: (d) => ({ name: s(d.name), groupNo: s(d.groupNo), parentId: d.parentId ? String(d.parentId) : '', passportCategory: s(d.passportCategory), passportKindId: d.passportKindId ? String(d.passportKindId) : '' }),

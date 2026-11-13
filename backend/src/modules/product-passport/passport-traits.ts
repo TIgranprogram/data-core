@@ -41,7 +41,7 @@ export function collectTraits(joints: unknown, src: TraitSources, category = '')
   const hasMaterial = src.materials.some((r) => String(r.kind ?? '') !== 'coating');
   if (!hasKind) for (const c of ELEMENT_TRAITS) add(c, 'Вид изделия не указан');
   if (!hasMaterial) for (const c of MATERIAL_TRAITS) add(c, 'Материал не указан');
-  if (!category || USERS_CATEGORIES.includes(category)) add('users', category ? 'Категория паспорта' : 'Категория не указана');
+  if (!category || USERS_CATEGORIES.includes(category)) add('users', category ? 'Тип паспорта' : 'Категория не указана');
   const j = (Array.isArray(joints) ? joints : []).map(String);
   for (const c of ['bolts', 'welds']) if (j.includes(c)) add(c, 'Конструкция');
   const traits = PASSPORT_TRAIT_CODES.filter((c) => have.has(c));

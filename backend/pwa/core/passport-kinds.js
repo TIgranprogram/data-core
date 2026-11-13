@@ -35,7 +35,7 @@ export const PHOTO_GROUPS = [
   { id: 'safety', title: 'Зона безопасности', kinds: ['safety'] },
   { id: 'assembly', title: 'Сборка', kinds: ['assembly'] },
 ];
-/** Названия категорий паспорта по коду. */
+/** Названия типов паспорта по коду. */
 export const CAT_NAMES = { ALL: 'Для всех', TRN: 'Тренажёр', WRK: 'Воркаут', BLG: 'Благоустройство', DIO: 'Детское игровое', DSP: 'Детское спортивное' };
 /** «TRN, WRK» → «Тренажёр, Воркаут». */
 export const catNames = (codes) => String(codes || '').split(/[,;\s]+/).filter(Boolean).map((c) => CAT_NAMES[c] || c).join(', ');

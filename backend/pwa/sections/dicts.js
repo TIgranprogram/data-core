@@ -44,7 +44,7 @@ const GROUP_ORDER = ['Склад и продукция', 'Люди и работ
 const PASS_GROUP = 'Документы (паспорта)';
 // Справочников паспортов 14 — одной лентой их приходилось вычитывать (жалоба владельца 2026-11-12). Делим по смыслу: о чём справочник.
 const PASS_SUBS = [
-  ['Паспорта · что за изделие', ['passportCategories', 'passportKinds', 'passportTypes', 'passportElements', 'passportParts', 'productFacets', 'productFacetValues']],
+  ['Паспорта · что за изделие', ['passportCategories', 'passportKinds', 'passportElements', 'passportParts', 'productFacets', 'productFacetValues']],
   ['Паспорта · из чего сделано', ['passportMaterials', 'passportSortament']],
   ['Паспорта · тексты и правила', ['passportPhrases', '__texts', 'passportInstall', 'passportDefects', 'passportStandards']],
   ['Паспорта · вид документа', ['passportStyle']],
@@ -207,7 +207,7 @@ export function mountDicts(params) {
     try {
       const g = await api('/dicts');
       groups = g.items;
-      title.textContent = 'Общие разделы паспорта'; hintEl.textContent = 'Шаблон разделов по категориям (общие указания, хранение, гарантия…): что общее для всех, что своё у категории и что его заменяет. Клик по пункту — правка справа.';
+      title.textContent = 'Общие разделы паспорта'; hintEl.textContent = 'Шаблон разделов по типам паспорта (общие указания, хранение, гарантия…): что общее для всех, что своё у типа паспорта и что его заменяет. Клик по пункту — правка справа.';
       searchWrap.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
       renderNav();
       if (!texts) texts = mountTexts();
@@ -315,7 +315,7 @@ export const dict = {
     fields: async (r, key = dictKey()) => {
       const info = r?.dictInfo || (await api(`/dicts/${key}`)).dict;
       photoKeys = new Map(info.fields.filter(isPhoto).map((f) => [f.key, f.type]));
-      // «К каким категориям» — галочками-чипами (общий кусочек ui/cat-chips.js), а не строкой кодов «TRN, WRK»
+      // «К каким типам паспорта» — галочками-чипами (общий кусочек ui/cat-chips.js), а не строкой кодов «TRN, WRK»
       const catField = info.fields.find((f) => f.key === 'categories' && key !== 'passportCategories');
       const catOpts = catField ? (await passportCategoryOptions()).map((c) => ({ code: c.value, name: c.label })) : [];
       // выбор из справочника вместо строки кодов (ref: { dict, multiple }) — списки грузим один раз на форму
@@ -342,7 +342,7 @@ export const dict = {
       const wtOpts = (info.refs?.worktypes || []).map((o) => ({ code: String(o.value), name: o.label }));
       const one = (f) => (key === 'persons' && f.key === 'workTypeId' ? { key: 'workTypeIds', label: 'Виды работ', type: 'widget', wide: true, hint: 'Можно несколько. Только такие люди видны в Ганте и получают шаги этих работ.', summary: () => '',
         widget: (v) => refChipsField(wtOpts, { label: 'Виды работ', value: v, multiple: true }) }
-        : f === catField && catOpts.length ? { key: f.key, label: f.label, type: 'widget', wide: true, hint: f.hint || '«Для всех» — подходит любой категории', summary: () => '',
+        : f === catField && catOpts.length ? { key: f.key, label: f.label, type: 'widget', wide: true, hint: f.hint || '«Для всех» — подходит любому типу паспорта', summary: () => '',
         widget: (v) => catChipsField(catOpts, { label: f.label, value: v, later: ['DIO', 'DSP'] }) }
         : f.ref?.dict || f.multi ? { key: f.key, label: f.label, type: 'widget', wide: true, hint: f.hint, summary: () => '', // multi: несколько из refs сервера (статья → категории склада)
           widget: (v) => refChipsField(f.multi ? (info.refs?.[f.ref] || []).map((o) => ({ code: String(o.value), name: o.label })) : refOpts[f.key] || [], { label: f.label, value: v, multiple: f.multi || f.ref.multiple !== false }), mount: f.multi ? (fapi) => { const sync = () => { const l = fapi.field(f.key); if (l) l.hidden = !fapi.get('parentId'); }; fapi.on('parentId', sync); sync(); } : undefined } // чипы категорий — только у подстатьи
@@ -362,7 +362,7 @@ export const dict = {
             return found ? `Группа «${found.name}» уже есть${found.groupNo ? ` (№${found.groupNo})` : ''} — не нужно создавать заново.` : null;
           }} : {}),
         hint: f.key === 'code' && f.lockAfterCreate && isNew ? 'Заполнится само из названия' : f.hint, max: 300,
-        ...(f.key === 'requiredImages' ? { widget: (v) => tagPick({ options: kindOptions(v), value: linesToKinds(v), label: f.label }), hint: 'Отметьте рисунки, без которых паспорт этой категории не выдаётся' } : {}),
+        ...(f.key === 'requiredImages' ? { widget: (v) => tagPick({ options: kindOptions(v), value: linesToKinds(v), label: f.label }), hint: 'Отметьте рисунки, без которых паспорт этого типа не выдаётся' } : {}),
         type: f.key === 'requiredImages' ? 'widget' : isPhoto(f) ? 'photos' : f.type === 'money' ? 'money' : f.type === 'select' ? 'select' : f.type === 'textarea' ? 'textarea' : f.type === 'date' ? 'date' : 'text',
         money: f.type === 'money',
         placeholder: f.type === 'color' ? '#2e7d32' : undefined,

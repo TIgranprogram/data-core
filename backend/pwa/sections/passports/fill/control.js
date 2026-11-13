@@ -10,7 +10,7 @@ const CAT_NUMS = new Set([...V2_NUMS.map(([k]) => k), 'warrantyMonths']);
 const optsOf = (m) => (m.options || []).map((o) => [o.id, o.label]);
 const fitsElement = (d, code) => (!d.kind || d.kind === 'product') && String(d.categories || '').split(/[,;\s]+/).filter(Boolean).includes(code);
 
-/** Вид изделия (C100): всё определено видом, не угадывается. Варианты — из пункта A3 или из справочника «Виды изделий» нужной категории. */
+/** Вид изделия (C100): всё определено видом, не угадывается. Варианты — из пункта A3 или из справочника «Виды изделий» нужного типа паспорта. */
 export function kindEditor(ctx, gap) {
   const given = (gap?.options || []).map((o) => [String(o.id), o.label || o.name || 'без названия']);
   const dict = (ctx.kindRows || []).filter((d) => !d.passportCategory || !ctx.code || d.passportCategory === ctx.code).map((d) => [String(d.id || d._id), d.name || 'без названия']);
@@ -26,7 +26,7 @@ export function kindEditor(ctx, gap) {
     onChange: (v) => ctx.save(() => putDefaults(ctx.prod, { kindId: v })),
   });
   if (options.length > 12) enhanceSelect(sel);
-  return stack(field('Вид изделия', sel, { required: !!gap?.required, hint: 'Вид задаёт, что это за изделие, назначение и категорию паспорта. Если в самом изделии задано иначе — будет по-вашему.' }), toDict());
+  return stack(field('Вид изделия', sel, { required: !!gap?.required, hint: 'Вид задаёт, что это за изделие, назначение и тип паспорта. Если в самом изделии задано иначе — будет по-вашему.' }), toDict());
 }
 
 function numEditor(ctx, key, label, dflt) {
@@ -133,7 +133,7 @@ function addElement(ctx, refresh) {
             if (fits && !cur.includes(id) && cur.length < 3) await putDefaults(ctx.prod, { elements: [...cur, id] });
             ctx.els.setIds(ctx.prod.passportDefaults?.elements || []);
             await ctx.refreshStatus();
-            if (!fits) toast('Элемент сохранён в справочнике. Для выбора в этом паспорте нужны вид «Изделие» и категория паспорта.');
+            if (!fits) toast('Элемент сохранён в справочнике. Для выбора в этом паспорте нужны вид «Изделие» и тип паспорта.');
             else if (!cur.includes(id) && cur.length >= 3) toast('Элемент сохранён в справочнике. Уже выбрано три — замените один из них.');
             return created;
           },
@@ -151,7 +151,7 @@ function addElement(ctx, refresh) {
 /** Элементы: список до трёх; вид изделия уже мог их задать — тогда это перекрытие своим значением. */
 export function elementsEditor(ctx, gap) {
   const given = (gap?.options || []).map((o) => ({ id: String(o.id), label: o.label || o.name || 'без названия' }));
-  // без пункта A3 (правка заполненного) — тот же отбор, что на сервере (`elementFits`): только своя категория и только изделия/снаряды
+  // без пункта A3 (правка заполненного) — тот же отбор, что на сервере (`elementFits`): только свой тип паспорта и только изделия/снаряды
   const dict = (ctx.elRows || []).filter((d) => fitsElement(d, ctx.code)).map((d) => ({ id: String(d.id || d._id), label: d.name || 'без названия' }));
   const rows = given.length ? given : dict;
   const note = hint('Не больше трёх вариантов. Ниже — фраза для описания и правила пользования.'); // не жёлтая плашка: рядом с выбором вида читалась как ошибка (дизайнер C100)
@@ -164,7 +164,7 @@ export function elementsEditor(ctx, gap) {
     if (focused) editor.querySelector('button')?.focus({ preventScroll: true });
   };
   const add = () => addElement(ctx, refresh);
-  if (!rows.length) { editor.append(stack(hint('Для этой категории в справочнике «Функциональные элементы» вариантов нет. Поле можно оставить пустым.'), add())); return editor; }
+  if (!rows.length) { editor.append(stack(hint('Для этого типа паспорта в справочнике «Функциональные элементы» вариантов нет. Поле можно оставить пустым.'), add())); return editor; }
   editor.append(stack(note, elementsCombo(ctx, rows), add()));
   return editor;
 }
@@ -216,7 +216,7 @@ export function installEditor(ctx, gap) {
   return stack(field('Способ установки', sel, { hint: 'Вариант текста не подсказывает способ установки — выберите его здесь.' }), dflt && !ctx.prod.passportDefaults?.installationTypeId ? stack(hint('По умолчанию — не сохранено'), button({ label: 'Принять', size: 'S', disabled: !ctx.can, onClick: () => ctx.save(async () => { await write(sel.value); ctx.pending.delete('installationTypeId'); }) })) : null);
 }
 
-/** Поле из A3, которого нет среди постоянных полей разделов (признак, категория, прочее). Рисунок сюда не входит. */
+/** Поле из A3, которого нет среди постоянных полей разделов (признак, прочее). Рисунок сюда не входит. */
 export function controlGap(m, ctx) {
   if (!m || m.kind === 'image') return null;
   if (m.kind === 'install') return installEditor(ctx, m);
@@ -234,12 +234,12 @@ export function controlGap(m, ctx) {
   if (m.kind === 'field') return numEditor(ctx, m.key, m.label, m.default);
   const write = (v) => (m.kind === 'facet'
     ? setFacets(ctx.prod.id, [...(ctx.prod.facetValueIds || []), v]).then(() => { ctx.prod.facetValueIds = [...(ctx.prod.facetValueIds || []), v]; })
-    : putDefaults(ctx.prod, m.kind === 'category' ? { passportCategory: v } : { installationTypeId: v }));
+    : putDefaults(ctx.prod, { installationTypeId: v }));
   const dflt = m.kind === 'install' && m.default ? String(m.default.id ?? m.default) : '';
   if (dflt) ctx.pending.set(m.key, { patch: { installationTypeId: dflt } });
   const sel = select({
     label: m.label,
-    options: [['', m.kind === 'category' ? 'Выберите категорию…' : 'Выберите…'], ...optsOf(m)],
+    options: [['', 'Выберите…'], ...optsOf(m)],
     value: dflt,
     onChange: (v) => { ctx.pending.delete(m.key); if (v) ctx.save(() => write(v)); },
   });

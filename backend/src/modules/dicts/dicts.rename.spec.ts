@@ -163,7 +163,7 @@ describe('справочники: права на удаление, встрое
     expect(free.calls[0]).toMatchObject({ coll: 'units', op: 'updateOne' });
   });
 
-  it('встроенное нельзя удалить ни админу, ни владельцу; свою категорию паспорта — можно', async () => {
+  it('встроенное нельзя удалить ни админу, ни владельцу; свой тип паспорта — можно', async () => {
     const id = oid(), own = oid();
     const { svc } = fake({ dict_values: [{ _id: id, dict: 'passportCategories', code: 'ALL', name: 'Для всех' }, { _id: own, dict: 'passportCategories', code: 'MY', name: 'Моя' }] });
     await expect(svc.remove('passportCategories', String(id), { role: 'admin', isOwner: true })).rejects.toThrow(/встроено в программу/);

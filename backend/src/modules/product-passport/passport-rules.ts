@@ -184,7 +184,7 @@ export const V2_FIELD_LABELS: Record<string, string> = Object.fromEntries(Object
 ]));
 
 /**
- * Обязательные поля категории (Э9): из справочника «Категории паспортов» (`requiredFields` — по строке ключ поля,
+ * Обязательные поля категории (Э9): из справочника «Типы паспортов» (`requiredFields` — по строке ключ поля,
  * можно «ключ — подпись»); поле пустое — запасной путь, `V2_REQUIRED_FIELDS` в коде.
  */
 export function requiredFieldsOf(code: string, cat?: { requiredFields?: string } | null): Array<[string, string]> {

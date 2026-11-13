@@ -64,10 +64,10 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
     const c = scope(); if (!c) return list;
     return [...list.filter((x) => own(x.categories, { strict })), ...list.filter((x) => !own(x.categories, { strict }))];
   };
-  const groupOf = (x, strict = false) => (scope() ? (own(x.categories, { strict }) ? 'Для категории паспорта' : 'Другие') : undefined);
+  const groupOf = (x, strict = false) => (scope() ? (own(x.categories, { strict }) ? 'Для этого типа паспорта' : 'Другие') : undefined);
   let showAllParts = false;
   const partsBtn = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', hidden: true, onclick: () => {
-    showAllParts = !showAllParts; partsBtn.textContent = showAllParts ? 'Только части категории' : 'Показать все части';
+    showAllParts = !showAllParts; partsBtn.textContent = showAllParts ? 'Только части этого типа паспорта' : 'Показать все части';
     rows.forEach((r) => r.paint?.());
   } }, 'Показать все части');
   const syncPartsBtn = () => {
@@ -158,13 +158,13 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
       },
       empty: (t) => {
         if (t) return canDict ? 'Нет в «Частях изделия» — Enter добавит, справочник предложит сохранить' : 'Нет в «Частях изделия» — добавить может директор или администратор';
-        if (scope() && !showAllParts) return 'Нет частей этой категории — «Показать все части» или добавьте свою';
+        if (scope() && !showAllParts) return 'Нет частей этого типа паспорта — «Показать все части» или добавьте свою';
         return 'Справочник «Части изделия» пуст';
       },
       chips: () => row.parts.map((p) => {
         const rec = p.id ? partBy().get(String(p.id)) : null;
         const foreign = !p.id || (scope() && rec && !own(rec.categories, { strict: true }));
-        return { text: p.name, foreign, title: !p.id ? (canDict ? 'Нет в справочнике — сохраните ниже' : 'Нет в справочнике — в изделие не попадёт') : foreign ? 'Не для этой категории паспорта' : '' };
+        return { text: p.name, foreign, title: !p.id ? (canDict ? 'Нет в справочнике — сохраните ниже' : 'Нет в справочнике — в изделие не попадёт') : foreign ? 'Не для этого типа паспорта' : '' };
       }),
       onAdd: (t) => {
         for (const n of t.split(/\s*[;,]\s*/).map(s).filter(Boolean)) {
@@ -377,19 +377,19 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
   };
   const tplUrl = () => '/passports/template?category=' + encodeURIComponent(scope());
   const busy = async (b, fn) => { b.disabled = true; b.classList.add('is-busy'); try { await fn(); } catch (er) { toastError(er); } finally { b.disabled = false; b.classList.remove('is-busy'); } };
-  const tplBtn = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', hidden: true, title: 'Подставить строки шаблона категории изделия', onclick: (e) => busy(e.currentTarget, async () => {
+  const tplBtn = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', hidden: true, title: 'Подставить строки шаблона типа паспорта изделия', onclick: (e) => busy(e.currentTarget, async () => {
     const sp = parseSpec((await api(tplUrl())).materialsSpec);
-    if (!sp.rows.length) { tplBtn.hidden = true; toast('У категории нет шаблона таблицы'); return; }
+    if (!sp.rows.length) { tplBtn.hidden = true; toast('У типа паспорта нет шаблона таблицы'); return; }
     const n = mergeSpec(sp);
     toast(n ? `Добавлено строк из шаблона: ${n} — проверьте и сохраните` : 'Все части шаблона уже есть в таблице');
-  }) }, 'Шаблон по категории');
-  const tplSave = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', hidden: true, title: 'Запомнить текущую таблицу как шаблон для всех изделий этой категории', onclick: (e) => busy(e.currentTarget, async () => {
+  }) }, 'Шаблон по типу паспорта');
+  const tplSave = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', hidden: true, title: 'Запомнить текущую таблицу как шаблон для всех изделий этого типа паспорта', onclick: (e) => busy(e.currentTarget, async () => {
     const sp = spec();
     if (!sp?.rows.length) { toast('Таблица пуста — шаблон не из чего собрать'); return; }
     await api('/passports/template', { method: 'PUT', body: { category: scope(), materialsSpec: sp } }); // категория — в теле: query сервер не читает
     tplBtn.hidden = false;
-    toast('Таблица сохранена как шаблон категории');
-  }) }, 'Сохранить как шаблон категории');
+    toast('Таблица сохранена как шаблон типа паспорта');
+  }) }, 'Сохранить как шаблон типа паспорта');
   // категорию узнаём при показе (она может смениться в форме); шаблон проверяется один раз на категорию
   let tplFor = null;
   const tplCheck = async () => {

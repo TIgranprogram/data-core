@@ -5,7 +5,7 @@ import { toast } from './kit/toast.js';
 import { link } from './kit/index.js';
 
 /**
- * Воронка текстов паспорта (DESIGN §4 «Шаг-воронка»): по категории — шаги «раздел → 2–3 варианта → (подвариант) → текст».
+ * Воронка текстов паспорта (DESIGN §4 «Шаг-воронка»): по типу паспорта — шаги «раздел → 2–3 варианта → (подвариант) → текст».
  * Данные: GET /passports/funnel?category=… → { sections: [{ id, name, section, required, children: [узел { id, name, text?, isDefault?, children? }] }] }.
  * Выбор — textChoices: { [id раздела]: id листа }. Единственный вариант и «по умолчанию» подставляются сами (в значение не пишутся,
  * сервер делает то же); шаг с выбором сворачивается в строку «Монтаж: … · Изменить», под ней текст в 2 строки.
@@ -148,11 +148,11 @@ export function funnelBox({ value, category = '', canEditText = false, onPaint, 
     return set.has(String(s.id)) || set.has(String(s.section || '')) || set.has(String(s.name || ''));
   };
   function paint() {
-    if (!cat) { el.replaceChildren(h('p', { class: 'muted' }, 'Выберите категорию — здесь появятся шаги: монтаж, назначение и другие тексты.')); onPaint?.([]); return; }
+    if (!cat) { el.replaceChildren(h('p', { class: 'muted' }, 'Тип паспорта не задан — здесь появятся шаги: монтаж, назначение и другие тексты.')); onPaint?.([]); return; }
     if (failed) { el.replaceChildren(failBlock(failed, () => refresh(true), { text: 'Не загрузились варианты текстов' })); onPaint?.([]); return; }
     if (!data) { el.replaceChildren(h('div', { class: 'state is-loading', role: 'status' }, 'Загружаю варианты…')); onPaint?.([]); return; }
     const secs = (data.sections || []).filter((s) => s.children && s.children.length && wanted(s));
-    if (!secs.length) { el.replaceChildren(h('p', { class: 'muted' }, 'Для этой категории вариантов текстов пока нет — они появятся, когда будет заполнен «Справочники → Тексты паспорта».')); onPaint?.([]); return; }
+    if (!secs.length) { el.replaceChildren(h('p', { class: 'muted' }, 'Для этого типа паспорта вариантов текстов пока нет — они появятся, когда будет заполнен «Справочники → Тексты паспорта».')); onPaint?.([]); return; }
     el.replaceChildren(...secs.map(step));
     onPaint?.(secs);
   }

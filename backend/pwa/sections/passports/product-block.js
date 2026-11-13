@@ -117,10 +117,10 @@ export function productBlock(api, { r, catBy }) {
     sumLine.replaceChildren(text ? text + ' — ' : '', 'из изделия · ', editProduct,
       h('div', { class: 'muted' }, [!api.get('height') || !api.get('length') || !api.get('width') ? 'Габариты в изделии заполнены не полностью.' : '', !api.get('weight') ? 'Вес в изделии не заполнен.' : '', 'Поля паспорта ниже можно дополнить. Общие данные и рисунки — в изделии; после правки вернётесь сюда.'].filter(Boolean).join(' ')), diffs,
       draft ? null : ' · ', draft ? null : button({ label: 'изменить название паспорта', kind: 'ghost', size: 'S', onClick: () => { api.open('name'); api.field('name')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }),
-      !draft && r?.categoryDiffers ? h('div', null, h('span', { class: 'badge warn' }, 'Категория отличается от изделия'), ' ', V2_CATS.find((c) => c.value === (r.productCategory?.code || r.productCategory))?.label || '') : null,
+      !draft && r?.categoryDiffers ? h('div', null, h('span', { class: 'badge warn' }, 'Тип паспорта отличается от изделия'), ' ', V2_CATS.find((c) => c.value === (r.productCategory?.code || r.productCategory))?.label || '') : null,
       fromOrder ? h('div', null, 'Название — как в заказе · ', button({ label: 'взять из изделия', kind: 'ghost', size: 'S', onClick: () => { api.set('name', chosen.name); paintSum(); } })) : null);
   };
-  // источник категории — плашка рядом с выбором «Категория паспорта»
+  // источник категории — плашка рядом с выбором «Тип паспорта»
   const badge = h('div', { class: 'pp-cat-src' });
   const paintBadge = () => {
     if (!catInfo || !chosen) { badge.replaceChildren(); return; }
@@ -132,13 +132,13 @@ export function productBlock(api, { r, catBy }) {
     else if (catInfo.inherited) { kind = 'warn'; text = catInfo.type ? `по разделу «${catInfo.type}» — проверьте` : 'по разделу — проверьте'; }
     else { kind = 'warn'; text = 'не задана — выберите'; }
     const canReset = catInfo.own && canEdit();
-    badge.replaceChildren(h('span', { class: 'badge ' + kind }, 'Категория: ' + text),
-      ...(canReset ? [' ', button({ label: 'Сбросить', kind: 'ghost', size: 'S', onClick: () => resetOwn() })] : []));
+    badge.replaceChildren(h('span', { class: 'badge ' + kind }, 'Тип паспорта: ' + text),
+      ...(canReset ? [' ', button({ label: 'Брать из группы', kind: 'ghost', size: 'S', onClick: () => resetOwn() })] : []));
   };
   const catField = api.field('passportCategory'); if (catField && !r) catField.append(badge);
   const resetOwn = async () => {
     const grp = catInfo?.group ? `группы «${catInfo.group}»` : 'группы';
-    const ok = await modal({ title: 'Сбросить категорию изделия', okText: 'Сбросить', body: h('p', null, `Категория изделия будет браться из ${grp}. Сбросить?`),
+    const ok = await modal({ title: 'Брать тип паспорта из группы', okText: 'Брать из группы', body: h('p', null, `Тип паспорта изделия будет браться из ${grp}. Продолжить?`),
       onOk: async () => {
         const d = { ...(catInfo.defaults || {}) }; delete d.passportCategory;
         await requestApi(`/showcase/${chosen.id}/passport-defaults`, { method: 'PUT', body: d });
@@ -189,8 +189,8 @@ export function productBlock(api, { r, catBy }) {
       return;
     }
     const cats = V2_CATS.filter((c) => c.value && !LATER_CATS.includes(c.value));
-    const seg = segmented({ items: [{ key: '', label: 'Все' }, ...cats].map((c) => ({ key: c.value, label: c.label })), value: filterCat, label: 'Показать изделия категории', onChange: (k) => { filterCat = k; render(); } }).el;
-    const input = h('input', { type: 'text', value: q, placeholder: 'Найти изделие: название или артикул — по всем категориям', 'aria-label': 'Найти изделие', autocomplete: 'off' });
+    const seg = segmented({ items: [{ key: '', label: 'Все' }, ...cats].map((c) => ({ key: c.value, label: c.label })), value: filterCat, label: 'Показать изделия типа паспорта', onChange: (k) => { filterCat = k; render(); } }).el;
+    const input = h('input', { type: 'text', value: q, placeholder: 'Найти изделие: название или артикул — по всем типам паспорта', 'aria-label': 'Найти изделие', autocomplete: 'off' });
     const list = h('ul', { class: 'pp-prod-list', role: 'listbox', 'aria-label': 'Изделия' });
     const add = button({ label: '', size: 'S' });
     const fill = async () => {
@@ -200,9 +200,9 @@ export function productBlock(api, { r, catBy }) {
         : all.filter((p) => !filterCat || p.ppCategory === filterCat);
       rows = rows.sort((a, b) => (a.canPassport === false) - (b.canPassport === false) || (b.passportsCount || 0) - (a.passportsCount || 0) || String(a.name).localeCompare(String(b.name), 'ru'));
       const shown = rows.slice(0, 60);
-      list.replaceChildren(...(shown.length ? shown.map((p) => h('li', { class: 'sg-row sg-pic-row' + (p.canPassport === false ? ' shp-dim' : ''), role: 'option', tabindex: '0', 'aria-disabled': p.canPassport === false ? 'true' : null, title: p.canPassport === false ? 'Нет категории паспорта — заполните в «Продукции»' : null, onclick: () => { if (p.canPassport !== false) pick(p); }, onkeydown: (e) => { if (e.key === 'Enter' && p.canPassport !== false) pick(p); } },
-        pic(p), h('div', null, h('div', { class: 'opt-l' }, front(p)), h('small', null, sub(p)), p.canPassport === false ? h('small', { class: 'shp-why' }, 'Нет категории паспорта — заполните в «Продукции»') : null)))
-        : [h('li', { class: 'sg-row static' }, h('span', { class: 'muted' }, q ? `По «${q}» изделий нет — создайте его кнопкой ниже` : filterCat ? 'В этой категории изделий пока нет — найдите по названию или создайте' : 'Изделий пока нет — создайте первое'))]),
+      list.replaceChildren(...(shown.length ? shown.map((p) => h('li', { class: 'sg-row sg-pic-row' + (p.canPassport === false ? ' shp-dim' : ''), role: 'option', tabindex: '0', 'aria-disabled': p.canPassport === false ? 'true' : null, title: p.canPassport === false ? 'Нет типа паспорта — заполните в «Продукции»' : null, onclick: () => { if (p.canPassport !== false) pick(p); }, onkeydown: (e) => { if (e.key === 'Enter' && p.canPassport !== false) pick(p); } },
+        pic(p), h('div', null, h('div', { class: 'opt-l' }, front(p)), h('small', null, sub(p)), p.canPassport === false ? h('small', { class: 'shp-why' }, 'Нет типа паспорта — заполните в «Продукции»') : null)))
+        : [h('li', { class: 'sg-row static' }, h('span', { class: 'muted' }, q ? `По «${q}» изделий нет — создайте его кнопкой ниже` : filterCat ? 'Для этого типа паспорта изделий пока нет — найдите по названию или создайте' : 'Изделий пока нет — создайте первое'))]),
         ...(rows.length > shown.length ? [h('li', { class: 'sg-row muted static' }, `ещё ${rows.length - shown.length} — уточните поиск`)] : []));
       add.textContent = q ? `+ Создать изделие «${q}»` : '+ Создать изделие';
     };

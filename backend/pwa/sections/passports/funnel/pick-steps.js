@@ -35,7 +35,7 @@ export function pickSteps({ getQ, onData, onChange }) {
       const values = (s.values || []).map((v) => { labels.set(s.key + ':' + v.id, v.label); return { id: v.id, label: v.label, count: v.count, thumb: v.thumb }; });
       if (s.none > 0 && !REQUIRED.includes(s.key)) values.push({ id: NONE, label: 'Признак не указан', count: s.none });
       for (const id of ids(P[s.key])) if (!values.some((v) => String(v.id) === id)) values.push({ id, label: labels.get(s.key + ':' + id) || id, count: 0 });
-      return { key: s.key, label: s.label, ask: s.key === 'category' ? 'выберите категорию' : s.key === 'group' ? 'выберите группу' : `уточните: ${String(s.label).toLowerCase()} — по желанию`, multi: !!s.multi, skip: !!s.skip, optional: !REQUIRED.includes(s.key), value: P[s.key] || '', values };
+      return { key: s.key, label: s.label, ask: s.key === 'category' ? 'выберите тип паспорта' : s.key === 'group' ? 'выберите группу' : `уточните: ${String(s.label).toLowerCase()} — по желанию`, multi: !!s.multi, skip: !!s.skip, optional: !REQUIRED.includes(s.key), value: P[s.key] || '', values };
     });
     fun.update({ steps });
     onData?.(resp);

@@ -81,7 +81,7 @@ function build() {
     pickBox.hidden = true; newBox.hidden = false; ps.setDone(true); say('введите название нового изделия');
   }
 
-  /** C096 Э4: категория паспорта нового изделия — по его группе; шаги выше не должны показывать другую. */
+  /** C096 Э4: тип паспорта нового изделия — по его группе; шаги выше не должны показывать другую. */
   function followCategory(prod) {
     const pc = prod?.passportCategory;
     const code = String(pc?.own?.code || pc?.inherited?.code || pc?.code || prod?.passportDefaults?.passportCategory || '');
@@ -89,7 +89,7 @@ function build() {
     if (!was || was.id === code) return;
     S.P = code ? { category: code } : {};
     ps.update(S.P);
-    toast(code ? `Категория паспорта — по группе изделия: ${ps.labelOf('category', code) || code}` : 'У группы изделия нет категории паспорта — выберите её ниже');
+    toast(code ? `Тип паспорта — по группе изделия: ${ps.labelOf('category', code) || code}` : 'У группы изделия нет типа паспорта — задайте его в группе изделия');
   }
   const pickBox = stack(pl.el);
   newBox.hidden = true;

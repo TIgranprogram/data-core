@@ -15,7 +15,7 @@ const DEFAULT_KEYS = ['elements', 'materialIds', 'installationTypeId', 'isKit', 
 const filled = (v: unknown) => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && !v.length) && !(typeof v === 'object' && !Array.isArray(v) && !(v instanceof Types.ObjectId) && !Object.keys(v as object).length);
 const pos = (v: unknown) => (Number(v) > 0 ? Number(v) : undefined);
 
-/** Категория паспорта изделия: своя (passportDefaults) → вида изделия (C100) → унаследованная от группы / раздела. */
+/** Тип паспорта изделия: своя (passportDefaults) → вида изделия (C100) → унаследованная от группы / раздела. */
 export async function productPassportCode(db: mongo.Db, prod: Doc, resolved?: ResolvedKind): Promise<string | null> {
   const own = (prod.passportDefaults as { passportCategory?: string } | undefined)?.passportCategory;
   const ownCode = String(own ?? '').trim();
@@ -64,7 +64,7 @@ export function diffPatch(cur: Doc, patch: Doc): Doc {
 /** Черновик с изделием берёт поля у изделия; остальные паспорта — нет. */
 export const followsProduct = (d: Doc) => d.status === 'draft' && !!d.productId;
 
-/** Категории паспорта изделий пачкой: id изделия → код (или null). */
+/** Типы паспорта изделий пачкой: id изделия → код (или null). */
 export async function productCategories(db: mongo.Db, ids: Array<Types.ObjectId | string>): Promise<Map<string, string | null>> {
   const oids = [...new Set(ids.map(String))].filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
   const out = new Map<string, string | null>();

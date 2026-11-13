@@ -32,14 +32,14 @@ async function valueUses(db: Db, ids: Types.ObjectId[]) {
 }
 
 /**
- * «Признаки продукции» и «Значения признаков» (C028, паспорт воронкой): признак привязан к категории паспорта (шаг воронки),
+ * «Признаки продукции» и «Значения признаков» (C028, паспорт воронкой): признак привязан к типу паспорта (шаг воронки),
  * значение — к признаку по id (`parentId`); у изделия значения лежат в `products.facetValueIds`. Связи по id: переименование безопасно.
  */
 export function productFacetDefs(simple: Simple): DictBase[] {
   const facetsBase = simple('productFacets', 'Паспорта', 'Признаки продукции',
-    'По каким признакам сужается выбор изделия при создании паспорта (для тренажёров — вид, группа мышц…). Признак относится к одной категории паспорта; его значения — в «Значениях признаков».',
+    'По каким признакам сужается выбор изделия при создании паспорта (для тренажёров — вид, группа мышц…). Признак относится к одной типа паспорта; его значения — в «Значениях признаков».',
     [
-      { key: 'category', label: 'Категория паспорта', type: 'select', required: true, options: CATEGORIES.map((v) => ({ value: v, label: v })) },
+      { key: 'category', label: 'Тип паспорта', type: 'select', required: true, options: CATEGORIES.map((v) => ({ value: v, label: v })) },
       { key: 'order', label: 'Порядок', hint: 'Число: чем меньше, тем раньше шаг' },
       { key: 'step', label: 'Шаг воронки', type: 'select', bool: true, options: [{ value: 'true', label: 'да' }], hint: 'Спрашивать при создании паспорта' },
       { key: 'multi', label: 'Можно несколько значений', type: 'select', bool: true, options: [{ value: 'true', label: 'да' }] },
@@ -52,7 +52,7 @@ export function productFacetDefs(simple: Simple): DictBase[] {
     toDoc: async (b, isNew, db, id) => {
       const name = s(b.name), code = s(b.code), category = s(b.category);
       if (!name) throw new BadRequestException('Укажите название признака');
-      if (!CATEGORIES.includes(category)) throw new BadRequestException('Категория паспорта: одна из ' + CATEGORIES.join(', '));
+      if (!CATEGORIES.includes(category)) throw new BadRequestException('Тип паспорта: одна из ' + CATEGORIES.join(', '));
       const cur = id ? await db.collection('dict_values').findOne({ _id: new Types.ObjectId(id) }) : null;
       const had = s(cur?.code);
       const c = code || had;

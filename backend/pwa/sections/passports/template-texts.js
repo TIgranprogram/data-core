@@ -60,7 +60,7 @@ export function ownTexts({ r, can, save }) {
 
   function paint(items) {
     cache = items;
-    if (!items.length) { body.replaceChildren(empty({ title: 'Тексты пока не подобраны', hint: 'Выберите категорию паспорта и варианты текстов выше — они появятся здесь.' })); return; }
+    if (!items.length) { body.replaceChildren(empty({ title: 'Тексты пока не подобраны', hint: 'Выберите тип паспорта и варианты текстов выше — они появятся здесь.' })); return; }
     body.replaceChildren(
       hint('Индивидуальные тексты этого изделия, которые встанут в паспорт. Общие тексты «Для всех» здесь не показаны.'),
       table({
@@ -79,7 +79,7 @@ export function ownTexts({ r, can, save }) {
   }
 
   async function load() {
-    if (!(r.passportDefaults?.passportCategory || r.passportCategory?.code)) { body.replaceChildren(hint('Сначала выберите категорию паспорта')); return; }
+    if (!(r.passportDefaults?.passportCategory || r.passportCategory?.code)) { body.replaceChildren(hint('Сначала выберите тип паспорта')); return; }
     try { paint((await api('/passports/product-texts', { query: { productId: r.id } })).items || []); }
     catch { body.replaceChildren(hint('Не удалось загрузить тексты', 'warn')); }
   }

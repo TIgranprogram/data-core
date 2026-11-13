@@ -101,7 +101,7 @@ export class PassportPdfService {
     return { buf, filename: packFileName(p, pack, opts.stamp) };
   }
 
-  /** Предпросмотр по изделию: тот же рендер, «ЧЕРНОВИК», без номера; в базу ничего не пишется и «выдан» не отмечается. pack=tech — только состав, категория паспорта не нужна. */
+  /** Предпросмотр по изделию: тот же рендер, «ЧЕРНОВИК», без номера; в базу ничего не пишется и «выдан» не отмечается. pack=tech — только состав, тип паспорта не нужна. */
   async preview(productId: string, opts: { mode?: 'pages' | 'print'; mono?: boolean; variant?: PassportVariant; pack?: PrintPack } = {}) {
     const pack = packOf(opts.pack);
     if (pack === 'tech') {
@@ -327,7 +327,7 @@ export class PassportPdfService {
    */
   private async withText(p: Doc): Promise<Doc> {
     if (((p.textSnapshot as { sections?: unknown[] } | undefined)?.sections ?? []).length) return p;
-    if (!p.passportCategory) throw new BadRequestException('У паспорта не выбрана категория — PDF собирается по ней. «Выбрать категорию» в карточке паспорта');
+    if (!p.passportCategory) throw new BadRequestException('У паспорта не выбран тип паспорта — PDF собирается по нему. Тип паспорта задаётся в группе или виде изделия');
     const doc = await this.passports.snapshot(String(p._id));
     if (!doc) throw new BadRequestException('Текст паспорта не собрался — проверьте категорию');
     return doc.toObject() as unknown as Doc;

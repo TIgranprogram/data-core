@@ -36,7 +36,7 @@ export function normalizePassportDefaults(b: Record<string, unknown>): PassportD
   const raw = String(b.passportCategory ?? '').trim();
   const cat = raw === 'MAF' ? 'BLG' : raw; // старый код (2026-10-25: MAF → BLG)
   if (cat) {
-    if (!(PASSPORT_CATEGORY_CODES as readonly string[]).includes(cat)) throw new BadRequestException(`Категория паспорта: одна из ${PASSPORT_CATEGORY_CODES.join(', ')}`);
+    if (!(PASSPORT_CATEGORY_CODES as readonly string[]).includes(cat)) throw new BadRequestException(`Тип паспорта: одна из ${PASSPORT_CATEGORY_CODES.join(', ')}`);
     out.passportCategory = cat;
   }
   const kindId = String(b.kindId ?? '').trim();

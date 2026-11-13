@@ -29,14 +29,14 @@ export function wireForm(api, { r, w, catBy, stdName, inst }) {
       const cur = sel.value;
       const own = (o) => !code || !o.cats.length || o.cats.includes(code);
       const list = inst.filter((o) => own(o) || o.value === cur);
-      sel.replaceChildren(h('option', { value: '' }, '—'), ...list.map((o) => h('option', { value: o.value }, own(o) ? o.label : `${o.label} — не для этой категории`)));
+      sel.replaceChildren(h('option', { value: '' }, '—'), ...list.map((o) => h('option', { value: o.value }, own(o) ? o.label : `${o.label} — не для этого типа паспорта`)));
       sel.value = cur;
       const o = inst.find((x) => x.value === cur); if (o && !own(o)) foreign.push(o.label);
     }
     const c = catBy.get(code);
     const stds = codeList(c?.standards);
-    w.std.textContent = !code ? 'Выберите категорию — здесь появятся её нормативы' : stds.length ? stds.map((s) => stdName.get(s) || s).join('; ') : 'У категории не указаны нормативы — «Справочники → Паспорта → Категории паспортов»';
-    if (warn && foreign.length) toast(`Не для категории «${CAT_NAMES[code] || code}»: ${foreign.join(', ')}. Оставлено — уберите, если не нужно`, { ms: 8000 });
+    w.std.textContent = !code ? 'Тип паспорта не задан — нормативы появятся после выбора' : stds.length ? stds.map((s) => stdName.get(s) || s).join('; ') : 'У типа паспорта не указаны нормативы — «Справочники → Паспорта → Типы паспортов»';
+    if (warn && foreign.length) toast(`Не для типа паспорта «${CAT_NAMES[code] || code}»: ${foreign.join(', ')}. Оставлено — уберите, если не нужно`, { ms: 8000 });
   };
   // умолчания категории: только в пустые поля или в то, что подставлено нами и не правилось руками
   const defaults = () => {
@@ -68,20 +68,20 @@ export function wireForm(api, { r, w, catBy, stdName, inst }) {
       const filled = String(api.get(k) ?? '').trim() !== '';
       fld.hidden = !own && !filled;
       const sp = fld.querySelector(':scope > span');
-      if (sp) { sp.textContent = label + (req.includes(k) ? ' *' : ''); if (!own && filled) sp.append(h('span', { class: 'muted' }, ' · не для этой категории')); }
+      if (sp) { sp.textContent = label + (req.includes(k) ? ' *' : ''); if (!own && filled) sp.append(h('span', { class: 'muted' }, ' · не для этого типа паспорта')); }
       let hn = fld.querySelector(':scope > .hint');
       const text = hints[k] || base || '';
       if (!hn && text) { hn = h('div', { class: 'hint' }); fld.querySelector(':scope > .err')?.before(hn); }
       if (hn) { hn.textContent = text; hn.hidden = !text; }
     }
   };
-  // ПК: категория каталога — по категории паспорта (первое из «Категорий каталога»), если не задана изделием или руками
+  // ПК: категория каталога — по типу паспорта (первое из «Категорий каталога»), если не задана изделием или руками
   const catalogByCat = () => {
     if (api.manual('category')) return;
     const cur = api.get('category'); const auto = api.input('category')?.classList?.contains('is-default');
     if (cur && !auto) return;
     const first = String(catBy.get(api.get('passportCategory'))?.catalogNames || '').split(/[,;]/).map((s) => s.trim()).filter(Boolean)[0];
-    if (first) api.set('category', first, { auto: true, src: 'по категории паспорта' });
+    if (first) api.set('category', first, { auto: true, src: 'по типу паспорта' });
   };
   api.on('passportCategory', () => {
     const code = api.get('passportCategory');

@@ -6,8 +6,8 @@ export async function passportBulkFields() {
   const [els, mats, inst, ours, f, cats] = await Promise.all([dictOpts('passportElements'), dictOpts('passportMaterials'), dictOpts('passportInstall'), ourCompanies(), facets(), categories()]);
   const n = (v) => (v === '' ? null : v);
   return [
-    { key: 'passportCategory', label: 'Категория паспорта', type: 'select', options: V2_CATS.filter((c) => c.value).map((c) => ({ value: c.value, label: c.label })),
-      hint: 'Текст паспорта соберётся заново по новой категории — правки пунктов текста у этих паспортов сбросятся' },
+    { key: 'passportCategory', label: 'Тип паспорта', type: 'select', options: V2_CATS.filter((c) => c.value).map((c) => ({ value: c.value, label: c.label })),
+      hint: 'Текст паспорта соберётся заново по новому типу паспорта — правки пунктов текста у этих паспортов сбросятся' },
     { key: 'category', label: 'Категория каталога', type: 'combo', options: cats },
     { key: 'installationTypeId', label: 'Способ установки', type: 'select', options: [{ value: '', label: '— не указан —' }, ...inst.map((o) => ({ value: o.value, label: o.label }))] },
     { key: 'elements', label: 'Функциональные элементы', type: 'tags', options: els, modes: true },

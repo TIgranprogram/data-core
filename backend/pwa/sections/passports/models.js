@@ -15,7 +15,7 @@ export async function models() {
     productId: r.productId || null, canPassport: r.canPassport !== false, missing: r.missing || [],
     label: r.name, cat: r.category || '', pic: r.thumb ? PREFIX + r.thumb : null,
     sub: [r.passportCategory && (V2_CATS.find((c) => c.value === r.passportCategory)?.label || r.passportCategory), r.article, dims(r), r.weight && num(r.weight) + ' кг', `${r.n} ${plural(r.n, 'паспорт', 'паспорта', 'паспортов')}`, (r.images || []).length ? `картинок ${(r.images || []).length}` : 'без картинок'].filter(Boolean).join(' · '),
-    // поиск модели (Э5a5): название, артикул, категория каталога, категория паспорта v2
+    // поиск модели (Э5a5): название, артикул, категория каталога, тип паспорта v2
     search: normSearch([r.name, r.article, r.category, r.passportCategory, V2_CATS.find((c) => c.value === r.passportCategory)?.label].filter(Boolean).join(' ')),
     values: { _copyFrom: r.id, name: r.name, category: r.category || '', article: r.article || '', height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight),
       materials: r.materials || '', installationMethod: r.installationMethod || '', purpose: r.purpose || '', description: r.description || '', supplierOrgId: r.supplierOrgId || '', warrantyMonths: num(r.warrantyMonths ?? 12),
@@ -32,7 +32,7 @@ export async function models() {
 let phrasesP = null; let phrasesAt = 0;
 export const phrases = (field) => async () => {
   if (!phrasesP || Date.now() - phrasesAt > 60000) { phrasesP = api('/passports/phrases'); phrasesAt = Date.now(); }
-  // ПК: варианты — по категории паспорта; фраза про детское у недетских категорий не предлагается
+  // ПК: варианты — по типу паспорта; фраза про детское у недетских категорий не предлагается
   return ((await phrasesP)[field] || []).map((x) => ({ ...x, categories: CHILD_TEXT.test(x.text) ? (x.passportCategories || []).filter((c) => CHILD_CATS.includes(c)) : x.passportCategories || [] }));
 };
 export const CHILD_TEXT = /детск|ребён|игров/i;
@@ -79,7 +79,7 @@ export const NAME_RULES = [
 ];
 export const categoryByName = (name) => { const n = String(name || '').toLowerCase().replace(/ё/g, 'е'); return NAME_RULES.find(([, rx]) => rx.test(n))?.[0] || ''; };
 
-/** Изделия «Продукции» для выбора в паспорте (ПИ): категория паспорта, число паспортов, фото — один запрос в минуту. */
+/** Изделия «Продукции» для выбора в паспорте (ПИ): тип паспорта, число паспортов, фото — один запрос в минуту. */
 let prodCache = null; let prodAt = 0;
 export const productsAll = async () => {
   if (!prodCache || Date.now() - prodAt > 60000) { prodAt = Date.now(); prodCache = api('/showcase', { query: { limit: 500 } }).then((r) => r.items || []).catch(() => { prodCache = null; return []; }); }

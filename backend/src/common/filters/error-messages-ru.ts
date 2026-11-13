@@ -118,7 +118,7 @@ const FIELD_RU: Record<string, string> = {
 /** Поля паспорта (приёмка 2026-10-23: «maxUsers: Должно быть числом» → «Пользователей одновременно: …»). */
 Object.assign(FIELD_RU, { maxUsers: 'Пользователей одновременно', siteLength: 'Площадка (длина)', siteWidth: 'Площадка (ширина)', ageFrom: 'Возраст от', ageTo: 'Возраст до',
   heightMin: 'Рост пользователя от', heightMax: 'Рост пользователя до', weightMax: 'Вес пользователя до', fallHeight: 'Высота свободного падения', serviceLifeYears: 'Срок службы',
-  warrantyMonths: 'Гарантия, мес.', height: 'Высота', length: 'Длина', width: 'Ширина', weight: 'Вес', passportCategory: 'Категория паспорта', installationTypeId: 'Способ установки' });
+  warrantyMonths: 'Гарантия, мес.', height: 'Высота', length: 'Длина', width: 'Ширина', weight: 'Вес', passportCategory: 'Тип паспорта', installationTypeId: 'Способ установки' });
 export const fieldRu = (f: string) => FIELD_RU[f] ?? f;
 
 const CV: Array<[RegExp, (m: RegExpMatchArray) => string]> = [

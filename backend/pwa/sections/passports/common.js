@@ -2,22 +2,23 @@ import { api, session } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { KINDS, KINDS_V2, catNames } from '../../core/passport-kinds.js';
 import { cachedFetch } from '../../core/cache.js';
+import { hint, link, stack } from '../../ui/kit/index.js';
 
 /** Общее для раздела «Паспорта»: категории, поля, статусы, справочники, комплектность (ПР-1: разрезан passports.js). */
 /** 1 паспорт, 2 паспорта, 5 паспортов. */
 export const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10; return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many; };
-/** Виды картинок: обязательные для категории паспорта — первыми (порядок справочника), остальные — как были. */
+/** Виды картинок: обязательные для типа паспорта — первыми (порядок справочника), остальные — как были. */
 export const kinds = (r) => {
   const all = [...KINDS, ...KINDS_V2];
   const req = (r?.requiredImages || []).filter((k) => all.some(([x]) => x === k));
   return [...req.map((k) => all.find(([x]) => x === k)), ...all.filter(([x]) => !req.includes(x))];
 };
 export const isRequired = (r, kind) => (r?.requiredImages || []).includes(kind);
-/** Категории, отложенные пользователем (2026-10-22: «детские пока не делаем») — в выборе не предлагаются. */
+/** Типы, отложенные пользователем (2026-10-22: «детские пока не делаем») — в выборе не предлагаются. */
 export const LATER_CATS = ['DIO', 'DSP'];
-/** Категории паспорта v2 и подсказки норм (решения по умолчанию — TASKS БЗ-6). */
+/** Типы паспорта v2 и подсказки норм (решения по умолчанию — TASKS БЗ-6). */
 export const V2_CATS = [
-  { value: '', label: 'Без категории' }, { value: 'TRN', label: 'Тренажёр' }, { value: 'WRK', label: 'Воркаут' },
+  { value: '', label: 'Без типа' }, { value: 'TRN', label: 'Тренажёр' }, { value: 'WRK', label: 'Воркаут' },
   { value: 'DSP', label: 'Детское спортивное' }, { value: 'DIO', label: 'Детское игровое' }, { value: 'BLG', label: 'Благоустройство' },
 ];
 export const V2_NUMS = [
@@ -38,11 +39,11 @@ export const persons = () => cachedFetch('dicts:persons', 60000, () => api('/dic
 const fio = (p) => [p.lastName, p.firstName, p.patronymic].filter(Boolean).join(' ') || p.name;
 /** Сотрудники для выбора: { value: id, label: ФИО, sub: должность, fired }; уволенных отсеивает вызывающий. */
 export const staffOptions = async () => ((await persons().catch(() => null))?.items || []).map((p) => ({ value: p.id, label: fio(p), name: p.name, sub: p.position || '', fired: p.status === 'fired' }));
-/** Категории паспорта (без «ALL») для выбора: { value: код, label: название }; кэш — минута. */
+/** Типы паспорта (без «ALL») для выбора: { value: код, label: название }; кэш — минута. */
 export const passportCategoryOptions = async () => (await cachedFetch('dicts:passportCategories', 60000, () => dictRows('passportCategories')))
   .filter((c) => c.code && c.code !== 'ALL').map((c) => ({ value: String(c.code), label: c.name }));
 export const codeList = (s) => String(s || '').split(/[,;\s]+/).filter(Boolean);
-/** Записи справочника для выбора: cats — к каким категориям паспорта относится (пусто — ко всем; ФП — фильтр по категории). */
+/** Записи справочника для выбора: cats — к каким типам паспорта относится (пусто — ко всем; ФП — фильтр по категории). */
 export const dictOpts = async (key) => (await dictRows(key)).map((d) => ({ value: d.id, code: d.code, label: d.name, sub: catNames(d.categories), cats: codeList(d.categories), kind: d.kind || '' }));
 /** Обязательные виды картинок категории — как на сервере (requiredImageKinds): по строке, «(если разборное)» — только у разборных; safety_zone = safety. */
 export const reqKinds = (cat, isKit) => {
@@ -53,7 +54,7 @@ export const reqKinds = (cat, isKit) => {
   }
   return out;
 };
-/** ПК: настройки полей категории из справочника «Категории паспортов» — строки «ключ — текст» / «ключ». */
+/** ПК: настройки полей типа паспорта из справочника «Типы паспортов» — строки «ключ — текст» / «ключ». */
 export const keyLines = (s) => String(s || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => l.split(/\s+[—-]\s+/)[0].trim());
 export const kvLines = (s) => Object.fromEntries(String(s || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => { const [k, ...v] = l.split(/\s+[—-]\s+/); return [k.trim(), v.join(' - ').trim()]; }).filter(([k, v]) => k && v));
 export const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
@@ -85,7 +86,7 @@ let oursCache = null;
 // SK-8d: наши компании — из /incomes/lookups (открыт всем); «Контрагенты» могут быть закрыты роли. Сбой — прежний /partners
 export const ourCompanies = async () => (oursCache ??= await api('/incomes/lookups').then((r) => r.companies || [])
   .catch(() => api('/partners', { query: { type: 'our' } }).then((r) => r.items)).catch(() => []));
-// ПК: категории каталога — из «Категорий каталога» справочника категорий паспортов и встречавшихся в паспортах (вшитого списка нет)
+// ПК: категории каталога — из «Категорий каталога» справочника типов паспортов и встречавшихся в паспортах (вшитого списка нет)
 export const categories = async () => { const [rows, f] = await Promise.all([dictRows('passportCategories'), facets()]); return [...new Set([...rows.flatMap((c) => String(c.catalogNames || '').split(/[,;]/).map((s) => s.trim()).filter(Boolean)), ...f.categories.map((c) => c.value)])]; };
 export const api_get = (p) => api(p);
 export const api_post = (p, body) => api(p, { method: 'POST', body });
@@ -126,6 +127,43 @@ export const parseBom = (rows, prev = []) => {
     };
   });
 };
+
+/** Ссылка в справочник: где задаётся тип паспорта (новая вкладка). */
+export const groupHref = (groupId) => '#dicts?d=productGroups&of=dict' + (groupId ? '&open=' + encodeURIComponent(groupId) : '');
+
+/**
+ * C103: «Тип паспорта» только для чтения, с подписью, откуда он взят. Выбора здесь нет: тип задаётся в группе или в виде изделия.
+ * name — название типа (пусто — не задан); from — «группа «…»» / «вид «…»» / «раздел «…»» (пусто и own=false — подпись не нужна);
+ * own — тип записан в самом изделии (старые данные); onReset — снять своё («Брать из группы»).
+ */
+export function passportTypeLine({ name, from, own, groupId, onReset } = {}) {
+  if (!name) {
+    return stack(
+      hint('Тип паспорта не задан. Он задаётся в группе изделия или в виде изделия — без него паспорт не собрать.', 'warn'),
+      link({ label: 'Задать в группе ↗', href: groupHref(groupId), target: '_blank', title: 'Откроется группа изделий в справочнике' }),
+    );
+  }
+  // «из …» — родительный падеж: источник приходит и как «вид «…»», и как «группа «…»» (сервер, ppInherited.via)
+  const gen = String(from || '').replace(/^вида?\s/, 'вида ').replace(/^группа\s/, 'группы ').replace(/^раздел\s/, 'раздела ');
+  const text = own ? `Тип паспорта: ${name} — своё у изделия` : `Тип паспорта: ${name}${gen ? ` — из ${gen}` : ''}`;
+  // «Брать из группы» — ссылкой в той же строке (дизайнер C103: не ряд кнопок подвала)
+  return own && onReset
+    ? h('p', { class: 'hint' }, text, ' · ', link({ label: 'Брать из группы', title: 'Убрать своё значение у изделия: тип будет по группе или виду', onClick: onReset }))
+    : hint(text);
+}
+
+/** C103: тип паспорта изделия по данным карточки (`r.passportCategory`): своё у изделия, из группы/вида/раздела, не задан. */
+export function productTypeLine(r, { onReset } = {}) {
+  const pc = r?.passportCategory;
+  const lbl = (c) => (c ? String(c.name || c.code || '') : '');
+  // группа: groupId (список) или categoryId — объект с id (карточка /showcase/:id) либо строка
+  const cat = r?.categoryId;
+  const groupId = r?.groupId || (cat && typeof cat === 'object' ? cat.id || cat._id : cat) || '';
+  if (pc?.own) return passportTypeLine({ name: lbl(pc.own), own: true, groupId, onReset });
+  const cur = pc?.inherited || (pc && pc.code ? pc : null);
+  if (cur) return passportTypeLine({ name: lbl(cur), from: cur.via || '', groupId });
+  return passportTypeLine({ groupId });
+}
 
 /** Состояние раздела между файлами: категория нового паспорта, паспорт «Новая редакция», черновик «Выпустить паспорт». */
 export const st = { newCat: '', revisionFor: null, draft: null };

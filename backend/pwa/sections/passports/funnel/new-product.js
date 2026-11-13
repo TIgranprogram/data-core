@@ -44,7 +44,7 @@ export function newProduct({ group = '', facetIds = [], category = null, knownGr
     const groups = fv.groups || [];
     const form = buildForm([
       { key: 'name', label: 'Название', required: true, wide: true, max: 500, placeholder: 'Как изделие называется в каталоге' },
-      { key: 'group', label: 'Группа', type: 'combo', required: true, strict: true, strictText: 'Выберите группу из списка', options: groups.map((g) => ({ value: g.value, label: g.value, sub: g.section })), hint: group ? 'Подставлена из выбранного выше' : 'Определяет раздел каталога и категорию паспорта' },
+      { key: 'group', label: 'Группа', type: 'combo', required: true, strict: true, strictText: 'Выберите группу из списка', options: groups.map((g) => ({ value: g.value, label: g.value, sub: g.section })), hint: group ? 'Подставлена из выбранного выше' : 'Определяет раздел каталога и тип паспорта' },
       { key: 'photos', label: 'Фото изделия', type: 'photos', wide: true, hint: 'Можно добавить позже, но без фото PDF не выйдет' },
       { key: 'weightKg', label: 'Вес, кг', type: 'number', hint: 'Нужен для паспорта — можно позже' },
     ], { group });
@@ -65,9 +65,9 @@ export function newProduct({ group = '', facetIds = [], category = null, knownGr
       const v = r.values;
       const type = groups.find((g) => g.value === v.group)?.section;
       if (!type) { toast('Выберите группу из списка — по ней определяется раздел', { error: true }); return; }
-      // C096 Э4: группа не встречается в выбранной выше категории — категория паспорта будет по группе; сказать до создания
+      // C096 Э4: группа не встречается в выбранной выше категории — тип паспорта будет по группе; сказать до создания
       if (ctx.category?.code && ctx.knownGroups.length && !ctx.knownGroups.includes(v.group) && v.group !== ctx.group
-        && !(await confirmDlg('Группа из другой категории?', `Выше выбрана категория «${ctx.category.label || ctx.category.code}». В ней нет группы «${v.group}». Категория паспорта нового изделия будет по его группе. Шаги выше обновятся.`, { okText: 'Создать в этой группе' }))) return;
+        && !(await confirmDlg('Группа из другого типа паспорта?', `Выше выбран тип паспорта «${ctx.category.label || ctx.category.code}». В ней нет группы «${v.group}». Тип паспорта нового изделия будет по его группе. Шаги выше обновятся.`, { okText: 'Создать в этой группе' }))) return;
       saving = true; create.disabled = true; el.classList.add('is-busy');
       const controls = [...form.el.querySelectorAll('input,textarea,select,button')].map((input) => ({ input, disabled: input.disabled }));
       controls.forEach(({ input }) => { input.disabled = true; });

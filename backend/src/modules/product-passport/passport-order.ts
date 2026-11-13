@@ -32,7 +32,7 @@ export interface PlanLine {
   productName: string | null;
   /** артикул изделия (sku) */
   article: string | null;
-  /** категория паспорта изделия (название): своя или от группы каталога; null — не задана */
+  /** тип паспорта изделия (название): свой или от группы каталога; null — не задан */
   categoryName: string | null;
   qty: number | null;
   passport: { id: string; number: string | null; status: 'draft' | 'issued' } | null;

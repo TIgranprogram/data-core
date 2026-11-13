@@ -32,7 +32,7 @@ export const PASSPORT_JOINT_CODES: readonly string[] = Object.keys(PASSPORT_JOIN
 /** Признаки, про которые пока ничего не известно, если не выбраны соединения (три состояния: да / нет / неизвестно). */
 export const JOINT_TRAITS: readonly string[] = ['bolts', 'welds'];
 
-/** Категории паспорта, где изделием пользуются люди (признак users берётся из категории, не из справочника). */
+/** Типы паспорта, где изделием пользуются люди (признак users берётся из категории, не из справочника). */
 export const USERS_CATEGORIES: readonly string[] = ['TRN', 'WRK', 'DIO', 'DSP'];
 
 /**

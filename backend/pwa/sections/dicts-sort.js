@@ -126,7 +126,7 @@ export function dictsTable(opts) {
   if (dictKey === 'productGroups') return productGroupsView(rows, sortMode, ctx, tools);
 
   const columns = [{ key: 'name', label: 'Название', wrap: true }];
-  if (dictKey === 'productSections') columns.push({ key: 'passportCategory', label: 'Категория паспорта', wrap: true });
+  if (dictKey === 'productSections') columns.push({ key: 'passportCategory', label: 'Тип паспорта', wrap: true });
   for (const c of cols) {
     if (SKIP_COL.has(c.key)) continue;
     if (dictKey === 'productSections' && c.key === 'passportCategory') continue;

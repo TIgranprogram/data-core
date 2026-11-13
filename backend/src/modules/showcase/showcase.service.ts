@@ -113,7 +113,7 @@ export class ShowcaseService {
       }
     }
     const ph = await loadPhotos(this.db, [...ownPhotoIds, ...ppCoverMap.values()]);
-    // ПИ: категория паспорта изделия (своя из passportDefaults, иначе — по «Категориям каталога») и сколько паспортов выпущено
+    // ПИ: тип паспорта изделия (своя из passportDefaults, иначе — по «Категориям каталога») и сколько паспортов выпущено
     const [ppCats, ppCounts] = await Promise.all([
       this.db.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, name: 1, catalogNames: 1 } }).toArray() as unknown as Promise<PpCat[]>,
       docs.length ? this.db.collection('productpassports').aggregate([{ $match: { deletedAt: null, productId: { $in: docs.map((d) => d._id) } } }, { $group: { _id: '$productId', n: { $sum: 1 } } }]).toArray() : Promise.resolve([]),
@@ -142,7 +142,7 @@ export class ShowcaseService {
         ralCode: (d.ralCode as string) || null, purpose: (d.purpose as string) || null, installation: (d.installation as string) || null,
         kind: rk?.kind ? { id: rk.kind.id, name: rk.kind.name, source: rk.source, groupName: rk.groupName } : null,
         facetValueIds: ((d.facetValueIds as Types.ObjectId[]) ?? []).map(String), passportsCount: ppN.get(String(d._id)) ?? 0, designerId: d.designerId ? String(d.designerId) : null,
-        canPassport: !!pp.effective, missing: pp.effective ? [] : ['Нет категории паспорта — заполните в «Документация → Шаблоны»'], ppCategory: pp.effective?.code ?? null, ppSource: pp.effective?.source ?? null, ppOwn: pp.own, ppInherited: pp.inherited };
+        canPassport: !!pp.effective, missing: pp.effective ? [] : ['Нет типа паспорта — задайте его в группе или виде изделия'], ppCategory: pp.effective?.code ?? null, ppSource: pp.effective?.source ?? null, ppOwn: pp.own, ppInherited: pp.inherited };
     });
   }
 
@@ -202,8 +202,8 @@ export class ShowcaseService {
   }
 
   /**
-   * Подсказки формы изделия (ФИ): разделы и группы с числом изделий, названия «Категорий каталога» из категорий паспортов
-   * (раздел изделия связан с категорией паспорта по названию), серии, цвета (+ справочник «Цвета») и размеры, что уже встречались.
+   * Подсказки формы изделия (ФИ): разделы и группы с числом изделий, названия «Категорий каталога» из типов паспортов
+   * (раздел изделия связан с типом паспорта по названию), серии, цвета (+ справочник «Цвета») и размеры, что уже встречались.
    */
   /** Значения для формы изделия — кэш по версиям данных (С9; проверка архитектора 2026-10-23: читалось при каждом открытии формы). */
   async formValues() {
@@ -222,7 +222,7 @@ export class ShowcaseService {
     ]);
     const roots = groups.filter((g) => !g.parentId);
     const rootName = new Map(roots.map((g) => [g.id, g.name]));
-    const catalog = ppCats.flatMap((c) => String(c.catalogNames ?? '').split(/[,;\n]/).map(clean).filter(Boolean).map((value) => ({ value, sub: `категория паспорта ${clean(c.code)}` })));
+    const catalog = ppCats.flatMap((c) => String(c.catalogNames ?? '').split(/[,;\n]/).map(clean).filter(Boolean).map((value) => ({ value, sub: `тип паспорта ${clean(c.code)}` })));
     return {
       sections: withDict(roots.map((g) => ({ value: g.name, n: g.count })), catalog),
       groups: groups.filter((g) => g.parentId).map((g) => ({ value: g.name, n: g.count, section: rootName.get(String(g.parentId)) ?? '' })),

@@ -153,8 +153,9 @@ export async function fromIncome(db: Db, dto: CreateProductPassportDto): Promise
   const head = { projection: { orderNo: 1, productionNo: 1, customer: 1, companyId: 1, offerId: 1 } };
 
   if (dto.incomeId) {
-    const inc = await db.collection('incomes').findOne({ _id: new Types.ObjectId(dto.incomeId), deletedAt: null }, { projection: { orderId: 1, productId: 1 } });
+    const inc = await db.collection('incomes').findOne({ _id: new Types.ObjectId(dto.incomeId), deletedAt: null }, { projection: { orderId: 1, productId: 1, cancelledAt: 1 } });
     if (!inc) throw new BadRequestException('Позиция заказа не найдена');
+    if (inc.cancelledAt) throw new BadRequestException('Позиция заказа отменена — паспорт на неё не нужен');
     order = inc.orderId
       ? await db.collection('salesorders').findOne({ _id: inc.orderId, deletedAt: null }, head) as OrderHead | null
       : null;

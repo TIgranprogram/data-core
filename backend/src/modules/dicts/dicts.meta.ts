@@ -16,7 +16,7 @@ export type DictMeta = {
 
 export const BUILTIN_REASON = 'Встроено в программу';
 
-/** Категории паспорта, которые знает код: «Для всех» и пять видов изделий (коды — из showcase/passport-defaults). */
+/** Типы паспорта, которые знает код: «Для всех» и пять видов изделий (коды — из showcase/passport-defaults). */
 const CATEGORY_CODES: readonly string[] = ['ALL', ...PASSPORT_CATEGORY_CODES];
 /** «Оформление» PDF: цвета категорий, рамка, обложки и пиктограммы правил, заведённые программой (`scripts/seed-passport-dicts.js`). */
 const STYLE_ICONS = ['INSPECT', 'NO_WET', 'MAX_USERS', 'NO_CLIMB', 'NO_PUSH', 'SHOES', 'KIDS_ADULT', 'REPORT'];
@@ -37,7 +37,6 @@ export const DICT_META: Record<string, DictMeta> = {
   colors: { sections: ['Остатки', 'Заявки', 'Позиции и оплаты'], refBy: 'name' },
   metalAssortments: { sections: ['Остатки'], refBy: 'name' },
   steelGrades: { sections: ['Остатки'], refBy: 'name' },
-  passportTypes: { sections: ['Документация'], refBy: 'id' },
   persons: { sections: ['Заявки', 'Остатки', 'ФОТ'], refBy: 'name' },
   worktypes: { sections: ['ФОТ', 'Остатки'], refBy: 'id' },
   payoutSchedules: { sections: ['ФОТ'], refBy: 'id' },

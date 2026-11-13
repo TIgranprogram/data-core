@@ -28,7 +28,7 @@ describe('паспорта на весь заказ', () => {
     });
     const host: OrderHost = {
       db: () => ({ collection: col }) as never,
-      templateMissing: async (id) => (id === String(p2) ? ['Категория паспорта', 'Размеры'] : []),
+      templateMissing: async (id) => (id === String(p2) ? ['Тип паспорта', 'Размеры'] : []),
       createDraft: async (incomeId, _title, supplierOrgId) => { const _id = new Types.ObjectId(); made.push(incomeId); if (supplierOrgId) drafts.push(supplierOrgId); passports.push({ _id, incomeId: new Types.ObjectId(incomeId), status: 'draft', passportNumber: 'draft' }); return { id: String(_id) }; },
       setSupplier: async (_id, supplierOrgId) => { supplied.push(supplierOrgId); },
       hasOurSupplier: async () => true,
@@ -44,7 +44,7 @@ describe('паспорта на весь заказ', () => {
     expect(r).toMatchObject({ orderNo: '12-3', customerName: 'Школа', total: 4, issued: 1, ready: 1, blocked: 2 });
     expect(r.lines.map((l) => l.state)).toEqual(['ready', 'blocked', 'blocked', 'issued']);
     expect(r.lines[0]).toMatchObject({ qty: 2, productName: 'Урна «А»', article: 'У-1' });
-    expect(r.lines[1].missing).toEqual(['Категория паспорта', 'Размеры']);
+    expect(r.lines[1].missing).toEqual(['Тип паспорта', 'Размеры']);
     expect(r.lines[2].missing).toEqual(['К позиции не привязано изделие']);
     expect(r.lines[3].passport).toMatchObject({ status: 'issued', number: '777' });
     expect(r.firm).toBeNull();
@@ -90,7 +90,7 @@ describe('паспорта на весь заказ', () => {
     expect(r.issued).toHaveLength(1);
     expect(r.issued[0].incomeId).toBe(String(i1));
     expect(made).toEqual([String(i1)]);
-    expect(r.skipped.map((s) => s.reason)).toEqual([expect.stringContaining('Не готово: Категория'), expect.stringContaining('не привязано'), expect.stringContaining('№ 777 уже выпущен')]);
+    expect(r.skipped.map((s) => s.reason)).toEqual([expect.stringContaining('Не готово: Тип паспорта'), expect.stringContaining('не привязано'), expect.stringContaining('№ 777 уже выпущен')]);
   });
 
   it('повторный вызов не плодит дубли', async () => {

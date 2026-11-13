@@ -82,12 +82,12 @@ function buildProductSearch(row, ctx, onSaved) {
         clear(dropList);
         items.forEach((p) => {
           const bad = p.canPassport === false;
-          const li = h('li', { class: 'pw-suggest-item' + (bad ? ' shp-dim' : ''), 'aria-disabled': bad ? 'true' : null, title: bad ? 'Нет категории паспорта — заполните в «Продукции»' : null, onclick: () => {
+          const li = h('li', { class: 'pw-suggest-item' + (bad ? ' shp-dim' : ''), 'aria-disabled': bad ? 'true' : null, title: bad ? 'Нет типа паспорта — заполните в «Продукции»' : null, onclick: () => {
             if (bad) return;
             picked = p.id;
             inp.value = p.name || String(p.id);
             dropList.style.display = 'none';
-          } }, p.name || String(p.id), bad ? h('small', { class: 'shp-why' }, ' Нет категории паспорта — заполните в «Продукции»') : null);
+          } }, p.name || String(p.id), bad ? h('small', { class: 'shp-why' }, ' Нет типа паспорта — заполните в «Продукции»') : null);
           dropList.appendChild(li);
         });
         dropList.style.display = items.length ? '' : 'none';
@@ -133,7 +133,7 @@ const num = (v) => (v != null && v !== '' ? String(v).replace('.', ',') : '');
 function buildParams(row) {
   return h('div', null,
     kv([
-      ['Категория паспорта', row.passportCategory],
+      ['Тип паспорта', row.passportCategory],
       ['Длина (L), мм', num(row.length)], ['Ширина (B), мм', num(row.width)], ['Высота (H), мм', num(row.height)],
       ['Вес, кг', num(row.weight)], ['Ширина посадки, мм', num(row.seatWidth)], ['Высота посадки, мм', num(row.seatHeight)],
       ['Количество опор, шт', num(row.supports)], ['Объём перевозки, куб. м', num(row.shipVolume)],

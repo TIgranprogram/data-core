@@ -147,7 +147,7 @@ export class ProductPassportController {
   @AppSection('passports', 'products')
   @Get('passports/funnel')
   @Roles(...VIEW)
-  @ApiQuery({ name: 'category', required: false, description: 'Код категории паспорта: TRN, WRK, BLG, DIO, DSP' })
+  @ApiQuery({ name: 'category', required: false, description: 'Код типа паспорта: TRN, WRK, BLG, DIO, DSP' })
   @ApiQuery({ name: 'group', required: false, description: 'C028: id группы изделий' })
   @ApiQuery({ name: 'f', required: false, description: 'C028: id значений признаков через запятую; none:<id или код признака> — изделия без значения' })
   @ApiQuery({ name: 'q', required: false, description: 'C028: поиск по всем изделиям (название, артикул); шаги не сужают' })

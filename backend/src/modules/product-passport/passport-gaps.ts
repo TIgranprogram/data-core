@@ -124,7 +124,7 @@ export async function productGaps(svc: Checker, db: mongo.Db, id: string) {
   const rules = await svc.categoryRules();
   if (!code) {
     const options = [...rules.entries()].filter(([c]) => c !== 'ALL').map(([c, r]) => ({ id: c, label: s(r.name) || c }));
-    return { category: { code: null, name: null, source: null }, kind: kindInfo, missing: [{ key: 'category', label: 'Категория паспорта', kind: 'category' as const, required: true, options }] as GapItem[] };
+    return { category: { code: null, name: null, source: null }, kind: kindInfo, missing: [{ key: 'category', label: 'Тип паспорта', kind: 'category' as const, required: true, options }] as GapItem[] };
   }
   const category = { code, name: s(rules.get(code)?.name) || (inh?.name ?? code), source: (own ? 'own' : viaKind ? 'kind' : 'group') as 'own' | 'kind' | 'group' };
   const group = rk.groupName;

@@ -57,20 +57,20 @@ export const passportForm = {
     const catBy = new Map(catRows.map((c) => [String(c.code), c]));
     const stdName = new Map(stdRows.map((s) => [String(s.code), s.name]));
     // ФП: виджеты, которые меняет выбор категории, и «готовность к выпуску»
-    const w = { el: null, mat: null, funnel: null, std: h('p', { class: 'muted' }, 'Выберите категорию — здесь появятся её нормативы'), need: h('div', { class: 'muted' }, 'Проверяю…') };
+    const w = { el: null, mat: null, funnel: null, std: h('p', { class: 'muted' }, 'Выберите тип паспорта — здесь появятся его нормативы'), need: h('div', { class: 'muted' }, 'Проверяю…') };
     const startCat = r ? r.passportCategory || '' : st.newCat;
     const req = reqKinds(catBy.get(startCat), r?.isKit);
     const mainKinds = new Set(['overview', ...req]);
     // воронка: категория → шаги «выбрал 1 из 2–3» (ui/funnel.js); выбор пишется в textChoices
     const funnelFields = [
-      { section: 'Паспорт: категория и тексты', tone: 'main', fixed: true },
+      { section: 'Паспорт: тип и тексты', tone: 'main', fixed: true },
       // детские (ДИО, ДСО) отложены пользователем (QUESTIONS 2026-10-22) — не предлагаем, но уже выбранную не скрываем
-      { key: 'passportCategory', label: 'Категория паспорта', type: 'segment', required: !r, options: V2_CATS.filter((c) => (c.value && !LATER_CATS.includes(c.value)) || (r && r.passportCategory === c.value) || (!r && st.newCat === c.value)), wide: true,
+      { key: 'passportCategory', label: 'Тип паспорта', type: 'segment', required: !r, options: V2_CATS.filter((c) => (c.value && !LATER_CATS.includes(c.value)) || (r && r.passportCategory === c.value) || (!r && st.newCat === c.value)), wide: true,
         hint: 'От неё зависят шаги ниже, нормативы, обязательные рисунки и поля',
         mount: (api) => wireForm(api, { r, w, catBy, stdName, inst, cats }) },
       { key: 'textChoices', label: 'Тексты паспорта — ваш выбор', type: 'widget', wide: true, summary: () => '',
         widget: (v) => (w.funnel = funnelBox({ value: v, category: startCat, canEditText: canEdit() })) },
-      { key: '_std', label: 'Нормативы категории', type: 'widget', wide: true, widget: () => ({ el: w.std, value: '' }), summary: () => '' },
+      { key: '_std', label: 'Нормативы типа паспорта', type: 'widget', wide: true, widget: () => ({ el: w.std, value: '' }), summary: () => '' },
     ];
     const v2Fields = [
       { section: 'Функциональные элементы', tone: 'info' },
@@ -86,7 +86,7 @@ export const passportForm = {
       { key: 'isKit', label: 'Поставляется разобранным', type: 'segment', options: [{ value: 'no', label: 'Нет' }, { value: 'yes', label: 'Да — нужна схема сборки' }] },
       { key: 'schemeSource', label: 'Схемы узлов (фундамент, скважины, монтаж)', type: 'segment', options: [{ value: 'standard', label: 'Стандартные, если нет своих' }, { value: 'own', label: 'Только свои' }],
         hint: 'Стандартные схемы — в «Справочники → Паспорта → Способы установки»' },
-      // «заполнено 4 из 6» — по полям категории (справочник «Категории паспортов → Поля категории»)
+      // «заполнено 4 из 6» — по полям категории (справочник «Типы паспортов → Поля категории»)
       { section: 'Ограничения и техданные', tone: 'info', collapsed: true, sumOf: (get) => {
         const c = catBy.get(get('passportCategory')); const allowed = keyLines(c?.allowedFields); const need = keyLines(c?.requiredFields);
         const own = V2_NUMS.map(([k]) => k).filter((k) => !c || !allowed.length || allowed.includes(k) || need.includes(k));
@@ -149,7 +149,7 @@ export const passportForm = {
         hint: 'Собирается само из наименования, материалов, установки и назначения; можно поправить вручную' },
       // ФП: обязательные для категории (*) и «Общий вид» — сразу; остальные — в свёрнутом «Ещё картинки»; вставка Ctrl+V — в вид под курсором
       { section: 'Картинки', tone: 'info', collapsed: !!r },
-      ...kinds({ requiredImages: req }).filter(([k]) => mainKinds.has(k)).map(([kind, label, where]) => ({ key: 'img_' + kind, label: `${label}${req.includes(kind) ? ' *' : ''}`, type: 'photos', hint: `${where}${req.includes(kind) ? ' · обязательно для категории' : ''}` })),
+      ...kinds({ requiredImages: req }).filter(([k]) => mainKinds.has(k)).map(([kind, label, where]) => ({ key: 'img_' + kind, label: `${label}${req.includes(kind) ? ' *' : ''}`, type: 'photos', hint: `${where}${req.includes(kind) ? ' · обязательно для типа паспорта' : ''}` })),
       { section: 'Ещё картинки', tone: 'info', collapsed: true },
       ...kinds({ requiredImages: req }).filter(([k]) => !mainKinds.has(k)).map(([kind, label, where]) => ({ key: 'img_' + kind, label, type: 'photos', hint: where })),
       { section: 'Комплектность', tone: 'who', collapsed: true },
@@ -228,7 +228,7 @@ export const passportForm = {
   },
   create: async (body) => {
     const { _copyFrom, _imagesFinal, _remember, ...rest } = body;
-    if (!rest.passportCategory) throw new Error('Выберите категорию паспорта');
+    if (!rest.passportCategory) throw new Error('Выберите тип паспорта');
     if (!_copyFrom && !rest.productId) throw new Error('Выберите изделие');
     if (!rest.supplierOrgId) throw new Error('Выберите фирму');
     if (_remember) await saveDefaults(_remember);

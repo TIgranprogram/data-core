@@ -12,7 +12,7 @@ describe('подсказки формы изделия (ФИ)', () => {
 });
 
 import { passportCategoryFor } from './form-values';
-describe('изделие → категория паспорта (ФИ2)', () => {
+describe('изделие → тип паспорта (ФИ2)', () => {
   const cats = [{ code: 'TRN', name: 'Уличный тренажёр', catalogNames: 'Уличный тренажёр, Тренажёр уличный' }, { code: 'DIO', name: 'Детское', catalogNames: 'Качели' }];
   it('сначала группа, потом раздел; без регистра и «ё»', () => {
     expect(passportCategoryFor({ type: 'уличный тренажер', group: 'Качели' }, cats)).toEqual({ code: 'DIO', name: 'Детское', via: 'группа «Качели»', source: 'dict' });
@@ -29,7 +29,7 @@ describe('изделие → категория паспорта (ФИ2)', () =>
 });
 
 import { resolvePassportCategory } from './form-values';
-describe('наследование категории паспорта (PASSPORT-CATEGORY)', () => {
+describe('наследование типа паспорта (PASSPORT-CATEGORY)', () => {
   const cats = [{ code: 'BLG', name: 'Благоустройство', catalogNames: '' }, { code: 'WRK', name: 'Воркаут', catalogNames: 'Скамьи' }, { code: 'TRN', name: 'Тренажёр', catalogNames: '' }];
   it('группа главнее раздела и справочника', () => {
     expect(passportCategoryFor({ group: 'Скамьи', type: 'Благоустройство' }, cats, { group: 'BLG', type: 'TRN' })).toEqual({ code: 'BLG', name: 'Благоустройство', via: 'группа «Скамьи»', source: 'group' });

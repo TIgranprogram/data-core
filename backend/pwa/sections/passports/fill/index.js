@@ -1,8 +1,8 @@
 import { api, session } from '../../../core/api.js';
 import { h } from '../../../core/dom.js';
-import { actions, button, clamp, confirmDlg, enhanceSelect, field, headbar, hint, layout, link, section, segmented, select, stack, toastError } from '../../../ui/kit/index.js';
+import { actions, button, clamp, confirmDlg, headbar, hint, layout, section, segmented, stack, toastError } from '../../../ui/kit/index.js';
 import { kindNorm } from '../../../core/passport-kinds.js';
-import { canEdit as canEditTexts, canWorkPassport, dictRows, passportCategoryOptions } from '../common.js';
+import { canEdit as canEditTexts, canWorkPassport, dictRows, passportCategoryOptions, passportTypeLine } from '../common.js';
 import { elementsTexts } from '../elements-block.js';
 import { passportVariant, previewPassport, VARIANT_HINT } from '../dialogs.js';
 import { loadGaps, loadTexts, putDefaults } from '../funnel/api.js';
@@ -47,7 +47,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
   const codeOf = () => prod.passportDefaults?.passportCategory || prod.passportCategory?.code || '';
   const instOptsOf = () => instRows.filter((d) => {
     const cats = String(d.categories || '').split(/[,;\s]+/).filter(Boolean);
-    return !cats.length || cats.includes(catSel.value || codeOf());
+    return !cats.length || cats.includes(codeOf());
   }).map((d) => [String(d.id || d._id), d.name || '']);
 
   const ctx = {
@@ -60,16 +60,8 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
     onStatus, openTech: () => openTechSheet(prod),
     repaint: () => { if (ready) draw(); },
     reload: () => reload(),
-    onCategory: (v) => onCategory(v),
   };
 
-  const catSel = select({
-    label: 'Категория паспорта',
-    options: [['', '— по разделу и группе —'], ...catOpts.map((c) => [c.value, c.label])],
-    value: prod.passportDefaults?.passportCategory || codeOf(),
-    onChange: (v) => onCategory(v),
-  });
-  if (catOpts.length > 12) enhanceSelect(catSel);
   const variant = segmented({
     label: 'Вариант паспорта', value: passportVariant.value, fit: true,
     items: [{ key: 'short', label: 'Упрощённый' }, { key: 'full', label: 'Полный' }],
@@ -80,7 +72,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
     if (paused || writes.failed()) return;
     ctx.instOpts = instOptsOf();
     ctx.instNames = new Map(ctx.instOpts);
-    ctx.code = catSel.value || codeOf();
+    ctx.code = ctx.catInfo?.code || codeOf();
     ctx.full = passportVariant.value === 'full';
     ctx.matLine = matText(prod);
     ctx.unnamed = !!(prod.needsName || (prod.composition || []).some((l) => l.needsName));
@@ -90,19 +82,19 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
     paintContext();
   }
 
-  /** Шапка: изделие, категория и тип видны сразу (C086). Тип нужен, но неизвестен — так и сказано, без догадки. */
+  /** Шапка: изделие, назначение и тип паспорта видны сразу (C086, C103). Тип паспорта только читается: задаётся в группе или в виде изделия. */
   function paintContext() {
-    const cat = catOpts.find((c) => c.value === ctx.code)?.label || '';
+    const info = ctx.catInfo;
+    const name = ctx.code ? (info?.name || catOpts.find((c) => c.value === ctx.code)?.label || ctx.code) : '';
+    const own = !!prod.passportDefaults?.passportCategory && (!info || info.source === 'own' || !info.source);
+    const via = info?.source === 'kind' ? `вид «${ctx.kind?.name || ''}»` : (prod.passportCategory?.inherited?.via || (prod.group ? `группа «${prod.group}»` : 'группа'));
     const t = ctx.applicable?.type;
-    const typeText = !t?.needed ? '' : t.known ? t.label : 'не определён — уточните назначение';
+    const typeText = !t?.needed ? '' : t.known ? t.label : 'не определено — уточните назначение';
     const from = { purpose: 'по назначению', group: 'по группе каталога', facet: 'по признаку' }[t?.source] || '';
     context.replaceChildren(
       clamp(h('span', null, h('b', null, displayName(prod.name)), prod.sku ? h('span', { class: 'muted' }, ' · ' + prod.sku) : null), { lines: 2 }),
-      h('div', { class: 'muted small' },
-        'Категория: ', h(cat ? 'span' : 'b', null, cat || 'не выбрана'),
-        typeText ? ' · Тип: ' : null, typeText ? h(t.known ? 'span' : 'b', { title: from || null }, typeText) : null,
-        mode === 'issue' ? ' · ' : null,
-        mode === 'issue' ? link({ label: catBox.hidden ? 'изменить' : 'скрыть', title: 'Категория паспорта изделия', onClick: () => { catBox.hidden = !catBox.hidden; paintContext(); } }) : null),
+      typeText ? h('div', { class: 'muted small' }, 'Назначение изделия: ', h(t.known ? 'span' : 'b', { title: from || null }, typeText)) : null,
+      passportTypeLine({ name, from: via, own, groupId: prod.groupId, onReset: can ? () => resetOwn() : null }),
     );
   }
 
@@ -119,7 +111,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
 
   fb = funnelBox({
     value: JSON.stringify(prod.passportDefaults?.textChoices || {}),
-    category: catSel.value, canEditText: canEditTexts(), productId: prod.id, facetFirst: true,
+    category: codeOf(), canEditText: canEditTexts(), productId: prod.id, facetFirst: true,
     load: async (cat) => ({ sections: await loadTexts(cat, prod.id) }),
     onPaint: (list) => {
       if (!fb) return;
@@ -176,28 +168,26 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
     const same = JSON.stringify(choices) === JSON.stringify(prev.textChoices || {});
     if (same && (!inst || String(prev.installationTypeId || '') === inst)) return;
     const change = { textChoices: choices };
-    if (catSel.value) change.passportCategory = catSel.value;
     if (inst) change.installationTypeId = inst;
     await save(() => putDefaults(prod, change));
   }
 
-  async function onCategory(v) {
-    catSel.value = codeOf();
-    if (catSel.disabled) return;
-    catSel.disabled = true;
+  /** «Брать из группы»: убрать тип паспорта, записанный в самом изделии (старые данные). */
+  async function resetOwn() {
+    if (changingCategory) return;
     changingCategory = true;
     const wasInert = fb.el.inert; fb.el.inert = true;
     try {
       await save(async () => {
-        const changed = await changeCategory(prod, v, {
-          approve: () => confirmDlg('Сменить категорию паспорта?', 'Выбранные тексты и ручные правки шаблона этого изделия будут очищены. Остальные сведения сохранятся. Выпущенные паспорта не изменятся.', { okText: 'Сменить и очистить тексты' }),
+        const changed = await changeCategory(prod, '', {
+          approve: () => confirmDlg('Брать тип паспорта из группы?', 'Если у группы другой тип паспорта, выбранные тексты и ручные правки шаблона этого изделия будут очищены. Остальные сведения сохранятся. Выпущенные паспорта не изменятся.', { okText: 'Брать из группы' }),
           put: putDefaults, reset: resetPdCategory, read: (id) => api(`/showcase/${id}`),
         });
         if (!changed) return false;
-        catSel.value = codeOf(); mute += 2; synced = false;
+        mute += 2; synced = false;
         fb.setCategory(codeOf());
       });
-    } finally { catSel.value = codeOf(); catSel.disabled = false; fb.el.inert = wasInert || writes.failed(); changingCategory = false; }
+    } finally { fb.el.inert = wasInert || writes.failed(); changingCategory = false; }
   }
 
   async function reload() {
@@ -218,6 +208,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
     }
     if (paused || my !== seq) return ctx.missing;
     if (gaps.category) prod.category = gaps.category;
+    ctx.catInfo = gaps.category || null; // C103: тип паспорта и откуда он (own | kind | group)
     ctx.missing = gaps.missing || [];
     ctx.kind = gaps.kind || null; // C100: вид изделия и откуда он
     ctx.applicable = gaps.applicable || null; // C086: что относится к изделию — одно правило с сервером
@@ -238,6 +229,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
       ctx.missing = gaps.missing || [];
       ctx.applicable = gaps.applicable || null;
       ctx.kind = gaps.kind || null;
+      ctx.catInfo = gaps.category || null;
       const hasElements = !!prod.passportDefaults?.elements?.length;
       const needsElements = ctx.missing.some((m) => m.kind === 'elements' || m.key === 'elements');
       ctx.filled = (ctx.filled || []).filter((key) => key !== 'elements');
@@ -257,14 +249,10 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
   const foot = actions(
     button({ label: 'Предпросмотр', title: 'PDF с пометкой «ЧЕРНОВИК». Паспорт не выпускается', onClick: () => previewPassport(prod.id) }),
   );
-  // C086: шапка — изделие, категория и тип слева, вариант компактно справа (на узкой панели переносится).
-  // При выпуске категория (из группы изделия) — не вопрос: список открывается по «изменить» или сам, если категории нет (C070-П3).
-  const catBox = h('div', null, field('Категория паспорта', catSel));
-  catBox.hidden = mode === 'issue' && !!codeOf();
+  // C086/C103: шапка — изделие и тип паспорта (чтение, с источником) слева, вариант компактно справа (на узкой панели переносится).
   variant.el.title = VARIANT_HINT;
   const setup = [
     headbar(context, showVariant ? variant.el : null),
-    catBox,
   ];
   const el = stack(
     saveError,
@@ -276,8 +264,8 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
     el, reload, missingRequired, readonly: true, dirty: () => writes.failed(), busy: () => saves.size > 0,
     doneLabel: mode === 'template' ? 'Готово' : undefined,
     beforeClose: async () => { await Promise.all([...saves]); if (writes.failed()) throw new Error('Сначала повторите сохранение или отмените несохранённые правки'); },
-    focus: () => catSel.focus?.(),
-    read: () => ({ values: { category: catSel.value, choices: JSON.parse(fb.value || '{}'), over: {} } }),
+    focus: () => {},
+    read: () => ({ values: { category: ctx.code, choices: JSON.parse(fb.value || '{}'), over: {} } }),
   };
 }
 

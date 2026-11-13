@@ -117,7 +117,7 @@ export function mountTexts() {
 
   const open = (of, id) => patch({ of, open: id, new: undefined });
   function renderChips(cat) {
-    chips.replaceChildren(tabs({ items: CATS.map((c) => ({ key: c.code, label: c.name })), value: cat, label: 'Категория паспорта', onChange: (code) => patch({ cat: code, of: undefined, open: undefined }) }).el);
+    chips.replaceChildren(tabs({ items: CATS.map((c) => ({ key: c.code, label: c.name })), value: cat, label: 'Тип паспорта', onChange: (code) => patch({ cat: code, of: undefined, open: undefined }) }).el);
   }
   function renderTree(cat, t) {
     const sel = current().params.open || '';

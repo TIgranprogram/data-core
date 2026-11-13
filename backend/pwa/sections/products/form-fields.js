@@ -4,14 +4,14 @@ import { h } from '../../core/dom.js';
 import { money, qty } from '../../core/format.js';
 import { go } from '../../core/router.js';
 import { skuKey } from '../../core/facets.js';
-import { button, tagPick, toast, toastError, confirmDlg, similarBox } from '../../ui/kit/index.js';
+import { button, hint, tagPick, toast, toastError, confirmDlg, similarBox } from '../../ui/kit/index.js';
 import { dictNames } from '../../ui/dict-options.js';
 import { loadMaterialDicts, materialsSpec, specSummary } from '../../ui/materials-spec.js';
 import { funnelBox } from '../../ui/funnel.js';
-import { canEdit as canEditPassportTexts, dictOpts, dictRows } from '../passports/common.js';
+import { canEdit as canEditPassportTexts, dictOpts, dictRows, productTypeLine } from '../passports/common.js';
 import { jointsPick, JOINT_OPTIONS } from '../passports/traits.js';
 import { withElementTexts } from '../passports/elements-block.js';
-import { formValues, phrases, staffOptions, passportCategoryOptions, skuSearch, materialsFromComposition, createProduct, patchProduct, savePd, takePending, pendingProduct, assignSku } from './data.js';
+import { formValues, phrases, staffOptions, skuSearch, materialsFromComposition, createProduct, patchProduct, savePd, takePending, pendingProduct, assignSku } from './data.js';
 
 /* Форма изделия в правой панели: поля (ИЗ-4: Изделие → Цена → Паспорт → Характеристики → Описание и материалы → Ещё), тело запроса, создание/правка. */
 
@@ -93,25 +93,23 @@ export function productForm({ onSimilar, usePending = true } = {}) {
   return {
     // ФИ: раздел, группа, серия, цвета, размеры — списки из того, что уже есть (одно написание); своё вписать можно
     fields: async (r) => {
-      const [fv, md, staff, pdCats] = await Promise.all([formValues(), loadMaterialDicts(), staffOptions(), passportCategoryOptions()]);
+      const [fv, md, staff] = await Promise.all([formValues(), loadMaterialDicts(), staffOptions()]);
       // ПП: «Кто проектировал» — из «Сотрудников», выбор с поиском; пусто — можно
       const people = staff.filter((p) => !p.fired); // в выборе — работающие; уже указанный уволенный остаётся (сопоставление — по всем)
       designerIds = new Map(staff.map((p) => [p.label, p.value]));
-      // «Паспорт»: категория и выбор текстов воронки — паспорт возьмёт их из изделия сам
+      // «Паспорт»: тип паспорта (только чтение, задаётся в группе или виде изделия) и выбор текстов воронки — паспорт возьмёт их из изделия сам
       const pd0 = r?.passportDefaults || {}; let pdFunnel = null;
       const [els, elRows, inst, catRows] = await Promise.all([dictOpts('passportElements'), dictRows('passportElements'), dictOpts('passportInstall'), dictRows('passportCategories')]);
       let pdElPick = null;
       let matCat = pd0.passportCategory || r?.passportCategory?.code || '';
-      const pc = r?.passportCategory;
       const sim = similarBox({ onPick: (it) => onSimilar ? onSimilar(it, sim.el) : go('products', { open: it.id }) });
-      const catHint = pc?.own ? 'Задана в самом изделии. Паспорт берёт категорию отсюда' : pc?.inherited || pc?.code ? 'Сейчас — по группе или разделу. Укажите свою, если нужна другая. Паспорт берёт категорию отсюда' : 'Обычно определяется по разделу и группе; укажите, если нужна другая. Паспорт берёт категорию отсюда';
       return [
         { section: 'Изделие', tone: 'main', fixed: true },
         { key: 'photos', label: 'Фото изделия', type: 'photos', main: true, hint: 'Первое фото — главное: оно на обложке в списках. Чтобы выбрать другое, нажмите ☆ на нужном фото.' },
         { key: 'name', label: 'Короткое название', required: true, max: 256, span: 3, hint: 'Для списков, фильтров, поиска и паспорта' },
         { key: '_similar', type: 'widget', wide: true, summary: () => '', widget: () => ({ el: sim.el, value: '' }),
           mount: (api) => { const run = () => sim.check(api.get('name'), r?.id); api.on('name', run); run(); } },
-        // только существующие разделы (n > 0) и только из списка: «своё» название молча создавало новый раздел, а в списке были ещё и названия категорий паспорта
+        // только существующие разделы (n > 0) и только из списка: «своё» название молча создавало новый раздел, а в списке были ещё и названия типов паспорта
         { key: 'type', label: 'Раздел', type: 'combo', required: true, max: 100, options: fv.sections.filter((x) => x.n > 0).map(opt), strict: true, strictText: 'Выберите раздел из списка', extra: () => [{ label: 'Открыть справочник групп изделий', run: () => go('dicts', { d: 'productGroups' }) }], hint: 'Тот же раздел, что в отборе слева; серым — сколько в нём изделий. Новый раздел заводят в справочнике групп' },
         { key: 'group', label: 'Группа', type: 'combo', max: 100, options: groupsOf(fv), hint: 'Только группы выбранного раздела; раздел не выбран — все' },
         { key: 'series', label: 'Название серии', type: 'combo', max: 100, options: fv.series.map(opt), strict: true, strictText: 'Выберите серию из справочника', extra: () => [{ label: 'Открыть справочник серий', run: () => go('dicts', { d: 'productSeries' }) }], hint: 'Нет нужной — добавьте в справочнике. Справочник серий не привязан к группам' },
@@ -122,16 +120,19 @@ export function productForm({ onSimilar, usePending = true } = {}) {
         { key: 'price', money: true, label: 'Цена, ₽', type: 'money', min: 0, hint: 'Без цены изделие — черновик' },
         ...(session.canMoney ? [{ key: '_cost', type: 'widget', label: 'Себестоимость материалов', wide: true, widget: () => costInfo(r), summary: () => '' }] : []),
         { section: 'Паспорт', tone: 'info', collapsed: !Object.keys(pd0).length },
-        { key: 'pdCategory', label: 'Категория паспорта', type: 'select', options: pdCats, hint: catHint,
+        { key: 'pdCategory', type: 'hidden' },
+        { key: '_pdType', label: 'Тип паспорта', type: 'widget', wide: true, summary: () => '',
+          widget: () => ({ el: r ? productTypeLine(r) : hint('Тип паспорта определится по группе изделия — выберите группу выше и сохраните изделие.'), value: '' }),
+          hint: 'Тип паспорта не выбирается здесь: он задаётся в группе изделия или в виде изделия.',
           mount: (api) => {
-            // гарантия и срок службы пустые — берём из категории паспорта (справочник), помечаем «из категории»; ручной ввод главнее
+            // гарантия и срок службы пустые — берём из типа паспорта (справочник), помечаем «из типа паспорта»; ручной ввод главнее
             const fill = () => {
               const code = api.get('pdCategory') || r?.passportCategory?.code || '';
               const row = catRows.find((c) => String(c.code) === String(code)); if (!row) return;
               for (const [k, v] of [['pdWarranty', row.warrantyMonths], ['pdLife', row.serviceLifeYears]]) {
                 if (v == null || v === '' || api.manual(k)) continue;
                 const cur = api.get(k); if (cur !== '' && !api.input(k)?.classList?.contains('is-default')) continue;
-                if (String(cur) !== String(v)) api.set(k, v, { auto: true, src: 'из категории' });
+                if (String(cur) !== String(v)) api.set(k, v, { auto: true, src: 'из типа паспорта' });
               }
             };
             api.on('pdCategory', () => {
@@ -162,7 +163,7 @@ export function productForm({ onSimilar, usePending = true } = {}) {
               const cur = sel.value;
               const own = (o) => !code || !(o.cats || []).length || o.cats.includes(code);
               const list = inst.filter((o) => own(o) || o.value === cur);
-              sel.replaceChildren(h('option', { value: '' }, '—'), ...list.map((o) => h('option', { value: o.value }, own(o) ? o.label : `${o.label} — не для этой категории`)));
+              sel.replaceChildren(h('option', { value: '' }, '—'), ...list.map((o) => h('option', { value: o.value }, own(o) ? o.label : `${o.label} — не для этого типа паспорта`)));
               sel.value = cur;
             };
             api.on('pdCategory', sync); sync();
@@ -172,7 +173,7 @@ export function productForm({ onSimilar, usePending = true } = {}) {
         { section: 'Функциональные элементы', tone: 'info' },
         { key: 'pdElements', label: 'Что это за изделие', type: 'widget', wide: true, summary: () => '',
           widget: (v) => (pdElPick = withElementTexts(tagPick({ options: els, value: v, label: 'Что это за изделие', productOnly: true }), elRows, v)),
-          hint: 'Только виды своей категории паспорта (для тренажёра — тренажёры, без якорей и беседок). Ниже — фраза для описания и правила пользования из справочника.',
+          hint: 'Только виды своего типа паспорта (для тренажёра — тренажёры, без якорей и беседок). Ниже — фраза для описания и правила пользования из справочника.',
           mount: (api) => {
             const sync = () => {
               const code = api.get('pdCategory') || r?.passportCategory?.code || '';
@@ -233,7 +234,7 @@ export function productForm({ onSimilar, usePending = true } = {}) {
 
 /** БЗ-9: поля массового изменения изделий — общие для всех выбранных. */
 export async function productBulkFields() {
-  const [fv, staffAll, cats] = await Promise.all([formValues(), staffOptions(), passportCategoryOptions()]);
+  const [fv, staffAll] = await Promise.all([formValues(), staffOptions()]);
   const staff = staffAll.filter((p) => !p.fired);
   const ids = new Map(staff.map((p) => [p.label, p.value]));
   const n = (v) => (v === '' ? null : v);
@@ -248,7 +249,6 @@ export async function productBulkFields() {
     { key: 'ralCode', label: 'RAL', type: 'combo', options: (fv.ral || []).map((x) => x.value) },
     { key: 'colors', label: 'Цвета (варианты)', type: 'list', modes: true, map: (v) => v },
     { key: 'sizes', label: 'Размеры (варианты)', type: 'list', modes: true, map: (v) => v },
-    { key: 'pd.passportCategory', label: 'Паспорт по умолчанию: категория', type: 'select', options: cats },
     { key: 'pd.serviceLifeYears', label: 'Паспорт по умолчанию: срок службы, лет', type: 'number', map: n },
     { key: 'pd.warrantyMonths', label: 'Паспорт по умолчанию: гарантия, мес.', type: 'number', map: n },
     { key: 'pd.maxUsers', label: 'Паспорт по умолчанию: пользователей одновременно', type: 'number', map: n },

@@ -69,7 +69,7 @@ export class ProductPassportService {
   private readonly mi = new MaterialsSpecRefs(() => this.connection.db!);
 
   // ─── список, подсказки, выпуск, массовые действия — passport-queries.ts / passport-issue.ts / passport-bulk.ts ───
-  /** Список; у паспортов с изделием добавлено `productCategory` и `categoryDiffers` (категория паспорта ≠ категории изделия — знак в списке). */
+  /** Список; у паспортов с изделием добавлено `productCategory` и `categoryDiffers` (тип паспорта ≠ категории изделия — знак в списке). */
   async list(q: Record<string, unknown> = {}, opts: { full?: boolean } = {}) {
     const r = await this.queries.list(q, opts);
     const cats = await productCategories(this.connection.db!, r.items.filter((x) => x.productId).map((x) => x.productId as Types.ObjectId));
@@ -359,7 +359,8 @@ export class ProductPassportService {
     const db = this.connection.db!;
     const order = Types.ObjectId.isValid(orderId) ? await db.collection('salesorders').findOne({ _id: new Types.ObjectId(orderId), deletedAt: null }, { projection: { orderNo: 1 } }) : null;
     if (!order) throw new NotFoundException('Заказ не найден');
-    const incomes = await db.collection('incomes').find({ orderId: order._id, deletedAt: null }, { projection: { _id: 1 } }).sort({ lineNo: 1, _id: 1 }).toArray();
+    // отменённые позиции заказа в общий PDF не идут (пользователь 2026-11-13: «вычеркнутые путают»)
+    const incomes = await db.collection('incomes').find({ orderId: order._id, deletedAt: null, cancelledAt: null }, { projection: { _id: 1 } }).sort({ lineNo: 1, _id: 1 }).toArray();
     const rows = (await this.model.find({ incomeId: { $in: incomes.map((i) => i._id) }, status: 'issued' }).sort({ passportNo: 1 }).lean().exec()) as unknown as Doc[];
     const order2 = new Map(incomes.map((i, k) => [String(i._id), k]));
     rows.sort((a, b) => (order2.get(String(a.incomeId)) ?? 0) - (order2.get(String(b.incomeId)) ?? 0));
@@ -495,7 +496,7 @@ export class ProductPassportService {
     return this.saveCurrent(doc, previous);
   }
 
-  /** «Перенести правку в справочник» (Э5a4): пункт из снимка → новая версия шаблона категории паспорта. */
+  /** «Перенести правку в справочник» (Э5a4): пункт из снимка → новая версия шаблона типа паспорта. */
   async promoteSnapshotItem(id: string, b: { sectionKey?: string; itemKey?: string }, userId?: string) {
     const p = (await this.findById(id)).toObject() as unknown as Doc;
     const cat = String(p.passportCategory || '');
@@ -574,7 +575,7 @@ export class ProductPassportService {
     if (!prod) throw new NotFoundException(`Изделие ${productId} не найдено`);
     const p: Doc = { _id: new Types.ObjectId(), productId: prod._id, status: 'draft', passportNumber: '', ...(await productPatch(this.connection.db!, prod as Doc)) };
     const built = await this.buildText(p);
-    if (!built) throw new BadRequestException('У изделия не выбрана категория паспорта — PDF собирается по ней. Укажите категорию в карточке изделия');
+    if (!built) throw new BadRequestException('У изделия не выбран тип паспорта — PDF собирается по нему. Задайте тип паспорта в группе или виде изделия');
     return { ...p, textSnapshot: { ...built.text, sizeLayout: 2, at: new Date() } };
   }
 
@@ -758,7 +759,7 @@ export class ProductPassportService {
     return std.length ? { ...d, images: [...((d.images as unknown[]) || []), ...std] } : d;
   }
 
-  /** Справочник категорий паспортов (v2): код → обязательные рисунки и прочее. Пусто — паспорта v1 проверяются как раньше. */
+  /** Справочник типов паспортов (v2): код → обязательные рисунки и прочее. Пусто — паспорта v1 проверяются как раньше. */
   async categoryRules() {
     const docs = await this.connection.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, name: 1, requiredImages: 1, requiredFields: 1, serviceLifeYears: 1, warrantyMonths: 1, standards: 1, fieldDefaults: 1 } }).toArray();
     return new Map(docs.map((d) => [String(d.code), d as { name?: string; requiredImages?: string; requiredFields?: string; serviceLifeYears?: string; warrantyMonths?: string; standards?: string; fieldDefaults?: string }]));

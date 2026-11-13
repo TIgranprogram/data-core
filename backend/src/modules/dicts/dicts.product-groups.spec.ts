@@ -76,7 +76,7 @@ describe('passportKinds: «Виды изделий» (C100)', () => {
   it('запись: не больше трёх элементов; категория из списка; назначение — конечный вариант', async () => {
     const ids = () => [oid(), oid(), oid(), oid()].map(String);
     await expect(k.toDoc({ name: 'Х', elementIds: ids() }, true, counts(0, 0))).rejects.toThrow(/не больше 3/);
-    await expect(k.toDoc({ name: 'Х', passportCategory: 'ZZZ' }, true, counts(0, 0))).rejects.toThrow(/Категория паспорта/);
+    await expect(k.toDoc({ name: 'Х', passportCategory: 'ZZZ' }, true, counts(0, 0))).rejects.toThrow(/Тип паспорта/);
     const doc = await k.toDoc({ name: ' Урна ', passportCategory: 'BLG', elementIds: ids().slice(0, 2), purposeLeafId: String(leaf._id) }, true, counts(0, 0));
     expect(doc).toMatchObject({ dict: 'passportKinds', name: 'Урна', passportCategory: 'BLG' });
     expect((doc.elementIds as unknown[]).length).toBe(2);

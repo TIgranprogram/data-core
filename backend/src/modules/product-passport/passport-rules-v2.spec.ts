@@ -1,6 +1,6 @@
 import { missingFields, missingFieldsV2 } from './passport-rules';
 
-/** Обязательные по категории паспорта v2 (БЗ-6 Э4a2). */
+/** Обязательные по типу паспорта v2 (БЗ-6 Э4a2). */
 describe('missingFieldsV2', () => {
   const base = {
     name: 'Тренажёр «Жим»', category: 'Уличный тренажёр', date: '2026-10-22', supplierOrgId: 'x', height: 1, length: 1, width: 1, weight: 1,

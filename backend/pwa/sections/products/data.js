@@ -79,7 +79,7 @@ export async function savePd(id, pd) {
   const merged = { ...prev, ...over };
   await putPd(id, { ...Object.fromEntries(PD_KEYS.filter((k) => merged[k] !== undefined && merged[k] !== null && merged[k] !== '').map((k) => [k, merged[k]])), ...(cat ? { passportCategory: cat } : {}), textChoices: pd.choices });
 }
-/** «Сбросить» категорию паспорта у изделия: остальные поля passportDefaults остаются. */
+/** «Сбросить» тип паспорта у изделия: остальные поля passportDefaults остаются. */
 export async function resetPdCategory(r) {
   const pd = r.passportDefaults || {};
   await putPd(r.id, { ...Object.fromEntries(PD_KEYS.filter((k) => k !== 'passportCategory' && pd[k] !== undefined && pd[k] !== null && pd[k] !== '').map((k) => [k, pd[k]])), textChoices: pd.textChoices || {} });

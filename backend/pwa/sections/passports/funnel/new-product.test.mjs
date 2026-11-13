@@ -67,7 +67,7 @@ test('группа не из выбранной категории — подт�
   const ctx = { group: '', category: { code: 'TRN', label: 'Тренажёры' }, knownGroups: ['Силовые'] };
   const no = await fixture({ values: { name: 'Скамья', group: 'Скамьи' }, confirm: false, ctx });
   await no.createBtn().onClick();
-  assert.equal(no.confirms[0].title, 'Группа из другой категории?');
+  assert.equal(no.confirms[0].title, 'Группа из другого типа паспорта?');
   assert.match(no.confirms[0].text, /Тренажёры/);
   assert.equal(no.calls.length, 0);
   assert.equal(no.np.dirty(), true, 'ввод на месте');

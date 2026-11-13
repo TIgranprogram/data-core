@@ -45,7 +45,7 @@ export function withDict(list: Tally[], dict: { value: string; sub?: string }[])
 }
 
 /**
- * Раздел / группа изделия → категория паспорта. Порядок наследования (PASSPORT-CATEGORY):
+ * Раздел / группа изделия → тип паспорта. Порядок наследования (PASSPORT-CATEGORY):
  * группа (categories.passportCategory) → раздел → запасной путь «Категории каталога» (catalogNames справочника, сначала группа, потом раздел).
  * Не нашли — null (угадывания по корню слова нет, C028). Ручная категория изделия (passportDefaults) сюда не входит — см. resolvePassportCategory.
  */

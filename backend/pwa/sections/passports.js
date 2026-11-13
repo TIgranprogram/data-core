@@ -92,7 +92,7 @@ export const passports = {
         pic: r.thumb ? PREFIX + r.thumb : null,
         title: r.name || 'без названия',
         meta: [numberOf(r) ? `№ ${numberOf(r)}` : 'черновик', date(r.date), r.customerName || r.objectName].filter(Boolean).join(' · '),
-        badge: statusOf(r) !== 'issued' ? h('span', { class: 'badge gc-badge ' + (statusOf(r) === 'draft' ? 'warn' : 'dim') }, STATUS_LABEL[statusOf(r)].toLowerCase()) : r.categoryDiffers ? h('span', { class: 'badge warn gc-badge', title: 'Категория паспорта не совпадает с категорией изделия' }, 'категория отличается') : r.manualText?.length ? h('span', { class: 'badge info gc-badge', title: 'Текст изменён вручную, не из справочника' }, 'изменено вручную') : null,
+        badge: statusOf(r) !== 'issued' ? h('span', { class: 'badge gc-badge ' + (statusOf(r) === 'draft' ? 'warn' : 'dim') }, STATUS_LABEL[statusOf(r)].toLowerCase()) : r.categoryDiffers ? h('span', { class: 'badge warn gc-badge', title: 'Тип паспорта не совпадает с категорией изделия' }, 'тип отличается') : r.manualText?.length ? h('span', { class: 'badge info gc-badge', title: 'Текст изменён вручную, не из справочника' }, 'изменено вручную') : null,
       }),
     },
     hints: {
@@ -158,12 +158,12 @@ export const passports = {
       // НМ: черновик — «Выпустить» (номер — сейчас, последним шагом); PDF черновика — с пометкой «ЧЕРНОВИК»
       statusOf(r) === 'draft' && canWorkPassport() && { label: 'Выпустить', primary: true, run: (row, ctx) => issueAction(row, ctx),
         ...(r.missing?.length ? { disabled: true, title: `Не хватает для выпуска: ${r.missing.join(', ')}` } : { title: 'Присвоить номер и талон; текст будет заморожен' }) },
-      !r.passportCategory ? { label: '⇩ PDF — нет категории', disabled: true, title: canEdit() ? 'Нет категории паспорта — нажмите «Выбрать категорию»' : 'Нет категории паспорта — её указывает директор или администратор', run: () => {} }
+      !r.passportCategory ? { label: '⇩ PDF — нет типа', disabled: true, title: canEdit() ? 'Нет типа паспорта — нажмите «Выбрать тип паспорта»' : 'Нет типа паспорта — её указывает директор или администратор', run: () => {} }
         : { label: statusOf(r) === 'draft' ? '⇩ PDF черновика…' : '⇩ PDF и печать…', primary: statusOf(r) !== 'draft', run: (row) => printDialog(row) },
       isIssued(r) && canWorkPassport() && { label: 'Новая редакция', more: true, title: 'Изменить выпущенный паспорт: номер тот же, редакция +1, прежняя — в истории', run: (row) => { st.revisionFor = row.id; [...document.querySelectorAll('.drawer button')].find((b) => b.textContent.trim() === 'Изменить')?.click(); } },
       isIssued(r) && canEdit() && { label: 'Аннулировать…', more: true, title: 'Номер останется занятым и повторно не выдаётся', run: (row, ctx) => annulDialog(row, ctx) },
       isIssued(r) && (session.role === 'admin' || session.user?.isOwner) && { label: 'Изменить номер…', more: true, run: (row, ctx) => numberDialog(row, ctx) },
-      !r.passportCategory && canWorkPassport() && { label: 'Выбрать категорию', more: true, title: 'Без категории PDF упрощённый — с категорией текст соберётся по справочникам', run: (row, ctx) => convertDialog(row, ctx) },
+      !r.passportCategory && canWorkPassport() && { label: 'Выбрать тип паспорта', more: true, title: 'Без типа паспорта PDF упрощённый — с типом текст соберётся по справочникам', run: (row, ctx) => convertDialog(row, ctx) },
       // ПИ.5: старый паспорт без изделия — привязать к изделию или создать изделие из него (одна модель, без массовых)
       !r.productId && canWorkPassport() && { label: 'Привязать к изделию', more: true, run: (row, ctx) => linkDialog(row, ctx) },
       !r.productId && canWorkPassport() && r.name && { label: 'Создать изделие из паспорта', more: true, title: 'Изделие в «Продукции» с данными этого паспорта; паспорта той же модели привяжутся к нему', run: async (row, ctx) => {

@@ -91,7 +91,7 @@ export class PassportQueries {
       const r = readinessOf(d);
       g.total++; g[r]++;
       const code = String(d.passportCategory ?? '').trim();
-      // category — код категории паспорта; categoryLabel — имя из справочника (нет — сам код; пусто — «Без категории»)
+      // category — код типа паспорта; categoryLabel — имя из справочника (нет — сам код; пусто — «Без категории»)
       g.items.push({ ...d, readiness: r, category: code || null, categoryLabel: code ? (cats.get(code)?.name || code) : 'Без категории' });
       groups.set(key, g);
     }
@@ -179,7 +179,7 @@ export class PassportQueries {
         ...Object.fromEntries(MODEL_FIELDS.filter((f) => !['productId', 'name', 'category', 'article'].includes(f)).map((f) => [f, d[f] ?? null])),
         images: d.images ?? [],
         // выпуск по изделию без категории падает 400 — такие уходят в конец с причиной
-        canPassport: !!d.passportCategory, missing: d.passportCategory ? [] : ['Нет категории паспорта — заполните в «Документация → Шаблоны»'] };
+        canPassport: !!d.passportCategory, missing: d.passportCategory ? [] : ['Нет типа паспорта — задайте его в группе или виде изделия'] };
     });
     items.sort((a, b) => Number(!a.canPassport) - Number(!b.canPassport)); // стабильная: порядок по категории/имени сохраняется
     await this.attachThumbs(items);

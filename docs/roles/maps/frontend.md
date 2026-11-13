@@ -1,3 +1,7 @@
+## C103 тип паспорта вместо категории (2026-11-13)
+коммит: не закоммичено
+- `passports/common.js` `passportTypeLine` / `productTypeLine` / `groupHref` — единая строка «Тип паспорта: … — из группы/вида/своё у изделия» + «Брать из группы» + «Задать в группе ↗». Выбор убран: `fill/index.js` (шапка `paintContext`, `resetOwn` через `category-change.js`, `ctx.catInfo` = gaps.category), `products/card-blocks.js passportCatView`, `products/form-fields.js` (`pdCategory` hidden + `_pdType`; из массового редактирования убрано pd.passportCategory). Удалён `passports/product-types.js` и «Подставить по типу»; `dicts.js` без passportTypes. Тексты «категория паспорта» → «тип паспорта» по pwa. Отчёт: docs/crew/C103-passport-type-terms/REPORT-frontend.md. Карта обновлена.
+
 ## C100 вид изделия в анкете паспорта (2026-11-13)
 коммит: не закоммичено
 - `passports/fill/control.js` `kindEditor` (select, putDefaults kindId), `controlGap` kind; suggestRow удалён. `fill/paint.js` kindNote/kindElText/kindElNote, строка «Вид изделия» в scalars, filledLink с серой подписью источника. `fill/index.js` ctx.kind/kindRows. `products/data.js` PD_KEYS+kindId. atlas-data `vid-izdeliya`, help-guide docs. Отчёт: docs/crew/C100-passport-kind/REPORT-frontend.md. Карта обновлена.

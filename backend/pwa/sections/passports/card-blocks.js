@@ -73,9 +73,9 @@ export function snapItem(r, ctx, s, i, no = i.number) {
   const view = h('p', { class: 'pp-snap-item' }, no ? h('b', null, no + ' ') : '— ', humanBlanks(i.text),
     i.edited ? h('span', { class: 'muted', title: 'Было: ' + (i.original || '') }, ' · изменён для этого паспорта') : null,
     canEdit() ? iconButton({ icon: '✎', label: `Править пункт ${i.number || ''}`.trim(), size: 'S', cls: 'pp-snap-edit', onClick: () => view.replaceWith(editor()) }) : null,
-    canEdit() && i.edited ? button({ label: 'Сделать общим для категории', kind: 'ghost', size: 'S', title: 'Этот текст пункта получат новые паспорта той же категории', onClick: async () => {
-      if (!(await confirmDlg('Перенести в справочник?', `Пункт «${s.number} ${s.title}» с этим текстом станет общим для новых паспортов категории. Выданные паспорта не изменятся.`, { okText: 'Перенести' }))) return;
-      try { const v = await api(`/passports/${r.id}/snapshot-item/promote`, { method: 'POST', body: { sectionKey: s.key, itemKey: i.key } }); toast(`Перенесено: шаблон категории, версия ${v.version}`); } catch (e) { toastError(e); }
+    canEdit() && i.edited ? button({ label: 'Сделать общим для типа паспорта', kind: 'ghost', size: 'S', title: 'Этот текст пункта получат новые паспорта того же типа', onClick: async () => {
+      if (!(await confirmDlg('Перенести в справочник?', `Пункт «${s.number} ${s.title}» с этим текстом станет общим для новых паспортов этого типа. Выданные паспорта не изменятся.`, { okText: 'Перенести' }))) return;
+      try { const v = await api(`/passports/${r.id}/snapshot-item/promote`, { method: 'POST', body: { sectionKey: s.key, itemKey: i.key } }); toast(`Перенесено: шаблон типа паспорта, версия ${v.version}`); } catch (e) { toastError(e); }
     } }) : null);
   const editor = () => {
     const ta = h('textarea', { rows: 4, value: i.text, 'aria-label': 'Текст пункта' });
@@ -97,7 +97,7 @@ const installList = (t) => (t.install?.text ? h('ol', null, ...String(t.install.
 /** Паспорт v2: текст из снимка (как будет в паспорте) и «Обновить текст по справочникам» (новый снимок). */
 export function previewBlock(r, ctx) {
   const t = r.textSnapshot;
-  const refresh = canEdit() ? button({ label: 'Обновить текст по справочникам', size: 'S', title: 'Собрать текст заново по справочникам и шаблону категории (выданный текст заменится)', onClick: async (e) => {
+  const refresh = canEdit() ? button({ label: 'Обновить текст по справочникам', size: 'S', title: 'Собрать текст заново по справочникам и шаблону типа паспорта (выданный текст заменится)', onClick: async (e) => {
     const edited = (t?.sections || []).reduce((n, x) => n + x.items.filter((it) => it.edited).length, 0);
     if (edited && !(await confirmDlg('Пересобрать текст?', `Ручных правок в этом паспорте: ${edited}. После пересборки по справочникам они пропадут.`, { okText: 'Пересобрать' }))) return;
     e.target.disabled = true; e.target.textContent = 'Собираю…';

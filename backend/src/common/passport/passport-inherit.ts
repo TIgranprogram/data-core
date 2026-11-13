@@ -1,7 +1,7 @@
 import type { mongo, Types } from 'mongoose';
 import { passportCategoryFor, type PpCat, type PpFound } from './form-values';
 
-/** Категория паспорта, которую изделие получает от своей группы/раздела (без ручной категории изделия). */
+/** Тип паспорта, который изделие получает от своей группы/раздела (без ручной категории изделия). */
 export async function inheritedPassportCategory(db: mongo.Db, categoryId: Types.ObjectId | null | undefined): Promise<PpFound | null> {
   if (!categoryId) return null;
   const c = await db.collection('categories').findOne({ _id: categoryId }, { projection: { name: 1, parentId: 1, passportCategory: 1 } });

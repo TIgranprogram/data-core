@@ -12,7 +12,7 @@ import { VARS, VAR_LABELS, canEditTexts } from './passport-texts.js';
 
 /**
  * «Справочники → Паспорта → Тексты паспорта» (ПВ, 2026-10-25): слева дерево «раздел → вариант → подвариант» с метками «пусто» / «дубль · N»
- * и фильтром «Все / Пустые / Дубли»; справа (панель, DESIGN §5) — вариант: текст, категории галочками («Для всех» первым), порядок,
+ * и фильтром «Все / Пустые / Дубли»; справа (панель, DESIGN §5) — вариант: текст, типы паспорта галочками («Для всех» первым), порядок,
  * «по умолчанию», «Объединить с…», «Убрать». Данные — dict_values passportPhrases (узел: parentId, text, categories, allCategories, order, required, isDefault).
  * Адрес: #dicts?d=passportPhrases; панель — of=ptnode&open=<id узла> | new.<id родителя>.
  */
@@ -132,7 +132,7 @@ function nodeForm(r) {
   const order = h('input', { type: 'text', inputmode: 'numeric', maxlength: 4, value: r.order ? String(r.order) : '' });
   const def = h('input', { type: 'checkbox', checked: !!r.isDefault });
   const req = h('input', { type: 'checkbox', checked: !!r.required });
-  const chips = !isRoot ? catChips({ options: r.cats, value: r.categories || '', all: r.allCategories, label: 'К каким категориям подходит текст', later: LATER_CATS }) : null;
+  const chips = !isRoot ? catChips({ options: r.cats, value: r.categories || '', all: r.allCategories, label: 'К каким типам паспорта подходит текст', later: LATER_CATS }) : null;
   const err = h('div', { class: 'err', hidden: true });
   const insert = (v) => { const s = ta.selectionStart ?? ta.value.length, e = ta.selectionEnd ?? s; ta.value = ta.value.slice(0, s) + v + ta.value.slice(e); ta.focus(); ta.selectionStart = ta.selectionEnd = s + v.length; };
   const vars = h('div', { class: 'pt-vars' }, ...VARS.map((v) => h('button', { type: 'button', class: 'tag', title: `Вставить в текст: ${VAR_LABELS[v] || 'значение изделия'}`, onclick: () => insert(v) }, VAR_LABELS[v] || v)));
@@ -152,8 +152,8 @@ function nodeForm(r) {
     leaf ? h('details', { class: 'month-group wide' }, h('summary', null, `Переменные (${VARS.length}) — клик вставляет в текст`), vars, h('div', { class: 'hint' }, 'Если у изделия значение не заполнено, в паспорте будет «[… не заполнено]».')) : null,
     facetPick || groupPick ? h('div', { class: 'field wide' }, h('span', null, 'К каким изделиям'),
       facetPick ? h('div', { class: 'hint' }, 'По признакам — например, «Изменяемая (грузы)»: текст получат только изделия с этим значением.') : null, facetPick?.el,
-      groupPick ? h('div', { class: 'hint' }, 'По группам изделий. Ничего не отмечено — текст для всех изделий выбранных категорий.') : null, groupPick?.el) : null,
-    chips ? h('div', { class: 'field wide' }, h('span', null, 'К каким категориям', h('span', { class: 'req' }, ' *')), chips.el, h('div', { class: 'hint' }, '«Для всех» — подходит любой категории; иначе отметьте нужные.')) : null,
+      groupPick ? h('div', { class: 'hint' }, 'По группам изделий. Ничего не отмечено — текст для всех изделий выбранных типов паспорта.') : null, groupPick?.el) : null,
+    chips ? h('div', { class: 'field wide' }, h('span', null, 'К каким типам паспорта', h('span', { class: 'req' }, ' *')), chips.el, h('div', { class: 'hint' }, '«Для всех» — подходит любому типу паспорта; иначе отметьте нужные.')) : null,
     h('label', { class: 'field span-1' }, h('span', null, 'Порядок'), order),
     !isRoot ? h('label', { class: 'pt-check span-2' }, def, ' По умолчанию (подставляется, пока не выбран другой)') : null,
     isRoot ? h('label', { class: 'pt-check span-2' }, req, ' Обязательный раздел (без выбора паспорт не выпустить)') : null,
@@ -170,7 +170,7 @@ function nodeForm(r) {
     read: () => {
       err.hidden = true;
       if (!name.value.trim()) { name.focus(); toast('Впишите название', { error: true }); return { errors: { name: 1 } }; }
-      if (chips?.empty) { chips.focus(); toast('Отметьте категории или «Для всех»', { error: true }); return { errors: { categories: 1 } }; }
+      if (chips?.empty) { chips.focus(); toast('Отметьте типы паспорта или «Для всех»', { error: true }); return { errors: { categories: 1 } }; }
       return { values: values() };
     },
   };

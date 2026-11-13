@@ -132,12 +132,12 @@ export async function printDialog(r) {
     h('div', { class: 'section-title' }, 'Печать и подпись'), stampBox,
     h('div', { class: 'section-title' }, 'Вид'), h('div', { class: 'pf-opts', role: 'radiogroup', 'aria-label': 'Вид PDF' }, opts),
     h('div', { class: 'pf-checks' }, mono.el), imageWarning,
-    hasCat ? null : h('p', { class: 'form-error' }, 'У паспорта не выбрана категория — PDF собирается по ней. «Выбрать категорию» в действиях карточки.'));
+    hasCat ? null : h('p', { class: 'form-error' }, 'У паспорта не выбран тип — PDF собирается по нему. «Выбрать тип паспорта» в действиях карточки.'));
   pick(mode);
   await modal({
     title: `${heading(r)} — PDF`, okText: 'Скачать PDF', wide: true, body,
     onOk: async (form) => {
-      if (!hasCat) throw new Error('Сначала выберите категорию паспорта');
+      if (!hasCat) throw new Error('Сначала выберите тип паспорта');
       const ok = form.querySelector('[type=submit]');
       const free = busyBtn(ok, 'Готовлю PDF…');
       try {
@@ -151,22 +151,22 @@ export async function printDialog(r) {
   });
 }
 
-/** Паспорт без категории → выбрать категорию (подсказка — по старой категории); сервер соберёт текст по справочникам. */
+/** Паспорт без категории → выбрать категорию (подсказка — по старому типу); сервер соберёт текст по справочникам. */
 export const OLD_TO_V2 = { 'уличный тренажёр': 'TRN', 'воркаут': 'WRK', 'спортивное оборудование': 'WRK', 'благоустройство': 'BLG', 'маф': 'BLG' };
 export async function convertDialog(r, ctx) {
   const cats = V2_CATS.filter((c) => c.value && !LATER_CATS.includes(c.value));
-  const sel = select({ label: 'Категория паспорта', options: [['', '— выберите —'], ...cats.map((c) => [c.value, c.label])] });
+  const sel = select({ label: 'Тип паспорта', options: [['', '— выберите —'], ...cats.map((c) => [c.value, c.label])] });
   sel.value = OLD_TO_V2[String(r.category || '').trim().toLowerCase()] || '';
   const res = await modal({
-    title: 'Категория паспорта', okText: 'Сохранить',
+    title: 'Тип паспорта', okText: 'Сохранить',
     body: h('div', null,
-      h('p', null, 'Текст паспорта соберётся по справочникам «Паспорта» для этой категории — PDF будет полным, с цветом категории. Номера, даты, заказчик, картинки не меняются.'),
-      h('label', { class: 'field wide' }, h('span', null, 'Категория', r.category ? h('span', { class: 'muted' }, ` (была: ${r.category})`) : null), sel),
+      h('p', null, 'Текст паспорта соберётся по справочникам «Паспорта» для этого типа паспорта — PDF будет полным, с цветом типа паспорта. Номера, даты, заказчик, картинки не меняются.'),
+      h('label', { class: 'field wide' }, h('span', null, 'Тип паспорта', r.category ? h('span', { class: 'muted' }, ` (была: ${r.category})`) : null), sel),
       h('p', { class: 'hint' }, 'Потом проверьте блок «Проверка» в карточке — чего не хватает для полного текста.')),
     onOk: async () => {
-      if (!sel.value) throw new Error('Выберите категорию');
+      if (!sel.value) throw new Error('Выберите тип паспорта');
       return api(`/passports/${r.id}`, { method: 'PATCH', body: { passportCategory: sel.value } });
     },
   });
-  if (res) { toast('Категория выбрана, текст паспорта собран'); ctx.setRow(await api(`/passports/${r.id}`)); }
+  if (res) { toast('Тип паспорта выбран, текст паспорта собран'); ctx.setRow(await api(`/passports/${r.id}`)); }
 }
