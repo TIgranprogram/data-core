@@ -159,7 +159,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     const pickedRows = () => rows.filter((r) => picked.has(r.id));
     bulkBar.replaceChildren(h('b', null, picked.size ? `Выбрано: ${qty(picked.size)}` : 'Отметьте строки — клик по строке или галочке'),
       picked.size && L.bulk.open ? h('button', { type: 'button', class: 'btn btn-sm', disabled: !!L.bulk.disabled?.(pickedRows()), onclick: () => L.bulk.open([...picked], { done: () => { exitBulkMode(); load({ keep: true }); }, rows: pickedRows() }) }, (typeof L.bulk.label === 'function' ? L.bulk.label(pickedRows()) : L.bulk.label) || 'Изменить выбранные') : null,
-      ...(picked.size ? (L.bulk.extra || []).map((a) => h('button', { type: 'button', class: 'btn btn-sm', onclick: () => a.run([...picked], pickedRows()) }, a.label)) : []),
+      ...(picked.size ? (L.bulk.extra || []).filter((a) => !a.when || a.when(pickedRows())).map((a) => h('button', { type: 'button', class: 'btn btn-sm', onclick: () => a.run([...picked], pickedRows()) }, a.label)) : []),
       h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => exitBulkMode() }, always ? 'Снять выбор' : 'Готово'));
     const all = headPick(); if (all) { const ids = rows.filter(canPick).map((r) => r.id); all.checked = ids.length > 0 && ids.every((id) => picked.has(id)); all.indeterminate = !all.checked && ids.some((id) => picked.has(id)); }
   };
