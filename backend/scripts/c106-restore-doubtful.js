@@ -14,11 +14,11 @@ const PLAN = [{"id":"6addd770c93bb8ea2a6e3975","sku":"3211","tc":["6add909915d60
 const SKUS = ['3210', '5202', '5302', '5402', '3103', '3209', '3211', '13_1', '3208'];
 
 function buildPlan(products) {
-  const bySku = new Map(products.map((p) => [String(p.sku), p]));
+  const byId = new Map(products.map((p) => [String(p._id), p]));
   const out = [];
   for (const sku of SKUS) {
     const r = PLAN.find((x) => x.sku === sku);
-    const p = bySku.get(sku);
+    const p = r ? byId.get(r.id) : null;
     if (!r || !p) { out.push({ sku, skip: !r ? 'нет в плане C062' : 'изделие не найдено' }); continue; }
     const pd = p.passportDefaults || {};
     const set = {};
@@ -36,7 +36,7 @@ if (!module.parent && !process.env.JEST_WORKER_ID) (async () => {
   const client = await new MongoClient(process.env.MONGO_URI).connect();
   try {
     const db = client.db(process.env.MONGO_DB || undefined);
-    const products = await db.collection('products').find({ sku: { $in: SKUS }, deletedAt: null }, { projection: { sku: 1, name: 1, passportDefaults: 1 } }).toArray();
+    const products = await db.collection('products').find({ _id: { $in: PLAN.map((r) => new ObjectId(r.id)) } }, { projection: { sku: 1, name: 1, passportDefaults: 1, deletedAt: 1, status: 1 } }).toArray();
     const plan = buildPlan(products);
     console.log('База ' + db.databaseName + ' — ' + (apply ? 'ЗАПИСЬ' : 'ПЛАН, ничего не меняется'));
     for (const r of plan) {
