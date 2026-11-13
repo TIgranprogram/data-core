@@ -3,6 +3,8 @@ AddReference "System.Net.Primitives.dll"
 AddReference "System.Private.Uri.dll"
 AddReference "System.Memory.dll"
 AddReference "System.Text.Json.dll"
+AddReference "System.Drawing.Common.dll"
+AddReference "System.Drawing.Primitives.dll"
 
 ' Внешнее правило Inventor 2027. Запуск из сохранённой сборки или детали.
 Sub Main()
