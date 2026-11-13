@@ -506,6 +506,18 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
             For Each linkId As String In previous.Keys
                 RequestJson(client, Global.System.Net.Http.HttpMethod.Delete, photosPath & "/" & linkId)
             Next
+            stage = "Проверка сохранённой глубины Г"
+            Dim saved As Global.System.Text.Json.JsonElement = RequestJson(client, Global.System.Net.Http.HttpMethod.Get, "showcase/" & productId)
+            Dim savedDefaults As Global.System.Text.Json.JsonElement
+            Dim depth As Global.System.Text.Json.JsonElement
+            Dim savedMm As Double
+            If Not saved.TryGetProperty("passportDefaults", savedDefaults) OrElse
+               savedDefaults.ValueKind <> Global.System.Text.Json.JsonValueKind.Object OrElse
+               Not savedDefaults.TryGetProperty("foundationDepth", depth) OrElse
+               depth.ValueKind <> Global.System.Text.Json.JsonValueKind.Number OrElse
+               Not depth.TryGetDouble(savedMm) OrElse savedMm <> depthMm Then
+                Throw New InvalidOperationException("Рисунки загружены, но сайт не подтвердил глубину Г = " & FormatMm(depthMm) & " мм.")
+            End If
             Return productId
         End Using
     End Using
@@ -685,4 +697,6 @@ Function TransparentPngOptions(app As Inventor.Application) As Inventor.NameValu
     options.Add("TransparentBackground", True)
     Return options
 End Function
+
+' Конец правила «Картинки для паспорта».
 
