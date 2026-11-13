@@ -1,5 +1,6 @@
 import { openCard } from '../../../ui/kit/card.js';
 import { api } from '../../../core/api.js';
+import { toastError } from '../../../ui/kit/toast.js';
 import { buildForm, button, enhanceSelect, field, fieldRow, hint, link, segmented, select, sideNote, stack, textInput, toast } from '../../../ui/kit/index.js';
 import { V2_NUMS, canEdit as canEditTexts } from '../common.js';
 import { patchProduct, putDefaults, setFacets } from '../funnel/api.js';
@@ -17,7 +18,14 @@ export function kindEditor(ctx, gap) {
   const options = given.length ? given : dict;
   // ссылка сразу в справочник: по словам «Справочники → …» место не находилось (пользователь 2026-11-13)
   const toDict = () => link({ label: 'Открыть справочник «Виды изделий» ↗', href: '#dicts?d=passportKinds', target: '_blank', title: 'Откроется в новой вкладке — паспорт здесь останется' });
-  if (!options.length) return stack(hint('Видов изделий пока нет — добавьте первый.', 'warn'), toDict());
+  const refresh = () => link({ label: 'Обновить список видов', onClick: async () => {
+    try {
+      const result = await api('/dicts/passportKinds');
+      ctx.kindRows = result.items || [];
+      await ctx.reload();
+    } catch (e) { toastError(e, 'обновить список видов'); }
+  } });
+  if (!options.length) return stack(hint('Для выбора нет подходящих видов.', 'warn'), toDict(), refresh());
   const cur = String(ctx.prod.passportDefaults?.kindId || '');
   const sel = select({
     label: 'Вид изделия',
@@ -26,7 +34,7 @@ export function kindEditor(ctx, gap) {
     onChange: (v) => ctx.save(() => putDefaults(ctx.prod, { kindId: v })),
   });
   if (options.length > 12) enhanceSelect(sel);
-  return stack(field('Вид изделия', sel, { required: !!gap?.required, hint: 'Вид задаёт, что это за изделие, назначение и тип паспорта. Если в самом изделии задано иначе — будет по-вашему.' }), toDict());
+  return stack(field('Вид изделия', sel, { required: !!gap?.required, hint: 'Выбранный вид сохраняется в изделии. Паспорт берёт из него тип, назначение и элементы, если они не заданы отдельно.' }), toDict(), refresh());
 }
 
 function numEditor(ctx, key, label, dflt) {
