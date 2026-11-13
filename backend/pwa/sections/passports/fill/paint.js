@@ -3,7 +3,7 @@ import { h } from '../../../core/dom.js';
 import { actions, badge, button, fieldRow, hint, link, row, stack } from '../../../ui/kit/index.js';
 import { passportSlot } from '../../product-files.js';
 import {
-  controlGap, dimsEditor, elementsEditor, installEditor, jointsEditor, kitEditor, materialsEditor, numEditor, suggestRow, weightEditor,
+  controlGap, dimsEditor, elementsEditor, installEditor, jointsEditor, kitEditor, materialsEditor, kindEditor, numEditor, weightEditor,
 } from './control.js';
 import { OPS, PLACE, boxOf, dimText, elText, gapLabel, gapSection, imageKind, instText, jointsLine, kitText, matText, opText, slotKinds } from './model.js';
 
@@ -42,6 +42,7 @@ export function appliesOf(applicable, spec) {
   if (!applicable) return 'required';
   if (spec.key === 'elements') return applicable.elements || 'required';
   if (spec.key === 'isKit') return applicable.kit || 'optional';
+  if (spec.key === 'kind') return 'optional';
   if (spec.key === 'joints') return 'optional';
   if (spec.num) return applicable.fields?.[spec.key] || 'na';
   return 'required';
@@ -54,8 +55,9 @@ function scalars(ctx) {
     editor: (gap) => numEditor(ctx, key, unit ? `${label}, ${unit}` : label, gap?.default),
   });
   return [
+    { key: 'kind', section: 'purpose', label: 'Вид изделия', ask: 'both', text: ctx.kind?.name || '', note: kindNote(ctx), editor: (gap) => kindEditor(ctx, gap) },
     numAt('maxUsers', 'Пользователей одновременно', ''),
-    { key: 'elements', section: 'purpose', label: 'Что это за изделие', ask: 'both', text: elText(ctx.prod, ctx.elNames), editor: (gap) => elementsEditor(ctx, gap) },
+    { key: 'elements', section: 'purpose', label: 'Что это за изделие', ask: 'both', text: elText(ctx.prod, ctx.elNames) || kindElText(ctx), note: kindElNote(ctx), editor: (gap) => elementsEditor(ctx, gap) },
     { key: 'height', section: 'dims', label: 'Габариты', ask: 'template', text: dimText(ctx.prod), editor: () => dimsEditor(ctx) },
     { key: 'weight', section: 'dims', label: 'Вес', ask: 'template', text: ctx.prod.weightKg ? `${ctx.prod.weightKg} кг` : '', editor: () => weightEditor(ctx) },
     { key: 'joints', section: 'struct', label: 'Как соединено', ask: 'both', text: jointsLine(ctx.prod), editor: () => jointsEditor(ctx) },
@@ -67,8 +69,24 @@ function scalars(ctx) {
 }
 
 function filledLink(ctx, spec, text) {
-  return link({ label: `${spec.label}: ${text} ✎`, title: 'Изменить', onClick: () => { ctx.editing.add(spec.key); ctx.repaint(); } });
+  const a = link({ label: `${spec.label}: ${text} ✎`, title: 'Изменить', onClick: () => { ctx.editing.add(spec.key); ctx.repaint(); } });
+  return spec.note ? h('div', null, a, hint(spec.note)) : a; // подпись источника — вплотную к строке (дизайнер C100)
 }
+
+/** Откуда вид: «из группы «…»» или «своё» (C100). */
+function kindNote(ctx) {
+  const k = ctx.kind;
+  if (!k) return '';
+  const src = k.source === 'group' ? `из группы «${k.groupName || 'изделия'}»` : 'своё';
+  return src; // назначение вида показывает свой шаг ниже — не дублировать
+}
+const ownElements = (ctx) => (ctx.prod.passportDefaults?.elements || []).length > 0;
+function kindElText(ctx) {
+  if (ownElements(ctx) || !ctx.kind) return '';
+  const kr = (ctx.kindRows || []).find((d) => String(d.id || d._id) === String(ctx.kind.id));
+  return (kr?.elementIds || []).map((id) => ctx.elNames.get(String(id)) || '').filter(Boolean).join(', ');
+}
+const kindElNote = (ctx) => (!ownElements(ctx) && kindElText(ctx) ? `из вида «${ctx.kind.name}»` : '');
 
 /** Поля разделов: пустое открыто, заполненное — строка. В режиме issue заполненное прячется в одну строку сверху. */
 export function paintFields(ctx) {
@@ -100,7 +118,7 @@ export function paintFields(ctx) {
     // «Назначение» как обязательное поле и уточнение назначения — один вопрос, а не два
     if (m.key === 'purpose' && ctx.missing.some((x) => x.kind === 'purpose')) continue;
     // необязательный признак без подсказки при выпуске не спрашиваем: он в «Необязательном»
-    if (m.kind === 'facet' && !m.required && !m.suggest && ctx.mode === 'issue' && !ctx.more) { ctx.later.push(m.label || 'признак'); continue; }
+    if (m.kind === 'facet' && !m.required && ctx.mode === 'issue' && !ctx.more) { ctx.later.push(m.label || 'признак'); continue; }
     const node = controlGap(m, ctx);
     if (!node) continue;
     const box = h('div', { dataset: { gap: String(m.key) } }, node);
@@ -112,9 +130,6 @@ export function paintFields(ctx) {
   const elOpen = ctx.editing.has('elements') || ctx.missing.some((m) => m.kind === 'elements' || m.key === 'elements');
   if (elOn && (ctx.mode === 'template' || ctx.reveal || elOpen)) ctx.fieldHost.purpose.append(ctx.elSec);
   ctx.els.setIds(ctx.prod.passportDefaults?.elements || []);
-  const catGap = ctx.missing.find((m) => m.kind === 'category');
-  const suggest = catGap && suggestRow(catGap, (v) => ctx.onCategory(v), (job) => job());
-  ctx.catSuggest.replaceChildren(suggest || null);
 }
 
 /** Слоты рисунков. В режиме issue уже загруженный рисунок входит в «Уже заполнено» и скрыт, пока строку не раскроют. */
@@ -228,14 +243,10 @@ export function syncChrome(ctx) {
 }
 
 export function placeTexts(ctx, list) {
-  const purposeGap = (ctx.missing || []).find((m) => m.kind === 'purpose');
-  const rootId = String(purposeGap?.key || '').replace(/^choice:/, '');
   for (const host of Object.values(ctx.textHost)) host.replaceChildren();
   for (const s of list || []) {
     const node = ctx.fb.stepEl(s.id);
     if (!node) continue;
-    // шаг «Назначение» прячем, только пока есть подсказка «Да, верно»; уточнение без подсказки (C086) оставляет список на месте
-    node.hidden = !!(rootId && String(s.id) === rootId && purposeGap?.suggest);
     ctx.textHost[boxOf(s)].append(node);
   }
 }

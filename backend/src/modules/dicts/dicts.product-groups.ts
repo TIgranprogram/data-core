@@ -11,13 +11,24 @@ const isOid = (v: unknown) => Types.ObjectId.isValid(String(v ?? '')) && String(
 const GROUPS = { type: 'product', deletedAt: null, parentId: { $ne: null } };
 const SECTIONS = { type: 'product', deletedAt: null, parentId: null };
 
-const PP_FIELD: import('./dicts.defs').Field = { key: 'passportCategory', label: 'Категория паспорта', type: 'select', hint: 'Изделия этой группы получают её в паспорте сами. Своя категория, заданная в изделии вручную, главнее. Пусто — берётся из раздела', options: [{ value: 'DIO', label: 'Детское (DIO)' }, { value: 'DSP', label: 'Спортивное (DSP)' }, { value: 'TRN', label: 'Уличный тренажёр (TRN)' }, { value: 'WRK', label: 'Воркаут (WRK)' }, { value: 'BLG', label: 'Благоустройство (BLG)' }] };
+export const PP_FIELD: import('./dicts.defs').Field = { key: 'passportCategory', label: 'Категория паспорта', type: 'select', hint: 'Изделия этой группы получают её в паспорте сами. Своя категория, заданная в изделии вручную, главнее. Пусто — берётся из раздела', options: [{ value: 'DIO', label: 'Детское (DIO)' }, { value: 'DSP', label: 'Спортивное (DSP)' }, { value: 'TRN', label: 'Уличный тренажёр (TRN)' }, { value: 'WRK', label: 'Воркаут (WRK)' }, { value: 'BLG', label: 'Благоустройство (BLG)' }] };
 /** Код категории паспорта из тела запроса: пусто — снять; неизвестный — 400. */
-function ppCode(v: unknown): string | null {
+export function ppCode(v: unknown): string | null {
   const c = s(v);
   if (!c) return null;
   if (!PP_FIELD.options!.some((o) => o.value === c)) throw new BadRequestException('Категория паспорта: одна из ' + PP_FIELD.options!.map((o) => o.value).join(', '));
   return c;
+}
+
+/** Вид изделия группы из тела запроса: пусто — снять; нет такого вида — 400; категория вида не совпадает с категорией группы — 400. */
+async function kindRef(db: Db, v: unknown, groupCategory: string | null): Promise<Types.ObjectId | null> {
+  const id = s(v);
+  if (!id) return null;
+  if (!isOid(id)) throw new BadRequestException('Некорректный вид изделия');
+  const kind = await db.collection('dict_values').findOne({ _id: new Types.ObjectId(id), dict: 'passportKinds', deletedAt: null }, { projection: { name: 1, passportCategory: 1 } });
+  if (!kind) throw new BadRequestException('Вид изделия не найден — выберите из списка');
+  if (groupCategory && s(kind.passportCategory) && s(kind.passportCategory) !== groupCategory) throw new BadRequestException(`Вид «${s(kind.name)}» относится к другой категории паспорта, чем группа`);
+  return kind._id as Types.ObjectId;
 }
 
 type Ctx = { translit: (t: string) => string };
@@ -51,9 +62,10 @@ export function productGroupDefs({ translit }: Ctx): DictBase[] {
       { key: 'groupNo', label: 'Номер группы', required: true, lockAfterCreate: true, hint: 'Первые две цифры артикула изделий этой группы; менять нельзя — иначе путаница в артикулах' },
       { key: 'parentId', label: 'Раздел', type: 'select', ref: 'productSections', required: true, hint: 'Нет нужного раздела — сначала создайте его в «Разделах изделий»' },
       PP_FIELD,
+      { key: 'passportKindId', label: 'Вид изделия по умолчанию', type: 'select', ref: 'passportKinds', hint: 'Изделия группы получают этот вид: что это за изделие, назначение и категория паспорта берутся из него. Своё значение изделия главнее. Пусто — вид выбирается у каждого изделия' },
     ],
     name: (d) => s(d.name),
-    row: (d) => ({ name: s(d.name), groupNo: s(d.groupNo), parentId: d.parentId ? String(d.parentId) : '', passportCategory: s(d.passportCategory) }),
+    row: (d) => ({ name: s(d.name), groupNo: s(d.groupNo), parentId: d.parentId ? String(d.parentId) : '', passportCategory: s(d.passportCategory), passportKindId: d.passportKindId ? String(d.passportKindId) : '' }),
     toDoc: async (b, isNew, db, id) => {
       const name = s(b.name);
       if (!name) throw new BadRequestException('Укажите название группы');
@@ -81,8 +93,9 @@ export function productGroupDefs({ translit }: Ctx): DictBase[] {
       const dup = await db.collection('categories').findOne({ ...GROUPS, groupNo: raw, ...(id ? { _id: { $ne: new Types.ObjectId(id) } } : {}) }, { projection: { name: 1 } });
       if (dup) throw new ConflictException(`Номер ${raw} уже занят группой «${s(dup.name)}»`);
       const passportCategory = b.passportCategory === undefined ? (cur?.passportCategory ?? null) : ppCode(b.passportCategory);
-      if (!isNew) return { name, parentId, groupNo: raw, passportCategory, updatedAt: new Date() };
-      return { name, ...(await crmKeys(db, name, translit)), type: 'product', parentId, groupNo: raw, passportCategory, sortOrder: 0, isActive: true, deletedAt: null, createdAt: new Date(), updatedAt: new Date() };
+      const passportKindId = b.passportKindId === undefined ? (cur?.passportKindId ?? null) : await kindRef(db, b.passportKindId, passportCategory);
+      if (!isNew) return { name, parentId, groupNo: raw, passportCategory, passportKindId, updatedAt: new Date() };
+      return { name, ...(await crmKeys(db, name, translit)), type: 'product', parentId, groupNo: raw, passportCategory, passportKindId, sortOrder: 0, isActive: true, deletedAt: null, createdAt: new Date(), updatedAt: new Date() };
     },
     beforeRemove: async (db, d) => {
       const n = await db.collection('products').countDocuments({ deletedAt: null, categoryId: d._id });

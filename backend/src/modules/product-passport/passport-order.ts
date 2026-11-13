@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Types, type Connection } from 'mongoose';
 import { passportCategoryFor, type PpCat } from '../../common/passport/form-values';
+import { resolveKinds } from '../../common/passport/kind';
 import { isIssued } from './passport-consts';
 
 type Doc = Record<string, unknown>;
@@ -87,13 +88,13 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string,
   const byIncome = new Map<string, Doc>();
   for (const p of pass) { const k = String(p.incomeId); const had = byIncome.get(k); if (!had || (!isIssued(had) && isIssued(p as Doc))) byIncome.set(k, p); } // выпущенный важнее черновика
   const pids = [...new Set(incomes.filter((i) => i.productId).map((i) => String(i.productId)))];
-  const prods = pids.length ? await db.collection('products').find({ _id: { $in: pids.map((x) => new Types.ObjectId(x)) } }, { projection: { name: 1, sku: 1, categoryId: 1, 'passportDefaults.passportCategory': 1 } }).toArray() : [];
+  const prods = pids.length ? await db.collection('products').find({ _id: { $in: pids.map((x) => new Types.ObjectId(x)) } }, { projection: { name: 1, sku: 1, categoryId: 1, 'passportDefaults.passportCategory': 1, 'passportDefaults.kindId': 1 } }).toArray() : [];
   const pname = new Map(prods.map((p) => [String(p._id), String(p.name ?? '')]));
   // C086: справочник и группы с родителями загружаются пакетно, независимо от числа позиций заказа.
   const cats = (prods.length ? await db.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, name: 1, catalogNames: 1 } }).toArray() : []) as unknown as PpCat[];
   const catNames = new Map(cats.map((c) => [String(c.code), String(c.name ?? c.code)]));
   const groupIds = [...new Set(prods.filter((p) => !(p.passportDefaults as { passportCategory?: string } | undefined)?.passportCategory?.trim() && p.categoryId).map((p) => String(p.categoryId)))];
-  const groups = groupIds.length ? await db.collection('categories').find({ _id: { $in: groupIds.map((id) => new Types.ObjectId(id)) }, deletedAt: null }, { projection: { name: 1, parentId: 1, passportCategory: 1 } }).toArray() : [];
+  const groups = groupIds.length ? await db.collection('categories').find({ _id: { $in: groupIds.map((id) => new Types.ObjectId(id)) }, deletedAt: null }, { projection: { name: 1, parentId: 1, passportCategory: 1, passportKindId: 1 } }).toArray() : [];
   const parentIds = [...new Set(groups.filter((g) => g.parentId).map((g) => String(g.parentId)))];
   const parents = parentIds.length ? await db.collection('categories').find({ _id: { $in: parentIds.map((id) => new Types.ObjectId(id)) }, deletedAt: null }, { projection: { name: 1, passportCategory: 1 } }).toArray() : [];
   const parentById = new Map(parents.map((p) => [String(p._id), p]));
@@ -103,9 +104,12 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string,
     const inherited = passportCategoryFor({ group: parent ? String(g.name) : null, type: String((parent ?? g).name) }, cats, { group: parent ? String(g.passportCategory ?? '') : '', type: String((parent ?? g).passportCategory ?? '') });
     byGroup.set(String(g._id), inherited?.name ?? null);
   }
+  // C100: категория вида изделия главнее категории группы; группы уже прочитаны выше (категории заново не читаются)
+  const noOwn = prods.filter((p) => !String((p.passportDefaults as { passportCategory?: string } | undefined)?.passportCategory ?? '').trim());
+  const kinds = await resolveKinds(db, noOwn, new Map(groups.map((g) => [String(g._id), g])));
   const pcat = new Map<string, string | null>();
   for (const p of prods) {
-    const own = String((p.passportDefaults as { passportCategory?: string } | undefined)?.passportCategory ?? '').trim();
+    const own = String((p.passportDefaults as { passportCategory?: string } | undefined)?.passportCategory ?? '').trim() || (kinds.get(String(p._id))?.kind?.passportCategory ?? '');
     const gid = p.categoryId ? String(p.categoryId) : '';
     pcat.set(String(p._id), own ? catNames.get(own) ?? own : (gid ? byGroup.get(gid) ?? null : null));
   }

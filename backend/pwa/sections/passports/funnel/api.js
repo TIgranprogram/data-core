@@ -31,7 +31,7 @@ export async function loadTexts(category, productId) {
   // дерево разделов и вариантов — /passports/funnel (sections); какие варианты подходят изделию и какие по его признакам — A5 phrases[]
   const [t, f] = await Promise.all([
     api('/passports/texts', { query: clean({ category, productId }) }).catch(() => ({})),
-    api('/passports/funnel', { query: { category } }).catch(() => null)]);
+    api('/passports/funnel', { query: clean({ category, productId }) }).catch(() => null)]); // с изделием — вариант «по умолчанию» из вида (C100)
   const tree = f?.sections || [];
   if (!Array.isArray(t.phrases)) return tree;
   const ok = new Map(t.phrases.map((p) => [String(p.id), p]));

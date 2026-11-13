@@ -860,6 +860,8 @@ Write-paths, которые должны быть all-or-nothing, использ
 - `persons.companyId` — наша компания, платящая зарплату (ставка и график — `salaryKind/salaryRate/payoutScheduleId`, как и раньше).
 - Начисление = ставка × часы (почасовая) или оклад (полный / дни ÷ норма). Календарь: расход = оплаченные заявки (`paid`, `paidAt`) + `payroll_payments`; доход = `incomes.payments`.
 
+**`categories.passportKindId`** (C100, 2026-11-13): необязательный id вида изделия группы (`dict_values` dict `passportKinds`: `name`, `passportCategory`, `elementIds[≤3]`, `purposeLeafId`, `notes`); пишется сырым `$set`, CRM поле не читает. Изделие: `products.passportDefaults.kindId` (строка) — своё главнее вида группы; цепочка элементов, назначения и категории — `common/passport/kind.ts`.
+
 **`categories.passportCategory`** (PASSPORT-CATEGORY, 2026-10-29): необязательный код категории паспорта группы/раздела (DIO, DSP, TRN, WRK, BLG). Изделие наследует: своя `products.passportDefaults.passportCategory` (вручную, главнее) → группа → раздел → запасной `passportCategories.catalogNames`. CRM поле не читает.
 
 ### `WorkTask` (задание «В работе») — коллекция `worktasks`, модуль `modules/work` (AUDIT-PRODUCTION шаги 0–2, 2026-10-29)

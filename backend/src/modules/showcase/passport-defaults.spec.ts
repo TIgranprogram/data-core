@@ -46,3 +46,12 @@ describe('textChoices в passportDefaults', () => {
     expect(mergePassportDefaults(null, { isKit: true })).toEqual({ isKit: true });
   });
 });
+
+describe('C100: вид изделия в значениях по умолчанию', () => {
+  const id = '6ad88933ba6c8597a0843ccc';
+  it('kindId сохраняется строкой; пустой отбрасывается; битый — 400', () => {
+    expect(normalizePassportDefaults({ kindId: id }).kindId).toBe(id);
+    expect(normalizePassportDefaults({ kindId: '' }).kindId).toBeUndefined();
+    expect(() => normalizePassportDefaults({ kindId: 'abc' })).toThrow(BadRequestException);
+  });
+});

@@ -1,7 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { Types, type mongo } from 'mongoose';
-import { suggestValue } from '../../common/passport/funnel';
-import { suggestElementNames, suggestPurposeName } from '../../common/passport/name-suggest';
+import { KINDS_DICT, resolveKind, type ResolvedKind } from '../../common/passport/kind';
 import { inheritedPassportCategory } from '../../common/passport/passport-inherit';
 import { buildForest, forProduct, resolveChoices, toNode } from '../../common/passport/phrase-tree';
 import { groupChain } from './passport-facet-phrases';
@@ -14,8 +13,8 @@ const s = (v: unknown) => String(v ?? '').replace(/\s+/g, ' ').trim();
 export const DEFAULT_INSTALL: Record<string, string> = { TRN: 'EMBEDDED', WRK: 'CONCRETE_POSTS', DIO: 'CONCRETE_POSTS', DSP: 'CONCRETE_POSTS' };
 
 export interface GapItem {
-  key: string; label: string; kind: 'category' | 'facet' | 'field' | 'install' | 'elements' | 'purpose' | 'image'; required: boolean;
-  multi?: boolean; default?: unknown; suggest?: { id: string; label: string; word: string; ids?: string[] }; options?: Array<{ id: string; label: string }>;
+  key: string; label: string; kind: 'category' | 'facet' | 'field' | 'install' | 'elements' | 'purpose' | 'image' | 'kind'; required: boolean;
+  multi?: boolean; default?: unknown; options?: Array<{ id: string; label: string }>;
 }
 
 /** Элемент для списка «Что это за изделие»: строго по категории (пустая — никому) и только изделие/снаряд (без kind — как изделие до разметки). */
@@ -25,9 +24,10 @@ export function elementFits(d: Record<string, unknown>, code: string): boolean {
   return s(d.categories).split(/[,;\s]+/).filter(Boolean).includes(code);
 }
 
-/** У изделия есть элементы: свои (умолчания паспорта) или из выбранных значений признаков. */
-async function hasElements(db: mongo.Db, prod: Record<string, unknown>): Promise<boolean> {
+/** У изделия есть элементы: свои (умолчания паспорта), из вида изделия или из выбранных значений признаков. */
+async function hasElements(db: mongo.Db, prod: Record<string, unknown>, rk: ResolvedKind): Promise<boolean> {
   if ((((prod.passportDefaults as { elements?: unknown[] } | undefined)?.elements) ?? []).length) return true;
+  if (rk.kind?.elementIds.length) return true;
   const have = new Set(((prod.facetValueIds as unknown[]) ?? []).map(String));
   if (!have.size) return false;
   const vals = await db.collection('dict_values').find({ dict: 'productFacetValues', deletedAt: null }, { projection: { elementIds: 1 } }).toArray();
@@ -65,59 +65,45 @@ interface Checker {
   categoryRules(): Promise<Map<string, CategoryRule>>;
 }
 
-/** Группа изделия (категория с родителем). Раздел без родителя — не группа, правила C062 её не читают. */
-async function groupName(db: mongo.Db, prod: Record<string, unknown>): Promise<string> {
-  const id = prod.categoryId;
-  if (!id) return '';
-  const c = await db.collection('categories').findOne({ _id: id }, { projection: { name: 1, parentId: 1 } });
-  return c?.parentId ? s(c.name) : '';
-}
-
 const catsOf = (d: Record<string, unknown>) => s(d.categories).split(/[,;\s]+/).filter(Boolean);
 const fitsCat = (d: Record<string, unknown>, code: string) => d.allCategories === true || d.allCategories === 'true' || catsOf(d).includes(code);
 
-/** Подсказка элементов: все имена нашлись в списке категории — иначе молчим (как «вручную» в C062). */
-function elementSuggest(name: string, code: string, group: string, options: Array<{ id: string; label: string }>): GapItem['suggest'] {
-  const hit = suggestElementNames(name, code, group);
-  if (!hit) return undefined;
-  const byName = new Map(options.map((o) => [o.label, o.id]));
-  const ids = hit.names.map((n) => byName.get(n)).filter((id): id is string => !!id);
-  if (ids.length !== hit.names.length) return undefined;
-  return { id: ids[0], label: hit.names.join(', '), word: hit.word, ...(ids.length > 1 ? { ids } : {}) };
-}
-
 /**
  * Назначение изделия: имя выбранного варианта (от него зависит тип, C086) и пункт «не хватает».
- * Не выбрано: есть правило по названию — пункт с подсказкой «Да, верно»; правила нет, а тип нужен (`askType`) —
- * пункт-уточнение без подсказки (список остаётся у воронки текстов). Иначе пункта нет.
+ * Порядок источников (C100): своё у изделия → вид изделия → привязка листа к группе/признакам. Угадывания по названию нет.
+ * Сохранённый, но удалённый или не подходящий категории выбор (свой или вида) молча не подменяется — «Выберите назначение заново».
+ * Источников нет: тип нужен (`askType`) — обычный вопрос со списком; иначе пункта нет. `ask` — назначение пусто без «заново»
+ * (по нему при отсутствии вида задаётся вопрос «Вид изделия»).
  */
-async function purposeState(db: mongo.Db, prod: Record<string, unknown>, code: string, group: string, askType: boolean): Promise<{ chosen: string; gap: GapItem | null }> {
+async function purposeState(db: mongo.Db, prod: Record<string, unknown>, code: string, rk: ResolvedKind, askType: boolean): Promise<{ chosen: string; gap: GapItem | null; ask: boolean }> {
   const choices = ((prod.passportDefaults as { textChoices?: Record<string, string> } | undefined)?.textChoices) || {};
   const phrases = await db.collection('dict_values').find(
     { dict: 'passportPhrases', deletedAt: null },
     { projection: { name: 1, parentId: 1, section: 1, categories: 1, allCategories: 1, text: 1, groupIds: 1, facetValueIds: 1, isDefault: 1, order: 1 } },
   ).toArray();
   const root = phrases.find((p) => s(p.section) === 'purpose' && !p.parentId && !s(p.text));
-  if (!root) return { chosen: '', gap: null };
+  if (!root) return { chosen: '', gap: null, ask: false };
   const leaves = phrases.filter((p) => String(p.parentId) === String(root._id));
   const picked = choices[String(root._id)];
   const selected = leaves.find((l) => String(l._id) === String(picked));
-  if (selected && fitsCat(selected, code)) return { chosen: s(selected.name), gap: null };
-  // Используем тот же выбор по группе/признакам, что и PDF: автоматическое назначение уже заполнено.
-  if (!picked) {
-    const groupIds = phrases.some((p) => Array.isArray(p.groupIds) && p.groupIds.length) ? await groupChain(db, prod.categoryId) : new Set<string>();
-    const ctx = { facetValueIds: new Set(((prod.facetValueIds as unknown[]) ?? []).map(String)), groupIds };
-    const forest = forProduct(buildForest(phrases.map(toNode), code), ctx);
-    const auto = resolveChoices(forest, choices, ctx).leaves.get(String(root._id));
-    if (auto) return { chosen: auto.leaf.name, gap: null };
-  }
+  if (selected && fitsCat(selected, code)) return { chosen: s(selected.name), gap: null, ask: false };
   const options = leaves.filter((l) => fitsCat(l, code)).map((l) => ({ id: String(l._id), label: s(l.name) }));
   const base = { key: `choice:${String(root._id)}`, label: 'Назначение', kind: 'purpose' as const, required: false, options };
-  if (picked) return { chosen: '', gap: { ...base, required: true, label: 'Выберите назначение заново: сохранённый вариант удалён или не подходит категории' } };
-  const hit = suggestPurposeName(s(prod.name), code, group);
-  const leaf = hit ? leaves.find((l) => s(l.name) === hit.name && fitsCat(l, code)) : undefined;
-  if (hit && leaf) return { chosen: '', gap: { ...base, suggest: { id: String(leaf._id), label: hit.name, word: hit.word } } };
-  return { chosen: '', gap: askType && options.length ? base : null };
+  const redo = (why: string): GapItem => ({ ...base, required: true, label: `Выберите назначение заново: ${why}` });
+  if (picked) return { chosen: '', gap: redo('сохранённый вариант удалён или не подходит категории'), ask: false };
+  const viaKind = rk.kind?.purposeLeafId;
+  if (viaKind) {
+    const leaf = leaves.find((l) => String(l._id) === viaKind);
+    if (leaf && fitsCat(leaf, code)) return { chosen: s(leaf.name), gap: null, ask: false };
+    return { chosen: '', gap: redo(`назначение вида «${rk.kind!.name}» удалено или не подходит категории`), ask: false };
+  }
+  // тот же выбор по группе/признакам, что и в PDF: автоматическое назначение уже заполнено
+  const groupIds = phrases.some((p) => Array.isArray(p.groupIds) && p.groupIds.length) ? await groupChain(db, prod.categoryId) : new Set<string>();
+  const ctx = { facetValueIds: new Set(((prod.facetValueIds as unknown[]) ?? []).map(String)), groupIds };
+  const forest = forProduct(buildForest(phrases.map(toNode), code), ctx);
+  const auto = resolveChoices(forest, choices, ctx).leaves.get(String(root._id));
+  if (auto) return { chosen: auto.leaf.name, gap: null, ask: false };
+  return { chosen: '', gap: askType && options.length ? base : null, ask: askType && options.length > 0 };
 }
 
 /**
@@ -128,16 +114,20 @@ export async function productGaps(svc: Checker, db: mongo.Db, id: string) {
   if (!Types.ObjectId.isValid(id)) throw new NotFoundException('Изделие не найдено');
   const prod = await db.collection('products').findOne({ _id: new Types.ObjectId(id), deletedAt: null });
   if (!prod) throw new NotFoundException('Изделие не найдено');
+  const rk = await resolveKind(db, prod);
+  const kindInfo = rk.kind ? { id: rk.kind.id, name: rk.kind.name, source: rk.source, groupName: rk.groupName } : null;
+  // категория: своя → вида изделия → группы/раздела (C100)
   const own = s((prod.passportDefaults as { passportCategory?: string } | undefined)?.passportCategory);
-  const inh = own ? null : await inheritedPassportCategory(db, prod.categoryId as Types.ObjectId | undefined);
-  const code = own || inh?.code || null;
+  const viaKind = own ? '' : s(rk.kind?.passportCategory);
+  const inh = own || viaKind ? null : await inheritedPassportCategory(db, prod.categoryId as Types.ObjectId | undefined);
+  const code = own || viaKind || inh?.code || null;
   const rules = await svc.categoryRules();
   if (!code) {
     const options = [...rules.entries()].filter(([c]) => c !== 'ALL').map(([c, r]) => ({ id: c, label: s(r.name) || c }));
-    return { category: { code: null, name: null, source: null }, missing: [{ key: 'category', label: 'Категория паспорта', kind: 'category' as const, required: true, options }] as GapItem[] };
+    return { category: { code: null, name: null, source: null }, kind: kindInfo, missing: [{ key: 'category', label: 'Категория паспорта', kind: 'category' as const, required: true, options }] as GapItem[] };
   }
-  const category = { code, name: s(rules.get(code)?.name) || (inh?.name ?? code), source: (own ? 'own' : 'group') as 'own' | 'group' };
-  const group = await groupName(db, prod);
+  const category = { code, name: s(rules.get(code)?.name) || (inh?.name ?? code), source: (own ? 'own' : viaKind ? 'kind' : 'group') as 'own' | 'kind' | 'group' };
+  const group = rk.groupName;
 
   const missing: GapItem[] = [];
   // признаки категории без значения у изделия
@@ -146,19 +136,18 @@ export async function productGaps(svc: Checker, db: mongo.Db, id: string) {
   // C086: тип изделия — выбранное назначение, конкретная группа каталога или запасной признак типа; подсказка по названию типом не считается
   const facetCodes = facets.filter((f) => values.some((v) => v.parentId === f.id && have.has(v.id))).map((f) => f.code);
   const untyped = productType(code, { facetCodes, group });
-  const purpose = await purposeState(db, prod, code, group, untyped.needed && !untyped.known);
+  const purpose = await purposeState(db, prod, code, rk, untyped.needed && !untyped.known);
   const type = productType(code, { purposeName: purpose.chosen, facetCodes, group });
   for (const f of facets.filter((x) => x.category === code && facetApplies(x.code, type)).sort((a, b) => a.order - b.order)) {
     const vals = values.filter((v) => v.parentId === f.id).sort((a, b) => a.order - b.order);
     if (!vals.length || vals.some((v) => have.has(v.id))) continue;
-    const suggest = suggestValue(s(prod.name), vals);
-    missing.push({ key: f.code, label: f.name, kind: 'facet', required: false, multi: f.multi, ...(suggest ? { suggest } : {}), options: vals.map((v) => ({ id: v.id, label: v.name })) });
+    missing.push({ key: f.code, label: f.name, kind: 'facet', required: false, multi: f.multi, options: vals.map((v) => ({ id: v.id, label: v.name })) });
   }
   // обязательные поля и рисунки категории
   const usedFields = new Set<string>();
   let rows = (await svc.check({ productId: id, mode: 'template' }, usedFields)).missing.filter((m) => !m.key.startsWith('choice:') && m.key !== 'category');
   // C028: элементы дают признаки (elementIds значений) — шаг нужен, только если у изделия их нет ни своих, ни из признаков
-  if (rows.some((m) => m.key === 'elements') && (await hasElements(db, prod))) rows = rows.filter((m) => m.key !== 'elements');
+  if (rows.some((m) => m.key === 'elements') && (await hasElements(db, prod, rk))) rows = rows.filter((m) => m.key !== 'elements');
   const [installs, elements] = rows.some((m) => m.key === 'installationTypeId' || m.key === 'elements')
     ? await Promise.all([
       db.collection('dict_values').find({ dict: 'passportInstall', deletedAt: null }, { projection: { name: 1, code: 1, categories: 1 } }).toArray(),
@@ -175,15 +164,20 @@ export async function productGaps(svc: Checker, db: mongo.Db, id: string) {
       if (def) item.default = { id: String(def._id), label: s(def.name) };
     } else if (kind === 'elements') {
       item.options = elements.filter((d) => elementFits(d, code)).map((d) => ({ id: String(d._id), label: s(d.name) })).sort((a, b) => a.label.localeCompare(b.label, 'ru'));
-      const suggest = elementSuggest(s(prod.name), code, group, item.options);
-      if (suggest) item.suggest = suggest;
     } else if (kind === 'field' && defaults[m.key] !== undefined) item.default = defaults[m.key];
     missing.push(item);
   }
   if (purpose.gap) missing.push(purpose.gap);
+  // нет вида, а элементы или назначение пусты — один вопрос «Вид изделия» (C100): виды этой категории, нет таких — все
+  if (!rk.kind && (purpose.ask || missing.some((m) => m.kind === 'elements'))) {
+    const all = await db.collection('dict_values').find({ dict: KINDS_DICT, deletedAt: null }, { projection: { name: 1, passportCategory: 1 } }).toArray();
+    const fit = all.filter((k) => s(k.passportCategory) === code);
+    const options = (fit.length ? fit : all).map((k) => ({ id: String(k._id), label: s(k.name) })).sort((a, b) => a.label.localeCompare(b.label, 'ru'));
+    missing.unshift({ key: 'kind', label: 'Вид изделия', kind: 'kind', required: true, options });
+  }
   const applicable = applicability(code, rules.get(code), type);
   for (const key of usedFields) if (USER_FIELDS.includes(key)) applicable.fields[key] = 'required';
   // поле, которого ждёт текст именно этого изделия (подстановка {maxUsers} в правилах для качелей и т. п.), применимо и обязательно
   for (const m of missing) if (m.kind === 'field' && m.required && USER_FIELDS.includes(m.key)) applicable.fields[m.key] = 'required';
-  return { category, missing, applicable };
+  return { category, kind: kindInfo, missing, applicable };
 }

@@ -22,8 +22,8 @@ import { paintFields, paintSlots, placeTexts, syncChrome } from './paint.js';
  */
 export async function passportFill({ prod, mode = 'template', onStatus, showVariant = true } = {}) {
   const can = !!(session.canEdit && canWorkPassport());
-  const [catOpts, elRows, instRows] = await Promise.all([
-    passportCategoryOptions(), dictRows('passportElements'), dictRows('passportInstall'),
+  const [catOpts, elRows, instRows, kindRows] = await Promise.all([
+    passportCategoryOptions(), dictRows('passportElements'), dictRows('passportInstall'), dictRows('passportKinds'),
   ]);
   const { funnelBox } = await import('../../../ui/funnel.js');
   const fieldHost = {}; const textHost = {}; const slotHost = {}; const titles = {}; const secs = {};
@@ -36,7 +36,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
   }
   const els = elementsTexts(elRows, { canEdit: canEditTexts, onSaved: () => reload() }); // тексты элемента правятся здесь же, не в справочнике
   const elSec = section({ title: 'Тексты элементов', open: false, tone: 'neutral', body: els.el });
-  const strip = h('div'); const summary = h('div'); const catSuggest = h('div'); const context = h('div');
+  const strip = h('div'); const summary = h('div'); const context = h('div');
   const pending = new Map(); const editing = new Set();
   let paused = false; let pauseEpoch = 0;
   const writes = saveQueue(); const saves = writes.pending;
@@ -55,7 +55,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
     waitForSaves: () => Promise.all([...saves]),
     refreshStatus: () => refreshStatus(),
     prod, mode, can, pending, editing, reveal: false, missing: [], byKind: new Map(), asked: new Set(), pdm: [],
-    fieldHost, textHost, slotHost, titles, secs, strip, summary, catSuggest, els, elSec,
+    fieldHost, textHost, slotHost, titles, secs, strip, summary, els, elSec, kindRows,
     elRows, elNames: new Map(elRows.map((d) => [String(d.id || d._id), d.name || 'без названия'])),
     onStatus, openTech: () => openTechSheet(prod),
     repaint: () => { if (ready) draw(); },
@@ -219,6 +219,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
     if (paused || my !== seq) return ctx.missing;
     if (gaps.category) prod.category = gaps.category;
     ctx.missing = gaps.missing || [];
+    ctx.kind = gaps.kind || null; // C100: вид изделия и откуда он
     ctx.applicable = gaps.applicable || null; // C086: что относится к изделию — одно правило с сервером
     ctx.byKind = new Map((photos || []).map((x) => [kindNorm(x.kind), x]));
     ctx.asked = new Set(ctx.missing.filter((m) => m.kind === 'image' || String(m.key || '').startsWith('img_')).map(imageKind));
@@ -236,6 +237,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
       const gaps = await loadGaps(prod.id);
       ctx.missing = gaps.missing || [];
       ctx.applicable = gaps.applicable || null;
+      ctx.kind = gaps.kind || null;
       const hasElements = !!prod.passportDefaults?.elements?.length;
       const needsElements = ctx.missing.some((m) => m.kind === 'elements' || m.key === 'elements');
       ctx.filled = (ctx.filled || []).filter((key) => key !== 'elements');
@@ -262,7 +264,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
   variant.el.title = VARIANT_HINT;
   const setup = [
     headbar(context, showVariant ? variant.el : null),
-    catBox, catSuggest,
+    catBox,
   ];
   const el = stack(
     saveError,

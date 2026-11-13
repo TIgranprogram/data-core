@@ -8,6 +8,7 @@ import { createHash } from 'crypto';
 import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import { escapeRe, oid } from '../../common/list-query';
+import { resolveKinds } from '../../common/passport/kind';
 import { checkChoices, toNode } from '../../common/passport/phrase-tree';
 import { skuKey, skuRegex, tokensFilter } from '../../common/text/search-norm';
 import { isUsedByCrm } from '../../common/catalog/catalog-references';
@@ -26,7 +27,7 @@ import { ShowcaseFromPassports } from './showcase-from-passports';
 import { parseMaterialsSpec, presentMaterialsSpec } from '../../common/catalog/materials-table';
 import { ShowcaseMaterials } from './showcase-materials';
 import { groupNoOf, nextSku, skuOfGroup, skuPrefixError } from './showcase-sku';
-import { passportCategoryFor, resolvePassportCategory, seriesInDict, seriesOptions, tallyValues, withDict, type PpCat } from '../../common/passport/form-values';
+import { passportCategoryFor, resolvePassportCategory, type PpFound, seriesInDict, seriesOptions, tallyValues, withDict, type PpCat } from '../../common/passport/form-values';
 
 /** Число ≥ 0 из поля формы («1 200,5»); пусто — null. */
 const num = (v: unknown, what: string) => {
@@ -118,10 +119,15 @@ export class ShowcaseService {
       docs.length ? this.db.collection('productpassports').aggregate([{ $match: { deletedAt: null, productId: { $in: docs.map((d) => d._id) } } }, { $group: { _id: '$productId', n: { $sum: 1 } } }]).toArray() : Promise.resolve([]),
     ]);
     const ppN = new Map(ppCounts.map((x) => [String(x._id), x.n as number]));
+    const kinds = await resolveKinds(this.db, docs); // C100: вид изделия — своё / группы
     return docs.map((d) => {
       const c = d.categoryId ? cat.get(String(d.categoryId)) : undefined;
       const grp = c?.parentId ? String(c.name) : null, typ = c ? (c.parentId ? par.get(String(c.parentId)) ?? null : String(c.name)) : null;
-      const pp = resolvePassportCategory((d.passportDefaults as PassportDefaults | undefined)?.passportCategory, passportCategoryFor({ group: grp, type: typ }, ppCats, { group: c?.parentId ? String(c.passportCategory ?? '') : '', type: c ? (c.parentId ? parPp.get(String(c.parentId)) ?? '' : String(c.passportCategory ?? '')) : '' }), ppCats);
+      const rk = kinds.get(String(d._id));
+      const byGroup = passportCategoryFor({ group: grp, type: typ }, ppCats, { group: c?.parentId ? String(c.passportCategory ?? '') : '', type: c ? (c.parentId ? parPp.get(String(c.parentId)) ?? '' : String(c.passportCategory ?? '')) : '' });
+      const kc = rk?.kind?.passportCategory ?? '';
+      const byKind: PpFound | null = kc ? { code: kc, name: clean(ppCats.find((x) => clean(x.code) === kc)?.name) || kc, via: `вид «${rk!.kind!.name}»`, source: 'kind' } : null;
+      const pp = resolvePassportCategory((d.passportDefaults as PassportDefaults | undefined)?.passportCategory, byKind ?? byGroup, ppCats);
       const pics = ((d.photoIds as Types.ObjectId[]) ?? []).map((p) => ph.get(String(p))).filter(Boolean);
       const ppCoverId = ppCoverMap.get(String(d._id));
       const ppCoverPhoto = ppCoverId ? (ph.get(String(ppCoverId)) ?? null) : null;
@@ -134,6 +140,7 @@ export class ShowcaseService {
         // характеристики и тексты для паспорта (ФИ2) — поля общей схемы CRM, читаем как есть
         unit: String(d.unit ?? 'шт'), dimensions: presentDimensions(d.dimensions), weightKg: Number(d.weightKg) > 0 ? Number(d.weightKg) : null,
         ralCode: (d.ralCode as string) || null, purpose: (d.purpose as string) || null, installation: (d.installation as string) || null,
+        kind: rk?.kind ? { id: rk.kind.id, name: rk.kind.name, source: rk.source, groupName: rk.groupName } : null,
         facetValueIds: ((d.facetValueIds as Types.ObjectId[]) ?? []).map(String), passportsCount: ppN.get(String(d._id)) ?? 0, designerId: d.designerId ? String(d.designerId) : null,
         canPassport: !!pp.effective, missing: pp.effective ? [] : ['Нет категории паспорта — заполните в «Документация → Шаблоны»'], ppCategory: pp.effective?.code ?? null, ppSource: pp.effective?.source ?? null, ppOwn: pp.own, ppInherited: pp.inherited };
     });
@@ -269,6 +276,7 @@ export class ShowcaseService {
     const _id = oid(id, 'изделия');
     if (!(await this.db.collection('products').findOne({ _id, deletedAt: null }, { projection: { _id: 1 } }))) throw new NotFoundException('Изделие не найдено');
     const v = normalizePassportDefaults(b ?? {});
+    if (v.kindId && !(await this.db.collection('dict_values').findOne({ _id: new Types.ObjectId(v.kindId), dict: 'passportKinds', deletedAt: null }, { projection: { _id: 1 } }))) throw new BadRequestException('Вид изделия не найден — выберите из списка');
     if (v.textChoices) {
       const err = checkChoices((await this.db.collection('dict_values').find({ dict: 'passportPhrases', deletedAt: null }).toArray()).map((r) => toNode(r)), v.textChoices);
       if (err) throw new BadRequestException(err);

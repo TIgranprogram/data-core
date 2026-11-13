@@ -6,7 +6,7 @@ import { matchesAll, searchTokens } from '../text/search-norm';
  */
 export interface FunnelProduct { id: string; sku: string; name: string; cat: string | null; groupId: string | null; group: string | null; valueIds: string[]; photoId: string | null }
 export interface FunnelFacet { id: string; code: string; name: string; category: string; order: number; step: boolean; multi: boolean; hint: string }
-export interface FunnelValue { id: string; name: string; parentId: string; order: number; words?: string[] }
+export interface FunnelValue { id: string; name: string; parentId: string; order: number }
 export interface FunnelInput {
   products: FunnelProduct[]; facets: FunnelFacet[]; values: FunnelValue[]; categories: Array<{ code: string; name: string }>;
   category?: string; group?: string;
@@ -15,28 +15,12 @@ export interface FunnelInput {
 }
 export interface FunnelStep { key: string; label: string; multi: boolean; skip: boolean; values: Array<{ id: string; label: string; count: number; thumb?: string }>; none: number }
 
-const s = (v: unknown) => String(v ?? '').replace(/\s+/g, ' ').trim();
 const byOrder = <T extends { order: number; name: string }>(a: T, b: T) => (a.order - b.order) || a.name.localeCompare(b.name, 'ru');
 const ru = (a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label, 'ru');
-/** Слова подсказки: «жим|тяг» или массив → список строк в нижнем регистре без «ё» (поиск подстрокой в названии изделия). */
-export function parseWords(v: unknown): string[] {
-  const raw = Array.isArray(v) ? v.map(String) : s(v).split(/[|;,\n]/);
-  return [...new Set(raw.map((w) => s(w).toLowerCase().replace(/ё/g, 'е')).filter(Boolean))];
-}
 /** Разбор `f=a,b,none:<id признака>` → выбранные значения и признаки «не указан». */
 export function parseSelection(raw: unknown): { selected: string[]; none: string[] } {
   const parts = String(raw ?? '').split(',').map((x) => x.trim()).filter(Boolean);
   return { selected: parts.filter((x) => !x.startsWith('none:')), none: parts.filter((x) => x.startsWith('none:')).map((x) => x.slice(5)) };
-}
-
-/** Подсказка значения по названию изделия: первое по порядку значение, чей корень слова встретился подстрокой (без регистра и «ё»). */
-export function suggestValue(name: string, values: FunnelValue[]): { id: string; label: string; word: string } | null {
-  const hay = String(name ?? '').toLowerCase().replace(/ё/g, 'е');
-  for (const v of [...values].sort(byOrder)) {
-    const word = (v.words ?? []).find((w) => w && hay.includes(w));
-    if (word) return { id: v.id, label: v.name, word };
-  }
-  return null;
 }
 
 export function buildFunnel(inp: FunnelInput): { category: string | null; steps: FunnelStep[]; matched: FunnelProduct[]; total: number } {

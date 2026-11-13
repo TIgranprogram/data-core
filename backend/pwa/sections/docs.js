@@ -64,6 +64,7 @@ export const doctpl = {
     heading: (r) => [kitSku(r.sku), r.sku ? ' ' : null, r.name],
     editTitle: (r) => ['Шаблон паспорта · ', kitSku(r.sku), r.sku ? ' ' : null, r.name],
     editSub: () => 'Ответы записываются сразу',
+    editLabel: 'Редактировать шаблон паспорта', // нижняя кнопка — одна (правило 2026-10-28), но понятная: «Изменить» не говорило что
     subheading: (r) => [r.type, r.group].filter(Boolean).join(' → '),
     editTop: true,
     startEdit: () => canTpl(),

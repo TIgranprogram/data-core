@@ -41,6 +41,7 @@ import { createReadyPassport } from './passport-ready';
 import type { ReadyPassportDto } from './dto/ready-passport.dto';
 import { PassportQueries, choiceMissingIn } from './passport-queries';
 import { buildForest, forProduct, parseChoices, presentForest, resolveChoices, toNode, type PhraseTreeNode, type ProductCtx } from '../../common/passport/phrase-tree';
+import { kindPatch, purposeRootId, resolveKind } from '../../common/passport/kind';
 import { MaterialsSpecRefs, parseMaterialsSpec, type StoredSpec } from '../../common/catalog/materials-table';
 
 @Injectable()
@@ -713,7 +714,25 @@ export class ProductPassportService {
   }
 
   /** GET passports/funnel?category=TRN&productId= → { sections: [раздел → варианты → подварианты → текст] }; с изделием — без текстов чужих признаков. */
-  async funnel(category?: string, productId?: string) { return { sections: presentForest(forProduct(await this.forest(category), await this.productCtx(productId))) }; }
+  async funnel(category?: string, productId?: string) {
+    const sections = presentForest(forProduct(await this.forest(category), await this.productCtx(productId)));
+    // C100: назначение из вида изделия — вариант «по умолчанию» этого изделия: шаг подставляет его сам, как в PDF (kindPatch)
+    const pick = productId ? await this.kindPurpose(productId) : null;
+    if (pick) for (const r of sections as Array<Record<string, unknown>>) if (r.id === pick.root) for (const c of r.children as Array<Record<string, unknown>>) c.isDefault = c.id === pick.leaf;
+    return { sections };
+  }
+
+  /** Лист «Назначения» из вида изделия, если своего выбора нет: { root, leaf } или null. */
+  private async kindPurpose(productId: string): Promise<{ root: string; leaf: string } | null> {
+    if (!Types.ObjectId.isValid(productId)) return null;
+    const db = this.connection.db!;
+    const prod = await db.collection('products').findOne({ _id: new Types.ObjectId(productId), deletedAt: null });
+    if (!prod) return null;
+    const patch = await kindPatch(db, prod, await resolveKind(db, prod));
+    const root = await purposeRootId(db);
+    const leaf = root ? patch.textChoices?.[root] : undefined;
+    return root && leaf ? { root, leaf } : null;
+  }
 
   /** GET passports/funnel?category=&group=&f=&q= → шаги воронки создания паспорта (категория → группа → признаки) и изделия (C028, A2). */
   productFunnel(q: Record<string, unknown>) { return productFunnel(this.connection.db!, q); }

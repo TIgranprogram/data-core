@@ -14,8 +14,8 @@ const oid = () => new Types.ObjectId();
 type Row = Record<string, unknown>;
 const fv = [{ _id: oid(), dict: 'productFacets', code: 'trn.kind', name: 'Вид', category: 'TRN', order: 1, step: true, deletedAt: null }];
 const kinds = [
-  { _id: oid(), dict: 'productFacetValues', code: 'trn.kind.power', name: 'Силовой', parentId: fv[0]._id, order: 1, words: ['жим'], deletedAt: null },
-  { _id: oid(), dict: 'productFacetValues', code: 'trn.kind.cardio', name: 'Кардио', parentId: fv[0]._id, order: 2, words: ['вело'], deletedAt: null },
+  { _id: oid(), dict: 'productFacetValues', code: 'trn.kind.power', name: 'Силовой', parentId: fv[0]._id, order: 1, deletedAt: null },
+  { _id: oid(), dict: 'productFacetValues', code: 'trn.kind.cardio', name: 'Кардио', parentId: fv[0]._id, order: 2, deletedAt: null },
 ];
 const install = { _id: oid(), dict: 'passportInstall', code: 'EMBEDDED', name: 'Закладные', deletedAt: null };
 const dictRows: Row[] = [...fv, ...kinds, install,
@@ -25,7 +25,7 @@ function fakeDb(product: Row | null, category: Row | null = null) {
   return {
     collection: (name: string) => ({
       findOne: async () => (name === 'products' ? product : name === 'categories' ? category : null),
-      find: (q: Row) => ({ toArray: async () => (name === 'dict_values' ? dictRows.filter((r) => (q.dict && typeof q.dict === 'object' ? ((q.dict as { $in: string[] }).$in).includes(r.dict as string) : r.dict === q.dict)) : []) }),
+      find: (q: Row) => ({ toArray: async () => (name === 'categories' ? (category ? [category] : []) : name === 'dict_values' ? dictRows.filter((r) => (q.deletedAt !== null || r.deletedAt === null) && (q.dict && typeof q.dict === 'object' ? ((q.dict as { $in: string[] }).$in).includes(r.dict as string) : r.dict === q.dict)) : []) }),
     }),
   } as never;
 }
@@ -44,12 +44,13 @@ describe('«Чего не хватает» изделию (A3)', () => {
     expect(r.missing).toHaveLength(1);
     expect(r.missing[0]).toMatchObject({ kind: 'category', required: true, options: [{ id: 'TRN', label: 'Уличный тренажёр' }] });
   });
-  it('признак без значения: подсказка по словам; умолчания категории (установка, срок службы)', async () => {
+  it('признак без значения: обычный вопрос без подсказки; умолчания категории (установка, срок службы)', async () => {
     const prod = { _id: oid(), name: 'Жим ногами', passportDefaults: { passportCategory: 'TRN' } };
     const r = await productGaps(checker([{ label: 'Способ установки', key: 'installationTypeId' }, { label: 'Срок службы', key: 'serviceLifeYears' }, { label: 'Тексты', key: 'choice:1' }]), fakeDb(prod), String(prod._id));
     expect(r.category).toMatchObject({ code: 'TRN', source: 'own' });
     const kind = r.missing.find((m) => m.key === 'trn.kind')!;
-    expect(kind).toMatchObject({ kind: 'facet', suggest: { label: 'Силовой', word: 'жим' } });
+    expect(kind).toMatchObject({ kind: 'facet' });
+    expect('suggest' in kind).toBe(false);
     expect(kind.options).toHaveLength(2);
     expect(r.missing.find((m) => m.key === 'installationTypeId')).toMatchObject({ kind: 'install', required: true, default: { label: 'Закладные' } });
     expect(r.missing.find((m) => m.key === 'serviceLifeYears')).toMatchObject({ kind: 'field', default: 10 });
@@ -101,7 +102,7 @@ describe('C086: применимость в «чего не хватает» (б
       const r = await productGaps(blg, fakeDb(prod, group), String(prod._id));
       expect(r.applicable!.type).toMatchObject({ code: 'other', source: 'group' });
       expect(facetKeys(r)).toEqual(['blg.material']);
-      expect(r.missing.find((m) => m.kind === 'purpose')?.suggest?.label).toBe('Информирование');
+      expect(r.missing.some((m) => m.kind === 'purpose')).toBe(false);
       expect(prod.facetValueIds).toEqual([oldRail._id]);
     } finally { for (const row of rows) dictRows.splice(dictRows.indexOf(row), 1); }
   });
@@ -113,10 +114,11 @@ describe('C086: применимость в «чего не хватает» (б
     expect(Object.keys(r.applicable!.fields).some((k) => /^(maxUsers|age|height|weightMax|fallHeight|site)/.test(k))).toBe(false);
     expect(r.missing.some((m) => m.kind === 'purpose')).toBe(false);
   });
-  it('указатель, назначение не подтверждено: одна подсказка «Информирование», тип ещё неизвестен, лишних признаков нет', async () => {
+  it('указатель, назначение не выбрано: обычный вопрос со списком, без догадки по названию; тип ещё неизвестен', async () => {
     const r = await run({ _id: oid(), name: 'Деревянные указатели 1100х1200 (смета)', passportDefaults: pd() });
     expect(r.missing.filter((m) => m.kind === 'purpose')).toHaveLength(1);
-    expect(r.missing.find((m) => m.kind === 'purpose')).toMatchObject({ required: false, suggest: { label: 'Информирование', word: 'указател' } });
+    expect(r.missing.find((m) => m.kind === 'purpose')).toMatchObject({ required: false });
+    expect('suggest' in r.missing.find((m) => m.kind === 'purpose')!).toBe(false);
     expect(r.applicable!.type).toMatchObject({ known: false, needed: true });
     expect(facetKeys(r)).toEqual(['blg.material']);
   });
@@ -124,14 +126,14 @@ describe('C086: применимость в «чего не хватает» (б
     const r = await run({ _id: oid(), name: 'Арт объект 2100х600', passportDefaults: pd() });
     const p = r.missing.filter((m) => m.kind === 'purpose');
     expect(p).toHaveLength(1);
-    expect(p[0].suggest).toBeUndefined();
+    expect('suggest' in p[0]).toBe(false);
     expect(p[0].options!.map((o) => o.label)).toEqual(['Информирование', 'Ограждение', 'Отдых']);
     expect(facetKeys(r)).toEqual(['blg.material']);
   });
-  it('ограждение: элемент ограждения остался (с подсказкой по названию), сиденья нет', async () => {
+  it('ограждение: элемент ограждения остался, сиденья нет', async () => {
     const r = await run({ _id: oid(), name: 'Секция ограждения 2000х1200', passportDefaults: pd({ textChoices: { [String(root._id)]: String(guard._id) } }) });
     expect(facetKeys(r)).toEqual(['blg.fence', 'blg.material']);
-    expect(r.missing.find((m) => m.key === 'blg.fence')).toMatchObject({ suggest: { label: 'Секция' } });
+    expect(r.missing.find((m) => m.key === 'blg.fence')!.options!.map((o) => o.label)).toEqual(['Секция']);
   });
   it('скамья: места, сиденье, перила; смена назначения пересчитывает состав', async () => {
     const prod = { _id: oid(), name: 'Шезлонг 3', passportDefaults: pd({ textChoices: { [String(root._id)]: String(rest._id) } }) };
@@ -157,7 +159,8 @@ describe('C086: применимость в «чего не хватает» (б
     const prod = { _id: oid(), name: 'Изделие 5', categoryId: oid(), passportDefaults: pd() };
     const db = fakeDb(prod) as unknown as { collection: (n: string) => { findOne: () => Promise<unknown> } };
     const base = db.collection.bind(db);
-    db.collection = (n: string) => (n === 'categories' ? { ...base(n), findOne: async () => ({ name: 'Ограждения', parentId: oid() }) } : base(n));
+    const fence = { _id: prod.categoryId, name: 'Ограждения', parentId: oid() };
+    db.collection = (n: string) => (n === 'categories' ? { ...base(n), findOne: async () => fence, find: () => ({ toArray: async () => [fence] }) } : base(n));
     const r = await productGaps(blg, db as never, String(prod._id));
     for (const x of rows) dictRows.splice(dictRows.indexOf(x), 1);
     expect(r.applicable!.type).toMatchObject({ code: 'fence', source: 'group' });
@@ -215,18 +218,57 @@ describe('«Чего не хватает»: элементы (C028)', () => {
     const prod = { _id: oid(), name: 'Станок', passportDefaults: { passportCategory: 'TRN', elements: [oid()] } };
     expect((await productGaps(checker(miss), fakeDb(prod), String(prod._id))).missing.some((m) => m.key === 'elements')).toBe(false);
   });
-  it('подсказка по названию: элемент и назначение одним «Да, верно»', async () => {
+  it('нет вида: по названию не угадываем — один вопрос «Вид изделия» с видами категории, элементы спрашиваются как раньше', async () => {
     const hoop = { _id: oid(), dict: 'passportElements', name: 'Баскетбольная стойка', categories: 'WRK', kind: 'product', deletedAt: null };
-    const root = { _id: oid(), dict: 'passportPhrases', name: 'Назначение', section: 'purpose', deletedAt: null };
-    const leaf = { _id: oid(), dict: 'passportPhrases', name: 'Баскетбол', parentId: root._id, categories: 'WRK', text: 'Для баскетбола.', deletedAt: null };
-    const alternative = { ...leaf, _id: oid(), name: 'Спортивные упражнения', text: 'Для спортивных упражнений.' };
-    const undo = withEl([hoop, root, leaf, alternative]);
+    const wk = { _id: oid(), dict: 'passportKinds', name: 'Стойка', passportCategory: 'WRK', elementIds: [hoop._id], deletedAt: null };
+    const other = { _id: oid(), dict: 'passportKinds', name: 'Скамья', passportCategory: 'BLG', deletedAt: null };
+    const undo = withEl([hoop, wk, other]);
     const prod = { _id: oid(), name: 'Стойка баскетбольная', passportDefaults: { passportCategory: 'WRK' } };
-    const r = await productGaps(checker([{ label: 'Элементы', key: 'elements' }]), fakeDb(prod), String(prod._id));
+    const r = await productGaps(checker(miss), fakeDb(prod), String(prod._id));
     undo();
-    expect(r.missing.find((m) => m.key === 'elements')).toMatchObject({ suggest: { id: String(hoop._id), label: 'Баскетбольная стойка' } });
-    expect(r.missing.find((m) => m.kind === 'purpose')).toMatchObject({
-      key: `choice:${root._id}`, label: 'Назначение', required: false, suggest: { id: String(leaf._id), label: 'Баскетбол' },
+    expect(r.kind).toBeNull();
+    expect(r.missing[0]).toEqual({ key: 'kind', label: 'Вид изделия', kind: 'kind', required: true, options: [{ id: String(wk._id), label: 'Стойка' }] });
+    expect(r.missing.find((m) => m.key === 'elements')).toBeDefined();
+    expect('suggest' in r.missing.find((m) => m.key === 'elements')!).toBe(false);
+  });
+  describe('C100: вид изделия', () => {
+    const el = { _id: oid(), dict: 'passportElements', name: 'Турник', categories: 'WRK', deletedAt: null };
+    const root = { _id: oid(), dict: 'passportPhrases', name: 'Назначение', section: 'purpose', deletedAt: null };
+    const leaf = { _id: oid(), dict: 'passportPhrases', name: 'Спорт', parentId: root._id, categories: 'WRK', text: 'Для спорта.', deletedAt: null };
+    const gone = oid();
+    const kind = (over: Row = {}) => ({ _id: oid(), dict: 'passportKinds', name: 'Турник', passportCategory: 'WRK', elementIds: [el._id], purposeLeafId: leaf._id, deletedAt: null, ...over });
+    const group = (k: Row | null) => ({ _id: oid(), name: 'Турники', parentId: oid(), ...(k ? { passportKindId: k._id } : {}) });
+    const run = async (prod: Row, rowsExtra: Row[], cat: Row | null) => {
+      const rows = [el, root, leaf, ...rowsExtra]; dictRows.push(...rows);
+      try { return await productGaps(checker(miss), fakeDb(prod, cat), String(prod._id)); } finally { for (const r of rows) dictRows.splice(dictRows.indexOf(r), 1); }
+    };
+
+    it('вид группы задан: нет вопросов элементов и назначения, категория из вида, источник — группа', async () => {
+      const k = kind(), g = group(k);
+      const r = await run({ _id: oid(), name: 'Турник 1', categoryId: g._id }, [k], g);
+      expect(r.kind).toEqual({ id: String(k._id), name: 'Турник', source: 'group', groupName: 'Турники' });
+      expect(r.category).toMatchObject({ code: 'WRK', source: 'kind' });
+      expect(r.missing.some((m) => m.key === 'kind' || m.key === 'elements' || m.kind === 'purpose')).toBe(false);
+    });
+    it('своё главнее вида: свой вид изделия и свои элементы', async () => {
+      const k = kind(), g = group(null);
+      const own = await run({ _id: oid(), name: 'Х', categoryId: g._id, passportDefaults: { kindId: String(k._id) } }, [k], g);
+      expect(own.kind).toMatchObject({ source: 'own' });
+      const k2 = kind({ elementIds: [] }), g2 = group(k2);
+      const withEl = await run({ _id: oid(), name: 'Х', categoryId: g2._id, passportDefaults: { elements: [oid()], textChoices: { [String(root._id)]: String(leaf._id) } } }, [k2], g2);
+      expect(withEl.missing.some((m) => m.key === 'kind' || m.key === 'elements' || m.kind === 'purpose')).toBe(false);
+    });
+    it('удалённый вид — как будто вида нет: вопрос «Вид изделия»', async () => {
+      const k = kind({ deletedAt: new Date() }), g = group(k);
+      const r = await run({ _id: oid(), name: 'Х', categoryId: g._id, passportDefaults: { passportCategory: 'WRK' } }, [k], g);
+      expect(r.kind).toBeNull();
+      expect(r.missing.find((m) => m.key === 'kind')).toBeDefined();
+    });
+    it('назначение вида удалено — «Выберите назначение заново», молча не подменяется', async () => {
+      const k = kind({ purposeLeafId: gone }), g = group(k);
+      const r = await run({ _id: oid(), name: 'Х', categoryId: g._id }, [k], g);
+      expect(r.missing.find((m) => m.kind === 'purpose')).toMatchObject({ required: true, label: expect.stringContaining('Выберите назначение заново') });
+      expect(r.missing.some((m) => m.key === 'kind')).toBe(false);
     });
   });
   it('назначение уже выбрано — подсказки нет', async () => {

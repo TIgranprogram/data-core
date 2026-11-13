@@ -12,7 +12,10 @@ export const PASSPORT_CATEGORY_CODES = ['DIO', 'DSP', 'TRN', 'WRK', 'BLG'] as co
 const NUMS = ['ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth', 'serviceLifeYears', 'warrantyMonths'] as const;
 
 export interface PassportDefaults {
-  passportCategory?: string; elements?: Types.ObjectId[]; materialIds?: Types.ObjectId[]; installationTypeId?: Types.ObjectId | null; isKit?: boolean;
+  passportCategory?: string;
+  /** C100: вид изделия (id записи справочника «Виды изделий», строкой) — свой вид изделия главнее вида группы. */
+  kindId?: string;
+  elements?: Types.ObjectId[]; materialIds?: Types.ObjectId[]; installationTypeId?: Types.ObjectId | null; isKit?: boolean;
   /** ПВ: выбор текстов воронкой { id раздела: id конечного варианта } (справочник «Тексты паспорта»). */
   textChoices?: Record<string, string>;
   /** C060: свои тексты изделия по разделам { id раздела: { text?, off? } } — вместо варианта справочника / раздел убран. */
@@ -36,6 +39,8 @@ export function normalizePassportDefaults(b: Record<string, unknown>): PassportD
     if (!(PASSPORT_CATEGORY_CODES as readonly string[]).includes(cat)) throw new BadRequestException(`Категория паспорта: одна из ${PASSPORT_CATEGORY_CODES.join(', ')}`);
     out.passportCategory = cat;
   }
+  const kindId = String(b.kindId ?? '').trim();
+  if (kindId) out.kindId = oidOf(kindId, 'вид изделия').toHexString();
   for (const k of ['elements', 'materialIds'] as const) {
     if (b[k] === undefined || b[k] === null) continue;
     if (!Array.isArray(b[k])) throw new BadRequestException(`${k}: список`);

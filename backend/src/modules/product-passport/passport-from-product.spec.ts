@@ -70,3 +70,34 @@ describe('паспорт из изделия', () => {
     expect((await productCategories(d, [pid, String(pid)])).get(String(pid))).toBe('TRN');
   });
 });
+
+describe('C100: вид изделия в паспорте из изделия', () => {
+  const el = new Types.ObjectId();
+  const root = { _id: new Types.ObjectId(), dict: 'passportPhrases', section: 'purpose', parentId: null, name: 'Назначение', deletedAt: null };
+  const leaf = { _id: new Types.ObjectId(), dict: 'passportPhrases', section: 'purpose', parentId: root._id, name: 'Отдых', text: 'Для отдыха.', deletedAt: null };
+  const kind = { _id: new Types.ObjectId(), dict: 'passportKinds', name: 'Скамья', passportCategory: 'BLG', elementIds: [el], purposeLeafId: leaf._id, deletedAt: null };
+  const group = { _id: new Types.ObjectId(), name: 'Скамьи', parentId: new Types.ObjectId(), passportCategory: 'WRK', passportKindId: kind._id };
+  const rows: Record<string, Array<Record<string, unknown>>> = { categories: [group], dict_values: [root, leaf, kind] };
+  const match = (r: Record<string, unknown>, q: Record<string, unknown>) => Object.entries(q).every(([k, v]) => {
+    if (v && typeof v === 'object' && '$in' in v) return (v as { $in: unknown[] }).$in.some((x) => String(x) === String(r[k]));
+    return v === null ? r[k] == null : String(r[k]) === String(v);
+  });
+  const kdb = { collection: (n: string) => ({
+    find: (q: Record<string, unknown>) => ({ toArray: async () => (rows[n] ?? []).filter((r) => match(r, q ?? {})) }),
+    findOne: async (q: Record<string, unknown>) => (rows[n] ?? []).find((r) => match(r, q ?? {})) ?? null,
+  }) } as never;
+
+  it('элементы, назначение и категория берутся из вида группы', async () => {
+    const p = await productPatch(kdb, { name: 'Скамья 1', categoryId: group._id });
+    expect((p.elements as Types.ObjectId[]).map(String)).toEqual([String(el)]);
+    expect(p.textChoices).toEqual({ [String(root._id)]: String(leaf._id) });
+    expect(p.passportCategory).toBe('BLG'); // категория вида главнее категории группы
+  });
+  it('своё у изделия главнее вида', async () => {
+    const mine = new Types.ObjectId(), other = new Types.ObjectId();
+    const p = await productPatch(kdb, { name: 'Х', categoryId: group._id, passportDefaults: { passportCategory: 'DIO', elements: [mine], textChoices: { [String(root._id)]: String(other) } } });
+    expect((p.elements as Types.ObjectId[]).map(String)).toEqual([String(mine)]);
+    expect((p.textChoices as Record<string, string>)[String(root._id)]).toBe(String(other));
+    expect(p.passportCategory).toBe('DIO');
+  });
+});

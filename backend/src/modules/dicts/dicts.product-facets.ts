@@ -1,7 +1,6 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import type { mongo } from 'mongoose';
-import { parseWords } from '../../common/passport/funnel';
 import type { DictBase, Doc, Field } from './dicts.defs';
 
 type Db = mongo.Db;
@@ -81,11 +80,10 @@ export function productFacetDefs(simple: Simple): DictBase[] {
   };
 
   const valuesBase = simple('productFacetValues', 'Паспорта', 'Значения признаков',
-    'Варианты признаков: «Силовой», «Кардио»… Слова подсказки (через «|») помогают угадать значение по названию изделия; подсказка только предлагает, не записывает.',
+    'Варианты признаков: «Силовой», «Кардио»… Значение выбирают у изделия — по названию оно не угадывается.',
     [
       { key: 'parentId', label: 'Признак', type: 'select', ref: 'productFacets', required: true },
-      { key: 'order', label: 'Порядок', hint: 'Число: подсказка проверяет значения по порядку, первое совпадение побеждает' },
-      { key: 'wordsText', label: 'Слова подсказки', wide: true, hint: 'Корни слов через «|», без регистра: жим|тяг|присед' },
+      { key: 'order', label: 'Порядок', hint: 'Число: чем меньше, тем выше значение в списке' },
       { key: 'purposePhraseId', label: 'Назначение (текст)', type: 'select', ref: 'passportPhrases', hint: 'Текст «Назначение» паспорта для изделий с этим значением' },
       { key: 'installTypeId', label: 'Способ установки', type: 'select', ref: 'passportInstall' },
       { key: 'elementIds', label: 'Элементы', type: 'select', ref: 'passportElements', multi: true, wide: true },
@@ -95,7 +93,6 @@ export function productFacetDefs(simple: Simple): DictBase[] {
     ...valuesBase,
     row: (d) => ({
       name: s(d.name), code: s(d.code), parentId: d.parentId ? String(d.parentId) : '', order: num(d.order, 0),
-      words: parseWords(d.words), wordsText: parseWords(d.words).join('|'),
       purposePhraseId: d.purposePhraseId ? String(d.purposePhraseId) : '', installTypeId: d.installTypeId ? String(d.installTypeId) : '',
       elementIds: ((d.elementIds as unknown[]) ?? []).map(String),
     }),
@@ -114,7 +111,6 @@ export function productFacetDefs(simple: Simple): DictBase[] {
       return {
         ...(isNew ? { dict: 'productFacetValues', deletedAt: null, createdAt: new Date() } : {}),
         name, code: c, parentId: new Types.ObjectId(parent), order: num(b.order, cur?.order ?? 0),
-        words: has('wordsText') || has('words') ? parseWords(has('wordsText') ? b.wordsText : b.words) : cur?.words ?? [],
         purposePhraseId: one('purposePhraseId', 'назначение'), installTypeId: one('installTypeId', 'способ установки'),
         elementIds: has('elementIds') ? oidList(b.elementIds, 'элементы') : cur?.elementIds ?? [],
         updatedAt: new Date(),

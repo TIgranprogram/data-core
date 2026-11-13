@@ -1,9 +1,9 @@
-import { buildFunnel, parseSelection, parseWords, suggestValue, type FunnelInput, type FunnelProduct } from './funnel';
+import { buildFunnel, parseSelection, type FunnelInput, type FunnelProduct } from './funnel';
 
 const P = (id: string, name: string, over: Partial<FunnelProduct> = {}): FunnelProduct => ({ id, sku: 'A' + id, name, cat: 'TRN', groupId: 'g1', group: 'Тренажеры', valueIds: [], photoId: null, ...over });
 const facets = [{ id: 'f1', code: 'trn.kind', name: 'Вид', category: 'TRN', order: 1, step: true, multi: false, hint: '' }, { id: 'f2', code: 'trn.muscles', name: 'Мышцы', category: 'TRN', order: 2, step: true, multi: true, hint: '' }];
 const values = [
-  { id: 'v1', name: 'Силовой', parentId: 'f1', order: 1, words: ['жим', 'тяг'] }, { id: 'v2', name: 'Кардио', parentId: 'f1', order: 2, words: ['вело'] },
+  { id: 'v1', name: 'Силовой', parentId: 'f1', order: 1 }, { id: 'v2', name: 'Кардио', parentId: 'f1', order: 2 },
   { id: 'm1', name: 'Ноги', parentId: 'f2', order: 1 }, { id: 'm2', name: 'Спина', parentId: 'f2', order: 2 },
 ];
 const base = (over: Partial<FunnelInput> = {}): FunnelInput => ({
@@ -59,16 +59,9 @@ describe('воронка паспорта: шаги', () => {
   });
 });
 
-describe('воронка паспорта: разбор и подсказка', () => {
+describe('воронка паспорта: разбор', () => {
   it('f: значения и none:', () => {
     expect(parseSelection('a, b,none:f1')).toEqual({ selected: ['a', 'b'], none: ['f1'] });
     expect(parseSelection(undefined)).toEqual({ selected: [], none: [] });
-  });
-  it('слова: через «|», без регистра и «ё»', () => expect(parseWords('Жим|ТЯГ| ёж ')).toEqual(['жим', 'тяг', 'еж']));
-  it('подсказка: первое по порядку совпадение, нет слов — null', () => {
-    expect(suggestValue('Жим ногами', values.slice(0, 2))).toEqual({ id: 'v1', label: 'Силовой', word: 'жим' });
-    expect(suggestValue('Велотренажёр', values.slice(0, 2))?.id).toBe('v2');
-    expect(suggestValue('Станок', values.slice(0, 2))).toBeNull();
-    expect(suggestValue('Жим', [{ id: 'x', name: 'Без слов', parentId: 'f', order: 1 }])).toBeNull();
   });
 });

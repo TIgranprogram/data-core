@@ -1,7 +1,8 @@
 import { Types, type mongo } from 'mongoose';
 import { loadPhotos } from '../../common/photos';
-import { buildFunnel, parseSelection, parseWords, type FunnelFacet, type FunnelProduct, type FunnelValue } from '../../common/passport/funnel';
+import { buildFunnel, parseSelection, type FunnelFacet, type FunnelProduct, type FunnelValue } from '../../common/passport/funnel';
 import { passportCategoryFor, type PpCat } from '../../common/passport/form-values';
+import { resolveKinds } from '../../common/passport/kind';
 
 const s = (v: unknown) => String(v ?? '').replace(/\s+/g, ' ').trim();
 const LIMIT = 200;
@@ -11,7 +12,7 @@ export async function loadFacets(db: mongo.Db): Promise<{ facets: FunnelFacet[];
   const rows = await db.collection('dict_values').find({ dict: { $in: ['productFacets', 'productFacetValues'] }, deletedAt: null }).toArray();
   return {
     facets: rows.filter((r) => r.dict === 'productFacets').map((r) => ({ id: String(r._id), code: s(r.code), name: s(r.name), category: s(r.category), order: Number(r.order) || 0, step: r.step === true, multi: r.multi === true, hint: s(r.hint) })),
-    values: rows.filter((r) => r.dict === 'productFacetValues').map((r) => ({ id: String(r._id), name: s(r.name), parentId: String(r.parentId ?? ''), order: Number(r.order) || 0, words: parseWords(r.words) })),
+    values: rows.filter((r) => r.dict === 'productFacetValues').map((r) => ({ id: String(r._id), name: s(r.name), parentId: String(r.parentId ?? ''), order: Number(r.order) || 0 })),
   };
 }
 
@@ -21,12 +22,13 @@ export async function loadFacets(db: mongo.Db): Promise<{ facets: FunnelFacet[];
  */
 export async function productFunnel(db: mongo.Db, q: Record<string, unknown>) {
   const [prods, cats, ppCats, fv] = await Promise.all([
-    db.collection('products').find({ deletedAt: null }, { projection: { sku: 1, name: 1, categoryId: 1, 'passportDefaults.passportCategory': 1, facetValueIds: 1, photoIds: 1, mainPhotoId: 1 } }).toArray(),
+    db.collection('products').find({ deletedAt: null }, { projection: { sku: 1, name: 1, categoryId: 1, 'passportDefaults.passportCategory': 1, 'passportDefaults.kindId': 1, facetValueIds: 1, photoIds: 1, mainPhotoId: 1 } }).toArray(),
     db.collection('categories').find({ type: 'product', deletedAt: null }, { projection: { name: 1, parentId: 1, passportCategory: 1 } }).toArray(),
     db.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, name: 1, catalogNames: 1 } }).toArray() as unknown as Promise<PpCat[]>,
     loadFacets(db),
   ]);
   const cat = new Map(cats.map((c) => [String(c._id), c]));
+  const kinds = await resolveKinds(db, prods); // C100: категория вида изделия главнее категории группы
   const products: FunnelProduct[] = prods.map((p) => {
     const c = p.categoryId ? cat.get(String(p.categoryId)) : undefined;
     const par = c?.parentId ? cat.get(String(c.parentId)) : undefined;
@@ -35,7 +37,7 @@ export async function productFunnel(db: mongo.Db, q: Record<string, unknown>) {
     const own = s((p.passportDefaults as { passportCategory?: string } | undefined)?.passportCategory);
     const inh = passportCategoryFor({ group, type }, ppCats, { group: par ? s(c!.passportCategory) : '', type: c ? s((par ?? c).passportCategory) : '' });
     const photo = p.mainPhotoId ?? ((p.photoIds as unknown[]) ?? [])[0];
-    return { id: String(p._id), sku: s(p.sku), name: s(p.name ?? p.sku), cat: own || inh?.code || null, groupId: par ? String(c!._id) : null, group, valueIds: ((p.facetValueIds as unknown[]) ?? []).map(String), photoId: photo ? String(photo) : null };
+    return { id: String(p._id), sku: s(p.sku), name: s(p.name ?? p.sku), cat: own || kinds.get(String(p._id))?.kind?.passportCategory || inh?.code || null, groupId: par ? String(c!._id) : null, group, valueIds: ((p.facetValueIds as unknown[]) ?? []).map(String), photoId: photo ? String(photo) : null };
   });
   const { selected, none } = parseSelection(q.f);
   const noneIds = none.map((x) => fv.facets.find((f) => f.id === x || f.code === x)?.id).filter((x): x is string => !!x);

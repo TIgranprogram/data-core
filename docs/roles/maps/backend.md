@@ -1,4 +1,6 @@
 # Карта роли backend
+## C100 вид изделия (2026-11-13, не закоммичено)
+- `common/passport/kind.ts`: `resolveKinds`/`resolveKind`/`kindPatch` (спек `kind.spec.ts`); справочник `modules/dicts/dicts.passport-kinds.ts`; поле группы — `dicts.product-groups.ts` (`passportKindId`, `kindRef`); `kindId` — `showcase/passport-defaults.ts`, проверка `showcase.service.ts setPassportDefaults`; потребители: `passport-from-product.ts`, `passport-gaps.ts` (`purposeState`, пункт `kind`), `passport-funnel.ts`, `passport-order.ts`. Скрипт `scripts/c100-kinds.js` (+`passport-c100-script.spec.ts`). Угадывание удалено (name-suggest, suggestValue, слова значений). Отчёт — в ответе агента (REPORT-backend.md писать не дали). коммит: —
 ## C094 тексты паспорта по изделию (2026-11-12, не закоммичено)
 - Признаки: `common/passport/traits.ts` (users/guards/bin/bars/landing, `ELEMENT_TRAITS`, `MATERIAL_TRAITS`), `product-passport/passport-traits.ts:23` collectTraits (+category, запас «вид/материал не указан»). Скрипты данных `scripts/c094-materials.js`, `c094-traits.js`, `c094-texts-v3.js` (обёртки `deploy/synology/c094-*.sh`, пульт c094-*). Тесты `passport-fit.spec.ts`, `passport-c094-scripts.spec.ts`. Отчёт `docs/crew/C094-passport-text-fit/BACKEND.md`. коммит: —
 ## Деньги «По статьям» C084 этап 1 (2026-11-11, не закоммичено)

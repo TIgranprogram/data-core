@@ -1,5 +1,6 @@
 import type { mongo } from 'mongoose';
 import { Types } from 'mongoose';
+import { kindPatch, resolveKind, resolveKinds, type ResolvedKind } from '../../common/passport/kind';
 import { inheritedPassportCategory } from '../../common/passport/passport-inherit';
 import type { Doc } from './passport-consts';
 
@@ -14,11 +15,13 @@ const DEFAULT_KEYS = ['elements', 'materialIds', 'installationTypeId', 'isKit', 
 const filled = (v: unknown) => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && !v.length) && !(typeof v === 'object' && !Array.isArray(v) && !(v instanceof Types.ObjectId) && !Object.keys(v as object).length);
 const pos = (v: unknown) => (Number(v) > 0 ? Number(v) : undefined);
 
-/** Категория паспорта изделия: своя (passportDefaults) главнее унаследованной от группы / раздела. */
-export async function productPassportCode(db: mongo.Db, prod: Doc): Promise<string | null> {
+/** Категория паспорта изделия: своя (passportDefaults) → вида изделия (C100) → унаследованная от группы / раздела. */
+export async function productPassportCode(db: mongo.Db, prod: Doc, resolved?: ResolvedKind): Promise<string | null> {
   const own = (prod.passportDefaults as { passportCategory?: string } | undefined)?.passportCategory;
   const ownCode = String(own ?? '').trim();
   if (ownCode) return ownCode;
+  const byKind = ((resolved ?? await resolveKind(db, prod)).kind?.passportCategory ?? '').trim();
+  if (byKind) return byKind;
   return (await inheritedPassportCategory(db, prod.categoryId as Types.ObjectId | undefined))?.code ?? null;
 }
 
@@ -38,7 +41,10 @@ export async function productPatch(db: mongo.Db, prod: Doc): Promise<Doc> {
   put('materials', typeof prod.materialsText === 'string' ? prod.materialsText.trim() : undefined);
   const pd = (prod.passportDefaults ?? {}) as Doc;
   for (const k of DEFAULT_KEYS) put(k, pd[k]);
-  put('passportCategory', await productPassportCode(db, prod));
+  // C100: чего у изделия нет своего — берём из вида изделия (элементы, назначение); своё главнее
+  const rk = await resolveKind(db, prod);
+  for (const [k, v] of Object.entries(await kindPatch(db, prod, rk))) put(k, v);
+  put('passportCategory', await productPassportCode(db, prod, rk));
   return out;
 }
 
@@ -64,6 +70,7 @@ export async function productCategories(db: mongo.Db, ids: Array<Types.ObjectId 
   const out = new Map<string, string | null>();
   if (!oids.length) return out;
   const prods = await db.collection('products').find({ _id: { $in: oids } }, { projection: { categoryId: 1, passportDefaults: 1 } }).toArray();
-  for (const p of prods) out.set(String(p._id), await productPassportCode(db, p as Doc));
+  const kinds = await resolveKinds(db, prods);
+  for (const p of prods) out.set(String(p._id), await productPassportCode(db, p as Doc, kinds.get(String(p._id))));
   return out;
 }

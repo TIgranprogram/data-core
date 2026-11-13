@@ -50,7 +50,7 @@ export function withDict(list: Tally[], dict: { value: string; sub?: string }[])
  * Не нашли — null (угадывания по корню слова нет, C028). Ручная категория изделия (passportDefaults) сюда не входит — см. resolvePassportCategory.
  */
 export type PpCat = { code: string; name: string; catalogNames?: string };
-export type PpSource = 'group' | 'type' | 'dict';
+export type PpSource = 'group' | 'type' | 'dict' | 'kind';
 export type PpFound = { code: string; name: string; via: string; source: PpSource };
 export function passportCategoryFor(
   item: { group?: string | null; type?: string | null },

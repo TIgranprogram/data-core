@@ -1,3 +1,7 @@
+## C100 вид изделия в анкете паспорта (2026-11-13)
+коммит: не закоммичено
+- `passports/fill/control.js` `kindEditor` (select, putDefaults kindId), `controlGap` kind; suggestRow удалён. `fill/paint.js` kindNote/kindElText/kindElNote, строка «Вид изделия» в scalars, filledLink с серой подписью источника. `fill/index.js` ctx.kind/kindRows. `products/data.js` PD_KEYS+kindId. atlas-data `vid-izdeliya`, help-guide docs. Отчёт: docs/crew/C100-passport-kind/REPORT-frontend.md. Карта обновлена.
+
 ## C098 автоподгрузка общих списков (2026-11-12)
 коммит: не закоммичено
 - `backend/pwa/ui/kit/auto-more.js:23` — moreSentinel с root, постоянный fallback, busy/seq/destroy. `ui/kit/list.js:270` — отдельный root таблицы, защита append, fallback.

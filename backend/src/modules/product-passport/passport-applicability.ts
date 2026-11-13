@@ -30,7 +30,7 @@ export const OPTIONAL_FIELDS_BY_CATEGORY: Record<string, readonly string[]> = {
 export type BlgType = 'fence' | 'seating' | 'other';
 export const BLG_TYPE_LABELS: Record<BlgType, string> = { fence: 'Ограждение', seating: 'Места для сидения', other: 'Прочее благоустройство' };
 
-/** Назначение (лист раздела «Назначение») → тип. Имена — как в справочнике `passportPhrases` и `name-suggest.ts`. */
+/** Назначение (лист раздела «Назначение») → тип. Имена — как в справочнике `passportPhrases`. */
 const TYPE_BY_PURPOSE: Record<string, BlgType> = {
   'Ограждение': 'fence',
   'Отдых': 'seating', 'Зрительские места': 'seating',

@@ -118,6 +118,7 @@ export const NODES = [
     seq: true, inside: [
       { id: 'ochered', t: 'Очередь', l: '«Нужно сделать паспорт» по заказам', in: ['salesorders'] },
       { id: 'chernovik', t: 'Черновик', l: 'общее — из изделия, своё — у экземпляра', in: ['products'] },
+      { id: 'vid-izdeliya', t: 'Вид изделия', l: 'что это, назначение и категория — из вида группы или своё', in: ['dicts'] },
       { id: 'shablon-kategorii', t: 'Шаблон категории', l: 'тексты и рисунки из справочников', in: ['dicts'] },
       { id: 'vypusk-pdf', t: 'Выпуск PDF', l: 'текст и рисунки фиксируются', out: ['warranty'] },
       { id: 'novaya-redakciya', t: 'Новая редакция', l: 'единственный способ изменить выпущенный', alt: true },

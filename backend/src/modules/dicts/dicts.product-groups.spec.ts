@@ -57,3 +57,28 @@ describe('productGroups: удаление', () => {
     await expect(DICT.get('productSections')!.beforeRemove!(fakeDb([sec, workout]), sec as never)).rejects.toThrow(/есть группы \(1\)/);
   });
 });
+
+describe('passportKinds: «Виды изделий» (C100)', () => {
+  const k = DICT.get('passportKinds')!;
+  const kind = { _id: oid(), dict: 'passportKinds', name: 'Урна', deletedAt: null };
+  const leaf = { _id: oid(), dict: 'passportPhrases', name: 'Сбор мусора', parentId: oid(), deletedAt: null };
+  const counts = (groups: number, prods: number) => ({
+    collection: (n: string) => ({
+      aggregate: () => ({ toArray: async () => (n === 'categories' ? (groups ? [{ _id: kind._id, n: groups }] : []) : prods ? [{ _id: String(kind._id), n: prods }] : []) }),
+      findOne: async (q: Row) => (n === 'dict_values' && q.parentId ? null : leaf),
+    }),
+  }) as never;
+  it('удалить вид, заданный группе или изделию, нельзя (409)', async () => {
+    await expect(k.beforeRemove!(counts(1, 0), kind as never)).rejects.toThrow(/удалить нельзя/);
+    await expect(k.beforeRemove!(counts(0, 2), kind as never)).rejects.toThrow(/\(2\)/);
+    await expect(k.beforeRemove!(counts(0, 0), kind as never)).resolves.toBeUndefined();
+  });
+  it('запись: не больше трёх элементов; категория из списка; назначение — конечный вариант', async () => {
+    const ids = () => [oid(), oid(), oid(), oid()].map(String);
+    await expect(k.toDoc({ name: 'Х', elementIds: ids() }, true, counts(0, 0))).rejects.toThrow(/не больше 3/);
+    await expect(k.toDoc({ name: 'Х', passportCategory: 'ZZZ' }, true, counts(0, 0))).rejects.toThrow(/Категория паспорта/);
+    const doc = await k.toDoc({ name: ' Урна ', passportCategory: 'BLG', elementIds: ids().slice(0, 2), purposeLeafId: String(leaf._id) }, true, counts(0, 0));
+    expect(doc).toMatchObject({ dict: 'passportKinds', name: 'Урна', passportCategory: 'BLG' });
+    expect((doc.elementIds as unknown[]).length).toBe(2);
+  });
+});

@@ -80,7 +80,7 @@ export function boxOf(s) {
 
 const STEMS = [/анкер/i, /бетон/i, /заклад/i, /свобод|без креп/i];
 const stemOf = (s) => STEMS.findIndex((re) => re.test(String(s || '')));
-/** Способ установки по варианту текста: привязка справочника, иначе по слову в названии. */
+/** Способ установки по варианту текста: привязка справочника, иначе совпадение корня названия варианта и способа. */
 export function typeOfLeaf(leaf, instOpts) {
   if (!leaf) return '';
   if (leaf.installTypeId) return String(leaf.installTypeId);

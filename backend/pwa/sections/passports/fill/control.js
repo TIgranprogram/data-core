@@ -1,6 +1,6 @@
 import { openCard } from '../../../ui/kit/card.js';
 import { api } from '../../../core/api.js';
-import { buildForm, button, enhanceSelect, field, fieldRow, hint, link, row, segmented, select, sideNote, stack, textInput, toast } from '../../../ui/kit/index.js';
+import { buildForm, button, enhanceSelect, field, fieldRow, hint, link, segmented, select, sideNote, stack, textInput, toast } from '../../../ui/kit/index.js';
 import { V2_NUMS, canEdit as canEditTexts } from '../common.js';
 import { patchProduct, putDefaults, setFacets } from '../funnel/api.js';
 import { jointsPick } from '../traits.js';
@@ -10,18 +10,21 @@ const CAT_NUMS = new Set([...V2_NUMS.map(([k]) => k), 'warrantyMonths']);
 const optsOf = (m) => (m.options || []).map((o) => [o.id, o.label]);
 const fitsElement = (d, code) => (!d.kind || d.kind === 'product') && String(d.categories || '').split(/[,;\s]+/).filter(Boolean).includes(code);
 
-/** «Похоже: … — верно?» — одна кнопка, без молчаливой записи (П-1 правило 6). Несколько id — состав изделия. */
-export function suggestRow(m, write, save) {
-  const ids = (m?.suggest?.ids || []).map(String).filter(Boolean);
-  const one = m?.suggest?.id || ids[0];
-  if (!one) return null;
-  const payload = ids.length > 1 ? ids : one;
-  return row({
-    tone: 'info',
-    title: `Похоже: ${m.suggest.label} — верно?`,
-    meta: m.suggest.word ? `по слову «${m.suggest.word}» в названии` : null,
-    action: button({ label: 'Да, верно', size: 'S', onClick: () => save(() => write(payload)) }),
+/** Вид изделия (C100): всё определено видом, не угадывается. Варианты — из пункта A3 или из справочника «Виды изделий» нужной категории. */
+export function kindEditor(ctx, gap) {
+  const given = (gap?.options || []).map((o) => [String(o.id), o.label || o.name || 'без названия']);
+  const dict = (ctx.kindRows || []).filter((d) => !d.passportCategory || !ctx.code || d.passportCategory === ctx.code).map((d) => [String(d.id || d._id), d.name || 'без названия']);
+  const options = given.length ? given : dict;
+  if (!options.length) return hint('В справочнике «Виды изделий» пока нет видов. Добавьте вид в «Справочники → Паспорта → Виды изделий».', 'warn');
+  const cur = String(ctx.prod.passportDefaults?.kindId || '');
+  const sel = select({
+    label: 'Вид изделия',
+    options: [['', cur ? 'Сбросить вид (брать из группы)' : 'Выберите…'], ...options],
+    value: cur, disabled: !ctx.can,
+    onChange: (v) => ctx.save(() => putDefaults(ctx.prod, { kindId: v })),
   });
+  if (options.length > 12) enhanceSelect(sel);
+  return field('Вид изделия', sel, { required: !!gap?.required, hint: 'Вид задаёт, что это за изделие, назначение и категорию паспорта. Если в самом изделии задано иначе — будет по-вашему.' });
 }
 
 function numEditor(ctx, key, label, dflt) {
@@ -143,19 +146,13 @@ function addElement(ctx, refresh) {
   return trigger;
 }
 
-/** Элементы. Есть подсказка — одно «Да, верно», список открывается по «Другой вариант». */
+/** Элементы: список до трёх; вид изделия уже мог их задать — тогда это перекрытие своим значением. */
 export function elementsEditor(ctx, gap) {
   const given = (gap?.options || []).map((o) => ({ id: String(o.id), label: o.label || o.name || 'без названия' }));
   // без пункта A3 (правка заполненного) — тот же отбор, что на сервере (`elementFits`): только своя категория и только изделия/снаряды
   const dict = (ctx.elRows || []).filter((d) => fitsElement(d, ctx.code)).map((d) => ({ id: String(d.id || d._id), label: d.name || 'без названия' }));
   const rows = given.length ? given : dict;
-  const note = sideNote('Укажите, что это за изделие (не больше трёх вариантов). Ниже — фраза для описания и правила пользования.');
-  const write = (v) => {
-    const list = (Array.isArray(v) ? v : [v]).map(String).filter(Boolean).slice(0, 3);
-    ctx.els.setIds(list);
-    return putDefaults(ctx.prod, { elements: list });
-  };
-  const suggest = suggestRow(gap, write, ctx.save);
+  const note = hint('Не больше трёх вариантов. Ниже — фраза для описания и правила пользования.'); // не жёлтая плашка: рядом с выбором вида читалась как ошибка (дизайнер C100)
   const editor = stack();
   const refresh = () => {
     const body = editor.closest('.drawer-body'); const scroll = body?.scrollTop;
@@ -166,39 +163,13 @@ export function elementsEditor(ctx, gap) {
   };
   const add = () => addElement(ctx, refresh);
   if (!rows.length) { editor.append(stack(hint('Для этой категории в справочнике «Функциональные элементы» вариантов нет. Поле можно оставить пустым.'), add())); return editor; }
-  if (!suggest) { editor.append(stack(note, elementsCombo(ctx, rows), add())); return editor; }
-  let box;
-  const other = link({ label: 'Другой вариант', title: 'Выбрать элементы из списка', onClick: () => { box.replaceChildren(...[note, elementsCombo(ctx, rows), add()].filter(Boolean)); } });
-  box = stack(note, suggest, other);
-  editor.append(box);
+  editor.append(stack(note, elementsCombo(ctx, rows), add()));
   return editor;
 }
 
-/** Назначение. Есть подсказка — «Да, верно»; «Другой вариант» открывает шаг воронки текстов. */
-function purposeEditor(ctx, m) {
-  const rootId = String(m.key || '').replace(/^choice:/, '');
-  const write = (v) => {
-    const prev = ctx.prod.passportDefaults?.textChoices || {};
-    return putDefaults(ctx.prod, { textChoices: { ...prev, [rootId]: v } });
-  };
-  const suggest = suggestRow(m, write, ctx.save);
-  // C086: подсказки нет, а от назначения зависят вопросы — одно уточнение; сам список — шаг «Назначение» ниже
-  if (!suggest) return hint('Уточните назначение изделия ниже. От него зависит, какие вопросы относятся к изделию: лишние не появятся.', 'warn');
-  let box;
-  const other = link({
-    label: 'Другой вариант', title: 'Выбрать другое назначение',
-    onClick: () => {
-      const node = ctx.fb?.stepEl(rootId);
-      if (node) { node.hidden = false; ctx.textHost?.purpose?.append(node); box.replaceChildren(); return; }
-      const sel = select({
-        label: 'Назначение', options: [['', 'Выберите…'], ...optsOf(m)], value: '',
-        onChange: (v) => { if (v) ctx.save(() => write(v)); },
-      });
-      box.replaceChildren(field('Назначение', sel));
-    },
-  });
-  box = stack(suggest, other);
-  return box;
+/** Назначение (C086): от него зависят вопросы; сам список — шаг «Назначение» ниже. Угадывания нет (C100). */
+function purposeEditor() {
+  return hint('Выберите назначение изделия ниже. От него зависит, какие вопросы относятся к изделию: лишние не появятся.', 'warn');
 }
 
 export function jointsEditor(ctx) {
@@ -240,7 +211,7 @@ export function installEditor(ctx, gap) {
   });
   if (ctx.instOpts.length > 12) enhanceSelect(sel);
   const write = (v) => putDefaults(ctx.prod, { installationTypeId: v });
-  return stack(field('Способ установки', sel, { hint: 'Вариант текста не подсказывает способ установки — выберите его здесь.' }), dflt && !ctx.prod.passportDefaults?.installationTypeId ? stack(hint('По умолчанию — не сохранено'), button({ label: 'Принять', size: 'S', disabled: !ctx.can, onClick: () => ctx.save(async () => { await write(sel.value); ctx.pending.delete('installationTypeId'); }) })) : null, suggestRow(gap, write, ctx.save));
+  return stack(field('Способ установки', sel, { hint: 'Вариант текста не подсказывает способ установки — выберите его здесь.' }), dflt && !ctx.prod.passportDefaults?.installationTypeId ? stack(hint('По умолчанию — не сохранено'), button({ label: 'Принять', size: 'S', disabled: !ctx.can, onClick: () => ctx.save(async () => { await write(sel.value); ctx.pending.delete('installationTypeId'); }) })) : null);
 }
 
 /** Поле из A3, которого нет среди постоянных полей разделов (признак, категория, прочее). Рисунок сюда не входит. */
@@ -248,7 +219,8 @@ export function controlGap(m, ctx) {
   if (!m || m.kind === 'image') return null;
   if (m.kind === 'install') return installEditor(ctx, m);
   if (m.kind === 'elements') return elementsEditor(ctx, m);
-  if (m.kind === 'purpose') return purposeEditor(ctx, m);
+  if (m.kind === 'purpose') return purposeEditor();
+  if (m.kind === 'kind') return kindEditor(ctx, m);
   if (m.kind === 'field' && m.key === 'height') return dimsEditor(ctx);
   if (m.kind === 'field' && (m.key === 'weight' || m.key === 'weightKg')) return weightEditor(ctx);
   // назначение выбирается здесь же, шагом «Назначение» ниже, а не в карточке изделия (C086)
@@ -270,14 +242,7 @@ export function controlGap(m, ctx) {
     onChange: (v) => { ctx.pending.delete(m.key); if (v) ctx.save(() => write(v)); },
   });
   if ((m.options || []).length > 12) enhanceSelect(sel);
-  const labeled = field(m.label || 'Признак', sel, { required: !!m.required });
-  const suggest = suggestRow(m, write, ctx.save);
-  if (!suggest) return labeled;
-  // есть подсказка — один вопрос «Да, верно»; список открывается по «Другой вариант» (как у элементов и назначения)
-  let box;
-  const other = link({ label: 'Другой вариант', title: `Выбрать «${m.label || 'признак'}» из списка`, onClick: () => box.replaceChildren(labeled) });
-  box = stack(suggest, other);
-  return box;
+  return field(m.label || 'Признак', sel, { required: !!m.required });
 }
 
 export { numEditor };
