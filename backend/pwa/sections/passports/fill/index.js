@@ -28,7 +28,8 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
   const { funnelBox } = await import('../../../ui/funnel.js');
   const fieldHost = {}; const textHost = {}; const slotHost = {}; const titles = {}; const secs = {};
   for (const [id, title] of SECTIONS) {
-    fieldHost[id] = h('div'); textHost[id] = h('div'); slotHost[id] = h('div'); titles[id] = title;
+    // строки раздела — ровным шагом kit (k-stack), не впритык
+    fieldHost[id] = stack(); textHost[id] = stack(); slotHost[id] = h('div'); titles[id] = title;
     const body = [layout.related({ main: stack(fieldHost[id], textHost[id]), side: slotHost[id] })];
     if (id === 'dims') body.unshift(hint('В каждое место вставьте одно изображение. Для габаритов — один чертёж с размерами: виды спереди, сбоку и сверху можно объединить на одном листе. Отдельные места для видов доступны в варианте «Полный». Звёздочкой отмечены обязательные рисунки.'));
     secs[id] = section({ title, fixed: true, tone: 'info', body });

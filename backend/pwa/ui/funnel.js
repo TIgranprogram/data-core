@@ -108,7 +108,8 @@ export function funnelBox({ value, category = '', canEditText = false, onPaint, 
       const on = p.classList.toggle('clamp'); more.setAttribute('aria-expanded', String(!on)); more.textContent = on ? 'Развернуть' : 'Свернуть';
     } }, 'Развернуть');
     return h('div', { class: 'pp-ftext-box' }, p, h('div', { class: 'pp-ftext-act' }, full.length > 110 ? more : null,
-      canEditText ? link({ href: `#dicts?d=passportPhrases&of=ptnode&open=${leaf.id}`, target: '_blank', title: 'Откроется в новой вкладке — паспорт здесь останется как есть', label: 'Править текст' }) : null));
+      // действия с текстом — одним видом: маленькие кнопки в ряд («Развернуть», «Править текст ↗»)
+      canEditText ? h('a', { class: 'btn btn-ghost btn-sm', href: `#dicts?d=passportPhrases&of=ptnode&open=${leaf.id}`, target: '_blank', rel: 'noopener', title: 'Откроется в новой вкладке — паспорт здесь останется как есть' }, 'Править текст ↗') : null));
   }
 
   function step(s) {
@@ -118,9 +119,11 @@ export function funnelBox({ value, category = '', canEditText = false, onPaint, 
     if (complete && !editing.has(s.id)) {
       const leaf = path[path.length - 1];
       const many = s.children.length > 1 || path.length > 1;
-      wrap.append(h('div', { class: 'pp-step-sum' }, h('span', null, h('b', null, s.name + ': '), path.map((n) => n.name).join(' › ')),
-        auto ? h('span', { class: 'muted' }, ' · подставлено') : null,
-        many ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => { editing.add(s.id); paint(); } }, 'Изменить') : null), textBlock(s, leaf));
+      // один вид правки значения во всей форме паспорта: «Подпись: значение ✎» (как заполненные поля, fill/paint.js filledLink)
+      const val = `${s.name}: ${path.map((n) => n.name).join(' › ')}`;
+      wrap.append(h('div', { class: 'pp-step-sum' },
+        many ? link({ label: `${val} ✎`, title: 'Изменить', onClick: () => { editing.add(s.id); paint(); } }) : h('span', null, val),
+        auto ? h('span', { class: 'muted' }, 'подставлено') : null), textBlock(s, leaf));
       return wrap;
     }
     const head = h('h3', { class: 'pp-step-h' }, s.name, s.required ? h('span', { class: 'req' }, ' *') : null,

@@ -1020,7 +1020,7 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 .pp-opts + .pp-opts { margin-top: var(--s1); }
 .pp-ftext { margin: var(--s1) 0 0; color: var(--text); white-space: pre-wrap; }
 .pp-ftext.clamp { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
-.pp-ftext-act { display: flex; flex-wrap: wrap; gap: var(--s3); }
+.pp-ftext-act { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s1); }
 .pp-fromprod { margin-top: var(--s1); font-size: var(--fs-sm); color: var(--muted); }
 .pp-need-sticky { position: sticky; top: 0; z-index: 4; max-height: 34vh; overflow: auto; margin-bottom: var(--s3); background: var(--surface); }
 .pp-need-note { margin-bottom: 0; }
