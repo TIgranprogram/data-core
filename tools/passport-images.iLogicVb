@@ -577,16 +577,16 @@ Function ReadPassportSlots(client As Global.System.Net.Http.HttpClient, path As 
 End Function
 
 Function UploadPng(client As Global.System.Net.Http.HttpClient, path As String) As String
-    ' 503 (сайт занят: перезапуск после выкладки, режим «только чтение») — до 3 попыток с паузой 5 с (2026-11-13)
-    For attempt As Integer = 1 To 3
+    ' 502/503/504 (сайт занят: перезапуск после выкладки, режим «только чтение») — до 4 попыток с паузой 10 с (2026-11-13)
+    For attempt As Integer = 1 To 4
         Using form As New Global.System.Net.Http.MultipartFormDataContent()
             Dim file As New Global.System.Net.Http.ByteArrayContent(System.IO.File.ReadAllBytes(path))
             file.Headers.ContentType = New System.Net.Http.Headers.MediaTypeHeaderValue("image/png")
             form.Add(file, "file", System.IO.Path.GetFileName(path))
             Try
                 Return ApiId(RequestJson(client, Global.System.Net.Http.HttpMethod.Post, "photos/upload?purpose=passport", form))
-            Catch ex As InvalidOperationException When attempt < 3 AndAlso ex.Message.Contains("HTTP 503")
-                System.Threading.Thread.Sleep(5000)
+            Catch ex As InvalidOperationException When attempt < 4 AndAlso IsBusy(ex)
+                System.Threading.Thread.Sleep(10000)
             End Try
         End Using
     Next
@@ -600,8 +600,27 @@ Function AttachPassportImage(client As Global.System.Net.Http.HttpClient, path A
     End Using
 End Function
 
+' Сайт перезапускается после выкладки (502/503/504) — до 4 попыток с паузой 10 с. Повторяются только запросы без тела
+' (чтение и удаление); запрос с телом повторяет вызывающий (UploadPng).
+Function IsBusy(ex As InvalidOperationException) As Boolean
+    Return ex.Message.Contains("HTTP 502") OrElse ex.Message.Contains("HTTP 503") OrElse ex.Message.Contains("HTTP 504")
+End Function
+
 Function RequestJson(client As Global.System.Net.Http.HttpClient, method As Global.System.Net.Http.HttpMethod, path As String,
                      Optional body As Global.System.Net.Http.HttpContent = Nothing) As Global.System.Text.Json.JsonElement
+    If body IsNot Nothing Then Return SendJson(client, method, path, body)
+    For attempt As Integer = 1 To 4
+        Try
+            Return SendJson(client, method, path, Nothing)
+        Catch ex As InvalidOperationException When attempt < 4 AndAlso IsBusy(ex)
+            System.Threading.Thread.Sleep(10000)
+        End Try
+    Next
+    Throw New InvalidOperationException("Сайт не отвечает: " & method.Method & " " & path)
+End Function
+
+Function SendJson(client As Global.System.Net.Http.HttpClient, method As Global.System.Net.Http.HttpMethod, path As String,
+                  body As Global.System.Net.Http.HttpContent) As Global.System.Text.Json.JsonElement
     Using request As New Global.System.Net.Http.HttpRequestMessage(method, path)
         request.Content = body
         Using response As Global.System.Net.Http.HttpResponseMessage = client.SendAsync(request).GetAwaiter().GetResult()
