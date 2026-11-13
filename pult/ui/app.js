@@ -150,7 +150,7 @@ function renderTester() {
     stopping: ['Останавливаем проверку', 'Запрос отправлен. Ждём окончания шага и сохранения отчёта.'],
     finished: ['Проверка закончена', 'Отчёт сохранён. Откройте результаты: там могут быть найденные ошибки.'],
     failed: ['Подготовка или запуск не удались', 'Откройте журнал выполнения, выполните указанный там шаг и повторите «Проверить сайт».'],
-    interrupted: ['Нет сигнала от тестировщика', 'Обход мог прерваться. Откройте результаты и передайте журнал агенту; новый запуск пока закрыт.'],
+    interrupted: ['Нет сигнала от тестировщика', 'Обход прервался. Нажмите «Остановить» — пульт уберёт метку, и проверку можно запустить снова.'],
     missing: ['Нет отчёта последнего запуска', 'Запуск был отправлен, но завершение не подтверждено. Откройте журнал и передайте его агенту.'],
   };
   const live = [...S.jobs.values()].filter(j => j.state === 'running');
@@ -174,7 +174,7 @@ function renderTester() {
   const report = el('button', 'ghost', 'Результаты');
   report.onclick = () => press(S.catalog.commands.find(x => x.id === 'ait-report'));
   actions.append(report);
-  if (t?.active) {
+  if (t?.active || t?.state === 'interrupted') {
     const stop = el('button', 'ghost', 'Остановить');
     stop.disabled = t.state === 'stopping' || live.some(j => j.cmdId === 'ait-stop');
     stop.onclick = async () => { stop.disabled = true; await press(S.catalog.commands.find(x => x.id === 'ait-stop')); await loadStatus(); };

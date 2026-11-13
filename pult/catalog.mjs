@@ -282,8 +282,8 @@ export const COMMANDS = [
     params: [{ name: 'minutes', label: 'Сколько работать', type: 'select', default: '480', options: [
       { value: '15', label: '15 минут (проба)' }, { value: '60', label: '1 час' }, { value: '240', label: '4 часа' }, { value: '480', label: 'Рабочий день (8 часов)' }, { value: '720', label: '12 часов' }, { value: '1440', label: 'Сутки (24 часа)' }] }],
     hint: 'ИИ ходит по копии сайта как менеджер и ищет ошибки. Работает в фоне — окно пульта можно закрыть. Сам ставит ИИ, Docker и свежую базу; отчёт Claude разбирает сам. Рабочий сайт не трогает.' },
-  { id: 'ait-stop', section: 'aitester', sub: 'Главное', title: 'Остановить ИИ-тестировщика', risk: 'local', time: 'до 2 мин', run: { node: ['tools/ai-tester/run.mjs', '--stop'] },
-    hint: 'Тестировщик закончит шаг, уберёт тестовые записи и допишет отчёт.' },
+  { id: 'ait-stop', section: 'aitester', sub: 'Главное', title: 'Остановить ИИ-тестировщика', risk: 'local', time: 'до 3 мин', run: { node: ['tools/ai-tester/run.mjs', '--stop'] },
+    hint: 'Тестировщик закончит шаг, уберёт тестовые записи и допишет отчёт. Не ответил за 3 минуты — пульт снимет его сам.' },
   { id: 'ait-report', section: 'aitester', sub: 'Главное', title: 'Отчёт ИИ-тестировщика', risk: 'read', time: 'сразу', run: { node: ['tools/ai-tester/run.mjs', '--last'] },
     hint: 'Итог последнего дня: ошибки сайта и замечания ИИ. Потом скажите Claude «посмотри отчёт тестировщика».' },
   { id: 'ait-cleanup', section: 'aitester', extra: true, sub: 'Один раз на ПК и если что-то не так', title: 'Убрать тестовые записи', risk: 'local', time: '30 с', run: { node: ['tools/ai-tester/run.mjs', '--cleanup'] },

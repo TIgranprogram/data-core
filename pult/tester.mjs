@@ -6,6 +6,8 @@ export function testerState(root, runs = {}, jobs = [], now = Date.now()) {
   const dir = path.join(root, 'tools', 'logs', 'ai-tester');
   let marker = null, report = null;
   try { marker = JSON.parse(fs.readFileSync(path.join(dir, 'run.json'), 'utf8')); } catch {}
+  // срок вышел 20 мин назад — запуск закончен или завис: метка не держит кнопки (14.11: зависший сутки закрывал запуск)
+  if (marker?.until && now > Number(marker.until) + 20 * 60000) marker = null;
   try {
     const days = fs.readdirSync(dir).filter(x => /^\d{4}-\d\d-\d\d$/.test(x)).sort().reverse();
     for (const day of days) {

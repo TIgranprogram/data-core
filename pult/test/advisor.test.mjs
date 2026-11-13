@@ -77,10 +77,11 @@ test('после выкладки: пока час не прошёл — про�
 });
 
 test('ритм: каждый день — по календарю, раз в неделю и месяц — по сроку', () => {
-  const yesterday = { ...allFresh, 'day-start': { at: NOW - 13 * 3600000, code: 0 } };
-  assert.equal(find(plan({}, yesterday), 'day-start').level, 'today');
+  const yesterday = { ...allFresh, 'sz-on': { at: NOW - 13 * 3600000, code: 0 }, 'day-start': { at: NOW - 13 * 3600000, code: 0 } };
+  assert.equal(find(plan({}, yesterday), 'sz-on').level, 'today');
+  assert.ok(!find(plan({}, yesterday), 'day-start'), 'служебное делает расписание — человеку не показываем');
   const week = { ...allFresh, 'prod-doctor': { at: NOW - 8 * DAY, code: 0 } };
-  assert.equal(find(plan({}, week), 'prod-doctor').level, 'soon');
+  assert.ok(!find(plan({}, week), 'prod-doctor'));
   assert.ok(!find(plan({}, { ...allFresh, 'prod-drill': { at: NOW - 20 * DAY, code: 0 } }), 'prod-drill'));
 });
 
@@ -173,11 +174,10 @@ test('зелёная проверка не добавляет дело и ост
   assert.equal(advise(calm, runs, COMMANDS, NOW).check.code, 0);
 });
 
-test('запущенные стенды видны с кнопкой остановки', () => {
+test('стенды человеку не советуем: ими управляют тестировщик, Старожил и Claude', () => {
   const items = plan({ nightStand: true, localSite: true }, allFresh);
-  assert.equal(find(items, 'night-down').level, 'soon');
-  assert.equal(find(items, 'stand-down').level, 'soon');
-  assert.ok(!find(plan({}, allFresh), 'night-down'));
+  assert.ok(!find(items, 'night-down'));
+  assert.ok(!find(items, 'stand-down'));
 });
 
 test('у команд с ритмом есть причина', () => {

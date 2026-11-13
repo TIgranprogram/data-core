@@ -94,11 +94,10 @@ export function advise(s, runs, commands, now = Date.now(), todo = []) {
       ? `Копия базы на этом ПК от ${new Date(s.localCopyAt).toLocaleDateString('ru-RU')} — на сервере есть новее. Обновите: скачается свежая (база и фото), старые удалятся сами`
       : 'На этом ПК нет копии базы. Скачайте: из неё сайт можно поднять на новом сервере');
   }
-  if (s.nightStand && !s.testerRunning) add('soon', 'night-down', 'Стенд на копии базы запущен и занимает память ПК. Закончили проверку — остановите.');
-  if (s.localSite) add('soon', 'stand-down', 'Локальный сайт запущен и занимает память ПК. Не нужен — остановите, данные останутся.');
-
+  // Стенды не советуем: ими управляют тестировщик, Старожил и Claude; лишнее убирает «Уборка ПК».
   for (const c of commands) {
-    if (!c.every) continue;
+    // служебное (extra) делают расписание пульта и Claude — человеку его не показываем; нужно ему — поручение в todo.json
+    if (!c.every || c.extra) continue;
     const last = runs[c.id];
     const level = c.every === 1 ? 'today' : 'soon';
     if (!last) add(level, c.id, `${c.why}. Ещё не запускалось с этого ПК.`);

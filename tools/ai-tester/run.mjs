@@ -18,7 +18,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { TAG, isLocalStand, tagText, createdFrom, screenGarbage, screenGrammar, blockedClick, buildReport, screenChange, closedForRole, watchdogAction, DEAD_MS } from './lib.mjs';
+import { TAG, isLocalStand, tagText, createdFrom, screenGarbage, screenGrammar, blockedClick, buildReport, screenChange, closedForRole, watchdogAction, DEAD_MS, runLive } from './lib.mjs';
 import { sessionFromStdin } from './stand-session.mjs';
 import { loadSettings, llm, llmUp, ensureLLM, keepAwake } from './llm.mjs';
 
@@ -45,7 +45,8 @@ if (args.includes('--resume') && readRun()?.day) DAY = readRun().day;
 const OUT = path.join(LOGS, DAY);
 const STATE_FILE = path.join(OUT, 'state.json'); // задания и находки — чтобы продолжение дописало отчёт, а не начало с нуля
 const BEAT_MS = 60000; // DEAD_MS — в lib.mjs (сторож ждёт сборку стенда)
-const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+// EPERM — процесс есть, но запущен с правами администратора: он жив
+const alive = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
 
 /** Сторож: запуск должен идти, а процесса нет (перезагрузка, свет, сбой) — продолжить скрыто до конца срока. */
 function watchdog() {
@@ -62,6 +63,43 @@ ${new Date().toISOString()} сторож: тестировщик ${what === 'kil
   const ch = spawn(process.execPath, [path.join(HERE, 'run.mjs'), '--resume'], { cwd: ROOT, detached: true, windowsHide: true, stdio: ['ignore', log, log] });
   ch.unref();
   return 0;
+}
+
+/** Снять процесс вместе с его браузером. true — процесса больше нет. */
+function killTree(pid) {
+  if (process.platform === 'win32') spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true });
+  else { try { process.kill(pid, 'SIGKILL'); } catch { /* уже нет */ } }
+  return !alive(pid);
+}
+
+/**
+ * Кнопка «Остановить»: просим закончить шаг и ждём до 3 минут; не ответил — снимаем процесс.
+ * Запуск не идёт (закончился, оборвался, завис после срока) — убираем метки, чтобы пульт и Старожил не ждали.
+ */
+async function stopRun() {
+  fs.mkdirSync(LOGS, { recursive: true });
+  const r = readRun();
+  const clear = () => { fs.rmSync(RUN_FILE, { force: true }); fs.rmSync(STOP_FILE, { force: true }); };
+  if (!r) { clear(); say('Тестировщик не работает — останавливать нечего.'); return 0; }
+  const fresh = Date.now() - (r.beat || 0) < DEAD_MS; // свежая отметка — pid точно тестировщика, а не чужой программы
+  if (!runLive(r, Date.now(), alive(r.pid))) {
+    const gone = !(fresh && alive(r.pid)) || killTree(r.pid);
+    clear();
+    say(gone ? 'Тестировщик не работал (запуск оборвался или завис) — метки убраны. Можно запускать снова.'
+      : '⚠ Зависший тестировщик не снимается: он запущен с правами администратора. Он уйдёт после перезагрузки компьютера. Старожилу и новой проверке не мешает.');
+    return 0;
+  }
+  fs.writeFileSync(STOP_FILE, new Date().toISOString());
+  say('Попросил тестировщика остановиться: он закончит шаг, уберёт тестовые записи и напишет отчёт. Жду до 3 минут…');
+  for (const end = Date.now() + 180000; Date.now() < end;) {
+    await sleep(2000);
+    if (!alive(r.pid)) { clear(); say('✅ Тестировщик остановлен, отчёт дописан.'); return 0; }
+  }
+  const gone = killTree(r.pid);
+  clear();
+  say(gone ? '✅ Тестировщик не ответил за 3 минуты — снят принудительно. Тестовые записи уберёт следующая проверка.'
+    : '⚠ Тестировщик не снимается: он запущен с правами администратора. Он уйдёт после перезагрузки компьютера.');
+  return gone ? 0 : 1;
 }
 
 /** Задача Планировщика Windows: при входе и раз в 10 мин — сторож. Без прав администратора, только для этого пользователя. */
@@ -580,7 +618,7 @@ async function main() {
   if (suppliedSession && ['--detach', '--resume', '--watchdog', '--check', '--cleanup', '--stop', '--last', '--reviewed'].some(has)) {
     say('❌ Вход через stdin доступен только для запуска в текущем процессе.'); return 2;
   }
-  if (has('--stop')) { fs.mkdirSync(LOGS, { recursive: true }); fs.writeFileSync(STOP_FILE, new Date().toISOString()); say('Попросил тестировщика остановиться. Он закончит текущий шаг, уберёт тестовые записи и напишет отчёт (до 2 минут).'); return 0; }
+  if (has('--stop')) return stopRun();
   if (has('--last')) return last();
   const s = loadSettings();
   { const i = args.indexOf('--model'); if (i >= 0 && args[i + 1]) s.model = args[i + 1]; } // сравнение моделей без правки настроек
@@ -596,9 +634,11 @@ async function main() {
   const resume = has('--resume');
   const prevRun = readRun();
   if (resume && prevRun?.noWatchdog) return 0;
-  if (prevRun && prevRun.pid !== process.pid && alive(prevRun.pid) && Date.now() - (prevRun.beat || 0) < DEAD_MS) {
+  if (prevRun && prevRun.pid !== process.pid && runLive(prevRun, Date.now(), alive(prevRun.pid))) {
     say('Тестировщик уже работает. Остановить — кнопка «Остановить ИИ-тестировщика».'); return suppliedSession ? 2 : 0;
   }
+  // прежний запуск завис после срока (отметки идут, работы нет) — снять, иначе он держит видеокарту и переписывает метку
+  if (!resume && prevRun && prevRun.pid !== process.pid && Date.now() - (prevRun.beat || 0) < DEAD_MS && alive(prevRun.pid)) killTree(prevRun.pid);
   if (resume && (!prevRun || Date.now() >= prevRun.until)) { fs.rmSync(RUN_FILE, { force: true }); return 0; }
 
   if (!isLocalStand(s.stand)) { say('❌ Тестировщик работает только на стенде этого ПК. Рабочий сайт он не трогает.'); return 2; }
@@ -635,7 +675,7 @@ async function main() {
     // срок давно вышел, а процесс всё ещё жив (завис) — выйти самому
     if (Date.now() > until + 20 * 60000) { say('⚠ Срок вышел 20 мин назад, а запуск не закончился — выхожу.'); process.exit(3); }
     const other = readRun();
-    if (other?.pid > 0 && other.pid !== process.pid && Date.now() - (other.beat || 0) < DEAD_MS && alive(other.pid)) { say('⚠ Работает другая копия тестировщика — выхожу.'); process.exit(3); }
+    if (other?.pid > 0 && other.pid !== process.pid && runLive(other, Date.now(), alive(other.pid))) { say('⚠ Работает другая копия тестировщика — выхожу.'); process.exit(3); }
     fs.writeFileSync(RUN_FILE, JSON.stringify({ until, day: DAY, pid: process.pid, beat: Date.now(), noWatchdog: !!noWatchdog }));
   };
   beat(); const beatTimer = setInterval(beat, BEAT_MS); beatTimer.unref();

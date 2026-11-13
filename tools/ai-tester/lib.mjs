@@ -92,6 +92,9 @@ export function duration(ms) {
  * поэтому «мёртв» только после 25 мин тишины; живой, но молчащий процесс сначала снимается (13.11: 9 копий сразу).
  */
 export const DEAD_MS = 25 * 60000;
+/** Срок вышел 20 мин назад, а отметки идут — запуск завис: живым не считается (14.11: такой сутки не пускал Старожила). */
+export const OVERDUE_MS = 20 * 60000;
+export const runLive = (run, now, alive) => !!run && !!alive && now - (run.beat || 0) < DEAD_MS && !(run.until && now > run.until + OVERDUE_MS);
 export function watchdogAction({ run, now, alive, stopped = false }) {
   if (!run || run.noWatchdog) return 'none';
   if (stopped || now >= run.until) return 'done';

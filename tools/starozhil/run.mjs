@@ -29,8 +29,9 @@ const say = (s) => console.log(s);
 const pad = (n) => String(n).padStart(2, '0');
 const stamp = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
 const readJson = (f, d) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return d; } };
-const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
-const busy = (f) => { const r = readJson(f, null); return r && r.pid && alive(r.pid) && Date.now() - (r.beat || 0) < 25 * 60000 ? r : null; };
+const alive = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
+// until — срок тестировщика: вышел 20 мин назад, а отметки идут — он завис и не считается занятым (14.11)
+const busy = (f) => { const r = readJson(f, null); return r && r.pid && alive(r.pid) && Date.now() - (r.beat || 0) < 25 * 60000 && !(r.until && Date.now() > r.until + 20 * 60000) ? r : null; };
 
 function loadJobs() {
   if (!fs.existsSync(JOBS)) return [];
@@ -236,7 +237,15 @@ async function main() {
   if (has('--list')) return list();
   const running = busy(RUN_FILE);
   if (running && running.pid !== process.pid) { say(`Старожил уже работает (${running.job}). Выключить — кнопка «Выключить Старожила».`); return 0; }
-  if (busy(TESTER_RUN)) { say('Сейчас работает ИИ-тестировщик — видеокарта занята. Включите Старожила после него.'); return 0; }
+  // идёт отдельная проверка сайта — Старожил главнее: останавливает её сам и начинает (владелец не ждёт и не жмёт вторую кнопку)
+  // метка есть, а «не занят» — запуск завис после срока: та же остановка снимает его и убирает метку
+  if (readJson(TESTER_RUN, null)) {
+    if (has('--detach')) { if (busy(TESTER_RUN)) say('Работает ИИ-тестировщик — Старожил сам остановит его и начнёт (до 3 минут).'); }
+    else {
+      spawnSync(process.execPath, [path.join(ROOT, 'tools', 'ai-tester', 'run.mjs'), '--stop'], { cwd: ROOT, stdio: 'inherit', windowsHide: true, timeout: 4 * 60000 });
+      if (busy(TESTER_RUN)) { say('❌ ИИ-тестировщик не остановился — Старожил не начал. Перезагрузите компьютер и включите снова.'); return 2; }
+    }
+  }
   const isShift = has('--shift');
   const jobs = loadJobs();
   const job = isShift ? null : arg('--job') ? jobs.find((j) => j.id === arg('--job') || j.id.startsWith(arg('--job') + '-')) : pickNext(jobs, readJson(HISTORY, []));

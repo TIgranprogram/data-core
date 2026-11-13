@@ -108,7 +108,7 @@ export async function readStatus(machine, runs = {}, { shFn = sh, standFn = () =
 
 /** ИИ-тестировщик идёт: run.json с пульсом не старше 4 минут (tools/ai-tester/run.mjs). */
 export function testerRunning(root = ROOT) {
-  try { const r = JSON.parse(fs.readFileSync(path.join(root, 'tools', 'logs', 'ai-tester', 'run.json'), 'utf8')); return Date.now() - Number(r.beat) < 4 * 60000; } catch { return false; }
+  try { const r = JSON.parse(fs.readFileSync(path.join(root, 'tools', 'logs', 'ai-tester', 'run.json'), 'utf8')); return Date.now() - Number(r.beat) < 4 * 60000 && !(r.until && Date.now() > Number(r.until) + 20 * 60000); } catch { return false; }
 }
 
 export function createPult({ catalog = defaultCatalog, machine = detectMachine(), root = ROOT, logDir = path.join(root, 'pult', 'logs'), stateDir = path.join(root, 'pult', '.state'), onIdle = null, statusFn = readStatus, terminateFn = terminateProcess, now = () => new Date() } = {}) {
