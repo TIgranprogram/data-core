@@ -39,6 +39,8 @@ Function RemoveScaleFromLabels(drawing As Inventor.DrawingDocument) As Integer
             If Not v.ShowLabel Then Continue For
             Dim t As String = v.Label.FormattedText
             Dim s As String = System.Text.RegularExpressions.Regex.Replace(t, "\s*\(\s*<DrawingViewScale[^>]*/>\s*\)", "")
+            ' стиль ГОСТ: «…<Br/>МАСШТАБ <DrawingViewScale/>» — убираем перенос, слово и масштаб целиком
+            s = System.Text.RegularExpressions.Regex.Replace(s, "(<Br/>)?\s*МАСШТАБ\s*<DrawingViewScale[^>]*/>", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
             s = System.Text.RegularExpressions.Regex.Replace(s, "\s*<DrawingViewScale[^>]*/>", "")
             If s <> t Then
                 v.Label.FormattedText = s
