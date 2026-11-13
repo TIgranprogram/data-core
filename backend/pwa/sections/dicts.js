@@ -44,7 +44,7 @@ const GROUP_ORDER = ['Склад и продукция', 'Люди и работ
 const PASS_GROUP = 'Документы (паспорта)';
 // Справочников паспортов 14 — одной лентой их приходилось вычитывать (жалоба владельца 2026-11-12). Делим по смыслу: о чём справочник.
 const PASS_SUBS = [
-  ['Паспорта · что за изделие', ['passportCategories', 'passportTypes', 'passportElements', 'passportParts', 'productFacets', 'productFacetValues']],
+  ['Паспорта · что за изделие', ['passportCategories', 'passportKinds', 'passportTypes', 'passportElements', 'passportParts', 'productFacets', 'productFacetValues']],
   ['Паспорта · из чего сделано', ['passportMaterials', 'passportSortament']],
   ['Паспорта · тексты и правила', ['passportPhrases', '__texts', 'passportInstall', 'passportDefects', 'passportStandards']],
   ['Паспорта · вид документа', ['passportStyle']],

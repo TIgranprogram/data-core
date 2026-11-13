@@ -15,7 +15,9 @@ export function kindEditor(ctx, gap) {
   const given = (gap?.options || []).map((o) => [String(o.id), o.label || o.name || 'без названия']);
   const dict = (ctx.kindRows || []).filter((d) => !d.passportCategory || !ctx.code || d.passportCategory === ctx.code).map((d) => [String(d.id || d._id), d.name || 'без названия']);
   const options = given.length ? given : dict;
-  if (!options.length) return hint('В справочнике «Виды изделий» пока нет видов. Добавьте вид в «Справочники → Паспорта → Виды изделий».', 'warn');
+  // ссылка сразу в справочник: по словам «Справочники → …» место не находилось (пользователь 2026-11-13)
+  const toDict = () => link({ label: 'Открыть справочник «Виды изделий» ↗', href: '#dicts?d=passportKinds', target: '_blank', title: 'Откроется в новой вкладке — паспорт здесь останется' });
+  if (!options.length) return stack(hint('Видов изделий пока нет — добавьте первый.', 'warn'), toDict());
   const cur = String(ctx.prod.passportDefaults?.kindId || '');
   const sel = select({
     label: 'Вид изделия',
@@ -24,7 +26,7 @@ export function kindEditor(ctx, gap) {
     onChange: (v) => ctx.save(() => putDefaults(ctx.prod, { kindId: v })),
   });
   if (options.length > 12) enhanceSelect(sel);
-  return field('Вид изделия', sel, { required: !!gap?.required, hint: 'Вид задаёт, что это за изделие, назначение и категорию паспорта. Если в самом изделии задано иначе — будет по-вашему.' });
+  return stack(field('Вид изделия', sel, { required: !!gap?.required, hint: 'Вид задаёт, что это за изделие, назначение и категорию паспорта. Если в самом изделии задано иначе — будет по-вашему.' }), toDict());
 }
 
 function numEditor(ctx, key, label, dflt) {
