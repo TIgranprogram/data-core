@@ -324,7 +324,7 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
         const r = form.read();
         if (r.errors) { saving = false; cancel.disabled = false; unlock(); done(); return; }
         const bodyData = section.form.toBody(r.values, isNew ? null : row);
-        saved = isNew ? await section.form.create(bodyData) : await section.form.update(row.id, bodyData);
+        saved = isNew ? await section.form.create(bodyData) : await section.form.update(row.id, bodyData, row); // row — для версии записи (C049-1)
       } catch (e) {
         // ОШ2.4: сбой — «Не удалось сохранить: нет связи… Проверьте интернет…»; ответ сервера — «Не сохранено: Укажите…»
         reportError(e, { action: isNew ? 'создать запись' : 'сохранить' });
