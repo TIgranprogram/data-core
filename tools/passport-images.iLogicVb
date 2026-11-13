@@ -30,8 +30,9 @@ Sub Main()
     End Try
 End Sub
 
-' Подпись вида «А-А (0,08 : 1)» → «А-А»: из текста подписи убирается масштаб (тег DrawingViewScale) вместе со скобками.
-' Масштаб на рисунке паспорта ни о чём не говорит: картинка растягивается под страницу. Возвращает число изменённых подписей.
+' Подпись вида «А-А (0,08 : 1)» → «А-А»: из текста подписи убирается автоматический масштаб Inventor (тег DrawingViewScale)
+' вместе со скобками — он дробный, не по ГОСТ. Масштаб ГОСТ, который пишет само правило («А-А (1:10)»), — обычный текст, остаётся.
+' Возвращает число изменённых подписей.
 Function RemoveScaleFromLabels(drawing As Inventor.DrawingDocument) As Integer
     Dim n As Integer = 0
     For Each sh As Inventor.Sheet In drawing.Sheets
@@ -195,7 +196,8 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
 
     ' «Схема установки» (2026-11-13, проверено тестом tools/passport-section-test.iLogicVb на 3211): лист книжный;
     ' сверху вид спереди с линией земли (плоскость XZ модели) и размером «Г» от земли до низа опоры у левой опоры;
-    ' снизу разрез А-А по линии земли — взгляд сверху на опоры, с габаритами; подпись «А-А» под размером.
+    ' снизу разрез А-А по линии земли — взгляд сверху на опоры, с габаритами; подпись «А-А (1:N)» под размером.
+    ' Масштабы видов — из ряда ГОСТ 2.302 (GostScale).
     stage = "Создание листа «Схема установки»"
     Dim installationSheet As Inventor.Sheet = drawing.Sheets.Add(
         Inventor.DrawingSheetSizeEnum.kA4DrawingSheetSize,
@@ -348,7 +350,9 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     If MessageBox.Show("Загрузить рисунки на сайт (общий вид, габариты, схема установки)?", "Картинки для паспорта",
                        MessageBoxButtons.YesNo, MessageBoxIcon.Question,
                        MessageBoxDefaultButton.Button2) = DialogResult.Yes Then
-        Dim productId As String = UploadPassportImages(model, folder, dimensions, depthMm, stage)
+        stage = "Чтение массы модели"
+        Dim massKg As Double = ModelMassKg(model)
+        Dim productId As String = UploadPassportImages(model, folder, dimensions, depthMm, massKg, stage)
         If productId <> "" Then
             stage = "Открытие шаблона паспорта на сайте"
             Dim templateUrl As String = "https://kppdf-crm.ru/db/app/#docs?tab=templates&of=doctpl&open=" & productId
@@ -397,8 +401,25 @@ Sub HideVisible(visible As Boolean, setVisible As Action(Of Boolean),
     setVisible(False)
 End Sub
 
+' Масса модели, кг (0,1). Не посчиталась (нет материала, модель не обновлена) — 0: масса на сайт не пишется.
+Function ModelMassKg(model As Inventor.Document) As Double
+    Try
+        Dim assembly As Inventor.AssemblyDocument = TryCast(model, Inventor.AssemblyDocument)
+        Dim mass As Double
+        If assembly IsNot Nothing Then
+            mass = assembly.ComponentDefinition.MassProperties.Mass
+        Else
+            mass = DirectCast(model, Inventor.PartDocument).ComponentDefinition.MassProperties.Mass
+        End If
+        Dim kg As Double = model.UnitsOfMeasure.ConvertUnits(mass, Inventor.UnitsTypeEnum.kDatabaseMassUnits, "kg")
+        Return If(Double.IsNaN(kg) OrElse Double.IsInfinity(kg) OrElse kg < 0, 0, Math.Round(kg, 1, MidpointRounding.AwayFromZero))
+    Catch
+        Return 0
+    End Try
+End Function
+
 Function UploadPassportImages(model As Inventor.Document, folder As String,
-                              dimensions As Double(), depthMm As Double, ByRef stage As String) As String
+                              dimensions As Double(), depthMm As Double, massKg As Double, ByRef stage As String) As String
     Dim fileName As String = System.IO.Path.GetFileNameWithoutExtension(model.FullFileName)
     Dim proposal As String = System.Text.RegularExpressions.Regex.Match(fileName, "^\d+(?=\.)").Value
     If proposal = "" Then proposal = fileName
@@ -443,13 +464,24 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
                 page += 1
             Loop
             If productId Is Nothing Then Throw New InvalidOperationException("Изделие с точным артикулом не найдено.")
-            If MessageBox.Show("Артикул: " & sku & vbCrLf & "Изделие: " & productName & vbCrLf &
-                               "Записать в карточку изделия размеры Д × Ш × В: " & FormatMm(dimensions(0)) & " × " &
-                               FormatMm(dimensions(1)) & " × " & FormatMm(dimensions(2)) &
-                               " мм" & vbCrLf & "Глубина Г: " & FormatMm(depthMm) & " мм" & vbCrLf &
-                               "Сохранить размеры и загрузить общий вид, габариты и схему установки?",
+            If MessageBox.Show("Артикул: " & sku & vbCrLf & "Изделие: " & productName & vbCrLf & vbCrLf &
+                               "Загрузить общий вид, габариты и схему установки?",
                                "Подтвердите изделие", MessageBoxButtons.YesNo, MessageBoxIcon.Question,
                                MessageBoxDefaultButton.Button2) <> DialogResult.Yes Then Return ""
+            ' Значения в карточку — по отдельному согласию: на сайте их могли уже поправить вручную (пользователь 2026-11-13)
+            Dim massText As String = If(massKg > 0, massKg.ToString("0.0", Global.System.Globalization.CultureInfo.GetCultureInfo("ru-RU")) & " кг", "не определена — не запишется")
+            Dim writeSize As Boolean = MessageBox.Show(
+                "Записать в карточку изделия на сайте:" & vbCrLf &
+                "Габариты Д × Ш × В: " & FormatMm(dimensions(0)) & " × " & FormatMm(dimensions(1)) & " × " & FormatMm(dimensions(2)) & " мм" & vbCrLf &
+                "Масса: " & massText & vbCrLf & vbCrLf &
+                "«Нет» — на сайте останутся прежние значения.",
+                "Габариты и масса", MessageBoxButtons.YesNo, MessageBoxIcon.Question,
+                MessageBoxDefaultButton.Button1) = DialogResult.Yes
+            Dim writeDepth As Boolean = MessageBox.Show(
+                "Записать в карточку изделия глубину Г = " & FormatMm(depthMm) & " мм?" & vbCrLf & vbCrLf &
+                "«Нет» — на сайте останется прежнее значение.",
+                "Глубина Г", MessageBoxButtons.YesNo, MessageBoxIcon.Question,
+                MessageBoxDefaultButton.Button1) = DialogResult.Yes
 
             Dim photosPath As String = "products/" & productId & "/photos"
             stage = "Проверка существующих рисунков"
@@ -486,14 +518,21 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
                 newLinks.Add(AttachPassportImage(client, photosPath, dimensionsId, "dimensions"))
                 stage = "Привязка схемы установки опор"
                 newLinks.Add(AttachPassportImage(client, photosPath, foundationId, "foundation"))
-                stage = "Запись габаритов и глубины Г в карточку изделия"
-                Dim json As String = Global.System.Text.Json.JsonSerializer.Serialize(
-                    New With {.dimensions = New With {
+                Dim payload As New Global.System.Collections.Generic.Dictionary(Of String, Object)
+                If writeSize Then
+                    payload.Add("dimensions", New With {
                         .length = dimensions(0), .width = dimensions(1),
-                        .height = dimensions(2), .unit = "мм"}, .foundationDepth = depthMm})
-                Using body As New Global.System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json")
-                    RequestJson(client, New Global.System.Net.Http.HttpMethod("PATCH"), "showcase/" & productId, body)
-                End Using
+                        .height = dimensions(2), .unit = "мм"})
+                    If massKg > 0 Then payload.Add("weightKg", massKg)
+                End If
+                If writeDepth Then payload.Add("foundationDepth", depthMm)
+                If payload.Count > 0 Then
+                    stage = "Запись в карточку изделия: " & If(writeSize, "габариты и масса", "") & If(writeSize AndAlso writeDepth, ", ", "") & If(writeDepth, "глубина Г", "")
+                    Dim json As String = Global.System.Text.Json.JsonSerializer.Serialize(payload)
+                    Using body As New Global.System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json")
+                        RequestJson(client, New Global.System.Net.Http.HttpMethod("PATCH"), "showcase/" & productId, body)
+                    End Using
+                End If
             Catch
                 For Each linkId As String In newLinks
                     Try
@@ -509,6 +548,7 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
             For Each linkId As String In previous.Keys
                 RequestJson(client, Global.System.Net.Http.HttpMethod.Delete, photosPath & "/" & linkId)
             Next
+            If Not writeDepth Then Return productId
             stage = "Проверка сохранённой глубины Г"
             Dim saved As Global.System.Text.Json.JsonElement = RequestJson(client, Global.System.Net.Http.HttpMethod.Get, "showcase/" & productId)
             Dim savedDefaults As Global.System.Text.Json.JsonElement
@@ -602,12 +642,11 @@ End Function
 
 Function AddDimensions(sheet As Inventor.Sheet, front As Inventor.DrawingView,
                        top As Inventor.DrawingView, tg As Inventor.TransientGeometry) As Double()
-    ' Если опоры заглублены, укажите расстояние от низа модели до покрытия в мм.
-    Const groundAboveBottomMm As Double = 0
+    ' Габариты — по всей модели, низ вида = низ изделия (заглубление показывает «Схема установки», размер «Г»)
     Dim frontLeft As Double = front.Left
     Dim frontRight As Double = frontLeft + front.Width
     Dim frontBottom As Double = front.Top - front.Height
-    Dim ground As Double = frontBottom + groundAboveBottomMm * front.Scale / 10
+    Dim ground As Double = frontBottom
     Dim topBottom As Double = top.Top - top.Height
     Dim lengthMm As Double = front.Width / front.Scale * 10
     Dim widthMm As Double = top.Height / top.Scale * 10
@@ -703,6 +742,7 @@ End Function
 Function RoundMm(value As Double) As Double
     Return Math.Round(value, MidpointRounding.AwayFromZero)
 End Function
+
 Sub SavePng(app As Inventor.Application, camera As Inventor.Camera,
             folder As String, name As String, height As Integer)
     camera.SaveAsBitmapWithOptions(
