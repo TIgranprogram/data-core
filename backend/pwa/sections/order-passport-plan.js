@@ -3,7 +3,8 @@ import { h } from '../core/dom.js';
 import { go } from '../core/router.js';
 import * as kit from '../ui/kit/index.js';
 import { canWorkPassport as canEdit } from './passports/common.js';
-import { download, passportVariant } from './passports/dialogs.js';
+import { download, passportVariant, printOptions } from './passports/dialogs.js';
+import { ORDER_FORMATS, printQuery } from './passports/print-options.js';
 import { displayName } from './passports/fill/model.js';
 
 /*
@@ -27,6 +28,56 @@ export const openOrderPassports = (orderId) => go('docs', { tab: 'orders', of: '
 
 /** Кнопка «Паспорта заказа» (kit.button). */
 export const orderPassportsButton = (orderId, size = 'S') => kit.button({ label: 'Паспорта заказа', size, title: 'Выпустить и распечатать паспорта по всем позициям заказа', onClick: () => openOrderPassports(orderId) });
+
+/**
+ * C104: окно «Печать» паспортов заказа — те же настройки, что у одного паспорта (формат, печать/подпись, ч/б)
+ * и выбор позиций галочками. Один PDF по отмеченным: GET …/pdf?ids=…
+ */
+async function printOrderDialog(row) {
+  const issued = (row.lines || []).filter((l) => l.state === 'issued' && l.passport?.id);
+  if (!issued.length) return;
+  const boxes = issued.map((l) => {
+    const text = [`${l.lineNo ?? '—'}`, displayName(l.title) || 'Позиция', l.passport.number ? '№ ' + l.passport.number : ''].filter(Boolean).join(' · ');
+    const el = kit.guide.toggle({ label: text, checked: true, onChange: () => sync() });
+    const cb = el.querySelector('input'); cb.dataset.id = String(l.passport.id);
+    return { cb, el };
+  });
+  const sync = () => {
+    const none = !boxes.some((b) => b.cb.checked);
+    const ok = body.closest('form')?.querySelector('[type=submit]');
+    if (ok) ok.disabled = none;
+  };
+  const setAll = (on) => { boxes.forEach((b) => { b.cb.checked = on; }); sync(); };
+  const firm = row.firm || null;
+  const po = printOptions({
+    org: firm ? { hasSeal: !!firm.hasSeal, hasSignature: !!firm.hasSignature } : null, // C104: сервер отдаёт, что у фирмы загружено
+    formats: ORDER_FORMATS, mode: 'print',
+    extraTop: h('div', null,
+      h('div', { class: 'section-title' }, 'Какие паспорта печатать'),
+      kit.stack(...boxes.map((b) => b.el)),
+      kit.actions(
+        kit.button({ label: 'Отметить все', size: 'S', kind: 'ghost', onClick: () => setAll(true) }),
+        kit.button({ label: 'Снять все', size: 'S', kind: 'ghost', onClick: () => setAll(false) }))),
+  });
+  const body = po.el;
+  await kit.modal({
+    title: `Печать паспортов заказа · № ${row.orderNo || 'без номера'}`, okText: 'Скачать PDF', wide: true, body,
+    onOk: async (form) => {
+      const ids = boxes.filter((b) => b.cb.checked).map((b) => b.cb.dataset.id);
+      if (!ids.length) throw new Error('Отметьте хотя бы один паспорт');
+      const ok = form.querySelector('[type=submit]');
+      ok.classList.add('is-busy');
+      try {
+        const v = po.value();
+        const all = ids.length === issued.length;
+        const query = printQuery({ variant: passportVariant.value, ...v, ids: all ? null : ids });
+        const name = await apiFile(`/passports/order/${row.orderId}/pdf`, { query, timeout: 600000, fallback: `Паспорта_заказ_${row.orderNo || ''}.pdf` });
+        kit.toast(`Скачан: ${name}`);
+        return true;
+      } finally { ok.classList.remove('is-busy'); }
+    },
+  });
+}
 
 const fetchPlan = (id) => {
   const pick = pickOf(id);
@@ -207,15 +258,9 @@ function body(row, ctx) {
 
   const printPrimary = issuedN > 0 && !readyN;
   const printBtn = kit.button({
-    label: 'Печать всех', kind: printPrimary ? 'primary' : 'secondary', disabled: !issuedN,
-    title: issuedN ? 'Один PDF со всеми выпущенными паспортами заказа' : 'Сначала выпустите хотя бы один паспорт',
-    onClick: async (e) => {
-      const b = e.currentTarget; b.classList.add('is-busy'); b.disabled = true;
-      try {
-        const name = await apiFile(`/passports/order/${row.orderId}/pdf`, { query: { variant: passportVariant.value }, timeout: 600000, fallback: `Паспорта_заказ_${row.orderNo || ''}.pdf` });
-        kit.toast(`Скачан: ${name}`);
-      } catch (er) { kit.toastError(er, 'собрать PDF паспортов'); } finally { b.classList.remove('is-busy'); b.disabled = !issuedN; }
-    },
+    label: 'Печать…', kind: printPrimary ? 'primary' : 'secondary', disabled: !issuedN,
+    title: issuedN ? 'Выбрать паспорта и вид — получится один PDF' : 'Сначала выпустите хотя бы один паспорт',
+    onClick: () => printOrderDialog(row).catch((er) => kit.toastError(er, 'собрать PDF паспортов')),
   });
 
   const lines = (row.lines || []).length

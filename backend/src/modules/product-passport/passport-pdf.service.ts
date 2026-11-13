@@ -204,8 +204,13 @@ export class PassportPdfService {
   }
 
   /** ПНЗ: один PDF со всеми выпущенными паспортами заказа (тот же рендер, подряд). Нет выпущенных — 404 от вызывающего. */
-  async orderPdf(orderId: string, opts: PdfOpts = {}) {
-    const { items, orderNo } = await this.passports.issuedOfOrder(orderId);
+  async orderPdf(orderId: string, opts: PdfOpts = {}, only: string[] = []) {
+    const all = await this.passports.issuedOfOrder(orderId);
+    const orderNo = all.orderNo;
+    // C104: выбранные паспорта (только выпущенные этого заказа, порядок — по позициям); пусто — все
+    const want = new Set(only);
+    const items = want.size ? all.items.filter((it) => want.has(String((it as Doc)._id))) : all.items;
+    if (want.size && !items.length) throw new BadRequestException('Выбранные паспорта не найдены среди выпущенных паспортов этого заказа');
     const inputs = [];
     // C072: паспорт со своим PDF в общий файл не склеить — отдаём списком, экран покажет ссылки на `GET /passports/:id/pdf`
     const skipped: Array<{ id: string; passportNumber: string; name: string }> = [];

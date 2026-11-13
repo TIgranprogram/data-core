@@ -22,7 +22,7 @@ export interface OrderHost {
   discard: (id: string) => Promise<void>;
 }
 
-export interface OrderFirm { id: string; name: string }
+export interface OrderFirm { id: string; name: string; hasSeal: boolean; hasSignature: boolean }
 
 export interface PlanLine {
   incomeId: string;
@@ -54,24 +54,26 @@ async function orderOf(db: Db, orderId: string) {
 }
 
 const firmName = (org: Doc) => String(org.shortName || org.name || 'Фирма');
+/** Фирма для экрана: название и есть ли печать / подпись (assets role seal / signature) — окно печати заказа (C104). */
+const firmOf = (org: Doc): OrderFirm => ({ id: String(org._id), name: firmName(org), hasSeal: ((org.assets as Doc[] | undefined) || []).some((a) => a.role === 'seal'), hasSignature: ((org.assets as Doc[] | undefined) || []).some((a) => a.role === 'signature') });
 
 /** Наша фирма заказа (`companyId`), если запись живая. */
 async function orderFirm(db: Db, companyId: unknown): Promise<OrderFirm | null> {
   if (!companyId || !Types.ObjectId.isValid(String(companyId))) return null;
   const org = await db.collection('organizations').findOne(
     { _id: new Types.ObjectId(String(companyId)), isOurCompany: true, deletedAt: null },
-    { projection: { name: 1, shortName: 1 } },
+    { projection: { name: 1, shortName: 1, assets: 1 } },
   );
-  return org ? { id: String(org._id), name: firmName(org) } : null;
+  return org ? firmOf(org) : null;
 }
 
 /** Все наши фирмы — выбор в панели, когда у заказа фирмы нет (C075). */
 async function ourFirmList(db: Db): Promise<OrderFirm[]> {
   const rows = await db.collection('organizations').find(
     { isOurCompany: true, deletedAt: null },
-    { projection: { name: 1, shortName: 1 } },
+    { projection: { name: 1, shortName: 1, assets: 1 } },
   ).sort({ name: 1 }).toArray();
-  return rows.map((org) => ({ id: String(org._id), name: firmName(org) }));
+  return rows.map(firmOf);
 }
 
 /**

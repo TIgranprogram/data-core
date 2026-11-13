@@ -141,7 +141,7 @@ describe('паспорта на весь заказ', () => {
     const a = new Types.ObjectId(), b = new Types.ObjectId();
     const orgs = [{ _id: a, shortName: 'СИЮ', name: 'СпортИнЮг' }, { _id: b, shortName: 'ССЮ' }];
     const r = await orderPlan(make({ hasOurSupplier: async () => false }, { orgs, companyId: a }).host, String(o));
-    expect(r.firm).toEqual({ id: String(a), name: 'СИЮ' });
+    expect(r.firm).toEqual({ id: String(a), name: 'СИЮ', hasSeal: false, hasSignature: false }); // C104: флаги для окна печати
     expect(r.lines[0].state).toBe('ready');
   });
 

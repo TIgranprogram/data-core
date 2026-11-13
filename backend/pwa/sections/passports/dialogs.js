@@ -4,6 +4,8 @@ import { busyBtn } from '../../ui/kit/busy.js';
 import { attachCombo, hint, select } from '../../ui/kit/index.js';
 import { toast, toastError } from '../../ui/kit/toast.js';
 import { confirmDlg, modal } from '../../ui/kit/dialog.js';
+import { FORMATS, printQuery } from './print-options.js';
+import { toggle } from '../../ui/kit/guide.js';
 import { icon } from '../../ui/icons.js';
 import { LATER_CATS, V2_CATS, heading, imgsOf, isRequired, kinds, numberOf, statusOf } from './common.js';
 import { productsAll } from './models.js';
@@ -85,13 +87,6 @@ export async function downloadCombined(productRow, getPassport) {
   await previewPassport(productRow.id, { pack: 'combined' });
 }
 
-// Значки форматов (замечание пользователя 2026-10-22: «показать визуально, книжная или альбомная»)
-export const FORMATS = [
-  { mode: 'pages', title: 'Файл A5', sub: 'книжный, постранично — отправить по почте', icon: 'sheetA5' },
-  { mode: 'print', title: 'Буклет A4', sub: 'альбомный лист, сложить пополам; печать с двух сторон, переворот по короткому краю', icon: 'sheetBooklet' },
-  { mode: 'stand', title: 'Лист для стенда A3', sub: 'правила пользования, книжный, без печати', icon: 'sheetA3' },
-];
-
 /**
  * Скачать / распечатать паспорт (замечание пользователя 2026-10-22): сначала — печать и подпись (галочки), потом вид
  * (значками: A5, буклет A4, стенд A3), ч/б — у паспорта нового образца. Окно не закрывается, пока PDF готовится.
@@ -115,25 +110,14 @@ export async function printDialog(r) {
     .filter(([kind]) => isRequired(r, kind) && !imgsOf(r, kind).some((i) => i.url)
       && !(r.standardImages || []).some((i) => i.kind === kind && i.url))
     .map(([, label]) => label);
-  const o = r.supplierOrg;
-  const chk = (label, on, note) => { const cb = h('input', { type: 'checkbox', checked: on }); return { cb, el: h('label', null, cb, label, note ? h('span', { class: 'muted small' }, ` (${note})`) : null) }; };
-  const seal = chk('Печать', !!o?.hasSeal, !o ? 'поставщик не выбран' : o.hasSeal ? '' : 'не загружена');
-  const sign = chk('Подпись', !!o?.hasSignature, !o ? '' : o.hasSignature ? '' : 'не загружена');
-  const mono = chk('Чёрно-белый', false);
-  let mode = 'print';
-  const opts = FORMATS.map((f) => {
-    const b = h('button', { type: 'button', class: 'pf-opt', role: 'radio', 'data-mode': f.mode, onclick: () => pick(f.mode) }, icon(f.icon, 'pf-ico'), h('b', null, f.title), h('small', null, f.sub));
-    return b;
-  });
-  const pick = (m) => { mode = m; opts.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === m))); stampBox.hidden = m === 'stand'; imageWarning.hidden = m === 'stand' || !missingImages.length; };
-  const stampBox = h('div', { class: 'pf-checks' }, seal.el, sign.el);
   const imageWarning = hint(`Для PDF не хватает обязательных рисунков: ${missingImages.join(', ')}. Рисунки выпущенного паспорта добавляются через «Новую редакцию».`, 'warn');
-  const body = h('div', { class: 'pf' },
-    h('div', { class: 'section-title' }, 'Печать и подпись'), stampBox,
-    h('div', { class: 'section-title' }, 'Вид'), h('div', { class: 'pf-opts', role: 'radiogroup', 'aria-label': 'Вид PDF' }, opts),
-    h('div', { class: 'pf-checks' }, mono.el), imageWarning,
-    hasCat ? null : h('p', { class: 'form-error' }, 'У паспорта не выбран тип — PDF собирается по нему. «Выбрать тип паспорта» в действиях карточки.'));
-  pick(mode);
+  const po = printOptions({
+    org: r.supplierOrg, mode: 'print',
+    onMode: (m) => { imageWarning.hidden = m === 'stand' || !missingImages.length; },
+    extraBottom: h('div', null, imageWarning,
+      hasCat ? null : h('p', { class: 'form-error' }, 'У паспорта не выбран тип — PDF собирается по нему. «Выбрать тип паспорта» в действиях карточки.')),
+  });
+  const body = po.el;
   await modal({
     title: `${heading(r)} — PDF`, okText: 'Скачать PDF', wide: true, body,
     onOk: async (form) => {
@@ -141,10 +125,9 @@ export async function printDialog(r) {
       const ok = form.querySelector('[type=submit]');
       const free = busyBtn(ok, 'Готовлю PDF…');
       try {
-        if (mode === 'stand') { await download(r, { mode: 'stand', variant: passportVariant.value }, 'лист для стенда'); return true; }
-        const s = seal.cb.checked, g = sign.cb.checked;
-        const q = { variant: passportVariant.value, ...(s || g ? { stamp: 1, ...(s ? {} : { seal: 0 }), ...(g ? {} : { sign: 0 }) } : {}), ...(mode === 'print' ? { mode: 'print' } : {}), ...(mono.cb.checked ? { bw: 1 } : {}) };
-        await download(r, q, mode === 'print' ? 'буклет A4' : 'PDF');
+        const v = po.value();
+        if (v.mode === 'stand') { await download(r, { mode: 'stand', variant: passportVariant.value }, 'лист для стенда'); return true; }
+        await download(r, printQuery({ variant: passportVariant.value, ...v }), v.mode === 'print' ? 'буклет A4' : 'PDF');
         return true;
       } finally { free(); }
     },
@@ -169,4 +152,39 @@ export async function convertDialog(r, ctx) {
     },
   });
   if (res) { toast('Тип паспорта выбран, текст паспорта собран'); ctx.setRow(await api(`/passports/${r.id}`)); }
+}
+
+/** Окно настроек печати (C104): плитки формата + «Печать / Подпись» + «Чёрно-белый». Для одного паспорта и для заказа (order-passport-plan.js). */
+const check = (label, on, note) => {
+  const el = toggle({ label: label + (note ? ` (${note})` : ''), checked: on });
+  return { cb: el.querySelector('input'), el };
+};
+
+/**
+ * Блок настроек. org — фирма ({hasSeal, hasSignature}) или null (не выбрана).
+ * formats — список плиток; onMode(mode) — реакция на смену формата.
+ * Возвращает {el, value(): {mode, seal, sign, bw}, setMode(m)}.
+ */
+export function printOptions({ org, formats = FORMATS, mode = 'print', onMode, extraTop = null, extraBottom = null } = {}) {
+  const seal = check('Печать', !!org?.hasSeal, !org ? 'поставщик не выбран' : org.hasSeal ? '' : 'не загружена');
+  const sign = check('Подпись', !!org?.hasSignature, !org ? '' : org.hasSignature ? '' : 'не загружена');
+  const mono = check('Чёрно-белый', false);
+  let cur = mode;
+  const stampBox = h('div', { class: 'pf-checks' }, seal.el, sign.el);
+  const tiles = formats.map((f) => h('button', { type: 'button', class: 'pf-opt', role: 'radio', 'data-mode': f.mode, onclick: () => setMode(f.mode) },
+    icon(f.icon, 'pf-ico'), h('b', null, f.title), h('small', null, f.sub)));
+  function setMode(m) {
+    cur = m;
+    tiles.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === m)));
+    stampBox.hidden = m === 'stand';
+    if (onMode) onMode(m);
+  }
+  const el = h('div', { class: 'pf' },
+    extraTop,
+    h('div', { class: 'section-title' }, 'Печать и подпись'), stampBox,
+    h('div', { class: 'section-title' }, 'Вид'), h('div', { class: 'pf-opts', role: 'radiogroup', 'aria-label': 'Вид PDF' }, tiles),
+    h('div', { class: 'pf-checks' }, mono.el),
+    extraBottom);
+  setMode(cur);
+  return { el, setMode, value: () => ({ mode: cur, seal: seal.cb.checked, sign: sign.cb.checked, bw: mono.cb.checked }) };
 }

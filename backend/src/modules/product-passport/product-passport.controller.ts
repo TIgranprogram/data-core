@@ -294,8 +294,12 @@ export class ProductPassportController {
   @ApiQuery({ name: 'stamp', required: false, description: '1 — с печатью и подписью' })
   @ApiQuery({ name: 'mode', required: false, enum: ['pages', 'print'] })
   @ApiQuery({ name: 'bw', required: false, description: '1 — чёрно-белый' })
-  async orderPdf(@Param('orderId') orderId: string, @Query('variant') variant: string, @Query('stamp') stamp: string, @Query('mode') mode: string, @Query('bw') bw: string, @Res({ passthrough: true }) res: Response) {
-    const r = await this.pdfs.orderPdf(orderId, { stamp: stamp === '1', mode: mode === 'print' ? 'print' : 'pages', mono: bw === '1', variant: variantOf(variant) });
+  @ApiQuery({ name: 'seal', required: false, description: 'при stamp=1: 0 — без печати (только подпись)' })
+  @ApiQuery({ name: 'sign', required: false, description: 'при stamp=1: 0 — без подписи (только печать)' })
+  @ApiQuery({ name: 'ids', required: false, description: 'C104: id паспортов через запятую — только они (выпущенные этого заказа); пусто — все' })
+  async orderPdf(@Param('orderId') orderId: string, @Query('variant') variant: string, @Query('stamp') stamp: string, @Query('mode') mode: string, @Query('bw') bw: string, @Query('seal') seal: string, @Query('sign') sign: string, @Query('ids') ids: string, @Res({ passthrough: true }) res: Response) {
+    const only = String(ids ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+    const r = await this.pdfs.orderPdf(orderId, { stamp: stamp === '1', seal: seal !== '0', sign: sign !== '0', mode: mode === 'print' ? 'print' : 'pages', mono: bw === '1', variant: variantOf(variant) }, only);
     // C072: паспорта со своим PDF в общий файл не входят — их список в заголовке X-Skipped-Passports (JSON, encodeURIComponent)
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': attachment(r.filename), ...(r.skipped.length ? { 'X-Skipped-Passports': encodeURIComponent(JSON.stringify(r.skipped)), 'Access-Control-Expose-Headers': 'X-Skipped-Passports' } : {}) });
     return new StreamableFile(r.buf);
