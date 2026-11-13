@@ -152,23 +152,23 @@
 
 /* Средняя тема: нейтральный серый фон, светлые панели и графитовое меню. */
 :root[data-theme='soft'] {
-  --bg: #d3d5d0;
-  --surface: #e9ebe6;
-  --surface-2: #dfe2dc;
+  --bg: #cfd2cc;
+  --surface: #f2f3ef;
+  --surface-2: #e6e9e3;
   --surface-3: #d5d9d2;
   --col-bg: #cdd2cb;
   --col-border: #adb6ad;
   --photo-bg: #dfe3dd;
-  --border: #bbc3bb;
-  --border-strong: #909c92;
-  --text: #252824;
-  --muted: #41443e;
+  --border: #aeb7ae;
+  --border-strong: #7e8a80;
+  --text: #1b1e1a;
+  --muted: #3a3d37;
   --heading: #233e35;
-  --side: #363d39;
-  --side-2: #474f49;
-  --side-text: #d9dcd2;
-  --side-text-hi: #edfae9;
-  --side-head: #ead394;
+  --side: #262c28;
+  --side-2: #3b443e;
+  --side-text: #eef0ea;
+  --side-text-hi: #ffffff;
+  --side-head: #f2d58a;
   --primary: #175e49;
   --link: #164e3d;
   --gold-deep: #5c4513;
@@ -185,8 +185,8 @@
   --sec-supply: #703a24;
   --sec-stock: #24515b;
   --sec-money: #6d344b;
-  --topbar-bg: rgba(211, 213, 208, .95);
-  --row-hover: #e1e6df;
+  --topbar-bg: #cfd2cc;
+  --row-hover: #e4e9e2;
   --row-selected: #d7e2d8;
 }
 
