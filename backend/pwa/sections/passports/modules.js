@@ -1,5 +1,5 @@
 import { api } from '../../core/api.js';
-import { actions, button, field, fieldRow, hint, photoDrop, section, select, stack, textInput } from '../../ui/kit/index.js';
+import { actions, button, confirmDlg, field, fieldRow, hint, photoDrop, section, select, stack, textInput } from '../../ui/kit/index.js';
 import { attachProductFile, passportSlot } from '../product-files.js';
 
 export const moduleTotal = (rows) => rows.reduce((sum, row) => sum + (Number(row.qty) || 0), 0);
@@ -119,8 +119,12 @@ export function modulesEditor({ value, productId = () => '', canEdit = true, sav
         fieldRow(input('dims', 'Габариты', { max: 60, placeholder: '2000×1200×90 мм' }),
           input('qty', 'Количество, шт.', { max: 5, inputmode: 'numeric', short: true, required: true })),
         pictures,
-        canEdit ? actions(button({ label: 'Убрать', size: 'S', onClick: () => {
-          rows.splice(index, 1); draw(); changed();
+        // модуль с рисунком или названием — спросить: случайный клик не должен стирать работу (хвост C095)
+        canEdit ? actions(button({ label: 'Убрать', size: 'S', onClick: async () => {
+          if ((item.photoId || String(item.name || '').trim()) && !(await confirmDlg(`Убрать модуль ${index + 1}?`,
+            `${String(item.name || '').trim() || 'Модуль'}${item.photoId ? ' и его рисунок пропадут из паспорта' : ' пропадёт из паспорта'}. Сам файл рисунка останется в изделии.`,
+            { okText: 'Убрать', danger: true }))) return;
+          rows.splice(rows.indexOf(item), 1); draw(); changed();
         } })) : null,
       ) });
     });
