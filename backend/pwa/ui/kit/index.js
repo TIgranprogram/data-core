@@ -238,6 +238,8 @@ export function section({ title, count, open = false, body, cls, tone = 'main', 
 
 /** stack(...блоки) → .k-stack: блоки правой панели колонкой с одним зазором (ПМ-1). */
 export const stack = (...children) => mark(h('div', { class: 'k-stack' }, ...nodes(children)), 'stack');
+/** scroll(...children) → .k-scroll: длинный список внутри окна — не выше 40 % экрана, дальше прокрутка (выбор паспортов заказа, 2026-11-13). */
+export const scroll = (...children) => mark(h('div', { class: 'k-scroll' }, ...nodes(children)), 'scroll');
 /** fieldRow(...поля textInput) → .k-fieldrow: короткие поля в ряд с переносом (2–4 в строке на широком экране, 1–2 на телефоне). */
 export const fieldRow = (...children) => mark(h('div', { class: 'k-fieldrow' }, ...nodes(children)), 'fieldRow');
 
