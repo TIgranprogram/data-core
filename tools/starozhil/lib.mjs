@@ -23,15 +23,34 @@ export function parseFront(text) {
  * Разовый наряд с итогом «готово» больше не берётся; repeat: true — берётся снова, но не раньше чем через `everyHours`.
  */
 export function pickNext(jobs, history, now = Date.now()) {
-  const last = (id) => history.filter((h) => h.id === id).sort((a, b) => b.at - a.at)[0];
+  const runs = (id) => history.filter((h) => h.id === id).sort((a, b) => b.at - a.at);
+  const last = (id) => runs(id)[0];
   return jobs
     .filter((j) => j.meta.status === 'ready')
+    .filter((j) => !needsFix(j, runs(j.id)))
     .filter((j) => {
       const h = last(j.id); if (!h) return true;
       if (!j.meta.repeat) return h.result !== 'готово';
       return now - h.at >= (Number(j.meta.everyHours) || 24) * 3600000;
     })
     .sort((a, b) => (Number(a.meta.priority) || 99) - (Number(b.meta.priority) || 99) || a.id.localeCompare(b.id))[0] || null;
+}
+
+/**
+ * Оценка итога наряда программой: «плохо» — не вышло, итог пустой или больше трети ссылок «файл:строка» неверны.
+ * Так плохие итоги видны без чтения, а наряд с двумя плохими подряд встаёт на правку.
+ */
+export function judge({ result, report = '', refsTotal = 0, refsBad = 0 }) {
+  if (result !== 'готово') return 'плохо';
+  if (String(report).trim().length < 200) return 'плохо';
+  if (refsTotal > 0 && refsBad / refsTotal > 0.3) return 'плохо';
+  return 'хорошо';
+}
+
+/** Два плохих итога подряд после последней правки файла наряда → не брать, пока Claude не поправит наряд. */
+export function needsFix(job, runsNewestFirst) {
+  const after = runsNewestFirst.filter((h) => h.at > (job.mtime || 0));
+  return after.length >= 2 && after[0].quality === 'плохо' && after[1].quality === 'плохо';
 }
 
 /** Секреты и тяжёлое — модели не показываем ни при каком пути. */

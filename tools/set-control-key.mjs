@@ -12,8 +12,8 @@ const DEFAULT_URL = 'https://kppdf-crm.ru/db';
 
 export function readClipboard() {
   const r = process.platform === 'win32'
-    ? spawnSync('powershell', ['-NoProfile', '-Command', 'Get-Clipboard -Raw'], { encoding: 'utf8' })
-    : spawnSync('pbpaste', [], { encoding: 'utf8' });
+    ? spawnSync('powershell', ['-NoProfile', '-Command', 'Get-Clipboard -Raw'], { windowsHide: true, encoding: 'utf8' })
+    : spawnSync('pbpaste', [], { windowsHide: true, encoding: 'utf8' });
   return (r.stdout || '').trim();
 }
 

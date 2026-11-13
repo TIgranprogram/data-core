@@ -148,7 +148,7 @@ export function pickBackup(names) {
 // ---------- запуск ----------
 
 function sh(cmd, args, o = {}) {
-  const r = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, ...o });
+  const r = spawnSync(cmd, args, { windowsHide: true, cwd: ROOT, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, ...o });
   return { code: r.status ?? (r.error ? -1 : 1), out: (r.stdout || '') + (r.stderr ? '\n' + r.stderr : '') + (r.error ? '\n' + r.error.message : ''), stdout: r.stdout || '', error: r.error };
 }
 

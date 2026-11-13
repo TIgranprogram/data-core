@@ -439,7 +439,7 @@ const CLOSE = `(()=>{document.dispatchEvent(new KeyboardEvent('keydown',{key:'Es
 
 // ---------- шаги кода ----------
 function codeSteps() {
-  const run = (cmd, args, cwd = ROOT) => { const r = spawnSync(cmd, args, { cwd, encoding: 'utf8', shell: cmd === 'npx' && process.platform === 'win32', timeout: 300000, maxBuffer: 32e6 }); return { code: r.status ?? 1, out: (r.stdout || '') + (r.stderr || '') }; };
+  const run = (cmd, args, cwd = ROOT) => { const r = spawnSync(cmd, args, { windowsHide: true, cwd, encoding: 'utf8', shell: cmd === 'npx' && process.platform === 'win32', timeout: 300000, maxBuffer: 32e6 }); return { code: r.status ?? 1, out: (r.stdout || '') + (r.stderr || '') }; };
   const res = [];
   const items = [
     ['design-lint', process.execPath, ['backend/scripts/design-lint.mjs']],
@@ -484,7 +484,7 @@ async function main() {
       if (run?.project) backend = `${run.project}-backend`;
     } catch { /* нет паспорта */ }
     if (!backend) { sayErr('Нет паспорта стенда (tools/.night/current-stand.json) — поднимите: dc stand up'); return 2; }
-    const r = spawnSync('docker', ['exec', '-i', '-w', '/app', '-e', 'STAND=1', '-e', `STAND_PASSWORD=${creds.password}`, backend, 'node', '-'], { input: fs.readFileSync(path.join(ROOT, 'backend/scripts/stand-test-user.js')), encoding: 'utf8', env: { ...process.env, MSYS_NO_PATHCONV: '1' } });
+    const r = spawnSync('docker', ['exec', '-i', '-w', '/app', '-e', 'STAND=1', '-e', `STAND_PASSWORD=${creds.password}`, backend, 'node', '-'], { windowsHide: true, input: fs.readFileSync(path.join(ROOT, 'backend/scripts/stand-test-user.js')), encoding: 'utf8', env: { ...process.env, MSYS_NO_PATHCONV: '1' } });
     if (r.status) { sayErr('Не удалось создать вход: ' + (r.stderr || r.stdout || '').trim().slice(0, 120)); return 2; }
     login = await apiLogin(creds.login, creds.password);
     if (!login) { sayErr('Вход на стенде не удался'); return 2; }

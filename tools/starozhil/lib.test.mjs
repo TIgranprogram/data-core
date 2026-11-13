@@ -71,3 +71,18 @@ test('маршруты контроллера: префикс + метод', asy
   const src = "@Controller('supply')\nclass A {\n  @Get('lookups')\n  a() {}\n  @Patch(':id')\n  b() {}\n  @Post()\n  c() {}\n}";
   assert.deepEqual(moduleRoutes(src), [{ method: 'GET', path: 'supply/lookups', line: 3 }, { method: 'PATCH', path: 'supply/:id', line: 5 }, { method: 'POST', path: 'supply', line: 7 }]);
 });
+
+test('оценка итога и наряд на правку после двух плохих подряд', async () => {
+  const { judge, needsFix, pickNext } = await import('./lib.mjs');
+  const long = 'x'.repeat(250);
+  assert.equal(judge({ result: 'готово', report: long, refsTotal: 6, refsBad: 0 }), 'хорошо');
+  assert.equal(judge({ result: 'не вышло', report: long }), 'плохо');
+  assert.equal(judge({ result: 'готово', report: 'коротко' }), 'плохо');
+  assert.equal(judge({ result: 'готово', report: long, refsTotal: 4, refsBad: 4 }), 'плохо');
+  const job = { id: '005', mtime: 10, meta: { status: 'ready', repeat: true, everyHours: 0 } };
+  const bad = [{ id: '005', at: 30, quality: 'плохо' }, { id: '005', at: 20, quality: 'плохо' }];
+  assert.equal(needsFix(job, bad), true);
+  assert.equal(pickNext([job], bad, 100), null);
+  assert.equal(needsFix({ ...job, mtime: 25 }, bad), false); // наряд поправили после первого плохого
+  assert.equal(needsFix(job, [{ id: '005', at: 30, quality: 'плохо' }, { id: '005', at: 20, quality: 'хорошо' }]), false);
+});

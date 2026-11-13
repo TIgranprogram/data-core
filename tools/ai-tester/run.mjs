@@ -20,7 +20,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { TAG, isLocalStand, tagText, createdFrom, screenGarbage, screenGrammar, blockedClick, buildReport, screenChange, closedForRole, watchdogAction, DEAD_MS } from './lib.mjs';
 import { sessionFromStdin } from './stand-session.mjs';
-import { loadSettings, llm, llmUp, ensureLLM } from './llm.mjs';
+import { loadSettings, llm, llmUp, ensureLLM, keepAwake } from './llm.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
@@ -77,13 +77,6 @@ function ensureWatchdogTask() {
   say(r.status ? '⚠ Сторож не поставлен в Планировщик — при обрыве тестировщик не продолжит сам.' : 'Сторож включён: при обрыве тестировщик продолжит сам (проверка раз в 10 мин и при входе в Windows).');
 }
 
-/** Не давать Windows уснуть, пока идёт этот процесс (SetThreadExecutionState; настройки питания не меняются). */
-function keepAwake() {
-  if (process.platform !== 'win32') return null;
-  const ps = `$k=Add-Type -MemberDefinition '[DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint f);' -Name K -Namespace W -PassThru;` +
-    `while (Get-Process -Id ${process.pid} -ErrorAction SilentlyContinue) { [void]$k::SetThreadExecutionState(0x80000001); Start-Sleep 30 }`;
-  return spawn('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', ps], { stdio: 'ignore', windowsHide: true });
-}
 
 
 // ---------- стенд ----------

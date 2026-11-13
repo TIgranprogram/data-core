@@ -1,6 +1,6 @@
 // Локальный ИИ (LM Studio) — одна копия для всех исполнителей: ИИ-тестировщик, наряды Старожила.
 // Настройки — tools/ai-tester/settings.json (ставит «Установить ИИ на этом ПК»), в git не идёт.
-import { spawnSync } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -51,4 +51,12 @@ export async function ensureLLM(s, log = console.log) {
     spawnSync(LMS, ['load', s.model, '--context-length', '16384', '--gpu', 'max', '-y'], { encoding: 'utf8', timeout: 180000, windowsHide: true });
   }
   return true;
+}
+
+/** Не давать Windows уснуть, пока идёт этот процесс (SetThreadExecutionState; настройки питания не меняются). */
+export function keepAwake() {
+  if (process.platform !== 'win32') return null;
+  const ps = `$k=Add-Type -MemberDefinition '[DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint f);' -Name K -Namespace W -PassThru;` +
+    `while (Get-Process -Id ${process.pid} -ErrorAction SilentlyContinue) { [void]$k::SetThreadExecutionState(0x80000001); Start-Sleep 30 }`;
+  return spawn('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', ps], { stdio: 'ignore', windowsHide: true });
 }

@@ -7,12 +7,12 @@
 //   node tools/starozhil/run.mjs --last              коротко: итог последнего наряда (≤ 30 строк — это читает Claude)
 // Наряды — starozhil/jobs/*.md. Итог — tools/logs/starozhil/<наряд>/<время>/RESULT.md. Код выхода: 0 норма · 2 сбой.
 // Модель не пишет в проект и в сайт: инструменты только смотрят; секреты, .data, node_modules закрыты (lib.mjs isDenied).
-import { execFileSync, spawn } from 'child_process';
+import { execFileSync, spawn, spawnSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { loadSettings, llm, ensureLLM } from '../ai-tester/llm.mjs';
-import { parseFront, pickNext, safePath, isDenied, trimMessages, checkRefs } from './lib.mjs';
+import { loadSettings, llm, ensureLLM, keepAwake } from '../ai-tester/llm.mjs';
+import { parseFront, pickNext, safePath, isDenied, trimMessages, checkRefs, judge, needsFix } from './lib.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
@@ -36,7 +36,7 @@ function loadJobs() {
   if (!fs.existsSync(JOBS)) return [];
   return fs.readdirSync(JOBS).filter((f) => /^\d{3}-.+\.md$/.test(f)).map((f) => {
     const { meta, body } = parseFront(fs.readFileSync(path.join(JOBS, f), 'utf8'));
-    return { id: f.replace(/\.md$/, ''), file: f, meta, body };
+    return { id: f.replace(/\.md$/, ''), file: f, meta, body, mtime: fs.statSync(path.join(JOBS, f)).mtimeMs };
   });
 }
 
@@ -132,20 +132,74 @@ async function runJob(s, job, until) {
   }
   if (!report && notes.length) report = 'Итог не написан — записи модели:\n' + notes.map((n) => '- ' + n).join('\n');
   // ссылки «файл:строка» из итога — проверить программой: выдуманные видны сразу
-  const refs = checkRefs(report, (f) => { const a = safePath(ROOT, f); try { return a ? fs.readFileSync(a, 'utf8').split(/\r?\n/).length : null; } catch { return null; } });
+  // короткое имя без папки («stock.controller.ts») — ищем файл с таким именем; он один в проекте — ссылка проверяема
+  let byName = null;
+  const resolve = (f) => {
+    const a = safePath(ROOT, f); if (a && fs.existsSync(a)) return a;
+    if (f.includes('/')) return null;
+    byName ??= walk(path.join(ROOT, 'backend')).concat(walk(path.join(ROOT, 'tools'))).reduce((m, x) => m.set(path.basename(x), m.has(path.basename(x)) ? null : x), new Map());
+    return byName.get(f) || null;
+  };
+  const refs = checkRefs(report, (f) => { const a = resolve(f); try { return a ? fs.readFileSync(a, 'utf8').split(/\r?\n/).length : null; } catch { return null; } });
   const refLine = refs.total ? `- Ссылки «файл:строка»: верных ${refs.total - refs.bad.length} из ${refs.total}${refs.bad.length ? ` (нет: ${refs.bad.slice(0, 5).map((b) => `${b.file}:${b.line}`).join(', ')})` : ''}` : '- Ссылок «файл:строка» нет';
   fs.writeFileSync(path.join(dir, 'notes.md'), notes.map((n) => '- ' + n).join('\n') + '\n');
   fs.writeFileSync(path.join(dir, 'RESULT.md'), `# ${job.id} — ${result}\n\n- Модель: ${s.model}\n- Записей: ${notes.length}\n${refLine}\n\n${report}\n`);
   const rel = path.relative(ROOT, dir).replace(/\\/g, '/');
-  const hist = readJson(HISTORY, []); hist.push({ id: job.id, at: Date.now(), result, dir: rel }); fs.writeFileSync(HISTORY, JSON.stringify(hist.slice(-500), null, 1));
-  fs.writeFileSync(path.join(LOGS, 'last.json'), JSON.stringify({ id: job.id, result, dir: rel, at: Date.now() }));
-  say(`Наряд ${job.id}: ${result}. Итог: ${rel}/RESULT.md`);
-  return result;
+  const quality = judge({ result, report, refsTotal: refs.total, refsBad: refs.bad.length });
+  const hist = readJson(HISTORY, []); hist.push({ id: job.id, at: Date.now(), result, quality, refs: `${refs.total - refs.bad.length}/${refs.total}`, dir: rel }); fs.writeFileSync(HISTORY, JSON.stringify(hist.slice(-500), null, 1));
+  fs.writeFileSync(path.join(LOGS, 'last.json'), JSON.stringify({ id: job.id, result, quality, dir: rel, at: Date.now() }));
+  say(`Наряд ${job.id}: ${result}, оценка программы — ${quality}. Итог: ${rel}/RESULT.md`);
+  return { result, quality };
+}
+
+/** Факты для наряда — программой до модели (только скрипты Старожила). */
+function prepare(job) {
+  for (const p of [].concat(job.meta.prepare || [])) {
+    if (!/^tools\/starozhil\/[\w-]+\.mjs$/.test(p)) { say(`⚠ Подготовка «${p}» пропущена: только скрипты tools/starozhil.`); continue; }
+    say('Готовлю факты: ' + execFileSync(process.execPath, [path.join(ROOT, p)], { windowsHide: true, cwd: ROOT, encoding: 'utf8', timeout: 600000 }).trim());
+  }
+}
+
+/**
+ * Смена: владелец включил на N часов — наряды по очереди, потом ИИ-тестировщик до конца смены.
+ * Плохие итоги программа отмечает сама; наряд с двумя плохими подряд не берётся, пока Claude его не поправит.
+ */
+async function shift(s, end) {
+  const done = [];
+  const awake = keepAwake();
+  try {
+    for (;;) {
+      if (fs.existsSync(STOP_FILE) || Date.now() > end - 5 * 60000) break;
+      const job = pickNext(loadJobs(), readJson(HISTORY, []));
+      if (!job) break;
+      fs.writeFileSync(RUN_FILE, JSON.stringify({ pid: process.pid, job: job.id, beat: Date.now(), end }));
+      try { prepare(job); } catch (e) { say('⚠ Факты не собраны: ' + e.message.slice(0, 120)); }
+      const r = await runJob(s, job, Math.min(end, Date.now() + (Number(job.meta.minutes) || 120) * 60000));
+      done.push({ id: job.id, ...r });
+    }
+    const left = end - Date.now();
+    if (!fs.existsSync(STOP_FILE) && left >= 30 * 60000) {
+      say(`Нарядов больше нет — ИИ-тестировщик до конца смены (${Math.round(left / 60000)} мин).`);
+      fs.writeFileSync(RUN_FILE, JSON.stringify({ pid: process.pid, job: 'ИИ-тестировщик', beat: Date.now(), end }));
+      await new Promise((res) => {
+        const ch = spawn(process.execPath, [path.join(ROOT, 'tools', 'ai-tester', 'run.mjs'), '--until', String(end), '--no-watchdog'], { cwd: ROOT, windowsHide: true, stdio: ['ignore', 'inherit', 'inherit'] });
+        ch.on('exit', res); ch.on('error', res);
+      });
+      done.push({ id: 'ИИ-тестировщик', result: 'отчёт в tools/logs/ai-tester', quality: '—' });
+    }
+  } finally { try { awake?.kill(); } catch { /* нет */ } }
+  const hist = readJson(HISTORY, []);
+  const bad = loadJobs().filter((j) => needsFix(j, hist.filter((h) => h.id === j.id).sort((a, b) => b.at - a.at)));
+  const lines = [`# Смена Старожила ${stamp()}`, '', ...done.map((d) => `- ${d.id}: ${d.result}, оценка ${d.quality}`), ''];
+  if (bad.length) lines.push('Нужна правка Claude (2 плохих итога подряд): ' + bad.map((j) => j.id).join(', '), '');
+  fs.writeFileSync(path.join(LOGS, 'last-shift.md'), lines.join('\n'));
+  say(lines.join('\n'));
 }
 
 function last() {
   const l = readJson(path.join(LOGS, 'last.json'), null);
   if (!l) { say('Нарядов ещё не было.'); return 0; }
+  try { say(fs.readFileSync(path.join(LOGS, 'last-shift.md'), 'utf8').trim() + '\n'); } catch { /* смен ещё не было */ }
   const text = fs.readFileSync(path.join(ROOT, l.dir, 'RESULT.md'), 'utf8').split('\n');
   say(text.slice(0, 30).join('\n') + (text.length > 30 ? `\n… полностью: ${l.dir}/RESULT.md` : ''));
   return 0;
@@ -166,36 +220,43 @@ function list() {
 
 async function main() {
   fs.mkdirSync(LOGS, { recursive: true });
-  if (has('--stop')) { fs.writeFileSync(STOP_FILE, new Date().toISOString()); say('Попросил остановиться: закончит шаг и запишет итог.'); return 0; }
+  if (has('--stop')) {
+    fs.writeFileSync(STOP_FILE, new Date().toISOString());
+    // тестировщик внутри смены смотрит свою метку STOP — ставим её сами (отдельный процесс не успевал до выхода)
+    if (busy(TESTER_RUN)) fs.writeFileSync(path.join(path.dirname(TESTER_RUN), 'STOP'), new Date().toISOString());
+    say('Старожил выключается: закончит шаг и запишет итог (до 5 минут).'); return 0;
+  }
   if (has('--last')) return last();
   if (has('--list')) return list();
-  const jobs = loadJobs();
-  const job = arg('--job') ? jobs.find((j) => j.id === arg('--job') || j.id.startsWith(arg('--job') + '-')) : pickNext(jobs, readJson(HISTORY, []));
-  if (!job) { say(arg('--job') ? `Наряда «${arg('--job')}» нет.` : 'Очередь пуста: все наряды выполнены. Claude добавит новые.'); return 0; }
   const running = busy(RUN_FILE);
-  if (running && running.pid !== process.pid) { say(`Уже работает наряд ${running.job}. Дождитесь конца или нажмите «Остановить наряд».`); return 0; }
-  if (busy(TESTER_RUN)) { say('Сейчас работает ИИ-тестировщик — видеокарта занята. Запустите наряд после него.'); return 0; }
+  if (running && running.pid !== process.pid) { say(`Старожил уже работает (${running.job}). Выключить — кнопка «Выключить Старожила».`); return 0; }
+  if (busy(TESTER_RUN)) { say('Сейчас работает ИИ-тестировщик — видеокарта занята. Включите Старожила после него.'); return 0; }
+  const isShift = has('--shift');
+  const jobs = loadJobs();
+  const job = isShift ? null : arg('--job') ? jobs.find((j) => j.id === arg('--job') || j.id.startsWith(arg('--job') + '-')) : pickNext(jobs, readJson(HISTORY, []));
+  if (!isShift && !job) { say(arg('--job') ? `Наряда «${arg('--job')}» нет.` : 'Очередь пуста: все наряды выполнены. Claude добавит новые.'); return 0; }
+  const hours = Math.min(24, Math.max(1, Number(arg('--hours')) || 8));
   if (has('--detach')) {
     const out = fs.openSync(path.join(LOGS, 'run.log'), 'a');
-    const ch = spawn(process.execPath, [path.join(HERE, 'run.mjs'), '--job', job.id], { cwd: ROOT, detached: true, windowsHide: true, stdio: ['ignore', out, out] });
+    const rest = isShift ? ['--shift', '--hours', String(hours)] : ['--job', job.id];
+    const ch = spawn(process.execPath, [path.join(HERE, 'run.mjs'), ...rest], { cwd: ROOT, detached: true, windowsHide: true, stdio: ['ignore', out, out] });
     ch.unref();
-    fs.writeFileSync(RUN_FILE, JSON.stringify({ pid: ch.pid, job: job.id, beat: Date.now() }));
-    say(`✅ Наряд ${job.id} запущен в фоне. Окно пульта можно закрыть. Итог Claude прочитает сам.`);
+    fs.writeFileSync(RUN_FILE, JSON.stringify({ pid: ch.pid, job: isShift ? 'смена' : job.id, beat: Date.now() }));
+    say(isShift ? `✅ Старожил включён на ${hours} ч. Работает в фоне, окно пульта можно закрыть. Выключить — «Выключить Старожила».` : `✅ Наряд ${job.id} запущен в фоне.`);
     return 0;
   }
   const s = loadSettings();
-  if (!(await ensureLLM(s, say))) { say('❌ Локальный ИИ не отвечает. Пульт → ИИ-тестировщик → «Установить ИИ на этом ПК».'); return 2; }
+  // нет ИИ на этом ПК — поставить самим (LM Studio, модель по видеокарте); не вышло — сказать, что скачать
+  if (!(await ensureLLM(s, say))) { say('Ставлю локальный ИИ на этот ПК (один раз, до 30 минут)…'); spawnSync(process.execPath, [path.join(ROOT, 'tools', 'ai-tester', 'setup.mjs')], { cwd: ROOT, stdio: 'inherit', windowsHide: true }); }
+  if (!(await ensureLLM(s, say))) { say('❌ Локальный ИИ не отвечает. Пульт сам ставит его при первом включении; если не вышло — «Установить ИИ на этом ПК».'); return 2; }
   try { fs.rmSync(STOP_FILE, { force: true }); } catch { /* нет */ }
-  const beat = () => fs.writeFileSync(RUN_FILE, JSON.stringify({ pid: process.pid, job: job.id, beat: Date.now() }));
-  beat(); const t = setInterval(beat, 60000); t.unref();
-  // подготовка фактов программой (только скрипты Старожила): наряд потом судит по готовой таблице
-  for (const p of [].concat(job.meta.prepare || [])) {
-    if (!/^tools\/starozhil\/[\w-]+\.mjs$/.test(p)) { say(`⚠ Подготовка «${p}» пропущена: только скрипты tools/starozhil.`); continue; }
-    say('Готовлю факты: ' + execFileSync(process.execPath, [path.join(ROOT, p)], { cwd: ROOT, encoding: 'utf8', timeout: 600000 }).trim());
-  }
-  const until = Date.now() + (Number(job.meta.minutes) || 120) * 60000;
-  try { await runJob(s, job, until); }
-  finally { clearInterval(t); if (readJson(RUN_FILE, {}).pid === process.pid) fs.rmSync(RUN_FILE, { force: true }); try { fs.rmSync(STOP_FILE, { force: true }); } catch { /* нет */ } }
+  const beat = () => { const r = readJson(RUN_FILE, {}); fs.writeFileSync(RUN_FILE, JSON.stringify({ ...r, pid: process.pid, beat: Date.now() })); };
+  fs.writeFileSync(RUN_FILE, JSON.stringify({ pid: process.pid, job: isShift ? 'смена' : job.id, beat: Date.now() }));
+  const t = setInterval(beat, 60000); t.unref();
+  try {
+    if (isShift) await shift(s, Date.now() + hours * 3600000);
+    else { prepare(job); await runJob(s, job, Date.now() + (Number(job.meta.minutes) || 120) * 60000); }
+  } finally { clearInterval(t); if (readJson(RUN_FILE, {}).pid === process.pid) fs.rmSync(RUN_FILE, { force: true }); try { fs.rmSync(STOP_FILE, { force: true }); } catch { /* нет */ } }
   return 0;
 }
 

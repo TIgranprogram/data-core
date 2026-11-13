@@ -26,8 +26,8 @@ export async function run({root=ROOT,quick=false}={}){
   const file=path.join(dir,step.name+'.log'),started=Date.now();let output='';
   const env=Object.fromEntries(Object.entries(process.env).filter(([k])=>!/(^(MONGO|COMPOSE|CONTROL_|DC_PROD|NODE_OPTIONS)|password|secret|token|api[_-]?key|credential|private[_-]?key|authorization)/i.test(k)));
   const result=await new Promise(resolve=>{
-   const child=spawn(step.cmd,step.args,{cwd:step.cwd,env,stdio:['ignore','pipe','pipe'],shell:false});let timedOut=false;
-   const stop=()=>{if(process.platform==='win32'&&child.pid)spawnSync('taskkill.exe',['/PID',String(child.pid),'/T','/F'],{stdio:'ignore',shell:false});else child.kill();};
+   const child=spawn(step.cmd,step.args,{ windowsHide: true, cwd:step.cwd,env,stdio:['ignore','pipe','pipe'],shell:false});let timedOut=false;
+   const stop=()=>{if(process.platform==='win32'&&child.pid)spawnSync('taskkill.exe',['/PID',String(child.pid),'/T','/F'],{ windowsHide: true, stdio:'ignore',shell:false});else child.kill();};
    const collect=chunk=>{output+=chunk.toString('utf8');if(output.length>64*1024*1024){timedOut=true;stop();}};
    child.stdout.on('data',collect);child.stderr.on('data',collect);
    const timer=setTimeout(()=>{timedOut=true;stop();},30*60*1000);

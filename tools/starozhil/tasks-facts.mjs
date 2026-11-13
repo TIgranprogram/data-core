@@ -15,9 +15,9 @@ const num = (f, d) => { const i = args.indexOf(f); return i >= 0 ? Number(args[i
 
 const text = fs.readFileSync(path.join(ROOT, 'docs', 'TASKS.md'), 'utf8');
 const items = taskItems(text).filter((x) => x.line >= num('--from', 1) && x.line <= num('--to', 1e9));
-const gitLog = execFileSync('git', ['log', '--since=2026-10-01', '--format=%h %s'], { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+const gitLog = execFileSync('git', ['log', '--since=2026-10-01', '--format=%h %s'], { windowsHide: true, cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 const grepCount = (t) => {
-  try { return execFileSync('git', ['grep', '-c', '-F', '-e', t, '--', 'backend/src', 'backend/pwa', 'backend/admin', 'tools', 'deploy'], { cwd: ROOT, encoding: 'utf8' }).trim().split('\n').reduce((s, l) => s + Number(l.split(':').pop() || 0), 0); } catch { return 0; }
+  try { return execFileSync('git', ['grep', '-c', '-F', '-e', t, '--', 'backend/src', 'backend/pwa', 'backend/admin', 'tools', 'deploy'], { windowsHide: true, cwd: ROOT, encoding: 'utf8' }).trim().split('\n').reduce((s, l) => s + Number(l.split(':').pop() || 0), 0); } catch { return 0; }
 };
 const rows = items.map((it) => {
   const facts = itemTokens(it.text).map((t) => {

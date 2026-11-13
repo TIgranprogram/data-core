@@ -30,7 +30,7 @@ export function detectMachine(home = os.homedir()) {
   const has = (f) => fs.existsSync(path.join(home, '.ssh', f));
   const sshConfig = fs.existsSync(path.join(home, '.ssh', 'config'))
     ? fs.readFileSync(path.join(home, '.ssh', 'config'), 'utf8') : '';
-  const docker = (spawnSync('where', ['docker'], { encoding: 'utf8' }).stdout || '').trim().split(/\r?\n/)[0] || null;
+  const docker = (spawnSync('where', ['docker'], { windowsHide: true, encoding: 'utf8' }).stdout || '').trim().split(/\r?\n/)[0] || null;
   return {
     bash,
     gitRoot: bash ? path.dirname(path.dirname(bash)) : null,

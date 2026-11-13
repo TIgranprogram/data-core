@@ -95,7 +95,7 @@ export function findBash() {
   if (process.env.DC_BASH && fs.existsSync(process.env.DC_BASH)) return process.env.DC_BASH;
   if (process.platform !== 'win32') return 'bash';
   const cands = [];
-  const w = spawnSync('where', ['git'], { encoding: 'utf8' });
+  const w = spawnSync('where', ['git'], { windowsHide: true, encoding: 'utf8' });
   for (const g of (w.stdout || '').split(/\r?\n/).filter(Boolean)) {
     const base = path.dirname(path.dirname(g)); // ...\Git\cmd\git.exe → ...\Git
     cands.push(path.join(base, 'bin', 'bash.exe'), path.join(base, 'usr', 'bin', 'bash.exe'));
@@ -107,7 +107,7 @@ export function findBash() {
 }
 
 function run(cmd, args, opts = {}) {
-  const r = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...opts });
+  const r = spawnSync(cmd, args, { windowsHide: true, cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...opts });
   return { code: r.status ?? (r.error ? -1 : 1), out: (r.stdout || '') + (r.stderr ? '\n' + r.stderr : ''), stdout: r.stdout || '', err: r.error };
 }
 
@@ -410,7 +410,7 @@ export function orderStats(lint, screens) {
 
 /** dc order — одна строка «Порядок NN %…» + tools/logs/ORDER-PROGRESS.json. */
 function cmdOrder() {
-  const r = spawnSync(process.execPath, [path.join(ROOT, 'backend', 'scripts', 'design-lint.mjs'), '--json'], { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  const r = spawnSync(process.execPath, [path.join(ROOT, 'backend', 'scripts', 'design-lint.mjs'), '--json'], { windowsHide: true, cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   let lint; try { lint = JSON.parse(r.stdout.trim().split('\n').pop()); } catch { say('Сбой: design-lint не дал итог'); return 2; }
   const dir = path.join(ROOT, 'backend', 'pwa', 'sections');
   const screens = fs.readdirSync(dir).filter((n) => !/\.test\.mjs$/.test(n) && (n.endsWith('.js') || fs.statSync(path.join(dir, n)).isDirectory()));
@@ -436,7 +436,7 @@ function cmdAudit(sub) {
     say(`Отчёт: tools/logs/audit/${s.date}/REPORT.md`);
     return s.total ? 1 : 0;
   }
-  const r = spawnSync(process.execPath, [path.join(ROOT, 'tools', 'site-audit.mjs')], { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  const r = spawnSync(process.execPath, [path.join(ROOT, 'tools', 'site-audit.mjs')], { windowsHide: true, cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   log(r.stdout || ''); log(r.stderr || '');
   for (const l of (r.stdout || '').trim().split(/\r?\n/).slice(-12)) say(l);
   return r.status ?? 2;

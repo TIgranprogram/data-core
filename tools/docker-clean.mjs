@@ -15,7 +15,7 @@ const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace
 const say = (s) => console.log(s);
 
 function sh(cmd, args) {
-  const r = spawnSync(cmd, args, { encoding: 'utf8' });
+  const r = spawnSync(cmd, args, { windowsHide: true, encoding: 'utf8' });
   if (r.status !== 0) throw new Error(`${cmd} ${args.slice(0, 3).join(' ')}: ${(r.stderr || r.stdout || '').trim().split('\n').pop()}`);
   return r.stdout.trim();
 }
