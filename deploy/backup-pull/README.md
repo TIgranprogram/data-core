@@ -2,7 +2,7 @@
 
 Уровни бэкапа:
 1. **VM (NAS):** cron 03:00 → `deploy/synology/backup.sh` → `/var/lib/datacore/backups/{mongo,uploads}-<дата>`, 14 дней.
-2. **Этот ПК:** задача Windows «DataCore backup pull» (ежедневно 10:00; пропущенный запуск — при включении ПК) → `pull-backup.ps1` забирает **последний** бэкап с VM в `D:\datacore-backups\datacore-<дата>.tgz`, хранит 30 дней. Лог — `D:\datacore-backups\pull.log`.
+2. **Этот ПК:** задача Windows «DataCore backup pull» (ежедневно 10:00; пропущенный запуск — при включении ПК) → `pull-backup.ps1` забирает **последний** бэкап с VM в `D:\datacore-backups\datacore-<дата>.tgz`, хранит **только последнюю** (старые удаляются после проверки новой; пульт сам пишет «Обновить копию», если копия на ПК старше ночной копии сервера). Лог — `D:\datacore-backups\pull.log`.
 
 | Файл | Что |
 |--|--|

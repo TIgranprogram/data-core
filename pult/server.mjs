@@ -59,6 +59,15 @@ async function fetchJson(url) {
 /** Команды, что пишут в тестовую БД: вместе не запускаются (иначе ложные красные e2e). */
 const TEST_GROUP = new Set(['check-full', 'code-check', 'code-e2e', 'night-run', 'site-audit']);
 
+/** Самая свежая копия базы на этом ПК: имя datacore-ГГГГ-ММ-ДД_ЧЧММСС.tgz (deploy/backup-pull/pull-backup.ps1). Нет — null. */
+export function localCopyAt(dir = process.env.DATACORE_BACKUPS || 'D:\\datacore-backups') {
+  try {
+    const ts = fs.readdirSync(dir).map((f) => /^datacore-(\d{4})-(\d{2})-(\d{2})_(\d{2})(\d{2})(\d{2})\.tgz$/.exec(f)).filter(Boolean)
+      .map((m) => new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime());
+    return ts.length ? Math.max(...ts) : null;
+  } catch { return null; }
+}
+
 /** Полоса состояния вверху окна: только локальное чтение, без production transport. */
 export async function readStatus(machine, runs = {}, { shFn = sh, standFn = () => {
   try { const run = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools', '.night', 'current-stand.json'), 'utf8')); return assertRun(run); } catch { return null; }
@@ -87,6 +96,7 @@ export async function readStatus(machine, runs = {}, { shFn = sh, standFn = () =
     testerRunning: testerRunning(), // ИИ-тестировщик работает на стенде — не советовать остановить стенд
     legacyNightStand: /^dcnight/m.test(docker.out),
     localSite: /^datacore-backend$/m.test(docker.out),
+    localCopyAt: localCopyAt(),
     admin: !!admin.ok,
     route: machine.route ? ROUTE_LABEL[machine.route] : null,
     undeployed,

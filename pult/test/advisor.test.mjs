@@ -183,3 +183,15 @@ test('запущенные стенды видны с кнопкой остан�
 test('у команд с ритмом есть причина', () => {
   for (const c of COMMANDS.filter((x) => x.every)) assert.ok(c.why, c.id);
 });
+
+test('копия на ПК: отстала — строка «Обновить копию», свежая — тишина', async () => {
+  const { copyStale, advise } = await import('../advisor.mjs');
+  const at = (d, h, m = 0) => new Date(2026, 10, d, h, m).getTime();
+  assert.equal(copyStale(at(13, 5, 35), at(13, 23)), false); // сегодняшняя копия
+  assert.equal(copyStale(at(13, 5, 35), at(14, 2)), false);  // ночью до 04:30 вчерашняя ещё свежая
+  assert.equal(copyStale(at(13, 5, 35), at(14, 5)), true);   // после ночной копии сервера — отстала
+  assert.equal(copyStale(null, at(14, 5)), true);            // копии нет
+  const items = advise({ localCopyAt: at(12, 15) }, {}, [], at(14, 9)).items;
+  assert.ok(items.some((x) => x.cmd === 'setup-backup' && /от 12\.11\.2026/.test(x.why)));
+  assert.ok(!advise({ localCopyAt: at(14, 10) }, {}, [], at(14, 11)).items.some((x) => x.cmd === 'setup-backup'));
+});

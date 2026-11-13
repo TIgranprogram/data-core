@@ -16,6 +16,16 @@ const CHECKS = ['code-check', 'check-full', 'site-audit', 'day-start', 'day-erro
 const cut = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
 
+/**
+ * Копия базы на ПК отстала: на сервере копия делается каждую ночь в 03:00 (backup.sh).
+ * После 04:30 копия на ПК должна быть сегодняшней; до 04:30 — вчерашней. Нет копии вовсе — тоже отстала.
+ */
+export function copyStale(localAt, now = Date.now()) {
+  const d = new Date(now);
+  const day = now >= new Date(d.getFullYear(), d.getMonth(), d.getDate(), 4, 30).getTime() ? d.getDate() : d.getDate() - 1;
+  return !localAt || localAt < new Date(d.getFullYear(), d.getMonth(), day, 3, 0).getTime();
+}
+
 /** Ключ запуска: команда, а с полями (например, скрипт) — «команда?значения». */
 export const runKey = (cmd, params) => (params && Object.keys(params).length ? `${cmd}?${Object.keys(params).sort().map((k) => `${k}=${params[k]}`).join('&')}` : cmd);
 
@@ -79,6 +89,11 @@ export function advise(s, runs, commands, now = Date.now(), todo = []) {
     if (!doctor || doctor.at < release.at) add('today', 'prod-doctor', 'После выкладки нужен осмотр сайта.');
   }
 
+  if ('localCopyAt' in s && copyStale(s.localCopyAt, now)) {
+    add('today', 'setup-backup', s.localCopyAt
+      ? `Копия базы на этом ПК от ${new Date(s.localCopyAt).toLocaleDateString('ru-RU')} — на сервере есть новее. Обновите: скачается свежая (база и фото), старые удалятся сами`
+      : 'На этом ПК нет копии базы. Скачайте: из неё сайт можно поднять на новом сервере');
+  }
   if (s.nightStand && !s.testerRunning) add('soon', 'night-down', 'Стенд на копии базы запущен и занимает память ПК. Закончили проверку — остановите.');
   if (s.localSite) add('soon', 'stand-down', 'Локальный сайт запущен и занимает память ПК. Не нужен — остановите, данные останутся.');
 

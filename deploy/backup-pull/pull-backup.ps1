@@ -4,7 +4,8 @@
 #   1. Finds the newest /var/lib/datacore/backups/mongo-<ts> on the VM (made by cron 03:00, backup.sh).
 #   2. Packs mongo-<ts> (+ uploads-<ts> if present) into /tmp on the VM, downloads it via scp
 #      to $Dest\datacore-<ts>.tgz, verifies the archive, removes the temp file on the VM.
-#   3. Deletes local archives older than $KeepDays days.
+#   3. Keeps only the newest verified archive: all other datacore-*.tgz are deleted (owner rule 2026-11-13:
+#      no pile of old versions on the PCs). Old ones are removed only after the new one is present and verified.
 # Skips the download if datacore-<ts>.tgz already exists locally.
 #
 # SSH host/user/key are read from deploy/synology/config.env (gitignored) - nothing secret is stored here.
@@ -13,7 +14,7 @@
 
 param(
     [string]$Dest = "D:\datacore-backups",
-    [int]$KeepDays = 30
+    [int]$KeepDays = 0   # not used since 2026-11-13 (only the newest archive is kept); left for old task arguments
 )
 
 $ErrorActionPreference = "Stop"
@@ -94,7 +95,8 @@ try {
         Log "downloaded datacore-$ts.tgz ($kb KB)"
     }
 
-    $old = Get-ChildItem $Dest -Filter "datacore-*.tgz" | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$KeepDays) }
+    if (-not (Test-Path $file)) { throw "newest archive missing after download: $file" }
+    $old = Get-ChildItem $Dest -Filter "datacore-*.tgz" | Where-Object { $_.FullName -ne (Get-Item $file).FullName }
     foreach ($f in $old) { Remove-Item $f.FullName -Force; Log ("rotated out " + $f.Name) }
     exit 0
 } catch {
