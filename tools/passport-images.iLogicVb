@@ -209,7 +209,8 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
         Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle, AdditionalOptions:=viewOptions)
     installationView.IncludeSurfaceBodies = False
     drawing.Update()
-    installationView.Scale = installationView.Scale * Math.Min(sW * 0.6 / installationView.Width, sH * 0.36 / installationView.Height)
+    ' масштаб вида спереди — из ряда ГОСТ 2.302, самый крупный, что помещается
+    installationView.Scale = GostScale(installationView.Scale * Math.Min(sW * 0.6 / installationView.Width, sH * 0.36 / installationView.Height))
     drawing.Update()
     installationView.Position = tg.CreatePoint2d(sW * 0.5, sH * 0.7)
     drawing.Update()
@@ -262,13 +263,15 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     Dim cutNotes As Inventor.GeneralNotes = installationSheet.DrawingNotes.GeneralNotes
     If depthMm > 0 Then SchemeNote(cutNotes, tg, gDimX - 0.75, (fBottom + groundY) / 2 + 0.3, "Г", 0.5)
 
-    stage = "Разрез крупнее, под видом спереди"
+    stage = "Разрез под видом спереди, масштаб ГОСТ"
+    ' масштаб разреза — из ряда ГОСТ 2.302: помещается в 40 % ширины и 18 % высоты листа, но не крупнее 1:10
+    ' (столб Ø136 — 1:10; широкое основание — мельче). Масштаб пишется в подписи: «А-А (1:10)»
     section.ScaleFromBase = False
-    section.Scale = section.Scale * Math.Min(sW * 0.6 / section.Width, sH * 0.2 / section.Height)
+    section.Scale = GostScale(Math.Min(0.1, section.Scale * Math.Min(sW * 0.4 / section.Width, sH * 0.18 / section.Height)))
     drawing.Update()
     section.Position = tg.CreatePoint2d(sW * 0.5, Math.Max(fBottom - 2.5 - section.Height / 2, section.Height / 2 + 3))
     drawing.Update()
-    section.Label.FormattedText = "<DrawingViewName/>-<DrawingViewName/>"
+    section.Label.FormattedText = "<DrawingViewName/>-<DrawingViewName/> (" & ScaleText(section.Scale) & ")"
 
     stage = "Габариты по разрезу"
     Dim secLeft As Double = section.Left, secRight As Double = section.Left + section.Width
@@ -678,6 +681,20 @@ Sub AddLabel(notes As Inventor.GeneralNotes, tg As Inventor.TransientGeometry,
     Dim position As Inventor.Point2d = note.Position
     note.Position = tg.CreatePoint2d(position.X + x - centerX, position.Y + y - centerY)
 End Sub
+
+' Ближайший масштаб уменьшения по ГОСТ 2.302, не крупнее maxScale (доля «лист / модель», напр. 0,1 = 1:10)
+Function GostScale(maxScale As Double) As Double
+    Dim gost As Double() = {1, 2, 2.5, 4, 5, 10, 15, 20, 25, 40, 50, 75, 100, 200, 400, 500, 800, 1000}
+    For Each n As Double In gost
+        If 1 / n <= maxScale + 0.000001 Then Return 1 / n
+    Next
+    Return 1 / gost(gost.Length - 1)
+End Function
+
+' «1:10», «1:2,5»
+Function ScaleText(scale As Double) As String
+    Return "1:" & Math.Round(1 / scale, 1).ToString("0.#", System.Globalization.CultureInfo.GetCultureInfo("ru-RU"))
+End Function
 
 Function FormatMm(value As Double) As String
     Return RoundMm(value).ToString("0", System.Globalization.CultureInfo.GetCultureInfo("ru-RU"))
