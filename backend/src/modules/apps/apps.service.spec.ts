@@ -45,7 +45,8 @@ describe('AppsService', () => {
     put('1.0.1', 'abc');
     const { stream, size } = await new AppsService().open();
     expect(size).toBe(3);
-    stream.destroy();
+    // Windows: папку нельзя удалить, пока файл открыт — ждём закрытия потока
+    await new Promise<void>((r) => { (stream as NodeJS.ReadableStream & { destroy(): void }).once('close', () => r()); stream.destroy(); });
   });
 
   it('версия по шаблону: только три числа', () => {
