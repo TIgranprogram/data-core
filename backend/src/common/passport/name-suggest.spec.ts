@@ -6,6 +6,13 @@ describe('C078: элементы по названию', () => {
     expect(suggestElementNames('Скамья парковая', 'BLG')!.names).toEqual(['Скамья']);
     expect(suggestElementNames('Скамья для пресса', 'WRK')!.names).toEqual(['Скамья для пресса']);
   });
+  it('стела и стелла — информационный стенд; «Стеллаж» — нет', () => {
+    expect(suggestElementNames('Стелла', 'BLG')!.names).toEqual(['Информационный стенд']);
+    expect(suggestElementNames('Стела навигационная', 'BLG')!.names).toEqual(['Информационный стенд']);
+    expect(suggestElementNames('Стеллаж для мячей', 'BLG')).toBeNull();
+    expect(suggestPurposeName('Стелла', 'BLG')).toMatchObject({ name: 'Информирование' });
+    expect(suggestPurposeName('Стеллаж', 'BLG')?.name).not.toBe('Информирование');
+  });
   it('навес, помост и трибуны не подсказываются', () => {
     expect(suggestElementNames('Навес над входом', 'BLG')).toBeNull();
     expect(suggestElementNames('Трибуна на 50 мест', 'WRK')).toBeNull();
