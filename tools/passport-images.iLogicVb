@@ -149,9 +149,19 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
         Throw New InvalidOperationException("Виды пустые. Проверьте видимость компонентов.")
     End If
     stage = "Масштабирование видов"
-    front.Scale = front.Scale * Math.Min(sheet.Width * 0.72 / viewWidth,
-                                         sheet.Height * 0.32 / viewHeight)
+    ' Виды — одним блоком: спереди, под ним сверху. Блок как можно крупнее и по центру листа (2026-11-13).
+    ' Запас: снизу под видом спереди — линия длины (gap), справа — линии высоты и ширины (dimRoom).
+    Const gap As Double = 1.8
+    Const dimRoom As Double = 2.2
+    Dim blockHeight As Double = front.Height + top.Height
+    front.Scale = front.Scale * Math.Min((sheet.Width * 0.9 - dimRoom) / viewWidth,
+                                         (sheet.Height * 0.9 - gap) / blockHeight)
     top.Scale = front.Scale
+    drawing.Update()
+    Dim centerX As Double = (sheet.Width - dimRoom) / 2
+    Dim blockTop As Double = (sheet.Height + front.Height + gap + top.Height) / 2
+    front.Position = tg.CreatePoint2d(centerX, blockTop - front.Height / 2)
+    top.Position = tg.CreatePoint2d(centerX, blockTop - front.Height - gap - top.Height / 2)
     drawing.Update()
     stage = "Построение габаритных линий"
     Dim dimensions As Double() = AddDimensions(sheet, front, top, tg)
@@ -185,9 +195,10 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     drawingView.Update()
     ' Сохраняем пропорции окна, в которое Inventor вписал лист.
     Dim imageHeight As Integer = CInt(2400.0 * drawingView.Height / drawingView.Width)
-    drawingView.SaveAsBitmapWithOptions(
-        System.IO.Path.Combine(folder, "02_Габаритные размеры.png"), 2400, imageHeight,
-        TransparentPngOptions(app))
+    Dim dimensionsPng As String = System.IO.Path.Combine(folder, "02_Габаритные размеры.png")
+    drawingView.SaveAsBitmapWithOptions(dimensionsPng, 2400, imageHeight, TransparentPngOptions(app))
+    stage = "Обрезка пустых полей рисунка"
+    CropToInk(dimensionsPng)
     installationSheet.Activate()
 
     stage = "Загрузка рисунков на сайт"
@@ -495,6 +506,50 @@ Sub SavePng(app As Inventor.Application, camera As Inventor.Camera,
             folder As String, name As String, height As Integer)
     camera.SaveAsBitmapWithOptions(
         System.IO.Path.Combine(folder, name), 2400, height, TransparentPngOptions(app))
+End Sub
+
+' Обрезать PNG до линий чертежа (+ поле 3 %), фон — белый: лист, рамка окна и пустые поля уходят,
+' паспорт сам растягивает рисунок на страницу. Линия — тёмный непрозрачный пиксель (каждый канал < 90).
+Sub CropToInk(path As String)
+    Dim src As System.Drawing.Bitmap
+    Using fs As New System.IO.FileStream(path, System.IO.FileMode.Open, System.IO.FileAccess.Read)
+        Using loaded As New System.Drawing.Bitmap(fs)
+            src = New System.Drawing.Bitmap(loaded)
+        End Using
+    End Using
+    Dim w As Integer = src.Width, h As Integer = src.Height
+    Dim rect As New System.Drawing.Rectangle(0, 0, w, h)
+    Dim data As System.Drawing.Imaging.BitmapData = src.LockBits(rect,
+        System.Drawing.Imaging.ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb)
+    Dim bytes(data.Stride * h - 1) As Byte
+    System.Runtime.InteropServices.Marshal.Copy(data.Scan0, bytes, 0, bytes.Length)
+    src.UnlockBits(data)
+    Dim minX As Integer = w, minY As Integer = h, maxX As Integer = -1, maxY As Integer = -1
+    For y As Integer = 0 To h - 1
+        Dim row As Integer = y * data.Stride
+        For x As Integer = 0 To w - 1
+            Dim i As Integer = row + x * 4  ' B, G, R, A
+            If bytes(i + 3) >= 128 AndAlso bytes(i) < 90 AndAlso bytes(i + 1) < 90 AndAlso bytes(i + 2) < 90 Then
+                If x < minX Then minX = x
+                If x > maxX Then maxX = x
+                If y < minY Then minY = y
+                If y > maxY Then maxY = y
+            End If
+        Next
+    Next
+    If maxX < 0 Then src.Dispose() : Return  ' линий нет — оставить как есть
+    Dim pad As Integer = CInt(Math.Max(maxX - minX, maxY - minY) * 0.03) + 8
+    Dim cw As Integer = maxX - minX + 1 + 2 * pad, ch As Integer = maxY - minY + 1 + 2 * pad
+    Using outBmp As New System.Drawing.Bitmap(cw, ch, System.Drawing.Imaging.PixelFormat.Format32bppArgb)
+        Using g As System.Drawing.Graphics = System.Drawing.Graphics.FromImage(outBmp)
+            g.Clear(System.Drawing.Color.White)
+            ' вырез — только лист с линиями; прозрачный фон листа ложится на белый
+            g.DrawImage(src, New System.Drawing.Rectangle(pad, pad, maxX - minX + 1, maxY - minY + 1),
+                        minX, minY, maxX - minX + 1, maxY - minY + 1, System.Drawing.GraphicsUnit.Pixel)
+        End Using
+        src.Dispose()
+        outBmp.Save(path, System.Drawing.Imaging.ImageFormat.Png)
+    End Using
 End Sub
 
 Function TransparentPngOptions(app As Inventor.Application) As Inventor.NameValueMap
