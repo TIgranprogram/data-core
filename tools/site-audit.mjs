@@ -41,6 +41,7 @@ export const RULES = {
   gr: 'ошибка в тексте: падеж после предлога, повтор слова (пользователь 2026-11-13: «из вид «…»»; правило — pwa/core/grammar.js)',
   fl: 'поле формы без видимой подписи (aria-label и placeholder не заменяют подпись)',
   fg: 'соседние поля формы слиплись или перекрылись',
+  tw: 'таблица шире своей области больше чем на 20px — столбцы уходят за экран (C111, 2026-11-14: «Нужно сделать паспорт»)',
   ax: 'axe: нарушение доступности (автоматическая проверка)',
   axcheck: 'axe: проверка доступности не выполнена',
 };
@@ -372,6 +373,7 @@ if(innerWidth<=420)for(const el of document.querySelectorAll('button,a[href],[ro
   const mn=Math.min(r.width,r.height);if(mn<40)add(mn<36?'g':'m',sel(el),(el.innerText||el.getAttribute('aria-label')||el.title||'').trim().slice(0,40)+' '+Math.round(r.width)+'×'+Math.round(r.height))}
 for(const el of document.querySelectorAll('button,.k-seg-btn,.chip,[role=tab]')){
   if(!vis(el)||!el.innerText.trim())continue;if(el.scrollWidth>el.clientWidth+1)add('u',sel(el),el.innerText.trim().slice(0,40)+' '+el.clientWidth+'<'+el.scrollWidth)}
+for(const t of document.querySelectorAll('main table,.drawer table')){if(!vis(t)||!t.parentElement)continue;const pw=t.parentElement.clientWidth;if(t.scrollWidth>pw+20)add('tw',sel(t),'таблица '+t.scrollWidth+'px в области '+pw+'px')}
 for(const el of document.querySelectorAll('.chip[role=tab],.k-seg-btn,.chips .chip')){
   if(!vis(el))continue;const t=el.innerText.replace(/\\s+/g,' ').trim();
   if(/(^|[\\s(])0\\)?$/.test(t)&&!/^все\\b/i.test(t))add('h',sel(el),t)}

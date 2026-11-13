@@ -144,7 +144,7 @@ export function mountDocs(params, { onChanged } = {}) {
   const el = h('div', { class: 'docs' }, h('div', { class: 'page-head' }, seg, canTpl() ? button({ label: 'Новый паспорт', kind: 'primary', title: 'Выбрать изделие по шагам и выпустить PDF', onClick: () => openPassportFunnel() }) : null, canTpl() ? button({ label: 'Добавить готовый паспорт', title: 'Паспорт сделан отдельно: приложить файл PDF, указать фирму, изделие, заказ и номер', onClick: () => openReadyPassport() }) : null), body);
 
   const drawTabs = () => {
-    seg.replaceChildren(kitTabs({ label: 'Паспорта', items: TABS.map(([key, label]) => ({ key, label })), value: tab, onChange: (k) => { if (tab !== k) go('docs', k === 'queue' ? {} : { tab: k }, { replace: true }); } }).el);
+    seg.replaceChildren(kitTabs({ label: 'Паспорта', scroll: true, items: TABS.map(([key, label]) => ({ key, label })), value: tab, onChange: (k) => { if (tab !== k) go('docs', k === 'queue' ? {} : { tab: k }, { replace: true }); } }).el);
     crumbTail('Паспорта › ' + TAB_NAME[tab]);
   };
 

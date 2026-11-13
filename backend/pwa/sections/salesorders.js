@@ -206,7 +206,7 @@ function orderPassports(r) {
     actEl = orderPassportActions(r, items, load);
     if (actEl) body.append(actEl);
     const ready = items.filter((p) => (p.readiness || (p.status === 'draft' ? 'notReady' : 'ready')) === 'ready').length;
-    val.replaceChildren(items.length ? h('a', { href: '#docs?tab=orders&open=' + r.id }, `Паспорта ${items.length} (готовы ${ready})`) : 'пока не выпускали — «Документация → Нужно сделать паспорт»');
+    val.replaceChildren(items.length ? h('a', { href: '#docs?tab=orders&open=' + r.id }, `Паспорта ${items.length} (готовы ${ready})`) : 'Паспортов пока нет');
   }).catch((e) => val.replaceChildren(e?.status === 403 ? 'Нет доступа к паспортам' : 'не удалось загрузить'));
   load();
   return box;

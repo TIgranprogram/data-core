@@ -3,10 +3,10 @@ import { h } from '../core/dom.js';
 import { go } from '../core/router.js';
 import { modal } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
-import { searchBox, autoMore, empty, tabs, button, badge, enhanceSelect } from '../ui/kit/index.js';
+import { searchBox, autoMore, empty, tabs, button, badge, enhanceSelect, headbar, actions } from '../ui/kit/index.js';
 import { statusOf, canWorkPassport as canEditTexts } from './passports/common.js';
 import { printDialog } from './passports/dialogs.js';
-import { orderPassportsButton } from './order-passport-plan.js';
+import { orderPassportsButton, printOrderButton } from './order-passport-plan.js';
 
 /*
  * Вкладка «По заказам» (ТИ-11): заказ → его паспорта, счётчик «готовы M из N», чип «Готов / Не готов / Доработать».
@@ -103,9 +103,12 @@ export function mountOrdersTab(params, { onChanged } = {}) {
         h('span', { class: 'do-bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(g.total), 'aria-valuenow': String(g.ready) }, h('i', { style: `width:${pct}%` }))),
       g.rework ? h('span', { title: READINESS.rework.hint }, badge(`доработать: ${g.rework}`, 'warn')) : null,
       g.notReady ? h('span', { title: READINESS.notReady.hint }, badge(`не готовы: ${g.notReady}`, 'dim')) : null);
-    return h('section', { class: 'do-group' }, head,
+    // C111 Ш4: печать всего заказа и панель — справа в заголовке, вне кнопки раскрытия (клик не сворачивает группу)
+    const issuedN = (g.items || []).filter((p) => statusOf(p) === 'issued').length;
+    const acts = g.orderId ? actions(printOrderButton(g.orderId, { issued: issuedN }), canChange() ? orderPassportsButton(g.orderId) : null) : null;
+    return h('section', { class: 'do-group' }, acts ? headbar(head, acts, { inset: true }) : head,
       isOpen ? h('div', { class: 'do-body' }, h('div', { class: 'section-title' }, `Паспорта (${g.total})`), ...subgroups(g)) : null,
-      isOpen && g.orderId ? h('div', { class: 'do-foot' }, canChange() ? orderPassportsButton(g.orderId) : null, h('a', { href: '#salesorders?open=' + g.orderId }, 'Открыть заказ →')) : null);
+      isOpen && g.orderId ? h('div', { class: 'do-foot' }, h('a', { href: '#salesorders?open=' + g.orderId }, 'Открыть заказ →')) : null);
   };
 
   function paint(items) {

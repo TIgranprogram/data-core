@@ -122,7 +122,7 @@ export const NODES = [
       { id: 'shablon-kategorii', t: 'Шаблон типа паспорта', l: 'тексты и рисунки из справочников', in: ['dicts'] },
       { id: 'vypusk-pdf', t: 'Выпуск PDF', l: 'текст и рисунки фиксируются', out: ['warranty'] },
       { id: 'novaya-redakciya', t: 'Новая редакция', l: 'единственный способ изменить выпущенный', alt: true },
-      { id: 'pasporta-zakaza', t: 'Паспорта заказа', l: '«Готово N из M» — печать на весь заказ', alt: true },
+      { id: 'pasporta-zakaza', t: 'Паспорта заказа', l: '«Печать паспортов…» — из карточки заказа, «По заказам» и панели', alt: true },
     ],
     rules: ['Без типа паспорта PDF не выпускается.', 'Выпущенный паспорт меняется только новой редакцией.'],
     docs: ['docs/PASSPORTS-V2.md', 'docs/crew/C096-passport-system-audit/', 'docs/MAP.md — product-passport'], tech: 'productpassports, passporttemplates',
