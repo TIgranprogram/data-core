@@ -292,7 +292,22 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     cam.ApplyWithoutTransition()
     Dim imageHeight As Integer = Math.Max(200, CInt(2400.0 * boxH / boxW))
     cam.SaveAsBitmapWithOptions(System.IO.Path.Combine(folder, "02_Габаритные размеры.png"), 2400, imageHeight, TransparentPngOptions(app))
+    stage = "Экспорт схемы установки в PNG"
     installationSheet.Activate()
+    drawing.SelectSet.Clear()
+    Dim schemeView As Inventor.View = app.ActiveView
+    schemeView.Fit()
+    ' рамка: разрез + линии габаритов справа и снизу + подпись «А-А» под ними
+    Dim sBoxLeft As Double = secLeft - 0.5, sBoxRight As Double = dimX + 1.8
+    Dim sBoxTop As Double = secTop + 0.5, sBoxBottom As Double = dimY - 2.2
+    Dim sCam As Inventor.Camera = schemeView.Camera
+    sCam.Target = tg.CreatePoint((sBoxLeft + sBoxRight) / 2, (sBoxTop + sBoxBottom) / 2, 0)
+    sCam.Eye = tg.CreatePoint((sBoxLeft + sBoxRight) / 2, (sBoxTop + sBoxBottom) / 2, 10)
+    sCam.UpVector = tg.CreateUnitVector(0, 1, 0)
+    sCam.SetExtents(sBoxRight - sBoxLeft, sBoxTop - sBoxBottom)
+    sCam.ApplyWithoutTransition()
+    sCam.SaveAsBitmapWithOptions(System.IO.Path.Combine(folder, "03_Схема установки.png"), 2400,
+        Math.Max(200, CInt(2400.0 * (sBoxTop - sBoxBottom) / (sBoxRight - sBoxLeft))), TransparentPngOptions(app))
 
     stage = "Загрузка рисунков на сайт"
     If MessageBox.Show("Загрузить оба рисунка на сайт?", "Картинки для паспорта",
@@ -396,7 +411,7 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
             If MessageBox.Show("Артикул: " & sku & vbCrLf & "Изделие: " & productName & vbCrLf &
                                "Записать в карточку изделия размеры Д × Ш × В: " & FormatMm(dimensions(0)) & " × " &
                                FormatMm(dimensions(1)) & " × " & FormatMm(dimensions(2)) &
-                               " мм" & vbCrLf & "и загрузить два рисунка (без надписей — строку размеров печатает паспорт)?",
+                               " мм" & vbCrLf & "и загрузить три рисунка: общий вид, габариты, схему установки (без надписей — строку размеров печатает паспорт)?",
                                "Подтвердите изделие", MessageBoxButtons.YesNo, MessageBoxIcon.Question,
                                MessageBoxDefaultButton.Button2) <> DialogResult.Yes Then Return ""
 
@@ -406,9 +421,10 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
             If previous.Count > 0 Then
                 Dim overviewCount As Integer = Global.System.Linq.Enumerable.Count(previous.Values, Function(kind) kind = "overview")
                 Dim dimensionsCount As Integer = Global.System.Linq.Enumerable.Count(previous.Values, Function(kind) kind = "dimensions")
+                Dim foundationCount As Integer = Global.System.Linq.Enumerable.Count(previous.Values, Function(kind) kind = "foundation")
                 If MessageBox.Show("На сайте уже есть рисунки:" & vbCrLf &
                                    "Общий вид: " & overviewCount & vbCrLf &
-                                   "Габаритные размеры: " & dimensionsCount & vbCrLf & "Заменить их?",
+                                   "Габаритные размеры: " & dimensionsCount & vbCrLf & "Схема установки опор: " & foundationCount & vbCrLf & "Заменить их?",
                                    "Подтвердите замену", MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
                                    MessageBoxDefaultButton.Button2) <> DialogResult.Yes Then Return ""
             End If
@@ -417,6 +433,8 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
             Dim overviewId As String = UploadPng(client, System.IO.Path.Combine(folder, "01_Общий вид.png"))
             stage = "Загрузка PNG габаритных размеров"
             Dim dimensionsId As String = UploadPng(client, System.IO.Path.Combine(folder, "02_Габаритные размеры.png"))
+            stage = "Загрузка PNG схемы установки"
+            Dim foundationId As String = UploadPng(client, System.IO.Path.Combine(folder, "03_Схема установки.png"))
             stage = "Повторная проверка существующих рисунков"
             Dim current As Global.System.Collections.Generic.Dictionary(Of String, String) = ReadPassportSlots(client, photosPath)
             If current.Count <> previous.Count OrElse
@@ -430,6 +448,8 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
                 newLinks.Add(AttachPassportImage(client, photosPath, overviewId, "overview"))
                 stage = "Привязка габаритных размеров"
                 newLinks.Add(AttachPassportImage(client, photosPath, dimensionsId, "dimensions"))
+                stage = "Привязка схемы установки опор"
+                newLinks.Add(AttachPassportImage(client, photosPath, foundationId, "foundation"))
                 stage = "Запись длины, ширины и высоты в карточку изделия"
                 Dim json As String = Global.System.Text.Json.JsonSerializer.Serialize(
                     New With {.dimensions = New With {
@@ -449,7 +469,7 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
                 Throw
             End Try
 
-            stage = "Отключение прежних рисунков. Оба новых рисунка уже привязаны"
+            stage = "Отключение прежних рисунков. Все три новых рисунка уже привязаны"
             For Each linkId As String In previous.Keys
                 RequestJson(client, Global.System.Net.Http.HttpMethod.Delete, photosPath & "/" & linkId)
             Next
@@ -463,7 +483,7 @@ Function ReadPassportSlots(client As Global.System.Net.Http.HttpClient, path As 
     Dim result As Global.System.Text.Json.JsonElement = RequestJson(client, Global.System.Net.Http.HttpMethod.Get, path & "?purpose=passport")
     For Each item As Global.System.Text.Json.JsonElement In result.EnumerateArray()
         Dim kind As String = JsonString(item, "kind")
-        If kind = "overview" OrElse kind = "dimensions" Then slots.Add(ApiId(item), kind)
+        If kind = "overview" OrElse kind = "dimensions" OrElse kind = "foundation" Then slots.Add(ApiId(item), kind)
     Next
     Return slots
 End Function
