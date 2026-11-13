@@ -66,7 +66,7 @@ export function shortPage(doc: PDFKit.PDFDocument, input: PdfV2Input, color: str
 }
 
 export function cover(input: PdfV2Input): V2Page {
-  const { passport: p, org, images, logo, style } = input;
+  const { passport: p, org, images, logo } = input;
   const accent = firmAccent(input.look, input.mono);
   const box = input.look?.coverBox;
   // Без своих полей числа совпадают с прежней обложкой (M / CW).

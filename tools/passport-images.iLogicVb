@@ -290,9 +290,9 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
             Loop
             If productId Is Nothing Then Throw New InvalidOperationException("Изделие с точным артикулом не найдено.")
             If MessageBox.Show("Артикул: " & sku & vbCrLf & "Изделие: " & productName & vbCrLf &
-                               "Записать Д × Ш × В: " & FormatMm(dimensions(0)) & " × " &
+                               "Записать в карточку изделия размеры Д × Ш × В: " & FormatMm(dimensions(0)) & " × " &
                                FormatMm(dimensions(1)) & " × " & FormatMm(dimensions(2)) &
-                               " мм и загрузить два рисунка?",
+                               " мм" & vbCrLf & "и загрузить два рисунка (без надписей — строку размеров печатает паспорт)?",
                                "Подтвердите изделие", MessageBoxButtons.YesNo, MessageBoxIcon.Question,
                                MessageBoxDefaultButton.Button2) <> DialogResult.Yes Then Return ""
 
