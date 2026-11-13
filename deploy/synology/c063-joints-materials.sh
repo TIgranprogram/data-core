@@ -9,6 +9,8 @@
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 API="bash deploy/synology/api.sh prod"
+# Р1 (C112): запись повторяется при 503 READ_ONLY по retryAfter (до 5 раз); итог повторов — строка «[запись: …]» в ответе
+WRITE="node backend/scripts/lib/write-retry.js prod"
 PLAN="docs/crew/C063-joints-materials/plan.json"
 [ -f "$PLAN" ] || { echo "✗ нет файла плана: $PLAN"; exit 2; }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
@@ -43,12 +45,12 @@ body.textChoices = pd.textChoices || {};
 fs.writeFileSync(out, JSON.stringify(body)); console.log("put");
 ' "$cur" "$arg" "$body" < /dev/null)"
     if [ "$res" = "skip" ]; then echo "· конструкция уже есть: $label"; skip=$((skip+1)); continue; fi
-    out="$($API PUT "/api/showcase/$id/passport-defaults" "$(win "$body")" 2>&1)"
+    out="$($WRITE PUT "/api/showcase/$id/passport-defaults" "$(win "$body")" 2>&1)"
   else
     if node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); process.exit((r.materialsSpec?.rows||[]).length ? 0 : 1)' "$cur" < /dev/null; then echo "· материалы уже есть: $label"; skip=$((skip+1)); continue; fi
-    out="$($API PATCH "/api/showcase/$id" "$(win "$arg")" 2>&1)"
+    out="$($WRITE PATCH "/api/showcase/$id" "$(win "$arg")" 2>&1)"
   fi
-  if grep -q 'Изделие не найдено' <<<"$out"; then echo "· изделие удалено с сайта — пропуск"; gone=$((gone+1)); elif grep -qE '"statusCode":\s*[45][0-9][0-9]|вход не удался|^curl:' <<<"$out"; then echo "✗ $kind $label: $out" | cut -c1-300; bad=$((bad+1)); else echo "✓ $kind $label"; ok=$((ok+1)); fi
+  if grep -q 'Изделие не найдено' <<<"$out"; then echo "· изделие удалено с сайта — пропуск"; gone=$((gone+1)); elif grep -qE '"statusCode":\s*[45][0-9][0-9]|вход не удался|^curl:' <<<"$out"; then echo "✗ $kind $label: $out" | cut -c1-300; bad=$((bad+1)); else echo "✓ $kind $label $(grep -o '\[запись: повторено[^]]*\]' <<<"$out")"; ok=$((ok+1)); fi
   sleep 0.3
 done < "$T/steps.txt"
 

@@ -7,6 +7,8 @@ export interface NumbersHost {
   connection: Connection;
   /** Максимум числового поля среди паспортов (с удалёнными). */
   maxOf: (field: 'passportNumber' | 'productCode', session?: ClientSession) => Promise<number>;
+  /** Р7 (C112): то же для показа — можно из кэша по версии коллекции паспортов (полный просмотр коллекции — 1,4 с). */
+  maxShown?: (field: 'passportNumber' | 'productCode') => Promise<number>;
 }
 
 type Field = 'passportNumber' | 'productCode';
@@ -19,14 +21,14 @@ export class PassportNumbers {
     return Number((await this.h.connection.collection('counters').findOne({ entity: 'passport', prefix: key, year: 0 }))?.seq) || 0;
   }
 
-  private async last(field: Field) {
-    return Math.max(await this.counter(field), await this.h.maxOf(field));
+  private async last(field: Field, shown = false) {
+    const [c, m] = await Promise.all([this.counter(field), shown && this.h.maxShown ? this.h.maxShown(field) : this.h.maxOf(field)]);
+    return Math.max(c, m);
   }
 
   /** Только показ, ничего не занимает: max(счётчик, максимум в паспортах) + 1. */
   async nextNumbers(date: Date = dayUtc()) {
-    const p = await this.last('passportNumber');
-    const c = await this.last('productCode');
+    const [p, c] = await Promise.all([this.last('passportNumber', true), this.last('productCode', true)]);
     return { lastPassportNo: p, nextPassportNo: p + 1, nextWarrantyCode: warrantyCodeFor(date, p + 1), lastProductCode: c, nextProductCode: c + 1 };
   }
 

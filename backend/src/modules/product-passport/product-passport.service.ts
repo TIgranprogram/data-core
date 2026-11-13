@@ -59,6 +59,7 @@ export class ProductPassportService {
     this.issueOps = new PassportIssue({ model, connection, findById: (id) => this.findById(id), readiness: (d) => this.readiness(d), freezeImages: (id) => this.freezeImages(id), refresh: (id) => this.refreshDraftText(id), allocate: (set, date, session) => this.allocate(set, date, session), assertFree: (set, selfId, session) => this.assertFree(set, selfId, session) });
     this.numbers = new PassportNumbers({
       connection, maxOf: (f, s) => this.maxOf(f, s),
+      maxShown: (f) => (this.versions ? this.versions.cached('passports.maxNo', ['productpassports'], f, () => this.maxOf(f)) : this.maxOf(f)),
     });
   }
   // ПН: номера паспортов — показать следующие / задать следующий
@@ -603,7 +604,7 @@ export class ProductPassportService {
     const own = dbOwn ?? (code ? { ...code, version: 0 } : null);
     const { dict: standards } = await this.standards();
     const dv = this.connection.collection('dict_values');
-    const load = (d: string) => dv.find({ dict: d, deletedAt: null }).toArray() as unknown as Promise<DictRec[]>;
+    const load = (d: string) => this.dictCached('passports.dict', () => dv.find({ dict: d, deletedAt: null }).toArray() as unknown as Promise<DictRec[]>, d);
     const [elements, materials, defects, install] = await Promise.all([load('passportElements'), load('passportMaterials'), load('passportDefects'), load('passportInstall')]);
     // воронка (ПВ): выбор по разделам; вариант раздела «Установка» сам ставит способ установки (схемы, рисунки, основание — в нём)
     const product = await this.productCtx(p.productId);
@@ -761,8 +762,13 @@ export class ProductPassportService {
 
   /** Способы установки (справочник) по id — для стандартных схем узлов (Э9.5). */
   async installs() {
-    const docs = await this.connection.collection('dict_values').find({ dict: 'passportInstall', deletedAt: null }).toArray();
-    return new Map(docs.map((d) => [String(d._id), d as Record<string, unknown>]));
+    const make = async () => new Map((await this.connection.collection('dict_values').find({ dict: 'passportInstall', deletedAt: null }).toArray()).map((d) => [String(d._id), d as Record<string, unknown>]));
+    return this.dictCached('passports.installs', make);
+  }
+
+  /** Р7/Р8 (C112): справочник из dict_values — один расчёт, пока он не менялся (общий результат, не менять). */
+  private dictCached<T>(scope: string, make: () => Promise<T>, extra = ''): Promise<T> {
+    return this.versions ? this.versions.cached(scope, ['dict_values'], extra, make) : make();
   }
 
   /** C112: нет способа установки — умолчание типа паспорта (DEFAULT_INSTALL), чтобы стандартные схемы засчитались. */
@@ -781,14 +787,19 @@ export class ProductPassportService {
 
   /** Справочник типов паспортов (v2): код → обязательные рисунки и прочее. Пусто — паспорта v1 проверяются как раньше. */
   async categoryRules() {
-    const docs = await this.connection.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, name: 1, requiredImages: 1, requiredFields: 1, serviceLifeYears: 1, warrantyMonths: 1, standards: 1, fieldDefaults: 1 } }).toArray();
-    return new Map(docs.map((d) => [String(d.code), d as { name?: string; requiredImages?: string; requiredFields?: string; serviceLifeYears?: string; warrantyMonths?: string; standards?: string; fieldDefaults?: string }]));
+    const make = async () => {
+      const docs = await this.connection.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, name: 1, requiredImages: 1, requiredFields: 1, serviceLifeYears: 1, warrantyMonths: 1, standards: 1, fieldDefaults: 1 } }).toArray();
+      return new Map(docs.map((d) => [String(d.code), d as { name?: string; requiredImages?: string; requiredFields?: string; serviceLifeYears?: string; warrantyMonths?: string; standards?: string; fieldDefaults?: string }]));
+    };
+    return this.dictCached('passports.categoryRules', make);
   }
 
   /** Нормативы для {std:КОД} (справочник «Паспорта → Нормативы», dict_values) — словарь и записи для предупреждений. */
   async standards() {
-    const docs = (await this.connection.collection('dict_values').find({ dict: 'passportStandards', deletedAt: null }, { projection: { code: 1, name: 1, status: 1, checkedAt: 1 } }).toArray()) as StandardDoc[];
-    return { dict: standardsDict(docs), docs };
+    return this.dictCached('passports.standards', async () => {
+      const docs = (await this.connection.collection('dict_values').find({ dict: 'passportStandards', deletedAt: null }, { projection: { code: 1, name: 1, status: 1, checkedAt: 1 } }).toArray()) as StandardDoc[];
+      return { dict: standardsDict(docs), docs };
+    });
   }
 
   /** Для сборщика текста: версия «Для всех» и версия категории (null, если своей нет). */

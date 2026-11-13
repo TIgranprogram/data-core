@@ -12,6 +12,8 @@ cd "$(dirname "$0")/../.."
 TARGET="${1:-prod}"
 case "$TARGET" in local|prod) ;; *) echo "цель: local или prod"; exit 2 ;; esac
 API="bash deploy/synology/api.sh $TARGET"
+# Р1 (C112): запись повторяется при 503 READ_ONLY по retryAfter (до 5 раз); итог повторов — строка «[запись: …]» в ответе
+WRITE="node backend/scripts/lib/write-retry.js $TARGET"
 PARTS="docs/crew/C054-passport-funnel/parts-categories-plan.json"
 COATS="docs/crew/C054-passport-funnel/coatings-categories-plan.json"
 [ -f "$PARTS" ] || { echo "✗ нет плана частей: $PARTS"; exit 2; }
@@ -55,8 +57,8 @@ console.log("patch");
 ' "$cur" "$cats" "$body" < /dev/null)"
   if [ "$res" = "skip" ]; then echo "· уже так: $label"; skip=$((skip+1)); continue; fi
   if [ "$res" != "patch" ]; then echo "✗ $label: ответ не разобран ($res)"; bad=$((bad+1)); continue; fi
-  out="$($API PATCH "/api/dicts/$dict/$id" "$(win "$body")" 2>&1)"
-  if grep -qE '"statusCode":\s*[45][0-9][0-9]|вход не удался|^curl:' <<<"$out"; then echo "✗ $label: $out" | cut -c1-300; bad=$((bad+1)); else echo "✓ $label"; ok=$((ok+1)); fi
+  out="$($WRITE PATCH "/api/dicts/$dict/$id" "$(win "$body")" 2>&1)"
+  if grep -qE '"statusCode":\s*[45][0-9][0-9]|вход не удался|^curl:' <<<"$out"; then echo "✗ $label: $out" | cut -c1-300; bad=$((bad+1)); else echo "✓ $label $(grep -o '\[запись: повторено[^]]*\]' <<<"$out")"; ok=$((ok+1)); fi
   sleep 0.15
 done < "$T/steps.txt"
 

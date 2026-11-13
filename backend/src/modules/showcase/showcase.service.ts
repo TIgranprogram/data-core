@@ -172,7 +172,8 @@ export class ShowcaseService {
       : sortKey === 'withPhoto' ? { mainPhotoId: -1, name: 1, _id: 1 }
       : { [sortField]: dir, _id: 1 };
     const [docs, total] = await Promise.all([
-      this.db.collection('products').find(filter).sort(order).skip((page - 1) * limit).limit(limit).toArray(),
+      // Р7 (C112): тяжёлые поля (состав, части, работы, PDM) списку не нужны — present() их не отдаёт; без них список быстрее в разы
+      this.db.collection('products').find(filter, { projection: { composition: 0, parts: 0, workTypes: 0, pdm: 0, productModuleIds: 0 } }).sort(order).skip((page - 1) * limit).limit(limit).toArray(),
       this.db.collection('products').countDocuments(filter),
     ]);
     // Б1: facets=1 — серии с числом изделий при остальных выбранных фильтрах (воронка «Тип · Группа → Серия»); поле дополнительное

@@ -10,11 +10,13 @@
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 API="bash deploy/synology/api.sh prod"
+# Р1 (C112): запись повторяется при 503 READ_ONLY по retryAfter (до 5 раз); итог повторов — строка «[запись: …]» в ответе
+WRITE="node backend/scripts/lib/write-retry.js prod"
 PLAN="docs/crew/C061-trainers-load/plan.json"
 [ -f "$PLAN" ] || { echo "✗ нет файла плана: $PLAN"; exit 2; }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 ok=0; bad=0; gone=0
-step() { local name="$1"; shift; local out; out="$("$@" 2>&1)"; if grep -q 'Изделие не найдено' <<<"$out"; then echo "· изделие удалено с сайта — пропуск"; gone=$((gone+1)); elif grep -qE '"statusCode":\s*[45][0-9][0-9]|вход не удался|^curl:' <<<"$out"; then echo "✗ $name: $out" | cut -c1-300; bad=$((bad+1)); else echo "✓ $name"; ok=$((ok+1)); fi; }
+step() { local name="$1"; shift; local out; out="$("$@" 2>&1)"; if grep -q 'Изделие не найдено' <<<"$out"; then echo "· изделие удалено с сайта — пропуск"; gone=$((gone+1)); elif grep -qE '"statusCode":\s*[45][0-9][0-9]|вход не удался|^curl:' <<<"$out"; then echo "✗ $name: $out" | cut -c1-300; bad=$((bad+1)); else echo "✓ $name $(grep -o '\[запись: повторено[^]]*\]' <<<"$out")"; ok=$((ok+1)); fi; }
 
 # План → строки «путь|файл-тела|подпись» (тела — в файлах: русский текст не идёт аргументом)
 node -e '
@@ -32,7 +34,7 @@ fs.writeFileSync(path.join(dir, "steps.txt"), out.join("\n") + "\n");
 while IFS='|' read -r path body label; do
   [ -n "$path" ] || continue
   f="$body"; command -v cygpath >/dev/null && f="$(cygpath -m "$f")"
-  step "$label" $API PATCH "$path" "$f"
+  step "$label" $WRITE PATCH "$path" "$f"
 done < "$T/steps.txt"
 
 echo "Итог: записано $ok, удалено с сайта $gone, ошибок $bad"

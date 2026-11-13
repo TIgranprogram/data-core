@@ -154,4 +154,24 @@ describe('паспорта на весь заказ', () => {
     expect(drafts).toEqual([String(a)]);
     expect(supplied).toEqual([String(a)]);
   });
+
+  it('Р3: два параллельных выпуска одного заказа — номера не дублируются, второй получает понятный отказ', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const { host, issuedIds } = make({ issue: async (id) => { issuedIds.push(id); await gate; } });
+    const first = orderIssue(host, String(o));
+    await new Promise((r) => setImmediate(r));
+    await expect(orderIssue(host, String(o))).rejects.toMatchObject({ status: 409, message: expect.stringContaining('уже идёт') });
+    release();
+    expect((await first).issued).toHaveLength(1);
+    expect(issuedIds).toHaveLength(1); // второй запрос ничего не выпускал
+    // замок снят: следующий выпуск возможен
+    await expect(orderIssue(host, String(o))).resolves.toBeDefined();
+  });
+
+  it('Р3: замок снимается и после ошибки плана', async () => {
+    const { host } = make();
+    await expect(orderIssue(host, 'не-id')).rejects.toThrow('Заказ не найден');
+    await expect(orderIssue(host, 'не-id')).rejects.toThrow('Заказ не найден');
+  });
 });

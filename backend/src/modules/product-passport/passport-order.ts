@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Types, type Connection } from 'mongoose';
 import { passportCategoryFor, type PpCat } from '../../common/passport/form-values';
 import { resolveKinds } from '../../common/passport/kind';
@@ -44,6 +44,7 @@ export interface PlanLine {
 export interface SkipLine { incomeId: string; title: string; reason: string }
 
 const MAX_MISSING = 5;
+const CHECK_PARALLEL = 8;
 const brief = (labels: string[]) => (labels.length > MAX_MISSING ? [...labels.slice(0, MAX_MISSING), `и ещё ${labels.length - MAX_MISSING}`] : labels);
 
 async function orderOf(db: Db, orderId: string) {
@@ -121,7 +122,14 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string,
   const firmChoices = await ourFirmList(db);
   const picked = !firm && supplierOrgId ? firmChoices.find((f) => f.id === String(supplierOrgId)) ?? null : null;
   let ourSupplier: boolean | null = null;
-  const templateChecks = new Map<string, Promise<string[]>>();
+  // Р8 (C112): проверки изделий идут пачками по 8, а не по одной подряд (50 позиций — десятки секунд)
+  const templateChecks = new Map<string, string[]>();
+  const toCheck = [...new Set(incomes.filter((i) => i.productId && !(byIncome.has(String(i._id)) && isIssued(byIncome.get(String(i._id))!))).map((i) => String(i.productId)))];
+  for (let at = 0; at < toCheck.length; at += CHECK_PARALLEL) {
+    const part = toCheck.slice(at, at + CHECK_PARALLEL);
+    const res = await Promise.all(part.map((id) => h.templateMissing(id, variant)));
+    part.forEach((id, k) => templateChecks.set(id, res[k]));
+  }
   for (const inc of incomes) {
     const p = byIncome.get(String(inc._id));
     const issued = !!p && isIssued(p);
@@ -129,10 +137,7 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string,
     let missing: string[] = [];
     if (!issued) {
       if (!productId) missing = ['К позиции не привязано изделие'];
-      else {
-        if (!templateChecks.has(productId)) templateChecks.set(productId, h.templateMissing(productId, variant));
-        missing = brief(await templateChecks.get(productId)!);
-      }
+      else missing = brief(templateChecks.get(productId) ?? []);
     }
     // выпуск требует фирму: у черновика; иначе фирма заказа или выбранная в панели (C075); иначе одна наша (C062)
     if (!issued && productId && !missing.length && !p?.supplierOrgId && !firm && !picked) {
@@ -158,6 +163,16 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string,
  * неготовые и уже выпущенные пропускаются с причиной, повтор не плодит дубли (черновик позиции переиспользуется).
  */
 export async function orderIssue(h: OrderHost, orderId: string, opts: { lines?: string[]; variant?: string; supplierOrgId?: string } = {}) {
+  // Р3 (C112): выпуск одного заказа идёт по одному — двойной клик и вторая вкладка получают понятный отказ, а не гонку за номерами
+  if (issuing.has(orderId)) throw new ConflictException('Выпуск паспортов этого заказа уже идёт — дождитесь окончания и обновите заказ');
+  issuing.add(orderId);
+  try { return await issueLines(h, orderId, opts); } finally { issuing.delete(orderId); }
+}
+
+/** Заказы, по которым выпуск идёт прямо сейчас (в этом процессе; сервер данных один). */
+const issuing = new Set<string>();
+
+async function issueLines(h: OrderHost, orderId: string, opts: { lines?: string[]; variant?: string; supplierOrgId?: string }) {
   const plan = await orderPlan(h, orderId, opts.variant, opts.supplierOrgId);
   // фирма панели — только пока в заказе своей нет; записанная в заказ важнее
   const pick = !plan.firm && opts.supplierOrgId && plan.firmChoices.some((f) => f.id === String(opts.supplierOrgId)) ? String(opts.supplierOrgId) : undefined;

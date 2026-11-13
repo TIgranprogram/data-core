@@ -12,6 +12,9 @@ import { decodeMulterOriginalName, drawingExt, drawingSignatureOk, IMAGE_UPLOAD_
 import { buildRotatedCopy } from './image-orientation';
 import { uploadSubdir } from '../../common/uploads/upload-folder';
 
+/** Потолок площади рисунка при загрузке (пикселей). */
+const MAX_PIXELS = 100_000_000;
+
 function uploadDir(): string {
   return process.env.UPLOAD_DIR ?? './uploads';
 }
@@ -87,6 +90,22 @@ export class PhotosService {
     return doc;
   }
 
+  /** Р4 (C112): битый файл или рисунок с неподъёмным числом пикселей отклоняется при загрузке, а не при выпуске паспорта. */
+  private async assertReadable(path: string): Promise<void> {
+    let reason = '';
+    try {
+      const meta = await sharp(path).metadata();
+      if (!meta.width || !meta.height) reason = 'Рисунок не читается: файл повреждён. Загрузите другой файл';
+      else if (meta.width * meta.height > MAX_PIXELS) reason = 'Рисунок слишком большой по размеру в пикселях (более 100 мегапикселей). Уменьшите его и загрузите снова';
+    } catch {
+      reason = 'Рисунок не читается: файл повреждён или это не картинка. Загрузите другой файл';
+    }
+    if (reason) {
+      await fs.unlink(path).catch(() => undefined);
+      throw new BadRequestException(reason);
+    }
+  }
+
   /**
    * Persist the uploaded original first, then generate a separate list thumb.
    * A sharp failure is deliberately non-fatal: the original remains usable.
@@ -111,6 +130,7 @@ export class PhotosService {
       await fs.unlink(originalPath).catch(() => undefined);
       throw new BadRequestException('Картинка больше 10 МБ');
     }
+    await this.assertReadable(originalPath);
     // тяжёлое фото (> 2560 px или > 3 МБ) облегчаем на месте — дальше его тянут карточки, галереи и PDF
     const shrunk = await shrinkInPlace(originalPath, file.mimetype, file.size);
     const original = await this.create({

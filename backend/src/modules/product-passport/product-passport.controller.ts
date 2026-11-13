@@ -300,8 +300,8 @@ export class ProductPassportController {
   async orderPdf(@Param('orderId') orderId: string, @Query('variant') variant: string, @Query('stamp') stamp: string, @Query('mode') mode: string, @Query('bw') bw: string, @Query('seal') seal: string, @Query('sign') sign: string, @Query('ids') ids: string, @Res({ passthrough: true }) res: Response) {
     const only = String(ids ?? '').split(',').map((s) => s.trim()).filter(Boolean);
     const r = await this.pdfs.orderPdf(orderId, { stamp: stamp === '1', seal: seal !== '0', sign: sign !== '0', mode: mode === 'print' ? 'print' : 'pages', mono: bw === '1', variant: variantOf(variant) }, only);
-    // C072: паспорта со своим PDF в общий файл не входят — их список в заголовке X-Skipped-Passports (JSON, encodeURIComponent)
-    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': attachment(r.filename), ...(r.skipped.length ? { 'X-Skipped-Passports': encodeURIComponent(JSON.stringify(r.skipped)), 'Access-Control-Expose-Headers': 'X-Skipped-Passports' } : {}) });
+    // C072: паспорта со своим PDF в общий файл не входят — их список в заголовке X-Skipped-Passports (JSON, encodeURIComponent); Р5: не собравшиеся — X-Failed-Passports ([{id,passportNumber,name,reason}])
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': attachment(r.filename), ...(r.skipped.length ? { 'X-Skipped-Passports': encodeURIComponent(JSON.stringify(r.skipped)) } : {}), ...(r.failed.length ? { 'X-Failed-Passports': encodeURIComponent(JSON.stringify(r.failed)) } : {}), ...(r.skipped.length || r.failed.length ? { 'Access-Control-Expose-Headers': [r.skipped.length ? 'X-Skipped-Passports' : '', r.failed.length ? 'X-Failed-Passports' : ''].filter(Boolean).join(', ') } : {}) });
     return new StreamableFile(r.buf);
   }
 

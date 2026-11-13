@@ -30,6 +30,13 @@ type PdfOpts = { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages'
 /** НМ: служебная метка черновика вместо номера — в PDF не печатается (номера, талона, номера изделия у черновика нет). */
 const noDraftNumber = <T extends Record<string, unknown>>(p: T): T => (isDraftNumber(p.passportNumber) ? { ...p, passportNumber: '', warrantyCode: '', productCode: '' } : p);
 
+/** Причина сбоя сборки паспорта словами (без служебных деталей). */
+export function failReason(e: unknown): string {
+  const r = (e as { response?: { message?: unknown } })?.response?.message;
+  const m = Array.isArray(r) ? r.join(', ') : typeof r === 'string' ? r : (e as Error)?.message;
+  return String(m || 'не удалось собрать').slice(0, 200);
+}
+
 @Injectable()
 export class PassportPdfService {
   private readonly log = new Logger(PassportPdfService.name);
@@ -214,18 +221,25 @@ export class PassportPdfService {
     const inputs = [];
     // C072: паспорт со своим PDF в общий файл не склеить — отдаём списком, экран покажет ссылки на `GET /passports/:id/pdf`
     const skipped: Array<{ id: string; passportNumber: string; name: string }> = [];
+    // Р5 (C112): паспорт, который не собрался, не рушит печать остальных — он идёт списком с причиной
+    const failed: Array<{ id: string; passportNumber: string; name: string; reason: string }> = [];
     for (const raw of items) {
       const r = raw as Doc;
       if ((r.printFile as { path?: string } | undefined)?.path) { skipped.push({ id: String(r._id), passportNumber: String(r.passportNumber ?? ''), name: String(r.name ?? '') }); continue; }
-      const p = await this.withText(r).catch(() => null);
-      if (p) inputs.push(await this.input(p, opts));
+      try {
+        inputs.push(await this.input(await this.withText(r), opts));
+      } catch (e) {
+        failed.push({ id: String(r._id), passportNumber: String(r.passportNumber ?? ''), name: String(r.name ?? ''), reason: failReason(e) });
+      }
     }
     if (!inputs.length) {
       if (skipped.length) throw new BadRequestException({ message: `Все паспорта заказа — готовые файлы, отдельным файлом: № ${skipped.map((x) => x.passportNumber).join(', ')}`, skipped });
+      if (failed.length) throw new BadRequestException({ message: `Ни один паспорт заказа не собрался: ${failed.map((x) => `№ ${x.passportNumber} — ${x.reason}`).join('; ')}`, failed });
       throw new BadRequestException('По заказу нет выпущенных паспортов, которые можно напечатать');
     }
-    for (const it of items) await this.passports.markIssued((it as Doc)._id as Types.ObjectId);
-    return { skipped, buf: await renderPassportsPdfV2(inputs, `Паспорта заказа ${orderNo ?? ''}`.trim()), filename: `Паспорта_заказа_${String(orderNo ?? orderId).replace(/[\/:*?"<>|«»]/g, '').replace(/s+/g, ' ').trim()}.pdf`, count: inputs.length };
+    const bad = new Set(failed.map((x) => x.id));
+    for (const it of items) if (!bad.has(String((it as Doc)._id))) await this.passports.markIssued((it as Doc)._id as Types.ObjectId);
+    return { skipped, failed, buf: await renderPassportsPdfV2(inputs, `Паспорта заказа ${orderNo ?? ''}`.trim()), filename: `Паспорта_заказа_${String(orderNo ?? orderId).replace(/[\/:*?"<>|«»]/g, '').replace(/s+/g, ' ').trim()}.pdf`, count: inputs.length };
   }
 
   private async input(p: Doc, opts: PdfOpts) {
