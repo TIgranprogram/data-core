@@ -264,6 +264,46 @@ describe('IncomesService', () => {
     it('мусорный id → BadRequest', async () => {
       await expect(service.update('abc', {} as never)).rejects.toThrow(BadRequestException);
     });
+
+    describe('C049-1: version — защита от тихой перезаписи', () => {
+      const stale = (e: unknown) => (e as { getStatus(): number; getResponse(): { code?: string } });
+
+      it('без version — пишет как раньше, version +1', async () => {
+        current = base();
+        await service.update(String(current._id), { qty: 3 } as never);
+        const [filter, upd] = model.updateOne.mock.calls[0];
+        expect(upd.$inc).toEqual({ version: 1 });
+        expect(filter).not.toHaveProperty('version');
+        expect(filter).not.toHaveProperty('$or');
+      });
+
+      it('верная version — условие в фильтре updateOne', async () => {
+        current = { ...base(), version: 4 };
+        await service.update(String(current._id), { qty: 3, version: 4 } as never);
+        expect(model.updateOne.mock.calls[0][0]).toMatchObject({ version: 4 });
+      });
+
+      it('version 0 подходит записи без поля', async () => {
+        current = base();
+        await service.update(String(current._id), { qty: 3, version: 0 } as never);
+        expect(model.updateOne.mock.calls[0][0].$or).toEqual([{ version: 0 }, { version: { $exists: false } }]);
+      });
+
+      it('старая version — 409 STALE, база не тронута', async () => {
+        current = { ...base(), version: 5 };
+        const err = await service.update(String(current._id), { qty: 3, version: 4 } as never).catch((e) => e);
+        expect(stale(err).getStatus()).toBe(409);
+        expect(stale(err).getResponse().code).toBe('STALE');
+        expect(model.updateOne).not.toHaveBeenCalled();
+      });
+
+      it('гонка: version совпала при чтении, но запись успели изменить — 409 STALE', async () => {
+        current = { ...base(), version: 2 };
+        model.updateOne.mockReturnValue(chain({ matchedCount: 0 }));
+        const err = await service.update(String(current._id), { qty: 3, version: 2 } as never).catch((e) => e);
+        expect(stale(err).getResponse().code).toBe('STALE');
+      });
+    });
   });
 
   describe('remove / restore', () => {

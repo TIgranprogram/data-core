@@ -1,4 +1,4 @@
-import { api } from '../core/api.js';
+import { api, patchVersioned } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { modal } from '../ui/kit/dialog.js';
@@ -132,7 +132,7 @@ function serviceDialog(l) {
     onOk: async () => {
       if (!sel.value) throw new Error('Выберите услугу из справочника');
       if (!(Number(price.value) > 0)) throw new Error('Впишите цену услуги');
-      return api(`/incomes/${l.id}`, { method: 'PATCH', body: { lineType: 'service', serviceId: sel.value, unitPrice: Number(price.value) } });
+      return patchVersioned(`/incomes/${l.id}`, l, { lineType: 'service', serviceId: sel.value, unitPrice: Number(price.value) });
     },
   });
 }

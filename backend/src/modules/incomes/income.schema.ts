@@ -76,6 +76,8 @@ export class Income {
   @Prop() sheetKey?: string;
   @Prop() syncHash?: string;
   @Prop() editedInApp?: boolean;
+  /** C049-1: версия правки человеком (+1 в `update`); служебные и каскадные записи её не трогают. Нет поля = 0. */
+  @Prop() version?: number;
   /** Ключи повторов POST /incomes/:id/payments (clientUid платежа). */
   @Prop({ type: [String], default: undefined }) paymentUids?: string[];
   @Prop() source?: string;

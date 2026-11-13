@@ -159,6 +159,7 @@ async function errorOf(res) {
   if (res.status === 409 && data?.existingInvoiceId) err.data = { ...(err.data || {}), existingInvoiceId: data.existingInvoiceId, existingNo: data.existingNo, existingStatus: data.existingStatus }; // счета: дубль № — выбор в диалоге
   if (data?.code === 'REASON_REQUIRED') err.data = { ...(err.data || {}), code: 'REASON_REQUIRED' }; // ЗЯ-1: админ обходит запрет — нужна причина
   if (data?.code === 'READ_ONLY') err.readOnly = true; // SW-6: идёт переключение сервера, запись на паузе
+  if (data?.code === 'STALE') err.stale = true; // C049-1: запись уже изменил другой — перечитать
   if (Array.isArray(fields)) err.fields = fields.map((f) => (typeof f === 'string' ? { key: f } : f)); // ОШ: подсветить поля в форме
   return err;
 }
@@ -223,6 +224,25 @@ export async function api(path, opts = {}) {
   // фон (проверка версий, счётчики, настройки) полоску не показывает — она только для действий человека
   return opts.quiet || isQuietPath(path) || Date.now() < quietUntil ? p : trackLoad(p);
 }
+/**
+ * C049-1: правка записи с версией. Сервер отклонит (409, err.stale), если запись успел изменить другой.
+ * Версию своей последней удачной правки помним по id: та же открытая карточка, сохранённая второй раз,
+ * не получит ложный конфликт сама от себя. Берём большую из версии записи и запомненной.
+ * Версия неизвестна (запись пришла без поля `version`) — не шлём: прежнее поведение, без ложного 409.
+ */
+const lastVersion = new Map();
+export function noteVersion(rec) {
+  const id = rec?.id ?? rec?._id;
+  if (id != null && Number.isInteger(rec.version)) lastVersion.set(String(id), Math.max(rec.version, lastVersion.get(String(id)) ?? 0));
+  return rec;
+}
+export async function patchVersioned(path, rec, body, opts = {}) {
+  const id = String(rec?.id ?? rec?._id ?? '');
+  const known = [Number.isInteger(rec?.version) ? rec.version : null, lastVersion.get(id) ?? null].filter((v) => v !== null);
+  const send = known.length ? { ...body, version: Math.max(...known) } : body;
+  return noteVersion(await api(path, { ...opts, method: 'PATCH', body: send }));
+}
+
 /** Фоновые GET, о которых человек не просил: версии данных, счётчики колокольчика и чата, свои настройки. */
 const isQuietPath = (path) => isBackgroundPath(path) || /^\/(notifications\/unread|messages\/threads)(\/|$|\?)/.test(path);
 /** Обновление экрана из-за чужой правки (live-sync) — без полоски: человек ничего не делал. */

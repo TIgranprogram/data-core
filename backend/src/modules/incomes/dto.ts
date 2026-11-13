@@ -13,6 +13,7 @@ export class PaymentDto {
 
 /** Доход (строка заказа). Числа: null — очистить поле. Даты: ГГГГ-ММ-ДД / ДД.ММ.ГГГГ, '' — очистить. */
 export class IncomeDto {
+  @ApiPropertyOptional({ description: 'C049-1: версия записи, которую правили (`version` из GET). Не совпала — 409 `code: STALE`. Не передана — прежнее поведение.' }) @IsOptional() @IsInt() @Min(0) version?: number;
   @ApiPropertyOptional({ description: 'Заказ (salesorders) — поля шапки (№, заказчик, компания, форма оплаты, отгрузка) берутся из него; null — отвязать', nullable: true }) @IsOptional() @ValidateIf((_, v) => v !== null) @IsMongoId() orderId?: string | null;
   @ApiPropertyOptional({ description: '№ позиции в заказе (умолч. — следующий)', nullable: true }) @IsOptional() @ValidateIf((_, v) => v !== null) @IsInt() @Min(0) lineNo?: number | null;
   @ApiPropertyOptional({ description: '№ заказа' }) @IsOptional() @IsString() @Length(0, 50) orderNo?: string;

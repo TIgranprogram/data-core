@@ -19775,6 +19775,10 @@
       "IncomeDto": {
         "type": "object",
         "properties": {
+          "version": {
+            "type": "number",
+            "description": "C049-1: версия записи, которую правили (`version` из GET). Не совпала — 409 `code: STALE`. Не передана — прежнее поведение."
+          },
           "orderId": {
             "type": "object",
             "description": "Заказ (salesorders) — поля шапки (№, заказчик, компания, форма оплаты, отгрузка) берутся из него; null — отвязать",

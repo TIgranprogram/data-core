@@ -18,6 +18,7 @@ import { normText } from '../../common/text/norm-text';
 import { sameKey } from '../../common/text/same-text';
 import { ourProductLabel, productShortName, type Named } from '../../common/catalog/names';
 import { STAGE_LABELS, type OrderStage } from '../../common/text/order-key';
+import { isStale, staleError, versionFilter } from '../../common/versioned';
 import { productNameKey, shortProductName } from '../showcase/order-product-name';
 import type { IncomeDto } from './dto';
 import { LINE_CHECK_FIELDS, checkLine, type LineType } from '../../common/line-type';
@@ -98,6 +99,7 @@ export class IncomesService {
       const paidAmount = r2(pays.reduce((s, p) => s + p.amount, 0));
       return {
       ...d,
+      version: Number(d.version ?? 0), // C049-1: клиенту есть что прислать и у старых записей без поля
       payments: pays, paidAmount, debt: Math.max(0, r2((Number(d.amount) || 0) - paidAmount)),
       photos: ((d.photoIds as Types.ObjectId[] | undefined) ?? []).filter((p) => url.has(String(p))).map((p) => ({ id: String(p), url: url.get(String(p)), thumb: thumb.get(String(p)) ?? url.get(String(p)) })),
       id: String(d._id), _id: String(d._id),
@@ -351,6 +353,8 @@ export class IncomesService {
   async update(id: string, dto: IncomeDto, actor?: AuthenticatedUser, opts: { guard?: Record<string, unknown>; push?: Record<string, unknown> } = {}) {
     const cur = await this.model.findOne({ _id: oid(id, 'дохода'), deletedAt: null }).lean().exec();
     if (!cur) throw new NotFoundException('Запись дохода не найдена');
+    // C049-1: устаревшая правка — до любых проверок и побочных записей
+    if (isStale(cur as { version?: unknown }, dto.version)) throw staleError('Позицию');
     const f = await this.toFields(dto);
     // защищённые поля — только если значение реально меняется (форма шлёт и неизменённые)
     const same = (k: string) => String(f[k] ?? '') === String((cur as Record<string, unknown>)[k] ?? '');
@@ -369,7 +373,11 @@ export class IncomesService {
     const set: Record<string, unknown> = { amount, editedInApp: true }, unset: Record<string, ''> = {};
     for (const [k, v] of Object.entries(f)) (v === undefined ? (unset[k] = '') : (set[k] = v));
     if (reportDate) set.reportDate = reportDate; else unset.reportDate = '';
-    const res = await this.model.updateOne({ _id: cur._id, ...(opts.guard ?? {}) }, { $set: set, ...(Object.keys(unset).length ? { $unset: unset } : {}), ...(opts.push ? { $push: opts.push } : {}) }).exec();
+    // version — в том же фильтре (атомарно с записью); у guard платежей и версии может быть свой $or — тогда через $and
+    const g = opts.guard ?? {}, vf = versionFilter(dto.version);
+    const filter = '$or' in g && '$or' in vf ? { _id: cur._id, $and: [g, vf] } : { _id: cur._id, ...g, ...vf };
+    const res = await this.model.updateOne(filter, { $set: set, $inc: { version: 1 }, ...(Object.keys(unset).length ? { $unset: unset } : {}), ...(opts.push ? { $push: opts.push } : {}) }).exec();
+    if (!res.matchedCount && dto.version != null) throw staleError('Позицию');
     if (opts.guard && !res.matchedCount) throw new ConflictException('Оплату уже изменили, обновите карточку');
     await this.notifyNoContract(cur as Record<string, unknown>, f, actor).catch(() => undefined);
     await this.syncRequest(cur as Record<string, unknown>, f, actor?.id);

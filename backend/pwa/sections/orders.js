@@ -1,5 +1,5 @@
 import { grp, sku as kitSku, attachCombo, button, section, stack } from '../ui/kit/index.js';
-import { api, session } from '../core/api.js';
+import { api, patchVersioned, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, newUid, parseNum, qty } from '../core/format.js';
 import { go } from '../core/router.js';
@@ -52,7 +52,7 @@ export const todayMsk = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Euro
 
 /** Отметить дату отгрузки — сегодня. Оплата — не здесь: см. paymentDialog (платёж с суммой). */
 export async function markToday(r, field) {
-  const saved = await api(`/incomes/${r.id}`, { method: 'PATCH', body: { [field]: isoDay() } });
+  const saved = await patchVersioned(`/incomes/${r.id}`, r, { [field]: isoDay() });
   toast('Отгружен сегодня', {
     undo: async () => { await api(`/incomes/${r.id}`, { method: 'PATCH', body: { [field]: r[field] ? String(r[field]).slice(0, 10) : '' } }); window.dispatchEvent(new Event('data-changed')); },
   });
@@ -87,7 +87,7 @@ async function pickProduct(r) {
       sugg, field),
     onOk: async () => {
       if (!picked) throw new Error('Выберите изделие из списка');
-      const s = await api(`/incomes/${r.id}`, { method: 'PATCH', body: { productId: picked } });
+      const s = await patchVersioned(`/incomes/${r.id}`, r, { productId: picked });
       incomeLookups.reset();
       return s;
     },
@@ -115,7 +115,7 @@ export const incPrice = sideForm({
     if (!(p > 0) && !(s > 0)) throw new Error('Впишите цену или сумму больше нуля');
     return { unitPrice: p > 0 ? p : null, amountManual: s > 0 ? s : null };
   },
-  save: async (body, r) => { const saved = await api(`/incomes/${r.id}`, { method: 'PATCH', body }); toast(`Сумма: ${money(saved.amount)}${saved.shipDate ? ' — строка в платёжном календаре' : ''}`); return saved; },
+  save: async (body, r) => { const saved = await patchVersioned(`/incomes/${r.id}`, r, body); toast(`Сумма: ${money(saved.amount)}${saved.shipDate ? ' — строка в платёжном календаре' : ''}`); return saved; },
 });
 
 /** «Принять оплату» — правая панель (П3): дата (сегодня по Москве), сумма (по умолчанию = долг), способ. POST /incomes/:id/payments. */
@@ -253,7 +253,7 @@ export const orders = {
       session.canEdit && { label: r.product ? 'Сменить изделие' : 'Выбрать изделие', more: !!r.product, title: 'Связать позицию с изделием из «Продукции» — для паспорта и единого названия', primary: !r.product && !!r.orderId, run: async (row, ctx) => { const s = await pickProduct(row); if (s) ctx.setRow(s); } },
       session.canMoney && { label: r.amount ? 'Изменить сумму' : 'Вписать сумму', more: !!r.amount, primary: !r.amount, run: async (row, ctx) => { const s = await priceDialog(row); if (s) ctx.setRow(s); } },
       session.canMoney && !r.paidDate && !!r.amount && { label: 'Принять оплату', primary: !!r.shipDate, run: async (row, ctx) => { const s = await paymentDialog(row); if (s) ctx.setRow(s); } },
-      session.canMoney && (!!r.paidDate || r.paidAmount > 0) && { label: 'Отменить оплату', more: true, run: async (row, ctx) => { const s = await api(`/incomes/${row.id}`, { method: 'PATCH', body: { payments: [] } }); toast('Оплата снята'); ctx.setRow(s); } },
+      session.canMoney && (!!r.paidDate || r.paidAmount > 0) && { label: 'Отменить оплату', more: true, run: async (row, ctx) => { const s = await patchVersioned(`/incomes/${row.id}`, row, { payments: [] }); toast('Оплата снята'); ctx.setRow(s); } },
       !r.shipDate && { label: 'Отгрузить сегодня', primary: !!r.amount, run: async (row, ctx) => ctx.setRow(await markToday(row, 'shipDate')) },
       // УПР-1/Д11: «Выпустить паспорт» убрана — единственный вход в passports.js
       session.seesDocs() && r.orderId && { label: 'Паспорт →', more: true, title: 'Паспорта по заказу', run: (_row) => { go('docs', { tab: 'archive' }); } },
@@ -313,7 +313,7 @@ export const orders = {
       return v.lineType ? lineBody(body, v) : body; // тип есть только у новой позиции
     },
     create: async (body) => { if (!body.productId) delete body.productId; const r = await api('/incomes', { method: 'POST', body }); incomeLookups.reset(); return r; },
-    update: async (id, body) => { const r = await api(`/incomes/${id}`, { method: 'PATCH', body }); incomeLookups.reset(); return r; },
+    update: async (id, body, row) => { const r = await patchVersioned(`/incomes/${id}`, row ?? { id }, body); incomeLookups.reset(); return r; },
   },
 
   /** Ещё строка в тот же заказ. */

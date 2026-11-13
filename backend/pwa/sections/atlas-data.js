@@ -101,7 +101,7 @@ export const NODES = [
       { id: 'faily', t: 'Файлы ♻', l: 'PDF и DXF с версиями' },
       { id: 'sebestoimost', t: 'Себестоимость', l: 'материалы + работы по ставкам' },
     ],
-    rules: ['Общие сведения задаются в изделии. Черновик паспорта берёт их отсюда.', 'Выпущенный паспорт хранит снимок: правка изделия его не меняет.', '♻ — запись одна на весь каталог: правка меняет все изделия.'],
+    rules: ['Общие сведения задаются в изделии. Черновик паспорта берёт их отсюда.', 'Выпущенный паспорт хранит снимок: правка изделия его не меняет.', '♻ — запись одна на весь каталог: правка меняет все изделия.', 'Файлы PDM скачиваются только после входа: по прямой ссылке без входа их не открыть.'],
     docs: ['docs/PRODUCT.md — «Продукция»', 'docs/crew/C057-pdm-import/DECISIONS.md', 'docs/MAP.md — product, product-module, material'], tech: 'products, productmodules, materials, pdmfiles',
     code: ['backend/src/modules/product', 'backend/src/modules/product-module', 'backend/src/modules/material', 'backend/src/modules/pdm-files', 'backend/pwa/sections/products.js', 'backend/pwa/sections/products/', 'backend/pwa/sections/composition.js'] },
   { id: 'design', band: 'prod', col: 2, sec: 'design', t: 'Проектирование', l: ['новые изделия', 'из заказов'],
