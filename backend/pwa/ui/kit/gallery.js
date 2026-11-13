@@ -44,8 +44,10 @@ export function openZoom(pics, start = 0) { zoom(pics, start, () => {}); }
 /** Крупно на весь экран, со стрелками; синхронизирует выбранное фото с каруселью. */
 function zoom(pics, start, sync) {
   let cur = start;
-  const img = h('img', { src: PREFIX + pics[cur].url, alt: '' });
-  const go = (d) => { cur = (cur + d + pics.length) % pics.length; img.src = PREFIX + pics[cur].url; sync(cur); };
+  // адрес уже полный (http, /db/…, blob:, data:) — PREFIX второй раз не дописывать, иначе картинка не грузится (2026-11-13, «Габариты» в шаблоне паспорта)
+  const at = (u) => (/^(https?:|blob:|data:)/.test(u) || (PREFIX && u.startsWith(PREFIX + '/')) ? u : PREFIX + u);
+  const img = h('img', { src: at(pics[cur].url), alt: '' });
+  const go = (d) => { cur = (cur + d + pics.length) % pics.length; img.src = at(pics[cur].url); sync(cur); };
   const close = (e) => {
     if (e.type === 'keydown') {
       if (e.key === 'ArrowLeft' && pics.length > 1) go(-1); else if (e.key === 'ArrowRight' && pics.length > 1) go(1); else if (e.key !== 'Escape') return;
