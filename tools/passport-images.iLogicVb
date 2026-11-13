@@ -489,12 +489,20 @@ Function ReadPassportSlots(client As Global.System.Net.Http.HttpClient, path As 
 End Function
 
 Function UploadPng(client As Global.System.Net.Http.HttpClient, path As String) As String
-    Using form As New Global.System.Net.Http.MultipartFormDataContent()
-        Dim file As New Global.System.Net.Http.StreamContent(System.IO.File.OpenRead(path))
-        file.Headers.ContentType = New System.Net.Http.Headers.MediaTypeHeaderValue("image/png")
-        form.Add(file, "file", System.IO.Path.GetFileName(path))
-        Return ApiId(RequestJson(client, Global.System.Net.Http.HttpMethod.Post, "photos/upload?purpose=passport", form))
-    End Using
+    ' 503 (сайт занят: перезапуск после выкладки, режим «только чтение») — до 3 попыток с паузой 5 с (2026-11-13)
+    For attempt As Integer = 1 To 3
+        Using form As New Global.System.Net.Http.MultipartFormDataContent()
+            Dim file As New Global.System.Net.Http.ByteArrayContent(System.IO.File.ReadAllBytes(path))
+            file.Headers.ContentType = New System.Net.Http.Headers.MediaTypeHeaderValue("image/png")
+            form.Add(file, "file", System.IO.Path.GetFileName(path))
+            Try
+                Return ApiId(RequestJson(client, Global.System.Net.Http.HttpMethod.Post, "photos/upload?purpose=passport", form))
+            Catch ex As InvalidOperationException When attempt < 3 AndAlso ex.Message.Contains("HTTP 503")
+                System.Threading.Thread.Sleep(5000)
+            End Try
+        End Using
+    Next
+    Throw New InvalidOperationException("Загрузка не удалась")
 End Function
 
 Function AttachPassportImage(client As Global.System.Net.Http.HttpClient, path As String, photoId As String, kind As String) As String
@@ -510,7 +518,16 @@ Function RequestJson(client As Global.System.Net.Http.HttpClient, method As Glob
         request.Content = body
         Using response As Global.System.Net.Http.HttpResponseMessage = client.SendAsync(request).GetAwaiter().GetResult()
             If Not response.IsSuccessStatusCode Then
-                Throw New InvalidOperationException("Сайт вернул HTTP " & CInt(response.StatusCode) & " для " & method.Method & " " & path)
+                ' текст ответа сайта — в сообщение (обрезан): по нему видно, почему отказ (например, «только чтение»)
+                Dim reason As String = ""
+                Try
+                    reason = response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+                    reason = System.Text.RegularExpressions.Regex.Replace(reason, "<[^>]+>", " ").Trim()
+                    If reason.Length > 300 Then reason = reason.Substring(0, 300) & "…"
+                Catch
+                End Try
+                Throw New InvalidOperationException("Сайт вернул HTTP " & CInt(response.StatusCode) & " для " & method.Method & " " & path &
+                    If(reason <> "", vbCrLf & "Ответ сайта: " & reason, ""))
             End If
             If response.StatusCode = Global.System.Net.HttpStatusCode.NoContent Then Return Nothing
             Using json As Global.System.Text.Json.JsonDocument = Global.System.Text.Json.JsonDocument.Parse(response.Content.ReadAsStringAsync().GetAwaiter().GetResult())
