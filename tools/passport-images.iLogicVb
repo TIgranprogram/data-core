@@ -205,6 +205,33 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     installationView.IncludeSurfaceBodies = False
     drawing.Update()
 
+    ' На листе — один вид: разрез по плоскости XZ модели (план опор), подпись «А-А» без масштаба (2026-11-13).
+    ' Вид спереди нужен только как основа разреза — уводим его за правый край листа.
+    stage = "Разрез по плоскости XZ на листе «Схема установки»"
+    Dim cutY As Double = installationView.ModelToSheetSpace(tg.CreatePoint(0, 0, 0)).Y
+    Dim viewLeft As Double = installationView.Left, viewRight As Double = installationView.Left + installationView.Width
+    Dim cutSketch As Inventor.DrawingSketch = installationView.Sketches.Add()
+    cutSketch.Edit()
+    Try
+        cutSketch.SketchLines.AddByTwoPoints(
+            cutSketch.SheetToSketchSpace(tg.CreatePoint2d(viewLeft - 0.5, cutY)),
+            cutSketch.SheetToSketchSpace(tg.CreatePoint2d(viewRight + 0.5, cutY)))
+    Finally
+        cutSketch.ExitEdit()
+    End Try
+    Dim section As Inventor.SectionDrawingView = installationSheet.DrawingViews.AddSectionView(
+        installationView, cutSketch, tg.CreatePoint2d(installationSheet.Width * 0.5, installationSheet.Height * 0.5),
+        Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle, installationView.Scale, False, "А")
+    drawing.Update()
+    ' крупно и по центру: 80 % листа по ширине или высоте
+    section.ScaleFromBase = False
+    section.Scale = section.Scale * Math.Min(installationSheet.Width * 0.8 / section.Width, installationSheet.Height * 0.7 / section.Height)
+    drawing.Update()
+    section.Position = tg.CreatePoint2d(installationSheet.Width * 0.5, installationSheet.Height * 0.5)
+    installationView.Position = tg.CreatePoint2d(installationSheet.Width + installationView.Width, installationSheet.Height * 0.5)
+    drawing.Update()
+    RemoveScaleFromLabels(drawing)
+
     Dim drawingPath As String = System.IO.Path.Combine(
         folder, "Габаритные размеры" & If(drawing.IsInventorDWG, ".dwg", ".idw"))
     stage = "Сохранение чертежа: " & drawingPath
