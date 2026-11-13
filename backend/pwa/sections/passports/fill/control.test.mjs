@@ -8,6 +8,7 @@ async function fixture({ ids = ['first'], can = true, bindFail = false, postFail
   const requests = [];
   const node = (...children) => ({ children, append(...xs) { this.children.push(...xs); }, replaceChildren(...xs) { this.children = xs; refreshed++; }, closest() {}, contains() { return false; } });
   const kit = Object.fromEntries(['actions', 'button', 'enhanceSelect', 'field', 'fieldRow', 'hint', 'row', 'segmented', 'select', 'sideNote', 'textInput', 'toast'].map((name) => [name, node]));
+  kit.toastError = node;
   Object.assign(kit, { stack: node, link: (options) => options, buildForm: () => ({ el: { addEventListener() {} } }) });
   const ctx = {
     code: 'BLG', prod: { id: 'product', passportDefaults: { elements: ids, warrantyMonths: 18 } },
@@ -105,6 +106,7 @@ async function editors(prod = {}) {
   const kit = Object.fromEntries(['buildForm', 'enhanceSelect', 'field', 'fieldRow', 'link', 'row', 'segmented', 'select', 'sideNote', 'stack', 'hint'].map((key) => [key, node]));
   kit.button = (opts) => opts;
   kit.toast = (message) => notices.push(message);
+  kit.toastError = node;
   kit.textInput = (opts) => {
     const handlers = {}; const field = { value: opts.value, el: node(), input: { addEventListener: (event, fn) => { handlers[event] = fn; } }, change: () => handlers.change() };
     fields.push(field); return field;

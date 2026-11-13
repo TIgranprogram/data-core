@@ -1,7 +1,6 @@
 import { openCard } from '../../../ui/kit/card.js';
 import { api } from '../../../core/api.js';
-import { toastError } from '../../../ui/kit/toast.js';
-import { buildForm, button, enhanceSelect, field, fieldRow, hint, link, segmented, select, sideNote, stack, textInput, toast } from '../../../ui/kit/index.js';
+import { buildForm, button, enhanceSelect, field, fieldRow, hint, link, segmented, select, sideNote, stack, textInput, toast, toastError } from '../../../ui/kit/index.js';
 import { V2_NUMS, canEdit as canEditTexts } from '../common.js';
 import { patchProduct, putDefaults, setFacets } from '../funnel/api.js';
 import { jointsPick } from '../traits.js';
