@@ -1,0 +1,112 @@
+' ТЕСТ (2026-11-13): лист «Схема установки» — один вид, разрез по плоскости XZ, габариты, подпись «А-А» без масштаба.
+' Запуск: откройте сохранённую сборку или деталь → iLogic → внешнее правило из этого файла.
+' Создаёт НОВЫЙ чертёж (ничего не сохраняет) и в конце показывает журнал шагов. Сработает — переносим в «Картинки для паспорта».
+Sub Main()
+    Dim app As Inventor.Application = ThisApplication
+    Dim model As Inventor.Document = app.ActiveDocument
+    Dim log As New System.Text.StringBuilder()
+    Dim stage As String = "Начало"
+    Try
+        If model Is Nothing OrElse (model.DocumentType <> Inventor.DocumentTypeEnum.kAssemblyDocumentObject AndAlso
+                                    model.DocumentType <> Inventor.DocumentTypeEnum.kPartDocumentObject) Then
+            MessageBox.Show("Откройте сборку или деталь.", "Тест разреза") : Return
+        End If
+        Dim tg As Inventor.TransientGeometry = app.TransientGeometry
+
+        stage = "1. Новый чертёж"
+        Dim template As String = app.FileManager.GetTemplateFile(Inventor.DocumentTypeEnum.kDrawingDocumentObject,
+            Inventor.SystemOfMeasureEnum.kMetricSystemOfMeasure, Inventor.DraftingStandardEnum.kGOST_DraftingStandard)
+        Dim drawing As Inventor.DrawingDocument = CType(app.Documents.Add(Inventor.DocumentTypeEnum.kDrawingDocumentObject, template, True), Inventor.DrawingDocument)
+        Dim sheet As Inventor.Sheet = drawing.Sheets.Item(1)
+        sheet.Size = Inventor.DrawingSheetSizeEnum.kA4DrawingSheetSize
+        sheet.Orientation = Inventor.PageOrientationTypeEnum.kLandscapePageOrientation
+        If sheet.TitleBlock IsNot Nothing Then sheet.TitleBlock.Delete()
+        If sheet.Border IsNot Nothing Then sheet.Border.Delete()
+        log.AppendLine(stage & ": ок, лист " & Math.Round(sheet.Width, 1) & " × " & Math.Round(sheet.Height, 1) & " см")
+
+        stage = "2. Вид спереди (основа разреза)"
+        Dim front As Inventor.DrawingView = sheet.DrawingViews.AddBaseView(model, tg.CreatePoint2d(sheet.Width * 0.3, sheet.Height * 0.6), 1,
+            Inventor.ViewOrientationTypeEnum.kFrontViewOrientation, Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle)
+        drawing.Update()
+        front.Scale = front.Scale * Math.Min(sheet.Width * 0.4 / front.Width, sheet.Height * 0.6 / front.Height)
+        drawing.Update()
+        log.AppendLine(stage & ": ок, масштаб " & Math.Round(front.Scale, 4) & ", " & Math.Round(front.Width, 1) & " × " & Math.Round(front.Height, 1) & " см")
+
+        stage = "3. Высота плоскости XZ на виде спереди"
+        Dim origin As Inventor.Point2d = front.ModelToSheetSpace(tg.CreatePoint(0, 0, 0))
+        Dim cutY As Double = origin.Y
+        Dim bottom As Double = front.Top - front.Height
+        log.AppendLine(stage & ": Y = " & Math.Round(cutY, 2) & " см (вид: низ " & Math.Round(bottom, 2) & ", верх " & Math.Round(front.Top, 2) & ")")
+        If cutY < bottom OrElse cutY > front.Top Then
+            ' начало координат вне изделия — режем на 10 % высоты от низа, чтобы попасть в опоры
+            cutY = bottom + front.Height * 0.1
+            log.AppendLine("   плоскость XZ вне вида — режу на 10 % высоты от низа: Y = " & Math.Round(cutY, 2))
+        End If
+
+        stage = "4. Линия разреза (эскиз на виде)"
+        Dim sk As Inventor.DrawingSketch = front.Sketches.Add()
+        sk.Edit()
+        Try
+            sk.SketchLines.AddByTwoPoints(sk.SheetToSketchSpace(tg.CreatePoint2d(front.Left - 0.5, cutY)),
+                                         sk.SheetToSketchSpace(tg.CreatePoint2d(front.Left + front.Width + 0.5, cutY)))
+        Finally
+            sk.ExitEdit()
+        End Try
+        log.AppendLine(stage & ": ок")
+
+        stage = "5. Разрез А-А"
+        Dim section As Inventor.SectionDrawingView = sheet.DrawingViews.AddSectionView(front, sk,
+            tg.CreatePoint2d(sheet.Width * 0.7, sheet.Height * 0.5), Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle,
+            Scale:=front.Scale, Projected:=False, Label:="А")
+        drawing.Update()
+        log.AppendLine(stage & ": ок, " & Math.Round(section.Width, 1) & " × " & Math.Round(section.Height, 1) & " см, видов на листе " & sheet.DrawingViews.Count)
+
+        stage = "6. Крупно и по центру"
+        section.ScaleFromBase = False
+        section.Scale = section.Scale * Math.Min(sheet.Width * 0.75 / section.Width, sheet.Height * 0.65 / section.Height)
+        drawing.Update()
+        section.Position = tg.CreatePoint2d(sheet.Width * 0.5, sheet.Height * 0.5)
+        front.Position = tg.CreatePoint2d(sheet.Width + front.Width, sheet.Height * 0.5)
+        drawing.Update()
+        log.AppendLine(stage & ": ок, масштаб разреза " & Math.Round(section.Scale, 4))
+
+        stage = "7. Подпись без масштаба"
+        If section.ShowLabel Then
+            Dim t As String = section.Label.FormattedText
+            Dim s As String = System.Text.RegularExpressions.Regex.Replace(t, "\s*\(\s*<DrawingViewScale[^>]*/>\s*\)", "")
+            s = System.Text.RegularExpressions.Regex.Replace(s, "\s*<DrawingViewScale[^>]*/>", "")
+            section.Label.FormattedText = s
+            log.AppendLine(stage & ": было «" & t & "» → стало «" & s & "»")
+        Else
+            log.AppendLine(stage & ": подпись выключена")
+        End If
+
+        stage = "8. Габариты по разрезу"
+        Dim l As Double = section.Left, r As Double = section.Left + section.Width
+        Dim tp As Double = section.Top, bt As Double = section.Top - section.Height
+        Dim dy As Double = bt - 0.8, dx As Double = r + 0.9
+        Dim dims As Inventor.DrawingSketch = sheet.Sketches.Add()
+        dims.Edit()
+        Try
+            Line(dims, tg, l, bt, l, dy - 0.15) : Line(dims, tg, r, bt, r, dy - 0.15) : Line(dims, tg, l, dy, r, dy)
+            Line(dims, tg, r, tp, dx + 0.15, tp) : Line(dims, tg, r, bt, dx + 0.15, bt) : Line(dims, tg, dx, bt, dx, tp)
+        Finally
+            dims.ExitEdit()
+        End Try
+        Dim notes As Inventor.GeneralNotes = sheet.DrawingNotes.GeneralNotes
+        notes.AddFitted(tg.CreatePoint2d((l + r) / 2 - 0.5, dy + 0.6), Math.Round(section.Width / section.Scale * 10).ToString())
+        notes.AddFitted(tg.CreatePoint2d(dx + 0.3, (tp + bt) / 2 + 0.2), Math.Round(section.Height / section.Scale * 10).ToString())
+        drawing.Update()
+        log.AppendLine(stage & ": ок, " & Math.Round(section.Width / section.Scale * 10) & " × " & Math.Round(section.Height / section.Scale * 10) & " мм")
+
+        sheet.Activate()
+        app.ActiveView.Fit()
+        MessageBox.Show("ГОТОВО" & vbCrLf & vbCrLf & log.ToString(), "Тест разреза")
+    Catch ex As Exception
+        MessageBox.Show("ОШИБКА на шаге: " & stage & vbCrLf & ex.Message & vbCrLf & vbCrLf & "Журнал:" & vbCrLf & log.ToString(), "Тест разреза")
+    End Try
+End Sub
+
+Sub Line(sk As Inventor.DrawingSketch, tg As Inventor.TransientGeometry, x1 As Double, y1 As Double, x2 As Double, y2 As Double)
+    sk.SketchLines.AddByTwoPoints(tg.CreatePoint2d(x1, y1), tg.CreatePoint2d(x2, y2))
+End Sub
