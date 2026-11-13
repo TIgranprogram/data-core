@@ -345,7 +345,7 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     If MessageBox.Show("Загрузить рисунки на сайт (общий вид, габариты, схема установки)?", "Картинки для паспорта",
                        MessageBoxButtons.YesNo, MessageBoxIcon.Question,
                        MessageBoxDefaultButton.Button2) = DialogResult.Yes Then
-        Dim productId As String = UploadPassportImages(model, folder, dimensions, stage)
+        Dim productId As String = UploadPassportImages(model, folder, dimensions, depthMm, stage)
         If productId <> "" Then
             stage = "Открытие шаблона паспорта на сайте"
             Dim templateUrl As String = "https://kppdf-crm.ru/db/app/#docs?tab=templates&of=doctpl&open=" & productId
@@ -395,7 +395,7 @@ Sub HideVisible(visible As Boolean, setVisible As Action(Of Boolean),
 End Sub
 
 Function UploadPassportImages(model As Inventor.Document, folder As String,
-                              dimensions As Double(), ByRef stage As String) As String
+                              dimensions As Double(), depthMm As Double, ByRef stage As String) As String
     Dim fileName As String = System.IO.Path.GetFileNameWithoutExtension(model.FullFileName)
     Dim proposal As String = System.Text.RegularExpressions.Regex.Match(fileName, "^\d+(?=\.)").Value
     If proposal = "" Then proposal = fileName
@@ -443,7 +443,8 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
             If MessageBox.Show("Артикул: " & sku & vbCrLf & "Изделие: " & productName & vbCrLf &
                                "Записать в карточку изделия размеры Д × Ш × В: " & FormatMm(dimensions(0)) & " × " &
                                FormatMm(dimensions(1)) & " × " & FormatMm(dimensions(2)) &
-                               " мм" & vbCrLf & "и загрузить три рисунка: общий вид, габариты, схему установки (без надписей — строку размеров печатает паспорт)?",
+                               " мм" & vbCrLf & "Глубина Г: " & FormatMm(depthMm) & " мм" & vbCrLf &
+                               "Сохранить размеры и загрузить общий вид, габариты и схему установки?",
                                "Подтвердите изделие", MessageBoxButtons.YesNo, MessageBoxIcon.Question,
                                MessageBoxDefaultButton.Button2) <> DialogResult.Yes Then Return ""
 
@@ -482,11 +483,11 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
                 newLinks.Add(AttachPassportImage(client, photosPath, dimensionsId, "dimensions"))
                 stage = "Привязка схемы установки опор"
                 newLinks.Add(AttachPassportImage(client, photosPath, foundationId, "foundation"))
-                stage = "Запись длины, ширины и высоты в карточку изделия"
+                stage = "Запись габаритов и глубины Г в карточку изделия"
                 Dim json As String = Global.System.Text.Json.JsonSerializer.Serialize(
                     New With {.dimensions = New With {
                         .length = dimensions(0), .width = dimensions(1),
-                        .height = dimensions(2), .unit = "мм"}})
+                        .height = dimensions(2), .unit = "мм"}, .foundationDepth = depthMm})
                 Using body As New Global.System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json")
                     RequestJson(client, New Global.System.Net.Http.HttpMethod("PATCH"), "showcase/" & productId, body)
                 End Using

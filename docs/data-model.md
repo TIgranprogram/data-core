@@ -827,6 +827,7 @@ Write-paths, которые должны быть all-or-nothing, использ
 | `textSnapshot` | `object` | собранный текст на момент выдачи (разделы, описание, правила, ТО, монтаж, нормативы; правленые пункты — `edited`, `original`) |
 | `note` | `string` | лист «Для заметок» (и v1) |
 | `images[].kind` | += `overview_callouts`, `nameplate`, `safety_zone`, `foundation`, `holes`, `assembly`, `bom_item`; `images[].refCode` | |
+| `foundationDepth` | Глубина Г от линии земли до низа опоры, мм | Берётся из `products.passportDefaults.foundationDepth`. iLogic записывает её вместе с габаритами через PATCH изделия. Под схемой печатается только положительное значение. |
 | `bom[]` | += `size`, `mass`, `photoId` | |
 
 Связанное: `productpassports.textChoices` и `products.passportDefaults.textChoices` ({id раздела: id конечного варианта} — выбор воронки по дереву `dict_values` dict `passportPhrases`: `parentId`, `section`, `text`, `categories`, `allCategories`, `order`, `required`, `isDefault`, `installTypeId`, `slot`, `funnelV`), `products.passportDefaults` (значения по умолчанию у изделия каталога), `passporttemplates.category` (версия текста категории), справочники `dict_values` группы «Паспорта» (`passportCategories`, `passportStandards`, `passportElements`, `passportMaterials`, `passportDefects` (+`photoId`), `passportInstall`, `passportStyle`).

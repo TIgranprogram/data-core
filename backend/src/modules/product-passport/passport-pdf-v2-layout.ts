@@ -68,6 +68,11 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
     const dims = `Габаритные размеры (Д × Ш × В): ${num(p.length)} × ${num(p.width)} × ${num(p.height)} мм`;
     for (const f of [...[...figs.inline.values()].flat(), ...figs.appendices.flatMap((a) => a.figs)]) if (f.kind === 'dimensions') f.caption = `${dims}\n${f.caption}`;
   }
+  // Глубина заложения под схемой установки — из поля изделия (iLogic «Схема установки», 2026-11-13)
+  if (has(p.foundationDepth) && Number(p.foundationDepth) > 0) {
+    const depth = `Глубина Г = ${num(p.foundationDepth)} мм`;
+    for (const f of [...[...figs.inline.values()].flat(), ...figs.appendices.flatMap((a) => a.figs)]) if (f.kind === 'foundation') f.caption = `${depth}\n${f.caption}`;
+  }
   const R = (s: string) => substituteRefs(s, figs.fig, tab);
 
   const body: V2Page[] = [];

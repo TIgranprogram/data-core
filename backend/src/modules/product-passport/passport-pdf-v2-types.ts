@@ -8,7 +8,7 @@ export interface PdfPassportV2 extends PdfPassport {
   seatWidth?: number; seatHeight?: number; supports?: number; shipVolume?: number;
   passportCategory?: string;
   ageFrom?: number | null; ageTo?: number | null; heightMin?: number | null; heightMax?: number | null;
-  weightMax?: number | null; maxUsers?: number | null; fallHeight?: number | null; serviceLifeYears?: number | null;
+  weightMax?: number | null; maxUsers?: number | null; foundationDepth?: number | null; fallHeight?: number | null; serviceLifeYears?: number | null;
   certificate?: { number?: string; until?: string; hasEac?: boolean } | null;
 }
 /** Снимок текста (V2Text) — терпимо к неполным старым снимкам. */

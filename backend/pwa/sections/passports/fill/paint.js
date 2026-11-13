@@ -44,19 +44,21 @@ export function appliesOf(applicable, spec) {
   if (spec.key === 'isKit') return applicable.kit || 'optional';
   if (spec.key === 'kind') return 'optional';
   if (spec.key === 'joints') return 'optional';
+  if (spec.key === 'foundationDepth') return 'optional'; // глубина Г — для любого типа, необязательна (пишет iLogic)
   if (spec.num) return applicable.fields?.[spec.key] || 'na';
   return 'required';
 }
 
 function scalars(ctx) {
   const numAt = (key, label, unit) => ({
-    key, section: key === 'maxUsers' ? 'general' : 'ops', label, ask: 'template', unit, num: true,
+    key, section: key === 'maxUsers' ? 'general' : key === 'foundationDepth' ? 'install' : 'ops', label, ask: 'template', unit, num: true,
     text: opText(ctx.prod, key, unit),
     editor: (gap) => numEditor(ctx, key, unit ? `${label}, ${unit}` : label, gap?.default),
   });
   return [
     { key: 'kind', section: 'purpose', label: 'Вид изделия', ask: 'both', text: ctx.kind?.name || '', note: kindNote(ctx), editor: (gap) => kindEditor(ctx, gap) },
     numAt('maxUsers', 'Пользователей одновременно', ''),
+    numAt('foundationDepth', 'Глубина Г (от земли до низа опоры)', 'мм'),
     { key: 'elements', section: 'purpose', label: 'Что это за изделие', ask: 'both', text: elText(ctx.prod, ctx.elNames) || kindElText(ctx), note: kindElNote(ctx), editor: (gap) => elementsEditor(ctx, gap) },
     { key: 'height', section: 'dims', label: 'Габариты', ask: 'template', text: dimText(ctx.prod), editor: () => dimsEditor(ctx) },
     { key: 'weight', section: 'dims', label: 'Вес', ask: 'template', text: ctx.prod.weightKg ? `${ctx.prod.weightKg} кг` : '', editor: () => weightEditor(ctx) },

@@ -230,6 +230,8 @@ export class ProductPassport {
   @Prop() heightMax?: number;
   @Prop() weightMax?: number;
   @Prop() maxUsers?: number;
+  /** Глубина заложения Г, мм: от земли до низа опоры (схема установки; пишет iLogic). Печатается под схемой. */
+  @Prop() foundationDepth?: number;
   @Prop() fallHeight?: number;
   @Prop() siteLength?: number;
   @Prop() siteWidth?: number;

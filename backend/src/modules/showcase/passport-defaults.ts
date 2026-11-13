@@ -9,7 +9,7 @@ import { parseJoints, WhenError } from '../../common/passport/traits';
  * (коллекция общая с kppdf). «Выпустить паспорт» подставляет их в новый паспорт; запасной путь — последний паспорт модели.
  */
 export const PASSPORT_CATEGORY_CODES = ['DIO', 'DSP', 'TRN', 'WRK', 'BLG'] as const;
-const NUMS = ['ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth', 'serviceLifeYears', 'warrantyMonths'] as const;
+const NUMS = ['ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth', 'serviceLifeYears', 'warrantyMonths', 'foundationDepth'] as const; // foundationDepth — глубина Г, мм (iLogic «Схема установки», 2026-11-13)
 
 export interface PassportDefaults {
   passportCategory?: string;

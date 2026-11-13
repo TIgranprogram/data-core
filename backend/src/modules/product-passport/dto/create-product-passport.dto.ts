@@ -65,6 +65,7 @@ export class CreateProductPassportDto {
   @IsOptional() @IsNumber() @Min(0) heightMax?: number;
   @IsOptional() @IsNumber() @Min(0) weightMax?: number;
   @IsOptional() @IsNumber() @Min(0) maxUsers?: number;
+  @IsOptional() @IsNumber() @Min(0) foundationDepth?: number;
   @IsOptional() @IsNumber() @Min(0) fallHeight?: number;
   @IsOptional() @IsNumber() @Min(0) siteLength?: number;
   @IsOptional() @IsNumber() @Min(0) siteWidth?: number;

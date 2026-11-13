@@ -471,6 +471,13 @@ export class ShowcaseService {
   async update(id: string, dto: Record<string, unknown>) {
     const _id = oid(id, 'изделия');
     const set = await this.fields(dto, dto.series !== undefined ? (await this.db.collection('products').findOne({ _id }, { projection: { series: 1 } }))?.series : undefined); // серия, которая у изделия уже есть, не перепроверяется
+    if (dto.foundationDepth !== undefined) {
+      const depth = dto.foundationDepth;
+      if (typeof depth !== 'number' || !Number.isFinite(depth) || depth < 0) {
+        throw new BadRequestException('Укажите глубину Г в миллиметрах, не меньше нуля');
+      }
+      set['passportDefaults.foundationDepth'] = depth;
+    }
     // 2026-11-10: пустой артикул в правке — как в создании (подсказка формы обещает «присвоен автоматически»):
     // у изделия артикул уже есть — не трогаем; нет — следующий по номеру группы; у группы нет номера — понятная ошибка
     if (dto.sku !== undefined && !clean(dto.sku)) {
