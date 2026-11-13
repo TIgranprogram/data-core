@@ -311,6 +311,7 @@ export const ADVICE = [
 
 // Скрипты без кнопки: ИИ / внутренние / убраны из пульта администратора.
 export const NOT_ON_BUTTONS = {
+  'tools/starozhil/passport-texts-facts.mjs': 'раскладка текстов паспорта по строкам для нарядов 006–007 Старожила (prepare в наряде), не человек',
   'tools/starozhil/dead-files.mjs': 'поиск файлов без ссылок для наряда Старожила (prepare), не человек',
   'tools/starozhil/module-facts.mjs': 'подготовка фактов о модулях для наряда Старожила (prepare в наряде), не человек',
   'tools/starozhil/tasks-facts.mjs': 'подготовка фактов для наряда Старожила: запускает исполнитель нарядов (prepare в наряде), не человек',
