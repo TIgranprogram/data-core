@@ -193,77 +193,110 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     Dim dimensions As Double() = AddDimensions(sheet, front, top, tg)
     drawing.Update()
 
+    ' «Схема установки» (2026-11-13, проверено тестом tools/passport-section-test.iLogicVb на 3211): лист книжный;
+    ' сверху вид спереди с линией земли (плоскость XZ модели) и размером «Г» от земли до низа опоры у левой опоры;
+    ' снизу разрез А-А по линии земли — взгляд сверху на опоры, с габаритами; подпись «А-А» под размером.
     stage = "Создание листа «Схема установки»"
     Dim installationSheet As Inventor.Sheet = drawing.Sheets.Add(
         Inventor.DrawingSheetSizeEnum.kA4DrawingSheetSize,
-        Inventor.PageOrientationTypeEnum.kLandscapePageOrientation, "Схема установки")
+        Inventor.PageOrientationTypeEnum.kPortraitPageOrientation, "Схема установки")
     If installationSheet.TitleBlock IsNot Nothing Then installationSheet.TitleBlock.Delete()
     If installationSheet.Border IsNot Nothing Then installationSheet.Border.Delete()
     ClearTemplateGraphics(installationSheet)
+    Dim sW As Double = installationSheet.Width, sH As Double = installationSheet.Height
     Dim installationView As Inventor.DrawingView = installationSheet.DrawingViews.AddBaseView(
-        model, tg.CreatePoint2d(installationSheet.Width * 0.5, installationSheet.Height * 0.3),
-        front.Scale, frontOrientation,
+        model, tg.CreatePoint2d(sW * 0.5, sH * 0.7), 1, frontOrientation,
         Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle, AdditionalOptions:=viewOptions)
     installationView.IncludeSurfaceBodies = False
     drawing.Update()
+    installationView.Scale = installationView.Scale * Math.Min(sW * 0.6 / installationView.Width, sH * 0.36 / installationView.Height)
+    drawing.Update()
+    installationView.Position = tg.CreatePoint2d(sW * 0.5, sH * 0.7)
+    drawing.Update()
+    Dim fLeft As Double = installationView.Left, fRight As Double = installationView.Left + installationView.Width
+    Dim fTop As Double = installationView.Top, fBottom As Double = installationView.Top - installationView.Height
 
-    ' На листе — один вид: разрез по плоскости XZ модели, взгляд сверху на землю (план опор), подпись «А-А» (2026-11-13,
-    ' проверено тестом tools/passport-section-test.iLogicVb на 3211). Вид спереди — только основа разреза, уходит под лист.
-    stage = "Разрез по плоскости XZ на листе «Схема установки»"
-    Dim cutY As Double = installationView.ModelToSheetSpace(tg.CreatePoint(0, 0, 0)).Y
-    Dim viewBottom As Double = installationView.Top - installationView.Height
-    ' начало координат вне изделия — режем на 10 % высоты от низа, чтобы попасть в опоры
-    If cutY < viewBottom OrElse cutY > installationView.Top Then cutY = viewBottom + installationView.Height * 0.1
-    Dim viewLeft As Double = installationView.Left, viewRight As Double = installationView.Left + installationView.Width
+    stage = "Линия земли (плоскость XZ) и глубина Г"
+    Dim groundY As Double = installationView.ModelToSheetSpace(tg.CreatePoint(0, 0, 0)).Y
+    ' глубина заложения: от земли до низа изделия, мм (0 — не заглублено); пойдёт в паспорт «Глубина Г = … мм»
+    Dim depthMm As Double = Math.Max(0, Math.Round((groundY - fBottom) / installationView.Scale * 10))
+
+    stage = "Линия разреза по земле"
     Dim cutSketch As Inventor.DrawingSketch = installationView.Sketches.Add()
     cutSketch.Edit()
     Try
-        cutSketch.SketchLines.AddByTwoPoints(
-            cutSketch.SheetToSketchSpace(tg.CreatePoint2d(viewLeft - 0.5, cutY)),
-            cutSketch.SheetToSketchSpace(tg.CreatePoint2d(viewRight + 0.5, cutY)))
+        cutSketch.SketchLines.AddByTwoPoints(cutSketch.SheetToSketchSpace(tg.CreatePoint2d(fLeft - 0.5, groundY)),
+                                            cutSketch.SheetToSketchSpace(tg.CreatePoint2d(fRight + 0.5, groundY)))
     Finally
         cutSketch.ExitEdit()
     End Try
-    ' направление взгляда задаёт место разреза: ВЫШЕ линии разреза — смотрим сверху вниз, на землю
-    Dim section As Inventor.SectionDrawingView = installationSheet.DrawingViews.AddSectionView(
-        installationView, cutSketch, tg.CreatePoint2d(installationSheet.Width * 0.5, Math.Max(installationView.Top + 3, installationSheet.Height * 0.8)),
-        Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle, Scale:=installationView.Scale, ShowLabel:=True, Name:="А")
-    drawing.Update()
-    ' крупно и по центру. Разрез привязан к основе по вертикали (снять привязку в API 2027 нельзя): X общий, Y свободен —
-    ' основа по центру листа по X и под листом, разрез — в центр листа
-    section.ScaleFromBase = False
-    section.Scale = section.Scale * Math.Min(installationSheet.Width * 0.75 / section.Width, installationSheet.Height * 0.65 / section.Height)
-    drawing.Update()
-    installationView.Position = tg.CreatePoint2d(installationSheet.Width * 0.5, -installationView.Height)
-    drawing.Update()
-    section.Position = tg.CreatePoint2d(installationSheet.Width * 0.5, installationSheet.Height * 0.5)
-    drawing.Update()
-    ' подписи нет: «А-А» без вида спереди непонятно, разрез чего (пользователь 2026-11-13); в паспорте подпись — «Схема установки опор»
-    section.ShowLabel = False
 
-    ' Габариты по разрезу: длина — под планом, ширина — справа; числа в мм по размеру разреза и его масштабу (2026-11-13)
+    stage = "Разрез А-А"
+    ' направление взгляда задаёт место разреза при создании: ВЫШЕ линии — смотрит вниз, на землю
+    Dim section As Inventor.SectionDrawingView = installationSheet.DrawingViews.AddSectionView(installationView, cutSketch,
+        tg.CreatePoint2d(sW * 0.5, fTop + 4), Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle,
+        Scale:=installationView.Scale, ShowLabel:=True, Name:="А")
+    drawing.Update()
+    ' пока масштаб и X общие — края разреза = крайние опоры на виде спереди
+    Dim postsLeft As Double = section.Left
+
+    stage = "Линия земли, штриховка, размер Г"
+    Dim gl As Double = fLeft - 0.8, gr As Double = fRight + 0.8
+    Dim gDimX As Double = postsLeft - 0.9
+    Dim groundSketch As Inventor.DrawingSketch = installationSheet.Sketches.Add()
+    groundSketch.Edit()
+    Try
+        AddLine(groundSketch, tg, gl, groundY, gr, groundY)
+        Dim hx As Double = gl
+        While hx < gr - 0.3
+            AddLine(groundSketch, tg, hx, groundY, hx + 0.3, groundY - 0.3)
+            hx += 0.5
+        End While
+        If depthMm > 0 Then
+            AddLine(groundSketch, tg, postsLeft, fBottom, gDimX - 0.2, fBottom)
+            AddArrowLine(groundSketch, tg, gDimX, fBottom, gDimX, groundY)
+        End If
+    Finally
+        groundSketch.ExitEdit()
+    End Try
+    Dim cutNotes As Inventor.GeneralNotes = installationSheet.DrawingNotes.GeneralNotes
+    If depthMm > 0 Then SchemeNote(cutNotes, tg, gDimX - 0.75, (fBottom + groundY) / 2 + 0.3, "Г", 0.5)
+
+    stage = "Разрез крупнее, под видом спереди"
+    section.ScaleFromBase = False
+    section.Scale = section.Scale * Math.Min(sW * 0.6 / section.Width, sH * 0.2 / section.Height)
+    drawing.Update()
+    section.Position = tg.CreatePoint2d(sW * 0.5, Math.Max(fBottom - 2.5 - section.Height / 2, section.Height / 2 + 3))
+    drawing.Update()
+    section.Label.FormattedText = "<DrawingViewName/>-<DrawingViewName/>"
+
     stage = "Габариты по разрезу"
     Dim secLeft As Double = section.Left, secRight As Double = section.Left + section.Width
     Dim secTop As Double = section.Top, secBottom As Double = section.Top - section.Height
-    Dim cutLengthMm As Double = section.Width / section.Scale * 10
-    Dim cutWidthMm As Double = section.Height / section.Scale * 10
-    Dim dimY As Double = secBottom - 0.8, dimX As Double = secRight + 0.9
+    Dim dimY As Double = secBottom - 0.9, dimX As Double = secRight + 0.9
     Dim cutDims As Inventor.DrawingSketch = installationSheet.Sketches.Add()
     cutDims.Edit()
     Try
-        AddLine(cutDims, tg, secLeft, secBottom, secLeft, dimY - 0.15)
-        AddLine(cutDims, tg, secRight, secBottom, secRight, dimY - 0.15)
+        AddLine(cutDims, tg, secLeft, secBottom, secLeft, dimY - 0.2)
+        AddLine(cutDims, tg, secRight, secBottom, secRight, dimY - 0.2)
         AddArrowLine(cutDims, tg, secLeft, dimY, secRight, dimY)
-        AddLine(cutDims, tg, secRight, secTop, dimX + 0.15, secTop)
-        AddLine(cutDims, tg, secRight, secBottom, dimX + 0.15, secBottom)
+        AddLine(cutDims, tg, secRight, secTop, dimX + 0.2, secTop)
+        AddLine(cutDims, tg, secRight, secBottom, dimX + 0.2, secBottom)
         AddArrowLine(cutDims, tg, dimX, secBottom, dimX, secTop)
     Finally
         cutDims.ExitEdit()
     End Try
-    Dim cutNotes As Inventor.GeneralNotes = installationSheet.DrawingNotes.GeneralNotes
-    AddLabel(cutNotes, tg, (secLeft + secRight) / 2, dimY + 0.4, FormatMm(cutLengthMm))
-    AddLabel(cutNotes, tg, dimX + 0.6, (secTop + secBottom) / 2, FormatMm(cutWidthMm))
+    SchemeNote(cutNotes, tg, (secLeft + secRight) / 2 - 0.5, dimY + 0.65, FormatMm(section.Width / section.Scale * 10), 0.35)
+    SchemeNote(cutNotes, tg, dimX + 0.3, (secTop + secBottom) / 2 + 0.25, FormatMm(section.Height / section.Scale * 10), 0.35)
+    Dim labelY As Double = dimY - 1.0
+    Try
+        section.Label.Position = tg.CreatePoint2d((secLeft + secRight) / 2, labelY)
+    Catch
+    End Try
     drawing.Update()
+    ' рамка рисунка: вся схема — земля, «Г», вид спереди, разрез, габариты и подпись
+    Dim schemeLeft As Double = Math.Min(gl, gDimX - 1.3) - 0.4, schemeRight As Double = Math.Max(gr, dimX + 1.6) + 0.4
+    Dim schemeTop As Double = fTop + 0.5, schemeBottom As Double = labelY - 0.8
 
     Dim drawingPath As String = System.IO.Path.Combine(
         folder, "Габаритные размеры" & If(drawing.IsInventorDWG, ".dwg", ".idw"))
@@ -297,9 +330,8 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     drawing.SelectSet.Clear()
     Dim schemeView As Inventor.View = app.ActiveView
     schemeView.Fit()
-    ' рамка: разрез + линии габаритов справа и снизу (подписи вида нет)
-    Dim sBoxLeft As Double = secLeft - 0.5, sBoxRight As Double = dimX + 1.8
-    Dim sBoxTop As Double = secTop + 0.5, sBoxBottom As Double = dimY - 0.6
+    Dim sBoxLeft As Double = schemeLeft, sBoxRight As Double = schemeRight
+    Dim sBoxTop As Double = schemeTop, sBoxBottom As Double = schemeBottom
     Dim sCam As Inventor.Camera = schemeView.Camera
     sCam.Target = tg.CreatePoint((sBoxLeft + sBoxRight) / 2, (sBoxTop + sBoxBottom) / 2, 0)
     sCam.Eye = tg.CreatePoint((sBoxLeft + sBoxRight) / 2, (sBoxTop + sBoxBottom) / 2, 10)
@@ -310,7 +342,7 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
         Math.Max(200, CInt(2400.0 * (sBoxTop - sBoxBottom) / (sBoxRight - sBoxLeft))), TransparentPngOptions(app))
 
     stage = "Загрузка рисунков на сайт"
-    If MessageBox.Show("Загрузить оба рисунка на сайт?", "Картинки для паспорта",
+    If MessageBox.Show("Загрузить рисунки на сайт (общий вид, габариты, схема установки)?", "Картинки для паспорта",
                        MessageBoxButtons.YesNo, MessageBoxIcon.Question,
                        MessageBoxDefaultButton.Button2) = DialogResult.Yes Then
         Dim productId As String = UploadPassportImages(model, folder, dimensions, stage)
@@ -594,6 +626,15 @@ Function AddDimensions(sheet As Inventor.Sheet, front As Inventor.DrawingView,
     ' Строку «Габаритные размеры (Д × Ш × В): …» на рисунке не пишем: её печатает паспорт из размеров изделия (2026-11-13)
     Return New Double() {RoundMm(lengthMm), RoundMm(widthMm), RoundMm(heightMm)}
 End Function
+
+' Надпись схемы установки: обычный текст, затем размер шрифта в см (StyleOverride); не принял — остаётся обычной
+Sub SchemeNote(notes As Inventor.GeneralNotes, tg As Inventor.TransientGeometry, x As Double, y As Double, text As String, sizeCm As Double)
+    Dim n As Inventor.GeneralNote = notes.AddFitted(tg.CreatePoint2d(x, y), text)
+    Try
+        n.FormattedText = "<StyleOverride FontSize='" & sizeCm.ToString(System.Globalization.CultureInfo.InvariantCulture) & "'>" & text & "</StyleOverride>"
+    Catch
+    End Try
+End Sub
 
 Sub AddLine(sketch As Inventor.DrawingSketch, tg As Inventor.TransientGeometry,
             x1 As Double, y1 As Double, x2 As Double, y2 As Double)
