@@ -27,7 +27,7 @@ import { textsTree } from './passport-texts-tree';
 import { ALL_V2, AFTER_PRINT_FIELDS, DRAFT_PREFIX, MODEL_FIELDS, NUMBER_FIELDS, OID_FIELDS, isIssued, type Doc } from './passport-consts';
 import { PassportBulk } from './passport-bulk';
 import { productFunnel } from './passport-funnel';
-import { productGaps } from './passport-gaps';
+import { DEFAULT_INSTALL, productGaps } from './passport-gaps';
 import { unreadableRequiredImages } from './passport-image-files';
 import { facetPhrases, groupChain } from './passport-facet-phrases';
 import { diffPatch, followsProduct, productCategories, productPatch } from './passport-from-product';
@@ -639,13 +639,16 @@ export class ProductPassportService {
     p.isKit = p.isKit === true || p.isKit === 'yes';
     const [cats, inst] = await Promise.all([this.categoryRules(), this.installs()]);
     const cat = cats.get(String(p.passportCategory ?? '')) ?? null;
+    // C112 А0-рис: способ установки — из раздела «Установка» текстов, иначе изделия, иначе умолчание типа; только потом схемы
+    const built = p.passportCategory ? await this.buildText({ ...p }, usedFields).catch(() => null) : null;
+    if (built?.instLeaf?.installTypeId) p.installationTypeId = new Types.ObjectId(built.instLeaf.installTypeId);
+    this.defaultInstall(p, inst);
     const full = this.withSchemes(p, inst);
     const vopts = { variant: variantOf(body.variant), install: installKindOf(inst.get(String(p.installationTypeId ?? ''))) };
     const rules = imageRules(p as never, cat, { category: String(p.passportCategory ?? ''), ...vopts });
     const choices = await this.choiceMissing({ passportCategory: p.passportCategory, textChoices: parseChoices(p.textChoices), textOverrides: p.textOverrides, manualText: p.manualText });
     const noHint = (m: { label: string; key: string; hint?: string }) => ({ ...m, hint: m.hint ?? missingHint(m.key, m.label) });
     const keep = (m: { key: string; label: string }) => !(template && (INSTANCE_FIELD_KEYS.includes(m.key) || m.label === 'Дата' || m.label === 'Поставщик'));
-    const built = p.passportCategory ? await this.buildText({ ...p }, usedFields).catch(() => null) : null;
     const blanks = blankItems(built?.text.missing ?? []);
     // C086: назначение, выбранное в текстах (раздел «Назначение»), и есть назначение паспорта — не требовать его второй раз через «Элементы»
     const purposeDone = !!String(built?.text.purpose ?? '').trim();
@@ -663,6 +666,7 @@ export class ProductPassportService {
   async readiness(doc: Doc): Promise<Array<{ label: string; key: string }>> {
     const [cats, inst] = await Promise.all([this.categoryRules(), this.installs()]);
     doc = { ...doc, images: await this.effectiveImages(doc) };
+    this.defaultInstall(doc, inst);
     const full = this.withSchemes(doc, inst);
     const cat = cats.get(String(doc.passportCategory ?? '')) ?? null;
     const ctx = { category: String(doc.passportCategory ?? ''), variant: 'short' as const, install: installKindOf(inst.get(String(doc.installationTypeId ?? ''))) };
@@ -753,6 +757,14 @@ export class ProductPassportService {
   async installs() {
     const docs = await this.connection.collection('dict_values').find({ dict: 'passportInstall', deletedAt: null }).toArray();
     return new Map(docs.map((d) => [String(d._id), d as Record<string, unknown>]));
+  }
+
+  /** C112: нет способа установки — умолчание типа паспорта (DEFAULT_INSTALL), чтобы стандартные схемы засчитались. */
+  private defaultInstall(d: Doc, inst: Map<string, Record<string, unknown>>) {
+    if (d.installationTypeId && inst.has(String(d.installationTypeId))) return;
+    const code = DEFAULT_INSTALL[String(d.passportCategory ?? '')];
+    if (!code) return;
+    for (const [id, rec] of inst) if (String(rec.code ?? '') === code) { d.installationTypeId = new Types.ObjectId(id); return; }
   }
 
   private withSchemes(d: Doc, inst: Map<string, Record<string, unknown>>) {
