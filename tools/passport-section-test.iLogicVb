@@ -47,8 +47,9 @@ Sub Main()
         Dim sk As Inventor.DrawingSketch = front.Sketches.Add()
         sk.Edit()
         Try
-            sk.SketchLines.AddByTwoPoints(sk.SheetToSketchSpace(tg.CreatePoint2d(front.Left - 0.5, cutY)),
-                                         sk.SheetToSketchSpace(tg.CreatePoint2d(front.Left + front.Width + 0.5, cutY)))
+            ' справа налево: стрелки разреза смотрят вниз — вид сверху на землю (слева направо смотрели вверх, прогон 2026-11-13)
+            sk.SketchLines.AddByTwoPoints(sk.SheetToSketchSpace(tg.CreatePoint2d(front.Left + front.Width + 0.5, cutY)),
+                                         sk.SheetToSketchSpace(tg.CreatePoint2d(front.Left - 0.5, cutY)))
         Finally
             sk.ExitEdit()
         End Try
