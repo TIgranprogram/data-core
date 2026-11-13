@@ -356,7 +356,7 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
       cancel.textContent = form.doneLabel || 'Закрыть';
       if (form.doneLabel) cancel.classList.add('btn-primary');
       // h() регистрирует onclick через addEventListener: второй onclick здесь вызвал бы закрытие дважды.
-      foot.replaceChildren(cancel);
+      foot.replaceChildren(...[].concat(form.foot || []).filter(Boolean), cancel); // C112 Ф1: form.foot — закреплённая полоса «Осталось N … → Выпустить» слева от «Закрыть»
     } else foot.replaceChildren(save, cancel);
     // ИЗ-13: без автофокуса при открытии — курсор ставит сам человек (фокус только на поле с ошибкой)
   }

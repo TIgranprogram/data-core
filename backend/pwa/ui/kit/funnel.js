@@ -1,5 +1,6 @@
 import { h } from '../../core/dom.js';
 import { PREFIX } from '../../core/api.js';
+import { nextLine } from '../../core/grammar.js';
 import { mark } from './mark.js';
 import { attachCombo } from './pick.js';
 import { link, row, tabs } from './index.js';
@@ -90,7 +91,7 @@ export function funnel({ steps = [], onChange, next, recent, done = false } = {}
     const list = visible();
     const first = list.find((x) => x.mode === 'open' && !ids(x.s.value).length);
     const text = forced || (first ? (first.s.ask || `выберите: ${first.s.label.toLowerCase()}`) : '');
-    nextEl.replaceChildren(...(text ? [row({ tone: 'info', title: 'Дальше: ' + text })] : []));
+    nextEl.replaceChildren(...(text ? [row({ tone: 'info', title: nextLine(text) })] : []));
     nextEl.hidden = !text;
     recentEl.replaceChildren(...(rec?.length ? [h('span', { class: 'muted small' }, 'Недавно:'), ...rec.map((x) => row({ title: x.title, meta: x.meta, onClick: x.onClick }))] : []));
     recentEl.hidden = !rec?.length || fin;
