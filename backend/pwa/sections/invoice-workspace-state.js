@@ -62,6 +62,8 @@ export function metaBody(invoice, draft, rights) {
   const p = permissions(invoice, rights);
   if (!p.meta) throw new Error('Этот счёт доступен только для просмотра');
   const body = { no: String(draft.no || '').trim(), date: draft.date || '', fileIds: draft.fileIds || [], contractId: draft.contractId || '' };
+  if (draft.note !== undefined) body.note = String(draft.note ?? '').trim();
+  if (draft.deliveryDate !== undefined) body.deliveryDate = draft.deliveryDate || '';
   if (p.payer && draft.payerCompanyId !== undefined) {
     body.payerCompanyId = draft.payerCompanyId;
   }

@@ -1,9 +1,10 @@
+import { metaBlock } from './invoice-workspace-meta.js';
 import { h } from '../core/dom.js';
 import { api, PREFIX, session } from '../core/api.js';
 import { current } from '../core/router.js';
 import { date, money, qty } from '../core/format.js';
-import { readonlyGroup, section, table, button, actions, badge, INVOICE_STATUS, SUPPLY_STATUS, confirmDlg, failBlock, toast, toastError, attachCombo, photoField, enhanceSelect } from '../ui/kit/index.js';
-import { permissions, lineAmount, pendingLines, assertOperation, lineDraft, changeLine, lineBody, metaBody, addBody } from './invoice-workspace-state.js';
+import { readonlyGroup, section, table, button, actions, badge, INVOICE_STATUS, SUPPLY_STATUS, confirmDlg, failBlock, toast, toastError, attachCombo } from '../ui/kit/index.js';
+import { permissions, lineAmount, pendingLines, assertOperation, lineDraft, changeLine, lineBody, addBody } from './invoice-workspace-state.js';
 import { adminAction } from './admin-override.js';
 import { getInvoice, getCandidates, getBusyRequests, getPayers, getContracts, writeInvoice, deleteInvoice } from './invoice-workspace-api.js';
 import { buildWorkspaceForm } from './invoice-workspace-forms.js';
@@ -161,68 +162,6 @@ async function command(invoice, ctx, operation, lineId, body = {}) {
   } catch (error) { toastError(error); }
 }
 
-/** Реквизиты на том же экране: поля + выпадающие списки, сохранение по blur / смене. */
-function metaBlock(invoice, ctx) {
-  const p = permissions(invoice, session);
-  if (!p.meta) {
-    return readonlyGroup({ title: 'Реквизиты', rows: [
-      ['№ счёта', invoice.no || 'Без номера'], ['Дата', invoice.date ? date(invoice.date) : 'Не указана'],
-      ['Наша компания', invoice.payerName || '—'],
-      ['Договор', invoice.contractNo ? `№ ${invoice.contractNo}` : 'Без договора'],
-    ] });
-  }
-  const no = h('input', { name: 'no', value: invoice.no || '', maxlength: 100, 'aria-label': '№ счёта' });
-  const dateInp = h('input', { name: 'date', type: 'date', value: String(invoice.date || '').slice(0, 10), 'aria-label': 'Дата счёта' });
-  const payer = enhanceSelect(h('select', { name: 'payerCompanyId', 'aria-label': 'Наша компания', disabled: !p.payer }, h('option', { value: '' }, 'Выберите компанию')));
-  const contract = enhanceSelect(h('select', { name: 'contractId', 'aria-label': 'Договор' }, h('option', { value: '' }, 'Без договора')));
-  const files = photoField(invoice.files || [], { pdf: true });
-  const knownIds = (invoice.fileIds || (invoice.files || []).map((f) => f.id)).map(String);
-  const unseenIds = knownIds.filter((id) => !(invoice.files || []).some((f) => String(f.id) === id));
-  const fileIds = () => [...unseenIds, ...files.ids()];
-  let saving = false;
-  const saveMeta = async () => {
-    if (saving) return;
-    saving = true;
-    try {
-      const body = metaBody(invoice, {
-        no: no.value, date: dateInp.value, payerCompanyId: payer.value, contractId: contract.value, fileIds: fileIds(),
-      }, session);
-      const ok = await ctx.run(async () => {
-        await writeInvoice(invoice, session, 'meta', body);
-        toast('Реквизиты сохранены');
-        ctx.changed();
-        await refreshInvoice(invoice, ctx);
-      });
-      if (!ok) return;
-    } catch (e) { toastError(e); }
-    finally { saving = false; }
-  };
-  for (const el of [no, dateInp, payer, contract]) el.addEventListener('change', saveMeta);
-  files.el.addEventListener('change', () => saveMeta(), true);
-  (async () => {
-    try {
-      const [payers, contracts] = await Promise.all([p.payer ? getPayers() : [], getContracts(invoice.supplierId)]);
-      if (p.payer && invoice.payerCompanyId && !payers.some((x) => String(x.value) === String(invoice.payerCompanyId))) {
-        payers.push({ value: String(invoice.payerCompanyId), label: invoice.payerName || 'Текущая компания' });
-      }
-      payer.replaceChildren(h('option', { value: '' }, 'Выберите компанию'), ...payers.map((x) => h('option', { value: x.value, selected: String(x.value) === String(invoice.payerCompanyId || '') || null }, x.label)));
-      const opts = [{ value: '', label: 'Без договора' }, ...contracts.map((c) => ({ value: c.id, label: `№ ${c.no} от ${date(c.date)}` }))];
-      if (invoice.contractId && !contracts.some((c) => String(c.id) === String(invoice.contractId))) {
-        opts.push({ value: invoice.contractId, label: `№ ${invoice.contractNo || '—'} (текущий)` });
-      }
-      contract.replaceChildren(...opts.map((o) => h('option', { value: o.value, selected: String(o.value) === String(invoice.contractId || '') || null }, o.label)));
-    } catch (e) { toastError(e, 'справочники счёта'); }
-  })();
-  return section({ title: 'Реквизиты', open: true, body: [
-    h('div', { class: 'iw-meta form-grid' },
-      h('label', { class: 'field' }, h('span', null, '№ счёта'), no),
-      h('label', { class: 'field' }, h('span', null, 'Дата'), dateInp),
-      p.payer ? h('label', { class: 'field' }, h('span', null, 'Наша компания'), payer) : null,
-      h('label', { class: 'field wide' }, h('span', null, 'Договор поставщика'), contract)),
-    h('div', { class: 'iw-files' }, h('div', { class: 'muted small' }, 'Файлы счёта'), files.el),
-  ] });
-}
-
 /** Поле «+» → выпадающий список заявок; выбор сразу добавляет в счёт. */
 function addPicker(invoice, ctx) {
   const p = permissions(invoice, session);
@@ -350,7 +289,7 @@ function details(invoice, ctx) {
     summary(invoice),
     p.reason ? h('p', { class: 'hint', 'data-invoice-lock': '' }, p.reason) : null,
     topActions,
-    metaBlock(invoice, ctx),
+    metaBlock(invoice, ctx, refreshInvoice),
     section({ title: 'Позиции', count: (invoice.requests || []).length, open: true, body: [
       positions(invoice, ctx, { receiveChecks: checks }),
       addPicker(invoice, ctx),

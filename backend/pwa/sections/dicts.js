@@ -11,7 +11,7 @@ import { searchBox, tagPick, button, select, enhanceSelect, navList, layout, too
 import { mountTexts, TEXTS_KEY } from './passport-texts.js';
 import { mountTree, TREE_KEY } from './passport-tree.js';
 import { mountZones, ZONES_KEY } from './stock-zones.js';
-import { catChipsField, refChipsField } from '../ui/cat-chips.js';
+import { catChipsField, refChipsField, passportKindElements } from '../ui/cat-chips.js';
 import { dupeCounts, qualityBadges, qualityFilter } from '../ui/quality.js';
 import { passportCategoryOptions } from './passports/common.js';
 import { dictSearchTokens, dictHaystack } from './dicts-search.js';
@@ -280,6 +280,7 @@ const kindOptions = (v) => {
   return [...known, ...linesToKinds(v).filter((k) => !known.some((o) => o.value === k)).map((k) => ({ value: k, label: k, sub: 'вид не из списка' }))];
 };
 const idsOf = (v) => (Array.isArray(v) ? v : v ? [v] : []).map(String);
+
 let photoKeys = new Map();
 function photoStrip(r, f) {
   const ids = idsOf(r[f.key]).filter((id) => r.photos?.[id]);
@@ -344,6 +345,8 @@ export const dict = {
         widget: (v) => refChipsField(wtOpts, { label: 'Виды работ', value: v, multiple: true }) }
         : f === catField && catOpts.length ? { key: f.key, label: f.label, type: 'widget', wide: true, hint: f.hint || '«Для всех» — подходит любому типу паспорта', summary: () => '',
         widget: (v) => catChipsField(catOpts, { label: f.label, value: v, later: ['DIO', 'DSP'] }) }
+        : key === 'passportKinds' && f.key === 'elementIds' ? { key: f.key, label: f.label, type: 'widget', wide: true, hint: f.hint, summary: () => '',
+          widget: (v) => passportKindElements(info.refs?.[f.ref] || [], v, f.label) }
         : f.ref?.dict || f.multi ? { key: f.key, label: f.label, type: 'widget', wide: true, hint: f.hint, summary: () => '',
           widget: (v) => refChipsField(f.multi ? (info.refs?.[f.ref] || []).map((o) => ({ code: String(o.value), name: o.label })) : refOpts[f.key] || [], { label: f.label, value: v, multiple: f.multi || f.ref.multiple !== false }),
           mount: key === 'expenseArticles' && f.key === 'categoryIds' ? (fapi) => {

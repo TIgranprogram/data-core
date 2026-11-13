@@ -1,5 +1,5 @@
 import { h } from '../core/dom.js';
-import { pick } from './kit/index.js';
+import { pick, select, button, enhanceSelect } from './kit/index.js';
 
 const ALL = '__all';
 
@@ -67,4 +67,29 @@ export function refChips({ options, value = '', multiple = true, label = 'Выб
 export function refChipsField(options, { label, value, multiple = true } = {}) {
   const c = refChips({ options, value, multiple, label });
   return { el: c.el, get value() { return JSON.stringify(c.value); }, set value(v) { void v; }, focus: c.focus };
+}
+
+const elementIds = (v) => { if (Array.isArray(v)) return v.map(String); try { return JSON.parse(v || '[]').map(String); } catch { return []; } };
+export function passportKindElements(options, value, label) {
+  const picked = new Set(elementIds(value));
+  const el = h('div');
+  const chosen = h('div');
+  const picker = select({ label, options: [['', 'Найти элемент…'], ...options.map((o) => [String(o.value), o.label])],
+    onChange: (id) => {
+      picker.value = '';
+      if (!id || picked.size >= 3 || picked.has(id)) return;
+      picked.add(id);
+      change();
+    } });
+  const paint = () => {
+    chosen.replaceChildren(...[...picked].map((id) => button({
+      label: `${options.find((o) => String(o.value) === id)?.label || 'Сохранённый элемент'} ×`,
+      size: 'S', title: 'Убрать элемент', onClick: () => { picked.delete(id); change(); },
+    })));
+  };
+  const change = () => { paint(); el.dispatchEvent(new Event('change', { bubbles: true })); };
+  el.append(picker, chosen);
+  enhanceSelect(picker, { force: true });
+  paint();
+  return { el, get value() { return JSON.stringify([...picked]); }, set value(v) { picked.clear(); for (const id of elementIds(v)) picked.add(id); paint(); } };
 }

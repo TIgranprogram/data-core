@@ -361,9 +361,9 @@ export const requests = {
     },
     board: {
       // карточки одного счёта — рядом, своим цветом (как заказы на доске «Проектирование»)
-      group: (r) => (r.invoiceId || r.invoiceNo ? { key: String(r.invoiceId || 'n:' + r.invoiceNo), label: r.invoiceNo ? 'Счёт № ' + r.invoiceNo : 'Счёт без номера', sub: r.supplierName || '', date: r.invoiceDate ? 'от ' + date(r.invoiceDate) : '', ...(r.invoiceId ? { open: { href: invoiceHref(r.invoiceId) } } : {}) } : null),
+      group: (r) => (r.invoiceId || r.invoiceNo ? { key: String(r.invoiceId || 'n:' + r.invoiceNo), label: r.invoiceNo ? 'Счёт № ' + r.invoiceNo : 'Счёт без номера', sub: r.supplierName || '', date: r.invoiceDate ? 'от ' + date(r.invoiceDate) : '', details: r.invoiceDeliveryDate || r.invoiceNote ? h('div', { class: 'muted small' },         r.invoiceDeliveryDate ? h('div', null, 'Доставка ' + date(r.invoiceDeliveryDate)) : null,         r.invoiceNote ? h('div', null, r.invoiceNote) : null) : null, ...(r.invoiceId ? { open: { href: invoiceHref(r.invoiceId) } } : {}) } : null),
       groupActions: invoiceActions, groupSum: (r) => r.priceHint, // кнопки счёта (C067); сумма счёта на карточке группы
-      groupTotal: (r) => r.invoiceAmount, // нет цен у позиций — сумма из записи счёта (ждёт invoiceAmount от сервера)
+      groupTotal: (r) => r.invoiceAmount, // нет цен у позиций — сумма из записи счёта
       colOf: (r) => supplyKey(r), // колонка доски по записи — для точечного обновления после смены статуса
       cls: 'board-pics',
       default: true, // доска — вид по умолчанию; «Таблица» — переключатель, выбор запоминается (viewKey)

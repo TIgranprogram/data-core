@@ -49,6 +49,12 @@ export class SupplyInvoice {
   @Prop({ type: Date })
   date?: Date;
 
+  @Prop({ type: Date })
+  deliveryDate?: Date;
+
+  @Prop({ trim: true, maxlength: 1000 })
+  note?: string;
+
   @Prop({ min: 0 })
   amount?: number;
 

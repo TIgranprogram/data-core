@@ -334,13 +334,13 @@ export class SupplyInvoiceService {
     if (inv.status === 'paid' && dto.issue) throw new BadRequestException('Оплаченный счёт нельзя повторно выставить');
     const lock = await this.lockReason(inv);
     // «Нашу компанию» неоплаченного счёта можно указать и после приёмки: без неё счёт не оплатить (тупик, аудит 2026-11-06 №2)
-    const meta = ['fileIds', 'contractId', 'no', 'date', ...(inv.status !== 'paid' ? ['payerCompanyId'] : [])];
+    const meta = ['fileIds', 'contractId', 'no', 'date', 'deliveryDate', 'note', ...(inv.status !== 'paid' ? ['payerCompanyId'] : [])];
     const financial = Object.entries(dto).filter(([k, v]) => v !== undefined && !meta.includes(k));
     if (lock) {
       if (financial.length) throw new BadRequestException(`${lock}. Менять можно файлы, договор, номер, дату и нашу компанию (до оплаты)`);
       return this.patchLocked(inv, dto);
     }
-    const set: Lean = {};
+    const set: Lean = this.deliveryFields(dto);
     if (dto.no !== undefined) set.no = dto.no.trim() || undefined;
     if (dto.date !== undefined) {
       const d = parseSheetDate(dto.date);
@@ -559,8 +559,23 @@ export class SupplyInvoiceService {
   }
 
   /** После приёмки счёта можно менять только метаданные (файлы, договор, №, дата). */
+  private deliveryFields(dto: PatchInvoiceDto): Lean {
+    const fields: Lean = {};
+    if (typeof dto.note === 'string') fields.note = dto.note.trim() || undefined;
+    if (typeof dto.deliveryDate === 'string') {
+      const d = parseSheetDate(dto.deliveryDate);
+      if (dto.deliveryDate && !d) throw new BadRequestException('Укажите дату доставки');
+      fields.deliveryDate = d ?? undefined;
+    }
+    return fields;
+  }
+
   private async patchLocked(inv: Lean, dto: PatchInvoiceDto) {
     const $set: Lean = {}; const $unset: Lean = {};
+    for (const [k, v] of Object.entries(this.deliveryFields(dto))) {
+      if (v === undefined) $unset[k] = '';
+      else $set[k] = v;
+    }
     if (dto.fileIds !== undefined) $set.fileIds = dto.fileIds.map((i) => oid(i, 'файла'));
     if (dto.contractId) $set.contractId = await this.checkContract(dto.contractId, inv.supplierId, inv.contractId);
     else if (dto.contractId === '') $unset.contractId = '';

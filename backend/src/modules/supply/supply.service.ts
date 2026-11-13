@@ -126,11 +126,11 @@ export class SupplyService {
   }
 
   /** Сумма записи счёта: invoiceId → amount (карточка счёта на доске, когда у позиций нет цены). */
-  private async invoiceAmounts(ids: unknown[]) {
+  private async invoiceInfo(ids: unknown[]) {
     const oids = [...new Set(ids.filter(Boolean).map(String))].filter((i) => Types.ObjectId.isValid(i)).map((i) => new Types.ObjectId(i));
-    if (!oids.length) return new Map<string, number>();
-    const docs = await this.connection.db!.collection('supplyinvoices').find({ _id: { $in: oids }, deletedAt: null }, { projection: { amount: 1 } }).toArray();
-    return new Map(docs.filter((d) => typeof d.amount === 'number').map((d) => [String(d._id), d.amount as number]));
+    if (!oids.length) return new Map<string, { amount?: number; note?: string; deliveryDate?: Date }>();
+    const docs = await this.connection.db!.collection<{ amount?: number; note?: string; deliveryDate?: Date }>('supplyinvoices').find({ _id: { $in: oids }, deletedAt: null }, { projection: { amount: 1, note: 1, deliveryDate: 1 } }).toArray();
+    return new Map(docs.map((d) => [String(d._id), d]));
   }
 
   /** Позиции склада одним запросом: materialId → название и главное фото { url, thumb }. */
@@ -170,7 +170,7 @@ export class SupplyService {
       this.names('categories', docs.map((d) => d.categoryId)),
       this.names('expensearticles', docs.map((d) => d.articleId)),
       this.materialInfo(docs.map((d) => d.materialId)),
-      this.invoiceAmounts(docs.map((d) => d.invoiceId)),
+      this.invoiceInfo(docs.map((d) => d.invoiceId)),
       this.photoUrls(new Map(docs.flatMap((d) => ownIds(d)).map((p) => [String(p), p] as [string, Types.ObjectId]))),
     ]);
     return docs.map((d) => ({
@@ -184,7 +184,9 @@ export class SupplyService {
       materialName: d.materialId ? mat.get(String(d.materialId)) ?? null : null,
       statusLabel: labelFromStatus(d.status as string, d.paid as boolean),
       priorityLabel: labelFromPriority(d.priority as string),
-      invoiceAmount: d.invoiceId ? inv.get(String(d.invoiceId)) ?? null : null,
+      invoiceAmount: inv.get(String(d.invoiceId))?.amount ?? null,
+      invoiceNote: inv.get(String(d.invoiceId))?.note ?? null,
+      invoiceDeliveryDate: inv.get(String(d.invoiceId))?.deliveryDate ?? null,
       invoiceType: (d.sheetExtra as { invoiceType?: string } | undefined)?.invoiceType ?? null,
       /** Свои фото заявки: [{ id, url, thumb }] — их можно добавлять и убирать. */
       photos: ownIds(d).filter((p) => own.has(String(p))).map((p) => ({ id: String(p), ...own.get(String(p))! })),

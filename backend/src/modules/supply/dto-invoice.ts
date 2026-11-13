@@ -27,6 +27,8 @@ export class ReceiveInvoiceDto {
 }
 
 export class PatchInvoiceDto {
+  @ApiPropertyOptional({ description: 'Дата доставки, пустая строка очищает поле' }) @IsOptional() @IsString() @Length(0, 30) deliveryDate?: string;
+  @ApiPropertyOptional({ description: 'Примечание к счёту' }) @IsOptional() @IsString() @Length(0, 1000) note?: string;
   @ApiPropertyOptional({ description: '№ счёта' }) @IsOptional() @IsString() @Length(0, 100) no?: string;
   @ApiPropertyOptional({ description: 'Дата счёта ГГГГ-ММ-ДД или ДД.ММ.ГГГГ' }) @IsOptional() @IsString() @Length(0, 30) date?: string;
   @ApiPropertyOptional({ description: 'Сумма счёта, ₽ (производная от строк; принимать равной сумме строк)' }) @IsOptional() @IsNumber() @Min(0) amount?: number;
