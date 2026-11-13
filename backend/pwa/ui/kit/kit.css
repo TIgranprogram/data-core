@@ -138,6 +138,7 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .k-funnel .chip:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .k-stack { display: flex; flex-direction: column; gap: var(--s3); min-width: 0; }
 .k-stack > .k-sec { margin: 0; }
+.k-stack > .link-btn { align-self: flex-start; text-align: left; } /* ссылка-строка («Вид: … ✎», «Нет в списке?») — по левому краю, а не растянута по центру (C100) */
 /* секции подряд не в stack (вложенные списки) — тот же зазор, не слипаются */
 :not(.k-stack) > .k-sec + .k-sec { margin-top: var(--s3); }
 /* меню «⋯»: пункт в одну строку, без переносов «Списать (брак, / потеря)» (пользователь 2026-11-06) */
