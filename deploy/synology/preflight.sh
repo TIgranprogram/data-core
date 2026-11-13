@@ -62,9 +62,14 @@ elif [[ $FIRST == 1 ]]; then
 else
   if [[ $UI == 1 ]]; then
     MISS=""
+    # поздняя приёмка: более поздний коммит в выкладке несёт строку «Дизайнер принял позже: <хэш>»
+    # (история не переписывается; приёмку делает datacore-designer, доказательства — в crew)
+    LATE="$(git log --format=%B "$BASE..HEAD" | sed -nE 's/^Дизайнер принял позже: *([0-9a-f]{7,40}).*/\1/p')"
     # слияния веток пропускаем: метки стоят в самих слитых коммитах, они проверяются по одному
     for h in $(git rev-list --no-merges "$BASE..HEAD" -- backend/pwa backend/admin); do
-      git log -1 --format=%B "$h" | grep -qE '^Дизайнер: (принято|не нужно)' || MISS+=" $(git rev-parse --short "$h")"
+      git log -1 --format=%B "$h" | grep -qE '^Дизайнер: (принято|не нужно)' && continue
+      for l in $LATE; do [[ "$h" == "$l"* ]] && continue 2; done
+      MISS+=" $(git rev-parse --short "$h")"
     done
     [[ -z "$MISS" ]] || stop "коммиты вида без «Дизайнер: принято|не нужно»:$MISS — нужен просмотр datacore-designer"
     ok "приёмка дизайнера отмечена"
