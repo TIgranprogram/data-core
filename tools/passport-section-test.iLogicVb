@@ -57,7 +57,7 @@ Sub Main()
         stage = "5. Разрез А-А"
         Dim section As Inventor.SectionDrawingView = sheet.DrawingViews.AddSectionView(front, sk,
             tg.CreatePoint2d(sheet.Width * 0.7, sheet.Height * 0.5), Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle,
-            Scale:=front.Scale, Projected:=False, Label:="А")
+            Scale:=front.Scale, ShowLabel:=True, Name:="А")
         drawing.Update()
         log.AppendLine(stage & ": ок, " & Math.Round(section.Width, 1) & " × " & Math.Round(section.Height, 1) & " см, видов на листе " & sheet.DrawingViews.Count)
 

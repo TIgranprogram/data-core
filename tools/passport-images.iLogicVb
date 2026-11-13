@@ -221,7 +221,7 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     End Try
     Dim section As Inventor.SectionDrawingView = installationSheet.DrawingViews.AddSectionView(
         installationView, cutSketch, tg.CreatePoint2d(installationSheet.Width * 0.5, installationSheet.Height * 0.5),
-        Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle, installationView.Scale, False, "А")
+        Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle, Scale:=installationView.Scale, ShowLabel:=True, Name:="А")
     drawing.Update()
     ' крупно и по центру: 80 % листа по ширине или высоте
     section.ScaleFromBase = False
