@@ -92,6 +92,7 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
         camera.Fit()
         camera.ApplyWithoutTransition()
         SavePng(app, camera, folder, "01_Общий вид.png", 1800)
+        CropToInk(System.IO.Path.Combine(folder, "01_Общий вид.png"), True)
     Finally
         For Each restore As Action In restoreVisibility
             restore()
@@ -509,8 +510,9 @@ Sub SavePng(app As Inventor.Application, camera As Inventor.Camera,
 End Sub
 
 ' Обрезать PNG до линий чертежа (+ поле 3 %), фон — белый: лист, рамка окна и пустые поля уходят,
-' паспорт сам растягивает рисунок на страницу. Линия — тёмный непрозрачный пиксель (каждый канал < 90).
-Sub CropToInk(path As String)
+' паспорт сам растягивает рисунок на страницу. Линия — тёмный непрозрачный пиксель (каждый канал < 90);
+' byAlpha (3D общий вид на прозрачном фоне) — любой непрозрачный пиксель. Работает для любого изделия.
+Sub CropToInk(path As String, Optional byAlpha As Boolean = False)
     Dim src As System.Drawing.Bitmap
     Using fs As New System.IO.FileStream(path, System.IO.FileMode.Open, System.IO.FileAccess.Read)
         Using loaded As New System.Drawing.Bitmap(fs)
@@ -529,7 +531,7 @@ Sub CropToInk(path As String)
         Dim row As Integer = y * data.Stride
         For x As Integer = 0 To w - 1
             Dim i As Integer = row + x * 4  ' B, G, R, A
-            If bytes(i + 3) >= 128 AndAlso bytes(i) < 90 AndAlso bytes(i + 1) < 90 AndAlso bytes(i + 2) < 90 Then
+            If bytes(i + 3) >= 128 AndAlso (byAlpha OrElse (bytes(i) < 90 AndAlso bytes(i + 1) < 90 AndAlso bytes(i + 2) < 90)) Then
                 If x < minX Then minX = x
                 If x > maxX Then maxX = x
                 If y < minY Then minY = y
