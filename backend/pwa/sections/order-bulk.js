@@ -32,7 +32,7 @@ export const orderBulk = sideForm({
     if (!pending) throw new Error('Отметьте позиции заново и нажмите «В заявку»');
     return { rows: pending.rows, uid: pending.uid };
   },
-  heading: (r) => `Заявки на ${nPos(r.rows.length)}`,
+  heading: (r) => (r?.rows ? `Заявки на ${nPos(r.rows.length)}` : 'Заявки созданы'),
   saveLabel: 'Создать заявки',
   fields: (r) => {
     const inputs = r.rows.map((x) => qtyInput({ value: String(x.qty), label: `Количество: ${x.name}` }));
