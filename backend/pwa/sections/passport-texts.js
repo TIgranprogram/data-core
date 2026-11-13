@@ -20,7 +20,7 @@ import { PASSPORT_TRAITS, buildWhen, idsOf, whenText, whenToPick } from './passp
 export const TEXTS_KEY = 'ptexts';
 /** Переменные в тексте пункта — метками с понятным названием (в паспорте подставится значение). */
 const VAR_NAMES = { name: 'наименование', article: 'артикул', code: 'номер изделия', serialNo: 'номер изделия', ageFrom: 'возраст от', ageTo: 'возраст до', heightMin: 'рост от', heightMax: 'рост до', weightMax: 'вес до', maxUsers: 'пользователей', fallHeight: 'высота падения', siteL: 'длина площадки', siteW: 'ширина площадки', serviceLifeYears: 'срок службы', warrantyMonths: 'гарантия, мес.', tempMin: 'темп. от', tempMax: 'темп. до', manufacturer: 'изготовитель' };
-function withVars(text) {
+export function withVars(text) {
   return String(text).split(/(\{[^}]+\})/).filter(Boolean).map((part) => {
     const m = /^\{(std|fig|tab):([^}]+)\}$/.exec(part) || /^\{([A-Za-z]+)\}$/.exec(part);
     if (!m) return part;

@@ -1,5 +1,6 @@
 import { api } from '../../core/api.js';
 import { h } from '../../core/dom.js';
+import { withVars } from '../passport-texts.js';
 import { actions, badge, button, buildForm, empty, hint, section, stack, table, toast } from '../../ui/kit/index.js';
 
 /**
@@ -42,7 +43,8 @@ export function ownTexts({ r, can, save }) {
   }
 
   // 2026-11-10 (пользователь: «кнопка не нужна, места под текст много»): текст целиком, без «Развернуть»
-  const textCell = (item) => h('div', null, item.text);
+  // метки {…} — понятными подписями, иначе сторож мусора прятал весь текст (ошибки сайта 12.11)
+  const textCell = (item) => h('div', null, ...withVars(item.text || ''));
 
   function actionCell(item) {
     if (!can) return '';

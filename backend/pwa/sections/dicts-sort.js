@@ -1,4 +1,5 @@
 import { h } from '../core/dom.js';
+import { withVars } from './passport-texts.js';
 import { badge, button, table, toolbar, stack, section, actions, sku } from '../ui/kit/index.js';
 
 /** Сортировка «Группы изделий»: по номеру (пусто — в конце) или по названию. */
@@ -38,6 +39,8 @@ function cellOf(key, r, fieldOf, fmt, colorBadge) {
   }
   const v = fmt(fieldOf(key), r[key]) || (key === 'workTypeName' ? r.workTypeName : '') || r[key];
   if (v === undefined || v === null || v === '') return '—';
+  // метки подстановки {maxUsers} — подписями (иначе сторож мусора прячет ячейку)
+  if (typeof v === 'string' && /\{[A-Za-z]/.test(v)) return h('span', null, ...withVars(v));
   return typeof v === 'string' || typeof v === 'number' ? String(v) : v;
 }
 
