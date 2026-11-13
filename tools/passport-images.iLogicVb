@@ -232,6 +232,30 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     drawing.Update()
     RemoveScaleFromLabels(drawing)
 
+    ' Габариты по разрезу: длина — под планом, ширина — справа; числа в мм по размеру разреза и его масштабу (2026-11-13)
+    stage = "Габариты по разрезу"
+    Dim secLeft As Double = section.Left, secRight As Double = section.Left + section.Width
+    Dim secTop As Double = section.Top, secBottom As Double = section.Top - section.Height
+    Dim cutLengthMm As Double = section.Width / section.Scale * 10
+    Dim cutWidthMm As Double = section.Height / section.Scale * 10
+    Dim dimY As Double = secBottom - 0.8, dimX As Double = secRight + 0.9
+    Dim cutDims As Inventor.DrawingSketch = installationSheet.Sketches.Add()
+    cutDims.Edit()
+    Try
+        AddLine(cutDims, tg, secLeft, secBottom, secLeft, dimY - 0.15)
+        AddLine(cutDims, tg, secRight, secBottom, secRight, dimY - 0.15)
+        AddArrowLine(cutDims, tg, secLeft, dimY, secRight, dimY)
+        AddLine(cutDims, tg, secRight, secTop, dimX + 0.15, secTop)
+        AddLine(cutDims, tg, secRight, secBottom, dimX + 0.15, secBottom)
+        AddArrowLine(cutDims, tg, dimX, secBottom, dimX, secTop)
+    Finally
+        cutDims.ExitEdit()
+    End Try
+    Dim cutNotes As Inventor.GeneralNotes = installationSheet.DrawingNotes.GeneralNotes
+    AddLabel(cutNotes, tg, (secLeft + secRight) / 2, dimY + 0.4, FormatMm(cutLengthMm))
+    AddLabel(cutNotes, tg, dimX + 0.6, (secTop + secBottom) / 2, FormatMm(cutWidthMm))
+    drawing.Update()
+
     Dim drawingPath As String = System.IO.Path.Combine(
         folder, "Габаритные размеры" & If(drawing.IsInventorDWG, ".dwg", ".idw"))
     stage = "Сохранение чертежа: " & drawingPath
