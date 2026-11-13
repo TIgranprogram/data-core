@@ -32,13 +32,15 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   const descr = lines(t.description || p.description);
   const purpose = lines(t.purpose);
   // Текстовое значение (паспорт партии: «по таблице …») печатается как есть
+  // C095: модули сборного изделия — название, габариты, количество, рисунок; пустые строки не печатаются
+  const modules = (p.modules || []).filter((m) => m && String(m.name || '').trim() && Number(m.qty) > 0);
   const specs = specRows(p, t.sizeLayout === 2).filter(([, v]) => has(v) || (typeof v === 'string' && v.trim() !== '')).map(([k, v]) => [String(k), has(v) ? num(v) : String(v)]);
 
   // Номера разделов (passport-numbering.ts): снимок с layout 2 — подряд 1…N, один «Монтаж»; прежние снимки — как печатались
   // (номера текста из снимка, обычно с 3; свободные 1…start-1 — под описание и правила).
   const plan = planNumbers({
     sections, layout: t.layout,
-    hasDescr: !!(descr.length || purpose.length || specs.length), hasRules: rules.length > 0,
+    hasDescr: !!(descr.length || purpose.length || specs.length || modules.length), hasRules: rules.length > 0,
     hasMaintenance: maintenance.length > 0, hasInstall: !!(installLines.length || requirements.length),
   });
   const { before, mergeRules, descrNo, rulesNo, toNo, installNo, bomNo, journalNo } = plan;
@@ -220,6 +222,32 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   const short = shortPage(doc, input, color, R(lines(t.purpose).join(' ') || descr[0] || ''), pb);
   if (short) { cur.draws.push({ y, draw: short.draws[0].draw }); y += short.h + 14; }
 
+  /** C095: блок на модуль — название, габариты, «Количество: N шт.», рисунок при наличии (без пустой рамки); при 2+ — «Итого». */
+  const modulesBlock = () => {
+    const mimg = input.moduleImages || {};
+    modules.forEach((m, i) => {
+      const pic = m.photoId ? mimg[m.photoId] : undefined;
+      let ih = 0;
+      if (pic) {
+        let ar = 0.62;
+        try { const im = (doc as unknown as { openImage(b: Buffer): { width: number; height: number } }).openImage(pic); if (im.width > 0 && im.height > 0) ar = im.height / im.width; } catch { /* битая — пропорция по умолчанию */ }
+        ih = Math.max(50, Math.min(Wd * 0.7 * ar, 150));
+      }
+      const title = `${i + 1}. ${String(m.name).trim()}`;
+      const info = [m.dims ? `Габариты: ${String(m.dims).trim()}` : '', `Количество: ${num(Number(m.qty))} шт.`].filter(Boolean).join('\n');
+      const th = textH('gost', 9.5, title) + 2;
+      const ihText = textH('gost-i', BODY, info) + 2;
+      const h = th + ihText + (pic ? ih + 6 : 0) + 6;
+      place(h, (d, yy) => {
+        d.font('gost').fontSize(9.5).fillColor('#000').text(title, L, yy, { width: Wd, lineGap: 0.6 });
+        d.font('gost-i').fontSize(BODY).fillColor('#000').text(info, L + 6, yy + th, { width: Wd - 6, lineGap: 0.6 });
+        if (pic) { try { d.image(pic, L, yy + th + ihText + 3, { fit: [Wd, ih], align: 'center', valign: 'center' }); } catch { /* битый рисунок — без него */ } }
+      });
+    });
+    if (modules.length >= 2) para(`Итого модулей: ${num(modules.reduce((s, m) => s + Number(m.qty), 0))} шт.`, BODY, 'gost');
+    y += 3;
+  };
+
   const descrSection = () => {
     if (!descrNo) return;
     let k = 0;
@@ -227,6 +255,7 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
     if (descr.length) { sub(`${descrNo}.${++k} Описание изделия`); descr.forEach((s) => paraR(s)); y += 3; }
     if (purpose.length) { sub(`${descrNo}.${++k} Назначение`); purpose.forEach((s) => paraR(s)); y += 3; }
     if (specs.length) { sub(`${descrNo}.${++k} Основные технические данные`); table(`Таблица ${tab.get('specs')} — Габаритные размеры и масса изделия`, ['Наименование', 'Значение'], [70, 30], specs, 9); }
+    if (modules.length) { sub(`${descrNo}.${++k} Состав изделия: модули`); modulesBlock(); }
     if (mergeRules && rules.length) { sub(`${descrNo}.${++k} Правила пользования`); rules.forEach((s) => item(s, null, true)); }
     y += 4;
   };

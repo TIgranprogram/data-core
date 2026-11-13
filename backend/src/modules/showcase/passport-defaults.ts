@@ -1,3 +1,4 @@
+import { parseModules, type PassportModule } from '../../common/passport/modules';
 import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { parseChoices } from '../../common/passport/phrase-tree';
@@ -22,6 +23,8 @@ export interface PassportDefaults {
   textOverrides?: TextOverrides;
   /** C054: соединения конструкции (bolts / welds / solid) — по ним считаются условные пункты текста паспорта. */
   joints?: string[];
+  /** C095: модули сборного изделия (название, габариты, количество, рисунок) — переходят в новый паспорт. */
+  modules?: PassportModule[];
   [k: string]: unknown;
 }
 
@@ -57,6 +60,7 @@ export function normalizePassportDefaults(b: Record<string, unknown>): PassportD
     const joints = parseJoints(b.joints);
     if (joints) out.joints = joints;
   } catch (e) { if (e instanceof WhenError) throw new BadRequestException(e.message); throw e; }
+  if (b.modules !== undefined) { const mods = parseModules(b.modules); if (mods.length) out.modules = mods; }
   for (const k of NUMS) {
     const raw = b[k];
     if (raw === undefined || raw === null || raw === '') continue;

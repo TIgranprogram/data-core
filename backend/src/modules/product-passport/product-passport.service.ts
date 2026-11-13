@@ -1,3 +1,4 @@
+import { parseModules } from '../../common/passport/modules';
 import { installKindOf, variantOf } from './passport-variants';
 import { blankItems } from './passport-blanks';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional, ForbiddenException } from '@nestjs/common';
@@ -271,6 +272,7 @@ export class ProductPassportService {
     // картинка без вида — только «Фото изделия» (ФП: раньше без вида не попадала никуда)
     if (set.images) set.images = (set.images as Array<Doc>).map((i, k) => ({ kind: i.kind || 'overview', photoId: this.oid(i.photoId), order: i.order ?? k, ...(i.caption ? { caption: i.caption } : {}), ...(i.refCode ? { refCode: i.refCode } : {}) }));
     for (const f of ['elements', 'materialIds'] as const) if (Array.isArray(set[f])) set[f] = (set[f] as unknown[]).map((x) => this.oid(x));
+    if ('modules' in set) set.modules = parseModules(set.modules); // C095
     if ('textChoices' in set) set.textChoices = parseChoices(set.textChoices); // ПВ: пусто — выбор снят
     if ('materialsSpec' in set) set.materialsSpec = parseMaterialsSpec(set.materialsSpec); // МИ: тот же разбор, что у изделия; пусто — null
     if (set.passportNumber !== undefined) set.passportNo = Number(set.passportNumber) || undefined;

@@ -10,7 +10,7 @@ import type { Doc } from './passport-consts';
  * Поля, которых у изделия нет (пусто), остаются как в паспорте. Только паспортные поля: seatWidth, supports, cert*, bom, данные заказа — не трогаем.
  */
 const NUM_KEYS = ['ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth', 'serviceLifeYears', 'warrantyMonths', 'foundationDepth'] as const;
-const DEFAULT_KEYS = ['elements', 'materialIds', 'installationTypeId', 'isKit', 'textChoices', 'textOverrides', 'joints', ...NUM_KEYS] as const;
+const DEFAULT_KEYS = ['elements', 'materialIds', 'installationTypeId', 'isKit', 'textChoices', 'textOverrides', 'joints', 'modules', ...NUM_KEYS] as const; // modules — C095
 
 const filled = (v: unknown) => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && !v.length) && !(typeof v === 'object' && !Array.isArray(v) && !(v instanceof Types.ObjectId) && !Object.keys(v as object).length);
 const pos = (v: unknown) => (Number(v) > 0 ? Number(v) : undefined);

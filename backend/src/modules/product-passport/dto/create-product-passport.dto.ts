@@ -66,6 +66,8 @@ export class CreateProductPassportDto {
   @IsOptional() @IsNumber() @Min(0) weightMax?: number;
   @IsOptional() @IsNumber() @Min(0) maxUsers?: number;
   @IsOptional() @IsNumber() @Min(0) foundationDepth?: number;
+  /** C095: модули сборного изделия; проверка — parseModules в сервисе. */
+  @IsOptional() @IsArray() modules?: Array<{ name: string; dims?: string; qty: number; photoId?: string }>;
   @IsOptional() @IsNumber() @Min(0) fallHeight?: number;
   @IsOptional() @IsNumber() @Min(0) siteLength?: number;
   @IsOptional() @IsNumber() @Min(0) siteWidth?: number;

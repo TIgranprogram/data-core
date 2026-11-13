@@ -289,6 +289,7 @@ export class PassportPdfService {
       style: await this.styleOf(p),
       logo: await this.asset(asset('logo')),
       defectImages: await this.defectImages(text),
+      moduleImages: await this.photosById(((p.modules as Array<{ photoId?: string }> | undefined) || []).map((m) => String(m.photoId || ""))),
       seal, signature, withStamp: stamp, mode, mono: !!opts.mono,
       look: await this.looks.forPdf(p.supplierOrgId),
     };
@@ -361,6 +362,16 @@ export class PassportPdfService {
   }
 
   /** Миниатюры дефектов из снимка ТО (photoId строк) → photos.storageUrl → картинка (Э6d). */
+  /** C095: картинки по id фото (рисунки модулей). */
+  private async photosById(raw: string[]): Promise<Record<string, Buffer>> {
+    const ids = [...new Set(raw.filter((x) => /^[0-9a-f]{24}$/i.test(x)))];
+    if (!ids.length) return {};
+    const photos = await this.connection.collection('photos').find({ _id: { $in: ids.map((x) => new Types.ObjectId(x)) } }, { projection: { storageUrl: 1 } }).toArray();
+    const out: Record<string, Buffer> = {};
+    for (const ph of photos) { const buf = await this.file(ph.storageUrl as string | undefined); if (buf) out[String(ph._id)] = buf; }
+    return out;
+  }
+
   private async defectImages(text: PdfV2Text | undefined): Promise<Record<string, Buffer>> {
     const ids = [...new Set((text?.maintenance || []).flatMap((m) => (m.rows || []).map((r) => String(r.photoId || '').trim())).filter((x) => Types.ObjectId.isValid(x) && /^[0-9a-f]{24}$/i.test(x)))];
     if (!ids.length) return {};

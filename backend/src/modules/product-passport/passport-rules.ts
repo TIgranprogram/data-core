@@ -216,7 +216,7 @@ export function requiredImageKinds(p: { isKit?: boolean }, cat?: { requiredImage
 export function imageRules(p: { isKit?: boolean }, cat: { requiredImages?: string } | null | undefined, ctx: VariantCtx): { required: string[]; slots: string[] } {
   // Фото изделия обязательно уже в общих missingFields; тот же состав нужен check, выпуску и PDF.
   const required = [...new Set(['overview', ...requiredImageKinds(p, cat, ctx)])];
-  const slots = PASSPORT_IMAGE_KINDS.filter((k) => k !== 'safety' && (imageKindAllowed(k, ctx) || required.includes(k)));
+  const slots = PASSPORT_IMAGE_KINDS.filter((k) => k !== 'safety' && k !== 'module' && (imageKindAllowed(k, ctx) || required.includes(k)));
   return { required, slots: [...slots] };
 }
 
