@@ -163,7 +163,7 @@ export function enhanceSelect(sel, { force = false } = {}, tries = 0) {
  *   tagPick({ options: [{ value, label, sub?, cats?, kind? }], value, label?, productOnly? }) → { el, value, set value, focus, setScope(code) → [чужие выбранные] }
  * cats — коды категорий, к которым относится значение (пусто — ко всем). setScope(code): видны только свои;
  * productOnly — как на сервере elementFits: только kind «product» или пустой (детали/крепеж скрыты);
- * уже выбранные чужие остаются с пометкой «не для этой категории» (`.tag.foreign`); «Показать все» — под списком (ФП).
+ * уже выбранные чужие остаются с пометкой «не для этого типа паспорта» (`.tag.foreign`); «Показать все» — под списком (ФП).
  */
 export function tagPick({ options, value, label, productOnly = false }) {
   const parse = (v) => { if (Array.isArray(v)) return v.map(String); try { return (JSON.parse(v || '[]') || []).map(String); } catch { return []; } };
@@ -190,13 +190,13 @@ export function tagPick({ options, value, label, productOnly = false }) {
       b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on));
       b.classList.toggle('foreign', !own);
       // категория выбрана — перечень категорий значения не нужен (ПК: в форме только своё); без категории — как раньше
-      const why = productOnly && !asProduct(o) ? 'не изделие' : 'не для этой категории';
+      const why = productOnly && !asProduct(o) ? 'не изделие' : 'не для этого типа паспорта';
       note.textContent = !own && on ? why : scope ? '' : o.sub || '';
       b.hidden = !own && !on && !showAll;
       if (!own && !on) hidden++;
     }
     more.hidden = !(scope || productOnly) || (!hidden && !showAll);
-    more.textContent = showAll ? (productOnly ? 'Только изделия категории' : 'Только для этой категории') : `Показать все (ещё ${hidden})`;
+    more.textContent = showAll ? (productOnly ? 'Только изделия этого типа' : 'Только для этого типа паспорта') : `Показать все (ещё ${hidden})`;
   };
   box.append(...(items.length ? [...items.map((x) => x.b), more] : [h('span', { class: 'muted' }, 'Справочник пуст — заполните его в «Справочники → Паспорта»')]));
   paint();
@@ -205,7 +205,7 @@ export function tagPick({ options, value, label, productOnly = false }) {
     get value() { return JSON.stringify([...cur]); },
     set value(v) { cur = new Set(parse(v)); paint(); },
     focus: () => items.find((x) => !x.b.hidden)?.b.focus(),
-    /** Категория паспорта сменилась: показать свои; вернуть подписи выбранных, что к ней не относятся. */
+    /** Тип паспорта сменился: показать свои; вернуть подписи выбранных, что к ней не относятся. */
     setScope(code) { scope = code || ''; showAll = false; paint(); return items.filter((x) => cur.has(x.b.dataset.v) && !mine(x.o)).map((x) => x.o.label); },
   };
 }
@@ -238,7 +238,7 @@ export function attachSuggest(input, { load, onPick, title = 'Уже заказ�
       ...shown.map((x, i) => h('div', { class: 'sg-row' + (x.pic !== undefined ? ' sg-pic-row' : '') + (i === active ? ' active' : ''), role: 'option', onmousedown: (e) => { e.preventDefault(); pick(x); } },
         x.pic !== undefined ? (x.pic ? h('img', { class: 'sg-pic', src: x.pic, alt: '', loading: 'lazy' }) : h('span', { class: 'sg-pic sg-pic-none' })) : null,
         h('div', { class: 'sg-txt' }, h('div', { class: 'opt-l' }, highlight(x.label, input.value)), h('small', null, x.sub)))),
-      shown.length ? null : h('div', { class: 'sg-row muted' }, 'В этой категории ничего')].filter(Boolean));
+      shown.length ? null : h('div', { class: 'sg-row muted' }, 'Для этого типа паспорта ничего нет')].filter(Boolean));
     box.hidden = false;
     placeList(box);
     box.querySelector('.sg-row.active')?.scrollIntoView({ block: 'nearest' });
