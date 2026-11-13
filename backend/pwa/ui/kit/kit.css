@@ -778,6 +778,20 @@ table.cal.k-tree tr.k-tree-ins > td { padding: 0; white-space: normal; text-alig
 .pm-thumb { display: grid; place-items: center; inline-size: var(--s6); block-size: var(--s6); flex: none; overflow: hidden; border-radius: var(--radius-sm); background: var(--surface-2); }
 .pm-thumb img { inline-size: 100%; block-size: 100%; object-fit: contain; }
 .pm-item .pm-lbl { min-width: 0; overflow-wrap: anywhere; }
+/* «Недавно открытые» (2026-11-13): каждая запись — карточка в рамке с полосой цвета раздела, фото крупно, вид — строкой над названием */
+.pm-recent { min-inline-size: min(380px, 92vw); }
+.pm-recent .pm-item { align-items: center; gap: var(--s3); margin-block-end: var(--s2); padding: var(--s2); border: 1px solid var(--border); border-inline-start: 6px solid var(--rc, var(--border)); border-radius: var(--radius-sm); background: var(--surface); }
+.pm-recent .pm-group.sep .pm-item { border: 0; background: none; margin: 0; }
+.pm-recent .pm-thumb { inline-size: 56px; block-size: 56px; border: 1px solid var(--border); }
+.pm-recent .pm-thumb:has(img) { background: var(--paper); } /* фото — на белом, значок без фото — на подложке темы */
+.pm-rc { display: grid; gap: var(--s1); min-width: 0; }
+.pm-rc-kind { color: var(--rc, var(--muted)); font-size: var(--fs-sm); font-weight: 600; }
+.pm-rc-title { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rc-products { --rc: var(--sec-products); }
+.rc-orders { --rc: var(--sec-orders); }
+.rc-supply { --rc: var(--sec-supply); }
+.rc-stock { --rc: var(--sec-stock); }
+.rc-money { --rc: var(--sec-money); }
 /* Карты помощи: читаемый текстовый дубль остаётся на узких экранах. */
 .k-guide-diagram { width: 100%; }
 @media (max-width: 1200px) { .k-guide-diagram { display: none; } }

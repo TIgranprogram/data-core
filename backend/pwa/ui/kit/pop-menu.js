@@ -9,14 +9,14 @@ const isPhone = () => window.matchMedia?.('(max-width: 760px)').matches;
 
 export function closePopMenu(refocus = false) { if (current) current.close(refocus); }
 
-/** groups: [{ title?, items:[{ label, icon?, lead?, href?, onSelect?, danger?, sub? }], sep?: true }]; head: узел сверху (имя/роль). */
+/** groups: [{ title?, items:[{ label, icon?, lead?, href?, onSelect?, danger?, sub?, cls? }], sep?: true }]; head: узел сверху (имя/роль). cls — доп. класс пункта (цвет раздела у «Недавно открытых»). */
 export function openPopMenu({ anchor, groups, head, side = 'up', cls = '' }) {
   closePopMenu();
   const phone = isPhone();
   const items = [];
   const done = (refocus) => { close(refocus); };
   const mkItem = (it) => {
-    const attrs = { class: 'pm-item' + (it.danger ? ' danger' : ''), role: 'menuitem', tabindex: '-1' };
+    const attrs = { class: 'pm-item' + (it.danger ? ' danger' : '') + (it.cls ? ' ' + it.cls : ''), role: 'menuitem', tabindex: '-1' };
     const kids = [it.lead || (it.icon ? icon(it.icon) : null), h('span', { class: 'pm-lbl' }, it.label)];
     const el = it.href
       ? h('a', { ...attrs, href: it.href, onclick: () => done(false) }, ...kids)

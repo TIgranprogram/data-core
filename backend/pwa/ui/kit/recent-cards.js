@@ -36,6 +36,18 @@ function thumbnail(entry) {
     onerror: () => box.replaceChildren(fallback()) }) : fallback());
   return box;
 }
+/** Раздел записи → цвет раздела бокового меню (--sec-*): рамка карточки и подпись вида (пользователь 2026-11-13: «каша»). */
+const AREA = { products: 'products', offers: 'products', docs: 'products', doctpl: 'products', passports: 'products',
+  salesorders: 'orders', salesorder: 'orders', design: 'orders', designtasks: 'orders', work: 'orders', matching: 'orders',
+  requests: 'supply', suppliercatalog: 'supply', contracts: 'supply', partners: 'supply',
+  stock: 'stock', 'stock-mobile': 'stock', movements: 'stock', orders: 'money', money: 'money', expenses: 'money', payroll: 'money' };
+const areaOf = (e) => AREA[e.of] || AREA[e.section] || '';
+/** Строка записи: вид (цветом раздела) отдельной строкой, название — до двух строк. */
+function entryLabel(e) {
+  const kind = e.kind || '';
+  const title = kind && e.title.startsWith(kind) ? e.title.slice(kind.length).replace(/^\s*·\s*/, '') : e.title;
+  return h('span', { class: 'pm-rc' }, kind ? h('small', { class: 'pm-rc-kind' }, kind) : null, h('span', { class: 'pm-rc-title', title }, title));
+}
 /** Эталон pop-menu: на телефоне нижний лист, на широком экране меню у кнопки. */
 export function recentCardsButton(allowed) {
   const btn = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Недавно открытые карточки',
@@ -43,10 +55,10 @@ export function recentCardsButton(allowed) {
       if (isOpenFor(btn)) { closePopMenu(); return; }
       const cache = store();
       const entries = cache?.list(allowed) || [];
-      openPopMenu({ anchor: btn, side: 'down',
+      openPopMenu({ anchor: btn, side: 'down', cls: 'pm-recent',
         head: entries.length ? null : h('p', { class: 'hint' }, 'Здесь появятся карточки, которые вы откроете. История хранится только в этом браузере.'),
         groups: [
-          { title: 'Недавно открытые', items: entries.map((e) => ({ label: e.kind && !e.title.startsWith(e.kind) ? e.kind + ' · ' + e.title : e.title, lead: thumbnail(e), href: recentHref(e) })) },
+          { title: 'Недавно открытые', items: entries.map((e) => ({ label: entryLabel(e), lead: thumbnail(e), href: recentHref(e), cls: areaOf(e) ? 'rc-' + areaOf(e) : '' })) },
           entries.length ? { sep: true, items: [{ label: 'Очистить список', onSelect: () => cache.clear() }] } : null,
         ],
       });
