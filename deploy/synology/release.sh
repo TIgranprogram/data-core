@@ -231,7 +231,9 @@ else echo "приложение v$APP_VER не выложено (сайт не �
 fi
 
 echo "== 7. История проекта (импорт в devlog; сбой не валит выкладку)"
-node backend/scripts/devlog-import.js prod --apply 2>&1 | tail -15 || echo "импорт истории не прошёл — выкладка не затронута"
+# полный вывод — в файл: в нём список «можно удалить» (сверено с сервером), по нему Claude делает git rm архива
+mkdir -p tools/logs && node backend/scripts/devlog-import.js prod --apply > tools/logs/devlog-sync-last.txt 2>&1 \
+  && tail -15 tools/logs/devlog-sync-last.txt || echo "импорт истории не прошёл — выкладка не затронута (tools/logs/devlog-sync-last.txt)"
 
 echo "== Готово. Публично: https://kppdf-crm.ru/db/app/"
 # пользователь сверяет с меню приложения («v1.N») — то ли он видит (просьба 2026-10-25)

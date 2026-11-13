@@ -188,6 +188,12 @@ async function shift(s, end) {
       done.push({ id: 'ИИ-тестировщик', result: 'отчёт в tools/logs/ai-tester', quality: '—' });
     }
   } finally { try { awake?.kill(); } catch { /* нет */ } }
+  // конец смены — уборка ПК (Docker, журналы, профили браузера, старые копии): ничего не копится ни дома, ни на работе
+  if (!fs.existsSync(STOP_FILE)) {
+    fs.writeFileSync(RUN_FILE, JSON.stringify({ pid: process.pid, job: 'уборка ПК', beat: Date.now(), end }));
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'tools', 'pc-clean.mjs'), '--from-shift'], { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 20 * 60000 });
+    done.push({ id: 'Уборка ПК', result: ((r.stdout || '').trim().split('\n')[0] || 'сбой').slice(0, 120), quality: '—' });
+  }
   const hist = readJson(HISTORY, []);
   const bad = loadJobs().filter((j) => needsFix(j, hist.filter((h) => h.id === j.id).sort((a, b) => b.at - a.at)));
   const lines = [`# Смена Старожила ${stamp()}`, '', ...done.map((d) => `- ${d.id}: ${d.result}, оценка ${d.quality}`), ''];

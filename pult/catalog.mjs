@@ -57,6 +57,7 @@ export const SCHEDULE = [
   { id: 'day-data', kind: 'weekly', day: 1, time: '10:00', enabled: true },
   { id: 'code-check', kind: 'daily', time: '09:10', enabled: true },
   { id: 'sportin-drill', kind: 'monthly', day: 1, time: '12:00', enabled: true },
+  { id: 'pc-clean', kind: 'daily', time: '13:00', enabled: true },
 ];
 
 const dc = (...args) => ({ node: ['tools/dc.mjs', ...args], soft: true });
@@ -185,6 +186,8 @@ export const COMMANDS = [
 
   { id: 'docker-clean-plan', section: 'stand', extra: true, title: 'Docker: что лишнее на этом ПК', risk: 'read', time: '10 с', needs: ['docker'], run: { node: ['tools/docker-clean.mjs'] },
     hint: 'Показывает, сколько места займут старые стенды и кэш. Ничего не удаляет.' },
+  { id: 'pc-clean', section: 'stand', extra: true, title: 'Уборка этого ПК', risk: 'local', time: '1–5 мин', run: { node: ['tools/pc-clean.mjs'] },
+    hint: 'Сама раз в день и в конце смены Старожила: Docker (кэш, старые стенды), журналы старше 30 дней, брошенные профили браузера, старые копии базы (остаётся последняя). Сайт и текущий стенд не трогает.' },
   { id: 'docker-clean', section: 'stand', extra: true, title: 'Docker: очистить этот ПК', risk: 'local', time: '1–3 мин', needs: ['docker'], run: { node: ['tools/docker-clean.mjs', '--clean'] },
     confirm: 'Удалятся старые стенды, кэш сборки, образы и тома без имени. Локальный сайт, его данные и текущий стенд :3102 останутся.',
     hint: 'Освобождает место. Следующая сборка стенда будет на пару минут дольше.' },
