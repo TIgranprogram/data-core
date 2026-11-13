@@ -370,7 +370,7 @@ const LOOK = `(() => {
   const scope = layer || document.querySelector('main, #app, .content') || document.body;
   const toast = [...document.querySelectorAll('.toast, .k-toast, .alert, [role=alert], .error')].filter(vis).map((x) => clean(x.innerText)).filter(Boolean).slice(0, 3);
   const bad = [...document.querySelectorAll('.err, [aria-invalid=true], .invalid')].filter(vis).map((x) => fieldLabel(x)).filter(Boolean).slice(0, 5);
-  return { hash: location.hash, layer: layer ? clean((layer.querySelector('h1,h2,h3,.drawer-title,.k-title') || {}).innerText) || 'открыта' : '', toast, bad, text: clean(scope.innerText).slice(0, 1100), all: clean(document.body.innerText).slice(0, 6000), els: out };
+  return { hash: location.hash, layer: layer ? clean((layer.querySelector('h1,h2,h3,.drawer-title,.k-title') || {}).innerText) || 'открыта' : '', toast, bad, text: clean(scope.innerText).slice(0, 1100), all: clean(document.body.innerText).slice(0, 6000), lines: document.body.innerText.split('\\n').map((x) => x.trim()).filter(Boolean).join(' | ').slice(0, 6000), els: out };
 })()`;
 
 async function look(b) {
@@ -393,7 +393,7 @@ async function act(b, call, nav, ctxText) {
   if (call.name === 'click') {
     const l = await label(a.n); if (l == null) return `Элемента [${a.n}] нет. Посмотри список заново.`;
     const why = blockedClick(l, ctxText); if (why) return `Нельзя: ${why}.`;
-    await b.ev(`(()=>{const e=${el(a.n)};e.scrollIntoView({block:'center'});e.click();return 1})()`);
+    await b.ev(`(()=>{const e=${el(a.n)};e.scrollIntoView({block:'center'});(typeof e.click==='function'?e.click():e.dispatchEvent(new MouseEvent('click',{bubbles:true})));return 1})()`);
     return `Нажал «${l}».`;
   }
   if (call.name === 'fill') {
