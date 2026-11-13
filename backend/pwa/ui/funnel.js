@@ -121,7 +121,7 @@ export function funnelBox({ value, category = '', canEditText = false, onPaint, 
       const many = s.children.length > 1 || path.length > 1;
       // один вид правки значения во всей форме паспорта: «Подпись: значение ✎» (как заполненные поля, fill/paint.js filledLink)
       const val = `${s.name}: ${path.map((n) => n.name).join(' › ')}`;
-      wrap.append(h('div', { class: 'pp-step-sum' },
+      wrap.append(h('div', { class: 'pp-step-sum k-fill-done' }, // выбранный шаг — как заполненное поле анкеты (зелёный фон)
         many ? link({ label: `${val} ✎`, title: 'Изменить', onClick: () => { editing.add(s.id); paint(); } }) : h('span', null, val),
         auto ? h('span', { class: 'muted' }, 'подставлено') : null), textBlock(s, leaf));
       return wrap;

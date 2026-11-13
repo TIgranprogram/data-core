@@ -98,7 +98,8 @@ export function paintFields(ctx) {
   for (const host of Object.values(ctx.fieldHost)) host.replaceChildren();
   const showRow = ctx.mode === 'template' || ctx.reveal;
   const nums = {}; // короткие числа раздела — одним рядом, а не колонкой на всю ширину
-  const wrap = (spec, node) => h('div', { dataset: { gap: spec.key } }, node);
+  // заполненное — спокойный зелёный фон, обязательное незаполненное — золотая рамка (пользователь 2026-11-13)
+  const wrap = (spec, node, cls) => h('div', { dataset: { gap: spec.key }, class: cls || null }, node);
   for (const spec of scalars(ctx)) {
     const gap = gapOf(spec, ctx.missing);
     if (gap) used.add(gap.key);
@@ -111,9 +112,9 @@ export function paintFields(ctx) {
       if (showRow) host.append(wrap(spec, hint(`${spec.label}: ${text} — в паспорт этого типа не входит. Значение сохранено в изделии, в паспорт не печатается.`)));
     } else if (state === 'filled') {
       ctx.filled.push(spec.key);
-      if (showRow) host.append(wrap(spec, filledLink(ctx, spec, text)));
-    } else if (spec.num) (nums[spec.section] ||= []).push(wrap(spec, spec.editor(gap)));
-    else host.append(wrap(spec, spec.editor(gap)));
+      if (showRow) host.append(wrap(spec, filledLink(ctx, spec, text), 'k-fill-done'));
+    } else if (spec.num) (nums[spec.section] ||= []).push(wrap(spec, spec.editor(gap), gap?.required ? 'k-fill-need' : ''));
+    else host.append(wrap(spec, spec.editor(gap), gap?.required ? 'k-fill-need' : ''));
   }
   for (const m of ctx.missing) {
     if (m.kind === 'image' || m.kind === 'category' || used.has(m.key)) continue;
@@ -123,7 +124,7 @@ export function paintFields(ctx) {
     if (m.kind === 'facet' && !m.required && ctx.mode === 'issue' && !ctx.more) { ctx.later.push(m.label || 'признак'); continue; }
     const node = controlGap(m, ctx);
     if (!node) continue;
-    const box = h('div', { dataset: { gap: String(m.key) } }, node);
+    const box = h('div', { dataset: { gap: String(m.key) }, class: m.required ? 'k-fill-need' : null }, node);
     if (m.kind === 'field' && node.classList?.contains('k-ti')) (nums[gapSection(m)] ||= []).push(box);
     else ctx.fieldHost[gapSection(m)].append(box);
   }

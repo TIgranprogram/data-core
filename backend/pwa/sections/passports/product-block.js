@@ -123,14 +123,19 @@ export function productBlock(api, { r, catBy }) {
   // источник категории — плашка рядом с выбором «Тип паспорта»
   const badge = h('div', { class: 'pp-cat-src' });
   const paintBadge = () => {
-    if (!catInfo || !chosen) { badge.replaceChildren(); return; }
-    const cur = api.get('passportCategory'); const base = catInfo.own?.code || catInfo.inherited?.code || '';
+    const cf = api.field('passportCategory'); const ctrls = cf ? [...cf.children].filter((el) => el !== badge) : [];
+    if (!catInfo || !chosen) { badge.replaceChildren(); ctrls.forEach((el) => { el.hidden = false; }); return; }
+    const base = catInfo.own?.code || catInfo.inherited?.code || '';
+    // C103: тип паспорта берётся из изделия (группа / вид / своё) — в окне не выбирается, только строка-источник.
+    // Тип у изделия не задан — выбор остаётся (паспорт без типа не собрать), с подсказкой задать его в группе.
+    ctrls.forEach((el) => { el.hidden = !!base; });
+    if (base && api.get('passportCategory') !== base) api.set('passportCategory', base, { auto: true, src: 'из изделия' });
+    const name = V2_CATS.find((c) => c.value === base)?.label || base;
     let kind = 'ok'; let text;
-    if (cur && base && cur !== base) { kind = 'warn'; text = 'выбрана вручную'; }
-    else if (catInfo.own) text = 'задана в изделии';
-    else if (catInfo.inherited?.source === 'group') text = `из группы «${catInfo.group}»`;
-    else if (catInfo.inherited) { kind = 'warn'; text = catInfo.type ? `по разделу «${catInfo.type}» — проверьте` : 'по разделу — проверьте'; }
-    else { kind = 'warn'; text = 'не задана — выберите'; }
+    if (catInfo.own) text = `${name} — своё у изделия`;
+    else if (catInfo.inherited?.source === 'group') text = `${name} — из группы «${catInfo.group}»`;
+    else if (catInfo.inherited) text = catInfo.type ? `${name} — из раздела «${catInfo.type}»` : `${name} — из раздела`;
+    else { kind = 'warn'; text = 'не задан — выберите ниже или задайте в группе изделия'; }
     const canReset = catInfo.own && canEdit();
     badge.replaceChildren(h('span', { class: 'badge ' + kind }, 'Тип паспорта: ' + text),
       ...(canReset ? [' ', button({ label: 'Брать из группы', kind: 'ghost', size: 'S', onClick: () => resetOwn() })] : []));

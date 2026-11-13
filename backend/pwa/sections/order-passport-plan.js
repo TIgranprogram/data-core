@@ -54,7 +54,7 @@ async function printOrderDialog(row) {
     formats: ORDER_FORMATS, mode: 'print',
     extraTop: h('div', null,
       h('div', { class: 'section-title' }, 'Какие паспорта печатать'),
-      kit.stack(...boxes.map((b) => b.el)),
+      kit.scroll(kit.stack(...boxes.map((b) => b.el))), // 15+ позиций — прокрутка, окно не растягивается
       kit.actions(
         kit.button({ label: 'Отметить все', size: 'S', kind: 'ghost', onClick: () => setAll(true) }),
         kit.button({ label: 'Снять все', size: 'S', kind: 'ghost', onClick: () => setAll(false) }))),
