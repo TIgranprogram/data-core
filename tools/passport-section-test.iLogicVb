@@ -85,7 +85,7 @@ Sub Main()
             sk.ExitEdit()
         End Try
         Dim notes As Inventor.GeneralNotes = sheet.DrawingNotes.GeneralNotes
-        If depthMm > 0 Then notes.AddFitted(tg.CreatePoint2d(dimX - 0.75, (fBottom + groundY) / 2 + 0.3), Big("Г"))
+        If depthMm > 0 Then Note(notes, tg, dimX - 0.75, (fBottom + groundY) / 2 + 0.3, "Г", 0.5, log)
         log.AppendLine(stage & ": ок")
 
         stage = "7. Разрез крупнее, сразу под видом спереди"
@@ -111,8 +111,8 @@ Sub Main()
         Finally
             dims.ExitEdit()
         End Try
-        notes.AddFitted(tg.CreatePoint2d((l + r) / 2 - 0.5, dy + 0.65), Num(Math.Round(section.Width / section.Scale * 10).ToString()))
-        notes.AddFitted(tg.CreatePoint2d(dx + 0.3, (tp + bt) / 2 + 0.25), Num(Math.Round(section.Height / section.Scale * 10).ToString()))
+        Note(notes, tg, (l + r) / 2 - 0.5, dy + 0.65, Math.Round(section.Width / section.Scale * 10).ToString(), 0.35, log)
+        Note(notes, tg, dx + 0.3, (tp + bt) / 2 + 0.25, Math.Round(section.Height / section.Scale * 10).ToString(), 0.35, log)
         Try
             section.Label.Position = tg.CreatePoint2d((l + r) / 2, dy - 1.0)
         Catch exL As Exception
@@ -129,13 +129,15 @@ Sub Main()
     End Try
 End Sub
 
-Function Big(text As String) As String
-    Return "<StyleOverride FontSize='0.5'>" & text & "</StyleOverride>"
-End Function
-
-Function Num(text As String) As String
-    Return "<StyleOverride FontSize='0.35'>" & text & "</StyleOverride>"
-End Function
+' Надпись: сначала заданным размером шрифта (см), не вышло — обычной надписью; причина — в журнал
+Sub Note(notes As Inventor.GeneralNotes, tg As Inventor.TransientGeometry, x As Double, y As Double, text As String, sizeCm As Double, log As System.Text.StringBuilder)
+    Dim n As Inventor.GeneralNote = notes.AddFitted(tg.CreatePoint2d(x, y), text)
+    Try
+        n.FormattedText = "<StyleOverride FontSize='" & sizeCm.ToString(System.Globalization.CultureInfo.InvariantCulture) & "'>" & text & "</StyleOverride>"
+    Catch ex As Exception
+        log.AppendLine("   надпись «" & text & "» — обычным шрифтом: " & ex.Message)
+    End Try
+End Sub
 
 Sub Line(sk As Inventor.DrawingSketch, tg As Inventor.TransientGeometry, x1 As Double, y1 As Double, x2 As Double, y2 As Double)
     sk.SketchLines.AddByTwoPoints(tg.CreatePoint2d(x1, y1), tg.CreatePoint2d(x2, y2))
