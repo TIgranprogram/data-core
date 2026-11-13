@@ -238,8 +238,8 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     drawing.Update()
     section.Position = tg.CreatePoint2d(installationSheet.Width * 0.5, installationSheet.Height * 0.5)
     drawing.Update()
-    ' подпись — только «А-А» (стиль ГОСТ даёт «СЕЧЕНИЕ А-А / МАСШТАБ …»)
-    section.Label.FormattedText = "<DrawingViewName/>-<DrawingViewName/>"
+    ' подписи нет: «А-А» без вида спереди непонятно, разрез чего (пользователь 2026-11-13); в паспорте подпись — «Схема установки опор»
+    section.ShowLabel = False
 
     ' Габариты по разрезу: длина — под планом, ширина — справа; числа в мм по размеру разреза и его масштабу (2026-11-13)
     stage = "Габариты по разрезу"
@@ -297,9 +297,9 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     drawing.SelectSet.Clear()
     Dim schemeView As Inventor.View = app.ActiveView
     schemeView.Fit()
-    ' рамка: разрез + линии габаритов справа и снизу + подпись «А-А» под ними
+    ' рамка: разрез + линии габаритов справа и снизу (подписи вида нет)
     Dim sBoxLeft As Double = secLeft - 0.5, sBoxRight As Double = dimX + 1.8
-    Dim sBoxTop As Double = secTop + 0.5, sBoxBottom As Double = dimY - 2.2
+    Dim sBoxTop As Double = secTop + 0.5, sBoxBottom As Double = dimY - 0.6
     Dim sCam As Inventor.Camera = schemeView.Camera
     sCam.Target = tg.CreatePoint((sBoxLeft + sBoxRight) / 2, (sBoxTop + sBoxBottom) / 2, 0)
     sCam.Eye = tg.CreatePoint((sBoxLeft + sBoxRight) / 2, (sBoxTop + sBoxBottom) / 2, 10)
