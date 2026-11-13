@@ -58,6 +58,9 @@ test('после resize к телефону продолжает карточк�
   const { page } = await fixture();
   try {
     await mount(page); await page.setViewportSize({ width: 390, height: 844 });
+    // раскладка карточек после resize перестраивается не сразу — прокручивать, когда карточки на месте
+    await page.waitForFunction(() => document.querySelectorAll('.cards > li').length > 0);
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForFunction(() => document.querySelector('.list-foot')?.textContent.includes('200 из 250'));
     assert.equal(await page.locator('.cards > li').count(), 200);
