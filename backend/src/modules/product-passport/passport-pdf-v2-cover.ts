@@ -3,7 +3,7 @@ import { firmAccent } from './passport-look-metrics';
 import { PdfV2Input } from './passport-pdf-v2-types';
 import { A5, M, CW, BOTTOM, V2Page, has, num, shortTiles, ruleIcon } from './passport-pdf-v2-common';
 
-export function shortPage(doc: PDFKit.PDFDocument, input: PdfV2Input, color: string, purpose: string, box?: { l: number; r: number; t: number; b: number } | null): V2Page | null {
+export function shortPage(doc: PDFKit.PDFDocument, input: PdfV2Input, color: string, purpose: string, box?: { l: number; r: number; t: number; b: number } | null): (V2Page & { h: number }) | null {
   const tiles = shortTiles(input.passport);
   const icons = (input.style?.icons || []).filter(Boolean);
   if (!tiles.length && !purpose && !icons.length) return null;
@@ -11,7 +11,19 @@ export function shortPage(doc: PDFKit.PDFDocument, input: PdfV2Input, color: str
   const T = box ? box.t : M.t;
   const Btm = box ? A5.h - box.b : BOTTOM;
   const Wd = box ? A5.w - box.l - box.r : CW;
-  return { kind: 'body', footer: true, draws: [{ y: T, draw: (d, y0) => {
+  // Высота блока — тем же расчётом, что рисование ниже: по ней основной текст идёт сразу под «Коротко», а не с нового листа
+  const hOf = (font: string, size: number, s: string, w: number, lineGap = 0) => { doc.font(font).fontSize(size); return doc.heightOfString(s, { width: w, lineGap }); };
+  let h = hOf('gost', 13, 'Коротко об изделии', Wd) + 12;
+  if (tiles.length) {
+    h += Math.ceil(Math.min(tiles.length, 6) / 3) * 56 + 8;
+    if (tiles.length > 6) h += hOf('gost-i', 8.5, tiles.slice(6).map((t) => `${t.label}: ${t.value}`).join('; '), Wd) + 8;
+  }
+  if (purpose) h += hOf('gost', 10, 'Для чего', Wd) + 2 + Math.max(24, hOf('gost-i', 9.5, purpose, Wd, 0.6)) + 10;
+  if (icons.length) {
+    h += hOf('gost', 10, 'Главные правила', Wd) + 4;
+    for (const s of icons) h += Math.max(16, hOf('gost-i', 9.2, s, Wd - 24)) + 5;
+  }
+  return { kind: 'body', footer: true, h: Math.min(h, Btm - T), draws: [{ y: T, draw: (d, y0) => {
     let y = y0;
     d.font('gost').fontSize(13).fillColor('#000').text('Коротко об изделии', L, y, { width: Wd });
     y = d.y + 2;
@@ -77,7 +89,8 @@ export function cover(input: PdfV2Input): V2Page {
     let yy = band + 14;
     if (box && box.t > yy) yy = box.t;
     if (docName(org)) { d.font('gost').fontSize(10.5).fillColor('#000').text(docName(org), l, yy, { width: cw }); yy = d.y + 1; }
-    const ol = [org?.inn ? `ИНН ${org.inn}${org.kpp ? `; КПП ${org.kpp}` : ''}` : '', org?.phone ? `Тел.: ${org.phone}` : '', org?.email ? `E-mail: ${org.email}` : ''].filter(Boolean).join(' · ');
+    // ИНН и КПП на обложке не нужны (пользователь 2026-11-13) — только контакты
+    const ol = [org?.phone ? `Тел.: ${org.phone}` : '', org?.email ? `E-mail: ${org.email}` : ''].filter(Boolean).join(' · ');
     if (ol) { d.font('gost-i').fontSize(8.5).fillColor('#000').text(ol, l, yy, { width: cw }); yy = d.y; }
     yy = box ? yy + 18 : Math.max(yy + 18, 140);
     d.font('gost-i').fontSize(18).fillColor('#000').text(`ПАСПОРТ № ${p.passportNumber ?? ''}`, l, yy, { width: cw, align: 'center' });
@@ -85,14 +98,11 @@ export function cover(input: PdfV2Input): V2Page {
     d.font('gost-i').fontSize(nameFs).text(p.name ?? '', l + 10, d.y + 8, { width: cw - 20, align: 'center' });
     yy = d.y + 6;
     if (p.productCode) { d.font('gost-i').fontSize(10).fillColor('#000').text(`Номер изделия: ${p.productCode}`, l, yy, { width: cw, align: 'center' }); yy = d.y + 6; }
-    const cat = style?.categoryName || p.passportCategory || '';
+    // знак возраста по центру; плашки категории («Благоустройство») на обложке нет (пользователь 2026-11-13)
     const age = has(p.ageFrom) ? `${num(p.ageFrom)}+` : '';
-    if (cat || age) {
-      d.font('gost').fontSize(10);
-      const catW = cat ? d.widthOfString(cat) + 20 : 0, aw = age ? 26 : 0, gap = cat && age ? 8 : 0;
-      let x = box ? l + (cw - catW - aw - gap) / 2 : (A5.w - catW - aw - gap) / 2;
-      if (cat) { d.save().lineWidth(0.8).strokeColor(accent).roundedRect(x, yy, catW, 20, 10).stroke().restore(); d.font('gost').fontSize(10).fillColor('#000').text(cat, x, yy + 5, { width: catW, align: 'center', lineBreak: false }); x += catW + gap; }
-      if (age) { d.lineWidth(1.4).strokeColor(accent).circle(x + 13, yy + 10, 12).stroke(); d.font('gost').fontSize(9).fillColor('#000').text(age, x, yy + 5.5, { width: 26, align: 'center', lineBreak: false }); }
+    if (age) {
+      const x = (box ? l + (cw - 26) / 2 : (A5.w - 26) / 2);
+      d.lineWidth(1.4).strokeColor(accent).circle(x + 13, yy + 10, 12).stroke(); d.font('gost').fontSize(9).fillColor('#000').text(age, x, yy + 5.5, { width: 26, align: 'center', lineBreak: false });
       yy += 30;
     }
     const ov = images.overview?.[0];

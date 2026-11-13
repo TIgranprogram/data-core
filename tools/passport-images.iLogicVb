@@ -450,9 +450,7 @@ Function AddDimensions(sheet As Inventor.Sheet, front As Inventor.DrawingView,
     AddLabel(notes, tg, (frontLeft + frontRight) / 2, lengthY + 0.4, "Д")
     AddLabel(notes, tg, heightX + 0.4, (ground + front.Top) / 2, "В")
     AddLabel(notes, tg, widthX + 0.4, (topBottom + top.Top) / 2, "Ш")
-    AddLabel(notes, tg, sheet.Width / 2, sheet.Height * 0.08,
-        "Габаритные размеры (Д × Ш × В): " & FormatMm(lengthMm) & " × " &
-        FormatMm(widthMm) & " × " & FormatMm(heightMm) & " мм")
+    ' Строку «Габаритные размеры (Д × Ш × В): …» на рисунке не пишем: её печатает паспорт из размеров изделия (2026-11-13)
     Return New Double() {RoundMm(lengthMm), RoundMm(widthMm), RoundMm(heightMm)}
 End Function
 

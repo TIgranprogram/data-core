@@ -88,7 +88,7 @@ export async function downloadCombined(productRow, getPassport) {
 // Значки форматов (замечание пользователя 2026-10-22: «показать визуально, книжная или альбомная»)
 export const FORMATS = [
   { mode: 'pages', title: 'Файл A5', sub: 'книжный, постранично — отправить по почте', icon: 'sheetA5' },
-  { mode: 'print', title: 'Буклет A4', sub: 'альбомный лист, сложить пополам — распечатать', icon: 'sheetBooklet' },
+  { mode: 'print', title: 'Буклет A4', sub: 'альбомный лист, сложить пополам; печать с двух сторон, переворот по короткому краю', icon: 'sheetBooklet' },
   { mode: 'stand', title: 'Лист для стенда A3', sub: 'правила пользования, книжный, без печати', icon: 'sheetA3' },
 ];
 

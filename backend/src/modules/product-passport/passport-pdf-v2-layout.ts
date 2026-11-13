@@ -63,6 +63,11 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   // Абзацы, после которых может встать рисунок «по месту» (в порядке вывода)
   const paraTexts = [...(before ? descrTexts : []), ...sections.flatMap((s) => s.items.map((i) => i.text)), ...(before ? [] : descrTexts), ...installLines, ...requirements];
   const figs = planFigures(flowTexts, images, paraTexts);
+  // Строка габаритов под рисунком — из размеров изделия, а не надписью на самом рисунке (iLogic её больше не пишет, 2026-11-13)
+  if (has(p.length) && has(p.width) && has(p.height)) {
+    const dims = `Габаритные размеры (Д × Ш × В): ${num(p.length)} × ${num(p.width)} × ${num(p.height)} мм`;
+    for (const f of [...[...figs.inline.values()].flat(), ...figs.appendices.flatMap((a) => a.figs)]) if (f.kind === 'dimensions') f.caption = `${dims}\n${f.caption}`;
+  }
   const R = (s: string) => substituteRefs(s, figs.fig, tab);
 
   const body: V2Page[] = [];
@@ -206,9 +211,9 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
     if (requirements.length) { y += 2; sub('Требования к основанию:'); requirements.forEach((s) => item(s, null, true)); }
   };
 
-  // «Коротко» — одна страница
+  // «Коротко» — блок в начале первой страницы; основной текст идёт сразу под ним (пользователь 2026-11-13: «куча пустого места»)
   const short = shortPage(doc, input, color, R(lines(t.purpose).join(' ') || descr[0] || ''), pb);
-  if (short) body.push(short);
+  if (short) { cur.draws.push({ y, draw: short.draws[0].draw }); y += short.h + 14; }
 
   const descrSection = () => {
     if (!descrNo) return;
@@ -304,9 +309,17 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   }
   // Приложения с рисунками
   // ряд рисунков: 1 колонка — рисунок на всю ширину; 2 колонки — сетка (4 на лист), подпись под каждым
-  const figRow = (row: PlannedFig[], maxH: number, cols: number) => {
+  // высота ряда — по фактическим пропорциям рисунков (широкий не занимает пустую высоту), не больше maxH
+  const fitH = (f: PlannedFig, w: number, maxH: number) => { try { const im = (doc as unknown as { openImage(b: Buffer): { width: number; height: number } }).openImage(f.img.buf); return Math.min(maxH, (w * im.height) / im.width); } catch { return maxH; } };
+  const rowSize = (row: PlannedFig[], maxH: number, cols: number) => {
+    const cw = (Wd - 10 * (cols - 1)) / cols;
+    const h = Math.max(...row.map((f) => fitH(f, cw, maxH)));
+    return { h, total: h + Math.max(...row.map((f) => textH('gost-i', 9, f.caption, cw))) + 4 + 6 };
+  };
+  const figRow = (row: PlannedFig[], maxH0: number, cols: number) => {
     const gap = 10, cw = (Wd - gap * (cols - 1)) / cols;
     const capH = Math.max(...row.map((f) => textH('gost-i', 9, f.caption, cw))) + 4;
+    const maxH = rowSize(row, maxH0, cols).h;
     place(maxH + capH + 6, (d, yy) => {
       row.forEach((f, ci) => {
         const x = L + ci * (cw + gap);
@@ -326,9 +339,12 @@ ${a.title}`, 11, 0);
       for (let r = 0; r < slice.length; r += cols) rows.push(slice.slice(r, r + cols));
       const room = Btm - y - 4;
       const capMax = Math.max(...slice.map((f) => textH('gost-i', 9, f.caption, (Wd - 10 * (cols - 1)) / cols)));
-      // при рядах из одного рисунка делим лист на perPage/cols рядов (а не на фактическое число — чтобы одиночный не растягивался)
-      const nRows = Math.max(rows.length, a.perPage / cols);
+      // лист делим на фактическое число рядов: одиночный рисунок — почти на весь лист, по центру (пользователь 2026-11-13)
+      const nRows = Math.max(1, rows.length);
       const maxH = Math.max(60, room / nRows - capMax - 12);
+      // рисунки — по центру листа по вертикали (пользователь 2026-11-13)
+      const used = rows.reduce((sum, row) => sum + rowSize(row, maxH, cols).total, 0);
+      if (room > used) y += (room - used) / 2;
       for (const row of rows) figRow(row, maxH, cols);
     }
   });
@@ -337,7 +353,15 @@ ${a.title}`, 11, 0);
   if (note) { if (cur.draws.length) newPage(); heading('Для заметок'); para(note, 10); }
   if (cur.draws.length) body.push(cur);
   body.forEach((pg, i) => { pg.no = i + 1; });
-  if (input.mode === 'print') while ((body.length + 2) % 4) body.push({ kind: 'body', draws: [] });
+  // буклет: листов кратно 4 — добивка не пустая, а «Для заметок» с линейками (пользователь 2026-11-13: «и тут пусто»)
+  const notesPage = (): V2Page => ({ kind: 'body', footer: true, draws: [{ y: T, draw: (d, yy) => {
+    d.font('gost').fontSize(12).fillColor('#000').text('Для заметок', L, yy + 4, { width: Wd });
+    const ly = d.y + 2;
+    d.lineWidth(1.4).strokeColor(color).moveTo(L, ly).lineTo(L + Wd, ly).stroke();
+    d.lineWidth(0.4).strokeColor('#999');
+    for (let ry = ly + 22; ry <= Btm - 6; ry += 20) d.moveTo(L, ry).lineTo(L + Wd, ry).stroke();
+  } }] });
+  if (input.mode === 'print') while ((body.length + 2) % 4) { const pg = notesPage(); pg.no = body.length + 1; body.push(pg); }
   return [cover(input), ...body, warranty({ ...input, passport: p }, pb)];
 }
 
