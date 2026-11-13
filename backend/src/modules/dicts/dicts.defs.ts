@@ -73,6 +73,8 @@ export interface DictDef {
   options?(docs: Doc[]): string[];
   /** Мягкое удаление: какие поля ставить (по умолчанию deletedAt). */
   softDelete?: Document;
+  /** Поля с уникальным sparse-индексом: пустое значение не пишется (новая запись) или снимается `$unset` (правка) — null индекс считает значением и даёт ложный дубль. */
+  unsetEmpty?: string[];
   /** Кто правит (роль и старше); по умолчанию — менеджер и старше. «Паспорта» — директор (и админ). */
   editRoles?: string[];
   /** Ключ дубля (по умолчанию — название): у «Сортамента» размер повторяется у разных материалов. */
@@ -614,6 +616,8 @@ const BASE: DictBase[] = [
     },
     // удалён сотрудник — вход освобождается (уникальный индекс не держит его)
     softDelete: { userId: null },
+    // уникальный sparse-индекс phone (person.schema.ts): второй сотрудник без телефона давал «Такая запись уже есть: «Телефон»» (ИИ-тестировщик 2026-11-12)
+    unsetEmpty: ['phone'],
     usage: async (db, docs) => {
       const t = await tally(db, 'supplyrequests', 'requestedBy');
       return new Map(docs.map((d) => [String(d._id), Math.max(...personKeys(d).map((k) => t.get(k) ?? 0), 0)]));

@@ -11,6 +11,9 @@ import { trackMoved, type MovedLog } from './dicts.moved';
 import { matchesAll, searchTokens } from '../../common/text/search-norm';
 
 const s = (v: unknown) => String(v ?? '').trim();
+/** Поля `unsetEmpty`, пришедшие пустыми (null или ''): их нельзя писать — уникальный sparse-индекс считает null значением. */
+export const emptyKeys = (d: Pick<DictDef, 'unsetEmpty'>, doc: Record<string, unknown>) =>
+  (d.unsetEmpty ?? []).filter((k) => k in doc && s(doc[k]) === '');
 
 /** Сходство названий (биграммы, коэффициент Дайса) — «похоже на …» при переносе значений. */
 function similarity(a: string, b: string) {
@@ -200,6 +203,7 @@ export class DictsService {
     const d = this.def(key);
     body = await this.withCode(d, body ?? {});
     const doc = await d.toDoc(body, true, this.db);
+    for (const k of emptyKeys(d, doc)) delete doc[k];
     await this.checkDuplicate(d, doc as Doc);
     const r = await this.db.collection(d.coll).insertOne(doc);
     return this.get(key, String(r.insertedId));
@@ -219,7 +223,9 @@ export class DictsService {
     const rk = d.renameKey ?? d.name;
     const renamed = d.refBy === 'name' && norm(rk(cur)) !== norm(rk(next));
     const moved = renamed ? await d.reassign(this.db, cur, next) : 0;
-    await this.db.collection(d.coll).updateOne({ _id: cur._id }, { $set: set });
+    const unset = Object.fromEntries(emptyKeys(d, set).map((k) => [k, '']));
+    for (const k of Object.keys(unset)) delete set[k];
+    await this.db.collection(d.coll).updateOne({ _id: cur._id }, Object.keys(unset).length ? { $set: set, $unset: unset } : { $set: set });
     if (renamed) await this.audit?.log({ action: 'dict.renamed', entityType: 'DictItem', entityId: id, details: { meta: { dict: key, from: d.name(cur), to: d.name(next), moved } } });
     return { ...(await this.get(key, id)), moved };
   }
