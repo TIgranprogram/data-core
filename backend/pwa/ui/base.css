@@ -100,7 +100,9 @@ h3 { font-size: var(--fs-h3); font-weight: 650; color: var(--text); margin: 0; l
 .btn-danger { background: var(--danger); border-color: var(--danger); color: var(--on-danger); }
 .btn-danger:hover { filter: brightness(.95); background: var(--danger); }
 .btn-ghost { border-color: transparent; background: transparent; }
+.btn-ghost:not(.btn-icon) { color: var(--link); }
 .btn-ghost:hover { background: var(--neutral-soft); }
+.btn-ghost:disabled:hover { background: transparent; }
 .btn-sm { height: var(--control-compact); padding: 0 10px; font-size: var(--fs-sm); }
 .btn-icon { width: var(--control-height); padding: 0; }
 input, select, textarea { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); height: var(--control-height); padding: 0 10px; min-width: 0; }

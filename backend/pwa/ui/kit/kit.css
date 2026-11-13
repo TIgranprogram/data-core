@@ -89,7 +89,7 @@ label.k-row { cursor: pointer; }
 .k-feed.leaving { opacity: 0; transform: translateX(16px); }
 .k-feed:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 @media (hover: hover) { .k-feed .k-row-act { visibility: hidden; } .k-feed:hover .k-row-act, .k-feed:focus-within .k-row-act { visibility: visible; } }
-@media (max-width: 720px) { .k-row-act .btn.btn-ghost.btn-sm { font-weight: 500; color: var(--muted); padding: 0 var(--s2); } } /* на телефоне действие строки тише названия */
+@media (max-width: 720px) { .k-row-act .btn.btn-ghost.btn-sm { font-weight: 500; padding: 0 var(--s2); } }
 @media (max-width: 720px) { .k-feed .k-row-act { visibility: visible; } .k-feed .k-row-act .btn { min-height: 44px; } }
 /* Поле выбора — один эталон: select, input формы, .k-field (sel-input / combo-input). Основа — base.css (36 px, рамка, радиус, фокус) */
 .k-field.k-arrow, select { background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 26px; }
