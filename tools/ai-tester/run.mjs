@@ -18,7 +18,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { TAG, isLocalStand, tagText, createdFrom, screenGarbage, screenGrammar, blockedClick, buildReport, screenChange } from './lib.mjs';
+import { TAG, isLocalStand, tagText, createdFrom, screenGarbage, screenGrammar, blockedClick, buildReport, screenChange, closedForRole, watchdogAction, DEAD_MS } from './lib.mjs';
 import { sessionFromStdin } from './stand-session.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -43,19 +43,20 @@ let DAY = `${d0.getFullYear()}-${pad(d0.getMonth() + 1)}-${pad(d0.getDate())}`;
 if (args.includes('--resume') && readRun()?.day) DAY = readRun().day;
 const OUT = path.join(LOGS, DAY);
 const STATE_FILE = path.join(OUT, 'state.json'); // задания и находки — чтобы продолжение дописало отчёт, а не начало с нуля
-const BEAT_MS = 60000; const DEAD_MS = 4 * BEAT_MS;
+const BEAT_MS = 60000; // DEAD_MS — в lib.mjs (сторож ждёт сборку стенда)
 const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
 
 /** Сторож: запуск должен идти, а процесса нет (перезагрузка, свет, сбой) — продолжить скрыто до конца срока. */
 function watchdog() {
   const r = readRun();
-  if (!r || r.noWatchdog) return 0;
-  if (fs.existsSync(STOP_FILE) || Date.now() >= r.until) { fs.rmSync(RUN_FILE, { force: true }); return 0; }
-  if (Date.now() - (r.beat || 0) < DEAD_MS && alive(r.pid)) return 0; // работает
+  const what = watchdogAction({ run: r, now: Date.now(), alive: !!r && alive(r.pid), stopped: fs.existsSync(STOP_FILE) });
+  if (what === 'done') { fs.rmSync(RUN_FILE, { force: true }); return 0; }
+  if (what === 'none') return 0;
   fs.mkdirSync(LOGS, { recursive: true });
   const log = fs.openSync(path.join(LOGS, 'watchdog.log'), 'a');
+  if (what === 'kill-resume') { try { process.kill(r.pid); } catch { /* уже нет */ } }
   fs.writeSync(log, `
-${new Date().toISOString()} сторож: тестировщик не работает — продолжаю до ${new Date(r.until).toLocaleTimeString('ru-RU')}
+${new Date().toISOString()} сторож: тестировщик ${what === 'kill-resume' ? 'завис (снят)' : 'не работает'} — продолжаю до ${new Date(r.until).toLocaleTimeString('ru-RU')}
 `);
   const ch = spawn(process.execPath, [path.join(HERE, 'run.mjs'), '--resume'], { cwd: ROOT, detached: true, windowsHide: true, stdio: ['ignore', log, log] });
   ch.unref();
@@ -239,7 +240,7 @@ function readNav() {
 // ---------- задания ----------
 // make: создаёт запись (название получит метку ТЕСТ-ИИ). look: только смотрит.
 const TASKS = [
-  { id: 'partner', section: 'partners', make: true, task: 'Создай нового контрагента — поставщика. Название придумай. Заполни, что сможешь (ИНН — ровно {inn}, телефон). Сохрани. Найди его в списке и открой карточку.' },
+  { id: 'partner', section: 'partners', make: true, task: 'Создай нового контрагента — поставщика. Название придумай и добавь в конце номер {num} (например «Поставщик Сосна {num}») — без номера сайт скажет, что такой уже есть. Заполни, что сможешь (ИНН — ровно {inn}, телефон). Сохрани. Найди его в списке и открой карточку.' },
   { id: 'request', section: 'requests', make: true, task: 'Создай новую заявку на закупку. Добавь 1–2 материала из предложенных и количество. Сохрани. Убедись, что заявка видна в списке.' },
   { id: 'expense', section: 'expenses', make: true, task: 'Нажми кнопку добавления расхода. Заполни сумму 1500 и комментарий, остальные обязательные поля выбери из списков. Нажми «Сохранить» один раз. Если сайт пишет, что не так, — исправь это поле. Затем finish.' },
   { id: 'staff', section: 'staff', task: 'Осмотри «Сотрудников»: найди кого-нибудь поиском, открой карточку, посмотри вкладки. Ничего не меняй, новых пользователей не создавай.' },
@@ -250,7 +251,7 @@ const TASKS = [
   { id: 'home', section: 'home', task: 'Осмотри экран «Сегодня». Нажми на 2–3 карточки или ссылки и проверь, что открывается нужное. Ничего не меняй.' },
   { id: 'work', section: 'work', task: 'Осмотри раздел «В работе»: нажми на одну запись, посмотри, что открылось. Если что-то непонятно — report_problem. Затем finish. Ничего не меняй.' },
   { id: 'docs', section: 'docs', task: 'Осмотри «Документацию»: пройди по вкладкам, открой одну запись. Ничего не меняй.' },
-  { id: 'contracts', section: 'contracts', task: 'Нажми на строку одного договора — справа откроется панель. В панели нажми 2 разные вкладки. Затем finish. Ничего не меняй.' },
+  { id: 'contracts', section: 'contracts', task: 'Нажми на строку одного договора — справа откроется панель. В панели нажми 2 разные вкладки. Затем finish. Ничего не меняй. Если договоров нет — проверь, что пустой экран понятно объясняет, что делать, и вызови finish «получилось».' },
   { id: 'catalog', section: 'suppliercatalog', task: 'Осмотри «Каталог номенклатуры»: найди что-нибудь поиском, открой карточку. Ничего не меняй.' },
   { id: 'free', section: null, task: 'Свободный осмотр этого раздела: нажимай кнопки и вкладки, которые выглядят важными, ищи ошибки и непонятные места. Чужие записи не меняй.' },
 ];
@@ -258,7 +259,7 @@ const TASKS = [
 const SYSTEM = `Ты — тестировщик сайта «Рабочее место» (заявки, склад, заказы, деньги, сотрудники). Работаешь на тестовой копии сайта.
 Каждый ход ты получаешь снимок экрана: адрес, текст и список элементов с номерами [N]. Вызывай ровно ОДИН инструмент за ход.
 Правила:
-1. Названия новых записей программа сама начнёт с «${TAG}». Пиши просто: «Поставщик Ромашка».
+1. Названия новых записей программа сама начнёт с «${TAG}». Пиши просто: «Поставщик Сосна 4821» (номер из задания, если он там есть).
 2. Чужие записи (без «${TAG}») не удаляй и не меняй.
 3. Ввод данных — в правой панели. Обычно после заполнения нужна кнопка «Сохранить» или «Создать».
 4. Если сайт работает не так, как ожидает человек, выглядит сломанным, непонятно подписан или долго грузится — вызови report_problem: что сделал, что ожидал, что увидел. Коротко, по-русски.
@@ -301,7 +302,13 @@ async function openBrowser(base) {
   await new Promise((r) => ws.addEventListener('open', r));
   let id = 0; const wait = new Map(); const reqs = new Map();
   const b = { net: [], jsErrors: [], created: [], ws };
-  const cmd = (method, params = {}) => new Promise((r) => { const i = ++id; wait.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
+  // браузер не ответил за 90 с — ошибка, а не вечное ожидание (13.11: процессы висели часами после конца срока)
+  const cmd = (method, params = {}) => new Promise((r, j) => {
+    const i = ++id;
+    const t = setTimeout(() => { wait.delete(i); j(new Error(`браузер не ответил: ${method}`)); }, 90000);
+    wait.set(i, (m) => { clearTimeout(t); r(m); });
+    ws.send(JSON.stringify({ id: i, method, params }));
+  });
   ws.addEventListener('message', async (e) => {
     const m = JSON.parse(e.data);
     if (m.id && wait.has(m.id)) { wait.get(m.id)(m); wait.delete(m.id); return; }
@@ -455,7 +462,8 @@ function autoFindings(b, o, seenGarbage) {
 
 // ---------- запуск одного задания ----------
 async function runTask(s, b, nav, t, state) {
-  const section = t.section ? nav.find((n) => n.id === t.section) : nav[Math.floor(Math.random() * nav.length)];
+  const open = nav.filter((n) => !state.closed.has(n.id));
+  const section = t.section ? nav.find((n) => n.id === t.section) : open[Math.floor(Math.random() * open.length)];
   const title = `${section?.title || '—'}: ${t.id}`;
   const rec = { at: nowTime(), title, result: 'не получилось', steps: 0, summary: '' };
   // каждое задание — с чистого экрана: панели и окна прошлого задания закрыты
@@ -464,7 +472,14 @@ async function runTask(s, b, nav, t, state) {
   await sleep(2500);
   b.net.length = 0; b.jsErrors.length = 0;
   let o = await look(b);
-  const msgs = [{ role: 'system', content: SYSTEM }, { role: 'user', content: `Задание: ${t.task.replace('{inn}', String(Math.floor(1e9 + Math.random() * 9e9)))}\n\nЭкран сейчас:\n${lookText(o, nav)}` }];
+  // раздел закрыт для роли входа — сайт работает верно, модели там делать нечего; дальше этот раздел не берём
+  if (closedForRole(o.all)) {
+    state.closed.add(section?.id);
+    Object.assign(rec, { result: 'пропущено', summary: 'раздел закрыт для роли входа — больше не беру' });
+    state.tasks.push(rec); say(`${rec.at} ${rec.title} — пропущено: раздел закрыт для роли`);
+    return;
+  }
+  const msgs =[{ role: 'system', content: SYSTEM }, { role: 'user', content: `Задание: ${t.task.replace('{inn}', String(Math.floor(1e9 + Math.random() * 9e9))).replaceAll('{num}', String(1000 + Math.floor(Math.random() * 9000)))}\n\nЭкран сейчас:\n${lookText(o, nav)}` }];
   const add = (f) => {
     state.findings.push(f);
     say(`  ⚠ ${f.kind}: ${f.text}`);
@@ -666,7 +681,13 @@ async function main() {
   if (!resume) try { fs.rmSync(STOP_FILE, { force: true }); } catch { /* нет */ }
   fs.mkdirSync(OUT, { recursive: true });
   cleanLeftovers();
-  const beat = () => fs.writeFileSync(RUN_FILE, JSON.stringify({ until, day: DAY, pid: process.pid, beat: Date.now(), noWatchdog: !!noWatchdog }));
+  const beat = () => {
+    // срок давно вышел, а процесс всё ещё жив (завис) — выйти самому
+    if (Date.now() > until + 20 * 60000) { say('⚠ Срок вышел 20 мин назад, а запуск не закончился — выхожу.'); process.exit(3); }
+    const other = readRun();
+    if (other?.pid > 0 && other.pid !== process.pid && Date.now() - (other.beat || 0) < DEAD_MS && alive(other.pid)) { say('⚠ Работает другая копия тестировщика — выхожу.'); process.exit(3); }
+    fs.writeFileSync(RUN_FILE, JSON.stringify({ until, day: DAY, pid: process.pid, beat: Date.now(), noWatchdog: !!noWatchdog }));
+  };
   beat(); const beatTimer = setInterval(beat, BEAT_MS); beatTimer.unref();
   const awake = keepAwake();
   process.on('exit', () => {
@@ -683,7 +704,7 @@ async function main() {
   if (!nav.length) { say('❌ Не нашёл меню приложения.'); return 2; }
 
   const saved = (() => { try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch { return null; } })(); // тот же день — отчёт дописывается
-  const state = { tasks: saved?.tasks || [], findings: saved?.findings || [], garbage: new Set(), llmErrors: 0, until, tokenRenewals: saved?.tokenRenewals || 0, sessionRole: '' };
+  const state = { tasks: saved?.tasks || [], findings: saved?.findings || [], garbage: new Set(), closed: new Set(), llmErrors: 0, until, tokenRenewals: saved?.tokenRenewals || 0, sessionRole: '' };
   // определяем роль: в отчёте видно, что проверяется именно менеджерский UX
   try {
     const meRes = await fetch(`${s.stand}/api/auth/me`, { headers: { Authorization: `Bearer ${login.access}` }, signal: AbortSignal.timeout(8000) });
@@ -717,6 +738,7 @@ async function main() {
     while (Date.now() < state.until && !fs.existsSync(STOP_FILE)) {
       const t = order[i++ % order.length];
       if (!suppliedSession && i % order.length === 0) await relogin(); // браузер сам обновляет сессию из stdin
+      if (t.section && state.closed.has(t.section)) continue; // раздел закрыт для роли — уже проверено
       await runTask(s, b, nav, t, state);
       // трекинг авто-продления access-токена приложением (PWA обновляет его в localStorage по 401)
       try {

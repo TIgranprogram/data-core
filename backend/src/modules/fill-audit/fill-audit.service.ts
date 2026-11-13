@@ -2,13 +2,28 @@ import { Injectable, Optional } from '@nestjs/common';
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { decideArticle } from '../stock/article';
 import { InjectConnection } from '@nestjs/mongoose';
-import type { Connection } from 'mongoose';
+import type { Connection, Types } from 'mongoose';
 import { canSeeMoney } from '../../common/roles-hierarchy';
 import { firstPhotoThumbs } from '../../common/photo-thumbs';
 import { openSectionsFor } from '../../common/app-sections';
 
 type Q = Record<string, unknown>;
-type Item = { id: string; title: string; sub?: string; thumb?: string; values?: Record<string, unknown> };
+type Db = NonNullable<Connection['db']>;
+
+/**
+ * Счета, где уже была приёмка: граница приёмки у счёта или хоть одна принятая строка —
+ * то же правило, что SupplyInvoiceService.lockReason (менеджеру финансовые поля закрыты).
+ */
+export async function lockedInvoices(db: Db, rows: Array<Record<string, unknown>>): Promise<Set<string>> {
+  const ids = [...new Map(rows.filter((r) => r.invoiceId).map((r) => [String(r.invoiceId), r.invoiceId])).values()] as Types.ObjectId[];
+  if (!ids.length) return new Set();
+  const [bound, received] = await Promise.all([
+    db.collection('supplyinvoices').find({ _id: { $in: ids }, receiptBoundaryAt: { $ne: null } }, { projection: { _id: 1 } }).toArray(),
+    db.collection('supplyrequests').distinct('invoiceId', { invoiceId: { $in: ids }, deletedAt: null, status: 'received' }),
+  ]);
+  return new Set([...bound.map((x) => String(x._id)), ...received.map(String)]);
+}
+type Item = { id: string; title: string; sub?: string; thumb?: string; values?: Record<string, unknown>; lock?: string };
 /**
  * Одна очередь «требуют заполнения»: что не заполнено, зачем это нужно и куда идти.
  * section + field — раздел приложения и ключ поля формы: клик открывает карточку сразу в правке с подсвеченным полем.
@@ -29,7 +44,7 @@ const dmy = (d: unknown) => iso(d).split('-').reverse().join('.');
  * дают «не указано» в «Деньги → Сводка → Куда / На что / Кому».
  */
 /** Коллекции, которые читает «Требуют заполнения» (кэш С9). */
-const FILL_COLLS = ['materials', 'organizations', 'persons', 'supplyrequests', 'incomes', 'salesorders', 'productpassports', 'storageitems', 'products', 'expensearticles'] as const;
+const FILL_COLLS = ['materials', 'organizations', 'persons', 'supplyrequests', 'incomes', 'salesorders', 'productpassports', 'storageitems', 'products', 'expensearticles', 'supplyinvoices'] as const;
 
 /**
  * SK-8d: только группы открытых разделов роли (open = null — все). Кэш общий для всех ролей —
@@ -144,6 +159,11 @@ export class FillAuditService {
       if (d.coll === 'supplyrequests') { // миниатюра фото заявки — одним запросом на группу
         const thumbs = await firstPhotoThumbs(db, rows);
         for (const it of items) { const t = thumbs.get(it.id); if (t) it.thumb = t; }
+        // быстрый ввод: по счёту уже была приёмка — сумму меняет только администратор (ИИ-тестировщик 13.11: менеджер получал 400)
+        if (g.quick?.length) {
+          const locked = await lockedInvoices(db, rows);
+          for (let i = 0; i < rows.length; i++) if (locked.has(String(rows[i].invoiceId ?? ''))) items[i].lock = 'По счёту уже была приёмка на склад — сумму и счёт меняет администратор';
+        }
       }
       groups.push({ ...g, count, items });
     }

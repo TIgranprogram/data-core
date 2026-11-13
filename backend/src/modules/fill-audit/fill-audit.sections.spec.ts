@@ -1,4 +1,4 @@
-import { FillAuditService, onlyOpenGroups, type FillGroup } from './fill-audit.service';
+import { FillAuditService, onlyOpenGroups, lockedInvoices, type FillGroup } from './fill-audit.service';
 
 /** Группа product-check: изделия с примечанием «⚠ Проверить…» (мок Mongo). */
 describe('FillAuditService: product-check', () => {
@@ -64,5 +64,20 @@ describe('FillAuditService: exp-noinvoice', () => {
     const svc = new FillAuditService({ db: { collection: col } } as never);
     const res = await svc.report({ role: 'user' }, { only: 'exp-noinvoice' });
     expect(res.groups).toEqual([]);
+  });
+});
+
+/** Быстрый ввод «Требуют заполнения»: счёт с приёмкой закрыт для менеджера (ИИ-тестировщик 13.11 — 400 при сохранении). */
+describe('lockedInvoices', () => {
+  it('счёт закрыт, если есть граница приёмки или принятая строка', async () => {
+    const db = {
+      collection: (name: string) => ({
+        find: () => ({ toArray: async () => (name === 'supplyinvoices' ? [{ _id: 'inv1' }] : []) }),
+        distinct: async () => (name === 'supplyrequests' ? ['inv2'] : []),
+      }),
+    } as never;
+    const s = await lockedInvoices(db, [{ invoiceId: 'inv1' }, { invoiceId: 'inv2' }, { invoiceId: 'inv3' }, {}]);
+    expect([...s].sort()).toEqual(['inv1', 'inv2']);
+    expect((await lockedInvoices(db, [{}])).size).toBe(0);
   });
 });

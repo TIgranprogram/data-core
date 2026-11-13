@@ -87,9 +87,28 @@ export function duration(ms) {
   return m < 60 ? `${m} мин` : `${Math.floor(m / 60)} ч ${String(m % 60).padStart(2, '0')} мин`;
 }
 
+/**
+ * Сторож: что делать с идущим запуском. Сборка стенда (docker через spawnSync) держит процесс до 15 мин без отметок —
+ * поэтому «мёртв» только после 25 мин тишины; живой, но молчащий процесс сначала снимается (13.11: 9 копий сразу).
+ */
+export const DEAD_MS = 25 * 60000;
+export function watchdogAction({ run, now, alive, stopped = false }) {
+  if (!run || run.noWatchdog) return 'none';
+  if (stopped || now >= run.until) return 'done';
+  const quiet = now - (run.beat || 0) >= DEAD_MS;
+  if (!quiet && alive) return 'none';
+  return alive ? 'kill-resume' : 'resume';
+}
+
+/** Раздел закрыт для роли входа — задание не проверяет сайт, его пропускают (отчёт 13.11: 220 «провалов» из-за этого). */
+export function closedForRole(text) {
+  return /для вашей роли закрыт|Нет доступа к разделу/i.test(String(text || ''));
+}
+
 /** Отчёт за день — Markdown на языке пользователя. */
 export function buildReport({ day, model, base = '', startedAt, now, tasks, findings, created, removed, renewals = 0, role = '' }) {
   const ok = tasks.filter((t) => t.result === 'получилось').length;
+  const skipped = tasks.filter((t) => t.result === 'пропущено').length;
   const errs = groupFindings(findings.filter((f) => f.kind === 'ошибка'));
   const notes = groupFindings(findings.filter((f) => f.kind !== 'ошибка'));
   const L = [];
@@ -97,7 +116,7 @@ export function buildReport({ day, model, base = '', startedAt, now, tasks, find
   L.push(`- Работал: ${duration(now - startedAt)}, модель: ${model}`);
   if (role) L.push(`- Роль: ${role} (что тестируется — менеджерский UX)`);
   if (base) L.push(`- База стенда: ${base}`);
-  L.push(`- Заданий: ${tasks.length} (получилось ${ok}, не получилось ${tasks.length - ok})`);
+  L.push(`- Заданий: ${tasks.length} (получилось ${ok}, не получилось ${tasks.length - ok - skipped}${skipped ? `, пропущено — раздел закрыт для роли: ${skipped}` : ''})`);
   L.push(`- Ошибок сайта: ${errs.length}, замечаний ИИ: ${notes.length}`);
   L.push(`- Создано тестовых записей: ${created.length}${removed != null ? `, убрано: ${removed}` : ''}`);
   if (renewals > 0) L.push(`- Токен доступа обновлён автоматически: ${renewals} раз (сессия не прерывалась)`);

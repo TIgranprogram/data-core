@@ -1,7 +1,25 @@
 // node --test tools/ai-tester/lib.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TAG, isLocalStand, tagText, createdFrom, groupFindings, screenGarbage, blockedClick, buildReport, screenChange } from './lib.mjs';
+import { TAG, isLocalStand, tagText, createdFrom, groupFindings, screenGarbage, blockedClick, buildReport, screenChange, closedForRole, watchdogAction, DEAD_MS } from './lib.mjs';
+
+test('сторож: сборка стенда без отметок — не обрыв; молчащий живой процесс снимается перед продолжением', () => {
+  const now = 1e12; const run = { until: now + 3600000, beat: now - 10 * 60000, pid: 1 };
+  assert.equal(watchdogAction({ run, now, alive: true }), 'none'); // 10 мин тишины — идёт сборка стенда
+  assert.equal(watchdogAction({ run, now, alive: false }), 'resume');
+  assert.equal(watchdogAction({ run: { ...run, beat: now - DEAD_MS }, now, alive: true }), 'kill-resume');
+  assert.equal(watchdogAction({ run: { ...run, until: now - 1 }, now, alive: true }), 'done');
+  assert.equal(watchdogAction({ run, now, alive: true, stopped: true }), 'done');
+  assert.equal(watchdogAction({ run: null, now, alive: false }), 'none');
+});
+
+test('раздел закрыт для роли — задание пропускается', () => {
+  assert.equal(closedForRole('Раздел «Сотрудники» для вашей роли закрыт — открыто «Сегодня»'), true);
+  assert.equal(closedForRole('Нет доступа к разделу «Деньги»'), true);
+  assert.equal(closedForRole('Договоров пока нет'), false);
+  const md = buildReport({ day: 'd', model: 'm', startedAt: 0, now: 1, tasks: [{ result: 'пропущено' }, { result: 'получилось' }, { result: 'не получилось' }], findings: [], created: [] });
+  assert.match(md, /получилось 1, не получилось 1, пропущено — раздел закрыт для роли: 1/);
+});
 
 test('работает только на стенде этого ПК', () => {
   assert.equal(isLocalStand('http://localhost:3102'), true);

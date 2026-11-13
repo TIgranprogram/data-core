@@ -1,4 +1,4 @@
-import { api } from '../core/api.js';
+import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { failBlock } from '../ui/kit/busy.js';
 import { qty, parseNum } from '../core/format.js';
@@ -47,7 +47,9 @@ function quickRow(g, x, done) {
   return h('li', { class: 'q-row fill-qrow' + (x.thumb ? ' has-pic' : '') },
     opThumb(x.thumb),
     h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, x.title), x.sub ? h('div', { class: 'q-sub' }, x.sub) : null,
-      h('div', { class: 'fill-quick' }, ...g.quick.map((k) => inputs[k]), btn)),
+      // по счёту была приёмка: менеджеру — причина вместо полей, администратору — поля и причина правки (withReason)
+      x.lock ? h('div', { class: 'muted' }, x.lock) : null,
+      x.lock && !session.isAdmin ? null : h('div', { class: 'fill-quick' }, ...g.quick.map((k) => inputs[k]), btn)),
     h('div', { class: 'q-side' }, button({ label: 'Открыть', kind: 'ghost', size: 'S', onClick: () => openRow(g, x) })));
 }
 
