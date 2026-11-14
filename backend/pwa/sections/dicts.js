@@ -1,7 +1,7 @@
 import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { busyBlock, busyBtn, failBlock } from '../ui/kit/busy.js';
-import { money, qty } from '../core/format.js';
+import { qty } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
 import { confirmDlg, modal } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
@@ -14,8 +14,8 @@ import { mountZones, ZONES_KEY } from './stock-zones.js';
 import { catChipsField, refChipsField, passportKindElements } from '../ui/cat-chips.js';
 import { dupeCounts, qualityBadges, qualityFilter } from '../ui/quality.js';
 import { passportCategoryOptions } from './passports/common.js';
-import { dictSearchTokens, dictHaystack } from './dicts-search.js';
-import { dictsTable } from './dicts-sort.js';
+import { dictSearchTokens, dictHaystack, GROUP_NAME, GROUP_ORDER, PASS_GROUP, PASS_SUBS, menuGroups } from './dicts-search.js';
+import { dictsTable, fmt, linesToKinds, productGroupSortBtns } from './dicts-sort.js';
 
 /**
  * «Справочники» (TASKS СП.4–СП.8, DESIGN §4 «Справочники»): слева группы (на телефоне — один select), справа
@@ -29,91 +29,86 @@ import { dictsTable } from './dicts-sort.js';
 const dictKey = () => current().params.d || 'categories';
 /** Сотрудник: виды работ словами (их может быть несколько: workTypeIds). */
 const workTypesText = (r) => { const all = r.dictInfo?.refs?.worktypes || []; const ids = r.workTypeIds?.length ? r.workTypeIds : r.workTypeId ? [r.workTypeId] : []; return ids.map((id) => all.find((o) => String(o.value) === String(id))?.label).filter(Boolean).join(', '); };
-const fmt = (f, v, refs) => {
-  if (v === undefined || v === null || v === '' || v === 'null' || (Array.isArray(v) && !v.length)) return '';
-  if (f?.key === 'requiredImages') return linesToKinds(v).map(kindName).join(', ');
-  if (f?.type === 'photo' || f?.type === 'photos') return `картинок: ${Array.isArray(v) ? v.length : 1}`;
-  if (f?.type === 'money') return money(v);
-  if (f?.type === 'select') return (f.options || refs?.[f.ref] || []).find((o) => String(o.value) === String(v))?.label || '';
-  return String(v);
-};
 
-// Группы меню (решение DICT 2026-10-25): серверные названия → понятные; порядок фиксирован
-const GROUP_NAME = { 'Склад и позиции': 'Склад и продукция', 'Люди и ФОТ': 'Люди и работа', 'Заявки и счета': 'Заявки и оплата', 'Паспорта': 'Документы (паспорта)' };
-const GROUP_ORDER = ['Склад и продукция', 'Люди и работа', 'Заявки и оплата', 'Документы (паспорта)'];
-const PASS_GROUP = 'Документы (паспорта)';
-// Справочников паспортов 14 — одной лентой их приходилось вычитывать (жалоба владельца 2026-11-12). Делим по смыслу: о чём справочник.
-const PASS_SUBS = [
-  ['Паспорта · что за изделие', ['passportCategories', 'passportKinds', 'passportElements', 'passportParts', 'productFacets', 'productFacetValues']],
-  ['Паспорта · из чего сделано', ['passportMaterials', 'passportSortament']],
-  ['Паспорта · тексты и правила', ['passportPhrases', '__texts', 'passportInstall', 'passportDefects', 'passportStandards']],
-  ['Паспорта · вид документа', ['passportStyle']],
-];
+
 const isAdmin = () => session.role === 'admin' || session.user?.isOwner === true;
 const isLocked = (meta, r) => (meta?.locked || []).some((l) => (l.id && String(l.id) === String(r.id)) || (l.code && r.code && String(l.code) === String(r.code)));
 
 export function mountDicts(params) {
   let groups = [];
   let data = null;
-  let q = '';
+  let q = '', menuQ = '', sectionFilter = '', kindFilter = '';
+  let loadId = 0, loading = true, failed = false;
+  const expanded = new Map();
   const nav = h('nav', { class: 'panel', 'aria-label': 'Справочники' });
   const title = h('h2', null, '…');
   const hintEl = hintKit('');
   // общий поиск (ПО.3): пусто — весь справочник
-  const sbx = searchBox({ placeholder: 'Найти по названию или коду…', label: 'Поиск значения', delay: 150, onSearch: (v) => { q = v; renderTable(); } });
+  const sbx = searchBox({ placeholder: 'Название, код или описание', label: 'Поиск в справочнике', delay: 150, onSearch: (v) => { q = v; renderTable(); } });
   const search = sbx.el;
-  const searchWrap = h('div', { class: 'search' }, search);
+  const searchWrap = h('label', { class: 'field' }, h('span', null, 'Поиск в справочнике'), search);
+  const menuSearch = searchBox({ label: 'Найти справочник', placeholder: 'Название справочника', delay: 150, onSearch: (v) => { menuQ = v; renderNav(); } });
+  const navBody = h('div');
+  const filters = h('div');
   let texts = null, tree = null, zonesView = null; // экраны: общие разделы / тексты / склады
   let qf = 'all'; // фильтр качества: все / дубли
   let sortMode = 'no'; // productGroups: no | name
   const addBtn = button({ label: '+ Добавить', kind: 'primary', onClick: () => patch({ of: 'dict', new: '1', open: undefined }) }); addBtn.hidden = !session.canEdit;
   const candBtn = button({ label: 'Найти в данных…', title: 'Значения, которые уже встречаются в заявках, на складе и в Google-таблице, но ещё не в справочнике', onClick: () => toggleCandidates() }); candBtn.hidden = !session.canEdit;
   const cand = h('div', { hidden: true }); const body = h('div');
-  const box = h('section', { class: 'panel' }, toolbar(title, hintEl, searchWrap, candBtn, addBtn), cand, body);
+  const box = h('section', { class: 'panel' }, toolbar(title, candBtn, addBtn), hintEl, searchWrap, filters, cand, body);
   const el = h('div', h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Справочники'), h('div', { class: 'sub' }, 'Здесь меняются значения выпадающих списков: добавить, исправить, удалить. Изменение сразу видно во всех разделах'))), layout.split({ side: nav, main: box, sideLabel: 'Справочники' }));
 
   // Меню: серверные группы → 4 понятные + «Контрагенты»; «Документы» свёрнуты, пока не выбран справочник из неё
-  function menuGroups() {
-    const m = new Map();
-    for (const g of groups) { const n = GROUP_NAME[g.group] || g.group; if (!m.has(n)) m.set(n, []); m.get(n).push(...g.items); }
-    const rank = (n) => { const i = GROUP_ORDER.indexOf(n); return i < 0 ? 99 : i; };
-    return [...m].map(([name, items]) => ({ name, items })).sort((a, b) => rank(a.name) - rank(b.name));
-  }
   function renderNav() {
     const cur = dictKey();
-    const gs = menuGroups().flatMap((g) => {
+    const gs = menuGroups(groups).flatMap((g) => {
       const pass = g.name === PASS_GROUP;
-      const here = g.items.some((d) => d.key === cur) || cur === ZONES_KEY || (pass && cur === TEXTS_KEY);
-      const items = [...g.items.map((d) => ({ key: d.key, label: d.title, count: d.count }))];
+      const items = [...g.items.map((d) => ({ key: d.key, label: d.key === 'passportParts' ? 'Части изделия (для паспорта)' : d.title, keywords: d.key === 'passportParts' ? 'часть каркас' : '', count: d.count }))];
       if (g.name === GROUP_ORDER[0] && isAdmin()) items.push({ key: ZONES_KEY, label: 'Склады' });
       if (pass) items.push({ key: TEXTS_KEY, label: 'Общие разделы (шаблон)' });
-      if (!pass) return [{ title: g.name, items, fold: false, open: true }];
+      if (!pass) return [{ title: g.name, items }];
       // подгруппы по смыслу; справочник, которого нет в раскладке, не теряется — уходит в «прочее»
       const known = new Set(PASS_SUBS.flatMap(([, keys]) => keys));
       const subs = PASS_SUBS.map(([title, keys]) => ({ title, items: keys.map((k) => items.find((it) => it.key === (k === '__texts' ? TEXTS_KEY : k))).filter(Boolean) }));
       const rest = items.filter((it) => !known.has(it.key) && it.key !== TEXTS_KEY);
       if (rest.length) subs.push({ title: 'Паспорта · прочее', items: rest });
-      return subs.filter((s) => s.items.length).map((s) => ({ ...s, fold: true, open: here }));
+      return subs.filter((s) => s.items.length).map((s) => ({ ...s, parentTitle: PASS_GROUP }));
     });
     gs.push({ title: 'Контрагенты', items: [{ key: '#partners', label: 'Поставщики, заказчики, наши компании', href: '#partners' }] });
-    nav.replaceChildren(navList({ groups: gs, value: cur, label: 'Справочники', onPick: (k) => go('dicts', { d: k }, { replace: true }) }).el);
+    const term = menuQ.trim().toLocaleLowerCase('ru');
+    const visible = gs.map((g) => {
+      const groupMatch = (g.title + ' ' + (g.parentTitle || '')).toLocaleLowerCase('ru').includes(term);
+      const items = !term || groupMatch ? g.items : g.items.filter((it) => (it.label + ' ' + (it.keywords || '')).toLocaleLowerCase('ru').includes(term));
+      if (!expanded.has(g.title)) expanded.set(g.title, g.items.some((it) => it.key === cur));
+      return { ...g, items, fold: true, open: term ? true : expanded.get(g.title), onToggle: (v) => { if (!term) expanded.set(g.title, v); } };
+    }).filter((g) => g.items.length);
+    navBody.replaceChildren(visible.length ? navList({ groups: visible, value: cur, label: 'Справочники', onPick: (k) => { const group = gs.find((g) => g.items.some((it) => it.key === k)); if (group) expanded.set(group.title, true); go('dicts', { d: k }, { replace: true }); } }).el : empty({ title: 'Справочник не найден', kind: 'notFound', onReset: () => menuSearch.clear(), resetLabel: 'Очистить поиск' }));
+    if (!nav.contains(navBody)) nav.replaceChildren(h('label', { class: 'field' }, h('span', null, 'Найти справочник'), menuSearch.el), navBody);
   }
 
   function renderTable() {
-    if (!data) return;
-    const { dict } = data;
+    const dict = data?.dict || { key: dictKey(), columns: [], fields: [], refs: {} };
+    const items = data?.items || [];
     const cols = dict.columns.filter((c) => !(c.key === 'salaryRate' && !session.canPayroll));
     const fieldOf = (k) => dict.fields.find((f) => f.key === k);
     const tk = dictSearchTokens(q); // GALV_HOT / оцинк — dicts-search.js
-    const dup = dupeCounts(data.items, (x) => (x.material ? `${x.material}|${x.name}` : x.name)); // дубль имени у того же материала
-    if (!dup.size) qf = 'all';
-    const rows = data.items.filter((x) => (qf !== 'dupes' || dup.has(x.id)) && (!tk.length || tk.every((w) => dictHaystack(x).includes(w))));
-    if (!data.items.length) {
-      body.replaceChildren(empty({ title: 'Здесь пока ничего нет.', hint: canEditDict() ? 'Нажмите «+ Добавить» или «Найти в данных…» — возьмём то, что уже встречается в заявках и на складе.' : undefined }));
-      return;
-    }
-    if (!rows.length) { body.replaceChildren(empty({ title: `Ничего не найдено по «${sbx.input.value}».`, hint: 'Попробуйте другое слово.' })); return; }
-    const extra = dup.size ? [qualityFilter({ value: qf, counts: { dupes: dup.size }, onChange: (v) => { qf = v; renderTable(); } })] : [];
+    const dup = dupeCounts(items, (x) => (x.material ? `${x.material}|${x.name}` : x.name)); // дубль имени у того же материала
+    const sections = dict.key === 'productGroups' ? (dict.refs?.productSections || []) : [];
+    const supportsKind = dict.fields.some((f) => f.key === 'kind' && (f.options || []).some((o) => o.value === 'material') && (f.options || []).some((o) => o.value === 'coating'));
+    const active = !!q.trim() || qf !== 'all' || !!sectionFilter || !!kindFilter;
+    const reset = () => { sbx.clear(); q = ''; qf = 'all'; sectionFilter = ''; kindFilter = ''; renderTable(); };
+    const rows = items.filter((x) => (qf !== 'dupes' || dup.has(x.id)) && (!sectionFilter || (sectionFilter === '__none' ? !x.parentId : String(x.parentId) === sectionFilter)) && (!kindFilter || (x.kind || 'material') === kindFilter) && (!tk.length || tk.every((w) => dictHaystack(x).includes(w))));
+    const controls = [qualityFilter({ value: qf, counts: { dupes: data ? dup.size : null }, onChange: (v) => { qf = v; renderTable(); } })];
+    if (dict.key === 'productGroups') controls.push(h('label', { class: 'field' }, h('span', null, 'Раздел'), select({ label: 'Раздел', value: sectionFilter, options: [['', 'Все разделы'], ['__none', 'Без раздела'], ...sections.map((o) => [String(o.value), o.label])], onChange: (v) => { sectionFilter = v; renderTable(); } })));
+    if (supportsKind) controls.push(h('label', { class: 'field' }, h('span', null, 'Вид'), select({ label: 'Вид', value: kindFilter, options: [['', 'Все'], ['material', 'Материалы'], ['coating', 'Покрытия']], onChange: (v) => { kindFilter = v; renderTable(); } })));
+    if (dict.key === 'productGroups') controls.push(...productGroupSortBtns(sortMode, (m) => { sortMode = m; renderTable(); }));
+    if (data && !loading && !failed) controls.push(h('span', { class: 'muted', role: 'status' }, `Найдено ${rows.length} из ${items.length}`));
+    if (active) controls.push(button({ label: 'Сбросить всё', onClick: reset }));
+    filters.replaceChildren(toolbar(...controls));
+    if (loading || failed || !data) return;
+    if (!items.length) { body.replaceChildren(empty({ title: 'Справочник пока пуст', hint: canEditDict() ? 'Добавьте запись кнопкой «Добавить».' : undefined })); return; }
+    if (!rows.length) { body.replaceChildren(empty({ title: 'По выбранным условиям ничего не найдено', hint: 'Измените поиск или снимите ограничения.' })); return; }
     body.replaceChildren(dictsTable({
       dictKey: dict.key, rows, cols, sortMode, onSort: (m) => { sortMode = m; renderTable(); },
       canEdit: canEditDict(), isLocked: (r) => isLocked(dict, r), lockBadge, colorBadge,
@@ -121,7 +116,7 @@ export function mountDicts(params) {
       qualityCell: (r) => { const m = qualityBadges({ dupe: dup.get(r.id) || 0, dupeHint: 'Такое же название есть у другой записи — объедините' }); return m.length ? h('span', null, ...m) : ''; },
       onOpen: (r) => patch({ of: 'dict', open: r.id, new: undefined }),
       onEdit: (r) => patch({ of: 'dict', open: r.id, new: undefined }),
-      onRemove: (r, btn) => removeItem(r, btn), extraTools: extra,
+      onRemove: (r, btn) => removeItem(r, btn),
     }));
   }
 
@@ -177,53 +172,58 @@ export function mountDicts(params) {
     } catch (e) { cand.replaceChildren(failBlock(e)); }
   }
 
-  async function reloadTree() {
+  async function reloadTree(id) {
     try {
       const g = await api('/dicts');
+      if (id !== loadId) return;
       groups = g.items;
       title.textContent = 'Тексты паспорта'; hintEl.textContent = 'Что подставляется в паспорт: раздел → 2–3 варианта → текст. Менеджер выбирает вариант, а не пишет текст.';
-      searchWrap.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
+      searchWrap.hidden = true; filters.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
       renderNav();
       if (!tree) tree = mountTree();
       if (!body.contains(tree.el)) body.replaceChildren(tree.el);
       await tree.reload();
-    } catch (e) { body.replaceChildren(failBlock(e, () => reloadTree())); }
+    } catch (e) { if (id === loadId) body.replaceChildren(failBlock(e, () => reload())); }
   }
 
-  async function reloadZones() {
+  async function reloadZones(id) {
     try {
       const g = await api('/dicts');
+      if (id !== loadId) return;
       groups = g.items;
       title.textContent = 'Склады'; hintEl.textContent = 'Какие позиции видит каждый склад: категории и отдельные позиции. Склад выбирается у роли; кладовщик видит только свой.';
-      searchWrap.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
+      searchWrap.hidden = true; filters.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
       renderNav();
       if (!zonesView) zonesView = mountZones();
       if (!body.contains(zonesView.el)) body.replaceChildren(zonesView.el);
       await zonesView.reload();
-    } catch (e) { body.replaceChildren(failBlock(e, () => reloadZones())); }
+    } catch (e) { if (id === loadId) body.replaceChildren(failBlock(e, () => reload())); }
   }
 
-  async function reloadTexts() {
+  async function reloadTexts(id) {
     try {
       const g = await api('/dicts');
+      if (id !== loadId) return;
       groups = g.items;
       title.textContent = 'Общие разделы паспорта'; hintEl.textContent = 'Шаблон разделов по типам паспорта (общие указания, хранение, гарантия…): что общее для всех, что своё у типа паспорта и что его заменяет. Клик по пункту — правка справа.';
-      searchWrap.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
+      searchWrap.hidden = true; filters.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
       renderNav();
       if (!texts) texts = mountTexts();
       if (!body.contains(texts.el)) body.replaceChildren(texts.el);
       await texts.reload();
-    } catch (e) { body.replaceChildren(failBlock(e, () => reloadTexts())); }
+    } catch (e) { if (id === loadId) body.replaceChildren(failBlock(e, () => reload())); }
   }
 
   async function reload() {
-    if (dictKey() === TEXTS_KEY) return reloadTexts();
-    if (dictKey() === TREE_KEY) return reloadTree();
-    if (dictKey() === ZONES_KEY) return reloadZones();
-    searchWrap.hidden = false;
+    const id = ++loadId, key = dictKey();
+    if (key === TEXTS_KEY) return reloadTexts(id);
+    if (key === TREE_KEY) return reloadTree(id);
+    if (key === ZONES_KEY) return reloadZones(id);
+    searchWrap.hidden = false; filters.hidden = false; loading = true; failed = false; renderTable();
     try {
-      const [g, d] = await Promise.all([api('/dicts'), api(`/dicts/${dictKey()}`)]);
-      groups = g.items; data = d; curNewTitle = d.dict.newTitle || null;
+      const [g, d] = await Promise.all([api('/dicts'), api(`/dicts/${key}`)]);
+      if (id !== loadId) return;
+      groups = g.items; data = d; loading = false; curNewTitle = d.dict.newTitle || null;
       editRoles = g.items.flatMap((x) => x.items).find((i) => i.key === d.dict.key)?.editRoles || null;
       addBtn.hidden = !canEditDict();
       const meta = g.items.flatMap((x) => x.items).find((i) => i.key === d.dict.key) || {};
@@ -233,13 +233,13 @@ export function mountDicts(params) {
       hintEl.textContent = d.dict.sections?.length ? `Применяется в: ${d.dict.sections.join(', ')}` : d.dict.hint || '';
       candBtn.hidden = !canEditDict() || ['colors', 'worktypes', 'payoutSchedules'].includes(d.dict.key);
       renderNav(); renderTable();
-    } catch (e) { body.replaceChildren(failBlock(e, () => reload())); }
+    } catch (e) { if (id === loadId) { loading = false; failed = true; renderTable(); body.replaceChildren(failBlock(e, () => reload())); } }
   }
   let shown = params.d;
   reload();
   return {
     el, reload,
-    update: (p) => { if (p.d === TEXTS_KEY && shown === TEXTS_KEY) { texts?.update(); return; } if (p.d === TREE_KEY && shown === TREE_KEY) { tree?.update(); return; } if (p.d === ZONES_KEY && shown === ZONES_KEY) { zonesView?.reload(); return; } if (p.d !== shown) { shown = p.d; q = ''; qf = 'all'; sbx.set('', true); cand.hidden = true; data = null; body.replaceChildren(busyBlock('справочник', { retry: () => reload() })); reload(); } },
+    update: (p) => { if (p.d === TEXTS_KEY && shown === TEXTS_KEY) { texts?.update(); return; } if (p.d === TREE_KEY && shown === TREE_KEY) { tree?.update(); return; } if (p.d === ZONES_KEY && shown === ZONES_KEY) { zonesView?.reload(); return; } if (p.d !== shown) { shown = p.d; sbx.clear(); q = ''; qf = 'all'; sectionFilter = ''; kindFilter = ''; cand.hidden = true; data = null; addBtn.hidden = true; candBtn.hidden = true; body.replaceChildren(busyBlock('справочник', { retry: () => reload() })); reload(); } },
   };
 }
 
@@ -272,8 +272,6 @@ function canEditDict() {
 
 /** Поля-картинки справочника (photo — одна, photos — несколько; БЗ-6 Э9.7). */
 const isPhoto = (f) => f.type === 'photo' || f.type === 'photos';
-/** «foundation\nholes» → ['foundation','holes'] (safety_zone = safety; «(если разборное)» не теряем — assembly). */
-const linesToKinds = (v) => [...new Set(String(v || '').replace(/\([^)]*\)/g, ' ').split(/[\s,;]+/).filter((x) => /^[a-z_]+$/.test(x)).map((k) => (k === 'safety_zone' ? 'safety' : k)))];
 /** Метки видов: известные + неизвестные из значения (не терять при сохранении). */
 const kindOptions = (v) => {
   const known = [...KINDS, ...KINDS_V2].map(([value, label, sub]) => ({ value, label, sub }));

@@ -23,6 +23,6 @@ export function qualityBadges({ empty = false, dupe = 0, dupeHint = 'Такой 
 
 /** Фильтр над таблицей/деревом: «Все · Пустые (n) · Дубли (n)»; value: 'all' | 'empty' | 'dupes'. */
 export function qualityFilter({ value = 'all', counts, onChange }) {
-  const opts = [['all', 'Все'], ...(counts.empty === undefined ? [] : [['empty', `Пустые · ${counts.empty}`]]), ['dupes', `Дубли · ${counts.dupes}`]];
-  return segmented({ items: opts.map(([v, text]) => ({ key: v, label: text })), value, label: 'Показать записи', cls: 'q-filter', onChange }).el;
+  const opts = [['all', 'Все'], ...(counts.empty === undefined ? [] : [['empty', `Пустые · ${counts.empty}`]]), ['dupes', counts.dupes == null ? 'Дубли' : `Дубли · ${counts.dupes}`]];
+  return segmented({ items: opts.map(([v, text]) => ({ key: v, label: text })), value, label: 'Показать записи', cls: 'q-filter k-seg-fit', onChange }).el;
 }
