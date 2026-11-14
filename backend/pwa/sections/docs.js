@@ -46,7 +46,7 @@ export const doctpl = {
     export: false,
     searchPlaceholder: 'Поиск: изделие, артикул, серия…',
     emptyText: 'Изделий пока нет.', emptyHint: 'Сначала добавьте их в разделе «Продукция».',
-    hints: { '': 'У каждого изделия свои настройки паспорта: тип паспорта и выбранные тексты (монтаж, назначение…). Клик — открыть и поправить. Сделать паспорт — вкладка «К выпуску» или кнопка «Новый паспорт».' },
+    hints: { '': 'Настройки паспорта по изделиям. Клик — открыть и поправить.' },
     columns: [
       { key: 'sku', label: 'Артикул', sort: 'sku', cls: 'nowrap', render: (r) => kitSku(r.sku) },
       { key: 'name', label: 'Изделие', sort: 'name', cls: 'clip', render: (r) => h('span', { title: r.name }, r.name) },
@@ -125,7 +125,7 @@ export const passarchive = {
     toolbarExtra: () => { const a = passports.list.toolbarExtra(); const b = passnums.list.toolbarExtra(); return { el: h('div', null, a.el, b.el), update: (P) => { a.update?.(P); b.update?.(P); } }; },
     filters: [...passports.list.filters, ...passnums.list.filters.filter((f) => f.type === 'hidden')],
     emptyText: 'Паспортов пока нет.', emptyHint: 'Они появятся здесь, когда вы выпустите паспорт: вкладка «К выпуску» или кнопка «Новый паспорт».',
-    hints: { ...passports.list.hints, '': 'Журнал паспортов: выпущенные здесь и перенесённые старые. Новые номера сверху. Клик — карточка, «⇩ PDF и печать…». Найти по номеру — строка поиска или «№ от — до». Новый паспорт — «К выпуску» или кнопка «Новый паспорт».' },
+    hints: { ...passports.list.hints, '': 'Выпущенные паспорта. Найти — по номеру в поиске. Клик — карточка.' },
     columns: passports.list.columns.map((c) => (c.key === 'status'
       ? { ...c, render: (r) => h('span', null, c.render(r), oldBadge(r) ? ' ' : null, oldBadge(r)) } : c)),
   },
@@ -147,7 +147,7 @@ export function mountDocs(params, { onChanged } = {}) {
   const el = h('div', { class: 'docs' }, h('div', { class: 'page-head' }, seg, canTpl() ? button({ label: 'Новый паспорт', kind: 'primary', title: 'Выбрать изделие по шагам и выпустить PDF', onClick: () => openPassportFunnel() }) : null, canTpl() ? button({ label: 'Загрузить готовый паспорт (PDF)', title: 'Паспорт сделан отдельно: приложить файл PDF, указать фирму, изделие, заказ и номер', onClick: () => openReadyPassport() }) : null), body);
 
   const drawTabs = () => {
-    seg.replaceChildren(kitTabs({ label: 'Паспорта', scroll: true, items: TABS.map(([key, label]) => ({ key, label })), value: tab, onChange: (k) => { if (tab !== k) go('docs', k === 'queue' ? {} : { tab: k }, { replace: true }); } }).el);
+    seg.replaceChildren(kitTabs({ label: 'Паспорта', items: TABS.map(([key, label]) => ({ key, label })), value: tab, onChange: (k) => { if (tab !== k) go('docs', k === 'queue' ? {} : { tab: k }, { replace: true }); } }).el);
     crumbTail('Паспорта › ' + TAB_NAME[tab]);
   };
 

@@ -95,9 +95,12 @@ export function funnelBox({ value, category = '', canEditText = false, onPaint, 
   const optRow = (s, depth, nodes, chosen) => {
     const list = facetFirst ? [...(nodes || [])].sort((a, b) => facetRank(a) - facetRank(b)) : (nodes || []);
     const lead = commonLead(list);
+    // C114 I-2: одинаковое (обрезанное) описание у нескольких вариантов не показываем — различает название
+    const hints = list.map((n) => hint(n, lead));
+    const shown = (n) => { const t = hint(n, lead); return t && hints.filter((x) => x === t).length === 1 ? t : ''; };
     return h('div', { class: 'pf-opts pp-opts', role: 'radiogroup', 'aria-label': depth ? 'Уточнение' : s.name },
       ...list.map((n) => h('button', { type: 'button', role: 'radio', class: 'pf-opt', 'aria-checked': String(chosen?.id === n.id), onclick: () => pick(s, depth, n) },
-        h('b', null, n.name), hint(n, lead) ? h('small', null, hint(n, lead)) : null)));
+        h('b', null, n.name), shown(n) ? h('small', null, shown(n)) : null)));
   };
 
   function textBlock(s, leaf) {

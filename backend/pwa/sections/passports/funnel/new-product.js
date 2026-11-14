@@ -1,5 +1,5 @@
 import { h } from '../../../core/dom.js';
-import { actions, busyBlock, button, buildForm, confirmDlg, hint, section, sideNote, similarBox, toast, toastError } from '../../../ui/kit/index.js';
+import { actions, busyBlock, button, buildForm, confirmDlg, guide, hint, section, sideNote, similarBox, toast, toastError } from '../../../ui/kit/index.js';
 import { assignSku, createProduct, patchProduct, formValues, getProduct } from '../../products/data.js';
 import { createSession, facetsForGroup } from '../../products/create-session.js';
 import { setFacets } from './api.js';
@@ -34,7 +34,7 @@ export function newProduct({ group = '', facetIds = [], category = null, knownGr
     partialBox.replaceChildren(...(made ? [stackPartial(made)] : []));
   };
   const stackPartial = (made) => h('div', null,
-    hint(`Изделие «${made.name || 'без названия'}» уже создано, но заполнение не завершилось. «Создать и продолжить» продолжит эту же запись — второе изделие не появится.`, 'warn'),
+    hint(`Изделие «${made.name || 'без названия'}» уже создано, но не заполнено. «Создать и продолжить» продолжит его.`, 'warn'),
     actions(
       button({ label: 'Открыть созданное изделие', size: 'S', onClick: () => { if (!saving) onPickExisting?.({ id: made.id }); } }),
       onFresh ? button({ label: 'Создать другое изделие', kind: 'ghost', size: 'S', onClick: () => { if (!saving) onFresh(); } }) : null,
@@ -67,7 +67,7 @@ export function newProduct({ group = '', facetIds = [], category = null, knownGr
       if (!type) { toast('Выберите группу из списка — по ней определяется раздел', { error: true }); return; }
       // C096 Э4: группа не встречается в выбранной выше категории — тип паспорта будет по группе; сказать до создания
       if (ctx.category?.code && ctx.knownGroups.length && !ctx.knownGroups.includes(v.group) && v.group !== ctx.group
-        && !(await confirmDlg('Группа из другого типа паспорта?', `Выше выбран тип паспорта «${ctx.category.label || ctx.category.code}». В ней нет группы «${v.group}». Тип паспорта нового изделия будет по его группе. Шаги выше обновятся.`, { okText: 'Создать в этой группе' }))) return;
+        && !(await confirmDlg('Группа из другого типа паспорта?', `В типе «${ctx.category.label || ctx.category.code}» нет группы «${v.group}». Тип паспорта будет по группе; шаги выше обновятся.`, { okText: 'Создать в этой группе' }))) return;
       saving = true; create.disabled = true; el.classList.add('is-busy');
       const controls = [...form.el.querySelectorAll('input,textarea,select,button')].map((input) => ({ input, disabled: input.disabled }));
       controls.forEach(({ input }) => { input.disabled = true; });
@@ -79,7 +79,7 @@ export function newProduct({ group = '', facetIds = [], category = null, knownGr
       } catch (e) { toastError(e, 'создать изделие'); }
       finally { saving = false; create.disabled = false; el.classList.remove('is-busy'); controls.forEach(({ input, disabled }) => { input.disabled = disabled; }); paintPartial(); }
     } });
-    el.replaceChildren(sideNote('Укажите название и группу — артикул и признаки подставятся сами, остальное спросим дальше.'), partialBox, form.el, sim.el,
+    el.replaceChildren(guide.steps([{ label: 'Название и группа', state: 'now' }, { label: 'Артикул — сам', state: 'later' }, { label: 'Остальное спросим', state: 'later' }]), partialBox, form.el, sim.el,
       actions(create, button({ label: 'Назад к списку', kind: 'ghost', onClick: () => onCancel?.() })));
     paintPartial();
   }).catch((e) => { el.replaceChildren(sideNote('Форма не загрузилась.'), button({ label: 'Назад', onClick: () => onCancel?.() })); toastError(e, 'открыть форму изделия'); });

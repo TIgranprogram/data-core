@@ -159,7 +159,7 @@ function buildJoints(row, ctx, onSaved) {
     else saveBtn.disabled = false;
   } });
   return h('div', null,
-    h('p', { class: 'hint' }, 'Как соединены детали. Болты и сварку можно вместе; «Цельное (без крепежа)» снимает остальные. От выбора зависят пункты текста и таблица осмотра.'),
+    h('p', { class: 'hint' }, 'Болты и сварку можно вместе; «Цельное» снимает остальные.'),
     row.joints?.length ? h('p', { class: 'muted small' }, 'Сейчас: ' + jointsText(row.joints)) : null,
     pick.el, actions(saveBtn));
 }

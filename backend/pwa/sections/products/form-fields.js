@@ -173,7 +173,7 @@ export function productForm({ onSimilar, usePending = true } = {}) {
         { section: 'Функциональные элементы', tone: 'info' },
         { key: 'pdElements', label: 'Что это за изделие', type: 'widget', wide: true, summary: () => '',
           widget: (v) => (pdElPick = withElementTexts(tagPick({ options: els, value: v, label: 'Что это за изделие', productOnly: true }), elRows, v)),
-          hint: 'Только виды своего типа паспорта (для тренажёра — тренажёры, без якорей и беседок). Ниже — фраза для описания и правила пользования из справочника.',
+          hint: 'Только виды своего типа паспорта. Ниже — фраза для описания и правила пользования.',
           mount: (api) => {
             const sync = () => {
               const code = api.get('pdCategory') || r?.passportCategory?.code || '';
@@ -193,7 +193,7 @@ export function productForm({ onSimilar, usePending = true } = {}) {
         // МИ.2: материалы таблицей — текст «Изготовлено из…» собирается сам (сервер), паспорт берёт его из изделия
         { key: 'materialsSpec', label: 'Материалы изделия', type: 'widget', wide: true, summary: specSummary,
           widget: (v) => materialsSpec({ value: v, dicts: md, text: r?.materialsText || '', scope: () => matCat || r?.passportCategory?.code || '', actions: r ? [fromComposition(r)] : [] }),
-          hint: r ? 'Материал — из справочника; размеры и части — выбрать или вписать (Enter). «Взять из состава» — строки по материалам состава изделия' : 'Материал — из справочника; размеры и части — выбрать или вписать (Enter). «Взять из состава» — после «Создать», когда заполнен состав' },
+          hint: r ? 'Материал — из справочника; размеры и части — Enter. «Взять из состава» — строки по составу' : 'Материал — из справочника; размеры и части — Enter. «Взять из состава» — после «Создать»' },
         { key: 'purpose', label: 'Назначение', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('purpose'), by: 'group', title: 'Варианты' } },
         { key: 'installation', label: 'Монтаж', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('installationMethod'), by: 'group', title: 'Варианты' } },
         { key: 'description', label: 'Описание', type: 'textarea', wide: true, hint: r ? '' : 'Состав — в карточке сразу после «Создать»' },

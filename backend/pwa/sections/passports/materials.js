@@ -28,7 +28,7 @@ export function materialsFields({ r, md, ctx }) {
     { key: 'materialIds', type: 'widget', label: '', widget: (v) => hiddenList(v), summary: () => '' },
     { key: '_mspec', label: 'Материалы изделия', type: 'widget', wide: true, summary: specSummary,
       widget: (v) => (ctx.ms = materialsSpec({ value: v, dicts: md, preview: false, scope: () => ctx.cat(), actions: [{ label: 'Подставить из изделия', busy: 'Загружаю…', title: 'Таблица материалов из карточки изделия', run: (w) => fromProduct(w, ctx) }] })),
-      hint: 'Материал — из справочника; размеры и части — выбрать или вписать (Enter). Метки материалов паспорта заполняются из таблицы',
+      hint: 'Материал — из справочника; размеры и части — Enter. Метки паспорта берутся из таблицы',
       mount: (api) => wireMaterials(api, { r, md, ctx }) },
   ];
 }

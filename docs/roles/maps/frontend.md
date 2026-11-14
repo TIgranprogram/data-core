@@ -1,3 +1,11 @@
+## C114 I-2 длинные подсказки → guide.* (2026-11-14)
+коммит: не закоммичено
+- `passports/funnel/issue.js:84-157` guide.source/steps/checklist вместо заметок; тексты ≤20 слов в `passports/{dialogs,form,wire-form,product-block,modules,pdf-block,passport-wizard,materials}.js`, `fill/index.js`, `funnel/{index,new-product}.js`, `products/form-fields.js`, `docs.js:49,128`. `docs.js:150` без scroll у вкладок. `ui/funnel.js optRow` — одинаковое обрезанное описание вариантов скрыто. Карта обновлена.
+
+## C114 D-UI техописание воронкой (2026-11-14)
+коммит: не закоммичено
+- `sections/tech-sheet.js` fields (~88): блоки «Что осталось» → 1 Части и материалы → 2 Габариты… → 3 Проверка и предпросмотр; get грузит GET /showcase/:id/techsheet-gaps. Новый `sections/products/tech-steps.js`: `techGapsBlock` (guide.steps + checklist, клик → таблица или поле изделия), `techPreview`. Допуски сверены с tech-sheet-rows.ts (trim, sizes.filter). Отчёт: docs/crew/C114-passport-finish/DUI-REPORT.md. Карта обновлена.
+
 ## C114 G Документация: 4 вкладки (2026-11-14)
 коммит: не закоммичено
 - `sections/docs.js:28` TABS К выпуску/Выпущенные/Паспорта по заказам/Настройки изделий; `:30` tabOf (numbers→archive); `passarchive.list` — «№ от — до» через `passnums.list.toolbarExtra`. Отчёт: docs/crew/C114-passport-finish/G-REPORT.md. Карта обновлена.

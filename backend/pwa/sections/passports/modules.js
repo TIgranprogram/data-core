@@ -122,7 +122,7 @@ export function modulesEditor({ value, productId = () => '', canEdit = true, sav
         // модуль с рисунком или названием — спросить: случайный клик не должен стирать работу (хвост C095)
         canEdit ? actions(button({ label: 'Убрать', size: 'S', onClick: async () => {
           if ((item.photoId || String(item.name || '').trim()) && !(await confirmDlg(`Убрать модуль ${index + 1}?`,
-            `${String(item.name || '').trim() || 'Модуль'}${item.photoId ? ' и его рисунок пропадут из паспорта' : ' пропадёт из паспорта'}. Сам файл рисунка останется в изделии.`,
+            `${String(item.name || '').trim() || 'Модуль'}${item.photoId ? ' и рисунок пропадут из паспорта' : ' пропадёт из паспорта'}. Файл останется в изделии.`,
             { okText: 'Убрать', danger: true }))) return;
           rows.splice(rows.indexOf(item), 1); draw(); changed();
         } })) : null,

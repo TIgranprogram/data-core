@@ -29,7 +29,7 @@ export async function annulDialog(row, ctx) {
 export async function numberDialog(row, ctx) {
   const inp = h('input', { type: 'text', inputmode: 'numeric', value: row.passportNumber || '', 'aria-label': 'Номер паспорта' });
   const res = await modal({ title: 'Изменить номер паспорта', okText: 'Сохранить',
-    body: h('div', null, h('p', { class: 'hint' }, 'Только для исправления ошибки. Номер проверяется на занятость (в т. ч. у аннулированных и удалённых). Следующий выпуск получит номер больше максимального.'), h('label', { class: 'field wide' }, h('span', null, 'Номер'), inp)),
+    body: h('div', null, h('p', { class: 'hint' }, 'Только для исправления ошибки. Занятый номер не примется.'), h('label', { class: 'field wide' }, h('span', null, 'Номер'), inp)),
     onOk: async () => { const v = inp.value.trim(); if (!/^\d+$/.test(v)) throw new Error('Номер — число'); return api(`/passports/${row.id}`, { method: 'PATCH', body: { passportNumber: v, confirmNumbers: true } }); } });
   if (res) { toast('Номер изменён'); ctx.changed(); ctx.setRow(await api(`/passports/${row.id}`)); }
 }
@@ -143,7 +143,7 @@ export async function convertDialog(r, ctx) {
   const res = await modal({
     title: 'Тип паспорта', okText: 'Сохранить',
     body: h('div', null,
-      h('p', null, 'Текст паспорта соберётся по справочникам «Паспорта» для этого типа паспорта — PDF будет полным, с цветом типа паспорта. Номера, даты, заказчик, картинки не меняются.'),
+      h('p', null, 'Текст соберётся по справочникам для этого типа. Номера, даты, заказчик и картинки не меняются.'),
       h('label', { class: 'field wide' }, h('span', null, 'Тип паспорта', r.category ? h('span', { class: 'muted' }, ` (была: ${r.category})`) : null), sel),
       h('p', { class: 'hint' }, 'Потом проверьте блок «Проверка» в карточке — чего не хватает для полного текста.')),
     onOk: async () => {

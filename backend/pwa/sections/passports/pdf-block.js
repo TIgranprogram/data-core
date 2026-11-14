@@ -23,7 +23,7 @@ function jointsAsk(r, ctx) {
     catch (e) { toastError(e); save.disabled = false; save.classList.remove('is-busy'); }
   } });
   return stack(
-    row({ tone: 'warn', title: 'Выберите конструкцию', meta: 'Как соединены детали: болты, сварка или цельное. От этого зависят пункты текста и таблица осмотра — выпуск ждёт выбора.' }),
+    row({ tone: 'warn', title: 'Выберите конструкцию', meta: 'Болты, сварка или цельное — от этого зависит текст паспорта.' }),
     canEdit() ? stack(pick.el, save) : null);
 }
 
@@ -64,7 +64,7 @@ export function pdfBlock(r, ctx) {
     ? table({ columns: [{ label: 'Признак изделия' }, { label: 'Откуда' }], rows: t.traits.map((c) => ({ cells: [PASSPORT_TRAITS[c] || c, { v: fromText(t.traitsFrom?.[c]), cls: 'muted' }] })) })
     : h('p', { class: 'muted small' }, 'Признаки не определены: выберите вид изделия, материал и способ установки.');
   return section({ title: 'Что попадёт в PDF', tone: t.needJoints ? 'main' : 'info', open: !!t.needJoints, body: [
-    h('p', { class: 'hint' }, 'Пункты текста и строки осмотра попадают в паспорт, только если подходят изделию. Условия задаются в «Справочники → Паспорта → Разделы и тексты».'),
+    h('p', { class: 'hint' }, 'В паспорт попадают только подходящие изделию пункты и строки осмотра.'),
     t.needJoints ? jointsAsk(r, ctx) : null,
     traits,
     (t.unknownTraits || []).length ? h('p', { class: 'hint' }, 'Пока не определено: ' + t.unknownTraits.map((c) => PASSPORT_TRAITS[c] || c).join(', ')) : null,

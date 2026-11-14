@@ -118,7 +118,7 @@ function build() {
     const made = creation?.partial?.();
     if (made) {
       // C096 Э4: запись уже есть — не говорим «не сохранено»; форма откладывается и продолжит эту же запись
-      if (!(await confirmDlg('Изделие уже создано', `«${made.name || 'Новое изделие'}» уже есть в «Продукции», но заполнение не завершилось. «+ Новое изделие» продолжит эту же запись — второе не создастся.`, { okText: 'Вернуться к списку' }))) return false;
+      if (!(await confirmDlg('Изделие уже создано', `«${made.name || 'Новое изделие'}» уже создано, но не заполнено. «+ Новое изделие» продолжит его.`, { okText: 'Вернуться к списку' }))) return false;
       parked = creation;
     } else if (creation?.dirty() && !(await confirmDlg('Вернуться к выбору?', 'Данные нового изделия ещё не сохранены.', { okText: 'Вернуться' }))) return false;
     try { await activeFill?.beforeClose?.(); return true; }

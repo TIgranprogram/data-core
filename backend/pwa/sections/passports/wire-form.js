@@ -165,7 +165,7 @@ export function wireForm(api, { r, w, catBy, stdName, inst }) {
 /** Выпущенный паспорт в форме: поля открыты (решение 2026-11-14), только напоминание про номер и печать. */
 export function lockIssued(api, r) {
   if (!r || !isIssued(r)) return;
-  api.root.prepend(h('div', { class: 'fill-note' }, `Паспорт № ${r.passportNumber} уже выпущен. Можно исправить любые данные — номер останется тем же, прежние данные останутся в истории. После сохранения распечатайте заново.`));
+  api.root.prepend(h('div', { class: 'fill-note' }, `Паспорт № ${r.passportNumber} выпущен. Правки сохранят номер; пересоберите PDF.`));
 }
 /** ПП: к кому идти, если не хватает данных, — «Кто проектировал» изделие (в паспорт и PDF не входит). */
 export const designerCache = new Map();

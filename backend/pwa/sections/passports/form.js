@@ -84,7 +84,7 @@ export const passportForm = {
       { key: 'installationTypeId', label: 'Способ установки', type: 'select', options: [{ value: '', label: '—' }, ...inst.map((o) => ({ value: o.value, label: o.label }))],
         hint: 'Определяет схему монтажа в PDF (фундамент, анкеры, скважины). Текст «Установка» выше — отдельно.' },
       { key: 'joints', label: 'Конструкция: как соединено', type: 'widget', wide: true, summary: () => '', widget: (v) => jointsPick(v),
-        hint: 'Болты и сварку можно вместе; «Цельное (без крепежа)» снимает остальные. От этого зависят пункты текста и таблица осмотра; подставляется из изделия' },
+        hint: 'Болты и сварку можно вместе; «Цельное» снимает остальные. Берётся из изделия' },
       { key: 'isKit', label: 'Поставляется разобранным', type: 'segment', options: [{ value: 'no', label: 'Нет' }, { value: 'yes', label: 'Да — нужна схема сборки' }] },
       { key: 'schemeSource', label: 'Схемы узлов (фундамент, скважины, монтаж)', type: 'segment', options: [{ value: 'standard', label: 'Стандартные, если нет своих' }, { value: 'own', label: 'Только свои' }],
         hint: 'Стандартные схемы — в «Справочники → Паспорта → Способы установки»' },
@@ -161,7 +161,7 @@ export const passportForm = {
       { section: 'Комплектность', tone: 'who', collapsed: true },
       { key: 'bom', label: 'Комплектность изделия (таблица 5)', type: 'widget', wide: true,
         widget: (v) => rowsTable({ columns: BOM_COLS, rows: v, file: 'Шаблон комплектности', example: BOM_EXAMPLE }),
-        hint: 'Пусто — «И-1 · Изделие в сборе · 1 шт.». Можно вставить строки из Excel (Ctrl+V в ячейку) или загрузить заполненный шаблон' },
+        hint: 'Пусто — «И-1 · Изделие в сборе · 1 шт.». Строки можно вставить из Excel' },
       // ПП: заполняется после печати — пусто → в PDF линия для ручки, заполнено → значение; выпуск не блокирует
       { section: 'Заполняется после печати — можно от руки', tone: 'info', collapsed: !(r && (r.saleDate || r.customerName || r.orderNo || r.objectName || r.installedBy || r.installedAt || r.note)) },
       { key: '_afterHint', type: 'widget', wide: true, label: '', widget: () => ({ el: h('p', { class: 'hint' }, 'Если заполнить — подставится в паспорт. Пусто — в PDF будет линия, впишут ручкой при продаже и монтаже. Выпуск не задерживает.'), value: '' }), summary: () => '' },

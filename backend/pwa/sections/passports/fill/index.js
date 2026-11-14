@@ -32,7 +32,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
     // строки раздела — ровным шагом kit (k-stack), не впритык
     fieldHost[id] = stack(); textHost[id] = stack(); slotHost[id] = h('div'); titles[id] = title;
     const body = [layout.related({ main: stack(fieldHost[id], textHost[id]), side: slotHost[id] })];
-    if (id === 'dims') body.unshift(hint('В каждое место вставьте одно изображение. Для габаритов — один чертёж с размерами: виды спереди, сбоку и сверху можно объединить на одном листе. Отдельные места для видов доступны в варианте «Полный». Звёздочкой отмечены обязательные рисунки.'));
+    if (id === 'dims') body.unshift(hint('Одно изображение на место; * — обязательные. Габариты — один чертёж с видами.'));
     secs[id] = section({ title, fixed: true, tone: 'info', body });
   }
   const els = elementsTexts(elRows, { canEdit: canEditTexts, onSaved: () => reload() }); // тексты элемента правятся здесь же, не в справочнике
@@ -44,7 +44,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
   let waitNote = ''; // Р2: «сохраню, когда сервер вернётся» — пока очередь сама ждёт повтор
   const writes = saveQueue({ auto: {
     delayOf: retryDelay, max: 5,
-    onWait: (ms) => { waitNote = `Сервер на паузе или нет связи. Сохраню сам через ${Math.round(ms / 1000)} с — ввод остаётся на экране.`; showSaveError(); },
+    onWait: (ms) => { waitNote = `Нет связи. Сохраню сам через ${Math.round(ms / 1000)} с — ввод на месте.`; showSaveError(); },
     onResume: () => { waitNote = ''; saveError.replaceChildren(); lockAfterError(false); reload(); },
   } });
   const saves = writes.pending;
@@ -194,7 +194,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
     try {
       await save(async () => {
         const changed = await changeCategory(prod, '', {
-          approve: () => confirmDlg('Брать тип паспорта из группы?', 'Если у группы другой тип паспорта, выбранные тексты и ручные правки шаблона этого изделия будут очищены. Остальные сведения сохранятся. Выпущенные паспорта не изменятся.', { okText: 'Брать из группы' }),
+          approve: () => confirmDlg('Брать тип паспорта из группы?', 'Если у группы другой тип, тексты и ручные правки шаблона изделия очистятся. Остальное и выпущенные паспорта не изменятся.', { okText: 'Брать из группы' }),
           put: putDefaults, reset: resetPdCategory, read: (id) => api(`/showcase/${id}`),
         });
         if (!changed) return false;

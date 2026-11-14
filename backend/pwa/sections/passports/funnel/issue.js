@@ -1,7 +1,7 @@
 import { api } from '../../../core/api.js';
 import { h } from '../../../core/dom.js';
 import { ordersLookup } from '../../../core/orders-lookup.js';
-import { button, enhanceSelect, field, hint, link, select, sideNote, stack, table, toast, toastError } from '../../../ui/kit/index.js';
+import { button, enhanceSelect, field, guide, hint, select, sideNote, stack, table, toast, toastError } from '../../../ui/kit/index.js';
 import { lastFirm, ourCompanies, rememberFirm } from '../common.js';
 import { printDialog } from '../dialogs.js';
 import { issueFromProduct } from './api.js';
@@ -82,14 +82,12 @@ export function issueBlock({ prod, order, goGaps, onIssued, onState }) {
     const no = orderDoc?.productionNo || order?.orderNo || orderDoc?.orderNo; // как в очереди: «2-26», а не внутренний № 14
     const bits = [who, no ? '№ ' + no : '', objectName].filter(Boolean);
     if (!bits.length && addressState !== 'unknown') return null;
-    const tail = addressState === 'value' ? '' : addressState === 'unknown' ? '. Адрес возьмётся из объекта КП, если он указан' : '. Адреса в заказе нет — можно вписать после печати';
-    return sideNote('Из заказа: ' + (bits.join(' · ') || 'позиция') + tail);
+    const tail = addressState === 'value' ? '' : addressState === 'unknown' ? ' · адрес — из КП' : ' · адреса нет';
+    return guide.source({ from: 'Заказ', to: (bits.join(' · ') || 'позиция') + tail, label: 'Покупатель, номер и адрес берутся из заказа' });
   };
   const laterNote = () => {
-    if (!forOrder) return 'Покупателя, заказ, адрес, монтаж и дату продажи можно вписать позже в карточке выпущенного паспорта — выпуск они не держат.';
-    if (addressState === 'value') return 'Покупатель, номер и адрес уже из заказа. Монтаж и дату продажи можно вписать позже.';
-    if (addressState === 'unknown') return 'Покупатель и номер уже из заказа. Адрес подставится из объекта КП, если он есть. Монтаж и дату продажи — позже.';
-    return 'Покупатель и номер уже из заказа. Адрес, монтаж и дату продажи можно вписать позже.';
+    if (!forOrder) return 'Позже, в карточке паспорта: покупатель, заказ, адрес, монтаж, дата продажи.';
+    return addressState === 'value' ? 'Позже: монтаж и дата продажи.' : 'Позже: адрес, монтаж и дата продажи.';
   };
 
   /** Название позиции в договоре: станет названием паспорта (сервер оставляет его, не подменяя названием изделия). */
@@ -147,7 +145,7 @@ export function issueBlock({ prod, order, goGaps, onIssued, onState }) {
     const lineOpts = needLine && lines.length > 1 ? [['', 'Выберите позицию'], ...lines.map((l, i) => [l.id, lineName(l, i)])] : lines.map((l, i) => [l.id, lineName(l, i)]);
     const lineSel = needLine && lines.length ? select({ label: 'Позиция заказа', value: lineId, options: lineOpts, onChange: (v) => { lineId = v; paint(miss); } }) : null;
     box.replaceChildren(...[
-      sideNote('Номер, гарантийный талон и дату система поставит сама при выпуске.'),
+      guide.steps([{ label: 'Изделие', state: 'done' }, { label: 'Номер, талон, дата — сами', state: 'now' }, { label: 'PDF', state: 'later' }]),
       fromOrderNote(),
       firmSel ? field('Фирма', firmSel, { hint: firmHint() }) : hint('Нет наших фирм. Добавьте компанию в контрагентах.', 'warn'),
       order?.incomeId ? hint('Позиция заказа уже выбрана. Новый номер на неё не создастся, если паспорт уже есть.') : null,
@@ -155,8 +153,7 @@ export function issueBlock({ prod, order, goGaps, onIssued, onState }) {
       needLine && lineErr ? hint('Не удалось загрузить позиции заказа.', 'warn') : null,
       needLine && !lineErr && !lines.length ? hint('В заказе нет позиций. Паспорт к позиции не привязать.', 'warn') : null,
       mismatch ? hint('В заказе нет позиции этого изделия. Выберите позицию, к которой отнести паспорт.') : null,
-      gaps ? null : sideNote('Не хватает для выпуска: ',
-        ...miss.flatMap((m, i) => [i ? ', ' : null, link({ label: m.label, onClick: () => goGaps?.() })])),
+      gaps ? null : guide.checklist(miss.map((m) => ({ label: m.label, ok: false, onClick: () => goGaps?.() }))),
       sideNote(laterNote()),
     ].filter(Boolean));
     if (firmSel) enhanceSelect(firmSel);
