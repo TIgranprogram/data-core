@@ -1,9 +1,8 @@
-import { grp } from '../ui/kit/index.js';
+import { stockCard } from './stock-card.js';
 import { stockLookup, stockList } from '../core/stock-list.js';
 import { normSearch } from '../core/facets.js';
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { busyBtn, busyBlock, failBlock } from '../ui/kit/busy.js';
 import { date, qty, plural } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { STOCK_STATUS } from '../ui/kit/badges.js';
@@ -34,15 +33,13 @@ function zoneBar() {
 
 export { mountPipeGrid } from './pipe-grid.js';
 export { mountSheetGrid } from './sheet-grid.js';
-import { metalBody, metalFields, metalInitial, metalKindUi, metalView, offcutDialog } from './metal.js';
-import { orderedBlock, orderItem } from './item-orders.js';
+import { metalBody, metalFields, metalInitial, metalKindUi } from './metal.js';
 import { weightCount } from '../ui/weight-count.js';
 import { errText } from '../ui/kit/errors.js';
 import { openStockOp, openStockIssue } from './stock-ops.js';
-import { targetNote } from '../ui/kit/target-picker.js';
-import { passportSpecField, passportSpecView, savePassportSpec } from './stock-passport.js';
+import { passportSpecField, savePassportSpec } from './stock-passport.js';
 import { mobileStockDashboard } from './warehouse-mobile.js';
-import { qrBulkAction, qrPrintAction } from './qr.js';
+import { qrBulkAction } from './qr.js';
 import { stockOrderAction } from './order-bulk.js';
 import { openStockBulk } from './stock-bulk.js';
 
@@ -52,30 +49,6 @@ const unit = (r) => r.unit || '';
 /** Миниатюра в ячейке таблицы; фото нет (или битое) — ячейка пустая, без квадрата-заглушки. */
 export const pic = (p) => (p ? h('img', { class: 'pic', src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }) : null);
 const photoThumb = (r) => posPic((r.photos || [])[0], 'sm');
-
-const HIST = { in: 'Приход', out: 'Списание', adjust: 'Корректировка', count: 'Пересчёт', transfer: 'Перемещение', reserve: 'Бронь', unreserve: 'Снятие брони' };
-const NEG = ' neg';
-const negCls = (m) => (m.type === 'out' ? NEG : '');
-/** Последние 5 записей истории позиции (GET /stock/items/:id/history?limit=5) и «Вся история» — без ограничения. */
-function recentMoves(r) {
-  const list = stack(busyBlock('История движений')); const more = h('div', { class: 'actions' }); const box = h('div');
-  const paint = (count) => box.replaceChildren(section({ tone: 'gold', title: 'Последние записи', count, open: box.querySelector('details.k-sec')?.open || false, body: [list, more] })); paint(null);
-  const show = (res, full) => {
-    paint(res.total ?? res.items.length); if (!res.items.length) { list.replaceChildren(hint('Движений нет. Приход и списание — кнопки в карточке позиции.')); more.replaceChildren(); return; }
-    list.replaceChildren(...res.items.map((m) => { const target = targetNote(m); return row({ lead: date(m.date), title: HIST[m.type] || m.type,
-      side: h('span', { class: 'num' + negCls(m) }, (m.type === 'in' ? '+' : m.type === 'out' ? '−' : '') + qty(m.qty)),
-      below: target || m.note ? h('span', null, target, target && m.note ? ' · ' : null, m.note || null) : null }); }));
-    more.replaceChildren(...[
-      !full && res.total > res.items.length ? kitButton({ label: `Вся история (${res.total})`, kind: 'ghost', size: 'S', onClick: async (e) => {
-        const free = busyBtn(e.currentTarget, null);
-        try { show(await api(`/stock/items/${r.id}/history`), true); } catch (err) { free(); toastError(err, 'загрузить историю'); }
-      } }) : null,
-      h('a', { class: 'btn btn-ghost btn-sm', href: '#movements?materialId=' + r.id, title: 'Журнал движений позиции — там можно отменить ошибочное' }, 'Журнал движений →')].filter(Boolean));
-  };
-  const loadHist = () => api(`/stock/items/${r.id}/history`, { query: { limit: 5 } }).then((res) => show(res, false)).catch((e) => list.replaceChildren(failBlock(e, loadHist, { text: 'История не загрузилась' })));
-  loadHist();
-  return box;
-}
 
 /** Шапка «Остатков» (УПР-1/Д5): одна синяя «Принять на склад» + «Ещё ▾» (Бронь по списку, Пересчёт, Движения; ⇩ Excel добавляет list.js автоматически). */
 const stockActions = () => kitButton({ label: 'Принять на склад', onClick: () => openStockOp('in') });
@@ -236,50 +209,7 @@ export const stock = {
     },
   },
 
-  card: {
-    gallery: (r) => r.photos || [],
-    photoMain: (r, photoId) => api(`/stock/items/${r.id}/photos/${photoId}/main`, { method: 'PUT' }),
-    // СКФ.5: фото в карточке — только просмотр; добавить / убрать — в «Изменить» (раньше было в двух местах)
-    heading: (r) => r.name,
-    subheading: (r) => [r.categoryName, r.supplierArticle && `арт. ${r.supplierArticle}`].filter(Boolean).join(' · '),
-    stats: (r) => [['Остаток', `${qty(r.quantity)} ${unit(r)}`], ['В брони', qty(r.reservedQty)], ['Свободно', qty(r.free)]],
-    view: (r) => [
-      grp('Остаток'),
-      ['Состояние', badge(STOCK_STATUS, r.status)],
-      ['Мин. остаток', r.minQuantity ? `${qty(r.minQuantity)} ${unit(r)}` : ''],
-      ['Пересчитано', r.lastCountedAt ? date(r.lastCountedAt) : 'ещё не пересчитывали'],
-      grp('Названия'),
-      ['Короткое', r.name],
-      ['Длинное (документы)', r.fullName && r.fullName !== r.name ? r.fullName : null], // совпадает с коротким — не повторяем
-      ['В счёте', r.invoiceName && r.invoiceName !== r.name ? r.invoiceName : null],
-      grp('Позиция'),
-      ['Категория', r.categoryName],
-      ...metalView(r),
-      ['Ед. изм.', r.unit],
-      // АР.1: артикул поставщика и внутренний код — раздельно; СКЛ-… — не артикул
-      ['Артикул (поставщика)', r.supplierArticle ? h('span', null, r.supplierArticle, r.articleSource ? h('span', { class: 'muted' }, ` · из: ${r.articleSource}`) : null) : h('span', { class: 'muted' }, 'нет — впишите из счёта или заявки')],
-      ['Внутр. код', r.internalCode ? h('span', { class: 'muted' }, r.internalCode) : ''],
-      ['Вес 1 шт.', r.weightG ? `${qty(r.weightG)} г` : ''],
-      grp('Дополнительно'),
-      ['Примечание', r.notes],
-    ],
-    actions: (r) => [
-      r.reservedQty > 0 && { label: 'Выдать из брони', primary: true, title: 'Количество и объект — из брони', run: (row) => { openStockOp('fromres', row.id); return false; } },
-      // все действия — в правой панели «Склад» (SK-9): закрыли панель — вернулись к этой позиции
-      { label: '+ Принять', primary: !(r.reservedQty > 0), run: (row) => { openStockOp('in', row.id); return false; } },
-      { label: '− Выдать', title: 'Кому и под что выдано — в правой панели', run: (row) => { openStockOp('out', row.id); return false; } },
-      { label: 'Списать (брак, потеря)', more: true, title: 'Причина из списка', run: (row) => { openStockOp('writeoff', row.id); return false; } },
-      { label: 'Забронировать под заказ', more: r.reservedQty > 0, run: (row) => { openStockOp('reserve', row.id); return false; } },
-      r.reservedQty > 0 && { label: 'Снять бронь', more: true, run: (row) => { openStockOp('unreserve', row.id); return false; } },
-      { label: 'Пересчитать (сколько лежит)', more: true, run: (row) => { openStockOp('count', row.id); return false; } },
-      r.metal && !r.offcutOf && { label: 'Отложить обрезок…', more: true, run: (row, ctx) => offcutDialog(row, ctx) },
-      { label: 'Заказать (новая заявка)', more: true, run: (row) => orderItem(row) },
-      qrPrintAction('S'),
-    ],
-    // «Заказано», «Поставщики и цены» (ЗП.1, ЗП.5), затем последние движения
-    zones: { extra: 'side' }, // УПР-3: заказано, паспорт и движения — боковой колонкой
-    extra: (r) => stack(orderedBlock(r), passportSpecView(r), recentMoves(r)),
-  },
+  card: stockCard,
 
   form: {
     fields: async (row) => {

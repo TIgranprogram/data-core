@@ -1,3 +1,7 @@
+## C118 W7 фото-блок и карточка позиции склада (2026-11-15)
+коммит: не закоммичено
+- kit: `ui/kit/card.js` photo-блок (~136: галерея+photoDrop+«Убрать фото» под зоной, только при фото), `ui/kit/card-gallery.js` (gallery вынесена), витрина `sections/kit.js`. Экран: `sections/stock-card.js` stockCard (screenCard, recentMoves), `stock.js card: stockCard`; atlas stock tpl card ok. Карта обновлена.
+
 ## C118 W6b карточка контрагента (2026-11-15)
 коммит: не закоммичено
 - `sections/partners.js` card = screenCard (~245), `partnerTabs` ~196, `stockPane`; новый `sections/partners-requests.js` requestsByMonth (kit). atlas partners tpl card ok. Отчёт W6b-REPORT.md. Карта обновлена.

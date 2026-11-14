@@ -219,7 +219,7 @@ export const NODES = [
     rules: ['Это те же остатки — просто другой экран.'],
     docs: ['docs/DESIGN-MOBILE.md'], tech: 'storageitems, stockmovements',
     code: ['backend/pwa/sections/stock-mobile.js', 'backend/pwa/sections/warehouse-mobile.js'] },
-  { id: 'stock', tpl: 'list', tplStatus: 'legacy', band: 'stock', col: 2, sec: 'stock', t: 'Остатки', l: ['где и сколько лежит,', 'приём, бронь, выдача'],
+  { id: 'stock', tpl: 'card', tplStatus: 'ok', band: 'stock', col: 2, sec: 'stock', t: 'Остатки', l: ['где и сколько лежит,', 'приём, бронь, выдача'],
     seq: true, inside: [
       { id: 'priem', t: 'Приём', l: 'из заявки, с телефона или вручную', in: ['requests', 'stockmobile'] },
       { id: 'pozicii-po-polkam', t: 'Позиции по полкам', l: 'категория → тип → позиция', out: ['needs', 'movements', 'shortage', 'shipping'] },

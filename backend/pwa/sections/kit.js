@@ -4,6 +4,7 @@ import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
 import { pad, hint, tileGrid, typeArt, typeIconList, landing, miniChart, navList, photoStrip, catArt, stat, searchBox, readonlyGroup, similarBox, posPic, posPicOf, sku, section, stack, button, iconButton, segmented, headbar, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, openPdfPreview, stageBar, headStats, clamp, funnel, planner, qtyInput, targetPicker, toast, pick, filter, table, treeTable, textInput, fieldRow, panel, entityPanel, select, fileButton, links, guide, SUPPLY_STATUS } from '../ui/kit/index.js';
 import { buildCardTabs } from '../ui/kit/card-tabs.js';
+import { gallery } from '../ui/kit/card-gallery.js';
 import { infoCard, nextCard, warnCard, positionsTable, boardCard } from '../ui/kit/screens/blocks.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
@@ -328,6 +329,8 @@ export const kit = {
           });
           return el;
         })()),
+      block('Фото в карточке · gallery (C118 W7)', 'Большое фото + миниатюры, ★ — главное. «Убрать фото» — кнопка под зоной загрузки (card.js), только при наличии фото и права правки; в витрине без правки.',
+        sample(gallery([{ url: '/x.png' }], null, null))),
       block('Информационная карточка · infoCard (C118 W2)', 'infoCard({ facts, more, max = 6 }) — сведения объекта: до 6 строк, остальное в «Подробнее»; пустые значения не показываются. Заголовок-сущность и этап (один раз) — в шапке панели через screenCard. Где используется: карточка заказа.',
         sample(infoCard({ facts: [['Заказчик', 'ООО «Ромашка»'], ['Наша компания', 'Тест-Фирма'], ['Срок', '20.11.2026'], ['Сумма', '120 000 ₽ · оплачено 40 000 ₽'], ['Приоритет', ''], ['Склад', 'Основной'], ['Менеджер', 'Иванов']], more: [['Срок изготовления, дн.', 14]] }))),
       block('Функциональная карточка · nextCard (C118 W2)', 'nextCard({ text, tone, primary: { label, run } }) — «Что дальше» и единственная главная кнопка (.btn-primary); пока run идёт, кнопка занята. Нет primary — только фраза.',
