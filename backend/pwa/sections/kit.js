@@ -130,7 +130,7 @@ export const kit = {
         h('div', { class: 'muted small' }, 'headbar(…, …, { inset: true }) — внутри рамки группы списка («По заказам»): кнопки по центру высоты, отступ от рамки.'),
         sample(h('div', { class: 'do-group' }, headbar(h('b', null, 'Заказ № 31 · ИП Ароян'), actions(button({ label: 'Печать паспортов…', size: 'S' }), button({ label: 'Паспорта заказа', size: 'S' })), { inset: true })))),
       block('Вкладки с прокруткой (tabs scroll) · C111', 'tabs({ scroll: true }) — главные вкладки раздела: не влезли — видна тонкая полоса прокрутки (на телефоне скрыта, листают пальцем).',
-        tabs({ scroll: true, items: [{ key: 'a', label: 'Нужно сделать паспорт' }, { key: 'b', label: 'Шаблоны' }, { key: 'c', label: 'По заказам' }, { key: 'd', label: 'По номерам' }], value: 'c' }).el),
+        tabs({ scroll: true, items: [{ key: 'a', label: 'К выпуску' }, { key: 'b', label: 'Выпущенные' }, { key: 'c', label: 'Паспорта по заказам' }, { key: 'd', label: 'Настройки изделий' }], value: 'c' }).el),
       block('Артикул изделия', 'sku(text) — .k-sku; впереди названия в работе с изделием, отдельной строкой в таблицах и карточках.',
         sample(h('span', null, sku('32.11'), ' Скамья «Парковая»'), h('div', null, h('div', null, 'Скамья «Парковая»'), sku('32.04')))),
       block('Компактная группа реквизитов', 'readonlyGroup: заголовок h3, пары метка — значение, пустые группы скрыты; DOM-ссылки и нули сохраняются.',

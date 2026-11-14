@@ -144,7 +144,7 @@ export function passportPane(row, ctx) {
         draw, ready,
         actions(
           session.canEdit && session.seesDocs() ? kitButton({ label: 'Выпустить паспорт', kind: 'primary', size: 'S', title: 'Новый паспорт с номером по этой модели', onClick: () => openPassportFunnel({ productId: row.id }) }) : null,
-          session.canEdit && session.seesDocs() ? kitButton({ label: 'Добавить готовый паспорт', size: 'S', title: 'Паспорт сделан отдельно: приложить файл PDF к этому изделию', onClick: () => openReadyPassport({ productId: row.id }) }) : null,
+          session.canEdit && session.seesDocs() ? kitButton({ label: 'Загрузить готовый паспорт (PDF)', size: 'S', title: 'Паспорт сделан отдельно: приложить файл PDF к этому изделию', onClick: () => openReadyPassport({ productId: row.id }) }) : null,
           kitButton({ label: 'Править шаблон', size: 'S', title: 'Тексты и рисунки по разделам паспорта', onClick: openTemplate }),
         ),
       ],

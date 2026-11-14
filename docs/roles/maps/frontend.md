@@ -1,3 +1,7 @@
+## C114 G Документация: 4 вкладки (2026-11-14)
+коммит: не закоммичено
+- `sections/docs.js:28` TABS К выпуску/Выпущенные/Паспорта по заказам/Настройки изделий; `:30` tabOf (numbers→archive); `passarchive.list` — «№ от — до» через `passnums.list.toolbarExtra`. Отчёт: docs/crew/C114-passport-finish/G-REPORT.md. Карта обновлена.
+
 ## C103 тип паспорта вместо категории (2026-11-13)
 коммит: не закоммичено
 - `passports/common.js` `passportTypeLine` / `productTypeLine` / `groupHref` — единая строка «Тип паспорта: … — из группы/вида/своё у изделия» + «Брать из группы» + «Задать в группе ↗». Выбор убран: `fill/index.js` (шапка `paintContext`, `resetOwn` через `category-change.js`, `ctx.catInfo` = gaps.category), `products/card-blocks.js passportCatView`, `products/form-fields.js` (`pdCategory` hidden + `_pdType`; из массового редактирования убрано pd.passportCategory). Удалён `passports/product-types.js` и «Подставить по типу»; `dicts.js` без passportTypes. Тексты «категория паспорта» → «тип паспорта» по pwa. Отчёт: docs/crew/C103-passport-type-terms/REPORT-frontend.md. Карта обновлена.

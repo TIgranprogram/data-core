@@ -306,7 +306,7 @@ function body(row, ctx) {
     skipped, lines,
     // «Паспорт по позиции» убрана (2026-11-13): открывала общую воронку выбора изделия — повтор строки позиции «›»
     kit.actions(
-      editable ? kit.button({ label: 'Добавить готовый паспорт', kind: 'ghost', title: 'Паспорт сделан отдельно: приложить файл PDF к этому заказу', onClick: async () => { const { openReadyPassport } = await import('./passports/funnel/open.js'); openReadyPassport({ salesOrderId: row.orderId, orderNo: row.orderNo, customerName: row.customerName }); } }) : null),
+      editable ? kit.button({ label: 'Загрузить готовый паспорт (PDF)', kind: 'ghost', title: 'Паспорт сделан отдельно: приложить файл PDF к этому заказу', onClick: async () => { const { openReadyPassport } = await import('./passports/funnel/open.js'); openReadyPassport({ salesOrderId: row.orderId, orderNo: row.orderNo, customerName: row.customerName }); } }) : null),
     filesBox);
 }
 

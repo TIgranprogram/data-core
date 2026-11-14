@@ -67,7 +67,7 @@ export function mountOrdersTab(params, { onChanged } = {}) {
   const load = (opt) => more.reload(opt);
   const el = h('div', { class: 'do' }, h('div', { class: 'do-head' }, search.el, chips.el),
     h('div', { class: 'do-legend' }, ...Object.values(READINESS).map((x) => h('span', { class: 'do-leg' }, badge(x.label, x.cls), h('span', { class: 'muted' }, x.hint.split(' — ')[1]))),
-      h('span', { class: 'muted' }, 'Новый паспорт: «Нужно сделать паспорт» или «Шаблоны».')), list, more.el);
+      h('span', { class: 'muted' }, 'Новый паспорт: «К выпуску» или кнопка «Новый паспорт».')), list, more.el);
 
   const drawChips = () => chips.set(state.readiness);
 
@@ -115,7 +115,7 @@ export function mountOrdersTab(params, { onChanged } = {}) {
     drawChips();
     list.replaceChildren(...(items.length ? items.map(group) : [state.search || state.readiness
       ? empty({ kind: 'notFound', title: 'Ничего не найдено', hint: 'Снимите фильтр или поиск.' })
-      : empty({ title: 'Паспортов к заказам ещё нет', hint: 'Выпустите паспорт на вкладке «Нужно сделать паспорт» — он появится здесь.' })]));
+      : empty({ title: 'Паспортов к заказам ещё нет', hint: 'Выпустите паспорт на вкладке «К выпуску» — он появится здесь.' })]));
   }
 
   drawChips(); load();

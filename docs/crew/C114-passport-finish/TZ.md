@@ -43,3 +43,13 @@ Scope: только `backend/pwa/sections/passports/**`, `backend/pwa/sections/o
 - Способы установки: у всех карточек одно описание, обрезано на полуслове — показывать отличие или только название.
 - «Из заказа: № 14» вместо «2-26» — исправлено (issue.js:82).
 - В «Выпуске» 4 заметки подряд — сократить (войдёт в I).
+
+## Волна 3 (после 8153b581)
+### G — frontend: «Документация» по E-REPORT.md шаги 2–5 (без плиток категорий)
+Scope: `backend/pwa/sections/docs.js`, `docs-orders.js`, `docs-queue.js`, `passports.js`, `backend/pwa/main.js` (только переадресация старых адресов), `backend/pwa/sections/atlas-data.js` и `help-guide-data.js` (блок документации). Не трогать `passports/**` (кроме чтения). Отчёт G-REPORT.md.
+### J — backend: мелочи паспорта + основа очереди заполнения
+1. `passport-rules.ts:145` label «Поставщик» → «Фирма» (+ spec passport-check-product.spec.ts:30,32, passport-rules.spec.ts:96); затем убрать подмену в `backend/pwa/sections/passports/wire-form.js` (одна строка — разрешено).
+2. Воронка: название позиции заказа (customerTitle) → name паспорта при выпуске из заказа: принять поле в POST, где issueFromProduct (`backend/pwa/sections/passports/funnel/api.js:52`) — передать его оттуда (разрешено править api.js и вызов в issue.js).
+3. H-REPORT.md шаги 1–2: веса и `GET /showcase/:id/fill-queue` (пробелы паспорта; техописание — позже). Юнит-тесты. openapi/MAP обновить.
+Scope: `backend/src/**`, `backend/test/**`, разрешённые выше строки pwa. Отчёт J-REPORT.md.
+- Вкладки «Документации»: справа виден лишний вертикальный ползунок прокрутки (tabs scroll), хотя всё влезает.

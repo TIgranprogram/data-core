@@ -11,7 +11,7 @@ import { canWorkPassport as canEditTexts } from './passports/common.js';
 import { table, tabs, button, badge, searchBox, clamp, link } from '../ui/kit/index.js';
 import { openOrderPassports } from './order-passport-plan.js';
 /**
- * Вкладка «Нужно сделать паспорт» (ТЗ ОП): позиции заказов, где проектирование готово, а выпущенного паспорта нет.
+ * Вкладка «К выпуску» (ТЗ ОП): позиции заказов, где проектирование готово, а выпущенного паспорта нет.
  * Данные — GET /passports/queue (по сроку отгрузки; «горит» — до отгрузки ≤ 3 дней или просрочено).
  */
 const STATE = { none: ['нет паспорта', 'dim'], draft: ['черновик', 'info'], rework: ['доработать', 'warn'] };
