@@ -1,4 +1,6 @@
 import { h } from '../core/dom.js';
+import { money } from '../core/format.js';
+import { kindName } from '../core/passport-kinds.js';
 import { withVars } from './passport-texts.js';
 import { badge, button, table, toolbar, stack, section, actions, sku } from '../ui/kit/index.js';
 
@@ -120,7 +122,6 @@ export function dictsTable(opts) {
   } = opts;
   const ctx = { canEdit, isLocked, lockBadge, colorBadge, fieldOf, fmt, dup, qualityCell, onOpen, onEdit, onRemove };
   const tools = [];
-  if (dictKey === 'productGroups') tools.push(...productGroupSortBtns(sortMode, onSort));
   tools.push(...extraTools);
 
   if (dictKey === 'productGroups') return productGroupsView(rows, sortMode, ctx, tools);
@@ -146,3 +147,14 @@ export function dictsTable(opts) {
   const tbl = mkTable(columns, rows, ctx, 'Справочник');
   return tools.length ? stack(toolbar(...tools), tbl) : tbl;
 }
+
+/** Список видов рисунков из текста справочника. */
+export const linesToKinds = (v) => [...new Set(String(v || '').replace(/\([^)]*\)/g, ' ').split(/[\s,;]+/).filter((x) => /^[a-z_]+$/.test(x)).map((k) => (k === 'safety_zone' ? 'safety' : k)))];
+export const fmt = (f, v, refs) => {
+  if (v === undefined || v === null || v === '' || v === 'null' || (Array.isArray(v) && !v.length)) return '';
+  if (f?.key === 'requiredImages') return linesToKinds(v).map(kindName).join(', ');
+  if (f?.type === 'photo' || f?.type === 'photos') return `картинок: ${Array.isArray(v) ? v.length : 1}`;
+  if (f?.type === 'money') return money(v);
+  if (f?.type === 'select') return (f.options || refs?.[f.ref] || []).find((o) => String(o.value) === String(v))?.label || '';
+  return String(v);
+};
