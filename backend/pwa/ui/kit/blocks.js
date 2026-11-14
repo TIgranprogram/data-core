@@ -101,7 +101,7 @@ export function navList({ groups = [], value, onPick, label = 'Разделы' }
     const list = h('div', { class: 'k-nav-list' }, ...(g.items || []).map(itemEl));
     if (!g.fold) return h('div', { class: 'k-nav-group' }, g.title ? h('div', { class: 'k-nav-h' }, g.title) : null, list);
     const open = g.open !== false;
-    const btn = h('button', { type: 'button', class: 'k-nav-h k-nav-fold', 'aria-expanded': String(open), onclick: () => { const o = btn.getAttribute('aria-expanded') !== 'true'; btn.setAttribute('aria-expanded', String(o)); list.hidden = !o; } },
+    const btn = h('button', { type: 'button', class: 'k-nav-h k-nav-fold', 'aria-expanded': String(open), onclick: () => { const o = btn.getAttribute('aria-expanded') !== 'true'; btn.setAttribute('aria-expanded', String(o)); list.hidden = !o; g.onToggle?.(o); } },
       h('span', { class: 'form-sec-chev', 'aria-hidden': 'true' }, '›'), g.title);
     list.hidden = !open;
     return h('div', { class: 'k-nav-group' }, btn, list);
