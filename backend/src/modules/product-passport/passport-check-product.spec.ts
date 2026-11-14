@@ -27,9 +27,9 @@ describe('ProductPassportService.check с изделием', () => {
     const t = await make().check({ productId: String(productId) });
     expect(t.mode).toBe('template');
     expect(t.missing.map((m) => m.label)).not.toContain('Дата');
-    expect(t.missing.map((m) => m.label)).not.toContain('Поставщик');
+    expect(t.missing.map((m) => m.label)).not.toContain('Фирма');
     const i = await make().check({ productId: String(productId), mode: 'instance' });
-    expect(i.missing.map((m) => m.label)).toEqual(expect.arrayContaining(['Дата', 'Поставщик']));
+    expect(i.missing.map((m) => m.label)).toEqual(expect.arrayContaining(['Дата', 'Фирма']));
   });
   it('у каждого пункта своя подсказка', async () => {
     const r = await make().check({ productId: String(productId), mode: 'instance' });

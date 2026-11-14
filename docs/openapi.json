@@ -16469,6 +16469,29 @@
         ]
       }
     },
+    "/showcase/{id}/fill-queue": {
+      "get": {
+        "operationId": "ProductPassportController_fillQueue",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
     "/passports/models": {
       "get": {
         "operationId": "ProductPassportController_models",

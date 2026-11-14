@@ -93,7 +93,7 @@ describe('паспорта: описание и полнота (ПС.5)', () => 
     expect(buildDescription({})).toBe('');
   });
   it('чего не хватает до выдачи', () => {
-    expect(missingFields({})).toEqual(expect.arrayContaining(['Наименование', 'Дата', 'Поставщик', 'Габариты', 'Фото изделия']));
+    expect(missingFields({})).toEqual(expect.arrayContaining(['Наименование', 'Дата', 'Фирма', 'Габариты', 'Фото изделия']));
     const full = { name: 'Урна', category: 'МАФ', date: new Date(), supplierOrgId: 'x', height: 1, length: 1, width: 1, weight: 0.5, materials: 'сталь', installationMethod: 'бетон', purpose: 'мусор', description: 'd', objectName: 'парк', images: [{ kind: 'overview' }] };
     expect(missingFields(full)).toEqual([]);
   });

@@ -137,7 +137,7 @@ export function wireForm(api, { r, w, catBy, stdName, inst }) {
     // липкая плашка: только то, что ещё не заполнено; всё есть — одна зелёная строка
     w.need.replaceChildren(...(miss.length
       ? [h('div', { class: 'fill-note pp-need-note' }, h('b', null, `Осталось сделать: ${miss.length}`),
-        h('div', { class: 'pp-need-chips' }, ...miss.map((m) => (m.key ? h('button', { type: 'button', class: 'tag', onclick: () => goTo(m.key) }, m.key === 'supplierOrgId' ? 'Фирма' : m.label) : h('span', { class: 'muted' }, m.label === 'Поставщик' ? 'Фирма' : m.label)))),
+        h('div', { class: 'pp-need-chips' }, ...miss.map((m) => (m.key ? h('button', { type: 'button', class: 'tag', onclick: () => goTo(m.key) }, m.label) : h('span', { class: 'muted' }, m.label)))),
         who)]
       : [h('div', { class: 'pp-ready' }, h('span', { class: 'badge ok' }, 'Паспорт готов, можно выпускать'))]));
     const b = saveBtn();

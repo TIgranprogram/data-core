@@ -142,7 +142,7 @@ export function missingFields(p: PassportLike): string[] {
   if (empty(p.name)) m.push('Наименование');
   if (empty(p.category)) m.push('Категория');
   if (empty(p.date)) m.push('Дата');
-  if (empty(p.supplierOrgId)) m.push('Поставщик');
+  if (empty(p.supplierOrgId)) m.push('Фирма');
   if (empty(p.height) || (!isBatch(p) && (empty(p.length) || empty(p.width)))) m.push('Габариты');
   if (empty(p.weight)) m.push('Вес');
   if (empty(p.materials)) m.push('Материалы');
@@ -243,7 +243,7 @@ export function missingFieldsV2(p: PassportV2Like, cat?: { requiredImages?: stri
 
 /** Подпись «не хватает» v1 → поле формы (для ссылки «перейти к полю»). */
 const V1_FIELD_KEYS: Record<string, string> = {
-  'Наименование': 'name', 'Категория': 'category', 'Дата': 'date', 'Поставщик': 'supplierOrgId', 'Габариты': 'height', 'Вес': 'weight',
+  'Наименование': 'name', 'Категория': 'category', 'Дата': 'date', 'Фирма': 'supplierOrgId', 'Габариты': 'height', 'Вес': 'weight',
   'Материалы': 'materials', 'Установка': 'installationMethod', 'Назначение': 'purpose', 'Описание': 'description',
   'Фото изделия': 'img_overview', 'Элементы': 'elements', 'Способ установки': 'installationTypeId',
 };

@@ -45,7 +45,7 @@ export async function loadTexts(category, productId) {
 /**
  * Паспорт изделия: черновик из изделия → проверка → выпуск. Не хватает — черновик убирается, возвращается список.
  * Фирму выбирает менеджер (все isOurCompany). Первую из нескольких молча не подставляем.
- * extra: { supplierOrgId, incomeId?, salesOrderId?, orderNo?, customerName?, objectName? }
+ * extra: { supplierOrgId, incomeId?, salesOrderId?, orderNo?, customerName?, objectName?, customerTitle? } — customerTitle (название позиции) → name паспорта
  */
 export async function issueFromProduct(productId, extra = {}) {
   const supplierOrgId = extra.supplierOrgId || undefined;

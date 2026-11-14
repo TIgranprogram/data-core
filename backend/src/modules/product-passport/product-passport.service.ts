@@ -28,6 +28,7 @@ import { ALL_V2, AFTER_PRINT_FIELDS, DRAFT_PREFIX, MODEL_FIELDS, NUMBER_FIELDS, 
 import { PassportBulk } from './passport-bulk';
 import { productFunnel } from './passport-funnel';
 import { DEFAULT_INSTALL, applyCategoryDefaults, productGaps } from './passport-gaps';
+import { buildFillQueue, loadFillContext } from './product-fill-queue';
 import { unreadableRequiredImages } from './passport-image-files';
 import { facetPhrases, groupChain } from './passport-facet-phrases';
 import { diffPatch, followsProduct, productCategories, productPatch } from './passport-from-product';
@@ -653,7 +654,7 @@ export class ProductPassportService {
     const rules = imageRules(p as never, cat, { category: String(p.passportCategory ?? ''), ...vopts });
     const choices = await this.choiceMissing({ passportCategory: p.passportCategory, textChoices: parseChoices(p.textChoices), textOverrides: p.textOverrides, manualText: p.manualText });
     const noHint = (m: { label: string; key: string; hint?: string }) => ({ ...m, hint: m.hint ?? missingHint(m.key, m.label) });
-    const keep = (m: { key: string; label: string }) => !(template && (INSTANCE_FIELD_KEYS.includes(m.key) || m.label === 'Дата' || m.label === 'Поставщик'));
+    const keep = (m: { key: string; label: string }) => !(template && (INSTANCE_FIELD_KEYS.includes(m.key) || m.label === 'Дата' || m.label === 'Фирма'));
     const blanks = blankItems(built?.text.missing ?? []);
     // C086: назначение, выбранное в текстах (раздел «Назначение»), и есть назначение паспорта — не требовать его второй раз через «Элементы»
     const purposeDone = !!String(built?.text.purpose ?? '').trim();
@@ -753,6 +754,13 @@ export class ProductPassportService {
 
   /** GET showcase/:id/passport-gaps → чего не хватает изделию для паспорта (C028, A3). */
   gaps(productId: string) { return productGaps(this, this.connection.db!, productId); }
+
+  /** GET showcase/:id/fill-queue → «заполнено N из M» и очередь «что заполнить первым» (C114 J; пока по паспорту). */
+  async fillQueue(productId: string) {
+    const db = this.connection.db!;
+    const g = await productGaps(this, db, productId);
+    return buildFillQueue({ gaps: g.missing, ...(await loadFillContext(db, productId)) });
+  }
 
   /** Обязательные разделы воронки без выбора → [{ label, key: 'choice:<id раздела>' }]; текст, набранный вручную, раздел закрывает. */
   private async choiceMissing(d: Doc): Promise<Array<{ label: string; key: string }>> {

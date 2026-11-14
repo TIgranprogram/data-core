@@ -1,4 +1,6 @@
 # Карта роли backend
+## C114 J очередь заполнения (2026-11-14, не закоммичено)
+- `product-passport/product-fill-queue.ts:43` buildFillQueue, `:65` loadFillContext; веса — `product-fill-weights.ts`; маршрут `product-passport.controller.ts` `showcase/:id/fill-queue`, `service.fillQueue`; spec `product-fill-queue.spec.ts`. Подпись «Фирма» — `passport-rules.ts:145,246`. Название позиции → name паспорта: pwa `funnel/api.js:52`, `issue.js lineTitle`. Отчёт `docs/crew/C114-passport-finish/J-REPORT.md`. коммит: —
 ## C114 A чужие тексты (2026-11-14, не закоммичено)
 - `common/passport/phrase-tree.ts:106-140` descend(auto) + `usable`/`bindHit`: привязка на любом узле пути; spec `phrase-tree.spec.ts` «автоподстановка». Отчёт `docs/crew/C114-passport-finish/A-REPORT.md`. коммит: —
 ## C100 вид изделия (2026-11-13, не закоммичено)

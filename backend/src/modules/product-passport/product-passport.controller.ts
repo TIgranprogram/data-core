@@ -165,6 +165,14 @@ export class ProductPassportController {
     return this.service.gaps(id);
   }
 
+  /** C114 J: «заполнено N из M» и очередь «что заполнить первым» по весу пунктов — { done, total, items[], scope }. */
+  @AppSection('products', 'passports')
+  @Get('showcase/:id/fill-queue')
+  @Roles('admin', 'director', 'manager', 'user')
+  fillQueue(@Param('id') id: string) {
+    return this.service.fillQueue(id);
+  }
+
   /** Модели (артикул + наименование) с фото и полями — выбор модели при создании паспорта. */
   @Get('passports/models')
   @Roles(...VIEW)

@@ -92,6 +92,13 @@ export function issueBlock({ prod, order, goGaps, onIssued, onState }) {
     return 'Покупатель и номер уже из заказа. Адрес, монтаж и дату продажи можно вписать позже.';
   };
 
+  /** Название позиции в договоре: станет названием паспорта (сервер оставляет его, не подменяя названием изделия). */
+  const lineTitle = () => {
+    const id = order?.incomeId || lineId;
+    const l = id ? (orderDoc?.lines || []).find((x) => String(x.id || x._id) === String(id)) : null;
+    return String(l?.title || order?.title || '').trim() || undefined;
+  };
+
   /** Выпустить: вызывает полоса панели (Ф1); btn — её кнопка (занята на время запроса). */
   async function run(b) {
     if (!state.ready || running) return;
@@ -105,6 +112,7 @@ export function issueBlock({ prod, order, goGaps, onIssued, onState }) {
         orderNo: forOrder ? (order?.orderNo || orderDoc?.orderNo || orderDoc?.productionNo) : undefined,
         customerName: forOrder ? (order?.customerName || orderDoc?.customer) : undefined,
         objectName: forOrder ? (objectName || undefined) : undefined,
+        customerTitle: forOrder ? lineTitle() : undefined,
       });
       if (res.missing) { toast('Для выпуска не хватает: ' + res.missing.join(', '), { error: true }); return; }
       rememberFirm(firmId);
