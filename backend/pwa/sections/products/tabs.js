@@ -6,7 +6,8 @@ import { productAttachmentsBlock } from '../product-attachments.js';
 import { productRoute } from '../work-composition.js';
 import { openTechSheet } from '../tech-sheet.js';
 import { purchaseNeedsBlock } from './purchase-needs.js';
-import { grp, compositionBlock, passportPane, inOrders, variantsBlock } from './card-blocks.js';
+import { grp, compositionBlock, passportPane, inOrders, variantsBlock, warnNote } from './card-blocks.js';
+import { fillBlock, gapsFor } from './fill-block.js';
 
 /* Вкладки правой панели изделия (C055): Описание · Состав и работы · Техописание · Паспорт · Файлы · Заказы.
  * Техописание = состав для документов (materialsSpec); Паспорт = шаблон ГОСТ + выпущенные; Состав и работы = склад/себестоимость. */
@@ -26,8 +27,16 @@ function techSheetBlock(row) {
   return section({ title: 'Техническое описание', tone: 'info', count: n || undefined, body });
 }
 
+/** Над вкладками: «Заполнение изделия» (C114 H-UI) и пометка переноса каталога. */
+export function productTop(r, ctx) {
+  const fill = fillBlock(r, ctx);
+  const warn = warnNote(r);
+  return fill || warn ? inline(fill, warn) : null;
+}
+
 export function productTabs(r) {
-  const techN = (r.materialsSpec?.rows || []).length || undefined;
+  const techN = gapsFor(r, 'techsheet') ?? ((r.materialsSpec?.rows || []).length || undefined);
+  const passN = gapsFor(r, 'passport');
   return [
     { key: 'desc', label: 'Описание', blocks: (row) => readonlyGroups([
       grp('Описание'),
@@ -37,7 +46,7 @@ export function productTabs(r) {
       blocks: (row) => inline(compositionBlock(row), session.sees('work') ? productRoute(row) : null, variantsBlock(row)) },
     { key: 'tech', label: 'Техописание', count: techN,
       blocks: (row) => inline(techSheetBlock(row), session.sees('products') ? purchaseNeedsBlock(row) : null) },
-    { key: 'passport', label: 'Паспорт',
+    { key: 'passport', label: 'Паспорт', count: passN,
       blocks: (row, ctx) => (session.seesDocs() ? passportPane(row, ctx) : h('p', { class: 'muted' }, 'Паспорта открыты разделу «Документация».')) },
     { key: 'files', label: 'Файлы', blocks: (row) => inline(session.sees('products') ? productAttachmentsBlock(row) : h('p', { class: 'muted' }, 'Вложения изделия (чертежи, документы) открыты разделу «Продукция» — попросите доступ у администратора.'), productFilesBlock(row, session.canEdit)) },
     { key: 'orders', label: 'Заказы', count: (r.orderLines || []).length || undefined, when: () => session.sees('salesorders'), blocks: (row) => inOrders(row) },

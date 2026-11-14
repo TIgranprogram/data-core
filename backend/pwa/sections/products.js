@@ -15,8 +15,8 @@ import { qrBulkAction, qrPrintAction } from './qr.js';
 import * as data from './products/data.js';
 import { productForm, productBulkFields } from './products/form-fields.js';
 import { prodFunnel, catLanding, deepGroup } from './products/landing.js';
-import { STATUS, dims, grp, warnNote } from './products/card-blocks.js';
-import { productTabs } from './products/tabs.js';
+import { STATUS, dims, grp } from './products/card-blocks.js';
+import { productTabs, productTop } from './products/tabs.js';
 
 /*
  * «Продукция» (TASKS БЗ-4) — витрина изделий компании: разделы плитками, поиск, фото; карточка — правка (артикул,
@@ -116,7 +116,7 @@ export const products = {
     editTop: true,
     zones: { fields: 'wide' }, // сведения — на всю ширину, ниже вкладки (C052, как в заказе)
     actionsInHead: true,
-    top: (r) => warnNote(r),
+    top: (r, ctx) => productTop(r, ctx),
     // вкладки: Описание · Состав и работы · Техописание · Паспорт · Файлы · Заказы (C055)
     tabs: (r) => productTabs(r),
     gallery: (r) => r.photos || [],

@@ -62,6 +62,8 @@ export function buildFillQueue(input: FillInput): FillQueue {
   });
   if (input.withTechsheet) {
     for (const g of techSheetGaps(input.product).filter((x) => TECH_ONLY_KEYS.includes(x.key))) {
+      // материалы паспорт уже спрашивает (они и есть материалы техописания) — один пункт, не два
+      if (gapKeys.has(g.key) || (g.key === 'materials' && [...gapKeys].some((k) => /^material/i.test(k)))) continue;
       applicable++;
       items.push({ key: g.key, label: g.label, kind: 'product', target: 'techsheet', weight: g.weight, required: g.required, opens: g.opens, urgent, score: g.weight * mult, at: open.length + PRODUCT_ITEMS.length + items.length });
     }

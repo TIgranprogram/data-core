@@ -7,9 +7,9 @@ import { patch } from '../../../core/router.js';
  */
 let pending = null;
 /** productId без заказа — воронка спросит «Для заказа», если есть открытые позиции. salesOrderId без incomeId — в выпуске спросить позицию. incomeId — позиция уже выбрана. */
-export function openPassportFunnel({ productId, salesOrderId, incomeId, orderNo, customerName } = {}) {
+export function openPassportFunnel({ productId, salesOrderId, incomeId, orderNo, customerName, gap } = {}) {
   pending = (productId || salesOrderId || incomeId)
-    ? { productId: productId ? String(productId) : undefined, salesOrderId: salesOrderId ? String(salesOrderId) : undefined, incomeId: incomeId ? String(incomeId) : undefined, orderNo, customerName, at: Date.now() }
+    ? { productId: productId ? String(productId) : undefined, salesOrderId: salesOrderId ? String(salesOrderId) : undefined, incomeId: incomeId ? String(incomeId) : undefined, orderNo, customerName, gap, at: Date.now() }
     : null;
   patch({ of: 'passfunnel', new: '1', open: undefined });
 }

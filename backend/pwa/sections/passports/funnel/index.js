@@ -30,7 +30,7 @@ function build() {
   readyMode = !!entry?.ready;
   if (entry?.ready) return buildReady(entry);
   const lockedOrder = !!(entry && (entry.salesOrderId || entry.incomeId));
-  const S = { P: {}, q: '', prod: null, order: lockedOrder ? entry : null };
+  const S = { P: {}, q: '', prod: null, order: lockedOrder ? entry : null, focus: entry?.gap || null }; // focus — пробел из «Заполнения изделия» (C114 H-UI): встать на это поле после загрузки анкеты
   let stageSeq = 0;
   let activeFill = null; let creation = null;
   let parked = null; // C096 Э4: изделие создано, заполнение не закончено — та же форма и та же запись при следующем «+ Новое изделие»
@@ -227,6 +227,7 @@ function build() {
     activeFill = fill;
     stages.replaceChildren(fill.el, issueSec);
     paintBar();
+    if (S.focus) { const m = S.focus; S.focus = null; requestAnimationFrame(() => fill.focusGap?.(m)); }
   }
 
   /** Ф4: после выпуска панель остаётся — «Печать…» и, если паспорт из заказа, «Следующая позиция». */
