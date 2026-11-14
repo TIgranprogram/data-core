@@ -75,9 +75,11 @@ const waitHook = {
   onStart() { if (++waiters === 1) events.onWait(true, false); },
   onEnd(ok) { if (ok) restoredAny = true; if (--waiters <= 0) { waiters = 0; events.onWait(false, restoredAny); restoredAny = false; } },
 };
-/** Сбой (сеть, 5xx, ответ не разобрался) — сообщить сборщику; ответы 4xx — не сбой. Ошибку бросить дальше как есть. */
+/** Сбой (сеть, 5xx, ответ не разобрался) — сообщить сборщику; ответы 4xx — не сбой. Ошибку бросить дальше как есть.
+ *  Обрыв связи на фоновом опросе (версии, колокольчик, чат — раз в 20 с) не сбой сайта: интернет моргнул у человека (14.11: 14 записей за минуту). */
 function failed(e, url, method) {
-  if (!(e instanceof ApiError) || e.status === 0 || e.status >= 500) { try { events.onFail(e, { url, method }); } catch { /* сборщик не мешает */ } }
+  const netBlip = e instanceof ApiError && e.status === 0 && method === 'GET' && isQuietPath(url);
+  if (!netBlip && (!(e instanceof ApiError) || e.status === 0 || e.status >= 500)) { try { events.onFail(e, { url, method }); } catch { /* сборщик не мешает */ } }
   throw e;
 }
 /** Хуки после успешной записи (не GET): кэши данных сбрасываются сами (core/stock-list.js). */
