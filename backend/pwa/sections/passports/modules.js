@@ -107,7 +107,6 @@ export function modulesEditor({ value, productId = () => '', canEdit = true, sav
                 photoProduct = undefined;
                 await loadPhotos();
               }
-              return true;
             },
           }) : null,
         ].filter(Boolean));
