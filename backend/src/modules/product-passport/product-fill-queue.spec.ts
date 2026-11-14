@@ -38,4 +38,9 @@ describe('C114 J: очередь «что заполнить первым»', ()
     const q = buildFillQueue({ gaps: [gap('category', 'category')], product: full, ...base });
     expect(q).toMatchObject({ done: 4, total: 5 });
   });
+  it('техописание: число у вкладки = «Осталось N» (techsheetLeft), даже если пункт идёт через паспорт', () => {
+    const q = buildFillQueue({ gaps: [gap('weight', 'field')], product: {}, withTechsheet: true, ...base });
+    expect(q.techsheetLeft).toBe(5); // материалы, габариты, вес, назначение, монтаж
+    expect(buildFillQueue({ gaps: [], product: full, ...base }).techsheetLeft).toBeUndefined();
+  });
 });

@@ -14,6 +14,8 @@ export interface FillQueue {
   /** Очередь собрана только по паспорту: проверки техописания пока нет. */
   /** passport+techsheet — учтены и пробелы техописания (materials, parts). */
   scope: 'passport' | 'passport+techsheet';
+  /** Сколько пунктов осталось техописанию — то же число, что «Осталось N» во вкладке (GET techsheet-gaps); только при passport+techsheet. */
+  techsheetLeft?: number;
 }
 
 export interface FillInput {
@@ -70,7 +72,7 @@ export function buildFillQueue(input: FillInput): FillQueue {
   }
   items.sort((a, b) => Number(b.kind === 'category') - Number(a.kind === 'category') || Number(b.required) - Number(a.required) || b.score - a.score || a.at - b.at);
   const total = applicable + open.length;
-  return { done: Math.max(0, total - items.length), total, items: items.map((i) => ({ key: i.key, label: i.label, kind: i.kind, target: i.target, weight: i.weight, required: i.required, opens: i.opens, urgent: i.urgent })), scope: input.withTechsheet ? 'passport+techsheet' : 'passport' };
+  return { done: Math.max(0, total - items.length), total, items: items.map((i) => ({ key: i.key, label: i.label, kind: i.kind, target: i.target, weight: i.weight, required: i.required, opens: i.opens, urgent: i.urgent })), scope: input.withTechsheet ? 'passport+techsheet' : 'passport', ...(input.withTechsheet ? { techsheetLeft: techSheetGaps(input.product).length } : {}) };
 }
 
 /** Данные изделия и его связи для очереди: сам документ, участие в заказах, выпущенные паспорта. */

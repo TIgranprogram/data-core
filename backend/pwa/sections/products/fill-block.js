@@ -18,9 +18,9 @@ const FORM_FIELD = { dimensions: 'dimL', weightKg: 'weightKg', installation: 'in
 export function gapsFor(r, tab) {
   const q = fresh(r);
   if (!q) return undefined;
-  // техописание нуждается и в габаритах, весе, назначении, монтаже — число у вкладки совпадает с «Осталось N» в панели
-  const techKey = (i) => /^(material|part|dim|weight|purpose|install)/i.test(i.key);
-  const n = q.items.filter((i) => i.target === 'both' || i.target === tab || (tab === 'techsheet' && techKey(i))).length;
+  // техописание: число считает сервер тем же расчётом, что «Осталось N» во вкладке (techsheetLeft) — одно число, C114
+  if (tab === 'techsheet' && typeof q.techsheetLeft === 'number') return q.techsheetLeft || undefined;
+  const n = q.items.filter((i) => i.target === 'both' || i.target === tab).length;
   return n || undefined;
 }
 

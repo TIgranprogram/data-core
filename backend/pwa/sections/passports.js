@@ -132,7 +132,8 @@ export const passports = {
     editTitle: (r) => [heading(r), r.name ? ' · ' + r.name : ''],
     editTop: true,
     subheading: (r) => [r.name, r.category].filter(Boolean).join(' · '),
-    stats: (r) => [['Статус', STATUS_LABEL[statusOf(r)] + (r.revision > 1 ? `, редакция ${r.revision}` : '') + (r.annulReason ? ` — ${r.annulReason}` : '')], ['Талон', r.warrantyCode || '—'], ['Номер изделия', `${r.productCode || '—'}${r.productCodeDuplicate ? ' (дубль)' : ''}`], ['Дата', date(r.date)], ['Гарантия', `${r.warrantyMonths ?? 12} мес.`]],
+    // версия — отдельной плиткой: приписка к статусу обрезалась («Выпущен, реда…»), C114
+    stats: (r) => [['Статус', STATUS_LABEL[statusOf(r)] + (r.annulReason ? ` — ${r.annulReason}` : '')], ...(r.revision > 1 ? [['Версия', String(r.revision)]] : []), ['Талон', r.warrantyCode || '—'], ['Номер изделия', `${r.productCode || '—'}${r.productCodeDuplicate ? ' (дубль)' : ''}`], ['Дата', date(r.date)], ['Гарантия', `${r.warrantyMonths ?? 12} мес.`]],
     view: (r) => [
       grp('Изделие'),
       ['Название', r.name],
