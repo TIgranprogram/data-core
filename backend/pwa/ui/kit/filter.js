@@ -105,7 +105,7 @@ export function facetFilter({ categoryKey = 'categoryId', inline = false } = {})
       const vals = facetValues(scope(items, P, categoryKey, others), key).slice(0, key === 'type' ? 30 : 40);
       if (!vals.length) return null;
       const open = folded.has(key) ? folded.get(key) : (vals.length <= OPEN_MAX || !!sel[key]);
-      const colCls = vals.length > 8 ? ' ff-cols' : '';
+      const colCls = vals.length > 8 && Math.max(0, ...vals.map(([v]) => String(v).length)) <= 14 ? ' ff-cols' : '';
       return h('div', { class: 'ff-group' + (open ? ' open' : '') },
         h('button', { type: 'button', class: 'ff-gh', 'data-fk': 'g:' + key, 'aria-expanded': String(open), onclick: () => { folded.set(key, !open); renderPop(); } },
           h('span', { class: 'ff-gl' }, label), sel[key] ? h('span', { class: 'ff-gsel' }, sel[key]) : null, h('span', { class: 'ff-chev', 'aria-hidden': 'true' }, '▾')),
@@ -185,7 +185,9 @@ function inlineFilter(categoryKey) {
       if (vals.length < 2) return null; // один вариант — выбирать нечего
       const open = folded.has(key) ? folded.get(key) : first || key === 'wash' || key === 'pipe';
       first = false;
-      const colCls = key === 'type' ? '' : vals.length > 16 ? ' ff-cols ff-cols3' : vals.length > 8 ? ' ff-cols' : '';
+      // колонки — только для коротких значений: длинные («Лист, 2 мм, ГОСТ…») в колонке шириной ~67 px встают столбиком по букве (стенд 15.11)
+      const longest = Math.max(0, ...vals.map(([v]) => String(v).length));
+      const colCls = key === 'type' ? '' : vals.length > 16 && longest <= 8 ? ' ff-cols ff-cols3' : vals.length > 8 && longest <= 14 ? ' ff-cols' : '';
       return h('div', { class: 'ff-group' + (open ? ' open' : '') },
         h('button', { type: 'button', class: 'ff-gh', 'data-fk': 'g:' + key, 'aria-expanded': String(open), onclick: () => { folded.set(key, !open); render(); } },
           h('span', { class: 'ff-gl' }, label), h('span', { class: 'ff-gn' }, String(vals.length)), h('span', { class: 'ff-chev', 'aria-hidden': 'true' }, '▾')),
