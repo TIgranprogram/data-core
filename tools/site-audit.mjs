@@ -21,6 +21,13 @@ const d0 = new Date();
 const DAY = `${d0.getFullYear()}-${pad(d0.getMonth() + 1)}-${pad(d0.getDate())}`;
 export const AUDIT_DIR = path.join(ROOT, 'tools', 'logs', 'audit', DAY);
 
+// Правило tx: пороги в словах; известные (базовая линия) строки лежат в tools/site-audit-tx-known.json — массив начал текста (первые 60 знаков).
+export const TX_WARN = 20, TX_ERR = 35, TX_STACK = 3;
+const TX_KNOWN_FILE = path.join(ROOT, 'tools', 'site-audit-tx-known.json');
+export const txKnown = () => { try { return JSON.parse(fs.readFileSync(TX_KNOWN_FILE, 'utf8')); } catch { return []; } };
+/** Находки tx, чей текст уже в базовой линии, не считаются (новые — запрещены). Текст находки: «(N слов) начало…». */
+export const txFilter = (found, known = txKnown()) => found.filter((x) => x.rule !== 'tx' || x.sel === 'stack' || !known.includes(x.text.replace(/^\(\d+ слов[^)]*\)\s*/, '').slice(0, 60)));
+
 export const RULES = {
   a: 'мусор в тексте', b: 'заголовок панели из одного слова', c: '«скоро / в разработке / TODO»', d: 'горизонтальная прокрутка страницы (реальная)',
   e: 'сжатый текст «столбиком»', f: 'картинка выше 200px или шире колонки', g: 'кликабельное меньше 36px по меньшей стороне (390)', h: 'вкладка со счётчиком 0 / пустая без подсказки',
@@ -42,6 +49,7 @@ export const RULES = {
   fl: 'поле формы без видимой подписи (aria-label и placeholder не заменяют подпись)',
   fg: 'соседние поля формы слиплись или перекрылись',
   tw: 'таблица шире своей области больше чем на 20px — столбцы уходят за экран (C111, 2026-11-14: «Нужно сделать паспорт»)',
+  tx: 'C114 I: длинная подсказка (больше 20 слов — предупреждение, больше 35 — ошибка) или стопка заметок подряд (больше 3); известные строки — tools/site-audit-tx-known.json',
   ax: 'axe: нарушение доступности (автоматическая проверка)',
   axcheck: 'axe: проверка доступности не выполнена',
 };
@@ -373,6 +381,15 @@ if(innerWidth<=420)for(const el of document.querySelectorAll('button,a[href],[ro
   const mn=Math.min(r.width,r.height);if(mn<40)add(mn<36?'g':'m',sel(el),(el.innerText||el.getAttribute('aria-label')||el.title||'').trim().slice(0,40)+' '+Math.round(r.width)+'×'+Math.round(r.height))}
 for(const el of document.querySelectorAll('button,.k-seg-btn,.chip,[role=tab]')){
   if(!vis(el)||!el.innerText.trim())continue;if(el.scrollWidth>el.clientWidth+1)add('u',sel(el),el.innerText.trim().slice(0,40)+' '+el.clientWidth+'<'+el.scrollWidth)}
+if(!/^#(help|atlas|guide)/.test(location.hash)){
+  const NOTE='.hint,.fill-note,.empty p,.state-hint,.g-note';
+  for(const el of document.querySelectorAll(NOTE)){if(!vis(el)||el.closest('.g-d'))continue;
+    const t=el.innerText.replace(/\\s+/g,' ').trim(),n=t?t.split(' ').length:0;
+    if(n>${TX_ERR})add('tx',sel(el),'('+n+' слов, ошибка) '+t);else if(n>${TX_WARN})add('tx',sel(el),'('+n+' слов) '+t)}
+  for(const box of document.querySelectorAll('main *,.drawer *')){let run=0,first=null;
+    for(const k of box.children){if(vis(k)&&k.matches('.hint,.fill-note,.g-note')){if(!run++)first=k}else run=0;
+      if(run===${TX_STACK}+1)add('tx','stack','стопка заметок подряд (больше ${TX_STACK}): '+first.innerText.replace(/\\s+/g,' ').trim().slice(0,60))}}
+}
 for(const t of document.querySelectorAll('main table,.drawer table')){if(!vis(t)||!t.parentElement)continue;const pw=t.parentElement.clientWidth;if(t.scrollWidth>pw+20)add('tw',sel(t),'таблица '+t.scrollWidth+'px в области '+pw+'px')}
 for(const el of document.querySelectorAll('.chip[role=tab],.k-seg-btn,.chips .chip')){
   if(!vis(el))continue;const t=el.innerText.replace(/\\s+/g,' ').trim();
@@ -546,7 +563,7 @@ async function main() {
     let axeChecks = 0;
     if (!axeSource) all.push({ rule: 'axcheck', sel: 'axe', text: 'Пакет не установлен: пульт → Установить проверки дизайна', screen: 'проверки' });
     const take = async (screen, w, kind, shotName) => {
-      const found = (await ev(SCAN(kind))) || [];
+      const found = txFilter((await ev(SCAN(kind))) || []);
       const file = await shot(shotName);
       for (const f of found) all.push({ ...f, screen: kind === 'main' ? screen : `${screen} [${kind}]`, w, shot: file });
       // Один размер на состояние: доступность не требует одинаковых повторов на всех ширинах.

@@ -694,6 +694,34 @@ table.list .k-nowrap { white-space: nowrap; }
 @media (pointer: coarse) { .g-cat > summary { min-height: 44px; } .g-flow-chip { min-height: 44px; } }
 @media (max-width: 720px) { .g-flow-chip { min-height: 44px; } }
 
+/* guide: инфографика-подсказки (C114 I) — steps, source, progress, checklist, beforeAfter */
+.g-mini { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.g-mini-i { display: inline-flex; align-items: center; gap: var(--s2); padding: var(--s1) var(--s3); border-radius: var(--s6); background: var(--surface-2); color: var(--muted); font-size: var(--fs-sm); font-weight: 600; }
+.g-mini-i + .g-mini-i::before { content: '→'; margin-right: var(--s1); color: var(--muted); font-weight: 400; }
+.g-mini-n { display: inline-grid; place-items: center; min-width: 18px; height: 18px; border-radius: 50%; background: var(--surface); font-size: var(--fs-sm); }
+.g-mini-i.is-done { background: var(--ok-soft); color: var(--ok); }
+.g-mini-i.is-now { background: var(--primary-soft); color: var(--primary); }
+.g-src { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); font-size: var(--fs-sm); }
+.g-src-a { padding: var(--s1) var(--s2); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--muted); }
+.g-src-b { color: var(--heading); font-weight: 600; }
+.g-prog { display: flex; flex-direction: column; gap: var(--s1); }
+.g-prog-t { font-size: var(--fs-sm); color: var(--muted); }
+.g-chk { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s1); }
+.g-chk-i { display: flex; align-items: center; gap: var(--s2); font: inherit; font-size: var(--fs-sm); color: var(--text); background: none; border: 0; padding: var(--s1) 0; text-align: left; min-height: 28px; }
+button.g-chk-i { cursor: pointer; }
+button.g-chk-i:hover { color: var(--primary); }
+button.g-chk-i:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.g-chk-m { width: 18px; text-align: center; color: var(--warn); font-weight: 700; }
+.g-chk-i.is-ok .g-chk-m { color: var(--ok); }
+.g-chk-i.is-ok { color: var(--muted); }
+.g-ba { display: flex; flex-wrap: wrap; align-items: stretch; gap: var(--s2); }
+.g-ba-c { display: flex; flex-direction: column; gap: var(--s1); padding: var(--s2) var(--s3); border-radius: var(--radius-sm); background: var(--surface-2); min-width: 0; }
+.g-ba-c.is-new { background: var(--primary-soft); }
+.g-ba-k { font-size: var(--fs-sm); color: var(--muted); }
+.g-ba-v { font-weight: 600; color: var(--heading); overflow-wrap: anywhere; }
+.g-ba > .g-flow-sep { align-self: center; }
+@media (max-width: 720px) { .g-chk-i { min-height: 44px; } }
+
 /* guide.want — карточка «Я хочу…» (тон раздела через --tone, как у k-toned; border-left — здесь, чтобы не спорить с шорткатом border) */
 .g-want { display: flex; flex-direction: column; gap: var(--s2); background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--tone, var(--border)); border-radius: var(--radius); padding: var(--s3) var(--s4); min-width: 0; }
 .g-want h3 { margin: 0; font-size: var(--fs-h3); font-weight: 650; color: var(--heading); }

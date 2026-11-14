@@ -6,6 +6,7 @@
  * Вид — kit.css (классы g-…), цвета и размеры — токены. */
 import { h } from '../../core/dom.js';
 import { mark } from './mark.js';
+import { miniChart } from './blocks.js';
 
 /** Категория-аккордеон: в шапке название, подпись, метки разделов и счётчик; body — содержимое. */
 export function cat({ title, what, chips, count, open = false, name, body }) {
@@ -73,4 +74,38 @@ export function toggle({ label, checked = false, onChange }) {
 /** Схема с текстовым дублем у потребителя: на узком экране оставляем читаемый список вместо миниатюрных кнопок. */
 export function diagram(body) { return mark(h('div', { class: 'k-guide-diagram' }, body), 'guide'); }
 
-export const guide = { cat, unit, chain, flow, want, note, toggle, diagram };
+/** Шаги-миниатюры (C114 I): «① Заказ → ② Номер → ③ PDF». items: [{ label, state: 'done'|'now'|'later' }]; не кнопки, текущий подсвечен, «потом» — серым. Заменяет абзац «что за чем». */
+export function steps(items) {
+  return mark(h('ol', { class: 'g-mini' }, items.map((it, i) => h('li', { class: 'g-mini-i is-' + (it.state || 'later') },
+    h('span', { class: 'g-mini-n', 'aria-hidden': 'true' }, it.state === 'done' ? '✓' : String(i + 1)), it.label))), 'guide');
+}
+
+/** «Откуда берётся»: источник → поле, одной строкой («Изделие → Наименование»). Вместо фразы «Заполнено из …». */
+export function source({ from, to, label }) {
+  return mark(h('p', { class: 'g-src', ...(label ? { title: label } : {}) },
+    h('span', { class: 'g-src-a' }, from), h('i', { class: 'g-flow-sep', 'aria-hidden': 'true' }, '→'), h('b', { class: 'g-src-b' }, to)), 'guide');
+}
+
+/** Полоса «N из M»: одна полоса miniChart bar + подпись («Заполнено 3 из 7», «Показано 50 из 214»). */
+export function progress({ done, total, label = 'Заполнено' }) {
+  const d = Math.max(0, Number(done) || 0), t = Math.max(d, Number(total) || 0), text = `${label} ${d} из ${t}`;
+  return mark(h('div', { class: 'g-prog', role: 'img', 'aria-label': text },
+    miniChart({ type: 'bar', parts: [{ value: d, tone: 'ok' }, { value: t - d, tone: 'dim' }] }), h('span', { class: 'g-prog-t' }, text)), 'guide');
+}
+
+/** Чек-лист «чего не хватает»: items [{ label, ok, onClick? }]; ✓ — есть, ○ — нет; onClick — строка-кнопка (к полю). */
+export function checklist(items) {
+  return mark(h('ul', { class: 'g-chk' }, items.map((it) => {
+    const mk = it.ok ? '✓' : '○', cls = 'g-chk-i' + (it.ok ? ' is-ok' : '');
+    const body = [h('span', { class: 'g-chk-m', 'aria-hidden': 'true' }, mk), it.label];
+    return h('li', null, it.onClick ? h('button', { type: 'button', class: cls, onclick: it.onClick }, ...body) : h('span', { class: cls }, ...body));
+  })), 'guide');
+}
+
+/** До / после: две колонки со стрелкой, изменённое — акцентом («№ 12 → № 15»). */
+export function beforeAfter({ before, after, labels = ['Было', 'Станет'] }) {
+  const col = (cap, v, cls) => h('div', { class: 'g-ba-c ' + cls }, h('span', { class: 'g-ba-k' }, cap), h('span', { class: 'g-ba-v' }, v));
+  return mark(h('div', { class: 'g-ba' }, col(labels[0], before, 'is-old'), h('i', { class: 'g-flow-sep', 'aria-hidden': 'true' }, '→'), col(labels[1], after, 'is-new')), 'guide');
+}
+
+export const guide = { cat, unit, chain, flow, want, note, toggle, diagram, steps, source, progress, checklist, beforeAfter };
