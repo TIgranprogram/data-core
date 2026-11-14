@@ -142,6 +142,7 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 /* анкета паспорта: заполнено — спокойный зелёный фон; обязательное незаполненное — золотая рамка (пользователь 2026-11-13). color-mix — одинаково в светлой и тёмной теме */
 .k-fill-done { padding: var(--s1) var(--s2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--ok) 9%, transparent); }
 .k-fill-need { padding: var(--s2); border: 1px solid var(--gold); border-radius: var(--radius-sm); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 18%, transparent); }
+.k-fill-opt { padding: var(--s2); border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent); border-radius: var(--radius-sm); }
 /* длинный список внутри окна (выбор паспортов заказа и т. п.) — не выше 40 % экрана, дальше прокрутка (2026-11-13) */
 .k-scroll { max-height: 40vh; overflow-y: auto; }
 /* секции подряд не в stack (вложенные списки) — тот же зазор, не слипаются */
