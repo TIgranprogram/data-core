@@ -10,6 +10,7 @@ import { current, go, patch } from '../core/router.js';
 const invoiceHref = (id) => { const route = current(); return '#' + (route.section || 'requests') + '?' + new URLSearchParams(Object.entries({ ...route.params, of: 'invoicecard', open: id, new: undefined, fill: undefined }).filter(([, value]) => value !== undefined && value !== '')).toString(); };
 import { stockLookup } from '../core/stock-list.js';
 import { badge, COST_CENTER, PRIORITY, SUPPLY_STATUS, supplyKey } from '../ui/kit/badges.js';
+import { boardCard } from '../ui/kit/screens/blocks.js';
 import { modal, confirmDlg } from '../ui/kit/dialog.js';
 import { quickAdd } from '../ui/quick.js';
 import { openSide, sideForm } from '../ui/kit/side-form.js';
@@ -373,26 +374,19 @@ export const requests = {
         get multi() { return k === 'requested' && session.canEdit ? { label: 'Заказал у поставщика', run: bulkOrder } : undefined; }, // роль известна после входа
       })),
       card: (r, c, ctx) => ({
-        body: [
-          r.photo ? h('img', { class: 't-pic', src: PREFIX + (typeof r.photo === 'string' ? r.photo : r.photo.thumb || r.photo.url), alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.remove() }) : null,
-          h('div', { class: 't-title', title: heading(r) }, heading(r)),
-          h('div', { class: 't-sub', title: [
+        body: boardCard({
+          pic: r.photo ? h('img', { class: 't-pic', src: PREFIX + (typeof r.photo === 'string' ? r.photo : r.photo.thumb || r.photo.url), alt: '', loading: 'lazy', draggable: 'false', onerror: (e) => e.target.remove() }) : null,
+          title: heading(r),
+          sub: [
             `${qty(r.qty)} ${r.unit || ''}`.trim(),
             r.supplierName,
             r.salesOrderId ? orderTag(r) : '',
             r.invoiceNo ? 'Счёт № ' + r.invoiceNo : (['ordered', 'paid'].includes(supplyKey(r)) ? 'Нет № счёта' : ''),
             r.invoiceDate ? date(r.invoiceDate) : '',
             r.priceHint && session.canMoney ? money(r.priceHint) : '',
-          ].filter(Boolean).join(' · ') }, [
-            `${qty(r.qty)} ${r.unit || ''}`.trim(),
-            r.supplierName,
-            r.salesOrderId ? orderTag(r) : '',
-            r.invoiceNo ? 'Счёт № ' + r.invoiceNo : (['ordered', 'paid'].includes(supplyKey(r)) ? 'Нет № счёта' : ''),
-            r.invoiceDate ? date(r.invoiceDate) : '',
-            r.priceHint && session.canMoney ? money(r.priceHint) : '',
-          ].filter(Boolean).join(' · ')),
-          r.priority === 'urgent' ? h('div', { class: 't-foot' }, badge(PRIORITY, 'urgent')) : null,
-        ],
+          ].filter(Boolean).join(' · '),
+          flags: [r.priority === 'urgent' ? badge(PRIORITY, 'urgent') : null],
+        }),
         foot: session.canEdit ? stepFoot(r, ctx) : null,
       }),
       /** Перетаскивание в колонку: «Получено» — через приём на склад, не хватает данных — панель «Следующий шаг», остальное — смена статуса. */

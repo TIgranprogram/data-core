@@ -1,7 +1,8 @@
 import { api, session } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { patch } from '../../core/router.js';
-import { badge, busyBlock, button, failBlock, hint, miniChart, row as kitRow, section, stack } from '../../ui/kit/index.js';
+import { badge, busyBlock, button, failBlock, row as kitRow, section, stack } from '../../ui/kit/index.js';
+import { nextCard } from '../../ui/kit/screens/blocks.js';
 import { openPassportFunnel } from '../passports/funnel/open.js';
 
 /* Блок «Заполнение изделия» (C114 H-UI): «Заполнено N из M», полоса, «Начните с этого» + до 3 следующих, остальное свёрнуто.
@@ -42,28 +43,21 @@ function itemRow(it, r, ctx, main) {
 
 function paint(q, r, ctx) {
   const { done, total, items } = q;
-  const reqLeft = items.filter((i) => i.required).length;
-  if (!items.length) return [hint('Готово к паспорту и техописанию', 'ok')];
-  const head = kitRow({ title: `Заполнено ${done} из ${total}`, side: reqLeft ? badge('есть обязательное', 'warn') : badge('можно выпускать', 'ok') });
-  const bar = miniChart({ type: 'bar', parts: [{ value: done, tone: 'ok' }, { value: Math.max(0, total - done), tone: 'dim' }] });
+  if (!items.length) return [nextCard({ text: 'Изделие заполнено: готово к паспорту и техописанию', tone: 'ok' })];
   const [first, ...rest] = items;
-  const next = rest.slice(0, 3);
-  const more = rest.slice(3);
+  const reqLeft = items.filter((i) => i.required).length;
   return [
-    head, bar,
-    hint('Начните с этого'),
-    itemRow(first, r, ctx, true),
-    ...next.map((it) => itemRow(it, r, ctx, false)),
-    more.length ? section({ title: `Ещё ${more.length}`, plain: true, body: more.map((it) => itemRow(it, r, ctx, false)) }) : null,
-    q.scope === 'passport' ? hint('Посчитано по паспорту; техописание проверяется отдельно.') : null,
+    nextCard({ text: `Заполнено ${done} из ${total}${reqLeft ? ', есть обязательное' : ', можно выпускать'}. Дальше: ${first.label}`, tone: reqLeft ? 'warn' : 'neutral',
+      primary: { label: 'Заполнить', title: `Заполнить: ${first.label}`, run: async () => go(first, r, ctx) } }),
+    rest.length ? section({ title: `Ещё ${rest.length}`, plain: true, body: rest.map((it) => itemRow(it, r, ctx, false)) }) : null,
+    q.scope === 'passport' ? h('p', { class: 'muted small' }, 'Посчитано по паспорту; техописание проверяется отдельно.') : null,
   ].filter(Boolean);
 }
 
-/** Блок над вкладками панели изделия. Пока грузится — «Загружаю…»; ошибка — карточка с «Повторить». */
-export function fillBlock(r, ctx) {
+/** «Что дальше» изделия (nextCard, C118 W5): первый пустой пункт и главная кнопка «Заполнить». Пока грузится — «Загружаю…»; ошибка — «Повторить». */
+export function fillNext(r, ctx) {
   if (!r?.id || !session.seesDocs()) return null;
-  const body = h('div', null);
-  const sec = section({ title: 'Заполнение изделия', tone: 'info', open: true, body: [body] });
+  const body = stack();
   const show = (q) => body.replaceChildren(...paint(q, r, ctx));
   const load = async () => {
     body.replaceChildren(busyBlock('очередь заполнения'));
@@ -77,5 +71,5 @@ export function fillBlock(r, ctx) {
   };
   const q = fresh(r);
   if (q) show(q); else load();
-  return stack(sec);
+  return body;
 }

@@ -7,7 +7,7 @@ import { productRoute } from '../work-composition.js';
 import { openTechSheet } from '../tech-sheet.js';
 import { purchaseNeedsBlock } from './purchase-needs.js';
 import { grp, compositionBlock, passportPane, inOrders, variantsBlock, warnNote } from './card-blocks.js';
-import { fillBlock, gapsFor } from './fill-block.js';
+import { fillNext, gapsFor } from './fill-block.js';
 
 /* Вкладки правой панели изделия (C055): Описание · Состав и работы · Техописание · Паспорт · Файлы · Заказы.
  * Техописание = состав для документов (materialsSpec); Паспорт = шаблон ГОСТ + выпущенные; Состав и работы = склад/себестоимость. */
@@ -27,12 +27,8 @@ function techSheetBlock(row) {
   return section({ title: 'Техническое описание', tone: 'info', count: n || undefined, body });
 }
 
-/** Над вкладками: «Заполнение изделия» (C114 H-UI) и пометка переноса каталога. */
-export function productTop(r, ctx) {
-  const fill = fillBlock(r, ctx);
-  const warn = warnNote(r);
-  return fill || warn ? inline(fill, warn) : null;
-}
+/** Предупреждения и «Что дальше» изделия для шаблона «Карточка объекта»: пометка переноса каталога → заполнение (C114 H-UI, C118 W5). */
+export const productWarns = (r, ctx) => [warnNote(r), fillNext(r, ctx)];
 
 export function productTabs(r) {
   const techN = gapsFor(r, 'techsheet') ?? ((r.materialsSpec?.rows || []).length || undefined);

@@ -94,7 +94,7 @@ export const NODES = [
     rules: ['Части и материалы паспорта (в том числе каркас) — в группе «Паспорта · части и материалы». Поиск меню находит справочник; поиск и фильтры справа отбирают записи.', 'Запись справочника используют многие изделия. Перед правкой проверьте, кому она подходит.', 'Выпущенный паспорт не получает новые тексты сам.'],
     docs: ['docs/MAP.md — dicts, category, work-type, color-reference', 'docs/PASSPORTS-V2.md'], tech: 'categories, worktypes, color_references, passporttemplates',
     code: ['backend/src/modules/dicts', 'backend/src/modules/category', 'backend/src/modules/work-type', 'backend/src/modules/color-reference', 'backend/src/modules/expense-articles', 'backend/pwa/sections/dicts.js'] },
-  { id: 'products', tpl: 'list', tplStatus: 'legacy', band: 'prod', col: 1, sec: 'products', t: 'ИЗДЕЛИЕ', big: true, l: ['артикул, фото, категория,', 'состав, работы, файлы'],
+  { id: 'products', tpl: 'card', tplStatus: 'ok', band: 'prod', col: 1, sec: 'products', t: 'ИЗДЕЛИЕ', big: true, l: ['артикул, фото, категория,', 'состав, работы, файлы'],
     productMap: true,
     inside: [
       { id: 'kartochka', t: 'Карточка', l: 'артикул = обозначение PDM, название, фото, категория', in: ['design', 'dicts'], out: ['offers', 'salesorders', 'docs', 'matching'] },

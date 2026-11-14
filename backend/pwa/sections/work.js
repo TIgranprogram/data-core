@@ -7,6 +7,7 @@ import { badge, ORDER_PRIORITY } from '../ui/kit/badges.js';
 import { mountBoard } from '../ui/board.js';
 import { mountScheduleView } from './work-schedule.js';
 import { failBlock } from '../ui/kit/busy.js';
+import { boardCard } from '../ui/kit/screens/blocks.js';
 import { enhanceSelect } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { markStep } from './work-facts.js';
@@ -78,12 +79,9 @@ const nextStep = (r) => api(`/work-tasks/${r.id}/move`, { method: 'POST', body: 
 
 // ---------- доска ----------
 function boardBody(r, c) {
-  const foot = h('div', { class: 't-foot' }, dueNode(r), prioBadge(r), avatar(r));
   const stepLine = h('div', { class: 'wk-step' }, dots(r), h('span', { class: 'wk-step-name' }, r.status === 'work' ? (r.currentStep || '') : ''));
-  if (c.compact) {
-    return [pic(r), h('div', { class: 't-main' }, h('div', { class: 't-title', title: r.title }, r.title), h('div', { class: 't-sub' }, [r.code, subLine(r)].filter(Boolean).join(' · ')), h('div', { class: 't-foot' }, dots(r), avatar(r)))];
-  }
-  return [pic(r), h('div', { class: 't-title', title: r.title }, r.title), h('div', { class: 't-sub' }, [r.code, subLine(r)].filter(Boolean).join(' · ')), stepLine, foot];
+  return boardCard({ pic: pic(r), title: r.title, sub: [r.code, subLine(r)].filter(Boolean).join(' · '), compact: c.compact,
+    extra: c.compact ? [] : [stepLine], meta: c.compact ? [dots(r), avatar(r)] : [dueNode(r), prioBadge(r), avatar(r)] });
 }
 
 /** Колонки приходят с сервером, поэтому доска строится после первого ответа; набор колонок поменялся — собирается заново. */

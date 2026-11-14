@@ -1,3 +1,11 @@
+## C118 W5 карточка изделия по шаблону (2026-11-15)
+коммит: не закоммичено
+- `sections/products.js` card = `screenCard` (~108); `products/tabs.js productWarns`; `products/fill-block.js fillNext` (nextCard «Заполнить»); `products/card-blocks.js:32 warnNote` → warnCard. atlas products tpl card ok. Отчёт W5-REPORT.md. Карта обновлена.
+
+## C118 W4 карточка доски (2026-11-15)
+коммит: не закоммичено
+- kit: `ui/kit/screens/blocks.js` boardCard (~33), витрина `sections/kit.js`, DESIGN §3.2. Экраны: `salesorders.js boardBody` ~380, `work.js:80`, `design.js:52`, `requests.js` board.card ~375; `salesorders-next.js passportsStep` — вход в паспорта только вкладка «Документы». Отчёт W4-REPORT.md. Карта обновлена.
+
 ## C118 W3 заказ: один блок (2026-11-15)
 коммит: не закоммичено
 - `sections/salesorders.js` warns (убран plateOf), `boardBody` ~381; `order-lines.js:121,159` countBadge/distribBlock; `order-blocks.js:79` produceBlock(d, openLine) кликабельные строки; `order-design.js:44` ссылка на позицию. atlas salesorders tplStatus ok. Отчёт W3-REPORT.md. Карта обновлена.

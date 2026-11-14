@@ -8,6 +8,7 @@ import { staffOptions } from './passports/common.js';
 import { taskMenu } from './design-menu.js';
 import { askAssignee, askReason, batchMoveTasks } from './design-data.js';
 import { carousel } from '../ui/kit/gallery.js';
+import { boardCard } from '../ui/kit/screens/blocks.js';
 import { discussionBlock, questionBadge } from '../ui/design-notes.js';
 import { photosBlock, stickerRow, stickersBlock, visibleStickers } from '../ui/design-stickers.js';
 import { targetPicker } from '../ui/kit/target-picker.js';
@@ -50,16 +51,8 @@ const pic = (r) => (r.photo ? h('img', { class: 't-pic', src: PREFIX + r.photo, 
 let stk = []; // видимые стикеры доски (грузятся один раз; пока нет — на карточке срок, приоритет, исполнитель)
 const footOf = (r) => (stk.length ? stickerRow(r, stk) : h('div', { class: 't-foot' }, dueNode(r), prioBadge(r), questionBadge(r), avatar(r)));
 function boardBody(r, c) {
-  if (c.compact) {
-    return [pic(r), h('div', { class: 't-main' },
-      h('div', { class: 't-title', title: title(r) }, title(r)),
-      h('div', { class: 't-sub', title: r.pauseReason || '' }, skuSub(clean(r.sku), [c.key === 'paused' && r.pauseReason, subLine(r)].filter(Boolean).join(' · '))),
-      footOf(r))];
-  }
-  return [pic(r),
-    h('div', { class: 't-title', title: title(r) }, title(r)),
-    h('div', { class: 't-sub' }, skuSub(clean(r.sku), subLine(r))),
-    footOf(r)];
+  const sub = skuSub(clean(r.sku), (c.compact ? [c.key === 'paused' && r.pauseReason, subLine(r)] : [subLine(r)]).filter(Boolean).join(' · '));
+  return boardCard({ pic: pic(r), title: title(r), sub, compact: c.compact, extra: [footOf(r)] });
 }
 
 // ---------- перенос между стадиями ----------

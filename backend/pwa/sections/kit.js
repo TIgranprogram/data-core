@@ -4,7 +4,7 @@ import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
 import { pad, hint, tileGrid, typeArt, typeIconList, landing, miniChart, navList, photoStrip, catArt, stat, searchBox, readonlyGroup, similarBox, posPic, posPicOf, sku, section, stack, button, iconButton, segmented, headbar, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, openPdfPreview, stageBar, headStats, clamp, funnel, planner, qtyInput, targetPicker, toast, pick, filter, table, treeTable, textInput, fieldRow, panel, entityPanel, select, fileButton, links, guide, SUPPLY_STATUS } from '../ui/kit/index.js';
 import { buildCardTabs } from '../ui/kit/card-tabs.js';
-import { infoCard, nextCard, warnCard, positionsTable } from '../ui/kit/screens/blocks.js';
+import { infoCard, nextCard, warnCard, positionsTable, boardCard } from '../ui/kit/screens/blocks.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
 const LONG = 'Очень длинное название позиции для проверки переноса и обрезки текста в карточке эталона';
@@ -338,6 +338,8 @@ export const kit = {
         sample(positionsTable({ columns: [{ label: '№' }, { label: 'Название' }, { label: 'Кол-во', num: true }], groups: [
           { head: row({ title: 'Договор 109-П', meta: 'ООО «Ромашка»', side: [badge('в работе', 'info')] }), rows: [{ cells: [1, 'Скамья 32.11', '4 шт'], onOpen: () => toast('Панель позиции № 1') }, { cells: [2, 'Стойка', '8 шт'], onOpen: () => toast('Панель позиции № 2') }], foot: h('p', { class: 'hint' }, 'Договор уже в работе — менять позиции может администратор.') },
           { head: row({ title: 'Договор 110-П', meta: 'ООО «Ромашка»' }), rows: [{ cells: [1, LONG, '1 шт'], onOpen: () => toast('Панель позиции № 1') }] }] }))),
+      block('Карточка доски · boardCard (C118 W4)', 'boardCard({ pic, title, sub, extra, flags, meta, compact }) → тело карточки доски: заголовок, одна строка контекста, бейдж-беда, срок/приоритет. Кнопка шага — одна, в card.foot доски. Где используется: доски «Заказы», «Проектирование», «В работе», «Заявки».',
+        sample(h('div', null, ...boardCard({ title: 'Заказ № 109-П', sub: 'ООО «Ромашка» · 3 поз. · 120 000 ₽', flags: [badge('2', 'warn')], meta: [badge('срок 20.11', 'neutral')] })))),
       block('Выпадающий список (select)', 'Без поиска, до ~10 значений. Длинные списки — pick.', sample(select({ options: [['a', 'Первый'], ['b', 'Второй']], value: 'a', label: 'Образец' }))),
       block('Кнопка выбора файла (fileButton)', 'Кнопка-подпись со скрытым полем файла; выбранный файл уходит в onFile.', sample(fileButton({ label: 'Загрузить файл…', accept: '.csv', onFile: (f) => toast(f.name) }))),
       block('Отметка происхождения (data-k)', 'Каждая фабрика kit (через mark / markEl из ui/kit/mark.js) ставит на корень data-k="<эталон>": button, badge, card, row, tabs, table, modal, panel, drawer, form, list, board, filter, pick, empty, mobile.* и др. Большая проверка сайта (правило s) считает элементы экрана без этой отметки — «не из kit».', sample(...[button({ label: 'button' }), badge('badge', 'ok'), empty({ title: 'empty' })].map((n) => h('span', { class: 'muted' }, n.dataset.k + ' → ', n)))),

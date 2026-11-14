@@ -7,6 +7,7 @@ import { kindName, kindNorm } from '../../core/passport-kinds.js';
 import { download, passportVariant } from '../passports/dialogs.js';
 import { jointsText } from '../passports/traits.js';
 import { suggestLink } from '../../ui/composition-suggest.js';
+import { warnCard } from '../../ui/kit/screens/blocks.js';
 import { clearNoteWarning, resetPdCategory } from './data.js';
 import { productTypeLine } from '../passports/common.js';
 import { openPassportFunnel, openReadyPassport } from '../passports/funnel/open.js';
@@ -36,18 +37,14 @@ export function warnNote(r) {
   const skuHit = warnLines.join(' ').match(/\b(\d[\w.-]{1,20})\s*[«"]/);
   const otherSku = skuHit?.[1] || '';
   const acts = [];
-  if (otherSku) {
-    acts.push(kitButton({ label: `Открыть ${otherSku}`, size: 'S', title: 'Сравнить с похожим изделием из пометки',
-      onClick: () => go('products', { search: otherSku }) }));
-  }
+  let box = null;
+  if (otherSku) acts.push({ label: `Открыть ${otherSku}`, run: () => go('products', { search: otherSku }) });
   if (session.canEdit) {
-    acts.push(kitButton({ label: 'Это разные — убрать пометку', size: 'S', title: 'Вы проверили: изделия разные или уже разобрались. Пометка исчезнет; объединение/удаление — отдельно в списке изделий',
-      onClick: async (e) => { const box = e.currentTarget.closest('.fill-note'); try { await clearNoteWarning(r, rest); box?.remove(); toast('Пометка снята'); } catch (er) { toastError(er, 'снять пометку'); } } }));
+    acts.push({ label: 'Это разные — убрать пометку', run: async () => { try { await clearNoteWarning(r, rest); box?.remove(); toast('Пометка снята'); } catch (er) { toastError(er, 'снять пометку'); } } });
   }
-  return h('div', { class: 'fill-note fill-warn' },
-    h('div', { class: 'u-pre' }, warnLines.join('\n')),
-    h('p', { class: 'hint u-tight' }, 'Это напоминание после загрузки каталога, не кнопка «объединить». Сравните карточки сами; лишнее удалите в списке «Продукция». Здесь только снять пометку.'),
-    acts.length ? h('div', { class: 'actions' }, ...acts) : null);
+  box = warnCard({ tone: 'warn', title: warnLines.join(' · '),
+    sub: 'Напоминание после загрузки каталога, не кнопка «объединить». Сравните карточки сами; лишнее удалите в списке «Продукция».', actions: acts });
+  return box;
 }
 
 // «Состав» (БЗ-5): материалы склада, из которых сделано изделие; правка — в правой панели.

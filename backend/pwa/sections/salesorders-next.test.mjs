@@ -8,8 +8,7 @@ test('готов и отгружено ведут к паспортам зака
   const ready = nextStep({ stage: 'ready', key: '21-26', orderIds: ['abc'] });
   assert.equal(ready.text, 'Паспорта заказа');
   assert.equal(ready.btn.label, 'Паспорта заказа');
-  assert.match(ready.btn.href, /of=orderpass/);
-  assert.match(ready.btn.href, /open=abc/);
+  assert.match(ready.btn.href, /salesorders\?open=21-26&tab=pass/);
 
   const many = nextStep({ stage: 'shipped', key: '21-26', orderIds: ['a', 'b'] });
   assert.equal(many.text, 'Паспорта заказа');

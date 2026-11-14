@@ -32,7 +32,7 @@ import { importOrderExcel, downloadOrderTemplate } from './salesorders-import.js
 import { suggestLink } from '../ui/composition-suggest.js';
 import { NEXT_TIP, STAGE_NOW, HINT, ourLine, issuedBlock, orderPassports, sec, seq, produceBlock } from './order-blocks.js';
 import { screenCard } from '../ui/kit/screens/card.js';
-import { positionsTable } from '../ui/kit/screens/blocks.js';
+import { positionsTable, boardCard } from '../ui/kit/screens/blocks.js';
 /**
  * Раздел «Заказы» (TASKS фаза З): заказ = шапка (`salesorders`) + позиции (строки `incomes`).
  * Вкладки «В работе / Закрытые», доска по этапам, карточка: позиции, что заказано под заказ
@@ -387,12 +387,7 @@ function boardBody(r) {
   const canBtn = b && (b.href || session.canEditOrders);
   const flags = [warn ? kbadge(warn, 'warn') : null, !n.unassigned && un ? unmatchedFlag(un.id) : null].filter(Boolean);
   return {
-    body: [
-      h('div', { class: 't-title', title: heading(r) }, heading(r)),
-      h('div', { class: 't-sub' }, sub),
-      flags.length ? h('div', { class: 't-foot' }, ...flags) : null,
-      h('div', { class: 't-foot' }, due(r), prio(r)),
-    ],
+    body: boardCard({ title: heading(r), sub, flags, meta: [due(r), prio(r)] }),
     foot: canBtn ? actions(button({ label: b.label, size: 'S', kind: s.tone === 'ok' ? 'primary' : 'secondary', onClick: () => { if (b.href) location.hash = b.href; else setStage(r, b.stage); } })) : null,
   };
 }

@@ -20,12 +20,9 @@ export function isLate(r, today = new Date().toISOString().slice(0, 10)) {
   return !!d && !['shipped', 'closed', 'cancelled'].includes(r.stage) && String(d).slice(0, 10) < today;
 }
 
-/** C075: на «Готов» и «Отгружено» следующий шаг — паспорта. Один договор открывает панель, несколько — карточку заказа. */
+/** C075 / C118 W4: на «Готов» и «Отгружено» следующий шаг — паспорта. Вход один: вкладка «Документы» карточки заказа. */
 function passportsStep(r, k) {
-  const ids = Array.isArray(r.orderIds) ? r.orderIds.map(String).filter(Boolean) : [];
-  const href = ids.length === 1
-    ? `#docs?tab=orders&of=orderpass&open=${q(ids[0])}`
-    : `#salesorders?open=${k}`;
+  const href = `#salesorders?open=${k}&tab=pass`;
   return { text: 'Паспорта заказа', tone: 'muted', btn: { label: 'Паспорта заказа', href } };
 }
 
