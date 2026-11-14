@@ -13,6 +13,7 @@ import { annulDialog, convertDialog, issueAction, linkDialog, numberDialog, prin
 import { passportBulkFields } from './passports/bulk.js';
 import { bomBlock, checkBlock, imagesBlock, previewBlock, printFileBlock } from './passports/card-blocks.js';
 import { pdfBlock } from './passports/pdf-block.js';
+import { revisionsBlock } from './passports/revisions.js';
 import { numbersStrip } from './passports/numbers-strip.js';
 import { passportForm } from './passports/form.js';
 import { stepFunnel } from '../ui/kit/index.js';
@@ -178,6 +179,7 @@ export const passports = {
       const draft = statusOf(r) === 'draft';
       return stack(
         printFileBlock(r, ctx),
+        revisionsBlock(r, ctx),
         draft && canWorkPassport() ? passportWizard(r, ctx) : null,
         !draft || !canWorkPassport() ? (r.passportCategory ? checkBlock(r) : (r.missing?.length ? h('div', { class: 'fill-note' }, 'Не хватает для выдачи: ', h('b', null, r.missing.join(', '))) : null)) : null,
         r.passportCategory ? pdfBlock(r, ctx) : null,
