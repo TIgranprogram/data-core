@@ -222,6 +222,9 @@ async function cmdCheck() {
   const imp = step('импорты приложения', process.execPath, ['backend/scripts/pwa-import-check.mjs']);
   say(imp.code === 0 ? 'импорты pwa/admin: ок — ' + cut(imp.out.trim().split('\n').pop(), 80) : 'импорты pwa/admin: ОШИБКА — ' + cut(imp.out.trim().split('\n')[0], 110));
   if (imp.code) bad++;
+  const modules = step('загрузка рисунка модуля', process.execPath, ['--test', 'backend/pwa/sections/passports/modules.test.mjs']);
+  say(modules.code ? 'рисунок модуля: FAIL (tools/logs)' : /(?:# skip|skipped)\s+0\b/.test(modules.out) ? 'рисунок модуля: PASS' : 'рисунок модуля: SKIP (tools/logs)');
+  if (modules.code) bad++;
   const dsg = step('дизайн', process.execPath, ['backend/scripts/design-lint.mjs']);
   say(dsg.code === 0 ? 'дизайн (design-lint): ок' : 'дизайн (design-lint): ОШИБКИ — ' + cut(dsg.out.trim().split('\n').slice(-3)[0] || '', 110) + ' (tools/logs)');
   if (dsg.code) bad++;
