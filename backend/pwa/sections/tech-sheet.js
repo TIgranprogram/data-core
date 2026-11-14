@@ -1,11 +1,12 @@
 import { api, apiFile, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { sideForm, openSide } from '../ui/kit/side-form.js';
+import { sideForm, openSide, noteField } from '../ui/kit/side-form.js';
 import { button, hint, iconButton, stack, table, textInput } from '../ui/kit/index.js';
 import { loadMaterialDicts, materialsSpec, specSummary } from '../ui/materials-spec.js';
 import { toast } from '../ui/kit/toast.js';
 import { fromComposition } from './products/form-fields.js';
 import { patchProduct } from './products/data.js';
+import { techGapsBlock, techPreview } from './products/tech-steps.js';
 
 /**
  * «Техническое описание» изделия (PDF) — правая панель `of=techsheet&open=<id изделия>` (2026-11-10: было окно посреди экрана
@@ -34,7 +35,7 @@ export function specRows(spec, dicts) {
   const partBy = new Map(dicts.parts.map((p) => [String(p.id), p]));
   const materials = (spec?.rows || []).map((row) => {
     const mat = matBy.get(String(row.materialId))?.name || '';
-    const sizes = (row.sizes || []).join(', ');
+    const sizes = (row.sizes || []).filter(Boolean).join(', ');
     const wall = wallOf(row.sizes?.[0]);
     const tol = wall && wall > 1 ? `, толщина ${range(wall - 1, wall + 1, 'мм')}` : '';
     return { name: (row.partIds || []).map((id) => partBy.get(String(id))?.name).filter(Boolean).join(', ') || 'Материал', text: String(row.techText || '').trim() || [mat, sizes].filter(Boolean).join(' ') + tol };
@@ -51,11 +52,12 @@ export function productRows(r) {
   const rows = [];
   const d = r.dimensions;
   for (const [k, label] of [['length', 'Длина'], ['width', 'Ширина'], ['height', 'Высота']]) {
-    if (d?.[k] > 0) rows.push({ name: label, text: range(round10(d[k] * 0.9), round10(d[k] * 1.1), d.unit || 'мм') });
+    if (d?.[k] > 0) rows.push({ name: label, text: range(round10(d[k] * 0.9), round10(d[k] * 1.1), String(d.unit || 'мм').trim() || 'мм') });
   }
   if (r.weightKg) rows.push({ name: 'Вес', text: `${String(r.weightKg).replace('.', ',')} кг` });
-  if (r.purpose) rows.push({ name: 'Назначение', text: r.purpose });
-  if (r.installation) rows.push({ name: 'Установка', text: r.installation });
+  const purpose = String(r.purpose ?? '').trim(), installation = String(r.installation ?? '').trim();
+  if (purpose) rows.push({ name: 'Назначение', text: purpose });
+  if (installation) rows.push({ name: 'Установка', text: installation });
   return rows;
 }
 
@@ -79,29 +81,36 @@ const rowsWidget = (rows) => {
 export const techSheet = sideForm({
   id: 'techsheet', title: 'Техническое описание', noun: 'техописание',
   get: async (id) => {
-    const [r, dicts] = await Promise.all([api(`/showcase/${id}`), loadMaterialDicts()]);
-    return { ...r, dicts, extra: [] };
+    const [r, dicts, gaps] = await Promise.all([api(`/showcase/${id}`), loadMaterialDicts(), api(`/showcase/${id}/techsheet-gaps`).catch(() => null)]);
+    return { ...r, dicts, gaps, extra: [] };
   },
   heading: (r) => `Техническое описание · ${r.name || 'изделие'}`,
-  subheading: () => 'PDF для заказчика: части и материалы — из справочников, габариты и вес — из изделия',
+  subheading: () => 'PDF для заказчика: шаги ниже, что осталось — сверху',
   saveLabel: '⇩ Сохранить и скачать PDF',
   fields: (r) => {
     const auto = productRows(r);
+    let specW = null;
+    const toSpec = () => specW?.el?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+    const gapsEl = techGapsBlock(r.gaps, r.id, toSpec);
+    const nowRows = () => [...specRows(specW?.value ? JSON.parse(specW.value) : r.materialsSpec, r.dicts), ...productRows(r), ...r.extra.map((x) => ({ name: x.name.trim(), text: x.text.trim() }))].filter((x) => x.name || x.text);
     return [
-      { section: 'Части и материалы', tone: 'main', fixed: true },
+      ...(gapsEl ? [{ section: 'Что осталось', tone: 'info', fixed: true }, noteField(gapsEl, '_gaps')] : []),
+      { section: '1. Части и материалы', tone: 'main', fixed: true },
       { key: 'materialsSpec', label: 'Из чего сделано', type: 'widget', wide: true, summary: specSummary,
-        hint: 'Часть, материал, размер и покрытие — выберите из списков или впишите (Enter). «Взять из состава» переносит материалы и их ручные тексты; размеры к ручному тексту не дописываются. Сохранится в изделие — паспорт возьмёт то же.',
-        widget: (v) => materialsSpec({ value: v, dicts: r.dicts, text: r.materialsText || '', scope: () => r.passportCategory?.code || '', actions: session.canEdit ? [fromComposition(r)] : [] }) },
-      { section: 'Подставится из изделия', tone: 'info' },
+        hint: 'Часть, материал, размер, покрытие — из списков. «Взять из состава» заполнит части по составу изделия.',
+        widget: (v) => { specW = materialsSpec({ value: v, dicts: r.dicts, text: r.materialsText || '', scope: () => r.passportCategory?.code || '', actions: session.canEdit ? [fromComposition(r)] : [] }); return specW; } },
+      { section: '2. Габариты, вес, назначение, монтаж', tone: 'info' },
       { key: '_auto', label: '', type: 'widget', wide: true, widget: () => ({
         el: auto.length
           ? h('div', null, table({ columns: [{ label: 'Строка' }, { label: 'В PDF' }], rows: auto.map((x) => ({ cells: [x.name, x.text] })) }),
-            hint('Габариты, вес, назначение и монтаж правятся в карточке изделия: «Изменить». Допуск габаритов — ±10 %.'))
-          : hint('Габариты и вес не заполнены — впишите их в карточке изделия: «Изменить».'),
+            hint('Правятся в карточке изделия: «Изменить». Габариты — с допуском ±10 %.'))
+          : hint('Пока пусто — впишите в карточке изделия: «Изменить».'),
         get value() { return ''; }, set value(_) { /* только показ */ },
       }) },
       { section: 'Строки только для этого PDF', tone: 'info', collapsed: true },
       { key: '_extra', label: '', type: 'widget', wide: true, hint: 'Например, табличка или комплект поставки. В изделие не пишутся.', widget: () => rowsWidget(r.extra) },
+      { section: '3. Проверка и предпросмотр', tone: 'main' },
+      { key: '_preview', label: '', type: 'widget', wide: true, widget: () => techPreview(nowRows) },
       { key: 'title', label: 'Заголовок PDF', max: 300, wide: true },
     ];
   },
