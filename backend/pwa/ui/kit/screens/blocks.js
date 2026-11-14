@@ -5,6 +5,7 @@
  *  nextCard          «Функциональная карточка»   — «Что дальше» + одна главная кнопка
  *  warnCard          «Карточка предупреждения»   — проблема + кнопка «исправить» (живёт в ../warn-card.js, здесь реэкспорт)
  *  positionsTable    «Таблица позиций»           — строки объекта, группы-заголовки, клик по строке — одна панель
+ *  boardCard         «Карточка доски»            — заголовок, строка контекста, бейдж-беда, срок; кнопка шага — в card.foot доски
  */
 import { h } from '../../../core/dom.js';
 import { mark } from '../mark.js';
@@ -44,6 +45,22 @@ export function nextCard({ text, tone = 'neutral', primary } = {}) {
     });
   }
   return mark(kitRow({ tone, title: h('b', null, 'Что дальше'), meta: text || '', action: btn }), 'nextCard');
+}
+
+/**
+ * Карточка доски (C118 W4): boardCard({ pic?, title, hint?, sub?, extra?, flags?, meta?, compact? }) → массив узлов для card.body доски.
+ * Один порядок везде: фото → заголовок → одна строка контекста → extra (шаг, чек-лист) → бейджи-беды (flags) → срок/приоритет/исполнитель (meta).
+ * Кнопка шага — не здесь, а в card.foot доски (одна кнопка). compact (колонка «Готово») — заголовок, контекст и срок в одном блоке.
+ */
+export function boardCard({ pic = null, title, hint, sub, extra = [], flags = [], meta = [], compact = false } = {}) {
+  const t = h('div', { class: 't-title', title: hint || (typeof title === 'string' ? title : '') }, title);
+  const s = sub ? h('div', { class: 't-sub' }, sub) : null;
+  const fl = flags.filter(Boolean);
+  const mt = meta.filter(Boolean);
+  const flagRow = fl.length ? h('div', { class: 't-foot' }, ...fl) : null;
+  const metaRow = mt.length ? h('div', { class: 't-foot' }, ...mt) : null;
+  if (compact) return [pic, h('div', { class: 't-main' }, t, s, ...extra, flagRow, metaRow)].filter(Boolean);
+  return [pic, t, s, ...extra, flagRow, metaRow].filter(Boolean);
 }
 
 /**
