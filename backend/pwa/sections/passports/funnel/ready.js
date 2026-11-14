@@ -3,7 +3,7 @@ import { api } from '../../../core/api.js';
 import { h } from '../../../core/dom.js';
 import { patch } from '../../../core/router.js';
 import { attachCombo, button, enhanceSelect, fileButton, hint, link, searchBox, select, sideNote, sku, stack, table, textInput, toast, toastError } from '../../../ui/kit/index.js';
-import { ourCompanies } from '../common.js';
+import { lastFirm, ourCompanies, rememberFirm } from '../common.js';
 import { funnelData, getProduct } from './api.js';
 
 /**
@@ -92,7 +92,7 @@ export function readyPanel(entry = {}) {
     });
     return [
       hint('К какому заказу относится паспорт. Заказ можно не указывать.'),
-      button({ label: 'Без заказа', kind: 'primary', onClick: () => { S.noOrder = true; S.orderId = ''; S.orderText = ''; S.incomeId = ''; next('order'); } }),
+      button({ label: 'Без заказа', kind: 'ghost', onClick: () => { S.noOrder = true; S.orderId = ''; S.orderText = ''; S.incomeId = ''; next('order'); } }),
       f.el,
     ];
   };
@@ -118,6 +118,10 @@ export function readyPanel(entry = {}) {
     numNoteEl.replaceChildren(...[msg ? hint(msg, 'warn') : null, h('div', null, saveBtn())].filter(Boolean));
   };
   const numberStep = () => {
+    if (editing !== 'number' && S.suggested && S.number === S.suggested) {
+      numNote();
+      return [link({ label: `Номер: ${S.number} — следующий свободный ✎`, title: 'Если в файле другой номер — впишите его', onClick: () => edit('number') }), numNoteEl];
+    }
     const f = textInput({ label: 'Номер паспорта', value: S.number, inputmode: 'numeric', max: 9, onInput: onNumber, onEnter: () => {} });
     numNote();
     return [hint(S.suggested ? `Предложен следующий свободный номер — ${S.suggested}. Если в файле другой, впишите его.` : 'Номер можно не вписывать — возьмётся следующий свободный.'), f.el, numNoteEl];
@@ -163,6 +167,7 @@ export function readyPanel(entry = {}) {
       if (inc) fd.append('incomeId', inc);
       fd.append('number', readyFileNumber(S));
       const r = await api('/passports/ready', { method: 'POST', body: fd });
+      rememberFirm(S.firmId);
       toast(`Паспорт № ${r.passportNumber || ''} добавлен`.replace('  ', ' '));
       saved = true;
       window.dispatchEvent(new CustomEvent('data-changed'));
@@ -177,6 +182,7 @@ export function readyPanel(entry = {}) {
   (async () => {
     try { firms = (await ourCompanies()).map((o) => ({ id: String(o.id), name: o.name || 'Фирма' })); } catch { firms = []; }
     if (firms.length === 1) S.firmId = firms[0].id;
+    else { const mem = lastFirm(); if (mem && firms.some((f) => f.id === mem)) S.firmId = mem; } // как в воронке выпуска: последняя использованная
     if (S.orderId) { try { const o = await api(`/salesorders/${S.orderId}`); S.orderText = orderLabel(o); adoptFirm(o); } catch { /* заказ останется как номер */ } }
     if (entry.productId) { try { const p = await getProduct(entry.productId); S.prod = { id: p.id, name: p.name, sku: p.sku }; } catch { /* изделие выберут вручную */ } }
     try { const n = await api('/passports/next-numbers'); if (n?.nextPassportNo) { S.suggested = String(n.nextPassportNo); S.number = S.suggested; } } catch {

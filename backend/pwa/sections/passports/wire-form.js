@@ -2,7 +2,7 @@ import { api } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { CAT_NAMES } from '../../core/passport-kinds.js';
 import { formImages, modelImagesToForm } from '../../core/passport-images.js';
-import { button } from '../../ui/kit/index.js';
+import { button, hint } from '../../ui/kit/index.js';
 import { toast } from '../../ui/kit/toast.js';
 import { V2_NUMS, api_get, api_post, codeList, isIssued, keyLines, kinds, kvLines, num, reqKinds, st } from './common.js';
 import { DEFAULT_KEYS } from './models.js';
@@ -137,13 +137,19 @@ export function wireForm(api, { r, w, catBy, stdName, inst }) {
     // липкая плашка: только то, что ещё не заполнено; всё есть — одна зелёная строка
     w.need.replaceChildren(...(miss.length
       ? [h('div', { class: 'fill-note pp-need-note' }, h('b', null, `Осталось сделать: ${miss.length}`),
-        h('div', { class: 'pp-need-chips' }, ...miss.map((m) => (m.key ? h('button', { type: 'button', class: 'tag', onclick: () => goTo(m.key) }, m.label) : h('span', { class: 'muted' }, m.label)))),
+        h('div', { class: 'pp-need-chips' }, ...miss.map((m) => (m.key ? h('button', { type: 'button', class: 'tag', onclick: () => goTo(m.key) }, m.key === 'supplierOrgId' ? 'Фирма' : m.label) : h('span', { class: 'muted' }, m.label === 'Поставщик' ? 'Фирма' : m.label)))),
         who)]
       : [h('div', { class: 'pp-ready' }, h('span', { class: 'badge ok' }, 'Паспорт готов, можно выпускать'))]));
     const b = saveBtn();
     if (b && !b.disabled && !r) b.textContent = 'Сохранить черновик'; // НМ: номер — потом, кнопкой «Выпустить» в карточке
   }, 500); };
   lockIssued(api, r);
+  // C114: фирма взята из заказа — говорим об этом и что сменить можно
+  const firmFrom = !r ? st.firmFrom : null; st.firmFrom = null;
+  const firmFld = api.field('supplierOrgId');
+  if (firmFrom && firmFld && api.get('supplierOrgId') === firmFrom.id) {
+    firmFld.after(hint(`Заказ на ${firmFrom.name}. Выпустить на другую фирму — выберите здесь, номер не изменится.`));
+  }
   // плашка — первым элементом формы (липкой её делает общий родитель); пустую обёртку поля убираем
   const needField = api.field('_need'); w.need.className = 'pp-need-sticky'; api.root.prepend(w.need); needField?.closest('.form-grid')?.remove();
   api.root.addEventListener('input', check); api.root.addEventListener('change', check);

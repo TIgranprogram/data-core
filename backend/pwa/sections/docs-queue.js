@@ -8,7 +8,8 @@ import { toastError } from '../ui/kit/toast.js';
 import { issuePassport } from './passports.js';
 import { canWorkPassport as canEditTexts } from './passports/common.js';
 
-import { table, tabs, button, badge, searchBox, clamp } from '../ui/kit/index.js';
+import { table, tabs, button, badge, searchBox, clamp, link } from '../ui/kit/index.js';
+import { openOrderPassports } from './order-passport-plan.js';
 /**
  * Вкладка «Нужно сделать паспорт» (ТЗ ОП): позиции заказов, где проектирование готово, а выпущенного паспорта нет.
  * Данные — GET /passports/queue (по сроку отгрузки; «горит» — до отгрузки ≤ 3 дней или просрочено).
@@ -37,12 +38,13 @@ export function mountQueueTab(params) {
   const row = (r) => {
     const [stLabel, stTone] = STATE[r.passportState] || STATE.none;
     const wait = !r.passportId && r.work && r.work.status !== 'done'; // позиция в работе, ещё не изготовлена
-    const btn = wait ? h('span', { class: 'muted shp-why' }, 'Паспорт — после изготовления') : button({ label: r.passportId ? 'Открыть' : 'Выпустить', kind: 'primary', size: 'S' });
+    const btn = wait ? h('span', { class: 'muted shp-why', title: 'Позиция ещё в производстве. Паспорт выпускается, когда изделие изготовлено.' }, 'Ждёт изготовления — паспорт позже') : button({ label: r.passportId ? 'Открыть' : 'Выпустить', kind: 'primary', size: 'S' });
     if (!wait) btn.addEventListener('click', () => make(r, btn));
     return h('tr', { class: r.hot ? 'tone-danger k-toned' : '' },
       h('td', { class: 'nowrap' }, r.shipDate ? h('span', { class: r.hot ? 'neg' : '' }, date(r.shipDate)) : h('span', { class: 'muted' }, 'без срока'), r.hot ? h('span', { title: 'До отгрузки не больше 3 дней или срок прошёл' }, badge('горит', 'danger')) : null),
       // C111 Ш6: длинные заказчик и описание — до 2 строк (kit.clamp), таблица не шире области; «Состояние» и кнопка видны
-      h('td', null, h('b', { class: 'nowrap' }, '№ ' + (r.productionNo || r.orderNo || '—') + ((r.seqNo ?? r.lineNo) ? '-' + (r.seqNo ?? r.lineNo) : '')), r.customer ? clamp(r.customer, { lines: 2, cls: 'muted' }) : null),
+      h('td', null, h('b', { class: 'nowrap' }, '№ ' + (r.productionNo || r.orderNo || '—') + ((r.seqNo ?? r.lineNo) ? '-' + (r.seqNo ?? r.lineNo) : '')), r.customer ? clamp(r.customer, { lines: 2, cls: 'muted' }) : null,
+        r.orderId ? h('div', null, link({ label: 'Все паспорта заказа ›', title: 'Выпустить и распечатать паспорта по всем позициям заказа', onClick: () => openOrderPassports(r.orderId) })) : null),
       h('td', null, clamp(r.productName || r.title || '—', { lines: 2 }), r.productName && r.title && r.title !== r.productName ? clamp(r.title, { lines: 2, cls: 'muted' }) : null),
       h('td', null, badge(stLabel, stTone)),
       h('td', { class: 'right' }, canEditTexts() && session.canEdit ? btn : null));

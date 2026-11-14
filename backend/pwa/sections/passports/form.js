@@ -8,7 +8,7 @@ import { formImages, imagesBody } from '../../core/passport-images.js';
 import { toast, toastError } from '../../ui/kit/toast.js';
 import { personNames } from '../../ui/dict-options.js';
 import { CAT_NAMES } from '../../core/passport-kinds.js';
-import { AFTER_PRINT, BOM_COLS, BOM_EXAMPLE, LATER_CATS, V2_CATS, V2_NUMS, bomRows, buildDescription, canEdit, categories, dictOpts, facets, imgsOf, isIssued, kindOf, kinds, keyLines, num, ourCompanies, parseBom, reqKinds, st, dictRows } from './common.js';
+import { AFTER_PRINT, BOM_COLS, BOM_EXAMPLE, LATER_CATS, V2_CATS, V2_NUMS, bomRows, buildDescription, canEdit, categories, dictOpts, facets, imgsOf, isIssued, kindOf, kinds, keyLines, num, ourCompanies, firmFor, rememberFirm, parseBom, reqKinds, st, dictRows } from './common.js';
 import { models, orders, phrases } from './models.js';
 import { moduleRows, modulesEditor } from './modules.js';
 import { productBlock } from './product-block.js';
@@ -141,7 +141,7 @@ export const passportForm = {
       // ПП: выпуск — дата (номер талона), поставщик, гарантия; кому и куда — в «после печати» (можно от руки)
       { section: 'Выпуск', tone: 'who' },
       ...(r ? [] : [{ key: 'date', label: 'Дата выпуска', type: 'date', required: true, hint: 'По дате и номеру строится гарантийный талон' }]),
-      { key: 'supplierOrgId', label: 'Фирма', type: 'select', required: ours.length !== 1, options: (ours.length === 1 ? ours : [{ id: '', name: 'Выберите фирму' }, ...ours]).map((o) => ({ value: o.id, label: o.name })), hint: 'Наша компания. Реквизиты, печать и подпись в PDF — из её карточки' },
+      { key: 'supplierOrgId', label: 'Фирма', type: 'select', required: ours.length !== 1, options: (ours.length === 1 ? ours : [{ id: '', name: 'Выберите фирму' }, ...ours]).map((o) => ({ value: o.id, label: o.name })), hint: 'Наша компания. Реквизиты, печать и подпись в PDF — из её карточки. Номер от выбора фирмы не меняется' },
       { key: 'warrantyMonths', label: 'Гарантия, мес.', type: 'number', min: 0, span: 1 },
       // свой текст — запасной путь: обычно хватает выбора выше; паспорт будет помечен «изменено вручную»
       { section: 'Свой текст вместо выбранного', tone: 'info', collapsed: !(r && r.manualText?.length) },
@@ -181,8 +181,9 @@ export const passportForm = {
   initial: async () => {
     const d = st.draft; st.draft = null;
     st.newCat = d?.passportCategory || '';
-    const ours = await ourCompanies().catch(() => []);
-    return { _manualText: 'no', date: isoDay(), warrantyMonths: '', supplierOrgId: ours.length === 1 ? ours[0].id : '',
+    const firm = await firmFor(d?.salesOrderId).catch(() => ({ id: '', name: '', from: '' }));
+    st.firmFrom = firm.from === 'order' ? firm : null; // wire-form: подсказка «Заказ на …»
+    return { _manualText: 'no', date: isoDay(), warrantyMonths: '', supplierOrgId: firm.id,
       ...Object.fromEntries(Object.entries(d || {}).filter(([, v]) => v !== '' && v !== null && v !== undefined)) };
   },
   toInitial: (r) => ({ ...r, saleDate: r.saleDate ? String(r.saleDate).slice(0, 10) : '', installedAt: r.installedAt ? String(r.installedAt).slice(0, 10) : '', height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight), warrantyMonths: num(r.warrantyMonths), bom: bomRows(r.bom),
@@ -238,6 +239,7 @@ export const passportForm = {
     if (!rest.passportCategory) throw new Error('Выберите тип паспорта');
     if (!_copyFrom && !rest.productId) throw new Error('Выберите изделие');
     if (!rest.supplierOrgId) throw new Error('Выберите фирму');
+    rememberFirm(rest.supplierOrgId);
     if (_remember) await saveDefaults(_remember);
     const post = async (path, payload) => {
       try { return await api(path, { method: 'POST', body: payload }); }

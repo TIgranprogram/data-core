@@ -168,7 +168,7 @@ function lineView(l, reload) {
     : l.state === 'ready' ? 'можно выпускать' : shortMissing(l.missing);
   let action = null;
   if (l.state === 'ready' && l.productId && canEdit()) {
-    action = kit.button({ label: 'Редактировать', size: 'S', kind: 'ghost',
+    action = kit.button({ label: 'Править шаблон', size: 'S', kind: 'ghost',
       title: 'Открыть шаблон паспорта изделия для правки перед выпуском',
       onClick: () => go('docs', { tab: 'templates', of: 'doctpl', open: l.productId }, { kind: 'card' }) });
   } else if (l.state === 'issued' && l.passport?.id) {
@@ -191,9 +191,9 @@ function lineView(l, reload) {
 }
 
 function firmBlock(row, reload) {
-  if (row.firm) return kit.hint(`Фирма: ${row.firm.name}`);
   const choices = row.firmChoices || [];
-  if (choices.length === 1) return kit.hint(`Фирма: ${choices[0].name}`);
+  if (row.firm && choices.length < 2) return kit.hint(`Фирма: ${row.firm.name}`);
+  if (!row.firm && choices.length === 1) return kit.hint(`Фирма: ${choices[0].name}`);
   if (!choices.length) {
     const needs = (row.lines || []).some((l) => (l.missing || []).some((m) => /фирм/i.test(String(m))));
     return needs ? kit.hint('Наших фирм нет. Добавьте компанию в «Контрагенты».', 'warn') : null;
@@ -201,7 +201,6 @@ function firmBlock(row, reload) {
   const cur = pickOf(row.orderId);
   const save = async (id) => {
     const name = choices.find((c) => c.id === id)?.name || 'фирма';
-    if (!(await kit.confirmDlg(`Записать «${name}» в заказ?`, 'Паспорта этого заказа выйдут от этой фирмы.', { okText: 'Записать в заказ' }))) return false;
     try {
       await api(`/salesorders/${row.orderId}`, { method: 'PATCH', body: { companyId: id } });
       pickedFirm.delete(String(row.orderId));
@@ -219,20 +218,20 @@ function firmBlock(row, reload) {
     return true;
   };
   const sel = kit.select({
-    label: 'Какая фирма оформляет заказ?',
-    options: [['', '— выберите —'], ...choices.map((c) => [c.id, c.name])],
-    value: cur?.id || '',
+    label: 'Фирма заказа',
+    options: [...(row.firm ? [] : [['', '— выберите —']]), ...choices.map((c) => [c.id, c.name])],
+    value: cur?.id || row.firm?.id || '',
     disabled: !canEdit(),
     onChange: async (id) => {
       if (!id) return;
       sel.disabled = true;
       const ok = await save(id);
-      if (!ok) { sel.value = cur?.id || ''; sel.disabled = !canEdit(); return; }
+      if (!ok) { sel.value = cur?.id || row.firm?.id || ''; sel.disabled = !canEdit(); return; }
       try { await reload(); } catch (e) { kit.toastError(e, 'обновить план паспортов'); }
     },
   });
   return h('div', null,
-    kit.hint(cur && !row.firm ? `Фирма для выпуска: ${cur.name}. В заказ пока не записана.` : 'Какая фирма оформляет заказ?'),
+    kit.hint(row.firm ? `Фирма заказа: ${row.firm.name}. Можно выбрать другую — паспорта ещё не выпущенных позиций выйдут от неё.` : cur ? `Фирма для выпуска: ${cur.name}. В заказ пока не записана.` : 'Какая фирма оформляет заказ? Выберите — запишется в заказ сразу.'),
     sel);
 }
 
@@ -295,12 +294,15 @@ function body(row, ctx) {
     }).catch(() => {});
   }
 
+  const blockedN = (row.lines || []).filter((l) => l.state === 'blocked').length;
+  const noReady = readyN ? null : kit.hint(blockedN ? `Готовых к выпуску нет: у позиций с меткой «не хватает» (${blockedN}) надо заполнить данные — раскройте позицию ниже.` : issuedN ? 'Все позиции выпущены.' : 'Готовых к выпуску позиций нет.');
   const buttons = printPrimary ? [printBtn, issueBtn] : [issueBtn, printBtn];
   // C111: stack — зазор между шапкой, рядом кнопок и списком (на телефоне кнопки не липнут к списку).
   // Ш1: выпуск и печать — сразу под сводкой, видны без прокрутки при 12+ позициях.
   return kit.stack(
-    kit.headbar(h('div', null, summaryRow(row), firmBlock(row, reload)), seg.el),
+    kit.headbar(h('div', null, summaryRow(row), firmBlock(row, reload), kit.hint('Упрощённый — основное. Полный — с зоной размещения и доп. рисунками, если заполнены.')), seg.el),
     kit.actions(...buttons),
+    noReady,
     skipped, lines,
     // «Паспорт по позиции» убрана (2026-11-13): открывала общую воронку выбора изделия — повтор строки позиции «›»
     kit.actions(

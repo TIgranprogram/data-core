@@ -144,3 +144,34 @@ describe('forProduct: тексты под изделие (2026-11-10, «груз
     expect(forest.length).toBe(2);
   });
 });
+
+describe('автоподстановка: привязка на ветке или корне, а не на листе («Скамейка на цепях», C114)', () => {
+  const GROUP_BENCH = hex(901), GROUP_FENCE = hex(902);
+  const mkRoot = (name: string, link: Partial<PhraseNode>, onRoot: boolean) => {
+    const r = node({ name, section: name, categories: 'BLG', ...(onRoot ? link : {}) });
+    const l = node({ name: 'Текст', parentId: r.id, text: `Текст ${name}.`, categories: 'BLG', ...(onRoot ? {} : link) });
+    return [r, l];
+  };
+  const common = (() => { const r = node({ name: 'Общий уход', section: 'care', categories: 'BLG' }); return [r, node({ name: 'Текст', parentId: r.id, text: 'Осмотр.', categories: 'BLG' })]; })();
+  const forest = buildForest([...mkRoot('Ограждение', { groupIds: [GROUP_FENCE] }, true), ...mkRoot('Скамья', { groupIds: [GROUP_BENCH] }, true), ...common], 'BLG');
+  const pick = (ctx?: { groupIds: string[] }) => {
+    const c = ctx && { facetValueIds: new Set<string>(), groupIds: new Set(ctx.groupIds) };
+    const r = resolveChoices(c ? forProduct(forest, c) : forest, null, c);
+    return forest.filter((root) => r.leaves.has(root.id)).map((root) => root.name);
+  };
+  it('привязка на корне раздела: чужой раздел не подставляется, свой и общий — да', () => {
+    expect(pick({ groupIds: [GROUP_BENCH] })).toEqual(['Общий уход', 'Скамья']);
+  });
+  it('изделие неизвестно (ctx нет): привязанные разделы не подставляются, общий — да', () => {
+    expect(pick()).toEqual(['Общий уход']);
+  });
+  it('привязка на промежуточной ветке: чужая единственная ветка не подставляется', () => {
+    const r = node({ name: 'Раздел', section: 'x', categories: 'BLG' });
+    const br = node({ name: 'Ветка', parentId: r.id, categories: 'BLG', groupIds: [GROUP_FENCE] });
+    const lf = node({ name: 'Текст', parentId: br.id, text: 'Чужой.', categories: 'BLG' });
+    const f = buildForest([r, br, lf], 'BLG');
+    const ctx = { facetValueIds: new Set<string>(), groupIds: new Set([GROUP_BENCH]) };
+    expect(resolveChoices(f, null, ctx).leaves.size).toBe(0);
+    expect(resolveChoices(f, null, { facetValueIds: new Set(), groupIds: new Set([GROUP_FENCE]) }).leaves.get(r.id)?.leaf.id).toBe(lf.id);
+  });
+});

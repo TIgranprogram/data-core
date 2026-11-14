@@ -45,8 +45,8 @@ export function newProduct({ group = '', facetIds = [], category = null, knownGr
     const form = buildForm([
       { key: 'name', label: 'Название', required: true, wide: true, max: 500, placeholder: 'Как изделие называется в каталоге' },
       { key: 'group', label: 'Группа', type: 'combo', required: true, strict: true, strictText: 'Выберите группу из списка', options: groups.map((g) => ({ value: g.value, label: g.value, sub: g.section })), hint: group ? 'Подставлена из выбранного выше' : 'Определяет раздел каталога и тип паспорта' },
-      { key: 'photos', label: 'Фото изделия', type: 'photos', wide: true, hint: 'Можно добавить позже, но без фото PDF не выйдет' },
-      { key: 'weightKg', label: 'Вес, кг', type: 'number', hint: 'Нужен для паспорта — можно позже' },
+      { key: 'photos', label: 'Фото изделия', type: 'photos', wide: true, hint: 'Нужно для PDF — можно добавить позже' },
+      { key: 'weightKg', label: 'Вес, кг', type: 'number', hint: 'Нужен для PDF — можно добавить позже' },
     ], { group });
     activeForm = form;
     const sim = similarBox({ pickLabel: 'Взять это', onPick: async (it) => {
@@ -79,7 +79,7 @@ export function newProduct({ group = '', facetIds = [], category = null, knownGr
       } catch (e) { toastError(e, 'создать изделие'); }
       finally { saving = false; create.disabled = false; el.classList.remove('is-busy'); controls.forEach(({ input, disabled }) => { input.disabled = disabled; }); paintPartial(); }
     } });
-    el.replaceChildren(sideNote('Укажите название и группу. Артикул поставится сам. Выбранные признаки перенесутся, если группа не менялась. Затем откроются сведения для паспорта этого изделия.'), partialBox, form.el, sim.el,
+    el.replaceChildren(sideNote('Укажите название и группу — артикул и признаки подставятся сами, остальное спросим дальше.'), partialBox, form.el, sim.el,
       actions(create, button({ label: 'Назад к списку', kind: 'ghost', onClick: () => onCancel?.() })));
     paintPartial();
   }).catch((e) => { el.replaceChildren(sideNote('Форма не загрузилась.'), button({ label: 'Назад', onClick: () => onCancel?.() })); toastError(e, 'открыть форму изделия'); });

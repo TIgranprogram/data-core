@@ -58,11 +58,11 @@ export async function issuePassport({ productId, name, article, orderNo, salesOr
     pid = (article && all.find((p) => n(p.sku) === n(article)))?.id || (name && all.find((p) => n(p.name) === n(name)))?.id || null;
   }
   // ПРЖ-4: из позиции заказа в паспорт идёт название заказчика (правится); из изделия — наше. Выпущенные не меняются.
-  // из заказа, но не из позиции — воронка спросит позицию; из позиции incomeId уже есть
-  if (salesOrderId && !incomeId) {
+  // C114 F1: любой вход из заказа (с позицией или без) — воронка; без позиции она спросит позицию. Старая форма — только правка существующих
+  if (salesOrderId || incomeId) {
     const { openPassportFunnel } = await import('./funnel/open.js');
-    openPassportFunnel({ productId: pid || undefined, salesOrderId, orderNo, customerName });
-    return true;
+    openPassportFunnel({ productId: pid || undefined, salesOrderId, incomeId, orderNo, customerName });
+    return !!pid;
   }
   st.keepName = customerTitle || '';
   st.draft = { productId: pid || '', salesOrderId, ...(incomeId ? { incomeId } : {}), orderNo, customerName, ...(customerTitle ? { name: customerTitle } : {}), ...(pid ? {} : { _searchName: name || article || '' }) };

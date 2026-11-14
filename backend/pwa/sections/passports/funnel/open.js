@@ -27,3 +27,7 @@ export function takePending() {
 export function peekReady() {
   return !!(pending?.ready && Date.now() - pending.at < 60000);
 }
+/** Вход с готовым изделием (карточка изделия, заказ): заголовок панели не мигает «Новый паспорт» → «Паспорт: …». */
+export function peekProduct() {
+  return !!(pending && !pending.ready && pending.productId && Date.now() - pending.at < 60000);
+}

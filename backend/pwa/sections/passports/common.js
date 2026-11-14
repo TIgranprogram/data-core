@@ -86,6 +86,21 @@ let oursCache = null;
 // SK-8d: наши компании — из /incomes/lookups (открыт всем); «Контрагенты» могут быть закрыты роли. Сбой — прежний /partners
 export const ourCompanies = async () => (oursCache ??= await api('/incomes/lookups').then((r) => r.companies || [])
   .catch(() => api('/partners', { query: { type: 'our' } }).then((r) => r.items)).catch(() => []));
+// C114: фирма выпуска — из заказа (companyId), иначе единственная / последняя использованная этим менеджером (общий ключ с воронкой)
+const firmKey = () => 'dc-passport-firm-' + (session.user?.id || 'u');
+export const lastFirm = () => { try { return localStorage.getItem(firmKey()) || ''; } catch { return ''; } };
+export const rememberFirm = (id) => { try { if (id) localStorage.setItem(firmKey(), String(id)); } catch { /* приватный режим */ } };
+export async function firmFor(salesOrderId) {
+  const ours = (await ourCompanies().catch(() => [])).map((o) => ({ id: String(o.id), name: o.name || 'Фирма' }));
+  let orderFirm = '';
+  if (salesOrderId) { try { orderFirm = String((await api(`/salesorders/${salesOrderId}`))?.companyId || ''); } catch { orderFirm = ''; } }
+  const byId = (id) => ours.find((f) => f.id === id);
+  if (orderFirm && byId(orderFirm)) return { id: orderFirm, name: byId(orderFirm).name, from: 'order' };
+  if (ours.length === 1) return { id: ours[0].id, name: ours[0].name, from: 'single' };
+  const mem = lastFirm();
+  if (mem && byId(mem)) return { id: mem, name: byId(mem).name, from: 'memory' };
+  return { id: '', name: '', from: '' };
+}
 // ПК: категории каталога — из «Категорий каталога» справочника типов паспортов и встречавшихся в паспортах (вшитого списка нет)
 export const categories = async () => { const [rows, f] = await Promise.all([dictRows('passportCategories'), facets()]); return [...new Set([...rows.flatMap((c) => String(c.catalogNames || '').split(/[,;]/).map((s) => s.trim()).filter(Boolean)), ...f.categories.map((c) => c.value)])]; };
 export const api_get = (p) => api(p);

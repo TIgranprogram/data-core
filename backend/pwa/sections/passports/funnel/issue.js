@@ -1,9 +1,9 @@
-import { api, session } from '../../../core/api.js';
+import { api } from '../../../core/api.js';
 import { h } from '../../../core/dom.js';
 import { ordersLookup } from '../../../core/orders-lookup.js';
-import { button, enhanceSelect, hint, link, section, select, sideNote, stack, table, toast, toastError } from '../../../ui/kit/index.js';
-import { ourCompanies } from '../common.js';
-import { printDialog, previewPassport } from '../dialogs.js';
+import { button, enhanceSelect, field, hint, link, select, sideNote, stack, table, toast, toastError } from '../../../ui/kit/index.js';
+import { lastFirm, ourCompanies, rememberFirm } from '../common.js';
+import { printDialog } from '../dialogs.js';
 import { issueFromProduct } from './api.js';
 
 /**
@@ -17,9 +17,6 @@ import { issueFromProduct } from './api.js';
  */
 const lineName = (l, i) => `поз. ${l.seqNo ?? l.lineNo ?? i + 1} · ${l.title || l.productName || 'позиция'}`;
 const locked = (e) => e?.status === 409;
-const firmKey = () => 'dc-passport-firm-' + (session.user?.id || 'u');
-const lastFirm = () => { try { return localStorage.getItem(firmKey()) || ''; } catch { return ''; } };
-const rememberFirm = (id) => { try { if (id) localStorage.setItem(firmKey(), id); } catch { /* приватный режим */ } };
 
 /** Открытые позиции этого изделия (заказы в работе). Один пункт — одно нажатие. */
 export async function openPositions(productId) {
@@ -73,6 +70,8 @@ export function issueBlock({ prod, order, goGaps, onIssued, onState }) {
   let objectName = '';
   let addressState = 'none'; // none — у заказа нет объекта; value — есть; unknown — КП не прочиталось, сервер допишет сам
   let fromMemory = false;
+  let orderFirmId = '';
+  let orderFirmName = '';
   const forOrder = !!(order?.salesOrderId || order?.incomeId) && !order?.noOrder;
   let running = false;
   let state = { ready: false, why: 'Загружаю фирмы…', need: [] };
@@ -80,7 +79,7 @@ export function issueBlock({ prod, order, goGaps, onIssued, onState }) {
   const fromOrderNote = () => {
     if (!forOrder) return null;
     const who = order?.customerName || orderDoc?.customer;
-    const no = order?.orderNo || orderDoc?.orderNo || orderDoc?.productionNo;
+    const no = orderDoc?.productionNo || order?.orderNo || orderDoc?.orderNo; // как в очереди: «2-26», а не внутренний № 14
     const bits = [who, no ? '№ ' + no : '', objectName].filter(Boolean);
     if (!bits.length && addressState !== 'unknown') return null;
     const tail = addressState === 'value' ? '' : addressState === 'unknown' ? '. Адрес возьмётся из объекта КП, если он указан' : '. Адреса в заказе нет — можно вписать после печати';
@@ -119,6 +118,12 @@ export function issueBlock({ prod, order, goGaps, onIssued, onState }) {
     } finally { running = false; if (b) { b.classList.remove('is-busy'); b.disabled = !state.ready; } }
   }
 
+  const firmHint = () => {
+    if (orderFirmName && firmId === orderFirmId) return `Заказ на ${orderFirmName}. Выпустить на другую фирму — выберите здесь, номер не изменится.`;
+    if (fromMemory) return 'Фирма — как в прошлый раз. Можно выбрать другую.';
+    return 'Номер от выбора фирмы не меняется.';
+  };
+
   function paint(missing = miss) {
     miss = missing;
     if (!listsReady) { box.replaceChildren(hint('Загружаю фирмы…')); return; }
@@ -136,17 +141,16 @@ export function issueBlock({ prod, order, goGaps, onIssued, onState }) {
     box.replaceChildren(...[
       sideNote('Номер, гарантийный талон и дату система поставит сама при выпуске.'),
       fromOrderNote(),
-      firmSel ? h('label', { class: 'field' }, h('span', null, 'Фирма'), firmSel) : hint('Нет наших фирм. Добавьте компанию в контрагентах.', 'warn'),
-      fromMemory ? hint('Фирма — как в прошлый раз. Можно выбрать другую.') : null,
+      firmSel ? field('Фирма', firmSel, { hint: firmHint() }) : hint('Нет наших фирм. Добавьте компанию в контрагентах.', 'warn'),
       order?.incomeId ? hint('Позиция заказа уже выбрана. Новый номер на неё не создастся, если паспорт уже есть.') : null,
-      lineSel ? h('label', { class: 'field' }, h('span', null, 'Позиция заказа'), lineSel) : null,
+      lineSel ? field('Позиция заказа', lineSel) : null,
       needLine && lineErr ? hint('Не удалось загрузить позиции заказа.', 'warn') : null,
       needLine && !lineErr && !lines.length ? hint('В заказе нет позиций. Паспорт к позиции не привязать.', 'warn') : null,
       mismatch ? hint('В заказе нет позиции этого изделия. Выберите позицию, к которой отнести паспорт.') : null,
       gaps ? null : sideNote('Не хватает для выпуска: ',
         ...miss.flatMap((m, i) => [i ? ', ' : null, link({ label: m.label, onClick: () => goGaps?.() })])),
-      section({ title: 'Заполнить после печати', tone: 'neutral', body: sideNote(laterNote()) }),
-      button({ label: 'Предпросмотр без номера', title: 'Проверить PDF до выпуска', onClick: () => previewPassport(prod.id) })].filter(Boolean));
+      sideNote(laterNote()),
+    ].filter(Boolean));
     if (firmSel) enhanceSelect(firmSel);
     if (lineSel) enhanceSelect(lineSel);
   }
@@ -174,7 +178,7 @@ export function issueBlock({ prod, order, goGaps, onIssued, onState }) {
     }
     const orderFirm = String(orderDoc?.companyId || orderDoc?.company?.id || '');
     const remembered = lastFirm();
-    if (orderFirm && firms.some((f) => f.id === orderFirm)) firmId = orderFirm;
+    if (orderFirm && firms.some((f) => f.id === orderFirm)) { firmId = orderFirm; orderFirmId = orderFirm; orderFirmName = firms.find((f) => f.id === orderFirm).name; }
     else if (firms.length === 1) firmId = firms[0].id;
     else if (remembered && firms.some((f) => f.id === remembered)) firmId = remembered;
     fromMemory = firms.length > 1 && !!firmId && firmId === remembered && firmId !== orderFirm;

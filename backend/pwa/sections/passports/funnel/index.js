@@ -7,7 +7,7 @@ import { passportVariant, printDialog } from '../dialogs.js';
 import { issueBlock, openPositions, orderStep } from './issue.js';
 import { barText } from './bar.js';
 import { newProduct } from './new-product.js';
-import { peekReady, takePending } from './open.js';
+import { peekProduct, peekReady, takePending } from './open.js';
 import { pickSteps } from './pick-steps.js';
 import { productList } from './product-list.js';
 import { readyPanel } from './ready.js';
@@ -129,7 +129,7 @@ function build() {
     if (!checked && !(await leaveStage())) return;
     stageSeq += 1;
     activeFill = null; creation = null; bar.issue = null; bar.done = false; bar.required = []; paintBar();
-    S.prod = null; if (!lockedOrder) S.order = null; stages.replaceChildren(); recap.replaceChildren(); title('Новый паспорт');
+    S.prod = null; S.manual = false; if (!lockedOrder) S.order = null; stages.replaceChildren(); recap.replaceChildren(); title('Новый паспорт');
     newBox.hidden = true; pickBox.hidden = false; ps.setDone(false); say(null); ps.update(S.P);
   }
 
@@ -138,7 +138,7 @@ function build() {
     const bits = [link({ label: `Изделие: ${sku}${prod.name} ✎`, title: 'Выбрать другое изделие', onClick: showPick })];
     if (S.order && !S.order.quiet && !lockedOrder) {
       const text = S.order.noOrder ? 'Заказ: без заказа ✎' : `Заказ: ${S.order.orderText || 'выбран'} ✎`;
-      bits.push(link({ label: text, title: 'Выбрать другой заказ', onClick: () => { S.order = null; stagePanels(prod); } }));
+      bits.push(link({ label: text, title: 'Выбрать другой заказ', onClick: () => { S.order = null; S.manual = true; stagePanels(prod); } }));
     }
     recap.replaceChildren(...bits);
   }
@@ -169,6 +169,7 @@ function build() {
       try { positions = await openPositions(prod.id); } catch { positions = []; }
       if (my !== stageSeq) return;
       if (!positions.length) S.order = { noOrder: true, quiet: true };
+      else if (positions.length === 1 && !S.manual) S.order = positions[0]; // одна открытая позиция — подставлена, меняется по «Заказ: … ✎»
       else {
         stages.replaceChildren(orderStep({
           positions,
@@ -184,16 +185,32 @@ function build() {
     const issue = issueBlock({
       prod,
       order: S.order,
-      goGaps: () => stages.querySelector('[data-gap]')?.scrollIntoView({ block: 'start' }),
-      onState: () => paintBar(),
+      goGaps: () => goFirstGap(),
+      onState: () => { paintBar(); sayNext(); },
       onIssued: (passport) => afterIssue(prod, passport),
     });
     bar.issue = issue;
     // «Осталось N: … →» ведёт к первому пробелу анкеты, а если пробелов нет — к выбору фирмы / позиции в разделе «Выпуск»
-    bar.go = () => {
+    const goFirstGap = () => {
+      const first = bar.required[0];
+      if (first && activeFill?.focusGap) { activeFill.focusGap(first); return true; }
       const gap = stages.querySelector('[data-gap]');
-      if (bar.required.length && gap) { gap.scrollIntoView({ block: 'start' }); return; }
+      if (first && gap) { gap.scrollIntoView({ block: 'start' }); return true; }
+      return false;
+    };
+    // фирма / позиция заказа — в разделе «Выпуск»: открыть и поставить фокус на первый список
+    const goIssue = () => {
       issueSec.open = true; issueSec.scrollIntoView({ block: 'center' });
+      setTimeout(() => issueSec.querySelector('select, input, button')?.focus({ preventScroll: true }), 0);
+    };
+    bar.go = () => { if (!goFirstGap()) goIssue(); };
+    // «Дальше: …» — первое недостающее в анкете, затем фирма / позиция, затем выпуск
+    const sayNext = () => {
+      const first = bar.required[0];
+      if (first) { say(`укажите «${first.label}»`); return; }
+      const st = issue.status();
+      if (st.ready) say('выпустите PDF (тексты уже подставлены)');
+      else if (st.need?.[0]) say(`выберите ${st.need[0].label}`);
     };
     issueSec.querySelector('.k-sec-body').replaceChildren(issue.el);
     const fill = await passportFill({
@@ -201,9 +218,8 @@ function build() {
       onStatus: ({ required }) => {
         bar.required = required;
         issue.paint(required);
-        const first = required[0];
-        say(first ? `укажите «${first.label}»` : 'выпустите PDF (тексты уже подставлены)');
-        if (!first) issueSec.open = true;
+        sayNext();
+        if (!required[0]) issueSec.open = true;
         paintBar();
       },
     });
@@ -254,8 +270,8 @@ function build() {
 
 export const passFunnel = {
   id: 'passfunnel', title: 'Паспорта', canEdit: canWorkPassport,
-  get newTitle() { return (readyMode || peekReady()) ? 'Готовый паспорт' : 'Новый паспорт'; },
-  card: { heading: () => (readyMode || peekReady()) ? 'Готовый паспорт' : 'Новый паспорт' },
+  get newTitle() { return (readyMode || peekReady()) ? 'Готовый паспорт' : peekProduct() ? 'Паспорт изделия' : 'Новый паспорт'; },
+  card: { heading: () => (readyMode || peekReady()) ? 'Готовый паспорт' : peekProduct() ? 'Паспорт изделия' : 'Новый паспорт' },
   get: async () => ({}),
   form: { build, toBody: (v) => v, create: () => ({}), closeAfterCreate: true },
 };

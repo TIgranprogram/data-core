@@ -119,14 +119,32 @@ export function forProduct(forest: PhraseTreeNode[], ctx?: ProductCtx): PhraseTr
   return forest.map(cut).filter((r): r is PhraseTreeNode => !!r);
 }
 
+/** Узел пригоден для автоподстановки: ни он, ни ветка до листа не привязаны к чужому изделию. */
+function usable(n: PhraseTreeNode, ctx?: ProductCtx): boolean {
+  if (isBound(n) && !matchesProduct(n, ctx)) return false;
+  return !n.children.length || n.children.some((c) => usable(c, ctx));
+}
+/** В пригодной ветке есть совпавшая с изделием привязка (на ней самой или ниже). */
+function bindHit(n: PhraseTreeNode, ctx?: ProductCtx): boolean {
+  return (isBound(n) && matchesProduct(n, ctx)) || n.children.some((c) => usable(c, ctx) && bindHit(c, ctx));
+}
+
 /**
  * От узла вниз до листа: единственный вариант — сам; несколько — отмеченный «по умолчанию»; иначе выбора нет (null).
  * С `ctx` (C028 B2): сначала вариант, привязанный к признакам/группе изделия; лист, привязанный к чужим, сам не выбирается никогда.
  */
 export function descend(n: PhraseTreeNode, ctx?: ProductCtx, auto = false): PhraseTreeNode | null {
-  if (!n.children.length) return auto && isBound(n) && !matchesProduct(n, ctx) ? null : n;
-  const kids = auto ? n.children.filter((c) => leavesOf(c).some((l) => !isBound(l) || matchesProduct(l, ctx))) : n.children;
-  const hit = auto ? kids.find((c) => leavesOf(c).some((l) => isBound(l) && matchesProduct(l, ctx))) : undefined;
+  if (!auto) {
+    if (!n.children.length) return n;
+    if (n.children.length === 1) return descend(n.children[0], ctx, auto);
+    const d = n.children.find((c) => c.isDefault);
+    return d ? descend(d, ctx, auto) : null;
+  }
+  if (!usable(n, ctx)) return null;
+  if (!n.children.length) return n;
+  // привязка может стоять на любом узле пути (не только на листе): чужая ветка сама не подставляется, даже если она единственная
+  const kids = n.children.filter((c) => usable(c, ctx));
+  const hit = kids.find((c) => bindHit(c, ctx));
   if (hit) return descend(hit, ctx, auto);
   if (kids.length === 1) return descend(kids[0], ctx, auto);
   const def = kids.find((c) => c.isDefault);

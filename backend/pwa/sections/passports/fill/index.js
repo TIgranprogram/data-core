@@ -13,7 +13,7 @@ import { retryDelay } from '../../../core/write-retry.js';
 import { openTechSheet } from '../../tech-sheet.js';
 import { ownTexts } from '../template-texts.js';
 import { SECTIONS, displayName, imageKind, matText, typeOfLeaf } from './model.js';
-import { paintFields, paintSlots, placeTexts, syncChrome } from './paint.js';
+import { focusGap, paintFields, paintSlots, placeTexts, syncChrome } from './paint.js';
 
 /**
  * Эталон «Заполнение паспорта изделия» (C056 Д).
@@ -267,7 +267,8 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
   variant.el.title = VARIANT_HINT;
   const setup = [
     headbar(context, showVariant ? variant.el : null),
-  ];
+    showVariant ? hint('Упрощённый — основное. ' + VARIANT_HINT + '.') : null,
+  ].filter(Boolean);
   const el = stack(
     saveError,
     ...setup,
@@ -275,7 +276,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
   );
   await reload();
   return {
-    el, reload, missingRequired, readonly: true, dirty: () => writes.failed(), busy: () => saves.size > 0,
+    el, reload, missingRequired, focusGap: (m) => focusGap(ctx, m), readonly: true, dirty: () => writes.failed(), busy: () => saves.size > 0,
     doneLabel: mode === 'template' ? 'Готово' : undefined,
     beforeClose: async () => { await ctx.modulesEditor?.flush(); await Promise.all([...saves]); if (writes.failed()) throw new Error('Сначала повторите сохранение или отмените несохранённые правки'); },
     focus: () => {},

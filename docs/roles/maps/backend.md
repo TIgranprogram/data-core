@@ -1,4 +1,6 @@
 # Карта роли backend
+## C114 A чужие тексты (2026-11-14, не закоммичено)
+- `common/passport/phrase-tree.ts:106-140` descend(auto) + `usable`/`bindHit`: привязка на любом узле пути; spec `phrase-tree.spec.ts` «автоподстановка». Отчёт `docs/crew/C114-passport-finish/A-REPORT.md`. коммит: —
 ## C100 вид изделия (2026-11-13, не закоммичено)
 - `common/passport/kind.ts`: `resolveKinds`/`resolveKind`/`kindPatch` (спек `kind.spec.ts`); справочник `modules/dicts/dicts.passport-kinds.ts`; поле группы — `dicts.product-groups.ts` (`passportKindId`, `kindRef`); `kindId` — `showcase/passport-defaults.ts`, проверка `showcase.service.ts setPassportDefaults`; потребители: `passport-from-product.ts`, `passport-gaps.ts` (`purposeState`, пункт `kind`), `passport-funnel.ts`, `passport-order.ts`. Скрипт `scripts/c100-kinds.js` (+`passport-c100-script.spec.ts`). Угадывание удалено (name-suggest, suggestValue, слова значений). Отчёт — в ответе агента (REPORT-backend.md писать не дали). коммит: —
 ## C094 тексты паспорта по изделию (2026-11-12, не закоммичено)
