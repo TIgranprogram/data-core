@@ -165,5 +165,5 @@ export function productTypeLine(r, { onReset } = {}) {
   return passportTypeLine({ groupId });
 }
 
-/** Состояние раздела между файлами: категория нового паспорта, паспорт «Новая редакция», черновик «Выпустить паспорт». */
+/** Состояние раздела между файлами: категория нового паспорта, черновик «Выпустить паспорт». */
 export const st = { newCat: '', revisionFor: null, draft: null };

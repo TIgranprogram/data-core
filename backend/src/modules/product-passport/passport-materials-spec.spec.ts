@@ -45,13 +45,13 @@ describe('materialsSpec паспорта', () => {
     await svc.update(String(state._id), { materialsSpec: null } as never);
     expect(state.materialsSpec).toBeNull();
   });
-  it('выпущенный: таблица меняется только «Новой редакцией», прежняя — в истории', async () => {
+  it('выпущенный: таблица меняется свободно, номер тот же, прежняя — в истории (2026-11-14)', async () => {
     const old = { rows: [{ materialId: pipe, sizes: ['∅89×3'], partIds: [] }], coatingIds: [] };
     const { svc, state } = make({ _id: id(), status: 'issued', passportNumber: '100', revision: 1, materialsSpec: old });
     // та же таблица (клиент прислал как есть) — не изменение
     await expect(svc.update(String(state._id), { materialsSpec: { rows: [{ materialId: String(pipe), sizes: ['∅89×3'] }] }, note: 'после печати' } as never)).resolves.toBeDefined();
-    await expect(svc.update(String(state._id), { materialsSpec: spec(pipe, [post]) } as never)).rejects.toThrow(ConflictException);
-    await svc.update(String(state._id), { materialsSpec: spec(pipe, [post]) } as never, { newRevision: true });
+    await svc.update(String(state._id), { materialsSpec: spec(pipe, [post]) } as never);
+    expect(state.passportNumber).toBe('100');
     expect(state.revision).toBe(2);
     expect((state.revisions as { data: Record<string, unknown> }[])[0].data.materialsSpec).toEqual(old);
     expect((state.materialsSpec as { rows: { partIds: Types.ObjectId[] }[] }).rows[0].partIds[0].equals(post)).toBe(true);

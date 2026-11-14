@@ -182,7 +182,7 @@ function lineView(l, reload) {
           finally { b.classList.remove('is-busy'); }
         } }),
       kit.button({ label: 'Открыть паспорт', size: 'S', kind: 'ghost',
-        title: 'Открыть карточку для печати и создания новой редакции',
+        title: 'Открыть карточку: исправить и распечатать заново',
         onClick: () => go('docs', { tab: 'orders', of: 'passports', open: pid }, { kind: 'card' }) }),
     ];
   }

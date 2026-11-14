@@ -121,10 +121,10 @@ export const NODES = [
       { id: 'vid-izdeliya', t: 'Вид изделия', l: 'что это, назначение и тип паспорта — из вида группы или своё', in: ['dicts'] },
       { id: 'shablon-kategorii', t: 'Шаблон типа паспорта', l: 'тексты и рисунки из справочников', in: ['dicts'] },
       { id: 'vypusk-pdf', t: 'Выпуск PDF', l: 'текст и рисунки фиксируются', out: ['warranty'] },
-      { id: 'novaya-redakciya', t: 'Новая редакция', l: 'единственный способ изменить выпущенный', alt: true },
+      { id: 'pravka-vypushchennogo', t: 'Правка выпущенного', l: 'любые поля и фирма; номер тот же, прежнее — в истории', alt: true },
       { id: 'pasporta-zakaza', t: 'Паспорта заказа', l: '«Печать паспортов…» — из карточки заказа, «По заказам» и панели', alt: true },
     ],
-    rules: ['Без типа паспорта PDF не выпускается.', 'Выпущенный паспорт меняется только новой редакцией.'],
+    rules: ['Без типа паспорта PDF не выпускается.', 'Одна позиция заказа — один паспорт и один номер: правка и смена фирмы номер не меняют.'],
     docs: ['docs/PASSPORTS-V2.md', 'docs/crew/C096-passport-system-audit/', 'docs/MAP.md — product-passport'], tech: 'productpassports, passporttemplates',
     code: ['backend/src/modules/product-passport', 'backend/pwa/sections/passports.js', 'backend/pwa/sections/passports/', 'backend/pwa/sections/docs.js', 'backend/pwa/sections/docs-queue.js'] },
 

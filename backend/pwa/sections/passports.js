@@ -160,7 +160,6 @@ export const passports = {
         ...(r.missing?.length ? { disabled: true, title: `Не хватает для выпуска: ${r.missing.join(', ')}` } : { title: 'Присвоить номер и талон; текст будет заморожен' }) },
       !r.passportCategory ? { label: '⇩ PDF — нет типа', disabled: true, title: canEdit() ? 'Нет типа паспорта — нажмите «Выбрать тип паспорта»' : 'Нет типа паспорта — её указывает директор или администратор', run: () => {} }
         : { label: statusOf(r) === 'draft' ? '⇩ PDF черновика…' : '⇩ PDF и печать…', primary: statusOf(r) !== 'draft', run: (row) => printDialog(row) },
-      isIssued(r) && canWorkPassport() && { label: 'Новая редакция', more: true, title: 'Изменить выпущенный паспорт: номер тот же, редакция +1, прежняя — в истории', run: (row) => { st.revisionFor = row.id; [...document.querySelectorAll('.drawer button')].find((b) => b.textContent.trim() === 'Изменить')?.click(); } },
       isIssued(r) && canEdit() && { label: 'Аннулировать…', more: true, title: 'Номер останется занятым и повторно не выдаётся', run: (row, ctx) => annulDialog(row, ctx) },
       isIssued(r) && (session.role === 'admin' || session.user?.isOwner) && { label: 'Изменить номер…', more: true, run: (row, ctx) => numberDialog(row, ctx) },
       !r.passportCategory && canWorkPassport() && { label: 'Выбрать тип паспорта', more: true, title: 'Без типа паспорта PDF упрощённый — с типом текст соберётся по справочникам', run: (row, ctx) => convertDialog(row, ctx) },

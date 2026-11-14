@@ -110,7 +110,7 @@ export async function printDialog(r) {
     .filter(([kind]) => isRequired(r, kind) && !imgsOf(r, kind).some((i) => i.url)
       && !(r.standardImages || []).some((i) => i.kind === kind && i.url))
     .map(([, label]) => label);
-  const imageWarning = hint(`Для PDF не хватает обязательных рисунков: ${missingImages.join(', ')}. Рисунки выпущенного паспорта добавляются через «Новую редакцию».`, 'warn');
+  const imageWarning = hint(`Для PDF не хватает обязательных рисунков: ${missingImages.join(', ')}. Добавьте рисунки в паспорт через «Изменить» — номер останется тем же.`, 'warn');
   const po = printOptions({
     org: r.supplierOrg, mode: 'print',
     onMode: (m) => { imageWarning.hidden = m === 'stand' || !missingImages.length; },

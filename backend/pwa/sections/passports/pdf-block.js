@@ -24,7 +24,7 @@ function jointsAsk(r, ctx) {
   } });
   return stack(
     row({ tone: 'warn', title: 'Выберите конструкцию', meta: 'Как соединены детали: болты, сварка или цельное. От этого зависят пункты текста и таблица осмотра — выпуск ждёт выбора.' }),
-    canEdit() && !isIssued(r) ? stack(pick.el, save) : null);
+    canEdit() ? stack(pick.el, save) : null);
 }
 
 /** Раскрываемый список «Не попали»: тексты пунктов подгружаются при открытии. */

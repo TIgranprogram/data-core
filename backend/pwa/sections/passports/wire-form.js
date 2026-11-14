@@ -156,14 +156,10 @@ export function wireForm(api, { r, w, catBy, stdName, inst }) {
   if (!r && api.get('passportCategory')) { defaults(); catalogByCat(); }
   check();
 }
-/** НМ-1: выпущенный паспорт в форме — открыты только «после печати»; остальное — через «Новая редакция». */
+/** Выпущенный паспорт в форме: поля открыты (решение 2026-11-14), только напоминание про номер и печать. */
 export function lockIssued(api, r) {
-  if (!r || !isIssued(r) || st.revisionFor === r.id) return;
-  for (const blk of api.root.querySelectorAll('.form-block')) {
-    const after = /после печати/i.test(blk.textContent.split('\n')[0] || '') || blk.querySelector('[name="saleDate"]');
-    if (!after) { blk.inert = true; blk.classList.add('locked'); }
-  }
-  api.root.prepend(h('div', { class: 'fill-note' }, `Паспорт № ${r.passportNumber} выпущен: меняются только поля «после печати». Остальное — действие «Новая редакция» в карточке (номер тот же, редакция +1).`));
+  if (!r || !isIssued(r)) return;
+  api.root.prepend(h('div', { class: 'fill-note' }, `Паспорт № ${r.passportNumber} уже выпущен. Можно исправить любые данные — номер останется тем же, прежние данные останутся в истории. После сохранения распечатайте заново.`));
 }
 /** ПП: к кому идти, если не хватает данных, — «Кто проектировал» изделие (в паспорт и PDF не входит). */
 export const designerCache = new Map();

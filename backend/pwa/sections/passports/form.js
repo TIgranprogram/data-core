@@ -52,7 +52,7 @@ export const passportForm = {
     const [cats, ours, f] = await Promise.all([categories(), ourCompanies(), facets()]);
     const [els, elRows, mats, inst, catRows, stdRows, md] = await Promise.all([dictOpts('passportElements'), dictRows('passportElements'), dictOpts('passportMaterials'), dictOpts('passportInstall'), dictRows('passportCategories'), dictRows('passportStandards'), loadMaterialDicts()]);
     // МИ.4: выпущенный (без «Новой редакции») — как был: метки и свободный текст; невыпущенный — таблица и собранный текст
-    const legacy = !!r && isIssued(r) && st.revisionFor !== r.id;
+    const legacy = false; // 2026-11-14: выпущенный правится как черновик (таблица материалов и собранный текст)
     const ctx = { cat: () => '', ms: null, api: null };
     const materialsText = { key: 'materials', label: legacy ? 'Материалы («изготовленное из …»)' : 'Материалы — текст «изготовлено из…»', type: 'textarea', wide: true, max: 2000, phrases: { load: phrases('materials'), by: 'passportCategory', label: (c) => CAT_NAMES[c] || c, title: 'Варианты' },
       hint: legacy ? undefined : 'Собирается из таблицы выше; можно поправить вручную — таблица правку не перетрёт' };
@@ -262,13 +262,9 @@ export const passportForm = {
   },
   update: async (id, body) => {
     const { _remember, _issued, ...rest } = body; if (_remember) await saveDefaults(_remember);
-    const rev = st.revisionFor === id;
-    // НМ-1: выпущенный без «Новой редакции» — отправляем только «после печати» (остальное заблокировано в форме)
-    const send = _issued && !rev ? Object.fromEntries(Object.entries(rest).filter(([k]) => AFTER_PRINT.includes(k))) : rest;
-    await api(`/passports/${id}`, { method: 'PATCH', body: send, query: rev ? { newRevision: 1 } : undefined });
-    // C096 Э1: намерение «Новая редакция» снимается только после успешного PATCH: ошибка — повтор уйдёт целиком с newRevision;
-    // PATCH прошёл, а чтение ниже упало — повтор уже не создаст ещё одну редакцию
-    if (rev) { st.revisionFor = null; toast('Новая редакция сохранена — номер тот же, прежняя редакция в истории'); }
+    // 2026-11-14: выпущенный правится целиком; сервер сам ведёт редакции, номер не меняется
+    await api(`/passports/${id}`, { method: 'PATCH', body: rest });
+    if (_issued) toast('Паспорт изменён — номер тот же. Распечатайте заново');
     return api(`/passports/${id}`);
   },
 };

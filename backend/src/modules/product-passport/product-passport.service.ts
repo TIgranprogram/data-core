@@ -394,11 +394,11 @@ export class ProductPassportService {
       if (!dto.confirmNumbers) throw new ConflictException(`Номер, талон и дата выданного паспорта меняются только с подтверждением (confirmNumbers): ${touched.join(', ')}`);
       if (!(opts.user?.isOwner || opts.user?.role === 'admin')) throw new ForbiddenException('Номер выпущенного паспорта меняет только администратор');
     }
-    // НМ-1: выпущенный — свободно только «после печати»; остальное — «Новая редакция» (номер тот же, редакция +1, прежняя — в истории)
+    // Решение пользователя 2026-11-14: выпущенный паспорт правится свободно, как черновик. Номер тот же (привязан к позиции заказа);
+    // правка не «после печати» сама становится новой редакцией (редакция +1, прежние значения — в истории).
     const changed = Object.keys(set).filter((k) => k !== 'passportNo' && JSON.stringify(set[k] ?? null) !== JSON.stringify(cur[k] ?? null) && !(String(set[k] ?? '') === '' && (cur[k] === undefined || cur[k] === null)));
     const locked = changed.filter((k) => !(AFTER_PRINT_FIELDS as readonly string[]).includes(k) && !(NUMBER_FIELDS as readonly string[]).includes(k) && k !== 'manualText');
-    if (issued && locked.length && !opts.newRevision) throw new ConflictException(`Паспорт выпущен: свободно меняются только поля «после печати». Чтобы изменить остальное (${locked.length}), используйте «Новая редакция»`);
-    if (issued && opts.newRevision && locked.length) {
+    if (issued && locked.length) {
       const keep = Object.fromEntries([...locked, 'textSnapshot', 'images'].map((k) => [k, cur[k] ?? null]));
       set.revisions = [...((cur.revisions as unknown[]) ?? []), { revision: cur.revision ?? 1, at: new Date(), by: opts.user?.id ?? null, data: keep }];
       set.revision = Number(cur.revision ?? 1) + 1;
