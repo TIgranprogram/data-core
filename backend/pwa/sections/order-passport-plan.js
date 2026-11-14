@@ -1,6 +1,7 @@
 import { api, apiFile } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { go } from '../core/router.js';
+import { plural } from '../core/format.js';
 import * as kit from '../ui/kit/index.js';
 import { canWorkPassport as canEdit } from './passports/common.js';
 import { download, passportVariant, printDialog, printOptions } from './passports/dialogs.js';
@@ -304,6 +305,8 @@ function body(row, ctx) {
     kit.actions(...buttons),
     noReady,
     skipped, lines,
+    // отменённые позиции сюда не идут (13.11); одна серая строка объясняет, почему позиций меньше, чем в заказе (14.11)
+    row.cancelled ? kit.hint(`Отменено в заказе: ${row.cancelled} ${plural(row.cancelled, 'позиция', 'позиции', 'позиций')} — паспорта на них не нужны.`) : null,
     // «Паспорт по позиции» убрана (2026-11-13): открывала общую воронку выбора изделия — повтор строки позиции «›»
     kit.actions(
       editable ? kit.button({ label: 'Загрузить готовый паспорт (PDF)', kind: 'ghost', title: 'Паспорт сделан отдельно: приложить файл PDF к этому заказу', onClick: async () => { const { openReadyPassport } = await import('./passports/funnel/open.js'); openReadyPassport({ salesOrderId: row.orderId, orderNo: row.orderNo, customerName: row.customerName }); } }) : null),

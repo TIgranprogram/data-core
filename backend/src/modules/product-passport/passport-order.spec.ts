@@ -16,6 +16,7 @@ describe('паспорта на весь заказ', () => {
     const orgs = opt.orgs || [];
     const made: string[] = [], drafts: string[] = [], issuedIds: string[] = [], discarded: string[] = [], supplied: string[] = [];
     const col = (name: string) => ({
+      countDocuments: async () => (name === 'incomes' ? 2 : 0),
       findOne: async (q?: { _id?: Types.ObjectId }) => {
         if (name === 'salesorders') return { _id: o, orderNo: '12-3', customer: 'Школа', companyId: opt.companyId };
         if (name === 'organizations' && q?._id) return orgs.find((x) => String(x._id) === String(q._id)) ?? null;
@@ -49,6 +50,7 @@ describe('паспорта на весь заказ', () => {
     expect(r.lines[3].passport).toMatchObject({ status: 'issued', number: '777' });
     expect(r.firm).toBeNull();
     expect(r.firmChoices).toEqual([]);
+    expect(r.cancelled).toBe(2);
   });
   it('повторные позиции одного изделия используют одну проверку, битое фото блокирует обе', async () => {
     const templateMissing = jest.fn<Promise<string[]>, [string]>(async () => ['Обязательный рисунок не читается: Фото изделия']);

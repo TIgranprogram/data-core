@@ -86,6 +86,8 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string,
   const db = h.db();
   const order = await orderOf(db, orderId);
   const incomes = await db.collection('incomes').find({ orderId: order._id, deletedAt: null, cancelledAt: null }, { projection: { title: 1, qty: 1, lineNo: 1, productId: 1 } }).sort({ lineNo: 1, _id: 1 }).toArray();
+  // отменённые позиции в план не идут; число — для строки «Отменено в заказе: N» (пользователь 14.11)
+  const cancelled = await db.collection('incomes').countDocuments({ orderId: order._id, deletedAt: null, cancelledAt: { $ne: null } });
   const ids = incomes.map((i) => i._id);
   const pass = ids.length ? await db.collection('productpassports').find({ incomeId: { $in: ids }, deletedAt: null, status: { $ne: 'annulled' } }, { projection: { incomeId: 1, status: 1, passportNumber: 1, supplierOrgId: 1 } }).sort({ createdAt: 1 }).toArray() : [];
   const byIncome = new Map<string, Doc>();
@@ -154,7 +156,7 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string,
   return {
     orderId: String(order._id), orderNo: (order.orderNo as string) ?? null, customerName: (order.customer as string) ?? null,
     total: lines.length, issued: count('issued'), ready: count('ready'), blocked: count('blocked'), lines,
-    firm, firmChoices,
+    firm, firmChoices, cancelled,
   };
 }
 
