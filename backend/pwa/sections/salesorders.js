@@ -23,7 +23,7 @@ import { orderDesign } from './order-design.js';
 import { orderWork } from './order-work.js';
 import { orderPdfAction, orderZipAction } from './order-attachments-zip.js';
 import { unassignedTop, addContractsDialog } from './salesorders-unassigned.js'; import { memoryFields } from './salesorders-memory.js';
-import { unmatchedTop, unmatchedPlate, unmatchedFlag, unmatchedOrders } from './matching-queue.js';
+import { unmatchedTop, unmatchedFlag, unmatchedOrders } from './matching-queue.js';
 import { posPic } from '../ui/pos-pic.js';
 import { cancelLine, restoreLine, moveLine, moveContract, stageBack, canChangeLines } from './order-line-actions.js';
 import { distribBlock, lineMark, countOf, countBadge } from './order-lines.js';
@@ -223,7 +223,7 @@ function contractHead(o, reload) {
   const add = can && !closedStage(o) && canChangeLines(o)
     ? button({ label: '+ Позиция', size: 'S', title: 'Новая позиция: все поля — в правой панели', onClick: () => patch({ of: 'orders', new: '1', open: undefined, orderNo: o.orderNo || '', customer: o.customer || '', companyName: o.companyName || '', orderId: o.id }, { replace: false }) })
     : null;
-  return kitRow({ title: 'Договор ' + (o.orderNo || '—'), meta: o.customer || '', side: [badge(STAGE, o.stage), due(o), countBadge(countOf(o))].filter(Boolean), action: [add, menu.length ? dots : null].filter(Boolean) });
+  return kitRow({ title: 'Договор ' + (o.orderNo || '—'), meta: o.customer || '', side: [badge(STAGE, o.stage), due(o)].filter(Boolean), action: [add, menu.length ? dots : null].filter(Boolean) });
 }
 /** Подпись под таблицей договора: пусто / «менять позиции может администратор». */
 function contractFoot(o) {
@@ -258,7 +258,7 @@ function positionsPane(d, ctx) {
       ...(session.canEditOrders ? [{ v: rowDots(l), cls: 'nowrap' }] : [])] }));
     return { head: contractHead(o, reload), rows, foot: contractFoot(o) };
   });
-  box.append(addContractBtn(d, ctx), ...orders.map((o) => distribBlock(o, reload)), positionsTable({ columns, groups, label: 'Позиции заказа', empty: { title: 'Договоров нет.' } }), produceBlock(d));
+  box.append(addContractBtn(d, ctx), ...orders.map((o) => distribBlock(o, reload)), positionsTable({ columns, groups, label: 'Позиции заказа', empty: { title: 'Договоров нет.' } }), produceBlock(d, openLine));
   return box;
 }
 
@@ -342,7 +342,6 @@ function docsPane(d) {
 }
 
 const inWork = (d) => !['new', 'closed', 'cancelled'].includes(d.stage);
-const plateOf = (d) => { const u = unmatchedOrders(d); return u.length ? unmatchedPlate(u.reduce((s, x) => s + x.n, 0), u[0].id) : null; };
 
 /** «+ Договор» над таблицей позиций: меню «Выбрать из договоров без заказа» / «Создать новый». */
 function addContractBtn(d, ctx) {
@@ -381,12 +380,12 @@ const COL_HINT = { new: 'проектирование', production: 'изгот�
 function boardBody(r) {
   const s = nextStep(r);
   const n = orderCounts(r);
-  const warn = !r.lineCount && r.stage === 'new' ? 'нет позиций' : n.unassigned > 0 && ['new', 'production'].includes(r.stage) ? `не распределено: ${n.unassigned}` : '';
+  const warn = !r.lineCount && r.stage === 'new' ? 'нет позиций' : n.unassigned > 0 && ['new', 'production'].includes(r.stage) ? String(n.unassigned) : '';
   const un = unmatchedOrders(r)[0];
   const sub = [names(r.customers), (r.orderNos || []).length ? 'договоры ' + names(r.orderNos) : '', `${r.lineCount} поз.`, r.stagesDiffer ? 'разные этапы' : '', r.amount && session.canMoney ? money(r.amount) : ''].filter(Boolean).join(' · ');
   const b = s.btn;
   const canBtn = b && (b.href || session.canEditOrders);
-  const flags = [warn ? kbadge(warn, 'warn') : null, un ? unmatchedFlag(un.id) : null].filter(Boolean);
+  const flags = [warn ? kbadge(warn, 'warn') : null, !n.unassigned && un ? unmatchedFlag(un.id) : null].filter(Boolean);
   return {
     body: [
       h('div', { class: 't-title', title: heading(r) }, heading(r)),
@@ -420,7 +419,6 @@ const orderCard = screenCard({
   warns: (r, ctx) => [
     r.stage === 'new' && r.lineCount === 0 && !(r.lines || []).length ? { tone: 'error', title: 'В заказе нет позиций — «В производство» не сработает', label: 'К позициям', run: () => ctx.openTab('pos') } : null,
     countOf(r) ? { title: `${countOf(r)} поз. без изделия — «В производство» не сработает, пока их не распределят`, label: 'Распределить', run: () => ctx.openTab('pos') } : null,
-    inWork(r) ? plateOf(r) : null,
   ],
   next: (r, ctx) => {
     let primary = null;

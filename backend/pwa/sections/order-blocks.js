@@ -76,15 +76,18 @@ export function orderPassports(r) {
 export const sec = (title, tone, count, ...kids) => section({ title, tone, count, open: tone === 'money' || undefined, body: kids });
 export const seq = (l, i) => l.seqNo ?? l.lineNo ?? i + 1;
 /** «К производству»: одинаковые позиции всех договоров заказа сложены вместе (только просмотр). */
-export function produceBlock(d) {
+export function produceBlock(d, openLine) {
   const t = d.toProduce || [];
+  const lineBySeq = new Map();
+  (d.orders || []).forEach((o) => (o.lines || []).forEach((l, i) => lineBySeq.set(String(seq(l, i)), l)));
+  const openOf = (x) => { const l = (x.seqNos || []).map((n) => lineBySeq.get(String(n))).find(Boolean); return l && openLine ? openLine(l) : undefined; };
   if (!t.length) return null;
   const nameCell = (x) => (x.sku
     ? h('span', { title: [x.sku, x.title].filter(Boolean).join(' · ') }, kitSku(x.sku), ' ', x.title)
     : x.title);
   return sec('К производству', 'main', t.length,
-    table({ columns: [{ label: '№' }, { label: '' }, { label: 'Изделие' }, { label: 'Кол-во', num: true }, { label: 'Ед. изм.' }, { label: 'Из позиций' }],
-      rows: t.map((x, i) => ({ cells: [{ v: i + 1, cls: 'muted' }, { v: posPic(x.photo, x.photo?.url || x.photo?.thumb ? 'lg' : 'sm'), cls: 'pic-cell' }, nameCell(x), qty(x.qty), { v: x.unit || '', cls: 'muted' }, { v: (x.seqNos || []).join(', '), cls: 'muted' }] })) }),
-    h('p', { class: 'hint' }, 'Одинаковые позиции всех договоров заказа сложены вместе — чтобы запустить в работу сразу всё. Это только просмотр.'));
+    table({ clickable: true, columns: [{ label: '№' }, { label: '' }, { label: 'Изделие' }, { label: 'Кол-во', num: true }, { label: 'Ед. изм.' }, { label: 'Из позиций' }],
+      rows: t.map((x, i) => ({ onClick: openOf(x), cells: [{ v: i + 1, cls: 'muted' }, { v: posPic(x.photo, x.photo?.url || x.photo?.thumb ? 'lg' : 'sm'), cls: 'pic-cell' }, nameCell(x), qty(x.qty), { v: x.unit || '', cls: 'muted' }, { v: (x.seqNos || []).join(', '), cls: 'muted' }] })) }),
+    h('p', { class: 'hint' }, 'Одинаковые позиции всех договоров заказа сложены вместе — чтобы запустить в работу сразу всё. Нажмите строку — откроется позиция.'));
 }
 

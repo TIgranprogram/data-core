@@ -50,7 +50,7 @@ export const NODES = [
     rules: ['КП не меняет изделие: цена в КП — своя, у изделия — базовая.'],
     docs: ['docs/PRODUCT.md — «КП»', 'docs/MAP.md — offers'], tech: 'offers',
     code: ['backend/src/modules/offers', 'backend/pwa/sections/offers.js', 'backend/pwa/sections/offers/', 'backend/pwa/sections/kp.js'] },
-  { id: 'salesorders', tpl: 'board', tplStatus: 'legacy', band: 'sale', col: 2, sec: 'salesorders', t: 'Заказы', l: ['позиции, срок, этапы:', 'в работу → отгрузка'],
+  { id: 'salesorders', tpl: 'board', tplStatus: 'ok', band: 'sale', col: 2, sec: 'salesorders', t: 'Заказы', l: ['позиции, срок, этапы:', 'в работу → отгрузка'],
     seq: true, inside: [
       { id: 'zakaz-i-dogovory', t: 'Заказ и договоры', l: 'заказчик, его договоры (внутри заказа), КП', in: ['partners', 'offers'] },
       { id: 'pozicii', t: 'Позиции', l: 'изделие, новое изделие или услуга', in: ['products', 'matching'], out: ['matching'] },

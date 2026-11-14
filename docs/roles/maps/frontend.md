@@ -1,3 +1,7 @@
+## C118 W3 заказ: один блок (2026-11-15)
+коммит: не закоммичено
+- `sections/salesorders.js` warns (убран plateOf), `boardBody` ~381; `order-lines.js:121,159` countBadge/distribBlock; `order-blocks.js:79` produceBlock(d, openLine) кликабельные строки; `order-design.js:44` ссылка на позицию. atlas salesorders tplStatus ok. Отчёт W3-REPORT.md. Карта обновлена.
+
 ## C118 W2 карточка заказа по шаблону (2026-11-15)
 коммит: не закоммичено
 - `ui/kit/screens/blocks.js` infoCard/nextCard/positionsTable (+ реэкспорт warnCard), `ui/kit/warn-card.js` (бывший noticeCard; `ui/notice-card.js` — алиас), `ui/kit/screens/card.js` screenCard. Витрина `sections/kit.js` (блоки C118 W2).

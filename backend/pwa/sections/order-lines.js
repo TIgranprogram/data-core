@@ -118,7 +118,7 @@ export function lineMark(l) {
 export const countOf = (o) => Number(o?.unassignedCount ?? (o?.orders ? o.orders.reduce((s, x) => s + countOf(x), 0) : (o?.lines || []).filter((l) => l.unassigned && !l.cancelledAt).length)) || 0;
 
 /** Плашка-счётчик «не распределено: N». */
-export const countBadge = (n) => (n > 0 ? h('span', { class: 'badge warn', title: 'Позиции без изделия и не услуги. Пока они есть, «В производство» недоступно.' }, `Не распределено: ${qty(n)}`) : null);
+export const countBadge = (n) => (n > 0 ? h('span', { class: 'badge warn', title: 'Позиции без изделия и не услуги. Пока они есть, «В производство» недоступно.' }, qty(n)) : null);
 
 /** «Это услуга»: 2 поля в окне — услуга и цена. */
 function serviceDialog(l) {
@@ -156,7 +156,6 @@ export function distribBlock(o, reload) {
       button({ label: 'Новое изделие', size: 'S', title: 'Изделия ещё нет: проектировщик получит заявку', onClick: (e) => { const b = e.currentTarget; b.classList.add('is-busy'); newProduct(l).then(done).catch(fail).finally(() => b.classList.remove('is-busy')); } }),
       button({ label: 'Это услуга', size: 'S', title: 'Услуга из справочника — изделие не нужно', onClick: () => serviceDialog(l).then(done).catch(fail) })));
   return h('div', { class: 'ol-box' },
-    h('div', { class: 'ol-head' }, h('b', null, 'Распределение'), ' ', countBadge(open.length)),
-    h('p', { class: 'hint' }, 'У этих позиций нет изделия. Выберите изделие, закажите новое у проектировщика или отметьте услугой — иначе «В производство» не включится.'),
+    h('div', { class: 'ol-head' }, h('b', null, 'Позиции без изделия')),
     h('ul', { class: 'ol-list' }, ...open.map(row)));
 }

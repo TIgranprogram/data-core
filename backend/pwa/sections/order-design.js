@@ -2,6 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { failBlock } from '../ui/kit/busy.js';
 import { toastError, toast, link, section, DESIGN_STATUS as STATUS, button } from '../ui/kit/index.js';
+import { patch } from '../core/router.js';
 import { posPic } from '../ui/pos-pic.js';
 
 /** Секция блока: раскрытость переживает перерисовку. */
@@ -42,7 +43,7 @@ export function orderDesign(order, lines) {
       const cb = can && free.includes(l) ? h('input', { type: 'checkbox', 'aria-label': 'Передать позицию в проектирование', checked: picked.has(String(l.id)),
         onchange: (e) => { if (e.target.checked) picked.add(String(l.id)); else picked.delete(String(l.id)); paint(); } }) : h('span');
       return h('li', { class: 'spec-row' }, cb,
-        h('div', { class: 'spec-main ord-lrow' }, posPic(l.photo, 'sm'), h('div', { class: 'clip', title: l.title }, `поз. ${l.seqNo ?? l.lineNo ?? i + 1} · ${l.title || "Без названия"}`)),
+        h('div', { class: 'spec-main ord-lrow' }, posPic(l.photo, 'sm'), h('div', { class: 'clip', title: l.title }, link({ href: '#', title: 'Открыть позицию', label: `поз. ${l.seqNo ?? l.lineNo ?? i + 1} · ${l.title || "Без названия"}`, onClick: (e) => { e.preventDefault(); patch({ of: 'orders', open: l.id }, { replace: false }); } }))),
         t ? h('a', { href: '#design?open=' + t.id, title: 'Открыть задачу проектирования' }, `${t.code} · ${STATUS[t.status]?.label || t.status}`) : h('span', { class: 'muted' }, 'нет задачи'),
         h('span'));
     });
