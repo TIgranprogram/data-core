@@ -11,6 +11,7 @@ import { confirmDlg } from './dialog.js';
 import { withConfirm } from '../confirm-password.js';
 import { photoDrop } from './photos.js';
 import { buildForm } from './form.js';
+import { gallery } from './card-gallery.js';
 import { toast, toastError } from './toast.js';
 import { actionText, errText, isFailure } from './errors.js';
 import { busyBlock, busyBtn, failBlock } from './busy.js';
@@ -27,25 +28,6 @@ import { isSolo, popout, setPopout, soloGeometry } from '../../core/popout.js'; 
  * На широком экране (≥ DOCK_MIN) панель пристыкована без затемнения; список остаётся кликабельным.
  * Зоны: card.zones или data-zone (main/side/wide), DESIGN §4; раскладка выбирается в меню «⋯» (prefs panelLayout).
  */
-/** Фото записи: большое + миниатюры; клик — на весь экран (Esc / клик — закрыть). pics: [{ url, thumb }] */
-function gallery(pics, onRemove, onMain) {
-  const big = h('img', { class: 'g-big', src: PREFIX + (pics[0].medium || pics[0].url), alt: '', loading: 'lazy', decoding: 'async' });
-  let cur = 0;
-  // первое фото — главное (обложка в списках); ☆ на миниатюре ставит это фото первым — без лишнего шага
-  const star = (p, i) => (onMain ? h('button', { type: 'button', class: 'pf-main' + (i ? '' : ' on'), title: i ? 'Сделать главным' : 'Главное фото', 'aria-label': i ? 'Сделать главным' : 'Главное фото', onclick: (e) => { e.stopPropagation(); if (i) onMain(p); } }, i ? '☆' : '★') : null);
-  const show = (i) => { cur = i; big.src = PREFIX + (pics[i].medium || pics[i].url); strip.querySelectorAll('img').forEach((x, j) => x.classList.toggle('active', j === i)); };
-  const strip = pics.length > 1 ? h('div', { class: 'g-strip' }, pics.map((p, i) => h('div', { class: 'g-th' }, h('img', { src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy', decoding: 'async', class: i ? '' : 'active', onclick: () => show(i) }), star(p, i)))) : h('div');
-  big.addEventListener('click', () => {
-    const box = h('div', { class: 'lightbox', role: 'dialog', 'aria-label': 'Фото' }, h('img', { src: PREFIX + pics[cur].url, alt: '' }));
-    const close = (e) => { if (!e || e.type === 'click' || e.key === 'Escape') { box.remove(); document.removeEventListener('keydown', close, true); e?.stopPropagation?.(); } };
-    box.addEventListener('click', close);
-    document.addEventListener('keydown', close, true);
-    document.body.append(box);
-  });
-  const del = onRemove ? h('button', { class: 'btn btn-ghost btn-sm g-del', type: 'button', title: 'Убрать это фото из карточки', onclick: (e) => { e.stopPropagation(); onRemove(pics[cur]); } }, 'Убрать фото') : null;
-  const mainHint = onMain && pics.length > 1 ? h('p', { class: 'hint' }, 'Первое фото — главное. Чтобы выбрать другое, нажмите ☆ на миниатюре.') : null;
-  return h('div', { class: 'gallery' }, big, strip, mainHint, del);
-}
 export const LAYOUTS = [['one', 'Одна колонка'], ['two', 'Две колонки'], ['wide', 'Две колонки и широкий блок снизу']];
 const layoutNow = () => { const v = getPref('panelLayout'); return LAYOUTS.some(([k]) => k === v) ? v : 'one'; };
 const docked = () => window.innerWidth >= DOCK_MIN;
@@ -124,13 +106,15 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
     if (section.card.top) put(section.card.top(row, actx()), 'top');
     const pics = section.card.gallery ? section.card.gallery(row) : [];
     const canPhoto = canEditSection(section) && section.card.photoAdd;
-    if (pics.length) put(gallery(pics, canPhoto && section.card.photoRemove ? async (p) => {
+    const gal = pics.length ? gallery(pics, canPhoto && section.card.photoRemove ? async (p) => {
       if (!(await confirmDlg('Убрать фото?', 'Фото пропадёт из карточки.', { okText: 'Убрать' }))) return;
       try { actx().setRow(await section.card.photoRemove(row, p.id)); toast('Фото убрано'); } catch (e) { toastError(e); }
     } : null, canEditSection(section) && section.card.photoMain ? async (p) => {
       try { actx().setRow(await section.card.photoMain(row, p.id)); toast('Главное фото выбрано'); } catch (e) { toastError(e); }
-    } : null), 'photo');
-    if (canPhoto) put(photoDrop({ attach: (pid) => section.card.photoAdd(row, pid), done: (r) => { actx().setRow(r); toast('Фото добавлено'); }, searchText: section.card.photoSearch?.(row) }), 'photo');
+    } : null) : null;
+    // фото и зона загрузки — один блок: «Убрать фото» только при наличии фото, под зоной загрузки
+    const drop = canPhoto ? photoDrop({ attach: (pid) => section.card.photoAdd(row, pid), done: (r) => { actx().setRow(r); toast('Фото добавлено'); }, searchText: section.card.photoSearch?.(row) }) : null;
+    if (gal || drop) put(h('div', { 'data-zone': zones.photo || 'side' }, gal, drop, gal?.delBtn), 'photo');
     if (section.card.stats) put(h('div', { class: 'stats' }, section.card.stats(row).map(([l, v]) => h('div', { class: 'stat' }, h('b', { class: 'num' }, v), h('span', null, l)))), 'stats');
     let headActs = null;
     if (canEditSection(section) && section.card.actions) {
