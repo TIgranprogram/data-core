@@ -181,6 +181,14 @@ export class ProductPassportController {
     return this.service.techsheetGaps(id);
   }
 
+  /** C114: подсказки техописания — похожие изделия группы с таблицей материалов, частые фразы назначения и монтажа. */
+  @AppSection('products', 'passports')
+  @Get('showcase/:id/techsheet-analogs')
+  @Roles('admin', 'director', 'manager', 'user')
+  techsheetAnalogs(@Param('id') id: string) {
+    return this.service.techsheetAnalogs(id);
+  }
+
   /** Модели (артикул + наименование) с фото и полями — выбор модели при создании паспорта. */
   @Get('passports/models')
   @Roles(...VIEW)

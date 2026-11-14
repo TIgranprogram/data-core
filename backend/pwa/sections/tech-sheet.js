@@ -7,6 +7,7 @@ import { toast } from '../ui/kit/toast.js';
 import { fromComposition } from './products/form-fields.js';
 import { patchProduct } from './products/data.js';
 import { techGapsBlock, techPreview } from './products/tech-steps.js';
+import { fromAnalog, phraseHints } from './products/tech-analogs.js';
 
 /**
  * «Техническое описание» изделия (PDF) — правая панель `of=techsheet&open=<id изделия>` (2026-11-10: было окно посреди экрана
@@ -97,14 +98,17 @@ export const techSheet = sideForm({
       ...(gapsEl ? [{ section: 'Что осталось', tone: 'info', fixed: true }, noteField(gapsEl, '_gaps')] : []),
       { section: '1. Части и материалы', tone: 'main', fixed: true },
       { key: 'materialsSpec', label: 'Из чего сделано', type: 'widget', wide: true, summary: specSummary,
-        hint: 'Часть, материал, размер, покрытие — из списков. «Взять из состава» заполнит части по составу изделия.',
-        widget: (v) => { specW = materialsSpec({ value: v, dicts: r.dicts, text: r.materialsText || '', scope: () => r.passportCategory?.code || '', actions: session.canEdit ? [fromComposition(r)] : [] }); return specW; } },
+        hint: 'Часть, материал, размер, покрытие — из списков. «Взять из состава» или «Из изделий этой группы» заполнит таблицу сами.',
+        widget: (v) => { specW = materialsSpec({ value: v, dicts: r.dicts, text: r.materialsText || '', scope: () => r.passportCategory?.code || '', actions: session.canEdit ? [fromComposition(r), fromAnalog(r)] : [] }); return specW; } },
       { section: '2. Габариты, вес, назначение, монтаж', tone: 'info' },
       { key: '_auto', label: '', type: 'widget', wide: true, widget: () => ({
-        el: auto.length
-          ? h('div', null, table({ columns: [{ label: 'Строка' }, { label: 'В PDF' }], rows: auto.map((x) => ({ cells: [x.name, x.text] })) }),
-            hint('Правятся в карточке изделия: «Изменить». Габариты — с допуском ±10 %.'))
-          : hint('Пока пусто — впишите в карточке изделия: «Изменить».'),
+        el: h('div', null,
+          auto.length
+            ? h('div', null, table({ columns: [{ label: 'Строка' }, { label: 'В PDF' }], rows: auto.map((x) => ({ cells: [x.name, x.text] })) }),
+              hint('Правятся в карточке изделия: «Изменить». Габариты — с допуском ±10 %.'))
+            : hint('Пока пусто — впишите в карточке изделия: «Изменить».'),
+          // пустые назначение и монтаж — частые фразы группы кнопками, без ухода в карточку (C114, D-REPORT шаг 5)
+          session.canEdit ? phraseHints(r) : null),
         get value() { return ''; }, set value(_) { /* только показ */ },
       }) },
       { section: 'Строки только для этого PDF', tone: 'info', collapsed: true },

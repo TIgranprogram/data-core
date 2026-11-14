@@ -16515,6 +16515,29 @@
         ]
       }
     },
+    "/showcase/{id}/techsheet-analogs": {
+      "get": {
+        "operationId": "ProductPassportController_techsheetAnalogs",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
     "/passports/models": {
       "get": {
         "operationId": "ProductPassportController_models",

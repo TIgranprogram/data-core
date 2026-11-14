@@ -143,6 +143,9 @@ async function mountFill(line, host, reload) {
   }
 }
 
+/** Фото изделия в строке плана (пользователь 14.11): миниатюра, клик — крупно. Нет фото — ничего. */
+const pic = (l) => kit.posPic(l.photo || null, 'sm'); // и без изделия — рамка «нет фото»: строки ровные
+
 function lineView(l, reload) {
   const [label, tone] = STATE[l.state] || ['—', 'dim'];
   const name = `${l.lineNo ?? '—'} · ${displayName(l.title) || 'Позиция'}`;
@@ -152,7 +155,7 @@ function lineView(l, reload) {
     // C086: название — обычным текстом; что не так и что делать — второй строкой; состояние — меткой справа, а не цветом всей строки
     const n = (l.missing || []).length;
     const sec = kit.section({
-      title: name, plain: true, tone: 'neutral',
+      lead: pic(l), title: name, plain: true, tone: 'neutral',
       sub: [meta, `Заполнить: ${shortMissing(l.missing)}`].filter(Boolean).join(' · '),
       side: kit.badge(n ? `не хватает ${n}` : label, tone),
       body: [host],
@@ -187,7 +190,7 @@ function lineView(l, reload) {
         onClick: () => go('docs', { tab: 'orders', of: 'passports', open: pid }, { kind: 'card' }) }),
     ];
   }
-  return kit.row({ title: name, meta: [meta, below].filter(Boolean).join(' · ') || null,
+  return kit.row({ lead: pic(l), title: name, meta: [meta, below].filter(Boolean).join(' · ') || null,
     side: [kit.badge(label, tone)], action, wrap: true, cls: action ? 'k-row-stack-action' : undefined });
 }
 

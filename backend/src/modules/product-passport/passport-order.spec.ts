@@ -3,7 +3,7 @@ import { orderIssue, orderPlan, type OrderHost } from './passport-order';
 
 /** ПНЗ: план и выпуск паспортов на весь заказ. */
 describe('паспорта на весь заказ', () => {
-  const o = new Types.ObjectId(), p1 = new Types.ObjectId(), p2 = new Types.ObjectId();
+  const o = new Types.ObjectId(), p1 = new Types.ObjectId(), p2 = new Types.ObjectId(), ph1 = new Types.ObjectId();
   const i1 = new Types.ObjectId(), i2 = new Types.ObjectId(), i3 = new Types.ObjectId(), i4 = new Types.ObjectId();
   const incomes = [
     { _id: i1, title: 'Урна А', qty: 2, lineNo: 1, productId: p1 },
@@ -24,7 +24,7 @@ describe('паспорта на весь заказ', () => {
       },
       find: (q: { incomeId?: { $in: Types.ObjectId[] } }) => ({
         sort: () => ({ toArray: async () => (name === 'incomes' ? incomes : name === 'productpassports' ? passports.filter((p) => q.incomeId!.$in.some((x) => x.equals(p.incomeId as Types.ObjectId))) : name === 'organizations' ? orgs : []) }),
-        toArray: async () => (name === 'products' ? [{ _id: p1, name: 'Урна «А»', sku: 'У-1' }, { _id: p2, name: 'Урна «Б»' }] : []),
+        toArray: async () => (name === 'products' ? [{ _id: p1, name: 'Урна «А»', sku: 'У-1', mainPhotoId: ph1 }, { _id: p2, name: 'Урна «Б»' }] : name === 'photos' ? [{ _id: ph1, storageUrl: '/uploads/a.jpg' }] : []),
       }),
     });
     const host: OrderHost = {
@@ -44,7 +44,8 @@ describe('паспорта на весь заказ', () => {
     const r = await orderPlan(make().host, String(o));
     expect(r).toMatchObject({ orderNo: '12-3', customerName: 'Школа', total: 4, issued: 1, ready: 1, blocked: 2 });
     expect(r.lines.map((l) => l.state)).toEqual(['ready', 'blocked', 'blocked', 'issued']);
-    expect(r.lines[0]).toMatchObject({ qty: 2, productName: 'Урна «А»', article: 'У-1' });
+    expect(r.lines[0]).toMatchObject({ qty: 2, productName: 'Урна «А»', article: 'У-1', photo: { url: '/uploads/a.jpg', thumb: '/uploads/a.jpg' } });
+    expect(r.lines[1].photo).toBeNull();
     expect(r.lines[1].missing).toEqual(['Тип паспорта', 'Размеры']);
     expect(r.lines[2].missing).toEqual(['К позиции не привязано изделие']);
     expect(r.lines[3].passport).toMatchObject({ status: 'issued', number: '777' });

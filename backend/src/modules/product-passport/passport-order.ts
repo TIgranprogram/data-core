@@ -3,6 +3,7 @@ import { Types, type Connection } from 'mongoose';
 import { passportCategoryFor, type PpCat } from '../../common/passport/form-values';
 import { resolveKinds } from '../../common/passport/kind';
 import { isIssued } from './passport-consts';
+import { loadPhotos } from '../../common/photos';
 
 type Doc = Record<string, unknown>;
 type Db = NonNullable<Connection['db']>;
@@ -34,6 +35,8 @@ export interface PlanLine {
   article: string | null;
   /** тип паспорта изделия (название): свой или от группы каталога; null — не задан */
   categoryName: string | null;
+  /** фото изделия (миниатюра для строки плана; пользователь 14.11) */
+  photo?: { url: string; thumb: string } | null;
   qty: number | null;
   passport: { id: string; number: string | null; status: 'draft' | 'issued' } | null;
   /** issued — уже выпущен; ready — можно выпускать; blocked — чего-то не хватает */
@@ -93,7 +96,10 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string,
   const byIncome = new Map<string, Doc>();
   for (const p of pass) { const k = String(p.incomeId); const had = byIncome.get(k); if (!had || (!isIssued(had) && isIssued(p as Doc))) byIncome.set(k, p); } // выпущенный важнее черновика
   const pids = [...new Set(incomes.filter((i) => i.productId).map((i) => String(i.productId)))];
-  const prods = pids.length ? await db.collection('products').find({ _id: { $in: pids.map((x) => new Types.ObjectId(x)) } }, { projection: { name: 1, sku: 1, categoryId: 1, 'passportDefaults.passportCategory': 1, 'passportDefaults.kindId': 1 } }).toArray() : [];
+  const prods = pids.length ? await db.collection('products').find({ _id: { $in: pids.map((x) => new Types.ObjectId(x)) } }, { projection: { name: 1, sku: 1, categoryId: 1, 'passportDefaults.passportCategory': 1, 'passportDefaults.kindId': 1, mainPhotoId: 1, photoIds: 1 } }).toArray() : [];
+  const photoOf = (p: Doc) => (p.mainPhotoId ?? (p.photoIds as Types.ObjectId[] | undefined)?.[0]) as Types.ObjectId | undefined;
+  const phs = await loadPhotos(db as never, prods.map(photoOf).filter((x): x is Types.ObjectId => !!x));
+  const pphoto = new Map(prods.map((p) => { const f = photoOf(p as Doc); const ph = f ? phs.get(String(f)) : undefined; return [String(p._id), ph ? { url: ph.url, thumb: ph.thumb } : null]; }));
   const pname = new Map(prods.map((p) => [String(p._id), String(p.name ?? '')]));
   // C086: справочник и группы с родителями загружаются пакетно, независимо от числа позиций заказа.
   const cats = (prods.length ? await db.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, name: 1, catalogNames: 1 } }).toArray() : []) as unknown as PpCat[];
@@ -147,7 +153,7 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string,
       if (!ourSupplier) missing = ['Выберите фирму'];
     }
     lines.push({
-      incomeId: String(inc._id), lineNo: (inc.lineNo as number) ?? null, title: String(inc.title ?? ''), productId, productName: productId ? pname.get(productId) ?? null : null, article: productId ? psku.get(productId) ?? null : null, categoryName: productId ? pcat.get(productId) ?? null : null, qty: (inc.qty as number) ?? null,
+      incomeId: String(inc._id), lineNo: (inc.lineNo as number) ?? null, title: String(inc.title ?? ''), productId, productName: productId ? pname.get(productId) ?? null : null, article: productId ? psku.get(productId) ?? null : null, categoryName: productId ? pcat.get(productId) ?? null : null, photo: productId ? pphoto.get(productId) ?? null : null, qty: (inc.qty as number) ?? null,
       passport: p ? { id: String(p._id), number: issued ? String(p.passportNumber ?? '') : null, status: issued ? 'issued' : 'draft' } : null,
       state: issued ? 'issued' : missing.length ? 'blocked' : 'ready', missing,
     });

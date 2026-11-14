@@ -31,6 +31,7 @@ import { productFunnel } from './passport-funnel';
 import { DEFAULT_INSTALL, applyCategoryDefaults, productGaps } from './passport-gaps';
 import { buildFillQueue, loadFillContext } from './product-fill-queue';
 import { productTechGaps } from './techsheet-gaps';
+import { productTechAnalogs } from './techsheet-analogs';
 import { unreadableRequiredImages } from './passport-image-files';
 import { facetPhrases, groupChain } from './passport-facet-phrases';
 import { diffPatch, followsProduct, productCategories, productPatch } from './passport-from-product';
@@ -785,6 +786,9 @@ export class ProductPassportService {
 
   /** GET showcase/:id/techsheet-gaps → чего не хватает техописанию (C114 D-S): { ready, missing[] }. */
   techsheetGaps(productId: string) { return productTechGaps(this.connection.db!, productId); }
+
+  /** GET showcase/:id/techsheet-analogs → похожие изделия группы с таблицей материалов и частые фразы назначения/монтажа (C114). */
+  techsheetAnalogs(productId: string) { return productTechAnalogs(this.connection.db!, productId); }
 
   /** Обязательные разделы воронки без выбора → [{ label, key: 'choice:<id раздела>' }]; текст, набранный вручную, раздел закрывает. */
   private async choiceMissing(d: Doc): Promise<Array<{ label: string; key: string }>> {
