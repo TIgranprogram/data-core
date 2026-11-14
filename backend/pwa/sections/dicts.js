@@ -84,7 +84,7 @@ export function mountDicts(params) {
       const items = !term || groupMatch ? g.items : g.items.filter((it) => (it.label + ' ' + (it.keywords || '')).toLocaleLowerCase('ru').includes(term));
       if (!expanded.has(g.title)) expanded.set(g.title, g.items.some((it) => it.key === cur));
       return { ...g, items, fold: true, open: term ? true : expanded.get(g.title), onToggle: (v) => { if (!term) expanded.set(g.title, v); } };
-    }).filter((g) => g.items.length);
+    }).filter((g) => g.items.length); const curItem = term && !visible.some((g) => g.items.some((it) => it.key === cur)) ? gs.flatMap((g) => g.items).find((it) => it.key === cur) : null; if (curItem) visible.unshift({ title: 'Открыт: ' + curItem.label, items: [curItem] }); // поиск скрыл открытый справочник — строка «Открыт: …» (C116)
     navBody.replaceChildren(visible.length ? navList({ groups: visible, value: cur, label: 'Справочники', onPick: (k) => { const group = gs.find((g) => g.items.some((it) => it.key === k)); if (group) expanded.set(group.title, true); go('dicts', { d: k }, { replace: true }); } }).el : empty({ title: 'Справочник не найден', kind: 'notFound', onReset: () => menuSearch.clear(), resetLabel: 'Очистить поиск' }));
     if (!nav.contains(navBody)) nav.replaceChildren(pad(h('label', { class: 'field' }, h('span', null, 'Найти справочник'), menuSearch.el)), navBody);
   }

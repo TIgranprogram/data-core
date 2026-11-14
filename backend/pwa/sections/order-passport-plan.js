@@ -195,8 +195,14 @@ function lineView(l, reload, issueOne, orderId) {
         onClick: () => go('docs', { tab: 'orders', of: 'passports', open: pid }, { kind: 'card' }) }),
     ];
   }
-  return kit.row({ lead: pic(l), title: name, meta: [meta, below].filter(Boolean).join(' · ') || null,
-    side: [kit.badge(label, tone)], action, wrap: true, cls: action ? 'k-row-stack-action' : undefined });
+  // пользователь 14.11: выпущенная/готовая позиция — в такой же рамке-карточке, как строка «не хватает» выше
+  if (!action) return kit.row({ lead: pic(l), title: name, meta: [meta, below].filter(Boolean).join(' · ') || null, side: [kit.badge(label, tone)], wrap: true });
+  return kit.section({
+    lead: pic(l), title: name, plain: true, tone: 'neutral', open: true,
+    sub: [meta, below].filter(Boolean).join(' · ') || null,
+    side: kit.badge(label, tone),
+    body: [kit.actions(...action)],
+  });
 }
 
 function firmBlock(row, reload) {

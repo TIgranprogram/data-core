@@ -114,10 +114,10 @@ function productGroupsView(rows, sortMode, ctx, tools) {
   ];
   const blocks = [...bySec].map(([sec, list], i) => {
     const nos = list.map((x) => Number(x.groupNo)).filter((n) => Number.isFinite(n));
-    const range = nos.length ? `${Math.min(...nos)}–${Math.max(...nos)}` : 'без №';
+    const range = nos.length ? `${Math.min(...nos)}–${Math.max(...nos)}` : 'без номеров';
     return section({
       title: sec,
-      count: `${list.length} · ${range}`,
+      count: `${list.length} гр. · № ${range}`,
       open: true,
       fixed: true,
       tone: i === 0 ? 'main' : 'info',

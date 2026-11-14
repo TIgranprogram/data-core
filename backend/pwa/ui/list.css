@@ -15,6 +15,7 @@ table.list th.sortable { cursor: pointer; }
 table.list th.sortable:hover { color: var(--text); }
 table.list th .arrow { margin-left: 4px; color: var(--gold-deep); }
 table.list td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; white-space: nowrap; }
+table.list td.k-col-act, table.list th.k-col-act { padding-right: var(--s4); } /* правый край кнопок строки = край кнопок шапки (отступ панели --s4, C116: было 14 → расхождение 2 px) */
 table.list tbody tr { cursor: pointer; }
 table.list tbody tr:hover { background: var(--row-hover); }
 table.list tbody tr.selected { background: var(--row-selected); box-shadow: inset 3px 0 0 var(--gold); }

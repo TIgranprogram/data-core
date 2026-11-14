@@ -20,7 +20,8 @@ export function gapsFor(r, tab) {
   if (!q) return undefined;
   // техописание: число считает сервер тем же расчётом, что «Осталось N» во вкладке (techsheetLeft) — одно число, C114
   if (tab === 'techsheet' && typeof q.techsheetLeft === 'number') return q.techsheetLeft || undefined;
-  const n = q.items.filter((i) => i.target === 'both' || i.target === tab).length;
+  // C115 QA-B: число у вкладки «Паспорт» = сколько ОБЯЗАТЕЛЬНОГО осталось (как «Осталось N» в воронке)
+  const n = q.items.filter((i) => i.required && (i.target === 'both' || i.target === tab)).length;
   return n || undefined;
 }
 
