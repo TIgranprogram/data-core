@@ -219,7 +219,8 @@ export class ProductPassportService {
       textSnapshot: previous.textSnapshot === undefined ? { $exists: false } : previous.textSnapshot };
     try { return await doc.save(); }
     catch (e) {
-      if (e instanceof Error && e.name === 'DocumentNotFoundError') throw new ConflictException('Паспорт изменён другим действием. Обновите карточку и повторите сохранение.');
+      // VersionError — две правки одновременно (C115 QA-A B1): тоже 409, не 500
+      if (e instanceof Error && (e.name === 'DocumentNotFoundError' || e.name === 'VersionError')) throw new ConflictException('Паспорт изменён другим действием. Обновите карточку и повторите сохранение.');
       throw e;
     }
   }

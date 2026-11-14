@@ -56,4 +56,12 @@ describe('materialsSpec паспорта', () => {
     expect((state.revisions as { data: Record<string, unknown> }[])[0].data.materialsSpec).toEqual(old);
     expect((state.materialsSpec as { rows: { partIds: Types.ObjectId[] }[] }).rows[0].partIds[0].equals(post)).toBe(true);
   });
+
+  it('две правки одновременно: VersionError от Mongo → 409, не 500 (C115 QA-A B1)', async () => {
+    const { svc, state } = make({ _id: id(), status: 'issued', passportNumber: '100', revision: 1 });
+    const d = await (svc as unknown as { findById: (x: string) => Promise<{ save: () => Promise<unknown> }> }).findById(String(state._id));
+    d.save = async () => { const e = new Error('No matching document'); e.name = 'VersionError'; throw e; };
+    (svc as unknown as { findById: () => Promise<unknown> }).findById = async () => d;
+    await expect(svc.update(String(state._id), { weight: 20 } as never)).rejects.toThrow(ConflictException);
+  });
 });
