@@ -8,12 +8,12 @@ namespace DataCore.PdmLoader.Pdm;
 
 /// <summary>
 /// Превью без SolidWorks: оболочка Windows (IShellItemImageFactory), иначе первая страница PDF (Windows.Data.Pdf).
-/// PNG ≤ 800 px, в пакет как previews/&lt;обозначение&gt;.png.
+/// PNG ≤ 1600 px, в пакет как previews/&lt;обозначение&gt;.png.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public static class PreviewImage
 {
-    const int MaxPx = 800;
+    const int MaxPx = 1600; // 14.11: 800 px печатались блёкло и мелко — для печати паспорта нужно крупнее
 
     public static string? BuildForItem(VaultSession session, PdmSearch.Hit? hit, string designation, IEnumerable<string> pdfLocalPaths, IntPtr hwnd = default)
     {

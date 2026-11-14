@@ -22,6 +22,7 @@ import { packOf, type PrintPack } from './print-pack';
 import { readPrintFile } from './passport-print-file';
 import { IMAGE_KIND_LABELS, imageRules } from './passport-rules';
 import { readPassportImage } from './passport-image-files';
+import { boostFaint, withContractName } from './passport-print-tune';
 
 type Doc = Record<string, unknown>;
 type PdfOpts = { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean; variant?: PassportVariant };
@@ -243,6 +244,11 @@ export class PassportPdfService {
   }
 
   private async input(p: Doc, opts: PdfOpts) {
+    // название — как в договоре (строка заказа): переименовали после выпуска — печатается новое (пользователь 14.11)
+    if (p.incomeId && Types.ObjectId.isValid(String(p.incomeId))) {
+      const inc = await this.connection.collection('incomes').findOne({ _id: new Types.ObjectId(String(p.incomeId)) }, { projection: { title: 1 } });
+      p = withContractName(p, inc?.title);
+    }
     // черновик/предпросмотр: рисунки изделия по видам, остальные из паспорта; выпущенный — как раньше (его images[])
     const imgs = ((await this.passports.effectiveImages(p) as unknown as Array<{ kind: string; photoId: Types.ObjectId; order?: number; caption?: string; refCode?: string }>) || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     const photos = imgs.length ? await this.connection.collection('photos').find({ _id: { $in: imgs.map((i) => i.photoId) }, deletedAt: null }, { projection: { storageUrl: 1 } }).toArray() : [];
@@ -258,7 +264,7 @@ export class PassportPdfService {
           ? p.status !== 'draft' && (p.textSnapshot as { drawingLayout?: number } | undefined)?.drawingLayout !== 2
             ? await sharp(buf).trim({ background: '#ffffff', threshold: 24 }).jpeg({ quality: 90 }).toBuffer().catch(() => buf)
             : await prepareDimensionImage(buf)
-          : buf;
+          : k === 'overview' ? await boostFaint(buf) : buf; // обложка: блёклый рендер из САПР — контрастнее
         (byKind[k] ||= []).push({ buf: image, caption: i.caption, refCode: i.refCode });
       }
     }
@@ -382,7 +388,7 @@ export class PassportPdfService {
     if (!ids.length) return {};
     const photos = await this.connection.collection('photos').find({ _id: { $in: ids.map((x) => new Types.ObjectId(x)) } }, { projection: { storageUrl: 1 } }).toArray();
     const out: Record<string, Buffer> = {};
-    for (const ph of photos) { const buf = await this.file(ph.storageUrl as string | undefined); if (buf) out[String(ph._id)] = buf; }
+    for (const ph of photos) { const buf = await this.file(ph.storageUrl as string | undefined); if (buf) out[String(ph._id)] = await boostFaint(buf); } // рисунки модулей — тоже контрастнее
     return out;
   }
 

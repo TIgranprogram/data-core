@@ -8,7 +8,10 @@
  *   setPopout(id, on) — включить/выключить «открывать в отдельном окне».
  */
 const KEY = (id) => `dc-popout-${id}`;
-const GEO = 'dc-popout-geo';
+// место и размер — свои у каждого раздела (14.11: справочник открывался во весь экран — размер был общий с большим окном «Продукции»)
+const GEO = (id) => `dc-popout-geo-${id}`;
+/** Размер первого открытия по разделам: маленькие формы — компактное окно. */
+const FIRST = { dict: [760, 820] };
 const get = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 const set = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { /* хранилище недоступно — без памяти */ } };
 
@@ -16,16 +19,17 @@ export const isSolo = () => String(window.name || '').startsWith('dc-solo-');
 export const popoutWanted = (id) => !isSolo() && get(KEY(id)) === '1';
 export const setPopout = (id, on) => set(KEY(id), on ? '1' : null);
 
-function features() {
-  let g = null; try { g = JSON.parse(get(GEO) || 'null'); } catch { g = null; }
-  const w = g?.w || Math.min(1100, screen.availWidth - 40), hgt = g?.h || Math.min(950, screen.availHeight - 40);
+function features(id) {
+  let g = null; try { g = JSON.parse(get(GEO(id)) || 'null'); } catch { g = null; }
+  const [fw, fh] = FIRST[id] || [1100, 950];
+  const w = g?.w || Math.min(fw, screen.availWidth - 40), hgt = g?.h || Math.min(fh, screen.availHeight - 40);
   const pos = g ? `,left=${g.x},top=${g.y}` : '';
   return `popup,width=${w},height=${hgt}${pos}`;
 }
 
 /** Открыть текущий адрес (панель уже в адресе: ?of=…&open=…) в отдельном окне раздела. */
 export function popout(id, { remember = true } = {}) {
-  const win = window.open(location.href, `dc-solo-${id}`, features());
+  const win = window.open(location.href, `dc-solo-${id}`, features(id));
   if (!win) return false;
   try { win.focus(); } catch { /* другое окно — фокус может не дать */ }
   if (remember) setPopout(id, true);
@@ -35,7 +39,8 @@ export function popout(id, { remember = true } = {}) {
 /** В отдельном окне: запоминать место и размер (на следующие открытия). */
 export function soloGeometry() {
   if (!isSolo()) return;
-  const save = () => set(GEO, JSON.stringify({ x: window.screenX, y: window.screenY, w: window.outerWidth, h: window.outerHeight }));
+  const id = String(window.name).slice('dc-solo-'.length);
+  const save = () => set(GEO(id), JSON.stringify({ x: window.screenX, y: window.screenY, w: window.outerWidth, h: window.outerHeight }));
   let t = null;
   window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(save, 400); });
   window.addEventListener('beforeunload', save);

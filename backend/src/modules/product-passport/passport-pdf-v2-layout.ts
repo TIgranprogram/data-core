@@ -233,15 +233,17 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
         try { const im = (doc as unknown as { openImage(b: Buffer): { width: number; height: number } }).openImage(pic); if (im.width > 0 && im.height > 0) ar = im.height / im.width; } catch { /* битая — пропорция по умолчанию */ }
         ih = Math.max(50, Math.min(Wd * 0.7 * ar, 150));
       }
+      // пользователь 14.11: подпись — под рисунком, по центру, одной строкой в длину («1. Тропа 1» / «Габариты: 37 м · Количество: 1 шт.»)
       const title = `${i + 1}. ${String(m.name).trim()}`;
-      const info = [m.dims ? `Габариты: ${String(m.dims).trim()}` : '', `Количество: ${num(Number(m.qty))} шт.`].filter(Boolean).join('\n');
-      const th = textH('gost', 9.5, title) + 2;
+      const info = [m.dims ? `Габариты: ${String(m.dims).trim()}` : '', `Количество: ${num(Number(m.qty))} шт.`].filter(Boolean).join(' · ');
+      const th = textH('gost', 9.5, title) + 1;
       const ihText = textH('gost-i', BODY, info) + 2;
-      const h = th + ihText + (pic ? ih + 6 : 0) + 6;
+      const picH = pic ? ih + 4 : 0;
+      const h = picH + th + ihText + 8;
       place(h, (d, yy) => {
-        d.font('gost').fontSize(9.5).fillColor('#000').text(title, L, yy, { width: Wd, lineGap: 0.6 });
-        d.font('gost-i').fontSize(BODY).fillColor('#000').text(info, L + 6, yy + th, { width: Wd - 6, lineGap: 0.6 });
-        if (pic) { try { d.image(pic, L, yy + th + ihText + 3, { fit: [Wd, ih], align: 'center', valign: 'center' }); } catch { /* битый рисунок — без него */ } }
+        if (pic) { try { d.image(pic, L, yy, { fit: [Wd, ih], align: 'center', valign: 'center' }); } catch { /* битый рисунок — без него */ } }
+        d.font('gost').fontSize(9.5).fillColor('#000').text(title, L, yy + picH, { width: Wd, align: 'center', lineGap: 0.6 });
+        d.font('gost-i').fontSize(BODY).fillColor('#000').text(info, L, yy + picH + th, { width: Wd, align: 'center', lineGap: 0.6 });
       });
     });
     if (modules.length >= 2) para(`Итого модулей: ${num(modules.reduce((s, m) => s + Number(m.qty), 0))} шт.`, BODY, 'gost');

@@ -35,7 +35,7 @@ describe('C095: раздел «Состав изделия: модули»', () 
     const { lines, images } = await printed([{ name: 'Прямой модуль 2 м', dims: '2000×1200×90 мм', qty: 50, photoId: PIC }]);
     expect(lines.some((s) => s.endsWith('Состав изделия: модули'))).toBe(true);
     expect(lines).toContain('1. Прямой модуль 2 м');
-    expect(lines).toContain('Габариты: 2000×1200×90 мм\nКоличество: 50 шт.');
+    expect(lines).toContain('Габариты: 2000×1200×90 мм · Количество: 50 шт.'); // 14.11: подпись под рисунком одной строкой, по центру
     expect(images).toBe(1);
     expect(lines.some((s) => s.includes('Итого модулей'))).toBe(false);
   });
