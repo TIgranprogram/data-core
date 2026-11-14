@@ -56,6 +56,7 @@ export const RULES = {
   tw: 'таблица шире своей области больше чем на 20px — столбцы уходят за экран (C111, 2026-11-14: «Нужно сделать паспорт»)',
   pe: 'заголовок, подпись, пояснение или поле вплотную к краю панели — меньше 6px (пользователь 2026-11-14, «Справочники» после C116)',
   tx: 'C114 I: длинная подсказка (больше 20 слов — предупреждение, больше 35 — ошибка) или стопка заметок подряд (больше 3); известные строки — tools/site-audit-tx-known.json',
+  col: 'C118: текст столбиком — видимый текст длиннее 3 знаков в блоке уже 30 px (узкая колонка, стенд 15.11 «Сечение»)',
   act: 'Р3б: предупреждение (.hint.warn/.danger, .form-error, .k-hint-warn) без кнопки или ссылки в том же контейнере; известные — tools/site-audit-act-known.json',
   ax: 'axe: нарушение доступности (автоматическая проверка)',
   axcheck: 'axe: проверка доступности не выполнена',
@@ -402,6 +403,7 @@ for(const el of document.querySelectorAll('.hint.warn,.hint.danger,.form-error,.
   if(!vis(el)||el.closest('.g-d'))continue;const box=el.parentElement;if(!box)continue;
   const has=[...box.querySelectorAll('button,a[href],[role=button]')].some(b=>b!==el&&!el.contains(b)&&vis(b));
   if(!has){const t=el.innerText.replace(/\s+/g,' ').trim();if(t)add('act',sel(el),'предупреждение без действия: '+t.slice(0,60))}}
+  for(const el of document.querySelectorAll('main *, .drawer *')){if(el.children.length)continue;const t=(el.textContent||'').trim();if(t.length<4)continue;const r=el.getBoundingClientRect();if(r.width>0&&r.width<30&&r.height>r.width*3)add('col',sel(el),'текст столбиком: '+t.slice(0,40))}
 // pe (пользователь 14.11, «Справочники»): заголовок, подпись, пояснение или поле вплотную к краю панели — нет отступа
 for(const el of document.querySelectorAll('main .panel :is(h2,h3,label.field>span:first-child,.hint,input:not([type=hidden]):not([type=checkbox]):not([type=radio]),select)')){
   if(!vis(el)||el.closest('table,.k-nav-list,.drawer'))continue;const p=el.closest('.panel').getBoundingClientRect(),r=el.getBoundingClientRect();
