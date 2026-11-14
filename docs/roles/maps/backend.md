@@ -1,4 +1,6 @@
 # Карта роли backend
+## C114 K версии паспорта (2026-11-14, не закоммичено)
+- `product-passport/passport-revisions.ts:6` revisionRows, `:16` assertRevisionRemovable; `service.removeRevision`/`revisionList` (get → `revisionList`); маршрут `DELETE passports/:id/revisions/:revision` в controller; spec `passport-revisions.spec.ts`; экран `pwa/sections/passports/revisions.js`. коммит: —
 ## C114 D-S техописание сервер (2026-11-14, не закоммичено)
 - `product-passport/techsheet-gaps.ts:17` techSheetGaps, `:35` productTechGaps; маршрут `showcase/:id/techsheet-gaps`; в `product-fill-queue.ts:60` withTechsheet. Часть из состава — `common/catalog/materials-text.ts` partIdsByName + `specFromComposition(…, parts)`, `showcase/showcase-materials.ts fromComposition`. Spec `techsheet-gaps.spec.ts`, `materials-text.spec.ts`. Отчёт `docs/crew/C114-passport-finish/D-S-REPORT.md`. коммит: —
 ## C114 J очередь заполнения (2026-11-14, не закоммичено)

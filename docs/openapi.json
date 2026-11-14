@@ -16491,7 +16491,8 @@
           "Паспорта изделий"
         ]
       }
-    },    "/showcase/{id}/techsheet-gaps": {
+    },
+    "/showcase/{id}/techsheet-gaps": {
       "get": {
         "operationId": "ProductPassportController_techsheetGaps",
         "parameters": [
@@ -17258,6 +17259,38 @@
         "parameters": [
           {
             "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/{id}/revisions/{revision}": {
+      "delete": {
+        "operationId": "ProductPassportController_removeRevision",
+        "summary": "Удалить прежнюю версию выпущенного паспорта (текущую нельзя — 409)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "revision",
             "required": true,
             "in": "path",
             "schema": {

@@ -415,6 +415,14 @@ export class ProductPassportController {
     return this.service.removePrintFile(id);
   }
 
+  /** Удалить прежнюю версию выпущенного паспорта (текущую — нельзя, 409). Ответ — карточка. */
+  @Delete('passports/:id/revisions/:revision')
+  @Roles(...WORK)
+  @AuditAction({ action: 'passport.revisionRemoved', entityType: 'ProductPassport', idParam: 'id', details: (_d, params) => ({ meta: { revisionRemoved: Number(params.revision) } }) })
+  removeRevision(@Param('id') id: string, @Param('revision') revision: string) {
+    return this.service.removeRevision(id, Number(revision));
+  }
+
   /** Черновики паспортов на все позиции заказа без живого паспорта → { created, skipped, items:[{incomeId, passportId}] }. Тела нет; повтор безопасен. */
   @Post('salesorders/:id/passports/draft-all')
   @HttpCode(200)

@@ -1,6 +1,7 @@
 import { parseModules } from '../../common/passport/modules';
 import { installKindOf, variantOf } from './passport-variants';
 import { blankItems } from './passport-blanks';
+import { assertRevisionRemovable, revisionRows } from './passport-revisions';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional, ForbiddenException } from '@nestjs/common';
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
@@ -162,7 +163,8 @@ export class ProductPassportService {
     const eff = await this.effectiveImages(doc);
     const productImageKinds = [...new Set(eff.filter((i) => !((doc.images as Doc[]) || []).includes(i as never)).map((i) => String(i.kind)))];
     const choiceMissing = await this.choiceMissing(doc);
-    return { ...doc, ...presentPrint(doc), productImageKinds, imageSlots: rules.slots, fromProduct, fromProductFields, productCategory, categoryDiffers: !!productCategory && !!doc.passportCategory && productCategory !== doc.passportCategory, images, standardImages, requiredImages, missing: [...missingFieldsV2({ ...doc, images: [...eff, ...std] } as never, cat, vopts), ...choiceMissing.map((m) => m.label), ...jointsMissing(doc).map((m) => m.label)], ...(choiceMissing.length ? { missingChoices: choiceMissing } : {}), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
+    const revisionList = await this.revisionList(doc);
+    return { ...doc, ...presentPrint(doc), ...(revisionList.length ? { revisionList } : {}), productImageKinds, imageSlots: rules.slots, fromProduct, fromProductFields, productCategory, categoryDiffers: !!productCategory && !!doc.passportCategory && productCategory !== doc.passportCategory, images, standardImages, requiredImages, missing: [...missingFieldsV2({ ...doc, images: [...eff, ...std] } as never, cat, vopts), ...choiceMissing.map((m) => m.label), ...jointsMissing(doc).map((m) => m.label)], ...(choiceMissing.length ? { missingChoices: choiceMissing } : {}), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
   }
 
   /** Что задаёт изделие в паспорте-черновике (только отличия от `cur`); пусто — паспорт без изделия или выдан. */
@@ -417,7 +419,10 @@ export class ProductPassportService {
     if ((!issued || set.revision) && after.passportCategory) {
       // Новая редакция, поля и снимок сохраняются атомарно; ручные абзацы не исчезают при пересборке.
       if (set.revision) after.textSnapshot = { ...(cur.textSnapshot as Snap ?? {}), sizeLayout: 2 };
-      if (hadText) await this.rebuildSafe(doc, after);
+      if (hadText && issued) {
+        // выпущенный: правка полей не должна падать из-за ручных правок текста — текст тогда остаётся прежним (2026-11-14)
+        try { await this.rebuildSafe(doc, after); } catch (e) { if (!(e instanceof ConflictException)) throw e; }
+      } else if (hadText) await this.rebuildSafe(doc, after);
       else await this.applySnapshot(doc, after);
     }
     const saved = await this.saveCurrent(doc, cur);
@@ -453,6 +458,21 @@ export class ProductPassportService {
       await this.model.updateOne({ _id: doc._id }, { $unset: { printFile: '' } }).exec();
       await unlinkPrint(prev.path);
     }
+    return this.get(id);
+  }
+
+  /** Версии для карточки (без тяжёлых снимков): «Версия N · дата · кто». */
+  private async revisionList(doc: Doc) {
+    const by = [...new Set(((doc.revisions as Array<{ by?: unknown }>) ?? []).map((r) => String(r.by ?? '')).filter((v) => Types.ObjectId.isValid(v)))];
+    const users = by.length ? await this.connection.collection('users').find({ _id: { $in: by.map((v) => new Types.ObjectId(v)) } }, { projection: { displayName: 1, username: 1 } }).toArray() : [];
+    return revisionRows(doc, new Map(users.map((u) => [String(u._id), String(u.displayName || u.username || '')])));
+  }
+
+  /** Удалить прежнюю версию выпущенного паспорта; текущая (она печатается) — 409. */
+  async removeRevision(id: string, revision: number) {
+    const doc = await this.findById(id);
+    assertRevisionRemovable(doc.toObject() as unknown as Doc, revision);
+    await this.model.updateOne({ _id: doc._id }, { $pull: { revisions: { revision } } }).exec();
     return this.get(id);
   }
 
