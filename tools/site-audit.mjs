@@ -28,6 +28,11 @@ export const txKnown = () => { try { return JSON.parse(fs.readFileSync(TX_KNOWN_
 /** Находки tx, чей текст уже в базовой линии, не считаются (новые — запрещены). Текст находки: «(N слов) начало…». */
 export const txFilter = (found, known = txKnown()) => found.filter((x) => x.rule !== 'tx' || x.sel === 'stack' || !known.includes(x.text.replace(/^\(\d+ слов[^)]*\)\s*/, '').slice(0, 60)));
 
+// Правило act (Р3б): предупреждение без действия. Базовая линия — tools/site-audit-act-known.json (начала текста, 60 знаков).
+const ACT_KNOWN_FILE = path.join(ROOT, 'tools', 'site-audit-act-known.json');
+export const actKnown = () => { try { return JSON.parse(fs.readFileSync(ACT_KNOWN_FILE, 'utf8')); } catch { return []; } };
+export const actFilter = (found, known = actKnown()) => found.filter((x) => x.rule !== 'act' || !known.includes(x.text.replace(/^предупреждение без действия:\s*/, '').slice(0, 60)));
+
 export const RULES = {
   a: 'мусор в тексте', b: 'заголовок панели из одного слова', c: '«скоро / в разработке / TODO»', d: 'горизонтальная прокрутка страницы (реальная)',
   e: 'сжатый текст «столбиком»', f: 'картинка выше 200px или шире колонки', g: 'кликабельное меньше 36px по меньшей стороне (390)', h: 'вкладка со счётчиком 0 / пустая без подсказки',
@@ -51,6 +56,7 @@ export const RULES = {
   tw: 'таблица шире своей области больше чем на 20px — столбцы уходят за экран (C111, 2026-11-14: «Нужно сделать паспорт»)',
   pe: 'заголовок, подпись, пояснение или поле вплотную к краю панели — меньше 6px (пользователь 2026-11-14, «Справочники» после C116)',
   tx: 'C114 I: длинная подсказка (больше 20 слов — предупреждение, больше 35 — ошибка) или стопка заметок подряд (больше 3); известные строки — tools/site-audit-tx-known.json',
+  act: 'Р3б: предупреждение (.hint.warn/.danger, .form-error, .k-hint-warn) без кнопки или ссылки в том же контейнере; известные — tools/site-audit-act-known.json',
   ax: 'axe: нарушение доступности (автоматическая проверка)',
   axcheck: 'axe: проверка доступности не выполнена',
 };
@@ -391,6 +397,11 @@ if(!/^#(help|atlas|guide)/.test(location.hash)){
     for(const k of box.children){if(vis(k)&&k.matches('.hint,.fill-note,.g-note')){if(!run++)first=k}else run=0;
       if(run===${TX_STACK}+1)add('tx','stack','стопка заметок подряд (больше ${TX_STACK}): '+first.innerText.replace(/\\s+/g,' ').trim().slice(0,60))}}
 }
+// act (Р3б): предупреждение без действия — в контейнере нет кнопки / ссылки
+for(const el of document.querySelectorAll('.hint.warn,.hint.danger,.form-error,.k-hint-warn')){
+  if(!vis(el)||el.closest('.g-d'))continue;const box=el.parentElement;if(!box)continue;
+  const has=[...box.querySelectorAll('button,a[href],[role=button]')].some(b=>b!==el&&!el.contains(b)&&vis(b));
+  if(!has){const t=el.innerText.replace(/\s+/g,' ').trim();if(t)add('act',sel(el),'предупреждение без действия: '+t.slice(0,60))}}
 // pe (пользователь 14.11, «Справочники»): заголовок, подпись, пояснение или поле вплотную к краю панели — нет отступа
 for(const el of document.querySelectorAll('main .panel :is(h2,h3,label.field>span:first-child,.hint,input:not([type=hidden]):not([type=checkbox]):not([type=radio]),select)')){
   if(!vis(el)||el.closest('table,.k-nav-list,.drawer'))continue;const p=el.closest('.panel').getBoundingClientRect(),r=el.getBoundingClientRect();
@@ -569,7 +580,7 @@ async function main() {
     let axeChecks = 0;
     if (!axeSource) all.push({ rule: 'axcheck', sel: 'axe', text: 'Пакет не установлен: пульт → Установить проверки дизайна', screen: 'проверки' });
     const take = async (screen, w, kind, shotName) => {
-      const found = txFilter((await ev(SCAN(kind))) || []);
+      const found = actFilter(txFilter((await ev(SCAN(kind))) || []));
       const file = await shot(shotName);
       for (const f of found) all.push({ ...f, screen: kind === 'main' ? screen : `${screen} [${kind}]`, w, shot: file });
       // Один размер на состояние: доступность не требует одинаковых повторов на всех ширинах.
