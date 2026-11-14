@@ -55,7 +55,7 @@ function walk(dir, out = [], cap = 4000) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     if (out.length >= cap) break;
     const p = path.join(dir, e.name); const rel = path.relative(ROOT, p);
-    if (isDenied(rel) || rel.startsWith(path.join('tools', 'logs'))) continue;
+    if (isDenied(rel) || e.name.startsWith('.') || e.name === 'node_modules' || e.name === 'dist' || rel.startsWith(path.join('tools', 'logs'))) continue;
     if (e.isDirectory()) walk(p, out, cap); else if (TEXT_EXT.test(e.name)) out.push(p);
   }
   return out;
@@ -146,7 +146,7 @@ async function runJob(s, job, until) {
   fs.writeFileSync(path.join(dir, 'notes.md'), notes.map((n) => '- ' + n).join('\n') + '\n');
   fs.writeFileSync(path.join(dir, 'RESULT.md'), `# ${job.id} — ${result}\n\n- Модель: ${s.model}\n- Записей: ${notes.length}\n${refLine}\n\n${report}\n`);
   const rel = path.relative(ROOT, dir).replace(/\\/g, '/');
-  const quality = judge({ result, report, refsTotal: refs.total, refsBad: refs.bad.length });
+  const quality = judge({ result, report, refsTotal: refs.total, refsBad: refs.bad.length, emptyOk: !!job.meta.emptyOk });
   const hist = readJson(HISTORY, []); hist.push({ id: job.id, at: Date.now(), result, quality, refs: `${refs.total - refs.bad.length}/${refs.total}`, dir: rel }); fs.writeFileSync(HISTORY, JSON.stringify(hist.slice(-500), null, 1));
   fs.writeFileSync(path.join(LOGS, 'last.json'), JSON.stringify({ id: job.id, result, quality, dir: rel, at: Date.now() }));
   say(`Наряд ${job.id}: ${result}, оценка программы — ${quality}. Итог: ${rel}/RESULT.md`);

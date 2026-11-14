@@ -78,6 +78,7 @@ test('оценка итога и наряд на правку после дву�
   assert.equal(judge({ result: 'готово', report: long, refsTotal: 6, refsBad: 0 }), 'хорошо');
   assert.equal(judge({ result: 'не вышло', report: long }), 'плохо');
   assert.equal(judge({ result: 'готово', report: 'коротко' }), 'плохо');
+  assert.equal(judge({ result: 'готово', report: 'мёртвых файлов нет', emptyOk: true }), 'хорошо');
   assert.equal(judge({ result: 'готово', report: long, refsTotal: 4, refsBad: 4 }), 'плохо');
   const job = { id: '005', mtime: 10, meta: { status: 'ready', repeat: true, everyHours: 0 } };
   const bad = [{ id: '005', at: 30, quality: 'плохо' }, { id: '005', at: 20, quality: 'плохо' }];

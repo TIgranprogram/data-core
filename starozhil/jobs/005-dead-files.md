@@ -2,6 +2,7 @@
 priority: 5
 status: ready
 repeat: true
+emptyOk: true
 everyHours: 168
 steps: 40
 minutes: 60

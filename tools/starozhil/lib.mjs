@@ -41,9 +41,10 @@ export function pickNext(jobs, history, now = Date.now()) {
  * Оценка итога наряда программой: «плохо» — не вышло, итог пустой или больше трети ссылок «файл:строка» неверны.
  * Так плохие итоги видны без чтения, а наряд с двумя плохими подряд встаёт на правку.
  */
-export function judge({ result, report = '', refsTotal = 0, refsBad = 0 }) {
+export function judge({ result, report = '', refsTotal = 0, refsBad = 0, emptyOk = false }) {
   if (result !== 'готово') return 'плохо';
-  if (String(report).trim().length < 200) return 'плохо';
+  // emptyOk: наряд, где «ничего не найдено» — нормальный итог (мёртвых файлов нет)
+  if (!emptyOk && String(report).trim().length < 200) return 'плохо';
   if (refsTotal > 0 && refsBad / refsTotal > 0.3) return 'плохо';
   return 'хорошо';
 }
