@@ -100,6 +100,8 @@ export function paintFields(ctx) {
   const showRow = ctx.mode === 'template' || ctx.reveal;
   const nums = {}; // короткие числа раздела — одним рядом, а не колонкой на всю ширину
   // заполненное — спокойный зелёный фон, обязательное незаполненное — золотая рамка (пользователь 2026-11-13)
+  // пустое необязательное — бледная золотая рамка без свечения: видно, что осталось (пользователь 2026-11-14, хвост C108)
+  const needCls = (gap) => (gap?.required && !gap.defaulted ? 'k-fill-need' : gap?.defaulted ? '' : 'k-fill-opt');
   const wrap = (spec, node, cls) => h('div', { dataset: { gap: spec.key }, class: cls || null }, node);
   for (const spec of scalars(ctx)) {
     const gap = gapOf(spec, ctx.missing);
@@ -114,8 +116,8 @@ export function paintFields(ctx) {
     } else if (state === 'filled') {
       ctx.filled.push(spec.key);
       if (showRow) host.append(wrap(spec, filledLink(ctx, spec, text), 'k-fill-done'));
-    } else if (spec.num) (nums[spec.section] ||= []).push(wrap(spec, spec.editor(gap), gap?.required && !gap.defaulted ? 'k-fill-need' : ''));
-    else host.append(wrap(spec, spec.editor(gap), gap?.required && !gap.defaulted ? 'k-fill-need' : ''));
+    } else if (spec.num) (nums[spec.section] ||= []).push(wrap(spec, spec.editor(gap), needCls(gap)));
+    else host.append(wrap(spec, spec.editor(gap), needCls(gap)));
   }
   for (const m of ctx.missing) {
     if (m.kind === 'image' || m.kind === 'category' || used.has(m.key)) continue;
@@ -125,7 +127,7 @@ export function paintFields(ctx) {
     if (m.kind === 'facet' && !m.required && ctx.mode === 'issue' && !ctx.more) { ctx.later.push(m.label || 'признак'); continue; }
     const node = controlGap(m, ctx);
     if (!node) continue;
-    const box = h('div', { dataset: { gap: String(m.key) }, class: m.required ? 'k-fill-need' : null }, node);
+    const box = h('div', { dataset: { gap: String(m.key) }, class: m.required ? 'k-fill-need' : 'k-fill-opt' }, node);
     if (m.kind === 'field' && node.classList?.contains('k-ti')) (nums[gapSection(m)] ||= []).push(box);
     else ctx.fieldHost[gapSection(m)].append(box);
   }
