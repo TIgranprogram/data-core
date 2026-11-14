@@ -60,7 +60,7 @@ export function photoDrop({ attach, done, pdf = false, purpose, drawing = false,
     finally {
       busy = false; zone.classList.remove('busy');
       label.textContent = idle;
-      if (row) done(row);
+      if (row) done?.(row);
     }
   }
 
