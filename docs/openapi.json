@@ -17279,7 +17279,6 @@
     "/passports/{id}/revisions/{revision}": {
       "delete": {
         "operationId": "ProductPassportController_removeRevision",
-        "summary": "Удалить прежнюю версию выпущенного паспорта (текущую нельзя — 409)",
         "parameters": [
           {
             "name": "id",
