@@ -214,8 +214,9 @@ export const sku = (text) => (text == null || String(text).trim() === '' ? null 
 /** section({ title, count?, open?, body, cls?, tone?, fixed? (всегда раскрыта, без стрелки), urgent? (полоса danger), more?: { limit, label, onMore } (первые limit строк + «Все (ещё N) →») }) → <details class="form-block k-sec">: сворачиваемая секция правой панели (по умолчанию закрыта).
  *  tone — цвет категории (полоса слева и заголовок): main · info · money · who · gold · neutral (ПМ-1, 2026-11-06).
  *  В шапке — заголовок, число (count) и стрелка; открывается Enter/Пробел/щелчком. body — узлы или массив. Свёрнутое состояние не хранится. */
-export function section({ title, count, open = false, body, cls, tone = 'main', fixed = false, urgent = false, more, plain = false, sub, side } = {}) {
-  // plain — строка-раскрывашка списка (C086): название как текст (не капсом и не цветом тона), sub — вторая строка, side — состояние справа
+export function section({ title, count, open = false, body, cls, tone = 'main', fixed = false, urgent = false, more, plain = false, sub, side, lead } = {}) {
+  // plain — строка-раскрывашка списка (C086): название как текст (не капсом и не цветом тона), sub — вторая строка, side — состояние справа;
+  // lead — слот слева от названия (фото изделия, как row({ lead }); 2026-11-14)
   if (plain) cls = 'k-sec-plain' + (cls ? ' ' + cls : '');
   const kids = nodes(body);
   let moreEl = null;
@@ -230,7 +231,7 @@ export function section({ title, count, open = false, body, cls, tone = 'main', 
       h('div', { class: 'k-sec-fhead' }, h('h2', null, title), count != null ? h('span', { class: 'k-sec-n num' }, String(count)) : null),
       h('div', { class: 'k-sec-body' }, ...kids, moreEl)), 'section');
   }
-  const sum = h('summary', { class: 'form-sec k-sec-head' }, h('span', { class: 'form-sec-t' }, title, sub ? h('small', { class: 'k-sec-sub' }, sub) : null),
+  const sum = h('summary', { class: 'form-sec k-sec-head' }, lead || null, h('span', { class: 'form-sec-t' }, title, sub ? h('small', { class: 'k-sec-sub' }, sub) : null),
     side ? h('span', { class: 'k-sec-side' }, ...nodes(side)) : null,
     count != null ? h('span', { class: 'badge dim k-sec-n' }, String(count)) : null, h('span', { class: 'form-sec-chev', 'aria-hidden': 'true' }, '›'));
   return mark(h('details', { class: 'form-block k-sec' + (cls ? ' ' + cls : ''), 'data-tone': tone, open: open || null }, sum, h('div', { class: 'k-sec-body' }, ...kids, moreEl)), 'section');
