@@ -88,14 +88,13 @@ describe('Паспорта изделий', () => {
     await http().delete(`/api/passports/${bare.id}`).set(as(admin.access)).expect(200); // черновик удаляется свободно
   });
 
-  it('НМ: выпущенный — свободно только «после печати», остальное — «Новая редакция»; номер — только админ, с проверкой', async () => {
+  it('выпущенный правится свободно (2026-11-14): номер тот же, прежнее — в истории; номер — только админ, с проверкой', async () => {
     await http().post('/api/passports').set(as(admin.access)).send({ name: 'Дубль', passportNumber: '549' }).expect(409); // перенос с занятым номером
     await http().patch(`/api/passports/${first}`).set(as(admin.access)).send({ date: '2026-12-01' }).expect(409);
     const ok = await http().patch(`/api/passports/${first}`).set(as(admin.access)).send({ customerName: 'ИП Азизова', objectName: 'парк «Победа»' }).expect(200);
     expect(ok.body.customerName).toBe('ИП Азизова');
-    const locked = (await http().patch(`/api/passports/${first}`).set(as(admin.access)).send({ weight: 13 }).expect(409)).body;
-    expect(locked.message).toMatch(/Новая редакция/);
-    const rev = (await http().patch(`/api/passports/${first}`).query({ newRevision: 1 }).set(as(admin.access)).send({ weight: 13, passportCategory: 'BLG' }).expect(200)).body;
+    // правка не «после печати» без особого режима — сама становится новой редакцией
+    const rev = (await http().patch(`/api/passports/${first}`).set(as(admin.access)).send({ weight: 13, passportCategory: 'BLG' }).expect(200)).body;
     expect(rev).toMatchObject({ weight: 13, revision: 2, passportNumber: '550' });
     expect(rev.revisions).toHaveLength(1);
     expect(rev.revisions[0].data.weight).toBe(12.5);

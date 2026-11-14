@@ -112,7 +112,7 @@ export const passarchive = {
   ...passports,
   id: 'passarchive',
   title: 'Выпущенные',
-  form: undefined,
+  // 2026-11-14: выпущенный правится (номер тот же, версии сами) — форма как у черновика
   remove: undefined,
   open: (id) => go('docs', { tab: 'archive', of: 'passarchive', open: id }),
   list: {

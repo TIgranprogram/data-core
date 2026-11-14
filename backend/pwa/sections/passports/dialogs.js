@@ -1,7 +1,7 @@
 import { api, apiFile } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { busyBtn } from '../../ui/kit/busy.js';
-import { attachCombo, hint, select } from '../../ui/kit/index.js';
+import { attachCombo, button, hint, select } from '../../ui/kit/index.js';
 import { toast, toastError } from '../../ui/kit/toast.js';
 import { confirmDlg, modal } from '../../ui/kit/dialog.js';
 import { FORMATS, printQuery } from './print-options.js';
@@ -110,7 +110,12 @@ export async function printDialog(r) {
     .filter(([kind]) => isRequired(r, kind) && !imgsOf(r, kind).some((i) => i.url)
       && !(r.standardImages || []).some((i) => i.kind === kind && i.url))
     .map(([, label]) => label);
-  const imageWarning = hint(`Для PDF не хватает обязательных рисунков: ${missingImages.join(', ')}. Добавьте рисунки в паспорт через «Изменить» — номер останется тем же.`, 'warn');
+  // предупреждение сразу с действием (владелец 14.11): закрыть окно и открыть правку паспорта на рисунках
+  const goFix = button({ label: 'Загрузить рисунки', size: 'S', kind: 'primary', onClick: (e) => {
+    e.currentTarget.closest('.modal')?.querySelector('.modal-foot button[type=button]')?.click();
+    setTimeout(() => [...document.querySelectorAll('.drawer button')].find((b) => b.textContent.trim() === 'Изменить')?.click(), 50);
+  } });
+  const imageWarning = h('div', null, hint(`Не хватает рисунков: ${missingImages.join(', ')}. Номер паспорта не изменится.`, 'warn'), goFix);
   const po = printOptions({
     org: r.supplierOrg, mode: 'print',
     onMode: (m) => { imageWarning.hidden = m === 'stand' || !missingImages.length; },
