@@ -51,3 +51,8 @@ Scope: ui/kit/screens/blocks.js, sections/kit.js, файлы досок (salesor
 - W6b контрагент: `sections/partners*.js`. Главная кнопка по смыслу (заказ/заявка), реквизиты — infoCard. Scope: sections/partners*.
 - W6c заявка: `sections/requests*.js` card (доска уже на boardCard). Главная кнопка по этапу. Плюс пункт 1.8 изделия: «Убрать фото» только при наличии фото и рядом с зоной загрузки; нижняя «Изменить» — в «⋯» (одна главная «Заполнить»). Scope: sections/requests*, sections/products/card-blocks.js (только фото и кнопка).
 Каждый: --check, pwa-guards, design-lint; отчёт W6x-REPORT.md; глазами — координатор.
+
+### W7 — последняя волна лимита (datacore-frontend, один агент, по очереди)
+1. KIT (отдельный коммит): `ui/kit/card.js` gallery() — «Убрать фото» внутри/рядом с зоной загрузки (photoDrop), только при наличии фото. Меняется во всех карточках.
+2. ЭКРАН (после п.1): карточка позиции склада (`sections/stock*.js`, storage item) — screenCard + nextCard (главная кнопка «Приход»/«Расход» по смыслу) + infoCard + вкладки. atlas: stock tplStatus ok. tpl-baseline не трогать.
+Отчёт W7-REPORT.md с перечнем файлов kit отдельно.
