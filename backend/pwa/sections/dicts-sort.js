@@ -28,9 +28,25 @@ function noCell(r) {
   return r.groupNo ? sku(String(r.groupNo)) : badge('нет', 'warn');
 }
 
-function cellOf(key, r, fieldOf, fmt, colorBadge) {
+/** Поля со ссылкой на коды другого справочника (дефекты, типы паспорта): в таблице — названия, не коды (только русский на экране). */
+const CODE_REFS = { categories: 'passportCategories' };
+export async function loadCodeNames(dict, apiFn) {
+  const out = new Map();
+  for (const f of dict?.fields || []) {
+    const ds = String(f.ref?.dict || CODE_REFS[f.key] || '').split(',').map((s) => s.trim()).filter(Boolean);
+    if (!ds.length) continue;
+    const m = new Map();
+    for (const d of ds) for (const it of (await apiFn('/dicts/' + d).catch(() => null))?.items || []) if (it.code) m.set(String(it.code), it.name);
+    if (m.size) out.set(f.key, m);
+  }
+  return out;
+}
+const namesOf = (map, v) => (typeof v === 'string' && v.trim() ? v.split(/[,;\s]+/).filter(Boolean).map((c) => map.get(c) || c).join(', ') : v);
+
+function cellOf(key, r, fieldOf, fmt, colorBadge, codeNames) {
   if (key === 'groupNo') return noCell(r);
-  if (key === 'hex' && r.hex) return h('span', null, colorBadge(r.hex), ' ', r.hex);
+  if (codeNames?.has(key)) return namesOf(codeNames.get(key), r[key]) || '—';
+  if (key === 'hex' && r.hex) return colorBadge(r.hex); // кружок цвета с кодом — один раз (приёмка C116: код дублировался)
   if (key === 'passportCategory' || key === 'passportCategoryName') {
     return h('span', { class: 'muted' }, r.passportCategoryName || r.passportCategory || '—');
   }
@@ -65,7 +81,7 @@ function rowOf(r, columns, ctx) {
       if (c.key === 'name') return { v: r.name || '—' };
       if (c.key === '_q') return { v: ctx.qualityCell ? ctx.qualityCell(r) : '' };
       if (c.key === '_act') return { v: actCell(r, ctx) };
-      return { v: cellOf(c.key, r, ctx.fieldOf, ctx.fmt, ctx.colorBadge) };
+      return { v: cellOf(c.key, r, ctx.fieldOf, ctx.fmt, ctx.colorBadge, ctx.codeNames) };
     }),
   };
 }
@@ -76,7 +92,7 @@ function mkTable(columns, list, ctx, label) {
     rows: list.map((r) => rowOf(r, columns, ctx)),
     clickable: !!ctx.canEdit,
     label,
-    cls: 'k-table-stack',
+    cls: 'k-table-stack k-table-inset', // inset: на телефоне строки с отступами панели
     empty: { title: 'Ничего не найдено.' },
   });
 }
@@ -94,7 +110,7 @@ function productGroupsView(rows, sortMode, ctx, tools) {
     { key: 'groupNo', label: '№', num: true, nowrap: true },
     { key: 'name', label: 'Название', wrap: true },
     { key: '_q', label: '', nowrap: true },
-    { key: '_act', label: '', nowrap: true },
+    { key: '_act', label: '', nowrap: true, cls: 'k-col-act' },
   ];
   const blocks = [...bySec].map(([sec, list], i) => {
     const nos = list.map((x) => Number(x.groupNo)).filter((n) => Number.isFinite(n));
@@ -118,9 +134,9 @@ function productGroupsView(rows, sortMode, ctx, tools) {
 export function dictsTable(opts) {
   const {
     dictKey, rows, cols, sortMode, onSort, canEdit, isLocked, lockBadge, colorBadge,
-    fieldOf, fmt, dup, qualityCell, onOpen, onEdit, onRemove, extraTools = [],
+    fieldOf, fmt, dup, qualityCell, onOpen, onEdit, onRemove, extraTools = [], codeNames,
   } = opts;
-  const ctx = { canEdit, isLocked, lockBadge, colorBadge, fieldOf, fmt, dup, qualityCell, onOpen, onEdit, onRemove };
+  const ctx = { canEdit, isLocked, lockBadge, colorBadge, fieldOf, fmt, dup, qualityCell, onOpen, onEdit, onRemove, codeNames };
   const tools = [];
   tools.push(...extraTools);
 
@@ -142,7 +158,7 @@ export function dictsTable(opts) {
   if (!columns.some((c) => c.key === 'code') && rows.some((r) => r.code)) {
     columns.splice(1, 0, { key: 'code', label: 'Код', nowrap: true });
   }
-  columns.push({ key: '_q', label: '', nowrap: true }, { key: '_act', label: '', nowrap: true });
+  columns.push({ key: '_q', label: '', nowrap: true }, { key: '_act', label: '', nowrap: true, cls: 'k-col-act' }); // действия — у правого края строки
 
   const tbl = mkTable(columns, rows, ctx, 'Справочник');
   return tools.length ? stack(toolbar(...tools), tbl) : tbl;

@@ -146,7 +146,7 @@ async function mountFill(line, host, reload) {
 /** Фото изделия в строке плана (пользователь 14.11): миниатюра, клик — крупно. Нет фото — ничего. */
 const pic = (l) => kit.posPic(l.photo || null, 'sm'); // и без изделия — рамка «нет фото»: строки ровные
 
-function lineView(l, reload) {
+function lineView(l, reload, issueOne) {
   const [label, tone] = STATE[l.state] || ['—', 'dim'];
   const name = `${l.lineNo ?? '—'} · ${displayName(l.title) || 'Позиция'}`;
   const meta = [l.article, l.productName && l.productName !== l.title ? displayName(l.productName) : '', l.productId ? (l.categoryName || 'категория не выбрана') : '', l.qty != null ? `${l.qty} шт` : ''].filter(Boolean).join(' · ');
@@ -172,9 +172,14 @@ function lineView(l, reload) {
     : l.state === 'ready' ? 'можно выпускать' : shortMissing(l.missing);
   let action = null;
   if (l.state === 'ready' && l.productId && canEdit()) {
-    action = kit.button({ label: 'Править шаблон', size: 'S', kind: 'ghost',
-      title: 'Открыть шаблон паспорта изделия для правки перед выпуском',
-      onClick: () => go('docs', { tab: 'templates', of: 'doctpl', open: l.productId }, { kind: 'card' }) });
+    // пользователь 14.11: «готов к выпуску, а печати нет» — выпуск прямо в строке; после него появится «Печать…»
+    action = [
+      issueOne ? kit.button({ label: 'Выпустить', size: 'S', title: 'Выпустить паспорт этой позиции — затем его можно распечатать',
+        onClick: (e) => issueOne(l, e.currentTarget) }) : null,
+      kit.button({ label: 'Править шаблон', size: 'S', kind: 'ghost',
+        title: 'Открыть шаблон паспорта изделия для правки перед выпуском',
+        onClick: () => go('docs', { tab: 'templates', of: 'doctpl', open: l.productId }, { kind: 'card' }) }),
+    ].filter(Boolean);
   } else if (l.state === 'issued' && l.passport?.id) {
     const pid = l.passport.id;
     action = [
@@ -249,6 +254,17 @@ function body(row, ctx) {
     ctx.setRow({ ...next, ...(extra || {}) });
   };
   const pick = !row.firm ? pickOf(row.orderId) : null;
+  /** Выпуск одной позиции (тот же POST, что «Выпустить готовые», с lines: [позиция]). */
+  const issueOne = async (l, b) => {
+    b.classList.add('is-busy'); b.disabled = true;
+    try {
+      const r = await api(`/passports/order/${row.orderId}/issue`, { method: 'POST', body: { lines: [l.incomeId], variant: passportVariant.value, ...(pick ? { supplierOrgId: pick.id } : {}) } });
+      const skip = (r.skipped || [])[0];
+      kit.toast(skip ? `Не выпущен: ${skip.reason}` : 'Паспорт выпущен — теперь его можно распечатать');
+      window.dispatchEvent(new Event('data-changed'));
+      await reload({ _skipped: r.skipped || [] });
+    } catch (er) { b.classList.remove('is-busy'); b.disabled = false; kit.toastError(er, 'выпустить паспорт'); }
+  };
 
   const seg = kit.segmented({
     label: 'Вариант паспорта', fit: true,
@@ -280,7 +296,7 @@ function body(row, ctx) {
   });
 
   const lines = (row.lines || []).length
-    ? kit.stack(...(row.lines || []).map((l) => lineView(l, reload)))
+    ? kit.stack(...(row.lines || []).map((l) => lineView(l, reload, editable ? issueOne : null)))
     : kit.hint('В заказе нет позиций. Добавьте позиции — здесь появится план паспортов.');
 
   const skipped = row._skipped?.length ? kit.section({

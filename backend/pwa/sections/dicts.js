@@ -7,7 +7,7 @@ import { confirmDlg, modal } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { lookups } from './lookups.js';
 import { KINDS, KINDS_V2, kindName } from '../core/passport-kinds.js';
-import { searchBox, tagPick, button, select, enhanceSelect, navList, layout, toolbar, row, section, actions, badge, empty, hint as hintKit, photoStrip as kitPhotoStrip } from '../ui/kit/index.js'; // row — кандидаты «Найти в данных…»
+import { searchBox, tagPick, button, select, enhanceSelect, navList, layout, toolbar, headbar, pad, row, section, actions, badge, empty, hint as hintKit, photoStrip as kitPhotoStrip } from '../ui/kit/index.js'; // row — кандидаты «Найти в данных…»
 import { mountTexts, TEXTS_KEY } from './passport-texts.js';
 import { mountTree, TREE_KEY } from './passport-tree.js';
 import { mountZones, ZONES_KEY } from './stock-zones.js';
@@ -15,7 +15,7 @@ import { catChipsField, refChipsField, passportKindElements } from '../ui/cat-ch
 import { dupeCounts, qualityBadges, qualityFilter } from '../ui/quality.js';
 import { passportCategoryOptions } from './passports/common.js';
 import { dictSearchTokens, dictHaystack, GROUP_NAME, GROUP_ORDER, PASS_GROUP, PASS_SUBS, menuGroups } from './dicts-search.js';
-import { dictsTable, fmt, linesToKinds, productGroupSortBtns } from './dicts-sort.js';
+import { dictsTable, fmt, linesToKinds, loadCodeNames, productGroupSortBtns } from './dicts-sort.js';
 
 /**
  * «Справочники» (TASKS СП.4–СП.8, DESIGN §4 «Справочники»): слева группы (на телефоне — один select), справа
@@ -40,7 +40,7 @@ export function mountDicts(params) {
   let q = '', menuQ = '', sectionFilter = '', kindFilter = '';
   let loadId = 0, loading = true, failed = false;
   const expanded = new Map(); let navCur = null; // navCur — справочник, для которого меню раскрывалось в последний раз
-  const nav = h('nav', { class: 'panel', 'aria-label': 'Справочники' });
+  const nav = h('nav', { class: 'panel', 'aria-label': 'Справочники' }, busyBlock('список справочников')); // до ответа сервера — не пустая панель
   const title = h('h2', null, '…');
   const hintEl = hintKit('');
   // общий поиск (ПО.3): пусто — весь справочник
@@ -55,8 +55,9 @@ export function mountDicts(params) {
   let sortMode = 'no'; // productGroups: no | name
   const addBtn = button({ label: '+ Добавить', kind: 'primary', onClick: () => patch({ of: 'dict', new: '1', open: undefined }) }); addBtn.hidden = true; // до загрузки справочника права неизвестны (паспортные — директор и админ): покажет reload()
   const candBtn = button({ label: 'Найти в данных…', title: 'Значения, которые уже встречаются в заявках, на складе и в Google-таблице, но ещё не в справочнике', onClick: () => toggleCandidates() }); candBtn.hidden = true;
-  const cand = h('div', { hidden: true }); const body = h('div');
-  const box = h('section', { class: 'panel' }, toolbar(title, candBtn, addBtn), hintEl, searchWrap, filters, cand, body);
+  const cand = h('div', { hidden: true }); const body = h('div'); const findBox = pad(searchWrap, filters);
+  // шапка: название и пояснение слева, действия справа; ниже — поиск и фильтры с отступами панели (порядок C116)
+  const box = h('section', { class: 'panel' }, pad(headbar(h('div', null, title, hintEl), actions(candBtn, addBtn))), findBox, cand, body);
   const el = h('div', h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Справочники'), h('div', { class: 'sub' }, 'Здесь меняются значения выпадающих списков: добавить, исправить, удалить. Изменение сразу видно во всех разделах'))), layout.split({ side: nav, main: box, sideLabel: 'Справочники' }));
 
   // Меню: серверные группы → 4 понятные + «Контрагенты»; «Документы» свёрнуты, пока не выбран справочник из неё
@@ -85,7 +86,7 @@ export function mountDicts(params) {
       return { ...g, items, fold: true, open: term ? true : expanded.get(g.title), onToggle: (v) => { if (!term) expanded.set(g.title, v); } };
     }).filter((g) => g.items.length);
     navBody.replaceChildren(visible.length ? navList({ groups: visible, value: cur, label: 'Справочники', onPick: (k) => { const group = gs.find((g) => g.items.some((it) => it.key === k)); if (group) expanded.set(group.title, true); go('dicts', { d: k }, { replace: true }); } }).el : empty({ title: 'Справочник не найден', kind: 'notFound', onReset: () => menuSearch.clear(), resetLabel: 'Очистить поиск' }));
-    if (!nav.contains(navBody)) nav.replaceChildren(h('label', { class: 'field' }, h('span', null, 'Найти справочник'), menuSearch.el), navBody);
+    if (!nav.contains(navBody)) nav.replaceChildren(pad(h('label', { class: 'field' }, h('span', null, 'Найти справочник'), menuSearch.el)), navBody);
   }
 
   function renderTable() {
@@ -111,7 +112,7 @@ export function mountDicts(params) {
     if (!items.length) { body.replaceChildren(empty({ title: 'Справочник пока пуст', hint: canEditDict() ? 'Добавьте запись кнопкой «Добавить».' : undefined })); return; }
     if (!rows.length) { body.replaceChildren(empty({ title: 'По выбранным условиям ничего не найдено', hint: 'Измените поиск или снимите ограничения.' })); return; }
     body.replaceChildren(dictsTable({
-      dictKey: dict.key, rows, cols, sortMode, onSort: (m) => { sortMode = m; renderTable(); },
+      dictKey: dict.key, rows, cols, codeNames: data.codeNames, sortMode, onSort: (m) => { sortMode = m; renderTable(); },
       canEdit: canEditDict(), isLocked: (r) => isLocked(dict, r), lockBadge, colorBadge,
       fieldOf: (k) => fieldOf(k), fmt: (f, v) => fmt(f, v, dict.refs), dup,
       qualityCell: (r) => { const m = qualityBadges({ dupe: dup.get(r.id) || 0, dupeHint: 'Такое же название есть у другой записи — объедините' }); return m.length ? h('span', null, ...m) : ''; },
@@ -179,7 +180,7 @@ export function mountDicts(params) {
       if (id !== loadId) return;
       groups = g.items;
       title.textContent = 'Тексты паспорта'; hintEl.textContent = 'Что подставляется в паспорт: раздел → 2–3 варианта → текст. Менеджер выбирает вариант, а не пишет текст.';
-      searchWrap.hidden = true; filters.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
+      findBox.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
       renderNav();
       if (!tree) tree = mountTree();
       if (!body.contains(tree.el)) body.replaceChildren(tree.el);
@@ -193,7 +194,7 @@ export function mountDicts(params) {
       if (id !== loadId) return;
       groups = g.items;
       title.textContent = 'Склады'; hintEl.textContent = 'Какие позиции видит каждый склад: категории и отдельные позиции. Склад выбирается у роли; кладовщик видит только свой.';
-      searchWrap.hidden = true; filters.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
+      findBox.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
       renderNav();
       if (!zonesView) zonesView = mountZones();
       if (!body.contains(zonesView.el)) body.replaceChildren(zonesView.el);
@@ -207,7 +208,7 @@ export function mountDicts(params) {
       if (id !== loadId) return;
       groups = g.items;
       title.textContent = 'Общие разделы паспорта'; hintEl.textContent = 'Шаблон разделов по типам паспорта (общие указания, хранение, гарантия…): что общее для всех, что своё у типа паспорта и что его заменяет. Клик по пункту — правка справа.';
-      searchWrap.hidden = true; filters.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
+      findBox.hidden = true; candBtn.hidden = true; addBtn.hidden = true; cand.hidden = true;
       renderNav();
       if (!texts) texts = mountTexts();
       if (!body.contains(texts.el)) body.replaceChildren(texts.el);
@@ -220,10 +221,10 @@ export function mountDicts(params) {
     if (key === TEXTS_KEY) return reloadTexts(id);
     if (key === TREE_KEY) return reloadTree(id);
     if (key === ZONES_KEY) return reloadZones(id);
-    searchWrap.hidden = false; filters.hidden = false; loading = true; failed = false; renderTable();
+    findBox.hidden = false; loading = true; failed = false; renderTable();
     try {
       const [g, d] = await Promise.all([api('/dicts'), api(`/dicts/${key}`)]);
-      if (id !== loadId) return;
+      d.codeNames = await loadCodeNames(d.dict, api); if (id !== loadId) return; // коды соседних справочников → названия
       groups = g.items; data = d; loading = false; curNewTitle = d.dict.newTitle || null;
       editRoles = g.items.flatMap((x) => x.items).find((i) => i.key === d.dict.key)?.editRoles || null;
       addBtn.hidden = !canEditDict();

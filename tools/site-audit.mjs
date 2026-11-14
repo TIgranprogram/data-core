@@ -49,6 +49,7 @@ export const RULES = {
   fl: 'поле формы без видимой подписи (aria-label и placeholder не заменяют подпись)',
   fg: 'соседние поля формы слиплись или перекрылись',
   tw: 'таблица шире своей области больше чем на 20px — столбцы уходят за экран (C111, 2026-11-14: «Нужно сделать паспорт»)',
+  pe: 'заголовок, подпись, пояснение или поле вплотную к краю панели — меньше 6px (пользователь 2026-11-14, «Справочники» после C116)',
   tx: 'C114 I: длинная подсказка (больше 20 слов — предупреждение, больше 35 — ошибка) или стопка заметок подряд (больше 3); известные строки — tools/site-audit-tx-known.json',
   ax: 'axe: нарушение доступности (автоматическая проверка)',
   axcheck: 'axe: проверка доступности не выполнена',
@@ -390,6 +391,10 @@ if(!/^#(help|atlas|guide)/.test(location.hash)){
     for(const k of box.children){if(vis(k)&&k.matches('.hint,.fill-note,.g-note')){if(!run++)first=k}else run=0;
       if(run===${TX_STACK}+1)add('tx','stack','стопка заметок подряд (больше ${TX_STACK}): '+first.innerText.replace(/\\s+/g,' ').trim().slice(0,60))}}
 }
+// pe (пользователь 14.11, «Справочники»): заголовок, подпись, пояснение или поле вплотную к краю панели — нет отступа
+for(const el of document.querySelectorAll('main .panel :is(h2,h3,label.field>span:first-child,.hint,input:not([type=hidden]):not([type=checkbox]):not([type=radio]),select)')){
+  if(!vis(el)||el.closest('table,.k-nav-list,.drawer'))continue;const p=el.closest('.panel').getBoundingClientRect(),r=el.getBoundingClientRect();
+  const gap=Math.min(r.left-p.left,p.right-r.right);if(gap<6)add('pe',sel(el),'вплотную к краю панели ('+Math.round(gap)+'px): '+(el.innerText||el.placeholder||'').trim().slice(0,40))}
 for(const t of document.querySelectorAll('main table,.drawer table')){if(!vis(t)||!t.parentElement)continue;const pw=t.parentElement.clientWidth;if(t.scrollWidth>pw+20)add('tw',sel(t),'таблица '+t.scrollWidth+'px в области '+pw+'px')}
 for(const el of document.querySelectorAll('.chip[role=tab],.k-seg-btn,.chips .chip')){
   if(!vis(el))continue;const t=el.innerText.replace(/\\s+/g,' ').trim();
@@ -510,7 +515,8 @@ async function main() {
   }
 
   const main = fs.readFileSync(path.join(ROOT, 'backend/pwa/main.js'), 'utf8');
-  const sections = [...(main.match(/const NAV = \[(.+?)\];/s)?.[1] ?? '').matchAll(/\['(\w+)',\s*'/g)].map((m) => m[1]);
+  // + разделы из «Настройки → Данные»: их нет в главном меню (14.11: «Справочники» сломались, обход их не видел)
+  const sections = [...[...(main.match(/const NAV = \[(.+?)\];/s)?.[1] ?? '').matchAll(/\['(\w+)',\s*'/g)].map((m) => m[1]), 'dicts?d=departments', 'dicts?d=passportMaterials'];
   if (!sections.length) { sayErr('Не нашёл меню (NAV) в backend/pwa/main.js'); return 2; }
 
   fs.rmSync(AUDIT_DIR, { recursive: true, force: true });
@@ -586,7 +592,7 @@ async function main() {
         await ev(`location.hash=${JSON.stringify('#' + sec)};1`);
         await sleep(700); await ev(settle);
         if (w === WIDTHS[0]) screens++;
-        await take(sec, w, 'main', `${sec}-${w}.png`);
+        await take(sec, w, 'main', `${sec.replace(/[?=&]/g, '_')}-${w}.png`);
         if (w === 1600) { const t = await ev(TCARD); if (t) tcards[sec] = t; }
         // вкладки и фильтры — один раз, на средней ширине
         if (w === 1024) {
@@ -610,7 +616,7 @@ async function main() {
           if (await ev(expr)) {
             if (w === WIDTHS[0]) panels++;
             await sleep(900); await ev(settle);
-            await take(sec, w, kind, `${sec}-${kind}-${w}.png`);
+            await take(sec, w, kind, `${sec.replace(/[?=&]/g, '_')}-${kind}-${w}.png`);
             await ev(CLOSE); await sleep(400);
             await ev(`location.hash=${JSON.stringify('#' + sec)};1`); await sleep(300);
           }
