@@ -117,8 +117,19 @@ export function sizeFromStock(text: string, rec: MatRec): string {
   return '';
 }
 
+const stem = (v: unknown) => low(v).replace(/[аяыиуюоеь]+$/, '');
+/** Части справочника «Части изделия» по названиям частей изделия: «Стойки» ↔ «Стойка» (без окончания). Нет в справочнике — пропуск (часть не выдумываем). */
+function partIdsByName(names: string[] | undefined, parts: (PartRec & { id: string })[]): string[] {
+  const out: string[] = [];
+  for (const n of names ?? []) {
+    const hit = parts.find((p) => stem(p.name) === stem(n) && stem(n));
+    if (hit && !out.includes(hit.id)) out.push(hit.id);
+  }
+  return out;
+}
+
 /** `link` — связь позиции склада с материалом паспорта (МЦ-2, `materials.passportSpec`); без неё — подсказка по названию. */
-export type StockLine = { name: string; text: string; link?: ManualTexts & { materialId: string; sizes: string[]; isCoating: boolean } | null };
+export type StockLine = { name: string; text: string; /** Названия частей изделия, к которым привязана позиция (products.parts[].lineId → название). */ partNames?: string[]; link?: ManualTexts & { materialId: string; sizes: string[]; isCoating: boolean } | null };
 /**
  * «Взять из состава» (МИ.2): позиции склада из «Состава изделия» → строки таблицы. Сначала связь позиции (МЦ-2,
  * `link`; запись справочника удалена/нет среди `recs` — связи нет), иначе подсказка по названию — такие названия
@@ -126,11 +137,12 @@ export type StockLine = { name: string; text: string; link?: ManualTexts & { mat
  * с размером (написание из «Сортамента», если такой размер там есть), одинаковый материал — одна строка; покрытия
  * («Краска порошковая») — в coatingIds. Что не подошло ни к одной записи — в unmatched (решает человек).
  */
-export function specFromComposition(lines: StockLine[], recs: (MatRec & { id: string })[], sortament: { material?: unknown; name?: unknown }[]) {
+export function specFromComposition(lines: StockLine[], recs: (MatRec & { id: string })[], sortament: { material?: unknown; name?: unknown }[], parts: (PartRec & { id: string })[] = []) {
   const mats = recs.filter((r) => s(r.kind) !== 'coating');
   const coats = recs.filter((r) => s(r.kind) === 'coating');
   const rows: SpecRow[] = []; const coatingIds: string[] = []; const unmatched: string[] = []; const hinted: string[] = [];
   const coatingTexts: CoatingText[] = [];
+  const partsOf = (l: StockLine) => partIdsByName(l.partNames, parts);
   for (const l of lines) {
     if (l.link && recs.some((r) => r.id === l.link!.materialId)) {
       const texts: ManualTexts = { ...(s(l.link.passportText) ? { passportText: s(l.link.passportText) } : {}), ...(s(l.link.techText) ? { techText: s(l.link.techText) } : {}) };
@@ -141,6 +153,7 @@ export function specFromComposition(lines: StockLine[], recs: (MatRec & { id: st
       }
       let lr = rows.find((r) => r.materialId === l.link!.materialId && r.passportText === texts.passportText && r.techText === texts.techText);
       if (!lr) rows.push((lr = { materialId: l.link.materialId, sizes: [], partIds: [], ...texts }));
+      for (const p of partsOf(l)) if (!lr.partIds.includes(p)) lr.partIds.push(p);
       for (const z of l.link.sizes) if (!lr.sizes.some((x) => low(normSize(x)) === low(normSize(z)))) lr.sizes.push(z);
       continue;
     }
@@ -155,6 +168,7 @@ export function specFromComposition(lines: StockLine[], recs: (MatRec & { id: st
     let row = rows.find((r) => r.materialId === mat.id && !r.passportText && !r.techText);
     if (!row) rows.push((row = { materialId: mat.id, sizes: [], partIds: [] }));
     if (size && !row.sizes.includes(size)) row.sizes.push(size);
+    for (const p of partsOf(l)) if (!row.partIds.includes(p)) row.partIds.push(p);
   }
   return { rows, coatingIds, ...(coatingTexts.length ? { coatingTexts } : {}), unmatched, hinted };
 }

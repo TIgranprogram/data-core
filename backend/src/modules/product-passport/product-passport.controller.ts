@@ -173,6 +173,14 @@ export class ProductPassportController {
     return this.service.fillQueue(id);
   }
 
+  /** C114 D-S: чего не хватает техописанию — { ready, missing[{key,label,required,weight,opens}] }. */
+  @AppSection('products', 'passports')
+  @Get('showcase/:id/techsheet-gaps')
+  @Roles('admin', 'director', 'manager', 'user')
+  techsheetGaps(@Param('id') id: string) {
+    return this.service.techsheetGaps(id);
+  }
+
   /** Модели (артикул + наименование) с фото и полями — выбор модели при создании паспорта. */
   @Get('passports/models')
   @Roles(...VIEW)

@@ -1,6 +1,7 @@
 import { Types, type mongo } from 'mongoose';
 import { GAP_OPENS, GAP_WEIGHT, PRODUCT_ITEMS, type FillTarget } from './product-fill-weights';
 import type { GapItem } from './passport-gaps';
+import { TECH_ONLY_KEYS, TECH_PROJECTION, techSheetGaps } from './techsheet-gaps';
 
 export interface FillItem {
   key: string; label: string; kind: GapItem['kind'] | 'product'; target: FillTarget; weight: number; required: boolean; opens: string; urgent: boolean;
@@ -11,7 +12,8 @@ export interface FillQueue {
   /** Очередь пустых пунктов: что заполнить первым — в начале. */
   items: FillItem[];
   /** Очередь собрана только по паспорту: проверки техописания пока нет. */
-  scope: 'passport';
+  /** passport+techsheet — учтены и пробелы техописания (materials, parts). */
+  scope: 'passport' | 'passport+techsheet';
 }
 
 export interface FillInput {
@@ -20,6 +22,8 @@ export interface FillInput {
   /** Изделие стоит в открытых заказах (вес × 2) или по нему уже есть выпущенные паспорта (× 1,5). */
   inOrders: boolean;
   hasIssued: boolean;
+  /** Добавить пробелы техописания (материалы, части). Без флага — только паспорт. */
+  withTechsheet?: boolean;
 }
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0);
@@ -56,15 +60,21 @@ export function buildFillQueue(input: FillInput): FillQueue {
     if (it.covers.some((k) => gapKeys.has(k))) { applicable--; return; }
     if (empty.has(it.key)) items.push({ key: it.key, label: it.label, kind: 'product', target: it.target, weight: it.weight, required: false, opens: it.opens, urgent, score: it.weight * mult, at: open.length + i });
   });
+  if (input.withTechsheet) {
+    for (const g of techSheetGaps(input.product).filter((x) => TECH_ONLY_KEYS.includes(x.key))) {
+      applicable++;
+      items.push({ key: g.key, label: g.label, kind: 'product', target: 'techsheet', weight: g.weight, required: g.required, opens: g.opens, urgent, score: g.weight * mult, at: open.length + PRODUCT_ITEMS.length + items.length });
+    }
+  }
   items.sort((a, b) => Number(b.kind === 'category') - Number(a.kind === 'category') || Number(b.required) - Number(a.required) || b.score - a.score || a.at - b.at);
   const total = applicable + open.length;
-  return { done: Math.max(0, total - items.length), total, items: items.map((i) => ({ key: i.key, label: i.label, kind: i.kind, target: i.target, weight: i.weight, required: i.required, opens: i.opens, urgent: i.urgent })), scope: 'passport' };
+  return { done: Math.max(0, total - items.length), total, items: items.map((i) => ({ key: i.key, label: i.label, kind: i.kind, target: i.target, weight: i.weight, required: i.required, opens: i.opens, urgent: i.urgent })), scope: input.withTechsheet ? 'passport+techsheet' : 'passport' };
 }
 
 /** Данные изделия и его связи для очереди: сам документ, участие в заказах, выпущенные паспорта. */
 export async function loadFillContext(db: mongo.Db, productId: string): Promise<Pick<FillInput, 'product' | 'inOrders' | 'hasIssued'>> {
   const _id = new Types.ObjectId(productId);
-  const product = (await db.collection('products').findOne({ _id, deletedAt: null }, { projection: { dimensions: 1, weightKg: 1, composition: 1, installation: 1 } })) ?? {};
+  const product = (await db.collection('products').findOne({ _id, deletedAt: null }, { projection: { ...TECH_PROJECTION, composition: 1 } })) ?? {};
   const [line, issued] = await Promise.all([
     db.collection('incomes').findOne({ productId: _id, deletedAt: null, cancelledAt: null, orderId: { $ne: null } }, { projection: { _id: 1 } }),
     db.collection('productpassports').findOne({ productId: _id, deletedAt: null, status: 'issued' }, { projection: { _id: 1 } }),

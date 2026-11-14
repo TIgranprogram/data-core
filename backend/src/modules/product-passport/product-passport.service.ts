@@ -29,6 +29,7 @@ import { PassportBulk } from './passport-bulk';
 import { productFunnel } from './passport-funnel';
 import { DEFAULT_INSTALL, applyCategoryDefaults, productGaps } from './passport-gaps';
 import { buildFillQueue, loadFillContext } from './product-fill-queue';
+import { productTechGaps } from './techsheet-gaps';
 import { unreadableRequiredImages } from './passport-image-files';
 import { facetPhrases, groupChain } from './passport-facet-phrases';
 import { diffPatch, followsProduct, productCategories, productPatch } from './passport-from-product';
@@ -755,12 +756,15 @@ export class ProductPassportService {
   /** GET showcase/:id/passport-gaps → чего не хватает изделию для паспорта (C028, A3). */
   gaps(productId: string) { return productGaps(this, this.connection.db!, productId); }
 
-  /** GET showcase/:id/fill-queue → «заполнено N из M» и очередь «что заполнить первым» (C114 J; пока по паспорту). */
+  /** GET showcase/:id/fill-queue → «заполнено N из M» и очередь «что заполнить первым» (C114 J; паспорт + материалы/части техописания). */
   async fillQueue(productId: string) {
     const db = this.connection.db!;
     const g = await productGaps(this, db, productId);
-    return buildFillQueue({ gaps: g.missing, ...(await loadFillContext(db, productId)) });
+    return buildFillQueue({ gaps: g.missing, withTechsheet: true, ...(await loadFillContext(db, productId)) });
   }
+
+  /** GET showcase/:id/techsheet-gaps → чего не хватает техописанию (C114 D-S): { ready, missing[] }. */
+  techsheetGaps(productId: string) { return productTechGaps(this.connection.db!, productId); }
 
   /** Обязательные разделы воронки без выбора → [{ label, key: 'choice:<id раздела>' }]; текст, набранный вручную, раздел закрывает. */
   private async choiceMissing(d: Doc): Promise<Array<{ label: string; key: string }>> {

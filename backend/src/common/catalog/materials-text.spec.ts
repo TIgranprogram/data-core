@@ -101,6 +101,16 @@ describe('«Взять из состава» (МИ.2)', () => {
     expect(r.coatingIds).toEqual(['powder']);
     expect(r.hinted).toEqual(['Лист 2х1250х2500']);
   });
+  it('C114 D-S: часть изделия из состава — по названию части (Стойки ↔ Стойка); нет в справочнике — пусто', () => {
+    const r = specFromComposition([
+      { name: 'Труба 89х3', text: 'Труба 89х3', partNames: ['Стойки', 'Рама'] },
+      { name: 'Лист 2х1250х2500', text: 'Лист 2х1250х2500', partNames: ['Крыша'] },
+    ], recs, [], [{ id: 'post', name: 'Стойка' }]);
+    expect(r.rows).toEqual([
+      { materialId: 'pipe', sizes: ['∅89×3'], partIds: ['post'] },
+      { materialId: 'sheet', sizes: ['2'], partIds: [] },
+    ]);
+  });
   it('пустой состав — пустая таблица', () => {
     expect(specFromComposition([], recs, [])).toEqual({ rows: [], coatingIds: [], unmatched: [], hinted: [] });
   });

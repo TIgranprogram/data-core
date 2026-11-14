@@ -53,3 +53,11 @@ Scope: `backend/pwa/sections/docs.js`, `docs-orders.js`, `docs-queue.js`, `passp
 3. H-REPORT.md шаги 1–2: веса и `GET /showcase/:id/fill-queue` (пробелы паспорта; техописание — позже). Юнит-тесты. openapi/MAP обновить.
 Scope: `backend/src/**`, `backend/test/**`, разрешённые выше строки pwa. Отчёт J-REPORT.md.
 - Вкладки «Документации»: справа виден лишний вертикальный ползунок прокрутки (tabs scroll), хотя всё влезает.
+
+## Волна 4 (после c2e977ae)
+### H-UI — frontend: блок «Заполнено N из M» (H-REPORT шаги 4–6)
+Читать `GET /showcase/:id/fill-queue` (J-REPORT.md). Блок вверху панели изделия: «Заполнено N из M» + полоса, «Начните с этого» (одна главная кнопка), до 3 следующих, остальное свёрнуто; числа у вкладок «Паспорт»/«Техописание». Клик → воронка паспорта с `gapKey` (сразу фокус на поле через focusGap) или правка поля изделия. Только kit-эталоны. Scope: `backend/pwa/sections/products/**` КРОМЕ `tech-sheet.js`; `backend/pwa/sections/passports/funnel/open.js`, `funnel/index.js`. Отчёт H-UI-REPORT.md.
+### D-S — backend: техописание, сервер (D-REPORT шаги 1 и 3)
+1. «Взять из состава» заполняет часть (partIds), а не пустую (`materials-text.ts:143,156`). 2. `GET /showcase/:id/techsheet-gaps` (чего не хватает техописанию) и подключить в `fill-queue` (scope → 'passport+techsheet'). Тесты. Scope: `backend/src/**`, docs MAP/openapi. Не трогать pwa. Отчёт D-S-REPORT.md.
+### I-1 — frontend: эталоны инфографики + правило аудита (I-REPORT шаги 1–2)
+5 видов как варианты существующих kit-эталонов, витрина `#kit`; правило `tx` в `tools/site-audit.mjs` (>20 слов — предупреждение, >35 — ошибка, >3 заметок подряд), текущие строки — базовая линия. Scope: `backend/pwa/ui/kit/**`, `backend/pwa/sections/kit.js`, `backend/pwa/ui/*.css` (только для эталонов), `tools/site-audit.mjs`. Экраны не менять. Отчёт I1-REPORT.md.

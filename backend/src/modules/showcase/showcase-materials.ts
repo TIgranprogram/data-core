@@ -9,13 +9,22 @@ import { clean, type Doc } from './showcase-common';
 export class ShowcaseMaterials extends MaterialsSpecRefs {
   /** «Взять из состава» (МИ.2): предложение таблицы по материалам «Состава изделия»; ничего не записывает. */
   async fromComposition(id: string) {
-    const d = (await this.db.collection('products').findOne({ _id: oid(id, 'изделия') }, { projection: { composition: 1 } })) as Doc | null;
+    const d = (await this.db.collection('products').findOne({ _id: oid(id, 'изделия') }, { projection: { composition: 1, parts: 1 } })) as Doc | null;
     if (!d) throw new NotFoundException('Изделие не найдено');
-    const refs = ((d.composition as Record<string, unknown>[] | undefined) ?? []).filter((l) => l.lineType === 'material' && l.refId).map((l) => l.refId as Types.ObjectId);
-    const [stock, recs, sortament] = await Promise.all([
+    const comp = ((d.composition as Record<string, unknown>[] | undefined) ?? []).filter((l) => l.lineType === 'material' && l.refId);
+    const refs = comp.map((l) => l.refId as Types.ObjectId);
+    // части изделия (products.parts[].lineId → строка состава): название части — к материалу этой строки
+    const partNames = new Map<string, string[]>();
+    for (const pt of (d.parts as { lineId?: Types.ObjectId; name?: string }[] | undefined) ?? []) {
+      const line = pt.lineId && comp.find((l) => String(l._id) === String(pt.lineId));
+      if (!line || !clean(pt.name)) continue;
+      const k = String(line.refId); partNames.set(k, [...(partNames.get(k) ?? []), clean(pt.name)]);
+    }
+    const [stock, recs, sortament, partRecs] = await Promise.all([
       refs.length ? this.db.collection('materials').find({ _id: { $in: refs } }, { projection: { name: 1, assortment: 1, materialGrade: 1, dimensions: 1, 'passportSpec.materialId': 1, 'passportSpec.sizes': 1, 'passportSpec.isCoating': 1, 'passportSpec.passportText': 1, 'passportSpec.techText': 1 } }).toArray() : [],
       this.db.collection('dict_values').find({ dict: 'passportMaterials', deletedAt: null }).toArray(),
       this.db.collection('dict_values').find({ dict: 'passportSortament', deletedAt: null }, { projection: { name: 1, material: 1 } }).toArray(),
+      this.db.collection('dict_values').find({ dict: 'passportParts', deletedAt: null }, { projection: { name: 1 } }).toArray(),
     ]);
     const byId = new Map(stock.map((x) => [String(x._id), x]));
     const lines = refs.map((r) => byId.get(String(r))).filter(Boolean).map((x) => {
@@ -25,9 +34,9 @@ export class ShowcaseMaterials extends MaterialsSpecRefs {
       const extra = /\d/.test(text) ? '' : dim('diameter') ? ` ∅${dim('diameter')}${dim('thickness') ? '×' + dim('thickness') : ''}` : dim('thickness') ? ` ${dim('thickness')} мм` : '';
       const ps = x!.passportSpec as { materialId?: Types.ObjectId; sizes?: string[]; isCoating?: boolean; passportText?: string; techText?: string } | undefined;
       const link = ps?.materialId ? { materialId: String(ps.materialId), sizes: ps.sizes ?? [], isCoating: !!ps.isCoating, passportText: ps.passportText, techText: ps.techText } : null;
-      return { name: clean(x!.name), text: text + extra, link };
+      return { name: clean(x!.name), text: text + extra, link, partNames: partNames.get(String(x!._id)) };
     });
-    const r = specFromComposition(lines, recs.map((x) => ({ ...(x as MatRec), id: String(x._id) })), sortament as { material?: unknown; name?: unknown }[]);
+    const r = specFromComposition(lines, recs.map((x) => ({ ...(x as MatRec), id: String(x._id) })), sortament as { material?: unknown; name?: unknown }[], partRecs.map((x) => ({ name: x.name, id: String(x._id) })));
     const materialsSpec: MaterialsSpec = { rows: r.rows, coatingIds: r.coatingIds, ...(r.coatingTexts ? { coatingTexts: r.coatingTexts } : {}) };
     return { materialsSpec, materialsText: await this.text(materialsSpec), unmatched: r.unmatched, hinted: r.hinted };
   }

@@ -1,4 +1,6 @@
 # Карта роли backend
+## C114 D-S техописание сервер (2026-11-14, не закоммичено)
+- `product-passport/techsheet-gaps.ts:17` techSheetGaps, `:35` productTechGaps; маршрут `showcase/:id/techsheet-gaps`; в `product-fill-queue.ts:60` withTechsheet. Часть из состава — `common/catalog/materials-text.ts` partIdsByName + `specFromComposition(…, parts)`, `showcase/showcase-materials.ts fromComposition`. Spec `techsheet-gaps.spec.ts`, `materials-text.spec.ts`. Отчёт `docs/crew/C114-passport-finish/D-S-REPORT.md`. коммит: —
 ## C114 J очередь заполнения (2026-11-14, не закоммичено)
 - `product-passport/product-fill-queue.ts:43` buildFillQueue, `:65` loadFillContext; веса — `product-fill-weights.ts`; маршрут `product-passport.controller.ts` `showcase/:id/fill-queue`, `service.fillQueue`; spec `product-fill-queue.spec.ts`. Подпись «Фирма» — `passport-rules.ts:145,246`. Название позиции → name паспорта: pwa `funnel/api.js:52`, `issue.js lineTitle`. Отчёт `docs/crew/C114-passport-finish/J-REPORT.md`. коммит: —
 ## C114 A чужие тексты (2026-11-14, не закоммичено)
