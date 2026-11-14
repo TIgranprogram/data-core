@@ -7,7 +7,7 @@ import { mountList } from '../ui/kit/list.js';
 import { passports, issuePassport } from './passports.js';
 import { numbersStrip } from './passports/numbers-strip.js';
 import { canWorkPassport as canEditTexts, statusOf } from './passports/common.js';
-import { linkDialog, printDialog, previewPassport } from './passports/dialogs.js';
+import { linkDialog, previewPassport } from './passports/dialogs.js';
 import { passportFill } from './passports/template-form.js';
 import { savePd } from './products.js';
 import { mountOrdersTab } from './docs-orders.js';
@@ -103,10 +103,9 @@ export const doctpl = {
 
 // ─── вкладка «Выпущенные паспорта»: только просмотр и печать ────────────────────────────────────────────
 const archiveActions = (r) => [
-  { label: statusOf(r) === 'draft' ? '⇩ PDF черновика…' : '⇩ PDF и печать…', primary: true, run: (row) => printDialog(row) },
   // черновик, не доведённый до выпуска, — дописывается в полной карточке (она остаётся как рабочая форма выпуска)
-  statusOf(r) === 'draft' && canEditTexts() && { label: 'Дописать и выпустить', title: 'Черновик ещё без номера — откроется форма паспорта', run: (row) => patch({ of: 'passports', open: row.id }) },
-  !r.productId && canEditTexts() && { label: 'Привязать к изделию', run: (row, ctx) => linkDialog(row, ctx) },
+  statusOf(r) === 'draft' && canEditTexts() && { label: 'Дописать и выпустить', title: 'Черновик ещё без номера — откроется форма паспорта', more: true, run: (row) => patch({ of: 'passports', open: row.id }) },
+  !r.productId && canEditTexts() && { label: 'Привязать к изделию', more: true, run: (row, ctx) => linkDialog(row, ctx) },
 ].filter(Boolean);
 
 const oldBadge = (r) => (isOld(r) ? h('span', { class: 'badge dim', title: 'Перенесён из прежней таблицы паспортов' }, 'старый') : null);
@@ -132,7 +131,7 @@ export const passarchive = {
     columns: passports.list.columns.map((c) => (c.key === 'status'
       ? { ...c, render: (r) => h('span', null, c.render(r), oldBadge(r) ? ' ' : null, oldBadge(r)) } : c)),
   },
-  card: { ...passports.card, editTop: false, actions: archiveActions },
+  card: { ...passports.card, editTop: false, actions: (r, ctx) => [...archiveActions(r), ...passports.card.actions(r, ctx).filter((a) => a.label !== 'Привязать к изделию')] },
 };
 
 // ─── экран ────────────────────────────────────────────────────────────────────────────────────────────

@@ -28,7 +28,7 @@ export const BANDS = [
  */
 export const NODES = [
   // ── Клиенты и продажи
-  { id: 'partners', tpl: 'dict', tplStatus: 'legacy', band: 'sale', col: 0, sec: 'partners', href: '#partners', t: 'Контрагенты', l: ['заказчики, поставщики,', 'наши фирмы'],
+  { id: 'partners', tpl: 'card', tplStatus: 'ok', band: 'sale', col: 0, sec: 'partners', href: '#partners', t: 'Контрагенты', l: ['заказчики, поставщики,', 'наши фирмы'],
     inside: [
       { id: 'zakazchiki', t: 'Заказчики', l: 'кому продаём: реквизиты, контакты', out: ['offers', 'salesorders'] },
       { id: 'nashi-firmy', t: 'Наши фирмы', l: 'от чьего имени КП, счёт, паспорт', out: ['offers'] },

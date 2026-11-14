@@ -134,7 +134,8 @@ export const products = {
         ['Кто проектировал', r.designer ? `${r.designer.name}${r.designer.position ? ' · ' + r.designer.position : ''}` : h('span', { class: 'muted' }, 'не указан — к кому идти, если в паспорте не хватает данных')],
         ['Примечание', r.notes && !r.notes.startsWith('⚠') ? r.notes : null],
       ],
-      menu: (r) => [{ label: 'В КП', title: 'Добавить в коммерческое предложение', run: (row) => { kpAdd(row); toast(`В КП — всего ${kpCount()}`); } },
+      menu: (r) => [...(session.canEdit ? [{ label: 'Изменить', title: 'Правка полей изделия', run: (row, ctx) => ctx.edit() }] : []),
+      { label: 'В КП', title: 'Добавить в коммерческое предложение', run: (row) => { kpAdd(row); toast(`В КП — всего ${kpCount()}`); } },
       ...(session.canEdit ? [{ label: 'Изменить состав', run: (row) => { setCompositionTarget(row); patch({ of: 'composition', new: '1', open: undefined }); } }] : []),
       { label: 'Заказы с этим изделием', run: (row) => go('salesorders', { productId: row.id }) }, // ПМ-1: на виду ≤ 3 кнопок, связь — секция «В заказах»
       // C055: три печати на виду — паспорт, техническое описание, оба вместе
@@ -172,6 +173,7 @@ export const products = {
       tabs: (r) => productTabs(r),
     }),
     editTop: true,
+    editable: () => false, // «Изменить» — в «⋯»: внизу панели одна главная «Заполнить»
     zones: { fields: 'wide' },
     gallery: (r) => r.photos || [],
     photoAdd: data.photoAdd, photoSearch: (r) => r.name, // «Найти фото в интернете»

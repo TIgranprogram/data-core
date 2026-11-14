@@ -1,3 +1,11 @@
+## C118 W6b карточка контрагента (2026-11-15)
+коммит: не закоммичено
+- `sections/partners.js` card = screenCard (~245), `partnerTabs` ~196, `stockPane`; новый `sections/partners-requests.js` requestsByMonth (kit). atlas partners tpl card ok. Отчёт W6b-REPORT.md. Карта обновлена.
+
+## C118 W6a карточка паспорта (2026-11-15)
+коммит: не закоммичено
+- `sections/passports.js card` (~131) = `screenCard`: next/menu/tabs Паспорт·Проверка·Версии; `docs.js passarchive.card` (~135) actions поверх. Отчёт W6a-REPORT.md. Карта обновлена.
+
 ## C118 W5 карточка изделия по шаблону (2026-11-15)
 коммит: не закоммичено
 - `sections/products.js` card = `screenCard` (~108); `products/tabs.js productWarns`; `products/fill-block.js fillNext` (nextCard «Заполнить»); `products/card-blocks.js:32 warnNote` → warnCard. atlas products tpl card ok. Отчёт W5-REPORT.md. Карта обновлена.
@@ -338,3 +346,7 @@ commit: не закоммичено
 - ORDER-W1: kit/target-picker.js:69 (targetPicker, перенесён из ui/), kit/qty-input.js:10 (qtyInput), sections/order-attachments-zip.js (orderZipAction в конце), витрина sections/kit.js блоки qtyInput/targetPicker. Коммит: не закоммичено.
 
 - CL-D (2026-11-06): `ui/kit/searchbox.js` (searchBox, ушёл из ui/, data-k=search; экспорт `kit/index.js`), `--tap` в tokens.css, оверрайды `.btn.td-chip/.td-day/.sum-item` и `.ls-grid>.list-side`, `.t-pick input` — конец `kit/kit.css`; `home.js` paintPulse/paintWeek на `button({cls})`. Коммит: не закоммичено. Карта обновлена.
+
+## C118 W6c карточка заявки (2026-11-15)
+коммит: не закоммичено
+- `sections/requests.js` card = `screenCard` (~380, next/menu «Изменить»/«Сменить статус»); `sections/request-facts.js` FACTS/requestPairs (вынесено); `sections/products.js` card: `editable:()=>false`, «Изменить» в «⋯» menu. Отчёт W6c-REPORT.md. Карта обновлена.

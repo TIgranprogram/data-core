@@ -44,3 +44,10 @@ Scope: ui/kit/screens/blocks.js, sections/kit.js, файлы досок (salesor
 
 ### W5 — изделие на тех же блоках (datacore-frontend)
 (2.1) Карточка изделия (`sections/products*.js`, `products/tabs.js`, `products/fill-block.js`) по шаблону «Карточка объекта»: шапка (артикул, название, группа) → предупреждения warnCard → nextCard («Заполнение изделия» → главная кнопка «Заполнить» первого пункта) → infoCard (3–5 главных сведений + «Подробнее») → вкладки. Использовать ГОТОВЫЕ блоки ui/kit/screens (kit не менять). Шапка кнопок «В КП / Изменить состав / Паспорт / Техническое описание / Паспорт + техописание» — одна главная, остальные в «⋯». atlas: products tplStatus ok. Scope: только sections/products*, products/**, atlas-data.js (блок products). Отчёт W5-REPORT.md.
+
+### W6 — карточки паспорт, контрагент, заявка на тех же блоках (3 агента frontend, kit НЕ менять)
+Образец — карточка заказа (salesorders.js) и изделия (products.js) после W2/W5: screenCard + warnCard + nextCard («Что дальше» + одна главная кнопка) + infoCard (3–5 главных + «Подробнее») + вкладки; остальные кнопки — «⋯». atlas: tplStatus ok у своего блока; tools/tpl-baseline.json НЕ трогать (координатор).
+- W6a паспорт: карточка паспорта (`sections/passports.js` card, `docs.js` passarchive/passports). Главная кнопка: черновик — «Выпустить», выпущенный — «PDF и печать». Блок «Версии паспорта» и «Проверка — не хватает» — вкладками или свёрнутыми секциями. Плашка статуса «Выпущен, реда…» обрезается — в шапку бейджем. Scope: sections/passports.js, passports/revisions.js, docs.js (только card-часть).
+- W6b контрагент: `sections/partners*.js`. Главная кнопка по смыслу (заказ/заявка), реквизиты — infoCard. Scope: sections/partners*.
+- W6c заявка: `sections/requests*.js` card (доска уже на boardCard). Главная кнопка по этапу. Плюс пункт 1.8 изделия: «Убрать фото» только при наличии фото и рядом с зоной загрузки; нижняя «Изменить» — в «⋯» (одна главная «Заполнить»). Scope: sections/requests*, sections/products/card-blocks.js (только фото и кнопка).
+Каждый: --check, pwa-guards, design-lint; отчёт W6x-REPORT.md; глазами — координатор.

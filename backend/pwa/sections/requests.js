@@ -11,6 +11,8 @@ const invoiceHref = (id) => { const route = current(); return '#' + (route.secti
 import { stockLookup } from '../core/stock-list.js';
 import { badge, COST_CENTER, PRIORITY, SUPPLY_STATUS, supplyKey } from '../ui/kit/badges.js';
 import { boardCard } from '../ui/kit/screens/blocks.js';
+import { FACTS, requestPairs } from './request-facts.js';
+import { screenCard } from '../ui/kit/screens/card.js';
 import { modal, confirmDlg } from '../ui/kit/dialog.js';
 import { quickAdd } from '../ui/quick.js';
 import { openSide, sideForm } from '../ui/kit/side-form.js';
@@ -263,7 +265,7 @@ function stepAct(r) {
 }
 
 /** З5: метка заказа на карточке и в списке — «Заказ № N» (номер берётся из подписи заявки). */
-const orderTag = (r) => (r.salesOrderId ? 'Заказ № ' + (/№\s*([^\s·]+)/.exec(r.orderLabel || '')?.[1] || '—') : '');
+export const orderTag = (r) => (r.salesOrderId ? 'Заказ № ' + (/№\s*([^\s·]+)/.exec(r.orderLabel || '')?.[1] || '—') : '');
 
 const toInitial = (r) => ({ ...r, articleId: r.articleId ? String(r.articleId) : '', photos: r.photos || [], salesOrderRef: joinRef(r), status: supplyKey(r), priority: r.priority || 'normal', requestDate: r.requestDate ? isoDay(r.requestDate) : '', invoiceDate: r.invoiceDate ? String(r.invoiceDate).slice(0, 10) : '' });
 
@@ -408,61 +410,30 @@ export const requests = {
       if (!photoId) throw new Error('Это фото позиции склада — поменять его можно в карточке склада');
       return api(`/supply/requests/${r.id}/photos/${photoId}`, { method: 'DELETE' });
     },
-    heading,
     editTitle: (r) => 'Заявка — ' + name(r),
-    subheading: (r) => [date(r.requestDate || r.createdAt), r.requestedBy && `подал(а): ${r.requestedBy}`].filter(Boolean).join(' · '),
-    view: (r) => [
-      grp('Заявка'),
-      ['Статус', h('div', null, stageStrip(r) || badge(SUPPLY_STATUS, supplyKey(r)), r.priority && r.priority !== 'normal' ? badge(PRIORITY, r.priority) : '')],
-      ['Количество', `${qty(r.qty)} ${r.unit || ''}`.trim()],
-      ['Куда', [COST_CENTER[r.costCenter] || (r.salesOrderId ? COST_CENTER.order : ''), r.costObject].filter(Boolean).join(' · ')],
-      ['Категория', r.categoryName],
-      ['Ответственный', r.responsible],
-      ['Заказ / заказчик', r.salesOrderId ? h('a', { href: '#salesorders?open=' + r.salesOrderId }, r.orderLabel || orderTag(r)) : r.orderLabel],
-      ['Получено', r.status === 'received' ? (r.receivedTo === 'direct' ? 'без склада — сразу в работу / по назначению' : 'на склад') : ''],
-      ['Принято', r.status === 'received' && r.receivedQty ? qty(r.receivedQty) : ''],
-      grp('Деньги'),
-      ['Сумма с НДС', session.canMoney && r.priceHint ? money(r.priceHint) : ''], ['Статья расхода', session.canMoney ? r.articleName : ''],
-      ['В каталоге сейчас', session.canMoney && r.catalogCurrentPrice != null
-        ? h('span', { class: 'hint', title: 'Текущая цена в каталоге поставщика — заявка не меняется' },
-            money(r.catalogCurrentPrice) + ' ₽',
-            r.catalogPriceHistory?.length > 1
-              ? h('details', { class: 'price-history', style: 'display:inline-block;margin-left:.5rem' },
-                  h('summary', { style: 'cursor:pointer;font-size:.85em;color:var(--muted)' }, 'история'),
-                  table({ columns: [{ label: 'Дата' }, { label: 'Цена', num: true }, { label: 'Откуда' }],
-                    rows: r.catalogPriceHistory.map((e) => ({ cells: [date(e.date), money(e.price) + ' ₽', { v: e.source === 'excel' ? 'Excel' : 'заявка', cls: 'muted' }] })) })
-                )
-              : null
-          )
-        : ''],
-      grp('Счёт и поставщик'),
-      ['Поставщик', r.supplierName],
-      ['Наша компания', r.companyName],
-      ['Тип счёта', r.invoiceType],
-      ['№ счёта', r.invoiceNo],
-      ['Дата счёта', r.invoiceDate ? date(r.invoiceDate) : ''],
-      ['Доставка', r.deliveryNote],
-      grp('Товар'),
-      ['Артикул', r.article],
-      ['Цвет', r.color],
-      ['Короткое (склад)', r.materialId && r.materialName && r.materialName !== r.title ? r.materialName : ''],
-      ['Позиция склада', r.materialId ? h('a', { href: '#stock?open=' + r.materialId }, r.materialName || 'открыть') : ''],
-      ['Ссылка', r.productUrl ? h('a', { href: r.productUrl, target: '_blank', rel: 'noopener' }, 'открыть') : ''],
-      grp('Дополнительно'),
-      ['Примечание', r.notes],
-    ],
-    extra: (r, ctx) => stack(handoffLine('supplyrequest', r.id), r.invoiceId ? invoiceBlock(r, ctx) : null), // заявка в счёте — блок «Счёт»; без счёта — как раньше
-    // Одна главная кнопка = nextStep; «Принять» только в «Оплачено». Раньше «Принять» висела на всех статусах.
-    actions: (r) => {
-      const st = nextStep(r);
-      const step = stepAct(r);
-      return [
-        st?.kind === 'receive' ? { label: st.verb, primary: true, run: receive } : null,
-        step ? { ...step, primary: true } : null,
+    ...screenCard({
+      title: heading,
+      sub: (r) => [date(r.requestDate || r.createdAt), r.requestedBy && `подал(а): ${r.requestedBy}`].filter(Boolean).join(' · '),
+      stage: (r) => h('div', null, stageStrip(r) || badge(SUPPLY_STATUS, supplyKey(r)), r.priority && r.priority !== 'normal' ? badge(PRIORITY, r.priority) : ''),
+      next: (r, ctx) => {
+        const st = nextStep(r);
+        const miss = st && st.kind !== 'receive' ? missingFor(r, st.to) : [];
+        const text = !st ? (supplyKey(r) === 'received' ? 'Принято. Делать ничего не нужно.' : supplyKey(r) === 'cancelled' ? 'Заявка отменена — в расчёты не идёт.' : '')
+          : miss.length ? 'Перед шагом заполните: ' + miss.map((x) => x.label.toLowerCase()).join(', ') : COLUMN_HINT[supplyKey(r)] || '';
+        const act = st && st.kind !== 'receive' ? stepAct(r) : null;
+        const step = !st ? null : st.kind === 'receive' ? { label: st.verb, run: () => receive(r, ctx) } : act ? { label: act.label, run: () => act.run(r, ctx) } : null;
+        return { text, tone: miss.length ? 'warn' : 'neutral', primary: session.canEdit ? step : null };
+      },
+      facts: (r) => FACTS.map((k) => requestPairs(r).find((p) => p[0] === k)).filter(Boolean),
+      more: (r) => requestPairs(r).filter((p) => typeof p[0] === 'string' && !FACTS.includes(p[0]) && p[0] !== 'Статус'),
+      menu: (r) => [
+        { label: 'Изменить', run: (row, ctx) => ctx.edit() }, // правка — в «⋯»: одна главная кнопка этапа
         !r.invoiceId && !['received', 'cancelled'].includes(supplyKey(r)) ? { label: 'Сменить статус…', run: changeStatus } : null, // в счёте статус ведёт счёт
-        supplyKey(r) === 'received' && isAdmin() ? { label: 'Отменить приёмку', more: true, run: rollbackReceipt } : null,
-      ];
-    },
+        supplyKey(r) === 'received' && isAdmin() ? { label: 'Отменить приёмку', run: rollbackReceipt } : null,
+      ],
+    }),
+    editable: () => false,
+    extra: (r, ctx) => stack(handoffLine('supplyrequest', r.id), r.invoiceId ? invoiceBlock(r, ctx) : null), // заявка в счёте — блок «Счёт»; без счёта — как раньше
   },
 
   form: {

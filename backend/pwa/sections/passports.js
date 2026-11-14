@@ -1,4 +1,5 @@
-import { grp, stack } from '../ui/kit/index.js';
+import { stack } from '../ui/kit/index.js';
+import { screenCard } from '../ui/kit/screens/card.js';
 import { api, apiFile, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { busyBtn } from '../ui/kit/busy.js';
@@ -127,66 +128,75 @@ export const passports = {
     },
   },
 
+  // C118 W6a: шаблон «Карточка объекта» — шапка (статус бейджем) → предупреждения → «Что дальше» (одна главная кнопка) → сведения → вкладки; остальное — в «⋯»
   card: {
-    heading,
+    ...screenCard({
+      title: heading,
+      sub: (r) => [r.name, r.category].filter(Boolean).join(' · '),
+      stage: (r) => h('span', null, statusBadge(r), r.revision > 1 ? h('span', { class: 'badge dim', title: 'Версия паспорта' }, ' версия ' + r.revision) : null),
+      warns: (r) => [
+        statusOf(r) === 'annulled' && r.annulReason ? { tone: 'error', title: 'Аннулирован', sub: r.annulReason } : null,
+        statusOf(r) === 'draft' && r.missing?.length ? { title: 'Не хватает для выпуска', sub: r.missing.join(', ') } : null,
+        r.productCodeDuplicate ? { title: 'Номер изделия повторяется', sub: `${r.productCode} уже есть в другом паспорте` } : null,
+      ],
+      next: (r, ctx) => {
+        if (statusOf(r) === 'draft') {
+          if (!canWorkPassport()) return { text: 'Черновик: номер присваивает директор или администратор.' };
+          return { text: r.missing?.length ? 'Заполните недостающее — тогда можно выпустить.' : 'Всё заполнено: присвоить номер и талон, текст замораживается.',
+            primary: { label: 'Выпустить', disabled: !!r.missing?.length, title: r.missing?.length ? `Не хватает для выпуска: ${r.missing.join(', ')}` : 'Присвоить номер и талон; текст будет заморожен', run: () => issueAction(r, ctx) } };
+        }
+        if (statusOf(r) === 'annulled') return null;
+        return { text: 'Выпущен. Печать — PDF с номером и талоном.',
+          primary: { label: 'PDF и печать', disabled: !r.passportCategory, title: r.passportCategory ? '' : (canEdit() ? 'Нет типа паспорта — «⋯ → Выбрать тип паспорта»' : 'Нет типа паспорта — её указывает директор или администратор'), run: () => printDialog(r) } };
+      },
+      facts: (r) => [
+        ['Талон', r.warrantyCode],
+        ['Номер изделия', r.productCode],
+        ['Дата', date(r.date)],
+        ['Гарантия', `${r.warrantyMonths ?? 12} мес.`],
+        ['Заказчик', r.customerName],
+        ['Фирма', r.supplierOrg ? `${r.supplierOrg.name}${r.supplierOrg.hasSeal ? '' : ' (печать не загружена)'}` : r.supplier],
+      ],
+      more: (r) => [
+        ['Название', r.name], ['Категория', r.category], ['Артикул', r.article],
+        ['Габариты (В × Д × Ш)', dims(r)], ['Вес', r.weight ? num(r.weight) + ' кг' : ''],
+        ['Материалы', r.materials], ['Установка', r.installationMethod], ['Назначение', r.purpose], ['Описание', r.description],
+        ['№ договора', r.orderNo], ['Объект', r.objectName],
+        ['Источник', (r.printSource === 'file' || r.printFile?.hasFile) ? 'Файл' : 'С сайта'],
+        ['PDF скачан', r.pdfIssuedAt ? date(r.pdfIssuedAt) : ''], ['Заметки', r.note],
+      ],
+      menu: (r) => [
+        statusOf(r) === 'draft' && { label: r.passportCategory ? '⇩ PDF черновика…' : '⇩ PDF — нет типа', disabled: !r.passportCategory, title: r.passportCategory ? 'PDF с пометкой «ЧЕРНОВИК»' : 'Нет типа паспорта — «Выбрать тип паспорта»', run: (row) => printDialog(row) },
+        isIssued(r) && canEdit() && { label: 'Аннулировать…', title: 'Номер останется занятым и повторно не выдаётся', run: (row, ctx) => annulDialog(row, ctx) },
+        isIssued(r) && (session.role === 'admin' || session.user?.isOwner) && { label: 'Изменить номер…', run: (row, ctx) => numberDialog(row, ctx) },
+        !r.passportCategory && canWorkPassport() && { label: 'Выбрать тип паспорта', title: 'Без типа паспорта PDF упрощённый — с типом текст соберётся по справочникам', run: (row, ctx) => convertDialog(row, ctx) },
+        // ПИ.5: старый паспорт без изделия — привязать к изделию или создать изделие из него (одна модель, без массовых)
+        !r.productId && canWorkPassport() && { label: 'Привязать к изделию', run: (row, ctx) => linkDialog(row, ctx) },
+        !r.productId && canWorkPassport() && r.name && { label: 'Создать изделие из паспорта', title: 'Изделие в «Продукции» с данными этого паспорта; паспорта той же модели привяжутся к нему', run: async (row, ctx) => {
+          const key = `${String(row.name).replace(/\s+/g, ' ').trim()}\u0000${String(row.article || '').replace(/\s+/g, ' ').trim()}`;
+          if (!(await confirmDlg('Создать изделие?', `В «Продукции» появится «${row.name}» с размерами, текстами и фото этого паспорта. Паспорта той же модели (то же наименование и артикул) привяжутся к нему.`, { okText: 'Создать' }))) return;
+          try { const res = await api('/showcase/from-passports', { method: 'POST', body: { groups: [{ keys: [key], main: key }] } }); resetProducts(); toast(`Изделие создано, привязано паспортов: ${res.linked}`); ctx.setRow(await api(`/passports/${row.id}`)); } catch (e) { toastError(e); }
+        } },
+        canWorkPassport() && { label: 'Создать копию', title: 'Новый паспорт на ту же модель: новые номера, дата — сегодня', run: async (row, ctx) => {
+          try { const c = await api(`/passports/${row.id}/copy`, { method: 'POST', body: {} }); toast(`Создан паспорт № ${c.passportNumber} — укажите заказчика и дату`); ctx.changed(); go('passports', { ...current().params, open: c.id }); } catch (e) { toastError(e); }
+        } },
+      ],
+      tabs: (r) => {
+        const miss = (r.missing?.length || 0) + (r.standardWarnings?.length || 0) + (r.syncWarning ? 1 : 0);
+        return [
+          { key: 'main', label: 'Паспорт', blocks: (row, ctx) => {
+            const draft = statusOf(row) === 'draft';
+            return stack(printFileBlock(row, ctx), draft && canWorkPassport() ? passportWizard(row, ctx) : null, row.passportCategory ? pdfBlock(row, ctx) : null,
+              imagesBlock(row, ctx), bomBlock(row), row.passportCategory ? previewBlock(row, ctx) : null);
+          } },
+          { key: 'check', label: 'Проверка', count: miss || undefined, tone: miss ? 'warn' : undefined,
+            blocks: (row) => (row.passportCategory ? checkBlock(row) : h('div', { class: 'fill-note' }, row.missing?.length ? ['Не хватает для выдачи: ', h('b', null, row.missing.join(', '))] : 'Нет типа паспорта — проверять нечего.')) },
+          { key: 'versions', label: 'Версии', count: (r.revisionList || []).length || undefined, when: (row) => (row.revisionList || []).length > 0, blocks: (row, ctx) => revisionsBlock(row, ctx) },
+        ];
+      },
+    }),
     editTitle: (r) => [heading(r), r.name ? ' · ' + r.name : ''],
     editTop: true,
-    subheading: (r) => [r.name, r.category].filter(Boolean).join(' · '),
-    // версия — отдельной плиткой: приписка к статусу обрезалась («Выпущен, реда…»), C114
-    stats: (r) => [['Статус', STATUS_LABEL[statusOf(r)] + (r.annulReason ? ` — ${r.annulReason}` : '')], ...(r.revision > 1 ? [['Версия', String(r.revision)]] : []), ['Талон', r.warrantyCode || '—'], ['Номер изделия', `${r.productCode || '—'}${r.productCodeDuplicate ? ' (дубль)' : ''}`], ['Дата', date(r.date)], ['Гарантия', `${r.warrantyMonths ?? 12} мес.`]],
-    view: (r) => [
-      grp('Изделие'),
-      ['Название', r.name],
-      ['Категория', r.category],
-      ['Артикул', r.article],
-      ['Габариты (В × Д × Ш)', dims(r)],
-      ['Вес', r.weight ? num(r.weight) + ' кг' : ''],
-      grp('Описание'),
-      ['Материалы', r.materials],
-      ['Установка', r.installationMethod],
-      ['Назначение', r.purpose],
-      ['Описание', r.description],
-      grp('Заказ'),
-      ['Заказчик', r.customerName],
-      ['№ договора', r.orderNo],
-      ['Объект', r.objectName],
-      ['Фирма', r.supplierOrg ? `${r.supplierOrg.name}${r.supplierOrg.hasSeal ? '' : ' (печать не загружена)'}` : r.supplier],
-      ['Источник', (r.printSource === 'file' || r.printFile?.hasFile) ? 'Файл' : 'С сайта'],
-      ['PDF скачан', r.pdfIssuedAt ? date(r.pdfIssuedAt) : ''],
-      ['Заметки', r.note],
-    ],
-    actions: (r) => [
-      // одно окно: печать/подпись галочками, вид значками (A5, буклет A4, стенд A3), ч/б — у нового образца
-      // НМ: черновик — «Выпустить» (номер — сейчас, последним шагом); PDF черновика — с пометкой «ЧЕРНОВИК»
-      statusOf(r) === 'draft' && canWorkPassport() && { label: 'Выпустить', primary: true, run: (row, ctx) => issueAction(row, ctx),
-        ...(r.missing?.length ? { disabled: true, title: `Не хватает для выпуска: ${r.missing.join(', ')}` } : { title: 'Присвоить номер и талон; текст будет заморожен' }) },
-      !r.passportCategory ? { label: '⇩ PDF — нет типа', disabled: true, title: canEdit() ? 'Нет типа паспорта — нажмите «Выбрать тип паспорта»' : 'Нет типа паспорта — её указывает директор или администратор', run: () => {} }
-        : { label: statusOf(r) === 'draft' ? '⇩ PDF черновика…' : '⇩ PDF и печать…', primary: statusOf(r) !== 'draft', run: (row) => printDialog(row) },
-      isIssued(r) && canEdit() && { label: 'Аннулировать…', more: true, title: 'Номер останется занятым и повторно не выдаётся', run: (row, ctx) => annulDialog(row, ctx) },
-      isIssued(r) && (session.role === 'admin' || session.user?.isOwner) && { label: 'Изменить номер…', more: true, run: (row, ctx) => numberDialog(row, ctx) },
-      !r.passportCategory && canWorkPassport() && { label: 'Выбрать тип паспорта', more: true, title: 'Без типа паспорта PDF упрощённый — с типом текст соберётся по справочникам', run: (row, ctx) => convertDialog(row, ctx) },
-      // ПИ.5: старый паспорт без изделия — привязать к изделию или создать изделие из него (одна модель, без массовых)
-      !r.productId && canWorkPassport() && { label: 'Привязать к изделию', more: true, run: (row, ctx) => linkDialog(row, ctx) },
-      !r.productId && canWorkPassport() && r.name && { label: 'Создать изделие из паспорта', more: true, title: 'Изделие в «Продукции» с данными этого паспорта; паспорта той же модели привяжутся к нему', run: async (row, ctx) => {
-        const key = `${String(row.name).replace(/\s+/g, ' ').trim()}\u0000${String(row.article || '').replace(/\s+/g, ' ').trim()}`;
-        if (!(await confirmDlg('Создать изделие?', `В «Продукции» появится «${row.name}» с размерами, текстами и фото этого паспорта. Паспорта той же модели (то же наименование и артикул) привяжутся к нему.`, { okText: 'Создать' }))) return;
-        try { const res = await api('/showcase/from-passports', { method: 'POST', body: { groups: [{ keys: [key], main: key }] } }); resetProducts(); toast(`Изделие создано, привязано паспортов: ${res.linked}`); ctx.setRow(await api(`/passports/${row.id}`)); } catch (e) { toastError(e); }
-      } },
-      canWorkPassport() && { label: 'Создать копию', more: true, title: 'Новый паспорт на ту же модель: новые номера, дата — сегодня', run: async (row, ctx) => {
-        try { const c = await api(`/passports/${row.id}/copy`, { method: 'POST', body: {} }); toast(`Создан паспорт № ${c.passportNumber} — укажите заказчика и дату`); ctx.changed(); go('passports', { ...current().params, open: c.id }); } catch (e) { toastError(e); }
-      } },
-    ],
-    extra: (r, ctx) => {
-      const draft = statusOf(r) === 'draft';
-      return stack(
-        printFileBlock(r, ctx),
-        revisionsBlock(r, ctx),
-        draft && canWorkPassport() ? passportWizard(r, ctx) : null,
-        !draft || !canWorkPassport() ? (r.passportCategory ? checkBlock(r) : (r.missing?.length ? h('div', { class: 'fill-note' }, 'Не хватает для выдачи: ', h('b', null, r.missing.join(', '))) : null)) : null,
-        r.passportCategory ? pdfBlock(r, ctx) : null,
-        imagesBlock(r, ctx), bomBlock(r),
-        r.passportCategory ? previewBlock(r, ctx) : null);
-    },
   },
 
   form: passportForm,

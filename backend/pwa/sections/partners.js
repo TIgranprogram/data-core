@@ -8,6 +8,8 @@ import { toast, toastError } from '../ui/kit/toast.js';
 import { openSide } from '../ui/kit/side-form.js';
 import { STAGE } from './salesorders.js';
 import { badge, SUPPLY_STATUS, supplyKey } from '../ui/kit/badges.js';
+import { screenCard } from '../ui/kit/screens/card.js';
+import { requestsByMonth } from './partners-requests.js';
 import { contractsBlock } from './contracts.js';
 import { passportLookBlock } from './partners-passport-look.js';
 
@@ -191,11 +193,33 @@ function kpBgBlock(r, ctx) {
   return root;
 }
 
-function related(r, ctx) {
+// C118 W6b: вкладки по смыслу — заказы/заявки · склад · договоры · бланки; каждый блок остался прежним
+function partnerTabs(r, ctx) {
   const items = r.related || [];
-  if (r.kind === 'our') return stack(stampBlock(r, ctx), kpBgBlock(r, ctx), passportLookBlock(r, ctx), relatedRest(r, items));
-  if (r.kind === 'supplier') return stack(contractsBlock(r), relatedRest(r, items));
-  return stack(relatedRest(r, items));
+  const own = r.kind === 'our', cust = r.kind === 'customer';
+  const nStock = (r.reservations || []).length + (r.issues || []).length;
+  return [
+    { key: 'main', label: cust ? 'Заказы' : 'Заявки', count: items.length || undefined, blocks: () => [relatedRest(r, items)] },
+    cust && nStock ? { key: 'stock', label: 'Склад', count: nStock, blocks: () => [stockPane(r)] } : null,
+    r.kind === 'supplier' ? { key: 'contracts', label: 'Договоры', blocks: () => [contractsBlock(r)] } : null,
+    own ? { key: 'blanks', label: 'Бланки и печать', blocks: () => [stampBlock(r, ctx), kpBgBlock(r, ctx), passportLookBlock(r, ctx)] } : null,
+  ].filter(Boolean);
+}
+
+function unpaidOf(r) {
+  return session.canMoney ? (r.related || []).reduce((s, o) => s + Math.max(0, (o.amount || 0) - (o.paidAmount || 0)), 0) : 0;
+}
+
+// склад по его заказам (TASKS Б.3 / ЗК.3): брони и что выдано, кому
+function stockPane(r) {
+  const res = r.reservations || [], iss = r.issues || [];
+  return stack(
+    res.length ? section({ tone: 'gold', title: 'Брони на складе', count: res.length, body:
+      h('ul', { class: 'timeline' }, ...res.map((g) => h('li', null, h('a', { href: '#ops?mode=reserve' }, g.name), h('span', { class: 'muted' },
+        [g.orderNo && `заказ №${g.orderNo}`, `${g.lines} поз.`, g.left ? 'в брони ' + qty(g.left) : 'всё выдано', g.issued ? 'выдано ' + qty(g.issued) : ''].filter(Boolean).join(' · '))))) }) : null,
+    iss.length ? section({ tone: 'gold', title: 'Выдано со склада по его заказам', count: iss.length, body:
+      h('ul', { class: 'timeline' }, ...iss.map((m) => h('li', null, h('span', { class: 'when' }, date(m.date)), h('a', { href: '#movements?open=' + m.id }, m.name), h('span', { class: 'num' }, `${qty(m.qty)} ${m.unit}`),
+        h('span', { class: 'muted' }, [m.orderNo && `заказ №${m.orderNo}`, m.to ? 'кому: ' + m.to : ''].filter(Boolean).join(' · '))))) }) : null);
 }
 
 function relatedRest(r, items) {
@@ -210,56 +234,14 @@ function relatedRest(r, items) {
       h('span', { class: 'muted clip' }, [o.title, o.lineCount ? `${qty(o.lineCount)} поз.` : '', o.shipDate ? 'отгрузка ' + date(o.shipDate) : ''].filter(Boolean).join(' · ')),
       session.canMoney && o.amount ? h('span', { class: 'num' }, money(o.amount) + (o.paidAmount >= o.amount ? ' · оплачен' : o.paidAmount ? ` · оплачено ${money(o.paidAmount)}` : ' · не оплачен')) : null);
     const group = (title, list, open = false) => (list.length ? [section({ title, count: list.length, open, body: h('ul', { class: 'timeline' }, ...list.map(row)) })] : []);
-    const unpaid = session.canMoney ? items.reduce((s, o) => s + Math.max(0, (o.amount || 0) - (o.paidAmount || 0)), 0) : 0;
     // закрытые прошлых лет — свёрнуты (TASKS ЗК.3)
     const year = String(new Date().getFullYear());
     const yearOf = (o) => String(o.shipDate || '').slice(0, 4);
     const doneNow = done.filter((o) => !yearOf(o) || yearOf(o) >= year), donePast = done.filter((o) => yearOf(o) && yearOf(o) < year);
-    // склад по его заказам (TASKS Б.3 / ЗК.3): брони и что выдано, кому
-    const res = r.reservations || [], iss = r.issues || [];
-    return stack(
-      unpaid > 0 ? h('p', { class: 'hint' }, 'Ещё не оплачено по заказам: ', h('b', { class: 'num' }, money(unpaid))) : null,
-      ...group('В работе', open, true), ...group('Отгружены и закрыты', doneNow), ...group('Заказы прошлых лет', donePast),
-      res.length ? section({ tone: 'gold', title: 'Брони на складе', count: res.length, body:
-        h('ul', { class: 'timeline' }, ...res.map((g) => h('li', null, h('a', { href: '#ops?mode=reserve' }, g.name), h('span', { class: 'muted' },
-          [g.orderNo && `заказ №${g.orderNo}`, `${g.lines} поз.`, g.left ? 'в брони ' + qty(g.left) : 'всё выдано', g.issued ? 'выдано ' + qty(g.issued) : ''].filter(Boolean).join(' · '))))) }) : null,
-      iss.length ? section({ tone: 'gold', title: 'Выдано со склада по его заказам', count: iss.length, body:
-        h('ul', { class: 'timeline' }, ...iss.map((m) => h('li', null, h('span', { class: 'when' }, date(m.date)), h('a', { href: '#movements?open=' + m.id }, m.name), h('span', { class: 'num' }, `${qty(m.qty)} ${m.unit}`),
-          h('span', { class: 'muted' }, [m.orderNo && `заказ №${m.orderNo}`, m.to ? 'кому: ' + m.to : ''].filter(Boolean).join(' · '))))) }) : null);
+    return stack(...group('В работе', open, true), ...group('Отгружены и закрыты', doneNow), ...group('Заказы прошлых лет', donePast));
   }
   return section({ tone: 'who', title: r.kind === 'our' ? 'Заявки на эту компанию' : 'Заявки этому поставщику', count: items.length, open: true,
     body: items.length ? requestsByMonth(items) : h('p', { class: 'muted small' }, 'Заявок нет') });
-}
-
-const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
-/**
- * Заявки контрагента по месяцам (замечание 2026-10-22: «заявок много — компактно»): строка месяца — число и сумма,
- * клик раскрывает; открыт последний месяц, остальные свёрнуты (как месяцы в списках).
- */
-function requestsByMonth(items) {
-  const groups = new Map();
-  for (const x of items) {
-    const d = x.requestDate ? new Date(x.requestDate) : null;
-    const k = d && !Number.isNaN(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : 'none';
-    if (!groups.has(k)) groups.set(k, []);
-    groups.get(k).push(x);
-  }
-  const keys = [...groups.keys()].sort().reverse().sort((a, b) => (a === 'none') - (b === 'none')); // «Без даты» — в конце
-  const label = (k) => { if (k === 'none') return 'Без даты'; const [y, m] = k.split('-').map(Number); return `${MONTHS[m - 1]} ${y}`; };
-  const row = (x) => h('li', null,
-    h('span', { class: 'when' }, date(x.requestDate)),
-    h('a', { href: '#requests?open=' + x.id }, `№${x.num ?? ''} ${x.title}`),
-    h('span', { class: 'muted' }, `${qty(x.qty)} ${x.unit || ''}`),
-    badge(SUPPLY_STATUS, supplyKey(x)),
-    session.canMoney && x.priceHint ? h('span', { class: 'num' }, money(x.priceHint)) : null);
-  return h('div', { class: 'month-groups' }, ...keys.map((k, i) => {
-    const list = groups.get(k);
-    const sum = list.reduce((s, x) => s + (Number(x.priceHint) || 0), 0);
-    return h('details', { class: 'month-group', open: i === 0 },
-      h('summary', null, h('b', null, label(k)), h('span', { class: 'p-n' }, qty(list.length)),
-        session.canMoney && sum ? h('span', { class: 'p-tot num' }, money(sum)) : null),
-      h('ul', { class: 'timeline' }, ...list.map(row)));
-  }));
 }
 
 export const partners = {
@@ -303,26 +285,42 @@ export const partners = {
     },
   },
 
+  // C118 W6b: шаблон «Карточка объекта» — шапка → «Что дальше» (одна главная кнопка по смыслу) → сведения → вкладки; остальное — в «⋯»
   card: {
-    heading: (r) => r.name,
-    subheading: (r) => [KIND[r.kind], r.inn ? 'ИНН ' + r.inn : ''].filter(Boolean).join(' · '),
-    stats: (r) => [
-      r.kind === 'customer' ? ['Заказов', qty(r.orders)] : ['Заявок', qty(r.requests)],
-      ...(r.kind === 'customer' ? [['В работе', qty(r.activeOrders)]] : []),
-      ...(session.canMoney ? [['Сумма', r.sum ? money(r.sum) : '—']] : []),
-      ['Последняя', r.lastDate ? date(r.lastDate) : '—'],
-    ],
+    ...screenCard({
+      title: (r) => r.name,
+      sub: (r) => [KIND[r.kind], r.inn ? 'ИНН ' + r.inn : ''].filter(Boolean).join(' · '),
+      next: (r) => {
+        if (r.kind === 'customer') {
+          const unpaid = unpaidOf(r);
+          return { tone: unpaid > 0 ? 'warn' : 'neutral',
+            text: unpaid > 0 ? `Ещё не оплачено по заказам: ${money(unpaid)}` : (r.activeOrders ? `Заказов в работе: ${qty(r.activeOrders)}` : 'Новый заказ этому заказчику — договор и позиции в правой панели'),
+            primary: session.canEdit ? { label: '+ Заказ', title: 'Новый заказ (договор): заказчик подставится сам', run: () => patch({ of: 'salesorder', new: '1', customer: r.name, open: undefined }, { replace: false }) } : null };
+        }
+        if (r.kind === 'supplier') {
+          return { text: r.requests ? `Заявок этому поставщику: ${qty(r.requests)}` : 'Заявок пока нет',
+            primary: session.canEdit ? { label: 'Новая заявка', title: 'Новая заявка этому поставщику', run: () => patch({ of: 'requests', new: '1', open: undefined }) } : null };
+        }
+        return { text: r.directorName || r.trademark ? 'На эту компанию оформляются заявки и заказы' : 'Для паспортов не заполнены директор и торговая марка — «Изменить»' };
+      },
+      facts: (r) => [
+        [r.kind === 'customer' ? 'Заказов' : 'Заявок', qty(r.kind === 'customer' ? r.orders : r.requests)],
+        ['Сумма', session.canMoney && r.sum ? money(r.sum) : ''],
+        ['Телефон', r.phone], ['Почта', r.email],
+        ['Контакт', [r.contactName, r.contactPhone].filter(Boolean).join(' · ')],
+      ],
+      more: (r) => [['Последняя', r.lastDate ? date(r.lastDate) : ''], ['В работе', r.kind === 'customer' ? qty(r.activeOrders) : ''],
+        ['Полное наименование', r.fullName], ['ИНН', r.inn], ['КПП', r.kpp], ['Адрес', r.legalAddress], ['Сайт', r.website],
+        ['Банк', [r.bankName, r.bankBik && 'БИК ' + r.bankBik].filter(Boolean).join(' · ')], ['Расчётный счёт', r.bankAccount], ['Корр. счёт', r.bankCorrAccount],
+        ['Директор', r.directorName], ['Торговая марка', r.trademark], ['Примечание', r.notes]],
+      menu: (r) => [
+        r.kind !== 'our' && { label: 'Объединить с…', run: (row, ctx) => mergeDialog(row, ctx) },
+        r.kind === 'supplier' && session.canEdit && { label: 'Загрузить прайс из Excel', run: () => openSide('pricelist', 'order:' + r.id) },
+      ],
+      tabs: partnerTabs,
+    }),
     // «Изменить» — заметно сверху карточки (СП.1), не только внизу
     editTop: true,
-    view: (r) => [['Полное наименование', r.fullName], ['ИНН', r.inn], ['КПП', r.kpp], ['Адрес', r.legalAddress], ['Телефон', r.phone], ['Почта', r.email], ['Сайт', r.website],
-      ['Банк', [r.bankName, r.bankBik && 'БИК ' + r.bankBik].filter(Boolean).join(' · ')], ['Расчётный счёт', r.bankAccount], ['Корр. счёт', r.bankCorrAccount],
-      ['Контакт', [r.contactName, r.contactPhone].filter(Boolean).join(' · ')], ['Примечание', r.notes]],
-    actions: (r) => [
-      r.kind !== 'our' && { label: 'Объединить с…', more: true, run: (row, ctx) => mergeDialog(row, ctx) },
-      r.kind === 'supplier' && { label: 'Новая заявка этому поставщику', run: () => patch({ of: 'requests', new: '1', open: undefined }) },
-      r.kind === 'supplier' && session.canEdit && { label: 'Загрузить прайс из Excel', run: () => openSide('pricelist', 'order:' + r.id) },
-    ],
-    extra: related,
   },
 
   form: {
