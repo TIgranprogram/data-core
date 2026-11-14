@@ -315,6 +315,7 @@ export const ADVICE = [
 
 // Скрипты без кнопки: ИИ / внутренние / убраны из пульта администратора.
 export const NOT_ON_BUTTONS = {
+  'tools/stand-look.mjs': 'вход Claude на стенд одной командой (учётка, адрес /app/, сброс кэша) — для просмотра экранов ИИ, не человек',
   'tools/passport-readiness.mjs': 'замер C112 Э0/Э5 «паспорт без ввода» — гоняет Claude через агента доступа (стенд), итог в BASELINE.md, не человек',
   'tools/starozhil/passport-texts-facts.mjs': 'раскладка текстов паспорта по строкам для нарядов 006–007 Старожила (prepare в наряде), не человек',
   'tools/starozhil/dead-files.mjs': 'поиск файлов без ссылок для наряда Старожила (prepare), не человек',
