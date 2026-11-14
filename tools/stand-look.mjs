@@ -7,6 +7,8 @@
 //   4) пароль не печатается: учётка из tools/logs/stand-login.local.env (её создаёт dc audit).
 // Запуск:  node tools/stand-look.mjs [hash]        например: node tools/stand-look.mjs "products?q=3201"
 //          node tools/stand-look.mjs --refresh ...  сначала пересобрать стенд из текущего кода (~2 мин)
+//          node tools/stand-look.mjs --refresh --src ../data-core-c115 ...  код из другой копии (worktree): запускать ИЗ ЭТОЙ папки —
+//            паспорт стенда лежит здесь (tools/logs), из копии защита стенда откажет (C115, 14.11)
 // Итог: tools/logs/stand-look.js — вставить целиком в javascript_tool встроенного браузера на любой странице стенда:
 //   он кладёт вход в localStorage, сбрасывает кэш приложения и открывает нужный экран.
 import fs from 'node:fs';
@@ -17,11 +19,14 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BASE = 'http://localhost:3102';
 const args = process.argv.slice(2);
 const refresh = args.includes('--refresh');
-const hash = (args.find((a) => !a.startsWith('--')) || 'home').replace(/^#/, '');
+const srcAt = args.indexOf('--src');
+const src = srcAt >= 0 ? path.resolve(args[srcAt + 1] || '') : null;
+if (srcAt >= 0 && !fs.existsSync(path.join(src || '', 'backend'))) { console.error('--src: нет папки backend в ' + src); process.exit(2); }
+const hash = (args.find((a, i) => !a.startsWith('--') && (srcAt < 0 || i !== srcAt + 1)) || 'home').replace(/^#/, '');
 
 if (refresh) {
   const { standRefresh } = await import('./night.mjs');
-  await standRefresh({ say() {}, log() {} });
+  await standRefresh({ say() {}, log() {} }, ...(src ? [src] : []));
 }
 
 const envFile = path.join(ROOT, 'tools/logs/stand-login.local.env');
