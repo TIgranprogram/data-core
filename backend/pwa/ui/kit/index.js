@@ -253,6 +253,8 @@ export const stat = ({ value, label, onClick, tone, active = false }) => {
 };
 export const stats = (items) => mark(h('div', { class: 'stats' }, ...items.map(stat)), 'stats');
 
+/** pad(...узлы) → .k-pad: блок внутри панели с её отступами и линией снизу (шапка, поиск, фильтры; C116) */
+export const pad = (...children) => mark(h('div', { class: 'k-pad' }, ...nodes(children)), 'pad');
 /** toolbar(...узлы) → .toolbar */
 export const toolbar = (...children) => mark(h('div', { class: 'toolbar' }, ...nodes(children)), 'toolbar');
 

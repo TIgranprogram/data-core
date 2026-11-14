@@ -735,6 +735,18 @@ button.g-chk-i:focus-visible { outline: 2px solid var(--primary); outline-offset
 .k-clamp { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; min-width: 0; max-width: 100%; }
 .k-clamp-2 { -webkit-line-clamp: 2; }
 table.list td.k-col-wrap { min-width: 11rem; max-width: 0; width: 24%; overflow: hidden; }
+/* k-col-act (C116, «Справочники» 14.11): столбец действий — узкий, у правого края; широкая таблица прокручивается, а он виден всегда */
+table.list .k-col-act { width: 1%; position: sticky; right: 0; z-index: 1; background: var(--surface); }
+table.list thead .k-col-act { background: var(--surface-2); }
+table.list td.k-col-act .k-actions { justify-content: flex-end; flex-wrap: nowrap; }
+/* k-pad: блок внутри панели с её отступами (шапка, поиск, фильтры); toolbar внутри — без своих полей и линии */
+.k-pad { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border-bottom: 1px solid var(--border); min-width: 0; }
+.k-pad .toolbar { padding: 0; border-bottom: 0; align-items: flex-end; }
+.k-pad > .k-headbar { align-items: center; }
+@media (max-width: 720px) {
+  table.k-table-stack.k-table-inset tr { padding-left: var(--s4); padding-right: var(--s4); }
+  table.k-table-stack td.k-col-act { position: static; width: auto; margin-left: auto; background: none; }
+}
 
 /* Вкладки на всю ширину и цвет состояния (договор в заказе, 2026-11-08): ok — сделано, warn — идёт сейчас */
 .chips.k-tabs-fill { padding: 0; }
