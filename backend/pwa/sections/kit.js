@@ -4,6 +4,7 @@ import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
 import { pad, hint, tileGrid, typeArt, typeIconList, landing, miniChart, navList, photoStrip, catArt, stat, searchBox, readonlyGroup, similarBox, posPic, posPicOf, sku, section, stack, button, iconButton, segmented, headbar, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, openPdfPreview, stageBar, headStats, clamp, funnel, planner, qtyInput, targetPicker, toast, pick, filter, table, treeTable, textInput, fieldRow, panel, entityPanel, select, fileButton, links, guide, SUPPLY_STATUS } from '../ui/kit/index.js';
 import { buildCardTabs } from '../ui/kit/card-tabs.js';
+import { infoCard, nextCard, warnCard, positionsTable } from '../ui/kit/screens/blocks.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
 const LONG = 'Очень длинное название позиции для проверки переноса и обрезки текста в карточке эталона';
@@ -327,6 +328,16 @@ export const kit = {
           });
           return el;
         })()),
+      block('Информационная карточка · infoCard (C118 W2)', 'infoCard({ facts, more, max = 6 }) — сведения объекта: до 6 строк, остальное в «Подробнее»; пустые значения не показываются. Заголовок-сущность и этап (один раз) — в шапке панели через screenCard. Где используется: карточка заказа.',
+        sample(infoCard({ facts: [['Заказчик', 'ООО «Ромашка»'], ['Наша компания', 'Тест-Фирма'], ['Срок', '20.11.2026'], ['Сумма', '120 000 ₽ · оплачено 40 000 ₽'], ['Приоритет', ''], ['Склад', 'Основной'], ['Менеджер', 'Иванов']], more: [['Срок изготовления, дн.', 14]] }))),
+      block('Функциональная карточка · nextCard (C118 W2)', 'nextCard({ text, tone, primary: { label, run } }) — «Что дальше» и единственная главная кнопка (.btn-primary); пока run идёт, кнопка занята. Нет primary — только фраза.',
+        sample(nextCard({ text: 'Сейчас — проектирование. Дальше — «В производство».', primary: { label: 'В производство', run: async () => { toast('Дальше'); } } }), nextCard({ text: 'Заказ завершён. Вернуть в работу может администратор.' }))),
+      block('Карточка предупреждения · warnCard (C118 W2)', 'warnCard({ tone, title, sub?, actions: [{ label, run }] }) — проблема и кнопка «исправить»; стоит над сведениями. Бывший noticeCard (ui/notice-card.js — реэкспорт).',
+        sample(warnCard({ tone: 'warn', title: '3 поз. без изделия — «В производство» не сработает', actions: [{ label: 'Распределить', run: () => toast('Распределить') }] }), warnCard({ tone: 'error', title: 'В заказе нет позиций' }))),
+      block('Таблица позиций · positionsTable (C118 W2)', 'positionsTable({ columns, groups: [{ head, rows: [{ cells, onOpen }], foot }] }) — строки объекта; группа (договор) — строка-заголовок с «⋯», «+ …» под группой. Клик по любой строке — одна и та же панель позиции.',
+        sample(positionsTable({ columns: [{ label: '№' }, { label: 'Название' }, { label: 'Кол-во', num: true }], groups: [
+          { head: row({ title: 'Договор 109-П', meta: 'ООО «Ромашка»', side: [badge('в работе', 'info')] }), rows: [{ cells: [1, 'Скамья 32.11', '4 шт'], onOpen: () => toast('Панель позиции № 1') }, { cells: [2, 'Стойка', '8 шт'], onOpen: () => toast('Панель позиции № 2') }], foot: h('p', { class: 'hint' }, 'Договор уже в работе — менять позиции может администратор.') },
+          { head: row({ title: 'Договор 110-П', meta: 'ООО «Ромашка»' }), rows: [{ cells: [1, LONG, '1 шт'], onOpen: () => toast('Панель позиции № 1') }] }] }))),
       block('Выпадающий список (select)', 'Без поиска, до ~10 значений. Длинные списки — pick.', sample(select({ options: [['a', 'Первый'], ['b', 'Второй']], value: 'a', label: 'Образец' }))),
       block('Кнопка выбора файла (fileButton)', 'Кнопка-подпись со скрытым полем файла; выбранный файл уходит в onFile.', sample(fileButton({ label: 'Загрузить файл…', accept: '.csv', onFile: (f) => toast(f.name) }))),
       block('Отметка происхождения (data-k)', 'Каждая фабрика kit (через mark / markEl из ui/kit/mark.js) ставит на корень data-k="<эталон>": button, badge, card, row, tabs, table, modal, panel, drawer, form, list, board, filter, pick, empty, mobile.* и др. Большая проверка сайта (правило s) считает элементы экрана без этой отметки — «не из kit».', sample(...[button({ label: 'button' }), badge('badge', 'ok'), empty({ title: 'empty' })].map((n) => h('span', { class: 'muted' }, n.dataset.k + ' → ', n)))),

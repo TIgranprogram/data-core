@@ -1,4 +1,4 @@
-import { STAGE, crumbTrail, tabTone } from './order-stage.js';
+import { STAGE, crumbTrail } from './order-stage.js';
 import { nextStep, orderCounts } from './salesorders-next.js';
 import { stageBar } from './order-head.js';
 import { openPopMenu, closePopMenu, isOpenFor } from '../ui/kit/pop-menu.js';
@@ -9,7 +9,7 @@ import { h } from '../core/dom.js';
 import { date, isoDay, money, qty } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
 import { badge, ORDER_PRIORITY } from '../ui/kit/badges.js';
-import { actions, badge as kbadge, button, card, iconButton, link, row as kitRow, section, select, stack, sku as kitSku, table, tabs as kitTabs, toolbar } from '../ui/kit/index.js';
+import { actions, badge as kbadge, button, iconButton, link, row as kitRow, section, select, stack, toolbar } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { confirmDlg, modal } from '../ui/kit/dialog.js';
 import { withConfirm } from '../ui/confirm-password.js';
@@ -19,7 +19,6 @@ import { responsibleField, handoffLine } from '../ui/responsible.js';
 import { errText } from '../ui/kit/errors.js';
 import { busyBlock, failBlock } from '../ui/kit/busy.js';
 import { orderReservations } from './order-reservations.js';
-import { suggestLink } from '../ui/composition-suggest.js';
 import { orderDesign } from './order-design.js';
 import { orderWork } from './order-work.js';
 import { orderPdfAction, orderZipAction } from './order-attachments-zip.js';
@@ -27,10 +26,13 @@ import { unassignedTop, addContractsDialog } from './salesorders-unassigned.js';
 import { unmatchedTop, unmatchedPlate, unmatchedFlag, unmatchedOrders } from './matching-queue.js';
 import { posPic } from '../ui/pos-pic.js';
 import { cancelLine, restoreLine, moveLine, moveContract, stageBack, canChangeLines } from './order-line-actions.js';
-import { orderPassportActions } from './order-passports.js';
 import { distribBlock, lineMark, countOf, countBadge } from './order-lines.js';
 import { shipmentsBlock, historyBlock, canShip } from './order-shipments.js';
 import { importOrderExcel, downloadOrderTemplate } from './salesorders-import.js';
+import { suggestLink } from '../ui/composition-suggest.js';
+import { NEXT_TIP, STAGE_NOW, HINT, ourLine, issuedBlock, orderPassports, sec, seq, produceBlock } from './order-blocks.js';
+import { screenCard } from '../ui/kit/screens/card.js';
+import { positionsTable } from '../ui/kit/screens/blocks.js';
 /**
  * Раздел «Заказы» (TASKS фаза З): заказ = шапка (`salesorders`) + позиции (строки `incomes`).
  * Вкладки «В работе / Закрытые», доска по этапам, карточка: позиции, что заказано под заказ
@@ -40,29 +42,6 @@ export { STAGE };
 const NEXT = { new: 'production', production: 'ready', ready: 'shipped', shipped: 'closed' };
 const NEXT_LABEL = { new: 'В производство', production: 'Готово к отгрузке', ready: 'Отгружен', shipped: 'Завершить заказ' };
 const STAGE_ORDER = Object.keys(STAGE);
-/** Подсказка у кнопки следующего этапа: что произойдёт и что дальше. */
-const NEXT_TIP = {
-  new: 'Заказ уйдёт в производство. Дальше — «Готово к отгрузке», когда всё изготовлено.',
-  production: 'Отметьте, когда всё изготовлено. Дальше оформите отгрузку — этап «Частично отгружен» / «Отгружен» поставится сам.',
-  ready: 'Обычно этап ставится сам, когда оформлена отгрузка. Кнопка — если отгрузили без документа.',
-  shipped: 'Завершить заказ, когда работа и оплата закончены. Завершённый заказ уходит во вкладку «Завершённые».',
-};
-/** Откуда этап и что дальше — строка в карточке заказа. */
-const STAGE_NOW = {
-  new: 'Сейчас — проектирование (после распределения позиций). Дальше — «В производство».',
-  production: 'Сейчас — производство. Когда всё изготовлено — кнопка «Отметить: готов к отгрузке» в блоке «Готовность».',
-  ready: 'Готов к отгрузке. Этап «Частично отгружен» / «Отгружен» поставится сам, когда оформите отгрузку.',
-  partly: 'Отгружено частично. Когда отгрузите всё — этап «Отгружен» поставится сам.',
-  shipped: 'Отгружено всё. Завершите заказ, когда работа и оплата закончены.',
-  closed: 'Заказ завершён. Вернуть его в работу может только администратор.',
-};
-const HINT = {
-  new: 'Новые: сначала распределите позиции — заказ сам попадёт в «Проектирование». Дальше — производство или отгрузка.',
-  active: 'Заказы в работе: проектирование, производство, готовые к отгрузке. Красный срок — просрочено.',
-  shipped: 'Отгруженные: всё отгружено, но заказ ещё не завершён. Когда работа и оплата закончены — «Завершить заказ». По месяцам.',
-  closed: 'Завершённые заказы — по месяцам. Нажмите на месяц, чтобы раскрыть. Вернуть заказ в работу может администратор.',
-};
-
 /** Приоритет заказа: «обычный» не показываем. */
 const prio = (r) => (r.priority && r.priority !== 'normal' ? badge(ORDER_PRIORITY, r.priority) : null);
 /** № заказа = № на производство (productionNo); № договора (orderNo) — справка. Несколько договоров с одним № — один заказ производства. */
@@ -167,83 +146,61 @@ async function matchProducts(r) {
   return saved && saved.id ? saved : null;
 }
 
-/** Строка «Наше: …» под названием позиции; у сопоставленного — артикул эталоном kit.sku. */
-const ourLine = (l) => {
-  if (l.product?.name || l.product?.sku) {
-    return h('div', { class: 'muted small' }, 'Наше: ', kitSku(l.product.sku), l.product.sku ? ' ' : null, l.product.name || '');
-  }
-  const our = l.productName && [l.sku || l.productSku, l.productName].filter(Boolean).join(' · ');
-  if (our) return h('div', { class: 'muted small' }, 'Наше: ' + our);
-  return l.productId || l.product ? null : h('div', { class: 'muted small' }, 'Свяжите с каталогом');
-};
-
-/** «Выдано со склада» по позициям заказа (SK-5b): нетто = выдано − возвращено; позиция — «552-2 · название». */
-function issuedBlock(d, sec) {
-  const by = d.issuedByLine || [];
-  if (!by.length) return '';
-  const lines = d.lines || [];
-  const groups = new Map();
-  for (const x of by) { const k = x.salesOrderLineId ? String(x.salesOrderLineId) : ''; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x); }
-  const title = (k) => { if (!k) return 'Весь заказ (без позиции)'; const i = lines.findIndex((l) => String(l.id) === k); return i < 0 ? 'Позиция заказа' : `поз. ${lines[i].seqNo ?? lines[i].lineNo ?? i + 1} · ${lines[i].title}`; };
-  return sec('Выдано со склада по позициям', 'gold', groups.size, stack(...[...groups].flatMap(([k, xs]) => xs.map((x, i) => kitRow({
-    lead: i === 0 ? posPic(x.photo, 'sm') : null,
-    title: i === 0 ? h('span', { title: title(k) }, title(k)) : (x.materialName || 'позиция'),
-    meta: i === 0 ? (x.materialName || 'позиция') : null,
-    side: [h('span', { class: 'num neg', title: 'Выдано минус возвращено' }, qty(x.net) + ' ' + (x.unit || ''))],
-    below: [`выдано ${qty(x.issued)}${x.returned ? ', возвращено ' + qty(x.returned) : ''}`,
-      i === 0 && k && lines.find((l) => String(l.id) === k)?.productId ? suggestLink(k) : null].filter(Boolean)})))));
-}
-
-/** Строка «Паспорта N (готовы M)» → вкладка «По заказам» (ТИ-11). */
-function orderPassports(r) {
-  if (!session.seesDocs()) return null;
-  const val = h('span', { class: 'muted' }, 'загрузка…');
-  const body = h('div', null, val); const box = stack(section({ title: 'Паспорта', tone: 'neutral', open: true, body }));
-  let actEl = null; // кнопка-действие под строкой (замена классу-маркеру op-act)
-  const load = () => api('/passports', { query: { salesOrderId: r.id, limit: 200 } }).then((d) => {
-    const items = (d.items || []).filter((p) => p.status !== 'annulled');
-    actEl?.remove();
-    actEl = orderPassportActions(r, items, load);
-    if (actEl) body.append(actEl);
-    const ready = items.filter((p) => (p.readiness || (p.status === 'draft' ? 'notReady' : 'ready')) === 'ready').length;
-    val.replaceChildren(items.length ? h('a', { href: '#docs?tab=orders&open=' + r.id }, `Паспорта ${items.length} (готовы ${ready})`) : 'Паспортов пока нет');
-  }).catch((e) => val.replaceChildren(e?.status === 403 ? 'Нет доступа к паспортам' : 'не удалось загрузить'));
-  load();
-  return box;
-}
-
-const sec = (title, tone, count, ...kids) => section({ title, tone, count, open: tone === 'money' || undefined, body: kids });
-/** Отменённая позиция: серая строка с причиной и «Вернуть»; в суммы не входит. */
-const cancelledRow = (l, i, o, dots) => h('tr', { class: 'muted', title: 'Позиция отменена: ' + (l.cancelReason || '') },
-  h('td', { class: 'muted' }, seq(l, i)), h('td', null, ''),
-  h('td', { class: 'muted', colspan: session.canMoney ? 7 : 4 }, h('s', null, l.title), h('div', { class: 'small' }, 'Отменена' + (l.cancelReason ? ': ' + l.cancelReason : ''))),
-  session.canEditOrders ? h('td', { class: 'nowrap' }, dots) : null);
-const seq = (l, i) => l.seqNo ?? l.lineNo ?? i + 1;
 const closedStage = (o) => ['closed', 'cancelled'].includes(o.stage);
 
 /** Править заказ/договор может админ, менеджер, владелец; завершённый — только админ. */
 const editableOrder = (o) => session.canEditOrders && (o.stage !== 'closed' || session.role === 'admin');
-/** Шаг воронки → вкладка договора (шаг этап не меняет, а открывает нужный блок). */
+/** Шаг воронки → вкладка договора (прежние ключи: шаг этап не меняет, а открывает нужный блок). */
 const STEP_TAB = { new: 'design', production: 'work', ready: 'stock', shipped: 'ship', closed: 'pass' };
 const TAB_NAME = { pos: 'Позиции', design: 'Проектирование', work: 'Работа', stock: 'Склад', ship: 'Отгрузки', pass: 'Паспорта' };
+/** Вкладки заказа (C118 W2): Позиции · Выполнение · Деньги · Документы. Прежние ключи (so-open-tab, ?tab=ship, pendingTab) переадресуются сюда. */
+const LEGACY_TAB = { pos: 'pos', design: 'run', work: 'run', stock: 'run', ship: 'run', pass: 'docs' };
+const RUN_SUBS = ['design', 'work', 'stock', 'ship'];
+const DEFAULT_SUB = { new: 'design', production: 'work', ready: 'stock', partly: 'ship', shipped: 'ship' };
 let pendingTab = null; // из карточки договора: открыть вкладку у этого договора после перехода к заказу
-/** Шаг воронки в карточке заказа: «Готово» — к блоку готовности, остальные — вкладка договора. */
-function openStep(key) {
-  if (key === 'ready') { const rdy = document.querySelector('.rdy'); if (rdy) { rdy.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; } }
-  const detail = { tab: STEP_TAB[key], handled: false };
-  window.dispatchEvent(new CustomEvent('so-open-tab', { detail }));
-  if (!detail.handled) toast(`В этом заказе нет блока «${TAB_NAME[detail.tab]}»`);
+let liveCtx = null; // контекст открытой панели заказа (openTab)
+let pendingSub = ''; // какой блок «Выполнения» раскрыть при открытии вкладки
+/** Старый ключ вкладки → новая вкладка (+ блок внутри «Выполнения»). */
+function goTab(legacy) {
+  const key = LEGACY_TAB[legacy];
+  if (!key || !liveCtx) return false;
+  if (RUN_SUBS.includes(legacy)) pendingSub = legacy;
+  liveCtx.openTab(key);
+  return true;
 }
+function goReady() {
+  if (!liveCtx) return false;
+  pendingSub = '';
+  liveCtx.openTab('run');
+  setTimeout(() => document.querySelector('.rdy')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300);
+  return true;
+}
+window.addEventListener('so-open-tab', (ev) => {
+  const t = ev.detail?.tab;
+  if (t === 'ready' ? goReady() : goTab(t)) ev.detail.handled = true;
+});
 /** Шаг воронки в карточке договора: перейти к заказу и открыть вкладку этого договора. */
 function openStepFromContract(o, key) {
   if (key === 'ready') { pendingTab = null; } else pendingTab = { id: o.id, tab: STEP_TAB[key] };
   patch({ of: undefined, open: o.productionNo || o.id }, { replace: false });
 }
+/** Перерисовать карточку заказа после правки, не теряя прокрутку. */
+const reloadKeep = (anchor, ctx) => async () => {
+  const b = anchor.closest?.('.drawer-body'); const y = b?.scrollTop;
+  await ctx.reload();
+  if (b && y) b.scrollTop = y;
+};
+const full = async (r) => (r.orders ? r : shape(await api(`/production-orders/${encodeURIComponent(r.key)}`)));
 
-/** Группа «Договор 109-П»: шапка (одна главная кнопка и «⋯»), вкладки Позиции · Проектирование · Работа · Склад · Отгрузки · Паспорта (строятся при открытии). */
-function contractGroup(o, reload) {
-  const lines = o.lines || [];
-  const seeReq = session.sees('requests'), seeStock = session.sees('stock');
+/** Отменённая позиция: серая строка с причиной и «Вернуть»; в суммы не входит. */
+const cancelledRow = (l, i, dots) => h('tr', { class: 'muted', title: 'Позиция отменена: ' + (l.cancelReason || '') },
+  h('td', { class: 'muted' }, seq(l, i)), h('td', null, ''),
+  h('td', { class: 'muted', colspan: 4 }, h('s', null, l.title), h('div', { class: 'small' }, 'Отменена' + (l.cancelReason ? ': ' + l.cancelReason : ''))),
+  session.canEditOrders ? h('td', { class: 'nowrap' }, dots) : null);
+
+/** Заголовок-группа «Договор 109-П»: этап, срок, «+ Позиция» и «⋯» (одно меню действий по договору). */
+function contractHead(o, reload) {
+  const seeStock = session.sees('stock');
   const can = editableOrder(o);
   const remove = async () => {
     if (!(await confirmDlg('Удалить?', salesorders.remove.text(o) + ' Можно восстановить из корзины.', { okText: 'Удалить', danger: true }))) return;
@@ -253,6 +210,7 @@ function contractGroup(o, reload) {
     } catch (e) { toastError(e); }
   };
   const menu = [
+    can && { label: 'Изменить договор', onSelect: () => patch({ of: 'salesorder', open: o.id }, { replace: false }) },
     !['closed', 'cancelled', 'new'].includes(o.stage) && canShip() && { label: 'Отгрузить', onSelect: () => patch({ of: 'shipdo', open: o.id }, { replace: false }) },
     can && !closedStage(o) && seeStock && { label: 'Загрузить спецификацию из Excel', onSelect: () => patch({ of: 'specimport', new: '1', orderId: o.id, open: undefined }, { replace: false }) },
     can && o.productionNo && !closedStage(o) && { label: 'Перенести в другой заказ', onSelect: () => moveContract(o).then((r) => r && reload?.()).catch((e) => toastError(e)) },
@@ -261,104 +219,132 @@ function contractGroup(o, reload) {
   ].filter(Boolean);
   const dots = iconButton({ icon: '⋯', label: 'Ещё действия по договору', title: 'Ещё: ' + menu.map((m) => m.label.toLowerCase()).join(', '), size: 'S', menu: true, cls: 'so-dots' });
   dots.addEventListener('click', () => { if (isOpenFor(dots)) closePopMenu(true); else openPopMenu({ anchor: dots, side: 'down', groups: [{ items: menu }] }); });
-  const acts = [
-    can ? button({ label: 'Изменить договор', size: 'S', title: 'Изменить договор: № договора, заказчик, срок, примечание', onClick: () => patch({ of: 'salesorder', open: o.id }, { replace: false }) }) : null,
-    menu.length ? dots : null,
-  ].filter(Boolean);
-  // «Оплачено» / «Долг» и «Принять оплату» — только с правом на деньги (приём оплаты — панель incpay, она же из карточки позиции)
-  const payOn = session.canMoney && can;
-  const lineAct = (l) => canChangeLines(o) && !closedStage(o) && can;
-  const done = (r) => { if (r) reload?.(); };
-  const lineMenu = (l, btn) => {
-    const items = l.cancelledAt
-      ? [{ label: 'Вернуть позицию', onSelect: () => restoreLine(l).then(done).catch((e) => toastError(e)) }]
-      : [{ label: 'Заменить изделие', onSelect: () => patch({ of: 'matching', open: `${l.orderId || o.id}.${l.id}`, new: undefined }, { replace: false }) }, ...(lineAct(l) ? [{ label: 'Отменить позицию', danger: true, onSelect: () => cancelLine(l, o).then(done).catch((e) => toastError(e)) }, { label: 'Перенести в другой договор', onSelect: () => moveLine(l, o).then(done).catch((e) => toastError(e)) }] : [])]; // 2026-11-10: замена изделия — прямо из строки, без поиска номера в договоре
-    if (isOpenFor(btn)) closePopMenu(true); else openPopMenu({ anchor: btn, side: 'down', groups: [{ items }] });
-  };
-  const rowDots = (l) => { const b = iconButton({ icon: '⋯', label: 'Действия с позицией', title: 'Заменить изделие, отменить или перенести позицию', size: 'S', menu: true, cls: 'so-dots', onClick: (e) => { e.stopPropagation(); lineMenu(l, b); } }); return b; };
-  const paidOf = (l) => (Number(l.paidAmount) || (l.paidDate ? Number(l.amount) || 0 : 0));
-  const payCells = (l) => {
-    if (!session.canMoney) return [];
-    const debt = Math.max(0, (Number(l.amount) || 0) - paidOf(l));
-    return [
-      h('td', { class: 'num nowrap muted' }, paidOf(l) ? money(paidOf(l)) : ''),
-      h('td', { class: 'num nowrap' }, l.amount ? (debt > 0 ? money(debt) : h('span', { class: 'muted' }, '—')) : ''),
-      ...(payOn ? [h('td', { class: 'nowrap' }, l.amount && debt > 0 ? button({ label: 'Принять оплату', kind: 'ghost', size: 'S', title: 'Принять оплату по этой позиции', onClick: (e) => { e.stopPropagation(); patch({ of: 'incpay', open: String(l.id), new: undefined }, { replace: false }); } }) : '')] : []),
-    ];
-  };
-  const linesTable = lines.length
-    ? table({ clickable: true, columns: [{ label: '№' }, { label: '' }, { label: 'Название' }, { label: 'Кол-во', num: true }, { label: 'Отгружено', num: true }, { label: 'Цвет' }, ...(session.canMoney ? [{ label: 'Сумма', num: true }, { label: 'Оплачено', num: true }, { label: 'Долг', num: true }] : []), ...(payOn ? [{ label: '' }] : []), ...(can ? [{ label: '' }] : [])],
-      rows: lines.map((l, i) => l.cancelledAt ? cancelledRow(l, i, o, can && canChangeLines(o) ? rowDots(l) : null) : h('tr', { onclick: () => patch({ of: 'orders', open: l.id }, { replace: false }), title: 'Открыть позицию: фото, сумма, отгрузка, оплата (назад — к заказу)' },
-        h('td', { class: 'muted' }, seq(l, i)), h('td', null, posPic(l.photo, l.photo?.url || l.photo?.thumb ? 'lg' : 'sm')), h('td', null, l.title, ourLine(l), l.unassigned !== undefined || l.lineType ? h('span', null, ' ', lineMark(l)) : null, l.unassigned === undefined && !l.lineType && l.matched === false ? h('a', { class: 'badge warn', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null), h('td', { class: 'num nowrap' }, `${qty(l.qty)} ${l.unit || ''}`),
-        h('td', { class: 'num nowrap muted' }, l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : ''), h('td', { class: 'muted' }, l.color || ''), session.canMoney ? h('td', { class: 'num' }, l.amount ? money(l.amount) : '') : null, ...payCells(l), can ? h('td', { class: 'nowrap' }, rowDots(l)) : null)) })
-    : h('p', { class: 'muted' }, 'В этом договоре позиций пока нет — нажмите «+ Позиция».');
-  // одна «+ Позиция» — под таблицей позиций, открывает полную форму справа (название, количество, цена, фото)
-  const add = can && !closedStage(o)
-    ? (canChangeLines(o)
-      ? toolbar(button({ label: '+ Позиция', size: 'S', title: 'Новая позиция: все поля — в правой панели', onClick: () => patch({ of: 'orders', new: '1', open: undefined, orderNo: o.orderNo || '', customer: o.customer || '', companyName: o.companyName || '', orderId: o.id }, { replace: false }) }))
-      : h('p', { class: 'hint' }, 'Договор уже в работе — менять позиции может администратор.'))
+  // одна «+ Позиция» — открывает полную форму справа (название, количество, цена, фото)
+  const add = can && !closedStage(o) && canChangeLines(o)
+    ? button({ label: '+ Позиция', size: 'S', title: 'Новая позиция: все поля — в правой панели', onClick: () => patch({ of: 'orders', new: '1', open: undefined, orderNo: o.orderNo || '', customer: o.customer || '', companyName: o.companyName || '', orderId: o.id }, { replace: false }) })
     : null;
-  const seqBy = new Map(lines.map((l, i) => [String(l.id), seq(l, i)]));
-  const hasShip = o.stage !== 'new' || lines.some((l) => l.shipped);
-  // вкладки без данных не показываем: нет доступа к разделу, нет позиций или этап ещё не дошёл
-  const defs = [
-    ['pos', `Позиции (${lines.length})`, true, () => stack(distribBlock(o, reload), linesTable, add)],
-    ['design', 'Проектирование', session.sees('design') && lines.length > 0, () => orderDesign({ id: o.id, orderNo: o.productionNo || o.orderNo }, lines)],
-    ['work', 'Работа', session.sees('work') && lines.length > 0 && !closedStage(o), () => orderWork([o])],
-    ['stock', 'Склад', seeReq || seeStock, () => stack(
-      seeReq ? sec('Заказано под заказ', 'who', (o.supplyRequests || []).length,
-        (o.supplyRequests || []).length ? stack(...o.supplyRequests.map((s) => kitRow({ title: h('a', { href: '#requests?open=' + (s.id || s._id) }, `№${s.num ?? ''} ${s.title}`), meta: `${qty(s.qty)} ${s.unit || ''} · ${s.statusLabel || s.status || ''}` }))) : h('p', { class: 'muted' }, 'Заявок под этот заказ пока нет.'),
-        can ? button({ label: '+ Заявка под этот заказ', size: 'S', title: 'Новая заявка: заказ и заказчик подставятся сами', onClick: () => patch({ of: 'requests', new: '1', open: undefined, salesOrderRef: o.id, orderLabel: o.customer || undefined }) }) : null) : null,
-      seeStock ? orderReservations({ id: o.id, orderNo: o.orderNo, productionNo: o.productionNo, seqBy }, reload) : null,
-      seeStock ? issuedBlock(o, sec) : null,
-      seeStock && (o.stockMovements || []).length ? sec('Отпущено со склада', 'gold', o.stockMovements.length,
-        stack(...o.stockMovements.map((m) => kitRow({ lead: date(m.date), title: m.materialName || 'позиция',
-          side: [h('span', { class: 'num neg' }, '−' + qty(m.qty))],
-          below: [m.issuedToLabel && 'кому: ' + m.issuedToLabel, m.notes].filter(Boolean).join(' · ') || null })))) : null)],
-    ['ship', 'Отгрузки', hasShip, () => stack(shipmentsBlock({ id: o.id, stage: o.stage }, reload), historyBlock({ id: o.id }))],
-    ['pass', 'Паспорта', session.seesDocs() && lines.length > 0, () => orderPassports(o)],
-  ].filter((d) => d[2]);
-  // группа-договор — эталон card L (шапка + вкладки; панель вкладки строится при первом открытии)
-  const root = card({ size: 'L',
-    head: { title: 'Договор ' + (o.orderNo || '—') + (o.customer ? ' · ' + o.customer : ''),
-      badges: [badge(STAGE, o.stage), due(o), countBadge(countOf(o))].filter(Boolean),
-      menu: acts.length ? actions(...acts) : null },
-    tabs: { label: 'Разделы договора', fill: true, items: defs.map(([key, label]) => ({ key, label, ...tabTone(o, key) })), value: defs[0][0],
-      panes: Object.fromEntries(defs.map(([key, , , make]) => [key, () => make() || h('p', { class: 'muted' }, 'Здесь пока ничего нет.')])) } });
-  const show = (k) => { if (k) root.querySelector(`.chip[data-key="${k}"]`)?.click(); };
-  const onTab = (ev) => {
-    if (!root.isConnected) { window.removeEventListener('so-open-tab', onTab); return; }
-    const k = ev.detail?.tab;
-    if (!defs.some((d) => d[0] === k)) return;
-    show(k);
-    if (!ev.detail.handled) root.scrollIntoView({ block: 'start', behavior: 'smooth' });
-    ev.detail.handled = true;
-  };
-  window.addEventListener('so-open-tab', onTab);
-  const want = pendingTab && pendingTab.id === o.id ? pendingTab.tab : '';
-  if (want) pendingTab = null;
-  show(want);
-  if (want) setTimeout(() => root.scrollIntoView?.({ block: 'start', behavior: 'smooth' }), 100);
-  return root;
+  return kitRow({ title: 'Договор ' + (o.orderNo || '—'), meta: o.customer || '', side: [badge(STAGE, o.stage), due(o), countBadge(countOf(o))].filter(Boolean), action: [add, menu.length ? dots : null].filter(Boolean) });
+}
+/** Подпись под таблицей договора: пусто / «менять позиции может администратор». */
+function contractFoot(o) {
+  const lines = o.lines || [];
+  if (!lines.length) return h('p', { class: 'muted' }, 'В этом договоре позиций пока нет — нажмите «+ Позиция».');
+  if (editableOrder(o) && !closedStage(o) && !canChangeLines(o)) return h('p', { class: 'hint' }, 'Договор уже в работе — менять позиции может администратор.');
+  return null;
+}
+/** Одно действие по клику на позицию — везде: панель позиции (фото, сумма, отгрузка, оплата; «назад» — к заказу). */
+const openLine = (l) => () => patch({ of: 'orders', open: l.id }, { replace: false });
+
+/** Вкладка «Позиции»: одна таблица по всем договорам заказа (договор — группа строк), «К производству» — свёрнутый режим «одинаковые вместе». */
+function positionsPane(d, ctx) {
+  const box = stack(); const reload = reloadKeep(box, ctx);
+  const orders = d.orders || [];
+  const columns = [{ label: '№' }, { label: '' }, { label: 'Название' }, { label: 'Кол-во', num: true }, { label: 'Отгружено', num: true }, { label: 'Цвет' }, ...(session.canEditOrders ? [{ label: '' }] : [])];
+  const groups = orders.map((o) => {
+    const can = editableOrder(o);
+    const lineAct = () => canChangeLines(o) && !closedStage(o) && can;
+    const done = (r) => { if (r) reload(); };
+    const lineMenu = (l, btn) => {
+      const items = l.cancelledAt
+        ? [{ label: 'Вернуть позицию', onSelect: () => restoreLine(l).then(done).catch((e) => toastError(e)) }]
+        : [{ label: 'Заменить изделие', onSelect: () => patch({ of: 'matching', open: `${l.orderId || o.id}.${l.id}`, new: undefined }, { replace: false }) }, ...(lineAct() ? [{ label: 'Отменить позицию', danger: true, onSelect: () => cancelLine(l, o).then(done).catch((e) => toastError(e)) }, { label: 'Перенести в другой договор', onSelect: () => moveLine(l, o).then(done).catch((e) => toastError(e)) }] : [])];
+      if (isOpenFor(btn)) closePopMenu(true); else openPopMenu({ anchor: btn, side: 'down', groups: [{ items }] });
+    };
+    const rowDots = (l) => { if (!can) return ''; const b = iconButton({ icon: '⋯', label: 'Действия с позицией', title: 'Заменить изделие, отменить или перенести позицию', size: 'S', menu: true, cls: 'so-dots', onClick: (e) => { e.stopPropagation(); lineMenu(l, b); } }); return b; };
+    const rows = (o.lines || []).map((l, i) => (l.cancelledAt ? cancelledRow(l, i, can && canChangeLines(o) ? rowDots(l) : null) : { onOpen: openLine(l), cells: [
+      { v: seq(l, i), cls: 'muted' }, posPic(l.photo, l.photo?.url || l.photo?.thumb ? 'lg' : 'sm'),
+      h('span', null, l.title, ourLine(l), l.unassigned !== undefined || l.lineType ? h('span', null, ' ', lineMark(l)) : null, l.unassigned === undefined && !l.lineType && l.matched === false ? h('a', { class: 'badge warn', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null),
+      { v: `${qty(l.qty)} ${l.unit || ''}`, cls: 'num nowrap' }, { v: l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : '', cls: 'num nowrap muted' }, { v: l.color || '', cls: 'muted' },
+      ...(session.canEditOrders ? [{ v: rowDots(l), cls: 'nowrap' }] : [])] }));
+    return { head: contractHead(o, reload), rows, foot: contractFoot(o) };
+  });
+  box.append(addContractBtn(d, ctx), ...orders.map((o) => distribBlock(o, reload)), positionsTable({ columns, groups, label: 'Позиции заказа', empty: { title: 'Договоров нет.' } }), produceBlock(d));
+  return box;
 }
 
-/** «К производству»: одинаковые позиции всех договоров заказа сложены вместе (только просмотр). */
-function produceBlock(d) {
-  const t = d.toProduce || [];
-  if (!t.length) return null;
-  const nameCell = (x) => (x.sku
-    ? h('span', { title: [x.sku, x.title].filter(Boolean).join(' · ') }, kitSku(x.sku), ' ', x.title)
-    : x.title);
-  return sec('К производству', 'main', t.length,
-    table({ columns: [{ label: '№' }, { label: '' }, { label: 'Изделие' }, { label: 'Кол-во', num: true }, { label: 'Ед. изм.' }, { label: 'Из позиций' }],
-      rows: t.map((x, i) => ({ cells: [{ v: i + 1, cls: 'muted' }, { v: posPic(x.photo, x.photo?.url || x.photo?.thumb ? 'lg' : 'sm'), cls: 'pic-cell' }, nameCell(x), qty(x.qty), { v: x.unit || '', cls: 'muted' }, { v: (x.seqNos || []).join(', '), cls: 'muted' }] })) }),
-    h('p', { class: 'hint' }, 'Одинаковые позиции всех договоров заказа сложены вместе — чтобы запустить в работу сразу всё. Это только просмотр.'));
+/** Вкладка «Деньги»: по каждому договору — сумма, оплачено, долг и «Принять оплату» (панель incpay). */
+function moneyPane(d) {
+  const orders = (d.orders || []).filter((o) => (o.lines || []).some((l) => !l.cancelledAt));
+  const paidOf = (l) => (Number(l.paidAmount) || (l.paidDate ? Number(l.amount) || 0 : 0));
+  const payOn = session.canEditOrders;
+  const columns = [{ label: '№' }, { label: 'Название' }, { label: 'Сумма', num: true }, { label: 'Оплачено', num: true }, { label: 'Долг', num: true }, ...(payOn ? [{ label: '' }] : [])];
+  const groups = orders.map((o) => {
+    const live = (o.lines || []).filter((l) => !l.cancelledAt);
+    const amount = live.reduce((s, l) => s + (Number(l.amount) || 0), 0);
+    const paid = live.reduce((s, l) => s + paidOf(l), 0);
+    const debtAll = Math.max(0, amount - paid);
+    const head = kitRow({ title: 'Договор ' + (o.orderNo || '—'), meta: o.customer || '', side: [h('span', { class: 'muted small' }, `сумма ${money(amount)} · оплачено ${money(paid)}`), h('b', { class: debtAll > 0 ? 'neg' : 'muted' }, 'долг ' + money(debtAll))] });
+    const rows = (o.lines || []).map((l, i) => {
+      if (l.cancelledAt) return null;
+      const debt = Math.max(0, (Number(l.amount) || 0) - paidOf(l));
+      return { onOpen: openLine(l), cells: [{ v: seq(l, i), cls: 'muted' }, l.title, { v: l.amount ? money(l.amount) : '', cls: 'num' }, { v: paidOf(l) ? money(paidOf(l)) : '', cls: 'num nowrap muted' }, { v: l.amount ? (debt > 0 ? money(debt) : h('span', { class: 'muted' }, '—')) : '', cls: 'num nowrap' },
+        ...(payOn ? [l.amount && debt > 0 ? button({ label: 'Принять оплату', kind: 'ghost', size: 'S', title: 'Принять оплату по этой позиции', onClick: (e) => { e.stopPropagation(); patch({ of: 'incpay', open: String(l.id), new: undefined }, { replace: false }); } }) : ''] : [])] };
+    }).filter(Boolean);
+    return { head, rows };
+  });
+  return stack(positionsTable({ columns, groups, label: 'Оплаты по позициям заказа', empty: { title: 'Позиций пока нет.' } }));
+}
+
+/** Раскрывающийся блок «Выполнения»: содержимое строится при первом открытии. */
+function lazySec(title, sub, make, open) {
+  const body = h('div', null);
+  const s = section({ title, tone: 'main', open, body: [body] });
+  s.dataset.sub = sub;
+  let built = false;
+  const build = () => { if (built) return; built = true; body.replaceChildren(make() || h('p', { class: 'muted' }, 'Здесь пока ничего нет.')); };
+  if (open) build(); else s.addEventListener('toggle', () => { if (s.open) build(); });
+  return s;
+}
+/** Вкладка «Выполнение»: готовность → по каждому договору проектирование, работа, склад, отгрузки (раскрыт блок текущего этапа). */
+function runPane(d, ctx) {
+  const box = stack(); const reload = reloadKeep(box, ctx);
+  const seeReq = session.sees('requests'), seeStock = session.sees('stock');
+  const want = pendingSub; pendingSub = '';
+  const orders = d.orders || [];
+  const perContract = orders.map((o) => {
+    const lines = o.lines || [];
+    const can = editableOrder(o);
+    const seqBy = new Map(lines.map((l, i) => [String(l.id), seq(l, i)]));
+    const hasShip = o.stage !== 'new' || lines.some((l) => l.shipped);
+    const defs = [
+      ['design', 'Проектирование', session.sees('design') && lines.length > 0, () => orderDesign({ id: o.id, orderNo: o.productionNo || o.orderNo }, lines)],
+      ['work', 'Работа', session.sees('work') && lines.length > 0 && !closedStage(o), () => orderWork([o])],
+      ['stock', 'Склад', seeReq || seeStock, () => stack(
+        seeReq ? sec('Заказано под заказ', 'who', (o.supplyRequests || []).length,
+          (o.supplyRequests || []).length ? stack(...o.supplyRequests.map((s) => kitRow({ title: h('a', { href: '#requests?open=' + (s.id || s._id) }, `№${s.num ?? ''} ${s.title}`), meta: `${qty(s.qty)} ${s.unit || ''} · ${s.statusLabel || s.status || ''}` }))) : h('p', { class: 'muted' }, 'Заявок под этот заказ пока нет.'),
+          can ? button({ label: '+ Заявка под этот заказ', size: 'S', title: 'Новая заявка: заказ и заказчик подставятся сами', onClick: () => patch({ of: 'requests', new: '1', open: undefined, salesOrderRef: o.id, orderLabel: o.customer || undefined }) }) : null) : null,
+        seeStock ? orderReservations({ id: o.id, orderNo: o.orderNo, productionNo: o.productionNo, seqBy }, reload) : null,
+        seeStock ? issuedBlock(o, suggestLink) : null,
+        seeStock && (o.stockMovements || []).length ? sec('Отпущено со склада', 'gold', o.stockMovements.length,
+          stack(...o.stockMovements.map((m) => kitRow({ lead: date(m.date), title: m.materialName || 'позиция',
+            side: [h('span', { class: 'num neg' }, '−' + qty(m.qty))],
+            below: [m.issuedToLabel && 'кому: ' + m.issuedToLabel, m.notes].filter(Boolean).join(' · ') || null })))) : null)],
+      ['ship', 'Отгрузки', hasShip, () => stack(shipmentsBlock({ id: o.id, stage: o.stage }, reload), historyBlock({ id: o.id }))],
+    ].filter((x) => x[2]);
+    const open = want && defs.some((x) => x[0] === want) ? want : DEFAULT_SUB[o.stage];
+    const secs = defs.map(([key, title, , make]) => lazySec(title, key, make, key === open));
+    if (!secs.length) return null;
+    return orders.length > 1 ? sec('Договор ' + (o.orderNo || '—') + (o.customer ? ' · ' + o.customer : ''), 'neutral', null, ...secs) : stack(...secs);
+  });
+  box.append(['closed', 'cancelled', 'shipped', 'ready', 'partly'].includes(d.stage) ? null : readinessBlock(d, reload), ...perContract);
+  if (!box.children.length) box.append(h('p', { class: 'muted' }, 'Здесь пока ничего нет.'));
+  if (want) setTimeout(() => box.querySelector(`[data-sub="${want}"]`)?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }), 150);
+  return box;
+}
+
+/** Вкладка «Документы»: PDF и ZIP заказа, паспорта по договорам. */
+function docsPane(d) {
+  const orders = (d.orders || []).filter((o) => (o.lines || []).length);
+  const many = orders.length > 1;
+  const files = toolbar(...[orderPdfAction, orderZipAction].map((a) => button({ label: a.label, size: 'S', title: a.title, onClick: () => a.run(d) })));
+  const pass = session.seesDocs() ? orders.map((o) => (many ? sec('Договор ' + (o.orderNo || '—') + (o.customer ? ' · ' + o.customer : ''), 'neutral', null, orderPassports(o)) : orderPassports(o))) : [];
+  return stack(files, ...pass);
 }
 
 const inWork = (d) => !['new', 'closed', 'cancelled'].includes(d.stage);
 const plateOf = (d) => { const u = unmatchedOrders(d); return u.length ? unmatchedPlate(u.reduce((s, x) => s + x.n, 0), u[0].id) : null; };
 
-/** «+ Договор» над группами: меню «Выбрать из договоров без заказа» / «Создать новый». */
+/** «+ Договор» над таблицей позиций: меню «Выбрать из договоров без заказа» / «Создать новый». */
 function addContractBtn(d, ctx) {
   if (!editableOrder(d) || closedStage(d)) return null;
   const btn = button({ label: '+ Договор', size: 'S', title: 'Добавить договор в этот заказ' }); btn.setAttribute('aria-haspopup', 'menu');
@@ -370,19 +356,6 @@ function addContractBtn(d, ctx) {
     ] }] });
   });
   return toolbar(btn);
-}
-
-function details(r, ctx) {
-  const box = stack();
-  const paint = (d) => box.replaceChildren(...[
-    inWork(d) ? plateOf(d) : null,
-    produceBlock(d),
-    ['closed', 'cancelled', 'shipped', 'ready', 'partly'].includes(d.stage) ? null : readinessBlock(d, reload),
-    sec('Договоры', 'money', (d.orders || []).length, addContractBtn(d, ctx), ...((d.orders || []).length ? d.orders.map((o) => contractGroup(o, reload)) : [h('p', { class: 'muted' }, 'Договоров нет.')])),
-  ].filter(Boolean));
-  const reload = () => api(`/production-orders/${encodeURIComponent(r.key)}`).then((d) => paint(d)).catch((e) => box.replaceChildren(failBlock(e, reload)));
-  if (r.orders) paint(r); else { box.append(h('div', { class: 'muted' }, 'Загрузка…')); reload(); }
-  return box;
 }
 
 const uniq = (a) => [...new Set(a.filter(Boolean))];
@@ -424,6 +397,65 @@ function boardBody(r) {
     foot: canBtn ? actions(button({ label: b.label, size: 'S', kind: s.tone === 'ok' ? 'primary' : 'secondary', onClick: () => { if (b.href) location.hash = b.href; else setStage(r, b.stage); } })) : null,
   };
 }
+
+/**
+ * Карточка заказа — по шаблону «Карточка объекта» (screenCard, C118 W2): шапка (заказ, этап один раз) → предупреждения → «Что дальше» с одной главной кнопкой →
+ * сведения (5 строк + «Подробнее») → вкладки «Позиции · Выполнение · Деньги · Документы». Остальные действия — в «⋯».
+ */
+const orderCard = screenCard({
+  title: heading,
+  sub: (r) => [names(r.customers), names(r.companyNames)].filter(Boolean).join(' · '),
+  stage: stageCell,
+  noHistory: true,
+  before: (r, ctx) => {
+    liveCtx = ctx;
+    crumbTrail([orderCrumb(r)]);
+    // прежние ключи вкладок: pendingTab (из договора), ?tab=ship с доски «Отгрузка» → новые вкладки
+    let legacy = '';
+    if (pendingTab && (r.orders || []).some((o) => String(o.id) === String(pendingTab.id))) { legacy = pendingTab.tab; pendingTab = null; }
+    const tab = current().params.tab;
+    if (tab && TAB_NAME[tab]) { legacy = tab; patch({ tab: undefined }, { replace: true }); }
+    if (legacy) setTimeout(() => goTab(legacy), 80);
+  },
+  warns: (r, ctx) => [
+    r.stage === 'new' && r.lineCount === 0 && !(r.lines || []).length ? { tone: 'error', title: 'В заказе нет позиций — «В производство» не сработает', label: 'К позициям', run: () => ctx.openTab('pos') } : null,
+    countOf(r) ? { title: `${countOf(r)} поз. без изделия — «В производство» не сработает, пока их не распределят`, label: 'Распределить', run: () => ctx.openTab('pos') } : null,
+    inWork(r) ? plateOf(r) : null,
+  ],
+  next: (r, ctx) => {
+    let primary = null;
+    if (editableOrder(r)) {
+      if (r.stage === 'production') primary = { label: 'Проверить готовность', title: 'Проверки перед отметкой «Готово к отгрузке»', run: async () => { goReady(); } };
+      else if (NEXT[r.stage]) {
+        const many = lagging(r, NEXT[r.stage]).length > 1;
+        primary = { label: NEXT_LABEL[r.stage], title: NEXT_TIP[r.stage] + (many ? ' Договоры выберете галочками.' : ''), run: async () => { const s = await setStage(r, NEXT[r.stage]); if (s) ctx.setRow(s); } };
+      }
+    }
+    return { text: STAGE_NOW[r.stage] || '', tone: 'neutral', primary };
+  },
+  facts: (r) => [
+    ['Заказчик', (r.customers || []).length ? h('span', null, ...(r.customers || []).flatMap((c, i) => [i ? ', ' : '', customerLink(c)])) : ''],
+    ['Наша компания', names(r.companyNames) || h('span', { class: 'muted' }, 'не указана')],
+    ['Срок', r.deadline ? due(r) : ''],
+    ['Сумма', session.canMoney && r.amount ? h('span', null, money(r.amount), r.paidAmount ? h('span', { class: 'muted' }, ` · оплачено ${money(r.paidAmount)}`) : null) : ''],
+    ['Приоритет', r.priority && r.priority !== 'normal' ? prio(r) : ''],
+  ],
+  more: (r) => [
+    ['Договоры', (r.orderNos || []).length ? `${qty(r.orderNos.length)} · № ${names(r.orderNos)}` : ''],
+    ['Позиции', qty(r.lineCount)],
+    ['Срок изготовления, дн.', (Number(r.leadDays) || Math.max(0, ...(r.orders || []).map((o) => Number(o.leadDays) || 0))) || ''],
+  ],
+  menu: (r) => [
+    editableOrder(r) && { label: 'Изменить заказ', title: '№ заказа, срок и приоритет — сразу у всех договоров заказа', run: (row) => openSide('orderedit', row.key || row.id) },
+    orderPdfAction, orderZipAction,
+  ],
+  tabs: (r, ctx) => [
+    { key: 'pos', label: 'Позиции', count: r.lineCount, blocks: async (row) => positionsPane(await full(row), ctx) },
+    { key: 'run', label: 'Выполнение', blocks: async (row) => runPane(await full(row), ctx) },
+    { key: 'money', label: 'Деньги', when: () => session.canMoney, blocks: async (row) => moneyPane(await full(row)) },
+    { key: 'docs', label: 'Документы', blocks: async (row) => docsPane(await full(row)) },
+  ],
+});
 
 export const salesorders = {
   id: 'salesorders',
@@ -496,50 +528,7 @@ export const salesorders = {
     },
   },
 
-  card: {
-    heading,
-    noHistory: true,
-    subheading: (r) => [names(r.customers), names(r.companyNames)].filter(Boolean).join(' · '),
-    actionsInHead: true, zones: { extra: 'wide', fields: 'wide' }, // 2026-11-08: шапка без полосы этапов и «дог./поз.» (всё в сведениях, этап — цветом вкладок договора), кнопки в шапке, сведения и позиции — на всю ширину
-    view: (r) => [
-      ['Этап', badge(STAGE, r.stage)], ['Договоры', (r.orderNos || []).length ? `${qty(r.orderNos.length)} · № ${names(r.orderNos)}` : ''], ['Позиции', qty(r.lineCount)],
-      ['Сумма', session.canMoney && r.amount ? money(r.amount) : ''], ['Оплачено', session.canMoney && r.paidAmount ? money(r.paidAmount) : ''],
-      ['Заказчик', (r.customers || []).length ? h('span', null, ...(r.customers || []).flatMap((c, i) => [i ? ', ' : '', customerLink(c)])) : ''],
-      ['Наша компания', names(r.companyNames) || h('span', { class: 'muted' }, 'не указана')],
-      ['Срок', r.deadline ? due(r) : ''],
-      ['Срок изготовления, дн.', (Number(r.leadDays) || Math.max(0, ...(r.orders || []).map((o) => Number(o.leadDays) || 0))) || ''],
-      ['Приоритет', r.priority && r.priority !== 'normal' ? prio(r) : ''],
-      ['Что дальше', r.stage === 'new' && r.lineCount === 0 && !(r.lines || []).length ? h('span', { class: 'neg' }, 'В заказе нет позиций — «В производство» не сработает. Сначала добавьте позиции.') : STAGE_NOW[r.stage] ? h('span', { class: 'muted' }, STAGE_NOW[r.stage]) : ''],
-      ['Не распределено', countOf(r) ? h('span', { class: 'neg' }, `${countOf(r)} поз. без изделия — «В производство» не сработает, пока их не распределят (выбрать изделие, новое изделие или услуга).`) : ''],
-      ['Этапы по договорам', r.stagesDiffer ? h('span', null, ...(r.orders || []).flatMap((o, i) => [i ? h('br') : '', `${o.orderNo || '—'}: ${STAGE[o.stage]?.label || o.stage}`])) : ''],
-    ],
-    // воронка этапов и крошки «Заказ № … ›»; шаг открывает нужный блок, этап не меняет
-    top: (r) => {
-      crumbTrail([orderCrumb(r)]);
-      // доска «Отгрузка» даёт ?tab=ship — открыть вкладку после отрисовки договоров
-      const tab = current().params.tab;
-      if (tab && TAB_NAME[tab]) {
-        setTimeout(() => {
-          const detail = { tab, handled: false };
-          window.dispatchEvent(new CustomEvent('so-open-tab', { detail }));
-        }, 80);
-        patch({ tab: undefined }, { replace: true });
-      }
-      return null;
-    },
-    actions: (r) => {
-      if (!editableOrder(r)) return [orderPdfAction, orderZipAction]; // завершённый заказ правит только админ
-      const many = NEXT[r.stage] && lagging(r, NEXT[r.stage]).length > 1;
-      return [
-        // в производстве шаг — в блоке «Готовность»; дублируем короткую ссылку в шапке (C017)
-        r.stage === 'production' && { label: 'Готовность', title: 'Проверить готовность к отгрузке', run: () => openStep('ready') },
-        NEXT[r.stage] && r.stage !== 'production' && { label: NEXT_LABEL[r.stage], title: NEXT_TIP[r.stage] + (many ? ' Договоры выберете галочками.' : ''), primary: true, run: async (row, ctx) => { const s = await setStage(row, NEXT[row.stage]); if (s) ctx.setRow(s); } },
-        { label: 'Изменить заказ', title: '№ заказа, срок и приоритет — сразу у всех договоров заказа', run: (row) => openSide('orderedit', row.key || row.id) },
-        orderPdfAction, orderZipAction,
-      ];
-    },
-    extra: (r, ctx) => details(r, ctx),
-  },
+  card: orderCard,
 };
 
 const orderCrumb = (r) => (r.productionNo ? `Заказ № ${r.productionNo}` : 'Заказ без №');

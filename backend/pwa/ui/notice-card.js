@@ -4,24 +4,11 @@
  * noticeCard({ tone, title, sub?, time?, actions?, onClose?, role?, cls? })
  *   tone: 'success' | 'error' | 'warn' | 'info' — значок и цвет полоски; actions: [{ label, run }].
  */
-import { h } from '../core/dom.js';
-import { icon } from './icons.js';
+import { warnCard } from './kit/warn-card.js';
 
-export const TONE_ICON = { success: 'ok', error: 'err', warn: 'warn', info: 'info' };
 export const TONE_LABEL = { success: 'успех', error: 'ошибка', warn: 'внимание', info: 'сообщение' };
-
-export function noticeCard({ tone = 'info', title, sub, time, actions, onClose, role, cls = '' } = {}) {
-  const t = TONE_ICON[tone] ? tone : 'info';
-  const acts = (actions || []).filter(Boolean);
-  return h('div', { class: ('ntf ' + cls).trim(), 'data-tone': t, role: role || (t === 'error' ? 'alert' : 'status') },
-    h('span', { class: 'ntf-ico' }, icon(TONE_ICON[t])),
-    h('div', { class: 'ntf-body' },
-      h('div', { class: 'ntf-title' }, title),
-      sub ? h('div', { class: 'ntf-sub' }, sub) : null,
-      time ? h('div', { class: 'ntf-time' }, time) : null),
-    acts.length ? h('div', { class: 'ntf-acts' }, ...acts.map((a) => h('button', { type: 'button', class: 'btn btn-sm', onclick: a.run }, a.label))) : null,
-    onClose ? h('button', { type: 'button', class: 'ntf-x', 'aria-label': 'Убрать уведомление', title: 'Убрать', onclick: onClose }, '×') : null);
-}
+/** Прежнее имя: карточка предупреждения теперь kit.warnCard (DESIGN §3.2); старые вызовы работают. */
+export const noticeCard = warnCard;
 
 /** «сегодня 14:05» / «вчера 09:30» / «12 окт 18:00». */
 export function noticeTime(at) {

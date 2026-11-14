@@ -1,3 +1,8 @@
+## C118 W2 карточка заказа по шаблону (2026-11-15)
+коммит: не закоммичено
+- `ui/kit/screens/blocks.js` infoCard/nextCard/positionsTable (+ реэкспорт warnCard), `ui/kit/warn-card.js` (бывший noticeCard; `ui/notice-card.js` — алиас), `ui/kit/screens/card.js` screenCard. Витрина `sections/kit.js` (блоки C118 W2).
+- `sections/salesorders.js`: `orderCard` (перед `export const salesorders`), вкладки `positionsPane/moneyPane/runPane/docsPane`, `goTab`/`LEGACY_TAB`/`so-open-tab` (старые ключи вкладок). `sections/order-blocks.js` — вынесенные блоки. `orders.js` card.heading «Позиция № …». Отчёт: docs/crew/C118-screen-templates/W2-REPORT.md. Карта обновлена.
+
 ## C118 W1 шаблоны экранов (2026-11-14)
 коммит: не закоммичено
 - `docs/DESIGN.md` §3.1 (7 шаблонов, закон ИА); `sections/atlas-data.js` поля `tpl`/`tplStatus` у каждого блока; `tools/dc.mjs atlasCheck` (~182) + `tools/tpl-baseline.json` (храповик legacy). Карта обновлена.
