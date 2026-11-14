@@ -1,7 +1,7 @@
 import { api, apiFile, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { sideForm, openSide, noteField } from '../ui/kit/side-form.js';
-import { button, hint, iconButton, stack, table, textInput } from '../ui/kit/index.js';
+import { button, hint, iconButton, sku as kitSku, stack, table, textInput } from '../ui/kit/index.js';
 import { loadMaterialDicts, materialsSpec, specSummary } from '../ui/materials-spec.js';
 import { toast } from '../ui/kit/toast.js';
 import { fromComposition } from './products/form-fields.js';
@@ -86,6 +86,8 @@ export const techSheet = sideForm({
     return { ...r, dicts, gaps, extra: [] };
   },
   heading: (r) => `Техническое описание · ${r.name || 'изделие'}`,
+  // чьё техописание — сразу видно: артикул и название в заголовке панели (пользователь 14.11)
+  editTitle: (r) => ['Техническое описание · ', ...(r.sku ? [kitSku(r.sku), ' '] : []), r.name || 'изделие'],
   subheading: () => 'PDF для заказчика: шаги ниже, что осталось — сверху',
   saveLabel: '⇩ Сохранить и скачать PDF',
   fields: (r) => {
