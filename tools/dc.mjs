@@ -179,6 +179,19 @@ export async function atlasCheck() {
   const mainJs = fs.readFileSync(path.join(ROOT, 'backend/pwa/main.js'), 'utf8');
   const gitTime = (paths) => Number(run('git', ['log', '-1', '--format=%ct', '--', ...paths]).stdout.trim()) || 0;
   const mapTime = gitTime(['backend/pwa/sections/atlas-data.js']);
+  // Шаблоны экранов (C118, docs/DESIGN.md §3.1): tpl обязателен, legacy не растёт.
+  const TPLS = ['list', 'board', 'card', 'queue', 'funnel', 'summary', 'dict'], STATUSES = ['ok', 'legacy', 'plan'];
+  let legacy = 0;
+  for (const n of NODES) {
+    if (!TPLS.includes(n.tpl)) errors.push(`${n.id}: нет шаблона экрана tpl (${TPLS.join('|')}), DESIGN §3.1`);
+    if (!STATUSES.includes(n.tplStatus)) errors.push(`${n.id}: нет tplStatus (${STATUSES.join('|')})`);
+    if (n.tplStatus === 'legacy') legacy++;
+  }
+  try {
+    const base = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/tpl-baseline.json'), 'utf8')).legacy;
+    if (legacy > base) errors.push(`шаблоны: legacy ${legacy} > базовой линии ${base} (tools/tpl-baseline.json) — новый экран делай по DESIGN §3.1`);
+    else if (legacy < base) warns.push(`шаблоны: legacy ${legacy} < базовой линии ${base} — снизить число в tools/tpl-baseline.json`);
+  } catch { errors.push('нет tools/tpl-baseline.json'); }
   for (const n of NODES) {
     for (const c of n.code || []) if (!fs.existsSync(path.join(ROOT, c))) errors.push(`${n.id}: нет файла кода ${c}`);
     for (const d of n.docs || []) { const p = m.docRef(d).path; if (!fs.existsSync(path.join(ROOT, p))) warns.push(`${n.id}: документа ${p} нет в репо (архив — dc doc)`); }

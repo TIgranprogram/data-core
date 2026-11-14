@@ -1,3 +1,7 @@
+## C118 W1 шаблоны экранов (2026-11-14)
+коммит: не закоммичено
+- `docs/DESIGN.md` §3.1 (7 шаблонов, закон ИА); `sections/atlas-data.js` поля `tpl`/`tplStatus` у каждого блока; `tools/dc.mjs atlasCheck` (~182) + `tools/tpl-baseline.json` (храповик legacy). Карта обновлена.
+
 ## C114 I-2 длинные подсказки → guide.* (2026-11-14)
 коммит: не закоммичено
 - `passports/funnel/issue.js:84-157` guide.source/steps/checklist вместо заметок; тексты ≤20 слов в `passports/{dialogs,form,wire-form,product-block,modules,pdf-block,passport-wizard,materials}.js`, `fill/index.js`, `funnel/{index,new-product}.js`, `products/form-fields.js`, `docs.js:49,128`. `docs.js:150` без scroll у вкладок. `ui/funnel.js optRow` — одинаковое обрезанное описание вариантов скрыто. Карта обновлена.

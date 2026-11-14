@@ -6,3 +6,4 @@
 4. Строка-ссылка в `CLAUDE.md` и `AGENTS.md`.
 Проверки: `--check` модулей, `dc atlas --check` (структура в порядке), pwa-guards 303/303.
 Допущение: tpl — на уровне блока карты (экран = блок), не вкладки.
+5. (доп. владельца) DESIGN §3.2 — каталог именованных блоков-эталонов: 8 блоков, русское имя + функция (infoCard, nextCard, warnCard, positionsTable, rowCard, filterBar, progressBar, historyBlock), статус есть/нет. Есть: warnCard (=noticeCard), rowCard, filterBar; нет: infoCard, nextCard, positionsTable, progressBar, historyBlock (план, `ui/kit/screens/blocks.js`).

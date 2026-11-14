@@ -23,10 +23,12 @@ export const BANDS = [
  * plan: '<код задачи>' — раздел или шаг ещё в разработке (серый, полупрозрачный); код — из docs/TASKS.md / crew/BOARD.md.
  * plan: 'идея' — предложение координатора, в очереди задач нет; нужно решение владельца (взять в работу или удалить).
  * Сделали — убрать plan и проверить связи; отменили — удалить блок.
+ * tpl — шаблон экрана (docs/DESIGN.md §3.1): list | board | card | queue | funnel | summary | dict; обязателен у каждого блока.
+ * tplStatus: ok — собран по шаблону; legacy — долг (число не растёт, tools/tpl-baseline.json); plan — экрана ещё нет.
  */
 export const NODES = [
   // ── Клиенты и продажи
-  { id: 'partners', band: 'sale', col: 0, sec: 'partners', href: '#partners', t: 'Контрагенты', l: ['заказчики, поставщики,', 'наши фирмы'],
+  { id: 'partners', tpl: 'dict', tplStatus: 'legacy', band: 'sale', col: 0, sec: 'partners', href: '#partners', t: 'Контрагенты', l: ['заказчики, поставщики,', 'наши фирмы'],
     inside: [
       { id: 'zakazchiki', t: 'Заказчики', l: 'кому продаём: реквизиты, контакты', out: ['offers', 'salesorders'] },
       { id: 'nashi-firmy', t: 'Наши фирмы', l: 'от чьего имени КП, счёт, паспорт', out: ['offers'] },
@@ -36,7 +38,7 @@ export const NODES = [
     rules: ['Одна организация — одна запись. Дубль раздваивает долги и историю заказов.', 'ИНН проверяется при сохранении.'],
     docs: ['docs/PRODUCT.md — «Контрагенты»', 'docs/MAP.md — partners, counterparty'], tech: 'organizations (поставщики, наши фирмы, реквизиты заказчиков); заказчик в заказе — текст customer в salesorders/incomes',
     code: ['backend/src/modules/partners', 'backend/src/modules/organization', 'backend/pwa/sections/partners.js'] },
-  { id: 'offers', band: 'sale', col: 1, sec: 'offers', t: 'КП', l: ['подбор изделий, цена', 'с наценкой, PDF'],
+  { id: 'offers', tpl: 'list', tplStatus: 'legacy', band: 'sale', col: 1, sec: 'offers', t: 'КП', l: ['подбор изделий, цена', 'с наценкой, PDF'],
     seq: true, inside: [
       { id: 'zakazchik-i-firma', t: 'Заказчик и фирма', l: 'из контрагентов', in: ['partners'] },
       { id: 'pozicii-kp', t: 'Позиции КП', l: 'изделия из «Продукции» с количеством', in: ['products'] },
@@ -48,7 +50,7 @@ export const NODES = [
     rules: ['КП не меняет изделие: цена в КП — своя, у изделия — базовая.'],
     docs: ['docs/PRODUCT.md — «КП»', 'docs/MAP.md — offers'], tech: 'offers',
     code: ['backend/src/modules/offers', 'backend/pwa/sections/offers.js', 'backend/pwa/sections/offers/', 'backend/pwa/sections/kp.js'] },
-  { id: 'salesorders', band: 'sale', col: 2, sec: 'salesorders', t: 'Заказы', l: ['позиции, срок, этапы:', 'в работу → отгрузка'],
+  { id: 'salesorders', tpl: 'board', tplStatus: 'legacy', band: 'sale', col: 2, sec: 'salesorders', t: 'Заказы', l: ['позиции, срок, этапы:', 'в работу → отгрузка'],
     seq: true, inside: [
       { id: 'zakaz-i-dogovory', t: 'Заказ и договоры', l: 'заказчик, его договоры (внутри заказа), КП', in: ['partners', 'offers'] },
       { id: 'pozicii', t: 'Позиции', l: 'изделие, новое изделие или услуга', in: ['products', 'matching'], out: ['matching'] },
@@ -61,7 +63,7 @@ export const NODES = [
     rules: ['Задачи проектирования создаются сами, только когда распределены все позиции заказа.', 'Позиция связывает изделие, количество, срок и работу.', 'Изменение заказа не переписывает выпущенный паспорт.', '«В производство» недоступно, пока есть нераспределённые позиции.'],
     docs: ['docs/PRODUCT.md — «Заказы»', 'docs/MAP.md — salesorders, shipments, incomes'], tech: 'salesorders, incomes, shipments',
     code: ['backend/src/modules/salesorders', 'backend/src/modules/incomes', 'backend/src/modules/shipments', 'backend/pwa/sections/salesorders.js', 'backend/pwa/sections/order-lines.js', 'backend/pwa/sections/order-shipments.js'] },
-  { id: 'contracts', band: 'supply', col: 1, sec: 'contracts', t: 'Договоры', l: ['с поставщиками:', 'номер, срок, файлы'],
+  { id: 'contracts', tpl: 'list', tplStatus: 'legacy', band: 'supply', col: 1, sec: 'contracts', t: 'Договоры', l: ['с поставщиками:', 'номер, срок, файлы'],
     inside: [
       { id: 'dogovor-postavki', t: 'Договор поставки', l: 'поставщик, номер, дата; выбирается в счёте', out: ['requests'] },
       { id: 'srok-i-status', t: 'Срок и статус', l: 'действует до; закрытые не предлагаются' },
@@ -71,7 +73,7 @@ export const NODES = [
     docs: ['docs/PRODUCT.md — «Договоры»'], tech: 'contracts',
     code: ['backend/src/modules/supply', 'backend/pwa/sections/contracts.js'] },
 
-  { id: 'matching', band: 'sale', col: 3, sec: null, href: '#matching', t: 'Сопоставление', l: ['позиция заказа ↔', 'изделие из каталога'],
+  { id: 'matching', tpl: 'queue', tplStatus: 'legacy', band: 'sale', col: 3, sec: null, href: '#matching', t: 'Сопоставление', l: ['позиция заказа ↔', 'изделие из каталога'],
     seq: true, inside: [
       { id: 'nesopostavlennye', t: 'Несопоставленные', l: 'позиции заказов без изделия', in: ['salesorders'] },
       { id: 'podbor', t: 'Подбор', l: 'похожие изделия: по артикулу, названию', in: ['products'] },
@@ -82,7 +84,7 @@ export const NODES = [
     code: ['backend/src/modules/matching', 'backend/pwa/sections/matching-queue.js', 'backend/pwa/sections/salesorders-matching.js'] },
 
   // ── Продукция
-  { id: 'dicts', band: 'prod', col: 0, sec: 'dicts', href: '#dicts', t: 'Справочники', l: ['типы паспортов, тексты,', 'цвета, виды работ'],
+  { id: 'dicts', tpl: 'dict', tplStatus: 'legacy', band: 'prod', col: 0, sec: 'dicts', href: '#dicts', t: 'Справочники', l: ['типы паспортов, тексты,', 'цвета, виды работ'],
     inside: [
       { id: 'kategorii-izdelii', t: 'Категории изделий', l: 'Раздел → Группа → Подгруппа → Серия', out: ['products'] },
       { id: 'cveta-ral-i', t: 'Цвета RAL и виды работ', l: 'для деталей, изделий и производства', out: ['products'] },
@@ -92,7 +94,7 @@ export const NODES = [
     rules: ['Части и материалы паспорта (в том числе каркас) — в группе «Паспорта · части и материалы». Поиск меню находит справочник; поиск и фильтры справа отбирают записи.', 'Запись справочника используют многие изделия. Перед правкой проверьте, кому она подходит.', 'Выпущенный паспорт не получает новые тексты сам.'],
     docs: ['docs/MAP.md — dicts, category, work-type, color-reference', 'docs/PASSPORTS-V2.md'], tech: 'categories, worktypes, color_references, passporttemplates',
     code: ['backend/src/modules/dicts', 'backend/src/modules/category', 'backend/src/modules/work-type', 'backend/src/modules/color-reference', 'backend/src/modules/expense-articles', 'backend/pwa/sections/dicts.js'] },
-  { id: 'products', band: 'prod', col: 1, sec: 'products', t: 'ИЗДЕЛИЕ', big: true, l: ['артикул, фото, категория,', 'состав, работы, файлы'],
+  { id: 'products', tpl: 'list', tplStatus: 'legacy', band: 'prod', col: 1, sec: 'products', t: 'ИЗДЕЛИЕ', big: true, l: ['артикул, фото, категория,', 'состав, работы, файлы'],
     productMap: true,
     inside: [
       { id: 'kartochka', t: 'Карточка', l: 'артикул = обозначение PDM, название, фото, категория', in: ['design', 'dicts'], out: ['offers', 'salesorders', 'docs', 'matching'] },
@@ -105,7 +107,7 @@ export const NODES = [
     rules: ['Общие сведения задаются в изделии. Черновик паспорта берёт их отсюда.', 'Выпущенный паспорт хранит снимок: правка изделия его не меняет.', '♻ — запись одна на весь каталог: правка меняет все изделия.', 'Файлы PDM скачиваются только после входа: по прямой ссылке без входа их не открыть.'],
     docs: ['docs/PRODUCT.md — «Продукция»', 'docs/crew/C057-pdm-import/DECISIONS.md', 'docs/MAP.md — product, product-module, material'], tech: 'products, productmodules, materials, pdmfiles',
     code: ['backend/src/modules/product', 'backend/src/modules/product-module', 'backend/src/modules/material', 'backend/src/modules/pdm-files', 'backend/pwa/sections/products.js', 'backend/pwa/sections/products/', 'backend/pwa/sections/composition.js'] },
-  { id: 'design', band: 'prod', col: 2, sec: 'design', t: 'Проектирование', l: ['новые изделия', 'из заказов'],
+  { id: 'design', tpl: 'board', tplStatus: 'legacy', band: 'prod', col: 2, sec: 'design', t: 'Проектирование', l: ['новые изделия', 'из заказов'],
     seq: true, inside: [
       { id: 'na-raspredelenii', t: 'На распределении', l: 'появляется, когда все позиции заказа распределены', in: ['salesorders'] },
       { id: 'v-rabote', t: 'В работе', l: 'проектировщик ведёт по доске' },
@@ -115,7 +117,7 @@ export const NODES = [
     rules: ['Пока задача не закрыта, заказ нельзя отправить «В производство».'],
     docs: ['docs/PRODUCT.md — «Проектирование»', 'docs/MAP.md — design, product-requests'], tech: 'designtasks, productrequests',
     code: ['backend/src/modules/design', 'backend/src/modules/product-requests', 'backend/pwa/sections/design.js', 'backend/pwa/sections/design-requests.js'] },
-  { id: 'docs', band: 'prod', col: 3, sec: 'docs', t: 'Документация', l: ['паспорта: черновик →', 'выпуск PDF, редакции'],
+  { id: 'docs', tpl: 'queue', tplStatus: 'legacy', band: 'prod', col: 3, sec: 'docs', t: 'Документация', l: ['паспорта: черновик →', 'выпуск PDF, редакции'],
     seq: true, inside: [
       { id: 'ochered', t: 'Очередь', l: '«К выпуску» по заказам', in: ['salesorders'] },
       { id: 'chernovik', t: 'Черновик', l: 'данные из изделия: модули сборного изделия и глубина Г для схемы установки', in: ['products'] },
@@ -130,7 +132,7 @@ export const NODES = [
     code: ['backend/src/modules/product-passport', 'backend/pwa/sections/passports.js', 'backend/pwa/sections/passports/', 'backend/pwa/sections/docs.js', 'backend/pwa/sections/docs-queue.js'] },
 
   // ── Производство
-  { id: 'staff', band: 'make', col: 0, sec: 'staff', t: 'Сотрудники', l: ['роли, зоны,', 'ставки, доступ'],
+  { id: 'staff', tpl: 'dict', tplStatus: 'legacy', band: 'make', col: 0, sec: 'staff', t: 'Сотрудники', l: ['роли, зоны,', 'ставки, доступ'],
     inside: [
       { id: 'chelovek-i-rol', t: 'Человек и роль', l: 'галочки: что видит в меню', out: ['work', 'gantt'] },
       { id: 'zony-otvetstvennosti', t: 'Зоны ответственности', l: 'кто отвечает за склад, закупку…' },
@@ -140,7 +142,7 @@ export const NODES = [
     rules: ['Убрать галочку раздела — человек перестанет его видеть.'],
     docs: ['docs/MAP.md — user, role, zones'], tech: 'users, roles, zones',
     code: ['backend/src/modules/user', 'backend/src/modules/role', 'backend/src/modules/zones', 'backend/src/modules/person', 'backend/pwa/sections/staff.js'] },
-  { id: 'work', band: 'make', col: 1, sec: 'work', t: 'В работе', l: ['части × работы,', 'доска, Гант, факт'],
+  { id: 'work', tpl: 'board', tplStatus: 'legacy', band: 'make', col: 1, sec: 'work', t: 'В работе', l: ['части × работы,', 'доска, Гант, факт'],
     seq: true, inside: [
       { id: 'sostav-pozicii', t: 'Состав позиции', l: 'части × виды работ, часы на 1 шт.', in: ['salesorders', 'products'] },
       { id: 'provereno-i-sohranit', t: '«Проверено» и «Сохранить»', l: 'зелёная метка; правка часов снимает' },
@@ -151,7 +153,7 @@ export const NODES = [
     rules: ['Порядок: части и работы → «Проверено» → «Сохранить» → «Запустить».', '«И в продукцию» меняет состав изделия для будущих заказов.'],
     docs: ['docs/PRODUCT.md — «В работе»', 'docs/MAP.md — work, order-line-plan, my-tasks'], tech: 'worktasks, orderlineplans',
     code: ['backend/src/modules/work', 'backend/src/modules/order-line-plan', 'backend/pwa/sections/work.js', 'backend/pwa/sections/order-work.js', 'backend/pwa/sections/work-facts.js'] },
-  { id: 'gantt', band: 'make', col: 2, sec: null, href: '#workschedule', t: 'Гант', l: ['сроки по людям', 'и позициям'],
+  { id: 'gantt', tpl: 'summary', tplStatus: 'legacy', band: 'make', col: 2, sec: null, href: '#workschedule', t: 'Гант', l: ['сроки по людям', 'и позициям'],
     inside: [
       { id: 'po-poziciyam', t: 'По позициям', l: 'заказ › позиция › часть › шаги', in: ['work'] },
       { id: 'po-lyudyam', t: 'По людям', l: 'человек › позиция › шаги', in: ['staff'] },
@@ -163,7 +165,7 @@ export const NODES = [
     docs: ['docs/MAP.md — work, my-tasks'], tech: 'worktasks, orderlineplans',
     code: ['backend/src/modules/work', 'backend/src/modules/my-tasks', 'backend/pwa/sections/work-schedule.js'] },
 
-  { id: 'master', band: 'make', col: 3, sec: null, plan: 'C050', t: 'Мастер, мои задания', l: ['экран рабочего на телефоне,', 'мастер распределяет'],
+  { id: 'master', tpl: 'queue', tplStatus: 'plan', band: 'make', col: 3, sec: null, plan: 'C050', t: 'Мастер, мои задания', l: ['экран рабочего на телефоне,', 'мастер распределяет'],
     seq: true, inside: [
       { id: 'master-raspredelyaet', t: 'Мастер распределяет', l: 'кому какой шаг — в Ганте', in: ['gantt'] },
       { id: 'moi-zadaniya', t: 'Мои задания', l: 'только свои шаги, без цен, на телефоне' },
@@ -175,7 +177,7 @@ export const NODES = [
     code: ['backend/src/modules/my-tasks'] },
 
   // ── Снабжение
-  { id: 'suppliercatalog', band: 'supply', col: 0, sec: 'suppliercatalog', t: 'Каталог номенклатуры', l: ['всё, что покупаем:', 'цены, поставщики'],
+  { id: 'suppliercatalog', tpl: 'dict', tplStatus: 'legacy', band: 'supply', col: 0, sec: 'suppliercatalog', t: 'Каталог номенклатуры', l: ['всё, что покупаем:', 'цены, поставщики'],
     inside: [
       { id: 'poziciya', t: 'Позиция', l: 'артикул, название, единица', out: ['requests'] },
       { id: 'detali-i-syre', t: 'Детали и сырьё', l: 'те же позиции — в составе изделий', out: ['products'] },
@@ -186,7 +188,7 @@ export const NODES = [
     rules: ['Название позиции меняют здесь, количество — только складской операцией.', 'Одна позиция — во всех изделиях, заявках и остатках.'],
     docs: ['docs/UNIFY-SUPPLY-WAREHOUSE.md', 'docs/MAP.md — supply, material'], tech: 'materials (общая с CRM)',
     code: ['backend/src/modules/supply', 'backend/src/modules/material', 'backend/pwa/sections/supplier-catalog.js'] },
-  { id: 'requests', band: 'supply', col: 2, sec: 'requests', t: 'Заявки', l: ['заявка → заказал →', 'счёт → оплачено → получено'],
+  { id: 'requests', tpl: 'board', tplStatus: 'legacy', band: 'supply', col: 2, sec: 'requests', t: 'Заявки', l: ['заявка → заказал →', 'счёт → оплачено → получено'],
     seq: true, inside: [
       { id: 'zayavka', t: 'Заявка', l: 'что купить и сколько', in: ['suppliercatalog', 'needs', 'shortage'] },
       { id: 'zakazal', t: '«Заказал»', l: 'у поставщика, по договору', in: ['partners', 'contracts'] },
@@ -197,7 +199,7 @@ export const NODES = [
     rules: ['Удалять оплаченные строки нельзя.', 'После первой приёмки суммы счёта не правятся.'],
     docs: ['docs/PRODUCT.md — «Заявки»', 'docs/UNIFY-SUPPLY-WAREHOUSE.md'], tech: 'supplyrequests (общая с CRM)',
     code: ['backend/src/modules/supply', 'backend/pwa/sections/requests.js', 'backend/pwa/sections/invoice-workspace.js'] },
-  { id: 'needs', band: 'supply', col: 3, sec: null, where: 'Продукция → карточка изделия → «Что купить»', t: 'Что купить', l: ['изделие × количество', '− остатки склада'],
+  { id: 'needs', tpl: 'card', tplStatus: 'legacy', band: 'supply', col: 3, sec: null, where: 'Продукция → карточка изделия → «Что купить»', t: 'Что купить', l: ['изделие × количество', '− остатки склада'],
     seq: true, inside: [
       { id: 'potrebnost', t: 'Потребность', l: 'состав изделия × количество: листы, хлысты, метизы', in: ['products'] },
       { id: 'minus-ostatki', t: 'Минус остатки', l: 'что уже лежит на складе', in: ['stock'] },
@@ -208,7 +210,7 @@ export const NODES = [
     code: ['backend/src/modules/product', 'backend/pwa/sections/products/'] },
 
   // ── Склад
-  { id: 'stockmobile', band: 'stock', col: 0, sec: 'stock-mobile', t: 'Склад · телефон', l: ['крупные кнопки, QR,', 'работает без связи'],
+  { id: 'stockmobile', tpl: 'funnel', tplStatus: 'legacy', band: 'stock', col: 0, sec: 'stock-mobile', t: 'Склад · телефон', l: ['крупные кнопки, QR,', 'работает без связи'],
     inside: [
       { id: 'vydat-prinyat', t: 'Выдать / Принять', l: 'две большие кнопки', out: ['stock'] },
       { id: 'qr-nakleika', t: 'QR-наклейка', l: 'камера открывает позицию' },
@@ -217,7 +219,7 @@ export const NODES = [
     rules: ['Это те же остатки — просто другой экран.'],
     docs: ['docs/DESIGN-MOBILE.md'], tech: 'storageitems, stockmovements',
     code: ['backend/pwa/sections/stock-mobile.js', 'backend/pwa/sections/warehouse-mobile.js'] },
-  { id: 'stock', band: 'stock', col: 2, sec: 'stock', t: 'Остатки', l: ['где и сколько лежит,', 'приём, бронь, выдача'],
+  { id: 'stock', tpl: 'list', tplStatus: 'legacy', band: 'stock', col: 2, sec: 'stock', t: 'Остатки', l: ['где и сколько лежит,', 'приём, бронь, выдача'],
     seq: true, inside: [
       { id: 'priem', t: 'Приём', l: 'из заявки, с телефона или вручную', in: ['requests', 'stockmobile'] },
       { id: 'pozicii-po-polkam', t: 'Позиции по полкам', l: 'категория → тип → позиция', out: ['needs', 'movements', 'shortage', 'shipping'] },
@@ -229,7 +231,7 @@ export const NODES = [
     rules: ['Приём, выдача и пересчёт меняют остаток; всё видно в журнале.', 'Количество — только операцией, не правкой карточки.'],
     docs: ['docs/UNIFY-SUPPLY-WAREHOUSE.md', 'docs/MAP.md — stock, stock-zones'], tech: 'storageitems, reservations, warehouses (общие с CRM)',
     code: ['backend/src/modules/stock', 'backend/src/modules/stock-zones', 'backend/pwa/sections/stock.js', 'backend/pwa/sections/reservations.js'] },
-  { id: 'movements', band: 'stock', col: 3, sec: 'movements', t: 'Журнал движений', l: ['каждый приход', 'и каждая выдача'],
+  { id: 'movements', tpl: 'list', tplStatus: 'legacy', band: 'stock', col: 3, sec: 'movements', t: 'Журнал движений', l: ['каждый приход', 'и каждая выдача'],
     seq: true, inside: [
       { id: 'zapis-operacii', t: 'Запись операции', l: 'кто, что, сколько, когда', in: ['stock'] },
       { id: 'ispravit', t: '«Исправить»', l: 'старая запись отменяется, новая проходит' },
@@ -238,7 +240,7 @@ export const NODES = [
     docs: ['docs/MAP.md — stock'], tech: 'stockmovements (общая с CRM)',
     code: ['backend/src/modules/stock', 'backend/pwa/sections/movements.js'] },
 
-  { id: 'shortage', band: 'stock', col: 1, sec: null, plan: 'C048-8', t: 'Не хватает под заказы', l: ['состав заказов в работе', '− свободный остаток'],
+  { id: 'shortage', tpl: 'queue', tplStatus: 'plan', band: 'stock', col: 1, sec: null, plan: 'C048-8', t: 'Не хватает под заказы', l: ['состав заказов в работе', '− свободный остаток'],
     seq: true, inside: [
       { id: 'potrebnost-zakazov', t: 'Потребность заказов', l: 'состав позиций в работе × количество', in: ['salesorders'] },
       { id: 'minus-svobodnoe-i', t: 'Минус свободное и «в пути»', l: 'свободный остаток и заказанное', in: ['stock'] },
@@ -249,7 +251,7 @@ export const NODES = [
     code: [] },
 
   // ── Отгрузка и сервис (набросок будущего, 2026-11-12: «идея» — решение за владельцем)
-  { id: 'shipping', band: 'after', col: 0, sec: null, plan: 'идея', t: 'Отгрузки и доставка', l: ['что везём на неделе,', 'документы, кто везёт'],
+  { id: 'shipping', tpl: 'queue', tplStatus: 'plan', band: 'after', col: 0, sec: null, plan: 'идея', t: 'Отгрузки и доставка', l: ['что везём на неделе,', 'документы, кто везёт'],
     seq: true, inside: [
       { id: 'k-otgruzke', t: 'К отгрузке', l: 'изготовленные позиции всех заказов', in: ['salesorders', 'stock'] },
       { id: 'plan-dostavki', t: 'План доставки', l: 'дата, адрес, машина, кто везёт' },
@@ -258,7 +260,7 @@ export const NODES = [
     ],
     rules: ['Сейчас отгрузка — шаг внутри заказа («Отгрузить»). Отдельного раздела со всеми отгрузками нет.'],
     docs: ['docs/MAP.md — shipments'], tech: 'shipments (сейчас — внутри заказа)' },
-  { id: 'install', band: 'after', col: 1, sec: null, plan: 'идея', t: 'Монтаж на объекте', l: ['бригада, сроки,', 'акт монтажа'],
+  { id: 'install', tpl: 'board', tplStatus: 'plan', band: 'after', col: 1, sec: null, plan: 'идея', t: 'Монтаж на объекте', l: ['бригада, сроки,', 'акт монтажа'],
     seq: true, inside: [
       { id: 'obekt', t: 'Объект', l: 'адрес, заказчик, что ставим', in: ['shipping'] },
       { id: 'brigada-i-srok', t: 'Бригада и срок', l: 'кто едет, когда, что взять' },
@@ -266,7 +268,7 @@ export const NODES = [
     ],
     rules: ['Идея: нужен ли монтаж в этой системе — решает владелец.'],
     docs: ['docs/PRODUCT.md'], tech: null },
-  { id: 'warranty', band: 'after', col: 2, sec: null, plan: 'идея', t: 'Гарантия и рекламации', l: ['обращения заказчиков,', 'ремонт по гарантии'],
+  { id: 'warranty', tpl: 'list', tplStatus: 'plan', band: 'after', col: 2, sec: null, plan: 'идея', t: 'Гарантия и рекламации', l: ['обращения заказчиков,', 'ремонт по гарантии'],
     seq: true, inside: [
       { id: 'obraschenie', t: 'Обращение', l: 'что сломалось, фото, номер паспорта', in: ['docs', 'install'] },
       { id: 'proverka-garantii', t: 'Проверка гарантии', l: 'срок по паспорту (12 мес.), условия' },
@@ -276,7 +278,7 @@ export const NODES = [
     docs: ['docs/PASSPORTS-V2.md'], tech: null },
 
   // ── Деньги
-  { id: 'expenses', band: 'money', col: 0, sec: 'expenses', t: 'Прочие расходы', l: ['траты без заявки', 'по статьям'],
+  { id: 'expenses', tpl: 'list', tplStatus: 'legacy', band: 'money', col: 0, sec: 'expenses', t: 'Прочие расходы', l: ['траты без заявки', 'по статьям'],
     seq: true, inside: [
       { id: 'statya', t: 'Статья', l: 'из справочника «Статьи расходов»', in: ['dicts'] },
       { id: 'rashod', t: 'Расход', l: 'сумма, дата', out: ['money'] },
@@ -285,7 +287,7 @@ export const NODES = [
     rules: ['Статья обязательна — без неё расход не попадёт в отчёт.'],
     docs: ['docs/MAP.md — expenses, expense-articles'], tech: 'expenses',
     code: ['backend/src/modules/expenses', 'backend/pwa/sections/expenses.js'] },
-  { id: 'payroll', band: 'money', col: 1, sec: 'payroll', t: 'ФОТ', l: ['ставка × табель,', 'начислено, выплачено'],
+  { id: 'payroll', tpl: 'summary', tplStatus: 'legacy', band: 'money', col: 1, sec: 'payroll', t: 'ФОТ', l: ['ставка × табель,', 'начислено, выплачено'],
     seq: true, inside: [
       { id: 'tabel', t: 'Табель', l: 'отработанные дни и часы', in: ['staff'] },
       { id: 'nachisleno', t: 'Начислено', l: 'ставка (из карточки сотрудника) × табель' },
@@ -294,7 +296,7 @@ export const NODES = [
     rules: ['Ставка берётся из карточки сотрудника.'],
     docs: ['docs/MAP.md — payroll'], tech: 'payroll_timesheets (табель), payroll_payments (выплаты); ставка — persons',
     code: ['backend/src/modules/payroll', 'backend/pwa/sections/payroll.js'] },
-  { id: 'money', band: 'money', col: 2, sec: 'money', t: 'Доходы и расходы', l: ['поступления, выплаты,', 'долги, остаток по дням'],
+  { id: 'money', tpl: 'summary', tplStatus: 'legacy', band: 'money', col: 2, sec: 'money', t: 'Доходы и расходы', l: ['поступления, выплаты,', 'долги, остаток по дням'],
     inside: [
       { id: 'postupleniya', t: 'Поступления', l: 'оплаты заказчиков по заказам', in: ['salesorders'] },
       { id: 'vyplaty', t: 'Выплаты', l: 'оплаченные счета, прочие расходы, зарплата', in: ['requests', 'expenses', 'payroll'] },
@@ -305,7 +307,7 @@ export const NODES = [
     docs: ['docs/PRODUCT.md — «Деньги»', 'docs/MAP.md — finance, incomes'], tech: 'сводка finance: incomes.payments, supplyrequests (счета), expenses, payroll_*, finance_settings',
     code: ['backend/src/modules/finance', 'backend/src/modules/incomes', 'backend/pwa/sections/money.js'] },
 
-  { id: 'reports', band: 'money', col: 3, sec: null, plan: 'идея', t: 'Сводка руководителю', l: ['прибыль по заказам,', 'загрузка, долги'],
+  { id: 'reports', tpl: 'summary', tplStatus: 'plan', band: 'money', col: 3, sec: null, plan: 'идея', t: 'Сводка руководителю', l: ['прибыль по заказам,', 'загрузка, долги'],
     inside: [
       { id: 'pribyl-po-zakazam', t: 'Прибыль по заказам', l: 'выручка − материалы − работы', in: ['money'] },
       { id: 'zagruzka', t: 'Загрузка производства', l: 'часы в работе против людей', in: ['work'] },
