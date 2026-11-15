@@ -21,10 +21,17 @@ async function testBrowsers() {
   return out.split(/\r?\n/).map((x) => Number(x.trim())).filter(Boolean).map((pid) => ({ pid }));
 }
 
+/** LM Studio уже запущен? Без запуска: список процессов. */
+async function lmRunning() {
+  if (process.platform === 'win32') return /LM Studio\.exe/i.test(await run('tasklist', ['/FI', 'IMAGENAME eq LM Studio.exe', '/NH']));
+  return !!(await run('pgrep', ['-f', 'lm-studio|LM Studio|llmster'])).trim();
+}
+
 /** Состояние для пульта: модели LM Studio, тестировщик, Старожил, тестовые браузеры. */
 export async function aiLive(root) {
   let models = [];
-  try { models = JSON.parse((await run(LMS, ['ps', '--json'])) || '[]').map((m) => ({ id: m.identifier || m.modelKey || m.path, status: m.status || '', sizeGb: m.sizeBytes ? +(m.sizeBytes / 1e9).toFixed(1) : null })); } catch { /* LM Studio нет */ }
+  // `lms ps` сам ЗАПУСКАЕТ LM Studio, если он закрыт (15.11: владелец снимал задачу — пульт через 5 с поднимал снова). Спрашиваем, только если он уже работает.
+  if (await lmRunning()) try { models = JSON.parse((await run(LMS, ['ps', '--json'])) || '[]').map((m) => ({ id: m.identifier || m.modelKey || m.path, status: m.status || '', sizeGb: m.sizeBytes ? +(m.sizeBytes / 1e9).toFixed(1) : null })); } catch { /* LM Studio нет */ }
   const t = readJson(path.join(root, 'tools', 'logs', 'ai-tester', 'run.json'));
   const z = readJson(path.join(root, 'tools', 'logs', 'starozhil', 'run.json'));
   const browsers = await testBrowsers();
@@ -46,7 +53,7 @@ export async function aiStopAll(root) {
   const br = await testBrowsers();
   for (const b of br) { try { process.kill(b.pid); } catch { /* уже закрыт */ } }
   done.push(`Тестовых браузеров закрыто: ${br.length}`);
-  await run(LMS, ['unload', '--all'], 30000);
+  if (await lmRunning()) await run(LMS, ['unload', '--all'], 30000); // не поднимать закрытый LM Studio ради выгрузки
   done.push('Модели LM Studio выгружены');
   return done;
 }
