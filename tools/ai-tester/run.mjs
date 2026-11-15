@@ -451,7 +451,7 @@ function autoFindings(b, o, seenGarbage) {
   const g = screenGarbage(o?.all);
   if (g && !seenGarbage.has(o.hash + g)) { seenGarbage.add(o.hash + g); out.push(`служебное значение на экране: «${g}»`); }
   // C125: построчно — соседние подписи («ПРОДУКЦИЯ» + «Продукция», «…до» + «Компания») не склеиваются в ложную фразу
-  for (const s of (o?.lines ? String(o.lines).split(' | ') : [o?.all || '']).flatMap((line) => screenGrammar(String(line)))) {
+  for (const s of (o?.lines ? String(o.lines).split(' | ') : [o?.all || '']).flatMap((line) => String(line).split('	')).flatMap((cell) => screenGrammar(cell))) { // и по ячейкам таблицы: «м⇥м», «Доставка⇥Доставка» — соседние ячейки
     if (seenGarbage.has('gr' + s.text)) continue; // одна и та же фраза — один раз за прогон
     seenGarbage.add('gr' + s.text); out.push(`ошибка в тексте (${s.hint}): «${s.text}»`);
   }
