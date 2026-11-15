@@ -38,7 +38,7 @@ export function mountQueueTab(params) {
   const row = (r) => {
     const [stLabel, stTone] = STATE[r.passportState] || STATE.none;
     const wait = !r.passportId && r.work && r.work.status !== 'done'; // позиция в работе, ещё не изготовлена
-    const btn = wait ? h('span', { class: 'muted shp-why', title: 'Позиция ещё в производстве. Паспорт выпускается, когда изделие изготовлено.' }, 'Ждёт изготовления — паспорт позже') : button({ label: r.passportId ? 'Открыть' : 'Выпустить', kind: 'primary', size: 'S' });
+    const btn = wait ? h('span', { class: 'muted shp-why', title: 'Позиция ещё в производстве. Паспорт выпускается, когда изделие изготовлено.' }, 'Ждёт изготовления') : button({ label: r.passportId ? 'Открыть' : 'Выпустить', kind: 'primary', size: 'S' });
     if (!wait) btn.addEventListener('click', () => make(r, btn));
     return h('tr', { class: r.hot ? 'tone-danger k-toned' : '' },
       h('td', { class: 'nowrap' }, r.shipDate ? h('span', { class: r.hot ? 'neg' : '' }, date(r.shipDate)) : h('span', { class: 'muted' }, 'без срока'), r.hot ? h('span', { title: 'До отгрузки не больше 3 дней или срок прошёл' }, badge('горит', 'danger')) : null),
@@ -56,7 +56,7 @@ export function mountQueueTab(params) {
       badge(`черновик: ${c.draft || 0}`, 'info'), badge(`доработать: ${c.rework || 0}`, 'warn'));
     const items = data?.items || [];
     list.replaceChildren(items.length
-      ? table({ columns: [{ label: 'Срок отгрузки', nowrap: true }, { label: 'Заказ', wrap: true }, { label: 'Изделие', wrap: true }, { label: 'Состояние', nowrap: true }, { label: '', nowrap: true }], rows: items.map(row) })
+      ? table({ columns: [{ label: 'Срок отгрузки', nowrap: true }, { label: 'Заказ', wrap: true }, { label: 'Изделие', wrap: true }, { label: 'Состояние', nowrap: true }, { label: '', nowrap: true }], rows: items.map(row), cls: 'k-table-stack' })
       : emptyState({ title: search || due !== 'all' ? 'Ничего не найдено' : 'Все паспорта сделаны', hint: search || due !== 'all' ? 'Смените срок или очистите поиск.' : 'Позиции появятся здесь, когда проектирование закончено, а паспорта нет.' }));
   }
   async function load() {

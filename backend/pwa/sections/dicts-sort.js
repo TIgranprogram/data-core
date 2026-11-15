@@ -144,15 +144,19 @@ export function dictsTable(opts) {
 
   const columns = [{ key: 'name', label: 'Название', wrap: true }];
   if (dictKey === 'productSections') columns.push({ key: 'passportCategory', label: 'Тип паспорта', wrap: true });
+  let extra = 0;
   for (const c of cols) {
     if (SKIP_COL.has(c.key)) continue;
     if (dictKey === 'productSections' && c.key === 'passportCategory') continue;
+    const text = !['code', 'hex'].includes(c.key);
+    if (text && ++extra > 3) continue; // таблица не шире области: остальное — в карточке записи
     columns.push({
       key: c.key,
       label: c.label || c.key,
       num: c.key === 'sortOrder' || c.key === 'order',
-      wrap: !['code', 'hex'].includes(c.key),
+      wrap: text,
       nowrap: c.key === 'code',
+      hide: text, // при открытой карточке и на узком экране — только название
     });
   }
   if (!columns.some((c) => c.key === 'code') && rows.some((r) => r.code)) {

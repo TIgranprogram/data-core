@@ -335,7 +335,7 @@ export const offers = {
     columns: [
       { key: 'number', label: '№ КП', sort: 'number', cls: 'nowrap', render: (r) => { const mark = packListMark(r); return h('span', null, h('b', null, r.number || '—'), mark ? h('span', null, ' ', mark) : null); } },
       { key: 'date', label: 'Дата', sort: 'date', cls: 'nowrap', render: (r) => date(r.date) },
-      { key: 'companyName', label: 'Наша фирма', cls: 'clip nowrap', render: (r) => cell(r.companyName) },
+      { key: 'companyName', label: 'Наша фирма', cls: 'clip nowrap md-hide', render: (r) => cell(r.companyName) },
       { key: 'customer', label: 'Заказчик', cls: 'clip', render: (r) => cell(r.customer) },
       { key: 'total', money: true, label: 'Сумма', sort: 'total', cls: 'num right nowrap', render: totalOf },
       { key: 'status', label: 'Статус', cls: 'nowrap', render: (r) => badge(STATUS, r.status) },
