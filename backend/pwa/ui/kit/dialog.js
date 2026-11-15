@@ -12,7 +12,7 @@ export function modal({ title, body, okText = 'OK', cancelText = 'Отмена',
       h('div', { class: 'modal-foot' },
         cancelText ? h('button', { class: 'btn', type: 'button', onclick: () => done(null) }, cancelText) : null, ok));
     const back = mark(h('div', { class: 'modal-back', onmousedown: (e) => { if (e.target === back) done(null); } }, form), 'modal');
-    const onKey = (e) => { if (e.key === 'Escape') done(null); };
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); e.preventDefault(); done(null); } }; // Escape закрывает только окно, не панель под ним (ИИ-тестировщик 15.11: окно печати закрывало и заказ)
     function done(v) { document.removeEventListener('keydown', onKey, true); back.remove(); resolve(v); }
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
