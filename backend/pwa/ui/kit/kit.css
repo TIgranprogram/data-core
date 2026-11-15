@@ -751,6 +751,7 @@ table.list td.k-col-act .k-actions { justify-content: flex-end; flex-wrap: nowra
 /* Вкладки на всю ширину и цвет состояния (договор в заказе, 2026-11-08): ok — сделано, warn — идёт сейчас */
 .chips.k-tabs-fill { padding: 0; }
 .chips.k-tabs-fill .chip { flex: 1 1 0; min-width: max-content; }
+@media (min-width: 721px) and (pointer: fine) { .drawer .chips.k-tabs-fill .chip { height: var(--control-compact); } } /* вкладки карточки ниже на ПК; телефон — 44 px (владелец 15.11) */
 .chip[data-tone] { border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
 .chip[data-tone="ok"] { background: var(--ok-soft); color: var(--ok); }
 .chip[data-tone="warn"] { background: var(--warn-soft); color: var(--warn); }
@@ -862,5 +863,7 @@ table.cal.k-tree tr.k-tree-ins > td { padding: 0; white-space: normal; text-alig
 
 /* Шапка карточки одним блоком (заказ, 15.11): этап по центру, срок справа — screenCard({ stage }) → .k-head-meta */
 .k-head-row:has(.k-head-meta) .k-head-slot { flex: 1; }
-.k-head-meta { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); width: 100%; padding-left: var(--s4); }
-@media (max-width: 720px) { .k-head-meta { flex-wrap: wrap; padding-left: 0; } }
+.k-head-meta { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: var(--s3); width: 100%; padding-left: var(--s4); }
+.k-head-meta > :first-child { grid-column: 2; white-space: nowrap; } /* этап — по центру, срок — справа, не наезжают (владелец 15.11) */
+.k-head-meta > :last-child { grid-column: 3; justify-self: end; white-space: nowrap; }
+@media (max-width: 720px) { .k-head-meta { grid-template-columns: auto 1fr; padding-left: 0; } .k-head-meta > :first-child { grid-column: 1; } .k-head-meta > :last-child { grid-column: 2; } }
