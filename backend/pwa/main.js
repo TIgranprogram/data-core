@@ -43,6 +43,7 @@ const SECTIONS = {};   // имя раздела -> описание (запол�
 const FN = {};         // имя функции монтирования -> функция
 // ключ загрузчика -> [загрузчик модуля, [[имя в SECTIONS или @функция, экспорт]]]
 const LAZY = {
+  partwork: [() => import('./sections/part-work.js'), [['partwork','partWork']]], // C122: виды работ детали — правая панель
   requests: [() => import('./sections/requests.js'), [['requests','requests'],['reqreceive','reqReceive']]],
   stock: [() => import('./sections/stock.js'), [['stock','stock'], ['@mountPipeGrid','mountPipeGrid'], ['@mountSheetGrid','mountSheetGrid']]],
   movements: [() => import('./sections/movements.js'), [['movements','movements']]],

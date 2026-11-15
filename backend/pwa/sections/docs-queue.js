@@ -45,7 +45,7 @@ export function mountQueueTab(params) {
       // C111 Ш6: длинные заказчик и описание — до 2 строк (kit.clamp), таблица не шире области; «Состояние» и кнопка видны
       h('td', null, h('b', { class: 'nowrap' }, '№ ' + (r.productionNo || r.orderNo || '—') + ((r.seqNo ?? r.lineNo) ? '-' + (r.seqNo ?? r.lineNo) : '')), r.customer ? clamp(r.customer, { lines: 2, cls: 'muted' }) : null,
         r.orderId ? h('div', null, link({ label: 'Все паспорта заказа ›', title: 'Выпустить и распечатать паспорта по всем позициям заказа', onClick: () => openOrderPassports(r.orderId) })) : null),
-      h('td', null, clamp(r.productName || r.title || '—', { lines: 2 }), r.productName && r.title && r.title !== r.productName ? clamp(r.title, { lines: 2, cls: 'muted' }) : null),
+      h('td', null, h('div', null, clamp(r.productName || r.title || '—', { lines: 2 }), r.productName && r.title && r.title !== r.productName ? clamp(r.title, { lines: 2, cls: 'muted' }) : null)), // одна колонка: на телефоне ячейка flex — без обёртки имя и описание шли рядом «столбиком» (обход 15.11, правило e)
       h('td', null, badge(stLabel, stTone)),
       h('td', { class: 'right' }, canEditTexts() && session.canEdit ? btn : null));
   };

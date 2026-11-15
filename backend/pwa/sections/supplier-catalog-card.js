@@ -4,6 +4,7 @@ import { date, money, qty } from '../core/format.js';
 import { go } from '../core/router.js';
 import { table, section, stack, card, badge, hint, readonlyGroup, stats, miniChart, button } from '../ui/kit/index.js';
 import { busyBlock, failBlock } from '../ui/kit/busy.js';
+import { partWorkBlock } from './part-work.js';
 
 /**
  * Правая панель «Каталог номенклатуры» (C040): паспорт позиции склада одним запросом GET /materials/:id/summary.
@@ -244,6 +245,7 @@ export function cardExtra(r) {
         ]).then(([comp, full]) => {
           box.replaceChildren(
             partBomBlock(comp),
+            partWorkBlock(full?.id ? full : { ...full, id: mid }),
             pdmFilesBlock('material', mid),
             full?.needsName ? hint('Нужно название: сейчас в карточке обозначение — впишите понятное имя менеджера.') : null,
           );
@@ -261,7 +263,9 @@ export function cardExtra(r) {
   const box = stack();
   const load = () => {
     box.replaceChildren(busyBlock('сводку по позиции'));
-    summaryOf(r.materialId).then((s) => box.replaceChildren(placesBlock(s), suppliersBlock(s), pricesBlock(s), requestsBlock(s), issuedBlock(s), analyticsBlock(s)))
+    // C122: деталь со строкой склада (id `m:…`) — тоже показывает «Виды работ»; в строке каталога вида позиции нет, берём из /materials/:id
+    Promise.all([summaryOf(r.materialId), api(`/materials/${r.materialId}`).catch(() => null)])
+      .then(([s, full]) => box.replaceChildren(full?.materialKind === 'part' ? partWorkBlock(full) : '', placesBlock(s), suppliersBlock(s), pricesBlock(s), requestsBlock(s), issuedBlock(s), analyticsBlock(s)))
       .catch((e) => box.replaceChildren(failBlock(e, load, { text: 'Сводка по позиции не загрузилась' })));
   };
   load();
