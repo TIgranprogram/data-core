@@ -889,3 +889,15 @@ tr.k-pos-more .k-tilegrid > * { border: 0; border-left: 1px solid var(--border);
 tr.k-pos-more .k-tilegrid > :first-child { border-left: 0; }
 tr.k-pos-more .k-readonly { border: 0; background: transparent; padding: 0; }
 .k-head-sub { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0 var(--s3); } /* подпись слева, вторая строка справа — на одной линии */
+
+/* folderTile — «папка» файлов (C121): светло-жёлтая плитка, список файлов раскрывается внутри */
+.k-folder { background: var(--gold-soft); border: 1px solid var(--gold); border-radius: var(--radius-sm); }
+.k-folder-head { display: flex; align-items: center; gap: var(--s2); width: 100%; min-height: var(--tap, 36px); padding: var(--s2) var(--s3); background: none; border: 0; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.k-folder-title { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* узкая колонка раскрытия: «Чертежи» не рвётся посреди слова */
+.k-folder-body { padding: 0 var(--s3) var(--s3); }
+.k-folder-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s1); }
+.k-folder-file { display: flex; align-items: center; gap: var(--s2); padding: var(--s1) var(--s2); background: var(--surface); border-radius: var(--radius-sm); }
+.k-folder-name { flex: 1; min-width: 0; }
+.k-folder-file.is-drag-ready { cursor: grab; }
+.k-folder.k-over { outline: 2px dashed var(--gold); outline-offset: 2px; background: var(--gold-soft); }
+@media (max-width: 720px) { .k-folder-file .btn { min-height: 44px; } }
