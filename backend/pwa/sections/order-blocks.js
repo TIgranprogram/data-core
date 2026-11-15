@@ -82,6 +82,9 @@ export function produceBlock(d, openLine) {
   (d.orders || []).forEach((o) => (o.lines || []).forEach((l, i) => lineBySeq.set(String(seq(l, i)), l)));
   const openOf = (x) => { const l = (x.seqNos || []).map((n) => lineBySeq.get(String(n))).find(Boolean); return l && openLine ? openLine(l) : undefined; };
   if (!t.length) return null;
+  // ничего не сложилось (строк столько же, сколько позиций) — это дубль таблицы «Позиции», не показываем (владелец 15.11)
+  const live = (d.orders || []).flatMap((o) => o.lines || []).filter((l) => !l.cancelledAt).length;
+  if (t.length >= live) return null;
   const nameCell = (x) => (x.sku
     ? h('span', { title: [x.sku, x.title].filter(Boolean).join(' · ') }, kitSku(x.sku), ' ', x.title)
     : x.title);
