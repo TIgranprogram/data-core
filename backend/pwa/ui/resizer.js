@@ -16,6 +16,7 @@ export function makeResizable(host, { prefKey, edge = 'right', label = 'Шири
     el.setAttribute('aria-valuemin', String(min)); el.setAttribute('aria-valuemax', String(max)); el.setAttribute('aria-valuenow', String(w));
   };
   const fit = (w) => { const { min, max } = limits(prefKey); return Math.round(Math.min(Math.max(w, min), max)); };
+  aria(fit(width())); // axe: у фокусируемого separator aria-valuenow обязателен сразу, а не после первого наведения
   // edge 'left': тянем влево — панель шире
   const sign = edge === 'left' ? -1 : 1;
 

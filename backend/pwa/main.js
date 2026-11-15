@@ -243,7 +243,7 @@ function shell() {
     if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) { e.preventDefault(); gs.focus(); }
   });
   const sidebar = h('aside', { class: 'sidebar', 'aria-label': 'Меню' },
-    h('a', { class: 'brand', href: '#' + defaultSection() }, h('img', { src: 'icon.svg', alt: '' }), h('span', null, 'Рабочее место', h('small', null, 'единая база'))),
+    h('a', { class: 'brand', href: '#' + defaultSection(), 'aria-label': 'Рабочее место — на главную' }, h('img', { src: 'icon.svg', alt: '' }), h('span', null, 'Рабочее место', h('small', null, 'единая база'))),
     navLinks.home,
     // порядок разделов — пользователь 2026-10-28: Производство, Продукция, Склад, Снабжение, Деньги
     // «Сопоставление» не в меню (C016/C017): вход из Заказов и бейджа «не сопоставлено»; #matching и права в NAV оставляем
