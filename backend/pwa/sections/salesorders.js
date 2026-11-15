@@ -193,13 +193,13 @@ const reloadKeep = (anchor, ctx) => async () => {
 const full = async (r) => (r.orders ? r : shape(await api(`/production-orders/${encodeURIComponent(r.key)}`)));
 
 /** Отменённая позиция: серая строка с причиной и «Вернуть»; в суммы не входит. */
-const cancelledRow = (l, i, dots) => h('tr', { class: 'muted', title: 'Позиция отменена: ' + (l.cancelReason || '') },
+const cancelledRow = (l, i, dots, span = 4) => h('tr', { class: 'muted', title: 'Позиция отменена: ' + (l.cancelReason || '') },
   h('td', { class: 'muted' }, seq(l, i)), h('td', null, ''),
-  h('td', { class: 'muted', colspan: 4 }, h('s', null, l.title), h('div', { class: 'small' }, 'Отменена' + (l.cancelReason ? ': ' + l.cancelReason : ''))),
+  h('td', { class: 'muted', colspan: span }, h('s', null, l.title), h('div', { class: 'small' }, 'Отменена' + (l.cancelReason ? ': ' + l.cancelReason : ''))),
   session.canEditOrders ? h('td', { class: 'nowrap' }, dots) : null);
 
 /** Заголовок-группа «Договор 109-П»: этап, срок, «+ Позиция» и «⋯» (одно меню действий по договору). */
-function contractHead(o, reload) {
+function contractHead(o, reload, many = true) {
   const seeStock = session.sees('stock');
   const can = editableOrder(o);
   const remove = async () => {
@@ -223,7 +223,7 @@ function contractHead(o, reload) {
   const add = can && !closedStage(o) && canChangeLines(o)
     ? button({ label: '+ Позиция', size: 'S', title: 'Новая позиция: все поля — в правой панели', onClick: () => patch({ of: 'orders', new: '1', open: undefined, orderNo: o.orderNo || '', customer: o.customer || '', companyName: o.companyName || '', orderId: o.id }, { replace: false }) })
     : null;
-  return kitRow({ title: 'Договор ' + (o.orderNo || '—'), meta: o.customer || '', side: [badge(STAGE, o.stage), due(o)].filter(Boolean), action: [add, menu.length ? dots : null].filter(Boolean) });
+  return kitRow({ title: 'Договор ' + (o.orderNo || '—'), meta: o.customer || '', side: many ? [badge(STAGE, o.stage), due(o)].filter(Boolean) : [], action: [add, menu.length ? dots : null].filter(Boolean) });
 }
 /** Подпись под таблицей договора: пусто / «менять позиции может администратор». */
 function contractFoot(o) {
@@ -239,7 +239,13 @@ const openLine = (l) => () => patch({ of: 'orders', open: l.id }, { replace: fal
 function positionsPane(d, ctx) {
   const box = stack(); const reload = reloadKeep(box, ctx);
   const orders = d.orders || [];
-  const columns = [{ label: '№' }, { label: '' }, { label: 'Название' }, { label: 'Кол-во', num: true }, { label: 'Отгружено', num: true }, { label: 'Цвет' }, ...(session.canEditOrders ? [{ label: '' }] : [])];
+  // пустые колонки не показываем (стенд 11-26: «Отгружено» и «Цвет» пустые на всю таблицу)
+  const allLines = orders.flatMap((o) => o.lines || []).filter((l) => !l.cancelledAt);
+  const showShip = allLines.some((l) => l.shipped), showColor = allLines.some((l) => l.color);
+  const columns = [{ label: '№' }, { label: '' }, { label: 'Название' }, { label: 'Кол-во', num: true }, ...(showShip ? [{ label: 'Отгружено', num: true }] : []), ...(showColor ? [{ label: 'Цвет' }] : []), ...(session.canEditOrders ? [{ label: '' }] : [])];
+  const span = 2 + (showShip ? 1 : 0) + (showColor ? 1 : 0);
+  const hasPic = (l) => !!(l.photo && (l.photo.url || l.photo.thumb));
+  const many = orders.length > 1;
   const groups = orders.map((o) => {
     const can = editableOrder(o);
     const lineAct = () => canChangeLines(o) && !closedStage(o) && can;
@@ -251,12 +257,14 @@ function positionsPane(d, ctx) {
       if (isOpenFor(btn)) closePopMenu(true); else openPopMenu({ anchor: btn, side: 'down', groups: [{ items }] });
     };
     const rowDots = (l) => { if (!can) return ''; const b = iconButton({ icon: '⋯', label: 'Действия с позицией', title: 'Заменить изделие, отменить или перенести позицию', size: 'S', menu: true, cls: 'so-dots', onClick: (e) => { e.stopPropagation(); lineMenu(l, b); } }); return b; };
-    const rows = (o.lines || []).map((l, i) => (l.cancelledAt ? cancelledRow(l, i, can && canChangeLines(o) ? rowDots(l) : null) : { onOpen: openLine(l), cells: [
-      { v: seq(l, i), cls: 'muted' }, posPic(l.photo, l.photo?.url || l.photo?.thumb ? 'lg' : 'sm'),
+    // отменённые — в конце договора, номер позиции сохраняется
+    const order = (o.lines || []).map((l, i) => [l, i]).sort((a, b) => !!a[0].cancelledAt - !!b[0].cancelledAt);
+    const rows = order.map(([l, i]) => (l.cancelledAt ? cancelledRow(l, i, can && canChangeLines(o) ? rowDots(l) : null, span) : { onOpen: openLine(l), cells: [
+      { v: seq(l, i), cls: 'muted' }, posPic(hasPic(l) ? l.photo : null, hasPic(l) ? 'lg' : 'sm'),
       h('span', null, l.title, ourLine(l), l.unassigned !== undefined || l.lineType ? h('span', null, ' ', lineMark(l)) : null, l.unassigned === undefined && !l.lineType && l.matched === false ? h('a', { class: 'badge warn', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null),
-      { v: `${qty(l.qty)} ${l.unit || ''}`, cls: 'num nowrap' }, { v: l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : '', cls: 'num nowrap muted' }, { v: l.color || '', cls: 'muted' },
+      { v: `${qty(l.qty)} ${l.unit || ''}`, cls: 'num nowrap' }, ...(showShip ? [{ v: l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : '', cls: 'num nowrap muted' }] : []), ...(showColor ? [{ v: l.color || '', cls: 'muted' }] : []),
       ...(session.canEditOrders ? [{ v: rowDots(l), cls: 'nowrap' }] : [])] }));
-    return { head: contractHead(o, reload), rows, foot: contractFoot(o) };
+    return { head: contractHead(o, reload, many), rows, foot: contractFoot(o) };
   });
   box.append(addContractBtn(d, ctx), ...orders.map((o) => distribBlock(o, reload)), positionsTable({ columns, groups, label: 'Позиции заказа', empty: { title: 'Договоров нет.' } }), produceBlock(d, openLine));
   return box;
