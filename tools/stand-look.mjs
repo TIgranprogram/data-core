@@ -33,10 +33,19 @@ const envFile = path.join(ROOT, 'tools/logs/stand-login.local.env');
 if (!fs.existsSync(envFile)) { console.error('Нет tools/logs/stand-login.local.env — запустите dc audit один раз.'); process.exit(2); }
 const env = Object.fromEntries(fs.readFileSync(envFile, 'utf8').split(/\r?\n/).filter((l) => l.includes('=')).map((l) => [l.slice(0, l.indexOf('=')).trim(), l.slice(l.indexOf('=') + 1).trim()]));
 
+const login = async () => { const r = await fetch(BASE + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: env.STAND_LOGIN, password: env.STAND_PASSWORD }) }); return [r, await r.json()]; };
 let j;
 try {
-  const r = await fetch(BASE + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: env.STAND_LOGIN, password: env.STAND_PASSWORD }) });
-  j = await r.json();
+  let [r, body] = await login();
+  // новый стенд из свежей копии (dc stand renew) — в его базе учётки стенда ещё нет: заводим её сами (2026-11-15)
+  if (r.status === 401) {
+    const { spawnSync } = await import('node:child_process');
+    const run = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/.night/current-stand.json'), 'utf8'));
+    const c = spawnSync('docker', ['exec', '-i', '-w', '/app', '-e', 'STAND=1', '-e', `STAND_PASSWORD=${env.STAND_PASSWORD}`, `${run.project}-backend`, 'node', '-'], { windowsHide: true, input: fs.readFileSync(path.join(ROOT, 'backend/scripts/stand-test-user.js')), encoding: 'utf8', env: { ...process.env, MSYS_NO_PATHCONV: '1' } });
+    if (c.status) { console.error('Не удалось завести учётку стенда:', (c.stderr || c.stdout || '').trim().slice(0, 160)); process.exit(2); }
+    [r, body] = await login();
+  }
+  j = body;
   if (!r.ok || !j.access) { console.error('Вход не удался:', r.status, j?.message || ''); process.exit(1); }
 } catch (e) { console.error('Стенд не отвечает на', BASE, '—', e.message); process.exit(2); }
 
