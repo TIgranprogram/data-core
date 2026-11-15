@@ -99,7 +99,7 @@ export function mountMoney(params) {
   // ---------- Шапка: вкладки, месяц, компания, начальный остаток ----------
   const tabs = h('div');
   const monthLabel = h('span', { class: 'm-label' });
-  const orgSeg = h('div', { class: 'seg' });
+  const orgSeg = h('div'); // обёртка без старого .seg: вторая рамка вокруг эталона (дизайнер 15.11)
   const opening = h('input', { class: 'm-open', inputmode: 'decimal', placeholder: 'не знаю', 'aria-label': 'Остаток на начало месяца', title: 'Остаток денег на начало месяца (запоминается в этом браузере)' });
   // прогноз — «остаток на сегодня», календарь — «на 1-е число месяца» (БЗ-1)
   const openKey = () => (tab() === 'forecast' ? 'dc-forecast-opening-' + org() : 'dc-opening-' + month() + '-' + org());
@@ -132,7 +132,7 @@ export function mountMoney(params) {
       onChange: (k) => patch({ tab: k === 'articles' ? undefined : k }) }).el);
     const [y, m] = month().split('-').map(Number);
     monthLabel.textContent = yearly() ? `${y} год` : `${MONTHS[m - 1][0].toUpperCase()}${MONTHS[m - 1].slice(1)} ${y}`;
-    orgSeg.replaceChildren(segmented({ cls: 'seg', label: 'Компания',
+    orgSeg.replaceChildren(segmented({ fit: true, label: 'Компания',
       items: ['all', ...(companies || ['СИЮ', 'ССЮ'])].map((c) => ({ key: c, label: c === 'all' ? 'Все' : c })),
       value: org() || 'all', onChange: (c) => patch({ org: c === 'all' ? undefined : c }) }).el);
     opening.value = store.get(openKey()) || '';

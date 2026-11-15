@@ -46,14 +46,14 @@ export function articlesView({ year, org, mode, order, opRow, noIncomeText }) {
   const periodTitle = (idxs) => (idxs.length === 1 ? `${MON_FULL[idxs[0]]} ${year}` : `${QUARTER[idxs[0] / 3]} квартал ${year}`);
 
   const paintBar = async () => {
-    const kids = [segmented({ cls: 'seg', label: 'Что показать', items: [{ key: 'company', label: 'Все заказы' }, { key: 'object', label: 'Один заказ' }], value: objectMode ? 'object' : 'company',
+    const kids = [segmented({ fit: true, label: 'Что показать', items: [{ key: 'company', label: 'Все заказы' }, { key: 'object', label: 'Один заказ' }], value: objectMode ? 'object' : 'company',
       onChange: (k) => patch({ mode: k === 'object' ? 'object' : undefined, order: undefined }) }).el];
     if (objectMode) {
       const sel = select({ options: await orderChoices('Выберите объект'), value: order || '', label: 'Объект (заказ)', onChange: (v) => patch({ order: v || undefined }) });
       kids.push(sel);
       enhanceSelect(sel, { force: true });
     }
-    kids.push(segmented({ cls: 'seg', label: 'Период таблицы', items: [{ key: 'months', label: 'Месяцы' }, { key: 'quarters', label: 'Кварталы' }], value: quarters ? 'quarters' : 'months',
+    kids.push(segmented({ fit: true, label: 'Период таблицы', items: [{ key: 'months', label: 'Месяцы' }, { key: 'quarters', label: 'Кварталы' }], value: quarters ? 'quarters' : 'months',
       onChange: (k) => { quarters = k === 'quarters'; store.set(PERIOD_KEY, k); if (data) paint(); } }).el,
     actions( // пара кнопок вместе: на телефоне не разъезжается по двум строкам (дизайнер 15.11)
       button({ label: 'Раскрыть всё', kind: 'ghost', size: 'S', onClick: () => tt?.expandAll() }),
