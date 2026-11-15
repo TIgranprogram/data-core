@@ -367,6 +367,7 @@ button.m-fg-h { cursor: pointer; }
   .drawer .form-blocks .form-grid > * { grid-column: span 1; }
   .drawer .form-blocks .form-grid > .wide, .drawer .form-blocks .form-grid > .span-2, .drawer .form-blocks .form-grid > .span-3, .drawer .form-blocks .form-grid > .span-3 + .span-1, .drawer .form-blocks .form-grid > .is-seg { grid-column: 1 / -1; }
 }
+@media (max-width: 480px) { .drawer .form-blocks .form-grid > *:not(.span-1) { grid-column: 1 / -1; } } /* телефон: поле панели во всю строку (короткие span-1 — по два), подсказки не узкой колонкой (дизайнер 15.11: «Раздел / Группа») */
 /* Большая проверка 2026-11-02: на телефоне имя и логин сотрудника — во всю строку, не столбиком */
 @media (max-width: 480px) { .st-row { grid-template-columns: minmax(0, 1fr); } }
 /* Большая проверка 2026-11-02: ссылки-значения в карточке (контрагент, позиция) на телефоне — область нажатия не меньше 36px, вид строки прежний */
