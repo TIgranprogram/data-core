@@ -17,7 +17,7 @@ export const TYPES_DICT = 'attachmentTypes';
 /** Через сколько дней после «Убрать» файл стирается с диска, и в какой час (местное время сервера) идёт чистка. */
 export const PURGE_DAYS = 14;
 const PURGE_HOUR = 3;
-export const DEFAULT_TYPES = ['Чертежи', 'Паспорта', 'Договоры / КП', '3D-модели'];
+export const DEFAULT_TYPES = ['Чертежи', 'Паспорта', '3D-модели']; // без «Договоры / КП» — это заказ и заказчик (владелец 15.11)
 
 export interface UploadedAttachmentFile { path: string; originalname: string; size: number; mimetype?: string }
 
@@ -123,11 +123,14 @@ export class ProductAttachmentsService implements OnModuleInit, OnModuleDestroy 
     return this.present(doc, typeName);
   }
 
-  /** Файлы изделия; с `incomeId` — ещё и файлы этой позиции (чужих позиций нет). */
-  async list(productId: string, includeDeleted = false, incomeId?: string) {
+  /**
+   * Файлы изделия — все, в т. ч. загруженные через позицию заказа (решение владельца 15.11: чертежи, 3D, паспорта относятся
+   * к изделию, а не к одной позиции). `incomeId` у файла — только «откуда загружен» (scope 'line'); второй аргумент оставлен для вызовов позиции.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async list(productId: string, includeDeleted = false, _incomeId?: string) {
     if (!isObjectIdStr(productId)) throw new NotFoundException('Изделие не найдено.');
     const q: Record<string, unknown> = { productId: new Types.ObjectId(productId) };
-    if (incomeId) q.$or = [{ incomeId: null }, { incomeId: new Types.ObjectId(incomeId) }]; else q.incomeId = null;
     if (includeDeleted) q.deletedAt = { $ne: null }; // «корзина» (admin)
     const [docs, types] = await Promise.all([this.model.find(q).sort({ uploadedAt: -1 }).exec(), this.typeNames()]);
     const items = docs.map((d) => this.present(d, types.get(String(d.typeId)) ?? ''));

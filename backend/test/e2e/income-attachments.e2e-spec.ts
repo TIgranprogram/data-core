@@ -56,17 +56,16 @@ describe('Файлы позиции заказа (C121)', () => {
     expect(JSON.stringify(list)).not.toContain('storedPath');
   });
 
-  it('в другой позиции того же изделия файл не виден; файлы изделия видны в обеих', async () => {
+  it('файл позиции — файл изделия (владелец 15.11): виден в изделии и во всех его позициях, scope «line» — откуда загружен', async () => {
     const t = authHeader(admin.access);
-    expect((await http().get(`/api/incomes/${lineB}/attachments`).set(t).expect(200)).body.total).toBe(0);
+    expect((await http().get(`/api/incomes/${lineB}/attachments`).set(t).expect(200)).body.items.map((x: { id: string }) => x.id)).toContain(fileId);
     await http().post(`/api/products/${productId}/attachments?typeId=${typeId}`).set(t).attach('file', PDF, 'чертёж.pdf').expect(201);
     const a = (await http().get(`/api/incomes/${lineA}/attachments`).set(t).expect(200)).body.items;
     const b = (await http().get(`/api/incomes/${lineB}/attachments`).set(t).expect(200)).body.items;
     expect(a.map((x: { scope: string }) => x.scope).sort()).toEqual(['line', 'product']);
-    expect(b.map((x: { scope: string }) => x.scope)).toEqual(['product']);
-    // в списке изделия файл позиции не показывается
+    expect(b.map((x: { scope: string }) => x.scope).sort()).toEqual(['line', 'product']);
     const own = (await http().get(`/api/products/${productId}/attachments`).set(t).expect(200)).body.items;
-    expect(own.every((x: { scope: string }) => x.scope === 'product')).toBe(true);
+    expect(own.map((x: { id: string }) => x.id)).toContain(fileId);
   });
 
   it('права: user не грузит (403), director смотрит (200); director выше manager по иерархии ролей — как и у файлов изделия', async () => {
