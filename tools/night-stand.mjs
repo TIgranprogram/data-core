@@ -161,6 +161,10 @@ export function createNightStand({ docker, sh, root, composeFile, nightDir, back
       migration.state = 'verified'; save(run);
       checked(compose(run, ['start', 'backend'], src), 'старт backend после сохранения uploads', ctx);
     } else checked(compose(run, ['up', '-d', '--no-deps', '--build', 'backend'], src, { capture: true }), 'пересборка backend', ctx);
+    // После перезапуска Docker Mongo и шлюз стенда остаются выключены (Exited 255), а backend выше — --no-deps:
+    // он падал «EAI_AGAIN mongo» и refresh кончался таймаутом (2026-11-15). Поднимаем их без пересоздания данных.
+    checked(compose(run, ['up', '-d', '--wait', 'mongo'], src), 'Mongo стенда не поднялся', ctx);
+    checked(compose(run, ['up', '-d', 'proxy'], src), 'шлюз стенда не поднялся', ctx);
     await wait('backend health', () => healthFn(run), ctx);
     return 0;
   }
