@@ -5,7 +5,7 @@
 import { h } from '../core/dom.js';
 import { date, qty } from '../core/format.js';
 import { api } from '../core/api.js';
-import { button, card, badge, empty, stack, actions, busyBlock, failBlock } from '../ui/kit/index.js';
+import { button, card, badge, empty, stack, actions, busyBlock, failBlock, DESIGN_STATUS } from '../ui/kit/index.js';
 import { numberOf, statusOf } from './passports/common.js';
 import { printDialog } from './passports/dialogs.js';
 import { tileGrid } from '../ui/kit/blocks.js';
@@ -56,6 +56,20 @@ function documentsCard(l, d) {
   return card({ size: 'M', title: 'Документы', variant: 'fields', body });
 }
 
+/** «Выполнение»: проектирование позиции (задача «Проектирования» по incomeId) + отгрузка. */
+function executionCard(l, d, rows, acts) {
+  const ONE = { queue: 'на распределении', work: 'в работе', done: 'готово', paused: 'на паузе', cancelled: 'снята' }; // DESIGN_STATUS — во множественном (колонки доски)
+  const design = h('div');
+  const orderId = l.orderId || d.orderId;
+  if (orderId) api('/design-tasks', { query: { orderId, limit: 200 } }).then((r) => {
+    const t = (r.items || []).find((x) => String(x.incomeId) === String(l.id));
+    design.replaceChildren(readonlyGroup({ rows: [['Проектирование', t
+      ? h('span', null, h('a', { href: '#', onclick: (e) => { e.preventDefault(); e.stopPropagation(); go('design', { open: t.id }); } }, `задача D-${t.seq}`), ' ', badge(ONE[t.status] || t.status, DESIGN_STATUS[t.status]?.tone || 'dim'))
+      : h('span', { class: 'muted' }, 'задачи нет')]] }));
+  }).catch(() => {}); // нет прав на «Проектирование» или сбой — карточка без этой строки
+  return card({ size: 'M', title: 'Выполнение', variant: 'fields', body: stack(design, rows.length ? readonlyGroup({ rows }) : null), actions: acts.filter(Boolean) });
+}
+
 /** lineMore(l, o — договор, d — заказ, { reload, editable, closed }) → сетка карточек. */
 export function lineMore(l, o, d, { reload, editable }) {
   const qtyN = Number(l.qty) || 0, shipped = Number(l.shipped) || 0;
@@ -66,7 +80,7 @@ export function lineMore(l, o, d, { reload, editable }) {
   const cards = [
     // заготовки C121 (владелец 15.11: «накидай куски, потом дорабатываем») — порядок: из чего состоит → выполнение → вложения → документы
     compositionCard(l),
-    box('Выполнение', [
+    executionCard(l, d, [
       ['Отгружено', `${qty(shipped)} из ${qty(qtyN)} ${l.unit || ''}`.trim()],
       ownDate ? ['Отгрузка', date(l.shipDate)] : null,
     ].filter(Boolean), [
