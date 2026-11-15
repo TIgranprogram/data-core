@@ -241,7 +241,7 @@ function positionsPane(d, ctx) {
   // пустые колонки не показываем (стенд 11-26: «Отгружено» и «Цвет» пустые на всю таблицу)
   const allLines = orders.flatMap((o) => o.lines || []).filter((l) => !l.cancelledAt);
   const showShip = allLines.some((l) => l.shipped), showColor = false; // цвет и описание — второй строкой под названием (владелец 15.11)
-  const columns = [{ label: '№' }, { label: '' }, { label: 'Название' }, { label: 'Кол-во', num: true }, ...(showShip ? [{ label: 'Отгружено', num: true }] : []), ...(showColor ? [{ label: 'Цвет' }] : [])];
+  const columns = [{ label: '№' }, { label: '', phoneHide: true }, { label: 'Название' }, { label: 'Кол-во', num: true }, ...(showShip ? [{ label: 'Отгружено', num: true }] : []), ...(showColor ? [{ label: 'Цвет' }] : [])];
   const span = 2 + (showShip ? 1 : 0) + (showColor ? 1 : 0);
   const hasPic = (l) => !!(l.photo && (l.photo.url || l.photo.thumb));
   const many = orders.length > 1;
