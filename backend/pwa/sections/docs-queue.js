@@ -43,8 +43,8 @@ export function mountQueueTab(params) {
     return h('tr', { class: r.hot ? 'tone-danger k-toned' : '' },
       h('td', { class: 'nowrap' }, r.shipDate ? h('span', { class: r.hot ? 'neg' : '' }, date(r.shipDate)) : h('span', { class: 'muted' }, 'без срока'), r.hot ? h('span', { title: 'До отгрузки не больше 3 дней или срок прошёл' }, badge('горит', 'danger')) : null),
       // C111 Ш6: длинные заказчик и описание — до 2 строк (kit.clamp), таблица не шире области; «Состояние» и кнопка видны
-      h('td', null, h('b', { class: 'nowrap' }, '№ ' + (r.productionNo || r.orderNo || '—') + ((r.seqNo ?? r.lineNo) ? '-' + (r.seqNo ?? r.lineNo) : '')), r.customer ? clamp(r.customer, { lines: 2, cls: 'muted' }) : null,
-        r.orderId ? h('div', null, link({ label: 'Все паспорта заказа ›', title: 'Выпустить и распечатать паспорта по всем позициям заказа', onClick: () => openOrderPassports(r.orderId) })) : null),
+      h('td', null, h('div', null, h('b', { class: 'nowrap' }, '№ ' + (r.productionNo || r.orderNo || '—') + ((r.seqNo ?? r.lineNo) ? '-' + (r.seqNo ?? r.lineNo) : '')), r.customer ? clamp(r.customer, { lines: 2, cls: 'muted' }) : null,
+        r.orderId ? h('div', null, link({ label: 'Все паспорта заказа ›', title: 'Выпустить и распечатать паспорта по всем позициям заказа', onClick: () => openOrderPassports(r.orderId) })) : null)), // одна колонка: на телефоне ячейка flex — ссылка липла к номеру (дизайнер 15.11)
       h('td', null, h('div', null, clamp(r.productName || r.title || '—', { lines: 2 }), r.productName && r.title && r.title !== r.productName ? clamp(r.title, { lines: 2, cls: 'muted' }) : null)), // одна колонка: на телефоне ячейка flex — без обёртки имя и описание шли рядом «столбиком» (обход 15.11, правило e)
       h('td', null, badge(stLabel, stTone)),
       h('td', { class: 'right' }, canEditTexts() && session.canEdit ? btn : null));
