@@ -2,7 +2,8 @@ import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, plural } from '../core/format.js';
 import { patch } from '../core/router.js';
-import { grp, link, photoField } from '../ui/kit/index.js';
+import { link, photoField } from '../ui/kit/index.js';
+import { screenCard } from '../ui/kit/screens/card.js';
 import { ordersLookup } from '../core/orders-lookup.js';
 import { incomeLookups } from './orders.js';
 
@@ -60,22 +61,27 @@ export const expense = {
   entityType: 'Expense',
   canEdit: () => session.canMoney,
   get: (id) => api(`/expenses/${id}`),
+  // Карточка по эталону заказа (C119 шаг 3): шапка — название, дата · компания, сумма справа; сведения — одним блоком; правка и «ещё расход» — в «⋯»
   card: {
-    heading: (r) => r.title,
-    subheading: (r) => [date(r.date), r.companyName].filter(Boolean).join(' · '),
-    noHistory: true,
-    view: (r) => [
-      grp('Расход'),
-      ['Сумма', money(r.amount)],
-      ['Статья', articleName(r)],
-      ['Компания', r.companyName],
-      ['Объект', r.salesOrderNo ? 'Заказ № ' + r.salesOrderNo : ''],
-      ['Контрагент', r.counterpartyName],
-      ['№ документа', r.docNo],
-      ['Комментарий', r.comment],
-      ['Файл счёта', (r.files || []).length ? h('span', null, ...r.files.flatMap((f, i) => [i ? ', ' : '', link({ label: f.name || 'Файл', href: PREFIX + f.url, target: '_blank' })])) : ''],
-    ],
-    actions: () => [{ label: 'Добавить ещё расход', run: () => patch({ new: '1', open: undefined }) }],
+    ...screenCard({
+      title: (r) => r.title,
+      sub: (r) => [date(r.date), r.companyName].filter(Boolean).join(' · '),
+      side: (r) => [h('b', null, money(r.amount)), null],
+      noHistory: true,
+      facts: (r) => [
+        ['Статья', articleName(r)],
+        ['Объект', r.salesOrderNo ? 'Заказ № ' + r.salesOrderNo : ''],
+        ['Контрагент', r.counterpartyName],
+        ['№ документа', r.docNo],
+        ['Файл счёта', (r.files || []).length ? h('span', null, ...r.files.flatMap((f, i) => [i ? ', ' : '', link({ label: f.name || 'Файл', href: PREFIX + f.url, target: '_blank' })])) : ''],
+        ['Комментарий', r.comment],
+      ],
+      menu: () => !session.canMoney ? [] : [
+        { label: 'Изменить', run: (row, ctx) => ctx.edit() },
+        { label: 'Добавить ещё расход', run: () => patch({ new: '1', open: undefined }) },
+      ],
+    }),
+    editable: () => false,
   },
   form: {
     fields: async (r) => {

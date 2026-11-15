@@ -10,7 +10,7 @@ import { STAGE } from './salesorders.js';
 import { badge, SUPPLY_STATUS, supplyKey } from '../ui/kit/badges.js';
 import { screenCard } from '../ui/kit/screens/card.js';
 import { requestsByMonth } from './partners-requests.js';
-import { contractsBlock } from './contracts.js';
+import { contractsBlock, addContractAction } from './contracts.js';
 import { passportLookBlock } from './partners-passport-look.js';
 
 /**
@@ -199,7 +199,7 @@ function partnerBody(r, ctx) {
   const nStock = (r.reservations || []).length + (r.issues || []).length;
   return stack(relatedRest(r, items),
     r.kind === 'customer' && nStock ? stockPane(r) : null,
-    r.kind === 'supplier' ? contractsBlock(r) : null,
+    r.kind === 'supplier' ? contractsBlock(r, { withAdd: false }) : null,
     r.kind === 'our' ? stack(stampBlock(r, ctx), kpBgBlock(r, ctx), passportLookBlock(r, ctx)) : null);
 }
 
@@ -314,6 +314,7 @@ export const partners = {
       menu: (r) => [
         session.canEdit && { label: 'Изменить', title: 'Реквизиты и контакты', run: (row, ctx) => ctx.edit() },
         r.kind !== 'our' && { label: 'Объединить с…', run: (row, ctx) => mergeDialog(row, ctx) },
+        r.kind === 'supplier' && addContractAction(r),
         r.kind === 'supplier' && session.canEdit && { label: 'Загрузить прайс из Excel', run: () => openSide('pricelist', 'order:' + r.id) },
       ],
       body: partnerBody,

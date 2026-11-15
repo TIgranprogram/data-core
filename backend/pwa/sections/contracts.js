@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { date, isoDay } from '../core/format.js';
 import { patch } from '../core/router.js';
 import { actions, attachCombo, button, section, stack } from '../ui/kit/index.js';
-import { confirmDlg } from '../ui/kit/dialog.js';
+import { screenCard } from '../ui/kit/screens/card.js';
 import { errText } from '../ui/kit/errors.js';
 import { photoField } from '../ui/kit/photos.js';
 import { toast, toastError } from '../ui/kit/toast.js';
@@ -119,10 +119,16 @@ export async function setInvoiceContract(invoiceId, contractId) {
   return res;
 }
 
-/** Блок «Договоры» в карточке поставщика: список, «+ Договор», клик — правка справа, удаление с подтверждением. */
-export function contractsBlock(r) {
+/** Пункт «⋯» шапки карточки поставщика: «+ Договор» (создание — в правой панели). Нет права — null. */
+export const addContractAction = (r) => (canContract() ? { label: '+ Договор', run: () => patch({ of: 'contract', new: '1', open: undefined, supplierId: r.id }) } : null);
+
+/**
+ * Блок «Договоры» в карточке поставщика: список (только чтение), клик — правка справа; удаление — «⋯» панели договора.
+ * withAdd:false — «+ Договор» не рисуется в блоке (его кладут в «⋯» шапки через addContractAction).
+ */
+export function contractsBlock(r, { withAdd = true } = {}) {
   const list = h('div', { class: 'ctr-list' }, h('div', { class: 'muted' }, 'Загружаю договоры…'));
-  const add = canContract() ? button({ label: '+ Договор', size: 'S', onClick: () => patch({ of: 'contract', new: '1', open: undefined, supplierId: r.id }) }) : null;
+  const add = withAdd && canContract() ? button({ label: '+ Договор', size: 'S', onClick: () => patch({ of: 'contract', new: '1', open: undefined, supplierId: r.id }) }) : null;
   const sec = section({ title: 'Договоры поставщиков', tone: 'money', count: '…', open: true, body: [list, add ? actions(add) : null] });
   const box = stack(sec);
   const setN = (n) => { const b = sec.querySelector('.k-sec-n'); if (b) b.textContent = String(n); };
@@ -139,16 +145,11 @@ export function contractsBlock(r) {
   }
   function rowEl(c) {
     const open = () => patch({ of: 'contract', open: c.id, new: undefined });
-    const del = canContract() ? button({ label: 'Удалить', kind: 'ghost', size: 'S', cls: 'ctr-del', title: 'Удалить договор', onClick: async (e) => {
-      e.stopPropagation();
-      if (!(await confirmDlg('Удалить договор поставщика?', `Договор № ${c.no} от ${date(c.date)} будет удалён. Если к нему привязаны счета, удалить не получится.`, { okText: 'Удалить', danger: true }))) return;
-      try { await api(`/supply/contracts/${c.id}`, { method: 'DELETE' }); toast('Договор поставщика удалён'); load(); } catch (err) { toastError(err); }
-    } }) : null;
     return h('li', { class: 'ctr-row', tabindex: '0', onclick: open, onkeydown: (e) => { if (e.key === 'Enter') open(); } },
       h('b', null, `№ ${c.no}`), h('span', { class: 'when' }, date(c.date)),
       h('span', { class: 'muted clip' }, [c.subject, c.validTo ? 'до ' + date(c.validTo) : 'бессрочный'].filter(Boolean).join(' · ')),
       h('span', { class: 'muted' }, `счетов: ${c.invoicesCount ?? 0}`),
-      c.status === 'closed' ? h('span', { class: 'badge dim' }, 'закрыт') : null, del);
+      c.status === 'closed' ? h('span', { class: 'badge dim' }, 'закрыт') : null);
   }
   const refresh = () => { if (box.isConnected) load(); };
   window.addEventListener('dc:changed', refresh);
@@ -177,13 +178,24 @@ export const contract = {
   entityType: 'SupplierContract',
   canEdit: canContract,
   get: (id) => api(`/supply/contracts/${id}`),
+  // Карточка по эталону заказа (C119 шаг 3): шапка — договор, поставщик · этап; сведения одним блоком; правка и удаление — в «⋯»
   card: {
-    heading: (c) => `Договор № ${c.no}`,
-    subheading: (c) => [c.supplierName, c.status === 'closed' ? 'закрыт' : 'действует'].filter(Boolean).join(' · '),
-    noHistory: true,
-    view: (c) => [['Поставщик', c.supplierName], ['Дата', date(c.date)], ['Предмет', c.subject], ['Действует до', c.validTo ? date(c.validTo) : 'бессрочный'],
-      ['Файлов', (c.fileIds || []).length ? String((c.fileIds || []).length) : ''],
-      ['Счета по договору', (c.invoices || []).length ? h('span', null, ...c.invoices.map((i, k) => h('span', null, k ? ', ' : '', h('a', { href: '#requests?tab=invoices&open=' + i.id }, `№ ${i.no || 'без номера'}`)))) : 'пока нет']],
+    ...screenCard({
+      title: (c) => `Договор № ${c.no}`,
+      sub: (c) => [c.supplierName, date(c.date)].filter(Boolean).join(' · '),
+      stage: (c) => (c.status === 'closed' ? h('span', { class: 'badge dim' }, 'закрыт') : h('span', { class: 'badge ok' }, 'действует')),
+      side: (c) => [c.validTo ? 'до ' + date(c.validTo) : 'бессрочный', null],
+      noHistory: true,
+      facts: (c) => [['Предмет', c.subject], ['Файлов', (c.fileIds || []).length ? String((c.fileIds || []).length) : ''],
+        ['Счета по договору', (c.invoices || []).length ? h('span', null, ...c.invoices.map((i, k) => h('span', null, k ? ', ' : '', h('a', { href: '#requests?tab=invoices&open=' + i.id }, `№ ${i.no || 'без номера'}`)))) : 'пока нет']],
+      menu: () => (canContract() ? [{ label: 'Изменить', run: (row, ctx) => ctx.edit() }] : []),
+    }),
+    editable: () => false,
+  },
+  remove: {
+    text: (c) => `Договор № ${c.no} от ${date(c.date)} будет удалён. Если к нему привязаны счета, удалить не получится.`,
+    run: (c) => api(`/supply/contracts/${c.id}`, { method: 'DELETE' }),
+    restore: (c) => api('/supply/contracts', { method: 'POST', body: { supplierId: String(c.supplierId || ''), no: c.no, date: String(c.date || '').slice(0, 10), subject: c.subject || '', ...(c.validTo ? { validTo: String(c.validTo).slice(0, 10) } : {}), fileIds: c.fileIds || [] } }),
   },
   form: {
     fields: async (c) => [

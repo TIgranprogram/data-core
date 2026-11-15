@@ -66,7 +66,7 @@ export function metaBlock(invoice, ctx, refreshInvoice) {
       contract.replaceChildren(...opts.map((o) => h('option', { value: o.value, selected: String(o.value) === String(invoice.contractId || '') || null }, o.label)));
     } catch (e) { toastError(e, 'справочники счёта'); }
   })();
-  return section({ title: 'Реквизиты', open: true, body: [
+  return section({ title: 'Реквизиты', open: false, body: [
     h('div', { class: 'iw-meta form-grid' },
       h('label', { class: 'field' }, h('span', null, '№ счёта'), no),
       h('label', { class: 'field' }, h('span', null, 'Дата'), dateInp),
