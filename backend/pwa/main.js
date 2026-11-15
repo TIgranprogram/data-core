@@ -518,7 +518,9 @@ function render(c) {
 
 /** Открыть запись: в адрес (для «Назад» и ссылки) шагом «карточка»; соседняя запись в открытой карточке — без нового шага. */
 function openRecord(section, id) {
-  go(section, { ...current().params, open: id, new: undefined }, { replace: !!current().params.open, kind: 'card' });
+  // параметры прежней панели (of=orders и т. п.) не переносим: иначе № заказа уходит в панель позиции — «Некорректный id дохода» (15.11)
+  const screen = Object.fromEntries(Object.entries(current().params).filter(([k]) => !CARD_PARAMS.includes(k)));
+  go(section, { ...screen, open: id }, { replace: !!current().params.open, kind: 'card' });
 }
 
 /** Название экрана по адресу — для подсказок ‹ › и заголовка вкладки. */

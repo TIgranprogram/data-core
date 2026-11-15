@@ -221,7 +221,7 @@ function contractMenu(o, reload, prefix = '') {
 }
 /** Заголовок-группа «Договор 9» в таблице позиций: только что это и (если договоров несколько) этап и срок. */
 function contractHead(o, many = true) {
-  return kitRow({ title: 'Договор ' + (o.orderNo || '—'), meta: o.customer || '', side: many ? [badge(STAGE, o.stage), due(o)].filter(Boolean) : [] });
+  return kitRow({ title: ['Договор ' + (o.orderNo || '—'), o.customer].filter(Boolean).join(' · '), side: many ? [badge(STAGE, o.stage), due(o)].filter(Boolean) : [] });
 }
 /** Подпись под таблицей договора: пусто / «менять позиции может администратор». */
 function contractFoot(o) {
