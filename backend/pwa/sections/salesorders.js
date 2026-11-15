@@ -381,6 +381,13 @@ function boardBody(r) {
   };
 }
 
+/** «Отгружено N из M»: позиция отгружена, если отгружено не меньше заказанного; отменённые не считаются. До отгрузки — этап. */
+function shipLine(r) {
+  if (!['partly', 'ready', 'shipped', 'closed'].includes(r.stage)) return stageCell(r);
+  const live = (r.orders || []).flatMap((o) => o.lines || []).filter((l) => !l.cancelledAt);
+  const done = live.filter((l) => (Number(l.shipped) || 0) >= (Number(l.qty) || 0) && Number(l.qty) > 0).length;
+  return h('span', null, h('span', { class: 'muted' }, 'Отгружено '), `${done} из ${live.length}`);
+}
 /**
  * Карточка заказа — по шаблону «Карточка объекта» (screenCard, C118 W2): шапка (заказ, этап один раз) → предупреждения → «Что дальше» с одной главной кнопкой →
  * сведения (5 строк + «Подробнее») → вкладки «Позиции · Выполнение · Деньги · Документы». Остальные действия — в «⋯».
@@ -389,8 +396,10 @@ const orderCard = screenCard({
   title: heading,
   // шапка — один блок (владелец 15.11): слева № и «заказчик · компания» (заказчик — ссылкой), по центру этап, справа срок
   sub: (r) => [...(r.customers || []).flatMap((c, i) => [i ? ', ' : '', customerLink(c)]), names(r.companyNames) ? ' · ' + names(r.companyNames) : ''],
-  stage: stageCell,
-  side: (r) => (r.deadline ? h('span', null, h('span', { class: 'muted' }, 'Срок '), due(r)) : null),
+  // справа в шапке: срок, под ним — отгрузка «N из M позиций» (с отгрузки) или этап (до неё) — владелец 15.11
+  side: (r) => h('div', null,
+    r.deadline ? h('div', null, h('span', { class: 'muted' }, 'Срок '), due(r)) : null,
+    h('div', null, shipLine(r))),
   noHistory: true,
   before: (r, ctx) => {
     liveCtx = ctx;
