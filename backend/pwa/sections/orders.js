@@ -13,12 +13,20 @@ import { dictNames } from '../ui/dict-options.js';
 import { customerLink } from '../ui/links.js';
 import { crumbTrail } from './order-stage.js';
 import { lineTypeFields, lineBody, lineMark, variantsHint } from './order-lines.js';
+import { canChangeLines, cancelLine, moveLine, restoreLine } from './order-line-actions.js';
 // УПР-1/Д11: issuePassport и passports.canEdit() убраны — вход только через панель паспорта
 
 /**
  * Раздел «Заказы» (PRODUCT §4, TASKS Ф.3/Ф.6) — строки заказов = доходы, коллекция incomes (/api/incomes).
  * Сумма = «доход вручную», иначе кол-во × цена; в календарь доход ложится на дату оплаты, иначе отгрузки.
  */
+/** Отмена или перенос позиции из её панели: нужен договор (этап решает, можно ли менять позиции). */
+async function lineChange(row, ctx, act) {
+  const o = await api(`/salesorders/${row.orderId}`);
+  if (!canChangeLines(o)) { toast('Договор уже в работе — менять позиции может администратор', { error: true }); return; }
+  if (await act(row, o)) { window.dispatchEvent(new CustomEvent('data-changed')); ctx.setRow(await api(`/incomes/${row.id}`)); }
+}
+
 export const INCOME_STATUS = {
   draft: { label: 'Не отгружено', tone: 'dim' },
   awaiting: { label: 'Ждём оплату', tone: 'warn' },
@@ -255,6 +263,10 @@ export const orders = {
       session.canMoney && !r.paidDate && !!r.amount && { label: 'Принять оплату', primary: !!r.shipDate, run: async (row, ctx) => { const s = await paymentDialog(row); if (s) ctx.setRow(s); } },
       session.canMoney && (!!r.paidDate || r.paidAmount > 0) && { label: 'Отменить оплату', more: true, run: async (row, ctx) => { const s = await patchVersioned(`/incomes/${row.id}`, row, { payments: [] }); toast('Оплата снята'); ctx.setRow(s); } },
       !r.shipDate && { label: 'Отгрузить сегодня', primary: !!r.amount, run: async (row, ctx) => ctx.setRow(await markToday(row, 'shipDate')) },
+      // правка позиции — в «⋯» её панели, не в строке таблицы заказа (владелец 15.11: в таблице только смотреть)
+      session.canEditOrders && r.orderId && !r.cancelledAt && { label: 'Перенести в другой договор', more: true, run: (row, ctx) => lineChange(row, ctx, moveLine) },
+      session.canEditOrders && r.orderId && !r.cancelledAt && { label: 'Отменить позицию', more: true, danger: true, run: (row, ctx) => lineChange(row, ctx, cancelLine) },
+      session.canEditOrders && r.cancelledAt && { label: 'Вернуть позицию', more: true, run: async (row, ctx) => { if (await restoreLine(row)) ctx.setRow(await api(`/incomes/${row.id}`)); } },
       // УПР-1/Д11: «Выпустить паспорт» убрана — единственный вход в passports.js
       session.seesDocs() && r.orderId && { label: 'Паспорт →', more: true, title: 'Паспорта по заказу', run: (_row) => { go('docs', { tab: 'archive' }); } },
     ],
