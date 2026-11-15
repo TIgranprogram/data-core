@@ -20296,6 +20296,31 @@
           }
         }
       },
+      "PartWorkTypeDto": {
+        "type": "object",
+        "properties": {
+          "workTypeId": {
+            "type": "string",
+            "description": "Вид работы (справочник worktypes)"
+          },
+          "hours": {
+            "type": "number",
+            "description": "Часы на 1 шт"
+          },
+          "days": {
+            "type": "object",
+            "description": "Дней в плане; пусто — из вида работы",
+            "nullable": true
+          },
+          "sortOrder": {
+            "type": "number",
+            "description": "Порядок"
+          }
+        },
+        "required": [
+          "workTypeId"
+        ]
+      },
       "CreateMaterialDto": {
         "type": "object",
         "properties": {
@@ -20444,6 +20469,13 @@
           "needsName": {
             "type": "boolean",
             "description": "Название не вписано — нужно заполнить"
+          },
+          "workTypes": {
+            "description": "Виды работ детали (только materialKind=part)",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PartWorkTypeDto"
+            }
           }
         },
         "required": [
@@ -20600,6 +20632,13 @@
           "needsName": {
             "type": "boolean",
             "description": "Название не вписано — нужно заполнить"
+          },
+          "workTypes": {
+            "description": "Виды работ детали (только materialKind=part)",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PartWorkTypeDto"
+            }
           }
         }
       },
