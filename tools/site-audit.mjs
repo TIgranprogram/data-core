@@ -235,6 +235,8 @@ export function hoverRuleFindings(rules = []) {
   const out = [];
   for (const r of rules) {
     const lift = /translatey\(\s*-?[\d.]+px/i.test(r.transform || '');
+    // правило про саму карточку; потомок внутри (картинка .k-hover:hover .art svg) может масштабироваться — не подъём карточки (обход 15.11: 47 ложных r)
+    if (/\.k-hover:hover\s*[>+~ ]\s*\S/.test(r.sel)) continue;
     if (/\.k-hover:hover/.test(r.sel)) {
       if (r.transform && r.transform !== 'none' && !/translateY\(-2px\)/.test(r.transform)) out.push({ sel: r.sel, text: 'подъём при наведении не -2px: ' + r.transform });
       if (r.shadow && r.shadow !== 'var(--shadow)') out.push({ sel: r.sel, text: 'тень при наведении ' + r.shadow + ', нужна var(--shadow)' });

@@ -101,6 +101,7 @@ test('ДС-1: вид карточки и правила наведения', asy
   assert.deepEqual(cardLookFindings({ radius: '10px', borderTop: '1px', shadow: '0 0 0 2px red', selected: true }), []);
   assert.deepEqual(hoverRuleFindings([{ sel: '.k-hover:hover', transform: 'translateY(-2px)', shadow: 'var(--shadow)' }, { sel: '.tcard:hover', transform: '', shadow: 'var(--shadow)' }]), []);
   assert.equal(hoverRuleFindings([{ sel: '.k-hover:hover', transform: 'translateY(-2px)', shadow: 'var(--shadow-lg)' }]).length, 1);
+  assert.deepEqual(hoverRuleFindings([{ sel: '.tile.k-cover.k-hover:hover .k-tile-art svg', transform: 'scale(1.04)', shadow: '' }]), []); // потомок — не подъём карточки
   assert.equal(hoverRuleFindings([{ sel: '.col-body .tcard:hover', transform: 'translateY(-1px)', shadow: '' }]).length, 1);
 });
 
