@@ -1,6 +1,6 @@
 /* ОР-1: часть бывшего base.css — форма, диалог, сообщения, вход. Порядок подключения в index.html важен (каскад). */
 /* ---------- Форма ---------- */
-.form-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px var(--s3); }
+.form-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px var(--s3); align-items: start; } /* поле не тянется по высоте соседа с подсказкой (обход 15.11, правило v) */
 .form-grid .wide { grid-column: 1 / -1; }
 @media (max-width: 480px) { .form-grid { grid-template-columns: minmax(0, 1fr); } }
 /* Форма с цветными блоками ({ section, tone } в полях раздела) */
@@ -12,7 +12,7 @@
 button.form-sec { width: 100%; border: 0; background: none; padding: 0; font: inherit; text-align: left; cursor: pointer; }
 .form-sec { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; color: var(--tone); min-height: 22px; }
 .form-sec:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; border-radius: 2px; }
-.form-sec-t { flex: none; font-size: 13px; font-weight: 650; text-transform: uppercase; letter-spacing: .05em; }
+.form-sec-t { flex: 0 1 auto; min-width: 0; overflow-wrap: break-word; font-size: 13px; font-weight: 650; text-transform: uppercase; letter-spacing: .05em; }
 .form-sec-sum { display: none; flex: 1; min-width: 0; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .form-sec-chev { margin-left: auto; flex: none; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; color: var(--muted); font-size: 20px; line-height: 1; transform: rotate(90deg); transition: transform .15s; }
 button.form-sec:hover .form-sec-chev { color: var(--text); }

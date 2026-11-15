@@ -142,8 +142,8 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
   function cardEl(row, c) {
     const v = board.card(row, c, { changed: onChanged });
     const multi = !!c.multi && canMove;
-    const card = h('article', { class: 'tcard' + (canMove ? ' movable' : '') + (c.compact || board.density === 'compact' ? ' compact' : '') + (v.cls ? ' ' + v.cls : ''), tabindex: '0', role: 'button',
-      onclick: () => onOpen(row), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(row); } } },
+    const card = h('article', { class: 'tcard' + (canMove ? ' movable' : '') + (c.compact || board.density === 'compact' ? ' compact' : '') + (v.cls ? ' ' + v.cls : ''), tabindex: '0', role: 'group', 'aria-label': 'Открыть: ' + (v.title || ''), // group, не button: внутри «⋯» и галочка (axe nested-interactive, обход 15.11)
+      onclick: () => onOpen(row), onkeydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onOpen(row); } } },
     multi ? pickEl(row) : null,
     ...(v.body ? [].concat(v.body) : [
       v.pic ? h('img', { class: 't-pic', src: PREFIX + (v.pic.thumb || v.pic.url), alt: '', loading: 'lazy', decoding: 'async', draggable: 'false', onerror: (e) => e.target.remove() }) : null,
@@ -181,7 +181,8 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
     if (!sum) sum = Math.max(0, ...rs.map((r) => Number(board.groupTotal?.(r)) || 0));
     const body = h('div', { class: 'db-lines b-glines' });
     const acts = (g.actions || board.groupActions?.(rs) || []).filter(Boolean);
-    const chev = h('span', { class: 'db-chev', 'aria-hidden': 'true' }, '▸');
+    // ▸/▾ — настоящая кнопка: карточка не role=button, иначе кнопки внутри — «вложенные» (axe nested-interactive, обход 15.11)
+    const chev = h('button', { type: 'button', class: 'db-chev' }, '▸');
     const invChip = g.open
       ? quiet(typeof g.open === 'object' && g.open.href
         ? h('a', { class: 'btn btn-ghost btn-sm db-inv-chip', href: g.open.href, title: 'Открыть заказ' }, g.label)
@@ -190,10 +191,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
     const card = paintOrder(h('article', {
       class: 'db-order k-gfold k-hover',
       'data-group-key': k,
-      tabindex: '0',
-      role: 'button',
       onclick: (e) => { if (!body.contains(e.target)) toggle(); },
-      onkeydown: (e) => { if (e.target === card && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(); } },
     },
       h('div', { class: 'db-oh' },
         h('div', { class: 'db-oh-main' }, invChip),
@@ -214,8 +212,8 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
     const paint = () => {
       const open = isOpen(ck, k);
       card.classList.toggle('open', open);
-      card.setAttribute('aria-expanded', String(open));
-      card.setAttribute('aria-label', `${open ? 'Скрыть' : 'Показать'} позиции: ${g.label}`);
+      chev.setAttribute('aria-expanded', String(open));
+      chev.setAttribute('aria-label', `${open ? 'Скрыть' : 'Показать'} позиции: ${g.label}`);
       chev.textContent = open ? '▾' : '▸';
       body.hidden = !open;
       body.replaceChildren(...(open ? cards() : []));

@@ -41,7 +41,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const btnBoard = h('button', { type: 'button', onclick: () => { saveView('board'); patch({ view: 'board', page: undefined, status: undefined, filter: L.path === '/production-orders' ? 'all' : undefined }); } }, icon('board'), 'Доска');
   const btnGallery = h('button', { type: 'button', onclick: () => { saveView('gallery'); patch({ view: 'gallery', page: undefined }); } }, icon('gallery'), 'Галерея');
   const btnGantt = L.gantt ? h('button', { type: 'button', onclick: () => { saveView('gantt'); patch({ view: 'gantt', page: undefined }); } }, 'Гант') : null;
-  const viewSwitch = L.board || L.gallery || L.gantt ? h('div', { class: 'seg', role: 'tablist', 'aria-label': 'Вид' }, btnTable, L.board ? btnBoard : null, L.gallery ? btnGallery : null, btnGantt) : null;
+  const viewSwitch = L.board || L.gallery || L.gantt ? h('div', { class: 'seg', role: 'group', 'aria-label': 'Вид' }, btnTable, L.board ? btnBoard : null, L.gallery ? btnGallery : null, btnGantt) : null;
   const canCreate = section.form && canEditSection(section) && L.createLabel !== false;
   // «⇩ Excel» (МВ.5): весь список с текущими фильтрами — ui/list-export.js; L.export === false — без кнопки; 'admin' — только для роли admin
   const canExport = !(L.export === false || (L.export === 'admin' && session.role !== 'admin'));

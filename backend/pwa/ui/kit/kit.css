@@ -49,7 +49,7 @@
 @media (pointer: coarse), (max-width: 720px) { .btn.k-icon, .btn.k-icon.btn-sm { width: var(--tap); min-width: var(--tap); min-height: var(--tap); } }
 /* заголовок карточки доски — одно правило для всех досок */
 .tcard .t-title, .db-line .t-title, .db-prow .t-title { font-size: var(--fs-sm); font-weight: 550; line-height: 1.3; }
-@media (max-width: 720px) { .k-seg { height: auto; min-height: 44px; } .k-seg-btn { min-height: 44px; } }
+@media (max-width: 720px) { .k-seg { height: auto; min-height: 44px; } .k-seg-btn { min-height: 44px; } .k-seg:not(.k-seg-scroll) .k-seg-btn { white-space: normal; line-height: 1.2; padding: var(--s1) var(--s2); min-width: 44px; } } /* телефон: длинная подпись переносится, не обрезается (обход 15.11, правило u) */
 /* sku: артикул изделия */
 .k-sku { font-family: ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text); white-space: nowrap; max-width: 100%; }
 td.num .k-sku { color: var(--ok); font-size: var(--fs-h3); }
@@ -92,6 +92,7 @@ label.k-row { cursor: pointer; }
 .k-feed.leaving { opacity: 0; transform: translateX(16px); }
 .k-feed:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 @media (hover: hover) { .k-feed .k-row-act { visibility: hidden; } .k-feed:hover .k-row-act, .k-feed:focus-within .k-row-act { visibility: visible; } }
+.k-feed { flex-wrap: wrap; } .k-feed .k-row-name { flex: 1 1 auto; min-width: min(160px, 100%); } /* узкая колонка (панель открыта на 1600): кнопки уходят вниз, подпись не «столбиком» (обход 15.11, правило e) */
 @media (max-width: 720px) { .k-row-act .btn.btn-ghost.btn-sm { font-weight: 500; padding: 0 var(--s2); } }
 @media (max-width: 720px) { .k-feed .k-row-act { visibility: visible; } .k-feed .k-row-act .btn { min-height: 44px; } }
 /* Поле выбора — один эталон: select, input формы, .k-field (sel-input / combo-input). Основа — base.css (36 px, рамка, радиус, фокус) */
@@ -195,7 +196,7 @@ table.list tfoot td { font-weight: 600; border-top: 2px solid var(--border-stron
 .db-order.k-gfold > .k-actions { margin-top: var(--s1); padding-left: var(--s2); }
 .db-order.k-gfold > .k-actions .btn { flex: 1 1 auto; justify-content: center; }
 @media (max-width: 720px) { .db-order.k-gfold > .k-actions .btn { min-height: 44px; } }
-.db-order.k-gfold .db-chev { pointer-events: none; display: inline-flex; align-items: center; justify-content: center; }
+.db-order.k-gfold .db-chev { width: var(--tap, 44px); height: var(--tap, 44px); pointer-events: none; display: inline-flex; align-items: center; justify-content: center; }
 .db-order.k-gfold .db-lines { cursor: default; user-select: auto; }
 .db-order.k-gfold .db-lines .tcard { transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease; }
 /* подъём -1px убран (ДС-1): наведение — рамка и --shadow */
