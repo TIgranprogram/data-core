@@ -399,6 +399,14 @@ button.m-fg-h { cursor: pointer; }
   table.k-table-stack td.num { justify-content: flex-start; }
   table.k-table-stack .btn { min-height: var(--tap); } /* «Отметить проверенным» и ↑↓✕ — палец, не меньше 44 px */
 }
+/* «Части и работы» (C122, обход 15.11): панель справа узкая и на 1024 — 5 колонок вылезали вправо. k-stack-always — карточкой на любой ширине. */
+table.k-stack-always, table.k-stack-always tbody { display: block; }
+table.k-stack-always thead { display: none; }
+table.k-stack-always tr { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); padding: var(--s3) 0; border-bottom: 1px solid var(--border); }
+table.k-stack-always td { display: flex; align-items: center; padding: 0; border: 0; }
+table.k-stack-always td.k-col-wrap { min-width: 0; max-width: none; width: auto; overflow: visible; }
+table.k-stack-always td:first-child { flex: 1 1 100%; font-weight: 600; }
+table.k-stack-always td.num { justify-content: flex-start; }
 @media (max-width: 720px) {
   .drawer-head .btn.btn-icon { min-width: calc(var(--s6) + var(--s3)); min-height: calc(var(--s6) + var(--s3)); }
 }

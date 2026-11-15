@@ -24,6 +24,7 @@ export function toast(text, { error = false, undo, ms, actions, tone, sub, notic
   for (const a of actions || []) acts.push({ label: a.label, run: async () => { close(); await a.run?.(); } });
   const t = mark(noticeCard({ tone: tn, title, sub: reason, actions: acts, cls: 'toast' }), 'toast');
   box.append(t);
+  try { liftOverFoot(box); } catch { /* нет окна (тесты) — место из CSS */ }
   setTimeout(close, ms ?? (actions ? 20000 : undo ? 10000 : tn === 'error' ? 6000 : 3500));
   // история: кроме «Готовлю…» и явного notice:false; отмену (undo) в историю не кладём — её уже нет
   if (notice !== false && !/…\s*$/.test(title)) {
@@ -32,6 +33,15 @@ export function toast(text, { error = false, undo, ms, actions, tone, sub, notic
       ...(first ? { action: { label: first.label, run: first.run || (() => {}) }, persist: true } : {}) });
   }
   return close; // долгое действие: toast('Готовлю…', { ms: … }) — закрыть, когда готово
+}
+
+/**
+ * Обход 15.11: на телефоне сообщение ложилось на «Создать» в нижней строке открытой панели.
+ * Видимая нижняя строка панели (.drawer-foot) у низа экрана — сообщения встают над ней; нет — обычное место из CSS.
+ */
+function liftOverFoot(box, doc = document, vh = window.innerHeight) {
+  const foot = [...doc.querySelectorAll('.drawer-foot')].map((f) => f.getBoundingClientRect()).find((r) => r.height > 0 && r.bottom >= vh - 2 && r.top < vh);
+  box.style.bottom = foot ? `${Math.round(vh - foot.top + 8)}px` : '';
 }
 
 // ОШ: текст — по-русски (внутренние ошибки — общим текстом); action — «Не удалось <действие>: …» (ОШ2.4).

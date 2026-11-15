@@ -33,3 +33,22 @@ test('пойманная ошибка сохранения передаётся 
   assert.equal(reports[0].meta.action, 'сохранить');
   assert.deepEqual(Object.keys(reports[0].meta), ['action']); // данные формы не передаются
 });
+
+test('сообщение встаёт над нижней строкой панели у низа экрана (обход 15.11, 390)', async () => {
+  let rects = [];
+  const box = { style: { bottom: '' }, append() {} };
+  const context = createContext({ Date, Map, setTimeout: () => 0, window: { innerHeight: 844 },
+    document: { querySelector: () => box, querySelectorAll: () => rects.map((r) => ({ getBoundingClientRect: () => r })) } });
+  const stub = { './mark.js': { mark: (el) => el }, '../../core/dom.js': { h: () => ({}) }, './errors.js': { actionText: () => '', isFailure: () => false },
+    '../notice-card.js': { noticeCard: () => ({}), splitReason: (t) => ({ title: t }) }, '../notices.js': { addNotice() {} }, '../../core/errors.js': { reportError() {} } };
+  const mod = new SourceTextModule(readFileSync(new URL('./toast.js', import.meta.url), 'utf8'), { context });
+  await mod.link((p) => new SyntheticModule(Object.keys(stub[p]), function () { for (const [k, v] of Object.entries(stub[p])) this.setExport(k, v); }, { context }));
+  await mod.evaluate();
+  const { toast } = mod.namespace;
+  rects = [{ top: 700, bottom: 844, height: 144 }]; toast('a', { notice: false });
+  assert.equal(box.style.bottom, '152px'); // 844 − 700 + 8
+  rects = [{ top: 300, bottom: 400, height: 100 }]; toast('b', { notice: false }); // строка не у низа — место из CSS
+  assert.equal(box.style.bottom, '');
+  rects = []; toast('c', { notice: false }); // панели нет
+  assert.equal(box.style.bottom, '');
+});
