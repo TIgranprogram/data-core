@@ -60,7 +60,7 @@ function watchdog() {
   fs.writeSync(log, `
 ${new Date().toISOString()} сторож: тестировщик ${what === 'kill-resume' ? 'завис (снят)' : 'не работает'} — продолжаю до ${new Date(r.until).toLocaleTimeString('ru-RU')}
 `);
-  const ch = spawn(process.execPath, [path.join(HERE, 'run.mjs'), '--resume'], { cwd: ROOT, detached: true, windowsHide: true, stdio: ['ignore', log, log] });
+  const ch = spawn(process.execPath, [path.join(HERE, 'run.mjs'), '--resume', ...(r.model ? ['--model', r.model] : [])], { cwd: ROOT, detached: true, windowsHide: true, stdio: ['ignore', log, log] });
   ch.unref();
   return 0;
 }
@@ -674,9 +674,9 @@ async function main() {
     const until = Date.now() + num('--minutes', 480) * 60000;
     fs.mkdirSync(OUT, { recursive: true });
     const log = fs.openSync(path.join(OUT, 'run.log'), 'a');
-    const ch = spawn(process.execPath, [path.join(HERE, 'run.mjs'), '--no-check', '--until', String(until), ...(noWatchdog ? ['--no-watchdog'] : [])], { cwd: ROOT, detached: true, windowsHide: true, stdio: ['ignore', log, log] });
+    const ch = spawn(process.execPath, [path.join(HERE, 'run.mjs'), '--no-check', '--until', String(until), ...(noWatchdog ? ['--no-watchdog'] : []), ...(s.model ? ['--model', s.model] : [])], { cwd: ROOT, detached: true, windowsHide: true, stdio: ['ignore', log, log] });
     ch.unref();
-    fs.writeFileSync(RUN_FILE, JSON.stringify({ until, day: DAY, pid: ch.pid, beat: Date.now(), noWatchdog: !!noWatchdog })); // второе нажатие сразу видит «уже работает»
+    fs.writeFileSync(RUN_FILE, JSON.stringify({ until, day: DAY, pid: ch.pid, beat: Date.now(), noWatchdog: !!noWatchdog, model: s.model })); // второе нажатие сразу видит «уже работает»
     say(`
 ✅ ИИ-тестировщик запущен в фоне до ${new Date(until).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}.`);
     say('Окно пульта можно закрыть. Отчёт Claude разберёт сам в начале следующей сессии.');
@@ -692,7 +692,7 @@ async function main() {
     if (Date.now() > until + 20 * 60000) { say('⚠ Срок вышел 20 мин назад, а запуск не закончился — выхожу.'); process.exit(3); }
     const other = readRun();
     if (other?.pid > 0 && other.pid !== process.pid && runLive(other, Date.now(), alive(other.pid))) { say('⚠ Работает другая копия тестировщика — выхожу.'); process.exit(3); }
-    fs.writeFileSync(RUN_FILE, JSON.stringify({ until, day: DAY, pid: process.pid, beat: Date.now(), noWatchdog: !!noWatchdog }));
+    fs.writeFileSync(RUN_FILE, JSON.stringify({ until, day: DAY, pid: process.pid, beat: Date.now(), noWatchdog: !!noWatchdog, model: s.model }));
   };
   beat(); const beatTimer = setInterval(beat, BEAT_MS); beatTimer.unref();
   const awake = keepAwake();
