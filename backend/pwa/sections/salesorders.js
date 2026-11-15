@@ -14,7 +14,7 @@ import { confirmDlg, modal } from '../ui/kit/dialog.js';
 import { withConfirm } from '../ui/confirm-password.js';
 import { incomeLookups } from './orders.js';
 import { lineMore } from './order-line-more.js';
-import { customerLink } from '../ui/links.js';
+import { customerLink, companyLink } from '../ui/links.js';
 import { responsibleField, handoffLine } from '../ui/responsible.js';
 import { errText } from '../ui/kit/errors.js';
 import { busyBlock, failBlock } from '../ui/kit/busy.js';
@@ -396,7 +396,7 @@ function shipLine(r) {
 const orderCard = screenCard({
   title: heading,
   // шапка — один блок (владелец 15.11): слева № и «заказчик · компания» (заказчик — ссылкой), по центру этап, справа срок
-  sub: (r) => [...(r.customers || []).flatMap((c, i) => [i ? ', ' : '', customerLink(c)]), names(r.companyNames) ? ' · ' + names(r.companyNames) : ''],
+  sub: (r) => [...(r.customers || []).flatMap((c, i) => [i ? ', ' : '', customerLink(c)]), ...(r.companyNames || []).filter(Boolean).flatMap((c, i) => [i ? ', ' : ' · ', companyLink(c)])],
   // справа в шапке: срок, под ним — отгрузка «N из M позиций» (с отгрузки) или этап (до неё) — владелец 15.11
   side: (r) => [r.deadline ? h('span', null, h('span', { class: 'muted' }, 'Срок '), due(r)) : null, shipLine(r)],
   noHistory: true,
