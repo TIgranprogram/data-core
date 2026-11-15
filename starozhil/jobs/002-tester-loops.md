@@ -1,6 +1,6 @@
 ---
 priority: 3
-status: ready
+status: paused
 steps: 60
 minutes: 120
 ---
