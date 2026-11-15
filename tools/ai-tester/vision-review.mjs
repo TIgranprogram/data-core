@@ -174,8 +174,9 @@ export async function main(args = process.argv.slice(2)) {
     } else {
       if (options.latestAudit) options.input = await latestAudit();
       if (!options.input) { console.log('Использование: node tools/ai-tester/vision-review.mjs --input <снимок|папка> | --latest-audit [--model ID] [--limit 3] [--timeout-seconds 90] [--refresh]; --last'); return 2; }
+      // C125: снимки — модель с картинками (settings.visionModel, Gemma); тестировщик и Старожил — settings.model (gpt-oss-20b)
       const settings = JSON.parse(await fs.readFile(path.join(HERE, 'settings.json'), 'utf8'));
-      result = await review({ ...options, model: options.model || settings.model, baseUrl: settings.baseUrl, apiKey: settings.apiKey, logRoot });
+      result = await review({ ...options, model: options.model || settings.visionModel || settings.model, baseUrl: settings.baseUrl, apiKey: settings.apiKey, logRoot });
     }
     const c = result.summary.counts;
     console.log(`Анализировано: ${c.analyzed}; кэш: ${c.cached}; сбой: ${c.failed}; пропущено: ${c.skipped}.\nОтчёт: ${path.join(result.runDir, 'REPORT.md')}`);

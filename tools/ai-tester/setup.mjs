@@ -22,8 +22,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const clean = (s) => String(s || '').replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '');
 const lms = (args, timeout = 120000) => { const r = spawnSync(LMS, args, { encoding: 'utf8', timeout, windowsHide: true }); return { ok: r.status === 0, out: clean(r.stdout) + clean(r.stderr) }; };
 
-/** Модель по памяти видеокарты: 12 ГБ и больше — Gemma 4 12B (видит картинки, умеет нажимать); меньше — Gemma 4 E4B. */
+/** Модель по памяти видеокарты: 15 ГБ и больше — gpt-oss-20b; 11–15 ГБ — Gemma 4 12B (видит картинки, умеет нажимать); меньше — Gemma 4 E4B. */
 export function pickModel(vramMiB) {
+  // C125 (15.11, сравнение на одних заданиях): gpt-oss-20b — 91 % заданий, 82 % сама закончила, 1 «по кругу»; Gemma 12B — 82 / 61 / 4; Qwen 27B — 55 с на шаг
+  if (vramMiB >= 15000) return { id: 'gpt-oss-20b', why: `видеокарта ${Math.round(vramMiB / 1024)} ГБ — gpt-oss-20b (лучше всех нажимает и заканчивает задания)` };
   if (vramMiB >= 11000) return { id: 'google/gemma-4-12b-qat', why: `видеокарта ${Math.round(vramMiB / 1024)} ГБ — хватает на Gemma 4 12B` };
   return { id: 'google/gemma-4-e4b', why: vramMiB ? `видеокарта ${Math.round(vramMiB / 1024)} ГБ — берём лёгкую Gemma 4 E4B` : 'видеокарты NVIDIA нет — лёгкая Gemma 4 E4B (будет медленно)' };
 }
