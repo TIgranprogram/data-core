@@ -122,12 +122,14 @@ export function mountMoney(params) {
   live = { month, reload: () => load() };
   const body = h('div', { class: 'm-body' });
   const el = h('div', { class: 'money' },
-    h('div', { class: 'page-head' }, h('h1', null, 'Деньги'), h('span', { class: 'spacer' }), tabs),
+    h('div', { class: 'page-head' }, h('h1', null, 'Деньги'), h('span', { class: 'spacer' }), tabs,
+      // главное действие экрана — кнопка, а не шестая вкладка (C118 3.2, шаблон «Сводка»)
+      button({ label: 'Заполнить', kind: 'primary', title: 'Записи без статьи, компании или суммы — не попали в расчёт', onClick: () => go('fill') })),
     controls, body);
 
   function renderChrome(companies) {
-    tabs.replaceChildren(kitTabs({ label: 'Разделы денег', items: [['articles', 'По статьям'], ['calendar', 'Платёжный календарь'], ['summary', 'Сводка'], ['forecast', 'Прогноз'], ['debts', 'Долги'], ['fill', 'Требуют заполнения']].map(([key, label]) => ({ key, label })), value: tab(),
-      onChange: (k) => (k === 'fill' ? go('fill') : patch({ tab: k === 'articles' ? undefined : k })) }).el);
+    tabs.replaceChildren(kitTabs({ label: 'Разделы денег', items: [['articles', 'По статьям'], ['calendar', 'Платёжный календарь'], ['summary', 'Сводка'], ['forecast', 'Прогноз'], ['debts', 'Долги']].map(([key, label]) => ({ key, label })), value: tab(),
+      onChange: (k) => patch({ tab: k === 'articles' ? undefined : k }) }).el);
     const [y, m] = month().split('-').map(Number);
     monthLabel.textContent = yearly() ? `${y} год` : `${MONTHS[m - 1][0].toUpperCase()}${MONTHS[m - 1].slice(1)} ${y}`;
     orgSeg.replaceChildren(segmented({ cls: 'seg', label: 'Компания',
