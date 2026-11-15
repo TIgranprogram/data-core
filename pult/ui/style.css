@@ -81,6 +81,10 @@ h1, h2, p { margin: 0; }
 .primary.warn { background: var(--warn); border-color: var(--warn); color: var(--panel); }
 .primary.danger { background: var(--bad); border-color: var(--bad); color: var(--panel); }
 .primary:disabled { opacity: .5; cursor: not-allowed; }
+/* смысл кнопки (15.11): включить/запустить — зелёная, выключить/убрать — красная рамка, проверить — синяя; опасное (danger/prod-write) — по-прежнему по риску */
+.primary.act-go:not(.danger):not(.warn) { background: var(--ok); border-color: var(--ok); color: var(--panel); }
+.primary.act-stop:not(.danger):not(.warn) { background: transparent; border-color: var(--bad); color: var(--bad); }
+.primary.act-look:not(.danger):not(.warn) { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .ghost { border: 1px solid var(--line); background: var(--panel); color: var(--text); font-weight: 500; }
 .ghost:hover { background: var(--panel-2); }
 .ghost.danger { color: var(--bad); border-color: var(--bad); }
@@ -198,3 +202,7 @@ dialog label[hidden] { display: none; }
 .tester-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .tester-path { overflow-wrap: anywhere; }
 .tester-extra summary { cursor: pointer; padding: 12px 0; font-weight: 600; }
+
+/* пара «включить / выключить» в одной карточке (15.11) */
+.card .pair { display: flex; gap: 8px; flex-wrap: wrap; }
+.card .pair .primary { flex: 1 1 auto; }

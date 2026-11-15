@@ -100,6 +100,22 @@ function paramValue(c, p) {
   return S.values[c.id]?.[p.name] ?? p.default ?? p.options[0]?.value ?? '';
 }
 
+/**
+ * Надпись и вид кнопки — по смыслу команды (владелец 15.11: «везде "Запустить", а некоторые выключают — непонятно»).
+ * stop — выключает/убирает (красная рамка), go — включает/запускает (зелёная), look — проверить/посмотреть (синяя), open — открыть окно.
+ */
+function actionOf(c) {
+  const t = String(c.title || '').trim();
+  const verb = (re) => (t.match(re) || [])[1];
+  const stop = verb(/^(Остановить|Выключить|Убрать|Удалить|Очистить|Отменить|Снять)/i);
+  if (stop) return { kind: 'stop', label: stop };
+  if (c.kind !== 'job') return { kind: 'open', label: 'Открыть' };
+  const go = verb(/^(Включить|Запустить|Выложить|Установить|Обновить|Отправить|Забрать|Сохранить|Скачать|Собрать|Сделать|Подготовить)/i);
+  if (go) return { kind: 'go', label: go };
+  if (/^(Проверить|Проверка|Отчёт|Итог|Что|Сколько|Ошибки|Тесты|Обойти|Полный|Быстрая)/i.test(t)) return { kind: 'look', label: 'Проверить' };
+  return { kind: 'go', label: 'Запустить' };
+}
+
 function buttonClass(c) {
   if (c.risk === 'danger') return 'primary danger';
   if (c.risk === 'prod-write') return 'primary warn';
@@ -132,12 +148,26 @@ function card(c) {
     box.append(label);
   }
   if (c.blocked.length) box.append(el('div', 'why', c.blocked[0]));
-  const b = el('button', `${buttonClass(c)} run`, c.kind === 'job' ? 'Запустить' : 'Открыть');
+  const act = actionOf(c);
+  const b = el('button', `${buttonClass(c)} run act-${act.kind}`, act.label);
   b.disabled = c.blocked.length > 0;
   b.onclick = () => press(c);
-  box.append(b);
+  // пара «включить / выключить» — две кнопки рядом в одной карточке, разного цвета (владелец 15.11)
+  const pairId = (PAIRS || {})[c.id];
+  const pc = pairId && S.catalog.commands.find((x) => x.id === pairId);
+  if (pc) {
+    const a2 = actionOf(pc);
+    const b2 = el('button', `primary run2 act-${a2.kind === 'go' ? 'stop' : a2.kind}`, a2.label);
+    b2.title = pc.hint || pc.title;
+    b2.disabled = pc.blocked.length > 0;
+    b2.onclick = () => press(pc);
+    box.append(el('div', 'pair', b, b2));
+  } else box.append(b);
   return box;
 }
+/** Пары команд: основная → её «выключить» (вторая кнопка в той же карточке; своей карточки у неё нет). */
+var PAIRS = { 'sz-on': 'sz-off', 'ait-run': 'ait-stop' }; // var — первая отрисовка может прийти раньше этой строки
+var PAIRED = new Set(Object.values(PAIRS));
 
 // Один путь проверки; установка остаётся частью существующего --detach.
 function renderTester() {
@@ -341,6 +371,7 @@ function render() {
   const nodes = S.query ? [] : S.catalog.switches.filter((w) => w.section === S.section).map(switchCard);
   let sub = null;
   for (const c of list) {
+    if (PAIRED?.has(c.id) && list.some((x) => PAIRS[x.id] === c.id)) continue; // кнопка уже в карточке пары
     if (!S.query && c.sub && c.sub !== sub) nodes.push(el('h2', 'sub-head', c.sub));
     sub = c.sub;
     nodes.push(card(c));
