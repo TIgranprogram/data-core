@@ -11,3 +11,18 @@
 - backend/src/modules/entity-attribute-value/entity-attribute-value.controller.ts:45 — отдаёт атрибуты сущности — нормально ли, что любой сотрудник видит атрибуты сущности? (проверить человеку)
 Не уверен: нужно проверить, какие данные возвращаются этими эндпоинтами, и насколько они конфиденциальны.
 
+## Задача 2 — модули без описания в docs/MAP.md
+Проверено: список модулей без описания в MAP.md
+Находки:
+- ColorReferenceModule — папка: color-reference — маршрут: @Controller('color-references') — управление цветами
+- DataVersionModule — папка: ? — маршрут: нет — версии данных
+- DeviceEnrollmentModule — папка: device-enrollment — маршрут: @Controller('admin/devices') @Controller('device') — регистрация устройств
+- DictionaryLabelModule — папка: dictionary-label — маршрут: @Controller('dictionary-labels') — метки словарей
+- FillAuditModule — папка: fill-audit — маршрут: @Controller('fill-audit') — аудит заполнения
+- LoggerModule — папка: ? — маршрут: нет — логирование
+- MyTasksModule — папка: my-tasks — маршрут: @Controller('my-tasks') — задачи пользователя
+- PermissionsBootModule — папка: ? — маршрут: нет — инициализация прав
+- RateLimitModule — папка: rate-limit — маршрут: @Controller('rate-limits') — ограничение запросов
+- RoleCounterpartyModule — папка: role-counterparty — маршрут: @Controller('counterparty-roles') — роли контрагентов
+- RoleOrgModule — папка: role-org — маршрут: @Controller('org-roles') — роли организаций
+
