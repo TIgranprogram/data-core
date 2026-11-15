@@ -5,9 +5,10 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { chromium } from 'playwright-core';
 import { formControlSnapshot, formControlFindings } from '../site-audit.mjs';
+import { findBrowser } from '../browser-path.mjs';
 
 const require = createRequire(import.meta.url);
-const edge = process.env.DESIGN_BROWSER || ['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Microsoft/Edge/Application/msedge.exe'].find(p => fs.existsSync(p));
+const edge = findBrowser();
 
 test('реальный браузер: старые голые поля не проходят, исправленные проходят; axe ловит отсутствие имени', { skip: !edge, timeout: 30000 }, async () => {
   const browser = await chromium.launch({ executablePath: edge, headless: true });

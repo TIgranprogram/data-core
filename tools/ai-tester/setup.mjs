@@ -60,7 +60,7 @@ async function main() {
   // 1. LM Studio установлен?
   if (!fs.existsSync(LMS)) {
     say('❌ 1. LM Studio не установлен (или ни разу не запускался).');
-    say('   → Откройте сайт lmstudio.ai и нажмите «Download for Windows».');
+    say(`   → Откройте сайт lmstudio.ai и нажмите «Download for ${process.platform === 'win32' ? 'Windows' : process.platform === 'darwin' ? 'Mac' : 'Linux'}».`);
     say('   → Установите программу и один раз откройте её (можно пропустить все вопросы).');
     say('   → Нажмите эту кнопку ещё раз.');
     return 1;

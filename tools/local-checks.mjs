@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { findBrowser } from './browser-path.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const LOGS = path.join(ROOT, 'tools/logs/local-checks');
@@ -59,7 +60,7 @@ export function plan(options = {}, exists = p => fs.existsSync(path.join(ROOT, p
   const design = ['playwright-core', 'axe-core', 'pixelmatch', 'pngjs'].every(p => exists(`tools/design-checks/node_modules/${p}/package.json`));
   steps.push({ id: 'dependencies', title: 'Зависимости сервера', status: backend ? 'PASS' : 'FAIL', detail: backend ? 'Установлены' : 'Нет локальных TypeScript/Jest; установите зависимости backend' });
   steps.push({ id: 'design-dependencies', title: 'Зависимости проверок вида', status: design ? 'PASS' : 'SKIP', detail: design ? 'Установлены' : 'Кнопка «Установить проверки дизайна»' });
-  const edge = process.env.DESIGN_BROWSER || ['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Microsoft/Edge/Application/msedge.exe'].find(p => fs.existsSync(p));
+  const edge = findBrowser();
   steps.push({ id: 'browser', title: 'Браузер для локальной фикстуры', status: edge && fs.existsSync(edge) ? 'PASS' : 'SKIP', detail: edge && fs.existsSync(edge) ? 'Найден' : 'Нужен Edge или DESIGN_BROWSER' });
   if (options['ready-only']) return steps;
   const be = path.join(ROOT, 'backend');

@@ -28,7 +28,7 @@ ok "HEAD $(git rev-parse --short HEAD) есть в origin/$BR"
 # 3. что менялось с прошлой выкладки
 BASE="$(git describe --tags --abbrev=0 --match 'release-*' 2>/dev/null)"
 FIRST=0; [[ -z "$BASE" ]] && { BASE="$(git rev-parse HEAD~20)"; FIRST=1; }
-CHANGED="$(git diff --name-only "$BASE" HEAD)"
+CHANGED="$(git -c core.quotepath=off diff --name-only "$BASE" HEAD)"
 SRC=0; UI=0
 grep -qE '^backend/(src|test)/|^backend/package\.json$' <<<"$CHANGED" && SRC=1
 grep -qE '^backend/(pwa|admin)/' <<<"$CHANGED" && UI=1

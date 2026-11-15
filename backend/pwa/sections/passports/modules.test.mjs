@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { findBrowser } from '../../../../tools/browser-path.mjs';
 
 const require = createRequire(import.meta.url);
 let chromium;
 try { ({ chromium } = require(process.env.C115_PLAYWRIGHT || '../../../../tools/design-checks/node_modules/playwright-core')); } catch (error) { if (error.code !== 'MODULE_NOT_FOUND') throw error; }
 test('загрузка рисунка модуля выбирает файл и сохраняет его без исключения', { skip: !chromium && 'не установлен playwright-core из tools/design-checks' }, async () => {
-  const browser = await chromium.launch({ channel: 'msedge' });
+  const browser = await chromium.launch({ executablePath: findBrowser(), headless: true });
   const errors = [];
   try {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });

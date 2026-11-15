@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createContext, SourceTextModule, SyntheticModule } from 'node:vm';
+import { findBrowser } from '../../../../tools/browser-path.mjs';
 
 async function fixture(full = {}, initial = {}, manual = []) {
   const source = readFileSync(new URL('./product-block.js', import.meta.url), 'utf8');
@@ -97,7 +98,7 @@ test('запоздавший ответ прежнего изделия не м�
 
 test('DOM: первый клик после ввода сертификата и blur/change открывает изделие', async () => {
   const { chromium } = await import('../../../../tools/design-checks/node_modules/playwright-core/index.mjs');
-  const browser = await chromium.launch({ executablePath: 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless: true });
+  const browser = await chromium.launch({ executablePath: findBrowser(), headless: true });
   try {
     const page = await browser.newPage();
     await page.setContent('<form id="form"><input name="certNumber"><input name="length"><div id="product"></div></form>');

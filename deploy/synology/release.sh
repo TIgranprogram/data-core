@@ -48,7 +48,7 @@ elif [[ "$VMOK" != yes ]]; then WHY="экраны на сервере ещё н�
 else
   # --no-renames: перенос файла из backend/src в pwa виден и старым путём
   # apps/ — настольное приложение PDM (C057): сервер не пересобирается, exe кладёт шаг 6б
-  OTHER="$(git diff --no-renames --name-only "$PREV" HEAD | grep -vE '^backend/(pwa|admin)/|^(docs|tools|pult|apps)/|^[^/]+\.md$' || true)"
+  OTHER="$(git -c core.quotepath=off diff --no-renames --name-only "$PREV" HEAD | grep -vE '^backend/(pwa|admin)/|^(docs|tools|pult|apps)/|^[^/]+\.md$' || true)"
   if [[ -n "$OTHER" ]]; then WHY="менялся не только вид: $(echo "$OTHER" | head -3 | tr '\n' ' ')"; else MODE=fast; fi
 fi
 echo "== Путь: $([[ $MODE == fast ]] && echo 'быстрый (только экраны)' || echo полный)${WHY:+ — $WHY}"

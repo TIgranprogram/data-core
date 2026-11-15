@@ -1,6 +1,7 @@
 // Каталог совпадает с проектом, опасные кнопки защищены, справка не отстала.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import path from 'node:path';
 import { test } from 'node:test';
 import * as catalog from '../catalog.mjs';
 import { auditCatalog, auditProblems } from '../audit.mjs';
@@ -109,7 +110,8 @@ test('нет нужного на ПК — кнопка объясняет поч
 
 test('Git Bash раньше System32 в PATH', () => {
   const env = childEnv(work, { Path: 'C:\\Windows\\System32' });
-  assert.ok(env.Path.startsWith('C:\\Git\\bin;') || env.Path.startsWith('C:\\Git\\bin:'));
+  // путь склеивает path.join текущей системы: на Windows «C:\\Git\\bin;», на Linux «C:\\Git/bin:»
+  assert.ok(env.Path.startsWith(path.join(work.gitRoot, 'bin') + path.delimiter));
   assert.equal(env.GIT_TERMINAL_PROMPT, '0');
 });
 

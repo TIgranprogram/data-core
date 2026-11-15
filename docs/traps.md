@@ -56,3 +56,11 @@
 
 - **Стенд после перезапуска Docker (2026-11-15):** Mongo и шлюз стенда остаются выключены (Exited 255), а `refresh` пересобирал только backend (`--no-deps`) → «EAI_AGAIN mongo» и «таймаут: backend health». Теперь `tools/night-stand.mjs` `refresh` сам поднимает mongo и proxy.
 - **Новый стенд (`dc stand renew`) — нет учётки стенда (2026-11-15):** свежая база без `stand-test` → stand-look «401». Теперь `tools/stand-look.mjs` при 401 сам заводит учётку (`stand-test-user.js`).
+
+## Ноутбук на Ubuntu после Windows (2026-11-15)
+- **Русские имена файлов в git — кодами** (`"pult/docs/\320\232…"`): `release.sh` считал такой файл «вне экранов» и шёл полным путём. Теперь `release.sh`/`preflight.sh` читают список с `-c core.quotepath=off`, `setup-ubuntu.sh` ставит `core.quotepath false`.
+- **30 скриптов «изменены» без правок** — это права на запуск (`chmod +x` в setup). Репо с Windows: `core.fileMode false` (ставит `setup-ubuntu.sh`).
+- **Тесты в браузере искали Edge по путям `C:/…`** → «executable doesn't exist». Браузер — только через `tools/browser-path.mjs` (`findBrowser()`: DESIGN_BROWSER → EDGE → Windows → Chrome Linux).
+- **pnpm «Cannot find module …/corepack/pnpm/12…»** — битый кэш corepack. `corepack prepare pnpm@9.15.0 --activate`, sudo не нужен.
+- **Секреты из zip с Windows:** пути с `\`, папки без права входа, CRLF в `.pub`/`known_hosts`. Распаковать во временную папку, `chmod -R u+rwX`, `sed -i 's/\r$//'`, затем разложить; архив удалить.
+- **Пароль sudo в панели терминала Claude** истекает, пока его не ввели. Ставить Docker из обычного терминала Ubuntu (Ctrl+Alt+T); скрипт спрашивает пароль один раз.
