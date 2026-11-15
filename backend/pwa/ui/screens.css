@@ -382,7 +382,7 @@ html { scrollbar-gutter: stable; }
 .ff-gh { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--text); cursor: pointer; text-align: left; }
 .ff-gl { flex: none; }
 .ff-gsel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; color: var(--text); font-size: var(--fs-sm); }
-.ff-chev { margin-left: auto; color: var(--muted); transition: transform .15s; transform: rotate(-90deg); }
+.ff-chev { margin-left: auto; flex: none; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; color: var(--muted); transition: transform .15s; transform: rotate(-90deg); }
 .ff-group.open .ff-chev { transform: none; }
 .ff-checks { display: flex; flex-direction: column; padding-bottom: 8px; }
 /* ТИ-6: 2 колонки для длинных групп (длина мм, резьба) */
