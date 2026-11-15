@@ -31,7 +31,7 @@ export const NODES = [
   { id: 'partners', tpl: 'card', tplStatus: 'ok', band: 'sale', col: 0, sec: 'partners', href: '#partners', t: 'Контрагенты', l: ['заказчики, поставщики,', 'наши фирмы'],
     inside: [
       { id: 'zakazchiki', t: 'Заказчики', l: 'кому продаём: реквизиты, контакты', out: ['offers', 'salesorders'] },
-      { id: 'nashi-firmy', t: 'Наши фирмы', l: 'от чьего имени КП, счёт, паспорт', out: ['offers'] },
+      { id: 'nashi-firmy', t: 'Наши фирмы', l: 'от чьего имени КП, счёт, паспорт; «Изменить» — в «⋯» шапки карточки', out: ['offers'] },
       { id: 'postavschiki', t: 'Поставщики', l: 'у кого покупаем: счета, договоры', out: ['requests'] },
       { id: 'kontakty-i-ploschadki', t: 'Контакты и площадки', l: 'люди и адреса контрагента' },
     ],
@@ -52,8 +52,8 @@ export const NODES = [
     code: ['backend/src/modules/offers', 'backend/pwa/sections/offers.js', 'backend/pwa/sections/offers/', 'backend/pwa/sections/kp.js'] },
   { id: 'salesorders', tpl: 'board', tplStatus: 'ok', band: 'sale', col: 2, sec: 'salesorders', t: 'Заказы', l: ['позиции, срок, этапы:', 'в работу → отгрузка'],
     seq: true, inside: [
-      { id: 'zakaz-i-dogovory', t: 'Заказ и договоры', l: 'заказчик, его договоры (внутри заказа), КП', in: ['partners', 'offers'] },
-      { id: 'pozicii', t: 'Позиции', l: 'изделие, новое изделие или услуга', in: ['products', 'matching'], out: ['matching'] },
+      { id: 'zakaz-i-dogovory', t: 'Заказ и договоры', l: 'заказчик, его договоры (внутри заказа), наша компания — ссылка в шапке, КП', in: ['partners', 'offers'] },
+      { id: 'pozicii', t: 'Позиции', l: 'изделие, новое изделие или услуга; в раскрытии строки — «Вложения»: папки, файл скачать, перетащить или загрузить', in: ['products', 'matching'], out: ['matching'] },
       { id: 'raspredelenie', t: 'Распределение', l: 'все позиции распределены — задачи проектирования создаются сами', out: ['design'] },
       { id: 'v-rabotu', t: 'В работу', l: 'позиции уходят в производство', out: ['work', 'shortage'] },
       { id: 'pasporta-zakaza', t: 'Паспорта заказа', l: 'по одному на экземпляр', out: ['docs'] },
@@ -69,7 +69,7 @@ export const NODES = [
       { id: 'srok-i-status', t: 'Срок и статус', l: 'действует до; закрытые не предлагаются' },
       { id: 'faily', t: 'Файлы', l: 'скан и приложения' },
     ],
-    rules: ['Здесь — только договоры с поставщиками. Договоры заказчика ведутся внутри заказа («+ Добавить договор»).'],
+    rules: ['Здесь — только договоры с поставщиками. Договоры заказчика ведутся внутри заказа («+ Договор» в «⋯» шапки).'],
     docs: ['docs/PRODUCT.md — «Договоры»'], tech: 'contracts',
     code: ['backend/src/modules/supply', 'backend/pwa/sections/contracts.js'] },
 
