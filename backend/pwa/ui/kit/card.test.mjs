@@ -36,6 +36,7 @@ class Element {
   get firstChild() { return this.children[0]; }
   get textContent() { return this.children.map((c) => c.textContent).join(''); }
   set textContent(text) { this.replaceChildren(text); }
+  querySelector() { return null; } // card.js убирает прежнюю полосу вкладок: в шаблоне её нет
   find(predicate) {
     if (predicate(this)) return this;
     for (const child of this.children) {
@@ -84,6 +85,7 @@ async function fixture({ pending = true, commit, solo = false, viewed } = {}) {
     './dialog.js': { confirmDlg: () => assert.fail('Шаблон не должен спрашивать об отмене изменений') },
     '../confirm-password.js': { withConfirm: noop },
     './photos.js': { photoDrop: noop },
+    './card-gallery.js': { gallery: noop },
     './form.js': { buildForm: noop },
     './errors.js': { actionText: () => 'Не удалось сохранить', errText: noop, isFailure: () => true },
     './busy.js': { busyBlock: noop, busyBtn: () => noop, failBlock: noop },
