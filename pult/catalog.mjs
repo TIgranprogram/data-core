@@ -156,8 +156,8 @@ export const COMMANDS = [
     hint: 'Короткая сводка и путь к отчёту большой проверки.' },
 
   // ---------- Копии ----------
-  { id: 'setup-backup', section: 'backups', extra: true, sub: 'Копии базы', title: 'Скачать копию базы на этот ПК', risk: 'local', time: '5–15 мин', needs: ['vm'], run: { powershell: ['deploy/backup-pull/pull-backup.ps1'], vmEnv: true },
-    hint: 'Кладёт свежий бэкап в D:\\datacore-backups. Нужен стенду на копии. В архиве рабочие данные — никому не передавайте.' },
+  { id: 'setup-backup', section: 'backups', extra: true, sub: 'Копии базы', title: 'Скачать копию базы на этот ПК', risk: 'local', time: '5–15 мин', needs: ['vm'], run: { powershell: ['deploy/backup-pull/pull-backup.ps1'], linux: ['deploy/backup-pull/pull-backup.sh'], vmEnv: true },
+    hint: 'Кладёт свежий бэкап в папку копий (Windows — D:\\datacore-backups, Ubuntu — ~/datacore-backups). Нужен стенду на копии. В архиве рабочие данные — никому не передавайте.' },
   { id: 'prod-drill', section: 'backups', extra: true, sub: 'Копии базы', title: 'Учебное восстановление (дом)', risk: 'prod-write', time: '5–15 мин', needs: ['bash', 'vm'], run: { vm: 'cd /opt/data-core && bash deploy/synology/restore-drill.sh' }, every: 30, why: 'Раз в месяц: проверка, что копия дома восстанавливается',
     confirm: 'Последняя копия развернётся во временную базу, числа сверятся, база удалится. Рабочая база не меняется.',
     hint: 'Раз в месяц. Доказывает, что домашняя копия восстанавливается.' },

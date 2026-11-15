@@ -22,7 +22,7 @@ export function scriptsOnDisk(root = ROOT) {
 /** Пути скриптов, на которые ссылается запись каталога. */
 function scriptsOf(cmd) {
   const r = cmd.run;
-  const list = [...(r.node || []), ...(r.bash || []), ...(r.cmd || []), ...(r.powershell || [])];
+  const list = [...(r.node || []), ...(r.bash || []), ...(r.cmd || []), ...(r.powershell || []), ...(r.linux || [])];
   return list.map((s) => s.replace(/\\/g, '/')).filter((s) => SCRIPT.test(s) && !s.includes('*'));
 }
 

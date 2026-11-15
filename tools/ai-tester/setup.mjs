@@ -56,6 +56,11 @@ function mergeJson(file, patch, backup) {
 }
 
 async function main() {
+  // Linux без LM Studio — Ollama (служба без окна; tools/ai-tester/setup-ollama.sh, 2026-11-15)
+  if (process.platform === 'linux' && !fs.existsSync(LMS)) {
+    say('Linux: локальный ИИ — Ollama (tools/ai-tester/setup-ollama.sh)\n');
+    return spawnSync('bash', [path.join(HERE, 'setup-ollama.sh')], { stdio: 'inherit' }).status ?? 2;
+  }
   say('Настраиваю локальный ИИ на этом компьютере:\n');
   // 1. LM Studio установлен?
   if (!fs.existsSync(LMS)) {

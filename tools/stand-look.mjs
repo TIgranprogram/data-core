@@ -30,7 +30,12 @@ if (refresh) {
 }
 
 const envFile = path.join(ROOT, 'tools/logs/stand-login.local.env');
-if (!fs.existsSync(envFile)) { console.error('Нет tools/logs/stand-login.local.env — запустите dc audit один раз.'); process.exit(2); }
+// новый ПК (2026-11-15, ноутбук): файла учётки стенда нет — заводим пароль сами, учётку ниже создаст ветка «401»
+if (!fs.existsSync(envFile)) {
+  const { randomBytes } = await import('node:crypto');
+  fs.mkdirSync(path.dirname(envFile), { recursive: true });
+  fs.writeFileSync(envFile, `STAND_LOGIN=stand-test\nSTAND_PASSWORD=${randomBytes(18).toString('base64url')}\n`);
+}
 const env = Object.fromEntries(fs.readFileSync(envFile, 'utf8').split(/\r?\n/).filter((l) => l.includes('=')).map((l) => [l.slice(0, l.indexOf('=')).trim(), l.slice(l.indexOf('=') + 1).trim()]));
 
 const login = async () => { const r = await fetch(BASE + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: env.STAND_LOGIN, password: env.STAND_PASSWORD }) }); return [r, await r.json()]; };

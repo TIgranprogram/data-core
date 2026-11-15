@@ -103,6 +103,8 @@ export function buildRun(cmd, values, m, root = ROOT) {
   if (run.docker) return { file: 'docker', args: a(run.docker), cwd };
   if (run.npx) return { file: process.env.ComSpec || 'cmd.exe', args: ['/d', '/c', 'npx', ...a(run.npx)], cwd };
   if (run.cmd) return { file: process.env.ComSpec || 'cmd.exe', args: ['/d', '/c', ...a(run.cmd)], cwd };
+  // скрипт Windows с двойником для Linux (ноутбук на Ubuntu, 2026-11-15) — на Linux запускается двойник
+  if (run.powershell && run.linux && process.platform !== 'win32') return { file: 'bash', args: a(run.linux), cwd, env };
   if (run.powershell) return { file: 'powershell.exe', args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ...a(run.powershell)], cwd, env };
   throw new Error(`Неизвестный способ запуска: ${cmd.id}`);
 }
