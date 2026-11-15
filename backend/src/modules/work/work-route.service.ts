@@ -8,6 +8,7 @@ import type { RouteDto } from './dto/work.dto';
 import type { WorkStep } from './work-task.schema';
 
 type Doc = Record<string, unknown>;
+type CompLine = { _id: Types.ObjectId; lineType: string; refId: Types.ObjectId; quantity?: number; sortOrder?: number };
 type Stored = { workTypeId: Types.ObjectId; lineId?: Types.ObjectId; note?: string; partRowId?: Types.ObjectId; hours?: number; checked?: boolean };
 
 /**
@@ -61,11 +62,15 @@ export class WorkRouteService {
     const stored = (p.workTypes as Stored[] | undefined) ?? [];
     const ownParts = (p.parts as PartRow[] | undefined) ?? [];
     const partNames = new Map(ownParts.map((x) => [String(x._id), x.name]));
-    const comp = (p.composition as Array<{ _id: Types.ObjectId; lineType: string; refId: Types.ObjectId }> | undefined) ?? [];
+    const comp = (p.composition as CompLine[] | undefined) ?? [];
     const names = new Map<string, string>();
+    const partDocs = new Map<string, Doc>(); // C122: детали состава (materials.materialKind='part') с видами работ
     for (const [type, coll] of [['module', 'productmodules'], ['material', 'materials'], ['product', 'products']] as const) {
       const ids = comp.filter((l) => l.lineType === type).map((l) => l.refId);
-      if (ids.length) for (const r of await this.db().collection(coll).find({ _id: { $in: ids } }, { projection: { name: 1 } }).toArray()) names.set(String(r._id), String(r.name ?? ''));
+      if (ids.length) for (const r of await this.db().collection(coll).find({ _id: { $in: ids } }, { projection: { name: 1, ...(type === 'material' ? { materialKind: 1, workTypes: 1, deletedAt: 1 } : {}) } }).toArray()) {
+        names.set(String(r._id), String(r.name ?? ''));
+        if (type === 'material' && r.materialKind === 'part' && !r.deletedAt && Array.isArray(r.workTypes) && r.workTypes.length) partDocs.set(String(r._id), r as Doc);
+      }
     }
     return {
       productId: String(p._id), name: (p.name as string | undefined) ?? null, sku: (p.sku as string | undefined) ?? null,
@@ -73,12 +78,29 @@ export class WorkRouteService {
       note: steps.length ? null : 'Маршрут не задан',
       steps: steps.map((s, i) => ({ index: i, workTypeId: String(s.workTypeId), name: s.name, lineId: s.lineId ? String(s.lineId) : null, note: s.note ?? null, partRowId: s.partRowId ? String(s.partRowId) : null, partName: s.partRowId ? partNames.get(String(s.partRowId)) ?? WHOLE_PRODUCT : WHOLE_PRODUCT, hours: s.hours ?? null, checked: !!s.checked })),
       // parts — части изделия для работ (шаги без части = «Изделие целиком»); compositionLines — строки состава (composition), к ним привязан lineId
-      parts: ownParts.map((x) => ({ id: String(x._id), partId: x.partId ? String(x.partId) : null, name: x.name, qty: x.qty ?? 1, checked: !!x.checked })),
+      parts: ownParts.map((x) => ({ id: String(x._id), partId: x.partId ? String(x.partId) : null, name: x.name, qty: x.qty ?? 1, checked: !!x.checked, lineId: x.lineId ? String(x.lineId) : null })),
       // в базе остались шаги удалённых видов работ — их не показываем, но предупреждаем
       droppedSteps: stored.length - steps.length,
       compositionLines: comp.map((l) => ({ id: String(l._id), lineType: l.lineType, name: names.get(String(l.refId)) ?? '' })),
       suggested: steps.length ? [] : await this.suggest(p),
+      // C122: виды работ деталей состава — экран по кнопке добавляет их частями и шагами (сам маршрут не меняется)
+      partWork: await this.partWork(comp, partDocs),
     };
+  }
+
+  /** Детали состава с видами работ: строка состава → часть (название детали, количество из состава) и её шаги по порядку. */
+  private async partWork(comp: CompLine[], partDocs: Map<string, Doc>) {
+    const lines = comp.filter((l) => l.lineType === 'material' && partDocs.has(String(l.refId))).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    if (!lines.length) return [];
+    const wts = (d: Doc) => [...((d.workTypes as Array<{ workTypeId: Types.ObjectId; hours?: number; sortOrder?: number }> | undefined) ?? [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    const names = await this.typeNames(lines.flatMap((l) => wts(partDocs.get(String(l.refId))!).map((w) => w.workTypeId)));
+    return lines.map((l) => {
+      const d = partDocs.get(String(l.refId))!;
+      return {
+        lineId: String(l._id), materialId: String(l.refId), name: String(d.name ?? '').trim().slice(0, 120) || 'Деталь', qty: l.quantity ?? 1,
+        steps: wts(d).filter((w) => names.has(String(w.workTypeId))).map((w) => ({ workTypeId: String(w.workTypeId), name: names.get(String(w.workTypeId))!, hours: w.hours ?? null })),
+      };
+    }).filter((x) => x.steps.length);
   }
 
   /**
@@ -88,9 +110,9 @@ export class WorkRouteService {
   async set(productId: string, dto: RouteDto, userId?: string) {
     const p = await this.product(productId);
     const composition = new Set(((p.composition as Array<{ _id: Types.ObjectId }> | undefined) ?? []).map((l) => String(l._id)));
-    if (dto.steps.some((s) => s.lineId && !composition.has(s.lineId))) throw new BadRequestException('Часть состава не из этого изделия');
+    if (dto.steps.some((s) => s.lineId && !composition.has(s.lineId)) || dto.parts?.some((x) => x.lineId && !composition.has(x.lineId))) throw new BadRequestException('Часть состава не из этого изделия');
     const prev = rowsFromProduct(p, await this.typeNames(((p.workTypes as Stored[] | undefined) ?? []).map((w) => w.workTypeId)));
-    const parts = dto.parts ?? prev.parts.map((x) => ({ id: String(x._id), ...(x.partId ? { partId: String(x.partId) } : {}), name: x.name, qty: x.qty, checked: x.checked }));
+    const parts = dto.parts ?? prev.parts.map((x) => ({ id: String(x._id), ...(x.partId ? { partId: String(x.partId) } : {}), ...(x.lineId ? { lineId: String(x.lineId) } : {}), name: x.name, qty: x.qty, checked: x.checked }));
     const rows = normalizeRows({ parts, steps: dto.steps as StepIn[] }, prev, { typeNames: await this.typeNames(dto.steps.map((s) => s.workTypeId)), by: userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined, now: new Date(), keepLinks: false });
     const { set, unset } = productFields(rows.parts, rows.steps as StepRow[]);
     await this.db().collection('products').updateOne({ _id: p._id as Types.ObjectId }, { $set: { ...set, updatedAt: new Date() }, ...(Object.keys(unset).length ? { $unset: unset } : {}) });

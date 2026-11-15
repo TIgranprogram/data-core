@@ -9,6 +9,7 @@ export class PlanPartDto {
   @ApiPropertyOptional({ description: 'Название; новое имя без partId сервер заводит в справочник' }) @IsOptional() @IsString() @Length(1, 120) name?: string;
   @ApiPropertyOptional({ description: 'Сколько таких частей в изделии (по умолчанию 1)' }) @IsOptional() @IsNumber() @Min(0.001) @Max(100000) qty?: number;
   @ApiPropertyOptional({ description: 'Зелёная галочка «Проверено»' }) @IsOptional() @IsBoolean() checked?: boolean;
+  @ApiPropertyOptional({ description: 'C122: строка состава изделия; в плане позиции ссылка берётся из прежней строки — присланное значение не меняет её' }) @IsOptional() @IsMongoId() lineId?: string;
 }
 
 export class PlanStepPlanDto {

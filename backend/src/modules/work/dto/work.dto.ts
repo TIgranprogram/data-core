@@ -42,6 +42,7 @@ export class RoutePartDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 120) name?: string;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0.001) @Max(100000) qty?: number;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() checked?: boolean;
+  @ApiPropertyOptional({ description: 'C122: строка состава (composition[]._id) — часть взята из детали состава' }) @IsOptional() @IsMongoId() lineId?: string;
 }
 
 /** Маршрут изделия целиком: порядок элементов = порядок работ; пустой список — маршрут убран. */

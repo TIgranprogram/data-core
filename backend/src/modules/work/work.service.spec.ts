@@ -235,3 +235,30 @@ describe('WorkService', () => {
     expect(await routes.get(String(withRoute))).toMatchObject({ droppedSteps: 1 });
   });
 });
+
+describe('WorkRouteService — работы деталей (C122)', () => {
+  it('partWork: детали состава с видами работ; часть с lineId сохраняется; чужая строка — 400', async () => {
+    const [products, materials, worktypes] = [new Coll(), new Coll(), new Coll()];
+    const by: Record<string, Coll> = { products, materials, worktypes, productmodules: new Coll() };
+    const routes = new WorkRouteService({ db: { collection: (n: string) => by[n] } } as never);
+    const [prod, part, raw, cut, weld, gone, lPart, lRaw] = Array.from({ length: 8 }, () => new Types.ObjectId());
+    worktypes.rows.push({ _id: cut, name: 'Резка', deletedAt: null }, { _id: weld, name: 'Сварка', deletedAt: null }, { _id: gone, name: 'Старая', deletedAt: new Date() });
+    materials.rows.push(
+      { _id: part, name: 'Стойка 2000', materialKind: 'part', deletedAt: null, workTypes: [{ workTypeId: weld, hours: 0.5, sortOrder: 2 }, { workTypeId: cut, hours: 0.2, sortOrder: 1 }, { workTypeId: gone, hours: 9 }] },
+      { _id: raw, name: 'Труба 40', materialKind: 'raw', deletedAt: null, workTypes: [{ workTypeId: cut, hours: 1 }] },
+    );
+    products.rows.push({ _id: prod, name: 'Беседка', deletedAt: null, composition: [{ _id: lPart, lineType: 'material', refId: part, quantity: 4, sortOrder: 0 }, { _id: lRaw, lineType: 'material', refId: raw, quantity: 2, sortOrder: 1 }] });
+
+    const r = await routes.get(String(prod));
+    expect(r.partWork).toEqual([{ lineId: String(lPart), materialId: String(part), name: 'Стойка 2000', qty: 4,
+      steps: [{ workTypeId: String(cut), name: 'Резка', hours: 0.2 }, { workTypeId: String(weld), name: 'Сварка', hours: 0.5 }] }]);
+    expect(r.hasRoute).toBe(false); // кнопка только подсказывает — маршрут сам не меняется
+
+    const saved = await routes.set(String(prod), { parts: [{ id: 'n1', name: 'Стойка 2000', qty: 4, lineId: String(lPart) }], steps: [{ workTypeId: String(cut), partRowId: 'n1', hours: 0.2 }] });
+    expect(saved.parts).toEqual([expect.objectContaining({ name: 'Стойка 2000', qty: 4, lineId: String(lPart) })]);
+    // части не присланы — прежняя ссылка на состав не теряется
+    const again = await routes.set(String(prod), { steps: [{ workTypeId: String(weld), partRowId: saved.parts[0].id, hours: 0.5 }] });
+    expect(again.parts[0].lineId).toBe(String(lPart));
+    await expect(routes.set(String(prod), { parts: [{ id: 'x', name: 'Чужая', lineId: String(new Types.ObjectId()) }], steps: [] })).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
