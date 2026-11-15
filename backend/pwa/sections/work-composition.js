@@ -30,18 +30,18 @@ export const partTypes = () => {
   return partsP;
 };
 
-const partOf = (p) => ({ id: String(p.id || p._id || uid()), partId: p.partId ? String(p.partId) : '', name: p.name || '', qty: p.qty ?? 1, checked: !!p.checked, by: p.checkedByName || '', saved: !!(p.id || p._id) });
+const partOf = (p) => ({ id: String(p.id || p._id || uid()), partId: p.partId ? String(p.partId) : '', lineId: p.lineId ? String(p.lineId) : '', name: p.name || '', qty: p.qty ?? 1, checked: !!p.checked, by: p.checkedByName || '', saved: !!(p.id || p._id) });
 const stepOf = (s) => ({ id: String(s.id || s._id || uid()), workTypeId: String(s.workTypeId || ''), partRowId: s.partRowId ? String(s.partRowId) : '', hours: s.hours ?? '', checked: !!s.checked, by: s.checkedByName || '', saved: !!(s.id || s._id), startedAt: s.startedAt || null, finishedAt: s.finishedAt || null, factHours: s.factHours ?? null });
-const outPart = (p) => ({ id: p.id, ...(p.partId ? { partId: p.partId } : {}), name: p.name, qty: num(p.qty) ?? 1, checked: p.checked });
+const outPart = (p) => ({ id: p.id, ...(p.partId ? { partId: p.partId } : {}), ...(p.lineId ? { lineId: p.lineId } : {}), name: p.name, qty: num(p.qty) ?? 1, checked: p.checked });
 const outStep = (s) => ({ id: s.id, workTypeId: s.workTypeId, partRowId: s.partRowId || null, hours: num(s.hours), checked: s.checked });
 
 /**
- * compositionEditor({ parts, steps, types, partsDict, canEdit, check?(kind,rowId,checked) → данные, suggested?,
+ * compositionEditor({ parts, steps, types, partsDict, canEdit, check?(kind,rowId,checked) → данные, suggested?, partWork? (C122: детали состава с видами работ),
  *                     onMark?(kind,row,what) — только в плане позиции: «▶ начал» / «■ закончил», fact?, leadDays? })
  * → { el, get value() (JSON { parts, steps }), get dirty(), setData({ parts, steps, fact?, leadDays? }) }; при правке шлёт `change`.
  * check не задан — «Проверено» ставится на месте и уходит вместе с сохранением.
  */
-export function compositionEditor({ parts: p0 = [], steps: s0 = [], types = [], partsDict = [], canEdit = true, canEditHours = canEdit, check, suggested = [], onMark, fact: fact0 = null, leadDays: lead0 = null } = {}) {
+export function compositionEditor({ parts: p0 = [], steps: s0 = [], types = [], partsDict = [], canEdit = true, canEditHours = canEdit, check, suggested = [], partWork = [], onMark, fact: fact0 = null, leadDays: lead0 = null } = {}) {
   let parts = p0.map(partOf), steps = s0.map(stepOf), curPart = '', dirty = false, adding = false, fact = fact0, leadDays = lead0;
   const root = stack();
   const typeName = (id) => types.find((t) => t.value === id)?.label || 'вид работ удалён';
@@ -156,6 +156,24 @@ export function compositionEditor({ parts: p0 = [], steps: s0 = [], types = [], 
     });
   }
 
+  /** C122: чего из работ деталей состава ещё нет в маршруте — [{ d, part, add: [шаги] }]. Часть ищется по строке состава, затем по названию. */
+  const partGaps = () => partWork.map((d) => {
+    const part = parts.find((p) => p.lineId && p.lineId === d.lineId) || parts.find((p) => p.name.trim().toLowerCase() === d.name.trim().toLowerCase());
+    const add = d.steps.filter((w) => types.some((t) => t.value === w.workTypeId) && !steps.some((s) => part && s.partRowId === part.id && s.workTypeId === w.workTypeId));
+    return { d, part, add };
+  }).filter((g) => g.add.length);
+  function takePartWork() {
+    edit(() => {
+      for (const { d, part, add } of partGaps()) {
+        let p = part;
+        if (!p) { p = { id: uid(), partId: '', lineId: d.lineId, name: d.name, qty: d.qty ?? 1, checked: false, by: '', saved: false }; parts.push(p); }
+        else if (!p.lineId) p.lineId = d.lineId;
+        for (const w of add) steps.push({ id: uid(), workTypeId: w.workTypeId, partRowId: p.id, hours: w.hours ?? '', checked: false, by: '', saved: false });
+      }
+    });
+    toast('Работы деталей добавлены — проверьте порядок и сохраните');
+  }
+
   function paint() {
     const all = parts.length + steps.length, ok = parts.filter((p) => p.checked).length + steps.filter((s) => s.checked).length;
     const pending = [...parts, ...steps].filter((r) => !r.checked && (!check || r.saved));
@@ -171,8 +189,11 @@ export function compositionEditor({ parts: p0 = [], steps: s0 = [], types = [], 
       } }) : null);
     const sug = !steps.length && suggested.length && canEdit ? button({ label: 'Взять подсказку: ' + suggested.map((x) => x.name).join(' → '), size: 'S', title: 'Виды работ из модулей изделия',
       onClick: () => edit(() => { steps = suggested.filter((x) => types.some((t) => t.value === x.workTypeId)).map((x) => ({ id: uid(), workTypeId: x.workTypeId, partRowId: '', hours: '', checked: false, by: '', saved: false })); }) }) : null;
+    const gaps = canEdit ? partGaps() : [];
+    const nGap = gaps.reduce((a, g) => a + g.add.length, 0);
+    const fromParts = nGap ? button({ label: `Добавить работы деталей (${nGap})`, kind: 'ghost', size: 'S', title: 'Виды работ и часы из карточек деталей: ' + gaps.map((g) => g.d.name).join(', '), onClick: takePartWork }) : null;
     root.replaceChildren(sum, section({ title: 'Части', count: parts.length, tone: 'main', open: true, body: [partsTable(), canEdit ? addPart() : null] }),
-      section({ title: 'Работы по частям', count: steps.length, tone: 'main', open: true, body: [canEdit ? fn.el : null, sug, stepsTable()] }));
+      section({ title: 'Работы по частям', count: steps.length, tone: 'main', open: true, body: [canEdit ? fn.el : null, sug || fromParts ? actions(sug, fromParts) : null, stepsTable()] }));
     if (canEdit) paintFunnel();
   }
 
@@ -278,7 +299,7 @@ export function productRoute(product) {
     try { [data, types, partsDict] = await Promise.all([api('/work-routes/' + product.id), workTypes(), partTypes()]); }
     catch (e) { box.replaceChildren(failBlock(e, load)); return; }
     const parts = (data.parts || []).filter((p) => p.partId || p.qty != null); // старый ответ: части состава без partId — не части работ
-    const ed = compositionEditor({ parts, steps: data.steps || [], types, partsDict, canEdit: !!can, suggested: data.suggested || [] });
+    const ed = compositionEditor({ parts, steps: data.steps || [], types, partsDict, canEdit: !!can, suggested: data.suggested || [], partWork: data.partWork || [] });
     const saveBtn = button({ label: 'Сохранить в изделие', kind: 'primary', size: 'S', disabled: true, onClick: async (e) => {
       const b = JSON.parse(ed.value);
       if (b.steps.some((s) => !s.workTypeId)) { toast('У работы не выбран вид — выберите или уберите'); return; }
