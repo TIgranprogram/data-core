@@ -56,6 +56,7 @@ td.num .k-sku { color: var(--ok); font-size: var(--fs-h3); }
 @media (max-width: 600px) { .k-sku { white-space: normal; overflow-wrap: anywhere; } }
 /* колонка, которую на телефоне прячем (table({columns:[{phoneHide:true}]})) — md-hide прячет и на ноутбуке */
 @media (max-width: 600px) { .k-phone-hide { display: none; } }
+table.list tr[tabindex]:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
 /* row: строка списка / корзины */
 .k-row { display: flex; align-items: center; gap: var(--s3); padding: 8px var(--s4); border-bottom: 1px solid var(--border); }
 .k-row[role=button]:hover, .k-row.k-click:hover { background: var(--row-hover); cursor: pointer; }

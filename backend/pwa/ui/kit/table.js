@@ -28,7 +28,7 @@ export function table({ columns = [], rows = [], mode = 'list', empty, cls, labe
   const th = (c) => h('th', { class: [c.num ? 'num right' : '', c.hide ? 'md-hide' : '', c.phoneHide ? 'k-phone-hide' : '', c.pic ? 'k-col-pic' : '', c.nowrap ? 'k-nowrap' : '', c.wrap ? 'k-col-wrap' : '', c.cls || ''].filter(Boolean).join(' ') || null }, c.label ?? '');
   const tr = (r) => {
     if (r instanceof Node) { columns.forEach((c, i) => { if (c.wrap) r.children[i]?.classList.add('k-col-wrap'); }); return r; } // готовая строка: колонке wrap — класс на ячейку
-    return h('tr', { class: [r.selected ? 'selected' : '', r.cls || ''].filter(Boolean).join(' ') || null, ...(r.data ? { 'data-id': r.data } : {}), ...(r.onClick ? { onclick: r.onClick } : {}) },
+    return h('tr', { class: [r.selected ? 'selected' : '', r.cls || ''].filter(Boolean).join(' ') || null, ...(r.data ? { 'data-id': r.data } : {}), ...(r.onClick ? { onclick: r.onClick, tabindex: '0', onkeydown: (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); r.onClick(e); } } } : {}) }, // C121: строку открыть с клавиатуры
       ...r.cells.map((c, i) => {
         const o = c && typeof c === 'object' && !(c instanceof Node) && 'v' in c ? c : { v: c };
         const col = columns[i] || {};
