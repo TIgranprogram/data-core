@@ -856,3 +856,6 @@ table.cal.k-tree tr.k-tree-ins > td { padding: 0; white-space: normal; text-alig
 .drawer-spine:hover { background: var(--surface-3); color: var(--text); }
 .drawer-spine:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
 @media (max-width: 720px) { .drawer-spine { min-height: 44px; } .drawer-spine:nth-last-child(n+4) { display: none; } } /* телефон: последние 3 */
+
+.drawer-head > .btn-icon, .drawer-head > .rel .btn-icon { width: 40px; height: 40px; font-size: var(--fs-h3); } /* ⋯ ↗ ✕ — крупнее (владелец 15.11) */
+@media (max-width: 720px) { .drawer-head > .btn-icon, .drawer-head > .rel .btn-icon { width: 44px; height: 44px; } }
