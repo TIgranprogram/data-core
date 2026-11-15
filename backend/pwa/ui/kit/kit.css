@@ -896,12 +896,12 @@ table.list.k-pos-table td.nowrap, table.list.k-pos-table td.num { white-space: n
 table.list.k-pos-table .k-pick-col { width: var(--tap, 44px); padding-left: var(--s2); padding-right: 0; }
 .k-pick { display: inline-flex; align-items: center; justify-content: center; min-width: var(--tap, 44px); min-height: var(--tap, 44px); cursor: pointer; }
 table.list.k-pos-table tr.is-picked > td { background: var(--primary-soft); }
-.k-foot-bar { position: sticky; bottom: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s4); margin-top: var(--s4); padding: var(--s3) var(--s4); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); }
+.k-foot-bar { position: sticky; bottom: -18px; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s4); margin: var(--s4) -24px -18px; padding: var(--s3) 24px; background: var(--surface); border-top: 1px solid var(--border-strong); } /* подвал во всю ширину панели, прижат к низу без зазора (владелец 15.11); -18/-24 — отступы .drawer-body (list.css:77) */
 .k-foot-sum { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
 .k-foot-groups { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s5); }
 .k-foot-grp { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
 .k-foot-gl { color: var(--muted); font-size: var(--fs-sm); }
-@media (max-width: 720px) { .k-foot-bar { position: static; } .k-foot-bar .btn { min-height: var(--tap, 44px); } } /* телефон: подвал в конце карточки, не закреплён — иначе занимает четверть экрана */
+@media (max-width: 720px) { .k-foot-bar { position: static; margin-left: calc(-1 * var(--s4)); margin-right: calc(-1 * var(--s4)); padding-left: var(--s4); padding-right: var(--s4); } .k-foot-bar .btn { min-height: var(--tap, 44px); } } /* телефон: подвал в конце карточки, не закреплён — иначе занимает четверть экрана */
 tr.k-pos-more .k-fields-grid { grid-template-columns: minmax(0, 1fr); } /* узкая карточка: подпись и значение не наезжают */
 tr.k-pos-more .k-readonly-pairs { grid-template-columns: minmax(0, 1fr); gap: 0 0; } /* подпись над значением: узкие колонки не ломают текст */
 tr.k-pos-more .k-readonly-pairs dd + dt { margin-top: var(--s2); }
