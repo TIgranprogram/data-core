@@ -407,7 +407,7 @@ for(const img of document.querySelectorAll('.drawer img,.tcard img,article img,.
   if(!vis(img))continue;const r=img.getBoundingClientRect();const p=(img.parentElement||img).getBoundingClientRect();
   if(r.height>200||r.width>p.width+1)add('f',sel(img),Math.round(r.width)+'×'+Math.round(r.height)+' в колонке '+Math.round(p.width))}
 if(innerWidth<=420)for(const el of document.querySelectorAll('button,a[href],[role=button],[role=tab],input:not([type=hidden]),select,.chip')){
-  if(!vis(el))continue;const r=el.getBoundingClientRect();
+  if(!vis(el))continue;const lab=el.tagName==='INPUT'&&/^(checkbox|radio)$/.test(el.type)?el.closest('label'):null;const r=(lab||el).getBoundingClientRect(); // галочка в label — цель нажатия вся рамка (C124)
   if(el.tagName==='A'&&el.parentElement&&getComputedStyle(el).display==='inline'&&[...el.parentElement.childNodes].some(n=>n.nodeType===3&&n.textContent.trim().length>2))continue;
   const mn=Math.min(r.width,r.height);if(mn<40)add(mn<36?'g':'m',sel(el),(el.innerText||el.getAttribute('aria-label')||el.title||'').trim().slice(0,40)+' '+Math.round(r.width)+'×'+Math.round(r.height))}
 for(const el of document.querySelectorAll('button,.k-seg-btn,.chip,[role=tab]')){
