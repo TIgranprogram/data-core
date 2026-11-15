@@ -6,6 +6,7 @@
  *  warnCard          «Карточка предупреждения»   — проблема + кнопка «исправить» (живёт в ../warn-card.js, здесь реэкспорт)
  *  positionsTable    «Таблица позиций»           — строки объекта, группы-заголовки, клик по строке — одна панель
  *  boardCard         «Карточка доски»            — заголовок, строка контекста, бейдж-беда, срок; кнопка шага — в card.foot доски
+ *  footerBar         «Подвал карточки»           — действия над всем объектом или отмеченными строками (C124: заказ)
  */
 import { h } from '../../../core/dom.js';
 import { mark } from '../mark.js';
@@ -69,7 +70,14 @@ export function boardCard({ pic = null, title, hint, sub, extra = [], flags = []
  * head — узел-заголовок группы (договор, часть) на всю ширину; foot — узел под строками группы («+ Позиция»).
  * Одинаковые строки — один клик: onOpen каждой строки открывает одну и ту же панель позиции.
  */
-export function positionsTable({ columns = [], groups = [], empty, label } = {}) {
+export function positionsTable({ columns = [], groups = [], empty, label, pick } = {}) {
+  // pick = { isOn(row), set(row, on) } — галочка в первой колонке (C124: отметить позиции для подвала); row.key — ключ строки
+  if (pick) columns = [{ label: '', cls: 'k-pick-col' }, ...columns];
+  const pickCell = (r) => {
+    const cb = h('input', { type: 'checkbox', 'aria-label': 'Отметить позицию', checked: !!pick.isOn(r) });
+    cb.addEventListener('change', () => { pick.set(r, cb.checked); cb.closest('tr')?.classList.toggle('is-picked', cb.checked); });
+    return { v: h('label', { class: 'k-pick', title: 'Отметить' }, cb), cls: 'k-pick-col' };
+  };
   const n = columns.length;
   const wide = (node, cls) => h('tr', { class: cls || null }, h('td', { colspan: n }, node));
   // expand — подробности строки раскрываются прямо под ней (владелец 15.11: вместо отдельной панели позиции); открыта одна
@@ -84,10 +92,33 @@ export function positionsTable({ columns = [], groups = [], empty, label } = {})
   }
   const rows = groups.flatMap((g) => [
     g.head ? wide(g.head, 'k-pos-group') : null, // заголовок группы (договор) — по центру таблицы (владелец 15.11)
-    ...(g.rows || []).map((r) => (r instanceof Node ? r : { cells: r.cells, onClick: r.expand ? (e) => toggle(e, r.expand) : r.onOpen })),
+    ...(g.rows || []).map((r) => (r instanceof Node ? r : { cells: pick ? [r.key != null ? pickCell(r) : '', ...r.cells] : r.cells, onClick: r.expand ? (e) => toggle(e, r.expand) : r.onOpen })),
     g.foot ? wide(g.foot) : null,
   ]).filter(Boolean);
   const hasRows = groups.some((g) => (g.rows || []).length);
   const el = table({ columns, rows: hasRows ? rows : [], empty, clickable: true, label, cls: 'k-pos-table' });
   return mark(el, 'positionsTable');
+}
+
+/**
+ * Подвал карточки (C124, владелец 15.11: «как верхушка — ничего лишнего; всё, что делается со всем заказом»).
+ * footerBar({ total, noun: ['позиция','позиции','позиций'], groups: [{ label, items: [узлы-кнопки] | (picked) => узлы }], onClear })
+ *   → { el, update(picked) } — picked: число отмеченных строк; 0 — «Весь заказ · N …», иначе «Отмечено K из N» и «Снять отметки».
+ * Действия получают выбор сами (замыканием); подвал только показывает счёт и группы. Пустая группа не рисуется.
+ */
+export function footerBar({ title = 'Весь заказ', total = 0, noun = ['позиция', 'позиции', 'позиций'], groups = [], onClear } = {}) {
+  const plural = (n) => noun[n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2];
+  const sum = h('div', { class: 'k-foot-sum' });
+  const grp = h('div', { class: 'k-foot-groups' });
+  const el = mark(h('div', { class: 'k-foot-bar', role: 'toolbar', 'aria-label': 'Действия со всем объектом' }, sum, grp), 'footerBar');
+  function update(picked = 0) {
+    const clear = picked && onClear ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: onClear }, 'Снять отметки') : null;
+    sum.replaceChildren(h('b', null, picked ? `Отмечено ${picked} из ${total}` : title), h('span', { class: 'muted' }, picked ? '' : ` · ${total} ${plural(total)}`), clear);
+    grp.replaceChildren(...groups.map((g) => {
+      const items = (typeof g.items === 'function' ? g.items(picked) : g.items || []).filter(Boolean);
+      return items.length ? h('div', { class: 'k-foot-grp' }, h('span', { class: 'k-foot-gl' }, g.label), ...items) : null;
+    }).filter(Boolean));
+  }
+  update(0);
+  return { el, update };
 }
