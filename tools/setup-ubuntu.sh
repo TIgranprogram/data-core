@@ -87,6 +87,9 @@ step "6. Git и проект"
 [ "$(git config core.fileMode)" = "false" ] && ok "права файлов git не отслеживает" || { [ $CHECK = 1 ] && bad "core.fileMode не false" || { git config core.fileMode false && ok "права файлов git не отслеживает"; }; }
 # русские имена файлов — буквами, а не кодами "\320…" (иначе release.sh видел «вне экранов» и шёл полным путём)
 [ "$(git config core.quotepath)" = "false" ] && ok "имена файлов git — буквами" || { [ $CHECK = 1 ] && bad "core.quotepath не false" || { git config core.quotepath false && ok "имена файлов git — буквами"; }; }
+# push по https просит логин; ключ GitHub есть (~/.ssh/config Host github.com) — адрес по SSH (2026-11-15)
+URL="$(git remote get-url origin 2>/dev/null)"
+case "$URL" in https://github.com/*) if grep -q 'Host github.com' "$HOME/.ssh/config" 2>/dev/null; then [ $CHECK = 1 ] && bad "адрес GitHub по https — push попросит логин" || { git remote set-url origin "git@github.com:${URL#https://github.com/}" && ok "адрес GitHub по SSH"; }; fi;; *) ok "адрес GitHub: $URL";; esac
 chmod +x .githooks/* deploy/synology/*.sh tools/*.sh 2>/dev/null
 git config user.name >/dev/null && git config user.email >/dev/null && ok "автор коммитов: $(git config user.name)" || bad "не задан автор коммитов: git config --global user.name / user.email"
 if [ -d backend/node_modules ]; then ok "зависимости backend стоят"

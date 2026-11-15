@@ -64,3 +64,4 @@
 - **pnpm «Cannot find module …/corepack/pnpm/12…»** — битый кэш corepack. `corepack prepare pnpm@9.15.0 --activate`, sudo не нужен.
 - **Секреты из zip с Windows:** пути с `\`, папки без права входа, CRLF в `.pub`/`known_hosts`. Распаковать во временную папку, `chmod -R u+rwX`, `sed -i 's/\r$//'`, затем разложить; архив удалить.
 - **Пароль sudo в панели терминала Claude** истекает, пока его не ввели. Ставить Docker из обычного терминала Ubuntu (Ctrl+Alt+T); скрипт спрашивает пароль один раз.
+- **push по https просит логин** — `setup-ubuntu.sh` переводит адрес GitHub на SSH (ключ из `~/.ssh/config`).
