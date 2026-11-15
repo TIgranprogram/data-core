@@ -1,9 +1,31 @@
 {
   "baseUrl": "http://localhost:1235/v1",
   "apiKey": "lm-studio",
-  "model": "gpt-oss-20b",
+  "model": "google/gemma-4-26b-a4b",
   "temperature": 0.3,
   "stepsPerTask": 20,
   "stand": "http://localhost:3102",
-  "visionModel": "google/gemma-4-12b-qat"
+  "visionModel": "google/gemma-4-26b-a4b",
+  "loadProfiles": {
+    "gpt-oss-20b": {
+      "gpu": "max",
+      "context": 16384,
+      "parallel": 1
+    },
+    "google/gemma-4-12b-qat": {
+      "gpu": "max",
+      "context": 16384,
+      "parallel": 1
+    },
+    "google/gemma-4-26b-a4b": {
+      "gpu": 0.65,
+      "context": 32768,
+      "parallel": 1
+    },
+    "qwen/qwen3-coder-30b": {
+      "gpu": 0.7,
+      "context": 32768,
+      "parallel": 1
+    }
+  }
 }

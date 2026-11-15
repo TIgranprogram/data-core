@@ -48,7 +48,9 @@ export async function ensureLLM(s, log = console.log) {
   if (local && fs.existsSync(LMS) && !(await modelLoaded(s))) {
     log(`   Загружаю модель ${s.model} (до 1 минуты)…`);
     spawnSync(LMS, ['unload', '--all'], { encoding: 'utf8', timeout: 60000, windowsHide: true }); // две модели в 16 ГБ не влезут
-    spawnSync(LMS, ['load', s.model, '--context-length', '16384', '--gpu', 'max', '-y'], { encoding: 'utf8', timeout: 180000, windowsHide: true });
+    // C126 (16.11): своя загрузка для модели — settings.loadProfiles[model] = { gpu, context, parallel } (подобрано под этот ПК, см. docs/LOCAL-AI.md)
+    const lp = (s.loadProfiles || {})[s.model] || {};
+    spawnSync(LMS, ['load', s.model, '--identifier', s.model, '--context-length', String(lp.context || 16384), '--gpu', String(lp.gpu || 'max'), '--parallel', String(lp.parallel || 1), '-y'], { encoding: 'utf8', timeout: 240000, windowsHide: true });
   }
   return true;
 }

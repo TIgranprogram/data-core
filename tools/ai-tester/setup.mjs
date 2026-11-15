@@ -25,7 +25,9 @@ const lms = (args, timeout = 120000) => { const r = spawnSync(LMS, args, { encod
 /** Модель по памяти видеокарты: 15 ГБ и больше — gpt-oss-20b; 11–15 ГБ — Gemma 4 12B (видит картинки, умеет нажимать); меньше — Gemma 4 E4B. */
 export function pickModel(vramMiB) {
   // C125 (15.11, сравнение на одних заданиях): gpt-oss-20b — 91 % заданий, 82 % сама закончила, 1 «по кругу»; Gemma 12B — 82 / 61 / 4; Qwen 27B — 55 с на шаг; Qwen3-30B-A3B с выгрузкой в память — 80 / 70 / 20 % «по кругу», ~16 с на шаг
-  if (vramMiB >= 15000) return { id: 'gpt-oss-20b', why: `видеокарта ${Math.round(vramMiB / 1024)} ГБ — gpt-oss-20b (лучше всех нажимает и заканчивает задания)` };
+  // C126 (16.11): на 16 ГБ — Gemma 4 26B-A4B с частичной выгрузкой (loadProfiles: --gpu 0.65, 32k): лучшее качество аналитика и тестировщика, видит картинки; ~2,5× медленнее gpt-oss
+  if (vramMiB >= 15000) return { id: 'google/gemma-4-26b-a4b', why: `видеокарта ${Math.round(vramMiB / 1024)} ГБ — Gemma 4 26B (часть в оперативной памяти; лучшее качество, видит картинки)` };
+  if (vramMiB >= 13000) return { id: 'gpt-oss-20b', why: `видеокарта ${Math.round(vramMiB / 1024)} ГБ — gpt-oss-20b (лучше всех нажимает и заканчивает задания)` };
   if (vramMiB >= 11000) return { id: 'google/gemma-4-12b-qat', why: `видеокарта ${Math.round(vramMiB / 1024)} ГБ — хватает на Gemma 4 12B` };
   return { id: 'google/gemma-4-e4b', why: vramMiB ? `видеокарта ${Math.round(vramMiB / 1024)} ГБ — берём лёгкую Gemma 4 E4B` : 'видеокарты NVIDIA нет — лёгкая Gemma 4 E4B (будет медленно)' };
 }
