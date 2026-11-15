@@ -88,3 +88,11 @@ test('после действия модель узнаёт, изменился 
   assert.match(screenChange(a, { ...a, hash: '#money' }), /другой экран/);
   assert.match(screenChange(a, { ...a, text: 'список 2' }), /обновился/);
 });
+
+test('C125: speedKey убирает id и номера, speedStats — медленные сверху', async () => {
+  const { speedKey, speedStats } = await import('./lib.mjs');
+  assert.equal(speedKey('GET', '/api/materials/6af2cd2fc7bb1cf477582b11?full=1'), 'GET /api/materials/:id');
+  assert.equal(speedKey('GET', '/api/production-orders/11-26'), 'GET /api/production-orders/:n');
+  const r = speedStats([{ key: 'a', ms: 100 }, { key: 'a', ms: 300 }, { key: 'b', ms: 2000 }]);
+  assert.equal(r[0].key, 'b'); assert.equal(r[1].n, 2); assert.equal(r[1].max, 300);
+});

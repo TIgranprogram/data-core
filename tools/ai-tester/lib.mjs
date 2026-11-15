@@ -109,7 +109,18 @@ export function closedForRole(text) {
 }
 
 /** Отчёт за день — Markdown на языке пользователя. */
-export function buildReport({ day, model, base = '', startedAt, now, tasks, findings, created, removed, renewals = 0, role = '' }) {
+/** C125 скорость: путь API без id (24 hex, числа, коды заказов) — одна строка таблицы на один вид запроса. */
+export const speedKey = (method, url) => `${method} ${String(url).split('?')[0].replace(/\/[0-9a-f]{24}(?=\/|$)/gi, '/:id').replace(/\/m:[0-9a-f]{24}/gi, '/:id').replace(/\/\d[\w-]*(?=\/|$)/g, '/:n')}`;
+/** samples = [{ key, ms }] → [{ key, n, p50, p95, max }], медленные сверху; только ≥ minN замеров. */
+export function speedStats(samples = [], { minN = 1, top = 15 } = {}) {
+  const by = new Map();
+  for (const s of samples) { if (!Number.isFinite(s.ms)) continue; if (!by.has(s.key)) by.set(s.key, []); by.get(s.key).push(s.ms); }
+  const q = (a, p) => a[Math.min(a.length - 1, Math.floor(p * a.length))];
+  return [...by.entries()].filter(([, a]) => a.length >= minN).map(([key, a]) => { a.sort((x, y) => x - y); return { key, n: a.length, p50: q(a, 0.5), p95: q(a, 0.95), max: a.at(-1) }; })
+    .sort((a, b) => b.p50 - a.p50).slice(0, top);
+}
+
+export function buildReport({ day, model, base = '', startedAt, now, tasks, findings, created, removed, renewals = 0, role = '', speed = [] }) {
   const ok = tasks.filter((t) => t.result === 'получилось').length;
   const skipped = tasks.filter((t) => t.result === 'пропущено').length;
   const errs = groupFindings(findings.filter((f) => f.kind === 'ошибка'));
@@ -127,6 +138,16 @@ export function buildReport({ day, model, base = '', startedAt, now, tasks, find
   L.push('## Ошибки сайта (нашла программа, без догадок ИИ)', '');
   if (!errs.length) L.push('Нет.');
   for (const e of errs) L.push(`- ${e.text}${e.count > 1 ? ` — ×${e.count}` : ''} · где: ${e.where || '—'} · задание: ${e.tasks.join(', ')}${e.shot ? ` · снимок: ${e.shot}` : ''}`);
+  // C125: скорость — главное для владельца; медленнее 1,5 с — уже ошибка сайта выше
+  const sp = speedStats(speed);
+  const all = speed.map((x) => x.ms).filter(Number.isFinite).sort((a, b) => a - b);
+  L.push('', '## Скорость (ответы сервера стенда)', '');
+  if (!all.length) L.push('Замеров нет.');
+  else {
+    L.push(`Запросов: ${all.length} · медиана ${all[Math.floor(all.length / 2)]} мс · 95% быстрее ${all[Math.min(all.length - 1, Math.floor(all.length * 0.95))]} мс · медленнее 1,5 с: ${all.filter((x) => x > 1500).length}`, '');
+    L.push('| Запрос | Раз | Медиана, мс | 95%, мс | Худший, мс |', '|--|--|--|--|--|');
+    for (const r of sp) L.push(`| ${r.key} | ${r.n} | ${r.p50} | ${r.p95} | ${r.max} |`);
+  }
   L.push('', '## Замечания ИИ (проверить глазами — бывают ложные)', '');
   if (!notes.length) L.push('Нет.');
   for (const e of notes) L.push(`- [${e.kind}] ${e.text}${e.count > 1 ? ` — ×${e.count}` : ''} · где: ${e.where || '—'} · задание: ${e.tasks.join(', ')}${e.shot ? ` · снимок: ${e.shot}` : ''}`);

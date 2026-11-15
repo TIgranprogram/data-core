@@ -18,7 +18,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { TAG, isLocalStand, tagText, createdFrom, screenGarbage, screenGrammar, blockedClick, buildReport, screenChange, closedForRole, watchdogAction, DEAD_MS, runLive } from './lib.mjs';
+import { TAG, isLocalStand, tagText, createdFrom, screenGarbage, screenGrammar, blockedClick, buildReport, speedKey, screenChange, closedForRole, watchdogAction, DEAD_MS, runLive } from './lib.mjs';
 import { sessionFromStdin } from './stand-session.mjs';
 import { loadSettings, llm, llmUp, ensureLLM, keepAwake } from './llm.mjs';
 
@@ -232,8 +232,8 @@ const TASKS = [
   { id: 'expense', section: 'expenses', make: true, task: 'Нажми кнопку добавления расхода. Заполни сумму 1500 и комментарий, остальные обязательные поля выбери из списков. Нажми «Сохранить» один раз. Если сайт пишет, что не так, — исправь это поле. Затем finish.' },
   { id: 'staff', section: 'staff', task: 'Осмотри «Сотрудников»: найди кого-нибудь поиском, открой карточку, посмотри вкладки. Ничего не меняй, новых пользователей не создавай.' },
   { id: 'stock', section: 'stock', task: 'Найди через поиск любой материал (например «труба»). Открой карточку, посмотри все вкладки. Ничего не меняй.' },
-  { id: 'orders', section: 'salesorders', task: 'Нажми на строку одного заказа — справа откроется панель. В панели нажми 2 разные вкладки. Затем finish. Ничего не меняй.' },
-  { id: 'products', section: 'products', task: 'Нажми на строку одного изделия — справа откроется панель. В панели нажми 2 разные вкладки. Затем finish. Ничего не меняй.' },
+  { id: 'orders', section: 'salesorders', task: 'Открой один заказ (нажми на карточку или строку). В панели заказа вкладок нет: нажми на строку позиции — под ней раскроются «Состав · Выполнение · Вложения · Документы». Проверь, что всё читается и не обрезано. Раскрой ещё одну позицию. Ничего не меняй. Затем finish.' },
+  { id: 'products', section: 'products', task: 'Нажми на строку одного изделия — справа откроется панель. Посмотри её разделы (раскрой 2 блока или вкладки, если есть). Ничего не меняй. Затем finish.' },
   { id: 'money', section: 'money', task: 'Осмотри раздел: переключи вкладки и фильтры, открой одну запись. Проверь, что суммы и даты выглядят нормально. Ничего не меняй.' },
   { id: 'home', section: 'home', task: 'Осмотри экран «Сегодня». Нажми на 2–3 карточки или ссылки и проверь, что открывается нужное. Ничего не меняй.' },
   { id: 'work', section: 'work', task: 'Осмотри раздел «В работе»: нажми на одну запись, посмотри, что открылось. Если что-то непонятно — report_problem. Затем finish. Ничего не меняй.' },
@@ -244,6 +244,11 @@ const TASKS = [
   { id: 'pass-queue', section: 'docs', task: 'На вкладке «Нужно сделать паспорт» нажми на одну строку. Посмотри, что открылось: видно ли, чего не хватает для паспорта и что нажать дальше. Если столбцы уходят за край экрана или текст непонятен — report_problem. Ничего не вводи и не выпускай. Затем finish.' },
   { id: 'contracts', section: 'contracts', task: 'Нажми на строку одного договора — справа откроется панель. В панели нажми 2 разные вкладки. Затем finish. Ничего не меняй. Если договоров нет — проверь, что пустой экран понятно объясняет, что делать, и вызови finish «получилось».' },
   { id: 'catalog', section: 'suppliercatalog', task: 'Осмотри «Каталог номенклатуры»: найди что-нибудь поиском, открой карточку. Ничего не меняй.' },
+  // C125 (15.11): новое за день — подвал заказа, «Изменить паспорт», виды работ детали, скорость разделов. Только смотреть, ничего не сохранять.
+  { id: 'order-footer', section: 'salesorders', task: 'Открой один заказ. Внизу панели — подвал «Весь заказ» с кнопками. Отметь галочками 2 позиции: в подвале должно стать «Отмечено 2 из …». Нажми «Печать паспортов…» — проверь, что в окне отмечены именно эти позиции, и закрой окно без скачивания (Escape). Нажми «Снять отметки». Ничего не сохраняй. Если что-то не так — report_problem. Затем finish.' },
+  { id: 'order-passport', section: 'salesorders', task: 'Открой заказ и раскрой позицию, у которой есть паспорт (в блоке «Документы» — «Паспорт № …»). Нажми «Изменить паспорт». Проверь: открылся редактор паспорта этой позиции, в нём есть поле «Фирма». Ничего не сохраняй — нажми «Отмена» или Escape. Затем finish.' },
+  { id: 'part-work', section: 'suppliercatalog', task: 'В «Каталоге номенклатуры» найди поиском деталь «0000.0000» и открой её. Найди блок «Виды работ» и кнопку «Изменить» или «Указать виды работ». Нажми её: справа откроется панель «Виды работ детали». Посмотри поля и закрой без сохранения («Отмена»). Затем finish.' },
+  { id: 'speed', section: null, task: 'Проверка скорости: открой по очереди разделы «Сегодня», «Заявки», «Заказы», «Склад», «Деньги», «Продукция», «Документация». На каждом дождись, пока появится список. Если раздел открывается дольше 2 секунд или висит «Загружаю» — report_problem с названием раздела. Затем finish.' },
   { id: 'free', section: null, task: 'Свободный осмотр этого раздела: нажимай кнопки и вкладки, которые выглядят важными, ищи ошибки и непонятные места. Чужие записи не меняй.' },
 ];
 
@@ -439,7 +444,8 @@ function autoFindings(b, o, seenGarbage) {
     // 409 «такая запись уже есть» — сайт верно отказал на повтор (модель ввела то же), не ошибка сайта
     else if (n.status >= 400 && n.status !== 401 && n.status !== 409 && n.method !== 'GET') out.push(`сохранение не прошло: ${n.method} ${p} → ${n.status}${n.msg ? ` «${n.msg}»` : ''}`);
     else if (n.status === 404 && n.method === 'GET') out.push(`нет данных по адресу ${p} (404)`);
-    if (n.ms > 3000) out.push(`медленно: ${n.method} ${p} — ${(n.ms / 1000).toFixed(1)} с`);
+    if (Number.isFinite(n.ms)) (b.speed ||= []).push({ key: speedKey(n.method, n.url), ms: n.ms }); // C125: таблица скорости в отчёте
+    if (n.ms > 1500) out.push(`медленно: ${n.method} ${p} — ${(n.ms / 1000).toFixed(1)} с`); // C125: порог как у обхода (SLOW_MS), было 3 с
   }
   for (const e of b.jsErrors.splice(0)) out.push(`сбой в странице: ${e}`);
   const g = screenGarbage(o?.all);
@@ -709,7 +715,7 @@ async function main() {
   if (saved && !resume) state.tasks.push({ at: nowTime(), title: '— новый запуск в этот же день —', result: 'получилось', steps: 0, summary: 'отчёт дописывается' });
   if (saved && resume) state.tasks.push({ at: nowTime(), title: '— обрыв: продолжил сторож —', result: 'не получилось', steps: 0, summary: 'тестировщик был прерван (перезагрузка, свет или сбой) и продолжил сам' });
   const created = loadCreated();
-  const writeReport = (removed = null) => fs.writeFileSync(path.join(OUT, 'REPORT.md'), buildReport({ day: DAY, model: s.model, base: STAND_BASE, startedAt, now: Date.now(), tasks: state.tasks, findings: state.findings, created, removed, renewals: state.tokenRenewals, role: state.sessionRole }));
+  const writeReport = (removed = null) => fs.writeFileSync(path.join(OUT, 'REPORT.md'), buildReport({ day: DAY, model: s.model, base: STAND_BASE, startedAt, now: Date.now(), tasks: state.tasks, findings: state.findings, created, removed, renewals: state.tokenRenewals, role: state.sessionRole , speed: b?.speed || []}));
   say(`\nИИ-тестировщик работает ${minutes} мин на ${s.stand}. Остановить — кнопка «Остановить ИИ-тестировщика». Отчёт: tools/logs/ai-tester/${DAY}/REPORT.md\n`);
 
   let b; let browserAccess; let failed = false;
@@ -728,7 +734,9 @@ async function main() {
     b = await openBrowser(s.stand);
     await relogin();
     let i = 0;
-    const order = [...TASKS].sort(() => Math.random() - 0.5);
+    // C125: сначала скорость и новое за день (владелец 15.11: «в первую очередь — скорость и работоспособность»), остальное — вперемешку
+    const FIRST = ['speed', 'order-footer', 'order-passport', 'part-work', 'orders'];
+    const order = [...FIRST.map((id) => TASKS.find((t) => t.id === id)).filter(Boolean), ...TASKS.filter((t) => !FIRST.includes(t.id)).sort(() => Math.random() - 0.5)];
     while (Date.now() < state.until && !fs.existsSync(STOP_FILE)) {
       const t = order[i++ % order.length];
       if (!suppliedSession && i % order.length === 0) await relogin(); // браузер сам обновляет сессию из stdin

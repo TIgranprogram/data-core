@@ -1,6 +1,6 @@
 ---
 priority: 2
-status: ready
+status: paused
 steps: 40
 minutes: 90
 prepare: [tools/starozhil/module-facts.mjs]

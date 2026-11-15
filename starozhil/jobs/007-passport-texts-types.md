@@ -1,6 +1,6 @@
 ---
 priority: 1
-status: ready
+status: paused
 steps: 50
 minutes: 120
 prepare: [tools/starozhil/passport-texts-facts.mjs]
