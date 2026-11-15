@@ -715,3 +715,25 @@ function connectEvents() {
 $('search').oninput = (e) => { S.query = e.target.value; render(); };
 $('refresh').onclick = loadStatus;
 start().catch((e) => toast(e.message));
+
+// «Локальный ИИ сейчас» (15.11): что загружено и запущено — каждые 5 с; «Остановить всё» снимает тестировщика, Старожила, тестовые браузеры и модели
+async function renderAi() {
+  const box = document.getElementById('aiLive'); if (!box) return;
+  let a; try { a = await api('/api/ai'); } catch { return; }
+  const parts = [];
+  for (const m of a.models || []) parts.push(el('span', 'pill', `🧠 ${m.id}${m.status ? ' · ' + (m.status === 'GENERATING' ? 'работает' : m.status === 'IDLE' ? 'ждёт' : m.status.toLowerCase()) : ''}`));
+  if (a.tester) parts.push(el('span', 'pill', `🤖 тестировщик${a.tester.until ? ' до ' + new Date(a.tester.until).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : ''}`));
+  if (a.starozhil) parts.push(el('span', 'pill', `🧠 Старожил${a.starozhil.job ? ': ' + a.starozhil.job : ''}`));
+  if (a.browsers) parts.push(el('span', 'pill', `🌐 тестовых браузеров: ${a.browsers}`));
+  if (!parts.length) { box.replaceChildren(el('span', 'pill', 'Локальный ИИ: ничего не запущено')); return; }
+  const stop = el('button', 'ghost danger', 'Остановить всё');
+  stop.title = 'Остановить ИИ-тестировщика и Старожила (допишут отчёт), закрыть тестовые браузеры, выгрузить модели';
+  stop.onclick = async () => {
+    if (!confirm('Остановить весь локальный ИИ: тестировщика, Старожила, тестовые браузеры и модели?')) return;
+    stop.disabled = true; stop.textContent = 'Останавливаю…';
+    try { const r = await api('/api/ai-stop', {}); toast((r.done || []).join(' · ')); } catch (e) { toast('Не остановилось: ' + (e.message || e)); }
+    renderAi();
+  };
+  box.replaceChildren(el('span', 'pill', 'Локальный ИИ:'), ...parts, stop);
+}
+renderAi(); setInterval(renderAi, 5000);

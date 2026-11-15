@@ -16,6 +16,7 @@ import { advise, LEVELS, runKey, todoDone } from './advisor.mjs';
 import { auditCatalog, auditProblems } from './audit.mjs';
 import { terminateProcess } from './process.mjs';
 import { assertRun } from '../tools/night-owner.mjs';
+import { aiLive, aiStopAll } from './ai-live.mjs';
 import { KINDS, SAFE_RISKS, WEEKDAYS, cleanRule, isDue, lastSlot, mergeRules, nextSlot, ruleText } from './schedule.mjs';
 import { ROOT, ROUTE_LABEL, adviceFor, buildRun, childEnv, cleanLine, detectMachine, listProdScripts, missingNeeds, validateParams } from './dispatch.mjs';
 
@@ -445,6 +446,9 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
       try { saveRule(id, patch); } catch (e) { return json(res, 400, { error: e.message }); }
       return json(res, 200, scheduleView());
     }
+    // «Локальный ИИ сейчас» (15.11): модели, тестировщик, Старожил, тестовые браузеры — вживую; и «Остановить всё»
+    if (req.method === 'GET' && url.pathname === '/api/ai') return json(res, 200, await aiLive(root));
+    if (req.method === 'POST' && url.pathname === '/api/ai-stop') return json(res, 200, { done: await aiStopAll(root) });
     if (req.method === 'POST' && url.pathname === '/api/run') {
       const { auto, ...body } = await readBody(req); // auto — только у таймера, не со страницы
       const out = runCommand(body);
