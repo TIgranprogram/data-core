@@ -192,6 +192,7 @@ button.side-link { width: 100%; border: 0; background: none; font: inherit; curs
 .ops-facets:empty { display: none; }
 .ops-facet { display: grid; grid-template-columns: 88px 1fr; gap: 8px; align-items: start; }
 .tag { height: 28px; padding: 0 10px; border-radius: 14px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-sm); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; flex: none; }
+@media (max-width: 720px) { button.tag { height: auto; min-height: var(--tap, 44px); } table.cal td.click { height: var(--tap, 44px); } } /* телефон: кликабельное не меньше пальца (обход 15.11, правило g) */
 .tag small { color: var(--muted); font-size: var(--fs-label); }
 .tag:hover { border-color: var(--primary); }
 .tag.active { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
