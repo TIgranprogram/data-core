@@ -18,7 +18,7 @@ const changed = () => window.dispatchEvent(new CustomEvent('data-changed'));
 const pdf = (s) => apiFile(`/shipments/${s.id}/pdf`, { fallback: `${s.number || 'otgruzka'}.pdf` }).catch((e) => toastError(e, 'открыть накладную'));
 
 /** Блок «Отгрузки» в карточке заказа. */
-export function shipmentsBlock(order, onChange) {
+export function shipmentsBlock(order, onChange, { bare = false } = {}) {
   const body = h('div', null, h('div', { class: 'muted' }, 'Загрузка…'));
   const load = () => api(`/salesorders/${order.id}/shipments`).then((d) => {
     const items = d.items || [];
@@ -40,6 +40,7 @@ export function shipmentsBlock(order, onChange) {
       open ? h('div', { class: 'actions' }, button({ label: typeof d.shippable === 'number' ? `Отгрузить (${d.shippable} готово)` : 'Отгрузить', kind: 'primary', onClick: () => patch({ of: 'shipdo', open: order.id }, { replace: false }) })) : null);
   }).catch((e) => body.replaceChildren(failBlock(e)));
   load();
+  if (bare) return h('div', null, ...[].concat(body)); // внутри раскрывашки «Отгрузки» — без второго такого же заголовка
   return section({ title: 'Отгрузки', tone: 'gold', open: true, body });
 }
 

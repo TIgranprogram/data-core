@@ -13,6 +13,7 @@ import { toast, toastError } from '../ui/kit/toast.js';
 import { confirmDlg, modal } from '../ui/kit/dialog.js';
 import { withConfirm } from '../ui/confirm-password.js';
 import { incomeLookups } from './orders.js';
+import { lineMore } from './order-line-more.js';
 import { customerLink } from '../ui/links.js';
 import { responsibleField, handoffLine } from '../ui/responsible.js';
 import { errText } from '../ui/kit/errors.js';
@@ -209,7 +210,7 @@ function contractMenu(o, reload, prefix = '') {
     } catch (e) { toastError(e); }
   };
   const menu = [
-    can && { label: 'Изменить договор', onSelect: () => patch({ of: 'salesorder', open: o.id }, { replace: false }) },
+    { label: 'Договор', title: 'Договор с заказчиком: реквизиты, деньги и правка позиций', onSelect: () => patch({ of: 'salesorder', open: o.id }, { replace: false }) }, // владелец 15.11: «Договор», всё по договору — внутри
     !['closed', 'cancelled', 'new'].includes(o.stage) && canShip() && { label: 'Отгрузить', onSelect: () => patch({ of: 'shipdo', open: o.id }, { replace: false }) },
     can && !closedStage(o) && seeStock && { label: 'Загрузить спецификацию из Excel', onSelect: () => patch({ of: 'specimport', new: '1', orderId: o.id, open: undefined }, { replace: false }) },
     can && o.productionNo && !closedStage(o) && { label: 'Перенести в другой заказ', onSelect: () => moveContract(o).then((r) => r && reload?.()).catch((e) => toastError(e)) },
@@ -239,7 +240,7 @@ function positionsPane(d, ctx) {
   const orders = d.orders || [];
   // пустые колонки не показываем (стенд 11-26: «Отгружено» и «Цвет» пустые на всю таблицу)
   const allLines = orders.flatMap((o) => o.lines || []).filter((l) => !l.cancelledAt);
-  const showShip = allLines.some((l) => l.shipped), showColor = allLines.some((l) => l.color);
+  const showShip = allLines.some((l) => l.shipped), showColor = false; // цвет и описание — второй строкой под названием (владелец 15.11)
   const columns = [{ label: '№' }, { label: '' }, { label: 'Название' }, { label: 'Кол-во', num: true }, ...(showShip ? [{ label: 'Отгружено', num: true }] : []), ...(showColor ? [{ label: 'Цвет' }] : [])];
   const span = 2 + (showShip ? 1 : 0) + (showColor ? 1 : 0);
   const hasPic = (l) => !!(l.photo && (l.photo.url || l.photo.thumb));
@@ -248,9 +249,9 @@ function positionsPane(d, ctx) {
     // в таблице только смотреть: правка позиции — в «⋯» её панели (клик по строке), правка договора — в «⋯» заказа
     // отменённые — в конце договора, номер позиции сохраняется
     const order = (o.lines || []).map((l, i) => [l, i]).sort((a, b) => !!a[0].cancelledAt - !!b[0].cancelledAt);
-    const rows = order.map(([l, i]) => (l.cancelledAt ? cancelledRow(l, i, span, openLine(l)) : { onOpen: openLine(l), cells: [
+    const rows = order.map(([l, i]) => (l.cancelledAt ? cancelledRow(l, i, span, openLine(l)) : { expand: () => lineMore(l, o, d, { reload, editable: editableOrder(o), closed: closedStage(o) }), cells: [
       { v: seq(l, i), cls: 'muted' }, posPic(hasPic(l) ? l.photo : null, hasPic(l) ? 'lg' : 'sm'),
-      h('span', null, l.title, ourLine(l), l.unassigned !== undefined || l.lineType ? h('span', null, ' ', lineMark(l)) : null, l.unassigned === undefined && !l.lineType && l.matched === false ? h('a', { class: 'badge warn', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null),
+      h('span', null, l.title, ourLine(l), l.color || l.notes ? h('div', { class: 'muted small' }, [l.color && 'Цвет: ' + l.color, l.notes].filter(Boolean).join(' · ')) : null, l.unassigned !== undefined || l.lineType ? h('span', null, ' ', lineMark(l)) : null, l.unassigned === undefined && !l.lineType && l.matched === false ? h('a', { class: 'badge warn', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null),
       { v: `${qty(l.qty)} ${l.unit || ''}`, cls: 'num nowrap' }, ...(showShip ? [{ v: l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : '', cls: 'num nowrap muted' }] : []), ...(showColor ? [{ v: l.color || '', cls: 'muted' }] : []),
 ] }));
     return { head: many ? contractHead(o, many) : null, rows, foot: contractFoot(o) }; // один договор — без строки-заголовка: чистая таблица (владелец 15.11)
@@ -316,7 +317,7 @@ function runPane(d, ctx) {
           stack(...o.stockMovements.map((m) => kitRow({ lead: date(m.date), title: m.materialName || 'позиция',
             side: [h('span', { class: 'num neg' }, '−' + qty(m.qty))],
             below: [m.issuedToLabel && 'кому: ' + m.issuedToLabel, m.notes].filter(Boolean).join(' · ') || null })))) : null)],
-      ['ship', 'Отгрузки', hasShip, () => stack(shipmentsBlock({ id: o.id, stage: o.stage }, reload), historyBlock({ id: o.id }))],
+      ['ship', 'Отгрузки', hasShip, () => stack(shipmentsBlock({ id: o.id, stage: o.stage }, reload, { bare: true }), historyBlock({ id: o.id }))],
     ].filter((x) => x[2]);
     const open = want && defs.some((x) => x[0] === want) ? want : DEFAULT_SUB[o.stage];
     const secs = defs.map(([key, title, , make]) => lazySec(title, key, make, key === open));
@@ -333,9 +334,9 @@ function runPane(d, ctx) {
 function docsPane(d) {
   const orders = (d.orders || []).filter((o) => (o.lines || []).length);
   const many = orders.length > 1;
-  const files = toolbar(...[orderPdfAction, orderZipAction].map((a) => button({ label: a.label, size: 'S', title: a.title, onClick: () => a.run(d) })));
+  // PDF и вложения заказа — в «⋯» шапки, здесь не повторяем (владелец 15.11: без дублей)
   const pass = session.seesDocs() ? orders.map((o) => (many ? sec('Договор ' + (o.orderNo || '—') + (o.customer ? ' · ' + o.customer : ''), 'neutral', null, orderPassports(o)) : orderPassports(o))) : [];
-  return stack(files, ...pass);
+  return stack(...pass);
 }
 
 const inWork = (d) => !['new', 'closed', 'cancelled'].includes(d.stage);
@@ -397,9 +398,7 @@ const orderCard = screenCard({
   // шапка — один блок (владелец 15.11): слева № и «заказчик · компания» (заказчик — ссылкой), по центру этап, справа срок
   sub: (r) => [...(r.customers || []).flatMap((c, i) => [i ? ', ' : '', customerLink(c)]), names(r.companyNames) ? ' · ' + names(r.companyNames) : ''],
   // справа в шапке: срок, под ним — отгрузка «N из M позиций» (с отгрузки) или этап (до неё) — владелец 15.11
-  side: (r) => h('div', null,
-    r.deadline ? h('div', null, h('span', { class: 'muted' }, 'Срок '), due(r)) : null,
-    h('div', null, shipLine(r))),
+  side: (r) => [r.deadline ? h('span', null, h('span', { class: 'muted' }, 'Срок '), due(r)) : null, shipLine(r)],
   noHistory: true,
   before: (r, ctx) => {
     liveCtx = ctx;
@@ -438,12 +437,20 @@ const orderCard = screenCard({
       orderPdfAction, orderZipAction,
     ];
   },
-  tabs: (r, ctx) => [
-    { key: 'pos', label: 'Позиции', count: r.lineCount, blocks: async (row) => positionsPane(await full(row), ctx) },
-    { key: 'run', label: 'Выполнение', blocks: async (row) => runPane(await full(row), ctx) },
-    { key: 'money', label: 'Деньги', when: () => session.canMoney, blocks: async (row) => moneyPane(await full(row)) },
-    { key: 'docs', label: 'Документы', blocks: async (row) => docsPane(await full(row)) },
-  ],
+  // без вкладок (владелец 15.11): сразу таблица позиций; подробности позиции — под её строкой; общее по заказу — свёрнутыми блоками
+  body: (r, ctx) => {
+    const box = stack(h('p', { class: 'muted' }, 'Загружаю позиции…'));
+    const parts = {};
+    // старые переходы «на вкладку» (доска «Отгрузка», договор, «Проверить готовность») раскрывают нужный блок
+    liveCtx = { ...ctx, openTab: function go(key, n = 0) { const s = parts[key === 'pos' || key === 'money' ? 'pos' : key]; if (!s) { if (n < 20) setTimeout(() => go(key, n + 1), 150); return; } if (s.tagName === 'DETAILS') s.open = true; s.scrollIntoView({ block: 'start', behavior: 'smooth' }); } };
+    full(r).then((d) => {
+      parts.pos = positionsPane(d, ctx);
+      parts.run = lazySec('Выполнение заказа', 'run', () => runPane(d, ctx), false);
+      parts.docs = session.seesDocs() ? lazySec('Документы заказа', 'docs', () => docsPane(d), false) : null;
+      box.replaceChildren(...[parts.pos, parts.run, parts.docs].filter(Boolean));
+    }).catch((e) => box.replaceChildren(h('p', { class: 'muted' }, 'Позиции не загрузились: ' + (e.message || e))));
+    return box;
+  },
 });
 
 export const salesorders = {

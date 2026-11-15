@@ -68,7 +68,7 @@ export async function markToday(r, field) {
 }
 
 /** «Выбрать изделие»: до 3 предложений сервера (ПРЖ-4) + поиск по «Продукции» → productId в PATCH позиции. Название заказчика не меняется. */
-async function pickProduct(r) {
+export async function pickProduct(r) {
   let opts = []; let loadErr = '';
   const inp = h('input', { type: 'text', placeholder: 'Название или артикул изделия', autocomplete: 'off', value: r.product ? r.product.name : '' });
   let picked = r.productId || r.product?.id || '';
