@@ -76,6 +76,7 @@ docker compose exec backend node dist/src/export-openapi.js /app/openapi.json
 docker compose cp backend:/app/openapi.json docs/openapi.json
 ```
 Сначала `docker compose up -d --build backend` и дождаться healthy: старый образ молча выгружает старый контракт (14.11: стенд от 12.11 стёр 6 путей). Сверка — `git diff docs/openapi.json` не должен удалять пути без причины. Затем skill `datacore-docs-sync`.
+Без своего стека — из backend-контейнера стенда после `node tools/stand-look.mjs --refresh` (15.11): `C=$(docker ps --format "{{.Names}}" | grep night-backend)`, затем `MSYS_NO_PATHCONV=1 docker exec $C node dist/src/export-openapi.js /tmp/openapi.json` и `MSYS_NO_PATHCONV=1 docker cp $C:/tmp/openapi.json docs/openapi.json`.
 
 ## Отчёт
 
