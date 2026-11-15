@@ -98,7 +98,7 @@ export const NODES = [
     productMap: true,
     inside: [
       { id: 'kartochka', t: 'Карточка', l: 'артикул = обозначение PDM, название, фото, категория', in: ['design', 'dicts'], out: ['offers', 'salesorders', 'docs', 'matching'] },
-      { id: 'sostav', t: 'Состав ♻', l: 'модули, детали, сырьё и метизы', in: ['suppliercatalog'], out: ['needs'] },
+      { id: 'sostav', t: 'Состав ♻', l: 'модули (сборки и детали) с видами работ и временем; материалы — сырьё и метизы', in: ['suppliercatalog'], out: ['needs'] },
       { id: 'raboty', t: 'Работы', l: 'виды работ и часы на 1 шт.', in: ['work'], out: ['work'] },
       { id: 'faily', t: 'Файлы ♻', l: 'PDF и DXF с версиями' },
       { id: 'sebestoimost', t: 'Себестоимость', l: 'материалы + работы по ставкам' },
