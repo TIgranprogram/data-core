@@ -6,7 +6,7 @@ cd "$(dirname "$0")/../../.." || exit 2
 N="${1:-}"; F="${2:-}"
 case "$N" in
   status|next)
-     R=docs/crew/C126-local-analyst/REPORT.md
+     R="${C126_REPORT:-docs/crew/C126-local-analyst/REPORT.md}" # C126 дома: отчёт каждой модели — свой файл (run.mjs)
      for n in 1 2 3 4 5; do grep -q "^## Задача $n " "$R" 2>/dev/null || { left=$((6-n)); echo "СЛЕДУЮЩАЯ: Задача $n (после неё останется: $((left-1)))."; grep "^\*\*Задача $n " docs/crew/C126-local-analyst/TASKS.md; exit 0; }; done
      echo "ВСЕ 5 ЗАДАЧ ЗАВЕРШЕНЫ. Ничего не делай, ответь: «Все 5 задач завершены»." ;;
   1) # метод контроллера: блок декораторов до сигнатуры без @Roles/@Public/@Permissions и класс без них
