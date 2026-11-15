@@ -41,6 +41,9 @@ export class MaterialService {
       sku = await this.counter.next('Material', category.skuPrefix);
     }
     const colors = this.normalizeColors(dto.colors);
+    const workTypes = this.partWorkTypes(dto.workTypes, dto.materialKind);
+    if (workTypes === null) delete (dto as { workTypes?: unknown }).workTypes;
+    else (dto as { workTypes?: unknown }).workTypes = workTypes;
     try {
       // остаток — только storageitems (ДМ.5): stockQty из запроса игнорируем, при создании 0
       return await this.model.create({
@@ -193,6 +196,27 @@ export class MaterialService {
     return doc;
   }
 
+  /**
+   * C122: виды работ только у детали. Пусто/нет — null (поле не пишем: коллекция общая с CRM).
+   * workTypeId приводим к ObjectId явно — audit-плагин обходит приведение типов Mongoose (см. TZ-SUPPLY-320 ниже).
+   */
+  private partWorkTypes(list: CreateMaterialDto['workTypes'], kind: string | null | undefined) {
+    if (!list?.length) return null;
+    if (kind !== 'part') throw new BadRequestException('Виды работ можно указать только у детали');
+    const seen = new Set<string>();
+    return list.map((w, i) => {
+      const key = String(w.workTypeId);
+      if (seen.has(key)) throw new BadRequestException('Вид работы повторяется в детали');
+      seen.add(key);
+      return {
+        workTypeId: new Types.ObjectId(key),
+        ...(w.hours !== undefined ? { hours: w.hours } : {}),
+        ...(w.days !== undefined && w.days !== null ? { days: w.days } : {}),
+        sortOrder: w.sortOrder ?? i,
+      };
+    });
+  }
+
   async update(id: string, dto: UpdateMaterialDto, organizationId?: string | null): Promise<MaterialDocument> {
     if (!Types.ObjectId.isValid(id)) throw new NotFoundException(`Material ${id} not found`);
     if (dto.categoryId) await this.loadAssignableMaterialCategory(dto.categoryId, organizationId);
@@ -211,6 +235,12 @@ export class MaterialService {
       if (value !== undefined) $set[key] = value;
     }
     if (colors !== undefined) $set.colors = colors;
+    const $unset: Record<string, ''> = {};
+    const kind = dto.materialKind ?? doc.materialKind;
+    if (dto.workTypes !== undefined) {
+      const wt = this.partWorkTypes(dto.workTypes, kind);
+      if (wt === null) { delete $set.workTypes; if (doc.workTypes !== undefined) $unset.workTypes = ''; } else $set.workTypes = wt;
+    } else if (kind !== 'part' && doc.workTypes?.length) $unset.workTypes = ''; // деталь стала не деталью — работы снимаются
     if (Array.isArray(dto.photoIds)) {
       $set.photoIds = dto.photoIds.map((pid) => new Types.ObjectId(String(pid)));
     }
@@ -227,7 +257,7 @@ export class MaterialService {
       const updated = await this.model
         .findOneAndUpdate(
           { _id: doc._id, deletedAt: null, ...this.organizationFilter(organizationId) },
-          { $set, $inc: { __v: 1 } },
+          { $set, ...(Object.keys($unset).length ? { $unset } : {}), $inc: { __v: 1 } },
           { new: true, runValidators: true },
         )
         .exec();

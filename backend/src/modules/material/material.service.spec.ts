@@ -644,3 +644,47 @@ describe('MaterialService (TZ-MATERIALS-303/307)', () => {
     });
   });
 });
+
+describe('MaterialService — виды работ детали (C122)', () => {
+  const WT = new Types.ObjectId().toString();
+  const base = { name: 'Стойка', article: 'A-1', unit: 'шт' } as CreateMaterialDto;
+
+  it('сохраняет виды работ у детали, workTypeId — ObjectId', async () => {
+    const create = jest.fn().mockResolvedValue({});
+    const { service } = buildService({ create });
+    await service.create({ ...base, materialKind: 'part', workTypes: [{ workTypeId: WT, hours: 1.5 }] } as CreateMaterialDto);
+    const saved = create.mock.calls[0][0];
+    expect(saved.workTypes).toHaveLength(1);
+    expect(saved.workTypes[0].workTypeId).toBeInstanceOf(Types.ObjectId);
+    expect(saved.workTypes[0]).toMatchObject({ hours: 1.5, sortOrder: 0 });
+  });
+
+  it('у не-детали виды работ — 400', async () => {
+    const { service, create } = buildService();
+    await expect(service.create({ ...base, materialKind: 'raw', workTypes: [{ workTypeId: WT }] } as CreateMaterialDto)).rejects.toBeInstanceOf(BadRequestException);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('без ввода поле не появляется (общая с CRM коллекция)', async () => {
+    const create = jest.fn().mockResolvedValue({});
+    const { service } = buildService({ create });
+    await service.create({ ...base, materialKind: 'part', workTypes: [] } as CreateMaterialDto);
+    expect('workTypes' in create.mock.calls[0][0]).toBe(false);
+  });
+
+  it('повтор вида работы — 400', async () => {
+    const { service } = buildService();
+    await expect(service.create({ ...base, materialKind: 'part', workTypes: [{ workTypeId: WT }, { workTypeId: WT }] } as CreateMaterialDto)).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('update: пустой список снимает поле через $unset', async () => {
+    const id = new Types.ObjectId();
+    const findOneAndUpdate = jest.fn().mockReturnValue(query({ _id: id }));
+    const findById = jest.fn().mockReturnValue(query({ _id: id, materialKind: 'part', workTypes: [{ workTypeId: new Types.ObjectId() }], deletedAt: null }));
+    const { service } = buildService({ findById, findOneAndUpdate });
+    await service.update(String(id), { workTypes: [] } as UpdateMaterialDto);
+    const upd = findOneAndUpdate.mock.calls[0][1];
+    expect(upd.$unset).toEqual({ workTypes: '' });
+    expect(upd.$set.workTypes).toBeUndefined();
+  });
+});

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayUnique,
   IsArray,
   IsBoolean,
@@ -14,7 +15,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { PdmMetaDto } from '../../../common/catalog/pdm-meta.dto';
-import { DIM_SOURCES, MATERIAL_KINDS, type DimSource, type MaterialKind } from '../material.schema';
+import { DIM_SOURCES, MATERIAL_KINDS, PART_WORK_TYPES_MAX, type DimSource, type MaterialKind } from '../material.schema';
 
 export { MATERIAL_KINDS };
 
@@ -26,6 +27,30 @@ const DIMENSION_TYPES = [
   'diameter',
   'depth',
 ] as const;
+
+/** C122: вид работы детали. */
+export class PartWorkTypeDto {
+  @ApiProperty({ description: 'Вид работы (справочник worktypes)' })
+  @IsMongoId()
+  workTypeId!: string;
+
+  @ApiPropertyOptional({ description: 'Часы на 1 шт' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  hours?: number;
+
+  @ApiPropertyOptional({ description: 'Дней в плане; пусто — из вида работы', nullable: true })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  days?: number | null;
+
+  @ApiPropertyOptional({ description: 'Порядок' })
+  @IsOptional()
+  @IsNumber()
+  sortOrder?: number;
+}
 
 export class DimensionDto {
   @ApiProperty({ enum: DIMENSION_TYPES, description: 'Тип размера' })
@@ -208,4 +233,12 @@ export class CreateMaterialDto {
   @IsOptional()
   @IsBoolean()
   needsName?: boolean;
+
+  @ApiPropertyOptional({ type: [PartWorkTypeDto], description: 'Виды работ детали (только materialKind=part)' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(PART_WORK_TYPES_MAX)
+  @ValidateNested({ each: true })
+  @Type(() => PartWorkTypeDto)
+  workTypes?: PartWorkTypeDto[];
 }

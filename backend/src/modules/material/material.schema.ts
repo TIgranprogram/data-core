@@ -11,6 +11,18 @@ export type MaterialKind = (typeof MATERIAL_KINDS)[number];
 export const DIM_SOURCES = ['dxf', 'pdm', 'manual'] as const;
 export type DimSource = (typeof DIM_SOURCES)[number];
 
+/** C122: вид работы детали (норма на 1 шт). Имена — как у шагов маршрута изделия (`hours`), чтобы копировать без переименования. */
+@Schema({ _id: false })
+export class PartWorkType {
+  @Prop({ type: Types.ObjectId, ref: 'WorkType', required: true }) workTypeId!: Types.ObjectId;
+  @Prop({ type: Number, min: 0 }) hours?: number;
+  /** Дней в плане; null/нет — берётся WorkType.days, как у модуля. */
+  @Prop({ type: Number, min: 0 }) days?: number | null;
+  @Prop({ type: Number }) sortOrder?: number;
+}
+export const PartWorkTypeSchema = SchemaFactory.createForClass(PartWorkType);
+export const PART_WORK_TYPES_MAX = 50;
+
 /** One measured material dimension; values use the project-wide millimetre convention. */
 @Schema({ _id: false })
 export class Dimension {
@@ -132,6 +144,13 @@ export class Material {
    */
   @Prop({ type: [CompositionLineSchema], default: [] })
   composition?: CompositionLine[];
+
+  /**
+   * C122: виды работ детали (только materialKind='part'). `default: undefined` — нарочно:
+   * коллекция общая с CRM kppdf, документы без поля его не получают.
+   */
+  @Prop({ type: [PartWorkTypeSchema], default: undefined, required: false })
+  workTypes?: PartWorkType[];
 
   // ── Общие поля единой базы (data-core ↔ kppdf), добавлены 2026-10-18 ──
   /** Синхронизация Google-таблиц (data-core sheets-sync): откуда позиция и её отпечаток. */
