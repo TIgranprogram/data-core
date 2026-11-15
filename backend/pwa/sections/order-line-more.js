@@ -10,6 +10,7 @@ import { readonlyGroup } from '../ui/kit/readonly.js';
 import { toastError } from '../ui/kit/toast.js';
 import { markToday } from './orders.js';
 import { patch } from '../core/router.js';
+import { lineFilesCard } from './order-line-files.js';
 
 const box = (title, rows, acts) => card({ size: 'M', title, variant: 'fields', body: rows.length ? readonlyGroup({ rows }) : null, actions: acts.filter(Boolean) });
 
@@ -32,7 +33,7 @@ export function lineMore(l, o, d, { reload, editable }) {
     ].filter(Boolean), [
       editable && shipped < qtyN && !l.shipDate && button({ label: 'Отгрузить сегодня', size: 'S', onClick: () => markToday(l, 'shipDate').then(done).catch(fail) }),
     ]),
-    plan('Вложения', [], 'Будут папки с файлами позиции: перетащите файл на рабочий стол — скачается, обратно — загрузится.'),
+    lineFilesCard(l),
     plan('Документы', [], 'Будут документы именно этой позиции: паспорт, акты.'),
   ].filter(Boolean);
   return tileGrid(...cards);

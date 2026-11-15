@@ -1,3 +1,7 @@
+## C121 вложения позиции (2026-11-15)
+коммит: не закоммичено
+- kit: `ui/kit/folder-tile.js` folderTile (+ CSS конец kit.css, экспорт index.js, витрина sections/kit.js ~179, DESIGN §4). Экран: `sections/order-line-files.js` lineFilesCard (GET /incomes/:id/attachments, fallback /products/:id/attachments), подключён `order-line-more.js:36`. Карта обновлена.
+
 ## C118 W7 фото-блок и карточка позиции склада (2026-11-15)
 коммит: не закоммичено
 - kit: `ui/kit/card.js` photo-блок (~136: галерея+photoDrop+«Убрать фото» под зоной, только при фото), `ui/kit/card-gallery.js` (gallery вынесена), витрина `sections/kit.js`. Экран: `sections/stock-card.js` stockCard (screenCard, recentMoves), `stock.js card: stockCard`; atlas stock tpl card ok. Карта обновлена.
