@@ -402,11 +402,31 @@ function closeCard() { if (card) { card.handle.close(); card = null; } }
 /** Экран пересоздаётся только при смене раздела (и поиска по всему — у него свой запрос); остальное — update(). */
 const screenKey = (section, params) => (section === 'passports' ? 'docs' : section) + (section === 'search' ? '?' + (params.q || '') : '') + (section === 'stock' && params.view ? ':' + params.view : '');
 
+/** Параметры адреса, которые принадлежат правой панели (остальное — экрану слева). */
+const CARD_PARAMS = ['open', 'new', 'of', 'fill', 'title', 'unit', 'categoryName', 'op', 'materialId', 'rid', 'orderId', 'productionNo', 'lid', 'dstatus', 'lineId', 'article', 'supplierName', 'supplierId', 'priceHint', 'productUrl'];
+/**
+ * Работа в правой панели не меняет экран слева (решение владельца 2026-11-15): панель открыта, ссылка из неё ведёт
+ * к записи другого раздела (#stock?open=…) — экран остаётся, запись открывается справа как of=stock. Выход — ✕ или меню слева.
+ */
+function keepScreen(section, params) {
+  const here = mounted?.section;
+  if (!card || !here || section === here || params.of || !(params.open || params.new)) return false;
+  if (['passports', 'q='].some((x) => section.startsWith(x)) || !allowed(section)) return false; // у них свой переадрес
+  // параметры экрана — из адреса открытой панели (там же поиск и фильтры списка слева)
+  const q = (card.hash || '').split('?')[1] || '';
+  const base = Object.fromEntries(new URLSearchParams(q));
+  const screen = Object.fromEntries(Object.entries(base).filter(([k]) => !CARD_PARAMS.includes(k)));
+  const forCard = Object.fromEntries(Object.entries(params).filter(([k]) => CARD_PARAMS.includes(k))); // tab, q ссылки — не для экрана слева
+  go(here, { ...screen, ...forCard, of: section }, { replace: true });
+  return true;
+}
+
 function render(c) {
   // Отложенный lazy callback не обходит незавершённый guard программного перехода.
   if (card?.handle?.isDirty?.() && routeKey(c) !== routeKey(acceptedRoute)) return;
   const { section, params } = c;
   if (!section) { go(defaultSection(), {}, { replace: true }); return; }
+  if (keepScreen(section, params)) return;
   // QR-наклейка: ссылка …/db/app/#q=<код>. Мобильный склад — сразу «Принять / Выдать»; остальные — карточка позиции или изделия
   if (section.startsWith('q=')) {
     const code = decodeURIComponent(section.slice(2));
@@ -547,7 +567,7 @@ function syncCard(section, params) {
   }
   trailStep(key);
   closeCard();
-  const clear = { open: undefined, new: undefined, of: undefined, fill: undefined, title: undefined, unit: undefined, categoryName: undefined, op: undefined, materialId: undefined, rid: undefined, orderId: undefined, productionNo: undefined, lid: undefined, dstatus: undefined, lineId: undefined, article: undefined, supplierName: undefined, supplierId: undefined, priceHint: undefined, productUrl: undefined };
+  const clear = Object.fromEntries(CARD_PARAMS.map((k) => [k, undefined]));
   const ctx = {
     close: () => { card = null; closeStep(clear); }, // открыта шагом — «назад», иначе убрать open= без нового шага (НВ.2)
     viewed: recentRecorder(ofName),
