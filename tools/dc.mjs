@@ -235,6 +235,13 @@ async function cmdCheck() {
   const imp = step('импорты приложения', process.execPath, ['backend/scripts/pwa-import-check.mjs']);
   say(imp.code === 0 ? 'импорты pwa/admin: ок — ' + cut(imp.out.trim().split('\n').pop(), 80) : 'импорты pwa/admin: ОШИБКА — ' + cut(imp.out.trim().split('\n')[0], 110));
   if (imp.code) bad++;
+  // все тесты приложения — как шаг 5 ворот preflight (15.11: красные копились до выкладки)
+  const pwaTests = []; const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (e.name.endsWith('.test.mjs')) pwaTests.push(path.relative(ROOT, p)); } };
+  walk(path.join(be, 'pwa'));
+  const pt = step('тесты приложения', process.execPath, ['--experimental-vm-modules', '--test', ...pwaTests.sort()]);
+  const ptFail = (pt.out.match(/ℹ fail (\d+)/) || [])[1];
+  say(pt.code === 0 ? `тесты приложения: ок (${pwaTests.length} файлов)` : `тесты приложения: УПАЛИ ${ptFail || '?'} — tools/logs`);
+  if (pt.code) bad++;
   const modules = step('загрузка рисунка модуля', process.execPath, ['--test', 'backend/pwa/sections/passports/modules.test.mjs']);
   say(modules.code ? 'рисунок модуля: FAIL (tools/logs)' : /(?:# skip|skipped)\s+0\b/.test(modules.out) ? 'рисунок модуля: PASS' : 'рисунок модуля: SKIP (tools/logs)');
   if (modules.code) bad++;
