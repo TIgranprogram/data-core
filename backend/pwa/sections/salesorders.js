@@ -387,7 +387,10 @@ function boardBody(r) {
  */
 const orderCard = screenCard({
   title: heading,
-  sub: (r) => [names(r.customers), names(r.companyNames)].filter(Boolean).join(' · '),
+  // шапка — один блок (владелец 15.11): слева № и «заказчик · компания» (заказчик — ссылкой), по центру этап, справа срок
+  sub: (r) => [...(r.customers || []).flatMap((c, i) => [i ? ', ' : '', customerLink(c)]), names(r.companyNames) ? ' · ' + names(r.companyNames) : ''],
+  stage: stageCell,
+  side: (r) => (r.deadline ? h('span', null, h('span', { class: 'muted' }, 'Срок '), due(r)) : null),
   noHistory: true,
   before: (r, ctx) => {
     liveCtx = ctx;
@@ -414,19 +417,7 @@ const orderCard = screenCard({
     }
     return { text: primary ? STAGE_NOW[r.stage] || '' : '', tone: 'neutral', primary }; // без кнопки шага блок не нужен (владелец 15.11)
   },
-  facts: (r) => [
-    ['Этап', stageCell(r)], // этап один раз — здесь, не в шапке (владелец 15.11)
-    ['Заказчик', (r.customers || []).length ? h('span', null, ...(r.customers || []).flatMap((c, i) => [i ? ', ' : '', customerLink(c)])) : ''],
-    ['Наша компания', names(r.companyNames) || h('span', { class: 'muted' }, 'не указана')],
-    ['Срок', r.deadline ? due(r) : ''],
-    ['Сумма', session.canMoney && r.amount ? h('span', null, money(r.amount), r.paidAmount ? h('span', { class: 'muted' }, ` · оплачено ${money(r.paidAmount)}`) : null) : ''],
-    ['Приоритет', r.priority && r.priority !== 'normal' ? prio(r) : ''],
-  ],
-  more: (r) => [
-    ['Договоры заказчика', (r.orderNos || []).length ? `${qty(r.orderNos.length)} · № ${names(r.orderNos)}` : ''],
-    ['Позиции', qty(r.lineCount)],
-    ['Срок изготовления, дн.', (Number(r.leadDays) || Math.max(0, ...(r.orders || []).map((o) => Number(o.leadDays) || 0))) || ''],
-  ],
+  facts: () => [], // всё нужное — в шапке; «Подробнее» убрано: дублировало вкладку «Позиции» (владелец 15.11)
   // «⋯» — всё, что меняет заказ (владелец 15.11): сам заказ, договоры, позиции; карточка — только смотреть
   menu: (r, ctx) => {
     const many = (r.orders || []).length > 1;
