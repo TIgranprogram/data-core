@@ -75,7 +75,7 @@ export function compositionEditor({ parts: p0 = [], steps: s0 = [], types = [], 
 
   function partsTable() {
     return table({
-      label: 'Части изделия', cls: 'k-table-stack', columns: [{ label: 'Часть', wrap: true }, { label: 'Кол-во', num: true }, { label: 'Проверено' }, { label: '' }],
+      label: 'Части изделия', cls: 'k-table-stack k-stack-always', columns: [{ label: 'Часть', wrap: true }, { label: 'Кол-во', num: true }, { label: 'Проверено' }, { label: '' }],
       empty: { title: 'Частей нет', hint: canEdit ? 'Работы идут на изделие целиком. Добавьте части — стойки, навес, наполнение — и назначьте работы каждой.' : '' },
       rows: parts.map((p) => ({ cells: [p.name, qtyIn(p), checkBtn('part', p),
         canEdit ? iconButton({ icon: '✕', label: 'Убрать часть ' + p.name, size: 'S', onClick: () => edit(() => { parts = parts.filter((x) => x !== p); steps = steps.filter((s) => s.partRowId !== p.id); if (curPart === p.id) curPart = ''; }) }) : ''] })),
@@ -144,7 +144,7 @@ export function compositionEditor({ parts: p0 = [], steps: s0 = [], types = [], 
   function stepsTable() {
     const sorted = steps; // порядок = порядок выполнения (цепочка Ганта)
     return table({
-      label: 'Работы по частям', cls: 'k-table-stack', columns: [{ label: 'Часть', wrap: true }, { label: 'Работа' }, { label: 'Часов на 1 шт.', num: true }, { label: 'Проверено' }, { label: '' }],
+      label: 'Работы по частям', cls: 'k-table-stack k-stack-always', columns: [{ label: 'Часть', wrap: true }, { label: 'Работа' }, { label: 'Часов на 1 шт.', num: true }, { label: 'Проверено' }, { label: '' }],
       empty: { title: 'Работ нет', hint: canEdit ? 'Без работ позиция запускается одной работой «Изготовление». Выберите часть и виды работ выше.' : '' },
       rows: sorted.map((s, i) => ({ cells: [partName(s.partRowId), typeName(s.workTypeId), hoursCell(s), checkBtn('step', s),
         canEdit ? actions(
