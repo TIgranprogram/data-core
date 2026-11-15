@@ -429,7 +429,7 @@ for(const el of document.querySelectorAll('.hint.warn,.hint.danger,.form-error,.
 for(const el of document.querySelectorAll('main .panel :is(h2,h3,label.field>span:first-child,.hint,input:not([type=hidden]):not([type=checkbox]):not([type=radio]),select)')){
   if(!vis(el)||el.closest('table,.k-nav-list,.drawer'))continue;const p=el.closest('.panel').getBoundingClientRect(),r=el.getBoundingClientRect();
   const gap=Math.min(r.left-p.left,p.right-r.right);if(gap<6)add('pe',sel(el),'вплотную к краю панели ('+Math.round(gap)+'px): '+(el.innerText||el.placeholder||'').trim().slice(0,40))}
-for(const t of document.querySelectorAll('main table,.drawer table')){if(!vis(t)||!t.parentElement)continue;const pw=t.parentElement.clientWidth;if(t.scrollWidth>pw+20)add('tw',sel(t),'таблица '+t.scrollWidth+'px в области '+pw+'px')}
+for(const t of document.querySelectorAll('main table,.drawer table')){if(!vis(t)||!t.parentElement)continue;if(/auto|scroll/.test(getComputedStyle(t.parentElement).overflowX))continue;/* таблица в штатной прокрутке (календарь по месяцам) — по смыслу, не находка (15.11) */const pw=t.parentElement.clientWidth;if(t.scrollWidth>pw+20)add('tw',sel(t),'таблица '+t.scrollWidth+'px в области '+pw+'px')}
 for(const el of document.querySelectorAll('.chip[role=tab],.k-seg-btn,.chips .chip')){
   if(!vis(el))continue;const t=el.innerText.replace(/\\s+/g,' ').trim();
   if(/(^|[\\s(])0\\)?$/.test(t)&&!/^все\\b/i.test(t))add('h',sel(el),t)}
