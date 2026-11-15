@@ -193,17 +193,14 @@ function kpBgBlock(r, ctx) {
   return root;
 }
 
-// C118 W6b: вкладки по смыслу — заказы/заявки · склад · договоры · бланки; каждый блок остался прежним
-function partnerTabs(r, ctx) {
+// C119 шаг 3: без вкладок — главный список (заказы/заявки) сразу под шапкой, редкое (склад, договоры, бланки) — свёрнутыми блоками под ним
+function partnerBody(r, ctx) {
   const items = r.related || [];
-  const own = r.kind === 'our', cust = r.kind === 'customer';
   const nStock = (r.reservations || []).length + (r.issues || []).length;
-  return [
-    { key: 'main', label: cust ? 'Заказы' : 'Заявки', count: items.length || undefined, blocks: () => [relatedRest(r, items)] },
-    cust && nStock ? { key: 'stock', label: 'Склад', count: nStock, blocks: () => [stockPane(r)] } : null,
-    r.kind === 'supplier' ? { key: 'contracts', label: 'Договоры', blocks: () => [contractsBlock(r)] } : null,
-    own ? { key: 'blanks', label: 'Бланки и печать', blocks: () => [stampBlock(r, ctx), kpBgBlock(r, ctx), passportLookBlock(r, ctx)] } : null,
-  ].filter(Boolean);
+  return stack(relatedRest(r, items),
+    r.kind === 'customer' && nStock ? stockPane(r) : null,
+    r.kind === 'supplier' ? contractsBlock(r) : null,
+    r.kind === 'our' ? stack(stampBlock(r, ctx), kpBgBlock(r, ctx), passportLookBlock(r, ctx)) : null);
 }
 
 function unpaidOf(r) {
@@ -290,18 +287,19 @@ export const partners = {
     ...screenCard({
       title: (r) => r.name,
       sub: (r) => [KIND[r.kind], r.inn ? 'ИНН ' + r.inn : ''].filter(Boolean).join(' · '),
-      next: (r) => {
+      next: (r) => { // нет кнопки шага (нет прав, наша компания) — «Что дальше» не показываем (C119)
+        if (!session.canEdit) return null;
         if (r.kind === 'customer') {
           const unpaid = unpaidOf(r);
           return { tone: unpaid > 0 ? 'warn' : 'neutral',
             text: unpaid > 0 ? `Ещё не оплачено по заказам: ${money(unpaid)}` : (r.activeOrders ? `Заказов в работе: ${qty(r.activeOrders)}` : 'Новый заказ этому заказчику — договор и позиции в правой панели'),
-            primary: session.canEdit ? { label: '+ Заказ', title: 'Новый заказ (договор): заказчик подставится сам', run: () => patch({ of: 'salesorder', new: '1', customer: r.name, open: undefined }, { replace: false }) } : null };
+            primary: { label: '+ Заказ', title: 'Новый заказ (договор): заказчик подставится сам', run: () => patch({ of: 'salesorder', new: '1', customer: r.name, open: undefined }, { replace: false }) } };
         }
         if (r.kind === 'supplier') {
           return { text: r.requests ? `Заявок этому поставщику: ${qty(r.requests)}` : 'Заявок пока нет',
-            primary: session.canEdit ? { label: 'Новая заявка', title: 'Новая заявка этому поставщику', run: () => patch({ of: 'requests', new: '1', open: undefined }) } : null };
+            primary: { label: 'Новая заявка', title: 'Новая заявка этому поставщику', run: () => patch({ of: 'requests', new: '1', open: undefined }) } };
         }
-        return { text: r.directorName || r.trademark ? 'На эту компанию оформляются заявки и заказы' : 'Для паспортов не заполнены директор и торговая марка — «Изменить»' };
+        return null; // у нашей компании нет кнопки шага — «Что дальше» не показываем
       },
       facts: (r) => [
         [r.kind === 'customer' ? 'Заказов' : 'Заявок', qty(r.kind === 'customer' ? r.orders : r.requests)],
@@ -314,13 +312,13 @@ export const partners = {
         ['Банк', [r.bankName, r.bankBik && 'БИК ' + r.bankBik].filter(Boolean).join(' · ')], ['Расчётный счёт', r.bankAccount], ['Корр. счёт', r.bankCorrAccount],
         ['Директор', r.directorName], ['Торговая марка', r.trademark], ['Примечание', r.notes]],
       menu: (r) => [
+        session.canEdit && { label: 'Изменить', title: 'Реквизиты и контакты', run: (row, ctx) => ctx.edit() },
         r.kind !== 'our' && { label: 'Объединить с…', run: (row, ctx) => mergeDialog(row, ctx) },
         r.kind === 'supplier' && session.canEdit && { label: 'Загрузить прайс из Excel', run: () => openSide('pricelist', 'order:' + r.id) },
       ],
-      tabs: partnerTabs,
+      body: partnerBody,
     }),
-    // «Изменить» — заметно сверху карточки (СП.1), не только внизу
-    editTop: true,
+    editable: () => false, // «Изменить» — в «⋯» шапки (эталон C119)
   },
 
   form: {

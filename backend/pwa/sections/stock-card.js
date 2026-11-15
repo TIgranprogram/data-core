@@ -21,7 +21,7 @@ const negCls = (m) => (m.type === 'out' ? NEG : '');
 /** Последние 5 записей истории позиции (GET /stock/items/:id/history?limit=5) и «Вся история» — без ограничения. */
 function recentMoves(r) {
   const list = stack(busyBlock('История движений')); const more = h('div', { class: 'actions' }); const box = h('div');
-  const paint = (count) => box.replaceChildren(section({ tone: 'gold', title: 'Последние записи', count, open: box.querySelector('details.k-sec')?.open || false, body: [list, more] })); paint(null);
+  const paint = (count) => box.replaceChildren(section({ tone: 'gold', title: 'Последние записи', count, open: box.querySelector('details.k-sec')?.open ?? true, body: [list, more] })); paint(null);
   const show = (res, full) => {
     paint(res.total ?? res.items.length); if (!res.items.length) { list.replaceChildren(hint('Движений нет. Приход и списание — кнопки в карточке позиции.')); more.replaceChildren(); return; }
     list.replaceChildren(...res.items.map((m) => { const target = targetNote(m); return row({ lead: date(m.date), title: HIST[m.type] || m.type,
@@ -85,12 +85,8 @@ export const stockCard = {
         { label: 'Заказать (новая заявка)', run: (row) => orderItem(row) },
         qrPrintAction('S'),
       ]; },
-      // вкладки грузятся при открытии: движения → заказано → паспорт
-      tabs: (r) => [
-        { key: 'moves', label: 'Движения', blocks: (row) => [recentMoves(row)] },
-        { key: 'ordered', label: 'Заказано', count: r.ordered > 0 ? qty(r.ordered) : undefined, blocks: (row) => [orderedBlock(row)] },
-        { key: 'passport', label: 'Паспорт', blocks: (row) => [passportSpecView(row)] },
-      ],
+      // C119 шаг 3: без вкладок — последние движения сразу под шапкой, «Заказано» и «Для паспорта» — блоками ниже
+      body: (r) => stack(recentMoves(r), orderedBlock(r), passportSpecView(r)),
     }),
     editable: () => false, // «Изменить» — в «⋯»: внизу панели главная — в «Что дальше»
     gallery: (r) => r.photos || [],

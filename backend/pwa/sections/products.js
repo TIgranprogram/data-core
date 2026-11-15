@@ -15,7 +15,8 @@ import { qrBulkAction, qrPrintAction } from './qr.js';
 import * as data from './products/data.js';
 import { productForm, productBulkFields } from './products/form-fields.js';
 import { prodFunnel, catLanding, deepGroup } from './products/landing.js';
-import { STATUS, dims } from './products/card-blocks.js';
+import { STATUS, dims, openPassportTemplate } from './products/card-blocks.js';
+import { openPassportFunnel, openReadyPassport } from './passports/funnel/open.js';
 import { productTabs, productWarns } from './products/tabs.js';
 import { screenCard } from '../ui/kit/screens/card.js';
 
@@ -133,6 +134,7 @@ export const products = {
         ['Название в договоре', r.orderName && r.orderName !== r.name ? r.orderName : null], ['Название серии', r.series],
         ['Кто проектировал', r.designer ? `${r.designer.name}${r.designer.position ? ' · ' + r.designer.position : ''}` : h('span', { class: 'muted' }, 'не указан — к кому идти, если в паспорте не хватает данных')],
         ['Примечание', r.notes && !r.notes.startsWith('⚠') ? r.notes : null],
+        ['Назначение', r.purpose], ['Монтаж', r.installation], ['Описание', r.description], // бывшая вкладка «Описание» (C119 шаг 3)
       ],
       menu: (r) => [...(session.canEdit ? [{ label: 'Изменить', title: 'Правка полей изделия', run: (row, ctx) => ctx.edit() }] : []),
       { label: 'В КП', title: 'Добавить в коммерческое предложение', run: (row) => { kpAdd(row); toast(`В КП — всего ${kpCount()}`); } },
@@ -143,6 +145,10 @@ export const products = {
         if (row.passports?.items?.[0]) printDialog(await data.getPassport(row.passports.items[0].id));
         else await previewPassport(row.id);
       } }] : []),
+      ...(session.canEdit && session.seesDocs() ? [
+        { label: 'Выпустить паспорт', title: 'Новый паспорт с номером по этой модели', run: (row) => openPassportFunnel({ productId: row.id }) },
+        { label: 'Загрузить готовый паспорт (PDF)', title: 'Паспорт сделан отдельно: приложить файл PDF к этому изделию', run: (row) => openReadyPassport({ productId: row.id }) }] : []),
+      ...(session.seesDocs() ? [{ label: 'Править шаблон паспорта', title: 'Тексты и рисунки по разделам паспорта', run: (row, ctx) => openPassportTemplate(row, ctx) }] : []),
       { label: 'Техническое описание', title: 'Части и материалы из справочников, габариты и вес из изделия — в правой панели', run: (row) => openTechSheet(row) },
       ...(session.seesDocs() ? [{ label: 'Паспорт + техописание', title: 'Один PDF: паспорт, затем техническое описание', run: async (row) => {
         try { await downloadCombined(row, data.getPassport); } catch (e) { toastError(e); }

@@ -422,7 +422,8 @@ export const requests = {
           : miss.length ? 'Перед шагом заполните: ' + miss.map((x) => x.label.toLowerCase()).join(', ') : COLUMN_HINT[supplyKey(r)] || '';
         const act = st && st.kind !== 'receive' ? stepAct(r) : null;
         const step = !st ? null : st.kind === 'receive' ? { label: st.verb, run: () => receive(r, ctx) } : act ? { label: act.label, run: () => act.run(r, ctx) } : null;
-        return { text, tone: miss.length ? 'warn' : 'neutral', primary: session.canEdit ? step : null };
+        const primary = session.canEdit ? step : null;
+        return primary ? { text, tone: miss.length ? 'warn' : 'neutral', primary } : null; // нет кнопки шага — «Что дальше» не показываем
       },
       facts: (r) => FACTS.map((k) => requestPairs(r).find((p) => p[0] === k)).filter(Boolean),
       more: (r) => requestPairs(r).filter((p) => typeof p[0] === 'string' && !FACTS.includes(p[0]) && p[0] !== 'Статус'),

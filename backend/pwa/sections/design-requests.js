@@ -2,11 +2,13 @@ import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, qty } from '../core/format.js';
 import { current, go } from '../core/router.js';
-import { attachCombo, tabs, table, empty, autoMore, section, stack, tabs as kitTabs } from '../ui/kit/index.js';
+import { attachCombo, tabs, table, empty, autoMore, stack, tabs as kitTabs } from '../ui/kit/index.js';
 import { modal } from '../ui/kit/dialog.js';
 import { funnel } from '../ui/kit/funnel.js';
 import { carousel } from '../ui/kit/gallery.js';
 import { toastError } from '../ui/kit/toast.js';
+import { screenCard } from '../ui/kit/screens/card.js';
+import { positionsTable } from '../ui/kit/screens/blocks.js';
 
 /**
  * «Заявки на создание изделия» в разделе «Проектирование» (ORDER-LINES шаг 7): менеджер в заказе добавил «новое изделие»,
@@ -142,34 +144,36 @@ export const designRequest = {
   id: 'prodreq',
   title: 'Заявка на создание изделия',
   get: (id) => api(`/product-requests/${id}`),
+  // C119 шаг 3: эталон «карточка заказа» — шапка (заявка + статус) → «Что дальше» (одна кнопка) → сведения → таблица «Где нужно» сразу; «дубль» — в «⋯»
   card: {
-    heading: (r) => clean(r.title) || 'Заявка на создание изделия',
-    subheading: (r) => STATUS[r.status] || '',
-    noHistory: true,
-    top: (r) => (r.photos?.length ? h('div', { class: 'dc-top' }, carousel(r.photos.map((p) => ({ url: p.url || p.thumb, thumb: p.thumb || p.url })), {}).el) : null),
-    view: (r) => [
-      ['Состояние', STATUS[r.status]],
-      ['Всего нужно', r.qtyTotal != null ? qty(r.qtyTotal) + ' шт.' : ''],
-      ['Описание', clean(r.description)],
-      ['Создана', r.createdAt ? date(r.createdAt) : ''],
-      ['Изделие', r.productId ? h('a', { href: '#products?open=' + r.productId }, 'Открыть в «Продукции»') : ''],
-    ],
-    extra: (r) => stack(section({ title: 'Где нужно', tone: 'who', count: (r.lines || []).length, open: true, body: (r.lines || []).length ? h('ul', { class: 'timeline' }, (r.lines || []).map((l) => h('li', null,
-        l.orderId ? h('a', { href: '#salesorders?open=' + l.orderId }, `№ ${l.orderNo || '—'}`) : h('span', null, '№ —'),
-        h('span', { class: 'muted clip' }, [clean(l.customer), clean(l.title), l.qty != null ? `${qty(l.qty)} ${clean(l.unit) || 'шт'}` : ''].filter(Boolean).join(' · '))))) : h('p', { class: 'muted small' }, 'Позиций нет.') })),
-    actions: (r) => {
-      if (r.status !== 'open' || !session.canEdit) return [];
-      return [
-        { label: 'Создать изделие', primary: true, title: 'Откроется форма изделия: название, описание и фото уже подставлены', run: (_row, ctx) => ctx.edit() },
+    ...screenCard({
+      noHistory: true,
+      title: (r) => clean(r.title) || 'Заявка на создание изделия',
+      sub: (r) => (r.productId ? h('a', { href: '#products?open=' + r.productId }, 'Изделие в «Продукции»') : ''),
+      stage: (r) => h('span', null, STATUS[r.status] || ''),
+      side: (r) => [r.createdAt ? 'создана ' + date(r.createdAt) : '', r.qtyTotal != null ? `Всего нужно ${qty(r.qtyTotal)} шт.` : ''],
+      next: (r, ctx) => (r.status === 'open' && session.canEdit
+        ? { text: 'Название, описание и фото уже подставлены в форму изделия.', primary: { label: 'Создать изделие', title: 'Откроется форма изделия', run: () => ctx.edit() } } : null),
+      facts: (r) => [['Описание', clean(r.description)]],
+      body: (r) => stack(
+        r.photos?.length ? h('div', { class: 'dc-top' }, carousel(r.photos.map((p) => ({ url: p.url || p.thumb, thumb: p.thumb || p.url })), {}).el) : null,
+        positionsTable({
+          label: 'Где нужно изделие',
+          columns: [{ label: 'Заказ', nowrap: true }, { label: 'Заказчик', wrap: true }, { label: 'Позиция', wrap: true }, { label: 'Кол-во', nowrap: true }],
+          groups: [{ rows: (r.lines || []).map((l) => ({
+            onOpen: l.orderId ? () => go('salesorders', { open: l.orderId }) : undefined,
+            cells: [`№ ${l.orderNo || '—'}`, clean(l.customer) || '—', clean(l.title) || '—', l.qty != null ? `${qty(l.qty)} ${clean(l.unit) || 'шт'}` : '—'],
+          })) }],
+          empty: 'Позиций нет.',
+        })),
+      menu: (r) => (r.status === 'open' && session.canEdit ? [
         { label: 'Это дубль существующего', title: 'Изделие уже есть — привязать позиции к нему', run: async (row, ctx) => {
           const pid = await askProduct();
           if (!pid) return;
-          const btn = document.activeElement?.closest?.('.actions button') || [...document.querySelectorAll('.actions button')].find((b) => b.textContent.includes('дубль'));
-          btn?.classList.add('is-busy');
-          try { ctx.setRow(await api(`/product-requests/${row.id}/reject`, { method: 'POST', body: { productId: pid } })); } catch (e) { toastError(e, 'привязать к изделию'); } finally { btn?.classList.remove('is-busy'); }
+          try { ctx.setRow(await api(`/product-requests/${row.id}/reject`, { method: 'POST', body: { productId: pid } })); } catch (e) { toastError(e, 'привязать к изделию'); }
         } },
-      ];
-    },
+      ] : []),
+    }),
   },
   form: {
     saveLabel: 'Создать изделие',

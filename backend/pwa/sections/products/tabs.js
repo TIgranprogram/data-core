@@ -1,12 +1,11 @@
 import { session } from '../../core/api.js';
 import { h } from '../../core/dom.js';
-import { button as kitButton, readonlyGroups, stack, section } from '../../ui/kit/index.js';
+import { stack, section } from '../../ui/kit/index.js';
 import { productFilesBlock } from '../product-files.js';
 import { productAttachmentsBlock } from '../product-attachments.js';
 import { productRoute } from '../work-composition.js';
-import { openTechSheet } from '../tech-sheet.js';
 import { purchaseNeedsBlock } from './purchase-needs.js';
-import { grp, compositionBlock, passportPane, inOrders, variantsBlock, warnNote } from './card-blocks.js';
+import { compositionBlock, passportPane, inOrders, variantsBlock, warnNote } from './card-blocks.js';
 import { fillNext, gapsFor } from './fill-block.js';
 
 /* Вкладки правой панели изделия (C055): Описание · Состав и работы · Техописание · Паспорт · Файлы · Заказы.
@@ -21,8 +20,7 @@ function techSheetBlock(row) {
     h('p', { class: 'muted' }, 'Части, материалы и размеры для печати техописания и паспорта. Складской «Состав и работы» — отдельно (себестоимость).'),
     h('p', null, summary
       ? h('span', null, summary, row.materialsText ? h('div', { class: 'hint' }, row.materialsText) : null)
-      : h('span', { class: 'muted' }, 'Таблица ещё пуста — нажмите «Техническое описание (PDF)»: там части и материалы выбираются из справочников.')),
-    kitButton({ label: 'Техническое описание (PDF)', kind: 'primary', size: 'S', title: 'Части и материалы из справочников, габариты и вес из изделия', onClick: () => openTechSheet(row) }),
+      : h('span', { class: 'muted' }, 'Таблица ещё пуста — «⋯ → Техническое описание»: части и материалы выбираются из справочников.')),
   ];
   return section({ title: 'Техническое описание', tone: 'info', count: n || undefined, body });
 }
@@ -34,10 +32,6 @@ export function productTabs(r) {
   const techN = gapsFor(r, 'techsheet') ?? ((r.materialsSpec?.rows || []).length || undefined);
   const passN = gapsFor(r, 'passport');
   return [
-    { key: 'desc', label: 'Описание', blocks: (row) => readonlyGroups([
-      grp('Описание'),
-      ['Назначение', row.purpose], ['Монтаж', row.installation], ['Описание', row.description],
-    ]) },
     { key: 'comp', label: 'Состав и работы', count: (r.composition || []).length || undefined,
       blocks: (row) => inline(compositionBlock(row), session.sees('work') ? productRoute(row) : null, variantsBlock(row)) },
     { key: 'tech', label: 'Техописание', count: techN,

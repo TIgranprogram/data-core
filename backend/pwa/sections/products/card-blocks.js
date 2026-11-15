@@ -2,15 +2,14 @@ import { api, session } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { date, money, qty } from '../../core/format.js';
 import { go } from '../../core/router.js';
-import { actions, badge, busyBlock, button as kitButton, empty, enhanceSelect, failBlock, hint, readonlyGroup, row as kitRow, section, select, stack, table, toast, toastError } from '../../ui/kit/index.js';
+import { badge, busyBlock, empty, enhanceSelect, failBlock, hint, readonlyGroup, row as kitRow, section, select, stack, table, toast, toastError } from '../../ui/kit/index.js';
 import { kindName, kindNorm } from '../../core/passport-kinds.js';
-import { download, passportVariant } from '../passports/dialogs.js';
+import { passportVariant } from '../passports/dialogs.js';
 import { jointsText } from '../passports/traits.js';
 import { suggestLink } from '../../ui/composition-suggest.js';
 import { warnCard } from '../../ui/kit/screens/blocks.js';
 import { clearNoteWarning, resetPdCategory } from './data.js';
 import { productTypeLine } from '../passports/common.js';
-import { openPassportFunnel, openReadyPassport } from '../passports/funnel/open.js';
 
 /* Блоки правой панели изделия (вид): примечание-предупреждение, состав, документация, «В заказах», тип паспорта.
  * ПМ-1 (2026-11-06): каждый блок — свёрнутая секция kit.section с числом; пустой — одна строка внутри. */
@@ -77,7 +76,7 @@ export function compositionBlock(r) {
   return section({ title: 'Состав', tone: 'gold', count: items.length, body: [
     items.length ? (shown.length === 1 ? h('div', null, ...items.map(line))
       : stack(...shown.map(([title, list], i) => section({ title, count: list.length, tone: 'neutral', open: i === 0 || list.length <= 10, body: list.map(line) }))))
-      : none('Не заполнен — «Изменить состав» в действиях карточки.'),
+      : none('Не заполнен — «⋯ → Изменить состав».'),
     cost ? h('p', null, h('b', null, `Себестоимость ≈ ${money(cost.total)}`),
       h('span', { class: 'muted' }, cost.missing ? ` · без цены: ${cost.missing} — в сумму не вошли` : ' · материалы — по последним закупкам, изделия — по их составу')) : null] });
 }
@@ -92,19 +91,21 @@ function orderCell(x) {
   return h('a', { href: `#salesorders?open=${oid}`, onClick: (e) => e.stopPropagation() }, label);
 }
 
-/** Вкладка «Паспорт»: одна карточка и таблица выпущенных (C056). Рисунки — в правке шаблона. */
+/** «⋯ → Править шаблон паспорта»: правка текстов и рисунков шаблона в своей панели (C119 шаг 3: из вкладки — в меню). */
+export async function openPassportTemplate(row, ctx) {
+  try {
+    const { openCard } = await import('../../ui/kit/card.js');
+    const { doctpl } = await import('../docs.js');
+    openCard(doctpl, { id: row.id }, { close: async () => {
+      try { ctx?.setRow?.(await api(`/showcase/${row.id}`)); } catch { /* карточка останется как была */ }
+    } });
+  } catch (e) { toastError(e, 'открыть шаблон'); }
+}
+
+/** Вкладка «Паспорт»: сведения и таблица выпущенных — только чтение; выпуск, загрузка, правка шаблона — в «⋯» шапки (C119). */
 export function passportPane(row, ctx) {
   const host = stack(busyBlock('паспорт изделия', { retry: paint }));
   const cat = () => row.passportCategory?.code || row.passportDefaults?.passportCategory || '';
-  async function openTemplate() {
-    try {
-      const { openCard } = await import('../../ui/kit/card.js');
-      const { doctpl } = await import('../docs.js');
-      openCard(doctpl, { id: row.id }, { close: async () => {
-        try { ctx?.setRow?.(await api(`/showcase/${row.id}`)); } catch { /* карточка останется как была */ }
-      } });
-    } catch (e) { toastError(e, 'открыть шаблон'); }
-  }
   async function paint() {
     let check = null;
     if (cat()) {
@@ -139,11 +140,6 @@ export function passportPane(row, ctx) {
           ['Поставляется разобранным', row.passportDefaults?.isKit ? 'да' : null],
         ] }),
         draw, ready,
-        actions(
-          session.canEdit && session.seesDocs() ? kitButton({ label: 'Выпустить паспорт', kind: 'primary', size: 'S', title: 'Новый паспорт с номером по этой модели', onClick: () => openPassportFunnel({ productId: row.id }) }) : null,
-          session.canEdit && session.seesDocs() ? kitButton({ label: 'Загрузить готовый паспорт (PDF)', size: 'S', title: 'Паспорт сделан отдельно: приложить файл PDF к этому изделию', onClick: () => openReadyPassport({ productId: row.id }) }) : null,
-          kitButton({ label: 'Править шаблон', size: 'S', title: 'Тексты и рисунки по разделам паспорта', onClick: openTemplate }),
-        ),
       ],
     });
     let items = row.passports?.items || [];
@@ -164,12 +160,6 @@ export function passportPane(row, ctx) {
     const fromFile = (x) => x.printSource === 'file' || !!x.printFile?.hasFile;
     const firms = [...new Set(items.map(firmName).filter(Boolean))];
     let firmFilter = '';
-    const printRow = async (x, btn) => {
-      btn.classList.add('is-busy'); btn.disabled = true;
-      try { await download(x, fromFile(x) ? {} : { mode: 'print', variant: passportVariant.value }, fromFile(x) ? 'файл' : 'паспорт'); }
-      catch (e) { toastError(e, 'печать'); }
-      finally { btn.classList.remove('is-busy'); btn.disabled = false; }
-    };
     const showIssued = () => {
       const shown = firmFilter ? items.filter((x) => firmName(x) === firmFilter) : items;
       const firmSel = firms.length > 1 ? select({ label: 'Фирма', value: firmFilter, options: [['', 'Все фирмы'], ...firms.map((n) => [n, n])], onChange: (v) => { firmFilter = v; showIssued(); } }) : null;
@@ -180,7 +170,7 @@ export function passportPane(row, ctx) {
           columns: [
             { label: '№', nowrap: true }, { label: 'Заводской №', nowrap: true }, { label: 'Заказ', wrap: true },
             { label: 'Фирма', wrap: true }, { label: 'Источник' },
-            { label: 'Дата', nowrap: true }, { label: 'Заказчик', hide: true }, { label: '' },
+            { label: 'Дата', nowrap: true }, { label: 'Заказчик', hide: true },
           ],
           rows: shown.map((x) => ({
             onClick: () => go('passports', { open: x.id }),
@@ -192,7 +182,6 @@ export function passportPane(row, ctx) {
               fromFile(x) ? badge('Файл', 'info') : badge('С сайта', 'ok'),
               date(x.date) || '—',
               x.customer || x.customerName || '—',
-              kitButton({ label: 'Печать', size: 'S', title: 'Тот же номер, без нового паспорта', onClick: (e) => { e.stopPropagation(); printRow(x, e.currentTarget); } }),
             ],
           })),
         })
