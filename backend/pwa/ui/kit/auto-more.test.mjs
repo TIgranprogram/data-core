@@ -2,9 +2,10 @@ import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from '../../../../tools/design-checks/node_modules/playwright-core/index.mjs';
+import { findBrowser } from '../../../../tools/browser-path.mjs';
 
 let browser;
-before(async () => { browser = await chromium.launch({ executablePath: 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless: true }); });
+before(async () => { browser = await chromium.launch({ executablePath: findBrowser(), headless: true }); });
 after(async () => { await browser?.close(); });
 const root = new URL('../../', import.meta.url);
 const rows = (page, limit, total, prefix = 'row') => ({ total, items: Array.from({ length: Math.max(0, Math.min(limit, total - (page - 1) * limit)) }, (_, i) => ({ id: `${prefix}-${(page - 1) * limit + i}`, name: `${prefix}-${(page - 1) * limit + i}` })) });
