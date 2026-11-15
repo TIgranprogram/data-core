@@ -2,7 +2,6 @@ import { h } from '../core/dom.js';
 import { api, session } from '../core/api.js';
 import { qty } from '../core/format.js';
 import { row as kitRow, section, stack, sku as kitSku, table, posPic } from '../ui/kit/index.js';
-import { orderPassportActions } from './order-passports.js';
 
 /** Тексты и блоки карточки заказа (вынесено из salesorders.js, C118 W2: файл не растёт): подсказки этапов, «Выдано со склада», «Паспорта», «К производству». */
 /** Подсказка у кнопки следующего этапа: что произойдёт и что дальше. */
@@ -53,24 +52,6 @@ export function issuedBlock(d, suggestLink) {
     side: [h('span', { class: 'num neg', title: 'Выдано минус возвращено' }, qty(x.net) + ' ' + (x.unit || ''))],
     below: [`выдано ${qty(x.issued)}${x.returned ? ', возвращено ' + qty(x.returned) : ''}`,
       i === 0 && k && lines.find((l) => String(l.id) === k)?.productId ? suggestLink(k) : null].filter(Boolean)})))));
-}
-
-/** Строка «Паспорта N (готовы M)» → вкладка «По заказам» (ТИ-11). */
-export function orderPassports(r) {
-  if (!session.seesDocs()) return null;
-  const val = h('span', { class: 'muted' }, 'загрузка…');
-  const body = h('div', null, val); const box = stack(section({ title: 'Паспорта', tone: 'neutral', open: true, body }));
-  let actEl = null; // кнопка-действие под строкой (замена классу-маркеру op-act)
-  const load = () => api('/passports', { query: { salesOrderId: r.id, limit: 200 } }).then((d) => {
-    const items = (d.items || []).filter((p) => p.status !== 'annulled');
-    actEl?.remove();
-    actEl = orderPassportActions(r, items, load);
-    if (actEl) body.append(actEl);
-    const ready = items.filter((p) => (p.readiness || (p.status === 'draft' ? 'notReady' : 'ready')) === 'ready').length;
-    val.replaceChildren(items.length ? h('a', { href: '#docs?tab=orders&open=' + r.id }, `Паспорта ${items.length} (готовы ${ready})`) : 'Паспортов пока нет');
-  }).catch((e) => val.replaceChildren(e?.status === 403 ? 'Нет доступа к паспортам' : 'не удалось загрузить'));
-  load();
-  return box;
 }
 
 export const sec = (title, tone, count, ...kids) => section({ title, tone, count, open: tone === 'money' || undefined, body: kids });

@@ -21,7 +21,6 @@ import { busyBlock, failBlock } from '../ui/kit/busy.js';
 import { orderReservations } from './order-reservations.js';
 import { orderDesign } from './order-design.js';
 import { orderWork } from './order-work.js';
-import { orderPdfAction, orderZipAction } from './order-attachments-zip.js';
 import { unassignedTop, addContractsDialog } from './salesorders-unassigned.js'; import { memoryFields } from './salesorders-memory.js';
 import { unmatchedTop, unmatchedFlag, unmatchedOrders } from './matching-queue.js';
 import { posPic } from '../ui/pos-pic.js';
@@ -30,9 +29,10 @@ import { distribBlock, lineMark, countOf, countBadge } from './order-lines.js';
 import { shipmentsBlock, historyBlock, canShip } from './order-shipments.js';
 import { importOrderExcel, downloadOrderTemplate } from './salesorders-import.js';
 import { suggestLink } from '../ui/composition-suggest.js';
-import { NEXT_TIP, STAGE_NOW, HINT, ourLine, issuedBlock, orderPassports, sec, seq, produceBlock } from './order-blocks.js';
+import { NEXT_TIP, STAGE_NOW, HINT, ourLine, issuedBlock, sec, seq, produceBlock } from './order-blocks.js';
 import { screenCard } from '../ui/kit/screens/card.js';
 import { positionsTable, boardCard } from '../ui/kit/screens/blocks.js';
+import { orderFooter } from './order-footer.js';
 /**
  * Раздел «Заказы» (TASKS фаза З): заказ = шапка (`salesorders`) + позиции (строки `incomes`).
  * Вкладки «В работе / Закрытые», доска по этапам, карточка: позиции, что заказано под заказ
@@ -211,7 +211,7 @@ function contractMenu(o, reload, prefix = '') {
   };
   const menu = [
     { label: 'Договор', title: 'Договор с заказчиком: реквизиты, деньги и правка позиций', onSelect: () => patch({ of: 'salesorder', open: o.id }, { replace: false }) }, // владелец 15.11: «Договор», всё по договору — внутри
-    !['closed', 'cancelled', 'new'].includes(o.stage) && canShip() && { label: 'Отгрузить', onSelect: () => patch({ of: 'shipdo', open: o.id }, { replace: false }) },
+    !['closed', 'cancelled', 'new'].includes(o.stage) && canShip() && { label: 'Отгрузить', onSelect: () => patch({ of: 'shipdo', open: o.id, pick: undefined }, { replace: false }) },
     can && !closedStage(o) && seeStock && { label: 'Загрузить спецификацию из Excel', onSelect: () => patch({ of: 'specimport', new: '1', orderId: o.id, open: undefined }, { replace: false }) },
     can && o.productionNo && !closedStage(o) && { label: 'Перенести в другой заказ', onSelect: () => moveContract(o).then((r) => r && reload?.()).catch((e) => toastError(e)) },
     session.role === 'admin' && o.stage !== 'new' && { label: 'Вернуть на прежний этап…', onSelect: () => stageBack(o).then((r) => r && reload?.()).catch((e) => toastError(e)) },
@@ -235,7 +235,7 @@ function contractFoot(o) {
 const openLine = (l) => () => patch({ of: 'orders', open: l.id }, { replace: false });
 
 /** Вкладка «Позиции»: одна таблица по всем договорам заказа (договор — группа строк), «К производству» — свёрнутый режим «одинаковые вместе». */
-function positionsPane(d, ctx) {
+function positionsPane(d, ctx, pick = null) {
   const box = stack(); const reload = reloadKeep(box, ctx);
   const orders = d.orders || [];
   // пустые колонки не показываем (стенд 11-26: «Отгружено» и «Цвет» пустые на всю таблицу)
@@ -249,14 +249,14 @@ function positionsPane(d, ctx) {
     // в таблице только смотреть: правка позиции — в «⋯» её панели (клик по строке), правка договора — в «⋯» заказа
     // отменённые — в конце договора, номер позиции сохраняется
     const order = (o.lines || []).map((l, i) => [l, i]).sort((a, b) => !!a[0].cancelledAt - !!b[0].cancelledAt);
-    const rows = order.map(([l, i]) => (l.cancelledAt ? cancelledRow(l, i, span, openLine(l)) : { expand: () => lineMore(l, o, d, { reload, editable: editableOrder(o), closed: closedStage(o) }), cells: [
+    const rows = order.map(([l, i]) => (l.cancelledAt ? cancelledRow(l, i, span, openLine(l)) : { key: l.id, line: l, expand: () => lineMore(l, o, d, { reload, editable: editableOrder(o), closed: closedStage(o) }), cells: [
       { v: seq(l, i), cls: 'muted' }, posPic(hasPic(l) ? l.photo : null, hasPic(l) ? 'lg' : 'sm'),
       h('span', null, l.title, ourLine(l), l.color || l.notes ? h('div', { class: 'muted small' }, [l.color && 'Цвет: ' + l.color, l.notes].filter(Boolean).join(' · ')) : null, l.unassigned !== undefined || l.lineType ? h('span', null, ' ', lineMark(l)) : null, l.unassigned === undefined && !l.lineType && l.matched === false ? h('a', { class: 'badge warn', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null),
       { v: `${qty(l.qty)} ${l.unit || ''}`, cls: 'num nowrap' }, ...(showShip ? [{ v: l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : '', cls: 'num nowrap muted' }] : []), ...(showColor ? [{ v: l.color || '', cls: 'muted' }] : []),
 ] }));
     return { head: many ? contractHead(o, many) : null, rows, foot: contractFoot(o) }; // один договор — без строки-заголовка: чистая таблица (владелец 15.11)
   });
-  box.append(...orders.map((o) => distribBlock(o, reload)), positionsTable({ columns, groups, label: 'Позиции заказа', empty: { title: 'Договоров нет.' } }), produceBlock(d, openLine));
+  box.append(...orders.map((o) => distribBlock(o, reload)), positionsTable({ columns, groups, label: 'Позиции заказа', empty: { title: 'Договоров нет.' }, pick }), produceBlock(d, openLine));
   return box;
 }
 
@@ -331,14 +331,6 @@ function runPane(d, ctx) {
 }
 
 /** Вкладка «Документы»: PDF и ZIP заказа, паспорта по договорам. */
-function docsPane(d) {
-  const orders = (d.orders || []).filter((o) => (o.lines || []).length);
-  const many = orders.length > 1;
-  // PDF и вложения заказа — в «⋯» шапки, здесь не повторяем (владелец 15.11: без дублей)
-  const pass = session.seesDocs() ? orders.map((o) => (many ? sec('Договор ' + (o.orderNo || '—') + (o.customer ? ' · ' + o.customer : ''), 'neutral', null, orderPassports(o)) : orderPassports(o))) : [];
-  return stack(...pass);
-}
-
 const inWork = (d) => !['new', 'closed', 'cancelled'].includes(d.stage);
 
 /** «+ Договор» — пункты «⋯» заказа: выбрать из договоров без заказа / создать новый. */
@@ -434,7 +426,6 @@ const orderCard = screenCard({
       editableOrder(r) && { label: 'Изменить заказ', title: '№ заказа, срок и приоритет — сразу у всех договоров заказа', run: (row) => openSide('orderedit', row.key || row.id) },
       ...addContractItems(r),
       ...(r.orders || []).flatMap((o) => contractMenu(o, reload, many ? `Договор ${o.orderNo || '—'}: ` : '').map((m) => ({ label: m.label, danger: m.danger, run: () => m.onSelect() }))),
-      orderPdfAction, orderZipAction,
     ];
   },
   // без вкладок (владелец 15.11): сразу таблица позиций; подробности позиции — под её строкой; общее по заказу — свёрнутыми блоками
@@ -444,9 +435,17 @@ const orderCard = screenCard({
     // старые переходы «на вкладку» (доска «Отгрузка», договор, «Проверить готовность») раскрывают нужный блок
     liveCtx = { ...ctx, openTab: function go(key, n = 0) { const s = parts[key === 'pos' || key === 'money' ? 'pos' : key]; if (!s) { if (n < 20) setTimeout(() => go(key, n + 1), 150); return; } if (s.tagName === 'DETAILS') s.open = true; s.scrollIntoView({ block: 'start', behavior: 'smooth' }); } };
     full(r).then((d) => {
-      parts.pos = positionsPane(d, ctx);
+      // C124: галочки позиций + подвал «Весь заказ» (вместо блока «Документы заказа»): действия над всем заказом или отмеченными
+      const sel = new Map();
+      let foot = null;
+      const pick = { isOn: (row) => sel.has(row.key), set: (row, on) => { if (on) sel.set(row.key, row.line); else sel.delete(row.key); foot?.update(); } };
+      parts.pos = positionsPane(d, ctx, pick);
       parts.run = lazySec('Выполнение заказа', 'run', () => runPane(d, ctx), false);
-      parts.docs = session.seesDocs() ? lazySec('Документы заказа', 'docs', () => docsPane(d), false) : null;
+      foot = orderFooter(r, d, sel, {
+        reload: () => salesorders.get(r.key || r.id).then((s) => s && ctx.setRow?.(s)),
+        onClear: () => { sel.clear(); parts.pos.querySelectorAll('.k-pick input:checked').forEach((cb) => { cb.checked = false; cb.closest('tr')?.classList.remove('is-picked'); }); foot.update(); },
+      });
+      parts.docs = foot.el;
       box.replaceChildren(...[parts.pos, parts.run, parts.docs].filter(Boolean));
     }).catch((e) => box.replaceChildren(h('p', { class: 'muted' }, 'Позиции не загрузились: ' + (e.message || e))));
     return box;

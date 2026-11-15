@@ -1,7 +1,7 @@
 import { api, apiFile, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, newUid, parseNum, qty } from '../core/format.js';
-import { patch } from '../core/router.js';
+import { current, patch } from '../core/router.js';
 import { confirmDlg } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { failBlock } from '../ui/kit/busy.js';
@@ -37,7 +37,7 @@ export function shipmentsBlock(order, onChange, { bare = false } = {}) {
           try { await api(`/shipments/${s.id}`, { method: 'DELETE' }); toast('Отгрузка отменена'); changed(); onChange?.(); } catch (er) { toastError(er, 'отменить отгрузку'); b.classList.remove('is-busy'); b.disabled = false; }
         } }) : null)))
         : (d.legacyShipped ? null : emptyState({ title: 'Отгрузок пока нет', hint: open ? 'Нажмите «Отгрузить» — выберите позиции и количество.' : '' })),
-      open ? h('div', { class: 'actions' }, button({ label: typeof d.shippable === 'number' ? `Отгрузить (${d.shippable} готово)` : 'Отгрузить', kind: 'primary', onClick: () => patch({ of: 'shipdo', open: order.id }, { replace: false }) })) : null);
+      open ? h('div', { class: 'actions' }, button({ label: typeof d.shippable === 'number' ? `Отгрузить (${d.shippable} готово)` : 'Отгрузить', kind: 'primary', onClick: () => patch({ of: 'shipdo', open: order.id, pick: undefined }, { replace: false }) })) : null);
   }).catch((e) => body.replaceChildren(failBlock(e)));
   load();
   if (bare) return h('div', null, ...[].concat(body)); // внутри раскрывашки «Отгрузки» — без второго такого же заголовка
@@ -77,10 +77,12 @@ function form(order, ctx) {
     const blocked = lines.filter((l) => !ok(l));
     const ready = lines.filter(ok);
     if (!lines.length) { root.replaceChildren(emptyState({ title: 'Отгружать нечего', hint: 'Остаток по всем позициям нулевой или у позиций не указано количество — укажите его в позиции.' })); return; }
+    // C124: из подвала заказа — pick=<incomeId,…>: отмечены только эти позиции
+    const only = current().params.pick ? new Set(String(current().params.pick).split(',')) : null;
     const rows = ready.map((l) => {
       const left = rem.get(String(l.id))?.left ?? l.left;
       const inp = h('input', { type: 'text', inputmode: 'decimal', value: String(left), 'aria-label': 'Сколько: ' + l.title });
-      const on = h('input', { type: 'checkbox', checked: true, 'aria-label': 'Отгрузить: ' + l.title });
+      const on = h('input', { type: 'checkbox', checked: !only || only.has(String(l.id)), 'aria-label': 'Отгрузить: ' + l.title });
       return { l, left, inp, on };
     });
     const date0 = h('input', { type: 'date', value: isoDay() });

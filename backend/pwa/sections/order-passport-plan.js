@@ -31,12 +31,12 @@ export const orderPassportsButton = (orderId, size = 'S') => kit.button({ label:
  * C104: окно «Печать» паспортов заказа — те же настройки, что у одного паспорта (формат, печать/подпись, ч/б)
  * и выбор позиций галочками. Один PDF по отмеченным: GET …/pdf?ids=…
  */
-export async function printOrderDialog(row) {
+export async function printOrderDialog(row, { only = null } = {}) { // only — Set incomeId: отмечены только эти (C124: подвал заказа)
   const issued = (row.lines || []).filter((l) => l.state === 'issued' && l.passport?.id);
   if (!issued.length) return;
   const boxes = issued.map((l) => {
     const text = [`${l.lineNo ?? '—'}`, displayName(l.title) || 'Позиция', l.passport.number ? '№ ' + l.passport.number : ''].filter(Boolean).join(' · ');
-    const el = kit.guide.toggle({ label: text, checked: true, onChange: () => sync() });
+    const el = kit.guide.toggle({ label: text, checked: !only || only.has(String(l.incomeId)), onChange: () => sync() });
     const cb = el.querySelector('input'); cb.dataset.id = String(l.passport.id);
     return { cb, el };
   });
@@ -92,14 +92,14 @@ const fetchPlan = (id) => {
  * C111: кнопка «Печать паспортов…» для мест, где плана заказа нет (карточка заказа, «По заказам»).
  * issued — сколько выпущено (известно месту); 0 → кнопка неактивна с подсказкой. План грузится по клику.
  */
-export function printOrderButton(orderId, { issued = 0, size = 'S', kind = 'secondary' } = {}) {
+export function printOrderButton(orderId, { issued = 0, size = 'S', kind = 'secondary', only = null } = {}) { // only() → Set incomeId | null
   return kit.button({
     label: 'Печать паспортов…', size, kind, disabled: !issued,
     title: issued ? 'Выбрать паспорта и вид — получится один PDF' : 'Сначала выпустите хотя бы один паспорт',
     onClick: async (e) => {
       e.stopPropagation();
       const b = e.currentTarget; b.classList.add('is-busy'); b.disabled = true;
-      try { await printOrderDialog({ ...(await fetchPlan(orderId)), orderId }); }
+      try { await printOrderDialog({ ...(await fetchPlan(orderId)), orderId }, { only: only?.() || null }); }
       catch (er) { kit.toastError(er, 'собрать PDF паспортов'); }
       finally { b.classList.remove('is-busy'); b.disabled = false; }
     },
