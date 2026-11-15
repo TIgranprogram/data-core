@@ -4,9 +4,9 @@
  *   шапка (сущность, подпись, этап один раз; «⋯» — всё второстепенное)
  *   → warnCard × N (предупреждения, с кнопкой)  → nextCard («Что дальше» + одна главная кнопка)
  *   → infoCard (сведения ≤ 6 строк + «Подробнее»)  → вкладки по смыслу объекта.
- * cfg: { title(r), sub?(r), stage?(r), side?(r) — справа в шапке (срок), warns?(r, ctx) → [{ title, sub?, label?, run? } | узел], next?(r, ctx) → { text, tone?, primary? },
+ * cfg: { title(r), sub?(r), stage?(r), side?(r) → [справа у заголовка, справа у подписи], warns?(r, ctx) → [{ title, sub?, label?, run? } | узел], next?(r, ctx) → { text, tone?, primary? },
  *        facts(r) → пары, more?(r) → пары, menu?(r, ctx) → [{ label, title?, run, danger? }] (все уходят в «⋯»),
- *        tabs?(r, ctx) → [{ key, label, count?, tone?, when?, blocks }], before?(r, ctx), noHistory?, parent? }
+ *        tabs?(r, ctx) → [{ key, label, count?, tone?, when?, blocks }], body?(r, ctx) → узел вместо вкладок, before?(r, ctx), noHistory?, parent? }
  */
 import { h } from '../../../core/dom.js';
 import { stack } from '../index.js';
@@ -20,15 +20,17 @@ export function screenCard(cfg) {
     parent: cfg.parent,
     actionsInHead: true,
     heading: cfg.title,
-    subheading: cfg.sub,
+    subheading: cfg.side ? (r) => h('div', { class: 'k-head-sub' }, h('span', null, ...[].concat(cfg.sub?.(r) ?? [])), [].concat(cfg.side(r) || [])[1] || null) : cfg.sub,
     // side — справа в шапке (срок): тогда этап встаёт по центру, шапка одним блоком (заказ, 15.11)
-    headStats: cfg.side ? (r) => h('div', { class: 'k-head-meta' }, cfg.stage ? cfg.stage(r) : h('span'), cfg.side(r) || h('span'))
+    // side(r) → [строка к заголовку, строка к подписи]: справа, каждая на одной линии со своей строкой слева (владелец 15.11)
+    headStats: cfg.side ? (r) => h('div', { class: 'k-head-meta' }, cfg.stage ? cfg.stage(r) : h('span'), [].concat(cfg.side(r) || [])[0] || h('span'))
       : cfg.stage ? (r) => h('span', null, cfg.stage(r)) : undefined,
     top: (r, ctx) => {
       cfg.before?.(r, ctx);
       const nx = cfg.next?.(r, ctx);
       return stack(...warnEls(r, ctx), nx ? nextCard({ text: nx.text, tone: nx.tone, primary: nx.primary }) : null,
-        cfg.facts(r).length || cfg.more?.(r)?.length ? infoCard({ facts: cfg.facts(r), more: cfg.more?.(r) || [] }) : null); // сведений нет — блока нет
+        cfg.facts(r).length || cfg.more?.(r)?.length ? infoCard({ facts: cfg.facts(r), more: cfg.more?.(r) || [] }) : null, // сведений нет — блока нет
+        cfg.body?.(r, ctx) || null); // body — содержимое без вкладок (заказ: таблица позиций, владелец 15.11)
     },
     view: () => [],
     actions: (r, ctx) => (cfg.menu?.(r, ctx) || []).filter(Boolean).map((a) => ({ ...a, more: true, primary: false })),

@@ -864,6 +864,7 @@ table.cal.k-tree tr.k-tree-ins > td { padding: 0; white-space: normal; text-alig
 
 /* Шапка карточки одним блоком (заказ, 15.11): этап по центру, срок справа — screenCard({ stage }) → .k-head-meta */
 .k-head-row:has(.k-head-meta) .k-head-slot { flex: 1; }
+.k-head-row:has(.k-head-meta) { align-items: center; } /* «Срок» — на одной линии с номером */
 .k-head-meta { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: var(--s3); width: 100%; padding-left: var(--s4); }
 .k-head-meta > :first-child { grid-column: 2; white-space: nowrap; } /* этап — по центру, срок — справа, не наезжают (владелец 15.11) */
 .k-head-meta > :last-child { grid-column: 3; justify-self: end; white-space: nowrap; text-align: right; }
@@ -873,3 +874,18 @@ table.cal.k-tree tr.k-tree-ins > td { padding: 0; white-space: normal; text-alig
 .drawer > .chips.k-tabs-fill + .drawer-body { padding-top: var(--s2); }
 .drawer > .chips.k-tabs-fill + .drawer-body > :empty, .drawer > .chips.k-tabs-fill + .drawer-body .k-stack:empty { display: none; }
 .drawer > .chips.k-tabs-fill + .drawer-body .k-pane { padding-top: 0; }
+
+/* Таблица позиций (positionsTable): тонкая рамка; раскрытая строка — подробности под ней (владелец 15.11) */
+.k-pos-table { border: 1px solid var(--border); }
+table.list.k-pos-table td { white-space: normal; } /* название позиции переносится: таблица не шире панели (телефон) */
+table.list.k-pos-table td.nowrap, table.list.k-pos-table td.num { white-space: nowrap; }
+tr.k-pos-more .k-fields-grid { grid-template-columns: minmax(0, 1fr); } /* узкая карточка: подпись и значение не наезжают */
+tr.k-pos-more .k-readonly-pairs { grid-template-columns: minmax(0, 1fr); gap: 0 0; } /* подпись над значением: узкие колонки не ломают текст */
+tr.k-pos-more .k-readonly-pairs dd + dt { margin-top: var(--s2); }
+tr.k-pos-more > td { background: var(--surface-2); padding: 0; border-bottom: 1px solid var(--border); cursor: default; }
+/* раскрытие позиции: колонки на всю ширину, без рамок и зазоров — только тонкие вертикальные разделители (владелец 15.11) */
+tr.k-pos-more .k-tilegrid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0; }
+tr.k-pos-more .k-tilegrid > * { border: 0; border-left: 1px solid var(--border); border-radius: 0; background: transparent; box-shadow: none; padding: var(--s3) var(--s4); }
+tr.k-pos-more .k-tilegrid > :first-child { border-left: 0; }
+tr.k-pos-more .k-readonly { border: 0; background: transparent; padding: 0; }
+.k-head-sub { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0 var(--s3); } /* подпись слева, вторая строка справа — на одной линии */
