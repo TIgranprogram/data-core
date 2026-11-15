@@ -752,7 +752,7 @@ table.list td.k-col-act .k-actions { justify-content: flex-end; flex-wrap: nowra
 .chips.k-tabs-fill { padding: 0; }
 .chips.k-tabs-fill .chip { flex: 1 1 0; min-width: max-content; }
 @media (min-width: 721px) and (pointer: fine) { .drawer .chips.k-tabs-fill .chip { height: var(--control-compact); } } /* вкладки карточки ниже на ПК; телефон — 44 px (владелец 15.11) */
-.drawer-body .chips.k-tabs-fill { position: sticky; top: 0; z-index: 2; background: var(--surface); } /* вкладки карточки прилипают при прокрутке (владелец 15.11) */
+.drawer > .chips.k-tabs-fill { flex: none; padding: 0 var(--s4); border-bottom: 1px solid var(--border); background: var(--surface); } /* вкладки карточки под шапкой, вне прокрутки (владелец 15.11) */
 .chip[data-tone] { border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
 .chip[data-tone="ok"] { background: var(--ok-soft); color: var(--ok); }
 .chip[data-tone="warn"] { background: var(--warn-soft); color: var(--warn); }
@@ -868,3 +868,8 @@ table.cal.k-tree tr.k-tree-ins > td { padding: 0; white-space: normal; text-alig
 .k-head-meta > :first-child { grid-column: 2; white-space: nowrap; } /* этап — по центру, срок — справа, не наезжают (владелец 15.11) */
 .k-head-meta > :last-child { grid-column: 3; justify-self: end; white-space: nowrap; text-align: right; }
 @media (max-width: 720px) { .k-head-meta { grid-template-columns: auto 1fr; padding-left: 0; } .k-head-meta > :first-child { grid-column: 1; } .k-head-meta > :last-child { grid-column: 2; } }
+.k-pos-group .k-row { justify-content: center; text-align: center; } /* заголовок договора в таблице позиций — одной строкой по центру */
+/* под вкладками — небольшой зазор, без пустых блоков (владелец 15.11) */
+.drawer > .chips.k-tabs-fill + .drawer-body { padding-top: var(--s2); }
+.drawer > .chips.k-tabs-fill + .drawer-body > :empty, .drawer > .chips.k-tabs-fill + .drawer-body .k-stack:empty { display: none; }
+.drawer > .chips.k-tabs-fill + .drawer-body .k-pane { padding-top: 0; }

@@ -72,7 +72,7 @@ export function positionsTable({ columns = [], groups = [], empty, label } = {})
   const n = columns.length;
   const wide = (node, cls) => h('tr', { class: cls || null }, h('td', { colspan: n }, node));
   const rows = groups.flatMap((g) => [
-    g.head ? wide(g.head) : null,
+    g.head ? wide(g.head, 'k-pos-group') : null, // заголовок группы (договор) — по центру таблицы (владелец 15.11)
     ...(g.rows || []).map((r) => (r instanceof Node ? r : { cells: r.cells, onClick: r.onOpen })),
     g.foot ? wide(g.foot) : null,
   ]).filter(Boolean);

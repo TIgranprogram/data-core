@@ -140,7 +140,16 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
     const tabDefs = section.card.tabs ? (section.card.tabs(row, actx()) || []).filter((t) => !t.when || t.when(row)) : [];
     const hasTabs = tabDefs.length > 0;
     openTab = null;
-    if (hasTabs) put(buildCardTabs({ tabDefs, section, row, actx, setPref, getPref, onOpenTab: (fn) => { openTab = fn; } }), 'main');
+    drawer.querySelector(':scope > [role=tablist]')?.remove(); // прежняя полоса вкладок (перезагрузка записи)
+    if (hasTabs) {
+      const tb = buildCardTabs({ tabDefs, section, row, actx, setPref, getPref, onOpenTab: (fn) => { openTab = fn; } });
+      put(tb, 'main');
+      // вкладки — вплотную под шапкой, вне прокрутки: не уезжают и не дрожат (владелец 15.11)
+      // только если над вкладками в карточке ничего нет (заказ): иначе «Что дальше» изделия уехало бы под вкладки
+      const bar = tb.querySelector('[role=tablist]');
+      const nothingAbove = () => [...body.children].every((c) => c.contains(tb) || !c.textContent.trim());
+      if (bar && !solo) setTimeout(() => { if (bar.isConnected && nothingAbove()) body.before(bar); }, 0);
+    }
     // noHistory — у записи нет своей истории (пункт текста паспорта: история — у версии шаблона)
     const histUl = section.card.noHistory ? null : h('ul', { class: 'timeline' }, busyBlock('историю', { tag: 'li', cls: 'muted' }));
     const histWrap = histUl ? h('details', { class: 'db-blk', hidden: true }, h('summary', null, 'История изменений'), histUl) : null; // история — внизу, всегда свёрнута (ПМ-1)
