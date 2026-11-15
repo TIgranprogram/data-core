@@ -338,7 +338,7 @@ export function mountMoney(params) {
     try {
       const m = month();
       const end = `${m}-${String(lastDay(m)).padStart(2, '0')}`;
-      if (settings === null) settings = await api('/finance/settings').catch((e) => { if (e.status === 403) throw new Error('Нет доступа к разделу «Деньги»'); return {}; });
+      if (settings === null) settings = await api('/finance/settings').catch(() => ({})); // «Старт учёта» читают только админ и бухгалтер; менеджеру — без него, раздел открыт (2026-11-15)
       const q = { from: `${m}-01`, to: end < todayIso() ? end : todayIso(), org: org() };
       let content;
       // старая вкладка «Требуют заполнения» — теперь своя страница по категориям (#fill)
