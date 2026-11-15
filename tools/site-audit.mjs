@@ -58,6 +58,7 @@ export const RULES = {
   tx: 'C114 I: длинная подсказка (больше 20 слов — предупреждение, больше 35 — ошибка) или стопка заметок подряд (больше 3); известные строки — tools/site-audit-tx-known.json',
   col: 'C118: текст столбиком — видимый текст длиннее 3 знаков в блоке уже 30 px (узкая колонка, стенд 15.11 «Сечение»)',
   act: 'Р3б: предупреждение (.hint.warn/.danger, .form-error, .k-hint-warn) без кнопки или ссылки в том же контейнере; известные — tools/site-audit-act-known.json',
+  cd: 'C119 шаг 4: эталон правой панели (DESIGN §3.1) — в строках таблицы карточки есть кнопка или «⋯»; блок «Что дальше» без кнопки',
   ax: 'axe: нарушение доступности (автоматическая проверка)',
   axcheck: 'axe: проверка доступности не выполнена',
 };
@@ -238,6 +239,25 @@ export function hoverRuleFindings(rules = []) {
       if (r.transform && r.transform !== 'none' && !/translateY\(-2px\)/.test(r.transform)) out.push({ sel: r.sel, text: 'подъём при наведении не -2px: ' + r.transform });
       if (r.shadow && r.shadow !== 'var(--shadow)') out.push({ sel: r.sel, text: 'тень при наведении ' + r.shadow + ', нужна var(--shadow)' });
     } else if (lift) out.push({ sel: r.sel, text: 'подъём при наведении есть не у k-hover: ' + r.transform });
+  }
+  return out;
+}
+
+/** C119 шаг 4: эталон правой панели. items = [{ kind: 'rowBtn'|'nextEmpty', panel, text }]. */
+export function cardStandardFindings(items = []) {
+  return items.map((it) => it.kind === 'rowBtn'
+    ? { rule: 'cd', sel: '.drawer [data-k=positionsTable] tr', text: `панель «${it.panel}»: кнопка «${it.text}» в строке таблицы — править только в «⋯» шапки` }
+    : { rule: 'cd', sel: '.drawer [data-k=nextCard]', text: `панель «${it.panel}»: «Что дальше» без кнопки — такой блок не показывают` });
+}
+
+export function cardStandardSnapshot(doc = document) {
+  const out = [];
+  for (const d of doc.querySelectorAll('.drawer')) {
+    const panel = (d.querySelector('h1,h2,h3,.k-title,.drawer-title')?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 50) || '—';
+    for (const b of d.querySelectorAll('[data-k=positionsTable] tbody tr:not(.k-pos-more) button, [data-k=positionsTable] tbody tr:not(.k-pos-more) .btn'))
+      if (b.getClientRects().length) out.push({ kind: 'rowBtn', panel, text: (b.textContent || b.getAttribute('aria-label') || '⋯').trim().slice(0, 30) });
+    for (const n of d.querySelectorAll('[data-k=nextCard]'))
+      if (n.getClientRects().length && !n.querySelector('button,a[href],[role=button]')) out.push({ kind: 'nextEmpty', panel, text: '' });
   }
   return out;
 }
@@ -441,6 +461,7 @@ for(const el of document.querySelectorAll('main :is(article,.tcard,.tile,.db-ord
   if(!el.closest('[data-k]'))add('q',sel(el),(el.innerText||'').trim().slice(0,40)||'карточка без текста');
   else if(getComputedStyle(el).cursor==='pointer'&&!el.classList.contains('k-hover'))add('r',sel(el),(el.innerText||'').trim().slice(0,40)||'карточка без текста')}
 for(const f of (${panelStructureFindings.toString()}) ((${panelStructureSnapshot.toString()})()))add(f.rule,f.sel,f.text);
+for(const f of (${cardStandardFindings.toString()}) ((${cardStandardSnapshot.toString()})()))add(f.rule,f.sel,f.text);
 for(const f of (${gapFindings.toString()}) ((${gapSnapshot.toString()})()))add(f.rule,f.sel,f.text);
 for(const f of (${formControlFindings.toString()}) ((${formControlSnapshot.toString()})()))add(f.rule,f.sel,f.text);
 for(const f of (${fieldHeightFindings.toString()}) ((${fieldHeightSnapshot.toString()})()))add(f.rule,f.sel,f.text);
