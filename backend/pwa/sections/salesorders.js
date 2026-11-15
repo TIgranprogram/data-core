@@ -434,7 +434,7 @@ const orderCard = screenCard({
     ['Приоритет', r.priority && r.priority !== 'normal' ? prio(r) : ''],
   ],
   more: (r) => [
-    ['Договоры', (r.orderNos || []).length ? `${qty(r.orderNos.length)} · № ${names(r.orderNos)}` : ''],
+    ['Договоры заказчика', (r.orderNos || []).length ? `${qty(r.orderNos.length)} · № ${names(r.orderNos)}` : ''],
     ['Позиции', qty(r.lineCount)],
     ['Срок изготовления, дн.', (Number(r.leadDays) || Math.max(0, ...(r.orders || []).map((o) => Number(o.leadDays) || 0))) || ''],
   ],
@@ -497,7 +497,7 @@ export const salesorders = {
     rowAction: (r) => (NEXT[r.stage] ? { label: NEXT_LABEL[r.stage], title: NEXT_TIP[r.stage], run: (row) => setStage(row, NEXT[row.stage]) } : null),
     columns: [
       { key: 'productionNo', label: '№ заказа', sort: 'productionNo', cls: 'nowrap', render: (r) => (r.productionNo ? h('b', null, r.productionNo) : h('span', { class: 'muted' }, 'нет №')) },
-      { key: 'orderNos', label: 'Договоры', cls: 'clip md-hide', render: (r) => h('span', { class: 'muted small', title: names(r.orderNos) }, names(r.orderNos) || '—') },
+      { key: 'orderNos', label: 'Договоры заказчика', cls: 'clip md-hide', render: (r) => h('span', { class: 'muted small', title: names(r.orderNos) }, names(r.orderNos) || '—') },
       { key: 'customer', label: 'Заказчик', sort: 'customer', cls: 'clip', render: (r) => h('span', { title: names(r.customers) }, names(r.customers)) },
       { key: 'companyName', label: 'Наша компания', cls: 'md-hide', render: (r) => names(r.companyNames) || h('span', { class: 'muted' }, '—') },
       { key: 'lineCount', label: 'Поз.', cls: 'num right', render: (r) => h('span', null, qty(r.lineCount), countOf(r) ? h('span', null, ' ', countBadge(countOf(r))) : null) },

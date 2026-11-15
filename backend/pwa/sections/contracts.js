@@ -123,7 +123,7 @@ export async function setInvoiceContract(invoiceId, contractId) {
 export function contractsBlock(r) {
   const list = h('div', { class: 'ctr-list' }, h('div', { class: 'muted' }, 'Загружаю договоры…'));
   const add = canContract() ? button({ label: '+ Договор', size: 'S', onClick: () => patch({ of: 'contract', new: '1', open: undefined, supplierId: r.id }) }) : null;
-  const sec = section({ title: 'Договоры', tone: 'money', count: '…', open: true, body: [list, add ? actions(add) : null] });
+  const sec = section({ title: 'Договоры поставщиков', tone: 'money', count: '…', open: true, body: [list, add ? actions(add) : null] });
   const box = stack(sec);
   const setN = (n) => { const b = sec.querySelector('.k-sec-n'); if (b) b.textContent = String(n); };
   let seq = 0;
@@ -214,7 +214,7 @@ const isOverdue = (c) => c.status !== 'closed' && c.validTo && String(c.validTo)
 export const contracts = {
   ...contract,
   id: 'contracts',
-  title: 'Договоры',
+  title: 'Договоры поставщиков',
   list: {
     path: '/supply/contracts',
     sortDefault: '-date', // без него список падал при отрисовке шапки (ошибка с сайта 2026-10-29)

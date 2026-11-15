@@ -63,7 +63,7 @@ export const NODES = [
     rules: ['Задачи проектирования создаются сами, только когда распределены все позиции заказа.', 'Позиция связывает изделие, количество, срок и работу.', 'Изменение заказа не переписывает выпущенный паспорт.', '«В производство» недоступно, пока есть нераспределённые позиции.'],
     docs: ['docs/PRODUCT.md — «Заказы»', 'docs/MAP.md — salesorders, shipments, incomes'], tech: 'salesorders, incomes, shipments',
     code: ['backend/src/modules/salesorders', 'backend/src/modules/incomes', 'backend/src/modules/shipments', 'backend/pwa/sections/salesorders.js', 'backend/pwa/sections/order-lines.js', 'backend/pwa/sections/order-shipments.js'] },
-  { id: 'contracts', tpl: 'list', tplStatus: 'legacy', band: 'supply', col: 1, sec: 'contracts', t: 'Договоры', l: ['с поставщиками:', 'номер, срок, файлы'],
+  { id: 'contracts', tpl: 'list', tplStatus: 'legacy', band: 'supply', col: 1, sec: 'contracts', t: 'Договоры поставщиков', l: ['с поставщиками:', 'номер, срок, файлы'],
     inside: [
       { id: 'dogovor-postavki', t: 'Договор поставки', l: 'поставщик, номер, дата; выбирается в счёте', out: ['requests'] },
       { id: 'srok-i-status', t: 'Срок и статус', l: 'действует до; закрытые не предлагаются' },
