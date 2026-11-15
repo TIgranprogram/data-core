@@ -602,7 +602,7 @@ table.list .k-nowrap { white-space: nowrap; }
 /* miniChart */
 .k-chart { display: block; width: 100%; }
 .k-bar { display: flex; height: 6px; border-radius: var(--radius-sm); overflow: hidden; background: var(--surface-2); }
-.k-bar-part { background: var(--tone, var(--muted)); min-width: 2px; }
+.k-bar-part { flex-grow: var(--grow, 1); background: var(--tone, var(--muted)); min-width: 2px; } /* доля из данных — переменной, не inline flex-grow (обход 15.11, правило j) */
 .k-spark { height: 24px; }
 .k-spark-axis { stroke: var(--border); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .k-spark-line { stroke: var(--primary); stroke-width: 2; vector-effect: non-scaling-stroke; }

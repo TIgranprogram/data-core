@@ -58,7 +58,7 @@ export function miniChart({ type = 'bar', parts = [], points = [], label, groups
   }
   const total = parts.reduce((s, p) => s + (Number(p.value) || 0), 0);
   return mark(h('div', { class: 'k-chart k-bar', 'aria-hidden': 'true' },
-    ...parts.filter((p) => Number(p.value) > 0).map((p) => { const part = h('span', { class: 'k-bar-part tone-' + (p.tone || 'dim') }); part.style.flexGrow = String(Number(p.value) / total); return part; })), 'miniChart');
+    ...parts.filter((p) => Number(p.value) > 0).map((p) => { const part = h('span', { class: 'k-bar-part tone-' + (p.tone || 'dim') }); part.style.setProperty('--grow', String(Number(p.value) / total)); return part; })), 'miniChart');
 }
 
 /** Столбики по периодам: monthBars → .k-mbars. groups: [{ label, values:[{ value, tone }] }], legend: [{ label, tone }]; пусто (все 0) — подсказка empty.

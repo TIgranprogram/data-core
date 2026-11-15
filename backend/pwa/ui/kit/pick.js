@@ -137,6 +137,9 @@ export function enhanceSelect(sel, { force = false } = {}, tries = 0) {
   const wrap = mark(h('span', { class: 'sel-wrap' }, input), 'pick');
   sel.insertAdjacentElement('afterend', wrap);
   sel.hidden = true;
+  // подпись поля — к видимому полю: у скрытого <select> она «пропадает» для чтения с экрана (обход 15.11, правило fl)
+  const lab = sel.labels?.[0];
+  if (lab) { input.id = (sel.id || 'sel' + Math.random().toString(36).slice(2, 8)) + '-in'; lab.htmlFor = input.id; if (!input.getAttribute('aria-label')) input.removeAttribute('aria-label'); }
   const label = () => { const o = sel.selectedOptions[0]; return o && o.value !== '' ? o.textContent : ''; };
   const sync = () => { input.value = label(); input.title = input.value; };
   const opts = () => [...sel.options].map((o) => ({ value: o.value, label: o.value === '' ? (o.textContent || '—') : o.textContent, group: o.parentElement?.tagName === 'OPTGROUP' ? o.parentElement.label : undefined }));
