@@ -4,7 +4,7 @@
  *   шапка (сущность, подпись, этап один раз; «⋯» — всё второстепенное)
  *   → warnCard × N (предупреждения, с кнопкой)  → nextCard («Что дальше» + одна главная кнопка)
  *   → infoCard (сведения ≤ 6 строк + «Подробнее»)  → вкладки по смыслу объекта.
- * cfg: { title(r), sub?(r), stage?(r), warns?(r, ctx) → [{ title, sub?, label?, run? } | узел], next?(r, ctx) → { text, tone?, primary? },
+ * cfg: { title(r), sub?(r), stage?(r), side?(r) — справа в шапке (срок), warns?(r, ctx) → [{ title, sub?, label?, run? } | узел], next?(r, ctx) → { text, tone?, primary? },
  *        facts(r) → пары, more?(r) → пары, menu?(r, ctx) → [{ label, title?, run, danger? }] (все уходят в «⋯»),
  *        tabs?(r, ctx) → [{ key, label, count?, tone?, when?, blocks }], before?(r, ctx), noHistory?, parent? }
  */
@@ -21,12 +21,14 @@ export function screenCard(cfg) {
     actionsInHead: true,
     heading: cfg.title,
     subheading: cfg.sub,
-    headStats: cfg.stage ? (r) => h('span', null, cfg.stage(r)) : undefined,
+    // side — справа в шапке (срок): тогда этап встаёт по центру, шапка одним блоком (заказ, 15.11)
+    headStats: cfg.side ? (r) => h('div', { class: 'k-head-meta' }, cfg.stage ? cfg.stage(r) : h('span'), cfg.side(r) || h('span'))
+      : cfg.stage ? (r) => h('span', null, cfg.stage(r)) : undefined,
     top: (r, ctx) => {
       cfg.before?.(r, ctx);
       const nx = cfg.next?.(r, ctx);
       return stack(...warnEls(r, ctx), nx ? nextCard({ text: nx.text, tone: nx.tone, primary: nx.primary }) : null,
-        infoCard({ facts: cfg.facts(r), more: cfg.more?.(r) || [] }));
+        cfg.facts(r).length || cfg.more?.(r)?.length ? infoCard({ facts: cfg.facts(r), more: cfg.more?.(r) || [] }) : null); // сведений нет — блока нет
     },
     view: () => [],
     actions: (r, ctx) => (cfg.menu?.(r, ctx) || []).filter(Boolean).map((a) => ({ ...a, more: true, primary: false })),
