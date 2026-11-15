@@ -255,7 +255,8 @@ export function cardStandardSnapshot(doc = document) {
   for (const d of doc.querySelectorAll('.drawer')) {
     const panel = (d.querySelector('h1,h2,h3,.k-title,.drawer-title')?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 50) || '—';
     for (const b of d.querySelectorAll('[data-k=positionsTable] tbody tr:not(.k-pos-more) button, [data-k=positionsTable] tbody tr:not(.k-pos-more) .btn'))
-      if (b.getClientRects().length) out.push({ kind: 'rowBtn', panel, text: (b.textContent || b.getAttribute('aria-label') || '⋯').trim().slice(0, 30) });
+      // просмотр (фото крупно) — не правка: эталон запрещает в строке только то, что меняет объект
+      if (b.getClientRects().length && !/^Открыть фото/.test(b.getAttribute('aria-label') || b.title || '')) out.push({ kind: 'rowBtn', panel, text: (b.textContent || b.getAttribute('aria-label') || '⋯').trim().slice(0, 30) });
     for (const n of d.querySelectorAll('[data-k=nextCard]'))
       if (n.getClientRects().length && !n.querySelector('button,a[href],[role=button]')) out.push({ kind: 'nextEmpty', panel, text: '' });
   }
