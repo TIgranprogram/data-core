@@ -2,7 +2,7 @@ import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { money } from '../core/format.js';
 import { go, patch } from '../core/router.js';
-import { button, empty, link, segmented, select, enhanceSelect, failBlock, stats, toolbar, treeTable } from '../ui/kit/index.js';
+import { actions, button, empty, link, segmented, select, enhanceSelect, failBlock, stats, toolbar, treeTable } from '../ui/kit/index.js';
 import { orderChoices } from './expenses.js';
 
 /**
@@ -55,8 +55,9 @@ export function articlesView({ year, org, mode, order, opRow, noIncomeText }) {
     }
     kids.push(segmented({ cls: 'seg', label: 'Период таблицы', items: [{ key: 'months', label: 'Месяцы' }, { key: 'quarters', label: 'Кварталы' }], value: quarters ? 'quarters' : 'months',
       onChange: (k) => { quarters = k === 'quarters'; store.set(PERIOD_KEY, k); if (data) paint(); } }).el,
-    button({ label: 'Раскрыть всё', kind: 'ghost', size: 'S', onClick: () => tt?.expandAll() }),
-    button({ label: 'Свернуть всё', kind: 'ghost', size: 'S', onClick: () => tt?.collapseAll() }));
+    actions( // пара кнопок вместе: на телефоне не разъезжается по двум строкам (дизайнер 15.11)
+      button({ label: 'Раскрыть всё', kind: 'ghost', size: 'S', onClick: () => tt?.expandAll() }),
+      button({ label: 'Свернуть всё', kind: 'ghost', size: 'S', onClick: () => tt?.collapseAll() })));
     bar.replaceChildren(...kids);
   };
 
