@@ -49,7 +49,10 @@ function documentsCard(l, d) {
       body.replaceChildren(stack(actions(
         button({ label: numberOf(p) ? `Паспорт № ${numberOf(p)}` : 'Паспорт — черновик', size: 'S', kind: 'ghost', onClick: () => go('docs', { tab: 'orders', of: 'passports', open: p.id }, { kind: 'card' }) }),
         badge(issued ? 'выпущен' : 'черновик', issued ? 'ok' : 'warn')),
-      issued ? button({ label: 'Скачать PDF', size: 'S', kind: 'ghost', onClick: (e) => { const b = e.currentTarget; b.classList.add('is-busy'); printDialog(p).catch(toastError).finally(() => b.classList.remove('is-busy')); } }) : null));
+      actions(
+        // правка паспорта ЭТОГО заказа (фирма, заказчик, данные позиции) — сразу редактор, не шаблон изделия (владелец 15.11)
+        button({ label: 'Изменить паспорт', size: 'S', title: 'Открыть паспорт этой позиции в редакторе: фирма, тексты, картинки', onClick: () => go('docs', { tab: 'orders', of: 'passports', open: p.id, fill: 'edit' }, { kind: 'card' }) }),
+        issued ? button({ label: 'Скачать PDF', size: 'S', kind: 'ghost', onClick: (e) => { const b = e.currentTarget; b.classList.add('is-busy'); printDialog(p).catch(toastError).finally(() => b.classList.remove('is-busy')); } }) : null)));
     } catch (e) { body.replaceChildren(failBlock(e, load, { text: 'Документы не загрузились' })); }
   };
   load();
