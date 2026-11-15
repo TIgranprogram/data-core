@@ -161,7 +161,7 @@ function card(c) {
     b2.title = pc.hint || pc.title;
     b2.disabled = pc.blocked.length > 0;
     b2.onclick = () => press(pc);
-    box.append(el('div', 'pair', b, b2));
+    const pair = el('div', 'pair'); pair.append(b, b2); box.append(pair); // el() принимает текст, не узлы
   } else box.append(b);
   return box;
 }
