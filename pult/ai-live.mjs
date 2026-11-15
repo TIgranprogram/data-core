@@ -7,7 +7,7 @@ import { execFile, spawnSync } from 'child_process';
 
 const LMS = path.join(os.homedir(), '.lmstudio', 'bin', process.platform === 'win32' ? 'lms.exe' : 'lms');
 const run = (cmd, args, ms = 8000) => new Promise((ok) => execFile(cmd, args, { windowsHide: true, timeout: ms, encoding: 'utf8' }, (e, out) => ok(e ? '' : String(out || ''))));
-const alive = (pid) => { try { process.kill(Number(pid), 0); return true; } catch { return false; } };
+const alive = (pid) => { try { process.kill(Number(pid), 0); return true; } catch (e) { return e?.code === 'EPERM'; } }; // EPERM — процесс есть, просто чужие права (15.11: тестировщик работал, а пульт писал «нет»)
 const readJson = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return null; } };
 
 /** Тестовые браузеры (без окна, с отладочным портом): ИИ-тестировщик, обходы, сценарии. Свой Edge/Chrome владельца не трогаем. */
