@@ -246,7 +246,7 @@
 | Плитки | `.tiles` > `.tile` | быстрый фильтр (категории склада) |
 | Сводка | `.summary` > `.sum-item` (`.attn` — золотая точка; `.sum-d` — строка сравнения «в 2025: … · +N%») | строка цифр «Сегодня», итоги «Денег» |
 | Очередь | `.queue`, `.q-head`, `.q-n`, `.q-hint`, `.q-row`, `.q-more` | очереди дел |
-| Таблица | `table.list`, `th.sortable`, `td.clip`, `.md-hide`, `tr.group-row`, `tr.period-row` | списки |
+| Таблица | `table.list`, `th.sortable`, `td.clip`, `.md-hide` (≤1280), `.k-phone-hide` (≤600, колонка `phoneHide: true`), `tr.group-row`, `tr.period-row` | списки |
 | Пагинация | `.pager` | 25/50/100 |
 | Штуками / по весу | `.wc` (`ui/weight-count.js`): сегмент «Штуками / По весу» (`.fseg`), шаги `.wc-step` (1. вес 1 шт. — из карточки или образец; 2. партии + тара), итог `.wc-result` крупно «≈ 746 шт» + формула, предупреждение `.wc-warn` | новая позиция, приход, пересчёт, ⚖ в «Операциях» |
 | Выгрузка | «⇩ Excel» — `.btn-ghost` в `.page-head` любого списка (`ui/list.js`, `L.export === false` — убрать) | весь список с фильтрами в .xlsx |
