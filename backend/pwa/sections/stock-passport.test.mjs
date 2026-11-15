@@ -14,7 +14,7 @@ async function fixture({ fail = false, history = [] } = {}) {
   let current = { ...original };
   const context = vm.createContext({});
   const common = {
-    h, stack: (...children) => h('div', null, ...children), section: ({ body }) => h('details', null, body), row: (options) => { rendered.push(options); return h('div'); }, targetNote: () => target, session: {}, lookups: { reset() {} },
+    h, stack: (...children) => h('div', null, ...children), section: ({ body }) => h('details', null, body), row: (options) => { rendered.push(options); return h('div'); }, targetNote: () => target, screenCard: (cfg) => cfg, session: {}, lookups: { reset() {} },
     loadMaterialDicts: async () => ({ mats: [{ id: 'steel', name: 'Труба' }] }),
     normSize: (v) => v, splitSizes: (v) => String(v).split(';'),
     errText: (e) => e.message,
@@ -84,8 +84,8 @@ test('stock.update отвергает частичное сохранение и
 
 test('история склада передаёт назначение DOM-узлом и сохраняет примечание', async () => {
   const f = await fixture({ history: [{ type: 'out', qty: 2, date: '2026-11-12', note: 'Для сборки' }] });
-  const mod = await f.load('sections/stock.js'); await mod.evaluate();
-  mod.namespace.stock.card.extra({ id: 'item' });
+  const mod = await f.load('sections/stock-card.js'); await mod.evaluate();
+  mod.namespace.stockCard.body({ id: 'item' });
   await new Promise((resolve) => setImmediate(resolve));
   const movement = f.rendered.find((r) => r.title === 'Списание');
   assert.ok(movement);
