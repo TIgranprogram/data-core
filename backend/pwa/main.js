@@ -6,6 +6,7 @@ import { isDragging } from './ui/kit/drag.js';
 import { api, canEditSection, events, login, PREFIX, quietLoadFor, session, trackLoad } from './core/api.js';
 import { getViewAs, setViewAs, syncViewAsRoles, viewAsActive } from './core/view-as.js';
 import { $, h } from './core/dom.js';
+import { mark } from './ui/kit/mark.js';
 import { closeStep, current, go, onChange, onNav, patch, setGuard } from './core/router.js';
 import { confirmDlg, modal } from './ui/kit/dialog.js';
 import { searchBox } from './ui/kit/searchbox.js';
@@ -535,15 +536,16 @@ function syncCard(section, params) {
   const sec = SECTIONS[ofName];
   const invTab = section === 'requests' && params.tab === 'invoices' && !params.of; // open= там — id счёта, не карточка заявки
   const want = sec && !invTab && (params.new ? 'new' : params.open ? 'open:' + params.open : null);
-  if (!want) { closeCard(); return; }
+  if (!want) { closeCard(); trail = []; return; }
   const key = cardKey(ofName, want, params);
-  if (card?.key === key) return;
+  if (card?.key === key) { card.hash = location.hash; return; }
   // Та же панель, другая запись (стрелки, клик по соседней строке) — меняем содержимое, без закрытия
   if (card && card.of === ofName && !params.fill && want.startsWith('open:') && card.key.includes('open:') && !card.key.includes('~') && !card.handle.editing) {
     card.key = key;
     card.handle.load(params.open);
     return;
   }
+  trailStep(key);
   closeCard();
   const clear = { open: undefined, new: undefined, of: undefined, fill: undefined, title: undefined, unit: undefined, categoryName: undefined, op: undefined, materialId: undefined, rid: undefined, orderId: undefined, productionNo: undefined, lid: undefined, dstatus: undefined, lineId: undefined, article: undefined, supplierName: undefined, supplierId: undefined, priceHint: undefined, productUrl: undefined };
   const ctx = {
@@ -566,6 +568,42 @@ function syncCard(section, params) {
     if (sec.id && !params.fill && popoutWanted(sec.id) && popout(sec.id, { remember: false })) { ctx.close(); return; }
     card = { key, of: ofName, handle: openCard(sec, { id: params.open, fill: params.fill }, ctx) };
   }
+  card.hash = location.hash;
+  card.el = [...document.querySelectorAll('aside.drawer')].at(-1); // своя панель карточки, не вложенная
+  drawTrail();
+}
+
+/**
+ * След панелей (C120, проба 2026-11-15): из заказа открыли позицию — заказ не теряется.
+ * Храним только адрес и заголовок прежних панелей (до 5), не живые панели: при возврате панель грузится заново.
+ * Возврат — корешки-строки над шапкой панели (решение владельца 15.11: сверху, первая — откуда начали).
+ */
+let trail = [];
+function trailStep(key) {
+  const at = trail.findIndex((t) => t.key === key);
+  if (at >= 0) { trail = trail.slice(0, at); return; } // вернулись к одной из прежних — верхние убираем
+  if (!card) return;
+  const title = card.el?.querySelector('.drawer-head h2')?.textContent.trim() || 'Назад';
+  // тот же объект, открытый по другому адресу (список — № 11-26, контрагент — внутренний id): тот же раздел и заголовок
+  const same = trail.findIndex((t) => t.key === card.key || (t.of === card.of && t.title === title));
+  if (same >= 0) trail = trail.slice(0, same);
+  trail = [...trail, { key: card.key, of: card.of, hash: card.hash, title }].slice(-5);
+}
+function drawTrail() {
+  const d = card?.el;
+  if (!d?.isConnected) return;
+  d.querySelector('.drawer-stack')?.remove();
+  // заголовок грузится позже: пришли к уже открытому объекту другим путём — верхние корешки убираем (дубли, 15.11)
+  const h2 = d.querySelector('.drawer-head h2');
+  const cur = h2?.textContent.trim();
+  const same = cur ? trail.findIndex((t) => t.of === card.of && t.title === cur) : -1;
+  if (same >= 0) trail = trail.slice(0, same);
+  if (h2 && !h2.dataset.trailWatch) { h2.dataset.trailWatch = '1'; new MutationObserver(() => { if (d.isConnected && card?.el === d) drawTrail(); }).observe(h2, { childList: true, characterData: true, subtree: true }); }
+  d.querySelector('.drawer-up')?.classList.toggle('trail-on', trail.length > 0); // свой «← Заказ …» раздела не дублирует след
+  if (!trail.length) return;
+  // корешки сверху: первая панель, с которой начали, — верхняя строка; клик — вернуться туда
+  d.querySelector('.drawer-head')?.before(mark(h('nav', { class: 'drawer-stack', 'aria-label': 'Откуда пришли' },
+    ...trail.map((t) => h('button', { type: 'button', class: 'drawer-spine', title: 'Вернуться: ' + t.title, 'aria-label': 'Вернуться: ' + t.title, onclick: () => { location.hash = t.hash; } }, h('span', { 'aria-hidden': 'true' }, '‹'), h('b', null, t.title)))), 'trail'));
 }
 
 async function showApp() {

@@ -846,3 +846,13 @@ table.cal.k-tree tr.k-tree-ins > td { padding: 0; white-space: normal; text-alig
 /* Карты помощи: читаемый текстовый дубль остаётся на узких экранах. */
 .k-guide-diagram { width: 100%; }
 @media (max-width: 1200px) { .k-guide-diagram { display: none; } }
+
+/* След панелей (C120): корешки-строки над шапкой панели, первая — откуда начали; клик — вернуться */
+.drawer-head .drawer-up.trail-on { display: none; }
+.drawer-stack { display: flex; flex-direction: column; flex: none; }
+.drawer-spine { display: flex; align-items: center; gap: var(--s2); width: 100%; min-height: 30px; padding: 0 var(--s4); border: 0; border-bottom: 1px solid var(--border);
+  background: var(--surface-2); color: var(--muted); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; }
+.drawer-spine b { font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drawer-spine:hover { background: var(--surface-3); color: var(--text); }
+.drawer-spine:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+@media (max-width: 720px) { .drawer-spine { min-height: 44px; } .drawer-spine:nth-last-child(n+4) { display: none; } } /* телефон: последние 3 */
