@@ -12,6 +12,8 @@ import { AuditAction } from '../../common/interceptors/audit.interceptor';
 import { contentDisposition, parseRange } from './attachment-paths';
 import { AttachmentUploadGuard } from './attachment-upload.guard';
 import { attachmentUploadOptions } from './attachment-upload.options';
+import { IncomeAttachmentUploadGuard } from './income-attachment-upload.guard';
+import { IncomeAttachmentsService } from './income-attachments.service';
 import { OrderAttachmentsService } from './order-attachments.service';
 import { ProductAttachmentsService, type UploadedAttachmentFile } from './productattachments.service';
 
@@ -132,5 +134,39 @@ export class OrderAttachmentsZipController {
   @Get('attachments.zip')
   async zip(@Param('id') id: string, @Query('types') types: string | undefined, @Query('t') t: string, @Res() res: Response) {
     await this.service.stream(id, types, t, res);
+  }
+}
+
+/** Файлы позиции заказа (C121): `/api/incomes/:id/attachments`. Загружают admin и manager, смотрят все, удаляет admin; скачивание — тикет изделия. */
+@ApiTags('Вложения изделия')
+@AppSection('orders', 'salesorders')
+@Controller('incomes/:id/attachments')
+export class IncomeAttachmentsController {
+  constructor(private readonly service: IncomeAttachmentsService) {}
+
+  /** `{items,total,page,limit}`: файлы изделия (`scope:'product'`) и этой позиции (`scope:'line'`); без `storedPath`. */
+  @Get()
+  @Roles('admin', 'director', 'manager', 'user')
+  list(@Param('id') id: string) {
+    return this.service.list(id);
+  }
+
+  /** Multipart: поле `file`, вид — `?typeId=`. Лимиты — как у вложений изделия. */
+  @Post()
+  @Roles('admin', 'manager')
+  @Throttle({ short: { ttl: 60_000, limit: 60 } })
+  @UseGuards(IncomeAttachmentUploadGuard)
+  @UseInterceptors(FileInterceptor('file', attachmentUploadOptions))
+  @AuditAction({ action: 'attachment.created', entityType: 'ProductAttachment', details: (d) => info(d) })
+  upload(@Param('id') id: string, @Query('typeId') typeId: string, @UploadedFile() file: UploadedAttachmentFile, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.save(file, id, typeId, user);
+  }
+
+  /** Только администратор; только файл этой позиции (файлы изделия остаются). */
+  @Delete(':aid')
+  @Roles('admin')
+  @AuditAction({ action: 'attachment.deleted', entityType: 'ProductAttachment', idParam: 'aid', details: (d) => info(d) })
+  remove(@Param('id') id: string, @Param('aid') aid: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.remove(id, aid, user);
   }
 }

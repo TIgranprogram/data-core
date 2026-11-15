@@ -44,7 +44,7 @@ export class OrderAttachmentsService {
     const [products, typeRows, atts] = await Promise.all([
       this.col('products').find({ _id: { $in: productIds } }, { projection: { sku: 1, name: 1 } }).toArray(),
       this.col('dict_values').find({ dict: TYPES_DICT }, { projection: { name: 1 } }).toArray(),
-      this.col('productattachments').find({ productId: { $in: productIds }, typeId: { $in: types.map((t) => new Types.ObjectId(t)) }, deletedAt: null }).sort({ uploadedAt: 1 }).toArray(),
+      this.col('productattachments').find({ productId: { $in: productIds }, typeId: { $in: types.map((t) => new Types.ObjectId(t)) }, incomeId: null, deletedAt: null }).sort({ uploadedAt: 1 }).toArray(),
     ]);
     const label = new Map(products.map((p) => [String(p._id), [p.sku, p.name].filter(Boolean).join(' — ')]));
     const typeName = new Map(typeRows.map((t) => [String(t._id), String(t.name ?? '')]));

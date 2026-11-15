@@ -1,4 +1,6 @@
 # Карта роли backend
+## C121 файлы позиции (2026-11-15, не закоммичено)
+- `productattachments/income-attachments.service.ts:25` productOf, `income-attachment-upload.guard.ts`, `productattachments.controller.ts` IncomeAttachmentsController (`incomes/:id/attachments`); `productattachments.service.ts` save(…incomeId)/list(…incomeId)/remove; spec `income-attachments.spec.ts`, e2e `income-attachments.e2e-spec.ts` (6 зелёных). Отчёт `docs/crew/C121-position-files/report-backend.md`. openapi не обновлён. коммит: —
 ## C114 K версии паспорта (2026-11-14, не закоммичено)
 - `product-passport/passport-revisions.ts:6` revisionRows, `:16` assertRevisionRemovable; `service.removeRevision`/`revisionList` (get → `revisionList`); маршрут `DELETE passports/:id/revisions/:revision` в controller; spec `passport-revisions.spec.ts`; экран `pwa/sections/passports/revisions.js`. коммит: —
 ## C114 D-S техописание сервер (2026-11-14, не закоммичено)

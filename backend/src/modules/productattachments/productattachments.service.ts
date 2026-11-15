@@ -97,13 +97,13 @@ export class ProductAttachmentsService implements OnModuleInit, OnModuleDestroy 
     return n;
   }
 
-  /** Файл уже на диске (multer): проверить содержимое и записать. Не прошёл — файл стирается, 400. */
-  async save(file: UploadedAttachmentFile | undefined, productId: string, typeId: string, user: AuthenticatedUser) {
+  /** Файл уже на диске (multer): проверить содержимое и записать. Не прошёл — файл стирается, 400. `incomeId` — файл позиции заказа (папка на диске — по позиции). */
+  async save(file: UploadedAttachmentFile | undefined, productId: string, typeId: string, user: AuthenticatedUser, incomeId?: string) {
     if (!file) throw new BadRequestException('Файл не получен (поле формы — «file»).');
     const typeName = await this.assertTarget(productId, typeId).catch(async (e) => { await fs.rm(file.path, { force: true }); throw e; });
     const ext = extOf(path.basename(file.path));
     const rel = path.relative(path.resolve(UPLOAD_DIR), path.resolve(file.path)).split(path.sep).join('/');
-    if (!rel.startsWith(`${ATTACHMENTS_DIR}/${productId.toLowerCase()}/${typeId.toLowerCase()}/`)) {
+    if (!rel.startsWith(`${ATTACHMENTS_DIR}/${(incomeId ?? productId).toLowerCase()}/${typeId.toLowerCase()}/`)) {
       await fs.rm(file.path, { force: true });
       throw new BadRequestException('Файл сохранён не туда. Загрузка отменена.');
     }
@@ -116,24 +116,27 @@ export class ProductAttachmentsService implements OnModuleInit, OnModuleDestroy 
       throw new BadRequestException(MSG_SIGNATURE);
     }
     const doc = await this.model.create({
-      productId: new Types.ObjectId(productId), typeId: new Types.ObjectId(typeId),
+      productId: new Types.ObjectId(productId), typeId: new Types.ObjectId(typeId), incomeId: incomeId ? new Types.ObjectId(incomeId) : null,
       originalName: file.originalname, storedPath: rel, size: file.size, mime: file.mimetype, ext,
       uploadedBy: user?.id, uploadedByName: user?.username, uploadedAt: new Date(), deletedAt: null,
     }).catch(async (e) => { await fs.rm(file.path, { force: true }); throw e; });
     return this.present(doc, typeName);
   }
 
-  async list(productId: string, includeDeleted = false) {
+  /** Файлы изделия; с `incomeId` — ещё и файлы этой позиции (чужих позиций нет). */
+  async list(productId: string, includeDeleted = false, incomeId?: string) {
     if (!isObjectIdStr(productId)) throw new NotFoundException('Изделие не найдено.');
     const q: Record<string, unknown> = { productId: new Types.ObjectId(productId) };
+    if (incomeId) q.$or = [{ incomeId: null }, { incomeId: new Types.ObjectId(incomeId) }]; else q.incomeId = null;
     if (includeDeleted) q.deletedAt = { $ne: null }; // «корзина» (admin)
     const [docs, types] = await Promise.all([this.model.find(q).sort({ uploadedAt: -1 }).exec(), this.typeNames()]);
     const items = docs.map((d) => this.present(d, types.get(String(d.typeId)) ?? ''));
     return { items, total: items.length, page: 1, limit: items.length };
   }
 
-  async remove(productId: string, id: string, user: AuthenticatedUser) {
+  async remove(productId: string, id: string, user: AuthenticatedUser, incomeId?: string) {
     const doc = await this.find(productId, id);
+    if (incomeId && String(doc.incomeId ?? '') !== incomeId) throw new NotFoundException('Вложение не найдено.');
     await this.model.updateOne({ _id: doc._id }, { $set: { deletedAt: new Date(), deletedBy: user?.id } });
     return this.present(doc, (await this.typeNames()).get(String(doc.typeId)) ?? '');
   }
@@ -179,6 +182,7 @@ export class ProductAttachmentsService implements OnModuleInit, OnModuleDestroy 
     return {
       id: String(d._id), productId: String(d.productId), typeId: String(d.typeId), typeName,
       originalName: d.originalName, size: d.size, ext: d.ext, mime: d.mime,
+      incomeId: d.incomeId ? String(d.incomeId) : null, scope: d.incomeId ? 'line' : 'product',
       uploadedAt: d.uploadedAt, uploadedByName: d.uploadedByName ?? null, deletedAt: d.deletedAt ?? null,
     };
   }

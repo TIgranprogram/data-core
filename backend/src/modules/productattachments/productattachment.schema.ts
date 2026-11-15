@@ -10,6 +10,8 @@ export type ProductAttachmentDocument = HydratedDocument<ProductAttachment>;
 @Schema({ collection: 'productattachments', timestamps: true })
 export class ProductAttachment {
   @Prop({ type: Types.ObjectId, required: true }) productId!: Types.ObjectId;
+  /** Файл одной позиции заказа (C121): `incomes._id`. Нет поля — файл изделия, общий для всех заказов. */
+  @Prop({ type: Types.ObjectId, default: null }) incomeId?: Types.ObjectId | null;
   /** Строка справочника «Виды вложений» (`dict_values`, dict=attachmentTypes). */
   @Prop({ type: Types.ObjectId, required: true }) typeId!: Types.ObjectId;
   @Prop({ type: String, required: true }) originalName!: string;
@@ -29,3 +31,4 @@ export class ProductAttachment {
 export const ProductAttachmentSchema = SchemaFactory.createForClass(ProductAttachment);
 ProductAttachmentSchema.index({ productId: 1, typeId: 1, deletedAt: 1 });
 ProductAttachmentSchema.index({ typeId: 1 });
+ProductAttachmentSchema.index({ incomeId: 1 }, { sparse: true });
