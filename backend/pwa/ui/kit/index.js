@@ -302,6 +302,7 @@ export { mountList } from './list.js';
 export { autoMore } from './auto-more.js';
 export { qtyInput } from './qty-input.js';
 export { folderTile } from './folder-tile.js';
+export { srcBox, srcLegend, srcPaint } from './src.js';
 export { targetPicker, targetNote, targetShort, orderLines, lineCode } from './target-picker.js';
 export { openCard } from './card.js';
 export { pick, enhanceSelect, isLong, attachCombo, tagPick, attachSuggest } from './pick.js';
