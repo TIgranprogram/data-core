@@ -4,6 +4,8 @@
 .db-order.k-toned { border-left-color: var(--tone, var(--muted)); }
 /* Подвал и бейджи карточки */
 .k-badges { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+/* Кнопки kit на телефоне: зона пальца и перенос длинной подписи (C132). */
+@media (pointer: coarse), (max-width: 720px) { .btn[data-k="button"], .modal-foot .btn { min-height: var(--tap); height: auto; max-width: 100%; white-space: normal; padding-top: var(--s2); padding-bottom: var(--s2); } }
 .k-actions { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
 /* Карточка-плитка S: заголовок в одну строку, мета под ним */
 .tile.k-s { min-width: 0; }

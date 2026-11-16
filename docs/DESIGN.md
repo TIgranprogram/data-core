@@ -158,7 +158,7 @@
 
 | Эталон | Когда использовать | Вызов |
 |--|--|--|
-| button | любое действие; одна `primary` на экран, `danger` только в карточке | `button({ label, kind: primary/secondary/ghost/danger, size: M/S, icon?, onClick, busy?, disabled?, title? })` |
+| button | на телефоне и coarse-устройствах минимум `--tap` (44 px), длинная подпись переносится; любое действие; одна `primary` на экран, `danger` только в карточке | `button({ label, kind: primary/secondary/ghost/danger, size: M/S, icon?, onClick, busy?, disabled?, title? })` |
 
 Текстовые кнопки `ghost` используют цвет действия `--link` во всех темах, включая компактные кнопки на телефоне. Кнопки с одной иконкой используют цвет своего окружения.
 | iconButton | действие значком (✕, ⋯); подпись (aria) обязательна | `iconButton({ icon, label, onClick, size?, menu?, title? })` |

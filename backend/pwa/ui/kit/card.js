@@ -39,6 +39,7 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
   let saving = false;
   let building = false;
   let disposed = false;
+  const inlineEdits = new WeakMap(); // счётчик редакторов для конкретной кнопки текущего просмотра
   let openTab = null; // T9 (C052): card.tabs — переключение вкладок панели (ctx.openTab)
   const titleEl = h('h2');
   // тип записи над заголовком: в панели открываются и изделие, и задача, и заказ — по названию их не различить
@@ -230,6 +231,12 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
 
   function actx() {
     return {
+      beginInlineEdit: () => {
+        const editButton = foot.querySelector('.btn-primary'); if (!editButton) return () => {};
+        inlineEdits.set(editButton, (inlineEdits.get(editButton) || 0) + 1); editButton.hidden = true;
+        let released = false;
+        return () => { if (released) return; released = true; const rest = (inlineEdits.get(editButton) || 1) - 1; inlineEdits.set(editButton, rest); if (!rest) editButton.hidden = false; };
+      },
       edit: async (draft) => { if (await canLeave()) return showForm('edit', draft); },
       reload: async () => { if (await canLeave()) return showView(); },
       setRow: (r) => { if (!disposed) { const shown = showView(r); ctx.changed(); return shown; } }, changed: ctx.changed, close: tryClose,
