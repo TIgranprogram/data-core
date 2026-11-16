@@ -185,6 +185,9 @@ describe('SwitchService и режим «только чтение»', () => {
     await sw.report({ id: job.id, step: 'finish', state: 'done', role: 'standby', mode: 'readonly' }, 'S3CRET', false);
     expect(doc()).toMatchObject({ role: 'standby', mode: 'readonly', job: { state: 'done', step: 'finish' } });
     await expect(sw.report({ id: job.id, state: 'running' }, 'S3CRET', false)).rejects.toThrow('завершена');
+    // C135: поздний «сбой» повторного запуска не переписывает «готово»
+    await expect(sw.report({ id: job.id, step: 'preflight', state: 'failed', error: 'x' }, 'S3CRET', false)).rejects.toThrow('завершена');
+    expect(doc().job).toMatchObject({ state: 'done', step: 'finish' });
   });
 
   it('ошибка до переключения возвращает обычный режим и сохраняет текст', async () => {

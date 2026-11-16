@@ -372,7 +372,8 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
       const job = doc.job;
       if (!job || job.id !== dto.id) throw new ConflictException('Это отчёт о другой работе');
       const state = dto.state ?? 'running';
-      if (!jobBusy(job) && state === 'running') throw new ConflictException('Работа уже завершена');
+      // C135: завершённую работу не переписываем — 16.11 повторный запуск моста записал «сбой» поверх «готово»
+      if (!jobBusy(job)) throw new ConflictException('Работа уже завершена');
       if (dto.step) set['job.step'] = dto.step;
       set['job.state'] = state;
       if (state === 'failed') set['job.error'] = (dto.error ?? 'Переключение не удалось').slice(0, 2000);

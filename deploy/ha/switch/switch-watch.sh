@@ -506,8 +506,12 @@ if [[ ! -e "$REQ" ]]; then
 fi
 
 ID="$(sed -n 's/^id=//p' "$REQ" | head -n 1)"; KIND="$(sed -n 's/^kind=//p' "$REQ" | head -n 1)"; NOCODE="$(sed -n 's/^code=//p' "$REQ" | head -n 1)"
-rm -f "$REQ"
+rm -f "$REQ" || L "заявку удалить не удалось — права на ${SW_DIR}"
 [[ "$ID" =~ ^[0-9a-f]{6,32}$ ]] || { L "заявка с неверным id отброшена"; exit 0; }
+# C135: одну заявку — один раз (16.11 та же работа запустилась повторно и записала «сбой» поверх «готово»)
+LAST_ID_FILE="${SW_DIR}/last-id"
+[[ "$(cat "$LAST_ID_FILE" 2>/dev/null)" == "$ID" ]] && { L "заявка $ID уже выполнялась — пропуск"; exit 0; }
+printf '%s\n' "$ID" > "$LAST_ID_FILE"
 L "=== заявка $ID ($KIND) на $SELF ==="
 printf 'phase=pre\nid=%s\n' "$ID" > "$CURRENT"
 case "$KIND" in
