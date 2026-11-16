@@ -6,7 +6,7 @@
  */
 const FPS = 15, SPACE = 46, MIN_ALPHA = 0.14, MAX_ALPHA = 0.3;
 const CELL = 180, UNIT = 42; // размер заготовки и радиус фигурки в ней, px
-let canvas = null, timer = 0, falling = [], sprites = [], spritesFor = '', kinds = [], eyes = [], spark = null, tick = 0;
+let rare = -1, canvas = null, timer = 0, falling = [], sprites = [], spritesFor = '', kinds = [], eyes = [], spark = null, tick = 0;
 
 const cut = (c, draw) => { c.globalCompositeOperation = 'destination-out'; draw(); c.globalCompositeOperation = 'source-over'; };
 const dot = (c, x, y, rx, ry = rx, a = 0) => { c.beginPath(); c.ellipse(x, y, rx, ry, a, 0, Math.PI * 2); c.fill(); };
@@ -72,7 +72,18 @@ const CATS = [
     c.save(); c.translate(-r * 1.05, -r * 0.2); catHead(c, r * 0.68); c.restore();
   },
   paw,
+  (c, r) => { // редкий: стоит на задних лапах и прогнулся назад, как в йоге (пользователь 2026-11-16)
+    c.save(); c.translate(r * 0.5, 0);
+    for (const s of [-1, 1]) line(c, r * 0.2, [[s * r * 0.15, r * 0.9], [s * r * 0.25, r * 1.9]]); // задние лапы
+    c.lineWidth = r * 0.6; c.lineCap = 'round'; c.beginPath();
+    c.moveTo(0, r * 1.0); c.quadraticCurveTo(r * 0.1, -r * 0.9, -r * 1.25, -r * 0.55); c.stroke(); // спина дугой
+    line(c, r * 0.16, [[-r * 1.1, -r * 0.5], [-r * 1.35, r * 0.4]]); // передние лапы висят
+    line(c, r * 0.2, [[r * 0.15, r * 1.0], [r * 0.75, r * 1.35], [r * 1.0, r * 0.85]]); // хвост
+    c.save(); c.translate(-r * 1.55, -r * 0.1); c.rotate(Math.PI); catHead(c, r * 0.55); c.restore(); // голова вверх ногами
+    c.restore();
+  },
 ];
+const RARE = { cats: 4 }; // номер редкой фигурки: выпадает примерно у каждого 12-го котика
 
 const DOGS = [
   (c, r) => dogHead(c, r),
@@ -91,7 +102,7 @@ const DOGS = [
 const SETS = { cats: CATS, dogs: DOGS };
 /** Где глаза у каждой фигурки, в радиусах от центра: как в рисунках выше. */
 const EYES = {
-  cats: [[[-0.42, -0.08], [0.42, -0.08]], [[-0.29, -1], [0.29, -1]], [[-1.34, -0.25], [-0.76, -0.25]], []],
+  cats: [[[-0.42, -0.08], [0.42, -0.08]], [[-0.29, -1], [0.29, -1]], [[-1.34, -0.25], [-0.76, -0.25]], [], [[-1.28, -0.06], [-0.82, -0.06]]],
   dogs: [[[-0.4, -0.2], [0.4, -0.2]], [[-0.27, -1.09], [0.27, -1.09]], [], []],
 };
 const GLOW_FROM = 16, GLOW_TO = 18; // часы, каждый день
@@ -134,8 +145,10 @@ function prepare(color) {
 const rnd = (a, b) => a + Math.random() * (b - a);
 function spawn(onScreen) {
   const h = window.innerHeight;
+  const common = rare < 0 ? kinds.length : kinds.length - 1; // редкая фигурка — последняя в списке
+  const sprite = rare >= 0 && Math.random() < 0.08 ? rare : Math.floor(Math.random() * common);
   return {
-    x: rnd(0, window.innerWidth), y: onScreen ? rnd(0, h) : rnd(-160, -40), sprite: Math.floor(Math.random() * kinds.length),
+    x: rnd(0, window.innerWidth), y: onScreen ? rnd(0, h) : rnd(-160, -40), sprite,
     r: rnd(11, 18), speed: rnd(0.5, 2.2), alpha: rnd(MIN_ALPHA, MAX_ALPHA), tilt: rnd(-0.35, 0.35), sway: rnd(0, 1.4), phase: rnd(0, 6), wave: rnd(0.02, 0.05),
   };
 }
@@ -182,6 +195,7 @@ export function startRain(set) {
   if (canvas || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   kinds = SETS[set];
   eyes = EYES[set];
+  rare = RARE[set] ?? -1;
   spark ||= makeSpark();
   spritesFor = '';
   canvas = document.createElement('canvas');
