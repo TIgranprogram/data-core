@@ -8,6 +8,7 @@ import { api } from '../core/api.js';
 import { button, card, badge, empty, stack, actions, busyBlock, failBlock, DESIGN_STATUS } from '../ui/kit/index.js';
 import { numberOf, statusOf } from './passports/common.js';
 import { printDialog } from './passports/dialogs.js';
+import { openBookEditor } from './passports/book-editor.js';
 import { tileGrid } from '../ui/kit/blocks.js';
 import { readonlyGroup } from '../ui/kit/readonly.js';
 import { toastError } from '../ui/kit/toast.js';
@@ -51,7 +52,7 @@ function documentsCard(l, d) {
         badge(issued ? 'выпущен' : 'черновик', issued ? 'ok' : 'warn')),
       actions(
         // правка паспорта ЭТОГО заказа (фирма, заказчик, данные позиции) — сразу редактор, не шаблон изделия (владелец 15.11)
-        button({ label: 'Изменить паспорт', size: 'S', title: 'Открыть паспорт этой позиции в редакторе: фирма, тексты, картинки', onClick: () => go('docs', { tab: 'orders', of: 'passports', open: p.id, fill: 'edit' }, { kind: 'card' }) }),
+        button({ label: 'Изменить паспорт', size: 'S', title: 'Большое окно: паспорт как в PDF, любое поле правится на месте', onClick: () => openBookEditor(p, { onClose: () => load() }) }),
         issued ? button({ label: 'Скачать PDF', size: 'S', kind: 'ghost', onClick: (e) => { const b = e.currentTarget; b.classList.add('is-busy'); printDialog(p).catch(toastError).finally(() => b.classList.remove('is-busy')); } }) : null)));
     } catch (e) { body.replaceChildren(failBlock(e, load, { text: 'Документы не загрузились' })); }
   };
