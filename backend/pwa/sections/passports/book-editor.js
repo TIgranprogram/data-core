@@ -15,7 +15,7 @@ import { imagesBody } from '../../core/passport-images.js';
 import { canEdit, canWorkPassport, heading, humanBlanks, imgsOf, isRequired, kinds, numberOf, ourCompanies, statusOf, bomRows, parseBom } from './common.js';
 import { numbersOf } from './traits.js';
 import { passportAction } from './field-edit.js';
-import { pickSourceKey } from './book-shared.js';
+import { pickSourceKey, aiCheckBlock, pageText } from './book-shared.js';
 import { printDialog } from './dialogs.js';
 import { SRC_LABEL } from './card-blocks.js';
 
@@ -42,7 +42,8 @@ export async function openBookEditor(passport, { onClose } = {}) {
   const scroller = h('div', { class: 'bk-scroll' }, pages);
   // правка — в правой панели: листы не сдвигаются (пользователь 2026-11-16)
   const sideEmpty = () => h('p', { class: 'hint' }, 'Нажмите на текст в паспорте — он откроется здесь для правки.');
-  const side = h('aside', { class: 'bk-side', 'aria-label': 'Правка' }, sideEmpty());
+  const slot = h('div', null, sideEmpty());
+  const side = h('aside', { class: 'bk-side', 'aria-label': 'Правка' }, slot, aiCheckBlock(() => ({ title: head.querySelector('h2,h1,.bk-title')?.textContent || '', pages: [...pages.querySelectorAll('.bk-page')].map(pageText) })));
   const head = h('div', { class: 'bk-head' });
   const win = h('div', { class: 'modal wide bk', role: 'dialog', 'aria-modal': 'true' },
     head, h('div', { class: 'bk-main' }, toc, scroller, side),
@@ -104,7 +105,7 @@ export async function openBookEditor(passport, { onClose } = {}) {
     let working = false;
     const srcState = {};
     const lock = (on) => { working = on; [local, shared, reset, cancelBtn].forEach((b) => b && (b.disabled = on)); ctl.disabled = on; };
-    const finish = () => { S.cur = null; view.classList.remove('is-editing'); side.replaceChildren(sideEmpty()); };
+    const finish = () => { S.cur = null; view.classList.remove('is-editing'); slot.replaceChildren(sideEmpty()); };
     const saveLocal = async (next) => {
       if (working) return;
       if (!dirty()) { if (next) goNext(idx, next); else finish(); return; }
@@ -145,7 +146,7 @@ export async function openBookEditor(passport, { onClose } = {}) {
       else if (e.key === 'Enter' && !isTa) { e.preventDefault(); saveLocal(); }
       else if (e.key === 'Tab') { e.preventDefault(); saveLocal(e.shiftKey ? -1 : 1); }
     });
-    view.classList.add('is-editing'); side.replaceChildren(h('h3', { class: 'bk-side-h' }, spec.label || 'Правка'), box);
+    view.classList.add('is-editing'); slot.replaceChildren(h('h3', { class: 'bk-side-h' }, spec.label || 'Правка'), box);
     fit();
     S.cur = { dirty, cancel: () => { if (!working) finish(); }, focus: () => ctl.focus() };
     ctl.focus();
