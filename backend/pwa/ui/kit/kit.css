@@ -997,3 +997,6 @@ tr.k-pos-more .k-readonly { border: 0; background: transparent; padding: 0; }
 .bk-side .bk-ed { margin: 0; }
 .bk-side .bk-ta { width: 100%; min-height: 12em; }
 .bk-edit.is-editing { outline: 2px solid var(--primary); outline-offset: 1px; }
+.bk-side { display: flex; flex-direction: column; gap: var(--s4); }
+.bk-ai { margin-top: auto; padding-top: var(--s3); border-top: 1px solid var(--border); }
+.bk-measure { position: absolute; left: -99999px; width: var(--w); }
