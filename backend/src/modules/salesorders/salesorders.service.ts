@@ -385,7 +385,7 @@ export class SalesOrdersService {
     if (!f.orderNo) throw new BadRequestException('Укажите № договора');
     const key = orderKey(companyShort ?? '', f.orderNo);
     const taken = await this.clash(key);
-    if (taken) throw new ConflictException(`Заказ № ${f.orderNo}${companyShort ? ` у ${companyShort}` : ''} уже есть${taken.deletedAt ? ' (в корзине)' : ''}`);
+    if (taken) throw new ConflictException(`Договор № ${f.orderNo}${companyShort ? ` у ${companyShort}` : ''} уже есть${taken.deletedAt ? ' (в корзине)' : ''}`);
     const doc = await this.model.create({
       ...Object.fromEntries(Object.entries(f).filter(([, v]) => v !== undefined)),
       stage: f.stage ?? 'new', importKey: key, clientUid: dto.clientUid,
@@ -440,7 +440,7 @@ export class SalesOrdersService {
       const company = companyShort !== undefined ? companyShort ?? '' : await this.companyShort(cur.companyId);
       const no = (f.orderNo ?? cur.orderNo) as string;
       const key = orderKey(company, no);
-      if (key !== cur.importKey && await this.clash(key, cur._id as Types.ObjectId)) throw new ConflictException(`Заказ № ${no}${company ? ` у ${company}` : ''} уже есть`);
+      if (key !== cur.importKey && await this.clash(key, cur._id as Types.ObjectId)) throw new ConflictException(`Договор № ${no}${company ? ` у ${company}` : ''} уже есть`);
     }
     // importKey не меняется: по нему лист «Заказы» и импорт продолжают находить эту шапку
     const set: Doc = { editedInApp: true }, unset: Record<string, ''> = {};
