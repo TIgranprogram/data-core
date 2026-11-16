@@ -40,9 +40,12 @@ export async function openBookEditor(passport, { onClose } = {}) {
   const toc = h('nav', { class: 'bk-toc', 'aria-label': 'Страницы паспорта' });
   const pages = h('div', { class: 'bk-pages bk-fit' });
   const scroller = h('div', { class: 'bk-scroll' }, pages);
+  // правка — в правой панели: листы не сдвигаются (пользователь 2026-11-16)
+  const sideEmpty = () => h('p', { class: 'hint' }, 'Нажмите на текст в паспорте — он откроется здесь для правки.');
+  const side = h('aside', { class: 'bk-side', 'aria-label': 'Правка' }, sideEmpty());
   const head = h('div', { class: 'bk-head' });
   const win = h('div', { class: 'modal wide bk', role: 'dialog', 'aria-modal': 'true' },
-    head, h('div', { class: 'bk-main' }, toc, scroller),
+    head, h('div', { class: 'bk-main' }, toc, scroller, side),
     h('div', { class: 'bk-foot' }, srcLegend(SRC_LABEL), stat));
   const back = h('div', { class: 'modal-back bk-back' }, win);
 
@@ -101,7 +104,7 @@ export async function openBookEditor(passport, { onClose } = {}) {
     let working = false;
     const srcState = {};
     const lock = (on) => { working = on; [local, shared, reset, cancelBtn].forEach((b) => b && (b.disabled = on)); ctl.disabled = on; };
-    const finish = () => { S.cur = null; box.replaceWith(view); };
+    const finish = () => { S.cur = null; view.classList.remove('is-editing'); side.replaceChildren(sideEmpty()); };
     const saveLocal = async (next) => {
       if (working) return;
       if (!dirty()) { if (next) goNext(idx, next); else finish(); return; }
@@ -142,11 +145,11 @@ export async function openBookEditor(passport, { onClose } = {}) {
       else if (e.key === 'Enter' && !isTa) { e.preventDefault(); saveLocal(); }
       else if (e.key === 'Tab') { e.preventDefault(); saveLocal(e.shiftKey ? -1 : 1); }
     });
-    view.replaceWith(box);
+    view.classList.add('is-editing'); side.replaceChildren(h('h3', { class: 'bk-side-h' }, spec.label || 'Правка'), box);
     fit();
     S.cur = { dirty, cancel: () => { if (!working) finish(); }, focus: () => ctl.focus() };
     ctl.focus();
-    box.scrollIntoView({ block: 'nearest' });
+    view.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
   function goNext(idx, step) {
     S.cur?.cancel();

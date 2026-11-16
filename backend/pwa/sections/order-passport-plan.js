@@ -7,6 +7,7 @@ import { canWorkPassport as canEdit } from './passports/common.js';
 import { download, passportVariant, printDialog, printOptions } from './passports/dialogs.js';
 import { ORDER_FORMATS, printQuery } from './passports/print-options.js';
 import { displayName } from './passports/fill/model.js';
+import { openBookEditor } from './passports/book-editor.js';
 import { shortMissing, summaryText } from './order-passport-text.js';
 
 /*
@@ -191,8 +192,13 @@ function lineView(l, reload, issueOne, orderId) {
           finally { b.classList.remove('is-busy'); }
         } }),
       kit.button({ label: 'Открыть паспорт', size: 'S', kind: 'ghost',
-        title: 'Открыть карточку: исправить и распечатать заново',
-        onClick: () => go('docs', { tab: 'orders', of: 'passports', open: pid }, { kind: 'card' }) }),
+        title: 'Большое окно: паспорт как в PDF, любое поле правится на месте',
+        onClick: async (e) => {
+          const b = e.currentTarget; b.classList.add('is-busy');
+          try { openBookEditor(await api(`/passports/${pid}`), { onClose: () => reload().catch(() => {}) }); }
+          catch (er) { kit.toastError(er, 'открыть паспорт'); }
+          finally { b.classList.remove('is-busy'); }
+        } }),
     ];
   }
   // пользователь 14.11: выпущенная/готовая позиция — в такой же рамке-карточке, как строка «не хватает» выше
