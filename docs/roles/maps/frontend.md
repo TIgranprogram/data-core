@@ -1,3 +1,7 @@
+## C131 позиции в карточке заказа/договора (2026-11-16)
+коммит: не закоммичено
+- `sections/salesorders-lines.js contractLinesBlock` (окно договора, подключён `salesorders.js` salesorder.card.extra); `salesorders.js` addLine/canAdd/addLineBtn, `linesLink` (готовность), orderCard `bodyFirst`; `ui/kit/screens/card.js:33` bodyFirst. Отчёт C131/REPORT.md. Карта обновлена.
+
 ## C121 вложения позиции (2026-11-15)
 коммит: не закоммичено
 - kit: `ui/kit/folder-tile.js` folderTile (+ CSS конец kit.css, экспорт index.js, витрина sections/kit.js ~179, DESIGN §4). Экран: `sections/order-line-files.js` lineFilesCard (GET /incomes/:id/attachments, fallback /products/:id/attachments), подключён `order-line-more.js:36`. Карта обновлена.

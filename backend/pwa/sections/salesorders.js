@@ -33,6 +33,7 @@ import { NEXT_TIP, STAGE_NOW, HINT, ourLine, issuedBlock, sec, seq, produceBlock
 import { screenCard } from '../ui/kit/screens/card.js';
 import { positionsTable, boardCard } from '../ui/kit/screens/blocks.js';
 import { orderFooter } from './order-footer.js';
+import { contractLinesBlock } from './salesorders-lines.js';
 /**
  * Раздел «Заказы» (TASKS фаза З): заказ = шапка (`salesorders`) + позиции (строки `incomes`).
  * Вкладки «В работе / Закрытые», доска по этапам, карточка: позиции, что заказано под заказ
@@ -97,6 +98,13 @@ async function setStage(r, stage) {
   return shape(saved);
 }
 
+/** «Открыть» у проверки «есть позиции»: один договор — сразу новая позиция, несколько — окно первого договора (там «+ Позиция»). Ссылка на ту же карточку не работала. */
+function linesLink(r) {
+  const orders = r.orders || []; const o = orders.find(canAdd);
+  const open = (e) => { e.preventDefault(); if (orders.length === 1 && o) addLine(o); else patch({ of: 'salesorder', open: orders[0].id, new: undefined }, { replace: false }); };
+  return orders.length ? h('a', { href: '#', class: 'small', onclick: open }, ' Добавить позицию') : null;
+}
+
 /** Блок «Готовность к отгрузке» в карточке заказа: проверки сервера + кнопка «Отметить: готов к отгрузке». */
 function readinessBlock(r, after) {
   const box = h('div', null);
@@ -114,7 +122,8 @@ function readinessBlock(r, after) {
       ...checks.map((c) => kitRow({ tone: c.ok && c.state !== 'unknown' ? 'ok' : 'neutral',
         title: (c.state === 'unknown' ? '? ' : c.ok ? '✓ ' : '○ ') + c.label,
         below: [(!c.ok || c.state === 'unknown') && c.hint ? h('span', { class: 'muted small' }, ' — ' + c.hint) : null,
-          !c.ok && c.href ? h('a', { href: c.href.startsWith('#') ? c.href : '#' + c.href.replace(/^\//, ''), class: 'small' }, ' Открыть') : null] })), btn] }));
+          !c.ok && c.key === 'lines' ? linesLink(r) : null,
+          !c.ok && c.key !== 'lines' && c.href ? h('a', { href: c.href.startsWith('#') ? c.href : '#' + c.href.replace(/^\//, ''), class: 'small' }, ' Открыть') : null] })), btn] }));
   };
   const load = () => api(`/production-orders/${encodeURIComponent(r.key)}/readiness`).then(paint)
     .catch((e) => box.replaceChildren(failBlock(e, load, { cls: 'so-state', text: 'Готовность к отгрузке не загрузилась' })));
@@ -197,6 +206,11 @@ const cancelledRow = (l, i, span, open) => h('tr', { class: 'muted', onclick: op
   h('td', { class: 'muted' }, seq(l, i)), h('td', null, ''),
   h('td', { class: 'muted', colspan: span }, h('s', null, l.title), h('div', { class: 'small' }, 'Отменена' + (l.cancelReason ? ': ' + l.cancelReason : ''))));
 
+/** Новая позиция в договоре: все поля — в правой панели. */
+const addLine = (o) => patch({ of: 'orders', new: '1', open: undefined, orderNo: o.orderNo || '', customer: o.customer || '', companyName: o.companyName || '', orderId: o.id }, { replace: false });
+const canAdd = (o) => editableOrder(o) && !closedStage(o) && canChangeLines(o);
+const addLineBtn = (o, label = '+ Позиция', kind = 'primary') => button({ label, kind, size: 'S', title: `Новая позиция в договоре ${o.orderNo || ''}: все поля — в правой панели`, onClick: () => addLine(o) });
+
 /** Заголовок-группа «Договор 109-П»: этап, срок, «+ Позиция» и «⋯» (одно меню действий по договору). */
 /** Действия по договору — в «⋯» шапки заказа (владелец 15.11: правка заказа — только там, в таблице только смотреть). */
 function contractMenu(o, reload, prefix = '') {
@@ -215,7 +229,7 @@ function contractMenu(o, reload, prefix = '') {
     can && !closedStage(o) && seeStock && { label: 'Загрузить спецификацию из Excel', onSelect: () => patch({ of: 'specimport', new: '1', orderId: o.id, open: undefined }, { replace: false }) },
     can && o.productionNo && !closedStage(o) && { label: 'Перенести в другой заказ', onSelect: () => moveContract(o).then((r) => r && reload?.()).catch((e) => toastError(e)) },
     session.role === 'admin' && o.stage !== 'new' && { label: 'Вернуть на прежний этап…', onSelect: () => stageBack(o).then((r) => r && reload?.()).catch((e) => toastError(e)) },
-    can && !closedStage(o) && canChangeLines(o) && { label: '+ Позиция', title: 'Новая позиция: все поля — в правой панели', onSelect: () => patch({ of: 'orders', new: '1', open: undefined, orderNo: o.orderNo || '', customer: o.customer || '', companyName: o.companyName || '', orderId: o.id }, { replace: false }) },
+    can && !closedStage(o) && canChangeLines(o) && { label: '+ Позиция', title: 'Новая позиция: все поля — в правой панели', onSelect: () => addLine(o) },
     can && { label: 'Удалить договор', danger: true, onSelect: remove },
   ].filter(Boolean).map((m) => ({ ...m, label: prefix + m.label }));
   return menu;
@@ -227,7 +241,7 @@ function contractHead(o, many = true) {
 /** Подпись под таблицей договора: пусто / «менять позиции может администратор». */
 function contractFoot(o) {
   const lines = o.lines || [];
-  if (!lines.length) return h('p', { class: 'muted' }, 'В этом договоре позиций пока нет — «⋯» вверху → «+ Позиция».');
+  if (!lines.length) return h('div', null, h('p', { class: 'muted' }, 'В этом договоре позиций пока нет.'), canAdd(o) ? addLineBtn(o) : null);
   if (editableOrder(o) && !closedStage(o) && !canChangeLines(o)) return h('p', { class: 'hint' }, 'Договор уже в работе — менять позиции может администратор.');
   return null;
 }
@@ -256,7 +270,8 @@ function positionsPane(d, ctx, pick = null) {
 ] }));
     return { head: many ? contractHead(o, many) : null, rows, foot: contractFoot(o) }; // один договор — без строки-заголовка: чистая таблица (владелец 15.11)
   });
-  box.append(...orders.map((o) => distribBlock(o, reload)), positionsTable({ columns, groups, label: 'Позиции заказа', empty: orders.length ? { title: `В ${orders.length > 1 ? 'договорах' : 'договоре'} ${orders.map((o) => '№ ' + (o.orderNo || '—')).join(', ')} позиций пока нет.`, hint: 'Добавьте позиции: «⋯» вверху → «+ Позиция».' } : { title: 'Договоров нет.', hint: 'Добавьте договор: «⋯» вверху.' }, pick }), produceBlock(d, openLine));
+  box.append(positionsTable({ columns, groups, label: 'Позиции заказа', empty: orders.length ? { title: `В ${orders.length > 1 ? 'договорах' : 'договоре'} ${orders.map((o) => '№ ' + (o.orderNo || '—')).join(', ')} позиций пока нет.`, hint: 'Нажмите «+ Позиция» ниже — поля откроются справа.' } : { title: 'Договоров нет.', hint: 'Добавьте договор: «⋯» вверху.' }, pick }),
+    !allLines.length ? actions(...orders.filter(canAdd).map((o) => addLineBtn(o, orders.length > 1 ? `+ Позиция в договор ${o.orderNo || '—'}` : '+ Позиция'))) : null, ...orders.map((o) => distribBlock(o, reload)), produceBlock(d, openLine)); // таблица первой (C131)
   return box;
 }
 
@@ -392,6 +407,7 @@ const orderCard = screenCard({
   // справа в шапке: срок, под ним — отгрузка «N из M позиций» (с отгрузки) или этап (до неё) — владелец 15.11
   side: (r) => [r.deadline ? h('span', null, h('span', { class: 'muted' }, 'Срок '), due(r)) : null, shipLine(r)],
   noHistory: true,
+  bodyFirst: true, // эталон 11-26: таблица позиций всегда первой, «Что дальше» и предупреждения — под ней (C131)
   before: (r, ctx) => {
     liveCtx = ctx;
     crumbTrail([orderCrumb(r)]);
@@ -403,7 +419,7 @@ const orderCard = screenCard({
     if (legacy) setTimeout(() => goTab(legacy), 80);
   },
   warns: (r, ctx) => [
-    r.stage === 'new' && r.lineCount === 0 && !(r.lines || []).length ? { tone: 'error', title: 'В заказе нет позиций — «В производство» не сработает', label: 'К позициям', run: () => ctx.openTab('pos') } : null,
+    r.stage === 'new' && r.lineCount === 0 && !(r.lines || []).length ? { tone: 'error', title: 'В заказе нет позиций — «В производство» не сработает', label: 'Добавить позицию', run: () => { const o = (r.orders || []).find(canAdd); if (o) addLine(o); else ctx.openTab('pos'); } } : null,
     countOf(r) ? { title: `${countOf(r)} поз. без изделия — «В производство» не сработает, пока их не распределят`, label: 'Распределить', run: () => ctx.openTab('pos') } : null,
   ],
   next: (r, ctx) => {
@@ -429,7 +445,7 @@ const orderCard = screenCard({
     ];
   },
   // без вкладок (владелец 15.11): сразу таблица позиций; подробности позиции — под её строкой; общее по заказу — свёрнутыми блоками
-  body: (r, ctx) => {
+  body: (r, ctx, notes = []) => {
     const box = stack(h('p', { class: 'muted' }, 'Загружаю позиции…'));
     const parts = {};
     // старые переходы «на вкладку» (доска «Отгрузка», договор, «Проверить готовность») раскрывают нужный блок
@@ -446,7 +462,7 @@ const orderCard = screenCard({
         onClear: () => { sel.clear(); parts.pos.querySelectorAll('.k-pick input:checked').forEach((cb) => { cb.checked = false; cb.closest('tr')?.classList.remove('is-picked'); }); foot.update(); },
       });
       parts.docs = foot.el;
-      box.replaceChildren(...[parts.pos, parts.run, parts.docs].filter(Boolean));
+      box.replaceChildren(...[parts.pos, ...notes, parts.run, parts.docs].filter(Boolean));
     }).catch((e) => box.replaceChildren(h('p', { class: 'muted' }, 'Позиции не загрузились: ' + (e.message || e))));
     return box;
   },
@@ -610,7 +626,7 @@ export const salesorder = {
     subheading: (r) => [r.customer, r.companyName].filter(Boolean).join(' · '),
     parent: (r) => ({ label: `Заказ № ${prodNo(r)}`, run: () => patch({ of: undefined, open: r.productionNo || r.id }, { replace: false }) }),
     editTop: true,
-    extra: (r) => handoffLine('salesorder', r.id),
+    extra: (r) => stack(contractLinesBlock(r, { canAdd, addLineBtn, openLine }), handoffLine('salesorder', r.id)),
     stats: (r) => [['Позиций', qty(r.lineCount)], ...(session.canMoney ? [['Сумма', r.amount ? money(r.amount) : '—'], ['Оплачено', r.paidAmount ? money(r.paidAmount) : '—']] : [])],
     view: (r) => [
       ['№ заказа', r.productionNo || h('span', { class: 'muted' }, 'нет №')],
