@@ -82,7 +82,13 @@ export class ProductionOrdersService {
       date: (d.contractDate ?? d.createdAt) as Date, amount: sum.get(String(d._id))?.amount ?? 0, lineCount: sum.get(String(d._id))?.lines ?? 0,
       matchedCount: facts.get(String(d._id))?.matched ?? 0, canAssign: (facts.get(String(d._id))?.total ?? 0) > 0 && facts.get(String(d._id))?.unmatched.length === 0,
     }));
-    return { items, total, page: p.page, limit: p.limit };
+    // поиск ничего не дал среди свободных — подсказать, в каком заказе договор уже стоит (окно «Добавить договоры», 16.11: «не видит договор 39»)
+    const asked = String(q.q ?? q.search ?? '').trim();
+    const elsewhere = !total && asked
+      ? (await this.model.find({ $and: [filter, { productionNo: { $nin: [null, ''] } }] }, { orderNo: 1, customer: 1, productionNo: 1 }).sort({ createdAt: -1, _id: -1 }).limit(5).lean().exec() as Doc[])
+        .map((d) => ({ id: String(d._id), orderNo: (d.orderNo as string | undefined) ?? '', customer: (d.customer as string | undefined) ?? '', productionNo: String(d.productionNo) }))
+      : [];
+    return { items, total, page: p.page, limit: p.limit, ...(elsewhere.length ? { elsewhere } : {}) };
   }
 
   /** Привязка договоров к заказу: без `productionNo` — новый (следующий № года), с ним — к существующему. Позиции нумеруются сами (по productionAddedAt). */

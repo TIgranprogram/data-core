@@ -256,7 +256,7 @@ function positionsPane(d, ctx, pick = null) {
 ] }));
     return { head: many ? contractHead(o, many) : null, rows, foot: contractFoot(o) }; // один договор — без строки-заголовка: чистая таблица (владелец 15.11)
   });
-  box.append(...orders.map((o) => distribBlock(o, reload)), positionsTable({ columns, groups, label: 'Позиции заказа', empty: { title: 'Договоров нет.' }, pick }), produceBlock(d, openLine));
+  box.append(...orders.map((o) => distribBlock(o, reload)), positionsTable({ columns, groups, label: 'Позиции заказа', empty: orders.length ? { title: `В ${orders.length > 1 ? 'договорах' : 'договоре'} ${orders.map((o) => '№ ' + (o.orderNo || '—')).join(', ')} позиций пока нет.`, hint: 'Добавьте позиции: «⋯» вверху → «+ Позиция».' } : { title: 'Договоров нет.', hint: 'Добавьте договор: «⋯» вверху.' }, pick }), produceBlock(d, openLine));
   return box;
 }
 

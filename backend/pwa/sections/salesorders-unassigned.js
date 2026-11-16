@@ -19,6 +19,7 @@ export function unassignedPicker({ onChange } = {}) {
   const picked = new Set();
   let rows = [];
   let total = 0;
+  let elsewhere = []; // договоры, которые нашлись по поиску, но уже стоят в заказах (сервер отдаёт, когда свободных нет)
   let q = '';
   let who = ''; // фильтр по заказчику — среди уже загруженных строк
   const search = h('input', { type: 'search', placeholder: 'Поиск: № договора, заказчик…', 'aria-label': 'Поиск договоров' });
@@ -35,7 +36,11 @@ export function unassignedPicker({ onChange } = {}) {
     info.textContent = total ? `Показано ${qty(view.length)} из ${qty(total)}` : '';
     more.hidden = rows.length >= total;
     whoAll.hidden = !who;
-    if (!view.length) { body.replaceChildren(h('p', { class: 'muted' }, q || who ? 'Ничего не найдено.' : EMPTY)); sync(); return; }
+    if (!view.length) {
+      body.replaceChildren(h('p', { class: 'muted' }, q || who ? 'Среди договоров без заказа ничего не найдено.' : EMPTY),
+        ...elsewhere.map((x) => h('p', null, `Договор № ${x.orderNo || '—'}${x.customer ? ' (' + x.customer + ')' : ''} уже в заказе № ${x.productionNo}. Позиции добавляют в карточке этого заказа: «⋯» → «+ Позиция».`)));
+      sync(); return;
+    }
     body.replaceChildren(...view.map((r) => {
       const cb = h('input', { type: 'checkbox', class: 'ua-cb', checked: picked.has(r.id), onchange: (e) => { if (e.target.checked) picked.add(r.id); else picked.delete(r.id); sync(); } });
       return h('label', { class: 'ua-row' }, cb,
@@ -50,6 +55,7 @@ export function unassignedPicker({ onChange } = {}) {
       const d = await api('/production-orders/unassigned', { query: { q: q || undefined, page: append ? Math.floor(rows.length / LIMIT) + 1 : 1, limit: LIMIT } });
       rows = append ? rows.concat(d.items || []) : (d.items || []);
       total = d.total ?? rows.length;
+      elsewhere = d.elsewhere || [];
       if (!append) for (const id of [...picked]) if (!rows.some((r) => r.id === id)) picked.delete(id);
       paint();
     } catch (e) { body.replaceChildren(h('p', { class: 'neg' }, errText(e))); }
