@@ -1,4 +1,6 @@
 # Карта роли backend
+## C133 места/материал/подписи gaps (2026-11-16, не закоммичено)
+- `product-passport/passport-gaps.ts` (labelOf, seatsSet, hasSpec, фильтр step) ; `showcase/passport-defaults.ts` seatsCount (normalize). Отчёт `docs/crew/C133-passport-options/REPORT-backend.md`. коммит: —
 ## C132 исправления аудита (2026-11-16)
 - `backend/src/modules/product-passport/passport-field-promote.ts:53` target и `:62` CAS; `product-passport.service.ts:582` sources, `:595` field promote, `:612` item promote, `:956` транзакция saveTemplate; `passport-v2-text.ts:174` старые refs не угадывать; `passport-snapshot-field.ts:123` carryFields после promote. Контракт/проверки: `docs/crew/C132-passport-text-edit/BACKEND-FIX-REPORT.md`. коммит: — (не выполнялся).
 ## C132 правка зелёных строк паспорта (2026-11-16, не закоммичено)

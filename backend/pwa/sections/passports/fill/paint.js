@@ -31,6 +31,7 @@ export function decide(ctx, spec, gap, text) {
   const applies = gap ? 'required' : appliesOf(ctx.applicable, spec);
   if (applies === 'na') return text ? 'foreign' : 'skip';
   if (spec.key === 'installationTypeId' && ctx.covered) return 'skip';
+  if (spec.onlyIfSet && !gap && !text) return 'skip'; // «Количество мест»: строка только у тех, кому оно задано или спрошено
   if (spec.key === 'materials') return 'open';
   if (ctx.editing.has(spec.key)) return 'open';
   if (text && !gap) return 'filled';
@@ -50,6 +51,8 @@ export function appliesOf(applicable, spec) {
   return 'required';
 }
 
+const SEATS = { int: true, min: 1 };
+
 function scalars(ctx) {
   const numAt = (key, label, unit) => ({
     key, section: key === 'maxUsers' ? 'general' : key === 'foundationDepth' ? 'install' : 'ops', label, ask: 'template', unit, num: true,
@@ -59,6 +62,7 @@ function scalars(ctx) {
   return [
     { key: 'kind', section: 'purpose', label: 'Вид изделия', ask: 'both', text: ctx.kind?.name || '', note: kindNote(ctx), editor: (gap) => kindEditor(ctx, gap) },
     numAt('maxUsers', 'Пользователей одновременно', ''),
+    { key: 'seatsCount', section: 'general', label: 'Количество мест', ask: 'template', onlyIfSet: true, text: opText(ctx.prod, 'seatsCount', ''), editor: () => numEditor(ctx, 'seatsCount', 'Количество мест', null, false, SEATS) },
     numAt('foundationDepth', 'Глубина Г (от земли до низа опоры)', 'мм'),
     { key: 'elements', section: 'purpose', label: 'Что это за изделие', ask: 'both', text: elText(ctx.prod, ctx.elNames) || kindElText(ctx), note: kindElNote(ctx), editor: (gap) => elementsEditor(ctx, gap) },
     { key: 'height', section: 'dims', label: 'Габариты', ask: 'template', text: dimText(ctx.prod), editor: () => dimsEditor(ctx) },
@@ -124,6 +128,8 @@ export function paintFields(ctx) {
     // «Назначение» как обязательное поле и уточнение назначения — один вопрос, а не два
     if (m.key === 'purpose' && ctx.missing.some((x) => x.kind === 'purpose')) continue;
     // необязательный признак без подсказки при выпуске не спрашиваем: он в «Необязательном»
+    // материал берётся из техописания (блок «Материалы»), второй вопрос про тот же материал не нужен
+    if (m.key === 'blg.material' && (ctx.prod.materialsSpec?.rows?.length || ctx.prod.materialsSpec?.coatingIds?.length)) continue;
     if (m.kind === 'facet' && !m.required && ctx.mode === 'issue' && !ctx.more) { ctx.later.push(m.label || 'признак'); continue; }
     const node = controlGap(m, ctx);
     if (!node) continue;

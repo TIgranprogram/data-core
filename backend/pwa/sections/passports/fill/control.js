@@ -1,5 +1,6 @@
 import { openCard } from '../../../ui/kit/card.js';
 import { api } from '../../../core/api.js';
+import { h } from '../../../core/dom.js';
 import { buildForm, button, enhanceSelect, field, fieldRow, hint, link, segmented, select, sideNote, stack, textInput, toast, toastError } from '../../../ui/kit/index.js';
 import { V2_NUMS, canEdit as canEditTexts } from '../common.js';
 import { patchProduct, putDefaults, setFacets } from '../funnel/api.js';
@@ -36,7 +37,8 @@ export function kindEditor(ctx, gap) {
   return stack(field('Вид изделия', sel, { required: !!gap?.required, hint: 'Выбранный вид сохраняется в изделии. Паспорт берёт из него тип, назначение и элементы, если они не заданы отдельно.' }), toDict(), refresh());
 }
 
-function numEditor(ctx, key, label, dflt, defaulted = false) {
+/** opts: { int, min } — целое не меньше min (например, количество мест). Пусто — значение не задано, не 0. */
+function numEditor(ctx, key, label, dflt, defaulted = false, opts = {}) {
   const cur = ctx.prod.passportDefaults?.[key];
   const empty = cur == null || cur === '';
   const shown = empty ? (dflt != null ? dflt : '') : cur;
@@ -47,9 +49,11 @@ function numEditor(ctx, key, label, dflt, defaulted = false) {
     label: label || 'Значение', value: shown, type: 'number', disabled: !ctx.can, short: true,
     hint: hasDflt ? (defaulted ? 'По умолчанию — из типа паспорта. Можно изменить.' : 'По умолчанию — не сохранено. Нажмите «Принять».') : undefined,
   });
+  if (opts.min != null) { f.input.min = opts.min; f.input.step = opts.int ? 1 : 'any'; }
   f.input.addEventListener('change', () => {
     const v = num(f.value);
     if (v === null && String(f.value).trim()) { toast("Введите число", { error: true }); return; }
+    if (v !== null && ((opts.int && !Number.isInteger(v)) || (opts.min != null && v < opts.min))) { toast(opts.int ? `Нужно целое число не меньше ${opts.min}` : `Число не меньше ${opts.min}`, { error: true }); f.value = shown; return; }
     ctx.pending.delete(key);
     ctx.save(() => putDefaults(ctx.prod, { [key]: v }));
   });
@@ -85,6 +89,52 @@ export function weightEditor(ctx) {
     ctx.save(() => patchProduct(ctx.prod.id, { weightKg: v }).then(() => { ctx.prod.weightKg = v; }));
   });
   return f.el;
+}
+
+/** «+ Добавить вариант» у признака (C133): значение создаётся в справочнике «Значения признаков» с родителем-признаком, код ставит сервер,
+ *  новое значение сразу выбирается у изделия. Пока открыта панель, окно паспорта на паузе, ответы не теряются. Только при праве на справочники. */
+function addFacetValue(ctx, m) {
+  if (!canEditTexts()) return null;
+  const trigger = link({
+    label: '+ Добавить вариант',
+    title: 'Новое значение признака «' + (m.label || 'признак') + '»; сразу выберется у изделия',
+    onClick: async () => {
+      let parentId = '';
+      try { parentId = String(((await api('/dicts/productFacets')).items || []).find((f) => f.code === m.key)?.id || ''); } catch (e) { toastError(e, 'открыть справочник признаков'); return; }
+      if (!parentId) { toast('Признака нет в справочнике: вариант добавьте в «Справочники → Значения признаков»', { error: true }); return; }
+      const resume = ctx.pause();
+      let created = null;
+      const editor = {
+        id: 'dict', title: 'Значения признаков', newTitle: 'Новый вариант · ' + (m.label || 'признак'),
+        canEdit: canEditTexts, card: {},
+        form: {
+          fields: async () => {
+            const { dict } = await import('../../dicts.js');
+            editor.form.toBody = dict.form.toBody;
+            return (await dict.form.fields(null, 'productFacetValues')).filter((f) => f.key === 'name'); // признак задан, код сервер ставит сам
+          },
+          toBody: (v) => v,
+          saveLabel: 'Сохранить и вернуться', closeAfterCreate: true,
+          create: async (body) => {
+            // повторное нажатие (после сбоя привязки) обновляет созданное значение, а не плодит дубль
+            created = created
+              ? await api(`/dicts/productFacetValues/${created.id || created._id}`, { method: 'PATCH', body: { name: body.name } })
+              : await api('/dicts/productFacetValues', { method: 'POST', body: { ...body, parentId } });
+            const id = String(created.id || created._id);
+            await ctx.waitForSaves();
+            const have = (ctx.prod.facetValueIds || []).map(String);
+            if (!have.includes(id)) { await setFacets(ctx.prod.id, [...have, id]); ctx.prod.facetValueIds = [...have, id]; }
+            return created;
+          },
+        },
+      };
+      openCard(editor, { mode: 'create', initial: { parentId }, parent: trigger }, {
+        changed() {},
+        close: () => { resume(); if (created) ctx.reload?.(); },
+      });
+    },
+  });
+  return trigger;
 }
 
 /** Список элементов до трёх. Варианты пункта A3, иначе справочник ctx.elRows. */
@@ -205,7 +255,24 @@ export function kitEditor(ctx) {
   return field('Как поставляется', seg, { hint: 'Разобранному изделию нужен рисунок сборки.' });
 }
 
+/** «Материалы из техописания» (C133): список строк таблицы изделия, правится только там. Нет строк — кнопка «Заполнить». */
 export function materialsEditor(ctx) {
+  const spec = ctx.prod.materialsSpec;
+  if (spec?.rows?.length || spec?.coatingIds?.length) {
+    const box = hint('Загружаю материалы…');
+    Promise.all([api('/dicts/passportMaterials'), api('/dicts/passportParts')].map((p) => p.then((r) => r.items || []).catch(() => []))).then(([mats, parts]) => {
+      const name = (list, id) => list.find((x) => String(x.id || x._id) === String(id))?.name || '';
+      const lines = (spec.rows || []).map((r) => {
+        const part = (r.partIds || []).map((id) => name(parts, id)).filter(Boolean).join(', ');
+        const text = [name(mats, r.materialId), (r.sizes || []).filter(Boolean).join(', ')].filter(Boolean).join(' ');
+        return [part, text].filter(Boolean).join(': ') || 'Материал';
+      });
+      const coats = (spec.coatingIds || []).map((id) => name(mats, id)).filter(Boolean);
+      if (coats.length) lines.push('Покрытие: ' + coats.join(', '));
+      box.replaceChildren(...lines.flatMap((t, i) => (i ? [h('br'), t] : [t]))); // одна подпись, строки без зазоров
+    });
+    return field('Материалы из техописания', stack(box, button({ label: 'Изменить в техописании', size: 'S', onClick: () => ctx.openTech() })), { hint: 'Материалы берутся из техописания изделия. Измените их там — паспорт обновится сам.' });
+  }
   return field('Материалы', button({ label: 'Заполнить материалы', kind: 'primary', size: 'S', onClick: () => ctx.openTech() }), { hint: 'Добавьте материалы в техописании изделия и сохраните. Они появятся в паспорте.' });
 }
 
@@ -232,6 +299,7 @@ export function controlGap(m, ctx) {
   if (m.kind === 'elements') return elementsEditor(ctx, m);
   if (m.kind === 'purpose') return purposeEditor();
   if (m.kind === 'kind') return kindEditor(ctx, m);
+  if (m.kind === 'field' && m.key === 'seatsCount') return numEditor(ctx, m.key, m.label || 'Количество мест', null, false, { int: true, min: 1 });
   if (m.kind === 'field' && m.key === 'height') return dimsEditor(ctx);
   if (m.kind === 'field' && (m.key === 'weight' || m.key === 'weightKg')) return weightEditor(ctx);
   // назначение выбирается здесь же, шагом «Назначение» ниже, а не в карточке изделия (C086)
@@ -253,7 +321,7 @@ export function controlGap(m, ctx) {
     onChange: (v) => { ctx.pending.delete(m.key); if (v) ctx.save(() => write(v)); },
   });
   if ((m.options || []).length > 12) enhanceSelect(sel);
-  return field(m.label || 'Признак', sel, { required: !!m.required });
+  return stack(field(m.label || 'Признак', sel, { required: !!m.required }), addFacetValue(ctx, m));
 }
 
 export { numEditor };

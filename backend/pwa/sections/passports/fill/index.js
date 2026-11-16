@@ -64,7 +64,7 @@ export async function passportFill({ prod, mode = 'template', onStatus, showVari
     prod, mode, can, pending, editing, reveal: false, missing: [], byKind: new Map(), asked: new Set(), pdm: [],
     fieldHost, textHost, slotHost, titles, secs, strip, summary, els, elSec, kindRows,
     elRows, elNames: new Map(elRows.map((d) => [String(d.id || d._id), d.name || 'без названия'])),
-    onStatus, openTech: () => openTechSheet(prod),
+    onStatus, openTech: () => openTechSheet(prod, { onSaved: (fresh) => { prod.materialsSpec = fresh.materialsSpec; reload(); } }),
     repaint: () => { if (ready) draw(); },
     reload: () => reload(),
   };

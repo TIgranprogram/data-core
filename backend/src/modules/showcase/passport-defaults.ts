@@ -73,6 +73,13 @@ export function normalizePassportDefaults(b: Record<string, unknown>): PassportD
     if (!Number.isFinite(n) || n < 0) throw new BadRequestException(`${k}: неотрицательное число`);
     out[k] = n;
   }
+  // C133: точное число мест (скамья, трибуна) — целое от 1; пусто — не задано (не 0)
+  const seats = b.seatsCount;
+  if (seats !== undefined && seats !== null && String(seats).trim() !== '') {
+    const n = Number(String(seats).replace(',', '.'));
+    if (!Number.isInteger(n) || n < 1) throw new BadRequestException('Количество мест: целое число от 1');
+    out.seatsCount = n;
+  }
   return out;
 }
 

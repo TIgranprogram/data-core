@@ -22,6 +22,11 @@ describe('normalizePassportDefaults', () => {
     expect(() => normalizePassportDefaults({ elements: ['nope'] })).toThrow(BadRequestException);
     expect(() => normalizePassportDefaults({ maxUsers: -1 })).toThrow(BadRequestException);
   });
+  it('C133: число мест — целое от 1; 0, -1, 1.5, текст — 400; пусто не пишет 0', () => {
+    expect(normalizePassportDefaults({ seatsCount: '4' }).seatsCount).toBe(4);
+    for (const bad of [0, -1, 1.5, 'abc']) expect(() => normalizePassportDefaults({ seatsCount: bad })).toThrow(BadRequestException);
+    for (const empty of ['', null, undefined]) expect('seatsCount' in normalizePassportDefaults({ seatsCount: empty })).toBe(false);
+  });
   it('пустое тело — пусто (очистить)', () => {
     expect(normalizePassportDefaults({})).toEqual({});
     expect(presentPassportDefaults(undefined)).toBeNull();

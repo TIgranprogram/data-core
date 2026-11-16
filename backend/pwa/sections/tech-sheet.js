@@ -65,7 +65,9 @@ export function productRows(r) {
 /** Все строки PDF (прежнее имя для печати пакета). */
 export const draftRows = (r, dicts) => [...specRows(r.materialsSpec, dicts), ...productRows(r)];
 
-export function openTechSheet(r) { openSide('techsheet', r.id); }
+let afterSave = null;
+/** onSaved(r) — необязательно: вызывается, когда материалы изделия сохранены (окно паспорта перечитывает изделие). */
+export function openTechSheet(r, { onSaved } = {}) { afterSave = onSaved || null; openSide('techsheet', r.id); }
 
 const rowsWidget = (rows) => {
   const box = h('div', { class: 'ts-rows' });
@@ -126,6 +128,7 @@ export const techSheet = sideForm({
     if (session.canEdit && JSON.stringify(body.spec) !== JSON.stringify(r.materialsSpec ?? null)) {
       await patchProduct(r.id, { materialsSpec: body.spec });
       r.materialsSpec = body.spec;
+      afterSave?.(r);
     }
     const rows = [...specRows(body.spec, r.dicts), ...productRows(r), ...r.extra.map((x) => ({ name: x.name.trim(), text: x.text.trim() }))].filter((x) => x.name || x.text);
     if (!rows.length) throw new Error('Добавьте хотя бы одну строку: часть и материал');

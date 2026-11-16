@@ -62,7 +62,7 @@ export function gapSection(m) {
   if (m?.kind === 'install' || key === 'installationTypeId' || key === 'installationMethod') return 'install';
   if (key === 'height' || key === 'weight' || key === 'weightKg') return 'dims';
   if (key === 'joints' || key === 'materials' || key === 'materialIds') return 'struct';
-  if (key === 'maxUsers' || m?.kind === 'facet' || m?.kind === 'category') return 'general';
+  if (key === 'maxUsers' || key === 'seatsCount' || m?.kind === 'facet' || m?.kind === 'category') return 'general';
   if (OPS_KEYS.has(key)) return 'ops';
   return 'other';
 }

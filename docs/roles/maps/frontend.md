@@ -1,3 +1,11 @@
+## C134 паспорт как в PDF (2026-11-16)
+коммит: не закоммичено
+- `sections/passports/book-editor.js` openBookEditor (editable/openEditor, build, imageStrip, render/пагинация); вход `order-line-more.js` documentsCard; CSS конец `ui/kit/kit.css` (.bk-*). Отчёт C134/REPORT.md. Карта обновлена.
+
+## C133 места, свой вариант признака, материалы из техописания (2026-11-16)
+коммит: не закоммичено
+- `passports/fill/control.js`: `numEditor(..., opts{int,min})` (число мест, `controlGap` seatsCount), `addFacetValue` («+ Добавить вариант», POST /dicts/productFacetValues с parentId, затем setFacets), `materialsEditor` (список из materialsSpec + «Изменить в техописании»). `fill/paint.js` scalars seatsCount (`onlyIfSet`), скрытие blg.material при materialsSpec; `fill/index.js` openTech с onSaved; `products/data.js` PD_KEYS+seatsCount; `tech-sheet.js openTechSheet(r,{onSaved})`. Карта обновлена.
+
 - C132 UI-приёмка: `backend/pwa/ui/kit/card.js:234` beginInlineEdit/release, `sections/passports/field-edit.js:23` lifecycle редактора; `ui/kit/kit.css:8` длинная кнопка modal на телефоне. Коммит: не закоммичено. Карта обновлена.
 
 ## C132 исправления аудита (2026-11-16)

@@ -149,11 +149,19 @@ export async function productGaps(svc: Checker, db: mongo.Db, id: string) {
   const untyped = productType(code, { facetCodes, group });
   const purpose = await purposeState(db, prod, code, rk, untyped.needed && !untyped.known);
   const type = productType(code, { purposeName: purpose.chosen, facetCodes, group });
-  for (const f of facets.filter((x) => x.category === code && facetApplies(x.code, type)).sort((a, b) => a.order - b.order)) {
+  const pd = (prod.passportDefaults ?? {}) as { seatsCount?: unknown };
+  const seatsSet = Number.isInteger(pd.seatsCount) && Number(pd.seatsCount) >= 1;
+  const ms: any = prod.materialsSpec;
+  const hasSpec = Array.isArray(ms) ? ms.length > 0 : !!(ms?.rows?.length || ms?.coatingIds?.length);
+  // C133: «Перила» у трибуны, «Спинка» у остального; точное число мест скрывает диапазон каталога; материал берётся из техописания
+  const labelOf = (fc: string, name: string) => (fc === 'blg.rail' ? (/^трибун/i.test(s(group)) ? 'Перила' : 'Спинка') : fc === 'blg.seats' ? 'Мест (диапазон для каталога)' : name);
+  for (const f of facets.filter((x) => x.step && x.category === code && facetApplies(x.code, type)).sort((a, b) => a.order - b.order)) {
+    if ((f.code === 'blg.seats' && seatsSet) || (f.code === 'blg.material' && hasSpec)) continue;
     const vals = values.filter((v) => v.parentId === f.id).sort((a, b) => a.order - b.order);
     if (!vals.length || vals.some((v) => have.has(v.id))) continue;
-    missing.push({ key: f.code, label: f.name, kind: 'facet', required: false, multi: f.multi, options: vals.map((v) => ({ id: v.id, label: v.name })) });
+    missing.push({ key: f.code, label: labelOf(f.code, f.name), kind: 'facet', required: false, multi: f.multi, options: vals.map((v) => ({ id: v.id, label: v.name })) });
   }
+  if (type.code === 'seating' && !seatsSet) missing.push({ key: 'seatsCount', label: 'Количество мест', kind: 'field', required: false });
   // обязательные поля и рисунки категории
   const usedFields = new Set<string>();
   const checked = await svc.check({ productId: id, mode: 'template' }, usedFields);
