@@ -991,3 +991,9 @@ tr.k-pos-more .k-readonly { border: 0; background: transparent; padding: 0; }
 .bk-foot .k-src-legend { margin: 0; }
 .bk-stat[data-tone='ok'] { color: var(--ok); }
 .bk-stat[data-tone='err'] { color: var(--danger); }
+/* C134: правая панель правки — листы не двигаются (пользователь 2026-11-16) */
+.bk-side { flex: 0 0 380px; min-width: 0; overflow: auto; padding: var(--s4); border-left: 1px solid var(--border); background: var(--surface); }
+.bk-side-h { margin: 0 0 var(--s3); font-size: var(--fs-sm); color: var(--muted); font-weight: 600; }
+.bk-side .bk-ed { margin: 0; }
+.bk-side .bk-ta { width: 100%; min-height: 12em; }
+.bk-edit.is-editing { outline: 2px solid var(--primary); outline-offset: 1px; }
