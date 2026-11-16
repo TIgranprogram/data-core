@@ -5,7 +5,7 @@
  *   → warnCard × N (предупреждения, с кнопкой)  → nextCard («Что дальше» + одна главная кнопка)
  *   → infoCard (сведения ≤ 6 строк + «Подробнее»)  → вкладки по смыслу объекта.
  * cfg: { title(r), sub?(r), stage?(r), side?(r) → [справа у заголовка, справа у подписи], warns?(r, ctx) → [{ title, sub?, label?, run? } | узел], next?(r, ctx) → { text, tone?, primary? },
- *        facts(r) → пары, more?(r) → пары, menu?(r, ctx) → [{ label, title?, run, danger? }] (все уходят в «⋯»),
+ *        bodyFirst? (true — body(r, ctx, notes) получает блоки предупреждений/«Что дальше» и ставит их сам: таблица первой), facts(r) → пары, more?(r) → пары, menu?(r, ctx) → [{ label, title?, run, danger? }] (все уходят в «⋯»),
  *        tabs?(r, ctx) → [{ key, label, count?, tone?, when?, blocks }], body?(r, ctx) → узел вместо вкладок, before?(r, ctx), noHistory?, parent? }
  */
 import { h } from '../../../core/dom.js';
@@ -28,9 +28,10 @@ export function screenCard(cfg) {
     top: (r, ctx) => {
       cfg.before?.(r, ctx);
       const nx = cfg.next?.(r, ctx);
-      return stack(...warnEls(r, ctx), nx ? nextCard({ text: nx.text, tone: nx.tone, primary: nx.primary }) : null,
-        cfg.facts(r).length || cfg.more?.(r)?.length ? infoCard({ facts: cfg.facts(r), more: cfg.more?.(r) || [] }) : null, // сведений нет — блока нет
-        cfg.body?.(r, ctx) || null); // body — содержимое без вкладок (заказ: таблица позиций, владелец 15.11)
+      const notes = [...warnEls(r, ctx), nx ? nextCard({ text: nx.text, tone: nx.tone, primary: nx.primary }) : null,
+        cfg.facts(r).length || cfg.more?.(r)?.length ? infoCard({ facts: cfg.facts(r), more: cfg.more?.(r) || [] }) : null]; // сведений нет — блока нет
+      const body = cfg.body?.(r, ctx, cfg.bodyFirst ? notes.filter(Boolean) : undefined) || null; // body — содержимое без вкладок (заказ: таблица позиций, владелец 15.11)
+      return cfg.bodyFirst ? body : stack(...notes, body); // bodyFirst: body сам ставит notes (предупреждения, «Что дальше») под таблицей (C131)
     },
     view: () => [],
     actions: (r, ctx) => (cfg.menu?.(r, ctx) || []).filter(Boolean).map((a) => ({ ...a, more: true, primary: false })),
