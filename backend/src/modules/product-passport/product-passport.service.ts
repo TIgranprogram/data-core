@@ -16,7 +16,7 @@ import { mergeProductImages, type PassportImageLike, type ProductImageRow } from
 import { IMAGE_KIND_LABELS, INSTANCE_FIELD_KEYS, missingHint, DEFAULT_BOM, buildDescription, dayUtc, missingFieldsV2, imageRules, nextSeq, warrantyCodeFor, type CounterColl, missingKeyed } from './passport-rules';
 import { standardWarnings, standardsDict, type StandardDoc } from './passport-compose';
 import type { DictRec } from './passport-compose-parts';
-import { buildV2Text, type FunnelText } from './passport-v2-text';
+import { buildV2Text, withTextSources, type FunnelText } from './passport-v2-text';
 import { checkSections, cleanSections, type SectionLike } from './passport-sections-check';
 import { JOINTS_MISSING, jointsMissing } from './passport-traits';
 import { editSnapshotItem, type SnapshotSection } from './passport-snapshot-edit';
@@ -138,6 +138,11 @@ export class ProductPassportService {
     }
     const doc = (await this.findById(id)).toObject() as unknown as Doc;
     if (syncWarning) doc.syncWarning = syncWarning;
+    // C130: старый снимок без источников текста — подписать их по свежей сборке (только в ответе, в базу не пишется)
+    const snap = doc.textSnapshot as { sections?: unknown[]; src?: unknown } | undefined;
+    if (snap?.sections && !snap.src) {
+      try { const built = await this.buildText({ ...doc }); if (built) doc.textSnapshot = withTextSources(snap as never, built.text); } catch { /* цвета — подсказка, карточка открывается и без них */ }
+    }
     // фронтенду: fromProduct — поля из изделия только для чтения; productCategory / categoryDiffers — знак «категория отличается от изделия» (у выданных)
     const prod = doc.productId ? await this.connection.collection('products').findOne({ _id: doc.productId as Types.ObjectId }) : null;
     const productCategory = prod ? (await productCategories(this.connection.db!, [prod._id])).get(String(prod._id)) ?? null : null;

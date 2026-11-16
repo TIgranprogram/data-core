@@ -25,7 +25,9 @@ const build = (cat: string, strip = false) => {
     all: noIds({ ...PASSPORT_TEXTS_V2.ALL, version: 1 }),
     own: noIds({ ...PASSPORT_TEXTS_V2[cat as keyof typeof PASSPORT_TEXTS_V2], version: 2 }),
   }) as unknown as Record<string, unknown>;
-  const old = Object.fromEntries(OLD_KEYS.map((k) => [k, t[k]]));
+  // C130: у пунктов появился источник (src) — новое поле, в хэш не входит, как и остальные новые
+  const noSrc = (secs: Array<{ items: Array<Record<string, unknown>> }>) => secs.map((s) => ({ ...s, items: s.items.map((i) => { const { src, ...rest } = i; void src; return rest; }) }));
+  const old = Object.fromEntries(OLD_KEYS.map((k) => [k, k === 'sections' ? noSrc(t[k] as never) : t[k]]));
   return createHash('sha256').update(JSON.stringify(old)).digest('hex');
 };
 

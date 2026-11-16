@@ -1,4 +1,4 @@
-import { buildV2Text } from './passport-v2-text';
+import { buildV2Text, withTextSources } from './passport-v2-text';
 import { DEFAULT_PASSPORT_TEMPLATE } from './passport-template.default';
 
 /** Полный текст паспорта v2 для снимка (БЗ-6 Э4a3/Э4c). */
@@ -85,5 +85,35 @@ describe('buildV2Text с воронкой', () => {
     const t = buildV2Text({ ...base, funnel: { forest } });
     expect(t.choices[hex(3)]).toBeUndefined();
     expect(JSON.stringify(t.sections)).not.toContain('Бетонировать.');
+  });
+});
+
+/** C130: источник каждого куска текста — для цвета в карточке паспорта. */
+describe('buildV2Text: источники текста', () => {
+  const passport = { name: 'Турник', passportCategory: 'TRN', warrantyMonths: 12 };
+  const all = { ...DEFAULT_PASSPORT_TEMPLATE, version: 1 };
+  const own = { version: 2, sections: [{ ...DEFAULT_PASSPORT_TEMPLATE.sections[0], paragraphs: ['Свой первый пункт типа.'] }] };
+
+  it('пункт «Для всех» — all, пункт типа паспорта — type; части по изделию — product', () => {
+    const t = buildV2Text({ passport, all, own });
+    expect(t.sections[0].items[0].src).toBe('type');
+    expect(t.sections.flatMap((s) => s.items).filter((i) => i.src === 'all').length).toBeGreaterThan(0);
+    expect(t.sections.flatMap((s) => s.items).every((i) => !!i.src)).toBe(true);
+    expect(t.src).toEqual({ description: 'product', purpose: 'product', install: 'product' });
+  });
+
+  it('вписанное вручную — manual', () => {
+    const t = buildV2Text({ passport: { ...passport, manualText: ['description', 'purpose'], description: 'Своё описание', purpose: 'Своё назначение' }, all });
+    expect(t.src.description).toBe('manual');
+    expect(t.src.purpose).toBe('manual');
+  });
+
+  it('старый снимок без источников подписывается по свежей сборке, текст снимка не меняется', () => {
+    const fresh = buildV2Text({ passport, all, own });
+    const old = { sections: fresh.sections.map((s) => ({ ...s, items: s.items.map((i) => ({ key: i.key, number: i.number, bullet: i.bullet, text: 'старый текст' })) })) };
+    const r = withTextSources(old as Parameters<typeof withTextSources>[0], fresh);
+    expect(r.src).toEqual(fresh.src);
+    expect(r.sections![0].items[0]).toMatchObject({ src: 'type', text: 'старый текст' });
+    expect(withTextSources(r, { sections: [], src: { description: 'manual', purpose: 'manual', install: 'manual' } })).toBe(r); // уже подписан — не трогаем
   });
 });

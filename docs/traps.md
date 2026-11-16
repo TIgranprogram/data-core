@@ -66,3 +66,5 @@
 - **Секреты из zip с Windows:** пути с `\`, папки без права входа, CRLF в `.pub`/`known_hosts`. Распаковать во временную папку, `chmod -R u+rwX`, `sed -i 's/\r$//'`, затем разложить; архив удалить.
 - **Пароль sudo в панели терминала Claude** истекает, пока его не ввели. Ставить Docker из обычного терминала Ubuntu (Ctrl+Alt+T); скрипт спрашивает пароль один раз.
 - **push по https просит логин** — `setup-ubuntu.sh` переводит адрес GitHub на SSH (ключ из `~/.ssh/config`).
+
+- **Docker Desktop не стартует: «initializing Secrets Engine … engine.sock … cannot be accessed» (16.11, рабочий ПК, второй раз).** Остался пустой файл-сокет от прошлого запуска; удалить его нельзя. Лечение: закрыть Docker (процессы `Docker Desktop`, `com.docker.backend`), переименовать папку `%LOCALAPPDATA%\docker-secrets-engine` в `…stale-<дата>`, запустить Docker снова. «Reset to factory defaults» не нажимать — сотрёт стенд и копии базы.

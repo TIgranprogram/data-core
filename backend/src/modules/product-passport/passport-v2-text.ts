@@ -1,4 +1,4 @@
-import { compose, legacyStartNumber, legacyTemplateToBlocks, usedStandards, TRAITS_FIELD, type ComposedSection, type ExcludedItem, type LegacyTemplateLike, type PassportTextBlock, type StandardsDict } from './passport-compose';
+import { compose, legacyStartNumber, legacyTemplateToBlocks, usedStandards, TRAITS_FIELD, type ComposedSection, type ExcludedItem, type LegacyTemplateLike, type PassportTextBlock, type StandardsDict, type TextSrc } from './passport-compose';
 import { collectTraits, filterByWhen } from './passport-traits';
 import { overrideFor } from '../../common/passport/text-overrides';
 import { choicesObject, resolveChoices, FIELD_SECTIONS, type PhraseTreeNode, type ProductCtx } from '../../common/passport/phrase-tree';
@@ -61,6 +61,8 @@ export interface V2Text {
   excluded: ExcludedItem[];
   /** Есть условные пункты на bolts / welds, а соединения не выбраны — выпуск ждёт выбора. */
   needJoints: boolean;
+  /** C130: откуда взяты части текста вне разделов (пункты разделов несут src сами) — для цвета в карточке. */
+  src: { description: TextSrc; purpose: TextSrc; install: TextSrc };
   /** Версия раскладки PDF: 2 — нумерация в один проход, один раздел «Монтаж». Нет поля — как печаталось раньше. */
   layout: number;
 }
@@ -78,8 +80,9 @@ function fill(text: string, passport: V2TextInput['passport'], category: string,
 export function buildV2Text(input: V2TextInput): V2Text {
   const { passport: p, all, own, standards = {}, dicts = {} } = input;
   const category = String(p.passportCategory || '');
-  const ownBlocks: PassportTextBlock[] = own ? legacyTemplateToBlocks(own).map((b) => ({ ...b, category })) : [];
-  const blocks = [...legacyTemplateToBlocks(all), ...ownBlocks];
+  const ownBlocks: PassportTextBlock[] = own ? legacyTemplateToBlocks(own).map((b) => ({ ...b, category, src: 'type' as TextSrc })) : [];
+  const blocks: PassportTextBlock[] = [...legacyTemplateToBlocks(all).map((b) => ({ ...b, src: 'all' as TextSrc })), ...ownBlocks];
+  let purposeSrc: TextSrc = 'product'; let installSrc: TextSrc = 'product';
   // воронка: разделы «Назначение» и «Установка» идут в поля, остальные — заменяют пункт №slot раздела шаблона
   const resolved = resolveChoices(input.funnel?.forest ?? [], input.funnel?.choices, input.funnel?.product);
   const extraMissing = new Set<string>();
@@ -97,11 +100,12 @@ export function buildV2Text(input: V2TextInput): V2Text {
     funnelTexts.push({ id: root.id, section: root.section, name: root.name, variant: leaf.name, text: fill(text, p, category, standards, sink), own: !!ov.text, off: !!ov.off, canOff: !(FIELD_SECTIONS as readonly string[]).includes(root.section), ...(ov.text ? { original: fill(leaf.text, p, category, standards, sink) } : {}) });
     if (ov.off) continue;
     used.push({ text });
-    if (root.section === 'purpose') purpose = purpose || fill(text, p, category, standards, extraMissing, input.usedFields);
-    else if (root.section === 'installation') installLeaf = installLeaf ?? { ...leaf, text };
+    const src: TextSrc = ov.text ? 'manual' : 'product';
+    if (root.section === 'purpose') { if (!purpose) { purpose = fill(text, p, category, standards, extraMissing, input.usedFields); purposeSrc = src; } }
+    else if (root.section === 'installation') { if (!installLeaf) { installLeaf = { ...leaf, text }; installSrc = src; } }
     else if (!(FIELD_SECTIONS as readonly string[]).includes(root.section)) {
       const host = blocks.find((b) => b.sectionKey === root.section);
-      blocks.push({ category, sectionKey: root.section, sectionTitle: host?.sectionTitle || root.name, sectionOrder: host?.sectionOrder, key: `p${root.slot}`, order: root.slot - 1, text });
+      blocks.push({ category, sectionKey: root.section, sectionTitle: host?.sectionTitle || root.name, sectionOrder: host?.sectionOrder, key: `p${root.slot}`, order: root.slot - 1, text, src });
     }
   }
   const elements = pick(dicts.elements, p.elements as unknown[]);
@@ -116,14 +120,15 @@ export function buildV2Text(input: V2TextInput): V2Text {
   // Вписанный вручную текст («свой текст», manualText) важнее справочника; назначение без выбора — из поля паспорта
   const manual = Array.isArray(p.manualText) ? (p.manualText as string[]) : [];
   const ownText = (k: string) => (typeof p[k] === 'string' ? (p[k] as string).trim() : '');
-  if (manual.includes('installationMethod') && ownText('installationMethod')) installParts.text = ownText('installationMethod');
-  if (manual.includes('purpose') && ownText('purpose')) purpose = ownText('purpose');
+  if (manual.includes('installationMethod') && ownText('installationMethod')) { installParts.text = ownText('installationMethod'); installSrc = 'manual'; }
+  if (manual.includes('purpose') && ownText('purpose')) { purpose = ownText('purpose'); purposeSrc = 'manual'; }
   if (!purpose) purpose = ownText('purpose');
   const excluded: ExcludedItem[] = [...r.excluded];
   const exDefects = Array.isArray(p.excludeDefects) ? (p.excludeDefects as string[]) : [];
   const byCode = (dicts.defects || []).filter((d) => !exDefects.includes(String(d?.code ?? '')));
   const defects = filterByWhen(byCode, info, 'maintenance', excluded);
-  const description = manual.includes('description') && ownText('description') ? ownText('description') : describeProduct(p as never, elements, materials, dicts.materials ?? []);
+  const manualDescr = manual.includes('description') && !!ownText('description');
+  const description = manualDescr ? ownText('description') : describeProduct(p as never, elements, materials, dicts.materials ?? []);
   return {
     templateVersion: all.version ?? 0,
     ownVersion: own?.version ?? null,
@@ -144,6 +149,21 @@ export function buildV2Text(input: V2TextInput): V2Text {
     unknownTraits: info.unknown,
     excluded,
     needJoints: r.needJoints || defects.needJoints,
+    src: { description: manualDescr ? 'manual' : 'product', purpose: purposeSrc, install: installSrc },
     layout: 2,
+  };
+}
+
+/**
+ * C130: снимок, собранный до появления источников, — подписать их по свежей сборке (в базу не пишется, текст снимка не меняется).
+ * Пункт ищется по коду раздела и пункта; нет такого пункта в свежей сборке — остаётся без источника.
+ */
+export function withTextSources<T extends { sections?: Array<{ key: string; items: Array<{ key: string; src?: TextSrc }> }>; src?: V2Text['src'] }>(snapshot: T, fresh: Pick<V2Text, 'sections' | 'src'>): T {
+  if (snapshot.src) return snapshot;
+  const by = new Map(fresh.sections.flatMap((s) => s.items.map((i) => [`${s.key}|${i.key}`, i.src] as const)));
+  return {
+    ...snapshot,
+    src: fresh.src,
+    sections: (snapshot.sections ?? []).map((s) => ({ ...s, items: s.items.map((i) => { const src = i.src ?? by.get(`${s.key}|${i.key}`); return src ? { ...i, src } : i; }) })),
   };
 }

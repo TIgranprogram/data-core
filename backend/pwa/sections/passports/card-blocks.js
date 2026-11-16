@@ -5,6 +5,7 @@ import { imagesBody } from '../../core/passport-images.js';
 import { toast, toastError } from '../../ui/kit/toast.js';
 import { confirmDlg } from '../../ui/kit/dialog.js';
 import { actions, button, fileButton, hint, iconButton, section, table } from '../../ui/kit/index.js';
+import { srcBox as kitSrcBox, srcLegend as kitSrcLegend, srcPaint } from '../../ui/kit/src.js';
 import { date } from '../../core/format.js';
 import { canEdit, humanBlanks, imgsOf, isRequired, kinds, statusOf, V2_NUMS } from './common.js';
 import { numbersOf } from './traits.js';
@@ -61,7 +62,8 @@ export function checkBlock(r) {
 
 /** Таблица ТО одного периода: что проверить · где · мера. */
 export function periodBlock(m) {
-  const row = (x) => h('li', null, x.what, h('span', { class: 'muted' }, [x.where, x.measure].filter(Boolean).map((v) => ' · ' + v).join('')));
+  // допуск печатается в PDF отдельной колонкой — на экране тоже виден (C130)
+  const row = (x) => h('li', null, x.what, h('span', { class: 'muted' }, [x.where, x.measure, x.tolerance ? 'допуск: ' + x.tolerance : ''].filter(Boolean).map((v) => ' · ' + v).join('')));
   return h('div', null, h('b', null, m.period), h('ul', null, ...m.rows.map(row)));
 }
 
@@ -70,6 +72,7 @@ export function periodBlock(m) {
  * правленый пункт помечен «изменён для этого паспорта». Перенос в справочник — «Справочники → Паспорта → Разделы и тексты».
  */
 export function snapItem(r, ctx, s, i, no = i.number) {
+  const src = i.edited ? 'manual' : i.src;
   const view = h('p', { class: 'pp-snap-item' }, no ? h('b', null, no + ' ') : '— ', humanBlanks(i.text),
     i.edited ? h('span', { class: 'muted', title: 'Было: ' + (i.original || '') }, ' · изменён для этого паспорта') : null,
     canEdit() ? iconButton({ icon: '✎', label: `Править пункт ${i.number || ''}`.trim(), size: 'S', cls: 'pp-snap-edit', onClick: () => view.replaceWith(editor()) }) : null,
@@ -77,6 +80,7 @@ export function snapItem(r, ctx, s, i, no = i.number) {
       if (!(await confirmDlg('Перенести в справочник?', `Пункт «${s.number} ${s.title}» с этим текстом станет общим для новых паспортов этого типа. Выданные паспорта не изменятся.`, { okText: 'Перенести' }))) return;
       try { const v = await api(`/passports/${r.id}/snapshot-item/promote`, { method: 'POST', body: { sectionKey: s.key, itemKey: i.key } }); toast(`Перенесено: шаблон типа паспорта, версия ${v.version}`); } catch (e) { toastError(e); }
     } }) : null);
+  srcPaint(view, src, SRC_LABEL);
   const editor = () => {
     const ta = h('textarea', { rows: 4, value: i.text, 'aria-label': 'Текст пункта' });
     const save = button({ label: 'Сохранить', kind: 'primary', size: 'S', onClick: async () => {
@@ -92,7 +96,22 @@ export function snapItem(r, ctx, s, i, no = i.number) {
 }
 
 /** Шаги монтажа по способу установки (внутри раздела «Монтаж» или отдельным разделом). */
-const installList = (t) => (t.install?.text ? h('ol', null, ...String(t.install.text).split(/\r?\n/).filter(Boolean).map((x) => h('li', null, x))) : null);
+/**
+ * C130: откуда текст — цвет полосы и фона. all — общий для всех изделий, type — тип паспорта,
+ * product — по этому изделию (справочники по его элементам, материалам, способу установки и выбранным вариантам), manual — вписан вручную.
+ */
+export const SRC_LABEL = { all: 'Общий — для всех изделий', type: 'Для этого типа паспорта', product: 'По этому изделию — из справочников и выбора', manual: 'Вписан вручную' };
+const srcBox = (src, ...kids) => kitSrcBox(src, SRC_LABEL, ...kids);
+const srcLegend = () => kitSrcLegend(SRC_LABEL);
+/** Шаги монтажа и требования к основанию — оба куска печатаются в PDF (C130: требований на экране не было). */
+const installList = (t) => {
+  const steps = String(t.install?.text || '').split(/\r?\n/).filter(Boolean);
+  const req = (t.install?.requirements || []).map((x) => String(x).trim()).filter(Boolean);
+  if (!steps.length && !req.length) return null;
+  return h('div', null,
+    steps.length ? srcBox(t.src?.install, h('ol', null, ...steps.map((x) => h('li', null, x)))) : null,
+    req.length ? srcBox(t.src ? 'product' : '', h('b', null, 'Требования к основанию:'), h('ul', null, ...req.map((x) => h('li', null, x)))) : null);
+};
 
 /** Паспорт v2: текст из снимка (как будет в паспорте) и «Обновить текст по справочникам» (новый снимок). */
 export function previewBlock(r, ctx) {
@@ -106,14 +125,16 @@ export function previewBlock(r, ctx) {
   if (!t) return section({ title: 'Текст паспорта', tone: 'neutral', count: 0, body: [h('p', { class: 'muted small' }, 'Текст ещё не собран.'), refresh] });
   const part = (title, body) => (body ? section({ title, tone: 'neutral', body }) : null);
   const plan = numbersOf(t);
+  const own = t.src ? 'product' : ''; // правила и обслуживание всегда собираются по справочникам этого изделия; у текста без источников цвета нет
   return section({ title: 'Текст паспорта', tone: 'neutral', body: [
     h('p', { class: 'muted' }, `Текст собран ${t.at ? date(t.at) : ''}${t.missing?.length ? ' · в тексте не заполнено: ' + t.missing.map((k) => V2_NUMS.find((n) => n[0] === k)?.[1] || k).join(', ') : ''}`),
     // порядок и номера — как в PDF (numbersOf = planNumbers сервера): новые сборки — подряд 1…N, один «Монтаж»
-    part(`${plan.descrNo || '—'} Описание и назначение`, t.description || t.purpose ? h('div', null, t.description ? h('p', null, humanBlanks(t.description)) : null, t.purpose ? h('p', null, humanBlanks(t.purpose)) : null) : null),
-    part(`${plan.rulesNo || plan.descrNo || '—'} Правила пользования (${(t.rules || []).length})`, t.rules?.length ? h('ol', null, ...t.rules.map((x) => h('li', null, humanBlanks(x)))) : null),
+    srcLegend(),
+    part(`${plan.descrNo || '—'} Описание и назначение`, t.description || t.purpose ? h('div', null, t.description ? srcBox(t.src?.description, h('p', null, humanBlanks(t.description))) : null, t.purpose ? srcBox(t.src?.purpose, h('p', null, humanBlanks(t.purpose))) : null) : null),
+    part(`${plan.rulesNo || plan.descrNo || '—'} Правила пользования (${(t.rules || []).length})`, t.rules?.length ? srcBox(own, h('ol', null, ...t.rules.map((x) => h('li', null, humanBlanks(x))))) : null),
     ...(t.sections || []).map((s, si) => part(`${plan.sectionNo[si]} ${s.title}`, plan.sectionNo[si] ? h('div', null, ...s.items.map((i) => snapItem(r, ctx, s, i, plan.itemNo(si, i.number))),
       plan.mergeInstall && si === plan.mountIdx ? installList(t) : null) : null)),
-    part(`${plan.toNo} Обслуживание по периодам (из справочников)`, t.maintenance?.length ? h('div', null, ...t.maintenance.map(periodBlock)) : null),
+    part(`${plan.toNo} Обслуживание по периодам (из справочников)`, t.maintenance?.length ? srcBox(own, ...t.maintenance.map(periodBlock)) : null),
     plan.mergeInstall ? null : part(`${plan.installNo} Монтаж по способу установки`, installList(t)),
     refresh] });
 }

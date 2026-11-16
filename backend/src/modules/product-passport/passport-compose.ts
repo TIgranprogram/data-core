@@ -39,6 +39,8 @@ export interface PassportTextBlock {
   sectionTitle?: string;
   /** Порядок раздела среди разделов. */
   sectionOrder?: number;
+  /** Откуда текст (C130): all — для всех изделий, type — тип паспорта, product — по выбору изделия, manual — вписан вручную. Попадает в пункт снимка. */
+  src?: TextSrc;
   /** Ключ пункта, уникален внутри раздела; по нему категория переопределяет пункт ALL. */
   key: string;
   /** Порядок пункта внутри раздела. */
@@ -66,7 +68,9 @@ export interface ComposeOptions {
   unknownTraits?: string[];
 }
 
-export interface ComposedItem { key: string; number: string | null; text: string; bullet: boolean }
+/** Источник текста паспорта — для цвета в карточке (C130). */
+export type TextSrc = 'all' | 'type' | 'product' | 'manual';
+export interface ComposedItem { key: string; number: string | null; text: string; bullet: boolean; src?: TextSrc }
 export interface ComposedSection { key: string; number: string; title: string; items: ComposedItem[] }
 /** Пункт, не вошедший в паспорт из-за `when`; unknown — признак не определён (не «условие ложно»). */
 export interface ExcludedItem { section: string; key: string; when: string; unknown?: true }
@@ -205,7 +209,7 @@ export function compose(
       items: items.map((x) => {
         const bullet = !!x.b.bullet;
         if (!bullet) n += 1;
-        return { key: x.b.key, number: bullet ? null : `${num}.${n}`, bullet, text: substitute(x.b.text, passport, standards, missing, options.usedFields) };
+        return { key: x.b.key, number: bullet ? null : `${num}.${n}`, bullet, text: substitute(x.b.text, passport, standards, missing, options.usedFields), ...(x.b.src ? { src: x.b.src } : {}) };
       }),
     };
   });

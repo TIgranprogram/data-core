@@ -2,6 +2,8 @@ import { recentCardsButton } from '../ui/kit/recent-cards.js';
 import { openCard } from '../ui/kit/card.js';
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
+import { srcBox, srcLegend, srcPaint } from '../ui/kit/src.js';
+const SRC_DEMO = { all: 'Общий — для всех изделий', type: 'Для этого типа паспорта', product: 'По этому изделию', manual: 'Вписан вручную' };
 import { pad, hint, tileGrid, typeArt, typeIconList, landing, miniChart, navList, photoStrip, catArt, stat, searchBox, readonlyGroup, similarBox, posPic, posPicOf, sku, section, stack, button, iconButton, segmented, headbar, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, openPdfPreview, stageBar, headStats, clamp, funnel, planner, qtyInput, folderTile, targetPicker, toast, pick, filter, table, treeTable, textInput, fieldRow, panel, entityPanel, select, fileButton, links, guide, SUPPLY_STATUS } from '../ui/kit/index.js';
 import { buildCardTabs } from '../ui/kit/card-tabs.js';
 import { gallery } from '../ui/kit/card-gallery.js';
@@ -178,6 +180,8 @@ export const kit = {
         table({ label: 'Пример', columns: [{ label: 'Позиция' }, { label: 'Сколько' }], rows: [{ cells: ['Труба 40×40', qtyInput({ label: 'Сколько: труба', plusLabel: 'Добавить: труба', max: 5, maxText: (f) => 'Свободно только ' + f, onInput: () => {} })] }] })),
       block('Папка с файлами (folderTile)', 'Светло-жёлтая папка: название, число файлов; клик раскрывает список. Строку файла можно перетащить на рабочий стол (Chrome/Edge), «Скачать» — везде; файл с диска на папку — загрузка (если задан onDrop).',
         stack(folderTile({ name: 'Чертежи', open: true, files: [{ id: '1', name: 'Чертёж № 1.pdf', meta: '240 КБ', mime: 'application/pdf', onDownload: () => toast('Скачать') }], onDrop: (l) => toast('Загрузка: ' + l.length) }), folderTile({ name: 'Паспорта', hint: 'Файлов нет — перетащите сюда', onDrop: () => toast('Загрузка') }))),
+      block('Текст по источнику (srcBox, srcPaint, srcLegend)', 'Цвет показывает, откуда взят кусок текста: полоса слева и лёгкий фон. Подписи цветов — строкой над текстом.',
+        stack(srcLegend(SRC_DEMO), srcBox('all', SRC_DEMO, h('p', null, 'Изделие хранить в сухом помещении.')), srcBox('type', SRC_DEMO, h('p', null, 'Тренажёр рассчитан на одного человека.')), srcBox('product', SRC_DEMO, h('p', null, 'Изготовлено из стальной трубы.')), srcPaint(h('p', null, 'Гарантия по договору — 24 месяца.'), 'manual', SRC_DEMO))),
       block('Кому / под что (targetPicker)', 'Выдача и возврат: «Под заказ» (заказ → позиция) · «Сотруднику» · «Без заказа». Заказы грузятся по первому нажатию в поле, не при открытии экрана. Рядом в kit: targetNote, targetShort (подписи в движениях), orderLines, lineCode (позиции заказа и их код).',
         targetPicker({ mode: 'out' }).el),
       block('Подгрузка порциями (autoMore)', 'Список растёт при прокрутке вниз; внизу «Показано N из M», сбой порции — «Повторить» в подвале, строки остаются. Без IntersectionObserver появляется «Показать ещё». Только наблюдатель (когда загрузку ведёт сам экран, как kit/list) — moreSentinel внутри kit. Здесь 45 строк по 10; каждая 3-я порция даёт ошибку один раз.',

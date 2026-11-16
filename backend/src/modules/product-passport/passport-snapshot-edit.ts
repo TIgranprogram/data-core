@@ -5,7 +5,7 @@ import { BadRequestException } from '@nestjs/common';
  * шаблоны не трогаются. Пункт помечается `edited` (с исходным текстом в `original`) — чтобы «Обновить текст по
  * справочникам» мог предупредить, что ручные правки пропадут, и чтобы правку можно было перенести в справочник.
  */
-export interface SnapshotItem { key: string; number: string | null; text: string; bullet: boolean; edited?: boolean; original?: string }
+export interface SnapshotItem { key: string; number: string | null; text: string; bullet: boolean; edited?: boolean; original?: string; src?: string }
 export interface SnapshotSection { key: string; number: string; title: string; items: SnapshotItem[] }
 
 export function editSnapshotItem(sections: SnapshotSection[], sectionKey: string, itemKey: string, text: string): SnapshotSection[] {
@@ -19,7 +19,7 @@ export function editSnapshotItem(sections: SnapshotSection[], sectionKey: string
       if (i.key !== itemKey) return i;
       found = true;
       const original = i.edited ? i.original : i.text;
-      return t === original ? { key: i.key, number: i.number, text: t, bullet: i.bullet } : { ...i, text: t, edited: true, original };
+      return t === original ? { key: i.key, number: i.number, text: t, bullet: i.bullet, ...(i.src ? { src: i.src } : {}) } : { ...i, text: t, edited: true, original };
     }),
   }));
   if (!found) throw new BadRequestException('Пункт не найден в тексте паспорта — обновите карточку');
