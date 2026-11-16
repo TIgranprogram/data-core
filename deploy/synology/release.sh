@@ -88,6 +88,9 @@ trap cleanup_release EXIT
 # версия приложения — последний коммит, менявший backend/pwa (выкладка без правок приложения не просит «Обновить»)
 # n — номер версии: число коммитов, менявших приложение (растёт с каждым обновлением; показ «v1.n»)
 PWA_N="$(git rev-list --count HEAD -- backend/pwa)"
+# показ: v1.1…v1.999, затем v2.1…v2.999, v3.1… (просьба пользователя 2026-11-16)
+ver_label() { local n=$1; if (( n < 1000 )); then echo "1.$n"; else echo "$(( 2 + (n - 1000) / 999 )).$(( (n - 1000) % 999 + 1 ))"; fi; }
+PWA_L="$(ver_label "$PWA_N")"
 # b — последний коммит серверного кода: по нему два сервера сверяют версию перед переключением (C045 🔴3)
 SRV_HASH="$(git log -1 --format=%h -- backend/src backend/package.json backend/Dockerfile docker-compose.prod.yml)"
 PWA_VER="$(git log -1 --format='{"v":"%h","n":'"$PWA_N"',"b":"'"$SRV_HASH"'","date":"%cI"}' -- backend/pwa)"
@@ -237,12 +240,12 @@ mkdir -p tools/logs && node backend/scripts/devlog-import.js prod --apply > tool
 
 echo "== Готово. Публично: https://kppdf-crm.ru/db/app/"
 # пользователь сверяет с меню приложения («v1.N») — то ли он видит (просьба 2026-10-25)
-echo "== Версия приложения: v1.$PWA_N (коммит $(git log -1 --format=%h -- backend/pwa)), сервер — $(git log --oneline -1 | cut -c1-60)"
-TAG="release-v1.$PWA_N-$(git rev-parse --short HEAD)"
+echo "== Версия приложения: v$PWA_L (коммит $(git log -1 --format=%h -- backend/pwa)), сервер — $(git log --oneline -1 | cut -c1-60)"
+TAG="release-v$PWA_L-$(git rev-parse --short HEAD)"
 if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
   [[ "$(git rev-list -1 "$TAG")" == "$(git rev-parse HEAD)" ]] || { echo "СТОП: тег выпуска уже указывает на другой коммит"; exit 1; }
 else
   git tag "$TAG"
 fi
 git push origin "refs/tags/$TAG"
-echo "ГОТОВО v1.$PWA_N — health 200; смоук 7/7; версия $PWA_HASH; тег $TAG"
+echo "ГОТОВО v$PWA_L — health 200; смоук 7/7; версия $PWA_HASH; тег $TAG"

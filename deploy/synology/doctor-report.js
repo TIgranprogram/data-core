@@ -9,7 +9,7 @@ const gb = (n) => (n / 1e9).toFixed(1) + ' ГБ';
 const health = parse('HEALTH');
 if (health?.status === 'ok') ok('Сайт и база отвечают'); else x('Сайт: ' + JSON.stringify(health?.error ?? health ?? 'нет ответа').slice(0, 140));
 const ver = parse('VERSION');
-if (ver?.v) ok(`Версия приложения: ${ver.n ? 'v1.' + ver.n + ' ' : ''}${ver.v}`); else w('Версия приложения не прочитана');
+if (ver?.v) ok(`Версия приложения: ${ver.n ? 'v' + ((n) => n < 1000 ? `1.${n}` : `${2 + Math.floor((n - 1000) / 999)}.${((n - 1000) % 999) + 1}`)(ver.n) + ' ' : ''}${ver.v}`); else w('Версия приложения не прочитана');
 
 const list = parse('BACKUPS');
 const copies = list?.items ?? (Array.isArray(list) ? list : null);

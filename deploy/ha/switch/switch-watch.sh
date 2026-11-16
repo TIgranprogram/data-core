@@ -167,7 +167,7 @@ RESTORE_SH="$CHECK_SH"$'\n'"$RESTORE_BODY"
 peer_health() { [[ "$(peer "$T_SSH" "curl -s -m 5 -o /dev/null -w '%{http_code}' $(printf '%q' "$PEER_API")/api/health/ready" 2>/dev/null)" == 200 ]]; }
 # Версия приложения соседа: /app/version.json {"v":"hash","n":612} → «v1.612» (как в меню приложения); без n — хеш сборки.
 # Нужна для C042-A5: backend не даёт переключиться, пока версии кода на серверах разные.
-version_of() { local s n b; s="$(cat)"; n="$(sed -n 's/.*"n"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' <<<"$s" | head -n 1)"; b="$(sed -n 's/.*"b"[[:space:]]*:[[:space:]]*"\([0-9a-f]*\)".*/\1/p' <<<"$s" | head -n 1)"; if [[ -n "$n" ]]; then printf 'v1.%s%s' "$n" "${b:+ · $b}"; else sed -n 's/.*"v"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' <<<"$s" | head -n 1 | head -c 60; fi; }
+version_of() { local s n b; s="$(cat)"; n="$(sed -n 's/.*"n"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' <<<"$s" | head -n 1)"; b="$(sed -n 's/.*"b"[[:space:]]*:[[:space:]]*"\([0-9a-f]*\)".*/\1/p' <<<"$s" | head -n 1)"; if [[ -n "$n" ]]; then printf 'v%s%s' "$(if (( n < 1000 )); then echo "1.$n"; else echo "$(( 2 + (n - 1000) / 999 )).$(( (n - 1000) % 999 + 1 ))"; fi)" "${b:+ · $b}"; else sed -n 's/.*"v"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' <<<"$s" | head -n 1 | head -c 60; fi; }
 # сосед снова запасной (и backend запущен) — после сорванного восстановления / отката
 peer_demote() {
   [[ -n "${HA_PEER_SSH:-}" ]] || return 0

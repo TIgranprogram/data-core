@@ -95,7 +95,7 @@ export async function reloadApp() {
 export function versionLabel(el) {
   const render = () => {
     if (!loaded) { el.replaceChildren(); return; }
-    const num = loaded.n ? `v1.${loaded.n}` : `v${String(loaded.v).slice(0, 7)}`;
+    const num = loaded.n ? `v${((n) => n < 1000 ? `1.${n}` : `${2 + Math.floor((n - 1000) / 999)}.${((n - 1000) % 999) + 1}`)(loaded.n)}` : `v${String(loaded.v).slice(0, 7)}`;
     el.title = fmt(loaded.date) ? 'Версия приложения от ' + fmt(loaded.date) : 'Версия приложения';
     el.replaceChildren(h('span', { class: 'ver-num' }, num), ...(hasNewer() ? [h('a', { href: '#', class: 'ver-update', title: 'Вышла новая версия — данные не теряются', onclick: (e) => { e.preventDefault(); reloadApp(); } }, 'Обновить систему')] : []));
   };

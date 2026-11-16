@@ -36,7 +36,7 @@ function readCommits() {
     pending.push(c);
     if (paths.some((p) => p.startsWith('backend/pwa'))) {
       n++;
-      for (const p of pending) p.releaseVersion = `v1.${n}`;
+      for (const p of pending) p.releaseVersion = `v${((n) => n < 1000 ? `1.${n}` : `${2 + Math.floor((n - 1000) / 999)}.${((n - 1000) % 999) + 1}`)(n)}`;
       pending = [];
     }
     out.push(c);

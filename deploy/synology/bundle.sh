@@ -69,7 +69,7 @@ fi
 
 DATE="$(date +%Y-%m-%d_%H%M%S)"
 _VER_JSON="${DC_DIR:-/opt/data-core}/backend/pwa/version.json"
-_APP_VER="$(python3 -c "import json,sys; d=json.load(open('$_VER_JSON')); print('v1.'+str(d['n']))" 2>/dev/null || echo "")"
+_APP_VER="$(python3 -c "import json,sys; d=json.load(open('$_VER_JSON')); n=d['n']; print('v'+('1.%d'%n if n<1000 else '%d.%d'%(2+(n-1000)//999,(n-1000)%999+1)))" 2>/dev/null || echo "")"
 NAME="datacore-bundle-${_APP_VER:+${_APP_VER}-}${DATE}"
 STAGE="$(mktemp -d "${BUNDLE_DIR}/.stage-${DATE}.XXXXXX")"
 trap 'rm -rf "$STAGE"' EXIT

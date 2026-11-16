@@ -133,7 +133,7 @@ export function versionLabel(json: unknown): string | null {
   const o = json as Record<string, unknown>;
   // b — коммит серверного кода (C045 🔴3): одинаковое приложение при разном backend — тоже разные версии
   const b = typeof o.b === 'string' && /^[0-9a-f]{4,40}$/.test(o.b) ? ` · ${o.b}` : '';
-  if (typeof o.n === 'number' && Number.isFinite(o.n)) return `v1.${Math.trunc(o.n)}${b}`;
+  if (typeof o.n === 'number' && Number.isFinite(o.n)) return `v${((n: number) => n < 1000 ? `1.${n}` : `${2 + Math.floor((n - 1000) / 999)}.${((n - 1000) % 999) + 1}`)(Math.trunc(o.n))}${b}`;
   if (typeof o.v === 'string' && o.v.trim()) return o.v.trim();
   return null;
 }
