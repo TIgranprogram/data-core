@@ -71,3 +71,5 @@
 # Git Bash из PowerShell: ProxyCommand с `exec` (C132, 16.11.2026)
 
 Если SSH через `datacore-vm` сообщает PowerShell-ошибку «exec is not recognized», процесс унаследовал неверный `SHELL`. Перед штатным `remote-access/deploy.sh` установить в том же Git Bash `export SHELL=/usr/bin/bash`. Проверено чтением `/opt/data-core`; SSH-конфиг и ключи менять не требуется. `release.sh --dry-run` при недоступном SSH может лишь выбрать полный путь — это не подтверждение соединения.
+
+- **Выкладка: «container name … already in use»** (2026-11-16): docker compose не пересоздал backend из-за зависшего контейнера с временным именем. release.sh сам откатывает и убирает его; повторить выкладку один раз. Повторится — добавить в release.sh `docker rm` контейнеров `*_datacore-backend` перед `up`.
