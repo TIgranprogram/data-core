@@ -1,4 +1,5 @@
 #!/bin/bash
+{ # C135: весь файл читается до запуска — выкладка, заменившая скрипт во время работы, не собьёт мост
 # switch-watch.sh — хост-мост «Переключить сейчас» (HA-TWO-SERVERS, SW-4/SW-5). По образцу bundle-watch.sh.
 # Cron пользователя деплоя раз в минуту, на КАЖДОМ из двух серверов:
 #   * * * * * DATA_DIR=/var/lib/datacore bash /opt/data-core/deploy/ha/switch/switch-watch.sh
@@ -91,16 +92,27 @@ vps() { timeout "$T_VPS" ssh "${VPS_OPTS[@]}" "$HA_VPS_SSH" "$@"; }
 peer_vars() { printf 'DC=%q PD=%q PAPI=%q EXPECT_HOST=%q EXPECT_SELF=%q; ' "$PEER_DC" "$PEER_DATA" "$PEER_API" "${HA_PEER_HOST:-}" "$PEER_NAME"; }
 
 # ---------- отчёты серверу ----------
-LAST_REPLY=""
+LAST_REPLY=""; LAST_ERR=""
 post_report() {
   local hf rf code i; hf="$(mktemp)" || return 1; rf="$(mktemp)" || return 1
   printf 'X-Switch-Secret: %s\n' "$SECRET" > "$hf"
   for i in 1 2 3; do
     code="$(curl -sS -m "$T_REPORT" -o "$rf" -w '%{http_code}' -H @"$hf" -H 'Content-Type: application/json' -d "$1" "$API/api/control/switch/report" 2>>"$LOG")"
     [[ "$code" == 200 ]] && { LAST_REPLY="$(cat "$rf")"; rm -f "$hf" "$rf"; return 0; }
-    L "отчёт не принят (код ${code:-нет}), попытка $i"; sleep 3
+    LAST_ERR="код ${code:-нет ответа}: $(sed -n 's/.*"message"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$rf" 2>/dev/null | head -c 200)"
+    L "отчёт не принят ($LAST_ERR), попытка $i"
+    [[ "$code" == 409 ]] && break   # работа чужая или завершена — повтор не поможет
+    sleep 3
   done
   rm -f "$hf" "$rf"; return 1
+}
+# понятная причина отказа (C135): 403 — секрет/HA_SELF, 409 — работа уже не эта, иначе — сервер не ответил
+report_why() {
+  case "$LAST_ERR" in
+    "код 403"*) echo "Сервер отклонил отчёт моста: неверный секрет или HA_SELF ($LAST_ERR)." ;;
+    "код 409"*) echo "Сервер считает эту работу завершённой или чужой: мост, похоже, запустил её повторно ($LAST_ERR)." ;;
+    *) echo "Сервер не ответил на отчёт моста ($LAST_ERR)." ;;
+  esac
 }
 # report ID STEP STATE [ПРЕДУПРЕЖДЕНИЕ/ОШИБКА] [EXTRA-JSON-ФРАГМЕНТ]
 report() {
@@ -239,7 +251,7 @@ fail() {   # fail STEP "понятная причина"; вызывается, 
 
 run_step() {   # run_step STEP [ПРЕДУПРЕЖДЕНИЕ] — сообщить о шаге
   L "шаг: $1"; check_budget "$1"
-  report "$ID" "$1" running "${2:-}" || fail "$1" "Сервер не принял отчёт моста. Проверьте секрет и HA_SELF."
+  report "$ID" "$1" running "${2:-}" || fail "$1" "$(report_why)"
 }
 # C058: rsync может жить в $HOME/bin (без apt/sudo); --rsync-path с одинарными кавычками — HOME на удалённой стороне.
 sync_photos() { timeout "$(cap "$1")" env PATH="$HOME/bin:/usr/bin:/bin" rsync --rsync-path='$HOME/bin/rsync' -rt --ignore-existing --partial -e "$RSH" "${DATA_DIR}/uploads/" "${HA_PEER_SSH}:${PEER_DATA}/uploads/" >>"$LOG" 2>&1; }
@@ -504,3 +516,5 @@ case "$KIND" in
   refresh) do_refresh ;;
   *) fail preflight "Неизвестный тип заявки." ;;
 esac
+exit $?
+}
