@@ -98,13 +98,7 @@ export function cover(input: PdfV2Input): V2Page {
     d.font('gost-i').fontSize(nameFs).text(p.name ?? '', l + 10, d.y + 8, { width: cw - 20, align: 'center' });
     yy = d.y + 6;
     if (p.productCode) { d.font('gost-i').fontSize(10).fillColor('#000').text(`Номер изделия: ${p.productCode}`, l, yy, { width: cw, align: 'center' }); yy = d.y + 6; }
-    // знак возраста по центру; плашки категории («Благоустройство») на обложке нет (пользователь 2026-11-13)
-    const age = has(p.ageFrom) ? `${num(p.ageFrom)}+` : '';
-    if (age) {
-      const x = (box ? l + (cw - 26) / 2 : (A5.w - 26) / 2);
-      d.lineWidth(1.4).strokeColor(accent).circle(x + 13, yy + 10, 12).stroke(); d.font('gost').fontSize(9).fillColor('#000').text(age, x, yy + 5.5, { width: 26, align: 'center', lineBreak: false });
-      yy += 30;
-    }
+    // знака возраста и плашки категории на обложке нет (пользователь 2026-11-13, 2026-11-16)
     const ov = images.overview?.[0];
     const bottom = box ? A5.h - box.b : A5.h - 40;
     if (ov && bottom - yy > 60) { try { const h = Math.min(bottom - yy, A5.h / 2); d.image(ov.buf, l, yy + (bottom - yy - h) / 2, { fit: [cw, h], align: 'center', valign: 'center' }); } catch { /* битая картинка — без неё */ } }
