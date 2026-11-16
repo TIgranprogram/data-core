@@ -1000,3 +1000,26 @@ tr.k-pos-more .k-readonly { border: 0; background: transparent; padding: 0; }
 .bk-side { display: flex; flex-direction: column; gap: var(--s4); }
 .bk-ai { margin-top: auto; padding-top: var(--s3); border-top: 1px solid var(--border); }
 .bk-measure { position: absolute; left: -99999px; width: var(--w); }
+.bk-cap { margin: 1.5cqw 0 .5cqw; font-size: 2cqw; }
+/* C134 дизайн-2: спокойный вид окна паспорта (UI-REVIEW-2) */
+.bk-head { background: var(--surface); }
+.bk-head h2 { font-size: var(--fs-h2); }
+.bk-acts .btn-ghost { border-color: var(--border-strong); background: var(--surface); color: var(--text); }
+.bk-acts .btn-ghost:hover { background: var(--surface-2); }
+.bk-acts .btn-primary:disabled { background: var(--surface-2); border-color: var(--border); color: var(--muted); opacity: 1; }
+.bk-acts > .btn:last-child { margin-left: var(--s2); }
+.bk-toc { background: var(--surface); gap: var(--s1); }
+.bk-toc .bk-toc-i { color: var(--text); font-weight: 400; }
+.bk-toc .bk-toc-i:hover { background: var(--surface-2); }
+.bk-toc .bk-toc-i.is-current, .bk-toc .bk-toc-i[aria-current='true'] { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+.bk-side-h { font-size: var(--fs-h3); color: var(--text); }
+.bk-side .bk-ta { background: var(--bg); border: 1px solid var(--border-strong); }
+.bk-side .bk-ta:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-soft); }
+.bk-ai { margin-top: 0; }
+/* лист: пункты как бумага — тонкая полоса источника, без плашки; фон — только при наведении и правке */
+.bk-page .k-src { background: transparent; box-shadow: none; border-left-width: 2px; padding: .3cqw 0 .3cqw 1.4cqw; margin: 0 0 .8cqw; border-radius: 0; }
+.bk-page .k-src:not([data-src='type'], [data-src='product'], [data-src='manual']) { border-left-color: transparent; }
+.bk-page .bk-edit:hover { outline: none; background: var(--src-soft, var(--neutral-soft)); }
+.bk-page .bk-edit:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.bk-page .bk-edit.is-editing { outline: 1px solid var(--primary); outline-offset: 2px; background: var(--src-soft, var(--neutral-soft)); }
+.bk-pno { color: var(--muted); border-top-color: var(--border); }
