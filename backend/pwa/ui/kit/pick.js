@@ -79,7 +79,7 @@ export function attachCombo(input, { options, onPick, max = 60, empty, extra, mu
     // extra(text, shown) → [{ label, run }] — явные действия под списком («+ Новый заказчик «…»», ЗЧ.2)
     const acts = (extra?.(input.value.trim(), shown) || []).map((a) => h('div', { class: 'combo-opt combo-act', role: 'option', onmousedown: async (e) => { e.preventDefault(); close(); await a.run(); } }, h('div', { class: 'opt-l' }, a.label)));
     if (!shown.length && acts.length) { fill(...acts); box.hidden = false; placeList(box); return; }
-    if (!shown.length) { const why = empty?.(); fill(h('div', { class: 'combo-empty' + (why ? ' combo-why' : '') }, why || (tokens.length ? 'Нет в списке — останется как написали' : 'Список пуст'))); box.hidden = false; placeList(box); return; }
+    if (!shown.length) { const why = typeof empty === 'function' ? empty() : empty; /* подпись можно дать и строкой: ошибка с сайта 16.11 «empty is not a function» */ fill(h('div', { class: 'combo-empty' + (why ? ' combo-why' : '') }, why || (tokens.length ? 'Нет в списке — останется как написали' : 'Список пуст'))); box.hidden = false; placeList(box); return; }
     active = Math.min(active, shown.length - 1); // -1 — ничего не подсвечено: Enter не меняет введённое
     const rows = []; let grp;
     shown.forEach((o, i) => {
