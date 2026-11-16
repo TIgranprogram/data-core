@@ -18,7 +18,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { TAG, isLocalStand, tagText, createdFrom, screenGarbage, screenGrammar, blockedClick, buildReport, speedKey, screenChange, closedForRole, watchdogAction, DEAD_MS, runLive } from './lib.mjs';
+import { TAG, isLocalStand, tagText, createdFrom, screenGarbage, screenGrammar, blockedClick, buildReport, speedKey, screenChange, nextHint, closedForRole, watchdogAction, DEAD_MS, runLive } from './lib.mjs';
 import { sessionFromStdin } from './stand-session.mjs';
 import { loadSettings, llm, llmUp, ensureLLM, keepAwake } from './llm.mjs';
 
@@ -367,6 +367,12 @@ const LOOK = `(() => {
     if (tag === 'input' || tag === 'textarea' || el.isContentEditable) {
       const t = el.type || 'text';
       if (t === 'checkbox' || t === 'radio') return '[' + n + '] ' + (t === 'checkbox' ? 'галочка' : 'переключатель') + ' «' + fieldLabel(el) + '» ' + (el.checked ? '(вкл)' : '(выкл)');
+      // C129: поле со списком (kit.pick) — модель должна знать, что сюда не пишут название, а выбирают; у строгого — варианты из скрытого <select>
+      if (el.getAttribute('role') === 'combobox') {
+        const sel = el.closest('.sel-wrap')?.previousElementSibling; const strict = sel && sel.tagName === 'SELECT';
+        const vars = strict ? [...sel.options].filter((o) => o.value !== '').slice(0, 12).map((o) => clean(o.text)).filter(Boolean).join(' | ') : '';
+        return '[' + n + '] список «' + fieldLabel(el) + '» = «' + clean(el.value).slice(0, 40) + '»' + (strict ? ' (только из списка — choose)' : ' (choose — выбрать, fill — вписать своё)') + (vars ? '; варианты: ' + vars : '');
+      }
       return '[' + n + '] поле «' + fieldLabel(el) + '»' + (t !== 'text' ? ' (' + t + ')' : '') + ' = «' + clean(el.value ?? el.innerText).slice(0, 40) + '»';
     }
     const kind = el.getAttribute('role') === 'tab' ? 'вкладка' : tag === 'a' ? 'ссылка' : tag === 'button' || el.getAttribute('role') === 'button' ? 'кнопка' : 'строка';
@@ -507,7 +513,8 @@ async function runTask(s, b, nav, t, state) {
     const tc = (m.tool_calls || [])[0];
     if (!tc) {
       if (++idle > 2) { if (!viewDone('модель писала итог текстом вместо finish')) rec.summary = 'ИИ перестал вызывать инструменты: ' + String(m.content || '').replace(/\s+/g, ' ').slice(0, 120); break; }
-      msgs.push({ role: 'assistant', content: m.content || '' }, { role: 'user', content: 'Ответь ВЫЗОВОМ инструмента, не текстом. Задание выполнено — вызови finish (result «получилось» и что увидел). Иначе — click, fill, choose, key, open_section или report_problem.' });
+      // C129: в задании с записью общая подсказка не помогала (Gemma 24 раза писала текстом) — называем следующий шаг с номером
+      msgs.push({ role: 'assistant', content: m.content || '' }, { role: 'user', content: 'Ответь ВЫЗОВОМ инструмента, не текстом. ' + ((t.make && nextHint(o)) || 'Задание выполнено — вызови finish (result «получилось» и что увидел). Иначе — click, fill, choose, key, open_section или report_problem.') });
       continue;
     }
     idle = 0;

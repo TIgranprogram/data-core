@@ -166,3 +166,25 @@ export function screenChange(a, b) {
   if (a.text === b.text && String(a.els) === String(b.els)) return 'Экран не изменился. Это действие ничего не дало — выбери другое (или report_problem, если сайт мешает).';
   return 'Экран обновился.';
 }
+
+/**
+ * C129: следующий шаг задания с записью — с номером элемента. Нужен, когда модель ответила текстом вместо вызова:
+ * панель открыта → первое пустое поле (или список), потом кнопка сохранения; панели нет → кнопка «+ …».
+ */
+export function nextHint(o) {
+  const els = o?.els || [];
+  const num = (line) => line.match(/^\[(\d+)\]/)?.[1];
+  if (o?.layer) {
+    const bad = (o.bad || [])[0];
+    const empty = els.find((l) => bad && l.includes(`«${bad}»`) && /^\[\d+\] (поле|список)/.test(l)) || els.find((l) => /^\[\d+\] (поле|список) «[^»]+»[^=]*= «»/.test(l) && !/поиск/i.test(l));
+    if (empty) {
+      const n = num(empty); const name = empty.match(/«([^»]*)»/)?.[1] || '';
+      return /^\[\d+\] список/.test(empty) ? `Следующий шаг: choose с n=${n} — выбери вариант в списке «${name}».` : `Следующий шаг: fill с n=${n} — заполни поле «${name}».`;
+    }
+    const save = els.find((l) => /^\[\d+\] кнопка «(Сохранить|Создать|Добавить|Готово)[^»]*» \(в панели\)/.test(l));
+    if (save) return `Все поля заполнены. Следующий шаг: click с n=${num(save)} — кнопка сохранения. После сохранения вызови finish.`;
+    return '';
+  }
+  const add = els.find((l) => /^\[\d+\] кнопка «\+/.test(l));
+  return add ? `Следующий шаг: click с n=${num(add)} — открой форму новой записи.` : '';
+}

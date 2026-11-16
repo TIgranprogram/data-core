@@ -44,6 +44,9 @@ export function attachCombo(input, { options, onPick, max = 60, empty, extra, mu
   };
   mount();
   input.setAttribute('autocomplete', 'off');
+  // поле со списком — так его узнают чтение с экрана и ИИ-тестировщик (C129: в «Статью» печатали как в обычное поле)
+  input.setAttribute('role', 'combobox'); input.setAttribute('aria-autocomplete', 'list'); input.setAttribute('aria-expanded', 'false');
+  new MutationObserver(() => input.setAttribute('aria-expanded', String(!box.hidden))).observe(box, { attributes: true, attributeFilter: ['hidden'] });
   input.classList.add('combo-input', 'k-field', 'k-arrow');
   let shown = []; let active = 0; let picking = false;
   const all = () => (typeof options === 'function' ? options() : options) || [];

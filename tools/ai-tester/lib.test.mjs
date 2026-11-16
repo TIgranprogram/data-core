@@ -96,3 +96,14 @@ test('C125: speedKey убирает id и номера, speedStats — медл�
   const r = speedStats([{ key: 'a', ms: 100 }, { key: 'a', ms: 300 }, { key: 'b', ms: 2000 }]);
   assert.equal(r[0].key, 'b'); assert.equal(r[1].n, 2); assert.equal(r[1].max, 300);
 });
+
+test('C129: подсказка следующего шага в задании с записью — с номером элемента', async () => {
+  const { nextHint } = await import('./lib.mjs');
+  const form = { layer: 'Новый расход', bad: [], els: ['[1] поле «Сумма *» = «1500»', '[2] список «Статья *» = «» (только из списка — choose)', '[3] кнопка «Сохранить» (в панели)'] };
+  assert.match(nextHint(form), /choose с n=2/);
+  assert.match(nextHint({ ...form, els: ['[1] поле «Название *» = «»', form.els[2]] }), /fill с n=1/);
+  assert.match(nextHint({ ...form, els: [form.els[0], form.els[2]] }), /click с n=3/);
+  assert.match(nextHint({ ...form, bad: ['Сумма *'] }), /fill с n=1/);
+  assert.match(nextHint({ layer: '', els: ['[4] строка «Расход 1»', '[7] кнопка «+ Расход»'] }), /click с n=7/);
+  assert.equal(nextHint({ layer: '', els: ['[4] строка «Расход 1»'] }), '');
+});
