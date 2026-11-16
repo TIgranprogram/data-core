@@ -25,6 +25,7 @@ async function fixture({ ids = ['first'], can = true, bindFail = false, postFail
       if (postFail) { postFail = false; throw new Error('POST failed'); }
       return { id: 'new', kind: 'product', categories: 'BLG', ...options.body };
     } },
+    '../../../core/dom.js': { h: node },
     '../../../ui/kit/index.js': kit,
     '../common.js': { V2_NUMS: [], canEdit: () => can },
     '../funnel/api.js': { patchProduct: noop, setFacets: noop, putDefaults: async (prod, patch) => {
@@ -114,6 +115,7 @@ async function editors(prod = {}) {
   const context = createContext({});
   const deps = {
     '../../../ui/kit/card.js': { openCard() {} }, '../../../core/api.js': { api() {} },
+    '../../../core/dom.js': { h: node },
     '../../../ui/kit/index.js': kit, '../common.js': { V2_NUMS: [], canEdit() {} },
     '../funnel/api.js': { setFacets() {}, patchProduct: async (id, body) => requests.push(body), putDefaults: async (prod, body) => { requests.push(body); Object.assign(prod.passportDefaults, body); } },
     '../traits.js': { jointsPick() {} }, './model.js': { num: (v) => String(v ?? '').trim() && Number.isFinite(Number(v)) ? Number(v) : null },
