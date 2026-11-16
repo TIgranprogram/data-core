@@ -17482,6 +17482,121 @@
         ]
       }
     },
+    "/passports/{id}/snapshot-field": {
+      "patch": {
+        "operationId": "ProductPassportController_editSnapshotField",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/{id}/snapshot-field/sources": {
+      "post": {
+        "operationId": "ProductPassportController_fieldSources",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/{id}/snapshot-field/target": {
+      "post": {
+        "operationId": "ProductPassportController_fieldTarget",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/{id}/snapshot-item/target": {
+      "post": {
+        "operationId": "ProductPassportController_itemTarget",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/{id}/snapshot-field/promote": {
+      "post": {
+        "operationId": "ProductPassportController_promoteSnapshotField",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
     "/passports/{id}/snapshot": {
       "post": {
         "operationId": "ProductPassportController_snapshot",
@@ -21024,6 +21139,10 @@
           "checked": {
             "type": "boolean",
             "description": "Зелёная галочка «Проверено»"
+          },
+          "lineId": {
+            "type": "string",
+            "description": "C122: строка состава изделия; в плане позиции ссылка берётся из прежней строки — присланное значение не меняет её"
           }
         }
       },
@@ -21329,6 +21448,10 @@
           },
           "checked": {
             "type": "boolean"
+          },
+          "lineId": {
+            "type": "string",
+            "description": "C122: строка состава (composition[]._id) — часть взята из детали состава"
           }
         }
       },

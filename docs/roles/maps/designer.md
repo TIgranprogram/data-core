@@ -64,3 +64,9 @@
 - C098: [UI-REVIEW](../../crew/C098-auto-pagination/UI-REVIEW.md), «Дизайнер: принято». Live30/30; целевые footer/loading/error/fallback обе темы просмотрены. Mobile40px исправлено до44px, свежий focusPNG иEnter→200 подтверждены. HEADb84781c+kit diff; atlas исключён.
 
 - C087 финальное уточнение13.11: UI-REVIEW для746933262d006f48540fa7431c436e90140fb3fb PARTIAL только из-за390softpassport кадра во времяfade;390products/1440passport просмотреныPASS, reload/focusPASS. Один устойчивый mobileкадр отложен координатором. ПроцессныйSTOPне снят.
+
+- C132 (16.11): [UI-REVIEW](../../crew/C132-passport-text-edit/UI-REVIEW.md), FAIL D1 две primary в inline editor + закреплённая «Изменить»; полнота PARTIAL. 3 целевых PNG mock API просмотрены, QA overflow 6/6; live запрещён/недоступен, local vision connection_error. Design-lint новых 0. Коммит: 18c0c274 + рабочий C132; review-scope не закрыт.
+
+- C132 FREEZE-2: D1 закрыт 390 editor обе темы, confirm обе темы PASS (64.375 px по QA); kit dark M/S просмотрен. Полный UI PARTIAL: mock вместо live, неполные состояния. Свежие hashes и снимки — в UI-REVIEW. Коммит: 18c0c274 + рабочий FREEZE-2.
+
+- C132 финал: [UI-REVIEW-FINAL](../../crew/C132-passport-text-edit/UI-REVIEW-FINAL.md), PASS на заполненной синтетической Mongo и реальном API. D1 закрыт, D2 закрыт повторным просмотром открытого списка 390 в двух темах. Коммит: 18c0c274 + рабочий C132. Общий review-scope не закрыт, проверен C132.

@@ -22,6 +22,8 @@ import { JOINTS_MISSING, jointsMissing } from './passport-traits';
 import { editSnapshotItem, type SnapshotSection } from './passport-snapshot-edit';
 import { canon, carryManual, manualConflict, sameSnapshot, type Snap } from './passport-snapshot-refresh';
 import { promoteToOwn } from './passport-promote';
+import { carryFields, cleanFieldText, editField, fieldTarget, parseField, parseIndex, type FieldSnap } from './passport-snapshot-field';
+import { fieldDestination, fieldSourceName, promoteField, sourceToken } from './passport-field-promote';
 import { standardSchemes } from './passport-schemes';
 import { PASSPORT_TEXTS_V2 } from './passport-texts.v2';
 import { textsTree } from './passport-texts-tree';
@@ -139,8 +141,8 @@ export class ProductPassportService {
     const doc = (await this.findById(id)).toObject() as unknown as Doc;
     if (syncWarning) doc.syncWarning = syncWarning;
     // C130: старый снимок без источников текста — подписать их по свежей сборке (только в ответе, в базу не пишется)
-    const snap = doc.textSnapshot as { sections?: unknown[]; src?: unknown } | undefined;
-    if (snap?.sections && !snap.src) {
+    const snap = doc.textSnapshot as { sections?: unknown[]; src?: unknown; refs?: unknown } | undefined;
+    if (snap?.sections && (!snap.src || !snap.refs)) {
       try { const built = await this.buildText({ ...doc }); if (built) doc.textSnapshot = withTextSources(snap as never, built.text); } catch { /* цвета — подсказка, карточка открывается и без них */ }
     }
     // фронтенду: fromProduct — поля из изделия только для чтения; productCategory / categoryDiffers — знак «категория отличается от изделия» (у выданных)
@@ -528,8 +530,86 @@ export class ProductPassportService {
     return this.saveCurrent(doc, previous);
   }
 
+  /** Снимок паспорта; у собранного до C132 — со ссылками на источники строк из свежей сборки (в базу не пишется). */
+  private async snapshotWithRefs(p: Doc): Promise<FieldSnap> {
+    const snap = p.textSnapshot as (FieldSnap & { sections?: unknown[] }) | undefined;
+    if (!snap?.sections) throw new BadRequestException('У паспорта нет собранного текста — выберите категорию в «Изменить»');
+    if (snap.refs) return snap;
+    const built = await this.buildText({ ...p }).catch(() => null);
+    return built ? withTextSources(snap as never, built.text) as FieldSnap : snap;
+  }
+
+  /** C132: правка строки описания / назначения / монтажа / правил / обслуживания только для этого паспорта { field, index?, text }. */
+  async editSnapshotField(id: string, b: { field?: string; index?: number; text?: string }) {
+    const doc = await this.findById(id);
+    const previous = doc.toObject() as unknown as Doc;
+    const snap = previous.textSnapshot as FieldSnap | undefined;
+    if (!(snap as { sections?: unknown } | undefined)?.sections) throw new BadRequestException('У паспорта нет собранного текста — выберите категорию в «Изменить»');
+    const field = parseField(b.field);
+    const next = editField(snap!, field, parseIndex(field, snap!, b.index), b.text);
+    doc.set('textSnapshot', { ...next, editedAt: new Date() });
+    return this.saveCurrent(doc, previous);
+  }
+
+  /** Допустимые источники старого снимка: только текущие связанные записи, без записи в паспорт. */
+  private async fieldSources(p: Doc, field: ReturnType<typeof parseField>) {
+    const current = { ...p };
+    if (p.productId) {
+      const product = await this.connection.collection('products').findOne({ _id: this.oid(p.productId), deletedAt: null });
+      if (!product) throw new ConflictException('Связанное изделие больше недоступно');
+      Object.assign(current, await productPatch(this.connection.db!, product as Doc));
+    }
+    const built = await this.buildText(current);
+    if (!built) throw new ConflictException('Для этого паспорта нельзя определить связанные источники');
+    const snap = built.text as unknown as FieldSnap;
+    const indices: Array<number | undefined> = field === 'rules' ? (snap.rules ?? []).map((_, i) => i)
+      : field === 'maintenance' ? (snap.maintenance ?? []).flatMap((t) => t.rows).map((_, i) => i) : [undefined];
+    const names = new Map<string, Promise<string>>();
+    const items = new Map<string, { sourceKey: string; label: string; currentText: string; ref: NonNullable<ReturnType<typeof fieldTarget>['ref']> }>();
+    for (const index of indices) {
+      const t = fieldTarget(snap, field, index);
+      if (!t.ref) continue;
+      const refKey = sourceToken(t.ref);
+      if (!names.has(refKey)) names.set(refKey, fieldSourceName(this.connection.db!, t.ref, String(p.productId ?? '')));
+      const sourceKey = sourceToken([String(p._id), field, t.ref, t.text]);
+      const name = await names.get(refKey)!;
+      const label = name + (index === undefined ? '' : ' · строка ' + (index + 1));
+      items.set(sourceKey, { sourceKey, label, currentText: t.text, ref: t.ref });
+    }
+    return [...items.values()].sort((a, b) => a.label.localeCompare(b.label, 'ru'));
+  }
+
+  async snapshotFieldSources(id: string, b: { field?: string; index?: number }) {
+    const p = (await this.findById(id)).toObject() as unknown as Doc;
+    const field = parseField(b.field);
+    const snap = await this.snapshotWithRefs(p);
+    parseIndex(field, snap, b.index);
+    const items = await this.fieldSources(p, field);
+    return { items: items.map(({ sourceKey, label, currentText }) => ({ sourceKey, label, currentText })) };
+  }
+
+  /**
+   * C132: «Сохранить в справочнике» — текст строки пишется в её источник (запись справочника или изделие).
+   * Выданные паспорта не меняются. Ответ: что изменено и сколько изделий затронуто.
+   */
+  async promoteSnapshotField(id: string, b: { field?: string; index?: number; text?: string; token?: string; sourceKey?: string }, preview = false) {
+    const p = (await this.findById(id)).toObject() as unknown as Doc;
+    const snap = await this.snapshotWithRefs(p);
+    const field = parseField(b.field);
+    let t = fieldTarget(snap, field, parseIndex(field, snap, b.index));
+    if (b.sourceKey !== undefined) {
+      const source = (await this.fieldSources(p, field)).find((s) => s.sourceKey === b.sourceKey);
+      if (!source) throw new ConflictException('Выбранный источник изменился. Выберите источник заново');
+      t = { ...t, ref: source.ref, old: source.currentText };
+    }
+    const text = cleanFieldText(field, b.text === undefined ? t.text : b.text);
+    if (!t.ref) throw new ConflictException('Источник старого снимка неизвестен. Выберите связанный источник перед сохранением');
+    if (preview) return fieldDestination(this.connection.db!, t.ref, p.productId ? String(p.productId) : '', t.old);
+    return promoteField(this.connection.db!, t.ref, text, t.old, p.productId ? String(p.productId) : '', b.token);
+  }
+
   /** «Перенести правку в справочник» (Э5a4): пункт из снимка → новая версия шаблона типа паспорта. */
-  async promoteSnapshotItem(id: string, b: { sectionKey?: string; itemKey?: string }, userId?: string) {
+  async promoteSnapshotItem(id: string, b: { sectionKey?: string; itemKey?: string; text?: string; token?: string }, userId?: string, preview = false) {
     const p = (await this.findById(id)).toObject() as unknown as Doc;
     const cat = String(p.passportCategory || '');
     const sec = ((p.textSnapshot as { sections?: SnapshotSection[] } | undefined)?.sections ?? []).find((s) => s.key === b.sectionKey);
@@ -538,8 +618,26 @@ export class ProductPassportService {
     const { own: dbOwn } = await this.templatesFor(cat);
     const code = PASSPORT_TEXTS_V2[cat as keyof typeof PASSPORT_TEXTS_V2];
     const own = dbOwn ?? code ?? null;
-    const sections = promoteToOwn(own?.sections as never, (await this.v2All()).sections as never, String(b.sectionKey), String(b.itemKey), item.text);
-    return this.saveTemplate({ category: cat, sections: sections as never, tables: (own?.tables ?? []) as never }, userId);
+    const all = await this.v2All();
+    const token = sourceToken([cat, own, all.sections]);
+    const category = await this.connection.collection('dict_values').findOne({ dict: 'passportCategories', code: cat, deletedAt: null });
+    const count = async () => {
+      const products = await this.connection.collection('products').find({ deletedAt: null }, { projection: { _id: 1 } }).toArray();
+      const categories = await productCategories(this.connection.db!, products.map((p) => p._id));
+      return [...categories.values()].filter((c) => c === cat).length;
+    };
+    const affected = this.versions ? await this.versions.cached('passports.categoryUsage', ['products', 'categories', 'dict_values'], cat, count) : await count();
+    const result = { ok: true, target: 'тексты категории «' + String(category?.name ?? cat) + '»', affected, shared: affected > 1, token };
+    if (preview) return result;
+    if (b.token !== undefined && b.token !== token) throw new ConflictException('Тексты категории изменены — подтвердите сохранение заново');
+    if (b.token === undefined) {
+      const fresh = await this.buildText({ ...p });
+      const current = fresh?.text.sections.find((s) => s.key === b.sectionKey)?.items.find((i) => i.key === b.itemKey);
+      if (!current || (current.text !== (item.original ?? item.text) && current.text !== item.text)) throw new ConflictException('Источник изменился. Откройте редактор заново и проверьте источник.');
+    }
+    const text = cleanFieldText('description', b.text ?? item.text);
+    const sections = promoteToOwn(own?.sections as never, all.sections as never, String(b.sectionKey), String(b.itemKey), text);
+    return this.saveTemplate({ category: cat, sections: sections as never, tables: (own?.tables ?? []) as never }, userId, dbOwn?.id ?? null, all.version);
   }
 
   async snapshot(id: string): Promise<ProductPassportDocument | null> {
@@ -563,9 +661,11 @@ export class ProductPassportService {
     const { text, instLeaf } = built;
     const prev = p.textSnapshot as Snap | undefined;
     const { sections, conflicts } = carryManual(prev?.sections, (text.sections ?? []) as unknown as SnapshotSection[]);
-    if (conflicts.length) throw manualConflict(conflicts);
+    // C132: правки зелёных строк (описание, назначение, монтаж, правила, обслуживание) переносятся так же
+    const fields = carryFields(prev as FieldSnap | undefined, text as unknown as FieldSnap);
+    if (conflicts.length || fields.conflicts.length) throw manualConflict([...conflicts, ...fields.conflicts]);
     const modernDrawing = p.status === 'draft' || prev?.drawingLayout === 2;
-    const next: Snap = { ...(text as unknown as Snap), sections, ...(modernDrawing ? { drawingLayout: 2 } : {}), ...(p.status === 'draft' || prev?.sizeLayout === 2 ? { sizeLayout: 2 } : {}), ...(prev?.editedAt ? { editedAt: prev.editedAt } : {}) };
+    const next: Snap = { ...(fields.snap as unknown as Snap), sections, ...(modernDrawing ? { drawingLayout: 2 } : {}), ...(p.status === 'draft' || prev?.sizeLayout === 2 ? { sizeLayout: 2 } : {}), ...(prev?.editedAt ? { editedAt: prev.editedAt } : {}) };
     const manual = (p.manualText as string[] | undefined) ?? [];
     const derived: Doc = {
       installationTypeId: q.installationTypeId ?? p.installationTypeId,
@@ -853,7 +953,7 @@ export class ProductPassportService {
   }
 
   /** Правка шаблона — новая версия в пределах категории, прежняя остаётся в истории. */
-  async saveTemplate(body: Partial<PassportTemplateContent> & { category?: string; materialsSpec?: unknown }, userId?: string) {
+  async saveTemplate(body: Partial<PassportTemplateContent> & { category?: string; materialsSpec?: unknown }, userId?: string, expectedId?: string | null, expectedAll?: number) {
     const cat = normalizeCategory(body.category);
     const base = await this.template(cat); // содержимое по умолчанию — действующее (для категории без версии — «Для всех»)
     const own = await this.ownDoc(cat);
@@ -864,8 +964,25 @@ export class ProductPassportService {
     const spec = 'materialsSpec' in body ? parseMaterialsSpec(body.materialsSpec) : (own?.materialsSpec ?? null);
     if (spec) await this.mi.check(spec);
     const same = cat === 'ALL' ? { category: { $in: [null, 'ALL'] } } : { category: cat };
-    await this.templates.updateMany({ isActive: true, ...same }, { $set: { isActive: false } }).exec();
-    await this.templates.create({ version: (own?.version ?? 0) + 1, isActive: true, ...(cat === 'ALL' ? {} : { category: cat }), sections, tables, ...(spec ? { materialsSpec: spec } : {}), ...(userId && Types.ObjectId.isValid(userId) ? { updatedBy: new Types.ObjectId(userId) } : {}) });
+    const session = await this.connection.startSession();
+    try {
+      await session.withTransaction(async () => {
+        // Счётчик сериализует также создание первой версии категории.
+        await this.connection.collection('counters').updateOne({ entity: 'passport-template-write', prefix: 'texts', year: 0 }, { $inc: { seq: 1 } }, { upsert: true, session });
+        const current = await this.templates.findOne({ isActive: true, ...same }).sort({ version: -1 }).session(session).lean().exec();
+        if (expectedAll !== undefined) {
+          const all = await this.templates.findOne({ isActive: true, category: ALL_V2 }).sort({ version: -1 }).session(session).lean().exec();
+          if ((all?.version ?? 0) !== expectedAll) throw new ConflictException('Общие тексты изменены — подтвердите сохранение заново');
+        }
+        const expected = expectedId === undefined ? (own ? String(own._id) : null) : expectedId;
+        if ((current ? String(current._id) : null) !== expected) throw new ConflictException('Тексты категории изменены — подтвердите сохранение заново');
+        await this.templates.updateMany({ isActive: true, ...same }, { $set: { isActive: false } }, { session }).exec();
+        await this.templates.create([{ version: (own?.version ?? 0) + 1, isActive: true, ...(cat === 'ALL' ? {} : { category: cat }), sections, tables, ...(spec ? { materialsSpec: spec } : {}), ...(userId && Types.ObjectId.isValid(userId) ? { updatedBy: new Types.ObjectId(userId) } : {}) }], { session });
+      });
+    } catch (err) {
+      if ((err as { code?: number }).code === 11000) throw new ConflictException('Тексты категории изменены — подтвердите сохранение заново');
+      throw err;
+    } finally { await session.endSession(); }
     return this.template(cat);
   }
 
@@ -942,8 +1059,19 @@ export class ProductPassportService {
     if (cat === 'ALL') {
       const cur = await this.v2All();
       const last = await this.templates.findOne({ category: ALL_V2 }).sort({ version: -1 }).lean().exec();
-      await this.templates.updateMany({ isActive: true, category: ALL_V2 }, { $set: { isActive: false } }).exec();
-      await this.templates.create({ version: (last?.version ?? 0) + 1, isActive: true, category: ALL_V2, sections, tables: cur.tables, ...(userId && Types.ObjectId.isValid(userId) ? { updatedBy: new Types.ObjectId(userId) } : {}) });
+      const session = await this.connection.startSession();
+      try {
+        await session.withTransaction(async () => {
+          await this.connection.collection('counters').updateOne({ entity: 'passport-template-write', prefix: 'texts', year: 0 }, { $inc: { seq: 1 } }, { upsert: true, session });
+          const current = await this.templates.findOne({ category: ALL_V2 }).sort({ version: -1 }).session(session).lean().exec();
+          if (String(current?._id ?? '') !== String(last?._id ?? '')) throw new ConflictException('Общие тексты изменены — откройте редактор заново');
+          await this.templates.updateMany({ isActive: true, category: ALL_V2 }, { $set: { isActive: false } }, { session }).exec();
+          await this.templates.create([{ version: (last?.version ?? 0) + 1, isActive: true, category: ALL_V2, sections, tables: cur.tables, ...(userId && Types.ObjectId.isValid(userId) ? { updatedBy: new Types.ObjectId(userId) } : {}) }], { session });
+        });
+      } catch (err) {
+        if ((err as { code?: number }).code === 11000) throw new ConflictException('Общие тексты изменены — откройте редактор заново');
+        throw err;
+      } finally { await session.endSession(); }
       return this.texts(cat);
     }
     const { own } = await this.v2Own(cat);

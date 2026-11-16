@@ -1,0 +1,389 @@
+{
+  "evidence": [
+    {
+      "width": 390,
+      "theme": "light",
+      "picker": true,
+      "keyboardSelected": true,
+      "horizontalOverflow": false,
+      "geometry": [
+        {
+          "text": "Отмена",
+          "width": 81.171875,
+          "height": 64.375,
+          "scroll": 79,
+          "client": 79
+        },
+        {
+          "text": "Сохранить в справочнике",
+          "width": 205.828125,
+          "height": 64.375,
+          "scroll": 204,
+          "client": 204
+        }
+      ],
+      "text": "Сохранить в справочнике?\n\nИсточник: справочник: элемент «Перекладина двойная». Затронет изделий: 2. Новые сборки паспортов получат этот текст. Этот и выданные паспорта не изменятся.\n\nОтмена\nСохранить в справочнике",
+      "lifecycle": {
+        "one": false,
+        "two": false,
+        "remaining": false,
+        "closed": true
+      },
+      "itemConfirm": "Сохранить в справочнике?\n\nИсточник: тексты категории «Уличные тренажёры». Затронет изделий: 2. Новые сборки паспортов получат этот текст. Этот и выданные паспорта не изменятся.\n\nОтмена\nСохранить в справочнике",
+      "drawerButtons": [
+        {
+          "text": "Сохранить только в этом паспорте",
+          "height": 64.375,
+          "width": 262,
+          "scroll": 260,
+          "client": 260
+        },
+        {
+          "text": "Сохранить в справочнике",
+          "height": 44,
+          "width": 229.078125,
+          "scroll": 227,
+          "client": 227
+        },
+        {
+          "text": "Отмена",
+          "height": 44,
+          "width": 91.71875,
+          "scroll": 90,
+          "client": 90
+        }
+      ],
+      "reopened": true
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "picker": true,
+      "keyboardSelected": true,
+      "horizontalOverflow": false,
+      "geometry": [
+        {
+          "text": "Отмена",
+          "width": 81.171875,
+          "height": 64.375,
+          "scroll": 79,
+          "client": 79
+        },
+        {
+          "text": "Сохранить в справочнике",
+          "width": 205.828125,
+          "height": 64.375,
+          "scroll": 204,
+          "client": 204
+        }
+      ],
+      "text": "Сохранить в справочнике?\n\nИсточник: справочник: элемент «Перекладина двойная». Затронет изделий: 2. Новые сборки паспортов получат этот текст. Этот и выданные паспорта не изменятся.\n\nОтмена\nСохранить в справочнике",
+      "lifecycle": {
+        "one": false,
+        "two": false,
+        "remaining": false,
+        "closed": true
+      },
+      "fieldPromote": "200, снимок выпущенного паспорта прежний",
+      "itemConfirm": "Сохранить в справочнике?\n\nИсточник: тексты категории «Уличные тренажёры». Затронет изделий: 2. Новые сборки паспортов получат этот текст. Этот и выданные паспорта не изменятся.\n\nОтмена\nСохранить в справочнике",
+      "itemConflict": "409, ввод сохранён, снимок прежний, повтор успешен",
+      "drawerButtons": [
+        {
+          "text": "Сохранить только в этом паспорте",
+          "height": 64.375,
+          "width": 262,
+          "scroll": 260,
+          "client": 260
+        },
+        {
+          "text": "Сохранить в справочнике",
+          "height": 44,
+          "width": 229.078125,
+          "scroll": 227,
+          "client": 227
+        },
+        {
+          "text": "Отмена",
+          "height": 44,
+          "width": 91.71875,
+          "scroll": 90,
+          "client": 90
+        }
+      ],
+      "reopened": true
+    },
+    {
+      "width": 1024,
+      "theme": "light",
+      "picker": true,
+      "keyboardSelected": true,
+      "horizontalOverflow": false,
+      "geometry": [
+        {
+          "text": "Отмена",
+          "width": 79.875,
+          "height": 36,
+          "scroll": 78,
+          "client": 78
+        },
+        {
+          "text": "Сохранить в справочнике",
+          "width": 208.0625,
+          "height": 36,
+          "scroll": 206,
+          "client": 206
+        }
+      ],
+      "text": "Сохранить в справочнике?\n\nИсточник: справочник: элемент «Перекладина двойная». Затронет изделий: 2. Новые сборки паспортов получат этот текст. Этот и выданные паспорта не изменятся.\n\nОтмена\nСохранить в справочнике",
+      "lifecycle": {
+        "one": false,
+        "two": false,
+        "remaining": false,
+        "closed": true
+      }
+    },
+    {
+      "width": 1024,
+      "theme": "dark",
+      "picker": true,
+      "keyboardSelected": true,
+      "horizontalOverflow": false,
+      "geometry": [
+        {
+          "text": "Отмена",
+          "width": 79.875,
+          "height": 36,
+          "scroll": 78,
+          "client": 78
+        },
+        {
+          "text": "Сохранить в справочнике",
+          "width": 208.0625,
+          "height": 36,
+          "scroll": 206,
+          "client": 206
+        }
+      ],
+      "text": "Сохранить в справочнике?\n\nИсточник: справочник: элемент «Перекладина двойная». Затронет изделий: 2. Новые сборки паспортов получат этот текст. Этот и выданные паспорта не изменятся.\n\nОтмена\nСохранить в справочнике",
+      "lifecycle": {
+        "one": false,
+        "two": false,
+        "remaining": false,
+        "closed": true
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "picker": true,
+      "keyboardSelected": true,
+      "horizontalOverflow": false,
+      "geometry": [
+        {
+          "text": "Отмена",
+          "width": 79.875,
+          "height": 36,
+          "scroll": 78,
+          "client": 78
+        },
+        {
+          "text": "Сохранить в справочнике",
+          "width": 208.0625,
+          "height": 36,
+          "scroll": 206,
+          "client": 206
+        }
+      ],
+      "text": "Сохранить в справочнике?\n\nИсточник: справочник: элемент «Перекладина двойная». Затронет изделий: 2. Новые сборки паспортов получат этот текст. Этот и выданные паспорта не изменятся.\n\nОтмена\nСохранить в справочнике",
+      "lifecycle": {
+        "one": false,
+        "two": false,
+        "remaining": false,
+        "closed": true
+      }
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "picker": true,
+      "keyboardSelected": true,
+      "horizontalOverflow": false,
+      "geometry": [
+        {
+          "text": "Отмена",
+          "width": 79.875,
+          "height": 36,
+          "scroll": 78,
+          "client": 78
+        },
+        {
+          "text": "Сохранить в справочнике",
+          "width": 208.0625,
+          "height": 36,
+          "scroll": 206,
+          "client": 206
+        }
+      ],
+      "text": "Сохранить в справочнике?\n\nИсточник: справочник: элемент «Перекладина двойная». Затронет изделий: 2. Новые сборки паспортов получат этот текст. Этот и выданные паспорта не изменятся.\n\nОтмена\nСохранить в справочнике",
+      "lifecycle": {
+        "one": false,
+        "two": false,
+        "remaining": false,
+        "closed": true
+      }
+    }
+  ],
+  "calls": [
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/sources",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/target",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-item/target",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-item/promote",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-item",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/sources",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/target",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/sources",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/target",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/promote",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-item/target",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-item/promote",
+      "status": 200,
+      "competing": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-item/promote",
+      "status": 409
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-item/target",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-item/promote",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-item",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/sources",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/target",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/sources",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/target",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/sources",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/target",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/sources",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/target",
+      "status": 201
+    }
+  ]
+}

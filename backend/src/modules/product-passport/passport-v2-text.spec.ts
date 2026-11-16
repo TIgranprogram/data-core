@@ -117,3 +117,10 @@ describe('buildV2Text: источники текста', () => {
     expect(withTextSources(r, { sections: [], src: { description: 'manual', purpose: 'manual', install: 'manual' } })).toBe(r); // уже подписан — не трогаем
   });
 });
+
+
+it('C132 старый снимок с тем же числом строк не получает ссылки на новые источники', () => {
+  const old = { sections: [], rules: ['Старое'], src: { description: 'product' as const, purpose: 'product' as const, install: 'product' as const } };
+  const fresh = { sections: [], src: old.src, refs: { rules: [{ kind: 'element' as const, id: 'чужой', field: 'usageRules' }] } };
+  expect(withTextSources(old, fresh)).toMatchObject({ refs: {} });
+});

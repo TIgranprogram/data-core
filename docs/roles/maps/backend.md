@@ -1,4 +1,8 @@
 # Карта роли backend
+## C132 исправления аудита (2026-11-16)
+- `backend/src/modules/product-passport/passport-field-promote.ts:53` target и `:62` CAS; `product-passport.service.ts:582` sources, `:595` field promote, `:612` item promote, `:956` транзакция saveTemplate; `passport-v2-text.ts:174` старые refs не угадывать; `passport-snapshot-field.ts:123` carryFields после promote. Контракт/проверки: `docs/crew/C132-passport-text-edit/BACKEND-FIX-REPORT.md`. коммит: — (не выполнялся).
+## C132 правка зелёных строк паспорта (2026-11-16, не закоммичено)
+- `product-passport/passport-snapshot-field.ts:52` editField, `:100` fieldTarget, `:114` carryFields (в `service.rebuildSafe`); `passport-field-promote.ts:94` promoteField; refs — `passport-v2-text.ts` (`refs`, `withTextSources`), `passport-compose-parts.ts` usageRulesFrom/maintenanceTables(refs); маршруты `snapshot-field`(+`/promote`) в controller; `service.editSnapshotField/promoteSnapshotField`; `showcase/passport-defaults.ts` manualText. Отчёт `docs/crew/C132-passport-text-edit/REPORT.md`. коммит: —
 ## C121 файлы позиции (2026-11-15, не закоммичено)
 - `productattachments/income-attachments.service.ts:25` productOf, `income-attachment-upload.guard.ts`, `productattachments.controller.ts` IncomeAttachmentsController (`incomes/:id/attachments`); `productattachments.service.ts` save(…incomeId)/list(…incomeId)/remove; spec `income-attachments.spec.ts`, e2e `income-attachments.e2e-spec.ts` (6 зелёных). Отчёт `docs/crew/C121-position-files/report-backend.md`. openapi не обновлён. коммит: —
 ## C114 K версии паспорта (2026-11-14, не закоммичено)

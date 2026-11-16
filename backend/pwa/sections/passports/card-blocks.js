@@ -7,8 +7,9 @@ import { confirmDlg } from '../../ui/kit/dialog.js';
 import { actions, button, fileButton, hint, iconButton, section, table } from '../../ui/kit/index.js';
 import { srcBox as kitSrcBox, srcLegend as kitSrcLegend, srcPaint } from '../../ui/kit/src.js';
 import { date } from '../../core/format.js';
-import { canEdit, humanBlanks, imgsOf, isRequired, kinds, statusOf, V2_NUMS } from './common.js';
+import { canEdit, canWorkPassport, humanBlanks, imgsOf, isRequired, kinds, statusOf, V2_NUMS } from './common.js';
 import { numbersOf } from './traits.js';
+import { fieldEditor, fieldPencil, passportAction } from './field-edit.js';
 
 /** Блоки карточки паспорта: картинки, проверка, текст из снимка, комплектность. */
 /** Картинки по видам в карточке: миниатюры (клик — открыть, × — убрать) и своя зона «перетащите / Ctrl+V» у каждого вида. */
@@ -61,9 +62,14 @@ export function checkBlock(r) {
 }
 
 /** Таблица ТО одного периода: что проверить · где · мера. */
-export function periodBlock(m) {
-  // допуск печатается в PDF отдельной колонкой — на экране тоже виден (C130)
-  const row = (x) => h('li', null, x.what, h('span', { class: 'muted' }, [x.where, x.measure, x.tolerance ? 'допуск: ' + x.tolerance : ''].filter(Boolean).map((v) => ' · ' + v).join('')));
+export function periodBlock(m, edit) {
+  // допуск печатается в PDF отдельной колонкой — на экране тоже виден (C130); edit(what, i) — правка строки (C132), i — номер внутри периода
+  const row = (x, i) => {
+    const li = h('li', null, x.what, h('span', { class: 'muted' }, [x.where, x.measure, x.tolerance ? 'допуск: ' + x.tolerance : ''].filter(Boolean).map((v) => ' · ' + v).join('')));
+    const p = edit ? edit(li, x.what, i) : null;
+    if (p) li.append(' ', p);
+    return li;
+  };
   return h('div', null, h('b', null, m.period), h('ul', null, ...m.rows.map(row)));
 }
 
@@ -75,21 +81,10 @@ export function snapItem(r, ctx, s, i, no = i.number) {
   const src = i.edited ? 'manual' : i.src;
   const view = h('p', { class: 'pp-snap-item' }, no ? h('b', null, no + ' ') : '— ', humanBlanks(i.text),
     i.edited ? h('span', { class: 'muted', title: 'Было: ' + (i.original || '') }, ' · изменён для этого паспорта') : null,
-    canEdit() ? iconButton({ icon: '✎', label: `Править пункт ${i.number || ''}`.trim(), size: 'S', cls: 'pp-snap-edit', onClick: () => view.replaceWith(editor()) }) : null,
-    canEdit() && i.edited ? button({ label: 'Сделать общим для типа паспорта', kind: 'ghost', size: 'S', title: 'Этот текст пункта получат новые паспорта того же типа', onClick: async () => {
-      if (!(await confirmDlg('Перенести в справочник?', `Пункт «${s.number} ${s.title}» с этим текстом станет общим для новых паспортов этого типа. Выданные паспорта не изменятся.`, { okText: 'Перенести' }))) return;
-      try { const v = await api(`/passports/${r.id}/snapshot-item/promote`, { method: 'POST', body: { sectionKey: s.key, itemKey: i.key } }); toast(`Перенесено: шаблон типа паспорта, версия ${v.version}`); } catch (e) { toastError(e); }
-    } }) : null);
+    canWorkPassport() ? iconButton({ icon: '✎', label: `Править пункт ${i.number || ''}`.trim(), size: 'S', onClick: () => view.replaceWith(editor()) }) : null);
   srcPaint(view, src, SRC_LABEL);
   const editor = () => {
-    const ta = h('textarea', { rows: 4, value: i.text, 'aria-label': 'Текст пункта' });
-    const save = button({ label: 'Сохранить', kind: 'primary', size: 'S', onClick: async () => {
-      save.disabled = true; save.textContent = 'Сохранение…';
-      try { await api(`/passports/${r.id}/snapshot-item`, { method: 'PATCH', body: { sectionKey: s.key, itemKey: i.key, text: ta.value } }); ctx.setRow(await api(`/passports/${r.id}`)); toast('Пункт изменён для этого паспорта'); } catch (e) { toastError(e); save.disabled = false; save.textContent = 'Сохранить'; }
-    } });
-    const box = h('div', { class: 'field wide' }, ta, h('div', { class: 'hint' }, 'Правка только для этого паспорта'),
-      h('div', { class: 'rt-acts' }, save, button({ label: 'Отмена', kind: 'ghost', size: 'S', onClick: () => box.replaceWith(view) })));
-    setTimeout(() => ta.focus(), 0);
+    const box = fieldEditor({ r, ctx, sectionKey: s.key, itemKey: i.key, text: i.text, rows: 4, cancel: () => box.replaceWith(view) });
     return box;
   };
   return view;
@@ -103,39 +98,74 @@ export function snapItem(r, ctx, s, i, no = i.number) {
 export const SRC_LABEL = { all: 'Общий — для всех изделий', type: 'Для этого типа паспорта', product: 'По этому изделию — из справочников и выбора', manual: 'Вписан вручную' };
 const srcBox = (src, ...kids) => kitSrcBox(src, SRC_LABEL, ...kids);
 const srcLegend = () => kitSrcLegend(SRC_LABEL);
+/** Шаги монтажа: список и один карандаш на весь текст (правится целиком, шаг — строка). */
+const installView = (t, r, ctx, steps) => {
+  const e = t.fieldEdits?.install;
+  const view = h('div', null, h('ol', null, ...steps.map((x) => h('li', null, x))), e ? h('span', { class: 'muted', title: 'Было: ' + (e.original || '') }, 'изменено для этого паспорта') : null);
+  if (e && t.src?.install !== 'manual') srcPaint(view, 'manual', SRC_LABEL);
+  const pencil = r ? fieldPencil(view, { r, ctx, field: 'install', text: String(t.install?.text || ''), ref: t.refs?.install, rows: 8 }) : null;
+  if (pencil) view.append(' ', pencil);
+  return view;
+};
 /** Шаги монтажа и требования к основанию — оба куска печатаются в PDF (C130: требований на экране не было). */
-const installList = (t) => {
+const installList = (t, r, ctx) => {
   const steps = String(t.install?.text || '').split(/\r?\n/).filter(Boolean);
   const req = (t.install?.requirements || []).map((x) => String(x).trim()).filter(Boolean);
   if (!steps.length && !req.length) return null;
   return h('div', null,
-    steps.length ? srcBox(t.src?.install, h('ol', null, ...steps.map((x) => h('li', null, x)))) : null,
+    steps.length ? srcBox(t.src?.install, installView(t, r, ctx, steps)) : null,
     req.length ? srcBox(t.src ? 'product' : '', h('b', null, 'Требования к основанию:'), h('ul', null, ...req.map((x) => h('li', null, x)))) : null);
 };
 
 /** Паспорт v2: текст из снимка (как будет в паспорте) и «Обновить текст по справочникам» (новый снимок). */
 export function previewBlock(r, ctx) {
   const t = r.textSnapshot;
-  const refresh = canEdit() ? button({ label: 'Обновить текст по справочникам', size: 'S', title: 'Собрать текст заново по справочникам и шаблону типа паспорта (выданный текст заменится)', onClick: async (e) => {
-    const edited = (t?.sections || []).reduce((n, x) => n + x.items.filter((it) => it.edited).length, 0);
-    if (edited && !(await confirmDlg('Пересобрать текст?', `Ручных правок в этом паспорте: ${edited}. После пересборки по справочникам они пропадут.`, { okText: 'Пересобрать' }))) return;
-    e.target.disabled = true; e.target.textContent = 'Собираю…';
-    try { await api(`/passports/${r.id}/snapshot`, { method: 'POST' }); ctx.setRow(await api(`/passports/${r.id}`)); toast('Текст паспорта собран заново'); } catch (err) { toastError(err); e.target.disabled = false; e.target.textContent = 'Обновить текст по справочникам'; }
-  } }) : null;
+  const refresh = canEdit() ? button({ label: 'Обновить текст по справочникам', onClick: () => passportAction(r.id, async () => {
+    refresh.disabled = true;
+    refresh.classList.add('is-busy');
+    try {
+      const edited = (t?.sections || []).reduce((n, x) => n + (x.items || []).filter((it) => it.edited).length, 0)
+        + Object.values(t?.fieldEdits || {}).reduce((n, v) => n + (v?.original !== undefined ? 1 : Object.values(v || {}).filter(Boolean).length), 0);
+      if (edited && !(await confirmDlg('Пересобрать текст?', 'Ручных правок в этом паспорте: ' + edited + '. После пересборки по справочникам они пропадут.', { okText: 'Пересобрать' }))) return;
+      await api('/passports/' + r.id + '/snapshot', { method: 'POST' });
+      toast('Текст паспорта собран заново');
+      try { ctx.setRow(await api('/passports/' + r.id)); }
+      catch { toast('Текст собран. Откройте паспорт заново, чтобы увидеть обновление.', { error: true }); }
+    } catch (err) { toastError(err); }
+    finally { refresh.disabled = false; refresh.classList.remove('is-busy'); }
+  }) }) : null;
   if (!t) return section({ title: 'Текст паспорта', tone: 'neutral', count: 0, body: [h('p', { class: 'muted small' }, 'Текст ещё не собран.'), refresh] });
   const part = (title, body) => (body ? section({ title, tone: 'neutral', body }) : null);
   const plan = numbersOf(t);
   const own = t.src ? 'product' : ''; // правила и обслуживание всегда собираются по справочникам этого изделия; у текста без источников цвета нет
+  const refs = t.refs || {};
+  const edits = t.fieldEdits || {};
+  const mark = (e) => (e ? h('span', { class: 'muted', title: 'Было: ' + (e.original || '') }, ' · изменено для этого паспорта') : null);
+  // строка с карандашом: view — то, что на экране, args — что отдать редактору (field, index, text, ref)
+  const line = (tag, field, index, text, kids = []) => {
+    const e = index === undefined ? edits[field] : edits[field]?.[index];
+    const view = h(tag, null, humanBlanks(text), ...kids, mark(e));
+    if (e && t.src?.[field] !== 'manual') srcPaint(view, 'manual', SRC_LABEL); // правка только в этом паспорте — жёлтая (без двойной заливки, если блок уже «вручную»)
+    const pencil = fieldPencil(view, { r, ctx, field, index, text, ref: index === undefined ? refs[field] : refs[field]?.[index], rows: field === 'description' || field === 'install' ? 6 : 3 });
+    if (pencil) view.append(' ', pencil);
+    return view;
+  };
+  let mi = 0; // сквозной номер строки обслуживания по всем таблицам
   return section({ title: 'Текст паспорта', tone: 'neutral', body: [
     h('p', { class: 'muted' }, `Текст собран ${t.at ? date(t.at) : ''}${t.missing?.length ? ' · в тексте не заполнено: ' + t.missing.map((k) => V2_NUMS.find((n) => n[0] === k)?.[1] || k).join(', ') : ''}`),
     // порядок и номера — как в PDF (numbersOf = planNumbers сервера): новые сборки — подряд 1…N, один «Монтаж»
     srcLegend(),
-    part(`${plan.descrNo || '—'} Описание и назначение`, t.description || t.purpose ? h('div', null, t.description ? srcBox(t.src?.description, h('p', null, humanBlanks(t.description))) : null, t.purpose ? srcBox(t.src?.purpose, h('p', null, humanBlanks(t.purpose))) : null) : null),
-    part(`${plan.rulesNo || plan.descrNo || '—'} Правила пользования (${(t.rules || []).length})`, t.rules?.length ? srcBox(own, h('ol', null, ...t.rules.map((x) => h('li', null, humanBlanks(x))))) : null),
+    part(`${plan.descrNo || '—'} Описание и назначение`, t.description || t.purpose ? h('div', null, t.description ? srcBox(t.src?.description, line('p', 'description', undefined, t.description)) : null, t.purpose ? srcBox(t.src?.purpose, line('p', 'purpose', undefined, t.purpose)) : null) : null),
+    part(`${plan.rulesNo || plan.descrNo || '—'} Правила пользования (${(t.rules || []).length})`, t.rules?.length ? srcBox(own, h('ol', null, ...t.rules.map((x, ri) => line('li', 'rules', ri, x)))) : null),
     ...(t.sections || []).map((s, si) => part(`${plan.sectionNo[si]} ${s.title}`, plan.sectionNo[si] ? h('div', null, ...s.items.map((i) => snapItem(r, ctx, s, i, plan.itemNo(si, i.number))),
-      plan.mergeInstall && si === plan.mountIdx ? installList(t) : null) : null)),
-    part(`${plan.toNo} Обслуживание по периодам (из справочников)`, t.maintenance?.length ? srcBox(own, ...t.maintenance.map(periodBlock)) : null),
-    plan.mergeInstall ? null : part(`${plan.installNo} Монтаж по способу установки`, installList(t)),
+      plan.mergeInstall && si === plan.mountIdx ? installList(t, r, ctx) : null) : null)),
+    part(`${plan.toNo} Обслуживание по периодам (из справочников)`, t.maintenance?.length ? srcBox(own, ...t.maintenance.map((m) => periodBlock(m, (li, what) => {
+      const index = mi++;
+      const e = edits.maintenance?.[index];
+      if (e) { li.append(mark(e)); srcPaint(li, 'manual', SRC_LABEL); }
+      return fieldPencil(li, { r, ctx, field: 'maintenance', index, text: what, ref: refs.maintenance?.[index] });
+    }))) : null),
+    plan.mergeInstall ? null : part(`${plan.installNo} Монтаж по способу установки`, installList(t, r, ctx)),
     refresh] });
 }
 

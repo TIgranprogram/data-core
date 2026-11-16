@@ -10,6 +10,7 @@ import { parseJoints, WhenError } from '../../common/passport/traits';
  * (коллекция общая с kppdf). «Выпустить паспорт» подставляет их в новый паспорт; запасной путь — последний паспорт модели.
  */
 export const PASSPORT_CATEGORY_CODES = ['DIO', 'DSP', 'TRN', 'WRK', 'BLG'] as const;
+const MANUAL_TEXT_KEYS = ['description', 'purpose', 'installationMethod'] as const;
 const NUMS = ['ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth', 'serviceLifeYears', 'warrantyMonths', 'foundationDepth'] as const; // foundationDepth — глубина Г, мм (iLogic «Схема установки», 2026-11-13)
 
 export interface PassportDefaults {
@@ -25,6 +26,8 @@ export interface PassportDefaults {
   joints?: string[];
   /** C095: модули сборного изделия (название, габариты, количество, рисунок) — переходят в новый паспорт. */
   modules?: PassportModule[];
+  /** C132: description / purpose / installationMethod — берутся из своего текста изделия, а не собираются по справочникам. */
+  manualText?: string[];
   [k: string]: unknown;
 }
 
@@ -60,6 +63,8 @@ export function normalizePassportDefaults(b: Record<string, unknown>): PassportD
     const joints = parseJoints(b.joints);
     if (joints) out.joints = joints;
   } catch (e) { if (e instanceof WhenError) throw new BadRequestException(e.message); throw e; }
+  // C132: какие тексты изделия (описание, назначение, монтаж) идут в паспорт как вписанные вручную
+  if (Array.isArray(b.manualText)) { const mt = [...new Set((b.manualText as unknown[]).map(String).filter((k) => (MANUAL_TEXT_KEYS as readonly string[]).includes(k)))]; if (mt.length) out.manualText = mt; }
   if (b.modules !== undefined) { const mods = parseModules(b.modules); if (mods.length) out.modules = mods; }
   for (const k of NUMS) {
     const raw = b[k];

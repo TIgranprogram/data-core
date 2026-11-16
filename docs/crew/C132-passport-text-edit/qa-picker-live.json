@@ -1,0 +1,88 @@
+{
+  "evidence": [
+    {
+      "width": 390,
+      "theme": "light",
+      "picker": true,
+      "keyboardSelected": true,
+      "horizontalOverflow": false,
+      "geometry": [
+        {
+          "text": "Отмена",
+          "width": 81.171875,
+          "height": 64.375,
+          "scroll": 79,
+          "client": 79
+        },
+        {
+          "text": "Сохранить в справочнике",
+          "width": 205.828125,
+          "height": 64.375,
+          "scroll": 204,
+          "client": 204
+        }
+      ],
+      "text": "Сохранить в справочнике?\n\nИсточник: справочник: элемент «Перекладина двойная». Затронет изделий: 2. Новые сборки паспортов получат этот текст. Этот и выданные паспорта не изменятся.\n\nОтмена\nСохранить в справочнике",
+      "selectedSource": {
+        "label": "Перекладина двойная · строка 1",
+        "cancelled": true,
+        "details": [
+          "справочник: элемент «Перекладина двойная» · строка 1. Сейчас в источнике: Текст правила для справочника C132"
+        ]
+      }
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "picker": true,
+      "keyboardSelected": true,
+      "horizontalOverflow": false,
+      "geometry": [
+        {
+          "text": "Отмена",
+          "width": 81.171875,
+          "height": 64.375,
+          "scroll": 79,
+          "client": 79
+        },
+        {
+          "text": "Сохранить в справочнике",
+          "width": 205.828125,
+          "height": 64.375,
+          "scroll": 204,
+          "client": 204
+        }
+      ],
+      "text": "Сохранить в справочнике?\n\nИсточник: справочник: элемент «Перекладина двойная». Затронет изделий: 2. Новые сборки паспортов получат этот текст. Этот и выданные паспорта не изменятся.\n\nОтмена\nСохранить в справочнике",
+      "selectedSource": {
+        "label": "Перекладина двойная · строка 1",
+        "cancelled": true,
+        "details": [
+          "справочник: элемент «Перекладина двойная» · строка 1. Сейчас в источнике: Текст правила для справочника C132"
+        ]
+      }
+    }
+  ],
+  "calls": [
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/sources",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/target",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/sources",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/target",
+      "status": 201
+    }
+  ]
+}

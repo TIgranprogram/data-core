@@ -5,6 +5,7 @@
  */
 
 import { presentMaterialsSpec } from '../../common/catalog/materials-table';
+import type { FieldRef } from './passport-snapshot-field';
 
 export type DictRec = { id?: unknown; _id?: unknown; code?: string; name?: string; [k: string]: unknown };
 
@@ -107,7 +108,21 @@ export function describeProduct(passport: PassportLike, elements: DictRec[], mat
 
 /** Шаги раздела «Правила пользования»: уникальные строки из правил элементов. */
 export function usageRules(elements: DictRec[]): string[] {
-  return uniq((elements || []).flatMap((e) => lines(e?.usageRules ?? e?.rules)));
+  return usageRulesFrom(elements).map((r) => r.text);
+}
+
+/** Те же правила, но с источником: запись элемента и поле, где лежит строка (C132 — «сохранить в справочнике»). Повтор берётся с первого элемента. */
+export function usageRulesFrom(elements: DictRec[]): Array<{ text: string; ref: FieldRef }> {
+  const seen = new Set<string>();
+  const out: Array<{ text: string; ref: FieldRef }> = [];
+  for (const e of elements || []) {
+    const field = e?.usageRules != null ? 'usageRules' : 'rules';
+    for (const text of lines(e?.[field])) {
+      const k = text.toLowerCase();
+      if (!seen.has(k)) { seen.add(k); out.push({ text, ref: { kind: 'element', id: recId(e), field } }); }
+    }
+  }
+  return out;
 }
 
 function normPeriod(v: unknown): Period | null {
@@ -125,6 +140,8 @@ export function maintenanceTables(
   elements: DictRec[],
   defects: DictRec[],
   install?: DictRec | null,
+  /** C132: заполняется источником каждой строки (запись дефекта / элемента) — для «сохранить в справочнике». */
+  refs?: Map<MaintenanceRow, FieldRef>,
 ): MaintenanceTable[] {
   const owners = new Map<string, string[]>(); // код → имена элементов/материалов
   const add = (r: DictRec) => {
@@ -161,14 +178,18 @@ export function maintenanceTables(
     const row: MaintenanceRow = { what, where: where.join(', '), measure: str(d.measure), tolerance: str(d.tolerance) };
     const photoId = str(d.photoId);
     if (photoId) row.photoId = photoId;
+    refs?.set(row, { kind: 'defect', id: recId(d), field: 'name' });
     push(period, row);
   }
 
   for (const e of elements || []) {
     const owner = str(e?.name) || str(e?.code);
-    for (const c of lines(e?.inspect ?? e?.checks)) {
+    const field = e?.inspect != null ? 'inspect' : 'checks';
+    for (const c of lines(e?.[field])) {
       if (defectNames.has(c.toLowerCase())) continue;
-      push('ежемесячно', { what: c, where: owner, measure: '', tolerance: '' });
+      const row: MaintenanceRow = { what: c, where: owner, measure: '', tolerance: '' };
+      refs?.set(row, { kind: 'element', id: recId(e), field });
+      push('ежемесячно', row);
     }
   }
 

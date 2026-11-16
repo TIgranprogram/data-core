@@ -1,0 +1,69 @@
+{
+  "e2e": {
+    "suites": 78,
+    "tests": 583,
+    "success": true,
+    "groups": [
+      {
+        "file": "e2e-1.json",
+        "tests": 155,
+        "success": true,
+        "skipped": 0,
+        "suites": 20
+      },
+      {
+        "file": "e2e-2.json",
+        "tests": 124,
+        "success": true,
+        "skipped": 0,
+        "suites": 20
+      },
+      {
+        "file": "e2e-3.json",
+        "tests": 137,
+        "success": true,
+        "skipped": 0,
+        "suites": 20
+      },
+      {
+        "file": "e2e-4.json",
+        "tests": 167,
+        "success": true,
+        "skipped": 0,
+        "suites": 18
+      }
+    ],
+    "skipped": 0
+  },
+  "postManifestUiChanges": [
+    "backend/pwa/ui/kit/kit.css",
+    "backend/pwa/ui/kit/card.js",
+    "backend/pwa/sections/passports/field-edit.js"
+  ],
+  "manifestSha256": "B9D5024F8815803593F055984F8638E049078E7BB0C812A33DDFB3253A493882",
+  "checkedPaths": 1557,
+  "adHocChanges": [
+    "backend/test/c132-visual.mjs"
+  ],
+  "unit": {
+    "skipped": 0,
+    "suites": 346,
+    "file": "unit.json",
+    "success": true,
+    "tests": 3557
+  },
+  "finalUiHashes": [
+    {
+      "sha256": "6920508479D27939A5C1808D684654B49B7D973EB9B59BD77989442BC19816D3",
+      "file": "backend/pwa/ui/kit/kit.css"
+    },
+    {
+      "sha256": "5D897479C5023990A842792471635B078DACAA3F3BAA1F91E5F8CD3FEDFBD99D",
+      "file": "backend/pwa/ui/kit/card.js"
+    },
+    {
+      "sha256": "24D608720FEC0686242DAF4FD09F59EF9CE3C8360D5CD99A26260D52E21076BE",
+      "file": "backend/pwa/sections/passports/field-edit.js"
+    }
+  ]
+}

@@ -119,6 +119,7 @@ export const kit = {
     const dens = (d) => (d === 'compact' ? 'compact' : undefined);
     el.append(
       h('div', { class: 'page-head' }, h('h1', null, 'Эталоны'), button({ label: 'Сменить тему', kind: 'ghost', size: 'S', onClick: () => window.dcTheme?.cycle() })),
+      block('Длинное действие на телефоне', 'Кнопка kit: минимум 44 px, подпись переносится.', sample(button({ label: 'Сохранить только в этом паспорте', kind: 'primary' }))),
       block('Кнопки', 'primary / secondary / ghost / danger × M и S; занята и выключена.',
         ...['M', 'S'].map((size) => sample(...['primary', 'secondary', 'ghost', 'danger'].map((kind) => button({ label: kind, kind, size })),
           button({ label: 'Занята', kind: 'primary', size, busy: true }), button({ label: 'Выключена', size, disabled: true })))),

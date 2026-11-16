@@ -832,6 +832,8 @@ Write-paths, которые должны быть all-or-nothing, использ
 
 Связанное: `productpassports.textChoices` и `products.passportDefaults.textChoices` ({id раздела: id конечного варианта} — выбор воронки по дереву `dict_values` dict `passportPhrases`: `parentId`, `section`, `text`, `categories`, `allCategories`, `order`, `required`, `isDefault`, `installTypeId`, `slot`, `funnelV`), `products.passportDefaults` (значения по умолчанию у изделия каталога), `passporttemplates.category` (версия текста категории), справочники `dict_values` группы «Паспорта» (`passportCategories`, `passportStandards`, `passportElements`, `passportMaterials`, `passportDefects` (+`photoId`), `passportInstall`, `passportStyle`).
 
+C132: `textSnapshot.refs` хранит устойчивую запись источника; `fieldEdits` — локальные изменения строк. В `dict_values` для паспортных текстов добавлено служебное `passportTextMoves`: объект `{поле_SHA256(исходного текста): текущий текст}`, максимум 500 ключей, сохраняется атомарно с текстом. Это позволяет повторить перенос из прежнего снимка; обычный редактор справочника поле не показывает и не стирает. В существующей `counters` ключ `entity=passport-template-write, prefix=texts, year=0` сериализует транзакции версий шаблонов.
+
 ### Дополнения 2026-10-22 (БЗ-6 Э9)
 
 | Где | Поле | Смысл |

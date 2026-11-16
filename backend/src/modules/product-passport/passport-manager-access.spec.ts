@@ -6,8 +6,8 @@ import { setRoleSectionsAll } from '../../common/app-sections';
 import { ProductPassportController } from './product-passport.controller';
 import { ShowcaseController } from '../showcase/showcase.controller';
 
-const work = ['createForProduct', 'createReady', 'check', 'preview', 'orderPlan', 'orderIssue', 'orderPdf', 'pdf', 'draftAll', 'create', 'editSnapshotItem', 'snapshot', 'issue', 'copy', 'update', 'savePrintFile', 'removePrintFile', 'bulk', 'bulkRestore'];
-const settings = ['saveTemplate', 'saveTexts', 'setNextNumber', 'promoteSnapshotItem'];
+const work = ['createForProduct', 'createReady', 'check', 'preview', 'orderPlan', 'orderIssue', 'orderPdf', 'pdf', 'draftAll', 'create', 'editSnapshotItem', 'editSnapshotField', 'snapshot', 'issue', 'copy', 'update', 'savePrintFile', 'removePrintFile', 'bulk', 'bulkRestore'];
+const settings = ['saveTemplate', 'saveTexts', 'setNextNumber', 'promoteSnapshotItem', 'promoteSnapshotField'];
 function ctx(controller: typeof ProductPassportController | typeof ShowcaseController, method: string, role: string): ExecutionContext {
   return { getHandler: () => (controller.prototype as unknown as Record<string, unknown>)[method], getClass: () => controller,
     switchToHttp: () => ({ getRequest: () => ({ user: { role } }) }) } as ExecutionContext;

@@ -68,3 +68,6 @@
 - **push по https просит логин** — `setup-ubuntu.sh` переводит адрес GitHub на SSH (ключ из `~/.ssh/config`).
 
 - **Docker Desktop не стартует: «initializing Secrets Engine … engine.sock … cannot be accessed» (16.11, рабочий ПК, второй раз).** Остался пустой файл-сокет от прошлого запуска; удалить его нельзя. Лечение: закрыть Docker (процессы `Docker Desktop`, `com.docker.backend`), переименовать папку `%LOCALAPPDATA%\docker-secrets-engine` в `…stale-<дата>`, запустить Docker снова. «Reset to factory defaults» не нажимать — сотрёт стенд и копии базы.
+# Git Bash из PowerShell: ProxyCommand с `exec` (C132, 16.11.2026)
+
+Если SSH через `datacore-vm` сообщает PowerShell-ошибку «exec is not recognized», процесс унаследовал неверный `SHELL`. Перед штатным `remote-access/deploy.sh` установить в том же Git Bash `export SHELL=/usr/bin/bash`. Проверено чтением `/opt/data-core`; SSH-конфиг и ключи менять не требуется. `release.sh --dry-run` при недоступном SSH может лишь выбрать полный путь — это не подтверждение соединения.

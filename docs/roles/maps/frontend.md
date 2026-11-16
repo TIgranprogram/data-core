@@ -1,3 +1,14 @@
+- C132 UI-приёмка: `backend/pwa/ui/kit/card.js:234` beginInlineEdit/release, `sections/passports/field-edit.js:23` lifecycle редактора; `ui/kit/kit.css:8` длинная кнопка modal на телефоне. Коммит: не закоммичено. Карта обновлена.
+
+## C132 исправления аудита (2026-11-16)
+коммит: не закоммичено
+- `backend/pwa/sections/passports/field-edit.js:12` passportAction, `:22` fieldEditor: общий редактор field/item, sources для старого снимка → явный выбор; target → подтверждение → promote без PATCH; `card-blocks.js:123` предупреждение fieldEdits.
+- `backend/pwa/ui/kit/kit.css:7` телефонные кнопки; `sections/kit.js:122` длинная подпись. Atlas/help обновлены. Карта обновлена.
+
+## C132 правка строк текста паспорта (2026-11-16)
+коммит: не закоммичено
+- `sections/passports/field-edit.js` (fieldEditor/fieldPencil), `card-blocks.js` previewBlock `line`/`installView`, `periodBlock(m, edit)`, `snapItem` две кнопки, `textBox`; `products/data.js:70` PD_KEYS+manualText. Отчёт C132/REPORT.md. Карта обновлена.
+
 ## C131 позиции в карточке заказа/договора (2026-11-16)
 коммит: не закоммичено
 - `sections/salesorders-lines.js contractLinesBlock` (окно договора, подключён `salesorders.js` salesorder.card.extra); `salesorders.js` addLine/canAdd/addLineBtn, `linesLink` (готовность), orderCard `bodyFirst`; `ui/kit/screens/card.js:33` bodyFirst. Отчёт C131/REPORT.md. Карта обновлена.

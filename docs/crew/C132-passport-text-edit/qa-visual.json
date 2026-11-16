@@ -1,0 +1,600 @@
+{
+  "evidence": [
+    {
+      "width": 390,
+      "theme": "light",
+      "picker": true,
+      "horizontalOverflow": false,
+      "geometry": [
+        {
+          "text": "Отмена",
+          "width": 81.171875,
+          "height": 64.375,
+          "scroll": 79,
+          "client": 79
+        },
+        {
+          "text": "Сохранить в справочнике",
+          "width": 205.828125,
+          "height": 64.375,
+          "scroll": 204,
+          "client": 204
+        }
+      ],
+      "text": "Сохранить в справочнике?\n\nИсточник: элемент «Перекладина двойная». Затронет изделий: 12. Новые сборки паспортов получат этот текст. Этот и выданные паспорта не изменятся.\n\nОтмена\nСохранить в справочнике"
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "picker": true,
+      "horizontalOverflow": false,
+      "geometry": [
+        {
+          "text": "Отмена",
+          "width": 81.171875,
+          "height": 64.375,
+          "scroll": 79,
+          "client": 79
+        },
+        {
+          "text": "Сохранить в справочнике",
+          "width": 205.828125,
+          "height": 64.375,
+          "scroll": 204,
+          "client": 204
+        }
+      ],
+      "text": "Сохранить в справочнике?\n\nИсточник: элемент «Перекладина двойная». Затронет изделий: 12. Новые сборки паспортов получат этот текст. Этот и выданные паспорта не изменятся.\n\nОтмена\nСохранить в справочнике"
+    },
+    {
+      "width": 1024,
+      "theme": "light",
+      "picker": true,
+      "horizontalOverflow": false,
+      "geometry": [
+        {
+          "text": "Отмена",
+          "width": 79.875,
+          "height": 36,
+          "scroll": 78,
+          "client": 78
+        },
+        {
+          "text": "Сохранить в справочнике",
+          "width": 208.0625,
+          "height": 36,
+          "scroll": 206,
+          "client": 206
+        }
+      ],
+      "text": "Сохранить в справочнике?\n\nИсточник: элемент «Перекладина двойная». Затронет изделий: 12. Новые сборки паспортов получат этот текст. Этот и выданные паспорта не изменятся.\n\nОтмена\nСохранить в справочнике"
+    },
+    {
+      "width": 1024,
+      "theme": "dark",
+      "picker": true,
+      "horizontalOverflow": false,
+      "geometry": [
+        {
+          "text": "Отмена",
+          "width": 79.875,
+          "height": 36,
+          "scroll": 78,
+          "client": 78
+        },
+        {
+          "text": "Сохранить в справочнике",
+          "width": 208.0625,
+          "height": 36,
+          "scroll": 206,
+          "client": 206
+        }
+      ],
+      "text": "Сохранить в справочнике?\n\nИсточник: элемент «Перекладина двойная». Затронет изделий: 12. Новые сборки паспортов получат этот текст. Этот и выданные паспорта не изменятся.\n\nОтмена\nСохранить в справочнике"
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "picker": true,
+      "horizontalOverflow": false,
+      "geometry": [
+        {
+          "text": "Отмена",
+          "width": 79.875,
+          "height": 36,
+          "scroll": 78,
+          "client": 78
+        },
+        {
+          "text": "Сохранить в справочнике",
+          "width": 208.0625,
+          "height": 36,
+          "scroll": 206,
+          "client": 206
+        }
+      ],
+      "text": "Сохранить в справочнике?\n\nИсточник: элемент «Перекладина двойная». Затронет изделий: 12. Новые сборки паспортов получат этот текст. Этот и выданные паспорта не изменятся.\n\nОтмена\nСохранить в справочнике"
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "picker": true,
+      "horizontalOverflow": false,
+      "geometry": [
+        {
+          "text": "Отмена",
+          "width": 79.875,
+          "height": 36,
+          "scroll": 78,
+          "client": 78
+        },
+        {
+          "text": "Сохранить в справочнике",
+          "width": 208.0625,
+          "height": 36,
+          "scroll": 206,
+          "client": 206
+        }
+      ],
+      "text": "Сохранить в справочнике?\n\nИсточник: элемент «Перекладина двойная». Затронет изделий: 12. Новые сборки паспортов получат этот текст. Этот и выданные паспорта не изменятся.\n\nОтмена\nСохранить в справочнике"
+    }
+  ],
+  "calls": [
+    {
+      "method": "GET",
+      "path": "/api/me/versions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/messages/threads"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/unread"
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/counters"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me"
+    },
+    {
+      "method": "GET",
+      "path": "/api/today"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/queue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/fill-audit"
+    },
+    {
+      "method": "GET",
+      "path": "/api/matching/unmatched/count"
+    },
+    {
+      "method": "POST",
+      "path": "/api/client-errors"
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/versions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/messages/threads"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/unread"
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/counters"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/facets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/last-numbers"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d"
+    },
+    {
+      "method": "GET",
+      "path": "/api/audit-logs/record"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/auth/me/prefs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/texts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/sources"
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/target"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/facets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports"
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/versions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/messages/threads"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/unread"
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/counters"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/facets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/last-numbers"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d"
+    },
+    {
+      "method": "GET",
+      "path": "/api/audit-logs/record"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/auth/me/prefs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/texts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/sources"
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/target"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/facets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports"
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/versions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/messages/threads"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/unread"
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/counters"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/facets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/last-numbers"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d"
+    },
+    {
+      "method": "GET",
+      "path": "/api/audit-logs/record"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/auth/me/prefs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/texts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/sources"
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/target"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/facets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/facets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports"
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/versions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/messages/threads"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/unread"
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/counters"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/facets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/last-numbers"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d"
+    },
+    {
+      "method": "GET",
+      "path": "/api/audit-logs/record"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/auth/me/prefs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/texts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/sources"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/facets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports"
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/target"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/facets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports"
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/versions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/messages/threads"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/unread"
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/counters"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/facets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/last-numbers"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d"
+    },
+    {
+      "method": "GET",
+      "path": "/api/audit-logs/record"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/auth/me/prefs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/texts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/sources"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/facets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports"
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/target"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/facets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports"
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/versions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/messages/threads"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/unread"
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/counters"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/facets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/last-numbers"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d"
+    },
+    {
+      "method": "GET",
+      "path": "/api/audit-logs/record"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/auth/me/prefs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/texts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/sources"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/facets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports"
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports/6afaa04e75254f13e16ad43d/snapshot-field/target"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports/facets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/passports"
+    }
+  ]
+}

@@ -461,8 +461,43 @@ export class ProductPassportController {
   @HttpCode(200)
   @Roles(...EDIT)
   @AuditAction({ action: 'passport.template.updated', entityType: 'PassportTemplate' })
-  promoteSnapshotItem(@Param('id') id: string, @Body() b: { sectionKey?: string; itemKey?: string }, @CurrentUser() user?: AuthenticatedUser) {
+  promoteSnapshotItem(@Param('id') id: string, @Body() b: { sectionKey?: string; itemKey?: string; text?: string; token?: string }, @CurrentUser() user?: AuthenticatedUser) {
     return this.service.promoteSnapshotItem(id, b ?? {}, user?.id);
+  }
+
+  /** C132: правка строки описания / назначения / монтажа / правил / обслуживания только для этого паспорта { field, index?, text }. */
+  @Patch('passports/:id/snapshot-field')
+  @Roles(...WORK)
+  @AuditAction({ action: 'passport.updated', entityType: 'ProductPassport', idParam: 'id', details: () => ({ meta: { snapshotField: true } }) })
+  editSnapshotField(@Param('id') id: string, @Body() b: { field?: string; index?: number; text?: string }) {
+    return this.service.editSnapshotField(id, b ?? {});
+  }
+
+  /** C132: «Сохранить в справочнике» — записать текст строки в её источник { field, index?, text? }; ответ { target, affected, shared }. Выданные паспорта не меняются. */
+  @Post('passports/:id/snapshot-field/sources')
+  @Roles(...EDIT)
+  fieldSources(@Param('id') id: string, @Body() b: { field?: string; index?: number }) {
+    return this.service.snapshotFieldSources(id, b ?? {});
+  }
+
+  @Post('passports/:id/snapshot-field/target')
+  @Roles(...EDIT)
+  fieldTarget(@Param('id') id: string, @Body() b: { field?: string; index?: number; text?: string; sourceKey?: string }) {
+    return this.service.promoteSnapshotField(id, b ?? {}, true);
+  }
+
+  @Post('passports/:id/snapshot-item/target')
+  @Roles(...EDIT)
+  itemTarget(@Param('id') id: string, @Body() b: { sectionKey?: string; itemKey?: string; text?: string }) {
+    return this.service.promoteSnapshotItem(id, b ?? {}, undefined, true);
+  }
+
+  @Post('passports/:id/snapshot-field/promote')
+  @HttpCode(200)
+  @Roles(...EDIT)
+  @AuditAction({ action: 'passport.template.updated', entityType: 'PassportTemplate' })
+  promoteSnapshotField(@Param('id') id: string, @Body() b: { field?: string; index?: number; text?: string; token?: string; sourceKey?: string }) {
+    return this.service.promoteSnapshotField(id, b ?? {});
   }
 
   @Post('passports/:id/snapshot')
