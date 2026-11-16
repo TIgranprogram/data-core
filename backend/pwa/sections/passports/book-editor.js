@@ -15,6 +15,7 @@ import { imagesBody } from '../../core/passport-images.js';
 import { canEdit, canWorkPassport, heading, humanBlanks, imgsOf, isRequired, kinds, numberOf, ourCompanies, statusOf, bomRows, parseBom } from './common.js';
 import { numbersOf } from './traits.js';
 import { passportAction } from './field-edit.js';
+import { pickSourceKey } from './book-shared.js';
 import { printDialog } from './dialogs.js';
 import { SRC_LABEL } from './card-blocks.js';
 
@@ -98,6 +99,7 @@ export async function openBookEditor(passport, { onClose } = {}) {
     const st = h('span', { class: 'bk-st' });
     const dirty = () => ctl.value !== spec.text;
     let working = false;
+    const srcState = {};
     const lock = (on) => { working = on; [local, shared, reset, cancelBtn].forEach((b) => b && (b.disabled = on)); ctl.disabled = on; };
     const finish = () => { S.cur = null; box.replaceWith(view); };
     const saveLocal = async (next) => {
@@ -115,10 +117,13 @@ export async function openBookEditor(passport, { onClose } = {}) {
       if (working) return;
       lock(true); st.textContent = 'Проверяю справочник…';
       try {
-        const t = await spec.shared.target(ctl.value);
+        const pick = await pickSourceKey(spec.shared, box, srcState);
+        if (pick.stop) { lock(false); st.textContent = pick.stop; return; }
+        const sourceKey = pick.key;
+        const t = await spec.shared.target(ctl.value, sourceKey);
         const text = 'Источник: ' + t.target + '. Затронет изделий: ' + t.affected + '. Новые сборки паспортов получат этот текст; этот и выданные паспорта не изменятся.';
         if (!(await confirmDlg('Сохранить в справочнике?', text, { okText: 'Сохранить в справочнике' }))) { lock(false); st.textContent = ''; return; }
-        await spec.shared.promote(ctl.value, t.token);
+        await spec.shared.promote(ctl.value, t.token, sourceKey);
         toast('Сохранено: ' + t.target + '. Текст этого паспорта не изменён.');
         setStat('В справочник сохранено в ' + hhmm(), 'ok');
         lock(false); finish();
@@ -154,7 +159,10 @@ export async function openBookEditor(passport, { onClose } = {}) {
     const url = '/passports/' + pid() + '/snapshot-field';
     const key = { field, ...(index === undefined ? {} : { index }) };
     return { text: String(text ?? ''), label: 'Текст строки', rows, original, save: (t) => api(url, { method: 'PATCH', body: { ...key, text: t } }),
-      shared: ref ? { target: (t) => api(url + '/target', { method: 'POST', body: { ...key, text: t } }), promote: (t, token) => api(url + '/promote', { method: 'POST', body: { ...key, text: t, token } }) } : null };
+      // нет ref (старый паспорт) — источник выбирается из списка /sources, как в карточке (field-edit.js)
+      shared: { needsSource: !ref, sources: () => api(url + '/sources', { method: 'POST', body: key }).then((x) => x.items || []),
+        target: (t, sourceKey) => api(url + '/target', { method: 'POST', body: { ...key, text: t, ...(sourceKey ? { sourceKey } : {}) } }),
+        promote: (t, token, sourceKey) => api(url + '/promote', { method: 'POST', body: { ...key, text: t, token, ...(sourceKey ? { sourceKey } : {}) } }) } };
   };
   const itemSpec = (s, i) => {
     const url = '/passports/' + pid() + '/snapshot-item';
