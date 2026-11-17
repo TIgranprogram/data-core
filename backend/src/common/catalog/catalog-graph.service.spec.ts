@@ -351,6 +351,55 @@ describe('CatalogGraphService (TZ-BACKEND-CATALOG-PART-BOM-IN-TREE)', () => {
       children: [],
     });
   });
+
+  it('изделие → модуль → деталь → сырьё: деталь не обрывает дерево', async () => {
+    const { service, productModel, moduleModel, materialModel } = buildService();
+    const productId = id();
+    const moduleId = id();
+    const partId = id();
+    const rawId = id();
+    setFindById(productModel, new Map([[productId, {
+      name: 'Горка',
+      composition: [{ lineType: 'module', refId: new Types.ObjectId(moduleId), quantity: 2 }],
+    }]]));
+    setFindById(moduleModel, new Map([[moduleId, {
+      name: 'Рама',
+      composition: [{ lineType: 'material', refId: new Types.ObjectId(partId), quantity: 3, unit: 'шт' }],
+    }]]));
+    setFindById(materialModel, new Map([
+      [partId, { name: 'Стойка', materialKind: 'part', composition: [{ lineType: 'material', refId: new Types.ObjectId(rawId), quantity: 1, unit: 'м' }] }],
+      [rawId, { name: 'Труба', materialKind: 'raw' }],
+    ]));
+    const tree = await service.getTree('product', productId);
+    expect(tree.children[0]).toMatchObject({ _id: moduleId, kind: 'module', quantity: 2 });
+    expect(tree.children[0]?.children[0]).toMatchObject({ _id: partId, quantity: 3, unit: 'шт' });
+    expect(tree.children[0]?.children[0]?.children[0]).toMatchObject({ _id: rawId, quantity: 1, unit: 'м', children: [] });
+  });
+
+  it('до migrate раскрывает productModuleIds и materials[], не плодит _id', async () => {
+    const { service, productModel, moduleModel, materialModel } = buildService();
+    const productId = id();
+    const moduleId = id();
+    const materialId = id();
+    setFindById(productModel, new Map([[productId, {
+      name: 'Стол',
+      composition: [],
+      productModuleIds: [new Types.ObjectId(moduleId)],
+    }]]));
+    setFindById(moduleModel, new Map([[moduleId, {
+      name: 'Рама',
+      composition: [],
+      materials: [{ materialId: { _id: new Types.ObjectId(materialId) }, quantity: 4, unit: 'м', sortOrder: 2 }],
+    }]]));
+    setFindById(materialModel, new Map([[materialId, { name: 'Труба', unit: 'м' }]]));
+
+    const tree = await service.getTree('product', productId);
+
+    expect(tree.children).toHaveLength(1);
+    expect(tree.children[0]).toMatchObject({ _id: moduleId, kind: 'module', quantity: 1 });
+    expect(tree.children[0]?.children).toHaveLength(1);
+    expect(tree.children[0]?.children[0]).toMatchObject({ _id: materialId, kind: 'material', quantity: 4, unit: 'м' });
+  });
 });
 
 describe('CatalogGraphService (TZ-UX-311 photoUrl)', () => {

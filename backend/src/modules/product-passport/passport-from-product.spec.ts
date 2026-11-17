@@ -38,6 +38,33 @@ describe('паспорт из изделия', () => {
     expect(followsProduct({ status: 'draft' })).toBe(false);
   });
 
+  it('черновик собирает лист: модуль и под ним деталь; нет имени — обозначение', async () => {
+    const mod = new Types.ObjectId();
+    const part = new Types.ObjectId();
+    const pipe = new Types.ObjectId();
+    const d = fakeDb({
+      productmodules: [{ _id: mod, sku: 'М-1', composition: [{ lineType: 'material', refId: part, quantity: 2 }] }],
+      materials: [
+        { _id: part, name: 'Стойка', materialKind: 'part', composition: [{ lineType: 'material', refId: pipe, quantity: 1 }] },
+        { _id: pipe, name: 'Труба 89х3', materialKind: 'raw' },
+      ],
+    });
+    const patch = await productPatch(d, { name: 'Горка', composition: [{ lineType: 'module', refId: mod, quantity: 1, unit: 'шт' }] });
+    expect(patch.compositionSheet).toEqual([{
+      kind: 'module', word: 'Модуль', label: 'М-1', qty: 1, unit: 'шт',
+      children: [{ kind: 'part', word: 'Деталь', label: 'Стойка', qty: 2, unit: 'шт' }],
+    }]);
+  });
+
+  it('выпущенный снимок состава не пересобирается вместе с изделием', async () => {
+    const issued = { status: 'issued', productId: 'x', compositionSheet: [{ word: 'Модуль', label: 'Старая', qty: 1, unit: 'шт' }] };
+    expect(followsProduct(issued)).toBe(false);
+    expect((await productPatch(db, { name: 'Новая', composition: [] })).compositionSheet).toBeNull();
+    expect(issued.compositionSheet).toEqual([{ word: 'Модуль', label: 'Старая', qty: 1, unit: 'шт' }]);
+    expect(diffPatch({}, { compositionSheet: null })).toEqual({});
+    expect(diffPatch({ compositionSheet: issued.compositionSheet }, { compositionSheet: null })).toEqual({ compositionSheet: null });
+  });
+
   it('категория изделия: своя главнее унаследованной', async () => {
     expect((await productPatch(db, { categoryId: catId, name: 'А' })).passportCategory).toBe('TRN');
     expect((await productPatch(db, { categoryId: catId, name: 'А', passportDefaults: { passportCategory: 'WRK' } })).passportCategory).toBe('WRK');

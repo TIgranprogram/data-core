@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Material, MaterialDocument } from '../../modules/material/material.schema';
 import { Photo, PhotoDocument } from '../../modules/photos/photo.schema';
+import { previewModuleMaterialLines, previewProductModuleLines } from './composition-line.service';
 import { Product, ProductDocument } from './product.schema';
 import { ProductModule, ProductModuleDocument } from './product-module.schema';
 
@@ -304,13 +305,45 @@ export class CatalogGraphService {
     if (lineType === 'module') {
       const module = await this.moduleModel.findById(refId).select('composition materials').lean().exec();
       if (!module) return [];
-      if (module.composition?.length) return (module.composition as unknown as LeanLine[]).filter((line) => !this.isIgnoredLine(refId, 'module', line, ignoredEdge)).map((line) => ({ refId: String(line.refId), lineType: line.lineType as LineType, quantity: line.quantity, unit: line.unit, lineId: line._id ? String(line._id) : undefined }));
-      return (module.materials ?? []).map((row) => ({ refId: String(row.materialId), lineType: 'material' as const, quantity: row.quantity ?? 1, unit: row.unit }));
+      return this.childRefs(refId, 'module', this.moduleChildLines(module), ignoredEdge);
     }
     const product = await this.productModel.findById(refId).select('composition productModuleIds').lean().exec();
     if (!product) return [];
-    if (product.composition?.length) return (product.composition as unknown as LeanLine[]).filter((line) => !this.isIgnoredLine(refId, 'product', line, ignoredEdge)).map((line) => ({ refId: String(line.refId), lineType: line.lineType as LineType, quantity: line.quantity, unit: line.unit, lineId: line._id ? String(line._id) : undefined }));
-    return (product.productModuleIds ?? []).map((moduleId) => ({ refId: String(moduleId), lineType: 'module' as const, quantity: 1 }));
+    return this.childRefs(refId, 'product', this.productChildLines(product), ignoredEdge);
+  }
+
+  /** Свой composition после переноса. Пока массив пуст — legacy, иначе первая запись его прячет. */
+  private moduleChildLines(module: { composition?: LeanLine[]; materials?: LeanParent['materials'] }): LeanLine[] {
+    if (module.composition?.length) return module.composition;
+    return previewModuleMaterialLines(module.materials).map((line) => ({
+      refId: line.refId,
+      lineType: line.lineType,
+      quantity: line.quantity,
+      unit: line.unit,
+      sortOrder: line.sortOrder,
+    }));
+  }
+
+  private productChildLines(product: { composition?: LeanLine[]; productModuleIds?: Types.ObjectId[] }): LeanLine[] {
+    if (product.composition?.length) return product.composition;
+    return previewProductModuleLines(product.productModuleIds).map((line) => ({
+      refId: line.refId,
+      lineType: line.lineType,
+      quantity: line.quantity,
+      sortOrder: line.sortOrder,
+    }));
+  }
+
+  private childRefs(parentId: string, parentKind: ParentKind, lines: LeanLine[], ignoredEdge?: IgnoredEdge): ChildRef[] {
+    return lines
+      .filter((line) => !this.isIgnoredLine(parentId, parentKind, line, ignoredEdge))
+      .map((line) => ({
+        refId: String(line.refId),
+        lineType: line.lineType as LineType,
+        quantity: line.quantity,
+        unit: line.unit,
+        ...(line._id ? { lineId: String(line._id) } : {}),
+      }));
   }
 
   private isIgnoredLine(parentId: string, parentKind: ParentKind, line: LeanLine, ignoredEdge?: IgnoredEdge): boolean {

@@ -8,7 +8,10 @@ export interface PdfPassportV2 extends PdfPassport {
   seatWidth?: number; seatHeight?: number; supports?: number; shipVolume?: number;
   passportCategory?: string;
   ageFrom?: number | null; ageTo?: number | null; heightMin?: number | null; heightMax?: number | null;
-  weightMax?: number | null; maxUsers?: number | null; foundationDepth?: number | null; modules?: Array<{ name: string; dims?: string; qty: number; photoId?: string }> | null; fallHeight?: number | null; serviceLifeYears?: number | null;
+  weightMax?: number | null; maxUsers?: number | null; foundationDepth?: number | null; modules?: Array<{ name: string; dims?: string; qty: number; photoId?: string }> | null;
+  /** C142: состав из дерева изделия. Нет поля — лист как у выпущенного раньше (только modules). */
+  compositionSheet?: Array<{ word: string; label: string; qty: number; unit?: string; children?: unknown[] }> | null;
+  fallHeight?: number | null; serviceLifeYears?: number | null;
   certificate?: { number?: string; until?: string; hasEac?: boolean } | null;
 }
 /** Снимок текста (V2Text) — терпимо к неполным старым снимкам. */

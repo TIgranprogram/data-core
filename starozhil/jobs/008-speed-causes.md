@@ -1,6 +1,6 @@
 ---
 priority: 1
-status: ready
+status: paused
 emptyOk: true
 repeat: true
 everyHours: 72

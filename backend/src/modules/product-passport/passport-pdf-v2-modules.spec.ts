@@ -52,6 +52,31 @@ describe('C095: раздел «Состав изделия: модули»', () 
   });
 });
 
+describe('C142: состав на листе черновика', () => {
+  const sheetOf = async (compositionSheet: unknown) => {
+    const input = {
+      passport: { name: 'Горка', passportNumber: '1', status: 'draft', length: 1000, width: 500, height: 200, compositionSheet },
+      org: { name: 'Проверка' }, text: { sections: [], sizeLayout: 2, layout: 2 }, images: {}, withStamp: false, mode: 'pages',
+    } as unknown as PdfV2Input;
+    const d = doc();
+    const spy = jest.spyOn(d, 'text');
+    for (const p of layoutV2(d, input, '#000')) { d.addPage({ size: [A5.w, A5.h], margin: 0 }); for (const dr of p.draws) dr.draw(d, dr.y); }
+    d.end();
+    return spy.mock.calls.map(([s]) => String(s));
+  };
+
+  it('прямые дети и деталь модуля; без дерева раздел «Состав изделия» не появляется', async () => {
+    const lines = await sheetOf([{
+      word: 'Модуль', label: 'М-1', qty: 1, unit: 'шт',
+      children: [{ word: 'Деталь', label: 'Стойка', qty: 2, unit: 'шт' }],
+    }]);
+    expect(lines.some((s) => s.endsWith('Состав изделия'))).toBe(true);
+    expect(lines).toContain('1. Модуль: М-1 · Количество: 1 шт');
+    expect(lines).toContain('1.1. Деталь: Стойка · Количество: 2 шт');
+    expect((await sheetOf(null)).some((s) => s.includes('Состав изделия'))).toBe(false);
+  });
+});
+
 describe('C095: проверка модулей', () => {
   it('чистит и пропускает верные', () => {
     expect(parseModules([{ name: ' Прямой ', dims: '', qty: '50' }])).toEqual([{ name: 'Прямой', qty: 50 }]);

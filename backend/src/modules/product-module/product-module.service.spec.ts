@@ -382,3 +382,65 @@ describe('ProductModuleService.findAll — photos (TZ-NX-MODULE-LIST-POPULATE-PH
     expect(result).toEqual([]);
   });
 });
+
+describe('legacy materials[] → composition (C142)', () => {
+  it('addComposition оставляет старые строки materials и не меняет их _id на GET', async () => {
+    const oldId = new Types.ObjectId().toHexString();
+    const newId = new Types.ObjectId().toHexString();
+    const save = jest.fn().mockResolvedValue(undefined);
+    const doc = {
+      _id: new Types.ObjectId(),
+      save,
+      markModified: jest.fn(),
+      composition: [] as unknown[],
+      materials: [{
+        materialId: new Types.ObjectId(oldId),
+        quantity: 3,
+        unit: 'м',
+        isPurchased: false,
+        sortOrder: 4,
+        overrideDimensions: { length: 1200, unit: 'мм' },
+      }],
+    };
+    const materialModel = {
+      find: jest.fn().mockReturnValue(query([
+        { _id: new Types.ObjectId(oldId), name: 'Труба', dimensions: [] },
+        { _id: new Types.ObjectId(newId), name: 'Лист', dimensions: [] },
+      ])),
+      findById: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({ _id: newId }),
+      }),
+    };
+    const model = {
+      findById: jest.fn().mockReturnValue({
+        populate: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(doc),
+      }),
+    };
+    const service = new ProductModuleService(
+      model as never,
+      {} as never,
+      materialModel as never,
+      {} as never,
+      undefined,
+      graphStub() as never,
+    );
+
+    const lines = await service.addComposition(String(doc._id), { lineType: 'material', refId: newId, quantity: 1 });
+
+    expect(lines).toHaveLength(2);
+    const kept = lines.find((line) => String(line.refId) === oldId);
+    const added = lines.find((line) => String(line.refId) === newId);
+    expect(kept).toMatchObject({ quantity: 3, unit: 'м', isPurchased: false, sortOrder: 4, overrideDimensions: { length: 1200, unit: 'мм' } });
+    expect(added).toMatchObject({ quantity: 1, lineType: 'material' });
+    expect(doc.materials).toHaveLength(1);
+    expect(save).toHaveBeenCalledTimes(2);
+    const first = await service.getComposition(String(doc._id));
+    const second = await service.getComposition(String(doc._id));
+    expect(String(first.find((line) => String(line.refId) === oldId)?._id)).toBe(String(kept?._id));
+    expect(String(second.find((line) => String(line.refId) === oldId)?._id)).toBe(String(kept?._id));
+    expect(String(second.find((line) => String(line.refId) === newId)?._id)).toBe(String(added?._id));
+  });
+});

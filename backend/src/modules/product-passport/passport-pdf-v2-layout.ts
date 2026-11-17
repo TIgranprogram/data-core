@@ -5,6 +5,7 @@ import { A5, M, CW, BOTTOM, BODY, Draw, Cell, V2Page, has, num, lines, fitText }
 import { shortPage, cover } from './passport-pdf-v2-cover';
 import { isBatch } from './passport-rules';
 import { planNumbers } from './passport-numbering';
+import { visibleSheet } from '../../common/catalog/composition-expand';
 
 /** Таблица размеров (ПЧ-4): буквы как на чертеже, объём считается из габаритов. Выпущенный без новых полей печатается как был выпущен. */
 export function specRows(p: PdfV2Input['passport'], modern = false): [string, unknown][] {
@@ -34,13 +35,14 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   // Текстовое значение (паспорт партии: «по таблице …») печатается как есть
   // C095: модули сборного изделия — название, габариты, количество, рисунок; пустые строки не печатаются
   const modules = (p.modules || []).filter((m) => m && String(m.name || '').trim() && Number(m.qty) > 0);
+  const sheet = visibleSheet(p.compositionSheet);
   const specs = specRows(p, t.sizeLayout === 2).filter(([, v]) => has(v) || (typeof v === 'string' && v.trim() !== '')).map(([k, v]) => [String(k), has(v) ? num(v) : String(v)]);
 
   // Номера разделов (passport-numbering.ts): снимок с layout 2 — подряд 1…N, один «Монтаж»; прежние снимки — как печатались
   // (номера текста из снимка, обычно с 3; свободные 1…start-1 — под описание и правила).
   const plan = planNumbers({
     sections, layout: t.layout,
-    hasDescr: !!(descr.length || purpose.length || specs.length || modules.length), hasRules: rules.length > 0,
+    hasDescr: !!(descr.length || purpose.length || specs.length || modules.length || sheet.length), hasRules: rules.length > 0,
     hasMaintenance: maintenance.length > 0, hasInstall: !!(installLines.length || requirements.length),
   });
   const { before, mergeRules, descrNo, rulesNo, toNo, installNo, bomNo, journalNo } = plan;
@@ -249,6 +251,15 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
     if (modules.length >= 2) para(`Итого модулей: ${num(modules.reduce((s, m) => s + Number(m.qty), 0))} шт.`, BODY, 'gost');
     y += 3;
   };
+  /** C142: прямые дети изделия; у модуля — его детали. Нет имени — на листе уже обозначение. */
+  const compositionBlock = (rows: typeof sheet, prefix = '') => {
+    rows.forEach((row, i) => {
+      const n = `${prefix}${i + 1}`;
+      para(`${n}. ${row.word}: ${row.label} · Количество: ${num(row.qty)} ${row.unit || 'шт'}`);
+      if (row.children?.length) compositionBlock(row.children, `${n}.`);
+    });
+    if (!prefix) y += 3;
+  };
 
   const descrSection = () => {
     if (!descrNo) return;
@@ -257,6 +268,7 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
     if (descr.length) { sub(`${descrNo}.${++k} Описание изделия`); descr.forEach((s) => paraR(s)); y += 3; }
     if (purpose.length) { sub(`${descrNo}.${++k} Назначение`); purpose.forEach((s) => paraR(s)); y += 3; }
     if (specs.length) { sub(`${descrNo}.${++k} Основные технические данные`); table(`Таблица ${tab.get('specs')} — Габаритные размеры и масса изделия`, ['Наименование', 'Значение'], [70, 30], specs, 9); }
+    if (sheet.length) { sub(`${descrNo}.${++k} Состав изделия`); compositionBlock(sheet); }
     if (modules.length) { sub(`${descrNo}.${++k} Состав изделия: модули`); modulesBlock(); }
     if (mergeRules && rules.length) { sub(`${descrNo}.${++k} Правила пользования`); rules.forEach((s) => item(s, null, true)); }
     y += 4;

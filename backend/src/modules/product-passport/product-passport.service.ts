@@ -797,7 +797,8 @@ export class ProductPassportService {
     const broken = await unreadableRequiredImages(this.connection.db!, (full.images ?? []) as Array<{ kind?: unknown; photoId?: unknown }>, rules.required);
     for (const kind of broken) {
       const key = 'img_' + (kind === 'safety_zone' ? 'safety' : kind);
-      if (!listed.some((m) => m.key === key)) listed.push({ key, label: `Обязательный рисунок не читается: ${IMAGE_KIND_LABELS[kind] ?? kind}. Загрузите изображение заново` });
+      // язык менеджера: не «не читается», а что делать
+      if (!listed.some((m) => m.key === key)) listed.push({ key, label: `${IMAGE_KIND_LABELS[kind] ?? kind}: файл на сервере повреждён или пропал — замените фото` });
     }
     const extra = blanks.filter((b) => !listed.some((m) => m.key === b.key));
     return { mode: template ? 'template' : 'instance', missing: [...listed, ...extra, ...choices, ...(built?.text.needJoints ? [JOINTS_MISSING] : [])].filter(keep).map(noHint), defaulted, requiredImages: rules.required.map((k) => (k === 'safety_zone' ? 'safety' : k)), imageSlots: rules.slots };
@@ -817,7 +818,7 @@ export class ProductPassportService {
     const broken = await unreadableRequiredImages(this.connection.db!, (full.images ?? []) as Array<{ kind?: unknown; photoId?: unknown }>, required);
     for (const kind of broken) {
       const key = 'img_' + (kind === 'safety_zone' ? 'safety' : kind);
-      if (!missing.some((m) => m.key === key)) missing.push({ key, label: `Обязательный рисунок не читается: ${IMAGE_KIND_LABELS[kind] ?? kind}. Загрузите изображение заново` });
+      if (!missing.some((m) => m.key === key)) missing.push({ key, label: `${IMAGE_KIND_LABELS[kind] ?? kind}: файл на сервере повреждён или пропал — замените фото` });
     }
     return missing;
   }

@@ -120,7 +120,7 @@ export class ShowcaseController {
   @Put(':id/composition')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'showcase.composition', entityType: 'Product', idParam: 'id' })
-  setComposition(@Param('id') id: string, @Body() b: { lines?: Array<{ lineType?: string; materialId?: string; productId?: string; moduleId?: string; quantity?: number | string; notes?: string }>; types?: string[] }) {
+  setComposition(@Param('id') id: string, @Body() b: { lines?: Array<{ id?: string; _id?: string; lineType?: string; materialId?: string; productId?: string; moduleId?: string; quantity?: number | string; notes?: string }>; types?: string[] }) {
     return this.s.setComposition(id, b?.lines ?? [], b?.types);
   }
 

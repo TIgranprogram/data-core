@@ -332,6 +332,8 @@ export const ADVICE = [
 export const NOT_ON_BUTTONS = {
   'tools/setup-ubuntu.sh': 'первый запуск на новом Ubuntu-ноутбуке — до пульта: bash tools/setup-ubuntu.sh в терминале (проверка, установка, перенос секретов)',
   'tools/browser-path.mjs': 'общий поиск браузера для тестов и обходов (Windows и Linux) — библиотека, не запускается сама',
+  'tools/areas.mjs': 'C128 участки кода (файл → блок карты / правило папки); зовёт dc check, не человек',
+  'tools/areas.test.mjs': 'юнит C128 волны 1 участков — node --test, не человек',
   'tools/stand-look.mjs': 'вход Claude на стенд одной командой (учётка, адрес /app/, сброс кэша) — для просмотра экранов ИИ, не человек',
   'tools/passport-readiness.mjs': 'замер C112 Э0/Э5 «паспорт без ввода» — гоняет Claude через агента доступа (стенд), итог в BASELINE.md, не человек',
   'tools/passport-live-check.mjs': 'живая проверка PDF/фраз на стенде — зовёт кнопка «Паспорта: стенд PDF» (passport-regression --live), не отдельно',
@@ -341,6 +343,8 @@ export const NOT_ON_BUTTONS = {
   'tools/starozhil/speed-facts.mjs': 'факты для наряда 008 «почему медленно» (prepare: таблица скорости тестировщика → контроллер:строка), не человек',
   'tools/starozhil/module-facts.mjs': 'подготовка фактов о модулях для наряда Старожила (prepare в наряде), не человек',
   'tools/starozhil/tasks-facts.mjs': 'подготовка фактов для наряда Старожила: запускает исполнитель нарядов (prepare в наряде), не человек',
+  'tools/starozhil/c142-facts.mjs': 'факты C142 состав/модули/детали/книжка для нарядов 010–011 (prepare), не человек',
+  'tools/starozhil/c142-funnel-test-facts.mjs': 'дыры тестов воронки состава C142 для наряда 012 (prepare), не человек',
   'tools/design-checks/compare.mjs': 'служебное сравнение двух явно выбранных снимков; координатор задаёт принятый эталон и проверяемый снимок, автоматически эталоны не утверждаются',
   'backend/scripts/passport-items-audit.js': 'аудит пунктов паспортов для ИИ (C054): отчёт → решения пользователя в чате → --apply делает координатор',
   'tools/c039-types.mjs': 'разовый отчёт покрытия иконок типов для ИИ (C039), не для администратора',

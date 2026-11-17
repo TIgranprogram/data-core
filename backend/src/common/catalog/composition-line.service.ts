@@ -20,6 +20,89 @@ export interface CompositionModels {
   productModel?: Model<ProductDocument>;
 }
 
+export interface LegacyModuleMaterial {
+  materialId?: unknown;
+  quantity?: number;
+  unit?: string;
+  isPurchased?: boolean;
+  overrideDimensions?: CompositionLineDocumentShape['overrideDimensions'];
+  sortOrder?: number;
+}
+
+/** ObjectId, строка или populated `{_id}` — без `[object Object]`. */
+export function legacyRefId(value: unknown): string {
+  if (value == null || value === '') return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object' && value !== null && '_id' in value) {
+    const nested = (value as { _id?: unknown })._id;
+    if (nested != null && nested !== value) return legacyRefId(nested);
+  }
+  if (typeof value === 'object' && value !== null && typeof (value as { toHexString?: unknown }).toHexString === 'function') {
+    return (value as { toHexString: () => string }).toHexString();
+  }
+  const text = String(value);
+  return text === '[object Object]' ? '' : text;
+}
+
+function copyOverrideDimensions(
+  value: LegacyModuleMaterial['overrideDimensions'],
+): CompositionLineDocumentShape['overrideDimensions'] | undefined {
+  if (!value) return undefined;
+  const src = typeof (value as { toObject?: () => LegacyModuleMaterial['overrideDimensions'] }).toObject === 'function'
+    ? (value as { toObject: () => LegacyModuleMaterial['overrideDimensions'] }).toObject()
+    : value;
+  if (!src) return undefined;
+  const out: NonNullable<CompositionLineDocumentShape['overrideDimensions']> = {};
+  if (src.length !== undefined) out.length = src.length;
+  if (src.width !== undefined) out.width = src.width;
+  if (src.height !== undefined) out.height = src.height;
+  if (src.unit !== undefined) out.unit = src.unit;
+  return Object.keys(out).length ? out : undefined;
+}
+
+/** Чтение графа: legacy materials[] без нового `_id` на каждый вызов. */
+export function previewModuleMaterialLines(materials: LegacyModuleMaterial[] | undefined): Array<Omit<CompositionLineDocumentShape, '_id'>> {
+  const lines: Array<Omit<CompositionLineDocumentShape, '_id'>> = [];
+  for (const row of materials ?? []) {
+    const materialId = legacyRefId(row.materialId);
+    if (!Types.ObjectId.isValid(materialId)) continue;
+    const overrideDimensions = copyOverrideDimensions(row.overrideDimensions);
+    lines.push({
+      lineType: 'material',
+      refId: new Types.ObjectId(materialId),
+      quantity: row.quantity ?? 1,
+      sortOrder: row.sortOrder ?? 0,
+      ...(row.unit !== undefined ? { unit: row.unit } : {}),
+      ...(overrideDimensions ? { overrideDimensions } : {}),
+      ...(row.isPurchased !== undefined ? { isPurchased: row.isPurchased } : {}),
+    });
+  }
+  return lines;
+}
+
+/** Перед первой записью composition: один ObjectId на строку materials[]. */
+export function storedModuleMaterialLines(materials: LegacyModuleMaterial[] | undefined): CompositionLineDocumentShape[] {
+  return previewModuleMaterialLines(materials).map((line) => ({ ...line, _id: new Types.ObjectId() }));
+}
+
+/** Чтение графа: legacy productModuleIds, пока composition пуст. */
+export function previewProductModuleLines(ids: unknown[] | undefined): Array<Omit<CompositionLineDocumentShape, '_id'>> {
+  const lines: Array<Omit<CompositionLineDocumentShape, '_id'>> = [];
+  let sortOrder = 0;
+  for (const raw of ids ?? []) {
+    const moduleId = legacyRefId(raw);
+    if (!Types.ObjectId.isValid(moduleId)) continue;
+    lines.push({ lineType: 'module', refId: new Types.ObjectId(moduleId), quantity: 1, sortOrder });
+    sortOrder += 1;
+  }
+  return lines;
+}
+
+/** Перед первой записью composition изделия: один ObjectId на модуль из productModuleIds. */
+export function storedProductModuleLines(ids: unknown[] | undefined): CompositionLineDocumentShape[] {
+  return previewProductModuleLines(ids).map((line) => ({ ...line, _id: new Types.ObjectId() }));
+}
+
 @Injectable()
 export class CompositionLineService {
   toStoredLine(dto: CreateCompositionLineDto | UpdateCompositionLineDto, existing?: CompositionLineDocumentShape): CompositionLineDocumentShape {

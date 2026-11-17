@@ -639,7 +639,7 @@ export class ShowcaseService {
   }
 
   /** Заменить строки состава (СИ) — подробности в showcase-composition.ts. */
-  async setComposition(id: string, lines: Array<{ lineType?: string; materialId?: string; productId?: string; moduleId?: string; refId?: string; quantity?: number | string; notes?: string }>, types?: string[]) {
+  async setComposition(id: string, lines: Array<{ id?: string; _id?: string; lineType?: string; materialId?: string; productId?: string; moduleId?: string; refId?: string; quantity?: number | string; notes?: string }>, types?: string[]) {
     await this.comp.set(id, lines, types);
     return this.get(id);
   }

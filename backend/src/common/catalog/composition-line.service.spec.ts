@@ -1,6 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
-import { CompositionLineService } from './composition-line.service';
+import { CompositionLineService, previewModuleMaterialLines, storedModuleMaterialLines, storedProductModuleLines } from './composition-line.service';
 import { CompositionLineDocumentShape } from './composition-line.schema';
 
 describe('CompositionLineService', () => {
@@ -159,6 +159,40 @@ describe('CompositionLineService', () => {
       const materialModel = mockMaterialModel(null);
       const line = { _id: new Types.ObjectId(), lineType: 'material' as const, refId: new Types.ObjectId(), quantity: 1, sortOrder: 0 };
       await expect(svc.validateReference('material', line, { materialModel })).rejects.toThrow(NotFoundException);
+    });
+
+    it('storedModuleMaterialLines копирует поля legacy и выдаёт один _id', () => {
+      const materialId = new Types.ObjectId();
+      const lines = storedModuleMaterialLines([{
+        materialId: { _id: materialId, name: 'Труба' },
+        quantity: 3,
+        unit: 'м',
+        isPurchased: false,
+        sortOrder: 4,
+        overrideDimensions: { length: 1200, unit: 'мм' },
+      }]);
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toMatchObject({
+        lineType: 'material',
+        quantity: 3,
+        unit: 'м',
+        isPurchased: false,
+        sortOrder: 4,
+        overrideDimensions: { length: 1200, unit: 'мм' },
+      });
+      expect(String(lines[0].refId)).toBe(String(materialId));
+      const preview = previewModuleMaterialLines([{ materialId, quantity: 3 }]);
+      expect(preview[0]).not.toHaveProperty('_id');
+      const again = storedModuleMaterialLines([{ materialId, quantity: 3 }]);
+      expect(String(again[0]._id)).not.toBe(String(lines[0]._id));
+    });
+
+    it('storedProductModuleLines даёт строку module на каждый productModuleId', () => {
+      const moduleId = new Types.ObjectId();
+      const lines = storedProductModuleLines([moduleId, 'не-id']);
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toMatchObject({ lineType: 'module', quantity: 1, sortOrder: 0 });
+      expect(String(lines[0].refId)).toBe(String(moduleId));
     });
 
     it('rejects a module or product line on a material parent', async () => {

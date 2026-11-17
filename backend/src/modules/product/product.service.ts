@@ -13,7 +13,7 @@ import { ProductModule as ProductModuleEntity, ProductModuleDocument } from '../
 import { Material, MaterialDocument } from '../material/material.schema';
 import { EavService } from '../../common/eav/eav.service';
 import { CompositionLineDocumentShape } from '../../common/catalog/composition-line.schema';
-import { CompositionLineService } from '../../common/catalog/composition-line.service';
+import { CompositionLineService, storedProductModuleLines } from '../../common/catalog/composition-line.service';
 import { CreateCompositionLineDto, UpdateCompositionLineDto } from '../../common/catalog/composition-line.dto';
 import { CatalogGraphService } from '../../common/catalog/catalog-graph.service';
 import { isUsedByCrm, isUsedInComposition } from '../../common/catalog/catalog-references';
@@ -295,19 +295,32 @@ export class ProductService {
   async getTree(id: string, maxDepth = 8, organizationId?: string | null) { await this.findActive(id, organizationId); return this.catalogGraph.getTree('product', id, maxDepth); }
 
   async getComposition(id: string, organizationId?: string | null): Promise<CompositionLineDocumentShape[]> {
-    const doc = await this.findActive(id, organizationId); const raw = await this.model.findOne({ _id: doc._id, deletedAt: null, ...this.organizationFilter(organizationId) }).select('composition productModuleIds').lean().exec(); if (!raw) throw new NotFoundException(`Product ${id} not found`);
-    const legacy = (raw.productModuleIds ?? []).map((refId) => ({ _id: new Types.ObjectId(), lineType: 'module' as const, refId: new Types.ObjectId(String(refId)), quantity: 1, sortOrder: 0 })); return this.compositionLines.dualRead(raw, legacy);
+    const doc = await this.findActive(id, organizationId);
+    const raw = await this.model.findOne({ _id: doc._id, deletedAt: null, ...this.organizationFilter(organizationId) }).select('composition productModuleIds').lean().exec();
+    if (!raw) throw new NotFoundException(`Product ${id} not found`);
+    if (raw.composition?.length) return raw.composition as unknown as CompositionLineDocumentShape[];
+    return this.compositionLines.dualRead(raw, storedProductModuleLines(raw.productModuleIds));
   }
 
   async addComposition(id: string, dto: CreateCompositionLineDto, organizationId?: string | null): Promise<CompositionLineDocumentShape[]> {
-    const doc = await this.findActive(id, organizationId); const incoming = this.compositionLines.toStoredLine(dto);
-    await this.catalogGraph.assertNoCycleAndDepth(id, 'product', { lineType: incoming.lineType, refId: incoming.refId.toString() }); await this.compositionLines.validateReference('product', incoming, { materialModel: this.materialModel, moduleModel: this.productModuleModel, productModel: this.model });
-    const raw = ((doc.composition ?? []) as unknown as CompositionLineDocumentShape[]).map((line) => this.plainCompositionLine(line)); const next = this.compositionLines.upsertDeduplicated(raw, incoming); this.compositionLines.ensureLineLimit(next);
-    const saved = await this.model.findOneAndUpdate({ ...this.versionedCompositionFilter(doc), ...this.organizationFilter(organizationId) }, { $set: { composition: next }, $inc: { __v: 1 } }, { new: true, runValidators: true }).exec(); if (!saved) throw new ConflictException(`Product ${id} changed while composition was being updated`); return saved.composition as unknown as CompositionLineDocumentShape[];
+    const doc = await this.findActive(id, organizationId);
+    const incoming = this.compositionLines.toStoredLine(dto);
+    await this.catalogGraph.assertNoCycleAndDepth(id, 'product', { lineType: incoming.lineType, refId: incoming.refId.toString() });
+    await this.compositionLines.validateReference('product', incoming, { materialModel: this.materialModel, moduleModel: this.productModuleModel, productModel: this.model });
+    const raw = await this.seedLegacyProductModules(doc, id, organizationId);
+    const next = this.compositionLines.upsertDeduplicated(raw, incoming);
+    this.compositionLines.ensureLineLimit(next);
+    const saved = await this.model.findOneAndUpdate({ ...this.versionedCompositionFilter(doc), ...this.organizationFilter(organizationId) }, { $set: { composition: next }, $inc: { __v: 1 } }, { new: true, runValidators: true }).exec();
+    if (!saved) throw new ConflictException(`Product ${id} changed while composition was being updated`);
+    return saved.composition as unknown as CompositionLineDocumentShape[];
   }
 
   async updateComposition(id: string, lineId: string, dto: UpdateCompositionLineDto, organizationId?: string | null): Promise<CompositionLineDocumentShape[]> {
-    if (!Types.ObjectId.isValid(lineId)) throw new BadRequestException('Invalid composition line id'); const doc = await this.findActive(id, organizationId); const raw = ((doc.composition ?? []) as unknown as CompositionLineDocumentShape[]).map((line) => this.plainCompositionLine(line)); const index = raw.findIndex((line) => line._id.toString() === lineId); if (index < 0) throw new NotFoundException(`Composition line ${lineId} not found`);
+    if (!Types.ObjectId.isValid(lineId)) throw new BadRequestException('Invalid composition line id');
+    const doc = await this.findActive(id, organizationId);
+    const raw = await this.seedLegacyProductModules(doc, id, organizationId);
+    const index = raw.findIndex((line) => line._id.toString() === lineId);
+    if (index < 0) throw new NotFoundException(`Composition line ${lineId} not found`);
     const updated = this.compositionLines.toStoredLine(dto, raw[index]); await this.catalogGraph.assertNoCycleAndDepth(id, 'product', { lineType: updated.lineType, refId: updated.refId.toString() }, lineId); await this.compositionLines.validateReference('product', updated, { materialModel: this.materialModel, moduleModel: this.productModuleModel, productModel: this.model });
     const next = raw.slice(); next[index] = updated; this.compositionLines.ensureNoDuplicateKeys(next); const saved = await this.model.findOneAndUpdate({ ...this.versionedCompositionFilter(doc), ...this.organizationFilter(organizationId) }, { $set: { composition: next }, $inc: { __v: 1 } }, { new: true, runValidators: true }).exec(); if (!saved) throw new ConflictException(`Product ${id} changed while composition was being updated`); return saved.composition as unknown as CompositionLineDocumentShape[];
   }
@@ -348,6 +361,25 @@ export class ProductService {
   }
   private organizationWrite(organizationId?: string | null): Record<string, unknown> { if (!organizationId) return {}; if (!Types.ObjectId.isValid(organizationId)) throw new BadRequestException('Invalid organization scope'); return { organizationId: new Types.ObjectId(organizationId) }; }
   private versionedCompositionFilter(doc: ProductDocument): Record<string, unknown> { return { _id: doc._id, $or: [{ __v: doc.__v ?? 0 }, { __v: { $exists: false } }] }; }
+
+  /**
+   * Пустой composition и productModuleIds — перенос до подмены массива.
+   * __v не растёт: следующая запись состава сверяет ту же версию.
+   * productModuleIds не стираем (его читает CRM). Отдельного replace нет.
+   */
+  private async seedLegacyProductModules(doc: ProductDocument, id: string, organizationId?: string | null): Promise<CompositionLineDocumentShape[]> {
+    const current = ((doc.composition ?? []) as unknown as CompositionLineDocumentShape[]).map((line) => this.plainCompositionLine(line));
+    if (current.length > 0) return current;
+    const legacy = storedProductModuleLines(doc.productModuleIds);
+    if (!legacy.length) return current;
+    const saved = await this.model.findOneAndUpdate(
+      { ...this.versionedCompositionFilter(doc), ...this.organizationFilter(organizationId) },
+      { $set: { composition: legacy } },
+      { new: true, runValidators: true },
+    ).exec();
+    if (!saved) throw new ConflictException(`Product ${id} changed while composition was being updated`);
+    return (saved.composition as unknown as CompositionLineDocumentShape[]).map((line) => this.plainCompositionLine(line));
+  }
   private plainCompositionLine(line: CompositionLineDocumentShape): CompositionLineDocumentShape { return { _id: line._id, lineType: line.lineType, refId: line.refId, quantity: Number(line.quantity), sortOrder: Number(line.sortOrder ?? 0), unit: line.unit, overrideDimensions: line.overrideDimensions, isPurchased: line.isPurchased, sourcePosition: line.sourcePosition, sourceCode: line.sourceCode, notes: line.notes }; }
   private duplicateComposition(source: ProductDocument): CompositionLineDocumentShape[] {
     const lines = this.cloneComposition(source.composition);

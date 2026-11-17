@@ -1,5 +1,6 @@
 import type { mongo } from 'mongoose';
 import { Types } from 'mongoose';
+import { expandComposition, type GraphDb } from '../../common/catalog/composition-expand';
 import { kindPatch, resolveKind, resolveKinds, type ResolvedKind } from '../../common/passport/kind';
 import { inheritedPassportCategory } from '../../common/passport/passport-inherit';
 import type { Doc } from './passport-consts';
@@ -45,6 +46,11 @@ export async function productPatch(db: mongo.Db, prod: Doc): Promise<Doc> {
   const rk = await resolveKind(db, prod);
   for (const [k, v] of Object.entries(await kindPatch(db, prod, rk))) put(k, v);
   put('passportCategory', await productPassportCode(db, prod, rk));
+  // C142: черновик читает дерево состава. Пусто — null (у паспорта без поля отличия нет). Выпущенный сюда не заходит.
+  if (Array.isArray(prod.composition) || Array.isArray(prod.productModuleIds)) {
+    const { sheet } = await expandComposition(db as unknown as GraphDb, prod);
+    out.compositionSheet = sheet.length ? sheet : null;
+  }
   return out;
 }
 

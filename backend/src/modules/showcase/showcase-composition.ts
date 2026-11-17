@@ -61,7 +61,7 @@ export class ShowcaseComposition {
    * material: старое тело с одними материалами работает как раньше). Строки остальных типов (и неизвестные) — как есть.
    * Изделие не может входить само в себя (на любой глубине) — 400.
    */
-  async set(id: string, lines: Array<{ lineType?: string; materialId?: string; productId?: string; moduleId?: string; refId?: string; quantity?: number | string; notes?: string }>, types?: string[]) {
+  async set(id: string, lines: Array<{ id?: string; _id?: string; lineType?: string; materialId?: string; productId?: string; moduleId?: string; refId?: string; quantity?: number | string; notes?: string }>, types?: string[]) {
     const _id = oid(id, 'изделия');
     const d = await this.db.collection('products').findOne({ _id, deletedAt: null });
     if (!d) throw new NotFoundException('Изделие не найдено');
@@ -97,7 +97,29 @@ export class ShowcaseComposition {
       seen.add(key);
       const q = Number(String(l.quantity ?? '').replace(',', '.'));
       if (!Number.isFinite(q) || q <= 0) throw new BadRequestException('Количество должно быть больше нуля');
-      return { _id: new Types.ObjectId(), lineType: t, refId: refs[i], quantity: q, sortOrder: i, unit: String(ref.unit ?? 'шт'), notes: clean(l.notes) || undefined };
+      // C127: сохранить _id строки — иначе «Части и работы» теряют связь после правки состава
+      // C142: не затирать CRM-поля строки (габариты, закупка, PDM, своя цена)
+      const prevId = String((l as { id?: string; _id?: unknown }).id ?? (l as { _id?: unknown })._id ?? '');
+      const prev = ((d.composition as Array<Record<string, unknown>> | undefined) ?? []).find((x) => prevId && String(x._id) === prevId);
+      const keep = !!(prev && prevId && Types.ObjectId.isValid(prevId));
+      const fromBody = l as Record<string, unknown>;
+      const pick = <T>(key: string): T | undefined =>
+        (fromBody[key] !== undefined ? fromBody[key] : prev?.[key]) as T | undefined;
+      const notes = clean(l.notes) || clean(prev?.notes) || undefined;
+      return {
+        _id: keep ? new Types.ObjectId(prevId) : new Types.ObjectId(),
+        lineType: t,
+        refId: refs[i],
+        quantity: q,
+        sortOrder: i,
+        unit: String(pick<string>('unit') ?? ref.unit ?? 'шт'),
+        notes: notes || undefined,
+        ...(pick('overrideDimensions') !== undefined ? { overrideDimensions: pick('overrideDimensions') } : {}),
+        ...(pick('isPurchased') !== undefined ? { isPurchased: pick('isPurchased') } : {}),
+        ...(pick('sourcePosition') !== undefined ? { sourcePosition: pick('sourcePosition') } : {}),
+        ...(pick('sourceCode') !== undefined ? { sourceCode: pick('sourceCode') } : {}),
+        ...(pick('unitPriceOverride') !== undefined ? { unitPriceOverride: pick('unitPriceOverride') } : {}),
+      };
     });
     const others = ((d.composition as Record<string, unknown>[] | undefined) ?? []).filter((l) => !replace.has(String(l.lineType)));
     await this.db.collection('products').updateOne({ _id }, { $set: { composition: [...next, ...others], updatedAt: new Date() } });

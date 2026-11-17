@@ -234,6 +234,8 @@ export class ProductPassport {
   @Prop() foundationDepth?: number;
   /** C095: модули сборного изделия { name, dims?, qty, photoId? } — печатаются разделом «Состав изделия: модули» с «Итого». */
   @Prop({ type: [Object], default: undefined }) modules?: Array<{ name: string; dims?: string; qty: number; photoId?: string }>;
+  /** C142: прямые дети состава и детали модуля. Пишет синхронизация черновика; выпущенный снимок не пересобирается. */
+  @Prop({ type: [Object], default: undefined }) compositionSheet?: Array<{ kind?: string; word: string; label: string; qty: number; unit?: string; children?: unknown[] }> | null;
   @Prop() fallHeight?: number;
   @Prop() siteLength?: number;
   @Prop() siteWidth?: number;

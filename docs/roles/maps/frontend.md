@@ -1,3 +1,21 @@
+## C142 карта: колонки состава (2026-11-18)
+коммит: не закоммичено
+- `atlas-data.js:10` слой paper. Модуль `:119` col 2, деталь `:129` col 3. Проектирование `:139` и документация `:149` на paper. Связи `:103` `:123` `:177` `:213` `:234` `:259` `:361` `:365` `:368`. Отчёт C142/FIX-ATLAS.md. Карта обновлена.
+
+## C141 P1 правая колонка книжки (2026-11-18)
+коммит: не закоммичено
+- `book-composition-funnel.js:114` confirmLeave / `:122` slot._bkLeave; `:209` карандаш «Сколько» → focusQty; `:251` «В состав» secondary; `:245` hint «Только чтение»; `:351` единственная primary «Сохранить состав».
+- `book-editor.js:141` releaseSlot (render `:237`, sideHome `:332`). `book-focus.js:108` уход в другой слот. Кнопки: `book-shared.js:55` «Промпт для ИИ», `book-ilogic.js:24` «Правило iLogic»; перенос `kit.css:1078` `.bk-side .btn`. Карта обновлена.
+
+## C142 B лист паспорта — дерево состава (2026-11-18)
+коммит: не закоммичено
+- Черновик: `passports/book-editor.js:109` ensureComposition (не issued), `:227` перед buildBook, `:315` сброс после сохранения в колонке. Лист `book-blocks.js:125` — блок «Состав изделия», снимок `r.modules` для выпущенного не трогаем. Дерево `book-composition-tree.js:86` loadCompositionTree; `:50` GET `/modules/:id/composition`; `:67` деталь → GET `/materials/:id/composition`; `:111` compositionSheet (Модуль/Деталь/Сырьё/Покупное). Воронка `book-composition-funnel.js` не менялась. Отчёт C142/REPORT-B-PASSPORT-TREE.md. Карта обновлена.
+
+## C142 разделы «Модули» и «Детали» (2026-11-18)
+коммит: не закоммичено
+- `main.js:73` LAZY modules→modules+moduleComp, `:74` parts→parts+partBlank, `:46` partwork→partWork. NAV `:135`, группа `:254`, OWNER `:140`. `core/api.js:51` sees → products. `view-as.js:10` APP_IDS: modules, parts.
+- `sections/modules.js:37` normalize; `:93` modules; `:61` moduleComp. `sections/parts.js:51` materialKind=part; `:26` partBlank; `:108` partWorkBlock. `part-work.js:16` блок, `:68` панель. `comp-editor.js:60` compositionPeek, `:114` buildCompForm. `pult/catalog.mjs:346` c142-facts. Отчёт C142/REPORT-C-MENUS.md. Карта обновлена.
+
 ## C134 паспорт как в PDF (2026-11-16)
 коммит: не закоммичено
 - `sections/passports/book-editor.js` openBookEditor (editable/openEditor, build, imageStrip, render/пагинация); вход `order-line-more.js` documentsCard; CSS конец `ui/kit/kit.css` (.bk-*). Отчёт C134/REPORT.md. Карта обновлена.

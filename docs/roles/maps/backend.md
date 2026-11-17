@@ -1,4 +1,8 @@
 # Карта роли backend
+## C142 фикс legacy composition (2026-11-18, не закоммичено)
+- `composition-line.service.ts:33` `legacyRefId`, `:64` `previewModuleMaterialLines`, `:84` `storedModuleMaterialLines`, `:89` `previewProductModuleLines`, `:102` `storedProductModuleLines`. Перенос: `product-module.service.ts:176` `migrateLegacyMaterials` (перед add/update), `product.service.ts:370` `seedLegacyProductModules` (перед add/update, без `$inc`). Граф до переноса: `catalog-graph.service.ts:316` `moduleChildLines`, `:327` `productChildLines`. `getComposition` при непустом `composition` не мнит `_id` (`product-module.service.ts:114`, `product.service.ts:297`). Отчёт — «Фикс legacy» в `docs/crew/C142-composition-hierarchy/ARCH-NIGHT.md`. коммит: —
+## C142 §B паспорт читает дерево (2026-11-18, не закоммичено)
+- `common/catalog/composition-expand.ts:94` sheetRows, `:125` stockRefs (модуль рекурсивно, сырьё детали, изделие не раскрываем), `:193` expandComposition; `showcase/showcase-materials.ts:12` fromComposition. Лист черновика — `passport-from-product.ts:52` compositionSheet, печать `passport-pdf-v2-layout.ts:255`. «Что купить» уже раскрывало модуль→деталь→сырьё. Отчёты `REPORT-B-PASSPORT.md`, `REPORT-B-PASSPORT-TREE.md`. коммит: —
 ## C133 места/материал/подписи gaps (2026-11-16, не закоммичено)
 - `product-passport/passport-gaps.ts` (labelOf, seatsSet, hasSpec, фильтр step) ; `showcase/passport-defaults.ts` seatsCount (normalize). Отчёт `docs/crew/C133-passport-options/REPORT-backend.md`. коммит: —
 ## C132 исправления аудита (2026-11-16)

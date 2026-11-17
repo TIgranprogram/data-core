@@ -2,6 +2,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Types } from 'mongoose';
 import { BadRequestException, ConflictException } from '@nestjs/common';
+import { CompositionLineService } from '../../common/catalog/composition-line.service';
 import { ProductService } from './product.service';
 
 /**
@@ -510,5 +511,41 @@ describe('TZ-NX-PHOTO-P2 — Product.mainPhotoId validation', () => {
     await service.duplicate(sourceId.toString());
     const payload = (model.create as jest.Mock).mock.calls[0][0];
     expect(payload.mainPhotoId).toEqual(mainId);
+  });
+});
+
+describe('legacy productModuleIds → composition (C142)', () => {
+  it('addComposition оставляет модули из productModuleIds и добавляет новую строку', async () => {
+    const moduleId = new Types.ObjectId();
+    const extraId = new Types.ObjectId();
+    const doc = { _id: new Types.ObjectId(), __v: 2, composition: [] as unknown[], productModuleIds: [moduleId], deletedAt: null };
+    const model = {
+      findOne: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(doc) }),
+      findOneAndUpdate: jest.fn().mockImplementation((_filter: unknown, update: { $set: { composition: unknown[] }; $inc?: unknown }) => ({
+        exec: jest.fn().mockResolvedValue({ ...doc, composition: update.$set.composition }),
+      })),
+    };
+    const compositionLines = new CompositionLineService();
+    jest.spyOn(compositionLines, 'validateReference').mockResolvedValue(undefined);
+    const service = new ProductService(
+      model as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      compositionLines,
+      { assertNoCycleAndDepth: jest.fn().mockResolvedValue(undefined) } as never,
+    );
+
+    const lines = await service.addComposition(String(doc._id), { lineType: 'module', refId: String(extraId), quantity: 2 });
+
+    expect(lines).toHaveLength(2);
+    expect(lines.map((line) => String(line.refId))).toEqual(expect.arrayContaining([String(moduleId), String(extraId)]));
+    expect(lines.find((line) => String(line.refId) === String(moduleId))).toMatchObject({ lineType: 'module', quantity: 1 });
+    expect(model.findOneAndUpdate).toHaveBeenCalledTimes(2);
+    const seed = (model.findOneAndUpdate as jest.Mock).mock.calls[0][1];
+    expect(seed.$inc).toBeUndefined();
+    expect(seed.$set.composition).toHaveLength(1);
   });
 });

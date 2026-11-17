@@ -70,3 +70,9 @@
 - C132 FREEZE-2: D1 закрыт 390 editor обе темы, confirm обе темы PASS (64.375 px по QA); kit dark M/S просмотрен. Полный UI PARTIAL: mock вместо live, неполные состояния. Свежие hashes и снимки — в UI-REVIEW. Коммит: 18c0c274 + рабочий FREEZE-2.
 
 - C132 финал: [UI-REVIEW-FINAL](../../crew/C132-passport-text-edit/UI-REVIEW-FINAL.md), PASS на заполненной синтетической Mongo и реальном API. D1 закрыт, D2 закрыт повторным просмотром открытого списка 390 в двух темах. Коммит: 18c0c274 + рабочий C132. Общий review-scope не закрыт, проверен C132.
+
+- C141 левая колонка и крестик (18.11): [UI-REVIEW-LEFT](../../crew/C141-passport-book-etalon/UI-REVIEW-LEFT.md), PARTIAL по коду, стенда нет. Три `.bk-panel`. P1: `#fff` на `--danger` в тёмной теме (крестик hover, плашка «обязательно», `.ntf-x`); `.is-current` в CSS не ставится из JS. design-lint новых 18. коммит: 8cb68273 + рабочий diff; review-scope --done не запускался.
+
+- C141 правая колонка (18.11): [UI-REVIEW-RIGHT](../../crew/C141-passport-book-etalon/UI-REVIEW-RIGHT.md), PARTIAL по коду, стенда нет. `sidePanel` = тот же `.bk-panel`. P1: две primary в составе; уход и `render` стирают состав без вопроса; карандаш «Сколько» сбрасывает деталь; кнопка ИИ шире 280px; `.is-wide` на 1024 сжимает лист; чтение — серая кнопка без фразы. коммит: 8cb68273 + рабочий diff; review-scope --done не запускался.
+
+- C141 правая колонка (18.11): [UI-REVIEW-RIGHT](../../crew/C141-passport-book-etalon/UI-REVIEW-RIGHT.md), PARTIAL по коду, стенда нет. Тот же `.bk-panel` через `sidePanel` (`book-shared.js`); класса `.bk-side-panel` нет. P1: материалы `.rt-table` min 520px в колонке 280; несколько `.btn-primary` (шапка + «Сохранить» + «В состав»). Крестик книжки `k-close` + `--on-danger`. design-lint новых по правой: R2, L2 textarea, L4 11px/2px. коммит: 8cb68273 + рабочий diff; review-scope --done не запускался.

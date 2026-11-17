@@ -6,7 +6,7 @@ import { Product, ProductDocument } from '../../common/catalog/product.schema';
 import { Material, MaterialDocument } from '../material/material.schema';
 import { Category, CategoryDocument } from '../category/category.schema';
 import { CompositionLineDocumentShape } from '../../common/catalog/composition-line.schema';
-import { CompositionLineService } from '../../common/catalog/composition-line.service';
+import { CompositionLineService, storedModuleMaterialLines } from '../../common/catalog/composition-line.service';
 import { CreateCompositionLineDto, UpdateCompositionLineDto } from '../../common/catalog/composition-line.dto';
 import { CatalogGraphService } from '../../common/catalog/catalog-graph.service';
 import { isUsedByCrm, isUsedInComposition } from '../../common/catalog/catalog-references';
@@ -113,22 +113,8 @@ export class ProductModuleService {
 
   async getComposition(id: string): Promise<CompositionLineDocumentShape[]> {
     const doc = await this.findById(id);
-    const legacy: CompositionLineDocumentShape[] = [];
-    for (const row of doc.materials ?? []) {
-      const materialId = this.resolveMaterialId(row.materialId);
-      if (!Types.ObjectId.isValid(materialId)) continue;
-      legacy.push({
-        _id: new Types.ObjectId(),
-        lineType: 'material',
-        refId: new Types.ObjectId(materialId),
-        quantity: row.quantity ?? 1,
-        sortOrder: row.sortOrder ?? 0,
-        unit: row.unit,
-        overrideDimensions: row.overrideDimensions,
-        isPurchased: row.isPurchased,
-      });
-    }
-    return this.compositionLines.dualRead(doc, legacy);
+    if (doc.composition?.length) return doc.composition as unknown as CompositionLineDocumentShape[];
+    return this.compositionLines.dualRead(doc, storedModuleMaterialLines(doc.materials));
   }
 
   async addComposition(id: string, dto: CreateCompositionLineDto): Promise<CompositionLineDocumentShape[]> {
@@ -138,6 +124,7 @@ export class ProductModuleService {
     await this.catalogGraph.assertNoCycleAndDepth(id, 'module', { lineType: incoming.lineType, refId: incoming.refId.toString() });
     await this.compositionLines.validateReference('module', incoming, { materialModel: this.materialModel, moduleModel: this.model });
     await this.assertCompositionMaterialOverrides(incoming);
+    await this.migrateLegacyMaterials(doc);
     const next = this.compositionLines.upsertDeduplicated((doc.composition ?? []) as unknown as CompositionLineDocumentShape[], incoming);
     this.compositionLines.ensureLineLimit(next);
     doc.composition = next as never;
@@ -149,6 +136,7 @@ export class ProductModuleService {
     if (dto.lineType === 'product') throw new BadRequestException('Product lines are not allowed on module composition');
     if (!Types.ObjectId.isValid(lineId)) throw new BadRequestException('Invalid composition line id');
     const doc = await this.findById(id);
+    await this.migrateLegacyMaterials(doc);
     const current = (doc.composition ?? []) as unknown as CompositionLineDocumentShape[];
     const index = current.findIndex((line) => line._id.toString() === lineId);
     if (index < 0) throw new NotFoundException(`Composition line ${lineId} not found`);
@@ -178,6 +166,20 @@ export class ProductModuleService {
     const used = (await isUsedInComposition(this.model.db, 'module', doc._id, { products: [{ productModuleIds: doc._id }] })) || (await isUsedByCrm(this.model.db, 'module', doc._id));
     if (used) throw new ConflictException('ProductModule is referenced by catalog history and cannot be archived');
     await this.model.updateOne({ _id: doc._id, deletedAt: null }, { $set: { deletedAt: new Date() } }).exec();
+  }
+
+  /**
+   * Пустой composition и непустой materials[] — перенос до первой записи состава.
+   * Иначе dualRead и граф видят только новую строку. materials[] не стираем (его читает CRM).
+   * Отдельного replace нет: add и update подменяют весь массив composition.
+   */
+  private async migrateLegacyMaterials(doc: ProductModuleDocument): Promise<void> {
+    if (doc.composition?.length) return;
+    const lines = storedModuleMaterialLines(doc.materials);
+    if (!lines.length) return;
+    doc.composition = lines as never;
+    doc.markModified('composition');
+    await doc.save();
   }
 
   /** Non-empty materials[] is legacy write path (TZ-CATALOG-304). Empty array is treated as omit. */
@@ -279,14 +281,4 @@ export class ProductModuleService {
     ]);
   }
 
-  /** findById populates materials.materialId — String(populated) is `[object Object]` and breaks BSON. */
-  private resolveMaterialId(materialId: unknown): string {
-    if (materialId == null || materialId === '') return '';
-    if (typeof materialId === 'string') return materialId;
-    if (typeof materialId === 'object' && materialId !== null && '_id' in materialId) {
-      const id = (materialId as { _id: unknown })._id;
-      return id == null ? '' : String(id);
-    }
-    return String(materialId);
-  }
 }

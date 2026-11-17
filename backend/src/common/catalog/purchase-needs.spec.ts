@@ -66,4 +66,15 @@ describe('purchase-needs', () => {
     const tree = node('P', 'product', 1, [node('M', 'module', 1, [node('W', 'material', 2)]), node('W', 'material', 3)]);
     expect(flattenNeeds(tree, 2).totals.get('W')).toBe(10);
   });
+
+  it('модуль и деталь не закупаются, сырьё внутри детали — закупается', () => {
+    const tree = node('P', 'product', 1, [node('M', 'module', 2, [node('D', 'material', 3, [node('S4', 'material', 1)])])]);
+    const { totals, parts } = flattenNeeds(tree, 1);
+    expect(totals.has('M')).toBe(false);
+    expect(totals.get('D')).toBe(6);
+    expect(totals.get('S4')).toBe(6);
+    const r = computeNeeds(totals, parts, all(part('D'), sheet), [list]);
+    expect(r.items.map((i) => i.materialId)).toEqual(['S4']);
+    expect(r.missingBlank).toEqual([]);
+  });
 });
