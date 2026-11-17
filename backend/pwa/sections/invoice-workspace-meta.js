@@ -70,7 +70,7 @@ export function metaBlock(invoice, ctx, refreshInvoice) {
     h('div', { class: 'iw-meta form-grid' },
       h('label', { class: 'field' }, h('span', null, '№ счёта'), no),
       h('label', { class: 'field' }, h('span', null, 'Дата'), dateInp),
-      p.payer ? h('label', { class: 'field' }, h('span', null, 'Наша компания'), payer) : null,
+      p.payer ? h('label', { class: 'field' }, h('span', null, 'Наша компания *'), payer) : null,
       h('label', { class: 'field wide' }, h('span', null, 'Договор поставщика'), contract)),
     deliveryFields.el,
     h('div', { class: 'iw-files' }, h('div', { class: 'muted small' }, 'Файлы счёта'), files.el),

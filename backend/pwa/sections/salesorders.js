@@ -255,16 +255,15 @@ function positionsPane(d, ctx, pick = null) {
   const orders = d.orders || [];
   const allLines = orders.flatMap((o) => o.lines || []).filter((l) => !l.cancelledAt);
   const showShip = allLines.some((l) => l.shipped), showColor = false; // цвет/описание — под названием; пустые колонки скрыты
-  const columns = [{ label: '№' }, { label: '', phoneHide: true }, { label: 'Название' }, { label: 'Кол-во', num: true }, ...(showShip ? [{ label: 'Отгружено', num: true }] : []), ...(showColor ? [{ label: 'Цвет' }] : [])];
-  const span = 2 + (showShip ? 1 : 0) + (showColor ? 1 : 0);
-  const hasPic = (l) => !!(l.photo && (l.photo.url || l.photo.thumb));
-  const many = orders.length > 1;
-  const { passports, markOf, whenReady } = attachLinePassports(orders); // C138: номер паспорта под названием
+  const columns = [{ label: '№' }, { label: '', phoneHide: true }, { label: 'Название' }, { label: '' }, { label: 'Кол-во', num: true }, ...(showShip ? [{ label: 'Отгружено', num: true }] : []), ...(showColor ? [{ label: 'Цвет' }] : [])];
+  const span = 3 + (showShip ? 1 : 0) + (showColor ? 1 : 0), hasPic = (l) => !!(l.photo && (l.photo.url || l.photo.thumb)), many = orders.length > 1;
+  const { passports, markOf, whenReady } = attachLinePassports(orders); // C138: номер справа перед «Кол-во»
   const groups = orders.map((o) => {
     const order = (o.lines || []).map((l, i) => [l, i]).sort((a, b) => !!a[0].cancelledAt - !!b[0].cancelledAt);
     const rows = order.map(([l, i]) => (l.cancelledAt ? cancelledRow(l, i, span, openLine(l)) : { key: l.id, line: l, expand: () => lineMore(l, o, d, { reload, editable: editableOrder(o), closed: closedStage(o), passports }), cells: [
       { v: seq(l, i), cls: 'muted' }, posPic(hasPic(l) ? l.photo : null, hasPic(l) ? 'lg' : 'sm'),
-      h('span', null, l.title, ourLine(l), markOf(l.id), l.color || l.notes ? h('div', { class: 'muted small' }, [l.color && 'Цвет: ' + l.color, l.notes].filter(Boolean).join(' · ')) : null, l.unassigned !== undefined || l.lineType ? h('span', null, ' ', lineMark(l)) : null, l.unassigned === undefined && !l.lineType && l.matched === false ? h('a', { class: 'badge warn', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null),
+      h('span', null, l.title, ourLine(l), l.color || l.notes ? h('div', { class: 'muted small' }, [l.color && 'Цвет: ' + l.color, l.notes].filter(Boolean).join(' · ')) : null, l.unassigned !== undefined || l.lineType ? h('span', null, ' ', lineMark(l)) : null, l.unassigned === undefined && !l.lineType && l.matched === false ? h('a', { class: 'badge warn', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null),
+      { v: markOf(l.id), cls: 'num nowrap' },
       { v: `${qty(l.qty)} ${l.unit || ''}`, cls: 'num nowrap' }, ...(showShip ? [{ v: l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : '', cls: 'num nowrap muted' }] : []), ...(showColor ? [{ v: l.color || '', cls: 'muted' }] : []),
 ] }));
     return { head: many ? contractHead(o, many) : null, rows, foot: contractFoot(o) }; // один договор — без строки-заголовка: чистая таблица (владелец 15.11)

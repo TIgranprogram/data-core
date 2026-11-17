@@ -75,6 +75,9 @@ export function assertOperation(invoice, rights, operation, lineId) {
   const p = permissions(invoice, rights);
   const allowed = { meta: p.meta, line: p.editLine, add: p.add, remove: p.removeLine, issue: p.issue, pay: p.pay, receive: p.receive };
   if (!allowed[operation]) throw new Error(p.reason || 'Недостаточно прав для этого действия');
+  if ((operation === 'issue' || operation === 'pay') && !invoice.payerCompanyId) {
+    throw new Error('Укажите «Нашу компанию» — кто платит (иначе расход не попадёт в «Деньги»)');
+  }
   if (['line', 'remove'].includes(operation)) {
     const line = (invoice.requests || []).find((r) => r.id === lineId);
     // принятую позицию можно только переоценить (line), но не убрать

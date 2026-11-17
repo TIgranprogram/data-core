@@ -49,7 +49,7 @@ async function buildInvoiceForm(opts = {}) {
   const toStock = h('input', { type: 'checkbox', checked: false });
   const stateBox = segmented({ items: STATE.map((s) => ({ key: s.value, label: s.label })), value: state, onChange: (k) => { state = k; syncStars(); } }).el;
   const noStar = h('span', { class: 'req' }, ' *'); const coStar = h('span', { class: 'req' }, ' *');
-  function syncStars() { noStar.hidden = state === 'ordered'; coStar.hidden = state !== 'paid'; }
+  function syncStars() { noStar.hidden = state === 'ordered'; coStar.hidden = state === 'ordered'; }
   syncStars();
   const lines = h('div', { class: 'inv-lines' });
   const totalEl = h('b', { class: 'num' });
@@ -209,7 +209,7 @@ async function buildInvoiceForm(opts = {}) {
     const invoiceNo = no.value.trim();
     if (!invoiceNo && state !== 'ordered') throw new Error('впишите № счёта (для «Оплачено» / «Получено» он нужен)');
     if (!sup.value.trim()) throw new Error('выберите поставщика');
-    if (state === 'paid' && !company.value) throw new Error('выберите нашу компанию (для «Оплачено» она нужна)');
+    if (state !== 'ordered' && !company.value) throw new Error('выберите нашу компанию — иначе расход не попадёт в «Деньги»');
     const list = rows.filter((r) => r.title.value.trim());
     if (!list.length) throw new Error('добавьте хотя бы одну позицию');
     for (const r of list) if (!r.cat.value.trim()) throw new Error(`выберите категорию для «${r.title.value.trim()}»`);

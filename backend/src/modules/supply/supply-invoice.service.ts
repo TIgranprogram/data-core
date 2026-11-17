@@ -744,8 +744,8 @@ export class SupplyInvoiceService {
   async pay(id: string, actorId?: string) {
     const inv = await this.load(id);
     if (inv.status === 'paid') throw new BadRequestException('Счёт уже оплачен');
-    if (inv.status !== 'issued') throw new BadRequestException('Сначала отметьте счёт выставленным: нужны №, дата и сумма');
-    if (!inv.payerCompanyId) throw new BadRequestException('Укажите «Нашу компанию» — кто платит по счёту (кнопка «Изменить» в счёте)');
+    if (inv.status !== 'issued') throw new BadRequestException('Сначала отметьте счёт выставленным: нужны №, дата, сумма и наша компания');
+    if (!inv.payerCompanyId) throw new BadRequestException('Укажите «Нашу компанию» — кто платит по счёту (иначе расход не попадёт в «Деньги»; кнопка «Изменить» в счёте)');
     const sum = await this.linesSum(inv);
     if (Math.abs((Number(inv.amount) || 0) - sum) > 0.009) throw new BadRequestException('Сумма счёта не совпадает с суммой строк — исправьте цены позиций');
     const now = new Date();

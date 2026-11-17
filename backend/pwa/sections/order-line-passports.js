@@ -1,6 +1,6 @@
 /**
  * C138: паспорта позиций заказа для вкладки «Позиции» —
- * одна загрузка на вкладку, подпись под названием, общая карта для «Документы».
+ * одна загрузка на вкладку, номер справа перед «Кол-во», общая карта для «Документы».
  */
 import { h } from '../core/dom.js';
 import { api } from '../core/api.js';
@@ -12,8 +12,9 @@ import { toastError } from '../ui/kit/toast.js';
 import { go } from '../core/router.js';
 
 const rank = (p) => (statusOf(p) === 'issued' ? 0 : statusOf(p) === 'draft' ? 1 : 2);
+const isReuseGhost = (p) => String(numberOf(p) || '').includes('~');
 
-/** Map incomeId → массив паспортов (выпущенные выше черновиков). Несколько на позицию — все. */
+/** Map incomeId → массив паспортов (выпущенные выше черновиков). */
 export function groupPassportsByIncome(items, into = new Map()) {
   for (const p of items || []) {
     if (!p?.incomeId) continue;
@@ -24,6 +25,21 @@ export function groupPassportsByIncome(items, into = new Map()) {
   }
   for (const list of into.values()) list.sort((a, b) => rank(a) - rank(b));
   return into;
+}
+
+/**
+ * Один актуальный паспорт позиции: выпущенный без суффикса «~», иначе черновик.
+ * Аннулированные (601~1) в строке и в «Документах» не показываем.
+ */
+export function primaryPassport(list) {
+  const items = Array.isArray(list) ? list : (list ? [list] : []);
+  const live = items.filter((p) => statusOf(p) !== 'annulled' && !isReuseGhost(p));
+  const issued = live.filter((p) => statusOf(p) === 'issued' && numberOf(p));
+  if (issued.length) {
+    return issued.slice().sort((a, b) => Number(b.revision || 0) - Number(a.revision || 0)
+      || String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))[0];
+  }
+  return live.find((p) => statusOf(p) === 'draft') || null;
 }
 
 /** GET /passports по каждому договору. Ошибка любого запроса — наружу (карточка «Документы» покажет fail + повтор). */
@@ -41,20 +57,18 @@ function openPassport(p) {
   go('docs', { tab: 'orders', of: 'passports', open: p.id }, { kind: 'card' });
 }
 
-/** Подпись под названием: все номера / черновики; нет паспорта — null. */
-export function passportUnderTitle(list) {
-  const items = Array.isArray(list) ? list : (list ? [list] : []);
-  if (!items.length) return null;
-  return h('div', { class: 'small' }, ...items.map((p) => {
-    const n = numberOf(p);
-    if (n) {
-      return h('div', null, h('a', {
-        href: '#', title: 'Открыть паспорт',
-        onclick: (e) => { e.preventDefault(); e.stopPropagation(); openPassport(p); },
-      }, `Паспорт № ${n}`));
-    }
-    return h('div', { class: 'muted' }, 'Паспорт — черновик');
-  }));
+/** Метка в строке позиций: только актуальный номер / черновик; нет паспорта — null. */
+export function passportMark(list) {
+  const p = primaryPassport(list);
+  if (!p) return null;
+  const n = numberOf(p);
+  if (n) {
+    return h('a', {
+      href: '#', class: 'small nowrap', title: 'Открыть паспорт',
+      onclick: (e) => { e.preventDefault(); e.stopPropagation(); openPassport(p); },
+    }, `Паспорт № ${n}`);
+  }
+  return h('span', { class: 'muted small nowrap' }, 'Паспорт — черновик');
 }
 
 /** Состояние загрузки вкладки: { map, error }. map — Map|null; error — при сбое общей загрузки. */
@@ -62,14 +76,14 @@ export function makePassportPack() {
   return { map: null, error: null };
 }
 
-/** Слоты под названием + общая загрузка (чтобы salesorders.js не рос по L8). */
+/** Слоты в колонке перед «Кол-во» + общая загрузка (чтобы salesorders.js не рос по L8). */
 export function attachLinePassports(orders) {
   const passports = makePassportPack();
   const markSlots = new Map();
   const markOf = (id) => { const el = h('div'); markSlots.set(String(id), el); return el; };
   const whenReady = () => loadPassportsByIncome(orders.map((o) => o.id)).then((map) => {
     passports.map = map; passports.error = null;
-    for (const [id, el] of markSlots) { const node = passportUnderTitle(map.get(id)); el.replaceChildren(...(node ? [node] : [])); }
+    for (const [id, el] of markSlots) { const node = passportMark(map.get(id)); el.replaceChildren(...(node ? [node] : [])); }
   }).catch((e) => { passports.map = null; passports.error = e; for (const el of markSlots.values()) el.replaceChildren(); });
   return { passports, markOf, whenReady };
 }
@@ -78,17 +92,15 @@ export function attachLinePassports(orders) {
 export function documentsCard(l, d, pack) {
   const body = h('div');
   const showList = (list, reloadCard) => {
-    if (!list?.length) { body.replaceChildren(empty({ title: 'Паспорта ещё нет', hint: 'Выпускается в «Документы → Паспорта заказа».' })); return; }
-    const blocks = list.map((p) => {
-      const issued = statusOf(p) === 'issued';
-      return stack(actions(
-        button({ label: numberOf(p) ? `Паспорт № ${numberOf(p)}` : 'Паспорт — черновик', size: 'S', kind: 'ghost', onClick: () => openPassport(p) }),
-        badge(issued ? 'выпущен' : 'черновик', issued ? 'ok' : 'warn')),
-      actions(
-        !canWorkPassport() ? null : button({ label: 'Изменить паспорт', size: 'S', title: 'Большое окно: паспорт как в PDF, любое поле правится на месте', onClick: () => openBookEditor(p, { onClose: () => reloadCard() }) }),
-        issued ? button({ label: 'Скачать PDF', size: 'S', kind: 'ghost', onClick: (e) => { const b = e.currentTarget; b.classList.add('is-busy'); printDialog(p).catch(toastError).finally(() => b.classList.remove('is-busy')); } }) : null));
-    });
-    body.replaceChildren(stack(...blocks));
+    const p = primaryPassport(list);
+    if (!p) { body.replaceChildren(empty({ title: 'Паспорта ещё нет', hint: 'Выпускается в «Документы → Паспорта заказа».' })); return; }
+    const issued = statusOf(p) === 'issued';
+    body.replaceChildren(stack(actions(
+      button({ label: numberOf(p) ? `Паспорт № ${numberOf(p)}` : 'Паспорт — черновик', size: 'S', kind: 'ghost', onClick: () => openPassport(p) }),
+      badge(issued ? 'выпущен' : 'черновик', issued ? 'ok' : 'warn')),
+    actions(
+      !canWorkPassport() ? null : button({ label: 'Изменить паспорт', size: 'S', title: 'Большое окно: паспорт как в PDF, любое поле правится на месте', onClick: () => openBookEditor(p, { onClose: () => reloadCard() }) }),
+      issued ? button({ label: 'Скачать PDF', size: 'S', kind: 'ghost', onClick: (e) => { const b = e.currentTarget; b.classList.add('is-busy'); printDialog(p).catch(toastError).finally(() => b.classList.remove('is-busy')); } }) : null)));
   };
   const load = async ({ skipCache } = {}) => {
     const again = () => load({ skipCache: true });

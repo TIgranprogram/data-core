@@ -43,7 +43,7 @@ async function buildMetaForm(invoice, services) {
     { section: 'Реквизиты счёта', fixed: true },
     !p.boundary ? { key: 'duplicateReason', label: 'Причина отдельного счёта с тем же номером', max: 200, wide: true, hint: 'Только если отдельный счёт с тем же номером действительно нужен.' } : null,
     { key: 'no', label: '№ счёта', max: 100 }, { key: 'date', label: 'Дата счёта', type: 'date' },
-    p.payer ? { key: 'payerCompanyId', label: 'Наша компания', type: 'select', options: [{ value: '', label: 'Выберите компанию' }, ...payers] } : null,
+    p.payer ? { key: 'payerCompanyId', label: 'Наша компания', type: 'select', required: true, options: [{ value: '', label: 'Выберите компанию' }, ...payers], hint: 'Кто платит: без компании расход не попадёт в «Деньги»' } : null,
     { section: 'Договор поставщика', tone: 'info' },
     { key: 'contractId', label: 'Договор', type: 'select', options: contractOptions, wide: true },
     { note: link({ label: 'Создать договор отдельно →', href: services.href({ of: 'contract', new: '1', open: undefined, supplierId: invoice.supplierId }) }) },

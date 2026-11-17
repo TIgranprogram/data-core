@@ -13,11 +13,12 @@ export const ORDERED_GATE: GateField[] = [
   { key: 'unit', label: 'Единица измерения', ok: (r) => has(r.unit) },
 ];
 
-/** Ворота «Счёт выставлен» — по счёту. */
+/** Ворота «Счёт выставлен» — по счёту. «Наша компания» нужна уже здесь: иначе расходы некуда отнести в «Деньгах». */
 export const ISSUED_GATE: GateField[] = [
   { key: 'no', label: '№ счёта', ok: (i) => has(i.no) },
   { key: 'date', label: 'Дата счёта', ok: (i) => !!i.date },
   { key: 'amount', label: 'Сумма позиций (впишите сумму каждой строки в счёте)', ok: (i) => Number(i.amount) > 0 },
+  { key: 'payerCompanyId', label: 'Наша компания', ok: (i) => !!i.payerCompanyId },
 ];
 
 /** Названия недостающих полей. */
