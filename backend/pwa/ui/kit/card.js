@@ -16,6 +16,7 @@ import { toast, toastError } from './toast.js';
 import { actionText, errText, isFailure } from './errors.js';
 import { busyBlock, busyBtn, failBlock } from './busy.js';
 import { buildCardTabs } from './card-tabs.js';
+import { fillCardMenu, LAYOUTS } from './card-menu.js';
 import { makeResizable } from '../resizer.js';
 import { DOCK_MIN, getPref, setPref } from '../../core/prefs.js';
 import { isSolo, popout, setPopout, soloGeometry } from '../../core/popout.js'; // панель в отдельном окне (2026-11-10)
@@ -28,7 +29,7 @@ import { isSolo, popout, setPopout, soloGeometry } from '../../core/popout.js'; 
  * На широком экране (≥ DOCK_MIN) панель пристыкована без затемнения; список остаётся кликабельным.
  * Зоны: card.zones или data-zone (main/side/wide), DESIGN §4; раскладка выбирается в меню «⋯» (prefs panelLayout).
  */
-export const LAYOUTS = [['one', 'Одна колонка'], ['two', 'Две колонки'], ['wide', 'Две колонки и широкий блок снизу']];
+export { LAYOUTS };
 const layoutNow = () => { const v = getPref('panelLayout'); return LAYOUTS.some(([k]) => k === v) ? v : 'one'; };
 const docked = () => window.innerWidth >= DOCK_MIN;
 /** Заголовок панели: строка, узел или массив (с null) → список без пустых мест; узел никогда не склеивается в строку. */
@@ -179,29 +180,10 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
       flow.length ? h('div', { class: 'dz-flow', 'data-layout': mode }, ...flow) : null,
       bottom.length ? h('div', { class: 'dz-flow-wide' }, ...bottom) : null)];
   }
-  /** Единственное «⋯» шапки: вид панели (всем, кроме панелей с вкладками) + редкие действия, «Дублировать», «Удалить» (с правом правки). */
-  function buildMenu(rare, hasTabs = false) {
-    const edit = canEditSection(section);
-    const menu = h('div', { class: 'menu', role: 'menu', hidden: true });
-    const toggle = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Ещё', 'aria-label': 'Ещё действия', 'aria-haspopup': 'menu', 'aria-expanded': 'false' }, '⋯');
-    const setOpen = (v) => { menu.hidden = !v; toggle.setAttribute('aria-expanded', String(v)); };
-    const away = (e) => { if (!menuBox.contains(e.target)) { setOpen(false); document.removeEventListener('click', away, true); } };
-    toggle.onclick = () => { const v = menu.hidden; setOpen(v); document.removeEventListener('click', away, true); if (v) document.addEventListener('click', away, true); };
-    const items = hasTabs ? [] : [h('div', { class: 'menu-sub', role: 'presentation' }, 'Вид панели')];
-    if (!hasTabs) for (const [k, label] of LAYOUTS) {
-      const on = layoutNow() === k;
-      items.push(h('button', { type: 'button', role: 'menuitemradio', 'aria-checked': String(on), onclick: () => { setPref('panelLayout', k === 'one' ? '' : k); setOpen(false); const y = body.scrollTop; showView(row).then(() => { body.scrollTop = y; toggle.focus(); }); } }, (on ? '✓ ' : '') + label));
-    }
-    const acts = [];
-    if (edit) {
-      let sep = false; rare.forEach((a) => { if (a.danger && !sep) { sep = true; acts.push(h('hr', { class: 'menu-sep' })); } acts.push(h('button', { type: 'button', role: 'menuitem', class: a.danger ? 'danger' : undefined, onclick: (e) => { setOpen(false); runAction(a, e.currentTarget); } }, a.label)); }); // danger — внизу, за чертой
-      if (section.duplicate && section.form) acts.push(h('button', { type: 'button', role: 'menuitem', onclick: () => { setOpen(false); showForm('create', section.duplicate(row)); } }, 'Дублировать'));
-      if (section.remove) acts.push(h('button', { type: 'button', role: 'menuitem', class: 'danger', onclick: () => { setOpen(false); doRemove(); } }, 'Удалить'));
-    }
-    if (acts.length) items.unshift(...acts, h('hr', { class: 'menu-sep' }));
-    menu.append(...items);
-    menuBox.replaceChildren(toggle, menu);
-  }
+  /** Единственное «⋯» шапки — fillCardMenu (card-menu.js). */
+  const buildMenu = (rare, hasTabs = false) => fillCardMenu({
+    menuBox, rare, hasTabs, section, row, body, showView, showForm, doRemove, runAction,
+  });
 
   async function loadHistory(ul, wrap) {
     if (!section.entityType || !row?.id) { ul.replaceChildren(); return; }

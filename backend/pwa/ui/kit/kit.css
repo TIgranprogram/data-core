@@ -884,7 +884,13 @@ table.cal.k-tree tr.k-tree-ins > td { padding: 0; white-space: normal; text-alig
 .k-head-meta > :first-child { grid-column: 2; white-space: nowrap; } /* этап — по центру, срок — справа, не наезжают (владелец 15.11) */
 .k-head-meta > :last-child { grid-column: 3; justify-self: end; white-space: nowrap; text-align: right; }
 @media (max-width: 720px) { .k-head-meta { grid-template-columns: auto 1fr; padding-left: 0; } .k-head-meta > :first-child { grid-column: 1; } .k-head-meta > :last-child { grid-column: 2; } }
-.k-pos-group .k-row { justify-content: center; text-align: center; } /* заголовок договора в таблице позиций — одной строкой по центру */
+.k-pos-group .k-row { justify-content: flex-start; text-align: left; } /* заголовок договора — слева, не теряется среди позиций (C140) */
+.k-pos-group td { background: var(--surface-2); font-weight: 600; }
+/* Несколько договоров: каждый в своей рамке — таблица не сливается (владелец 17.11, C140) */
+.k-pos-blocks { display: flex; flex-direction: column; gap: var(--s3); }
+.k-pos-block { border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); overflow: hidden; }
+.k-pos-block .k-pos-table { border: 0; }
+.k-pos-block .table-wrap { margin: 0; }
 /* под вкладками — небольшой зазор, без пустых блоков (владелец 15.11) */
 .drawer > .chips.k-tabs-fill + .drawer-body { padding-top: var(--s2); }
 .drawer > .chips.k-tabs-fill + .drawer-body > :empty, .drawer > .chips.k-tabs-fill + .drawer-body .k-stack:empty { display: none; }

@@ -5,7 +5,7 @@
  *   → warnCard × N (предупреждения, с кнопкой)  → nextCard («Что дальше» + одна главная кнопка)
  *   → infoCard (сведения ≤ 6 строк + «Подробнее»)  → вкладки по смыслу объекта.
  * cfg: { title(r), sub?(r), stage?(r), side?(r) → [справа у заголовка, справа у подписи], warns?(r, ctx) → [{ title, sub?, label?, run? } | узел], next?(r, ctx) → { text, tone?, primary? },
- *        bodyFirst? (true — body(r, ctx, notes) получает блоки предупреждений/«Что дальше» и ставит их сам: таблица первой), facts(r) → пары, more?(r) → пары, menu?(r, ctx) → [{ label, title?, run, danger? }] (все уходят в «⋯»),
+ *        bodyFirst? (true — body(r, ctx, notes) получает блоки предупреждений/«Что дальше» и ставит их сам: таблица первой), facts(r) → пары, more?(r) → пары, menu?(r, ctx) → [{ label, title?, run, danger?, sep? }] (все уходят в «⋯»; sep — черта перед пунктом, C140),
  *        tabs?(r, ctx) → [{ key, label, count?, tone?, when?, blocks }], body?(r, ctx) → узел вместо вкладок, before?(r, ctx), noHistory?, parent? }
  */
 import { h } from '../../../core/dom.js';

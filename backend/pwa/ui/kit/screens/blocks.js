@@ -68,36 +68,47 @@ export function boardCard({ pic = null, title, hint, sub, extra = [], flags = []
  * Таблица позиций: positionsTable({ columns, groups: [{ head?, rows: [{ cells, onOpen?, expand?() → узел, title? } | <tr>], foot? }], empty? }).
  * expand — клик раскрывает подробности под строкой (вместо onOpen).
  * head — узел-заголовок группы (договор, часть) на всю ширину; foot — узел под строками группы («+ Позиция»).
+ * Несколько групп с head (договоры в заказе) — каждая в своей рамке `.k-pos-block` (C140), чтобы заголовки не сливались с позициями.
  * Одинаковые строки — один клик: onOpen каждой строки открывает одну и ту же панель позиции.
  */
 export function positionsTable({ columns = [], groups = [], empty, label, pick } = {}) {
   // pick = { isOn(row), set(row, on) } — галочка в первой колонке (C124: отметить позиции для подвала); row.key — ключ строки
-  if (pick) columns = [{ label: '', cls: 'k-pick-col' }, ...columns];
+  const cols = pick ? [{ label: '', cls: 'k-pick-col' }, ...columns] : columns;
   const pickCell = (r) => {
     const cb = h('input', { type: 'checkbox', 'aria-label': 'Отметить позицию', checked: !!pick.isOn(r) });
     cb.addEventListener('change', () => { pick.set(r, cb.checked); cb.closest('tr')?.classList.toggle('is-picked', cb.checked); });
     return { v: h('label', { class: 'k-pick', title: 'Отметить' }, cb), cls: 'k-pick-col' };
   };
-  const n = columns.length;
+  const n = cols.length;
   const wide = (node, cls) => h('tr', { class: cls || null }, h('td', { colspan: n }, node));
-  // expand — подробности строки раскрываются прямо под ней (владелец 15.11: вместо отдельной панели позиции); открыта одна
+  // expand — подробности под строкой; открыта одна на всю таблицу / набор рамок
   function toggle(e, make) {
     if (e.target.closest('a, button, input, select, label')) return;
     const tr = e.currentTarget; const next = tr.nextElementSibling;
     const was = next?.classList.contains('k-pos-more');
-    tr.closest('tbody')?.querySelectorAll('tr.k-pos-more').forEach((x) => { x.previousElementSibling?.classList.remove('selected'); x.remove(); });
+    const root = tr.closest('.k-pos-blocks') || tr.closest('tbody');
+    root?.querySelectorAll('tr.k-pos-more').forEach((x) => { x.previousElementSibling?.classList.remove('selected'); x.remove(); });
     if (was) return;
     tr.classList.add('selected');
     tr.after(h('tr', { class: 'k-pos-more' }, h('td', { colspan: n }, make())));
   }
-  const rows = groups.flatMap((g) => [
-    g.head ? wide(g.head, 'k-pos-group') : null, // заголовок группы (договор) — по центру таблицы (владелец 15.11)
+  const rowsOf = (gs) => gs.flatMap((g) => [
+    g.head ? wide(g.head, 'k-pos-group') : null, // заголовок группы (договор)
     ...(g.rows || []).map((r) => (r instanceof Node ? r : { cells: pick ? [r.key != null ? pickCell(r) : '', ...r.cells] : r.cells, onClick: r.expand ? (e) => toggle(e, r.expand) : r.onOpen })),
     g.foot ? wide(g.foot) : null,
   ]).filter(Boolean);
   const hasRows = groups.some((g) => (g.rows || []).length);
-  const el = table({ columns, rows: hasRows ? rows : [], empty, clickable: true, label, cls: 'k-pos-table' });
-  return mark(el, 'positionsTable');
+  const one = (gs, lbl) => {
+    const rows = rowsOf(gs);
+    return table({ columns: cols, rows: rows.length ? rows : [], empty: lbl ? empty : undefined, clickable: true, label: lbl || null, cls: 'k-pos-table' });
+  };
+  // 2+ договоров с заголовком — каждый в рамке (заказ 12-26 и любые с несколькими договорами)
+  const framed = groups.length > 1 && groups.some((g) => g.head);
+  if (framed && hasRows) {
+    const blocks = groups.map((g) => h('div', { class: 'k-pos-block' }, one([g], null)));
+    return mark(h('div', { class: 'k-pos-blocks', 'aria-label': label || null }, ...blocks), 'positionsTable');
+  }
+  return mark(one(groups, label), 'positionsTable');
 }
 
 /**
