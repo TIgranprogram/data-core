@@ -105,14 +105,15 @@ export async function firmFor(salesOrderId) {
 export const categories = async () => { const [rows, f] = await Promise.all([dictRows('passportCategories'), facets()]); return [...new Set([...rows.flatMap((c) => String(c.catalogNames || '').split(/[,;]/).map((s) => s.trim()).filter(Boolean)), ...f.categories.map((c) => c.value)])]; };
 export const api_get = (p) => api(p);
 export const api_post = (p, body) => api(p, { method: 'POST', body });
-/** «<Наименование> (в дальнейшем именуемое «Изделие»), изготовленное из <материалы>. <Установка> <Назначение>» — как на сервере. */
+/** Материалы отдельным предложением — как на сервере (`passport-rules.buildDescription`): согласование не зависит от рода названия. */
 export function buildDescription(v) {
   const t = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
   const sentence = (s) => (t(s) ? (/[.!?]$/.test(t(s)) ? t(s) : t(s) + '.') : '');
   const name = t(v.name).replace(/[.\s]+$/, '');
   if (!name) return '';
   const mat = t(v.materials).replace(/^изготовлен\S*\s+из\s+/i, '');
-  return [`${name} (в дальнейшем именуемое «Изделие»)${mat ? ', изготовленное из ' + sentence(mat) : '.'}`, sentence(v.installationMethod), sentence(v.purpose)].filter(Boolean).join(' ');
+  return [`${name} (далее — изделие).`, mat && `Изделие изготовлено из ${sentence(mat)}`,
+    sentence(v.installationMethod), sentence(v.purpose)].filter(Boolean).join(' ');
 }
 // safety_zone (v2) показываем в «Зоне безопасности» (safety); без вида — в «Общем виде»
 export const kindOf = (i) => (i.kind === 'safety_zone' ? 'safety' : i.kind || 'overview');

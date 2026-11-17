@@ -61,7 +61,7 @@ describe('Паспорта изделий', () => {
     expect(r.body).toMatchObject({ status: 'draft', warrantyMonths: 12, source: 'app' });
     expect(String(r.body.passportNumber)).toMatch(/^draft-/); // служебная метка черновика, не номер
     expect(r.body.productCode ?? null).toBeNull();
-    expect(r.body.description).toBe('Урна парковая (в дальнейшем именуемое «Изделие»), изготовленное из листовой стали 2 мм. Изделие устанавливается на ровное основание. Предназначено для сбора мусора.');
+    expect(r.body.description).toBe('Урна парковая (далее — изделие). Изделие изготовлено из листовой стали 2 мм. Изделие устанавливается на ровное основание. Предназначено для сбора мусора.');
     expect(r.body.bom).toEqual([{ pos: 1, code: 'И-1', name: 'Изделие в сборе', qty: 1, unit: 'шт.' }]);
     first = r.body.id;
     // черновик правится сколько угодно — номер не появляется

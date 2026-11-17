@@ -4,6 +4,7 @@
 //   node tools/ai-tester/run.mjs --check            проверить, всё ли готово (по шагам, с подсказками)
 //   node tools/ai-tester/run.mjs [--minutes N]      работать N минут (по умолчанию 480 = рабочий день)
 //   node tools/ai-tester/run.mjs --detach --minutes N  то же в фоне (кнопка пульта): пульт не ждёт, окно можно закрыть
+//   node tools/ai-tester/run.mjs --tasks a,b,c       только задания с этими id (например pass-funnel,pass-order,pass-queue)
 //   node tools/ai-tester/run.mjs --stop             попросить остановиться (закончит текущий шаг, напишет отчёт)
 //   node tools/ai-tester/run.mjs --cleanup          убрать записи ТЕСТ-ИИ, созданные сегодня (и раньше)
 //   node tools/ai-tester/run.mjs --last             коротко: последний отчёт
@@ -29,9 +30,11 @@ const STOP_FILE = path.join(LOGS, 'STOP');
 const CREATED_FILE = path.join(LOGS, 'created.json');
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
+const argVal = (f) => { const i = args.indexOf(f); return i >= 0 && args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : ''; };
 const suppliedSession = has('--session-stdin') ? sessionFromStdin(process.stdin) : null;
 const noWatchdog = Boolean(suppliedSession) || has('--no-watchdog');
 const num = (f, d) => { const i = args.indexOf(f); return i >= 0 && Number(args[i + 1]) > 0 ? Number(args[i + 1]) : d; };
+const taskIds = argVal('--tasks').split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const say = (s) => console.log(s);
 const pad = (n) => String(n).padStart(2, '0');
@@ -681,11 +684,13 @@ async function main() {
     const until = Date.now() + num('--minutes', 480) * 60000;
     fs.mkdirSync(OUT, { recursive: true });
     const log = fs.openSync(path.join(OUT, 'run.log'), 'a');
-    const ch = spawn(process.execPath, [path.join(HERE, 'run.mjs'), '--no-check', '--until', String(until), ...(noWatchdog ? ['--no-watchdog'] : []), ...(s.model ? ['--model', s.model] : [])], { cwd: ROOT, detached: true, windowsHide: true, stdio: ['ignore', log, log] });
+    const fwdTasks = taskIds.length ? ['--tasks', taskIds.join(',')] : [];
+    const ch = spawn(process.execPath, [path.join(HERE, 'run.mjs'), '--no-check', '--until', String(until), ...fwdTasks, ...(noWatchdog ? ['--no-watchdog'] : []), ...(s.model ? ['--model', s.model] : [])], { cwd: ROOT, detached: true, windowsHide: true, stdio: ['ignore', log, log] });
     ch.unref();
-    fs.writeFileSync(RUN_FILE, JSON.stringify({ until, day: DAY, pid: ch.pid, beat: Date.now(), noWatchdog: !!noWatchdog, model: s.model })); // второе нажатие сразу видит «уже работает»
+    fs.writeFileSync(RUN_FILE, JSON.stringify({ until, day: DAY, pid: ch.pid, beat: Date.now(), noWatchdog: !!noWatchdog, model: s.model, tasks: taskIds })); // второе нажатие сразу видит «уже работает»
     say(`
 ✅ ИИ-тестировщик запущен в фоне до ${new Date(until).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}.`);
+    if (taskIds.length) say(`Задания: ${taskIds.join(', ')}.`);
     say('Окно пульта можно закрыть. Отчёт Claude разберёт сам в начале следующей сессии.');
     return 0;
   }
@@ -748,8 +753,14 @@ async function main() {
     await relogin();
     let i = 0;
     // C125: сначала скорость и новое за день (владелец 15.11: «в первую очередь — скорость и работоспособность»), остальное — вперемешку
+    // C112: --tasks id1,id2 — только выбранные сценарии (кнопка «Паспорта: глаза ИИ»)
+    const pool = taskIds.length ? TASKS.filter((t) => taskIds.includes(t.id)) : TASKS;
+    if (taskIds.length && !pool.length) { say(`❌ Нет заданий с id: ${taskIds.join(', ')}`); return 2; }
+    if (taskIds.length) say(`Только задания: ${pool.map((t) => t.id).join(', ')}.`);
     const FIRST = ['speed', 'order-footer', 'order-passport', 'part-work', 'orders'];
-    const order = [...FIRST.map((id) => TASKS.find((t) => t.id === id)).filter(Boolean), ...TASKS.filter((t) => !FIRST.includes(t.id)).sort(() => Math.random() - 0.5)];
+    const order = taskIds.length
+      ? pool
+      : [...FIRST.map((id) => pool.find((t) => t.id === id)).filter(Boolean), ...pool.filter((t) => !FIRST.includes(t.id)).sort(() => Math.random() - 0.5)];
     while (Date.now() < state.until && !fs.existsSync(STOP_FILE)) {
       const t = order[i++ % order.length];
       if (!suppliedSession && i % order.length === 0) await relogin(); // браузер сам обновляет сессию из stdin
