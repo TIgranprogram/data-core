@@ -1,0 +1,34 @@
+{
+  "rows": [
+    {
+      "width": 1024,
+      "theme": "light",
+      "position": true,
+      "right": true,
+      "destination": true
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "position": true,
+      "right": true,
+      "destination": true
+    },
+    {
+      "width": 1024,
+      "theme": "dark",
+      "position": true,
+      "right": true,
+      "destination": true
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "position": true,
+      "right": true,
+      "destination": true
+    }
+  ],
+  "errors": [],
+  "complete": true
+}

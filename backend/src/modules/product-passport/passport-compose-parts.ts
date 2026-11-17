@@ -73,7 +73,7 @@ function joinAnd(items: string[]): string {
 }
 
 /**
- * Описание: «<Наименование> (далее — изделие) состоит из …; изготовлено из … и ….».
+ * Наименование и состав — отдельные предложения, чтобы согласование не зависело от названия.
  * Нет материалов — отдельное предложение с меткой «[{materials} не заполнено]» (черновик видит; выпуск через printableText убирает).
  */
 export function describeProduct(passport: PassportLike, elements: DictRec[], materials: DictRec[], specMaterials: DictRec[] = materials): string {
@@ -88,21 +88,15 @@ export function describeProduct(passport: PassportLike, elements: DictRec[], mat
   const fallback = stripEnd(str(passport.materials));
   const head = name ? `${stripEnd(name)} (далее — изделие)` : 'Изделие';
   const out: string[] = [];
+  if (name) out.push(`${head}.`);
+  if (parts.length) out.push(`Изделие состоит из ${joinAnd(parts)}.`);
   if (specMats.length || coatTexts.length || (!mats.length && fallback)) {
-    out.push(parts.length ? `${head} состоит из: ${parts.join(', ')}.` : `${head}.`);
     if (specMats.length || fallback) out.push(`Материалы: ${specMats.length ? specMats.join(', ') : fallback}.`);
     if (coatTexts.length) out.push(`Покрытие: ${coatTexts.join('; ')}.`);
     return out.join(' ');
   }
-  if (parts.length && mats.length) out.push(`${head} состоит из: ${parts.join(', ')}; изготовлено из ${joinAnd(mats)}.`);
-  else if (parts.length) {
-    out.push(`${head} состоит из: ${parts.join(', ')}.`);
-    out.push('Изготовлено из [{materials} не заполнено].');
-  } else if (mats.length) out.push(`${head} изготовлено из ${joinAnd(mats)}.`);
-  else if (name) {
-    out.push(`${head}.`);
-    out.push('Изготовлено из [{materials} не заполнено].');
-  } else out.push('Изготовлено из [{materials} не заполнено].');
+  if (mats.length) out.push(`Изделие изготовлено из ${joinAnd(mats)}.`);
+  else out.push('Изготовлено из [{materials} не заполнено].');
   return out.join(' ');
 }
 

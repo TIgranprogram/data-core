@@ -112,13 +112,13 @@ export function splitObject(raw: unknown): ObjectParts {
 
 const sentence = (s?: string) => { const t = cleanText(s); return !t ? '' : /[.!?]$/.test(t) ? t : `${t}.`; };
 
-/** «<Наименование> (в дальнейшем именуемое «Изделие»), изготовленное из <материалы>. <Установка> <Назначение>» (ПС.5). */
+/** Материалы идут отдельным предложением: согласование не зависит от рода названия. */
 export function buildDescription(p: { name?: string; materials?: string; installationMethod?: string; purpose?: string }): string {
   const name = cleanText(p.name).replace(/[.\s]+$/, '');
   if (!name) return '';
   const mat = cleanText(p.materials).replace(/^изготовлен\S*\s+из\s+/i, '');
-  const head = `${name} (в дальнейшем именуемое «Изделие»)${mat ? `, изготовленное из ${sentence(mat)}` : '.'}`;
-  return [head, sentence(p.installationMethod), sentence(p.purpose)].filter(Boolean).join(' ');
+  return [`${name} (далее — изделие).`, mat && `Изделие изготовлено из ${sentence(mat)}`,
+    sentence(p.installationMethod), sentence(p.purpose)].filter(Boolean).join(' ');
 }
 
 export interface PassportLike {
