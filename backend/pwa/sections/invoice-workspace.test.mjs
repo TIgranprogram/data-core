@@ -118,9 +118,14 @@ test('формы используют новый helper: 100/3, qty, unit и rea
 });
 test('каждая transport-команда делает ровно один write без скрытого GET/перехода', async () => {
   const m = await modules(); const apiModule = await m.load('sections/invoice-workspace-api.js'); await apiModule.evaluate();
-  for (const [op, inv, body] of [['line', base(), { qty: 3, lineAmount: 100, version: 8 }], ['meta', base(), { no: 'А' }], ['add', base(), { requestIds: ['a'] }], ['remove', base(), {}], ['issue', base({ status: 'draft' }), {}], ['pay', base(), {}], ['receive', base(), { requestIds: ['line'] }]]) {
+  for (const [op, inv, body] of [['line', base(), { qty: 3, lineAmount: 100, version: 8 }], ['meta', base(), { no: 'А' }], ['add', base(), { requestIds: ['a'] }], ['remove', base(), {}], ['issue', base({ status: 'draft', payerCompanyId: 'co' }), {}], ['pay', base({ payerCompanyId: 'co' }), {}], ['receive', base(), { requestIds: ['line'] }]]) {
     m.calls.length = 0; await apiModule.namespace.writeInvoice(inv, rights, op, body, 'line'); assert.equal(m.calls.length, 1); assert.notEqual(m.calls[0].method, 'GET');
   }
+});
+test('issue/pay без нашей компании запрещены', () => {
+  assert.throws(() => pure.assertOperation(base({ status: 'draft' }), rights, 'issue'), /Нашу компанию/);
+  assert.throws(() => pure.assertOperation(base(), rights, 'pay'), /Нашу компанию/);
+  assert.doesNotThrow(() => pure.assertOperation(base({ status: 'draft', payerCompanyId: 'co' }), rights, 'issue'));
 });
 test('успех line write → один fresh GET, fresh version и 409 без replay', async () => {
   let fail = false;
