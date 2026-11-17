@@ -97,7 +97,7 @@ async function fixture({ pending = true, commit, solo = false, viewed } = {}) {
     '../notices.js': { addNotice: noop },
   };
   const sources = new Map(Object.entries({
-    './card.js': './card.js', './card-parent.js': './card-parent.js', './toast.js': './toast.js', '../../core/dom.js': '../../core/dom.js',
+    './card.js': './card.js', './card-menu.js': './card-menu.js', './card-parent.js': './card-parent.js', './toast.js': './toast.js', '../../core/dom.js': '../../core/dom.js',
   }).map(([key, url]) => [key, new SourceTextModule(readFileSync(new URL(url, import.meta.url), 'utf8'), { context })]));
   const mocks = new Map();
   const module = sources.get('./card.js');
