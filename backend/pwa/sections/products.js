@@ -7,7 +7,7 @@ import { pic } from './stock.js';
 import { kpAdd, kpCount } from './kp.js';
 import { setCompositionTarget } from './composition.js';
 // УПР-1/Д11: issuePassport и passports.canEdit() убраны — вход только через панель паспорта
-import { printDialog, previewPassport, downloadCombined } from './passports/dialogs.js';
+import { printDialog, downloadCombined } from './passports/dialogs.js';
 import { openTechSheet } from './tech-sheet.js';
 import { toastError } from '../ui/kit/toast.js';
 import { openBulk } from './bulk-edit.js';
@@ -141,9 +141,12 @@ export const products = {
       ...(session.canEdit ? [{ label: 'Изменить состав', run: (row) => { setCompositionTarget(row); patch({ of: 'composition', new: '1', open: undefined }); } }] : []),
       { label: 'Заказы с этим изделием', run: (row) => go('salesorders', { productId: row.id }) }, // ПМ-1: на виду ≤ 3 кнопок, связь — секция «В заказах»
       // C055: три печати на виду — паспорт, техническое описание, оба вместе
-      ...(session.seesDocs() ? [{ label: 'Паспорт', title: 'Есть выпущенный — PDF; нет — черновик по шаблону модели', run: async (row) => {
-        if (row.passports?.items?.[0]) printDialog(await data.getPassport(row.passports.items[0].id));
-        else await previewPassport(row.id);
+      // скачать = только выпущенный; черновик — в «Править шаблон» / «Предпросмотр», не сюда (урок: «Паспорт» скачивал черновик — шок)
+      ...(session.seesDocs() ? [{ label: 'Скачать паспорт', title: 'PDF выпущенного паспорта. Если паспортов ещё нет — сначала «Выпустить паспорт»', run: async (row) => {
+        const last = (row.passports?.items || []).find((x) => x.status === 'issued' || (x.passportNumber && !String(x.passportNumber).startsWith('draft-')))
+          || (row.passports?.items || [])[0];
+        if (last) { printDialog(await data.getPassport(last.id)); return; }
+        toast('Паспортов ещё нет. Нажмите «Выпустить паспорт» — появится номер и PDF для скачивания.', { ms: 9000 });
       } }] : []),
       ...(session.canEdit && session.seesDocs() ? [
         { label: 'Выпустить паспорт', title: 'Новый паспорт с номером по этой модели', run: (row) => openPassportFunnel({ productId: row.id }) },

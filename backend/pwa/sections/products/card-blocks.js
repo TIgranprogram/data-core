@@ -185,7 +185,10 @@ export function passportPane(row, ctx) {
             ],
           })),
         })
-        : empty({ title: firmFilter ? 'Нет паспортов этой фирмы' : 'По этой модели паспортов ещё нет' });
+        : empty({
+          title: firmFilter ? 'Нет паспортов этой фирмы' : 'По этой модели паспортов ещё нет',
+          hint: firmFilter ? undefined : 'Шаблон готов — это ещё не файл. ⋯ → «Выпустить паспорт» → появится номер и PDF.',
+        });
       const more = total > items.length ? hint(`показаны последние ${items.length}`) : null;
       host.replaceChildren(card, filter, issued, more);
       if (firmSel) enhanceSelect(firmSel);
