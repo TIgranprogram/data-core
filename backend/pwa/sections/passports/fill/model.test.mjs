@@ -194,6 +194,27 @@ test('C086: смена категории — чужое сохранённое 
   assert.equal(decide(ctxOf(TRN), numSpec('maxUsers'), undefined, '4'), 'filled');
 });
 
+test('глубина Г: при анкере скрыта; пустая без запроса — не показываем', () => {
+  const depth = { key: 'foundationDepth', num: true, onlyIfSet: true };
+  const anchor = ctxOf(BLG, 'template', {
+    prod: { passportDefaults: { installationTypeId: 'a1' } },
+    instNames: new Map([['a1', 'Анкерное крепление']]),
+  });
+  assert.equal(decide(anchor, depth, undefined, '62 мм'), 'foreign');
+  assert.equal(decide(anchor, depth, undefined, ''), 'skip');
+  const byLeaf = ctxOf(BLG, 'template', {
+    prod: { passportDefaults: {} },
+    fb: { installLeaf: () => ({ name: 'Анкерное крепление', text: 'Установка анкерная.' }) },
+  });
+  assert.equal(decide(byLeaf, depth, undefined, ''), 'skip');
+  const concrete = ctxOf(BLG, 'template', {
+    prod: { passportDefaults: { installationTypeId: 'b1' } },
+    instNames: new Map([['b1', 'Бетонирование опор']]),
+  });
+  assert.equal(decide(concrete, depth, undefined, '62 мм'), 'filled');
+  assert.equal(decide(concrete, depth, undefined, ''), 'skip'); // пусто — не мешаем, пока не задали
+});
+
 test('C086: сервер требует поле (подстановка в тексте изделия) — оно открыто, даже если категория его не знает', () => {
   assert.equal(decide(ctxOf(BLG), numSpec('maxUsers'), { key: 'maxUsers', required: true }, ''), 'open');
 });

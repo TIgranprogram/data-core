@@ -29,16 +29,34 @@ function gapOf(spec, missing) {
 export function decide(ctx, spec, gap, text) {
   // места — только детское игровое; у скамейки благоустройства не показываем (даже если в изделии уже записано)
   if (spec.key === 'seatsCount' && (ctx.code || ctx.catInfo?.code) !== 'DIO') return text ? 'foreign' : 'skip';
+  // глубина Г: при анкере не нужна; пустую строку не показываем (задаёт iLogic / бетонирование)
+  if (spec.key === 'foundationDepth' && isAnchorInstall(ctx)) return text ? 'foreign' : 'skip';
   // сервер назвал поле недостающим (обязательное по категории или подстановка в тексте изделия) — оно применимо без оговорок
   const applies = gap ? 'required' : appliesOf(ctx.applicable, spec);
   if (applies === 'na') return text ? 'foreign' : 'skip';
   if (spec.key === 'installationTypeId' && ctx.covered) return 'skip';
-  if (spec.onlyIfSet && !gap && !text) return 'skip'; // «Количество мест»: строка только у тех, кому оно задано или спрошено
+  if (spec.onlyIfSet && !gap && !text) return 'skip'; // места / глубина Г: строка только если задана или спрошена
   if (spec.key === 'materials') return 'open';
   if (ctx.editing.has(spec.key)) return 'open';
   if (text && !gap) return 'filled';
   if (!gap && applies === 'optional' && ctx.mode === 'issue' && !ctx.more) return 'later';
   return 'open';
+}
+
+/** Анкерное крепление: способ установки изделия или выбранный шаг «Установка» в воронке. */
+export function isAnchorInstall(ctx) {
+  const re = /анкер|anchor/i;
+  const labelOf = (id) => {
+    if (!id) return '';
+    return ctx.instNames?.get(String(id)) || (ctx.instOpts || []).find(([v]) => String(v) === String(id))?.[1] || '';
+  };
+  const pd = ctx.prod?.passportDefaults || {};
+  if (re.test(labelOf(pd.installationTypeId))) return true;
+  if (re.test(String(pd.installationMethod || ctx.prod?.installationMethod || ''))) return true;
+  const leaf = ctx.fb?.installLeaf?.();
+  if (!leaf) return false;
+  if (re.test(String(leaf.name || '')) || re.test(String(leaf.text || ''))) return true;
+  return re.test(labelOf(leaf.installTypeId));
 }
 
 /** required | optional | na — по правилам сервера: числа, элементы и «как поставляется» зависят от типа паспорта и назначения. */
@@ -65,7 +83,9 @@ function scalars(ctx) {
     { key: 'kind', section: 'purpose', label: 'Вид изделия', ask: 'both', text: ctx.kind?.name || '', note: kindNote(ctx), editor: (gap) => kindEditor(ctx, gap) },
     numAt('maxUsers', 'Пользователей одновременно', ''),
     { key: 'seatsCount', section: 'general', label: 'Количество мест', ask: 'template', onlyIfSet: true, text: opText(ctx.prod, 'seatsCount', ''), editor: () => numEditor(ctx, 'seatsCount', 'Количество мест', null, false, SEATS) },
-    numAt('foundationDepth', 'Глубина Г (от земли до низа опоры)', 'мм'),
+    { key: 'foundationDepth', section: 'install', label: 'Глубина Г (от земли до низа опоры)', ask: 'template', unit: 'мм', num: true, onlyIfSet: true,
+      text: opText(ctx.prod, 'foundationDepth', 'мм'),
+      editor: (gap) => numEditor(ctx, 'foundationDepth', 'Глубина Г (от земли до низа опоры), мм', gap?.default, gap?.defaulted === true) },
     { key: 'elements', section: 'purpose', label: 'Что это за изделие', ask: 'both', text: elText(ctx.prod, ctx.elNames) || kindElText(ctx), note: kindElNote(ctx), editor: (gap) => elementsEditor(ctx, gap) },
     { key: 'height', section: 'dims', label: 'Габариты', ask: 'template', text: dimText(ctx.prod), editor: () => dimsEditor(ctx) },
     { key: 'weight', section: 'dims', label: 'Вес', ask: 'template', text: ctx.prod.weightKg ? `${ctx.prod.weightKg} кг` : '', editor: () => weightEditor(ctx) },
