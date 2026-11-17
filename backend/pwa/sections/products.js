@@ -136,48 +136,46 @@ export const products = {
         ['Примечание', r.notes && !r.notes.startsWith('⚠') ? r.notes : null],
         ['Назначение', r.purpose], ['Монтаж', r.installation], ['Описание', r.description], // бывшая вкладка «Описание» (C119 шаг 3)
       ],
-      menu: (r) => [...(session.canEdit ? [{ label: 'Изменить', title: 'Правка полей изделия', run: (row, ctx) => ctx.edit() }] : []),
-      { label: 'В КП', title: 'Добавить в коммерческое предложение', run: (row) => { kpAdd(row); toast(`В КП — всего ${kpCount()}`); } },
-      ...(session.canEdit ? [{ label: 'Изменить состав', run: (row) => { setCompositionTarget(row); patch({ of: 'composition', new: '1', open: undefined }); } }] : []),
-      { label: 'Заказы с этим изделием', run: (row) => go('salesorders', { productId: row.id }) }, // ПМ-1: на виду ≤ 3 кнопок, связь — секция «В заказах»
-      // C055: три печати на виду — паспорт, техническое описание, оба вместе
-      // скачать = только выпущенный; черновик — в «Править шаблон» / «Предпросмотр», не сюда (урок: «Паспорт» скачивал черновик — шок)
-      ...(session.seesDocs() ? [{ label: 'Скачать паспорт', title: 'PDF выпущенного паспорта. Если паспортов ещё нет — сначала «Выпустить паспорт»', run: async (row) => {
-        const last = (row.passports?.items || []).find((x) => x.status === 'issued' || (x.passportNumber && !String(x.passportNumber).startsWith('draft-')))
-          || (row.passports?.items || [])[0];
-        if (last) { printDialog(await data.getPassport(last.id)); return; }
-        toast('Паспортов ещё нет. Нажмите «Выпустить паспорт» — появится номер и PDF для скачивания.', { ms: 9000 });
-      } }] : []),
-      ...(session.canEdit && session.seesDocs() ? [
-        { label: 'Выпустить паспорт', title: 'Новый номер по этой модели — без заказа и без договора; PDF сразу после выпуска', run: (row) => openPassportFunnel({ productId: row.id }) },
-        { label: 'Загрузить готовый паспорт (PDF)', title: 'Паспорт сделан отдельно: приложить файл PDF к этому изделию', run: (row) => openReadyPassport({ productId: row.id }) }] : []),
-      ...(session.seesDocs() ? [{ label: 'Править шаблон паспорта', title: 'Тексты и рисунки по разделам паспорта', run: (row, ctx) => openPassportTemplate(row, ctx) }] : []),
-      { label: 'Техническое описание', title: 'Части и материалы из справочников, габариты и вес из изделия — в правой панели', run: (row) => openTechSheet(row) },
-      ...(session.seesDocs() ? [{ label: 'Паспорт + техописание', title: 'Один PDF: паспорт, затем техническое описание', run: async (row) => {
-        try { await downloadCombined(row, data.getPassport); } catch (e) { toastError(e); }
-      } }] : []),
-      // ПРЖ-4: артикул по номеру группы (сервер: assign-sku; без confirm — только проверка и число паспортов)
-      ...(session.canEdit ? [{ label: 'Присвоить артикул группы', title: 'Новый артикул по номеру группы изделия (например 34 → 3411)', run: async (row, ctx) => {
-        const chk = await data.assignSku(row.id);
-        if (!chk.confirmRequired) { toast(chk.changed ? `Артикул: ${chk.sku}` : `Артикул ${chk.sku} уже по номеру группы`); return; }
-        if (!(await confirmDlg('Присвоить новый артикул?', `Сейчас: ${chk.sku || 'нет'}. ${chk.warning || ''}`, { okText: 'Присвоить' }))) return;
-        const res = await data.assignSku(row.id, true);
-        toast(`Новый артикул: ${res.sku}`); ctx.changed(); ctx.reload();
-      } }] : []),
-      // копия изделия целиком (поля, фото, настройки паспорта) — быстрый способ сделать похожее; откроется копия
-      qrPrintAction('P'),
-      ...(session.canEdit ? [{ label: 'Клонировать', title: 'Копия со всеми полями, фото и настройками паспорта — потом поправьте название, размеры и артикул', run: async (row, ctx) => {
-        const c = await data.cloneProduct(row.id);
-        ctx.changed();
-        toast('Копия создана — проверьте название, размеры и артикул', { ms: 8000 });
-        patch({ open: c.id, of: undefined, new: undefined });
-      } }, { label: 'Сделать вариант', title: 'То же изделие с другими размерами или цветом: создаётся новая карточка со своим артикулом (3404.1) и связью с основным', run: async (row, ctx) => {
-        const v = await data.makeVariant(row.id);
-        ctx.changed();
-        toast(`Вариант ${v.sku} создан — поправьте размеры и цвет`, { ms: 8000 });
-        patch({ open: v.id, of: undefined, new: undefined });
-      } }] : []),
-      ],
+      // C140: меню блоками с sep — правка → документы → связи/копии; Удалить — штатно danger
+      menu: (r) => [
+        session.canEdit && { label: 'Изменить', title: 'Правка полей изделия', run: (row, ctx) => ctx.edit() },
+        session.canEdit && { label: 'Изменить состав', run: (row) => { setCompositionTarget(row); patch({ of: 'composition', new: '1', open: undefined }); } },
+        { label: 'В КП', title: 'Добавить в коммерческое предложение', run: (row) => { kpAdd(row); toast(`В КП — всего ${kpCount()}`); } },
+        session.canEdit && session.seesDocs() && { sep: true, label: 'Выпустить паспорт', title: 'Новый номер по этой модели — без заказа и без договора; PDF сразу после выпуска', run: (row) => openPassportFunnel({ productId: row.id }) },
+        session.seesDocs() && { sep: !(session.canEdit && session.seesDocs()), label: 'Скачать паспорт', title: 'PDF выпущенного паспорта. Если паспортов ещё нет — сначала «Выпустить паспорт»', run: async (row) => {
+          const last = (row.passports?.items || []).find((x) => x.status === 'issued' || (x.passportNumber && !String(x.passportNumber).startsWith('draft-')))
+            || (row.passports?.items || [])[0];
+          if (last) { printDialog(await data.getPassport(last.id)); return; }
+          toast('Паспортов ещё нет. Нажмите «Выпустить паспорт» — появится номер и PDF для скачивания.', { ms: 9000 });
+        } },
+        session.canEdit && session.seesDocs() && { label: 'Загрузить готовый паспорт (PDF)', title: 'Паспорт сделан отдельно: приложить файл PDF к этому изделию', run: (row) => openReadyPassport({ productId: row.id }) },
+        session.seesDocs() && { label: 'Править шаблон паспорта', title: 'Тексты и рисунки по разделам паспорта', run: (row, ctx) => openPassportTemplate(row, ctx) },
+        { label: 'Техническое описание', title: 'Части и материалы из справочников, габариты и вес из изделия — в правой панели', run: (row) => openTechSheet(row) },
+        session.seesDocs() && { label: 'Паспорт + техописание', title: 'Один PDF: паспорт, затем техническое описание', run: async (row) => {
+          try { await downloadCombined(row, data.getPassport); } catch (e) { toastError(e); }
+        } },
+        { sep: true, label: 'Заказы с этим изделием', run: (row) => go('salesorders', { productId: row.id }) },
+        session.canEdit && { label: 'Присвоить артикул группы', title: 'Новый артикул по номеру группы изделия (например 34 → 3411)', run: async (row, ctx) => {
+          const chk = await data.assignSku(row.id);
+          if (!chk.confirmRequired) { toast(chk.changed ? `Артикул: ${chk.sku}` : `Артикул ${chk.sku} уже по номеру группы`); return; }
+          if (!(await confirmDlg('Присвоить новый артикул?', `Сейчас: ${chk.sku || 'нет'}. ${chk.warning || ''}`, { okText: 'Присвоить' }))) return;
+          const res = await data.assignSku(row.id, true);
+          toast(`Новый артикул: ${res.sku}`); ctx.changed(); ctx.reload();
+        } },
+        qrPrintAction('P'),
+        session.canEdit && { label: 'Клонировать', title: 'Копия со всеми полями, фото и настройками паспорта — потом поправьте название, размеры и артикул', run: async (row, ctx) => {
+          const c = await data.cloneProduct(row.id);
+          ctx.changed();
+          toast('Копия создана — проверьте название, размеры и артикул', { ms: 8000 });
+          patch({ open: c.id, of: undefined, new: undefined });
+        } },
+        session.canEdit && { label: 'Сделать вариант', title: 'То же изделие с другими размерами или цветом: создаётся новая карточка со своим артикулом (3404.1) и связью с основным', run: async (row, ctx) => {
+          const v = await data.makeVariant(row.id);
+          ctx.changed();
+          toast(`Вариант ${v.sku} создан — поправьте размеры и цвет`, { ms: 8000 });
+          patch({ open: v.id, of: undefined, new: undefined });
+        } },
+      ].filter(Boolean),
       // вкладки: Описание · Состав и работы · Техописание · Паспорт · Файлы · Заказы (C055)
       tabs: (r) => productTabs(r),
     }),
