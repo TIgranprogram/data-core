@@ -14,6 +14,7 @@ import { confirmDlg, modal } from '../ui/kit/dialog.js';
 import { withConfirm } from '../ui/confirm-password.js';
 import { incomeLookups } from './orders.js';
 import { lineMore } from './order-line-more.js';
+import { attachLinePassports } from './order-line-passports.js';
 import { customerLink, companyLink } from '../ui/links.js';
 import { responsibleField, handoffLine } from '../ui/responsible.js';
 import { errText } from '../ui/kit/errors.js';
@@ -252,26 +253,25 @@ const openLine = (l) => () => patch({ of: 'orders', open: l.id }, { replace: fal
 function positionsPane(d, ctx, pick = null) {
   const box = stack(); const reload = reloadKeep(box, ctx);
   const orders = d.orders || [];
-  // пустые колонки не показываем (стенд 11-26: «Отгружено» и «Цвет» пустые на всю таблицу)
   const allLines = orders.flatMap((o) => o.lines || []).filter((l) => !l.cancelledAt);
-  const showShip = allLines.some((l) => l.shipped), showColor = false; // цвет и описание — второй строкой под названием (владелец 15.11)
+  const showShip = allLines.some((l) => l.shipped), showColor = false; // цвет/описание — под названием; пустые колонки скрыты
   const columns = [{ label: '№' }, { label: '', phoneHide: true }, { label: 'Название' }, { label: 'Кол-во', num: true }, ...(showShip ? [{ label: 'Отгружено', num: true }] : []), ...(showColor ? [{ label: 'Цвет' }] : [])];
   const span = 2 + (showShip ? 1 : 0) + (showColor ? 1 : 0);
   const hasPic = (l) => !!(l.photo && (l.photo.url || l.photo.thumb));
   const many = orders.length > 1;
+  const { passports, markOf, whenReady } = attachLinePassports(orders); // C138: номер паспорта под названием
   const groups = orders.map((o) => {
-    // в таблице только смотреть: правка позиции — в «⋯» её панели (клик по строке), правка договора — в «⋯» заказа
-    // отменённые — в конце договора, номер позиции сохраняется
     const order = (o.lines || []).map((l, i) => [l, i]).sort((a, b) => !!a[0].cancelledAt - !!b[0].cancelledAt);
-    const rows = order.map(([l, i]) => (l.cancelledAt ? cancelledRow(l, i, span, openLine(l)) : { key: l.id, line: l, expand: () => lineMore(l, o, d, { reload, editable: editableOrder(o), closed: closedStage(o) }), cells: [
+    const rows = order.map(([l, i]) => (l.cancelledAt ? cancelledRow(l, i, span, openLine(l)) : { key: l.id, line: l, expand: () => lineMore(l, o, d, { reload, editable: editableOrder(o), closed: closedStage(o), passports }), cells: [
       { v: seq(l, i), cls: 'muted' }, posPic(hasPic(l) ? l.photo : null, hasPic(l) ? 'lg' : 'sm'),
-      h('span', null, l.title, ourLine(l), l.color || l.notes ? h('div', { class: 'muted small' }, [l.color && 'Цвет: ' + l.color, l.notes].filter(Boolean).join(' · ')) : null, l.unassigned !== undefined || l.lineType ? h('span', null, ' ', lineMark(l)) : null, l.unassigned === undefined && !l.lineType && l.matched === false ? h('a', { class: 'badge warn', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null),
+      h('span', null, l.title, ourLine(l), markOf(l.id), l.color || l.notes ? h('div', { class: 'muted small' }, [l.color && 'Цвет: ' + l.color, l.notes].filter(Boolean).join(' · ')) : null, l.unassigned !== undefined || l.lineType ? h('span', null, ' ', lineMark(l)) : null, l.unassigned === undefined && !l.lineType && l.matched === false ? h('a', { class: 'badge warn', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null),
       { v: `${qty(l.qty)} ${l.unit || ''}`, cls: 'num nowrap' }, ...(showShip ? [{ v: l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : '', cls: 'num nowrap muted' }] : []), ...(showColor ? [{ v: l.color || '', cls: 'muted' }] : []),
 ] }));
     return { head: many ? contractHead(o, many) : null, rows, foot: contractFoot(o) }; // один договор — без строки-заголовка: чистая таблица (владелец 15.11)
   });
   box.append(positionsTable({ columns, groups, label: 'Позиции заказа', empty: orders.length ? { title: `В ${orders.length > 1 ? 'договорах' : 'договоре'} ${orders.map((o) => '№ ' + (o.orderNo || '—')).join(', ')} позиций пока нет.`, hint: 'Нажмите «+ Позиция» ниже — поля откроются справа.' } : { title: 'Договоров нет.', hint: 'Добавьте договор: «⋯» вверху.' }, pick }),
     !allLines.length ? actions(...orders.filter(canAdd).map((o) => addLineBtn(o, orders.length > 1 ? `+ Позиция в договор ${o.orderNo || '—'}` : '+ Позиция'))) : null, ...orders.map((o) => distribBlock(o, reload)), produceBlock(d, openLine)); // таблица первой (C131)
+  whenReady();
   return box;
 }
 

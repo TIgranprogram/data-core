@@ -5,16 +5,14 @@
 import { h } from '../core/dom.js';
 import { date, qty } from '../core/format.js';
 import { api } from '../core/api.js';
-import { button, card, badge, empty, stack, actions, busyBlock, failBlock, DESIGN_STATUS } from '../ui/kit/index.js';
-import { numberOf, statusOf, canWorkPassport } from './passports/common.js';
-import { printDialog } from './passports/dialogs.js';
-import { openBookEditor } from './passports/book-editor.js';
+import { button, card, badge, empty, stack, busyBlock, failBlock, DESIGN_STATUS } from '../ui/kit/index.js';
 import { tileGrid } from '../ui/kit/blocks.js';
 import { readonlyGroup } from '../ui/kit/readonly.js';
 import { toastError } from '../ui/kit/toast.js';
 import { markToday } from './orders.js';
 import { patch, go } from '../core/router.js';
 import { lineFilesCard } from './order-line-files.js';
+import { documentsCard } from './order-line-passports.js';
 
 const box = (title, rows, acts) => card({ size: 'M', title, variant: 'fields', body: rows.length ? readonlyGroup({ rows }) : null, actions: acts.filter(Boolean) });
 
@@ -36,30 +34,6 @@ function compositionCard(l) {
   return card({ size: 'M', title: 'Состав', variant: 'fields', body, actions: l.productId ? [button({ label: 'Весь состав', size: 'S', kind: 'ghost', onClick: open })] : [] });
 }
 
-/** «Документы»: паспорт позиции — GET /passports?salesOrderId, отбор по incomeId; номер, статус, открыть, PDF (printDialog). */
-function documentsCard(l, d) {
-  const body = h('div');
-  const load = async () => {
-    body.replaceChildren(busyBlock('документы', { retry: load }));
-    try {
-      if (!(l.orderId || d.orderId)) { body.replaceChildren(empty({ title: 'Паспорта ещё нет', hint: 'Позиция не привязана к заказу.' })); return; }
-      const r = await api('/passports', { query: { salesOrderId: l.orderId || d.orderId, limit: 200 } });
-      const p = (r.items || []).find((x) => String(x.incomeId) === String(l.id));
-      if (!p) { body.replaceChildren(empty({ title: 'Паспорта ещё нет', hint: 'Выпускается в «Документы → Паспорта заказа».' })); return; }
-      const issued = statusOf(p) === 'issued';
-      body.replaceChildren(stack(actions(
-        button({ label: numberOf(p) ? `Паспорт № ${numberOf(p)}` : 'Паспорт — черновик', size: 'S', kind: 'ghost', onClick: () => go('docs', { tab: 'orders', of: 'passports', open: p.id }, { kind: 'card' }) }),
-        badge(issued ? 'выпущен' : 'черновик', issued ? 'ok' : 'warn')),
-      actions(
-        // правка паспорта ЭТОГО заказа (фирма, заказчик, данные позиции) — сразу редактор, не шаблон изделия (владелец 15.11)
-        !canWorkPassport() ? null : button({ label: 'Изменить паспорт', size: 'S', title: 'Большое окно: паспорт как в PDF, любое поле правится на месте', onClick: () => openBookEditor(p, { onClose: () => load() }) }),
-        issued ? button({ label: 'Скачать PDF', size: 'S', kind: 'ghost', onClick: (e) => { const b = e.currentTarget; b.classList.add('is-busy'); printDialog(p).catch(toastError).finally(() => b.classList.remove('is-busy')); } }) : null)));
-    } catch (e) { body.replaceChildren(failBlock(e, load, { text: 'Документы не загрузились' })); }
-  };
-  load();
-  return card({ size: 'M', title: 'Документы', variant: 'fields', body });
-}
-
 /** «Выполнение»: проектирование позиции (задача «Проектирования» по incomeId) + отгрузка. */
 function executionCard(l, d, rows, acts) {
   const ONE = { queue: 'на распределении', work: 'в работе', done: 'готово', paused: 'на паузе', cancelled: 'снята' }; // DESIGN_STATUS — во множественном (колонки доски)
@@ -74,15 +48,15 @@ function executionCard(l, d, rows, acts) {
   return card({ size: 'M', title: 'Выполнение', variant: 'fields', body: stack(design, rows.length ? readonlyGroup({ rows }) : null), actions: acts.filter(Boolean) });
 }
 
-/** lineMore(l, o — договор, d — заказ, { reload, editable, closed }) → сетка карточек. */
-export function lineMore(l, o, d, { reload, editable }) {
+/** lineMore(l, o — договор, d — заказ, { reload, editable, closed, passports }) → сетка карточек. passports — pack вкладки (C138). */
+export function lineMore(l, o, d, { reload, editable, passports }) {
   const qtyN = Number(l.qty) || 0, shipped = Number(l.shipped) || 0;
   const ownDate = l.shipDate && d.deadline && String(l.shipDate).slice(0, 10) !== String(d.deadline).slice(0, 10);
   const done = (r) => { if (r) reload(); };
   const fail = (e) => toastError(e);
   // деньги и правка позиции — в договоре («⋯ → Договор»), здесь только сама позиция (владелец 15.11)
   const cards = [
-    // заготовки C121 (владелец 15.11: «накидай куски, потом дорабатываем») — порядок: из чего состоит → выполнение → вложения → документы
+    // заготовки C121 (владелец 15.11: «накидай куски, потом дорабатываем») — порядок: из чего состоит → работы → вложения → документы
     compositionCard(l),
     executionCard(l, d, [
       ['Отгружено', `${qty(shipped)} из ${qty(qtyN)} ${l.unit || ''}`.trim()],
@@ -91,7 +65,7 @@ export function lineMore(l, o, d, { reload, editable }) {
       editable && shipped < qtyN && !l.shipDate && button({ label: 'Отгрузить сегодня', size: 'S', onClick: () => markToday(l, 'shipDate').then(done).catch(fail) }),
     ]),
     lineFilesCard(l),
-    documentsCard(l, d),
+    documentsCard(l, d, passports),
   ].filter(Boolean);
   return tileGrid(...cards);
 }
