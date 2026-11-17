@@ -16,7 +16,7 @@ import { toast, toastError } from './toast.js';
 import { actionText, errText, isFailure } from './errors.js';
 import { busyBlock, busyBtn, failBlock } from './busy.js';
 import { buildCardTabs } from './card-tabs.js';
-import { fillCardMenu, LAYOUTS } from './card-menu.js';
+import { fillCardMenu } from './card-menu.js';
 import { makeResizable } from '../resizer.js';
 import { DOCK_MIN, getPref, setPref } from '../../core/prefs.js';
 import { isSolo, popout, setPopout, soloGeometry } from '../../core/popout.js'; // панель в отдельном окне (2026-11-10)
@@ -29,7 +29,7 @@ import { isSolo, popout, setPopout, soloGeometry } from '../../core/popout.js'; 
  * На широком экране (≥ DOCK_MIN) панель пристыкована без затемнения; список остаётся кликабельным.
  * Зоны: card.zones или data-zone (main/side/wide), DESIGN §4; раскладка выбирается в меню «⋯» (prefs panelLayout).
  */
-export { LAYOUTS };
+export const LAYOUTS = [['one', 'Одна колонка'], ['two', 'Две колонки'], ['wide', 'Две колонки и широкий блок снизу']];
 const layoutNow = () => { const v = getPref('panelLayout'); return LAYOUTS.some(([k]) => k === v) ? v : 'one'; };
 const docked = () => window.innerWidth >= DOCK_MIN;
 /** Заголовок панели: строка, узел или массив (с null) → список без пустых мест; узел никогда не склеивается в строку. */
@@ -182,7 +182,7 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
   }
   /** Единственное «⋯» шапки — fillCardMenu (card-menu.js). */
   const buildMenu = (rare, hasTabs = false) => fillCardMenu({
-    menuBox, rare, hasTabs, section, row, body, showView, showForm, doRemove, runAction,
+    menuBox, rare, hasTabs, layouts: LAYOUTS, layoutNow, section, row, body, showView, showForm, doRemove, runAction,
   });
 
   async function loadHistory(ul, wrap) {

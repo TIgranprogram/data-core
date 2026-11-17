@@ -1,16 +1,13 @@
 /** «⋯» шапки карточки: редкие действия + вид панели (C140: a.sep — черта перед пунктом). */
 import { canEditSection } from '../../core/api.js';
 import { h } from '../../core/dom.js';
-import { getPref, setPref } from '../../core/prefs.js';
-
-export const LAYOUTS = [['one', 'Одна колонка'], ['two', 'Две колонки'], ['wide', 'Две колонки и широкий блок снизу']];
-const layoutNow = () => { const v = getPref('panelLayout'); return LAYOUTS.some(([k]) => k === v) ? v : 'one'; };
+import { setPref } from '../../core/prefs.js';
 
 /**
- * fillCardMenu({ menuBox, rare, hasTabs, section, row, body, showView, showForm, doRemove, runAction })
+ * fillCardMenu({ menuBox, rare, hasTabs, layouts, layoutNow, section, row, body, showView, showForm, doRemove, runAction })
  * Заполняет menuBox кнопкой «⋯» и выпадающим меню.
  */
-export function fillCardMenu({ menuBox, rare, hasTabs = false, section, row, body, showView, showForm, doRemove, runAction }) {
+export function fillCardMenu({ menuBox, rare, hasTabs = false, layouts = [], layoutNow = () => 'one', section, row, body, showView, showForm, doRemove, runAction }) {
   const edit = canEditSection(section);
   const menu = h('div', { class: 'menu', role: 'menu', hidden: true });
   const toggle = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Ещё', 'aria-label': 'Ещё действия', 'aria-haspopup': 'menu', 'aria-expanded': 'false' }, '⋯');
@@ -18,7 +15,7 @@ export function fillCardMenu({ menuBox, rare, hasTabs = false, section, row, bod
   const away = (e) => { if (!menuBox.contains(e.target)) { setOpen(false); document.removeEventListener('click', away, true); } };
   toggle.onclick = () => { const v = menu.hidden; setOpen(v); document.removeEventListener('click', away, true); if (v) document.addEventListener('click', away, true); };
   const items = hasTabs ? [] : [h('div', { class: 'menu-sub', role: 'presentation' }, 'Вид панели')];
-  if (!hasTabs) for (const [k, label] of LAYOUTS) {
+  if (!hasTabs) for (const [k, label] of layouts) {
     const on = layoutNow() === k;
     items.push(h('button', { type: 'button', role: 'menuitemradio', 'aria-checked': String(on), onclick: () => { setPref('panelLayout', k === 'one' ? '' : k); setOpen(false); const y = body.scrollTop; showView(row).then(() => { body.scrollTop = y; toggle.focus(); }); } }, (on ? '✓ ' : '') + label));
   }
