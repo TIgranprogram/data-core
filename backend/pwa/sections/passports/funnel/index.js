@@ -30,7 +30,10 @@ function build() {
   readyMode = !!entry?.ready;
   if (entry?.ready) return buildReady(entry);
   const lockedOrder = !!(entry && (entry.salesOrderId || entry.incomeId));
-  const S = { P: {}, q: '', prod: null, order: lockedOrder ? entry : null, focus: entry?.gap || null }; // focus — пробел из «Заполнения изделия» (C114 H-UI): встать на это поле после загрузки анкеты
+  // ПР-2 / владелец: с карточки изделия — сразу без заказа и без договора; заказ только если явно зашли из заказа
+  const fromProductOnly = !!(entry?.productId && !entry?.salesOrderId && !entry?.incomeId);
+  // без quiet — в шапке видно «Заказ: без заказа ✎», можно привязать позже
+  const S = { P: {}, q: '', prod: null, order: lockedOrder ? entry : (fromProductOnly ? { noOrder: true } : null), focus: entry?.gap || null }; // focus — пробел из «Заполнения изделия» (C114 H-UI): встать на это поле после загрузки анкеты
   let stageSeq = 0;
   let activeFill = null; let creation = null;
   let parked = null; // C096 Э4: изделие создано, заполнение не закончено — та же форма и та же запись при следующем «+ Новое изделие»
@@ -161,7 +164,7 @@ function build() {
   async function stagePanels(prod) {
     const my = ++stageSeq;
     paintRecap(prod);
-    // C077: с изделия, если заказ ещё не выбран — необязательный шаг «Для заказа»
+    // C077 / ПР-2: заказ необязателен. С изделия — уже «без заказа»; иначе спросим, но не подставляем молча единственную позицию
     if (!S.order) {
       say('выберите заказ или «Без заказа»');
       stages.replaceChildren(hint('Ищу открытые позиции с этим изделием…'));
@@ -169,7 +172,6 @@ function build() {
       try { positions = await openPositions(prod.id); } catch { positions = []; }
       if (my !== stageSeq) return;
       if (!positions.length) S.order = { noOrder: true, quiet: true };
-      else if (positions.length === 1 && !S.manual) S.order = positions[0]; // одна открытая позиция — подставлена, меняется по «Заказ: … ✎»
       else {
         stages.replaceChildren(orderStep({
           positions,

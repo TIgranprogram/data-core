@@ -39,13 +39,13 @@ export async function openPositions(productId) {
   return out;
 }
 
-/** Шаг «Для заказа»: список позиций и «Без заказа». */
+/** Шаг «Для заказа»: сначала «Без заказа» (ПР-2), затем список позиций. */
 export function orderStep({ positions, onPick, onNone }) {
   return stack(
-    hint('Открытые позиции с этим изделием. Одно нажатие подставит заказчика, номер, адрес и фирму.'),
-    button({ label: 'Без заказа', kind: 'ghost', title: 'Паспорт без привязки к заказу', onClick: onNone }),
+    hint('Паспорт можно выпустить без заказа и без договора. Или выберите позицию — подставятся заказчик, номер и адрес.'),
+    button({ label: 'Без заказа', kind: 'primary', title: 'Паспорт без привязки к заказу и договору', onClick: onNone }),
     table({
-      label: 'Для заказа', clickable: true, maxHeight: 'M',
+      label: 'Или к заказу', clickable: true, maxHeight: 'M',
       columns: [{ label: 'Заказ' }],
       rows: positions.map((p) => ({
         onClick: () => onPick(p), data: p.incomeId,

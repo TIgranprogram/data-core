@@ -149,7 +149,7 @@ export const products = {
         toast('Паспортов ещё нет. Нажмите «Выпустить паспорт» — появится номер и PDF для скачивания.', { ms: 9000 });
       } }] : []),
       ...(session.canEdit && session.seesDocs() ? [
-        { label: 'Выпустить паспорт', title: 'Новый паспорт с номером по этой модели', run: (row) => openPassportFunnel({ productId: row.id }) },
+        { label: 'Выпустить паспорт', title: 'Новый номер по этой модели — без заказа и без договора; PDF сразу после выпуска', run: (row) => openPassportFunnel({ productId: row.id }) },
         { label: 'Загрузить готовый паспорт (PDF)', title: 'Паспорт сделан отдельно: приложить файл PDF к этому изделию', run: (row) => openReadyPassport({ productId: row.id }) }] : []),
       ...(session.seesDocs() ? [{ label: 'Править шаблон паспорта', title: 'Тексты и рисунки по разделам паспорта', run: (row, ctx) => openPassportTemplate(row, ctx) }] : []),
       { label: 'Техническое описание', title: 'Части и материалы из справочников, габариты и вес из изделия — в правой панели', run: (row) => openTechSheet(row) },

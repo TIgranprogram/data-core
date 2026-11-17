@@ -2,7 +2,7 @@ import { api, session } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { date, money, qty } from '../../core/format.js';
 import { go } from '../../core/router.js';
-import { badge, busyBlock, empty, enhanceSelect, failBlock, hint, readonlyGroup, row as kitRow, section, select, stack, table, toast, toastError } from '../../ui/kit/index.js';
+import { badge, button, busyBlock, empty, enhanceSelect, failBlock, hint, readonlyGroup, row as kitRow, section, select, stack, table, toast, toastError } from '../../ui/kit/index.js';
 import { kindName, kindNorm } from '../../core/passport-kinds.js';
 import { passportVariant } from '../passports/dialogs.js';
 import { jointsText } from '../passports/traits.js';
@@ -10,6 +10,7 @@ import { suggestLink } from '../../ui/composition-suggest.js';
 import { warnCard } from '../../ui/kit/screens/blocks.js';
 import { clearNoteWarning, resetPdCategory } from './data.js';
 import { productTypeLine } from '../passports/common.js';
+import { openPassportFunnel } from '../passports/funnel/open.js';
 
 /* Блоки правой панели изделия (вид): примечание-предупреждение, состав, документация, «В заказах», тип паспорта.
  * ПМ-1 (2026-11-06): каждый блок — свёрнутая секция kit.section с числом; пустой — одна строка внутри. */
@@ -185,10 +186,19 @@ export function passportPane(row, ctx) {
             ],
           })),
         })
-        : empty({
-          title: firmFilter ? 'Нет паспортов этой фирмы' : 'По этой модели паспортов ещё нет',
-          hint: firmFilter ? undefined : 'Шаблон готов — это ещё не файл. ⋯ → «Выпустить паспорт» → появится номер и PDF.',
-        });
+        : stack(
+          empty({
+            title: firmFilter ? 'Нет паспортов этой фирмы' : 'По этой модели паспортов ещё нет',
+            hint: firmFilter ? undefined : '«Готовность шаблона» — данные. Файл появится после выпуска (без заказа и без договора).',
+          }),
+          (!firmFilter && session.canEdit && session.seesDocs())
+            ? button({
+              label: 'Выпустить паспорт', kind: 'primary', size: 'S',
+              title: 'Без заказа и без договора — номер и PDF сразу',
+              onClick: () => openPassportFunnel({ productId: row.id }),
+            })
+            : null,
+        );
       const more = total > items.length ? hint(`показаны последние ${items.length}`) : null;
       host.replaceChildren(card, filter, issued, more);
       if (firmSel) enhanceSelect(firmSel);
