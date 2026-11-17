@@ -22,9 +22,13 @@ export function shipmentsBlock(order, onChange, { bare = false } = {}) {
   const body = h('div', null, h('div', { class: 'muted' }, 'Загрузка…'));
   const load = () => api(`/salesorders/${order.id}/shipments`).then((d) => {
     const items = d.items || [];
-    const open = ['closed', 'cancelled'].includes(order.stage) ? false : canShip();
+    // C136: при «Отгружен» до учёта сервер отклоняет POST — кнопку не показываем
+    const open = canShip()
+      && !['closed', 'cancelled', 'shipped'].includes(order.stage)
+      && !d.legacyShipped
+      && (typeof d.shippable !== 'number' || d.shippable > 0);
     body.replaceChildren(
-      d.legacyShipped ? h('p', { class: 'hint' }, 'Отгружено до учёта — остаток по позициям не считается.') : null,
+      d.legacyShipped ? h('p', { class: 'hint' }, 'Отгружено до учёта отгрузок — новая отгрузка недоступна. Нужна ещё одна: в «⋯» верните этап вручную.') : null,
       items.length ? h('ul', { class: 'timeline' }, ...items.map((s) => h('li', null,
         h('span', { class: 'when' }, date(s.date)), h('b', null, s.number || ''),
         h('span', { class: 'shp-pics' }, ...(s.lines || []).slice(0, 3).map((l) => posPic(l.photo, 'sm'))),
@@ -70,6 +74,14 @@ export function historyBlock(order) {
 function form(order, ctx) {
   const root = h('div', null, h('div', { class: 'muted' }, 'Загрузка…'));
   api(`/salesorders/${order.id}/shipments`).then((d) => {
+    // C136: «Отгружен» без записей отгрузок — POST даст 400; сразу понятная подсказка
+    if (d.legacyShipped) {
+      root.replaceChildren(emptyState({
+        title: 'Отгрузка недоступна',
+        hint: 'Заказ уже отмечен «Отгружен» до учёта отгрузок. Нужна новая — в меню «⋯» верните этап вручную, затем снова откройте «Отгрузить».',
+      }));
+      return;
+    }
     const rem = new Map((d.remaining || []).map((x) => [String(x.incomeId), x]));
     const lines = (order.lines || []).filter((l) => (rem.get(String(l.id))?.left ?? l.left ?? 0) > 0);
     const ok = (l) => rem.get(String(l.id))?.canShip !== false; // старый сервер без canShip — можно всё

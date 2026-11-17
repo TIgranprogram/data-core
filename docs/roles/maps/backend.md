@@ -1,4 +1,8 @@
 # Карта роли backend
+## C136 паспорт поставщика (2026-11-16, не закоммичено)
+- `productattachments/attachment-owner.ts` (assertOneOwner, currentOf, SUPPLIER_PASSPORT_TYPE), `productattachment.schema.ts` materialId+pre validate, `productattachments.service.ts` supplierTypeId/assertPurchased/save(…owner), `productattachments.controller.ts` MaterialAttachmentsController (`materials/:id/attachments`) + sendFile, `attachment-upload.guard.ts` MaterialAttachmentUploadGuard; архив — `product-passport/purchased-of-order.ts`, `passport-pdf.service.ts` zip/addSupplierFiles, controller `passports/zip` заголовок X-Missing-Supplier-Passports. Spec: `supplier-passport.spec.ts`, `purchased-of-order.spec.ts`, `passport-pdf.supplier.spec.ts`; e2e `test/e2e/supplier-passport.e2e-spec.ts` НЕ запускался (нет доступной Mongo). openapi не регенерирован. коммит: —
+- C137 Э1: `product-passport/passport-lint.ts` (lintPassportText, lintMode), `passport-lint-run.ts` lintDoc; вызов `product-passport.service.ts` lint()/get()/check(), блок выпуска `passport-issue.ts` assertLint; `scripts/passport-lint-report.js`; spec `passport-lint.spec.ts`. Отчёт `docs/crew/C137-passport-consistency/REPORT-1.md`. коммит: —
+
 ## C133 места/материал/подписи gaps (2026-11-16, не закоммичено)
 - `product-passport/passport-gaps.ts` (labelOf, seatsSet, hasSpec, фильтр step) ; `showcase/passport-defaults.ts` seatsCount (normalize). Отчёт `docs/crew/C133-passport-options/REPORT-backend.md`. коммит: —
 ## C132 исправления аудита (2026-11-16)

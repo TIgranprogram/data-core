@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
+import { assertOneOwner } from './attachment-owner';
 
 export type ProductAttachmentDocument = HydratedDocument<ProductAttachment>;
 
@@ -9,7 +10,9 @@ export type ProductAttachmentDocument = HydratedDocument<ProductAttachment>;
  */
 @Schema({ collection: 'productattachments', timestamps: true })
 export class ProductAttachment {
-  @Prop({ type: Types.ObjectId, required: true }) productId!: Types.ObjectId;
+  @Prop({ type: Types.ObjectId }) productId?: Types.ObjectId;
+  /** Паспорт поставщика покупного материала (C136): `materials._id`. Ровно одно из `productId` / `materialId`. `materials` (общая с CRM) не меняется. */
+  @Prop({ type: Types.ObjectId }) materialId?: Types.ObjectId;
   /** Файл одной позиции заказа (C121): `incomes._id`. Нет поля — файл изделия, общий для всех заказов. */
   @Prop({ type: Types.ObjectId, default: null }) incomeId?: Types.ObjectId | null;
   /** Строка справочника «Виды вложений» (`dict_values`, dict=attachmentTypes). */
@@ -30,5 +33,7 @@ export class ProductAttachment {
 }
 export const ProductAttachmentSchema = SchemaFactory.createForClass(ProductAttachment);
 ProductAttachmentSchema.index({ productId: 1, typeId: 1, deletedAt: 1 });
+ProductAttachmentSchema.pre('validate', function (next) { try { assertOneOwner(this); next(); } catch (e) { next(e as Error); } });
+ProductAttachmentSchema.index({ materialId: 1, typeId: 1, deletedAt: 1 }, { sparse: true });
 ProductAttachmentSchema.index({ typeId: 1 });
 ProductAttachmentSchema.index({ incomeId: 1 }, { sparse: true });

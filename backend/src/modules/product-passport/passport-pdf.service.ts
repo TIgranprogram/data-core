@@ -13,6 +13,9 @@ import { ProductPassportService } from './product-passport.service';
 import { isDraftNumber, isIssued } from './passport-consts';
 import type { PdfOrg } from './passport-pdf';
 import { zipStore } from './zip';
+import { missingSupplierLine, purchasedMaterialsOfOrder, supplierEntryNames, supplierFilesOf } from './purchased-of-order';
+import { resolveInside } from '../productattachments/attachment-paths';
+import { UPLOAD_DIR } from '../photos/image-upload.options';
 import { safeUploadPath } from '../../common/uploads/safe-path';
 import { filterImagesByKind, installKindOf, variantOf, type PassportVariant } from './passport-variants';
 import { standardSchemes } from './passport-schemes';
@@ -135,8 +138,12 @@ export class PassportPdfService {
     return { buf, filename: standFileName(p) };
   }
 
-  /** Пакет по фильтру списка (те же параметры, что GET /passports), не больше 200 паспортов. */
-  async zip(q: Record<string, unknown>, opts: { stamp?: boolean; mode?: 'pages' | 'print' }) {
+  /**
+   * Пакет по фильтру списка (те же параметры, что GET /passports), не больше 200 паспортов.
+   * C136: при `salesOrderId` в архив добавляются паспорта поставщика покупных изделий заказа (файл как есть,
+   * `Поставщик_<материал>.<ext>`); у кого файла нет — строка в `_Нет_паспортов_поставщика.txt` и в `missing`. Не мешает выпуску паспортов.
+   */
+  async zip(q: Record<string, unknown>, opts: { stamp?: boolean; mode?: 'pages' | 'print' }): Promise<{ buf: Buffer; missing: Array<{ materialId: string; name: string }> }> {
     const { items } = await this.passports.list({ ...q, page: 1, limit: 200 }, { full: true });
     const files: Array<{ name: string; data: Buffer }> = [];
     for (const raw of items as Doc[]) {
@@ -149,7 +156,27 @@ export class PassportPdfService {
       files.push({ name: fileName(it, opts.stamp), data: await this.render(it, opts) });
       await this.passports.markIssued(it._id as Types.ObjectId);
     }
-    return zipStore(files);
+    const missing = await this.addSupplierFiles(files, q.salesOrderId);
+    return { buf: zipStore(files), missing };
+  }
+
+  /** C136: паспорта поставщика покупных материалов заказа → в `files`; возвращает материалы без файла. markIssued не вызывается. */
+  private async addSupplierFiles(files: Array<{ name: string; data: Buffer }>, salesOrderId: unknown) {
+    const missing: Array<{ materialId: string; name: string }> = [];
+    const db = this.connection.db!;
+    const materials = Types.ObjectId.isValid(String(salesOrderId ?? '')) ? await purchasedMaterialsOfOrder(db, String(salesOrderId)) : [];
+    const have = await supplierFilesOf(db, materials);
+    const found: Array<{ name: string; ext: string; data: Buffer }> = [];
+    for (const m of materials) {
+      const h = have.get(m.id);
+      const data = h ? await fs.readFile(resolveInside(UPLOAD_DIR, h.path)).catch(() => null) : null;
+      if (h && data) found.push({ name: m.name, ext: h.ext, data });
+      else missing.push({ materialId: m.id, name: m.name });
+    }
+    const names = supplierEntryNames(found);
+    found.forEach((x, i) => files.push({ name: names[i], data: x.data }));
+    if (missing.length) files.push({ name: '_Нет_паспортов_поставщика.txt', data: Buffer.from(missing.map((x) => missingSupplierLine(x.name)).join('\r\n') + '\r\n', 'utf8') });
+    return missing;
   }
 
   private async render(p: Doc, opts: PdfOpts, tech?: TechSheetInput | null) {

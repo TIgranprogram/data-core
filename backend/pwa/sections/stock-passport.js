@@ -12,12 +12,15 @@ const norm = (t) => String(t || '').trim();
 const origs = new Map();
 const specBody = (v) => ({ materialId: v.materialId || null, passportText: norm(v.passportText) || null, techText: norm(v.techText) || null,
   ...(v.materialId ? { sizes: v.sizes || [], isCoating: !!v.isCoating } : {}) });
-const load = (id) => api(`/materials/${id}`).then((m) => m.passportSpec || null);
+const loadMat = (id) => api(`/materials/${id}`);
+const BUY_HINT = 'Покупное: загрузите паспорт поставщика (в карточке позиции).'; // C136: своего паспорта у покупного нет
 
 /** Поле формы: материал (из справочника) · размеры · покрытие · два текста. value — JSON {materialId, sizes, isCoating, passportText, techText}. */
 export async function passportSpecField(row) {
   if (!row?.id) return null;
-  const [spec, dicts] = await Promise.all([load(row.id), loadMaterialDicts()]);
+  const [mat, dicts] = await Promise.all([loadMat(row.id), loadMaterialDicts()]);
+  if (mat?.materialKind === 'purchased') return { key: 'passportSpec', type: 'widget', label: '', wide: true, widget: () => ({ el: h('p', { class: 'hint' }, BUY_HINT), get value() { return ''; }, set value(_) { /* только подсказка */ } }) };
+  const spec = mat?.passportSpec || null;
   const mats = dicts.mats;
   const byId = new Map(mats.map((m) => [String(m.id), m]));
   const st = { materialId: spec?.materialId ? String(spec.materialId) : '', sizes: spec?.sizes || [], isCoating: !!spec?.isCoating, passportText: spec?.passportText || '', techText: spec?.techText || '' };
@@ -71,7 +74,9 @@ export function passportSpecView(r) {
   const render = async () => {
     paint(null, busyBlock('паспортные данные', { retry: render }));
     try {
-      const [spec, mats] = await Promise.all([load(r.id), api('/dicts/passportMaterials').then((x) => x.items || [])]);
+      const [mat, mats] = await Promise.all([loadMat(r.id), api('/dicts/passportMaterials').then((x) => x.items || [])]);
+      if (mat?.materialKind === 'purchased') { paint(0, [h('p', { class: 'muted small' }, 'Покупное: своего паспорта нет — загрузите файл в блоке «Паспорт поставщика» выше.')]); return; }
+      const spec = mat?.passportSpec || null;
       const name = spec?.materialId ? (mats.find((m) => String(m.id) === String(spec.materialId))?.name || 'материал удалён из справочника') : '';
       const rows = spec && (name || spec.passportText || spec.techText) ? [
         name && h('p', null, 'Материал: ', h('b', null, name), spec.sizes?.length ? ` · ${spec.sizes.join('; ')}` : '', spec.isCoating ? ' · покрытие' : ''),

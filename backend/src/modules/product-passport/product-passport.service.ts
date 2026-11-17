@@ -41,6 +41,7 @@ import { loadQueue, ourSupplierId } from './passport-queue';
 import { assertOneLive, bindDraft } from './passport-bind';
 import { assertPdf, presentPrint, storePrintPdf, unlinkPrint } from './passport-print-file';
 import { PassportIssue } from './passport-issue';
+import { lintDoc } from './passport-lint-run';
 import { orderIssue, orderPlan, type OrderHost } from './passport-order';
 import { PassportNumbers } from './passport-numbers';
 import { lastByFirm } from './passport-last-numbers';
@@ -62,7 +63,7 @@ export class ProductPassportService {
     // тяжёлые части вынесены в отдельные файлы (ПР-1); публичные методы сервиса прежние
     this.queries = new PassportQueries({ model, connection, versions, categoryRules: () => this.categoryRules(), installs: () => this.installs(), withSchemes: (d, i) => this.withSchemes(d, i), oid: (v) => this.oid(v), forest: (c) => this.forest(c) });
     this.bulkOps = new PassportBulk({ model, findById: (id) => this.findById(id), update: (id, p) => this.update(id, p), snapshot: (id) => this.snapshot(id), oid: (v) => this.oid(v) });
-    this.issueOps = new PassportIssue({ model, connection, findById: (id) => this.findById(id), readiness: (d) => this.readiness(d), freezeImages: (id) => this.freezeImages(id), refresh: (id) => this.refreshDraftText(id), allocate: (set, date, session) => this.allocate(set, date, session), assertFree: (set, selfId, session) => this.assertFree(set, selfId, session) });
+    this.issueOps = new PassportIssue({ model, connection, findById: (id) => this.findById(id), readiness: (d) => this.readiness(d), lint: (d) => this.lint(d), freezeImages: (id) => this.freezeImages(id), refresh: (id) => this.refreshDraftText(id), allocate: (set, date, session) => this.allocate(set, date, session), assertFree: (set, selfId, session) => this.assertFree(set, selfId, session) });
     this.numbers = new PassportNumbers({
       connection, maxOf: (f, s) => this.maxOf(f, s),
       maxShown: (f) => (this.versions ? this.versions.cached('passports.maxNo', ['productpassports'], f, () => this.maxOf(f)) : this.maxOf(f)),
@@ -172,7 +173,8 @@ export class ProductPassportService {
     const productImageKinds = [...new Set(eff.filter((i) => !((doc.images as Doc[]) || []).includes(i as never)).map((i) => String(i.kind)))];
     const choiceMissing = await this.choiceMissing(doc);
     const revisionList = await this.revisionList(doc);
-    return { ...doc, ...presentPrint(doc), ...(revisionList.length ? { revisionList } : {}), productImageKinds, imageSlots: rules.slots, fromProduct, fromProductFields, productCategory, categoryDiffers: !!productCategory && !!doc.passportCategory && productCategory !== doc.passportCategory, images, standardImages, requiredImages, missing: [...missingFieldsV2({ ...doc, images: [...eff, ...std] } as never, cat, vopts), ...choiceMissing.map((m) => m.label), ...jointsMissing(doc).map((m) => m.label)], ...(choiceMissing.length ? { missingChoices: choiceMissing } : {}), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
+    const lint = await this.lint(doc);
+    return { ...doc, lint, ...presentPrint(doc), ...(revisionList.length ? { revisionList } : {}), productImageKinds, imageSlots: rules.slots, fromProduct, fromProductFields, productCategory, categoryDiffers: !!productCategory && !!doc.passportCategory && productCategory !== doc.passportCategory, images, standardImages, requiredImages, missing: [...missingFieldsV2({ ...doc, images: [...eff, ...std] } as never, cat, vopts), ...choiceMissing.map((m) => m.label), ...jointsMissing(doc).map((m) => m.label)], ...(choiceMissing.length ? { missingChoices: choiceMissing } : {}), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
   }
 
   /** Что задаёт изделие в паспорте-черновике (только отличия от `cur`); пусто — паспорт без изделия или выдан. */
@@ -794,8 +796,12 @@ export class ProductPassportService {
       if (!listed.some((m) => m.key === key)) listed.push({ key, label: `Обязательный рисунок не читается: ${IMAGE_KIND_LABELS[kind] ?? kind}. Загрузите изображение заново` });
     }
     const extra = blanks.filter((b) => !listed.some((m) => m.key === b.key));
-    return { mode: template ? 'template' : 'instance', missing: [...listed, ...extra, ...choices, ...(built?.text.needJoints ? [JOINTS_MISSING] : [])].filter(keep).map(noHint), defaulted, requiredImages: rules.required.map((k) => (k === 'safety_zone' ? 'safety' : k)), imageSlots: rules.slots };
+    const lint = built?.text ? await lintDoc(this.connection.db!, p, built.text as never).catch(() => []) : [];
+    return { mode: template ? 'template' : 'instance', lint, missing: [...listed, ...extra, ...choices, ...(built?.text.needJoints ? [JOINTS_MISSING] : [])].filter(keep).map(noHint), defaulted, requiredImages: rules.required.map((k) => (k === 'safety_zone' ? 'safety' : k)), imageSlots: rules.slots };
   }
+
+  /** C137: противоречия в тексте паспорта (стоп-слова, способ установки, чек-лист…); пусто, пока текста нет. Только чтение. */
+  async lint(doc: Doc) { return lintDoc(this.connection.db!, doc).catch(() => []); }
 
   /** ПП: чего не хватает для выпуска сохранённого паспорта — [{ label, key }] (стандартные схемы способа установки засчитываются). */
   async readiness(doc: Doc): Promise<Array<{ label: string; key: string }>> {

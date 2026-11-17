@@ -27,11 +27,16 @@ export function uploadFailText(status, body) {
 
 /** Один файл: POST multipart с прогрессом. handle.abort() — отмена. Возвращает { promise, abort }. */
 function sendFile(productId, typeId, file, onProgress) {
+  return sendFileTo(`/api/products/${productId}/attachments?typeId=${encodeURIComponent(typeId)}`, file, onProgress);
+}
+
+/** Тот же XHR с прогрессом на любой адрес `/api/…` (C136: паспорт поставщика у материала). */
+export function sendFileTo(url, file, onProgress) {
   const xhr = new XMLHttpRequest();
   const promise = new Promise((resolve, reject) => {
     const fail = (status, body, extra) => reject(Object.assign(new Error(uploadFailText(status, body)), { status, ...extra }));
     const go = (retry) => {
-      xhr.open('POST', `${PREFIX}/api/products/${productId}/attachments?typeId=${encodeURIComponent(typeId)}`);
+      xhr.open('POST', PREFIX + url);
       xhr.setRequestHeader('Authorization', 'Bearer ' + session.access);
       xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(e.loaded, e.total); };
       xhr.onerror = () => fail(0, '');

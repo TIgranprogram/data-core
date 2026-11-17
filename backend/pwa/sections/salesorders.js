@@ -13,7 +13,7 @@ import { toast, toastError } from '../ui/kit/toast.js';
 import { confirmDlg, modal } from '../ui/kit/dialog.js';
 import { withConfirm } from '../ui/confirm-password.js';
 import { incomeLookups } from './orders.js';
-import { lineMore } from './order-line-more.js';
+import { lineMore, loadPassportsByIncome, passportUnderTitle } from './order-line-more.js';
 import { customerLink, companyLink } from '../ui/links.js';
 import { responsibleField, handoffLine } from '../ui/responsible.js';
 import { errText } from '../ui/kit/errors.js';
@@ -225,7 +225,8 @@ function contractMenu(o, reload, prefix = '') {
   };
   const menu = [
     { label: 'Договор', title: 'Договор с заказчиком: реквизиты, деньги и правка позиций', onSelect: () => patch({ of: 'salesorder', open: o.id }, { replace: false }) }, // владелец 15.11: «Договор», всё по договору — внутри
-    !['closed', 'cancelled', 'new'].includes(o.stage) && canShip() && { label: 'Отгрузить', onSelect: () => patch({ of: 'shipdo', open: o.id, pick: undefined }, { replace: false }) },
+    // C136: этап «Отгружен» (в т. ч. до учёта) — сервер отклонит POST; пункт не показываем
+    !['closed', 'cancelled', 'new', 'shipped'].includes(o.stage) && canShip() && { label: 'Отгрузить', onSelect: () => patch({ of: 'shipdo', open: o.id, pick: undefined }, { replace: false }) },
     can && !closedStage(o) && seeStock && { label: 'Загрузить спецификацию из Excel', onSelect: () => patch({ of: 'specimport', new: '1', orderId: o.id, open: undefined }, { replace: false }) },
     can && o.productionNo && !closedStage(o) && { label: 'Перенести в другой заказ', onSelect: () => moveContract(o).then((r) => r && reload?.()).catch((e) => toastError(e)) },
     session.role === 'admin' && o.stage !== 'new' && { label: 'Вернуть на прежний этап…', onSelect: () => stageBack(o).then((r) => r && reload?.()).catch((e) => toastError(e)) },
@@ -259,19 +260,34 @@ function positionsPane(d, ctx, pick = null) {
   const span = 2 + (showShip ? 1 : 0) + (showColor ? 1 : 0);
   const hasPic = (l) => !!(l.photo && (l.photo.url || l.photo.thumb));
   const many = orders.length > 1;
+  // C138: паспорта позиций — один запрос на договор при открытии вкладки; слоты под названием заполняются без пересборки таблицы
+  const byIncomeRef = { map: null };
+  const markSlots = new Map();
   const groups = orders.map((o) => {
     // в таблице только смотреть: правка позиции — в «⋯» её панели (клик по строке), правка договора — в «⋯» заказа
     // отменённые — в конце договора, номер позиции сохраняется
     const order = (o.lines || []).map((l, i) => [l, i]).sort((a, b) => !!a[0].cancelledAt - !!b[0].cancelledAt);
-    const rows = order.map(([l, i]) => (l.cancelledAt ? cancelledRow(l, i, span, openLine(l)) : { key: l.id, line: l, expand: () => lineMore(l, o, d, { reload, editable: editableOrder(o), closed: closedStage(o) }), cells: [
+    const rows = order.map(([l, i]) => {
+      if (l.cancelledAt) return cancelledRow(l, i, span, openLine(l));
+      const passMark = h('div');
+      markSlots.set(String(l.id), passMark);
+      return { key: l.id, line: l, expand: () => lineMore(l, o, d, { reload, editable: editableOrder(o), closed: closedStage(o), byIncome: byIncomeRef.map }), cells: [
       { v: seq(l, i), cls: 'muted' }, posPic(hasPic(l) ? l.photo : null, hasPic(l) ? 'lg' : 'sm'),
-      h('span', null, l.title, ourLine(l), l.color || l.notes ? h('div', { class: 'muted small' }, [l.color && 'Цвет: ' + l.color, l.notes].filter(Boolean).join(' · ')) : null, l.unassigned !== undefined || l.lineType ? h('span', null, ' ', lineMark(l)) : null, l.unassigned === undefined && !l.lineType && l.matched === false ? h('a', { class: 'badge warn', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null),
+      h('span', null, l.title, ourLine(l), passMark, l.color || l.notes ? h('div', { class: 'muted small' }, [l.color && 'Цвет: ' + l.color, l.notes].filter(Boolean).join(' · ')) : null, l.unassigned !== undefined || l.lineType ? h('span', null, ' ', lineMark(l)) : null, l.unassigned === undefined && !l.lineType && l.matched === false ? h('a', { class: 'badge warn', href: '#', title: 'Сопоставить позиции договора с изделиями', onclick: (e) => { e.preventDefault(); e.stopPropagation(); patch({ of: 'matching', open: o.id, new: undefined }, { replace: false }); } }, 'не сопоставлено') : null),
       { v: `${qty(l.qty)} ${l.unit || ''}`, cls: 'num nowrap' }, ...(showShip ? [{ v: l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : '', cls: 'num nowrap muted' }] : []), ...(showColor ? [{ v: l.color || '', cls: 'muted' }] : []),
-] }));
+] };
+    });
     return { head: many ? contractHead(o, many) : null, rows, foot: contractFoot(o) }; // один договор — без строки-заголовка: чистая таблица (владелец 15.11)
   });
   box.append(positionsTable({ columns, groups, label: 'Позиции заказа', empty: orders.length ? { title: `В ${orders.length > 1 ? 'договорах' : 'договоре'} ${orders.map((o) => '№ ' + (o.orderNo || '—')).join(', ')} позиций пока нет.`, hint: 'Нажмите «+ Позиция» ниже — поля откроются справа.' } : { title: 'Договоров нет.', hint: 'Добавьте договор: «⋯» вверху.' }, pick }),
     !allLines.length ? actions(...orders.filter(canAdd).map((o) => addLineBtn(o, orders.length > 1 ? `+ Позиция в договор ${o.orderNo || '—'}` : '+ Позиция'))) : null, ...orders.map((o) => distribBlock(o, reload)), produceBlock(d, openLine)); // таблица первой (C131)
+  loadPassportsByIncome(orders.map((o) => o.id)).then((map) => {
+    byIncomeRef.map = map;
+    for (const [id, el] of markSlots) {
+      const node = passportUnderTitle(map.get(id));
+      el.replaceChildren(...(node ? [node] : []));
+    }
+  }).catch(() => { byIncomeRef.map = new Map(); });
   return box;
 }
 

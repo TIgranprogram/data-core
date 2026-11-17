@@ -107,6 +107,24 @@ export function printOrderButton(orderId, { issued = 0, size = 'S', kind = 'seco
   });
 }
 
+/** C136: архив заказа — выпущенные паспорта + файлы поставщиков покупных (GET /passports/zip?salesOrderId=). */
+export function orderZipButton(orderId, { issued = 0, size = 'S', kind = 'ghost' } = {}) {
+  return kit.button({
+    label: 'Скачать архив (паспорта + поставщиков)', size, kind, disabled: !issued,
+    title: issued ? 'Один ZIP: паспорта заказа и файлы паспортов поставщиков покупных изделий' : 'Сначала выпустите хотя бы один паспорт',
+    onClick: async (e) => {
+      e.stopPropagation();
+      const b = e.currentTarget; b.classList.add('is-busy'); b.disabled = true;
+      try {
+        let lacks = false;
+        const name = await apiFile('/passports/zip', { query: { salesOrderId: orderId, stamp: 1 }, timeout: 600000, fallback: 'Паспорта_заказа.zip',
+          onMissing: (l) => { lacks = true; kit.toast('Нет паспорта поставщика: ' + l.map((m) => m.name).join(', '), { tone: 'warn', sub: 'Загрузите файл в карточке позиции склада — он попадёт в архив.', ms: 15000 }); } });
+        if (!lacks) kit.toast(`Скачан: ${name}`);
+      } catch (er) { kit.toastError(er, 'собрать архив паспортов'); } finally { b.classList.remove('is-busy'); b.disabled = false; }
+    },
+  });
+}
+
 function summaryRow(row) {
   return kit.row({
     title: summaryText(row),
@@ -148,7 +166,9 @@ async function mountFill(line, host, reload) {
 const pic = (l) => kit.posPic(l.photo || null, 'sm'); // и без изделия — рамка «нет фото»: строки ровные
 
 function lineView(l, reload, issueOne, orderId) {
-  const [label, tone] = STATE[l.state] || ['—', 'dim'];
+  const [base, tone] = STATE[l.state] || ['—', 'dim'];
+  // пользователь 16.11: номер выпущенного паспорта — рядом с меткой, чтобы видно сразу
+  const label = l.state === 'issued' && l.passport?.number ? `${base} · № ${l.passport.number}` : base;
   const name = `${l.lineNo ?? '—'} · ${displayName(l.title) || 'Позиция'}`;
   const meta = [l.article, l.productName && l.productName !== l.title ? displayName(l.productName) : '', l.productId ? (l.categoryName || 'категория не выбрана') : '', l.qty != null ? `${l.qty} шт` : ''].filter(Boolean).join(' · ');
   if (l.state === 'blocked' && l.productId && !firmOnly(l)) {
@@ -169,7 +189,7 @@ function lineView(l, reload, issueOne, orderId) {
     return sec;
   }
   const below = l.state === 'issued'
-    ? (l.passport?.number ? '№ ' + l.passport.number : 'выпущен')
+    ? (l.passport?.number ? '' : 'выпущен')
     : l.state === 'ready' ? 'можно выпускать' : shortMissing(l.missing);
   let action = null;
   if (l.state === 'ready' && l.productId && canEdit()) {
@@ -307,6 +327,8 @@ function body(row, ctx) {
     onClick: () => printOrderDialog(row).catch((er) => kit.toastError(er, 'собрать PDF паспортов')),
   });
 
+  const zipBtn = orderZipButton(row.orderId, { issued: issuedN });
+
   const lines = (row.lines || []).length
     ? kit.stack(...(row.lines || []).map((l) => lineView(l, reload, editable ? issueOne : null, row.orderId)))
     : kit.hint('В заказе нет позиций. Добавьте позиции — здесь появится план паспортов.');
@@ -327,14 +349,16 @@ function body(row, ctx) {
   }
 
   const blockedN = (row.lines || []).filter((l) => l.state === 'blocked').length;
+  const zipNote = issuedN ? null : kit.hint('Архив (паспорта + поставщиков) станет доступен после выпуска хотя бы одного паспорта.');
   const noReady = readyN ? null : kit.hint(blockedN ? `Готовых к выпуску нет: у позиций с меткой «не хватает» (${blockedN}) надо заполнить данные — раскройте позицию ниже.` : issuedN ? 'Все позиции выпущены.' : 'Готовых к выпуску позиций нет.');
-  const buttons = printPrimary ? [printBtn, issueBtn] : [issueBtn, printBtn];
+  const buttons = printPrimary ? [printBtn, issueBtn, zipBtn] : [issueBtn, printBtn, zipBtn];
   // C111: stack — зазор между шапкой, рядом кнопок и списком (на телефоне кнопки не липнут к списку).
   // Ш1: выпуск и печать — сразу под сводкой, видны без прокрутки при 12+ позициях.
   return kit.stack(
     kit.headbar(h('div', null, summaryRow(row), firmBlock(row, reload), kit.hint('Упрощённый — основное. Полный — с зоной размещения и доп. рисунками, если заполнены.')), seg.el),
     kit.actions(...buttons),
     noReady,
+    zipNote,
     skipped, lines,
     // отменённые позиции сюда не идут (13.11); одна серая строка объясняет, почему позиций меньше, чем в заказе (14.11)
     row.cancelled ? kit.hint(`Отменено в заказе: ${row.cancelled} ${plural(row.cancelled, 'позиция', 'позиции', 'позиций')} — паспорта на них не нужны.`) : null,

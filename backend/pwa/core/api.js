@@ -185,8 +185,9 @@ export async function apiFile(path, opts = {}) {
   return fileGet(path, opts).catch((e) => failed(e, path, opts.method || 'GET'));
 }
 async function fileGet(path, opts = {}) {
-  const { blob, name, failed } = await fileFetch(path, opts);
+  const { blob, name, failed, missing } = await fileFetch(path, opts);
   if (failed.length) opts.onFailed?.(failed); // Р5: часть паспортов не собралась — PDF скачан без них
+  if (missing.length) opts.onMissing?.(missing); // C136: у покупных нет паспорта поставщика — архив собран без них
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 30000);
   return name;
@@ -210,7 +211,9 @@ async function fileFetch(path, { query, fallback = 'file', timeout = 180000, met
   const name = m ? decodeURIComponent(m[1]) : fallback;
   let failed = []; // Р5: заголовок X-Failed-Passports = encodeURIComponent(JSON [{passportNumber,name,reason}])
   try { const hv = res.headers.get('x-failed-passports'); if (hv) failed = JSON.parse(decodeURIComponent(hv)); } catch { /* заголовок не разобран — PDF всё равно отдаём */ }
-  return { blob: await res.blob(), name, failed };
+  let missing = []; // C136: X-Missing-Supplier-Passports = encodeURIComponent(JSON [{materialId,name}])
+  try { const hv = res.headers.get('x-missing-supplier-passports'); if (hv) missing = JSON.parse(decodeURIComponent(hv)); } catch { /* заголовок не разобран — архив всё равно отдаём */ }
+  return { blob: await res.blob(), name, failed, missing };
 }
 
 /** Проверка пароля текущего пользователя → токен подтверждения. Неверный пароль (401/403) не выбрасывает из системы. */

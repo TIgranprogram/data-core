@@ -18,3 +18,19 @@ export class AttachmentUploadGuard implements CanActivate {
     return true;
   }
 }
+
+/** То же для паспорта поставщика покупного материала (C136): вид ставит сервер, клиентский `?typeId=` игнорируется. */
+@Injectable()
+export class MaterialAttachmentUploadGuard implements CanActivate {
+  constructor(private readonly service: ProductAttachmentsService) {}
+
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    const req = ctx.switchToHttp().getRequest<Request>();
+    req.setTimeout(0);
+    const incoming = Number(req.headers['content-length']) || 0;
+    const typeId = await this.service.supplierTypeId();
+    req.query.typeId = typeId; // дальше multer и сохранение работают как с обычным видом
+    await this.service.preflight(String(req.params.id), typeId, incoming, 'materialId');
+    return true;
+  }
+}

@@ -4,7 +4,7 @@ import { button } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { canShip } from './order-shipments.js';
 import { footerBar } from '../ui/kit/screens/blocks.js';
-import { orderPassportsButton, printOrderButton } from './order-passport-plan.js';
+import { orderPassportsButton, orderZipButton, printOrderButton } from './order-passport-plan.js';
 import { orderPdfAction, orderZipAction } from './order-attachments-zip.js';
 
 /*
@@ -16,12 +16,22 @@ import { orderPdfAction, orderZipAction } from './order-attachments-zip.js';
 
 const unshipped = (l) => !l.cancelledAt && (Number(l.shipped) || 0) < (Number(l.qty) || 0);
 
+/** Договор ещё можно отгружать (не «Отгружен» / закрыт / отменён). C136: иначе POST даёт 400. */
+const shipableOrder = (o) => o && !['shipped', 'closed', 'cancelled'].includes(o.stage);
+const lineOrder = (d, lineId) => (d.orders || []).find((x) => (x.lines || []).some((l) => String(l.id) === String(lineId)));
+
 /** Отгрузка — штатная панель «Отгрузка» договора (причина, получатель, документ); отмечены выбранные позиции. */
 function shipLines(ctx) {
   const ids = new Set(ctx.lines.filter(unshipped).map((l) => String(l.id)));
-  const o = (ctx.d.orders || []).find((x) => (x.lines || []).some((l) => ids.has(String(l.id))));
-  if (!o) { toast('Отгружать нечего: всё уже отгружено'); return; }
-  const other = (ctx.d.orders || []).filter((x) => x !== o && (x.lines || []).some((l) => ids.has(String(l.id))));
+  const o = (ctx.d.orders || []).find((x) => shipableOrder(x) && (x.lines || []).some((l) => ids.has(String(l.id))));
+  if (!o) {
+    const blocked = (ctx.d.orders || []).find((x) => x.stage === 'shipped' && (x.lines || []).some((l) => ids.has(String(l.id))));
+    toast(blocked
+      ? 'Заказ уже «Отгружен» — новая отгрузка недоступна. В «⋯» верните этап вручную, если нужна ещё одна.'
+      : 'Отгружать нечего: всё уже отгружено');
+    return;
+  }
+  const other = (ctx.d.orders || []).filter((x) => x !== o && shipableOrder(x) && (x.lines || []).some((l) => ids.has(String(l.id))));
   if (other.length) toast('Отгрузка записывается по договору: открыт первый, остальные — после него', { ms: 6000 });
   patch({ of: 'shipdo', open: o.id, new: undefined, pick: (o.lines || []).filter((l) => ids.has(String(l.id))).map((l) => l.id).join(',') }, { replace: false });
 }
@@ -36,12 +46,16 @@ const ACTIONS = [
     return orders.flatMap((o) => {
       const pass = orderPassportsButton(o.id);
       if (many) pass.textContent = `Паспорта · договор ${o.orderNo || '—'}`;
-      return [pass, printOrderButton(o.id, { issued: 1, only, kind: 'ghost', size: 'S' })];
+      return [pass, printOrderButton(o.id, { issued: 1, only, kind: 'ghost', size: 'S' }), orderZipButton(o.id, { issued: 1 })];
     });
   } },
-  { group: 'Работа', items: (ctx) => (canShip() && ctx.lines.some(unshipped)
-    ? [button({ label: ctx.picked ? `Отгрузить отмеченные (${ctx.lines.filter(unshipped).length})` : 'Отгрузить…', size: 'S', onClick: () => shipLines(ctx) })]
-    : []) },
+  { group: 'Работа', items: (ctx) => {
+    // C136: не показывать «Отгрузить», если все подходящие договоры уже «Отгружен»
+    const ready = ctx.lines.filter((l) => unshipped(l) && shipableOrder(lineOrder(ctx.d, l.id)));
+    return canShip() && ready.length
+      ? [button({ label: ctx.picked ? `Отгрузить отмеченные (${ready.length})` : 'Отгрузить…', size: 'S', onClick: () => shipLines(ctx) })]
+      : [];
+  } },
   { group: 'Файлы', items: (ctx) => [
     button({ label: orderPdfAction.label, title: orderPdfAction.title, size: 'S', kind: 'ghost', onClick: () => Promise.resolve(orderPdfAction.run(ctx.r)).catch(toastError) }),
     button({ label: 'Вложения (ZIP)', title: orderZipAction.title, size: 'S', kind: 'ghost', onClick: () => Promise.resolve(orderZipAction.run(ctx.r)).catch(toastError) }),

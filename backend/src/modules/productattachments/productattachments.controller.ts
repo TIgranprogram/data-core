@@ -10,7 +10,7 @@ import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuditAction } from '../../common/interceptors/audit.interceptor';
 import { contentDisposition, parseRange } from './attachment-paths';
-import { AttachmentUploadGuard } from './attachment-upload.guard';
+import { AttachmentUploadGuard, MaterialAttachmentUploadGuard } from './attachment-upload.guard';
 import { attachmentUploadOptions } from './attachment-upload.options';
 import { IncomeAttachmentUploadGuard } from './income-attachment-upload.guard';
 import { IncomeAttachmentsService } from './income-attachments.service';
@@ -82,21 +82,83 @@ export class ProductAttachmentFileController {
 
   @Get(':aid/file')
   async file(@Param('id') id: string, @Param('aid') aid: string, @Query('t') t: string, @Req() req: Request, @Res() res: Response) {
-    const f = await this.service.fileByTicket(id, aid, t);
-    const range = parseRange(req.headers.range, f.size);
-    res.set({
-      'Content-Type': 'application/octet-stream', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': 'sandbox',
-      'Content-Disposition': contentDisposition(f.name), 'Accept-Ranges': 'bytes', 'Cache-Control': 'private, no-store',
-    });
-    if (range === 'bad') { res.status(416).set('Content-Range', `bytes */${f.size}`).end(); return; }
-    const part = range ?? { start: 0, end: f.size - 1 };
-    if (range) res.status(206).set('Content-Range', `bytes ${range.start}-${range.end}/${f.size}`);
-    res.set('Content-Length', String(f.size ? part.end - part.start + 1 : 0));
-    if (!f.size) { res.end(); return; }
-    const stream = createReadStream(f.abs, part);
-    res.on('close', () => stream.destroy());
-    stream.on('error', () => res.destroy());
-    stream.pipe(res);
+    sendFile(await this.service.fileByTicket(id, aid, t), req, res);
+  }
+}
+
+/** Файл на диске → ответ: Range (докачка), без разбора содержимого браузером. Общий для файлов изделия и паспорта поставщика. */
+function sendFile(f: { abs: string; size: number; name: string }, req: Request, res: Response) {
+  const range = parseRange(req.headers.range, f.size);
+  res.set({
+    'Content-Type': 'application/octet-stream', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': 'sandbox',
+    'Content-Disposition': contentDisposition(f.name), 'Accept-Ranges': 'bytes', 'Cache-Control': 'private, no-store',
+  });
+  if (range === 'bad') { res.status(416).set('Content-Range', `bytes */${f.size}`).end(); return; }
+  const part = range ?? { start: 0, end: f.size - 1 };
+  if (range) res.status(206).set('Content-Range', `bytes ${range.start}-${range.end}/${f.size}`);
+  res.set('Content-Length', String(f.size ? part.end - part.start + 1 : 0));
+  if (!f.size) { res.end(); return; }
+  const stream = createReadStream(f.abs, part);
+  res.on('close', () => stream.destroy());
+  stream.on('error', () => res.destroy());
+  stream.pipe(res);
+}
+
+/**
+ * Паспорт поставщика покупного изделия (C136): `/api/materials/:id/attachments`. Вид файла сервер ставит сам
+ * («Паспорт поставщика»), `?typeId=` не нужен. Новая загрузка убирает прежний файл в корзину — действует последний.
+ * Загружают admin и manager, смотрят все, удаляет admin. Скачивание — тикет, как у файлов изделия.
+ */
+@ApiTags('Вложения изделия')
+@AppSection('stock', 'products')
+@Controller('materials/:id/attachments')
+export class MaterialAttachmentsController {
+  constructor(private readonly service: ProductAttachmentsService) {}
+
+  /** `{items,total,page,limit}`: живые файлы, первый — действующий; без `storedPath`. */
+  @Get()
+  @Roles('admin', 'director', 'manager', 'user')
+  list(@Param('id') id: string) {
+    return this.service.list(id, false, undefined, 'materialId');
+  }
+
+  /** Multipart: поле `file` (PDF или картинка и др. из списка форматов вложений). Лимит — как у вложений изделия. */
+  @Post()
+  @Roles('admin', 'manager')
+  @Throttle({ short: { ttl: 60_000, limit: 60 } })
+  @UseGuards(MaterialAttachmentUploadGuard)
+  @UseInterceptors(FileInterceptor('file', attachmentUploadOptions))
+  @AuditAction({ action: 'attachment.created', entityType: 'ProductAttachment', details: (d) => info(d) })
+  upload(@Param('id') id: string, @Query('typeId') typeId: string, @UploadedFile() file: UploadedAttachmentFile, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.save(file, id, typeId, user, undefined, 'materialId');
+  }
+
+  @Delete(':aid')
+  @Roles('admin')
+  @AuditAction({ action: 'attachment.deleted', entityType: 'ProductAttachment', idParam: 'aid', details: (d) => info(d) })
+  remove(@Param('id') id: string, @Param('aid') aid: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.remove(id, aid, user, undefined, 'materialId');
+  }
+
+  /** `{ticket, expiresIn, url}`: одноразовая ссылка на 60 секунд. */
+  @Post(':aid/download-ticket')
+  @HttpCode(200)
+  @Roles('admin', 'director', 'manager', 'user')
+  ticket(@Param('id') id: string, @Param('aid') aid: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.ticket(id, aid, user, 'materialId').then((t) => ({ ...t, url: `/api/materials/${id}/attachments/${aid}/file?t=${t.ticket}` }));
+  }
+}
+
+/** Скачивание паспорта поставщика по тикету (без заголовка авторизации — обычная ссылка). */
+@ApiTags('Вложения изделия')
+@Public()
+@Controller('materials/:id/attachments')
+export class MaterialAttachmentFileController {
+  constructor(private readonly service: ProductAttachmentsService) {}
+
+  @Get(':aid/file')
+  async file(@Param('id') id: string, @Param('aid') aid: string, @Query('t') t: string, @Req() req: Request, @Res() res: Response) {
+    sendFile(await this.service.fileByTicket(id, aid, t, 'materialId'), req, res);
   }
 }
 

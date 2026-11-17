@@ -36,25 +36,65 @@ function compositionCard(l) {
   return card({ size: 'M', title: 'Состав', variant: 'fields', body, actions: l.productId ? [button({ label: 'Весь состав', size: 'S', kind: 'ghost', onClick: open })] : [] });
 }
 
-/** «Документы»: паспорт позиции — GET /passports?salesOrderId, отбор по incomeId; номер, статус, открыть, PDF (printDialog). */
-function documentsCard(l, d) {
+/** Map incomeId → паспорт: при нескольких на позицию выпущенный предпочтительнее черновика. */
+export function mergePassportsByIncome(items, into = new Map()) {
+  for (const p of items || []) {
+    if (!p?.incomeId) continue;
+    const key = String(p.incomeId);
+    const prev = into.get(key);
+    if (!prev || (statusOf(p) === 'issued' && statusOf(prev) !== 'issued')) into.set(key, p);
+  }
+  return into;
+}
+
+/** Один раз на вкладку «Позиции»: GET /passports по каждому договору → Map incomeId → паспорт. */
+export async function loadPassportsByIncome(orderIds) {
+  const ids = [...new Set((orderIds || []).filter(Boolean).map(String))];
+  const map = new Map();
+  if (!ids.length) return map;
+  const results = await Promise.all(ids.map((id) => api('/passports', { query: { salesOrderId: id, limit: 200 } }).catch(() => ({ items: [] }))));
+  for (const r of results) mergePassportsByIncome(r.items, map);
+  return map;
+}
+
+/** Подпись под названием в строке таблицы: выпущен / черновик / ничего. Клик по номеру — открыть паспорт (как в «Документы»). */
+export function passportUnderTitle(p) {
+  if (!p) return null;
+  const n = numberOf(p);
+  if (n) {
+    return h('div', { class: 'small' }, h('a', {
+      href: '#', title: 'Открыть паспорт',
+      onclick: (e) => { e.preventDefault(); e.stopPropagation(); go('docs', { tab: 'orders', of: 'passports', open: p.id }, { kind: 'card' }); },
+    }, `Паспорт № ${n}`));
+  }
+  return h('div', { class: 'muted small' }, 'Паспорт — черновик');
+}
+
+/** Показать паспорт в карточке «Документы» (кнопки открыть / PDF / изменить). */
+function showPassportDoc(body, p, reloadCard) {
+  if (!p) { body.replaceChildren(empty({ title: 'Паспорта ещё нет', hint: 'Выпускается в «Документы → Паспорта заказа».' })); return; }
+  const issued = statusOf(p) === 'issued';
+  body.replaceChildren(stack(actions(
+    button({ label: numberOf(p) ? `Паспорт № ${numberOf(p)}` : 'Паспорт — черновик', size: 'S', kind: 'ghost', onClick: () => go('docs', { tab: 'orders', of: 'passports', open: p.id }, { kind: 'card' }) }),
+    badge(issued ? 'выпущен' : 'черновик', issued ? 'ok' : 'warn')),
+  actions(
+    !canWorkPassport() ? null : button({ label: 'Изменить паспорт', size: 'S', title: 'Большое окно: паспорт как в PDF, любое поле правится на месте', onClick: () => openBookEditor(p, { onClose: () => reloadCard() }) }),
+    issued ? button({ label: 'Скачать PDF', size: 'S', kind: 'ghost', onClick: (e) => { const b = e.currentTarget; b.classList.add('is-busy'); printDialog(p).catch(toastError).finally(() => b.classList.remove('is-busy')); } }) : null)));
+}
+
+/** «Документы»: паспорт позиции. byIncome — общая карта вкладки (без повторного GET); после правки — skipCache. */
+function documentsCard(l, d, byIncome) {
   const body = h('div');
-  const load = async () => {
-    body.replaceChildren(busyBlock('документы', { retry: load }));
+  const load = async ({ skipCache } = {}) => {
+    const again = () => load({ skipCache: true });
+    body.replaceChildren(busyBlock('документы', { retry: again }));
     try {
+      if (byIncome && !skipCache) { showPassportDoc(body, byIncome.get(String(l.id)), again); return; }
       if (!(l.orderId || d.orderId)) { body.replaceChildren(empty({ title: 'Паспорта ещё нет', hint: 'Позиция не привязана к заказу.' })); return; }
       const r = await api('/passports', { query: { salesOrderId: l.orderId || d.orderId, limit: 200 } });
-      const p = (r.items || []).find((x) => String(x.incomeId) === String(l.id));
-      if (!p) { body.replaceChildren(empty({ title: 'Паспорта ещё нет', hint: 'Выпускается в «Документы → Паспорта заказа».' })); return; }
-      const issued = statusOf(p) === 'issued';
-      body.replaceChildren(stack(actions(
-        button({ label: numberOf(p) ? `Паспорт № ${numberOf(p)}` : 'Паспорт — черновик', size: 'S', kind: 'ghost', onClick: () => go('docs', { tab: 'orders', of: 'passports', open: p.id }, { kind: 'card' }) }),
-        badge(issued ? 'выпущен' : 'черновик', issued ? 'ok' : 'warn')),
-      actions(
-        // правка паспорта ЭТОГО заказа (фирма, заказчик, данные позиции) — сразу редактор, не шаблон изделия (владелец 15.11)
-        !canWorkPassport() ? null : button({ label: 'Изменить паспорт', size: 'S', title: 'Большое окно: паспорт как в PDF, любое поле правится на месте', onClick: () => openBookEditor(p, { onClose: () => load() }) }),
-        issued ? button({ label: 'Скачать PDF', size: 'S', kind: 'ghost', onClick: (e) => { const b = e.currentTarget; b.classList.add('is-busy'); printDialog(p).catch(toastError).finally(() => b.classList.remove('is-busy')); } }) : null)));
-    } catch (e) { body.replaceChildren(failBlock(e, load, { text: 'Документы не загрузились' })); }
+      const p = mergePassportsByIncome(r.items).get(String(l.id));
+      showPassportDoc(body, p, again);
+    } catch (e) { body.replaceChildren(failBlock(e, again, { text: 'Документы не загрузились' })); }
   };
   load();
   return card({ size: 'M', title: 'Документы', variant: 'fields', body });
@@ -74,8 +114,8 @@ function executionCard(l, d, rows, acts) {
   return card({ size: 'M', title: 'Выполнение', variant: 'fields', body: stack(design, rows.length ? readonlyGroup({ rows }) : null), actions: acts.filter(Boolean) });
 }
 
-/** lineMore(l, o — договор, d — заказ, { reload, editable, closed }) → сетка карточек. */
-export function lineMore(l, o, d, { reload, editable }) {
+/** lineMore(l, o — договор, d — заказ, { reload, editable, closed, byIncome }) → сетка карточек. byIncome — Map паспортов вкладки. */
+export function lineMore(l, o, d, { reload, editable, byIncome }) {
   const qtyN = Number(l.qty) || 0, shipped = Number(l.shipped) || 0;
   const ownDate = l.shipDate && d.deadline && String(l.shipDate).slice(0, 10) !== String(d.deadline).slice(0, 10);
   const done = (r) => { if (r) reload(); };
@@ -91,7 +131,7 @@ export function lineMore(l, o, d, { reload, editable }) {
       editable && shipped < qtyN && !l.shipDate && button({ label: 'Отгрузить сегодня', size: 'S', onClick: () => markToday(l, 'shipDate').then(done).catch(fail) }),
     ]),
     lineFilesCard(l),
-    documentsCard(l, d),
+    documentsCard(l, d, byIncome),
   ].filter(Boolean);
   return tileGrid(...cards);
 }

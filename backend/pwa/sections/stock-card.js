@@ -10,6 +10,7 @@ import { section, stack, button as kitButton, badge, row, hint } from '../ui/kit
 import { metalView, offcutDialog } from './metal.js';
 import { orderedBlock, orderItem } from './item-orders.js';
 import { passportSpecView } from './stock-passport.js';
+import { supplierPassportBlock } from './stock-supplier-passport.js';
 import { qrPrintAction } from './qr.js';
 import { openStockOp } from './stock-ops.js';
 
@@ -86,7 +87,7 @@ export const stockCard = {
         qrPrintAction('S'),
       ]; },
       // C119 шаг 3: без вкладок — последние движения сразу под шапкой, «Заказано» и «Для паспорта» — блоками ниже
-      body: (r) => stack(recentMoves(r), orderedBlock(r), passportSpecView(r)),
+      body: (r) => stack(recentMoves(r), orderedBlock(r), supplierPassportBlock(r), passportSpecView(r)),
     }),
     editable: () => false, // «Изменить» — в «⋯»: внизу панели главная — в «Что дальше»
     gallery: (r) => r.photos || [],

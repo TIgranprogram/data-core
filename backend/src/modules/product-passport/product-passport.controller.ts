@@ -266,12 +266,16 @@ export class ProductPassportController {
     return this.service.saveTexts(body, user?.id);
   }
 
-  /** Пакет PDF по фильтру списка (до 200): ?stamp=1 — с печатью и подписью; ?mode=print — 2 стр. на A4. */
+  /**
+   * Пакет PDF по фильтру списка (до 200): ?stamp=1 — с печатью и подписью; ?mode=print — 2 стр. на A4.
+   * C136: с `?salesOrderId=` в архив входят паспорта поставщика покупных изделий заказа (`Поставщик_<материал>.<ext>`);
+   * без файла — список в заголовке `X-Missing-Supplier-Passports` (encodeURIComponent(JSON [{materialId,name}])) и в архиве `_Нет_паспортов_поставщика.txt`.
+   */
   @Get('passports/zip')
   @Roles(...EDIT)
   async zip(@Query() q: Record<string, string>, @Res({ passthrough: true }) res: Response) {
-    const buf = await this.pdfs.zip(q, { stamp: q.stamp === '1', mode: q.mode === 'print' ? 'print' : 'pages' });
-    res.set({ 'Content-Type': 'application/zip', 'Content-Disposition': attachment(`Паспорта_${new Date().toISOString().slice(0, 10)}.zip`) });
+    const { buf, missing } = await this.pdfs.zip(q, { stamp: q.stamp === '1', mode: q.mode === 'print' ? 'print' : 'pages' });
+    res.set({ 'Content-Type': 'application/zip', 'Content-Disposition': attachment(`Паспорта_${new Date().toISOString().slice(0, 10)}.zip`), ...(missing.length ? { 'X-Missing-Supplier-Passports': encodeURIComponent(JSON.stringify(missing)), 'Access-Control-Expose-Headers': 'X-Missing-Supplier-Passports' } : {}) });
     return new StreamableFile(buf);
   }
 

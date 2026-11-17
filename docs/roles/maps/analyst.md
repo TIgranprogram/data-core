@@ -1,5 +1,8 @@
 # Карта роли analyst
 
+## Паспорта без противоречий (C137, 2026-11-16)
+- `docs/crew/C137-passport-consistency/MAP.md`, `GAP.md`. Шаблон на проде — `passporttemplates` (ALL_V2), не json; чек-лист «Где» = материал (`passport-compose-parts.ts:173`); проверки текста перед выпуском нет (`passport-issue.ts:41` — только полнота). Вопросы В1–В5 в GAP. коммит: не закоммичено
+
 ## Варианты паспорта 3601 (C133, 2026-11-16)
 - Анализ: `docs/crew/C133-passport-options/ANALYSIS.md`. `blg.seats/rail/material` — `dict_values` (`productFacets`/`productFacetValues`), селект без добавления: `passports/fill/control.js:244`. Точное количество мест не равно диапазонному фасету и `maxUsers`.
 - Материалы: `tech-sheet.js:126` → `products.materialsSpec` → `passport-from-product.ts:38` → `passport-compose-parts.ts:79`; фасет материала отдельный. Возврат из справочника: `fill/control.js:110` (`addElement`). Живые значения 3601 не проверены. коммит: не закоммичен (C133, анализ).

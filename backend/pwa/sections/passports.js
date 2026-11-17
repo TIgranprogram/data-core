@@ -29,7 +29,7 @@ import { passportWizard } from './passports/passport-wizard.js';
 /** Параметры фильтров списка из адреса — для «PDF пакетом». */
 function listQuery() {
   const p = current().params || {};
-  const q = { search: p.q, year: p.year, month: p.month, category: p.category, supplierOrgId: p.supplierOrgId, customer: p.customer };
+  const q = { search: p.q, year: p.year, month: p.month, category: p.category, supplierOrgId: p.supplierOrgId, customer: p.customer, salesOrderId: p.salesOrderId };
   if (p.state === 'incomplete') q.incomplete = 1;
   if (p.state === 'noImages') q.noImages = 1;
   return q;
@@ -107,7 +107,7 @@ export const passports = {
     // П2: «⇩ PDF пакетом» — в «Ещё ▾»
     moreActions: () => [{ label: '⇩ PDF пакетом', title: 'Все паспорта по текущим фильтрам — PDF в одном архиве (до 200)', onSelect: async () => {
       const done = toast('Собираю архив — это может занять несколько минут…', { ms: 600000 });
-      try { const name = await apiFile('/passports/zip', { query: { ...listQuery(), stamp: 1 }, timeout: 600000, fallback: 'Паспорта.zip' }); toast(`Скачан: ${name}`); } catch (er) { toastError(er, 'собрать архив паспортов'); } finally { done(); }
+      try { const name = await apiFile('/passports/zip', { query: { ...listQuery(), stamp: 1 }, timeout: 600000, fallback: 'Паспорта.zip', onMissing: (l) => toast('Нет паспорта поставщика: ' + l.map((m) => m.name).join(', '), { tone: 'warn', sub: 'Загрузите файл в карточке позиции склада — он попадёт в архив.', ms: 15000 }) }); toast(`Скачан: ${name}`); } catch (er) { toastError(er, 'собрать архив паспортов'); } finally { done(); }
     } }],
     columns: [
       { key: 'pic', label: '', cls: 'pic-cell', render: (r) => (r.thumb ? h('img', { class: 'pic so-pic', src: PREFIX + r.thumb, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }) : null) },

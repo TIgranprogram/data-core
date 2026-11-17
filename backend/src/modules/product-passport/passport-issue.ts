@@ -4,6 +4,7 @@ import type { ProductPassportDocument } from './product-passport.schema';
 import { dayUtc } from './passport-rules';
 import { takeOverNumbers } from './passport-reuse';
 import { assertOneLive } from './passport-bind';
+import { lintMode, type LintFinding } from './passport-lint';
 import { escapeRe, isDraftNumber, isIssued, type Doc } from './passport-consts';
 
 /** Что выпуску нужно от сервиса паспортов. */
@@ -12,6 +13,8 @@ export interface IssueHost {
   connection: Connection;
   findById: (id: string) => Promise<ProductPassportDocument>;
   readiness: (doc: Doc) => Promise<Array<{ label: string; key: string }>>;
+  /** C137: противоречия в тексте (только чтение). */
+  lint: (doc: Doc) => Promise<LintFinding[]>;
   /** Рисунки изделия -> images[] паспорта (заморозка при выпуске). */
   freezeImages: (id: string) => Promise<void>;
   /** C096 Э1: текст черновика по текущим полям с переносом ручных пунктов; конфликт ручной правки — 409 до номера. */
@@ -40,6 +43,7 @@ export class PassportIssue {
     if (current.status !== 'draft') throw new ConflictException('Состояние паспорта изменилось — обновите карточку');
     const missing = await this.h.readiness(current);
     if (missing.length) throw new BadRequestException({ message: `Не хватает для выпуска: ${missing.map((m) => m.label).join(', ')}`, missing });
+    await this.assertLint(current);
     // текст по справочникам на момент выпуска (ручные пункты сохраняются); конфликт — до заморозки рисунков и номера
     await this.h.freezeImages(id);
     const _id = new Types.ObjectId(id);
@@ -58,6 +62,13 @@ export class PassportIssue {
       });
     } finally { await session.endSession(); }
     return this.h.findById(id);
+  }
+
+  /** C137: режим `warn` (по умолчанию) выпуск не блокирует — список замечаний отдаёт карточка; `error` — ошибки текста не дают выпустить. */
+  private async assertLint(doc: Doc) {
+    if (lintMode() !== 'error') return;
+    const bad = (await this.h.lint(doc)).filter((f) => f.severity === 'error');
+    if (bad.length) throw new BadRequestException({ message: `В тексте паспорта есть противоречия: ${bad.slice(0, 3).map((f) => f.text).join('; ')}${bad.length > 3 ? ` (и ещё ${bad.length - 3})` : ''}`, lint: bad });
   }
 
   /** НМ: аннулирование выпущенного — причина обязательна; номер остаётся занятым, повторно не выдаётся. */
