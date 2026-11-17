@@ -25,7 +25,7 @@ function compositionCard(l) {
     try {
       const p = await api(`/showcase/${l.productId}`);
       const lines = p.composition || [];
-      if (!lines.length) { body.replaceChildren(empty({ title: 'Состав не заполнен', hint: 'Модули и детали добавляют в карточке изделия.' })); return; }
+      if (!lines.length) { body.replaceChildren(empty({ title: 'Состав не заполнен', hint: 'Откройте изделие → «Изменить состав», чтобы добавить модули и детали.' })); return; }
       const rows = lines.slice(0, 6).map((x) => [x.name || 'Без названия', `${qty(x.quantity)} ${x.unit || 'шт'}`]);
       body.replaceChildren(readonlyGroup({ rows }), lines.length > 6 ? h('p', { class: 'muted small' }, `и ещё ${lines.length - 6}`) : null);
     } catch (e) { body.replaceChildren(failBlock(e, load, { text: 'Состав не загрузился' })); }

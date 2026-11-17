@@ -70,6 +70,8 @@ const LAZY = {
   dicts: [() => import('./sections/dicts.js'), [['dict','dict'],['@mountDicts','mountDicts']]],
   history: [() => import('./sections/history.js'), [['history','history']]],
   products: [() => import('./sections/products.js'), [['products','products']]],
+  modules: [() => import('./sections/modules.js'), [['modules','modules'], ['modulecomp','moduleComp']]],
+  parts: [() => import('./sections/parts.js'), [['parts','parts'], ['partblank','partBlank']]],
   passports: [() => import('./sections/passports.js'), [['passports','passports']]],
   docs: [() => import('./sections/docs.js'), [['doctpl','doctpl'],['passarchive','passarchive'],['orderpass','orderpass'],['@mountDocs','mountDocs']]],
   kp: [() => import('./sections/kp.js'), [['kp','kp'],['catalogimport','catalogImport'],['fromorders','fromOrders'],['frompassports','fromPassports']]],
@@ -101,7 +103,7 @@ const LAZY = {
   'stock-mobile': [() => import('./sections/stock-mobile.js'), [['stock-mobile','stockMobile']]],
 };
 // имя раздела (адрес / ?of=) -> ключ загрузчика, если они различаются
-const LOADER_OF = { salesorder: 'salesorders', orderedit: 'salesorders', worklaunch: 'work', workplan: 'work', wsstep: 'workschedule', pasteorder: 'invoice', dict: 'dicts', dicts: 'dicts', doctpl: 'docs', passarchive: 'docs', orderpass: 'docs', catalogimport: 'kp', fromorders: 'kp', frompassports: 'kp', ptextview: 'ptext', staffcard: 'staff', zonecard: 'staff', contracts: 'contract', expense: 'expenses', incpay: 'orders', incprice: 'orders', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog' };
+const LOADER_OF = { salesorder: 'salesorders', orderedit: 'salesorders', worklaunch: 'work', workplan: 'work', wsstep: 'workschedule', pasteorder: 'invoice', dict: 'dicts', dicts: 'dicts', doctpl: 'docs', passarchive: 'docs', orderpass: 'docs', catalogimport: 'kp', fromorders: 'kp', frompassports: 'kp', ptextview: 'ptext', staffcard: 'staff', zonecard: 'staff', contracts: 'contract', expense: 'expenses', incpay: 'orders', incprice: 'orders', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog', modulecomp: 'modules', partblank: 'parts' };
 const loading = {};
 let warmed = false;
 /** Прогрев (скорость): после входа, в простое, подтянуть частые разделы — первое открытие без ожидания. Один раз, ошибки молча. */
@@ -130,18 +132,18 @@ function needed(section, params) {
   if (section === 'money' && params?.tab === 'debts') keys.add('orders'); // «Долги» — список из orders.js
   return [...keys].filter((k) => LAZY[k][1].some(([n]) => (n[0] === '@' ? !FN[n.slice(1)] : !SECTIONS[n])));
 }
-const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог номенклатуры', 'partners'], ['contracts', 'Договоры поставщиков', 'orders'], ['salesorders', 'Заказы', 'orders'], ['matching', 'Сопоставление', 'orders'], ['design', 'Проектирование', 'board'], ['work', 'В работе', 'ops'], ['workschedule', 'Гант', 'ops'], ['products', 'Продукция', 'stock'], ['offers', 'КП', 'orders'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['money', 'Доходы и расходы', 'money'], ['expenses', 'Прочие расходы', 'money'], ['payroll', 'ФОТ', 'partners'], ['staff', 'Сотрудники', 'partners'], ['stock-mobile', 'Склад · мобильный', 'stock']];
+const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог номенклатуры', 'partners'], ['contracts', 'Договоры поставщиков', 'orders'], ['salesorders', 'Заказы', 'orders'], ['matching', 'Сопоставление', 'orders'], ['design', 'Проектирование', 'board'], ['work', 'В работе', 'ops'], ['workschedule', 'Гант', 'ops'], ['products', 'Продукция', 'stock'], ['modules', 'Модули', 'gallery'], ['parts', 'Детали', 'table'], ['offers', 'КП', 'orders'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['money', 'Доходы и расходы', 'money'], ['expenses', 'Прочие расходы', 'money'], ['payroll', 'ФОТ', 'partners'], ['staff', 'Сотрудники', 'partners'], ['stock-mobile', 'Склад · мобильный', 'stock']];
 /** Стартовый экран: роль «Ассистент кладовщика» — сразу своя страница. */
 const defaultSection = () => (session.onlyStockMobile ? 'stock-mobile' : isStockRole() ? 'stock' : 'home'); // «Труборез», «Лазер лист» — сразу своя таблица (2026-11-06)
 // SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
 const OWNER = { passfunnel: 'docs', salesorder: 'salesorders', orderedit: 'salesorders', worklaunch: 'salesorders', workplan: 'salesorders', wsstep: 'workschedule', designorder: 'design', prodreq: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', stockissue: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', orderbulk: 'requests', techsheet: 'products', invoicecard: 'requests', invoice: 'requests', contract: 'partners', staffcard: 'staff', zonecard: 'staff', incpay: 'money', incprice: 'money', expense: 'money', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog',
-  kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', offerpack: 'offers', offerfunnel: 'offers', ptext: 'products', ptextview: 'products', ptnode: 'products', passports: 'products', passarchive: 'products', orderpass: 'products', doctpl: 'products' };
+  kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', modulecomp: 'modules', partblank: 'parts', offerpack: 'offers', offerfunnel: 'offers', ptext: 'products', ptextview: 'products', ptnode: 'products', passports: 'products', passarchive: 'products', orderpass: 'products', doctpl: 'products' };
 // ЦВ-1: раздел данных → цвет (--sec-*)
-const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', contracts: 'supply', stock: 'stock', movements: 'stock', salesorders: 'orders', matching: 'orders', design: 'orders', work: 'orders', workschedule: 'orders', docs: 'products', products: 'products', offers: 'products', orders: 'money', money: 'money', expenses: 'money' };
+const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', contracts: 'supply', stock: 'stock', movements: 'stock', salesorders: 'orders', matching: 'orders', design: 'orders', work: 'orders', workschedule: 'orders', docs: 'products', products: 'products', modules: 'products', parts: 'products', offers: 'products', orders: 'money', money: 'money', expenses: 'money' };
 // Группа меню по разделу — для хлебных крошек (те же группы, что в боковом меню)
 /** Куда ведёт группа в крошках: первый раздел по цепочке. */
 const GROUP_FIRST = { 'Производство': 'salesorders', 'Продукция': 'products', 'Склад': 'stock', 'Снабжение': 'requests', 'Деньги': 'money', 'Управление': 'staff' };
-const GROUP_OF = { salesorders: 'Производство', matching: 'Производство', design: 'Производство', work: 'Производство', workschedule: 'Производство', products: 'Продукция', offers: 'Продукция', docs: 'Продукция', stock: 'Склад', 'stock-mobile': 'Склад', requests: 'Снабжение', suppliercatalog: 'Снабжение', contracts: 'Снабжение', orders: 'Деньги', money: 'Деньги', expenses: 'Деньги', payroll: 'Деньги', staff: 'Управление' };
+const GROUP_OF = { salesorders: 'Производство', matching: 'Производство', design: 'Производство', work: 'Производство', workschedule: 'Производство', products: 'Продукция', modules: 'Продукция', parts: 'Продукция', offers: 'Продукция', docs: 'Продукция', stock: 'Склад', 'stock-mobile': 'Склад', requests: 'Снабжение', suppliercatalog: 'Снабжение', contracts: 'Снабжение', orders: 'Деньги', money: 'Деньги', expenses: 'Деньги', payroll: 'Деньги', staff: 'Управление' };
 const NAV_IDS = new Set(NAV.map(([id]) => id));
 /** Открыт ли экран по адресу для этой роли (не пункт меню и не принадлежит ему — открыт). */
 const allowed = (section) => { const id = OWNER[section] || section; return !NAV_IDS.has(id) || session.sees(id); };
@@ -249,7 +251,7 @@ function shell() {
     // порядок разделов — пользователь 2026-10-28: Производство, Продукция, Склад, Снабжение, Деньги
     // «Сопоставление» не в меню (C016/C017): вход из Заказов и бейджа «не сопоставлено»; #matching и права в NAV оставляем
     group('Производство', navLinks.salesorders, navLinks.design, navLinks.work), // Гант — один: «В работе → Гант» (C053); #workschedule — для старых ссылок
-    group('Продукция', navLinks.products, navLinks.offers, session.canEdit ? navLinks.docs : null),
+    group('Продукция', navLinks.products, navLinks.modules, navLinks.parts, navLinks.offers, session.canEdit ? navLinks.docs : null),
     group('Склад', navLinks.stock, navLinks['stock-mobile'], ...(navLinks.stock && (session.role === 'admin' || session.user?.isOwner) ? [link('stock?view=pipe', 'Экран «Труборез»', 'stock'), link('stock?view=sheet', 'Экран «Лазер лист»', 'stock')] : [])), // «Склад · мобильный» — кладовщику с телефона: выдать, принять
     group('Снабжение', navLinks.requests, navLinks.suppliercatalog, navLinks.contracts),
     session.canMoney ? group('Деньги', navLinks.money, navLinks.expenses, FEATURES.payroll && session.canMoney && session.canPayroll ? navLinks.payroll : null) : null,
@@ -711,7 +713,7 @@ function onDataChanged(e) {
 /** Человек вводит данные или тащит карточку — обновление подождёт (СМ.9). */
 const isBusy = () => isDragging() || !!document.querySelector('.modal-back') || !!card?.handle?.isDirty?.() || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
 /** Какие разделы данных показывает экран. */
-const SHOWS = { requests: ['requests', 'stock'], stock: ['stock'], movements: ['stock'], salesorders: ['salesorders', 'money'], orders: ['money'], money: ['money', 'requests'], design: ['design', 'salesorders'], work: ['work', 'salesorders'], products: ['products'], docs: ['passports', 'products'], offers: ['products'] };
+const SHOWS = { requests: ['requests', 'stock'], stock: ['stock'], movements: ['stock'], salesorders: ['salesorders', 'money'], orders: ['money'], money: ['money', 'requests'], design: ['design', 'salesorders'], work: ['work', 'salesorders'], products: ['products'], modules: ['products'], parts: ['stock'], docs: ['passports', 'products'], offers: ['products'] };
 /** Изменились данные у других: экран — если он их показывает, числа в меню — всегда. */
 function onVersions(keys) {
   quietLoadFor(); // чужая правка обновляет экран фоном, без полоски загрузки

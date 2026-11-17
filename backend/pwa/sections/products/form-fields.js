@@ -260,3 +260,5 @@ export async function productBulkFields() {
     { key: 'pd.isKit', label: 'Паспорт по умолчанию: поставляется разобранным', type: 'select', options: [{ value: 'no', label: 'Нет' }, { value: 'yes', label: 'Да — нужна схема сборки' }], map: (v) => v === 'yes' },
   ];
 }
+
+export { loadMaterialDicts, materialsSpec, specSummary };

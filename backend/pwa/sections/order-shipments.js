@@ -22,9 +22,10 @@ export function shipmentsBlock(order, onChange, { bare = false } = {}) {
   const body = h('div', null, h('div', { class: 'muted' }, 'Загрузка…'));
   const load = () => api(`/salesorders/${order.id}/shipments`).then((d) => {
     const items = d.items || [];
-    const open = ['closed', 'cancelled'].includes(order.stage) ? false : canShip();
+    // C136: этап «Отгружен» без записей (до учёта) — кнопку не показывать, иначе POST даёт 400
+    const open = canShip() && !d.legacyShipped && !['closed', 'cancelled', 'shipped'].includes(order.stage);
     body.replaceChildren(
-      d.legacyShipped ? h('p', { class: 'hint' }, 'Отгружено до учёта — остаток по позициям не считается.') : null,
+      d.legacyShipped ? h('p', { class: 'hint' }, 'Отгружено до учёта отгрузок — новая отгрузка недоступна. Чтобы оформить снова, смените этап вручную (⋯ → Вернуть на прежний этап).') : null,
       items.length ? h('ul', { class: 'timeline' }, ...items.map((s) => h('li', null,
         h('span', { class: 'when' }, date(s.date)), h('b', null, s.number || ''),
         h('span', { class: 'shp-pics' }, ...(s.lines || []).slice(0, 3).map((l) => posPic(l.photo, 'sm'))),
@@ -70,6 +71,14 @@ export function historyBlock(order) {
 function form(order, ctx) {
   const root = h('div', null, h('div', { class: 'muted' }, 'Загрузка…'));
   api(`/salesorders/${order.id}/shipments`).then((d) => {
+    // C136: прямая ссылка of=shipdo на уже «Отгружен» до учёта — объяснение вместо формы и 400
+    if (d.legacyShipped || (d.stage === 'shipped' && !(d.items || []).length)) {
+      root.replaceChildren(emptyState({
+        title: 'Отгрузка уже отмечена',
+        hint: 'Заказ отмечен «Отгружен» до учёта отгрузок. Чтобы оформить новую — смените этап вручную (⋯ → Вернуть на прежний этап).',
+      }));
+      return;
+    }
     const rem = new Map((d.remaining || []).map((x) => [String(x.incomeId), x]));
     const lines = (order.lines || []).filter((l) => (rem.get(String(l.id))?.left ?? l.left ?? 0) > 0);
     const ok = (l) => rem.get(String(l.id))?.canShip !== false; // старый сервер без canShip — можно всё

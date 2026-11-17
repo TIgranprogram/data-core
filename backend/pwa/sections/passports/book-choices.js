@@ -1,21 +1,22 @@
 /**
- * C134: слева в окне паспорта — тип и варианты текстов (воронка).
- * Быстрая смена, если при сборке выбрано не то; страницы паспорта обновляются после сохранения.
+ * C141 / C134: слева в окне паспорта — выбор для текстов (воронка).
+ * Тип паспорта и путь изделия — только показ (владелец 17.11: паспорт не меняет группу изделия).
+ * Варианты текстов (назначение, монтаж…) — сверху вниз через funnelBox.
  */
 import { api } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { toastError } from '../../ui/kit/toast.js';
-import { confirmDlg } from '../../ui/kit/dialog.js';
-import { select } from '../../ui/kit/index.js';
-import { passportCategoryOptions, V2_CATS } from './common.js';
+import { V2_CATS } from './common.js';
+
+const catLabel = (code) => V2_CATS.find((c) => c.value === code)?.label || code || 'не задан';
 
 /** host — контейнер под списком страниц; ctx — { S, can, pid, lock, patchPassport, onChanged }. */
 export function mountBookChoices(host, ctx) {
   let funnel = null;
   let funnelBox = null;
-  let catOpts = null;
   let saving = false;
   let timer = 0;
+  let productPath = '';
 
   const reload = async () => {
     try { ctx.S.r = await api('/passports/' + ctx.pid()); } catch (e) { toastError(e); return false; }
@@ -41,34 +42,21 @@ export function mountBookChoices(host, ctx) {
     finally { saving = false; }
   };
 
+  async function loadProductPath() {
+    const id = ctx.S.r.productId;
+    if (!id) { productPath = ''; return; }
+    try {
+      const p = await api(`/showcase/${id}`);
+      productPath = [p.type, p.group, p.subgroup, p.series].filter(Boolean).join(' › ') || (p.name || '');
+    } catch { productPath = ''; }
+  }
+
   async function paint() {
-    if (!ctx.can) { host.replaceChildren(); return; }
+    if (!ctx.can) { host.replaceChildren(); host.hidden = true; return; }
+    host.hidden = false;
     const r = ctx.S.r;
     if (!funnelBox) ({ funnelBox } = await import('../../ui/funnel.js'));
-    if (!catOpts) {
-      try { catOpts = await passportCategoryOptions(); }
-      catch { catOpts = V2_CATS.filter((c) => c.value).map((c) => ({ value: c.value, label: c.label })); }
-    }
-    const catSel = select({
-      label: 'Тип паспорта',
-      value: r.passportCategory || '',
-      options: [['', 'Не выбран'], ...catOpts.map((c) => [c.value, c.label])],
-      onChange: async (v) => {
-        if ((v || '') === (r.passportCategory || '')) return;
-        if (!(await confirmDlg('Сменить тип паспорта?', 'Тексты пересоберутся по новому типу. Варианты шагов нужно будет выбрать заново.', { okText: 'Сменить тип' }))) {
-          paint();
-          return;
-        }
-        saving = true;
-        try {
-          await ctx.lock(() => ctx.patchPassport({ passportCategory: v || null, textChoices: {} }));
-          if (!(await reload())) return;
-          funnel = null;
-          paint();
-        } catch (e) { toastError(e); paint(); }
-        finally { saving = false; }
-      },
-    });
+    await loadProductPath();
 
     funnel = funnelBox({
       value: JSON.stringify(r.textChoices || {}),
@@ -81,11 +69,15 @@ export function mountBookChoices(host, ctx) {
       timer = setTimeout(saveChoices, 450);
     });
 
+    const typeName = catLabel(r.passportCategory);
     host.replaceChildren(
-      h('h3', { class: 'bk-toc-h' }, 'Выбор для текстов'),
-      h('p', { class: 'hint bk-toc-hint' }, 'Тип и варианты — от них собирается паспорт. Если выбрано не то — поменяйте здесь.'),
-      catSel,
-      funnel.el,
+      h('header', { class: 'bk-panel-h' }, h('h3', { class: 'bk-toc-h' }, 'Выбор для текстов')),
+      h('p', { class: 'hint bk-toc-hint' }, 'Сверху вниз: от общего к частному. Меняет тексты на листе.'),
+      h('div', { class: 'bk-path' },
+        h('div', { class: 'bk-path-row' }, h('span', { class: 'bk-path-k' }, 'Тип паспорта'), h('b', null, typeName)),
+        productPath ? h('div', { class: 'bk-path-row' }, h('span', { class: 'bk-path-k' }, 'Изделие в каталоге'), h('span', { class: 'bk-path-v' }, productPath)) : null,
+      ),
+      h('div', { class: 'bk-funnel-wrap' }, funnel.el),
     );
   }
 

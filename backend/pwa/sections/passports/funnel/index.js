@@ -1,21 +1,19 @@
 import { h } from '../../../core/dom.js';
-import { actions, button, confirmDlg, hint, link, section, stack, toast, toastError } from '../../../ui/kit/index.js';
+import { button, confirmDlg, hint, link, stack, toast, toastError } from '../../../ui/kit/index.js';
+import { patch } from '../../../core/router.js';
 import { canWorkPassport } from '../common.js';
-import { passportFill } from '../fill/index.js';
-import { getProduct, orderPlan } from './api.js';
-import { passportVariant, printDialog } from '../dialogs.js';
-import { issueBlock, openPositions, orderStep } from './issue.js';
-import { barText } from './bar.js';
+import { getProduct } from './api.js';
+import { openPositions, orderStep } from './issue.js';
 import { newProduct } from './new-product.js';
 import { peekProduct, peekReady, takePending } from './open.js';
 import { pickSteps } from './pick-steps.js';
 import { productList } from './product-list.js';
 import { readyPanel } from './ready.js';
+import { openBookForProduct } from '../open-book.js';
 
 /**
- * Воронка «Новый паспорт» (C028, docs/crew/C028-passport-funnel/ANALYSIS.md §4): одна правая панель, сверху вниз
- * Категория → Группа → признаки → Изделие → Заполнение (fill, режим issue) → Выпуск. Ответы пишутся в изделие и не спрашиваются дважды.
- * Шаги и «Дальше: …» — эталон kit.funnel (П-1); пройденное — строка «Категория: … ✎».
+ * Воронка «Новый паспорт» (C141): шаги до изделия (категория → … → изделие / заказ),
+ * дальше эталон — книжка (заполнение и выпуск). Старая анкета passportFill здесь больше не монтируется.
  */
 const FACET_FREE = (P) => Object.entries(P).filter(([k, v]) => v && k !== 'category' && k !== 'group').flatMap(([, v]) => String(v).split(',')).filter((id) => id && id !== 'none');
 
@@ -33,36 +31,18 @@ function build() {
   // ПР-2 / владелец: с карточки изделия — сразу без заказа и без договора; заказ только если явно зашли из заказа
   const fromProductOnly = !!(entry?.productId && !entry?.salesOrderId && !entry?.incomeId);
   // без quiet — в шапке видно «Заказ: без заказа ✎», можно привязать позже
-  const S = { P: {}, q: '', prod: null, order: lockedOrder ? entry : (fromProductOnly ? { noOrder: true } : null), focus: entry?.gap || null }; // focus — пробел из «Заполнения изделия» (C114 H-UI): встать на это поле после загрузки анкеты
+  const S = { P: {}, q: '', prod: null, order: lockedOrder ? entry : (fromProductOnly ? { noOrder: true } : null) };
   let stageSeq = 0;
-  let activeFill = null; let creation = null;
+  let creation = null;
   let parked = null; // C096 Э4: изделие создано, заполнение не закончено — та же форма и та же запись при следующем «+ Новое изделие»
   const recap = stack();
   const stages = stack();
   const newBox = h('div', null);
-  // Ф1 (C112): закреплённая полоса панели (подвал карточки): «Осталось N: … →» и «Выпустить». Подвал kit.card, form.foot.
-  const barStatus = link({ label: '', onClick: () => bar.go?.() });
-  const barNote = h('span', { class: 'muted small' });
-  const barGo = button({ label: 'Выпустить', kind: 'ghost', disabled: true, onClick: (e) => bar.issue?.run(e.currentTarget) });
-  const bar = { required: [], issue: null, go: null, done: false };
-  const foot = [barStatus, barNote, barGo];
-  function paintBar() {
-    const on = !!bar.issue && !bar.done;
-    foot.forEach((n) => { n.hidden = !on; });
-    if (!on) return;
-    const st = bar.issue.status();
-    const t = barText(bar.required, st);
-    barStatus.hidden = !t.left; barStatus.textContent = t.left || '';
-    barNote.hidden = !!t.left; barNote.textContent = t.left ? '' : t.ok;
-    barGo.disabled = !t.ready; barGo.title = t.ready ? st.why : t.title;
-    barGo.classList.toggle('btn-primary', t.ready); barGo.classList.toggle('btn-ghost', !t.ready);
-  }
-  paintBar();
-  const say = (t) => ps.setNext(t); // «Дальше: …» — строка kit.funnel над шагами
-  // заголовок панели называет изделие (приёмка дизайнера D1); до выбора — «Новый паспорт»
-  const title = (t, again = true) => { const hd = ps.el.closest('.drawer, .k-panel')?.querySelector('h2'); if (hd) hd.textContent = t; else if (again) setTimeout(() => title(t, false), 0); }; // вход из карточки: панель ещё не вставлена
+  // C141: выпуск — в книжке; полоса воронки скрыта
+  const foot = [];
+  const say = (t) => ps.setNext(t);
+  const title = (t, again = true) => { const hd = ps.el.closest('.drawer, .k-panel')?.querySelector('h2'); if (hd) hd.textContent = t; else if (again) setTimeout(() => title(t, false), 0); };
 
-  // ── шаги 1–4 ──
   const ps = pickSteps({
     getQ: () => S.q,
     onData: (resp) => {
@@ -84,7 +64,6 @@ function build() {
     onNew: () => openNew(),
   });
 
-  /** Выбор воронки для нового изделия: группа — выбранная или единственная (шаг пропущен), категория и её группы. */
   function creationContext() {
     const cat = ps.effective('category');
     return { group: ps.effective('group')?.label || '', facetIds: FACET_FREE(S.P), category: cat ? { code: cat.id, label: cat.label } : null, knownGroups: ps.valuesOf('group') };
@@ -103,7 +82,6 @@ function build() {
     pickBox.hidden = true; newBox.hidden = false; ps.setDone(true); say('введите название нового изделия');
   }
 
-  /** C096 Э4: тип паспорта нового изделия — по его группе; шаги выше не должны показывать другую. */
   function followCategory(prod) {
     const pc = prod?.passportCategory;
     const code = String(pc?.own?.code || pc?.inherited?.code || pc?.code || prod?.passportDefaults?.passportCategory || '');
@@ -120,18 +98,16 @@ function build() {
     if (creation?.busy()) return false;
     const made = creation?.partial?.();
     if (made) {
-      // C096 Э4: запись уже есть — не говорим «не сохранено»; форма откладывается и продолжит эту же запись
       if (!(await confirmDlg('Изделие уже создано', `«${made.name || 'Новое изделие'}» уже создано, но не заполнено. «+ Новое изделие» продолжит его.`, { okText: 'Вернуться к списку' }))) return false;
       parked = creation;
     } else if (creation?.dirty() && !(await confirmDlg('Вернуться к выбору?', 'Данные нового изделия ещё не сохранены.', { okText: 'Вернуться' }))) return false;
-    try { await activeFill?.beforeClose?.(); return true; }
-    catch (e) { toastError(e, 'сохранить изделие перед переходом'); return false; }
+    return true;
   }
 
   async function showPick({ checked = false } = {}) {
     if (!checked && !(await leaveStage())) return;
     stageSeq += 1;
-    activeFill = null; creation = null; bar.issue = null; bar.done = false; bar.required = []; paintBar();
+    creation = null;
     S.prod = null; S.manual = false; if (!lockedOrder) S.order = null; stages.replaceChildren(); recap.replaceChildren(); title('Новый паспорт');
     newBox.hidden = true; pickBox.hidden = false; ps.setDone(false); say(null); ps.update(S.P);
   }
@@ -146,9 +122,7 @@ function build() {
     recap.replaceChildren(...bits);
   }
 
-  // ── шаги 5–7 ──
   async function choose(src, { fromCreation = false } = {}) {
-    // из формы нового изделия: созданное или выбранное похожее уже подтверждено там (частичный успех не прячется)
     if (!(fromCreation && creation?.partial?.()) && creation?.dirty() && !(await leaveStage())) return;
     if (fromCreation) parked = null;
     const selecting = ++stageSeq;
@@ -164,7 +138,6 @@ function build() {
   async function stagePanels(prod) {
     const my = ++stageSeq;
     paintRecap(prod);
-    // C077 / ПР-2: заказ необязателен. С изделия — уже «без заказа»; иначе спросим, но не подставляем молча единственную позицию
     if (!S.order) {
       say('выберите заказ или «Без заказа»');
       stages.replaceChildren(hint('Ищу открытые позиции с этим изделием…'));
@@ -182,93 +155,40 @@ function build() {
       }
       paintRecap(prod);
     }
-    const issueSec = section({ title: 'Выпуск', tone: 'gold', open: false, body: [] });
-    bar.done = false; bar.required = [];
-    const issue = issueBlock({
-      prod,
-      order: S.order,
-      goGaps: () => goFirstGap(),
-      onState: () => { paintBar(); sayNext(); },
-      onIssued: (passport) => afterIssue(prod, passport),
-    });
-    bar.issue = issue;
-    // «Осталось N: … →» ведёт к первому пробелу анкеты, а если пробелов нет — к выбору фирмы / позиции в разделе «Выпуск»
-    const goFirstGap = () => {
-      const first = bar.required[0];
-      if (first && activeFill?.focusGap) { activeFill.focusGap(first); return true; }
-      const gap = stages.querySelector('[data-gap]');
-      if (first && gap) { gap.scrollIntoView({ block: 'start' }); return true; }
-      return false;
+    say('открываю книжку паспорта');
+    stages.replaceChildren(hint('Открываю эталонное окно паспорта…'));
+    const o = S.order?.noOrder ? {} : {
+      salesOrderId: S.order?.salesOrderId,
+      incomeId: S.order?.incomeId,
+      orderNo: S.order?.orderNo,
+      customerName: S.order?.customerName,
     };
-    // фирма / позиция заказа — в разделе «Выпуск»: открыть и поставить фокус на первый список
-    const goIssue = () => {
-      issueSec.open = true; issueSec.scrollIntoView({ block: 'center' });
-      setTimeout(() => issueSec.querySelector('select, input, button')?.focus({ preventScroll: true }), 0);
-    };
-    bar.go = () => { if (!goFirstGap()) goIssue(); };
-    // «Дальше: …» — первое недостающее в анкете, затем фирма / позиция, затем выпуск
-    const sayNext = () => {
-      const first = bar.required[0];
-      if (first) { say(`укажите «${first.label}»`); return; }
-      const st = issue.status();
-      if (st.ready) say('выпустите PDF (тексты уже подставлены)');
-      else if (st.need?.[0]) say(`выберите ${st.need[0].label}`);
-    };
-    issueSec.querySelector('.k-sec-body').replaceChildren(issue.el);
-    const fill = await passportFill({
-      prod, mode: 'issue',
-      onStatus: ({ required }) => {
-        bar.required = required;
-        issue.paint(required);
-        sayNext();
-        if (!required[0]) issueSec.open = true;
-        paintBar();
-      },
+    const row = await openBookForProduct(prod.id, {
+      extra: o,
+      onClose: () => { window.dispatchEvent(new CustomEvent('data-changed')); },
     });
     if (my !== stageSeq) return;
-    activeFill = fill;
-    stages.replaceChildren(fill.el, issueSec);
-    paintBar();
-    if (S.focus) { const m = S.focus; S.focus = null; requestAnimationFrame(() => fill.focusGap?.(m)); }
+    if (row) {
+      patch({ of: undefined, new: undefined });
+      return;
+    }
+    stages.replaceChildren(hint('Не удалось открыть книжку. Закройте панель и попробуйте «Изменить паспорт» у изделия.', 'warn'));
   }
 
-  /** Ф4: после выпуска панель остаётся — «Печать…» и, если паспорт из заказа, «Следующая позиция». */
-  async function afterIssue(prod, passport) {
-    bar.done = true; paintBar(); activeFill = null;
-    const num = passport?.passportNumber ? ' № ' + passport.passportNumber : '';
-    say(null); ps.setDone(true);
-    const next = button({ label: 'Следующая позиция', kind: 'primary', onClick: () => nextPosition(next.dataset.pid, next) });
-    next.hidden = true;
-    const note = hint('');
-    stages.replaceChildren(stack(
-      hint('Выпущен паспорт' + num + '. Окно печати открыто — его можно открыть ещё раз.', 'ok'),
-      actions(button({ label: 'Печать…', kind: 'secondary', onClick: () => printDialog(passport) }), next),
-      note));
-    const orderId = S.order?.salesOrderId;
-    if (!orderId) return;
-    try {
-      const plan = await orderPlan(orderId, passportVariant.value);
-      const line = (plan?.lines || []).find((l) => l.state !== 'issued' && l.productId && String(l.incomeId) !== String(S.order?.incomeId || ''));
-      if (line) { next.dataset.pid = JSON.stringify({ productId: line.productId, incomeId: line.incomeId }); next.hidden = false; }
-      else note.textContent = 'Все позиции заказа выпущены.';
-    } catch { /* без плана кнопки «Следующая позиция» нет — «Печать…» остаётся */ }
-  }
-
-  async function nextPosition(raw, btn) {
-    let p; try { p = JSON.parse(raw); } catch { return; }
-    btn.disabled = true;
-    try {
-      S.order = { ...S.order, incomeId: p.incomeId };
-      bar.issue = null; bar.done = false; bar.required = []; paintBar();
-      await choose(String(p.productId));
-    } catch (e) { toastError(e, 'открыть следующую позицию'); btn.disabled = false; }
-  }
-
-  // старт: вход Б — сразу к изделию; вход А — с категории
-  if (entry?.productId) { say('проверьте недостающее'); choose(entry.productId); } else ps.update({});
+  if (entry?.productId) { say('открываю книжку'); choose(entry.productId); } else ps.update({});
 
   const el = stack(ps.el, recap, pickBox, newBox, stages);
-  return { el, foot, readonly: true, busy: () => !!creation?.busy() || !!activeFill?.busy?.(), dirty: () => !!creation?.dirty() || !!activeFill?.dirty?.(), beforeClose: () => { const m = creation?.partial?.() || parked?.partial?.(); if (m) toast(`«${m.name || 'Новое изделие'}» уже создано в «Продукции» с незавершённым заполнением — допишите в карточке изделия`, { ms: 8000 }); return activeFill?.beforeClose?.(); }, focus: () => {}, read: () => ({ values: {} }) };
+  return {
+    el, foot, readonly: true,
+    busy: () => !!creation?.busy(),
+    dirty: () => !!creation?.dirty(),
+    beforeClose: () => {
+      const m = creation?.partial?.() || parked?.partial?.();
+      if (m) toast(`«${m.name || 'Новое изделие'}» уже создано в «Продукции» с незавершённым заполнением — допишите в карточке изделия`, { ms: 8000 });
+    },
+    focus: () => {},
+    read: () => ({ values: {} }),
+  };
 }
 
 export const passFunnel = {

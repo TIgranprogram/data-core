@@ -28,7 +28,7 @@ async function buildCompositionForm() {
   ]);
   const price = new Map((prod.cost?.lines || []).map((x) => [`${x.lineType || 'material'}:${x.refId || x.materialId}`, x]));
   // строки состава: известные типы правятся; модули и строки CRM — только показ, сохраняются как были
-  const rows = (prod.composition || []).map((l) => ({ lineType: l.lineType || 'material', refId: l.refId || l.materialId, name: l.name, article: l.article, unit: l.unit || 'шт',
+  const rows = (prod.composition || []).map((l) => ({ id: l.id || '', lineType: l.lineType || 'material', refId: l.refId || l.materialId, name: l.name, article: l.article, unit: l.unit || 'шт',
     quantity: String(l.quantity), notes: l.notes || '', readOnly: !['material', 'product'].includes(l.lineType || 'material'), missing: !!l.missing }));
 
   const listEl = h('div', { class: 'comp-lines' });
@@ -136,12 +136,19 @@ async function buildCompositionForm() {
     el, focus: () => input.focus(), dirty: () => true,
     read: () => ({ values: { save: async () => {
       const edit = rows.filter((r) => !r.readOnly);
-      const lines = edit.map((r) => ({ lineType: r.lineType, [r.lineType === 'product' ? 'productId' : 'materialId']: r.refId, quantity: parseNum(r.quantity), notes: r.notes }));
+      const lines = edit.map((r) => ({ ...(r.id ? { id: r.id } : {}), lineType: r.lineType, [r.lineType === 'product' ? 'productId' : 'materialId']: r.refId, quantity: parseNum(r.quantity), notes: r.notes }));
       if (lines.some((l) => !(l.quantity > 0))) throw new Error('Укажите количество больше нуля у каждой строки (или уберите строку «×»)');
       if (edit.some((r) => r.missing)) throw new Error('В составе есть удалённые позиции — уберите их «×» или замените');
       return api(`/showcase/${prod.id}/composition`, { method: 'PUT', body: { lines, types: ['material', 'product'] } });
     } } }),
   };
+}
+
+/** Собрать форму состава для изделия (книжка / без маршрута of=composition). */
+export async function compositionFormFor(prod) {
+  if (!prod?.id) throw new Error('Нет изделия для состава');
+  target = prod;
+  return buildCompositionForm();
 }
 
 export const composition = {

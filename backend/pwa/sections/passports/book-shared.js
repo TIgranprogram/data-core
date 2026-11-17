@@ -43,14 +43,23 @@ export async function exclusive(id, passportAction, fn) {
   return res;
 }
 
+/** Панель правой колонки книжки — тот же вид, что слева (.bk-panel). */
+export function sidePanel(title, ...kids) {
+  return h('section', { class: 'bk-panel' },
+    h('header', { class: 'bk-panel-h' }, h('h3', { class: 'bk-toc-h' }, title)),
+    ...kids);
+}
+
 export function aiCheckBlock(collect) {
-  const status = h('p', { class: 'hint', 'aria-live': 'polite' });
-  const btn = button({ label: 'Скопировать промпт для проверки ИИ', size: 'S', title: 'Все тексты паспорта + задание для ИИ. Вставьте в чат ИИ', onClick: async () => {
+  const status = h('p', { class: 'hint bk-toc-hint', 'aria-live': 'polite' });
+  const btn = button({ label: 'Промпт для ИИ', size: 'S', title: 'Скопировать промпт для проверки ИИ. Все тексты паспорта и задание. Вставьте в чат ИИ', onClick: async () => {
     const text = aiPrompt(collect());
     try { await navigator.clipboard.writeText(text); status.textContent = 'Скопировано. Вставьте в чат ИИ — ответ придёт по разделам.'; }
     catch { status.textContent = 'Браузер не дал скопировать. Попробуйте ещё раз.'; }
   } });
-  return h('div', { class: 'bk-ai' }, h('h3', { class: 'bk-side-h' }, 'Проверка текстов ИИ'), h('p', { class: 'hint' }, 'Соберёт все тексты паспорта в одно задание для ИИ.'), btn, status);
+  return sidePanel('Проверка ИИ',
+    h('p', { class: 'hint bk-toc-hint' }, 'Соберёт тексты паспорта в одно задание для чата ИИ.'),
+    btn, status);
 }
 
 /** Возвращает { key } — можно сохранять; { stop: 'текст' } — показать текст и ждать действия. */

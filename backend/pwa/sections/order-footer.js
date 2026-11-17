@@ -39,9 +39,14 @@ const ACTIONS = [
       return [pass, printOrderButton(o.id, { issued: 1, only, kind: 'ghost', size: 'S' })];
     });
   } },
-  { group: 'Работа', items: (ctx) => (canShip() && ctx.lines.some(unshipped)
-    ? [button({ label: ctx.picked ? `Отгрузить отмеченные (${ctx.lines.filter(unshipped).length})` : 'Отгрузить…', size: 'S', onClick: () => shipLines(ctx) })]
-    : []) },
+  // C136: этап «Отгружен» — без кнопки (защита сервера; иначе 400 у заказов до учёта отгрузок)
+  { group: 'Работа', items: (ctx) => {
+    const stages = new Set((ctx.d.orders || []).map((o) => o.stage));
+    if (stages.size && [...stages].every((s) => s === 'shipped' || s === 'closed' || s === 'cancelled')) return [];
+    return canShip() && ctx.lines.some(unshipped)
+      ? [button({ label: ctx.picked ? `Отгрузить отмеченные (${ctx.lines.filter(unshipped).length})` : 'Отгрузить…', size: 'S', onClick: () => shipLines(ctx) })]
+      : [];
+  } },
   { group: 'Файлы', items: (ctx) => [
     button({ label: orderPdfAction.label, title: orderPdfAction.title, size: 'S', kind: 'ghost', onClick: () => Promise.resolve(orderPdfAction.run(ctx.r)).catch(toastError) }),
     button({ label: 'Вложения (ZIP)', title: orderZipAction.title, size: 'S', kind: 'ghost', onClick: () => Promise.resolve(orderZipAction.run(ctx.r)).catch(toastError) }),

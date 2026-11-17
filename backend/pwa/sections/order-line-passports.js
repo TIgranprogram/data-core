@@ -52,9 +52,9 @@ export async function loadPassportsByIncome(orderIds) {
   return map;
 }
 
-/** Клик по номеру — открыть этот паспорт (как в «Документы»). */
+/** Клик по номеру — эталонная книжка (C141), не старая карточка. */
 function openPassport(p) {
-  go('docs', { tab: 'orders', of: 'passports', open: p.id }, { kind: 'card' });
+  openBookEditor(p);
 }
 
 /** Метка в строке позиций: только актуальный номер / черновик; нет паспорта — null. */

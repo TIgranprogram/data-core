@@ -3,7 +3,7 @@ import { h } from '../../core/dom.js';
 import { patch } from '../../core/router.js';
 import { badge, busyBlock, button, failBlock, row as kitRow, section, stack } from '../../ui/kit/index.js';
 import { nextCard } from '../../ui/kit/screens/blocks.js';
-import { openPassportFunnel } from '../passports/funnel/open.js';
+import { openBookForProduct } from '../passports/open-book.js';
 
 /* Блок «Заполнение изделия» (C114 H-UI): «Заполнено N из M», полоса, «Начните с этого» + до 3 следующих, остальное свёрнуто.
  * Очередь считает сервер (GET /showcase/:id/fill-queue); здесь только рисуем и ведём по клику. Только для тех, кто видит «Документацию». */
@@ -26,9 +26,9 @@ export function gapsFor(r, tab) {
   return n || undefined;
 }
 
-/** Клик «Заполнить»: пункт паспорта — в воронку на нужное поле; состав — вкладка; габариты, вес, монтаж — правка изделия с подсветкой поля. */
+/** Клик «Заполнить»: пункт паспорта — книжка (C141); состав — вкладка; габариты/вес/монтаж — форма изделия. */
 function go(it, r, ctx) {
-  if (it.kind !== 'product') { openPassportFunnel({ productId: r.id, gap: { kind: it.kind, key: it.key, label: it.label } }); return; }
+  if (it.kind !== 'product') { openBookForProduct(r.id); return; }
   if (it.key === 'composition') { ctx?.openTab?.('comp'); return; }
   patch({ of: 'products', open: r.id, fill: FORM_FIELD[it.key] || it.key, new: undefined });
 }

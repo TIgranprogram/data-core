@@ -64,9 +64,9 @@ export async function issuePassport({ productId, name, article, orderNo, salesOr
     openPassportFunnel({ productId: pid || undefined, salesOrderId, incomeId, orderNo, customerName });
     return !!pid;
   }
-  st.keepName = customerTitle || '';
-  st.draft = { productId: pid || '', salesOrderId, ...(incomeId ? { incomeId } : {}), orderNo, customerName, ...(customerTitle ? { name: customerTitle } : {}), ...(pid ? {} : { _searchName: name || article || '' }) };
-  patch({ of: 'passports', new: '1', open: undefined });
+  // C141: без заказа тоже воронка → книжка; старая форма of=passports не открываем
+  const { openPassportFunnel } = await import('./funnel/open.js');
+  openPassportFunnel({ productId: pid || undefined, salesOrderId, incomeId, orderNo, customerName });
   return !!pid;
 }
 

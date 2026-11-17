@@ -92,15 +92,16 @@ function orderCell(x) {
   return h('a', { href: `#salesorders?open=${oid}`, onClick: (e) => e.stopPropagation() }, label);
 }
 
-/** «⋯ → Править шаблон паспорта»: правка текстов и рисунков шаблона в своей панели (C119 шаг 3: из вкладки — в меню). */
+/** «⋯ → Править шаблон / Изменить паспорт»: C141 — только эталонная книжка (не старая анкета doctpl). */
 export async function openPassportTemplate(row, ctx) {
   try {
-    const { openCard } = await import('../../ui/kit/card.js');
-    const { doctpl } = await import('../docs.js');
-    openCard(doctpl, { id: row.id }, { close: async () => {
-      try { ctx?.setRow?.(await api(`/showcase/${row.id}`)); } catch { /* карточка останется как была */ }
-    } });
-  } catch (e) { toastError(e, 'открыть шаблон'); }
+    const { openBookForProduct } = await import('../passports/open-book.js');
+    await openBookForProduct(row.id, {
+      onClose: async () => {
+        try { ctx?.setRow?.(await api(`/showcase/${row.id}`)); } catch { /* карточка как была */ }
+      },
+    });
+  } catch (e) { toastError(e, 'открыть паспорт'); }
 }
 
 /** Вкладка «Паспорт»: сведения и таблица выпущенных — только чтение; выпуск, загрузка, правка шаблона — в «⋯» шапки (C119). */
@@ -174,7 +175,11 @@ export function passportPane(row, ctx) {
             { label: 'Дата', nowrap: true }, { label: 'Заказчик', hide: true },
           ],
           rows: shown.map((x) => ({
-            onClick: () => go('passports', { open: x.id }),
+            // C141: клик по выпущенному — сразу книжка (карточка архива не основной путь правки)
+            onClick: async () => {
+              const { openBookEditor } = await import('../passports/book-editor.js');
+              openBookEditor(x, { onClose: () => paint().catch(() => {}) });
+            },
             cells: [
               (x.passportNumber && !String(x.passportNumber).startsWith('draft-') ? x.passportNumber : '—'),
               x.productCode || '—',

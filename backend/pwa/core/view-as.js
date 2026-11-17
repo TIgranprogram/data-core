@@ -7,7 +7,7 @@ const SNAP = 'dca_viewAsSnap';
 export const VIEW_AS_BLOCK = 'Сейчас только просмотр роли — менять данные нельзя';
 
 /** Разделы меню, которые сервер отдаёт в /auth/me (common/app-sections.ts). Чужие id отбрасываются. */
-const APP_IDS = new Set(['home', 'requests', 'suppliercatalog', 'stock', 'salesorders', 'partners', 'products', 'docs', 'passports', 'orders', 'money', 'payroll', 'design', 'work', 'offers', 'stock-mobile']);
+const APP_IDS = new Set(['home', 'requests', 'suppliercatalog', 'stock', 'salesorders', 'partners', 'products', 'modules', 'parts', 'docs', 'passports', 'orders', 'money', 'payroll', 'design', 'work', 'offers', 'stock-mobile']);
 const BASE = new Set(['user', 'manager', 'accountant', 'director', 'admin']);
 const MONEY = new Set(['admin', 'director', 'accountant', 'manager']);
 const BUILTIN = { director: 'Директор', accountant: 'Бухгалтер', manager: 'Менеджер', user: 'Наблюдатель' };

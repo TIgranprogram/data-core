@@ -1,4 +1,4 @@
-import { api, patchVersioned } from '../core/api.js';
+import { api, patchVersioned, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { actions, button, enhanceSelect, hint, section, select, sideForm, stack, table, textInput, toast } from '../ui/kit/index.js';
@@ -9,11 +9,14 @@ import { workTypes } from './work-route.js';
  * Просмотр — блок на карточке детали (partWorkBlock), правка — правая панель 'partwork' (ввод только справа, CLAUDE.md).
  */
 
+/** Запись состава и работ — как POST /modules и PATCH материала: менеджер и админ. */
+const canWrite = () => ['admin', 'manager'].includes(session.role) || session.user?.isOwner === true;
+
 /** Блок «Виды работ» на карточке детали. full — GET /materials/:id. */
 export function partWorkBlock(full) {
   const box = h('div');
   const list = full?.workTypes || [];
-  const edit = button({ label: list.length ? 'Изменить' : 'Указать виды работ', size: 'S', onClick: () => openPartWork(full.id) });
+  const edit = canWrite() ? button({ label: list.length ? 'Изменить' : 'Указать виды работ', size: 'S', onClick: () => openPartWork(full.id) }) : null;
   if (!list.length) {
     box.append(section({ title: 'Виды работ', tone: 'main', side: edit,
       body: hint('Видов работ нет. Укажите, какие работы нужны для детали и сколько часов на 1 шт — они подставятся в маршрут изделия.') }));

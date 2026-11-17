@@ -8,11 +8,11 @@ import { passports, issuePassport } from './passports.js';
 import { numbersStrip } from './passports/numbers-strip.js';
 import { canWorkPassport as canEditTexts, statusOf } from './passports/common.js';
 import { linkDialog, previewPassport } from './passports/dialogs.js';
-import { passportFill } from './passports/template-form.js';
-import { savePd } from './products.js';
 import { mountOrdersTab } from './docs-orders.js';
 import { mountQueueTab } from './docs-queue.js';
 import { openPassportFunnel, openReadyPassport } from './passports/funnel/open.js';
+import { openBookEditor } from './passports/book-editor.js';
+import { openBookForProduct } from './passports/open-book.js';
 import { lastNumbersTop, passnums } from './passports/numbers-view.js';
 import { tabs as kitTabs, sku as kitSku, crumbTail, button } from '../ui/kit/index.js';
 
@@ -64,28 +64,28 @@ export const doctpl = {
     heading: (r) => [kitSku(r.sku), r.sku ? ' ' : null, r.name],
     editTitle: (r) => ['Настройки паспорта · ', kitSku(r.sku), r.sku ? ' ' : null, r.name],
     editSub: () => 'Ответы записываются сразу',
-    editLabel: 'Редактировать шаблон паспорта', // нижняя кнопка — одна (правило 2026-10-28), но понятная: «Изменить» не говорило что
+    editLabel: 'Изменить в книжке',
     subheading: (r) => [r.type, r.group].filter(Boolean).join(' → '),
-    editTop: true,
-    startEdit: () => canTpl(),
+    // C141: старая анкета шаблона не открывается
+    editTop: false,
+    editable: () => false,
+    startEdit: () => false,
     noHistory: true,
     actions: (r) => [
+      canTpl() && { label: 'Изменить в книжке', primary: true, title: 'Эталон: паспорт как в PDF', run: (row) => openBookForProduct(row.id) },
       { label: 'Предпросмотр', title: 'PDF с пометкой «ЧЕРНОВИК» по текущему шаблону изделия; паспорт не выпускается', run: (row) => previewPassport(row.id) },
-      // 2026-11-13: «Печать паспорта» с шаблона убрана — печатала последний выпущенный паспорт без номера и заказа на экране;
-      // выпущенные печатаются из заказа или «Архива». Здесь: посмотреть черновик или выпустить новый.
-      // пришли из «Паспортов заказа» (пользователь 14.11): выпуск — там, с фирмой и номером заказа, а не отдельный паспорт без заказа
-      current().params.order ? { label: 'К паспортам заказа', primary: true, title: 'Вернуться в заказ и выпустить там — фирма и заказ подставятся сами',
+      current().params.order ? { label: 'К паспортам заказа', title: 'Вернуться в заказ и выпустить там — фирма и заказ подставятся сами',
         run: () => go('docs', { tab: 'orders', of: 'orderpass', open: current().params.order }) } :
-      session.sees('docs') && canEditTexts() && { label: 'Выпустить паспорт', primary: true, title: 'Новый паспорт с номером по этому шаблону', run: async (row) => {
+      session.sees('docs') && canEditTexts() && { label: 'Выпустить паспорт', title: 'Новый паспорт с номером — воронка до изделия, дальше книжка', run: async (row) => {
         if (!(await issuePassport({ productId: row.id, name: row.name, article: row.sku }))) toast('Паспортов этой модели ещё не было — заполните габариты, описание и картинки');
       } },
       { label: 'Открыть изделие', more: true, run: (row) => go('products', { open: row.id }) },
-    ],
+    ].filter(Boolean),
     view: (r) => {
       const d = r.passportDefaults;
       const n = Object.keys(d?.textChoices || {}).length;
       return [
-        ['Настройки', hasTpl(d) ? 'задан' : h('span', { class: 'muted' }, 'не задан — «Изменить», чтобы выбрать тексты')],
+        ['Настройки', hasTpl(d) ? 'задан' : h('span', { class: 'muted' }, 'не задан — откройте книжку')],
         ['Тип паспорта', r.passportCategory ? `${r.passportCategory.name || r.passportCategory.code}` : h('span', { class: 'muted' }, 'не задан — его задают в группе или виде изделия')],
         ['Выбрано текстов', n ? String(n) : h('span', { class: 'muted' }, 'нет — при выпуске подставятся варианты «по умолчанию»')],
         ['Выпущено паспортов', r.passports?.total ? String(r.passports.total) : null],
@@ -93,18 +93,14 @@ export const doctpl = {
       ];
     },
   },
-  form: {
-    build: (r) => passportFill({ prod: r, mode: 'template' }),
-    toInitial: (r) => r,
-    toBody: (v, r) => ({ category: v.category || '', choices: v.choices || {}, over: v.over || {}, derived: r?.passportCategory?.code || '', prev: r?.passportDefaults || {} }),
-    update: async (id, b) => { await savePd(id, b); return api(`/showcase/${id}`); },
-  },
+  // form оставлен пустым-заглушкой: editable:false — кнопка «Изменить» не зовёт анкету
+  form: undefined,
 };
 
 // ─── вкладка «Выпущенные паспорта»: только просмотр и печать ────────────────────────────────────────────
 const archiveActions = (r) => [
-  // черновик, не доведённый до выпуска, — дописывается в полной карточке (она остаётся как рабочая форма выпуска)
-  statusOf(r) === 'draft' && canEditTexts() && { label: 'Дописать и выпустить', title: 'Черновик ещё без номера — откроется форма паспорта', more: true, run: (row) => patch({ of: 'passports', open: row.id }) },
+  // C141: черновик дописывают в эталонной книжке (как PDF), не в старой карточке
+  statusOf(r) === 'draft' && canEditTexts() && { label: 'Дописать и выпустить', title: 'Черновик без номера — большое окно: паспорт как в PDF, слева что заполнить первым', more: true, run: (row, ctx) => openBookEditor(row, { onClose: (nr, ch) => { if (ch) { ctx?.setRow?.(nr); ctx?.changed?.(); } } }) },
   !r.productId && canEditTexts() && { label: 'Привязать к изделию', more: true, run: (row, ctx) => linkDialog(row, ctx) },
 ].filter(Boolean);
 

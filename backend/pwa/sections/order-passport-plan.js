@@ -114,33 +114,26 @@ function summaryRow(row) {
   });
 }
 
+/** C141: пробелы позиции — в книжке, не в старой анкете passportFill. */
 async function mountFill(line, host, reload) {
-  host.replaceChildren(kit.hint('Загрузка…'));
+  host.replaceChildren(kit.hint('Открываю книжку паспорта…'));
   try {
-    const prod = await api(`/showcase/${line.productId}`);
-    const { passportFill } = await import('./passports/fill/index.js');
-    let first = true;
-    let dirty = false;
-    let kicked = false;
-    const fill = await passportFill({
-      prod, mode: 'issue', showVariant: false, // вариант — один на заказ, в шапке панели
-      onStatus: ({ required }) => {
-        if (first) { first = false; dirty = false; return; }
-        if (!dirty || (required && required.length) || kicked) return;
-        kicked = true;
-        reload().catch((e) => kit.toastError(e, 'обновить план паспортов'));
-      },
+    const { openBookForProduct } = await import('./passports/open-book.js');
+    const extra = {
+      salesOrderId: line.orderId || line.salesOrderId,
+      incomeId: line.incomeId,
+      orderNo: line.orderNo,
+      customerName: line.customerName,
+    };
+    await openBookForProduct(line.productId, {
+      extra,
+      onClose: () => reload().catch((e) => kit.toastError(e, 'обновить план паспортов')),
     });
-    fill.el.addEventListener('change', () => { dirty = true; }, true);
-    fill.el.addEventListener('click', (e) => {
-      const t = e.target;
-      if (t && t.closest && t.closest('button, a, select, input, textarea')) dirty = true;
-    }, true);
-    host.replaceChildren(fill.el);
+    host.replaceChildren(kit.hint('Правка — в книжке. Закройте окно и раскройте позицию снова, если нужно открыть ещё раз.'));
   } catch (e) {
     delete host.dataset.loaded;
-    host.replaceChildren(kit.hint('Не удалось открыть поля. Раскройте позицию ещё раз.', 'warn'));
-    kit.toastError(e, 'открыть заполнение паспорта');
+    host.replaceChildren(kit.hint('Не удалось открыть книжку. Раскройте позицию ещё раз.', 'warn'));
+    kit.toastError(e, 'открыть паспорт');
   }
 }
 

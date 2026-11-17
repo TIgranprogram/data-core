@@ -11,6 +11,7 @@ import { imgsOf, isRequired, kinds, numberOf, statusOf, bomRows, parseBom } from
 import { numbersOf } from './traits.js';
 import { SRC_LABEL } from './card-blocks.js';
 import { tableNumbers, figureNumbers, refsOf } from './book-refs.js';
+import { compositionSheet } from './book-composition-tree.js';
 
 const numText = (v) => (v === undefined || v === null || v === '' ? '' : String(v).replace('.', ','));
 const SPEC = [['Длина (L), мм', 'length', 1], ['Ширина (B), мм', 'width', 1], ['Высота (H), мм', 'height', 1], ['Ширина посадки (Bп), мм', 'seatWidth'],
@@ -119,7 +120,16 @@ export function buildBook(ctx) {
     if (t.description) push(sub(`${plan.descrNo}.${++k} Описание изделия`), textP(t.description, fieldSpec('description', undefined, t.description, refs.description, 6, orig('description')), t.src?.description, { edit: edited('description') }));
     if (t.purpose) push(sub(`${plan.descrNo}.${++k} Назначение`), textP(t.purpose, fieldSpec('purpose', undefined, t.purpose, refs.purpose, 3, orig('purpose')), t.src?.purpose, { edit: edited('purpose') }));
     push(sub(`${plan.descrNo}.${++k} Основные технические данные`), ...specTable());
-    if (modules.length) push(sub(`${plan.descrNo}.${++k} Состав изделия: модули`), modulesBlock());
+    // C142: черновик — живое дерево изделия; выпущенный — снимок r.modules (не оба сразу).
+    const live = statusOf(r) === 'draft' ? ctx.compTree : null;
+    if (live?.loading) push(h('p', { class: 'bk-p muted' }, 'Загружаю состав изделия…'));
+    else if (live?.failed) push(h('p', { class: 'bk-p muted' }, 'Состав изделия не загрузился.'));
+    else if (live?.lines?.length) {
+      const sheet = compositionSheet(live.lines);
+      if (sheet) push(sub(`${plan.descrNo}.${++k} Состав изделия`), sheet);
+    } else if (modules.length) {
+      push(sub(`${plan.descrNo}.${++k} Состав изделия: модули`), modulesBlock());
+    }
     if (plan.rulesNo === plan.descrNo && t.rules?.length) { push(sub(`${plan.descrNo}.${++k} Правила пользования`)); rulesList(); }
   };
   const rulesSection = () => { if (plan.rulesNo && plan.rulesNo !== plan.descrNo && t.rules?.length) { push(hd(`${plan.rulesNo} Правила пользования`)); rulesList(); } };

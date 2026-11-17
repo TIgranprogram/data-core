@@ -1,4 +1,4 @@
-import { stack } from '../ui/kit/index.js';
+import { stack, hint } from '../ui/kit/index.js';
 import { screenCard } from '../ui/kit/screens/card.js';
 import { api, apiFile, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
@@ -12,13 +12,13 @@ import { MONTHS, STATUS_LABEL, canEdit, canWorkPassport, dims, facets, facetsFor
 import { resetProducts } from './passports/models.js';
 import { annulDialog, convertDialog, issueAction, linkDialog, numberDialog, printDialog } from './passports/dialogs.js';
 import { passportBulkFields } from './passports/bulk.js';
-import { bomBlock, checkBlock, imagesBlock, previewBlock, printFileBlock } from './passports/card-blocks.js';
+import { bomBlock, checkBlock, imagesBlock, printFileBlock } from './passports/card-blocks.js';
 import { pdfBlock } from './passports/pdf-block.js';
 import { revisionsBlock } from './passports/revisions.js';
 import { numbersStrip } from './passports/numbers-strip.js';
 import { passportForm } from './passports/form.js';
 import { stepFunnel } from '../ui/kit/index.js';
-import { passportWizard } from './passports/passport-wizard.js';
+import { openBookEditor } from './passports/book-editor.js';
 
 /**
  * Раздел «Паспорта изделий» (TASKS ПС.4–ПС.5): паспорт = экземпляр (№, талон, номер изделия, дата, заказчик/объект),
@@ -140,14 +140,16 @@ export const passports = {
         r.productCodeDuplicate ? { title: 'Номер изделия повторяется', sub: `${r.productCode} уже есть в другом паспорте` } : null,
       ],
       next: (r, ctx) => {
+        // C141: основной путь правки — книжка; выпуск/PDF — из книжки или меню
+        const openBook = () => openBookEditor(r, { onClose: (nr, ch) => { if (ch) { ctx.setRow?.(nr); ctx.changed?.(); } } });
         if (statusOf(r) === 'draft') {
           if (!canWorkPassport()) return { text: 'Черновик: номер присваивает директор или администратор.' };
-          return { text: r.missing?.length ? 'Заполните недостающее — тогда можно выпустить.' : 'Всё заполнено: присвоить номер и талон, текст замораживается.',
-            primary: { label: 'Выпустить', disabled: !!r.missing?.length, title: r.missing?.length ? `Не хватает для выпуска: ${r.missing.join(', ')}` : 'Присвоить номер и талон; текст будет заморожен', run: () => issueAction(r, ctx) } };
+          return { text: r.missing?.length ? 'Слева в книжке — что заполнить первым. Потом «Выпустить» в шапке окна.' : 'Можно выпустить из книжки или сразу здесь.',
+            primary: { label: 'Дописать в книжке', title: 'Паспорт как в PDF: поля на листе, слева очередь заполнения', run: openBook } };
         }
         if (statusOf(r) === 'annulled') return null;
-        return { text: 'Выпущен. Печать — PDF с номером и талоном.',
-          primary: { label: 'PDF и печать', disabled: !r.passportCategory, title: r.passportCategory ? '' : (canEdit() ? 'Нет типа паспорта — «⋯ → Выбрать тип паспорта»' : 'Нет типа паспорта — её указывает директор или администратор'), run: () => printDialog(r) } };
+        return { text: 'Выпущен. Правка текстов — в книжке; печать — PDF с номером и талоном.',
+          primary: { label: 'Изменить в книжке', title: 'Паспорт как в PDF; номер тот же при повторном выпуске', run: openBook } };
       },
       facts: (r) => [
         ['Талон', r.warrantyCode],
@@ -166,6 +168,9 @@ export const passports = {
         ['PDF скачан', r.pdfIssuedAt ? date(r.pdfIssuedAt) : ''], ['Заметки', r.note],
       ],
       menu: (r) => [
+        canWorkPassport() && statusOf(r) !== 'annulled' && { label: 'Изменить в книжке', title: 'Большое окно: паспорт как в PDF', run: (row, ctx) => openBookEditor(row, { onClose: (nr, ch) => { if (ch) { ctx.setRow?.(nr); ctx.changed?.(); } } }) },
+        statusOf(r) === 'draft' && canWorkPassport() && !r.missing?.length && { label: 'Выпустить…', title: 'Присвоить номер и талон', run: (row, ctx) => issueAction(row, ctx) },
+        isIssued(r) && { label: 'PDF и печать…', disabled: !r.passportCategory, title: r.passportCategory ? '' : 'Нет типа паспорта', run: (row) => printDialog(row) },
         statusOf(r) === 'draft' && { label: r.passportCategory ? '⇩ PDF черновика…' : '⇩ PDF — нет типа', disabled: !r.passportCategory, title: r.passportCategory ? 'PDF с пометкой «ЧЕРНОВИК»' : 'Нет типа паспорта — «Выбрать тип паспорта»', run: (row) => printDialog(row) },
         isIssued(r) && canEdit() && { label: 'Аннулировать…', title: 'Номер останется занятым и повторно не выдаётся', run: (row, ctx) => annulDialog(row, ctx) },
         isIssued(r) && (session.role === 'admin' || session.user?.isOwner) && { label: 'Изменить номер…', run: (row, ctx) => numberDialog(row, ctx) },
@@ -184,11 +189,13 @@ export const passports = {
       tabs: (r) => {
         const miss = (r.missing?.length || 0) + (r.standardWarnings?.length || 0) + (r.syncWarning ? 1 : 0);
         return [
-          { key: 'main', label: 'Паспорт', blocks: (row, ctx) => {
-            const draft = statusOf(row) === 'draft';
-            return stack(printFileBlock(row, ctx), draft && canWorkPassport() ? passportWizard(row, ctx) : null, row.passportCategory ? pdfBlock(row, ctx) : null,
-              imagesBlock(row, ctx), bomBlock(row), row.passportCategory ? previewBlock(row, ctx) : null);
-          } },
+          { key: 'main', label: 'Паспорт', blocks: (row, ctx) => stack(
+            printFileBlock(row, ctx),
+            // C141: правка только в книжке (кнопка «Что дальше» / меню); wizard и карандаши не монтируем
+            row.passportCategory ? pdfBlock(row, ctx) : null,
+            imagesBlock(row, ctx), bomBlock(row),
+            row.passportCategory ? hint('Текст паспорта правится в книжке: «Изменить в книжке» выше.', 'info') : null,
+          ) },
           { key: 'check', label: 'Проверка', count: miss || undefined, tone: miss ? 'warn' : undefined,
             blocks: (row) => (row.passportCategory ? checkBlock(row) : h('div', { class: 'fill-note' }, row.missing?.length ? ['Не хватает для выдачи: ', h('b', null, row.missing.join(', '))] : 'Нет типа паспорта — проверять нечего.')) },
           { key: 'versions', label: 'Версии', count: (r.revisionList || []).length || undefined, when: (row) => (row.revisionList || []).length > 0, blocks: (row, ctx) => revisionsBlock(row, ctx) },
@@ -196,7 +203,9 @@ export const passports = {
       },
     }),
     editTitle: (r) => [heading(r), r.name ? ' · ' + r.name : ''],
-    editTop: true,
+    // C141: основной путь — книжка (next/menu); form остаётся в коде, но кнопка «Изменить» внизу не зовёт (card.js смотрит editable)
+    editTop: false,
+    editable: () => false,
   },
 
   form: passportForm,

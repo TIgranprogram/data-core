@@ -4,6 +4,7 @@ import { missingName, shortMissing, summaryText } from './order-passport-text.js
 
 test('missingName: служебная фраза → название', () => {
   assert.equal(missingName('Обязательный рисунок не читается: Фото изделия. Загрузите изображение заново'), 'Фото изделия');
+  assert.equal(missingName('Фото изделия: файл на сервере повреждён или пропал — замените фото'), 'Фото изделия');
   assert.equal(missingName('Рисунок: Чертёж с размерами'), 'Чертёж с размерами');
   assert.equal(missingName('Габариты'), 'Габариты');
 });

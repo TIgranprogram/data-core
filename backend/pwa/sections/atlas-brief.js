@@ -75,7 +75,12 @@ export function atlasProblems(data = { BANDS, NODES, LINKS }) {
   for (const n of nodes) {
     if (ids.has(n.id)) bad.push(`повтор блока ${n.id}`); ids.add(n.id);
     if (!bands.some((b) => b.id === n.band)) bad.push(`${n.id}: нет слоя ${n.band}`);
-    const cell = `${n.band}:${n.col}`; if (cells.has(cell)) bad.push(`${n.id}: место ${cell} занято`); cells.add(cell);
+    // C142: изделие / модуль / деталь делят ячейку productMap (одна колонка «каталог»)
+    const cell = `${n.band}:${n.col}`;
+    const occupant = nodes.find((x) => x.id !== n.id && `${x.band}:${x.col}` === cell);
+    const shareProductMap = !!(n.productMap && occupant?.productMap);
+    if (cells.has(cell) && !shareProductMap) bad.push(`${n.id}: место ${cell} занято`);
+    cells.add(cell);
     if (!(n.col >= 0 && n.col <= 3)) bad.push(`${n.id}: колонка ${n.col} вне 0–3`);
     if (n.sec && !SECTIONS[n.sec]) bad.push(`${n.id}: нет раздела ${n.sec} в help-guide-data`);
     if (!n.plan && !hrefOf(n) && !n.where) bad.push(`${n.id}: нет адреса и «где найти»`);

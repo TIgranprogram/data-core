@@ -25,7 +25,7 @@ export function imageStrip(ctx, kind, label, full) {
     ctx.imgQ = (ctx.imgQ || Promise.resolve()).catch(() => {}).then(run);
     return ctx.imgQ;
   };
-  const wrap = h('div', { class: 'bk-imgs' + (full ? ' bk-imgs-full' : '') });
+  const wrap = h('div', { class: 'bk-imgs' + (full ? ' bk-imgs-full' : ''), 'data-focus': 'img_' + kind, 'data-img-kind': kind });
   list.forEach((i) => wrap.append(h('figure', { class: 'bk-fig' },
     i.url ? h('img', { src: PREFIX + i.url, alt: i.caption || label }) : h('span', { class: 'muted' }, 'нет файла'),
     can ? iconButton({ icon: '×', label: 'Убрать картинку', size: 'S', onClick: async () => {

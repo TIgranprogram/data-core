@@ -1,4 +1,4 @@
-import { PREFIX, session } from '../core/api.js';
+import { PREFIX, session, api } from '../core/api.js';
 import { sku as kitSku, button as kitButton, toast, confirmDlg } from '../ui/kit/index.js';
 import { h } from '../core/dom.js';
 import { money, qty } from '../core/format.js';
@@ -17,6 +17,7 @@ import { productForm, productBulkFields } from './products/form-fields.js';
 import { prodFunnel, catLanding, deepGroup } from './products/landing.js';
 import { STATUS, dims, openPassportTemplate } from './products/card-blocks.js';
 import { openPassportFunnel, openReadyPassport } from './passports/funnel/open.js';
+import { openBookEditor } from './passports/book-editor.js';
 import { productTabs, productWarns } from './products/tabs.js';
 import { screenCard } from '../ui/kit/screens/card.js';
 
@@ -142,6 +143,20 @@ export const products = {
         session.canEdit && { label: 'Изменить состав', run: (row) => { setCompositionTarget(row); patch({ of: 'composition', new: '1', open: undefined }); } },
         { label: 'В КП', title: 'Добавить в коммерческое предложение', run: (row) => { kpAdd(row); toast(`В КП — всего ${kpCount()}`); } },
         session.canEdit && session.seesDocs() && { sep: true, label: 'Выпустить паспорт', title: 'Новый номер по этой модели — без заказа и без договора; PDF сразу после выпуска', run: (row) => openPassportFunnel({ productId: row.id }) },
+        // C141: правка существующего — эталонная книжка (последний паспорт модели)
+        session.canEdit && session.seesDocs() && { label: 'Изменить паспорт', title: 'Большое окно: паспорт как в PDF; слева — что заполнить первым', run: async (row) => {
+          let last = (row.passports?.items || []).find((x) => x.status === 'draft')
+            || (row.passports?.items || []).find((x) => x.status === 'issued' || (x.passportNumber && !String(x.passportNumber).startsWith('draft-')))
+            || (row.passports?.items || [])[0];
+          if (!last) {
+            try {
+              const d = await api('/passports', { query: { productId: row.id, limit: 5, sort: '-updatedAt' } });
+              last = (d.items || []).find((x) => x.status !== 'annulled');
+            } catch { /* ниже — toast */ }
+          }
+          if (!last) { toast('Паспортов ещё нет. Сначала «Выпустить паспорт».', { ms: 7000 }); return; }
+          openBookEditor(last);
+        } },
         session.seesDocs() && { sep: !(session.canEdit && session.seesDocs()), label: 'Скачать паспорт', title: 'PDF выпущенного паспорта. Если паспортов ещё нет — сначала «Выпустить паспорт»', run: async (row) => {
           const last = (row.passports?.items || []).find((x) => x.status === 'issued' || (x.passportNumber && !String(x.passportNumber).startsWith('draft-')))
             || (row.passports?.items || [])[0];
