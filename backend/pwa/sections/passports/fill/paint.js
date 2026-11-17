@@ -27,6 +27,8 @@ function gapOf(spec, missing) {
  * Применимость приходит с сервера (`applicable`); её нет — тип паспорта не задан или сервер старый, тогда всё применимо.
  */
 export function decide(ctx, spec, gap, text) {
+  // места — только детское игровое; у скамейки благоустройства не показываем (даже если в изделии уже записано)
+  if (spec.key === 'seatsCount' && (ctx.code || ctx.catInfo?.code) !== 'DIO') return text ? 'foreign' : 'skip';
   // сервер назвал поле недостающим (обязательное по категории или подстановка в тексте изделия) — оно применимо без оговорок
   const applies = gap ? 'required' : appliesOf(ctx.applicable, spec);
   if (applies === 'na') return text ? 'foreign' : 'skip';
@@ -130,7 +132,16 @@ export function paintFields(ctx) {
     // необязательный признак без подсказки при выпуске не спрашиваем: он в «Необязательном»
     // материал берётся из техописания (блок «Материалы»), второй вопрос про тот же материал не нужен
     if (m.key === 'blg.material' && (ctx.prod.materialsSpec?.rows?.length || ctx.prod.materialsSpec?.coatingIds?.length)) continue;
-    if (m.kind === 'facet' && !m.required && ctx.mode === 'issue' && !ctx.more) { ctx.later.push(m.label || 'признак'); continue; }
+    if (m.kind === 'facet' && !m.required && ctx.mode === 'issue' && !ctx.more && !m.valueLabel) { ctx.later.push(m.label || 'признак'); continue; }
+    // выбранный признак — зелёная строка «Подпись: значение ✎», клик снова открывает выбор
+    if (m.kind === 'facet' && m.valueLabel && !ctx.editing.has(m.key)) {
+      ctx.filled.push(m.key);
+      if (showRow) {
+        const spec = { key: m.key, label: m.label || 'Признак' };
+        ctx.fieldHost[gapSection(m)].append(wrap(spec, filledLink(ctx, spec, m.valueLabel), 'k-fill-done'));
+      }
+      continue;
+    }
     const node = controlGap(m, ctx);
     if (!node) continue;
     const box = h('div', { dataset: { gap: String(m.key) }, class: m.required ? 'k-fill-need' : 'k-fill-opt' }, node);

@@ -75,7 +75,8 @@ describe('«Чего не хватает» изделию (A3)', () => {
   it('признак уже указан — не в списке', async () => {
     const prod = { _id: oid(), name: 'Жим', passportDefaults: { passportCategory: 'TRN' }, facetValueIds: [kinds[0]._id] };
     const r = await productGaps(checker([]), fakeDb(prod), String(prod._id));
-    expect(r.missing).toEqual([]);
+    // выбранный признак остаётся (valueLabel), чтобы на экране можно было перевыбрать
+    expect(r.missing).toEqual([expect.objectContaining({ key: 'trn.kind', valueLabel: 'Силовой', kind: 'facet' })]);
   });
 });
 
@@ -151,26 +152,30 @@ describe('C086: применимость в «чего не хватает» (б
     expect(facetKeys(r)).toEqual(['blg.fence', 'blg.material']);
     expect(r.missing.find((m) => m.key === 'blg.fence')!.options!.map((o) => o.label)).toEqual(['Секция']);
   });
-  it('скамья: места, сиденье, перила; смена назначения пересчитывает состав', async () => {
+  it('скамья: спинка и материал; места/сиденье только у DIO; смена назначения пересчитывает состав', async () => {
     const prod = { _id: oid(), name: 'Шезлонг 3', passportDefaults: pd({ textChoices: { [String(root._id)]: String(rest._id) } }) };
-    expect(facetKeys(await run(prod))).toEqual(['blg.seats', 'blg.seat', 'blg.rail', 'blg.material']);
+    expect(facetKeys(await run(prod))).toEqual(['blg.rail', 'blg.material']);
     prod.passportDefaults = pd({ textChoices: { [String(root._id)]: String(info._id) } });
     expect(facetKeys(await run(prod))).toEqual(['blg.material']);
   });
   describe('C133: места, материал, шаги', () => {
     const choose = { textChoices: { [String(root._id)]: String(rest._id) } };
     const labelOf = (r: { missing: Array<{ key: string; label: string }> }, key: string) => r.missing.find((m) => m.key === key)?.label;
-    it('скамья без числа мест: вопрос seatsCount, диапазон с пометкой; число задано — вопроса и диапазона нет', async () => {
+    it('скамья BLG: мест и seatsCount нет; спинка есть', async () => {
       const r = await run({ _id: oid(), name: 'Скамья', passportDefaults: pd(choose) });
-      expect(r.missing.find((m) => m.key === 'seatsCount')).toMatchObject({ kind: 'field', required: false });
-      expect(labelOf(r, 'blg.seats')).toBe('Мест (диапазон для каталога)');
-      const set = await run({ _id: oid(), name: 'Скамья', passportDefaults: pd({ ...choose, seatsCount: 4 }) });
-      expect(set.missing.some((m) => m.key === 'seatsCount')).toBe(false);
-      expect(facetKeys(set)).not.toContain('blg.seats');
+      expect(r.missing.some((m) => m.key === 'seatsCount')).toBe(false);
+      expect(facetKeys(r)).not.toContain('blg.seats');
+      expect(facetKeys(r)).not.toContain('blg.seat');
+      expect(labelOf(r, 'blg.rail')).toBe('Спинка');
     });
     it('не скамья (указатель): вопроса о местах нет', async () => {
       const r = await run({ _id: oid(), name: 'Указатель', passportDefaults: pd({ textChoices: { [String(root._id)]: String(info._id) } }) });
       expect(r.missing.some((m) => m.key === 'seatsCount')).toBe(false);
+    });
+    it('выбранный признак остаётся в ответе с valueLabel — чтобы перевыбрать', async () => {
+      const railVal = rows.find((x) => x.parentId === rail._id)!;
+      const r = await run({ _id: oid(), name: 'Скамья', facetValueIds: [railVal._id], passportDefaults: pd(choose) });
+      expect(r.missing.find((m) => m.key === 'blg.rail')).toMatchObject({ kind: 'facet', valueLabel: 'Без перил' });
     });
     it('есть материалы техописания — blg.material не спрашивается', async () => {
       const r = await run({ _id: oid(), name: 'Скамья', materialsSpec: { rows: [{ materialId: 'm1' }], coatingIds: [] }, passportDefaults: pd(choose) });

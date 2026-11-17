@@ -309,16 +309,23 @@ export function controlGap(m, ctx) {
       link({ label: 'Открыть карточку изделия →', href: '#products?open=' + ctx.prod.id, target: '_blank', title: 'Откроется в новой вкладке — паспорт здесь останется' }));
   }
   if (m.kind === 'field') return numEditor(ctx, m.key, m.label, m.default, m.defaulted === true);
+  const optIds = new Set(optsOf(m).map(([id]) => String(id)));
+  const curFacet = m.kind === 'facet' ? String((m.value && m.value[0]) || (ctx.prod.facetValueIds || []).map(String).find((id) => optIds.has(id)) || '') : '';
   const write = (v) => (m.kind === 'facet'
-    ? setFacets(ctx.prod.id, [...(ctx.prod.facetValueIds || []), v]).then(() => { ctx.prod.facetValueIds = [...(ctx.prod.facetValueIds || []), v]; })
+    // заменить значение этого признака, остальные facetValueIds не трогать (иначе после выбора нельзя перевыбрать)
+    ? (() => {
+      const keep = (ctx.prod.facetValueIds || []).map(String).filter((id) => !optIds.has(id));
+      const next = v ? [...keep, v] : keep;
+      return setFacets(ctx.prod.id, next).then(() => { ctx.prod.facetValueIds = next; });
+    })()
     : putDefaults(ctx.prod, { installationTypeId: v }));
   const dflt = m.kind === 'install' && m.default ? String(m.default.id ?? m.default) : '';
   if (dflt) ctx.pending.set(m.key, { patch: { installationTypeId: dflt } });
   const sel = select({
     label: m.label,
     options: [['', 'Выберите…'], ...optsOf(m)],
-    value: dflt,
-    onChange: (v) => { ctx.pending.delete(m.key); if (v) ctx.save(() => write(v)); },
+    value: m.kind === 'facet' ? curFacet : dflt,
+    onChange: (v) => { ctx.pending.delete(m.key); ctx.save(() => write(v)); },
   });
   if ((m.options || []).length > 12) enhanceSelect(sel);
   return stack(field(m.label || 'Признак', sel, { required: !!m.required }), addFacetValue(ctx, m));

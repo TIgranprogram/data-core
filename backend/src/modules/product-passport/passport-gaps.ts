@@ -15,6 +15,9 @@ export const DEFAULT_INSTALL: Record<string, string> = { TRN: 'EMBEDDED', WRK: '
 export interface GapItem {
   key: string; label: string; kind: 'category' | 'facet' | 'field' | 'install' | 'elements' | 'purpose' | 'image' | 'kind'; required: boolean;
   multi?: boolean; default?: unknown; defaulted?: boolean; options?: Array<{ id: string; label: string }>;
+  /** Уже выбранные значения признака — строка остаётся на экране, чтобы перевыбрать. */
+  value?: string[];
+  valueLabel?: string;
 }
 
 /** Элемент для списка «Что это за изделие»: строго по категории (пустая — никому) и только изделие/снаряд (без kind — как изделие до разметки). */
@@ -153,15 +156,23 @@ export async function productGaps(svc: Checker, db: mongo.Db, id: string) {
   const seatsSet = Number.isInteger(pd.seatsCount) && Number(pd.seatsCount) >= 1;
   const ms: any = prod.materialsSpec;
   const hasSpec = Array.isArray(ms) ? ms.length > 0 : !!(ms?.rows?.length || ms?.coatingIds?.length);
-  // C133: «Перила» у трибуны, «Спинка» у остального; точное число мест скрывает диапазон каталога; материал берётся из техописания
+  // C133: «Перила» у трибуны, «Спинка» у остального; материал — из техописания.
+  // Места (число и blg.seats/seat): только детское игровое (DIO) — у скамеек благоустройства не спрашиваем (владелец 2026-11-17).
   const labelOf = (fc: string, name: string) => (fc === 'blg.rail' ? (/^трибун/i.test(s(group)) ? 'Перила' : 'Спинка') : fc === 'blg.seats' ? 'Мест (диапазон для каталога)' : name);
+  const seatsOk = code === 'DIO';
   for (const f of facets.filter((x) => x.step && x.category === code && facetApplies(x.code, type)).sort((a, b) => a.order - b.order)) {
-    if ((f.code === 'blg.seats' && seatsSet) || (f.code === 'blg.material' && hasSpec)) continue;
+    if (((f.code === 'blg.seats' || f.code === 'blg.seat') && !seatsOk) || (f.code === 'blg.seats' && seatsSet) || (f.code === 'blg.material' && hasSpec)) continue;
     const vals = values.filter((v) => v.parentId === f.id).sort((a, b) => a.order - b.order);
-    if (!vals.length || vals.some((v) => have.has(v.id))) continue;
-    missing.push({ key: f.code, label: labelOf(f.code, f.name), kind: 'facet', required: false, multi: f.multi, options: vals.map((v) => ({ id: v.id, label: v.name })) });
+    if (!vals.length) continue;
+    const chosen = vals.filter((v) => have.has(v.id));
+    // выбранный признак тоже отдаём — иначе после выбора строка пропадает и перевыбрать нельзя
+    missing.push({
+      key: f.code, label: labelOf(f.code, f.name), kind: 'facet', required: false, multi: f.multi,
+      options: vals.map((v) => ({ id: v.id, label: v.name })),
+      ...(chosen.length ? { value: chosen.map((v) => v.id), valueLabel: chosen.map((v) => v.name).join(', ') } : {}),
+    });
   }
-  if (type.code === 'seating' && !seatsSet) missing.push({ key: 'seatsCount', label: 'Количество мест', kind: 'field', required: false });
+  if (seatsOk && !seatsSet) missing.push({ key: 'seatsCount', label: 'Количество мест', kind: 'field', required: false });
   // обязательные поля и рисунки категории
   const usedFields = new Set<string>();
   const checked = await svc.check({ productId: id, mode: 'template' }, usedFields);
