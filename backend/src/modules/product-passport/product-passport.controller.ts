@@ -469,7 +469,7 @@ export class ProductPassportController {
   @Patch('passports/:id/snapshot-field')
   @Roles(...WORK)
   @AuditAction({ action: 'passport.updated', entityType: 'ProductPassport', idParam: 'id', details: () => ({ meta: { snapshotField: true } }) })
-  editSnapshotField(@Param('id') id: string, @Body() b: { field?: string; index?: number; text?: string }) {
+  editSnapshotField(@Param('id') id: string, @Body() b: { field?: string; index?: number; text?: string; part?: string; remove?: boolean }) {
     return this.service.editSnapshotField(id, b ?? {});
   }
 

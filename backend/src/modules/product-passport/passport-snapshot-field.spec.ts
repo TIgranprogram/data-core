@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { carryFields, editField, fieldTarget, parseIndex, type FieldSnap } from './passport-snapshot-field';
+import { carryFields, editField, fieldTarget, parseIndex, removeMaintRow, type FieldSnap } from './passport-snapshot-field';
 import { maintenanceTables, usageRulesFrom } from './passport-compose-parts';
 import { buildV2Text } from './passport-v2-text';
 
@@ -37,6 +37,16 @@ describe('C132 editField: правка строки только в этом п�
     expect(m.maintenance![1].rows[0].what).toBe('Покраска стоек');
     expect(m.maintenance![0].rows[1].what).toBe('Сварка');
     expect(editField(a, 'rules', 1, 'Не прыгать').fieldEdits).toBeUndefined();
+  });
+  it('обслуживание: колонки Где/Мера/Допуск и удаление строки', () => {
+    const base = { ...snap(), maintenance: [{ period: 'ежемесячно', rows: [{ what: 'Болты', where: 'Стойка', measure: 'Визуально', tolerance: '—' }, { what: 'Сварка', where: 'Шов' }] }] };
+    const w = editField(base, 'maintenance', 0, 'Указатель', 'where');
+    expect(w.maintenance![0].rows[0].where).toBe('Указатель');
+    expect(w.maintenance![0].rows[0].what).toBe('Болты');
+    expect(w.fieldEdits?.maintenance?.['0:where']).toEqual({ original: 'Стойка' });
+    expect(editField(w, 'maintenance', 0, '', 'where').maintenance![0].rows[0].where).toBe('');
+    const gone = removeMaintRow(base, 0);
+    expect(gone.maintenance![0].rows).toEqual([{ what: 'Сварка', where: 'Шов' }]);
   });
   it('пустой текст, чужой номер и неизвестное поле — 400', () => {
     expect(() => editField(snap(), 'purpose', undefined, '  ')).toThrow(BadRequestException);

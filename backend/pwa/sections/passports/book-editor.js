@@ -14,6 +14,7 @@ import { canEdit, canWorkPassport, heading, numberOf, ourCompanies, statusOf } f
 import { passportAction } from './field-edit.js';
 import { pickSourceKey, aiCheckBlock, pageText, exclusive } from './book-shared.js';
 import { buildBook } from './book-blocks.js';
+import { mountBookChoices } from './book-choices.js';
 import { imageStrip } from './book-images.js';
 import { printDialog } from './dialogs.js';
 import { SRC_LABEL } from './card-blocks.js';
@@ -33,10 +34,12 @@ export async function openBookEditor(passport, { onClose } = {}) {
 
   // ─── каркас окна ────────────────────────────────────────────────────────────
   const stat = h('span', { class: 'bk-stat', 'aria-live': 'polite' }, 'Правки сохраняются сразу при нажатии «Сохранить».');
-  const toc = h('nav', { class: 'bk-toc', 'aria-label': 'Страницы паспорта' });
+  const tocPages = h('div', { class: 'bk-toc-pages', 'aria-label': 'Страницы' });
+  const tocMeta = h('div', { class: 'bk-toc-meta' });
+  const toc = h('nav', { class: 'bk-toc', 'aria-label': 'Страницы и выбор для текстов' }, tocPages, tocMeta);
   const pages = h('div', { class: 'bk-pages bk-fit' });
   const scroller = h('div', { class: 'bk-scroll' }, pages);
-  const sideEmpty = () => h('p', { class: 'hint' }, can ? 'Нажмите на текст в паспорте — он откроется здесь для правки.' : 'Паспорт открыт только для чтения.');
+  const sideEmpty = () => h('p', { class: 'hint' }, can ? 'Нажмите на текст в паспорте — он откроется здесь для правки. В том числе «Где», «Мера», «Допуск» в таблице обслуживания.' : 'Паспорт открыт только для чтения.');
   const slot = h('div', null, sideEmpty());
   const head = h('div', { class: 'bk-head' });
   const side = h('aside', { class: 'bk-side', 'aria-label': 'Правка' }, slot, aiCheckBlock(() => ({ pages: [...pages.querySelectorAll('.bk-page')].map(pageText) })));
@@ -87,7 +90,6 @@ export async function openBookEditor(passport, { onClose } = {}) {
     const st = h('span', { class: 'bk-st' });
     const dirty = () => ctl.value !== spec.text;
     let working = false;
-    const busy = (on) => { working = on; [local, shared, reset, cancelBtn].forEach((b) => b && (b.disabled = on)); ctl.disabled = on; };
     const srcState = {};
     const clear = () => { S.cur = null; view.classList.remove('is-editing'); slot.replaceChildren(sideEmpty()); };
     const saveLocal = async (next) => {
@@ -120,9 +122,22 @@ export async function openBookEditor(passport, { onClose } = {}) {
     const local = button({ label: 'Только в этом паспорте', kind: 'primary', size: 'S', title: 'Enter или Ctrl+Enter', onClick: () => saveLocal() });
     const shared = spec.shared && canEdit() ? button({ label: 'В справочник', size: 'S', title: 'Для всех изделий этой категории или источника', onClick: saveShared }) : null;
     const reset = spec.original != null && spec.original !== '' ? button({ label: 'Вернуть исходный', kind: 'ghost', size: 'S', title: 'Подставить текст из справочника, как было до правки', onClick: () => { ctl.value = spec.original; fit(); ctl.focus(); } }) : null;
+    const removeBtn = spec.remove ? button({ label: 'Удалить строку', kind: 'ghost', size: 'S', title: 'Убрать эту строку из таблицы обслуживания', onClick: async () => {
+      if (working) return;
+      if (!(await confirmDlg('Удалить строку?', 'Строка исчезнет только из этого паспорта.', { okText: 'Удалить', danger: true }))) return;
+      busy(true); st.textContent = 'Удаляю…'; setStat('Удаляю…', 'busy');
+      try { await lock(() => spec.remove()); }
+      catch (e) { busy(false); st.textContent = 'Не удалено'; setStat('Не удалено', 'err'); toastError(e); return; }
+      clear();
+      setStat('Удалено в ' + hhmm(), 'ok');
+      try { S.r = await api('/passports/' + pid()); } catch { toast('Строка удалена. Откройте паспорт заново, чтобы увидеть обновление.', { error: true }); }
+      S.changed = true;
+      render();
+    } }) : null;
     const cancelBtn = button({ label: 'Отмена', kind: 'ghost', size: 'S', title: 'Esc', onClick: () => { if (!working) clear(); } });
+    const busy = (on) => { working = on; [local, shared, reset, removeBtn, cancelBtn].forEach((b) => b && (b.disabled = on)); ctl.disabled = on; };
     const box = h('div', { class: 'bk-ed' }, ctl,
-      h('div', { class: 'bk-ed-row' }, local, shared, reset, cancelBtn), h('div', { class: 'bk-ed-row' }, st, h('span', { class: 'bk-keys' }, 'Enter — сохранить · Esc — отмена · Tab — дальше')));
+      h('div', { class: 'bk-ed-row' }, local, shared, reset, removeBtn, cancelBtn), h('div', { class: 'bk-ed-row' }, st, h('span', { class: 'bk-keys' }, 'Enter — сохранить · Esc — отмена · Tab — дальше')));
     if (isTa) ctl.addEventListener('input', fit);
     ctl.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); if (!working) clear(); }
@@ -165,7 +180,7 @@ export async function openBookEditor(passport, { onClose } = {}) {
     }
     const org = S.r.supplierOrg;
     [...pages.children].forEach((p, i) => { p.append(h('div', { class: 'bk-pno' }, `${org?.shortName || org?.name || ''} · ${heading(S.r)} · стр. ${i + 1}/${pages.children.length}`)); });
-    toc.replaceChildren(...[...pages.children].map((p, i) => {
+    tocPages.replaceChildren(...[...pages.children].map((p, i) => {
       const title = p.querySelector('.bk-h')?.textContent?.split('\n')[0] || p.querySelector('[data-title]')?.dataset.title || p.getAttribute('aria-label');
       return button({ label: 'стр. ' + (i + 1) + ' · ' + title, title, kind: 'ghost', size: 'S', cls: 'bk-toc-i', onClick: () => p.scrollIntoView({ behavior: 'smooth', block: 'start' }) });
     }));
@@ -207,5 +222,6 @@ export async function openBookEditor(passport, { onClose } = {}) {
   document.body.append(back);
   try { ctx.firms = (await ourCompanies()).map((o) => [o.id, o.name]); } catch { ctx.firms = null; }
   render();
+  mountBookChoices(tocMeta, { S, can, pid, lock, patchPassport, onChanged: () => render() });
   back.addEventListener('mousedown', (e) => { if (e.target === back) requestClose(); });
 }

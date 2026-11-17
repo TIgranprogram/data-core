@@ -22,7 +22,7 @@ import { JOINTS_MISSING, jointsMissing } from './passport-traits';
 import { editSnapshotItem, type SnapshotSection } from './passport-snapshot-edit';
 import { canon, carryManual, manualConflict, sameSnapshot, type Snap } from './passport-snapshot-refresh';
 import { promoteToOwn } from './passport-promote';
-import { carryFields, cleanFieldText, editField, fieldTarget, parseField, parseIndex, type FieldSnap } from './passport-snapshot-field';
+import { carryFields, cleanFieldText, editField, fieldTarget, parseField, parseIndex, parseMaintPart, removeMaintRow, type FieldSnap } from './passport-snapshot-field';
 import { fieldDestination, fieldSourceName, promoteField, sourceToken } from './passport-field-promote';
 import { standardSchemes } from './passport-schemes';
 import { PASSPORT_TEXTS_V2 } from './passport-texts.v2';
@@ -539,14 +539,20 @@ export class ProductPassportService {
     return built ? withTextSources(snap as never, built.text) as FieldSnap : snap;
   }
 
-  /** C132: правка строки описания / назначения / монтажа / правил / обслуживания только для этого паспорта { field, index?, text }. */
-  async editSnapshotField(id: string, b: { field?: string; index?: number; text?: string }) {
+  /** C132: правка строки описания / назначения / монтажа / правил / обслуживания только для этого паспорта { field, index?, text, part?, remove? }. */
+  async editSnapshotField(id: string, b: { field?: string; index?: number; text?: string; part?: string; remove?: boolean }) {
     const doc = await this.findById(id);
     const previous = doc.toObject() as unknown as Doc;
     const snap = previous.textSnapshot as FieldSnap | undefined;
     if (!(snap as { sections?: unknown } | undefined)?.sections) throw new BadRequestException('У паспорта нет собранного текста — выберите категорию в «Изменить»');
     const field = parseField(b.field);
-    const next = editField(snap!, field, parseIndex(field, snap!, b.index), b.text);
+    const index = parseIndex(field, snap!, b.index);
+    if (b.remove) {
+      if (field !== 'maintenance') throw new BadRequestException('Удалить можно только строку технического обслуживания');
+      doc.set('textSnapshot', { ...removeMaintRow(snap!, index!), editedAt: new Date() });
+      return this.saveCurrent(doc, previous);
+    }
+    const next = editField(snap!, field, index, b.text, parseMaintPart(field, b.part));
     doc.set('textSnapshot', { ...next, editedAt: new Date() });
     return this.saveCurrent(doc, previous);
   }

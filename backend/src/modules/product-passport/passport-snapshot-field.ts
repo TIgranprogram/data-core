@@ -15,7 +15,7 @@ export interface FieldRefs { description?: FieldRef | null; purpose?: FieldRef |
 export interface FieldEdit { original: string; src?: string }
 export type FieldEdits = { description?: FieldEdit; purpose?: FieldEdit; install?: FieldEdit; rules?: Record<string, FieldEdit>; maintenance?: Record<string, FieldEdit> };
 
-interface Row { what?: string; [k: string]: unknown }
+interface Row { what?: string; where?: string; measure?: string; tolerance?: string; [k: string]: unknown }
 /** Часть снимка, с которой работаем. */
 export interface FieldSnap {
   description?: string; purpose?: string; install?: { text?: string; [k: string]: unknown }; rules?: string[];
@@ -25,11 +25,21 @@ export interface FieldSnap {
 }
 
 export const MAX_FIELD_TEXT = 4000;
+export const MAINT_PARTS = ['what', 'where', 'measure', 'tolerance'] as const;
+export type MaintPart = (typeof MAINT_PARTS)[number];
 const isScalar = (f: SnapshotField) => f === 'description' || f === 'purpose' || f === 'install';
 
 export function parseField(v: unknown): SnapshotField {
   if (!(SNAPSHOT_FIELDS as readonly string[]).includes(String(v))) throw new BadRequestException(`Поле текста: одно из ${SNAPSHOT_FIELDS.join(', ')}`);
   return v as SnapshotField;
+}
+
+/** Колонка строки ТО; по умолчанию «Что проверить» (как раньше). */
+export function parseMaintPart(field: SnapshotField, raw: unknown): MaintPart {
+  if (field !== 'maintenance') return 'what';
+  if (raw === undefined || raw === null || raw === '') return 'what';
+  if (!(MAINT_PARTS as readonly string[]).includes(String(raw))) throw new BadRequestException('Колонка обслуживания: what, where, measure или tolerance');
+  return raw as MaintPart;
 }
 
 /** Сквозной список строк обслуживания: [таблица, строка]. */
@@ -44,28 +54,36 @@ export function parseIndex(field: SnapshotField, snap: FieldSnap, raw: unknown):
   return n;
 }
 
-export function textAt(snap: FieldSnap, field: SnapshotField, index?: number): string {
+export function textAt(snap: FieldSnap, field: SnapshotField, index?: number, part: MaintPart = 'what'): string {
   if (field === 'description' || field === 'purpose') return String(snap[field] ?? '');
   if (field === 'install') return String(snap.install?.text ?? '');
   if (field === 'rules') return String((snap.rules ?? [])[index!] ?? '');
   const at = flatRows(snap)[index!];
-  return at ? String(snap.maintenance![at[0]].rows[at[1]].what ?? '') : '';
+  return at ? String(snap.maintenance![at[0]].rows[at[1]][part] ?? '') : '';
 }
 
-function withText(snap: FieldSnap, field: SnapshotField, index: number | undefined, text: string): FieldSnap {
+function withText(snap: FieldSnap, field: SnapshotField, index: number | undefined, text: string, part: MaintPart = 'what'): FieldSnap {
   if (field === 'description' || field === 'purpose') return { ...snap, [field]: text };
   if (field === 'install') return { ...snap, install: { ...(snap.install ?? {}), text } };
   if (field === 'rules') return { ...snap, rules: (snap.rules ?? []).map((r, i) => (i === index ? text : r)) };
   const at = flatRows(snap)[index!];
-  return { ...snap, maintenance: snap.maintenance!.map((t, ti) => (ti !== at[0] ? t : { ...t, rows: t.rows.map((r, ri) => (ri === at[1] ? { ...r, what: text } : r)) })) };
+  return { ...snap, maintenance: snap.maintenance!.map((t, ti) => (ti !== at[0] ? t : { ...t, rows: t.rows.map((r, ri) => (ri === at[1] ? { ...r, [part]: text } : r)) })) };
 }
 
-const editOf = (snap: FieldSnap, field: SnapshotField, index?: number): FieldEdit | undefined => {
+/** Удалить строку обслуживания целиком (сквозной index). */
+export function removeMaintRow<T extends FieldSnap>(snap: T, index: number): T {
+  const at = flatRows(snap)[index];
+  if (!at) throw new BadRequestException('Строка не найдена в тексте паспорта — обновите карточку');
+  const tables = (snap.maintenance ?? []).map((t, ti) => (ti !== at[0] ? t : { ...t, rows: t.rows.filter((_, ri) => ri !== at[1]) })).filter((t) => t.rows.length);
+  return { ...snap, maintenance: tables } as T;
+}
+
+const editOf = (snap: FieldSnap, field: SnapshotField, index?: number | string): FieldEdit | undefined => {
   const e = snap.fieldEdits?.[field];
   return isScalar(field) ? (e as FieldEdit | undefined) : (e as Record<string, FieldEdit> | undefined)?.[String(index)];
 };
 
-function putEdit(edits: FieldEdits | undefined, field: SnapshotField, index: number | undefined, edit: FieldEdit | null): FieldEdits | undefined {
+function putEdit(edits: FieldEdits | undefined, field: SnapshotField, index: number | string | undefined, edit: FieldEdit | null): FieldEdits | undefined {
   const out: FieldEdits = { ...(edits ?? {}) };
   if (isScalar(field)) {
     if (edit) (out as Record<string, FieldEdit>)[field] = edit; else delete out[field as 'description'];
@@ -81,29 +99,35 @@ function putEdit(edits: FieldEdits | undefined, field: SnapshotField, index: num
 const SRC_KEY: Partial<Record<SnapshotField, 'description' | 'purpose' | 'install'>> = { description: 'description', purpose: 'purpose', install: 'install' };
 
 /** Нормализация текста правки: списковая строка — в одну строку, монтаж и описание — с абзацами. */
-export function cleanFieldText(field: SnapshotField, raw: unknown): string {
+export function cleanFieldText(field: SnapshotField, raw: unknown, part: MaintPart = 'what'): string {
   const t = String(raw ?? '').replace(/\r\n/g, '\n');
   const out = field === 'install' ? t.split('\n').map((l) => l.replace(/[ \t]+/g, ' ').trim()).filter(Boolean).join('\n') : t.replace(/\s+/g, ' ').trim();
-  if (!out) throw new BadRequestException('Текст не может быть пустым');
+  // «Что проверить» и скаляры пустыми нельзя; «Где/Мера/Допуск» можно очистить
+  if (!out && !(field === 'maintenance' && part !== 'what')) throw new BadRequestException('Текст не может быть пустым');
   if (out.length > MAX_FIELD_TEXT) throw new BadRequestException(`Текст длиннее ${MAX_FIELD_TEXT} знаков`);
   return out;
 }
 
+/** Ключ fieldEdits для строки ТО: what — как раньше по индексу; остальные колонки — «i:where». */
+const editKey = (field: SnapshotField, index: number | undefined, part: MaintPart) =>
+  field === 'maintenance' && part !== 'what' ? `${index}:${part}` : index;
+
 /** Правка строки только в этом паспорте. Возвращает новый снимок; вернули исходный текст — пометка снимается. */
-export function editField<T extends FieldSnap>(snap: T, field: SnapshotField, index: number | undefined, text: unknown): T {
-  const t = cleanFieldText(field, text);
-  const cur = textAt(snap, field, index);
-  const prev = editOf(snap, field, index);
+export function editField<T extends FieldSnap>(snap: T, field: SnapshotField, index: number | undefined, text: unknown, part: MaintPart = 'what'): T {
+  const t = cleanFieldText(field, text, part);
+  const keyOf = editKey(field, index, part);
+  const cur = textAt(snap, field, index, part);
+  const prev = editOf(snap, field, keyOf);
   const original = prev ? prev.original : cur;
   const key = SRC_KEY[field];
-  const next = withText(snap, field, index, t) as T;
+  const next = withText(snap, field, index, t, part) as T;
   if (t === original) {
     const restored = key && prev ? { ...(next.src ?? {}), [key]: prev.src ?? 'product' } : next.src;
-    return { ...next, ...(restored ? { src: restored } : {}), fieldEdits: putEdit(next.fieldEdits, field, index, null) };
+    return { ...next, ...(restored ? { src: restored } : {}), fieldEdits: putEdit(next.fieldEdits, field, keyOf, null) };
   }
   const was = prev ? prev.src : key ? (snap.src?.[key] as string | undefined) : undefined;
   const edit: FieldEdit = { original, ...(was ? { src: was } : {}) };
-  return { ...next, ...(key ? { src: { ...(next.src ?? {}), [key]: 'manual' } } : {}), fieldEdits: putEdit(next.fieldEdits, field, index, edit) };
+  return { ...next, ...(key ? { src: { ...(next.src ?? {}), [key]: 'manual' } } : {}), fieldEdits: putEdit(next.fieldEdits, field, keyOf, edit) };
 }
 
 /** Что и откуда сохранять в справочник: текст сейчас, прежний текст (для поиска строки в записи), источник. */

@@ -27,14 +27,17 @@ const JOURNALS = [
 /** Спецификации правок: что и куда сохранять. */
 export function specsOf(ctx) {
   const pid = () => ctx.S.r.id;
-  const field = (name, index, text, ref, rows, original) => {
+  const field = (name, index, text, ref, rows, original, extra = {}) => {
     const url = '/passports/' + pid() + '/snapshot-field';
-    const key = { field: name, ...(index === undefined ? {} : { index }) };
-    return { text: String(text ?? ''), label: 'Текст строки', rows, original, save: (t) => api(url, { method: 'PATCH', body: { ...key, text: t } }),
-      // нет ref (старый паспорт) — источник выбирается из списка /sources, как в карточке (field-edit.js)
-      shared: { needsSource: !ref, sources: () => api(url + '/sources', { method: 'POST', body: key }).then((x) => x.items || []),
-        target: (t, sourceKey) => api(url + '/target', { method: 'POST', body: { ...key, text: t, ...(sourceKey ? { sourceKey } : {}) } }),
-        promote: (t, token, sourceKey) => api(url + '/promote', { method: 'POST', body: { ...key, text: t, token, ...(sourceKey ? { sourceKey } : {}) } }) } };
+    const part = extra.part && extra.part !== 'what' ? extra.part : undefined;
+    const key = { field: name, ...(index === undefined ? {} : { index }), ...(part ? { part } : {}) };
+    const shared = part ? null : { needsSource: !ref, sources: () => api(url + '/sources', { method: 'POST', body: key }).then((x) => x.items || []),
+      target: (t, sourceKey) => api(url + '/target', { method: 'POST', body: { ...key, text: t, ...(sourceKey ? { sourceKey } : {}) } }),
+      promote: (t, token, sourceKey) => api(url + '/promote', { method: 'POST', body: { ...key, text: t, token, ...(sourceKey ? { sourceKey } : {}) } }) };
+    return { text: String(text ?? ''), label: extra.label || 'Текст строки', rows, original,
+      save: (t) => api(url, { method: 'PATCH', body: { ...key, text: t } }),
+      remove: extra.remove ? () => api(url, { method: 'PATCH', body: { field: name, index, remove: true } }) : null,
+      ...(shared ? { shared } : {}) };
   };
   const item = (s, i) => {
     const url = '/passports/' + pid() + '/snapshot-item';
@@ -60,6 +63,10 @@ export function buildBook(ctx) {
   const orig = (f, i) => { const e = i === undefined ? fe[f] : fe[f]?.[i]; return e ? e.original : null; };
   const edited = (f, i) => !!(i === undefined ? fe[f] : fe[f]?.[i]);
   const own = t.src ? 'product' : '';
+  const maintCell = (index, part, value, label, { remove } = {}) => {
+    const key = part === 'what' ? index : `${index}:${part}`;
+    return cell(shown(value), fieldSpec('maintenance', index, value, part === 'what' ? refs.maintenance?.[index] : null, 2, orig('maintenance', key), { label, part, remove }));
+  };
 
   const hd = (s) => h('h3', { class: 'bk-h' }, s);
   const sub = (s) => h('h4', { class: 'bk-sub bk-h' }, s);
@@ -147,7 +154,11 @@ export function buildBook(ctx) {
     for (const m of maint) {
       push(cap('to:' + m.period, 'Осмотр и обслуживание: ' + m.period), table(['Отм.', 'Что проверить', 'Где', 'Мера', 'Допуск'], m.rows.map((x) => {
         const index = mi++;
-        return ['☐', cell(shown(x.what), fieldSpec('maintenance', index, x.what, refs.maintenance?.[index], 3, orig('maintenance', index))), shown(x.where), shown(x.measure), shown(x.tolerance)];
+        return ['☐',
+          maintCell(index, 'what', x.what, 'Что проверить', { remove: true }),
+          maintCell(index, 'where', x.where, 'Где'),
+          maintCell(index, 'measure', x.measure, 'Мера'),
+          maintCell(index, 'tolerance', x.tolerance, 'Допуск')];
       })));
     }
   }
