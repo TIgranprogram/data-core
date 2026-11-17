@@ -1,0 +1,170 @@
+{
+  "env": "stand",
+  "at": "2026-11-17T16:07:39.776Z",
+  "status": "PASS",
+  "products": [
+    {
+      "role": "cat-a",
+      "id": "6adaff3f2a8dad6034b145ea",
+      "name": "«Пончик» из геопластики",
+      "sku": "13_7",
+      "category": "BLG",
+      "autoFilled": [
+        "Фото из карточки",
+        "Описание из карточки",
+        "Тип паспорта BLG (own)"
+      ],
+      "fromModel": [
+        "Фото из карточки",
+        "Описание из карточки",
+        "Тип паспорта BLG (own)"
+      ],
+      "fromCategory": [],
+      "needOwner": [
+        "Габариты",
+        "Вес",
+        "Материалы",
+        "Назначение",
+        "Способ установки",
+        "Рисунок: Чертёж с размерами",
+        "Обязательный рисунок не читается: Фото изделия. Загрузите изображение заново"
+      ],
+      "choiceMissing": [],
+      "pdf": {
+        "file": "pdf/cat-a-BLG-b145ea.pdf",
+        "pages": 10,
+        "chars": 14039,
+        "hits": [],
+        "hasMark": false
+      },
+      "pdfError": null
+    },
+    {
+      "role": "cat-b",
+      "id": "6adaff432a8dad6034b145fe",
+      "name": "Баскетбольная стойка Г-образная (с фермой) вынос 2,25 м в комплекте: щит баскетбольный игровой из монолитного поликарбоната 10 мм на металлической раме, 180х105 см, кольцо баскетбольное усиленное, сетка баскетбольная, D нити 6,0 мм",
+      "sku": "ПС-F2C782",
+      "category": "WRK",
+      "autoFilled": [
+        "Габариты из карточки",
+        "Вес из карточки",
+        "Фото из карточки",
+        "Описание из карточки",
+        "Тип паспорта WRK (own)"
+      ],
+      "fromModel": [
+        "Габариты из карточки",
+        "Вес из карточки",
+        "Фото из карточки",
+        "Описание из карточки",
+        "Тип паспорта WRK (own)"
+      ],
+      "fromCategory": [],
+      "needOwner": [
+        "Вид изделия",
+        "Материалы",
+        "Назначение",
+        "Элементы",
+        "Пользователей одновременно",
+        "Рисунок: Чертёж с размерами",
+        "Рисунок: Схема фундамента",
+        "Обязательный рисунок не читается: Фото изделия. Загрузите изображение заново"
+      ],
+      "choiceMissing": [],
+      "pdf": {
+        "file": "pdf/cat-b-WRK-b145fe.pdf",
+        "pages": 11,
+        "chars": 17592,
+        "hits": [],
+        "hasMark": false
+      },
+      "pdfError": null
+    },
+    {
+      "role": "incomplete",
+      "id": "6addd770c93bb8ea2a6e397b",
+      "name": "Арт объект: Деревянные качели",
+      "sku": "3213",
+      "category": "DIO",
+      "autoFilled": [
+        "Фото из карточки",
+        "Тип паспорта DIO (own)",
+        "Возраст от ← умолчание типа"
+      ],
+      "fromModel": [
+        "Фото из карточки",
+        "Тип паспорта DIO (own)"
+      ],
+      "fromCategory": [
+        "Возраст от ← умолчание типа"
+      ],
+      "needOwner": [
+        "Вид изделия",
+        "Габариты",
+        "Вес",
+        "Материалы",
+        "Фото изделия",
+        "Элементы",
+        "Возраст до",
+        "Пользователей одновременно",
+        "Высота свободного падения",
+        "Рисунок: Чертёж с размерами",
+        "Рисунок: Зона безопасности",
+        "Рисунок: Схема фундамента",
+        "Рисунок: Разметка ям под опоры"
+      ],
+      "choiceMissing": [],
+      "pdf": {
+        "file": "pdf/incomplete-DIO-6e397b.pdf",
+        "pages": 12,
+        "chars": 16935,
+        "hits": [],
+        "hasMark": false
+      },
+      "pdfError": null
+    }
+  ],
+  "phrase": {
+    "ok": true,
+    "detail": "preview ловит правку фразы; 2 черновика пересобраны; локальная правка не течёт; issued PDF/снимок без метки",
+    "drafts": [
+      {
+        "id": "6adf40c2a7c2b11c4264f5b2",
+        "number": "draft-6adf40c2a7c2b11c4264f5b2",
+        "rebuilt": true,
+        "hasMark": false,
+        "hadSnapshot": true,
+        "localEditHasMark": true
+      },
+      {
+        "id": "6adf3b18a7c2b11c4264f3cb",
+        "number": "draft-6adf3b18a7c2b11c4264f3cb",
+        "rebuilt": true,
+        "hasMark": false,
+        "hadSnapshot": true,
+        "leakedFromDraft1": false
+      }
+    ],
+    "issued": {
+      "id": "6afbf41696a3944b4d002ea6",
+      "number": "598",
+      "snapshotUnchanged": true,
+      "pdfUnchanged": true,
+      "pdfBefore": "pdf/issued-before-598.pdf",
+      "pdfAfter": "pdf/issued-after-598.pdf"
+    },
+    "preview": {
+      "beforeHasMark": false,
+      "afterHasMark": true,
+      "ok": true
+    },
+    "mode": "manager-safe",
+    "target": {
+      "category": "BLG",
+      "section": "service",
+      "was": "Периодичность осмотров и ухода устанавливает эксплуатант (владелец) с учётом мес",
+      "mark": "C112-PROBE-1794931624439"
+    },
+    "note": "Запись общей фразы в шаблон на стенде — роль director/admin (EDIT). Manager доказал сборку через texts/preview и изоляцию issued."
+  }
+}

@@ -20,6 +20,8 @@ describe('passport-regression', () => {
     const cat = fs.readFileSync(path.join(ROOT, 'pult/catalog.mjs'), 'utf8');
     assert.match(cat, /passport-regression/);
     assert.match(cat, /pass-funnel,pass-order,pass-queue,order-passport/);
+    assert.match(cat, /passport-regression\.mjs', '--live'/);
+    assert.ok(fs.existsSync(path.join(ROOT, 'tools/passport-live-check.mjs')));
   });
 
   it('PWA buildDescription уже без старого рода названия', () => {

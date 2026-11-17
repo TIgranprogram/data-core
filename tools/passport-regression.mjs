@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
  * C112: одна кнопка — автоматическая регрессия паспортов (без ИИ и без прода).
- *   node tools/passport-regression.mjs           полный прогон
+ *   node tools/passport-regression.mjs           полный прогон (юнит + скан)
+ *   node tools/passport-regression.mjs --live    + живой стенд (PDF 2 категорий + неполная + фраза)
  *   node tools/passport-regression.mjs --last    итог прошлого запуска
  * Код выхода: 0 PASS · 1 FAIL · 2 PARTIAL (есть SKIP)
  *
- * Авто: юнит паспортных модулей, синтаксис PWA-описания, скан извлечённых PDF-текстов.
+ * Авто: юнит, PWA-описание, скан PDF-текстов; --live зовёт passport-live-check.mjs (стенд :3102).
  * ИИ-вычитка — отдельная кнопка пульта (ai-tester --tasks pass-*).
  * E2E с БД — только если подтверждена изоляция (DC_PASSPORT_E2E=1).
  */
@@ -180,7 +181,29 @@ async function main(argv = process.argv.slice(2)) {
     save(false);
   }
 
-  // 4. E2E — только по явному флагу (изоляция БД)
+  // 4. Живой стенд (по --live или DC_PASSPORT_LIVE=1)
+  {
+    const wantLive = argv.includes('--live') || process.env.DC_PASSPORT_LIVE === '1';
+    const title = 'Стенд: PDF 2 категорий + неполная + фраза';
+    if (!wantLive) {
+      rows.push({ id: 'live', title, status: 'SKIP', detail: 'Добавьте --live или DC_PASSPORT_LIVE=1 (кнопка «Паспорта: стенд PDF»)' });
+    } else {
+      say('→ живая проверка на стенде…');
+      const outDir = path.join(runDir, 'live');
+      const r = await run(process.execPath, [path.join(ROOT, 'tools/passport-live-check.mjs'), 'stand', '--out', outDir], { timeoutMs: 300000 });
+      fs.writeFileSync(path.join(runDir, 'live.log'), r.output);
+      const ok = !r.error && !r.timedOut && r.code === 0;
+      rows.push({
+        id: 'live', title,
+        status: ok ? 'PASS' : (r.code === 2 ? 'SKIP' : 'FAIL'),
+        detail: ok ? 'см. live/REPORT.md' : (r.timedOut ? 'таймаут' : (r.output.trim().split(/\r?\n/).slice(-2).join(' · ') || `код ${r.code}`)),
+        log: 'live.log',
+      });
+    }
+    save(false);
+  }
+
+  // 5. E2E — только по явному флагу (изоляция БД)
   {
     const title = 'E2E passport* (изолированная БД)';
     if (process.env.DC_PASSPORT_E2E !== '1') {

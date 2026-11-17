@@ -299,6 +299,8 @@ export const COMMANDS = [
   // C112: паспорта — авто и глаза ИИ разведены
   { id: 'passport-regression', section: 'check', extra: true, sub: 'Тесты кода', title: 'Паспорта: автопроверка', risk: 'read', time: '2–15 мин', run: { node: ['tools/passport-regression.mjs'], soft: true },
     hint: 'Юнит passport*, совпадение описания PWA с сервером, скан извлечённых PDF-текстов. Без ИИ и без прода. Итог — tools/logs/passport-regression/.' },
+  { id: 'passport-regression-live', section: 'check', extra: true, sub: 'Тесты кода', title: 'Паспорта: стенд PDF', risk: 'local', time: '1–5 мин', needs: ['docker'], run: { node: ['tools/passport-regression.mjs', '--live'], soft: true },
+    hint: 'Автопроверка плюс живой стенд :3102: PDF двух категорий и неполной карточки, проверка общей фразы на черновиках/issued. Прод не трогает.' },
   { id: 'passport-regression-last', section: 'check', extra: true, sub: 'Тесты кода', title: 'Паспорта: итог автопроверки', risk: 'read', time: '1 с', run: { node: ['tools/passport-regression.mjs', '--last'], soft: true },
     hint: 'Показывает итог и путь к отчёту последнего запуска. Тесты повторно не выполняются.' },
   { id: 'passport-ai', section: 'aitester', extra: true, sub: 'Главное', title: 'Паспорта: глаза ИИ', risk: 'local', time: '15–60 мин', run: { node: ['tools/ai-tester/run.mjs', '--detach', '--minutes', '{minutes}', '--tasks', 'pass-funnel,pass-order,pass-queue,order-passport'] },
@@ -332,6 +334,7 @@ export const NOT_ON_BUTTONS = {
   'tools/browser-path.mjs': 'общий поиск браузера для тестов и обходов (Windows и Linux) — библиотека, не запускается сама',
   'tools/stand-look.mjs': 'вход Claude на стенд одной командой (учётка, адрес /app/, сброс кэша) — для просмотра экранов ИИ, не человек',
   'tools/passport-readiness.mjs': 'замер C112 Э0/Э5 «паспорт без ввода» — гоняет Claude через агента доступа (стенд), итог в BASELINE.md, не человек',
+  'tools/passport-live-check.mjs': 'живая проверка PDF/фраз на стенде — зовёт кнопка «Паспорта: стенд PDF» (passport-regression --live), не отдельно',
   'tools/starozhil/passport-texts-facts.mjs': 'раскладка текстов паспорта по строкам для нарядов 006–007 Старожила (prepare в наряде), не человек',
   'tools/starozhil/dead-files.mjs': 'поиск файлов без ссылок для наряда Старожила (prepare), не человек',
   'tools/starozhil/flaky-tests.mjs': 'факты для наряда 009 «нестабильные тесты» (prepare: юнит 3 раза подряд), не человек',
