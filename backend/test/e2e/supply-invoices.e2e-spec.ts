@@ -43,7 +43,8 @@ describe('Supply invoices', () => {
     await http().patch(`/api/supply/invoices/${invId}`).set(auth()).send({ no: '17', issue: true }).expect(400);
     // amount — производная: не совпал с суммой строк (100 + 300) → 400
     await http().patch(`/api/supply/invoices/${invId}`).set(auth()).send({ no: '17', date: '2026-10-20', amount: 500, issue: true }).expect(400);
-    const r = await http().patch(`/api/supply/invoices/${invId}`).set(auth()).send({ no: '17', date: '2026-10-20', amount: 400, issue: true }).expect(200);
+    const org = await db().collection('organizations').findOne({ name: 'Крепёж' });
+    const r = await http().patch(`/api/supply/invoices/${invId}`).set(auth()).send({ no: '17', date: '2026-10-20', amount: 400, payerCompanyId: String(org!._id), issue: true }).expect(200);
     expect(r.body).toMatchObject({ status: 'issued', amount: 400 });
     expect(await row(a)).toMatchObject({ invoiceNo: '17', priceHint: 100 });
     expect(await row(b)).toMatchObject({ invoiceNo: '17', priceHint: 300 });
@@ -64,9 +65,6 @@ describe('Supply invoices', () => {
   });
 
   it('оплата: до приёмки финансовые правки разрешены, после первой приёмки блокируются; № можно', async () => {
-    await http().post(`/api/supply/invoices/${invId}/pay`).set(auth()).expect(400);
-    const org = await db().collection('organizations').findOne({ name: 'Крепёж' });
-    await http().patch(`/api/supply/invoices/${invId}`).set(auth()).send({ payerCompanyId: String(org!._id) }).expect(200);
     const r = await http().post(`/api/supply/invoices/${invId}/pay`).set(auth()).expect(200);
     expect(r.body.status).toBe('paid');
     expect(await row(a)).toMatchObject({ paid: true });
@@ -181,13 +179,13 @@ describe('Material prices', () => {
     const inv = (await http().post('/api/supply/invoices').set(auth()).send({ requestIds: [rid] }).expect(201)).body.items[0].id as string;
     // цена — за единицу: 10 шт × 120 = 1200 в сумме строки; счёт считает сумму сам
     await http().patch(`/api/supply/invoices/${inv}/lines/${rid}`).set(auth()).send({ unitPrice: 120 }).expect(200);
-    await http().patch(`/api/supply/invoices/${inv}`).set(auth()).send({ no: '1', date: '2026-10-20', issue: true }).expect(200);
+    const org = await db().collection('organizations').findOne({ name: 'Металл' });
+    await http().patch(`/api/supply/invoices/${inv}`).set(auth()).send({ no: '1', date: '2026-10-20', payerCompanyId: String(org!._id), issue: true }).expect(200);
     await http().patch(`/api/supply/invoices/${inv}`).set(auth()).send({ amount: 1200 }).expect(200); // повторная правка — не дубль
     let h = (await http().get(`/api/materials/${mid}/prices`).set(auth()).expect(200)).body;
     expect(h.total).toBe(2); // ручная цена черновика + цена выставленного счёта
     expect(h.items.map((p: { source: string }) => p.source).sort()).toEqual(['invoice_issued', 'manual']);
     expect(h.items[0]).toMatchObject({ price: 100, priceWithVat: 120, vatRate: 20, supplierName: 'Металл' });
-    const org = await db().collection('organizations').findOne({ name: 'Металл' });
     await http().patch(`/api/supply/invoices/${inv}`).set(auth()).send({ payerCompanyId: String(org!._id) }).expect(200);
     await http().post(`/api/supply/invoices/${inv}/pay`).set(auth()).expect(200);
     h = (await http().get(`/api/materials/${mid}/prices`).set(auth()).expect(200)).body;
