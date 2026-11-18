@@ -226,7 +226,8 @@ function contractMenu(o, reload, prefix = '') {
   };
   const menu = [
     { label: 'Договор', title: 'Договор с заказчиком: реквизиты, деньги и правка позиций', onSelect: () => patch({ of: 'salesorder', open: o.id }, { replace: false }) }, // владелец 15.11: «Договор», всё по договору — внутри
-    !['closed', 'cancelled', 'new'].includes(o.stage) && canShip() && { label: 'Отгрузить', onSelect: () => patch({ of: 'shipdo', open: o.id, pick: undefined }, { replace: false }) },
+    // C136: у «Отгружен» (в т.ч. до учёта) кнопку не предлагать — иначе панель ведёт к 400
+    !['closed', 'cancelled', 'new', 'shipped'].includes(o.stage) && canShip() && { label: 'Отгрузить', onSelect: () => patch({ of: 'shipdo', open: o.id, pick: undefined }, { replace: false }) },
     can && !closedStage(o) && seeStock && { label: 'Загрузить спецификацию из Excel', onSelect: () => patch({ of: 'specimport', new: '1', orderId: o.id, open: undefined }, { replace: false }) },
     can && o.productionNo && !closedStage(o) && { label: 'Перенести в другой заказ', onSelect: () => moveContract(o).then((r) => r && reload?.()).catch((e) => toastError(e)) },
     session.role === 'admin' && o.stage !== 'new' && { label: 'Вернуть на прежний этап…', onSelect: () => stageBack(o).then((r) => r && reload?.()).catch((e) => toastError(e)) },

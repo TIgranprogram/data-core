@@ -47,6 +47,11 @@ export const session = {
     if (id === 'expenses') id = 'money'; // «Прочие расходы» видны там же, где «Деньги»
     if (id === 'workschedule') id = 'work'; // Гант виден там же, где «В работе»
     if (id === 'contracts') id = 'requests'; // «Договоры» видны там же, где «Заявки»
+    // «Модули» и «Детали» — та же галочка, что «Продукция»; запись на сервере только у менеджера и админа
+    if (id === 'modules' || id === 'parts') {
+      if (!['admin', 'director', 'manager'].includes(this.role) && this.user?.isOwner !== true) return false;
+      id = 'products';
+    }
     if (id === 'staff') return this.role === 'admin' || this.role === 'director' || this.user?.isOwner === true; // «Управление → Сотрудники»: только руководство
     const u = this.user, s = u?.sections;
     // «Документация» (docs) видна и ролям со старой галочкой «паспорта» — миграция ролей не нужна

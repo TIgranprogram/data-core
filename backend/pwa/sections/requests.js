@@ -441,9 +441,10 @@ export const requests = {
     fields: () => fields(),
     initial: () => ({ qty: 1, unit: 'шт', status: 'requested', priority: 'normal', requestedBy: session.name, requestDate: isoDay() }),
     toInitial,
-    toBody: (v) => {
+    toBody: (v, row) => {
       const s = (x) => (x === null ? '' : String(x));
       const linked = !!v.materialId; // поля позиции не шлём — истина в карточке склада
+      const inInvoice = !!(row && row.invoiceId); // TASKS: у строки счёта реквизиты счёта не слать — иначе 400
       const body = {
         qty: v.qty ?? 1,
         orderLabel: s(v.orderLabel), requestedBy: s(v.requestedBy),
@@ -459,12 +460,15 @@ export const requests = {
         body.article = s(v.article);
         body.color = s(v.color);
       }
-      body.priceHint = v.priceHint; // пусто — null: сумму можно стереть (В.7)
+      if (!inInvoice) body.priceHint = v.priceHint; // пусто — null: сумму можно стереть (В.7); в счёте — только в самом счёте
       if (v.requestDate) body.requestDate = v.requestDate;
       body.costCenter = v.costCenter || ''; body.costObject = v.costObject || '';
-      if ('supplierName' in v) body.supplierName = s(v.supplierName); if ('companyName' in v) body.companyName = s(v.companyName); // у счёта — только показ
-      if ('invoiceNo' in v) body.invoiceNo = s(v.invoiceNo); if ('articleId' in v) body.articleId = v.articleId || null;
-      if ('invoiceDate' in v) body.invoiceDate = v.invoiceDate || '';
+      if (!inInvoice) {
+        if ('supplierName' in v) body.supplierName = s(v.supplierName); if ('companyName' in v) body.companyName = s(v.companyName);
+        if ('invoiceNo' in v) body.invoiceNo = s(v.invoiceNo);
+        if ('invoiceDate' in v) body.invoiceDate = v.invoiceDate || '';
+      }
+      if ('articleId' in v) body.articleId = v.articleId || null;
       if (v.materialId) body.materialId = String(v.materialId);
       if ('responsibleId' in v) body.responsibleId = v.responsibleId || '';
       Object.assign(body, splitRef(v.salesOrderRef));

@@ -17,8 +17,9 @@ import { table, button, iconButton, enhanceSelect, empty } from '../ui/kit/index
 const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
 const KINDS = [['advance', 'Аванс'], ['salary', 'Зарплата'], ['bonus', 'Премия'], ['other', 'Прочее']];
 const curMonth = () => todayMsk().slice(0, 7);
-const shift = (m, n) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo - 1 + n, 1)).toISOString().slice(0, 7); };
-const label = (m) => { const [y, mo] = m.split('-').map(Number); return `${MONTHS[mo - 1][0].toUpperCase()}${MONTHS[mo - 1].slice(1)} ${y}`; };
+const monthOk = (m) => /^\d{4}-\d{2}$/.test(String(m || ''));
+const shift = (m, n) => { const base = monthOk(m) ? m : curMonth(); const [y, mo] = base.split('-').map(Number); return new Date(Date.UTC(y, mo - 1 + n, 1)).toISOString().slice(0, 7); };
+const label = (m) => { const base = monthOk(m) ? m : curMonth(); const [y, mo] = base.split('-').map(Number); return `${MONTHS[mo - 1][0].toUpperCase()}${MONTHS[mo - 1].slice(1)} ${y}`; };
 const kpi = (l, v, cls = '') => h('div', { class: 'sum-item static' }, h('span', { class: 'sum-v ' + cls }, v), h('span', { class: 'sum-l' }, l));
 
 /** «Выплата» — правая панель (П3, было окно): вид, дата, сумма (по умолчанию — остаток); у сотрудника без компании — выбор нашей компании. */

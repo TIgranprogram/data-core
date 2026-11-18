@@ -174,7 +174,7 @@ function materialFields(r) {
 /** C057 Э3: сырьё-заготовка детали + файлы PDM с версиями. */
 function partBomBlock(comp) {
   const lines = comp?.items || comp?.composition || (Array.isArray(comp) ? comp : []);
-  if (!lines.length) return section({ title: 'Заготовка и сырьё', tone: 'warn', body: hint('Размера заготовки нет — укажите в составе детали (сырьё + размеры).') });
+  if (!lines.length) return section({ title: 'Заготовка и сырьё', tone: 'warn', body: hint('Размера заготовки нет — состав детали правят в PDM, здесь только просмотр.') });
   return section({
     title: 'Заготовка и сырьё', tone: 'gold', count: lines.length,
     body: table({
