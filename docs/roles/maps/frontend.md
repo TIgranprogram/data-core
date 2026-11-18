@@ -1,3 +1,26 @@
+## C152 — сохранить богатое описание модулей (2026-11-18)
+коммит: не закоммичено
+- `backend/pwa/sections/passports/book-blocks.js:131` отдельный блок «Модули: сохранённое описание» рядом с BOM; подавляется только marker tree, старый issued без marker сохраняет legacy.
+- `backend/pwa/sections/passports/book-composition-tree.test.mjs:67` rich/both, tree flag, old issued. Полный modulesEditor остаётся открытой задачей. Отчёт C152/FRONTEND-REPORT.md. Карта обновлена.
+- C151 дополнение: `backend/pwa/sections/passports/book-images.js:43` replace/append dedup через kindOf; safety_zone→safety, регрессия в book-images.test.mjs.
+
+## C151 — вход Inventor в черновик и замена изображений (2026-11-18)
+коммит: не закоммичено
+- `backend/pwa/sections/passports/open-book.js:13,27` opt-in draftOnly ищет черновик на сервере, затем C149 createBookDraft; обычный вход сохраняет issued.
+- `backend/pwa/sections/passports/book-entry.js:17` только product bookFor принудительно draftOnly, включая старое установленное правило.
+- `backend/pwa/sections/passports/book-images.js:22,41,55` свежий inherited guard, default replace выбранного вида, отдельный kit append «Добавить ещё», без удаления файлов.
+- `backend/pwa/ilogic/passport-images.iLogicVb:387,585,614` результат замены подтверждается новыми linkId/видами до успеха; сообщение о черновике и снимке выпуска.
+- `book-entry.test.mjs`, `book-images.test.mjs`: draftOnly/ordinary, repeat2PNG, ошибка/очередь, append, inherited/readonly; вместе с C149 и gate27/27. Отчёт C151/FRONTEND-REPORT.md. Карта обновлена.
+
+## C148 — один состав и описание с источниками (2026-11-18)
+коммит: не закоммичено
+- `backend/pwa/ui/materials-spec.js:22,112,407,513` sourceRefs проходят чтение/копирование/сохранение; видимый источник, необязательное название в тексте, адресные действия конфликтов.
+- `backend/pwa/sections/products/materials-proposal.js:15` безопасное принятие по идентичности цепи; ручные поля сохраняются, повтор не дублирует, 100+1 не склеиваются.
+- `backend/pwa/sections/products/form-fields.js:28` общий «Из состава», подтверждение догадок по названию; `backend/pwa/sections/tech-sheet.js:42,104` имя реального источника и единые подписи.
+- `backend/pwa/sections/passports/book-composition-funnel.js:15,184` модуль/деталь/изделие комплекса, исключение самого изделия, сохранение старых строк.
+- `backend/pwa/sections/passports/book-editor.js:110,338`, `book-blocks.js:125`, `book-composition-tree.js:21` серверная projection книжки как PDF; issued использует свой снимок, refresh после сохранения.
+- `backend/pwa/sections/passports/book-side-edit.js:131`, `book-focus.js:31` «Описание конструкции и материалов». Отчёт C148/FRONTEND-REPORT.md. Карта обновлена.
+
 ## C149 — повтор входа в книжку (2026-11-18)
 коммит: не закоммичено
 - `passports/funnel/index.js:142–146,172–174` общий вход учитывает актуальность route, этапа и подключённой панели.

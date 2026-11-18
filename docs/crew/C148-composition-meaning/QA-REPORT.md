@@ -1,0 +1,11 @@
+PARTIAL | серверная приёмка C148 + защита C152 ✅, UI/общая печать ➖ | базовый коммит: e99a4b73, рабочие изменения без коммита.
+✅ К1/К3/К4: ×2×3=6, разные «Стойка» и точные path, предложение без записи → PATCH/GET → новый draft с явной фирмой → реальный технический PDF; e2e:78.
+✅ К2 API: комплекс из двух изделий с qty2/3 сохраняется и открывается повторно, материалы детей не смешиваются, самоссылка и цикл дают400; e2e:151. Книжка глазами ➖.
+➖ К5: E2E сохраняет ручные passportText/techText/размеры и повторяет предложение без изменения БД; принятие, конфликт и сохранение покрытий на экране проверяет координатор.
+✅ К6: неизвестное сырьё имеет адресный sourceRefs, предложение пусто и readiness=false; e2e:121.
+➖ К7: старое описание при пустом BOM сохраняется и переносится в draft ✅; существующие покупные/PDM данным прогоном не покрыты.
+✅ К8/C152: реальный draft→issue→GET→PDF сохраняет compositionSheet и богатые modules{name,dims,qty}; БД+GET фиксируют compositionPresentation=both, PDF печатает дерево и описание C095 с размерами. Повтор issue сохраняет оба источника/marker; issued не меняет имя после каталога, новый draft получает новое; e2e:173.
+✅ Дополнения: producer100+1→PATCH/GET→draft сохраняет все101 источников (e2e:110); create own name и PATCH manualText:name переживают два GET (e2e:137).
+✅ Стык: src/modules/showcase/showcase-materials.ts:43→src/common/catalog/materials-table.ts:59→src/modules/product-passport/passport-from-product.ts:41; pwa/ui/materials-spec.js:112,407 читает/возвращает sourceRefs; pwa/sections/products/materials-proposal.js:39 сопоставляет точные источники. Пути от backend/.
+Проверки: composition-meaning.e2e-spec.ts — финальный после C152 1 suite/6 tests PASS,13.249с,exit0; QA-E2E.json. eslint --no-ignore — exit0. Docker Mongo4.4.30,c148-qa-mongo,loopback:27148,только datacore-test; guard до createTestApp допускает только loopback и datacore-test[-*], после проверяет фактическое имя connection. Контур остановлен после прогона.
+Файлы: backend/test/e2e/composition-meaning.e2e-spec.ts,этот отчёт,QA-E2E.json,docs/roles/maps/qa.md. ➖ К9: full/unit/UI обе темы/архитектор/документация/выпуск — координатор; batch имён пока не проверялся. коммит: —; карта обновлена.

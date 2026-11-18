@@ -195,4 +195,6 @@
 | 2026-11-18 | C147 montage, вход Inventor, наследуемые рисунки и соседние подстановки | tsc0; unit 349 наборов / 3622 теста; PWA257/257; guards338/338; импорты343/0; lint0 | e2e ✅ new-endpoints-1101 на datacore-test, 19/19 | crew/C147-book-installation-entry/REPORT.md; UI-REVIEW.md |
 | 2026-11-18 | C147 после 5dd38691 | ранее PASS, backend без изменений | ранее 3622/3622 | ранее 19/19 | UI-добавка: PWA258/258, пульт56/56, импорты343/0, design-lint0; обычный клик удаления покрытия + PATCH/GET PASS |
 | 2026-11-18 | C149 перед выпуском | backend без изменений после3622PASS | PWA267/267 | серверный e2e ранее19/19 | выбор фирмы/отмена/ошибки/устаревший контекст, 13 целевых тестов; импорты344/0; стендовые сценарии и повторный вход — crew/C149-passport-firm-entry/REPORT.md |
+
 | 2026-11-18 | C153 print name | PASS | 349 /3621 PASS | реальный single+order PDF на стенде C148, evidence | отдельный срочный backend-only выпуск без C148/C151/C152;2целевыхsuite/6tests PASS |
+| 2026-11-18 | C148+C151+C152 перед выпуском | tsc0; unit 354 набора / 3641 тест PASS; PWA297/297; guards341/341; импорты346/0; карта OK | e2e ✅ 78 наборов / 579 тестов PASS (1 набор и 12 тестов штатно пропущены, падений 0); целевой состав C148 6/6 | crew/C148-composition-meaning/RELEASE-REVIEW.md, C151-inventor-image-replace/, C152-modular-passport-book/ |

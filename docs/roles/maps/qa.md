@@ -1,6 +1,8 @@
 # Карта роли qa
 
-коммит: — (C142 e2e supply 2026-11-18, без коммита). Два файла e2e 2 suites / 20 tests PASS. Полный прогон не повторялся.
+коммит: — (C148/C152 e2e 2026-11-18, база e99a4b73, без коммита). composition-meaning: 1 suite / 6 tests PASS. Полный прогон не повторялся.
+
+- C148 (2026-11-18): `docs/crew/C148-composition-meaning/QA-REPORT.md:1`, доказательства `QA-E2E.json:1`; тест `backend/test/e2e/composition-meaning.e2e-spec.ts:31` guard отдельной БД, `:78` предложение→PATCH/GET→draft→технический PDF, `:110` 101 источник, `:121` legacy/unmatched, `:137` ручное имя/manualText, `:151` комплекс/циклы, `:173` настоящий issue→PDF/снимок; C152 modules{name,dims,qty} сохранены, marker both в БД/GET, дерево и описание C095 печатаются вместе. Mongo4.4.30 Docker c148-qa-mongo :27148, datacore-test, 1 suite/6 tests PASS,13.249с,exit0; eslint --no-ignore PASS. Общий full/UI/batch имён — координатор. коммит: —; карта обновлена.
 
 - C086: `docs/crew/C086-passports-owner-review/QA-FINAL.md:3`, пофайловые результаты `QA-EVIDENCE.json`. Права manager: `backend/test/e2e/new-endpoints-1101.e2e-spec.ts:77` preview, `:124` plan; `backend/test/e2e/passports.e2e-spec.ts:136` create/issue/user-denied, `:283` snapshot, `:305` bulk. Реальные PNG-fixtures: `passports.e2e-spec.ts:23`, `new-endpoints-1101.e2e-spec.ts:25`. Refresh uploads: `tools/night-stand.mjs:153`; реальный Docker PASS, checksum PNG сохранён при смене контейнера, собственный контур остановлен. E2E после OOM запускать группами; T26 каждый повтор требует новую disposable БД (существующая counters ломает setup). Main backend/tools SHA256 совпал с manifest-v4; UI-приёмка — отдельно.
 

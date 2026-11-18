@@ -1,0 +1,7 @@
+До guard {"value":"ТЕСТ-ИИ C148 индивидуальное название 1","same":true,"oldConnected":true,"editorText":"Название в этом паспорте\nТолько в этом паспорте\nОтмена\nEnter — сохранить · Esc — отмена · Tab — дальше"}
+PASS название: клик/ввод внутри редактора не переоткрывает поле
+PASS dirty guard: PDF не запрошен, причина подполем остаётся после12сек
+PASS название button/Enter/reopen: name2 и manualText:name сохранены, имяизделия прежнее
+Single PDF HTTP200
+PDF сохранён для извлечения текста
+Techsheet PDF HTTP400

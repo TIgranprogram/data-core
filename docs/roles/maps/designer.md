@@ -1,5 +1,15 @@
 # Карта роли designer
 
+- C148 (18.11): [UI-REVIEW](../../crew/C148-composition-meaning/UI-REVIEW.md), PASS отснятых сценариев. 8 UI-состояний обе темы1920×1080 +2PDFpreview; unknown material, nameguard, дерево2→3/1, complex; API/действия по ACCEPTANCE. P2 слабый contrast dark-table-header. Новые C151/C152/C153 ветки этим не приняты.
+
+- C149 (18.11): [UI-REVIEW](../../crew/C149-passport-firm-entry/UI-REVIEW.md), PASS. Модальное окно фирмы, раскрытый выбор, отмена/повтор, книжка в обеих темах 1920×1080; финальный access-прогон закрыл повторный вход/чистый адрес, POST0 для существующего черновика. Рабочий diff C149; код дизайнер не менял.
+
+- C147 (18.11): [UI-REVIEW](../../crew/C147-book-installation-entry/UI-REVIEW.md). Монтаж открыт в обеих темах 1920×1080, автоподстановка/ручной текст/глубина и save+GET проверены access; исходный TypeError исправлен и повторно не воспроизведён. bookFor draft/закрытие PASS. Итоговый scope и ограничения в отчёте. Рабочий diff C147; review-scope --done не запускался.
+
+- C146 (18.11): [UI-REVIEW](../../crew/C146-module-categories-dict/UI-REVIEW.md). Основной путь категории модуля, readOnly, формы модуля/детали и низ доски заявок приняты по Chromium 1920×1080, обе темы; основной путь записи подтверждён access. Итоговый scope книжки — в отчёте. Коммит 228017d3 + рабочий diff; review-scope --done не запускался.
+
+- C143 (18.11): [UI-REVIEW](../../crew/C143-book-side-gaps/UI-REVIEW.md), правки. Стенд 3102, черновик 13_7. P1: лист 222 px на 1024 при is-wide; низ материалов наезжает на «Проверку ИИ», «Сохранить» не в кадре; три primary. is-wide не снимается на следующих слотах. design-lint новых 0. коммит: 054027bf + рабочий diff; review-scope --done не запускался.
+
 - C118 (14.11): опись экранов и 7 шаблонов — [INVENTORY](../../crew/C118-screen-templates/INVENTORY.md), по коду, без снимков (PARTIAL). Карточка заказа: salesorders.js card 499–542, contractGroup 244–343, details 375–386; дубль позиции — 346/289, order-design.js:46, order-work.js:59. коммит: f6faab11.
 
 - C096 (12.11), [DESIGN-REVIEW](../../crew/C096-passport-system-audit/DESIGN-REVIEW.md): общий PARTIAL. H1 mobile SVG закрыт свежими снимками после guide.diagram. Help 8/8, форма 30/30 live действий PASS, обе темы 390/1024/1920. Fill открыт тестовой обёрткой (заголовок «Новая запись» не доказанный баг штатного пути). QA фото битое, check честно предупреждает. Реальный чертёж 3905 читаем A5/A4, размеры QA-копии исправлены и повторно проверены: 1097×176×2000 в таблице и рисунке, P1 закрыт. Комплект фото/схем, issued reprint/физическая печать не подтверждены. Коммит проверки: c41e60de + рабочий diff C096; review-scope --done не запускался.
