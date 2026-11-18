@@ -107,3 +107,12 @@ test('C129: подсказка следующего шага в задании �
   assert.match(nextHint({ layer: '', els: ['[4] строка «Расход 1»', '[7] кнопка «+ Расход»'] }), /click с n=7/);
   assert.equal(nextHint({ layer: '', els: ['[4] строка «Расход 1»'] }), '');
 });
+
+test('C136: pickOption — взаимное вхождение, побеждает самый длинный', async () => {
+  const { pickOption } = await import('./lib.mjs');
+  const opts = ['Без объекта', '№ 907 · ООО «БакСтрой»', 'Объект — Без объекта № 907 · ООО «БакСтрой»'];
+  assert.equal(pickOption('Объект — Без объекта № 907 · ООО «БакСтрой»', opts), 'Объект — Без объекта № 907 · ООО «БакСтрой»');
+  assert.equal(pickOption('№ 907 · ООО «БакСтрой»', ['Без объекта', '№ 907 · ООО «БакСтрой»']), '№ 907 · ООО «БакСтрой»');
+  assert.equal(pickOption('БакСтрой', [{ value: 'a', text: 'Без объекта' }, { value: 'b', text: '№ 907 · ООО «БакСтрой»' }])?.value, 'b');
+  assert.equal(pickOption('нет такого', opts), null);
+});

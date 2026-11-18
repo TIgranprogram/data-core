@@ -257,6 +257,10 @@ async function cmdCheck() {
   log('\n=== карта сайта ===\n' + ([...atl.errors, ...atl.warns].join('\n') || 'ок'));
   say(atl.errors.length ? `карта сайта: ОШИБКИ ${atl.errors.length} — ${cut(atl.errors[0], 90)} (dc atlas --check)` : `карта сайта: ок${atl.warns.length ? `, сверить ${atl.warns.length} (dc atlas --check)` : ''}`);
   if (atl.errors.length) bad++;
+  // C128 волна 1: каждый файл backend/|tools/ → участок (atlas.code или правило папки)
+  const areas = step('участки', process.execPath, ['tools/areas.mjs', '--check']);
+  say(areas.code === 0 ? cut(areas.out.trim().split('\n')[0] || 'участки: ок', 110) : 'участки: БЕЗ УЧАСТКА — ' + cut(areas.out.trim().split('\n')[0] || '', 90) + ' (node tools/areas.mjs --check)');
+  if (areas.code) bad++;
   // Старожил: карточка без источника — ошибка; источник изменился — сверить (наряд пересоберёт)
   const sz = step('карточки', process.execPath, ['tools/starozhil/cards.mjs', '--check']);
   say('карточки Старожила: ' + cut(sz.out.trim().split('\n')[0].replace(/^карточки:\s*/, ''), 110) + (sz.code ? ' — ОШИБКИ (node tools/starozhil/cards.mjs --check)' : ''));

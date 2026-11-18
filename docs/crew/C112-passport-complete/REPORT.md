@@ -1,10 +1,12 @@
 # C112 — отчёт (Cursor, 2026-11-17)
 
-**Статус:** код и live-стенд PASS; длинные прогоны и глаза ИИ — **дома** (`HOME-CONTINUE.md`). Выкладка — по слову (эстафета этой сессии).
+**Статус:** код и live-стенд PASS (работа + дом 17.11). Глаза ИИ — по слову (тестеры были на паузе). Выкладка — по слову.
 
-## ▶ Дома — первым
+## ▶ Домашний прогон (17.11 вечер)
 
-См. [`HOME-CONTINUE.md`](HOME-CONTINUE.md): pull → «Паспорта: стенд PDF» → глаза ИИ → TEST-LOG.
+- Стенд :3102 поднят (`dc stand up`); `node tools/passport-regression.mjs --live` → live **PASS**, авто PARTIAL (SKIP: нет C134 pdf-check, нет `DC_PASSPORT_E2E`).
+- Лог: `tools/logs/passport-regression/2026-11-17T20-29-58-361Z-0c76b7e0/` (live: BLG «Луна», WRK баскетбол, DIO «Великан»; issued № 607 snapshotUnchanged).
+- Юнит passport*: 828 passed. Строка в `docs/TEST-LOG.md`. Глаза ИИ — не гоняли.
 
 ## Live-стенд (17.11, :3102) — PASS
 

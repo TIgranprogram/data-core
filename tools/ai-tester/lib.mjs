@@ -168,6 +168,24 @@ export function screenChange(a, b) {
 }
 
 /**
+ * C136: выбор варианта списка. Модель часто шлёт длинную подпись («Объект — № 907 · …»),
+ * а в списке короткий текст — и наоборот. Берём взаимное вхождение; при нескольких — самый длинный.
+ * options: строки или { text|label, … }.
+ */
+export function pickOption(want, options) {
+  const w = String(want || '').toLowerCase().trim();
+  if (!w || !Array.isArray(options) || !options.length) return null;
+  const rows = options.map((o) => {
+    const t = String(typeof o === 'string' ? o : (o?.text ?? o?.label ?? '')).toLowerCase().trim();
+    return t ? { o, t } : null;
+  }).filter(Boolean);
+  const hits = rows.filter((x) => x.t.includes(w) || w.includes(x.t));
+  if (!hits.length) return null;
+  hits.sort((a, b) => b.t.length - a.t.length || a.t.localeCompare(b.t, 'ru'));
+  return hits[0].o;
+}
+
+/**
  * C129: следующий шаг задания с записью — с номером элемента. Нужен, когда модель ответила текстом вместо вызова:
  * панель открыта → первое пустое поле (или список), потом кнопка сохранения; панели нет → кнопка «+ …».
  */

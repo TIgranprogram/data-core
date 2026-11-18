@@ -19,7 +19,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { TAG, isLocalStand, tagText, createdFrom, screenGarbage, screenGrammar, blockedClick, buildReport, speedKey, screenChange, nextHint, closedForRole, watchdogAction, DEAD_MS, runLive } from './lib.mjs';
+import { TAG, isLocalStand, tagText, createdFrom, screenGarbage, screenGrammar, blockedClick, buildReport, speedKey, screenChange, nextHint, pickOption, closedForRole, watchdogAction, DEAD_MS, runLive } from './lib.mjs';
 import { sessionFromStdin } from './stand-session.mjs';
 import { loadSettings, llm, llmUp, ensureLLM, keepAwake } from './llm.mjs';
 
@@ -268,7 +268,7 @@ const SYSTEM = `Ты — тестировщик сайта «Рабочее ме
 const TOOLS = [
   { name: 'click', description: 'Нажать элемент по номеру из списка', parameters: { type: 'object', properties: { n: { type: 'integer' } }, required: ['n'] } },
   { name: 'fill', description: 'Ввести текст в поле по номеру', parameters: { type: 'object', properties: { n: { type: 'integer' }, text: { type: 'string' } }, required: ['n', 'text'] } },
-  { name: 'choose', description: 'Выбрать вариант в выпадающем списке по номеру поля и тексту варианта', parameters: { type: 'object', properties: { n: { type: 'integer' }, option: { type: 'string' } }, required: ['n', 'option'] } },
+  { name: 'choose', description: 'Выбрать вариант в выпадающем списке по номеру поля. В option копируй текст варианта как в списке, без подписи поля и без своего пересказа', parameters: { type: 'object', properties: { n: { type: 'integer' }, option: { type: 'string' } }, required: ['n', 'option'] } },
   { name: 'key', description: 'Нажать клавишу: Enter или Escape (закрыть окно)', parameters: { type: 'object', properties: { key: { type: 'string', enum: ['Enter', 'Escape'] } }, required: ['key'] } },
   { name: 'open_section', description: 'Открыть раздел меню по названию', parameters: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } },
   { name: 'report_problem', description: 'Записать найденную проблему в отчёт', parameters: { type: 'object', properties: { what: { type: 'string', description: 'что сделал, что ожидал, что увидел' }, kind: { type: 'string', enum: ['ошибка', 'неудобно', 'непонятно'] } }, required: ['what', 'kind'] } },
@@ -423,15 +423,21 @@ async function act(b, call, nav, ctxText) {
     return `Ввёл «${text}».`;
   }
   if (call.name === 'choose') {
-    const r = await b.ev(`(()=>{const e=${el(a.n)};if(!e)return 'нет поля';const want=${JSON.stringify(String(a.option || '').toLowerCase())};
-      if(e.tagName==='SELECT'){const o=[...e.options].find(o=>o.text.toLowerCase().includes(want));if(!o)return 'нет варианта';e.value=o.value;e.dispatchEvent(new Event('change',{bubbles:true}));return 'выбрал «'+o.text.trim()+'»'}
-      e.click();return 'открыл список'})()`);
-    if (r === 'открыл список') {
-      await sleep(600);
-      const r2 = await b.ev(`(()=>{const want=${JSON.stringify(String(a.option || '').toLowerCase())};const o=[...document.querySelectorAll('[role=option],li,.option,.k-opt,.dd-item,button')].filter(x=>x.offsetParent).find(x=>x.innerText.trim().toLowerCase().includes(want));if(!o)return 'список открыт, варианта «'+want+'» не нашёл — посмотри элементы';o.click();return 'выбрал «'+o.innerText.trim().slice(0,60)+'»'})()`);
-      return r2;
+    // C136: сначала читаем варианты, в Node — pickOption (взаимное вхождение, длиннейший), потом клик/value
+    const info = await b.ev(`(()=>{const e=${el(a.n)};if(!e)return null;if(e.tagName==='SELECT')return{kind:'select',opts:[...e.options].map(o=>({value:o.value,text:o.text.trim()}))};e.click();return{kind:'open'}})()`);
+    if (!info) return `Элемента [${a.n}] нет. Посмотри список заново.`;
+    if (info.kind === 'select') {
+      const hit = pickOption(a.option, info.opts);
+      if (!hit) return `нет варианта «${a.option}»`;
+      await b.ev(`(()=>{const e=${el(a.n)};e.value=${JSON.stringify(hit.value)};e.dispatchEvent(new Event('change',{bubbles:true}));return 1})()`);
+      return `выбрал «${hit.text}»`;
     }
-    return r;
+    await sleep(600);
+    const texts = await b.ev(`([...document.querySelectorAll('[role=option],li,.option,.k-opt,.dd-item,button')].filter(x=>x.offsetParent).map(x=>x.innerText.trim()).filter(Boolean))`);
+    const hit = pickOption(a.option, texts || []);
+    if (!hit) return `список открыт, варианта «${a.option}» не нашёл — посмотри элементы`;
+    const r2 = await b.ev(`(()=>{const want=${JSON.stringify(String(hit).toLowerCase())};const o=[...document.querySelectorAll('[role=option],li,.option,.k-opt,.dd-item,button')].filter(x=>x.offsetParent).find(x=>x.innerText.trim().toLowerCase()===want);if(!o)return 'не кликнул';o.click();return 'выбрал «'+o.innerText.trim().slice(0,60)+'»'})()`);
+    return r2 === 'не кликнул' ? `список открыт, варианта «${hit}» не нашёл — посмотри элементы` : r2;
   }
   if (call.name === 'key') { await b.key(a.key === 'Enter' ? 'Enter' : 'Escape'); return `Нажал ${a.key}.`; }
   if (call.name === 'open_section') {
