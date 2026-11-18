@@ -2,7 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { normSearch } from '../core/facets.js';
 import { catNames } from '../core/passport-kinds.js';
-import { attachCombo } from './kit/index.js';
+import { attachCombo, button, stack } from './kit/index.js';
 import { toast, toastError } from './kit/toast.js';
 
 /*
@@ -19,7 +19,8 @@ const s = (v) => String(v ?? '').replace(/\s+/g, ' ').trim();
 /** Размер — одно написание, как на сервере (normSize): без «мм», ∅ и ×, десятичная запятая. */
 export const normSize = (v) => s(v).replace(/\s*мм\.?$/i, '').replace(/^[∅Ø⌀ø]\s*/, '∅').replace(/(\d)\s*[xхXХ*×]\s*(?=\d)/g, '$1×').replace(/(\d)\.(?=\d)/g, '$1,');
 const manualTexts = (r) => Object.fromEntries(['passportText', 'techText'].map((k) => [k, s(r?.[k])]).filter(([, v]) => v));
-const partKey = (r, id) => JSON.stringify([String(id), String(r.materialId || ''), s(r.passportText), s(r.techText)]);
+const sourceRefs = (r) => Array.isArray(r?.sourceRefs) ? JSON.parse(JSON.stringify(r.sourceRefs)) : [];
+const partKey = (r, id) => JSON.stringify([String(id), String(r.materialId || ''), s(r.passportText), s(r.techText), sourceRefs(r)]);
 const sizeKey = (v) => normSearch(normSize(v));
 /** «∅89×3; ∅33,5×2,8» или «2, 6» → список (запятая между цифрами — десятичная, не разделитель). */
 export const splitSizes = (t) => String(t ?? '').split(/\s*;\s*|,\s+|\n/).map(normSize).filter(Boolean);
@@ -82,6 +83,8 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
   const pending = []; // МИ.5: новые значения «Сохранить в справочник?» — { type: 'size'|'part', name, code?, mat? }
   const newBox = h('div', { class: 'ms-new', hidden: true, role: 'status' });
   const el = h('div', { class: 'rt ms' });
+  const proposalBox = stack();
+  proposalBox.hidden = true;
   let emitting = false;
   const changed = () => { if (emitting) return; el.dispatchEvent(new Event('input', { bubbles: true })); preview(); };
 
@@ -106,9 +109,12 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
     if (rows.length >= MAX_ROWS) { toast(`Не больше ${MAX_ROWS} строк`); return null; }
     const pb = partBy();
     const row = {
+      sourceRefs: sourceRefs(data),
       ...manualTexts(data), materialId: String(data.materialId || ''), sizes: (data.sizes || []).map(normSize).filter(Boolean),
       parts: (data.partIds || []).map((id) => ({ id: String(id), name: pb.get(String(id))?.name || 'запись удалена из справочника' })).concat((data.partNames || []).map((n) => { const p = findPart(n); return p ? { id: String(p.id), name: p.name } : { id: null, name: s(n) }; })),
     };
+    const origins = row.sourceRefs.map((ref) => (ref.path?.length ? ref.path : [ref]).map((p) => [p.name, p.code].filter(Boolean).join(' · ')).join(' → '));
+    const originText = origins.length ? 'Из состава: ' + origins.slice(0, 3).join('; ') + (origins.length > 3 ? `; ещё ${origins.length - 3}` : '') : 'Ручной ввод';
     const code = () => String(matBy().get(row.materialId)?.code || '').toUpperCase();
     const matIn = h('input', { value: data.matText ?? (row.materialId ? matBy().get(row.materialId)?.name || '' : ''), placeholder: row.materialId && !matBy().get(row.materialId) ? 'запись удалена — выберите заново' : 'Материал', 'aria-label': 'Материал' });
     const matWrap = h('span', { class: 'ms-add-wrap' }, matIn);
@@ -149,7 +155,7 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
       onRemove: (i) => { row.sizes.splice(i, 1); sizes.paint(); paintNew(); changed(); },
     });
     const parts = chipCell({
-      label: 'Часть', placeholder: '+ часть',
+      label: 'Название в тексте (необязательно)', placeholder: '+ название',
       options: () => {
         const free = d.parts.filter((p) => !row.parts.some((x) => x.id === String(p.id)));
         const list = (scope() && !showAllParts) ? free.filter((p) => own(p.categories, { strict: true })) : sorted(free, true);
@@ -180,7 +186,8 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
     });
     const tr = h('tr', null,
       h('td', { class: 'rt-n' }),
-      h('td', { 'data-label': 'Часть' }, parts.el),
+      h('td', { 'data-label': 'Название в тексте' }, parts.el,
+        h('small', { class: 'hint', title: origins.join('; ') }, originText)),
       h('td', { 'data-label': 'Материал' }, matWrap),
       h('td', { 'data-label': 'Размеры' }, sizes.el),
       h('td', { class: 'ms-del' }, h('button', { type: 'button', class: 'btn btn-ghost btn-sm btn-icon', title: 'Убрать строку', 'aria-label': 'Убрать строку',
@@ -377,7 +384,7 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
   const textNote = h('small', { class: 'muted' }, 'собрано автоматически');
   const textBox = h('div', { class: 'ms-preview', hidden: !showPreview }, h('div', { class: 'ms-sub' }, 'Текст для паспорта'), textEl, textNote);
   let cur = text || ''; let seq = 0; let timer;
-  const problem = () => { const i = rows.findIndex((r) => !r.materialId && (r.sizes.length || r.parts.length || r.matIn.value.trim())); return i < 0 ? '' : `Строка ${i + 1}: выберите материал из списка`; };
+  const problem = () => { const i = rows.findIndex((r) => !r.materialId && (r.sizes.length || r.parts.length || r.sourceRefs.length || r.passportText || r.techText || r.matIn.value.trim())); return i < 0 ? '' : `Строка ${i + 1}: выберите материал из списка`; };
   // без предпросмотра (паспорт: текст — в своём поле) блок виден только с ошибкой строки
   const show = (t, bad = false) => { textNote.textContent = rows.some((r) => r.passportText || r.techText) || coatingTexts.length ? 'Тексты взяты из состава или скопированной таблицы; сохранятся вместе с изделием.' : 'собрано автоматически'; textEl.textContent = t; textEl.classList.toggle('ms-bad-text', bad); textNote.hidden = bad || !cur; textBox.hidden = !showPreview && !bad; };
   const emitText = (t) => { cur = t; w.onText?.(t); };
@@ -397,8 +404,8 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
   }
 
   function spec() {
-    const out = rows.map((r) => ({ ...manualTexts(r), materialId: r.materialId, sizes: [...r.sizes], partIds: r.parts.filter((p) => p.id).map((p) => p.id) }))
-      .filter((r) => r.materialId || r.sizes.length || r.partIds.length);
+    const out = rows.map((r) => ({ ...manualTexts(r), ...(r.sourceRefs.length ? { sourceRefs: sourceRefs(r) } : {}), materialId: r.materialId, sizes: [...r.sizes], partIds: r.parts.filter((p) => p.id).map((p) => p.id) }))
+      .filter((r) => r.materialId || r.sizes.length || r.partIds.length || r.sourceRefs?.length || r.passportText || r.techText);
     const coatingIds = JSON.parse(coat.value || '[]');
     const texts = [...new Map(coatingTexts.filter((r) => coatingIds.includes(r.materialId) && (r.passportText || r.techText)).map((r) => [JSON.stringify(r), r])).values()];
     return out.length || coatingIds.length ? { rows: out, coatingIds, ...(texts.length ? { coatingTexts: texts } : {}) } : null;
@@ -480,29 +487,67 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
 
   el.append(
     h('div', { class: 'rt-wrap' }, h('table', { class: 'rt-table ms-table' },
-      h('thead', null, h('tr', null, h('th', { class: 'rt-n' }, '№'), h('th', { class: 'ms-c-p' }, 'Часть'), h('th', { class: 'ms-c-mat' }, 'Материал'), h('th', { class: 'ms-c-z' }, 'Размеры'), h('th'))),
+      h('thead', null, h('tr', null, h('th', { class: 'rt-n' }, '№'), h('th', { class: 'ms-c-p' }, 'Название в тексте (необязательно)'), h('th', { class: 'ms-c-mat' }, 'Материал'), h('th', { class: 'ms-c-z' }, 'Размеры'), h('th'))),
       body)),
     h('div', { class: 'rt-acts' },
       h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { const r = addRow(); r?.tr.querySelector('.ms-add')?.focus(); changed(); } }, '+ Строка'),
-      copyBtn, tplBtn, tplSave, partsBtn,
+      copyBtn,
       ...actions.map((a) => h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: a.title || '', onclick: async (e) => {
         const b = e.currentTarget; const label = b.textContent;
         b.disabled = true; b.classList.add('is-busy'); b.textContent = a.busy || 'Готовлю…';
         try { await a.run(w); } catch (er) { toastError(er); } finally { b.disabled = false; b.classList.remove('is-busy'); b.textContent = label; }
       } }, a.label)),
+      tplBtn, tplSave, partsBtn,
       h('span', { class: 'spacer' }),
-      h('span', { class: 'hint' }, 'Сначала часть, потом материал и размер; из Excel — Ctrl+V: Часть · Материал · Размеры')),
-    copyBox, newBox, coatBox, textBox);
+      h('span', { class: 'hint' }, 'Материал и размер описывают конструкцию. Название в тексте необязательно; из Excel — Ctrl+V: Название · Материал · Размеры')),
+    copyBox, newBox, coatBox, textBox, proposalBox);
 
   const w = {
     el,
     get value() { const sp = spec(); return sp ? JSON.stringify(sp) : ''; },
     set value(v) { set(v); },
     spec,
+    validate: () => {
+      const bad = problem();
+      if (!bad) return true;
+      show(bad, true);
+      rows.find((r) => !r.materialId && (r.sourceRefs.length || r.sizes.length || r.parts.length || r.passportText || r.techText || r.matIn.value.trim()))?.matIn.focus();
+      throw new Error(bad);
+    },
     get text() { return cur; },
     isEmpty: () => !spec(),
     set: (v) => set(v),
     onText,
+    showProposal: ({ reports = [], unmatched = [] }) => {
+      const focusRow = (row) => { row?.tr.scrollIntoView?.({ block: 'center' }); row?.matIn.focus(); };
+      const display = (field, value) => {
+        const items = Array.isArray(value) ? value : [value];
+        return items.map((v) => field === 'materialId' ? (matBy().get(String(v))?.name || 'материал не задан')
+          : field === 'partIds' ? (partBy().get(String(v))?.name || 'название не найдено') : String(v || '')).filter(Boolean).join(', ') || '—';
+      };
+      const labels = { materialId: 'Материал', sizes: 'Размеры', partIds: 'Название в тексте', passportText: 'Текст паспорта', techText: 'Техописание' };
+      const nodes = reports.map((report) => {
+        const row = rows[report.rowIndex];
+        const details = report.missing ? 'Источник больше не в составе.'
+          : 'В составе изменилось: ' + report.changes.map((c) => `${labels[c.field]}: «${display(c.field, c.before)}» → «${display(c.field, c.after)}»`).join('; ') + '. Текущая строка сохранена.';
+        return h('div', null, h('p', { class: 'hint' }, `Строка ${report.rowIndex + 1}. ${details}`),
+          button({ label: `Править строку ${report.rowIndex + 1}`, kind: 'ghost', size: 'S', onClick: () => { if (rows.includes(row)) focusRow(row); } }));
+      });
+      for (const item of unmatched) nodes.push(h('div', null,
+        h('p', { class: 'hint' }, `Материал не определён: ${item.name || item.sourceRefs?.map((r) => r.name).join(', ') || 'позиция состава'}`),
+        button({ label: 'Указать материал', kind: 'ghost', size: 'S', onClick: () => {
+          const refs = sourceRefs(item);
+          let first;
+          for (let i = 0; i < Math.max(1, refs.length); i += 100) {
+            const chunk = refs.slice(i, i + 100);
+            const key = JSON.stringify(chunk);
+            const row = rows.find((r) => r.sourceRefs.length && JSON.stringify(r.sourceRefs) === key) || addRow({ sourceRefs: chunk });
+            first ||= row;
+          }
+          focusRow(first); changed();
+        } })));
+      proposalBox.replaceChildren(...nodes); proposalBox.hidden = !nodes.length;
+    },
     focus: () => rows[0]?.matIn.focus(),
   };
   set(value, { fetch: false });

@@ -7,6 +7,7 @@ import { skuKey } from '../../core/facets.js';
 import { button, hint, tagPick, toast, toastError, confirmDlg, similarBox } from '../../ui/kit/index.js';
 import { dictNames } from '../../ui/dict-options.js';
 import { loadMaterialDicts, materialsSpec, specSummary } from '../../ui/materials-spec.js';
+import { planMaterialsProposal } from './materials-proposal.js';
 import { funnelBox } from '../../ui/funnel.js';
 import { canEdit as canEditPassportTexts, dictOpts, dictRows, productTypeLine } from '../passports/common.js';
 import { jointsPick, JOINT_OPTIONS } from '../passports/traits.js';
@@ -24,16 +25,27 @@ const costInfo = (r) => {
   return { el: h('p', { class: 'muted' }, text), value: '' };
 };
 /** МИ.2: «Взять из состава» — предложение таблицы по материалам «Состава изделия»; запишется по «Сохранить». */
-export const fromComposition = (r) => ({ label: 'Взять из состава', busy: 'Собираю…', title: 'Строки по материалам «Состава изделия»: труба 89×3 → Труба стальная ∅89×3',
+export const fromComposition = (r) => ({ label: 'Из состава', busy: 'Собираю…', title: 'Предложение конструкции и материалов с источниками из состава изделия',
   run: async (w) => {
     const res = await materialsFromComposition(r);
     const rows = res.materialsSpec?.rows || [];
-    if (!rows.length && !res.materialsSpec?.coatingIds?.length) { toast(res.unmatched?.length ? `Материалы состава не нашлись в справочнике: ${res.unmatched.join(', ')} — заполните строки вручную` : 'В составе нет материалов склада — «Изменить состав» в карточке', { ms: 8000 }); return; }
-    if (!w.isEmpty() && !(await confirmDlg('Заменить таблицу материалов?', 'Строки заменятся предложением по «Составу изделия». В изделие запишется по «Сохранить».', { okText: 'Заменить' }))) return;
-    const hint = res.hinted?.length ? ' Подсказка по названию, проверьте: ' + res.hinted.join(', ') + '.' : '';
     const currentSpec = JSON.parse(w.value || 'null');
-    w.set({ rows, coatingIds: [...new Set([...(currentSpec?.coatingIds || []), ...(res.materialsSpec.coatingIds || [])])], coatingTexts: [...(currentSpec?.coatingTexts || []), ...(res.materialsSpec.coatingTexts || [])] });
-    toast((res.unmatched?.length ? `Строк: ${rows.length}. Не нашлись в справочнике: ${res.unmatched.join(', ')} — добавьте вручную` : `Строк из состава: ${rows.length} — проверьте и сохраните`) + hint, { ms: res.unmatched?.length || hint ? 9000 : undefined });
+    const extra = [...(res.unmatchedSources || []), ...(res.hintedSources || [])].flatMap((x) => x.sourceRefs || []);
+    const plan = planMaterialsProposal(currentSpec, res.materialsSpec, extra);
+    if (!rows.length && !res.materialsSpec?.coatingIds?.length) {
+      w.showProposal?.({ ...plan, unmatched: res.unmatchedSources || [] });
+      toast(res.unmatched?.length ? 'В составе есть неопределённые материалы — укажите их в строках ниже.' : 'В составе нет материалов для предложения. Текущая таблица сохранена.', { ms: 8000 });
+      return;
+    }
+    if (plan.spec.rows.length > 50) { toast('Предложение превышает 50 строк. Сократите таблицу перед принятием.', { error: true }); return; }
+    const hintedNames = [...new Set([...(res.hinted || []), ...(res.hintedSources || []).map((x) => x.name)].filter(Boolean))];
+    const hinted = hintedNames.length ? ` Материалы предложены по названию: ${hintedNames.join(', ')}.` : '';
+    if ((!w.isEmpty() || hinted) && !(await confirmDlg('Принять предложение из состава?',
+      `Добавится строк: ${plan.added}. Изменения и отсутствующие источники: ${plan.reports.length}. Свои строки, размеры, тексты и покрытия сохраняются.${hinted}`,
+      { okText: 'Принять предложение' }))) return;
+    w.set(plan.spec);
+    w.showProposal?.({ ...plan, unmatched: res.unmatchedSources || [] });
+    toast(`Добавлено строк: ${plan.added}.${plan.reports.length || res.unmatchedSources?.length ? ' Изменения показаны под таблицей.' : ''} Запись — по «Сохранить».`, { ms: 7000 });
   } });
 /** materialsSpec — при создании, а при правке — только если таблицу меняли (не трогаем изделие с удалённой записью справочника). */
 const specBody = (v, r) => {
@@ -191,7 +203,7 @@ export function productForm({ onSimilar, usePending = true } = {}) {
         { key: 'ralCode', label: 'RAL', type: 'combo', max: 100, options: (fv.ral || []).map(opt), load: dictNames('colors'), hint: 'Основной цвет покрытия: RAL 6005' },
         { section: 'Описание и материалы', tone: 'info', collapsed: !(r?.purpose || r?.installation || r?.materialsSpec || r?.description) },
         // МИ.2: материалы таблицей — текст «Изготовлено из…» собирается сам (сервер), паспорт берёт его из изделия
-        { key: 'materialsSpec', label: 'Материалы изделия', type: 'widget', wide: true, summary: specSummary,
+        { key: 'materialsSpec', label: 'Описание конструкции и материалов', type: 'widget', wide: true, summary: specSummary,
           widget: (v) => materialsSpec({ value: v, dicts: md, text: r?.materialsText || '', scope: () => matCat || r?.passportCategory?.code || '', actions: r ? [fromComposition(r)] : [] }),
           hint: r ? 'Материал — из справочника; размеры и части — Enter. «Взять из состава» — строки по составу' : 'Материал — из справочника; размеры и части — Enter. «Взять из состава» — после «Создать»' },
         { key: 'purpose', label: 'Назначение', type: 'textarea', wide: true, rows: 2, max: 1000, phrases: { load: phrases('purpose'), by: 'group', title: 'Варианты' } },

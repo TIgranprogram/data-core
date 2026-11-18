@@ -14,6 +14,6 @@ export async function openProductBookLink(productId) {
     clear(); return;
   }
   openingFor = productId;
-  const row = await openBookForProduct(productId, { onClose: clear, isCurrent });
+  const row = await openBookForProduct(productId, { onClose: clear, isCurrent, draftOnly: true });
   if (!row) clear();
 }

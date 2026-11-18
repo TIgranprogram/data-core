@@ -39,7 +39,8 @@ export function specRows(spec, dicts) {
     const sizes = (row.sizes || []).filter(Boolean).join(', ');
     const wall = wallOf(row.sizes?.[0]);
     const tol = wall && wall > 1 ? `, толщина ${range(wall - 1, wall + 1, 'мм')}` : '';
-    return { name: (row.partIds || []).map((id) => partBy.get(String(id))?.name).filter(Boolean).join(', ') || 'Материал', text: String(row.techText || '').trim() || [mat, sizes].filter(Boolean).join(' ') + tol };
+    const sources = [...new Set((row.sourceRefs || []).map((ref) => [ref.name, ref.code].filter(Boolean).join(' · ')).filter(Boolean))].join(', ');
+    return { name: (row.partIds || []).map((id) => partBy.get(String(id))?.name).filter(Boolean).join(', ') || sources || 'Материал', text: String(row.techText || '').trim() || [mat, sizes].filter(Boolean).join(' ') + tol };
   });
   const coatings = (spec?.coatingIds || []).flatMap((id) => {
     const texts = (spec.coatingTexts || []).filter((r) => String(r.materialId) === String(id)).map((r) => String(r.techText || '').trim()).filter(Boolean);
@@ -100,9 +101,9 @@ export const techSheet = sideForm({
     const nowRows = () => [...specRows(specW?.value ? JSON.parse(specW.value) : r.materialsSpec, r.dicts), ...productRows(r), ...r.extra.map((x) => ({ name: x.name.trim(), text: x.text.trim() }))].filter((x) => x.name || x.text);
     return [
       ...(gapsEl ? [{ section: 'Что осталось', tone: 'info', fixed: true }, noteField(gapsEl, '_gaps')] : []),
-      { section: '1. Части и материалы', tone: 'main', fixed: true },
-      { key: 'materialsSpec', label: 'Из чего сделано', type: 'widget', wide: true, summary: specSummary,
-        hint: 'Часть, материал, размер, покрытие — из списков. «Взять из состава» или «Из изделий этой группы» заполнит таблицу сами.',
+      { section: '1. Описание конструкции и материалов', tone: 'main', fixed: true },
+      { key: 'materialsSpec', label: 'Описание конструкции и материалов', type: 'widget', wide: true, summary: specSummary,
+        hint: 'Материал, размер и покрытие — из списков. Название в тексте необязательно. «Из состава» предложит описание, сохраняя ваши строки.',
         widget: (v) => { specW = materialsSpec({ value: v, dicts: r.dicts, text: r.materialsText || '', scope: () => r.passportCategory?.code || '', actions: session.canEdit ? [fromComposition(r), fromAnalog(r)] : [] }); return specW; } },
       { section: '2. Габариты, вес, назначение, монтаж', tone: 'info' },
       { key: '_auto', label: '', type: 'widget', wide: true, widget: () => ({

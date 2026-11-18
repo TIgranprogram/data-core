@@ -1,6 +1,6 @@
 /**
  * C142: состав изделия в книжке — дерево + воронка «Добавить» (П-1).
- * Что (модуль/деталь/покупное) → Какую → Сколько. Сырьё в изделие не предлагаем.
+ * Что (модуль/деталь/изделие комплекса) → Какую → Сколько.
  */
 import { api, session } from '../../core/api.js';
 import { h } from '../../core/dom.js';
@@ -10,9 +10,14 @@ import { toast, toastError } from '../../ui/kit/toast.js';
 import { parseNum } from '../../core/format.js';
 import { sidePanel } from './book-shared.js';
 
-const KIND_LABEL = { module: 'Модуль (сборка)', part: 'Деталь', purchased: 'Покупное', product: 'Изделие', material: 'Материал' };
+const KIND_LABEL = { module: 'Модуль (сборка)', part: 'Деталь', purchased: 'Покупное', product: 'Изделие комплекса', material: 'Материал' };
 
-async function loadCatalog(kind) {
+async function loadCatalog(kind, ownerId = '') {
+  if (kind === 'product') {
+    const result = await api('/showcase', { query: { limit: 500 } });
+    return (result.items || []).filter((p) => String(p.id || p._id) !== String(ownerId))
+      .map((p) => ({ id: String(p.id || p._id), label: p.name || p.sku || 'Без имени', sub: p.sku || p.article || '' }));
+  }
   if (kind === 'module') {
     const rows = await api('/modules').catch(() => []);
     const list = Array.isArray(rows) ? rows : (rows.items || []);
@@ -171,17 +176,17 @@ export async function mountCompositionFunnel(slot, productId, { onDone } = {}) {
       {
         key: 'kind',
         label: 'Что добавить',
-        ask: 'модуль, деталь или покупное',
+        ask: 'модуль, деталь или изделие комплекса',
         value: kind,
         values: [
           { id: 'module', label: 'Модуль (сборка)', count: null },
           { id: 'part', label: 'Деталь', count: null },
-          { id: 'purchased', label: 'Покупное', count: null },
+          { id: 'product', label: 'Изделие комплекса', count: null },
         ],
       },
       {
         key: 'pick',
-        label: kind === 'module' ? 'Какой модуль' : kind === 'part' ? 'Какая деталь' : 'Что из покупного',
+        label: kind === 'module' ? 'Какой модуль' : kind === 'part' ? 'Какая деталь' : 'Какое изделие комплекса',
         ask: 'выберите из списка',
         value: pickId,
         skip: !kind,
@@ -204,7 +209,10 @@ export async function mountCompositionFunnel(slot, productId, { onDone } = {}) {
             kind = value;
             pickId = '';
             qty = '1';
-            catalog = kind ? await loadCatalog(kind) : [];
+            const selectedKind = kind;
+            const next = kind ? await loadCatalog(kind, productId) : [];
+            if (kind !== selectedKind) return;
+            catalog = next;
             createHost.replaceChildren();
             applyFunnel();
             return;
@@ -217,25 +225,14 @@ export async function mountCompositionFunnel(slot, productId, { onDone } = {}) {
           if (key === 'qty') focusQty();
         },
       });
-      funnelHost.replaceChildren(
-        h('h4', { class: 'bk-side-h' }, 'Добавить в состав'),
-        hint('Сверху вниз: сначала тип, потом запись из наших справочников.'),
-        funnelUi.el,
-        qtyBox(),
-        addBtn(),
-        createLinks(),
-      );
     } else {
       funnelUi.update({ steps });
-      funnelHost.replaceChildren(
-        h('h4', { class: 'bk-side-h' }, 'Добавить в состав'),
-        hint('Сверху вниз: сначала тип, потом запись из наших справочников.'),
-        funnelUi.el,
-        qtyBox(),
-        addBtn(),
-        createLinks(),
-      );
     }
+    funnelHost.replaceChildren(
+      h('h4', { class: 'bk-side-h' }, 'Добавить в состав'),
+      hint('Сверху вниз: сначала тип, потом запись из наших справочников.'),
+      funnelUi.el, qtyBox(), addBtn(), createLinks(),
+    );
   };
 
   const qtyBox = () => {
@@ -263,7 +260,8 @@ export async function mountCompositionFunnel(slot, productId, { onDone } = {}) {
       onClick: async () => {
         const item = catalog.find((c) => c.id === pickId);
         if (!item) return;
-        const lineType = kind === 'module' ? 'module' : kind === 'part' ? 'material' : 'material';
+        if (kind === 'product' && pickId === String(productId)) { toast('Изделие нельзя добавить в собственный состав'); return; }
+        const lineType = kind === 'part' ? 'material' : kind;
         const ex = rows.find((r) => r.lineType === lineType && r.refId === pickId);
         if (ex) {
           ex.quantity = String((parseNum(ex.quantity) || 0) + (parseNum(qty) || 1)).replace('.', ',');
@@ -294,7 +292,7 @@ export async function mountCompositionFunnel(slot, productId, { onDone } = {}) {
   const createLinks = () => {
     if (!session.canEdit) return h('div');
     if (kind !== 'module' && kind !== 'part') {
-      return hint('Нет нужной записи — выберите тип «Модуль» или «Деталь», затем «Создать».');
+      return hint(kind === 'product' ? 'Новое изделие комплекса создают в разделе «Продукция».' : 'Нет нужной записи — выберите тип «Модуль» или «Деталь», затем «Создать».');
     }
     return button({
       label: kind === 'module' ? 'Создать модуль' : 'Создать деталь',

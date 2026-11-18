@@ -115,6 +115,7 @@ export async function openMaterialsInBook(slot, productId, { focusParts = false,
         disabled: !session.canEdit,
         onClick: async () => {
           try {
+            specW.validate();
             const body = { materialsSpec: specW.value ? JSON.parse(specW.value) : null };
             await patchProduct(productId, body);
             prod.materialsSpec = body.materialsSpec;
@@ -128,7 +129,7 @@ export async function openMaterialsInBook(slot, productId, { focusParts = false,
         'Нужны части/материалы с фото: скопируйте промпт → чат ИИ → прикрепите фото.');
       const aiBtn = focusAiBtn(focusParts ? 'parts' : 'materials', () => materialsAiContext(prod, dicts, specW), aiStatus);
       // кнопки сверху слота — всегда в кадре при прокрутке таблицы
-      slot.replaceChildren(sidePanel(focusParts ? 'Части у материалов' : 'Материалы изделия',
+      slot.replaceChildren(sidePanel('Описание конструкции и материалов',
         h('div', { class: 'bk-ed-row' }, save, back, aiBtn),
         aiStatus,
         specW.el,

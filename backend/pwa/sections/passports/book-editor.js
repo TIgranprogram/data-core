@@ -14,13 +14,13 @@ import { canEdit, canWorkPassport, heading, numberOf, ourCompanies, statusOf } f
 import { passportAction } from './field-edit.js';
 import { pickSourceKey, aiCheckBlock, pageText, exclusive, sidePanel } from './book-shared.js';
 import { buildBook } from './book-blocks.js';
-import { loadCompositionTree } from './book-composition-tree.js';
 import { mountBookChoices } from './book-choices.js';
 import { mountBookFocus } from './book-focus.js';
 import { imageStrip } from './book-images.js';
 import { ilogicBlock } from './book-ilogic.js';
 import { printDialog } from './dialogs.js';
 import { SRC_LABEL } from './card-blocks.js';
+import { bindBookInlineEvents } from './book-inline-events.js';
 
 const hhmm = () => new Date().toTimeString().slice(0, 5);
 
@@ -106,24 +106,9 @@ export async function openBookEditor(passport, { onClose, isCurrent = () => true
   let edits = []; // открывалки по порядку на странице — для Tab
   const patchPassport = (body) => api('/passports/' + pid(), { method: 'PATCH', body });
   const ctx = { S, can, canNumber, firms: null, patchPassport, exclusive: lock, rerender: () => render(), editable, imageStrip: (...a) => imageStrip(ctx, ...a), compTree: null, compFor: '' };
-  let compSeq = 0;
-  /** Черновик: дерево состава с изделия. Выпущенный снимок не перечитываем. */
+  /** Ответ паспорта уже содержит проекцию PDF. Выпущенный использует только свой снимок. */
   function ensureComposition() {
-    const id = statusOf(S.r) === 'draft' ? String(S.r.productId || '') : '';
-    if (!id) { ctx.compTree = null; ctx.compFor = ''; return; }
-    if (ctx.compFor === id && ctx.compTree) return;
-    const seq = ++compSeq;
-    ctx.compFor = id;
-    ctx.compTree = { loading: true, lines: [] };
-    loadCompositionTree(id).then((lines) => {
-      if (seq !== compSeq) return;
-      ctx.compTree = { loading: false, lines };
-      render();
-    }).catch(() => {
-      if (seq !== compSeq) return;
-      ctx.compTree = { loading: false, failed: true, lines: [] };
-      render();
-    });
+    ctx.compTree = { loading: false, lines: Array.isArray(S.r.compositionSheet) ? S.r.compositionSheet : [] };
   }
 
   function editable(view, spec) {
@@ -133,8 +118,7 @@ export async function openBookEditor(passport, { onClose, isCurrent = () => true
     view.tabIndex = 0;
     view.setAttribute('role', 'button');
     view.title = 'Нажмите, чтобы править' + (view.title ? ' · ' + view.title : '');
-    view.addEventListener('click', (e) => { if (!e.target.closest('a')) openEditor(idx); });
-    view.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target === view) { e.preventDefault(); openEditor(idx); } });
+    bindBookInlineEvents(view, () => openEditor(idx));
     edits.push({ view, spec });
     return view;
   }
@@ -160,8 +144,14 @@ export async function openBookEditor(passport, { onClose, isCurrent = () => true
   function openEditor(idx, initial) {
     releaseSlot(() => openEditorNow(idx, initial));
   }
+  function warnOpenEdit() {
+    const text = 'Изменения в открытом поле ещё не сохранены. Нажмите кнопку сохранения под полем или «Отмена».';
+    S.cur?.warn?.(text);
+    toast(text, { tone: 'warn', ms: 12000 });
+    S.cur?.focus();
+  }
   function openEditorNow(idx, initial) {
-    if (S.cur) { if (S.cur.dirty()) { toast('Сначала сохраните или отмените правку в открытом поле'); S.cur.focus(); return; } S.cur.cancel(); }
+    if (S.cur) { if (S.cur.dirty()) { warnOpenEdit(); return; } S.cur.cancel(); }
     const { view, spec } = edits[idx];
     const isTa = !spec.options;
     const ctl = isTa
@@ -169,7 +159,7 @@ export async function openBookEditor(passport, { onClose, isCurrent = () => true
       : select({ label: spec.label, value: spec.text, options: spec.options });
     if (isTa) ctl.classList.add('bk-ta');
     const fit = () => { if (isTa) ctl.rows = Math.min(30, Math.max(spec.rows || 2, ctl.value.split('\n').length + (ctl.value.length > 60 ? 1 : 0))); };
-    const st = h('span', { class: 'bk-st' });
+    const st = h('span', { class: 'bk-st', 'aria-live': 'polite' });
     const dirty = () => ctl.value !== spec.text;
     let working = false;
     const srcState = {};
@@ -178,7 +168,7 @@ export async function openBookEditor(passport, { onClose, isCurrent = () => true
       if (!dirty()) { S.cur = null; if (next && edits[idx + next]) { render(idx + next); return; } render(); return; }
       busy(true); st.textContent = 'Сохраняю…'; setStat('Сохраняю…', 'busy');
       try { await lock(() => spec.save(ctl.value)); }
-      catch (e) { busy(false); st.textContent = 'Не сохранено'; setStat('Не сохранено', 'err'); toastError(e); return; }
+      catch (e) { busy(false); st.textContent = 'Не сохранено: ' + (e?.message || 'Не удалось сохранить. Повторите нажатие.'); setStat('Не сохранено — причина под полем', 'err'); toastError(e); return; }
       S.cur = null;
       setStat('Сохранено в ' + hhmm(), 'ok');
       try { S.r = await api('/passports/' + pid()); } catch { toast('Текст сохранён. Откройте паспорт заново, чтобы увидеть обновление.', { error: true }); }
@@ -235,7 +225,7 @@ export async function openBookEditor(passport, { onClose, isCurrent = () => true
     view.replaceChildren(box);
     slot.replaceChildren(sideEmpty());
     fit();
-    S.cur = { idx, dirty, value: () => ctl.value, cancel: () => { if (!working) { S.cur = null; render(); } }, focus: () => ctl.focus() };
+    S.cur = { idx, dirty, value: () => ctl.value, cancel: () => { if (!working) { S.cur = null; render(); } }, focus: () => ctl.focus(), warn: (text) => { st.textContent = text; } };
     ctl.focus();
     view.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
@@ -306,7 +296,7 @@ export async function openBookEditor(passport, { onClose, isCurrent = () => true
     const r = S.r;
     const issued = statusOf(r) === 'issued';
     const zoom = (fit) => { S.fit = fit; pages.classList.toggle('bk-fit', fit); pages.classList.toggle('bk-100', !fit); paintHead(); };
-    const guard = () => { if (S.cur?.dirty()) { toast('Сначала сохраните или отмените правку в открытом поле'); S.cur.focus(); return true; } return false; };
+    const guard = () => { if (S.cur?.dirty()) { warnOpenEdit(); return true; } return false; };
     const primary = !can ? null : issued
       ? button({ label: 'Сохранить и выпустить заново', kind: 'primary', size: 'S', disabled: !S.changed, title: S.changed ? 'Номер тот же; PDF соберётся из текущих данных' : 'Сначала измените любое поле — тогда кнопка станет активной', onClick: async () => {
         if (guard()) return;
@@ -329,7 +319,7 @@ export async function openBookEditor(passport, { onClose, isCurrent = () => true
         // масштаб — ghost: единственная primary в шапке — «Выпустить» (C143)
         button({ label: 'По ширине', size: 'S', kind: 'ghost', cls: S.fit ? 'is-on' : '', onClick: () => zoom(true) }),
         button({ label: '100 %', size: 'S', kind: 'ghost', cls: !S.fit ? 'is-on' : '', onClick: () => zoom(false) }),
-        button({ label: 'Скачать PDF', size: 'S', onClick: () => printDialog(S.r) }),
+        button({ label: 'Скачать PDF', size: 'S', onClick: () => { if (!guard()) printDialog(S.r); } }),
         primary,
         iconButton({ icon: '✕', label: 'Закрыть книжку', title: 'Закрыть книжку — только этой кнопкой', cls: 'k-close', onClick: requestClose })));
   }
@@ -345,7 +335,11 @@ export async function openBookEditor(passport, { onClose, isCurrent = () => true
     S, can, pagesEl: pages,
     sideSlot: slot,
     sideHome: () => { releaseSlot(() => slot.replaceChildren(sideEmpty())); },
-    onChanged: () => { ctx.compFor = ''; ctx.compTree = null; choicesApi?.refresh(); render(); },
+    onChanged: async () => {
+      try { S.r = await api('/passports/' + pid()); }
+      catch (e) { toastError(e, 'обновить паспорт'); return; }
+      ctx.compFor = ''; ctx.compTree = null; choicesApi?.refresh(); render();
+    },
   });
   // клик по фону и Esc книжку не закрывают — только крестик
 }

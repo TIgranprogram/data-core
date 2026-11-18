@@ -28,6 +28,7 @@ const DEFAULT_NUM_KEYS = new Set([
 ]);
 
 function focusLabel(it) {
+  if (['parts', 'materials'].includes(String(it.key || ''))) return 'Описание конструкции и материалов';
   const raw = String(it.label || it.key || '');
   const broken = raw.match(/не читается:\s*(.+?)(?:\.|$)/i)
     || raw.match(/^(.+?):\s*файл на сервере/i);

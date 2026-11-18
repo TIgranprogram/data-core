@@ -10,9 +10,10 @@ import { createBookDraft } from './create-book-draft.js';
 const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== ''));
 
 /** Найти актуальный паспорт изделия (черновик важнее выпущенного). */
-export async function findProductPassport(productId) {
-  const d = await api('/passports', { query: { productId, limit: 20, sort: '-updatedAt' } });
+export async function findProductPassport(productId, { draftOnly = false } = {}) {
+  const d = await api('/passports', { query: { productId, limit: 20, sort: '-updatedAt', ...(draftOnly ? { status: 'draft' } : {}) } });
   const items = (d.items || []).filter((x) => x.status !== 'annulled');
+  if (draftOnly) return items.find((x) => x.status === 'draft') || null;
   return items.find((x) => x.status === 'draft')
     || items.find((x) => x.status === 'issued')
     || items[0]
@@ -23,10 +24,10 @@ export async function findProductPassport(productId) {
  * Открыть книжку по изделию: есть паспорт → он; нет → создать черновик и открыть.
  * extra — поля POST /passports (supplierOrgId, salesOrderId, incomeId, …).
  */
-export async function openBookForProduct(productId, { extra = {}, onClose, isCurrent = () => true } = {}) {
+export async function openBookForProduct(productId, { extra = {}, onClose, isCurrent = () => true, draftOnly = false } = {}) {
   if (!productId) { toast('Нет изделия для паспорта', { error: true }); return null; }
   try {
-    let row = await findProductPassport(productId);
+    let row = await findProductPassport(productId, { draftOnly });
     if (!isCurrent()) return null;
     if (!row) {
       row = await createBookDraft(clean({ productId, ...extra }), isCurrent);

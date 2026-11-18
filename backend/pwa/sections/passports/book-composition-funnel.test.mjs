@@ -75,7 +75,20 @@ test('сырьё не в шаге «Что», loadCatalog(raw) пуст', async 
   await mod.mountCompositionFunnel(el(), 'p1', {});
   const what = mod.steps().find((s) => s.key === 'kind');
   assert.equal(what.label, 'Что добавить');
-  assert.deepEqual([...what.values.map((v) => v.id)], ['module', 'part', 'purchased']);
+  assert.deepEqual([...what.values.map((v) => v.id)], ['module', 'part', 'product']);
+});
+
+test('изделие комплекса загружается из продукции, само изделие исключено', async () => {
+  const calls = [];
+  const mod = load(async (url) => {
+    calls.push(url);
+    return { items: [{ id: 'owner', name: 'Комплекс' }, { id: 'nested', name: 'Лестница', sku: 'Л.01' }] };
+  });
+  const list = await mod.loadCatalog('product', 'owner');
+  assert.deepEqual(calls, ['/showcase']);
+  assert.equal(list.length, 1);
+  assert.equal(list[0].id, 'nested');
+  assert.equal(list[0].sub, 'Л.01');
 });
 
 test('moduleKids зовёт /modules/:id/composition', async () => {

@@ -19,7 +19,7 @@ class Element {
   get textContent() { return this.children.map((x) => x.textContent ?? String(x)).join(''); }
   set textContent(v) { this.replaceChildren(String(v)); }
   setAttribute(k, v) { this.attrs[k] = v; }
-  focus() {}
+  focus() { this.focused = true; }
   remove() { this.parent.children = this.parent.children.filter((x) => x !== this); }
   addEventListener(type, fn) { this.listeners[type] = fn; }
   dispatchEvent(e) { return this.listeners[e.type]?.(e); }
@@ -36,21 +36,23 @@ const dicts = { mats: [{ id: 'steel', name: 'Труба', code: 'STEEL' }, { id:
 const row = (passportText = 'Ручной паспорт', techText = 'Ручное техописание') => ({ materialId: 'steel', sizes: ['∅89×3'], partIds: ['frame'], passportText, techText });
 const snapshot = () => ({ rows: [row()], coatingIds: ['paint'], coatingTexts: [{ materialId: 'paint', passportText: 'Покрытие А', techText: 'Окраска А' }, { materialId: 'paint', passportText: 'Покрытие Б', techText: 'Окраска Б' }] });
 
-async function fixture({ confirm = true, proposal = snapshot(), copied = snapshot() } = {}) {
+async function fixture({ confirm = true, proposal = snapshot(), copied = snapshot(), response = {} } = {}) {
   const coats = [], calls = [], cache = new Map();
   const context = vm.createContext({ setTimeout: () => 0, clearTimeout() {}, Event: class { constructor(type) { this.type = type; } } });
   const common = {
     h, session: { canEdit: true, role: 'admin' }, normSearch: (s) => String(s || '').trim().toLowerCase(),
+    stack: (...children) => h('div', null, ...children),
+    button: (opts) => h('button', { onclick: opts.onClick }, opts.label),
     api: async (url, options) => { calls.push({ url, options }); if (url === '/showcase?limit=200') return { items: [{ id: 'other', name: 'Другое изделие' }] }; if (url === '/showcase/other') return { materialsSpec: copied }; return { items: [] }; },
     attachCombo() {}, toast() {}, toastError: (e) => { throw e; }, sideForm: (options) => options,
-    confirmDlg: async () => confirm, materialsFromComposition: async () => ({ materialsSpec: proposal }),
+    confirmDlg: async () => confirm, materialsFromComposition: async () => ({ materialsSpec: proposal, ...response }),
     tagPick: () => {
       let ids = []; const pick = { el: h('div'), setScope() {}, get value() { return JSON.stringify(ids); }, set value(v) { ids = typeof v === 'string' ? JSON.parse(v) : v; } };
       coats.push(pick); return pick;
     },
     catNames: (v) => String(v || ''),
   };
-  const actual = new Set(['ui/materials-spec.js', 'sections/tech-sheet.js', 'sections/products/form-fields.js']);
+  const actual = new Set(['ui/materials-spec.js', 'sections/tech-sheet.js', 'sections/products/form-fields.js', 'sections/products/materials-proposal.js']);
   async function load(rel) {
     if (cache.has(rel)) return cache.get(rel);
     const code = fs.readFileSync(path.join(root, rel), 'utf8');
@@ -135,16 +137,35 @@ test('копирование не теряет другую фразу той ж
   assert.ok(f.calls.every((c) => !c.options?.method));
 });
 
-test('Взять из состава: отмена не меняет черновик; принятие переносит тексты и покрытия', async () => {
+test('Из состава: отмена не меняет черновик, принятие добавляет новые строки и сохраняет ручные', async () => {
   for (const confirm of [false, true]) {
     const proposal = snapshot(); proposal.rows = [row('Новый паспорт', 'Новое техописание')]; proposal.coatingTexts = [{ materialId: 'paint', techText: 'Новое покрытие' }];
     const f = await fixture({ confirm, proposal }); const w = f.widget(snapshot());
     const mod = await f.load('sections/products/form-fields.js'); await mod.evaluate();
     await mod.namespace.fromComposition({ id: 'product' }).run(w);
-    assert.equal(w.spec().rows[0].techText, confirm ? 'Новое техописание' : 'Ручное техописание');
-    assert.equal(w.spec().coatingTexts.length, confirm ? 3 : 2);
+    assert.equal(w.spec().rows[0].techText, 'Ручное техописание');
+    assert.equal(w.spec().rows.length, confirm ? 2 : 1);
+    if (confirm) assert.equal(w.spec().rows[1].techText, 'Новое техописание');
+    assert.equal(w.spec().coatingTexts.length, 2);
+    await mod.namespace.fromComposition({ id: 'product' }).run(w);
+    assert.equal(w.spec().rows.length, confirm ? 2 : 1);
     assert.equal(f.calls.length, 0);
   }
+});
+
+test('источник строки проходит read/set/copy без общей ссылки и не требует словарного partIds', async () => {
+  const sp = snapshot();
+  sp.rows[0].partIds = [];
+  sp.rows[0].sourceRefs = [{ kind: 'part', refId: 'part-1', name: 'Опора', code: 'ОП.01', path: [{ kind: 'module', refId: 'module-1', name: 'Рама', code: 'Р.01', lineId: 'line-1' }] }];
+  const f = await fixture({ copied: sp });
+  const w = f.widget(sp);
+  assert.deepEqual(clean(w.spec()), sp);
+  sp.rows[0].sourceRefs[0].name = 'Изменено снаружи';
+  assert.equal(w.spec().rows[0].sourceRefs[0].name, 'Опора');
+  assert.match(w.el.textContent, /Из состава: Рама · Р.01/);
+  w.set(w.value);
+  assert.equal(w.spec().rows[0].sourceRefs[0].name, 'Опора');
+  assert.match(w.el.textContent, /необязательно/);
 });
 
 test('техописание печатает ручную фразу целиком; без неё остаются размер и допуск', async () => {
@@ -179,4 +200,56 @@ test('фокус на удалении покрытия не пересозда�
   before.click();
   assert.deepEqual(clean(w.spec().coatingIds), []);
   assert.deepEqual(clean(w.spec().coatingTexts || []), []);
+});
+
+
+test('техописание использует имя физического источника без обязательной словарной роли', async () => {
+  const f = await fixture(); const mod = await f.load('sections/tech-sheet.js'); await mod.evaluate();
+  const rows = [{ ...row('', ''), partIds: [], sourceRefs: [{ name: 'Опора', code: 'ОП.01' }] }, row('', '')];
+  const out = clean(mod.namespace.specRows({ rows }, dicts));
+  assert.equal(out[0].name, 'Опора · ОП.01');
+  assert.equal(out[1].name, 'Каркас');
+});
+
+
+test('материал по названию требует явного принятия и в пустой таблице', async () => {
+  const f = await fixture({ confirm: false, response: { hintedSources: [{ name: 'Опора', sourceRefs: [] }] } });
+  const w = f.widget(null);
+  const mod = await f.load('sections/products/form-fields.js'); await mod.evaluate();
+  await mod.namespace.fromComposition({ id: 'product' }).run(w);
+  assert.equal(w.spec(), null);
+});
+
+test('конфликт показывает было и предложено, кнопка ведёт к сохранённой строке', async () => {
+  const f = await fixture(); const w = f.widget(snapshot());
+  w.showProposal({ reports: [{ rowIndex: 0, changes: [{ field: 'materialId', before: 'steel', after: 'wood' }] }] });
+  assert.match(w.el.textContent, /«Труба» → «Доска»/);
+  await w.el.find((n) => n.tag === 'button' && n.textContent === 'Править строку 1').click();
+  assert.equal(w.el.find((n) => n.attrs['aria-label'] === 'Материал, строка 1').focused, true);
+  assert.equal(w.spec().rows[0].materialId, 'steel');
+});
+
+test('неизвестный источник не исчезает из значения и требует материал до сохранения', async () => {
+  const f = await fixture(); const w = f.widget(null);
+  w.showProposal({ unmatched: [{ name: 'Стойка', sourceRefs: [{ kind: 'part', refId: 'part-1', name: 'Стойка', path: [] }] }] });
+  await w.el.find((n) => n.tag === 'button' && n.textContent === 'Указать материал').click();
+  assert.equal(w.spec().rows[0].sourceRefs[0].refId, 'part-1');
+  assert.equal(JSON.parse(w.value).rows.length, 1);
+  assert.throws(() => w.validate(), /Строка 2: выберите материал/);
+  assert.match(w.el.textContent, /Строка 2: выберите материал/);
+  const filled = w.spec(); filled.rows[0].materialId = 'steel'; w.set(filled);
+  assert.equal(w.validate(), true);
+  assert.equal(JSON.parse(w.value).rows[0].sourceRefs[0].refId, 'part-1');
+});
+
+test('101 неизвестный источник создаёт сохраняемые группы 100+1 без потери и дублей', async () => {
+  const f = await fixture(); const w = f.widget(null);
+  const sourceRefs = Array.from({ length: 101 }, (_, i) => ({ kind: 'part', refId: 'part-' + i, name: 'Стойка', path: [] }));
+  w.showProposal({ unmatched: [{ name: 'Стойки', sourceRefs }] });
+  const add = w.el.find((n) => n.tag === 'button' && n.textContent === 'Указать материал');
+  await add.click(); await add.click();
+  assert.deepEqual(clean(w.spec().rows.map((r) => r.sourceRefs.length)), [100, 1]);
+  const filled = w.spec(); filled.rows.forEach((r) => { r.materialId = 'steel'; }); w.set(filled);
+  assert.equal(w.validate(), true);
+  assert.equal(w.spec().rows.flatMap((r) => r.sourceRefs).length, 101);
 });

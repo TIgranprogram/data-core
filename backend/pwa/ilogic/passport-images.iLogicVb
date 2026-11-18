@@ -384,7 +384,7 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
         Dim massKg As Double = ModelMassKg(model)
         Dim productId As String = UploadPassportImages(model, folder, dimensions, depthMm, massKg, stage)
         If productId <> "" Then
-            MessageBox.Show("Три рисунка загружены на сайт. Сейчас откроется редактор паспорта этого изделия.", "Картинки для паспорта")
+            MessageBox.Show("Три рисунка изделия заменены и подтверждены сайтом. Откроется черновик с новыми рисунками. Ранее выданный паспорт сохранит прежний снимок; при необходимости выберите фирму для нового черновика.", "Картинки для паспорта")
             ' После загрузки — эталонная книжка, приоритет у последнего черновика изделия.
             stage = "Открытие редактора паспорта"
             Dim productUrl As String = APP_BASE & "#products?bookFor=" & productId
@@ -581,6 +581,8 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
             For Each linkId As String In previous.Keys
                 RequestJson(client, Global.System.Net.Http.HttpMethod.Delete, photosPath & "/" & linkId)
             Next
+            stage = "Проверка результата замены рисунков"
+            VerifyReadSlots(client, photosPath, newLinks)
             If Not writeDepth Then Return productId
             stage = "Проверка сохранённой глубины Г"
             Dim saved As Global.System.Text.Json.JsonElement = RequestJson(client, Global.System.Net.Http.HttpMethod.Get, "showcase/" & productId)
@@ -608,6 +610,20 @@ Function ReadPassportSlots(client As Global.System.Net.Http.HttpClient, path As 
     Next
     Return slots
 End Function
+
+Sub VerifyReadSlots(client As Global.System.Net.Http.HttpClient, path As String, newLinks As Global.System.Collections.Generic.List(Of String))
+    Dim saved As Global.System.Collections.Generic.Dictionary(Of String, String) = ReadPassportSlots(client, path)
+    Dim expectedKinds As String() = {"overview", "dimensions", "foundation"}
+    If saved.Count <> 3 OrElse newLinks.Count <> 3 OrElse Global.System.Linq.Enumerable.Count(Global.System.Linq.Enumerable.Distinct(newLinks)) <> 3 Then
+        Throw New InvalidOperationException("Сайт не подтвердил замену: набор рисунков неполный или изменён другим пользователем. Успех загрузки не подтверждён.")
+    End If
+    For i As Integer = 0 To expectedKinds.Length - 1
+        If Not saved.ContainsKey(newLinks(i)) OrElse saved(newLinks(i)) <> expectedKinds(i) OrElse
+           Global.System.Linq.Enumerable.Count(saved.Values, Function(kind) kind = expectedKinds(i)) <> 1 Then
+            Throw New InvalidOperationException("Сайт не подтвердил новый рисунок вида " & expectedKinds(i) & ". Успех загрузки не подтверждён.")
+        End If
+    Next
+End Sub
 
 Function UploadPng(client As Global.System.Net.Http.HttpClient, path As String) As String
     ' 502/503/504 (сайт занят: перезапуск после выкладки, режим «только чтение») — до 4 попыток с паузой 10 с (2026-11-13)

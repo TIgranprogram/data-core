@@ -12,6 +12,7 @@ import { numbersOf } from './traits.js';
 import { SRC_LABEL } from './card-blocks.js';
 import { tableNumbers, figureNumbers, refsOf } from './book-refs.js';
 import { compositionSheet } from './book-composition-tree.js';
+import { passportNamePatch } from './book-inline-events.js';
 
 const numText = (v) => (v === undefined || v === null || v === '' ? '' : String(v).replace('.', ','));
 const SPEC = [['Длина (L), мм', 'length', 1], ['Ширина (B), мм', 'width', 1], ['Высота (H), мм', 'height', 1], ['Ширина посадки (Bп), мм', 'seatWidth'],
@@ -91,7 +92,7 @@ export function buildBook(ctx) {
     org.trademark ? h('span', { class: 'bk-tm' }, `«${String(org.trademark).replace(/[«»"]/g, '')}»`) : null),
     contacts ? h('p', { class: 'bk-contacts' }, contacts) : null,
     h('p', { class: 'bk-ptitle' }, 'ПАСПОРТ № ' + (numberOf(r) || '—')),
-    ctx.editable(h('p', { class: 'bk-pname' }, r.name || h('span', { class: 'muted' }, 'Название не задано')), scalarSpec('Название изделия', r.name, (v) => ctx.patchPassport({ name: v }))),
+    ctx.editable(h('p', { class: 'bk-pname' }, r.name || h('span', { class: 'muted' }, 'Название не задано')), scalarSpec('Название в этом паспорте', r.name, (v) => ctx.patchPassport(passportNamePatch(r, v)))),
     r.productCode || statusOf(r) === 'issued'
       ? ctx.editable(h('p', { class: 'bk-pcode' }, 'Номер изделия: ', r.productCode || '—'),
         scalarSpec('Номер изделия', r.productCode, (v) => ctx.patchPassport({ productCode: v, confirmNumbers: true }), { readonly: !(ctx.canNumber && statusOf(r) === 'issued') }))
@@ -120,15 +121,16 @@ export function buildBook(ctx) {
     if (t.description) push(sub(`${plan.descrNo}.${++k} Описание изделия`), textP(t.description, fieldSpec('description', undefined, t.description, refs.description, 6, orig('description')), t.src?.description, { edit: edited('description') }));
     if (t.purpose) push(sub(`${plan.descrNo}.${++k} Назначение`), textP(t.purpose, fieldSpec('purpose', undefined, t.purpose, refs.purpose, 3, orig('purpose')), t.src?.purpose, { edit: edited('purpose') }));
     push(sub(`${plan.descrNo}.${++k} Основные технические данные`), ...specTable());
-    // C142: черновик — живое дерево изделия; выпущенный — снимок r.modules (не оба сразу).
-    const live = statusOf(r) === 'draft' ? ctx.compTree : null;
+    // C148: проекция из ответа паспорта; у выпущенного — собственный снимок. Старые модули — резерв.
+    const live = ctx.compTree;
     if (live?.loading) push(h('p', { class: 'bk-p muted' }, 'Загружаю состав изделия…'));
     else if (live?.failed) push(h('p', { class: 'bk-p muted' }, 'Состав изделия не загрузился.'));
     else if (live?.lines?.length) {
       const sheet = compositionSheet(live.lines);
       if (sheet) push(sub(`${plan.descrNo}.${++k} Состав изделия`), sheet);
-    } else if (modules.length) {
-      push(sub(`${plan.descrNo}.${++k} Состав изделия: модули`), modulesBlock());
+    }
+    if (modules.length && r.compositionPresentation !== 'tree') {
+      push(sub(`${plan.descrNo}.${++k} Модули: сохранённое описание`), modulesBlock());
     }
     if (plan.rulesNo === plan.descrNo && t.rules?.length) { push(sub(`${plan.descrNo}.${++k} Правила пользования`)); rulesList(); }
   };
