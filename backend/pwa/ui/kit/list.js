@@ -305,15 +305,16 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     }
     if (append) { loadingMore = true; moreNote.textContent = 'Загрузка…'; } else if (!loaded) stateRow(() => h('div', { class: 'skel-block' }, ...Array.from({ length: 6 }, () => h('div', { class: 'skel' }))));
     if (!append) panel.classList.add('loading');
+    const pull = (pageNo) => api(L.path, { query: { ...query, page: pageNo, limit, sort } }).then((raw) => (L.normalize ? L.normalize(raw, { ...query, page: pageNo, limit, sort }) : raw));
     let resp;
     try {
       if (append) {
-        resp = await api(L.path, { query: { ...query, page: pagesLoaded + 1, limit, sort } });
+        resp = await pull(pagesLoaded + 1);
         if (my === seq) { resp = { ...resp, items: [...rawRows, ...resp.items] }; pagesLoaded++; }
       } else if (infinite && opt.keep && pagesLoaded > 1) {
-        const n = pagesLoaded; resp = await api(L.path, { query: { ...query, page: 1, limit, sort } });
-        for (let p = 2; my === seq && p <= n && resp.items.length < resp.total; p++) { const r = await api(L.path, { query: { ...query, page: p, limit, sort } }); if (my !== seq) return; resp.items = [...resp.items, ...r.items]; }
-      } else resp = await api(L.path, { query: { ...query, page, limit, sort } });
+        const n = pagesLoaded; resp = await pull(1);
+        for (let p = 2; my === seq && p <= n && resp.items.length < resp.total; p++) { const r = await pull(p); if (my !== seq) return; resp.items = [...resp.items, ...r.items]; }
+      } else resp = await pull(page);
     } catch (e) {
       if (my !== seq) return;
       loadingMore = false;

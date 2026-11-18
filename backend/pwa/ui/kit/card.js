@@ -59,7 +59,7 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
   const foot = h('div', { class: 'drawer-foot' });
   const drawer = mark(h('aside', { class: 'drawer', role: 'dialog', 'aria-modal': 'true' },
     h('div', { class: 'drawer-head' }, h('div', { class: 't' }, upEl, kindEl, h('div', { class: 'k-head-row' }, titleEl, hstEl), subEl, stripEl), menuBox, popBtn,
-      h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: solo ? 'Закрыть окно' : 'Закрыть панель', 'aria-label': 'Закрыть', onclick: () => tryClose() }, '✕')),
+      h('button', { class: 'btn btn-ghost btn-icon k-close', type: 'button', title: solo ? 'Закрыть окно' : 'Закрыть панель', 'aria-label': 'Закрыть', onclick: () => tryClose() }, '✕')),
     body, foot), 'drawer');
   makeResizable(drawer, { prefKey: 'detailW', edge: 'left', label: 'Ширина правой панели' }); // ШП
   const back = h('div', { class: 'drawer-back', onclick: () => tryClose() });

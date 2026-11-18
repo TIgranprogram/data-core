@@ -10,6 +10,7 @@
  *   card: { title(row), sub(row), side(row), thumb?(row) },        // вид на телефоне
  *   filters: [{ key, label, type: 'chips'|'select'|'date'|'hidden', options: async () => [{ value, label, hint? }], count?(resp, value) }],
  *   footer?(resp), query?(params),
+ *   normalize?(resp, query) → { items, total, page, limit } — ответ не постраничный (GET /modules отдаёт массив): поиск и страницы на клиенте,
  *   board?: см. ui/board.js — вид «Доска» (board.mount — своя доска вместо ui/board.js: «Проектирование», sections/design-data.js; board.alt — ещё одно значение ?view=, открывающее доску), ?view=board (board.default — доска по умолчанию, таблица — ?view=table),
  *   landing?: { when(P) → bool, render({ pick }) → Node | Promise<Node> } — первая страница вместо галереи (плитки категорий); pick(value) — выбрать плитку L.tiles.key,
  *   limit?: число строк таблицы по умолчанию (25); выбор 25/50/100 — внизу.
