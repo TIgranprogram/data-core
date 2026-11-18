@@ -1,6 +1,6 @@
 # Карта роли qa
 
-коммит: c41e60de (C096 QA 2026-11-12, рабочие изменения без коммита). Full unit331/3889; финальный passport55/627; e2e75 suites PASS совокупно, OOM134 компенсирован отдельными последовательными запусками.
+коммит: — (C142 e2e supply 2026-11-18, без коммита). Два файла e2e 2 suites / 20 tests PASS. Полный прогон не повторялся.
 
 - C086: `docs/crew/C086-passports-owner-review/QA-FINAL.md:3`, пофайловые результаты `QA-EVIDENCE.json`. Права manager: `backend/test/e2e/new-endpoints-1101.e2e-spec.ts:77` preview, `:124` plan; `backend/test/e2e/passports.e2e-spec.ts:136` create/issue/user-denied, `:283` snapshot, `:305` bulk. Реальные PNG-fixtures: `passports.e2e-spec.ts:23`, `new-endpoints-1101.e2e-spec.ts:25`. Refresh uploads: `tools/night-stand.mjs:153`; реальный Docker PASS, checksum PNG сохранён при смене контейнера, собственный контур остановлен. E2E после OOM запускать группами; T26 каждый повтор требует новую disposable БД (существующая counters ломает setup). Main backend/tools SHA256 совпал с manifest-v4; UI-приёмка — отдельно.
 
@@ -45,3 +45,5 @@
 - C132 (2026-11-16): docs/crew/C132-passport-text-edit/QA-REPORT.md:3; backend/test/e2e/passport-text-edit.e2e-spec.ts:42; backend/pwa/sections/passports/field-edit.js:22. Full 346/3557 + 78/583 PASS. Для CAS updatedAt нужны BSON-даты. Правила старого снимка без refs проверены на связанном passportElements в c132-qa-mongo. коммит: —; карта обновлена.
 
 - C142/C141 ночь (2026-11-18): `docs/crew/C142-composition-hierarchy/QA-NIGHT.md:7`. Ворота `book-etalon-gate.test.mjs` 4/4. Соседние паспорта: 6 файлов без флага падают на `funnel/test-vm.mjs:3` (`SourceTextModule`); с `--experimental-vm-modules` 33/33. Синтаксис 8 файлов книжки/разделов exit 0. tsc `backend/` exit 0. Добивка дыры 1: `book-composition-funnel.test.mjs:67` raw / шаг «Что», `:81` `moduleKids` → `book-composition-funnel.js:37` `/modules/:id/composition`, `:96` экспорт `book-composition-funnel.js:61` и вызов `book-side-edit.js:143`. `node --test` 3/3 без флага (`vm.Script`). PUT и возврат из создания не покрыты. коммит: —; карта обновлена.
+
+- C142 e2e supply (2026-11-18): `docs/crew/C142-composition-hierarchy/E2E-SUPPLY-FAIL.md`. PATCH `issue:true` без компании → 400 «не заполнено: Наша компания». Ворота `supply-invoice-rules.ts:21`, отказ `supply-invoice.service.ts:406`. Тесты: `chain-supply-to-stock.e2e-spec.ts:23`, `supply-invoices.e2e-spec.ts:47` и `:183`. 2 suites / 20 PASS на `datacore-test-c142qa`. коммит: —; карта обновлена.
