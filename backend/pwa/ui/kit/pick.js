@@ -166,20 +166,24 @@ export function enhanceSelect(sel, { force = false } = {}, tries = 0) {
 /**
  * Выбор нескольких значений метками (поле формы `type: 'widget'`; паспорт v2 — элементы, материалы; БЗ-6 Э5a1).
  * Метки — общий класс `.tag` (`.active` — выбрано), подпись снизу — `small`. Значение — JSON-список value.
- *   tagPick({ options: [{ value, label, sub?, cats?, kind? }], value, label?, productOnly? }) → { el, value, set value, focus, setScope(code) → [чужие выбранные] }
- * cats — коды категорий, к которым относится значение (пусто — ко всем). setScope(code): видны только свои;
- * productOnly — как на сервере elementFits: только kind «product» или пустой (детали/крепеж скрыты);
+ *   tagPick({ options: [{ value, label, sub?, cats?, kind? }], value, label?, productOnly?, strictCats? }) → { el, value, set value, focus, setScope(code) → [чужие выбранные] }
+ * cats — коды категорий (пусто: без strictCats — ко всем; с strictCats / productOnly — никому, как elementFits).
+ * productOnly — как elementFits: только kind «product»/пустой + cats обязаны содержать тип;
  * уже выбранные чужие остаются с пометкой «не для этого типа паспорта» (`.tag.foreign`); «Показать все» — под списком (ФП).
  */
-export function tagPick({ options, value, label, productOnly = false }) {
+export function tagPick({ options, value, label, productOnly = false, strictCats = false }) {
   const parse = (v) => { if (Array.isArray(v)) return v.map(String); try { return (JSON.parse(v || '[]') || []).map(String); } catch { return []; } };
   let cur = new Set(parse(value));
   let scope = ''; let showAll = false;
   const box = mark(h('div', { class: 'tag-pick', role: 'group', 'aria-label': label || 'Выбор' }), 'pick');
   const asProduct = (o) => { const k = String(o.kind || '').trim(); return !k || k === 'product'; };
+  const needCat = productOnly || strictCats; // C144: элементы — пустые cats не «для всех»
   const mine = (o) => {
     if (productOnly && !asProduct(o)) return false;
-    return !scope || !(o.cats || []).length || o.cats.includes(scope);
+    if (!scope) return true;
+    const cats = o.cats || [];
+    if (needCat) return cats.includes(scope);
+    return !cats.length || cats.includes(scope);
   };
   const items = options.map((o) => {
     const note = h('small', null, o.sub || '');

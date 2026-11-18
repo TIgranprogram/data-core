@@ -85,8 +85,8 @@ function monthBars({ groups, legend, label, empty }) {
     legend.length ? h('div', { class: 'k-mb-legend', 'aria-hidden': 'true' }, ...legend.map((l) => h('span', { class: 'k-mb-lg tone-' + (l.tone || 'dim') }, l.label))) : null);
 }
 
-/** navList({ groups: [{ title, fold?, open?, items: [{ key, label, count?, href? }] }], value, onPick(key), label }) → { el, set(key) }
- *  Колонка навигации в panel: заголовок группы, у fold — кнопка со стрелкой; пункт — подпись и число; активный — полоса. href → ссылка «→». */
+/** navList({ groups: [{ title, fold?, open?, items?, groups? }], value, onPick(key), label }) → { el, set(key) }
+ *  groups[] внутри группы — вложенные подкатегории (C145 «Паспорта»). Пункт: подпись и число; активный — полоса. */
 export function navList({ groups = [], value, onPick, label = 'Разделы' } = {}) {
   const items = new Map();
   const set = (key) => items.forEach((el, k) => { const on = String(k) === String(key); el.classList.toggle('on', on); on ? el.setAttribute('aria-current', 'true') : el.removeAttribute('aria-current'); });
@@ -97,16 +97,17 @@ export function navList({ groups = [], value, onPick, label = 'Разделы' }
     items.set(it.key, el);
     return el;
   };
-  const group = (g) => {
-    const list = h('div', { class: 'k-nav-list' }, ...(g.items || []).map(itemEl));
-    if (!g.fold) return h('div', { class: 'k-nav-group' }, g.title ? h('div', { class: 'k-nav-h' }, g.title) : null, list);
+  const group = (g, nested = false) => {
+    const kids = (g.groups || []).length ? g.groups.map((sg) => group(sg, true)) : (g.items || []).map(itemEl);
+    const list = h('div', { class: 'k-nav-list' + (nested ? ' is-nested' : '') }, ...kids);
+    if (!g.fold) return h('div', { class: 'k-nav-group' + (nested ? ' is-nested' : '') }, g.title ? h('div', { class: 'k-nav-h' }, g.title) : null, list);
     const open = g.open !== false;
     const btn = h('button', { type: 'button', class: 'k-nav-h k-nav-fold', 'aria-expanded': String(open), onclick: () => { const o = btn.getAttribute('aria-expanded') !== 'true'; btn.setAttribute('aria-expanded', String(o)); list.hidden = !o; g.onToggle?.(o); } },
       h('span', { class: 'form-sec-chev', 'aria-hidden': 'true' }, '›'), g.title);
     list.hidden = !open;
-    return h('div', { class: 'k-nav-group' }, btn, list);
+    return h('div', { class: 'k-nav-group' + (nested ? ' is-nested' : '') }, btn, list);
   };
-  const el = mark(h('nav', { class: 'k-nav', 'aria-label': label }, ...groups.map(group)), 'navList');
+  const el = mark(h('nav', { class: 'k-nav', 'aria-label': label }, ...groups.map((g) => group(g, false))), 'navList');
   set(value);
   return { el, set };
 }
