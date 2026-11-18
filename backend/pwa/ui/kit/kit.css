@@ -1282,3 +1282,19 @@ tr.k-pos-more .k-readonly { border: 0; background: transparent; padding: 0; }
 .pt-filters { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: flex-end; }
 .pt-cat-filter { margin: 0; min-width: 180px; }
 .pt-sec.is-gap { border-color: color-mix(in srgb, var(--warn) 40%, var(--border)); background: color-mix(in srgb, var(--warn-soft) 35%, transparent); }
+
+/* Доска заявок: фильтры и полоса прокрутки заканчиваются на одном уровне. */
+@media (min-width: 1101px) {
+  .main:has(.ls-main > div:not([hidden]) > .board.board-pics) { height: 100dvh; display: flex; flex-direction: column; }
+  .main:has(.ls-main > div:not([hidden]) > .board.board-pics) > :not(.page) { flex-shrink: 0; }
+  .page:has(.ls-main > div:not([hidden]) > .board.board-pics) { flex: 1; min-height: 0; }
+  .page:has(.ls-main > div:not([hidden]) > .board.board-pics) > .docs { height: 100%; display: flex; flex-direction: column; }
+  .page .docs-body:has(.ls-main > div:not([hidden]) > .board.board-pics) { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .list-screen:has(.ls-main > div:not([hidden]) > .board.board-pics) { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .ls-grid:has(.board.board-pics) { flex: 1; min-height: 0; align-items: stretch; }
+  .ls-grid:has(.board.board-pics) > .list-side { position: static; max-height: none; min-height: 0; }
+  .ls-main:has(.board.board-pics) { display: flex; flex-direction: column; min-height: 0; }
+  .ls-main > div:has(> .board.board-pics) { flex: 1; min-height: 0; }
+  .ls-main .board.board-pics { height: 100%; margin-top: 0; }
+  .ls-main .board.board-pics > .col { max-height: 100%; }
+}
