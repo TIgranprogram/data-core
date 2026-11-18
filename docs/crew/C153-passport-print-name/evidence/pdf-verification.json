@@ -1,0 +1,53 @@
+[
+  {
+    "file": "issued-name1.pdf",
+    "pages": 12,
+    "name1": true,
+    "name2": false,
+    "tabName": false,
+    "contractOverwrite": false,
+    "part1Code": false,
+    "part2Code": false,
+    "compositionPage": 2
+  },
+  {
+    "file": "issued-name2.pdf",
+    "pages": 12,
+    "name1": false,
+    "name2": true,
+    "tabName": false,
+    "contractOverwrite": false,
+    "part1Code": false,
+    "part2Code": false
+  },
+  {
+    "file": "issued-tech.pdf",
+    "pages": 1,
+    "name1": true,
+    "name2": false,
+    "tabName": false,
+    "contractOverwrite": false,
+    "part1Code": true,
+    "part2Code": true
+  },
+  {
+    "file": "order-names.pdf",
+    "pages": 24,
+    "name1": true,
+    "name2": true,
+    "tabName": false,
+    "contractOverwrite": false,
+    "part1Code": false,
+    "part2Code": false
+  },
+  {
+    "file": "draft-tab-name.pdf",
+    "pages": 12,
+    "name1": false,
+    "name2": false,
+    "tabName": true,
+    "contractOverwrite": false,
+    "part1Code": false,
+    "part2Code": false
+  }
+]

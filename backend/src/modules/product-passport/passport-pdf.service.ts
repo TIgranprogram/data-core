@@ -22,7 +22,7 @@ import { packOf, type PrintPack } from './print-pack';
 import { readPrintFile } from './passport-print-file';
 import { IMAGE_KIND_LABELS, imageRules } from './passport-rules';
 import { readPassportImage } from './passport-image-files';
-import { boostFaint, withContractName } from './passport-print-tune';
+import { boostFaint } from './passport-print-tune';
 
 type Doc = Record<string, unknown>;
 type PdfOpts = { stamp?: boolean; seal?: boolean; sign?: boolean; mode?: 'pages' | 'print'; mono?: boolean; variant?: PassportVariant };
@@ -244,11 +244,7 @@ export class PassportPdfService {
   }
 
   private async input(p: Doc, opts: PdfOpts) {
-    // название — как в договоре (строка заказа): переименовали после выпуска — печатается новое (пользователь 14.11)
-    if (p.incomeId && Types.ObjectId.isValid(String(p.incomeId))) {
-      const inc = await this.connection.collection('incomes').findOne({ _id: new Types.ObjectId(String(p.incomeId)) }, { projection: { title: 1 } });
-      p = withContractName(p, inc?.title);
-    }
+    // C153: имя и текст экземпляра уже сохранены; договор задаёт имя только при создании паспорта.
     // черновик/предпросмотр: рисунки изделия по видам, остальные из паспорта; выпущенный — как раньше (его images[])
     const imgs = ((await this.passports.effectiveImages(p) as unknown as Array<{ kind: string; photoId: Types.ObjectId; order?: number; caption?: string; refCode?: string }>) || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     const photos = imgs.length ? await this.connection.collection('photos').find({ _id: { $in: imgs.map((i) => i.photoId) }, deletedAt: null }, { projection: { storageUrl: 1 } }).toArray() : [];
