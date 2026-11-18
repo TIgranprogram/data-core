@@ -1,0 +1,8 @@
+Изолированная фикстура на копии 6afd887ada197668c0bb7cda
+Без запомненной фирмы: modal после HTTP400
+Отмена: паспорта0, кнопка повтора в той же панели
+Явный выбор фирмы → книжка; успешных POST=1; черновиков=1
+Hash после успеха #docs?tab=archive&of=passfunnel&new=1
+Hash после закрытия #docs?tab=archive&of=passfunnel&new=1
+FAIL locator.waitFor: Timeout 12000ms exceeded.
+Cleanup только созданного на копии паспорта HTTP403

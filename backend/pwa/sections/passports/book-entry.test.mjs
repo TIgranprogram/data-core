@@ -52,3 +52,18 @@ test('общий вход сообщает о неудачной загрузк�
   vm.runInContext(source + '\nglobalThis.open = openBookForProduct;', context);
   assert.equal(await context.open('product-1'), null);
 });
+
+test('существующий черновик открывается без выбора фирмы или создания нового', async () => {
+  let opened = 0;
+  const context = vm.createContext({
+    api: async (_path, options) => { assert.equal(options?.method, undefined); return { items: [{ id: 'draft-1', status: 'draft' }] }; },
+    toast() {}, toastError(e) { throw e; },
+    createBookDraft() { assert.fail('Нельзя создавать второй паспорт'); },
+    openBookEditor: async () => { opened++; },
+  });
+  const source = readFileSync(new URL('./open-book.js', import.meta.url), 'utf8')
+    .replace(/^import .+;\s*$/gm, '').replace(/export /g, '');
+  vm.runInContext(source + '\nglobalThis.open = openBookForProduct;', context);
+  assert.equal((await context.open('product-1')).id, 'draft-1');
+  assert.equal(opened, 1);
+});

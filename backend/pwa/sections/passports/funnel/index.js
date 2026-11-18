@@ -1,6 +1,6 @@
 import { h } from '../../../core/dom.js';
 import { button, confirmDlg, hint, link, stack, toast, toastError } from '../../../ui/kit/index.js';
-import { patch } from '../../../core/router.js';
+import { current, patch } from '../../../core/router.js';
 import { canWorkPassport } from '../common.js';
 import { getProduct } from './api.js';
 import { openPositions, orderStep } from './issue.js';
@@ -33,6 +33,7 @@ function build() {
   // без quiet — в шапке видно «Заказ: без заказа ✎», можно привязать позже
   const S = { P: {}, q: '', prod: null, order: lockedOrder ? entry : (fromProductOnly ? { noOrder: true } : null) };
   let stageSeq = 0;
+  let closed = false;
   let creation = null;
   let parked = null; // C096 Э4: изделие создано, заполнение не закончено — та же форма и та же запись при следующем «+ Новое изделие»
   const recap = stack();
@@ -137,6 +138,11 @@ function build() {
 
   async function stagePanels(prod) {
     const my = ++stageSeq;
+    const routeSection = current().section;
+    const ownsRoute = () => {
+      const route = current();
+      return route.section === routeSection && (route.params.of || route.section) === 'passfunnel' && route.params.new === '1';
+    };
     paintRecap(prod);
     if (!S.order) {
       say('выберите заказ или «Без заказа»');
@@ -155,24 +161,39 @@ function build() {
       }
       paintRecap(prod);
     }
-    say('открываю книжку паспорта');
-    stages.replaceChildren(hint('Открываю эталонное окно паспорта…'));
     const o = S.order?.noOrder ? {} : {
       salesOrderId: S.order?.salesOrderId,
       incomeId: S.order?.incomeId,
       orderNo: S.order?.orderNo,
       customerName: S.order?.customerName,
     };
-    const row = await openBookForProduct(prod.id, {
-      extra: o,
-      onClose: () => { window.dispatchEvent(new CustomEvent('data-changed')); },
-    });
-    if (my !== stageSeq) return;
-    if (row) {
-      patch({ of: undefined, new: undefined });
-      return;
-    }
-    stages.replaceChildren(hint('Не удалось открыть книжку. Закройте панель и попробуйте «Изменить паспорт» у изделия.', 'warn'));
+    let opening = false;
+    let retry = null;
+    const sameStage = () => !closed && my === stageSeq && ownsRoute();
+    const isCurrent = () => sameStage() && el.isConnected;
+    const clearOwnedRoute = () => { if (isCurrent()) patch({ of: undefined, new: undefined }); };
+    const enter = async () => {
+      if (opening || !sameStage()) return;
+      opening = true;
+      if (retry) retry.disabled = true;
+      say('открываю книжку паспорта');
+      stages.replaceChildren(hint('Открываю эталонное окно паспорта…'));
+      try {
+        const row = await openBookForProduct(prod.id, {
+          extra: o, isCurrent,
+          onClose: () => { clearOwnedRoute(); window.dispatchEvent(new CustomEvent('data-changed')); },
+        });
+        if (!isCurrent()) return;
+        if (row) { clearOwnedRoute(); return; }
+        say('повторите открытие книжки');
+        retry = button({ label: 'Повторить открытие паспорта', kind: 'secondary', onClick: enter });
+        stages.replaceChildren(hint('Открытие отменено или не завершилось. Можно повторить здесь.', 'warn'), retry);
+      } finally {
+        opening = false;
+        if (retry) retry.disabled = false;
+      }
+    };
+    await enter();
   }
 
   if (entry?.productId) { say('открываю книжку'); choose(entry.productId); } else ps.update({});
@@ -183,6 +204,8 @@ function build() {
     busy: () => !!creation?.busy(),
     dirty: () => !!creation?.dirty(),
     beforeClose: () => {
+      closed = true;
+      stageSeq += 1;
       const m = creation?.partial?.() || parked?.partial?.();
       if (m) toast(`«${m.name || 'Новое изделие'}» уже создано в «Продукции» с незавершённым заполнением — допишите в карточке изделия`, { ms: 8000 });
     },

@@ -5,6 +5,7 @@
 import { api } from '../../core/api.js';
 import { toast, toastError } from '../../ui/kit/toast.js';
 import { openBookEditor } from './book-editor.js';
+import { createBookDraft } from './create-book-draft.js';
 
 const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== ''));
 
@@ -28,7 +29,8 @@ export async function openBookForProduct(productId, { extra = {}, onClose, isCur
     let row = await findProductPassport(productId);
     if (!isCurrent()) return null;
     if (!row) {
-      row = await api('/passports', { method: 'POST', body: clean({ productId, ...extra }) });
+      row = await createBookDraft(clean({ productId, ...extra }), isCurrent);
+      if (!row || !isCurrent()) return null;
       toast('Черновик паспорта создан — допишите в книжке и выпустите.');
     }
     const opened = await openBookEditor(row, { onClose, isCurrent });

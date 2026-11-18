@@ -1,0 +1,5 @@
+Повторныйчистыйвходчерезfunnel: book=true, POST=0, modal=0
+После закрытия URL http://localhost:3102/app/#docs?tab=archive
+Повтор samecontext book=1, URL=http://localhost:3102/app/#docs?tab=archive&of=passfunnel&new=1, POST=0
+Видимыеуведомления
+После второго закрытия URL http://localhost:3102/app/#docs?tab=archive, POST=0

@@ -334,9 +334,10 @@ export async function openBookEditor(passport, { onClose, isCurrent = () => true
         iconButton({ icon: '✕', label: 'Закрыть книжку', title: 'Закрыть книжку — только этой кнопкой', cls: 'k-close', onClick: requestClose })));
   }
 
+  try { ctx.firms = (await ourCompanies()).map((o) => [o.id, o.name]); } catch { ctx.firms = null; }
+  if (!isCurrent()) return false;
   document.addEventListener('keydown', onKey, true);
   document.body.append(back);
-  try { ctx.firms = (await ourCompanies()).map((o) => [o.id, o.name]); } catch { ctx.firms = null; }
   render();
   const onLeftChanged = () => { focusApi?.refresh(); render(); };
   choicesApi = mountBookChoices(tocMeta, { S, can, pid, lock, patchPassport, onChanged: onLeftChanged });
