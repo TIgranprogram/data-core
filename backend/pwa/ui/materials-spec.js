@@ -252,19 +252,36 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
   const coatBox = h('div', { class: 'ms-coat' }, h('div', { class: 'ms-sub' }, 'Покрытие · ', coatLink), coatWhy, coatWrap, coatEmpty);
   const coatById = () => new Map(d.mats.filter(isCoat).map((m) => [String(m.id), m]));
   const coatMine = (m, code) => !code || !codes(m.categories).length || codes(m.categories).includes(code);
+  const removeCoat = (rawId, e) => {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+    const id = String(rawId || '');
+    if (!id || !coatIds.has(id)) return;
+    coatIds.delete(id);
+    coatingTexts = coatingTexts.filter((r) => String(r.materialId) !== id);
+    paintCoat();
+    changed();
+  };
   const paintCoatPicked = () => {
     const map = coatById();
     coatPicked.replaceChildren(...[...coatIds].map((id) => {
-      const m = map.get(id);
+      const sid = String(id);
+      const m = map.get(sid);
       const why = !m ? 'нет в справочнике'
         : (!codes(m.categories).length ? 'для всех типов' : catNames(m.categories));
       return h('li', { class: 'ms-coat-line' },
         h('span', { class: 'ms-coat-name' }, m?.name || 'Покрытие удалено',
           h('small', { class: 'ms-coat-why' }, why)),
-        h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Убрать', 'aria-label': 'Убрать покрытие',
-          onclick: () => { coatIds.delete(id); coatingTexts = coatingTexts.filter((r) => r.materialId !== id); paintCoat(); changed(); } }, '×'));
+        // ms-x как у меток частей; onclick + делегирование — в правой колонке книжки один путь иногда глотался
+        h('button', { type: 'button', class: 'ms-x ms-coat-x', title: 'Убрать покрытие', 'aria-label': 'Убрать покрытие',
+          dataset: { coatId: sid }, onclick: (e) => removeCoat(sid, e) }, '×'));
     }));
   };
+  coatPicked.addEventListener('click', (e) => {
+    const btn = e.target?.closest?.('[data-coat-id]');
+    if (!btn || !coatPicked.contains(btn)) return;
+    removeCoat(btn.dataset.coatId, e);
+  });
   const paintCoatOpts = () => {
     const code = scope() || '';
     const list = d.mats.filter((m) => isCoat(m) && offered(m, [...coatIds]));
