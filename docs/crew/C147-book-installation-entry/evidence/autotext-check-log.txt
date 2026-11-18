@@ -1,0 +1,10 @@
+Материал Бетон → Бревно оцилиндрованное: автотекст реально изменился (22 → 39 знаков)
+Добавление покрытия Горячее цинкование: ID вошёл в spec, ручная фраза осталась
+Перед click {"point":{"x":1795.5,"y":641.15625},"hit":"<button type=\"button\" class=\"ms-x ms-coat-x\" title=\"Убрать покрытие\" aria-label=\"Убрать покрытие\" data-coat-id=\"6ae3a048793eb93d71b3f3e1\">×</button>"}
+События [{"type":"pointerdown","at":6788.20000000298,"target":{"tag":"BUTTON","cls":"ms-x ms-coat-x","aria":"Убрать покрытие"},"active":{"tag":"BODY","cls":"","aria":null},"oldConnected":true},{"type":"mousedown","at":6788.20000000298,"target":{"tag":"BUTTON","cls":"ms-x ms-coat-x","aria":"Убрать покрытие"},"active":{"tag":"BODY","cls":"","aria":null},"oldConnected":true},{"type":"pointerup","at":6788.30000000447,"target":{"tag":"BUTTON","cls":"ms-x ms-coat-x","aria":"Убрать покрытие"},"active":{"tag":"BUTTON","cls":"ms-x ms-coat-x","aria":"Убрать покрытие"},"oldConnected":true},{"type":"mouseup","at":6788.30000000447,"target":{"tag":"BUTTON","cls":"ms-x ms-coat-x","aria":"Убрать покрытие"},"active":{"tag":"BUTTON","cls":"ms-x ms-coat-x","aria":"Убрать покрытие"},"oldConnected":true},{"type":"click","at":6788.4000000059605,"target":{"tag":"BUTTON","cls":"ms-x ms-coat-x","aria":"Убрать покрытие"},"active":{"tag":"BUTTON","cls":"ms-x ms-coat-x","aria":"Убрать покрытие"},"oldConnected":true},{"type":"detached","at":6788.70000000298}]
+Удаление DOM: {"connected":true,"ids":[],"buttons":0}
+Spec с покрытием и ручной фразой сохранён PATCH200/GET
+Снятие покрытия: автотекст изменился, spec без ID, PATCH200/GET подтвердили; ручнаяфраза сохранена
+Элемент Анкер → Балансир: выбранный ID и фраза описания реально сменились, общий тип соблюдён (компонент)
+Проверены реальные компоненты с живыми справочниками в слоте книжки; полный PDF после смены элементов не проверен
+Исходный materialsSpec копии восстановлен HTTP200

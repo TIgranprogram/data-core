@@ -167,3 +167,16 @@ test('предложение только покрытия принимаетс�
   assert.deepEqual(clean(w.spec()), proposal);
   assert.equal(f.calls.length, 0);
 });
+
+test('фокус на удалении покрытия не пересоздаёт кнопку до щелчка', async () => {
+  const f = await fixture();
+  const w = f.widget(snapshot());
+  const findRemove = () => w.el.find((x) => x.attrs['aria-label'] === 'Убрать покрытие');
+  const before = findRemove();
+  assert.ok(before);
+  await w.el.dispatchEvent({ type: 'focusin' });
+  assert.equal(findRemove(), before);
+  before.click();
+  assert.deepEqual(clean(w.spec().coatingIds), []);
+  assert.deepEqual(clean(w.spec().coatingTexts || []), []);
+});

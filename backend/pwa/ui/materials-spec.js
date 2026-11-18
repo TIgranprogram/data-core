@@ -252,6 +252,7 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
   const coatBox = h('div', { class: 'ms-coat' }, h('div', { class: 'ms-sub' }, 'Покрытие · ', coatLink), coatWhy, coatWrap, coatEmpty);
   const coatById = () => new Map(d.mats.filter(isCoat).map((m) => [String(m.id), m]));
   const coatMine = (m, code) => !code || !codes(m.categories).length || codes(m.categories).includes(code);
+  let paintedCoatScope = null;
   const removeCoat = (rawId, e) => {
     e?.preventDefault?.();
     e?.stopPropagation?.();
@@ -284,6 +285,7 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
   });
   const paintCoatOpts = () => {
     const code = scope() || '';
+    paintedCoatScope = code;
     const list = d.mats.filter((m) => isCoat(m) && offered(m, [...coatIds]));
     const free = list.filter((m) => !coatIds.has(String(m.id)));
     const own = free.filter((m) => coatMine(m, code));
@@ -318,7 +320,10 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
       coatIds = new Set(arr);
       paintCoat();
     },
-    setScope() { paintCoat(); return []; },
+    setScope() {
+      if (paintedCoatScope !== (scope() || '')) paintCoatOpts();
+      return [];
+    },
   };
   paintCoat();
 

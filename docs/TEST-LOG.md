@@ -193,3 +193,4 @@
 | 2026-11-18 | C146 категории модулей, readOnly, формы деталей и доска | tsc0; unit 349 наборов / 3618 тестов; PWA 244/244; lint0; импорты 341/0 | e2e ✅ dicts на отдельной datacore-test, 1 набор / 5 тестов | crew/C146-module-categories-dict/REPORT.md; UI-REVIEW.md |
 
 | 2026-11-18 | C147 montage, вход Inventor, наследуемые рисунки и соседние подстановки | tsc0; unit 349 наборов / 3622 теста; PWA257/257; guards338/338; импорты343/0; lint0 | e2e ✅ new-endpoints-1101 на datacore-test, 19/19 | crew/C147-book-installation-entry/REPORT.md; UI-REVIEW.md |
+| 2026-11-18 | C147 после 5dd38691 | ранее PASS, backend без изменений | ранее 3622/3622 | ранее 19/19 | UI-добавка: PWA258/258, пульт56/56, импорты343/0, design-lint0; обычный клик удаления покрытия + PATCH/GET PASS |
