@@ -318,8 +318,11 @@ export async function openBookEditor(passport, { onClose } = {}) {
         if (!(await confirmDlg('Выпустить паспорт?', 'Паспорт получит номер и гарантийный талон. Правки потом остаются доступны.', { okText: 'Выпустить' }))) return;
         try { const x = await lock(() => api(`/passports/${pid()}/issue`, { method: 'POST' })); toast('Выпущен паспорт № ' + x.passportNumber); S.changed = true; S.r = await api('/passports/' + pid()); render(); } catch (e) { toastError(e); }
       } });
+    const art = String(r.article || '').trim();
     head.replaceChildren(
       h('h2', null, heading(r), r.name ? ' · ' + r.name : '', ' ', badge(issued ? 'выпущен' : statusOf(r) === 'annulled' ? 'аннулирован' : 'черновик', issued ? 'ok' : 'warn')),
+      h('div', { class: 'bk-sku', title: 'Артикул изделия' },
+        art ? ['Артикул ', h('b', null, art)] : h('span', { class: 'muted' }, 'Артикул не задан')),
       h('div', { class: 'bk-acts' },
         r.printSource === 'file' || r.printFile?.hasFile ? h('span', { class: 'bk-mark' }, 'К номеру прикреплён свой PDF — печать отдаёт его. ') : null,
         // масштаб — ghost: единственная primary в шапке — «Выпустить» (C143)
