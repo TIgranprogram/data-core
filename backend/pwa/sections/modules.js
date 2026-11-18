@@ -151,7 +151,7 @@ export const modules = {
     fields: async () => {
       const cats = await catOptions();
       return [
-        cats.length ? null : { note: 'Нет категорий типа «модуль». Сначала заведите категорию в справочниках.' },
+        cats.length ? null : { note: h('span', null, 'Добавьте категорию модуля: ', h('a', { href: '#dicts?d=moduleCategories' }, 'Справочники → Категории модулей')) },
         { key: 'name', label: 'Название', required: true, max: 200, wide: true },
         { key: 'article', label: 'Обозначение', required: true, max: 64 },
         { key: 'categoryId', label: 'Категория', type: 'select', required: true, choose: true, options: cats },

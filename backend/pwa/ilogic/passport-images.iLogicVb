@@ -17,9 +17,11 @@ AddReference "System.Private.Uri.dll"
 AddReference "System.Memory.dll"
 AddReference "System.Text.Json.dll"
 
+Class ThisRule
+
 ' База API и приложения — одна точка правды для этого правила
-Const API_BASE As String = "https://kppdf-crm.ru/db/api/"
-Const APP_BASE As String = "https://kppdf-crm.ru/db/app/"
+Private Const API_BASE As String = "https://kppdf-crm.ru/db/api/"
+Private Const APP_BASE As String = "https://kppdf-crm.ru/db/app/"
 
 ' Запуск из сохранённой сборки или детали (на чертеже — только чистка подписей масштаба).
 Sub Main()
@@ -382,6 +384,7 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
         Dim massKg As Double = ModelMassKg(model)
         Dim productId As String = UploadPassportImages(model, folder, dimensions, depthMm, massKg, stage)
         If productId <> "" Then
+            MessageBox.Show("Три рисунка загружены на сайт. Сейчас откроется карточка изделия. Если книжка паспорта уже открыта, закройте её и откройте заново.", "Картинки для паспорта")
             ' C141: после загрузки — карточка изделия; правка паспорта — «⋯ → Изменить паспорт» (книжка)
             stage = "Открытие изделия на сайте"
             Dim productUrl As String = APP_BASE & "#products?open=" & productId
@@ -390,6 +393,7 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
         End If
     End If
     stage = "Открытие папки в Проводнике"
+    MessageBox.Show("Рисунки сохранены в папке рядом со сборкой. На сайт они не загружены.", "Картинки для паспорта")
     System.Diagnostics.Process.Start("explorer.exe", """" & folder & """")
 End Sub
 
@@ -802,6 +806,8 @@ Function TransparentPngOptions(app As Inventor.Application) As Inventor.NameValu
     options.Add("TransparentBackground", True)
     Return options
 End Function
+
+End Class
 
 ' Конец правила «Картинки для паспорта».
 

@@ -7,6 +7,7 @@ import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.inter
 import { DictsService } from './dicts.service';
 import { canSeePayroll } from '../../common/roles-hierarchy';
 import { openSectionsFor, sectionOpen } from '../../common/app-sections';
+import { stockScopeFor } from '../../common/stock-scope';
 import { hideContacts, hideLogin, hidePayroll } from './dicts.payroll';
 import { canLinkLogin, loginBody } from './dicts.person-login';
 
@@ -52,7 +53,8 @@ export class DictsController {
   @Roles('user')
   @ApiQuery({ name: 'search', required: false })
   async list(@Param('key') key: string, @Query('search') search?: string, @CurrentUser() user?: AuthenticatedUser) {
-    return payrollMask(key, user, await this.dicts.list(key, search));
+    const result = payrollMask(key, user, await this.dicts.list(key, search));
+    return stockScopeFor(user) ? { ...result, dict: { ...result.dict, readOnly: true } } : result;
   }
 
   @Get(':key/candidates')

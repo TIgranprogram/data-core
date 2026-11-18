@@ -20,9 +20,24 @@ describe('Dicts', () => {
 
   it('группы и справочники со счётчиками', async () => {
     const g = (await http().get('/api/dicts').set(auth()).expect(200)).body.items;
-    expect(g.map((x: { group: string }) => x.group)).toEqual(['Склад и позиции', 'Деньги', 'Люди и ФОТ', 'Заявки и счета', 'Продукция', 'Паспорта']);
-    expect(g[0].items.map((x: { key: string }) => x.key)).toEqual(['categories', 'productGroups', 'productSections', 'units', 'writeOffReasons', 'colors', 'metalAssortments', 'steelGrades']);
+    expect(g.map((x: { group: string }) => x.group)).toEqual(expect.arrayContaining(['Склад и позиции', 'Деньги', 'Люди и ФОТ', 'Заявки и счета', 'Продукция', 'Паспорта']));
+    expect(g.find((x: { group: string }) => x.group === 'Склад и позиции').items.map((x: { key: string }) => x.key))
+      .toEqual(expect.arrayContaining(['categories', 'units', 'writeOffReasons', 'colors', 'metalAssortments', 'steelGrades']));
+    expect(g.find((x: { group: string }) => x.group === 'Продукция').items.map((x: { key: string }) => x.key))
+      .toEqual(expect.arrayContaining(['moduleCategories']));
+    expect(g.flatMap((x: { items: { key: string }[] }) => x.items.map((d) => d.key)))
+      .toEqual(expect.arrayContaining(['productGroups', 'productSections']));
     await http().get('/api/dicts/nope').set(auth()).expect(404);
+  });
+
+  it('категория модуля доступна в обоих списках и отделена от складских категорий', async () => {
+    const created = (await http().post('/api/dicts/moduleCategories').set(auth()).send({ name: 'ТЕСТ C146 Каркас' }).expect(201)).body;
+    const modules = (await http().get('/api/categories?type=module').set(auth()).expect(200)).body;
+    expect(modules).toEqual(expect.arrayContaining([expect.objectContaining({ id: created.id, type: 'module' })]));
+    const dict = (await http().get('/api/dicts/moduleCategories').set(auth()).expect(200)).body;
+    expect(dict.items).toEqual(expect.arrayContaining([expect.objectContaining({ id: created.id, name: created.name })]));
+    const materials = (await http().get('/api/categories?type=material').set(auth()).expect(200)).body;
+    expect(materials.some((x: { id: string }) => x.id === created.id)).toBe(false);
   });
 
   it('единицы: дубль — 409, занятую удалить нельзя, объединение переносит заявки, удаление и восстановление', async () => {

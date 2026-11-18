@@ -189,3 +189,5 @@
 | 2026-11-17 | C112 Э4/Э5 Cursor: PWA buildDescription + passport-regression в пульте | passport unit 828/828; rules/compose/gaps 41/41; pult 75/75; dc check 0; regression PARTIAL (e2e SKIP без DC_PASSPORT_E2E) | e2e не гоняли (нет флага изоляции) | `crew/C112-passport-complete/REPORT.md`; логи `tools/logs/passport-regression/` |
 | 2026-11-17 | C112 дом: stand up + passport-regression --live | passport unit 828/828; live PASS (BLG/WRK/DIO + фраза; issued 607 unchanged); авто PARTIAL (SKIP C134 pdf + e2e) | e2e не гоняли | лог `tools/logs/passport-regression/2026-11-17T20-29-58-361Z-0c76b7e0/`; `C112/REPORT.md` домашний прогон |
 | 2026-11-18 | C141/C142 + fix e2e payerCompany | tsc0; unit 3612; dc check 0 | e2e ✅ 77 наборов, 571 тест, 0 падений (12 skipped); Docker Mongo 4.4 | E2E-SUPPLY-FAIL.md: issue требует Наша компания |
+
+| 2026-11-18 | C146 категории модулей, readOnly, формы деталей и доска | tsc0; unit 349 наборов / 3618 тестов; PWA 244/244; lint0; импорты 341/0 | e2e ✅ dicts на отдельной datacore-test, 1 набор / 5 тестов | crew/C146-module-categories-dict/REPORT.md; UI-REVIEW.md |

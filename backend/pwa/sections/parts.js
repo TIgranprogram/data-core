@@ -14,6 +14,14 @@ import { buildCompForm, compositionPeek } from './comp-editor.js';
 
 const canWrite = () => (['admin', 'manager'].includes(session.role) || session.user?.isOwner === true) && session.sees('parts');
 const asList = (resp) => (Array.isArray(resp) ? resp : (resp?.items || []));
+const categoryIdOf = (r) => String(r?.categoryId?.id || r?.categoryId?._id || r?.categoryId || '');
+const categoryOptions = async (row) => {
+  const options = asList(await api('/categories', { query: { type: 'material' } }))
+    .map((c) => ({ value: String(c.id || c._id), label: c.name || c.fullPath || 'Категория' }));
+  const id = categoryIdOf(row);
+  if (id && !options.some((o) => o.value === id)) options.push({ value: id, label: catName(row) || 'Ранее выбранная категория' });
+  return options;
+};
 const catName = (m) => {
   const c = m?.categoryId;
   if (c && typeof c === 'object') return c.name || c.fullPath || '';
@@ -115,21 +123,23 @@ export const parts = {
   },
 
   form: {
-    fields: () => [
+    fields: async (row) => [
       { key: 'name', label: 'Название', required: true, max: 256, wide: true },
       { key: 'article', label: 'Обозначение', required: true, max: 64 },
       { key: 'unit', label: 'Единица', required: true, max: 32 },
+      { key: 'categoryId', label: 'Категория', type: 'select', choose: true, options: await categoryOptions(row) },
     ],
     initial: () => ({ unit: 'шт' }),
-    toInitial: (r) => ({ name: r.name || '', article: r.article || '', unit: r.unit || 'шт' }),
-    toBody: (v) => {
+    toInitial: (r) => ({ name: r.name || '', article: r.article || '', unit: r.unit || 'шт', categoryId: categoryIdOf(r) }),
+    toBody: (v, row) => {
       const name = String(v.name || '').trim();
       const article = String(v.article || '').trim();
       const unit = String(v.unit || '').trim();
       if (!name) throw new Error('Впишите название');
       if (!article) throw new Error('Впишите обозначение');
       if (!unit) throw new Error('Впишите единицу');
-      return { name, article, unit, materialKind: 'part' };
+      const category = row && (v.categoryId || '') === categoryIdOf(row) ? {} : { categoryId: v.categoryId || null };
+      return { name, article, unit, materialKind: 'part', ...category };
     },
     create: (body) => api('/materials', { method: 'POST', body }),
     update: (id, body) => api(`/materials/${id}`, { method: 'PATCH', body }),

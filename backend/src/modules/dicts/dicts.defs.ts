@@ -455,6 +455,38 @@ const BASE: DictBase[] = [
     fromName: async (name, db) => (DICTS[0].toDoc({ name }, true, db)),
     options: (docs) => docs.map((d) => s(d.name)),
   },
+  {
+    key: 'moduleCategories', group: 'Продукция', title: 'Категории модулей',
+    hint: 'Выбираются при создании модуля (сборки). Например: Каркас, Ограждение.',
+    coll: 'categories', match: { type: 'module', deletedAt: null },
+    columns: [{ key: 'description', label: 'Описание' }],
+    fields: [{ key: 'name', label: 'Название', required: true, wide: true }, { key: 'description', label: 'Описание', type: 'textarea', wide: true }],
+    name: (d) => s(d.name),
+    row: (d) => ({ name: s(d.name), description: s(d.description) }),
+    toDoc: async (b, isNew, db) => {
+      const doc = await DICT.get('categories')!.toDoc(b, isNew, db);
+      return isNew ? { ...doc, type: 'module' } : doc;
+    },
+    usage: async (db, docs) => {
+      const rows = await db.collection('productmodules').aggregate([
+        { $match: { deletedAt: null, categoryId: { $in: docs.map((d) => d._id) } } },
+        { $group: { _id: '$categoryId', n: { $sum: 1 } } },
+      ]).toArray();
+      return new Map(rows.map((r) => [String(r._id), r.n as number]));
+    },
+    related: async (db, d) => {
+      const q = { deletedAt: null, categoryId: d._id };
+      const [rows, total] = await Promise.all([
+        db.collection('productmodules').find(q).sort({ name: 1 }).limit(15).project({ name: 1 }).toArray(),
+        count(db, 'productmodules', { categoryId: d._id }),
+      ]);
+      return { title: 'Модули', total, items: rows.map((r) => ({ label: s(r.name), href: '#modules?open=' + String(r._id) })) };
+    },
+    reassign: async (db, from, to) => {
+      const result = await db.collection('productmodules').updateMany({ categoryId: from._id }, { $set: { categoryId: to._id } });
+      return result.modifiedCount;
+    },
+  },
   ...productGroupDefs({ translit }),
   expenseArticlesDef(),
   {
@@ -825,7 +857,7 @@ const BASE: DictBase[] = [
   {
     // МИ: «Состоит из стоек, перекладин и хомутов» — части в таблице материалов изделия
     ...simpleList('passportParts', 'Паспорта', 'Части изделия',
-      'Зачем: детали состава для фразы «Состоит из…» в паспорте. Пример: «Стойка», «Перекладина», «Хомут» → «Состоит из стоек, перекладин и хомутов». Не путать с функциональными элементами (турник, горка).',
+      'Названия частей для текста паспорта. Пример: «Стойка», «Перекладина», «Хомут» → «Состоит из стоек, перекладин и хомутов». Изготавливаемые детали ведутся отдельно в разделе «Детали».',
       [
         { key: 'genPlural', label: 'Родительный падеж, мн. ч.', hint: '«стоек» — так в тексте «Состоит из…»' },
         { key: 'genSingular', label: 'Родительный падеж, ед. ч.', hint: '«стойки»' },
@@ -912,6 +944,7 @@ const BASE: DictBase[] = [
 
 /** Подписи правой панели (2026-10-25, замечание пользователя: «новая запись чего?»): заголовок новой записи и подпись поля «Название». */
 export const DICT_UI: Record<string, { newTitle: string; nameLabel?: string }> = {
+  moduleCategories: { newTitle: 'Новая категория модуля' },
   categories: { newTitle: 'Новая категория' }, units: { newTitle: 'Новая единица измерения' }, colors: { newTitle: 'Новый цвет' },
   persons: { newTitle: 'Новый сотрудник' }, worktypes: { newTitle: 'Новый вид работ' }, paymentForms: { newTitle: 'Новая форма оплаты' },
   writeOffReasons: { newTitle: 'Новая причина списания' }, departments: { newTitle: 'Новый отдел' }, payoutSchedules: { newTitle: 'Новый график выплат' }, invoiceTypes: { newTitle: 'Новый тип счёта' },

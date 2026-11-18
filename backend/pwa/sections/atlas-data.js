@@ -119,7 +119,7 @@ export const NODES = [
   { id: 'modules', tpl: 'card', tplStatus: 'ok', band: 'prod', col: 2, sec: 'modules', t: 'МОДУЛЬ (сборка)', l: ['узел из деталей', 'как продукция: список и карточка'],
     productMap: true,
     inside: [
-      { id: 'mod-kartochka', t: 'Карточка', l: 'артикул = обозначение PDM, название, фото', out: ['products'] },
+      { id: 'mod-kartochka', t: 'Карточка', l: 'обозначение, название, фото, категория из «Справочники → Категории модулей»', out: ['products'] },
       { id: 'mod-sostav', t: 'Состав модуля', l: 'детали, покупное, сырьё, вложенные модули', in: ['parts'], out: ['products', 'needs'] },
       { id: 'mod-raboty', t: 'Работы', l: 'часы и дни на модуль', out: ['work'] },
     ],
@@ -129,7 +129,7 @@ export const NODES = [
   { id: 'parts', tpl: 'card', tplStatus: 'ok', band: 'prod', col: 3, sec: 'parts', t: 'ДЕТАЛЬ', l: ['делаем сами из сырья', 'как продукция: список и карточка'],
     productMap: true,
     inside: [
-      { id: 'part-kartochka', t: 'Карточка', l: 'артикул = обозначение PDM, заготовка, материал', out: ['modules', 'products'] },
+      { id: 'part-kartochka', t: 'Карточка', l: 'обозначение, категория, заготовка, материал', out: ['modules', 'products'] },
       { id: 'part-sostav', t: 'Из чего', l: 'только сырьё (сортамент + материал + размер заготовки)', in: ['suppliercatalog'] },
       { id: 'part-raboty', t: 'Работы', l: 'виды работ детали (C122)', out: ['work'] },
     ],

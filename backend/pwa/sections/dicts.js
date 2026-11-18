@@ -200,13 +200,14 @@ export function mountDicts(params) {
       if (id !== loadId) return;
       groups = g.items; data = d; loading = false; curNewTitle = d.dict.newTitle || null;
       editRoles = g.items.flatMap((x) => x.items).find((i) => i.key === d.dict.key)?.editRoles || null;
+      stockReadOnly = d.dict.readOnly === true;
       addBtn.hidden = !canEditDict();
       const meta = g.items.flatMap((x) => x.items).find((i) => i.key === d.dict.key) || {};
       if (!d.dict.sections && meta.sections) d.dict.sections = meta.sections;
       if (!d.dict.locked && meta.locked) d.dict.locked = meta.locked;
       title.textContent = d.dict.title;
       // C145: сверху — зачем справочник (с примером), затем где видно
-      const why = String(d.dict.hint || '').trim();
+      const why = [stockReadOnly ? 'Только просмотр: вашей роли недоступна правка справочников.' : '', String(d.dict.hint || '').trim()].filter(Boolean).join(' ');
       const where = d.dict.sections?.length ? `Где видно: ${d.dict.sections.join(', ')}` : '';
       hintEl.textContent = [why, where].filter(Boolean).join(' · ') || '';
       candBtn.hidden = !canEditDict() || ['colors', 'worktypes', 'payoutSchedules'].includes(d.dict.key);
@@ -242,8 +243,9 @@ async function mergeDialog(r, ctx) {
 /** Карточка справочника (правая панель): открывается из «Справочников» (of=dict). */
 /** Справочник с ограничением правки (`editRoles`, группа «Паспорта» — директор и админ); остальные — как раньше. */
 let editRoles = null;
+let stockReadOnly = false;
 function canEditDict() {
-  if (!session.canEdit) return false;
+  if (!session.canEdit || stockReadOnly) return false;
   if (!editRoles || session.user?.isOwner === true) return true;
   return editRoles.some((r) => (r === 'director' ? ['admin', 'director'] : [r]).includes(session.role));
 }

@@ -64,7 +64,6 @@ function toPutLines(rows) {
  */
 export async function mountCompositionFunnel(slot, productId, { onDone } = {}) {
   slot.replaceChildren(h('p', { class: 'hint' }, 'Загружаю состав…'));
-  // без import book-side-edit (цикл + vm-тесты без dynamic import)
   const side = slot?.closest?.('.bk-side');
   const main = side?.closest?.('.bk-main');
   side?.classList.add('is-wide');
@@ -308,23 +307,24 @@ export async function mountCompositionFunnel(slot, productId, { onDone } = {}) {
   const paintCreate = async (forKind) => {
     createHost.replaceChildren(h('p', { class: 'hint' }, 'Готовлю форму…'));
     let catOpts = [];
-    if (forKind === 'module') {
+    if (forKind === 'module' || forKind === 'part') {
       try {
-        const cats = await api('/categories', { query: { type: 'module', limit: 200 } });
+        const cats = await api('/categories', { query: { type: forKind === 'module' ? 'module' : 'material', limit: 200 } });
         catOpts = (cats.items || cats || []).map((c) => [String(c.id || c._id), c.name || c.fullPath || 'Категория']);
       } catch { catOpts = []; }
     }
     const name = textInput({ label: 'Название', value: '', required: true });
     const art = textInput({ label: 'Обозначение (артикул)', value: '', required: true });
-    const catSel = forKind === 'module' && catOpts.length
-      ? select({ label: 'Категория модуля', options: catOpts, value: catOpts[0][0] })
+    const catLabel = forKind === 'module' ? 'Категория модуля' : 'Категория детали';
+    const catSel = catOpts.length
+      ? select({ label: catLabel, options: forKind === 'module' ? catOpts : [['', 'Без категории'], ...catOpts], value: forKind === 'module' ? catOpts[0][0] : '' })
       : null;
     createHost.replaceChildren(stack(
       h('h4', { class: 'bk-side-h' }, forKind === 'module' ? 'Новый модуль' : 'Новая деталь'),
       hint('Минимум для состава; полное редактирование — в разделе позже.'),
       name.el,
       art.el,
-      catSel ? field('Категория модуля', catSel) : (forKind === 'module' ? hint('Нет категорий типа «модуль» — сначала заведите в справочниках.') : null),
+      catSel ? field(catLabel, catSel) : (forKind === 'module' ? h('p', { class: 'hint' }, 'Добавьте категорию: ', h('a', { href: '#dicts?d=moduleCategories' }, 'Справочники → Категории модулей')) : null),
       h('div', { class: 'bk-ed-row' },
         button({
           label: 'Создать и выбрать',
@@ -336,7 +336,7 @@ export async function mountCompositionFunnel(slot, productId, { onDone } = {}) {
               if (!name.value.trim() || !art.value.trim()) { toast('Укажите название и обозначение'); return; }
               const body = forKind === 'module'
                 ? { name: name.value.trim(), article: art.value.trim(), categoryId: catSel.value }
-                : { name: name.value.trim(), article: art.value.trim(), unit: 'шт', materialKind: 'part' };
+                : { name: name.value.trim(), article: art.value.trim(), unit: 'шт', materialKind: 'part', categoryId: catSel?.value || null };
               const created = forKind === 'module'
                 ? await api('/modules', { method: 'POST', body })
                 : await api('/materials', { method: 'POST', body });
