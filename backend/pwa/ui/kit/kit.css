@@ -1275,8 +1275,10 @@ tr.k-pos-more .k-readonly { border: 0; background: transparent; padding: 0; }
 .ms-coat-sel { width: 100%; max-width: 100%; }
 .ms-coat-picked { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s1); }
 .ms-coat-line { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); padding: var(--s1) var(--s2); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
-.ms-coat-name { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; font-size: var(--fs-sm); }
+.ms-coat-name { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; flex: 1; font-size: var(--fs-sm); }
 .ms-coat-why { color: var(--muted); font-size: var(--fs-xs); }
+.ms-coat-x { flex: none; width: 32px; height: 32px; color: var(--muted); }
+.ms-coat-x:hover { color: var(--danger); }
 .pt-filters { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: flex-end; }
 .pt-cat-filter { margin: 0; min-width: 180px; }
 .pt-sec.is-gap { border-color: color-mix(in srgb, var(--warn) 40%, var(--border)); background: color-mix(in srgb, var(--warn-soft) 35%, transparent); }
