@@ -1005,9 +1005,15 @@ tr.k-pos-more .k-readonly { border: 0; background: transparent; padding: 0; }
 /* C134: окно «паспорт как в PDF» — страницы А5 (148×210), правка на месте; цвета источника — .k-src */
 .modal-back.bk-back { padding: var(--s3); }
 .modal.bk { width: min(1760px, 100%); height: calc(100vh - 2 * var(--s3)); max-height: none; display: flex; flex-direction: column; overflow: hidden; }
-.bk-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; padding: var(--s3) var(--s4); border-bottom: 1px solid var(--border); }
-.bk-head h2 { margin: 0; }
-.bk-acts { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+.bk-head { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: var(--s3); padding: var(--s3) var(--s4); border-bottom: 1px solid var(--border); }
+.bk-head h2 { margin: 0; min-width: 0; }
+.bk-sku { justify-self: center; text-align: center; font-size: var(--fs-md, 1rem); color: var(--text); white-space: nowrap; }
+.bk-sku b { font-weight: 700; }
+.bk-acts { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; justify-self: end; justify-content: flex-end; }
+@media (max-width: 1100px) {
+  .bk-head { grid-template-columns: 1fr; }
+  .bk-sku, .bk-acts { justify-self: start; }
+}
 .bk-main { flex: 1; min-height: 0; display: flex; }
 /* C141: левая колонка — три панели (страницы / сначала / выбор), картотека */
 .bk-toc {
