@@ -207,13 +207,37 @@ describe('ClientErrorsService', () => {
 });
 
 describe('ClientErrorsController', () => {
-  it('ключ kppd_ (keyScope) → 403, запись не делается', async () => {
+  it('ключ kppd_ + kind≠integration → 403, запись не делается', async () => {
     const { service, create } = makeService();
     const ctl = new ClientErrorsController(service);
     await expect(
       ctl.create({ id: userId, username: 'k', role: 'admin', keyScope: { access: 'full' } }, { message: 'x', kind: 'action' } as CreateClientErrorDto),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it('ключ kppd_ + kind=integration → пишет лог для разработчиков', async () => {
+    const { service, create } = makeService();
+    const ctl = new ClientErrorsController(service);
+    await ctl.create(
+      { id: userId, username: 'k', role: 'manager', keyScope: { access: 'write' } },
+      { message: 'сбой заявки', kind: 'integration', action: 'создать заявку' } as CreateClientErrorDto,
+    );
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'integration',
+        section: '#ai-agent',
+        name: 'AiAgent',
+        message: 'сбой заявки',
+        role: 'manager',
+        userId: expect.anything(),
+      }),
+    );
+  });
+
+  it('kind integration принимается DTO', async () => {
+    const { errors } = await check({ message: 'лог ИИ', kind: 'integration', section: '#ai-agent' });
+    expect(errors).toHaveLength(0);
   });
 
   it('top — только admin; приём — любая роль', () => {

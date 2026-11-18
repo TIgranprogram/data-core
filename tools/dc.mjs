@@ -36,11 +36,12 @@ export function parseErrors(text) {
   } catch { return null; }
 }
 
-/** Строки «топ ошибок»: текст, экран, повторы, время; для SlowScreen — первая строка sampleStack. */
+/** Строки «топ ошибок»: текст, экран, повторы, время; ИИ (kind=integration) помечаем; SlowScreen — sampleStack. */
 export function formatErrors(items, max = 10) {
   const out = [];
   for (const e of items.slice(0, max)) {
-    out.push(`${e.count}× ${cut(String(e.message || e.name || '?'), 70)} · ${e.section || '—'} · ${fmtTime(e.lastAt)}`);
+    const ai = e.kind === 'integration' || e.section === '#ai-agent' || e.name === 'AiAgent' ? 'ИИ · ' : '';
+    out.push(`${e.count}× ${ai}${cut(String(e.message || e.name || '?'), 70)} · ${e.section || '—'} · ${fmtTime(e.lastAt)}`);
     if (e.name === 'SlowScreen' && e.sampleStack) out.push('    ↳ ' + cut(String(e.sampleStack).split('\n')[0], 90));
   }
   return out;

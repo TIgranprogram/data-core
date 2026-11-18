@@ -3,7 +3,8 @@ import { HydratedDocument, Types } from 'mongoose';
 
 export type ClientErrorDocument = HydratedDocument<ClientError>;
 
-export const CLIENT_ERROR_KINDS = ['action', 'background', 'unhandled', 'slow', 'garbage'] as const;
+/** integration — лог ИИ/скрипта по ключу kppd_ (для разработчиков). */
+export const CLIENT_ERROR_KINDS = ['action', 'background', 'unhandled', 'slow', 'garbage', 'integration'] as const;
 export type ClientErrorKind = (typeof CLIENT_ERROR_KINDS)[number];
 
 /** Срок хранения записи (TTL по createdAt). */

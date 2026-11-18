@@ -78,6 +78,8 @@ export interface ClientErrorTopItem {
   status?: number;
   version?: string;
   sampleStack?: string;
+  /** action|background|…|integration — integration = лог ИИ/скрипта */
+  kind?: string;
 }
 
 @Injectable()
@@ -142,6 +144,7 @@ export class ClientErrorsService {
             status: { $first: '$status' },
             version: { $first: '$version' },
             sampleStack: { $first: '$stack' },
+            kind: { $first: '$kind' },
           },
         },
         { $sort: { count: -1, lastAt: -1 } },
@@ -161,6 +164,7 @@ export class ClientErrorsService {
             status: 1,
             version: 1,
             sampleStack: 1,
+            kind: 1,
           },
         },
       ])

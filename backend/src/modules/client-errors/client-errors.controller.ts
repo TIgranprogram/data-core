@@ -15,31 +15,32 @@ export class ClientErrorsController {
   constructor(private readonly service: ClientErrorsService) {}
 
   /**
-   * Любая роль (@Roles('user') по иерархии пропускает все). Ключ kppd_ → 403.
-   * Сверх 20 в минуту от пользователя — тоже 204, но без записи (клиент не должен зацикливаться на 429).
-   * Общий лимит (10/с, 100/мин) здесь не действует: пачка из очереди без сети не должна дать 429
-   * и съесть запросы, которые человеку нужны для работы. Свой лимит — в сервисе.
+   * Любая роль. Ключ kppd_ — только kind=integration (лог ИИ/скрипта для разработчиков).
+   * Сверх 20/мин — 204 без записи. Общий throttle здесь выключен.
    */
   @Post()
   @SkipThrottle({ short: true, long: true })
   @HttpCode(204)
   @Roles('admin', 'manager', 'user')
-  @ApiOperation({ summary: 'Сообщить об ошибке в приложении (без данных форм)' })
+  @ApiOperation({ summary: 'Сообщить об ошибке в приложении или лог ИИ (kind=integration)' })
   @ApiResponse({ status: 204, description: 'Принято (сверх лимита 20/мин — молча не записано)' })
   @ApiResponse({ status: 400, description: 'Лишнее поле, нет message или неверный kind' })
-  @ApiResponse({ status: 403, description: 'Вход по ключу kppd_' })
+  @ApiResponse({ status: 403, description: 'Ключ kppd_ с kind≠integration' })
   async create(@CurrentUser() me: AuthenticatedUser, @Body() dto: CreateClientErrorDto): Promise<void> {
-    if (me.keyScope) {
-      throw new ForbiddenException('Ошибки приложения принимаются только из входа в приложение');
+    if (me.keyScope && dto.kind !== 'integration') {
+      throw new ForbiddenException('Ключ kppd_ пишет только kind=integration (лог для разработчиков)');
     }
-    await this.service.record(dto, { id: me.id, role: me.role });
+    const body = me.keyScope
+      ? { ...dto, kind: 'integration' as const, section: dto.section || '#ai-agent', name: dto.name || 'AiAgent' }
+      : dto;
+    await this.service.record(body, { id: me.id, role: me.role });
   }
 
   @Get('top')
   @Roles('admin')
   @ApiOperation({ summary: 'Частые ошибки приложения за последние часы' })
   @ApiQuery({ name: 'hours', required: false, description: 'За сколько часов (по умолч. 24, макс. 720)' })
-  @ApiResponse({ status: 200, description: '{ items: [{ sig, count, users, lastAt, message, name, section, action, url, status, version, sampleStack }] } по убыванию count' })
+  @ApiResponse({ status: 200, description: '{ items: [{ sig, count, users, lastAt, message, name, section, action, url, status, version, sampleStack, kind }] } по убыванию count' })
   top(@Query('hours') hours?: string) {
     return this.service.top(hours);
   }

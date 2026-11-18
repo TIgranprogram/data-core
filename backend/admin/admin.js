@@ -561,15 +561,25 @@
   function parseApps(raw) {
     return [...new Set(String(raw || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean))];
   }
+  // Промпт ИИ — connect-prompt.js (ключи + «Подключение»)
+  const CP = window.DcConnectPrompt;
+  let lastIssuedKey = null; // apiKey/label/access/apps этой вкладки
+  const promptMeta = (m) => ({ apiKey: m?.apiKey || '', label: m?.label || 'менеджер', access: m?.access || 'write', apps: m?.apps || [], apiPath: API });
+  const downloadKeyPromptFile = (m) => CP.downloadManagerFile(promptMeta(m));
   function keyRow(k) {
     const tr = el('tr');
     tr.append(el('td', '', k.label || k.tokenPrefix || '—'), el('td', '', scopeText(k.scope)), el('td', '', k.ttl || '—'),
-      el('td', '', fmtDate(k.createdAt)), el('td', '', k.revokedAt ? fmtDate(k.revokedAt) : '—'),
-      el('td', '', fmtDate(k.lastUsedAt)));
-    const td = el('td');
+      el('td', '', fmtDate(k.createdAt)), el('td', '', k.revokedAt ? fmtDate(k.revokedAt) : '—'), el('td', '', fmtDate(k.lastUsedAt)));
+    const td = el('td'), dl = el('button', 'btn btn-sm', 'Скачать промпт');
+    dl.title = 'Файл для ИИ: адреса, права, куда писать данные';
+    dl.onclick = () => {
+      const same = lastIssuedKey && lastIssuedKey.label === (k.label || '');
+      downloadKeyPromptFile({ apiKey: same ? lastIssuedKey.apiKey : '', label: k.label || k.tokenPrefix || '', access: k.scope?.access || 'full', apps: k.scope?.apps || [] });
+      toast(same ? 'Файл скачан (с ключом из этой сессии)' : 'Файл скачан — вставьте ключ, если сохраняли при выдаче');
+    };
+    td.append(dl);
     if (!k.revokedAt) { const rv = el('button', 'btn btn-sm btn-danger', 'Отозвать'); rv.onclick = () => revokeKey(k); td.append(rv); }
-    tr.append(td);
-    return tr;
+    tr.append(td); return tr;
   }
   async function revokeKey(k) {
     if (!confirm(`Отозвать ключ «${k.label || k.tokenPrefix}»?`)) return;
@@ -577,25 +587,18 @@
     catch (e) { toast(e.message); }
   }
   function openKeyDialog() {
-    $('#k-label').value = ''; $('#k-ttl').value = '30d';
-    $('#k-access').value = 'write'; $('#k-apps').value = '';
-    $('#k-apiBaseUrl').value = location.origin + PREFIX;
-    $('#key-form-error').hidden = true;
-    $('#key-dialog').showModal();
+    $('#k-label').value = ''; $('#k-ttl').value = '30d'; $('#k-access').value = 'write'; $('#k-apps').value = '';
+    $('#k-apiBaseUrl').value = location.origin + PREFIX; $('#key-form-error').hidden = true; $('#key-dialog').showModal();
   }
   async function createKey(ev) {
     ev.preventDefault();
     try {
-      const scope = { access: $('#k-access').value };
-      const apps = parseApps($('#k-apps').value);
+      const scope = { access: $('#k-access').value }, apps = parseApps($('#k-apps').value), label = $('#k-label').value;
       if (apps.length) scope.apps = apps;
-      const r = await api('/desktop/pairing-keys', { method: 'POST', body: JSON.stringify({
-        label: $('#k-label').value, ttl: $('#k-ttl').value, apiBaseUrl: $('#k-apiBaseUrl').value, scope,
-      })});
-      $('#key-dialog').close();
-      $('#key-shown-value').textContent = r.apiKey;
-      $('#key-shown-dialog').showModal();
-      loadKeys();
+      const r = await api('/desktop/pairing-keys', { method: 'POST', body: JSON.stringify({ label, ttl: $('#k-ttl').value, apiBaseUrl: $('#k-apiBaseUrl').value, scope }) });
+      lastIssuedKey = { apiKey: r.apiKey, label, access: scope.access, apps };
+      $('#key-dialog').close(); $('#key-shown-value').textContent = r.apiKey; $('#key-shown-dialog').showModal();
+      downloadKeyPromptFile(lastIssuedKey); loadKeys();
     } catch (e) { const p = $('#key-form-error'); p.textContent = e.message; p.hidden = false; }
   }
 
@@ -1273,48 +1276,16 @@
 
   // ---- Подключение: адрес, ключ, промт для ИИ, примеры, схема (/api/meta/*) ----
   const BASE_URL = location.origin + API;
-  // Служебные таблицы не нужны клиентам — в промт и краткую схему не берём.
   const META_HIDE = new Set(['users', 'roles', 'permissions', 'featureflags', 'rate_limit_entries', 'desktop_pairing_keys',
     'browserdevicegrants', 'deviceinvites', 'auditlogs', 'idempotency_records', 'counters', 'dictionary_labels', 'migration_flags', 'stock_catalog_name_reservations']);
   const cxState = { schema: null, lang: 'sheets' };
-
   function fieldLabel(f) {
     let s = f.path + (f.required ? '*' : '');
     if (f.ref) s += '→' + f.ref;
     if (f.enum) s += ' [' + f.enum.slice(0, 6).join('|') + (f.enum.length > 6 ? '|…' : '') + ']';
     return s;
   }
-  const SYS_FIELDS = new Set(['_id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'updatedBy', 'organizationId']);
-
-  function buildPrompt(schema) {
-    const lines = (schema ? schema.collections : [])
-      .filter((c) => !META_HIDE.has(c.collection) && c.kind !== 'crm')
-      .map((c) => {
-        const fs = c.fields.filter((f) => !SYS_FIELDS.has(f.path)).sort((a, b) => (b.required ? 1 : 0) - (a.required ? 1 : 0)).slice(0, 16).map(fieldLabel).join(', ');
-        return `- ${c.collection}${c.description ? ' — ' + c.description : ''}\n  поля: ${fs || '—'}`;
-      });
-    return [
-      'Ты подключаешься к единой базе данных пользователя (Data Core) через REST API. Прямого доступа к БД нет — только API.',
-      '',
-      `Адрес API: ${BASE_URL}`,
-      'Ключ: <ВСТАВЬ СЮДА КЛЮЧ kppd_…>',
-      'Каждый запрос — с заголовком: Authorization: Bearer <ключ>',
-      '',
-      'Сначала прочитай (тем же ключом):',
-      `1) GET ${BASE_URL}/meta/guide — правила, лимиты, ошибки (markdown)`,
-      `2) GET ${BASE_URL}/meta/schema — все таблицы и поля (типы, обязательные, варианты значений)`,
-      `3) GET ${BASE_URL}/meta/openapi.json — полный контракт маршрутов`,
-      '',
-      'Правила:',
-      `- Данные нового приложения храни в ${BASE_URL}/apps/<приложение>/<коллекция> (GET список/один, POST объект или массив, PATCH, PUT, DELETE). Имя приложения — латиница и цифры без «_».`,
-      '- Общие справочники (материалы, изделия, контрагенты, организации…) — через их маршруты; они общие с CRM, не ломай их. Лишние поля в теле запроса → 400.',
-      '- Списки приходят как { items, total, page, limit }; у каждого объекта есть строковый id.',
-      '- Не больше ~10 запросов в секунду; пачки — одним POST с массивом. Ключ не публикуй.',
-      '',
-      'Таблицы сейчас (* — обязательное, → ссылка):',
-      ...lines,
-    ].join('\n');
-  }
+  const buildPrompt = () => CP.buildManagerFile(promptMeta(lastIssuedKey));
 
   function codeSample(lang, app, coll) {
     const path = `/apps/${app}/${coll}`;
@@ -1773,9 +1744,9 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
     renderCode();
     try {
       if (!cxState.schema) cxState.schema = await api('/meta/schema');
-      $('#cx-prompt').value = buildPrompt(cxState.schema);
+      $('#cx-prompt').value = buildPrompt();
       renderSchema(cxState.schema);
-    } catch (e) { $('#cx-prompt').value = buildPrompt(null); toast(e.message); }
+    } catch (e) { $('#cx-prompt').value = buildPrompt(); toast(e.message); }
   }
 
   // ---- Wire up ----
@@ -1796,6 +1767,10 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
   $('#key-form').addEventListener('submit', createKey);
   $('#key-cancel').addEventListener('click', () => $('#key-dialog').close());
   $('#key-shown-close').addEventListener('click', () => $('#key-shown-dialog').close());
+  $('#key-dl-prompt').addEventListener('click', () => {
+    if (!lastIssuedKey?.apiKey) { toast('Сначала выдайте ключ в этом окне'); return; }
+    downloadKeyPromptFile(lastIssuedKey); toast('Файл для ИИ скачан');
+  });
   $('#key-copy').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('#key-shown-value').textContent); toast('Скопировано'); } catch { /* ignore */ } });
   $('#col-search-form').addEventListener('submit', (e) => { e.preventDefault(); colState.search = $('#col-search').value.trim(); renderCollections(); });
   $('#col-refresh').addEventListener('click', () => { colState.cache.clear(); loadCollections(true); });
@@ -1816,6 +1791,11 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
   $('#cx-app').addEventListener('input', renderCode);
   $('#cx-coll').addEventListener('input', renderCode);
   $('#cx-issue-key').addEventListener('click', openKeyDialog);
+  $('#cx-dl-prompt').addEventListener('click', () => {
+    downloadKeyPromptFile(lastIssuedKey);
+    toast(lastIssuedKey?.apiKey ? 'Файл скачан (с ключом из этой сессии)' : 'Файл скачан — вставьте ключ kppd_… в файл');
+    $('#cx-prompt').value = buildPrompt();
+  });
   $('#cx-dl-schema').addEventListener('click', async () => { try { download('datacore-schema.json', await fetchText('/meta/schema'), 'application/json'); } catch (e) { toast(e.message); } });
   $('#cx-dl-openapi').addEventListener('click', async () => { try { download('datacore-openapi.json', await fetchText('/meta/openapi.json'), 'application/json'); } catch (e) { toast(e.message); } });
   $('#cx-dl-guide').addEventListener('click', async () => { try { download('datacore-guide.md', await fetchText('/meta/guide'), 'text/markdown'); } catch (e) { toast(e.message); } });

@@ -142,7 +142,7 @@
         <h2>API-ключи</h2>
         <button id="key-create-btn" class="btn btn-accent">+ Выдать ключ</button>
       </div>
-      <p class="panel-note">Ключи вида <code>kppd_…</code>. Один ключ — одна интеграция с минимально нужными правами; показывается только один раз при выдаче.</p>
+      <p class="panel-note">Ключи вида <code>kppd_…</code>. Один ключ — одна интеграция с минимально нужными правами; показывается только один раз при выдаче. В строке — «Скачать промпт»: файл для ИИ с адресами и задачей менеджера (секретный ключ в файле — только если только что выдали в этой вкладке, иначе вставьте сохранённый).</p>
 
       <div class="table-wrap">
         <table class="table" id="keys-table">
@@ -293,11 +293,12 @@
       </div>
 
       <section class="cx-card">
-        <h3>3. Для ИИ-агента — готовый промт</h3>
-        <p class="small">Скопируйте и отдайте агенту (Claude, ChatGPT, Gemini…), подставив ключ. В промте — адрес, правила и актуальная схема таблиц; полную инструкцию агент прочитает сам по <code>/meta/guide</code>.</p>
+        <h3>3. Для ИИ-агента — файл-промпт (менеджер)</h3>
+        <p class="small">Тот же текст, что при выдаче ключа: адреса (интернет / этот сайт / LAN), права менеджера, заявки и контрагенты. Схема таблиц агент читает сам: <code>/meta/guide</code> и <code>/meta/schema</code>. Ключ в файле — только если только что выдали в этой вкладке; иначе вставьте сохранённый <code>kppd_…</code>.</p>
         <textarea id="cx-prompt" class="cx-text" rows="14" readonly></textarea>
         <div class="cx-row">
-          <button class="btn btn-primary" type="button" data-copy="#cx-prompt">Скопировать промт</button>
+          <button class="btn btn-primary" type="button" id="cx-dl-prompt">Скачать файл для ИИ</button>
+          <button class="btn" type="button" data-copy="#cx-prompt">Скопировать промпт</button>
           <button class="btn" type="button" id="cx-dl-schema">Скачать схему (JSON)</button>
           <button class="btn" type="button" id="cx-dl-openapi">Скачать OpenAPI</button>
           <button class="btn" type="button" id="cx-dl-guide">Скачать инструкцию (.md)</button>
@@ -367,10 +368,11 @@
     <dialog id="key-shown-dialog">
       <div class="dialog-form">
         <h3>Ключ выдан — сохраните его сейчас</h3>
-        <p class="muted">Больше он не будет показан: на сервере хранится только хеш.</p>
+        <p class="muted">Больше он не будет показан: на сервере хранится только хеш. Скачайте файл для ИИ — в нём ключ, адреса и как заполнять сайт как менеджер.</p>
         <pre id="key-shown-value" class="key-reveal"></pre>
         <div class="dialog-actions">
-          <button type="button" id="key-copy" class="btn btn-accent">Скопировать</button>
+          <button type="button" id="key-dl-prompt" class="btn btn-primary">Скачать файл для ИИ</button>
+          <button type="button" id="key-copy" class="btn btn-accent">Скопировать ключ</button>
           <button type="button" id="key-shown-close" class="btn">Закрыть</button>
         </div>
       </div>
@@ -385,6 +387,7 @@
   <script src="control-switch.js"></script>
   <script src="backup-nudge.js"></script>
   <script src="apps-card.js"></script>
+  <script src="connect-prompt.js"></script>
   <script src="admin.js"></script>
   <script src="update-check.js"></script>
 </body>
