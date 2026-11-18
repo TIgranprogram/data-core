@@ -335,6 +335,8 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
 
   return {
     el: mark(root || grid, 'form'),
+    get: fapi.get,
+    set: fapi.set,
     read,
     markErrors,
     dirty: () => snapshot() !== start,
