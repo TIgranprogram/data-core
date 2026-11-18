@@ -36,7 +36,7 @@ describe('Изделия: порядок (ИЗ)', () => {
 
   it('черновик с изделием: категория и поля из изделия при GET/PATCH/PDF', async () => {
     const pid = await prod();
-    const p = (await http().post('/api/passports').set(as()).send({ productId: String(pid), name: 'Старое имя', passportCategory: 'BLG' }).expect(201)).body;
+    const p = (await http().post('/api/passports').set(as()).send({ productId: String(pid), passportCategory: 'BLG' }).expect(201)).body;
     const g = (await http().get(`/api/passports/${p.id}`).set(as()).expect(200)).body;
     expect(g.passportCategory).toBe('TRN');
     expect(g.name).toBe('Турник');
@@ -44,6 +44,12 @@ describe('Изделия: порядок (ИЗ)', () => {
     const u = (await http().patch(`/api/passports/${p.id}`).set(as()).send({ passportCategory: 'BLG', name: 'Чужое' }).expect(200)).body;
     expect(u.passportCategory).toBe('TRN');
     expect(u.name).toBe('Турник');
+    // C148: имя, явно введённое при создании, — название экземпляра: каталог его не подменяет
+    const own = (await http().post('/api/passports').set(as()).send({ productId: String(pid), name: 'Своё имя' }).expect(201)).body;
+    expect((await http().get(`/api/passports/${own.id}`).set(as()).expect(200)).body.name).toBe('Своё имя');
+    await db().collection('products').updateOne({ _id: pid }, { $set: { name: 'Новый турник' } });
+    expect((await http().get(`/api/passports/${own.id}`).set(as()).expect(200)).body.name).toBe('Своё имя');
+    expect((await http().get(`/api/passports/${p.id}`).set(as()).expect(200)).body.name).toBe('Новый турник');
     await db().collection('products').updateOne({ _id: pid }, { $set: { 'passportDefaults.passportCategory': 'BLG' } });
     await http().get(`/api/passports/${p.id}/pdf`).set(as()).buffer(true).parse(bin as never).expect(200);
     expect((await http().get(`/api/passports/${p.id}`).set(as()).expect(200)).body.passportCategory).toBe('BLG');

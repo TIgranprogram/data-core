@@ -43,7 +43,8 @@ export function techSheetRows(i: TechRowsInput): { name: string; text: string }[
     const sizes = (row.sizes || []).filter(Boolean).join(', ');
     const wall = wallOf(row.sizes?.[0] || '');
     const tol = wall && wall > 1 ? `, толщина ${range(wall - 1, wall + 1, 'мм')}` : '';
-    const name = (row.partIds || []).map((id) => partBy.get(String(id))).filter(Boolean).join(', ') || 'Материал';
+    const sourceNames = [...new Set((row.sourceRefs ?? []).map((r) => [r.name, r.code].filter(Boolean).join(' ').trim()).filter(Boolean))];
+    const name = (row.partIds || []).map((id) => partBy.get(String(id))).filter(Boolean).join(', ') || sourceNames.join(', ') || 'Материал';
     const text = String(row.techText || '').trim() || [mat, sizes].filter(Boolean).join(' ') + tol;
     if (name || text) rows.push({ name, text });
   }

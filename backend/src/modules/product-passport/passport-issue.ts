@@ -5,6 +5,7 @@ import { dayUtc } from './passport-rules';
 import { takeOverNumbers } from './passport-reuse';
 import { assertOneLive } from './passport-bind';
 import { escapeRe, isDraftNumber, isIssued, type Doc } from './passport-consts';
+import { compositionPresentation } from './passport-composition-presentation';
 
 /** Что выпуску нужно от сервиса паспортов. */
 export interface IssueHost {
@@ -52,6 +53,8 @@ export class PassportIssue {
         if (latestMissing.length) throw new BadRequestException({ message: 'Данные паспорта изменились — заполните недостающее', missing: latestMissing });
         if (draft.incomeId) await assertOneLive(this.h.model, draft.incomeId, _id, session);
         const set: Doc = (await takeOverNumbers(this.h.model, draft as unknown as Doc, session)) ?? {}; // C060: позиция договора + изделие — один номер
+        // C152: фиксируем только представление; размеры, рисунки и ручные строки modules сохраняются целиком.
+        set.compositionPresentation = compositionPresentation(draft);
         await this.h.allocate(set, (draft.date as Date) || dayUtc(), session);
         await this.h.assertFree(set, _id, session);
         await this.h.model.updateOne({ _id, status: 'draft' }, { $set: { ...set, status: 'issued', issuedAt: new Date(), revision: 1 } }, { session }).exec();

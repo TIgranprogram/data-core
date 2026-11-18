@@ -18,6 +18,16 @@ const db = fakeDb({
 });
 
 describe('паспорт из изделия', () => {
+  it('C148: новый черновик получает источники и ручные формулировки таблицы без пересборки старого снимка', async () => {
+    const source = { kind: 'part', refId: String(new Types.ObjectId()), name: 'Стойка', code: 'СТ.1' };
+    const spec = { rows: [{ materialId: new Types.ObjectId(), sizes: ['89×3'], partIds: [], sourceRefs: [{ ...source, path: [source] }], passportText: 'Ручной паспорт', techText: 'Ручная техника' }], coatingIds: [] };
+    const snapshot = JSON.parse(JSON.stringify(spec));
+    const patch = await productPatch(db, { materialsSpec: spec });
+    expect(patch.materialsSpec).toEqual(spec);
+    spec.rows[0].sourceRefs[0].name = 'Новая стойка';
+    expect(snapshot.rows[0].sourceRefs[0].name).toBe('Стойка');
+    expect(followsProduct({ status: 'issued', productId: 'x' })).toBe(false);
+  });
   it('переносит существующий текст материалов в сохраняемое поле паспорта', async () => {
     expect(await productPatch(db, { materialsText: ' Сосна, лак ' })).toEqual({ materials: 'Сосна, лак' });
     expect(await productPatch(db, { materialsText: '  ' })).not.toHaveProperty('materials');
@@ -84,6 +94,14 @@ describe('паспорт из изделия', () => {
   it('diffPatch: только отличия; вручную набранный текст не перебивается', () => {
     const cur = { name: 'А', article: 'X', purpose: 'своё', manualText: ['purpose'] };
     expect(diffPatch(cur, { name: 'А', article: 'Y', purpose: 'из изделия' })).toEqual({ article: 'Y' });
+  });
+  it('C148: ручное имя экземпляра переживает повторную синхронизацию и manualText изделия', () => {
+    const own = { name: 'Название договора', manualText: ['name'] };
+    const patch = { name: 'Название модели', manualText: ['purpose'] };
+    const first = diffPatch(own, patch);
+    expect(first).toEqual({ manualText: ['purpose', 'name'] });
+    expect(diffPatch({ ...own, ...first }, patch)).toEqual({});
+    expect(diffPatch({ name: 'Старая модель' }, patch)).toMatchObject({ name: 'Название модели' });
   });
 
   it('diffPatch: ObjectId и массивы сравниваются по значению', () => {

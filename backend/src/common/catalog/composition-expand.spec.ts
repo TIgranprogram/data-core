@@ -49,7 +49,7 @@ describe('позиции склада по цепочке', () => {
       node({ id: part, name: 'Стойка', materialKind: 'part', composition: [{ lineType: 'material', refId: pipe, quantity: 1 }] }),
       node({ id: pipe, name: 'Труба 89х3', materialKind: 'raw' }),
     ]);
-    expect(stockRefs([{ lineType: 'module', refId: mod, quantity: 1 }], nodes)).toEqual([{ id: pipe, partNames: ['Стойка'] }]);
+    expect(stockRefs([{ lineType: 'module', refId: mod, quantity: 1 }], nodes).map(({ id, partNames }) => ({ id, partNames }))).toEqual([{ id: pipe, partNames: ['Стойка'] }]);
   });
 
   it('прямой материал изделия остаётся; пустой состав модуля берёт старый список', () => {
@@ -74,7 +74,7 @@ describe('позиции склада по цепочке', () => {
       node({ id: mod, name: 'Рама', composition: [{ lineType: 'material', refId: pipe, quantity: 1 }] }),
       node({ id: pipe, name: 'Труба', materialKind: 'raw' }),
     ]);
-    expect(stockRefs([], nodes, [mod])).toEqual([{ id: pipe, partNames: [] }]);
+    expect(stockRefs([], nodes, [mod]).map(({ id, partNames }) => ({ id, partNames }))).toEqual([{ id: pipe, partNames: [] }]);
   });
 
   it('деталь без своего состава остаётся — модуль не даёт пустой список', () => {
@@ -84,7 +84,7 @@ describe('позиции склада по цепочке', () => {
       node({ id: mod, name: 'Рама', composition: [{ lineType: 'material', refId: part, quantity: 1 }] }),
       node({ id: part, name: 'Стойка', materialKind: 'part' }),
     ]);
-    expect(stockRefs([{ lineType: 'module', refId: mod, quantity: 1 }], nodes)).toEqual([{ id: part, partNames: [] }]);
+    expect(stockRefs([{ lineType: 'module', refId: mod, quantity: 1 }], nodes).map(({ id, partNames }) => ({ id, partNames }))).toEqual([{ id: part, partNames: [] }]);
   });
 
   it('вложенный модуль доходит до материала; чужое изделие не раскрывается', () => {
@@ -129,7 +129,7 @@ describe('expandComposition', () => {
     }), { composition: [{ lineType: 'module', refId: mod, quantity: 1 }] });
     expect(graph.sheet.map((r) => r.label)).toEqual(['М-1']);
     expect(graph.sheet[0].children?.map((r) => r.word)).toEqual(['Деталь']);
-    expect(graph.stock).toEqual([{ id: String(pipe), partNames: ['Стойка'] }]);
+    expect(graph.stock.map(({ id, partNames }) => ({ id, partNames }))).toEqual([{ id: String(pipe), partNames: ['Стойка'] }]);
     expect(graph.materials.get(String(pipe))?.name).toBe('Труба 89х3');
   });
 

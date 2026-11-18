@@ -5,9 +5,11 @@
  * `passportMaterials` (kind material|coating, genSingular, genPlural, sizeTemplate с {sizes}, phrase, madeOf),
  * `passportParts` (genSingular, genPlural), `passportSortament` (name — размер без «мм», material — код материала).
  */
+import type { SourceRef } from './material-source-refs';
+import { BadRequestException } from '@nestjs/common';
 export type ManualTexts = { passportText?: string; techText?: string };
 export type CoatingText = ManualTexts & { materialId: string };
-export type SpecRow = ManualTexts & { materialId: string; sizes: string[]; partIds: string[] };
+export type SpecRow = ManualTexts & { materialId: string; sizes: string[]; partIds: string[]; sourceRefs?: SourceRef[] };
 export type MaterialsSpec = { rows: SpecRow[]; coatingIds: string[]; coatingTexts?: CoatingText[] };
 export type MatRec = { name?: unknown; code?: unknown; kind?: unknown; genSingular?: unknown; genPlural?: unknown; madeOf?: unknown; sizeTemplate?: unknown; phrase?: unknown };
 export type PartRec = { name?: unknown; genSingular?: unknown; genPlural?: unknown };
@@ -129,7 +131,7 @@ function partIdsByName(names: string[] | undefined, parts: (PartRec & { id: stri
 }
 
 /** `link` — связь позиции склада с материалом паспорта (МЦ-2, `materials.passportSpec`); без неё — подсказка по названию. */
-export type StockLine = { name: string; text: string; /** Названия частей изделия, к которым привязана позиция (products.parts[].lineId → название). */ partNames?: string[]; link?: ManualTexts & { materialId: string; sizes: string[]; isCoating: boolean } | null };
+export type StockLine = { name: string; text: string; sourceRefs?: SourceRef[]; /** Названия частей изделия, к которым привязана позиция (products.parts[].lineId → название). */ partNames?: string[]; link?: ManualTexts & { materialId: string; sizes: string[]; isCoating: boolean } | null };
 /**
  * «Взять из состава» (МИ.2): позиции склада из «Состава изделия» → строки таблицы. Сначала связь позиции (МЦ-2,
  * `link`; запись справочника удалена/нет среди `recs` — связи нет), иначе подсказка по названию — такие названия
@@ -142,6 +144,12 @@ export function specFromComposition(lines: StockLine[], recs: (MatRec & { id: st
   const coats = recs.filter((r) => s(r.kind) === 'coating');
   const rows: SpecRow[] = []; const coatingIds: string[] = []; const unmatched: string[] = []; const hinted: string[] = [];
   const coatingTexts: CoatingText[] = [];
+  const unmatchedSources: { name: string; reason: string; sourceRefs: SourceRef[] }[] = [];
+  const hintedSources: { name: string; sourceRefs: SourceRef[] }[] = [];
+  const sourcesOf = (row: SpecRow, line: StockLine) => {
+    if (!line.sourceRefs?.length) return;
+    row.sourceRefs = [...new Map([...(row.sourceRefs ?? []), ...line.sourceRefs].map((r) => [JSON.stringify(r), r])).values()];
+  };
   const partsOf = (l: StockLine) => partIdsByName(l.partNames, parts);
   for (const l of lines) {
     if (l.link && recs.some((r) => r.id === l.link!.materialId)) {
@@ -153,22 +161,32 @@ export function specFromComposition(lines: StockLine[], recs: (MatRec & { id: st
       }
       let lr = rows.find((r) => r.materialId === l.link!.materialId && r.passportText === texts.passportText && r.techText === texts.techText);
       if (!lr) rows.push((lr = { materialId: l.link.materialId, sizes: [], partIds: [], ...texts }));
+      sourcesOf(lr, l);
       for (const p of partsOf(l)) if (!lr.partIds.includes(p)) lr.partIds.push(p);
       for (const z of l.link.sizes) if (!lr.sizes.some((x) => low(normSize(x)) === low(normSize(z)))) lr.sizes.push(z);
       continue;
     }
     const coat = matchMaterial(l.text, coats);
     const mat = coat ? null : matchMaterial(l.text, mats);
-    if (coat || mat) { if (!hinted.includes(l.name)) hinted.push(l.name); }
+    if (coat || mat) { if (!hinted.includes(l.name)) hinted.push(l.name); hintedSources.push({ name: l.name, sourceRefs: l.sourceRefs ?? [] }); }
     if (coat) { if (!coatingIds.includes(coat.id)) coatingIds.push(coat.id); continue; }
-    if (!mat) { if (!unmatched.includes(l.name)) unmatched.push(l.name); continue; }
+    if (!mat) { if (!unmatched.includes(l.name)) unmatched.push(l.name); unmatchedSources.push({ name: l.name, reason: 'material-not-matched', sourceRefs: l.sourceRefs ?? [] }); continue; }
     let size = sizeFromStock(l.text, mat);
     const known = sortament.find((x) => s(x.material) === s(mat.code) && low(normSize(x.name)) === low(size));
     if (known) size = s(known.name);
     let row = rows.find((r) => r.materialId === mat.id && !r.passportText && !r.techText);
     if (!row) rows.push((row = { materialId: mat.id, sizes: [], partIds: [] }));
+    sourcesOf(row, l);
     if (size && !row.sizes.includes(size)) row.sizes.push(size);
     for (const p of partsOf(l)) if (!row.partIds.includes(p)) row.partIds.push(p);
   }
-  return { rows, coatingIds, ...(coatingTexts.length ? { coatingTexts } : {}), unmatched, hinted };
+  // Одна связь материала может приходить от сотен деталей: предложение обязано проходить тот же parser, что сохранение.
+  const boundedRows = rows.flatMap((row) => {
+    if (!row.sourceRefs?.length) return [row];
+    const chunks: SpecRow[] = [];
+    for (let i = 0; i < row.sourceRefs.length; i += 100) chunks.push({ ...row, sourceRefs: row.sourceRefs.slice(i, i + 100) });
+    return chunks;
+  });
+  if (boundedRows.length > 50) throw new BadRequestException('Предложение содержит больше 50 строк материалов: уточните состав или связи материалов');
+  return { rows: boundedRows, coatingIds, ...(coatingTexts.length ? { coatingTexts } : {}), unmatched, hinted, unmatchedSources, hintedSources };
 }

@@ -56,12 +56,14 @@ export async function productPatch(db: mongo.Db, prod: Doc): Promise<Doc> {
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
-/** Что изменится в паспорте, если взять поля из изделия (только отличающиеся); вручную набранные purpose / installationMethod не трогаем. */
+/** Что изменится в паспорте из изделия; имя и тексты экземпляра с явным manualText сохраняются. */
 export function diffPatch(cur: Doc, patch: Doc): Doc {
   const manual = (cur.manualText as string[] | undefined) ?? [];
   const out: Doc = {};
-  for (const [k, v] of Object.entries(patch)) {
-    if ((k === 'purpose' || k === 'installationMethod') && manual.includes(k)) continue;
+  for (const [k, value] of Object.entries(patch)) {
+    if ((k === 'name' || k === 'purpose' || k === 'installationMethod') && manual.includes(k)) continue;
+    // Умолчания изделия не снимают явно выбранное ручное имя экземпляра при следующем чтении.
+    const v = k === 'manualText' && manual.includes('name') ? [...new Set([...(Array.isArray(value) ? value : []), 'name'])] : value;
     if (!same(cur[k], v)) out[k] = v;
   }
   return out;

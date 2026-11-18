@@ -2,6 +2,7 @@ import { parseModules } from '../../common/passport/modules';
 import { installKindOf, variantOf } from './passport-variants';
 import { blankItems } from './passport-blanks';
 import { assertRevisionRemovable, revisionRows } from './passport-revisions';
+import { compositionPresentation } from './passport-composition-presentation';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional, ForbiddenException } from '@nestjs/common';
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
@@ -139,6 +140,7 @@ export class ProductPassportService {
       syncWarning = e.message;
     }
     const doc = (await this.findById(id)).toObject() as unknown as Doc;
+    if (doc.status === 'draft') doc.compositionPresentation = compositionPresentation(doc);
     if (syncWarning) doc.syncWarning = syncWarning;
     // C130: старый снимок без источников текста — подписать их по свежей сборке (только в ответе, в базу не пишется)
     const snap = doc.textSnapshot as { sections?: unknown[]; src?: unknown; refs?: unknown } | undefined;
@@ -304,7 +306,18 @@ export class ProductPassportService {
     set.date = date;
     // НМ: новый паспорт — черновик без номера, талона и номера изделия; номер передан явно (перенос) — сразу выпущен
     if (set.passportNumber) { await this.allocate(set, date); set.status = 'issued'; set.issuedAt = new Date(); set.revision = 1; }
-    else { for (const f of ['passportNo', 'productCode', 'warrantyCode'] as const) delete set[f]; set._id = new Types.ObjectId(); set.passportNumber = DRAFT_PREFIX + String(set._id); set.status = 'draft'; const ownName = set.name; Object.assign(set, await this.fromProductDiff({ ...set })); if (ownName) set.name = ownName; } // ПНЗ: название из заказа или введённое — важнее названия изделия
+    else {
+      for (const f of ['passportNo', 'productCode', 'warrantyCode'] as const) delete set[f];
+      set._id = new Types.ObjectId(); set.passportNumber = DRAFT_PREFIX + String(set._id); set.status = 'draft';
+      // ПНЗ/C148: название из заказа или явно введённое сохраняется и при следующих чтениях черновика.
+      const ownName = String(set.name ?? '').trim();
+      const productDiff = await this.fromProductDiff({ ...set });
+      Object.assign(set, productDiff);
+      if (ownName && productDiff.name && ownName !== String(productDiff.name).trim()) {
+        set.name = ownName;
+        set.manualText = [...new Set([...(set.manualText as string[] ?? []), 'name'])];
+      }
+    }
     if (!set.description) set.description = buildDescription(set as never) || undefined;
     if (!set.bom) set.bom = DEFAULT_BOM;
     set.source = set.source || 'app';
@@ -414,7 +427,9 @@ export class ProductPassportService {
     const changed = Object.keys(set).filter((k) => k !== 'passportNo' && JSON.stringify(set[k] ?? null) !== JSON.stringify(cur[k] ?? null) && !(String(set[k] ?? '') === '' && (cur[k] === undefined || cur[k] === null)));
     const locked = changed.filter((k) => !(AFTER_PRINT_FIELDS as readonly string[]).includes(k) && !(NUMBER_FIELDS as readonly string[]).includes(k) && k !== 'manualText');
     if (issued && locked.length) {
-      const keep = Object.fromEntries([...locked, 'textSnapshot', 'images'].map((k) => [k, cur[k] ?? null]));
+      // Явная правка модулей — новая редакция: богатые сведения должны стать видимыми, прежний режим остаётся в истории.
+      if (changed.includes('modules')) set.compositionPresentation = compositionPresentation({ ...cur, ...set, status: 'draft' });
+      const keep = Object.fromEntries([...locked, 'textSnapshot', 'images', ...('compositionPresentation' in set ? ['compositionPresentation'] : [])].map((k) => [k, cur[k] ?? null]));
       set.revisions = [...((cur.revisions as unknown[]) ?? []), { revision: cur.revision ?? 1, at: new Date(), by: opts.user?.id ?? null, data: keep }];
       set.revision = Number(cur.revision ?? 1) + 1;
     }

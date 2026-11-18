@@ -8,6 +8,7 @@ import { overrideFor } from '../../common/passport/text-overrides';
 import { missingChoices, resolveChoices, type PhraseTreeNode } from '../../common/passport/phrase-tree';
 import { MODEL_FIELDS, SORT, escapeRe, readinessOf, type Doc } from './passport-consts';
 import { presentPrint } from './passport-print-file';
+import { mergeProductImages, type ProductImageRow, type PassportImageLike } from './passport-product-images';
 
 /** Что спискам и подсказкам нужно от сервиса паспортов. */
 export interface QueriesHost {
@@ -111,8 +112,24 @@ export class PassportQueries {
 
   /** Миниатюра общего вида (галерея, строка списка): `thumb` — маленькая, `photoUrl` — оригинал. */
   async attachThumbs(items: Doc[]) {
-    const first = (d: Doc) => ((d.images as Array<{ kind: string; photoId: Types.ObjectId; order?: number }>) || []).filter((i) => i.kind === 'overview').sort((a, b) => (a.order ?? 0) - (b.order ?? 0))[0]?.photoId;
-    const ids = items.map(first).filter(Boolean) as Types.ObjectId[];
+    // C151: одна загрузка источников на страницу; issued/annulled продолжают показывать собственный снимок.
+    const productIds = [...new Set(items.filter((d) => d.status === 'draft' && Types.ObjectId.isValid(String(d.productId ?? ''))).map((d) => String(d.productId)))];
+    const productRows = productIds.length ? await this.h.connection.collection('productphotos').find({
+      productId: { $in: productIds.map((id) => new Types.ObjectId(id)) }, purpose: 'passport', kind: 'overview', deletedAt: null,
+    }, { projection: { productId: 1, kind: 1, photoId: 1, sortOrder: 1 } }).sort({ sortOrder: 1, createdAt: 1 }).toArray() : [];
+    const byProduct = new Map<string, ProductImageRow[]>();
+    for (const row of productRows) {
+      const key = String(row.productId);
+      const rows = byProduct.get(key) ?? [];
+      rows.push(row as ProductImageRow);
+      byProduct.set(key, rows);
+    }
+    const first = (d: Doc) => {
+      const own = (d.images as PassportImageLike[]) || [];
+      const images = d.status === 'draft' ? mergeProductImages(byProduct.get(String(d.productId)) ?? [], own) : own;
+      return images.filter((i) => i.kind === 'overview').sort((a, b) => (a.order ?? 0) - (b.order ?? 0))[0]?.photoId;
+    };
+    const ids = [...new Map(items.map(first).filter(Boolean).map((id) => [String(id), id])).values()] as Types.ObjectId[];
     if (!ids.length) return;
     const photos = this.h.connection.collection('photos');
     const [orig, thumbs] = await Promise.all([

@@ -3,7 +3,7 @@ import { type Types } from 'mongoose';
 import { oid } from '../../common/list-query';
 import { expandComposition, type GraphDb } from '../../common/catalog/composition-expand';
 import { specFromComposition, type MaterialsSpec, type MatRec } from '../../common/catalog/materials-text';
-import { MaterialsSpecRefs } from '../../common/catalog/materials-table';
+import { MaterialsSpecRefs, parseMaterialsSpec } from '../../common/catalog/materials-table';
 import { clean, type Doc } from './showcase-common';
 
 /** Материалы изделия таблицей (Фаза МИ): разбор, проверка и текст — `common/catalog/materials-table.ts`; здесь — «Взять из состава». */
@@ -40,10 +40,12 @@ export class ShowcaseMaterials extends MaterialsSpecRefs {
       const extra = /\d/.test(text) ? '' : dim('diameter') ? ` ∅${dim('diameter')}${dim('thickness') ? '×' + dim('thickness') : ''}` : dim('thickness') ? ` ${dim('thickness')} мм` : '';
       const ps = x!.passportSpec as { materialId?: Types.ObjectId; sizes?: string[]; isCoating?: boolean; passportText?: string; techText?: string } | undefined;
       const link = ps?.materialId ? { materialId: String(ps.materialId), sizes: ps.sizes ?? [], isCoating: !!ps.isCoating, passportText: ps.passportText, techText: ps.techText } : null;
-      return { name: clean(x!.name), text: text + extra, link, partNames: partNames.get(String(x!._id)) };
+      return { name: clean(x!.name), text: text + extra, link, partNames: partNames.get(String(x!._id)), sourceRefs: graph.stock.find((r) => r.id === String(x!._id))?.sourceRefs };
     });
     const r = specFromComposition(lines, recs.map((x) => ({ ...(x as MatRec), id: String(x._id) })), sortament as { material?: unknown; name?: unknown }[], partRecs.map((x) => ({ name: x.name, id: String(x._id) })));
     const materialsSpec: MaterialsSpec = { rows: r.rows, coatingIds: r.coatingIds, ...(r.coatingTexts ? { coatingTexts: r.coatingTexts } : {}) };
-    return { materialsSpec, materialsText: await this.text(materialsSpec), unmatched: r.unmatched, hinted: r.hinted };
+    // Не отдаём успешное предложение, которое затем нельзя сохранить из-за границ размеров, частей или источников.
+    parseMaterialsSpec(materialsSpec);
+    return { materialsSpec, materialsText: await this.text(materialsSpec), unmatched: r.unmatched, hinted: r.hinted, unmatchedSources: r.unmatchedSources, hintedSources: r.hintedSources };
   }
 }

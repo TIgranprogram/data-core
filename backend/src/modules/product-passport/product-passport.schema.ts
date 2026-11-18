@@ -236,6 +236,8 @@ export class ProductPassport {
   @Prop({ type: [Object], default: undefined }) modules?: Array<{ name: string; dims?: string; qty: number; photoId?: string }>;
   /** C142: прямые дети состава и детали модуля. Пишет синхронизация черновика; выпущенный снимок не пересобирается. */
   @Prop({ type: [Object], default: undefined }) compositionSheet?: Array<{ kind?: string; word: string; label: string; qty: number; unit?: string; children?: unknown[] }> | null;
+  /** C152: внутреннее правило показа состава, фиксируется при выпуске без удаления modules[]. */
+  @Prop({ type: String, enum: ['tree', 'both'], default: undefined }) compositionPresentation?: 'tree' | 'both';
   @Prop() fallHeight?: number;
   @Prop() siteLength?: number;
   @Prop() siteWidth?: number;

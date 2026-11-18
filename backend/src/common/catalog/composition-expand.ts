@@ -7,12 +7,14 @@
  * Без обращений к базе: загрузка — `expandComposition`.
  */
 import { Types } from 'mongoose';
+import type { SourceRef, SourceStep } from './material-source-refs';
 
 export const COMPOSITION_DEPTH = 8;
 
 export type SheetKind = 'module' | 'part' | 'purchased' | 'product' | 'fastener' | 'raw' | 'material';
 
 export interface CompLine {
+  _id?: unknown;
   lineType?: unknown;
   refId?: unknown;
   quantity?: unknown;
@@ -43,7 +45,7 @@ export interface SheetRow {
 }
 
 /** Позиция склада для таблицы материалов. partNames — деталь, внутри которой она лежит. */
-export interface StockRef { id: string; partNames: string[] }
+export interface StockRef { id: string; partNames: string[]; sourceRefs: SourceRef[] }
 
 const WORD: Record<SheetKind, string> = {
   module: 'Модуль', part: 'Деталь', purchased: 'Покупное', product: 'Изделие', fastener: 'Метиз', raw: 'Сырьё', material: 'Материал',
@@ -123,14 +125,22 @@ const materialLines = (node?: CompNode) => (node?.composition ?? []).filter((l) 
  * Вложенное изделие не входит — чужой состав не подмешиваем (ТЗ §B: у изделия свой паспорт).
  */
 export function stockRefs(lines: CompLine[], nodes: Map<string, CompNode>, legacyModuleIds: unknown[] = []): StockRef[] {
-  const acc = new Map<string, string[]>();
-  const add = (id: string, partName?: string) => {
-    const list = acc.get(id) ?? [];
+  const acc = new Map<string, StockRef>();
+  const step = (line: CompLine): SourceStep => {
+    const node = nodes.get(s(line.refId));
+    return { kind: childKind(s(line.lineType), node), refId: s(line.refId), name: s(node?.name), code: s(node?.code), ...(line._id ? { lineId: s(line._id) } : {}) };
+  };
+  const add = (id: string, path: SourceStep[], partName?: string) => {
+    const row = acc.get(id) ?? { id, partNames: [], sourceRefs: [] };
+    const list = row.partNames;
     const name = s(partName);
     if (name && !list.includes(name)) list.push(name);
-    acc.set(id, list);
+    const source = [...path].reverse().find((p) => p.kind === 'part') ?? path[path.length - 1];
+    const ref = { ...source, path };
+    if (!row.sourceRefs.some((r) => JSON.stringify(r) === JSON.stringify(ref))) row.sourceRefs.push(ref);
+    acc.set(id, row);
   };
-  const walkMaterial = (id: string, partName: string | undefined, depth: number, stack: Set<string>) => {
+  const walkMaterial = (id: string, partName: string | undefined, depth: number, stack: Set<string>, path: SourceStep[]) => {
     if (!id || stack.has(id) || depth > COMPOSITION_DEPTH) return;
     const node = nodes.get(id);
     if (!node) return;
@@ -139,29 +149,29 @@ export function stockRefs(lines: CompLine[], nodes: Map<string, CompNode>, legac
     if (inner.length && (kind === 'part' || !kind)) {
       stack.add(id);
       const name = sheetLabel(node.name, node.code) || partName;
-      for (const line of inner) walkMaterial(s(line.refId), name, depth + 1, stack);
+      for (const line of inner) walkMaterial(s(line.refId), name, depth + 1, stack, [...path, step({ ...line, lineType: 'material' })]);
       stack.delete(id);
       return;
     }
-    add(id, partName);
+    add(id, path, partName);
   };
-  const walk = (rows: CompLine[], depth: number, stack: Set<string>) => {
+  const walk = (rows: CompLine[], depth: number, stack: Set<string>, path: SourceStep[]) => {
     if (depth > COMPOSITION_DEPTH) return;
     for (const line of rows) {
       const type = s(line.lineType);
       const id = s(line.refId);
       if (!id) continue;
-      if (type === 'material') walkMaterial(id, undefined, depth, new Set());
+      if (type === 'material') walkMaterial(id, undefined, depth, new Set(), [...path, step(line)]);
       else if (type === 'module' && depth < COMPOSITION_DEPTH) {
         const key = `module:${id}`;
         if (stack.has(key)) continue;
-        walk(moduleLines(nodes.get(id)), depth + 1, new Set(stack).add(key));
+        walk(moduleLines(nodes.get(id)), depth + 1, new Set(stack).add(key), [...path, step(line)]);
       }
     }
   };
   const root = lines.length ? lines : legacyModuleIds.map((id) => ({ lineType: 'module', refId: id, quantity: 1 }));
-  walk(root, 0, new Set());
-  return [...acc].map(([id, partNames]) => ({ id, partNames }));
+  walk(root, 0, new Set(), []);
+  return [...acc.values()];
 }
 
 export interface GraphDb {

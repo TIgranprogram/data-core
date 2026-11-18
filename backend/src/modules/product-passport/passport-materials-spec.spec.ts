@@ -22,6 +22,14 @@ function make(cur: Record<string, unknown>) {
 const spec = (materialId: Types.ObjectId, partIds: Types.ObjectId[] = []) => ({ rows: [{ materialId: String(materialId), sizes: ['Ø89x3'], partIds: partIds.map(String) }], coatingIds: [] });
 
 describe('materialsSpec паспорта', () => {
+  it('C152: явная новая редакция богатых модулей сохраняет данные и прежний режим в истории', async () => {
+    const oldModules = [{ name: 'Рама', qty: 2 }];
+    const { svc, state } = make({ _id: id(), status: 'issued', passportNumber: '777', revision: 1, compositionPresentation: 'tree', modules: oldModules, compositionSheet: [{ kind: 'module', word: 'Модуль', label: 'Рама', qty: 2 }] });
+    const rich = [{ name: 'Рама', qty: 2, dims: '2000×1000', photoId: String(id()) }];
+    await svc.update(String(state._id), { modules: rich } as never);
+    expect(state).toMatchObject({ compositionPresentation: 'both', modules: rich, revision: 2 });
+    expect(state.revisions).toEqual([expect.objectContaining({ data: expect.objectContaining({ compositionPresentation: 'tree', modules: oldModules }) })]);
+  });
   it('создание: тот же разбор, что у изделия (одно написание размера, ObjectId)', async () => {
     const { svc, created } = make({});
     await svc.create({ name: 'Турник', productId: String(id()), supplierOrgId: String(id()), materialsSpec: spec(pipe, [post]) } as never);

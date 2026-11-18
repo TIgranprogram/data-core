@@ -53,9 +53,9 @@ describe('C095: раздел «Состав изделия: модули»', () 
 });
 
 describe('C142: состав на листе черновика', () => {
-  const sheetOf = async (compositionSheet: unknown) => {
+  const sheetOf = async (compositionSheet: unknown, status = 'draft', modules: unknown[] = []) => {
     const input = {
-      passport: { name: 'Горка', passportNumber: '1', status: 'draft', length: 1000, width: 500, height: 200, compositionSheet },
+      passport: { name: 'Горка', passportNumber: '1', status, modules, length: 1000, width: 500, height: 200, compositionSheet },
       org: { name: 'Проверка' }, text: { sections: [], sizeLayout: 2, layout: 2 }, images: {}, withStamp: false, mode: 'pages',
     } as unknown as PdfV2Input;
     const d = doc();
@@ -65,6 +65,14 @@ describe('C142: состав на листе черновика', () => {
     return spy.mock.calls.map(([s]) => String(s));
   };
 
+  it('черновик исключает двойной список, выпущенный сохраняет прежнюю печать', async () => {
+    const sheet = [{ word: 'Модуль', label: 'Текущий', qty: 2 }];
+    const legacy = [{ name: 'Исторический', qty: 4 }];
+    expect((await sheetOf(sheet, 'draft', legacy)).some((s) => s.includes('Исторический'))).toBe(true);
+    expect((await sheetOf(sheet, 'draft', [{ name: 'Текущий', qty: 2 }])).some((s) => s.includes('Состав изделия: модули'))).toBe(false);
+    expect((await sheetOf(null, 'draft', legacy)).some((s) => s.includes('Исторический'))).toBe(true);
+    expect((await sheetOf(sheet, 'issued', legacy)).some((s) => s.includes('Исторический'))).toBe(true);
+  });
   it('прямые дети и деталь модуля; без дерева раздел «Состав изделия» не появляется', async () => {
     const lines = await sheetOf([{
       word: 'Модуль', label: 'М-1', qty: 1, unit: 'шт',

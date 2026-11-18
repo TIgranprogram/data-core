@@ -1,3 +1,4 @@
+import type { SourceRef } from '../../../common/catalog/material-source-refs';
 import { IsArray, IsBoolean, IsDateString, IsIn, IsNumber, IsObject, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { IsObjectId } from '../../../common/decorators/is-object-id.decorator';
@@ -55,7 +56,7 @@ export class CreateProductPassportDto {
   @IsOptional() @IsArray() @IsObjectId({ each: true }) elements?: string[];
   @IsOptional() @IsArray() @IsObjectId({ each: true }) materialIds?: string[];
   /** МИ: таблица «Материалы изделия» — снимок изделия с правкой; null — убрать. Разбор — common/catalog/materials-table.ts. */
-  @IsOptional() @IsObject() materialsSpec?: { rows?: Array<{ materialId?: string; sizes?: string[]; partIds?: string[]; passportText?: string; techText?: string }>; coatingIds?: string[]; coatingTexts?: Array<{ materialId: string; passportText?: string; techText?: string }> } | null;
+  @IsOptional() @IsObject() materialsSpec?: { rows?: Array<{ materialId?: string; sizes?: string[]; partIds?: string[]; sourceRefs?: SourceRef[]; passportText?: string; techText?: string }>; coatingIds?: string[]; coatingTexts?: Array<{ materialId: string; passportText?: string; techText?: string }> } | null;
   @IsOptional() @IsObjectId() installationTypeId?: string;
   @IsOptional() @IsBoolean() isKit?: boolean;
   @IsOptional() @IsIn(['standard', 'own']) schemeSource?: string;

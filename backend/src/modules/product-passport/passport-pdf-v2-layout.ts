@@ -6,6 +6,7 @@ import { shortPage, cover } from './passport-pdf-v2-cover';
 import { isBatch } from './passport-rules';
 import { planNumbers } from './passport-numbering';
 import { visibleSheet } from '../../common/catalog/composition-expand';
+import { compositionPresentation } from './passport-composition-presentation';
 
 /** Таблица размеров (ПЧ-4): буквы как на чертеже, объём считается из габаритов. Выпущенный без новых полей печатается как был выпущен. */
 export function specRows(p: PdfV2Input['passport'], modern = false): [string, unknown][] {
@@ -34,8 +35,8 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   const purpose = lines(t.purpose);
   // Текстовое значение (паспорт партии: «по таблице …») печатается как есть
   // C095: модули сборного изделия — название, габариты, количество, рисунок; пустые строки не печатаются
-  const modules = (p.modules || []).filter((m) => m && String(m.name || '').trim() && Number(m.qty) > 0);
   const sheet = visibleSheet(p.compositionSheet);
+  const modules = (compositionPresentation(p) === 'tree' ? [] : p.modules || []).filter((m) => m && String(m.name || '').trim() && Number(m.qty) > 0);
   const specs = specRows(p, t.sizeLayout === 2).filter(([, v]) => has(v) || (typeof v === 'string' && v.trim() !== '')).map(([k, v]) => [String(k), has(v) ? num(v) : String(v)]);
 
   // Номера разделов (passport-numbering.ts): снимок с layout 2 — подряд 1…N, один «Монтаж»; прежние снимки — как печатались

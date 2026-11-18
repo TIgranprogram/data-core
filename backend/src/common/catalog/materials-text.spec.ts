@@ -112,7 +112,7 @@ describe('«Взять из состава» (МИ.2)', () => {
     ]);
   });
   it('пустой состав — пустая таблица', () => {
-    expect(specFromComposition([], recs, [])).toEqual({ rows: [], coatingIds: [], unmatched: [], hinted: [] });
+    expect(specFromComposition([], recs, [])).toEqual({ rows: [], coatingIds: [], unmatched: [], hinted: [], unmatchedSources: [], hintedSources: [] });
   });
 });
 

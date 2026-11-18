@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { Types, type Connection } from 'mongoose';
 import { oid } from '../list-query';
+import { parseSourceRefs, type SourceRef } from './material-source-refs';
 import { composeMaterialsText, normSize, type MaterialsSpec, type MatRec, type PartRec, type ManualTexts } from './materials-text';
 
 const clean = (s: unknown) => String(s ?? '').replace(/\s+/g, ' ').trim();
@@ -11,7 +12,7 @@ export type Db = NonNullable<Connection['db']>;
  * { rows: [{ materialId, sizes[], partIds[] }], coatingIds[] }; id — записи справочников «Материалы и покрытия»
  * (`passportMaterials`) и «Части изделия» (`passportParts`), размеры — строками без «мм». Текст — `common/catalog/materials-text.ts`.
  */
-export type StoredSpec = { rows: (ManualTexts & { materialId: Types.ObjectId; sizes: string[]; partIds: Types.ObjectId[] })[]; coatingIds: Types.ObjectId[]; coatingTexts?: (ManualTexts & { materialId: Types.ObjectId })[] };
+export type StoredSpec = { rows: (ManualTexts & { materialId: Types.ObjectId; sizes: string[]; partIds: Types.ObjectId[]; sourceRefs?: SourceRef[] })[]; coatingIds: Types.ObjectId[]; coatingTexts?: (ManualTexts & { materialId: Types.ObjectId })[] };
 const MAX_ROWS = 50, MAX_SIZES = 20, MAX_PARTS = 30, MAX_COATINGS = 10;
 
 const ids = (v: unknown, what: string, max: number) => {
@@ -55,11 +56,12 @@ export function parseMaterialsSpec(v: unknown): StoredSpec | null {
     if (sizes.some((z) => z.length > 40)) throw new BadRequestException(`Строка ${i + 1}: размер длиннее 40 знаков`);
     const partIds = ids(r.partIds, `части изделия (строка ${i + 1})`, MAX_PARTS);
     const texts = parseTexts(r);
+    const sourceRefs = parseSourceRefs(r.sourceRefs);
     if (!clean(r.materialId)) {
-      if (sizes.length || partIds.length || Object.keys(texts).length) throw new BadRequestException(`Строка ${i + 1}: выберите материал`);
+      if (sizes.length || partIds.length || sourceRefs?.length || Object.keys(texts).length) throw new BadRequestException(`Строка ${i + 1}: выберите материал`);
       return;
     }
-    rows.push({ materialId: oid(r.materialId, `материала (строка ${i + 1})`), sizes, partIds, ...texts });
+    rows.push({ materialId: oid(r.materialId, `материала (строка ${i + 1})`), sizes, partIds, ...texts, ...(sourceRefs?.length ? { sourceRefs } : {}) });
   });
   const coatingIds = ids(b.coatingIds, 'покрытия', MAX_COATINGS);
   if (b.coatingTexts != null && !Array.isArray(b.coatingTexts)) throw new BadRequestException('coatingTexts — список');
@@ -79,7 +81,7 @@ export function presentMaterialsSpec(v: unknown): MaterialsSpec | null {
   const sp = v as StoredSpec | null | undefined;
   if (!sp || typeof sp !== 'object') return null;
   return {
-    rows: (sp.rows ?? []).map((r) => ({ materialId: String(r.materialId), sizes: (r.sizes ?? []).map(String), partIds: (r.partIds ?? []).map(String), ...manualTexts(r) })),
+    rows: (sp.rows ?? []).map((r) => ({ materialId: String(r.materialId), sizes: (r.sizes ?? []).map(String), partIds: (r.partIds ?? []).map(String), ...manualTexts(r), ...(r.sourceRefs?.length ? { sourceRefs: parseSourceRefs(r.sourceRefs) } : {}) })),
     coatingIds: (sp.coatingIds ?? []).map(String),
     ...(sp.coatingTexts?.length ? { coatingTexts: sp.coatingTexts.filter((c) => (sp.coatingIds ?? []).some((id) => String(id) === String(c.materialId))).map((c) => ({ materialId: String(c.materialId), ...manualTexts(c) })) } : {}),
   };

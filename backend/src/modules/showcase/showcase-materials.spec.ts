@@ -40,7 +40,7 @@ describe('materials-spec/from-composition', () => {
       dict_values: dicts,
     });
     const r = await new ShowcaseMaterials(() => db as never).fromComposition(String(product));
-    expect(r.materialsSpec.rows).toEqual([{ materialId: String(pipeDict), sizes: ['∅89×3'], partIds: [String(post)] }]);
+    expect(r.materialsSpec.rows.map(({ materialId, sizes, partIds }) => ({ materialId, sizes, partIds }))).toEqual([{ materialId: String(pipeDict), sizes: ['∅89×3'], partIds: [String(post)] }]);
     expect(r.unmatched).toEqual([]);
     expect(r.materialsText).toContain('труб');
   });
@@ -69,7 +69,7 @@ describe('materials-spec/from-composition', () => {
       dict_values: dicts,
     });
     const r = await new ShowcaseMaterials(() => db as never).fromComposition(String(product));
-    expect(r.materialsSpec.rows).toEqual([{ materialId: String(pipeDict), sizes: ['40×20'], partIds: [] }]);
+    expect(r.materialsSpec.rows.map(({ materialId, sizes, partIds }) => ({ materialId, sizes, partIds }))).toEqual([{ materialId: String(pipeDict), sizes: ['40×20'], partIds: [] }]);
     expect(r.unmatched).toEqual([]);
     expect(r).toEqual(expect.objectContaining({ materialsText: expect.any(String) }));
   });
@@ -91,7 +91,7 @@ describe('materials-spec/from-composition', () => {
       dict_values: dicts,
     });
     const r = await new ShowcaseMaterials(() => db as never).fromComposition(String(product));
-    expect(r.materialsSpec.rows).toEqual([{ materialId: String(pipeDict), sizes: ['∅89×3'], partIds: [] }]);
+    expect(r.materialsSpec.rows.map(({ materialId, sizes, partIds }) => ({ materialId, sizes, partIds }))).toEqual([{ materialId: String(pipeDict), sizes: ['∅89×3'], partIds: [] }]);
     expect(r.unmatched).toEqual([]);
   });
 });

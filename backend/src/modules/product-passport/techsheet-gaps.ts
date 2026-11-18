@@ -8,14 +8,13 @@ const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 
 const str = (v: unknown) => String(v ?? '').trim();
 
 /** Пункты, которых нет среди пробелов паспорта и полей изделия очереди: в `fill-queue` идут только они. */
-export const TECH_ONLY_KEYS = ['materials', 'parts'];
+export const TECH_ONLY_KEYS = ['materials'];
 
 /** Чистая функция: изделие (materialsSpec, dimensions, weightKg, purpose, installation) → пустые пункты техописания. */
 export function techSheetGaps(p: Record<string, unknown>): TechGap[] {
   const out: TechGap[] = [];
-  const rows = ((p.materialsSpec as { rows?: Array<{ partIds?: unknown[] }> } | undefined)?.rows ?? []);
-  if (!rows.length) out.push({ key: 'materials', label: 'Материалы изделия', required: true, weight: 4, opens: 'без них техописание не собрать' });
-  else if (rows.some((r) => !(r.partIds ?? []).length)) out.push({ key: 'parts', label: 'Части у материалов (стойка, перекладина…)', required: false, weight: 3, opens: 'в техописании вместо «Материал» будет название части' });
+  const rows = ((p.materialsSpec as { rows?: Array<{ materialId?: unknown }> } | undefined)?.rows ?? []);
+  if (!rows.length || rows.some((r) => !str(r.materialId))) out.push({ key: 'materials', label: 'Материалы и покрытия', required: true, weight: 4, opens: 'без них техописание не собрать' });
   const d = (p.dimensions ?? {}) as Record<string, unknown>;
   if (!num(d.length) || !num(d.width) || !num(d.height)) out.push({ key: 'dimensions', label: 'Габариты', required: false, weight: 3, opens: 'строки «Длина / Ширина / Высота» в техописании' });
   if (!num(p.weightKg)) out.push({ key: 'weightKg', label: 'Вес', required: false, weight: 3, opens: 'строка «Вес» в техописании' });
