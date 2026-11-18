@@ -15,6 +15,6 @@
 - [x] Исправить потерю второго выбора при сохранении в book-choices.js (очередь), очистку installationTypeId старой формы и пустой автотекст материалов. Ручные значения сохранять. Карта — OTHER-PLACES-AUDIT.md; регрессионные тесты PASS.
 - [x] После выпуска — обход основных путей и актуальных рисунков 3218; границы проверки в POST-CHECK.md.
 - [x] Исправить потерю щелчка удаления покрытия при фокусе; реальный pointerclick, PATCH/GET и регрессия PASS.
-- [ ] Выпустить последнюю правку удаления покрытия на реальный сервер и подтвердить версию.
+- [x] Последняя правка выпущена на реальный сервер: v1.938, код48f8ad58, health200/smoke7/7, readonly static guard подтверждён, doctor0.
 
 Файлы: installation-text.js, book-side-edit.js, book-entry.js, open-book.js, book-editor.js, main.js, passport-images.iLogicVb, kit/form.js. Рисунки — passport-product-images.ts, product-passport.service.ts, common.js, book-images.js, card-blocks.js. Проверка — PWA, серверный модуль, e2e и браузер на стенде. Прод-данные не править.
