@@ -52,10 +52,11 @@ export async function openBookEditor(passport, { onClose } = {}) {
       : 'Паспорт открыт только для чтения.'));
   const slot = h('div', { class: 'bk-side-slot' }, sideEmpty());
   const head = h('div', { class: 'bk-head' });
-  const side = h('aside', { class: 'bk-side', 'aria-label': 'Подсказки и ИИ' },
-    slot,
+  // ИИ + Inventor — отдельный низ; при правке полей скрываются (.is-editing), форма занимает колонку
+  const tools = h('div', { class: 'bk-side-tools' },
     aiCheckBlock(() => ({ pages: [...pages.querySelectorAll('.bk-page')].map(pageText) })),
     ilogicBlock());
+  const side = h('aside', { class: 'bk-side', 'aria-label': 'Подсказки и ИИ' }, slot, tools);
   const back = h('div', { class: 'modal-back bk-back' }, h('div', { class: 'modal wide bk', role: 'dialog', 'aria-modal': 'true' },
     head, h('div', { class: 'bk-main' }, toc, scroller, side), h('div', { class: 'bk-foot' }, srcLegend(SRC_LABEL), stat)));
   const setStat = (t, tone) => { stat.textContent = t; stat.dataset.tone = tone || ''; };
@@ -137,14 +138,19 @@ export async function openBookEditor(passport, { onClose } = {}) {
     return view;
   }
 
-  /** Состав в слоте: спросить, если строки менялись; иначе очистить молча. */
+  /** Состав в слоте: спросить, если строки менялись; иначе очистить молча. Материалы тоже снимают is-wide. */
   function releaseSlot(then) {
     const ask = slot._bkLeave;
-    if (typeof ask !== 'function') { then(); return; }
+    const clearWide = () => {
+      const side = slot.closest?.('.bk-side');
+      side?.classList.remove('is-wide', 'is-editing');
+      side?.closest?.('.bk-main')?.classList.remove('is-edit-wide');
+    };
+    if (typeof ask !== 'function') { clearWide(); then(); return; }
     void ask().then((ok) => {
       if (!ok) return;
       slot._bkLeave = null;
-      slot.closest?.('.bk-side')?.classList.remove('is-wide');
+      clearWide();
       then();
     });
   }
@@ -316,8 +322,9 @@ export async function openBookEditor(passport, { onClose } = {}) {
       h('h2', null, heading(r), r.name ? ' · ' + r.name : '', ' ', badge(issued ? 'выпущен' : statusOf(r) === 'annulled' ? 'аннулирован' : 'черновик', issued ? 'ok' : 'warn')),
       h('div', { class: 'bk-acts' },
         r.printSource === 'file' || r.printFile?.hasFile ? h('span', { class: 'bk-mark' }, 'К номеру прикреплён свой PDF — печать отдаёт его. ') : null,
-        button({ label: 'По ширине', size: 'S', kind: S.fit ? 'primary' : 'ghost', onClick: () => zoom(true) }),
-        button({ label: '100 %', size: 'S', kind: S.fit ? 'ghost' : 'primary', onClick: () => zoom(false) }),
+        // масштаб — ghost: единственная primary в шапке — «Выпустить» (C143)
+        button({ label: 'По ширине', size: 'S', kind: 'ghost', cls: S.fit ? 'is-on' : '', onClick: () => zoom(true) }),
+        button({ label: '100 %', size: 'S', kind: 'ghost', cls: !S.fit ? 'is-on' : '', onClick: () => zoom(false) }),
         button({ label: 'Скачать PDF', size: 'S', onClick: () => printDialog(S.r) }),
         primary,
         iconButton({ icon: '✕', label: 'Закрыть книжку', title: 'Закрыть книжку — только этой кнопкой', cls: 'k-close', onClick: requestClose })));

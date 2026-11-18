@@ -37,9 +37,12 @@ async function valueUses(db: Db, ids: Types.ObjectId[]) {
  */
 export function productFacetDefs(simple: Simple): DictBase[] {
   const facetsBase = simple('productFacets', 'Паспорта', 'Признаки продукции',
-    'По каким признакам сужается выбор изделия при создании паспорта (для тренажёров — вид, группа мышц…). Признак относится к одной типа паспорта; его значения — в «Значениях признаков».',
+    'Зачем: шаги воронки паспорта «по какому признаку сужаем выбор». Пример: у тренажёров — «Вид» (силовой / кардио), «Группа мышц». Сами варианты — в «Значениях признаков». Тип паспорта у признака обязателен.',
     [
-      { key: 'category', label: 'Тип паспорта', type: 'select', required: true, options: CATEGORIES.map((v) => ({ value: v, label: v })) },
+      { key: 'category', label: 'Тип паспорта', type: 'select', required: true, options: [
+        { value: 'TRN', label: 'Уличный тренажёр' }, { value: 'WRK', label: 'Воркаут' }, { value: 'BLG', label: 'Благоустройство' },
+        { value: 'DIO', label: 'Детское игровое' }, { value: 'DSP', label: 'Детское спортивное' },
+      ] },
       { key: 'order', label: 'Порядок', hint: 'Число: чем меньше, тем раньше шаг' },
       { key: 'step', label: 'Шаг воронки', type: 'select', bool: true, options: [{ value: 'true', label: 'да' }], hint: 'Спрашивать при создании паспорта' },
       { key: 'multi', label: 'Можно несколько значений', type: 'select', bool: true, options: [{ value: 'true', label: 'да' }] },
@@ -80,13 +83,13 @@ export function productFacetDefs(simple: Simple): DictBase[] {
   };
 
   const valuesBase = simple('productFacetValues', 'Паспорта', 'Значения признаков',
-    'Варианты признаков: «Силовой», «Кардио»… Значение выбирают у изделия — по названию оно не угадывается.',
+    'Зачем: конкретные ответы на признак. Пример: признак «Вид» → значения «Силовой», «Кардио». Ставятся у изделия и сужают тексты/воронку паспорта. Переименовать — здесь; у изделия останется та же связь.',
     [
-      { key: 'parentId', label: 'Признак', type: 'select', ref: 'productFacets', required: true },
+      { key: 'parentId', label: 'Признак', type: 'select', ref: 'productFacets', required: true, hint: 'К какому признаку относится значение — из «Признаки продукции»' },
       { key: 'order', label: 'Порядок', hint: 'Число: чем меньше, тем выше значение в списке' },
       { key: 'purposePhraseId', label: 'Назначение (текст)', type: 'select', ref: 'passportPhrases', hint: 'Текст «Назначение» паспорта для изделий с этим значением' },
       { key: 'installTypeId', label: 'Способ установки', type: 'select', ref: 'passportInstall' },
-      { key: 'elementIds', label: 'Элементы', type: 'select', ref: 'passportElements', multi: true, wide: true },
+      { key: 'elementIds', label: 'Функциональные элементы', type: 'select', ref: 'passportElements', multi: true, wide: true, hint: 'Какие функциональные элементы типичны для изделий с этим значением' },
       { tech: true, key: 'code', label: 'Код значения', required: true, lockAfterCreate: true, hint: 'Короткое имя латиницей (trn.kind.power). После создания не меняется' },
     ]);
   const values: DictBase = {

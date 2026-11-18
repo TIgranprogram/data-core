@@ -64,8 +64,17 @@ function toPutLines(rows) {
  */
 export async function mountCompositionFunnel(slot, productId, { onDone } = {}) {
   slot.replaceChildren(h('p', { class: 'hint' }, 'Загружаю состав…'));
-  slot.closest?.('.bk-side')?.classList.add('is-wide');
-  const clearWide = () => slot.closest?.('.bk-side')?.classList.remove('is-wide');
+  // без import book-side-edit (цикл + vm-тесты без dynamic import)
+  const side = slot?.closest?.('.bk-side');
+  const main = side?.closest?.('.bk-main');
+  side?.classList.add('is-wide');
+  side?.classList.add('is-editing');
+  main?.classList.add('is-edit-wide');
+  const clearWide = () => {
+    side?.classList.remove('is-wide');
+    side?.classList.remove('is-editing');
+    main?.classList.remove('is-edit-wide');
+  };
 
   const prod = await api(`/showcase/${productId}`);
   const rows = (prod.composition || []).map((l) => {

@@ -48,6 +48,7 @@ async function fixture({ confirm = true, proposal = snapshot(), copied = snapsho
       let ids = []; const pick = { el: h('div'), setScope() {}, get value() { return JSON.stringify(ids); }, set value(v) { ids = typeof v === 'string' ? JSON.parse(v) : v; } };
       coats.push(pick); return pick;
     },
+    catNames: (v) => String(v || ''),
   };
   const actual = new Set(['ui/materials-spec.js', 'sections/tech-sheet.js', 'sections/products/form-fields.js']);
   async function load(rel) {
@@ -65,7 +66,39 @@ async function fixture({ confirm = true, proposal = snapshot(), copied = snapsho
     return mod;
   }
   const mod = await load('ui/materials-spec.js'); await mod.evaluate();
-  return { coats, calls, load, widget: (value) => mod.namespace.materialsSpec({ value, dicts, text: 'Сохранённый текст' }) };
+  const widget = (value) => {
+    const w = mod.namespace.materialsSpec({ value, dicts, text: 'Сохранённый текст' });
+    // C144: покрытия — select, не tagPick; эмулятор для старых тестов
+    const sel = w.el.find((x) => x.attrs['aria-label'] === 'Добавить покрытие');
+    const coatApi = {
+      el: sel || h('select'),
+      get value() {
+        const ids = [];
+        w.el.find((x) => x.attrs.class === 'ms-coat-picked')?.children.forEach((li) => {
+          const btn = li.find?.((n) => n.tag === 'button');
+          if (btn) ids.push('paint'); // имена из dicts; для теста достаточно длины через change
+        });
+        return JSON.stringify([...((w.spec()?.coatingIds) || [])]);
+      },
+      set value(v) {
+        const want = typeof v === 'string' ? JSON.parse(v || '[]') : (v || []);
+        const picked = w.el.find((x) => x.attrs.class === 'ms-coat-picked');
+        while (picked?.children?.length) {
+          const btn = picked.children[0].find?.((n) => n.tag === 'button');
+          btn?.click();
+        }
+        for (const id of want) {
+          if (!sel) break;
+          sel.value = id;
+          sel.change();
+        }
+      },
+      change() { return sel?.change(); },
+    };
+    coats.push(coatApi);
+    return w;
+  };
+  return { coats, calls, load, widget };
 }
 
 test('открытие, изменение размеров и повторное открытие сохраняют снимки без записи', async () => {
@@ -88,8 +121,8 @@ test('смена материала очищает обе фразы, повто
 
 test('удалённое покрытие теряет тексты; повторное добавление не возвращает старые фразы', async () => {
   const f = await fixture(); const w = f.widget(snapshot());
-  f.coats[0].value = []; await f.coats[0].el.change(); assert.equal(w.spec().coatingTexts, undefined);
-  f.coats[0].value = ['paint']; await f.coats[0].el.change(); assert.equal(w.spec().coatingTexts, undefined);
+  f.coats[0].value = []; assert.equal(w.spec().coatingTexts, undefined);
+  f.coats[0].value = ['paint']; assert.equal(w.spec().coatingTexts, undefined);
 });
 
 test('копирование не теряет другую фразу той же части/материала и варианты покрытия', async () => {

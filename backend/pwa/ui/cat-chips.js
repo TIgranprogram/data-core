@@ -10,13 +10,14 @@ const ALL = '__all';
  *   → { el, value (строка кодов; пусто при «Для всех»), all (bool), empty (не выбрано ничего), focus }
  * Коды, которых нет в options (старые), остаются отдельными чипами — ничего не теряем. Событие change всплывает от el.
  */
-export function catChips({ options, value = '', all, label = 'Категории', allLabel = 'Для всех', later = [] }) {
+export function catChips({ options, value = '', all, label = 'Категории', allLabel = 'Для всех', later = [], emptyMeans }) {
   const parse = (v) => (Array.isArray(v) ? v : String(v || '').split(/[,;\s]+/)).map(String).filter(Boolean);
   const cur = new Set(parse(value));
   const isAll0 = all === undefined ? cur.size === 0 : !!all;
   const known = new Set(options.map((o) => String(o.code)));
   const list = [...options.filter((o) => !later.includes(String(o.code)) || cur.has(String(o.code))), ...[...cur].filter((c) => !known.has(c)).map((c) => ({ code: c, name: c }))];
-  const tp = pick({ mode: 'tags', label, value: isAll0 ? [ALL] : [...cur], options: [{ value: ALL, label: allLabel, sub: '' }, ...list.map((o) => ({ value: String(o.code), label: o.name }))] });
+  const allSub = emptyMeans || '';
+  const tp = pick({ mode: 'tags', label, value: isAll0 ? [ALL] : [...cur], options: [{ value: ALL, label: allLabel, sub: allSub }, ...list.map((o) => ({ value: String(o.code), label: o.name }))] });
   let was = new Set(JSON.parse(tp.value));
   tp.el.classList.add('cat-chips');
   tp.el.addEventListener('change', () => { // «Для всех» и отдельные категории взаимно исключают друг друга
@@ -37,8 +38,8 @@ export function catChips({ options, value = '', all, label = 'Категории
 }
 
 /** Поле формы (type: 'widget') «Категории»: в read() приходит строка кодов (в виде JSON), пусто = для всех. */
-export function catChipsField(options, { label = 'Категории', value, later } = {}) {
-  const c = catChips({ options, value, label, later });
+export function catChipsField(options, { label = 'Категории', value, later, allLabel, emptyMeans } = {}) {
+  const c = catChips({ options, value, label, later, allLabel, emptyMeans });
   return { el: c.el, get value() { return JSON.stringify(c.value); }, set value(v) { void v; }, focus: c.focus };
 }
 
@@ -72,8 +73,8 @@ export function refChipsField(options, { label, value, multiple = true } = {}) {
 const elementIds = (v) => { if (Array.isArray(v)) return v.map(String); try { return JSON.parse(v || '[]').map(String); } catch { return []; } };
 export function passportKindElements(options, value, label) {
   const picked = new Set(elementIds(value));
-  const el = h('div');
-  const chosen = h('div');
+  const el = h('div', { class: 'pk-els' });
+  const chosen = h('div', { class: 'pk-els-picked' });
   const picker = select({ label, options: [['', 'Найти элемент…'], ...options.map((o) => [String(o.value), o.label])],
     onChange: (id) => {
       picker.value = '';

@@ -11,7 +11,8 @@ const isOid = (v: unknown) => Types.ObjectId.isValid(String(v ?? '')) && String(
 const GROUPS = { type: 'product', deletedAt: null, parentId: { $ne: null } };
 const SECTIONS = { type: 'product', deletedAt: null, parentId: null };
 
-export const PP_FIELD: import('./dicts.defs').Field = { key: 'passportCategory', label: 'Тип паспорта', type: 'select', hint: 'Изделия этой группы получают её в паспорте сами. Свой тип, заданный в изделии вручную, главнее. Пусто — берётся из раздела', options: [{ value: 'DIO', label: 'Детское (DIO)' }, { value: 'DSP', label: 'Спортивное (DSP)' }, { value: 'TRN', label: 'Уличный тренажёр (TRN)' }, { value: 'WRK', label: 'Воркаут (WRK)' }, { value: 'BLG', label: 'Благоустройство (BLG)' }] };
+/* C145: на экране только слова — коды (BLG/TRN…) остаются value, не в подписи */
+export const PP_FIELD: import('./dicts.defs').Field = { key: 'passportCategory', label: 'Тип паспорта', type: 'select', hint: 'Изделия этой группы получают её в паспорте сами. Свой тип, заданный в изделии вручную, главнее. Пусто — берётся из раздела', options: [{ value: 'DIO', label: 'Детское игровое' }, { value: 'DSP', label: 'Детское спортивное' }, { value: 'TRN', label: 'Уличный тренажёр' }, { value: 'WRK', label: 'Воркаут' }, { value: 'BLG', label: 'Благоустройство' }] };
 /** Код типа паспорта из тела запроса: пусто — снять; неизвестный — 400. */
 export function ppCode(v: unknown): string | null {
   const c = s(v);
@@ -54,7 +55,7 @@ const countProducts = (db: Db, ids: unknown[]) => db.collection('products').aggr
 export function productGroupDefs({ translit }: Ctx): DictBase[] {
   const groups: DictBase = {
     key: 'productGroups', group: 'Склад и позиции', title: 'Группы изделий',
-    hint: 'Тренажёры, Воркаут, Скамьи… Номер группы — первые две цифры артикула изделия (группа 12 → артикулы 12…). Раздел собирает группы вместе.',
+    hint: 'Зачем: каталог групп продукции и артикулы. Пример: группа «Тренажёры» №12 → артикулы 12…. Здесь же тип паспорта и вид изделия по умолчанию для группы.',
     coll: 'categories', match: GROUPS,
     columns: [{ key: 'groupNo', label: 'Номер' }, { key: 'parentName', label: 'Раздел' }],
     fields: [
@@ -112,7 +113,7 @@ export function productGroupDefs({ translit }: Ctx): DictBase[] {
 
   const sections: DictBase = {
     key: 'productSections', group: 'Склад и позиции', title: 'Разделы изделий',
-    hint: 'Крупные разделы продукции: в них собираются группы изделий («Спорт» → Тренажёры, Воркаут).',
+    hint: 'Зачем: крупные разделы каталога. Пример: «Спорт» → группы «Тренажёры», «Воркаут». Тип паспорта раздела — запасной, если у группы свой не задан.',
     coll: 'categories', match: SECTIONS,
     columns: [],
     fields: [{ key: 'name', label: 'Название', required: true, wide: true }, { ...PP_FIELD, hint: 'Для групп раздела, у которых своя категория не задана. Пусто — не задана' }],

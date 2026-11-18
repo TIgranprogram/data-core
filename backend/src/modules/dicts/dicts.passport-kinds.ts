@@ -32,16 +32,16 @@ async function uses(db: Db, ids: unknown[]): Promise<Map<string, number>> {
  */
 export function passportKindDefs(simple: Simple): DictBase {
   const base = simple(KINDS_DICT, 'Паспорта', 'Виды изделий',
-    'Что это за изделие: «Урна», «Скамья», «Информационный стенд»… Вид задаёт элементы, назначение и тип паспорта. Назначьте вид группе изделий (в «Группах изделий») или конкретному изделию — угадывания по названию нет.',
+    'Зачем: один ярлык «что это за изделие» для группы или карточки. Пример: «Урна», «Скамья». Вид задаёт тип паспорта, функциональные элементы и назначение. Переименовать элемент — в «Функциональных элементах», здесь только выбор.',
     [
       { ...PP_FIELD, hint: 'Тип паспорта изделий этого вида. Свой тип, заданный в изделии вручную, главнее' },
-      { key: 'elementIds', label: 'Что это за изделие (элементы)', type: 'select', ref: 'passportElements', multi: true, wide: true, hint: `Не больше ${MAX_ELEMENTS}: турник и брусья — два элемента` },
+      { key: 'elementIds', label: 'Функциональные элементы', type: 'select', ref: 'passportElements', multi: true, wide: true, hint: `Ссылки на справочник «Функциональные элементы», не больше ${MAX_ELEMENTS}. Переименовать элемент — там; здесь только выбрать, какие входят в вид.` },
       { key: 'purposeLeafId', label: 'Назначение', type: 'select', ref: 'passportPhrases', refMatch: { section: 'purpose', parentId: { $ne: null } }, wide: true, hint: 'Конечный вариант раздела «Назначение» из «Текстов паспорта»' },
       { key: 'notes', label: 'Примечание', wide: true },
     ]);
   return {
     ...base,
-    columns: [{ key: 'passportCategory', label: 'Категория' }, { key: 'elementNames', label: 'Элементы' }, { key: 'purposeLeafName', label: 'Назначение' }],
+    columns: [{ key: 'passportCategory', label: 'Категория' }, { key: 'elementNames', label: 'Функциональные элементы' }, { key: 'purposeLeafName', label: 'Назначение' }],
     row: (d) => ({
       name: s(d.name), passportCategory: s(d.passportCategory), elementIds: ((d.elementIds as unknown[]) ?? []).map(String),
       purposeLeafId: d.purposeLeafId ? String(d.purposeLeafId) : '', notes: s(d.notes),

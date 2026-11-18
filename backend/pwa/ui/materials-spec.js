@@ -1,8 +1,8 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { normSearch } from '../core/facets.js';
+import { catNames } from '../core/passport-kinds.js';
 import { attachCombo } from './kit/index.js';
-import { tagPick } from './kit/index.js';
 import { toast, toastError } from './kit/toast.js';
 
 /*
@@ -240,16 +240,70 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
     } catch (e) { toastError(e); btn.disabled = false; btn.classList.remove('is-busy'); btn.textContent = 'Сохранить в справочник'; }
   }
 
-  // покрытия — метками (обычно одно-два)
-  const coatOpts = d.mats.filter((m) => isCoat(m) && offered(m, parseSpec(value).coatingIds)).map((m) => ({ value: String(m.id), label: m.name, cats: codes(m.categories) }));
+  // покрытия — выпадающий список с группами по типу паспорта (C144); не чипы
   let coatingTexts = [];
-  const coat = tagPick({ options: coatOpts, value: [], label: 'Покрытие' });
-  const syncCoat = () => { try { coat.setScope(scope() || ''); } catch { /* scope ещё не готов */ } };
-  syncCoat();
-  coat.el.addEventListener('change', (e) => { e.stopPropagation(); coatingTexts = coatingTexts.filter((r) => JSON.parse(coat.value || '[]').includes(r.materialId)); changed(); });
-  const coatLink = h('a', { href: '#dicts?d=passportMaterials', class: 'hint', title: 'Справочники → Паспорта → Материалы и покрытия. Поиск: «цинк» или GALV_HOT' }, 'Править в справочнике');
-  const coatBox = h('div', { class: 'ms-coat' }, h('div', { class: 'ms-sub' }, 'Покрытие · ', coatLink),
-    coatOpts.length ? coat.el : h('span', { class: 'muted' }, 'В «Материалах и покрытиях» нет записей с типом «покрытие»'));
+  let coatIds = new Set(parseSpec(value).coatingIds.map(String));
+  const coatSel = h('select', { 'aria-label': 'Добавить покрытие', class: 'k-select ms-coat-sel' });
+  const coatPicked = h('ul', { class: 'ms-coat-picked', 'aria-label': 'Выбранные покрытия' });
+  const coatEmpty = h('span', { class: 'muted' }, 'В «Материалах и покрытиях» нет записей с типом «покрытие»');
+  const coatWrap = h('div', { class: 'ms-coat-dd' }, coatSel, coatPicked);
+  const coatLink = h('a', { href: '#dicts?d=passportMaterials', class: 'hint', title: 'Справочники → Паспорта → Материалы и покрытия. Поле «Кому предлагают»' }, 'Править в справочнике');
+  const coatWhy = h('p', { class: 'hint ms-scope-hint' });
+  const coatBox = h('div', { class: 'ms-coat' }, h('div', { class: 'ms-sub' }, 'Покрытие · ', coatLink), coatWhy, coatWrap, coatEmpty);
+  const coatById = () => new Map(d.mats.filter(isCoat).map((m) => [String(m.id), m]));
+  const coatMine = (m, code) => !code || !codes(m.categories).length || codes(m.categories).includes(code);
+  const paintCoatPicked = () => {
+    const map = coatById();
+    coatPicked.replaceChildren(...[...coatIds].map((id) => {
+      const m = map.get(id);
+      const why = !m ? 'нет в справочнике'
+        : (!codes(m.categories).length ? 'для всех типов' : catNames(m.categories));
+      return h('li', { class: 'ms-coat-line' },
+        h('span', { class: 'ms-coat-name' }, m?.name || 'Покрытие удалено',
+          h('small', { class: 'ms-coat-why' }, why)),
+        h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Убрать', 'aria-label': 'Убрать покрытие',
+          onclick: () => { coatIds.delete(id); coatingTexts = coatingTexts.filter((r) => r.materialId !== id); paintCoat(); changed(); } }, '×'));
+    }));
+  };
+  const paintCoatOpts = () => {
+    const code = scope() || '';
+    const list = d.mats.filter((m) => isCoat(m) && offered(m, [...coatIds]));
+    const free = list.filter((m) => !coatIds.has(String(m.id)));
+    const own = free.filter((m) => coatMine(m, code));
+    const other = free.filter((m) => !coatMine(m, code));
+    const opt = (m) => h('option', { value: String(m.id) }, m.name);
+    const kids = [h('option', { value: '' }, own.length || other.length ? 'Добавить покрытие…' : 'Все подходящие уже выбраны')];
+    if (code && own.length) kids.push(h('optgroup', { label: 'Для этого типа паспорта' }, ...own.map(opt)));
+    if (other.length) kids.push(h('optgroup', { label: code ? 'Другие типы' : 'Все покрытия' }, ...other.map(opt)));
+    if (!code && own.length) kids.push(h('optgroup', { label: 'Покрытия' }, ...own.map(opt)));
+    coatSel.replaceChildren(...kids);
+    coatSel.value = '';
+    coatSel.disabled = !free.length;
+    coatEmpty.hidden = !!list.length || !!coatIds.size;
+    coatWrap.hidden = !list.length && !coatIds.size;
+    coatWhy.textContent = code
+      ? 'Список по типу паспорта изделия. Металл и дерево сами не разделяются — в справочнике у покрытия задайте «Кому предлагают».'
+      : 'Тип паспорта не задан — в списке все покрытия. Задайте тип изделию, чтобы сузить группу «Для этого типа».';
+  };
+  const paintCoat = () => { paintCoatPicked(); paintCoatOpts(); };
+  coatSel.addEventListener('change', () => {
+    const id = coatSel.value;
+    if (!id) return;
+    coatIds.add(id);
+    paintCoat();
+    changed();
+  });
+  const coat = {
+    el: coatBox,
+    get value() { return JSON.stringify([...coatIds]); },
+    set value(v) {
+      const arr = Array.isArray(v) ? v.map(String) : (() => { try { return JSON.parse(v || '[]').map(String); } catch { return []; } })();
+      coatIds = new Set(arr);
+      paintCoat();
+    },
+    setScope() { paintCoat(); return []; },
+  };
+  paintCoat();
 
   // вставка из Excel: по умолчанию Часть · Материал · Размеры; шапка или старый порядок Материал · Размеры · Часть — тоже
   body.addEventListener('paste', (e) => {
@@ -394,7 +448,7 @@ export function materialsSpec({ value, dicts, text = '', scope = () => '', actio
   let tplFor = null;
   const tplCheck = async () => {
     let c = ""; try { c = scope() || ""; } catch {} tplSave.hidden = !c || !canDict;
-    syncCoat(); syncPartsBtn();
+    coat.setScope(); syncPartsBtn();
     if (!c) { tplBtn.hidden = true; tplFor = null; return; }
     if (tplFor === c) return; tplFor = c;
     try { tplBtn.hidden = !parseSpec((await api(tplUrl())).materialsSpec).rows.length; } catch { tplBtn.hidden = true; }

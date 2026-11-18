@@ -53,25 +53,43 @@ function shape(items) {
 // ─── экран ───────────────────────────────────────────────────────────────────────────────────────
 export function mountTree() {
   const edit = canEditTexts();
-  let mode = 'all'; let model = null; let catsMap = new Map();
+  let mode = 'all'; let catFilter = ''; let model = null; let catsMap = new Map(); let catOpts = [];
   const info = h('p', { class: 'hint pt-info' });
-  const filterBox = h('div');
+  const filterBox = h('div', { class: 'pt-filters' });
   const tree = h('div', { class: 'pt-tree' }, busyBlock('тексты'));
   const el = h('div', { class: 'pt' }, h('div', { class: 'pt-bar' }, info, filterBox),
     edit ? null : h('p', { class: 'hint' }, 'Смотреть могут все; править тексты — директор и администратор.'), tree);
-  const catText = (n) => (n.allCategories ? 'для всех' : String(n.categories || '').split(/[,;\s]+/).filter(Boolean).map((c) => catsMap.get(c) || c).join(', '));
+  const catText = (n) => (n.allCategories ? 'для всех' : String(n.categories || '').split(/[,;\s]+/).filter(Boolean).map((c) => catsMap.get(c) || 'тип удалён').join(', '));
+  /** Лист подходит типу (как phrase-tree: allCategories или код в списке). */
+  const leafFits = (n) => {
+    if (!catFilter) return true;
+    if (n.allCategories) return true;
+    return String(n.categories || '').split(/[,;\s]+/).filter(Boolean).includes(catFilter);
+  };
+  const secHasFit = (r) => model.leavesOf(r.id).some((l) => l.parentId && leafFits(l) && !model.isEmpty(l));
 
   function render() {
     if (!model) return;
     const sel = current().params.open || '';
     const empties = model.roots.flatMap((r) => model.leavesOf(r.id)).filter((l) => model.isEmpty(l)).length;
-    info.textContent = 'Нажмите на вариант — правка откроется справа. Пустые и повторяющиеся тексты помечены: объедините дубли, впишите пустое.';
-    filterBox.replaceChildren(qualityFilter({ value: mode, counts: { empty: empties, dupes: model.dupes.size }, onChange: (v) => { mode = v; render(); } }));
+    const catName = catsMap.get(catFilter) || catFilter;
+    info.textContent = catFilter
+      ? `Тип «${catName}»: варианты для него и «для всех». Серый раздел — нет подходящего текста (дыра).`
+      : 'Нажмите на вариант — правка справа. Фильтр типа показывает каскад, как в паспорте.';
+    filterBox.replaceChildren(
+      qualityFilter({ value: mode, counts: { empty: empties, dupes: model.dupes.size }, onChange: (v) => { mode = v; render(); } }),
+      h('label', { class: 'field pt-cat-filter' }, h('span', null, 'Тип паспорта'), select({
+        label: 'Тип паспорта',
+        value: catFilter,
+        options: [['', 'Все типы'], ...catOpts.map((c) => [c.code, c.name])],
+        onChange: (v) => { catFilter = v; render(); },
+      })),
+    );
     const shown = (n) => {
-      if (mode === 'all') return true;
       const kids = model.children(n.id);
       if (kids.length) return kids.some(shown);
-      return mode === 'empty' ? model.isEmpty(n) : model.dupes.has(n.id);
+      const qOk = mode === 'all' || (mode === 'empty' ? model.isEmpty(n) : model.dupes.has(n.id));
+      return qOk && leafFits(n);
     };
     const row = (n, depth) => {
       const kids = model.children(n.id).filter(shown);
@@ -84,17 +102,30 @@ export function mountTree() {
         n.isDefault ? h('span', { class: 'pt-tag own' }, 'по умолчанию') : null);
       return [h('li', null, btn), ...kids.flatMap((k) => row(k, depth + 1))];
     };
-    const secs = model.roots.filter(shown);
+    // при фильтре типа — все разделы: с вариантами и дыры без текста
+    const secs = catFilter ? model.roots : model.roots.filter(shown);
     if (!secs.length) { tree.replaceChildren(empty({ title: mode === 'all' ? 'Разделов пока нет — их создаёт программа при обновлении справочника.' : mode === 'empty' ? 'Пустых текстов нет.' : 'Дублей нет.' })); return; }
-    tree.replaceChildren(...secs.map((r) => h('section', { class: 'pt-sec' },
-      h('div', { class: 'pt-sec-head' }, h('h3', null, r.name), r.required ? h('span', { class: 'pt-sec-tag' }, 'обязательный раздел') : null,
-        edit ? button({ label: '+ Вариант', kind: 'ghost', size: 'S', onClick: () => patch({ of: 'ptnode', open: 'new.' + r.id, new: undefined }) }) : null),
-      model.children(r.id).length ? h('ul', { class: 'pt-items' }, ...model.children(r.id).filter(shown).flatMap((k) => row(k, 0))) : h('p', { class: 'muted' }, 'Вариантов пока нет — «+ Вариант».'))));
+    tree.replaceChildren(...secs.map((r) => {
+      const gap = catFilter && !secHasFit(r);
+      const kids = model.children(r.id).filter(shown);
+      return h('section', { class: 'pt-sec' + (gap ? ' is-gap' : '') },
+        h('div', { class: 'pt-sec-head' }, h('h3', null, r.name), r.required ? h('span', { class: 'pt-sec-tag' }, 'обязательный раздел') : null,
+          gap ? h('span', { class: 'badge warn' }, 'нет текста для типа') : null,
+          edit ? button({ label: '+ Вариант', kind: 'ghost', size: 'S', onClick: () => patch({ of: 'ptnode', open: 'new.' + r.id, new: undefined }) }) : null),
+        gap ? h('p', { class: 'hint' }, `Для «${catName}» в этом разделе нет своего и общего варианта — добавьте текст или отметьте «Для всех».`)
+          : (kids.length ? h('ul', { class: 'pt-items' }, ...kids.flatMap((k) => row(k, 0)))
+            : h('p', { class: 'muted' }, 'Вариантов пока нет — «+ Вариант».')));
+    }));
   }
   async function reload() {
     if (!model) tree.replaceChildren(busyBlock('тексты', { retry: () => reload() }));
-    try { const d = await loadTree(true); catsMap = new Map(d.cats.map((c) => [c.code, c.name])); model = shape(d.items); render(); }
-    catch (e) { tree.replaceChildren(failBlock(e, () => reload())); }
+    try {
+      const d = await loadTree(true);
+      catOpts = d.cats;
+      catsMap = new Map(d.cats.map((c) => [c.code, c.name]));
+      model = shape(d.items);
+      render();
+    } catch (e) { tree.replaceChildren(failBlock(e, () => reload())); }
   }
   return { el, reload, update: () => render() };
 }
@@ -214,8 +245,18 @@ export const ptnode = {
     subheading: (r) => r.pathText || r.rootName || '',
     startEdit: () => true,
     noHistory: true,
-    view: (r) => [['Текст', r.text ? h('span', { class: 'pt-plain' }, r.text) : h('span', { class: 'muted' }, 'пусто — «Изменить»')],
-      ['Категории', r.allCategories ? 'Для всех' : String(r.categories || '').split(/[,;\s]+/).filter(Boolean).join(', ')], ['Порядок', r.order || null], ['По умолчанию', r.isDefault ? 'да' : null], ['Используется', r.used || null]],
+    view: (r) => {
+      const names = r.allCategories ? 'Для всех типов'
+        : String(r.categories || '').split(/[,;\s]+/).filter(Boolean)
+          .map((c) => (r.cats || []).find((x) => String(x.code) === c)?.name || c).join(', ') || '—';
+      return [
+        ['Текст', r.text ? h('span', { class: 'pt-plain' }, r.text) : h('span', { class: 'muted' }, 'пусто — «Изменить»')],
+        ['Кому предлагают', names],
+        ['Порядок', r.order || null],
+        ['По умолчанию', r.isDefault ? 'да' : null],
+        ['Используется', r.used || null],
+      ];
+    },
   },
   form: { build: (r) => nodeForm(r), toInitial: (r) => r, toBody: (v) => v, update: (id, b) => saveNode(id, b), create: (b) => saveNode('new.' + (b.parentId || ''), b) },
 };

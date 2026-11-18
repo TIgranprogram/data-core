@@ -6,17 +6,26 @@ import { api } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { toast } from '../../ui/kit/toast.js';
 import { button } from '../../ui/kit/index.js';
-import { openMaterialsInBook, openDimsInBook, openInstallationInBook, openCompositionInBook } from './book-side-edit.js';
+import {
+  openMaterialsInBook, openDimsInBook, openInstallationInBook, openCompositionInBook,
+  openPurposeInBook, openDefaultsNumInBook,
+} from './book-side-edit.js';
 
 const PAGE_HINTS = [
   [/обложк|наименован|паспорт\s*№/i, ['name', 'description', 'img_overview']],
   [/описан|назначен/i, ['description', 'purpose', 'blg.material', 'materials']],
   [/уход|обслужив|то\b|провер/i, ['maintenance']],
-  [/монтаж|установ/i, ['install', 'installation', 'installationTypeId', 'img_mounting', 'img_foundation']],
+  [/монтаж|установ/i, ['install', 'installation', 'installationTypeId', 'foundationDepth', 'img_mounting', 'img_foundation']],
   [/габарит|характерист|размер|вес/i, ['dimensions', 'weightKg', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'seatsCount', 'siteLength', 'siteWidth', 'fallHeight', 'ageFrom', 'ageTo', 'img_dimensions']],
   [/комплект|состав/i, ['composition', 'elements', 'modules']],
   [/гарант/i, ['warrantyMonths', 'serviceLifeYears']],
 ];
+
+/** Числа passport-defaults, которые правятся в правом слоте (не габариты изделия). */
+const DEFAULT_NUM_KEYS = new Set([
+  'foundationDepth', 'seatsCount', 'ageFrom', 'ageTo', 'heightMin', 'heightMax',
+  'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth', 'serviceLifeYears', 'warrantyMonths',
+]);
 
 function focusLabel(it) {
   const raw = String(it.label || it.key || '');
@@ -110,7 +119,9 @@ export function mountBookFocus(host, ctx) {
           void ask().then((ok) => {
             if (!ok) return;
             ctx.sideSlot._bkLeave = null;
-            ctx.sideSlot.closest?.('.bk-side')?.classList.remove('is-wide');
+            const side = ctx.sideSlot.closest?.('.bk-side');
+            side?.classList.remove('is-wide', 'is-editing');
+            side?.closest?.('.bk-main')?.classList.remove('is-edit-wide');
             goNow();
           });
           return;
@@ -118,24 +129,40 @@ export function mountBookFocus(host, ctx) {
         goNow();
       };
       const goNow = () => {
+        if (!ctx.sideSlot && !String(key).startsWith('img_')) {
+          toast('Правая колонка книжки недоступна — откройте паспорт заново.', { ms: 5000 });
+          return;
+        }
         if (key === 'materials' || key === 'parts' || it.target === 'techsheet') {
-          if (!ctx.sideSlot) { toast('Откройте техописание из карточки изделия.', { ms: 5000 }); return; }
           openMaterialsInBook(ctx.sideSlot, pid, { focusParts: key === 'parts', onDone: afterSide });
           return;
         }
-        if (key === 'dimensions' || key === 'weightKg') {
-          if (!ctx.sideSlot) { toast('Габариты правятся в карточке изделия.', { ms: 5000 }); return; }
+        if (key === 'dimensions' || key === 'weightKg' || key === 'length' || key === 'width' || key === 'height' || key === 'weight') {
           openDimsInBook(ctx.sideSlot, pid, { onDone: afterSide });
           return;
         }
         if (key === 'composition') {
-          if (!ctx.sideSlot) return;
           openCompositionInBook(ctx.sideSlot, pid, { onDone: afterSide });
           return;
         }
-        if (key === 'installation') {
-          if (!ctx.sideSlot) return;
-          openInstallationInBook(ctx.sideSlot, pid, { onDone: afterSide });
+        if (key === 'installation' || key === 'installationTypeId' || key === 'install') {
+          openInstallationInBook(ctx.sideSlot, pid, {
+            focus: key === 'installationTypeId' ? 'installationTypeId' : 'text',
+            onDone: afterSide,
+          });
+          return;
+        }
+        if (key === 'foundationDepth') {
+          // глубина Г — отдельный пункт очереди; тот же слот монтажа с фокусом на поле
+          openInstallationInBook(ctx.sideSlot, pid, { focus: 'foundationDepth', onDone: afterSide });
+          return;
+        }
+        if (key === 'purpose') {
+          openPurposeInBook(ctx.sideSlot, pid, { onDone: afterSide });
+          return;
+        }
+        if (DEFAULT_NUM_KEYS.has(key)) {
+          openDefaultsNumInBook(ctx.sideSlot, pid, key, { onDone: afterSide });
           return;
         }
         const page = pageForKey(ctx.pagesEl, key);
