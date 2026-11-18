@@ -384,10 +384,10 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
         Dim massKg As Double = ModelMassKg(model)
         Dim productId As String = UploadPassportImages(model, folder, dimensions, depthMm, massKg, stage)
         If productId <> "" Then
-            MessageBox.Show("Три рисунка загружены на сайт. Сейчас откроется карточка изделия. Если книжка паспорта уже открыта, закройте её и откройте заново.", "Картинки для паспорта")
-            ' C141: после загрузки — карточка изделия; правка паспорта — «⋯ → Изменить паспорт» (книжка)
-            stage = "Открытие изделия на сайте"
-            Dim productUrl As String = APP_BASE & "#products?open=" & productId
+            MessageBox.Show("Три рисунка загружены на сайт. Сейчас откроется редактор паспорта этого изделия.", "Картинки для паспорта")
+            ' После загрузки — эталонная книжка, приоритет у последнего черновика изделия.
+            stage = "Открытие редактора паспорта"
+            Dim productUrl As String = APP_BASE & "#products?bookFor=" & productId
             System.Diagnostics.Process.Start(New System.Diagnostics.ProcessStartInfo(productUrl) With {.UseShellExecute = True})
             Return
         End If

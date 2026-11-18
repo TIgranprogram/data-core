@@ -59,6 +59,21 @@ describe('Новые эндпоинты 2026-11-01', () => {
   };
 
   describe('1. preview и check (шаблон)', () => {
+    it('GET паспорта: предпросмотр наследует все рисунки изделия с URL без записи в images', async () => {
+      const pid = await mkProduct('Наследуемые рисунки');
+      for (const kind of ['overview', 'dimensions', 'foundation']) await addImg(pid, kind);
+      const created = (await http().post('/api/passports').set(A()).send({ productId: pid, supplierOrgId: orgId }).expect(201)).body;
+      const result = (await http().get('/api/passports/' + created.id).set(A()).expect(200)).body;
+      expect(result.images).toEqual([]);
+      expect(result.effectiveImages).toHaveLength(3);
+      for (const kind of ['overview', 'dimensions', 'foundation']) {
+        expect(result.effectiveImages).toEqual(expect.arrayContaining([expect.objectContaining({
+          kind, fromProduct: true, url: '/uploads/' + imageName,
+        })]));
+      }
+      const stored = await db().collection('productpassports').findOne({ _id: new Types.ObjectId(created.id) });
+      expect(stored?.images || []).toEqual([]);
+    });
     it('POST /passports/preview: PDF без записи в базу; short и full; без категории — 400; менеджеру доступен, пользователю — 403', async () => {
       const pid = await mkProduct('Урна предпросмотр');
       await addImg(pid);

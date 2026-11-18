@@ -42,7 +42,7 @@ export function v2Body(v) {
     ...Object.fromEntries(V2_NUMS.filter(([k]) => v[k] !== null && v[k] !== undefined && v[k] !== '').map(([k]) => [k, v[k]])),
   };
   if (v.passportCategory) b.passportCategory = v.passportCategory;
-  if (v.installationTypeId) b.installationTypeId = v.installationTypeId;
+  if (v.installationTypeId !== undefined) b.installationTypeId = v.installationTypeId || null;
   // сертификат (Э9): без номера — пусто (ЕАС без номера не ставим)
   b.certificate = v.certNumber ? { number: String(v.certNumber).trim(), ...(v.certUntil ? { until: v.certUntil } : {}), hasEac: v.certEac === 'yes' } : {};
   return b;
@@ -188,7 +188,7 @@ export const passportForm = {
   },
   toInitial: (r) => ({ ...r, saleDate: r.saleDate ? String(r.saleDate).slice(0, 10) : '', installedAt: r.installedAt ? String(r.installedAt).slice(0, 10) : '', height: num(r.height), length: num(r.length), width: num(r.width), weight: num(r.weight), warrantyMonths: num(r.warrantyMonths), bom: bomRows(r.bom),
     ...v2Initial(r), _manualText: r.manualText?.length ? 'yes' : 'no', _mspec: r.materialsSpec || '',
-    ...Object.fromEntries(kinds().map(([kind]) => ['img_' + kind, imgsOf(r, kind).filter((i) => i.url).map((i) => ({ id: String(i.photoId), url: i.url, thumb: i.url }))])) }),
+    ...Object.fromEntries(kinds().map(([kind]) => ['img_' + kind, imgsOf({ images: r.images }, kind).filter((i) => i.url).map((i) => ({ id: String(i.photoId), url: i.url, thumb: i.url }))])) }),
   // ФП: картинки — каждая в своём виде (formImages); у модели они уже разложены в форме (_imgsFrom) — отправляем как есть
   toBody: (v, r) => {
     const s = (x) => (x === null || x === undefined ? '' : String(x));

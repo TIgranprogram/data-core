@@ -13116,7 +13116,7 @@
     "/client-errors": {
       "post": {
         "operationId": "ClientErrorsController_create",
-        "summary": "Сообщить об ошибке в приложении (без данных форм)",
+        "summary": "Сообщить об ошибке в приложении или лог ИИ (kind=integration)",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -13136,7 +13136,7 @@
             "description": "Лишнее поле, нет message или неверный kind"
           },
           "403": {
-            "description": "Вход по ключу kppd_"
+            "description": "Ключ kppd_ с kind≠integration"
           }
         },
         "tags": [
@@ -13161,7 +13161,7 @@
         ],
         "responses": {
           "200": {
-            "description": "{ items: [{ sig, count, users, lastAt, message, name, section, action, url, status, version, sampleStack }] } по убыванию count"
+            "description": "{ items: [{ sig, count, users, lastAt, message, name, section, action, url, status, version, sampleStack, kind }] } по убыванию count"
           }
         },
         "tags": [
@@ -22525,9 +22525,10 @@
               "background",
               "unhandled",
               "slow",
-              "garbage"
+              "garbage",
+              "integration"
             ],
-            "description": "action — действие человека, background — фоновая загрузка, unhandled — необработанная, slow — медленный экран (message «Медленно: <раздел> <мс> мс»), garbage — служебный мусор в тексте экрана ({…}, undefined, null)"
+            "description": "action — действие человека, background — фоновая загрузка, unhandled — необработанная, slow — медленный экран, garbage — мусор в тексте экрана, integration — лог ИИ/скрипта по ключу kppd_"
           },
           "status": {
             "type": "number",

@@ -12,7 +12,7 @@ import { normalizeCategory, type PassportCategory } from './passport-template-se
 import { DEFAULT_PASSPORT_TEMPLATE, type PassportTemplateContent } from './passport-template.default';
 import { CreateProductPassportDto } from './dto/create-product-passport.dto';
 import { UpdateProductPassportDto } from './dto/update-product-passport.dto';
-import { mergeProductImages, type PassportImageLike, type ProductImageRow } from './passport-product-images';
+import { mergeProductImages, presentEffectiveImages, type PassportImageLike, type ProductImageRow } from './passport-product-images';
 import { IMAGE_KIND_LABELS, INSTANCE_FIELD_KEYS, missingHint, DEFAULT_BOM, buildDescription, dayUtc, missingFieldsV2, imageRules, nextSeq, warrantyCodeFor, type CounterColl, missingKeyed } from './passport-rules';
 import { standardWarnings, standardsDict, type StandardDoc } from './passport-compose';
 import type { DictRec } from './passport-compose-parts';
@@ -150,10 +150,13 @@ export class ProductPassportService {
     const productCategory = prod ? (await productCategories(this.connection.db!, [prod._id])).get(String(prod._id)) ?? null : null;
     const fromProduct = !!prod && followsProduct(doc);
     const fromProductFields = fromProduct ? Object.keys(await productPatch(this.connection.db!, prod as Doc)) : [];
-    const photoIds = ((doc.images as Array<{ photoId: Types.ObjectId }>) || []).map((i) => i.photoId);
+    const eff = await this.effectiveImages(doc);
+    const ownImages = (doc.images as Doc[]) || [];
+    const photoIds = [...ownImages, ...eff].map((i) => i.photoId as Types.ObjectId);
     const photos = photoIds.length ? await this.connection.collection('photos').find({ _id: { $in: photoIds } }, { projection: { storageUrl: 1, thumbId: 1 } }).toArray() : [];
     const url = new Map(photos.map((p) => [String(p._id), p.storageUrl as string]));
     const images = ((doc.images as Array<Doc>) || []).map((i) => ({ ...i, url: url.get(String(i.photoId)) ?? null }));
+    const effectiveImages = presentEffectiveImages(ownImages, eff, url);
     const supplierOrg = doc.supplierOrgId ? await this.connection.collection('organizations').findOne({ _id: doc.supplierOrgId as Types.ObjectId }, { projection: { name: 1, shortName: 1, assets: 1 } }) : null;
     const cat = doc.passportCategory ? (await this.categoryRules()).get(String(doc.passportCategory)) : null;
     // v2: предупреждения по нормативам из снимка (статус не «действует», проверка старше года)
@@ -168,11 +171,10 @@ export class ProductPassportService {
     const vopts = { variant: 'short' as const, install: installKindOf(instRec) };
     const rules = imageRules(doc as never, cat, { category: String(doc.passportCategory ?? ''), ...vopts });
     const requiredImages = rules.required.map((k) => (k === 'safety_zone' ? 'safety' : k));
-    const eff = await this.effectiveImages(doc);
     const productImageKinds = [...new Set(eff.filter((i) => !((doc.images as Doc[]) || []).includes(i as never)).map((i) => String(i.kind)))];
     const choiceMissing = await this.choiceMissing(doc);
     const revisionList = await this.revisionList(doc);
-    return { ...doc, ...presentPrint(doc), ...(revisionList.length ? { revisionList } : {}), productImageKinds, imageSlots: rules.slots, fromProduct, fromProductFields, productCategory, categoryDiffers: !!productCategory && !!doc.passportCategory && productCategory !== doc.passportCategory, images, standardImages, requiredImages, missing: [...missingFieldsV2({ ...doc, images: [...eff, ...std] } as never, cat, vopts), ...choiceMissing.map((m) => m.label), ...jointsMissing(doc).map((m) => m.label)], ...(choiceMissing.length ? { missingChoices: choiceMissing } : {}), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
+    return { ...doc, ...presentPrint(doc), ...(revisionList.length ? { revisionList } : {}), productImageKinds, imageSlots: rules.slots, fromProduct, fromProductFields, productCategory, categoryDiffers: !!productCategory && !!doc.passportCategory && productCategory !== doc.passportCategory, images, effectiveImages, standardImages, requiredImages, missing: [...missingFieldsV2({ ...doc, images: [...eff, ...std] } as never, cat, vopts), ...choiceMissing.map((m) => m.label), ...jointsMissing(doc).map((m) => m.label)], ...(choiceMissing.length ? { missingChoices: choiceMissing } : {}), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
   }
 
   /** Что задаёт изделие в паспорте-черновике (только отличия от `cur`); пусто — паспорт без изделия или выдан. */

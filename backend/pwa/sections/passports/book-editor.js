@@ -25,9 +25,10 @@ import { SRC_LABEL } from './card-blocks.js';
 const hhmm = () => new Date().toTimeString().slice(0, 5);
 
 /** Открыть окно паспорта. onClose(row, changed) — после закрытия. */
-export async function openBookEditor(passport, { onClose } = {}) {
+export async function openBookEditor(passport, { onClose, isCurrent = () => true } = {}) {
   let row;
-  try { row = await api('/passports/' + (passport.id || passport)); } catch (e) { toastError(e); return; }
+  try { row = await api('/passports/' + (passport.id || passport)); } catch (e) { toastError(e); return false; }
+  if (!isCurrent()) return false;
   const S = { r: row, changed: false, cur: null, fit: true };
   // править можно, если есть право на работу с паспортами и он не аннулирован; номер изделия — только администратор/владелец (как на сервере)
   const can = canWorkPassport() && statusOf(row) !== 'annulled';

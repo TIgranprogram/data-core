@@ -15,31 +15,31 @@ export function mountBookChoices(host, ctx) {
   let funnel = null;
   let funnelBox = null;
   let saving = false;
+  let pending = null;
   let timer = 0;
   let productPath = '';
 
-  const reload = async () => {
-    try { ctx.S.r = await api('/passports/' + ctx.pid()); } catch (e) { toastError(e); return false; }
-    ctx.S.changed = true;
-    ctx.onChanged?.();
-    return true;
-  };
-
   const saveChoices = async () => {
     if (!funnel || saving || !ctx.can) return;
-    const choices = JSON.parse(funnel.value || '{}');
-    const cur = ctx.S.r.textChoices || {};
-    const inst = funnel.installTypeId?.() || '';
-    const same = JSON.stringify(choices) === JSON.stringify(cur) && (!inst || String(ctx.S.r.installationTypeId || '') === String(inst));
-    if (same) return;
     saving = true;
     try {
-      const body = { textChoices: choices };
-      if (inst) body.installationTypeId = inst;
-      await ctx.lock(() => ctx.patchPassport(body));
-      await reload();
-    } catch (e) { toastError(e); paint(); }
-    finally { saving = false; }
+      while (pending) {
+        const { choices, inst } = pending;
+        pending = null;
+        const same = JSON.stringify(choices) === JSON.stringify(ctx.S.r.textChoices || {}) && (!inst || String(ctx.S.r.installationTypeId || '') === String(inst));
+        if (same) continue;
+        const body = { textChoices: choices };
+        if (inst) body.installationTypeId = inst;
+        await ctx.lock(() => ctx.patchPassport(body));
+        ctx.S.r = await api('/passports/' + ctx.pid());
+        ctx.S.changed = true;
+      }
+      ctx.onChanged?.();
+    } catch (e) { toastError(e); }
+    finally {
+      saving = false;
+      if (pending) timer = setTimeout(saveChoices, 0);
+    }
   };
 
   async function loadProductPath() {
@@ -52,6 +52,7 @@ export function mountBookChoices(host, ctx) {
   }
 
   async function paint() {
+    if (saving || pending) return;
     if (!ctx.can) { host.replaceChildren(); host.hidden = true; return; }
     host.hidden = false;
     const r = ctx.S.r;
@@ -65,6 +66,7 @@ export function mountBookChoices(host, ctx) {
       facetFirst: true,
     });
     funnel.el.addEventListener('change', () => {
+      pending = { choices: JSON.parse(funnel.value || '{}'), inst: funnel.installTypeId?.() || '' };
       clearTimeout(timer);
       timer = setTimeout(saveChoices, 450);
     });

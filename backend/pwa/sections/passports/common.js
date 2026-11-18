@@ -117,7 +117,7 @@ export function buildDescription(v) {
 }
 // safety_zone (v2) показываем в «Зоне безопасности» (safety); без вида — в «Общем виде»
 export const kindOf = (i) => (i.kind === 'safety_zone' ? 'safety' : i.kind || 'overview');
-export const imgsOf = (r, kind) => (r.images || []).filter((i) => kindOf(i) === kind).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+export const imgsOf = (r, kind) => (r.effectiveImages || r.images || []).filter((i) => kindOf(i) === kind).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 /** Комплектность в форме — таблица (ui/rows-table.js) ↔ bom [{ pos, code, name, qty, unit, note }]. */
 export const BOM_COLS = [
   { key: 'code', label: 'Обозначение', width: '16%', placeholder: 'И-1' },

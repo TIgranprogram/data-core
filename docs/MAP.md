@@ -151,3 +151,6 @@ C098: backend/pwa/ui/kit/{list,auto-more}.js — общий scroll-root табл
 
 ### C146 — категории модулей (2026-11-18)
 Существующий маршрут `/api/dicts/:key`: ключ `moduleCategories` читает/пишет `categories` с `type: module`; использование и переназначение — `productmodules.categoryId`. Регистрация — `dicts.defs.ts`, `dicts.meta.ts`. Ответ списка справочника для роли с ограничением склада дополнен `dict.readOnly: true` (серверный запрет записи прежний). Категории деталей выбираются в `parts.js` и `book-composition-funnel.js`, существующее поле `materials.categoryId`.
+
+### C147 — предпросмотр рисунков и вход в книжку (2026-11-18)
+GET /api/passports/:id дополнен effectiveImages (URL и fromProduct) для предпросмотра. images остаётся собственным списком для записи. Источник — product-passport.service.ts и passport-product-images.ts; потребители — common.js, book-images.js, card-blocks.js. Форма редактирования читает только images. Прямой вход из Inventor — #products?bookFor=<productId>, общий openBookForProduct.

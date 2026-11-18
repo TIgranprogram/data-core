@@ -12,6 +12,7 @@ import { patchProduct } from '../products/data.js';
 import { dictRows, V2_NUMS } from './common.js';
 import { putDefaults } from './funnel/api.js';
 import { sidePanel, aiFocusPrompt, copyAiText } from './book-shared.js';
+import { installationTextPicker } from './installation-text.js';
 
 /** Снимок таблицы материалов для мини-промпта ИИ. */
 function materialsAiContext(prod, dicts, specW) {
@@ -167,7 +168,8 @@ export async function openDimsInBook(slot, productId, { onDone } = {}) {
       label: 'Сохранить в изделие', kind: 'secondary', size: 'S', disabled: !session.canEdit,
       onClick: async () => {
         try {
-          const v = form.values;
+          const { values: v } = form.read();
+          if (!v) return;
           await patchProduct(productId, {
             dimensions: { length: +v.length || 0, width: +v.width || 0, height: +v.height || 0, unit: d.unit || 'мм' },
             weightKg: +v.weightKg || 0,
@@ -217,18 +219,20 @@ export async function openInstallationInBook(slot, productId, { focus = 'text', 
     );
     const instOpts = [['', 'Выберите…'], ...instRows.map((r) => [String(r.id || r._id), r.name || r.title || '—'])];
     let installTypeId = pd.installationTypeId ? String(pd.installationTypeId) : '';
+    const fillInstallation = installationTextPicker(form, instRows, installTypeId);
     const typeSel = field('Способ установки', select({
       label: 'Способ установки',
       options: instOpts,
       value: installTypeId,
       disabled: !session.canEdit,
-      onChange: (v) => { installTypeId = v; },
+      onChange: (v) => { installTypeId = v; fillInstallation(v); },
     }));
     const save = button({
       label: 'Сохранить в изделие', kind: 'secondary', size: 'S', disabled: !session.canEdit,
       onClick: async () => {
         try {
-          const v = form.values;
+          const { values: v } = form.read();
+          if (!v) return;
           const depthRaw = String(v.foundationDepth ?? '').trim();
           const depth = depthRaw === '' ? null : Number(String(depthRaw).replace(',', '.'));
           if (depthRaw && (depth == null || !Number.isFinite(depth) || depth < 0)) {
@@ -247,15 +251,14 @@ export async function openInstallationInBook(slot, productId, { focus = 'text', 
     const back = button({ label: 'К подсказкам', kind: 'ghost', size: 'S', onClick: () => done({ saved: false }) });
     const title = focus === 'foundationDepth' ? 'Глубина Г' : (focus === 'installationTypeId' ? 'Способ установки' : 'Монтаж');
     const aiStatus = h('p', { class: 'hint bk-toc-hint', 'aria-live': 'polite' });
-    const instName = instRows.find((r) => String(r.id || r._id) === installTypeId)?.name || '—';
-    const aiBtn = focusAiBtn('install', {
+    const aiBtn = focusAiBtn('install', () => ({
       productLabel: [prod.article, prod.name].filter(Boolean).join(' — '),
       rowsText: [
-        `Текст монтажа: ${prod.installation || '—'}`,
-        `Способ установки: ${instName}`,
-        `Глубина Г, мм: ${pd.foundationDepth ?? '—'}`,
+        `Текст монтажа: ${form.get('installation') || '—'}`,
+        `Способ установки: ${instRows.find((r) => String(r.id || r._id) === installTypeId)?.name || '—'}`,
+        `Глубина Г, мм: ${form.get('foundationDepth') ?? '—'}`,
       ].join('\n'),
-    }, aiStatus);
+    }), aiStatus);
     slot.replaceChildren(sidePanel(title,
       h('div', { class: 'bk-ed-row' }, save, back, aiBtn),
       aiStatus,
@@ -287,7 +290,9 @@ export async function openPurposeInBook(slot, productId, { onDone } = {}) {
       label: 'Сохранить в изделие', kind: 'secondary', size: 'S', disabled: !session.canEdit,
       onClick: async () => {
         try {
-          await patchProduct(productId, { purpose: form.values.purpose || '' });
+          const { values } = form.read();
+          if (!values) return;
+          await patchProduct(productId, { purpose: values.purpose || '' });
           toast('Назначение записано в изделие.');
           done({ saved: true });
         } catch (e) { toastError(e, 'сохранить назначение'); }
@@ -322,7 +327,9 @@ export async function openDefaultsNumInBook(slot, productId, key, { onDone } = {
       label: 'Сохранить в изделие', kind: 'secondary', size: 'S', disabled: !session.canEdit,
       onClick: async () => {
         try {
-          const raw = String(form.values[key] ?? '').trim();
+          const { values } = form.read();
+          if (!values) return;
+          const raw = String(values[key] ?? '').trim();
           const n = raw === '' ? null : Number(String(raw).replace(',', '.'));
           if (raw && (n == null || !Number.isFinite(n) || n < 0)) {
             toast('Введите число не меньше нуля', { error: true }); return;

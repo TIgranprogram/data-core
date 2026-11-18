@@ -14,6 +14,7 @@ export function imageStrip(ctx, kind, label, full) {
   const { S, can } = ctx;
   const r = S.r;
   const list = imgsOf(r, kind);
+  const inherited = list.some((i) => i.fromProduct);
   const std = (r.standardImages || []).filter((x) => x.kind === kind && x.url);
   const mutate = (change) => {
     const run = () => ctx.exclusive(async () => {
@@ -28,12 +29,13 @@ export function imageStrip(ctx, kind, label, full) {
   const wrap = h('div', { class: 'bk-imgs' + (full ? ' bk-imgs-full' : ''), 'data-focus': 'img_' + kind, 'data-img-kind': kind });
   list.forEach((i) => wrap.append(h('figure', { class: 'bk-fig' },
     i.url ? h('img', { src: PREFIX + i.url, alt: i.caption || label }) : h('span', { class: 'muted' }, 'нет файла'),
-    can ? iconButton({ icon: '×', label: 'Убрать картинку', size: 'S', onClick: async () => {
+    can && !i.fromProduct ? iconButton({ icon: '×', label: 'Убрать картинку', size: 'S', onClick: async () => {
       if (!(await confirmDlg('Убрать картинку?', label + ': картинка исчезнет из паспорта.', { okText: 'Убрать' }))) return;
       try { await mutate((all) => all.filter((x) => String(x.photoId) !== String(i.photoId))); ctx.rerender(); } catch (e) { toastError(e); }
     } }) : null)));
   if (!list.length && std.length) wrap.append(h('p', { class: 'bk-mark' }, 'Стандартная схема попадёт в паспорт; своя картинка её заменит.'), ...std.map((i) => h('figure', { class: 'bk-fig' }, h('img', { src: PREFIX + i.url, alt: label }))));
   if (!list.length && !std.length) wrap.append(h('p', { class: 'bk-noimg' }, (isRequired(r, kind) ? 'Нет картинки — обязательна. ' : 'Нет картинки. ') + label));
-  if (can) wrap.append(photoDrop({ attach: async (photoId) => { await mutate((all) => [...all, { kind, photoId }]); return S.r; }, done: () => ctx.rerender(), idleText: list.length ? 'Добавить ещё или заменить: перетащите / Ctrl+V' : 'Перетащите или вставьте Ctrl+V' }));
+  if (inherited) wrap.append(h('p', { class: 'hint' }, 'Рисунок из изделия. Обновляется через Inventor.'));
+  if (can && !inherited) wrap.append(photoDrop({ attach: async (photoId) => { await mutate((all) => [...all, { kind, photoId }]); return S.r; }, done: () => ctx.rerender(), idleText: list.length ? 'Добавить ещё или заменить: перетащите / Ctrl+V' : 'Перетащите или вставьте Ctrl+V' }));
   return wrap;
 }

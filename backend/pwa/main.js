@@ -517,6 +517,9 @@ function render(c) {
     mounted.list.update?.(params);
   }
   syncCard(section, params);
+  if (section === 'products' && params.bookFor) {
+    import('./sections/passports/book-entry.js').then((m) => m.openProductBookLink(params.bookFor)).catch((e) => console.error('Открытие книжки', e));
+  }
 }
 
 /** Открыть запись: в адрес (для «Назад» и ссылки) шагом «карточка»; соседняя запись в открытой карточке — без нового шага. */

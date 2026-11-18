@@ -58,21 +58,21 @@ function wireMaterials(api, { r, md, ctx }) {
   let auto = '';
   // текст «наш» (его можно заменять собранным): пусто, подставлен программой или совпал с собранным; правка человека — не наш
   let ours = !String(ta.value || '').trim();
-  const again = button({ label: '↻ Собрать заново из таблицы', kind: 'ghost', size: 'S', onClick: () => { if (!auto) return; ours = true; api.set('materials', auto); paint(); } });
+  const again = button({ label: '↻ Собрать заново из таблицы', kind: 'ghost', size: 'S', onClick: () => { ours = true; api.set('materials', auto); paint(); } });
   const note = h('div', { class: 'ms-auto', hidden: true });
   (api.field('materials') || ta.parentElement)?.append(note);
   const hid = api.field('materialIds'); if (hid) hid.hidden = true; // служебное поле: метки — из таблицы
   const paint = () => {
     const v = String(ta.value || '').trim();
     if (auto && v === auto) ours = true;
-    note.hidden = !auto;
+    note.hidden = !auto && ours;
     note.replaceChildren(...(ours ? ['собрано автоматически из таблицы'] : ['изменено вручную — таблица текст не меняет · ', again]));
     ta.classList.toggle('is-default', !!auto && ours && v === auto);
   };
   ta.addEventListener('input', (e) => { if (e.isTrusted) ours = false; paint(); });
   ms.onText = (t) => {
     auto = t;
-    if (t && ours && String(ta.value || '').trim() !== t) api.set('materials', t);
+    if (ours && String(ta.value || '').trim() !== t) api.set('materials', t);
     paint();
   };
   // метки материалов — из таблицы; пока таблицу не трогали и она пуста — прежние метки паспорта остаются

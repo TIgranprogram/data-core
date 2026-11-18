@@ -2,6 +2,15 @@
 export interface ProductImageRow { kind?: string | null; photoId?: unknown; sortOrder?: number | null; caption?: string | null }
 export interface PassportImageLike { kind?: string; photoId?: unknown; order?: number; caption?: string; refCode?: string; [k: string]: unknown }
 
+/** Данные для предпросмотра, отдельно от собственных images[], которые клиент может записывать. */
+export function presentEffectiveImages(own: PassportImageLike[], effective: PassportImageLike[], urls: Map<string, string>) {
+  return effective.map((image) => ({
+    ...image,
+    url: urls.get(String(image.photoId)) ?? null,
+    fromProduct: !own.includes(image),
+  }));
+}
+
 // safety (форма v1) и safety_zone (v2) — один вид
 const norm = (k?: string | null) => (k === 'safety' ? 'safety_zone' : k || 'overview');
 

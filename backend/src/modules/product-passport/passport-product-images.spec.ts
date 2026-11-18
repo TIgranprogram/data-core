@@ -1,4 +1,4 @@
-import { mergeProductImages } from './passport-product-images';
+import { mergeProductImages, presentEffectiveImages } from './passport-product-images';
 
 describe('mergeProductImages', () => {
   const own = [{ kind: 'overview', photoId: 'o1', order: 0 }, { kind: 'dimensions', photoId: 'd1', order: 1 }, { kind: 'safety', photoId: 's1', order: 2 }];
@@ -18,5 +18,16 @@ describe('mergeProductImages', () => {
   it('несколько рисунков одного вида идут по sortOrder изделия', () => {
     const r = mergeProductImages([{ kind: 'assembly', photoId: 'a2', sortOrder: 1 }, { kind: 'assembly', photoId: 'a1', sortOrder: 0 }], []);
     expect(r.map((x) => x.order)).toEqual([1, 0]);
+  });
+  it('предпросмотр наследует рисунок с URL, не копируя его в собственный список паспорта', () => {
+    const effective = mergeProductImages([{ kind: 'overview', photoId: 'p1' }], own);
+    const result = presentEffectiveImages(own, effective, new Map([['p1', '/uploads/p1.png'], ['d1', '/uploads/d1.png']]));
+    expect(result[0]).toMatchObject({ kind: 'overview', photoId: 'p1', url: '/uploads/p1.png', fromProduct: true });
+    expect(result.find((x) => x.photoId === 'd1')).toMatchObject({ url: '/uploads/d1.png', fromProduct: false });
+    expect(result.find((x) => x.photoId === 's1')).toMatchObject({ url: null, fromProduct: false });
+    expect(own[0].photoId).toBe('o1');
+  });
+  it('выданный список, переданный без наследования, остаётся собственным', () => {
+    expect(presentEffectiveImages(own, own, new Map()).every((x) => x.fromProduct === false)).toBe(true);
   });
 });

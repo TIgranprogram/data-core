@@ -22,15 +22,17 @@ export async function findProductPassport(productId) {
  * Открыть книжку по изделию: есть паспорт → он; нет → создать черновик и открыть.
  * extra — поля POST /passports (supplierOrgId, salesOrderId, incomeId, …).
  */
-export async function openBookForProduct(productId, { extra = {}, onClose } = {}) {
+export async function openBookForProduct(productId, { extra = {}, onClose, isCurrent = () => true } = {}) {
   if (!productId) { toast('Нет изделия для паспорта', { error: true }); return null; }
   try {
     let row = await findProductPassport(productId);
+    if (!isCurrent()) return null;
     if (!row) {
       row = await api('/passports', { method: 'POST', body: clean({ productId, ...extra }) });
       toast('Черновик паспорта создан — допишите в книжке и выпустите.');
     }
-    openBookEditor(row, { onClose });
+    const opened = await openBookEditor(row, { onClose, isCurrent });
+    if (opened === false) return null;
     return row;
   } catch (e) {
     toastError(e, 'открыть паспорт');

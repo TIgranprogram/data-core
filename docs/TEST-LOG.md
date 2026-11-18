@@ -191,3 +191,5 @@
 | 2026-11-18 | C141/C142 + fix e2e payerCompany | tsc0; unit 3612; dc check 0 | e2e ✅ 77 наборов, 571 тест, 0 падений (12 skipped); Docker Mongo 4.4 | E2E-SUPPLY-FAIL.md: issue требует Наша компания |
 
 | 2026-11-18 | C146 категории модулей, readOnly, формы деталей и доска | tsc0; unit 349 наборов / 3618 тестов; PWA 244/244; lint0; импорты 341/0 | e2e ✅ dicts на отдельной datacore-test, 1 набор / 5 тестов | crew/C146-module-categories-dict/REPORT.md; UI-REVIEW.md |
+
+| 2026-11-18 | C147 montage, вход Inventor, наследуемые рисунки и соседние подстановки | tsc0; unit 349 наборов / 3622 теста; PWA257/257; guards338/338; импорты343/0; lint0 | e2e ✅ new-endpoints-1101 на datacore-test, 19/19 | crew/C147-book-installation-entry/REPORT.md; UI-REVIEW.md |

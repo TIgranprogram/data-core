@@ -18,19 +18,21 @@ export function imagesBlock(r, ctx) {
   const save = async (images) => {
     try { ctx.setRow(await api(`/passports/${r.id}`, { method: 'PATCH', body: { images: imagesBody(images) } }).then(() => api(`/passports/${r.id}`))); } catch (e) { toastError(e); }
   };
-  const total = (r.images || []).length;
+  const total = (r.effectiveImages || r.images || []).length;
   return section({ title: 'Картинки паспорта', tone: 'info', count: total, cls: 'pp-images', body: kinds(r).map(([kind, label, where]) => {
       const list = imgsOf(r, kind);
+      const inherited = list.some((i) => i.fromProduct);
       const std = (k) => (r.standardImages || []).filter((x) => x.kind === k && x.url);
       return h('div', { class: 'pp-kind', 'data-kind': kind },
         h('div', { class: 'pp-kind-head' }, h('b', null, label), isRequired(r, kind) ? h('span', { class: 'req' }, ' · обязательно') : null, h('span', { class: 'muted' }, ` · ${where}${list.length ? ' · ' + list.length : ''}`)),
         list.length ? h('div', { class: 'pf-strip' }, ...list.map((i) => h('div', { class: 'pf-item' },
           i.url ? h('a', { href: PREFIX + i.url, target: '_blank', rel: 'noopener', title: i.caption || 'Открыть', 'aria-label': `${label}: открыть картинку` }, h('img', { src: PREFIX + i.url, alt: i.caption || label })) : h('span', { class: 'muted' }, 'нет файла'),
-          editable ? h('button', { type: 'button', class: 'pf-del', title: 'Убрать картинку', 'aria-label': 'Убрать картинку', onclick: async () => { if (await confirmDlg('Убрать картинку?', 'Картинка исчезнет из этого черновика.', { okText: 'Убрать' })) await save((r.images || []).filter((x) => x !== i)); } }, '×') : null))) : null,
+          editable && !i.fromProduct ? h('button', { type: 'button', class: 'pf-del', title: 'Убрать картинку', 'aria-label': 'Убрать картинку', onclick: async () => { if (await confirmDlg('Убрать картинку?', 'Картинка исчезнет из этого черновика.', { okText: 'Убрать' })) await save((r.images || []).filter((x) => String(x.photoId) !== String(i.photoId) || x.kind !== i.kind)); } }, '×') : null))) : null,
         // Э9.5: своих нет — стандартная схема способа установки (в паспорт попадёт она; своя загруженная её заменит)
         !list.length && std(kind).length ? h('div', null, h('div', { class: 'hint' }, 'Стандартная схема способа установки — попадёт в паспорт' + (editable ? '; загрузите свою, чтобы заменить' : '')),
           h('div', { class: 'pf-strip' }, ...std(kind).map((i) => h('a', { class: 'pf-item', href: PREFIX + i.url, target: '_blank', rel: 'noopener', 'aria-label': `${label}: стандартная схема` }, h('img', { src: PREFIX + i.url, alt: label }))))) : null,
-        editable ? photoDrop({ attach: async (photoId) => { await save([...(r.images || []), { kind, photoId, order: list.length }]); return r; }, done: () => {} }) : null);
+        inherited ? h('p', { class: 'hint' }, 'Рисунок из изделия. Обновляется через Inventor.') : null,
+        editable && !inherited ? photoDrop({ attach: async (photoId) => { await save([...(r.images || []), { kind, photoId, order: list.length }]); return r; }, done: () => {} }) : null);
     }) });
 }
 
