@@ -1,7 +1,7 @@
 import type { Connection, Types } from 'mongoose';
 
-/** Коллекции действующего каталога, в чьих `composition[]` может стоять ссылка на запись справочника. */
-export const COMPOSITION_OWNER_COLLECTIONS = ['products', 'productmodules'] as const;
+/** Коллекции действующего каталога, в чьих `composition[]` может стоять ссылка на запись справочника. C127: + materials (состав детали). */
+export const COMPOSITION_OWNER_COLLECTIONS = ['products', 'productmodules', 'materials'] as const;
 
 /**
  * Защита удаления (T1): используется ли запись в составе изделий/модулей.

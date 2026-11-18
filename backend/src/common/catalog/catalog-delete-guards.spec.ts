@@ -6,7 +6,7 @@ import { ProductModuleService } from '../../modules/product-module/product-modul
 import { WorkTypeService } from '../../modules/work-type/work-type.service';
 
 /**
- * Защита удаления справочников: действующий каталог (products / productmodules)
+ * Защита удаления справочников: действующий каталог (products / productmodules / materials)
  * + таблицы CRM kppdf, который с 2026-10-18 работает на той же базе.
  */
 
@@ -48,19 +48,19 @@ const cases: { title: string; make: Remover; owners: string[]; crm: string[] }[]
   {
     title: 'MaterialService',
     make: (m) => new MaterialService(m as never, {} as never, {} as never, {} as never, undefined),
-    owners: ['products', 'productmodules'],
+    owners: ['products', 'productmodules', 'materials'],
     crm: ['costcalculations', 'purchaseorders'],
   },
   {
     title: 'ProductService',
     make: (m) => new ProductService(m as never, {} as never, {} as never, {} as never, {} as never, {} as never, {} as never, {} as never),
-    owners: ['products', 'productmodules'],
+    owners: ['products', 'productmodules', 'materials'],
     crm: ['orders', 'quotations', 'costcalculations', 'boms'],
   },
   {
     title: 'ProductModuleService',
     make: (m) => new ProductModuleService(m as never, {} as never, {} as never, {} as never, undefined, {} as never),
-    owners: ['products', 'productmodules'],
+    owners: ['products', 'productmodules', 'materials'],
     crm: ['boms'],
   },
   {
@@ -98,6 +98,8 @@ describe('фильтры поиска ссылок в составе', () => {
     expect(pm).toEqual({ $or: [{ composition: { $elemMatch: { lineType: 'material', refId: id } } }, { 'materials.materialId': id }] });
     const pr = calls.find((c) => c.name === 'products')!.filter;
     expect(pr).toEqual({ $or: [{ composition: { $elemMatch: { lineType: 'material', refId: id } } }] });
+    const mat = calls.find((c) => c.name === 'materials')!.filter;
+    expect(mat).toEqual({ $or: [{ composition: { $elemMatch: { lineType: 'material', refId: id } } }] });
   });
 
   it('модуль: products учитывает старое поле productModuleIds', async () => {
