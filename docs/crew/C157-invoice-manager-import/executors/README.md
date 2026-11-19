@@ -7,8 +7,11 @@
 Имена и SHA-256 копий:
 
 - `c157-no8-recovery.mjs`: `11217e42ed768193e1373af3ef08deff2204fea46ca072482a08a7bedf418f9d`
-- `c157-remaining9-import.mjs`: `20f4b1f6fb13714a23c131570f67f49c9f71d9f326b218e5b1182e217df62f4a`
-- `c157-remaining9-targeted-read.py`: `9ee9755dc85567140dbc2b31d9072a4f708dcf5099df046b9a2a27fa404047a6`
+- `c157-remaining9-import.mjs`: `2a173353527c2919b55a1453f3edde20d97cffaa4b605aec9e0aeec01d720709`
+- `c157-remaining9-targeted-read.py`: `a9be7b291356513d46862b8c01461c85799ed8c39755776e87d02d13d41efca1`
 - `c157-dto-check.cjs`: `67d9720688ccc6d9a510e09c1269e05e6095b61cbbea178a01389f261f0e83cc`
 
 Отдельные .gitattributes запрещают преобразование переводов строк, чтобы проверенный hash сохранялся после Git checkout. Не править копию для обхода проверки: изменение требует нового review и approval.
+
+- `c157-24334-undated-import.mjs`: `055c2c2f2d73347771684ed2285cb0179130cff97e42455846f23e59df8265ab` (24334 DONE, повтор запрещён).
+- `c157-24334-undated-targeted-read.py`: `b7bfeda26e6aef375b95f98b1a0978ef719c3109eefc7616fb33b4e52fc3fd7b` (24334 DONE, повтор запрещён).

@@ -52,6 +52,7 @@ assert.equal(approval.productionWriteApproved,true);assert.equal(approval.releas
 assert.ok(Date.now()-new Date(approval.approvedAt).getTime()>=0&&Date.now()-new Date(approval.approvedAt).getTime()<3600000,'Approval старше часа');
 assert.deepEqual([...approval.numbers].sort(),Object.keys(EXPECTED).sort());
 assert.equal(approval.helperSha256,digest(fs.readFileSync(fileURLToPath(import.meta.url))),'Helper отличается от rootreview');
+const READER=path.join(ROOT,'tools/logs/c157-remaining9-targeted-read.py');assert.equal(approval.readerSha256,digest(fs.readFileSync(READER)),'Reader отличается от rootreview');
 const JOURNAL=path.join(DATA,'remaining9-journal');fs.mkdirSync(JOURNAL,{recursive:true});
 const lock=path.join(JOURNAL,'apply.lock');const lockFd=fs.openSync(lock,'wx');fs.writeSync(lockFd,JSON.stringify({pid:process.pid,at:new Date().toISOString(),planHash}));fs.closeSync(lockFd);
 let activeJournal;
@@ -121,8 +122,9 @@ try{
  assert.equal(api('GET','/api/health').status,'ok');const sw=api('GET','/api/control/switch');assert.equal(sw.mode,'normal');assert.equal(sw.role,'main');assert.ok(!sw.job||['done','failed','cancelled'].includes(sw.job.state));
  const ver=api('GET','/app/version.json');assert.equal(ver.v,approval.expectedUiHash,'На сайте другая UIверсия — остановка');assert.equal(ver.b,approval.expectedBackendCodeHash,'На сайте другой runtimeкод — остановка');assert.equal(ver.n,approval.expectedVersion,'На сайте другой номер версии — остановка');
  // Повторяем ровно уже reviewed narrow remaining9 read, а не общий экспорт.
- const check=spawnSync('python',[path.join(ROOT,'tools/logs/c157-remaining9-targeted-read.py')],{encoding:'utf8',windowsHide:true,timeout:120000,maxBuffer:1000000});assert.equal(check.status,0,'Узкий preflight не выполнен');
+ const check=spawnSync('python',[READER],{encoding:'utf8',windowsHide:true,timeout:120000,maxBuffer:1000000});assert.equal(check.status,0,'Узкий preflight не выполнен');
  const proof=read(path.join(DATA,'remaining9-targeted-readproof.json'));
+ assert.equal(proof.readerSha256,approval.readerSha256);assert.equal(proof.inputSha256,INPUTSHA);
  assert.equal(proof.errors.length,0);for(const d of source){assert.equal(proof.documents[d.no].date,d.date);assert.equal(proof.documents[d.no].supplierInn,d.supplierInn);}assert.ok(proof.deletedProof.total<=20&&proof.deletedProof.total===proof.deletedProof.checked);assert.equal(proof.deletedProof.unknownFlags.length,0,'Удалённые кандидаты не сверены');
  const payer=proof.payer;assert.equal(payer.id,'6ad52bec863df73f344ea489');assert.equal(payer.inn,'2310181417');assert.equal(payer.isOurCompany,true);assert.notEqual(payer.isActive,false);
  const summary=[];

@@ -1,6 +1,6 @@
 # C157 — восстановление №8 и оставшиеся9 документов
 
-19.11.2026. Подготовлено и проверено координатором, **ещё не выполнено**. Действующий общий release-window закрыт до выпуска C163+C165 и независимой проверки новой версии. Никакого автоматического продолжения старого helper.
+20.11.2026. **Выполнено после v1.956 и независимой проверки.** №8 восстановлен без повторного create/upload; остальные9 внесены отдельно. Итог10 документов/277230,89₽, все платежи датированные, остатки0. DONE повторно не выполнять. Первоначальное состояние ниже сохранено как история.
 
 ## Проверенное состояние
 
@@ -12,12 +12,14 @@
 
 - [x] Узкий live read-proof: `data/next10-stop8-readproof.json`.
 - [x] Recovery№8: `data/no8-recovery-plan.json`, planHash `571f87f413c46250d74341e320d8c690ad4764986a9e1a4391bcdfa53311c77b`; helper `tools/logs/c157-no8-recovery.mjs`, SHA `11217e42ed768193e1373af3ef08deff2204fea46ca072482a08a7bedf418f9d`. Root прочитал целиком: ровно header/line/issue/payment по существующимID, без create/upload, свежие read-proof/CAS, отдельный журнал/lock; исходный STOPjournal защищён хешем.
-- [x] Остальные9: `data/remaining9-exact-apply-proposal.json`, planHash `2ea2ade7db45ef5e6924298bdb8ba17314682ea4405115c6649d427e96c07dce`; helper `tools/logs/c157-remaining9-import.mjs`, SHA `20f4b1f6fb13714a23c131570f67f49c9f71d9f326b218e5b1182e217df62f4a`. Root проверил весь diff к прежнему reviewed helper и новый targeted-reader: отдельные approval/journal, №8/первые3/4816/24334 заблокированы, header/issue безversion, line/payment сfreshversion.
+- [x] Остальные9: `data/remaining9-exact-apply-proposal.json`, planHash `2ea2ade7db45ef5e6924298bdb8ba17314682ea4405115c6649d427e96c07dce`; helper `tools/logs/c157-remaining9-import.mjs`, SHA `2a173353527c2919b55a1453f3edde20d97cffaa4b605aec9e0aeec01d720709`. Root проверил весь diff к прежнему reviewed helper и новый targeted-reader: отдельные approval/journal, №8/первые3/4816/24334 заблокированы, header/issue безversion, line/payment сfreshversion.
 - [x] Фактические DTO проверены локально:41payload header/issue/line/payment PASS; отрицательная header.version отклоняется. `tools/logs/c157-dto-check.cjs`, `data/recovery-remaining9-dto-proof.json`, APIcalls0. priceHint — итог строки; не делить на количество.
-- [ ] После нового выпуска проверить runtime/UI/version/health/normal и freshточные исходныеID/версии/фото/платежи. Любое изменение → STOP и новый review.
-- [ ] Координатор создаёт новые конкретные approvalфайлы с актуальной версией, hashhelper/payload и TTL; шаблоны FALSE разрешением не являются.
-- [ ] Access выполняет recovery№8, затем отдельный remaining9. После каждого шага журнал PENDING→DONE и адресная сверка сумм/НДС/платежей/ownledger. Не выполнять приёмку и не менять постоянный НДС поставщика.
-- [ ] На400/409/503/unknown остановиться. Не повторять upload/payment/create; сохранить безопасную причину и read-proof. Старые журналы/FAILEDattempt не переписывать.
-- [ ] Подтвердить итог10документов/11строк/277230,89₽ один раз, без legacyдублей; обновить CHECKLIST/PROCESSING-STATE ссылками на новые успешные журналы. После окна — NO_ACTIVE_WRITE.
+- [x] После нового выпуска проверить runtime/UI/version/health/normal и freshточные исходныеID/версии/фото/платежи. Любое изменение → STOP и новый review.
+- [x] Координатор создаёт новые конкретные approvalфайлы с актуальной версией, hashhelper/payload и TTL; шаблоны FALSE разрешением не являются.
+- [x] Access выполняет recovery№8, затем отдельный remaining9. После каждого шага журнал PENDING→DONE и адресная сверка сумм/НДС/платежей/ownledger. Не выполнять приёмку и не менять постоянный НДС поставщика.
+- [x] На400/409/503/unknown остановиться. Не повторять upload/payment/create; сохранить безопасную причину и read-proof. Старые журналы/FAILEDattempt не переписывать.
+- [x] Подтвердить итог10документов/11строк/277230,89₽ один раз, без legacyдублей; обновить CHECKLIST/PROCESSING-STATE ссылками на новые успешные журналы. После окна — NO_ACTIVE_WRITE.
 
 Статья и ID заказа неизвестны и оставлены для уточнения, исходный контекст сохранён. Услуги не превращаются в складские материалы. Это внесение доказанных исторических оплат в учёт сайта, не банковский перевод.
+
+Фактические доказательства: data/no8-recovery-journal.json, data/remaining9-final-receipt.json и remaining9-journal/*.json. Ни одного повтора исходного STOPjournal; он неизменён. Конечное окно закрыто: NO_ACTIVE_WRITE.
