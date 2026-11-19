@@ -1,0 +1,274 @@
+{
+  "status": "PASS",
+  "stage": "issued-dark",
+  "pageErrors": 0,
+  "traffic": [
+    {
+      "stage": "app-navigation",
+      "method": "GET",
+      "route": "/app/",
+      "status": 200
+    },
+    {
+      "stage": "app-navigation",
+      "method": "GET",
+      "route": "/api/auth/me",
+      "status": 200
+    },
+    {
+      "stage": "app-navigation",
+      "method": "GET",
+      "route": "/api/dicts/passportParts",
+      "status": 200
+    },
+    {
+      "stage": "app-navigation",
+      "method": "GET",
+      "route": "/api/dicts",
+      "status": 200
+    },
+    {
+      "stage": "dictionary-list-api",
+      "method": "GET",
+      "route": "/api/dicts/passportParts",
+      "status": 200
+    },
+    {
+      "stage": "dictionary-list-api",
+      "method": "GET",
+      "route": "/api/dicts/passportParts/6afefa496402b642a66109a0",
+      "status": 200
+    },
+    {
+      "stage": "light-editor",
+      "method": "GET",
+      "route": "/api/dicts/passportParts/6ae32681a3f6de10abf03656",
+      "status": 200
+    },
+    {
+      "stage": "light-editor",
+      "method": "GET",
+      "route": "/api/dicts/passportParts/6ae32681a3f6de10abf03656/usage",
+      "status": 200
+    },
+    {
+      "stage": "dark-editor",
+      "method": "GET",
+      "route": "/api/dicts/passportParts/6ae32681a3f6de10abf03656",
+      "status": 200
+    },
+    {
+      "stage": "dark-editor",
+      "method": "GET",
+      "route": "/api/dicts/passportParts/6ae32681a3f6de10abf03656/usage",
+      "status": 200
+    },
+    {
+      "stage": "qa-fixture-save",
+      "method": "GET",
+      "route": "/api/dicts/passportParts/6afefa496402b642a66109a0",
+      "status": 200
+    },
+    {
+      "stage": "qa-fixture-save",
+      "method": "GET",
+      "route": "/api/dicts/passportParts/6afefa496402b642a66109a0/usage",
+      "status": 200
+    },
+    {
+      "stage": "qa-fixture-save",
+      "method": "PATCH",
+      "route": "/api/dicts/passportParts/6afefa496402b642a66109a0",
+      "status": 200
+    },
+    {
+      "stage": "qa-fixture-reopen",
+      "method": "GET",
+      "route": "/api/dicts/passportParts/6afefa496402b642a66109a0/usage",
+      "status": 200
+    },
+    {
+      "stage": "qa-fixture-reopen",
+      "method": "GET",
+      "route": "/api/dicts/passportParts/6afefa496402b642a66109a0",
+      "status": 200
+    },
+    {
+      "stage": "qa-fixture-reopen",
+      "method": "GET",
+      "route": "/api/dicts/passportParts/6afefa496402b642a66109a0/usage",
+      "status": 200
+    },
+    {
+      "stage": "qa-fixture-restore",
+      "method": "PATCH",
+      "route": "/api/dicts/passportParts/6afefa496402b642a66109a0",
+      "status": 200
+    },
+    {
+      "stage": "qa-fixture-restore",
+      "method": "GET",
+      "route": "/api/dicts/passportParts/6afefa496402b642a66109a0",
+      "status": 200
+    },
+    {
+      "stage": "qa-fixture-restore",
+      "method": "GET",
+      "route": "/api/dicts/passportParts/6afefa496402b642a66109a0/usage",
+      "status": 200
+    },
+    {
+      "stage": "old-window-open",
+      "method": "GET",
+      "route": "/app/",
+      "status": 200
+    },
+    {
+      "stage": "old-window-unsaved-input",
+      "method": "GET",
+      "route": "/api/dicts/passportParts",
+      "status": 200
+    },
+    {
+      "stage": "old-window-unsaved-input",
+      "method": "GET",
+      "route": "/api/auth/me",
+      "status": 200
+    },
+    {
+      "stage": "old-window-unsaved-input",
+      "method": "GET",
+      "route": "/api/dicts",
+      "status": 200
+    },
+    {
+      "stage": "old-window-unsaved-input",
+      "method": "GET",
+      "route": "/api/dicts/passportParts",
+      "status": 200
+    },
+    {
+      "stage": "old-window-unsaved-input",
+      "method": "GET",
+      "route": "/api/dicts/passportParts/6ae32681a3f6de10abf03656",
+      "status": 200
+    },
+    {
+      "stage": "old-window-unsaved-input",
+      "method": "GET",
+      "route": "/api/dicts",
+      "status": 200
+    },
+    {
+      "stage": "old-window-unsaved-input",
+      "method": "GET",
+      "route": "/api/dicts/passportParts/6ae32681a3f6de10abf03656/usage",
+      "status": 200
+    },
+    {
+      "stage": "old-window-return",
+      "method": "GET",
+      "route": "/api/dicts/passportParts/6ae32681a3f6de10abf03656/usage",
+      "status": 200
+    },
+    {
+      "stage": "old-window-return",
+      "method": "GET",
+      "route": "/api/dicts/passportParts/6ae32681a3f6de10abf03656",
+      "status": 200
+    },
+    {
+      "stage": "old-window-return",
+      "method": "GET",
+      "route": "/api/dicts/passportParts/6ae32681a3f6de10abf03656/usage",
+      "status": 200
+    }
+  ],
+  "geometry": [
+    {
+      "stage": "light-editor",
+      "rect": {
+        "x": 849,
+        "y": 0,
+        "width": 576,
+        "height": 920,
+        "top": 0,
+        "right": 1425,
+        "bottom": 920,
+        "left": 849
+      },
+      "innerWidth": 1440,
+      "clientWidth": 1440,
+      "bodyRectRight": 1425,
+      "transform": "none"
+    },
+    {
+      "stage": "dark-editor",
+      "rect": {
+        "x": 849,
+        "y": 0,
+        "width": 576,
+        "height": 920,
+        "top": 0,
+        "right": 1425,
+        "bottom": 920,
+        "left": 849
+      },
+      "innerWidth": 1440,
+      "clientWidth": 1440,
+      "bodyRectRight": 1425,
+      "transform": "none"
+    },
+    {
+      "stage": "qa-fixture-save",
+      "rect": {
+        "x": 849,
+        "y": 0,
+        "width": 576,
+        "height": 920,
+        "top": 0,
+        "right": 1425,
+        "bottom": 920,
+        "left": 849
+      },
+      "innerWidth": 1440,
+      "clientWidth": 1440,
+      "bodyRectRight": 1425,
+      "transform": "none"
+    },
+    {
+      "stage": "qa-fixture-reopen",
+      "rect": {
+        "x": 849,
+        "y": 0,
+        "width": 576,
+        "height": 920,
+        "top": 0,
+        "right": 1425,
+        "bottom": 920,
+        "left": 849
+      },
+      "innerWidth": 1440,
+      "clientWidth": 1440,
+      "bodyRectRight": 1425,
+      "transform": "none"
+    },
+    {
+      "stage": "old-window-return",
+      "rect": {
+        "x": 849,
+        "y": 0,
+        "width": 576,
+        "height": 920,
+        "top": 0,
+        "right": 1425,
+        "bottom": 920,
+        "left": 849
+      },
+      "innerWidth": 1440,
+      "clientWidth": 1440,
+      "bodyRectRight": 1425,
+      "transform": "none"
+    }
+  ]
+}

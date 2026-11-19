@@ -4,15 +4,14 @@
  */
 import { api, session } from '../../core/api.js';
 import { h } from '../../core/dom.js';
-import { button, field, select } from '../../ui/kit/index.js';
+import { button } from '../../ui/kit/index.js';
+import { busyBtn } from '../../ui/kit/busy.js';
+import { confirmDlg } from '../../ui/kit/dialog.js';
 import { toast, toastError } from '../../ui/kit/toast.js';
 import { loadMaterialDicts, materialsSpec, fromComposition } from '../products/form-fields.js';
 import { fromAnalog } from '../products/tech-analogs.js';
 import { patchProduct } from '../products/data.js';
-import { dictRows, V2_NUMS } from './common.js';
-import { putDefaults } from './funnel/api.js';
 import { sidePanel, aiFocusPrompt, copyAiText } from './book-shared.js';
-import { installationTextPicker } from './installation-text.js';
 
 /** Снимок таблицы материалов для мини-промпта ИИ. */
 function materialsAiContext(prod, dicts, specW) {
@@ -65,14 +64,6 @@ function focusAiBtn(kind, buildCtx, statusEl) {
   });
 }
 
-/** Числовые умолчания паспорта: ключ → подпись (и глубина Г). */
-const NUM_LABEL = Object.fromEntries([
-  ...V2_NUMS.map(([k, label]) => [k, label]),
-  ['seatsCount', 'Количество мест'],
-  ['warrantyMonths', 'Гарантия, мес.'],
-  ['foundationDepth', 'Глубина Г (от земли до низа опоры), мм'],
-]);
-
 /** Режим правки в правой колонке: скрыть ИИ/Inventor; wide — только материалы/состав (C143). */
 export function setSideWide(slot, on, { editing = on } = {}) {
   const side = slot?.closest?.('.bk-side');
@@ -84,19 +75,34 @@ export function setSideWide(slot, on, { editing = on } = {}) {
 
 /** Любой короткий слот (габариты, монтаж…) — узкая колонка, без ИИ снизу. */
 function beginEdit(slot) {
+  const token = Symbol();
+  slot._bkOpening = token;
   setSideWide(slot, false, { editing: true });
+  return () => slot.isConnected && slot._bkOpening === token;
 }
 function endEdit(slot) {
+  slot._bkOpening = null;
+  slot._bkLeave = null;
   setSideWide(slot, false, { editing: false });
+}
+
+function protectSide(slot, dirty, save, done) {
+  slot._bkLeave = async () => !save.classList.contains('is-busy') && (!dirty() || await confirmDlg(
+    'Выйти без сохранения?', 'В правой панели есть несохранённые изменения.', { okText: 'Выйти' }));
+  return button({ label: 'Отмена', kind: 'ghost', size: 'S', onClick: async () => {
+    if (await slot._bkLeave?.()) done({ saved: false });
+  } });
 }
 
 /** Показать редактор materialsSpec в слоте книжки. onDone — после сохранения или «Назад». */
 export async function openMaterialsInBook(slot, productId, { focusParts = false, onDone } = {}) {
+  const isCurrent = beginEdit(slot);
   slot.replaceChildren(h('p', { class: 'hint' }, 'Загружаю таблицу материалов…'));
   setSideWide(slot, true, { editing: true });
   const done = (r) => { endEdit(slot); onDone?.(r); };
   try {
     const [prod, dicts] = await Promise.all([api(`/showcase/${productId}`), loadMaterialDicts()]);
+    if (!isCurrent()) return;
     let specW = null;
     const paint = () => {
       specW = materialsSpec({
@@ -108,12 +114,14 @@ export async function openMaterialsInBook(slot, productId, { focusParts = false,
         preview: false, // текст уже на листе книжки — в колонке не дублируем
       });
       // secondary: единственная primary в окне — «Выпустить» (C143 UI-REVIEW)
+      const initial = specW.value;
       const save = button({
         label: 'Сохранить в изделие',
         kind: 'secondary',
         size: 'S',
         disabled: !session.canEdit,
         onClick: async () => {
+          const end = busyBtn(save);
           try {
             specW.validate();
             const body = { materialsSpec: specW.value ? JSON.parse(specW.value) : null };
@@ -122,9 +130,10 @@ export async function openMaterialsInBook(slot, productId, { focusParts = false,
             toast('Материалы сохранены в изделие — паспорт возьмёт их при следующей сборке текстов.');
             done({ saved: true });
           } catch (e) { toastError(e, 'сохранить материалы'); }
+          finally { end(); }
         },
       });
-      const back = button({ label: 'К подсказкам', kind: 'ghost', size: 'S', onClick: () => done({ saved: false }) });
+      const back = protectSide(slot, () => specW.value !== initial, save, done);
       const aiStatus = h('p', { class: 'hint bk-toc-hint', 'aria-live': 'polite' },
         'Нужны части/материалы с фото: скопируйте промпт → чат ИИ → прикрепите фото.');
       const aiBtn = focusAiBtn(focusParts ? 'parts' : 'materials', () => materialsAiContext(prod, dicts, specW), aiStatus);
@@ -143,6 +152,7 @@ export async function openMaterialsInBook(slot, productId, { focusParts = false,
     };
     paint();
   } catch (e) {
+    if (!isCurrent()) return;
     endEdit(slot);
     toastError(e, 'открыть материалы');
     slot.replaceChildren(h('p', { class: 'hint' }, 'Не удалось загрузить материалы.'),
@@ -152,35 +162,45 @@ export async function openMaterialsInBook(slot, productId, { focusParts = false,
 
 /** Короткая форма габаритов/веса в слоте книжки. */
 export async function openDimsInBook(slot, productId, { onDone } = {}) {
-  beginEdit(slot);
+  const isCurrent = beginEdit(slot);
   const done = (r) => { endEdit(slot); onDone?.(r); };
   slot.replaceChildren(h('p', { class: 'hint' }, 'Загружаю…'));
   try {
     const prod = await api(`/showcase/${productId}`);
     const d = prod.dimensions || {};
     const { buildForm } = await import('../../ui/kit/form.js');
+    if (!isCurrent()) return;
+    const initial = { length: d.length ?? '', width: d.width ?? '', height: d.height ?? '', weightKg: prod.weightKg ?? '' };
     const form = buildForm([
       { key: 'length', label: 'Длина, мм', type: 'number', min: 0 },
       { key: 'width', label: 'Ширина, мм', type: 'number', min: 0 },
       { key: 'height', label: 'Высота, мм', type: 'number', min: 0 },
       { key: 'weightKg', label: 'Вес, кг', type: 'number', min: 0 },
-    ], { length: d.length || '', width: d.width || '', height: d.height || '', weightKg: prod.weightKg || '' });
+    ], initial);
     const save = button({
       label: 'Сохранить в изделие', kind: 'secondary', size: 'S', disabled: !session.canEdit,
       onClick: async () => {
+        const end = busyBtn(save);
         try {
           const { values: v } = form.read();
           if (!v) return;
-          await patchProduct(productId, {
-            dimensions: { length: +v.length || 0, width: +v.width || 0, height: +v.height || 0, unit: d.unit || 'мм' },
-            weightKg: +v.weightKg || 0,
-          });
+          const changed = (key) => String(v[key] ?? '') !== String(initial[key]);
+          const dimensions = ['length', 'width', 'height'].filter(changed);
+          const body = {};
+          if (dimensions.length) body.dimensions = {
+            ...d, unit: d.unit || 'мм',
+            ...Object.fromEntries(dimensions.map((key) => [key, v[key] ?? null])),
+          };
+          if (changed('weightKg')) body.weightKg = v.weightKg ?? null;
+          if (!Object.keys(body).length) { done({ saved: false }); return; }
+          await patchProduct(productId, body);
           toast('Габариты и вес записаны в изделие.');
           done({ saved: true });
         } catch (e) { toastError(e, 'сохранить габариты'); }
+        finally { end(); }
       },
     });
-    const back = button({ label: 'К подсказкам', kind: 'ghost', size: 'S', onClick: () => done({ saved: false }) });
+    const back = protectSide(slot, form.dirty, save, done);
     const aiStatus = h('p', { class: 'hint bk-toc-hint', 'aria-live': 'polite' });
     const d0 = prod.dimensions || {};
     const rowsText = [
@@ -197,160 +217,12 @@ export async function openDimsInBook(slot, productId, { onDone } = {}) {
       form.el,
     ));
   } catch (e) {
+    if (!isCurrent()) return;
     toastError(e, 'открыть габариты');
     done({ saved: false });
   }
 }
 
-/** Монтаж: текст изделия + способ установки + глубина Г (passport-defaults). focus — какой блок подсветить. */
-export async function openInstallationInBook(slot, productId, { focus = 'text', onDone } = {}) {
-  beginEdit(slot);
-  const done = (r) => { endEdit(slot); onDone?.(r); };
-  slot.replaceChildren(h('p', { class: 'hint' }, 'Загружаю…'));
-  try {
-    const [prod, instRows] = await Promise.all([api(`/showcase/${productId}`), dictRows('passportInstall')]);
-    const { buildForm } = await import('../../ui/kit/form.js');
-    const pd = prod.passportDefaults || {};
-    const form = buildForm(
-      [
-        { key: 'installation', label: 'Текст монтажа', type: 'textarea', rows: 3, wide: true, max: 1000 },
-        { key: 'foundationDepth', label: 'Глубина Г, мм', type: 'number', min: 0, hint: 'От земли до низа опоры. На схеме фундамента — подпись «Глубина Г».' },
-      ],
-      { installation: prod.installation || '', foundationDepth: pd.foundationDepth ?? '' },
-    );
-    const instOpts = [['', 'Выберите…'], ...instRows.map((r) => [String(r.id || r._id), r.name || r.title || '—'])];
-    let installTypeId = pd.installationTypeId ? String(pd.installationTypeId) : '';
-    const fillInstallation = installationTextPicker(form, instRows, installTypeId);
-    const typeSel = field('Способ установки', select({
-      label: 'Способ установки',
-      options: instOpts,
-      value: installTypeId,
-      disabled: !session.canEdit,
-      onChange: (v) => { installTypeId = v; fillInstallation(v); },
-    }));
-    const save = button({
-      label: 'Сохранить в изделие', kind: 'secondary', size: 'S', disabled: !session.canEdit,
-      onClick: async () => {
-        try {
-          const { values: v } = form.read();
-          if (!v) return;
-          const depthRaw = String(v.foundationDepth ?? '').trim();
-          const depth = depthRaw === '' ? null : Number(String(depthRaw).replace(',', '.'));
-          if (depthRaw && (depth == null || !Number.isFinite(depth) || depth < 0)) {
-            toast('Глубина Г — число не меньше нуля', { error: true }); return;
-          }
-          await patchProduct(productId, { installation: v.installation || '' });
-          await putDefaults(prod, {
-            installationTypeId: installTypeId || '',
-            ...(depth == null ? { foundationDepth: '' } : { foundationDepth: depth }),
-          });
-          toast('Монтаж, способ и глубина Г записаны в изделие.');
-          done({ saved: true });
-        } catch (e) { toastError(e, 'сохранить монтаж'); }
-      },
-    });
-    const back = button({ label: 'К подсказкам', kind: 'ghost', size: 'S', onClick: () => done({ saved: false }) });
-    const title = focus === 'foundationDepth' ? 'Глубина Г' : (focus === 'installationTypeId' ? 'Способ установки' : 'Монтаж');
-    const aiStatus = h('p', { class: 'hint bk-toc-hint', 'aria-live': 'polite' });
-    const aiBtn = focusAiBtn('install', () => ({
-      productLabel: [prod.article, prod.name].filter(Boolean).join(' — '),
-      rowsText: [
-        `Текст монтажа: ${form.get('installation') || '—'}`,
-        `Способ установки: ${instRows.find((r) => String(r.id || r._id) === installTypeId)?.name || '—'}`,
-        `Глубина Г, мм: ${form.get('foundationDepth') ?? '—'}`,
-      ].join('\n'),
-    }), aiStatus);
-    slot.replaceChildren(sidePanel(title,
-      h('div', { class: 'bk-ed-row' }, save, back, aiBtn),
-      aiStatus,
-      form.el,
-      typeSel,
-    ));
-    if (focus === 'foundationDepth') {
-      requestAnimationFrame(() => form.el.querySelector('[name=foundationDepth], input')?.focus?.());
-    }
-  } catch (e) {
-    toastError(e, 'открыть монтаж');
-    done({ saved: false });
-  }
-}
-
-/** Назначение изделия (purpose) — текст для паспорта и техописания. */
-export async function openPurposeInBook(slot, productId, { onDone } = {}) {
-  beginEdit(slot);
-  const done = (r) => { endEdit(slot); onDone?.(r); };
-  slot.replaceChildren(h('p', { class: 'hint' }, 'Загружаю…'));
-  try {
-    const prod = await api(`/showcase/${productId}`);
-    const { buildForm } = await import('../../ui/kit/form.js');
-    const form = buildForm(
-      [{ key: 'purpose', label: 'Назначение', type: 'textarea', rows: 3, wide: true, max: 1000 }],
-      { purpose: prod.purpose || '' },
-    );
-    const save = button({
-      label: 'Сохранить в изделие', kind: 'secondary', size: 'S', disabled: !session.canEdit,
-      onClick: async () => {
-        try {
-          const { values } = form.read();
-          if (!values) return;
-          await patchProduct(productId, { purpose: values.purpose || '' });
-          toast('Назначение записано в изделие.');
-          done({ saved: true });
-        } catch (e) { toastError(e, 'сохранить назначение'); }
-      },
-    });
-    const back = button({ label: 'К подсказкам', kind: 'ghost', size: 'S', onClick: () => done({ saved: false }) });
-    slot.replaceChildren(sidePanel('Назначение',
-      h('div', { class: 'bk-ed-row' }, save, back),
-      form.el,
-    ));
-  } catch (e) {
-    toastError(e, 'открыть назначение');
-    done({ saved: false });
-  }
-}
-
-/** Одно числовое поле passport-defaults (глубина Г, возраст, площадка…). */
-export async function openDefaultsNumInBook(slot, productId, key, { onDone } = {}) {
-  beginEdit(slot);
-  const done = (r) => { endEdit(slot); onDone?.(r); };
-  const label = NUM_LABEL[key] || key;
-  slot.replaceChildren(h('p', { class: 'hint' }, 'Загружаю…'));
-  try {
-    const prod = await api(`/showcase/${productId}`);
-    const { buildForm } = await import('../../ui/kit/form.js');
-    const cur = prod.passportDefaults?.[key];
-    const form = buildForm(
-      [{ key, label, type: 'number', min: 0 }],
-      { [key]: cur ?? '' },
-    );
-    const save = button({
-      label: 'Сохранить в изделие', kind: 'secondary', size: 'S', disabled: !session.canEdit,
-      onClick: async () => {
-        try {
-          const { values } = form.read();
-          if (!values) return;
-          const raw = String(values[key] ?? '').trim();
-          const n = raw === '' ? null : Number(String(raw).replace(',', '.'));
-          if (raw && (n == null || !Number.isFinite(n) || n < 0)) {
-            toast('Введите число не меньше нуля', { error: true }); return;
-          }
-          await putDefaults(prod, { [key]: n == null ? '' : n });
-          toast(`${label}: сохранено в изделие.`);
-          done({ saved: true });
-        } catch (e) { toastError(e, 'сохранить ' + label); }
-      },
-    });
-    const back = button({ label: 'К подсказкам', kind: 'ghost', size: 'S', onClick: () => done({ saved: false }) });
-    slot.replaceChildren(sidePanel(label,
-      h('div', { class: 'bk-ed-row' }, save, back),
-      form.el,
-    ));
-  } catch (e) {
-    toastError(e, 'открыть ' + label);
-    done({ saved: false });
-  }
-}
 
 /** Состав изделия — дерево + воронка (C142), без ухода из книжки. */
 export async function openCompositionInBook(slot, productId, { onDone } = {}) {

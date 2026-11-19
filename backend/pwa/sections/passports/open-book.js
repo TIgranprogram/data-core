@@ -1,49 +1,42 @@
-/**
- * C141: единый вход в эталонную книжку паспорта.
- * Старые анкета/форма/карандаши сюда не зовут — только создание черновика при необходимости.
- */
-import { api } from '../../core/api.js';
 import { toast, toastError } from '../../ui/kit/toast.js';
+import { statusOf } from './common.js';
 import { openBookEditor } from './book-editor.js';
 import { createBookDraft } from './create-book-draft.js';
+import { loadBookTemplate, variantName } from './book-template.js';
 
-const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== ''));
-
-/** Найти актуальный паспорт изделия (черновик важнее выпущенного). */
-export async function findProductPassport(productId, { draftOnly = false } = {}) {
-  const d = await api('/passports', { query: { productId, limit: 20, sort: '-updatedAt', ...(draftOnly ? { status: 'draft' } : {}) } });
-  const items = (d.items || []).filter((x) => x.status !== 'annulled');
-  if (draftOnly) return items.find((x) => x.status === 'draft') || null;
-  return items.find((x) => x.status === 'draft')
-    || items.find((x) => x.status === 'issued')
-    || items[0]
-    || null;
-}
-
-/**
- * Открыть книжку по изделию: есть паспорт → он; нет → создать черновик и открыть.
- * extra — поля POST /passports (supplierOrgId, salesOrderId, incomeId, …).
- */
-export async function openBookForProduct(productId, { extra = {}, onClose, isCurrent = () => true, draftOnly = false } = {}) {
+/** Изделие всегда открывается как общий шаблон. Контекст позиции передаётся только явно. */
+export async function openBookForProduct(productId, { variant = 'short', position, onClose, isCurrent = () => true } = {}) {
   if (!productId) { toast('Нет изделия для паспорта', { error: true }); return null; }
   try {
-    let row = await findProductPassport(productId, { draftOnly });
+    const template = await loadBookTemplate(productId, variant);
     if (!isCurrent()) return null;
-    if (!row) {
-      row = await createBookDraft(clean({ productId, ...extra }), isCurrent);
-      if (!row || !isCurrent()) return null;
-      toast('Черновик паспорта создан — допишите в книжке и выпустите.');
-    }
-    const opened = await openBookEditor(row, { onClose, isCurrent });
-    if (opened === false) return null;
-    return row;
+    const opened = await openBookEditor(null, { template, position, onClose, isCurrent });
+    return opened === false ? null : template;
   } catch (e) {
-    toastError(e, 'открыть паспорт');
+    toastError(e, 'открыть шаблон паспорта');
     return null;
   }
 }
 
-/** Открыть книжку по id или объекту паспорта. */
-export function openBookForPassport(passport, { onClose } = {}) {
-  return openBookEditor(passport, { onClose });
+/** Создать или открыть паспорт именно позиции, по трём согласованным идентификаторам. */
+export async function openBookForLine({ productId, salesOrderId, incomeId, supplierOrgId, variant = 'short' }, { onClose, isCurrent = () => true } = {}) {
+  if (!productId || !salesOrderId || !incomeId) {
+    toast('Для паспорта нужны изделие, заказ и его позиция.', { error: true });
+    return null;
+  }
+  try {
+    const row = await createBookDraft({ presentationVersion: 1, variant, productId, salesOrderId, incomeId,
+      ...(supplierOrgId ? { supplierOrgId } : {}) }, isCurrent);
+    if (!row?.id || !isCurrent()) return null;
+    if (statusOf(row) === 'draft' && row.variant !== variant) {
+      toast(row.presentationVersion === 1
+        ? `У этой позиции уже есть черновик. Вариант — «${variantName(row.variant)}». Изменить его можно в книжке.`
+        : 'У этой позиции есть паспорт старого образца.');
+    }
+    const opened = await openBookEditor(row.id, { onClose, isCurrent });
+    return opened === false ? null : row;
+  } catch (e) {
+    toastError(e, 'открыть паспорт позиции');
+    return null;
+  }
 }

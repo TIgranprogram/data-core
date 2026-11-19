@@ -1,23 +1,20 @@
-import { PREFIX, session, api } from '../core/api.js';
+import { PREFIX, session } from '../core/api.js';
 import { sku as kitSku, button as kitButton, toast, confirmDlg } from '../ui/kit/index.js';
 import { h } from '../core/dom.js';
 import { money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { pic } from './stock.js';
 import { kpAdd, kpCount } from './kp.js';
-import { setCompositionTarget } from './composition.js';
 // УПР-1/Д11: issuePassport и passports.canEdit() убраны — вход только через панель паспорта
-import { printDialog, downloadCombined } from './passports/dialogs.js';
+import { previewPassport } from './passports/dialogs.js';
 import { openTechSheet } from './tech-sheet.js';
-import { toastError } from '../ui/kit/toast.js';
 import { openBulk } from './bulk-edit.js';
 import { qrBulkAction, qrPrintAction } from './qr.js';
 import * as data from './products/data.js';
 import { productForm, productBulkFields } from './products/form-fields.js';
 import { prodFunnel, catLanding, deepGroup } from './products/landing.js';
-import { STATUS, dims, openPassportTemplate } from './products/card-blocks.js';
-import { openPassportFunnel, openReadyPassport } from './passports/funnel/open.js';
-import { openBookEditor } from './passports/book-editor.js';
+import { STATUS, dims, editProductComposition, openPassportTemplate } from './products/card-blocks.js';
+import { openReadyPassport } from './passports/funnel/open.js';
 import { productTabs, productWarns } from './products/tabs.js';
 import { screenCard } from '../ui/kit/screens/card.js';
 
@@ -140,35 +137,13 @@ export const products = {
       // C140: меню блоками с sep — правка → документы → связи/копии; Удалить — штатно danger
       menu: (r) => [
         session.canEdit && { label: 'Изменить', title: 'Правка полей изделия', run: (row, ctx) => ctx.edit() },
-        session.canEdit && { label: 'Изменить состав', run: (row) => { setCompositionTarget(row); patch({ of: 'composition', new: '1', open: undefined }); } },
+        session.canEdit && { label: 'Изменить состав', run: editProductComposition },
         { label: 'В КП', title: 'Добавить в коммерческое предложение', run: (row) => { kpAdd(row); toast(`В КП — всего ${kpCount()}`); } },
-        session.canEdit && session.seesDocs() && { sep: true, label: 'Выпустить паспорт', title: 'Новый номер по этой модели — без заказа и без договора; PDF сразу после выпуска', run: (row) => openPassportFunnel({ productId: row.id }) },
-        // C141: правка существующего — эталонная книжка (последний паспорт модели)
-        session.canEdit && session.seesDocs() && { label: 'Изменить паспорт', title: 'Большое окно: паспорт как в PDF; слева — что заполнить первым', run: async (row) => {
-          let last = (row.passports?.items || []).find((x) => x.status === 'draft')
-            || (row.passports?.items || []).find((x) => x.status === 'issued' || (x.passportNumber && !String(x.passportNumber).startsWith('draft-')))
-            || (row.passports?.items || [])[0];
-          if (!last) {
-            try {
-              const d = await api('/passports', { query: { productId: row.id, limit: 5, sort: '-updatedAt' } });
-              last = (d.items || []).find((x) => x.status !== 'annulled');
-            } catch { /* ниже — toast */ }
-          }
-          if (!last) { toast('Паспортов ещё нет. Сначала «Выпустить паспорт».', { ms: 7000 }); return; }
-          openBookEditor(last);
-        } },
-        session.seesDocs() && { sep: !(session.canEdit && session.seesDocs()), label: 'Скачать паспорт', title: 'PDF выпущенного паспорта. Если паспортов ещё нет — сначала «Выпустить паспорт»', run: async (row) => {
-          const last = (row.passports?.items || []).find((x) => x.status === 'issued' || (x.passportNumber && !String(x.passportNumber).startsWith('draft-')))
-            || (row.passports?.items || [])[0];
-          if (last) { printDialog(await data.getPassport(last.id)); return; }
-          toast('Паспортов ещё нет. Нажмите «Выпустить паспорт» — появится номер и PDF для скачивания.', { ms: 9000 });
-        } },
+        session.canEdit && { sep: true, label: 'Шаблон паспорта', title: 'Редактировать шаблон, посмотреть образец или выпустить паспорт', run: openPassportTemplate },
         session.canEdit && session.seesDocs() && { label: 'Загрузить готовый паспорт (PDF)', title: 'Паспорт сделан отдельно: приложить файл PDF к этому изделию', run: (row) => openReadyPassport({ productId: row.id }) },
-        session.seesDocs() && { label: 'Править шаблон паспорта', title: 'Тексты и рисунки по разделам паспорта', run: (row, ctx) => openPassportTemplate(row, ctx) },
         { label: 'Техническое описание', title: 'Части и материалы из справочников, габариты и вес из изделия — в правой панели', run: (row) => openTechSheet(row) },
-        session.seesDocs() && { label: 'Паспорт + техописание', title: 'Один PDF: паспорт, затем техническое описание', run: async (row) => {
-          try { await downloadCombined(row, data.getPassport); } catch (e) { toastError(e); }
-        } },
+        session.canEdit && { label: 'Образец + техописание', title: 'Один PDF по шаблону изделия', run: (row) =>
+          previewPassport(row.id, { pack: 'combined', variant: 'short', presentationVersion: 1 }) },
         { sep: true, label: 'Заказы с этим изделием', run: (row) => go('salesorders', { productId: row.id }) },
         session.canEdit && { label: 'Присвоить артикул группы', title: 'Новый артикул по номеру группы изделия (например 34 → 3411)', run: async (row, ctx) => {
           const chk = await data.assignSku(row.id);

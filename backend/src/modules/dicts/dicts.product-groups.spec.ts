@@ -62,15 +62,19 @@ describe('passportKinds: «Виды изделий» (C100)', () => {
   const k = DICT.get('passportKinds')!;
   const kind = { _id: oid(), dict: 'passportKinds', name: 'Урна', deletedAt: null };
   const leaf = { _id: oid(), dict: 'passportPhrases', name: 'Сбор мусора', parentId: oid(), deletedAt: null };
-  const counts = (groups: number, prods: number) => ({
+  const counts = (groups: number, prods: number, phrases = 0) => ({
     collection: (n: string) => ({
-      aggregate: () => ({ toArray: async () => (n === 'categories' ? (groups ? [{ _id: kind._id, n: groups }] : []) : prods ? [{ _id: String(kind._id), n: prods }] : []) }),
+      aggregate: () => ({ toArray: async () => {
+        const uses = n === 'categories' ? groups : n === 'products' ? prods : phrases;
+        return uses ? [{ _id: kind._id, n: uses }] : [];
+      } }),
       findOne: async (q: Row) => (n === 'dict_values' && q.parentId ? null : leaf),
     }),
   }) as never;
   it('удалить вид, заданный группе или изделию, нельзя (409)', async () => {
     await expect(k.beforeRemove!(counts(1, 0), kind as never)).rejects.toThrow(/удалить нельзя/);
     await expect(k.beforeRemove!(counts(0, 2), kind as never)).rejects.toThrow(/\(2\)/);
+    await expect(k.beforeRemove!(counts(0, 0, 1), kind as never)).rejects.toThrow(/краткими описаниями \(1\)/);
     await expect(k.beforeRemove!(counts(0, 0), kind as never)).resolves.toBeUndefined();
   });
   it('запись: не больше трёх элементов; категория из списка; назначение — конечный вариант', async () => {

@@ -37,6 +37,7 @@ test('быстрый второй выбор сохраняется после �
   let saved = {};
   const ctx = { S: { r: { passportCategory: 'BLG', textChoices: {} } }, can: true, pid: () => 'p1',
     lock: (fn) => fn(), onChanged() {},
+    refreshRow: async () => { ctx.S.r = { passportCategory: 'BLG', textChoices: saved }; },
     patchPassport: async (body) => { writes.push(body); if (writes.length === 1) await first; saved = body.textChoices; } };
   const sandbox = vm.createContext({
     api: async () => ({ passportCategory: 'BLG', textChoices: saved }),

@@ -54,7 +54,7 @@ export const NODES = [
   { id: 'salesorders', tpl: 'board', tplStatus: 'ok', band: 'sale', col: 2, sec: 'salesorders', t: 'Заказы', l: ['позиции, срок, этапы:', 'в работу → отгрузка'],
     seq: true, inside: [
       { id: 'zakaz-i-dogovory', t: 'Заказ и договоры', l: 'заказчик, его договоры (внутри заказа), наша компания — ссылка в шапке, КП', in: ['partners', 'offers'] },
-      { id: 'pozicii', t: 'Позиции', l: 'изделие, новое изделие или услуга; таблица всегда первой, пустая — кнопка «+ Позиция» (так же в окне договора, блок «Позиции»); в раскрытии строки — «Вложения»: папки, файл скачать, перетащить или загрузить; «Документы» — паспорт позиции: «Изменить паспорт» — эталонная книжка (C141): слева «Сначала» и выбор текстов, в середине страницы как PDF с правкой на листе, справа ИИ; Enter — сохранить, Esc — отмена, Tab — дальше; «Скачать PDF»', in: ['products', 'matching'], out: ['matching'] },
+      { id: 'pozicii', t: 'Позиции', l: 'изделие, новое изделие или услуга; таблица всегда первой, пустая — кнопка «+ Позиция» (так же в окне договора, блок «Позиции»); в карточке позиции «Выбрать изделие» или «⋯ → Сменить изделие»: найдите по фото, названию или артикулу, подтвердите привязку; в раскрытии строки — «Вложения»: папки, файл скачать, перетащить или загрузить; «Документы» — паспорт точной позиции заказа: шаблон изделия, образец без номера и отдельный выпуск; существующий паспорт открывается по своему id, старый образец только просматривается/печатается', in: ['products', 'matching'], out: ['matching'] },
       { id: 'raspredelenie', t: 'Распределение', l: 'все позиции распределены — задачи проектирования создаются сами', out: ['design'] },
       { id: 'v-rabotu', t: 'В работу', l: 'позиции уходят в производство', out: ['work', 'shortage'] },
       { id: 'pasporta-zakaza', t: 'Паспорта заказа', l: 'по одному на экземпляр', out: ['docs'] },
@@ -64,7 +64,7 @@ export const NODES = [
     ],
     rules: ['Задачи проектирования создаются сами, только когда распределены все позиции заказа.', 'Позиция связывает изделие, количество, срок и работу.', 'Изменение заказа не переписывает выпущенный паспорт.', '«В производство» недоступно, пока есть нераспределённые позиции.'],
     docs: ['docs/PRODUCT.md — «Заказы»', 'docs/MAP.md — salesorders, shipments, incomes'], tech: 'salesorders, incomes, shipments',
-    code: ['backend/src/modules/salesorders', 'backend/src/modules/incomes', 'backend/src/modules/shipments', 'backend/pwa/sections/salesorders.js', 'backend/pwa/sections/order-lines.js', 'backend/pwa/sections/order-shipments.js'] },
+    code: ['backend/src/modules/salesorders', 'backend/src/modules/incomes', 'backend/src/modules/shipments', 'backend/pwa/sections/salesorders.js', 'backend/pwa/sections/order-lines.js', 'backend/pwa/sections/order-product-picker.js', 'backend/pwa/sections/order-shipments.js'] },
   { id: 'contracts', tpl: 'list', tplStatus: 'legacy', band: 'supply', col: 1, sec: 'contracts', t: 'Договоры поставщиков', l: ['с поставщиками:', 'номер, срок, файлы'],
     inside: [
       { id: 'dogovor-postavki', t: 'Договор поставки', l: 'поставщик, номер, дата; выбирается в счёте', out: ['requests'] },
@@ -78,19 +78,19 @@ export const NODES = [
   { id: 'matching', tpl: 'queue', tplStatus: 'legacy', band: 'sale', col: 3, sec: null, href: '#matching', t: 'Сопоставление', l: ['позиция заказа ↔', 'изделие из каталога'],
     seq: true, inside: [
       { id: 'nesopostavlennye', t: 'Несопоставленные', l: 'позиции заказов без изделия', in: ['salesorders'] },
-      { id: 'podbor', t: 'Подбор', l: 'похожие изделия: по артикулу, названию', in: ['products'] },
+      { id: 'podbor', t: 'Подбор', l: 'похожие изделия или «Выбрать из каталога»: поиск, раздел, группа, серия и фото с увеличением', in: ['products'] },
       { id: 'podtverdit', t: 'Подтвердить', l: 'изделие закрепляется за позицией', out: ['salesorders'] },
     ],
     rules: ['Пока позиция не сопоставлена, состав и паспорт для неё не подтянутся.'],
     docs: ['docs/MAP.md — matching'], tech: 'salesorders (позиции), products',
-    code: ['backend/src/modules/matching', 'backend/pwa/sections/matching-queue.js', 'backend/pwa/sections/salesorders-matching.js'] },
+    code: ['backend/src/modules/matching', 'backend/pwa/sections/matching-queue.js', 'backend/pwa/sections/salesorders-matching.js', 'backend/pwa/sections/order-product-picker.js'] },
 
   // ── Продукция
   { id: 'dicts', tpl: 'dict', tplStatus: 'legacy', band: 'prod', col: 0, sec: 'dicts', href: '#dicts', t: 'Справочники', l: ['типы паспортов, тексты,', 'цвета, виды работ'],
     inside: [
       { id: 'kategorii-izdelii', t: 'Категории изделий', l: 'Раздел → Группа → Подгруппа → Серия', out: ['products'] },
       { id: 'cveta-ral-i', t: 'Цвета RAL и виды работ', l: 'для деталей, изделий и производства', out: ['products'] },
-      { id: 'teksty-i-chasti', t: 'Тексты и части паспорта', l: 'общие на тип паспорта или «Для всех»', out: ['docs'] },
+      { id: 'teksty-i-chasti', t: 'Тексты и части паспорта', l: 'по типу/виду/критериям изделия или «Для всех»; вопросы воронки только недостающие; готовое и единственное подставляются', out: ['docs'] },
       { id: 'stati-rashodov', t: 'Статьи расходов', l: 'дерево статей для «Денег»', out: ['expenses'] },
     ],
     rules: ['Части и материалы паспорта (в том числе каркас) — в группе «Паспорта · части и материалы». Поиск меню находит справочник; поиск и фильтры справа отбирают записи.', 'Запись справочника используют многие изделия. Перед правкой проверьте, кому она подходит.', 'Выпущенный паспорт не получает новые тексты сам.'],
@@ -100,10 +100,11 @@ export const NODES = [
     productMap: true,
     inside: [
       { id: 'kartochka', t: 'Карточка', l: 'артикул = обозначение PDM, название, фото, категория', in: ['design', 'dicts', 'modules', 'parts'], out: ['offers', 'salesorders', 'docs', 'matching'] },
-      { id: 'sostav', t: 'Состав', l: 'дерево: модули и детали; комплекс также содержит изделия; сырьё только в детали; старые покупные строки сохраняются', in: ['modules', 'parts', 'suppliercatalog'], out: ['needs', 'stock'] },
+      { id: 'sostav', t: 'Состав', l: '«Что дальше → Заполнить» раскрывает блок правки; дерево: модули и детали; комплекс также содержит изделия; сырьё только в детали; старые покупные строки сохраняются', in: ['modules', 'parts', 'suppliercatalog'], out: ['needs', 'stock'] },
       { id: 'raboty', t: 'Работы', l: 'виды работ и часы на 1 шт.; сумма по модулям и деталям', in: ['work', 'modules', 'parts'], out: ['work'] },
       { id: 'faily', t: 'Файлы ♻', l: 'PDF и DXF с версиями' },
       { id: 'sebestoimost', t: 'Себестоимость', l: 'материалы + работы по ставкам' },
+      { id: 'shablon-pasporta', t: 'Шаблон паспорта', l: 'упрощённый вариант: тексты по категории, виду и критериям из справочников; образец без номера, отдельный выпуск с фирмой; открытие шаблона не создаёт паспорт', in: ['dicts'], out: ['docs'] },
       { id: 'tekhopisanie', t: 'Техописание', l: 'описание конструкции и материалов: предложение из состава с источниками; название в тексте необязательно; ручные размеры, тексты и покрытия сохраняются' },
     ],
     rules: [
@@ -149,16 +150,17 @@ export const NODES = [
   { id: 'docs', tpl: 'queue', tplStatus: 'legacy', band: 'paper', col: 1, sec: 'docs', t: 'Документация', l: ['паспорта: черновик →', 'выпуск PDF, редакции'],
     seq: true, inside: [
       { id: 'ochered', t: 'Очередь', l: '«К выпуску» по заказам', in: ['salesorders'] },
-      { id: 'chernovik', t: 'Черновик', l: 'данные из изделия; перед созданием — фирма заказа или единственная наша, при неоднозначности явный выбор; отмена позволяет повторить открытие', in: ['products'] },
+      { id: 'chernovik', t: 'Черновик', l: 'новый экземпляр из шаблона изделия: фирма нужна при выпуске; образец и правка шаблона без фирмы, заказа и номера; повтор запроса не создаёт дубль', in: ['products'] },
       { id: 'vid-izdeliya', t: 'Вид изделия', l: 'что это, назначение и тип паспорта — из вида группы или своё', in: ['dicts'] },
-      { id: 'pravka-stroki', t: 'Правка в книжке', l: '«Изменить паспорт» / «Дописать» — окно как PDF; слева «Сначала» и выбор текстов; способ установки подставляет монтаж, ручной текст сохраняется; рисунки изделия видны сразу; Inventor после загрузки открывает книжку', in: ['dicts'] },
+      { id: 'pravka-stroki', t: 'Правка в книжке', l: 'шаблон нового паспорта: short подставляет готовый текст из справочника по воронке; своя формулировка необязательна, материалы/BOM не блокируют short; Inventor открывает шаблон изделия; старые документы только просмотр/печать', in: ['dicts'] },
       { id: 'shablon-kategorii', t: 'Шаблон типа паспорта', l: 'тексты и рисунки из справочников', in: ['dicts'] },
+      { id: 'istochniki-teksta', t: 'Источники автотекстов для ИИ', l: 'изделие → категория/вид/критерии → применимые фразы simple-description и части passportParts → шаблон → снимок; своя формулировка главнее явного применимого выбора, затем однозначный словарный вариант; выбор хранится в источнике, неизвестное не угадывать', in: ['products', 'dicts'], alt: true },
       { id: 'vypusk-pdf', t: 'Выпуск PDF', l: 'текст и рисунки фиксируются', out: ['warranty'] },
-      { id: 'pravka-vypushchennogo', t: 'Правка выпущенного', l: 'любые поля и фирма; номер тот же, прежнее — в истории', alt: true },
+      { id: 'pravka-vypushchennogo', t: 'Выпущенный и старый образец', l: 'выпущенный хранит снимок и номер; старые документы и черновики в новом интерфейсе только просмотр/печать без перевода в новый формат', alt: true },
       { id: 'pasporta-zakaza', t: 'Паспорта заказа', l: '«Печать паспортов…» — из карточки заказа, «Паспорта по заказам» и панели; фото изделия в строке, отменённые позиции — одной строкой «Отменено в заказе»', alt: true },
     ],
     rules: ['Без типа паспорта PDF не выпускается.', 'Одна позиция заказа — один паспорт и один номер: правка и смена фирмы номер не меняют.'],
-    docs: ['docs/PASSPORTS-V2.md', 'docs/crew/C096-passport-system-audit/', 'docs/MAP.md — product-passport'], tech: 'productpassports, passporttemplates',
+    docs: ['docs/DOCUMENT-AUTOFILL-MAP.md', 'docs/PATTERNS.md — П-1 все документы', 'docs/crew/C155-passport-owner-queue/CONTRACT.md', 'docs/PASSPORTS-V2.md', 'docs/crew/C096-passport-system-audit/', 'docs/MAP.md — product-passport'], tech: 'productpassports, passporttemplates',
     code: ['backend/src/modules/product-passport', 'backend/pwa/sections/passports.js', 'backend/pwa/sections/passports/', 'backend/pwa/sections/docs.js', 'backend/pwa/sections/docs-queue.js'] },
 
   // ── Производство

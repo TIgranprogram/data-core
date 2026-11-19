@@ -26,6 +26,8 @@ export interface PhraseNode {
   /** Привязка текста к значениям признаков изделия / к группам изделий (C028 B2); пусто — текст не привязан. */
   facetValueIds?: string[];
   groupIds?: string[];
+  kindIds?: string[];
+  partIds?: string[];
 }
 export interface PhraseTreeNode extends PhraseNode { children: PhraseTreeNode[] }
 export type RawNode = Record<string, unknown>;
@@ -43,6 +45,8 @@ export function toNode(r: RawNode): PhraseNode {
     order: num(r.order, 0), required: r.required === true || r.required === 'true', isDefault: r.isDefault === true || r.isDefault === 'true',
     installTypeId: r.installTypeId ? String(r.installTypeId) : null, slot: Math.max(1, Math.floor(num(r.slot, 1))),
     facetValueIds: ids(r.facetValueIds), groupIds: ids(r.groupIds),
+    ...(Array.isArray(r.kindIds) && r.kindIds.length ? { kindIds: ids(r.kindIds) } : {}),
+    ...(Array.isArray(r.partIds) && r.partIds.length ? { partIds: ids(r.partIds) } : {}),
   };
 }
 
@@ -96,12 +100,13 @@ export function leavesOf(n: PhraseTreeNode): PhraseTreeNode[] {
 }
 
 /** Изделие, под которое собирается текст: значения его признаков и группы (сама и родители). */
-export interface ProductCtx { facetValueIds: Set<string>; groupIds: Set<string> }
+export interface ProductCtx { facetValueIds: Set<string>; groupIds: Set<string>; kindId?: string }
 
-const isBound = (n: PhraseTreeNode) => !!(n.facetValueIds?.length || n.groupIds?.length);
+const isBound = (n: PhraseTreeNode) => !!(n.facetValueIds?.length || n.groupIds?.length || n.kindIds?.length);
 /** Привязанный лист подходит изделию, если совпало хоть одно значение признака или группа. */
 const matchesProduct = (n: PhraseTreeNode, ctx?: ProductCtx) =>
-  !!ctx && (!!n.facetValueIds?.some((x) => ctx.facetValueIds.has(x)) || !!n.groupIds?.some((x) => ctx.groupIds.has(x)));
+  !!ctx && (!n.kindIds?.length || !!ctx.kindId && n.kindIds.includes(ctx.kindId))
+  && (!(n.facetValueIds?.length || n.groupIds?.length) || !!n.facetValueIds?.some((x) => ctx.facetValueIds.has(x)) || !!n.groupIds?.some((x) => ctx.groupIds.has(x)));
 
 /**
  * Дерево под изделие (2026-11-10, «Обслуживание грузового блока» у тренажёра без грузов): узел, привязанный к признакам/группам,

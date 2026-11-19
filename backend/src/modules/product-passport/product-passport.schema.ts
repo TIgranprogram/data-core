@@ -65,6 +65,13 @@ export class ProductPassport {
   // ───── НМ: черновик → выпуск → (аннулирование); поля только data-core, kppdf их не читает ─────
   /** draft — черновик без номера; issued — выпущен (номер, талон, текст заморожены); annulled — аннулирован (номер занят). Нет поля — старый паспорт = выпущен. */
   @Prop() status?: string;
+  @Prop({ enum: [1] }) presentationVersion?: number;
+  @Prop({ enum: ['short', 'full'] }) variant?: string;
+  @Prop() creationScopeKey?: string;
+  /** Использованные источники печати редакции. */
+  @Prop({ type: Object }) printSnapshot?: Record<string, unknown>;
+  @Prop({ type: Object }) simpleDescription?: { text: string; partIds: Types.ObjectId[] };
+  @Prop() kindId?: string;
   /** Готовность к отдаче: ready / notReady / rework. Не путать с status. Нет поля: выпущенный = готов, черновик = не готов (считается на чтении). kppdf поле не читает — только добавлено, синхронно не нужно. */
   @Prop({ enum: ['ready', 'notReady', 'rework'] }) readiness?: string;
   /** Что доработать (при readiness = rework). */
@@ -79,6 +86,8 @@ export class ProductPassport {
   @Prop({ type: [Object], default: undefined }) revisions?: Array<Record<string, unknown>>;
   /** ТЭ: поля текста, изменённые вручную для этого паспорта (не из справочника) — видно в списке. */
   @Prop({ type: [String], default: undefined }) manualText?: string[];
+  /** Собственные ручные поля экземпляра v1, без флагов из шаблона изделия. */
+  @Prop({ type: [String], default: undefined }) instanceManualText?: string[];
   /** Коды дефектов справочника, которых нет у этого изделия — не попадают в таблицы осмотра (например, LOOSE_THREADS у решётки без крепежа). */
   @Prop({ type: [String], default: undefined }) excludeDefects?: string[];
   /** C054: соединения конструкции — bolts / welds / solid (можно несколько). Нет поля = не выбрано: условные пункты на болты и сварку не печатаются, выпуск просит выбор. */
@@ -241,6 +250,7 @@ export class ProductPassport {
   @Prop() fallHeight?: number;
   @Prop() siteLength?: number;
   @Prop() siteWidth?: number;
+  @Prop() seatsCount?: number;
   @Prop() serviceLifeYears?: number;
   /** Сертификат / декларация: номер, срок, знак ЕАС. Без номера раздел «идентификационные сведения» и ЕАС не печатаются. */
   @Prop({ type: Object }) certificate?: { number?: string; until?: string; hasEac?: boolean };
@@ -270,9 +280,15 @@ export class ProductPassport {
 }
 
 export const ProductPassportSchema = SchemaFactory.createForClass(ProductPassport);
+ProductPassportSchema.set('toJSON', { transform: (_doc, ret) => {
+  delete ret.creationScopeKey;
+  delete ret.printSnapshot;
+  return ret;
+} });
 // Уникальность (ПС.1). Частичные индексы: старые записи kppdf без новых полей не мешают; дубль 2491 — вне индекса.
 ProductPassportSchema.index({ passportNumber: 1 }, { unique: true, name: 'passportNumber_unique' });
 ProductPassportSchema.index({ incomeId: 1 }, { sparse: true, name: 'incomeId_1' }); // очередь паспортов: паспорт позиции
+ProductPassportSchema.index({ creationScopeKey: 1 }, { unique: true, sparse: true, name: 'creationScopeKey_1' });
 ProductPassportSchema.index({ salesOrderId: 1 }, { sparse: true, name: 'salesOrderId_1' }); // ТИ-11: паспорта заказа, «По заказам»
 ProductPassportSchema.index({ productCode: 1 }, { unique: true, name: 'productCode_unique', partialFilterExpression: { productCodeDuplicate: { $eq: false }, productCode: { $type: 'string' } } });
 ProductPassportSchema.index({ warrantyCode: 1 }, { unique: true, name: 'warrantyCode_unique', partialFilterExpression: { warrantyCode: { $type: 'string' } } });

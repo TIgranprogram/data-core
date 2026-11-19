@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import type { mongo } from 'mongoose';
 import { KINDS_DICT } from '../../common/passport/kind';
+import { moveOrderedRef } from '../../common/catalog/ordered-refs';
 import type { DictBase, Doc, Field } from './dicts.defs';
 import { PP_FIELD, ppCode } from './dicts.product-groups';
 
@@ -14,14 +15,16 @@ const MAX_ELEMENTS = 3;
 /** Кто держит вид: группы изделий (`categories.passportKindId`) и изделия (`products.passportDefaults.kindId`, строкой). */
 const groupsOf = (id: unknown) => ({ type: 'product', deletedAt: null, passportKindId: id });
 const productsOf = (id: unknown) => ({ deletedAt: null, 'passportDefaults.kindId': String(id) });
+const phrasesOf = (id: unknown) => ({ dict: 'passportPhrases', section: 'simple-description', deletedAt: null, kindIds: id });
 
 async function uses(db: Db, ids: unknown[]): Promise<Map<string, number>> {
   const out = new Map<string, number>();
-  const [groups, prods] = await Promise.all([
+  const [groups, prods, phrases] = await Promise.all([
     db.collection('categories').aggregate([{ $match: { type: 'product', deletedAt: null, passportKindId: { $in: ids } } }, { $group: { _id: '$passportKindId', n: { $sum: 1 } } }]).toArray(),
     db.collection('products').aggregate([{ $match: { deletedAt: null, 'passportDefaults.kindId': { $in: ids.map(String) } } }, { $group: { _id: '$passportDefaults.kindId', n: { $sum: 1 } } }]).toArray(),
+    db.collection('dict_values').aggregate([{ $match: phrasesOf({ $in: ids }) }, { $unwind: '$kindIds' }, { $match: { kindIds: { $in: ids } } }, { $group: { _id: '$kindIds', n: { $sum: 1 } } }]).toArray(),
   ]);
-  for (const r of [...groups, ...prods]) out.set(String(r._id), (out.get(String(r._id)) ?? 0) + (r.n as number));
+  for (const r of [...groups, ...prods, ...phrases]) out.set(String(r._id), (out.get(String(r._id)) ?? 0) + (r.n as number));
   return out;
 }
 
@@ -78,21 +81,23 @@ export function passportKindDefs(simple: Simple): DictBase {
     },
     beforeRemove: async (db, d: Doc) => {
       const n = (await uses(db, [d._id])).get(String(d._id)) ?? 0;
-      if (n > 0) throw new ConflictException(`Вид «${s(d.name)}» задан группам или изделиям (${n}) — удалить нельзя. Замените его через «Объединить с…».`);
+      if (n > 0) throw new ConflictException(`Вид «${s(d.name)}» используется группами, изделиями или краткими описаниями (${n}), удалить нельзя. Замените его через «Объединить с…».`);
     },
     usage: async (db, docs) => uses(db, docs.map((d) => d._id)),
     busy: async (db, d) => ((await uses(db, [d._id])).get(String(d._id)) ?? 0) > 0,
     related: async (db, d) => {
-      const [groups, prods, total] = await Promise.all([
+      const [groups, prods, phrases, total] = await Promise.all([
         db.collection('categories').find(groupsOf(d._id)).sort({ name: 1 }).limit(15).project({ name: 1, groupNo: 1 }).toArray(),
         db.collection('products').find(productsOf(d._id)).sort({ name: 1 }).limit(15).project({ name: 1, sku: 1 }).toArray(),
+        db.collection('dict_values').find(phrasesOf(d._id)).sort({ name: 1 }).limit(15).project({ name: 1 }).toArray(),
         uses(db, [d._id]),
       ]);
       return {
-        title: 'Группы и изделия с этим видом', total: total.get(String(d._id)) ?? 0,
+        title: 'Группы, изделия и краткие описания с этим видом', total: total.get(String(d._id)) ?? 0,
         items: [
           ...groups.map((g) => ({ label: `Группа ${s(g.name)}`, sub: g.groupNo ? `№ ${s(g.groupNo)}` : '', href: '#dicts?d=productGroups&of=dict&open=' + String(g._id) })),
           ...prods.map((p) => ({ label: `Изделие ${s(p.name)}`, sub: s(p.sku), href: '#products?open=' + String(p._id) })),
+          ...phrases.map((p) => ({ label: s(p.name), href: '#dicts?d=passportPhrases&open=' + String(p._id) })),
         ],
       };
     },
@@ -101,7 +106,8 @@ export function passportKindDefs(simple: Simple): DictBase {
       if (String(from._id) === String(to._id)) return 0;
       const g = await db.collection('categories').updateMany({ type: 'product', passportKindId: from._id }, { $set: { passportKindId: to._id } });
       const p = await db.collection('products').updateMany({ 'passportDefaults.kindId': String(from._id) }, { $set: { 'passportDefaults.kindId': String(to._id), updatedAt: new Date() } });
-      return g.modifiedCount + p.modifiedCount;
+      const ph = await db.collection('dict_values').updateMany(phrasesOf(from._id), moveOrderedRef('kindIds', from._id, to._id));
+      return g.modifiedCount + p.modifiedCount + ph.modifiedCount;
     },
     candidates: undefined, fromName: undefined,
   };

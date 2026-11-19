@@ -1,20 +1,33 @@
 import { api, session } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { date, money, qty } from '../../core/format.js';
-import { go } from '../../core/router.js';
+import { current, go, patch } from '../../core/router.js';
 import { badge, button, busyBlock, empty, enhanceSelect, failBlock, hint, readonlyGroup, row as kitRow, section, select, stack, table, toast, toastError } from '../../ui/kit/index.js';
 import { kindName, kindNorm } from '../../core/passport-kinds.js';
-import { passportVariant } from '../passports/dialogs.js';
+import { loadBookTemplate } from '../passports/book-template.js';
 import { jointsText } from '../passports/traits.js';
 import { suggestLink } from '../../ui/composition-suggest.js';
 import { warnCard } from '../../ui/kit/screens/blocks.js';
 import { clearNoteWarning, resetPdCategory } from './data.js';
 import { productTypeLine } from '../passports/common.js';
-import { openPassportFunnel } from '../passports/funnel/open.js';
+import { setCompositionTarget } from '../composition.js';
 
 /* Блоки правой панели изделия (вид): примечание-предупреждение, состав, документация, «В заказах», тип паспорта.
  * ПМ-1 (2026-11-06): каждый блок — свёрнутая секция kit.section с числом; пустой — одна строка внутри. */
 const none = (text) => h('p', { class: 'muted small' }, text);
+const revealComposition = new WeakSet();
+
+/** Одно открытие нужного блока для текущего экземпляра карточки. */
+export function showProductComposition(row, ctx) {
+  if (!ctx?.openTab) return;
+  revealComposition.add(row);
+  ctx.openTab('comp');
+}
+
+export function editProductComposition(row) {
+  setCompositionTarget(row);
+  patch({ of: 'composition', new: '1', open: undefined });
+}
 
 export const STATUS = { draft: 'без цены', active: 'в продаже', new: 'новое', archived: 'архив' };
 export const dims = (d) => (d ? `${['length', 'width', 'height'].map((k) => (d[k] ? qty(d[k]) : '—')).join(' × ')} ${d.unit || 'мм'}` : null);
@@ -50,6 +63,8 @@ export function warnNote(r) {
 // «Состав» (БЗ-5): материалы склада, из которых сделано изделие; правка — в правой панели.
 // Себестоимость материалов (тем, кто видит деньги): цена — последняя закупка, иначе справочник материалов
 export function compositionBlock(r) {
+  const reveal = revealComposition.delete(r);
+  const edit = session.canEdit ? button({ label: 'Изменить состав', size: 'S', onClick: () => editProductComposition(r) }) : null;
   const items = r.composition || [];
   const cost = session.canMoney ? r.cost : null;
   // СИ: строки трёх видов; цена — по виду и ссылке (материал — закупка/справочник, изделие — по его составу)
@@ -74,12 +89,20 @@ export function compositionBlock(r) {
   const groups = KINDS.map(([title, ok]) => { const list = items.filter((l) => left.has(l) && ok(l)); list.forEach((l) => left.delete(l)); return [title, list]; });
   groups.push(['Материалы', [...left]]);
   const shown = groups.filter(([, l]) => l.length);
-  return section({ title: 'Состав', tone: 'gold', count: items.length, body: [
+  const block = section({ title: 'Состав', tone: 'gold', count: items.length, open: reveal, body: [
+    edit,
     items.length ? (shown.length === 1 ? h('div', null, ...items.map(line))
       : stack(...shown.map(([title, list], i) => section({ title, count: list.length, tone: 'neutral', open: i === 0 || list.length <= 10, body: list.map(line) }))))
-      : none('Не заполнен — «⋯ → Изменить состав».'),
+      : none('Состав пока пуст.'),
     cost ? h('p', null, h('b', null, `Себестоимость ≈ ${money(cost.total)}`),
       h('span', { class: 'muted' }, cost.missing ? ` · без цены: ${cost.missing} — в сумму не вошли` : ' · материалы — по последним закупкам, изделия — по их составу')) : null] });
+  if (reveal) requestAnimationFrame(() => {
+    if (!block.isConnected) return;
+    const target = edit || block.querySelector('summary');
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ block: 'nearest' });
+  });
+  return block;
 }
 
 /** Ячейка «Заказ» в истории паспортов изделия (C063): номер + переход в заказ. */
@@ -92,27 +115,23 @@ function orderCell(x) {
   return h('a', { href: `#salesorders?open=${oid}`, onClick: (e) => e.stopPropagation() }, label);
 }
 
-/** «⋯ → Править шаблон / Изменить паспорт»: C141 — только эталонная книжка (не старая анкета doctpl). */
-export async function openPassportTemplate(row, ctx) {
-  try {
-    const { openBookForProduct } = await import('../passports/open-book.js');
-    await openBookForProduct(row.id, {
-      onClose: async () => {
-        try { ctx?.setRow?.(await api(`/showcase/${row.id}`)); } catch { /* карточка как была */ }
-      },
-    });
-  } catch (e) { toastError(e, 'открыть паспорт'); }
+/** Ссылка на книжку сохраняет открытое изделие и параметры списка. */
+export function openPassportTemplate(row) {
+  if (current().section === 'products') patch({ templateFor: row.id, bookFor: undefined });
+  else go('products', { templateFor: row.id });
 }
 
 /** Вкладка «Паспорт»: сведения и таблица выпущенных — только чтение; выпуск, загрузка, правка шаблона — в «⋯» шапки (C119). */
 export function passportPane(row, ctx) {
   const host = stack(busyBlock('паспорт изделия', { retry: paint }));
-  const cat = () => row.passportCategory?.code || row.passportDefaults?.passportCategory || '';
   async function paint() {
     let check = null;
-    if (cat()) {
+    let category = row.passportCategory?.code || row.passportDefaults?.passportCategory || '';
+    if (session.canEdit) {
       try {
-        check = await api('/passports/check', { method: 'POST', body: { productId: row.id, mode: 'template', variant: passportVariant.value } });
+        const tpl = await loadBookTemplate(row.id);
+        check = tpl.readiness;
+        category = tpl.passportCategory;
       } catch (e) {
         host.replaceChildren(failBlock(e, paint, { text: 'Паспорт изделия не проверился' }));
         return;
@@ -124,13 +143,13 @@ export function passportPane(row, ctx) {
     const lackIn = lack.filter((k) => uniq.includes(k));
     const have = Math.max(0, uniq.length - lackIn.length);
     const names = [...new Set(lackIn)].map(kindName).join(', ');
-    const draw = !cat()
+    const draw = !category
       ? hint('Тип паспорта не задан: его задают в группе изделия или в виде изделия', 'warn')
       : uniq.length
         ? hint(`Рисунки: ${have} из ${uniq.length}` + (names ? ` · не хватает: ${names}` : ''))
         : hint('Рисунки не требуются');
     const n = (check?.missing || []).length;
-    const ready = !cat() ? null : n ? hint(`Готовность шаблона: не хватает ${n}`, 'warn') : badge('Готовность шаблона: всё готово', 'ok');
+    const ready = !check ? null : check.ready ? badge('Упрощённый шаблон готов', 'ok') : hint(`Упрощённый шаблон: не хватает ${n}`, 'warn');
     const card = section({
       title: 'Паспорт', fixed: true, tone: 'info',
       body: [
@@ -141,7 +160,8 @@ export function passportPane(row, ctx) {
           ['Как соединено', jointsText(row.passportDefaults?.joints) || null],
           ['Поставляется разобранным', row.passportDefaults?.isKit ? 'да' : null],
         ] }),
-        draw, ready,
+        check ? draw : null, ready,
+        session.canEdit ? button({ label: 'Открыть шаблон', size: 'S', onClick: () => openPassportTemplate(row) }) : null,
       ],
     });
     let items = row.passports?.items || [];
@@ -196,13 +216,6 @@ export function passportPane(row, ctx) {
             title: firmFilter ? 'Нет паспортов этой фирмы' : 'По этой модели паспортов ещё нет',
             hint: firmFilter ? undefined : '«Готовность шаблона» — данные. Файл появится после выпуска (без заказа и без договора).',
           }),
-          (!firmFilter && session.canEdit && session.seesDocs())
-            ? button({
-              label: 'Выпустить паспорт', kind: 'primary', size: 'S',
-              title: 'Без заказа и без договора — номер и PDF сразу',
-              onClick: () => openPassportFunnel({ productId: row.id }),
-            })
-            : null,
         );
       const more = total > items.length ? hint(`показаны последние ${items.length}`) : null;
       host.replaceChildren(card, filter, issued, more);

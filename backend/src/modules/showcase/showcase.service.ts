@@ -14,7 +14,7 @@ import { skuKey, skuRegex, tokensFilter } from '../../common/text/search-norm';
 import { isUsedByCrm } from '../../common/catalog/catalog-references';
 import { CounterService } from '../counter/counter.service';
 import { parseCatalog } from './catalog-rows';
-import { normalizePassportDefaults, presentPassportDefaults, type PassportDefaults } from './passport-defaults';
+import { legacyDefaultsReplacement, normalizePassportDefaults, presentPassportDefaults, type PassportDefaults } from './passport-defaults';
 import { facetElementsPatch } from './facet-elements';
 import { productNameKey, shortProductName } from './order-product-name';
 import { clean, LIVE, loadPhotos, variants, type Doc } from './showcase-common';
@@ -282,7 +282,10 @@ export class ShowcaseService {
       const err = checkChoices((await this.db.collection('dict_values').find({ dict: 'passportPhrases', deletedAt: null }).toArray()).map((r) => toNode(r)), v.textChoices);
       if (err) throw new BadRequestException(err);
     }
-    await this.db.collection('products').updateOne({ _id }, Object.keys(v).length ? { $set: { passportDefaults: v, updatedAt: new Date() } } : { $unset: { passportDefaults: '' }, $set: { updatedAt: new Date() } });
+    const result = await this.db.collection('products').updateOne({ _id, deletedAt: null }, [
+      { $set: { passportDefaults: legacyDefaultsReplacement(v), updatedAt: new Date() } },
+    ]);
+    if (!result.matchedCount) throw new NotFoundException('Изделие не найдено');
     return this.get(id);
   }
 
@@ -511,7 +514,17 @@ export class ShowcaseService {
     if (set.photoIds) set.mainPhotoId = (set.photoIds as Types.ObjectId[])[0] ?? null;
     // C028: элементы выбранных признаков дописываются в умолчания паспорта (ручные не стираются)
     const fromFacets = Array.isArray(set.facetValueIds) ? await facetElementsPatch(this.db, _id, set.facetValueIds as Types.ObjectId[]) : null;
-    const r = await this.db.collection('products').updateOne({ _id, deletedAt: null }, { $set: { ...set, ...(fromFacets ? { 'passportDefaults.elements': fromFacets } : {}), updatedAt: new Date() } });
+    const nextDefaults = {
+      ...('passportDefaults.foundationDepth' in set ? { foundationDepth: set['passportDefaults.foundationDepth'] } : {}),
+      ...(fromFacets ? { elements: fromFacets } : {}),
+    };
+    delete set['passportDefaults.foundationDepth'];
+    set.updatedAt = new Date();
+    const patch = Object.keys(nextDefaults).length ? [{ $set: {
+      ...Object.fromEntries(Object.entries(set).map(([k, v]) => [k, { $literal: v }])),
+      passportDefaults: { $mergeObjects: [{ $ifNull: ['$passportDefaults', {}] }, { $literal: nextDefaults }] },
+    } }] : { $set: set };
+    const r = await this.db.collection('products').updateOne({ _id, deletedAt: null }, patch);
     if (!r.matchedCount) throw new NotFoundException('Изделие не найдено');
     return this.get(id);
   }

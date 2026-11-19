@@ -3,7 +3,7 @@ import { Types, type ClientSession, type Connection, type Model } from 'mongoose
 import type { CreateProductPassportDto } from './dto/create-product-passport.dto';
 import type { ReadyPassportDto } from './dto/ready-passport.dto';
 import type { ProductPassportDocument } from './product-passport.schema';
-import { assertOneLive } from './passport-bind';
+import { assertOneLive, isScopeDuplicate, lineScopeKey } from './passport-bind';
 import { fromIncome } from './passport-queue';
 import { assertPdf, storePrintPdf, unlinkPrint } from './passport-print-file';
 import { dayUtc } from './passport-rules';
@@ -55,7 +55,8 @@ export async function createReadyPassport(h: ReadyHost, dto: ReadyPassportDto, f
       const set: Doc = {
         productId: oid(dto.productId), name: String(product.name ?? '') || 'Изделие', ...(product.article ? { article: String(product.article) } : {}),
         supplierOrgId: oid(dto.supplierOrgId), supplier: String(org.shortName || org.name || ''),
-        ...(filled.salesOrderId ? { salesOrderId: oid(String(filled.salesOrderId)) } : {}), ...(dto.incomeId ? { incomeId: oid(dto.incomeId) } : {}),
+        ...(filled.salesOrderId ? { salesOrderId: oid(String(filled.salesOrderId)) } : {}),
+        ...(dto.incomeId ? { incomeId: oid(dto.incomeId), creationScopeKey: lineScopeKey(dto.incomeId) } : {}),
         ...(filled.orderNo ? { orderNo: filled.orderNo } : {}), ...(filled.customerName ? { customerName: filled.customerName } : {}),
         date, status: 'issued', issuedAt: new Date(), revision: 1, source: 'ready-file', printFile: stored, warrantyMonths: 12,
         ...(want ? { passportNumber: String(want), passportNo: want } : {}),
@@ -65,6 +66,7 @@ export async function createReadyPassport(h: ReadyHost, dto: ReadyPassportDto, f
       try {
         return await h.model.create(set);
       } catch (e) {
+        if (isScopeDuplicate(e)) throw new ConflictException('На эту позицию уже есть паспорт');
         if ((e as { code?: number }).code !== 11000) throw e;
         // гонка: тот же номер занят между проверкой и записью — заданный вручную отказ, выданный сервером — ещё попытка
         if (want || attempt >= 2) throw new ConflictException(want ? `Номер ${want} уже занят другим паспортом` : 'Номер уже занят другим паспортом — повторите добавление');

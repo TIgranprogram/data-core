@@ -1,0 +1,198 @@
+{
+  "startedAt": "2026-11-19T14:47:12.672Z",
+  "origin": "http://localhost:3102",
+  "phase": "order",
+  "viewport": "1920×1080",
+  "checks": {
+    "order-position": {
+      "status": "PASS",
+      "inspectedProductionOrders": 1,
+      "candidates": [
+        {
+          "orderId": "6aff0bcb34de43c56e5ac570",
+          "lines": [
+            {
+              "incomeId": "6aff0bce34de43c56e5ac582",
+              "state": "ready",
+              "passport": null
+            },
+            {
+              "incomeId": "6aff0bd234de43c56e5ac595",
+              "state": "ready",
+              "passport": null
+            }
+          ]
+        }
+      ],
+      "contexts": [
+        {
+          "incomeId": "6aff0bce34de43c56e5ac582",
+          "salesOrderId": "6aff0bcb34de43c56e5ac570",
+          "productId": "6ae1269ae36900370537a2f3",
+          "passport": null
+        },
+        {
+          "incomeId": "6aff0bd234de43c56e5ac595",
+          "salesOrderId": "6aff0bcb34de43c56e5ac570",
+          "productId": "6ae1269ae36900370537a2f3",
+          "passport": null
+        }
+      ],
+      "savedFirm": true,
+      "action": "Открыть шаблон второй позиции из плана",
+      "issued": {
+        "id": "6aff0bf134de43c56e5ac63f",
+        "number": "612",
+        "incomeId": "6aff0bce34de43c56e5ac582",
+        "salesOrderId": "6aff0bcb34de43c56e5ac570",
+        "productId": "6ae1269ae36900370537a2f3",
+        "repeatStatus": 200
+      },
+      "peerUnchanged": true,
+      "peerTemplate": true
+    },
+    "network": {
+      "status": "PASS",
+      "browserErrors": 0,
+      "outside": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOutside": 25,
+  "appOutside": 0,
+  "blockedWrites": {},
+  "pageErrors": 0,
+  "scenarioSha256": "3d5ad9f71ee48b1d4408f44a4485667a87cd1ec784a3e0b32a9b1b9c93c891ae",
+  "guardSha256": "6b2dc08e54efc77986cc56f9f4fafee1a77c344adfae50b4a70864af41c35e60",
+  "browser": "157.0.8103.79",
+  "stand": {
+    "backup": "datacore-2026-11-18_031040.tgz",
+    "head": "179c6239105caf8284fc246637e4e2ac6897c45b",
+    "dirty": true,
+    "builtAt": "2026-11-19T14:03:13.877Z"
+  },
+  "traffic": [
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "order-position",
+      "method": "GET",
+      "target": "/api/passports/order/6aff0bcb34de43c56e5ac570/plan",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "order-position",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 200
+    },
+    {
+      "step": "order-position",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 304
+    },
+    {
+      "step": "order-position",
+      "method": "POST",
+      "target": "/api/passports",
+      "status": 201
+    },
+    {
+      "step": "order-position",
+      "method": "GET",
+      "target": "/api/passports/6aff0bf134de43c56e5ac63f",
+      "readOnly": "1",
+      "status": 200
+    },
+    {
+      "step": "order-position",
+      "method": "POST",
+      "target": "/api/passports/6aff0bf134de43c56e5ac63f/issue",
+      "status": 200
+    },
+    {
+      "step": "order-position",
+      "method": "GET",
+      "target": "/api/passports/6aff0bf134de43c56e5ac63f",
+      "readOnly": "1",
+      "status": 200
+    },
+    {
+      "step": "order-position",
+      "method": "POST",
+      "target": "/api/passports/6aff0bf134de43c56e5ac63f/issue",
+      "status": 200
+    },
+    {
+      "step": "order-position",
+      "method": "GET",
+      "target": "/api/passports/6aff0bf134de43c56e5ac63f",
+      "readOnly": "1",
+      "status": 304
+    },
+    {
+      "step": "order-position",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 200
+    },
+    {
+      "step": "order-position",
+      "method": "GET",
+      "target": "/api/passports/order/6aff0bcb34de43c56e5ac570/plan",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "order-position",
+      "method": "GET",
+      "target": "/api/passports/by-order",
+      "status": 200
+    },
+    {
+      "step": "order-position",
+      "method": "GET",
+      "target": "/api/passports/order/6aff0bcb34de43c56e5ac570/plan",
+      "variant": "short",
+      "status": 304
+    },
+    {
+      "step": "order-position",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 200
+    },
+    {
+      "step": "order-position",
+      "method": "GET",
+      "target": "/api/passports/by-order",
+      "status": 304
+    },
+    {
+      "step": "order-position",
+      "method": "GET",
+      "target": "/api/showcase/6ae1269ae36900370537a2f3/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "order-position",
+      "method": "GET",
+      "target": "/api/passports/order/6aff0bcb34de43c56e5ac570/plan",
+      "variant": "short",
+      "status": 304
+    }
+  ]
+}

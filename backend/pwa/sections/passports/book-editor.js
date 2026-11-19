@@ -3,41 +3,53 @@
  * Модули: book-blocks (страницы), book-choices (воронка), book-focus (очередь), book-images, book-shared.
  * Жизненный цикл: одно открытое поле; перерисовка сохраняет черновик; запись — под замком паспорта.
  */
-import { api, session } from '../../core/api.js';
+import { api } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { toast, toastError } from '../../ui/kit/toast.js';
 import { confirmDlg } from '../../ui/kit/dialog.js';
-import { button, badge, select, iconButton } from '../../ui/kit/index.js';
+import { actions, button, link, select } from '../../ui/kit/index.js';
+import { busyBtn } from '../../ui/kit/busy.js';
 import { buildForm } from '../../ui/kit/form.js';
 import { srcLegend } from '../../ui/kit/src.js';
-import { canEdit, canWorkPassport, heading, numberOf, ourCompanies, statusOf } from './common.js';
+import { canEdit, canWorkPassport, ourCompanies, statusOf } from './common.js';
 import { passportAction } from './field-edit.js';
 import { pickSourceKey, aiCheckBlock, pageText, exclusive, sidePanel } from './book-shared.js';
-import { buildBook } from './book-blocks.js';
+import { bindBookScroll, renderBookDocument } from './book-document.js';
 import { mountBookChoices } from './book-choices.js';
 import { mountBookFocus } from './book-focus.js';
 import { imageStrip } from './book-images.js';
 import { ilogicBlock } from './book-ilogic.js';
-import { printDialog } from './dialogs.js';
 import { SRC_LABEL } from './card-blocks.js';
 import { bindBookInlineEvents } from './book-inline-events.js';
+import { loadBookTemplate, saveBookTemplate, simpleTextHref, templateDocument } from './book-template.js';
+import { issueBookInstance } from './book-issue.js';
+import { paintBookHead } from './book-head.js';
+import { editBookTemplateText, openBookCategory, openBookSetting, openDescriptionSetup, openSimpleDescription } from './book-template-edit.js';
+import { openCompositionInBook, openDimsInBook, openMaterialsInBook } from './book-side-edit.js';
 
 const hhmm = () => new Date().toTimeString().slice(0, 5);
 
 /** Открыть окно паспорта. onClose(row, changed) — после закрытия. */
-export async function openBookEditor(passport, { onClose, isCurrent = () => true } = {}) {
+export async function openBookEditor(passport, { template = null, position, onClose, isCurrent = () => true } = {}) {
   let row;
-  try { row = await api('/passports/' + (passport.id || passport)); } catch (e) { toastError(e); return false; }
+  try { row = template ? templateDocument(template) : await api('/passports/' + (passport?.id || passport), { query: { readOnly: 1 } }); }
+  catch (e) { toastError(e); return false; }
   if (!isCurrent()) return false;
-  const S = { r: row, changed: false, cur: null, fit: true };
-  // править можно, если есть право на работу с паспортами и он не аннулирован; номер изделия — только администратор/владелец (как на сервере)
-  const can = canWorkPassport() && statusOf(row) !== 'annulled';
-  const canNumber = session.role === 'admin' || session.user?.isOwner === true;
+  const S = { r: row, template, changed: false, cur: null, fit: true };
+  const can = () => canWorkPassport() && (!!S.template || (S.r.presentationVersion === 1 && statusOf(S.r) === 'draft'));
   const pid = () => S.r.id;
-  const lock = (fn) => exclusive(pid(), passportAction, fn);
+  const lock = (fn) => exclusive(S.template ? `template/${S.template.productId}` : pid(), passportAction, fn);
+  const setTemplate = (next) => { S.r = templateDocument(next); S.template = next; };
+  const refreshRow = async () => {
+    if (S.template) setTemplate(await loadBookTemplate(S.template.productId, S.template.variant));
+    else S.r = await api('/passports/' + pid());
+  };
+  let actionBusy = false;
+  let draftId = null;
 
   // ─── каркас окна ────────────────────────────────────────────────────────────
-  const stat = h('span', { class: 'bk-stat', 'aria-live': 'polite' }, 'Правки сохраняются сразу при нажатии «Сохранить».');
+  const readOnlyStat = 'Просмотр и печать доступны в этом окне.';
+  const stat = h('span', { class: 'bk-stat', 'aria-live': 'polite' }, can() ? 'Правки сохраняются сразу при нажатии «Сохранить».' : readOnlyStat);
   const tocPagesList = h('div', { class: 'bk-toc-pages-list', 'aria-label': 'Страницы' });
   const tocPages = h('section', { class: 'bk-panel bk-toc-pages' },
     h('header', { class: 'bk-panel-h' }, h('h3', { class: 'bk-toc-h' }, 'Страницы')),
@@ -48,9 +60,17 @@ export async function openBookEditor(passport, { onClose, isCurrent = () => true
   const pages = h('div', { class: 'bk-pages bk-fit' });
   const scroller = h('div', { class: 'bk-scroll' }, pages);
   const sideEmpty = () => sidePanel('Подсказки',
-    h('p', { class: 'hint bk-toc-hint' }, can
-      ? 'Нажмите текст или ячейку на листе — правка прямо там. Слева — что заполнить первым. Здесь — состав, ИИ и Inventor.'
-      : 'Паспорт открыт только для чтения.'));
+    h('p', { class: 'hint bk-toc-hint' }, can()
+      ? 'Выберите поле на листе или пункт слева.'
+      : 'Паспорт открыт только для чтения.'),
+    S.template?.variant === 'short' && can() ? actions(
+      !S.template.simpleDescriptionSource ? button({ label: 'Подобрать краткое описание', size: 'S', onClick: openDescription }) : null,
+      button({ label: 'Своя формулировка', size: 'S', onClick: openOwnDescription }),
+      link({ label: 'Справочник текстов ↗', href: simpleTextHref(S.template.simpleDescriptionSource), target: '_blank' }),
+    ) : null,
+    S.template?.variant === 'full' && can() ? h('div', { class: 'bk-ed-row' },
+      button({ label: 'Части и материалы', size: 'S', onClick: () => openProductSide(openMaterialsInBook) }),
+      button({ label: 'Состав изделия', size: 'S', onClick: () => openProductSide(openCompositionInBook) })) : null);
   const slot = h('div', { class: 'bk-side-slot' }, sideEmpty());
   const head = h('div', { class: 'bk-head' });
   // ИИ + Inventor — отдельный низ; при правке полей скрываются (.is-editing), форма занимает колонку
@@ -65,31 +85,10 @@ export async function openBookEditor(passport, { onClose, isCurrent = () => true
   let choicesApi = null;
   let tocPagesLive = [];
 
-  const markTocCurrent = (idx) => {
-    [...tocPagesList.children].forEach((btn, i) => {
-      const on = i === idx;
-      btn.classList.toggle('is-current', on);
-      if (on) btn.setAttribute('aria-current', 'true');
-      else btn.removeAttribute('aria-current');
-    });
-  };
-
-  {
-    let ticking = false;
-    scroller.addEventListener('scroll', () => {
-      if (ticking || !tocPagesLive.length) return;
-      ticking = true;
-      requestAnimationFrame(() => {
-        ticking = false;
-        const top = scroller.scrollTop + 24;
-        let cur = 0;
-        tocPagesLive.forEach((p, i) => { if (p.offsetTop <= top) cur = i; });
-        markTocCurrent(cur);
-      });
-    }, { passive: true });
-  }
+  const markTocCurrent = bindBookScroll(scroller, tocPagesList, () => tocPagesLive);
 
   async function requestClose() {
+    if (actionBusy || S.cur?.busy() || choicesApi?.busy() || !await leaveSide()) return;
     if (S.cur?.dirty() && !(await confirmDlg('Закрыть без сохранения?', 'В открытом поле есть несохранённая правка. Она пропадёт.', { okText: 'Закрыть без сохранения', danger: true }))) return;
     document.removeEventListener('keydown', onKey, true);
     back.remove();
@@ -104,40 +103,100 @@ export async function openBookEditor(passport, { onClose, isCurrent = () => true
 
   // ─── правка: одно поле за раз ───────────────────────────────────────────────
   let edits = []; // открывалки по порядку на странице — для Tab
-  const patchPassport = (body) => api('/passports/' + pid(), { method: 'PATCH', body });
-  const ctx = { S, can, canNumber, firms: null, patchPassport, exclusive: lock, rerender: () => render(), editable, imageStrip: (...a) => imageStrip(ctx, ...a), compTree: null, compFor: '' };
+  const patchPassport = (body) => {
+    if (S.template) throw new Error('Откройте экземпляр, чтобы изменить его реквизиты.');
+    return api('/passports/' + pid(), { method: 'PATCH', body });
+  };
+  const patchTemplate = async (changes, baseline) => {
+    setTemplate(await saveBookTemplate(S.template, changes, baseline));
+    S.changed = true;
+  };
+  const ctx = { S, get can() { return can(); }, firms: null, patchPassport, patchTemplate, refreshRow,
+    exclusive: lock, rerender: () => render(), editable, imageStrip: (...a) => imageStrip(ctx, ...a), compTree: null };
   /** Ответ паспорта уже содержит проекцию PDF. Выпущенный использует только свой снимок. */
   function ensureComposition() {
     ctx.compTree = { loading: false, lines: Array.isArray(S.r.compositionSheet) ? S.r.compositionSheet : [] };
   }
 
   function editable(view, spec) {
-    if (!can || spec.readonly) return view;
+    if (!can() || spec.readonly || (S.template && !spec.templateEdit && !spec.open)) return view;
     const idx = edits.length;
     view.classList.add('bk-edit');
     view.tabIndex = 0;
     view.setAttribute('role', 'button');
     view.title = 'Нажмите, чтобы править' + (view.title ? ' · ' + view.title : '');
-    bindBookInlineEvents(view, () => openEditor(idx));
+    bindBookInlineEvents(view, () => {
+      if (actionBusy) return;
+      if (spec.open) { openSide(spec.open); return; }
+      if (S.template) { openSide(() => editBookTemplateText(slot, spec, { done: sideDone })); return; }
+      openEditor(idx);
+    });
     edits.push({ view, spec });
     return view;
   }
 
   /** Состав в слоте: спросить, если строки менялись; иначе очистить молча. Материалы тоже снимают is-wide. */
+  function clearSide() {
+    slot._bkLeave = null;
+    slot._bkOpening = null; choicesApi?.hideSimple(false);
+    side.classList.remove('is-wide', 'is-editing');
+    side.closest('.bk-main')?.classList.remove('is-edit-wide');
+  }
+  async function leaveSide() {
+    if (slot._bkLeave && !await slot._bkLeave()) return false;
+    clearSide();
+    return true;
+  }
   function releaseSlot(then) {
-    const ask = slot._bkLeave;
-    const clearWide = () => {
-      const side = slot.closest?.('.bk-side');
-      side?.classList.remove('is-wide', 'is-editing');
-      side?.closest?.('.bk-main')?.classList.remove('is-edit-wide');
-    };
-    if (typeof ask !== 'function') { clearWide(); then(); return; }
-    void ask().then((ok) => {
-      if (!ok) return;
-      slot._bkLeave = null;
-      clearWide();
-      then();
+    if (!slot._bkLeave) { clearSide(); then(); return; }
+    void leaveSide().then((ok) => { if (ok) then(); });
+  }
+  function openSide(run) {
+    if (actionBusy || S.cur?.busy()) return;
+    if (S.cur?.dirty()) { warnOpenEdit(); return; }
+    releaseSlot(() => {
+      S.cur?.cancel();
+      slot.replaceChildren(sideEmpty());
+      run();
     });
+  }
+  function sideDone({ saved } = {}) {
+    clearSide();
+    slot.replaceChildren(sideEmpty());
+    if (saved) {
+      S.changed = true;
+      setStat('Сохранено в ' + hhmm(), 'ok');
+      renderNow();
+      choicesApi?.refresh();
+    }
+  }
+  function editTemplateSide(open, followDescription = false) {
+    openSide(() => {
+      choicesApi?.hideSimple(followDescription);
+      const token = Symbol();
+      slot._bkOpening = token;
+      slot.replaceChildren(sidePanel('Подготовка правки', h('p', { class: 'hint' }, 'Загружаю…')));
+      Promise.resolve(open(slot, S.template, {
+        save: (changes, baseline) => lock(() => patchTemplate(changes, baseline)),
+        done: (result) => { sideDone(result); if (followDescription && result?.saved && !S.template.simpleDescriptionSource) openDescription(); },
+        openOwn: openOwnDescription,
+        isCurrent: () => back.isConnected && slot._bkOpening === token,
+      })).catch((e) => { if (slot._bkOpening === token) { sideDone(); toastError(e); } });
+    });
+  }
+  function openDescription() { editTemplateSide(openDescriptionSetup, true); }
+  function openOwnDescription() { editTemplateSide(openSimpleDescription); }
+  ctx.openSimple = openDescription;
+  const editSetting = (key) => editTemplateSide(key === 'category' ? openBookCategory
+    : (slot, template, options) => openBookSetting(slot, template, { ...options, key }));
+  ctx.openDimensions = () => openProductSide(openDimsInBook);
+  function openProductSide(open) {
+    openSide(() => open(slot, S.r.productId, { onDone: async ({ saved } = {}) => {
+      if (saved) {
+        try { await refreshRow(); } catch (e) { toastError(e, 'обновить шаблон'); }
+      }
+      if (back.isConnected) sideDone({ saved });
+    } }));
   }
 
   /** initial — текст, который надо вернуть в поле после перерисовки (несохранённая правка не теряется). */
@@ -171,7 +230,7 @@ export async function openBookEditor(passport, { onClose, isCurrent = () => true
       catch (e) { busy(false); st.textContent = 'Не сохранено: ' + (e?.message || 'Не удалось сохранить. Повторите нажатие.'); setStat('Не сохранено — причина под полем', 'err'); toastError(e); return; }
       S.cur = null;
       setStat('Сохранено в ' + hhmm(), 'ok');
-      try { S.r = await api('/passports/' + pid()); } catch { toast('Текст сохранён. Откройте паспорт заново, чтобы увидеть обновление.', { error: true }); }
+      try { await refreshRow(); } catch { toast('Текст сохранён. Откройте паспорт заново, чтобы увидеть обновление.', { error: true }); }
       S.changed = true;
       focusApi?.refresh();
       render(next ? idx + next : undefined);
@@ -202,7 +261,7 @@ export async function openBookEditor(passport, { onClose, isCurrent = () => true
       catch (e) { busy(false); st.textContent = 'Не удалено'; setStat('Не удалено', 'err'); toastError(e); return; }
       S.cur = null;
       setStat('Удалено в ' + hhmm(), 'ok');
-      try { S.r = await api('/passports/' + pid()); } catch { toast('Строка удалена. Откройте паспорт заново, чтобы увидеть обновление.', { error: true }); }
+      try { await refreshRow(); } catch { toast('Строка удалена. Откройте паспорт заново, чтобы увидеть обновление.', { error: true }); }
       S.changed = true;
       focusApi?.refresh();
       render();
@@ -225,7 +284,7 @@ export async function openBookEditor(passport, { onClose, isCurrent = () => true
     view.replaceChildren(box);
     slot.replaceChildren(sideEmpty());
     fit();
-    S.cur = { idx, dirty, value: () => ctl.value, cancel: () => { if (!working) { S.cur = null; render(); } }, focus: () => ctl.focus(), warn: (text) => { st.textContent = text; } };
+    S.cur = { idx, dirty, busy: () => working, value: () => ctl.value, cancel: () => { if (!working) { S.cur = null; render(); } }, focus: () => ctl.focus(), warn: (text) => { st.textContent = text; } };
     ctl.focus();
     view.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
@@ -238,107 +297,101 @@ export async function openBookEditor(passport, { onClose, isCurrent = () => true
     // внешняя перерисовка (картинки) не теряет несохранённый текст: поле откроется заново с тем же текстом
     const keepEd = typeof openNext !== 'number' && S.cur?.dirty() ? { idx: S.cur.idx, value: S.cur.value() } : null;
     S.cur = null; edits = []; slot.replaceChildren(sideEmpty());
-    const keep = scroller.scrollTop;
     ensureComposition();
-    const defs = buildBook(ctx);
-    pages.replaceChildren();
-    const mk = (title) => {
-      const body = h('div', { class: 'bk-body' });
-      const page = h('section', { class: 'bk-page', 'aria-label': title || 'Страница' }, body);
-      pages.append(page);
-      return { page, body };
-    };
-    const room = (p) => p.clientWidth * (210 / 148 - 0.18); // высота тела листа: ширина × 210/148 минус поля (7cqw сверху, 11cqw снизу)
-    const over = (c) => c.body.getBoundingClientRect().height > room(c.page) + 1;
-    for (const d of defs) {
-      if (d.blocks) { for (const b of d.blocks) mk(b.dataset.title).body.append(b); continue; }
-      let cur = mk();
-      for (const b of d.flow) {
-        cur.body.append(b);
-        if (!over(cur) || cur.body.children.length < 2) continue;
-        const prev = cur.body.children[cur.body.children.length - 2];
-        const move = prev?.classList.contains('bk-h') && cur.body.children.length > 2 ? [prev, b] : [b];
-        cur = mk(); cur.body.append(...move);
-      }
-    }
-    const org = S.r.supplierOrg;
-    [...pages.children].forEach((p, i) => { p.append(h('div', { class: 'bk-pno' }, `${org?.shortName || org?.name || ''} · ${heading(S.r)} · стр. ${i + 1}/${pages.children.length}`)); });
-    tocPagesLive = [...pages.children];
-    tocPagesList.replaceChildren(...tocPagesLive.map((p, i) => {
-      const title = p.querySelector('.bk-h')?.textContent?.split('\n')[0] || p.querySelector('[data-title]')?.dataset.title || p.getAttribute('aria-label') || ('стр. ' + (i + 1));
-      // C141: страницы с правками изделия/ручными — заметнее; «общие» — спокойнее
-      const hot = !!p.querySelector('.k-src[data-src="product"], .k-src[data-src="manual"], .bk-edit');
-      return button({
-        type: 'button',
-        kind: 'ghost',
-        size: 'S',
-        cls: 'bk-toc-i' + (hot ? ' is-hot' : ' is-calm'),
-        title,
-        onClick: () => {
-          markTocCurrent(i);
-          p.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        },
-        label: [
-          h('span', { class: 'bk-toc-n', 'aria-hidden': 'true' }, String(i + 1)),
-          h('span', { class: 'bk-toc-t' }, title),
-        ],
-      });
-    }));
+    tools.hidden = !can();
+    if (!can()) setStat(readOnlyStat);
+    if (S.template?.variant === 'short' && S.r.readiness?.missing.some((item) => item.key.startsWith('choice:'))) toc.prepend(tocFocus, tocMeta);
+    else toc.prepend(tocPages, tocFocus);
+    tocPagesLive = renderBookDocument({ ctx, pages, scroller, tocPagesList, markTocCurrent });
     markTocCurrent(0);
-    scroller.scrollTop = keep;
     paintHead();
     focusApi?.refresh();
     if (typeof openNext === 'number' && edits[openNext]) openEditor(openNext);
     else if (keepEd && edits[keepEd.idx]) openEditor(keepEd.idx, keepEd.value);
   }
 
-  function paintHead() {
-    const r = S.r;
-    const issued = statusOf(r) === 'issued';
-    const zoom = (fit) => { S.fit = fit; pages.classList.toggle('bk-fit', fit); pages.classList.toggle('bk-100', !fit); paintHead(); };
-    const guard = () => { if (S.cur?.dirty()) { warnOpenEdit(); return true; } return false; };
-    const primary = !can ? null : issued
-      ? button({ label: 'Сохранить и выпустить заново', kind: 'primary', size: 'S', disabled: !S.changed, title: S.changed ? 'Номер тот же; PDF соберётся из текущих данных' : 'Сначала измените любое поле — тогда кнопка станет активной', onClick: async () => {
-        if (guard()) return;
-        try { S.r = await api('/passports/' + pid()); } catch (e) { toastError(e); return; }
-        toast('Паспорт № ' + numberOf(S.r) + ' обновлён. Номер тот же.');
-        await printDialog(S.r);
-      } })
-      : button({ label: 'Выпустить', kind: 'primary', size: 'S', onClick: async () => {
-        if (guard()) return;
-        if (!(await confirmDlg('Выпустить паспорт?', 'Паспорт получит номер и гарантийный талон. Правки потом остаются доступны.', { okText: 'Выпустить' }))) return;
-        try { const x = await lock(() => api(`/passports/${pid()}/issue`, { method: 'POST' })); toast('Выпущен паспорт № ' + x.passportNumber); S.changed = true; S.r = await api('/passports/' + pid()); render(); } catch (e) { toastError(e); }
-      } });
-    const art = String(r.article || '').trim();
-    head.replaceChildren(
-      h('h2', null, heading(r), r.name ? ' · ' + r.name : '', ' ', badge(issued ? 'выпущен' : statusOf(r) === 'annulled' ? 'аннулирован' : 'черновик', issued ? 'ok' : 'warn')),
-      h('div', { class: 'bk-sku', title: 'Артикул изделия' },
-        art ? ['Артикул ', h('b', null, art)] : h('span', { class: 'muted' }, 'Артикул не задан')),
-      h('div', { class: 'bk-acts' },
-        r.printSource === 'file' || r.printFile?.hasFile ? h('span', { class: 'bk-mark' }, 'К номеру прикреплён свой PDF — печать отдаёт его. ') : null,
-        // масштаб — ghost: единственная primary в шапке — «Выпустить» (C143)
-        button({ label: 'По ширине', size: 'S', kind: 'ghost', cls: S.fit ? 'is-on' : '', onClick: () => zoom(true) }),
-        button({ label: '100 %', size: 'S', kind: 'ghost', cls: !S.fit ? 'is-on' : '', onClick: () => zoom(false) }),
-        button({ label: 'Скачать PDF', size: 'S', onClick: () => { if (!guard()) printDialog(S.r); } }),
-        primary,
-        iconButton({ icon: '✕', label: 'Закрыть книжку', title: 'Закрыть книжку — только этой кнопкой', cls: 'k-close', onClick: requestClose })));
+  async function runHeadAction(buttonEl, message, task) {
+    if (actionBusy || S.cur?.busy() || choicesApi?.busy()) return;
+    if (S.cur?.dirty()) { warnOpenEdit(); return; }
+    actionBusy = true;
+    const end = busyBtn(buttonEl, message);
+    try {
+      if (!await leaveSide()) return;
+      slot.replaceChildren(sideEmpty());
+      await task();
+    } catch (e) { toastError(e); }
+    finally { actionBusy = false; end(); paintHead(); }
   }
 
-  try { ctx.firms = (await ourCompanies()).map((o) => [o.id, o.name]); } catch { ctx.firms = null; }
+  function updateBook() { choicesApi?.refresh(); renderNow(); }
+  async function showInstance(instance) {
+    S.r = await api('/passports/' + instance.id, { query: { readOnly: 1 } });
+    S.template = null;
+    draftId = null;
+    S.changed = true;
+    updateBook();
+  }
+  async function switchTemplate(productId, variant) {
+    setTemplate(await loadBookTemplate(productId, variant));
+    updateBook();
+  }
+  async function editDraftTemplate() {
+    const row = S.r;
+    const next = await loadBookTemplate(row.productId, row.variant);
+    draftId = row.id;
+    setTemplate(next);
+    updateBook();
+  }
+  async function returnToDraft() {
+    const next = await api('/passports/' + draftId);
+    S.template = null;
+    draftId = null;
+    S.r = next;
+    updateBook();
+  }
+  async function changeInstanceVariant(variant) {
+    await lock(() => patchPassport({ presentationVersion: 1, variant }));
+    await refreshRow();
+    S.changed = true;
+    updateBook();
+  }
+  const zoom = (fit) => {
+    if (actionBusy) return;
+    S.fit = fit;
+    pages.classList.toggle('bk-fit', fit);
+    pages.classList.toggle('bk-100', !fit);
+    paintHead();
+  };
+  const paintHead = () => paintBookHead(head, {
+    S, position, can, zoom, run: runHeadAction, switchTemplate, changeInstanceVariant, showInstance,
+    openTemplate: editDraftTemplate, returnToInstance: draftId ? returnToDraft : null,
+    issueInstance: (row) => lock(() => issueBookInstance(row)), isMounted: () => back.isConnected, requestClose,
+  });
+
+  if (!S.template && can()) {
+    try { ctx.firms = (await ourCompanies()).map((o) => [o.id, o.name]); } catch { ctx.firms = null; }
+  }
   if (!isCurrent()) return false;
   document.addEventListener('keydown', onKey, true);
   document.body.append(back);
   render();
-  const onLeftChanged = () => { focusApi?.refresh(); render(); };
-  choicesApi = mountBookChoices(tocMeta, { S, can, pid, lock, patchPassport, onChanged: onLeftChanged });
+  const onLeftChanged = () => { if (!slot._bkLeave) render(); else focusApi?.refresh(); };
+  choicesApi = mountBookChoices(tocMeta, { S, get can() { return can(); }, lock, patchPassport, patchTemplate, refreshRow, onChanged: onLeftChanged,
+    openCategory: () => editTemplateSide(openBookCategory) });
   focusApi = mountBookFocus(tocFocus, {
-    S, can, pagesEl: pages,
+    S, get can() { return can(); }, pagesEl: pages,
     sideSlot: slot,
+    openSide,
+    openSetting: async (key, buttonEl) => {
+      if (!S.template) await runHeadAction(buttonEl, null, editDraftTemplate);
+      if (S.template) key === 'simpleDescription' ? openDescription() : editSetting(key);
+    },
+    openChoices: (root) => choicesApi?.focus(root),
     sideHome: () => { releaseSlot(() => slot.replaceChildren(sideEmpty())); },
     onChanged: async () => {
-      try { S.r = await api('/passports/' + pid()); }
+      try { await refreshRow(); }
       catch (e) { toastError(e, 'обновить паспорт'); return; }
-      ctx.compFor = ''; ctx.compTree = null; choicesApi?.refresh(); render();
+      choicesApi?.refresh(); render();
     },
   });
   // клик по фону и Esc книжку не закрывают — только крестик

@@ -1,15 +1,17 @@
 import type { SourceRef } from '../../../common/catalog/material-source-refs';
-import { IsArray, IsBoolean, IsDateString, IsIn, IsNumber, IsObject, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsArray, IsBoolean, IsDateString, IsIn, IsNumber, IsObject, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { IsObjectId } from '../../../common/decorators/is-object-id.decorator';
 import { PASSPORT_JOINT_CODES } from '../../../common/passport/traits';
 import { PASSPORT_IMAGE_KINDS } from '../product-passport.schema';
+import { PassportPresentationDto } from './presentation.dto';
 
 /**
  * Паспорт изделия (ПС.1). Номера (`passportNumber`, `productCode`, `warrantyCode`) не передавать —
  * их выдаёт сервер; явные значения — только перенос/исправление (уникальность проверяется, конфликт — 409).
  */
-export class CreateProductPassportDto {
+export class CreateProductPassportDto extends PassportPresentationDto {
+  @IsOptional() @IsUUID() creationKey?: string;
   @IsOptional() @IsObjectId() productId?: string;
   @IsOptional() @IsString() passportNumber?: string;
   @IsOptional() @IsString() productCode?: string;

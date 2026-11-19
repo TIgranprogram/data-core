@@ -1,0 +1,81 @@
+{
+  "startedAt": "2026-11-19T15:15:04.159Z",
+  "origin": "http://localhost:3102",
+  "phase": "fill",
+  "viewport": "1920×1080",
+  "checks": {
+    "fill-composition-1067": {
+      "status": "PASS",
+      "queue": {
+        "first": "img_overview",
+        "label": "Фото изделия: файл на сервере повреждён или пропал — замените фото",
+        "compositionEntry": "Ещё"
+      },
+      "action": "Выйти из редактора без сохранения",
+      "rounds": [
+        {
+          "label": "Нажать «Заполнить» на вкладке «Состав и работы» со свёрнутым составом",
+          "open": true,
+          "visible": true,
+          "focused": true,
+          "inViewport": true
+        },
+        {
+          "label": "Нажать «Заполнить» повторно",
+          "open": true,
+          "visible": true,
+          "focused": true,
+          "inViewport": true
+        },
+        {
+          "label": "Нажать «Заполнить» со вкладки «Файлы»",
+          "open": true,
+          "visible": true,
+          "focused": true,
+          "inViewport": true
+        }
+      ],
+      "images": [
+        "acceptance-fill-light.png",
+        "acceptance-fill-dark.png"
+      ],
+      "editor": {
+        "openedForProduct": true,
+        "cancelled": true
+      }
+    },
+    "network": {
+      "status": "PASS",
+      "browserErrors": 0,
+      "outside": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOutside": 26,
+  "appOutside": 0,
+  "blockedWrites": {},
+  "pageErrors": 0,
+  "scenarioSha256": "06f64b2b65a9f0655ac31917a4ba3a818f4807dada889097e682d112a72b54d7",
+  "guardSha256": "97e07fb650c7dba2dc73715eda7b737eadfb06943a966c25d0acb5f05b0d3bf3",
+  "browser": "157.0.8103.79",
+  "stand": {
+    "backup": "datacore-2026-11-18_031040.tgz",
+    "head": "179c6239105caf8284fc246637e4e2ac6897c45b",
+    "dirty": true,
+    "builtAt": "2026-11-19T14:03:13.877Z"
+  },
+  "traffic": [
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    }
+  ]
+}

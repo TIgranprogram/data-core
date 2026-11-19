@@ -53,6 +53,36 @@ describe('паспорта на весь заказ', () => {
     expect(r.firmChoices).toEqual([]);
     expect(r.cancelled).toBe(2);
   });
+
+  it('новый план пропускает legacy, появившийся после чтения позиции, до записи фирмы', async () => {
+    const supplier = new Types.ObjectId();
+    const draft = { id: String(new Types.ObjectId()) };
+    const createDraft = jest.fn().mockResolvedValue(draft);
+    const issue = jest.fn(), setSupplier = jest.fn(), discard = jest.fn();
+    const { host } = make({ createDraft, issue, setSupplier, discard }, { companyId: supplier, orgs: [{ _id: supplier }] });
+
+    const result = await orderIssue(host, String(o), { lines: [String(i1)], presentationVersion: 1 });
+
+    expect(createDraft).toHaveBeenCalledWith(String(i1), 'Урна А', undefined, { salesOrderId: String(o), productId: String(p1), presentationVersion: 1, variant: 'short' });
+    expect(result.skipped[0].reason).toContain('другой версии');
+    expect(setSupplier).not.toHaveBeenCalled();
+    expect(issue).not.toHaveBeenCalled();
+    expect(discard).not.toHaveBeenCalled();
+  });
+
+  it('ограничивает запись фирмы и выдачу ожидаемым вариантом', async () => {
+    const supplier = new Types.ObjectId();
+    const draft = { id: String(new Types.ObjectId()), presentationVersion: 1, variant: 'full' };
+    const issue = jest.fn(), setSupplier = jest.fn();
+    const { host } = make({ createDraft: async () => draft, issue, setSupplier }, { companyId: supplier, orgs: [{ _id: supplier }] });
+
+    const result = await orderIssue(host, String(o), { lines: [String(i1)], presentationVersion: 1, variant: 'full' });
+
+    const expected = { presentationVersion: 1, variant: 'full' };
+    expect(result.issued).toEqual([{ incomeId: String(i1), passportId: draft.id }]);
+    expect(setSupplier).toHaveBeenCalledWith(draft.id, String(supplier), expected);
+    expect(issue).toHaveBeenCalledWith(draft.id, expected);
+  });
   it('повторные позиции одного изделия используют одну проверку, битое фото блокирует обе', async () => {
     const templateMissing = jest.fn<Promise<string[]>, [string]>(async () => ['Обязательный рисунок не читается: Фото изделия']);
     const { host } = make({ templateMissing });

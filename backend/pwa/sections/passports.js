@@ -1,14 +1,13 @@
-import { stack, hint } from '../ui/kit/index.js';
+import { stack } from '../ui/kit/index.js';
 import { screenCard } from '../ui/kit/screens/card.js';
 import { api, apiFile, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { busyBtn } from '../ui/kit/busy.js';
 import { date } from '../core/format.js';
 import { current, go } from '../core/router.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { confirmDlg } from '../ui/kit/dialog.js';
 import { openBulk } from './bulk-edit.js';
-import { MONTHS, STATUS_LABEL, canEdit, canWorkPassport, dims, facets, facetsFor, heading, isIssued, num, numberOf, st, statusBadge, statusOf } from './passports/common.js';
+import { MONTHS, STATUS_LABEL, canEdit, canWorkPassport, dims, facetsFor, heading, isIssued, num, numberOf, statusBadge, statusOf } from './passports/common.js';
 import { resetProducts } from './passports/models.js';
 import { annulDialog, convertDialog, issueAction, linkDialog, numberDialog, printDialog } from './passports/dialogs.js';
 import { passportBulkFields } from './passports/bulk.js';
@@ -16,7 +15,6 @@ import { bomBlock, checkBlock, imagesBlock, printFileBlock } from './passports/c
 import { pdfBlock } from './passports/pdf-block.js';
 import { revisionsBlock } from './passports/revisions.js';
 import { numbersStrip } from './passports/numbers-strip.js';
-import { passportForm } from './passports/form.js';
 import { stepFunnel } from '../ui/kit/index.js';
 import { openBookEditor } from './passports/book-editor.js';
 
@@ -37,6 +35,12 @@ function listQuery() {
 
 
 export { issuePassport } from './passports/models.js';
+const newFormat = (r) => r.presentationVersion === 1;
+const canWriteDraft = (r) => newFormat(r) && statusOf(r) === 'draft' && canWorkPassport();
+const openBook = (row, ctx) => openBookEditor(row.id, {
+  onClose: (next, changed) => { if (changed) { ctx.setRow?.(next); ctx.changed?.(); } },
+});
+const printable = (r) => !!(r.passportCategory || r.printSource === 'file' || r.printFile?.hasFile);
 
 export const passports = {
   id: 'passports',
@@ -45,12 +49,12 @@ export const passports = {
   entityType: 'ProductPassport',
   canEdit: canWorkPassport,
   historyLabels: { 'passport.created': 'Создан', 'passport.updated': 'Изменён', 'passport.copied': 'Копия', 'passport.deleted': 'Удалён', 'passport.restored': 'Восстановлен', create: 'Создан', update: 'Изменён' },
-  get: (id) => api(`/passports/${id}`),
+  get: (id) => api(`/passports/${id}`, { query: { readOnly: 1 } }),
 
   list: {
     viewKey: 'passports', path: '/passports',
     sortDefault: '-passportNo',
-    createLabel: 'Паспорт',
+    createLabel: false,
     // БЗ-9: отметить паспорта галочками → «Изменить выбранные» (общие поля; номера, талоны, названия, картинки — по одному)
     bulk: { open: (ids, { done }) => openBulk({ ids, done, fields: passportBulkFields,
       apply: (set, arrays) => api('/passports/bulk', { method: 'POST', body: { ids, set, arrays } }),
@@ -98,16 +102,16 @@ export const passports = {
       }),
     },
     hints: {
-      '': 'Паспорт — на каждое выданное изделие: свой номер, талон и номер изделия (их выдаёт система). Клик — карточка: картинки, «⇩ PDF с печатью», «Создать копию».',
-      incomplete: 'Не хватает данных для выдачи: в строке видно, чего именно. Откройте и заполните — PDF соберётся полным.',
-      noImages: 'Паспорта без картинок: перетащите или вставьте (Ctrl+V) общий вид в карточке.',
+      '': 'Откройте карточку, чтобы посмотреть паспорт и скачать его PDF.',
+      incomplete: 'Причины для черновиков нового формата указаны в книжке.',
+      noImages: 'Паспорта с отсутствующими рисунками.',
     },
     hintKey: 'state',
     headActions: () => [numbersStrip()],
     // П2: «⇩ PDF пакетом» — в «Ещё ▾»
     moreActions: () => [{ label: '⇩ PDF пакетом', title: 'Все паспорта по текущим фильтрам — PDF в одном архиве (до 200)', onSelect: async () => {
       const done = toast('Собираю архив — это может занять несколько минут…', { ms: 600000 });
-      try { const name = await apiFile('/passports/zip', { query: { ...listQuery(), stamp: 1 }, timeout: 600000, fallback: 'Паспорта.zip' }); toast(`Скачан: ${name}`); } catch (er) { toastError(er, 'собрать архив паспортов'); } finally { done(); }
+      try { const name = await apiFile('/passports/zip', { query: { ...listQuery(), stamp: 1, readOnly: 1 }, timeout: 600000, fallback: 'Паспорта.zip' }); toast(`Скачан: ${name}`); } catch (er) { toastError(er, 'собрать архив паспортов'); } finally { done(); }
     } }],
     columns: [
       { key: 'pic', label: '', cls: 'pic-cell', render: (r) => (r.thumb ? h('img', { class: 'pic so-pic', src: PREFIX + r.thumb, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }) : null) },
@@ -136,20 +140,16 @@ export const passports = {
       stage: (r) => h('span', null, statusBadge(r), r.revision > 1 ? h('span', { class: 'badge dim', title: 'Версия паспорта' }, ' версия ' + r.revision) : null),
       warns: (r) => [
         statusOf(r) === 'annulled' && r.annulReason ? { tone: 'error', title: 'Аннулирован', sub: r.annulReason } : null,
-        statusOf(r) === 'draft' && r.missing?.length ? { title: 'Не хватает для выпуска', sub: r.missing.join(', ') } : null,
+        canWriteDraft(r) && r.missing?.length ? { title: 'Не хватает для выпуска', sub: r.missing.join(', ') } : null,
         r.productCodeDuplicate ? { title: 'Номер изделия повторяется', sub: `${r.productCode} уже есть в другом паспорте` } : null,
       ],
       next: (r, ctx) => {
-        // C141: основной путь правки — книжка; выпуск/PDF — из книжки или меню
-        const openBook = () => openBookEditor(r, { onClose: (nr, ch) => { if (ch) { ctx.setRow?.(nr); ctx.changed?.(); } } });
-        if (statusOf(r) === 'draft') {
-          if (!canWorkPassport()) return { text: 'Черновик: номер присваивает директор или администратор.' };
-          return { text: r.missing?.length ? 'Слева в книжке — что заполнить первым. Потом «Выпустить» в шапке окна.' : 'Можно выпустить из книжки или сразу здесь.',
-            primary: { label: 'Дописать в книжке', title: 'Паспорт как в PDF: поля на листе, слева очередь заполнения', run: openBook } };
-        }
-        if (statusOf(r) === 'annulled') return null;
-        return { text: 'Выпущен. Правка текстов — в книжке; печать — PDF с номером и талоном.',
-          primary: { label: 'Изменить в книжке', title: 'Паспорт как в PDF; номер тот же при повторном выпуске', run: openBook } };
+        const edit = canWriteDraft(r);
+        return {
+          text: edit ? 'В книжке указаны данные, необходимые для выпуска.'
+            : !newFormat(r) ? 'Паспорт старого образца.' : 'Паспорт доступен для просмотра и печати.',
+          primary: { label: edit ? 'Дописать в книжке' : 'Открыть паспорт', run: () => openBook(r, ctx) },
+        };
       },
       facts: (r) => [
         ['Талон', r.warrantyCode],
@@ -168,37 +168,30 @@ export const passports = {
         ['PDF скачан', r.pdfIssuedAt ? date(r.pdfIssuedAt) : ''], ['Заметки', r.note],
       ],
       menu: (r) => [
-        canWorkPassport() && statusOf(r) !== 'annulled' && { label: 'Изменить в книжке', title: 'Большое окно: паспорт как в PDF', run: (row, ctx) => openBookEditor(row, { onClose: (nr, ch) => { if (ch) { ctx.setRow?.(nr); ctx.changed?.(); } } }) },
-        statusOf(r) === 'draft' && canWorkPassport() && !r.missing?.length && { label: 'Выпустить…', title: 'Присвоить номер и талон', run: (row, ctx) => issueAction(row, ctx) },
-        isIssued(r) && { label: 'PDF и печать…', disabled: !r.passportCategory, title: r.passportCategory ? '' : 'Нет типа паспорта', run: (row) => printDialog(row) },
-        statusOf(r) === 'draft' && { label: r.passportCategory ? '⇩ PDF черновика…' : '⇩ PDF — нет типа', disabled: !r.passportCategory, title: r.passportCategory ? 'PDF с пометкой «ЧЕРНОВИК»' : 'Нет типа паспорта — «Выбрать тип паспорта»', run: (row) => printDialog(row) },
-        isIssued(r) && canEdit() && { label: 'Аннулировать…', title: 'Номер останется занятым и повторно не выдаётся', run: (row, ctx) => annulDialog(row, ctx) },
-        isIssued(r) && (session.role === 'admin' || session.user?.isOwner) && { label: 'Изменить номер…', run: (row, ctx) => numberDialog(row, ctx) },
-        !r.passportCategory && canWorkPassport() && { label: 'Выбрать тип паспорта', title: 'Без типа паспорта PDF упрощённый — с типом текст соберётся по справочникам', run: (row, ctx) => convertDialog(row, ctx) },
-        // ПИ.5: старый паспорт без изделия — привязать к изделию или создать изделие из него (одна модель, без массовых)
-        !r.productId && canWorkPassport() && { label: 'Привязать к изделию', run: (row, ctx) => linkDialog(row, ctx) },
-        !r.productId && canWorkPassport() && r.name && { label: 'Создать изделие из паспорта', title: 'Изделие в «Продукции» с данными этого паспорта; паспорта той же модели привяжутся к нему', run: async (row, ctx) => {
+        { label: 'PDF и печать…', disabled: !printable(r), title: printable(r) ? undefined : 'Для печати нужен исходный файл или тип паспорта', run: printDialog },
+        canWriteDraft(r) && r.readiness?.ready && { label: 'Выпустить…', title: 'Присвоить номер и талон', run: issueAction },
+        newFormat(r) && isIssued(r) && canEdit() && { label: 'Аннулировать…', title: 'Номер останется занятым и повторно не выдаётся', run: annulDialog },
+        newFormat(r) && isIssued(r) && (session.role === 'admin' || session.user?.isOwner) && { label: 'Изменить номер…', run: numberDialog },
+        canWriteDraft(r) && !r.passportCategory && { label: 'Выбрать тип паспорта', run: convertDialog },
+        canWriteDraft(r) && !r.productId && { label: 'Привязать к изделию', run: linkDialog },
+        canWriteDraft(r) && !r.productId && r.name && { label: 'Создать изделие из паспорта', title: 'Изделие получит размеры, тексты и фото паспорта', run: async (row, ctx) => {
           const key = `${String(row.name).replace(/\s+/g, ' ').trim()}\u0000${String(row.article || '').replace(/\s+/g, ' ').trim()}`;
           if (!(await confirmDlg('Создать изделие?', `В «Продукции» появится «${row.name}» с размерами, текстами и фото этого паспорта. Паспорта той же модели (то же наименование и артикул) привяжутся к нему.`, { okText: 'Создать' }))) return;
           try { const res = await api('/showcase/from-passports', { method: 'POST', body: { groups: [{ keys: [key], main: key }] } }); resetProducts(); toast(`Изделие создано, привязано паспортов: ${res.linked}`); ctx.setRow(await api(`/passports/${row.id}`)); } catch (e) { toastError(e); }
-        } },
-        canWorkPassport() && { label: 'Создать копию', title: 'Новый паспорт на ту же модель: новые номера, дата — сегодня', run: async (row, ctx) => {
-          try { const c = await api(`/passports/${row.id}/copy`, { method: 'POST', body: {} }); toast(`Создан паспорт № ${c.passportNumber} — укажите заказчика и дату`); ctx.changed(); go('passports', { ...current().params, open: c.id }); } catch (e) { toastError(e); }
         } },
       ],
       tabs: (r) => {
         const miss = (r.missing?.length || 0) + (r.standardWarnings?.length || 0) + (r.syncWarning ? 1 : 0);
         return [
           { key: 'main', label: 'Паспорт', blocks: (row, ctx) => stack(
-            printFileBlock(row, ctx),
-            // C141: правка только в книжке (кнопка «Что дальше» / меню); wizard и карандаши не монтируем
-            row.passportCategory ? pdfBlock(row, ctx) : null,
-            imagesBlock(row, ctx), bomBlock(row),
-            row.passportCategory ? hint('Текст паспорта правится в книжке: «Изменить в книжке» выше.', 'info') : null,
+            printFileBlock(row, ctx, { readonly: !newFormat(row) }),
+            row.passportCategory ? pdfBlock(row, ctx, { readonly: !canWriteDraft(row) }) : null,
+            imagesBlock(row, ctx, { readonly: !canWriteDraft(row) }), bomBlock(row),
           ) },
-          { key: 'check', label: 'Проверка', count: miss || undefined, tone: miss ? 'warn' : undefined,
+          { key: 'check', label: 'Проверка', count: miss || undefined, tone: miss ? 'warn' : undefined, when: canWriteDraft,
             blocks: (row) => (row.passportCategory ? checkBlock(row) : h('div', { class: 'fill-note' }, row.missing?.length ? ['Не хватает для выдачи: ', h('b', null, row.missing.join(', '))] : 'Нет типа паспорта — проверять нечего.')) },
-          { key: 'versions', label: 'Версии', count: (r.revisionList || []).length || undefined, when: (row) => (row.revisionList || []).length > 0, blocks: (row, ctx) => revisionsBlock(row, ctx) },
+          { key: 'versions', label: 'Версии', count: (r.revisionList || []).length || undefined, when: (row) => (row.revisionList || []).length > 0,
+            blocks: (row, ctx) => revisionsBlock(row, ctx, { readonly: !newFormat(row) }) },
         ];
       },
     }),
@@ -208,13 +201,12 @@ export const passports = {
     editable: () => false,
   },
 
-  form: passportForm,
-
   get remove() {
     if (!canEdit()) return null;
     return {
     text: (r) => `Удалить ${heading(r).toLowerCase()} (${r.name || 'без названия'})? На нумерацию это не влияет.`,
-    blocked: (r) => !canEdit() ? 'Удаление доступно директору или администратору' : (statusOf(r) !== 'draft' ? 'Выпущенный паспорт не удаляется — «Аннулировать…» (номер останется занятым)' : null),
+    blocked: (r) => !newFormat(r) ? 'Доступен просмотр старого паспорта' : !canEdit() ? 'Удаление доступно директору или администратору'
+      : (statusOf(r) !== 'draft' ? 'Выпущенный паспорт не удаляется — «Аннулировать…» (номер останется занятым)' : null),
     run: (r) => api(`/passports/${r.id}`, { method: 'DELETE' }),
     restore: (r) => api(`/passports/${r.id}/restore`, { method: 'POST' }),
     };

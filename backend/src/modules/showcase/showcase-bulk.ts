@@ -1,7 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { oid } from '../../common/list-query';
-import { mergePassportDefaults, normalizePassportDefaults, presentPassportDefaults, type PassportDefaults } from './passport-defaults';
+import { legacyDefaultsReplacement, mergePassportDefaults, normalizePassportDefaults, presentPassportDefaults, type PassportDefaults } from './passport-defaults';
 import { variants, type Db, type Doc } from './showcase-common';
 
 /** То, что массовым действиям нужно от витрины (одиночные операции — те же, что и в карточке). */
@@ -62,14 +62,19 @@ export class ShowcaseBulk {
     for (const it of Array.isArray(dto.items) ? dto.items : []) {
       if (!it?.id || !Types.ObjectId.isValid(it.id)) continue;
       const $set: Record<string, unknown> = { updatedAt: new Date() }; const $unset: Record<string, ''> = {};
+      const defaultReplacement = Object.prototype.hasOwnProperty.call(it.set ?? {}, 'passportDefaults')
+        ? legacyDefaultsReplacement(normalizePassportDefaults((it.set?.passportDefaults ?? {}) as Record<string, unknown>)) : undefined;
       for (const [k, v] of Object.entries(it.set ?? {})) {
-        if (!['categoryId', 'series', 'status', 'listPrice', 'designerId', 'unit', 'ralCode', 'colors', 'sizes', 'passportDefaults'].includes(k)) continue;
-        if (v === null || v === undefined) { if (k === 'categoryId' || k === 'designerId' || k === 'passportDefaults' || k === 'series' || k === 'ralCode') $unset[k] = ''; continue; }
+        if (!['categoryId', 'series', 'status', 'listPrice', 'designerId', 'unit', 'ralCode', 'colors', 'sizes'].includes(k)) continue;
+        if (v === null || v === undefined) { if (k === 'categoryId' || k === 'designerId' || k === 'series' || k === 'ralCode') $unset[k] = ''; continue; }
         if (k === 'categoryId' || k === 'designerId') $set[k] = new Types.ObjectId(String(v));
-        else if (k === 'passportDefaults') $set[k] = normalizePassportDefaults(v as Record<string, unknown>);
         else $set[k] = v;
       }
-      const r = await this.db.collection('products').updateOne({ _id: new Types.ObjectId(it.id) }, { $set, ...(Object.keys($unset).length ? { $unset } : {}) });
+      const patch = defaultReplacement ? [
+        { $set: { ...Object.fromEntries(Object.entries($set).map(([k, v]) => [k, { $literal: v }])), passportDefaults: defaultReplacement } },
+        ...(Object.keys($unset).length ? [{ $unset: Object.keys($unset) }] : []),
+      ] : { $set, ...(Object.keys($unset).length ? { $unset } : {}) };
+      const r = await this.db.collection('products').updateOne({ _id: new Types.ObjectId(it.id), deletedAt: null }, patch);
       restored += r.modifiedCount;
     }
     return { restored };

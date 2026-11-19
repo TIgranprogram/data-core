@@ -10,6 +10,29 @@
 - `backend/pwa/sections/invoice-workspace.js:217` история фактов/сторно, readonly позиции с отдельной формой; `invoice-workspace-meta.js:8` реквизиты; `request-invoice-actions.js:7`, `request-step.js:61`, `invoice.js:250` переходы вместо немедленной оплаты.
 - `backend/pwa/sections/requests.js:305`, `invoices-tab.js:35`, `expenses.js:30` динамический articleId с родителями/none и явным итогом целых счетов. `tools/logs/c158-ui-check.mjs:1` stdin-only сценарий3198: liveRUBPASS, UEunknownVATFAIL исправлен, повтор нужен. `backend/pwa/sections/money-forecast.js:25,31` оценка/needsConversion, `money.js:227` календарь. Проверки/границы: C158/FRONTEND-REPORT.md. Карта обновлена.
 
+## C159 — выбор изделия по фото (2026-11-19)
+коммит: не закоммичено
+- `backend/pwa/sections/orders.js:71` — вход из позиции. `backend/pwa/sections/salesorders-matching.js:38` — тот же каталог с подтверждением сопоставления.
+- `backend/pwa/sections/order-product-picker.js:18,28` — раздельные способы сохранения, вложенная панель. `:101` — фото в строке. `:161,222` — свежая выборка, фильтры и страницы.
+- `backend/pwa/sections/order-product-picker.test.mjs:93` — 6 регрессий. `atlas-data.js:57,81` — шаги заказов и сопоставления. Отчёт `docs/crew/C159-order-product-photo-picker/FRONTEND-REPORT.md`. Карта обновлена.
+
+## C155 — переход из очереди к составу изделия (2026-11-19)
+коммит: не закоммичено
+- `backend/pwa/sections/products/fill-block.js:31`, `card-blocks.js:21` — «Заполнить» раскрывает состав. `card-blocks.js:65` — видимое действие правки и фокус. `fill-composition.test.mjs:25` — активная и другая вкладки, чтение без правки. Отчёт `FILL-BUTTON.md`. Карта обновлена.
+
+## C155 — первое заполнение краткого описания (2026-11-19)
+коммит: не закоммичено
+- `backend/pwa/sections/passports/book-editor.js:187`, `book-focus.js:92` — «Краткое описание» ведёт к следующему недостающему шагу справа. `book-template-edit.js:57` — вид, подтверждение конструкции, словарная подстановка или ссылка на источник.
+- `backend/pwa/sections/passports/book-choices.js:12` — общий выбор словарного листа. `book-template-edit.js:82` — явная своя формулировка с выбранными частями и поиском. `book-autofill.test.mjs:85` — регрессия первого заполнения. Отчёт `FIRST-TIME-AUTOFILL.md`. Карта обновлена.
+
+## C155 B — шаблон и выпуск паспорта (2026-11-19)
+коммит: не закоммичено
+- `backend/pwa/sections/dicts.js:274`, `backend/pwa/main.js:642` — редактирование справочника в штатной панели. `backend/pwa/ui/kit/card.js:87`, `backend/pwa/core/popout.js:37` — возврат из прежнего окна с защитой ввода. Отчёт `DICTIONARY-PANEL.md`.
+- `backend/pwa/sections/passports/book-entry.js:8` — `templateFor` и совместимый `bookFor`. `book-editor.js:33` — общий renderer с явными режимами, `book-template.js:18` — частичный PATCH по собственным значениям.
+- `backend/pwa/sections/passports/book-choices.js:13` — незакрытые вопросы, выбор короткой словарной фразы. `book-template-edit.js:43` — своя формулировка, части, возврат к словарю.
+- `backend/pwa/sections/passports/book-issue.js:33` — выпуск и повтор по тому же ключу/id. `backend/pwa/sections/order-line-passports.js:96` — точная позиция. `backend/pwa/sections/order-passport-plan.js:87` — план v1. `backend/pwa/sections/passports.js:45` — открытие сохранённых экземпляров и печать старого образца в режиме чтения.
+- Отчёт и сценарии — `docs/crew/C155-passport-owner-queue/FRONTEND-IMPLEMENTATION.md`. Карта обновлена.
+
 ## C156 — отметка локальной копии (2026-11-19)
 коммит: не закоммичено
 - `backend/pwa/core/development-mode.js:17` метаданные разработки только с текущего loopback origin, без кэша и редиректа.

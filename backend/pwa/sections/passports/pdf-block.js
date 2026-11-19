@@ -56,7 +56,7 @@ function excludedList(r, ex) {
   return sec;
 }
 
-export function pdfBlock(r, ctx) {
+export function pdfBlock(r, ctx, { readonly = false } = {}) {
   const t = r.textSnapshot;
   if (!t || !Array.isArray(t.traits)) return null; // снимок собран до признаков — нечего показывать
   const ex = t.excluded || [];
@@ -65,7 +65,7 @@ export function pdfBlock(r, ctx) {
     : h('p', { class: 'muted small' }, 'Признаки не определены: выберите вид изделия, материал и способ установки.');
   return section({ title: 'Что попадёт в PDF', tone: t.needJoints ? 'main' : 'info', open: !!t.needJoints, body: [
     h('p', { class: 'hint' }, 'В паспорт попадают только подходящие изделию пункты и строки осмотра.'),
-    t.needJoints ? jointsAsk(r, ctx) : null,
+    t.needJoints && !readonly ? jointsAsk(r, ctx) : null,
     traits,
     (t.unknownTraits || []).length ? h('p', { class: 'hint' }, 'Пока не определено: ' + t.unknownTraits.map((c) => PASSPORT_TRAITS[c] || c).join(', ')) : null,
     ex.length ? excludedList(r, ex) : h('p', { class: 'muted small' }, 'Ничего не убрано: все пункты подходят.')] });

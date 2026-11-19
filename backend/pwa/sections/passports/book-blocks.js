@@ -29,7 +29,15 @@ const JOURNALS = [
 /** Спецификации правок: что и куда сохранять. */
 export function specsOf(ctx) {
   const pid = () => ctx.S.r.id;
+  const template = ctx.S.template;
+  const manualKeys = { description: 'manualDescription', purpose: 'manualPurpose', install: 'manualInstall' };
+  const templateField = (key, text, label, rows) => ({
+    text: String(text ?? ''), label, rows, templateEdit: !!key,
+    save: (value) => ctx.exclusive(() => ctx.patchTemplate({ [key]: value || null }, template.defaults)),
+  });
   const field = (name, index, text, ref, rows, original, extra = {}) => {
+    if (template) return templateField(manualKeys[name], text,
+      { description: 'Описание изделия', purpose: 'Назначение', install: 'Текст монтажа' }[name] || extra.label, rows);
     const url = '/passports/' + pid() + '/snapshot-field';
     const part = extra.part && extra.part !== 'what' ? extra.part : undefined;
     const key = { field: name, ...(index === undefined ? {} : { index }), ...(part ? { part } : {}) };
@@ -42,6 +50,7 @@ export function specsOf(ctx) {
       ...(shared ? { shared } : {}) };
   };
   const item = (s, i) => {
+    if (template) return { readonly: true };
     const url = '/passports/' + pid() + '/snapshot-item';
     const key = { sectionKey: s.key, itemKey: i.key };
     return { text: String(i.text ?? ''), label: 'Текст пункта', rows: 3, original: i.edited ? i.original : null, save: (t) => api(url, { method: 'PATCH', body: { ...key, text: t } }),
@@ -54,6 +63,8 @@ export function specsOf(ctx) {
 export function buildBook(ctx) {
   const { S, can } = ctx;
   const r = S.r, t = r.textSnapshot || {};
+  const template = S.template;
+  const short = r.presentationVersion === 1 && r.variant === 'short';
   const { field: fieldSpec, item: itemSpec, scalar: scalarSpec } = specsOf(ctx);
   const tabs = tableNumbers(t);
   const plan = numbersOf(t);
@@ -76,7 +87,7 @@ export function buildBook(ctx) {
   const table = (cols, rows) => kitTable({ columns: cols.map((label) => ({ label })), rows: rows.map((cells) => ({ cells })) });
   const cell = (text, spec) => ctx.editable(h('span', { class: 'bk-cell' }, text || h('span', { class: 'muted' }, '—')), spec);
   const textP = (text, spec, src, { prefix, edit } = {}) => {
-    const view = h('p', { class: 'bk-p' }, prefix ? h('b', null, prefix + ' ') : null, shown(text) || h('span', { class: 'muted' }, 'пусто — нажмите, чтобы заполнить'),
+    const view = h('p', { class: 'bk-p' }, prefix ? h('b', null, prefix + ' ') : null, shown(text) || h('span', { class: 'muted' }, 'Не заполнено'),
       edit ? h('span', { class: 'bk-mark' }, ' · изменён для этого паспорта') : null);
     srcPaint(view, edit ? 'manual' : src, SRC_LABEL);
     return ctx.editable(view, spec);
@@ -87,11 +98,11 @@ export function buildBook(ctx) {
   const orgName = org.shortName || org.name || '';
   const contacts = [org.phone ? 'Тел.: ' + org.phone : '', org.email ? 'E-mail: ' + org.email : ''].filter(Boolean).join(' · ');
   const cover = h('div', { class: 'bk-cover' },
-    h('div', { class: 'bk-band' }, ctx.editable(h('div', { class: 'bk-firm' }, orgName || h('span', { class: 'muted' }, 'Фирма не выбрана')),
+    !template ? h('div', { class: 'bk-band' }, ctx.editable(h('div', { class: 'bk-firm' }, orgName || h('span', { class: 'muted' }, 'Фирма не выбрана')),
       scalarSpec('Фирма', r.supplierOrgId || org.id || '', (v) => ctx.patchPassport({ supplierOrgId: v }), { options: ctx.firms || [[r.supplierOrgId || '', orgName]], readonly: !ctx.firms })),
-    org.trademark ? h('span', { class: 'bk-tm' }, `«${String(org.trademark).replace(/[«»"]/g, '')}»`) : null),
+    org.trademark ? h('span', { class: 'bk-tm' }, `«${String(org.trademark).replace(/[«»"]/g, '')}»`) : null) : null,
     contacts ? h('p', { class: 'bk-contacts' }, contacts) : null,
-    h('p', { class: 'bk-ptitle' }, 'ПАСПОРТ № ' + (numberOf(r) || '—')),
+    h('p', { class: 'bk-ptitle' }, template ? 'ОБРАЗЕЦ ПАСПОРТА' : 'ПАСПОРТ № ' + (numberOf(r) || '—')),
     ctx.editable(h('p', { class: 'bk-pname' }, r.name || h('span', { class: 'muted' }, 'Название не задано')), scalarSpec('Название в этом паспорте', r.name, (v) => ctx.patchPassport(passportNamePatch(r, v)))),
     r.productCode || statusOf(r) === 'issued'
       ? ctx.editable(h('p', { class: 'bk-pcode' }, 'Номер изделия: ', r.productCode || '—'),
@@ -107,7 +118,7 @@ export function buildBook(ctx) {
         const n = Number(String(v).trim().replace(',', '.'));
         if (!String(v).trim() || !Number.isFinite(n)) throw new Error('Введите число');
         return ctx.patchPassport({ [key]: n });
-      }))]);
+      }, template ? { open: ctx.openDimensions } : {}))]);
     return [cap('specs', 'Габаритные размеры и масса изделия'), table(['Наименование', 'Значение'], rows)];
   };
   const modules = (r.modules || []).filter((m) => m && String(m.name || '').trim() && Number(m.qty) > 0);
@@ -118,18 +129,23 @@ export function buildBook(ctx) {
     if (!plan.descrNo) return;
     push(hd(`${plan.descrNo} Описание и назначение`));
     let k = 0;
-    if (t.description) push(sub(`${plan.descrNo}.${++k} Описание изделия`), textP(t.description, fieldSpec('description', undefined, t.description, refs.description, 6, orig('description')), t.src?.description, { edit: edited('description') }));
+    if (template && short) {
+      push(sub(`${plan.descrNo}.${++k} Краткое описание`), textP(t.description,
+        { open: ctx.openSimple }, t.src?.description));
+    } else if (t.description || template) {
+      push(sub(`${plan.descrNo}.${++k} Описание изделия`), textP(t.description,
+        short ? { readonly: true } : fieldSpec('description', undefined, t.description, refs.description, 6, orig('description')),
+        t.src?.description, { edit: edited('description') }));
+    }
     if (t.purpose) push(sub(`${plan.descrNo}.${++k} Назначение`), textP(t.purpose, fieldSpec('purpose', undefined, t.purpose, refs.purpose, 3, orig('purpose')), t.src?.purpose, { edit: edited('purpose') }));
     push(sub(`${plan.descrNo}.${++k} Основные технические данные`), ...specTable());
     // C148: проекция из ответа паспорта; у выпущенного — собственный снимок. Старые модули — резерв.
     const live = ctx.compTree;
-    if (live?.loading) push(h('p', { class: 'bk-p muted' }, 'Загружаю состав изделия…'));
-    else if (live?.failed) push(h('p', { class: 'bk-p muted' }, 'Состав изделия не загрузился.'));
-    else if (live?.lines?.length) {
+    if (!short && live?.lines?.length) {
       const sheet = compositionSheet(live.lines);
       if (sheet) push(sub(`${plan.descrNo}.${++k} Состав изделия`), sheet);
     }
-    if (modules.length && r.compositionPresentation !== 'tree') {
+    if (!short && modules.length && r.compositionPresentation !== 'tree') {
       push(sub(`${plan.descrNo}.${++k} Модули: сохранённое описание`), modulesBlock());
     }
     if (plan.rulesNo === plan.descrNo && t.rules?.length) { push(sub(`${plan.descrNo}.${++k} Правила пользования`)); rulesList(); }
@@ -190,14 +206,17 @@ export function buildBook(ctx) {
   if (note) push(hd('Для заметок'), ctx.editable(h('p', { class: 'bk-p' }, note), scalarSpec('Заметка', note, (v) => ctx.patchPassport({ note: v }), { rows: 4 })));
 
   const out = [{ blocks: [cover] }, { flow }];
-  for (const [k, label] of kinds(r).filter(([k]) => k !== 'overview' && (imgsOf(r, k).length || isRequired(r, k)))) {
+  const imageSlots = new Set(r.imageSlots || []);
+  for (const [k, label] of kinds(r).filter(([k]) => k !== 'overview' && (
+    isRequired(r, k) || (template && imageSlots.has(k)) || ((!short || imageSlots.has(k))
+      && (imgsOf(r, k).length || r.standardImages?.some((image) => image.kind === k && image.url)))))) {
     const blk = h('div', { class: 'bk-appx' }, hd('Рисунок: ' + label), ctx.imageStrip(k, label, true));
     blk.dataset.title = 'Рисунок: ' + label;
     out.push({ blocks: [blk] });
   }
   // гарантийный талон — последний лист, как в PDF (данные из паспорта; правятся в карточке)
   const talon = h('div', { class: 'bk-appx' }, hd('Гарантийный талон'),
-    h('p', { class: 'bk-p' }, `Изделие: ${r.name || '—'}`), h('p', { class: 'bk-p' }, `Паспорт № ${numberOf(r) || '—'}${r.productCode ? ' · номер изделия ' + r.productCode : ''}`),
+    h('p', { class: 'bk-p' }, `Изделие: ${r.name || '—'}`), template ? null : h('p', { class: 'bk-p' }, `Паспорт № ${numberOf(r) || '—'}${r.productCode ? ' · номер изделия ' + r.productCode : ''}`),
     r.warrantyMonths ? h('p', { class: 'bk-p' }, `Гарантийный срок: ${numText(r.warrantyMonths)} мес.`) : null,
     h('p', { class: 'bk-p' }, 'Отметки о продаже и установке — заполняются после печати.'));
   talon.dataset.title = 'Гарантийный талон';

@@ -1,0 +1,148 @@
+{
+  "startedAt": "2026-11-19T13:36:00.836Z",
+  "origin": "http://localhost:3102",
+  "phase": "print",
+  "viewport": "1920×1080",
+  "checks": {
+    "issued-pdf": {
+      "status": "PASS",
+      "action": "Скачать PDF обычными страницами, попытка 2",
+      "pdf": [
+        {
+          "status": 200,
+          "sha256": "b4d965992a8d9fbdd462ca206ebc84fb3a0bf5ffd2cafe4b0c582a9d96d91089",
+          "bytes": 130677,
+          "pages": 13,
+          "sizes": [
+            [
+              420,
+              595
+            ]
+          ],
+          "imageCount": 3,
+          "hasDescription": true,
+          "hasNumber": true,
+          "hasAnyPassportNumber": true,
+          "hasDraftMark": false,
+          "hasTechnicalComposition": false
+        },
+        {
+          "status": 200,
+          "sha256": "b902dd4e9865c9567d0bec0f38c1eedf8db1640f5b6410b458ae50860f3e9f8b",
+          "bytes": 130677,
+          "pages": 13,
+          "sizes": [
+            [
+              420,
+              595
+            ]
+          ],
+          "imageCount": 3,
+          "hasDescription": true,
+          "hasNumber": true,
+          "hasAnyPassportNumber": true,
+          "hasDraftMark": false,
+          "hasTechnicalComposition": false
+        }
+      ],
+      "pdfAction": "Подтвердить скачивание PDF",
+      "id": "6afefa546402b642a6610a8b",
+      "number": "611",
+      "image": "acceptance-issued.png"
+    },
+    "network": {
+      "status": "PASS",
+      "browserErrors": 0,
+      "outside": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOutside": 21,
+  "appOutside": 0,
+  "blockedWrites": {
+    "PATCH prefs": 1
+  },
+  "pageErrors": 0,
+  "scenarioSha256": "b2e7d838d77f4db0b55fcc632013edbb2f3ad36a2bdfc2c8c7d528021f51a2dc",
+  "browser": "157.0.8103.79",
+  "stand": {
+    "backup": "datacore-2026-11-18_031040.tgz",
+    "head": "179c6239105caf8284fc246637e4e2ac6897c45b",
+    "dirty": true,
+    "builtAt": "2026-11-19T13:25:59.302Z"
+  },
+  "traffic": [
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "issued-pdf",
+      "method": "GET",
+      "target": "/api/passports/6afefa546402b642a6610a8b",
+      "readOnly": "1",
+      "status": 200
+    },
+    {
+      "step": "issued-pdf",
+      "method": "GET",
+      "target": "/api/passports/facets",
+      "status": 200
+    },
+    {
+      "step": "issued-pdf",
+      "method": "GET",
+      "target": "/api/passports/last-numbers",
+      "status": 200
+    },
+    {
+      "step": "issued-pdf",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 200
+    },
+    {
+      "step": "issued-pdf",
+      "method": "GET",
+      "target": "/api/passports/6afefa546402b642a6610a8b",
+      "readOnly": "1",
+      "status": 304
+    },
+    {
+      "step": "issued-pdf",
+      "method": "GET",
+      "target": "/api/passports/6afefa546402b642a6610a8b",
+      "readOnly": "1",
+      "status": 304
+    },
+    {
+      "step": "issued-pdf",
+      "method": "GET",
+      "target": "/api/passports/6afefa546402b642a6610a8b/pdf",
+      "readOnly": "1",
+      "status": 200
+    },
+    {
+      "step": "issued-pdf",
+      "method": "GET",
+      "target": "/api/passports/6afefa546402b642a6610a8b/pdf",
+      "readOnly": "1",
+      "status": 200
+    },
+    {
+      "step": "issued-pdf",
+      "method": "GET",
+      "target": "/api/passports/6afefa546402b642a6610a8b",
+      "readOnly": "1",
+      "status": 304
+    }
+  ]
+}

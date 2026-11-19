@@ -17,6 +17,7 @@ export interface IssueHost {
   freezeImages: (id: string) => Promise<void>;
   /** C096 Э1: текст черновика по текущим полям с переносом ручных пунктов; конфликт ручной правки — 409 до номера. */
   refresh: (id: string) => Promise<unknown>;
+  preparePresentation?: (doc: Doc, session: ClientSession) => Promise<Doc>;
   allocate: (set: Doc, date: Date, session?: ClientSession) => Promise<void>;
   assertFree: (set: Doc, selfId?: Types.ObjectId, session?: ClientSession) => Promise<void>;
 }
@@ -29,30 +30,46 @@ export class PassportIssue {
    * НМ: выпуск — последний шаг. Проверка обязательного; текст собирается по справочникам и замораживается; номер паспорта,
    * номер изделия и талон — из счётчиков в ОДНОЙ транзакции со сменой статуса: повтор / двойной клик — тот же номер.
    */
-  async issue(id: string) {
+  async issue(id: string, expected: { presentationVersion?: number; variant?: string } = {}) {
     const first = (await this.h.findById(id)).toObject() as unknown as Doc;
+    const assertExpected = (doc: Doc) => {
+      if ((expected.presentationVersion !== undefined && expected.presentationVersion !== doc.presentationVersion)
+        || (expected.variant !== undefined && expected.variant !== doc.variant)) {
+        throw new ConflictException('Вариант паспорта изменился — перечитайте книжку');
+      }
+    };
+    assertExpected(first);
     if (isIssued(first)) return this.h.findById(id);
     if (first.status === 'annulled') throw new ConflictException('Паспорт аннулирован — выпустить нельзя');
     if (first.incomeId) await assertOneLive(this.h.model, first.incomeId, new Types.ObjectId(id));
     // Сначала обновляем источники, затем проверяем именно тот текст и поля, которые выпускаем.
-    await this.h.refresh(id);
-    const current = (await this.h.findById(id)).toObject() as unknown as Doc;
-    if (isIssued(current)) return this.h.findById(id);
-    if (current.status !== 'draft') throw new ConflictException('Состояние паспорта изменилось — обновите карточку');
-    const missing = await this.h.readiness(current);
-    if (missing.length) throw new BadRequestException({ message: `Не хватает для выпуска: ${missing.map((m) => m.label).join(', ')}`, missing });
-    // текст по справочникам на момент выпуска (ручные пункты сохраняются); конфликт — до заморозки рисунков и номера
-    await this.h.freezeImages(id);
+    if (first.presentationVersion !== 1) {
+      await this.h.refresh(id);
+      const current = (await this.h.findById(id)).toObject() as unknown as Doc;
+      assertExpected(current);
+      if (isIssued(current)) return this.h.findById(id);
+      if (current.status !== 'draft' || current.presentationVersion === 1) throw new ConflictException('Состояние паспорта изменилось — обновите карточку');
+      const missing = await this.h.readiness(current);
+      if (missing.length) throw new BadRequestException({ message: `Не хватает для выпуска: ${missing.map((m) => m.label).join(', ')}`, missing });
+      await this.h.freezeImages(id);
+    }
     const _id = new Types.ObjectId(id);
     const session = await this.h.connection.startSession();
     try {
       await session.withTransaction(async () => {
         const draft = await this.h.model.findOne({ _id, status: 'draft' }).session(session).lean().exec();
         if (!draft) return; // уже выпущен параллельным запросом
-        const latestMissing = await this.h.readiness(draft as unknown as Doc);
-        if (latestMissing.length) throw new BadRequestException({ message: 'Данные паспорта изменились — заполните недостающее', missing: latestMissing });
+        const current = draft as unknown as Doc;
+        assertExpected(current);
+        if (current.presentationVersion !== first.presentationVersion) throw new ConflictException('Состояние паспорта изменилось — обновите карточку');
         if (draft.incomeId) await assertOneLive(this.h.model, draft.incomeId, _id, session);
-        const set: Doc = (await takeOverNumbers(this.h.model, draft as unknown as Doc, session)) ?? {}; // C060: позиция договора + изделие — один номер
+        let prepared: Doc = {};
+        if (current.presentationVersion === 1) prepared = await this.h.preparePresentation!(current, session);
+        else {
+          const missing = await this.h.readiness(current);
+          if (missing.length) throw new BadRequestException({ message: 'Данные паспорта изменились — заполните недостающее', missing });
+        }
+        const set: Doc = { ...prepared, ...(await takeOverNumbers(this.h.model, current, session)) }; // C060: позиция договора + изделие — один номер
         // C152: фиксируем только представление; размеры, рисунки и ручные строки modules сохраняются целиком.
         set.compositionPresentation = compositionPresentation(draft);
         await this.h.allocate(set, (draft.date as Date) || dayUtc(), session);
@@ -60,7 +77,11 @@ export class PassportIssue {
         await this.h.model.updateOne({ _id, status: 'draft' }, { $set: { ...set, status: 'issued', issuedAt: new Date(), revision: 1 } }, { session }).exec();
       });
     } finally { await session.endSession(); }
-    return this.h.findById(id);
+    const saved = await this.h.findById(id);
+    const result = saved.toObject() as unknown as Doc;
+    assertExpected(result);
+    if (!isIssued(result)) throw new ConflictException('Состояние паспорта изменилось — обновите карточку');
+    return saved;
   }
 
   /** НМ: аннулирование выпущенного — причина обязательна; номер остаётся занятым, повторно не выдаётся. */
@@ -69,7 +90,10 @@ export class PassportIssue {
     if (!r) throw new BadRequestException('Укажите причину аннулирования');
     const doc = (await this.h.findById(id)).toObject() as unknown as Doc;
     if (!isIssued(doc)) throw new ConflictException(doc.status === 'annulled' ? 'Паспорт уже аннулирован' : 'Черновик не аннулируют — его можно удалить');
-    await this.h.model.updateOne({ _id: doc._id }, { $set: { status: 'annulled', annulledAt: new Date(), annulReason: r } }).exec();
+    await this.h.model.updateOne({ _id: doc._id }, {
+      $set: { status: 'annulled', annulledAt: new Date(), annulReason: r },
+      ...(doc.incomeId ? { $unset: { creationScopeKey: '' } } : {}),
+    }).exec();
     return this.h.findById(id);
   }
 

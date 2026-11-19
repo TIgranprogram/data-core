@@ -934,3 +934,11 @@ C148: при одиночной и общей печати приоритет у
 `supplyinvoicepayments` — дочерние факты existing supplyinvoices, не второй реестр expenses: invoiceId/clientUid/requestHash, date факта, amount RUB, sourceAmount погашения, payerCompanyId, подтверждения, автор/время ввода, allocations со снимками статей/объектов и сумм, state active/voided и причина/автор сторно. Индекс invoiceId+clientUid уникален; повтор и сторно не создают второй расход.
 
 paidAmount/sourcePaidAmount/sourceBalance/balanceDue/paymentState — серверные агрегаты. Для валюты рублёвый факт не вычитается из исходного обязательства. Маркер новой истории исключает старые snapshot/paid-заявки глобально до фильтра периода/компании и сохраняется после сторно. Полный контракт и правила перехода старых данных — docs/crew/C158-supply-financial-fields/CONTRACT.md.
+
+
+## C155 — новые упрощённые паспорта (19.11.2026)
+
+- `productpassports.presentationVersion?:1` и `variant?:short|full` задаются вместе только новому экземпляру. Без default/массового заполнения старых записей. `creationScopeKey?` — скрытый внутренний ключ повтора (`single/<actor>/<uuid>` или `line/<incomeId>`), один unique sparse индекс `creationScopeKey_1`; старые записи ключа не получают.
+- `products.passportDefaults.simpleDescription?:{text,partIds}` — необязательная собственная фраза, иначе используется применимый словарный текст. Выбор ветки хранится в `textChoices`, частичная правка шаблона — CAS `{changes,expected}`. Отдельной коллекции шаблона изделия не создаётся.
+- `dict_values`/`passportPhrases` для `section:simple-description` дополнен ссылками `kindIds`, `partIds`; применимость по существующим группам/признакам. Части — `passportParts`, не производственный BOM. Определения критериев — существующие `productFacets`, ответы — `facetValueIds`/умолчания соответствующего источника.
+- Выданный экземпляр фиксирует `textSnapshot`/`printSnapshot`; новая явная редакция сохраняет прежние источники в истории, номер не меняет. Унаследованные тексты шаблона отделены от собственного `manualText` экземпляра. Старые документы в новом UI читаются без записи (`readOnly=1`). Точный контракт — `crew/C155-passport-owner-queue/CONTRACT.md`.

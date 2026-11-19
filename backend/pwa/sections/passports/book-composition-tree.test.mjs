@@ -42,6 +42,7 @@ function renderDescription(row) {
   const output = [];
   const sandbox = vm.createContext({
     r: row, ctx: { compTree: { lines: [{ label: 'BOM', qty: 2 }] } },
+    template: null, short: row.presentationVersion === 1 && row.variant === 'short',
     t: {}, plan: { descrNo: '1' },
     h: (tag, attrs, ...children) => ({ tag, attrs, children }), numText: String,
     push: (...nodes) => output.push(...nodes), hd: (v) => v, sub: (v) => v,
@@ -69,4 +70,11 @@ test('старый issued без marker сохраняет legacy описани
   assert.match(rendered, /Дерево BOM/);
   assert.match(rendered, /Модули: сохранённое описание/);
   assert.match(rendered, /Исторический модуль/);
+});
+
+test('упрощённый экземпляр оставляет характеристики и скрывает производственное дерево и модули', () => {
+  const rendered = renderDescription({ presentationVersion: 1, variant: 'short', compositionPresentation: 'both',
+    modules: [{ name: 'Секция', qty: 2 }] });
+  assert.match(rendered, /Основные технические данные/);
+  assert.doesNotMatch(rendered, /Дерево BOM|Модули: сохранённое описание/);
 });

@@ -4,11 +4,15 @@
  *   одинаковая ошибка (sig) — не чаще 1 раза в 30 с; без связи — до 20 в очереди (в localStorage, переживает закрытие вкладки),
  *   уходят при появлении сети, при возвращении на вкладку и раз в минуту, пока очередь не пуста.
  * Отправляется только описание сбоя (текст, имя, стек, раздел, действие, путь API без query) — **данные форм никогда**.
- * Ответы сервера (400/401/403/404/409 с текстом) — не сбой, не отправляются (isFailure). Старый сервер (404) — больше не слать.
+ * Неудачные API-запросы, включая 4xx, тоже сохраняются с безопасным контекстом. Auth и сам журнал исключены.
  */
 import { apiQuiet, session } from './api.js';
 import { isFailure } from '../ui/kit/errors.js';
 import { currentVersion } from './update-check.js';
+import { CONTEXT_MARK, diagnosticHttpMessage, diagnosticPath, diagnosticRoute, errorContext, reportableHttpError, scrubDiagnostic,
+  startErrorContext, withoutActionTrace } from './error-context.js';
+
+startErrorContext();
 
 const SAME_MS = 30000;
 const QUEUE_MAX = 20;
@@ -18,49 +22,52 @@ const last = new Map();     // sig → когда отправлена
 const queue = (() => {      // неотправленное с прошлого открытия вкладки
   try {
     const saved = JSON.parse(localStorage.getItem(STORE_KEY) || '[]');
-    return Array.isArray(saved) ? saved.slice(0, QUEUE_MAX) : [];
+    return Array.isArray(saved) ? saved.slice(0, QUEUE_MAX).map(withoutActionTrace) : [];
   } catch { return []; }
 })();
 
 function save() {
   try {
-    if (queue.length) localStorage.setItem(STORE_KEY, JSON.stringify(queue));
+    if (queue.length) localStorage.setItem(STORE_KEY, JSON.stringify(queue.map(withoutActionTrace)));
     else localStorage.removeItem(STORE_KEY);
   } catch { /* приватный режим — только до закрытия вкладки */ }
 }
 
 /** В очередь на повтор; очередь полна — новая запись отбрасывается. */
-function keep(body) {
+function keep(body, generation = errorContext.generation) {
   if (queue.length >= QUEUE_MAX) return;
-  queue.push(body);
+  queue.push(generation === errorContext.generation ? body : withoutActionTrace(body));
   save();
 }
+
+errorContext.onClear(() => {
+  for (let i = 0; i < queue.length; i++) queue[i] = withoutActionTrace(queue[i]);
+  last.clear();
+  save();
+});
 
 const cut = (s, n) => (s == null || s === '' ? undefined : String(s).slice(0, n));
 const norm = (s) => String(s || '').replace(/[0-9a-f]{24}/gi, '#').replace(/\d+/g, '#');
 // раздел — только имя из адреса, без «?…» (поиск, фильтры, id записи не уходят): #stock?search=… → stock
-const sectionNow = () => location.hash.replace(/^#\/?/, '').split('?')[0].replace(/[^\w-]/g, '') || 'home';
+const sectionNow = () => diagnosticRoute(location.hash).split(' ')[0];
 /** Требование пользователя: из текста и стека — query-часть адресов и ключи/токены (Bearer, kppd_, JWT) → «***». */
-const scrub = (s) => String(s)
-  .replace(/Bearer\s+[\w\-.~+/=]+/gi, 'Bearer ***')
-  .replace(/kppd_[\w-]+/g, 'kppd_***')
-  .replace(/eyJ[\w-]+\.[\w-]+\.[\w-]*/g, '***')
-  .replace(/\?[^\s'"?]*=[^\n'"]*?((?::\d+){1,2}\)?)?(?=['"\n]|$)/g, '$1') // ?search=мой секрет — до конца строки, номер строки стека — оставить
-  .replace(/\?[^\s'"<>()]*/g, (q) => (q.includes('=') ? '' : q)); // ?a=1&b=2 — прочь; одиночный «?» в тексте — оставить
+const scrub = scrubDiagnostic;
 
 export function reportError(err, { kind = 'action', action, status, url } = {}) {
-  if (off || !session.access || !isFailure(err)) return;
+  if (off || !session.access || (!isFailure(err) && !reportableHttpError(err, url))) return;
   if (err && typeof err === 'object') { if (err.reported) return; try { err.reported = true; } catch { /* замороженный объект */ } }
   const st = Number(status ?? err?.status);
+  const httpAnswer = st >= 400 && st < 500;
+  const frames = httpAnswer ? '' : err?.stack;
   const body = {
-    message: cut(scrub(err?.message ?? err ?? ''), 500) || '(без текста)',
-    name: cut(err?.name, 100),
-    stack: err?.stack ? cut(scrub(err.stack), 4000) : undefined,
-    section: cut(sectionNow(), 60),
-    action: cut(action, 120),
+    message: cut(diagnosticHttpMessage(err), 500) || '(без текста)',
+    name: err?.name ? cut(scrub(err.name), 100) : undefined,
+    stack: cut((frames ? cut(scrub(frames), 2100) : '') + CONTEXT_MARK + scrub(errorContext.text(location.hash)), 4000),
+    section: cut(scrub(sectionNow()), 60),
+    action: cut(scrub(action || ''), 120),
     kind,
     status: Number.isFinite(st) && st > 0 ? st : undefined,
-    url: url ? cut(scrub(String(url).split('?')[0]), 200) : undefined,
+    url: url ? cut(diagnosticPath(url), 200) : undefined,
     version: cut(currentVersion(), 40),
     ua: cut(navigator.userAgent, 300),
   }; // тело запроса и значения полей — никогда (ОШ2, «Нельзя»)
@@ -78,7 +85,7 @@ const slowAt = new Map();
 try { performance.setResourceTimingBufferSize(2000); } catch { /* старый браузер — как было */ }
 /** Самые долгие запросы за время замера: всего / очередь браузера / ожидание ответа. Только путь, без query. */
 export function slowDetail(entries, since) {
-  const path = (u) => { try { return new URL(u, location.origin).pathname; } catch { return '?'; } };
+  const path = (u) => { try { return diagnosticPath(new URL(u, location.origin).pathname); } catch { return '?'; } };
   const all = entries.filter((e) => e.responseEnd >= since);
   // картинки — одной строкой (их десятки, они вытесняли запросы данных), запросы — по одному
   const imgs = all.filter((e) => e.initiatorType === 'img');
@@ -99,9 +106,10 @@ export function reportSlow(ms, since = 0) {
 }
 
 function send(body) {
+  const generation = errorContext.generation;
   apiQuiet('/client-errors', body)
     .then((st) => { if (st === 404) { off = true; queue.length = 0; save(); } })
-    .catch(() => { if (!off) keep(body); }); // нет связи — остаётся в очереди, уйдёт при следующей попытке
+    .catch(() => { if (!off) keep(body, generation); }); // поздний отказ после logout не возвращает прежний след
 }
 
 /** Отправить накопленное: после входа, при сети, при возвращении на вкладку, раз в минуту. */

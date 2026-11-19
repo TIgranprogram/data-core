@@ -1,14 +1,15 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
-import { attachCombo, similarBox, button, funnel, stack, clamp, table } from '../ui/kit/index.js';
+import { similarBox, button, clamp, table } from '../ui/kit/index.js';
 import { posPic } from '../ui/pos-pic.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { current, patch } from '../core/router.js';
+import { openProductPicker } from './order-product-picker.js';
 
 /**
  * Правая панель «Сопоставление» (`?of=matching&open=<id договора>`): позиции договора ↔ изделия из продукции.
- * `open=<id договора>.<id позиции>` — только эта позиция, список изделий открыт сразу; после выбора панель закрывается.
+ * `open=<id договора>.<id позиции>` — только эта позиция; каталог открывается во вложенной панели.
  * Сервер: GET /matching/suggest, POST /matching/confirm | none | bulk. Менять могут admin и manager; остальные — только просмотр.
  */
 const STATE = {
@@ -21,9 +22,6 @@ const STATE = {
 const canWrite = () => ['admin', 'manager'].includes(session.role) || session.user?.isOwner === true;
 const changed = () => window.dispatchEvent(new CustomEvent('data-changed'));
 
-let productsCache = null;
-const products = () => (productsCache ??= api('/showcase', { query: { limit: 500 } }).then((r) => (r.items || []).map((p) => ({ value: String(p.id), label: p.name || p.title || '—', sub: p.sku || p.article || '', type: p.type || '', group: p.group || '' }))).catch((e) => { productsCache = null; throw e; }));
-
 /** Кнопка «Сопоставлено N из M» → бейдж для списка договоров. */
 export function matchBadge(r) {
   const total = r.lineCount ?? 0;
@@ -35,67 +33,39 @@ export function matchBadge(r) {
 /** Открыть панель сопоставления договора; lineId — только одна позиция договора. */
 export function openMatching(patch, orderId, lineId) { patch({ of: 'matching', open: lineId ? `${orderId}.${lineId}` : orderId, new: undefined }, { replace: false }); }
 
-/** Панель выезжает: список, открытый в движении, встанет не на месте. Ждём, пока поле замрёт. */
-function whenStill(el, fn, last = null, tries = 0) {
-  const x = el.getBoundingClientRect().left;
-  if ((el.isConnected && x === last) || tries > 20) { fn(); return; }
-  setTimeout(() => whenStill(el, fn, x, tries + 1), 50);
-}
+const confirmMatch = (lineId, productId) => api('/matching/confirm', { method: 'POST', body: { lineId, productId } });
 
-/** «Тип → Группа → Изделие» воронкой (kit.funnel, П-1) по списку изделий; выбор изделия = onPick(id). */
-function funnelOf(opts, onPick) {
-  const NONE = 'Без типа';
-  const sel = { type: '', group: '' };
-  const tally = (list, key) => { const m = new Map(); for (const p of list) { const k = p[key] || ''; m.set(k, (m.get(k) || 0) + 1); } return [...m].map(([k, n], i) => ({ name: k, n, i })); };
-  const steps = () => {
-    const types = tally(opts, 'type').sort((a, b) => b.n - a.n);
-    const ofType = sel.type === '' ? [] : opts.filter((p) => (p.type || NONE) === sel.type);
-    const groups = tally(ofType, 'group').filter((g) => g.name);
-    const ofGroup = ofType.filter((p) => !sel.group || p.group === sel.group);
-    return [
-      { key: 'type', label: 'Раздел', ask: 'выберите раздел продукции', value: sel.type, values: types.map((t) => ({ id: t.name || NONE, label: t.name || NONE, count: t.n })) },
-      { key: 'group', label: 'Группа', ask: 'выберите группу или сразу изделие', optional: true, skip: !groups.length, value: sel.group, values: groups.map((g) => ({ id: g.name, label: g.name, count: g.n })) },
-      { key: 'product', label: 'Изделие', ask: 'выберите изделие', value: '', values: ofGroup.map((p) => ({ id: p.value, label: p.label + (p.sub ? ` · ${p.sub}` : '') })) },
-    ];
-  };
-  const f = funnel({ steps: steps(), onChange: (key, id) => {
-    if (key === 'product') { if (id) onPick(id); return; }
-    if (key === 'type') { sel.type = id; sel.group = ''; } else sel.group = id;
-    f.update({ steps: steps() });
+function catalogButton(it, refresh) {
+  return button({ label: it.matched && it.productId ? 'Заменить из каталога' : 'Выбрать из каталога', size: 'S', onClick: (e) => {
+    e.stopPropagation();
+    if (!canWrite()) return;
+    openProductPicker({
+      title: it.title,
+      productId: it.productId,
+      product: { name: it.productName, sku: it.productSku, photo: it.productPhoto },
+    }, {
+      save: (productId) => confirmMatch(it.lineId, productId),
+      onSaved: () => { changed(); refresh(); toast('Изделие сопоставлено'); },
+      onConflict: refresh,
+      allowCurrent: it.state === 'auto',
+    }, e.currentTarget);
   } });
-  return f;
 }
 
-function lineRow(it, run, write, single) {
+function lineRow(it, run, write, refresh) {
   const st = STATE[it.state] || STATE.unmatched;
   const acts = h('div', { class: 'mt-acts' });
-  const pickBox = h('div', { class: 'mt-pick', hidden: true });
-  const confirm = (productId) => run(() => api('/matching/confirm', { method: 'POST', body: { lineId: it.lineId, productId } }));
+  const confirm = (productId) => run(() => confirmMatch(it.lineId, productId));
   const sugg = (it.suggestions || []).slice(0, 3);
   const sugList = !it.matched && sugg.length
     ? h('ul', { class: 'mt-sug' }, sugg.map((s, i) => h('li', null, posPic(s.photo),
       h('div', { class: 'mt-sug-main' }, h('span', { class: 'muted' }, i ? 'Или: ' : 'Похоже: '), clamp(h('span', null, h('b', null, s.name), s.sku ? h('span', { class: 'muted' }, ' · ' + s.sku) : null), { lines: 2 }), h('div', { class: 't-sub' }, `${qty(s.percent)}% · ${s.label || ''}`)),
-      write ? button({ label: 'Да, верно', kind: 'primary', size: 'S', onClick: (e) => { e.currentTarget.classList.add('is-busy'); confirm(s.productId); } }) : null)))
+      write ? button({ label: 'Да, верно', kind: 'primary', size: 'S', onClick: () => confirm(s.productId) }) : null)))
     : null;
   const sim = similarBox({ pickLabel: 'Взять это', onPick: (p) => confirm(p.id) });
   if (write) {
     if (it.state === 'auto' && it.productId) acts.append(button({ label: 'Подтвердить', kind: 'primary', size: 'S', onClick: () => confirm(it.productId) }));
-    const input = h('input', { type: 'search', placeholder: 'Название или артикул изделия', 'aria-label': 'Поиск изделия' });
-    let ready = false;
-    const togglePick = async () => {
-      pickBox.hidden = !pickBox.hidden;
-      if (pickBox.hidden || ready) return;
-      ready = true;
-      try {
-        const opts = await products();
-        const fun = funnelOf(opts, confirm);
-        pickBox.replaceChildren(stack(fun.el, h('label', { class: 'field' }, h('span', null, 'или найти по названию'), input))); // kit stack — зазор между воронкой и поиском
-        attachCombo(input, { options: () => opts, onPick: (o) => confirm(o.value), free: false, empty: () => 'Такого изделия нет' });
-        if (single && !fun.el.querySelector('[data-step]')) whenStill(input, () => { input.focus(); input.click(); });
-      } catch (e) { ready = false; toastError(e, 'загрузить изделия'); }
-    };
-    if (single) togglePick();
-    else acts.append(button({ label: 'Выбрать другое изделие', size: 'S', onClick: togglePick }));
+    acts.append(catalogButton(it, refresh));
     // подходящего нет — создать изделие; сначала всегда проверка похожих (C017), второй клик — «Всё равно создать»
     let warned = false;
     acts.append(button({ label: '+ Изделие', size: 'S', onClick: async (e) => {
@@ -132,14 +102,14 @@ function lineRow(it, run, write, single) {
         h('div', { class: 'mt-title' }, clamp((it.lineNo != null ? `поз. ${it.lineNo} · ` : '') + it.title, { lines: 3 })),
         h('div', { class: 't-sub' }, `${qty(it.qty)} ${it.unit || ''}`.trim()))),
     h('div', { class: 'mt-state' }, h('span', { class: 'badge ' + st.tone }, st.label), it.matched && it.productName && it.state !== 'none' ? clamp(' → ' + it.productName + (it.productSku ? ` · арт. ${it.productSku}` : ''), { lines: 2, cls: 'muted' }) : null),
-    sugList, acts.childNodes.length ? acts : null, write ? sim.el : null, pickBox);
+    sugList, acts.childNodes.length ? acts : null, write ? sim.el : null);
 }
 
 /**
  * Весь договор — компактная таблица (2026-11-10, пользователь: «нет номера позиции, куча пустого места, данные хаотично»):
- * № · позиция договора · наше изделие (фото, название, артикул) · статус · «Выбрать / Заменить». Выбор — в виде «одна позиция».
+ * № · позиция договора · наше изделие (фото, название, артикул) · статус. Кнопка каталога сразу открывает выбор этой позиции.
  */
-function contractTable(items, orderId, write, run) {
+function contractTable(items, orderId, write, run, refresh) {
   const sug = (it) => (!it.matched && it.state !== 'none' ? (it.suggestions || [])[0] : null);
   const ourPic = (it) => (it.matched && it.productName && it.state !== 'none' ? posPic(it.productPhoto || it.photo) : sug(it) ? posPic(sug(it).photo) : '');
   const ourCell = (it) => {
@@ -148,7 +118,7 @@ function contractTable(items, orderId, write, run) {
     const s = sug(it);
     if (!s) return h('span', { class: 'muted' }, 'похожих нет — выберите');
     return h('div', null, h('div', { class: 't-sub' }, `Похоже · ${qty(s.percent)}%`), clamp(s.name, { lines: 2 }),
-      write ? button({ label: 'Да, верно', kind: 'primary', size: 'S', onClick: (e) => { e.stopPropagation(); e.currentTarget.classList.add('is-busy'); run(() => api('/matching/confirm', { method: 'POST', body: { lineId: it.lineId, productId: s.productId } })); } }) : null);
+      write ? button({ label: 'Да, верно', kind: 'primary', size: 'S', onClick: (e) => { e.stopPropagation(); return run(() => confirmMatch(it.lineId, s.productId)); } }) : null);
   };
   const open = (it) => openMatching(patch, orderId, it.lineId);
   return table({
@@ -157,6 +127,7 @@ function contractTable(items, orderId, write, run) {
     rows: items.map((it, i) => {
       const st = STATE[it.state] || STATE.unmatched;
       return {
+        data: it.lineId,
         onClick: write ? () => open(it) : undefined,
         cells: [
           { v: it.lineNo ?? i + 1, cls: 'muted' },
@@ -164,7 +135,7 @@ function contractTable(items, orderId, write, run) {
           ourPic(it),
           ourCell(it),
           h('span', { class: 'badge ' + st.tone }, st.label),
-          ...(write ? [button({ label: it.matched ? 'Заменить' : 'Выбрать', size: 'S', onClick: (e) => { e.stopPropagation(); open(it); } })] : []),
+          ...(write ? [catalogButton(it, refresh)] : []),
         ],
       };
     }),
@@ -207,8 +178,8 @@ export const matching = {
         write ? null : h('p', { class: 'hint' }, 'Только просмотр: сопоставлять могут администратор и менеджер.'),
         bulk,
         !items.length ? h('p', { class: 'muted' }, 'В договоре нет позиций.')
-          : single ? h('ul', { class: 'mt-list' }, items.map((it) => lineRow(it, run, write, single)))
-            : contractTable(items, r.orderId, write, run));
+          : single ? h('ul', { class: 'mt-list' }, items.map((it) => lineRow(it, run, write, ctx.reload)))
+            : contractTable(items, r.orderId, write, run, ctx.reload));
     },
   },
 };

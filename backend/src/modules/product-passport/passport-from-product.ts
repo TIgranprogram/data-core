@@ -27,7 +27,7 @@ export async function productPassportCode(db: mongo.Db, prod: Doc, resolved?: Re
 }
 
 /** Поля паспорта, которые задаёт изделие: { поле паспорта: значение }. Пустые у изделия — не попадают. */
-export async function productPatch(db: mongo.Db, prod: Doc): Promise<Doc> {
+export async function productPatch(db: mongo.Db, prod: Doc, opts: { presentation?: boolean; brief?: boolean } = {}): Promise<Doc> {
   const out: Doc = {};
   const put = (k: string, v: unknown) => { if (filled(v)) out[k] = v; };
   put('name', String(prod.name ?? '').trim());
@@ -42,12 +42,25 @@ export async function productPatch(db: mongo.Db, prod: Doc): Promise<Doc> {
   put('materials', typeof prod.materialsText === 'string' ? prod.materialsText.trim() : undefined);
   const pd = (prod.passportDefaults ?? {}) as Doc;
   for (const k of DEFAULT_KEYS) put(k, pd[k]);
+  if (opts.presentation) {
+    put('seatsCount', pd.seatsCount);
+    put('simpleDescription', pd.simpleDescription);
+    const manual = new Set((out.manualText as string[] | undefined) ?? []);
+    for (const [key, field] of [['manualDescription', 'description'], ['manualPurpose', 'purpose'], ['manualInstall', 'installationMethod']]) {
+      if (!filled(pd[key])) continue;
+      out[field] = pd[key];
+      manual.add(field);
+    }
+    if (manual.size) out.manualText = [...manual];
+  }
   // C100: чего у изделия нет своего — берём из вида изделия (элементы, назначение); своё главнее
   const rk = await resolveKind(db, prod);
+  if (opts.presentation) put('kindId', rk.kind?.id);
   for (const [k, v] of Object.entries(await kindPatch(db, prod, rk))) put(k, v);
-  put('passportCategory', await productPassportCode(db, prod, rk));
+  const category = await productPassportCode(db, prod, rk);
+  put('passportCategory', opts.presentation && category === 'MAF' ? 'BLG' : category);
   // C142: черновик читает дерево состава. Пусто — null (у паспорта без поля отличия нет). Выпущенный сюда не заходит.
-  if (Array.isArray(prod.composition) || Array.isArray(prod.productModuleIds)) {
+  if (!opts.brief && (Array.isArray(prod.composition) || Array.isArray(prod.productModuleIds))) {
     const { sheet } = await expandComposition(db as unknown as GraphDb, prod);
     out.compositionSheet = sheet.length ? sheet : null;
   }
@@ -55,12 +68,28 @@ export async function productPatch(db: mongo.Db, prod: Doc): Promise<Doc> {
 }
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+export const INSTANCE_TEXT_FIELDS = ['name', 'purpose', 'installationMethod', 'description'] as const;
+
+/** Только собственные правки экземпляра удерживают поле при чтении из шаблона. */
+export function instanceManualText(doc: Doc): string[] {
+  const flags = doc.manualText as string[] | undefined;
+  return doc.presentationVersion === 1
+    ? (doc.instanceManualText as string[] | undefined) ?? (flags?.includes('name') ? ['name'] : [])
+    : flags ?? [];
+}
 
 /** Что изменится в паспорте из изделия; имя и тексты экземпляра с явным manualText сохраняются. */
 export function diffPatch(cur: Doc, patch: Doc): Doc {
-  const manual = (cur.manualText as string[] | undefined) ?? [];
+  const manual = instanceManualText(cur);
+  const presentation = cur.presentationVersion === 1;
   const out: Doc = {};
   for (const [k, value] of Object.entries(patch)) {
+    if (presentation && manual.includes(k) && (INSTANCE_TEXT_FIELDS as readonly string[]).includes(k)) continue;
+    if (presentation && k === 'manualText') {
+      const flags = [...new Set([...(Array.isArray(value) ? value : []), ...manual])];
+      if (!same(cur[k], flags)) out[k] = flags;
+      continue;
+    }
     if ((k === 'name' || k === 'purpose' || k === 'installationMethod') && manual.includes(k)) continue;
     // Умолчания изделия не снимают явно выбранное ручное имя экземпляра при следующем чтении.
     const v = k === 'manualText' && manual.includes('name') ? [...new Set([...(Array.isArray(value) ? value : []), 'name'])] : value;

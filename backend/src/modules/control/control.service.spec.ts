@@ -3,6 +3,8 @@ import { ControlService, COL_DAILY, COL_MONTHLY, COL_RUNS } from './control.serv
 import { collectNow, poolMap } from './control.collect';
 import { LatencyHistogram, latency } from '../../common/interceptors/latency-histogram';
 import type { CreateRunDto } from './dto/control.dto';
+import { promises as fs } from 'fs';
+import * as diskFs from '../disk/disk-fs';
 
 type Doc = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -222,6 +224,14 @@ describe('списки и каталог', () => {
 });
 
 describe('collectNow: сбой источника = null, не 0', () => {
+  beforeEach(() => {
+    // Проверяем обработку метрик БД, не размер настоящего каталога фотографий этого ПК.
+    jest.spyOn(diskFs, 'exists').mockResolvedValue(false);
+    jest.spyOn(diskFs, 'dirSize').mockResolvedValue({ bytes: 0, files: 0, partial: false });
+    jest.spyOn(fs, 'statfs').mockRejectedValue(new Error('Диск недоступен в сценарии unit'));
+  });
+  afterEach(() => jest.restoreAllMocks());
+
   it('база не отвечает — все показатели из базы null, счётчик задержек сохраняется', async () => {
     const boom = () => { throw new Error('нет базы'); };
     const db = { collection: boom, stats: boom, command: boom, client: { db: boom } };

@@ -72,11 +72,12 @@ test('C141: файлы-входы не зовут старую анкету/фо
 
 test('C141: эталонные кнопки зовут книжку (строки-якоря)', () => {
   const products = read('products.js');
-  assert.match(products, /Изменить паспорт/, 'меню изделия: Изменить паспорт');
+  assert.match(products, /Шаблон паспорта/, 'меню изделия: Шаблон паспорта');
   assert.match(products, /openBookEditor|openBookForProduct|openPassportTemplate/, 'меню изделия ведёт в книжку');
 
   const docs = read('docs.js');
-  assert.match(docs, /openBookEditor/, 'архив: Дописать → openBookEditor');
+  assert.match(docs, /openBookForProduct|\.\.\.passports\.card/, 'документация использует книжку и карточку паспорта');
+  assert.match(read('passports.js'), /openBookEditor/, 'архив открывает книжку экземпляра по id');
   assert.equal(/passportFill\s*\(/.test(docs), false, 'docs.js не монтирует passportFill');
 
   const line = read('order-line-passports.js');

@@ -1,0 +1,2557 @@
+{
+  "version": 1,
+  "task": "C155",
+  "scope": "Новые короткие паспорта presentationVersion=1, variant=short.",
+  "production": {
+    "patch": [
+      {
+        "dict": "passportParts",
+        "id": "6afd50dd7485414ce8b73561",
+        "match": {
+          "name": "Буквы"
+        },
+        "expected": {
+          "genSingular": "",
+          "genPlural": ""
+        },
+        "changes": {
+          "genSingular": "буквы",
+          "genPlural": "букв"
+        }
+      },
+      {
+        "dict": "passportParts",
+        "id": "6afd4bc97485414ce8b72e9b",
+        "match": {
+          "name": "Указатель"
+        },
+        "expected": {
+          "genSingular": "",
+          "genPlural": ""
+        },
+        "changes": {
+          "genSingular": "указателя",
+          "genPlural": "указателей"
+        }
+      }
+    ],
+    "verifyOnly": [
+      {
+        "dict": "passportParts",
+        "id": "6af81f883389de160b2c97d9",
+        "expected": {
+          "name": "Каркас",
+          "genSingular": "каркаса",
+          "genPlural": "каркасов"
+        }
+      },
+      {
+        "dict": "passportParts",
+        "id": "6ae3267ca3f6de10abf03642",
+        "expected": {
+          "name": "Гриф",
+          "genSingular": "грифа",
+          "genPlural": "грифов"
+        }
+      }
+    ],
+    "addFacets": [
+      {
+        "dict": "productFacets",
+        "post": "/api/dicts/productFacets",
+        "match": {
+          "code": "trn.contact",
+          "category": "TRN"
+        },
+        "fields": {
+          "code": "trn.contact",
+          "name": "Рабочие части тренажёра",
+          "category": "TRN",
+          "step": false,
+          "multi": false,
+          "order": 90
+        },
+        "contextKindIds": [
+          "6af707fdc451d4c05df6a046"
+        ],
+        "values": [
+          {
+            "dict": "productFacetValues",
+            "post": "/api/dicts/productFacetValues",
+            "match": {
+              "code": "trn.contact.two-platforms-grip",
+              "parentId": "@facet:trn.contact"
+            },
+            "fields": {
+              "code": "trn.contact.two-platforms-grip",
+              "name": "Две платформы для ног и рукоятка",
+              "order": 1,
+              "parentId": "@facet:trn.contact",
+              "purposePhraseId": "",
+              "installTypeId": "",
+              "elementIds": []
+            }
+          }
+        ]
+      },
+      {
+        "dict": "productFacets",
+        "post": "/api/dicts/productFacets",
+        "match": {
+          "code": "wrk.climb",
+          "category": "WRK"
+        },
+        "fields": {
+          "code": "wrk.climb",
+          "name": "Снаряд для виса или лазания",
+          "category": "WRK",
+          "step": false,
+          "multi": false,
+          "order": 90
+        },
+        "contextKindIds": [
+          "6af707fdc451d4c05df6a058"
+        ],
+        "values": [
+          {
+            "dict": "productFacetValues",
+            "post": "/api/dicts/productFacetValues",
+            "match": {
+              "code": "wrk.climb.rings",
+              "parentId": "@facet:wrk.climb"
+            },
+            "fields": {
+              "code": "wrk.climb.rings",
+              "name": "Гимнастические кольца",
+              "order": 1,
+              "parentId": "@facet:wrk.climb",
+              "purposePhraseId": "",
+              "installTypeId": "",
+              "elementIds": []
+            }
+          },
+          {
+            "dict": "productFacetValues",
+            "post": "/api/dicts/productFacetValues",
+            "match": {
+              "code": "wrk.climb.rope",
+              "parentId": "@facet:wrk.climb"
+            },
+            "fields": {
+              "code": "wrk.climb.rope",
+              "name": "Канат",
+              "order": 2,
+              "parentId": "@facet:wrk.climb",
+              "purposePhraseId": "",
+              "installTypeId": "",
+              "elementIds": []
+            }
+          },
+          {
+            "dict": "productFacetValues",
+            "post": "/api/dicts/productFacetValues",
+            "match": {
+              "code": "wrk.climb.climbing-wall",
+              "parentId": "@facet:wrk.climb"
+            },
+            "fields": {
+              "code": "wrk.climb.climbing-wall",
+              "name": "Скалодром с зацепами",
+              "order": 3,
+              "parentId": "@facet:wrk.climb",
+              "purposePhraseId": "",
+              "installTypeId": "",
+              "elementIds": []
+            }
+          }
+        ]
+      },
+      {
+        "dict": "productFacets",
+        "post": "/api/dicts/productFacets",
+        "match": {
+          "code": "blg.sign.form",
+          "category": "BLG"
+        },
+        "fields": {
+          "code": "blg.sign.form",
+          "name": "Конструкция информационного изделия",
+          "category": "BLG",
+          "step": false,
+          "multi": false,
+          "order": 90
+        },
+        "contextKindIds": [
+          "6af6ca4a22a0611d2b3a4738"
+        ],
+        "values": [
+          {
+            "dict": "productFacetValues",
+            "post": "/api/dicts/productFacetValues",
+            "match": {
+              "code": "blg.sign.form.panel",
+              "parentId": "@facet:blg.sign.form"
+            },
+            "fields": {
+              "code": "blg.sign.form.panel",
+              "name": "Стенд с информационной панелью",
+              "order": 1,
+              "parentId": "@facet:blg.sign.form",
+              "purposePhraseId": "",
+              "installTypeId": "",
+              "elementIds": []
+            }
+          },
+          {
+            "dict": "productFacetValues",
+            "post": "/api/dicts/productFacetValues",
+            "match": {
+              "code": "blg.sign.form.direction",
+              "parentId": "@facet:blg.sign.form"
+            },
+            "fields": {
+              "code": "blg.sign.form.direction",
+              "name": "Указатель с обозначением направления",
+              "order": 2,
+              "parentId": "@facet:blg.sign.form",
+              "purposePhraseId": "",
+              "installTypeId": "",
+              "elementIds": []
+            }
+          }
+        ]
+      },
+      {
+        "dict": "productFacets",
+        "post": "/api/dicts/productFacets",
+        "match": {
+          "code": "blg.tribune.form",
+          "category": "BLG"
+        },
+        "fields": {
+          "code": "blg.tribune.form",
+          "name": "Назначение модуля трибуны",
+          "category": "BLG",
+          "step": false,
+          "multi": false,
+          "order": 90
+        },
+        "contextKindIds": [
+          "6af6ca4a22a0611d2b3a4739"
+        ],
+        "values": [
+          {
+            "dict": "productFacetValues",
+            "post": "/api/dicts/productFacetValues",
+            "match": {
+              "code": "blg.tribune.form.spectators",
+              "parentId": "@facet:blg.tribune.form"
+            },
+            "fields": {
+              "code": "blg.tribune.form.spectators",
+              "name": "Зрительские места",
+              "order": 1,
+              "parentId": "@facet:blg.tribune.form",
+              "purposePhraseId": "",
+              "installTypeId": "",
+              "elementIds": []
+            }
+          },
+          {
+            "dict": "productFacetValues",
+            "post": "/api/dicts/productFacetValues",
+            "match": {
+              "code": "blg.tribune.form.stairs",
+              "parentId": "@facet:blg.tribune.form"
+            },
+            "fields": {
+              "code": "blg.tribune.form.stairs",
+              "name": "Лестничный модуль",
+              "order": 2,
+              "parentId": "@facet:blg.tribune.form",
+              "purposePhraseId": "",
+              "installTypeId": "",
+              "elementIds": []
+            }
+          }
+        ],
+        "existingMappingForConfirmedProduct": {
+          "blg.seats.5": "blg.tribune.form.spectators",
+          "blg.seats.10": "blg.tribune.form.spectators",
+          "blg.seats.15": "blg.tribune.form.spectators",
+          "blg.seats.20": "blg.tribune.form.spectators",
+          "blg.seats.25": "blg.tribune.form.spectators",
+          "blg.seats.stairs": "blg.tribune.form.stairs"
+        }
+      }
+    ],
+    "criteriaProtocol": {
+      "before": "GET списки productFacets и productFacetValues целиком с пагинацией. Сверить code во всём словаре, затем category/parentId. При отсутствии code и одноимённого нормализованного совпадения внутри категории/родителя создать запись. При одном полном совпадении readback переиспользовать её. При иных совпадениях остановить только эту ветку.",
+      "order": "Для каждого addFacets создать или найти признак, записать его id и использовать его вместо @facet:<code> во всех values. Есть ошибка или потерян ответ: повторить GET и проверку до следующего POST.",
+      "readback": "GET /api/dicts/<словарь>/<id>, сверить id и все поля fields, включая step:false, multi:false, parentId и пустые привязки назначения, установки и элементов. Зафиксировать список id по каждому code, а также отсутствие повторов. Операционные contextKindIds и mapping в API не передаются.",
+      "restrictions": "Только словарные записи. Никаких присвоений критериев карточкам на рабочем сайте, привязок новых паспортных фраз, изменений полных и прежних паспортов. Поля step:false и multi:false нужны для условного применения по виду в коротком паспорте."
+    },
+    "reuse": [
+      {
+        "codes": [
+          "trn.kind",
+          "trn.muscles",
+          "trn.load",
+          "trn.build"
+        ],
+        "rule": "Существующие тип, анатомическая группа, нагрузка и исполнение. Сохранённое значение использовать автоматически. Уточнять только при реальном различии применимых текстов."
+      },
+      {
+        "codes": [
+          "blg.fence.section",
+          "blg.fence.gate",
+          "blg.fence.post"
+        ],
+        "kindId": "6af6ca4a22a0611d2b3a4734",
+        "rule": "Секция, калитка или стойка уже различаются."
+      },
+      {
+        "codes": [
+          "blg.rail.yes",
+          "blg.rail.no"
+        ],
+        "kindId": "6af6ca4a22a0611d2b3a4735",
+        "rule": "Только в контексте скамьи, после проверки значения как признака спинки. DOSKA описывает материал."
+      },
+      {
+        "codes": [
+          "trn.build.combo"
+        ],
+        "kindId": "6af707fdc451d4c05df6a04b",
+        "rule": "Выбирает текст совмещённого тренажёра с несколькими рабочими модулями."
+      }
+    ]
+  },
+  "currentFieldsOnQa": {
+    "purpose": {
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "BLG",
+      "existing": [
+        {
+          "kindId": "6af6fc565ce4939b9c68f90d",
+          "purposeLeafId": "6afaa6eb5932bda919d17746",
+          "evidence": "Существующее назначение относится к настилу. Привязать вид только после проверки, что все изделия вида являются настилом.",
+          "expected": {
+            "purposeLeafId": ""
+          }
+        }
+      ],
+      "createAndLink": [
+        {
+          "key": "c155.purpose.bike-rack",
+          "kindId": "6af6ca4a22a0611d2b3a4737",
+          "evidence": "Вид «Велопарковки», группа «Велопарковки» и действующая фраза ухода «Обслуживание велопарковок».",
+          "expected": {
+            "purposeLeafId": ""
+          },
+          "fields": {
+            "name": "Парковка велосипедов",
+            "text": "Предназначено для парковки велосипедов.",
+            "section": "purpose",
+            "parentId": "6add909915d601111692a40f",
+            "categories": "BLG",
+            "allCategories": false,
+            "required": false,
+            "isDefault": false
+          }
+        }
+      ]
+    },
+    "optionalPartCategoryPatch": [
+      {
+        "dict": "passportParts",
+        "id": "6af81f883389de160b2c97d9",
+        "expected": {
+          "name": "Каркас",
+          "categories": ""
+        },
+        "changes": {
+          "categories": "TRN"
+        },
+        "reason": "Каркас применим у подтверждённых тренажёров. Изменится короткий список таблицы материалов, проверить отдельно от нового short."
+      }
+    ],
+    "addParts": [
+      {
+        "name": "Подвес",
+        "genSingular": "подвеса",
+        "genPlural": "подвесов",
+        "categories": "",
+        "evidence": "Подвесы в правилах обслуживания городских и детских качелей."
+      },
+      {
+        "name": "Пружина",
+        "genSingular": "пружины",
+        "genPlural": "пружин",
+        "categories": "",
+        "evidence": "Пружина в разделе обслуживания качалки на пружине."
+      },
+      {
+        "name": "Столешница",
+        "genSingular": "столешницы",
+        "genPlural": "столешниц",
+        "categories": "",
+        "evidence": "Рабочая поверхность стола, самостоятельной части с этим названием в выгрузке нет."
+      }
+    ],
+    "addFacets": [
+      {
+        "fields": {
+          "code": "blg.bike.form",
+          "name": "Способ установки велосипеда",
+          "category": "BLG",
+          "step": false,
+          "multi": false,
+          "order": 90
+        },
+        "values": [
+          {
+            "code": "blg.bike.form.frame",
+            "name": "Опора для рамы",
+            "order": 1
+          },
+          {
+            "code": "blg.bike.form.wheel",
+            "name": "Место для установки колеса",
+            "order": 2
+          }
+        ]
+      },
+      {
+        "fields": {
+          "code": "blg.shelter.form",
+          "name": "Конструкция навеса или перголы",
+          "category": "BLG",
+          "step": false,
+          "multi": false,
+          "order": 90
+        },
+        "values": [
+          {
+            "code": "blg.shelter.form.roof",
+            "name": "Кровля на опорах",
+            "order": 1
+          },
+          {
+            "code": "blg.shelter.form.open",
+            "name": "Открытая пергола с верхними перемычками",
+            "order": 2
+          }
+        ]
+      }
+    ],
+    "addValuesAfterEvidence": [
+      {
+        "dict": "productFacetValues",
+        "post": "/api/dicts/productFacetValues",
+        "match": {
+          "code": "trn.contact.turntable-grip",
+          "parentId": "@facet:trn.contact"
+        },
+        "fields": {
+          "code": "trn.contact.turntable-grip",
+          "name": "Поворотная подставка для ног и рукоятка",
+          "order": 2,
+          "parentId": "@facet:trn.contact",
+          "purposePhraseId": "",
+          "installTypeId": "",
+          "elementIds": []
+        },
+        "gate": "До активации фразы для твистера подтвердить сочетание поворотной подставки и рукоятки рисунком или паспортом изделия."
+      }
+    ]
+  },
+  "qaWithC155": {
+    "products": [
+      {
+        "id": "6ae1269ae36900370537a2f3",
+        "sku": "1066",
+        "name": "Хипс",
+        "category": "TRN",
+        "evidence": "Рисунок изделия: стойка/каркас, рукоятка, две платформы для ног. Существующее назначение «Ноги» выбрано в textChoices.",
+        "fixture": {
+          "skuAndNameMustMatch": true,
+          "purposeChoiceMustRemain": {
+            "rootId": "6add909915d601111692a40f",
+            "leafId": "6adb5ab2edd024ba63d7f192"
+          },
+          "operations": [
+            {
+              "method": "PATCH",
+              "path": "/api/showcase/6ae1269ae36900370537a2f3",
+              "expected": {
+                "facetValueIds": [
+                  "6aeea9373b8b9255839ab43b"
+                ]
+              },
+              "body": {
+                "facetValueIds": [
+                  "6aeea9373b8b9255839ab43b",
+                  "@value:trn.contact.two-platforms-grip"
+                ]
+              },
+              "readback": {
+                "facetValueIds": [
+                  "6aeea9373b8b9255839ab43b",
+                  "@value:trn.contact.two-platforms-grip"
+                ]
+              }
+            },
+            {
+              "method": "PATCH",
+              "path": "/api/showcase/6ae1269ae36900370537a2f3/passport-template?variant=short",
+              "preconditions": {
+                "defaults.simpleDescription": null,
+                "defaults.kindId": null,
+                "defaults.textChoices.@phrase:c155.short.trn.legs": null
+              },
+              "body": {
+                "expected": {
+                  "kindId": null
+                },
+                "changes": {
+                  "kindId": "6af707fdc451d4c05df6a046"
+                }
+              },
+              "readback": {
+                "defaults.kindId": "6af707fdc451d4c05df6a046",
+                "defaults.simpleDescription": null,
+                "passportCategory": "TRN",
+                "textSnapshot.description": "Тренажёр состоит из каркаса с рукояткой и двух платформ для ног.",
+                "simpleDescriptionSource": {
+                  "kind": "dictionary",
+                  "id": "@phrase:c155.short.trn.legs.platforms",
+                  "rootId": "@phrase:c155.short.trn.legs",
+                  "partIds": [
+                    "6af81f883389de160b2c97d9",
+                    "6adceeeb3ca001b9b3b0e575",
+                    "6ae32682a3f6de10abf0365b"
+                  ]
+                }
+              }
+            }
+          ],
+          "regressionOverride": {
+            "method": "PATCH",
+            "path": "/api/showcase/6ae1269ae36900370537a2f3/passport-template?variant=short",
+            "purpose": "Проверить приоритет явно сохранённого собственного текста поверх автоматически выбранного листа, затем снять override на копии.",
+            "body": {
+              "expected": {
+                "simpleDescription": null
+              },
+              "changes": {
+                "simpleDescription": {
+                  "text": "Каркас тренажёра оснащён рукояткой и двумя платформами для ног.",
+                  "partIds": [
+                    "6af81f883389de160b2c97d9",
+                    "6adceeeb3ca001b9b3b0e575",
+                    "6ae32682a3f6de10abf0365b"
+                  ]
+                }
+              }
+            },
+            "expectedSource": {
+              "kind": "own"
+            },
+            "restore": {
+              "expected": {
+                "simpleDescription": {
+                  "text": "Каркас тренажёра оснащён рукояткой и двумя платформами для ног.",
+                  "partIds": [
+                    "6af81f883389de160b2c97d9",
+                    "6adceeeb3ca001b9b3b0e575",
+                    "6ae32682a3f6de10abf0365b"
+                  ]
+                }
+              },
+              "changes": {
+                "simpleDescription": null
+              }
+            },
+            "expectedRestoredSource": {
+              "kind": "dictionary",
+              "id": "@phrase:c155.short.trn.legs.platforms"
+            }
+          }
+        }
+      }
+    ],
+    "roots": [
+      {
+        "key": "c155.short.trn.legs",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Тренажёр для ног",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Тренажёр для ног",
+          "section": "simple-description",
+          "categories": "TRN",
+          "allCategories": false,
+          "kindIds": [
+            "6af707fdc451d4c05df6a046"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.trn.legs.platforms",
+            "match": {
+              "name": "Две платформы для ног и рукоятка",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.trn.legs"
+            },
+            "fields": {
+              "name": "Две платформы для ног и рукоятка",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.trn.legs",
+              "categories": "TRN",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af707fdc451d4c05df6a046"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Тренажёр состоит из каркаса с рукояткой и двух платформ для ног.",
+              "partIds": [
+                "6af81f883389de160b2c97d9",
+                "6adceeeb3ca001b9b3b0e575",
+                "6ae32682a3f6de10abf0365b"
+              ],
+              "facetValueIds": [
+                "@value:trn.contact.two-platforms-grip"
+              ]
+            },
+            "gate": "Для 1066 подтвердить вид и значение trn.contact.two-platforms-grip по рисунку. Для другого изделия значение допустимо после подтверждения каркаса, рукоятки и двух платформ для ног. К одному виду без подтверждённого признака фразу автоматически не применять."
+          }
+        ]
+      },
+      {
+        "key": "c155.short.trn.twister",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Твистер",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Твистер",
+          "section": "simple-description",
+          "categories": "TRN",
+          "allCategories": false,
+          "kindIds": [
+            "6af707fdc451d4c05df6a04a"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.trn.twister.turntable",
+            "match": {
+              "name": "Поворотная подставка и рукоятка",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.trn.twister"
+            },
+            "fields": {
+              "name": "Поворотная подставка и рукоятка",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.trn.twister",
+              "categories": "TRN",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af707fdc451d4c05df6a04a"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Твистер оснащён поворотной подставкой для ног и рукояткой.",
+              "partIds": [
+                "6adceeeb3ca001b9b3b0e57f",
+                "6adceeeb3ca001b9b3b0e575"
+              ],
+              "facetValueIds": [
+                "@value:trn.contact.turntable-grip"
+              ]
+            },
+            "gate": "Вариант активируется после сверки повторяющейся конструкции по рисунку или паспорту изделия."
+          }
+        ],
+        "gate": "Пропустить при первичном QA-наполнении. Готовые формулировки, добавить после подтверждения конструктивных вариантов на реальных изделиях."
+      },
+      {
+        "key": "c155.short.trn.combo",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Комплексный тренажёр",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Комплексный тренажёр",
+          "section": "simple-description",
+          "categories": "TRN",
+          "allCategories": false,
+          "kindIds": [
+            "6af707fdc451d4c05df6a04b"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.trn.combo.combined",
+            "match": {
+              "name": "Совмещённые рабочие модули",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.trn.combo"
+            },
+            "fields": {
+              "name": "Совмещённые рабочие модули",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.trn.combo",
+              "categories": "TRN",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af707fdc451d4c05df6a04b"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Тренажёр объединяет несколько рабочих модулей для разных упражнений.",
+              "partIds": [],
+              "facetValueIds": [
+                "6aeea9373b8b9255839ab43c"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.wrk.basket",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Баскетбольная стойка",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Баскетбольная стойка",
+          "section": "simple-description",
+          "categories": "WRK",
+          "allCategories": false,
+          "kindIds": [
+            "6af707fdc451d4c05df6a053"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.wrk.basket.base",
+            "match": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.wrk.basket"
+            },
+            "fields": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.wrk.basket",
+              "categories": "WRK",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af707fdc451d4c05df6a053"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Стойка служит опорой для баскетбольного щита с кольцом.",
+              "partIds": [
+                "6adceeeb3ca001b9b3b0e571"
+              ],
+              "facetValueIds": []
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.wrk.parallel",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Брусья",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Брусья",
+          "section": "simple-description",
+          "categories": "WRK",
+          "allCategories": false,
+          "kindIds": [
+            "6af707fdc451d4c05df6a04d"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.wrk.parallel.base",
+            "match": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.wrk.parallel"
+            },
+            "fields": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.wrk.parallel",
+              "categories": "WRK",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af707fdc451d4c05df6a04d"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Рабочая часть брусьев — параллельные перекладины для упора руками.",
+              "partIds": [
+                "6adceeeb3ca001b9b3b0e572"
+              ],
+              "facetValueIds": []
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.wrk.net",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Волейбольные стойки",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Волейбольные стойки",
+          "section": "simple-description",
+          "categories": "WRK",
+          "allCategories": false,
+          "kindIds": [
+            "6af707fdc451d4c05df6a054"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.wrk.net.base",
+            "match": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.wrk.net"
+            },
+            "fields": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.wrk.net",
+              "categories": "WRK",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af707fdc451d4c05df6a054"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Волейбольные стойки служат опорами для крепления сетки.",
+              "partIds": [
+                "6adceeeb3ca001b9b3b0e571"
+              ],
+              "facetValueIds": []
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.wrk.goal",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Ворота для мини-футбола",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Ворота для мини-футбола",
+          "section": "simple-description",
+          "categories": "WRK",
+          "allCategories": false,
+          "kindIds": [
+            "6af707fdc451d4c05df6a055"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.wrk.goal.base",
+            "match": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.wrk.goal"
+            },
+            "fields": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.wrk.goal",
+              "categories": "WRK",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af707fdc451d4c05df6a055"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Рама ворот образована боковыми стойками и верхней перекладиной.",
+              "partIds": [
+                "6adceeeb3ca001b9b3b0e574",
+                "6adceeeb3ca001b9b3b0e571",
+                "6adceeeb3ca001b9b3b0e572"
+              ],
+              "facetValueIds": []
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.wrk.climb",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Кольца, канат, скалодром",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Кольца, канат, скалодром",
+          "section": "simple-description",
+          "categories": "WRK",
+          "allCategories": false,
+          "kindIds": [
+            "6af707fdc451d4c05df6a058"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.wrk.climb.rings",
+            "match": {
+              "name": "Гимнастические кольца",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.wrk.climb"
+            },
+            "fields": {
+              "name": "Гимнастические кольца",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.wrk.climb",
+              "categories": "WRK",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af707fdc451d4c05df6a058"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Рабочая часть снаряда — подвесные гимнастические кольца.",
+              "partIds": [
+                "6adceeeb3ca001b9b3b0e586"
+              ],
+              "facetValueIds": [
+                "@value:wrk.climb.rings"
+              ]
+            }
+          },
+          {
+            "key": "c155.short.wrk.climb.rope",
+            "match": {
+              "name": "Канат",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.wrk.climb"
+            },
+            "fields": {
+              "name": "Канат",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.wrk.climb",
+              "categories": "WRK",
+              "allCategories": false,
+              "order": 2,
+              "kindIds": [
+                "6af707fdc451d4c05df6a058"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Рабочая часть снаряда — подвесной канат для лазания.",
+              "partIds": [],
+              "facetValueIds": [
+                "@value:wrk.climb.rope"
+              ]
+            }
+          },
+          {
+            "key": "c155.short.wrk.climb.climbing-wall",
+            "match": {
+              "name": "Скалодром",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.wrk.climb"
+            },
+            "fields": {
+              "name": "Скалодром",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.wrk.climb",
+              "categories": "WRK",
+              "allCategories": false,
+              "order": 3,
+              "kindIds": [
+                "6af707fdc451d4c05df6a058"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "На поверхности скалодрома размещены зацепы для рук и ног.",
+              "partIds": [
+                "6ae44ab6e2b85c75e0686866"
+              ],
+              "facetValueIds": [
+                "@value:wrk.climb.climbing-wall"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.wrk.monkey",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Рукоход",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Рукоход",
+          "section": "simple-description",
+          "categories": "WRK",
+          "allCategories": false,
+          "kindIds": [
+            "6af707fdc451d4c05df6a04f"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.wrk.monkey.base",
+            "match": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.wrk.monkey"
+            },
+            "fields": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.wrk.monkey",
+              "categories": "WRK",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af707fdc451d4c05df6a04f"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Рабочие элементы рукохода расположены последовательно, чтобы перемещаться по ним в висе.",
+              "partIds": [],
+              "facetValueIds": []
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.wrk.press-bench",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Скамья для пресса",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Скамья для пресса",
+          "section": "simple-description",
+          "categories": "WRK",
+          "allCategories": false,
+          "kindIds": [
+            "6af707fdc451d4c05df6a051"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.wrk.press-bench.base",
+            "match": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.wrk.press-bench"
+            },
+            "fields": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.wrk.press-bench",
+              "categories": "WRK",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af707fdc451d4c05df6a051"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Скамья имеет опорную поверхность для тела при упражнениях на пресс.",
+              "partIds": [],
+              "facetValueIds": []
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.wrk.bar",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Турник",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Турник",
+          "section": "simple-description",
+          "categories": "WRK",
+          "allCategories": false,
+          "kindIds": [
+            "6af707fdc451d4c05df6a04c"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.wrk.bar.base",
+            "match": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.wrk.bar"
+            },
+            "fields": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.wrk.bar",
+              "categories": "WRK",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af707fdc451d4c05df6a04c"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Рабочая часть турника — перекладина для виса и подтягиваний.",
+              "partIds": [
+                "6adceeeb3ca001b9b3b0e572"
+              ],
+              "facetValueIds": []
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.wrk.bar-parallel",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Турник и брусья",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Турник и брусья",
+          "section": "simple-description",
+          "categories": "WRK",
+          "allCategories": false,
+          "kindIds": [
+            "6af707fdc451d4c05df6a04e"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.wrk.bar-parallel.base",
+            "match": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.wrk.bar-parallel"
+            },
+            "fields": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.wrk.bar-parallel",
+              "categories": "WRK",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af707fdc451d4c05df6a04e"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Изделие объединяет перекладину для подтягиваний и параллельные перекладины брусьев.",
+              "partIds": [
+                "6adceeeb3ca001b9b3b0e572"
+              ],
+              "facetValueIds": []
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.wrk.wall",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Шведская стенка",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Шведская стенка",
+          "section": "simple-description",
+          "categories": "WRK",
+          "allCategories": false,
+          "kindIds": [
+            "6af707fdc451d4c05df6a050"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.wrk.wall.base",
+            "match": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.wrk.wall"
+            },
+            "fields": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.wrk.wall",
+              "categories": "WRK",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af707fdc451d4c05df6a050"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Шведская стенка имеет ряд перекладин, расположенных одна над другой.",
+              "partIds": [
+                "6adceeeb3ca001b9b3b0e572"
+              ],
+              "facetValueIds": []
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.blg.planter",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Вазон, цветочница",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Вазон, цветочница",
+          "section": "simple-description",
+          "categories": "BLG",
+          "allCategories": false,
+          "kindIds": [
+            "6af707fdc451d4c05df6a059"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.blg.planter.base",
+            "match": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.blg.planter"
+            },
+            "fields": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.blg.planter",
+              "categories": "BLG",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af707fdc451d4c05df6a059"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Основная часть вазона — ёмкость для грунта и растений.",
+              "partIds": [],
+              "facetValueIds": []
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.blg.bike",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Велопарковки",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Велопарковки",
+          "section": "simple-description",
+          "categories": "BLG",
+          "allCategories": false,
+          "kindIds": [
+            "6af6ca4a22a0611d2b3a4737"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.blg.bike.frame",
+            "match": {
+              "name": "Опора для рамы",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.blg.bike"
+            },
+            "fields": {
+              "name": "Опора для рамы",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.blg.bike",
+              "categories": "BLG",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af6ca4a22a0611d2b3a4737"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Велосипед размещают у опоры, к которой можно прислонить раму.",
+              "partIds": [],
+              "facetValueIds": [
+                "@value:blg.bike.form.frame"
+              ]
+            },
+            "gate": "Вариант активируется после сверки повторяющейся конструкции по рисунку или паспорту изделия."
+          },
+          {
+            "key": "c155.short.blg.bike.wheel",
+            "match": {
+              "name": "Место для колеса",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.blg.bike"
+            },
+            "fields": {
+              "name": "Место для колеса",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.blg.bike",
+              "categories": "BLG",
+              "allCategories": false,
+              "order": 2,
+              "kindIds": [
+                "6af6ca4a22a0611d2b3a4737"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "В конструкции велопарковки предусмотрены места для установки колёс велосипедов.",
+              "partIds": [],
+              "facetValueIds": [
+                "@value:blg.bike.form.wheel"
+              ]
+            },
+            "gate": "Вариант активируется после сверки повторяющейся конструкции по рисунку или паспорту изделия."
+          }
+        ],
+        "gate": "Пропустить при первичном QA-наполнении. Готовые формулировки, добавить после подтверждения конструктивных вариантов на реальных изделиях."
+      },
+      {
+        "key": "c155.short.blg.sign",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Информационные стенды и указатели",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Информационные стенды и указатели",
+          "section": "simple-description",
+          "categories": "BLG",
+          "allCategories": false,
+          "kindIds": [
+            "6af6ca4a22a0611d2b3a4738"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.blg.sign.panel",
+            "match": {
+              "name": "Информационный стенд",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.blg.sign"
+            },
+            "fields": {
+              "name": "Информационный стенд",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.blg.sign",
+              "categories": "BLG",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af6ca4a22a0611d2b3a4738"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Информационная панель образует лицевую часть стенда.",
+              "partIds": [],
+              "facetValueIds": [
+                "@value:blg.sign.form.panel"
+              ]
+            }
+          },
+          {
+            "key": "c155.short.blg.sign.direction",
+            "match": {
+              "name": "Указатель направления",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.blg.sign"
+            },
+            "fields": {
+              "name": "Указатель направления",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.blg.sign",
+              "categories": "BLG",
+              "allCategories": false,
+              "order": 2,
+              "kindIds": [
+                "6af6ca4a22a0611d2b3a4738"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Указатель имеет табличку с обозначением направления.",
+              "partIds": [],
+              "facetValueIds": [
+                "@value:blg.sign.form.direction"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.blg.swing",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Качели городские",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Качели городские",
+          "section": "simple-description",
+          "categories": "BLG",
+          "allCategories": false,
+          "kindIds": [
+            "6af707fdc451d4c05df6a05c"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.blg.swing.base",
+            "match": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.blg.swing"
+            },
+            "fields": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.blg.swing",
+              "categories": "BLG",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af707fdc451d4c05df6a05c"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Сиденье городских качелей закреплено на подвесах.",
+              "partIds": [
+                "6adceeeb3ca001b9b3b0e57a",
+                "@part:Подвес"
+              ],
+              "facetValueIds": []
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.blg.shelter",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Навесы",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Навесы",
+          "section": "simple-description",
+          "categories": "BLG",
+          "allCategories": false,
+          "kindIds": [
+            "6af6ca4a22a0611d2b3a4733"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.blg.shelter.roof",
+            "match": {
+              "name": "Навес с кровлей",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.blg.shelter"
+            },
+            "fields": {
+              "name": "Навес с кровлей",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.blg.shelter",
+              "categories": "BLG",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af6ca4a22a0611d2b3a4733"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Кровля навеса установлена на опорах.",
+              "partIds": [],
+              "facetValueIds": [
+                "@value:blg.shelter.form.roof"
+              ]
+            },
+            "gate": "Вариант активируется после сверки повторяющейся конструкции по рисунку или паспорту изделия."
+          },
+          {
+            "key": "c155.short.blg.shelter.open",
+            "match": {
+              "name": "Открытая пергола",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.blg.shelter"
+            },
+            "fields": {
+              "name": "Открытая пергола",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.blg.shelter",
+              "categories": "BLG",
+              "allCategories": false,
+              "order": 2,
+              "kindIds": [
+                "6af6ca4a22a0611d2b3a4733"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Пергола состоит из опор и верхних перемычек.",
+              "partIds": [],
+              "facetValueIds": [
+                "@value:blg.shelter.form.open"
+              ]
+            },
+            "gate": "Вариант активируется после сверки повторяющейся конструкции по рисунку или паспорту изделия."
+          }
+        ],
+        "gate": "Пропустить при первичном QA-наполнении. Готовые формулировки, добавить после подтверждения конструктивных вариантов на реальных изделиях."
+      },
+      {
+        "key": "c155.short.blg.fence",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Ограждения",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Ограждения",
+          "section": "simple-description",
+          "categories": "BLG",
+          "allCategories": false,
+          "kindIds": [
+            "6af6ca4a22a0611d2b3a4734"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.blg.fence.section",
+            "match": {
+              "name": "Секция ограждения",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.blg.fence"
+            },
+            "fields": {
+              "name": "Секция ограждения",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.blg.fence",
+              "categories": "BLG",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af6ca4a22a0611d2b3a4734"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Секция образует участок ограждения между опорами.",
+              "partIds": [],
+              "facetValueIds": [
+                "6aeea9373b8b9255839ab451"
+              ]
+            }
+          },
+          {
+            "key": "c155.short.blg.fence.gate",
+            "match": {
+              "name": "Калитка",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.blg.fence"
+            },
+            "fields": {
+              "name": "Калитка",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.blg.fence",
+              "categories": "BLG",
+              "allCategories": false,
+              "order": 2,
+              "kindIds": [
+                "6af6ca4a22a0611d2b3a4734"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Калитка представляет собой подвижную створку для прохода через ограждение.",
+              "partIds": [
+                "6ae44ab6e2b85c75e068686d"
+              ],
+              "facetValueIds": [
+                "6aeea9373b8b9255839ab452"
+              ]
+            }
+          },
+          {
+            "key": "c155.short.blg.fence.post",
+            "match": {
+              "name": "Опорная стойка",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.blg.fence"
+            },
+            "fields": {
+              "name": "Опорная стойка",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.blg.fence",
+              "categories": "BLG",
+              "allCategories": false,
+              "order": 3,
+              "kindIds": [
+                "6af6ca4a22a0611d2b3a4734"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Стойка служит опорой для крепления секций ограждения.",
+              "partIds": [
+                "6adceeeb3ca001b9b3b0e571"
+              ],
+              "facetValueIds": [
+                "6aeea9373b8b9255839ab453"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.blg.tree-grate",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Приствольная решётка",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Приствольная решётка",
+          "section": "simple-description",
+          "categories": "BLG",
+          "allCategories": false,
+          "kindIds": [
+            "6af707fdc451d4c05df6a05a"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.blg.tree-grate.base",
+            "match": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.blg.tree-grate"
+            },
+            "fields": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.blg.tree-grate",
+              "categories": "BLG",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af707fdc451d4c05df6a05a"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Решётка размещается вокруг ствола дерева и закрывает приствольное пространство.",
+              "partIds": [],
+              "facetValueIds": []
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.blg.bench",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Скамьи",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Скамьи",
+          "section": "simple-description",
+          "categories": "BLG",
+          "allCategories": false,
+          "kindIds": [
+            "6af6ca4a22a0611d2b3a4735"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.blg.bench.back",
+            "match": {
+              "name": "Скамья со спинкой",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.blg.bench"
+            },
+            "fields": {
+              "name": "Скамья со спинкой",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.blg.bench",
+              "categories": "BLG",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af6ca4a22a0611d2b3a4735"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Сиденье скамьи установлено на опорах и дополнено спинкой.",
+              "partIds": [
+                "6adceeeb3ca001b9b3b0e57a",
+                "6adceeeb3ca001b9b3b0e57b"
+              ],
+              "facetValueIds": [
+                "6aeea9373b8b9255839ab45c"
+              ]
+            }
+          },
+          {
+            "key": "c155.short.blg.bench.backless",
+            "match": {
+              "name": "Скамья без спинки",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.blg.bench"
+            },
+            "fields": {
+              "name": "Скамья без спинки",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.blg.bench",
+              "categories": "BLG",
+              "allCategories": false,
+              "order": 2,
+              "kindIds": [
+                "6af6ca4a22a0611d2b3a4735"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Сиденье скамьи установлено на опорах. Спинка отсутствует.",
+              "partIds": [
+                "6adceeeb3ca001b9b3b0e57a"
+              ],
+              "facetValueIds": [
+                "6aeea9383b8b9255839ab45d"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.blg.table",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Стол уличный",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Стол уличный",
+          "section": "simple-description",
+          "categories": "BLG",
+          "allCategories": false,
+          "kindIds": [
+            "6af707fdc451d4c05df6a05b"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.blg.table.base",
+            "match": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.blg.table"
+            },
+            "fields": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.blg.table",
+              "categories": "BLG",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af707fdc451d4c05df6a05b"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Столешница уличного стола установлена на опорах.",
+              "partIds": [
+                "@part:Столешница"
+              ],
+              "facetValueIds": []
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.blg.tribune",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Трибуны",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Трибуны",
+          "section": "simple-description",
+          "categories": "BLG",
+          "allCategories": false,
+          "kindIds": [
+            "6af6ca4a22a0611d2b3a4739"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.blg.tribune.spectators",
+            "match": {
+              "name": "Зрительский модуль",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.blg.tribune"
+            },
+            "fields": {
+              "name": "Зрительский модуль",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.blg.tribune",
+              "categories": "BLG",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af6ca4a22a0611d2b3a4739"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Зрительские места расположены на основании трибуны.",
+              "partIds": [
+                "6adceeeb3ca001b9b3b0e57a"
+              ],
+              "facetValueIds": [
+                "@value:blg.tribune.form.spectators"
+              ]
+            }
+          },
+          {
+            "key": "c155.short.blg.tribune.stairs",
+            "match": {
+              "name": "Лестничный модуль",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.blg.tribune"
+            },
+            "fields": {
+              "name": "Лестничный модуль",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.blg.tribune",
+              "categories": "BLG",
+              "allCategories": false,
+              "order": 2,
+              "kindIds": [
+                "6af6ca4a22a0611d2b3a4739"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Лестничный модуль состоит из ступеней и обеспечивает подъём к зрительским местам.",
+              "partIds": [
+                "6adceeeb3ca001b9b3b0e581"
+              ],
+              "facetValueIds": [
+                "@value:blg.tribune.form.stairs"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.blg.bin",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Урны",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Урны",
+          "section": "simple-description",
+          "categories": "BLG",
+          "allCategories": false,
+          "kindIds": [
+            "6af6ca4a22a0611d2b3a4736"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.blg.bin.base",
+            "match": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.blg.bin"
+            },
+            "fields": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.blg.bin",
+              "categories": "BLG",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af6ca4a22a0611d2b3a4736"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Основная часть урны — ёмкость для сбора мусора.",
+              "partIds": [],
+              "facetValueIds": []
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.dio.carousel",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Карусели",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Карусели",
+          "section": "simple-description",
+          "categories": "DIO",
+          "allCategories": false,
+          "kindIds": [
+            "6af6ca4b22a0611d2b3a473b"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.dio.carousel.base",
+            "match": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.dio.carousel"
+            },
+            "fields": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.dio.carousel",
+              "categories": "DIO",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af6ca4b22a0611d2b3a473b"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Рабочая часть карусели вращается вокруг оси.",
+              "partIds": [],
+              "facetValueIds": []
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.dio.spring",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Качалка на пружине",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Качалка на пружине",
+          "section": "simple-description",
+          "categories": "DIO",
+          "allCategories": false,
+          "kindIds": [
+            "6af707fdc451d4c05df6a05f"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.dio.spring.base",
+            "match": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.dio.spring"
+            },
+            "fields": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.dio.spring",
+              "categories": "DIO",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af707fdc451d4c05df6a05f"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Корпус качалки соединён с основанием пружиной.",
+              "partIds": [
+                "@part:Пружина"
+              ],
+              "facetValueIds": []
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.dio.balance",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Качалка-балансир",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Качалка-балансир",
+          "section": "simple-description",
+          "categories": "DIO",
+          "allCategories": false,
+          "kindIds": [
+            "6af707fdc451d4c05df6a05e"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.dio.balance.base",
+            "match": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.dio.balance"
+            },
+            "fields": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.dio.balance",
+              "categories": "DIO",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af707fdc451d4c05df6a05e"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Рабочая часть балансира качается относительно опоры.",
+              "partIds": [],
+              "facetValueIds": []
+            }
+          }
+        ]
+      },
+      {
+        "key": "c155.short.dio.swing",
+        "match": {
+          "section": "simple-description",
+          "name": "Краткое описание — Качели",
+          "parentId": null
+        },
+        "fields": {
+          "name": "Краткое описание — Качели",
+          "section": "simple-description",
+          "categories": "DIO",
+          "allCategories": false,
+          "kindIds": [
+            "6af6ca4a22a0611d2b3a473a"
+          ],
+          "isDefault": false,
+          "required": true
+        },
+        "leaves": [
+          {
+            "key": "c155.short.dio.swing.base",
+            "match": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parent": "@phrase:c155.short.dio.swing"
+            },
+            "fields": {
+              "name": "Подтверждённая конструкция",
+              "section": "simple-description",
+              "parentId": "@phrase:c155.short.dio.swing",
+              "categories": "DIO",
+              "allCategories": false,
+              "order": 1,
+              "kindIds": [
+                "6af6ca4a22a0611d2b3a473a"
+              ],
+              "isDefault": false,
+              "required": false,
+              "text": "Сиденье детских качелей закреплено на подвесах.",
+              "partIds": [
+                "6adceeeb3ca001b9b3b0e57a",
+                "@part:Подвес"
+              ],
+              "facetValueIds": []
+            }
+          }
+        ]
+      }
+    ],
+    "kindCoverage": [
+      {
+        "kindId": "6af707fdc451d4c05df6a046",
+        "category": "TRN",
+        "name": "Тренажёр для ног",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f192",
+        "status": "qa-conditional",
+        "phraseRootKey": "c155.short.trn.legs",
+        "evidence": "Конструкция 1066 подтверждена рисунком, назначение подтверждено выбранной фразой «Ноги».",
+        "question": "Какие рабочие части подтверждены на рисунке? При другом составе сохраните собственную фразу."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a04a",
+        "category": "TRN",
+        "name": "Твистер",
+        "currentPurposeLeafId": "6aeea931e6cf14bd396f3b13",
+        "status": "qa-candidate",
+        "phraseRootKey": "c155.short.trn.twister",
+        "evidence": "Назначение «Разминка суставов». В словаре есть поворотная подставка для ног. Её сочетание с рукояткой сверяется по изделию.",
+        "question": "Подтверждены ли поворотная подставка и рукоятка? При другой конструкции сохраните собственную фразу."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a04b",
+        "category": "TRN",
+        "name": "Комплексный тренажёр",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f195",
+        "status": "qa-conditional",
+        "phraseRootKey": "c155.short.trn.combo",
+        "evidence": "Действующие правила для trn.build.combo уже описывают несколько рабочих модулей.",
+        "question": "Есть ли несколько совмещённых рабочих модулей? При известном исполнении используется сохранённое значение. Для иной конструкции нужна фраза по рисунку."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a045",
+        "category": "TRN",
+        "name": "Кардиотренажёр",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f194",
+        "status": "own-description",
+        "evidence": "Назначение «Кардио» не определяет кинематику и рабочие части.",
+        "question": "Как выполняется движение и какие рабочие части видны? Ходьба или шагание на платформах, вращение педалей, гребное движение — только при подтверждении моделей."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a047",
+        "category": "TRN",
+        "name": "Тренажёр для груди, плеч и рук",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f190",
+        "status": "own-description",
+        "evidence": "Анатомическая группа и существующая фраза назначения известны.",
+        "question": "Как выполняется упражнение — жим или тяга — и за какие части держится пользователь? Выбирать тип движения только при наличии двух проверенных конструкций с разными текстами."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a048",
+        "category": "TRN",
+        "name": "Тренажёр для спины",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f191",
+        "status": "own-description",
+        "evidence": "Назначение «Спина» не задаёт направление тяги и опоры.",
+        "question": "Какое движение и какие упоры либо рукоятки подтверждены? Вертикальная и горизонтальная тяга — варианты после проверки чертежей."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a049",
+        "category": "TRN",
+        "name": "Тренажёр для пресса",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f193",
+        "status": "own-description",
+        "evidence": "Назначение «Пресс» определено. Скамья для пресса уже отдельный вид WRK.",
+        "question": "Какая рабочая часть тренажёра видна и какое движение она обеспечивает? Заполнить по схеме упражнения."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a053",
+        "category": "WRK",
+        "name": "Баскетбольная стойка",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f198",
+        "status": "qa",
+        "phraseRootKey": "c155.short.wrk.basket",
+        "evidence": "Вид и действующие правила подтверждают назначение стойки как опоры щита с кольцом. Комплектность щитом, кольцом и сеткой определяется по изделию."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a04d",
+        "category": "WRK",
+        "name": "Брусья",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f197",
+        "status": "qa",
+        "phraseRootKey": "c155.short.wrk.parallel",
+        "evidence": "Вид и назначение «отжимания на брусьях и упражнения в упоре»."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a054",
+        "category": "WRK",
+        "name": "Волейбольные стойки",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f199",
+        "status": "qa",
+        "phraseRootKey": "c155.short.wrk.net",
+        "evidence": "Вид и правила осмотра стоек и сетки. Общая фраза без утверждения о комплектности сетки или натяжителя."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a055",
+        "category": "WRK",
+        "name": "Ворота для мини-футбола",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f19a",
+        "status": "qa",
+        "phraseRootKey": "c155.short.wrk.goal",
+        "evidence": "Осмотр ворот прямо называет штанги и перекладину."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a058",
+        "category": "WRK",
+        "name": "Кольца, канат, скалодром",
+        "currentPurposeLeafId": "6aeea931e6cf14bd396f3b15",
+        "status": "qa-conditional",
+        "phraseRootKey": "c155.short.wrk.climb",
+        "evidence": "Вид объединяет три снаряда. Действующие правила отдельно называют кольца, канат и зацепы.",
+        "question": "Что предусмотрено в конструкции: кольца, канат или скалодром? При нескольких снарядах — отдельная фраза по составу."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a052",
+        "category": "WRK",
+        "name": "Комплекс воркаут",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f19e",
+        "status": "own-description",
+        "evidence": "Элементы существующего вида — Турник, Брусья, Рукоход. Они описывают класс, а не комплектацию каждой модели.",
+        "question": "Какие снаряды входят в этот комплекс? Использовать сохранённые подтверждённые элементы или собственную фразу по чертежу."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a056",
+        "category": "WRK",
+        "name": "Комплекс ГТО",
+        "currentPurposeLeafId": "6aeea931e6cf14bd396f3b16",
+        "status": "own-description",
+        "evidence": "ГТО — назначение. Набор снарядов не следует из наличия разметки в общем правиле.",
+        "question": "Какие станции входят в комплект? Использовать подтверждённый перечень."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a057",
+        "category": "WRK",
+        "name": "Полоса препятствий",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f19d",
+        "status": "own-description",
+        "evidence": "Есть назначение, состав и порядок препятствий различаются между изделиями.",
+        "question": "Какие препятствия входят в полосу? Взять состав из комплектации изделия."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a04f",
+        "category": "WRK",
+        "name": "Рукоход",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f196",
+        "status": "qa",
+        "phraseRootKey": "c155.short.wrk.monkey",
+        "evidence": "Подтверждено назначение в висе. Вид не задаёт форму поперечин, подвесы либо число ступеней."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a051",
+        "category": "WRK",
+        "name": "Скамья для пресса",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f19c",
+        "status": "qa",
+        "phraseRootKey": "c155.short.wrk.press-bench",
+        "evidence": "Подтверждены вид и назначение. Наличие упора для ног, угол и регулируемость не следуют из вида."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a04c",
+        "category": "WRK",
+        "name": "Турник",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f196",
+        "status": "qa",
+        "phraseRootKey": "c155.short.wrk.bar",
+        "evidence": "Существующее значение «Турник, перекладина» и назначение для виса и подтягивания."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a04e",
+        "category": "WRK",
+        "name": "Турник и брусья",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f19e",
+        "status": "qa",
+        "phraseRootKey": "c155.short.wrk.bar-parallel",
+        "evidence": "Вид и обе привязки элементов подтверждают состав из турника и брусьев."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a050",
+        "category": "WRK",
+        "name": "Шведская стенка",
+        "currentPurposeLeafId": "6aeea931e6cf14bd396f3b14",
+        "status": "qa",
+        "phraseRootKey": "c155.short.wrk.wall",
+        "evidence": "Правила для шведской стенки прямо называют перекладины и лазание."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a059",
+        "category": "BLG",
+        "name": "Вазон, цветочница",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f1a3",
+        "status": "qa",
+        "phraseRootKey": "c155.short.blg.planter",
+        "evidence": "Вид обозначает ёмкость для озеленения."
+      },
+      {
+        "kindId": "6af6ca4a22a0611d2b3a4737",
+        "category": "BLG",
+        "name": "Велопарковки",
+        "currentPurposeLeafId": null,
+        "status": "qa-candidate",
+        "phraseRootKey": "c155.short.blg.bike",
+        "evidence": "Вид и правила обслуживания подтверждают назначение. Способ удержания сверяется с изделием.",
+        "question": "Опирается ли велосипед рамой на опору или колесо устанавливается в предусмотренное место?"
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a05d",
+        "category": "BLG",
+        "name": "Геопластика",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f1a6",
+        "status": "own-description",
+        "evidence": "Вид описывает рельеф, уход упоминает размывы, просадки и растительный слой. Материал и форма не едины.",
+        "question": "Что выполнено в изделии: форма рельефа, отдельные элементы, настил или другое? Применить собственное описание по проекту."
+      },
+      {
+        "kindId": "6af6ca4a22a0611d2b3a4738",
+        "category": "BLG",
+        "name": "Информационные стенды и указатели",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f1a4",
+        "status": "qa-conditional",
+        "phraseRootKey": "c155.short.blg.sign",
+        "evidence": "Название вида подтверждает два разных изделия с одинаковым назначением.",
+        "question": "Это стенд с панелью или указатель с обозначением направления?"
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a05c",
+        "category": "BLG",
+        "name": "Качели городские",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f1a2",
+        "status": "qa",
+        "phraseRootKey": "c155.short.blg.swing",
+        "evidence": "Действующая фраза ухода прямо называет подвесы и сиденья."
+      },
+      {
+        "kindId": "6af6ca4a22a0611d2b3a4733",
+        "category": "BLG",
+        "name": "Навесы",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f1a1",
+        "status": "qa-candidate",
+        "phraseRootKey": "c155.short.blg.shelter",
+        "evidence": "Элемент «Навес / пергола». Действующая фраза ухода описывает стойки и кровлю именно у навеса.",
+        "question": "Какая верхняя часть подтверждена: кровля или открытые перемычки?"
+      },
+      {
+        "kindId": "6af6ca4a22a0611d2b3a4734",
+        "category": "BLG",
+        "name": "Ограждения",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f1a0",
+        "status": "qa-conditional",
+        "phraseRootKey": "c155.short.blg.fence",
+        "evidence": "Уже есть три подходящих значения blg.fence. Правила ухода различают секции, стойки и калитки.",
+        "question": "Это секция, калитка или стойка? Для комплекта с несколькими частями — фраза по составу."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a05a",
+        "category": "BLG",
+        "name": "Приствольная решётка",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f1a3",
+        "status": "qa",
+        "phraseRootKey": "c155.short.blg.tree-grate",
+        "evidence": "Название вида определяет форму размещения."
+      },
+      {
+        "kindId": "6af6ca4a22a0611d2b3a4735",
+        "category": "BLG",
+        "name": "Скамьи",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f1a2",
+        "status": "qa-conditional",
+        "phraseRootKey": "c155.short.blg.bench",
+        "evidence": "Подтверждён вид и существующие значения со спинкой и без. DOSKA описывает материал, а не наличие спинки.",
+        "question": "Есть ли у скамьи спинка?"
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a05b",
+        "category": "BLG",
+        "name": "Стол уличный",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f1a2",
+        "status": "qa",
+        "phraseRootKey": "c155.short.blg.table",
+        "evidence": "Вид определяет основную поверхность уличного стола."
+      },
+      {
+        "kindId": "6af6ca4a22a0611d2b3a4739",
+        "category": "BLG",
+        "name": "Трибуны",
+        "currentPurposeLeafId": "6aeea931e6cf14bd396f3b17",
+        "status": "qa-conditional",
+        "phraseRootKey": "c155.short.blg.tribune",
+        "evidence": "Текущие значения числа мест и отдельного лестничного модуля определяют два текста. Числа из существующего blg.seats объединены в один текст.",
+        "question": "Это модуль зрительских мест или лестничный модуль? Число мест для выбора текста спрашивать не требуется."
+      },
+      {
+        "kindId": "6af6ca4a22a0611d2b3a4736",
+        "category": "BLG",
+        "name": "Урны",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f19f",
+        "status": "qa",
+        "phraseRootKey": "c155.short.blg.bin",
+        "evidence": "Действующая фраза ухода подтверждает ёмкость и условность крышки или вкладыша."
+      },
+      {
+        "kindId": "6af6fc565ce4939b9c68f90d",
+        "category": "BLG",
+        "name": "Экотропа",
+        "currentPurposeLeafId": null,
+        "status": "own-description",
+        "evidence": "У вида нет связи с назначением. Существующая фраза называет именно настил.",
+        "question": "Изделие является настилом или другой частью экотропы? Описать подтверждённую конструкцию по проекту."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a060",
+        "category": "DIO",
+        "name": "Игровой комплекс",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f1a7",
+        "status": "own-description",
+        "evidence": "Существующее общее назначение «Игровое» не подтверждает горку, башню, переходы или лестницу.",
+        "question": "Какие игровые модули реально входят в комплекс? Использовать подтверждённый состав."
+      },
+      {
+        "kindId": "6af6ca4b22a0611d2b3a473b",
+        "category": "DIO",
+        "name": "Карусели",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f1a7",
+        "status": "qa",
+        "phraseRootKey": "c155.short.dio.carousel",
+        "evidence": "Вид и действующие правила подтверждают вращение, но не наличие конкретных кресел или привода."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a05f",
+        "category": "DIO",
+        "name": "Качалка на пружине",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f1a7",
+        "status": "qa",
+        "phraseRootKey": "c155.short.dio.spring",
+        "evidence": "Правила обслуживания прямо называют пружину между основанием и корпусом."
+      },
+      {
+        "kindId": "6af707fdc451d4c05df6a05e",
+        "category": "DIO",
+        "name": "Качалка-балансир",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f1a7",
+        "status": "qa",
+        "phraseRootKey": "c155.short.dio.balance",
+        "evidence": "Действующая фраза использования описывает шарнирный узел, у вида есть элемент «Балансир»."
+      },
+      {
+        "kindId": "6af6ca4a22a0611d2b3a473a",
+        "category": "DIO",
+        "name": "Качели",
+        "currentPurposeLeafId": "6adb5ab2edd024ba63d7f1a7",
+        "status": "qa",
+        "phraseRootKey": "c155.short.dio.swing",
+        "evidence": "Действующие правила прямо называют подвесы и сиденья."
+      }
+    ]
+  },
+  "held": [
+    {
+      "id": "6afd50b17485414ce8b7350d",
+      "name": "Шит",
+      "note": "Заняты и «Шит», и «Щит». Установить источники ссылок и значение спорной записи. До решения пропустить."
+    },
+    {
+      "sku": "1066",
+      "name": "Монтаж",
+      "note": "Сохранённый installationTypeId 6ada090c7536f8509feb4245 отличается от installTypeId 6ada090c7536f8509feb4244 выбранной анкерной фразы. Проверить по конструкторской документации."
+    },
+    {
+      "category": "DSP",
+      "name": "Детское спортивное оборудование",
+      "note": "В выгрузке нет видов и изделий DSP. Для новых изделий использовать существующие dsp.kind/dsp.age после подтверждения категории и реального снаряда, без дублирования видов WRK."
+    },
+    {
+      "category": "TRN",
+      "name": "Разновидности движения",
+      "note": "Не добавлять общий опросник. Если по паспортам/чертежам подтверждены повторяемые развилки, готовить значения под конкретные одинаковые kinds. Примеры развилок: жим/тяга, горизонтальная/вертикальная тяга, шаговые платформы/педали. Анатомическая область семи текущих видов уже определена назначением и не требует второй вопрос."
+    }
+  ],
+  "cleanup": {
+    "ready": [],
+    "held": [
+      {
+        "dict": "passportParts",
+        "suspectId": "6afd50b17485414ce8b7350d",
+        "name": "Шит",
+        "possibleCanonicalId": "6adceeeb3ca001b9b3b0e584",
+        "reason": "Обе записи заняты согласно /usage. Полный перечень ссылок и значение «Шит» по исходным карточкам не установлены."
+      },
+      {
+        "dict": "passportPhrases",
+        "suspectId": "6af5b27ae665aeae7f9513f8",
+        "name": "Информирование — указатели и стенды",
+        "possibleCanonicalId": "6adb5ab2edd024ba63d7f1a4",
+        "reason": "Текст совпадает, но запись имеет отдельное ограничение на группу. Фразы различаются по применимости и используются."
+      }
+    ],
+    "rule": "Сначала подтвердить смысл и все живые ссылки, затем подобрать существующую каноническую запись и проверить, что штатный перенос покрывает эти ссылки. Мягкое удаление через API только после проверки переноса и повторного чтения. Старые выпуски и их снимки исключены из изменений. Недостающие формы или признаки не основание для удаления."
+  }
+}

@@ -1,11 +1,10 @@
 import { loadFinancialArticles, articleChoices } from './financial-articles.js';
-import { grp, sku as kitSku, attachCombo, section, stack } from '../ui/kit/index.js';
+import { grp, sku as kitSku, section, stack } from '../ui/kit/index.js';
 import { api, patchVersioned, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, newUid, parseNum, qty } from '../core/format.js';
 import { go } from '../core/router.js';
 import { badge } from '../ui/kit/badges.js';
-import { modal } from '../ui/kit/dialog.js';
 import { toast } from '../ui/kit/toast.js';
 import { openSide, noteField, sideForm } from '../ui/kit/side-form.js';
 import { UNITS, unitList, lookups } from './lookups.js';
@@ -15,6 +14,7 @@ import { customerLink } from '../ui/links.js';
 import { crumbTrail } from './order-stage.js';
 import { lineTypeFields, lineBody, lineMark, variantsHint } from './order-lines.js';
 import { canChangeLines, cancelLine, moveLine, restoreLine } from './order-line-actions.js';
+import { linkedProductId, openOrderProductPicker } from './order-product-picker.js';
 // УПР-1/Д11: issuePassport и passports.canEdit() убраны — вход только через панель паспорта
 
 /**
@@ -68,39 +68,14 @@ export async function markToday(r, field) {
   return saved;
 }
 
-/** «Выбрать изделие»: до 3 предложений сервера (ПРЖ-4) + поиск по «Продукции» → productId в PATCH позиции. Название заказчика не меняется. */
-export async function pickProduct(r) {
-  let opts = []; let loadErr = '';
-  const inp = h('input', { type: 'text', placeholder: 'Название или артикул изделия', autocomplete: 'off', value: r.product ? r.product.name : '' });
-  let picked = r.productId || r.product?.id || '';
-  const field = h('label', { class: 'field' }, h('span', null, 'Изделие из «Продукции»'), inp);
-  const sugg = h('div', { class: 'hint' });
-  const vars = variantsHint((id, label) => choose(id, label));
-  const choose = (id, label) => { inp.value = label; inp.title = label; picked = id; vars.load(id); };
-  field.append(vars.box);
-  attachCombo(inp, { options: () => opts, onPick: (o) => { picked = o.value; vars.load(o.value); }, empty: () => loadErr || undefined });
-  inp.addEventListener('input', () => { picked = ''; vars.load(''); });
-  productOptions().then((o) => { opts = o; if (!o.length) loadErr = 'Список изделий пуст или не загрузился — закройте окно и откройте снова'; });
-  if (r.orderId) {
-    api(`/salesorders/${r.orderId}/match-products`, { method: 'POST', body: {} }).then((res) => {
-      const sg = (res?.items || []).find((x) => String(x.lineId) === String(r.id))?.suggestions || [];
-      if (!sg.length) return;
-      sugg.append('Похоже на: ', ...sg.slice(0, 3).flatMap((x, i) => [i ? ', ' : '', h('a', { href: '#', onclick: (e) => { e.preventDefault(); choose(x.productId, x.name); } }, x.name)]));
-    }).catch(() => {});
-  }
-  return modal({
-    title: 'Выбрать изделие',
-    okText: 'Выбрать',
-    body: h('div', null,
-      h('p', { class: 'hint' }, `Позиция в заказе: «${r.title || ''}». Название заказчика останется как есть; изделие нужно для паспорта и единого названия.`),
-      sugg, field),
-    onOk: async () => {
-      if (!picked) throw new Error('Выберите изделие из списка');
-      const s = await patchVersioned(`/incomes/${r.id}`, r, { productId: picked });
-      incomeLookups.reset();
-      return s;
-    },
-  });
+/** Подбор из каталога открывается поверх карточки этой же позиции. */
+export function pickProduct(row, ctx) {
+  const parent = [...document.querySelectorAll('aside[data-k="drawer"]:not([hidden])')].at(-1);
+  if (linkedProductId(row)) parent?.querySelector('[aria-label="Ещё действия"]')?.focus({ preventScroll: true });
+  openOrderProductPicker(row, {
+    reload: ctx.reload,
+    setRow: (saved) => { incomeLookups.reset(); ctx.setRow(saved); },
+  }, parent);
 }
 
 /** «Вписать сумму» — правая панель (П3): цена за единицу или сумма строки целиком. */
@@ -272,7 +247,7 @@ export const orders = {
       ['Примечание', r.notes],
     ],
     actions: (r) => [
-      session.canEdit && { label: r.product ? 'Сменить изделие' : 'Выбрать изделие', more: !!r.product, title: 'Связать позицию с изделием из «Продукции» — для паспорта и единого названия', primary: !r.product && !!r.orderId, run: async (row, ctx) => { const s = await pickProduct(row); if (s) ctx.setRow(s); } },
+      session.canEdit && { label: linkedProductId(r) ? 'Сменить изделие' : 'Выбрать изделие', more: !!linkedProductId(r), title: 'Связать позицию с изделием из «Продукции» — для паспорта и единого названия', primary: !linkedProductId(r) && !!r.orderId, run: pickProduct },
       session.canMoney && { label: r.amount ? 'Изменить сумму' : 'Вписать сумму', more: !!r.amount, primary: !r.amount, run: async (row, ctx) => { const s = await priceDialog(row); if (s) ctx.setRow(s); } },
       session.canMoney && !r.paidDate && !!r.amount && r.debt !== 0 && { label: 'Принять оплату', primary: !!r.shipDate, run: async (row, ctx) => { const s = await paymentDialog(row); if (s) ctx.setRow(s); } },
       session.canMoney && (r.payments || []).length > 1 && { label: 'Удалить последний платёж', more: true, danger: true, run: async (row, ctx) => { const saved = await removeIncomePayment(row); ctx.setRow(saved); toast('Платёж удалён'); } },

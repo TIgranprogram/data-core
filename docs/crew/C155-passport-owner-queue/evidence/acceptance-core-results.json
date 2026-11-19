@@ -1,0 +1,283 @@
+{
+  "startedAt": "2026-11-19T13:32:01.945Z",
+  "origin": "http://localhost:3102",
+  "phase": "core",
+  "viewport": "1920×1080",
+  "checks": {
+    "template-and-known-description": {
+      "status": "PASS",
+      "productId": "6ae1269ae36900370537a2f3",
+      "initial": {
+        "passports": 0,
+        "numbers": {
+          "route": "last-numbers",
+          "last": 610
+        }
+      },
+      "action": "Проверить описание, настоящий рисунок обложки и отсутствие повторного вопроса",
+      "source": "dictionary",
+      "missing": [],
+      "templateGets": 1,
+      "funnelGets": 0
+    },
+    "sample-twice": {
+      "status": "PASS",
+      "pdf": [
+        {
+          "status": 201,
+          "sha256": "cf0bb421dd2ce77199eb5982cc791bbe60bb4541493df06919180d996b17c676",
+          "bytes": 131141,
+          "pages": 13,
+          "sizes": [
+            [
+              420,
+              595
+            ]
+          ],
+          "imageCount": 3,
+          "hasDescription": true,
+          "hasNumber": null,
+          "hasAnyPassportNumber": false,
+          "hasDraftMark": true,
+          "hasTechnicalComposition": false
+        },
+        {
+          "status": 201,
+          "sha256": "d46a12ddda7229a40c70e06feff4e8049e1e705d911935bb4e6dd44788b45319",
+          "bytes": 131141,
+          "pages": 13,
+          "sizes": [
+            [
+              420,
+              595
+            ]
+          ],
+          "imageCount": 3,
+          "hasDescription": true,
+          "hasNumber": null,
+          "hasAnyPassportNumber": false,
+          "hasDraftMark": true,
+          "hasTechnicalComposition": false
+        }
+      ],
+      "action": "Открыть «Образец», попытка 2",
+      "numbers": {
+        "route": "last-numbers",
+        "last": 610
+      }
+    },
+    "standalone-and-repeat": {
+      "status": "PASS",
+      "action": "Повторить исходные POST создания и выпуска без смены ключа",
+      "issued": {
+        "id": "6afefa546402b642a6610a8b",
+        "number": "611",
+        "firmSelected": true,
+        "order": false
+      },
+      "repeat": {
+        "createStatus": 201,
+        "issueStatus": 200,
+        "id": "6afefa546402b642a6610a8b",
+        "number": "611"
+      },
+      "numbers": {
+        "route": "last-numbers",
+        "last": 611
+      },
+      "passports": 1
+    },
+    "issued-pdf": {
+      "status": "FAIL",
+      "pdf": [],
+      "action": "Скачать PDF обычными страницами, попытка 1",
+      "reason": "Ожидаемый элемент или сетевой ответ не появился."
+    },
+    "filled-themes": {
+      "status": "FAIL",
+      "themes": {},
+      "reason": "Ожидаемый элемент или сетевой ответ не появился."
+    },
+    "network": {
+      "status": "PASS",
+      "browserErrors": 0,
+      "outside": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOutside": 39,
+  "appOutside": 0,
+  "blockedWrites": {
+    "PATCH prefs": 1
+  },
+  "pageErrors": 0,
+  "scenarioSha256": "bd65f8f20800ba74ed02d2341178de6e03a3415b4ab2b14070804f2f7070c470",
+  "browser": "157.0.8103.79",
+  "stand": {
+    "backup": "datacore-2026-11-18_031040.tgz",
+    "head": "179c6239105caf8284fc246637e4e2ac6897c45b",
+    "dirty": true,
+    "builtAt": "2026-11-19T13:25:59.302Z"
+  },
+  "traffic": [
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "template-and-known-description",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 200
+    },
+    {
+      "step": "template-and-known-description",
+      "method": "GET",
+      "target": "/api/passports/next-numbers",
+      "status": 403
+    },
+    {
+      "step": "template-and-known-description",
+      "method": "GET",
+      "target": "/api/passports/last-numbers",
+      "status": 200
+    },
+    {
+      "step": "template-and-known-description",
+      "method": "GET",
+      "target": "/api/showcase/6ae1269ae36900370537a2f3/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "template-and-known-description",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 304
+    },
+    {
+      "step": "template-and-known-description",
+      "method": "GET",
+      "target": "/api/passports/next-numbers",
+      "status": 403
+    },
+    {
+      "step": "template-and-known-description",
+      "method": "GET",
+      "target": "/api/passports/last-numbers",
+      "status": 304
+    },
+    {
+      "step": "sample-twice",
+      "method": "POST",
+      "target": "/api/passports/preview",
+      "status": 201
+    },
+    {
+      "step": "sample-twice",
+      "method": "POST",
+      "target": "/api/passports/preview",
+      "status": 201
+    },
+    {
+      "step": "sample-twice",
+      "method": "GET",
+      "target": "/api/passports/next-numbers",
+      "status": 403
+    },
+    {
+      "step": "sample-twice",
+      "method": "GET",
+      "target": "/api/passports/last-numbers",
+      "status": 304
+    },
+    {
+      "step": "sample-twice",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 304
+    },
+    {
+      "step": "standalone-and-repeat",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 304
+    },
+    {
+      "step": "standalone-and-repeat",
+      "method": "GET",
+      "target": "/api/passports/next-numbers",
+      "status": 403
+    },
+    {
+      "step": "standalone-and-repeat",
+      "method": "GET",
+      "target": "/api/passports/last-numbers",
+      "status": 304
+    },
+    {
+      "step": "standalone-and-repeat",
+      "method": "POST",
+      "target": "/api/passports",
+      "status": 201
+    },
+    {
+      "step": "standalone-and-repeat",
+      "method": "POST",
+      "target": "/api/passports/6afefa546402b642a6610a8b/issue",
+      "status": 200
+    },
+    {
+      "step": "standalone-and-repeat",
+      "method": "GET",
+      "target": "/api/passports/6afefa546402b642a6610a8b",
+      "readOnly": "1",
+      "status": 200
+    },
+    {
+      "step": "standalone-and-repeat",
+      "method": "GET",
+      "target": "/api/passports/6afefa546402b642a6610a8b",
+      "readOnly": "1",
+      "status": 304
+    },
+    {
+      "step": "standalone-and-repeat",
+      "method": "POST",
+      "target": "/api/passports",
+      "status": 201
+    },
+    {
+      "step": "standalone-and-repeat",
+      "method": "POST",
+      "target": "/api/passports/6afefa546402b642a6610a8b/issue",
+      "status": 200
+    },
+    {
+      "step": "standalone-and-repeat",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 200
+    },
+    {
+      "step": "standalone-and-repeat",
+      "method": "GET",
+      "target": "/api/passports/next-numbers",
+      "status": 403
+    },
+    {
+      "step": "standalone-and-repeat",
+      "method": "GET",
+      "target": "/api/passports/last-numbers",
+      "status": 200
+    }
+  ]
+}

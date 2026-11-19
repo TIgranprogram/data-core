@@ -132,7 +132,7 @@ async function firmFromOrder(db: Db, order: { companyId?: unknown } | null): Pro
 type OrderHead = { _id?: unknown; orderNo?: unknown; customer?: unknown; companyId?: unknown; productionNo?: unknown; offerId?: unknown };
 
 /** Адрес установки: у заказа своего поля нет — берём объект связанного КП, если менеджер не вписал свой. */
-async function addressFromOrder(db: Db, order: OrderHead | null): Promise<string | undefined> {
+export async function addressFromOrder(db: Db, order: OrderHead | null): Promise<string | undefined> {
   const id = order?.offerId;
   if (!id || !Types.ObjectId.isValid(String(id))) return undefined;
   const off = await db.collection('offers').findOne(
