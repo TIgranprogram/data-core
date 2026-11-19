@@ -62,3 +62,11 @@
 - C098: [UI-REVIEW](../../crew/C098-auto-pagination/UI-REVIEW.md), «Дизайнер: принято». Live30/30; целевые footer/loading/error/fallback обе темы просмотрены. Mobile40px исправлено до44px, свежий focusPNG иEnter→200 подтверждены. HEADb84781c+kit diff; atlas исключён.
 
 - C087 финальное уточнение13.11: UI-REVIEW для746933262d006f48540fa7431c436e90140fb3fb PARTIAL только из-за390softpassport кадра во времяfade;390products/1440passport просмотреныPASS, reload/focusPASS. Один устойчивый mobileкадр отложен координатором. ПроцессныйSTOPне снят.
+
+- C116 (14.11): PARTIAL, локальная API-фикстура; просмотрены темы и ширины, повтор dark-390 после перехода. Нет live-сценариев, панели и клавиатуры; design-lint L8 и R3. [UI-REVIEW](../../crew/C116-dicts-menu-search/UI-REVIEW.md).
+
+коммит: cb4f0ef8 + рабочий diff C116; общий review-scope не закрыт.
+
+- C116 второй цикл (14.11): PARTIAL; 8 снимков стенда с нулевой выдачей, обе темы 390/1024/1920/2560, «Дубли · 0» и единый сброс видны; design-lint 0. Полоса связи и непроверенные действия/панель/клавиатура — в [UI-REVIEW](../../crew/C116-dicts-menu-search/UI-REVIEW.md).
+
+коммит: cb4f0ef8 + рабочий diff C116; общий review-scope не закрыт.
