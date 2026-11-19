@@ -1,5 +1,5 @@
 import { h } from '../../core/dom.js';
-import { actions, buildForm, button, field, hint, link, stack, tagPick } from '../../ui/kit/index.js';
+import { actions, attachCombo, buildForm, button, hint, link, stack, tagPick, textInput } from '../../ui/kit/index.js';
 import { busyBtn } from '../../ui/kit/busy.js';
 import { confirmDlg } from '../../ui/kit/dialog.js';
 import { dictOpts, dictRows, passportCategoryOptions, V2_NUMS } from './common.js';
@@ -7,12 +7,13 @@ import { sidePanel } from './book-shared.js';
 import { setSideWide } from './book-side-edit.js';
 import { jointsPick } from './traits.js';
 import { simpleTextHref } from './book-template.js';
+import { simpleChoiceChanges, simpleChoiceField, simpleChoiceOptions } from './book-choices.js';
 
 /** Общее состояние правки в правой колонке для шаблона, в том числе при смене варианта. */
-function sideForm(slot, { title, form, extra, changed, save, done, read }) {
+function sideForm(slot, { title, form, extra, changed, save, done, read, confirm = false, okLabel = 'Сохранить в шаблон' }) {
   let working = false;
   const error = h('div', { hidden: true, role: 'alert' });
-  const ok = button({ label: 'Сохранить в шаблон', kind: 'primary', size: 'S', onClick: async () => {
+  const ok = button({ label: okLabel, kind: 'primary', size: 'S', onClick: async () => {
     if (working) return;
     const values = read ? read() : form.read().values;
     if (!values) return;
@@ -20,7 +21,7 @@ function sideForm(slot, { title, form, extra, changed, save, done, read }) {
     error.hidden = true;
     const end = busyBtn(ok);
     try {
-      if (changed()) await save(values);
+      if (confirm || changed()) await save(values);
       slot._bkLeave = null;
       done({ saved: true });
     } catch (e) {
@@ -40,6 +41,69 @@ function sideForm(slot, { title, form, extra, changed, save, done, read }) {
   slot.replaceChildren(sidePanel(title, stack(form.el, extra, error, actions(ok, cancel))));
 }
 
+function descriptionHelp(slot, template, { done, openOwn }, message, dictionary = 'passportPhrases') {
+  const href = dictionary === 'passportPhrases' ? simpleTextHref(template.simpleDescriptionSource) : `#dicts?d=${dictionary}`;
+  const label = dictionary === 'passportKinds' ? 'Справочник видов ↗' : 'Справочник текстов ↗';
+  const source = !!template.simpleDescriptionSource;
+  const dictionaryLink = link({ label, href, target: '_blank' });
+  const ownButton = button({ label: 'Своя формулировка', size: 'S', onClick: openOwn });
+  setSideWide(slot, false, { editing: true });
+  slot.replaceChildren(sidePanel('Краткое описание', stack(hint(message),
+    actions(dictionaryLink, ownButton, button({ label: 'Закрыть', kind: 'ghost', size: 'S', onClick: () => done() })))));
+  (source ? ownButton : dictionaryLink).focus();
+}
+
+/** Служебный список причин определяет следующий шаг, а текст и его применимость возвращает сервер. */
+export function openDescriptionSetup(slot, template, options) {
+  if (template.simpleDescriptionSource) {
+    const own = template.simpleDescriptionSource.kind === 'own';
+    return descriptionHelp(slot, template, options, own ? 'Используется своя формулировка.' : 'Описание подставлено из справочника.');
+  }
+  if (!template.passportCategory) return openBookCategory(slot, template, options);
+  if (!template.document.kindId) return openBookSetting(slot, template, { ...options, key: 'kindId', descriptionSetup: true });
+  const candidates = simpleChoiceOptions(template);
+  if (!candidates.length) return descriptionHelp(slot, template, options,
+    'Для этого вида и известных признаков нет готового краткого описания. Проверьте или дополните подходящую ветку в справочнике.');
+  const one = candidates.length === 1 ? candidates[0] : null;
+  const form = one ? { el: h('p', null, one.text) }
+    : buildForm([{ ...simpleChoiceField(candidates), required: true, choose: true }]);
+  sideForm(slot, {
+    title: one ? 'Подходит ли этот вариант?' : 'Краткое описание', form, done: options.done,
+    extra: hint('Выбранный вариант и связанные с ним части подставятся в шаблон из справочника.'),
+    changed: () => form.dirty?.() ?? false,
+    read: one ? () => ({ simpleChoice: one.id }) : undefined,
+    confirm: !!one, okLabel: one ? 'Подтвердить вариант' : 'Применить вариант',
+    save: ({ simpleChoice }) => options.save({ textChoices: simpleChoiceChanges(candidates, simpleChoice, template.defaults.textChoices) }, template.defaults),
+  });
+  if (one) slot.querySelector('.btn-primary')?.focus();
+  else form.focus();
+}
+
+function descriptionPartPicker(parts, template, initial) {
+  const linked = new Set((template.simpleDescriptionSource
+    ? template.simpleDescriptionSource.partIds || []
+    : (template.simpleDescriptionSuggestions || []).flatMap((item) => item.partIds || [])));
+  const ids = new Set(initial);
+  const byId = new Map(parts.map((part) => [part.value, part]));
+  const selected = actions();
+  const search = textInput({ label: 'Добавить часть', placeholder: 'Найдите по названию', hint: 'По желанию. Выбранные части сохраняются со своей формулировкой.' });
+  const isShortlist = (part) => part.cats.includes(template.passportCategory);
+  const render = () => selected.replaceChildren(...[...ids].map((id) => {
+    const label = byId.get(id)?.label || 'Часть без названия';
+    return button({ label: `${label} ×`, title: `Убрать «${label}»`, kind: 'ghost', size: 'S', onClick: () => {
+      ids.delete(id); render(); search.focus();
+    } });
+  }));
+  attachCombo(search.input, {
+    options: () => parts.filter((part) => !ids.has(part.value) && (linked.has(part.value)
+      || (search.value.trim() ? !part.cats.length || isShortlist(part) : !linked.size && isShortlist(part)))),
+    empty: 'Введите название части для поиска', max: 12,
+    onPick: (part) => { ids.add(part.value); search.value = ''; render(); },
+  });
+  render();
+  return { el: stack(selected, search.el), value: () => [...ids] };
+}
+
 export async function openSimpleDescription(slot, template, { save, done, isCurrent }) {
   const current = template.defaults.simpleDescription;
   const text = current?.text ?? template.textSnapshot?.description ?? '';
@@ -47,9 +111,7 @@ export async function openSimpleDescription(slot, template, { save, done, isCurr
   const form = buildForm([{ key: 'text', label: 'Своя формулировка', type: 'textarea', rows: 4, wide: true, max: 4000, required: true }], { text });
   const parts = await dictOpts('passportParts');
   if (!isCurrent()) return;
-  const label = 'Части изделия';
-  const tags = tagPick({ options: parts, value: partIds, label });
-  tags.setScope(template.passportCategory);
+  const picker = descriptionPartPicker(parts, template, partIds);
   const reset = current ? button({ label: 'Вернуться к справочнику', kind: 'ghost', size: 'S', onClick: async () => {
     if (!await confirmDlg('Вернуться к тексту из справочника?', 'Собственная формулировка будет снята.', { okText: 'Вернуться к справочнику' })) return;
     const end = busyBtn(reset);
@@ -58,14 +120,14 @@ export async function openSimpleDescription(slot, template, { save, done, isCurr
     finally { end(); }
   } }) : null;
   const extra = stack(
-    field(label, tags.el, { hint: 'По желанию. Части сохраняются вместе со своей формулировкой.' }),
+    picker.el,
     actions(reset, link({ label: 'Справочник частей ↗', href: '#dicts?d=passportParts', target: '_blank' }),
       link({ label: 'Справочник текстов ↗', href: simpleTextHref(template.simpleDescriptionSource), target: '_blank' })),
   );
   sideForm(slot, {
     title: 'Краткое описание', form, extra, done,
-    changed: () => String(form.get('text')).trim() !== text || tags.value !== JSON.stringify(partIds),
-    save: ({ text }) => save({ simpleDescription: { text: text.trim(), partIds: JSON.parse(tags.value) } }, template.defaults),
+    changed: () => String(form.get('text')).trim() !== text || JSON.stringify(picker.value()) !== JSON.stringify(partIds),
+    save: ({ text }) => save({ simpleDescription: { text: text.trim(), partIds: picker.value() } }, template.defaults),
   });
   form.focus();
 }
@@ -111,7 +173,8 @@ const chooseFields = {
 export const isBookSetting = (key) => Object.hasOwn(textFields, key) || Object.hasOwn(chooseFields, key)
   || quantities.has(key) || key === 'joints' || key === 'elements';
 
-export async function openBookSetting(slot, template, { key, save, done, isCurrent }) {
+export async function openBookSetting(slot, template, options) {
+  const { key, save, done, isCurrent, descriptionSetup = false } = options;
   const { defaults, document: r } = template;
   let spec;
   let initial;
@@ -124,9 +187,12 @@ export async function openBookSetting(slot, template, { key, save, done, isCurre
   } else if (Object.hasOwn(chooseFields, key)) {
     const [label, own, dict] = chooseFields[key];
     const rows = await dictRows(dict);
-    const options = rows.filter((item) => dict !== 'passportKinds' || !item.passportCategory || item.passportCategory === template.passportCategory)
+    if (!isCurrent()) return;
+    const values = rows.filter((item) => dict !== 'passportKinds' || !item.passportCategory || item.passportCategory === template.passportCategory)
       .map((item) => ({ value: item.id, label: item.name }));
-    spec = { key: own, label, options, type: 'select' };
+    if (descriptionSetup && !values.length) return descriptionHelp(slot, template, options,
+      'В справочнике нет доступных видов для этого типа паспорта.', dict);
+    spec = { key: own, label, options: values, type: 'select', required: descriptionSetup, choose: descriptionSetup, wide: true };
     initial = String(defaults[own] ?? r[own] ?? '');
     parse = (input) => input || null;
   } else if (key === 'joints' || key === 'elements') {
@@ -148,6 +214,7 @@ export async function openBookSetting(slot, template, { key, save, done, isCurre
   const form = buildForm([spec], { [spec.key]: initial });
   sideForm(slot, {
     title: spec.label, form, done,
+    extra: descriptionSetup ? hint('Вид изделия помогает подобрать краткое описание из справочника.') : null,
     changed: form.dirty,
     save: (values) => save({ [spec.key]: parse(values[spec.key]) }, defaults),
   });

@@ -9,11 +9,33 @@ import { V2_CATS } from './common.js';
 
 const catLabel = (code) => V2_CATS.find((c) => c.value === code)?.label || code || 'не задан';
 
+export function simpleChoiceOptions(template) {
+  if (template?.variant !== 'short' || template.simpleDescriptionSource) return [];
+  const candidates = template.simpleDescriptionSuggestions || [];
+  const missing = new Set((template.readiness?.missing || []).map((item) => item.key));
+  return candidates.some(({ rootId }) => missing.has(`choice:${rootId}`)) ? candidates : [];
+}
+
+export function simpleChoiceField(candidates) {
+  return {
+    key: 'simpleChoice', label: 'Вариант краткого описания', type: 'select',
+    options: candidates.map(({ id, name, text }) => ({ value: id, label: name === text ? text : `${name} · ${text}` })),
+  };
+}
+
+export function simpleChoiceChanges(candidates, id, ownChoices) {
+  const option = candidates.find((item) => item.id === id);
+  if (!option) return null;
+  const previous = new Set(candidates.map((item) => item.rootId).filter((root) => root !== option.rootId && ownChoices?.[root] != null));
+  return { ...Object.fromEntries([...previous].map((root) => [root, null])), [option.rootId]: id };
+}
+
 /** host — контейнер под списком страниц; ctx — { S, can, pid, lock, patchPassport, onChanged }. */
 export function mountBookChoices(host, ctx) {
   let funnel = null;
   let alternative = null;
   let funnelBox = null;
+  let simpleHidden = false;
   let saving = false;
   let pending = null;
   let timer = 0;
@@ -69,11 +91,12 @@ export function mountBookChoices(host, ctx) {
     const candidates = template?.simpleDescriptionSuggestions || [];
     const roots = new Set(candidates.map((item) => item.rootId));
     const simpleChoice = !template?.simpleDescriptionSource && unresolved?.some((id) => roots.has(id));
+    const showAlternatives = simpleChoice && candidates.length > 1;
     const only = simpleChoice ? unresolved.filter((id) => !roots.has(id)) : unresolved;
     const path = h('div', { class: 'bk-path' },
       h('div', { class: 'bk-path-row' }, h('span', { class: 'bk-path-k' }, 'Тип паспорта'), h('b', null, catLabel(r.passportCategory))),
       template ? button({ label: 'Изменить тип', kind: 'ghost', size: 'S', onClick: ctx.openCategory }) : null);
-    if (!r.passportCategory || (only?.length === 0 && !simpleChoice)) {
+    if (!r.passportCategory || (only?.length === 0 && !showAlternatives)) {
       funnel = null;
       alternative = null;
       host.replaceChildren(path);
@@ -88,19 +111,12 @@ export function mountBookChoices(host, ctx) {
       clearTimeout(timer);
       timer = setTimeout(saveChoices, 450);
     };
-    const choose = alternative = simpleChoice ? buildForm([{
-      key: 'simpleChoice', label: 'Вариант краткого описания', type: 'select',
-      options: candidates.map((item) => ({
-        value: item.id,
-        label: item.name === item.text ? item.text : `${item.name} · ${item.text}`,
-      })),
-    }]) : null;
+    const choose = alternative = showAlternatives ? buildForm([simpleChoiceField(candidates)]) : null;
+    if (choose) choose.el.hidden = simpleHidden;
     choose?.el.addEventListener('change', () => {
       if (choose !== alternative) return;
-      const option = candidates.find((item) => item.id === choose.get('simpleChoice'));
-      if (!option) return;
-      const previous = [...roots].filter((id) => id !== option.rootId && ownBaseline.textChoices[id] != null);
-      schedule({ explicit: { ...Object.fromEntries(previous.map((id) => [id, null])), [option.rootId]: option.id } });
+      const explicit = simpleChoiceChanges(candidates, choose.get('simpleChoice'), ownBaseline.textChoices);
+      if (explicit) schedule({ explicit });
     });
 
     const view = funnel = only?.length === 0 ? null : funnelBox({
@@ -134,6 +150,10 @@ export function mountBookChoices(host, ctx) {
   paint();
   return {
     refresh: paint, busy: () => !!pending || saving,
+    hideSimple(hide) {
+      simpleHidden = hide;
+      if (alternative) alternative.el.hidden = hide;
+    },
     focus(root) {
       if (alternative && root && !funnel?.stepEl(root)) { alternative.focus(); return; }
       const target = root && funnel?.stepEl(root)?.querySelector('button');

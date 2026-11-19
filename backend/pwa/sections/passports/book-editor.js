@@ -24,7 +24,7 @@ import { bindBookInlineEvents } from './book-inline-events.js';
 import { loadBookTemplate, saveBookTemplate, simpleTextHref, templateDocument } from './book-template.js';
 import { issueBookInstance } from './book-issue.js';
 import { paintBookHead } from './book-head.js';
-import { editBookTemplateText, openBookCategory, openBookSetting, openSimpleDescription } from './book-template-edit.js';
+import { editBookTemplateText, openBookCategory, openBookSetting, openDescriptionSetup, openSimpleDescription } from './book-template-edit.js';
 import { openCompositionInBook, openDimsInBook, openMaterialsInBook } from './book-side-edit.js';
 
 const hhmm = () => new Date().toTimeString().slice(0, 5);
@@ -64,9 +64,8 @@ export async function openBookEditor(passport, { template = null, position, onCl
       ? 'Выберите поле на листе или пункт слева.'
       : 'Паспорт открыт только для чтения.'),
     S.template?.variant === 'short' && can() ? actions(
-      !S.template.simpleDescriptionSource && S.template.passportCategory && !S.template.document.kindId
-        ? button({ label: 'Выбрать вид изделия', size: 'S', onClick: () => editSetting('kindId') }) : null,
-      button({ label: 'Своя формулировка', size: 'S', onClick: () => editTemplateSide(openSimpleDescription) }),
+      !S.template.simpleDescriptionSource ? button({ label: 'Подобрать краткое описание', size: 'S', onClick: openDescription }) : null,
+      button({ label: 'Своя формулировка', size: 'S', onClick: openOwnDescription }),
       link({ label: 'Справочник текстов ↗', href: simpleTextHref(S.template.simpleDescriptionSource), target: '_blank' }),
     ) : null,
     S.template?.variant === 'full' && can() ? h('div', { class: 'bk-ed-row' },
@@ -139,7 +138,7 @@ export async function openBookEditor(passport, { template = null, position, onCl
   /** Состав в слоте: спросить, если строки менялись; иначе очистить молча. Материалы тоже снимают is-wide. */
   function clearSide() {
     slot._bkLeave = null;
-    slot._bkOpening = null;
+    slot._bkOpening = null; choicesApi?.hideSimple(false);
     side.classList.remove('is-wide', 'is-editing');
     side.closest('.bk-main')?.classList.remove('is-edit-wide');
   }
@@ -171,21 +170,25 @@ export async function openBookEditor(passport, { template = null, position, onCl
       choicesApi?.refresh();
     }
   }
-  function editTemplateSide(open) {
+  function editTemplateSide(open, followDescription = false) {
     openSide(() => {
+      choicesApi?.hideSimple(followDescription);
       const token = Symbol();
       slot._bkOpening = token;
       slot.replaceChildren(sidePanel('Подготовка правки', h('p', { class: 'hint' }, 'Загружаю…')));
       Promise.resolve(open(slot, S.template, {
         save: (changes, baseline) => lock(() => patchTemplate(changes, baseline)),
-        done: sideDone,
+        done: (result) => { sideDone(result); if (followDescription && result?.saved && !S.template.simpleDescriptionSource) openDescription(); },
+        openOwn: openOwnDescription,
         isCurrent: () => back.isConnected && slot._bkOpening === token,
       })).catch((e) => { if (slot._bkOpening === token) { sideDone(); toastError(e); } });
     });
   }
-  ctx.openSimple = () => editTemplateSide(openSimpleDescription);
+  function openDescription() { editTemplateSide(openDescriptionSetup, true); }
+  function openOwnDescription() { editTemplateSide(openSimpleDescription); }
+  ctx.openSimple = openDescription;
   const editSetting = (key) => editTemplateSide(key === 'category' ? openBookCategory
-    : key === 'simpleDescription' ? openSimpleDescription : (slot, template, options) => openBookSetting(slot, template, { ...options, key }));
+    : (slot, template, options) => openBookSetting(slot, template, { ...options, key }));
   ctx.openDimensions = () => openProductSide(openDimsInBook);
   function openProductSide(open) {
     openSide(() => open(slot, S.r.productId, { onDone: async ({ saved } = {}) => {
@@ -380,9 +383,8 @@ export async function openBookEditor(passport, { template = null, position, onCl
     sideSlot: slot,
     openSide,
     openSetting: async (key, buttonEl) => {
-      if (S.template) { editSetting(key); return; }
-      await runHeadAction(buttonEl, null, editDraftTemplate);
-      if (S.template) editSetting(key);
+      if (!S.template) await runHeadAction(buttonEl, null, editDraftTemplate);
+      if (S.template) key === 'simpleDescription' ? openDescription() : editSetting(key);
     },
     openChoices: (root) => choicesApi?.focus(root),
     sideHome: () => { releaseSlot(() => slot.replaceChildren(sideEmpty())); },

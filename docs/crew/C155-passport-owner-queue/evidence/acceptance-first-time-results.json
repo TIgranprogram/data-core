@@ -1,0 +1,160 @@
+{
+  "startedAt": "2026-11-19T15:10:09.568Z",
+  "origin": "http://localhost:3102",
+  "phase": "first-time",
+  "viewport": "1920×1080",
+  "checks": {
+    "issued-before-reset-proof": {
+      "status": "PASS",
+      "issued": [
+        {
+          "number": "611",
+          "sha256": "0fe843d976947965cae9c2634042d2b0b88677add015d19043e8664b07402a62",
+          "textSha256": "ee96ce6ce5bd69786034e6890443a254dfe3d5fb74e141c97f0bcef67bffa74b"
+        },
+        {
+          "number": "612",
+          "sha256": "98200456603e8e7ff00becf21390477cac581647eb4395911fabe474bce7b98b",
+          "textSha256": "a4d4b8590de0f2bb5e034005d7ac8c1dcfe7f1def6e42f7bab605350506c149b"
+        }
+      ]
+    },
+    "first-time-description": {
+      "status": "PASS",
+      "action": "Явно открыть необязательную «Свою формулировку»",
+      "initial": {
+        "kind": false,
+        "own": false,
+        "source": null,
+        "expectedFacet": true
+      },
+      "focusMatches": 1,
+      "kindImages": [
+        "acceptance-first-time-kind-light.png",
+        "acceptance-first-time-kind-dark.png"
+      ],
+      "candidateImages": [
+        "acceptance-first-time-candidate-light.png",
+        "acceptance-first-time-candidate-dark.png"
+      ],
+      "descriptionStep": "confirmed",
+      "readyImages": [
+        "acceptance-first-time-ready-light.png",
+        "acceptance-first-time-ready-dark.png"
+      ],
+      "final": {
+        "ready": true,
+        "kindId": "6af707fdc451d4c05df6a046",
+        "source": "dictionary",
+        "phraseId": "6afef7ee3b40fac6985f630f",
+        "own": false,
+        "questionRepeated": false,
+        "shownParts": 3
+      }
+    },
+    "issued-after-first-time": {
+      "status": "PASS",
+      "issued": [
+        {
+          "number": "611",
+          "sha256": "0fe843d976947965cae9c2634042d2b0b88677add015d19043e8664b07402a62",
+          "textSha256": "ee96ce6ce5bd69786034e6890443a254dfe3d5fb74e141c97f0bcef67bffa74b"
+        },
+        {
+          "number": "612",
+          "sha256": "98200456603e8e7ff00becf21390477cac581647eb4395911fabe474bce7b98b",
+          "textSha256": "a4d4b8590de0f2bb5e034005d7ac8c1dcfe7f1def6e42f7bab605350506c149b"
+        }
+      ]
+    },
+    "network": {
+      "status": "PASS",
+      "browserErrors": 0,
+      "outside": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOutside": 27,
+  "appOutside": 0,
+  "blockedWrites": {},
+  "pageErrors": 0,
+  "scenarioSha256": "5190386060310451e6d479cc04f46072ed4ee05b747996d5ad43ab3a17eb1ccd",
+  "guardSha256": "97e07fb650c7dba2dc73715eda7b737eadfb06943a966c25d0acb5f05b0d3bf3",
+  "browser": "157.0.8103.79",
+  "stand": {
+    "backup": "datacore-2026-11-18_031040.tgz",
+    "head": "179c6239105caf8284fc246637e4e2ac6897c45b",
+    "dirty": true,
+    "builtAt": "2026-11-19T14:03:13.877Z"
+  },
+  "traffic": [
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "issued-before-reset-proof",
+      "method": "GET",
+      "target": "/api/passports/6afefa546402b642a6610a8b",
+      "readOnly": "1",
+      "status": 200
+    },
+    {
+      "step": "issued-before-reset-proof",
+      "method": "GET",
+      "target": "/api/passports/6aff0bf134de43c56e5ac63f",
+      "readOnly": "1",
+      "status": 200
+    },
+    {
+      "step": "first-time-description",
+      "method": "GET",
+      "target": "/api/showcase/6ae1269ae36900370537a2f3/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "first-time-description",
+      "method": "PATCH",
+      "target": "/api/showcase/6ae1269ae36900370537a2f3/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "first-time-description",
+      "method": "PATCH",
+      "target": "/api/showcase/6ae1269ae36900370537a2f3/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "first-time-description",
+      "method": "GET",
+      "target": "/api/showcase/6ae1269ae36900370537a2f3/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "issued-after-first-time",
+      "method": "GET",
+      "target": "/api/passports/6afefa546402b642a6610a8b",
+      "readOnly": "1",
+      "status": 304
+    },
+    {
+      "step": "issued-after-first-time",
+      "method": "GET",
+      "target": "/api/passports/6aff0bf134de43c56e5ac63f",
+      "readOnly": "1",
+      "status": 304
+    }
+  ]
+}

@@ -10,10 +10,24 @@ import { suggestLink } from '../../ui/composition-suggest.js';
 import { warnCard } from '../../ui/kit/screens/blocks.js';
 import { clearNoteWarning, resetPdCategory } from './data.js';
 import { productTypeLine } from '../passports/common.js';
+import { setCompositionTarget } from '../composition.js';
 
 /* Блоки правой панели изделия (вид): примечание-предупреждение, состав, документация, «В заказах», тип паспорта.
  * ПМ-1 (2026-11-06): каждый блок — свёрнутая секция kit.section с числом; пустой — одна строка внутри. */
 const none = (text) => h('p', { class: 'muted small' }, text);
+const revealComposition = new WeakSet();
+
+/** Одно открытие нужного блока для текущего экземпляра карточки. */
+export function showProductComposition(row, ctx) {
+  if (!ctx?.openTab) return;
+  revealComposition.add(row);
+  ctx.openTab('comp');
+}
+
+export function editProductComposition(row) {
+  setCompositionTarget(row);
+  patch({ of: 'composition', new: '1', open: undefined });
+}
 
 export const STATUS = { draft: 'без цены', active: 'в продаже', new: 'новое', archived: 'архив' };
 export const dims = (d) => (d ? `${['length', 'width', 'height'].map((k) => (d[k] ? qty(d[k]) : '—')).join(' × ')} ${d.unit || 'мм'}` : null);
@@ -49,6 +63,8 @@ export function warnNote(r) {
 // «Состав» (БЗ-5): материалы склада, из которых сделано изделие; правка — в правой панели.
 // Себестоимость материалов (тем, кто видит деньги): цена — последняя закупка, иначе справочник материалов
 export function compositionBlock(r) {
+  const reveal = revealComposition.delete(r);
+  const edit = session.canEdit ? button({ label: 'Изменить состав', size: 'S', onClick: () => editProductComposition(r) }) : null;
   const items = r.composition || [];
   const cost = session.canMoney ? r.cost : null;
   // СИ: строки трёх видов; цена — по виду и ссылке (материал — закупка/справочник, изделие — по его составу)
@@ -73,12 +89,20 @@ export function compositionBlock(r) {
   const groups = KINDS.map(([title, ok]) => { const list = items.filter((l) => left.has(l) && ok(l)); list.forEach((l) => left.delete(l)); return [title, list]; });
   groups.push(['Материалы', [...left]]);
   const shown = groups.filter(([, l]) => l.length);
-  return section({ title: 'Состав', tone: 'gold', count: items.length, body: [
+  const block = section({ title: 'Состав', tone: 'gold', count: items.length, open: reveal, body: [
+    edit,
     items.length ? (shown.length === 1 ? h('div', null, ...items.map(line))
       : stack(...shown.map(([title, list], i) => section({ title, count: list.length, tone: 'neutral', open: i === 0 || list.length <= 10, body: list.map(line) }))))
-      : none('Не заполнен — «⋯ → Изменить состав».'),
+      : none('Состав пока пуст.'),
     cost ? h('p', null, h('b', null, `Себестоимость ≈ ${money(cost.total)}`),
       h('span', { class: 'muted' }, cost.missing ? ` · без цены: ${cost.missing} — в сумму не вошли` : ' · материалы — по последним закупкам, изделия — по их составу')) : null] });
+  if (reveal) requestAnimationFrame(() => {
+    if (!block.isConnected) return;
+    const target = edit || block.querySelector('summary');
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ block: 'nearest' });
+  });
+  return block;
 }
 
 /** Ячейка «Заказ» в истории паспортов изделия (C063): номер + переход в заказ. */

@@ -1,3 +1,12 @@
+## C155 — переход из очереди к составу изделия (2026-11-19)
+коммит: не закоммичено
+- `backend/pwa/sections/products/fill-block.js:31`, `card-blocks.js:21` — «Заполнить» раскрывает состав. `card-blocks.js:65` — видимое действие правки и фокус. `fill-composition.test.mjs:25` — активная и другая вкладки, чтение без правки. Отчёт `FILL-BUTTON.md`. Карта обновлена.
+
+## C155 — первое заполнение краткого описания (2026-11-19)
+коммит: не закоммичено
+- `backend/pwa/sections/passports/book-editor.js:187`, `book-focus.js:92` — «Краткое описание» ведёт к следующему недостающему шагу справа. `book-template-edit.js:57` — вид, подтверждение конструкции, словарная подстановка или ссылка на источник.
+- `backend/pwa/sections/passports/book-choices.js:12` — общий выбор словарного листа. `book-template-edit.js:82` — явная своя формулировка с выбранными частями и поиском. `book-autofill.test.mjs:85` — регрессия первого заполнения. Отчёт `FIRST-TIME-AUTOFILL.md`. Карта обновлена.
+
 ## C155 B — шаблон и выпуск паспорта (2026-11-19)
 коммит: не закоммичено
 - `backend/pwa/sections/dicts.js:274`, `backend/pwa/main.js:642` — редактирование справочника в штатной панели. `backend/pwa/ui/kit/card.js:87`, `backend/pwa/core/popout.js:37` — возврат из прежнего окна с защитой ввода. Отчёт `DICTIONARY-PANEL.md`.

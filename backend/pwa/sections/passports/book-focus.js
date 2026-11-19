@@ -89,6 +89,8 @@ export function mountBookFocus(host, ctx) {
     for (const it of items) {
       const label = focusLabel(it);
       const key = String(it.key || '');
+      const descriptionChoice = tpl?.variant === 'short' && key.startsWith('choice:')
+        && tpl.simpleDescriptionSuggestions?.some(({ rootId }) => key === `choice:${rootId}`);
       const goNow = () => {
         if (!ctx.sideSlot && !String(key).startsWith('img_')) {
           toast('Правая колонка книжки недоступна — откройте паспорт заново.', { ms: 5000 });
@@ -121,6 +123,7 @@ export function mountBookFocus(host, ctx) {
           size: 'S',
           cls: 'bk-focus-btn',
           onClick: (e) => {
+            if (descriptionChoice) { ctx.openSetting('simpleDescription', e.currentTarget); return; }
             if (r.productId && (key === 'category' || key === 'simpleDescription' || isBookSetting(key))) {
               ctx.openSetting(key, e.currentTarget);
               return;

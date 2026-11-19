@@ -100,7 +100,7 @@ export const NODES = [
     productMap: true,
     inside: [
       { id: 'kartochka', t: 'Карточка', l: 'артикул = обозначение PDM, название, фото, категория', in: ['design', 'dicts', 'modules', 'parts'], out: ['offers', 'salesorders', 'docs', 'matching'] },
-      { id: 'sostav', t: 'Состав', l: 'дерево: модули и детали; комплекс также содержит изделия; сырьё только в детали; старые покупные строки сохраняются', in: ['modules', 'parts', 'suppliercatalog'], out: ['needs', 'stock'] },
+      { id: 'sostav', t: 'Состав', l: '«Что дальше → Заполнить» раскрывает блок правки; дерево: модули и детали; комплекс также содержит изделия; сырьё только в детали; старые покупные строки сохраняются', in: ['modules', 'parts', 'suppliercatalog'], out: ['needs', 'stock'] },
       { id: 'raboty', t: 'Работы', l: 'виды работ и часы на 1 шт.; сумма по модулям и деталям', in: ['work', 'modules', 'parts'], out: ['work'] },
       { id: 'faily', t: 'Файлы ♻', l: 'PDF и DXF с версиями' },
       { id: 'sebestoimost', t: 'Себестоимость', l: 'материалы + работы по ставкам' },

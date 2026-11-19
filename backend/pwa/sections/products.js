@@ -5,7 +5,6 @@ import { money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { pic } from './stock.js';
 import { kpAdd, kpCount } from './kp.js';
-import { setCompositionTarget } from './composition.js';
 // УПР-1/Д11: issuePassport и passports.canEdit() убраны — вход только через панель паспорта
 import { previewPassport } from './passports/dialogs.js';
 import { openTechSheet } from './tech-sheet.js';
@@ -14,7 +13,7 @@ import { qrBulkAction, qrPrintAction } from './qr.js';
 import * as data from './products/data.js';
 import { productForm, productBulkFields } from './products/form-fields.js';
 import { prodFunnel, catLanding, deepGroup } from './products/landing.js';
-import { STATUS, dims, openPassportTemplate } from './products/card-blocks.js';
+import { STATUS, dims, editProductComposition, openPassportTemplate } from './products/card-blocks.js';
 import { openReadyPassport } from './passports/funnel/open.js';
 import { productTabs, productWarns } from './products/tabs.js';
 import { screenCard } from '../ui/kit/screens/card.js';
@@ -138,7 +137,7 @@ export const products = {
       // C140: меню блоками с sep — правка → документы → связи/копии; Удалить — штатно danger
       menu: (r) => [
         session.canEdit && { label: 'Изменить', title: 'Правка полей изделия', run: (row, ctx) => ctx.edit() },
-        session.canEdit && { label: 'Изменить состав', run: (row) => { setCompositionTarget(row); patch({ of: 'composition', new: '1', open: undefined }); } },
+        session.canEdit && { label: 'Изменить состав', run: editProductComposition },
         { label: 'В КП', title: 'Добавить в коммерческое предложение', run: (row) => { kpAdd(row); toast(`В КП — всего ${kpCount()}`); } },
         session.canEdit && { sep: true, label: 'Шаблон паспорта', title: 'Редактировать шаблон, посмотреть образец или выпустить паспорт', run: openPassportTemplate },
         session.canEdit && session.seesDocs() && { label: 'Загрузить готовый паспорт (PDF)', title: 'Паспорт сделан отдельно: приложить файл PDF к этому изделию', run: (row) => openReadyPassport({ productId: row.id }) },

@@ -22,7 +22,7 @@ const hash = (value) => createHash('sha256').update(value).digest('hex');
 const tplPath = (id) => '/api/showcase/' + id + '/passport-template';
 const cardPath = (id) => '/api/passports/' + id;
 const nextPath = '/api/passports/next-numbers';
-const phase = process.env.C155_ACCEPTANCE_PHASE || 'all';
+let phase = process.env.C155_ACCEPTANCE_PHASE || 'all';
 const legacyId = process.env.C155_LEGACY_PASSPORT_ID;
 const ambiguousId = process.env.C155_AMBIGUOUS_PRODUCT_ID;
 const issuedId = process.env.C155_ISSUED_ID;
@@ -144,7 +144,10 @@ function makeGuard() {
     const pdf = /^\/api\/passports\/(?:.*\/)?(?:pdf|zip)$/.test(pathname);
     const read = ['GET', 'HEAD', 'OPTIONS'].includes(req.method);
     if (read && !pdf) { pushLocal(req, res, url); return; }
-    if (req.method === 'POST' && url.href === origin + '/api/auth/refresh') { pushLocal(req, res, url); return; }
+    if (!['fill', 'first-time-width'].includes(phase) && req.method === 'POST' && url.href === origin + '/api/auth/refresh') {
+      pushLocal(req, res, url);
+      return;
+    }
     const allowed = grants.find((item) => item.count && req.method === item.method && item.target === pathname);
     if (!allowed) { refuseWrite(req.method, pathname, res); return; }
     if (pdf) {
@@ -256,7 +259,7 @@ async function openContext(browser, login) {
   return { context, page };
 }
 
-async function run(browser, login) {
+async function run(browser, login, focusedCase) {
   const { context, page } = await openContext(browser, login);
   const book = page.locator('.bk');
   const button = (scope, name) => scope.getByRole('button', { name, exact: true });
@@ -298,9 +301,9 @@ async function run(browser, login) {
     const last = await read('/api/passports/last-numbers');
     return { route: 'last-numbers', last: last.last };
   };
-  const screenshot = (name, locator = book) => locator.screenshot({
+  const screenshot = (name, locator = book, privacyStyle = '') => locator.screenshot({
     path: path.join(evidence, 'acceptance-' + name + '.png'), animations: 'disabled',
-    style: '.bk-contacts,.bk-firm,.bk-tm,.bk-warranty,.bk-signature { visibility: hidden !important; }',
+    style: '.bk-contacts,.bk-firm,.bk-tm,.bk-warranty,.bk-signature { visibility: hidden !important; }' + privacyStyle,
   });
   const closeBook = async () => {
     await button(book, 'Закрыть книжку').click();
@@ -327,6 +330,11 @@ async function run(browser, login) {
     if (phase === 'print') await printIssued();
     if (phase === 'all' || phase === 'choice') await choice();
     if (phase === 'all' || phase === 'legacy') await legacy();
+    if (focusedCase) await focusedCase({
+      app, page, book, button, read, authFetch, listen, json, closeBook, screenshot,
+      check, at, expect, need, objectId, exactBody, grant, cardPath, numberOf, statusOf,
+      openTemplate, painted,
+    });
     await check('network', async (result) => {
       result.browserErrors = report.pageErrors;
       result.outside = report.appOutside;
@@ -679,15 +687,27 @@ function exactBody(body, expected) {
     typeof value === 'object' && value !== null ? exactBody(body[key], value) : body[key] === value);
 }
 
-let guard, browser;
-try {
-  expect(['all', 'core', 'preview', 'choice', 'legacy', 'print'].includes(phase), 'Неизвестная фаза приёмки.');
+export async function runOrderAcceptance(orderCase, source) {
+  await runFocusedAcceptance('order', orderCase, source);
+}
+
+export async function runFocusedAcceptance(name, focusedCase, source) {
+  expect(['order', 'first-time', 'first-time-width', 'fill'].includes(name) && typeof focusedCase === 'function', 'Неизвестный сценарий приёмки.');
+  phase = report.phase = name;
+  await start(source, focusedCase);
+}
+
+async function start(source, focusedCase) {
+  let guard, browser;
+  try {
+  expect(focusedCase || ['all', 'core', 'preview', 'choice', 'legacy', 'print'].includes(phase), 'Неизвестная фаза приёмки.');
   const login = await credentials();
   const { chromium, executablePath } = await chromiumOptions();
   guard = makeGuard();
   await new Promise((resolve, reject) => guard.once('error', reject).listen(0, '127.0.0.1', resolve));
   await mkdir(evidence, { recursive: true });
-  report.scenarioSha256 = hash(await readFile(script));
+  report.scenarioSha256 = hash(await readFile(source));
+  if (focusedCase) report.guardSha256 = hash(await readFile(script));
   browser = await chromium.launch({ executablePath, headless: true,
     args: ['--disable-crash-reporter', '--disable-background-networking', '--disable-quic'],
     proxy: { server: `http://127.0.0.1:${guard.address().port}`, bypass: '<-loopback>' } });
@@ -703,7 +723,7 @@ try {
   report.stand = { backup: meta.data.backup, head: meta.code.head, dirty: meta.code.dirty === true,
     builtAt: /^\d{4}-[\d:T.+-]+Z?$/.test(meta.code.builtAt || '') ? meta.code.builtAt : undefined };
   await probe.close();
-  await run(browser, login);
+  await run(browser, login, focusedCase);
   if (Object.values(report.checks).some((value) => value.status === 'FAIL')) process.exitCode = 1;
 } catch (error) {
   report.fatal = reasonFor(error);
@@ -715,4 +735,7 @@ try {
   if (browser) await writeFile(path.join(evidence, `acceptance-${phase}-results.json`), JSON.stringify(report, null, 2) + '\n');
   if (report.fatal) console.error(report.fatal);
   else console.log(Object.entries(report.checks).map(([key, value]) => key + ' ' + value.status).join('\n'));
+  }
 }
+
+if (process.argv[1] && path.resolve(process.argv[1]) === script) await start(script);
