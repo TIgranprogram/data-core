@@ -77,7 +77,8 @@ export function attachCombo(input, { options, onPick, max = 60, empty, extra, mu
     const list = all().filter((o) => !skip.has(normSearch(String(o.label))) && (!tokens.length || tokens.every((t) => normSearch([o.label, o.sub, o.group].filter(Boolean).join(' ')).includes(t))));
     shown = list.slice(0, max);
     // extra(text, shown) → [{ label, run }] — явные действия под списком («+ Новый заказчик «…»», ЗЧ.2)
-    const acts = (extra?.(input.value.trim(), shown) || []).map((a) => h('div', { class: 'combo-opt combo-act', role: 'option', onmousedown: async (e) => { e.preventDefault(); close(); await a.run(); } }, h('div', { class: 'opt-l' }, a.label)));
+    // Выбор завершаем на click с отменой активации окружающего label: иначе его click снова откроет поле.
+    const acts = (extra?.(input.value.trim(), shown) || []).map((a) => h('div', { class: 'combo-opt combo-act', role: 'option', onmousedown: (e) => e.preventDefault(), onclick: async (e) => { e.preventDefault(); e.stopPropagation(); close(); await a.run(); } }, h('div', { class: 'opt-l' }, a.label)));
     if (!shown.length && acts.length) { fill(...acts); box.hidden = false; placeList(box); return; }
     if (!shown.length) { const why = typeof empty === 'function' ? empty() : empty; /* подпись можно дать и строкой: ошибка с сайта 16.11 «empty is not a function» */ fill(h('div', { class: 'combo-empty' + (why ? ' combo-why' : '') }, why || (tokens.length ? 'Нет в списке — останется как написали' : 'Список пуст'))); box.hidden = false; placeList(box); return; }
     active = Math.min(active, shown.length - 1); // -1 — ничего не подсвечено: Enter не меняет введённое
@@ -85,7 +86,7 @@ export function attachCombo(input, { options, onPick, max = 60, empty, extra, mu
     shown.forEach((o, i) => {
       if (o.group && o.group !== grp) { grp = o.group; rows.push(h('div', { class: 'combo-group' }, grp)); }
       const cur = String(o.label) === typed();
-      rows.push(h('div', { class: 'combo-opt' + (i === active ? ' active' : '') + (cur ? ' cur' : ''), role: 'option', 'aria-selected': cur ? 'true' : 'false', onmousedown: (e) => { e.preventDefault(); pick(o); } },
+      rows.push(h('div', { class: 'combo-opt' + (i === active ? ' active' : '') + (cur ? ' cur' : ''), role: 'option', 'aria-selected': cur ? 'true' : 'false', onmousedown: (e) => e.preventDefault(), onclick: (e) => { e.preventDefault(); e.stopPropagation(); pick(o); } },
         h('div', { class: 'opt-l' }, filter ? highlight(o.label, typed()) : String(o.label)), o.sub ? h('small', null, o.sub) : null));
     });
     if (list.length > shown.length) rows.push(h('div', { class: 'combo-empty' }, `ещё ${list.length - shown.length} — уточните поиск`));
@@ -108,7 +109,7 @@ export function attachCombo(input, { options, onPick, max = 60, empty, extra, mu
   input.addEventListener('focus', () => { active = -1; }); // сам фокус список не открывает (форма ставит его на первое поле): только нажатие, ввод или стрелка
   input.addEventListener('click', () => { if (box.hidden) render(false); });
   input.addEventListener('input', () => { if (!picking) { active = -1; render(true); } });
-  input.addEventListener('blur', () => setTimeout(() => { if (!box.contains(document.activeElement)) close(); }, 120));
+  input.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== input && !box.contains(document.activeElement)) close(); }, 120));
   input.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); if (box.hidden) render(false); else { active = Math.min(shown.length - 1, Math.max(-1, active) + 1); render(!!typed() && !shown.some((o) => o.label === typed())); } }
     else if (e.key === 'ArrowUp' && !box.hidden) { e.preventDefault(); active = Math.max(0, active - 1); render(!!typed() && !shown.some((o) => o.label === typed())); }
