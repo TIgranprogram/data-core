@@ -1,3 +1,8 @@
+## C161 — краткое описание из частей (2026-11-19)
+коммит: не закоммичено
+- `backend/pwa/sections/passports/book-editor.js:189` — основной вход в правую панель. `book-template-edit.js:90,130,202` — предпросмотр, выбор, ручной черновик и атомарное сохранение. Словарная воронка доступна через «Подобрать готовый вариант».
+- `backend/pwa/sections/passports/book-autofill.test.mjs:190` — авто, резервная грамматика, недоступная часть, ручной режим, отмена и 409. `backend/pwa/sections/atlas-data.js:155`, `help-guide-data.js:100`, `docs/DESIGN.md:403`. Отчёт `docs/crew/C161-short-description-from-parts/FRONTEND-REPORT.md`. Карта обновлена.
+
 ## C159 — выбор изделия по фото (2026-11-19)
 коммит: не закоммичено
 - `backend/pwa/sections/orders.js:71` — вход из позиции. `backend/pwa/sections/salesorders-matching.js:38` — тот же каталог с подтверждением сопоставления.

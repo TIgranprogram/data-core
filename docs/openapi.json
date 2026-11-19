@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.0",
   "paths": {
-    "/health": {
+    "/api/health": {
       "get": {
         "operationId": "HealthController_check",
         "parameters": [],
@@ -166,7 +166,7 @@
         }
       }
     },
-    "/health/ready": {
+    "/api/health/ready": {
       "get": {
         "operationId": "HealthController_ready",
         "parameters": [],
@@ -331,7 +331,7 @@
         }
       }
     },
-    "/health/live": {
+    "/api/health/live": {
       "get": {
         "operationId": "HealthController_live",
         "parameters": [],
@@ -342,7 +342,7 @@
         }
       }
     },
-    "/": {
+    "/api": {
       "get": {
         "operationId": "ApiRootController_root",
         "summary": "Справка по API (что это и куда идти дальше)",
@@ -357,7 +357,7 @@
         ]
       }
     },
-    "/roles": {
+    "/api/roles": {
       "get": {
         "operationId": "RoleController_findAll",
         "summary": "List all roles",
@@ -407,7 +407,7 @@
         ]
       }
     },
-    "/roles/app-sections": {
+    "/api/roles/app-sections": {
       "get": {
         "operationId": "RoleController_appSections",
         "summary": "Разделы «Рабочего места», которые можно включить роли",
@@ -422,7 +422,7 @@
         ]
       }
     },
-    "/roles/{id}": {
+    "/api/roles/{id}": {
       "get": {
         "operationId": "RoleController_findOne",
         "summary": "Get role by ID",
@@ -530,7 +530,7 @@
         ]
       }
     },
-    "/users": {
+    "/api/users": {
       "get": {
         "operationId": "UserController_list",
         "summary": "List all users with pagination",
@@ -598,7 +598,7 @@
         ]
       }
     },
-    "/users/{id}": {
+    "/api/users/{id}": {
       "get": {
         "operationId": "UserController_findOne",
         "summary": "Get user by ID (self or admin only)",
@@ -703,7 +703,7 @@
         ]
       }
     },
-    "/users/me/profile": {
+    "/api/users/me/profile": {
       "get": {
         "operationId": "UserController_getMe",
         "summary": "Get current user profile",
@@ -721,7 +721,7 @@
         ]
       }
     },
-    "/users/{id}/change-password": {
+    "/api/users/{id}/change-password": {
       "post": {
         "operationId": "UserController_changePassword",
         "summary": "Change user password (self or admin)",
@@ -761,7 +761,7 @@
         ]
       }
     },
-    "/auth/register": {
+    "/api/auth/register": {
       "post": {
         "operationId": "AuthController_register",
         "summary": "Public register disabled (TZ-AUTH-308) - use device invite",
@@ -776,7 +776,7 @@
         ]
       }
     },
-    "/auth/login": {
+    "/api/auth/login": {
       "post": {
         "operationId": "AuthController_login",
         "summary": "Login with username and password",
@@ -804,7 +804,7 @@
         ]
       }
     },
-    "/auth/refresh": {
+    "/api/auth/refresh": {
       "post": {
         "operationId": "AuthController_refresh",
         "summary": "Refresh access token using refresh token",
@@ -832,7 +832,7 @@
         ]
       }
     },
-    "/auth/logout": {
+    "/api/auth/logout": {
       "post": {
         "operationId": "AuthController_logout",
         "summary": "Logout and clear refresh token cookie",
@@ -850,7 +850,7 @@
         ]
       }
     },
-    "/auth/confirm": {
+    "/api/auth/confirm": {
       "post": {
         "operationId": "AuthController_confirm",
         "summary": "Подтвердить действие своим паролем: токен на 120 с",
@@ -878,7 +878,7 @@
         ]
       }
     },
-    "/auth/me": {
+    "/api/auth/me": {
       "get": {
         "operationId": "AuthController_me",
         "summary": "Get current authenticated user profile",
@@ -925,7 +925,7 @@
         ]
       }
     },
-    "/auth/me/prefs": {
+    "/api/auth/me/prefs": {
       "patch": {
         "operationId": "AuthController_updatePrefs",
         "summary": "Сохранить свои настройки интерфейса (ширины панелей)",
@@ -946,7 +946,7 @@
         ]
       }
     },
-    "/settings": {
+    "/api/settings": {
       "get": {
         "operationId": "SettingController_findAll",
         "parameters": [
@@ -966,7 +966,7 @@
         }
       }
     },
-    "/settings/catalog-appearance": {
+    "/api/settings/catalog-appearance": {
       "get": {
         "operationId": "SettingController_findCatalogAppearance",
         "parameters": [],
@@ -996,7 +996,7 @@
         }
       }
     },
-    "/settings/{key}": {
+    "/api/settings/{key}": {
       "get": {
         "operationId": "SettingController_findOne",
         "parameters": [
@@ -1062,7 +1062,7 @@
         }
       }
     },
-    "/feature-flags": {
+    "/api/feature-flags": {
       "get": {
         "operationId": "FeatureFlagController_findAll",
         "parameters": [],
@@ -1073,7 +1073,7 @@
         }
       }
     },
-    "/feature-flags/{key}": {
+    "/api/feature-flags/{key}": {
       "get": {
         "operationId": "FeatureFlagController_findOne",
         "parameters": [
@@ -1111,7 +1111,7 @@
         }
       }
     },
-    "/desktop/compat": {
+    "/api/desktop/compat": {
       "get": {
         "operationId": "DesktopPairingController_compatInfo",
         "parameters": [],
@@ -1122,7 +1122,7 @@
         }
       }
     },
-    "/desktop/pairing-keys": {
+    "/api/desktop/pairing-keys": {
       "post": {
         "operationId": "DesktopPairingController_issue",
         "parameters": [],
@@ -1152,7 +1152,7 @@
         }
       }
     },
-    "/desktop/pairing": {
+    "/api/desktop/pairing": {
       "post": {
         "operationId": "DesktopPairingController_issuePairing",
         "parameters": [],
@@ -1173,7 +1173,7 @@
         }
       }
     },
-    "/desktop/pairing-keys/{id}/revoke": {
+    "/api/desktop/pairing-keys/{id}/revoke": {
       "post": {
         "operationId": "DesktopPairingController_revoke",
         "parameters": [
@@ -1193,7 +1193,7 @@
         }
       }
     },
-    "/statuses/{entityType}": {
+    "/api/statuses/{entityType}": {
       "get": {
         "operationId": "StatusController_listStatuses",
         "parameters": [
@@ -1213,7 +1213,7 @@
         }
       }
     },
-    "/statuses": {
+    "/api/statuses": {
       "post": {
         "operationId": "StatusController_createStatus",
         "parameters": [],
@@ -1224,7 +1224,7 @@
         }
       }
     },
-    "/statuses/{entityType}/{statusId}": {
+    "/api/statuses/{entityType}/{statusId}": {
       "put": {
         "operationId": "StatusController_updateStatus",
         "parameters": [
@@ -1252,7 +1252,7 @@
         }
       }
     },
-    "/workflows/{entityType}": {
+    "/api/workflows/{entityType}": {
       "get": {
         "operationId": "StatusController_listWorkflows",
         "parameters": [
@@ -1272,7 +1272,7 @@
         }
       }
     },
-    "/workflows": {
+    "/api/workflows": {
       "post": {
         "operationId": "StatusController_createWorkflow",
         "parameters": [],
@@ -1283,7 +1283,7 @@
         }
       }
     },
-    "/audit-logs": {
+    "/api/audit-logs": {
       "get": {
         "operationId": "AuditController_list",
         "summary": "Журнал изменений: кто, что и когда (сначала новые)",
@@ -1355,7 +1355,7 @@
         ]
       }
     },
-    "/audit-logs/record": {
+    "/api/audit-logs/record": {
       "get": {
         "operationId": "AuditController_record",
         "summary": "История одной записи (заявка, позиция склада, контрагент, заказ): кто, что, когда",
@@ -1393,7 +1393,7 @@
         ]
       }
     },
-    "/audit-logs/app": {
+    "/api/audit-logs/app": {
       "get": {
         "operationId": "AuditController_appHistory",
         "summary": "История изменений приложения: кто, что, когда (сначала новые)",
@@ -1452,7 +1452,7 @@
         ]
       }
     },
-    "/audit-logs/app/users": {
+    "/api/audit-logs/app/users": {
       "get": {
         "operationId": "AuditController_appUsers",
         "parameters": [],
@@ -1471,7 +1471,7 @@
         ]
       }
     },
-    "/audit-logs/facets": {
+    "/api/audit-logs/facets": {
       "get": {
         "operationId": "AuditController_facets",
         "summary": "Значения для фильтров журнала: типы сущностей, действия, пользователи",
@@ -1491,7 +1491,7 @@
         ]
       }
     },
-    "/rate-limits": {
+    "/api/rate-limits": {
       "get": {
         "operationId": "RateLimitController_findAll",
         "parameters": [],
@@ -1511,7 +1511,7 @@
         }
       }
     },
-    "/rate-limits/{key}": {
+    "/api/rate-limits/{key}": {
       "delete": {
         "operationId": "RateLimitController_clear",
         "parameters": [
@@ -1531,7 +1531,7 @@
         }
       }
     },
-    "/admin/users": {
+    "/api/admin/users": {
       "get": {
         "operationId": "UsersAdminController_list",
         "parameters": [
@@ -1602,7 +1602,7 @@
         }
       }
     },
-    "/admin/users/{id}": {
+    "/api/admin/users/{id}": {
       "patch": {
         "operationId": "UsersAdminController_update",
         "parameters": [
@@ -1668,7 +1668,7 @@
         }
       }
     },
-    "/admin/users/{id}/activate": {
+    "/api/admin/users/{id}/activate": {
       "post": {
         "operationId": "UsersAdminController_activate",
         "parameters": [
@@ -1688,7 +1688,7 @@
         }
       }
     },
-    "/admin/users/{id}/deactivate": {
+    "/api/admin/users/{id}/deactivate": {
       "post": {
         "operationId": "UsersAdminController_deactivate",
         "parameters": [
@@ -1708,7 +1708,7 @@
         }
       }
     },
-    "/admin/users/{id}/reset-password": {
+    "/api/admin/users/{id}/reset-password": {
       "post": {
         "operationId": "UsersAdminController_resetPassword",
         "parameters": [
@@ -1738,7 +1738,7 @@
         }
       }
     },
-    "/admin/roles": {
+    "/api/admin/roles": {
       "get": {
         "operationId": "RolesAdminController_list",
         "parameters": [
@@ -1801,7 +1801,7 @@
         }
       }
     },
-    "/admin/roles/{id}": {
+    "/api/admin/roles/{id}": {
       "patch": {
         "operationId": "RolesAdminController_update",
         "parameters": [
@@ -1867,7 +1867,7 @@
         }
       }
     },
-    "/admin/permissions": {
+    "/api/admin/permissions": {
       "get": {
         "operationId": "PermissionsAdminController_catalog",
         "parameters": [],
@@ -1878,7 +1878,7 @@
         }
       }
     },
-    "/admin/collections": {
+    "/api/admin/collections": {
       "get": {
         "operationId": "CollectionsAdminController_list",
         "parameters": [],
@@ -1889,7 +1889,7 @@
         }
       }
     },
-    "/admin/collections/{name}/docs": {
+    "/api/admin/collections/{name}/docs": {
       "get": {
         "operationId": "CollectionsAdminController_docs",
         "parameters": [
@@ -1909,7 +1909,7 @@
         }
       }
     },
-    "/admin/collections/{name}": {
+    "/api/admin/collections/{name}": {
       "get": {
         "operationId": "CollectionsAdminController_detail",
         "parameters": [
@@ -1955,7 +1955,7 @@
         }
       }
     },
-    "/device/enroll": {
+    "/api/device/enroll": {
       "post": {
         "operationId": "DeviceEnrollmentController_enroll",
         "parameters": [],
@@ -1976,7 +1976,7 @@
         }
       }
     },
-    "/device/session": {
+    "/api/device/session": {
       "get": {
         "operationId": "DeviceEnrollmentController_session",
         "parameters": [],
@@ -1987,7 +1987,7 @@
         }
       }
     },
-    "/device/status": {
+    "/api/device/status": {
       "get": {
         "operationId": "DeviceEnrollmentController_status",
         "parameters": [],
@@ -1998,7 +1998,7 @@
         }
       }
     },
-    "/device/auth-check": {
+    "/api/device/auth-check": {
       "get": {
         "operationId": "DeviceEnrollmentController_authCheck",
         "parameters": [],
@@ -2009,7 +2009,7 @@
         }
       }
     },
-    "/admin/devices/invites": {
+    "/api/admin/devices/invites": {
       "post": {
         "operationId": "DevicesAdminController_createInvite",
         "parameters": [],
@@ -2039,7 +2039,7 @@
         }
       }
     },
-    "/admin/devices/invites/{id}/revoke": {
+    "/api/admin/devices/invites/{id}/revoke": {
       "post": {
         "operationId": "DevicesAdminController_revokeInvite",
         "parameters": [
@@ -2059,7 +2059,7 @@
         }
       }
     },
-    "/admin/devices/owner-invite": {
+    "/api/admin/devices/owner-invite": {
       "post": {
         "operationId": "DevicesAdminController_createOwnerInvite",
         "parameters": [],
@@ -2080,7 +2080,7 @@
         }
       }
     },
-    "/admin/devices": {
+    "/api/admin/devices": {
       "get": {
         "operationId": "DevicesAdminController_listDevices",
         "parameters": [],
@@ -2091,7 +2091,7 @@
         }
       }
     },
-    "/admin/devices/owner": {
+    "/api/admin/devices/owner": {
       "get": {
         "operationId": "DevicesAdminController_listOwnerDevices",
         "parameters": [],
@@ -2102,7 +2102,7 @@
         }
       }
     },
-    "/admin/devices/{id}": {
+    "/api/admin/devices/{id}": {
       "patch": {
         "operationId": "DevicesAdminController_updateDevice",
         "parameters": [
@@ -2132,7 +2132,7 @@
         }
       }
     },
-    "/admin/devices/{id}/revoke": {
+    "/api/admin/devices/{id}/revoke": {
       "post": {
         "operationId": "DevicesAdminController_revokeDevice",
         "parameters": [
@@ -2152,7 +2152,7 @@
         }
       }
     },
-    "/apps/pdm-loader": {
+    "/api/apps/pdm-loader": {
       "get": {
         "operationId": "AppsController_info",
         "parameters": [],
@@ -2166,7 +2166,7 @@
         ]
       }
     },
-    "/apps/pdm-loader/download": {
+    "/api/apps/pdm-loader/download": {
       "get": {
         "operationId": "AppsController_download",
         "parameters": [],
@@ -2180,7 +2180,7 @@
         ]
       }
     },
-    "/apps": {
+    "/api/apps": {
       "get": {
         "operationId": "AppDataController_listApps",
         "summary": "Приложения и их коллекции со счётчиками (count — живые, deleted — помеченные)",
@@ -2195,7 +2195,7 @@
         ]
       }
     },
-    "/apps/{app}/{collection}": {
+    "/api/apps/{app}/{collection}": {
       "get": {
         "operationId": "AppDataController_list",
         "summary": "Список документов { items, total, page, limit }",
@@ -2313,7 +2313,7 @@
         ]
       }
     },
-    "/apps/{app}/{collection}/{id}": {
+    "/api/apps/{app}/{collection}/{id}": {
       "get": {
         "operationId": "AppDataController_findOne",
         "parameters": [
@@ -2495,7 +2495,7 @@
         ]
       }
     },
-    "/stock/warehouses": {
+    "/api/stock/warehouses": {
       "get": {
         "operationId": "StockController_warehouses",
         "parameters": [],
@@ -2509,7 +2509,7 @@
         ]
       }
     },
-    "/stock/zones": {
+    "/api/stock/zones": {
       "get": {
         "operationId": "StockController_zoneList",
         "parameters": [],
@@ -2523,7 +2523,7 @@
         ]
       }
     },
-    "/stock/items": {
+    "/api/stock/items": {
       "get": {
         "operationId": "StockController_list",
         "parameters": [
@@ -2649,7 +2649,7 @@
         ]
       }
     },
-    "/stock/lookup": {
+    "/api/stock/lookup": {
       "get": {
         "operationId": "StockController_lookup",
         "parameters": [],
@@ -2663,7 +2663,7 @@
         ]
       }
     },
-    "/stock/categories": {
+    "/api/stock/categories": {
       "get": {
         "operationId": "StockController_categories",
         "parameters": [],
@@ -2677,7 +2677,7 @@
         ]
       }
     },
-    "/stock/movements": {
+    "/api/stock/movements": {
       "get": {
         "operationId": "StockController_movements",
         "parameters": [
@@ -2758,7 +2758,7 @@
         ]
       }
     },
-    "/stock/movements/{id}/correct": {
+    "/api/stock/movements/{id}/correct": {
       "post": {
         "operationId": "StockController_correctMovement",
         "parameters": [
@@ -2791,7 +2791,7 @@
         ]
       }
     },
-    "/stock/movements/{id}/cancel": {
+    "/api/stock/movements/{id}/cancel": {
       "post": {
         "operationId": "StockController_cancelMovement",
         "parameters": [
@@ -2814,7 +2814,7 @@
         ]
       }
     },
-    "/stock/items/{id}": {
+    "/api/stock/items/{id}": {
       "get": {
         "operationId": "StockController_get",
         "parameters": [
@@ -2889,7 +2889,7 @@
         ]
       }
     },
-    "/stock/items/{id}/history": {
+    "/api/stock/items/{id}/history": {
       "get": {
         "operationId": "StockController_history",
         "parameters": [
@@ -2921,7 +2921,7 @@
         ]
       }
     },
-    "/stock/items/bulk": {
+    "/api/stock/items/bulk": {
       "patch": {
         "operationId": "StockController_bulkUpdate",
         "parameters": [],
@@ -2935,7 +2935,7 @@
         ]
       }
     },
-    "/stock/items/bulk/restore": {
+    "/api/stock/items/bulk/restore": {
       "patch": {
         "operationId": "StockController_bulkRestore",
         "parameters": [],
@@ -2949,7 +2949,7 @@
         ]
       }
     },
-    "/stock/items/{id}/photos": {
+    "/api/stock/items/{id}/photos": {
       "post": {
         "operationId": "StockController_photo",
         "parameters": [
@@ -2982,7 +2982,7 @@
         ]
       }
     },
-    "/stock/items/{id}/photos/{photoId}/main": {
+    "/api/stock/items/{id}/photos/{photoId}/main": {
       "put": {
         "operationId": "StockController_mainPhoto",
         "parameters": [
@@ -3013,7 +3013,7 @@
         ]
       }
     },
-    "/stock/items/{id}/photos/{photoId}": {
+    "/api/stock/items/{id}/photos/{photoId}": {
       "delete": {
         "operationId": "StockController_removePhoto",
         "parameters": [
@@ -3044,7 +3044,7 @@
         ]
       }
     },
-    "/stock/reserve-list": {
+    "/api/stock/reserve-list": {
       "post": {
         "operationId": "StockController_reserveList",
         "parameters": [],
@@ -3068,7 +3068,7 @@
         ]
       }
     },
-    "/stock/reservations": {
+    "/api/stock/reservations": {
       "get": {
         "operationId": "StockController_reservations",
         "parameters": [],
@@ -3082,7 +3082,7 @@
         ]
       }
     },
-    "/stock/reservations/group/{key}": {
+    "/api/stock/reservations/group/{key}": {
       "get": {
         "operationId": "StockController_reservationDetail",
         "parameters": [
@@ -3105,7 +3105,7 @@
         ]
       }
     },
-    "/stock/reservations/issue": {
+    "/api/stock/reservations/issue": {
       "post": {
         "operationId": "StockController_issueReservations",
         "parameters": [],
@@ -3129,7 +3129,7 @@
         ]
       }
     },
-    "/stock/reservations/order/{salesOrderId}": {
+    "/api/stock/reservations/order/{salesOrderId}": {
       "get": {
         "operationId": "StockController_reservationsByOrder",
         "parameters": [
@@ -3152,7 +3152,7 @@
         ]
       }
     },
-    "/stock/reservations/issue-order": {
+    "/api/stock/reservations/issue-order": {
       "post": {
         "operationId": "StockController_issueOrder",
         "parameters": [],
@@ -3176,7 +3176,7 @@
         ]
       }
     },
-    "/stock/reservations/{id}": {
+    "/api/stock/reservations/{id}": {
       "patch": {
         "operationId": "StockController_updateReservation",
         "parameters": [
@@ -3209,7 +3209,7 @@
         ]
       }
     },
-    "/stock/reservations/{id}/release": {
+    "/api/stock/reservations/{id}/release": {
       "post": {
         "operationId": "StockController_releaseReservation",
         "parameters": [
@@ -3232,7 +3232,7 @@
         ]
       }
     },
-    "/stock/reservations/group/{batchId}/release": {
+    "/api/stock/reservations/group/{batchId}/release": {
       "post": {
         "operationId": "StockController_releaseGroup",
         "parameters": [
@@ -3255,7 +3255,7 @@
         ]
       }
     },
-    "/stock/spec/preview": {
+    "/api/stock/spec/preview": {
       "post": {
         "operationId": "StockController_specPreview",
         "parameters": [],
@@ -3279,7 +3279,7 @@
         ]
       }
     },
-    "/stock/spec/apply": {
+    "/api/stock/spec/apply": {
       "post": {
         "operationId": "StockController_specApply",
         "parameters": [],
@@ -3303,7 +3303,7 @@
         ]
       }
     },
-    "/stock/batch": {
+    "/api/stock/batch": {
       "post": {
         "operationId": "StockController_batch",
         "parameters": [],
@@ -3327,7 +3327,7 @@
         ]
       }
     },
-    "/stock/batch/{batchId}/cancel": {
+    "/api/stock/batch/{batchId}/cancel": {
       "post": {
         "operationId": "StockController_cancelBatch",
         "parameters": [
@@ -3350,7 +3350,7 @@
         ]
       }
     },
-    "/stock/composition-suggest": {
+    "/api/stock/composition-suggest": {
       "get": {
         "operationId": "StockController_compositionSuggest",
         "parameters": [
@@ -3374,7 +3374,7 @@
         ]
       }
     },
-    "/stock/composition-suggest/accept": {
+    "/api/stock/composition-suggest/accept": {
       "post": {
         "operationId": "StockController_compositionAccept",
         "parameters": [],
@@ -3398,7 +3398,7 @@
         ]
       }
     },
-    "/stock/items/{id}/ordered": {
+    "/api/stock/items/{id}/ordered": {
       "get": {
         "operationId": "StockController_ordered",
         "parameters": [
@@ -3421,7 +3421,7 @@
         ]
       }
     },
-    "/stock/items/{id}/offcut": {
+    "/api/stock/items/{id}/offcut": {
       "post": {
         "operationId": "StockController_offcut",
         "parameters": [
@@ -3454,7 +3454,7 @@
         ]
       }
     },
-    "/stock/items/{id}/move": {
+    "/api/stock/items/{id}/move": {
       "post": {
         "operationId": "StockController_move",
         "parameters": [
@@ -3487,7 +3487,7 @@
         ]
       }
     },
-    "/stock/items/{id}/restore": {
+    "/api/stock/items/{id}/restore": {
       "post": {
         "operationId": "StockController_restore",
         "parameters": [
@@ -3510,7 +3510,7 @@
         ]
       }
     },
-    "/materials/{id}/summary": {
+    "/api/materials/{id}/summary": {
       "get": {
         "operationId": "StockSummaryController_get",
         "summary": "Сводка позиции: остаток и места, поставщики, история цен, заявки, выдачи, аналитика по месяцам и заказчикам (цены — только ролям с деньгами)",
@@ -3534,7 +3534,7 @@
         ]
       }
     },
-    "/qr/print": {
+    "/api/qr/print": {
       "post": {
         "operationId": "QrController_print",
         "parameters": [],
@@ -3558,7 +3558,7 @@
         ]
       }
     },
-    "/qr/{code}": {
+    "/api/qr/{code}": {
       "get": {
         "operationId": "QrController_get",
         "parameters": [
@@ -3604,7 +3604,7 @@
         ]
       }
     },
-    "/stockzones": {
+    "/api/stockzones": {
       "get": {
         "operationId": "StockZonesController_list",
         "parameters": [],
@@ -3640,7 +3640,7 @@
         ]
       }
     },
-    "/stockzones/{id}": {
+    "/api/stockzones/{id}": {
       "get": {
         "operationId": "StockZonesController_get",
         "parameters": [
@@ -3715,7 +3715,7 @@
         ]
       }
     },
-    "/supply/invoices": {
+    "/api/supply/invoices": {
       "post": {
         "operationId": "SupplyController_createInvoices",
         "parameters": [],
@@ -3803,7 +3803,7 @@
         ]
       }
     },
-    "/supply/invoices/{id}": {
+    "/api/supply/invoices/{id}": {
       "get": {
         "operationId": "SupplyController_getInvoice",
         "parameters": [
@@ -3878,7 +3878,7 @@
         ]
       }
     },
-    "/supply/invoices/{id}/requests": {
+    "/api/supply/invoices/{id}/requests": {
       "post": {
         "operationId": "SupplyController_addInvoiceRequests",
         "parameters": [
@@ -3911,7 +3911,7 @@
         ]
       }
     },
-    "/supply/invoices/{id}/lines/{lineId}": {
+    "/api/supply/invoices/{id}/lines/{lineId}": {
       "patch": {
         "operationId": "SupplyController_updateInvoiceLine",
         "parameters": [
@@ -3981,7 +3981,7 @@
         ]
       }
     },
-    "/supply/invoices/{id}/merge-preview": {
+    "/api/supply/invoices/{id}/merge-preview": {
       "get": {
         "operationId": "SupplyController_mergePreview",
         "parameters": [
@@ -4012,7 +4012,7 @@
         ]
       }
     },
-    "/supply/invoices/{id}/merge": {
+    "/api/supply/invoices/{id}/merge": {
       "post": {
         "operationId": "SupplyController_mergeInvoices",
         "parameters": [
@@ -4045,7 +4045,7 @@
         ]
       }
     },
-    "/supply/invoices/{id}/receive": {
+    "/api/supply/invoices/{id}/receive": {
       "post": {
         "operationId": "SupplyController_receiveInvoice",
         "parameters": [
@@ -4078,7 +4078,7 @@
         ]
       }
     },
-    "/supply/invoices/{id}/pay": {
+    "/api/supply/invoices/{id}/pay": {
       "post": {
         "operationId": "SupplyController_payInvoice",
         "parameters": [
@@ -4101,7 +4101,7 @@
         ]
       }
     },
-    "/supply/invoices/{id}/unpay": {
+    "/api/supply/invoices/{id}/unpay": {
       "post": {
         "operationId": "SupplyController_unpayInvoice",
         "parameters": [
@@ -4142,7 +4142,7 @@
         ]
       }
     },
-    "/supply/supplier-items": {
+    "/api/supply/supplier-items": {
       "get": {
         "operationId": "SupplyController_listSupplierItems",
         "parameters": [
@@ -4181,7 +4181,7 @@
         ]
       }
     },
-    "/supply/catalog/items": {
+    "/api/supply/catalog/items": {
       "get": {
         "operationId": "SupplyController_catalogList",
         "parameters": [
@@ -4282,7 +4282,7 @@
         ]
       }
     },
-    "/supply/catalog/items/{id}": {
+    "/api/supply/catalog/items/{id}": {
       "get": {
         "operationId": "SupplyController_catalogItem",
         "parameters": [
@@ -4357,7 +4357,7 @@
         ]
       }
     },
-    "/supply/catalog/counts": {
+    "/api/supply/catalog/counts": {
       "get": {
         "operationId": "SupplyController_catalogCounts",
         "parameters": [],
@@ -4371,7 +4371,7 @@
         ]
       }
     },
-    "/supply/catalog/template": {
+    "/api/supply/catalog/template": {
       "get": {
         "operationId": "SupplyController_catalogTemplate",
         "parameters": [],
@@ -4385,7 +4385,7 @@
         ]
       }
     },
-    "/supply/catalog/export": {
+    "/api/supply/catalog/export": {
       "get": {
         "operationId": "SupplyController_catalogExport",
         "parameters": [],
@@ -4399,7 +4399,7 @@
         ]
       }
     },
-    "/supply/catalog/import": {
+    "/api/supply/catalog/import": {
       "post": {
         "operationId": "SupplyController_catalogImport",
         "parameters": [
@@ -4430,7 +4430,7 @@
         ]
       }
     },
-    "/supply/catalog/bulk": {
+    "/api/supply/catalog/bulk": {
       "post": {
         "operationId": "SupplyController_catalogBulk",
         "parameters": [],
@@ -4454,7 +4454,7 @@
         ]
       }
     },
-    "/supply/catalog/items/{id}/photos": {
+    "/api/supply/catalog/items/{id}/photos": {
       "post": {
         "operationId": "SupplyController_catalogAddPhoto",
         "parameters": [
@@ -4487,7 +4487,7 @@
         ]
       }
     },
-    "/supply/catalog/items/{id}/photos/{photoId}/main": {
+    "/api/supply/catalog/items/{id}/photos/{photoId}/main": {
       "put": {
         "operationId": "SupplyController_catalogMainPhoto",
         "parameters": [
@@ -4518,7 +4518,7 @@
         ]
       }
     },
-    "/supply/catalog/items/{id}/photos/{photoId}": {
+    "/api/supply/catalog/items/{id}/photos/{photoId}": {
       "delete": {
         "operationId": "SupplyController_catalogRemovePhoto",
         "parameters": [
@@ -4549,7 +4549,7 @@
         ]
       }
     },
-    "/supply/requests": {
+    "/api/supply/requests": {
       "get": {
         "operationId": "SupplyController_list",
         "parameters": [
@@ -4671,7 +4671,7 @@
         ]
       }
     },
-    "/supply/aliases/match": {
+    "/api/supply/aliases/match": {
       "post": {
         "operationId": "SupplyController_matchAliases",
         "parameters": [],
@@ -4685,7 +4685,7 @@
         ]
       }
     },
-    "/supply/aliases": {
+    "/api/supply/aliases": {
       "post": {
         "operationId": "SupplyController_rememberAliases",
         "parameters": [],
@@ -4699,7 +4699,7 @@
         ]
       }
     },
-    "/supply/lookups": {
+    "/api/supply/lookups": {
       "get": {
         "operationId": "SupplyController_lookups",
         "parameters": [],
@@ -4713,7 +4713,7 @@
         ]
       }
     },
-    "/supply/requests/lookup": {
+    "/api/supply/requests/lookup": {
       "get": {
         "operationId": "SupplyController_lookup",
         "parameters": [
@@ -4741,7 +4741,7 @@
         ]
       }
     },
-    "/supply/requests/bulk": {
+    "/api/supply/requests/bulk": {
       "post": {
         "operationId": "SupplyController_createBulk",
         "parameters": [],
@@ -4765,7 +4765,7 @@
         ]
       }
     },
-    "/supply/requests/{id}": {
+    "/api/supply/requests/{id}": {
       "get": {
         "operationId": "SupplyController_get",
         "parameters": [
@@ -4840,7 +4840,7 @@
         ]
       }
     },
-    "/supply/requests/{id}/restore": {
+    "/api/supply/requests/{id}/restore": {
       "post": {
         "operationId": "SupplyController_restore",
         "parameters": [
@@ -4863,7 +4863,7 @@
         ]
       }
     },
-    "/supply/requests/{id}/photos": {
+    "/api/supply/requests/{id}/photos": {
       "post": {
         "operationId": "SupplyController_addPhoto",
         "parameters": [
@@ -4896,7 +4896,7 @@
         ]
       }
     },
-    "/supply/requests/{id}/photos/{photoId}/main": {
+    "/api/supply/requests/{id}/photos/{photoId}/main": {
       "put": {
         "operationId": "SupplyController_mainPhoto",
         "parameters": [
@@ -4927,7 +4927,7 @@
         ]
       }
     },
-    "/supply/requests/{id}/photos/{photoId}": {
+    "/api/supply/requests/{id}/photos/{photoId}": {
       "delete": {
         "operationId": "SupplyController_removePhoto",
         "parameters": [
@@ -4958,7 +4958,7 @@
         ]
       }
     },
-    "/supply/requests/{id}/receive": {
+    "/api/supply/requests/{id}/receive": {
       "post": {
         "operationId": "SupplyController_receive",
         "parameters": [
@@ -4991,7 +4991,7 @@
         ]
       }
     },
-    "/supply/requests/{id}/rollback-receipt": {
+    "/api/supply/requests/{id}/rollback-receipt": {
       "post": {
         "operationId": "SupplyController_rollbackReceipt",
         "parameters": [
@@ -5032,7 +5032,7 @@
         ]
       }
     },
-    "/supply/suppliers/{id}/excel": {
+    "/api/supply/suppliers/{id}/excel": {
       "post": {
         "operationId": "SupplyController_importExcel",
         "parameters": [
@@ -5063,7 +5063,7 @@
         ]
       }
     },
-    "/supply/contracts": {
+    "/api/supply/contracts": {
       "get": {
         "operationId": "SupplierContractController_list",
         "parameters": [
@@ -5132,7 +5132,7 @@
         ]
       }
     },
-    "/supply/contracts/{id}": {
+    "/api/supply/contracts/{id}": {
       "get": {
         "operationId": "SupplierContractController_get",
         "parameters": [
@@ -5207,7 +5207,7 @@
         ]
       }
     },
-    "/notifications": {
+    "/api/notifications": {
       "get": {
         "operationId": "NotificationsController_list",
         "parameters": [
@@ -5229,7 +5229,7 @@
         ]
       }
     },
-    "/notifications/unread": {
+    "/api/notifications/unread": {
       "get": {
         "operationId": "NotificationsController_unread",
         "parameters": [],
@@ -5243,7 +5243,7 @@
         ]
       }
     },
-    "/notifications/read-all": {
+    "/api/notifications/read-all": {
       "post": {
         "operationId": "NotificationsController_readAll",
         "parameters": [],
@@ -5257,7 +5257,7 @@
         ]
       }
     },
-    "/notifications/{id}/read": {
+    "/api/notifications/{id}/read": {
       "post": {
         "operationId": "NotificationsController_read",
         "parameters": [
@@ -5280,7 +5280,7 @@
         ]
       }
     },
-    "/zones": {
+    "/api/zones": {
       "get": {
         "operationId": "ZonesController_listZones",
         "parameters": [],
@@ -5316,7 +5316,7 @@
         ]
       }
     },
-    "/zones/{id}": {
+    "/api/zones/{id}": {
       "patch": {
         "operationId": "ZonesController_updateZone",
         "parameters": [
@@ -5370,7 +5370,7 @@
         ]
       }
     },
-    "/staff": {
+    "/api/staff": {
       "get": {
         "operationId": "ZonesController_staff",
         "parameters": [],
@@ -5384,7 +5384,7 @@
         ]
       }
     },
-    "/staff/logins": {
+    "/api/staff/logins": {
       "get": {
         "operationId": "ZonesController_logins",
         "parameters": [],
@@ -5398,7 +5398,7 @@
         ]
       }
     },
-    "/staff/from-login": {
+    "/api/staff/from-login": {
       "post": {
         "operationId": "ZonesController_fromLogin",
         "parameters": [],
@@ -5422,7 +5422,7 @@
         ]
       }
     },
-    "/staff/{id}": {
+    "/api/staff/{id}": {
       "get": {
         "operationId": "ZonesController_person",
         "parameters": [
@@ -5445,7 +5445,7 @@
         ]
       }
     },
-    "/staff/{id}/zones": {
+    "/api/staff/{id}/zones": {
       "put": {
         "operationId": "ZonesController_setZones",
         "parameters": [
@@ -5478,7 +5478,7 @@
         ]
       }
     },
-    "/staff/{id}/login": {
+    "/api/staff/{id}/login": {
       "put": {
         "operationId": "ZonesController_linkLogin",
         "parameters": [
@@ -5511,7 +5511,7 @@
         ]
       }
     },
-    "/handoffs/{entity}/{id}": {
+    "/api/handoffs/{entity}/{id}": {
       "get": {
         "operationId": "ZonesController_handoffs",
         "parameters": [
@@ -5542,7 +5542,7 @@
         ]
       }
     },
-    "/salesorders": {
+    "/api/salesorders": {
       "get": {
         "operationId": "SalesOrdersController_list",
         "parameters": [
@@ -5659,7 +5659,7 @@
         ]
       }
     },
-    "/salesorders/next-production-no": {
+    "/api/salesorders/next-production-no": {
       "get": {
         "operationId": "SalesOrdersController_nextProductionNo",
         "parameters": [
@@ -5681,7 +5681,7 @@
         ]
       }
     },
-    "/salesorders/lookup": {
+    "/api/salesorders/lookup": {
       "get": {
         "operationId": "SalesOrdersController_lookup",
         "parameters": [
@@ -5710,7 +5710,7 @@
         ]
       }
     },
-    "/salesorders/{id}": {
+    "/api/salesorders/{id}": {
       "get": {
         "operationId": "SalesOrdersController_get",
         "parameters": [
@@ -5785,7 +5785,7 @@
         ]
       }
     },
-    "/salesorders/{id}/history": {
+    "/api/salesorders/{id}/history": {
       "get": {
         "operationId": "SalesOrdersController_history",
         "parameters": [
@@ -5839,7 +5839,7 @@
         ]
       }
     },
-    "/salesorders/{id}/lines-lookup": {
+    "/api/salesorders/{id}/lines-lookup": {
       "get": {
         "operationId": "SalesOrdersController_linesLookup",
         "parameters": [
@@ -5862,7 +5862,7 @@
         ]
       }
     },
-    "/salesorders/{id}/match-products": {
+    "/api/salesorders/{id}/match-products": {
       "post": {
         "operationId": "SalesOrdersController_matchProducts",
         "parameters": [
@@ -5895,7 +5895,7 @@
         ]
       }
     },
-    "/salesorders/{id}/dependencies": {
+    "/api/salesorders/{id}/dependencies": {
       "get": {
         "operationId": "SalesOrdersController_dependencies",
         "parameters": [
@@ -5918,7 +5918,7 @@
         ]
       }
     },
-    "/salesorders/{id}/restore": {
+    "/api/salesorders/{id}/restore": {
       "post": {
         "operationId": "SalesOrdersController_restore",
         "parameters": [
@@ -5941,7 +5941,7 @@
         ]
       }
     },
-    "/production-orders": {
+    "/api/production-orders": {
       "get": {
         "operationId": "ProductionOrdersController_list",
         "parameters": [
@@ -6026,7 +6026,7 @@
         ]
       }
     },
-    "/production-orders/unassigned": {
+    "/api/production-orders/unassigned": {
       "get": {
         "operationId": "ProductionOrdersController_unassigned",
         "parameters": [
@@ -6059,7 +6059,7 @@
         ]
       }
     },
-    "/production-orders/assign": {
+    "/api/production-orders/assign": {
       "post": {
         "operationId": "ProductionOrdersController_assign",
         "parameters": [],
@@ -6083,7 +6083,7 @@
         ]
       }
     },
-    "/production-orders/{key}/move-contract": {
+    "/api/production-orders/{key}/move-contract": {
       "post": {
         "operationId": "ProductionOrdersController_moveContract",
         "parameters": [
@@ -6116,7 +6116,7 @@
         ]
       }
     },
-    "/production-orders/{key}/pdf": {
+    "/api/production-orders/{key}/pdf": {
       "get": {
         "operationId": "ProductionOrdersController_pdf",
         "parameters": [
@@ -6139,7 +6139,7 @@
         ]
       }
     },
-    "/production-orders/{key}": {
+    "/api/production-orders/{key}": {
       "get": {
         "operationId": "ProductionOrdersController_get",
         "parameters": [
@@ -6162,7 +6162,7 @@
         ]
       }
     },
-    "/production-orders/{key}/readiness": {
+    "/api/production-orders/{key}/readiness": {
       "get": {
         "operationId": "ProductionOrdersController_readiness",
         "parameters": [
@@ -6185,7 +6185,7 @@
         ]
       }
     },
-    "/production-orders/{key}/stage": {
+    "/api/production-orders/{key}/stage": {
       "post": {
         "operationId": "ProductionOrdersController_setStage",
         "parameters": [
@@ -6218,7 +6218,7 @@
         ]
       }
     },
-    "/incomes": {
+    "/api/incomes": {
       "get": {
         "operationId": "IncomesController_list",
         "parameters": [
@@ -6327,7 +6327,7 @@
         ]
       }
     },
-    "/incomes/lookups": {
+    "/api/incomes/lookups": {
       "get": {
         "operationId": "IncomesController_lookups",
         "parameters": [],
@@ -6341,7 +6341,7 @@
         ]
       }
     },
-    "/incomes/{id}": {
+    "/api/incomes/{id}": {
       "get": {
         "operationId": "IncomesController_get",
         "parameters": [
@@ -6416,7 +6416,7 @@
         ]
       }
     },
-    "/incomes/{id}/cancel": {
+    "/api/incomes/{id}/cancel": {
       "post": {
         "operationId": "IncomesController_cancel",
         "parameters": [
@@ -6449,7 +6449,7 @@
         ]
       }
     },
-    "/incomes/{id}/restore-cancelled": {
+    "/api/incomes/{id}/restore-cancelled": {
       "post": {
         "operationId": "IncomesController_restoreCancelled",
         "parameters": [
@@ -6472,7 +6472,7 @@
         ]
       }
     },
-    "/incomes/{id}/move": {
+    "/api/incomes/{id}/move": {
       "post": {
         "operationId": "IncomesController_move",
         "parameters": [
@@ -6505,7 +6505,7 @@
         ]
       }
     },
-    "/incomes/{id}/photos": {
+    "/api/incomes/{id}/photos": {
       "post": {
         "operationId": "IncomesController_addPhoto",
         "parameters": [
@@ -6528,7 +6528,7 @@
         ]
       }
     },
-    "/incomes/{id}/photos/{photoId}/main": {
+    "/api/incomes/{id}/photos/{photoId}/main": {
       "put": {
         "operationId": "IncomesController_mainPhoto",
         "parameters": [
@@ -6559,7 +6559,7 @@
         ]
       }
     },
-    "/incomes/{id}/photos/{photoId}": {
+    "/api/incomes/{id}/photos/{photoId}": {
       "delete": {
         "operationId": "IncomesController_removePhoto",
         "parameters": [
@@ -6590,7 +6590,7 @@
         ]
       }
     },
-    "/incomes/{id}/payments": {
+    "/api/incomes/{id}/payments": {
       "post": {
         "operationId": "IncomesController_addPayment",
         "parameters": [
@@ -6623,7 +6623,7 @@
         ]
       }
     },
-    "/incomes/{id}/payments/{index}": {
+    "/api/incomes/{id}/payments/{index}": {
       "delete": {
         "operationId": "IncomesController_removePayment",
         "parameters": [
@@ -6662,7 +6662,7 @@
         ]
       }
     },
-    "/incomes/{id}/restore": {
+    "/api/incomes/{id}/restore": {
       "post": {
         "operationId": "IncomesController_restore",
         "parameters": [
@@ -6685,7 +6685,7 @@
         ]
       }
     },
-    "/product-requests/count": {
+    "/api/product-requests/count": {
       "get": {
         "operationId": "ProductRequestsController_count",
         "parameters": [],
@@ -6699,7 +6699,7 @@
         ]
       }
     },
-    "/product-requests": {
+    "/api/product-requests": {
       "get": {
         "operationId": "ProductRequestsController_list",
         "parameters": [
@@ -6750,7 +6750,7 @@
         ]
       }
     },
-    "/product-requests/{id}": {
+    "/api/product-requests/{id}": {
       "get": {
         "operationId": "ProductRequestsController_get",
         "parameters": [
@@ -6773,7 +6773,7 @@
         ]
       }
     },
-    "/product-requests/{id}/confirm": {
+    "/api/product-requests/{id}/confirm": {
       "post": {
         "operationId": "ProductRequestsController_confirm",
         "parameters": [
@@ -6796,7 +6796,7 @@
         ]
       }
     },
-    "/product-requests/{id}/reject": {
+    "/api/product-requests/{id}/reject": {
       "post": {
         "operationId": "ProductRequestsController_reject",
         "parameters": [
@@ -6829,7 +6829,7 @@
         ]
       }
     },
-    "/showcase": {
+    "/api/showcase": {
       "get": {
         "operationId": "ShowcaseController_list",
         "parameters": [
@@ -6906,7 +6906,7 @@
         ]
       }
     },
-    "/showcase/groups": {
+    "/api/showcase/groups": {
       "get": {
         "operationId": "ShowcaseController_groups",
         "parameters": [],
@@ -6920,7 +6920,7 @@
         ]
       }
     },
-    "/showcase/similar": {
+    "/api/showcase/similar": {
       "get": {
         "operationId": "ShowcaseController_similar",
         "parameters": [],
@@ -6934,7 +6934,7 @@
         ]
       }
     },
-    "/showcase/form-values": {
+    "/api/showcase/form-values": {
       "get": {
         "operationId": "ShowcaseController_formValues",
         "parameters": [],
@@ -6948,7 +6948,7 @@
         ]
       }
     },
-    "/showcase/bulk": {
+    "/api/showcase/bulk": {
       "post": {
         "operationId": "ShowcaseController_bulk",
         "parameters": [],
@@ -6962,7 +6962,7 @@
         ]
       }
     },
-    "/showcase/bulk/restore": {
+    "/api/showcase/bulk/restore": {
       "post": {
         "operationId": "ShowcaseController_bulkRestore",
         "parameters": [],
@@ -6976,7 +6976,7 @@
         ]
       }
     },
-    "/showcase/import": {
+    "/api/showcase/import": {
       "post": {
         "operationId": "ShowcaseController_import",
         "parameters": [],
@@ -6990,7 +6990,7 @@
         ]
       }
     },
-    "/showcase/from-orders": {
+    "/api/showcase/from-orders": {
       "post": {
         "operationId": "ShowcaseController_fromOrders",
         "parameters": [],
@@ -7004,7 +7004,7 @@
         ]
       }
     },
-    "/showcase/from-passports": {
+    "/api/showcase/from-passports": {
       "get": {
         "operationId": "ShowcaseController_passportGroups",
         "parameters": [],
@@ -7030,7 +7030,7 @@
         ]
       }
     },
-    "/showcase/materials-text": {
+    "/api/showcase/materials-text": {
       "post": {
         "operationId": "ShowcaseController_materialsText",
         "parameters": [],
@@ -7044,7 +7044,7 @@
         ]
       }
     },
-    "/showcase/kp": {
+    "/api/showcase/kp": {
       "post": {
         "operationId": "ShowcaseController_kp",
         "parameters": [],
@@ -7058,7 +7058,7 @@
         ]
       }
     },
-    "/showcase/{id}": {
+    "/api/showcase/{id}": {
       "get": {
         "operationId": "ShowcaseController_get",
         "parameters": [
@@ -7123,7 +7123,7 @@
         ]
       }
     },
-    "/showcase/{id}/tech-sheet": {
+    "/api/showcase/{id}/tech-sheet": {
       "post": {
         "operationId": "ShowcaseController_techSheet",
         "parameters": [
@@ -7146,7 +7146,7 @@
         ]
       }
     },
-    "/showcase/{id}/composition": {
+    "/api/showcase/{id}/composition": {
       "put": {
         "operationId": "ShowcaseController_setComposition",
         "parameters": [
@@ -7169,7 +7169,7 @@
         ]
       }
     },
-    "/showcase/{id}/materials-spec/from-composition": {
+    "/api/showcase/{id}/materials-spec/from-composition": {
       "get": {
         "operationId": "ShowcaseController_materialsFromComposition",
         "parameters": [
@@ -7192,7 +7192,7 @@
         ]
       }
     },
-    "/showcase/{id}/composition/similar": {
+    "/api/showcase/{id}/composition/similar": {
       "get": {
         "operationId": "ShowcaseController_compositionSimilar",
         "parameters": [
@@ -7215,7 +7215,7 @@
         ]
       }
     },
-    "/showcase/{id}/passport-defaults": {
+    "/api/showcase/{id}/passport-defaults": {
       "put": {
         "operationId": "ShowcaseController_setPassportDefaults",
         "parameters": [
@@ -7238,7 +7238,7 @@
         ]
       }
     },
-    "/showcase/{id}/assign-sku": {
+    "/api/showcase/{id}/assign-sku": {
       "post": {
         "operationId": "ShowcaseController_assignSku",
         "parameters": [
@@ -7261,7 +7261,7 @@
         ]
       }
     },
-    "/showcase/{id}/clone": {
+    "/api/showcase/{id}/clone": {
       "post": {
         "operationId": "ShowcaseController_clone",
         "parameters": [
@@ -7284,7 +7284,7 @@
         ]
       }
     },
-    "/showcase/{id}/variants": {
+    "/api/showcase/{id}/variants": {
       "get": {
         "operationId": "ShowcaseController_variants",
         "parameters": [
@@ -7307,7 +7307,7 @@
         ]
       }
     },
-    "/showcase/{id}/variant": {
+    "/api/showcase/{id}/variant": {
       "post": {
         "operationId": "ShowcaseController_makeVariant",
         "parameters": [
@@ -7330,7 +7330,7 @@
         ]
       }
     },
-    "/showcase/{id}/restore": {
+    "/api/showcase/{id}/restore": {
       "post": {
         "operationId": "ShowcaseController_restore",
         "parameters": [
@@ -7353,7 +7353,7 @@
         ]
       }
     },
-    "/materials": {
+    "/api/materials": {
       "get": {
         "operationId": "MaterialController_list",
         "summary": "List all materials with pagination and filters",
@@ -7451,7 +7451,7 @@
         ]
       }
     },
-    "/materials/{id}/prices": {
+    "/api/materials/{id}/prices": {
       "get": {
         "operationId": "MaterialController_getPrices",
         "summary": "История закупочных цен материала (без НДС)",
@@ -7475,7 +7475,7 @@
         ]
       }
     },
-    "/materials/{id}/price-default": {
+    "/api/materials/{id}/price-default": {
       "get": {
         "operationId": "MaterialController_getPriceDefault",
         "summary": "Последняя цена и поставщик — для подстановки в заявку",
@@ -7499,7 +7499,7 @@
         ]
       }
     },
-    "/materials/{id}/where-used": {
+    "/api/materials/{id}/where-used": {
       "get": {
         "operationId": "MaterialController_getWhereUsed",
         "summary": "List catalog parents that use this material",
@@ -7537,7 +7537,7 @@
         ]
       }
     },
-    "/materials/{id}/composition": {
+    "/api/materials/{id}/composition": {
       "get": {
         "operationId": "MaterialController_getComposition",
         "summary": "Deталь BOM: raw materials in this part (TZ-NX-DETAIL-MATERIAL-BOM)",
@@ -7592,7 +7592,7 @@
         ]
       }
     },
-    "/materials/{id}/composition/{lineId}": {
+    "/api/materials/{id}/composition/{lineId}": {
       "patch": {
         "operationId": "MaterialController_updateComposition",
         "parameters": [
@@ -7662,7 +7662,7 @@
         ]
       }
     },
-    "/materials/{id}/tree": {
+    "/api/materials/{id}/tree": {
       "get": {
         "operationId": "MaterialController_getTree",
         "parameters": [
@@ -7693,7 +7693,7 @@
         ]
       }
     },
-    "/materials/{id}": {
+    "/api/materials/{id}": {
       "get": {
         "operationId": "MaterialController_findOne",
         "parameters": [
@@ -7768,7 +7768,7 @@
         ]
       }
     },
-    "/materials/{id}/passport-spec": {
+    "/api/materials/{id}/passport-spec": {
       "patch": {
         "operationId": "MaterialController_setPassportSpec",
         "summary": "МЦ-2: связь позиции склада с материалом паспорта (materialId, sizes, isCoating, passportText, techText)",
@@ -7792,7 +7792,7 @@
         ]
       }
     },
-    "/materials/{id}/duplicate": {
+    "/api/materials/{id}/duplicate": {
       "post": {
         "operationId": "MaterialController_duplicate",
         "parameters": [
@@ -7815,7 +7815,7 @@
         ]
       }
     },
-    "/partners": {
+    "/api/partners": {
       "get": {
         "operationId": "PartnersController_list",
         "parameters": [
@@ -7862,7 +7862,7 @@
         ]
       }
     },
-    "/partners/{id}": {
+    "/api/partners/{id}": {
       "get": {
         "operationId": "PartnersController_get",
         "parameters": [
@@ -7927,7 +7927,7 @@
         ]
       }
     },
-    "/partners/{id}/restore": {
+    "/api/partners/{id}/restore": {
       "post": {
         "operationId": "PartnersController_restore",
         "parameters": [
@@ -7950,7 +7950,7 @@
         ]
       }
     },
-    "/partners/{id}/merge": {
+    "/api/partners/{id}/merge": {
       "post": {
         "operationId": "PartnersController_merge",
         "parameters": [
@@ -7973,7 +7973,7 @@
         ]
       }
     },
-    "/dicts": {
+    "/api/dicts": {
       "get": {
         "operationId": "DictsController_groups",
         "parameters": [],
@@ -7987,7 +7987,7 @@
         ]
       }
     },
-    "/dicts/{key}": {
+    "/api/dicts/{key}": {
       "get": {
         "operationId": "DictsController_list",
         "parameters": [
@@ -8039,7 +8039,7 @@
         ]
       }
     },
-    "/dicts/{key}/candidates": {
+    "/api/dicts/{key}/candidates": {
       "get": {
         "operationId": "DictsController_candidates",
         "parameters": [
@@ -8062,7 +8062,7 @@
         ]
       }
     },
-    "/dicts/{key}/import": {
+    "/api/dicts/{key}/import": {
       "post": {
         "operationId": "DictsController_importNames",
         "parameters": [
@@ -8085,7 +8085,7 @@
         ]
       }
     },
-    "/dicts/{key}/{id}/usage": {
+    "/api/dicts/{key}/{id}/usage": {
       "get": {
         "operationId": "DictsController_usage",
         "parameters": [
@@ -8116,7 +8116,7 @@
         ]
       }
     },
-    "/dicts/{key}/{id}": {
+    "/api/dicts/{key}/{id}": {
       "get": {
         "operationId": "DictsController_get",
         "parameters": [
@@ -8205,7 +8205,7 @@
         ]
       }
     },
-    "/dicts/{key}/{id}/restore": {
+    "/api/dicts/{key}/{id}/restore": {
       "post": {
         "operationId": "DictsController_restore",
         "parameters": [
@@ -8236,7 +8236,7 @@
         ]
       }
     },
-    "/dicts/{key}/{id}/merge": {
+    "/api/dicts/{key}/{id}/merge": {
       "post": {
         "operationId": "DictsController_merge",
         "parameters": [
@@ -8267,7 +8267,7 @@
         ]
       }
     },
-    "/health/security": {
+    "/api/health/security": {
       "get": {
         "operationId": "DiskController_securityTop",
         "parameters": [
@@ -8290,7 +8290,7 @@
         ]
       }
     },
-    "/health/visits": {
+    "/api/health/visits": {
       "get": {
         "operationId": "DiskController_visits",
         "parameters": [
@@ -8313,7 +8313,7 @@
         ]
       }
     },
-    "/health/disk": {
+    "/api/health/disk": {
       "get": {
         "operationId": "DiskController_usage",
         "parameters": [],
@@ -8327,7 +8327,7 @@
         ]
       }
     },
-    "/health/integrity": {
+    "/api/health/integrity": {
       "get": {
         "operationId": "DiskController_integrityReport",
         "parameters": [
@@ -8350,7 +8350,7 @@
         ]
       }
     },
-    "/health/slow": {
+    "/api/health/slow": {
       "get": {
         "operationId": "DiskController_slow",
         "parameters": [],
@@ -8364,7 +8364,7 @@
         ]
       }
     },
-    "/health/backups/reminder": {
+    "/api/health/backups/reminder": {
       "get": {
         "operationId": "BackupsController_reminder",
         "parameters": [],
@@ -8378,7 +8378,7 @@
         ]
       }
     },
-    "/health/backups": {
+    "/api/health/backups": {
       "get": {
         "operationId": "BackupsController_list",
         "parameters": [],
@@ -8392,7 +8392,7 @@
         ]
       }
     },
-    "/health/backups/{stamp}/download": {
+    "/api/health/backups/{stamp}/download": {
       "get": {
         "operationId": "BackupsController_download",
         "parameters": [
@@ -8415,7 +8415,7 @@
         ]
       }
     },
-    "/health/bundle": {
+    "/api/health/bundle": {
       "get": {
         "operationId": "BundleController_state",
         "parameters": [],
@@ -8441,7 +8441,7 @@
         ]
       }
     },
-    "/health/bundle/{name}/download": {
+    "/api/health/bundle/{name}/download": {
       "get": {
         "operationId": "BundleController_download",
         "parameters": [
@@ -8464,7 +8464,7 @@
         ]
       }
     },
-    "/health/bundle/{name}": {
+    "/api/health/bundle/{name}": {
       "delete": {
         "operationId": "BundleController_remove",
         "parameters": [
@@ -8487,7 +8487,7 @@
         ]
       }
     },
-    "/health/offsite": {
+    "/api/health/offsite": {
       "get": {
         "operationId": "OffsiteController_view",
         "parameters": [],
@@ -8501,7 +8501,7 @@
         ]
       }
     },
-    "/health/offsite/settings": {
+    "/api/health/offsite/settings": {
       "put": {
         "operationId": "OffsiteController_settings",
         "parameters": [],
@@ -8515,7 +8515,7 @@
         ]
       }
     },
-    "/health/offsite/targets": {
+    "/api/health/offsite/targets": {
       "post": {
         "operationId": "OffsiteController_add",
         "parameters": [],
@@ -8529,7 +8529,7 @@
         ]
       }
     },
-    "/health/offsite/targets/{id}": {
+    "/api/health/offsite/targets/{id}": {
       "patch": {
         "operationId": "OffsiteController_edit",
         "parameters": [
@@ -8573,7 +8573,7 @@
         ]
       }
     },
-    "/health/offsite/targets/{id}/test": {
+    "/api/health/offsite/targets/{id}/test": {
       "post": {
         "operationId": "OffsiteController_test",
         "parameters": [
@@ -8596,7 +8596,7 @@
         ]
       }
     },
-    "/health/offsite/run": {
+    "/api/health/offsite/run": {
       "post": {
         "operationId": "OffsiteController_run",
         "parameters": [],
@@ -8610,7 +8610,7 @@
         ]
       }
     },
-    "/fill-audit": {
+    "/api/fill-audit": {
       "get": {
         "operationId": "FillAuditController_report",
         "parameters": [
@@ -8643,7 +8643,7 @@
         ]
       }
     },
-    "/matching/suggest": {
+    "/api/matching/suggest": {
       "get": {
         "operationId": "MatchingController_suggest",
         "parameters": [
@@ -8667,7 +8667,7 @@
         ]
       }
     },
-    "/matching/unmatched/count": {
+    "/api/matching/unmatched/count": {
       "get": {
         "operationId": "MatchingController_unmatchedCount",
         "parameters": [],
@@ -8681,7 +8681,7 @@
         ]
       }
     },
-    "/matching/unmatched": {
+    "/api/matching/unmatched": {
       "get": {
         "operationId": "MatchingController_unmatched",
         "parameters": [
@@ -8764,7 +8764,7 @@
         ]
       }
     },
-    "/matching/confirm": {
+    "/api/matching/confirm": {
       "post": {
         "operationId": "MatchingController_confirm",
         "parameters": [],
@@ -8788,7 +8788,7 @@
         ]
       }
     },
-    "/matching/none": {
+    "/api/matching/none": {
       "post": {
         "operationId": "MatchingController_none",
         "parameters": [],
@@ -8812,7 +8812,7 @@
         ]
       }
     },
-    "/matching/bulk": {
+    "/api/matching/bulk": {
       "post": {
         "operationId": "MatchingController_bulk",
         "parameters": [],
@@ -8836,7 +8836,7 @@
         ]
       }
     },
-    "/design-tasks": {
+    "/api/design-tasks": {
       "get": {
         "operationId": "DesignController_list",
         "parameters": [
@@ -8933,7 +8933,7 @@
         ]
       }
     },
-    "/design-tasks/from-order": {
+    "/api/design-tasks/from-order": {
       "post": {
         "operationId": "DesignController_fromOrder",
         "parameters": [],
@@ -8957,7 +8957,7 @@
         ]
       }
     },
-    "/design-tasks/{id}": {
+    "/api/design-tasks/{id}": {
       "get": {
         "operationId": "DesignController_get",
         "parameters": [
@@ -9032,7 +9032,7 @@
         ]
       }
     },
-    "/design-tasks/{id}/photos": {
+    "/api/design-tasks/{id}/photos": {
       "post": {
         "operationId": "DesignController_addPhoto",
         "parameters": [
@@ -9065,7 +9065,7 @@
         ]
       }
     },
-    "/design-tasks/{id}/photos/{photoId}": {
+    "/api/design-tasks/{id}/photos/{photoId}": {
       "delete": {
         "operationId": "DesignController_removePhoto",
         "parameters": [
@@ -9096,7 +9096,7 @@
         ]
       }
     },
-    "/design-tasks/{id}/stickers": {
+    "/api/design-tasks/{id}/stickers": {
       "patch": {
         "operationId": "DesignController_setStickers",
         "parameters": [
@@ -9129,7 +9129,7 @@
         ]
       }
     },
-    "/design-tasks/{id}/restore": {
+    "/api/design-tasks/{id}/restore": {
       "post": {
         "operationId": "DesignController_restore",
         "parameters": [
@@ -9152,7 +9152,7 @@
         ]
       }
     },
-    "/design-board": {
+    "/api/design-board": {
       "get": {
         "operationId": "DesignBoardController_get",
         "parameters": [],
@@ -9188,7 +9188,7 @@
         ]
       }
     },
-    "/design-board/{orderId}/lines": {
+    "/api/design-board/{orderId}/lines": {
       "get": {
         "operationId": "DesignBoardController_lines",
         "parameters": [
@@ -9211,7 +9211,7 @@
         ]
       }
     },
-    "/design-board/{orderId}": {
+    "/api/design-board/{orderId}": {
       "delete": {
         "operationId": "DesignBoardController_remove",
         "parameters": [
@@ -9234,7 +9234,7 @@
         ]
       }
     },
-    "/design-stickers": {
+    "/api/design-stickers": {
       "get": {
         "operationId": "DesignStickerController_list",
         "parameters": [],
@@ -9270,7 +9270,7 @@
         ]
       }
     },
-    "/design-stickers/{id}": {
+    "/api/design-stickers/{id}": {
       "patch": {
         "operationId": "DesignStickerController_update",
         "parameters": [
@@ -9324,7 +9324,7 @@
         ]
       }
     },
-    "/design-tasks/{id}/notes": {
+    "/api/design-tasks/{id}/notes": {
       "get": {
         "operationId": "DesignNoteController_list",
         "parameters": [
@@ -9378,7 +9378,7 @@
         ]
       }
     },
-    "/design-notes/open-questions": {
+    "/api/design-notes/open-questions": {
       "get": {
         "operationId": "DesignNoteController_openQuestions",
         "parameters": [],
@@ -9392,7 +9392,7 @@
         ]
       }
     },
-    "/design-notes/{id}": {
+    "/api/design-notes/{id}": {
       "patch": {
         "operationId": "DesignNoteController_update",
         "parameters": [
@@ -9446,7 +9446,7 @@
         ]
       }
     },
-    "/material-requests": {
+    "/api/material-requests": {
       "post": {
         "operationId": "MaterialRequestsController_create",
         "parameters": [],
@@ -9490,7 +9490,7 @@
         ]
       }
     },
-    "/material-requests/count": {
+    "/api/material-requests/count": {
       "get": {
         "operationId": "MaterialRequestsController_count",
         "parameters": [],
@@ -9504,7 +9504,7 @@
         ]
       }
     },
-    "/material-requests/{id}/close": {
+    "/api/material-requests/{id}/close": {
       "post": {
         "operationId": "MaterialRequestsController_close",
         "parameters": [
@@ -9537,7 +9537,7 @@
         ]
       }
     },
-    "/orderline-plans/by-income/{incomeId}": {
+    "/api/orderline-plans/by-income/{incomeId}": {
       "get": {
         "operationId": "OrderLinePlanController_byIncome",
         "parameters": [
@@ -9560,7 +9560,7 @@
         ]
       }
     },
-    "/orderline-plans/{id}": {
+    "/api/orderline-plans/{id}": {
       "put": {
         "operationId": "OrderLinePlanController_save",
         "parameters": [
@@ -9593,7 +9593,7 @@
         ]
       }
     },
-    "/orderline-plans/{id}/steps/{stepId}": {
+    "/api/orderline-plans/{id}/steps/{stepId}": {
       "patch": {
         "operationId": "OrderLinePlanController_patchStep",
         "parameters": [
@@ -9634,7 +9634,7 @@
         ]
       }
     },
-    "/orderline-plans/{id}/steps/{stepId}/mark": {
+    "/api/orderline-plans/{id}/steps/{stepId}/mark": {
       "post": {
         "operationId": "OrderLinePlanController_mark",
         "parameters": [
@@ -9675,7 +9675,7 @@
         ]
       }
     },
-    "/orderline-plans/{id}/check": {
+    "/api/orderline-plans/{id}/check": {
       "post": {
         "operationId": "OrderLinePlanController_check",
         "parameters": [
@@ -9708,7 +9708,7 @@
         ]
       }
     },
-    "/orderline-plans/{id}/apply-to-product": {
+    "/api/orderline-plans/{id}/apply-to-product": {
       "post": {
         "operationId": "OrderLinePlanController_apply",
         "parameters": [
@@ -9741,7 +9741,7 @@
         ]
       }
     },
-    "/orderline-plans/{id}/reset-from-product": {
+    "/api/orderline-plans/{id}/reset-from-product": {
       "post": {
         "operationId": "OrderLinePlanController_reset",
         "parameters": [
@@ -9764,7 +9764,7 @@
         ]
       }
     },
-    "/work-schedule": {
+    "/api/work-schedule": {
       "get": {
         "operationId": "WorkScheduleController_get",
         "parameters": [
@@ -9824,7 +9824,7 @@
         ]
       }
     },
-    "/work-facts/product/{productId}": {
+    "/api/work-facts/product/{productId}": {
       "get": {
         "operationId": "WorkFactsController_product",
         "parameters": [
@@ -9847,7 +9847,7 @@
         ]
       }
     },
-    "/work-facts/product/{productId}/apply": {
+    "/api/work-facts/product/{productId}/apply": {
       "post": {
         "operationId": "WorkFactsController_apply",
         "parameters": [
@@ -9870,7 +9870,7 @@
         ]
       }
     },
-    "/work-facts/cost": {
+    "/api/work-facts/cost": {
       "get": {
         "operationId": "WorkFactsController_cost",
         "parameters": [
@@ -9901,7 +9901,7 @@
         ]
       }
     },
-    "/my-tasks": {
+    "/api/my-tasks": {
       "get": {
         "operationId": "MyTasksController_list",
         "parameters": [],
@@ -9915,7 +9915,7 @@
         ]
       }
     },
-    "/my-tasks/{planId}/{stepId}/start": {
+    "/api/my-tasks/{planId}/{stepId}/start": {
       "post": {
         "operationId": "MyTasksController_start",
         "parameters": [
@@ -9956,7 +9956,7 @@
         ]
       }
     },
-    "/my-tasks/{planId}/{stepId}/finish": {
+    "/api/my-tasks/{planId}/{stepId}/finish": {
       "post": {
         "operationId": "MyTasksController_finish",
         "parameters": [
@@ -9997,7 +9997,7 @@
         ]
       }
     },
-    "/my-tasks/{planId}/{stepId}/defer": {
+    "/api/my-tasks/{planId}/{stepId}/defer": {
       "post": {
         "operationId": "MyTasksController_defer",
         "parameters": [
@@ -10038,7 +10038,7 @@
         ]
       }
     },
-    "/my-tasks/{planId}/{stepId}/problem": {
+    "/api/my-tasks/{planId}/{stepId}/problem": {
       "post": {
         "operationId": "MyTasksController_problem",
         "parameters": [
@@ -10079,7 +10079,7 @@
         ]
       }
     },
-    "/work-tasks": {
+    "/api/work-tasks": {
       "get": {
         "operationId": "WorkController_list",
         "parameters": [
@@ -10161,7 +10161,7 @@
         ]
       }
     },
-    "/work-tasks/people": {
+    "/api/work-tasks/people": {
       "get": {
         "operationId": "WorkController_people",
         "parameters": [
@@ -10182,7 +10182,7 @@
         ]
       }
     },
-    "/work-tasks/launch": {
+    "/api/work-tasks/launch": {
       "post": {
         "operationId": "WorkController_launch",
         "parameters": [],
@@ -10206,7 +10206,7 @@
         ]
       }
     },
-    "/work-tasks/{id}": {
+    "/api/work-tasks/{id}": {
       "get": {
         "operationId": "WorkController_get",
         "parameters": [
@@ -10281,7 +10281,7 @@
         ]
       }
     },
-    "/work-tasks/{id}/move": {
+    "/api/work-tasks/{id}/move": {
       "post": {
         "operationId": "WorkController_move",
         "parameters": [
@@ -10314,7 +10314,7 @@
         ]
       }
     },
-    "/work-tasks/{id}/done": {
+    "/api/work-tasks/{id}/done": {
       "post": {
         "operationId": "WorkController_done",
         "parameters": [
@@ -10337,7 +10337,7 @@
         ]
       }
     },
-    "/work-tasks/{id}/cancel": {
+    "/api/work-tasks/{id}/cancel": {
       "post": {
         "operationId": "WorkController_cancel",
         "parameters": [
@@ -10370,7 +10370,7 @@
         ]
       }
     },
-    "/work-tasks/{id}/plan": {
+    "/api/work-tasks/{id}/plan": {
       "patch": {
         "operationId": "WorkController_plan",
         "summary": "Устарело: план шага правится в Ганте (PATCH /orderline-plans/:id/steps/:stepId)",
@@ -10405,7 +10405,7 @@
         ]
       }
     },
-    "/work-tasks/{id}/restore": {
+    "/api/work-tasks/{id}/restore": {
       "post": {
         "operationId": "WorkController_restore",
         "parameters": [
@@ -10428,7 +10428,7 @@
         ]
       }
     },
-    "/work-routes/{productId}": {
+    "/api/work-routes/{productId}": {
       "get": {
         "operationId": "WorkRouteController_get",
         "parameters": [
@@ -10482,7 +10482,7 @@
         ]
       }
     },
-    "/salesorders/{id}/shipments": {
+    "/api/salesorders/{id}/shipments": {
       "get": {
         "operationId": "ShipmentsController_list",
         "parameters": [
@@ -10545,7 +10545,7 @@
         ]
       }
     },
-    "/shipments/{id}": {
+    "/api/shipments/{id}": {
       "patch": {
         "operationId": "ShipmentsController_update",
         "parameters": [
@@ -10599,7 +10599,7 @@
         ]
       }
     },
-    "/shipments/{id}/restore": {
+    "/api/shipments/{id}/restore": {
       "post": {
         "operationId": "ShipmentsController_restore",
         "parameters": [
@@ -10622,7 +10622,7 @@
         ]
       }
     },
-    "/shipments/{id}/pdf": {
+    "/api/shipments/{id}/pdf": {
       "get": {
         "operationId": "ShipmentsController_pdf",
         "parameters": [
@@ -10645,7 +10645,7 @@
         ]
       }
     },
-    "/offers": {
+    "/api/offers": {
       "get": {
         "operationId": "OffersController_list",
         "parameters": [],
@@ -10681,7 +10681,7 @@
         ]
       }
     },
-    "/offers/backgrounds": {
+    "/api/offers/backgrounds": {
       "get": {
         "operationId": "OffersController_backgrounds",
         "parameters": [],
@@ -10717,7 +10717,7 @@
         ]
       }
     },
-    "/offers/backgrounds/{id}": {
+    "/api/offers/backgrounds/{id}": {
       "patch": {
         "operationId": "OffersController_updateBackground",
         "parameters": [
@@ -10771,7 +10771,7 @@
         ]
       }
     },
-    "/offers/companies": {
+    "/api/offers/companies": {
       "get": {
         "operationId": "OffersController_companies",
         "parameters": [],
@@ -10785,7 +10785,7 @@
         ]
       }
     },
-    "/offers/companies/{id}": {
+    "/api/offers/companies/{id}": {
       "patch": {
         "operationId": "OffersController_setCompany",
         "parameters": [
@@ -10818,7 +10818,7 @@
         ]
       }
     },
-    "/offers/defaults": {
+    "/api/offers/defaults": {
       "get": {
         "operationId": "OffersController_defaults",
         "parameters": [
@@ -10841,7 +10841,7 @@
         ]
       }
     },
-    "/offers/last": {
+    "/api/offers/last": {
       "get": {
         "operationId": "OffersController_last",
         "parameters": [
@@ -10874,7 +10874,7 @@
         ]
       }
     },
-    "/offers/intake": {
+    "/api/offers/intake": {
       "get": {
         "operationId": "OffersController_intakeStatus",
         "parameters": [],
@@ -10910,7 +10910,7 @@
         ]
       }
     },
-    "/offers/preview": {
+    "/api/offers/preview": {
       "post": {
         "operationId": "OffersController_preview",
         "parameters": [],
@@ -10934,7 +10934,7 @@
         ]
       }
     },
-    "/offers/{id}": {
+    "/api/offers/{id}": {
       "get": {
         "operationId": "OffersController_get",
         "parameters": [
@@ -11009,7 +11009,7 @@
         ]
       }
     },
-    "/offers/{id}/to-order": {
+    "/api/offers/{id}/to-order": {
       "post": {
         "operationId": "OffersController_toOrder",
         "parameters": [
@@ -11032,7 +11032,7 @@
         ]
       }
     },
-    "/offers/{id}/create-order": {
+    "/api/offers/{id}/create-order": {
       "post": {
         "operationId": "OffersController_createOrder",
         "parameters": [
@@ -11065,7 +11065,7 @@
         ]
       }
     },
-    "/offers/{id}/copy": {
+    "/api/offers/{id}/copy": {
       "post": {
         "operationId": "OffersController_copy",
         "parameters": [
@@ -11098,7 +11098,7 @@
         ]
       }
     },
-    "/offers/{id}/copies": {
+    "/api/offers/{id}/copies": {
       "post": {
         "operationId": "OffersController_copyMany",
         "parameters": [
@@ -11131,7 +11131,7 @@
         ]
       }
     },
-    "/offers/pack": {
+    "/api/offers/pack": {
       "post": {
         "operationId": "OffersController_createPack",
         "parameters": [],
@@ -11155,7 +11155,7 @@
         ]
       }
     },
-    "/offers/{id}/restore": {
+    "/api/offers/{id}/restore": {
       "post": {
         "operationId": "OffersController_restore",
         "parameters": [
@@ -11178,7 +11178,7 @@
         ]
       }
     },
-    "/offers/{id}/status": {
+    "/api/offers/{id}/status": {
       "post": {
         "operationId": "OffersController_status",
         "parameters": [
@@ -11211,7 +11211,7 @@
         ]
       }
     },
-    "/offers/{id}/check": {
+    "/api/offers/{id}/check": {
       "get": {
         "operationId": "OffersController_check",
         "parameters": [
@@ -11234,7 +11234,7 @@
         ]
       }
     },
-    "/offers/packs/{packId}/send": {
+    "/api/offers/packs/{packId}/send": {
       "post": {
         "operationId": "OffersController_sendPack",
         "parameters": [
@@ -11257,7 +11257,7 @@
         ]
       }
     },
-    "/offers/{id}/pdf": {
+    "/api/offers/{id}/pdf": {
       "get": {
         "operationId": "OffersController_pdf",
         "parameters": [
@@ -11280,7 +11280,7 @@
         ]
       }
     },
-    "/products/{id}/attachments": {
+    "/api/products/{id}/attachments": {
       "get": {
         "operationId": "ProductAttachmentsController_list",
         "parameters": [
@@ -11332,7 +11332,7 @@
         ]
       }
     },
-    "/products/{id}/attachments/{aid}": {
+    "/api/products/{id}/attachments/{aid}": {
       "delete": {
         "operationId": "ProductAttachmentsController_remove",
         "parameters": [
@@ -11363,7 +11363,7 @@
         ]
       }
     },
-    "/products/{id}/attachments/{aid}/restore": {
+    "/api/products/{id}/attachments/{aid}/restore": {
       "post": {
         "operationId": "ProductAttachmentsController_restore",
         "parameters": [
@@ -11394,7 +11394,7 @@
         ]
       }
     },
-    "/products/{id}/attachments/{aid}/download-ticket": {
+    "/api/products/{id}/attachments/{aid}/download-ticket": {
       "post": {
         "operationId": "ProductAttachmentsController_ticket",
         "parameters": [
@@ -11425,7 +11425,7 @@
         ]
       }
     },
-    "/products/{id}/attachments/{aid}/file": {
+    "/api/products/{id}/attachments/{aid}/file": {
       "get": {
         "operationId": "ProductAttachmentFileController_file",
         "parameters": [
@@ -11464,7 +11464,7 @@
         ]
       }
     },
-    "/incomes/{id}/attachments": {
+    "/api/incomes/{id}/attachments": {
       "get": {
         "operationId": "IncomeAttachmentsController_list",
         "parameters": [
@@ -11516,7 +11516,7 @@
         ]
       }
     },
-    "/incomes/{id}/attachments/{aid}": {
+    "/api/incomes/{id}/attachments/{aid}": {
       "delete": {
         "operationId": "IncomeAttachmentsController_remove",
         "parameters": [
@@ -11547,7 +11547,7 @@
         ]
       }
     },
-    "/salesorders/{id}/attachments/summary": {
+    "/api/salesorders/{id}/attachments/summary": {
       "get": {
         "operationId": "OrderAttachmentsController_summary",
         "parameters": [
@@ -11578,7 +11578,7 @@
         ]
       }
     },
-    "/salesorders/{id}/attachments/zip-ticket": {
+    "/api/salesorders/{id}/attachments/zip-ticket": {
       "post": {
         "operationId": "OrderAttachmentsController_zipTicket",
         "parameters": [
@@ -11601,7 +11601,7 @@
         ]
       }
     },
-    "/salesorders/{id}/attachments.zip": {
+    "/api/salesorders/{id}/attachments.zip": {
       "get": {
         "operationId": "OrderAttachmentsZipController_zip",
         "parameters": [
@@ -11632,7 +11632,7 @@
         ]
       }
     },
-    "/messages/users": {
+    "/api/messages/users": {
       "get": {
         "operationId": "MessagesController_users",
         "parameters": [],
@@ -11646,7 +11646,7 @@
         ]
       }
     },
-    "/messages/threads": {
+    "/api/messages/threads": {
       "get": {
         "operationId": "MessagesController_threads",
         "parameters": [],
@@ -11660,7 +11660,7 @@
         ]
       }
     },
-    "/messages/all": {
+    "/api/messages/all": {
       "get": {
         "operationId": "MessagesController_all",
         "parameters": [],
@@ -11674,7 +11674,7 @@
         ]
       }
     },
-    "/messages/all/read": {
+    "/api/messages/all/read": {
       "post": {
         "operationId": "MessagesController_readAll",
         "parameters": [],
@@ -11688,7 +11688,7 @@
         ]
       }
     },
-    "/messages/with/{userId}": {
+    "/api/messages/with/{userId}": {
       "get": {
         "operationId": "MessagesController_with",
         "parameters": [
@@ -11711,7 +11711,7 @@
         ]
       }
     },
-    "/messages/with/{userId}/read": {
+    "/api/messages/with/{userId}/read": {
       "post": {
         "operationId": "MessagesController_read",
         "parameters": [
@@ -11734,7 +11734,7 @@
         ]
       }
     },
-    "/messages": {
+    "/api/messages": {
       "post": {
         "operationId": "MessagesController_send",
         "parameters": [],
@@ -11758,7 +11758,7 @@
         ]
       }
     },
-    "/today": {
+    "/api/today": {
       "get": {
         "operationId": "TodayController_get",
         "parameters": [
@@ -11787,7 +11787,7 @@
         ]
       }
     },
-    "/me/versions": {
+    "/api/me/versions": {
       "get": {
         "operationId": "MeCountersController_liveVersions",
         "parameters": [],
@@ -11801,7 +11801,7 @@
         ]
       }
     },
-    "/me/counters": {
+    "/api/me/counters": {
       "get": {
         "operationId": "MeCountersController_counters",
         "parameters": [],
@@ -11815,7 +11815,7 @@
         ]
       }
     },
-    "/finance/cashflow": {
+    "/api/finance/cashflow": {
       "get": {
         "operationId": "FinanceController_cashflow",
         "parameters": [
@@ -11858,7 +11858,7 @@
         ]
       }
     },
-    "/finance/summary": {
+    "/api/finance/summary": {
       "get": {
         "operationId": "FinanceController_summary",
         "parameters": [
@@ -11891,7 +11891,7 @@
         ]
       }
     },
-    "/finance/forecast": {
+    "/api/finance/forecast": {
       "get": {
         "operationId": "FinanceController_forecast",
         "parameters": [
@@ -11927,7 +11927,7 @@
         ]
       }
     },
-    "/finance/by-articles": {
+    "/api/finance/by-articles": {
       "get": {
         "operationId": "FinanceController_byArticles",
         "parameters": [
@@ -11970,7 +11970,7 @@
         ]
       }
     },
-    "/finance/by-articles/ops": {
+    "/api/finance/by-articles/ops": {
       "get": {
         "operationId": "FinanceController_byArticlesOps",
         "parameters": [
@@ -12037,7 +12037,7 @@
         ]
       }
     },
-    "/finance/settings": {
+    "/api/finance/settings": {
       "get": {
         "operationId": "FinanceController_settings",
         "parameters": [],
@@ -12073,7 +12073,7 @@
         ]
       }
     },
-    "/finance/needs-fill": {
+    "/api/finance/needs-fill": {
       "get": {
         "operationId": "FinanceController_needsFill",
         "parameters": [],
@@ -12087,7 +12087,7 @@
         ]
       }
     },
-    "/payroll/summary": {
+    "/api/payroll/summary": {
       "get": {
         "operationId": "PayrollController_summary",
         "parameters": [
@@ -12111,7 +12111,7 @@
         ]
       }
     },
-    "/payroll/timesheet": {
+    "/api/payroll/timesheet": {
       "put": {
         "operationId": "PayrollController_saveTimesheet",
         "parameters": [],
@@ -12135,7 +12135,7 @@
         ]
       }
     },
-    "/payroll/payments": {
+    "/api/payroll/payments": {
       "get": {
         "operationId": "PayrollController_payments",
         "parameters": [
@@ -12188,7 +12188,7 @@
         ]
       }
     },
-    "/payroll/payments/{id}": {
+    "/api/payroll/payments/{id}": {
       "delete": {
         "operationId": "PayrollController_removePayment",
         "parameters": [
@@ -12211,7 +12211,7 @@
         ]
       }
     },
-    "/payroll/people/{id}": {
+    "/api/payroll/people/{id}": {
       "patch": {
         "operationId": "PayrollController_setCompany",
         "parameters": [
@@ -12244,7 +12244,7 @@
         ]
       }
     },
-    "/expense-articles": {
+    "/api/expense-articles": {
       "get": {
         "operationId": "ExpenseArticlesController_list",
         "parameters": [],
@@ -12258,7 +12258,7 @@
         ]
       }
     },
-    "/expenses": {
+    "/api/expenses": {
       "get": {
         "operationId": "ExpensesController_list",
         "parameters": [],
@@ -12294,7 +12294,7 @@
         ]
       }
     },
-    "/expenses/{id}": {
+    "/api/expenses/{id}": {
       "get": {
         "operationId": "ExpensesController_get",
         "parameters": [
@@ -12369,7 +12369,7 @@
         ]
       }
     },
-    "/devlog/import": {
+    "/api/devlog/import": {
       "post": {
         "operationId": "DevlogController_import",
         "summary": "Идемпотентный импорт (скрипт devlog-import.js): коммиты, задачи, документы, ошибки",
@@ -12394,7 +12394,7 @@
         ]
       }
     },
-    "/devlog/releases": {
+    "/api/devlog/releases": {
       "get": {
         "operationId": "DevlogController_releases",
         "summary": "Версии с коммитами",
@@ -12409,7 +12409,7 @@
         ]
       }
     },
-    "/devlog/sessions": {
+    "/api/devlog/sessions": {
       "get": {
         "operationId": "DevlogController_sessions",
         "summary": "Сессии работы (?from&to=ГГГГ-ММ-ДД)",
@@ -12424,7 +12424,7 @@
         ]
       }
     },
-    "/devlog/sessions/{id}": {
+    "/api/devlog/sessions/{id}": {
       "patch": {
         "operationId": "DevlogController_patchSession",
         "summary": "Ручная правка часов сессии (null — снять)",
@@ -12458,7 +12458,7 @@
         ]
       }
     },
-    "/devlog/stats": {
+    "/api/devlog/stats": {
       "get": {
         "operationId": "DevlogController_stats",
         "summary": "Часы по неделям, разделам, префиксам (?from&to&manual=1)",
@@ -12473,7 +12473,7 @@
         ]
       }
     },
-    "/devlog/items": {
+    "/api/devlog/items": {
       "get": {
         "operationId": "DevlogController_items",
         "summary": "Ошибки и задачи (?type=error|task&status&area&search)",
@@ -12488,7 +12488,7 @@
         ]
       }
     },
-    "/devlog/items/{id}": {
+    "/api/devlog/items/{id}": {
       "patch": {
         "operationId": "DevlogController_patchItem",
         "summary": "Ручная пометка: статус, «исправлена в vN», примечание, часы (запись становится manual)",
@@ -12522,7 +12522,7 @@
         ]
       }
     },
-    "/devlog/docs": {
+    "/api/devlog/docs": {
       "get": {
         "operationId": "DevlogController_docs",
         "summary": "Архив документов: список без текста (?search&kind&path=)",
@@ -12537,7 +12537,7 @@
         ]
       }
     },
-    "/devlog/kit/download": {
+    "/api/devlog/kit/download": {
       "get": {
         "operationId": "DevlogController_kitDownload",
         "summary": "Набор для нового проекта: zip из снимка файлов процесса + START-PROMPT.md",
@@ -12555,7 +12555,7 @@
         ]
       }
     },
-    "/devlog/docs/{id}": {
+    "/api/devlog/docs/{id}": {
       "get": {
         "operationId": "DevlogController_doc",
         "summary": "Документ архива с текстом",
@@ -12579,7 +12579,7 @@
         ]
       }
     },
-    "/control/catalog": {
+    "/api/control/catalog": {
       "get": {
         "operationId": "ControlController_catalog",
         "summary": "Каталог показателей: ключ, подпись, группа, единица, есть ли источник",
@@ -12594,7 +12594,7 @@
         ]
       }
     },
-    "/control/daily": {
+    "/api/control/daily": {
       "get": {
         "operationId": "ControlController_daily",
         "summary": "Дневные точки показателей (до 400 дней). null = «нет данных», не 0",
@@ -12642,7 +12642,7 @@
         ]
       }
     },
-    "/control/monthly": {
+    "/api/control/monthly": {
       "get": {
         "operationId": "ControlController_monthly",
         "summary": "Месячные свёртки показателей (хранятся всегда): min/max/avg/last/n",
@@ -12690,7 +12690,7 @@
         ]
       }
     },
-    "/control/runs": {
+    "/api/control/runs": {
       "post": {
         "operationId": "ControlController_ingestRun",
         "summary": "Принять summary.json ночного прогона (повтор того же прогона заменяет запись)",
@@ -12715,7 +12715,7 @@
         ]
       }
     },
-    "/control/questions": {
+    "/api/control/questions": {
       "get": {
         "operationId": "QuestionsController_list",
         "summary": "Список вопросов: сначала важные и просроченные. Фильтры status (через запятую), severity, type",
@@ -12800,7 +12800,7 @@
         ]
       }
     },
-    "/control/questions/{id}": {
+    "/api/control/questions/{id}": {
       "get": {
         "operationId": "QuestionsController_get",
         "summary": "Один вопрос",
@@ -12824,7 +12824,7 @@
         ]
       }
     },
-    "/control/questions/{id}/preview": {
+    "/api/control/questions/{id}/preview": {
       "post": {
         "operationId": "QuestionsController_preview",
         "summary": "Предпросмотр действия: что изменится и хеш плана (planHash) для подтверждения",
@@ -12858,7 +12858,7 @@
         ]
       }
     },
-    "/control/questions/{id}/answer": {
+    "/api/control/questions/{id}/answer": {
       "post": {
         "operationId": "QuestionsController_answer",
         "summary": "Ответить: действие (с planHash), «Не проблема», «Отложить» (snoozeUntil), ответ текстом. Другой план — 409 с новым предпросмотром",
@@ -12892,7 +12892,7 @@
         ]
       }
     },
-    "/control/questions/{id}/undo": {
+    "/api/control/questions/{id}/undo": {
       "post": {
         "operationId": "QuestionsController_undo",
         "summary": "Отменить выполненное действие, если затронутые записи не менялись после него",
@@ -12916,7 +12916,7 @@
         ]
       }
     },
-    "/control/questions/{id}/events": {
+    "/api/control/questions/{id}/events": {
       "get": {
         "operationId": "QuestionsController_events",
         "summary": "Журнал вопроса: кто, что и когда",
@@ -12956,7 +12956,7 @@
         ]
       }
     },
-    "/control/switch": {
+    "/api/control/switch": {
       "get": {
         "operationId": "SwitchController_status",
         "summary": "Состояние переключения: кто главный, режим, работа, готовность второго сервера",
@@ -12971,7 +12971,7 @@
         ]
       }
     },
-    "/control/switch/ping": {
+    "/api/control/switch/ping": {
       "get": {
         "operationId": "SwitchController_ping",
         "summary": "Служебный: короткая справка для второго сервера — роль, версия, время копии. Без данных",
@@ -12986,7 +12986,7 @@
         ]
       }
     },
-    "/control/switch/start": {
+    "/api/control/switch/start": {
       "post": {
         "operationId": "SwitchController_start",
         "summary": "Переключить сейчас: главным станет второй сервер. Повтор, пока идёт работа, — 409",
@@ -13017,7 +13017,7 @@
         ]
       }
     },
-    "/control/switch/refresh": {
+    "/api/control/switch/refresh": {
       "post": {
         "operationId": "SwitchController_refresh",
         "summary": "Обновить запасной: код и база, без смены домена. Повтор, пока идёт работа, — 409",
@@ -13048,7 +13048,7 @@
         ]
       }
     },
-    "/control/switch/emergency": {
+    "/api/control/switch/emergency": {
       "post": {
         "operationId": "SwitchController_emergency",
         "summary": "Аварийный подъём запасного сервера на последних данных (основной не отвечает). Только role=standby",
@@ -13076,7 +13076,7 @@
         ]
       }
     },
-    "/control/switch/report": {
+    "/api/control/switch/report": {
       "post": {
         "operationId": "SwitchController_report",
         "summary": "Служебный: отчёт хост-моста о шаге. Только с самого сервера и по секрету из файла",
@@ -13113,7 +13113,7 @@
         ]
       }
     },
-    "/client-errors": {
+    "/api/client-errors": {
       "post": {
         "operationId": "ClientErrorsController_create",
         "summary": "Сообщить об ошибке в приложении или лог ИИ (kind=integration)",
@@ -13144,7 +13144,7 @@
         ]
       }
     },
-    "/client-errors/top": {
+    "/api/client-errors/top": {
       "get": {
         "operationId": "ClientErrorsController_top",
         "summary": "Частые ошибки приложения за последние часы",
@@ -13169,7 +13169,7 @@
         ]
       }
     },
-    "/meta/schema": {
+    "/api/meta/schema": {
       "get": {
         "operationId": "MetaController_schema",
         "summary": "Таблицы и поля базы (из моделей), без секретных полей",
@@ -13189,7 +13189,7 @@
         ]
       }
     },
-    "/meta/openapi.json": {
+    "/api/meta/openapi.json": {
       "get": {
         "operationId": "MetaController_openapi",
         "summary": "Полный контракт API (OpenAPI 3)",
@@ -13209,7 +13209,7 @@
         ]
       }
     },
-    "/meta/guide": {
+    "/api/meta/guide": {
       "get": {
         "operationId": "MetaController_guide",
         "summary": "Инструкция по подключению для ИИ-агента (markdown)",
@@ -13229,7 +13229,7 @@
         ]
       }
     },
-    "/persons": {
+    "/api/persons": {
       "get": {
         "operationId": "PersonController_list",
         "parameters": [
@@ -13268,7 +13268,7 @@
         }
       }
     },
-    "/persons/{id}": {
+    "/api/persons/{id}": {
       "get": {
         "operationId": "PersonController_findOne",
         "parameters": [
@@ -13334,7 +13334,7 @@
         }
       }
     },
-    "/organizations": {
+    "/api/organizations": {
       "get": {
         "operationId": "OrganizationController_list",
         "summary": "List all organizations with pagination and filters",
@@ -13414,7 +13414,7 @@
         ]
       }
     },
-    "/organizations/current": {
+    "/api/organizations/current": {
       "get": {
         "operationId": "OrganizationController_findCurrent",
         "summary": "Get the organization used as our own company",
@@ -13435,7 +13435,7 @@
         ]
       }
     },
-    "/organizations/{id}": {
+    "/api/organizations/{id}": {
       "get": {
         "operationId": "OrganizationController_findOne",
         "summary": "Get organization by ID",
@@ -13537,7 +13537,7 @@
         ]
       }
     },
-    "/organizations/{id}/assets/{role}": {
+    "/api/organizations/{id}/assets/{role}": {
       "put": {
         "operationId": "OrganizationController_putAsset",
         "summary": "Загрузить логотип / печать / подпись организации",
@@ -13623,7 +13623,7 @@
         ]
       }
     },
-    "/organizations/{orgId}/contacts": {
+    "/api/organizations/{orgId}/contacts": {
       "get": {
         "operationId": "OrganizationContactController_list",
         "parameters": [
@@ -13661,7 +13661,7 @@
         }
       }
     },
-    "/organizations/{orgId}/contacts/{personId}": {
+    "/api/organizations/{orgId}/contacts/{personId}": {
       "delete": {
         "operationId": "OrganizationContactController_remove",
         "parameters": [
@@ -13689,7 +13689,7 @@
         }
       }
     },
-    "/photos": {
+    "/api/photos": {
       "get": {
         "operationId": "PhotosController_findAll",
         "parameters": [],
@@ -13709,7 +13709,7 @@
         }
       }
     },
-    "/photos/{id}": {
+    "/api/photos/{id}": {
       "get": {
         "operationId": "PhotosController_findOne",
         "parameters": [
@@ -13747,7 +13747,7 @@
         }
       }
     },
-    "/photos/upload": {
+    "/api/photos/upload": {
       "post": {
         "operationId": "PhotosController_upload",
         "parameters": [
@@ -13767,7 +13767,7 @@
         }
       }
     },
-    "/photos/{id}/frame": {
+    "/api/photos/{id}/frame": {
       "patch": {
         "operationId": "PhotosController_updateFrame",
         "parameters": [
@@ -13787,7 +13787,7 @@
         }
       }
     },
-    "/counterparties": {
+    "/api/counterparties": {
       "get": {
         "operationId": "CounterpartyController_list",
         "parameters": [
@@ -13834,7 +13834,7 @@
         }
       }
     },
-    "/counterparties/{id}": {
+    "/api/counterparties/{id}": {
       "get": {
         "operationId": "CounterpartyController_findOne",
         "parameters": [
@@ -13900,7 +13900,7 @@
         }
       }
     },
-    "/counterparties/quick": {
+    "/api/counterparties/quick": {
       "post": {
         "operationId": "CounterpartyController_quickCreate",
         "parameters": [],
@@ -13921,7 +13921,7 @@
         }
       }
     },
-    "/sites": {
+    "/api/sites": {
       "get": {
         "operationId": "SiteController_list",
         "parameters": [
@@ -13960,7 +13960,7 @@
         }
       }
     },
-    "/sites/ensure-default": {
+    "/api/sites/ensure-default": {
       "post": {
         "operationId": "SiteController_ensureDefault",
         "parameters": [],
@@ -13981,7 +13981,7 @@
         }
       }
     },
-    "/sites/{id}": {
+    "/api/sites/{id}": {
       "get": {
         "operationId": "SiteController_findOne",
         "parameters": [
@@ -14047,7 +14047,7 @@
         }
       }
     },
-    "/org-roles": {
+    "/api/org-roles": {
       "get": {
         "operationId": "RoleOrgController_findAll",
         "parameters": [],
@@ -14067,7 +14067,7 @@
         }
       }
     },
-    "/org-roles/{id}": {
+    "/api/org-roles/{id}": {
       "get": {
         "operationId": "RoleOrgController_findOne",
         "parameters": [
@@ -14123,7 +14123,7 @@
         }
       }
     },
-    "/counterparty-roles": {
+    "/api/counterparty-roles": {
       "get": {
         "operationId": "RoleCounterpartyController_findAll",
         "parameters": [],
@@ -14143,7 +14143,7 @@
         }
       }
     },
-    "/counterparty-roles/{id}": {
+    "/api/counterparty-roles/{id}": {
       "get": {
         "operationId": "RoleCounterpartyController_findOne",
         "parameters": [
@@ -14199,7 +14199,7 @@
         }
       }
     },
-    "/categories": {
+    "/api/categories": {
       "get": {
         "operationId": "CategoryController_list",
         "parameters": [
@@ -14244,7 +14244,7 @@
         ]
       }
     },
-    "/categories/tree": {
+    "/api/categories/tree": {
       "get": {
         "operationId": "CategoryController_tree",
         "parameters": [
@@ -14267,7 +14267,7 @@
         ]
       }
     },
-    "/categories/{id}": {
+    "/api/categories/{id}": {
       "get": {
         "operationId": "CategoryController_findOne",
         "parameters": [
@@ -14342,7 +14342,7 @@
         ]
       }
     },
-    "/categories/reorder": {
+    "/api/categories/reorder": {
       "post": {
         "operationId": "CategoryController_reorder",
         "parameters": [],
@@ -14356,7 +14356,7 @@
         ]
       }
     },
-    "/categories/reorder-children": {
+    "/api/categories/reorder-children": {
       "post": {
         "operationId": "CategoryController_reorderChildren",
         "parameters": [],
@@ -14370,7 +14370,7 @@
         ]
       }
     },
-    "/units": {
+    "/api/units": {
       "get": {
         "operationId": "UnitController_list",
         "parameters": [
@@ -14417,7 +14417,7 @@
         }
       }
     },
-    "/units/active": {
+    "/api/units/active": {
       "get": {
         "operationId": "UnitController_listActive",
         "parameters": [],
@@ -14428,7 +14428,7 @@
         }
       }
     },
-    "/units/{key}": {
+    "/api/units/{key}": {
       "get": {
         "operationId": "UnitController_findOne",
         "parameters": [
@@ -14494,7 +14494,7 @@
         }
       }
     },
-    "/work-types": {
+    "/api/work-types": {
       "get": {
         "operationId": "WorkTypeController_findAll",
         "parameters": [
@@ -14539,7 +14539,7 @@
         ]
       }
     },
-    "/work-types/{id}/where-used": {
+    "/api/work-types/{id}/where-used": {
       "get": {
         "operationId": "WorkTypeController_getWhereUsed",
         "summary": "List modules that use this work type",
@@ -14580,7 +14580,7 @@
         ]
       }
     },
-    "/work-types/{id}": {
+    "/api/work-types/{id}": {
       "get": {
         "operationId": "WorkTypeController_findOne",
         "parameters": [
@@ -14656,7 +14656,7 @@
         ]
       }
     },
-    "/currencies": {
+    "/api/currencies": {
       "get": {
         "operationId": "CurrencyController_list",
         "parameters": [
@@ -14703,7 +14703,7 @@
         }
       }
     },
-    "/currencies/active": {
+    "/api/currencies/active": {
       "get": {
         "operationId": "CurrencyController_listActive",
         "parameters": [],
@@ -14714,7 +14714,7 @@
         }
       }
     },
-    "/currencies/{key}": {
+    "/api/currencies/{key}": {
       "get": {
         "operationId": "CurrencyController_findOne",
         "parameters": [
@@ -14780,7 +14780,7 @@
         }
       }
     },
-    "/color-references": {
+    "/api/color-references": {
       "get": {
         "operationId": "ColorReferenceController_list",
         "summary": "List color references",
@@ -14846,7 +14846,7 @@
         ]
       }
     },
-    "/color-references/{id}": {
+    "/api/color-references/{id}": {
       "get": {
         "operationId": "ColorReferenceController_findOne",
         "summary": "Get color reference by ID",
@@ -14939,7 +14939,7 @@
         ]
       }
     },
-    "/dictionary-labels": {
+    "/api/dictionary-labels": {
       "get": {
         "operationId": "DictionaryLabelController_list",
         "summary": "Получить подписи справочников",
@@ -14967,7 +14967,7 @@
         ]
       }
     },
-    "/dictionary-labels/active": {
+    "/api/dictionary-labels/active": {
       "get": {
         "operationId": "DictionaryLabelController_active",
         "summary": "Получить активные подписи для селектов",
@@ -14995,7 +14995,7 @@
         ]
       }
     },
-    "/dictionary-labels/{id}": {
+    "/api/dictionary-labels/{id}": {
       "patch": {
         "operationId": "DictionaryLabelController_patch",
         "summary": "Изменить подпись справочника",
@@ -15029,7 +15029,7 @@
         ]
       }
     },
-    "/products": {
+    "/api/products": {
       "get": {
         "operationId": "ProductController_list",
         "summary": "List all products with pagination and filters",
@@ -15135,7 +15135,7 @@
         ]
       }
     },
-    "/products/bulk": {
+    "/api/products/bulk": {
       "get": {
         "operationId": "ProductController_findByIds",
         "summary": "Get multiple products by IDs",
@@ -15160,7 +15160,7 @@
         ]
       }
     },
-    "/products/{id}/where-used": {
+    "/api/products/{id}/where-used": {
       "get": {
         "operationId": "ProductController_getWhereUsed",
         "parameters": [
@@ -15183,7 +15183,7 @@
         ]
       }
     },
-    "/products/{id}/duplicate": {
+    "/api/products/{id}/duplicate": {
       "post": {
         "operationId": "ProductController_duplicate",
         "summary": "Создать безопасную копию изделия",
@@ -15220,7 +15220,7 @@
         ]
       }
     },
-    "/products/{id}/composition": {
+    "/api/products/{id}/composition": {
       "get": {
         "operationId": "ProductController_getComposition",
         "parameters": [
@@ -15274,7 +15274,7 @@
         ]
       }
     },
-    "/products/{id}/composition/{lineId}": {
+    "/api/products/{id}/composition/{lineId}": {
       "patch": {
         "operationId": "ProductController_updateComposition",
         "parameters": [
@@ -15344,7 +15344,7 @@
         ]
       }
     },
-    "/products/{id}/tree": {
+    "/api/products/{id}/tree": {
       "get": {
         "operationId": "ProductController_getTree",
         "parameters": [
@@ -15375,7 +15375,7 @@
         ]
       }
     },
-    "/products/{id}/purchase-needs": {
+    "/api/products/{id}/purchase-needs": {
       "get": {
         "operationId": "ProductController_purchaseNeedsOf",
         "summary": "Что купить на N изделий: сырьё по сортаментам, метизы, покупные",
@@ -15407,7 +15407,7 @@
         ]
       }
     },
-    "/products/{id}": {
+    "/api/products/{id}": {
       "get": {
         "operationId": "ProductController_findOne",
         "parameters": [
@@ -15482,7 +15482,7 @@
         ]
       }
     },
-    "/products/{productId}/modules": {
+    "/api/products/{productId}/modules": {
       "post": {
         "operationId": "ProductController_attachModule",
         "parameters": [
@@ -15505,7 +15505,7 @@
         ]
       }
     },
-    "/products/{productId}/modules/{moduleId}": {
+    "/api/products/{productId}/modules/{moduleId}": {
       "delete": {
         "operationId": "ProductController_detachModule",
         "parameters": [
@@ -15536,7 +15536,7 @@
         ]
       }
     },
-    "/products/{productId}/photos": {
+    "/api/products/{productId}/photos": {
       "get": {
         "operationId": "ProductPhotoController_list",
         "parameters": [
@@ -15592,7 +15592,7 @@
         }
       }
     },
-    "/products/{productId}/photos/{id}": {
+    "/api/products/{productId}/photos/{id}": {
       "patch": {
         "operationId": "ProductPhotoController_patch",
         "parameters": [
@@ -15640,7 +15640,7 @@
         }
       }
     },
-    "/modules": {
+    "/api/modules": {
       "get": {
         "operationId": "ProductModuleController_list",
         "parameters": [
@@ -15685,7 +15685,7 @@
         ]
       }
     },
-    "/modules/bulk": {
+    "/api/modules/bulk": {
       "get": {
         "operationId": "ProductModuleController_findByIds",
         "summary": "Get multiple modules by IDs",
@@ -15710,7 +15710,7 @@
         ]
       }
     },
-    "/modules/{id}/where-used": {
+    "/api/modules/{id}/where-used": {
       "get": {
         "operationId": "ProductModuleController_getWhereUsed",
         "summary": "List catalog parents that use this module",
@@ -15751,7 +15751,7 @@
         ]
       }
     },
-    "/modules/{id}/composition": {
+    "/api/modules/{id}/composition": {
       "get": {
         "operationId": "ProductModuleController_getComposition",
         "parameters": [
@@ -15805,7 +15805,7 @@
         ]
       }
     },
-    "/modules/{id}/composition/{lineId}": {
+    "/api/modules/{id}/composition/{lineId}": {
       "patch": {
         "operationId": "ProductModuleController_updateComposition",
         "parameters": [
@@ -15875,7 +15875,7 @@
         ]
       }
     },
-    "/modules/{id}/tree": {
+    "/api/modules/{id}/tree": {
       "get": {
         "operationId": "ProductModuleController_getTree",
         "parameters": [
@@ -15906,7 +15906,7 @@
         ]
       }
     },
-    "/modules/{id}": {
+    "/api/modules/{id}": {
       "get": {
         "operationId": "ProductModuleController_findOne",
         "parameters": [
@@ -15985,7 +15985,7 @@
         ]
       }
     },
-    "/product-module-photos": {
+    "/api/product-module-photos": {
       "get": {
         "operationId": "ProductModulePhotoController_list",
         "parameters": [
@@ -16014,7 +16014,7 @@
         }
       }
     },
-    "/product-module-photos/{id}/main": {
+    "/api/product-module-photos/{id}/main": {
       "post": {
         "operationId": "ProductModulePhotoController_setMain",
         "parameters": [
@@ -16034,7 +16034,7 @@
         }
       }
     },
-    "/product-module-photos/{id}": {
+    "/api/product-module-photos/{id}": {
       "patch": {
         "operationId": "ProductModulePhotoController_update",
         "parameters": [
@@ -16072,7 +16072,7 @@
         }
       }
     },
-    "/products/{productId}/passport": {
+    "/api/products/{productId}/passport": {
       "get": {
         "operationId": "ProductPassportController_findByProduct",
         "parameters": [
@@ -16126,7 +16126,7 @@
         ]
       }
     },
-    "/passports/duplicates": {
+    "/api/passports/duplicates": {
       "get": {
         "operationId": "ProductPassportController_duplicates",
         "parameters": [],
@@ -16140,7 +16140,7 @@
         ]
       }
     },
-    "/passports/queue": {
+    "/api/passports/queue": {
       "get": {
         "operationId": "ProductPassportController_queue",
         "parameters": [
@@ -16174,7 +16174,7 @@
         ]
       }
     },
-    "/passports/next-numbers": {
+    "/api/passports/next-numbers": {
       "get": {
         "operationId": "ProductPassportController_nextNumbers",
         "parameters": [],
@@ -16188,7 +16188,7 @@
         ]
       }
     },
-    "/passports/next-number": {
+    "/api/passports/next-number": {
       "put": {
         "operationId": "ProductPassportController_setNextNumber",
         "parameters": [],
@@ -16212,7 +16212,7 @@
         ]
       }
     },
-    "/passports/last-numbers": {
+    "/api/passports/last-numbers": {
       "get": {
         "operationId": "ProductPassportController_lastNumbers",
         "parameters": [],
@@ -16226,7 +16226,7 @@
         ]
       }
     },
-    "/passports/ready": {
+    "/api/passports/ready": {
       "post": {
         "operationId": "ProductPassportController_createReady",
         "parameters": [],
@@ -16250,7 +16250,7 @@
         ]
       }
     },
-    "/passports": {
+    "/api/passports": {
       "get": {
         "operationId": "ProductPassportController_list",
         "parameters": [
@@ -16411,7 +16411,7 @@
         ]
       }
     },
-    "/passports/by-order": {
+    "/api/passports/by-order": {
       "get": {
         "operationId": "ProductPassportController_byOrder",
         "parameters": [
@@ -16451,7 +16451,7 @@
         ]
       }
     },
-    "/passports/facets": {
+    "/api/passports/facets": {
       "get": {
         "operationId": "ProductPassportController_facets",
         "parameters": [],
@@ -16465,7 +16465,7 @@
         ]
       }
     },
-    "/passports/phrases": {
+    "/api/passports/phrases": {
       "get": {
         "operationId": "ProductPassportController_phrases",
         "parameters": [],
@@ -16479,7 +16479,7 @@
         ]
       }
     },
-    "/passports/funnel": {
+    "/api/passports/funnel": {
       "get": {
         "operationId": "ProductPassportController_funnel",
         "parameters": [
@@ -16529,7 +16529,7 @@
         ]
       }
     },
-    "/showcase/{id}/passport-gaps": {
+    "/api/showcase/{id}/passport-gaps": {
       "get": {
         "operationId": "ProductPassportController_passportGaps",
         "parameters": [
@@ -16568,7 +16568,7 @@
         ]
       }
     },
-    "/showcase/{id}/passport-template": {
+    "/api/showcase/{id}/passport-template": {
       "get": {
         "operationId": "ProductPassportController_passportTemplate",
         "parameters": [
@@ -16596,7 +16596,7 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "Шаблон и готовность паспорта. Для краткого описания из частей defaults.simpleDescription содержит mode и partIds; вычисленный текст доступен в simpleDescriptionSource {kind:\"parts\",partIds,text,invalidPartIds?} и в textSnapshot.description."
           }
         },
         "tags": [
@@ -16640,7 +16640,7 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "Шаблон и готовность паспорта. Для краткого описания из частей defaults.simpleDescription содержит mode и partIds; вычисленный текст доступен в simpleDescriptionSource {kind:\"parts\",partIds,text,invalidPartIds?} и в textSnapshot.description."
           }
         },
         "tags": [
@@ -16648,7 +16648,7 @@
         ]
       }
     },
-    "/showcase/{id}/fill-queue": {
+    "/api/showcase/{id}/fill-queue": {
       "get": {
         "operationId": "ProductPassportController_fillQueue",
         "parameters": [
@@ -16671,7 +16671,7 @@
         ]
       }
     },
-    "/showcase/{id}/techsheet-gaps": {
+    "/api/showcase/{id}/techsheet-gaps": {
       "get": {
         "operationId": "ProductPassportController_techsheetGaps",
         "parameters": [
@@ -16694,7 +16694,7 @@
         ]
       }
     },
-    "/showcase/{id}/techsheet-analogs": {
+    "/api/showcase/{id}/techsheet-analogs": {
       "get": {
         "operationId": "ProductPassportController_techsheetAnalogs",
         "parameters": [
@@ -16717,7 +16717,7 @@
         ]
       }
     },
-    "/passports/models": {
+    "/api/passports/models": {
       "get": {
         "operationId": "ProductPassportController_models",
         "parameters": [],
@@ -16731,7 +16731,7 @@
         ]
       }
     },
-    "/passports/template": {
+    "/api/passports/template": {
       "get": {
         "operationId": "ProductPassportController_template",
         "parameters": [
@@ -16775,7 +16775,7 @@
         ]
       }
     },
-    "/passports/texts": {
+    "/api/passports/texts": {
       "get": {
         "operationId": "ProductPassportController_texts",
         "parameters": [
@@ -16826,7 +16826,7 @@
         ]
       }
     },
-    "/passports/bulk": {
+    "/api/passports/bulk": {
       "post": {
         "operationId": "ProductPassportController_bulk",
         "parameters": [],
@@ -16840,7 +16840,7 @@
         ]
       }
     },
-    "/passports/bulk/restore": {
+    "/api/passports/bulk/restore": {
       "post": {
         "operationId": "ProductPassportController_bulkRestore",
         "parameters": [],
@@ -16854,7 +16854,7 @@
         ]
       }
     },
-    "/passports/check": {
+    "/api/passports/check": {
       "post": {
         "operationId": "ProductPassportController_check",
         "parameters": [],
@@ -16868,7 +16868,7 @@
         ]
       }
     },
-    "/passports/texts/preview": {
+    "/api/passports/texts/preview": {
       "post": {
         "operationId": "ProductPassportController_textsPreview",
         "parameters": [],
@@ -16882,7 +16882,7 @@
         ]
       }
     },
-    "/passports/zip": {
+    "/api/passports/zip": {
       "get": {
         "operationId": "ProductPassportController_zip",
         "parameters": [
@@ -16904,7 +16904,7 @@
         ]
       }
     },
-    "/passports/product-texts": {
+    "/api/passports/product-texts": {
       "get": {
         "operationId": "ProductPassportController_productTexts",
         "parameters": [
@@ -16928,7 +16928,7 @@
         ]
       }
     },
-    "/passports/preview": {
+    "/api/passports/preview": {
       "post": {
         "operationId": "ProductPassportController_preview",
         "parameters": [],
@@ -16952,7 +16952,7 @@
         ]
       }
     },
-    "/passports/order/{orderId}/plan": {
+    "/api/passports/order/{orderId}/plan": {
       "get": {
         "operationId": "ProductPassportController_orderPlan",
         "parameters": [
@@ -17007,7 +17007,7 @@
         ]
       }
     },
-    "/passports/order/{orderId}/issue": {
+    "/api/passports/order/{orderId}/issue": {
       "post": {
         "operationId": "ProductPassportController_orderIssue",
         "parameters": [
@@ -17040,7 +17040,7 @@
         ]
       }
     },
-    "/passports/order/{orderId}/pdf": {
+    "/api/passports/order/{orderId}/pdf": {
       "get": {
         "operationId": "ProductPassportController_orderPdf",
         "parameters": [
@@ -17141,7 +17141,7 @@
         ]
       }
     },
-    "/passports/look/{companyId}": {
+    "/api/passports/look/{companyId}": {
       "get": {
         "operationId": "ProductPassportController_look",
         "parameters": [
@@ -17195,7 +17195,7 @@
         ]
       }
     },
-    "/passports/look/{companyId}/preview": {
+    "/api/passports/look/{companyId}/preview": {
       "get": {
         "operationId": "ProductPassportController_lookPreview",
         "parameters": [
@@ -17218,7 +17218,7 @@
         ]
       }
     },
-    "/passports/look/{companyId}/{slot}": {
+    "/api/passports/look/{companyId}/{slot}": {
       "post": {
         "operationId": "ProductPassportController_uploadLook",
         "parameters": [
@@ -17278,7 +17278,7 @@
         ]
       }
     },
-    "/passports/{id}": {
+    "/api/passports/{id}": {
       "get": {
         "operationId": "ProductPassportController_findOne",
         "parameters": [
@@ -17371,7 +17371,7 @@
         ]
       }
     },
-    "/passports/{id}/pdf": {
+    "/api/passports/{id}/pdf": {
       "get": {
         "operationId": "ProductPassportController_pdf",
         "parameters": [
@@ -17480,7 +17480,7 @@
         ]
       }
     },
-    "/passports/{id}/print-file": {
+    "/api/passports/{id}/print-file": {
       "post": {
         "operationId": "ProductPassportController_savePrintFile",
         "parameters": [
@@ -17524,7 +17524,7 @@
         ]
       }
     },
-    "/passports/{id}/revisions/{revision}": {
+    "/api/passports/{id}/revisions/{revision}": {
       "delete": {
         "operationId": "ProductPassportController_removeRevision",
         "parameters": [
@@ -17555,7 +17555,7 @@
         ]
       }
     },
-    "/salesorders/{id}/passports/draft-all": {
+    "/api/salesorders/{id}/passports/draft-all": {
       "post": {
         "operationId": "ProductPassportController_draftAll",
         "parameters": [
@@ -17578,7 +17578,7 @@
         ]
       }
     },
-    "/passports/{id}/snapshot-item": {
+    "/api/passports/{id}/snapshot-item": {
       "patch": {
         "operationId": "ProductPassportController_editSnapshotItem",
         "parameters": [
@@ -17601,7 +17601,7 @@
         ]
       }
     },
-    "/passports/{id}/snapshot-item/promote": {
+    "/api/passports/{id}/snapshot-item/promote": {
       "post": {
         "operationId": "ProductPassportController_promoteSnapshotItem",
         "parameters": [
@@ -17624,7 +17624,7 @@
         ]
       }
     },
-    "/passports/{id}/snapshot-field": {
+    "/api/passports/{id}/snapshot-field": {
       "patch": {
         "operationId": "ProductPassportController_editSnapshotField",
         "parameters": [
@@ -17647,7 +17647,7 @@
         ]
       }
     },
-    "/passports/{id}/snapshot-field/sources": {
+    "/api/passports/{id}/snapshot-field/sources": {
       "post": {
         "operationId": "ProductPassportController_fieldSources",
         "parameters": [
@@ -17670,7 +17670,7 @@
         ]
       }
     },
-    "/passports/{id}/snapshot-field/target": {
+    "/api/passports/{id}/snapshot-field/target": {
       "post": {
         "operationId": "ProductPassportController_fieldTarget",
         "parameters": [
@@ -17693,7 +17693,7 @@
         ]
       }
     },
-    "/passports/{id}/snapshot-item/target": {
+    "/api/passports/{id}/snapshot-item/target": {
       "post": {
         "operationId": "ProductPassportController_itemTarget",
         "parameters": [
@@ -17716,7 +17716,7 @@
         ]
       }
     },
-    "/passports/{id}/snapshot-field/promote": {
+    "/api/passports/{id}/snapshot-field/promote": {
       "post": {
         "operationId": "ProductPassportController_promoteSnapshotField",
         "parameters": [
@@ -17739,7 +17739,7 @@
         ]
       }
     },
-    "/passports/{id}/snapshot": {
+    "/api/passports/{id}/snapshot": {
       "post": {
         "operationId": "ProductPassportController_snapshot",
         "parameters": [
@@ -17762,7 +17762,7 @@
         ]
       }
     },
-    "/passports/{id}/issue": {
+    "/api/passports/{id}/issue": {
       "post": {
         "operationId": "ProductPassportController_issue",
         "parameters": [
@@ -17795,7 +17795,7 @@
         ]
       }
     },
-    "/passports/{id}/annul": {
+    "/api/passports/{id}/annul": {
       "post": {
         "operationId": "ProductPassportController_annul",
         "parameters": [
@@ -17818,7 +17818,7 @@
         ]
       }
     },
-    "/passports/{id}/copy": {
+    "/api/passports/{id}/copy": {
       "post": {
         "operationId": "ProductPassportController_copy",
         "parameters": [
@@ -17851,7 +17851,7 @@
         ]
       }
     },
-    "/passports/{id}/restore": {
+    "/api/passports/{id}/restore": {
       "post": {
         "operationId": "ProductPassportController_restore",
         "parameters": [
@@ -17874,7 +17874,7 @@
         ]
       }
     },
-    "/pdm-files": {
+    "/api/pdm-files": {
       "get": {
         "operationId": "PdmFilesController_list",
         "parameters": [
@@ -17910,7 +17910,7 @@
         ]
       }
     },
-    "/pdm-files/{id}/download": {
+    "/api/pdm-files/{id}/download": {
       "get": {
         "operationId": "PdmFilesController_download",
         "parameters": [
@@ -17933,7 +17933,7 @@
         ]
       }
     },
-    "/pdm-files/{id}/download-ticket": {
+    "/api/pdm-files/{id}/download-ticket": {
       "post": {
         "operationId": "PdmFilesController_ticket",
         "parameters": [
@@ -17956,7 +17956,7 @@
         ]
       }
     },
-    "/pdm-files/{id}/file": {
+    "/api/pdm-files/{id}/file": {
       "get": {
         "operationId": "PdmFileByTicketController_file",
         "parameters": [
@@ -17987,7 +17987,7 @@
         ]
       }
     },
-    "/pdm-import/preview": {
+    "/api/pdm-import/preview": {
       "post": {
         "operationId": "PdmImportController_preview",
         "summary": "Сравнить дерево pdm-tree/1 с сайтом: что создать, что связать, где расхождения (ничего не записывает в номенклатуру)",
@@ -18012,7 +18012,7 @@
         ]
       }
     },
-    "/pdm-import/apply": {
+    "/api/pdm-import/apply": {
       "post": {
         "operationId": "PdmImportController_apply",
         "summary": "Записать план одной транзакцией. Повтор того же planId возвращает прежний итог; 409, если данные на сайте изменились",
@@ -18037,7 +18037,7 @@
         ]
       }
     },
-    "/pdm-import/files": {
+    "/api/pdm-import/files": {
       "post": {
         "operationId": "PdmImportController_files",
         "parameters": [],
@@ -18067,7 +18067,7 @@
         ]
       }
     },
-    "/pdm-import/preview-image": {
+    "/api/pdm-import/preview-image": {
       "post": {
         "operationId": "PdmImportController_previewImage",
         "parameters": [],
@@ -18097,7 +18097,7 @@
         ]
       }
     },
-    "/attribute-definitions": {
+    "/api/attribute-definitions": {
       "get": {
         "operationId": "AttributeDefinitionController_findAll",
         "parameters": [
@@ -18144,7 +18144,7 @@
         }
       }
     },
-    "/attribute-definitions/{id}": {
+    "/api/attribute-definitions/{id}": {
       "get": {
         "operationId": "AttributeDefinitionController_findOne",
         "parameters": [
@@ -18210,7 +18210,7 @@
         }
       }
     },
-    "/{entityType}/{entityId}/attributes": {
+    "/api/{entityType}/{entityId}/attributes": {
       "get": {
         "operationId": "EntityAttributeValueController_getAttributes",
         "parameters": [
@@ -18274,7 +18274,7 @@
         }
       }
     },
-    "/{entityType}/{entityId}/attributes/{attributeId}": {
+    "/api/{entityType}/{entityId}/attributes/{attributeId}": {
       "put": {
         "operationId": "EntityAttributeValueController_setOne",
         "parameters": [
@@ -20424,7 +20424,7 @@
           },
           "quantity": {
             "type": "number",
-            "minimum": 0.000001
+            "minimum": 1e-06
           },
           "sortOrder": {
             "type": "number",
@@ -20475,7 +20475,7 @@
           },
           "quantity": {
             "type": "number",
-            "minimum": 0.000001
+            "minimum": 1e-06
           },
           "sortOrder": {
             "type": "number",
@@ -23683,7 +23683,33 @@
       },
       "PatchPassportTemplateDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "changes": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Собственные поля для записи. simpleDescription: {mode:\"parts\",partIds:[...]} для сборки из частей, {text,partIds} или {mode:\"manual\",text,partIds} для своего текста, null для сброса.",
+            "example": {
+              "simpleDescription": {
+                "mode": "parts",
+                "partIds": [
+                  "6537c21dd0f2c297559c4394"
+                ]
+              }
+            }
+          },
+          "expected": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Прежние собственные значения с теми же ключами. simpleDescription передаётся целиком из defaults или как null, если поле отсутствует.",
+            "example": {
+              "simpleDescription": null
+            }
+          }
+        },
+        "required": [
+          "changes",
+          "expected"
+        ]
       },
       "PassportPreviewDto": {
         "type": "object",

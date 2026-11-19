@@ -6,9 +6,15 @@ import type { InstallKind } from './passport-variants';
 import type { LookDoc } from './passport-look.service';
 import { joinRu, type PartRec } from '../../common/catalog/materials-text';
 import { findIn, forProduct, leavesOf } from '../../common/passport/phrase-tree';
+import type { SelectedPartsSource } from '../../common/passport/simple-description';
 
 export const SIMPLE_DESCRIPTION_SECTION = 'simple-description';
 export const isBriefPresentation = (d: Doc) => d.presentationVersion === 1 && d.variant === 'short';
+
+export type SimpleDescriptionSource =
+  | SelectedPartsSource
+  | { kind: 'own'; partIds: string[] }
+  | { kind: 'dictionary'; id: string; rootId: string; partIds: string[] };
 
 export const shortDetailKeys = new Set(['materials', 'materialsSpec', 'materialIds', 'description', 'compositionSheet', 'modules']);
 const shortDetailSections = ['description', 'materials', 'materials-spec', 'composition'];

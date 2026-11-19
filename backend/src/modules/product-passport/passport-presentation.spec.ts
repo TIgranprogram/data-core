@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { bindPresentation, lineScopeKey } from './passport-bind';
 import { buildForest, forProduct, toNode } from '../../common/passport/phrase-tree';
+import { renderSelectedParts } from '../../common/passport/simple-description';
 import { renderSimplePhrase, selectSimpleDescription, simpleChoiceForest, simpleDescriptionSuggestions } from './passport-presentation';
 import { buildV2Text } from './passport-v2-text';
 
@@ -27,6 +28,32 @@ describe('Источники версии 1 паспорта', () => {
     await expect(bindPresentation(db(), { productId, salesOrderId: otherOrg, incomeId })).rejects.toThrow('другому заказу');
     await expect(bindPresentation(db({ incomes: { ...position, cancelledAt: new Date() } }), { productId, salesOrderId, incomeId })).rejects.toThrow('отменена');
     await expect(bindPresentation(db({ organizations: null }), { productId, salesOrderId, incomeId })).rejects.toThrow('удалённая или чужая фирма');
+  });
+});
+
+describe('C161: краткая фраза из подтверждённых частей', () => {
+  const parts = new Map([
+    ['frame', { name: 'каркас', genSingular: ' каркаса ' }],
+    ['handle', { name: 'рукоятка', genSingular: 'рукоятки' }],
+    ['pedal', { name: 'педаль', genSingular: 'педали', genPlural: 'педалей' }],
+    ['panel', { name: 'панель   ПВХ', genPlural: 'панелей ПВХ' }],
+    ['panel-copy', { name: 'Панель ПВХ', genSingular: 'панели ПВХ' }],
+    ['missing-name', { name: '  ', genSingular: 'детали' }],
+  ]);
+
+  it.each([
+    [['frame'], 'Изделие состоит из каркаса.'],
+    [['handle', 'pedal'], 'Изделие состоит из рукоятки и педали.'],
+    [['pedal', 'frame', 'pedal', 'handle'], 'Изделие состоит из педали, каркаса и рукоятки.'],
+    [['panel', 'panel-copy', 'pedal'], 'Основные части изделия: панель ПВХ и педаль.'],
+    [[], ''],
+  ])('сохраняет выбор и собирает фразу %#', (ids, text) => {
+    expect(renderSelectedParts(ids, parts)).toEqual({ text, invalidPartIds: [] });
+  });
+
+  it('показывает каждую отсутствующую запись, не собирает частичный перечень', () => {
+    expect(renderSelectedParts(['frame', 'removed', 'missing-name', 'removed'], parts))
+      .toEqual({ text: '', invalidPartIds: ['removed', 'missing-name'] });
   });
 });
 

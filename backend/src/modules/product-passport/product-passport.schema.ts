@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 import type { StoredSpec } from '../../common/catalog/materials-table';
+import type { SimpleDescription } from '../../common/passport/simple-description';
 
 export type ProductPassportDocument = HydratedDocument<ProductPassport>;
 
@@ -70,7 +71,7 @@ export class ProductPassport {
   @Prop() creationScopeKey?: string;
   /** Использованные источники печати редакции. */
   @Prop({ type: Object }) printSnapshot?: Record<string, unknown>;
-  @Prop({ type: Object }) simpleDescription?: { text: string; partIds: Types.ObjectId[] };
+  @Prop({ type: Object }) simpleDescription?: SimpleDescription<Types.ObjectId>;
   @Prop() kindId?: string;
   /** Готовность к отдаче: ready / notReady / rework. Не путать с status. Нет поля: выпущенный = готов, черновик = не готов (считается на чтении). kppdf поле не читает — только добавлено, синхронно не нужно. */
   @Prop({ enum: ['ready', 'notReady', 'rework'] }) readiness?: string;

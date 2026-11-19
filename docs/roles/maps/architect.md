@@ -1,5 +1,7 @@
 # Карта роли architect
 
+C161, коммит: e4a1b0e0 (рабочий diff). P1 закрыт: product-passport.service.ts:829 возвращает 409 при пересборке выданного или аннулированного паспорта v1 из частей. Независимый прогон passport-parts-presentation.spec.ts — 3/3. Отчёт docs/crew/C161-short-description-from-parts/ARCH-REVIEW.md. Карта обновлена.
+
 C160, коммит: 0f77c6c4 (рабочий diff). Все три P1 закрыты. core/error-context.js:18,43, core/errors.js:31,43,61,112 — маршрут, очистка текста 4xx, очередь и поздний отказ после выхода. Прогон 16/16. Отчёт docs/crew/C160-error-navigation-context/REVIEW.md. Карта обновлена.
 
 C155, повторная приёмка, коммит: 179c6239 (рабочий diff). Четыре находки закрыты: product-passport.service.ts:163,573,1092; passport-from-product.ts:88; passport-order.ts:224. Итог — можно выкладывать. docs/crew/C155-passport-owner-queue/FINAL-ARCH-REVIEW.md. Карта обновлена.

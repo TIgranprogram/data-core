@@ -1,7 +1,7 @@
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Res, StreamableFile, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiConsumes, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiConsumes, ApiOkResponse, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { memoryStorage } from 'multer';
 import { PDF_UPLOAD_MAX_BYTES } from '../photos/image-upload.options';
@@ -24,6 +24,7 @@ import { PassportOrderQueryDto, PassportPresentationDto, PassportTemplateQueryDt
 import type { PassportTemplateContent } from './passport-template.default';
 
 const VIEW = ['admin', 'director', 'manager'] as const;
+const TEMPLATE_PROJECTION = 'Шаблон и готовность паспорта. Для краткого описания из частей defaults.simpleDescription содержит mode и partIds; вычисленный текст доступен в simpleDescriptionSource {kind:"parts",partIds,text,invalidPartIds?} и в textSnapshot.description.';
 // Работа с отдельными паспортами и заказом; общие настройки остаются EDIT.
 const WORK = ['admin', 'director', 'manager'] as const;
 const EDIT = ['admin', 'director'] as const;
@@ -175,6 +176,7 @@ export class ProductPassportController {
   @AppSection('products', 'passports')
   @Get('showcase/:id/passport-template')
   @Roles(...WORK)
+  @ApiOkResponse({ description: TEMPLATE_PROJECTION })
   passportTemplate(@Param('id') id: string, @Query() query: PassportTemplateQueryDto) {
     return this.service.passportTemplate(id, query.variant);
   }
@@ -182,6 +184,7 @@ export class ProductPassportController {
   @AppSection('products', 'passports')
   @Patch('showcase/:id/passport-template')
   @Roles(...WORK)
+  @ApiOkResponse({ description: TEMPLATE_PROJECTION })
   @AuditAction({ action: 'showcase.passportDefaults', entityType: 'Product', idParam: 'id' })
   updatePassportTemplate(@Param('id') id: string, @Query() query: PassportTemplateQueryDto, @Body() dto: PatchPassportTemplateDto) {
     return this.service.savePassportTemplate(id, dto.changes, dto.expected, query.variant);

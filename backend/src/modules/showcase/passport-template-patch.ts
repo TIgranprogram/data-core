@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { Types } from 'mongoose';
 import { checkChoices, toNode } from '../../common/passport/phrase-tree';
 import { MAX_OVERRIDE_TEXT } from '../../common/passport/text-overrides';
+import { renderSelectedParts, selectedPartsIssue, type SimpleDescription } from '../../common/passport/simple-description';
 import { MANUAL_TEXT_KEYS, normalizePassportDefaults, NUMS, PRESENTATION_DEFAULT_KEYS } from './passport-defaults';
 import type { Db } from './showcase-common';
 
@@ -41,16 +42,26 @@ function nonemptyText(raw: unknown, key: string) {
   return raw.replace(/\r\n/g, '\n').trim();
 }
 
+function simpleDescription(raw: unknown, expected: boolean): SimpleDescription<Types.ObjectId> | null {
+  if (raw === null) return null;
+  const x = allowed(raw, ['mode', 'text', 'partIds'], 'simpleDescription');
+  if (x.mode !== undefined && x.mode !== 'parts' && x.mode !== 'manual') throw error('simpleDescription.mode');
+  if (!Array.isArray(x.partIds) || x.partIds.length > 100) throw error('simpleDescription.partIds');
+  const values = x.partIds.map((p) => id(p, 'simpleDescription.partIds'));
+  // CAS сравнивает прежние ссылки в их порядке, даже если старое значение требует исправления.
+  const partIds = expected ? values : [...new Set(values.map(String))].map((p) => new Types.ObjectId(p));
+  if (x.mode === 'parts') {
+    if (!expected && !partIds.length) throw new BadRequestException('simpleDescription.partIds: выберите части изделия');
+    if (expected && has(x, 'text')) throw error('simpleDescription.text');
+    return { mode: 'parts', partIds };
+  }
+  if (expected && typeof x.text !== 'string') throw error('simpleDescription.text');
+  const text = expected ? x.text as string : nonemptyText(x.text, 'simpleDescription.text');
+  return x.mode === 'manual' ? { mode: 'manual', text, partIds } : { text, partIds };
+}
+
 function valueOf(key: string, v: unknown) {
   if (v === null) return null;
-  if (key === 'simpleDescription') {
-    const x = allowed(v, ['text', 'partIds'], key);
-    if (!Array.isArray(x.partIds) || x.partIds.length > 100) throw error('simpleDescription.partIds');
-    return {
-      text: nonemptyText(x.text, 'simpleDescription.text'),
-      partIds: [...new Set(x.partIds.map((p) => id(p, 'simpleDescription.partIds').toHexString()))].map((p) => new Types.ObjectId(p)),
-    };
-  }
   if (key === 'manualDescription' || key === 'manualPurpose' || key === 'manualInstall') return nonemptyText(v, key);
   if (key === 'isKit' && typeof v !== 'boolean') throw error(key);
   if (arrays.includes(key) && !Array.isArray(v)) throw error(key);
@@ -92,6 +103,9 @@ export function parseTemplatePatch(changes: Rec, expected: Rec) {
         to[path] = rootValue(key, a[root]);
         from[path] = rootValue(key, b[root]);
       }
+    } else if (key === 'simpleDescription') {
+      to[key] = simpleDescription(changes[key], false);
+      from[key] = simpleDescription(expected[key], true);
     } else {
       to[key] = valueOf(key, changes[key]);
       from[key] = valueOf(key, expected[key]);
@@ -112,14 +126,23 @@ function replaceKeys(path: string, changes: Rec) {
   ] };
 }
 
+function compareOwnValue(path: string, key: string, value: unknown) {
+  const current = `${path}.${key}`;
+  if (key !== 'simpleDescription' || value === null) return { $eq: [{ $ifNull: [current, null] }, { $literal: value }] };
+  // BSON учитывает порядок ключей объекта. Порядок ссылок внутри partIds остаётся частью сравнения.
+  const fields = Object.entries(value as Rec).map(([k, v]) => ({ k, v }));
+  return { $cond: [{ $eq: [{ $type: current }, 'object'] }, { $setEquals: [{ $objectToArray: current }, { $literal: fields }] }, false] };
+}
+
 export async function patchPassportTemplate(db: Db, productId: Types.ObjectId, changes: Rec, expected: Rec) {
   const filter = { _id: productId, deletedAt: null };
   const products = db.collection('products');
   if (!(await products.findOne(filter, { projection: { _id: 1 } }))) throw new NotFoundException('Изделие не найдено');
   const { to, from } = parseTemplatePatch(changes, expected);
   const dv = db.collection('dict_values');
+  const description = to.simpleDescription as SimpleDescription<Types.ObjectId> | undefined;
   const links = {
-    'simpleDescription.partIds': ['passportParts', (to.simpleDescription as { partIds?: Types.ObjectId[] } | undefined)?.partIds],
+    'simpleDescription.partIds': ['passportParts', description?.mode === 'parts' ? [] : description?.partIds],
     kindId: ['passportKinds', to.kindId ? [new Types.ObjectId(String(to.kindId))] : []],
     installationTypeId: ['passportInstall', to.installationTypeId ? [to.installationTypeId] : []],
     elements: ['passportElements', to.elements],
@@ -129,6 +152,15 @@ export async function patchPassportTemplate(db: Db, productId: Types.ObjectId, c
     const ids = [...new Set(((raw as Types.ObjectId[] | undefined) ?? []).map(String))].map((value) => new Types.ObjectId(value));
     if (ids.length && await dv.countDocuments({ _id: { $in: ids }, dict, deletedAt: null }) !== ids.length) throw error(key);
   }));
+  if (description?.mode === 'parts') {
+    const partIds = description.partIds.map(String);
+    const rows = await dv.find({ _id: { $in: description.partIds }, dict: 'passportParts', deletedAt: null },
+      { projection: { name: 1, genSingular: 1 } }).toArray();
+    const parts = new Map(rows.map((row) => [String(row._id), { name: row.name, genSingular: row.genSingular }]));
+    const result = renderSelectedParts(partIds, parts);
+    const issue = selectedPartsIssue({ kind: 'parts', partIds, ...result });
+    if (issue) throw new BadRequestException(`simpleDescription.partIds: ${issue.label}. ${issue.hint}`);
+  }
   const choices = Object.fromEntries(Object.entries(to).filter(([k, v]) => k.startsWith('textChoices.') && v !== null).map(([k, v]) => [k.split('.')[1], String(v)]));
   const overrideRoots = Object.keys(to).filter((k) => k.startsWith('textOverrides.') && to[k] !== null).map((k) => k.split('.')[1]);
   if (Object.keys(choices).length || overrideRoots.length) {
@@ -143,7 +175,7 @@ export async function patchPassportTemplate(db: Db, productId: Types.ObjectId, c
     const roots = Object.fromEntries(Object.entries(to).filter(([k]) => k.startsWith(map + '.')).map(([k, v]) => [k.split('.')[1], v === null ? null : { $literal: v }]));
     if (Object.keys(roots).length) fields[map] = replaceKeys(`${path}.${map}`, roots);
   }
-  const compare = Object.entries(from).map(([k, v]) => ({ $eq: [{ $ifNull: [`${path}.${k}`, null] }, { $literal: v }] }));
+  const compare = Object.entries(from).map(([k, v]) => compareOwnValue(path, k, v));
   // Mongo 4.4: конвейер атомарно инициализирует null/отсутствующее поле и сливает только затронутые пути.
   const result = await products.updateOne({ ...filter, $expr: { $and: compare } }, [
     { $set: { passportDefaults: replaceKeys(path, fields), updatedAt: new Date() } },

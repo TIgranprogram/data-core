@@ -1,0 +1,134 @@
+{
+  "startedAt": "2026-11-19T17:19:01.031Z",
+  "origin": "http://localhost:3102",
+  "phase": "c161-visual-manual",
+  "viewport": "1920×1080",
+  "checks": {
+    "prefilled-and-cancel": {
+      "status": "PASS",
+      "action": "Отменить правку и сверить шаблон и выпуск",
+      "manualPrefilled": [
+        "acceptance-visual-manual-light.png",
+        "acceptance-visual-manual-dark.png"
+      ],
+      "productId": "6aff2a4c2d9e948b326337fc",
+      "number": "613",
+      "defaultsSha256": "fd66b0e6ced345a2642eef122e2b76e58d11bbdafda4dc367fd6e30f45c75190",
+      "issuedPrintSha256": "5055d5f4b2f21746202270535af907e4d8d0aa8d9599da2c96e292c4b3610f9d"
+    },
+    "repick-after-empty-save": {
+      "status": "PASS",
+      "action": "Отменить правку и сверить шаблон и выпуск",
+      "saveDisabledWhenEmpty": false,
+      "emptySaveReturnsFocus": true,
+      "selectedCount": 3
+    },
+    "network": {
+      "status": "PASS",
+      "browserErrors": 0,
+      "outside": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOutside": 29,
+  "appOutside": 0,
+  "blockedWrites": {},
+  "pageErrors": 0,
+  "scenarioSha256": "22e0ef25bb5e34d6315a9c13b0f183c2c95bb05d84b3f56ffdba71f24b051c09",
+  "guardSha256": "8d7aa1300124141e97ba5699c527739b236c2855a4b9660ec3e43a209c26d5ab",
+  "browser": "157.0.8103.79",
+  "stand": {
+    "backup": "datacore-2026-11-18_031040.tgz",
+    "head": "e4a1b0e009564013ed4cc3369fdc5e2c3cd81090",
+    "dirty": true,
+    "builtAt": "2026-11-19T16:54:20.374Z"
+  },
+  "traffic": [
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "prefilled-and-cancel",
+      "method": "GET",
+      "target": "/api/showcase/6aff2a4c2d9e948b326337fc/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "prefilled-and-cancel",
+      "method": "GET",
+      "target": "/api/passports/6aff2b122d9e948b326339c6",
+      "readOnly": "1",
+      "status": 200
+    },
+    {
+      "step": "prefilled-and-cancel",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 200
+    },
+    {
+      "step": "prefilled-and-cancel",
+      "method": "GET",
+      "target": "/api/showcase/6aff2a4c2d9e948b326337fc/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "prefilled-and-cancel",
+      "method": "GET",
+      "target": "/api/showcase/6aff2a4c2d9e948b326337fc/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "prefilled-and-cancel",
+      "method": "GET",
+      "target": "/api/passports/6aff2b122d9e948b326339c6",
+      "readOnly": "1",
+      "status": 304
+    },
+    {
+      "step": "prefilled-and-cancel",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 304
+    },
+    {
+      "step": "repick-after-empty-save",
+      "method": "GET",
+      "target": "/api/showcase/6aff2a4c2d9e948b326337fc/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "repick-after-empty-save",
+      "method": "GET",
+      "target": "/api/showcase/6aff2a4c2d9e948b326337fc/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "repick-after-empty-save",
+      "method": "GET",
+      "target": "/api/passports/6aff2b122d9e948b326339c6",
+      "readOnly": "1",
+      "status": 304
+    },
+    {
+      "step": "repick-after-empty-save",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 304
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 import { docName } from './passport-pdf';
 import { firmAccent } from './passport-look-metrics';
 import { PdfV2Input } from './passport-pdf-v2-types';
-import { A5, M, CW, BOTTOM, V2Page, has, num, shortTiles, ruleIcon } from './passport-pdf-v2-common';
+import { A5, M, CW, BOTTOM, V2Page, shortTiles, ruleIcon } from './passport-pdf-v2-common';
 
 export function shortPage(doc: PDFKit.PDFDocument, input: PdfV2Input, color: string, purpose: string, box?: { l: number; r: number; t: number; b: number } | null): (V2Page & { h: number }) | null {
   const tiles = shortTiles(input.passport);

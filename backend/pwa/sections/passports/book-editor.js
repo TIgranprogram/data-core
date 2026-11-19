@@ -7,7 +7,7 @@ import { api } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { toast, toastError } from '../../ui/kit/toast.js';
 import { confirmDlg } from '../../ui/kit/dialog.js';
-import { actions, button, link, select } from '../../ui/kit/index.js';
+import { button, select } from '../../ui/kit/index.js';
 import { busyBtn } from '../../ui/kit/busy.js';
 import { buildForm } from '../../ui/kit/form.js';
 import { srcLegend } from '../../ui/kit/src.js';
@@ -21,7 +21,7 @@ import { imageStrip } from './book-images.js';
 import { ilogicBlock } from './book-ilogic.js';
 import { SRC_LABEL } from './card-blocks.js';
 import { bindBookInlineEvents } from './book-inline-events.js';
-import { loadBookTemplate, saveBookTemplate, simpleTextHref, templateDocument } from './book-template.js';
+import { loadBookTemplate, saveBookTemplate, templateDocument } from './book-template.js';
 import { issueBookInstance } from './book-issue.js';
 import { paintBookHead } from './book-head.js';
 import { editBookTemplateText, openBookCategory, openBookSetting, openDescriptionSetup, openSimpleDescription } from './book-template-edit.js';
@@ -47,7 +47,6 @@ export async function openBookEditor(passport, { template = null, position, onCl
   let actionBusy = false;
   let draftId = null;
 
-  // ─── каркас окна ────────────────────────────────────────────────────────────
   const readOnlyStat = 'Просмотр и печать доступны в этом окне.';
   const stat = h('span', { class: 'bk-stat', 'aria-live': 'polite' }, can() ? 'Правки сохраняются сразу при нажатии «Сохранить».' : readOnlyStat);
   const tocPagesList = h('div', { class: 'bk-toc-pages-list', 'aria-label': 'Страницы' });
@@ -63,11 +62,7 @@ export async function openBookEditor(passport, { template = null, position, onCl
     h('p', { class: 'hint bk-toc-hint' }, can()
       ? 'Выберите поле на листе или пункт слева.'
       : 'Паспорт открыт только для чтения.'),
-    S.template?.variant === 'short' && can() ? actions(
-      !S.template.simpleDescriptionSource ? button({ label: 'Подобрать краткое описание', size: 'S', onClick: openDescription }) : null,
-      button({ label: 'Своя формулировка', size: 'S', onClick: openOwnDescription }),
-      link({ label: 'Справочник текстов ↗', href: simpleTextHref(S.template.simpleDescriptionSource), target: '_blank' }),
-    ) : null,
+    S.template?.variant === 'short' && can() ? button({ label: 'Краткое описание', size: 'S', onClick: openDescription }) : null,
     S.template?.variant === 'full' && can() ? h('div', { class: 'bk-ed-row' },
       button({ label: 'Части и материалы', size: 'S', onClick: () => openProductSide(openMaterialsInBook) }),
       button({ label: 'Состав изделия', size: 'S', onClick: () => openProductSide(openCompositionInBook) })) : null);
@@ -97,11 +92,12 @@ export async function openBookEditor(passport, { template = null, position, onCl
   // Esc только отменяет правку на листе; книжку закрывает только крестик (владелец 18.11)
   const onKey = (e) => {
     if (e.key !== 'Escape' || document.querySelector('.modal-back:not(.bk-back)')) return;
+    if (S.template?.variant === 'short' && slot.contains(e.target)
+      && e.target.matches?.('[role="combobox"][aria-expanded="true"]')) return;
     e.stopImmediatePropagation(); e.preventDefault();
     if (S.cur) S.cur.cancel();
   };
 
-  // ─── правка: одно поле за раз ───────────────────────────────────────────────
   let edits = []; // открывалки по порядку на странице — для Tab
   const patchPassport = (body) => {
     if (S.template) throw new Error('Откройте экземпляр, чтобы изменить его реквизиты.');
@@ -170,22 +166,28 @@ export async function openBookEditor(passport, { template = null, position, onCl
       choicesApi?.refresh();
     }
   }
-  function editTemplateSide(open, followDescription = false) {
+  function editTemplateSide(open, { description = false, followDictionary = false } = {}) {
+    const trigger = document.activeElement;
     openSide(() => {
-      choicesApi?.hideSimple(followDescription);
+      choicesApi?.hideSimple(description);
       const token = Symbol();
       slot._bkOpening = token;
       slot.replaceChildren(sidePanel('Подготовка правки', h('p', { class: 'hint' }, 'Загружаю…')));
       Promise.resolve(open(slot, S.template, {
         save: (changes, baseline) => lock(() => patchTemplate(changes, baseline)),
-        done: (result) => { sideDone(result); if (followDescription && result?.saved && !S.template.simpleDescriptionSource) openDescription(); },
-        openOwn: openOwnDescription,
+        done: (result) => {
+          sideDone(result);
+          if (followDictionary && result?.saved && !S.template.simpleDescriptionSource) { openDictionaryDescription(); return; }
+          if (description) (trigger?.isConnected && trigger !== document.body ? trigger : slot.querySelector('button'))?.focus();
+        },
+        openDictionary: openDictionaryDescription,
+        openParts: openDescription,
         isCurrent: () => back.isConnected && slot._bkOpening === token,
       })).catch((e) => { if (slot._bkOpening === token) { sideDone(); toastError(e); } });
     });
   }
-  function openDescription() { editTemplateSide(openDescriptionSetup, true); }
-  function openOwnDescription() { editTemplateSide(openSimpleDescription); }
+  function openDescription() { editTemplateSide(openSimpleDescription, { description: true }); }
+  function openDictionaryDescription() { editTemplateSide(openDescriptionSetup, { description: true, followDictionary: true }); }
   ctx.openSimple = openDescription;
   const editSetting = (key) => editTemplateSide(key === 'category' ? openBookCategory
     : (slot, template, options) => openBookSetting(slot, template, { ...options, key }));
@@ -289,7 +291,6 @@ export async function openBookEditor(passport, { template = null, position, onCl
     view.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
-  // ─── отрисовка и разбивка на страницы ───────────────────────────────────────
   function render(openNext) {
     releaseSlot(() => renderNow(openNext));
   }

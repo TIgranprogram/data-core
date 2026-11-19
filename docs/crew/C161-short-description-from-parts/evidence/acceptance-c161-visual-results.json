@@ -1,0 +1,78 @@
+{
+  "startedAt": "2026-11-19T17:04:49.299Z",
+  "origin": "http://localhost:3102",
+  "phase": "c161-visual",
+  "viewport": "1920×1080",
+  "checks": {
+    "empty-and-prefilled": {
+      "status": "FAIL",
+      "saveDisabledWhenEmpty": false,
+      "emptySaveReturnsFocus": true,
+      "empty": [
+        "acceptance-visual-empty-light.png",
+        "acceptance-visual-empty-dark.png"
+      ],
+      "reason": "Ожидаемый элемент или сетевой ответ не появился."
+    },
+    "network": {
+      "status": "PASS",
+      "browserErrors": 0,
+      "outside": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOutside": 29,
+  "appOutside": 0,
+  "blockedWrites": {},
+  "pageErrors": 0,
+  "scenarioSha256": "a65ab4b6a1d48dfe4238c0321c5b8b0e58251699cf8b86a0f0318177ea784b43",
+  "guardSha256": "5959f386e86dea05781f6b7f24b28c36a43f61a7f588b777c6186fb162109a6b",
+  "browser": "157.0.8103.79",
+  "stand": {
+    "backup": "datacore-2026-11-18_031040.tgz",
+    "head": "e4a1b0e009564013ed4cc3369fdc5e2c3cd81090",
+    "dirty": true,
+    "builtAt": "2026-11-19T16:54:20.374Z"
+  },
+  "traffic": [
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "empty-and-prefilled",
+      "method": "GET",
+      "target": "/api/showcase/6aff2a4c2d9e948b326337fc/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "empty-and-prefilled",
+      "method": "GET",
+      "target": "/api/passports/6aff2b122d9e948b326339c6",
+      "readOnly": "1",
+      "status": 200
+    },
+    {
+      "step": "empty-and-prefilled",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 200
+    },
+    {
+      "step": "empty-and-prefilled",
+      "method": "GET",
+      "target": "/api/showcase/6aff2a4c2d9e948b326337fc/passport-template",
+      "variant": "short",
+      "status": 200
+    }
+  ]
+}
