@@ -1,4 +1,4 @@
-# C161 — архитектурная проверка реализации
+# C162 — архитектурная проверка реализации
 
 19.11.2026, HEAD179c6239, незакоммиченный этап ARTICLES API. Первый после-кодовой проход. Scope: expense-articles дерево/writer/read/usage/seed, aliases dicts, Counter.referenceGuard и безопасные409-поля фильтра. Полуготовые core finance/incomes/expenses/classification и UI в этот проход не проверялись. Рабочий код не менялся.
 
@@ -160,4 +160,4 @@ List-row включает всю classificationHistory, а classifiedOperation �
 
 19.11.2026, после final freeze core. Просмотрен фактический код: externalSession проходит StockService→StockReservationsService.releaseReservation→releaseWithin; внешняя сессия не открывает свою транзакцию. releaseDeps передаёт ту же session снятию брони и worktasks/designtasks updates, не подавляет конфликт. Guard SupplyService.update читает invoiceheader/snapshot независимо от paid зеркала и сохраняет приоритет marker1.
 
-Проверены результаты `evidence/core-e2e-two-fixes-pass.json`:18/18 PASS, в том числе rollback income/reservation/storage/workTask с последующим retry (ровно одно снятие), snapshot-paid при row.paid=false →409 без переписывания факта. Адресные182unit/4suites, tsc/lint/cycles PASS по `core-unit-two-fixes.json` и отчёту исполнителя. Эти два исходных условия закрыты координатором по критериям второго архитектурного review; третьего общего круга не проводилось. Согласование архитектурной части C161 завершено в пределах описанного scope. Полный финальный QA, реальные UI-состояния и выпуск остаются отдельными воротами.
+Проверены результаты `evidence/core-e2e-two-fixes-pass.json`:18/18 PASS, в том числе rollback income/reservation/storage/workTask с последующим retry (ровно одно снятие), snapshot-paid при row.paid=false →409 без переписывания факта. Адресные182unit/4suites, tsc/lint/cycles PASS по `core-unit-two-fixes.json` и отчёту исполнителя. Эти два исходных условия закрыты координатором по критериям второго архитектурного review; третьего общего круга не проводилось. Согласование архитектурной части C162 завершено в пределах описанного scope. Полный финальный QA, реальные UI-состояния и выпуск остаются отдельными воротами.

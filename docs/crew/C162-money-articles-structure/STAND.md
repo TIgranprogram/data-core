@@ -1,6 +1,6 @@
-# C161 — изолированный стенд
+# C162 — изолированный стенд
 
-## Refresh и первый C161 BROWSER — C159-UI-1795103357690
+## Refresh и первый C162 BROWSER — C159-UI-1795103357690
 
 19.11.2026. Owned project`dc-f9f4ea383bd66a4c5d81e48b-night`,APIhttp://localhost:3198/app/,Mongo27158;копия`datacore-f9f4ea383bd66a4c5d81e48b-night`от18.11. ОтдельнаяtestDbнеиспользовалась/неизменялась. ШтатныйstandRefreshсохранилтома,health200. Backend`dc-f9f4ea383bd66a4c5d81e48b-night-backend`;кодHEAD179c6239105caf8284fc246637e4e2ac6897c45b,веткаcodex/c158-invoice-fields,dirty=true,builtAt2026-11-19T15:48:59.619Z. Прод/C155неизменялись.
 

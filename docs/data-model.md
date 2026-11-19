@@ -65,7 +65,7 @@ Data-core — платформенное ядро (`auth`, `user`, `role`, `perm
 | `seq` | `number` | Текущий sequence |
 | `name` | `string` | Опциональное имя счётчика |
 | `value` | `number` | Альтернативное значение |
-| `referenceGuard` | `number?` | В служебном счётчике C161 сериализует новые ссылки и изменения дерева статей; не меняет `seq`/ревизию дерева при платеже |
+| `referenceGuard` | `number?` | В служебном счётчике C162 сериализует новые ссылки и изменения дерева статей; не меняет `seq`/ревизию дерева при платеже |
 
 ### `User` (Пользователь)
 
@@ -943,7 +943,7 @@ paidAmount/sourcePaidAmount/sourceBalance/balanceDue/paymentState — серве
 - `dict_values`/`passportPhrases` для `section:simple-description` дополнен ссылками `kindIds`, `partIds`; применимость по существующим группам/признакам. Части — `passportParts`, не производственный BOM. Определения критериев — существующие `productFacets`, ответы — `facetValueIds`/умолчания соответствующего источника.
 - Выданный экземпляр фиксирует `textSnapshot`/`printSnapshot`; новая явная редакция сохраняет прежние источники в истории, номер не меняет. Унаследованные тексты шаблона отделены от собственного `manualText` экземпляра. Старые документы в новом UI читаются без записи (`readOnly=1`). Точный контракт — `crew/C155-passport-owner-queue/CONTRACT.md`.
 
-## C161 — дерево финансовых статей и классификация фактов
+## C162 — дерево финансовых статей и классификация фактов
 
 `expensearticles` остаётся одной коллекцией: `type:income|expense`, `parentId`, `nodeKind:group|article`, `selectable`, `sortOrder`, `archivedAt`, `version`; прежние IDs/name/categoryIds/code сохраняются. Legacy без type проецируется как expense. Корень только группа; максимум32уровня/10000узлов, циклы и несовместимые типы родителей запрещены. Единый transactional writer использует ревизию counter и referenceGuard; rename/reparent не меняет ID, суммы и число фактов.
 
@@ -951,4 +951,4 @@ paidAmount/sourcePaidAmount/sourceBalance/balanceDue/paymentState — серве
 
 Доходные части имеют серверный стабильный paymentId и снимок компании. Подготовка старой истории добавляет только метаданные по плану/версии/хэшу/UID, отдельный receipt/mapping обеспечивает повтор; GET ничего не записывает. Перенос legacy-классификации в новую историю счёта идёт в той же транзакции с originOperationId и без второго факта. Использование статей учитывает исходные, исправленные и исторические ссылки даже после reset; архив не скрывает деньги.
 
-Canonical API/файлы — MAP.md; точные проверки/совместимость — crew/C161-money-articles-structure/CONTRACT.md. План183статей не является исполненной миграцией.
+Canonical API/файлы — MAP.md; точные проверки/совместимость — crew/C162-money-articles-structure/CONTRACT.md. План183статей не является исполненной миграцией.

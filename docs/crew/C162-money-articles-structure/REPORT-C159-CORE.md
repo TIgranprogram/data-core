@@ -1,4 +1,4 @@
-Статус: C161 CORE готов к адресной архитектурной и общей QA-приёмке; runtime заморожен, production не выпускался.
+Статус: C162 CORE готов к адресной архитектурной и общей QA-приёмке; runtime заморожен, production не выпускался.
 ✅ Income: серверные paymentId, protected writes/company, metadata-only identity-plan/materialize с CAS/retry/mapping; synthetic paidDate без нового денежного факта.
 ✅ Canonical operations/detail: source-qualified ID, bounded date/company/source, полные totals до page≤100; recursive BOTH articleRows, dynamic months, сохранены incomeRows/object scope/contractPrice/pct.
 ✅ Typed classification: единый pure resolver, original/override/history, reason/CAS/retry/reset, archive-original reset, legacy→ledger carry+alias в одной транзакции; payroll по реальному payout _id.

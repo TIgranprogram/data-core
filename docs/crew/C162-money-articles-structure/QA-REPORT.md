@@ -1,4 +1,4 @@
-# C161 — текущий итог QA
+# C162 — текущий итог QA
 
 Автоматические проверки сведённого runtime61558531 — PASS: full unit363/3720,full e2e84/652,T26 opt-in1/12SKIP; typecheck/build0,357guards и362imports0. PWA после подключения существующей тестовой зависимости:369 реальных тестов PASS по full+адресным результатам.
 Точный отчёт и границы: [QA-MERGE-REPORT.md](QA-MERGE-REPORT.md), машинные доказательства — evidence/QA-MERGE-RESULTS.json. До/после manifest1703files одинаков.

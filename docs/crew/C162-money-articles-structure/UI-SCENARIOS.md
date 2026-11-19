@@ -1,4 +1,4 @@
-# C161 — сценарии компьютерной приёмки и границы UI
+# C162 — сценарии компьютерной приёмки и границы UI
 
 Статус19.11.2026: сценарии реализованы по CONTRACT.md и проверены серверным QA; точные доказательства и ограничения визуального прогона — UI-REVIEW.md. Архитектурные замечания закрыты адресными исправлениями (ARCH-REVIEW.md). Идёт итоговая приёмка перед сведением с актуальным main и выпуском. Примеры относятся к изолированной копии; производственные статьи и счета пока не изменялись. Факты оплаты и денежные ограничения остаются C158.
 
@@ -90,9 +90,9 @@
 | `backend/pwa/sections/expenses.js:18,30,41`, `requests.js:305`, `invoices-tab.js:35` | Рекурсивные type-aware options, путь, архивное сохранённое значение, неоднозначные categoryIds | Сохранить C158articleId/none и принудительное обновление. Старый expense-only endpoint не начинает возвращать доходы |
 | `backend/pwa/sections/orders.js:130,155,275` | Доходная статья позиции/конкретного платежа, стабильный paymentId в UI, readonly старая классификация | Не менять расчёт/идентичность платежей; новые поля после готового backend DTO/контракта |
 | `backend/pwa/sections/dicts.js:83,292,344,365` | Узкий branch для financialArticles/expenseArticles alias: тип/путь/родитель любых уровней, activity/selectable, usage/revision и409 | Это существующий редактор, не второй справочник. Стандартный select ref уже строится по info.refs; текущий root-only набор ограничен сервером. Boolean/activity потребуют явного поддержанного form варианта, не текстового true/false |
-| Предлагаемый узкий `dicts-financial-articles.js` | Изолировать только recursive финансовые controls/parent-candidates/конфликты; в dicts оставить делегирование по ключу | Не копировать `dicts.js` из основного checkout: там чужие паспортные изменения. Не менять passport-tree/texts/kind/parts/elements branches и общие refChips ради C161 |
+| Предлагаемый узкий `dicts-financial-articles.js` | Изолировать только recursive финансовые controls/parent-candidates/конфликты; в dicts оставить делегирование по ключу | Не копировать `dicts.js` из основного checkout: там чужие паспортные изменения. Не менять passport-tree/texts/kind/parts/elements branches и общие refChips ради C162 |
 | `backend/admin/admin.js:788` | Только проверить, что существующий schema-driven просмотр видит новые typed поля и MoneyMask | Отдельного финансового редактора здесь не найдено; не создавать дубликат PWA и не править большой admin-файл без доказанной нужды |
-| Тесты этих модулей + `docs/crew/C161-money-articles-structure/` | Регрессии фильтров/дерева/rename/reparent/archive/classification, evidence/UI-REVIEW | Сейчас только сценарии; backend/src, данные/миграции183узлов, паспорта/C155 и финансовые выборки C158 — чужая зона |
+| Тесты этих модулей + `docs/crew/C162-money-articles-structure/` | Регрессии фильтров/дерева/rename/reparent/archive/classification, evidence/UI-REVIEW | Сейчас только сценарии; backend/src, данные/миграции183узлов, паспорта/C155 и финансовые выборки C158 — чужая зона |
 
 ## Приёмка и артефакты
 
