@@ -16,6 +16,7 @@ const dict = {
     { id: 'brake', name: ' ЭМ   тормоз ', genPlural: 'тормозов' },
     { id: 'alias', name: 'Эм тормоз' },
     { id: 'nameless', name: ' ', genSingular: 'рамы' },
+    { id: 'weightstack', name: 'весовой стек', genSingular: 'весового стека', categories: 'TRN' },
   ],
 };
 
@@ -45,6 +46,7 @@ function scenario({ alternatives = [phrase, other], auto = false, defaults = {},
     hint: (message) => node('p', null, message), stack: (...children) => node('div', null, children),
     actions: (...children) => node('div', null, children), sidePanel: (title, ...children) => node('section', null, title, children),
     setSideWide() {}, busyBtn: () => () => {}, dictRows: async (key) => dict[key],
+    dictOpts: async () => [{ value: 'element', label: 'Кардио', cats: ['TRN'] }], jointsPick() {},
     api: async (path) => { assert.equal(path, '/dicts/passportParts'); return { items: dict.passportParts }; },
     confirmDlg: async (title) => confirm(title), codeList: (value) => value?.split(',') || [], catNames: () => '',
     attachCombo: (input, combo) => { Object.assign(input.props, combo); return { close() {} }; }, textInput: (opts) => {
@@ -61,8 +63,8 @@ function scenario({ alternatives = [phrase, other], auto = false, defaults = {},
   for (const file of ['./book-template.js', './book-choices.js', './book-template-edit.js', './book-focus.js']) {
     vm.runInContext(read(file).replace(/^import .+;\s*$/gm, '').replace(/export /g, ''), context);
   }
-  const { mountBookFocus, openDescriptionSetup, openSimpleDescription, templatePatch, simplePartsPreview } = vm.runInContext(
-    '({ mountBookFocus, openDescriptionSetup, openSimpleDescription, templatePatch, simplePartsPreview })', context,
+  const { mountBookFocus, openDescriptionSetup, openSimpleDescription, templatePatch, simplePartsPreview, openBookSetting } = vm.runInContext(
+    '({ mountBookFocus, openDescriptionSetup, openSimpleDescription, templatePatch, simplePartsPreview, openBookSetting })', context,
   );
   const options = {
     isCurrent: () => true,
@@ -102,6 +104,7 @@ function scenario({ alternatives = [phrase, other], auto = false, defaults = {},
     work = options.openParts();
   };
   return { slot, queue, writes, patches, readTemplate, open, simplePartsPreview, openDictionary: options.openDictionary,
+    openSetting: (key) => openBookSetting(slot, readTemplate(), { ...options, key }),
     loadQueue: () => mountBookFocus(queue, { S: { r: { ...stored.document, readiness: stored.readiness, productId: stored.productId }, template: readTemplate() }, can: true, openSetting: open }),
     wait: () => work,
   };
@@ -140,6 +143,8 @@ test('1066 без вида: готовый вариант можно явно п
   const search = searchField(s.slot);
   assert.ok(search);
   search.value = 'сто';
+  assert.equal([...search.props.options()].some((item) => item.value === 'post'), false);
+  click(s.slot, 'Искать среди всех частей');
   assert.ok([...search.props.options()].some((item) => item.value === 'post'));
   assert.equal(s.writes.length, 2);
 });
@@ -159,6 +164,40 @@ test('готовый источник пропускает второй шаг, 
     assert.equal(s.readTemplate().textSnapshot.description, phrase.text);
     assert.equal(s.writes.length, auto ? 1 : 2);
   }
+});
+
+test('TRN сама по себе не предлагает весовой стек, обычный поиск не снимает фильтр применимости', async () => {
+  const s = scenario();
+  s.open('simpleDescription'); await s.wait();
+  assert.match(viewText(s.slot), /Уточните вид и признаки; готовый набор частей пока не задан/);
+  const search = searchField(s.slot);
+  search.value = 'весовой стек';
+  assert.deepEqual([...search.props.options()].map((part) => part.value), []);
+  assert.equal(s.writes.length, 0);
+});
+
+test('подтверждённые применимые suggestions дают только связанные partIds, category не расширяет набор', async () => {
+  const s = scenario();
+  await s.openDictionary();
+  field(s.slot, 'kindId').props.values.kindId = 'kind';
+  await click(s.slot, 'Сохранить в шаблон');
+  s.open('simpleDescription'); await s.wait();
+  assert.deepEqual([...searchField(s.slot).props.options()].map((part) => part.value), ['frame', 'post']);
+  searchField(s.slot).value = 'весовой';
+  assert.equal([...searchField(s.slot).props.options()].some((part) => part.value === 'weightstack'), false);
+});
+
+test('полный поиск включается явным действием; сохранённые выбранные части и отмена остаются', async () => {
+  const s = scenario({ defaults: { simpleDescription: { mode: 'parts', partIds: ['post'] } } });
+  s.open('simpleDescription'); await s.wait();
+  assert.ok(action(s.slot, 'стойка ×'));
+  assert.equal([...searchField(s.slot).props.options()].some((part) => part.value === 'weightstack'), false);
+  click(s.slot, 'Искать среди всех частей');
+  assert.equal([...searchField(s.slot).props.options()].some((part) => part.value === 'weightstack'), true);
+  assert.ok(action(s.slot, 'стойка ×'));
+  await click(s.slot, 'Отмена');
+  assert.deepEqual(s.readTemplate().defaults.simpleDescription.partIds, ['post']);
+  assert.equal(s.writes.length, 0);
 });
 
 test('если у известного вида словарной фразы нет, объясняет отсутствие и ведёт в словарь', async () => {
@@ -182,7 +221,12 @@ test('вход редактора использует сценарий из о�
 function pickPart(slot, id) {
   const search = searchField(slot);
   search.value = dict.passportParts.find((part) => part.id === id).name;
-  const part = [...search.props.options()].find((item) => item.value === id);
+  let part = [...search.props.options()].find((item) => item.value === id);
+  if (!part) {
+    click(slot, 'Искать среди всех частей');
+    search.value = dict.passportParts.find((item) => item.id === id).name;
+    part = [...search.props.options()].find((item) => item.value === id);
+  }
   assert.ok(part);
   search.props.onPick(part);
 }
@@ -191,7 +235,7 @@ test('авто: краткий список, живой текст по поря
   const s = scenario();
   s.open('simpleDescription');
   await s.wait();
-  assert.deepEqual([...searchField(s.slot).props.options()].map((item) => item.value), ['post']);
+  assert.deepEqual([...searchField(s.slot).props.options()].map((item) => item.value), []);
   await click(s.slot, 'Сохранить в шаблон');
   assert.equal(s.patches.length, 0);
   pickPart(s.slot, 'frame');
@@ -277,3 +321,18 @@ test('409 сохраняет ручной ввод и исходную CAS па�
   assert.deepEqual(s.patches, [{ expected: { simpleDescription: value }, changes: { simpleDescription: { text, partIds: ['frame', 'post'] } } }]);
   assert.deepEqual(s.readTemplate().defaults.simpleDescription, value);
 });
+
+
+for (const key of ['joints', 'elements']) {
+  for (const encoded of [false, true]) {
+    test(`виджет ${key}: ${encoded ? 'совместимая JSON-строка' : 'готовый массив buildForm'} сохраняется через форму`, async () => {
+      const subject = scenario();
+      await subject.openSetting(key);
+      const selected = key === 'joints' ? ['bolts'] : ['element'];
+      field(subject.slot, key).props.values[key] = encoded ? JSON.stringify(selected) : selected;
+      await click(subject.slot, 'Сохранить в шаблон');
+      assert.deepEqual(subject.writes, [{ [key]: selected }]);
+      assert.deepEqual(subject.patches, [{ changes: { [key]: selected }, expected: { [key]: null } }]);
+    });
+  }
+}

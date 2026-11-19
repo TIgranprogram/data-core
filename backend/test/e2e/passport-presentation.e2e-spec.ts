@@ -104,6 +104,40 @@ describe('C155. Шаблон и новые паспорта', () => {
     }
   });
 
+  it('C163: критерии и defaults сохраняются единым CAS; конфликт не оставляет частичной записи', async () => {
+    const p = await makeProduct();
+    const facet = new Types.ObjectId(), value = new Types.ObjectId(), other = new Types.ObjectId(), foreignFacet = new Types.ObjectId(), foreign = new Types.ObjectId(), element = new Types.ObjectId();
+    await db().collection('dict_values').insertMany([
+      { _id: facet, dict: 'productFacets', category: 'BLG', multi: false, deletedAt: null },
+      { _id: value, dict: 'productFacetValues', parentId: facet, elementIds: [element], deletedAt: null },
+      { _id: element, dict: 'passportElements', name: 'Опора изделия C163', kind: 'product', deletedAt: null },
+      { _id: other, dict: 'productFacetValues', parentId: facet, deletedAt: null },
+      { _id: foreignFacet, dict: 'productFacets', category: 'TRN', multi: false, deletedAt: null },
+      { _id: foreign, dict: 'productFacetValues', parentId: foreignFacet, deletedAt: null },
+    ]);
+    const get = async () => (await http().get(templateUrl(p)).set(auth()).expect(200)).body;
+    const patch = (changes: Record<string, unknown>, expected: Record<string, unknown>) => http().patch(templateUrl(p)).set(auth()).send({ changes, expected });
+    expect((await get()).product.facetValueIds).toBeNull();
+    await patch({ facetValueIds: [String(value)], foundationDepth: 150 }, { facetValueIds: null, foundationDepth: null }).expect(200);
+    expect((await get()).product.facetValueIds).toEqual([String(value)]);
+    expect((await get()).document.elements).toEqual([String(element)]);
+    expect((await products().findOne({ _id: p }))?.passportDefaults).not.toHaveProperty('elements');
+    await patch({ facetValueIds: [], foundationDepth: 900 }, { facetValueIds: null, foundationDepth: 150 }).expect(409);
+    expect((await get()).defaults.foundationDepth).toBe(150);
+    await patch({ facetValueIds: [String(value), String(other)] }, { facetValueIds: [String(value)] }).expect(400);
+    await patch({ facetValueIds: [String(foreign)] }, { facetValueIds: [String(value)] }).expect(400);
+    await patch({ facetValueIds: [] }, { facetValueIds: [String(value)] }).expect(200);
+    expect((await get()).product.facetValueIds).toEqual([]);
+    await patch({ facetValueIds: null }, { facetValueIds: [] }).expect(200);
+    expect((await get()).product.facetValueIds).toBeNull();
+    expect(await products().findOne({ _id: p })).not.toHaveProperty('facetValueIds');
+    expect((await get()).defaults).not.toHaveProperty('facetValueIds');
+    await patch({ 'product.facetValueIds': [] }, { 'product.facetValueIds': null }).expect(400);
+    await products().updateOne({ _id: p }, { $set: { facetValueIds: [foreign] } });
+    await patch({ facetValueIds: [String(foreign), String(value)] }, { facetValueIds: [String(foreign)] }).expect(200);
+    expect((await get()).product.facetValueIds).toEqual([String(foreign), String(value)]);
+  });
+
   it('совпадают шаблон и check, испорченная обязательная картинка блокирует выпуск без номера', async () => {
     const p = await makeProduct();
     const bad = (await db().collection('photos').insertOne({ storageUrl: '/uploads/c155-test-missing.png', deletedAt: null })).insertedId;

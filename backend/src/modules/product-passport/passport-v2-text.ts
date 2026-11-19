@@ -2,7 +2,7 @@ import { compose, legacyStartNumber, legacyTemplateToBlocks, usedStandards, TRAI
 import { collectTraits, filterByWhen } from './passport-traits';
 import { overrideFor } from '../../common/passport/text-overrides';
 import { choicesObject, resolveChoices, FIELD_SECTIONS, type PhraseTreeNode, type ProductCtx } from '../../common/passport/phrase-tree';
-import { isBriefPresentation, printPhraseRoots } from './passport-presentation';
+import { isBriefPresentation, printPhraseRoots, shortDetailSections } from './passport-presentation';
 import { describeProduct, installText, maintenanceTables, usageRulesFrom, type DictRec, type InstallParts, type MaintenanceRow, type MaintenanceTable } from './passport-compose-parts';
 import type { FieldRef, FieldRefs } from './passport-snapshot-field';
 
@@ -124,7 +124,8 @@ export function buildV2Text(input: V2TextInput): V2Text {
   // признаки изделия: справочники + «Конструкция»; условия when пунктов и дефектов смотрят на них
   const info = collectTraits(p.joints, { elements, materials, install }, category);
   const pt = { ...p, [TRAITS_FIELD]: info.traits };
-  const r = compose(blocks, pt, category, { standards, startNumber: legacyStartNumber(all), unknownTraits: info.unknown, usedFields: input.usedFields });
+  const printedBlocks = brief ? blocks.filter((b) => !shortDetailSections.includes(b.sectionKey)) : blocks;
+  const r = compose(printedBlocks, pt, category, { standards, startNumber: legacyStartNumber(all), unknownTraits: info.unknown, usedFields: input.usedFields });
   const installParts = installText(install);
   if (installLeaf) installParts.text = fill((installLeaf as PhraseTreeNode).text, p, category, standards, extraMissing, input.usedFields);
   // Вписанный вручную текст («свой текст», manualText) важнее справочника; назначение без выбора — из поля паспорта

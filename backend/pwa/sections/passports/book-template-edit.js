@@ -12,7 +12,7 @@ import { simpleTextHref } from './book-template.js';
 import { simpleChoiceChanges, simpleChoiceField, simpleChoiceOptions } from './book-choices.js';
 
 /** Общее состояние правки в правой колонке для шаблона, в том числе при смене варианта. */
-function sideForm(slot, { title, form, extra, changed, save, done, read, confirm = false, okLabel = 'Сохранить в шаблон' }) {
+export function sideForm(slot, { title, form, extra, changed, save, done, read, confirm = false, okLabel = 'Сохранить в шаблон' }) {
   let working = false;
   const body = stack(form?.el, extra);
   const error = h('div', { hidden: true, role: 'alert' });
@@ -106,9 +106,14 @@ function descriptionPartPicker(byId, template, initial, onChange) {
   const linked = new Set((template.simpleDescriptionSource?.partIds
     ?? (template.simpleDescriptionSuggestions || []).flatMap((item) => item.partIds || [])).map(String));
   const ids = new Set(initial);
+  let allParts = false;
   const selected = actions();
   const search = textInput({ label: 'Добавить часть', placeholder: 'Найдите по названию' });
-  const isShortlist = (part) => linked.has(part.value) || part.cats.includes(template.passportCategory);
+  const widen = button({ label: 'Искать среди всех частей', kind: 'ghost', size: 'S', onClick: () => {
+    allParts = !allParts;
+    widen.textContent = allParts ? 'Только подходящие части' : 'Искать среди всех частей';
+    search.value = ''; combo.close(); search.focus();
+  } });
   const render = () => {
     selected.replaceChildren(...[...ids].map((id) => {
       const label = byId.get(id)?.label || `Часть недоступна (${id})`;
@@ -118,13 +123,15 @@ function descriptionPartPicker(byId, template, initial, onChange) {
     }));
   };
   const combo = attachCombo(search.input, {
-    options: () => [...byId.values()].filter((part) => part.label && !ids.has(part.value) && (isShortlist(part) || search.value.trim())),
-    empty: () => search.value.trim() ? 'Части с таким названием не найдены' : 'Введите название части для поиска',
+    options: () => [...byId.values()].filter((part) => part.label && !ids.has(part.value) && (allParts || linked.has(part.value))),
+    empty: () => !allParts && !linked.size ? 'Уточните вид и признаки; готовый набор частей пока не задан'
+      : search.value.trim() ? 'Части с таким названием не найдены' : 'Нет доступных частей для добавления',
     max: 12,
     onPick: (part) => { ids.add(part.value); search.value = ''; search.input.title = ''; render(); onChange(); },
   });
   render();
-  return { el: stack(selected, search.el), value: () => [...ids], focus: search.focus, close: combo.close };
+  return { el: stack(selected, !linked.size ? hint('Уточните вид и признаки; готовый набор частей пока не задан') : null,
+    search.el, actions(widen)), value: () => [...ids], focus: search.focus, close: combo.close };
 }
 
 export async function openSimpleDescription(slot, template, { save, done, isCurrent, openDictionary }) {
@@ -248,6 +255,8 @@ const chooseFields = {
   installationTypeId: ['Способ установки', 'installationTypeId', 'passportInstall'],
   installation: ['Способ установки', 'installationTypeId', 'passportInstall'],
 };
+const bookKindNames = new Map();
+export const bookKindLabel = (id) => bookKindNames.get(String(id || '')) || '';
 export const isBookSetting = (key) => Object.hasOwn(textFields, key) || Object.hasOwn(chooseFields, key)
   || quantities.has(key) || key === 'joints' || key === 'elements';
 
@@ -260,11 +269,12 @@ export async function openBookSetting(slot, template, options) {
   if (Object.hasOwn(textFields, key)) {
     const [label, own, value] = textFields[key];
     spec = { key: own, label, type: 'textarea', rows: 4, wide: true, max: 4000 };
-    initial = defaults[own] ?? r[value] ?? '';
+    initial = options.initialText ?? defaults[own] ?? r[value] ?? '';
     parse = (input) => input.trim() || null;
   } else if (Object.hasOwn(chooseFields, key)) {
     const [label, own, dict] = chooseFields[key];
     const rows = await dictRows(dict);
+    if (dict === 'passportKinds') for (const row of rows) if (!row.deletedAt) bookKindNames.set(String(row.id), row.name);
     if (!isCurrent()) return;
     const values = rows.filter((item) => dict !== 'passportKinds' || !item.passportCategory || item.passportCategory === template.passportCategory)
       .map((item) => ({ value: item.id, label: item.name }));
@@ -283,7 +293,8 @@ export async function openBookSetting(slot, template, options) {
     };
     spec = { key, label, widget, type: 'widget', wide: true };
     initial = JSON.stringify(defaults[key] ?? r[key] ?? []);
-    parse = (value) => JSON.parse(value);
+    // buildForm декодирует JSON-виджет в массив; старые адаптеры могут вернуть ещё строку.
+    parse = (value) => Array.isArray(value) ? value : JSON.parse(value);
   } else if (quantities.has(key)) {
     spec = { key, label: quantities.get(key), type: 'number', min: key === 'seatsCount' ? 1 : 0 };
     initial = defaults[key] ?? r[key] ?? '';
@@ -292,6 +303,7 @@ export async function openBookSetting(slot, template, options) {
   const form = buildForm([spec], { [spec.key]: initial });
   sideForm(slot, {
     title: spec.label, form, done,
+    confirm: options.initialText !== undefined && Object.hasOwn(textFields, key),
     extra: descriptionSetup ? hint('Вид изделия помогает подобрать краткое описание из справочника.') : null,
     changed: form.dirty,
     save: (values) => save({ [spec.key]: parse(values[spec.key]) }, defaults),

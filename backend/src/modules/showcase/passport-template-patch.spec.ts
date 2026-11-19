@@ -32,8 +32,47 @@ describe('Частичная правка шаблона паспорта C155',
     [{ textChoices: { 'a.b': String(partA) } }, { textChoices: { 'a.b': null } }, 'textChoices'],
     [{ textOverrides: { [root]: { text: 'Своя фраза.', off: true } } }, { textOverrides: { [root]: null } }, 'textOverrides'],
     [{ elements: [] }, { joints: null }, 'совпадать'],
+    [{ facetValueIds: ['bad'] }, { facetValueIds: null }, 'facetValueIds'],
+    [{ facetValueIds: {} }, { facetValueIds: null }, 'facetValueIds'],
+    [{ 'product.facetValueIds': [] }, { 'product.facetValueIds': null }, 'product.facetValueIds'],
   ])('отвергает лишний или неверно заданный путь %#', (changes, expected, message) => {
     expect(() => parseTemplatePatch(changes, expected)).toThrow(message);
+  });
+});
+
+describe('C163: критерии самого изделия', () => {
+  const value = new Types.ObjectId(), parent = new Types.ObjectId(), productId = new Types.ObjectId();
+  it('нормализует новые ссылки без дублей, прежний порядок и дубли остаются точным CAS', () => {
+    expect(parseTemplatePatch({ facetValueIds: [String(value), String(value).toUpperCase()] },
+      { facetValueIds: [String(value), String(value)] })).toEqual({ to: { facetValueIds: [value] }, from: { facetValueIds: [value, value] } });
+    expect(parseTemplatePatch({ facetValueIds: [] }, { facetValueIds: null })).toEqual({ to: { facetValueIds: [] }, from: { facetValueIds: null } });
+  });
+
+  it.each(['value', 'parent', 'category', 'single'])('отвергает повреждённый выбор: %s', async (invalid) => {
+    const b = new Types.ObjectId();
+    const updateOne = jest.fn();
+    const db = { collection: (name: string) => name === 'products'
+      ? { findOne: async () => ({ _id: productId, passportDefaults: { passportCategory: 'BLG' } }), updateOne }
+      : { find: (q: { dict: string }) => ({ toArray: async () => q.dict === 'productFacetValues'
+        ? invalid === 'value' ? [] : [{ _id: value, parentId: parent }, ...(invalid === 'single' ? [{ _id: b, parentId: parent }] : [])]
+        : invalid === 'parent' ? [] : [{ _id: parent, category: invalid === 'category' ? 'TRN' : 'BLG', multi: false }] }) } };
+    await expect(patchPassportTemplate(db as never, productId, { facetValueIds: [String(value), ...(invalid === 'single' ? [String(b)] : [])] },
+      { facetValueIds: null })).rejects.toThrow('facetValueIds');
+    expect(updateOne).not.toHaveBeenCalled();
+  });
+
+  it('одна запись сравнивает собственные критерии и defaults, не создавая passportDefaults.facetValueIds', async () => {
+    const updateOne = jest.fn(async () => ({ matchedCount: 1 }));
+    const db = { collection: () => ({ findOne: async () => ({ _id: productId }), updateOne }) };
+    await patchPassportTemplate(db as never, productId, { facetValueIds: [], maxUsers: 2 }, { facetValueIds: null, maxUsers: null });
+    expect(updateOne).toHaveBeenCalledTimes(1);
+    const [filter, stages] = updateOne.mock.calls[0] as unknown as [Record<string, unknown>, Array<{ $set: Record<string, unknown> }>];
+    expect(filter.$expr).toEqual({ $and: [
+      { $eq: [{ $ifNull: ['$$ROOT.facetValueIds', null] }, { $literal: null }] },
+      { $eq: [{ $ifNull: ['$passportDefaults.maxUsers', null] }, { $literal: null }] },
+    ] });
+    expect(stages[0].$set.facetValueIds).toEqual({ $literal: [] });
+    expect(JSON.stringify(stages[0].$set.passportDefaults)).not.toContain('facetValueIds');
   });
 });
 

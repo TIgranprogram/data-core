@@ -1,5 +1,7 @@
 # MAP — карта кода (модуль → маршруты → коллекции)
 
+**C163 — критерии шаблона:** `PATCH /api/showcase/:id/passport-template` принимает `changes/expected.facetValueIds` (массив строк ObjectId либо null) как `products.facetValueIds`, одним CAS с остальными defaults (`modules/showcase/passport-template-patch.ts`); null снимает поле, [] сохраняет пустой список. `GET` того же шаблона отдаёт собственные `product.facetValueIds` (массив/null). Живые значения/родители, single/multi и категория новых ответов проверяются; старый хвост других категорий остаётся. `product-passport/passport-from-product.ts` добавляет производные живые элементы критериев при отсутствии своих, без записи defaults. Short исключает технические секции до проверки when (`passport-v2-text.ts`); применимые монтаж/обслуживание требуют соединений.
+
 > **Сборка текстов документов для ИИ:** [DOCUMENT-AUTOFILL-MAP.md](DOCUMENT-AUTOFILL-MAP.md) — документ → источник → критерии → справочники → текст → снимок, память выбора и места редактирования. Та же цепочка включена в `dc atlas docs` / JSON-сводку карты сайта.
 
 > Все пути относительно `backend/src/`. Маршруты — под префиксом `/api`. Точные контракты: grep по `docs/openapi.json`.
@@ -199,3 +201,5 @@ PWA: `financial-articles{,-state}.js`, `dicts-financial-articles.js`; `money-{fi
 ### C161 — описание short из выбранных частей
 
 `backend/src/common/passport/simple-description.ts` — тип режима и чистый сборщик. `showcase/passport-template-patch.ts` проверяет/CAS-сохраняет `{mode:'parts',partIds}`; `product-passport.service.ts::resolveSimpleText` разрешает живые имена/падежи для шаблона и нового выпуска, выдаёт source.parts. Выданные и аннулированные используют сохранённые снимки, POSTsnapshot для их режимаparts409. `backend/pwa/sections/passports/book-template-edit.js` — поиск выбранных частей/живой текст/явный ручной редактор/возвратauto; `book-editor/focus/choices` используют этот вход. Эндпоинты прежние GET/PATCH `/showcase/:id/passport-template`, preview/issue/PDF, добавочен режим вложенного значения. OpenAPI517путей обновлён из актуальногоQA. Контракт/проверки — crew/C161-short-description-from-parts.
+
+C163 UI: `pwa/sections/passports/book-setup.js` задаёт последовательность вид→критерии→словарное назначение. Дополнительные родительские criteria с `step=false`, `code=*.form` ограничены kind всей phrase-цепочки; generic TRN-значения не отсекаются по отсутствию фраз. `passport-tree-state.js` учитывает scope при дублях/категории, счётчики видимой области. `showcase/showcase-photos.ts` пакетно подставляет паспортный overview как резервную обложку, `products.js` отделяет её от своей галереи.

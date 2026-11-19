@@ -17,7 +17,7 @@ export type SimpleDescriptionSource =
   | { kind: 'dictionary'; id: string; rootId: string; partIds: string[] };
 
 export const shortDetailKeys = new Set(['materials', 'materialsSpec', 'materialIds', 'description', 'compositionSheet', 'modules']);
-const shortDetailSections = ['description', 'materials', 'materials-spec', 'composition'];
+export const shortDetailSections = ['description', 'materials', 'materials-spec', 'composition'];
 export const printPhraseRoots = (roots: PhraseTreeNode[], brief: boolean) =>
   roots.filter((r) => r.section !== SIMPLE_DESCRIPTION_SECTION && !(brief && shortDetailSections.includes(r.section)));
 

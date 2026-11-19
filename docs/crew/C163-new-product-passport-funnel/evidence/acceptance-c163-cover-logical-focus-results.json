@@ -1,0 +1,58 @@
+{
+  "startedAt": "2026-11-19T19:24:18.984Z",
+  "origin": "http://localhost:3102",
+  "phase": "c163",
+  "viewport": "1920×1080",
+  "checks": {
+    "own-cover-keyboard-and-layout": {
+      "status": "FAIL",
+      "themes": [],
+      "action": "Открыть и вернуть фокус без съёмки · light",
+      "reason": "Ожидаемый элемент или сетевой ответ не появился."
+    },
+    "unchanged-own-cover": {
+      "status": "PASS"
+    },
+    "network": {
+      "status": "PASS",
+      "browserErrors": 0,
+      "outside": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOutside": 32,
+  "appOutside": 0,
+  "blockedWrites": {
+    "PATCH prefs": 1
+  },
+  "pageErrors": 0,
+  "scenarioSha256": "dbda64fadcd0db88427b059b5d307a91bc1acb10821a6e0b1c1268b091b600c4",
+  "guardSha256": "32475d59d869da8261a8002d0bb3a40b3b89bf97fe3fcaf9d8a1085fda064c81",
+  "browser": "157.0.8103.79",
+  "stand": {
+    "backup": "datacore-2026-11-18_031040.tgz",
+    "head": "f76489b9ed643e72ca2175d5f48535588481612d",
+    "dirty": true,
+    "builtAt": "2026-11-19T18:14:06.274Z"
+  },
+  "traffic": [
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "own-cover-keyboard-and-layout",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    }
+  ]
+}

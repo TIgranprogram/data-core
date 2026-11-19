@@ -1,4 +1,7 @@
 # Карта роли backend
+## C163 критерии нового short (2026-11-19)
+- `backend/src/modules/showcase/passport-template-patch.ts:110` разбор собственных facetValueIds, `:156` проверка живых значений/родителя/категории/single, `:214` единый CAS; `backend/src/modules/product-passport/product-passport.service.ts:932` GET собственных критериев; `backend/src/modules/product-passport/passport-from-product.ts:60` элементы по критериям без записи defaults; `backend/src/modules/product-passport/passport-v2-text.ts:127` short исключает технические секции до проверки when. Проверки: `docs/crew/C163-new-product-passport-funnel/BACKEND-REPORT.md`. коммит: — (у координатора). Карта обновлена.
+
 ## C161 краткое описание из частей (2026-11-19)
 - `backend/src/common/passport/simple-description.ts:12` сборщик и проверка ссылок, `backend/src/modules/showcase/passport-template-patch.ts:45` форма и CAS `:129`, `backend/src/modules/product-passport/product-passport.service.ts:1241` источник `parts`, `:1141` снимок при выпуске, `:1126` чтение сохранённого снимка, `:826` защита явной пересборки выданного и аннулированного. `backend/src/modules/product-passport/passport-parts-presentation.spec.ts:63` регрессия снимка, `docs/crew/C161-short-description-from-parts/BACKEND-REPORT.md` проверки. коммит: — (у координатора).
 

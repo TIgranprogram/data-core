@@ -6,7 +6,8 @@ import { confirmDlg, modal } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { button, select, empty, tagPick } from '../ui/kit/index.js';
 import { catChips } from '../ui/cat-chips.js';
-import { dupeCounts, qualityBadges, qualityFilter } from '../ui/quality.js';
+import { qualityBadges, qualityFilter } from '../ui/quality.js';
+import { phraseDuplicates, phraseFitsCategory, phraseRootApplies } from './passport-tree-state.js';
 import { LATER_CATS, dictRows } from './passports/common.js';
 import { VARS, VAR_LABELS, canEditTexts } from './passport-texts.js';
 
@@ -45,7 +46,7 @@ function shape(items) {
   const path = (n) => { const out = []; let x = n; while (x) { out.unshift(x.name); x = x.parentId ? byId.get(x.parentId) : null; } return out; };
   // дубль — одинаковый текст у вариантов одного раздела
   const dupes = new Map();
-  for (const r of roots) for (const [id, n] of dupeCounts(leavesOf(r.id).filter((l) => l.id !== r.id), (l) => l.text)) dupes.set(id, n);
+  for (const r of roots) for (const [id, n] of phraseDuplicates(leavesOf(r.id).filter((l) => l.id !== r.id))) dupes.set(id, n);
   const isEmpty = (n) => !children(n.id).length && n.parentId && !n.text.trim();
   return { byId, children, roots, leavesOf, rootOf, path, dupes, isEmpty };
 }
@@ -61,23 +62,21 @@ export function mountTree() {
     edit ? null : h('p', { class: 'hint' }, 'Смотреть могут все; править тексты — директор и администратор.'), tree);
   const catText = (n) => (n.allCategories ? 'для всех' : String(n.categories || '').split(/[,;\s]+/).filter(Boolean).map((c) => catsMap.get(c) || 'тип удалён').join(', '));
   /** Лист подходит типу (как phrase-tree: allCategories или код в списке). */
-  const leafFits = (n) => {
-    if (!catFilter) return true;
-    if (n.allCategories) return true;
-    return String(n.categories || '').split(/[,;\s]+/).filter(Boolean).includes(catFilter);
-  };
+  const leafFits = (n) => phraseFitsCategory(n, catFilter);
   const secHasFit = (r) => model.leavesOf(r.id).some((l) => l.parentId && leafFits(l) && !model.isEmpty(l));
 
   function render() {
     if (!model) return;
     const sel = current().params.open || '';
-    const empties = model.roots.flatMap((r) => model.leavesOf(r.id)).filter((l) => model.isEmpty(l)).length;
+    const visibleLeaves = model.roots.flatMap((r) => model.leavesOf(r.id)).filter((l) => l.parentId && leafFits(l));
+    const empties = visibleLeaves.filter((l) => model.isEmpty(l)).length;
+    const dupes = visibleLeaves.filter((l) => model.dupes.has(l.id)).length;
     const catName = catsMap.get(catFilter) || catFilter;
     info.textContent = catFilter
-      ? `Тип «${catName}»: варианты для него и «для всех». Серый раздел — нет подходящего текста (дыра).`
+      ? `Тип «${catName}»: применимые разделы и общие варианты. Одинаковые тексты с разными условиями сохраняются отдельно.`
       : 'Нажмите на вариант — правка справа. Фильтр типа показывает каскад, как в паспорте.';
     filterBox.replaceChildren(
-      qualityFilter({ value: mode, counts: { empty: empties, dupes: model.dupes.size }, onChange: (v) => { mode = v; render(); } }),
+      qualityFilter({ value: mode, counts: { empty: empties, dupes }, onChange: (v) => { mode = v; render(); } }),
       h('label', { class: 'field pt-cat-filter' }, h('span', null, 'Тип паспорта'), select({
         label: 'Тип паспорта',
         value: catFilter,
@@ -97,13 +96,14 @@ export function mountTree() {
       const btn = h('button', { type: 'button', class: 'pt-item' + (sel === n.id ? ' active' : ''), 'data-depth': String(depth), onclick: () => patch({ of: 'ptnode', open: n.id, new: undefined }) },
         h('span', { class: 'pt-name' }, n.name || 'Без названия'),
         leaf && n.text.trim() ? h('span', { class: 'pt-text' }, n.text.replace(/\{[^}]+\}/g, '…')) : null,
-        ...qualityBadges({ empty: model.isEmpty(n), dupe: model.dupes.get(n.id) || 0 }),
+        ...qualityBadges({ empty: model.isEmpty(n), dupe: model.dupes.get(n.id) || 0,
+          dupeHint: 'Одинаковый текст и условия. Перед объединением проверьте связанные записи.' }),
         leaf ? h('span', { class: 'pt-cats' }, catText(n)) : null,
         n.isDefault ? h('span', { class: 'pt-tag own' }, 'по умолчанию') : null);
       return [h('li', null, btn), ...kids.flatMap((k) => row(k, depth + 1))];
     };
-    // при фильтре типа — все разделы: с вариантами и дыры без текста
-    const secs = catFilter ? model.roots : model.roots.filter(shown);
+    const secs = model.roots.filter((root) => phraseRootApplies(root, model.leavesOf(root.id), catFilter))
+      .filter((root) => mode === 'all' || shown(root));
     if (!secs.length) { tree.replaceChildren(empty({ title: mode === 'all' ? 'Разделов пока нет — их создаёт программа при обновлении справочника.' : mode === 'empty' ? 'Пустых текстов нет.' : 'Дублей нет.' })); return; }
     tree.replaceChildren(...secs.map((r) => {
       const gap = catFilter && !secHasFit(r);

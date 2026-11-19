@@ -1,0 +1,74 @@
+{
+  "startedAt": "2026-11-19T18:23:24.885Z",
+  "origin": "http://localhost:3102",
+  "phase": "c163-dict",
+  "viewport": "1920×1080",
+  "checks": {
+    "diagnostic-dom": {
+      "status": "PASS",
+      "dom": {
+        "hash": "#dicts?d=passportPhrases",
+        "headings": [
+          {
+            "tag": "H2",
+            "text": "Тексты паспорта",
+            "panel": "page"
+          },
+          {
+            "tag": "H3",
+            "text": "Краткое описание — Вело",
+            "panel": "page"
+          }
+        ],
+        "nodes": {
+          ".pt-tree": 1,
+          ".pt-tree section": 55,
+          ".pt-name": 105,
+          ".pt-cat-filter": 1,
+          ".pt-cat-filter select": 1,
+          ".pt-cat-filter input": 0
+        },
+        "words": {
+          "Краткое описание — Вело": true,
+          "Сиденье, рукоятки и педали": true,
+          "Информирование — указатели и стенды": true,
+          "Дубли": false
+        },
+        "screen": "application"
+      }
+    },
+    "network": {
+      "status": "PASS",
+      "browserErrors": 0,
+      "outside": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOutside": 20,
+  "appOutside": 0,
+  "blockedWrites": {},
+  "pageErrors": 0,
+  "scenarioSha256": "04d56d384013286fcaa9856b6e4f04e92f1ac7015a358dbd4cc69072d13ba614",
+  "guardSha256": "32475d59d869da8261a8002d0bb3a40b3b89bf97fe3fcaf9d8a1085fda064c81",
+  "browser": "157.0.8103.79",
+  "stand": {
+    "backup": "datacore-2026-11-18_031040.tgz",
+    "head": "f76489b9ed643e72ca2175d5f48535588481612d",
+    "dirty": true,
+    "builtAt": "2026-11-19T18:14:06.274Z"
+  },
+  "traffic": [
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    }
+  ]
+}

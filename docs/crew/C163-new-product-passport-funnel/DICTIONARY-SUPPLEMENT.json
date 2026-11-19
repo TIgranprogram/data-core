@@ -1,0 +1,1360 @@
+{
+  "format": "c163-dictionary-supplement/1",
+  "task": "C163",
+  "scope": "43 утверждённые новые справочные записи; без изменения изделий/существующих значений",
+  "sourcePlan": "docs/crew/C163-new-product-passport-funnel/DICTIONARY-PLAN.md §6.1–6.3",
+  "expectedNewCounts": {
+    "passportParts": 9,
+    "productFacets": 5,
+    "productFacetValues": 9,
+    "passportPhrases": 20
+  },
+  "expectedProdCountsIfAllNew": {
+    "passportParts": 60,
+    "productFacets": 26,
+    "productFacetValues": 81,
+    "passportPhrases": 182
+  },
+  "protectedProducts": {
+    "product1061": "6adaff442a8dad6034b14606",
+    "product1068": "6aff34a8e27fdcbff25a0c9e"
+  },
+  "limitations": [
+    "G2: main photo общего рендера; только literal формы, partIds=[]",
+    "N1: открытые балки на рисунке; защита от дождя не утверждается",
+    "Никаких автоматических product choices; no PATCH/delete/merge",
+    "Шит/Щит не входят в пакет"
+  ],
+  "existing": {
+    "existing.part.stand": {
+      "key": "passportParts",
+      "id": "6adceeeb3ca001b9b3b0e571",
+      "expected": {
+        "name": "Стойка",
+        "genSingular": "стойки",
+        "genPlural": "стоек",
+        "categories": "TRN,WRK,BLG,DIO,DSP"
+      }
+    },
+    "existing.part.net": {
+      "key": "passportParts",
+      "id": "6adceeeb3ca001b9b3b0e583",
+      "expected": {
+        "name": "Сетка",
+        "genSingular": "сетки",
+        "genPlural": "сеток",
+        "categories": "WRK,DIO,DSP"
+      }
+    },
+    "existing.part.frame": {
+      "key": "passportParts",
+      "id": "6af81f883389de160b2c97d9",
+      "expected": {
+        "name": "Каркас",
+        "genSingular": "каркаса",
+        "genPlural": "каркасов",
+        "categories": ""
+      }
+    },
+    "existing.part.suspension": {
+      "key": "passportParts",
+      "id": "6afefd841ca5b05a5ce7f7c0",
+      "expected": {
+        "name": "Подвес",
+        "genSingular": "подвеса",
+        "genPlural": "подвесов",
+        "categories": ""
+      }
+    },
+    "existing.part.seat": {
+      "key": "passportParts",
+      "id": "6adceeeb3ca001b9b3b0e57a",
+      "expected": {
+        "name": "Сиденье",
+        "genSingular": "сиденья",
+        "genPlural": "сидений",
+        "categories": "TRN,WRK,BLG,DIO"
+      }
+    },
+    "existing.part.back": {
+      "key": "passportParts",
+      "id": "6adceeeb3ca001b9b3b0e57b",
+      "expected": {
+        "name": "Спинка",
+        "genSingular": "спинки",
+        "genPlural": "спинок",
+        "categories": "TRN,BLG"
+      }
+    },
+    "existing.part.bearingFrame": {
+      "key": "passportParts",
+      "id": "6adceeeb3ca001b9b3b0e574",
+      "expected": {
+        "name": "Несущая рама",
+        "genSingular": "несущей рамы",
+        "genPlural": "несущих рам",
+        "categories": "TRN,WRK,BLG,DIO"
+      }
+    },
+    "existing.part.lever": {
+      "key": "passportParts",
+      "id": "6adceeeb3ca001b9b3b0e576",
+      "expected": {
+        "name": "Рычаг",
+        "genSingular": "рычага",
+        "genPlural": "рычагов",
+        "categories": "TRN"
+      }
+    },
+    "existing.part.handle": {
+      "key": "passportParts",
+      "id": "6adceeeb3ca001b9b3b0e575",
+      "expected": {
+        "name": "Ручка",
+        "genSingular": "ручки",
+        "genPlural": "ручек",
+        "categories": "TRN,WRK,DIO"
+      }
+    },
+    "existing.part.handrail": {
+      "key": "passportParts",
+      "id": "6ae32681a3f6de10abf03656",
+      "expected": {
+        "name": "Поручень",
+        "genSingular": "поручня",
+        "genPlural": "поручней",
+        "categories": "TRN,WRK,DIO,DSP"
+      }
+    },
+    "existing.part.footstep": {
+      "key": "passportParts",
+      "id": "6ae32682a3f6de10abf0365b",
+      "expected": {
+        "name": "Ногоступ",
+        "genSingular": "ногоступа",
+        "genPlural": "ногоступов",
+        "categories": "TRN"
+      }
+    },
+    "existing.kind.bikepark": {
+      "key": "passportKinds",
+      "id": "6af6ca4a22a0611d2b3a4737",
+      "expected": {
+        "name": "Велопарковки",
+        "passportCategory": "BLG"
+      }
+    },
+    "existing.kind.geo": {
+      "key": "passportKinds",
+      "id": "6af707fdc451d4c05df6a05d",
+      "expected": {
+        "name": "Геопластика",
+        "passportCategory": "BLG"
+      }
+    },
+    "existing.kind.complex": {
+      "key": "passportKinds",
+      "id": "6af707fdc451d4c05df6a060",
+      "expected": {
+        "name": "Игровой комплекс",
+        "passportCategory": "DIO"
+      }
+    },
+    "existing.kind.canopy": {
+      "key": "passportKinds",
+      "id": "6af6ca4a22a0611d2b3a4733",
+      "expected": {
+        "name": "Навесы",
+        "passportCategory": "BLG"
+      }
+    },
+    "existing.kind.chest": {
+      "key": "passportKinds",
+      "id": "6af707fdc451d4c05df6a047",
+      "expected": {
+        "name": "Тренажёр для груди, плеч и рук",
+        "passportCategory": "TRN"
+      }
+    },
+    "existing.kind.eco": {
+      "key": "passportKinds",
+      "id": "6af6fc565ce4939b9c68f90d",
+      "expected": {
+        "name": "Экотропа",
+        "passportCategory": "BLG"
+      }
+    },
+    "existing.kind.cardio": {
+      "key": "passportKinds",
+      "id": "6af707fdc451d4c05df6a045",
+      "expected": {
+        "name": "Кардиотренажёр",
+        "passportCategory": "TRN"
+      }
+    },
+    "existing.facet.contact": {
+      "key": "productFacets",
+      "id": "6afef7611ca5b05a5ce7f2aa",
+      "expected": {
+        "name": "Рабочие части тренажёра",
+        "code": "trn.contact",
+        "category": "TRN",
+        "step": false,
+        "multi": false
+      }
+    },
+    "existing.value.platforms": {
+      "key": "productFacetValues",
+      "id": "6afef7661ca5b05a5ce7f2b5",
+      "expected": {
+        "name": "Две платформы для ног и рукоятка",
+        "code": "trn.contact.two-platforms-grip",
+        "parentId": "6afef7611ca5b05a5ce7f2aa",
+        "purposePhraseId": "",
+        "installTypeId": "",
+        "elementIds": []
+      }
+    }
+  },
+  "evidence": [
+    {
+      "id": "6adaff462a8dad6034b14619",
+      "path": "tools/logs/c163-reference-images/6adaff462a8dad6034b14619.png",
+      "source": "passport overview",
+      "endpoint": "/uploads/pp-8685fa4dc23c6563d994.png",
+      "bytes": 27571,
+      "sha256": "bde1b6e41230debcf6bbe2556eb34d8843856984c5345ee428e1e82c7e5acc10"
+    },
+    {
+      "id": "6adaff462a8dad6034b1461a",
+      "path": "tools/logs/c163-reference-images/6adaff462a8dad6034b1461a.png",
+      "source": "passport overview",
+      "endpoint": "/uploads/pp-6122d779ec3a1a761e69.png",
+      "bytes": 45332,
+      "sha256": "dd56f29dc7eaa3a1142c002bd228ca9adef66698025f331dcfd30083814abc2a"
+    },
+    {
+      "id": "6adaff332a8dad6034b1458a",
+      "path": "tools/logs/c163-reference-images/6adaff332a8dad6034b1458a.png",
+      "source": "passport overview",
+      "endpoint": "/uploads/pp-ccd576b8c03cad262615.png",
+      "bytes": 161514,
+      "sha256": "732185b44aef523907af98f22136ebc8a2db253cdc72eea2e3f0f09fd4a2c725"
+    },
+    {
+      "id": "6af40218d83abd4d10b80a38",
+      "path": "tools/logs/c163-reference-images/6af40218d83abd4d10b80a38.png",
+      "source": "main photo",
+      "endpoint": "/uploads/other/2026-11/936a68d6-4dfb-4869-93a9-9ba2c6c09a30.png",
+      "bytes": 2637173,
+      "sha256": "0f261717895e04dfcdeba420731193849e4e73e0101bc2b3d0e087ed5eb3ce31"
+    },
+    {
+      "id": "6adaff402a8dad6034b145ed",
+      "path": "tools/logs/c163-reference-images/6adaff402a8dad6034b145ed.png",
+      "source": "passport overview",
+      "endpoint": "/uploads/pp-92e5ced9a62551d540c1.png",
+      "bytes": 160054,
+      "sha256": "76eb288c302ad56211642230b370214b12f165c70df56a7bfad5e7b6fb3594f4"
+    },
+    {
+      "id": "6adaff3c2a8dad6034b145c7",
+      "path": "tools/logs/c163-reference-images/6adaff3c2a8dad6034b145c7.png",
+      "source": "passport overview",
+      "endpoint": "/uploads/pp-076ef11851c5357ae42e.png",
+      "bytes": 83159,
+      "sha256": "c61af46d93d9e199ed44dd1618fd19f87e033d047c801cb3a6edc77127fbfae4"
+    },
+    {
+      "id": "6addd770c93bb8ea2a6e395d",
+      "path": "tools/logs/c163-reference-images/6addd770c93bb8ea2a6e395d.png",
+      "source": "passport overview",
+      "endpoint": "/uploads/passport/2026-11/7ec24512-705d-48f2-af6c-d5368203a7c1.png",
+      "bytes": 305612,
+      "sha256": "a179ff21d61634e49f6e23f74315d06f50623cd2f842d08d3f28467550d96749"
+    },
+    {
+      "id": "6adaff2f2a8dad6034b1456f",
+      "path": "tools/logs/c163-reference-images/6adaff2f2a8dad6034b1456f.png",
+      "source": "passport overview",
+      "endpoint": "/uploads/passport/2026-11/fe3dd3ab-0ba9-4666-80ed-0d7ebf15b06c.png",
+      "bytes": 185719,
+      "sha256": "58218b25c3d30cbd92a301453c519ea478b683a644762069ddbbc5603497b1d4"
+    },
+    {
+      "id": "6addd770c93bb8ea2a6e3981",
+      "path": "tools/logs/c163-reference-images/6addd770c93bb8ea2a6e3981.png",
+      "source": "passport overview",
+      "endpoint": "/uploads/passport/2026-11/7e6a8ea7-f6e5-4dbf-a615-802ab5861e56.png",
+      "bytes": 95931,
+      "sha256": "1b29ae3b4b5cb945084383b04e6a5cf008e28b6a9fa907003e501b5d8a1192e2"
+    },
+    {
+      "id": "6adaff282a8dad6034b14539",
+      "path": "tools/logs/c163-reference-images/6adaff282a8dad6034b14539.png",
+      "source": "passport overview",
+      "endpoint": "/uploads/passport/2026-11/b7898300-d466-45e7-9704-0b536b5d3f20.png",
+      "bytes": 131062,
+      "sha256": "61ceef935058152b1fe6c1c6c371dc04d3e835c8ab938dd0b017d30def2551ea"
+    }
+  ],
+  "records": [
+    {
+      "symbol": "part.sidewall",
+      "key": "passportParts",
+      "body": {
+        "name": "Боковина",
+        "genSingular": "боковины",
+        "genPlural": "боковин",
+        "categories": "BLG"
+      },
+      "evidence": []
+    },
+    {
+      "symbol": "part.wheelHolder",
+      "key": "passportParts",
+      "body": {
+        "name": "Держатель колеса",
+        "genSingular": "держателя колеса",
+        "genPlural": "держателей колёс",
+        "categories": "BLG"
+      },
+      "evidence": []
+    },
+    {
+      "symbol": "part.hill",
+      "key": "passportParts",
+      "body": {
+        "name": "Холм",
+        "genSingular": "холма",
+        "genPlural": "холмов",
+        "categories": "BLG"
+      },
+      "evidence": []
+    },
+    {
+      "symbol": "part.tunnel",
+      "key": "passportParts",
+      "body": {
+        "name": "Тоннель",
+        "genSingular": "тоннеля",
+        "genPlural": "тоннелей",
+        "categories": "BLG,DIO"
+      },
+      "evidence": []
+    },
+    {
+      "symbol": "part.bridge",
+      "key": "passportParts",
+      "body": {
+        "name": "Мост",
+        "genSingular": "моста",
+        "genPlural": "мостов",
+        "categories": "BLG,DIO"
+      },
+      "evidence": []
+    },
+    {
+      "symbol": "part.slide",
+      "key": "passportParts",
+      "body": {
+        "name": "Скат",
+        "genSingular": "ската",
+        "genPlural": "скатов",
+        "categories": "BLG,DIO"
+      },
+      "evidence": []
+    },
+    {
+      "symbol": "part.playPlatform",
+      "key": "passportParts",
+      "body": {
+        "name": "Игровая платформа",
+        "genSingular": "игровой платформы",
+        "genPlural": "игровых платформ",
+        "categories": "DIO"
+      },
+      "evidence": []
+    },
+    {
+      "symbol": "part.beam",
+      "key": "passportParts",
+      "body": {
+        "name": "Балка",
+        "genSingular": "балки",
+        "genPlural": "балок",
+        "categories": "BLG"
+      },
+      "evidence": []
+    },
+    {
+      "symbol": "part.deck",
+      "key": "passportParts",
+      "body": {
+        "name": "Настил",
+        "genSingular": "настила",
+        "genPlural": "настилов",
+        "categories": "BLG"
+      },
+      "evidence": []
+    },
+    {
+      "symbol": "facet.bikepark",
+      "key": "productFacets",
+      "body": {
+        "name": "Конструкция велопарковки",
+        "code": "blg.bikepark.form",
+        "category": "BLG",
+        "order": 90,
+        "step": false,
+        "multi": false,
+        "hint": ""
+      },
+      "evidence": []
+    },
+    {
+      "symbol": "facet.geo",
+      "key": "productFacets",
+      "body": {
+        "name": "Конструкция геопластики",
+        "code": "blg.geo.form",
+        "category": "BLG",
+        "order": 90,
+        "step": false,
+        "multi": false,
+        "hint": ""
+      },
+      "evidence": []
+    },
+    {
+      "symbol": "facet.canopy",
+      "key": "productFacets",
+      "body": {
+        "name": "Конструкция перголы",
+        "code": "blg.canopy.form",
+        "category": "BLG",
+        "order": 90,
+        "step": false,
+        "multi": false,
+        "hint": ""
+      },
+      "evidence": []
+    },
+    {
+      "symbol": "facet.eco",
+      "key": "productFacets",
+      "body": {
+        "name": "Конструкция секции экотропы",
+        "code": "blg.ecotrail.form",
+        "category": "BLG",
+        "order": 90,
+        "step": false,
+        "multi": false,
+        "hint": ""
+      },
+      "evidence": []
+    },
+    {
+      "symbol": "facet.complex",
+      "key": "productFacets",
+      "body": {
+        "name": "Конструкция игрового комплекса",
+        "code": "dio.complex.form",
+        "category": "DIO",
+        "order": 90,
+        "step": false,
+        "multi": false,
+        "hint": ""
+      },
+      "evidence": []
+    },
+    {
+      "symbol": "value.P1",
+      "key": "productFacetValues",
+      "body": {
+        "name": "Боковины и петлеобразные держатели колёс",
+        "code": "blg.bikepark.form.sidewalls-loops",
+        "parentId": {
+          "$ref": "facet.bikepark"
+        },
+        "order": 1,
+        "purposePhraseId": "",
+        "installTypeId": "",
+        "elementIds": []
+      },
+      "evidence": [
+        "6adaff462a8dad6034b14619"
+      ]
+    },
+    {
+      "symbol": "value.P2",
+      "key": "productFacetValues",
+      "body": {
+        "name": "Отдельные дугообразные стойки",
+        "code": "blg.bikepark.form.separate-arches",
+        "parentId": {
+          "$ref": "facet.bikepark"
+        },
+        "order": 2,
+        "purposePhraseId": "",
+        "installTypeId": "",
+        "elementIds": []
+      },
+      "evidence": [
+        "6adaff462a8dad6034b1461a"
+      ]
+    },
+    {
+      "symbol": "value.G1",
+      "key": "productFacetValues",
+      "body": {
+        "name": "Два холма с тоннелями, мостом и скатом",
+        "code": "blg.geo.form.two-hills-bridge-slide",
+        "parentId": {
+          "$ref": "facet.geo"
+        },
+        "order": 3,
+        "purposePhraseId": "",
+        "installTypeId": "",
+        "elementIds": []
+      },
+      "evidence": [
+        "6adaff332a8dad6034b1458a"
+      ]
+    },
+    {
+      "symbol": "value.G2",
+      "key": "productFacetValues",
+      "body": {
+        "name": "Отдельная полусфера",
+        "code": "blg.geo.form.hemisphere",
+        "parentId": {
+          "$ref": "facet.geo"
+        },
+        "order": 4,
+        "purposePhraseId": "",
+        "installTypeId": "",
+        "elementIds": []
+      },
+      "evidence": [
+        "6af40218d83abd4d10b80a38"
+      ]
+    },
+    {
+      "symbol": "value.D1",
+      "key": "productFacetValues",
+      "body": {
+        "name": "Платформа, закрытые горки и канатные переходы",
+        "code": "dio.complex.form.platform-tube-slides-ropes",
+        "parentId": {
+          "$ref": "facet.complex"
+        },
+        "order": 5,
+        "purposePhraseId": "",
+        "installTypeId": "",
+        "elementIds": []
+      },
+      "evidence": [
+        "6adaff402a8dad6034b145ed"
+      ]
+    },
+    {
+      "symbol": "value.N1",
+      "key": "productFacetValues",
+      "body": {
+        "name": "Стойки и верхние продольные и поперечные балки",
+        "code": "blg.canopy.form.posts-beams",
+        "parentId": {
+          "$ref": "facet.canopy"
+        },
+        "order": 6,
+        "purposePhraseId": "",
+        "installTypeId": "",
+        "elementIds": []
+      },
+      "evidence": [
+        "6adaff3c2a8dad6034b145c7"
+      ]
+    },
+    {
+      "symbol": "value.N2",
+      "key": "productFacetValues",
+      "body": {
+        "name": "Решётчатый каркас, гнездо и скамья на подвесах",
+        "code": "blg.canopy.form.nest-bench",
+        "parentId": {
+          "$ref": "facet.canopy"
+        },
+        "order": 7,
+        "purposePhraseId": "",
+        "installTypeId": "",
+        "elementIds": []
+      },
+      "evidence": [
+        "6addd770c93bb8ea2a6e395d"
+      ]
+    },
+    {
+      "symbol": "value.T1",
+      "key": "productFacetValues",
+      "body": {
+        "name": "Сиденья со спинками и рычаги с рукоятками",
+        "code": "trn.contact.seats-backs-levers-grips",
+        "parentId": {
+          "$ref": "existing.facet.contact"
+        },
+        "order": 8,
+        "purposePhraseId": "",
+        "installTypeId": "",
+        "elementIds": []
+      },
+      "evidence": [
+        "6adaff2f2a8dad6034b1456f"
+      ]
+    },
+    {
+      "symbol": "value.E1",
+      "key": "productFacetValues",
+      "body": {
+        "name": "Криволинейная секция настила",
+        "code": "blg.ecotrail.form.curved-deck",
+        "parentId": {
+          "$ref": "facet.eco"
+        },
+        "order": 9,
+        "purposePhraseId": "",
+        "installTypeId": "",
+        "elementIds": []
+      },
+      "evidence": [
+        "6addd770c93bb8ea2a6e3981"
+      ]
+    },
+    {
+      "symbol": "root.P1",
+      "key": "passportPhrases",
+      "body": {
+        "section": "simple-description",
+        "categories": "BLG",
+        "allCategories": false,
+        "kindIds": [
+          {
+            "$ref": "existing.kind.bikepark"
+          }
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "value.P1"
+          }
+        ],
+        "groupIds": [],
+        "required": false,
+        "isDefault": false,
+        "order": 0,
+        "name": "Краткое описание — Боковины и петлеобразные держатели колёс",
+        "parentId": "",
+        "slot": 1,
+        "text": "",
+        "partIds": []
+      },
+      "evidence": [
+        "6adaff462a8dad6034b14619"
+      ]
+    },
+    {
+      "symbol": "leaf.P1",
+      "key": "passportPhrases",
+      "body": {
+        "section": "simple-description",
+        "categories": "BLG",
+        "allCategories": false,
+        "kindIds": [
+          {
+            "$ref": "existing.kind.bikepark"
+          }
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "value.P1"
+          }
+        ],
+        "groupIds": [],
+        "required": false,
+        "isDefault": false,
+        "order": 0,
+        "name": "Боковины и петлеобразные держатели колёс",
+        "parentId": {
+          "$ref": "root.P1"
+        },
+        "text": "Велопарковка состоит из двух боковин и ряда петлеобразных держателей колёс.",
+        "partIds": [
+          {
+            "$ref": "part.sidewall"
+          },
+          {
+            "$ref": "part.wheelHolder"
+          }
+        ]
+      },
+      "evidence": [
+        "6adaff462a8dad6034b14619"
+      ]
+    },
+    {
+      "symbol": "root.P2",
+      "key": "passportPhrases",
+      "body": {
+        "section": "simple-description",
+        "categories": "BLG",
+        "allCategories": false,
+        "kindIds": [
+          {
+            "$ref": "existing.kind.bikepark"
+          }
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "value.P2"
+          }
+        ],
+        "groupIds": [],
+        "required": false,
+        "isDefault": false,
+        "order": 0,
+        "name": "Краткое описание — Отдельные дугообразные стойки",
+        "parentId": "",
+        "slot": 1,
+        "text": "",
+        "partIds": []
+      },
+      "evidence": [
+        "6adaff462a8dad6034b1461a"
+      ]
+    },
+    {
+      "symbol": "leaf.P2",
+      "key": "passportPhrases",
+      "body": {
+        "section": "simple-description",
+        "categories": "BLG",
+        "allCategories": false,
+        "kindIds": [
+          {
+            "$ref": "existing.kind.bikepark"
+          }
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "value.P2"
+          }
+        ],
+        "groupIds": [],
+        "required": false,
+        "isDefault": false,
+        "order": 0,
+        "name": "Отдельные дугообразные стойки",
+        "parentId": {
+          "$ref": "root.P2"
+        },
+        "text": "Велопарковка состоит из отдельных дугообразных стоек, установленных в ряд.",
+        "partIds": [
+          {
+            "$ref": "existing.part.stand"
+          }
+        ]
+      },
+      "evidence": [
+        "6adaff462a8dad6034b1461a"
+      ]
+    },
+    {
+      "symbol": "root.G1",
+      "key": "passportPhrases",
+      "body": {
+        "section": "simple-description",
+        "categories": "BLG",
+        "allCategories": false,
+        "kindIds": [
+          {
+            "$ref": "existing.kind.geo"
+          }
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "value.G1"
+          }
+        ],
+        "groupIds": [],
+        "required": false,
+        "isDefault": false,
+        "order": 0,
+        "name": "Краткое описание — Два холма с тоннелями, мостом и скатом",
+        "parentId": "",
+        "slot": 1,
+        "text": "",
+        "partIds": []
+      },
+      "evidence": [
+        "6adaff332a8dad6034b1458a"
+      ]
+    },
+    {
+      "symbol": "leaf.G1",
+      "key": "passportPhrases",
+      "body": {
+        "section": "simple-description",
+        "categories": "BLG",
+        "allCategories": false,
+        "kindIds": [
+          {
+            "$ref": "existing.kind.geo"
+          }
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "value.G1"
+          }
+        ],
+        "groupIds": [],
+        "required": false,
+        "isDefault": false,
+        "order": 0,
+        "name": "Два холма с тоннелями, мостом и скатом",
+        "parentId": {
+          "$ref": "root.G1"
+        },
+        "text": "Изделие объединяет два холма с тоннелями. Холмы соединены мостом с боковыми ограждениями; к одному из холмов примыкает скат горки.",
+        "partIds": [
+          {
+            "$ref": "part.hill"
+          },
+          {
+            "$ref": "part.tunnel"
+          },
+          {
+            "$ref": "part.bridge"
+          },
+          {
+            "$ref": "part.slide"
+          }
+        ]
+      },
+      "evidence": [
+        "6adaff332a8dad6034b1458a"
+      ]
+    },
+    {
+      "symbol": "root.G2",
+      "key": "passportPhrases",
+      "body": {
+        "section": "simple-description",
+        "categories": "BLG",
+        "allCategories": false,
+        "kindIds": [
+          {
+            "$ref": "existing.kind.geo"
+          }
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "value.G2"
+          }
+        ],
+        "groupIds": [],
+        "required": false,
+        "isDefault": false,
+        "order": 0,
+        "name": "Краткое описание — Отдельная полусфера",
+        "parentId": "",
+        "slot": 1,
+        "text": "",
+        "partIds": []
+      },
+      "evidence": [
+        "6af40218d83abd4d10b80a38"
+      ]
+    },
+    {
+      "symbol": "leaf.G2",
+      "key": "passportPhrases",
+      "body": {
+        "section": "simple-description",
+        "categories": "BLG",
+        "allCategories": false,
+        "kindIds": [
+          {
+            "$ref": "existing.kind.geo"
+          }
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "value.G2"
+          }
+        ],
+        "groupIds": [],
+        "required": false,
+        "isDefault": false,
+        "order": 0,
+        "name": "Отдельная полусфера",
+        "parentId": {
+          "$ref": "root.G2"
+        },
+        "text": "Изделие выполнено в форме полусферы с округлой верхней поверхностью.",
+        "partIds": []
+      },
+      "evidence": [
+        "6af40218d83abd4d10b80a38"
+      ]
+    },
+    {
+      "symbol": "root.D1",
+      "key": "passportPhrases",
+      "body": {
+        "section": "simple-description",
+        "categories": "DIO",
+        "allCategories": false,
+        "kindIds": [
+          {
+            "$ref": "existing.kind.complex"
+          }
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "value.D1"
+          }
+        ],
+        "groupIds": [],
+        "required": false,
+        "isDefault": false,
+        "order": 0,
+        "name": "Краткое описание — Платформа, закрытые горки и канатные переходы",
+        "parentId": "",
+        "slot": 1,
+        "text": "",
+        "partIds": []
+      },
+      "evidence": [
+        "6adaff402a8dad6034b145ed"
+      ]
+    },
+    {
+      "symbol": "leaf.D1",
+      "key": "passportPhrases",
+      "body": {
+        "section": "simple-description",
+        "categories": "DIO",
+        "allCategories": false,
+        "kindIds": [
+          {
+            "$ref": "existing.kind.complex"
+          }
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "value.D1"
+          }
+        ],
+        "groupIds": [],
+        "required": false,
+        "isDefault": false,
+        "order": 0,
+        "name": "Платформа, закрытые горки и канатные переходы",
+        "parentId": {
+          "$ref": "root.D1"
+        },
+        "text": "Комплекс состоит из опорных стоек, центральной игровой платформы с ограждением, двух закрытых горок, канатных переходов и сеток для лазания.",
+        "partIds": [
+          {
+            "$ref": "existing.part.stand"
+          },
+          {
+            "$ref": "part.playPlatform"
+          },
+          {
+            "$ref": "part.slide"
+          },
+          {
+            "$ref": "part.bridge"
+          },
+          {
+            "$ref": "existing.part.net"
+          }
+        ]
+      },
+      "evidence": [
+        "6adaff402a8dad6034b145ed"
+      ]
+    },
+    {
+      "symbol": "root.N1",
+      "key": "passportPhrases",
+      "body": {
+        "section": "simple-description",
+        "categories": "BLG",
+        "allCategories": false,
+        "kindIds": [
+          {
+            "$ref": "existing.kind.canopy"
+          }
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "value.N1"
+          }
+        ],
+        "groupIds": [],
+        "required": false,
+        "isDefault": false,
+        "order": 0,
+        "name": "Краткое описание — Стойки и верхние продольные и поперечные балки",
+        "parentId": "",
+        "slot": 1,
+        "text": "",
+        "partIds": []
+      },
+      "evidence": [
+        "6adaff3c2a8dad6034b145c7"
+      ]
+    },
+    {
+      "symbol": "leaf.N1",
+      "key": "passportPhrases",
+      "body": {
+        "section": "simple-description",
+        "categories": "BLG",
+        "allCategories": false,
+        "kindIds": [
+          {
+            "$ref": "existing.kind.canopy"
+          }
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "value.N1"
+          }
+        ],
+        "groupIds": [],
+        "required": false,
+        "isDefault": false,
+        "order": 0,
+        "name": "Стойки и верхние продольные и поперечные балки",
+        "parentId": {
+          "$ref": "root.N1"
+        },
+        "text": "Пергола состоит из опорных стоек и расположенных над ними продольных и поперечных балок.",
+        "partIds": [
+          {
+            "$ref": "existing.part.stand"
+          },
+          {
+            "$ref": "part.beam"
+          }
+        ]
+      },
+      "evidence": [
+        "6adaff3c2a8dad6034b145c7"
+      ]
+    },
+    {
+      "symbol": "root.N2",
+      "key": "passportPhrases",
+      "body": {
+        "section": "simple-description",
+        "categories": "BLG",
+        "allCategories": false,
+        "kindIds": [
+          {
+            "$ref": "existing.kind.canopy"
+          }
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "value.N2"
+          }
+        ],
+        "groupIds": [],
+        "required": false,
+        "isDefault": false,
+        "order": 0,
+        "name": "Краткое описание — Решётчатый каркас, гнездо и скамья на подвесах",
+        "parentId": "",
+        "slot": 1,
+        "text": "",
+        "partIds": []
+      },
+      "evidence": [
+        "6addd770c93bb8ea2a6e395d"
+      ]
+    },
+    {
+      "symbol": "leaf.N2",
+      "key": "passportPhrases",
+      "body": {
+        "section": "simple-description",
+        "categories": "BLG",
+        "allCategories": false,
+        "kindIds": [
+          {
+            "$ref": "existing.kind.canopy"
+          }
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "value.N2"
+          }
+        ],
+        "groupIds": [],
+        "required": false,
+        "isDefault": false,
+        "order": 0,
+        "name": "Решётчатый каркас, гнездо и скамья на подвесах",
+        "parentId": {
+          "$ref": "root.N2"
+        },
+        "text": "Пергола состоит из опорных стоек и верхнего решётчатого каркаса. На подвесах закреплены круглое сиденье-гнездо и скамья со спинкой.",
+        "partIds": [
+          {
+            "$ref": "existing.part.stand"
+          },
+          {
+            "$ref": "existing.part.frame"
+          },
+          {
+            "$ref": "existing.part.suspension"
+          },
+          {
+            "$ref": "existing.part.seat"
+          },
+          {
+            "$ref": "existing.part.back"
+          }
+        ]
+      },
+      "evidence": [
+        "6addd770c93bb8ea2a6e395d"
+      ]
+    },
+    {
+      "symbol": "root.T1",
+      "key": "passportPhrases",
+      "body": {
+        "section": "simple-description",
+        "categories": "TRN",
+        "allCategories": false,
+        "kindIds": [
+          {
+            "$ref": "existing.kind.chest"
+          }
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "value.T1"
+          }
+        ],
+        "groupIds": [],
+        "required": false,
+        "isDefault": false,
+        "order": 0,
+        "name": "Краткое описание — Сиденья со спинками и рычаги с рукоятками",
+        "parentId": "",
+        "slot": 1,
+        "text": "",
+        "partIds": []
+      },
+      "evidence": [
+        "6adaff2f2a8dad6034b1456f"
+      ]
+    },
+    {
+      "symbol": "leaf.T1",
+      "key": "passportPhrases",
+      "body": {
+        "section": "simple-description",
+        "categories": "TRN",
+        "allCategories": false,
+        "kindIds": [
+          {
+            "$ref": "existing.kind.chest"
+          }
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "value.T1"
+          }
+        ],
+        "groupIds": [],
+        "required": false,
+        "isDefault": false,
+        "order": 0,
+        "name": "Сиденья со спинками и рычаги с рукоятками",
+        "parentId": {
+          "$ref": "root.T1"
+        },
+        "text": "На общей раме тренажёра установлены сиденья со спинками и подвижные рычаги с рукоятками.",
+        "partIds": [
+          {
+            "$ref": "existing.part.bearingFrame"
+          },
+          {
+            "$ref": "existing.part.seat"
+          },
+          {
+            "$ref": "existing.part.back"
+          },
+          {
+            "$ref": "existing.part.lever"
+          },
+          {
+            "$ref": "existing.part.handle"
+          }
+        ]
+      },
+      "evidence": [
+        "6adaff2f2a8dad6034b1456f"
+      ]
+    },
+    {
+      "symbol": "root.E1",
+      "key": "passportPhrases",
+      "body": {
+        "section": "simple-description",
+        "categories": "BLG",
+        "allCategories": false,
+        "kindIds": [
+          {
+            "$ref": "existing.kind.eco"
+          }
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "value.E1"
+          }
+        ],
+        "groupIds": [],
+        "required": false,
+        "isDefault": false,
+        "order": 0,
+        "name": "Краткое описание — Криволинейная секция настила",
+        "parentId": "",
+        "slot": 1,
+        "text": "",
+        "partIds": []
+      },
+      "evidence": [
+        "6addd770c93bb8ea2a6e3981"
+      ]
+    },
+    {
+      "symbol": "leaf.E1",
+      "key": "passportPhrases",
+      "body": {
+        "section": "simple-description",
+        "categories": "BLG",
+        "allCategories": false,
+        "kindIds": [
+          {
+            "$ref": "existing.kind.eco"
+          }
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "value.E1"
+          }
+        ],
+        "groupIds": [],
+        "required": false,
+        "isDefault": false,
+        "order": 0,
+        "name": "Криволинейная секция настила",
+        "parentId": {
+          "$ref": "root.E1"
+        },
+        "text": "Секция экотропы представляет собой криволинейный настил из последовательно расположенных поперечных элементов.",
+        "partIds": [
+          {
+            "$ref": "part.deck"
+          }
+        ]
+      },
+      "evidence": [
+        "6addd770c93bb8ea2a6e3981"
+      ]
+    },
+    {
+      "symbol": "root.T2",
+      "key": "passportPhrases",
+      "body": {
+        "section": "simple-description",
+        "categories": "TRN",
+        "allCategories": false,
+        "kindIds": [
+          {
+            "$ref": "existing.kind.cardio"
+          }
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "existing.value.platforms"
+          }
+        ],
+        "groupIds": [],
+        "required": false,
+        "isDefault": false,
+        "order": 0,
+        "name": "Краткое описание — Две платформы для ног и рукоятка",
+        "parentId": "",
+        "slot": 1,
+        "text": "",
+        "partIds": []
+      },
+      "evidence": [
+        "6adaff282a8dad6034b14539"
+      ]
+    },
+    {
+      "symbol": "leaf.T2",
+      "key": "passportPhrases",
+      "body": {
+        "section": "simple-description",
+        "categories": "TRN",
+        "allCategories": false,
+        "kindIds": [
+          {
+            "$ref": "existing.kind.cardio"
+          }
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "existing.value.platforms"
+          }
+        ],
+        "groupIds": [],
+        "required": false,
+        "isDefault": false,
+        "order": 0,
+        "name": "Две платформы для ног и рукоятка",
+        "parentId": {
+          "$ref": "root.T2"
+        },
+        "text": "Тренажёр состоит из двух опорных стоек, поручня и двух подвижных рычагов с платформами для ног.",
+        "partIds": [
+          {
+            "$ref": "existing.part.stand"
+          },
+          {
+            "$ref": "existing.part.handrail"
+          },
+          {
+            "$ref": "existing.part.lever"
+          },
+          {
+            "$ref": "existing.part.footstep"
+          }
+        ]
+      },
+      "evidence": [
+        "6adaff282a8dad6034b14539"
+      ]
+    }
+  ]
+}

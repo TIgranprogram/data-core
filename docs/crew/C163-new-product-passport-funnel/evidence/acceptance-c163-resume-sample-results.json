@@ -1,0 +1,201 @@
+{
+  "startedAt": "2026-11-19T19:01:43.985Z",
+  "origin": "http://localhost:3102",
+  "phase": "c163",
+  "viewport": "1920×1080",
+  "checks": {
+    "resume-only-joints-and-sample": {
+      "status": "PASS",
+      "action": "Сверить шаблон, номера и исторические выпуски",
+      "ready": true,
+      "pdf": {
+        "status": 201,
+        "sha256": "14b63c31a599f0ff47a9760f5e64cbc8116157ed059386350bfc49cd97601bc1",
+        "bytes": 305104,
+        "pages": 13,
+        "sizes": [
+          [
+            420,
+            595
+          ]
+        ],
+        "imageCount": 3,
+        "hasDescription": true,
+        "hasNumber": null,
+        "hasAnyPassportNumber": false,
+        "hasDraftMark": true,
+        "hasTechnicalComposition": false
+      },
+      "zeroPassports": true,
+      "historical": {
+        "records": [
+          {
+            "number": "611",
+            "sha256": "86f6f7e9158cb93492ba8f3aa847976975705101f0fb28acfb11e6e404aa5bcc"
+          },
+          {
+            "number": "612",
+            "sha256": "4fbc2b7c4d9e598114a667c60ffa36a1205f6da23338e6695688ccd7c4250057"
+          },
+          {
+            "number": "613",
+            "sha256": "4fdd604c1451b0d6881c71c98930225eea9893be89d9285c7796e1086c8b0094"
+          }
+        ],
+        "source1066": "9b0d7ff4bf5724fd6de9cd5ee603bd91d9f3a0174fed34dd686d188c9646d9b3"
+      }
+    },
+    "network": {
+      "status": "PASS",
+      "browserErrors": 0,
+      "outside": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOutside": 27,
+  "appOutside": 0,
+  "blockedWrites": {},
+  "pageErrors": 0,
+  "scenarioSha256": "1045d5acaeffb74491a7fe23999f81f7eb64deac2480205d880a9bf488285b83",
+  "guardSha256": "32475d59d869da8261a8002d0bb3a40b3b89bf97fe3fcaf9d8a1085fda064c81",
+  "browser": "157.0.8103.79",
+  "stand": {
+    "backup": "datacore-2026-11-18_031040.tgz",
+    "head": "f76489b9ed643e72ca2175d5f48535588481612d",
+    "dirty": true,
+    "builtAt": "2026-11-19T18:14:06.274Z"
+  },
+  "traffic": [
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "resume-only-joints-and-sample",
+      "method": "GET",
+      "target": "/api/showcase/6aff3ba30929d7d70f4b2451/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "resume-only-joints-and-sample",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 200
+    },
+    {
+      "step": "resume-only-joints-and-sample",
+      "method": "GET",
+      "target": "/api/passports/6afefa546402b642a6610a8b",
+      "readOnly": "1",
+      "status": 200
+    },
+    {
+      "step": "resume-only-joints-and-sample",
+      "method": "GET",
+      "target": "/api/passports/6aff0bf134de43c56e5ac63f",
+      "readOnly": "1",
+      "status": 200
+    },
+    {
+      "step": "resume-only-joints-and-sample",
+      "method": "GET",
+      "target": "/api/passports/6aff2b122d9e948b326339c6",
+      "readOnly": "1",
+      "status": 200
+    },
+    {
+      "step": "resume-only-joints-and-sample",
+      "method": "GET",
+      "target": "/api/showcase/6ae1269ae36900370537a2f3/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "resume-only-joints-and-sample",
+      "method": "GET",
+      "target": "/api/passports/next-numbers",
+      "status": 403
+    },
+    {
+      "step": "resume-only-joints-and-sample",
+      "method": "GET",
+      "target": "/api/passports/last-numbers",
+      "status": 200
+    },
+    {
+      "step": "resume-only-joints-and-sample",
+      "method": "PATCH",
+      "target": "/api/showcase/6aff3ba30929d7d70f4b2451/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "resume-only-joints-and-sample",
+      "method": "POST",
+      "target": "/api/passports/preview",
+      "status": 201
+    },
+    {
+      "step": "resume-only-joints-and-sample",
+      "method": "GET",
+      "target": "/api/showcase/6aff3ba30929d7d70f4b2451/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "resume-only-joints-and-sample",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 304
+    },
+    {
+      "step": "resume-only-joints-and-sample",
+      "method": "GET",
+      "target": "/api/passports/next-numbers",
+      "status": 403
+    },
+    {
+      "step": "resume-only-joints-and-sample",
+      "method": "GET",
+      "target": "/api/passports/last-numbers",
+      "status": 304
+    },
+    {
+      "step": "resume-only-joints-and-sample",
+      "method": "GET",
+      "target": "/api/passports/6afefa546402b642a6610a8b",
+      "readOnly": "1",
+      "status": 304
+    },
+    {
+      "step": "resume-only-joints-and-sample",
+      "method": "GET",
+      "target": "/api/passports/6aff0bf134de43c56e5ac63f",
+      "readOnly": "1",
+      "status": 304
+    },
+    {
+      "step": "resume-only-joints-and-sample",
+      "method": "GET",
+      "target": "/api/passports/6aff2b122d9e948b326339c6",
+      "readOnly": "1",
+      "status": 304
+    },
+    {
+      "step": "resume-only-joints-and-sample",
+      "method": "GET",
+      "target": "/api/showcase/6ae1269ae36900370537a2f3/passport-template",
+      "variant": "short",
+      "status": 200
+    }
+  ]
+}
