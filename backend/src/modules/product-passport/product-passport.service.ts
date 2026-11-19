@@ -50,7 +50,8 @@ import type { ReadyPassportDto } from './dto/ready-passport.dto';
 import { PassportQueries, choiceMissingIn } from './passport-queries';
 import { buildForest, forProduct, missingChoices, parseChoices, presentForest, resolveChoices, toNode, type PhraseTreeNode, type ProductCtx } from '../../common/passport/phrase-tree';
 import { overrideFor } from '../../common/passport/text-overrides';
-import { isBriefPresentation, printPhraseRoots, renderSimplePhrase, selectSimpleDescription, shortDetailKeys, simpleChoiceForest, simpleDescriptionSuggestions, simpleFacetIds, type PassportPrintSources, type PassportReadiness } from './passport-presentation';
+import { isBriefPresentation, printPhraseRoots, renderSimplePhrase, selectSimpleDescription, shortDetailKeys, simpleChoiceForest, simpleDescriptionSuggestions, simpleFacetIds, type PassportPrintSources, type PassportReadiness, type SimpleDescriptionSource } from './passport-presentation';
+import { renderSelectedParts, selectedPartsIssue, type SimpleDescription } from '../../common/passport/simple-description';
 import { PASSPORT_CATEGORY_CODES, presentPassportDefaults, type PassportDefaults } from '../showcase/passport-defaults';
 import { patchPassportTemplate } from '../showcase/passport-template-patch';
 import { resolveStyle } from './passport-pdf-v2';
@@ -825,6 +826,12 @@ export class ProductPassportService {
   async snapshot(id: string): Promise<ProductPassportDocument | null> {
     const doc = await this.findById(id);
     const previous = doc.toObject() as unknown as Doc;
+    const sealed = previous.status === 'issued' || previous.status === 'annulled';
+    if (sealed && previous.presentationVersion === 1
+      && (previous.simpleDescription as SimpleDescription | undefined)?.mode === 'parts') {
+      if (previous.status === 'annulled') throw new ConflictException('Паспорт аннулирован — изменить его нельзя');
+      throw new ConflictException('Паспорт уже выдан. Чтобы изменить текст, создайте новую редакцию.');
+    }
     const p = { ...previous };
     // черновик с изделием: поля и категория — из изделия (в память; запишет doc.save() в конце)
     const fp = await this.fromProductDiff(p);
@@ -968,12 +975,16 @@ export class ProductPassportService {
     const recommendations: ReturnType<typeof makeIssue>[] = [];
     const defaulted: PassportReadiness['defaulted'] = [];
     let built: Awaited<ReturnType<ProductPassportService['buildText']>> = null;
+    let simpleWithoutCategory: Awaited<ReturnType<ProductPassportService['resolveSimpleText']>> | null = null;
     const savedText = previous?.reuseText ? input.textSnapshot as NonNullable<typeof built>['text'] : undefined;
     if (!hasCategory) {
       document.passportCategory = null;
       missing.push(makeIssue('category', 'Выберите тип паспорта', 'Карточка изделия → Паспорт → Тип паспорта'));
+      if (brief && (document.simpleDescription as SimpleDescription | undefined)?.mode === 'parts') {
+        simpleWithoutCategory = await this.resolveSimpleText(document, [], [], session);
+      }
     } else if (!savedText) {
-      try { built = await this.buildText(document); }
+      try { built = await this.buildText(document, undefined, session); }
       catch (e) {
         if (session) throw e; // драйвер должен иметь возможность повторить прерванную транзакцию
         missing.push(makeIssue('textSnapshot', 'Текст паспорта не собрался', 'Проверьте тексты и правила категории'));
@@ -996,6 +1007,9 @@ export class ProductPassportService {
       : imageRules(document, cat, options());
     const old = { ...input, images };
     const snap = built?.text ?? savedText;
+    const simple = built?.simple ?? simpleWithoutCategory;
+    const partsIssue = simple?.source?.kind === 'parts' ? selectedPartsIssue(simple.source) : null;
+    if (partsIssue) missing.push(partsIssue);
     if (savedText) document.textSnapshot = savedText;
     else if (snap) {
       const had = input.textSnapshot as (Snap & FieldSnap) | undefined;
@@ -1008,12 +1022,12 @@ export class ProductPassportService {
         } else Object.assign(next, fields.snap);
       }
       if (brief) next.description = snap.description;
-      if (built?.simple?.source) Object.assign(next, { simpleDescriptionSource: built.simple.source });
+      if (simple?.source) Object.assign(next, { simpleDescriptionSource: simple.source });
       document.textSnapshot = next;
-      document.simpleDescriptionSource = built?.simple?.source ?? null;
       if (snap.purpose) document.purpose = snap.purpose;
       if (snap.install.text) document.installationMethod = snap.install.text;
     } else document.textSnapshot = null;
+    if (simple || (!savedText && snap)) document.simpleDescriptionSource = simple?.source ?? null;
     if (brief) document.description = snap?.description ?? '';
     if (hasCategory) {
       const keep = (m: { key: string }) => {
@@ -1025,8 +1039,8 @@ export class ProductPassportService {
       };
       const listed = (savedText ? [] : missingKeyed({ ...document, images } as never, cat, options())).filter(keep);
       missing.push(...listed.map((m) => makeIssue(m.key, m.label)));
-      if (brief && !snap?.description) {
-        const root = built?.simple?.unresolvedRoot;
+      if (brief && !snap?.description && !partsIssue) {
+        const root = simple?.unresolvedRoot;
         missing.push(root
           ? makeIssue(`choice:${root.id}`, `Выбор: ${root.name}`)
           : makeIssue('simpleDescription', 'Краткое описание не определено', 'Карточка изделия → Паспорт → Добавьте фразу для изделия'));
@@ -1075,7 +1089,7 @@ export class ProductPassportService {
     });
     return {
       document, readiness, images, urls, install: options().install, categoryName: cat?.name,
-      suggestions: built?.simple?.suggestions ?? [],
+      suggestions: simple?.suggestions ?? [],
     };
   }
 
@@ -1109,9 +1123,11 @@ export class ProductPassportService {
     const readiness = evaluated?.readiness ?? (printSnapshot as { readiness?: PassportReadiness } | undefined)?.readiness;
     if (readiness && bindingError) addBindingBlocker(readiness, bindingError);
     const document = evaluated?.document ?? own;
+    const frozenSource = (raw.textSnapshot as { simpleDescriptionSource?: SimpleDescriptionSource } | undefined)?.simpleDescriptionSource;
     const revisionList = await this.revisionList(raw);
     return {
       ...document, ...presentPrint(raw), fromProduct: draft && !!raw.productId,
+      ...(!draft && frozenSource?.kind === 'parts' ? { simpleDescriptionSource: frozenSource } : {}),
       ...(revisionList.length ? { revisionList } : {}),
       ...(readiness ? { readiness, missing: readiness.missing.map((m) => m.label), requiredImages: readiness.requiredImages, imageSlots: readiness.imageSlots } : {}),
       ...(printSnapshot ? {
@@ -1185,7 +1201,7 @@ export class ProductPassportService {
   }
 
   /** Текст паспорта по справочникам для `p` (без записи; выбранный способ установки кладёт в `p.installationTypeId`); нет категории — null. */
-  private async buildText(p: Doc, usedFields?: Set<string>) {
+  private async buildText(p: Doc, usedFields?: Set<string>, session?: ClientSession) {
     if (!p.passportCategory) return null;
     applyCategoryDefaults(p, (await this.categoryRules()).get(String(p.passportCategory))); // C112 А1: умолчание типа — заполнено (в изделие не пишется)
     // v2: общая часть — тексты v2 из кода (шаблон «Для всех» в базе остаётся для PDF v1); версия категории — из базы, иначе из кода
@@ -1203,7 +1219,7 @@ export class ProductPassportService {
     const allRoots = await this.forest(cat);
     const applicableForest = forProduct(allRoots, product); // тексты, привязанные к чужим признакам, изделию не идут
     const forest = printPhraseRoots(applicableForest, isBriefPresentation(p));
-    const simple = p.presentationVersion === 1 ? await this.resolveSimpleText(p, await this.simpleChoices(allRoots, product), applicableForest) : null;
+    const simple = p.presentationVersion === 1 ? await this.resolveSimpleText(p, await this.simpleChoices(allRoots, product), applicableForest, session) : null;
     const resolved = resolveChoices(forest, p.textChoices as Record<string, string> | undefined, product);
     const instRoot = forest.find((r) => r.section === 'installation');
     const instLeaf = instRoot ? resolved.leaves.get(instRoot.id)?.leaf : undefined;
@@ -1222,17 +1238,30 @@ export class ProductPassportService {
     return simpleChoiceForest(roots, context, new Map(rows.filter((r) => r.parentId).map((r) => [String(r._id), String(r.parentId)])));
   }
 
-  private async resolveSimpleText(p: Doc, forest: PhraseTreeNode[], autoForest = forest) {
+  private async resolveSimpleText(p: Doc, forest: PhraseTreeNode[], autoForest = forest, session?: ClientSession): Promise<{
+    source: SimpleDescriptionSource | null;
+    suggestions: ReturnType<typeof simpleDescriptionSuggestions>;
+    unresolvedRoot: PhraseTreeNode | null;
+  }> {
     const options = simpleDescriptionSuggestions(forest);
-    const ids = [...new Set(options.filter((o) => o.text.includes('{parts}')).flatMap((o) => o.partIds))]
+    const own = p.simpleDescription as SimpleDescription<Types.ObjectId | string> | undefined;
+    const partIds = own?.mode === 'parts' && isBriefPresentation(p) ? [...new Set((own.partIds ?? []).map(String))] : null;
+    const ids = [...new Set([...(partIds ?? []), ...options.filter((o) => o.text.includes('{parts}')).flatMap((o) => o.partIds)])]
       .filter((id) => Types.ObjectId.isValid(id)).map((id) => new Types.ObjectId(id));
     const rows = ids.length ? await this.connection.collection('dict_values').find({
       _id: { $in: ids }, dict: 'passportParts', deletedAt: null,
-    }, { projection: { genPlural: 1, genSingular: 1 } }).toArray() : [];
-    const parts = new Map(rows.map((row) => [String(row._id), { genPlural: row.genPlural, genSingular: row.genSingular }]));
+    }, { session, projection: { name: 1, genPlural: 1, genSingular: 1 } }).toArray() : [];
+    const parts = new Map(rows.map((row) => [String(row._id), { name: row.name, genPlural: row.genPlural, genSingular: row.genSingular }]));
     const suggestions = options.map((o) => ({ ...o, text: renderSimplePhrase(o.text, o.partIds, parts) })).filter((o) => o.text);
-    const own = p.simpleDescription as { text?: string; partIds?: unknown[] } | undefined;
-    if (own?.text?.trim()) return { source: { kind: 'own', partIds: (own.partIds ?? []).map(String) }, suggestions, unresolvedRoot: null };
+    if (partIds) {
+      const { text, invalidPartIds } = renderSelectedParts(partIds, parts);
+      p.simpleDescription = { mode: 'parts', partIds, text };
+      return {
+        source: { kind: 'parts', partIds, text, ...(invalidPartIds.length ? { invalidPartIds } : {}) },
+        suggestions, unresolvedRoot: null,
+      };
+    }
+    if (own?.mode !== 'parts' && own?.text?.trim()) return { source: { kind: 'own', partIds: (own.partIds ?? []).map(String) }, suggestions, unresolvedRoot: null };
     const choices = p.textChoices as Record<string, string> | undefined;
     const hasExplicit = forest.some((r) => r.section === 'simple-description' && choices?.[r.id]);
     const selected = selectSimpleDescription(hasExplicit ? forest : autoForest, choices);

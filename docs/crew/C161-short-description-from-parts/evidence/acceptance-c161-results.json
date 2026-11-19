@@ -1,0 +1,354 @@
+{
+  "startedAt": "2026-11-19T16:59:59.123Z",
+  "origin": "http://localhost:3102",
+  "phase": "c161",
+  "viewport": "1920×1080",
+  "checks": {
+    "fixture": {
+      "status": "PASS",
+      "productId": "6aff2a4c2d9e948b326337fc",
+      "sku": "1037",
+      "parts": [
+        {
+          "id": "6af81f883389de160b2c97d9",
+          "name": "Каркас"
+        },
+        {
+          "id": "6adceeeb3ca001b9b3b0e575",
+          "name": "Ручка"
+        },
+        {
+          "id": "6ae32682a3f6de10abf0365b",
+          "name": "Ногоступ"
+        }
+      ],
+      "imageKinds": [
+        "overview",
+        "dimensions",
+        "holes"
+      ],
+      "initialMissing": [],
+      "sourceSha256": "e71996590a86fd0fe5e5d836db6a071f030972f9381235007a9113a78eea7868",
+      "previous": [
+        {
+          "number": "611",
+          "sha256": "0fe843d976947965cae9c2634042d2b0b88677add015d19043e8664b07402a62",
+          "printSha256": "92f337cc529f6dacd247357d45690fd57216321cb308db03c3ff1a80b3153c39"
+        },
+        {
+          "number": "612",
+          "sha256": "98200456603e8e7ff00becf21390477cac581647eb4395911fabe474bce7b98b",
+          "printSha256": "92f337cc529f6dacd247357d45690fd57216321cb308db03c3ff1a80b3153c39"
+        }
+      ]
+    },
+    "parts-manual-roundtrip": {
+      "status": "PASS",
+      "action": "Переоткрыть ручной режим и вернуться к выбору частей",
+      "partsScreens": [
+        "acceptance-parts-light.png",
+        "acceptance-parts-dark.png"
+      ],
+      "text": "Изделие состоит из каркаса, ручки и ногоступа.",
+      "patches": 3
+    },
+    "sample-pdf": {
+      "status": "PASS",
+      "action": "Сформировать образец обычными страницами",
+      "pdf": {
+        "status": 201,
+        "sha256": "4e81318f55be361d0712830993535638697db385417cab53986fdf7b06b5a8b7",
+        "bytes": 131236,
+        "pages": 13,
+        "sizes": [
+          [
+            420,
+            595
+          ]
+        ],
+        "imageCount": 3,
+        "hasDescription": true,
+        "hasNumber": null,
+        "hasAnyPassportNumber": false,
+        "hasDraftMark": true,
+        "hasTechnicalComposition": false
+      },
+      "passports": 0
+    },
+    "single-issue-and-download": {
+      "status": "PASS",
+      "action": "Скачать обычный PDF выданного паспорта",
+      "id": "6aff2b122d9e948b326339c6",
+      "number": "613",
+      "pdfAction": "Подтвердить скачивание PDF",
+      "pdf": {
+        "status": 200,
+        "sha256": "ef83af5668157b46a1932b56d36658ce34211f82933e31ada3aee3ea081ed0cb",
+        "bytes": 130939,
+        "pages": 13,
+        "sizes": [
+          [
+            420,
+            595
+          ]
+        ],
+        "imageCount": 3,
+        "hasDescription": true,
+        "hasNumber": true,
+        "hasAnyPassportNumber": true,
+        "hasDraftMark": false,
+        "hasTechnicalComposition": false
+      },
+      "image": "acceptance-issued.png"
+    },
+    "historical-integrity": {
+      "status": "PASS",
+      "previous": [
+        {
+          "number": "611",
+          "sha256": "0fe843d976947965cae9c2634042d2b0b88677add015d19043e8664b07402a62",
+          "printSha256": "92f337cc529f6dacd247357d45690fd57216321cb308db03c3ff1a80b3153c39"
+        },
+        {
+          "number": "612",
+          "sha256": "98200456603e8e7ff00becf21390477cac581647eb4395911fabe474bce7b98b",
+          "printSha256": "92f337cc529f6dacd247357d45690fd57216321cb308db03c3ff1a80b3153c39"
+        }
+      ],
+      "sourceSha256": "e71996590a86fd0fe5e5d836db6a071f030972f9381235007a9113a78eea7868",
+      "issued": true
+    },
+    "network": {
+      "status": "PASS",
+      "browserErrors": 0,
+      "outside": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOutside": 39,
+  "appOutside": 0,
+  "blockedWrites": {},
+  "pageErrors": 0,
+  "scenarioSha256": "01fedc30559f9410cd52dc233779753e2ce7977e07e22bb56997f4724d77482c",
+  "guardSha256": "10988a24225ddaf51a86dce5a038c31dffbb445588660be59523ca00ec6a0eb8",
+  "browser": "157.0.8103.79",
+  "stand": {
+    "backup": "datacore-2026-11-18_031040.tgz",
+    "head": "e4a1b0e009564013ed4cc3369fdc5e2c3cd81090",
+    "dirty": true,
+    "builtAt": "2026-11-19T16:54:20.374Z"
+  },
+  "traffic": [
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "fixture",
+      "method": "GET",
+      "target": "/api/showcase/6aff2a4c2d9e948b326337fc/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "fixture",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 200
+    },
+    {
+      "step": "fixture",
+      "method": "GET",
+      "target": "/api/passports/next-numbers",
+      "status": 403
+    },
+    {
+      "step": "fixture",
+      "method": "GET",
+      "target": "/api/passports/last-numbers",
+      "status": 200
+    },
+    {
+      "step": "fixture",
+      "method": "GET",
+      "target": "/api/showcase/6ae1269ae36900370537a2f3/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "fixture",
+      "method": "GET",
+      "target": "/api/passports/6afefa546402b642a6610a8b",
+      "readOnly": "1",
+      "status": 200
+    },
+    {
+      "step": "fixture",
+      "method": "GET",
+      "target": "/api/passports/6aff0bf134de43c56e5ac63f",
+      "readOnly": "1",
+      "status": 200
+    },
+    {
+      "step": "parts-manual-roundtrip",
+      "method": "GET",
+      "target": "/api/showcase/6aff2a4c2d9e948b326337fc/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "parts-manual-roundtrip",
+      "method": "GET",
+      "target": "/api/showcase/6aff2a4c2d9e948b326337fc/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "parts-manual-roundtrip",
+      "method": "PATCH",
+      "target": "/api/showcase/6aff2a4c2d9e948b326337fc/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "parts-manual-roundtrip",
+      "method": "GET",
+      "target": "/api/showcase/6aff2a4c2d9e948b326337fc/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "parts-manual-roundtrip",
+      "method": "GET",
+      "target": "/api/showcase/6aff2a4c2d9e948b326337fc/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "parts-manual-roundtrip",
+      "method": "PATCH",
+      "target": "/api/showcase/6aff2a4c2d9e948b326337fc/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "parts-manual-roundtrip",
+      "method": "GET",
+      "target": "/api/showcase/6aff2a4c2d9e948b326337fc/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "parts-manual-roundtrip",
+      "method": "GET",
+      "target": "/api/showcase/6aff2a4c2d9e948b326337fc/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "parts-manual-roundtrip",
+      "method": "PATCH",
+      "target": "/api/showcase/6aff2a4c2d9e948b326337fc/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "parts-manual-roundtrip",
+      "method": "GET",
+      "target": "/api/showcase/6aff2a4c2d9e948b326337fc/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "sample-pdf",
+      "method": "POST",
+      "target": "/api/passports/preview",
+      "status": 201
+    },
+    {
+      "step": "sample-pdf",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 304
+    },
+    {
+      "step": "sample-pdf",
+      "method": "GET",
+      "target": "/api/passports/next-numbers",
+      "status": 403
+    },
+    {
+      "step": "sample-pdf",
+      "method": "GET",
+      "target": "/api/passports/last-numbers",
+      "status": 304
+    },
+    {
+      "step": "single-issue-and-download",
+      "method": "POST",
+      "target": "/api/passports",
+      "status": 201
+    },
+    {
+      "step": "single-issue-and-download",
+      "method": "POST",
+      "target": "/api/passports/6aff2b122d9e948b326339c6/issue",
+      "status": 200
+    },
+    {
+      "step": "single-issue-and-download",
+      "method": "GET",
+      "target": "/api/passports/6aff2b122d9e948b326339c6",
+      "readOnly": "1",
+      "status": 200
+    },
+    {
+      "step": "single-issue-and-download",
+      "method": "GET",
+      "target": "/api/passports/6aff2b122d9e948b326339c6",
+      "readOnly": "1",
+      "status": 304
+    },
+    {
+      "step": "single-issue-and-download",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 200
+    },
+    {
+      "step": "single-issue-and-download",
+      "method": "GET",
+      "target": "/api/passports/6aff2b122d9e948b326339c6/pdf",
+      "status": 200
+    },
+    {
+      "step": "historical-integrity",
+      "method": "GET",
+      "target": "/api/passports/6afefa546402b642a6610a8b",
+      "readOnly": "1",
+      "status": 304
+    },
+    {
+      "step": "historical-integrity",
+      "method": "GET",
+      "target": "/api/passports/6aff0bf134de43c56e5ac63f",
+      "readOnly": "1",
+      "status": 304
+    },
+    {
+      "step": "historical-integrity",
+      "method": "GET",
+      "target": "/api/showcase/6ae1269ae36900370537a2f3/passport-template",
+      "variant": "short",
+      "status": 200
+    }
+  ]
+}

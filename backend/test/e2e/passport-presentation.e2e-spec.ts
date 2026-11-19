@@ -136,6 +136,84 @@ describe('C155. Шаблон и новые паспорта', () => {
     await http().delete(`/api/dicts/passportParts/${part}`).set(auth()).expect(409);
   });
 
+  it('C161: хранит выбранные части, проверяет старое значение и пересобирает только новые документы', async () => {
+    const frame = new Types.ObjectId(), grip = new Types.ObjectId(), pedal = new Types.ObjectId();
+    const dictionary = db().collection('dict_values');
+    await dictionary.insertMany([
+      { _id: frame, name: 'Каркас', genSingular: 'каркаса' },
+      { _id: grip, name: 'Рукоятка', genSingular: 'рукоятки' },
+      { _id: pedal, name: 'Педаль', genSingular: 'педали' },
+    ].map((row) => ({ ...row, dict: 'passportParts', deletedAt: null })));
+    const product = await makeProduct({ passportDefaults: { passportCategory: 'BLG', installationTypeId: install } });
+    await db().collection('productphotos').insertOne({ productId: product, purpose: 'passport', kind: 'overview', photoId: photo, deletedAt: null });
+    const target = templateUrl(product);
+    const project = async () => (await http().get(target).set(auth()).expect(200)).body;
+    const patch = (value: object, previous: object | null) => http().patch(target).set(auth())
+      .send({ changes: { simpleDescription: value }, expected: { simpleDescription: previous } });
+    const partIds = [frame, grip, pedal].map(String);
+    const auto = { mode: 'parts', partIds };
+    const text = 'Изделие состоит из каркаса, рукоятки и педали.';
+    const manual = { text: 'Ручная редакция описания.', partIds };
+    const first = (await patch({ ...auto, partIds: [...partIds, partIds[0]], text: 'Подмена.' }, null).expect(200)).body;
+    expect(first).toMatchObject({
+      defaults: { simpleDescription: auto }, simpleDescriptionSource: { kind: 'parts', partIds, text },
+      readiness: { ready: true }, textSnapshot: { description: text },
+    });
+    expect(first.defaults.simpleDescription).toEqual(auto);
+    await patch(manual, null).expect(409);
+    for (const partIds of [[], [String(new Types.ObjectId())]]) {
+      await patch({ mode: 'parts', partIds }, auto).expect(400);
+    }
+    expect((await project()).defaults.simpleDescription).toEqual(auto);
+    await patch(manual, auto).expect(200);
+    expect(await project()).toMatchObject({ defaults: { simpleDescription: manual }, textSnapshot: { description: manual.text } });
+    await patch(auto, manual).expect(200);
+    await http().put(`/api/showcase/${product}/passport-defaults`).set(auth()).send({ passportCategory: 'BLG', installationTypeId: String(install) }).expect(200);
+    const bulk = await http().post('/api/showcase/bulk').set(auth()).send({
+      ids: [String(product)], set: { passportDefaults: { foundationDepth: 145 } },
+    });
+    expect(bulk.status).toBeLessThan(300);
+    expect(bulk.body.updated).toBe(1);
+    expect((await project()).defaults.simpleDescription).toEqual(auto);
+
+    const beforePreview = await passports().countDocuments();
+    const countersBefore = await db().collection('counters').find().toArray();
+    await http().post('/api/passports/preview').set(auth()).send({
+      productId: String(product), presentationVersion: 1, variant: 'short', mode: 'pages', pack: 'passport',
+    }).expect(201).expect('Content-Type', /pdf/);
+    expect(await passports().countDocuments()).toBe(beforePreview);
+    expect(await db().collection('counters').find().toArray()).toEqual(countersBefore);
+    const draft = (await http().post('/api/passports').set(auth()).send({
+      productId: String(product), presentationVersion: 1, variant: 'short', supplierOrgId: String(our), creationKey: randomUUID(),
+    }).expect(201)).body;
+    const card = `/api/passports/${draft.id}`;
+    const issued = (await http().post(card + '/issue').set(auth()).send({ presentationVersion: 1, variant: 'short' }).expect(200)).body;
+    expect(issued).toMatchObject({ status: 'issued', textSnapshot: { description: text } });
+    const persisted = await passports().findOne({ _id: new Types.ObjectId(draft.id) });
+    expect(persisted?.printSnapshot).toBeDefined();
+
+    await dictionary.updateOne({ _id: pedal }, { $unset: { genSingular: '' } });
+    expect((await project()).textSnapshot.description).toBe('Основные части изделия: Каркас, Рукоятка и Педаль.');
+    await dictionary.updateOne({ _id: pedal }, { $set: { deletedAt: new Date() } });
+    const broken = await project();
+    expect(broken.readiness.ready).toBe(false);
+    expect(broken.readiness.missing).toEqual(expect.arrayContaining([expect.objectContaining({ key: 'simpleDescription' })]));
+    expect(broken.simpleDescriptionSource).toMatchObject({ kind: 'parts', partIds, text: '', invalidPartIds: [String(pedal)] });
+    const printable = (await http().get(card).query({ readOnly: 1 }).set(auth()).expect(200)).body;
+    expect(printable.textSnapshot.description).toBe(text);
+    await http().post(card + '/snapshot').set(auth()).expect(409);
+    await http().get(card + '/pdf').query({ readOnly: 1 }).set(auth()).expect(200).expect('Content-Type', /pdf/);
+    expect(await passports().findOne({ _id: new Types.ObjectId(draft.id) })).toEqual(persisted);
+
+    await http().post(card + '/annul').set(auth()).send({ reason: 'Проверка C161.' }).expect(200);
+    const annulled = await passports().findOne({ _id: new Types.ObjectId(draft.id) });
+    expect(annulled?.textSnapshot).toEqual(persisted?.textSnapshot);
+    expect(annulled?.printSnapshot).toEqual(persisted?.printSnapshot);
+    await http().post(card + '/snapshot').set(auth()).expect(409);
+    expect((await http().get(card).query({ readOnly: 1 }).set(auth()).expect(200)).body.textSnapshot.description).toBe(text);
+    expect(await passports().findOne({ _id: new Types.ObjectId(draft.id) })).toEqual(annulled);
+  });
+
   it('архивное открытие и PDF прежнего черновика оставляют сохранённую запись без изменений', async () => {
     const p = await makeProduct();
     const legacy = {

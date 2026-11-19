@@ -939,7 +939,7 @@ paidAmount/sourcePaidAmount/sourceBalance/balanceDue/paymentState — серве
 ## C155 — новые упрощённые паспорта (19.11.2026)
 
 - `productpassports.presentationVersion?:1` и `variant?:short|full` задаются вместе только новому экземпляру. Без default/массового заполнения старых записей. `creationScopeKey?` — скрытый внутренний ключ повтора (`single/<actor>/<uuid>` или `line/<incomeId>`), один unique sparse индекс `creationScopeKey_1`; старые записи ключа не получают.
-- `products.passportDefaults.simpleDescription?:{text,partIds}` — необязательная собственная фраза, иначе используется применимый словарный текст. Выбор ветки хранится в `textChoices`, частичная правка шаблона — CAS `{changes,expected}`. Отдельной коллекции шаблона изделия не создаётся.
+- `products.passportDefaults.simpleDescription` — ручная `{text,partIds}` либо автоматическая `{mode:"parts",partIds}` (C161 ниже); при отсутствии используется применимый словарный текст. Выбор ветки хранится в `textChoices`, частичная правка шаблона — CAS `{changes,expected}`. Отдельной коллекции шаблона изделия не создаётся.
 - `dict_values`/`passportPhrases` для `section:simple-description` дополнен ссылками `kindIds`, `partIds`; применимость по существующим группам/признакам. Части — `passportParts`, не производственный BOM. Определения критериев — существующие `productFacets`, ответы — `facetValueIds`/умолчания соответствующего источника.
 - Выданный экземпляр фиксирует `textSnapshot`/`printSnapshot`; новая явная редакция сохраняет прежние источники в истории, номер не меняет. Унаследованные тексты шаблона отделены от собственного `manualText` экземпляра. Старые документы в новом UI читаются без записи (`readOnly=1`). Точный контракт — `crew/C155-passport-owner-queue/CONTRACT.md`.
 
@@ -952,3 +952,8 @@ paidAmount/sourcePaidAmount/sourceBalance/balanceDue/paymentState — серве
 Доходные части имеют серверный стабильный paymentId и снимок компании. Подготовка старой истории добавляет только метаданные по плану/версии/хэшу/UID, отдельный receipt/mapping обеспечивает повтор; GET ничего не записывает. Перенос legacy-классификации в новую историю счёта идёт в той же транзакции с originOperationId и без второго факта. Использование статей учитывает исходные, исправленные и исторические ссылки даже после reset; архив не скрывает деньги.
 
 Canonical API/файлы — MAP.md; точные проверки/совместимость — crew/C162-money-articles-structure/CONTRACT.md. План183статей не является исполненной миграцией.
+
+
+## C161 — описание из частей (19.11.2026)
+
+`simpleDescription` в `products.passportDefaults` и собственном `productpassports` — совместимый union: `{mode:'parts',partIds:ObjectId[]}` либо прежнее `{text:string,partIds:ObjectId[],mode?:'manual'}`. Отсутствие mode сохраняет прежнюю ручную семантику. Режим parts хранит только выбранные ссылки/порядок; готовая строка вычисляется из текущих живых `passportParts` для шаблона/нового выпуска. Source.kind='parts', source.text и optional invalidPartIds входят в проекцию. CAS всего собственного значения прежний. У issued/annulled v1/parts чтение использует сохранённые textSnapshot/printSnapshot, явный POSTsnapshot возвращает409 до чтения словаря/записи. Миграций, новых коллекций и измененийBOM нет. Подробности — C161/CONTRACT.md.

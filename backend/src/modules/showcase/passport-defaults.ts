@@ -4,6 +4,7 @@ import { Types } from 'mongoose';
 import { parseChoices } from '../../common/passport/phrase-tree';
 import { parseOverrides, type TextOverrides } from '../../common/passport/text-overrides';
 import { parseJoints, WhenError } from '../../common/passport/traits';
+import type { SimpleDescription } from '../../common/passport/simple-description';
 
 /**
  * Значения паспорта по умолчанию у изделия каталога (БЗ-6 Э4b): `products.passportDefaults` — только новое поле
@@ -16,6 +17,7 @@ export const PRESENTATION_DEFAULT_KEYS = ['simpleDescription', 'manualDescriptio
 
 export interface PassportDefaults {
   passportCategory?: string;
+  simpleDescription?: SimpleDescription<Types.ObjectId>;
   /** C100: вид изделия (id записи справочника «Виды изделий», строкой) — свой вид изделия главнее вида группы. */
   kindId?: string;
   elements?: Types.ObjectId[]; materialIds?: Types.ObjectId[]; installationTypeId?: Types.ObjectId | null; isKit?: boolean;
@@ -90,7 +92,7 @@ export const presentPassportDefaults = (d: PassportDefaults | null | undefined) 
   ...(d.elements ? { elements: d.elements.map(String) } : {}),
   ...(d.materialIds ? { materialIds: d.materialIds.map(String) } : {}),
   ...(d.installationTypeId ? { installationTypeId: String(d.installationTypeId) } : {}),
-  ...(d.simpleDescription ? { simpleDescription: { ...(d.simpleDescription as { text: string }), partIds: ((d.simpleDescription as { partIds?: unknown[] }).partIds ?? []).map(String) } } : {}),
+  ...(d.simpleDescription ? { simpleDescription: { ...d.simpleDescription, partIds: (d.simpleDescription.partIds ?? []).map(String) } } : {}),
 });
 
 /** Старый PUT и массовая отмена заменяют только прежние настройки. Выражение читает текущую версию в самой операции. */

@@ -146,7 +146,7 @@ function makeGuard() {
     const pdf = /^\/api\/passports\/(?:.*\/)?(?:pdf|zip)$/.test(pathname);
     const read = ['GET', 'HEAD', 'OPTIONS'].includes(req.method);
     if (read && !pdf) { pushLocal(req, res, url); return; }
-    if (!['fill', 'first-time-width', 'c159', 'c159-match', 'c159-zoom'].includes(phase) && req.method === 'POST' && url.href === origin + '/api/auth/refresh') {
+    if (!['fill', 'first-time-width', 'c159', 'c159-match', 'c159-zoom', 'c161', 'c161-visual', 'c161-visual-manual'].includes(phase) && req.method === 'POST' && url.href === origin + '/api/auth/refresh') {
       pushLocal(req, res, url);
       return;
     }
@@ -334,8 +334,10 @@ async function run(browser, login, focusedCase) {
     if (phase === 'all' || phase === 'legacy') await legacy();
     if (focusedCase) await focusedCase({
       app, page, book, button, read, authFetch, listen, json, closeBook, screenshot,
-      check, at, expect, need, objectId, exactBody, grant, cardPath, numberOf, statusOf,
-      openTemplate, painted,
+      check, at, expect, need, objectId, exactBody,
+      grant: phase.startsWith('c161-visual') ? () => { throw new Finding('В визуальной фазе C161 операции записи запрещены.'); } : grant,
+      cardPath, numberOf, statusOf,
+      openTemplate, painted, inspectPdf, download, lastNumbers,
     });
     await check('network', async (result) => {
       result.browserErrors = report.pageErrors;
@@ -694,9 +696,10 @@ export async function runOrderAcceptance(orderCase, source) {
 }
 
 export async function runFocusedAcceptance(name, focusedCase, source) {
-  expect(['order', 'first-time', 'first-time-width', 'fill', 'c159', 'c159-match', 'c159-zoom'].includes(name) && typeof focusedCase === 'function', 'Неизвестный сценарий приёмки.');
+  expect(['order', 'first-time', 'first-time-width', 'fill', 'c159', 'c159-match', 'c159-zoom', 'c161', 'c161-visual', 'c161-visual-manual'].includes(name) && typeof focusedCase === 'function', 'Неизвестный сценарий приёмки.');
   phase = report.phase = name;
   if (['c159', 'c159-match', 'c159-zoom'].includes(name)) evidence = path.join(root, 'docs/crew/C159-order-product-photo-picker/evidence');
+  if (['c161', 'c161-visual', 'c161-visual-manual'].includes(name)) evidence = path.join(root, 'docs/crew/C161-short-description-from-parts/evidence');
   await start(source, focusedCase);
 }
 

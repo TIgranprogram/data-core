@@ -194,3 +194,8 @@ PWA: `financial-articles{,-state}.js`, `dicts-financial-articles.js`; `money-{fi
 ### C159 — выбор изделия позиции и сопоставления договора
 
 `backend/pwa/sections/order-product-picker.js` — общая вложенная правая панель для `orders.js::pickProduct` и `salesorders-matching.js`. Свежие GET `/showcase`, `/showcase/groups`, `/showcase/similar`: поиск, зависимые фильтры, серверные страницы по20, фото108px и увеличение. Контекст исходной карточки остаётся на месте. Из позиции подтверждение вызывает `patchVersioned /incomes/:id` только с productId; из сопоставления — существующий POST `/matching/confirm` с lineId/productId, сохраняя подтверждённое состояние и алиасы. Изображение увеличивается независимо от выбора. Отмена не пишет. Общий zoom `ui/kit/gallery.js` имеет видимое закрытие/фокус. API/схемы не изменены; приёмка в crew/C159-order-product-photo-picker.
+
+
+### C161 — описание short из выбранных частей
+
+`backend/src/common/passport/simple-description.ts` — тип режима и чистый сборщик. `showcase/passport-template-patch.ts` проверяет/CAS-сохраняет `{mode:'parts',partIds}`; `product-passport.service.ts::resolveSimpleText` разрешает живые имена/падежи для шаблона и нового выпуска, выдаёт source.parts. Выданные и аннулированные используют сохранённые снимки, POSTsnapshot для их режимаparts409. `backend/pwa/sections/passports/book-template-edit.js` — поиск выбранных частей/живой текст/явный ручной редактор/возвратauto; `book-editor/focus/choices` используют этот вход. Эндпоинты прежние GET/PATCH `/showcase/:id/passport-template`, preview/issue/PDF, добавочен режим вложенного значения. OpenAPI517путей обновлён из актуальногоQA. Контракт/проверки — crew/C161-short-description-from-parts.

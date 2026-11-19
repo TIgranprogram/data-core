@@ -1,4 +1,7 @@
 # Карта роли backend
+## C161 краткое описание из частей (2026-11-19)
+- `backend/src/common/passport/simple-description.ts:12` сборщик и проверка ссылок, `backend/src/modules/showcase/passport-template-patch.ts:45` форма и CAS `:129`, `backend/src/modules/product-passport/product-passport.service.ts:1241` источник `parts`, `:1141` снимок при выпуске, `:1126` чтение сохранённого снимка, `:826` защита явной пересборки выданного и аннулированного. `backend/src/modules/product-passport/passport-parts-presentation.spec.ts:63` регрессия снимка, `docs/crew/C161-short-description-from-parts/BACKEND-REPORT.md` проверки. коммит: — (у координатора).
+
 ## C152 немедленная защита модулей (2026-11-18, не закоммичено)
 - `backend/src/modules/product-passport/passport-composition-presentation.ts:8` единая pure policy; `passport-issue.ts:57` freeze marker без удаления modules; `product-passport.service.ts:143` draft GET, `:435` новая редакция modules+marker с историей; `product-passport.schema.ts:240` внутреннее поле; `passport-pdf-v2-layout.ts:39` одна политика PDF/GET. Тесты presentation/issue/PDF/GET/revision: 5 suites/23 tests; tsc/eslint PASS. Полный C152 не реализован. Отчёт C152 BACKEND-REPORT. коммит: — (не выполнялся).
 

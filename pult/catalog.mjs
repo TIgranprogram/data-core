@@ -357,6 +357,7 @@ export const NOT_ON_BUTTONS = {
   'docs/crew/C155-passport-owner-queue/acceptance.test.mjs': 'приёмка новых паспортов C155 на копии; только агент доступа через проверенный api.sh stand BROWSER, не пользователь',
   'docs/crew/C155-passport-owner-queue/dictionary-panel.mjs': 'приёмка правой панели справочника C155 на отдельной QA-записи; агент доступа, не пользователь',
   'docs/crew/C155-passport-owner-queue/panel-focus.mjs': 'проверка клавиатурного фокуса эталонной панели C155 на копии; только агент доступа, не пользователь',
+  'docs/crew/C161-short-description-from-parts/acceptance.mjs': 'приёмка автосборки/образца/одного выпуска только на выделенной QA-копии; агент доступа с guard, не пользователь',
   'docs/crew/C159-order-product-photo-picker/acceptance.mjs': 'приёмка каталога и привязки только выделенной QA-позиции; агент доступа с узким guard, не пользователь',
   'docs/crew/C155-passport-owner-queue/first-time-acceptance.mjs': 'приёмка первого заполнения короткого паспорта на QA; только агент доступа с точным guard, не пользователь',
   'docs/crew/C155-passport-owner-queue/fill-acceptance.mjs': 'проверка кнопки заполнения карточки на QA без записей; только агент доступа, не пользователь',

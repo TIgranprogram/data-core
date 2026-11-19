@@ -10,6 +10,11 @@
 - `backend/pwa/sections/invoice-workspace.js:217` история фактов/сторно, readonly позиции с отдельной формой; `invoice-workspace-meta.js:8` реквизиты; `request-invoice-actions.js:7`, `request-step.js:61`, `invoice.js:250` переходы вместо немедленной оплаты.
 - `backend/pwa/sections/requests.js:305`, `invoices-tab.js:35`, `expenses.js:30` динамический articleId с родителями/none и явным итогом целых счетов. `tools/logs/c158-ui-check.mjs:1` stdin-only сценарий3198: liveRUBPASS, UEunknownVATFAIL исправлен, повтор нужен. `backend/pwa/sections/money-forecast.js:25,31` оценка/needsConversion, `money.js:227` календарь. Проверки/границы: C158/FRONTEND-REPORT.md. Карта обновлена.
 
+## C161 — краткое описание из частей (2026-11-19)
+коммит: не закоммичено
+- `backend/pwa/sections/passports/book-editor.js:189` — основной вход в правую панель. `book-template-edit.js:90,130,202` — предпросмотр, выбор, ручной черновик и атомарное сохранение. Словарная воронка доступна через «Подобрать готовый вариант».
+- `backend/pwa/sections/passports/book-autofill.test.mjs:190` — авто, резервная грамматика, недоступная часть, ручной режим, отмена и 409. `backend/pwa/sections/atlas-data.js:155`, `help-guide-data.js:100`, `docs/DESIGN.md:403`. Отчёт `docs/crew/C161-short-description-from-parts/FRONTEND-REPORT.md`. Карта обновлена.
+
 ## C159 — выбор изделия по фото (2026-11-19)
 коммит: не закоммичено
 - `backend/pwa/sections/orders.js:71` — вход из позиции. `backend/pwa/sections/salesorders-matching.js:38` — тот же каталог с подтверждением сопоставления.
