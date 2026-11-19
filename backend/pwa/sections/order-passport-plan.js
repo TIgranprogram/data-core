@@ -168,9 +168,13 @@ function lineView(l, reload, issueOne, orderId) {
     });
     return sec;
   }
-  const below = l.state === 'issued'
-    ? (l.passport?.number ? '№ ' + l.passport.number : 'выпущен')
+  const below = l.state === 'issued' ? null
     : l.state === 'ready' ? 'можно выпускать' : shortMissing(l.missing);
+  const side = [
+    l.state === 'issued' && l.passport?.number
+      ? h('span', { class: 'nowrap' }, `Паспорт № ${l.passport.number}`) : null,
+    kit.badge(label, tone),
+  ].filter(Boolean);
   let action = null;
   if (l.state === 'ready' && l.productId && canEdit()) {
     // пользователь 14.11: «готов к выпуску, а печати нет» — выпуск прямо в строке; после него появится «Печать…»
@@ -202,11 +206,11 @@ function lineView(l, reload, issueOne, orderId) {
     ];
   }
   // пользователь 14.11: выпущенная/готовая позиция — в такой же рамке-карточке, как строка «не хватает» выше
-  if (!action) return kit.row({ lead: pic(l), title: name, meta: [meta, below].filter(Boolean).join(' · ') || null, side: [kit.badge(label, tone)], wrap: true });
+  if (!action) return kit.row({ lead: pic(l), title: name, meta: [meta, below].filter(Boolean).join(' · ') || null, side, wrap: true });
   return kit.section({
     lead: pic(l), title: name, plain: true, tone: 'neutral', open: true,
     sub: [meta, below].filter(Boolean).join(' · ') || null,
-    side: kit.badge(label, tone),
+    side,
     body: [kit.actions(...action)],
   });
 }
