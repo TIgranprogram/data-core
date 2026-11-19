@@ -1,0 +1,192 @@
+{
+  "date": "2026-11-19T11:24:40.080Z",
+  "base": "http://localhost:3102",
+  "copyDate": "2026-11-18_031040",
+  "checks": {
+    "06-standalone-ready": {
+      "status": "PASS",
+      "before": [
+        {
+          "id": "6af5fa5ee75778ec7fd73d30",
+          "status": "annulled",
+          "number": "602~1",
+          "productId": "6addd770c93bb8ea2a6e396f",
+          "salesOrderId": "6ad6cd5d8913226b0cb530cd",
+          "incomeId": "6ad6cd5e8913226b0cb530e8",
+          "supplierOrgId": "6ad52bec863df73f344ea489"
+        },
+        {
+          "id": "6af6b21f6b36cd4e0cefd681",
+          "status": "draft",
+          "number": null,
+          "productId": "6addd770c93bb8ea2a6e396f",
+          "salesOrderId": null,
+          "incomeId": null,
+          "supplierOrgId": "6ad52bec863df73f344ea489"
+        },
+        {
+          "id": "6af6b2b56b36cd4e0cefd89e",
+          "status": "issued",
+          "number": "602",
+          "productId": "6addd770c93bb8ea2a6e396f",
+          "salesOrderId": "6ad6cd5d8913226b0cb530cd",
+          "incomeId": "6ad6cd5e8913226b0cb530e8",
+          "supplierOrgId": "6ad52bec863df73f344ea489"
+        }
+      ],
+      "firmPrompt": false,
+      "opened": {
+        "id": "6af6b21f6b36cd4e0cefd681",
+        "status": "draft",
+        "number": null,
+        "productId": "6addd770c93bb8ea2a6e396f",
+        "salesOrderId": null,
+        "incomeId": null,
+        "supplierOrgId": "6ad52bec863df73f344ea489"
+      },
+      "issue": {
+        "status": 200,
+        "number": "613"
+      },
+      "firstPdf": {
+        "status": 200,
+        "path": "/api/passports/6af6b21f6b36cd4e0cefd681/pdf",
+        "variant": "short",
+        "download": true,
+        "pdf": true
+      },
+      "repeatPdf": {
+        "status": 200,
+        "path": "/api/passports/6af6b21f6b36cd4e0cefd681/pdf",
+        "variant": "short",
+        "download": true,
+        "pdf": true
+      },
+      "after": [
+        {
+          "id": "6af5fa5ee75778ec7fd73d30",
+          "status": "annulled",
+          "number": "602~1",
+          "productId": "6addd770c93bb8ea2a6e396f",
+          "salesOrderId": "6ad6cd5d8913226b0cb530cd",
+          "incomeId": "6ad6cd5e8913226b0cb530e8",
+          "supplierOrgId": "6ad52bec863df73f344ea489"
+        },
+        {
+          "id": "6af6b21f6b36cd4e0cefd681",
+          "status": "issued",
+          "number": "613",
+          "productId": "6addd770c93bb8ea2a6e396f",
+          "salesOrderId": null,
+          "incomeId": null,
+          "supplierOrgId": "6ad52bec863df73f344ea489"
+        },
+        {
+          "id": "6af6b2b56b36cd4e0cefd89e",
+          "status": "issued",
+          "number": "602",
+          "productId": "6addd770c93bb8ea2a6e396f",
+          "salesOrderId": "6ad6cd5d8913226b0cb530cd",
+          "incomeId": "6ad6cd5e8913226b0cb530e8",
+          "supplierOrgId": "6ad52bec863df73f344ea489"
+        }
+      ]
+    }
+  },
+  "network": [
+    {
+      "step": "06-standalone-ready",
+      "method": "GET",
+      "path": "/app/version.json",
+      "status": 404
+    },
+    {
+      "step": "06-standalone-ready",
+      "method": "GET",
+      "path": "/api/showcase/6addd770c93bb8ea2a6e396f/fill-queue",
+      "status": 200
+    },
+    {
+      "step": "06-standalone-ready",
+      "method": "GET",
+      "path": "/api/passports",
+      "status": 200
+    },
+    {
+      "step": "06-standalone-ready",
+      "method": "GET",
+      "path": "/api/passports/6af6b21f6b36cd4e0cefd681",
+      "status": 200
+    },
+    {
+      "step": "06-standalone-ready",
+      "method": "GET",
+      "path": "/api/showcase/6addd770c93bb8ea2a6e396f/fill-queue",
+      "status": 200
+    },
+    {
+      "step": "06-standalone-ready",
+      "method": "GET",
+      "path": "/api/passports/funnel",
+      "status": 200
+    },
+    {
+      "step": "06-standalone-ready",
+      "method": "POST",
+      "path": "/api/passports/6af6b21f6b36cd4e0cefd681/issue",
+      "status": 200
+    },
+    {
+      "step": "06-standalone-ready",
+      "method": "GET",
+      "path": "/api/passports/6af6b21f6b36cd4e0cefd681",
+      "status": 200
+    },
+    {
+      "step": "06-standalone-ready",
+      "method": "GET",
+      "path": "/api/showcase/6addd770c93bb8ea2a6e396f/fill-queue",
+      "status": 200
+    },
+    {
+      "step": "06-standalone-ready",
+      "method": "POST",
+      "path": "/api/client-errors",
+      "transport": "net::ERR_FAILED"
+    },
+    {
+      "step": "06-standalone-ready",
+      "method": "GET",
+      "path": "/api/passports/6af6b21f6b36cd4e0cefd681/pdf",
+      "status": 200,
+      "variant": "short"
+    },
+    {
+      "step": "06-standalone-ready",
+      "method": "GET",
+      "path": "/api/showcase/6addd770c93bb8ea2a6e396f/fill-queue",
+      "status": 200
+    },
+    {
+      "step": "06-standalone-ready",
+      "method": "GET",
+      "path": "/api/passports/6af6b21f6b36cd4e0cefd681/pdf",
+      "status": 200,
+      "variant": "short"
+    }
+  ],
+  "blockedWrites": [
+    {
+      "step": "06-standalone-ready",
+      "method": "PATCH",
+      "path": "/api/auth/me/prefs"
+    },
+    {
+      "step": "06-standalone-ready",
+      "method": "POST",
+      "path": "/api/client-errors"
+    }
+  ],
+  "scriptErrors": 0,
+  "version": "ab7f4fc7"
+}

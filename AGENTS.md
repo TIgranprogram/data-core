@@ -70,7 +70,7 @@ docker-compose.yml             mongo:4.4 rs0 --auth --keyFile + backend (лок�
 ```
 
 **Игнорируй:** `node_modules/`, `dist/`, `.data/` (живые данные Mongo/бэкапы — НЕ трогать), `backend/uploads/`, `pnpm-lock.yaml`.
-**Доступ к стенду и проду — только агент `datacore-access` через `bash deploy/synology/api.sh <local|prod> GET /api/…`** (сам входит, пароль не показывает); остальные пароли и файлы секретов не читают.
+**Доступ к стенду и проду — только агент `datacore-access` через `bash deploy/synology/api.sh <local|prod|stand> GET /api/…`** (сам входит, пароль не показывает); остальные пароли и файлы секретов не читают. Для порученного браузерного прогона изолированной копии — `api.sh stand BROWSER tools/logs/<проверенный-сценарий>.mjs`, сессия только через stdin; сценарий предварительно проверяет координатор. BROWSER на local/prod запрещён; запись на прод — только с отдельным разрешением владельца.
 **Секреты (gitignored, не читать без нужды, никогда не коммитить и не выводить в чат):** `.env`, `deploy/synology/config.env`, `deploy/synology/CREDENTIALS.md`.
 
 ## Команды (из `backend/`)

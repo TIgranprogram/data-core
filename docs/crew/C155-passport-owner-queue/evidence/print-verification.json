@@ -1,0 +1,23 @@
+{
+  "file": "qa-06-standalone.pdf",
+  "pages": 6,
+  "number613": true,
+  "pageTextLengths": [
+    654,
+    1241,
+    3408,
+    3094,
+    3460,
+    4444
+  ],
+  "pageImageCounts": [
+    1,
+    1,
+    1,
+    0,
+    0,
+    0
+  ],
+  "repeatSameText": true,
+  "sha256": "2015b9f5cd4a6cb96d7deee99f3a6f2090ad63c09dcd5e26ab21f7d55c74f8b4"
+}
