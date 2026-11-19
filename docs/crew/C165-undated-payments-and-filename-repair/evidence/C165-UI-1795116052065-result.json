@@ -1,0 +1,60 @@
+{
+  "run": "C165-UI-1795116052065",
+  "origin": "http://localhost:3198",
+  "checks": [
+    "Reopen: тот же fileId, безопасная ссылка и SHA256 байтов подтверждения",
+    "Reopen: тот же fileId, безопасная ссылка и SHA256 байтов подтверждения",
+    "confirm→reopen→filter/fill→emptydate reject→explicitdate→one ledger 50076/company/testdate",
+    "Отдельная фикстура: мотивированный revoke, ledger0, без unpay/void/receipt"
+  ],
+  "fixtures": [
+    {
+      "companyId": "6aff4c14fe413a67ce1955fb"
+    },
+    {
+      "invoiceId": "6aff4c14fe413a67ce195633",
+      "requestIds": [
+        "6aff4c14fe413a67ce195607",
+        "6aff4c14fe413a67ce195617",
+        "6aff4c14fe413a67ce195627"
+      ]
+    },
+    {
+      "invoiceId": "6aff4c21fe413a67ce195834",
+      "requestIds": [
+        "6aff4c21fe413a67ce195828"
+      ]
+    }
+  ],
+  "screenshots": [
+    "C165-UI-1795116052065-confirmation-before-save-1920.png",
+    "C165-UI-1795116052065-proof-link-pending-1920.png",
+    "C165-UI-1795116052065-pending-light-1920.png",
+    "C165-UI-1795116052065-proof-link-light-1920.png",
+    "C165-UI-1795116052065-pending-light-1024.png",
+    "C165-UI-1795116052065-proof-link-light-1024.png",
+    "C165-UI-1795116052065-pending-dark-1920.png",
+    "C165-UI-1795116052065-proof-link-dark-1920.png",
+    "C165-UI-1795116052065-pending-dark-1024.png",
+    "C165-UI-1795116052065-proof-link-dark-1024.png",
+    "C165-UI-1795116052065-list-filter-1920.png",
+    "C165-UI-1795116052065-fill-group-1920.png",
+    "C165-UI-1795116052065-empty-date-error-1920.png",
+    "C165-UI-1795116052065-date-form-light-1920.png",
+    "C165-UI-1795116052065-date-form-light-1024.png",
+    "C165-UI-1795116052065-date-form-dark-1920.png",
+    "C165-UI-1795116052065-date-form-dark-1024.png",
+    "C165-UI-1795116052065-explicit-date-1920.png",
+    "C165-UI-1795116052065-proof-link-resolved-1920.png",
+    "C165-UI-1795116052065-resolved-1920.png",
+    "C165-UI-1795116052065-confirmation-before-save-1920.png",
+    "C165-UI-1795116052065-revoke-form-1920.png",
+    "C165-UI-1795116052065-revoked-1920.png"
+  ],
+  "status": "PASS",
+  "proof": {
+    "id": "6aff4c15fe413a67ce1956aa",
+    "sha256": "2dd7316e82d1fb4b2701a5b8a6f0e01d9ba1163fc67c4ed6296735d44a9a7472"
+  },
+  "profileCleanup": "Удалить только свой временный профиль после закрытия Edge"
+}

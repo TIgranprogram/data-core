@@ -2,6 +2,8 @@
 
 ## C165 — первый адресный кодовой review (19.11.2026)
 коммит: f76489b9 (новый рабочий diff C165, исторический scope267bc1c не закрыт)
+- Второй, последний адресный проход: P1закрыт `supply.service.ts:764,789,794,810` fresh request/invoice + sourceCAS + unconditional stockcallback/directtx; reverse attach/createCAS `supply-invoice.service.ts:354,530,534`. P2filesзакрыт `:289–297` и `pwa/sections/invoice-workspace.js:241`. Ниже строки первого пакета — история, не открытые P1. Итог можно по архитектуре; до общего QA/UI послеC163.
+- Собственные финальные tsc0/2suites159unit/56PWA/cycles0; meaningfulrace-e2e168/205 просмотрены,12/53e2e поfreezeотчёту. Остаётся P2createItemдоtx `supply.service.ts:802` как stockbacklogбезденежного/qtyэффекта. ARCH-REVIEW.md обновлён, карта обновлена.
 - 🔴 `supply/supply.service.ts:769,788,808,817` — receipt выбирает invoice callback из старого d0.invoiceId: late attach→confirm после preGET обходит pendingbasis/CAS в standalone ветках. Нужен fresh source/invoice в receipt transaction для всех путей, не postmovement check; e2e пока только update-lateattach147.
 - 🟡 `supply.service.ts:796` — createItem до move transaction может оставить пустой каталог при отказе: P2 отдельного stock backlog, qty/движение/fact при существующем callback защищены. `pwa/sections/invoice-workspace.js:254` — evidence.fileIds сохраняются, но не открываются из подтверждения после reopen.
 - 🟢 `supply-undated-payments.service.ts:18`, `supply-invoice-payments.service.ts:183,189,190`, `finance.service.ts:91,99,295`, `photos.service.ts:83` — receipts/CAS, frozen allocation resolve, global exclusion, whole needsfill, same-ID filename repair просмотрены. Own tsc0/5unit/54PWA/cycles0.
