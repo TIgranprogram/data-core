@@ -1,0 +1,1027 @@
+
+=== tsc: C:\Program Files\nodejs\node.exe D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\node_modules\typescript\bin\tsc --noEmit → код 0, 2.2 с ===
+
+
+=== jest: C:\Program Files\nodejs\node.exe D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\node_modules\jest\bin\jest.js --silent → код 0, 17.8 с ===
+[Nest] 9056  - 19.11.2026, 13:33:08    WARN [print] Паспорт: в печать просилось {dimensions} — заменено линией
+[Nest] 9056  - 19.11.2026, 13:33:09     LOG [OfferIntakeService] Разбор заявки: знаков 30, позиций 1, токены 10/5
+[Nest] 9056  - 19.11.2026, 13:33:09     LOG [OfferIntakeService] Разбор заявки: знаков 5, позиций 2, токены 10/5
+[Nest] 9056  - 19.11.2026, 13:33:09     LOG [OfferIntakeService] Разбор заявки: знаков 12, позиций 0, токены 10/5
+[Nest] 28944  - 19.11.2026, 13:33:09    WARN [ProductAttachments] Не стёрт файл вложения b: path escapes root
+[Nest] 28944  - 19.11.2026, 13:33:09     LOG [ProductAttachments] Стёрто файлов убранных вложений: 1
+[Nest] 10372  - 19.11.2026, 13:33:10    WARN [AuthService] login_attempt_unknown_user username=ghost ip=127.0.0.1
+[Nest] 10372  - 19.11.2026, 13:33:10    WARN [AuthService] login_attempt_unknown_user username=ghost ip=127.0.0.1
+[Nest] 10372  - 19.11.2026, 13:33:10    WARN [AuthService] login_attempt_wrong_password username=alice ip=127.0.0.1
+[Nest] 10372  - 19.11.2026, 13:33:10    WARN [AuthService] login_attempt_wrong_password username=alice ip=127.0.0.1
+[Nest] 10372  - 19.11.2026, 13:33:10    WARN [AuthService] login_attempt_unknown_user username=ghost ip=127.0.0.1
+[Nest] 10372  - 19.11.2026, 13:33:10    WARN [AuthService] login_attempt_wrong_password username=alice ip=127.0.0.1
+[Nest] 10372  - 19.11.2026, 13:33:10    WARN [LoginSoftlockService] Login softlock TRIGGERED username=locked-user lockedUntil=2026-11-19T10:48:10.159Z
+[Nest] 10372  - 19.11.2026, 13:33:10    WARN [AuthService] login_attempt_locked_out username=locked-user lockedUntil=2026-11-19T10:48:10.159Z ip=127.0.0.1
+[Nest] 10372  - 19.11.2026, 13:33:10    WARN [AuthService] login_attempt_unknown_user username=ghost ip=127.0.0.1
+[Nest] 10372  - 19.11.2026, 13:33:10    WARN [AuthService] login_attempt_wrong_password username=alice ip=127.0.0.1
+[Nest] 10372  - 19.11.2026, 13:33:10    WARN [LoginSoftlockService] Login softlock TRIGGERED username=lockout-user lockedUntil=2026-11-19T10:48:10.229Z
+[Nest] 10372  - 19.11.2026, 13:33:10    WARN [AuthService] login_attempt_locked_out username=lockout-user lockedUntil=2026-11-19T10:48:10.229Z ip=127.0.0.1
+[Nest] 10372  - 19.11.2026, 13:33:10    WARN [AuthService] Refusing privileged role escalation: alice attempted role=manager; coerced to 'user' (TZ-249 §2.2)
+[Nest] 10372  - 19.11.2026, 13:33:10     LOG [AuthService] User registered: alice (user)
+[Nest] 10372  - 19.11.2026, 13:33:10     LOG [AuthService] User registered: bob (manager)
+[Nest] 10372  - 19.11.2026, 13:33:10     LOG [AuthService] User registered: carol (user)
+[Nest] 10372  - 19.11.2026, 13:33:10     LOG [AuthService] User logged in: alice
+[Nest] 10372  - 19.11.2026, 13:33:10     LOG [AuthService] User logged in: alice
+[Nest] 10372  - 19.11.2026, 13:33:10     LOG [AuthService] User logged in: alice
+[Nest] 11636  - 19.11.2026, 13:33:10    WARN [StockCatalogService] QR не выдан: QR unavailable
+[Nest] 23824  - 19.11.2026, 13:33:10    WARN [OrganizationService] Нормализация слота «logo» не удалась, берём оригинал: Input file is missing: uploads\abc.png
+[Nest] 23824  - 19.11.2026, 13:33:10    WARN [OrganizationService] Нормализация слота «logo» не удалась, берём оригинал: Input file is missing: uploads\abc.png
+[Nest] 23824  - 19.11.2026, 13:33:10    WARN [OrganizationService] Нормализация слота «logo» не удалась, берём оригинал: Input file is missing: uploads\abc.png
+[Nest] 23824  - 19.11.2026, 13:33:10    WARN [OrganizationService] Не удалось удалить прежний файл слота «logo» (6afed066a9bac0bbd07619e1): gone
+[Nest] 23824  - 19.11.2026, 13:33:10    WARN [OrganizationService] Нормализация слота «seal» не удалась, берём оригинал: Input file is missing: uploads\abc.png
+[Nest] 30656  - 19.11.2026, 13:33:11    WARN [print] КП: в печать просилось {customer} — заменено линией
+[Nest] 30656  - 19.11.2026, 13:33:11    WARN [print] КП: в печать просилось undefined — заменено линией
+[Nest] 30656  - 19.11.2026, 13:33:11    WARN [print] КП: в печать просилось {pay} — заменено линией
+[Nest] 30656  - 19.11.2026, 13:33:11    WARN [print] Накладная: в печать просилось undefined — заменено линией
+[Nest] 30656  - 19.11.2026, 13:33:11    WARN [print] Накладная: в печать просилось {customer} — заменено линией
+[Nest] 30656  - 19.11.2026, 13:33:11    WARN [print] Накладная: в печать просилось null — заменено линией
+[Nest] 30656  - 19.11.2026, 13:33:11    WARN [print] Накладная: в печать просилось {fio} — заменено линией
+[Nest] 30656  - 19.11.2026, 13:33:11    WARN [print] Накладная: в печать просилось {fio} — заменено линией
+[Nest] 30656  - 19.11.2026, 13:33:11    WARN [print] Техописание: в печать просилось {name} — заменено линией
+[Nest] 30656  - 19.11.2026, 13:33:11    WARN [print] Техописание: в печать просилось undefined — заменено линией
+[Nest] 22468  - 19.11.2026, 13:33:11    WARN [DesignService] Метка заказа на доске не поставлена: mongo недоступен
+[Nest] 30656  - 19.11.2026, 13:33:11    WARN [print] Паспорт: в печать просилось null — заменено линией
+[Nest] 30656  - 19.11.2026, 13:33:11    WARN [print] Паспорт: в печать просилось {x} — заменено линией
+[Nest] 30656  - 19.11.2026, 13:33:11    WARN [print] Паспорт: в печать просилось {serviceLifeYears}, undefined — заменено линией
+[Nest] 30656  - 19.11.2026, 13:33:11    WARN [print] Паспорт: в печать просилось null — заменено линией
+[Nest] 30656  - 19.11.2026, 13:33:11    WARN [print] Стенд паспорта: в печать просилось {name} — заменено линией
+[Nest] 30656  - 19.11.2026, 13:33:11    WARN [print] Стенд паспорта: в печать просилось {x} — заменено линией
+[Nest] 30656  - 19.11.2026, 13:33:11    WARN [print] Стенд паспорта: в печать просилось undefined — заменено линией
+[Nest] 32352  - 19.11.2026, 13:33:11     LOG [ColorReferenceService] Created color reference ral-9003-signalny-belyy
+[Nest] 32352  - 19.11.2026, 13:33:11     LOG [ColorReferenceService] Created color reference ne-vybran
+[Nest] 32352  - 19.11.2026, 13:33:11     LOG [ColorReferenceService] Created color reference ral-9003-signalny-belyy
+[Nest] 10512  - 19.11.2026, 13:33:12     LOG [CurrenciesSeed] Currency seeded: RUB
+[Nest] 30656  - 19.11.2026, 13:33:12     LOG [PermissionsService] Permissions seeded: 0 inserted, 0 updated
+[Nest] 6412  - 19.11.2026, 13:33:12     LOG [PersonService] Person soft-deleted: 6afed068d451f1a250e3b093
+[Nest] 32352  - 19.11.2026, 13:33:12     LOG [UserService] Password reset by admin for user: alice
+[Nest] 32352  - 19.11.2026, 13:33:12     LOG [UserService] Password reset by admin for user: alice
+[Nest] 32352  - 19.11.2026, 13:33:12     LOG [UserService] User updated: bob
+[Nest] 32352  - 19.11.2026, 13:33:12     LOG [UserService] User updated: bob
+[Nest] 23824  - 19.11.2026, 13:33:12     LOG [RoleService] Role created: x
+[Nest] 23824  - 19.11.2026, 13:33:12     LOG [RoleService] Role created: x
+[Nest] 23824  - 19.11.2026, 13:33:12     LOG [RoleService] Role updated: manager
+[Nest] 23824  - 19.11.2026, 13:33:12     LOG [RoleService] Role updated: r-abc123
+[Nest] 23824  - 19.11.2026, 13:33:12     LOG [RoleService] Role updated: admin
+[Nest] 23824  - 19.11.2026, 13:33:12     LOG [RoleService] Role updated: manager
+[Nest] 23824  - 19.11.2026, 13:33:12     LOG [RoleService] Role updated: r-abc123
+[Nest] 23824  - 19.11.2026, 13:33:12     LOG [RoleService] Role deleted: r-abc123
+[Nest] 23824  - 19.11.2026, 13:33:12     LOG [RoleService] Role created: r-4325d3
+[Nest] 23824  - 19.11.2026, 13:33:12     LOG [RoleService] Role updated: r-kl
+[Nest] 23824  - 19.11.2026, 13:33:12     LOG [RoleService] Role updated: r-kl
+[Nest] 23824  - 19.11.2026, 13:33:12     LOG [RoleService] Role updated: r-kl
+[Nest] 23824  - 19.11.2026, 13:33:12     LOG [RoleService] Role deleted: r-kl
+[Nest] 32084  - 19.11.2026, 13:33:13     LOG [WorkRolesSeed] Role seeded: master
+[Nest] 22468  - 19.11.2026, 13:33:13    WARN [SwitchService] переключение 2f96bf1c6380: Мост переключения перестал отвечать. Сервер вернулся в обычный режим.
+[Nest] 11636  - 19.11.2026, 13:33:13     LOG [DictionaryLabelService] Dictionary labels seeded: 8 defaults checked
+[Nest] 6412  - 19.11.2026, 13:33:13    WARN [ProductService] QR не выдан: boom
+[Nest] 11636  - 19.11.2026, 13:33:13     LOG [DictionaryLabelService] Dictionary labels seeded: 8 defaults checked
+[Nest] 10512  - 19.11.2026, 13:33:14     LOG [DeviceEnrollmentService] Regular device invite created by=aaaaaaaaaaaaaaaaaaaaaaaa role=manager ttlDays=3
+[Nest] 10372  - 19.11.2026, 13:33:14     LOG [UnitService] Unit deleted: kg
+[Nest] 10372  - 19.11.2026, 13:33:14     LOG [UnitService] Unit created: kg
+[Nest] 32084  - 19.11.2026, 13:33:18     LOG [DataVersion] кэш списков включён (поток изменений MongoDB)
+[Nest] 32084  - 19.11.2026, 13:33:18     LOG [DataVersion] кэш списков включён (поток изменений MongoDB)
+[Nest] 32084  - 19.11.2026, 13:33:18    WARN [DataVersion] поток изменений недоступен (нет прав) — кэш списков выключен, повтор каждые 30 с
+[Nest] 32084  - 19.11.2026, 13:33:51     LOG [DataVersion] кэш списков включён (поток изменений MongoDB)
+[Nest] 32084  - 19.11.2026, 13:33:18     LOG [DataVersion] кэш списков включён (поток изменений MongoDB)
+[Nest] 11636  - 19.11.2026, 13:33:16    WARN [NotificationsService] Уведомление «x» не отправлено: boom
+[Nest] 32352  - 15.11.2023, 01:13:20    WARN [LoginSoftlockService] Login softlock TRIGGERED username=alice lockedUntil=2023-11-14T22:28:20.000Z
+[Nest] 32352  - 15.11.2023, 01:13:20    WARN [LoginSoftlockService] Login softlock TRIGGERED username=alice lockedUntil=2023-11-14T22:28:20.000Z
+[Nest] 32352  - 15.11.2023, 01:13:20    WARN [LoginSoftlockService] Login softlock TRIGGERED username=alice lockedUntil=2023-11-14T22:28:20.000Z
+[Nest] 32352  - 15.11.2023, 01:13:20    WARN [LoginSoftlockService] Login softlock TRIGGERED username=admin lockedUntil=2023-11-14T22:28:20.000Z
+[Nest] 32352  - 15.11.2023, 01:13:20    WARN [LoginSoftlockService] Login softlock TRIGGERED username=alice lockedUntil=2023-11-14T22:28:20.000Z
+[Nest] 32352  - 15.11.2023, 01:13:20    WARN [LoginSoftlockService] Login softlock TRIGGERED username=alice lockedUntil=2023-11-14T22:28:20.000Z
+[Nest] 24440  - 19.11.2026, 13:33:16    WARN [Bootstrap] ⚠️ Weak secret markers detected (TZ-248 — allow-listed in dev/test, will FAIL in production):
+  - INSECURE_JWT_SECRET_TOO_SHORT length=3 required>=32
+[Nest] 24440  - 19.11.2026, 13:33:16    WARN [Bootstrap] ⚠️ Weak secret markers detected (TZ-248 — allow-listed in dev/test, will FAIL in production):
+  - INSECURE_JWT_SECRET_TOO_SHORT length=5 required>=32
+  - INSECURE_JWT_REFRESH_SECRET_TOO_SHORT length=5 required>=32
+  - INSECURE_ADMIN_PASSWORD_TOO_SHORT length=5 required>=12
+  - INSECURE_JWT_REFRESH_SECRET_SAME_AS_ACCESS must differ from JWT_SECRET
+[Nest] 24440  - 19.11.2026, 13:33:16    WARN [Bootstrap] ⏭️  SecretValidationService disabled via DISABLE_SECRET_VALIDATION=1 (TZ-248 opt-out)
+
+PASS src/modules/product-passport/passport-composition-presentation.spec.ts (6.204 s)
+PASS src/pwa-guards.spec.ts
+PASS src/modules/product-passport/passport-materials-spec.spec.ts (6.838 s)
+PASS src/modules/product-passport/passport-name.spec.ts (6.847 s)
+PASS src/modules/product-passport/passport-issue-composition.spec.ts (7.061 s)
+PASS src/modules/product-passport/passport-numbering.spec.ts (7.073 s)
+PASS src/modules/disk/offsite.spec.ts (7.252 s)
+PASS src/modules/product-passport/passport-pdf-v2-modules.spec.ts (7.357 s)
+PASS src/modules/product-passport/passport-pdf-images.spec.ts (7.707 s)
+PASS src/modules/supply/supply.bulk.spec.ts
+PASS src/modules/product-passport/passport-pdf-v2.spec.ts (8.148 s)
+PASS src/modules/product-passport/passport-manager-access.spec.ts
+PASS src/modules/salesorders/salesorders.service.spec.ts
+PASS src/modules/control/control.service.spec.ts
+PASS src/modules/offers/offer-intake.spec.ts
+PASS src/modules/supply/supply-invoice.service.spec.ts
+PASS src/modules/supply/supply.service.spec.ts
+PASS src/modules/product-passport/passport-pdf-v2-pagination.spec.ts (8.659 s)
+PASS src/modules/supply/supplier-catalog-import.spec.ts (8.765 s)
+PASS src/modules/product/product-stock-readonly.spec.ts
+PASS src/modules/supply/supply-invoice.http.spec.ts (8.925 s)
+PASS src/modules/productattachments/productattachments.spec.ts
+PASS src/modules/supply/supplier-catalog.view.spec.ts
+PASS src/modules/qr/qr.service.spec.ts
+PASS src/modules/productattachments/order-zip.spec.ts
+PASS src/modules/offers/offers.qa-kp2.spec.ts
+PASS src/modules/productattachments/income-attachments.spec.ts
+PASS src/modules/incomes/incomes.service.spec.ts
+PASS src/modules/stock/stock-movements.service.spec.ts
+PASS src/modules/salesorders/salesorders.remove.spec.ts
+PASS src/modules/auth/profile.spec.ts
+PASS src/modules/offers/offers.order-prices.spec.ts
+PASS src/modules/auth/auth.service.spec.ts
+PASS src/modules/stock/stock-catalog.service.spec.ts
+PASS src/modules/auth/ui-prefs.spec.ts
+PASS src/modules/stock/stock-spec.service.spec.ts
+PASS src/modules/photos/photos.service.spec.ts
+PASS src/modules/material-requests/material-requests.service.spec.ts
+PASS src/modules/admin/users-admin.controller.spec.ts
+PASS src/modules/product-passport/passport-snapshot-refresh.spec.ts
+PASS src/modules/photos/photos.backfill.spec.ts
+PASS src/modules/organization/organization.spec.ts
+PASS src/modules/offers/offers.admin.spec.ts
+PASS src/modules/product-passport/passport-pdf-v2-depth.spec.ts
+PASS src/modules/offers/offers.templates.spec.ts
+PASS src/modules/expenses/expenses.service.spec.ts
+PASS src/modules/app-data/app-data.validation.spec.ts
+PASS src/common/catalog/catalog-delete-guards.spec.ts
+PASS src/modules/photos/photos.controller.spec.ts
+PASS src/modules/product-passport/passport-applicability.spec.ts
+PASS src/modules/product-passport/passport-order-pdf.spec.ts
+PASS src/modules/dicts/dicts.passport-traits.spec.ts
+PASS src/modules/salesorders/production-orders.assign.spec.ts
+PASS src/modules/auth/strategies/jwt.strategy.spec.ts
+PASS src/modules/counterparty/counterparty.spec.ts
+PASS src/modules/work-type/work-type.service.spec.ts
+PASS src/modules/dicts/dicts.rename.spec.ts
+PASS src/modules/design/design.service.spec.ts
+PASS src/modules/offers/offer-backgrounds.service.spec.ts
+PASS src/modules/product-passport/passport-pdf-v2-layout2.spec.ts
+PASS src/modules/stock-zones/stock-zones.service.spec.ts
+PASS src/modules/today/today.service.spec.ts
+PASS src/common/print/print-documents.spec.ts
+PASS src/modules/product-passport/passport-look.spec.ts
+PASS src/modules/product-passport/passport-draft-all.spec.ts
+PASS src/modules/partners/partners.create-race.spec.ts
+PASS src/common/catalog/materials-table.spec.ts
+PASS src/modules/salesorders/order-pdf.spec.ts
+PASS src/modules/messages/messages.service.spec.ts
+PASS src/common/guards/key-scope.spec.ts
+PASS src/modules/admin/permissions-admin.controller.spec.ts
+PASS src/modules/color-reference/color-reference.service.spec.ts
+PASS src/modules/control/control.runs.spec.ts
+PASS src/modules/stock/stock-reservations.service.spec.ts
+PASS src/common/route-access.spec.ts (11.195 s)
+PASS src/modules/work/work.service.spec.ts
+PASS src/modules/showcase/showcase-sku-lock.spec.ts
+PASS src/modules/control/questions/questions.service.spec.ts
+PASS src/common/work-route-rows.spec.ts
+PASS src/modules/disk/bundle.spec.ts
+PASS src/common/guards/owner-target.guard.spec.ts
+PASS src/modules/dicts/dicts.person-login.spec.ts
+PASS src/modules/stock/stock-category-summary.spec.ts
+PASS src/health.controller.spec.ts
+PASS src/modules/zones/zones.service.spec.ts
+PASS src/modules/stock/count-guard.spec.ts
+PASS src/modules/product-passport/passport-images-product.spec.ts
+PASS src/common/seed/currencies.seed.spec.ts
+PASS src/modules/dicts/dicts.edit-roles.spec.ts
+PASS src/modules/dicts/dicts.materials-spec.spec.ts
+PASS src/modules/showcase/showcase-remove.spec.ts
+PASS src/modules/dicts/dicts.stock-role.spec.ts
+PASS src/modules/product-passport/passport-ready.spec.ts
+PASS src/modules/salesorders/production-orders.spec.ts
+PASS src/modules/desktop/desktop-pairing-key.service.spec.ts
+PASS src/common/guards/last-admin.guard.spec.ts
+PASS src/common/photo-main.spec.ts
+PASS src/modules/admin/roles-admin.controller.spec.ts
+PASS src/modules/unit/unit.controller.spec.ts
+PASS src/modules/product-passport/passport-texts.v2.spec.ts
+PASS src/modules/product-passport/passport-queue.spec.ts
+PASS src/modules/permissions/permissions.service.spec.ts
+PASS src/modules/person/person.service.spec.ts
+PASS src/modules/my-tasks/my-tasks.spec.ts
+PASS src/modules/product-passport/product-fill-queue.spec.ts
+PASS src/modules/product-passport/passport-dimension-image.spec.ts
+PASS src/modules/user/user.service.spec.ts
+PASS src/modules/shipments/shipments.service.spec.ts
+PASS src/modules/role/role.service.spec.ts
+PASS src/modules/payroll/payroll.service.spec.ts
+PASS src/modules/client-errors/client-errors.service.spec.ts
+PASS src/modules/salesorders/order-history.spec.ts
+PASS src/modules/zones/zone-events.spec.ts
+PASS src/modules/category/dto/create-category.dto.spec.ts
+PASS src/modules/material/material.service.spec.ts
+PASS src/modules/product-passport/passport-gaps.spec.ts
+PASS src/common/interceptors/id-normalize.interceptor.spec.ts
+PASS src/modules/product-passport/passport-check.spec.ts
+PASS src/modules/pdm-import/pdm-import.service.spec.ts
+PASS src/modules/dicts/dicts.passport-usage.spec.ts
+PASS src/common/idempotency/idempotency-storage.service.spec.ts
+PASS src/common/seed/work-roles.seed.spec.ts
+PASS src/modules/dicts/dicts.unset-empty.spec.ts
+PASS src/modules/order-line-plan/work-schedule.service.spec.ts
+PASS src/modules/material/material.catalog-301.spec.ts
+PASS src/modules/meta/meta-schema.spec.ts
+PASS src/modules/material/material-price.calc.spec.ts
+PASS src/common/idempotency/idempotency.middleware.spec.ts
+PASS src/modules/product-passport/passport-from-product.spec.ts
+PASS src/modules/supply/supplier-contract.service.spec.ts
+PASS src/modules/product-passport/passport-numbers.spec.ts
+PASS src/modules/control/switch/switch.service.spec.ts
+PASS src/modules/pdm-import/pdm-preview.service.spec.ts
+PASS src/modules/setting/setting.service.spec.ts
+PASS src/modules/product-passport/passport-blanks.spec.ts
+PASS src/common/decorators/is-object-id.decorator.spec.ts
+PASS src/modules/dictionary-label/dictionary-label.service.spec.ts
+PASS src/modules/offers/offer-last.spec.ts
+PASS src/modules/product/product.service.spec.ts
+PASS src/modules/stock/stock-t8-category.spec.ts
+PASS src/common/filters/error-messages-ru.spec.ts
+PASS src/modules/product-passport/passport-traits.spec.ts
+PASS src/modules/dicts/dicts.code-lock.spec.ts
+PASS src/modules/product-passport/passport-import.spec.ts
+PASS src/common/catalog/passport-link.spec.ts
+PASS src/modules/apps/apps.service.spec.ts
+PASS src/modules/stock/stock-bulk.spec.ts
+PASS src/modules/role/role.controller.spec.ts
+PASS src/modules/product-passport/passport-field-sources.spec.ts
+PASS src/modules/stock/stock-catalog-name.service.spec.ts
+PASS src/modules/dictionary-label/dictionary-label.controller.spec.ts
+PASS src/common/catalog/composition-line.service.spec.ts
+PASS src/common/interceptors/audit.interceptor.spec.ts
+PASS src/modules/stock/stock-composition.service.spec.ts
+PASS src/modules/order-line-plan/order-line-plan.service.spec.ts
+PASS src/modules/disk/disk.service.spec.ts
+PASS src/modules/desktop/desktop-pairing.controller.spec.ts
+PASS src/modules/product-module/product-module.service.spec.ts
+PASS src/common/data-version/data-version.snapshot.spec.ts
+PASS src/modules/devlog/devlog.spec.ts
+PASS src/modules/expense-articles/expense-articles.service.spec.ts
+PASS src/modules/product-passport/passport-rules.spec.ts
+PASS src/modules/product-passport/techsheet-gaps.spec.ts
+PASS src/modules/finance/cashflow.spec.ts
+PASS src/modules/dicts/dicts.metal.spec.ts
+PASS src/modules/product-passport/passport-snapshot-field.spec.ts
+PASS src/modules/product/product.schema.tz240.spec.ts
+PASS src/modules/fill-audit/fill-audit.sections.spec.ts
+PASS src/common/roles-custom.spec.ts
+PASS src/modules/product-passport/passport-variants.spec.ts
+PASS src/common/catalog/composition-expand.spec.ts
+PASS src/modules/product-passport/passport-field-promote.spec.ts
+PASS src/modules/product-passport/dto/text-choices.dto.spec.ts
+PASS src/modules/audit/audit-query.spec.ts
+PASS src/modules/control/questions/question.rules.spec.ts
+PASS src/modules/product-passport/passport-compose-parts.spec.ts
+PASS src/modules/category/category.service.spec.ts
+PASS src/modules/photos/image-upload.options.spec.ts
+PASS src/modules/device-enrollment/device-enrollment.service.spec.ts
+PASS src/modules/today/today-scope.spec.ts
+PASS src/modules/product-passport/passport-reuse.spec.ts
+PASS src/modules/product-passport/passport-query-thumbs.spec.ts
+PASS src/common/stock-scope.spec.ts
+PASS src/modules/unit/unit.service.spec.ts
+PASS src/common/guards/system-role.guard.spec.ts
+PASS src/modules/pdm-files/pdm-files.spec.ts
+PASS src/modules/dicts/dicts.lines.spec.ts
+PASS src/modules/product-passport/passport-check-product.spec.ts
+PASS src/modules/audit/audit-sections.spec.ts
+PASS src/modules/product-passport/passport-by-order.spec.ts
+PASS src/modules/offers/offer-pdf.spec.ts
+PASS src/modules/stock/stock-target.spec.ts
+PASS src/modules/product-module-photo/product-module-photo.service.spec.ts
+PASS src/modules/product-passport/passport-v2-text-bound.spec.ts
+PASS src/modules/showcase/showcase-sku.spec.ts
+PASS src/modules/product-photo/product-photo.spec.ts
+PASS src/modules/product-passport/techsheet-analogs.spec.ts
+PASS src/modules/product-passport/passport-print-file.spec.ts
+PASS src/modules/category/category.group-no.spec.ts
+PASS src/modules/showcase/passport-defaults.spec.ts
+PASS src/modules/product-passport/passport-preview.spec.ts
+PASS src/modules/photos/image-shrink.spec.ts
+PASS src/modules/stock/stock-summary.spec.ts
+PASS src/modules/product-passport/passport-order.spec.ts
+PASS src/modules/product-passport/passport-bind.spec.ts
+[Nest] 24440  - 19.11.2026, 13:33:15   ERROR [EavService] EAV bulkWrite failed for product 6afed06ba1c604bf2d958d39: connection-reset
+Error: connection-reset
+    at Object.<anonymous> (D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\src\common\eav\eav.service.spec.ts:229:48)
+    at Promise.then.completed (D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\node_modules\.pnpm\jest-circus@29.7.0\node_modules\jest-circus\build\utils.js:298:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\node_modules\.pnpm\jest-circus@29.7.0\node_modules\jest-circus\build\utils.js:231:10)
+    at _callCircusTest (D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\node_modules\.pnpm\jest-circus@29.7.0\node_modules\jest-circus\build\run.js:316:40)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at _runTest (D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\node_modules\.pnpm\jest-circus@29.7.0\node_modules\jest-circus\build\run.js:252:3)
+    at _runTestsForDescribeBlock (D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\node_modules\.pnpm\jest-circus@29.7.0\node_modules\jest-circus\build\run.js:126:9)
+    at _runTestsForDescribeBlock (D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\node_modules\.pnpm\jest-circus@29.7.0\node_modules\jest-circus\build\run.js:121:9)
+    at _runTestsForDescribeBlock (D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\node_modules\.pnpm\jest-circus@29.7.0\node_modules\jest-circus\build\run.js:121:9)
+    at run (D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\node_modules\.pnpm\jest-circus@29.7.0\node_modules\jest-circus\build\run.js:71:3)
+    at runAndTransformResultsToJestFormat (D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\node_modules\.pnpm\jest-circus@29.7.0\node_modules\jest-circus\build\legacy-code-todo-rewrite\jestAdapterInit.js:122:21)
+    at jestAdapter (D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\node_modules\.pnpm\jest-circus@29.7.0\node_modules\jest-circus\build\legacy-code-todo-rewrite\jestAdapter.js:79:19)
+    at runTestInternal (D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\node_modules\.pnpm\jest-runner@29.7.0\node_modules\jest-runner\build\runTest.js:367:16)
+    at runTest (D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\node_modules\.pnpm\jest-runner@29.7.0\node_modules\jest-runner\build\runTest.js:444:34)
+    at Object.worker (D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\node_modules\.pnpm\jest-runner@29.7.0\node_modules\jest-runner\build\testWorker.js:106:12)
+PASS src/common/eav/eav.service.spec.ts
+PASS src/modules/showcase/showcase-materials.spec.ts
+PASS src/modules/product-passport/passport-rules-v2.spec.ts
+PASS src/modules/partners/partners.list.spec.ts
+PASS src/modules/dicts/dicts.module-categories.spec.ts
+PASS src/common/catalog/composition-meaning.spec.ts
+PASS src/common/guards/throttler-behind-auth.guard.spec.ts
+PASS src/modules/product-passport/passport-snapshot-golden.spec.ts
+PASS src/modules/site/site.service.spec.ts
+PASS src/common/data-version/data-version.service.spec.ts
+PASS src/modules/product-passport/passport-after-print.spec.ts
+PASS src/modules/showcase/tech-sheet-pdf.spec.ts
+PASS src/modules/partners/partners.merge.spec.ts
+PASS src/modules/admin/collection-docs.spec.ts
+PASS src/common/catalog/catalog-graph.service.spec.ts
+PASS src/modules/product-passport/passport-fit.spec.ts
+PASS src/modules/notifications/notifications.unread.spec.ts
+PASS src/modules/product-passport/passport-queries.spec.ts
+PASS src/modules/matching/matching.spec.ts
+PASS src/modules/offers/offers.create-pack.spec.ts
+PASS src/common/work-plan.spec.ts
+PASS src/modules/order-line-plan/task-bars.spec.ts
+PASS src/modules/work/work-flow.spec.ts
+PASS src/modules/design/design-present.spec.ts
+PASS src/common/middleware/permissions-boot-validator.spec.ts
+PASS src/modules/status/status.service.spec.ts
+PASS src/common/mongoose/optimistic-lock.plugin.spec.ts
+PASS src/modules/role/dto/role-dto.spec.ts
+PASS src/common/photos.spec.ts
+PASS src/modules/product-passport/passport-pdf-gaps.spec.ts
+PASS src/modules/pdm-import/pdm-plan-rows.spec.ts
+PASS src/common/guards/roles.guard.spec.ts
+PASS src/modules/dicts/dicts.product-groups.spec.ts
+PASS src/modules/product-passport/passport-when.spec.ts
+PASS src/modules/notifications/notifications.safe.spec.ts
+PASS src/modules/product-passport/passport-v2-text.spec.ts
+PASS src/modules/dicts/dicts.passport-phrases.spec.ts
+PASS src/modules/showcase/showcase-bulk.spec.ts
+PASS src/modules/product-passport/passport-spec-rows.spec.ts
+PASS src/common/guards/permissions.guard.spec.ts
+PASS src/common/passport/kind.spec.ts
+PASS src/modules/disk/integrity.spec.ts
+PASS src/modules/offers/offers.pack.spec.ts
+PASS src/modules/offers/offer-rules.spec.ts
+PASS src/common/guards/roles.guard.hierarchy.spec.ts
+PASS src/modules/organization/asset-image.spec.ts
+PASS src/common/passport/phrase-tree.spec.ts
+PASS src/modules/counter/counter.service.spec.ts
+PASS src/common/login-softlock/login-softlock.service.spec.ts
+PASS src/common/text/shipment-ready.spec.ts
+PASS src/modules/product-passport/passport-text-overrides.spec.ts
+PASS src/modules/disk/backup-reminder.spec.ts
+PASS src/modules/product-passport/passport-revisions.spec.ts
+PASS src/modules/showcase/showcase-composition.spec.ts
+PASS src/modules/showcase/showcase-similar.spec.ts
+PASS src/common/interceptors/slow-request.interceptor.spec.ts
+PASS src/common/confirm-token.spec.ts
+PASS src/common/guards/app-section.guard.spec.ts
+PASS src/common/filters/http-exception.filter.spec.ts
+PASS src/modules/product-passport/passport-promote.spec.ts
+PASS src/common/role-money.spec.ts
+PASS src/modules/showcase/facet-elements.spec.ts
+PASS src/common/guards/owner-only.guard.spec.ts
+PASS src/modules/showcase/showcase-clone.spec.ts
+PASS src/common/interceptors/money-mask.interceptor.spec.ts
+PASS src/modules/pdm-import/pdm-plan.spec.ts
+PASS src/modules/device-enrollment/device-crypto.spec.ts
+PASS src/modules/photos/image-orientation.spec.ts
+PASS src/modules/product-passport/print-pack.spec.ts
+PASS src/config/secret-validation.service.spec.ts
+PASS src/common/catalog/materials-text.spec.ts
+PASS src/modules/product-passport/passport-snapshot-edit.spec.ts
+PASS src/common/decorators/current-user.decorator.spec.ts
+PASS src/modules/document-render/document-render.utils.spec.ts
+PASS src/common/app-sections.spec.ts
+PASS src/modules/product-passport/passport-template-select.spec.ts
+PASS src/modules/control/control.rollup.spec.ts
+PASS src/common/interceptors/latency-histogram.spec.ts
+PASS src/modules/today/today-feed.spec.ts
+PASS src/modules/finance/forecast.spec.ts
+PASS src/modules/product-passport/passport-compose.spec.ts
+PASS src/modules/desktop/desktop-compat.service.spec.ts
+PASS src/common/guards/confirm-token.guard.spec.ts
+PASS src/modules/design/znp-line.spec.ts
+PASS src/common/roles-hierarchy.spec.ts
+PASS src/modules/showcase/order-product-name.spec.ts
+PASS src/common/line-type.spec.ts
+PASS src/modules/showcase/series-dict.spec.ts
+PASS src/common/text/shipment-calc.spec.ts
+PASS src/modules/product-passport/passport-product-images.spec.ts
+PASS src/modules/product-passport/passport-print-tune.spec.ts
+PASS src/modules/showcase/composition-cycle.spec.ts
+PASS src/modules/product-requests/product-request-rules.spec.ts
+PASS src/common/guards/user-activity-cache.spec.ts
+PASS src/modules/product-passport/passport-write-retry.spec.ts
+PASS src/modules/admin/admin-list-query.spec.ts
+PASS src/modules/product-passport/passport-schemes.spec.ts
+PASS src/common/contracts/rbac-contract.spec.ts
+PASS src/common/passport/traits.spec.ts
+PASS src/modules/stock/article-clean.spec.ts
+PASS src/modules/stock/article.spec.ts
+PASS src/modules/product-passport/passport-pdf-v2-cover.spec.ts
+PASS src/modules/device-enrollment/device-cookie.spec.ts
+PASS src/common/text/search-norm.spec.ts
+PASS src/modules/stock/weight.spec.ts
+PASS src/common/print/fill-text.spec.ts
+PASS src/modules/offers/offer-layout.spec.ts
+PASS src/modules/supply/supply-invoice-rules.spec.ts
+PASS src/modules/stock/stock-rank.spec.ts
+PASS src/common/passport/form-values.spec.ts
+PASS src/common/date-parse.spec.ts
+PASS src/modules/partners/customer-names.spec.ts
+PASS src/modules/notifications/notification-kind.spec.ts
+PASS src/common/work-facts.spec.ts
+PASS src/common/catalog/product-match.spec.ts
+PASS src/modules/design/design-note-rules.spec.ts
+PASS src/modules/showcase/catalog-rows.spec.ts
+PASS src/modules/audit/record-history.spec.ts
+PASS src/modules/showcase/passport-models.spec.ts
+PASS src/modules/stock/metal.spec.ts
+PASS src/common/uploads/upload-folder.spec.ts
+PASS src/modules/disk/disk-usage.spec.ts
+PASS src/common/text/order-key.spec.ts
+PASS src/modules/matching/matching-lines.spec.ts
+PASS src/modules/stock/stock-match.spec.ts
+PASS src/modules/admin/toClientUser.spec.ts
+PASS src/modules/control/control.catalog.spec.ts
+PASS src/modules/dicts/dicts.payroll.spec.ts
+PASS src/database/soft-delete-coverage.spec.ts
+PASS src/modules/finance/by-articles.spec.ts
+PASS src/modules/product-passport/passport-texts-tree.spec.ts
+PASS src/modules/payroll/payroll-calc.spec.ts
+PASS src/modules/product-passport/passport-c094-scripts.spec.ts
+PASS src/modules/product-passport/passport-c100-script.spec.ts
+PASS src/modules/control/switch/switch.rules.spec.ts
+PASS src/modules/supply/supply-notices.spec.ts
+PASS src/modules/salesorders/order-readiness.spec.ts
+PASS src/common/logging/quiet-nest-logger.spec.ts
+PASS src/modules/disk/backups.spec.ts
+PASS src/common/catalog/names.spec.ts
+PASS src/common/catalog/match-key.spec.ts
+PASS src/common/work-schedule.spec.ts
+PASS src/common/uploads/safe-path.spec.ts
+PASS src/common/print/tech-sheet-rows.spec.ts
+PASS src/common/catalog/purchase-needs.spec.ts
+PASS src/common/passport/funnel.spec.ts
+PASS src/common/issued-net.spec.ts
+PASS src/modules/offers/offer-ready.spec.ts
+PASS src/modules/audit/action-ru.spec.ts
+
+Test Suites: 354 passed, 354 total
+Tests:       3641 passed, 3641 total
+Snapshots:   0 total
+Time:        16.79 s, estimated 19 s
+
+
+=== импорты приложения: C:\Program Files\nodejs\node.exe backend/scripts/pwa-import-check.mjs → код 0, 3.1 с ===
+импорты и синтаксис: 346 файлов, ошибок 0
+
+
+=== тесты приложения: C:\Program Files\nodejs\node.exe --experimental-vm-modules --test backend\pwa\core\errors.test.mjs backend\pwa\core\facets.test.mjs backend\pwa\core\garbage.test.mjs backend\pwa\core\grammar.test.mjs backend\pwa\core\invoice-merge.test.mjs backend\pwa\core\nav-stack.test.mjs backend\pwa\core\order-color.test.mjs backend\pwa\core\passport-images.test.mjs backend\pwa\core\recent-cards.test.mjs backend\pwa\core\stale.test.mjs backend\pwa\core\write-retry.test.mjs backend\pwa\sections\atlas-brief.test.mjs backend\pwa\sections\dicts-c116.test.mjs backend\pwa\sections\invoice-price.test.mjs backend\pwa\sections\invoice-workspace.test.mjs backend\pwa\sections\order-passport-text.test.mjs backend\pwa\sections\passports\book-composition-funnel.test.mjs backend\pwa\sections\passports\book-composition-tree.test.mjs backend\pwa\sections\passports\book-entry.test.mjs backend\pwa\sections\passports\book-etalon-gate.test.mjs backend\pwa\sections\passports\book-images.test.mjs backend\pwa\sections\passports\book-inline-events.test.mjs backend\pwa\sections\passports\choice-regressions.test.mjs backend\pwa\sections\passports\create-book-draft.test.mjs backend\pwa\sections\passports\fill\category-change.test.mjs backend\pwa\sections\passports\fill\control.test.mjs backend\pwa\sections\passports\fill\model.test.mjs backend\pwa\sections\passports\fill\save-queue.test.mjs backend\pwa\sections\passports\form-state.test.mjs backend\pwa\sections\passports\funnel\bar.test.mjs backend\pwa\sections\passports\funnel\index-partial.test.mjs backend\pwa\sections\passports\funnel\new-product.test.mjs backend\pwa\sections\passports\funnel\pick-steps.test.mjs backend\pwa\sections\passports\image-ownership.test.mjs backend\pwa\sections\passports\installation-text.test.mjs backend\pwa\sections\passports\modules.test.mjs backend\pwa\sections\passports\print-options.test.mjs backend\pwa\sections\passports\product-block-create.test.mjs backend\pwa\sections\passports\product-block.test.mjs backend\pwa\sections\products\create-session.test.mjs backend\pwa\sections\products\data-pd.test.mjs backend\pwa\sections\products\materials-proposal.test.mjs backend\pwa\sections\request-step.test.mjs backend\pwa\sections\salesorders-next.test.mjs backend\pwa\sections\stock-passport.test.mjs backend\pwa\ui\kit\auto-more.test.mjs backend\pwa\ui\kit\card.test.mjs backend\pwa\ui\kit\drag.test.mjs backend\pwa\ui\kit\errors.test.mjs backend\pwa\ui\kit\recent-cards.test.mjs backend\pwa\ui\kit\toast.test.mjs backend\pwa\ui\materials-spec.test.mjs backend\pwa\ui\search-logic.test.mjs → код 0, 10.7 с ===
+(node:20748) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/core/errors.js?0.2905479432176358 is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ без сети: ошибка не падает и ложится в очередь, с сетью уходит и очередь пуста (35.8056ms)
+✔ обрыв при отправке: запись в очереди одна и после повторной неудачи (141.0037ms)
+✔ очередь не больше 20, лишние отбрасываются (3.4251ms)
+✔ очередь переживает закрытие вкладки (12.2692ms)
+✔ испорченная запись в хранилище не ломает запуск (30.9617ms)
+✔ старый сервер (404): очередь очищена, больше не шлём (15.9592ms)
+✔ валидные ключи трубы сохраняют вид, сечение и длину (1.3618ms)
+✔ старое выбранное сечение без разделителей не вызывает replace у undefined (0.5027ms)
+✔ пустые и неполные значения не роняют хлебную крошку (1.3037ms)
+✔ остальные подписи фильтров не меняются (0.1686ms)
+✔ длина из dimensions важнее разбора имени (1.4982ms)
+✔ typeGroups: семейство по первому слову, полки по числу позиций, одиночные после, «Прочее» последним (7.1405ms)
+✔ typeValues: полка в group, у одиночных типов пусто, последняя «Все типы» (0.2794ms)
+✔ тип — существительное, а не прилагательное/материал (C043) (0.2055ms)
+✔ ручной тип typeName важнее вычисленного — в обеих ветках (C043) (0.4407ms)
+(node:10656) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/core/garbage.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ мусор ловится (1.6474ms)
+✔ нормальный текст не задет (0.1579ms)
+✔ scrubText: мусор -> пусто, нормальное как есть (0.2399ms)
+(node:9912) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/core/grammar.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ ловит ошибки склонения и повтор слова (9.4812ms)
+✔ правильные фразы и CSS-классы не трогает (1.9546ms)
+✔ в строках исходников приложения нет ошибок склонения (вставки ${…} считаются пропуском) (94.6731ms)
+✔ nextLine: «Дальше:» с одним двоеточием (0.283ms)
+(node:35484) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/core/invoice-merge.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ GET до подтверждения; ровно один POST с выбранными targetId/strategy/noWait (1.4411ms)
+✔ явное подтверждение стратегии append (0.179ms)
+✔ явное подтверждение стратегии replaceLines (0.111ms)
+✔ отмена preview — только GET, без мутаций (0.1117ms)
+✔ ошибка GET и отмена — без подтверждения и POST (0.1665ms)
+✔ ошибка POST → новый GET и новое подтверждение; отмена не повторяет POST (0.2373ms)
+✔ отказ API при paid/received показан, не повторён без действия пользователя (0.1388ms)
+✔ разошедшиеся или частично видимые строки — fail closed (0.3691ms)
+✔ правило дублей — materialId, количество и итог строки; без материала — точное название (0.121ms)
+✔ настоящий api noWait не делает сетевой автоповтор merge (19.1202ms)
+(node:32944) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/core/nav-stack.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ первая запись — «Назад» неактивна, «Вперёд» неактивна (1.2541ms)
+✔ раздел → раздел → назад → вперёд; подписи соседних экранов (0.2384ms)
+✔ новый шаг после «назад» отбрасывает то, что было впереди (0.1614ms)
+✔ фильтры, страницы — replace: шаг не добавляется; карточка — push с пометкой card (0.1331ms)
+✔ ссылка-якорь без state — новый шаг; обновление страницы — шаг из history.state (0.1403ms)
+(node:11776) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/core/order-color.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ цвет заказа стабилен и в пределах палитры (0.5123ms)
+✔ цвета разных заказов расходятся (палитра используется целиком) (0.8409ms)
+✔ без заказа — серый, заказ — токен палитры (0.1789ms)
+(node:14772) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/core/passport-images.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ каждая картинка — только в своём виде, порядок внутри вида (1.1628ms)
+✔ один снимок дважды в виде — один раз; в разных видах — можно (0.2085ms)
+✔ без вида — только «Общий вид» (0.1688ms)
+✔ картинки модели раскладываются по видам: safety_zone → safety, без вида → overview, без файла — пропуск (0.2644ms)
+✔ модель → форма → тело запроса: без дублей и без переноса в другие виды (0.207ms)
+(node:31012) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/core/recent-cards.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ История сохраняется, ограничена 20 и повторный просмотр переносит карточку вверх (2.9406ms)
+✔ Повреждённый кэш и недоступное хранилище не ломают приложение (0.6196ms)
+✔ История исключает недоступные разделы и произвольные URL/параметры (0.2376ms)
+✔ номер заказа с кириллицей и разделителями безопасно возвращается одним параметром open (0.345ms)
+✔ история хранит только безопасный локальный файл фото, старые записи остаются (1.1704ms)
+(node:12212) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/core/stale.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ ошибка 13.11 про недостающий экспорт — устаревший модуль (0.7361ms)
+✔ обычные ошибки не вызывают перезагрузку (0.1196ms)
+✔ перезагрузка не чаще раза в две минуты (0.097ms)
+(node:1360) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/core/write-retry.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ паузы 3, 5, 10, 15, 30 и дальше по 30 с (1.5081ms)
+✔ ключ случайный и непустой (2.1115ms)
+✔ ждём: READ_ONLY, нет связи, шлюз; не ждём: 400, 403, таймаут (0.1257ms)
+✔ фоновые пути не ждут (0.1908ms)
+✔ пауза записи прошла: запрос повторён, тот же вызов, полоса включена и выключена (0.2985ms)
+✔ без ошибок полоса не показывается (0.0819ms)
+✔ 3 минуты вышли: бросаем исходную ошибку, полоса снята с неудачей (1.1564ms)
+✔ обычная ошибка (400) — сразу, без ожидания (0.1228ms)
+✔ ошибка после ожидания (400) — полоса снята без «восстановлено» (0.1809ms)
+✔ retryDelay: retryAfter сервера в секундах, нет — 30 с, не ждём обычные ошибки (0.1691ms)
+(node:34392) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/sections/atlas-data.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ текущая карта без ошибок структуры (2.9338ms)
+✔ ловит связь, которую не отдаёт ни один шаг (1.3464ms)
+✔ ловит занятое место, шаг без id и вход без связи (1.0901ms)
+✔ сводка называет шаги с метками, входы и выходы (0.8102ms)
+✔ поиск по слову и по id (0.448ms)
+(node:29904) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/sections/dicts-search.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ поиск по коду, описанию, словам и регистру (1.4465ms)
+✔ группы меню упорядочены и объединяют исходные разделы (0.7487ms)
+✔ каркас находится по имени элемента и тексту осмотра (0.1583ms)
+✔ 100 / 3 сохраняет точные 100, paid reason по желанию, version включена (1.4791ms)
+✔ точные 101 при qty 3 не превращаются в 101.01 (0.286ms)
+✔ qty без явно введённой цены сохраняет сумму; явно введённая цена пересчитывает (0.1301ms)
+✔ нулевые/отрицательные/пустые/NaN/неизвестная version запрещены (0.4745ms)
+✔ старый editLine/modal/openCard полностью удалён из invoices-tab (0.3803ms)
+(node:24316) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ authoritative/fallback boundary запрещает финансы, но разрешает metadata: {"receiptBoundaryAt":"2026-01-01"} (0.6884ms)
+✔ authoritative/fallback boundary запрещает финансы, но разрешает metadata: {"lockReason":"receipt"} (0.0847ms)
+✔ authoritative/fallback boundary запрещает финансы, но разрешает metadata: {"requests":[{"id":"hidden","status":"received"}]} (0.075ms)
+✔ partial/cancelled запрещает ВСЕ writes: {"partial":true} (0.2468ms)
+✔ partial/cancelled запрещает ВСЕ writes: {"status":"cancelled"} (0.7977ms)
+✔ paid до приёмки: админ edit/add/remove; после boundary нельзя править позиции (0.572ms)
+✔ money=false не допускает финансовых writes, metadata допустима и whitelist после receipt (0.1478ms)
+✔ received/cancelled line нельзя удалить; paid-строку до приёмки админ может убрать (0.1523ms)
+✔ формы используют новый helper: 100/3, qty, unit и reason не открывают второй drawer (5.1262ms)
+✔ каждая transport-команда делает ровно один write без скрытого GET/перехода (4.5106ms)
+✔ issue/pay без нашей компании запрещены (0.3507ms)
+✔ успех line write → один fresh GET, fresh version и 409 без replay (5.0455ms)
+✔ подтверждённый write + ошибка GET не называется несохранённым и не повторяет POST (4.4832ms)
+✔ candidate total не теряется на полностью привязанной первой странице; search/page идут на сервер (3.176ms)
+✔ add форма хранит выбор между страницами/поисками и paid reason; conflict сохраняет draft (9.3919ms)
+✔ router wiring: lazy invoicecard, four router-only входа, legacy invoice links, отсутствие циклов/second openCard (5.5738ms)
+✔ readonly renderer: группы/0/DOM links/пустоты; DOM-узел не склеивается в строку (3.3827ms)
+✔ общий openCard guard: та же панель, dirty internal edit/load/reload/close; saving защищён (8.3976ms)
+✔ metadata paid не отправляет неподдерживаемый DTO reason; boundary whitelist исключает duplicateReason (0.3647ms)
+✔ readonly renderer реально сохраняет 0, false→Нет, true→Да и DOM-ссылку (4.235ms)
+✔ фиксировать реальную оплату уже полученного issued-счёта можно; цены исправляет только администратор (0.0962ms)
+✔ добавление соблюдает DTO максимум200 уникальных заявок (0.1559ms)
+(node:31432) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/sections/order-passport-text.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ missingName: служебная фраза → название (0.7903ms)
+✔ shortMissing: названия через запятую, без дублей и служебных слов (0.2315ms)
+✔ shortMissing: «и ещё N» от сервера и лишнее сверх max складываются (0.6455ms)
+✔ summaryText: без перечня причин (0.2061ms)
+✔ сырьё не в шаге «Что», loadCatalog(raw) пуст (3.9046ms)
+✔ изделие комплекса загружается из продукции, само изделие исключено (0.7278ms)
+✔ moduleKids зовёт /modules/:id/composition (0.6927ms)
+✔ mountCompositionFunnel экспортируется, книжка его зовёт (1.7085ms)
+✔ лист книжки выводит серверную проекцию и количества без самостоятельного раскрытия (2.5988ms)
+✔ черновик и выпущенный паспорт показывают только compositionSheet из своего ответа (1.5105ms)
+✔ богатое описание both видно рядом с BOM, размеры не скрываются (0.9333ms)
+✔ доказанный простой дубль с marker tree не отображается второй раз (0.7001ms)
+✔ старый issued без marker сохраняет legacy описание рядом с BOM (0.677ms)
+✔ ссылка зовёт общий вход книжки по изделию один раз, закрытие убирает параметр (1.9814ms)
+✔ неудавшееся открытие снимает параметр (0.5904ms)
+✔ вход по ссылке учитывает право редактирования документов (0.5319ms)
+✔ общий вход сообщает о неудачной загрузке книжки вместо успешного открытия (0.7666ms)
+✔ существующий черновик открывается без выбора фирмы или создания нового (0.6063ms)
+✔ issued без draft: draftOnly=false сохраняет правильный контекст (0.6158ms)
+✔ issued без draft: draftOnly=true сохраняет правильный контекст (0.5654ms)
+✔ draftOnly переиспользует существующий draft и не создаёт копию (1.2786ms)
+✔ правило подтверждает три новых связи после targeted удаления и до сообщения об успехе (0.8004ms)
+✔ C141: open-book и book-editor на месте (1.91ms)
+✔ C141: файлы-входы не зовут старую анкету/форму/карандаши (1.3491ms)
+✔ C141: эталонные кнопки зовут книжку (строки-якоря) (0.8071ms)
+✔ C141: канон iLogic на сайте (статика) (0.3207ms)
+(node:29676) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/core/passport-images.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ две последовательные загрузки PNG заменяют вид без дублей и сохраняют другие виды и подписи (2.891ms)
+✔ одновременные attach исполняются очередью: последний PNG выигрывает (0.8ms)
+✔ добавление ещё доступно отдельным действием и не превращает обычную загрузку в append (0.7829ms)
+✔ inherited и readonly не предлагают запись raw images (1.67ms)
+✔ свежий inherited перед PATCH блокирует устаревший upload (1.1069ms)
+✔ неудача PATCH сохраняет прежний набор, issued проходит обычным PATCH паспорта (1.6163ms)
+✔ старый safety_zone заменяется из safety, append не дублирует тот же снимок через alias (1.1397ms)
+(node:25636) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/sections/passports/book-inline-events.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ клик в поле и по сохранению не открывает родительское поле повторно (2020.8525ms)
+✔ своё имя паспорта сохраняет прочие ручные поля и не меняет исходный объект (0.2799ms)
+(node:26744) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/core/passport-images.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ старая форма сохраняет собственные рисунки и не копирует наследуемые (3.7774ms)
+✔ быстрый второй выбор сохраняется после первого запроса и не сбрасывается перерисовкой (4.0762ms)
+✔ пустой способ установки сериализуется как явная очистка, отсутствующее поле не меняется (1.0257ms)
+✔ пустая таблица очищает автоматический текст материалов, ручной сохраняется до явного сброса (1.0419ms)
+✔ известная серверу фирма заказа или единственная не требуют выбора (1.8791ms)
+✔ несколько фирм: подтверждённый выбор идёт в повторный POST с исходным заказом (1.182ms)
+✔ отмена выбора не делает повторный POST и не запоминает фирму (0.6542ms)
+✔ пустой выбор остаётся ошибкой поля, случайная фирма не подставляется (1.0088ms)
+✔ сеть и другие ошибки не превращаются в запрос фирмы (1.1052ms)
+✔ неудачный повторный POST не запоминает фирму (0.5911ms)
+✔ смена изделия во время выбора не создаёт паспорт старому изделию (1.2986ms)
+✔ устаревший вход не делает ни одного запроса (0.8099ms)
+✔ отмена несовместимой категории не пишет и сохраняет ручной текст (1.8736ms)
+✔ явное согласие очищает только выборы и ручной шаблон, сохраняя общие сведения (0.1979ms)
+✔ сброс использует специальный reset и возвращает наследуемую категорию (0.1247ms)
+✔ ошибка записи не меняет локальную категорию/ручной текст (0.4259ms)
+(node:18236) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ сохраняет две строки и ждёт предыдущую запись выбора перед привязкой (6.1501ms)
+✔ ошибка привязки сохраняет id: повтор обновляет элемент, не создаёт дубль (1.8431ms)
+✔ ошибка создания допускает повтор, отмена не меняет исходный выбор (1.4138ms)
+✔ три выбранных элемента сохраняются; четвёртый только в справочнике (1.2987ms)
+✔ без права редактировать общие тексты нет перехода к созданию (1.4728ms)
+✔ чужая категория или компонент сохраняются в справочнике без привязки к паспорту (3.3186ms)
+✔ значение по умолчанию не записывается до явного принятия (1.7763ms)
+✔ частичные размеры сохраняются, очистка не уничтожает соседние значения (1.5597ms)
+✔ габариты в сантиметрах переводятся без потери перед правкой (1.4919ms)
+✔ очистка веса отправляется, ошибочное число показывает сообщение (1.4108ms)
+(node:22328) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/sections/passports/fill/model.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ следующий шаг фокусирует открытое поле габаритов и прокручивает его один раз (1.0783ms)
+✔ разделы одни и в порядке паспорта (0.3558ms)
+✔ рисунок и поле попадают в свой раздел, подпись рисунка — словами (0.9109ms)
+✔ упрощённый прячет виды полного; сборка — у разобранного или если её просит сервер (0.2098ms)
+✔ «Цельное» только после выбора; пустое — не подстановка (0.1032ms)
+✔ корень текстов — в раздел по коду или по названию (0.2486ms)
+✔ способ установки: привязка листа важнее слова в названии (0.1875ms)
+✔ C086: название для показа — без капса и лишних пробелов; смешанный регистр не трогаем (0.1465ms)
+✔ C086: указатель (благоустройство) — параметров пользователя, падения и площадки нет ни в одном режиме (0.2549ms)
+✔ C086: необязательное при выпуске свёрнуто, в шаблоне и по «показать» открыто (0.1268ms)
+✔ C086: тренажёр — обязательные параметры остались; сохранённый ответ повторно не спрашивается (0.1152ms)
+✔ C086: смена категории — чужое сохранённое не стирается и не спрашивается, а объясняется (0.0658ms)
+✔ глубина Г: при анкере скрыта; пустая без запроса — не показываем (0.1953ms)
+✔ C086: сервер требует поле (подстановка в тексте изделия) — оно открыто, даже если категория его не знает (0.0407ms)
+✔ C086: правил применимости нет (категория не выбрана) — ничего не скрыто (0.0755ms)
+✔ C086: Ctrl+V — ровно одна зона; фокус сильнее мыши (0.1517ms)
+✔ после ошибки соседняя запись не уничтожает ввод; повтор выполняет прежнюю очередь (1.6645ms)
+✔ повторный сбой сохраняет очередь до следующего повтора (0.2761ms)
+✔ явная отмена не запускает неуспешные записи (0.2506ms)
+✔ два повтора используют одну попытку и ждут запись (1.8543ms)
+✔ Р2: сервер на паузе — очередь сама повторяет после retryAfter, ввод не теряется (19.0801ms)
+✔ Р2: обычная ошибка (400) автоповтор не запускает; повторы ограничены max (30.7789ms)
+✔ предложенный и заменённый номера всегда передаются явно (0.8864ms)
+✔ файл держит предупреждение до успешного сохранения (0.644ms)
+✔ смена изделия сбрасывает прежнюю связь и сохраняет ручные данные (0.6372ms)
+✔ смена изделия очищает автоматические поля и картинки, сохраняя ручное и данные экземпляра (0.197ms)
+(node:34628) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/sections/passports/funnel/bar.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ есть пробелы: «Осталось N: первый и ещё …», выпуск неактивен с причиной (0.7513ms)
+✔ один пробел — без «и ещё» (0.1447ms)
+✔ всё готово: кнопка активна, слова вместо ссылки (0.1627ms)
+✔ фирмы ещё грузятся: неактивна, причина словами (0.1957ms)
+(node:20340) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ частичный успех → «Назад» говорит правду; «+ Новое изделие» продолжает ту же форму и запись (3.6259ms)
+✔ «Создать другое изделие» — новая форма, о созданном сказано (2.1194ms)
+✔ отмена ухода — форма и запись остаются (1.6481ms)
+✔ категория новой группы другая — шаги воронки обновляются, без записи категории (1.8322ms)
+(node:34740) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ сбой после POST → запись видна, повтор — PATCH той же записи, второго POST нет (4.4542ms)
+✔ частичный успех → «Открыть созданное изделие» выбирает именно его (2.744ms)
+✔ та же (единственная) группа — признаки переносятся; другая группа — нет (6.9725ms)
+✔ группа не из выбранной категории — подтверждение; отмена не создаёт и не трогает ввод (29.8648ms)
+✔ setContext: возврат к отложенной форме берёт текущие признаки воронки (14.0484ms)
+(node:2916) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ единственная группа (шаг пропущен) — её id и название (3.4298ms)
+✔ нет групп или есть изделия без группы — группа не подставляется (2.2784ms)
+✔ несколько групп без выбора — нет эффективной группы (1.1001ms)
+(node:24272) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/core/passport-images.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ рисунок из изделия показывается с верным счётчиком, без ложного удаления и загрузки поверх (2.6175ms)
+✔ свой рисунок удаляется по id и виду даже при отдельном объекте предпросмотра (1.0715ms)
+(node:33324) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/sections/passports/installation-text.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ пустой монтаж заполняется при выборе и при открытии сохранённого способа (0.5272ms)
+✔ смена способа заменяет автоматический текст, пустой способ не оставляет чужой монтаж (0.0934ms)
+✔ свой текст сохраняется и при открытии, и при нескольких сменах способа (0.0785ms)
+✔ загрузка рисунка модуля выбирает файл и сохраняет его без исключения (3786.2075ms)
+✔ буклет, печать и подпись, ч/б, отмеченные позиции (0.8146ms)
+✔ без подписи — sign=0, без печати — seal=0, без обоих — без stamp (0.1709ms)
+✔ все отмеченные — ids не передаётся; для заказа нет листа стенда (0.1872ms)
+(node:6664) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ фильтр категории не становится своей категорией нового изделия; раздел — подсказка (6.1536ms)
+✔ сбой после создания и закрытие карточки → правда и выбор созданного изделия (4.6328ms)
+✔ отказ выбрать созданное — сообщение, что оно осталось в «Продукции» (13.5061ms)
+✔ создания не было — закрытие ничего не спрашивает (15.2061ms)
+(node:27084) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ реальная блокировка уважает точный серверный список и alias таблицы материалов (4.2334ms)
+✔ новое изделие блокирует только непустые источники, включая false и нулевые умолчания (1.7812ms)
+✔ возврат applyProduct обновляет источники, но сохраняет ручной выбор текстов и соседние поля (2.4248ms)
+✔ явно ручной монтаж и назначение остаются доступны и не заменяются при возврате (1.8594ms)
+✔ ручная очистка соседнего поля не заполняется заново после возврата (1.5825ms)
+✔ запоздавший ответ прежнего изделия не меняет текущую форму (1.8504ms)
+✔ DOM: первый клик после ввода сертификата и blur/change открывает изделие (2091.3774ms)
+✔ сбой после POST: повтор обновляет ту же запись и продолжает заполнение (1.7211ms)
+✔ двойное нажатие ждёт одно создание (0.1552ms)
+✔ сбой самого POST допускает новую попытку; чужие признаки не переходят в другую группу (0.1676ms)
+✔ после успешно записанных признаков и сбоя GET смена группы явно очищает прежние признаки (0.1534ms)
+✔ C096 Э4: partial() — созданная запись видна до конца заполнения и пропадает после успеха (0.1497ms)
+(node:28244) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ явно выбранная категория нового изделия сохраняется как своя (2.7057ms)
+✔ без выбора своя категория не пишется (1.1128ms)
+(node:30292) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/sections/products/materials-proposal.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ разные детали с одинаковым названием остаются разными источниками, повтор не дублирует (1.6856ms)
+✔ изменения по источнику показываются, ручные тексты и размеры сохраняются (0.8979ms)
+✔ пустой BOM сохраняет старое описание с явным отсутствующим источником (0.1772ms)
+✔ неопределённый материал остаётся существующим источником, а ручная строка не склеивается по имени (0.1761ms)
+✔ 101 источник сохраняется в двух серверных строках 100+1, повтор не склеивает и не дублирует (2.2171ms)
+(node:36684) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 409 сам не мутирует: выбор → GET → видимый preview → один явный POST (7.8882ms)
+✔ отмена choice: ни merge, ни duplicateReason (1.9565ms)
+✔ отмена preview: ни merge, ни duplicateReason (2.1361ms)
+✔ POST network error: retry перечитывает preview, не повторяет merge до нового подтверждения (2.4692ms)
+✔ duplicateReason остаётся доступным и сохраняется точным PATCH без merge (2.4212ms)
+✔ выбор «открыть» остаётся read-only (1.5381ms)
+✔ обычное сохранение с причиной — один PATCH, без merge-сценария (1.2701ms)
+✔ шаг оплаты привязанной заявки — только invoicecard route, без writes (1.155ms)
+✔ старая многоendpoint оплата не исполняется: _inv отвергается без writes (1.5041ms)
+✔ invoiceBlock — summary + router-only link, не загружает и не рисует финансы/формы (1.8135ms)
+✔ ссылка блока доступна без money и при receipt; snapshot остаётся только в workspace (1.9283ms)
+(node:5720) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/sections/salesorders-next.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ готов и отгружено ведут к паспортам заказа (0.7681ms)
+✔ частичная отгрузка по-прежнему зовёт досдачу (0.1635ms)
+(node:34580) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ widget JSON.read объект и legacy строка одинаково сравниваются с исходными значениями (3.7603ms)
+✔ снятие связи очищает материал и тексты, размеры без материала не передаются (1.5159ms)
+✔ ошибка PATCH пробрасывается, повтор не пропускается сравнением с originals (1.9968ms)
+✔ stock.update отвергает частичное сохранение и позволяет повторить тот же ввод (4.1777ms)
+✔ история склада передаёт назначение DOM-узлом и сохраняет примечание (5.4736ms)
+✔ таблица: root области прокрутки загружает до края, затем100→200→250 без дублей (2793.0049ms)
+✔ после resize к телефону продолжает карточки через прокрутку страницы (326.3586ms)
+✔ без observer доступны клавиатурная кнопка, повтор ошибки и защита от устаревшего append (422.4874ms)
+✔ autoMore: одновременные more не дублируют страницу, reload отменяет старую, destroy исключает поздний render (167.6355ms)
+(node:7572) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ Готово ждёт запись и переключает просмотр после одного коммита (11.5817ms)
+✔ сбой записи оставляет форму, показывает ошибку и разрешает повторить (5.1248ms)
+✔ Готово без изменений открывает просмотр без коммита и ошибки (6.0369ms)
+✔ дочерняя панель сохраняет DOM, фокус, прокрутку и снимает inert при возврате (5.0207ms)
+✔ уничтожение родителя удаляет дочернюю панель (3.3738ms)
+✔ ошибка дочерней записи сохраняет многострочный ввод, повтор возвращает к родителю (5.065ms)
+✔ дочерняя панель в отдельном окне не наследует solo и не закрывает окно (4.8645ms)
+✔ Успешный просмотр сообщает карточку для истории (4.1088ms)
+(node:17884) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/ui/kit/drag.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ мышь: до 6 px ждём, дальше — старт (0.4837ms)
+✔ палец: сдвинулся до долгого нажатия — это прокрутка (0.0899ms)
+✔ уже тащим — просто двигаем (0.7619ms)
+✔ вне перетаскивания отложенное выполняется сразу (0.1187ms)
+(node:6152) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/ui/kit/errors.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ ответ сервера по-русски — как есть (0.6693ms)
+✔ наша проверка (Error по-русски) — как есть (0.5788ms)
+✔ нет сети (0.1758ms)
+✔ долгий ответ (0.0738ms)
+✔ 401 и 429 (0.1047ms)
+✔ внутренняя ошибка — общий текст, без английского (0.1032ms)
+(node:32532) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/core/recent-cards.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:32532) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+✔ только текущая карточка и пользователь; поздние ответы и new пропускаются (3.2541ms)
+✔ заказ с productionNo/key и legacy id сохраняется один раз с заказчиком (1.9862ms)
+✔ переиспользованный recorder записывает текущую вкладку и раздел, но не чужой id (1.2572ms)
+✔ миниатюра из загруженной карточки; внешний thumb пропускается ради локального url (2.6511ms)
+✔ реальный pop-menu: вся строка ссылка, фото без вложенной кнопки; старые записи дают значок (2.7681ms)
+(node:15504) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ пойманная ошибка сохранения передаётся сборщику до подавления повторного уведомления (2.7184ms)
+✔ сообщение встаёт над нижней строкой панели у низа экрана (обход 15.11, 390) (1.1151ms)
+(node:34988) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ открытие, изменение размеров и повторное открытие сохраняют снимки без записи (6.4104ms)
+✔ смена материала очищает обе фразы, повторный выбор того же сохраняет (4.8975ms)
+✔ удалённое покрытие теряет тексты; повторное добавление не возвращает старые фразы (4.2981ms)
+✔ копирование не теряет другую фразу той же части/материала и варианты покрытия (4.5388ms)
+✔ Из состава: отмена не меняет черновик, принятие добавляет новые строки и сохраняет ручные (9.9327ms)
+✔ источник строки проходит read/set/copy без общей ссылки и не требует словарного partIds (3.9067ms)
+✔ техописание печатает ручную фразу целиком; без неё остаются размер и допуск (3.3448ms)
+✔ предложение только покрытия принимается в пустую таблицу вместе с ручными вариантами (4.2187ms)
+✔ фокус на удалении покрытия не пересоздаёт кнопку до щелчка (3.206ms)
+✔ техописание использует имя физического источника без обязательной словарной роли (3.4505ms)
+✔ материал по названию требует явного принятия и в пустой таблице (4.3794ms)
+✔ конфликт показывает было и предложено, кнопка ведёт к сохранённой строке (3.3225ms)
+✔ неизвестный источник не исчезает из значения и требует материал до сохранения (4.3556ms)
+✔ 101 неизвестный источник создаёт сохраняемые группы 100+1 без потери и дублей (4.7202ms)
+(node:26928) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/invSportiN/%D0%A1%D0%B0%D0%B9%D1%82/01_%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B_CRM/data-core/backend/pwa/ui/search-logic.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\invSportiN\Сайт\01_Проекты_CRM\data-core\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ ввод → поиск; пусто → сброс (список целиком); повтор не дублирует (0.9792ms)
+✔ 1 знак при минимуме 2 — не искать, подсказка; потом пусто — сброс (0.1323ms)
+✔ гонка ответов: устаревший медленный ответ отбрасывается (33.0214ms)
+ℹ tests 297
+ℹ suites 0
+ℹ pass 297
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10683.9813
+
+
+=== загрузка рисунка модуля: C:\Program Files\nodejs\node.exe --test backend/pwa/sections/passports/modules.test.mjs → код 0, 7.1 с ===
+✔ загрузка рисунка модуля выбирает файл и сохраняет его без исключения (6885.9948ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7096.5565
+
+
+=== дизайн: C:\Program Files\nodejs\node.exe backend/scripts/design-lint.mjs → код 0, 0.3 с ===
+
+Итого новых: 0; всего сейчас 5994
+
+
+=== циклы модулей: C:\Program Files\nodejs\node.exe backend/scripts/audit-cycles.js → код 0, 0.1 с ===
+Взаимных пар модулей: 0
+
+
+=== карта сайта ===
+ок
+
+=== участки: C:\Program Files\nodejs\node.exe tools/areas.mjs --check → код 0, 0.1 с ===
+участки: ок — 1878/1878 файлов, 38 участков
+
+
+=== карточки: C:\Program Files\nodejs\node.exe tools/starozhil/cards.mjs --check → код 0, 0.0 с ===
+карточки: 2, свежих 1, устарели 1, сломаны 0
+  ⚠ module-supply.md — источник изменился
+
+
+=== пульт: C:\Program Files\nodejs\node.exe --test pult/test/catalog.test.mjs pult/test/server.test.mjs pult/test/advisor.test.mjs → код 0, 1.0 с ===
+✔ всё сделано — дел нет (1.2705ms)
+✔ каждая рекомендация ведёт на настоящую кнопку и уровень (0.1959ms)
+✔ сайт лежит — первым делом (0.7321ms)
+✔ находка осмотра не уходит, пока осмотр её показывает (0.2326ms)
+✔ незакоммиченный код закрывает выкладку и не советует её (0.1318ms)
+✔ готовый код — совет выложить (0.1118ms)
+✔ упавшая выкладка — срочно, если код ещё не на сайте (0.1505ms)
+✔ поручение выложить уходит само, когда код уже на сайте (0.341ms)
+✔ после выкладки: пока час не прошёл — проверку не показываем; потом today и осмотр (0.1796ms)
+✔ ритм: каждый день — по календарю, раз в неделю и месяц — по сроку (0.1987ms)
+✔ одна команда — один пункт, самый важный (0.1201ms)
+✔ сделанное сегодня попадает в итог (0.0856ms)
+✔ поручение с кнопкой уходит после успешного запуска, следующий шаг появляется (0.195ms)
+✔ ручное поручение закрывается кнопкой «Сделано» (0.1034ms)
+✔ pult/todo.json корректен: кнопка есть, шаги связаны (0.5264ms)
+✔ release checklist: готовность → ворота → отдельно подтверждаемая выкладка (0.2764ms)
+✔ последняя проверка с замечанием просит повторить её (0.1135ms)
+✔ упавшая проверка становится первым делом (0.0799ms)
+✔ зелёная проверка не добавляет дело и остаётся в итоге (0.0777ms)
+✔ стенды человеку не советуем: ими управляют тестировщик, Старожил и Claude (0.0605ms)
+✔ у команд с ритмом есть причина (0.0527ms)
+✔ копия на ПК: отстала — строка «Обновить копию», свежая — тишина (9.5741ms)
+✔ каталог совпадает со скриптами проекта (3.2854ms)
+✔ справка собрана из текущего каталога (0.8257ms)
+✔ стенды: у каждой карточки есть команды запуска и остановки (0.132ms)
+✔ записи каталога заполнены (0.1635ms)
+✔ запись на сайт всегда с подтверждением, опасное — со словом (0.0944ms)
+✔ выкладка и команды на сервере не помечены как чтение, кроме явного списка (0.4579ms)
+✔ на кнопках нет --wipe, удаления таблиц и архива без пароля (0.1714ms)
+✔ в списке скриптов только с режимом плана и без drop- (5.0239ms)
+✔ параметр — только значение из списка (0.3584ms)
+✔ выкладка идёт по пути этого ПК (0.2288ms)
+✔ скрипт со своим входом на сервер получает способ этого ПК (0.165ms)
+✔ скрипты с адресом сервера внутри помечены vmEnv (1.0279ms)
+✔ вход на сервер по способу этого ПК (0.2044ms)
+✔ нет нужного на ПК — кнопка объясняет почему (0.103ms)
+✔ Git Bash раньше System32 в PATH (0.1022ms)
+✔ секреты закрываются маской (0.4679ms)
+✔ подсказка к реальному отказу ворот (0.1332ms)
+✔ без ключа сессии — отказ, на странице ключ есть (13.4491ms)
+✔ чужой Host и чужой Origin — отказ (2.2153ms)
+✔ запуск только из каталога (10.625ms)
+✔ вывод, маска пароля, журнал на диске (131.9231ms)
+✔ ключ ИИ передаётся через stdin и скрывается в журнале (76.9828ms)
+✔ код ошибки и подсказка (77.2069ms)
+✔ код 1 у команды с находками — не сбой, запуск запомнен (77.9936ms)
+✔ запись без подтверждения не стартует — проверяет сервер (76.8862ms)
+✔ две записи на сайт разом и повтор команды — отказ, Остановить работает (182.7946ms)
+✔ вкладка закрывается, идущая команда остаётся (214.6598ms)
+✔ поручения: чужой id отклоняется (1.0056ms)
+✔ браузерный batch policy модуль доступен с правильным содержимым (0.6302ms)
+✔ в каталоге для страницы нет способа запуска (5.4552ms)
+✔ поручение: «сделано» хранится в pult/.state/done.json и переживает журнал запусков (12.673ms)
+✔ T23: фоновый статус только локальный; legacy dcnight не выдаётся за свой стенд (0.6287ms)
+✔ T23: /api/status использует statusFn-заглушку, без production (4.2975ms)
+✔ T23: ошибка cancellation transport возвращается пользователю; job остаётся running (12.3429ms)
+ℹ tests 56
+ℹ suites 0
+ℹ pass 56
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1005.3047
+

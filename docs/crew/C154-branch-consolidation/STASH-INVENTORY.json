@@ -1,0 +1,604 @@
+[
+  {
+    "ref": "stash/2026-11-04-c019-c020",
+    "sha": "9c7d30a05217fc5a5444aa643cce88954dd5ddbf",
+    "files": [
+      {
+        "path": "deploy/backup-pull/pull-backup.ps1",
+        "current": "другая версия"
+      },
+      {
+        "path": "docs/crew/BOARD.md",
+        "current": "другая версия"
+      },
+      {
+        "path": "docs/roles/analyst.md",
+        "current": "другая версия"
+      },
+      {
+        "path": "docs/roles/maps/analyst.md",
+        "current": "другая версия"
+      },
+      {
+        "path": "pult/catalog.mjs",
+        "current": "другая версия"
+      },
+      {
+        "path": "pult/dispatch.mjs",
+        "current": "другая версия"
+      },
+      {
+        "path": "pult/docs/КОМАНДЫ.md",
+        "current": "другая версия"
+      },
+      {
+        "path": "pult/test/catalog.test.mjs",
+        "current": "другая версия"
+      }
+    ],
+    "untracked": [
+      {
+        "path": "docs/crew/C019-admin-view-as-role/CHECKLIST.md",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C019-admin-view-as-role/REPORT.md",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C020-roles-access-audit/EXPECT.md",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C020-roles-access-audit/FINDINGS.md",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C020-roles-access-audit/ROLES-PROD.md",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/roles/tz/ROLES-AUDIT.md",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/roles/tz/VIEW-AS.md",
+        "current": "отсутствует"
+      }
+    ]
+  },
+  {
+    "ref": "stash/2026-11-04-request-fill",
+    "sha": "d24e36aac78a83fa0e6b488fbb5476aac1231452",
+    "files": [
+      {
+        "path": "backend/pwa/sections/request-fill.js",
+        "current": "другая версия"
+      }
+    ],
+    "untracked": [
+      {
+        "path": "для паспортов/Приложение №1 к  ТЗ (1).docx",
+        "current": "отсутствует"
+      }
+    ]
+  },
+  {
+    "ref": "stash/2026-11-09-delete-7-38-2",
+    "sha": "3f4f51770280ebaf608374facbef84a79a4ceba1",
+    "files": [
+      {
+        "path": "deploy/synology/c054-passport-plan.sh",
+        "current": "другая версия"
+      },
+      {
+        "path": "docs/crew/BOARD.md",
+        "current": "другая версия"
+      },
+      {
+        "path": "docs/crew/C054-passport-funnel/apply-plan.json",
+        "current": "другая версия"
+      },
+      {
+        "path": "pult/catalog.mjs",
+        "current": "другая версия"
+      },
+      {
+        "path": "pult/docs/КОМАНДЫ.md",
+        "current": "другая версия"
+      },
+      {
+        "path": "pult/todo.json",
+        "current": "другая версия"
+      },
+      {
+        "path": "tools/night.mjs",
+        "current": "другая версия"
+      },
+      {
+        "path": "рисунки для разбора/i.webp",
+        "current": "отсутствует"
+      }
+    ],
+    "untracked": [
+      {
+        "path": "tests_ai_tiit/md.md",
+        "current": "отсутствует"
+      },
+      {
+        "path": "tests_ai_tiit/АУДИТ_tests_ai_tiit_и_md_2026-11-05.md",
+        "current": "отсутствует"
+      },
+      {
+        "path": "tests_ai_tiit/для паспорта/Договор_12_Дортранссервис_Решётки_20-10-2026.pdf",
+        "current": "отсутствует"
+      },
+      {
+        "path": "tests_ai_tiit/для паспорта/Паспорт_597.pdf",
+        "current": "отсутствует"
+      },
+      {
+        "path": "tests_ai_tiit/для паспорта/Паспорт_597_ред2.pdf",
+        "current": "отсутствует"
+      },
+      {
+        "path": "tests_ai_tiit/для паспорта/Паспорт_597_упрощённый.pdf",
+        "current": "отсутствует"
+      },
+      {
+        "path": "tests_ai_tiit/для паспорта/Паспорт_решётки.pdf",
+        "current": "отсутствует"
+      },
+      {
+        "path": "tests_ai_tiit/для паспорта/Паспорт_решётки_черновик.pdf",
+        "current": "отсутствует"
+      },
+      {
+        "path": "tests_ai_tiit/для паспорта/Снимок экрана 2026-11-09 133243.png",
+        "current": "отсутствует"
+      },
+      {
+        "path": "tests_ai_tiit/для паспорта/данные.txt",
+        "current": "отсутствует"
+      },
+      {
+        "path": "tests_ai_tiit/для паспорта/общий вид.png",
+        "current": "отсутствует"
+      }
+    ]
+  },
+  {
+    "ref": "stash/2026-11-12-c092",
+    "sha": "1beaaa4470c86b93f7c52ec1e700180c12af5ddc",
+    "files": [
+      {
+        "path": "backend/pwa/sections/offers/funnel/api.js",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/pwa/sections/offers/funnel/items-step.js",
+        "current": "другая версия"
+      }
+    ],
+    "untracked": []
+  },
+  {
+    "ref": "stash/2026-11-12-product-filter",
+    "sha": "e59669cde3d6e6703644e3b4cc908c1d0de31584",
+    "files": [
+      {
+        "path": "backend/pwa/sections/products/landing.js",
+        "current": "другая версия"
+      }
+    ],
+    "untracked": []
+  },
+  {
+    "ref": "stash/2026-11-17-c138",
+    "sha": "91ca2cf6802a80645f6d8fa191e2a6bb93e3ca57",
+    "files": [
+      {
+        "path": "backend/pwa/core/api.js",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/pwa/index.html",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/pwa/sections/atlas-data.js",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/pwa/sections/docs-orders.js",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/pwa/sections/help-guide-data.js",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/pwa/sections/order-footer.js",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/pwa/sections/order-line-more.js",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/pwa/sections/order-passport-plan.js",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/pwa/sections/order-shipments.js",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/pwa/sections/passports.js",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/pwa/sections/passports/book-shared.js",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/pwa/sections/product-attachments.js",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/pwa/sections/salesorders.js",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/pwa/sections/stock-card.js",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/pwa/sections/stock-passport.js",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/scripts/passport-templates-polish.js",
+        "current": "точно совпадает"
+      },
+      {
+        "path": "backend/scripts/passport-texts.v2.json",
+        "current": "точно совпадает"
+      },
+      {
+        "path": "backend/src/modules/product-passport/passport-issue.ts",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/src/modules/product-passport/passport-pdf.service.ts",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/src/modules/product-passport/passport-rules.spec.ts",
+        "current": "точно совпадает"
+      },
+      {
+        "path": "backend/src/modules/product-passport/passport-rules.ts",
+        "current": "точно совпадает"
+      },
+      {
+        "path": "backend/src/modules/product-passport/product-passport.controller.ts",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/src/modules/product-passport/product-passport.service.ts",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/src/modules/productattachments/attachment-upload.guard.ts",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/src/modules/productattachments/productattachment.schema.ts",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/src/modules/productattachments/productattachments.controller.ts",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/src/modules/productattachments/productattachments.module.ts",
+        "current": "другая версия"
+      },
+      {
+        "path": "backend/src/modules/productattachments/productattachments.service.ts",
+        "current": "другая версия"
+      },
+      {
+        "path": "docs/MAP.md",
+        "current": "другая версия"
+      },
+      {
+        "path": "docs/QUESTIONS.md",
+        "current": "другая версия"
+      },
+      {
+        "path": "docs/crew/BOARD.md",
+        "current": "другая версия"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/FIX-601-REPORT.md",
+        "current": "другая версия"
+      },
+      {
+        "path": "docs/crew/C136-night-1117/FINDINGS.md",
+        "current": "другая версия"
+      },
+      {
+        "path": "docs/roles/maps/analyst.md",
+        "current": "другая версия"
+      },
+      {
+        "path": "docs/roles/maps/backend.md",
+        "current": "другая версия"
+      },
+      {
+        "path": "pult/catalog.mjs",
+        "current": "другая версия"
+      },
+      {
+        "path": "pult/docs/КОМАНДЫ.md",
+        "current": "другая версия"
+      }
+    ],
+    "untracked": [
+      {
+        "path": "backend/pwa/sections/stock-supplier-passport.js",
+        "current": "отсутствует"
+      },
+      {
+        "path": "backend/scripts/passport-lint-report.js",
+        "current": "отсутствует"
+      },
+      {
+        "path": "backend/src/modules/product-passport/passport-lint-run.ts",
+        "current": "отсутствует"
+      },
+      {
+        "path": "backend/src/modules/product-passport/passport-lint.spec.ts",
+        "current": "отсутствует"
+      },
+      {
+        "path": "backend/src/modules/product-passport/passport-lint.ts",
+        "current": "отсутствует"
+      },
+      {
+        "path": "backend/src/modules/product-passport/passport-pdf.supplier.spec.ts",
+        "current": "отсутствует"
+      },
+      {
+        "path": "backend/src/modules/product-passport/purchased-of-order.spec.ts",
+        "current": "отсутствует"
+      },
+      {
+        "path": "backend/src/modules/product-passport/purchased-of-order.ts",
+        "current": "отсутствует"
+      },
+      {
+        "path": "backend/src/modules/productattachments/attachment-owner.ts",
+        "current": "отсутствует"
+      },
+      {
+        "path": "backend/src/modules/productattachments/supplier-passport.spec.ts",
+        "current": "отсутствует"
+      },
+      {
+        "path": "backend/test/e2e/supplier-passport.e2e-spec.ts",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C132-passport-text-edit/evidence/e2e-1.json",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C132-passport-text-edit/evidence/e2e-2.json",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C132-passport-text-edit/evidence/e2e-3.json",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C132-passport-text-edit/evidence/e2e-4.json",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C132-passport-text-edit/evidence/manifest-before.txt",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C132-passport-text-edit/evidence/unit.json",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C132-passport-text-edit/openapi-generated.json",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C132-passport-text-edit/qa-targeted.json",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C132-passport-text-edit/qa-ui-data.json",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/ORDER-11-26-PRINT.md",
+        "current": "точно совпадает"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/PASSPORT-601-EDITED.txt",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/PASSPORT-601-REVIEW.md",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/SOURCE-FIXES.md",
+        "current": "точно совпадает"
+      },
+      {
+        "path": "docs/crew/C136-purchased-passport/ADVICE.md",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C136-purchased-passport/TZ.md",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C136-purchased-passport/evidence/card-empty-dark.jpg",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C136-purchased-passport/evidence/card-loaded-dark.jpg",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C136-purchased-passport/evidence/card-raw-no-block.jpg",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C136-purchased-passport/evidence/form-hint-light.jpg",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C136-purchased-passport/evidence/orders-tab-zip.jpg",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C136-purchased-passport/evidence/panel-issued-label.jpg",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C136-purchased-passport/evidence/panel-zip-disabled-hint.jpg",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C136-purchased-passport/evidence/panel-zip-disabled.jpg",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C136-purchased-passport/evidence/zip-missing-toast.jpg",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C137-passport-consistency/ADVICE.md",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C137-passport-consistency/CHECKLIST.md",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C137-passport-consistency/GAP.md",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C137-passport-consistency/MAP.md",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C137-passport-consistency/REPORT-1.md",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C137-passport-consistency/REQUEST.md",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C137-passport-consistency/TZ.md",
+        "current": "отсутствует"
+      }
+    ]
+  },
+  {
+    "ref": "stash/2026-11-18-c138-c134",
+    "sha": "019a8fbcf5cefa735289613e5bf7e194273439e1",
+    "files": [
+      {
+        "path": "docs/crew/C138-order-line-passport/UI-REVIEW.md",
+        "current": "другая версия"
+      }
+    ],
+    "untracked": [
+      {
+        "path": "docs/crew/C134-passport-book-editor/evidence/pdf-check/passport-601.json",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/evidence/pdf-check/passport-601.pdf",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/evidence/pdf-check/passport-601.txt",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/evidence/pdf-check/passport-602.json",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/evidence/pdf-check/passport-603.json",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/evidence/pdf-check/passport-603.pdf",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/evidence/pdf-check/passport-603.txt",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/evidence/pdf-check/passport-604.json",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/evidence/pdf-check/passport-604.pdf",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/evidence/pdf-check/passport-604.txt",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/evidence/pdf-check/passport-605.json",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/evidence/pdf-check/passport-605.pdf",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/evidence/pdf-check/passport-605.txt",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/evidence/pdf-check/passport-606.json",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/evidence/pdf-check/passport-607.json",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/evidence/pdf-check/passport-608.json",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/evidence/pdf-check/passport-text-summary.json",
+        "current": "отсутствует"
+      },
+      {
+        "path": "docs/crew/C134-passport-book-editor/evidence/pdf-check/pdf-extract-summary.json",
+        "current": "отсутствует"
+      }
+    ]
+  }
+]
