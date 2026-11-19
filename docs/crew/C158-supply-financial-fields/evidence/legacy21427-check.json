@@ -1,0 +1,43 @@
+{
+  "origin": "http://localhost:3198",
+  "readOnly": true,
+  "list": [
+    {
+      "currency": "RUB",
+      "sourceAmount": 153980,
+      "accountingAmountRub": 153980,
+      "warnings": [],
+      "paidAmount": 36824.24,
+      "sourcePaidAmount": 153980,
+      "sourceBalance": 0,
+      "balanceDue": 117155.76,
+      "paymentState": "paid",
+      "paymentSource": "legacy",
+      "id": "6ae2e7c1504994337ce94118",
+      "no": "Счет-заказ №21427",
+      "amount": 36824.24,
+      "status": "paid"
+    }
+  ],
+  "card": {
+    "id": "6ae2e7c1504994337ce94118",
+    "no": "Счет-заказ №21427",
+    "currency": "RUB",
+    "status": "paid",
+    "amount": 36824.24,
+    "accountingAmountRub": 153980,
+    "sourceAmount": 153980,
+    "paymentSource": "legacy",
+    "paidAmount": 36824.24,
+    "sourcePaidAmount": 153980,
+    "balanceDue": 117155.76,
+    "sourceBalance": 0,
+    "paymentState": "paid",
+    "warnings": []
+  },
+  "snapshot": {
+    "present": false,
+    "amount": null,
+    "keys": []
+  }
+}

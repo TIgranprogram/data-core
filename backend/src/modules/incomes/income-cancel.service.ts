@@ -1,7 +1,8 @@
+import { versionFilter } from '../../common/versioned';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { InjectConnection } from '@nestjs/mongoose';
-import type { Connection } from 'mongoose';
+import type { ClientSession, Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { oid } from '../../common/list-query';
@@ -38,17 +39,17 @@ export class IncomeCancelService {
   private coll(n: string) { return this.db().collection(n); }
 
   /** Зависимости позиций одним проходом. */
-  async depsOfLines(lines: Doc[]): Promise<LineDeps[]> {
+  async depsOfLines(lines: Doc[], session?: ClientSession): Promise<LineDeps[]> {
     const ids = lines.map((l) => oidOf(l._id));
     if (!ids.length) return [];
     const [resv, design, work, supply, pass, ships, moves] = await Promise.all([
-      this.coll('reservations').find({ salesOrderLineId: { $in: ids }, status: 'active', deletedAt: null }, { projection: { salesOrderLineId: 1, qty: 1, groupName: 1 } }).toArray(),
-      this.coll('designtasks').find({ incomeId: { $in: ids }, status: { $in: ['queue', 'work', 'paused'] }, deletedAt: null }, { projection: { incomeId: 1, status: 1, code: 1, title: 1 } }).toArray(),
-      this.coll('worktasks').find({ incomeId: { $in: ids }, status: { $in: ['waiting', 'work'] }, deletedAt: null }, { projection: { incomeId: 1, status: 1, code: 1, stepKey: 1 } }).toArray(),
-      this.coll('supplyrequests').find({ salesOrderLineId: { $in: ids }, status: { $nin: ['received', 'cancelled'] }, deletedAt: null }, { projection: { salesOrderLineId: 1, status: 1, num: 1, title: 1, qty: 1 } }).toArray(),
-      this.coll('productpassports').find({ incomeId: { $in: ids }, status: { $ne: 'annulled' }, deletedAt: null }, { projection: { incomeId: 1, status: 1, passportNumber: 1 } }).toArray(),
-      this.coll('shipments').find({ 'lines.incomeId': { $in: ids }, deletedAt: null }, { projection: { lines: 1, num: 1 } }).toArray(),
-      this.coll('stockmovements').find({ salesOrderLineId: { $in: ids }, deletedAt: null, cancelledAt: null }, { projection: { salesOrderLineId: 1 } }).toArray(),
+      this.coll('reservations').find({ salesOrderLineId: { $in: ids }, status: 'active', deletedAt: null }, { session, projection: { salesOrderLineId: 1, qty: 1, groupName: 1 } }).toArray(),
+      this.coll('designtasks').find({ incomeId: { $in: ids }, status: { $in: ['queue', 'work', 'paused'] }, deletedAt: null }, { session, projection: { incomeId: 1, status: 1, code: 1, title: 1 } }).toArray(),
+      this.coll('worktasks').find({ incomeId: { $in: ids }, status: { $in: ['waiting', 'work'] }, deletedAt: null }, { session, projection: { incomeId: 1, status: 1, code: 1, stepKey: 1 } }).toArray(),
+      this.coll('supplyrequests').find({ salesOrderLineId: { $in: ids }, status: { $nin: ['received', 'cancelled'] }, deletedAt: null }, { session, projection: { salesOrderLineId: 1, status: 1, num: 1, title: 1, qty: 1 } }).toArray(),
+      this.coll('productpassports').find({ incomeId: { $in: ids }, status: { $ne: 'annulled' }, deletedAt: null }, { session, projection: { incomeId: 1, status: 1, passportNumber: 1 } }).toArray(),
+      this.coll('shipments').find({ 'lines.incomeId': { $in: ids }, deletedAt: null }, { session, projection: { lines: 1, num: 1 } }).toArray(),
+      this.coll('stockmovements').find({ salesOrderLineId: { $in: ids }, deletedAt: null, cancelledAt: null }, { session, projection: { salesOrderLineId: 1 } }).toArray(),
     ]);
     const by = (rows: Doc[], f: string) => { const m = new Map<string, Doc[]>(); for (const r of rows) { const k = s(r[f]); m.set(k, [...(m.get(k) ?? []), r]); } return m; };
     const rV = by(resv, 'salesOrderLineId'), rD = by(design, 'incomeId'), rW = by(work, 'incomeId'), rS = by(supply, 'salesOrderLineId'), rP = by(pass, 'incomeId'), rM = by(moves, 'salesOrderLineId');
@@ -101,44 +102,52 @@ export class IncomeCancelService {
 
   /** Отмена с причиной. Без `cascade` при зависимостях — 409 со списком (`details`); оплата, отгрузка и выдачи блокируют всегда. */
   async cancel(id: string, reasonRaw: string, cascade: boolean, actor?: AuthenticatedUser) {
-    const reason = String(reasonRaw ?? '').trim();
-    if (reason.length < 3) throw new BadRequestException('Укажите причину отмены');
-    const cur = await this.lineOr404(id);
-    if (cur.cancelledAt) throw new ConflictException('Позиция уже отменена');
-    await this.incomes.assertCanChange(cur.orderId, actor);
-    const [deps] = await this.depsOfLines([cur]);
-    if (deps.blockers.length) throw new ConflictException({ statusCode: 409, message: `Позицию нельзя отменить: ${deps.blockers.join('; ')}`, details: deps });
-    const hasDeps = deps.reservations.length || deps.designTasks.length || deps.workTasks.length;
-    if (hasDeps && !cascade) {
-      throw new ConflictException({ statusCode: 409, message: 'У позиции есть брони и задачи — решите, снимать ли их', details: deps });
-    }
-    if (cascade) await this.releaseDeps(deps, reason);
-    const now = new Date();
-    await this.coll('incomes').updateOne({ _id: oidOf(cur._id) }, { $set: { cancelledAt: now, cancelReason: reason, editedInApp: true, updatedAt: now, ...(actor && Types.ObjectId.isValid(actor.id) ? { cancelledBy: new Types.ObjectId(actor.id) } : {}) } });
-    return { ...(await this.incomes.get(id)), released: cascade ? { reservations: deps.reservations.length, designTasks: deps.designTasks.length, workTasks: deps.workTasks.length } : undefined };
+    const reason = String(reasonRaw || '').trim(); if (reason.length < 3) throw new BadRequestException('Укажите причину отмены');
+    const first = await this.lineOr404(id), expectedVersion = Number(first.version || 0);
+    await this.incomes.assertCanChange(first.orderId, actor);
+    const session = await this.connection.startSession(); let released: LineDeps | undefined;
+    try { await session.withTransaction(async () => {
+      const fresh = await this.coll('incomes').findOne({ _id: oidOf(first._id), deletedAt: null }, { session });
+      if (!fresh || Number(fresh.version || 0) !== expectedVersion) throw new ConflictException('Позиция уже изменена — перечитайте');
+      if (fresh.cancelledAt) throw new ConflictException('Позиция уже отменена');
+      const [deps] = await this.depsOfLines([fresh], session);
+      if (deps.blockers.length) throw new ConflictException({ message: 'Позицию нельзя отменить: ' + deps.blockers.join('; '), details: deps });
+      if ((deps.reservations.length || deps.designTasks.length || deps.workTasks.length) && !cascade) throw new ConflictException({ message: 'У позиции есть брони и задачи — решите, снимать ли их', details: deps });
+      const now = new Date(), changed = await this.coll('incomes').updateOne({ _id: fresh._id, deletedAt: null, cancelledAt: null, ...versionFilter(expectedVersion) }, { $set: { cancelledAt: now, cancelReason: reason, editedInApp: true, updatedAt: now, ...(actor && Types.ObjectId.isValid(actor.id) ? { cancelledBy: new Types.ObjectId(actor.id) } : {}) }, $inc: { version: 1 } }, { session });
+      if (!changed.matchedCount) throw new ConflictException('Позиция уже изменена — перечитайте');
+      if (cascade) await this.releaseDeps(deps, reason, session);
+      released = deps;
+    }); } finally { await session.endSession(); }
+    return { ...(await this.incomes.get(id)), released: cascade && released ? { reservations: released.reservations.length, designTasks: released.designTasks.length, workTasks: released.workTasks.length } : undefined };
   }
 
-  private async releaseDeps(d: LineDeps, reason: string) {
+  private async releaseDeps(d: LineDeps, reason: string, session?: ClientSession) {
     const stock = this.moduleRef.get(StockService, { strict: false });
-    for (const r of d.reservations) await stock.releaseReservation(r.id).catch((e) => { if (!(e instanceof NotFoundException || e instanceof ConflictException)) throw e; });
+    for (const r of d.reservations) await stock.releaseReservation(r.id, session);
     const now = new Date();
     const why = `Позиция отменена: ${reason}`;
-    if (d.designTasks.length) await this.coll('designtasks').updateMany({ _id: { $in: d.designTasks.map((x) => new Types.ObjectId(x.id)) } }, { $set: { status: 'cancelled', pauseReason: why, updatedAt: now }, $unset: { openIncomeId: '' } });
-    if (d.workTasks.length) await this.coll('worktasks').updateMany({ _id: { $in: d.workTasks.map((x) => new Types.ObjectId(x.id)) } }, { $set: { status: 'cancelled', cancelReason: why, updatedAt: now }, $unset: { openIncomeId: '' } });
+    if (d.designTasks.length) await this.coll('designtasks').updateMany({ _id: { $in: d.designTasks.map((x) => new Types.ObjectId(x.id)) } }, { $set: { status: 'cancelled', pauseReason: why, updatedAt: now }, $unset: { openIncomeId: '' } }, session ? { session } : {});
+    if (d.workTasks.length) await this.coll('worktasks').updateMany({ _id: { $in: d.workTasks.map((x) => new Types.ObjectId(x.id)) } }, { $set: { status: 'cancelled', cancelReason: why, updatedAt: now }, $unset: { openIncomeId: '' } }, session ? { session } : {});
   }
 
   /** Вернуть отменённую позицию. Брони и задачи не возвращаются — их создают заново. */
   async restoreCancelled(id: string, actor?: AuthenticatedUser) {
-    const cur = await this.lineOr404(id);
-    if (!cur.cancelledAt) throw new ConflictException('Позиция не отменена');
-    await this.incomes.assertCanChange(cur.orderId, actor);
-    await this.coll('incomes').updateOne({ _id: oidOf(cur._id) }, { $unset: { cancelledAt: '', cancelReason: '', cancelledBy: '' }, $set: { editedInApp: true, updatedAt: new Date() } });
+    const first = await this.lineOr404(id), expectedVersion = Number(first.version || 0);
+    await this.incomes.assertCanChange(first.orderId, actor);
+    const session = await this.connection.startSession();
+    try { await session.withTransaction(async () => {
+      const cur = await this.coll('incomes').findOne({ _id: oidOf(first._id), deletedAt: null }, { session });
+      if (!cur || Number(cur.version || 0) !== expectedVersion) throw new ConflictException('Позиция уже изменена — перечитайте');
+      if (!cur.cancelledAt) throw new ConflictException('Позиция не отменена');
+      const changed = await this.coll('incomes').updateOne({ _id: cur._id, deletedAt: null, ...versionFilter(expectedVersion) }, { $unset: { cancelledAt: '', cancelReason: '', cancelledBy: '' }, $set: { editedInApp: true, updatedAt: new Date() }, $inc: { version: 1 } }, { session });
+      if (!changed.matchedCount) throw new ConflictException('Позиция уже изменена — перечитайте');
+    }); } finally { await session.endSession(); }
     return this.incomes.get(id);
   }
 
   /** Перенос позиции в другой договор вместе со ссылками. Оплаты, отгрузки и выдачи со склада не пускают. */
   async move(id: string, toOrderId: string, actor?: AuthenticatedUser) {
-    const cur = await this.lineOr404(id);
+    const cur = await this.lineOr404(id), expectedVersion = Number(cur.version || 0);
     if (cur.cancelledAt) throw new ConflictException('Отменённую позицию сначала верните');
     const target = oid(toOrderId, 'договора');
     if (cur.orderId && s(cur.orderId) === s(target)) throw new ConflictException('Позиция уже в этом договоре');
@@ -160,7 +169,12 @@ export class IncomeCancelService {
     const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
-        await this.coll('incomes').updateOne({ _id: oidOf(cur._id) }, { $set: set, ...(Object.keys(unset).length ? { $unset: unset } : {}) }, { session });
+        const fresh = await this.coll('incomes').findOne({ _id: oidOf(cur._id), deletedAt: null }, { session });
+        if (!fresh || fresh.cancelledAt || Number(fresh.version || 0) !== expectedVersion) throw new ConflictException('Позиция уже изменена — перечитайте');
+        const [actualDeps] = await this.depsOfLines([fresh], session);
+        if (actualDeps.blockers.length) throw new ConflictException({ message: 'Позицию нельзя перенести: ' + actualDeps.blockers.join('; '), details: actualDeps });
+        const changed = await this.coll('incomes').updateOne({ _id: oidOf(cur._id), deletedAt: null, ...versionFilter(expectedVersion) }, { $set: set, $inc: { version: 1 }, ...(Object.keys(unset).length ? { $unset: unset } : {}) }, { session });
+        if (!changed.matchedCount) throw new ConflictException('Позиция уже изменена — перечитайте');
         await this.coll('designtasks').updateMany({ incomeId: cur._id }, { $set: { orderId: target } }, { session });
         await this.coll('worktasks').updateMany({ incomeId: cur._id }, { $set: { orderId: target } }, { session });
         await this.coll('reservations').updateMany({ salesOrderLineId: cur._id }, { $set: { salesOrderId: target } }, { session });

@@ -39,24 +39,28 @@ describe('Оплата позиции и форма', () => {
   it('форма без поля даты при платежах сохраняется; изменённая дата — 400 с понятным текстом', async () => {
     const r = await line();
     const paid = (await http().post(`/api/incomes/${r.id}/payments`).set(auth()).send({ date: '2026-10-05', amount: 10000 }).expect(200)).body;
-    const { paidDate: _skip, ...noDate } = formBody(paid);
+    const noDate = formBody(paid);
+    Reflect.deleteProperty(noDate, 'paidDate');
     await http().patch(`/api/incomes/${r.id}`).set(auth()).send(noDate).expect(200);
     const bad = await http().patch(`/api/incomes/${r.id}`).set(auth()).send(formBody(paid, { paidDate: '2026-10-06' })).expect(400);
     expect(JSON.stringify(bad.body)).toContain('Дату оплаты');
     expect((await get(r.id)).paidAmount).toBe(10000);
   });
 
-  it('«Отменить оплату» снимает и платежи, и оплату старого вида', async () => {
+  it('оплату с ID снимает адресный DELETE; голый массив409, старый paidDate снимается явно', async () => {
     const r = await line();
-    await http().post(`/api/incomes/${r.id}/payments`).set(auth()).send({ date: '2026-10-05', amount: 100000 }).expect(200);
-    await http().patch(`/api/incomes/${r.id}`).set(auth()).send({ payments: [] }).expect(200);
+    const paid = (await http().post(`/api/incomes/${r.id}/payments`).set(auth()).send({ date: '2026-10-05', amount: 100000 }).expect(200)).body;
+    await http().patch(`/api/incomes/${r.id}`).set(auth()).send({ payments: [] }).expect(409);
+    expect((await get(r.id)).paidAmount).toBe(100000);
+    await http().delete(`/api/incomes/${r.id}/payments/0`).set(auth()).query({ amount: paid.payments[0].amount, expectedPaymentId: paid.payments[0].paymentId, version: paid.version }).expect(200);
     const a = await get(r.id);
     expect(a.paidAmount ?? 0).toBe(0);
     expect(a.paidDate ?? null).toBeNull();
     const old = await line();
     await http().patch(`/api/incomes/${old.id}`).set(auth()).send({ paidDate: '2026-10-05' }).expect(200);
     expect((await get(old.id)).paidAmount).toBe(100000);
-    await http().patch(`/api/incomes/${old.id}`).set(auth()).send({ payments: [] }).expect(200);
+    await http().patch(`/api/incomes/${old.id}`).set(auth()).send({ payments: [] }).expect(409);
+    await http().patch(`/api/incomes/${old.id}`).set(auth()).send({ paidDate: '' }).expect(200);
     expect((await get(old.id)).paidDate ?? null).toBeNull();
   });
 
@@ -75,9 +79,11 @@ describe('Оплата позиции и форма', () => {
 
   it('удаление платежа: сумма не совпала — 409, совпала — удаляется', async () => {
     const r = await line();
-    await http().post(`/api/incomes/${r.id}/payments`).set(auth()).send({ date: '2026-10-05', amount: 500 }).expect(200);
-    await http().delete(`/api/incomes/${r.id}/payments/0`).query({ amount: 777 }).set(auth()).expect(409);
-    await http().delete(`/api/incomes/${r.id}/payments/0`).query({ amount: 500 }).set(auth()).expect(200);
+    const paid = (await http().post(`/api/incomes/${r.id}/payments`).set(auth()).send({ date: '2026-10-05', amount: 500 }).expect(200)).body;
+    const identity = { expectedPaymentId: paid.payments[0].paymentId, version: paid.version };
+    await http().delete(`/api/incomes/${r.id}/payments/0`).query({ ...identity, amount: 777 }).set(auth()).expect(409);
+    expect((await get(r.id)).paidAmount).toBe(500);
+    await http().delete(`/api/incomes/${r.id}/payments/0`).query({ ...identity, amount: 500 }).set(auth()).expect(200);
     expect((await get(r.id)).payments ?? []).toHaveLength(0);
   });
 });

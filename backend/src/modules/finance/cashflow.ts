@@ -1,3 +1,4 @@
+import type { ClassificationMetadata, FinancialClassification } from '../../common/financial-classification';
 /**
  * Расчёт платёжного календаря (ОДР) — чистые функции без базы, покрыты юнит-тестами (cashflow.spec.ts).
  * Правило: closing = opening + income − expense; opening следующего дня = closing предыдущего;
@@ -5,7 +6,24 @@
  */
 import type { ArticleNode } from '../expense-articles/articles-tree';
 
-export interface Op {
+export interface Op extends ClassificationMetadata {
+  operationId?: string; sourceId?: string; paymentId?: string; allocationId?: string;
+  companyId?: string; companyName?: string; counterpartyId?: string; counterpartyName?: string | null;
+  costObject?: string | null;
+  docNo?: string; sourceLink?: string; costCenterCode?: string | null;
+  classificationEffective?: FinancialClassification; classificationOrigin?: string;
+  classificationEditable?: boolean; classificationReason?: string | null;
+  classificationPreparation?: { kind: 'income-payment-identities'; sourceId: string };
+  scopeRequestId?: string; warnings?: string[];
+
+  /** Валютная оценка обязательства: amount остаётся RUB, первичка показывается отдельно. */
+  invoiceId?: string;
+  currency?: string;
+  currencyName?: string | null;
+  sourceAmount?: number | null;
+  sourcePaidAmount?: number;
+  sourceBalance?: number | null;
+  balanceEstimated?: boolean;
   type: 'income' | 'expense';
   id: string;
   /** День операции, ГГГГ-ММ-ДД. */

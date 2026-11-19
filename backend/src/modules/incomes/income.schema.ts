@@ -1,9 +1,11 @@
+import type { ClassificationMetadata } from '../../common/financial-classification';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 
 export type IncomeDocument = HydratedDocument<Income>;
 
-export interface IncomePayment { date: Date; amount: number; method?: string; note?: string }
+export interface IncomePayment extends ClassificationMetadata { paymentId?: string; date: Date; amount: number; method?: string; note?: string; articleId?: Types.ObjectId | string | null; companyId?: Types.ObjectId | string; synthetic?: boolean; articleDefaulted?: boolean; warnings?: string[] }
+export interface LegacyIncomePaymentMetadata extends ClassificationMetadata { paymentId: string; companyId?: Types.ObjectId | string }
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -16,6 +18,12 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
  */
 @Schema({ timestamps: true, collection: 'incomes' })
 export class Income {
+  /** Доходная статья — подсказка только будущим платежам. */
+  @Prop({ type: Types.ObjectId, index: true }) articleId?: Types.ObjectId | null;
+  @Prop({ type: Object }) legacyPaymentMetadata?: LegacyIncomePaymentMetadata;
+  @Prop({ type: [Object], default: undefined }) paymentIdentityReceipts?: Array<Record<string, unknown>>;
+  @Prop({ type: [Object], default: undefined }) paymentReceipts?: Array<{ clientUid: string; requestHash: string }>;
+
   /** Шапка заказа (salesorders). Истина для orderNo, customer, companyId, paymentForm, shipDate — она; здесь кэш. */
   @Prop({ type: Types.ObjectId, ref: 'SalesOrder', index: true }) orderId?: Types.ObjectId;
   /** № позиции в заказе (столбец «№» заказ-наряда). */
@@ -55,7 +63,7 @@ export class Income {
   /** Дата ПОЛНОЙ оплаты (= дата последнего платежа, когда Σ платежей ≥ сумма); вычисляется сервисом из `payments`. */
   @Prop({ type: Date, index: true }) paidDate?: Date;
   /** Платежи по позиции (В-4): дата, сумма, способ (нал / безнал / карта), примечание. CRM коллекцию не читает. */
-  @Prop({ type: [{ _id: false, date: { type: Date, required: true }, amount: { type: Number, required: true, min: 0 }, method: { type: String, trim: true }, note: { type: String, trim: true } }], default: undefined })
+  @Prop({ type: [{ _id: false, paymentId: { type: String }, warnings: { type: [String], default: undefined }, articleId: { type: Types.ObjectId }, companyId: { type: Types.ObjectId }, classificationOriginal: { type: Object }, classificationOverride: { type: Object }, classificationVersion: { type: Number }, classificationHistory: { type: [Object], default: undefined }, date: { type: Date, required: true }, amount: { type: Number, required: true, min: 0 }, method: { type: String, trim: true }, note: { type: String, trim: true } }], default: undefined })
   payments?: IncomePayment[];
   /** Σ платежей (вычисляется). У старых записей с paidDate без платежей = сумма позиции. */
   @Prop({ default: 0 }) paidAmount?: number;
@@ -119,7 +127,10 @@ export function incomeDerived(d: { qty?: number | null; unitPrice?: number | nul
 }
 
 /** Платежи позиции для календаря: свои или (старая запись с paidDate) один платёж на всю сумму. */
-export function incomePayments(d: { amount?: number | null; paidDate?: Date | null; payments?: IncomePayment[] | null }): IncomePayment[] {
+export function incomePayments(d: { amount?: number | null; paidDate?: Date | null; payments?: IncomePayment[] | null; legacyPaymentMetadata?: LegacyIncomePaymentMetadata }): IncomePayment[] {
   if (d.payments?.length) return d.payments;
-  return d.paidDate && Number(d.amount) > 0 ? [{ date: d.paidDate, amount: Number(d.amount) }] : [];
+  return d.paidDate && Number(d.amount) > 0 ? [{ ...d.legacyPaymentMetadata, date: d.paidDate, amount: Number(d.amount) }] : [];
 }
+
+IncomeSchema.index({ companyId: 1, 'payments.date': 1, deletedAt: 1 });
+IncomeSchema.index({ 'payments.companyId': 1, 'payments.date': 1, deletedAt: 1 });

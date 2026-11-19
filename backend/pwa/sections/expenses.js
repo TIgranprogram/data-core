@@ -1,3 +1,4 @@
+import { loadFinancialArticles, articleChoices, flattenArticles, categoryArticleCandidates } from './financial-articles.js';
 import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, plural } from '../core/format.js';
@@ -13,21 +14,11 @@ import { incomeLookups } from './orders.js';
  * Панель справа: `of=expense&open=<id>` (из «Денег») или своя панель раздела «Прочие расходы».
  * Тут же общий выбор статьи (articleTree / articleField) — его берут «Деньги» и форма заявки.
  */
-let treeP = null; let treeAt = 0;
-/** Дерево статей расходов (кэш 60 с). */
-export function articleTree() {
-  if (!treeP || Date.now() - treeAt > 60000) {
-    treeAt = Date.now();
-    const p = api('/expense-articles').then((r) => r.items || []);
-    p.catch(() => { if (treeP === p) treeP = null; });
-    treeP = p;
-  }
-  return treeP;
-}
-/** Подстатьи списком «Статья → Подстатья» для выбора. */
-export const articleOptions = (tree, empty) => [{ value: '', label: empty }, ...tree.flatMap((a) => (a.children || []).map((c) => ({ value: String(c.id), label: `${a.name} → ${c.name}` })))];
-/** Подстатья, привязанная к категории заявки (id подстатьи или ''). */
-export const articleByCategory = (tree, categoryId) => String(tree.flatMap((a) => a.children || []).find((c) => (c.categoryIds || []).map(String).includes(String(categoryId)))?.id || '');
+/** C161: внутренний выбор использует каноническое рекурсивное дерево, включая историю. */
+export const articleTree = (refresh = false) => loadFinancialArticles({ type: 'expense', includeArchived: true, refresh }).then(data => data.items || []);
+export const articleOptions = (tree, empty, savedId) => articleChoices(tree, empty, { type: 'expense', savedId });
+export const articleFilterOptions = tree => [{ value: 'none', label: 'Без статьи' }, ...flattenArticles(tree).filter(row => row.type === 'expense').map(row => ({ value: row.id, label: row.path.join(' → ') + (row.archivedAt ? ' · архивная' : '') }))];
+export const articleByCategory = (tree, categoryId) => { const choices = categoryArticleCandidates(tree, categoryId); return choices.length === 1 ? choices[0].id : ''; };
 
 const orderText = (o) => ['№ ' + (o.orderNo || '—'), o.customer, o.title].filter(Boolean).join(' · ');
 /** Заказы заказчиков для выбора объекта. */
@@ -40,7 +31,7 @@ const filesWidget = (known = []) => {
 };
 const bodyOf = (v) => ({
   date: String(v.date || ''), amount: Number(v.amount) || 0, companyId: String(v.companyId || ''), articleId: String(v.articleId || ''),
-  title: clean(v.title), salesOrderId: v.salesOrderId ? String(v.salesOrderId) : null, counterpartyName: clean(v.counterpartyName),
+  costCenter: v.costCenter || null, costObject: clean(v.costObject), title: clean(v.title), salesOrderId: v.salesOrderId ? String(v.salesOrderId) : null, counterpartyName: clean(v.counterpartyName),
   docNo: clean(v.docNo), fileIds: Array.isArray(v.fileIds) ? v.fileIds : [], comment: clean(v.comment),
 });
 const check = (b) => {
@@ -91,10 +82,12 @@ export const expense = {
         { key: 'date', label: 'Дата', type: 'date', required: true, span: 1 },
         { key: 'amount', label: 'Сумма, ₽', type: 'money', min: 0, required: true, span: 1 },
         { key: 'companyId', label: 'Компания', type: 'select', required: true, choose: true, options: (lk.companies || []).map((c) => ({ value: String(c.id), label: c.name })) },
-        { key: 'articleId', label: 'Статья', type: 'select', required: true, choose: true, wide: true, options: articleOptions(tree, 'Выберите статью'), hint: 'Статья → подстатья. Начните печатать — список сузится' },
+        { key: 'articleId', label: 'Статья', type: 'select', required: true, choose: true, wide: true, options: articleOptions(tree, 'Выберите статью', r?.articleId), hint: 'Статья → подстатья. Начните печатать — список сузится' },
         { key: 'title', label: 'Название', required: true, max: 300, wide: true, placeholder: 'За что платим' },
         { section: 'Подробности', tone: 'info' },
         { key: 'salesOrderId', label: 'Объект', type: 'select', options: orders, wide: true, hint: 'Заказ заказчика. Не нужно, если расход общий' },
+        { key: 'costCenter', label: 'Направление затрат', type: 'select', options: [{ value: '', label: 'Не указано' }, { value: 'office', label: 'Офис' }, { value: 'workshop', label: 'Цех' }, { value: 'smr', label: 'СМР' }, { value: 'order', label: 'Под заказ' }] },
+        { key: 'costObject', label: 'Объект / уточнение', max: 1000, wide: true },
         { key: 'counterpartyName', label: 'Контрагент', max: 200 },
         { key: 'docNo', label: '№ документа', max: 100 },
         { key: 'fileIds', label: 'Файл счёта', type: 'widget', wide: true, hint: 'Перетащите файл сюда или выберите', widget: () => filesWidget(r?.files || []) },
@@ -104,7 +97,7 @@ export const expense = {
     initial: () => ({ date: isoDay() }),
     toInitial: (r) => ({
       date: String(r.date || '').slice(0, 10), amount: r.amount ?? null, companyId: String(r.companyId || ''), articleId: String(r.articleId || ''), title: r.title || '',
-      salesOrderId: r.salesOrderId ? String(r.salesOrderId) : '', counterpartyName: r.counterpartyName || '', docNo: r.docNo || '', comment: r.comment || '',
+      costCenter: r.costCenter || '', costObject: r.costObject || '', salesOrderId: r.salesOrderId ? String(r.salesOrderId) : '', counterpartyName: r.counterpartyName || '', docNo: r.docNo || '', comment: r.comment || '',
     }),
     toBody: (v) => check(bodyOf(v)),
     create: (body) => api('/expenses', { method: 'POST', body }),
@@ -160,12 +153,14 @@ export const expenses = {
  * lk — справочники заявок (categories: [{id,name}]); linked — позиция склада (категория не в форме, берётся из заявки r).
  */
 export const requestArticleField = (tree, lk, r, linked) => ({
-  key: 'articleId', money: true, label: 'Статья расхода', type: 'select', options: articleOptions(tree, 'Не указана'), wide: true, hint: 'Подставляется по категории — можно сменить. Нужна для «Денег → По статьям»',
+  key: 'articleId', money: true, label: 'Статья расхода', type: 'select', options: articleOptions(tree, 'Не указана', r?.articleId), wide: true, hint: 'Подставляется по категории — можно сменить. Нужна для «Денег → По статьям»',
   mount: (fapi) => {
+    const warning = h('p', { class: 'hint', hidden: true }); fapi.field('articleId')?.append(warning);
     const sync = () => {
       if (fapi.manual('articleId') || (fapi.get('articleId') && !fapi.input('articleId').classList.contains('is-default'))) return; // выбрано вручную или сохранено раньше
       const cat = lk.categories.find((c) => c.name === (linked ? r.categoryName : fapi.get('categoryName')));
-      const id = cat ? articleByCategory(tree, cat.id) : '';
+      const candidates = cat ? categoryArticleCandidates(tree, cat.id) : []; warning.hidden = candidates.length < 2; warning.textContent = candidates.length > 1 ? 'Для категории есть несколько статей. Выберите подходящую по первичке.' : '';
+      const id = candidates.length === 1 ? candidates[0].id : '';
       if (id) fapi.set('articleId', id, { auto: true, src: 'по категории' });
     };
     fapi.on('categoryName', sync); sync();

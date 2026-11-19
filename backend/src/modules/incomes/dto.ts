@@ -1,9 +1,13 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsMongoId, IsNumber, IsOptional, IsString, Length, Min, ValidateIf, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsMongoId, IsNumber, IsOptional, IsString, Length, Matches, Min, ValidateIf, ValidateNested } from 'class-validator';
 
 /** Платёж по позиции заказа. */
 export class PaymentDto {
+  @ApiPropertyOptional({ description: 'Существующий server paymentId — только при защищённой замене массива' }) @IsOptional() @IsMongoId() paymentId?: string;
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @IsMongoId() articleId?: string | null;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) version?: number;
+
   @ApiPropertyOptional({ description: 'Дата платежа ГГГГ-ММ-ДД / ДД.ММ.ГГГГ' }) @IsString() @Length(1, 30) date!: string;
   @ApiPropertyOptional({ description: 'Сумма, ₽ (> 0)' }) @IsNumber() @Min(0.01) amount!: number;
   @ApiPropertyOptional({ description: 'Способ: нал | безнал | карта' }) @IsOptional() @IsString() @Length(0, 50) method?: string;
@@ -13,6 +17,8 @@ export class PaymentDto {
 
 /** Доход (строка заказа). Числа: null — очистить поле. Даты: ГГГГ-ММ-ДД / ДД.ММ.ГГГГ, '' — очистить. */
 export class IncomeDto {
+  @ApiPropertyOptional({ nullable: true, description: 'Доходная статья для новых платежей' }) @IsOptional() @IsMongoId() articleId?: string | null;
+
   @ApiPropertyOptional({ description: 'C049-1: версия записи, которую правили (`version` из GET). Не совпала — 409 `code: STALE`. Не передана — прежнее поведение.' }) @IsOptional() @IsInt() @Min(0) version?: number;
   @ApiPropertyOptional({ description: 'Заказ (salesorders) — поля шапки (№, заказчик, компания, форма оплаты, отгрузка) берутся из него; null — отвязать', nullable: true }) @IsOptional() @ValidateIf((_, v) => v !== null) @IsMongoId() orderId?: string | null;
   @ApiPropertyOptional({ description: '№ позиции в заказе (умолч. — следующий)', nullable: true }) @IsOptional() @ValidateIf((_, v) => v !== null) @IsInt() @Min(0) lineNo?: number | null;
@@ -49,4 +55,16 @@ export class CancelIncomeDto {
 /** Перенос позиции в другой договор. */
 export class MoveIncomeDto {
   @ApiPropertyOptional({ description: 'Договор (salesorders), в который переносим' }) @IsMongoId() toOrderId!: string;
+}
+
+export class RemoveIncomePaymentQueryDto {
+  @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsNumber() @Min(0) amount?: number;
+  @ApiPropertyOptional() @IsOptional() @IsMongoId() expectedPaymentId?: string;
+  @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(0) version?: number;
+}
+export class MaterializeIncomePaymentsDto {
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() confirm?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) version?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Matches(/^[0-9a-f]{64}$/) planHash?: string;
 }

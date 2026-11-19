@@ -1,0 +1,30 @@
+{
+  "origin": "http://localhost:3198",
+  "method": "wall-clock api.sh GET; includes Git Bash/client startup and possible cached login; not server-only duration",
+  "runs": [
+    {
+      "elapsedMs": 847,
+      "error": null,
+      "name": "cashflow",
+      "bytes": 122775,
+      "items": 1,
+      "total": null
+    },
+    {
+      "elapsedMs": 504,
+      "error": null,
+      "name": "forecast",
+      "bytes": 24983,
+      "items": 1,
+      "total": null
+    },
+    {
+      "elapsedMs": 529,
+      "error": null,
+      "name": "invoices",
+      "bytes": 48478,
+      "items": 61,
+      "total": 61
+    }
+  ]
+}

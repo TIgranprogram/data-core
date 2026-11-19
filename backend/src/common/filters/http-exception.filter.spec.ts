@@ -1,4 +1,4 @@
-import { ArgumentsHost, Logger, NotFoundException } from '@nestjs/common';
+import { ArgumentsHost, HttpException, Logger, NotFoundException } from '@nestjs/common';
 import type { ValidationError } from 'class-validator';
 import {
   HttpExceptionFilter,
@@ -205,4 +205,22 @@ describe('HttpExceptionFilter', () => {
     expect(json.mock.calls[0][0].statusCode).toBe(500);
     expect(json.mock.calls[0][0].errorId).toMatch(/^[0-9A-F]{6}$/); // ЧН: код сбоя для журнала
   });
+  it('409 сохраняет целые версии и явный read-only план, не произвольные поля', () => {
+    const json = jest.fn();
+    const status = jest.fn().mockReturnValue({ json });
+    const host = { switchToHttp: () => ({ getResponse: () => ({ status }), getRequest: () => ({ url: '/api/dicts/financialArticles/test', method: 'PATCH' }) }) } as unknown as ArgumentsHost;
+    const plan = { readOnly: true, action: 'Сверьте историю' };
+    new HttpExceptionFilter().catch(new HttpException({ message: 'Запись изменилась', currentVersion: 3, currentTreeRevision: 12, plan, internal: 'не выдавать' }, 409), host);
+    expect(json.mock.calls[0][0]).toMatchObject({ currentVersion: 3, currentTreeRevision: 12, plan });
+    expect(json.mock.calls[0][0].internal).toBeUndefined();
+  });
+  it('409 не выдаёт некорректные версии и план действия без readOnly', () => {
+    const json = jest.fn();
+    const status = jest.fn().mockReturnValue({ json });
+    const host = { switchToHttp: () => ({ getResponse: () => ({ status }), getRequest: () => ({ url: '/api/dicts/financialArticles/test', method: 'PATCH' }) }) } as unknown as ArgumentsHost;
+    new HttpExceptionFilter().catch(new HttpException({ message: 'Запись изменилась', currentVersion: -1, currentTreeRevision: '12', plan: { apply: true } }, 409), host);
+    const body = json.mock.calls[0][0];
+    expect(body.currentVersion).toBeUndefined(); expect(body.currentTreeRevision).toBeUndefined(); expect(body.plan).toBeUndefined();
+  });
+
 });

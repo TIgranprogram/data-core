@@ -1,0 +1,274 @@
+{
+  "date": "2026-11-19",
+  "base": "179c6239105caf8284fc246637e4e2ac6897c45b",
+  "scope": "C158+C159 final freeze QA; no production writes",
+  "commands": {
+    "unit": {
+      "run": {
+        "startedUtc": "2026-11-19T16:02:20.9945452Z",
+        "exitCode": 0,
+        "endedUtc": "2026-11-19T16:03:12.0188664Z",
+        "command": "node --max-old-space-size=6144 node_modules/jest/bin/jest.js --silent --runInBand --json --outputFile=../tools/logs/c159-qa-unit-result.json"
+      },
+      "result": {
+        "numPassedTestSuites": 359,
+        "numFailedTestSuites": 0,
+        "numPendingTestSuites": 0,
+        "numPassedTests": 3685,
+        "numFailedTests": 0,
+        "numPendingTests": 0,
+        "numTotalTests": 3685,
+        "startTime": 1795104141874,
+        "success": true
+      },
+      "files": [
+        {
+          "file": "tools/logs/c159-qa-unit-result.json",
+          "sha256": "c682cf29d09a8b9ae4fe2263db8aa35aeb1a33be4976fbdcbb5efde9beb811a6"
+        },
+        {
+          "file": "tools/logs/c159-qa-unit-run.json",
+          "sha256": "ef79920b9a18ac2ba8f45d7e58da7b75ad1761f8251e02153644e8d3110c37b8"
+        },
+        {
+          "file": "tools/logs/c159-qa-unit.log",
+          "sha256": "11375f98267baed50b0d2bd4efbbe44b641758288e16f38b78d05c935599ed5b"
+        }
+      ]
+    },
+    "e2e": {
+      "run": {
+        "exitCode": 1,
+        "endedUtc": "2026-11-19T16:11:19.0917987Z",
+        "startedUtc": "2026-11-19T16:02:35.6826352Z",
+        "command": "node tools/logs/c158-e2e.mjs --silent --json --outputFile=../tools/logs/c159-qa-e2e-result.json"
+      },
+      "result": {
+        "numPassedTestSuites": 79,
+        "numFailedTestSuites": 4,
+        "numPendingTestSuites": 1,
+        "numPassedTests": 639,
+        "numFailedTests": 6,
+        "numPendingTests": 12,
+        "numTotalTests": 657,
+        "startTime": 1795104156045,
+        "success": false
+      },
+      "files": [
+        {
+          "file": "tools/logs/c159-qa-e2e-result.json",
+          "sha256": "948388104fdb5c8f96ef2fbf8fa973798bc812765278b0a01e25450d1fd97ff1"
+        },
+        {
+          "file": "tools/logs/c159-qa-e2e-run.json",
+          "sha256": "4a845a8c7264a0ec345fc9ce641713a761ab6d929466b0aabc27165a417b83ac"
+        },
+        {
+          "file": "tools/logs/c159-qa-e2e.log",
+          "sha256": "ab9c8c47afb277f54a39079bc86fc37cbb15601a7a5e8498caff511e47c2cc1c"
+        }
+      ]
+    },
+    "fixtures": {
+      "run": {
+        "endedUtc": "2026-11-19T16:14:40.3083968Z",
+        "command": "node tools/logs/c158-e2e.mjs --silent --runTestsByPath test/e2e/chain-payment-form.e2e-spec.ts test/e2e/supply-invoice-payments.qa.e2e-spec.ts test/e2e/finance.e2e-spec.ts test/e2e/salesorders.e2e-spec.ts --json --outputFile=../tools/logs/c159-qa-fixtures-result.json",
+        "startedUtc": "2026-11-19T16:14:11.9710564Z",
+        "exitCode": 1
+      },
+      "result": {
+        "numPassedTestSuites": 2,
+        "numFailedTestSuites": 2,
+        "numPendingTestSuites": 0,
+        "numPassedTests": 21,
+        "numFailedTests": 4,
+        "numPendingTests": 0,
+        "numTotalTests": 25,
+        "startTime": 1795104852328,
+        "success": false
+      },
+      "files": [
+        {
+          "file": "tools/logs/c159-qa-fixtures-result.json",
+          "sha256": "fadc1a9730133c2c18b377c9c214d610a943118dcf4a0f9221e20c04c143dd85"
+        },
+        {
+          "file": "tools/logs/c159-qa-fixtures-run.json",
+          "sha256": "d24ea4000c9dd3ef36e27646d54c7b1511e279d24741103a57595c47d1852c4c"
+        },
+        {
+          "file": "tools/logs/c159-qa-fixtures.log",
+          "sha256": "c750a4c7f603c51979cf61f11344a610efa2e49ff79bfbde344798f6fc5e25a7"
+        }
+      ]
+    },
+    "final-fixtures": {
+      "run": {
+        "endedUtc": "2026-11-19T16:16:36.0732971Z",
+        "command": "node tools/logs/c158-e2e.mjs --silent --runTestsByPath test/e2e/finance.e2e-spec.ts test/e2e/salesorders.e2e-spec.ts --json --outputFile=../tools/logs/c159-qa-final-fixtures-result.json",
+        "startedUtc": "2026-11-19T16:16:17.3625256Z",
+        "exitCode": 0
+      },
+      "result": {
+        "numPassedTestSuites": 2,
+        "numFailedTestSuites": 0,
+        "numPendingTestSuites": 0,
+        "numPassedTests": 17,
+        "numFailedTests": 0,
+        "numPendingTests": 0,
+        "numTotalTests": 17,
+        "startTime": 1795104977720,
+        "success": true
+      },
+      "files": [
+        {
+          "file": "tools/logs/c159-qa-final-fixtures-result.json",
+          "sha256": "6cea478deda707bca98d4198fbc2a91cc39559b5d1c4cdf1e3a4a5abb1b79ee7"
+        },
+        {
+          "file": "tools/logs/c159-qa-final-fixtures-run.json",
+          "sha256": "e59749299e69f8bde89049d0632451329329a98a9e51f92022a1e920096fa1f9"
+        },
+        {
+          "file": "tools/logs/c159-qa-final-fixtures.log",
+          "sha256": "2df1b0d9481fff40143d27d2dc22463bce27b01f1fbdc61f81becd4ccc862610"
+        }
+      ]
+    }
+  },
+  "combinedE2eCoverage": {
+    "status": "PASS_WITH_DOCUMENTED_OPT_IN_SKIP",
+    "passedSuites": 83,
+    "failedSuites": 0,
+    "skippedSuites": 1,
+    "passedTests": 645,
+    "failedTests": 0,
+    "skippedTests": 12,
+    "totalTests": 657,
+    "isSingleFullPassRun": false,
+    "source": "Raw full+successful targeted replacements only; no application backend change",
+    "replacements": [
+      {
+        "suite": "C:/Users/User/.codex/worktrees/c158-invoice-fields/data-core/backend/test/e2e/chain-payment-form.e2e-spec.ts",
+        "phase": "fixtures"
+      },
+      {
+        "suite": "C:/Users/User/.codex/worktrees/c158-invoice-fields/data-core/backend/test/e2e/supply-invoice-payments.qa.e2e-spec.ts",
+        "phase": "fixtures"
+      },
+      {
+        "suite": "C:/Users/User/.codex/worktrees/c158-invoice-fields/data-core/backend/test/e2e/salesorders.e2e-spec.ts",
+        "phase": "final-fixtures"
+      },
+      {
+        "suite": "C:/Users/User/.codex/worktrees/c158-invoice-fields/data-core/backend/test/e2e/finance.e2e-spec.ts",
+        "phase": "final-fixtures"
+      }
+    ],
+    "skipped": [
+      "T26: Mongo atomicity каталога два create: новая/существующая резервация (false), один Material и один остаток",
+      "T26: Mongo atomicity каталога два create: новая/существующая резервация (true), один Material и один остаток",
+      "T26: Mongo atomicity каталога abort первого: второй создаёт один Material; повтор первого переиспользует id",
+      "T26: Mongo atomicity каталога rename/create разделяют ключ нового имени; конфликт rename не делает дубль",
+      "T26: Mongo atomicity каталога restore/create: одно активное имя, тот же восстановленный Material",
+      "T26: Mongo atomicity каталога caseless Straße/STRAẞE использует один Material",
+      "T26: Mongo atomicity каталога caseless Σ/ς использует один Material",
+      "T26: Mongo atomicity каталога caseless ſ/S использует один Material",
+      "T26: Mongo atomicity каталога caseless K/K использует один Material",
+      "T26: Mongo atomicity каталога чужой scope не перекатегоризирует дубль; разрешённая категория остаётся",
+      "T26: Mongo atomicity каталога post-commit сбой: повтор создаёт только недостающий остаток, не новый Material",
+      "T26: Mongo atomicity каталога разные имена не склеиваются, закупки одного Material остаются двумя фактами"
+    ],
+    "suiteStatusesInRawFull": {
+      "failed": 4,
+      "passed": 79,
+      "skipped": 1
+    }
+  },
+  "build": {
+    "typecheckExit": 0,
+    "startedUtc": "2026-11-19T16:03:15.4715457Z",
+    "buildExit": 0,
+    "endedUtc": "2026-11-19T16:03:30.5074982Z"
+  },
+  "manifestBeforeSha256": "5719726f7ed106941ad2bbf983bb0df68e889d1d2c44142d43b7803546811be2",
+  "manifestAfterTargetsSha256": "3a2efe08a726e36d43f52f4fcd9b876b057321e109e1810a2ac407155484a02e",
+  "changedFiles": [
+    "backend/pwa/sections/dicts-financial-articles.js",
+    "backend/pwa/sections/dicts.js",
+    "backend/pwa/sections/invoice-workspace-state.js",
+    "backend/pwa/sections/invoice-workspace.js",
+    "backend/pwa/sections/invoice-workspace.test.mjs",
+    "backend/pwa/sections/money-articles.js",
+    "backend/pwa/sections/money-financial-filters.js",
+    "backend/pwa/sections/money-operations-state.js",
+    "backend/pwa/sections/money-operations.js",
+    "backend/pwa/sections/money-operations.test.mjs",
+    "backend/pwa/sections/orders.js",
+    "backend/test/e2e/chain-payment-form.e2e-spec.ts",
+    "backend/test/e2e/finance.e2e-spec.ts",
+    "backend/test/e2e/salesorders.e2e-spec.ts",
+    "backend/test/e2e/supply-invoice-payments.qa.e2e-spec.ts"
+  ],
+  "uiSmokePending": false,
+  "limits": [
+    "T26 opt-in1 suite/12tests skipped by agreement",
+    "Raw full failure preserved; successful targeted fixture replacements explicitly not one successful full command",
+    "Only authorized PWA changed during backend run; final PWA350 guards/import355 smoke passed;4 fixture files changed afterward and tested targeted",
+    "Designer acceptance/release and production taxonomy apply separate; no production access"
+  ],
+  "pwaFinalSmoke": {
+    "guards": {
+      "run": {
+        "command": "node --max-old-space-size=6144 node_modules/jest/bin/jest.js src/pwa-guards --silent --runInBand --json --outputFile=../tools/logs/c159-qa-pwa-guards-result.json",
+        "startedUtc": "2026-11-19T16:22:56.3656537Z",
+        "endedUtc": "2026-11-19T16:22:59.7435867Z",
+        "exitCode": 0
+      },
+      "passedSuites": 1,
+      "passedTests": 350,
+      "failedTests": 0,
+      "files": [
+        {
+          "file": "tools/logs/c159-qa-pwa-guards-result.json",
+          "sha256": "cf77036ae2aa74fa095ea1aa9a90c7c2556f3e40a0a023793bafe9122d685ddd"
+        },
+        {
+          "file": "tools/logs/c159-qa-pwa-guards-run.json",
+          "sha256": "c40d7965aea9a8678cbac68bf982069e9009c0a852da9e5cc924543a90ee2b25"
+        },
+        {
+          "file": "tools/logs/c159-qa-pwa-guards.log",
+          "sha256": "ccec4772b5a49d1c11e5c234909065339e9faec8b85930bef35028d317289e9c"
+        }
+      ]
+    },
+    "imports": {
+      "run": {
+        "startedUtc": "2026-11-19T16:23:04.4897645Z",
+        "exitCode": 0,
+        "command": "node backend/scripts/pwa-import-check.mjs",
+        "endedUtc": "2026-11-19T16:23:07.5595599Z"
+      },
+      "filesCount": 355,
+      "errors": 0,
+      "files": [
+        {
+          "file": "tools/logs/c159-qa-pwa-imports-run.json",
+          "sha256": "2f5806c1cdce66185de43ab45c1450a58b5a55b814c9420ddeb2af0603dce723"
+        },
+        {
+          "file": "tools/logs/c159-qa-pwa-imports.log",
+          "sha256": "b1c0a220eb2d45987989e404700cdfe8396ebdaf91b1852f25ba3acd19176d4f"
+        }
+      ]
+    },
+    "frontendReportedTests": 69,
+    "frontendEvidence": "FRONTEND-REPORT.md; node69/69 and design-lint0 reported by implementation role, not rerun by QA"
+  },
+  "manifestFinalSha256": "3a2efe08a726e36d43f52f4fcd9b876b057321e109e1810a2ac407155484a02e",
+  "addedFiles": [],
+  "removedFiles": [],
+  "visualAcceptancePending": true,
+  "status": "BACKEND_AND_PWA_SMOKE_PASS_VISUAL_REVIEW_SEPARATE"
+}

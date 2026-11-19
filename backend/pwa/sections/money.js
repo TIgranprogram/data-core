@@ -1,3 +1,6 @@
+import { financialFilters } from './money-financial-filters.js';
+import { operationsView } from './money-operations.js';
+import { FINANCE_FILTER_KEYS, financialQuery } from './money-operations-state.js';
 import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { failBlock } from '../ui/kit/busy.js';
@@ -7,10 +10,8 @@ import { filter, table, tabs as kitTabs, button, iconButton, link, segmented } f
 import { mountList } from '../ui/kit/list.js';
 import { openSide, noteField, sideForm } from '../ui/kit/side-form.js';
 import { toast } from '../ui/kit/toast.js';
-import { opRow } from '../ui/op-row.js';
-import { forecastView } from './money-forecast.js';
+import { forecastView, financeOpRow, conversionBlock } from './money-forecast.js';
 import { articlesView } from './money-articles.js';
-
 /**
  * «Деньги»: календарь (факт по сегодня), сводка, прогноз, долги, «требуют заполнения».
  * Считает сервер (/api/finance): выплаты — оплаченные заявки, поступления — платежи по заказам.
@@ -78,7 +79,6 @@ export const finStart = sideForm({
     return {};
   },
 });
-
 /** «Старт учёта» с сервера (GET /finance/settings): есть дата — остаток считает сервер, ручной ввод не нужен. */
 let settings = null;
 const hasStart = () => !!settings?.startDate;
@@ -136,7 +136,7 @@ export function mountMoney(params) {
       items: ['all', ...(companies || ['СИЮ', 'ССЮ'])].map((c) => ({ key: c, label: c === 'all' ? 'Все' : c })),
       value: org() || 'all', onChange: (c) => patch({ org: c === 'all' ? undefined : c }) }).el);
     opening.value = store.get(openKey()) || '';
-    controls.querySelector('.m-month').hidden = tab() === 'forecast'; // прогноз — с сегодня, месяц не листается
+    controls.querySelector('.m-month').hidden = ['forecast', 'articles'].includes(tab()); orgSeg.hidden = tab() === 'articles'; // прогноз — с сегодня, месяц не листается
     controls.querySelector('.m-open-l').textContent = tab() === 'forecast' ? 'остаток денег на сегодня' : 'остаток денег на 1-е';
     controls.hidden = tab() === 'fill' || tab() === 'debts';
     nextBtn.disabled = yearly() ? y >= Number(cur().slice(0, 4)) : month() >= cur(); // будущее — отдельный прогноз
@@ -176,7 +176,7 @@ export function mountMoney(params) {
         h('th', { class: 'sticky' }, label), h('td', { class: 'tot click', onclick: () => showOps({ date: c.to, ops: p.items, title: label }) }, cell(p.total)),
         days.map((d) => { const x = byDay(d); const v = x.ops.reduce((a, o) => a + o.amount, 0) + (d.date === c.from ? late.reduce((a, o) => a + o.amount, 0) : 0); return h('td', { class: 'day' + (v ? ' click' : ''), onclick: v ? () => showOps({ date: d.date, title: label, ops: d.date === c.from ? [...late, ...x.ops] : x.ops }) : undefined }, cell(v)); }));
     };
-    const pendRows = [pendRow('Счета к оплате (не в остатке)', c.pending?.invoices, 'Заявки с датой счёта, ещё не оплаченные: деньги не ушли, в остаток не входят'),
+    const pendRows = [pendRow('Счета к оплате — включая оценки (не в остатке)', c.pending?.invoices, 'Заявки с датой счёта, ещё не оплаченные: деньги не ушли, в остаток не входят'),
       pendRow('Отгружено без оплаты (не в остатке)', c.pending?.awaiting, 'Позиции отгружены, оплаты ещё нет: деньги не пришли, в остаток не входят')];
     const withOpen = hasOpening(opening);
     const startDate = c.startDate || settings?.startDate || null;
@@ -199,7 +199,7 @@ export function mountMoney(params) {
       opsBox.replaceChildren(
         h('div', { class: 'q-head' }, h('h3', null, d.title || `Операции ${dd.getUTCDate()} ${MONTHS[dd.getUTCMonth()].replace(/ь$/, 'я').replace(/й$/, 'я').replace(/т$/, 'та')}`),
           button({ label: 'Скрыть', kind: 'ghost', size: 'S', onClick: () => { opsBox.hidden = true; } })),
-        h('ul', { class: 'q-list' }, d.ops.map(opRow)));
+        h('ul', { class: 'q-list' }, d.ops.map(financeOpRow)));
       opsBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
     const t = c.totals;
@@ -225,6 +225,7 @@ export function mountMoney(params) {
         : [kpi('поступления' + upto, t.income), kpi('выплаты' + upto, t.expense), kpi('итог' + upto, t.income - t.expense, { calm: true, sign: true })]),
         c.needsFill.total ? button({ cls: 'sum-item attn', onClick: () => go('fill'), icon: h('span', { class: 'sum-v' }, String(c.needsFill.total)), label: h('span', { class: 'sum-l' }, 'не попали в расчёт →') }) : null),
       dueLine,
+      conversionBlock(c.pending?.needsConversion),
       startDate ? h('p', { class: 'hint' }, 'Учёт ведётся с ' + startDate.split('-').reverse().join('.') + '; операции раньше — серым, в остаток не входят.') : null,
       h('div', { class: 'panel cal-wrap', id: 'money-cal' }, h('table', { class: 'cal' }, h('thead', null, head), h('tbody', null, rows))),
       h('p', { class: 'hint' }, `Только факт — по сегодня включительно. Будущие дни — вкладка «Прогноз». Выплаты — оплаченные заявки (в день оплаты) и зарплата. Поступления — платежи по позициям заказов (в день платежа). Счета к оплате и отгруженное без оплаты — отдельными строками, в остаток не входят. ${withOpen ? '' : 'Введите остаток денег на 1-е число — появится остаток по дням. '}Нажмите на сумму дня — увидите операции.`),
@@ -345,7 +346,8 @@ export function mountMoney(params) {
       if (tab() === 'fill') { go('fill', {}, { replace: true }); return; }
       if (tab() === 'articles') {
         renderChrome(settings?.companies);
-        content = [articlesView({ year: m.slice(0, 4), org: org(), mode: P.mode, order: P.order, opRow, noIncomeText: zeroIncomeText(hasStart() ? settings.startDate : null, openingIsZero(org())) })];
+        const filters = await financialFilters(P); const query = financialQuery(P);
+        content = [filters, P.view === 'operations' ? await operationsView(P) : articlesView({ year: query.from.slice(0, 4), org: org(), mode: P.mode, order: P.order, filters: query, incomeMode: P.incomeMode, opRow: financeOpRow, noIncomeText: zeroIncomeText(hasStart() ? settings.startDate : null, openingIsZero(org())) })];
       } else if (tab() === 'forecast') {
         const days = [30, 60, 90].includes(Number(P.days)) ? Number(P.days) : 30;
         const f = await api('/finance/forecast', { query: { days, org: org(), ...(hasStart() ? {} : { opening: opening.value.trim().replace(',', '.') || 0 }) } });
@@ -386,7 +388,7 @@ export function mountMoney(params) {
     destroy: dropDebts,
     /** Смена вкладки/месяца/компании — без пересоздания экрана; открытая карточка — без перезагрузки данных. */
     update(next) {
-      const changed = ['tab', 'month', 'org', 'days', 'mode', 'order'].some((k) => (next[k] || '') !== (P[k] || ''));
+      const changed = ['tab', 'month', 'org', 'days', 'mode', 'order', 'view', 'incomeMode', 'page', 'limit', 'sort', 'dir', ...FINANCE_FILTER_KEYS].some((k) => (next[k] || '') !== (P[k] || ''));
       P = { ...next };
       if (changed) load();
       else if (tab() === 'debts' && debts) debts.update?.(debtParams(P));

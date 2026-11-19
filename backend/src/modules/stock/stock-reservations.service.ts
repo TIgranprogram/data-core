@@ -140,8 +140,14 @@ export class StockReservationsService {
   }
 
   /** Снять одну бронь (строку): «свободно» на складе снова увеличится. */
-  async releaseReservation(id: string) {
+  async releaseReservation(id: string, externalSession?: ClientSession) {
     const _id = oid(id, 'брони');
+    if (externalSession) {
+      const r = await this.reservations.findOne({ _id, status: 'active', deletedAt: null }).session(externalSession).exec();
+      if (!r) throw new ConflictException('Бронь уже снята или выдана — обновите страницу');
+      await this.releaseWithin(r, externalSession);
+      return { id, released: true };
+    }
     if (!(await this.reservations.findOne({ _id, status: 'active', deletedAt: null }).exec())) throw new NotFoundException('Бронь не найдена или уже снята');
     const session = await this.connection.startSession();
     try {

@@ -1,0 +1,40 @@
+{
+  "run": "C158-UI-1795097544593",
+  "origin": "http://localhost:3198",
+  "checks": [
+    "VAT5/none/0/22 сохраняются в документе",
+    "55000+200000: два исторических факта, partial→paid",
+    "Незакрытый UE360 без RUB виден в календаре и прогнозе как Нужен пересчёт",
+    "UE360 и подтверждённые30326 рублей, отдельное sourceAmount платежа",
+    "articleId none/all в URL, справочник только читается"
+  ],
+  "fixtures": [
+    {
+      "requestId": "6aff03c95423ebdf22553a0c",
+      "invoiceId": "6aff03c95423ebdf22553a18"
+    },
+    {
+      "requestId": "6aff03cf5423ebdf22553c1e",
+      "invoiceId": "6aff03cf5423ebdf22553c2a"
+    }
+  ],
+  "screenshots": [
+    "C158-UI-1795097544593-payment-55000-1920.png",
+    "C158-UI-1795097544593-partial-light-1920.png",
+    "C158-UI-1795097544593-payment-255000-1920.png",
+    "C158-UI-1795097544593-paid-light-1920.png",
+    "C158-UI-1795097544593-paid-light-1024.png",
+    "C158-UI-1795097544593-paid-light-2560.png",
+    "C158-UI-1795097544593-paid-dark-1920.png",
+    "C158-UI-1795097544593-paid-dark-1024.png",
+    "C158-UI-1795097544593-paid-dark-2560.png",
+    "C158-UI-1795097544593-foreign-form-1920.png",
+    "C158-UI-1795097544593-foreign-unresolved-1920.png",
+    "C158-UI-1795097544593-needs-conversion-calendar-1920.png",
+    "C158-UI-1795097544593-needs-conversion-forecast-1920.png",
+    "C158-UI-1795097544593-payment-30326-1920.png",
+    "C158-UI-1795097544593-article-filter-none-1920.png"
+  ],
+  "status": "PASS",
+  "profileCleanup": "Свой профиль удалён после остановки только процессов с точным путём runID; чужие окна не изменялись"
+}

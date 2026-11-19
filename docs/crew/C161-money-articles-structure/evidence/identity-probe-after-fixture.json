@@ -1,0 +1,44 @@
+{
+  "origin": "http://localhost:3198",
+  "kind": "readonly identity candidate probe",
+  "role": "admin",
+  "total": 2,
+  "read": 2,
+  "reasons": {
+    "У старого платежа нет устойчивого ID: сначала подготовьте историю оплат": 2
+  },
+  "withId": 0,
+  "withoutId": 2,
+  "preparations": [
+    {
+      "operationId": "income-unprepared:6aff1a7fc91ddf9297994506:ada691c20539e347d87351755b9cdb90c099fd717a722a894328c93395d4c68f:1",
+      "preparation": {
+        "kind": "income-payment-identities",
+        "sourceId": "6aff1a7fc91ddf9297994506"
+      }
+    },
+    {
+      "operationId": "income-unprepared:6aff1a7fc91ddf9297994506:ada691c20539e347d87351755b9cdb90c099fd717a722a894328c93395d4c68f:0",
+      "preparation": {
+        "kind": "income-payment-identities",
+        "sourceId": "6aff1a7fc91ddf9297994506"
+      }
+    }
+  ],
+  "plans": [
+    {
+      "operationId": "income-unprepared:6aff1a7fc91ddf9297994506:ada691c20539e347d87351755b9cdb90c099fd717a722a894328c93395d4c68f:1",
+      "sourceId": "6aff1a7fc91ddf9297994506",
+      "canApply": true,
+      "changesCount": 2,
+      "blockers": []
+    },
+    {
+      "operationId": "income-unprepared:6aff1a7fc91ddf9297994506:ada691c20539e347d87351755b9cdb90c099fd717a722a894328c93395d4c68f:0",
+      "sourceId": "6aff1a7fc91ddf9297994506",
+      "canApply": true,
+      "changesCount": 2,
+      "blockers": []
+    }
+  ]
+}

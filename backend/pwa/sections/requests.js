@@ -25,8 +25,7 @@ import { wireFill } from './request-fill.js';
 import { adminAction, isAdmin, withReason } from './admin-override.js';
 import { ordersLookup } from '../core/orders-lookup.js';
 import { advance, bulkOrder, invoiceBlock, missingFor, nextStep, stageStrip } from './request-step.js';
-import { invoiceActions } from './request-invoice-actions.js'; import { acceptRequests } from './ops.js'; import { linkStockFields } from './request-link.js'; import { articleTree, requestArticleField } from './expenses.js';
-
+import { invoiceActions } from './request-invoice-actions.js'; import { acceptRequests } from './ops.js'; import { linkStockFields } from './request-link.js'; import { articleTree, articleFilterOptions, requestArticleField } from './expenses.js';
 /** Раздел «Заявки» (PRODUCT §1) — коллекция supplyrequests через /api/supply. */
 /** «+ Новый заказчик «…»» и «Заказчик: X · Объект: Y» под списком поля «Заказчик» (TASKS ЗЧ.2). */
 function customerActions(text, shown, form) {
@@ -296,13 +295,14 @@ export const requests = {
     toolbarExtra: () => stepFunnel({
       steps: [{ key: 'supplierId', label: 'Поставщик' }, { key: 'categoryId', label: 'Категория' }, { key: 'requestedBy', label: 'Кто подал' }],
       load: async (P) => {
-        const keys = ['status', 'supplierId', 'categoryId', 'requestedBy', 'from', 'to', 'needsFill', 'salesOrderId'];
+        const keys = ['status', 'supplierId', 'categoryId', 'requestedBy', 'from', 'to', 'needsFill', 'salesOrderId', 'articleId'];
         const r = await api('/supply/requests', { query: { facets: 1, limit: 1, ...(P.q ? { search: P.q } : {}), ...Object.fromEntries(keys.filter((k) => P[k]).map((k) => [k, P[k]])) } });
         return r.facets || {};
       },
     }),
     emptyText: 'Заявок пока нет.', emptyHint: 'Нажмите «+ Заявка»: что нужно, сколько, под какой заказ. Позиции берутся из «Остатков» и «Каталога поставщиков».',
     filters: [
+      { key: 'articleId', label: 'Статья расходов', allLabel: 'Все статьи', type: 'select', options: async () => articleFilterOptions(await articleTree(true)) },
       { key: 'status', label: 'Статус', type: 'chips', options: statusOptions, count: (resp, v) => (v === '' ? resp.counts?.all : resp.counts?.[v]) ?? undefined },
       // Б4: поставщик / категория / кто подал — воронкой в левой панели (числа при уже выбранном); здесь — для «Сбросить всё»
       { key: 'supplierId', label: 'Поставщик', type: 'hidden' },

@@ -1,0 +1,198 @@
+{
+  "run": "C159-IDENTITY-UI-1795107548633",
+  "origin": "http://localhost:3198",
+  "checks": [
+    "Реальный план двух старых частей показан в обеих темах/ширинах, даты и суммы читаемы",
+    "UI confirm выполнил metadata-only подготовку и открыл новый стабильный operationId",
+    "После подготовки 7строк/5платежей,100000/262455/-162455 и даты/компания/статьи неизменны, повторный план0"
+  ],
+  "fixtures": [
+    {
+      "incomeId": "6aff1a7fc91ddf9297994506",
+      "companyId": "6aff1a7ec91ddf92979943fe"
+    }
+  ],
+  "screenshots": [
+    "C159-IDENTITY-UI-1795107548633-identity-plan-light-1920.png",
+    "C159-IDENTITY-UI-1795107548633-identity-plan-light-1024.png",
+    "C159-IDENTITY-UI-1795107548633-identity-plan-dark-1920.png",
+    "C159-IDENTITY-UI-1795107548633-identity-plan-dark-1024.png",
+    "C159-IDENTITY-UI-1795107548633-identity-ready-dark-1024.png",
+    "C159-IDENTITY-UI-1795107548633-identity-ready-dark-1920.png"
+  ],
+  "status": "PASS",
+  "before": {
+    "count": 7,
+    "totals": {
+      "income": 100000,
+      "expense": 262455,
+      "net": -162455,
+      "currency": "RUB"
+    },
+    "planChanges": 2
+  },
+  "geometry": [
+    {
+      "name": "identity-plan-light",
+      "width": 1920,
+      "height": 1080,
+      "documentWidth": 1905,
+      "viewportWidth": 1920,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": "Фактические денежные операции",
+          "top": 749.359375,
+          "bottom": 1592.59375,
+          "left": 280,
+          "right": 1800.953125,
+          "parentWidth": 833,
+          "parentScrollWidth": 1521
+        },
+        {
+          "label": "План подготовки истории оплат",
+          "top": 641.296875,
+          "bottom": 763.09375,
+          "left": 1188,
+          "right": 1866,
+          "parentWidth": 678,
+          "parentScrollWidth": 678
+        }
+      ]
+    },
+    {
+      "name": "identity-plan-light",
+      "width": 1024,
+      "height": 900,
+      "documentWidth": 1009,
+      "viewportWidth": 1024,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": "Фактические денежные операции",
+          "top": 660.109375,
+          "bottom": 1503.34375,
+          "left": 92,
+          "right": 1612.953125,
+          "parentWidth": 897,
+          "parentScrollWidth": 1521
+        },
+        {
+          "label": "План подготовки истории оплат",
+          "top": 641.296875,
+          "bottom": 763.09375,
+          "left": 291,
+          "right": 970,
+          "parentWidth": 679,
+          "parentScrollWidth": 679
+        }
+      ]
+    },
+    {
+      "name": "identity-plan-dark",
+      "width": 1920,
+      "height": 1080,
+      "documentWidth": 1905,
+      "viewportWidth": 1920,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": "Фактические денежные операции",
+          "top": 749.359375,
+          "bottom": 1592.59375,
+          "left": 280,
+          "right": 1800.953125,
+          "parentWidth": 833,
+          "parentScrollWidth": 1521
+        },
+        {
+          "label": "План подготовки истории оплат",
+          "top": 641.296875,
+          "bottom": 763.09375,
+          "left": 1188,
+          "right": 1866,
+          "parentWidth": 678,
+          "parentScrollWidth": 678
+        }
+      ]
+    },
+    {
+      "name": "identity-plan-dark",
+      "width": 1024,
+      "height": 900,
+      "documentWidth": 1009,
+      "viewportWidth": 1024,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": "Фактические денежные операции",
+          "top": 660.109375,
+          "bottom": 1503.34375,
+          "left": 92,
+          "right": 1612.953125,
+          "parentWidth": 897,
+          "parentScrollWidth": 1521
+        },
+        {
+          "label": "План подготовки истории оплат",
+          "top": 641.296875,
+          "bottom": 763.09375,
+          "left": 291,
+          "right": 970,
+          "parentWidth": 679,
+          "parentScrollWidth": 679
+        }
+      ]
+    },
+    {
+      "name": "identity-ready-dark",
+      "width": 1024,
+      "height": 900,
+      "documentWidth": 1009,
+      "viewportWidth": 1024,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": "Фактические денежные операции",
+          "top": 660.109375,
+          "bottom": 1503.34375,
+          "left": 92,
+          "right": 1612.953125,
+          "parentWidth": 897,
+          "parentScrollWidth": 1521
+        }
+      ]
+    },
+    {
+      "name": "identity-ready-dark",
+      "width": 1920,
+      "height": 1080,
+      "documentWidth": 1905,
+      "viewportWidth": 1920,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": "Фактические денежные операции",
+          "top": 749.359375,
+          "bottom": 1592.59375,
+          "left": 280,
+          "right": 1800.953125,
+          "parentWidth": 833,
+          "parentScrollWidth": 1521
+        }
+      ]
+    }
+  ],
+  "after": {
+    "count": 7,
+    "totals": {
+      "income": 100000,
+      "expense": 262455,
+      "net": -162455,
+      "currency": "RUB"
+    },
+    "changesRemaining": 0,
+    "stablePayments": 2
+  },
+  "profileCleanup": "Свой профиль удалён; остановлены только Edge с точным путём runID"
+}

@@ -100,6 +100,8 @@ export interface CollectionMeta {
  * при чистке H, но kppdf пишет в них на общей базе); часть читается в проверках удаления (409).
  */
 export const COLLECTIONS: Record<string, CollectionMeta> = {
+  expensearticles: { category: 'operations', doc: 'Единый справочник статей доходов и расходов; изменения только через Справочники', kind: 'core' },
+  supplyinvoicepayments: { category: 'operations', doc: 'Фактические оплаты счетов поставщиков и их сторно', kind: 'core' },
   // ================= Доступ и безопасность =================
   users: { category: 'access', kind: 'core', doc: 'Пользователи: логин, хеш пароля, роль, isActive. Хеш пароля не покидает API.' },
   roles: { category: 'access', kind: 'core', doc: 'Роли доступа (admin / manager / user) и назначенные им права.' },

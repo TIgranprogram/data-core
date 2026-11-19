@@ -12,7 +12,7 @@
  */
 import { buildCashflow, type Op } from './cashflow';
 
-export interface ExpenseSrc { id: string; title: string; amount: number; company: string; invoiceDate?: string | null; status: string; doc?: string; counterparty?: string; thumb?: string }
+export interface ExpenseSrc extends Pick<Op, 'invoiceId' | 'currency' | 'currencyName' | 'sourceAmount' | 'sourcePaidAmount' | 'sourceBalance' | 'balanceEstimated'> { id: string; title: string; amount: number; company: string; invoiceDate?: string | null; status: string; doc?: string; counterparty?: string; thumb?: string }
 export interface IncomeSrc {
   /** Уже принято платежами, ₽ (К7). */
   paid?: number;
@@ -48,7 +48,7 @@ export function expectedOps(expenses: ExpenseSrc[], incomes: IncomeSrc[], today:
     if (e.invoiceDate) {
       if (e.invoiceDate < invoiceStaleSince(today)) continue; // старые неоплаченные — чистка данных, не прогноз
       const overdue = e.invoiceDate <= today;
-      ops.push({ type: 'expense', id: e.id, date: overdue ? today : e.invoiceDate, amount: r2(e.amount), company: e.company, title: overdue ? `${e.title} · просрочено` : e.title, doc: e.doc, counterparty: e.counterparty, thumb: e.thumb, overdue });
+      ops.push({ invoiceId: e.invoiceId, currency: e.currency, currencyName: e.currencyName, sourceAmount: e.sourceAmount, sourcePaidAmount: e.sourcePaidAmount, sourceBalance: e.sourceBalance, balanceEstimated: e.balanceEstimated, type: 'expense', id: e.id, date: overdue ? today : e.invoiceDate, amount: r2(e.amount), company: e.company, title: overdue ? `${e.title} · просрочено` : e.title, doc: e.doc, counterparty: e.counterparty, thumb: e.thumb, overdue });
     }
     else if (OPEN.has(e.status)) noDate.push({ type: 'expense', id: e.id, title: e.title, amount: r2(e.amount), company: e.company, doc: e.doc, counterparty: e.counterparty, thumb: e.thumb });
   }

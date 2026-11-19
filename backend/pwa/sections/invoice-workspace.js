@@ -2,10 +2,10 @@ import { metaBlock } from './invoice-workspace-meta.js';
 import { h } from '../core/dom.js';
 import { api, PREFIX, session } from '../core/api.js';
 import { current } from '../core/router.js';
-import { date, money, qty } from '../core/format.js';
-import { stack, section, table, button, actions, badge, INVOICE_STATUS, SUPPLY_STATUS, confirmDlg, failBlock, toast, toastError, attachCombo } from '../ui/kit/index.js';
-import { permissions, lineAmount, pendingLines, assertOperation, lineDraft, changeLine, lineBody, addBody } from './invoice-workspace-state.js';
-import { adminAction } from './admin-override.js';
+import { date, dateTime, money, qty } from '../core/format.js';
+import { stack, section, table, button, actions, link, badge, INVOICE_STATUS, SUPPLY_STATUS, confirmDlg, failBlock, toast, toastError, attachCombo } from '../ui/kit/index.js';
+import { permissions, lineAmount, pendingLines, assertOperation, addBody, takeInvoiceOperation, sourceMoney, foreignInvoice, paymentStateLabel, invoiceWarnings } from './invoice-workspace-state.js';
+import { adminAction, askReason } from './admin-override.js';
 import { getInvoice, getCandidates, getBusyRequests, getPayers, getContracts, writeInvoice, deleteInvoice } from './invoice-workspace-api.js';
 import { buildWorkspaceForm } from './invoice-workspace-forms.js';
 import { screenCard } from '../ui/kit/screens/card.js';
@@ -25,99 +25,24 @@ async function refreshInvoice(invoice, ctx) {
   catch (error) { await ctx.setRow({ id: invoice.id, _refreshError: error }); }
 }
 
-/** Inline-ячейка: клик → ввод, Enter/blur → сохранение строки счёта. */
-function inlineField(invoice, ctx, line, key, { format, suffix = '', step = 'any' } = {}) {
-  const wrap = h('div', { class: 'iw-inline' });
-  let draft = lineDraft(line);
-  let unitEdited = key === 'unitPrice';
-  let busy = false;
-  const origin = () => lineDraft(line);
-  const show = () => {
-    const label = format(draft);
-    wrap.replaceChildren(h('button', {
-      type: 'button', class: 'iw-inline-btn num', title: 'Изменить',
-      'aria-label': (key === 'qty' ? 'Количество' : key === 'unitPrice' ? 'Цена за единицу' : 'Сумма строки') + ': ' + label,
-      onclick: () => edit(),
-    }, label, suffix ? h('span', { class: 'iw-inline-suf muted' }, ' ' + suffix) : null));
-  };
-  const refreshSiblings = () => {
-    wrap.closest('tr')?.querySelectorAll('[data-iw-key]').forEach((el) => {
-      if (el === wrap) return;
-      el.dispatchEvent(new CustomEvent('iw-sync', { detail: { draft, unitEdited } }));
-    });
-  };
-  const save = async (next) => {
-    const same = next.qty === origin().qty && next.lineAmount === origin().lineAmount;
-    if (same) { draft = origin(); show(); return; }
-    busy = true; wrap.classList.add('is-busy');
-    try {
-      assertOperation(invoice, session, 'line', line.id);
-      const body = lineBody(invoice, next);
-      const ok = await ctx.run(async () => {
-        await writeInvoice(invoice, session, 'line', body, line.id);
-        toast('Позиция обновлена');
-        ctx.changed();
-        await refreshInvoice(invoice, ctx);
-      });
-      if (!ok) { draft = origin(); show(); }
-    } catch (error) { toastError(error); draft = origin(); show(); }
-    finally { busy = false; wrap.classList.remove('is-busy'); }
-  };
-  const edit = () => {
-    if (busy) return;
-    const inp = h('input', {
-      type: 'number', class: 'iw-inline-inp num', min: '0', step, inputmode: 'decimal',
-      value: draft[key], 'aria-label': key === 'qty' ? 'Количество' : key === 'unitPrice' ? 'Цена за единицу' : 'Сумма строки',
-    });
-    let done = false;
-    const finish = async (commit) => {
-      if (done || busy) return; done = true;
-      if (!commit) { draft = origin(); show(); return; }
-      if (key === 'unitPrice') unitEdited = true;
-      if (key === 'lineAmount') unitEdited = false;
-      draft = changeLine(draft, key, inp.value, key === 'unitPrice' || (key === 'qty' && unitEdited));
-      refreshSiblings();
-      await save(draft);
-    };
-    inp.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
-      if (e.key === 'Escape') { e.preventDefault(); done = true; draft = origin(); show(); }
-    });
-    inp.addEventListener('blur', () => finish(true));
-    wrap.replaceChildren(inp, suffix ? h('span', { class: 'iw-inline-suf muted' }, ' ' + suffix) : null);
-    inp.focus(); inp.select();
-  };
-  wrap.dataset.iwKey = key;
-  wrap.addEventListener('iw-sync', (e) => { draft = e.detail.draft; unitEdited = e.detail.unitEdited; show(); });
-  show();
-  return wrap;
-}
-
 function positions(invoice, ctx, { editable = true, commands = true, receiveChecks } = {}) {
   const p = permissions(invoice, session);
   // «Цена / ед.» — второй строкой под суммой, статус — под названием: таблица не шире панели
-  const canInline = editable && p.editLine;
   const columns = [{ label: 'Позиция', wrap: true }, { label: 'Кол-во', num: true, cls: 'nowrap' },
     ...(session.canMoney ? [{ label: 'Сумма / цена за ед.', num: true }] : []),
   ];
   if (receiveChecks) columns.unshift({ label: 'Принять' });
   const rows = (invoice.requests || []).map((line) => {
     const mutable = !line.deletedAt && !['received', 'cancelled'].includes(line.status);
-    const inline = canInline && mutable;
     // принятую позицию администратор переоценивает (цена, сумма), количество — уже на складе
-    const priceInline = canInline && !line.deletedAt && line.status !== 'cancelled';
     const sum = lineAmount(line);
-    const qtyCell = inline
-      ? inlineField(invoice, ctx, line, 'qty', { format: (d) => qty(d.qty), suffix: line.unit || '', step: 'any' })
-      : `${qty(line.qty)} ${line.unit || ''}`.trim();
-    const priceCell = !session.canMoney ? null : priceInline
-      ? inlineField(invoice, ctx, line, 'unitPrice', { format: (d) => Number(d.qty) > 0 ? money(Number(d.lineAmount) / Number(d.qty)) : '—', step: '0.01' })
-      : (Number(line.qty) > 0 ? money(sum / Number(line.qty)) : '—');
-    const sumCell = !session.canMoney ? null : priceInline
-      ? inlineField(invoice, ctx, line, 'lineAmount', { format: (d) => money(d.lineAmount), step: '0.01' })
-      : money(sum);
+    const qtyCell = `${qty(line.qty)} ${line.unit || ''}`.trim();
+    const priceCell = !session.canMoney ? null : foreignInvoice(invoice) ? sourceMoney(line.sourceUnitPrice, invoice) : Number(line.qty) > 0 ? money(sum / Number(line.qty)) : '—';
+    const sumCell = !session.canMoney ? null : foreignInvoice(invoice) ? sourceMoney(line.sourceGrossAmount ?? line.sourceLineAmount, invoice) : money(sum);
     // таблица — только чтение: «Убрать» / «Отменить приёмку» — в раскрытии строки (эталон заказа, C119)
-    const controls = editable && commands && p.removeLine && mutable
+    const controls = editable && commands && p.editLine && mutable
+      ? () => actions(button({ label: 'Изменить позицию', onClick: () => ctx.edit({ _operation: 'line', _lineId: line.id }) }), p.removeLine ? button({ label: 'Убрать из счёта', kind: 'ghost', onClick: () => command(invoice, ctx, 'remove', line.id) }) : null)
+      : editable && commands && p.removeLine && mutable
       ? () => actions(button({ label: 'Убрать из счёта', kind: 'ghost', onClick: () => command(invoice, ctx, 'remove', line.id) }))
       : editable && commands && p.rollback && line.status === 'received'
         ? () => actions(button({ label: 'Отменить приёмку', kind: 'danger', onClick: () => override(invoice, ctx, 'rollback', line) }))
@@ -152,6 +77,7 @@ async function override(invoice, ctx, kind, line) {
 }
 
 async function command(invoice, ctx, operation, lineId, body = {}) {
+  if (operation === 'pay') return ctx.edit({ _operation: 'payment' });
   try {
   assertOperation(invoice, session, operation, lineId);
   const titles = { remove: 'Убрать позицию из счёта?', issue: 'Выставить счёт?', pay: 'Отметить счёт оплаченным?', receive: 'Принять отмеченные позиции на склад?' };
@@ -275,7 +201,43 @@ function newRequestBar(invoice, ctx) {
 /** Выбранные «приехавшие» позиции: заполняет body(), читает кнопка шага «Принять на склад» (nextCard). */
 const checksOf = new WeakMap();
 
-function body(invoice, ctx) {
+
+async function voidPayment(invoice, payment, ctx) {
+  try {
+    const path = `/supply/invoices/${invoice.id}/payments/${payment.id}/void`;
+    const plan = await api(path + '?dryRun=1', { method: 'POST', body: {} });
+    if (plan?.canProceed === false) { toast((plan.blockers || ['Сторно сейчас недоступно']).join(' '), { error: true }); return; }
+    const reason = await askReason('Сторнировать ошибочную оплату?', 'Факт исключится из своего дня, но останется в истории. Это не возврат денег поставщиком.', 'Сторнировать');
+    if (!reason) return;
+    const clientUid = globalThis.crypto?.randomUUID?.() || `void-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    await api(path, { noWait: true, method: 'POST', body: { confirm: true, reason, clientUid, version: Number(invoice.version ?? 0) } });
+    toast('Ошибочная оплата сторнирована'); ctx.changed(); await ctx.reload();
+  } catch (error) { toastError(error); }
+}
+function paymentHistory(invoice, ctx) {
+  if (!session.canMoney) return null;
+  const records = [...(invoice.payments || [])];
+  let page = 1, busy = false;
+  const historyBox = h('div');
+  const loadMore = button({ label: 'Показать ранние оплаты', onClick: async () => {
+    if (busy) return; busy = true; loadMore.disabled = true;
+    try { const result = await api(`/supply/invoices/${invoice.id}/payments`, { query: { page: page + 1, limit: 100 } });
+      for (const payment of result.items || []) if (!records.some(x => x.id === payment.id)) records.push(payment);
+      page++; render();
+    } catch (error) { toastError(error); } finally { busy = false; loadMore.disabled = false; }
+  } });
+  const p = permissions(invoice, session);
+  const render = () => { historyBox.replaceChildren(positionsTable({ label: 'История оплат счёта', columns: [{ label: 'Дата оплаты' }, { label: 'Сумма, ₽', num: true }, ...(foreignInvoice(invoice) ? [{ label: 'Погашено по счёту', num: true }] : []), { label: 'Состояние' }], groups: [{ rows: records.map(payment => ({
+      cells: [date(payment.date), money(payment.amount), ...(foreignInvoice(invoice) ? [sourceMoney(payment.sourceAmount, invoice)] : []), payment.state === 'voided' ? 'Сторнирована' : 'Учтена'],
+      expand: () => stack(h('p', null, payment.note || 'Без примечания'), h('p', { class: 'hint' }, `Зарегистрировано: ${dateTime(payment.createdAt)}. Подтверждений: ${(payment.fileIds || []).length}.`, payment.voidReason ? ' Причина сторно: ' + payment.voidReason : ''),
+        payment.files?.length ? actions(...payment.files.map(file => link({ label: file.name || 'Подтверждение оплаты', href: /^https?:\/\//.test(file.url || '') ? file.url : PREFIX + (file.url || '') }))) : null,
+        p.unpay && payment.state !== 'voided' ? actions(button({ label: 'Сторнировать ошибочную оплату', kind: 'danger', onClick: () => voidPayment(invoice, payment, ctx) })) : null),
+    })) }], empty: { title: invoice.reconciliationRequired ? 'Требуется сверка старой оплаты' : invoice.paymentSource === 'legacy' ? 'Оплата сохранена в прежнем учёте' : 'Оплат пока нет', hint: invoice.reconciliationRequired ? invoice.reconciliationReason || 'Проверьте документы оплаты; сведения источников расходятся.' : invoice.paymentSource === 'legacy' ? 'Старые факты не переносятся автоматически при открытии карточки.' : 'Добавьте оплату после подтверждения перечисления денег.' } })); loadMore.hidden = Number(invoice.paymentsTotal || 0) <= records.length; };
+  render();
+  return section({ title: 'Фактические оплаты', count: invoice.paymentsTotal ?? records.length, body: [h('p', { class: 'hint' }, 'Каждая оплата учитывается в свой фактический день. Время регистрации и сторно сохраняются в истории.'), historyBox, actions(loadMore)] });
+}
+
+function body(invoice, ctx, notes = []) {
   if (invoice._refreshError) return failBlock(invoice._refreshError, () => ctx.reload(), { text: 'Сохранено, но обновить показ не удалось. Повторить только загрузку' });
   const p = permissions(invoice, session), checks = p.receive ? new Map() : null;
   checksOf.set(invoice, checks);
@@ -288,7 +250,9 @@ function body(invoice, ctx) {
       newRequestBar(invoice, ctx),
       checks ? h('span', { class: 'hint' }, 'Отметьте только приехавшие позиции — кнопка «Принять на склад» в «Что дальше».') : null,
     ] }),
+    ...notes,
     metaBlock(invoice, ctx, refreshInvoice),
+    paymentHistory(invoice, ctx),
     orders.length ? section({ title: 'Связанные заказы', body: table({ label: 'Заказы', columns: [{ label: 'Заказ' }, { label: 'Договоры' }], rows: orders.map((order) => ({ cells: [`№ ${order.productionNo || '—'}`, (order.contracts || []).join(', ') || '—'] })) }) }) : null,
     session.canMoney && invoice.paymentSnapshot ? section({ title: 'Оплата и корректировки', count: adjustments.length, body: [
       h('p', { class: 'hint' }, 'Исходный платёж неизменяем. Корректировки меняют текущую сумму строк.'),
@@ -303,7 +267,7 @@ function steps(invoice, ctx) {
   const p = permissions(invoice, session);
   const all = [
     p.issue && { key: 'issue', label: 'Выставить счёт', text: 'Сначала проверьте реквизиты, затем выставьте счёт.', run: () => command(invoice, ctx, 'issue') },
-    p.pay && { key: 'pay', label: 'Счёт оплачен', text: 'Когда оплатите — отметьте оплату полного счёта.', run: () => command(invoice, ctx, 'pay') },
+    p.pay && { key: 'pay', label: 'Добавить оплату', text: 'Внесите подтверждённую сумму и фактическую дату. Авансы и доплаты сохраняются отдельно.', run: () => command(invoice, ctx, 'pay') },
     p.receive && { key: 'receive', label: 'Принять на склад', text: 'Отметьте приехавшие позиции в таблице и примите их на склад.', run: () => command(invoice, ctx, 'receive', null, { requestIds: [...(checksOf.get(invoice) || [])].filter(([, cb]) => cb.checked).map(([id]) => id) }) },
   ].filter(Boolean);
   return { main: all[0] || null, rest: all.slice(1) };
@@ -312,41 +276,45 @@ function steps(invoice, ctx) {
 const invoiceFacts = (invoice) => [
   [invoice.partial ? 'Видимых позиций' : 'Позиций', (invoice.requests || []).length],
   invoice.payerName ? ['Наша компания', invoice.payerName] : null,
-  invoice.contractNo ? ['Договор', `№ ${invoice.contractNo}`] : null,
-  session.canMoney && invoice.paymentSnapshot ? ['Исходный платёж', `${money(invoice.paymentSnapshot.amount)} · ${date(invoice.paymentSnapshot.paidAt)}`] : null,
+  session.canMoney && (invoice.paidAmount != null || invoice.reconciliationRequired) ? ['Фактически оплачено', invoice.paidAmount == null ? 'Требует сверки' : money(invoice.paidAmount)] : null,
+  session.canMoney && invoice.paymentState ? ['Оплата', paymentStateLabel(invoice)] : null,
+  session.canMoney && invoice.reconciliationRequired ? ['Остаток', 'Требует сверки'] : session.canMoney && foreignInvoice(invoice) ? ['Остаток по документу', sourceMoney(invoice.sourceBalance, invoice)] : session.canMoney && invoice.balanceDue !== undefined ? ['Остаток, ₽', invoice.balanceDue == null ? 'Нужен пересчёт' : money(invoice.balanceDue)] : null,
 ].filter(Boolean);
 
 export const invoiceCard = {
   id: 'invoicecard', title: 'Счёт поставщика', kind: 'Счёт', noun: 'счёт', entityType: 'SupplyInvoice',
   canEdit: () => session.canEdit,
-  get: getInvoice,
+  get: async id => { const invoice = await getInvoice(id); const operation = takeInvoiceOperation(id); return operation ? { ...invoice, _operation: operation } : invoice; },
   // Карточка по эталону заказа (C119 шаг 3): шапка — счёт, поставщик · дата, этап и сумма; позиции сразу под шапкой; команды — в «⋯»
   card: {
     ...screenCard({
       title: (invoice) => invoice.no ? `Счёт № ${invoice.no}` : 'Счёт без номера',
       sub: (invoice) => [invoice.supplierName || 'Поставщик не указан', invoice.date ? date(invoice.date) : ''].filter(Boolean).join(' · '),
-      stage: (invoice) => (invoice._refreshError ? null : badge(INVOICE_STATUS, invoice.status)),
-      side: (invoice) => [session.canMoney && !invoice._refreshError ? h('b', null, money(invoice.amount)) : null, invoice.partial ? 'только видимые строки' : null],
+      stage: (invoice) => (invoice._refreshError ? null : invoice.reconciliationRequired || invoice.paymentState === 'reconciliation' ? badge('Требует сверки', 'warn') : badge(INVOICE_STATUS, invoice.status)),
+      side: (invoice) => [session.canMoney && !invoice._refreshError ? h('b', null, invoice.accountingState === 'unresolved' ? sourceMoney(invoice.sourceAmount, invoice) + ' · Нужен пересчёт' : money(invoice.amount)) : null, invoice.partial ? 'только видимые строки' : null],
       noHistory: true,
-      warns: (invoice) => (invoice._refreshError ? [] : [permissions(invoice, session).reason && { title: permissions(invoice, session).reason, tone: 'neutral' }]),
+      bodyFirst: true,
+      warns: (invoice) => invoiceWarnings(invoice, session),
       next: (invoice, ctx) => {
         if (invoice._refreshError) return null;
         const { main } = steps(invoice, ctx);
         return main ? { text: main.text, primary: { label: main.label, run: main.run } } : null; // нет шага — «Что дальше» не показываем
       },
       facts: (invoice) => (invoice._refreshError ? [] : invoiceFacts(invoice)),
-      body: (invoice, ctx) => body(invoice, ctx),
+      body: (invoice, ctx, notes) => body(invoice, ctx, notes),
       menu: (invoice, ctx) => {
         if (invoice._refreshError) return [{ label: 'Обновить', run: () => ctx.reload() }];
         const p = permissions(invoice, session);
         return [
           { label: 'Обновить', run: () => ctx.reload() },
+          p.meta ? { label: 'Реквизиты счёта', run: () => ctx.edit({ _operation: 'meta' }) } : null,
           ...steps(invoice, ctx).rest.map((s) => ({ label: s.label, run: s.run })),
-          p.unpay ? { label: 'Снять оплату', danger: true, run: () => override(invoice, ctx, 'unpay') } : null,
+          p.unpay && invoice.paymentAccountingVersion !== 1 ? { label: 'Снять оплату', danger: true, run: () => override(invoice, ctx, 'unpay') } : null,
         ];
       },
     }),
     // Реквизиты и позиции — на одном экране в body; нижняя «Реквизиты счёта» не нужна.
+    startEdit: invoice => invoice._operation === 'payment' && permissions(invoice, session).pay,
     editable: () => false,
     editLabel: 'Реквизиты счёта',
   },

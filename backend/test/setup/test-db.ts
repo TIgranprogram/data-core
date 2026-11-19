@@ -35,7 +35,7 @@ export interface TestContext {
  * Must be run with `jest --runInBand` so that only one suite bootstraps
  * at a time (each suite clears + re-seeds the same `datacore-test` db).
  */
-export async function createTestApp(): Promise<TestContext> {
+export async function createTestApp(options: { strictValidation?: boolean } = {}): Promise<TestContext> {
   const testDb = process.env.MONGO_DB_TEST ?? 'datacore-test';
   process.env.MONGO_DB = testDb;
   process.env.NODE_ENV = 'test';
@@ -81,7 +81,7 @@ export async function createTestApp(): Promise<TestContext> {
   }).compile();
 
   const app = module.createNestApplication({ logger: false });
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: options.strictValidation === true, transform: true }));
   // Регистрируем те же глобальные фильтры, что и main.ts (прод). Без этого
   // тестовое приложение трактовало ошибки иначе, чем боевое: например,
   // mongoose CastError в тестах улетал как 500, а в проде — как 400.

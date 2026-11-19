@@ -1,3 +1,4 @@
+import { requestInvoiceOperation } from './invoice-workspace-state.js';
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { isoDay, money, date } from '../core/format.js';
@@ -58,7 +59,7 @@ export function nextStep(r) {
 
 let pending = null; // { id, to } — куда ведёт открытая панель (после обновления страницы — следующий этап)
 export function openStep(r, to) {
-  if (r.invoiceId && to === 'paid') { patch({ of: 'invoicecard', open: r.invoiceId, new: undefined }); return; }
+  if (r.invoiceId && to === 'paid') { requestInvoiceOperation(r.invoiceId, 'payment'); patch({ of: 'invoicecard', open: r.invoiceId, new: undefined }); return; }
   pending = { id: r.id, to };
   patch({ of: 'reqstep', open: r.id, new: undefined });
 }
@@ -216,7 +217,7 @@ export const reqStep = {
       priceHint: defaultAmount(r, r._defPrice), supplierName: r.supplierName || '' }),
     toBody: (v, r) => {
       if (r.invoiceId) throw new Error('Откройте счёт для изменения');
-      if (r._to === 'paid') return { statusLabel: SUPPLY_STATUS.paid.label, invoiceNo: String(v.invoiceNo ?? ''), invoiceDate: String(v.invoiceDate ?? ''), priceHint: v.priceHint, supplierName: String(v.supplierName ?? '') };
+      if (r._to === 'paid') return { _payment: true, invoiceNo: String(v.invoiceNo ?? ''), invoiceDate: String(v.invoiceDate ?? ''), priceHint: v.priceHint, supplierName: String(v.supplierName ?? '') };
       const body = r._to === 'ordered' ? { _order: true } : { statusLabel: SUPPLY_STATUS[r._to].label };
       for (const f of r._miss) body[f.key] = f.key === 'qty' ? v[f.key] : String(v[f.key] ?? '');
       return body;
@@ -224,6 +225,16 @@ export const reqStep = {
     update: async (id, body) => {
       let saved;
       if (body._inv) throw new Error('Оплата и правка доступны только в панели счёта');
+      if (body._payment) {
+        const { _payment, ...fields } = body;
+        saved = await api(`/supply/requests/${id}`, { method: 'PATCH', body: fields });
+        let invoiceId = saved.invoiceId;
+        if (!invoiceId) { const made = await api('/supply/invoices', { method: 'POST', body: { requestIds: [id] } }); invoiceId = made.items?.[0]?.id; }
+        if (!invoiceId) throw new Error('Не удалось определить счёт заявки');
+        requestInvoiceOperation(invoiceId, 'payment');
+        setTimeout(() => patch({ of: 'invoicecard', open: invoiceId, new: undefined }), 0);
+        return saved;
+      }
       if (body._order) {
         const { _order, ...rest } = body;
         if (Object.keys(rest).length) await api(`/supply/requests/${id}`, { method: 'PATCH', body: rest });

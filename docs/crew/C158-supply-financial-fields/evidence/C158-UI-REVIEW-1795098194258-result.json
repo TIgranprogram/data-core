@@ -1,0 +1,219 @@
+{
+  "run": "C158-UI-REVIEW-1795098194258",
+  "origin": "http://localhost:3198",
+  "checks": [
+    "Сохранённые UE360/30326руб и основание повторно открыты в обеих темах",
+    "История двух оплат и время регистрации раскрываются в обеих темах",
+    "Явный включённый НДС без ставки: форма остаётся открытой с ошибкой, счёт не изменён"
+  ],
+  "fixtures": [
+    {
+      "invoiceId": "6aff03c95423ebdf22553a18"
+    },
+    {
+      "invoiceId": "6afeff75f902a339c859a4c9"
+    }
+  ],
+  "screenshots": [
+    "C158-UI-REVIEW-1795098194258-history-light-1920.png",
+    "C158-UI-REVIEW-1795098194258-history-light-1024.png",
+    "C158-UI-REVIEW-1795098194258-payment-details-light-1920.png",
+    "C158-UI-REVIEW-1795098194258-vat-error-light-1920.png",
+    "C158-UI-REVIEW-1795098194258-vat-error-light-1024.png",
+    "C158-UI-REVIEW-1795098194258-foreign-metadata-light-1920.png",
+    "C158-UI-REVIEW-1795098194258-foreign-metadata-light-1024.png",
+    "C158-UI-REVIEW-1795098194258-history-dark-1920.png",
+    "C158-UI-REVIEW-1795098194258-history-dark-1024.png",
+    "C158-UI-REVIEW-1795098194258-payment-details-dark-1920.png",
+    "C158-UI-REVIEW-1795098194258-vat-error-dark-1920.png",
+    "C158-UI-REVIEW-1795098194258-vat-error-dark-1024.png",
+    "C158-UI-REVIEW-1795098194258-foreign-metadata-dark-1920.png",
+    "C158-UI-REVIEW-1795098194258-foreign-metadata-dark-1024.png"
+  ],
+  "status": "PASS",
+  "geometry": [
+    {
+      "name": "history-light",
+      "width": 1920,
+      "height": 1080,
+      "drawer": {
+        "left": 1145,
+        "right": 1905,
+        "width": 760,
+        "scrollWidth": 759,
+        "clientWidth": 759
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "history-light",
+      "width": 1024,
+      "height": 900,
+      "drawer": {
+        "left": 249,
+        "right": 1009,
+        "width": 760,
+        "scrollWidth": 760,
+        "clientWidth": 760
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "payment-details-light",
+      "width": 1920,
+      "height": 1080,
+      "drawer": {
+        "left": 1145,
+        "right": 1905,
+        "width": 760,
+        "scrollWidth": 759,
+        "clientWidth": 759
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "vat-error-light",
+      "width": 1920,
+      "height": 1080,
+      "drawer": {
+        "left": 1145,
+        "right": 1905,
+        "width": 760,
+        "scrollWidth": 759,
+        "clientWidth": 759
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "vat-error-light",
+      "width": 1024,
+      "height": 900,
+      "drawer": {
+        "left": 249,
+        "right": 1009,
+        "width": 760,
+        "scrollWidth": 760,
+        "clientWidth": 760
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "foreign-metadata-light",
+      "width": 1920,
+      "height": 1080,
+      "drawer": {
+        "left": 1145,
+        "right": 1905,
+        "width": 760,
+        "scrollWidth": 759,
+        "clientWidth": 759
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "foreign-metadata-light",
+      "width": 1024,
+      "height": 900,
+      "drawer": {
+        "left": 249,
+        "right": 1009,
+        "width": 760,
+        "scrollWidth": 760,
+        "clientWidth": 760
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "history-dark",
+      "width": 1920,
+      "height": 1080,
+      "drawer": {
+        "left": 1145,
+        "right": 1905,
+        "width": 760,
+        "scrollWidth": 759,
+        "clientWidth": 759
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "history-dark",
+      "width": 1024,
+      "height": 900,
+      "drawer": {
+        "left": 249,
+        "right": 1009,
+        "width": 760,
+        "scrollWidth": 760,
+        "clientWidth": 760
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "payment-details-dark",
+      "width": 1920,
+      "height": 1080,
+      "drawer": {
+        "left": 1145,
+        "right": 1905,
+        "width": 760,
+        "scrollWidth": 759,
+        "clientWidth": 759
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "vat-error-dark",
+      "width": 1920,
+      "height": 1080,
+      "drawer": {
+        "left": 1145,
+        "right": 1905,
+        "width": 760,
+        "scrollWidth": 759,
+        "clientWidth": 759
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "vat-error-dark",
+      "width": 1024,
+      "height": 900,
+      "drawer": {
+        "left": 249,
+        "right": 1009,
+        "width": 760,
+        "scrollWidth": 760,
+        "clientWidth": 760
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "foreign-metadata-dark",
+      "width": 1920,
+      "height": 1080,
+      "drawer": {
+        "left": 1145,
+        "right": 1905,
+        "width": 760,
+        "scrollWidth": 759,
+        "clientWidth": 759
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "foreign-metadata-dark",
+      "width": 1024,
+      "height": 900,
+      "drawer": {
+        "left": 249,
+        "right": 1009,
+        "width": 760,
+        "scrollWidth": 760,
+        "clientWidth": 760
+      },
+      "outsideHorizontal": []
+    }
+  ],
+  "profileCleanup": "Свой профиль удалён после остановки только Edge с точным путём этого runID; чужие окна не изменялись"
+}

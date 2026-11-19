@@ -3791,6 +3791,13 @@
             "in": "query",
             "description": "через запятую: draft, issued, paid, cancelled",
             "schema": {}
+          },
+          {
+            "name": "articleId",
+            "required": false,
+            "in": "query",
+            "description": "Статья с потомками; none — есть видимая строка без статьи. Суммы целых отобранных счетов",
+            "schema": {}
           }
         ],
         "responses": {
@@ -4091,6 +4098,119 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LegacyPayInvoiceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/invoices/{id}/payments": {
+      "get": {
+        "operationId": "SupplyController_invoicePayments",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      },
+      "post": {
+        "operationId": "SupplyController_addInvoicePayment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInvoicePaymentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/invoices/{id}/payments/{paymentId}/void": {
+      "post": {
+        "operationId": "SupplyController_voidInvoicePayment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "paymentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dryRun",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoidInvoicePaymentDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": ""
@@ -4636,6 +4756,13 @@
             "name": "page",
             "required": false,
             "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "articleId",
+            "required": false,
+            "in": "query",
+            "description": "Статья с потомками; none — без статьи",
             "schema": {}
           }
         ],
@@ -5204,6 +5331,71 @@
         },
         "tags": [
           "Снабжение"
+        ]
+      }
+    },
+    "/expense-articles": {
+      "get": {
+        "operationId": "ExpenseArticlesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Статьи расходов"
+        ]
+      }
+    },
+    "/financial-articles": {
+      "get": {
+        "operationId": "FinancialArticlesController_list",
+        "parameters": [
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "income",
+                "expense"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeArchived",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "0",
+                "1"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeUsage",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "0",
+                "1"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Финансовые статьи"
         ]
       }
     },
@@ -6590,6 +6782,62 @@
         ]
       }
     },
+    "/incomes/{id}/payments/identity-plan": {
+      "get": {
+        "operationId": "IncomesController_identityPlan",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
+    "/incomes/{id}/payments/materialize": {
+      "post": {
+        "operationId": "IncomesController_materialize",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MaterializeIncomePaymentsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Доходы (заказы)"
+        ]
+      }
+    },
     "/incomes/{id}/payments": {
       "post": {
         "operationId": "IncomesController_addPayment",
@@ -6645,10 +6893,26 @@
           },
           {
             "name": "amount",
-            "required": true,
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "expectedPaymentId",
+            "required": false,
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
             }
           }
         ],
@@ -11815,6 +12079,213 @@
         ]
       }
     },
+    "/finance/operations": {
+      "get": {
+        "operationId": "FinanceController_operationsList",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "companyId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "org",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "articleId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeDescendants",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "salesOrderId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "costCenter",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "counterpartyId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "counterpartyName",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "unassigned",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dir",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Деньги"
+        ]
+      }
+    },
+    "/finance/operations/{operationId}": {
+      "get": {
+        "operationId": "FinanceController_operation",
+        "parameters": [
+          {
+            "name": "operationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Деньги"
+        ]
+      }
+    },
+    "/finance/operations/{operationId}/classification": {
+      "patch": {
+        "operationId": "FinanceController_classification",
+        "parameters": [
+          {
+            "name": "operationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassificationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Деньги"
+        ]
+      }
+    },
     "/finance/cashflow": {
       "get": {
         "operationId": "FinanceController_cashflow",
@@ -12241,20 +12712,6 @@
         },
         "tags": [
           "ФОТ"
-        ]
-      }
-    },
-    "/expense-articles": {
-      "get": {
-        "operationId": "ExpenseArticlesController_list",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Статьи расходов"
         ]
       }
     },
@@ -19373,6 +19830,53 @@
       "PatchInvoiceDto": {
         "type": "object",
         "properties": {
+          "vatMode": {
+            "type": "string",
+            "enum": [
+              "included",
+              "excluded",
+              "none",
+              "mixed"
+            ]
+          },
+          "vatRate": {
+            "type": "object",
+            "nullable": true
+          },
+          "declaredVatAmount": {
+            "type": "object",
+            "nullable": true
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "RUB",
+              "USD",
+              "EUR",
+              "CNY",
+              "UE"
+            ]
+          },
+          "currencyName": {
+            "type": "string"
+          },
+          "exchangeRate": {
+            "type": "object",
+            "nullable": true
+          },
+          "exchangeRateDate": {
+            "type": "string"
+          },
+          "exchangeRateSource": {
+            "type": "string"
+          },
+          "confirmedAmountRub": {
+            "type": "object",
+            "nullable": true
+          },
+          "conversionNote": {
+            "type": "string"
+          },
           "deliveryDate": {
             "type": "string",
             "description": "Дата доставки, пустая строка очищает поле"
@@ -19441,6 +19945,29 @@
       "PatchInvoiceLineDto": {
         "type": "object",
         "properties": {
+          "vatMode": {
+            "type": "string",
+            "enum": [
+              "included",
+              "excluded",
+              "none",
+              "mixed"
+            ]
+          },
+          "vatRate": {
+            "type": "object",
+            "nullable": true
+          },
+          "declaredVatAmount": {
+            "type": "object",
+            "nullable": true
+          },
+          "sourceUnitPrice": {
+            "type": "number"
+          },
+          "sourceLineAmount": {
+            "type": "number"
+          },
           "unitPrice": {
             "type": "number",
             "description": "Цена за единицу, ₽ (сумма строки = unitPrice × количество)"
@@ -19490,6 +20017,70 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "LegacyPayInvoiceDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateInvoicePaymentDto": {
+        "type": "object",
+        "properties": {
+          "clientUid": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "payerCompanyId": {
+            "type": "string"
+          },
+          "sourceAmount": {
+            "type": "number"
+          },
+          "exchangeRate": {
+            "type": "number"
+          },
+          "exchangeRateDate": {
+            "type": "string"
+          },
+          "exchangeRateSource": {
+            "type": "string"
+          },
+          "fileIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "note": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          }
+        }
+      },
+      "VoidInvoicePaymentDto": {
+        "type": "object",
+        "properties": {
+          "confirm": {
+            "type": "boolean",
+            "description": "Подтверждение выполнения (false/нет — вернуть план без изменений)"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Причина (от 3 символов), обязательна при confirm"
+          },
+          "clientUid": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
           }
         }
       },
@@ -20049,6 +20640,17 @@
       "PaymentDto": {
         "type": "object",
         "properties": {
+          "paymentId": {
+            "type": "string",
+            "description": "Существующий server paymentId — только при защищённой замене массива"
+          },
+          "articleId": {
+            "type": "object",
+            "nullable": true
+          },
+          "version": {
+            "type": "number"
+          },
           "date": {
             "type": "string",
             "description": "Дата платежа ГГГГ-ММ-ДД / ДД.ММ.ГГГГ"
@@ -20073,6 +20675,11 @@
       "IncomeDto": {
         "type": "object",
         "properties": {
+          "articleId": {
+            "type": "object",
+            "nullable": true,
+            "description": "Доходная статья для новых платежей"
+          },
           "version": {
             "type": "number",
             "description": "C049-1: версия записи, которую правили (`version` из GET). Не совпала — 409 `code: STALE`. Не передана — прежнее поведение."
@@ -20204,6 +20811,23 @@
           "toOrderId": {
             "type": "string",
             "description": "Договор (salesorders), в который переносим"
+          }
+        }
+      },
+      "MaterializeIncomePaymentsDto": {
+        "type": "object",
+        "properties": {
+          "confirm": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "number"
+          },
+          "clientUid": {
+            "type": "string"
+          },
+          "planHash": {
+            "type": "string"
           }
         }
       },
@@ -22013,6 +22637,44 @@
           }
         }
       },
+      "ClassificationDto": {
+        "type": "object",
+        "properties": {
+          "articleId": {
+            "type": "object",
+            "nullable": true
+          },
+          "salesOrderId": {
+            "type": "object",
+            "nullable": true
+          },
+          "costCenter": {
+            "type": "object",
+            "nullable": true
+          },
+          "costObject": {
+            "type": "object",
+            "nullable": true
+          },
+          "resetToOriginal": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "clientUid": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "reason",
+          "clientUid",
+          "version"
+        ]
+      },
       "SettingsDto": {
         "type": "object",
         "properties": {
@@ -22121,6 +22783,21 @@
       "CreateExpenseDto": {
         "type": "object",
         "properties": {
+          "version": {
+            "type": "number"
+          },
+          "costCenter": {
+            "type": "object",
+            "nullable": true
+          },
+          "costObject": {
+            "type": "object",
+            "nullable": true
+          },
+          "counterpartyId": {
+            "type": "object",
+            "nullable": true
+          },
           "date": {
             "type": "string",
             "description": "Дата оплаты ГГГГ-ММ-ДД"
@@ -22172,6 +22849,21 @@
       "UpdateExpenseDto": {
         "type": "object",
         "properties": {
+          "version": {
+            "type": "number"
+          },
+          "costCenter": {
+            "type": "object",
+            "nullable": true
+          },
+          "costObject": {
+            "type": "object",
+            "nullable": true
+          },
+          "counterpartyId": {
+            "type": "object",
+            "nullable": true
+          },
           "date": {
             "type": "string",
             "description": "Дата оплаты ГГГГ-ММ-ДД"

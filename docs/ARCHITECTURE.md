@@ -24,7 +24,7 @@ Docker Compose (`docker-compose.yml`): `mongo-keyfile` (одноразово п�
    - **Свои роли (SK-8c):** документ `roles` с кодом `r-…` и `baseRole` (одна из `user|manager|accountant|director`). Все проверки прав (`RolesGuard`, `canSeeMoney`/`MoneyMask`, справочники, переходы статусов) идут через `effectiveRoles`/`baseRoleOf` — своя роль получает ровно права `baseRole`; кэш «код → baseRole» в памяти процесса (старт + правка ролей). permissions/pages — от роли `baseRole` (`RoleService.resolveForAuth`). CRM kppdf читает `users.role` напрямую и свою роль не знает — у такого сотрудника в CRM прав менеджера нет (CRM заморожена, допустимо).
 3. **ValidationPipe** (глобально): `whitelist + forbidNonWhitelisted + transform` — **лишнее поле в теле → 400**.
 4. **Interceptors:** `IdNormalizeInterceptor` (`id` рядом с `_id`), `UserContextInterceptor` (кладёт актора в AsyncLocalStorage → плагины Mongoose видят, кто пишет), `AuditInterceptor` (+ `@AuditAction`) → `auditlogs`.
-5. **Filters:** `VersionConflictFilter` (optimistic lock → 409), `MulterExceptionFilter` (413/400), `HttpExceptionFilter` (общий; `CastError` → 400, единый формат ошибки).
+5. **Filters:** `VersionConflictFilter` (optimistic lock → 409), `MulterExceptionFilter` (413/400), `HttpExceptionFilter` (общий; `CastError` → 400, единый формат ошибки; в409 сохраняет неотрицательные целые `currentVersion/currentTreeRevision` и явный `plan.readOnly=true` для сверки).
 
 ## Слой данных
 

@@ -1,3 +1,5 @@
+import { ExpenseArticlesService } from '../expense-articles/expense-articles.service';
+import { FINANCIAL_ARTICLE_KEYS, financialAliasType } from '../expense-articles/financial-article-writer';
 import { stockScopeFor } from '../../common/stock-scope';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { DataVersionService } from '../../common/data-version/data-version.service';
@@ -30,7 +32,7 @@ function similarity(a: string, b: string) {
  */
 @Injectable()
 export class DictsService {
-  constructor(@InjectConnection() private readonly connection: Connection, @Optional() private readonly versions?: DataVersionService, @Optional() private readonly audit?: AuditService) {}
+  constructor(@InjectConnection() private readonly connection: Connection, @Optional() private readonly versions?: DataVersionService, @Optional() private readonly audit?: AuditService, @Optional() private readonly articles?: ExpenseArticlesService) {}
   private get db() { return this.connection.db!; }
 
   /** Правка справочника с `editRoles` (группа «Паспорта» — директор и админ); остальные — как раньше (менеджер+ по @Roles). */
@@ -54,6 +56,12 @@ export class DictsService {
     return (await this.db.collection(d.coll).find(extra ? { ...d.match, ...extra } : d.match).toArray()) as Doc[];
   }
   private async one(d: DictDef, id: string) {
+    if (FINANCIAL_ARTICLE_KEYS.has(d.key) && this.articles) {
+      this.oid(id);
+      const doc = (await this.articles.docs({ includeDeleted: true })).find(x => String(x._id) === id), type = financialAliasType(d.key);
+      if (!doc || (type && (doc.type || 'expense') !== type)) throw new NotFoundException('Статья не найдена');
+      return doc as Doc;
+    }
     const doc = (await this.db.collection(d.coll).findOne({ ...d.match, _id: this.oid(id) })) as Doc | null;
     if (!doc) throw new NotFoundException('Запись не найдена (возможно, удалена)');
     return doc;
@@ -99,6 +107,7 @@ export class DictsService {
   async groups() {
     const out: { group: string; items: { key: string; title: string; hint: string; count: number; sections: string[] }[] }[] = [];
     for (const d of DICTS) {
+      if (d.key === 'expenseArticles' || d.key === 'incomeArticles') continue; // Совместимые адреса не дублируют один справочник в каталоге.
       const n = await this.db.collection(d.coll).countDocuments(d.match);
       let g = out.find((x) => x.group === d.group);
       if (!g) out.push((g = { group: d.group, items: [] }));
@@ -147,7 +156,7 @@ export class DictsService {
       const usedMap = await d.usage(this.db, [doc]);
       row['used'] = usedMap.get(String(doc._id)) ?? 0;
     }
-    return { ...row, dictInfo: { title: d.title, fields: uiFields(d), refs } };
+    return { ...row, ...(FINANCIAL_ARTICLE_KEYS.has(key) && this.articles ? { treeRevision: await this.articles.revision() } : {}), dictInfo: { title: d.title, fields: uiFields(d), refs } };
   }
 
   /** Связь значения с данными: занято ли и в каких разделах. Быстрая проверка наличия, без подсчёта. */
@@ -200,6 +209,7 @@ export class DictsService {
   }
 
   async create(key: string, body: Record<string, unknown>) {
+    if (FINANCIAL_ARTICLE_KEYS.has(key) && this.articles) return this.get(key, await this.articles.write(key, 'create', undefined, body));
     const d = this.def(key);
     body = await this.withCode(d, body ?? {});
     const doc = await d.toDoc(body, true, this.db);
@@ -214,6 +224,7 @@ export class DictsService {
    * и только потом пишется в сам справочник — упавший на полпути запрос повторяется тем же PATCH. Ответ: запись + `moved`.
    */
   async update(key: string, id: string, body: Record<string, unknown>) {
+    if (FINANCIAL_ARTICLE_KEYS.has(key) && this.articles) return { ...(await this.get(key, await this.articles.write(key, 'update', id, body))), moved: 0 };
     const d = this.def(key);
     const cur = await this.one(d, id);
     body = this.lockedCode(d, cur, body ?? {});
@@ -231,7 +242,10 @@ export class DictsService {
   }
 
   /** Удалить (в корзину). Встроенное не удаляется; занятое — только администратор и только заменой («Объединить с…»). */
-  async remove(key: string, id: string, user?: { role?: string; isOwner?: boolean } | null) {
+  async remove(key: string, id: string, user?: { role?: string; isOwner?: boolean } | null, body: Record<string, unknown> = {}) {
+    if (FINANCIAL_ARTICLE_KEYS.has(key) && this.articles) {
+      await this.articles.write(key, 'remove', id, body); return { ...(await this.get(key, id)), deleted: true };
+    }
     const d = this.def(key);
     const doc = await this.one(d, id);
     const lock = d.locked?.(doc);
@@ -245,7 +259,8 @@ export class DictsService {
     return { id, deleted: true };
   }
 
-  async restore(key: string, id: string) {
+  async restore(key: string, id: string, body: Record<string, unknown> = {}) {
+    if (FINANCIAL_ARTICLE_KEYS.has(key) && this.articles) return this.get(key, await this.articles.write(key, 'restore', id, body));
     const d = this.def(key);
     const _id = this.oid(id);
     const unset = Object.fromEntries(Object.keys(d.softDelete ?? {}).map((k) => [k, true]));
@@ -256,6 +271,7 @@ export class DictsService {
 
   /** Объединить дубль: всё связанное с `id` переходит к `intoId`, дубль — в корзину. Занятое значение — только администратор. */
   async merge(key: string, id: string, intoId: string, user?: { role?: string; isOwner?: boolean } | null) {
+    if (FINANCIAL_ARTICLE_KEYS.has(key)) throw new ConflictException('Объединение финансовых статей недоступно — используйте перенос или архив');
     const d = this.def(key);
     const into = String(intoId || '').replace(`${key}:`, '');
     if (!into || into === id) throw new BadRequestException('Выберите, с чем объединить');

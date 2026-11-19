@@ -9,6 +9,7 @@ describe('Цепочка: снабжение до склада', () => {
   let ctx: TestContext | undefined;
   let app: INestApplication;
   let token: AuthTokens;
+  let payerId: Types.ObjectId;
   const db = () => ctx!.connection.db!;
   const http = () => request(app.getHttpServer());
   const auth = () => authHeader(token.access);
@@ -19,8 +20,7 @@ describe('Цепочка: снабжение до склада', () => {
     // цена строки — до счёта: у заявки priceHint — сумма строки (счёт считает amount сам)
     await http().patch(`/api/supply/requests/${reqId}`).set(auth()).send({ priceHint: amount }).expect(200);
     const inv = (await http().post('/api/supply/invoices').set(auth()).send({ requestIds: [reqId] }).expect(201)).body.items[0].id as string;
-    const org = await db().collection('organizations').findOne({ name: 'Металл-Снаб' });
-    await http().patch(`/api/supply/invoices/${inv}`).set(auth()).send({ no, date: '2026-10-20', payerCompanyId: String(org!._id), issue: true }).expect(200);
+    await http().patch(`/api/supply/invoices/${inv}`).set(auth()).send({ no, date: '2026-10-20', payerCompanyId: String(payerId), issue: true }).expect(200);
     return inv;
   };
 
@@ -29,6 +29,8 @@ describe('Цепочка: снабжение до склада', () => {
     app = ctx.app;
     token = await loginAsAdmin(app);
     for (const c of ['supplyrequests', 'supplyinvoices', 'organizations', 'materials', 'materialprices', 'storageitems', 'stockmovements', 'reservations', 'warehouses']) await db().collection(c).deleteMany({});
+    payerId = new Types.ObjectId();
+    await db().collection('organizations').insertOne({ _id: payerId, name: 'Наша компания цепочки', inn: '9900007158', isOurCompany: true, deletedAt: null });
   });
   afterAll(async () => { await ctx?.cleanup(); });
 

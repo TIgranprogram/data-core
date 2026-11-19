@@ -1,6 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { ExpenseArticlesService } from '../expense-articles/expense-articles.service';
+import { originalClassification, hasClassificationHistory } from '../../common/financial-classification';
+import { versionFilter } from '../../common/versioned';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
-import type { Connection } from 'mongoose';
+import type { ClientSession, Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import { dateRange, oid, parseList } from '../../common/list-query';
 import { ourCompanies } from '../incomes/incomes.service';
@@ -14,8 +17,15 @@ type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-exp
 /** Прочие расходы: запись факта оплаты со статьёй, фирмой, объектом и файлами счёта. */
 @Injectable()
 export class ExpensesService {
-  constructor(@InjectConnection() private readonly connection: Connection) {}
+  constructor(@InjectConnection() private readonly connection: Connection, @Optional() private readonly articles?: ExpenseArticlesService) {}
   private get db() { return this.connection.db!; }
+
+  private async withArticleReference<T>(id: unknown, write: (session?: ClientSession) => Promise<T>): Promise<T> {
+    if (!id) return write();
+    const session = await this.connection.startSession(); let result!: T;
+    try { await session.withTransaction(async () => { await this.articles!.assertSelectable(String(id), 'expense', { session }); result = await write(session); }); } finally { await session.endSession(); }
+    return result;
+  }
 
   /** Поля тела → документ (partial: только пришедшие). Проверяет фирму, подстатью, заказ и файлы. */
   async fields(b: CreateExpenseDto | UpdateExpenseDto, partial: boolean): Promise<Record<string, unknown>> {
@@ -35,9 +45,7 @@ export class ExpensesService {
     }
     if (!partial || b.articleId !== undefined) {
       if (!b.articleId || !Types.ObjectId.isValid(b.articleId)) throw new BadRequestException('Выберите статью');
-      const a = await this.db.collection('expensearticles').findOne({ _id: new Types.ObjectId(b.articleId), deletedAt: null }, { projection: { parentId: 1 } });
-      if (!a) throw new BadRequestException('Статья не найдена — выберите из списка');
-      if (!a.parentId) throw new BadRequestException('Выберите подстатью, а не общую статью');
+      const a = await this.articles!.assertSelectable(b.articleId, 'expense');
       f.articleId = a._id;
     }
     if (b.salesOrderId !== undefined) {
@@ -48,6 +56,12 @@ export class ExpensesService {
         if (!o) throw new BadRequestException('Заказ не найден — выберите из списка');
         f.salesOrderId = o._id;
       }
+    }
+    if (b.costCenter !== undefined) f.costCenter = b.costCenter || null;
+    if (b.costObject !== undefined) f.costObject = cleanText(b.costObject) || null;
+    if (b.counterpartyId !== undefined) {
+      if (b.counterpartyId && !await this.db.collection('organizations').findOne({ _id: oid(b.counterpartyId, 'контрагента'), deletedAt: null })) throw new BadRequestException('Контрагент не найден');
+      f.counterpartyId = b.counterpartyId ? oid(b.counterpartyId, 'контрагента') : null;
     }
     for (const k of ['counterpartyName', 'docNo', 'comment'] as const) if (b[k] !== undefined) f[k] = cleanText(b[k]) || null;
     if (b.fileIds !== undefined) {
@@ -88,20 +102,27 @@ export class ExpensesService {
   async create(b: CreateExpenseDto, userId?: string) {
     const now = new Date();
     const f = await this.fields(b, false);
-    const doc = { fileIds: [], ...f, ...(userId && Types.ObjectId.isValid(userId) ? { createdBy: new Types.ObjectId(userId) } : {}), deletedAt: null, createdAt: now, updatedAt: now };
-    const r = await this.db.collection(COLL).insertOne(doc);
+    const doc = { fileIds: [], ...f, classificationOriginal: originalClassification(f), version: 0, ...(userId && Types.ObjectId.isValid(userId) ? { createdBy: new Types.ObjectId(userId) } : {}), deletedAt: null, createdAt: now, updatedAt: now };
+    const r = await this.withArticleReference(f.articleId, (session) => this.db.collection(COLL).insertOne(doc, session ? { session } : {}));
     return this.get(String(r.insertedId));
   }
 
   async update(id: string, b: UpdateExpenseDto) {
-    const f = await this.fields(b, true);
-    const res = await this.db.collection(COLL).updateOne({ _id: oid(id, 'расхода'), deletedAt: null }, { $set: { ...f, updatedAt: new Date() } });
-    if (!res.matchedCount) throw new NotFoundException('Расход не найден');
+    const current = await this.db.collection(COLL).findOne({ _id: oid(id, 'расхода'), deletedAt: null });
+    if (!current) throw new NotFoundException('Расход не найден');
+    if (b.version !== undefined && b.version !== Number(current.version || 0)) throw new ConflictException('Расход уже изменён — перечитайте карточку');
+    const f = await this.fields({ ...b, ...(b.articleId !== undefined && String(b.articleId) === String(current.articleId) ? { articleId: undefined } : {}) }, true);
+    if (['articleId', 'salesOrderId', 'costCenter', 'costObject'].some((k) => k in f && String(f[k] || '') !== String(current[k] || ''))) throw new ConflictException('Классификацию факта меняйте через «Уточнить для отчёта»');
+    const res = await this.withArticleReference(f.articleId, (session) => this.db.collection(COLL).updateOne({ _id: oid(id, 'расхода'), deletedAt: null, ...versionFilter(Number(current.version || 0)) }, { $set: { ...f, updatedAt: new Date() }, $inc: { version: 1 } }, session ? { session } : {}));
+    if (!res.matchedCount) throw new ConflictException('Расход уже изменён — перечитайте карточку');
     return this.get(id);
   }
 
   async remove(id: string) {
-    const res = await this.db.collection(COLL).updateOne({ _id: oid(id, 'расхода'), deletedAt: null }, { $set: { deletedAt: new Date(), updatedAt: new Date() } });
+    const current = await this.db.collection(COLL).findOne({ _id: oid(id, 'расхода'), deletedAt: null });
+    if (current && hasClassificationHistory(current as Row)) throw new ConflictException('Классифицированный факт нельзя удалить обычным действием');
+    if (!current) throw new NotFoundException('Расход не найден');
+    const res = await this.db.collection(COLL).updateOne({ _id: oid(id, 'расхода'), deletedAt: null, ...versionFilter(Number(current.version || 0)) }, { $set: { deletedAt: new Date(), updatedAt: new Date() }, $inc: { version: 1 } });
     if (!res.matchedCount) throw new NotFoundException('Расход не найден');
     return { id, deleted: true };
   }

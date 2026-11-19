@@ -14,3 +14,23 @@
 - 2026-10-24 · ТЗ «DTO для новых полей» у `/showcase` · у контроллера тела `Record<string, unknown>` — ValidationPipe их не проверяет (метатип Object), поля разбирает сервис (`fields()`); DTO только на новое поле дал бы 400 на все остальные (forbidNonWhitelisted) · новое поле — в разбор сервиса с 400 по-русски, DTO — только целиком (АБЗ-6) · МИ.2
 
 - 2026-11-18 · C095 modules[] содержит паспортные dims/photoId, которых нет в физическом BOM: нельзя удалять или скрывать всё по наличию compositionSheet. Только exact plain multiset-дубль подавляется внутренним presentation marker; data и история сохраняются · C152.
+
+### C158: строгая валидация e2e и денежные роли (2026-11-19)
+- Production forbidNonWhitelisted=true, старый test-db харнесс его не включал. Для нового финансового контракта createTestApp({strictValidation:true}), иначе тест неизвестного поля даёт ложный200.
+- JwtStrategy.resolveForAuth восстанавливает role.money из БД на каждом запросе; in-memory setRoleMoney в e2e не моделирует выключенную галочку. Менять роль только в изолированной testDb и проверять реальные HTTP ответы.
+
+### C158: replay, scoped legacy и выбор источника (2026-11-19)
+- Хеш clientUid строить из нормализованного отправленного тела, не из текущих defaults документа: после void разрешена смена валюты/плательщика, исходный replay обязан вернуть текущую карточку без нового факта.
+- Stockscope ограничивает не только строки, но snapshot.amount и историю корректировок; неизвестные before/after по частичному доступу не показывать.
+- Для глобального подавления legacy достаточно batch заголовков по invoiceId найденных заявок; загружать все ledgerInvoices/все факты истории не требуется. Детальная история — пагинация, список — агрегаты.
+
+### C158: defaults CAS, price callback и legacy ambiguity (2026-11-19)
+- Финансовый POST с omittedversion всё равно фиксирует first.version: retry транзакции не должен смешивать firstpayer/source с freshcurrency. Idempotent replay проверять раньше CAS.
+- Переход на дочерний ledger должен сохранить invoice_paid историю: callback выполняется в той же session только на full transition; partial/replay/void не повод писать цену.
+- Legacy paid со спорными amount/lines/snapshot — reconciliation, неизвестный paidAmount/debt=null. Не объявлять разницу новым долгом и не менять прошлые факты без сверки.
+
+- C161: валидация новой ссылки на статью внутри Mongo-транзакции должна записывать тот же counter-документ, что archive/reparent (отдельный referenceGuard без повышения treeRevision); иначе snapshot-read active-флага не исключает конкурентное архивирование. Полный usage истории — только по действию редактора, не в каждом picker.
+
+- C161 tree-review: проверятьshapeкаждогопредкавancestrywalk,а не только текущего узла; иначе child повреждённого article-parent станетвыбираемымкорнем. IDlookupпроекциясохраняетintermediategroup/архивныеID, eligibilityотдельноотналичиявистории.
+
+- C161 CORE: source cancel/delete/move/restore участвуют в том же version CAS, что первая оплата, иначе обычный soft-delete скроет финансовый факт после конкурентного addPayment. Архивная ссылка неизменённой исторической части не проходит новую active/selectable-валидацию; новая авто-подстановка stale hint сохраняет факт с null+warning. List projection не читает history, detail читает адресный источник.

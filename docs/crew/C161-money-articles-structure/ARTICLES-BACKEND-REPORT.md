@@ -1,0 +1,12 @@
+Статус: ARTICLES API READY; post-codeадресныеуточнения/реальныепрогоны — ARTICLES-FIX-REPORT.md; UI, общий QA и выпуск отдельно. Прод/план183статей не менялись, коммитов нет.
+✅ Единая expensearticles: typed Mongoose schema, recursive tree/diagnostics/path,32/10000; GET/financial-articles(type/includeArchived/includeUsage), legacyGET/expense-articles сохраняет2уровня/selectable descendants/IDs.
+✅ Writer всех dicts aliases/seed/restore/remove/reparent/type/order/archive: nodeversion+treeRevisionCAS, atomic audit, cycle/same-type/parent/duplicate/used guards; merge409; каталог показывает один canonical ключ, aliases expense/income-only.
+✅ GETdeleted возвращаетfreshversion; DELETE/restore принимаютJSONbodyversion+expectedTreeRevision; core admin registry запрещаетdrop, genericrawCRUDвэтомконтроллереотсутствует.
+✅ payroll seed ищетмашинныеcode, неимена; categoryIdsнеочищаютсяприleaf→group. Effectivehint изменение/архив/выключение/удаление неподготовленныхlegacy-defaultссылок→409readonlyplan, rename/reparentID-safe.
+✅ Source/archive гонка: assertSelectable(id,type,{session}) валидируетrawdoc и пишетcounter.referenceGuardбезseq; structural/sourcewrites конфликтуют/ретраят. RootдобавилCounterSchema.referenceGuard иsafe409version/planfields.
+✅ Usage учитываетarticleId/original/override/history.before+afterвexpenses,incomes/payments/synthetic,ledgerallocations,legacySnapshot/map иpayroll; historyпослеresetнеосвобождаетID. includeUsage=falseпоумолчанию, opt-in≤10агрегатовбезN+1.
+Файлы: modules/expense-articles/**,точечноdicts/{service,controller,defs,meta,module,expense-articles}.ts,admin/collections-admin.controller.ts(толькореестроваястрока),свойtest/e2e/financial-articles.e2e-spec.ts.
+Проверки:18suites/100unitPASS;2suites/12e2ePASS23.35с(JSONtools/logs/c159-articles-e2e-result.json);tsc0;eslint0errors(1anysrc/4anytestwarnings);cycles0;puretree9090nodes15.1мс/0diagnostics.
+Границы: EACCESпервогоsandboxrun ивременныйcoreTS2559неPASS;финальныйe2eпослеисправленияпрошёл. ПоследниеincludeUsage/nullguardзакрепленыunit, повторобщегоe2eненужендоfinalQAпорешениюкоординатора. TestDbсвободна.
+➖ Нужноroot/frontend:editorincludeUsage=true,undoчерезGETdeletedfreshversion;MAP/data-model/OpenAPI/atlasобщейинтеграцией;фактическийBROWSER/дизайнер/полныйQA. Сервисыфинансов/incomes/expenses/supplyвладеетсоседнийcore.
+Карта и урокbackendобновлены;коммит179c6239(текущиеизменениянезакоммичены).

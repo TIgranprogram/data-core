@@ -137,3 +137,13 @@ describe('СКЛ-1: reserve-list', () => {
     await expect(t.svc.reserveList({ salesOrderId: String(t.order._id), lines: [{ materialId: m, qty: 1, salesOrderLineId: String(t.lineOther._id) }] })).rejects.toBeInstanceOf(BadRequestException);
   });
 });
+
+
+describe('C159 external reservation session',()=>{
+  it('использует внешнюю session без собственной транзакции',async()=>{
+    const t=setup(),session={} as never, internal=t.svc as unknown as {connection:{startSession:jest.Mock}};
+    internal.connection.startSession=jest.fn();const release=jest.spyOn(t.svc,'releaseWithin').mockResolvedValue(undefined);
+    await expect(t.svc.releaseReservation(String(t.res._id),session)).resolves.toMatchObject({released:true});
+    expect(internal.connection.startSession).not.toHaveBeenCalled();expect(release).toHaveBeenCalledWith(t.res,session);
+  });
+});

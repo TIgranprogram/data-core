@@ -10,6 +10,7 @@ describe('Supply invoices', () => {
   let ctx: TestContext | undefined;
   let app: INestApplication;
   let token: AuthTokens;
+  let payerId: Types.ObjectId;
   const db = () => ctx!.connection.db!;
   const http = () => request(app.getHttpServer());
   const auth = () => authHeader(token.access);
@@ -19,6 +20,9 @@ describe('Supply invoices', () => {
   beforeAll(async () => {
     ctx = await createTestApp(); app = ctx.app; token = await loginAsAdmin(app);
     for (const c of ['supplyrequests', 'supplyinvoices', 'organizations']) await db().collection(c).deleteMany({});
+    // Плательщик — наша компания, а не поставщик из той же коллекции организаций.
+    payerId = new Types.ObjectId();
+    await db().collection('organizations').insertOne({ _id: payerId, name: 'Наша компания C158 QA', inn: '9900008158', isOurCompany: true, deletedAt: null });
   });
   afterAll(async () => { await ctx?.cleanup(); });
 
@@ -43,8 +47,7 @@ describe('Supply invoices', () => {
     await http().patch(`/api/supply/invoices/${invId}`).set(auth()).send({ no: '17', issue: true }).expect(400);
     // amount — производная: не совпал с суммой строк (100 + 300) → 400
     await http().patch(`/api/supply/invoices/${invId}`).set(auth()).send({ no: '17', date: '2026-10-20', amount: 500, issue: true }).expect(400);
-    const org = await db().collection('organizations').findOne({ name: 'Крепёж' });
-    const r = await http().patch(`/api/supply/invoices/${invId}`).set(auth()).send({ no: '17', date: '2026-10-20', amount: 400, payerCompanyId: String(org!._id), issue: true }).expect(200);
+    const r = await http().patch(`/api/supply/invoices/${invId}`).set(auth()).send({ no: '17', date: '2026-10-20', amount: 400, payerCompanyId: String(payerId), issue: true }).expect(200);
     expect(r.body).toMatchObject({ status: 'issued', amount: 400 });
     expect(await row(a)).toMatchObject({ invoiceNo: '17', priceHint: 100 });
     expect(await row(b)).toMatchObject({ invoiceNo: '17', priceHint: 300 });
@@ -64,19 +67,19 @@ describe('Supply invoices', () => {
     expect(await row(a)).toMatchObject({ priceHint: 100 });
   });
 
-  it('оплата: до приёмки финансовые правки разрешены, после первой приёмки блокируются; № можно', async () => {
+  it('оплата: обычная финансовая правка закрыта, явная правка администратора сохраняется; № можно', async () => {
     const r = await http().post(`/api/supply/invoices/${invId}/pay`).set(auth()).expect(200);
     expect(r.body.status).toBe('paid');
     expect(await row(a)).toMatchObject({ paid: true });
     await http().delete(`/api/supply/invoices/${invId}`).set(auth()).expect(400);
-    // Оплата сама по себе не закрывает финансовые правки до первой приёмки.
-    await http().patch(`/api/supply/invoices/${invId}`).set(auth()).send({ amount: 400 }).expect(200);
+    // C158 ledger фиксирует финансовую базу; правка администратора с причиной идёт отдельным явным действием.
+    await http().patch(`/api/supply/invoices/${invId}`).set(auth()).send({ amount: 400 }).expect(409);
     await http().patch(`/api/supply/invoices/${invId}/lines/${a}`).set(auth()).send({ unitPrice: 101, reason: 'Проверка оплаченной суммы' }).expect(200);
     expect(await row(a)).toMatchObject({ priceHint: 101 });
     await http().patch(`/api/supply/invoices/${invId}/lines/${a}`).set(auth()).send({ unitPrice: 100, reason: 'Возврат тестовой суммы' }).expect(200);
     // Приёмка одной строки фиксирует финансовые поля всего счёта, включая другую строку.
     await http().post(`/api/supply/invoices/${invId}/receive`).set(auth()).send({ requestIds: [a] }).expect(200);
-    await http().patch(`/api/supply/invoices/${invId}`).set(auth()).send({ amount: 400 }).expect(400);
+    await http().patch(`/api/supply/invoices/${invId}`).set(auth()).send({ amount: 400 }).expect(409); // C158: ledger freeze сохраняет409 и после приёмки
     // решение 2026-11-06: цену после приёмки исправляет администратор (журнал admin.override); менеджеру — 400 (юнит-тесты)
     await http().patch(`/api/supply/invoices/${invId}/lines/${b}`).set(auth()).send({ unitPrice: 1, reason: 'Сверка после приёмки' }).expect(200);
     await http().patch(`/api/supply/invoices/${invId}/lines/${b}`).set(auth()).send({ unitPrice: 100, reason: 'Возврат тестовой суммы' }).expect(200);
@@ -88,9 +91,8 @@ describe('Supply invoices', () => {
   it('выставленный, но ещё не оплаченный счёт можно оплатить после первой приёмки', async () => {
     const line = await row(c);
     const receivedFirstInvoiceId = String(line!.invoiceId);
-    const org = await db().collection('organizations').findOne({ name: 'Крепёж' });
     await http().patch(`/api/supply/invoices/${receivedFirstInvoiceId}`).set(auth())
-      .send({ no: '55', date: '2026-10-21', amount: 50, payerCompanyId: String(org!._id), issue: true }).expect(200);
+      .send({ no: '55', date: '2026-10-21', amount: 50, payerCompanyId: String(payerId), issue: true }).expect(200);
     await http().post(`/api/supply/invoices/${receivedFirstInvoiceId}/receive`).set(auth())
       .send({ requestIds: [c] }).expect(200);
     const paid = await http().post(`/api/supply/invoices/${receivedFirstInvoiceId}/pay`).set(auth()).expect(200);
@@ -103,9 +105,8 @@ describe('Supply invoices', () => {
     const addedId = operation === 'addRequests' ? await mk({ title: 'T24 добавляемая строка', qty: 1, supplierName: 'Крепёж', priceHint: 15 }) : null;
     const made = await http().post('/api/supply/invoices').set(auth()).send({ requestIds: [lineId] }).expect(201);
     const id = made.body.items[0].id as string;
-    const supplier = await db().collection('organizations').findOne({ name: 'Крепёж' });
-    await http().patch(`/api/supply/invoices/${id}`).set(auth()).send({ no: operation === 'addRequests' ? 'T24-ADD' : 'T24-LINE', date: '2026-10-22', amount: 75, payerCompanyId: String(supplier!._id), issue: true }).expect(200);
-    await http().post(`/api/supply/invoices/${id}/pay`).set(auth()).expect(200);
+    await http().patch(`/api/supply/invoices/${id}`).set(auth()).send({ no: operation === 'addRequests' ? 'T24-ADD' : 'T24-LINE', date: '2026-10-22', amount: 75, payerCompanyId: String(payerId), issue: true }).expect(200);
+    // C158: оплаченный ledger уже frozen до preflight. Гонку первой приёмки проверяем на issued/unpaid.
 
     const invoices = app.get(SupplyInvoiceService) as unknown as { lockReason(inv: Record<string, unknown>): Promise<string | null> };
     const original = invoices.lockReason.bind(invoices);
@@ -162,6 +163,7 @@ describe('Material prices', () => {
   let ctx: TestContext | undefined;
   let app: INestApplication;
   let token: AuthTokens;
+  let payerId: Types.ObjectId;
   const db = () => ctx!.connection.db!;
   const http = () => request(app.getHttpServer());
   const auth = () => authHeader(token.access);
@@ -169,6 +171,8 @@ describe('Material prices', () => {
   beforeAll(async () => {
     ctx = await createTestApp(); app = ctx.app; token = await loginAsAdmin(app);
     for (const c of ['supplyrequests', 'supplyinvoices', 'organizations', 'materials', 'materialprices']) await db().collection(c).deleteMany({});
+    payerId = new Types.ObjectId();
+    await db().collection('organizations').insertOne({ _id: payerId, name: 'Наша компания цен QA', inn: '9900005158', isOurCompany: true, deletedAt: null });
   });
   afterAll(async () => { await ctx?.cleanup(); });
 
@@ -179,14 +183,13 @@ describe('Material prices', () => {
     const inv = (await http().post('/api/supply/invoices').set(auth()).send({ requestIds: [rid] }).expect(201)).body.items[0].id as string;
     // цена — за единицу: 10 шт × 120 = 1200 в сумме строки; счёт считает сумму сам
     await http().patch(`/api/supply/invoices/${inv}/lines/${rid}`).set(auth()).send({ unitPrice: 120 }).expect(200);
-    const org = await db().collection('organizations').findOne({ name: 'Металл' });
-    await http().patch(`/api/supply/invoices/${inv}`).set(auth()).send({ no: '1', date: '2026-10-20', payerCompanyId: String(org!._id), issue: true }).expect(200);
+    await http().patch(`/api/supply/invoices/${inv}`).set(auth()).send({ no: '1', date: '2026-10-20', payerCompanyId: String(payerId), issue: true }).expect(200);
     await http().patch(`/api/supply/invoices/${inv}`).set(auth()).send({ amount: 1200 }).expect(200); // повторная правка — не дубль
     let h = (await http().get(`/api/materials/${mid}/prices`).set(auth()).expect(200)).body;
     expect(h.total).toBe(2); // ручная цена черновика + цена выставленного счёта
     expect(h.items.map((p: { source: string }) => p.source).sort()).toEqual(['invoice_issued', 'manual']);
     expect(h.items[0]).toMatchObject({ price: 100, priceWithVat: 120, vatRate: 20, supplierName: 'Металл' });
-    await http().patch(`/api/supply/invoices/${inv}`).set(auth()).send({ payerCompanyId: String(org!._id) }).expect(200);
+    await http().patch(`/api/supply/invoices/${inv}`).set(auth()).send({ payerCompanyId: String(payerId) }).expect(200);
     await http().post(`/api/supply/invoices/${inv}/pay`).set(auth()).expect(200);
     h = (await http().get(`/api/materials/${mid}/prices`).set(auth()).expect(200)).body;
     expect(h.total).toBe(3);

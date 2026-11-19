@@ -1,3 +1,4 @@
+import { loadFinancialArticles, articleChoices } from './financial-articles.js';
 import { grp, sku as kitSku, attachCombo, section, stack } from '../ui/kit/index.js';
 import { api, patchVersioned, session } from '../core/api.js';
 import { h } from '../core/dom.js';
@@ -127,10 +128,25 @@ export const incPrice = sideForm({
 });
 
 /** «Принять оплату» — правая панель (П3): дата (сегодня по Москве), сумма (по умолчанию = долг), способ. POST /incomes/:id/payments. */
+/** Удаление конкретной части: серверный ID и CAS, без замены массива оплат. */
+export async function removeIncomePayment(row) {
+  const parts = row.payments || [], index = parts.length - 1, part = parts[index];
+  const paymentId = part?.paymentId || part?.id || part?._id;
+  if (!part || !paymentId) throw new Error('Оплата не отменена. Сначала подготовьте историю оплат в «Деньгах», затем перечитайте позицию.');
+  if (!Number.isInteger(row.version) || row.version < 0) throw new Error('Оплата не отменена. Обновите позицию перед удалением платежа.');
+  const legacy = row.legacyPaymentMetadata;
+  const knownSynthetic = parts.length === 1 && !!row.paidDate && legacy?.paymentId && String(legacy.paymentId) === String(paymentId);
+  if (knownSynthetic && (legacy.classificationHistory?.length || Object.keys(legacy.classificationOverride || {}).length)) throw Object.assign(new Error('Оплата не отменена: её статья или объект уже уточнялись для отчёта. Проверьте историю оплаты; обычная отмена недоступна.'), { status: 409 });
+  try {
+    if (knownSynthetic) return await api(`/incomes/${row.id}`, { method: 'PATCH', body: { paidDate: '', version: row.version } });
+    return await api(`/incomes/${row.id}/payments/${index}`, { method: 'DELETE', query: { amount: part.amount, expectedPaymentId: paymentId, version: row.version } });
+  }
+  catch (error) { if (error.status !== 409) throw error; throw Object.assign(new Error('Оплата не отменена: история изменилась или содержит уточнения для отчёта. Обновите позицию и проверьте историю оплат.'), { status: 409, data: error.data }); }
+}
 export const paymentDialog = (r) => { openSide('incpay', r.id); return Promise.resolve(null); };
 export const incPay = sideForm({
   id: 'incpay', title: 'Принять оплату', canEdit: () => session.canMoney, entityType: 'Income', noun: 'позицию',
-  get: async (id) => ({ ...(await api(`/incomes/${id}`)), _methods: (await incomeLookups().catch(() => ({ paymentMethods: ['нал', 'безнал', 'карта'] }))).paymentMethods || [] }),
+  get: async (id) => { const [row, lookup, articles] = await Promise.all([api(`/incomes/${id}`), incomeLookups(), loadFinancialArticles({ type: 'income' })]); return { ...row, _methods: lookup.paymentMethods || [], _articles: articles.items || [] }; },
   heading: (r) => r.title || '—',
   subheading: incomeHint,
   saveLabel: 'Принять оплату',
@@ -139,14 +155,15 @@ export const incPay = sideForm({
     return [noteField(h('p', { class: 'hint' }, `Сумма ${money(r.amount)} · оплачено ${money(r.paidAmount || 0)} · долг ${money(debt)}`)),
       { key: 'date', label: 'Дата', type: 'date', required: true, span: 1 },
       { key: 'amount', money: true, label: 'Сумма, ₽', type: 'money', min: 0, required: true, span: 1 },
+      { key: 'articleId', label: 'Статья поступления', type: 'select', options: articleChoices(r._articles || [], 'Без статьи', { type: 'income', savedId: r.articleId }), wide: true, hint: 'Для этой оплаты. Статья позиции — подсказка, ранее принятые платежи не меняются.' },
       { key: 'method', label: 'Способ', type: 'select', options: (r._methods || []).map((m) => ({ value: m, label: m })) }];
   },
-  toInitial: (r) => { const debt = r.debt != null ? r.debt : Math.max(0, (Number(r.amount) || 0) - (Number(r.paidAmount) || 0)); return { date: todayMsk(), amount: debt > 0 ? debt : null, method: '' }; },
+  toInitial: (r) => { const debt = r.debt != null ? r.debt : Math.max(0, (Number(r.amount) || 0) - (Number(r.paidAmount) || 0)); return { date: todayMsk(), amount: debt > 0 ? debt : null, method: '', articleId: r.articleId || '' }; },
   toBody: (v) => {
     const a = Number(v.amount) || 0;
     if (!(a > 0)) throw new Error('Впишите сумму больше нуля');
     if (!v.date) throw new Error('Укажите дату платежа');
-    return { date: v.date, amount: a, ...(v.method ? { method: v.method } : {}) };
+    return { articleId: v.articleId || null, date: v.date, amount: a, ...(v.method ? { method: v.method } : {}) };
   },
   save: async (body, r) => { const saved = await api(`/incomes/${r.id}/payments`, { method: 'POST', body: { ...body, clientUid: newUid() } }); toast(`Оплата принята: ${money(saved.paidAmount)} из ${money(saved.amount)}`); return saved; },
 });
@@ -258,8 +275,8 @@ export const orders = {
       session.canEdit && { label: r.product ? 'Сменить изделие' : 'Выбрать изделие', more: !!r.product, title: 'Связать позицию с изделием из «Продукции» — для паспорта и единого названия', primary: !r.product && !!r.orderId, run: async (row, ctx) => { const s = await pickProduct(row); if (s) ctx.setRow(s); } },
       session.canMoney && { label: r.amount ? 'Изменить сумму' : 'Вписать сумму', more: !!r.amount, primary: !r.amount, run: async (row, ctx) => { const s = await priceDialog(row); if (s) ctx.setRow(s); } },
       session.canMoney && !r.paidDate && !!r.amount && r.debt !== 0 && { label: 'Принять оплату', primary: !!r.shipDate, run: async (row, ctx) => { const s = await paymentDialog(row); if (s) ctx.setRow(s); } },
-      session.canMoney && (r.payments || []).length > 1 && { label: 'Удалить последний платёж', more: true, danger: true, run: async (row, ctx) => { const i = row.payments.length - 1; ctx.setRow(await api(`/incomes/${row.id}/payments/${i}`, { method: 'DELETE', query: { amount: row.payments[i].amount } })); toast('Платёж удалён'); } },
-      session.canMoney && (!!r.paidDate || r.paidAmount > 0) && { label: 'Отменить оплату', more: true, run: async (row, ctx) => { const s = await patchVersioned(`/incomes/${row.id}`, row, { payments: [] }); toast('Оплата снята'); ctx.setRow(s); } },
+      session.canMoney && (r.payments || []).length > 1 && { label: 'Удалить последний платёж', more: true, danger: true, run: async (row, ctx) => { const saved = await removeIncomePayment(row); ctx.setRow(saved); toast('Платёж удалён'); } },
+      session.canMoney && (r.payments || []).length <= 1 && (!!r.paidDate || r.paidAmount > 0 || r.payments?.length === 1) && { label: 'Отменить оплату', more: true, run: async (row, ctx) => { const saved = await removeIncomePayment(row); ctx.setRow(saved); toast('Оплата отменена'); } },
       !r.shipDate && { label: 'Отгрузить сегодня', primary: !!r.amount, run: async (row, ctx) => ctx.setRow(await markToday(row, 'shipDate')) },
       // правка позиции — в «⋯» её панели, не в строке таблицы заказа (владелец 15.11: в таблице только смотреть)
       session.canEditOrders && r.orderId && !r.cancelledAt && { label: 'Перенести в другой договор', more: true, run: (row, ctx) => lineChange(row, ctx, moveLine) },
@@ -272,7 +289,7 @@ export const orders = {
 
   form: {
     fields: async (row) => {
-      const l = await incomeLookups().catch(() => ({ companies: [], customers: [], paymentForms: ['б/р', 'нал'] }));
+      const [l, articles] = await Promise.all([incomeLookups(), loadFinancialArticles({ type: 'income' })]);
       // Заказ уже в работе: название, кол-во, ед. и цены меняет только администратор (сервер иначе вернёт 403)
       locked = false;
       if (row?.orderId && session.role !== 'admin') {
@@ -296,6 +313,7 @@ export const orders = {
         { key: 'unitPrice', money: true, label: 'Цена за ед., ₽', type: 'money', min: 0 },
         { key: 'amountManual', money: true, label: 'Доход вручную, ₽', type: 'money', min: 0, hint: 'Если заполнено — важнее кол-во × цена' },
         { key: 'companyName', label: 'Наша компания', type: 'select', options: l.companies.map((c) => c.name), hint: 'Нужна для платёжного календаря' },
+        { key: 'articleId', label: 'Статья поступления', type: 'select', wide: true, options: articleChoices(articles.items || [], 'Без статьи', { type: 'income', savedId: row?.articleId }), hint: 'Подсказка для будущих оплат. Уже принятые платежи уточняются отдельно в «Деньгах».' },
         { key: 'paymentForm', label: 'Форма оплаты', type: 'combo', options: l.paymentForms, max: 50 },
         { section: 'Отгрузка и оплата', tone: 'info' },
         { key: 'shipDate', label: 'Дата отгрузки', type: 'date' },
@@ -314,7 +332,7 @@ export const orders = {
     toBody: (v) => {
       const s = (x) => (x === null ? '' : String(x));
       const body = {
-        orderNo: s(v.orderNo), customer: s(v.customer), title: s(v.title), unit: s(v.unit), companyName: s(v.companyName), paymentForm: s(v.paymentForm),
+        articleId: v.articleId || null, orderNo: s(v.orderNo), customer: s(v.customer), title: s(v.title), unit: s(v.unit), companyName: s(v.companyName), paymentForm: s(v.paymentForm),
         kind: s(v.kind), color: s(v.color), size: s(v.size), notes: s(v.notes), shipDate: v.shipDate || '', ...(v.paidDate === undefined ? {} : { paidDate: v.paidDate || '' }),
         qty: v.qty, unitPrice: v.unitPrice, amountManual: v.amountManual, orderId: v.orderId || null,
         productId: v.productId || null, // «—» в правке — отвязать; при создании пустое не шлём (сервер подберёт по названию)

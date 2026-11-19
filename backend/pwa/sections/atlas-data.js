@@ -222,12 +222,12 @@ export const NODES = [
     seq: true, inside: [
       { id: 'zayavka', t: 'Заявка', l: 'что купить и сколько', in: ['suppliercatalog', 'needs', 'shortage'] },
       { id: 'zakazal', t: '«Заказал»', l: 'у поставщика, по договору', in: ['partners', 'contracts'] },
-      { id: 'schet', t: 'Счёт', l: 'неоплаченный — в план и долги', out: ['money'] },
-      { id: 'oplacheno', t: '«Оплачено»', l: 'оплата — в фактическое движение денег', out: ['money'] },
+      { id: 'schet', t: 'Счёт', l: 'валюта, НДС и неоплаченный остаток', out: ['money'] },
+      { id: 'oplacheno', t: 'Оплаты', l: 'каждый аванс и доплата — своей датой', out: ['money'] },
       { id: 'priemka', t: 'Приёмка', l: 'товар приходит на склад', out: ['stock'] },
     ],
-    rules: ['Удалять оплаченные строки нельзя.', 'После первой приёмки суммы счёта не правятся.'],
-    docs: ['docs/PRODUCT.md — «Заявки»', 'docs/UNIFY-SUPPLY-WAREHOUSE.md'], tech: 'supplyrequests (общая с CRM)',
+    rules: ['Оплата не подтверждает получение товара.', 'После первого платежа новой истории финансовая база фиксируется; ошибка исправляется с историей.', 'После первой приёмки действуют финансовые ограничения.'],
+    docs: ['docs/PRODUCT.md — «Заявки»', 'docs/UNIFY-SUPPLY-WAREHOUSE.md', 'docs/crew/C158-supply-financial-fields/CONTRACT.md'], tech: 'supplyrequests (общая с CRM), supplyinvoices, supplyinvoicepayments (факты оплат)',
     code: ['backend/src/modules/supply', 'backend/pwa/sections/requests.js', 'backend/pwa/sections/invoice-workspace.js'] },
   { id: 'needs', tpl: 'card', tplStatus: 'legacy', band: 'supply', col: 3, sec: null, where: 'Продукция → карточка изделия → «Что купить»', t: 'Что купить', l: ['изделие × количество', '− остатки склада'],
     seq: true, inside: [
@@ -329,12 +329,12 @@ export const NODES = [
   { id: 'money', tpl: 'summary', tplStatus: 'legacy', band: 'money', col: 2, sec: 'money', t: 'Доходы и расходы', l: ['поступления, выплаты,', 'долги, остаток по дням'],
     inside: [
       { id: 'postupleniya', t: 'Поступления', l: 'оплаты заказчиков по заказам', in: ['salesorders'] },
-      { id: 'vyplaty', t: 'Выплаты', l: 'оплаченные счета, прочие расходы, зарплата', in: ['requests', 'expenses', 'payroll'] },
-      { id: 'dolgi-i-plan', t: 'Долги и план', l: 'неоплаченные счета и ожидаемые поступления', in: ['requests'] },
+      { id: 'vyplaty', t: 'Выплаты', l: 'фактические платежи, прочие расходы, зарплата', in: ['requests', 'expenses', 'payroll'] },
+      { id: 'dolgi-i-plan', t: 'Долги и план', l: 'непогашенные остатки и ожидаемые поступления', in: ['requests'] },
       { id: 'kalendar', t: 'Календарь', l: 'остаток денег по дням', out: ['reports'] },
     ],
     rules: ['Оплата не подтверждает, что товар пришёл на склад.', 'Привязка платежа определяет, чей долг закрыт.'],
-    docs: ['docs/PRODUCT.md — «Деньги»', 'docs/MAP.md — finance, incomes'], tech: 'сводка finance: incomes.payments, supplyrequests (счета), expenses, payroll_*, finance_settings',
+    docs: ['docs/PRODUCT.md — «Деньги»', 'docs/MAP.md — finance, incomes'], tech: 'сводка finance: incomes.payments, supplyinvoicepayments, legacy supplyrequests/supplyinvoices без двойного учёта, expenses, payroll_*, finance_settings',
     code: ['backend/src/modules/finance', 'backend/src/modules/incomes', 'backend/pwa/sections/money.js'] },
 
   { id: 'reports', tpl: 'summary', tplStatus: 'plan', band: 'money', col: 3, sec: null, plan: 'идея', t: 'Сводка руководителю', l: ['прибыль по заказам,', 'загрузка, долги'],

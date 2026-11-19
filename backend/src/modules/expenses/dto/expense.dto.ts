@@ -1,7 +1,12 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { ArrayMaxSize, IsArray, IsMongoId, IsNumber, IsOptional, IsString, Length, Matches, Min } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsIn, IsInt, IsMongoId, IsNumber, IsOptional, IsString, Length, Matches, Min } from 'class-validator';
 
 export class CreateExpenseDto {
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) version?: number;
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @IsIn(['workshop', 'office', 'smr', 'order']) costCenter?: string | null;
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @IsString() @Length(0, 1000) costObject?: string | null;
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @IsMongoId() counterpartyId?: string | null;
+
   @ApiProperty({ description: 'Дата оплаты ГГГГ-ММ-ДД' }) @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Дата — в формате ГГГГ-ММ-ДД' }) date!: string;
   @ApiProperty({ description: 'Сумма, ₽ (больше нуля)' }) @IsNumber({}, { message: 'Сумма — число' }) @Min(0.01, { message: 'Сумма больше нуля' }) amount!: number;
   @ApiProperty({ description: 'Наша фирма (organizations.id)' }) @IsMongoId({ message: 'Выберите фирму' }) companyId!: string;

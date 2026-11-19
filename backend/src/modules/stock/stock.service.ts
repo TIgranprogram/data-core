@@ -98,7 +98,7 @@ export class StockService {
   reserveList(dto: Parameters<StockReservationsService['reserveList']>[0], userId?: string) { return this.resv.reserveList(dto, userId); }
   listReservations(scope: StockScope | null) { return this.resv.listReservations(scope); }
   assertReservationsInScope(q: { ids?: string[]; salesOrderId?: string }, scope: StockScope | null) { return this.resv.assertReservationsInScope(q, scope); }
-  releaseReservation(id: string) { return this.resv.releaseReservation(id); }
+  releaseReservation(id: string, externalSession?: ClientSession) { return this.resv.releaseReservation(id, externalSession); }
   releaseGroup(batchId: string, scope: StockScope | null) { return this.resv.releaseGroup(batchId, scope); }
   issueReservations(dto: Parameters<StockReservationsService['issueReservations']>[0], userId?: string) { return this.resv.issueReservations(dto, userId); }
   reservationDetail(key: string, scope: StockScope | null) { return this.resv.reservationDetail(key, scope); }

@@ -104,7 +104,7 @@ describe('Finance: incomes + cashflow', () => {
     await http().get('/api/finance/cashflow?from=2026-10-05&to=2026-10-01').set(auth()).expect(400);
   });
 
-  it('T27: paid invoice edits сохраняют первоначальную сумму оплаты в денежном календаре', async () => {
+  it('T27/C158: явная правка обязательства сохраняет первоначальный ledger-факт в денежном календаре', async () => {
     const company = await db().collection('organizations').findOne({ shortName: 'СИЮ', isOurCompany: true });
     expect(company).toBeTruthy();
     const materialId = new Types.ObjectId();
@@ -113,14 +113,12 @@ describe('Finance: incomes + cashflow', () => {
     const created = await http().post('/api/supply/invoices').set(auth()).send({ requestIds: [original] }).expect(201);
     const invoiceId = created.body.items[0].id as string;
     await http().patch(`/api/supply/invoices/${invoiceId}`).set(auth()).send({ no: 'T27-1', date: '2026-10-15', payerCompanyId: String(company!._id), issue: true }).expect(200);
-    await http().post(`/api/supply/invoices/${invoiceId}/pay`).set(auth()).expect(200);
-    const paidAt = new Date('2026-10-15T12:00:00.000Z');
-    await db().collection('supplyinvoices').updateOne({ _id: new Types.ObjectId(invoiceId) }, { $set: { paidAt, 'paymentSnapshot.paidAt': paidAt } });
-    await db().collection('supplyrequests').updateOne({ _id: new Types.ObjectId(original) }, { $set: { paidAt } });
-
-    await http().patch(`/api/supply/invoices/${invoiceId}/lines/${original}`).set(auth()).send({ lineAmount: 150, reason: 'Исправление по уточнённому счёту' }).expect(200);
+    // Историческая дата задаётся при записи факта; изменение paidAt не переносит ledger между периодами.
+    await http().post(`/api/supply/invoices/${invoiceId}/payments`).set(auth()).send({ clientUid: 't27-historical-payment', date: '2026-10-15', amount: 100 }).expect(200);
+    await http().patch(`/api/supply/requests/${original}`).set(auth()).send({ priceHint: 150, reason: 'Исправление по уточнённому счёту' }).expect(200);
     const added = (await req({ title: 'T27 добавленная позиция', qty: 1, unit: 'шт', priceHint: 50, supplierName: 'T27 поставщик', companyName: 'СИЮ', materialId: String(materialId) })).body.id as string;
-    await http().post(`/api/supply/invoices/${invoiceId}/requests`).set(auth()).send({ requestIds: [added], reason: 'Добавление позиции, сверить отдельную оплату' }).expect(200);
+    await http().post(`/api/supply/invoices/${invoiceId}/requests`).set(auth()).send({ requestIds: [added], reason: 'Добавление позиции, сверить отдельную оплату' }).expect(409);
+    expect((await db().collection('supplyrequests').findOne({ _id: new Types.ObjectId(added) }))?.invoiceId).toBeUndefined();
 
     // Правка реквизитов после корректировки не должна заново фиксировать цены первоначальной оплаты.
     await http().patch(`/api/supply/invoices/${invoiceId}`).set(auth()).send({ no: 'T27-META', date: '2026-10-15', fileIds: [] }).expect(200);
@@ -130,15 +128,17 @@ describe('Finance: incomes + cashflow', () => {
     await http().patch(`/api/supply/invoices/${secondInvoice}`).set(auth()).send({ no: 'T27-2', date: '2026-10-15', payerCompanyId: String(company!._id), issue: true }).expect(200);
 
     const invoice = await db().collection('supplyinvoices').findOne({ _id: new Types.ObjectId(invoiceId) });
-    expect(invoice).toMatchObject({ amount: 200, paidAt, paymentSnapshot: { amount: 100, paidAt }, paymentAdjustments: [
+    expect(invoice).toMatchObject({ amount: 150, paidAmount: 100, status: 'issued', paymentAccountingVersion: 1, paymentAdjustments: [
       expect.objectContaining({ operation: 'line_edit', reason: 'Исправление по уточнённому счёту', beforeAmount: 100, afterAmount: 150, delta: 50 }),
-      expect.objectContaining({ operation: 'lines_added', reason: 'Добавление позиции, сверить отдельную оплату', beforeAmount: 150, afterAmount: 200, delta: 50 }),
     ] });
+    expect(invoice?.paidAt).toBeUndefined(); expect(invoice?.paymentSnapshot).toBeUndefined();
+    const payment = await db().collection('supplyinvoicepayments').findOne({ invoiceId: new Types.ObjectId(invoiceId), clientUid: 't27-historical-payment' });
+    expect(payment).toMatchObject({ date: '2026-10-15', amount: 100, allocations: [expect.objectContaining({ amountRub: 100 })] });
     const cashflow = await http().get('/api/finance/cashflow?from=2026-10-15&to=2026-10-15').set(auth()).expect(200);
     expect(cashflow.body.totals.expenseBy['СИЮ']).toBe(100);
     expect(cashflow.body.days[0].ops.filter((op: { type: string }) => op.type === 'expense')).toHaveLength(1);
     const history = (await http().get(`/api/materials/${materialId}/prices`).set(auth()).expect(200)).body;
-    expect(history.items.filter((item: { source: string }) => item.source === 'invoice_adjustment')).toHaveLength(2);
+    expect(history.items.filter((item: { source: string }) => item.source === 'invoice_adjustment')).toHaveLength(1);
     const paidHistory = history.items.filter((item: { source: string }) => item.source === 'invoice_paid');
     expect(paidHistory).toHaveLength(1);
     expect(paidHistory[0]).toMatchObject({ requestId: original, priceWithVat: 50, qty: 2 });
@@ -179,13 +179,13 @@ describe('Finance: incomes + cashflow', () => {
     const p2 = await http().post(`/api/incomes/${a.body.id}/payments`).set(auth()).send({ date: '2026-10-04', amount: 700 }).expect(200);
     expect(p2.body).toMatchObject({ status: 'paid', paidAmount: 1000, debt: 0 });
     expect(p2.body.paidDate.slice(0, 10)).toBe('2026-10-04');
-    const del = await http().delete(`/api/incomes/${a.body.id}/payments/1`).set(auth()).expect(200);
+    const del = await http().delete(`/api/incomes/${a.body.id}/payments/1`).set(auth()).query({ amount: p2.body.payments[1].amount, expectedPaymentId: p2.body.payments[1].paymentId, version: p2.body.version }).expect(200);
     expect(del.body).toMatchObject({ status: 'partial', paidAmount: 300 });
     const cf = await http().get('/api/finance/cashflow?from=2026-10-03&to=2026-10-03').set(auth()).expect(200);
     expect(cf.body.days[0].ops.find((o: { title: string }) => o.title.startsWith('Горка'))).toMatchObject({ amount: 300, method: 'нал' });
     expect(cf.body.pending.awaiting.total).toBeGreaterThanOrEqual(700);
     await http().delete(`/api/incomes/${a.body.id}`).set(auth()).expect(409); // HARDEN-1 п.14: с оплатой удалить нельзя
-    await http().delete(`/api/incomes/${a.body.id}/payments/0`).set(auth()).expect(200);
+    await http().delete(`/api/incomes/${a.body.id}/payments/0`).set(auth()).query({ amount: del.body.payments[0].amount, expectedPaymentId: del.body.payments[0].paymentId, version: del.body.version }).expect(200);
     await http().delete(`/api/incomes/${a.body.id}`).set(auth()).expect(200); // не мешать сводке и прогнозу
     // ФОТ: ставка + табель → начислено, выплата → в календарь
     const siu = (await db().collection('organizations').findOne({ shortName: 'СИЮ' }))!;

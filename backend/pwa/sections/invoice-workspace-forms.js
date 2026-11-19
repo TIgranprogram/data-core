@@ -2,10 +2,61 @@ import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
 import { money, date } from '../core/format.js';
 import { buildForm, section, table, button, actions, link, autoMore, photoField, badge, SUPPLY_STATUS } from '../ui/kit/index.js';
-import { permissions, assertOperation, lineDraft, changeLine, lineBody, addBody, metaBody } from './invoice-workspace-state.js';
+import { permissions, assertOperation, lineDraft, changeLine, lineBody, addBody, metaBody, foreignInvoice, invoiceCurrency, businessToday, paymentBody, financialMetaBody } from './invoice-workspace-state.js';
 
 const field = (key, label, input) => ({ key, label, type: 'widget', wide: true, widget: () => ({ el: input, get value() { return JSON.stringify(input.value); }, set value(_) { /* начальное значение уже установлено */ } }) });
 const number = (name, value, step = 'any') => h('input', { name, type: 'number', min: '0', step, inputmode: 'decimal', value });
+
+
+const VAT_MODES = [{ value: 'included', label: 'Включён в сумму' }, { value: 'excluded', label: 'Начислить сверху' }, { value: 'none', label: 'Без НДС' }, { value: 'mixed', label: 'Разные ставки по строкам' }];
+const VAT_RATES = [{ value: '', label: 'Не указан' }, ...[0, 5, 7, 10, 20, 22].map(v => ({ value: String(v), label: `${v}%` }))];
+const FINANCE_KEYS = ['currencyName', 'exchangeRate', 'exchangeRateDate', 'exchangeRateSource', 'confirmedAmountRub', 'conversionNote'];
+function financialFields(invoice) {
+  return [
+    { section: 'Валюта и пересчёт', tone: 'money' },
+    { key: 'currency', label: 'Валюта документа', type: 'select', options: ['RUB', 'USD', 'EUR', 'CNY', 'UE'].map(value => ({ value, label: value === 'RUB' ? 'Рубли' : value === 'UE' ? 'Условные единицы по договору' : value })), mount: api => {
+      const sync = () => { const foreign = api.get('currency') !== 'RUB'; for (const k of FINANCE_KEYS) if (api.field(k)) api.field(k).hidden = !foreign || (k === 'currencyName' && api.get('currency') !== 'UE'); };
+      api.on('currency', sync); sync();
+    } },
+    { key: 'currencyName', label: 'Что означает условная единица', max: 100, wide: true, hint: 'Например: единица по пункту договора. Не приравниваем её к доллару без основания.' },
+    { key: 'exchangeRate', label: 'Курс, ₽ за единицу', type: 'number', min: 0 },
+    { key: 'exchangeRateDate', label: 'Дата курса', type: 'date' },
+    { key: 'exchangeRateSource', label: 'Основание курса', max: 300, wide: true },
+    { key: 'confirmedAmountRub', label: 'Подтверждённый итог в рублях', type: 'money', min: 0, hint: 'Если есть точная рублёвая сумма в банковском документе или переписке' },
+    { key: 'conversionNote', label: 'Основание рублёвого итога', type: 'textarea', max: 1000, wide: true },
+    { section: 'НДС документа', tone: 'money' },
+    { key: 'vatMode', label: 'Как указан НДС', type: 'select', options: [{ value: '', label: 'Не указан — сверить первичку' }, ...VAT_MODES], hint: 'Неизвестный НДС можно уточнить позже. «Без НДС» выбирайте только по документу.' },
+    { key: 'vatRate', label: 'Ставка НДС', type: 'select', options: VAT_RATES, hint: 'Для включённого НДС и начисления сверху ставка обязательна. 0% отличается от «Без НДС».' },
+    { key: 'declaredVatAmount', label: 'НДС по первичке, в валюте документа', type: 'number', min: 0, hint: 'В исходной валюте документа; неизвестное оставьте пустым.' },
+  ];
+}
+
+/** Одна явная форма оплаты для всех входов. Ключ и тело сохраняются после потерянного ответа. */
+async function buildPaymentForm(invoice, services) {
+  const payers = await services.payers();
+  if (invoice.payerCompanyId && !payers.some(x => String(x.value) === String(invoice.payerCompanyId))) payers.push({ value: invoice.payerCompanyId, label: invoice.payerName || 'Текущая компания' });
+  const files = photoField([], { pdf: true });
+  const foreign = foreignInvoice(invoice);
+  const form = buildForm([
+    { section: 'Добавить фактическую оплату', fixed: true },
+    { note: 'Дата оплаты — день перечисления денег, а не дата ввода. Можно внести старую оплату или аванс; товар от этого не считается полученным.' },
+    { key: 'payerCompanyId', label: 'Наша компания — плательщик', type: 'select', required: true, options: [{ value: '', label: 'Выберите компанию' }, ...payers] },
+    { key: 'date', label: 'Фактическая дата оплаты', type: 'date', required: true },
+    { key: 'amount', label: 'Фактически уплачено, ₽', type: 'money', required: true, min: 0 },
+    foreign ? { key: 'sourceAmount', label: `Погашено по счёту, ${invoiceCurrency(invoice)}`, type: 'number', required: true, min: 0, hint: 'Рублёвый платёж и погашение исходного обязательства сохраняются отдельно.' } : null,
+    { section: 'Подтверждение оплаты', tone: 'info' },
+    { key: 'note', label: 'Примечание / основание', type: 'textarea', max: 1000, wide: true },
+    { key: 'fileIds', label: 'Платёжный документ или подтверждение', type: 'widget', wide: true, widget: () => ({ el: files.el, get value() { return JSON.stringify(files.ids()); }, set value(_) {} }) },
+  ].filter(Boolean), { date: businessToday(), payerCompanyId: String(invoice.payerCompanyId || ''), amount: foreign ? '' : invoice.balanceDue ?? invoice.amount ?? '', sourceAmount: foreign ? invoice.sourceBalance ?? '' : '', note: '' });
+  const uid = globalThis.crypto?.randomUUID?.() || `payment-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  let submitted;
+  return { ...form, rejectSubmission: () => { submitted = undefined; }, busy: () => !!files.el.querySelector('.photo-drop.busy'), lockSubmission: () => { if (submitted) form.el.querySelectorAll('input,select,textarea,button').forEach(el => { el.disabled = true; }); }, payload: () => {
+    if (submitted) return submitted;
+    const read = form.read(); if (read.errors) return null;
+    submitted = Object.freeze(paymentBody(invoice, { ...read.values, fileIds: files.ids() }, uid));
+    return submitted;
+  } };
+}
 
 /** Сумма строки каноническая; изменение qty само по себе не умножает округлённую цену. */
 export function buildLineForm(invoice, line) {
@@ -18,14 +69,26 @@ export function buildLineForm(invoice, line) {
     draft = changeLine(draft, key, inputs[key].value, unitEdited);
     for (const other of ['unitPrice', 'lineAmount']) if (other !== key) inputs[other].value = draft[other];
   });
+  const source = foreignInvoice(invoice);
+  if (source) {
+    inputs.sourceUnitPrice = number('sourceUnitPrice', line.sourceUnitPrice ?? '', 'any'); inputs.sourceLineAmount = number('sourceLineAmount', line.sourceLineAmount ?? '', '0.01');
+    inputs.sourceUnitPrice.addEventListener('input', () => { const price = Number(inputs.sourceUnitPrice.value); const count = Number(inputs.qty.value); if (inputs.sourceUnitPrice.value.trim() && Number.isFinite(price * count)) inputs.sourceLineAmount.value = String(Math.round(price * count * 100) / 100); });
+  }
   const form = buildForm([
     { section: 'Изменить одну позицию', fixed: true },
     { note: `${line.title || line.materialName || 'Позиция'} · ${line.unit || ''}. Сохранение изменит только эту строку.` },
-    field('qty', 'Количество', inputs.qty), field('unitPrice', 'Цена за единицу, ₽', inputs.unitPrice), field('lineAmount', 'Общая сумма, ₽', inputs.lineAmount),
+    field('qty', 'Количество', inputs.qty), ...(!source ? [field('unitPrice', 'Цена за единицу, ₽', inputs.unitPrice), field('lineAmount', 'Общая сумма, ₽', inputs.lineAmount)] : []),
+    ...(source ? [field('sourceUnitPrice', `Цена первички, ${invoiceCurrency(invoice)}`, inputs.sourceUnitPrice), field('sourceLineAmount', `Сумма строки первички, ${invoiceCurrency(invoice)}`, inputs.sourceLineAmount)] : []),
+    !permissions(invoice, session).boundary ? { key: 'vatMode', label: 'НДС строки', type: 'select', options: [{ value: '', label: 'Как в документе' }, ...VAT_MODES.filter(x => x.value !== 'mixed')] } : null,
+    !permissions(invoice, session).boundary ? { key: 'vatRate', label: 'Ставка строки', type: 'select', options: VAT_RATES } : null,
+    !permissions(invoice, session).boundary ? { key: 'declaredVatAmount', label: `НДС строки по первичке, ${invoiceCurrency(invoice)}`, type: 'number', min: 0 } : null,
     inputs.reason ? field('reason', 'Причина корректировки *', inputs.reason) : null,
     { note: 'Общая сумма — за всё количество этой позиции. Цена за единицу её пересчитает; если меняете только количество — общая сумма не меняется.' },
-  ].filter(Boolean));
-  return { ...form, inputs, payload: () => lineBody(invoice, Object.fromEntries(Object.entries(inputs).map(([k, input]) => [k, input.value]))) };
+  ].filter(Boolean), { vatMode: line.vatMode || '', vatRate: line.vatRate ?? '', declaredVatAmount: line.declaredVatAmount ?? '' });
+  return { ...form, inputs, payload: () => { const read = form.read(); if (read.errors) return null; const draft = Object.fromEntries(Object.entries(inputs).map(([k, input]) => [k, input.value])); const body = lineBody(invoice, draft);
+    if (source) { delete body.lineAmount; for (const key of ['sourceUnitPrice', 'sourceLineAmount']) { const raw = String(draft[key]).trim(); if (raw) { const value = Number(raw.replace(',', '.')); if (!Number.isFinite(value) || value < 0) throw new Error('Проверьте цену и сумму исходной строки'); body[key] = value; } } }
+    for (const key of ['vatMode', 'vatRate', 'declaredVatAmount']) { const value = read.values[key]; if (value !== '' && value != null) body[key] = key === 'vatMode' ? value : Number(value); }
+    return body; } };
 }
 
 async function buildMetaForm(invoice, services) {
@@ -44,15 +107,22 @@ async function buildMetaForm(invoice, services) {
     !p.boundary ? { key: 'duplicateReason', label: 'Причина отдельного счёта с тем же номером', max: 200, wide: true, hint: 'Только если отдельный счёт с тем же номером действительно нужен.' } : null,
     { key: 'no', label: '№ счёта', max: 100 }, { key: 'date', label: 'Дата счёта', type: 'date' },
     p.payer ? { key: 'payerCompanyId', label: 'Наша компания', type: 'select', required: true, options: [{ value: '', label: 'Выберите компанию' }, ...payers], hint: 'Кто платит: без компании расход не попадёт в «Деньги»' } : null,
+    ...(p.finance ? financialFields(invoice) : []),
     { section: 'Договор поставщика', tone: 'info' },
     { key: 'contractId', label: 'Договор', type: 'select', options: contractOptions, wide: true },
     { note: link({ label: 'Создать договор отдельно →', href: services.href({ of: 'contract', new: '1', open: undefined, supplierId: invoice.supplierId }) }) },
     { section: 'Файлы', tone: 'info' }, widget,
     { note: '«Выбрать файл» — отдельная загрузка файла на сервер. К счёту он привяжется только после «Сохранить». Отмена не меняет реквизиты счёта.' },
-  ].filter(Boolean), { no: invoice.no || '', date: String(invoice.date || '').slice(0, 10), payerCompanyId: String(invoice.payerCompanyId || ''), contractId: String(invoice.contractId || ''), fileIds: fileIds() });
-  return { ...form, busy: () => !!files.el.querySelector('.photo-drop.busy'), payload: () => {
-    const read = form.read(); if (read.errors) return null;
-    return metaBody(invoice, { ...read.values, fileIds: fileIds() }, session);
+  ].filter(Boolean), { no: invoice.no || '', date: String(invoice.date || '').slice(0, 10), payerCompanyId: String(invoice.payerCompanyId || ''), contractId: String(invoice.contractId || ''), fileIds: fileIds(), currency: invoice.currency || 'RUB', currencyName: invoice.currencyName || '', exchangeRate: invoice.exchangeRate ?? '', exchangeRateDate: String(invoice.exchangeRateDate || '').slice(0, 10), exchangeRateSource: invoice.exchangeRateSource || '', confirmedAmountRub: invoice.confirmedAmountRub ?? '', conversionNote: invoice.conversionNote || '', vatMode: invoice.vatMode || '', vatRate: invoice.vatRate ?? '', declaredVatAmount: invoice.declaredVatAmount ?? '' });
+  const read = () => {
+    const result = form.read(); if (result.errors || !p.finance) return result;
+    try { financialMetaBody({ ...result.values, fileIds: fileIds() }, invoice); }
+    catch (error) { if (!error.field) throw error; const errors = { [error.field]: error.message }; form.markErrors?.([{ key: error.field, message: error.message }]); return { errors }; }
+    return result;
+  };
+  return { ...form, read, busy: () => !!files.el.querySelector('.photo-drop.busy'), payload: () => {
+    const result = read(); if (result.errors) return null;
+    return metaBody(invoice, { ...result.values, fileIds: fileIds() }, session);
   } };
 }
 
@@ -93,7 +163,7 @@ export async function buildWorkspaceForm(invoice, options, services) {
   const operation = options.operation || 'meta', lineId = options.lineId;
   assertOperation(invoice, session, operation, lineId);
   const form = operation === 'line' ? buildLineForm(invoice, invoice.requests.find((x) => x.id === lineId))
-    : operation === 'add' ? buildAddForm(invoice, services) : await buildMetaForm(invoice, services);
+    : operation === 'payment' ? await buildPaymentForm(invoice, services) : operation === 'add' ? buildAddForm(invoice, services) : await buildMetaForm(invoice, services);
   const conflict = h('div', { class: 'form-error', hidden: true });
   let bindSave, conflicted = false, duplicate = false;
   const duplicateInput = form.el.querySelector('[name="duplicateReason"]');
@@ -109,9 +179,11 @@ export async function buildWorkspaceForm(invoice, options, services) {
     p.add ? button({ label: 'Создать заявку', onClick: () => { location.hash = createHref; } }) : null), form.el, conflict,
     section({ title: 'Позиции этого счёта', count: (invoice.requests || []).length, open: true, body: services.overview(invoice) }));
   return { el, busy: form.busy, dirty: form.dirty,
-    bindSave: (fn) => { bindSave = fn; },
+    focus: form.focus,
+    bindSave: (fn) => { bindSave = fn; if (operation === 'payment') fn(true, 'Сохранить оплату'); },
     read: () => { const read = form.read(); return read.errors ? read : { values: { invoice, operation, lineId, body: form.payload() } }; },
     onError: (e) => {
+      if (operation === 'payment') { if (e?.status === 400) form.rejectSubmission?.(); else setTimeout(() => form.lockSubmission?.(), 0); }
       if (e?.status !== 409) return;
       duplicate = operation === 'meta' && !!e?.data?.existingInvoiceId;
       conflicted = true; bindSave?.(false);

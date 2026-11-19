@@ -317,6 +317,16 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
     // Подробности отказа (отмена позиции: что мешает и что зависит) — клиент показывает списком
     if (typeof payload === 'object' && payload !== null && 'details' in payload) errorResponse.details = (payload as { details?: unknown }).details;
+    // Версия и план сверки — часть контракта конфликтов, без раскрытия произвольных полей исключения.
+    if (status === HttpStatus.CONFLICT && typeof payload === 'object' && payload !== null) {
+      const conflict = payload as Record<string, unknown>;
+      for (const key of ['currentVersion', 'currentTreeRevision']) {
+        const value = conflict[key];
+        if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) errorResponse[key] = value;
+      }
+      const plan = conflict.plan;
+      if (plan && typeof plan === 'object' && !Array.isArray(plan) && (plan as Record<string, unknown>).readOnly === true) errorResponse.plan = plan;
+    }
     // ПП / ОШ: список полей, которых не хватает ([{ label, key }]) — форма подсветит
     if (typeof payload === 'object' && payload !== null && Array.isArray((payload as { missing?: unknown }).missing)) {
       errorResponse.missing = (payload as { missing: unknown[] }).missing;

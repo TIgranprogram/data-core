@@ -1,0 +1,29 @@
+{
+  "status": "UNIT_PASS_E2E_ABORTED_AFTER_ARCH",
+  "reason": "Coordinator requested two remaining P1 fixes after launch",
+  "recordedUtc": "2026-11-19T15:54:36.033378+00:00",
+  "unit": {
+    "suites": 359,
+    "tests": 3684,
+    "exitCode": 0,
+    "run": {
+      "command": "node --max-old-space-size=6144 node_modules/jest/bin/jest.js --silent --runInBand --json --outputFile=../tools/logs/c159-qa-unit-result.json",
+      "startedUtc": "2026-11-19T15:52:53.2004764Z",
+      "endedUtc": "2026-11-19T15:53:47.1047371Z",
+      "exitCode": 0
+    }
+  },
+  "e2e": {
+    "exitCode": -1,
+    "completedPassSuites": [
+      "financial-operations.qa.e2e-spec.ts",
+      "supply-invoices.e2e-spec.ts",
+      "stock-scope.e2e-spec.ts"
+    ],
+    "partialOnly": true
+  },
+  "manifestChangedFiles": [],
+  "sourceManifestSha256": "0423e3db6eb41722bdfd155096e0a5a85d6d2dda4643cde0c96b23d312453019",
+  "manifestAddedFiles": [],
+  "manifestRemovedFiles": []
+}

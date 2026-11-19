@@ -1,3 +1,5 @@
+import { FINANCIAL_KEYS, financialDictTable, financialDictFields, financialArticleBody, financialDictWrite } from './dicts-financial-articles.js';
+import { loadFinancialArticles } from './financial-articles.js';
 import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { busyBlock, failBlock } from '../ui/kit/busy.js';
@@ -17,13 +19,11 @@ import { dictSearchTokens, dictHaystack, buildDictsNav, flatNavItems } from './d
 import { dictsTable, fmt, linesToKinds, loadCodeNames, productGroupSortBtns, SCOPE_DICTS, offeredInPassportList } from './dicts-sort.js';
 import { removeDictItem, toggleDictCandidates } from './dicts-ops.js';
 import { CAT_NAMES } from '../core/passport-kinds.js';
-
 /** Справочники: #dicts?d=…; карточка of=dict; ptexts/passportPhrases/склады — отдельные экраны. */
 const dictKey = () => current().params.d || 'categories';
 const workTypesText = (r) => { const all = r.dictInfo?.refs?.worktypes || []; const ids = r.workTypeIds?.length ? r.workTypeIds : r.workTypeId ? [r.workTypeId] : []; return ids.map((id) => all.find((o) => String(o.value) === String(id))?.label).filter(Boolean).join(', '); };
 const isAdmin = () => session.role === 'admin' || session.user?.isOwner === true;
 const isLocked = (meta, r) => (meta?.locked || []).some((l) => (l.id && String(l.id) === String(r.id)) || (l.code && r.code && String(l.code) === String(r.code)));
-
 export function mountDicts(params) {
   let groups = [];
   let data = null;
@@ -50,7 +50,6 @@ export function mountDicts(params) {
   // шапка: название и пояснение слева, действия справа; ниже — поиск и фильтры с отступами панели (порядок C116)
   const box = h('section', { class: 'panel' }, pad(headbar(h('div', { class: 'dict-titles' }, title, hintEl), actions(candBtn, addBtn))), findBox, cand, body);
   const el = h('div', h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Справочники'), h('div', { class: 'sub' }, 'Здесь меняются значения выпадающих списков: добавить, исправить, удалить. Изменение сразу видно во всех разделах'))), layout.split({ side: nav, main: box, sideLabel: 'Справочники' }));
-
   // Меню: серверные группы → 4 понятные + «Контрагенты»; «Документы» свёрнуты, пока не выбран справочник из неё
   function renderNav() {
     const cur = dictKey();
@@ -72,9 +71,9 @@ export function mountDicts(params) {
     // после перерисовки — активный пункт в зоне видимости (не оставлять скролл на «Статьях расходов»)
     requestAnimationFrame(() => navBody.querySelector('.k-nav-item.on')?.scrollIntoView({ block: 'nearest' }));
   }
-
   function renderTable() {
     const dict = data?.dict || { key: dictKey(), columns: [], fields: [], refs: {} };
+    if (FINANCIAL_KEYS.has(dict.key) && data?.financialTree) { filters.replaceChildren(); body.replaceChildren(financialDictTable(data.financialTree, { q, canEdit: canEditDict(), redraw: renderTable })); return; }
     const items = data?.items || [];
     const cols = dict.columns.filter((c) => !(c.key === 'salaryRate' && !session.canPayroll));
     const fieldOf = (k) => dict.fields.find((f) => f.key === k);
@@ -144,7 +143,6 @@ export function mountDicts(params) {
       }),
     );
   }
-
   async function reloadTree(id) {
     try {
       const g = await api('/dicts');
@@ -158,7 +156,6 @@ export function mountDicts(params) {
       await tree.reload();
     } catch (e) { if (id === loadId) body.replaceChildren(failBlock(e, () => reload())); }
   }
-
   async function reloadZones(id) {
     try {
       const g = await api('/dicts');
@@ -172,7 +169,6 @@ export function mountDicts(params) {
       await zonesView.reload();
     } catch (e) { if (id === loadId) body.replaceChildren(failBlock(e, () => reload())); }
   }
-
   async function reloadTexts(id) {
     try {
       const g = await api('/dicts');
@@ -186,7 +182,6 @@ export function mountDicts(params) {
       await texts.reload();
     } catch (e) { if (id === loadId) body.replaceChildren(failBlock(e, () => reload())); }
   }
-
   async function reload() {
     const id = ++loadId, key = dictKey();
     if (key === TEXTS_KEY) return reloadTexts(id);
@@ -195,6 +190,7 @@ export function mountDicts(params) {
     findBox.hidden = false; loading = true; failed = false; renderTable();
     try {
       const [g, d] = await Promise.all([api('/dicts'), api(`/dicts/${key}`)]);
+      if (FINANCIAL_KEYS.has(key)) d.financialTree = await loadFinancialArticles({ type: key === 'expenseArticles' ? 'expense' : key === 'incomeArticles' ? 'income' : undefined, includeUsage: true, refresh: true });
       d.codeNames = await loadCodeNames(d.dict, api); if (id !== loadId) return; // коды соседних справочников → названия
       passCats = SCOPE_DICTS.has(key) ? await passportCategoryOptions().catch(() => []) : [];
       if (id !== loadId) return;
@@ -207,10 +203,10 @@ export function mountDicts(params) {
       if (!d.dict.locked && meta.locked) d.dict.locked = meta.locked;
       title.textContent = d.dict.title;
       // C145: сверху — зачем справочник (с примером), затем где видно
-      const why = [stockReadOnly ? 'Только просмотр: вашей роли недоступна правка справочников.' : '', String(d.dict.hint || '').trim()].filter(Boolean).join(' ');
+      const why = [stockReadOnly ? 'Только просмотр: вашей роли недоступна правка справочников.' : '', FINANCIAL_KEYS.has(d.dict.key) ? 'Переименовывайте и переносите статьи, сохраняя связи с документами и суммы.' : String(d.dict.hint || '').trim()].filter(Boolean).join(' ');
       const where = d.dict.sections?.length ? `Где видно: ${d.dict.sections.join(', ')}` : '';
       hintEl.textContent = [why, where].filter(Boolean).join(' · ') || '';
-      candBtn.hidden = !canEditDict() || ['colors', 'worktypes', 'payoutSchedules'].includes(d.dict.key);
+      candBtn.hidden = FINANCIAL_KEYS.has(d.dict.key) || !canEditDict() || ['colors', 'worktypes', 'payoutSchedules'].includes(d.dict.key);
       renderNav(); renderTable();
     } catch (e) { if (id === loadId) { loading = false; failed = true; renderTable(); body.replaceChildren(failBlock(e, () => reload())); } }
   }
@@ -221,9 +217,9 @@ export function mountDicts(params) {
     update: (p) => { if (p.d === TEXTS_KEY && shown === TEXTS_KEY) { texts?.update(); return; } if (p.d === TREE_KEY && shown === TREE_KEY) { tree?.update(); return; } if (p.d === ZONES_KEY && shown === ZONES_KEY) { zonesView?.reload(); return; } if (p.d !== shown) { shown = p.d; sbx.clear(); q = ''; qf = 'all'; sectionFilter = ''; kindFilter = ''; catFilter = ''; scopeMode = 'short'; cand.hidden = true; data = null; addBtn.hidden = true; candBtn.hidden = true; body.replaceChildren(busyBlock('справочник', { retry: () => reload() })); reload(); } },
   };
 }
-
 /** Объединить дубль: всё связанное перейдёт к выбранному, этот — в корзину. */
 async function mergeDialog(r, ctx) {
+  if (FINANCIAL_KEYS.has(dictKey())) { toast('Объединение статей недоступно. Используйте перенос или архив.', { error: true }); return; }
   const all = (await api(`/dicts/${dictKey()}`)).items.filter((x) => x.id !== r.id);
   const sel = enhanceSelect(select({ options: [['', '— выберите —'], ...all.map((x) => [x.id, x.name])], label: 'Оставить' }));
   const done = await modal({
@@ -239,7 +235,6 @@ async function mergeDialog(r, ctx) {
   });
   if (done) { toast(`Объединено: перенесено записей — ${done.moved}`); lookups.reset?.(); ctx.close(); window.dispatchEvent(new CustomEvent('data-changed')); patch({ of: 'dict', open: done.id }); }
 }
-
 /** Карточка справочника (правая панель): открывается из «Справочников» (of=dict). */
 /** Справочник с ограничением правки (`editRoles`, группа «Паспорта» — директор и админ); остальные — как раньше. */
 let editRoles = null;
@@ -287,12 +282,13 @@ export const dict = {
     view: (r) => (r.dictInfo?.fields || []).filter((f) => !['name', 'firstName', 'lastName', 'patronymic'].includes(f.key) || r.dict === 'persons')
       .filter((f) => f.type !== 'money' || session.canMoney)
       .map((f) => [f.key === 'workTypeId' && r.dict === 'persons' ? 'Виды работ' : f.label, f.key === 'workTypeId' && r.dict === 'persons' ? workTypesText(r) : isPhoto(f) ? photoStrip(r, f) : f.type === 'color' && r[f.key] ? h('span', null, colorBadge(r[f.key]), ' ', r[f.key]) : fmt(f, r[f.key], r.dictInfo.refs)]),
-    actions: (r) => [{ label: 'Объединить с…', run: (row, ctx) => mergeDialog(row, ctx) }],
+    actions: (r) => FINANCIAL_KEYS.has(dictKey()) ? [] : [{ label: 'Объединить с…', run: (row, ctx) => mergeDialog(row, ctx) }],
   },
   form: {
     // поля и списки выбора — с сервера (описание справочника), чтобы форма всегда совпадала с тем, что он хранит
     fields: async (r, key = dictKey()) => {
       const info = r?.dictInfo || (await api(`/dicts/${key}`)).dict;
+      if (FINANCIAL_KEYS.has(key)) { photoKeys = new Map(); return financialDictFields(r, key, info); }
       photoKeys = new Map(info.fields.filter(isPhoto).map((f) => [f.key, f.type]));
       // «К каким типам паспорта» — галочками-чипами (общий кусочек ui/cat-chips.js), а не строкой кодов «TRN, WRK»
       const catField = info.fields.find((f) => f.key === 'categories' && key !== 'passportCategories');
@@ -379,13 +375,13 @@ export const dict = {
     initial: () => (dictKey() === 'persons' ? { status: 'active' } : {}),
     // картинки (БЗ-6 Э9.7): в форме — загрузка/вставка как везде; в базе — id фото (photo — один, photos — список)
     toInitial: (r) => ({ ...r, workTypeIds: r.workTypeIds?.length ? r.workTypeIds : r.workTypeId ? [r.workTypeId] : [], ...Object.fromEntries((r.dictInfo?.fields || []).filter(isPhoto).map((f) => [f.key, idsOf(r[f.key]).map((id) => ({ id, url: r.photos?.[id]?.url, thumb: r.photos?.[id]?.thumb || r.photos?.[id]?.url }))])) }),
-    toBody: (v) => Object.fromEntries(Object.entries(v).filter(([k, x]) => !k.startsWith('_') && !(k === 'code' && (x === '' || x == null))).map(([k, x]) => [k, k === 'workTypeIds' ? String(x || '').split(',').map((t) => t.trim()).filter(Boolean) : k === 'requiredImages' ? (Array.isArray(x) ? x.map((kind) => (kind === 'assembly' ? 'assembly (если разборное)' : kind)).join('\n') : '') : photoKeys.get(k) === 'photo' ? (Array.isArray(x) ? x[0] || '' : '') : x === null || x === undefined ? (photoKeys.has(k) ? [] : '') : x])),
-    create: (b) => api(`/dicts/${dictKey()}`, { method: 'POST', body: b }).then((r) => { lookups.reset?.(); return r; }),
-    update: (id, b) => api(`/dicts/${dictKey()}/${id}`, { method: 'PATCH', body: b }).then((r) => { lookups.reset?.(); if (r?.moved > 0) toast('Название изменено везде'); return r; }),
+    toBody: (v) => FINANCIAL_KEYS.has(dictKey()) ? financialArticleBody(v) : Object.fromEntries(Object.entries(v).filter(([k, x]) => !k.startsWith('_') && !(k === 'code' && (x === '' || x == null))).map(([k, x]) => [k, k === 'workTypeIds' ? String(x || '').split(',').map((t) => t.trim()).filter(Boolean) : k === 'requiredImages' ? (Array.isArray(x) ? x.map((kind) => (kind === 'assembly' ? 'assembly (если разборное)' : kind)).join('\n') : '') : photoKeys.get(k) === 'photo' ? (Array.isArray(x) ? x[0] || '' : '') : x === null || x === undefined ? (photoKeys.has(k) ? [] : '') : x])),
+    create: (b) => FINANCIAL_KEYS.has(dictKey()) ? financialDictWrite(dictKey(), null, 'create', b) : api(`/dicts/${dictKey()}`, { method: 'POST', body: b }).then((r) => { lookups.reset?.(); return r; }),
+    update: (id, b) => FINANCIAL_KEYS.has(dictKey()) ? financialDictWrite(dictKey(), { id }, 'update', b) : api(`/dicts/${dictKey()}/${id}`, { method: 'PATCH', body: b }).then((r) => { lookups.reset?.(); if (r?.moved > 0) toast('Название изменено везде'); return r; }),
   },
   remove: { noTrash: true, // значения справочников на экране «Корзина» не показываются: у каждого справочника свой адрес
     text: (r) => `Удалить «${r.name}» из справочника «${r.dictInfo?.title || ''}»?`,
-    run: (r) => api(`/dicts/${dictKey()}/${r.id}`, { method: 'DELETE' }).then(() => lookups.reset?.()),
-    restore: (r) => api(`/dicts/${dictKey()}/${r.id}/restore`, { method: 'POST' }).then(() => lookups.reset?.()),
+    run: (r) => FINANCIAL_KEYS.has(dictKey()) ? financialDictWrite(dictKey(), r, 'remove') : api(`/dicts/${dictKey()}/${r.id}`, { method: 'DELETE' }).then(() => lookups.reset?.()),
+    restore: (r) => FINANCIAL_KEYS.has(dictKey()) ? financialDictWrite(dictKey(), r, 'restore') : api(`/dicts/${dictKey()}/${r.id}/restore`, { method: 'POST' }).then(() => lookups.reset?.()),
   },
 };

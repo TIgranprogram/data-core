@@ -1,5 +1,15 @@
 # Карта роли designer
 
+- C158/C161 (19.11), второй адресный проход: [UI-REVIEW](../../crew/C161-money-articles-structure/UI-REVIEW.md#второй-адресный-проход--итоговая-приёмка-исправлений), PASS компьютерного изменённого scope до merge main. Run1795107991023:16целевых/20PNG просмотрены, filters/clamp/parentselect/lastaction/legacywarn; identity1795107548633:6/6PNG, plan→confirm→ready. P1/P2 закрыты;34сценария не объявлены сплошным visualPASS, альтернативы соотнесены сQA. Коммит:179c6239 + diff; после merge только затронутые стыки; --done не запускался.
+
+
+- C161 identity (19.11), второй адресный проход: [UI-REVIEW](../../crew/C161-money-articles-structure/UI-REVIEW.md#второй-адресный-проход--подготовка-старых-оплат), поднабор PASS. Все6PNG run1795107548633 просмотрены; plan2→confirm→ready, даты/суммы читаемы обе темы1920/1024, готовая форма dark; JSON7строк/5фактов и100000/262455/−162455 неизменны. Остальные исправления ожидают readonly-run. Коммит:179c6239 + C158/C161 diff; --done не запускался.
+
+
+- C161 (19.11), первый review: [UI-REVIEW](../../crew/C161-money-articles-structure/UI-REVIEW.md), FAIL. Run1795103853183:10целевыхPNG, operations/byarticles обе темы1920/1024, editor/classification/dictionary/archived, legacy21427both1024. P1badgepaidприreconciliation; P2date/counterpartywidth, clippedpaths, duplicatewarning; IDподсказкиP3. IdentityUI SKIP. Матрица34сценариев и адресный2-йпакет в отчёте. Коммит:179c6239 + C159dirty, код не менял, --done не запускался.
+
+- C158 (19.11): [UI-REVIEW](../../crew/C158-supply-financial-fields/UI-REVIEW.md), PARTIAL. Run1795097544593:9целевых PNG открыты (paid dark1024/light1920/2560; FX forms/unknown; calendar/forecast/filter light1920). Follow-up1795098194258: ещё9целевых PNG, history/VATerror1920 и reopenedFX1024 обе темы PASS; общий PARTIAL: verticalscroll history/error1024 + новый requiresReconciliation.14horizontal geometryPASS,axeнет. Точные критерии закрытия root в UI-REVIEW, без третьего общего круга. Legacy21427 несогласованные сумма/paid/balance направлены root для APIсверки. Коммит:179c6239 + C158 dirty diff; C161 не принят, --done не запускался.
+
 - C156 (19.11): [UI-REVIEW](../../crew/C156-work-development-modes/UI-REVIEW.md), PASS изменённой отметки среды в проверенных состояниях: семь просмотренных снимков, QA 9/9 и диалоги 5/5; ограничения визуального покрытия в отчёте. Коммит: a425585c + рабочий C156 diff; review-scope --done не запускался.
 
 - C148 (18.11): [UI-REVIEW](../../crew/C148-composition-meaning/UI-REVIEW.md), PASS отснятых сценариев. 8 UI-состояний обе темы1920×1080 +2PDFpreview; unknown material, nameguard, дерево2→3/1, complex; API/действия по ACCEPTANCE. P2 слабый contrast dark-table-header. Новые C151/C152/C153 ветки этим не приняты.

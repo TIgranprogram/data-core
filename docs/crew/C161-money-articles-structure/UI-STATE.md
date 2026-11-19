@@ -1,0 +1,52 @@
+# C161 — фактические UI-состояния
+
+- `C159-UI-1795103357690`: **FAIL сценария**, продуктовая причина не установлена. APIfixture/controlPASS(7rows/5payments/100000income/262455expense/net−162455).
+- Доказательства:evidence/C159-UI-1795103357690-result.json иfailure-1920.png;историяпрогоновсохраняется.
+- Непройдено:UIclassification,rename/reparent/archive/reset,legacyincomeIDmaterialization,21427reconciliation. ЭтишагинеобъявлятьPASS.
+- Вероятенhelperrace:moneyScreenпослеPage.reloadчитаетdocument.body.textContentбезguard;дополнительныйreview/повторрешаеткоординатор.
+- Мутирующиепроверкисделанылегитимнотолькодляуникальныхfakefixturesвowned3198,старыеincomeметаданныедоостановкине менялись.
+- OwnEdgeprofileудалён;данныефикстурсохраненыдляследующегопрогона,проднетронут.
+
+
+## Продолжение той же фикстуры — C159-UI-RESUME-1795103853183
+
+Функциональный **PASS**,14PNG/geometryJSON. Проверенныйroot tools/logs/c159-ui-resume.mjs запущен черезapi.shstandBROWSER, безrefresh; helperAPIтолькоGET, UIзаписи в прежние fakefixtures разрешены отдельнымзаданием. ИсходныйFAILrun1795103357690сохранён.
+
+- UIуточнениестатьи → rename/reparent/archive → resetисходнойархивнойстатьи: IDиобщиеденежныефакты/суммы/даты/компаниясохранены.
+- Полныеитогиприlimit2:100000доход/262455расход/net−162455,7операционныхстрок/5денежныхплатежей; by-articlesBOTHсошёлся.
+- Таблицаопераций/статейобетемы1920/1024;словари/форма/историяархива1920. На1024операцииимеютвнутреннююгоризонтальнуюпрокруткутаблицы(parent897/scroll1489), document1009≤viewport1024; это геометрия, визуальнуюприёмкувыполняетdesigner.
+- Legacyincomeidentityprepare: **SKIP** — в выбранной APIвыдачеhelperнеобнаружилнеподготовленнуюдоступнуюисторию. Старыеincomeметаданныене менялись; невыдаватьэтотшагзаPASS.
+- C158№21427: **PASS** reconciliation, paidAmount=null,balanceDue=null;«Требуетсверки»вобеихтемах1024. Старыйложныйостатокнепоказывается.
+- Новыхbankfacts/счетов/компаний/статейэтимresumeнесоздавалось;данныетестовыхклассификацийменялисьтолькочерезпроверенныйUI. Сессияstdin,ownprofileудалён,прод/testDb/чужиеокнанетронуты.
+- CoreдвапоследующихP1точечныхисправленияещёневобразе; affectedreadsmokeпослеfinalrefreshпоручаетсяотдельно, не повторятьseed.
+
+
+Readonlyidentityprobe (fixedstand3198,api.shBROWSERбезEdge/записей):2026incomeoperations total2/read2,обеeditableсpaymentId,withoutId0,preparations0/plans0;рольadmin. Это объясняетSKIPвтекущемпериоде,неутверждаетотсутствиестарыхисторийвовсейбазе/другихгодах. Evidence:identity-probe.json. Новыхфикстур/прямогоMongo/prodзаписейнебыло.
+
+
+## Одобренная тестовая подготовка старого формата income
+
+Послеrootreviewобоихmaintenancehelper выполнен`c159-prepare-identity-fixture.mjs --apply-reviewed`тольковownedbackendкопии3198. ПодготовленТОЛЬКОнашfakeincome6aff1a7fc91ddf9297994506компании6aff1a7ec91ddf92979943feизпервойC161фикстуры.2paymentIdудалены,sourceversion0→1,timestampsвыключены;wholeprotectedfingerprintдо/послеравет`ad1070eaf671f0693d9f1a11a0a70101e5e5935d8567efb4fa8f2a6426fc550b`. Суммы60000+40000=100000,даты/компания/статьи/classOriginal/история/прочиеполядокумента не изменились. Никакогодругогодокумента/тестDb/prodзаписей.
+
+ДоCASобратныеметаданныесохраненывgitignoreddata/identity-fixture-before.json;после—data/identity-fixture-receipt.json. Повторhelperблокируетсяreceipt,автоматическийrawrollbackне предусмотрен:следующеедействие—официальнаяUIподготовкаID. НачальныйdefaultPLANпопыталсяinventoryвsandboxиполучилDockerpermissiondeniedдолюбыхDBдействий;одобренныйapplyвнеsandboxпрошёлвсетежеguards.
+
+ReadonlyAPIprobeпослеподготовки:withoutId2/withId0,уобеихстрокclassificationPreparationincome-payment-identities,plan canApply=true/changesCount2/blockers[]. Evidenceidentity-probe-after-fixture.json. Это **PREPAREDдляUIпроверки**,непройденныйplan→confirmсценарий. Кодbackend/PWAне менялся.
+
+
+## Реальная подготовка ID через UI — C159-IDENTITY-UI-1795107548633
+
+**PASS**,6PNG:plan2строкиобетемы1920/1024→«Подтвердитьподготовку»→явноеподтверждение→стабильнаяформаоперации.2разныхserverpaymentIDвосстановленыофициальнымAPI,повторныйplanchanges0. До/после7операционныхстрок/5платежей,100000income/262455expense/net−162455;fingerprintдат/сумм/company/articleодинаков. Никакихновыхденежныхфактов/тестовогоreseedingнебыло. Preparedfixtureповторнонеисполнялась. Профильудалён,сессияstdin,prod/testDbнетронуты.
+
+Стендобновлёнтолькоизнашейнесведённойworktree:HEAD179c6239105caf8284fc246637e4e2ac6897c45bdirty,builtAt2026-11-19T16:58:53.615Z,health200. Это **непроверкаcombinedmain** e4a1b0e0/v1.946;послеmergeпонадобитсяотдельныйактуальныйsmoke/QA.
+
+
+Capture`C161-FINAL-CAPTURE-1795107764693`остановленFAILhelper:после5lightтабличныхкадровожидалtableвзаведомопустойкомбинацииfakeкомпания+существующийчужойзаказ. UIкорректнопоказал0фактов,неproductbug. Скринfailureсохранён,фикстуры/данныене менялись. ПредикатhelperисправленнаtableORempty,добавленreadonlyдосъёмпоследнейколонки/parentвыборанаreviewroot. Старыйrunнескрывать. Свойпрофильудалён.
+
+
+## Финальный адресный capture — C161-FINAL-CAPTURE-1795107991023
+
+Функциональный **PASS**,20PNG+geometryJSON. ТолькоGETиreadonlyUI(фильтры,раскрытие,горизонтальнаяпрокрутка,focus/openparentбезсохранения). Tablesoperations1920/1024/2560обетемы;byarticles1920/1024обетемы;filtersс3уровневымпутём130символов1920/1024обетемы;operationsrightscroll1024обетемы;expensearticleparentlistopen1920обетемы;21427reconciliationheader1024обетемы.
+
+Все заказыреальнымchangeснимаетsalesOrderId/mode/order,сохраняяcompanyId/from/to/articleId(обетемы). Lastactiontableпослепрокруткиподтверждёнвviewport. Wholepagehorizontalнепоявилась(document1009≤1024);внутренняяпрокруткатаблицыпредусмотрена. ПослефильтровGETконтроль7операций/100000income/262455expense/net−162455и2stableincomeIDсохранён.
+
+Designerполучилточныйrunдлявизуальнойприёмки;доступсамвиднепринимает. ЭтонашаworktreeHEAD179c6239dirty,builtAt16:58:53.615Z,**доmergeсmain**;combinedQA/smokeещёнужны. ИсходныйhelperFAILсemptyсохранёнкакпрошлыйrun. OwnEdgeprofileудалён,чужиеокна/данные/prod/testDbне менялись. Локальныйstandapi.patchсохранёнвtools/logs/c161-stand-api-local.patch,api.shещёНЕвосстановлендоуказанияroot.

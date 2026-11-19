@@ -233,3 +233,32 @@
 
 ## C090 — частичные оплаты (2026-11-12)
 - `backend/src/modules/salesorders/salesorders.service.ts:63`, `production-orders.service.ts:162`: paidDate → amount, иначе paidAmount ?? 0; фильтры deletedAt/cancelledAt сохранены. Регрессия: `backend/test/e2e/salesorders.e2e-spec.ts:145` (8 случаев × 2 сводки). Отчёт: `docs/crew/C090-small-fixes/BACKEND.md`. коммит: — (не выполнялся).
+
+## C158 — поля счетов и фактические оплаты (2026-11-19)
+- backend/src/modules/supply/invoice-financials.ts:3 — общий currencyenum; :59/:70 — legacy reconciliation без выдуманного долга; supply-invoice-payments.service.ts:136/:141/:152 — body replay + обязательный CAS, :163 — transactional invoice_paid callback.
+- backend/src/modules/supply/supply-invoice.service.ts:488 — ledger addRequests409; :690/:805 — общий явный RUBadminoverride для PATCHlines/PATCHrequest, CAS/audit/receivedgate; :869 — payment callback.
+- backend/src/modules/supply/invoice-payment-summary.ts:4 — batch; finance.service.ts:83/:93 — relevant global headers + indexed obligations/needsConversion; :257/:288 — cashflow/forecast.
+- backend/test/e2e/supply-invoice-payments.e2e-spec.ts:209/:228 — всеFX; :288 — forcedcurrency/payerCAS; :304/:315 — ambiguous legacy; :322 — invoice_paid transition.14suites/258unit и6suites/71e2e PASS; BACKEND-REPORT/evidence в crew/C158.
+- коммит: — (по поручению не выполнялся); карта обновлена.
+
+## C161 сервер дерева финансовых статей (19.11.2026)
+- `expense-articles/articles-tree.ts:36` buildFinancialTree/diagnostics/32уровня/10000узлов, `:76` совместимая buildTree expense-проекция; уникальный articleOfCategory, payroll-group code в начальном JSON.
+- `expense-articles/financial-article-writer.ts:28` guardReference(session) на counters.referenceGuard (не seq), `:52` effective categoryhint guard для старых оплат; `:101` единый mutate/CAS/treeRevision/audit, `:142` seed по code. Исторические refs — financial-article-usage.ts (включая history послеreset).
+- `expense-articles/expense-articles.service.ts:23` financialList(includeUsage=false), `:33` assertSelectable(id,type,{session})→rawdoc; модели financial-article.schema.ts / DTO. DictsService делегирует3aliases, каталог показывает толькоfinancialArticles; GETdeleted даётfreshversion, DELETE/restoreJSONbodyversion+expectedTreeRevision, merge409.
+- Проверки:18unit suites/100tests,2e2esuites/12tests,tsc0/lint0errors/cycles0. Отчёт C161/ARTICLES-BACKEND-REPORT.md; коммит:179c6239 (изменения не закоммичены).
+
+## C161 статьи — адресные исправления первого ARCHreview (19.11.2026)
+- `expense-articles/articles-tree.ts:36` shape всех предков/rootarticleinvalid propagates; `:71` assertSelectable защищаетroot/invalid; `:77` legacylookup сохраняетвсеdescendant/archivedIDсflags, `:100` categoryhintтолькоactiveexpenseleaf. `financial-article-writer.ts:73` rootarticle400+parentIdhint.
+-18unit suites/108testsPASS;адресныйe2e12/14с2fixtureошибками,ихотдельныйповтор2/2PASS(неодин14/14);ARTICLES-FIX-REPORT.md, общийfinalQAвпереди. Rootensure-indexesреестрсинхронизированотдельно. коммит:179c6239(незакоммичено).
+
+## C161 CORE — операции и классификация (19.11.2026)
+- backend/src/common/financial-classification.ts:2 — typed original/override/effective/history; finance/financial-classification.service.ts:26/:88 — source-qualified address, права/CAS/audit/retry/reset; financial-operations-reader.service.ts:24/:93 — bounded filters/summary vs detail.
+- backend/src/modules/incomes/income-payment-identities.service.ts:1 — адресные plan/materialize metadata-only; income-payment-identities.ts:1 — серверныеIDs/защита массива; incomes.service.ts:71/:485/:503 — session article guard/source CAS; income-cancel.service.ts:104/:134/:149 — cancel/restore/move CAS.
+- backend/src/modules/supply/supply-invoice-payments.service.ts:86 — stale auto-default→null+warning, session referenceGuard; initLegacy carry сохраняет original/history/alias. expenses.service.ts:109 — старые source analytics409; finance/financial-article-report.ts:1 — recursive BOTH+совместимые object opts.
+- backend/test/e2e/financial-operations.e2e-spec.ts:1 —16e2ePASS13.327s;333unitPASS8.741s. REPORT-C159-CORE.md/evidence core-*-final.json; benchmark120selected/900outside=17.97ms,page2,истории только detail.
+- коммит: — (по поручению не выполнялся); карта обновлена.
+
+## C161 финальные два адресных остатка (19.11.2026)
+- backend/src/modules/stock/stock-reservations.service.ts:143 — optional externalSession без вложенной транзакции; stock.service.ts:101 — forwarding; incomes/income-cancel.service.ts:124 — reservation/design/work одной session, ошибка каскада не подавляется.
+- backend/src/modules/supply/supply.service.ts:624 — paid truth из header/snapshot при false mirror, marker ledger сохраняет приоритет; backend/test/e2e/financial-operations.e2e-spec.ts:239/:257 — forced rollback4сущностей/retry и snapshot falsemirror regression.
+- Проверки:core18/18PASS13.659s; stock/incomes/supply4suites182unitPASS6.155s; tsc/lint/cycles0. JSON evidence/core-e2e-two-fixes-pass.json/core-unit-two-fixes.json; коммит: —; карта обновлена.

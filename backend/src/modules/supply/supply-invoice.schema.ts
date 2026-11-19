@@ -1,3 +1,5 @@
+import type { ClassificationMetadata } from '../../common/financial-classification';
+import { INVOICE_CURRENCIES } from './invoice-financials';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 
@@ -43,6 +45,25 @@ export type SupplyInvoicePaymentAdjustment = {
  */
 @Schema({ collection: 'supplyinvoices', timestamps: true })
 export class SupplyInvoice {
+  /** Метаданные классификации старых фактов, без изменения paymentSnapshot. */
+  @Prop({ type: Object }) legacyClassifications?: Record<string, ClassificationMetadata>;
+
+  /** Новые реквизиты документа не меняют рублёвую семантику amount/priceHint. */
+  @Prop({ enum: INVOICE_CURRENCIES }) currency?: string;
+  @Prop({ maxlength: 100 }) currencyName?: string;
+  @Prop({ min: 0 }) exchangeRate?: number;
+  @Prop() exchangeRateDate?: string;
+  @Prop({ maxlength: 300 }) exchangeRateSource?: string;
+  @Prop({ min: 0, type: Number }) confirmedAmountRub?: number | null;
+  @Prop({ maxlength: 1000 }) conversionNote?: string;
+  @Prop({ enum: ['included', 'excluded', 'none', 'mixed'] }) vatMode?: string;
+  @Prop({ type: Number }) vatRate?: number | null;
+  @Prop({ type: Number }) declaredVatAmount?: number | null;
+  @Prop({ type: Object }) financialLines?: Record<string, unknown>;
+  @Prop({ type: Number, index: true }) paymentAccountingVersion?: number;
+  @Prop({ min: 0 }) paidAmount?: number;
+  @Prop({ min: 0 }) sourcePaidAmount?: number;
+
   @Prop({ trim: true })
   no?: string;
 
@@ -121,3 +142,7 @@ export class SupplyInvoice {
 }
 
 export const SupplyInvoiceSchema = SchemaFactory.createForClass(SupplyInvoice);
+
+// C158: отбор текущих обязательств по компании/статусу/дате без полной истории.
+SupplyInvoiceSchema.index({ payerCompanyId: 1, status: 1, date: 1, deletedAt: 1 });
+SupplyInvoiceSchema.index({ status: 1, 'paymentSnapshot.paidAt': 1, payerCompanyId: 1 });

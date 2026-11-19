@@ -1,3 +1,6 @@
+import { patch } from '../core/router.js';
+import { requestInvoiceOperation } from './invoice-workspace-state.js';
+import { getPayers } from './invoice-workspace-api.js';
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { isoDay, money, parseNum, qty } from '../core/format.js';
@@ -42,7 +45,8 @@ async function buildInvoiceForm(opts = {}) {
   const sup = h('input', { maxlength: 200 });
   const company = enhanceSelect(h('select', null, h('option', { value: '' }, '—'), ...(lk.companies || []).map((c) => h('option', { value: c }, c))));
   const type = h('input', { maxlength: 60 });
-  let state = opts.paste ? 'ordered' : 'received';
+  let state = 'ordered';
+  let createdInvoice = null;
   let cc = 'workshop';
   const ccBox = segmented({ items: Object.entries(COST_CENTER).map(([k, l]) => ({ key: k, label: l })), value: cc, onChange: (k) => { cc = k; } }).el;
   // по умолчанию выкл. (пользователь 2026-10-28): приход оформляет кладовщик, а не тот, кто вносит счёт
@@ -192,7 +196,7 @@ async function buildInvoiceForm(opts = {}) {
   const body = h('div', { class: 'inv' },
     h('p', { class: 'hint' }, opts.paste
       ? 'Заявки сразу на много позиций — из таблицы поставщика или корзины сайта. Найденное в базе подставится, остальное станет новыми позициями.'
-      : 'Счёт, которого не было в заявках (уже оплатили / уже привезли). На каждую позицию будет заявка с этим счётом — расходы и склад посчитаются как обычно.'),
+      : 'Внесите строки неоплаченного счёта. Валюту и НДС уточните в его карточке; если уже платили — после сохранения откроется форма фактической даты и суммы оплаты.'),
     pasteBox,
     h('div', { class: 'form-grid inv-head' }, field(h('span', null, opts.paste ? '№ счёта (если уже есть)' : '№ счёта', noStar), no), field('Дата счёта', date), field(h('span', null, 'Поставщик', h('span', { class: 'req' }, ' *')), h('div', { class: 'has-combo' }, sup)), field(h('span', null, 'Наша компания', coStar), company), field('Тип счёта', h('div', { class: 'has-combo' }, type)), h('div', { class: 'field wide' }, h('span', null, 'Что уже произошло'), stateBox), h('div', { class: 'field wide' }, h('span', null, 'Куда пошло (для «Денег»)'), ccBox), h('label', { class: 'check wide' }, toStock, ' При «Получено» — сразу поставить на склад (обычно приход оформляет кладовщик)')),
     h('div', { class: 'section-title' }, 'Позиции счёта'),
@@ -214,13 +218,12 @@ async function buildInvoiceForm(opts = {}) {
     if (!list.length) throw new Error('добавьте хотя бы одну позицию');
     for (const r of list) if (!r.cat.value.trim()) throw new Error(`выберите категорию для «${r.title.value.trim()}»`);
     for (const r of list) if (!(parseNum(r.q.value) > 0)) throw new Error(`укажите количество для «${r.title.value.trim()}»`);
-    const st = STATE.find((s) => s.value === state);
     for (const r of list) {
       r.uid ??= uid();
       const body2 = {
         title: r.title.value.trim(), qty: parseNum(r.q.value), unit: r.unit.value.trim() || 'шт', categoryName: r.cat.value.trim(),
         supplierName: sup.value.trim(), companyName: company.value, invoiceType: type.value.trim(), invoiceNo, invoiceDate: date.value || '',
-        productUrl: r.url.value.trim(), photoIds: r.photos.ids(), statusLabel: st.status, priorityLabel: 'Обычный', requestDate: date.value || isoDay(),
+        productUrl: r.url.value.trim(), photoIds: r.photos.ids(), statusLabel: 'В работе', priorityLabel: 'Обычный', requestDate: date.value || isoDay(),
         clientUid: r.uid, costCenter: cc, ...((r.extra.article || r.srcArticle) ? { article: r.extra.article || r.srcArticle } : {}),
       };
       if (session.canMoney && parseNum(r.sum.value) > 0) body2.priceHint = parseNum(r.sum.value);
@@ -230,7 +233,23 @@ async function buildInvoiceForm(opts = {}) {
         for (const el of [r.title, r.q, r.unit, r.sum, r.cat]) el.disabled = true;
         r.el.classList.add('inv-done'); r.el.querySelectorAll('button').forEach((b) => { b.disabled = true; });
       }
-      if (state === 'received' && !r.received) { await api(`/supply/requests/${r.saved.id}/receive`, { method: 'POST', body: { qty: parseNum(r.q.value), clientUid: 'inv-' + r.uid, toStock: toStock.checked, costCenter: cc } }); r.received = true; }
+
+    }
+    if (invoiceNo) {
+      if (!createdInvoice) {
+        // Потерянный ответ создания: сначала проверяем уже связанную заявку, не создаём ещё один счёт.
+        const first = await api(`/supply/requests/${list[0].saved.id}`);
+        if (first.invoiceId) createdInvoice = await api(`/supply/invoices/${first.invoiceId}`);
+        else { const made = await api('/supply/invoices', { method: 'POST', body: { requestIds: list.map(r => r.saved.id) } }); createdInvoice = made.items?.[0]; }
+      }
+      if (!createdInvoice?.id) throw new Error('Не удалось определить созданный счёт. Ввод сохранён; повторите сохранение.');
+      const payers = company.value ? await getPayers() : [];
+      const payer = payers.find(c => c.label === company.value);
+      createdInvoice = await api(`/supply/invoices/${createdInvoice.id}`, { method: 'PATCH', body: { no: invoiceNo, date: date.value || '', ...(payer ? { payerCompanyId: payer.value } : {}), ...(state !== 'ordered' ? { issue: true } : {}) } });
+      if (state === 'received') for (const r of list) if (!r.received) { await api(`/supply/requests/${r.saved.id}/receive`, { method: 'POST', body: { qty: parseNum(r.q.value), clientUid: 'inv-' + r.uid, toStock: toStock.checked, costCenter: cc } }); r.received = true; }
+      if (state === 'paid') requestInvoiceOperation(createdInvoice.id, 'payment');
+      const openId = createdInvoice.id;
+      setTimeout(() => patch({ of: 'invoicecard', open: openId, new: undefined }), 0);
     }
     rememberPairs(sup.value.trim(), list.filter((x) => x.src).map((x) => ({ extName: x.src.name, extArticle: x.src.article, title: x.title.value.trim(), unit: x.unit.value.trim(), categoryName: x.cat.value.trim(), article: x.extra.article || x.srcArticle || undefined })));
     toast(`${invoiceNo ? 'Счёт ' + invoiceNo : 'Заявки'} внесены: ${list.length} ${list.length === 1 ? 'позиция' : 'позиций'}${state === 'received' ? ', товар на складе' : ''}`);

@@ -104,18 +104,18 @@ export class DictsController {
   @Delete(':key/:id')
   @Roles('manager')
   @AuditAction({ action: 'dict.deleted', entityType: 'DictItem', idParam: 'id', details: (_d, p) => ({ meta: { dict: p.key } }) })
-  remove(@Param('key') key: string, @Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+  remove(@Param('key') key: string, @Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Body() body: Record<string, unknown> = {}) {
     this.dicts.assertCanEdit(key, user);
-    return this.dicts.remove(key, id, user);
+    return this.dicts.remove(key, id, user, body);
   }
 
   @Post(':key/:id/restore')
   @HttpCode(200)
   @Roles('manager')
   @AuditAction({ action: 'dict.restored', entityType: 'DictItem', idParam: 'id', details: (_d, p) => ({ meta: { dict: p.key } }) })
-  async restore(@Param('key') key: string, @Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+  async restore(@Param('key') key: string, @Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Body() body: Record<string, unknown> = {}) {
     this.dicts.assertCanEdit(key, user);
-    return payrollMask(key, user, await this.dicts.restore(key, id));
+    return payrollMask(key, user, await this.dicts.restore(key, id, body));
   }
 
   @Post(':key/:id/merge')

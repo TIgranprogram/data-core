@@ -1277,7 +1277,7 @@
   // ---- Подключение: адрес, ключ, промт для ИИ, примеры, схема (/api/meta/*) ----
   const BASE_URL = location.origin + API;
   const META_HIDE = new Set(['users', 'roles', 'permissions', 'featureflags', 'rate_limit_entries', 'desktop_pairing_keys',
-    'browserdevicegrants', 'deviceinvites', 'auditlogs', 'idempotency_records', 'counters', 'dictionary_labels', 'migration_flags', 'stock_catalog_name_reservations']);
+    'browserdevicegrants', 'deviceinvites', 'auditlogs', 'idempotency_records', 'counters', 'dictionary_labels', 'migration_flags', 'stock_catalog_name_reservations', 'supplyinvoicepayments']);
   const cxState = { schema: null, lang: 'sheets' };
   function fieldLabel(f) {
     let s = f.path + (f.required ? '*' : '');

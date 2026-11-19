@@ -1,0 +1,74 @@
+{
+  "run": "C159-UI-1795103357690",
+  "origin": "http://localhost:3198",
+  "checks": [],
+  "fixtures": [
+    {
+      "companyId": "6aff1a7ec91ddf92979943fe"
+    },
+    {
+      "articleId": "6aff1a7ec91ddf9297994409"
+    },
+    {
+      "articleId": "6aff1a7ec91ddf929799441a"
+    },
+    {
+      "articleId": "6aff1a7ec91ddf929799443e"
+    },
+    {
+      "articleId": "6aff1a7ec91ddf929799445a"
+    },
+    {
+      "articleId": "6aff1a7ec91ddf929799446e"
+    },
+    {
+      "articleId": "6aff1a7ec91ddf929799447e"
+    },
+    {
+      "invoiceId": "6aff1a7fc91ddf92979944af",
+      "requestIds": [
+        "6aff1a7fc91ddf9297994492",
+        "6aff1a7fc91ddf92979944a3"
+      ],
+      "incomeId": "6aff1a7fc91ddf9297994506",
+      "expenseId": "6aff1a7fc91ddf929799450e"
+    }
+  ],
+  "screenshots": [
+    "C159-UI-1795103357690-failure-1920.png"
+  ],
+  "status": "FAIL",
+  "control": {
+    "rows": 7,
+    "bankPayments": 5,
+    "totals": {
+      "income": 100000,
+      "expense": 262455,
+      "net": -162455,
+      "currency": "RUB"
+    }
+  },
+  "error": "Ошибка браузерного шага",
+  "geometry": [
+    {
+      "name": "failure",
+      "width": 1920,
+      "height": 1080,
+      "documentWidth": 1905,
+      "viewportWidth": 1920,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": "Фактические денежные операции",
+          "top": 669.859375,
+          "bottom": 791.65625,
+          "left": 280,
+          "right": 1873,
+          "parentWidth": 1593,
+          "parentScrollWidth": 1593
+        }
+      ]
+    }
+  ],
+  "profileCleanup": "Свой профиль удалён; остановлены только Edge с точным путём runID"
+}

@@ -6,7 +6,7 @@ import { incomeDerived, incomePayments } from './income.schema';
 /** Цепочка запросов Mongoose (find().sort().skip()…lean().exec()) — любой метод возвращает её же, exec отдаёт результат. */
 const chain = (result: unknown) => {
   const c: Record<string, jest.Mock> = {};
-  for (const m of ['sort', 'skip', 'limit', 'lean', 'setOptions']) c[m] = jest.fn(() => c);
+  for (const m of ['sort', 'skip', 'limit', 'lean', 'setOptions', 'session']) c[m] = jest.fn(() => c);
   c.exec = jest.fn(async () => result);
   return c;
 };
@@ -63,9 +63,9 @@ describe('IncomesService', () => {
     const collection = (name: string) => ({
       find: jest.fn(() => ({ toArray: async () => colls[name] ?? [] })),
       findOne: jest.fn(async () => (colls[name] ?? [])[0] ?? null),
-      distinct: jest.fn(async () => []),
+      distinct: jest.fn(async () => []), countDocuments: jest.fn(async () => 0),
     });
-    const connection = { db: { collection: jest.fn(collection) } };
+    const connection = { db: { collection: jest.fn(collection) }, startSession: async () => ({ withTransaction: async (fn: () => Promise<unknown>) => fn(), endSession: async () => undefined }) };
     model = {
       find: jest.fn(() => chain([])),
       findOne: jest.fn((f: Record<string, unknown>) => chain(f.clientUid ? dup : current)),
@@ -268,13 +268,13 @@ describe('IncomesService', () => {
     describe('C049-1: version — защита от тихой перезаписи', () => {
       const stale = (e: unknown) => (e as { getStatus(): number; getResponse(): { code?: string } });
 
-      it('без version — пишет как раньше, version +1', async () => {
+      it('без version — фиксирует прочитанную sourceversion, version +1', async () => {
         current = base();
         await service.update(String(current._id), { qty: 3 } as never);
         const [filter, upd] = model.updateOne.mock.calls[0];
         expect(upd.$inc).toEqual({ version: 1 });
         expect(filter).not.toHaveProperty('version');
-        expect(filter).not.toHaveProperty('$or');
+        expect(filter.$or).toEqual([{ version: 0 }, { version: { $exists: false } }]);
       });
 
       it('верная version — условие в фильтре updateOne', async () => {
@@ -309,6 +309,7 @@ describe('IncomesService', () => {
   describe('remove / restore', () => {
     it('remove ставит deletedAt и editedInApp', async () => {
       const id = String(new Types.ObjectId());
+      current = { _id: new Types.ObjectId(id), amount: 0 };
       await expect(service.remove(id)).resolves.toEqual({ id, deleted: true });
       expect(model.updateOne.mock.calls[0][1].$set).toMatchObject({ editedInApp: true });
       expect(model.updateOne.mock.calls[0][1].$set.deletedAt).toBeInstanceOf(Date);
@@ -323,7 +324,7 @@ describe('IncomesService', () => {
       const id = new Types.ObjectId();
       current = { _id: id, title: 'Скамья' };
       const res = await service.restore(String(id));
-      expect(model.updateOne.mock.calls[0][1]).toEqual({ $set: { deletedAt: null } });
+      expect(model.updateOne.mock.calls[0][1]).toEqual({ $set: { deletedAt: null, editedInApp: true }, $inc: { version: 1 } });
       expect(res.id).toBe(String(id));
     });
 
@@ -463,7 +464,7 @@ describe('HARDEN-1: платежи не теряются', () => {
   let service: IncomesService;
   const chain2 = (r: unknown) => { const c: Record<string, jest.Mock> = {}; for (const m of ['lean', 'setOptions']) c[m] = jest.fn(() => c); c.exec = jest.fn(async () => r); return c; };
   beforeEach(() => {
-    current = { _id: new Types.ObjectId(), title: 'Скамья', qty: 1, unitPrice: 1000, amount: 1000, paidAmount: 300, payments: [{ date: new Date('2026-10-01'), amount: 300 }] };
+    current = { _id: new Types.ObjectId(), title: 'Скамья', qty: 1, unitPrice: 1000, amount: 1000, paidAmount: 300, payments: [{ paymentId: '000000000000000000000159', date: new Date('2026-10-01'), amount: 300 }] };
     upd = jest.fn(() => chain2({ matchedCount: 1 }));
     const model = { findOne: jest.fn(() => chain2(current)), updateOne: upd };
     const conn = { db: { collection: () => ({ findOne: async () => null, find: () => ({ toArray: async () => [] }) }) } };
@@ -481,26 +482,26 @@ describe('HARDEN-1: платежи не теряются', () => {
     await expect(service.update(id(), { paidDate: '2026-10-05' } as never)).rejects.toThrow('меняйте в платеже');
     expect(upd).not.toHaveBeenCalled();
   });
-  it('п.1: payments: [] отменяет оплату', async () => {
-    await service.update(id(), { payments: [], paidDate: '' } as never);
-    expect(upd.mock.calls[0][1].$set.paidAmount).toBe(0);
+  it('C159: payments: [] не стирает serverpaymentId', async () => {
+    await expect(service.update(id(), { payments: [], paidDate: '' } as never)).rejects.toThrow('paymentId');
+    expect(upd).not.toHaveBeenCalled();
   });
   it('п.2: addPayment пишет с условием на прежнее состояние; не совпало — 409', async () => {
     await service.addPayment(id(), { date: '2026-10-02', amount: 100 });
     expect(upd.mock.calls[0][0]).toMatchObject({ paidAmount: 300, payments: { $size: 1 } });
     upd.mockReturnValue(chain2({ matchedCount: 0 }));
-    await expect(service.addPayment(id(), { date: '2026-10-02', amount: 100 })).rejects.toThrow('Оплату уже изменили');
+    await expect(service.addPayment(id(), { date: '2026-10-02', amount: 100 })).rejects.toThrow(/изменили|изменена/);
   });
   it('п.2: повтор с тем же clientUid не добавляет платёж', async () => {
     current.paymentUids = ['u1'];
     await service.addPayment(id(), { date: '2026-10-02', amount: 100, clientUid: 'u1' });
     expect(upd).not.toHaveBeenCalled();
     await service.addPayment(id(), { date: '2026-10-02', amount: 100, clientUid: 'u2' });
-    expect(upd.mock.calls[0][1].$push).toEqual({ paymentUids: 'u2' });
+    expect(upd.mock.calls[0][1].$push).toMatchObject({ paymentUids: 'u2', paymentReceipts: { clientUid: 'u2', requestHash: expect.any(String) } });
   });
   it('п.2: removePayment — сумма не совпала с платежом по номеру → 409', async () => {
-    await expect(service.removePayment(id(), 0, undefined, 999)).rejects.toThrow('Оплату уже изменили');
-    await service.removePayment(id(), 0, undefined, 300);
+    await expect(service.removePayment(id(), 0, undefined, 999, '000000000000000000000159', 0)).rejects.toThrow('Оплату уже изменили');
+    await service.removePayment(id(), 0, undefined, 300, '000000000000000000000159', 0);
     expect(upd.mock.calls[0][0]).toMatchObject({ payments: { $size: 1 } });
   });
   it('п.14: позицию с оплатой удалить нельзя — 409, запись не тронута', async () => {

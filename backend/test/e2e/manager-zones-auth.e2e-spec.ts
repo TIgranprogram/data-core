@@ -29,7 +29,8 @@ describe('Manager money, zones, auth remember', () => {
     const req = (await http().post('/api/supply/requests').set(as(m)).send({ title: 'Болт М', qty: 1, unit: 'шт', supplierName: 'Крепёж М', priceHint: 120, clientUid: 'mz-1' }).expect(201)).body;
     expect((await http().get(`/api/supply/requests/${req.id}`).set(as(m)).expect(200)).body.priceHint).toBe(120);
     const inv = (await http().post('/api/supply/invoices').set(as(m)).send({ requestIds: [req.id] }).expect(201)).body.items[0];
-    const org = await db().collection('organizations').findOne({ name: 'Крепёж М' });
+    const org = { _id: new Types.ObjectId(), name: 'Наша компания manager QA', inn: '9900006158', isOurCompany: true, deletedAt: null };
+    await db().collection('organizations').insertOne(org);
     const p = await http().patch(`/api/supply/invoices/${inv.id}`).set(as(m)).send({ no: 'М-1', date: '2026-10-29', amount: 120, issue: true, payerCompanyId: String(org!._id) }).expect(200);
     expect(p.body.amount).toBe(120);
     const paid = await http().post(`/api/supply/invoices/${inv.id}/pay`).set(as(m)).expect(200);

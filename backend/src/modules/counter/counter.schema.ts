@@ -22,6 +22,10 @@ export class Counter {
 
   @Prop()
   value?: number;
+
+  /** Сериализация ссылок со структурой финансовых статей; seq остаётся ревизией дерева. */
+  @Prop()
+  referenceGuard?: number;
 }
 
 export const CounterSchema = SchemaFactory.createForClass(Counter);

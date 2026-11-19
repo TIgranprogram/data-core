@@ -1,10 +1,14 @@
+import { createHash } from 'crypto';
+import { ExpenseArticlesService } from '../expense-articles/expense-articles.service';
+import { protectIncomePaymentWrites } from './income-payment-identities';
+import { hasClassificationHistory } from '../../common/financial-classification';
 import { photoToFront } from '../../common/photo-main';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { customerNames } from '../partners/customer-names';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import type { Connection, Model } from 'mongoose';
+import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { INCOME_NO_CONTRACT_DEDUPE_DAYS, incomeNoContractText, noContract } from '../zones/zone-events';
 import { ProductRequestsService } from '../product-requests/product-requests.service';
@@ -61,7 +65,34 @@ export class IncomesService {
     @InjectModel(Income.name) private readonly model: Model<IncomeDocument>,
     private readonly moduleRef: ModuleRef,
     @Optional() private readonly zones?: ZonesService,
+    @Optional() private readonly articles?: ExpenseArticlesService,
   ) {}
+
+  private async withArticleReferences<T>(fields: Record<string, unknown>, current: Record<string, unknown>, write: (session?: ClientSession) => Promise<T>): Promise<T> {
+    const oldIds = new Set(((current.payments || []) as IncomePayment[]).map(p => p.paymentId));
+    const newPayments = ((fields.payments || []) as IncomePayment[]).filter(p => !oldIds.has(p.paymentId));
+    const synthetic = !current.legacyPaymentMetadata && fields.legacyPaymentMetadata ? fields.legacyPaymentMetadata as Record<string, unknown> : null;
+    const syntheticOriginal = synthetic?.classificationOriginal as { articleId?: string | null } | undefined;
+    if (!fields.articleId && !newPayments.some(p => p.articleId) && !syntheticOriginal?.articleId) return write();
+    const session = await this.connection.startSession(); let result!: T;
+    try { await session.withTransaction(async () => {
+      if (fields.articleId) await this.articles!.assertSelectable(String(fields.articleId), 'income', { session });
+      for (const payment of newPayments) if (payment.articleId) {
+        try { await this.articles!.assertSelectable(String(payment.articleId), 'income', { session }); }
+        catch (error) { if (!(error instanceof BadRequestException) || !payment.articleDefaulted) throw error;
+          payment.articleId = null;
+          payment.classificationOriginal = { ...payment.classificationOriginal, articleId: null };
+          payment.warnings = ['Статья источника недоступна для новой оплаты — уточните статью'];
+        }
+      }
+      if (syntheticOriginal?.articleId) {
+        try { await this.articles!.assertSelectable(syntheticOriginal.articleId, 'income', { session }); }
+        catch (error) { if (!(error instanceof BadRequestException)) throw error; syntheticOriginal.articleId = null; synthetic!.warnings = ['Статья источника недоступна для новой оплаты — уточните статью']; }
+      }
+      result = await write(session);
+    }); } finally { await session.endSession(); }
+    return result;
+  }
 
   /** ProductRequests через ModuleRef — иначе цикл Incomes ↔ ProductRequests глушит DI (@Optional = undefined). */
   private productRequests(): ProductRequestsService | undefined {
@@ -164,13 +195,16 @@ export class IncomesService {
     const f: Record<string, unknown> = {};
     for (const k of TEXT) if (dto[k] !== undefined) f[k] = String(dto[k] ?? '').trim() || undefined;
     for (const k of NUM) if (dto[k] !== undefined) f[k] = dto[k] === null ? undefined : Number(dto[k]);
+    if (dto.articleId !== undefined) {
+      if (dto.articleId) { await this.articles!.assertSelectable(dto.articleId, 'income'); f.articleId = oid(dto.articleId, 'доходной статьи'); } else f.articleId = null;
+    }
     if (dto.payments !== undefined) f.payments = (dto.payments ?? []).map((p) => {
       const date = parseSheetDate(p.date);
       if (!date) throw new BadRequestException('Дата платежа — в формате ДД.ММ.ГГГГ');
       inRange(date, 'Дата платежа');
       const amount = r2(Number(p.amount));
       if (!(amount > 0)) throw new BadRequestException('Сумма платежа должна быть больше нуля');
-      return { date, amount, ...(String(p.method ?? '').trim() ? { method: String(p.method).trim() } : {}), ...(String(p.note ?? '').trim() ? { note: String(p.note).trim() } : {}) };
+      return { paymentId: p.paymentId || new Types.ObjectId().toHexString(), date, amount, ...(String(p.method ?? '').trim() ? { method: String(p.method).trim() } : {}), ...(String(p.note ?? '').trim() ? { note: String(p.note).trim() } : {}) };
     });
     for (const k of ['shipDate', 'paidDate'] as const) {
       if (dto[k] === undefined) continue;
@@ -264,17 +298,22 @@ export class IncomesService {
 
   private paymentsView(cur: unknown) {
     return incomePayments(cur as { amount?: number; paidDate?: Date; payments?: IncomePayment[] })
-      .map((x) => ({ date: x.date.toISOString().slice(0, 10), amount: x.amount, method: x.method, note: x.note }));
+      .map((x) => ({ paymentId: x.paymentId, articleId: x.articleId ? String(x.articleId) : null, date: x.date.toISOString().slice(0, 10), amount: x.amount, method: x.method, note: x.note }));
   }
 
   /** Добавить платёж к позиции (кнопка «Принять оплату»: дата, сумма, способ). */
-  async addPayment(id: string, p: { date: string; amount: number; method?: string; note?: string; clientUid?: string }, actor?: AuthenticatedUser) {
+  async addPayment(id: string, p: { date: string; amount: number; method?: string; note?: string; clientUid?: string; paymentId?: string; articleId?: string | null; version?: number }, actor?: AuthenticatedUser) {
     const cur = await this.model.findOne({ _id: oid(id, 'дохода'), deletedAt: null }).lean().exec();
     if (!cur) throw new NotFoundException('Запись дохода не найдена');
-    const { clientUid, ...pay } = p;
+    if (p.paymentId) throw new BadRequestException('ID нового платежа выдаёт сервер');
+    const { clientUid, version, ...pay } = p;
+    const requestHash = createHash('sha256').update(JSON.stringify({ date: p.date, amount: p.amount, method: p.method || '', note: p.note || '', articleId: p.articleId ?? null })).digest('hex');
+    const prior = cur.paymentReceipts?.find((r) => r.clientUid === clientUid);
+    if (prior) { if (prior.requestHash !== requestHash) throw new ConflictException('Ключ оплаты уже использован с другими данными'); return this.get(id); }
     // повтор с тем же ключом (двойной тап, сеть) — без второго платежа
     if (clientUid && ((cur as { paymentUids?: string[] }).paymentUids ?? []).includes(clientUid)) return this.get(id);
-    return this.update(id, { payments: [...this.paymentsView(cur), pay] } as IncomeDto, actor, { ...this.paymentsGuard(cur), ...(clientUid ? { push: { paymentUids: clientUid } } : {}) });
+    if (cur.cancelledAt) throw new ConflictException('Позиция отменена — новую оплату принять нельзя');
+    return this.update(id, { version: version ?? Number(cur.version || 0), payments: [...this.paymentsView(cur), pay] } as IncomeDto, actor, { ...this.paymentsGuard(cur), ...(clientUid ? { push: { paymentUids: clientUid, paymentReceipts: { clientUid, requestHash } } } : {}) });
   }
 
   /** Условие записи платежей: прежняя сумма оплат и число платежей (иначе кто-то успел изменить — 409). */
@@ -284,14 +323,17 @@ export class IncomesService {
   }
 
   /** Убрать платёж по номеру в списке (0 — первый). */
-  async removePayment(id: string, index: number, actor?: AuthenticatedUser, amount?: number) {
+  async removePayment(id: string, index: number, actor?: AuthenticatedUser, amount?: number, expectedPaymentId?: string, expectedVersion?: number) {
     const cur = await this.model.findOne({ _id: oid(id, 'дохода'), deletedAt: null }).lean().exec();
     if (!cur) throw new NotFoundException('Запись дохода не найдена');
     const have = this.paymentsView(cur);
     if (!Number.isInteger(index) || index < 0 || index >= have.length) throw new NotFoundException('Платежа с таким номером нет');
+    const selected = incomePayments(cur)[index];
+    if (selected.paymentId && (!expectedPaymentId || expectedVersion === undefined || expectedPaymentId !== selected.paymentId || expectedVersion !== Number(cur.version || 0))) throw new ConflictException('Оплату уже изменили: перечитайте ID и версию');
+    if (hasClassificationHistory(selected)) throw new ConflictException('Классифицированную оплату нельзя удалить обычным действием');
     // номер в списке мог сдвинуться: сумма в запросе должна совпасть с платежом по этому номеру
     if (amount !== undefined && Math.abs(have[index].amount - amount) > 0.005) throw new ConflictException('Оплату уже изменили, обновите карточку');
-    return this.update(id, { payments: have.filter((_, i) => i !== index) } as IncomeDto, actor, this.paymentsGuard(cur));
+    return this.update(id, { version: expectedVersion ?? Number(cur.version || 0), payments: have.filter((_, i) => i !== index) } as IncomeDto, actor, { ...this.paymentsGuard(cur), allowRemovedPaymentId: selected.paymentId });
   }
 
   /**
@@ -331,12 +373,14 @@ export class IncomesService {
       }
     }
     this.markService(f);
+    protectIncomePaymentWrites({}, f, dto);
     const { amount, reportDate } = this.derive({}, f);
-    const doc = await this.model.create({
+    const document = {
       ...Object.fromEntries(Object.entries(f).filter(([, v]) => v !== undefined)),
       amount, reportDate, clientUid: dto.clientUid,
       createdBy: userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined,
-    });
+    };
+    const doc = await this.withArticleReferences(f, {}, async (session) => session ? (await this.model.create([document], { session }))[0] : this.model.create(document));
     // новое изделие → заявка проектировщику (та же заявка на то же название)
     if (f.lineType === 'new_product') {
       const req = this.productRequests();
@@ -350,12 +394,13 @@ export class IncomesService {
     return this.get(String(doc._id));
   }
 
-  async update(id: string, dto: IncomeDto, actor?: AuthenticatedUser, opts: { guard?: Record<string, unknown>; push?: Record<string, unknown> } = {}) {
+  async update(id: string, dto: IncomeDto, actor?: AuthenticatedUser, opts: { guard?: Record<string, unknown>; push?: Record<string, unknown>; allowRemovedPaymentId?: string } = {}) {
     const cur = await this.model.findOne({ _id: oid(id, 'дохода'), deletedAt: null }).lean().exec();
     if (!cur) throw new NotFoundException('Запись дохода не найдена');
     // C049-1: устаревшая правка — до любых проверок и побочных записей
     if (isStale(cur as { version?: unknown }, dto.version)) throw staleError('Позицию');
-    const f = await this.toFields(dto);
+    const f = await this.toFields({ ...dto, ...(dto.articleId !== undefined && String(dto.articleId || '') === String(cur.articleId || '') ? { articleId: undefined } : {}) });
+    if (cur.cancelledAt && (dto.payments !== undefined || !!dto.paidDate)) throw new ConflictException('Позиция отменена — новая оплата недоступна');
     // защищённые поля — только если значение реально меняется (форма шлёт и неизменённые)
     const same = (k: string) => String(f[k] ?? '') === String((cur as Record<string, unknown>)[k] ?? '');
     if (LOCKED_FIELDS.some((k) => k in f && !same(k))) await this.assertOrderOpen(cur.orderId, actor);
@@ -363,6 +408,8 @@ export class IncomesService {
     if ('title' in f && !f.title) throw new BadRequestException('Наименование не может быть пустым');
     const orderId = 'orderId' in f ? f.orderId : cur.orderId;
     if (orderId && ('orderId' in f || HEADER_CACHE.some((k) => k in f) || dto.companyName !== undefined)) await this.applyHeader(f, orderId);
+    if (incomePayments(cur).length && 'companyId' in f && String(f.companyId || '') !== String(cur.companyId || '')) throw new ConflictException('Компания уже принятых оплат зафиксирована: изменение требует отдельной сверки');
+    protectIncomePaymentWrites(cur as unknown as Record<string, unknown>, f, dto, opts);
     // КМ6: название изменили — прежнее сопоставление недействительно, нужно подтвердить заново (пока явно не задано изделие)
     if ("title" in f && !same("title") && dto.productId === undefined && (cur.matchStatus || cur.productId)) f.matchStatus = "auto";
     // выбрали существующее изделие у «нового» — позиция становится обычной
@@ -374,10 +421,10 @@ export class IncomesService {
     for (const [k, v] of Object.entries(f)) (v === undefined ? (unset[k] = '') : (set[k] = v));
     if (reportDate) set.reportDate = reportDate; else unset.reportDate = '';
     // version — в том же фильтре (атомарно с записью); у guard платежей и версии может быть свой $or — тогда через $and
-    const g = opts.guard ?? {}, vf = versionFilter(dto.version);
+    const g = opts.guard ?? {}, vf = versionFilter(dto.version ?? Number(cur.version || 0));
     const filter = '$or' in g && '$or' in vf ? { _id: cur._id, $and: [g, vf] } : { _id: cur._id, ...g, ...vf };
-    const res = await this.model.updateOne(filter, { $set: set, $inc: { version: 1 }, ...(Object.keys(unset).length ? { $unset: unset } : {}), ...(opts.push ? { $push: opts.push } : {}) }).exec();
-    if (!res.matchedCount && dto.version != null) throw staleError('Позицию');
+    const res = await this.withArticleReferences(f, cur as unknown as Record<string, unknown>, (session) => this.model.updateOne(filter, { $set: set, $inc: { version: 1 }, ...(Object.keys(unset).length ? { $unset: unset } : {}), ...(opts.push ? { $push: opts.push } : {}) }, session ? { session } : {}).exec());
+    if (!res.matchedCount) throw staleError('Позицию');
     if (opts.guard && !res.matchedCount) throw new ConflictException('Оплату уже изменили, обновите карточку');
     await this.notifyNoContract(cur as Record<string, unknown>, f, actor).catch(() => undefined);
     await this.syncRequest(cur as Record<string, unknown>, f, actor?.id);
@@ -436,28 +483,34 @@ export class IncomesService {
   }
 
   async remove(id: string, actor?: AuthenticatedUser) {
-    const cur = await this.model.findOne({ _id: oid(id, 'дохода'), deletedAt: null }).lean().exec();
-    if (actor) await this.assertOrderOpen(cur?.orderId, actor);
-    // CANON: нельзя удалить то, на что ссылаются — позицию с оплатой или отгрузкой
-    if (cur) {
-      if (incomePayments(cur as { amount?: number; paidDate?: Date; payments?: IncomePayment[] }).length || Number((cur as { paidAmount?: number }).paidAmount) > 0) {
-        throw new ConflictException('У позиции есть оплата — сначала уберите платежи');
-      }
-      if (await this.connection.db!.collection('shipments').countDocuments({ deletedAt: null, 'lines.incomeId': cur._id })) throw new ConflictException('Позиция отгружена — сначала отмените отгрузку');
-    }
-    const res = await this.model.updateOne({ _id: oid(id, 'дохода'), deletedAt: null }, { $set: { deletedAt: new Date(), editedInApp: true } }).exec();
-    if (!res.matchedCount) throw new NotFoundException('Запись дохода не найдена');
-    if (cur?.productRequestId) await this.productRequests()?.recalc(cur.productRequestId);
+    const first = await this.model.findOne({ _id: oid(id, 'дохода'), deletedAt: null }).lean().exec();
+    if (!first) throw new NotFoundException('Запись дохода не найдена');
+    await this.assertOrderOpen(first.orderId, actor);
+    if (incomePayments(first).length || Number(first.paidAmount) > 0) throw new ConflictException('У позиции есть оплата — сначала уберите платежи');
+    const expectedVersion = Number(first.version || 0), session = await this.connection.startSession();
+    try { await session.withTransaction(async () => {
+      const cur = await this.model.findOne({ _id: first._id, deletedAt: null }).session(session).lean().exec();
+      if (!cur || Number(cur.version || 0) !== expectedVersion) throw staleError('Позицию');
+      if (incomePayments(cur).length || Number(cur.paidAmount) > 0) throw new ConflictException('У позиции есть оплата — сначала уберите платежи');
+      if (await this.connection.db!.collection('shipments').countDocuments({ deletedAt: null, 'lines.incomeId': cur._id }, { session })) throw new ConflictException('Позиция отгружена — сначала отмените отгрузку');
+      const changed = await this.model.updateOne({ _id: cur._id, deletedAt: null, ...versionFilter(expectedVersion) }, { $set: { deletedAt: new Date(), editedInApp: true }, $inc: { version: 1 } }, { session }).exec();
+      if (!changed.matchedCount) throw staleError('Позицию');
+    }); } finally { await session.endSession(); }
+    if (first.productRequestId) await this.productRequests()?.recalc(first.productRequestId);
     return { id, deleted: true };
   }
 
   async restore(id: string, actor?: AuthenticatedUser) {
-    if (actor) {
-      const cur = await this.model.findOne({ _id: oid(id, 'дохода'), deletedAt: { $ne: null } }).setOptions({ includeSoftDeleted: true }).lean().exec();
-      await this.assertOrderOpen(cur?.orderId, actor);
-    }
-    const res = await this.model.updateOne({ _id: oid(id, 'дохода'), deletedAt: { $ne: null } }, { $set: { deletedAt: null } }).setOptions({ includeSoftDeleted: true }).exec();
-    if (!res.matchedCount) throw new NotFoundException('Записи нет в корзине');
+    const first = await this.model.findOne({ _id: oid(id, 'дохода'), deletedAt: { $ne: null } }).setOptions({ includeSoftDeleted: true }).lean().exec();
+    if (!first) throw new NotFoundException('Записи нет в корзине');
+    await this.assertOrderOpen(first.orderId, actor);
+    const expectedVersion = Number(first.version || 0), session = await this.connection.startSession();
+    try { await session.withTransaction(async () => {
+      const fresh = await this.model.findOne({ _id: first._id, deletedAt: { $ne: null } }).setOptions({ includeSoftDeleted: true }).session(session).lean().exec();
+      if (!fresh || Number(fresh.version || 0) !== expectedVersion) throw staleError('Позицию');
+      const changed = await this.model.updateOne({ _id: fresh._id, deletedAt: { $ne: null }, ...versionFilter(expectedVersion) }, { $set: { deletedAt: null, editedInApp: true }, $inc: { version: 1 } }, { session }).setOptions({ includeSoftDeleted: true }).exec();
+      if (!changed.matchedCount) throw staleError('Позицию');
+    }); } finally { await session.endSession(); }
     return this.get(id);
   }
 

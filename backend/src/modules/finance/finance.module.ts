@@ -1,3 +1,5 @@
+import { FinancialOperationsReader } from './financial-operations-reader.service';
+import { FinancialClassificationService } from './financial-classification.service';
 import { Module } from '@nestjs/common';
 import { FinanceController } from './finance.controller';
 import { PayrollModule } from '../payroll/payroll.module';
@@ -8,7 +10,7 @@ import { FinanceService } from './finance.service';
 @Module({
   imports: [PayrollModule, ExpenseArticlesModule],
   controllers: [FinanceController],
-  providers: [FinanceService],
+  providers: [FinanceService, FinancialOperationsReader, FinancialClassificationService],
   exports: [FinanceService],
 })
 export class FinanceModule {}

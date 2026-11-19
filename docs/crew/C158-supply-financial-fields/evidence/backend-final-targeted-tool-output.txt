@@ -1,0 +1,21 @@
+Источник: копия фактических terminal tool results, не сохранённый во время запуска raw-log.
+Дата запуска по сессии: 2026-11-19; точный UTC start/end в результате не возвращался.
+exec session_id: 36504; output chunk_id: 7f7f5e и e63490; финальный exit_code: 0.
+Команда (cwd корень C158 worktree, LOG_LEVEL=fatal):
+node tools/logs/c158-e2e.mjs test/e2e/supply-invoice-payments.e2e-spec.ts test/e2e/supply-invoice-payments.qa.e2e-spec.ts test/e2e/supply-invoices.e2e-spec.ts test/e2e/chain-supply-to-stock.e2e-spec.ts test/e2e/manager-zones-auth.e2e-spec.ts test/e2e/finance.e2e-spec.ts --silent
+
+--- chunk 7f7f5e (процесс ещё работал) ---
+PASS test/e2e/supply-invoices.e2e-spec.ts (16.967 s)
+PASS test/e2e/supply-invoice-payments.e2e-spec.ts (6.599 s)
+PASS test/e2e/chain-supply-to-stock.e2e-spec.ts (6.404 s)
+PASS test/e2e/manager-zones-auth.e2e-spec.ts (6.242 s)
+
+--- chunk e63490 (финальный exit_code 0) ---
+PASS test/e2e/finance.e2e-spec.ts (5.567 s)
+PASS test/e2e/supply-invoice-payments.qa.e2e-spec.ts (5.874 s)
+
+Test Suites: 6 passed, 6 total
+Tests:       71 passed, 71 total
+Snapshots:   0 total
+Time:        47.835 s
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?

@@ -1,6 +1,12 @@
+import { FinancialOperationsReader } from './financial-operations-reader.service';
+import { FinancialClassificationService } from './financial-classification.service';
+import { OperationsQueryDto, ClassificationDto } from './operations.dto';
+import { StockScoped } from '../../common/decorators/stock-scoped.decorator';
+import type { StockScope } from '../../common/stock-scope';
+import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { MoneyAccessGuard } from '../../common/guards/money-access.guard';
 import { AppSection } from '../../common/decorators/app-section.decorator';
-import { Body, Controller, Get, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Optional, Param, Patch, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
@@ -13,7 +19,16 @@ import { FinanceService } from './finance.service';
 @UseGuards(MoneyAccessGuard)
 @Controller('finance')
 export class FinanceController {
-  constructor(private readonly finance: FinanceService) {}
+  constructor(private readonly finance: FinanceService, @Optional() private readonly operations?: FinancialOperationsReader, @Optional() private readonly classifications?: FinancialClassificationService) {}
+
+  @Get('operations') @Roles('admin', 'manager')
+  operationsList(@Query() q: OperationsQueryDto, @CurrentUser() user?: AuthenticatedUser, @StockScoped() scope: StockScope | null = null) { return this.operations!.list(q as unknown as Record<string, unknown>, user, scope); }
+
+  @Get('operations/:operationId') @Roles('admin', 'manager')
+  operation(@Param('operationId') id: string, @CurrentUser() user?: AuthenticatedUser, @StockScoped() scope: StockScope | null = null) { return this.operations!.detail(id, user, scope); }
+
+  @Patch('operations/:operationId/classification') @Roles('admin', 'manager')
+  async classification(@Param('operationId') id: string, @Body() dto: ClassificationDto, @CurrentUser() user: AuthenticatedUser, @StockScoped() scope: StockScope | null = null) { const result = await this.classifications!.apply(id, dto, user, scope); return result.replayed ? this.operations!.replayView(result.operationId, result.replayed as Parameters<FinancialOperationsReader['replayView']>[1], user, scope) : this.operations!.detail(result.operationId, user, scope); }
 
   @Get('cashflow')
   @Roles('admin', 'accountant', 'manager')
@@ -49,8 +64,8 @@ export class FinanceController {
   @ApiQuery({ name: 'org', required: false, description: 'all | СИЮ | ССЮ | id' })
   @ApiQuery({ name: 'mode', required: false, description: 'company (вся фирма, умолч.) | object' })
   @ApiQuery({ name: 'salesOrderId', required: false, description: 'Объект — заказ заказчика (для mode=object)' })
-  byArticles(@Query() q: Record<string, string>) {
-    return this.finance.byArticles(q);
+  byArticles(@Query() q: Record<string, string>, @CurrentUser() user?: AuthenticatedUser, @StockScoped() scope: StockScope | null = null) {
+    return this.operations!.byArticles(q, user, scope);
   }
 
   /** Операции одной ячейки «По статьям»: articleId — подстатья, статья, none, income, expense, unallocated; month — ГГГГ-ММ. */

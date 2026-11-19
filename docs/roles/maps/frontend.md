@@ -1,3 +1,15 @@
+## C161 — рекурсивные финансовые статьи и операции (2026-11-19)
+коммит: не закоммичено
+- `backend/pwa/sections/financial-articles-state.js:3,19,26,32`, `financial-articles.js:4` каноническое дерево, selectable/archive/parents/revision; usage opt-in и отдельный ключ кэша, счётчики только редактору; root только group, parent article выбирается явно при смене nodeKind; категории видны только expense+article и сохраняются при скрытии; invalidHierarchy не выбирается, historicalID сохраняется; `dicts-financial-articles.js:9,16,38`, `dicts.js:76,291,378` узкая финансовая ветка существующего редактора.
+- `backend/pwa/sections/expenses.js:18` рекурсивные расходные выборы, `orders.js:134` доходная статья/DELETE части по ID+CAS (single и multiple), known synthetic по metadata.paymentId → paidDateclear+CAS, classified409/legacyбезID без PATCH[] обхода; `money-financial-filters.js:8`, `money-operations.js:8`, `money-operations-state.js:3,17` общий query, select«Все заказы»сочисткойlegacyaliases, kitfieldRow/clamp, таблица полного набора, whitelist.
+- `backend/pwa/sections/money-classification.js:16` адресная форма supported correction, readonly факт/CAS/UID/reset; `money-income-preparation.js:10` адресный plan/review/confirm/materialize с mapping, stable retry и409 без replay; `money-articles.js:31` recursive BOTH articleRows и dynamic months. UI ещё требует server/live acceptance: C161/FRONTEND-REPORT.md, UI-SCENARIOS.md. Карта обновлена.
+
+## C158 — исходник счёта, факты оплаты и статьи (2026-11-19)
+коммит: не закоммичено
+- `backend/pwa/sections/invoice-workspace-forms.js:35` единая форма факта с исторической датой, RUB/sourceAmount, плательщиком, файлами и стабильным retry; `invoice-workspace-state.js:5,108,145` финансовая блокировка и валидация.
+- `backend/pwa/sections/invoice-workspace.js:217` история фактов/сторно, readonly позиции с отдельной формой; `invoice-workspace-meta.js:8` реквизиты; `request-invoice-actions.js:7`, `request-step.js:61`, `invoice.js:250` переходы вместо немедленной оплаты.
+- `backend/pwa/sections/requests.js:305`, `invoices-tab.js:35`, `expenses.js:30` динамический articleId с родителями/none и явным итогом целых счетов. `tools/logs/c158-ui-check.mjs:1` stdin-only сценарий3198: liveRUBPASS, UEunknownVATFAIL исправлен, повтор нужен. `backend/pwa/sections/money-forecast.js:25,31` оценка/needsConversion, `money.js:227` календарь. Проверки/границы: C158/FRONTEND-REPORT.md. Карта обновлена.
+
 ## C156 — отметка локальной копии (2026-11-19)
 коммит: не закоммичено
 - `backend/pwa/core/development-mode.js:17` метаданные разработки только с текущего loopback origin, без кэша и редиректа.

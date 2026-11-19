@@ -488,7 +488,7 @@ const BASE: DictBase[] = [
     },
   },
   ...productGroupDefs({ translit }),
-  expenseArticlesDef(),
+  expenseArticlesDef('financialArticles'), expenseArticlesDef(), expenseArticlesDef('incomeArticles'),
   {
     key: 'units', group: 'Склад и позиции', title: 'Единицы измерения',
     hint: 'Единицы в заявках, на складе и в заказах: «шт», «м», «лист»… Сокращение — то, что видно в строках.',
@@ -954,7 +954,7 @@ export const DICT_UI: Record<string, { newTitle: string; nameLabel?: string }> =
   passportDefects: { newTitle: 'Новый дефект' }, passportInstall: { newTitle: 'Новый способ установки' }, passportPhrases: { newTitle: 'Новый текст паспорта' },
   passportKinds: { newTitle: 'Новый вид изделия' }, productFacets: { newTitle: 'Новый признак продукции' }, productFacetValues: { newTitle: 'Новое значение признака' },
   productSeries: { newTitle: 'Новая серия' }, productParts: { newTitle: 'Новая часть изделия' }, attachmentTypes: { newTitle: 'Новый вид вложений' }, productGroups: { newTitle: 'Новая группа изделий' }, productSections: { newTitle: 'Новый раздел изделий' },
-  passportStyle: { newTitle: 'Новый элемент оформления' }, expenseArticles: { newTitle: 'Новая статья расходов' },
+  passportStyle: { newTitle: 'Новый элемент оформления' }, expenseArticles: { newTitle: 'Новая статья расходов' }, financialArticles: { newTitle: 'Новая финансовая статья' }, incomeArticles: { newTitle: 'Новая статья доходов' },
 };
 /** Поля справочника с подписью «Название» из DICT_UI. */
 export const uiFields = (d: DictDef) => { const l = DICT_UI[d.key]?.nameLabel; return l ? d.fields.map((f) => (f.key === 'name' ? { ...f, label: l } : f)) : d.fields; };

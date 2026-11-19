@@ -13,7 +13,7 @@ function svc(opts: { order?: boolean } = {}) {
     if (n === 'salesorders') return { findOne: async () => (opts.order ? { _id: new Types.ObjectId() } : null) };
     return { countDocuments: async () => 0, findOne: async () => null };
   };
-  return new ExpensesService({ db: { collection: coll } } as never);
+  return new ExpensesService({ db: { collection: coll } } as never, { assertSelectable: async (id: string) => { if (id === String(sub)) return { _id: sub }; throw new BadRequestException('Выберите действующую статью подходящего направления из справочника'); } } as never);
 }
 const ok = { date: '2026-05-10', amount: 1500.5, companyId: String(cid), articleId: String(sub), title: ' Аренда  крана ' };
 const msg = async (p: Promise<unknown>) => { try { await p; return ''; } catch (e) { expect(e).toBeInstanceOf(BadRequestException); return (e as Error).message; } };
@@ -30,8 +30,8 @@ describe('Прочие расходы: проверка полей', () => {
   });
   it('статья обязательна и только подстатья', async () => {
     expect(await msg(svc().fields({ ...ok, articleId: undefined as never }, false))).toBe('Выберите статью');
-    expect(await msg(svc().fields({ ...ok, articleId: String(top) }, false))).toBe('Выберите подстатью, а не общую статью');
-    expect(await msg(svc().fields({ ...ok, articleId: String(new Types.ObjectId()) }, false))).toBe('Статья не найдена — выберите из списка');
+    expect(await msg(svc().fields({ ...ok, articleId: String(top) }, false))).toBe('Выберите действующую статью подходящего направления из справочника');
+    expect(await msg(svc().fields({ ...ok, articleId: String(new Types.ObjectId()) }, false))).toBe('Выберите действующую статью подходящего направления из справочника');
   });
   it('фирма — только наша, дата — настоящая, название не пустое', async () => {
     expect(await msg(svc().fields({ ...ok, companyId: String(new Types.ObjectId()) }, false))).toBe('Выберите нашу фирму из списка');

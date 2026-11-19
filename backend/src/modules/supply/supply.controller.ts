@@ -1,3 +1,5 @@
+import { canSeeMoney } from '../../common/roles-hierarchy';
+import { CreateInvoicePaymentDto, VoidInvoicePaymentDto, LegacyPayInvoiceDto } from './dto-invoice';
 import { AppSection, AppSectionFree } from '../../common/decorators/app-section.decorator';
 import { BadRequestException, Body, Controller, ForbiddenException, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Res, UploadedFile, UseInterceptors, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
@@ -51,6 +53,7 @@ export class SupplyController {
   }
 
   @Get('invoices')
+  @ApiQuery({ name: 'articleId', required: false, description: 'Статья с потомками; none — есть видимая строка без статьи. Суммы целых отобранных счетов' })
   @Roles('admin', 'director', 'manager', 'user')
   @ApiQuery({ name: 'status', required: false, description: 'через запятую: draft, issued, paid, cancelled' })
   @ApiQuery({ name: 'supplierId', required: false }) @ApiQuery({ name: 'q', required: false, description: '№ счёта или поставщик' })
@@ -139,9 +142,35 @@ export class SupplyController {
   @HttpCode(200)
   @Roles('admin', 'director', 'accountant', 'manager')
   @AuditAction({ action: 'supply.invoice.paid', entityType: 'SupplyInvoice', idParam: 'id' })
-  async payInvoice(@Param('id') id: string, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+  async payInvoice(@Param('id') id: string, @Body() _dto: LegacyPayInvoiceDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
     await this.invoices.assertWhole(id, scope);
+    if (!canSeeMoney(user)) throw new ForbiddenException('Нет доступа к оплатам');
     return this.invoices.pay(id, user?.id);
+  }
+
+  @Get('invoices/:id/payments')
+  @Roles('admin', 'director', 'accountant', 'manager', 'user')
+  async invoicePayments(@Param('id') id: string, @Query() q: Record<string, string>, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    if (!canSeeMoney(user)) throw new ForbiddenException('Нет доступа к оплатам');
+    return this.invoices.listPayments(id, q, scope);
+  }
+  @Post('invoices/:id/payments')
+  @HttpCode(200)
+  @Roles('admin', 'director', 'accountant', 'manager')
+  @AuditAction({ action: 'supply.invoice.payment_added', entityType: 'SupplyInvoice', idParam: 'id' })
+  async addInvoicePayment(@Param('id') id: string, @Body() dto: CreateInvoicePaymentDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    if (!canSeeMoney(user)) throw new ForbiddenException('Нет доступа к оплатам');
+    await this.invoices.assertWhole(id, scope);
+    return this.invoices.addPayment(id, dto, user?.id);
+  }
+  @Post('invoices/:id/payments/:paymentId/void')
+  @HttpCode(200)
+  @Roles('admin')
+  @AuditAction({ action: 'supply.invoice.payment_voided', entityType: 'SupplyInvoice', idParam: 'id' })
+  async voidInvoicePayment(@Param('id') id: string, @Param('paymentId') paymentId: string, @Body() dto: VoidInvoicePaymentDto, @Query('dryRun') dryRun: string, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    if (!canSeeMoney(user)) throw new ForbiddenException('Нет доступа к оплатам');
+    await this.invoices.assertWhole(id, scope);
+    return this.invoices.voidPayment(id, paymentId, dto, this.actorOf(user), isDry(dryRun, dto));
   }
 
   /** ЗЯ-1: снять оплату со счёта (сторно). `?dryRun=1` или без confirm — план с warnings[]; confirm + reason — выполнить. */
@@ -297,6 +326,7 @@ export class SupplyController {
   // Список: заявки, остатки и телефонный склад (stock-mobile.js: received / ordered,paid). Метод перекрывает класс.
   @AppSection('requests', 'stock', 'stock-mobile')
   @Get('requests')
+  @ApiQuery({ name: 'articleId', required: false, description: 'Статья с потомками; none — без статьи' })
   @Roles('admin', 'director', 'manager', 'user')
   @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false, description: '≤1000, по умолчанию 1000' })
   @ApiQuery({ name: 'search', required: false, description: 'наименование, артикул, заказчик, примечание, кто подал, № счёта, № заявки, поставщик' })

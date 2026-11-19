@@ -1,5 +1,6 @@
+import { INVOICE_CURRENCIES } from './invoice-financials';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsMongoId, IsNumber, IsOptional, IsPositive, IsString, Length, Min } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsMongoId, IsNumber, IsOptional, IsPositive, IsString, Length, Min, Matches } from 'class-validator';
 
 export class CreateInvoicesDto {
   @ApiPropertyOptional({ description: 'Заявки, которые заказываем (id); делятся на счета по поставщику', type: [String] })
@@ -26,7 +27,40 @@ export class ReceiveInvoiceDto {
   @IsOptional() @IsArray() @ArrayMaxSize(200) @IsMongoId({ each: true }) requestIds?: string[];
 }
 
-export class PatchInvoiceDto {
+export class InvoiceTaxDto {
+  @ApiPropertyOptional({ enum: ['included', 'excluded', 'none', 'mixed'] }) @IsOptional() @IsIn(['included', 'excluded', 'none', 'mixed']) vatMode?: string;
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @IsIn([0, 5, 7, 10, 20, 22]) vatRate?: number | null;
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) declaredVatAmount?: number | null;
+}
+export class CreateInvoicePaymentDto {
+  @ApiPropertyOptional() @IsString() @Length(1, 100) clientUid!: string;
+  @ApiPropertyOptional() @IsString() @Matches(/^\d{4}-\d{2}-\d{2}$/) date!: string;
+  @ApiPropertyOptional() @IsNumber({ maxDecimalPlaces: 2 }) @IsPositive() amount!: number;
+  @ApiPropertyOptional() @IsOptional() @IsMongoId() payerCompanyId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @IsPositive() sourceAmount?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber({ maxDecimalPlaces: 8 }) @IsPositive() exchangeRate?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Matches(/^\d{4}-\d{2}-\d{2}$/) exchangeRateDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 300) exchangeRateSource?: string;
+  @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @ArrayMaxSize(20) @IsMongoId({ each: true }) fileIds?: string[];
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 1000) note?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) version?: number;
+}
+export class VoidInvoicePaymentDto extends AdminOverrideDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 100) clientUid?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) version?: number;
+}
+/** Совместимый pay без тела; неизвестное непустое тело запрещено whitelist. */
+export class LegacyPayInvoiceDto {}
+
+export class PatchInvoiceDto extends InvoiceTaxDto {
+  @ApiPropertyOptional({ enum: INVOICE_CURRENCIES }) @IsOptional() @IsIn(INVOICE_CURRENCIES) currency?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 100) currencyName?: string;
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @IsNumber({ maxDecimalPlaces: 8 }) @IsPositive() exchangeRate?: number | null;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 10) exchangeRateDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 300) exchangeRateSource?: string;
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) confirmedAmountRub?: number | null;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 1000) conversionNote?: string;
+
   @ApiPropertyOptional({ description: 'Дата доставки, пустая строка очищает поле' }) @IsOptional() @IsString() @Length(0, 30) deliveryDate?: string;
   @ApiPropertyOptional({ description: 'Примечание к счёту' }) @IsOptional() @IsString() @Length(0, 1000) note?: string;
   @ApiPropertyOptional({ description: '№ счёта' }) @IsOptional() @IsString() @Length(0, 100) no?: string;
@@ -41,7 +75,10 @@ export class PatchInvoiceDto {
   @ApiPropertyOptional({ description: 'Причина, если счёт с таким № у поставщика уже есть, но нужен отдельный' }) @IsOptional() @IsString() @Length(0, 200) duplicateReason?: string;
 }
 
-export class PatchInvoiceLineDto {
+export class PatchInvoiceLineDto extends InvoiceTaxDto {
+  @ApiPropertyOptional() @IsOptional() @IsNumber({ maxDecimalPlaces: 8 }) @Min(0) sourceUnitPrice?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) sourceLineAmount?: number;
+
   @ApiPropertyOptional({ description: 'Цена за единицу, ₽ (сумма строки = unitPrice × количество)' })
   @IsOptional() @IsNumber() @Min(0) unitPrice?: number;
   @ApiPropertyOptional({ description: 'Сумма строки, ₽ (цена за единицу пересчитывается обратно)' })

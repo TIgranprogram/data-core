@@ -1,3 +1,6 @@
+import { ExpenseArticlesModule } from '../expense-articles/expense-articles.module';
+import { SupplyInvoicePaymentsService } from './supply-invoice-payments.service';
+import { SupplyInvoicePayment, SupplyInvoicePaymentSchema } from './supply-invoice-payment.schema';
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuditModule } from '../audit/audit.module';
@@ -22,6 +25,7 @@ import { SupplierCatalogService } from './supplier-catalog.service';
 /** /api/supply — заявки снабжения на общей коллекции CRM kppdf (docs/UNIFY-SUPPLY-WAREHOUSE.md). */
 @Module({
   imports: [
+    ExpenseArticlesModule,
     StockModule,
     AuditModule,
     CounterModule,
@@ -33,11 +37,12 @@ import { SupplierCatalogService } from './supplier-catalog.service';
       { name: SupplyRequest.name, schema: SupplyRequestSchema },
       { name: SupplierItem.name, schema: SupplierItemSchema },
       { name: SupplyInvoice.name, schema: SupplyInvoiceSchema },
+      { name: SupplyInvoicePayment.name, schema: SupplyInvoicePaymentSchema },
       { name: SupplierContract.name, schema: SupplierContractSchema },
     ]),
   ],
   controllers: [SupplyController, SupplierContractController],
-  providers: [SupplyService, SupplierExcelService, SupplierCatalogService, SupplyInvoiceService, SupplierContractService],
+  providers: [SupplyInvoicePaymentsService, SupplyService, SupplierExcelService, SupplierCatalogService, SupplyInvoiceService, SupplierContractService],
   exports: [SupplyService],
 })
 export class SupplyModule {}

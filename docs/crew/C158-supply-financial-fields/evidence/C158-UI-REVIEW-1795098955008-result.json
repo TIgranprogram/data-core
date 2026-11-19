@@ -1,0 +1,405 @@
+{
+  "run": "C158-UI-REVIEW-1795098955008",
+  "origin": "http://localhost:3198",
+  "checks": [
+    "Сохранённые UE360/30326руб и основание повторно открыты в обеих темах",
+    "История двух оплат и время регистрации раскрываются в обеих темах",
+    "Явный включённый НДС без ставки: форма остаётся открытой с ошибкой, счёт не изменён"
+  ],
+  "fixtures": [
+    {
+      "invoiceId": "6aff03c95423ebdf22553a18"
+    },
+    {
+      "invoiceId": "6afeff75f902a339c859a4c9"
+    }
+  ],
+  "screenshots": [
+    "C158-UI-REVIEW-1795098955008-history-light-1920.png",
+    "C158-UI-REVIEW-1795098955008-history-light-1024.png",
+    "C158-UI-REVIEW-1795098955008-payment-details-light-1920.png",
+    "C158-UI-REVIEW-1795098955008-vat-error-light-1920.png",
+    "C158-UI-REVIEW-1795098955008-vat-error-light-1024.png",
+    "C158-UI-REVIEW-1795098955008-foreign-metadata-light-1920.png",
+    "C158-UI-REVIEW-1795098955008-foreign-metadata-light-1024.png",
+    "C158-UI-REVIEW-1795098955008-history-dark-1920.png",
+    "C158-UI-REVIEW-1795098955008-history-dark-1024.png",
+    "C158-UI-REVIEW-1795098955008-payment-details-dark-1920.png",
+    "C158-UI-REVIEW-1795098955008-vat-error-dark-1920.png",
+    "C158-UI-REVIEW-1795098955008-vat-error-dark-1024.png",
+    "C158-UI-REVIEW-1795098955008-foreign-metadata-dark-1920.png",
+    "C158-UI-REVIEW-1795098955008-foreign-metadata-dark-1024.png"
+  ],
+  "status": "PASS",
+  "geometry": [
+    {
+      "name": "history-light",
+      "width": 1920,
+      "height": 1080,
+      "focus": "BODY",
+      "tableBounds": [
+        {
+          "label": "Позиции счёта",
+          "top": 167.4375,
+          "bottom": 299.078125,
+          "height": 131.640625
+        },
+        {
+          "label": "История оплат счёта",
+          "top": 840.171875,
+          "bottom": 963.96875,
+          "height": 123.796875
+        }
+      ],
+      "drawer": {
+        "left": 1145,
+        "right": 1905,
+        "width": 760,
+        "scrollWidth": 759,
+        "clientWidth": 759
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "history-light",
+      "width": 1024,
+      "height": 900,
+      "focus": "BODY",
+      "tableBounds": [
+        {
+          "label": "Позиции счёта",
+          "top": 33.4375,
+          "bottom": 165.078125,
+          "height": 131.640625
+        },
+        {
+          "label": "История оплат счёта",
+          "top": 706.171875,
+          "bottom": 829.96875,
+          "height": 123.796875
+        }
+      ],
+      "drawer": {
+        "left": 249,
+        "right": 1009,
+        "width": 760,
+        "scrollWidth": 760,
+        "clientWidth": 760
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "payment-details-light",
+      "width": 1920,
+      "height": 1080,
+      "focus": "BODY",
+      "tableBounds": [
+        {
+          "label": "Позиции счёта",
+          "top": 72.4375,
+          "bottom": 204.078125,
+          "height": 131.640625
+        },
+        {
+          "label": "История оплат счёта",
+          "top": 745.171875,
+          "bottom": 1010.65625,
+          "height": 265.484375
+        }
+      ],
+      "drawer": {
+        "left": 1145,
+        "right": 1905,
+        "width": 760,
+        "scrollWidth": 759,
+        "clientWidth": 759
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "vat-error-light",
+      "width": 1920,
+      "height": 1080,
+      "focus": "BODY",
+      "tableBounds": [
+        {
+          "label": "Позиции счёта",
+          "top": 1231.46875,
+          "bottom": 1341.546875,
+          "height": 110.078125
+        }
+      ],
+      "drawer": {
+        "left": 1145,
+        "right": 1905,
+        "width": 760,
+        "scrollWidth": 759,
+        "clientWidth": 759
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "vat-error-light",
+      "width": 1024,
+      "height": 900,
+      "focus": "BODY",
+      "tableBounds": [
+        {
+          "label": "Позиции счёта",
+          "top": 1141.46875,
+          "bottom": 1251.546875,
+          "height": 110.078125
+        }
+      ],
+      "drawer": {
+        "left": 249,
+        "right": 1009,
+        "width": 760,
+        "scrollWidth": 760,
+        "clientWidth": 760
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "foreign-metadata-light",
+      "width": 1920,
+      "height": 1080,
+      "focus": "BODY",
+      "tableBounds": [
+        {
+          "label": "Позиции счёта",
+          "top": 2.4375,
+          "bottom": 134.078125,
+          "height": 131.640625
+        },
+        {
+          "label": "История оплат счёта",
+          "top": 1061.03125,
+          "bottom": 1142.265625,
+          "height": 81.234375
+        }
+      ],
+      "drawer": {
+        "left": 1145,
+        "right": 1905,
+        "width": 760,
+        "scrollWidth": 759,
+        "clientWidth": 759
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "foreign-metadata-light",
+      "width": 1024,
+      "height": 900,
+      "focus": "BODY",
+      "tableBounds": [
+        {
+          "label": "Позиции счёта",
+          "top": -177.5625,
+          "bottom": -45.921875,
+          "height": 131.640625
+        },
+        {
+          "label": "История оплат счёта",
+          "top": 881.03125,
+          "bottom": 962.265625,
+          "height": 81.234375
+        }
+      ],
+      "drawer": {
+        "left": 249,
+        "right": 1009,
+        "width": 760,
+        "scrollWidth": 760,
+        "clientWidth": 760
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "history-dark",
+      "width": 1920,
+      "height": 1080,
+      "focus": "BODY",
+      "tableBounds": [
+        {
+          "label": "Позиции счёта",
+          "top": 167.4375,
+          "bottom": 299.078125,
+          "height": 131.640625
+        },
+        {
+          "label": "История оплат счёта",
+          "top": 840.171875,
+          "bottom": 963.96875,
+          "height": 123.796875
+        }
+      ],
+      "drawer": {
+        "left": 1145,
+        "right": 1905,
+        "width": 760,
+        "scrollWidth": 759,
+        "clientWidth": 759
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "history-dark",
+      "width": 1024,
+      "height": 900,
+      "focus": "BODY",
+      "tableBounds": [
+        {
+          "label": "Позиции счёта",
+          "top": 33.4375,
+          "bottom": 165.078125,
+          "height": 131.640625
+        },
+        {
+          "label": "История оплат счёта",
+          "top": 706.171875,
+          "bottom": 829.96875,
+          "height": 123.796875
+        }
+      ],
+      "drawer": {
+        "left": 249,
+        "right": 1009,
+        "width": 760,
+        "scrollWidth": 760,
+        "clientWidth": 760
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "payment-details-dark",
+      "width": 1920,
+      "height": 1080,
+      "focus": "BODY",
+      "tableBounds": [
+        {
+          "label": "Позиции счёта",
+          "top": 72.4375,
+          "bottom": 204.078125,
+          "height": 131.640625
+        },
+        {
+          "label": "История оплат счёта",
+          "top": 745.171875,
+          "bottom": 1010.65625,
+          "height": 265.484375
+        }
+      ],
+      "drawer": {
+        "left": 1145,
+        "right": 1905,
+        "width": 760,
+        "scrollWidth": 759,
+        "clientWidth": 759
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "vat-error-dark",
+      "width": 1920,
+      "height": 1080,
+      "focus": "BODY",
+      "tableBounds": [
+        {
+          "label": "Позиции счёта",
+          "top": 1231.46875,
+          "bottom": 1341.546875,
+          "height": 110.078125
+        }
+      ],
+      "drawer": {
+        "left": 1145,
+        "right": 1905,
+        "width": 760,
+        "scrollWidth": 759,
+        "clientWidth": 759
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "vat-error-dark",
+      "width": 1024,
+      "height": 900,
+      "focus": "BODY",
+      "tableBounds": [
+        {
+          "label": "Позиции счёта",
+          "top": 1141.46875,
+          "bottom": 1251.546875,
+          "height": 110.078125
+        }
+      ],
+      "drawer": {
+        "left": 249,
+        "right": 1009,
+        "width": 760,
+        "scrollWidth": 760,
+        "clientWidth": 760
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "foreign-metadata-dark",
+      "width": 1920,
+      "height": 1080,
+      "focus": "BODY",
+      "tableBounds": [
+        {
+          "label": "Позиции счёта",
+          "top": 2.4375,
+          "bottom": 134.078125,
+          "height": 131.640625
+        },
+        {
+          "label": "История оплат счёта",
+          "top": 1061.03125,
+          "bottom": 1142.265625,
+          "height": 81.234375
+        }
+      ],
+      "drawer": {
+        "left": 1145,
+        "right": 1905,
+        "width": 760,
+        "scrollWidth": 759,
+        "clientWidth": 759
+      },
+      "outsideHorizontal": []
+    },
+    {
+      "name": "foreign-metadata-dark",
+      "width": 1024,
+      "height": 900,
+      "focus": "BODY",
+      "tableBounds": [
+        {
+          "label": "Позиции счёта",
+          "top": -177.5625,
+          "bottom": -45.921875,
+          "height": 131.640625
+        },
+        {
+          "label": "История оплат счёта",
+          "top": 881.03125,
+          "bottom": 962.265625,
+          "height": 81.234375
+        }
+      ],
+      "drawer": {
+        "left": 249,
+        "right": 1009,
+        "width": 760,
+        "scrollWidth": 760,
+        "clientWidth": 760
+      },
+      "outsideHorizontal": []
+    }
+  ],
+  "profileCleanup": "Свой профиль удалён; остановлены только Edge с точным путём runID"
+}

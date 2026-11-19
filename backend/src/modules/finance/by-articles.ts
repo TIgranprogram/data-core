@@ -7,6 +7,7 @@ import type { ArticleNode } from '../expense-articles/articles-tree';
  */
 export interface ByArticlesOpts {
   mode: 'company' | 'object';
+  from?: string; to?: string;
   salesOrderId?: string;
   orderNo?: string;
   title?: string;
@@ -31,7 +32,6 @@ export const SELF_SUFFIX = ':self';
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const r1 = (n: number) => Math.round(n * 10) / 10;
 const nameOr = (v: string | undefined, empty: string) => (v || '').trim() || empty;
-const zeros = () => Array.from({ length: 12 }, () => 0);
 const sumOf = (v: number[]) => r2(v.reduce((s, x) => s + x, 0));
 const add = (v: number[], i: number, x: number) => { v[i] = r2(v[i] + x); };
 
@@ -41,7 +41,7 @@ type Kind = 'income' | 'expense' | 'unallocated';
 
 /** В какую часть таблицы идёт операция; null — в таблицу не входит (другой год, будущее, чужой объект). */
 export function classify(o: Op, year: number, today: string, opts: ByArticlesOpts): Kind | null {
-  if (!(o.amount > 0) || !o.date || o.date > today || o.date.slice(0, 4) !== String(year)) return null;
+  if (!(o.amount > 0) || !o.date || o.date > today || (opts.from && opts.to ? o.date < opts.from || o.date > opts.to : o.date.slice(0, 4) !== String(year))) return null;
   if (opts.mode === 'object') {
     if (o.salesOrderId && o.salesOrderId === opts.salesOrderId) return o.type;
     // ФОТ не привязан к объекту: показываем отдельной строкой, чтобы расходы сошлись с общим итогом
@@ -51,6 +51,9 @@ export function classify(o: Op, year: number, today: string, opts: ByArticlesOpt
 }
 
 export function buildByArticles(ops: Op[], tree: ArticleNode[], year: number, today: string, opts: ByArticlesOpts) {
+  const months: string[] = [];
+  if (opts.from && opts.to) { for (let value = opts.from.slice(0, 7); value <= opts.to.slice(0, 7);) { months.push(value); const next = new Date(value + '-01T00:00:00Z'); next.setUTCMonth(next.getUTCMonth() + 1); value = next.toISOString().slice(0, 7); } } else months.push(...monthsOf(year));
+  const zeros = () => Array.from({ length: months.length }, () => 0);
   const subOf = new Map<string, { top: ArticleNode; sub: ArticleNode['children'][number] }>();
   const selfOf = new Map<string, ArticleNode['children'][number]>();
   for (const top of tree) {
@@ -68,7 +71,7 @@ export function buildByArticles(ops: Op[], tree: ArticleNode[], year: number, to
   for (const o of ops) {
     const kind = classify(o, year, today, opts);
     if (!kind) continue;
-    const m = Number(o.date.slice(5, 7)) - 1;
+    const m = months.indexOf(o.date.slice(0, 7));
     if (kind === 'income') {
       add(income, m, o.amount);
       const who = nameOr(o.counterparty, NO_CUSTOMER);
@@ -127,7 +130,7 @@ export function buildByArticles(ops: Op[], tree: ArticleNode[], year: number, to
     };
   }).sort((a, b) => b.total - a.total);
   return {
-    year, months: monthsOf(year),
+    year, months,
     scope: { mode: opts.mode, ...(opts.salesOrderId ? { salesOrderId: opts.salesOrderId } : {}), ...(opts.orderNo ? { orderNo: opts.orderNo } : {}), ...(opts.title ? { title: opts.title } : {}), ...(opts.contractPrice !== undefined ? { contractPrice: opts.contractPrice } : {}) },
     head: { income, expense, profit, totals: { income: incomeTotal, expense: totalExpense, profit: r2(incomeTotal - totalExpense) } },
     rows, incomeRows,

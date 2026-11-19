@@ -1,3 +1,4 @@
+import type { ClassificationMetadata } from '../../common/financial-classification';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 
@@ -5,7 +6,16 @@ export type ExpenseDocument = HydratedDocument<Expense>;
 
 /** «Прочие расходы» — факт оплаты, не прошедший через заявки снабжения (налоги, аренда, субподряд…). Только data-core. */
 @Schema({ collection: 'expenses', timestamps: true })
-export class Expense {
+export class Expense implements ClassificationMetadata {
+  @Prop({ type: Object }) classificationOriginal?: ClassificationMetadata['classificationOriginal'];
+  @Prop({ type: Object }) classificationOverride?: ClassificationMetadata['classificationOverride'];
+  @Prop({ type: [Object], default: undefined }) classificationHistory?: ClassificationMetadata['classificationHistory'];
+  @Prop({ type: Number }) classificationVersion?: number;
+  @Prop({ type: Number }) version?: number;
+  @Prop({ type: String, enum: ['workshop', 'office', 'smr', 'order'] }) costCenter?: string | null;
+  @Prop({ type: String, maxlength: 1000 }) costObject?: string | null;
+  @Prop({ type: Types.ObjectId }) counterpartyId?: Types.ObjectId | null;
+
   @Prop({ type: Date, required: true }) date!: Date;
   @Prop({ type: Number, required: true, min: 0.01 }) amount!: number;
   /** Наша фирма, с которой заплатили. */

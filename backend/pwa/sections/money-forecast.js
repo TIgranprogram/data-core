@@ -2,7 +2,8 @@ import { h } from '../core/dom.js';
 import { date, money } from '../core/format.js';
 import { patch } from '../core/router.js';
 import { opRow } from '../ui/op-row.js';
-import { button, segmented } from '../ui/kit/index.js';
+import { sourceMoney } from './invoice-workspace-state.js';
+import { button, segmented, section, table, link } from '../ui/kit/index.js';
 
 /*
  * «Деньги → Прогноз» (TASKS БЗ-1) — отдельно от факта: с сегодня вперёд (30/60/90 дней), только ожидаемое.
@@ -20,6 +21,23 @@ const cell = (v, neg = false) => {
   return h('span', { class: cls }, n === 0 ? '0' : money(n).replace(' ₽', ''));
 };
 
+/** Оценка обязательства отделена от фактического платежа; источник — ответ finance. */
+export function financeOpRow(op) {
+  const row = opRow(op.balanceEstimated ? { ...op, method: [op.method, 'Оценка рублёвого остатка', sourceMoney(op.sourceBalance, op)].filter(Boolean).join(' · ') } : op);
+  if (op.invoiceId) row.onclick = () => patch({ of: 'invoicecard', open: op.invoiceId });
+  return row;
+}
+/** Неоценённые обязательства не включаются в рублёвые итоги. Нулём их не заменяем. */
+export function conversionBlock(data) {
+  if (!data?.count) return null;
+  return section({ title: 'Нужен пересчёт', count: data.count, open: true, body: [
+    h('p', { class: 'hint' }, 'У этих счетов не определён рублёвый остаток. Они не входят в рублёвые итоги и прогноз. Откройте счёт и укажите подтверждённый пересчёт.'),
+    table({ label: 'Валютные счета без рублёвой оценки', columns: [{ label: 'Счёт', wrap: true }, { label: 'Наша компания' }, { label: 'Остаток по документу', num: true }, { label: 'Рубли' }],
+      rows: (data.items || []).map(item => ({ cells: [link({ label: item.doc || item.title || 'Счёт', onClick: () => patch({ of: 'invoicecard', open: item.invoiceId || item.id }) }), item.company || 'Не указана', sourceMoney(item.sourceBalance, item), 'Нужен пересчёт'] })) }),
+    Number(data.count) > (data.items || []).length ? h('p', { class: 'hint' }, `Показано ${(data.items || []).length} из ${data.count}; остальные доступны в счетах.`) : null,
+  ] });
+}
+
 export function forecastView(f, { horizon, hasOpening, startDate, openingZero }) {
   const days = f.days;
   const opsBox = h('div', { class: 'm-ops', hidden: true });
@@ -33,7 +51,7 @@ export function forecastView(f, { horizon, hasOpening, startDate, openingZero })
   const showOps = (d) => {
     opsBox.hidden = false;
     opsBox.replaceChildren(h('div', { class: 'q-head' }, h('h3', null, `Ожидается ${date(d.date)}`), button({ label: 'Скрыть', kind: 'ghost', size: 'S', onClick: () => { opsBox.hidden = true; } })),
-      h('ul', { class: 'q-list' }, d.ops.map(opRow)));
+      h('ul', { class: 'q-list' }, d.ops.map(financeOpRow)));
     opsBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
   const row = (label, cls, total, get, click) => h('tr', { class: cls }, h('th', { class: 'sticky' }, label), h('td', { class: 'tot' }, total),
@@ -59,6 +77,7 @@ export function forecastView(f, { horizon, hasOpening, startDate, openingZero })
     segmented({ cls: 'm-horizon', label: 'Горизонт прогноза', items: [30, 60, 90].map((n) => ({ key: String(n), label: `${n} дней` })),
       value: String(horizon), onChange: (k) => patch({ days: k === '30' ? undefined : k }) }).el,
     zeroNote,
+    conversionBlock(f.needsConversion),
     h('div', { class: 'summary' },
       kpi(`поступления до ${date(f.week.to)}`, money(f.week.receive)),
       kpi(`выплаты до ${date(f.week.to)}`, money(f.week.pay)),
@@ -66,9 +85,9 @@ export function forecastView(f, { horizon, hasOpening, startDate, openingZero })
       !zeroBook && f.minBalance && !f.firstGap && hasOpening ? kpi(low, money(f.minBalance.amount)) : null,
       kpi(`итог за ${horizon} дней`, money(f.totals.income - f.totals.expense), !zeroBook && f.totals.income - f.totals.expense < 0 ? 'neg' : '')),
     h('div', { class: 'panel cal-wrap' }, h('table', { class: 'cal forecast' }, h('thead', null, head), h('tbody', null, rows))),
-    h('p', { class: 'hint' }, 'Только будущее — с сегодня вперёд; что уже было, — в «Платёжном календаре». Выплаты — заявки с датой счёта позже сегодня. Поступления — неоплаченные позиции заказов по сроку отгрузки (изготовления, поставки); форма оплаты «… 30%» — предоплата в день заказа, остаток — в срок; срок прошёл — на сегодня как «просрочено». ' + (hasOpening ? '' : 'Введите остаток денег на сегодня — появится остаток по дням и разрыв. ') + 'Нажмите на сумму дня — увидите, что именно.'),
+    h('p', { class: 'hint' }, 'Оценки валютных остатков входят в прогноз по данным счетов и могут отличаться от будущих платежей. Только будущее — с сегодня вперёд; что уже было, — в «Платёжном календаре». Выплаты — заявки с датой счёта позже сегодня. Поступления — неоплаченные позиции заказов по сроку отгрузки (изготовления, поставки); форма оплаты «… 30%» — предоплата в день заказа, остаток — в срок; срок прошёл — на сегодня как «просрочено». ' + (hasOpening ? '' : 'Введите остаток денег на сегодня — появится остаток по дням и разрыв. ') + 'Нажмите на сумму дня — увидите, что именно.'),
     h('div', { class: 'panel' }, opsBox),
     nd.items.length ? h('details', { class: 'panel m-nodate' }, h('summary', null, h('b', null, `Без срока: ${nd.items.length}`), h('span', { class: 'muted' }, ` · выплаты ${money(nd.expense)} · поступления ${money(nd.income)} — впишите дату счёта или срок заказа, тогда встанут в прогноз`)),
-      h('ul', { class: 'q-list' }, nd.items.map(opRow))) : null,
+      h('ul', { class: 'q-list' }, nd.items.map(financeOpRow))) : null,
   ];
 }

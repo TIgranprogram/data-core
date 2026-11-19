@@ -1,3 +1,6 @@
+import { normText } from '../../common/text/norm-text';
+import { ExpenseArticlesService } from '../expense-articles/expense-articles.service';
+import { expenseArticleMatch } from './expense-article-filter';
 import { photoToFront } from '../../common/photo-main';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { CounterService } from '../counter/counter.service';
@@ -103,7 +106,15 @@ export class SupplyService {
     @Optional() private readonly versions?: DataVersionService,
     @Optional() private readonly zones?: ZonesService,
     @Optional() private readonly audit?: AuditService,
+    @Optional() private readonly financialArticles?: ExpenseArticlesService,
   ) {}
+
+  private async withArticleReference<T>(id: unknown, write: (session?: ClientSession) => Promise<T>): Promise<T> {
+    if (!id) return write();
+    const session = await this.connection.startSession(); let result!: T;
+    try { await session.withTransaction(async () => { await this.financialArticles!.assertSelectable(String(id), 'expense', { session }); result = await write(session); }); } finally { await session.endSession(); }
+    return result;
+  }
 
   private async markInvoiceReceiptBoundary(invoiceId: unknown, session: ClientSession) {
     const invoices = this.connection.db!.collection('supplyinvoices');
@@ -257,6 +268,7 @@ export class SupplyService {
         { invoiceDate: { $ne: null }, priceHint: { $gt: 0 }, $or: [{ companyId: null }, { companyId: { $exists: false } }, { companyId: { $nin: ours } }] },
       ] });
     }
+    if (q.articleId) and.push(await expenseArticleMatch(this.connection, String(q.articleId)));
     if (q.categoryId) filter.categoryId = { $in: oids(q.categoryId) };
     if (q.materialId) filter.materialId = { $in: oids(q.materialId) };
     if (q.salesOrderId) filter.salesOrderId = { $in: oids(q.salesOrderId) };
@@ -423,9 +435,7 @@ export class SupplyService {
     if (dto.articleId !== undefined) {
       if (!dto.articleId) f.articleId = undefined;
       else {
-        const a = Types.ObjectId.isValid(dto.articleId) ? await this.connection.db!.collection('expensearticles').findOne({ _id: new Types.ObjectId(dto.articleId), deletedAt: null }, { projection: { parentId: 1 } }) : null;
-        if (!a) throw new BadRequestException('Статья расхода не найдена — выберите из списка');
-        if (!a.parentId) throw new BadRequestException('Выберите подстатью, а не общую статью');
+        const a = await this.financialArticles!.assertSelectable(dto.articleId, 'expense');
         f.articleId = a._id;
       }
     }
@@ -468,13 +478,14 @@ export class SupplyService {
       await this.counters.setSeqAtLeast('SupplyRequest', 'N', Number(last?.num) || 0);
       fields.num = await this.counters.nextSeq('SupplyRequest', 'N');
     }
-    const doc = await this.model.create({
+    const document = {
       status: 'requested', priority: 'normal', qty: 1, paid: false, requestDate: todayUtc(),
       ...Object.fromEntries(Object.entries(fields).filter(([k, v]) => v !== undefined && k !== 'sheetExtra.invoiceType')),
       ...(fields['sheetExtra.invoiceType'] ? { sheetExtra: { invoiceType: fields['sheetExtra.invoiceType'] } } : {}),
       clientUid: dto.clientUid,
       createdBy: userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined,
-    });
+    };
+    const doc = await this.withArticleReference(fields.articleId, async (session) => session ? (await this.model.create([document], { session }))[0] : this.model.create(document));
     if (photoIds.length) await this.writePhotos(doc._id as Types.ObjectId, { $set: { photoIds } });
     await this.adoptArticle(doc as unknown as Record<string, unknown>);
     await this.afterCreate(doc as unknown as Record<string, unknown>, userId);
@@ -607,7 +618,19 @@ export class SupplyService {
         if (next?.status === 'cancelled') throw new BadRequestException('Заявка оплачена — сначала снимите оплату (статус «В работе»), потом отменяйте');
       }
     }
-    const fields = await this.toFields(dto);
+    const analytics = ['articleId', 'categoryId', 'salesOrderId', 'costCenter', 'costObject'] as const;
+    if (analytics.some(k => dto[k] !== undefined) || dto.categoryName !== undefined) {
+      const source = await this.model.findOne({ _id: id, deletedAt: null }).lean().exec() as Record<string, unknown> | null;
+      const header = source?.invoiceId ? await this.connection.db!.collection('supplyinvoices').findOne({ _id: source.invoiceId as Types.ObjectId, deletedAt: null }, { projection: { status: 1, paymentAccountingVersion: 1, paymentSnapshot: 1 } }) : null;
+      const paidTruth = source?.paid || header?.status === 'paid' || !!header?.paymentSnapshot;
+      if (source && paidTruth && header?.paymentAccountingVersion !== 1) {
+        const changed = analytics.some(k => dto[k] !== undefined && String(dto[k] || '') !== String(source[k] || ''));
+        const category = dto.categoryName !== undefined && source.categoryId ? await this.connection.db!.collection('categories').findOne({ _id: source.categoryId as Types.ObjectId }, { projection: { name: 1 } }) : null;
+        if (changed || (dto.categoryName !== undefined && normText(dto.categoryName) !== normText(category?.name))) throw new ConflictException({ message: source.invoiceId ? 'Классификацию старой оплаты меняйте отдельным действием в денежных операциях' : 'Старая оплаченная заявка без счёта пока доступна только для просмотра классификации', code: 'CLASSIFICATION_SOURCE_LOCKED' });
+      }
+    }
+    const savedArticle = dto.articleId !== undefined ? await this.model.findOne({ _id: id, deletedAt: null }, { articleId: 1 }).lean().exec() as { articleId?: unknown } | null : null;
+    const fields = await this.toFields({ ...dto, ...(savedArticle && String(savedArticle.articleId || '') === String(dto.articleId || '') ? { articleId: undefined } : {}) });
     // «Получено» без прихода на склад запрещено — иначе товар «висит в воздухе» (решение 2026-10-20)
     let resetReceipt = false;
     if (fields.status) {
@@ -629,7 +652,7 @@ export class SupplyService {
     set.editedInApp = true;
     if (resetReceipt) Object.assign(unset, { receivedQty: '', receivedAt: '', receivedTo: '', receiveUid: '' });
     if (fields.paid === false) unset.paidAt = '';
-    const res = await this.model.updateOne({ _id: id, deletedAt: null }, { ...(Object.keys(set).length ? { $set: set } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) }).exec();
+    const res = await this.withArticleReference(set.articleId, (session) => this.model.updateOne({ _id: id, deletedAt: null }, { ...(Object.keys(set).length ? { $set: set } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) }, session ? { session } : {}).exec());
     if (!res.matchedCount) throw new NotFoundException('Заявка не найдена');
     if (photoIds) await this.writePhotos(new Types.ObjectId(id), { $set: { photoIds } });
     await this.adoptArticle(await this.model.findById(id, { materialId: 1, article: 1, num: 1 }).lean().exec() as Record<string, unknown> | null);

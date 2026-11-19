@@ -1,12 +1,14 @@
+import { MoneyAccessGuard } from '../../common/guards/money-access.guard';
+import { IncomePaymentIdentitiesService } from './income-payment-identities.service';
 import { AppSection, AppSectionFree } from '../../common/decorators/app-section.decorator';
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, UseGuards, UseInterceptors } from '@nestjs/common';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { canSeeMoney } from '../../common/roles-hierarchy';
-import { CancelIncomeDto, IncomeDto, MoveIncomeDto, PaymentDto } from './dto';
+import { CancelIncomeDto, IncomeDto, MoveIncomeDto, PaymentDto, RemoveIncomePaymentQueryDto, MaterializeIncomePaymentsDto } from './dto';
 import { IncomeCancelService } from './income-cancel.service';
 import { IncomesService } from './incomes.service';
 
@@ -16,7 +18,7 @@ import { IncomesService } from './incomes.service';
 @AppSection('orders', 'salesorders')
 @Controller('incomes')
 export class IncomesController {
-  constructor(private readonly incomes: IncomesService, private readonly cancels: IncomeCancelService) {}
+  constructor(private readonly incomes: IncomesService, private readonly cancels: IncomeCancelService, private readonly identities: IncomePaymentIdentitiesService) {}
 
   @Get()
   @Roles('admin', 'director', 'manager', 'user')
@@ -115,6 +117,17 @@ export class IncomesController {
     return this.incomes.removePhoto(id, photoId);
   }
 
+  @Get(':id/payments/identity-plan')
+  @Roles('admin', 'manager') @UseGuards(MoneyAccessGuard)
+  identityPlan(@Param('id') id: string) { return this.identities.plan(id); }
+
+  @Post(':id/payments/materialize') @HttpCode(200)
+  @Roles('admin', 'manager') @UseGuards(MoneyAccessGuard)
+  async materialize(@Param('id') id: string, @Body() dto: MaterializeIncomePaymentsDto, @CurrentUser() user?: AuthenticatedUser) {
+    const result = await this.identities.materialize(id, dto, user);
+    return 'dryRun' in result ? result : { ...(await this.incomes.get(id)), ...result };
+  }
+
   /** Принять платёж по позиции (частичная оплата). */
   @Post(':id/payments')
   @HttpCode(200)
@@ -128,8 +141,8 @@ export class IncomesController {
   @Delete(':id/payments/:index')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'income.payment.removed', entityType: 'Income', idParam: 'id' })
-  removePayment(@Param('id') id: string, @Param('index') index: string, @Query('amount') amount?: string, @CurrentUser() user?: AuthenticatedUser) {
-    return this.incomes.removePayment(id, Number(index), user, amount === undefined || amount === '' ? undefined : Number(amount));
+  removePayment(@Param('id') id: string, @Param('index') index: string, @Query() query: RemoveIncomePaymentQueryDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.incomes.removePayment(id, Number(index), user, query.amount, query.expectedPaymentId, query.version);
   }
 
   @Post(':id/restore')

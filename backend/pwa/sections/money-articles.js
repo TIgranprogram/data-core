@@ -2,8 +2,7 @@ import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { money } from '../core/format.js';
 import { go, patch } from '../core/router.js';
-import { actions, button, empty, link, segmented, select, enhanceSelect, failBlock, stats, toolbar, treeTable } from '../ui/kit/index.js';
-import { orderChoices } from './expenses.js';
+import { actions, button, empty, link, segmented, failBlock, stats, toolbar, treeTable } from '../ui/kit/index.js';
 
 /**
  * «Деньги → По статьям» (C027, C084): таблица для директора — доходы и расходы по месяцам или кварталам.
@@ -26,10 +25,9 @@ const num = (v, strong) => {
 const pctText = (p) => String(Math.round(Number(p) * 10) / 10).replace('.', ',') + '%';
 const ratioCell = (v) => (v == null ? h('span', { class: 'num muted' }, '—') : h('span', { class: 'num' }, String(Math.round(Number(v) * 100) / 100).replace('.', ',')));
 const sum = (a, idxs) => idxs.reduce((s, i) => s + (Number(a?.[i]) || 0), 0);
-const sameName = (a, b) => (a || '').trim() === (b || '').trim();
 
-export function articlesView({ year, org, mode, order, opRow, noIncomeText }) {
-  const objectMode = mode === 'object';
+export function articlesView({ year, org, mode, order, filters = {}, incomeMode, opRow, noIncomeText }) {
+  const objectMode = mode === 'object' && !!(filters.salesOrderId || order);
   const el = h('div');
   const bar = toolbar();
   const out = h('div');
@@ -37,22 +35,19 @@ export function articlesView({ year, org, mode, order, opRow, noIncomeText }) {
   let data = null;
   let query = {};
   let tt = null; // treeTable текущей перерисовки
-  let insKey = null;
   let quarters = store.get(PERIOD_KEY) === 'quarters';
 
-  const now = new Date();
-  const curIdx = Number(year) === now.getFullYear() ? now.getMonth() : Number(year) < now.getFullYear() ? 11 : -1; // последний месяц, по который есть факт
-  const groups = () => (quarters ? [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]] : MON.map((_, i) => [i]));
-  const periodTitle = (idxs) => (idxs.length === 1 ? `${MON_FULL[idxs[0]]} ${year}` : `${QUARTER[idxs[0] / 3]} квартал ${year}`);
+  const monthKeys = () => data?.months || MON.map((_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
+  const groups = () => {
+    const grouped = new Map();
+    monthKeys().forEach((key, index) => { if (key > new Date().toISOString().slice(0, 7)) return; const bucket = quarters ? `${key.slice(0, 4)}-${Math.floor((Number(key.slice(5, 7)) - 1) / 3)}` : key; grouped.set(bucket, [...(grouped.get(bucket) || []), index]); });
+    return [...grouped.values()];
+  };
+  const periodTitle = idxs => { const key = monthKeys()[idxs[0]]; return quarters ? `${QUARTER[Math.floor((Number(key.slice(5, 7)) - 1) / 3)]} квартал ${key.slice(0, 4)}` : `${MON_FULL[Number(key.slice(5, 7)) - 1]} ${key.slice(0, 4)}`; };
 
   const paintBar = async () => {
-    const kids = [segmented({ fit: true, label: 'Что показать', items: [{ key: 'company', label: 'Все заказы' }, { key: 'object', label: 'Один заказ' }], value: objectMode ? 'object' : 'company',
-      onChange: (k) => patch({ mode: k === 'object' ? 'object' : undefined, order: undefined }) }).el];
-    if (objectMode) {
-      const sel = select({ options: await orderChoices('Выберите объект'), value: order || '', label: 'Объект (заказ)', onChange: (v) => patch({ order: v || undefined }) });
-      kids.push(sel);
-      enhanceSelect(sel, { force: true });
-    }
+    const kids = [];
+    kids.push(segmented({ label: 'Доходы в таблице', value: incomeMode === 'customers' ? 'customers' : 'articles', items: [{ key: 'articles', label: 'Доходные статьи' }, { key: 'customers', label: 'Заказчики и заказы' }], onChange: value => patch({ incomeMode: value === 'customers' ? value : undefined }) }).el);
     kids.push(segmented({ fit: true, label: 'Период таблицы', items: [{ key: 'months', label: 'Месяцы' }, { key: 'quarters', label: 'Кварталы' }], value: quarters ? 'quarters' : 'months',
       onChange: (k) => { quarters = k === 'quarters'; store.set(PERIOD_KEY, k); if (data) paint(); } }).el,
     actions( // пара кнопок вместе: на телефоне не разъезжается по двум строкам (дизайнер 15.11)
@@ -62,27 +57,19 @@ export function articlesView({ year, org, mode, order, opRow, noIncomeText }) {
   };
 
   /** Операции под строкой: idxs — месяцы (null — весь год); extra — counterparty / doc. */
-  async function showOps(rowId, articleId, extra, idxs, title) {
-    const key = `${rowId}|${idxs ? idxs.join(',') : 'y'}`;
-    if (insKey === key) { tt.closeInsert(true); return; }
-    const ins = tt.insert(rowId, { title: `${title} · ${idxs ? periodTitle(idxs) : year + ' год'}`, onClose: () => { insKey = null; } });
-    insKey = key;
-    ins.body.replaceChildren(h('p', { class: 'muted' }, 'Загружаю операции…'));
-    try {
-      const base = { ...query, articleId, ...(extra.counterparty != null ? { counterparty: extra.counterparty } : {}), ...(extra.doc != null ? { doc: extra.doc } : {}) };
-      const res = await Promise.all((idxs ? idxs.map((i) => ({ ...base, month: data.months[i] })) : [base]).map((q) => api('/finance/by-articles/ops', { query: q })));
-      if (insKey !== key) return; // пока грузилось, закрыли или открыли другую
-      let ops = res.flatMap((r) => r.items || []).sort((a, b) => String(a.date).localeCompare(String(b.date)));
-      if (extra.counterparty != null && articleId !== 'income') ops = ops.filter((o) => sameName(o.counterparty, /не указан/.test(extra.counterparty) ? '' : extra.counterparty)); // старый сервер фильтра не знает
-      ins.body.replaceChildren(ops.length ? h('ul', { class: 'q-list' }, ops.map(opRow)) : h('p', { class: 'hint' }, 'Операций нет.'));
-    } catch (e) { if (insKey === key) ins.body.replaceChildren(failBlock(e, () => { insKey = null; showOps(rowId, articleId, extra, idxs, title); }, { cls: 'panel state' })); }
+  async function showOps(rowId, articleId, extra, idxs) {
+    const months = idxs?.map(index => monthKeys()[index]);
+    const from = months ? months[0] + '-01' : filters.from || `${year}-01-01`;
+    const last = months?.at(-1);
+    const to = last ? new Date(Date.UTC(Number(last.slice(0, 4)), Number(last.slice(5, 7)), 0)).toISOString().slice(0, 10) : filters.to || `${year}-12-31`;
+    patch({ view: 'operations', page: undefined, from: filters.from && filters.from > from ? filters.from : from, to: filters.to && filters.to < to ? filters.to : to,
+      ...(['income', 'expense'].includes(articleId) ? { type: articleId } : { articleId }), ...(extra.counterparty != null ? { counterpartyName: extra.counterparty || undefined } : {}), ...(extra.salesOrderId ? { salesOrderId: extra.salesOrderId } : {}) });
   }
 
   /** Строка дерева. articleId задан — суммы нажимаются. share — { text, ratio }. */
   function node({ id, label, name, values, total, share, articleId, extra = {}, cls, kids, depth, fmt = num, strong = false }) {
     const can = articleId != null;
     const cells = groups().map((idxs) => {
-      if (idxs[0] > curIdx) return null; // будущие периоды — пустые ячейки
       const v = sum(values, idxs);
       return { v: fmt(v, strong), click: can && v !== 0 ? () => showOps(id, articleId, extra, idxs, name || String(label)) : null };
     });
@@ -94,26 +81,26 @@ export function articlesView({ year, org, mode, order, opRow, noIncomeText }) {
   const inner = (c, parent) => (parent?.total ? { text: pctText((Number(c.total) / Number(parent.total)) * 100), ratio: Number(c.total) / Number(parent.total) } : undefined);
   const outer = (a) => (a.pct != null ? { text: pctText(a.pct), ratio: Number(a.pct) / 100 } : undefined);
 
-  function expenseRows(d) {
-    return d.rows.map((a) => node({ id: a.id, label: a.name, name: a.name, values: a.values, total: a.total, share: outer(a), articleId: a.id, strong: true, depth: 2,
-      kids: (a.children || []).map((c) => node({ id: c.id, label: c.name, name: `${a.name} → ${c.name}`, values: c.values, total: c.total, share: inner(c, a), articleId: c.id,
-        kids: (c.children || []).map((k) => node({ id: `${c.id}|${k.name}`, depth: 3, label: '↳ ' + k.name, name: `${c.name} → ${k.name}`, values: k.values, total: k.total, share: inner(k, c), articleId: c.id, extra: { counterparty: k.name } })) })) }));
+  function articleRows(rows) {
+    const build = (article, parent) => node({ id: article.id, label: article.name, name: article.path?.map?.(part => typeof part === 'string' ? part : part.name).join(' → ') || article.name, values: article.values, total: article.total, share: parent ? inner(article, parent) : outer(article), articleId: article.id, strong: !parent, depth: parent ? undefined : 2,
+      kids: (article.children || []).map(child => child.id ? build(child, article) : node({ id: `${article.id}|${child.name}`, label: child.name, name: child.name, values: child.values, total: child.total, share: inner(child, article), articleId: article.id, extra: { counterparty: child.name } })) });
+    return (rows || []).map(row => build(row));
   }
+  function expenseRows(d) { return articleRows(d.articleRows ? d.articleRows.filter(row => row.type === 'expense') : d.rows); }
 
   function incomeKids(d) {
     return (d.incomeRows || []).map((cp) => node({ id: cp.id, label: cp.name, name: cp.name, values: cp.values, total: cp.total, share: cp.pct != null ? { text: pctText(cp.pct), ratio: Number(cp.pct) / 100 } : undefined, articleId: 'income', extra: { counterparty: cp.name },
       kids: (cp.children || []).map((o) => node({ id: `${cp.id}|${o.id}`, label: o.name, name: `${cp.name} → ${o.name}`, values: o.values, total: o.total, share: inner(o, cp), articleId: 'income',
-        extra: { counterparty: cp.name, doc: o.name } })) }));
+        extra: { counterparty: cp.name, salesOrderId: o.id } })) }));
   }
 
   /** Итоговые строки без нажатий: значения по периодам считает вызывающий (a — по периодам). */
   function plain({ id, label, per, total, cls, fmt = num, strong = false }) {
-    return { id, label, cls, cells: groups().map((idxs, i) => (idxs[0] > curIdx ? null : { v: fmt(per(idxs, i), strong) })), total: total == null ? null : { v: fmt(total, true) } };
+    return { id, label, cls, cells: groups().map((idxs, i) => ({ v: fmt(per(idxs, i), strong) })), total: total == null ? null : { v: fmt(total, true) } };
   }
 
   function paint() {
     const d = data;
-    insKey = null;
     const unassigned = d.unassigned && Number(d.unassigned.total) !== 0 ? d.unassigned : null;
     const noOps = !Number(d.head.totals.income) && !Number(d.head.totals.expense) && !unassigned;
     if (noOps) {
@@ -125,12 +112,12 @@ export function articlesView({ year, org, mode, order, opRow, noIncomeText }) {
     const byPrice = objectMode && sc.contractPrice;
     const inc = Number(d.head.totals.income) || 0, exp = Number(d.head.totals.expense) || 0, res = Number(d.head.totals.profit) || 0;
     const plashes = stats([
-      { value: money(inc), label: `доходы за ${year}` }, { value: money(exp), label: `расходы за ${year}` },
-      { value: money(res), label: 'финансовый результат', tone: res < 0 ? 'danger' : undefined },
+      { value: money(inc), label: 'Поступления за выбранный период' }, { value: money(exp), label: 'Выплаты за выбранный период' },
+      { value: money(res), label: 'Денежный результат', tone: res < 0 ? 'danger' : undefined },
       ...(unassigned?.count ? [{ value: unassigned.count, label: 'без статьи — заполнить →', tone: 'danger', onClick: () => go('fill', { g: 'exp-article' }) }] : [])]);
 
     const rows = [
-      node({ id: 'income', label: 'Доходы', name: 'Доходы', cls: 'grp in', values: d.head.income, total: d.head.totals.income, strong: true, articleId: 'income', kids: incomeKids(d) }),
+      node({ id: 'income', label: 'Доходы', name: 'Доходы', cls: 'grp in', values: d.head.income, total: d.head.totals.income, strong: true, articleId: 'income', kids: incomeMode === 'customers' ? incomeKids(d) : articleRows((d.articleRows || []).filter(row => row.type === 'income')) }),
       node({ id: 'expense', label: 'Расходы', name: 'Расходы', cls: 'grp out', values: d.head.expense, total: d.head.totals.expense, strong: true, articleId: 'expense' }),
       ...expenseRows(d),
     ];
@@ -138,12 +125,12 @@ export function articlesView({ year, org, mode, order, opRow, noIncomeText }) {
     if (d.unallocated && Number(d.unallocated.total) !== 0) rows.push(plain({ id: 'unallocated', label: 'Не распределено по объекту', cls: 'sub', per: (idxs) => sum(d.unallocated.values, idxs), total: d.unallocated.total }));
     const cum = d.result.cumulative || [];
     rows.push(
-      plain({ id: 'result', label: 'Финансовый результат', cls: 'bal end', per: (idxs) => sum(d.head.profit, idxs), total: res, strong: true }),
-      plain({ id: 'cumulative', label: h('span', { title: 'Прошлые месяцы плюс этот' }, 'Финансовый результат нарастающим итогом'), cls: 'bal', per: (idxs) => cum[idxs[idxs.length - 1]] ?? 0, total: cum.length ? cum[cum.length - 1] : 0 }),
+      plain({ id: 'result', label: 'Денежный результат', cls: 'bal end', per: (idxs) => sum(d.head.profit, idxs), total: res, strong: true }),
+      plain({ id: 'cumulative', label: h('span', { title: 'Прошлые месяцы плюс этот' }, 'Денежный результат нарастающим итогом'), cls: 'bal', per: (idxs) => cum[idxs[idxs.length - 1]] ?? 0, total: cum.length ? cum[cum.length - 1] : 0 }),
       plain({ id: 'ratio', label: 'Доходы ÷ расходы', cls: 'bal', per: (idxs) => { const e = sum(d.head.expense, idxs); return e ? sum(d.head.income, idxs) / e : null; }, total: exp ? inc / exp : null, fmt: ratioCell }));
 
     tt = treeTable({ label: 'Доходы и расходы по статьям', head: 'Статья', open: opened, shareLabel: byPrice ? '% цены' : '%', totalLabel: 'Итого',
-      periods: groups().map((idxs) => ({ label: quarters ? `${QUARTER[idxs[0] / 3]} кв.` : MON[idxs[0]], today: curIdx >= 0 && idxs.includes(curIdx) && Number(year) === now.getFullYear() })),
+      periods: groups().map((idxs) => ({ label: periodTitle(idxs), today: idxs.some(index => monthKeys()[index] === new Date().toISOString().slice(0, 7)) })),
       moreLabel: (rest) => `Ещё ${rest.length} · ${money(rest.reduce((a, r) => a + (Number(r.raw) || 0), 0))}`,
       rows });
     out.replaceChildren(
@@ -158,8 +145,7 @@ export function articlesView({ year, org, mode, order, opRow, noIncomeText }) {
     out.replaceChildren(h('p', { class: 'muted' }, 'Загружаю…'));
     try {
       await paintBar();
-      if (objectMode && !order) { out.replaceChildren(h('p', { class: 'hint' }, 'Выберите объект (заказ) — покажем его доходы и расходы по статьям.')); return; }
-      query = { year, org, mode: objectMode ? 'object' : 'company', ...(objectMode ? { salesOrderId: order } : {}) };
+      query = { year, org, ...filters, mode: objectMode ? 'object' : 'company', ...(objectMode ? { salesOrderId: filters.salesOrderId || order } : {}) };
       data = await api('/finance/by-articles', { query });
       paint();
     } catch (e) { out.replaceChildren(failBlock(e, load, { cls: 'panel state' })); }

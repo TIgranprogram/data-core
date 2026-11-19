@@ -1,4 +1,6 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { hasClassificationHistory, type ClassificationMetadata } from '../../common/financial-classification';
+import { versionFilter } from '../../common/versioned';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
@@ -15,7 +17,7 @@ const personName = (p: Doc) => [p.lastName, p.firstName].map((x) => String(x ?? 
 /** Что платить: начислено минус выплачено за месяц, для прогноза календаря. */
 export interface PayrollDue { personId: string; person: string; month: string; amount: number; date: string; companyId: string }
 /** Выплата, уже сделанная, — расход календаря. */
-export interface PayrollPaid { id: string; person: string; kind: string; date: string; amount: number; companyId: string; month: string }
+export interface PayrollPaid extends ClassificationMetadata { id: string; person: string; kind: string; date: string; amount: number; companyId: string; month: string }
 
 /**
  * ФОТ (В-3, «на руки», без налогов). Табель по месяцам → начисление = ставка × табель; выплаты (дата, сумма, вид).
@@ -126,7 +128,7 @@ export class PayrollService {
     if (!(await this.db.collection('persons').findOne({ _id: personId, deletedAt: null }, { projection: { _id: 1 } }))) throw new NotFoundException('Сотрудник не найден');
     if (!(await ourCompanies(this.connection)).some((c) => String(c.id) === String(companyId))) throw new BadRequestException('Выберите нашу компанию из списка');
     const doc = { personId, companyId, date, amount: r2(dto.amount), kind: dto.kind || 'salary', month: dto.month || date.toISOString().slice(0, 7), note: dto.note?.trim() || undefined,
-      createdBy: userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined, deletedAt: null, createdAt: new Date() };
+      createdBy: userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined, version: 0, deletedAt: null, createdAt: new Date() };
     const coll = this.db.collection('payroll_payments');
     if (dto.clientUid) {
       // одним атомарным upsert: повтор с тем же ключом возвращает прежнюю выплату, а не создаёт вторую
@@ -140,7 +142,10 @@ export class PayrollService {
   }
 
   async removePayment(id: string) {
-    const res = await this.db.collection('payroll_payments').updateOne({ _id: oid(id, 'выплаты'), deletedAt: null }, { $set: { deletedAt: new Date() } });
+    const current = await this.db.collection('payroll_payments').findOne({ _id: oid(id, 'выплаты'), deletedAt: null });
+    if (!current) throw new NotFoundException('Выплата не найдена');
+    if (hasClassificationHistory(current as Doc)) throw new ConflictException('Классифицированную выплату нельзя удалить обычным действием');
+    const res = await this.db.collection('payroll_payments').updateOne({ _id: current._id, deletedAt: null, ...versionFilter(Number(current.version || 0)) }, { $set: { deletedAt: new Date() }, $inc: { version: 1 } });
     if (!res.matchedCount) throw new NotFoundException('Выплата не найдена');
     return { id, deleted: true };
   }
@@ -157,11 +162,11 @@ export class PayrollService {
   async paidOps(from: string, to: string, companyIds: Types.ObjectId[]): Promise<PayrollPaid[]> {
     const range = { $gte: new Date(from + 'T00:00:00Z'), $lt: new Date(Date.parse(to + 'T00:00:00Z') + 86400000) };
     const [docs, people] = await Promise.all([
-      this.db.collection('payroll_payments').find({ deletedAt: null, date: range, companyId: { $in: companyIds } }).toArray() as Promise<Doc[]>,
+      this.db.collection('payroll_payments').find({ deletedAt: null, date: range, companyId: { $in: companyIds } }, { projection: { classificationHistory: 0 } }).toArray() as Promise<Doc[]>,
       this.people(),
     ]);
     const pname = new Map(people.map((p) => [p.id, p.name]));
-    return docs.map((d) => ({ id: String(d._id), person: pname.get(String(d.personId)) ?? '?', kind: PAY_KIND_LABEL[d.kind as PayKind] ?? 'Выплата', date: iso(d.date), amount: Number(d.amount), companyId: String(d.companyId), month: String(d.month) }));
+    return docs.map((d) => ({ classificationOriginal: d.classificationOriginal as ClassificationMetadata['classificationOriginal'], classificationOverride: d.classificationOverride as ClassificationMetadata['classificationOverride'], classificationVersion: Number(d.classificationVersion || 0), classificationHistory: d.classificationHistory as ClassificationMetadata['classificationHistory'], id: String(d._id), person: pname.get(String(d.personId)) ?? '?', kind: PAY_KIND_LABEL[d.kind as PayKind] ?? 'Выплата', date: iso(d.date), amount: Number(d.amount), companyId: String(d.companyId), month: String(d.month) }));
   }
 
   /** Выплаты без нашей компании — «требуют заполнения». */
