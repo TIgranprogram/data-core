@@ -194,7 +194,7 @@ test('поручение: «сделано» хранится в pult/.state/don
 import { readStatus } from '../server.mjs';
 test('T23: фоновый статус только локальный; legacy dcnight не выдаётся за свой стенд', async () => {
   const calls = [];
-  const status = await readStatus({ docker: 'docker' }, {}, { standFn: () => null, shFn: async (file, args) => { calls.push([file, ...args]); return { ok: true, out: file === 'docker' ? 'dcnight-mongo\ndcnight-backend\n' : '' }; } });
+  const status = await readStatus({ docker: 'docker' }, {}, { standFn: () => null, dockerEnv: { DOCKER_HOST: 'unix:///var/run/docker.sock' }, shFn: async (file, args) => { calls.push([file, ...args]); return { ok: true, out: file === 'docker' ? 'dcnight-mongo\ndcnight-backend\n' : '' }; } });
   assert.equal(status.site, null); assert.equal(status.productionChecked, false);
   assert.equal(status.nightStand, false); assert.equal(status.legacyNightStand, true);
   assert.ok(calls.every((args) => !/https?:|curl|api\.sh/.test(args.join(' '))));

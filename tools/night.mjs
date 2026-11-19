@@ -10,7 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import net from 'node:net';
 import { createNightStand } from './night-stand.mjs';
-import { newStandRun } from './night-owner.mjs';
+import { DEVELOPMENT_PORTS, newStandRun } from './night-owner.mjs';
 import { terminateProcess } from '../pult/process.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -18,12 +18,14 @@ export const NIGHT_DIR = path.join(ROOT, 'tools', '.night');
 const COMPOSE = path.join(ROOT, 'tools', 'night', 'compose.yml');
 const WORKTREE = path.join(NIGHT_DIR, 'worktree');
 const LOCK = path.join(NIGHT_DIR, 'lock.json');
-const BACKUPS = process.env.DC_BACKUPS || 'D:\\datacore-backups';
+const MANUAL_LOCK = path.join(NIGHT_DIR, 'manual-lock');
+export const STAND_BACKUP_DIR = process.env.DC_BACKUPS || process.env.DATACORE_BACKUPS || (process.platform === 'win32' ? 'D:\\datacore-backups' : path.join(os.homedir(), 'datacore-backups'));
 
 export const NIGHT_DB = 'datacore-night';
 export const TEST_DB = 'datacore-test-night';
-export const API_PORT = 3102;
-export const MONGO_PORT = 27118;
+export const API_PORT = DEVELOPMENT_PORTS.apiPort;
+export const MONGO_PORT = DEVELOPMENT_PORTS.mongoPort;
+export const HEALTH_URL = `http://127.0.0.1:${API_PORT}/api/health/ready`;
 export const FORBIDDEN_PORTS = [3000, 3001, 3002, 27017, 27018];
 export const LOCK_STALE_MS = 3 * 60 * 60 * 1000;
 export const TAIL_BYTES = 4096;
@@ -152,6 +154,61 @@ function sh(cmd, args, o = {}) {
   return { code: r.status ?? (r.error ? -1 : 1), out: (r.stdout || '') + (r.stderr ? '\n' + r.stderr : '') + (r.error ? '\n' + r.error.message : ''), stdout: r.stdout || '', error: r.error };
 }
 
+/** Локальный Git-статус без обновления индекса и tracking refs. */
+export function checkoutState(cwd = ROOT) {
+  const result = sh('git', ['--no-optional-locks', 'status', '--porcelain=v2', '--branch'], { cwd, timeout: 10000 });
+  if (result.code) return null;
+  const lines = result.stdout.trimEnd().split(/\r?\n/);
+  const header = (prefix) => lines.find((line) => line.startsWith(prefix))?.slice(prefix.length) || null;
+  const head = header('# branch.oid ');
+  const branch = header('# branch.head ');
+  const counts = /^\+(\d+) -(\d+)$/.exec(header('# branch.ab ') || '');
+  return { branch, head: head === '(initial)' ? null : head, dirty: lines.some((line) => line && !line.startsWith('# ')), upstream: header('# branch.upstream '), ahead: counts ? Number(counts[1]) : null, behind: counts ? Number(counts[2]) : null };
+}
+
+function manualLockError() {
+  return Object.assign(new Error('Дождитесь завершения другой операции с копией разработки.'), { code: 2 });
+}
+
+/** Общий замок для пульта и прямых вызовов ручного стенда из этого checkout. */
+export async function withManualStandLock(action, lock = MANUAL_LOCK) {
+  fs.mkdirSync(path.dirname(lock), { recursive: true });
+  const candidate = fs.mkdtempSync(`${lock}.pending-`);
+  const marker = `${process.pid}-${crypto.randomBytes(12).toString('hex')}`;
+  let acquired = false;
+  try {
+    fs.writeFileSync(path.join(candidate, marker), '', { flag: 'wx' });
+    // Переименование публикует замок вместе с меткой PID, даже если процесс аварийно завершится.
+    try {
+      fs.renameSync(candidate, lock);
+    } catch (error) {
+      if (!['EEXIST', 'ENOTEMPTY', 'EPERM'].includes(error.code)) throw error;
+      try {
+        const markers = fs.readdirSync(lock);
+        if (markers.length) {
+          const previous = markers.length === 1 && /^(\d+)-[a-f0-9]{24}$/.exec(markers[0]);
+          if (!previous || pidAlive(previous[1])) throw manualLockError();
+          fs.unlinkSync(path.join(lock, previous[0]));
+        }
+        fs.rmdirSync(lock);
+        fs.renameSync(candidate, lock);
+      } catch (error) {
+        if (['EEXIST', 'ENOENT', 'ENOTEMPTY', 'EPERM'].includes(error.code)) throw manualLockError();
+        throw error;
+      }
+    }
+    acquired = true;
+    return await action();
+  } finally {
+    const directory = acquired ? lock : candidate;
+    fs.rmSync(path.join(directory, marker), { force: true });
+    try { fs.rmdirSync(directory); } catch (error) {
+      // После снятия метки другой процесс может уже занять замок.
+      if (!['ENOENT', 'ENOTEMPTY', 'EEXIST'].includes(error.code)) throw error;
+    }
+  }
+}
+
 /** Шаг с таймаутом: по истечении убивает всё дерево процессов. Не бросает исключений. */
 export function runAsync(cmd, args, { cwd = ROOT, env = process.env, timeoutMs = 600000, shell = false } = {}) {
   return new Promise((resolve) => {
@@ -172,14 +229,21 @@ export function runAsync(cmd, args, { cwd = ROOT, env = process.env, timeoutMs =
 }
 
 const docker = (args, o) => sh('docker', args, o);
-const stand = createNightStand({ docker, sh, root: ROOT, composeFile: COMPOSE, nightDir: NIGHT_DIR, backupDir: BACKUPS });
-export const standUp = (ctx, src = ROOT, run = null, ports = {}) => stand.up(ctx, src, run, ports);
+const stand = createNightStand({ docker, sh, root: ROOT, composeFile: COMPOSE, nightDir: NIGHT_DIR, backupDir: STAND_BACKUP_DIR, buildCode: (src) => checkoutState(src) || {} });
+export const standUp = (ctx, src = ROOT, run = null, ports = {}) => run ? stand.up(ctx, src, run, ports) : withManualStandLock(() => stand.up(ctx, src, run, ports));
 export const standOwned = () => stand.owned();
-export const standRefresh = (ctx, src = ROOT) => stand.refresh(ctx, src);
-export const standRenew = (ctx) => stand.renew(ctx); // новый стенд из свежей копии, старый — отложен без удаления
+export const standRefresh = (ctx, src = ROOT) => withManualStandLock(() => stand.refresh(ctx, src));
+export const standRenew = (ctx) => withManualStandLock(() => stand.renew(ctx)); // новый стенд из свежей копии, старый — отложен без удаления
 export const standInfo = () => stand.info();
-export const standDown = (ctx, run) => stand.down(ctx, run);
+export const standDown = (ctx, run) => run ? stand.down(ctx, run) : withManualStandLock(() => stand.down(ctx));
 export const standStatus = (ctx) => stand.status(ctx);
+export const standDevelopmentOwned = () => stand.developmentOwned().data;
+export const latestStandBackup = () => stand.latestBackup();
+export const prepareDevelopment = (ctx, ready) => withManualStandLock(async () => {
+  const code = await stand.prepareDevelopment(ctx);
+  if (code !== 0) return code;
+  return ready(stand.developmentOwned({ requireMetadata: true }));
+});
 
 /** Полный прогон не занимает порты ручного/legacy стенда. */
 async function freePort() {
@@ -193,7 +257,7 @@ export async function cmdStand(sub, ctx) {
   try {
     if (!sub || sub === 'status') return await standStatus(ctx);
     if (sub === 'up') return await standUp(ctx);
-    if (sub === 'down') return standDown(ctx);
+    if (sub === 'down') return await standDown(ctx);
     if (sub === 'refresh') return await standRefresh(ctx); // код с диска → в стенд, база не трогается
     if (sub === 'renew') return await standRenew(ctx); // база посвежее: новый стенд из последней копии на ПК
     ctx.say('dc stand [up|down|status|refresh]');

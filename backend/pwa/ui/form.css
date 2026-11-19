@@ -105,6 +105,7 @@ th.pick, td.pick { width: 48px; text-align: center; background: none; border-rad
 .modal-back { position: fixed; inset: 0; background: rgba(16, 20, 28, .45); z-index: 60; display: flex; align-items: center; justify-content: center; padding: var(--s4); }
 .modal { background: var(--surface); border-radius: 14px; box-shadow: var(--shadow-lg); width: min(560px, 100%); max-height: 90vh; overflow-y: auto; overflow-x: hidden; }
 .modal-head { padding: 20px 24px 0; }
+.modal > [data-development-mode] { flex: none; margin: var(--s2) var(--s4) 0; }
 .modal-body { padding: 12px 24px; }
 .modal-foot { display: flex; justify-content: flex-end; gap: var(--s2); padding: 12px 24px 20px; }
 

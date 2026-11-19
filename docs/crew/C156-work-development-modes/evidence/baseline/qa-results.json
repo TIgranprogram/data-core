@@ -1,0 +1,174 @@
+{
+  "origin": "http://localhost:3102",
+  "startedAt": "2026-11-19T11:58:35.405Z",
+  "checks": {
+    "login": {
+      "status": "PASS",
+      "source": {
+        "backup": "datacore-2026-11-18_031040.tgz",
+        "snapshotAt": "2026-11-18T03:10:40",
+        "restoredAt": "2026-11-18T10:13:52.823Z",
+        "head": "a425585c89fe819cb1299fcd76ddacc9c858a394",
+        "dirty": true,
+        "builtAt": "2026-11-19T11:52:51.528Z"
+      },
+      "layouts": [
+        {
+          "width": 1920,
+          "theme": "light",
+          "applied": "light",
+          "inViewport": true,
+          "readable": true,
+          "tipFits": true,
+          "pageFits": true,
+          "bannerWidth": 326,
+          "screenshot": "qa-login-1920-light.png"
+        },
+        {
+          "width": 1920,
+          "theme": "dark",
+          "applied": "dark",
+          "inViewport": true,
+          "readable": true,
+          "tipFits": true,
+          "pageFits": true,
+          "bannerWidth": 326
+        },
+        {
+          "width": 1024,
+          "theme": "light",
+          "applied": "light",
+          "inViewport": true,
+          "readable": true,
+          "tipFits": true,
+          "pageFits": true,
+          "bannerWidth": 326
+        },
+        {
+          "width": 1024,
+          "theme": "dark",
+          "applied": "dark",
+          "inViewport": true,
+          "readable": true,
+          "tipFits": true,
+          "pageFits": true,
+          "bannerWidth": 326,
+          "screenshot": "qa-login-1024-dark.png"
+        }
+      ]
+    },
+    "today": {
+      "status": "PASS",
+      "layouts": [
+        {
+          "width": 1920,
+          "theme": "light",
+          "applied": "light",
+          "inViewport": true,
+          "readable": true,
+          "tipFits": true,
+          "pageFits": true,
+          "bannerWidth": 1657
+        },
+        {
+          "width": 1920,
+          "theme": "dark",
+          "applied": "dark",
+          "inViewport": true,
+          "readable": true,
+          "tipFits": true,
+          "pageFits": true,
+          "bannerWidth": 1657,
+          "screenshot": "qa-today-1920-dark.png"
+        },
+        {
+          "width": 1024,
+          "theme": "light",
+          "applied": "light",
+          "inViewport": true,
+          "readable": true,
+          "tipFits": true,
+          "pageFits": true,
+          "bannerWidth": 937,
+          "screenshot": "qa-today-1024-light.png"
+        },
+        {
+          "width": 1024,
+          "theme": "dark",
+          "applied": "dark",
+          "inViewport": true,
+          "readable": true,
+          "tipFits": true,
+          "pageFits": true,
+          "bannerWidth": 937
+        }
+      ]
+    },
+    "service-worker": {
+      "status": "PASS",
+      "cache": {
+        "count": 2,
+        "metadata": false,
+        "api": false
+      }
+    },
+    "navigation-and-files": {
+      "status": "PASS",
+      "fixtureSku": "1066",
+      "imageRendered": true,
+      "card": true,
+      "file": {
+        "status": 200,
+        "image": true,
+        "hasBytes": true
+      },
+      "fileFromNetwork": true,
+      "fileObserved": true
+    },
+    "issued-pdf": {
+      "status": "PASS",
+      "file": {
+        "status": 200,
+        "type": "application/pdf",
+        "signature": true,
+        "bytes": 591721
+      },
+      "sameNumberAndStatus": true,
+      "qaPdfIssuedAtChanged": true
+    },
+    "logout-local": {
+      "status": "FAIL",
+      "reason": "Ожидаемый элемент или сетевой ответ не появились за отведённое время."
+    },
+    "reentry-and-logout-session": {
+      "status": "PASS",
+      "temporarySession": true,
+      "cleared": {
+        "local": true,
+        "session": true,
+        "dom": true,
+        "loginEmpty": true
+      }
+    },
+    "local-outage": {
+      "status": "PASS",
+      "stayedLocal": true
+    },
+    "network-isolation": {
+      "status": "FAIL",
+      "metadataRequests": 6,
+      "successfulLocalApiRequests": 39,
+      "allMetadataWithoutCredentials": true,
+      "unexpectedWrites": 0,
+      "reason": "Обнаружены лишние записи, внешние сетевые обращения или авторизация на публичных метаданных."
+    }
+  },
+  "refusedOrigins": 53,
+  "blockedWrites": {
+    "PATCH prefs": 1,
+    "POST client-errors": 7
+  },
+  "allowedRefreshes": 0,
+  "pageErrors": 0,
+  "scenarioSha256": "14346f606af2cf17b4b2163a1c4b8ce50c48d37daf6bd863bc5aa1f5cc6ad753"
+}

@@ -3,9 +3,22 @@ import crypto from 'node:crypto';
 import net from 'node:net';
 
 export const OWNER = 'datacore-night-v1';
+export const DEVELOPMENT_PORTS = { apiPort: 3102, mongoPort: 27118 };
+export const DEVELOPMENT_METADATA_TARGET = '/app/pwa/development.json';
 export const RELAY_COMMAND = 'socat TCP-LISTEN:3000,fork,reuseaddr TCP:backend:3000 & socat TCP-LISTEN:27017,fork,reuseaddr TCP:mongo:27017 & wait';
 const fail = (text) => { throw Object.assign(new Error('Защита стенда: ' + text), { code: 2 }); };
-export function newStandRun({ id = crypto.randomBytes(12).toString('hex'), apiPort = 3102, mongoPort = 27118 } = {}) {
+
+export function localDockerEndpoint(output) {
+  return /^(?:unix:\/\/\/[^\r\n]+|npipe:\/{3,4}\.\/pipe\/[^\r\n/]+)$/.test(String(output || '').trim());
+}
+
+export function dockerEndpointProbe(env = process.env) {
+  const context = env.DOCKER_CONTEXT;
+  if (!context && env.DOCKER_HOST) return { host: env.DOCKER_HOST };
+  return { args: ['context', 'inspect', ...(context ? [context] : []), '--format', '{{.Endpoints.docker.Host}}'] };
+}
+
+export function newStandRun({ id = crypto.randomBytes(12).toString('hex'), apiPort = DEVELOPMENT_PORTS.apiPort, mongoPort = DEVELOPMENT_PORTS.mongoPort } = {}) {
   const run = { owner: OWNER, id, project: `dc-${id}-night`, db: `datacore-${id}-night`, testDb: `datacore-test-${id}-night`, apiPort, mongoPort, createdContainers: [], initialized: false };
   assertRun(run);
   return run;
@@ -40,6 +53,7 @@ export function assertOwned(run, snapshot, { fresh = false, capture = false } = 
       for (const [key, port] of [['27017/tcp', run.mongoPort], ['3000/tcp', run.apiPort]]) { const bindings = c.ports?.[key]; if (!Array.isArray(bindings) || bindings.length !== 1 || bindings[0].HostIp !== '127.0.0.1' || bindings[0].HostPort !== String(port)) fail('порты шлюза не совпадают с loopback-паспортом'); }
     } else if (Object.keys(c.ports || {}).length) fail('Mongo/backend не должны публиковать порт напрямую');
     for (const m of c.mounts || []) {
+      if (m.destination === DEVELOPMENT_METADATA_TARGET && (c.service !== 'backend' || m.type !== 'bind' || m.readOnly !== true)) fail('метаданные разработки требуют read-only bind');
       if (m.name === `${run.project}_uploads` && (c.service !== 'backend' || m.destination !== '/app/uploads')) fail('uploads подключён не к backend');
       if (c.service === 'backend' && (m.destination === '/app/uploads' || m.destination?.startsWith('/app/uploads/')) && (m.type !== 'volume' || m.name !== `${run.project}_uploads` || m.destination !== '/app/uploads')) fail('чужое хранилище uploads');
       if (m.type === 'volume' && (!volumeNames.includes(m.name) || !snapshot.volumes.some((v) => v.name === m.name))) fail('container подключён к чужому volume');
@@ -64,7 +78,7 @@ export function dockerInventory(run, docker) {
     // Go template намеренно выбирает только имя БД, а не весь Config.Env.
     const supported = '{"id":{{json .Id}},"name":{{json .Name}},"labels":{{json .Config.Labels}},"mounts":{{json .Mounts}},"ports":{{json .HostConfig.PortBindings}},"networks":{{json .NetworkSettings.Networks}},"running":{{json .State.Running}},"command":{{json .Config.Cmd}},"entrypoint":{{json .Config.Entrypoint}},"db":"{{range .Config.Env}}{{if eq (index (split . "=") 0) "MONGO_DB"}}{{index (split . "=") 1}}{{end}}{{end}}","uriTarget":"{{range .Config.Env}}{{if eq (index (split . "=") 0) "MONGO_URI"}}{{index (split (index (split . "@") 1) "?") 0}}{{end}}{{end}}"}';
     const c = JSON.parse(query(['container', 'inspect', '--format', supported, r.ID]));
-    return { ...c, name: c.name.replace(/^\//, ''), service: c.labels?.['com.docker.compose.service'], mounts: (c.mounts || []).map((m) => ({ type: m.Type, name: m.Name, destination: m.Destination })), networks: Object.keys(c.networks || {}) };
+    return { ...c, name: c.name.replace(/^\//, ''), service: c.labels?.['com.docker.compose.service'], mounts: (c.mounts || []).map((m) => ({ type: m.Type, name: m.Name, destination: m.Destination, readOnly: m.RW === false })), networks: Object.keys(c.networks || {}) };
   });
   const volumes = rows(['volume', 'ls']).filter(relevant).map((r) => JSON.parse(query(['volume', 'inspect', '--format', '{"name":{{json .Name}},"labels":{{json .Labels}}}', r.Name])));
   const networks = rows(['network', 'ls', '--no-trunc']).filter(relevant).map((r) => JSON.parse(query(['network', 'inspect', '--format', '{"name":{{json .Name}},"labels":{{json .Labels}},"internal":{{json .Internal}}}', r.ID])));

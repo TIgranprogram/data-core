@@ -11,7 +11,7 @@ export function allSteps(root = ROOT) {
   const tests = fs.readdirSync(path.join(root, 'pult', 'test')).filter((name) => name.endsWith('.test.mjs')).sort().map((name) => `pult/test/${name}`);
   return [
     { name: 'Проверка кода (типы, юнит, импорты, дизайн, пульт)', args: ['tools/dc.mjs', 'check'] },
-    { name: 'Все юнит-тесты инструментов', args: ['--test', 'tools/dc.test.mjs', 'tools/night.test.mjs', ...tests] },
+    { name: 'Все юнит-тесты инструментов', args: ['--test', 'tools/dc.test.mjs', 'tools/night.test.mjs', 'tools/night-uploads.test.mjs', 'tools/work-modes.test.mjs', ...tests] },
   ];
 }
 export function runAll({ root = ROOT, logDir = path.join(root, 'tools', 'logs'), runFn = spawnSync, now = () => new Date(), steps = allSteps(root) } = {}) {

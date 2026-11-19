@@ -15,7 +15,8 @@ import * as defaultCatalog from './catalog.mjs';
 import { advise, LEVELS, runKey, todoDone } from './advisor.mjs';
 import { auditCatalog, auditProblems } from './audit.mjs';
 import { terminateProcess } from './process.mjs';
-import { assertRun } from '../tools/night-owner.mjs';
+import { assertRun, dockerEndpointProbe, localDockerEndpoint } from '../tools/night-owner.mjs';
+import { STAND_BACKUP_DIR } from '../tools/night.mjs';
 import { aiLive, aiStopAll } from './ai-live.mjs';
 import { KINDS, SAFE_RISKS, WEEKDAYS, cleanRule, isDue, lastSlot, mergeRules, nextSlot, ruleText } from './schedule.mjs';
 import { ROOT, ROUTE_LABEL, adviceFor, buildRun, childEnv, cleanLine, detectMachine, listProdScripts, missingNeeds, validateParams } from './dispatch.mjs';
@@ -57,11 +58,22 @@ async function fetchJson(url) {
   } catch { return { ok: false, code: 0, json: null }; }
 }
 
+function openExternal(target) {
+  const opener = process.platform === 'win32' ? 'explorer.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open';
+  spawn(opener, [target], { detached: true, stdio: 'ignore', windowsHide: true })
+    .on('error', (error) => console.error('Не удалось открыть адрес: ' + error.message)).unref();
+}
+
+/** Пока запущен локальный интерфейс, автоподтягивание не меняет привязанные файлы. */
+export function canAutoPull(status, activeJobs, elapsedMs) {
+  return status.behind > 0 && status.dirty === 0 && !status.ahead && status.localBackendRunning === false && activeJobs === 0 && elapsedMs > 600000;
+}
+
 /** Команды, что пишут в тестовую БД: вместе не запускаются (иначе ложные красные e2e). */
 const TEST_GROUP = new Set(['check-full', 'code-check', 'code-e2e', 'night-run', 'site-audit']);
 
 /** Самая свежая копия базы на этом ПК: имя datacore-ГГГГ-ММ-ДД_ЧЧММСС.tgz (deploy/backup-pull/pull-backup.ps1). Нет — null. */
-export function localCopyAt(dir = process.env.DATACORE_BACKUPS || 'D:\\datacore-backups') {
+export function localCopyAt(dir = STAND_BACKUP_DIR) {
   try {
     const ts = fs.readdirSync(dir).map((f) => /^datacore-(\d{4})-(\d{2})-(\d{2})_(\d{2})(\d{2})(\d{2})\.tgz$/.exec(f)).filter(Boolean)
       .map((m) => new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime());
@@ -70,18 +82,25 @@ export function localCopyAt(dir = process.env.DATACORE_BACKUPS || 'D:\\datacore-
 }
 
 /** Полоса состояния вверху окна: только локальное чтение, без production transport. */
-export async function readStatus(machine, runs = {}, { shFn = sh, standFn = () => {
+export async function readStatus(machine, runs = {}, { shFn = sh, dockerEnv = process.env, standFn = () => {
   try { const run = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools', '.night', 'current-stand.json'), 'utf8')); return assertRun(run); } catch { return null; }
 } } = {}) {
   const manual = standFn();
+  const empty = { ok: false, out: '' };
+  const localDocker = (async () => {
+    if (!machine.docker) return false;
+    const { args, host } = dockerEndpointProbe(dockerEnv);
+    const endpoint = args ? await shFn('docker', args) : { ok: true, out: host };
+    return endpoint.ok && localDockerEndpoint(endpoint.out);
+  })();
   const [branch, counts, gate, all, docker, admin, owned] = await Promise.all([
     shFn('git', ['rev-parse', '--abbrev-ref', 'HEAD']),
     shFn('git', ['rev-list', '--left-right', '--count', 'HEAD...@{u}']),
     shFn('git', ['-c', 'core.quotepath=false', 'status', '--porcelain', '--', 'backend', 'deploy', 'docker-compose.prod.yml']),
     shFn('git', ['status', '--porcelain']),
-    machine.docker ? shFn('docker', ['ps', '--format', '{{.Names}}'], 6000) : { ok: false, out: '' },
+    localDocker.then((isLocal) => isLocal ? shFn('docker', ['ps', '--format', '{{.Names}}'], 6000) : empty),
     shFn('net', ['session']),
-    manual && machine.docker ? shFn('docker', ['ps', '--filter', `label=dc.night.run=${manual.id}`, '--filter', `label=com.docker.compose.project=${manual.project}`, '--format', '{{.ID}}'], 6000) : { ok: false, out: '' },
+    localDocker.then((isLocal) => isLocal && manual ? shFn('docker', ['ps', '--filter', `label=dc.night.run=${manual.id}`, '--filter', `label=com.docker.compose.project=${manual.project}`, '--format', '{{.ID}}'], 6000) : empty),
   ]);
   const [ahead, behind] = counts.out.trim().split(/\s+/).map(Number);
   const lines = (s) => s.split(/\r?\n/).filter(Boolean);
@@ -97,6 +116,7 @@ export async function readStatus(machine, runs = {}, { shFn = sh, standFn = () =
     testerRunning: testerRunning(), // ИИ-тестировщик работает на стенде — не советовать остановить стенд
     legacyNightStand: /^dcnight/m.test(docker.out),
     localSite: /^datacore-backend$/m.test(docker.out),
+    localBackendRunning: docker.ok ? lines(docker.out).some((name) => /^(?:datacore-backend|dcnight-backend|dc-[a-f0-9]{24}-night-backend)$/.test(name.trim())) : null,
     localCopyAt: localCopyAt(),
     admin: !!admin.ok,
     route: machine.route ? ROUTE_LABEL[machine.route] : null,
@@ -279,10 +299,6 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     if (!result.ok && job.state === 'running') { job.stopped = false; throw new Error('Остановка не выполнена: ' + result.error); }
   }
 
-  function openExternal(target) {
-    spawn('explorer.exe', [target], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
-  }
-
   /** Одна кнопка: проверки → запуск. Ошибка — { status, error }. */
   function runCommand({ id, params, confirmed, word, secret, auto = false }) {
     const cmd = catalog.COMMANDS.find((c) => c.id === id);
@@ -433,7 +449,7 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
       };
       // «Забрать обновления» сам: GitHub впереди, в папке нет правок и своих коммитов, ничего не идёт — git pull --ff-only.
       // Правки Claude в папке (dirty) или неотправленные коммиты — не трогаем; новый код пульта → он перезапустится сам.
-      if (autoPull && status.behind > 0 && status.dirty === 0 && !status.ahead && running().length === 0 && Date.now() - pulledAt > 600000) {
+      if (autoPull && canAutoPull(status, running().length, Date.now() - pulledAt)) {
         pulledAt = Date.now();
         execFile('git', ['pull', '--ff-only', '--quiet'], { cwd: root, windowsHide: true }, () => {});
       }
@@ -510,10 +526,9 @@ function findEdge() {
 
 function openWindow(url) {
   const edge = process.env.EDGE && fs.existsSync(process.env.EDGE) ? process.env.EDGE : findEdge();
+  if (!edge) return openExternal(url);
   const data = path.join(process.env.LOCALAPPDATA || ROOT, 'DataCorePult', 'edge');
-  const child = edge
-    ? spawn(edge, [`--app=${url}`, `--user-data-dir=${data}`, '--window-size=1360,900', '--no-first-run'], { detached: true, stdio: 'ignore' })
-    : spawn('explorer.exe', [url], { detached: true, stdio: 'ignore' });
+  const child = spawn(edge, [`--app=${url}`, `--user-data-dir=${data}`, '--window-size=1360,900', '--no-first-run'], { detached: true, stdio: 'ignore' });
   child.unref();
 }
 

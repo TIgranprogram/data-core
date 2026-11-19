@@ -6,6 +6,7 @@ import { isDragging } from './ui/kit/drag.js';
 import { api, canEditSection, events, login, PREFIX, quietLoadFor, session, trackLoad } from './core/api.js';
 import { getViewAs, setViewAs, syncViewAsRoles, viewAsActive } from './core/view-as.js';
 import { $, h } from './core/dom.js';
+import { loadDevelopmentMode } from './core/development-mode.js';
 import { mark } from './ui/kit/mark.js';
 import { closeStep, current, go, onChange, onNav, patch, setGuard } from './core/router.js';
 import { confirmDlg, modal } from './ui/kit/dialog.js';
@@ -31,6 +32,7 @@ import { serverPrefs, startPrefs } from './core/prefs.js';
 import { makeResizable } from './ui/resizer.js';
 import { reportError } from './core/errors.js';
 import { failBlock } from './ui/kit/busy.js';
+import { warnCard } from './ui/kit/warn-card.js';
 import { setCrumbs, crumbsEl } from './ui/kit/crumbs.js';
 // ОШ2: сбой запроса (сеть, 5xx, ответ не разобрался) — в сборщик; GET — фоновая загрузка, запись — действие человека
 events.onFail = (e, { url, method }) => reportError(e, { kind: method === 'GET' ? 'background' : 'action', action: method === 'GET' ? 'загрузка' : 'запись', url });
@@ -148,6 +150,41 @@ const NAV_IDS = new Set(NAV.map(([id]) => id));
 /** Открыт ли экран по адресу для этой роли (не пункт меню и не принадлежит ему — открыт). */
 const allowed = (section) => { const id = OWNER[section] || section; return !NAV_IDS.has(id) || session.sees(id); };
 const root = $('#root');
+const developmentMode = loadDevelopmentMode(location.href);
+
+function placeDevelopmentMode(anchor, info, dialog = false) {
+  const card = warnCard({ tone: 'warn', title: info.title, sub: dialog ? null : info.sub });
+  if (dialog) {
+    card.setAttribute('data-development-mode', '');
+    card.title = info.sub;
+  }
+  anchor.after(card);
+}
+
+async function mountDevelopmentMode(anchor) {
+  const info = await developmentMode;
+  if (info && anchor.isConnected) placeDevelopmentMode(anchor, info);
+}
+
+/** Книжка и обычный диалог монтируют .modal-back прямым ребёнком body. */
+async function watchDevelopmentDialogs() {
+  const info = await developmentMode;
+  if (!info) return;
+
+  function mount(back) {
+    if (!back.isConnected || !back.matches?.('.modal-back')) return;
+    const head = back.querySelector(':scope > .modal > :is(.modal-head, .bk-head)');
+    if (head && !head.nextElementSibling?.hasAttribute('data-development-mode')) {
+      placeDevelopmentMode(head, info, true); // у книжки содержимое шапки обновляется при редактировании
+    }
+  }
+
+  const body = document.body;
+  new MutationObserver((records) => {
+    for (const { addedNodes } of records) for (const node of addedNodes) mount(node);
+  }).observe(body, { childList: true });
+  for (const dialog of body.querySelectorAll(':scope > .modal-back')) mount(dialog);
+}
 
 // ---------- Вход ----------
 /** Роли склада: свой экран (таблица как Excel) и фон — котики у «Труборез», собачки у «Лазер лист». */
@@ -170,8 +207,9 @@ function showLogin(message) {
   const pass = h('input', { name: 'password', type: 'password', autocomplete: 'current-password', required: true });
   const remember = h('input', { type: 'checkbox', name: 'remember', checked: true });
   const btn = h('button', { class: 'btn btn-primary', type: 'submit' }, 'Войти');
+  const heading = h('h1', null, 'Вход');
   const form = h('form', { class: 'login-card' },
-    h('img', { src: 'icon.svg', alt: '' }), h('h1', null, 'Вход'), h('div', { class: 'muted' }, 'Логин и пароль сотрудника — те же, что в CRM.'),
+    h('img', { src: 'icon.svg', alt: '' }), heading, h('div', { class: 'muted' }, 'Логин и пароль сотрудника — те же, что в CRM.'),
     err, h('label', { class: 'field' }, h('span', null, 'Логин'), user), h('label', { class: 'field' }, h('span', null, 'Пароль'), pass),
     h('label', { class: 'check' }, remember, ' Запомнить меня'), btn);
   form.addEventListener('submit', async (e) => {
@@ -185,6 +223,7 @@ function showLogin(message) {
       h('h2', null, 'Рабочее место — ', h('span', { class: 'gold' }, 'заявки, склад и учёт'), ' в одном окне'),
       h('p', null, 'Все данные — в единой базе компании: заявки снабжения, остатки и движения склада.')),
     h('div', { class: 'login-side' }, form)));
+  mountDevelopmentMode(heading);
   (last && message ? pass : user).focus(); // сессия завершилась: логин подставлен, фокус на пароле
 }
 events.onAuthLost = () => { session.clear(); showLogin('Сессия завершена — войдите снова'); };
@@ -284,6 +323,7 @@ function shell() {
   shellEl = h('div', { class: 'shell' }, sidebar, h('div', { class: 'side-back', onclick: () => shellEl.classList.remove('nav-open') }),
     h('div', { class: 'main' }, topbar, viewBar, crumbsEl, netBar, main));
   root.replaceChildren(shellEl);
+  mountDevelopmentMode(topbar);
   refreshCounts();
   return { main, gs, gsb };
 }
@@ -732,5 +772,6 @@ window.addEventListener('online', () => events.onNet(true));
 window.addEventListener('offline', () => events.onNet(false));
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { /* без офлайн-оболочки */ });
+watchDevelopmentDialogs();
 watchUpdates(); // новая выкладка — уведомление «Вышла новая версия · Обновить»
 if (session.refresh) showApp(); else showLogin();

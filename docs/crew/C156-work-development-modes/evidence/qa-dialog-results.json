@@ -1,0 +1,71 @@
+{
+  "origin": "http://localhost:3102",
+  "startedAt": "2026-11-19T12:12:54.022Z",
+  "checks": {
+    "existing-issued": {
+      "status": "PASS",
+      "archive": "datacore-2026-11-18_031040.tgz",
+      "fixtureSku": "3209"
+    },
+    "shell-with-product": {
+      "status": "PASS",
+      "screenshot": "qa-shell-product-1920-light.png"
+    },
+    "book-and-print-1920-light": {
+      "status": "PASS",
+      "book": {
+        "markForeground": true,
+        "bodyHeight": 892,
+        "pageHeight": 1436,
+        "fitsWidth": true,
+        "actionsAvailable": true,
+        "screenshot": "qa-book-1920-light.png"
+      },
+      "print": {
+        "markForeground": true,
+        "bodyHeight": 356,
+        "pageHeight": 356,
+        "fitsWidth": true,
+        "actionsAvailable": true
+      }
+    },
+    "book-and-print-1024-dark": {
+      "status": "PASS",
+      "book": {
+        "markForeground": true,
+        "bodyHeight": 474,
+        "pageHeight": 506,
+        "fitsWidth": true,
+        "actionsAvailable": true
+      },
+      "print": {
+        "markForeground": true,
+        "bodyHeight": 356,
+        "pageHeight": 356,
+        "fitsWidth": true,
+        "actionsAvailable": true,
+        "screenshot": "qa-print-1024-dark.png"
+      }
+    },
+    "dialogs-network": {
+      "status": "PASS",
+      "pdfRequests": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOrigins": 33,
+  "proxyOutside": {
+    "HTTP clients2.google.com:80": 1,
+    "CONNECT www.gstatic.com:443": 1,
+    "CONNECT accounts.google.com:443": 2,
+    "CONNECT www.google.com:443": 17,
+    "CONNECT content-autofill.googleapis.com:443": 11,
+    "CONNECT update.googleapis.com:443": 1
+  },
+  "pageOutside": {},
+  "workerOutside": {},
+  "blockedWrites": {},
+  "allowedRefreshes": 0,
+  "pageErrors": 0,
+  "scenarioSha256": "c662701702ef020849474ca6c05224c9f62045796c0467c65044c62b518a8357"
+}

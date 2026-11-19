@@ -2,10 +2,47 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { assertRun, assertOwned, captureCreated, dockerInventory, newStandRun, portFree, stopOwned } from './night-owner.mjs';
+import { assertRun, assertOwned, captureCreated, DEVELOPMENT_METADATA_TARGET, DEVELOPMENT_PORTS, dockerInventory, newStandRun, portFree, stopOwned } from './night-owner.mjs';
 
 const bad = (text) => { throw Object.assign(new Error('Защита стенда: ' + text), { code: 2 }); };
 const secretKeys = [['NIGHT_ROOT_PW', 12], ['NIGHT_APP_PW', 12], ['NIGHT_JWT', 24], ['NIGHT_JWT_REFRESH', 24], ['NIGHT_ADMIN_PW', 12], ['NIGHT_KEYFILE', 48], ['NIGHT_QA_PW', 12]];
+const isBackup = (name) => typeof name === 'string' && /^datacore-[\d_-]+\.tgz$/.test(name);
+const isCommit = (head) => typeof head === 'string' && /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(head);
+
+export function snapshotAt(backup) {
+  const match = /^datacore-(\d{4}-\d{2}-\d{2})_(\d{2})(\d{2})(\d{2})\.tgz$/.exec(backup || '');
+  if (!match) return null;
+  const [, day, hour, minute, second] = match;
+  const value = `${day}T${hour}:${minute}:${second}`;
+  const probe = new Date(`${value}Z`);
+  return Number.isNaN(+probe) || probe.toISOString().slice(0, 19) !== value ? null : value;
+}
+
+function restoreTimestamp(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(value)) return null;
+  if (Number.isNaN(Date.parse(value))) return null;
+  const timestamp = new Date(value).toISOString();
+  return timestamp.slice(0, 19) === value.slice(0, 19) ? timestamp : null;
+}
+
+export function developmentMetadata(run, code = {}) {
+  const backup = isBackup(run.backup) ? run.backup : null;
+  return {
+    mode: 'development',
+    origin: `http://localhost:${run.apiPort}`,
+    data: { backup, snapshotAt: snapshotAt(backup), restoredAt: restoreTimestamp(run.restoredAt) },
+    code: {
+      branch: typeof code.branch === 'string' && /^[^\p{C}]{1,255}$/u.test(code.branch) ? code.branch : null,
+      head: isCommit(code.head) ? code.head : null,
+      dirty: typeof code.dirty === 'boolean' ? code.dirty : null,
+      builtAt: restoreTimestamp(code.builtAt),
+    },
+  };
+}
+
+function assertDevelopmentPorts(run) {
+  if (run.apiPort !== DEVELOPMENT_PORTS.apiPort || run.mongoPort !== DEVELOPMENT_PORTS.mongoPort) bad('паспорт не соответствует портам разработки 3102 и 27118');
+}
 /** Свидетельство сохранности: относительные имена, пустые каталоги и SHA-256; ссылки запрещены. */
 export function uploadsManifest(root) {
   const result = {};
@@ -19,15 +56,31 @@ export function uploadsManifest(root) {
   }
   walk(root); return result;
 }
-export function createNightStand({ docker, sh, root, composeFile, nightDir, backupDir, inventoryFn = (run) => dockerInventory(run, docker), portFreeFn = portFree, healthFn = async (run) => { try { return (await fetch(`http://127.0.0.1:${run.apiPort}/api/health/ready`, { signal: AbortSignal.timeout(5000) })).status === 200; } catch { return false; } }, sleepFn = (ms) => new Promise((r) => setTimeout(r, ms)), bootFn } = {}) {
+export function createNightStand({ docker, sh, root, composeFile, nightDir, backupDir, inventoryFn = (run) => dockerInventory(run, docker), portFreeFn = portFree, healthFn = async (run) => { try { return (await fetch(`http://127.0.0.1:${run.apiPort}/api/health/ready`, { redirect: 'error', signal: AbortSignal.timeout(5000) })).status === 200; } catch { return false; } }, sleepFn = (ms) => new Promise((r) => setTimeout(r, ms)), bootFn, buildCode = () => ({}) } = {}) {
   const currentFile = path.join(nightDir, 'current-stand.json');
   const dir = (run) => path.join(nightDir, 'stands', assertRun(run).id);
   const save = (run) => { fs.mkdirSync(dir(run), { recursive: true }); fs.writeFileSync(path.join(dir(run), 'run.json'), JSON.stringify(run, null, 2) + '\n'); };
   const current = () => {
     if (!fs.existsSync(currentFile)) return null;
-    try { const run = JSON.parse(fs.readFileSync(currentFile, 'utf8')); assertRun(run); return JSON.parse(fs.readFileSync(path.join(dir(run), 'run.json'), 'utf8')); }
+    try {
+      const pointer = assertRun(JSON.parse(fs.readFileSync(currentFile, 'utf8')));
+      const run = assertRun(JSON.parse(fs.readFileSync(path.join(dir(pointer), 'run.json'), 'utf8')));
+      if (run.id !== pointer.id || run.apiPort !== pointer.apiPort || run.mongoPort !== pointer.mongoPort) bad('паспорта указывают на разные стенды');
+      return run;
+    }
     catch { bad('паспорт ручного стенда повреждён; legacy/неизвестный стенд не меняю'); }
   };
+  const metadataFile = (run) => path.join(dir(run), 'development.json');
+  const latestBackup = () => fs.existsSync(backupDir)
+    ? fs.readdirSync(backupDir, { withFileTypes: true }).filter((file) => file.isFile() && isBackup(file.name)).map((file) => file.name).sort().at(-1) || null
+    : null;
+  function writeMetadata(run, code) {
+    const file = metadataFile(run);
+    if (!fs.existsSync(file)) fs.writeFileSync(file, '{}\n', { flag: 'wx' });
+    if (!fs.lstatSync(file).isFile()) bad('файл метаданных разработки не является обычным файлом');
+    // Привязка Docker держит inode файла. Обновляем его на месте после успешной сборки.
+    fs.writeFileSync(file, JSON.stringify(developmentMetadata(run, code)) + '\n');
+  }
   function credentials(run, fresh = false) {
     const file = path.join(dir(run), 'stand.env');
     if (fresh) {
@@ -44,7 +97,7 @@ export function createNightStand({ docker, sh, root, composeFile, nightDir, back
   function compose(run, args, src, { capture = false } = {}) {
     inventory(run);
     const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(MONGO|COMPOSE|NIGHT|DC_PROD|CONTROL_)/i.test(key)));
-    Object.assign(env, credentials(run), { NIGHT_SRC: src.replace(/\\/g, '/'), NIGHT_PROJECT: run.project, NIGHT_RUN_ID: run.id, NIGHT_DB: run.db, NIGHT_API_PORT: String(run.apiPort), NIGHT_MONGO_PORT: String(run.mongoPort), NIGHT_ADMIN_USERNAME: run.adminUsername || 'admin' });
+    Object.assign(env, credentials(run), { NIGHT_SRC: src.replace(/\\/g, '/'), NIGHT_DEVELOPMENT_METADATA: metadataFile(run).replace(/\\/g, '/'), NIGHT_PROJECT: run.project, NIGHT_RUN_ID: run.id, NIGHT_DB: run.db, NIGHT_API_PORT: String(run.apiPort), NIGHT_MONGO_PORT: String(run.mongoPort), NIGHT_ADMIN_USERNAME: run.adminUsername || 'admin' });
     const r = docker(['compose', '--env-file', path.join(dir(run), 'stand.env'), '--project-directory', dir(run), '-p', run.project, '-f', composeFile, ...args], { env });
     // Даже неуспешный up мог создать часть ресурсов. Фиксируем только проверенные labels после пустого preflight.
     if (capture) { captureCreated(run, inventoryFn(run)); save(run); }
@@ -58,8 +111,7 @@ export function createNightStand({ docker, sh, root, composeFile, nightDir, back
   }
   function checked(result, label, ctx) { ctx.log(result.out || ''); if (result.code !== 0) bad(label + ': ' + String(result.out || result.error?.message || 'сбой инструмента').trim().slice(-160)); return result; }
   async function boot(run, src, ctx) {
-    const names = fs.existsSync(backupDir) ? fs.readdirSync(backupDir).filter((n) => /^datacore-[\d_-]+\.tgz$/.test(n)).sort() : [];
-    const bk = names.at(-1); if (!bk) bad('нет свежего datacore-*.tgz в папке копий');
+    const bk = latestBackup(); if (!bk) bad('нет архива datacore-*.tgz в папке копий');
     checked(compose(run, ['up', '-d', '--wait', 'mongo'], src, { capture: true }), 'Mongo не поднялся', ctx);
     await wait('инициализация Mongo', () => /init process complete/.test(command(run, ['logs', `${run.project}-mongo`]).out), ctx);
     await wait('replica set rs0', () => {
@@ -82,12 +134,15 @@ export function createNightStand({ docker, sh, root, composeFile, nightDir, back
     run.adminUsername = restored.username; run.backup = bk; run.restoredAt = new Date().toISOString(); save(run); // из какой копии база — тестировщик сверяет со свежей
     const e = credentials(run);
     checked(evalMongo(run, `db.getSiblingDB('admin').createUser({user:'dcnight',pwd:'${e.NIGHT_APP_PW}',roles:[{role:'readWrite',db:'${run.db}'}]})`), 'пользователь стенда', ctx);
+    writeMetadata(run);
+    const code = buildCode(src);
     checked(compose(run, ['up', '-d', '--build', 'proxy'], src, { capture: true }), 'backend/шлюз не поднялись', ctx);
     await wait('backend health', () => healthFn(run), ctx);
     const h = checked(command(run, ['exec', '-e', `PW=${e.NIGHT_QA_PW}`, `${run.project}-backend`, 'node', '-e', "console.log(require('bcryptjs').hashSync(process.env.PW,10))"]), 'хеш qa', ctx);
     if (!/^\$2[aby]\$/.test(h.stdout?.trim() || '')) bad('не получил хеш qa');
     checked(evalMongo(run, `db.getSiblingDB('${run.db}').users.updateOne({username:'qa'},{$set:{displayName:'QA night',passwordHash:'${h.stdout.trim()}',role:'admin',permissions:[],isActive:true,isOwner:false,refreshTokenVersion:0,updatedAt:new Date()},$setOnInsert:{createdAt:new Date()}},{upsert:true})`), 'пользователь qa', ctx);
     fs.writeFileSync(path.join(dir(run), 'qa-login.txt'), e.NIGHT_QA_PW, { mode: 0o600 });
+    writeMetadata(run, { ...code, builtAt: new Date().toISOString() });
   }
   function down(ctx, run = current()) {
     if (!run) bad('нет паспорта своего стенда; legacy dcnight не останавливаю');
@@ -109,7 +164,8 @@ export function createNightStand({ docker, sh, root, composeFile, nightDir, back
     inventory(run, { fresh: true });
     for (const p of [run.apiPort, run.mongoPort]) if (!(await portFreeFn(p))) bad(`порт ${p} занят; существующий стенд не меняю`);
     if (fs.existsSync(dir(run))) bad('ID запуска уже использован');
-    save(run); credentials(run, true);
+    if (!bootFn && !latestBackup()) bad('нет архива datacore-*.tgz в папке копий');
+    save(run); credentials(run, true); writeMetadata(run);
     if (!supplied) fs.writeFileSync(currentFile, JSON.stringify(run) + '\n', { flag: 'wx' });
     try {
       await (bootFn || boot)(run, src, ctx, { compose, command, evalMongo });
@@ -145,6 +201,10 @@ export function createNightStand({ docker, sh, root, composeFile, nightDir, back
       migration = run.uploadsMigration = { folder, state: 'saved' }; save(run);
       ctx.say('Uploads сохранены перед пересозданием: ' + backup);
     }
+    // Docker после перезапуска оставляет Mongo остановленным. Поднимаем его перед backend.
+    checked(compose(run, ['up', '-d', '--wait', 'mongo'], src), 'Mongo стенда не поднялся', ctx);
+    writeMetadata(run);
+    const code = buildCode(src);
     if (migration?.state === 'saved') {
       const backup = path.join(dir(run), migration.folder);
       const manifest = JSON.parse(fs.readFileSync(backup + '.json', 'utf8'));
@@ -161,11 +221,9 @@ export function createNightStand({ docker, sh, root, composeFile, nightDir, back
       migration.state = 'verified'; save(run);
       checked(compose(run, ['start', 'backend'], src), 'старт backend после сохранения uploads', ctx);
     } else checked(compose(run, ['up', '-d', '--no-deps', '--build', 'backend'], src, { capture: true }), 'пересборка backend', ctx);
-    // После перезапуска Docker Mongo и шлюз стенда остаются выключены (Exited 255), а backend выше — --no-deps:
-    // он падал «EAI_AGAIN mongo» и refresh кончался таймаутом (2026-11-15). Поднимаем их без пересоздания данных.
-    checked(compose(run, ['up', '-d', '--wait', 'mongo'], src), 'Mongo стенда не поднялся', ctx);
     checked(compose(run, ['up', '-d', 'proxy'], src), 'шлюз стенда не поднялся', ctx);
     await wait('backend health', () => healthFn(run), ctx);
+    writeMetadata(run, { ...code, builtAt: new Date().toISOString() });
     return 0;
   }
   /**
@@ -199,8 +257,7 @@ export function createNightStand({ docker, sh, root, composeFile, nightDir, back
   /** Из какой копии база стенда и какая копия на ПК самая свежая (для тестировщика). */
   function info() {
     const run = current();
-    const names = fs.existsSync(backupDir) ? fs.readdirSync(backupDir).filter((n) => /^datacore-[\d_-]+\.tgz$/.test(n)).sort() : [];
-    const latest = names.at(-1) || null;
+    const latest = latestBackup();
     let dataAt = run?.restoredAt ? Date.parse(run.restoredAt) : null;
     if (run && !dataAt) { // стенд создан до этой записи — дата создания его Mongo
       const r = docker(['inspect', '-f', '{{.Created}}', `${run.project}-mongo`]);
@@ -224,5 +281,37 @@ export function createNightStand({ docker, sh, root, composeFile, nightDir, back
     if (!s.containers.some((c) => c.service === 'backend' && c.running)) bad('backend собственного стенда не запущен');
     return run;
   }
-  return { up, down, refresh, renew, info, status, owned, credentials, current, runDir: dir, compose, inventory };
+
+  function developmentSnapshot(run, options) {
+    assertDevelopmentPorts(run);
+    if (run.initialized !== true) bad('нет готовой копии данных разработки');
+    const snapshot = inventory(run, options);
+    const { containers } = snapshot;
+    if (!['mongo', 'backend', 'proxy'].every((service) => containers.some((c) => c.service === service))) bad('не подтверждены Mongo, backend и шлюз существующей копии');
+    return snapshot;
+  }
+
+  async function prepareDevelopment(ctx) {
+    const run = current();
+    if (!run) return up(ctx);
+    developmentSnapshot(run, { capture: true });
+    return refresh(ctx);
+  }
+
+  function developmentOwned({ requireMetadata = false } = {}) {
+    const run = current();
+    if (!run) bad('копия разработки в этой папке не создана');
+    const snapshot = developmentSnapshot(run);
+    const backend = snapshot.containers.find((c) => c.service === 'backend');
+    if (!['mongo', 'backend', 'proxy'].every((s) => snapshot.containers.some((c) => c.service === s && c.running))) bad('копия разработки остановлена');
+    if (!requireMetadata) return developmentMetadata(run);
+    if (!backend.mounts?.some((m) => m.destination === DEVELOPMENT_METADATA_TARGET && m.readOnly)) bad('файл метаданных разработки не подключён');
+    let code;
+    try { code = JSON.parse(fs.readFileSync(metadataFile(run), 'utf8')).code; }
+    catch { bad('метаданные сборки не читаются'); }
+    const metadata = developmentMetadata(run, code || {});
+    if (!metadata.code.builtAt) bad('успешная сборка разработки не подтверждена');
+    return metadata;
+  }
+  return { up, down, refresh, renew, info, status, owned, prepareDevelopment, developmentOwned, latestBackup, credentials, current, runDir: dir, compose, inventory };
 }

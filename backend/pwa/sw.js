@@ -123,6 +123,7 @@ self.addEventListener('fetch', (e) => {
   const scope = new URL(self.registration.scope).pathname;
   if (!url.pathname.startsWith(scope)) return;
   if (url.pathname.endsWith('/version.json')) return; // версия — всегда с сервера (её же сверяет update-check)
+  if (url.pathname === scope + 'development.json') return; // метка копии всегда из сети, без подстановки из кэша
 
   if (req.mode === 'navigate') {
     e.respondWith((async () => {

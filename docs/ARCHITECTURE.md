@@ -57,6 +57,10 @@ Vanilla JS без сборки: `admin.js` (вся логика, fetch к `/api`
 
 ## Инфраструктура
 
+**Локальная работа C156 (19.11.2026):** стабильный пользовательский интерфейс открывается прямо на `https://kppdf-crm.ru/db/app/`, API и файлы остаются на том же origin, главная БД — Synology. Локальная разработка — только owned-run из `tools/night*` с отдельной БД/томами/внутренней сетью и loopback-прокси. `tools/work-modes.mjs start` пересобирает текущий checkout без восстановления поверх имеющейся копии; перед открытием сверяет готовность API и публичный JSON запуска. Неисправность не вызывает fallback или переключение API.
+
+`/app/development.json` в репозитории — пустой объект; в owned compose он подменяется readonly-файлом из gitignored runDir с именем/датой снимка, восстановлением и успешно собранным кодом. На удалённом рабочем origin PWA не запрашивает этот файл. Локальные оболочка/вход и модальные окна показывают отметку разработки; service worker не кэширует метаданные и API. Авто-pull пульта не выполняется при живом обычном/legacy/owned backend или неподтверждённом Docker. Передача между ПК — Git и явная опубликованная WIP-ветка, без переноса БД/секретов; порядок в `crew/C156-work-development-modes/WORKFLOW.md`.
+
 - Локально: Windows, Docker Desktop; порты `HOST_PORT=3001`, `MONGO_PORT=27018` (3000/27017 заняты другим контуром).
 - VM (Synology, Ubuntu, Celeron без AVX → mongo 4.4): `/opt/data-core`, данные `/var/lib/datacore`, рядом прод kppdf на `:3000` — не трогать.
 - Бэкап: `deploy/synology/backup.sh` (mongodump от root) по cron 03:00, ротация 14 дней; сверка восстановления — `deploy/synology/verify-restore.js`.

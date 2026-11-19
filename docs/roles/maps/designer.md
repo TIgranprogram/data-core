@@ -1,5 +1,7 @@
 # Карта роли designer
 
+- C156 (19.11): [UI-REVIEW](../../crew/C156-work-development-modes/UI-REVIEW.md), PASS изменённой отметки среды в проверенных состояниях: семь просмотренных снимков, QA 9/9 и диалоги 5/5; ограничения визуального покрытия в отчёте. Коммит: a425585c + рабочий C156 diff; review-scope --done не запускался.
+
 - C148 (18.11): [UI-REVIEW](../../crew/C148-composition-meaning/UI-REVIEW.md), PASS отснятых сценариев. 8 UI-состояний обе темы1920×1080 +2PDFpreview; unknown material, nameguard, дерево2→3/1, complex; API/действия по ACCEPTANCE. P2 слабый contrast dark-table-header. Новые C151/C152/C153 ветки этим не приняты.
 
 - C149 (18.11): [UI-REVIEW](../../crew/C149-passport-firm-entry/UI-REVIEW.md), PASS. Модальное окно фирмы, раскрытый выбор, отмена/повтор, книжка в обеих темах 1920×1080; финальный access-прогон закрыл повторный вход/чистый адрес, POST0 для существующего черновика. Рабочий diff C149; код дизайнер не менял.

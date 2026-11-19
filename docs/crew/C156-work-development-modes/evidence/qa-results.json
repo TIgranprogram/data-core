@@ -1,0 +1,189 @@
+{
+  "origin": "http://localhost:3102",
+  "startedAt": "2026-11-19T12:04:04.098Z",
+  "checks": {
+    "login": {
+      "status": "PASS",
+      "source": {
+        "backup": "datacore-2026-11-18_031040.tgz",
+        "snapshotAt": "2026-11-18T03:10:40",
+        "restoredAt": "2026-11-18T10:13:52.823Z",
+        "head": "a425585c89fe819cb1299fcd76ddacc9c858a394",
+        "dirty": true,
+        "builtAt": "2026-11-19T11:52:51.528Z"
+      },
+      "layouts": [
+        {
+          "width": 1920,
+          "theme": "light",
+          "applied": "light",
+          "inViewport": true,
+          "readable": true,
+          "tipFits": true,
+          "pageFits": true,
+          "bannerWidth": 326,
+          "screenshot": "qa-login-1920-light.png"
+        },
+        {
+          "width": 1920,
+          "theme": "dark",
+          "applied": "dark",
+          "inViewport": true,
+          "readable": true,
+          "tipFits": true,
+          "pageFits": true,
+          "bannerWidth": 326
+        },
+        {
+          "width": 1024,
+          "theme": "light",
+          "applied": "light",
+          "inViewport": true,
+          "readable": true,
+          "tipFits": true,
+          "pageFits": true,
+          "bannerWidth": 326
+        },
+        {
+          "width": 1024,
+          "theme": "dark",
+          "applied": "dark",
+          "inViewport": true,
+          "readable": true,
+          "tipFits": true,
+          "pageFits": true,
+          "bannerWidth": 326,
+          "screenshot": "qa-login-1024-dark.png"
+        }
+      ]
+    },
+    "today": {
+      "status": "PASS",
+      "layouts": [
+        {
+          "width": 1920,
+          "theme": "light",
+          "applied": "light",
+          "inViewport": true,
+          "readable": true,
+          "tipFits": true,
+          "pageFits": true,
+          "bannerWidth": 1657
+        },
+        {
+          "width": 1920,
+          "theme": "dark",
+          "applied": "dark",
+          "inViewport": true,
+          "readable": true,
+          "tipFits": true,
+          "pageFits": true,
+          "bannerWidth": 1657,
+          "screenshot": "qa-today-1920-dark.png"
+        },
+        {
+          "width": 1024,
+          "theme": "light",
+          "applied": "light",
+          "inViewport": true,
+          "readable": true,
+          "tipFits": true,
+          "pageFits": true,
+          "bannerWidth": 937,
+          "screenshot": "qa-today-1024-light.png"
+        },
+        {
+          "width": 1024,
+          "theme": "dark",
+          "applied": "dark",
+          "inViewport": true,
+          "readable": true,
+          "tipFits": true,
+          "pageFits": true,
+          "bannerWidth": 937
+        }
+      ]
+    },
+    "service-worker": {
+      "status": "PASS",
+      "cache": {
+        "count": 2,
+        "metadata": false,
+        "api": false
+      }
+    },
+    "navigation-and-files": {
+      "status": "PASS",
+      "fixtureSku": "1066",
+      "imageRendered": true,
+      "card": true,
+      "file": {
+        "status": 200,
+        "image": true,
+        "hasBytes": true
+      },
+      "fileFromNetwork": true,
+      "fileObserved": true
+    },
+    "issued-pdf": {
+      "status": "PASS",
+      "file": {
+        "status": 200,
+        "type": "application/pdf",
+        "signature": true,
+        "bytes": 591721
+      },
+      "sameNumberAndStatus": true,
+      "qaPdfIssuedAtChanged": true
+    },
+    "logout-local": {
+      "status": "PASS",
+      "progress": "reloaded-login",
+      "cleared": {
+        "local": true,
+        "session": true,
+        "dom": true,
+        "loginEmpty": true
+      }
+    },
+    "reentry-and-logout-session": {
+      "status": "PASS",
+      "temporarySession": true,
+      "cleared": {
+        "local": true,
+        "session": true,
+        "dom": true,
+        "loginEmpty": true
+      }
+    },
+    "local-outage": {
+      "status": "PASS",
+      "stayedLocal": true
+    },
+    "network-isolation": {
+      "status": "PASS",
+      "metadataRequests": 7,
+      "successfulLocalApiRequests": 38,
+      "allMetadataWithoutCredentials": true,
+      "unexpectedWrites": 0,
+      "proxyBlockedOutside": 55
+    }
+  },
+  "refusedOrigins": 55,
+  "proxyOutside": {
+    "HTTP clients2.google.com:80": 1,
+    "CONNECT www.gstatic.com:443": 1,
+    "CONNECT accounts.google.com:443": 3,
+    "CONNECT www.google.com:443": 32,
+    "CONNECT content-autofill.googleapis.com:443": 17,
+    "CONNECT update.googleapis.com:443": 1
+  },
+  "pageOutside": {},
+  "workerOutside": {},
+  "blockedWrites": {
+    "POST client-errors": 7
+  },
+  "allowedRefreshes": 0,
+  "pageErrors": 0,
+  "scenarioSha256": "1c760a31fd506299419e2a62b8ff493941241b31b49c49c51150e27323b57248"
+}
