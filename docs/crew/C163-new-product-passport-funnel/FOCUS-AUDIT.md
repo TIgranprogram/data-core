@@ -18,3 +18,7 @@
 - Исправление gallery.js: connected original first; иначе тот же src только внутри сохранённого connected aside[data-k="drawer"].
 - Таймеров/глобального fallback нет. Unit 7/7, imports 364/0, pwa-guards 359/359 PASS; код не коммитился.
 - Browser proof координатору: detached replacement, click-close/Escape, обе темы; wrong asset/dead owner не получают фокус.
+
+## Подтверждение после исправления
+
+В `evidence/acceptance-c163-focus-lifecycle-caption-results.json` без съёмки между Enter и Escape: исходный IMG отключён уже при открытом просмотре, drawer остаётся тем же подключённым узлом, src текущего фото совпадает. После Escape и следующего кадра активен текущий видимый IMG. Это подтверждает замену дочернего фото, а не исчезновение панели. Общий viewer восстановил логический фокус по тому же src внутри исходного drawer. Исходные FAIL сохранены; снимок с временным privacy-стилем не используется как единственное доказательство фокуса.
