@@ -15,6 +15,19 @@ LOG="$(mktemp)"
 stop() { echo "ВОРОТА: СТОП — $1"; rm -f "$LOG"; exit 1; }
 ok() { echo "  ✓ $1"; }
 
+# Не терять причину после stop(): временный $LOG удаляется, полный вывод остаётся локально вне Git.
+pwa_tests_failed() {
+  local failure_log="tools/logs/preflight-pwa-$(date -u +%Y%m%dT%H%M%SZ)-$$.log"
+  if mkdir -p tools/logs && cp "$LOG" "$failure_log"; then
+    echo "Полный журнал тестов: $failure_log"
+  else
+    echo "Не удалось сохранить журнал; последние строки:"
+    tail -60 "$LOG"
+  fi
+  grep -n -A16 -B1 -E '^not ok|^✖|^test at|failureType:|^Error|^  error:' "$LOG" | head -100
+  stop "node --test приложения: упали тесты, имя и причина выше; $(node --version)"
+}
+
 # 1. всё закоммичено
 [[ -z "$(git status --porcelain -- backend deploy docker-compose.prod.yml)" ]] || stop "есть незакоммиченные изменения в backend/deploy — сначала коммит"
 ok "незакоммиченного нет"
@@ -49,7 +62,7 @@ if [[ $UI == 1 ]]; then
   # find — надёжнее кавычек с ** на Windows/Git Bash; Node 20+ с --experimental-vm-modules
   mapfile -t PWA_TESTS < <(find backend/pwa -name '*.test.mjs' | sort)
   [[ ${#PWA_TESTS[@]} -gt 0 ]] || stop "нет backend/pwa/**/*.test.mjs"
-  node --experimental-vm-modules --test "${PWA_TESTS[@]}" >"$LOG" 2>&1 || { grep -E 'not ok|fail|SourceTextModule|Error' "$LOG" | head -8; stop "node --test приложения упал (нужен Node 20 LTS в PATH)"; }
+  node --experimental-vm-modules --test "${PWA_TESTS[@]}" >"$LOG" 2>&1 || pwa_tests_failed
   (cd backend && npx jest src/pwa-guards --silent) >"$LOG" 2>&1 || { grep -E '●|Tests:' "$LOG" | head -6; stop "pwa-guards упал"; }
   ok "node --test и pwa-guards зелёные"
 fi
