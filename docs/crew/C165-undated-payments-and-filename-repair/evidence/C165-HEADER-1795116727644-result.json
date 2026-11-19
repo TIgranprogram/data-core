@@ -1,0 +1,390 @@
+{
+  "run": "C165-HEADER-1795116727644",
+  "origin": "http://localhost:3198",
+  "checks": [
+    {
+      "state": "date",
+      "width": 1920,
+      "theme": "light",
+      "geometry": {
+        "title": "Счёт № C165-HEADER-1795116727644-PENDING-HEADER",
+        "text": "Требует даты оплаты50 076,00 ₽",
+        "area": {
+          "left": 1162,
+          "right": 1785
+        },
+        "parts": [
+          {
+            "text": "Требует даты оплаты",
+            "left": 1542.109375,
+            "right": 1694.96875,
+            "width": 152.859375,
+            "visible": true
+          },
+          {
+            "text": "50 076,00 ₽",
+            "left": 1702.96875,
+            "right": 1785,
+            "width": 82.03125,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "state": "revoke",
+      "width": 1920,
+      "theme": "light",
+      "geometry": {
+        "title": "Счёт № C165-HEADER-1795116727644-PENDING-HEADER",
+        "text": "Требует даты оплаты50 076,00 ₽",
+        "area": {
+          "left": 1162,
+          "right": 1785
+        },
+        "parts": [
+          {
+            "text": "Требует даты оплаты",
+            "left": 1542.109375,
+            "right": 1694.96875,
+            "width": 152.859375,
+            "visible": true
+          },
+          {
+            "text": "50 076,00 ₽",
+            "left": 1702.96875,
+            "right": 1785,
+            "width": 82.03125,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "state": "confirmation",
+      "width": 1920,
+      "theme": "light",
+      "geometry": {
+        "title": "Счёт № C165-HEADER-1795116727644-CONFIRMATION-HEADER",
+        "text": "Черновик100,00 ₽",
+        "area": {
+          "left": 1162,
+          "right": 1785
+        },
+        "parts": [
+          {
+            "text": "Черновик",
+            "left": 1639.796875,
+            "right": 1717.6875,
+            "width": 77.890625,
+            "visible": true
+          },
+          {
+            "text": "100,00 ₽",
+            "left": 1725.6875,
+            "right": 1785,
+            "width": 59.3125,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "state": "date",
+      "width": 1024,
+      "theme": "light",
+      "geometry": {
+        "title": "Счёт № C165-HEADER-1795116727644-PENDING-HEADER",
+        "text": "Требует даты оплаты50 076,00 ₽",
+        "area": {
+          "left": 265,
+          "right": 889
+        },
+        "parts": [
+          {
+            "text": "Требует даты оплаты",
+            "left": 646.109375,
+            "right": 798.96875,
+            "width": 152.859375,
+            "visible": true
+          },
+          {
+            "text": "50 076,00 ₽",
+            "left": 806.96875,
+            "right": 889,
+            "width": 82.03125,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "state": "revoke",
+      "width": 1024,
+      "theme": "light",
+      "geometry": {
+        "title": "Счёт № C165-HEADER-1795116727644-PENDING-HEADER",
+        "text": "Требует даты оплаты50 076,00 ₽",
+        "area": {
+          "left": 265,
+          "right": 889
+        },
+        "parts": [
+          {
+            "text": "Требует даты оплаты",
+            "left": 646.109375,
+            "right": 798.96875,
+            "width": 152.859375,
+            "visible": true
+          },
+          {
+            "text": "50 076,00 ₽",
+            "left": 806.96875,
+            "right": 889,
+            "width": 82.03125,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "state": "confirmation",
+      "width": 1024,
+      "theme": "light",
+      "geometry": {
+        "title": "Счёт № C165-HEADER-1795116727644-CONFIRMATION-HEADER",
+        "text": "Черновик100,00 ₽",
+        "area": {
+          "left": 265,
+          "right": 889
+        },
+        "parts": [
+          {
+            "text": "Черновик",
+            "left": 743.796875,
+            "right": 821.6875,
+            "width": 77.890625,
+            "visible": true
+          },
+          {
+            "text": "100,00 ₽",
+            "left": 829.6875,
+            "right": 889,
+            "width": 59.3125,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "state": "date",
+      "width": 1920,
+      "theme": "dark",
+      "geometry": {
+        "title": "Счёт № C165-HEADER-1795116727644-PENDING-HEADER",
+        "text": "Требует даты оплаты50 076,00 ₽",
+        "area": {
+          "left": 1162,
+          "right": 1785
+        },
+        "parts": [
+          {
+            "text": "Требует даты оплаты",
+            "left": 1542.109375,
+            "right": 1694.96875,
+            "width": 152.859375,
+            "visible": true
+          },
+          {
+            "text": "50 076,00 ₽",
+            "left": 1702.96875,
+            "right": 1785,
+            "width": 82.03125,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "state": "revoke",
+      "width": 1920,
+      "theme": "dark",
+      "geometry": {
+        "title": "Счёт № C165-HEADER-1795116727644-PENDING-HEADER",
+        "text": "Требует даты оплаты50 076,00 ₽",
+        "area": {
+          "left": 1162,
+          "right": 1785
+        },
+        "parts": [
+          {
+            "text": "Требует даты оплаты",
+            "left": 1542.109375,
+            "right": 1694.96875,
+            "width": 152.859375,
+            "visible": true
+          },
+          {
+            "text": "50 076,00 ₽",
+            "left": 1702.96875,
+            "right": 1785,
+            "width": 82.03125,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "state": "confirmation",
+      "width": 1920,
+      "theme": "dark",
+      "geometry": {
+        "title": "Счёт № C165-HEADER-1795116727644-CONFIRMATION-HEADER",
+        "text": "Черновик100,00 ₽",
+        "area": {
+          "left": 1162,
+          "right": 1785
+        },
+        "parts": [
+          {
+            "text": "Черновик",
+            "left": 1639.796875,
+            "right": 1717.6875,
+            "width": 77.890625,
+            "visible": true
+          },
+          {
+            "text": "100,00 ₽",
+            "left": 1725.6875,
+            "right": 1785,
+            "width": 59.3125,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "state": "date",
+      "width": 1024,
+      "theme": "dark",
+      "geometry": {
+        "title": "Счёт № C165-HEADER-1795116727644-PENDING-HEADER",
+        "text": "Требует даты оплаты50 076,00 ₽",
+        "area": {
+          "left": 265,
+          "right": 889
+        },
+        "parts": [
+          {
+            "text": "Требует даты оплаты",
+            "left": 646.109375,
+            "right": 798.96875,
+            "width": 152.859375,
+            "visible": true
+          },
+          {
+            "text": "50 076,00 ₽",
+            "left": 806.96875,
+            "right": 889,
+            "width": 82.03125,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "state": "revoke",
+      "width": 1024,
+      "theme": "dark",
+      "geometry": {
+        "title": "Счёт № C165-HEADER-1795116727644-PENDING-HEADER",
+        "text": "Требует даты оплаты50 076,00 ₽",
+        "area": {
+          "left": 265,
+          "right": 889
+        },
+        "parts": [
+          {
+            "text": "Требует даты оплаты",
+            "left": 646.109375,
+            "right": 798.96875,
+            "width": 152.859375,
+            "visible": true
+          },
+          {
+            "text": "50 076,00 ₽",
+            "left": 806.96875,
+            "right": 889,
+            "width": 82.03125,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "state": "confirmation",
+      "width": 1024,
+      "theme": "dark",
+      "geometry": {
+        "title": "Счёт № C165-HEADER-1795116727644-CONFIRMATION-HEADER",
+        "text": "Черновик100,00 ₽",
+        "area": {
+          "left": 265,
+          "right": 889
+        },
+        "parts": [
+          {
+            "text": "Черновик",
+            "left": 743.796875,
+            "right": 821.6875,
+            "width": 77.890625,
+            "visible": true
+          },
+          {
+            "text": "100,00 ₽",
+            "left": 829.6875,
+            "right": 889,
+            "width": 59.3125,
+            "visible": true
+          }
+        ]
+      }
+    },
+    "Только новые fixture IDs; ledger0 у обоих, date/revoke/confirmation не сохранялись"
+  ],
+  "fixtures": [
+    {
+      "companyId": "6aff4eb82d31f3be36b38c5b"
+    },
+    {
+      "invoiceId": "6aff4eb82d31f3be36b38c93",
+      "requestIds": [
+        "6aff4eb82d31f3be36b38c67",
+        "6aff4eb82d31f3be36b38c77",
+        "6aff4eb82d31f3be36b38c87"
+      ]
+    },
+    {
+      "invoiceId": "6aff4eb92d31f3be36b38d32",
+      "requestIds": [
+        "6aff4eb92d31f3be36b38d26"
+      ]
+    }
+  ],
+  "screenshots": [
+    "C165-HEADER-1795116727644-date-header-light-1920.png",
+    "C165-HEADER-1795116727644-revoke-header-light-1920.png",
+    "C165-HEADER-1795116727644-confirmation-header-light-1920.png",
+    "C165-HEADER-1795116727644-date-header-light-1024.png",
+    "C165-HEADER-1795116727644-revoke-header-light-1024.png",
+    "C165-HEADER-1795116727644-confirmation-header-light-1024.png",
+    "C165-HEADER-1795116727644-date-header-dark-1920.png",
+    "C165-HEADER-1795116727644-revoke-header-dark-1920.png",
+    "C165-HEADER-1795116727644-confirmation-header-dark-1920.png",
+    "C165-HEADER-1795116727644-date-header-dark-1024.png",
+    "C165-HEADER-1795116727644-revoke-header-dark-1024.png",
+    "C165-HEADER-1795116727644-confirmation-header-dark-1024.png"
+  ],
+  "status": "PASS",
+  "profileCleanup": "Удалить только свой временный профиль после закрытия Edge"
+}

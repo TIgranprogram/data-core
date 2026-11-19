@@ -601,3 +601,11 @@ test('C165 P2: partial/noMoney и чужие fileIds/опасные URL не п�
     assert.equal(m.calls.some(call => call.path.startsWith('/photos/')), false);
   }
 });
+
+test('C165 design: форма не дублирует тип, header сохраняет полный статус и сумму в kit wrap', async () => {
+  const invoice = { ...undated(), no: 'C165-HEADER-1795116052065-24334-TEST', amount: 50076 }; const m = await modules({ invoice });
+  assert.equal(m.workspace.invoiceCard.card.editTitle(invoice), 'Счёт № ' + invoice.no);
+  const header = m.workspace.invoiceCard.card.headStats(invoice); assert.match(header.textContent, /Требует даты оплаты/); assert.match(header.textContent, /50076 ₽/);
+  assert.equal(header.classList.contains('actions'), true); assert.equal(header.classList.contains('k-head-meta'), false);
+  const after = m.workspace.invoiceCard.card.headStats({ ...invoice, requiresPaymentDate: false, paymentState: 'paid', status: 'paid' }); assert.match(after.textContent, /50076 ₽/);
+});

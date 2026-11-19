@@ -302,6 +302,9 @@ const invoiceFacts = (invoice) => [
   session.canMoney && needsPaymentDate(invoice) ? ['Подтверждено без даты', money(invoice.undatedConfirmedAmountRub)] : session.canMoney && invoice.reconciliationRequired ? ['Остаток', 'Требует сверки'] : session.canMoney && foreignInvoice(invoice) ? ['Остаток по документу', sourceMoney(invoice.sourceBalance, invoice)] : session.canMoney && invoice.balanceDue !== undefined ? ['Остаток, ₽', invoice.balanceDue == null ? 'Нужен пересчёт' : money(invoice.balanceDue)] : null,
 ].filter(Boolean);
 
+const invoiceStage = (invoice) => invoice._refreshError ? null : needsPaymentDate(invoice) ? badge('Требует даты оплаты', 'warn') : invoice.reconciliationRequired || invoice.paymentState === 'reconciliation' ? badge('Требует сверки', 'warn') : badge(INVOICE_STATUS, invoice.status);
+const invoiceAmount = (invoice) => session.canMoney && !invoice._refreshError ? h('b', null, invoice.accountingState === 'unresolved' ? sourceMoney(invoice.sourceAmount, invoice) + ' · Нужен пересчёт' : money(invoice.amount)) : null;
+
 export const invoiceCard = {
   id: 'invoicecard', title: 'Счёт поставщика', kind: 'Счёт', noun: 'счёт', entityType: 'SupplyInvoice',
   canEdit: () => session.canEdit,
@@ -311,8 +314,8 @@ export const invoiceCard = {
     ...screenCard({
       title: (invoice) => invoice.no ? `Счёт № ${invoice.no}` : 'Счёт без номера',
       sub: (invoice) => [invoice.supplierName || 'Поставщик не указан', invoice.date ? date(invoice.date) : ''].filter(Boolean).join(' · '),
-      stage: (invoice) => (invoice._refreshError ? null : needsPaymentDate(invoice) ? badge('Требует даты оплаты', 'warn') : invoice.reconciliationRequired || invoice.paymentState === 'reconciliation' ? badge('Требует сверки', 'warn') : badge(INVOICE_STATUS, invoice.status)),
-      side: (invoice) => [session.canMoney && !invoice._refreshError ? h('b', null, invoice.accountingState === 'unresolved' ? sourceMoney(invoice.sourceAmount, invoice) + ' · Нужен пересчёт' : money(invoice.amount)) : null, invoice.partial ? 'только видимые строки' : null],
+      stage: invoiceStage,
+      side: (invoice) => [invoiceAmount(invoice), invoice.partial ? 'только видимые строки' : null],
       noHistory: true,
       bodyFirst: true,
       warns: (invoice) => invoiceWarnings(invoice, session),
@@ -336,6 +339,9 @@ export const invoiceCard = {
         ];
       },
     }),
+    // Штатный wrap kit.actions сохраняет статус и полную сумму при длинном номере и в форме.
+    headStats: invoice => invoice._refreshError ? null : actions(invoiceStage(invoice), invoiceAmount(invoice)),
+    editTitle: invoice => invoice.no ? `Счёт № ${invoice.no}` : 'Счёт без номера',
     // Реквизиты и позиции — на одном экране в body; нижняя «Реквизиты счёта» не нужна.
     startEdit: invoice => invoice._operation === 'payment' && permissions(invoice, session).pay,
     editable: () => false,
