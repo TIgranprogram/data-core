@@ -1,0 +1,203 @@
+{
+  "startedAt": "2026-11-19T18:42:11.398Z",
+  "origin": "http://localhost:3102",
+  "phase": "c163",
+  "viewport": "1920×1080",
+  "checks": {
+    "resume-from-saved-cover-and-kind": {
+      "status": "PASS",
+      "cover": "6aff3ba70929d7d70f4b245b",
+      "kind": "6af707fdc451d4c05df6a045",
+      "facetValueIds": null
+    },
+    "criteria-and-recommended-parts": {
+      "status": "PASS",
+      "action": "Сохранить автоописание из четырёх частей",
+      "recommended": [
+        "Педаль"
+      ],
+      "facets": [
+        "6aeea9373b8b9255839ab433",
+        "6aff3bf00929d7d70f4b24ea"
+      ],
+      "dictionaryText": "Тренажёр состоит из рамы, рукояток, сиденья и педалей.",
+      "generatedText": "Изделие состоит из несущей рамы, ручки, сиденья и педали."
+    },
+    "sample-and-readback": {
+      "status": "FAIL",
+      "action": "Выбрать соединение только в тестовой карточке",
+      "reason": "Ожидаемый элемент или сетевой ответ не появился."
+    },
+    "historical-integrity": {
+      "status": "PASS",
+      "unchanged": {
+        "items": [
+          {
+            "number": "611",
+            "sha256": "f300f73a1b1364f37afe10ff599e3603f97c8ebdd02ba3d5a8910e6d391a2f9e"
+          },
+          {
+            "number": "612",
+            "sha256": "c2473dd2334694245817b440cada95d03ecbaba37c9ae08b823de8349572142c"
+          },
+          {
+            "number": "613",
+            "sha256": "ec6d9de5cc81bd5ebe551d1fe8dd6e644fed989f34df7e7f08986355136debe7"
+          }
+        ],
+        "source1066": "4dbc8db3a011df254b5f0f099763431d82b1670037a2aacfbc349e83e9ec6b07"
+      }
+    },
+    "network": {
+      "status": "PASS",
+      "browserErrors": 0,
+      "outside": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOutside": 35,
+  "appOutside": 0,
+  "blockedWrites": {},
+  "pageErrors": 0,
+  "scenarioSha256": "114d74e748217d70500564952fa1eaacd39f10896b824755bcc2c74f897428fa",
+  "guardSha256": "32475d59d869da8261a8002d0bb3a40b3b89bf97fe3fcaf9d8a1085fda064c81",
+  "browser": "157.0.8103.79",
+  "stand": {
+    "backup": "datacore-2026-11-18_031040.tgz",
+    "head": "f76489b9ed643e72ca2175d5f48535588481612d",
+    "dirty": true,
+    "builtAt": "2026-11-19T18:14:06.274Z"
+  },
+  "traffic": [
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "resume-from-saved-cover-and-kind",
+      "method": "GET",
+      "target": "/api/showcase/6aff3ba30929d7d70f4b2451/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "resume-from-saved-cover-and-kind",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 200
+    },
+    {
+      "step": "resume-from-saved-cover-and-kind",
+      "method": "GET",
+      "target": "/api/passports/6afefa546402b642a6610a8b",
+      "readOnly": "1",
+      "status": 200
+    },
+    {
+      "step": "resume-from-saved-cover-and-kind",
+      "method": "GET",
+      "target": "/api/passports/6aff0bf134de43c56e5ac63f",
+      "readOnly": "1",
+      "status": 200
+    },
+    {
+      "step": "resume-from-saved-cover-and-kind",
+      "method": "GET",
+      "target": "/api/passports/6aff2b122d9e948b326339c6",
+      "readOnly": "1",
+      "status": 200
+    },
+    {
+      "step": "resume-from-saved-cover-and-kind",
+      "method": "GET",
+      "target": "/api/showcase/6ae1269ae36900370537a2f3/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "criteria-and-recommended-parts",
+      "method": "PATCH",
+      "target": "/api/showcase/6aff3ba30929d7d70f4b2451/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "criteria-and-recommended-parts",
+      "method": "PATCH",
+      "target": "/api/showcase/6aff3ba30929d7d70f4b2451/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "criteria-and-recommended-parts",
+      "method": "GET",
+      "target": "/api/showcase/6aff3ba30929d7d70f4b2451/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "criteria-and-recommended-parts",
+      "method": "GET",
+      "target": "/api/showcase/6aff3ba30929d7d70f4b2451/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "criteria-and-recommended-parts",
+      "method": "PATCH",
+      "target": "/api/showcase/6aff3ba30929d7d70f4b2451/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "sample-and-readback",
+      "method": "GET",
+      "target": "/api/showcase/6aff3ba30929d7d70f4b2451/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "sample-and-readback",
+      "method": "PATCH",
+      "target": "/api/showcase/6aff3ba30929d7d70f4b2451/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "historical-integrity",
+      "method": "GET",
+      "target": "/api/passports/6afefa546402b642a6610a8b",
+      "readOnly": "1",
+      "status": 304
+    },
+    {
+      "step": "historical-integrity",
+      "method": "GET",
+      "target": "/api/passports/6aff0bf134de43c56e5ac63f",
+      "readOnly": "1",
+      "status": 304
+    },
+    {
+      "step": "historical-integrity",
+      "method": "GET",
+      "target": "/api/passports/6aff2b122d9e948b326339c6",
+      "readOnly": "1",
+      "status": 304
+    },
+    {
+      "step": "historical-integrity",
+      "method": "GET",
+      "target": "/api/showcase/6ae1269ae36900370537a2f3/passport-template",
+      "variant": "short",
+      "status": 200
+    }
+  ]
+}

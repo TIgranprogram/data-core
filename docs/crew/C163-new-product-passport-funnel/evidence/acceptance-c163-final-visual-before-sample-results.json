@@ -1,0 +1,89 @@
+{
+  "startedAt": "2026-11-19T18:56:56.500Z",
+  "origin": "http://localhost:3102",
+  "phase": "c163",
+  "viewport": "1920×1080",
+  "checks": {
+    "expanded-existing-criteria": {
+      "status": "PASS",
+      "action": "Раскрыть конструкцию и подтвердить оба значения",
+      "fields": [
+        {
+          "name": "6aeea9373b8b9255839ab421",
+          "value": "6aeea9373b8b9255839ab433",
+          "visible": true,
+          "label": "Кардио"
+        },
+        {
+          "name": "6afef7e33b40fac6985f62fd",
+          "value": "6aff3bf00929d7d70f4b24ea",
+          "visible": false,
+          "label": "Сиденье, рукоятки и педали"
+        }
+      ]
+    },
+    "owned-photo-not-cropped": {
+      "status": "FAIL",
+      "measurements": [],
+      "action": "Увеличить рисунок с клавиатуры · light",
+      "reason": "Ожидаемый элемент или сетевой ответ не появился."
+    },
+    "unchanged-readback": {
+      "status": "PASS"
+    },
+    "network": {
+      "status": "PASS",
+      "browserErrors": 0,
+      "outside": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOutside": 32,
+  "appOutside": 0,
+  "blockedWrites": {},
+  "pageErrors": 0,
+  "scenarioSha256": "bf4a19e309a41a46964b267a18396949aa22ac1d55484baee6266ed3191c1187",
+  "guardSha256": "32475d59d869da8261a8002d0bb3a40b3b89bf97fe3fcaf9d8a1085fda064c81",
+  "browser": "157.0.8103.79",
+  "stand": {
+    "backup": "datacore-2026-11-18_031040.tgz",
+    "head": "f76489b9ed643e72ca2175d5f48535588481612d",
+    "dirty": true,
+    "builtAt": "2026-11-19T18:14:06.274Z"
+  },
+  "traffic": [
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/api/showcase/6aff3ba30929d7d70f4b2451/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "expanded-existing-criteria",
+      "method": "GET",
+      "target": "/api/showcase/6aff3ba30929d7d70f4b2451/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "unchanged-readback",
+      "method": "GET",
+      "target": "/api/showcase/6aff3ba30929d7d70f4b2451/passport-template",
+      "variant": "short",
+      "status": 200
+    }
+  ]
+}

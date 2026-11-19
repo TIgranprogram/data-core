@@ -18,6 +18,20 @@ const db = fakeDb({
 });
 
 describe('паспорт из изделия', () => {
+  it('C163: критерии дают только живые элементы, своё не меняется и в изделие ничего не записывается', async () => {
+    const value = new Types.ObjectId(), parent = new Types.ObjectId(), element = new Types.ObjectId(), dead = new Types.ObjectId(), own = new Types.ObjectId();
+    const find = jest.fn((q: { dict: string }) => ({ toArray: async () => q.dict === 'productFacetValues'
+      ? [{ _id: value, parentId: parent, elementIds: [element, dead, element, 'bad'] }] : q.dict === 'productFacets'
+        ? [{ _id: parent }] : q.dict === 'passportElements' ? [{ _id: element }] : [] }));
+    const d = { collection: () => ({ find, findOne: async () => null }) } as never;
+    const product = { facetValueIds: [value], passportDefaults: { passportCategory: 'TRN' } };
+    const before = JSON.stringify(product);
+    expect((await productPatch(d, product, { presentation: true })).elements).toEqual([element]);
+    expect(JSON.stringify(product)).toBe(before);
+    expect((await productPatch(d, { ...product, passportDefaults: { ...product.passportDefaults, elements: [own] } })).elements).toEqual([own]);
+    expect(find).toHaveBeenCalledTimes(3);
+    expect(find).toHaveBeenCalledWith(expect.objectContaining({ dict: 'productFacets', deletedAt: null, category: { $in: ['TRN'] } }), expect.anything());
+  });
   it('C148: новый черновик получает источники и ручные формулировки таблицы без пересборки старого снимка', async () => {
     const source = { kind: 'part', refId: String(new Types.ObjectId()), name: 'Стойка', code: 'СТ.1' };
     const spec = { rows: [{ materialId: new Types.ObjectId(), sizes: ['89×3'], partIds: [], sourceRefs: [{ ...source, path: [source] }], passportText: 'Ручной паспорт', techText: 'Ручная техника' }], coatingIds: [] };
@@ -113,6 +127,58 @@ describe('паспорт из изделия', () => {
     const pid = new Types.ObjectId();
     const d = fakeDb({ products: [{ _id: pid, categoryId: catId }], categories: [{ _id: catId, name: 'Т', passportCategory: 'TRN' }], dict_values: [] });
     expect((await productCategories(d, [pid, String(pid)])).get(String(pid))).toBe('TRN');
+  });
+});
+
+describe('C163 P1: применимость производных элементов', () => {
+  const trn = new Types.ObjectId(), blg = new Types.ObjectId(), dead = new Types.ObjectId(), absent = new Types.ObjectId();
+  const trnElement = new Types.ObjectId(), blgElement = new Types.ObjectId(), badElement = new Types.ObjectId();
+  const values = [
+    { _id: new Types.ObjectId(), parentId: trn, elementIds: [trnElement] },
+    { _id: new Types.ObjectId(), parentId: blg, elementIds: [blgElement] },
+    { _id: new Types.ObjectId(), parentId: dead, elementIds: [badElement] },
+    { _id: new Types.ObjectId(), parentId: absent, elementIds: [badElement] },
+    { _id: new Types.ObjectId(), elementIds: [badElement] },
+    { _id: new Types.ObjectId(), parentId: 'broken', elementIds: [badElement] },
+  ].map((v) => ({ ...v, dict: 'productFacetValues', deletedAt: null }));
+  const rows: Record<string, unknown>[] = [
+    ...values,
+    { _id: trn, dict: 'productFacets', category: 'TRN', deletedAt: null },
+    { _id: blg, dict: 'productFacets', category: 'BLG', deletedAt: null },
+    { _id: dead, dict: 'productFacets', category: 'TRN', deletedAt: new Date() },
+    ...[trnElement, blgElement, badElement].map((_id) => ({ _id, dict: 'passportElements', deletedAt: null })),
+  ];
+  const match = (row: Record<string, unknown>, query: Record<string, unknown>) => Object.entries(query).every(([key, value]) => {
+    if (value && typeof value === 'object' && '$in' in value) return (value as { $in: unknown[] }).$in.some((v) => String(v) === String(row[key]));
+    return value === null ? row[key] == null : String(value) === String(row[key]);
+  });
+  const db = { collection: () => ({ findOne: async () => null,
+    find: (query: Record<string, unknown>) => ({ toArray: async () => rows.filter((r) => match(r, query)) }),
+  }) } as never;
+
+  it('смена категории меняет только вычисленные элементы, чужие сохранённые ответы остаются', async () => {
+    const product = { facetValueIds: values.slice(0, 2).map((v) => v._id), passportDefaults: { passportCategory: 'TRN' } };
+    const selected = [...product.facetValueIds];
+    expect((await productPatch(db, product)).elements).toEqual([trnElement]);
+    product.passportDefaults.passportCategory = 'BLG';
+    expect((await productPatch(db, product)).elements).toEqual([blgElement]);
+    expect(product.facetValueIds).toEqual(selected);
+    product.passportDefaults.passportCategory = 'MAF';
+    expect((await productPatch(db, product)).elements).toEqual([blgElement]);
+  });
+
+  it('удалённый, неизвестный, отсутствующий и повреждённый родитель не даёт элементов', async () => {
+    const product = { facetValueIds: values.slice(2).map((v) => v._id), passportDefaults: { passportCategory: 'TRN' } };
+    expect(await productPatch(db, product)).not.toHaveProperty('elements');
+    expect(product.facetValueIds).toHaveLength(4);
+    expect(await productPatch(db, { facetValueIds: [values[0]._id] })).not.toHaveProperty('elements');
+  });
+
+  it('собственные элементы приоритетны при наличии чужих и повреждённых критериев', async () => {
+    const product = { facetValueIds: values.map((v) => v._id), passportDefaults: { passportCategory: 'TRN', elements: [badElement] } };
+    const before = JSON.stringify(product);
+    expect((await productPatch(db, product)).elements).toEqual([badElement]);
+    expect(JSON.stringify(product)).toBe(before);
   });
 });
 

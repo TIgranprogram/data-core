@@ -1,6 +1,6 @@
 # Карта роли data-steward
 
-коммит: не закоммичено (роль не коммитит). C055 Э3 план элементов — `docs/crew/C055-tech-passport/`. C054 части и покрытия — тоже без коммита.
+коммит: не закоммичено (роль не коммитит). C163 план словаря short — `docs/crew/C163-new-product-passport-funnel/DICTIONARY-PLAN.md`. C055 Э3 план элементов — `docs/crew/C055-tech-passport/`. C054 части и покрытия — тоже без коммита.
 
 ## Законы (выжимка)
 - CANON §5: одна сущность — одна таблица; данные священны. AGENTS «Жёсткие правила» №2 (без deleteMany/drop без «да»), №4 (общая база с kppdf: таблицы `kind:'crm'` и схемы общих коллекций не ломать).
@@ -22,6 +22,17 @@
 
 ## Отчёты
 - `docs/DB-AUDIT.md` (§1–5 таблицы реестра, МИ.1, ПВ), `docs/roles/tz/PASSPORT-FUNNEL-data-steward.md`.
+
+## C163 «Словарь short» (2026-11-19)
+- План: `docs/crew/C163-new-product-passport-funnel/DICTIONARY-PLAN.md`; readonly `tools/logs/c163-dictionary-audit.json` (160 phrases / 38 kinds / 50 parts / 21 facets / 71 values).
+- short: 26 корней / 33 заполненных листа, 26/38 видов с веткой; 12 без ветки. 1061 уже заполнен; для 1068 предложены contact Вело, Педаль, root+leaf по подтверждённому составу; запись не выполнялась.
+- «Дубли · 2» = две строки одной пары Информирование с разными groupIds, не точные дубли. Merge пока не предлагать: потеряет групповую автоприменимость; kind.purposeLeafId/facet.purposePhraseId не переносит.
+- `dicts.defs.ts` partPhraseUses (~407) + withProducts покрывают merge phrase.partIds и обе ссылки частей изделия; актуальную обёртку учитывать перед выводом о неполном переносе. У parts нет полей criterion→parts, только categories; точные рекомендации уже задаются через simple-description leaf.partIds + kind/facet.
+- Карта обновлена; коммит: не закоммичено.
+- C163 дополнение §6: просмотрены 10 изображений `tools/logs/c163-reference-images/manifest.json`, подготовлены 10 literal entries по productId/kind+construction. Девять passport overview, у полусферы только общий main-render. Противоречие 19_4: имя обещает защиту от дождя, рисунок показывает открытые балки; не утверждать кровлю. Для parts предложено 9 новых слов; у 5 facets нет kindIds — вопросы показывать только в выбранной ветке short.
+- §2 применил access: `tools/logs/c163-dictionary-prod-apply-1795111854718/summary.json` completed/verified=4, phrases162/parts51/values72. 1068 не менялся; хранитель API не вызывал.
+- Reverse-ref API граница C163 §7.1: admin collections/:name/docs q=24hex ищет _id владельца, не nested partId; candidates импортирует текстовые кандидаты. Для точных owners нужна отдельная постраничная raw-выгрузка products/productpassports и контроль sanitize-обрезки (arrays100/depth8), не q=partId. «Шит»/«Щит» busy/tracked без locked, статусы owners через usage не доказаны.
+- C163 §8: утверждён JSON `DICTIONARY-SUPPLEMENT.json` (43=9parts+5facets+9values+10roots+10leaves); исполнитель `tools/logs/c163-dictionary-supplement.mjs` только для access, required exact C163_RELEASE, no PATCH/delete, before/readback/prod1061/1068. Офлайн VM6сценариев PASS, liveAPI хранитель не запускал. План/скрипт SHA в §8; коммит: не закоммичено.
 
 ## ПВ2 «Тексты» (2026-10-25)
 - `scripts/passport-texts-polish.js` — 32 правки по `_id` (CHANGES: dict,id,label,field,was,to,why); `buildPlan(db,{ObjectId})`, `applyPlan`, `printPlan`; `--apply`, `--out`. Отчёт — `docs/roles/tz/PP-TEXTS-POLISH.md`.

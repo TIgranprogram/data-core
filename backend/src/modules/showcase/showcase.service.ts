@@ -17,11 +17,12 @@ import { parseCatalog } from './catalog-rows';
 import { legacyDefaultsReplacement, normalizePassportDefaults, presentPassportDefaults, type PassportDefaults } from './passport-defaults';
 import { facetElementsPatch } from './facet-elements';
 import { productNameKey, shortProductName } from './order-product-name';
-import { clean, LIVE, loadPhotos, variants, type Doc } from './showcase-common';
+import { clean, LIVE, variants, type Doc } from './showcase-common';
 const key0 = (v: unknown) => clean(v).toLowerCase().replace(/ё/g, 'е');
 import { ShowcaseBulk } from './showcase-bulk';
 import { cloneDoc, variantDoc, variantSku } from './showcase-clone';
 import { findSimilar } from './showcase-similar';
+import { showcasePhotos } from './showcase-photos';
 import { ShowcaseComposition } from './showcase-composition';
 import { ShowcaseFromPassports } from './showcase-from-passports';
 import { parseMaterialsSpec, presentMaterialsSpec } from '../../common/catalog/materials-table';
@@ -94,25 +95,7 @@ export class ShowcaseService {
     const cats = catIds.length ? await this.db.collection('categories').find({ _id: { $in: catIds } }, { projection: { name: 1, parentId: 1, passportCategory: 1 } }).toArray() : [];
     const parents = await this.db.collection('categories').find({ _id: { $in: cats.map((c) => c.parentId).filter(Boolean) } }, { projection: { name: 1, passportCategory: 1 } }).toArray();
     const cat = new Map(cats.map((c) => [String(c._id), c])); const par = new Map(parents.map((p) => [String(p._id), String(p.name)])); const parPp = new Map(parents.map((p) => [String(p._id), String(p.passportCategory ?? '')]));
-    // БЗ-15: обложки из паспортов — для изделий без своих фото берём overview первого выпущенного паспорта
-    const ownPhotoIds = docs.flatMap((d) => ((d.photoIds as Types.ObjectId[]) ?? []));
-    const noPicDocs = docs.filter((d) => !((d.photoIds as Types.ObjectId[])?.length));
-    const ppCoverMap = new Map<string, Types.ObjectId>(); // productId → photoId
-    if (noPicDocs.length > 0) {
-      const pps = await this.db.collection('productpassports').find(
-        { deletedAt: null, productId: { $in: noPicDocs.map((d) => d._id) }, 'images.kind': 'overview' },
-        { projection: { productId: 1, images: 1, date: 1 } },
-      ).sort({ date: -1, _id: -1 }).toArray();
-      const seen = new Set<string>();
-      for (const pp of pps) {
-        const pid = String(pp.productId);
-        if (seen.has(pid)) continue;
-        seen.add(pid);
-        const img = (pp.images as Array<{ kind: string; photoId: Types.ObjectId }>).find((i) => i.kind === 'overview');
-        if (img?.photoId) ppCoverMap.set(pid, img.photoId);
-      }
-    }
-    const ph = await loadPhotos(this.db, [...ownPhotoIds, ...ppCoverMap.values()]);
+    const { pictures, covers } = await showcasePhotos(this.db, docs);
     // ПИ: тип паспорта изделия (своя из passportDefaults, иначе — по «Категориям каталога») и сколько паспортов выпущено
     const [ppCats, ppCounts] = await Promise.all([
       this.db.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, name: 1, catalogNames: 1 } }).toArray() as unknown as Promise<PpCat[]>,
@@ -128,9 +111,8 @@ export class ShowcaseService {
       const kc = rk?.kind?.passportCategory ?? '';
       const byKind: PpFound | null = kc ? { code: kc, name: clean(ppCats.find((x) => clean(x.code) === kc)?.name) || kc, via: `вид «${rk!.kind!.name}»`, source: 'kind' } : null;
       const pp = resolvePassportCategory((d.passportDefaults as PassportDefaults | undefined)?.passportCategory, byKind ?? byGroup, ppCats);
-      const pics = ((d.photoIds as Types.ObjectId[]) ?? []).map((p) => ph.get(String(p))).filter(Boolean);
-      const ppCoverId = ppCoverMap.get(String(d._id));
-      const ppCoverPhoto = ppCoverId ? (ph.get(String(ppCoverId)) ?? null) : null;
+      const pics = pictures.get(String(d._id)) ?? [];
+      const ppCoverPhoto = covers.get(String(d._id)) ?? null;
       const photo = pics[0] ?? ppCoverPhoto ?? null;
       const photoSource: 'own' | 'passport' | undefined = pics.length > 0 ? undefined : ppCoverPhoto ? 'passport' : undefined;
       return { id: String(d._id), sku: String(d.sku ?? ''), name: String(d.name ?? d.sku ?? ''), series: (d.series as string) ?? null, fullName: (d.fullName as string) ?? null, orderName: (d.orderName as string) ?? null, description: (d.description as string) ?? null, notes: (d.notes as string) ?? null,

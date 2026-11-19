@@ -958,3 +958,6 @@ Canonical API/файлы — MAP.md; точные проверки/совмес�
 ## C161 — описание из частей (19.11.2026)
 
 `simpleDescription` в `products.passportDefaults` и собственном `productpassports` — совместимый union: `{mode:'parts',partIds:ObjectId[]}` либо прежнее `{text:string,partIds:ObjectId[],mode?:'manual'}`. Отсутствие mode сохраняет прежнюю ручную семантику. Режим parts хранит только выбранные ссылки/порядок; готовая строка вычисляется из текущих живых `passportParts` для шаблона/нового выпуска. Source.kind='parts', source.text и optional invalidPartIds входят в проекцию. CAS всего собственного значения прежний. У issued/annulled v1/parts чтение использует сохранённые textSnapshot/printSnapshot, явный POSTsnapshot возвращает409 до чтения словаря/записи. Миграций, новых коллекций и измененийBOM нет. Подробности — C161/CONTRACT.md.
+
+
+C163: GET шаблона паспорта возвращает `product.facetValueIds` (собственное значение массива или null). PATCH `changes/expected.facetValueIds` пишет поле `products.facetValueIds` одним CAS с изменениями defaults; null удаляет поле, [] хранит пустой ответ. Производные элементы рассчитываются при чтении и не записывают ручные defaults. Схема БД не меняется.

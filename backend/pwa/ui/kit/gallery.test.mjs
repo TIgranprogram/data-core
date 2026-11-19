@@ -49,3 +49,51 @@ test('Escape закрывает, а Tab и стрелки сохраняют у�
   assert.equal(box.isConnected, false);
   assert.equal(f.document.activeElement, f.before);
 });
+
+function cardOpener(f, imageClass = 'g-big') {
+  const src = 'https://example.test/db/uploads/cover.png';
+  const owner = { isConnected: true, images: [], querySelectorAll() { return this.images; } };
+  const makeImage = (url = src) => ({ isConnected: true, src: url,
+    matches: (selector) => selector === 'img.g-big, img.pgal-img',
+    closest: (selector) => selector === 'aside[data-k="drawer"]' ? owner : null,
+    focus() { f.document.activeElement = this; }, className: imageClass });
+  const opener = makeImage();
+  owner.images = [opener]; opener.focus();
+  return { owner, opener, makeImage };
+}
+
+for (const imageClass of ['g-big', 'pgal-img']) {
+  test(`Escape возвращает фокус заменённому ${imageClass} с тем же src в исходной панели`, () => {
+    const f = fixture();
+    const { owner, opener, makeImage } = cardOpener(f, imageClass);
+    f.openZoom([{ url: '/uploads/cover.png' }]);
+    opener.isConnected = false;
+    const replacement = makeImage(); owner.images = [replacement];
+    f.listeners.get('keydown')(event('Escape'));
+    assert.equal(f.document.activeElement, replacement);
+  });
+}
+
+test('подключённый исходный opener важнее другого изображения в панели', () => {
+  const f = fixture();
+  const { owner, opener, makeImage } = cardOpener(f);
+  f.openZoom([{ url: '/uploads/cover.png' }]);
+  owner.images = [makeImage()];
+  f.listeners.get('keydown')(event('Escape'));
+  assert.equal(f.document.activeElement, opener);
+});
+
+for (const mode of ['wrong-asset', 'dead-owner']) {
+  test(`закрытие не переводит фокус на посторонний рисунок: ${mode}`, () => {
+    const f = fixture();
+    const { owner, opener, makeImage } = cardOpener(f);
+    f.openZoom([{ url: '/uploads/cover.png' }]);
+    const replacement = makeImage(mode === 'wrong-asset' ? 'https://example.test/db/uploads/other.png' : opener.src);
+    owner.images = [replacement]; opener.isConnected = false;
+    if (mode === 'dead-owner') owner.isConnected = false;
+    const focusBeforeClose = f.document.activeElement;
+    f.listeners.get('keydown')(event('Escape'));
+    assert.equal(f.document.activeElement, focusBeforeClose);
+    assert.notEqual(f.document.activeElement, replacement);
+  });
+}

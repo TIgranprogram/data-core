@@ -14,6 +14,8 @@
 - 2026-10-24 · ТЗ «DTO для новых полей» у `/showcase` · у контроллера тела `Record<string, unknown>` — ValidationPipe их не проверяет (метатип Object), поля разбирает сервис (`fields()`); DTO только на новое поле дал бы 400 на все остальные (forbidNonWhitelisted) · новое поле — в разбор сервиса с 400 по-русски, DTO — только целиком (АБЗ-6) · МИ.2
 
 - 2026-11-18 · C095 modules[] содержит паспортные dims/photoId, которых нет в физическом BOM: нельзя удалять или скрывать всё по наличию compositionSheet. Только exact plain multiset-дубль подавляется внутренним presentation marker; data и история сохраняются · C152.
+## C163 — критерии и обязательность short
+`products.facetValueIds` — собственное поле изделия, не passportDefaults. PATCH шаблона сравнивает его одним CAS с defaults; null и [] различаются. При добавлении значения проверять живого родителя, категорию и multi; чужой сохранённый хвост остаётся. Производные элементы читать без записи ручных defaults. Технические секции исключать до compose/when; needJoints от монтажа и обслуживания сохранять. Отчёт: `docs/crew/C163-new-product-passport-funnel/BACKEND-REPORT.md`.
 
 ### C158: строгая валидация e2e и денежные роли (2026-11-19)
 - Production forbidNonWhitelisted=true, старый test-db харнесс его не включал. Для нового финансового контракта createTestApp({strictValidation:true}), иначе тест неизвестного поля даёт ложный200.

@@ -1,0 +1,388 @@
+{
+  "startedAt": "2026-11-19T19:16:14.796Z",
+  "origin": "http://localhost:3102",
+  "phase": "c163",
+  "viewport": "1920×1080",
+  "checks": {
+    "light-no-screenshot": {
+      "status": "PASS",
+      "trace": {
+        "beforeOpen": {
+          "opener": {
+            "sameElement": true,
+            "isConnected": true,
+            "visible": true,
+            "inert": false,
+            "visibility": "visible",
+            "tabindex": "0"
+          },
+          "active": {
+            "tag": "IMG",
+            "class": "g-big",
+            "id": null,
+            "isOpener": true
+          },
+          "lightboxCount": 0
+        },
+        "afterOpen": {
+          "opener": {
+            "sameElement": false,
+            "isConnected": false,
+            "visible": false,
+            "inert": false,
+            "visibility": "",
+            "tabindex": "0"
+          },
+          "active": {
+            "tag": "BUTTON",
+            "class": "btn lightbox-close",
+            "id": null,
+            "isOpener": false
+          },
+          "lightboxCount": 1
+        },
+        "beforeClose": {
+          "opener": {
+            "sameElement": false,
+            "isConnected": false,
+            "visible": false,
+            "inert": false,
+            "visibility": "",
+            "tabindex": "0"
+          },
+          "active": {
+            "tag": "BUTTON",
+            "class": "btn lightbox-close",
+            "id": null,
+            "isOpener": false
+          },
+          "lightboxCount": 1
+        },
+        "afterClose": {
+          "opener": {
+            "sameElement": false,
+            "isConnected": false,
+            "visible": false,
+            "inert": false,
+            "visibility": "",
+            "tabindex": "0"
+          },
+          "active": {
+            "tag": "IMG",
+            "class": "g-big",
+            "id": null,
+            "isOpener": false
+          },
+          "lightboxCount": 0
+        },
+        "afterFrame": {
+          "opener": {
+            "sameElement": false,
+            "isConnected": false,
+            "visible": false,
+            "inert": false,
+            "visibility": "",
+            "tabindex": "0"
+          },
+          "active": {
+            "tag": "IMG",
+            "class": "g-big",
+            "id": null,
+            "isOpener": false
+          },
+          "lightboxCount": 0
+        }
+      },
+      "action": "Закрыть диалог и измерить возврат фокуса",
+      "bounds": {
+        "left": 264.5,
+        "top": 24,
+        "right": 1640.5,
+        "bottom": 1056,
+        "width": 1376,
+        "height": 1032,
+        "viewportWidth": 1920,
+        "viewportHeight": 1080,
+        "naturalWidth": 2400,
+        "naturalHeight": 1800,
+        "objectFit": "contain"
+      },
+      "focusReturned": false
+    },
+    "light-privacy-screenshot": {
+      "status": "PASS",
+      "trace": {
+        "beforeOpen": {
+          "opener": {
+            "sameElement": true,
+            "isConnected": true,
+            "visible": true,
+            "inert": false,
+            "visibility": "visible",
+            "tabindex": "0"
+          },
+          "active": {
+            "tag": "IMG",
+            "class": "g-big",
+            "id": null,
+            "isOpener": true
+          },
+          "lightboxCount": 0
+        },
+        "afterOpen": {
+          "opener": {
+            "sameElement": true,
+            "isConnected": true,
+            "visible": true,
+            "inert": false,
+            "visibility": "visible",
+            "tabindex": "0"
+          },
+          "active": {
+            "tag": "BUTTON",
+            "class": "btn lightbox-close",
+            "id": null,
+            "isOpener": false
+          },
+          "lightboxCount": 1
+        },
+        "beforeClose": {
+          "opener": {
+            "sameElement": true,
+            "isConnected": true,
+            "visible": true,
+            "inert": false,
+            "visibility": "visible",
+            "tabindex": "0"
+          },
+          "active": {
+            "tag": "BUTTON",
+            "class": "btn lightbox-close",
+            "id": null,
+            "isOpener": false
+          },
+          "lightboxCount": 1
+        },
+        "afterClose": {
+          "opener": {
+            "sameElement": true,
+            "isConnected": true,
+            "visible": true,
+            "inert": false,
+            "visibility": "visible",
+            "tabindex": "0"
+          },
+          "active": {
+            "tag": "IMG",
+            "class": "g-big",
+            "id": null,
+            "isOpener": true
+          },
+          "lightboxCount": 0
+        },
+        "afterFrame": {
+          "opener": {
+            "sameElement": true,
+            "isConnected": true,
+            "visible": true,
+            "inert": false,
+            "visibility": "visible",
+            "tabindex": "0"
+          },
+          "active": {
+            "tag": "IMG",
+            "class": "g-big",
+            "id": null,
+            "isOpener": true
+          },
+          "lightboxCount": 0
+        }
+      },
+      "action": "Закрыть диалог и измерить возврат фокуса",
+      "bounds": {
+        "left": 264.5,
+        "top": 24,
+        "right": 1640.5,
+        "bottom": 1056,
+        "width": 1376,
+        "height": 1032,
+        "viewportWidth": 1920,
+        "viewportHeight": 1080,
+        "naturalWidth": 2400,
+        "naturalHeight": 1800,
+        "objectFit": "contain"
+      },
+      "focusReturned": true
+    },
+    "dark-no-screenshot": {
+      "status": "PASS",
+      "trace": {
+        "beforeOpen": {
+          "opener": {
+            "sameElement": true,
+            "isConnected": true,
+            "visible": true,
+            "inert": false,
+            "visibility": "visible",
+            "tabindex": "0"
+          },
+          "active": {
+            "tag": "IMG",
+            "class": "g-big",
+            "id": null,
+            "isOpener": true
+          },
+          "lightboxCount": 0
+        },
+        "afterOpen": {
+          "opener": {
+            "sameElement": true,
+            "isConnected": true,
+            "visible": true,
+            "inert": false,
+            "visibility": "visible",
+            "tabindex": "0"
+          },
+          "active": {
+            "tag": "BUTTON",
+            "class": "btn lightbox-close",
+            "id": null,
+            "isOpener": false
+          },
+          "lightboxCount": 1
+        },
+        "beforeClose": {
+          "opener": {
+            "sameElement": true,
+            "isConnected": true,
+            "visible": true,
+            "inert": false,
+            "visibility": "visible",
+            "tabindex": "0"
+          },
+          "active": {
+            "tag": "BUTTON",
+            "class": "btn lightbox-close",
+            "id": null,
+            "isOpener": false
+          },
+          "lightboxCount": 1
+        },
+        "afterClose": {
+          "opener": {
+            "sameElement": true,
+            "isConnected": true,
+            "visible": true,
+            "inert": false,
+            "visibility": "visible",
+            "tabindex": "0"
+          },
+          "active": {
+            "tag": "IMG",
+            "class": "g-big",
+            "id": null,
+            "isOpener": true
+          },
+          "lightboxCount": 0
+        },
+        "afterFrame": {
+          "opener": {
+            "sameElement": true,
+            "isConnected": true,
+            "visible": true,
+            "inert": false,
+            "visibility": "visible",
+            "tabindex": "0"
+          },
+          "active": {
+            "tag": "IMG",
+            "class": "g-big",
+            "id": null,
+            "isOpener": true
+          },
+          "lightboxCount": 0
+        }
+      },
+      "action": "Закрыть диалог и измерить возврат фокуса",
+      "bounds": {
+        "left": 264.5,
+        "top": 24,
+        "right": 1640.5,
+        "bottom": 1056,
+        "width": 1376,
+        "height": 1032,
+        "viewportWidth": 1920,
+        "viewportHeight": 1080,
+        "naturalWidth": 2400,
+        "naturalHeight": 1800,
+        "objectFit": "contain"
+      },
+      "focusReturned": true
+    },
+    "unchanged-qa-cover-and-verdict": {
+      "status": "PASS",
+      "focus": [
+        {
+          "name": "light-no-screenshot",
+          "focusReturned": false
+        },
+        {
+          "name": "light-privacy-screenshot",
+          "focusReturned": true
+        },
+        {
+          "name": "dark-no-screenshot",
+          "focusReturned": true
+        }
+      ],
+      "screenshotArtifact": false,
+      "dataWrites": 0
+    },
+    "network": {
+      "status": "PASS",
+      "browserErrors": 0,
+      "outside": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOutside": 24,
+  "appOutside": 0,
+  "blockedWrites": {},
+  "pageErrors": 0,
+  "scenarioSha256": "0e53bc08c32bde058186c2b006d54ce7f0fdb6884003b0b06385f4769e1b239a",
+  "guardSha256": "32475d59d869da8261a8002d0bb3a40b3b89bf97fe3fcaf9d8a1085fda064c81",
+  "browser": "157.0.8103.79",
+  "stand": {
+    "backup": "datacore-2026-11-18_031040.tgz",
+    "head": "f76489b9ed643e72ca2175d5f48535588481612d",
+    "dirty": true,
+    "builtAt": "2026-11-19T18:14:06.274Z"
+  },
+  "traffic": [
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/api/showcase/6aff3ba30929d7d70f4b2451/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    }
+  ]
+}

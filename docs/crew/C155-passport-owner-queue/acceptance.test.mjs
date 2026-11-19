@@ -47,8 +47,10 @@ async function credentials() {
   }
   let login;
   try { login = JSON.parse(input); } catch { throw new Finding('Не получена JSON-сессия api.sh.'); }
+  const roleMatches = phase === 'c163-dict' ? login.user?.role === 'admin'
+    : login.user?.role === 'manager' && !login.user.isOwner;
   expect(typeof login?.access === 'string' && login.access && typeof login.refresh === 'string' && login.refresh
-    && login.user?.role === 'manager' && !login.user.isOwner, 'Нужна сессия обычного менеджера.');
+    && roleMatches, 'Нужна утверждённая роль сценария.');
   return { access: login.access, refresh: login.refresh, user: login.user };
 }
 
@@ -335,7 +337,8 @@ async function run(browser, login, focusedCase) {
     if (focusedCase) await focusedCase({
       app, page, book, button, read, authFetch, listen, json, closeBook, screenshot,
       check, at, expect, need, objectId, exactBody,
-      grant: phase.startsWith('c161-visual') ? () => { throw new Finding('В визуальной фазе C161 операции записи запрещены.'); } : grant,
+      grant: phase.startsWith('c161-visual') || phase === 'c163-dict'
+        ? () => { throw new Finding('В этой фазе операции записи запрещены.'); } : grant,
       cardPath, numberOf, statusOf,
       openTemplate, painted, inspectPdf, download, lastNumbers,
     });
@@ -696,10 +699,11 @@ export async function runOrderAcceptance(orderCase, source) {
 }
 
 export async function runFocusedAcceptance(name, focusedCase, source) {
-  expect(['order', 'first-time', 'first-time-width', 'fill', 'c159', 'c159-match', 'c159-zoom', 'c161', 'c161-visual', 'c161-visual-manual'].includes(name) && typeof focusedCase === 'function', 'Неизвестный сценарий приёмки.');
+  expect(['order', 'first-time', 'first-time-width', 'fill', 'c159', 'c159-match', 'c159-zoom', 'c161', 'c161-visual', 'c161-visual-manual', 'c163', 'c163-dict'].includes(name) && typeof focusedCase === 'function', 'Неизвестный сценарий приёмки.');
   phase = report.phase = name;
   if (['c159', 'c159-match', 'c159-zoom'].includes(name)) evidence = path.join(root, 'docs/crew/C159-order-product-photo-picker/evidence');
   if (['c161', 'c161-visual', 'c161-visual-manual'].includes(name)) evidence = path.join(root, 'docs/crew/C161-short-description-from-parts/evidence');
+  if (name === 'c163' || name === 'c163-dict') evidence = path.join(root, 'docs/crew/C163-new-product-passport-funnel/evidence');
   await start(source, focusedCase);
 }
 

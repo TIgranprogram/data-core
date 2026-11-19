@@ -1,0 +1,47 @@
+{
+  "startedAt": "2026-11-19T18:29:17.433Z",
+  "origin": "http://localhost:3102",
+  "phase": "c163-dict",
+  "viewport": "1920×1080",
+  "checks": {
+    "short-dictionary-scopes": {
+      "status": "PASS",
+      "action": "Открыть полное дерево текстов",
+      "trueDuplicates": 0,
+      "bikeLeafVisibleInTRN": true
+    },
+    "network": {
+      "status": "PASS",
+      "browserErrors": 0,
+      "outside": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOutside": 23,
+  "appOutside": 0,
+  "blockedWrites": {},
+  "pageErrors": 0,
+  "scenarioSha256": "4e708b030fa94c9527430c75fe5aa2cd9471e8793c0fc07ad7087868dda85053",
+  "guardSha256": "32475d59d869da8261a8002d0bb3a40b3b89bf97fe3fcaf9d8a1085fda064c81",
+  "browser": "157.0.8103.79",
+  "stand": {
+    "backup": "datacore-2026-11-18_031040.tgz",
+    "head": "f76489b9ed643e72ca2175d5f48535588481612d",
+    "dirty": true,
+    "builtAt": "2026-11-19T18:14:06.274Z"
+  },
+  "traffic": [
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    }
+  ]
+}

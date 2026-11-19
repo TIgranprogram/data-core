@@ -928,7 +928,8 @@ export class ProductPassportService {
     }, 'template');
     return {
       mode: 'template' as const, productId, presentationVersion: 1 as const, variant,
-      product: { name: String(prod.name ?? ''), article: prod.sku ? String(prod.sku) : null, dimensions: prod.dimensions ?? null, weightKg: Number(prod.weightKg) > 0 ? Number(prod.weightKg) : null },
+      product: { name: String(prod.name ?? ''), article: prod.sku ? String(prod.sku) : null, dimensions: prod.dimensions ?? null, weightKg: Number(prod.weightKg) > 0 ? Number(prod.weightKg) : null,
+        facetValueIds: Array.isArray(prod.facetValueIds) ? prod.facetValueIds.map(String) : null },
       defaults: presentPassportDefaults(prod.passportDefaults as PassportDefaults) ?? {},
       document,
       passportCategory: document.passportCategory ? String(document.passportCategory) : null,

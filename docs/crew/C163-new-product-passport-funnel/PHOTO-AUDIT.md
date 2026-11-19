@@ -1,0 +1,25 @@
+# C163 — аудит цепочки изображения (19.11.2026)
+- Только чтение кода; фактические данные 1068 проверяет access. Код, API, секреты и выпуск не затронуты.
+- iLogic: `backend/pwa/ilogic/passport-images.iLogicVb:526–600`: загрузка файлов, привязка overview/dimensions/foundation, проверка трёх новых связей, мягкое удаление прежних.
+- `:673–683`: `POST photos/upload?purpose=passport`, затем `POST products/:id/photos` с `{photoId,purpose:'passport',kind}`.
+- iLogic PATCH `/showcase/:id` передаёт только выбранные числовые характеристики. `photoIds` и `mainPhotoId` не передаются.
+- `backend/src/modules/product-photo/product-photo.service.ts:19–44`: паспортная связь получает `isMain:false`; главное витрины не сбрасывается.
+- Разделение намеренное: `product-photo-purpose.ts:12–30`; GET без purpose возвращает витрину, `purpose=passport` — паспортные рисунки.
+- Рисунок паспорта читается через `product-passport.service.ts:1370` и `passport-product-images.ts:28`: актуальный вид изделия перекрывает собственный рисунок черновика.
+- Карточка «Продукции» использует `/showcase`, а не `/products/:id/photos`: `backend/pwa/sections/products/data.js:33`.
+- Доказанный разрыв: `showcase.service.ts:99–137` собирает собственные `products.photoIds` и резерв из `productpassports.images`; `productphotos` отсутствует.
+- Комментарий «первого выпущенного» неточен: фильтр productpassports не ограничивает status; сортировка выбирает свежий паспорт.
+- Второй разрыв: fallback возвращается только в `photo`, а `photos` остаётся собственным массивом (`showcase.service.ts:132–139`).
+- Список читает `r.photo`, но большая галерея карточки читает только `r.photos` (`backend/pwa/sections/products.js:175`).
+- Поэтому существующий fallback выпущенного паспорта тоже не даёт изображения в большой галерее карточки.
+- Готовый явный выбор: `ui/kit/card-gallery.js:9`, `sections/products/data.js:47`: ☆ переставляет выбранное собственное фото первым.
+- `showcase.service.ts:514` одновременно синхронизирует `mainPhotoId` с первым `photoIds`; прямой PATCH только mainPhotoId здесь не нужен.
+- Готовое принятие резерва: `sections/products.js:127–130`, кнопка «← своей обложкой» пишет `[r.photo.id]` в `photoIds`.
+- Минимальный фикс: в present() пакетно получить живые `productphotos` purpose=passport kind=overview только для изделий без собственных фото.
+- Приоритет: собственное фото → актуальный overview изделия → прежний паспортный резерв. Внутри overview — sortOrder, затем createdAt/_id.
+- Возвращать резерв в `photo` с `photoSource:'passport'`; `photos` оставить собственными, чтобы формы и photoAdd не присваивали резерв автоматически.
+- В карточке показать fallback отдельной read-only галереей и кнопку принятия; переиспользовать gallery(), не выдавать резерв за собственное фото.
+- Простая замена gallery на `[r.photo]` опасна: `ui/kit/card.js:121–129` добавит «Убрать фото», хотя резерв не удаляется из photoIds.
+- Регрессии: пустое изделие + overview; собственная обложка сохраняется; несколько overview/мягкое удаление; нет overview; fallback старого паспорта.
+- Проверить повторный импорт: резерв обновляется, принятая собственная обложка остаётся; выпущенный паспорт сохраняет снимок.
+- UI: список и большая карточка, zoom, явное принятие, отсутствие ложного удаления, загрузка нового собственного фото, обе темы и readonly роль.

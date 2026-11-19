@@ -5,12 +5,14 @@ import { MAX_OVERRIDE_TEXT } from '../../common/passport/text-overrides';
 import { renderSelectedParts, selectedPartsIssue, type SimpleDescription } from '../../common/passport/simple-description';
 import { MANUAL_TEXT_KEYS, normalizePassportDefaults, NUMS, PRESENTATION_DEFAULT_KEYS } from './passport-defaults';
 import type { Db } from './showcase-common';
+import { resolveKind } from '../../common/passport/kind';
+import { inheritedPassportCategory } from '../../common/passport/passport-inherit';
 
 type Rec = Record<string, unknown>;
 const MAP_KEYS = ['textChoices', 'textOverrides'] as const;
 const arrays = ['elements', 'materialIds', 'manualText', 'modules', 'joints'];
 const editable = new Set<string>([
-  'passportCategory', 'kindId', 'installationTypeId', 'isKit', 'seatsCount',
+  'passportCategory', 'kindId', 'installationTypeId', 'isKit', 'seatsCount', 'facetValueIds',
   ...arrays, ...MAP_KEYS, ...NUMS, ...PRESENTATION_DEFAULT_KEYS,
 ]);
 const error = (key: string) => new BadRequestException(`${key}: неверное значение`);
@@ -103,6 +105,15 @@ export function parseTemplatePatch(changes: Rec, expected: Rec) {
         to[path] = rootValue(key, a[root]);
         from[path] = rootValue(key, b[root]);
       }
+    } else if (key === 'facetValueIds') {
+      const parse = (raw: unknown) => {
+        if (raw === null) return null;
+        if (!Array.isArray(raw) || raw.length > 100) throw error(key);
+        return raw.map((v) => id(v, key));
+      };
+      const values = parse(changes[key]);
+      to[key] = values === null ? null : [...new Map(values.map((v) => [String(v), v])).values()];
+      from[key] = parse(expected[key]);
     } else if (key === 'simpleDescription') {
       to[key] = simpleDescription(changes[key], false);
       from[key] = simpleDescription(expected[key], true);
@@ -137,9 +148,34 @@ function compareOwnValue(path: string, key: string, value: unknown) {
 export async function patchPassportTemplate(db: Db, productId: Types.ObjectId, changes: Rec, expected: Rec) {
   const filter = { _id: productId, deletedAt: null };
   const products = db.collection('products');
-  if (!(await products.findOne(filter, { projection: { _id: 1 } }))) throw new NotFoundException('Изделие не найдено');
+  const product = await products.findOne(filter);
+  if (!product) throw new NotFoundException('Изделие не найдено');
   const { to, from } = parseTemplatePatch(changes, expected);
   const dv = db.collection('dict_values');
+  const facets = to.facetValueIds as Types.ObjectId[] | null | undefined;
+  if (facets?.length) {
+    const rows = await dv.find({ _id: { $in: facets }, dict: 'productFacetValues', deletedAt: null }, { projection: { parentId: 1 } }).toArray();
+    if (rows.length !== facets.length || rows.some((r) => !r.parentId || !Types.ObjectId.isValid(String(r.parentId)))) throw error('facetValueIds');
+    const parents = [...new Set(rows.map((r) => String(r.parentId)))].map((v) => new Types.ObjectId(v));
+    const definitions = await dv.find({ _id: { $in: parents }, dict: 'productFacets', deletedAt: null }, { projection: { category: 1, multi: 1 } }).toArray();
+    if (definitions.length !== parents.length) throw error('facetValueIds');
+    const defaults = { ...(product.passportDefaults ?? {}) };
+    for (const key of ['kindId', 'passportCategory']) if (has(to, key)) {
+      if (to[key] === null) delete defaults[key]; else defaults[key] = to[key];
+    }
+    const resolvedCategory = String(defaults.passportCategory ?? '').trim()
+      || (await resolveKind(db, { ...product, passportDefaults: defaults })).kind?.passportCategory
+      || (await inheritedPassportCategory(db, product.categoryId))?.code;
+    const category = resolvedCategory === 'MAF' ? 'BLG' : resolvedCategory;
+    for (const definition of definitions) {
+      const ownIds = new Set((Array.isArray(product.facetValueIds) ? product.facetValueIds : []).map(String));
+      const added = rows.some((r) => String(r.parentId) === String(definition._id) && !ownIds.has(String(r._id)));
+      if (added && category && definition.category !== category) throw new BadRequestException('facetValueIds: признак относится к другому типу паспорта');
+      if (definition.multi !== true && rows.filter((r) => String(r.parentId) === String(definition._id)).length > 1) {
+        throw new BadRequestException('facetValueIds: у признака можно выбрать только одно значение');
+      }
+    }
+  }
   const description = to.simpleDescription as SimpleDescription<Types.ObjectId> | undefined;
   const links = {
     'simpleDescription.partIds': ['passportParts', description?.mode === 'parts' ? [] : description?.partIds],
@@ -170,15 +206,23 @@ export async function patchPassportTemplate(db: Db, productId: Types.ObjectId, c
     if (overrideRoots.some((root) => !nodes.some((n) => n.id === root && !n.parentId))) throw error('textOverrides');
   }
   const path = '$passportDefaults';
-  const fields: Rec = Object.fromEntries(Object.entries(to).filter(([k]) => !k.includes('.')).map(([k, v]) => [k, v === null ? null : { $literal: v }]));
+  const fields: Rec = Object.fromEntries(Object.entries(to).filter(([k]) => !k.includes('.') && k !== 'facetValueIds').map(([k, v]) => [k, v === null ? null : { $literal: v }]));
   for (const map of MAP_KEYS) {
     const roots = Object.fromEntries(Object.entries(to).filter(([k]) => k.startsWith(map + '.')).map(([k, v]) => [k.split('.')[1], v === null ? null : { $literal: v }]));
     if (Object.keys(roots).length) fields[map] = replaceKeys(`${path}.${map}`, roots);
   }
-  const compare = Object.entries(from).map(([k, v]) => compareOwnValue(path, k, v));
+  const compare = Object.entries(from).map(([k, v]) => compareOwnValue(k === 'facetValueIds' ? '$$ROOT' : path, k, v));
+  // Валидация признаков относится к прочитанной категории. Её параллельная смена требует перечитать шаблон.
+  if (facets?.length) {
+    compare.push(compareOwnValue('$$ROOT', 'categoryId', product.categoryId ?? null));
+    for (const key of ['kindId', 'passportCategory']) if (!has(from, key)) compare.push(compareOwnValue(path, key, product.passportDefaults?.[key] ?? null));
+  }
+  const set: Rec = { updatedAt: new Date() };
+  if (Object.keys(fields).length) set.passportDefaults = replaceKeys(path, fields);
+  if (has(to, 'facetValueIds')) set.facetValueIds = facets === null ? '$$REMOVE' : { $literal: facets };
   // Mongo 4.4: конвейер атомарно инициализирует null/отсутствующее поле и сливает только затронутые пути.
   const result = await products.updateOne({ ...filter, $expr: { $and: compare } }, [
-    { $set: { passportDefaults: replaceKeys(path, fields), updatedAt: new Date() } },
+    { $set: set },
   ]);
   if (!result.matchedCount) {
     if (!(await products.findOne(filter, { projection: { _id: 1 } }))) throw new NotFoundException('Изделие не найдено');

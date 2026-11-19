@@ -40,6 +40,7 @@ export function mountBookChoices(host, ctx) {
   let pending = null;
   let timer = 0;
   let paintSeq = 0;
+  const purposeRoots = new Set();
 
   const saveChoices = async () => {
     if (!pending || saving || !ctx.can) return;
@@ -93,13 +94,14 @@ export function mountBookChoices(host, ctx) {
     const simpleChoice = !template?.simpleDescriptionSource && unresolved?.some((id) => roots.has(id));
     const showAlternatives = simpleChoice && candidates.length > 1;
     const only = simpleChoice ? unresolved.filter((id) => !roots.has(id)) : unresolved;
-    const path = h('div', { class: 'bk-path' },
+    const path = template?.variant === 'short' ? null : h('div', { class: 'bk-path' },
       h('div', { class: 'bk-path-row' }, h('span', { class: 'bk-path-k' }, 'Тип паспорта'), h('b', null, catLabel(r.passportCategory))),
       template ? button({ label: 'Изменить тип', kind: 'ghost', size: 'S', onClick: ctx.openCategory }) : null);
     if (!r.passportCategory || (only?.length === 0 && !showAlternatives)) {
       funnel = null;
       alternative = null;
-      host.replaceChildren(path);
+      host.replaceChildren(...(path ? [path] : []));
+      host.hidden = !path;
       return;
     }
     if (!funnelBox && only?.length !== 0) ({ funnelBox } = await import('../../ui/funnel.js'));
@@ -126,9 +128,15 @@ export function mountBookChoices(host, ctx) {
       facetFirst: true,
       only,
       canEditText: !!template,
-      ...(r.presentationVersion === 1 ? { load: (category, productId) => api('/passports/funnel', {
+      ...(r.presentationVersion === 1 ? { load: async (category, productId) => {
+        const data = await api('/passports/funnel', {
         query: { category, productId, presentationVersion: 1, variant: r.variant },
-      }) } : {}),
+        });
+        if (template?.variant !== 'short') return data;
+        purposeRoots.clear();
+        for (const section of data.sections || []) if (section.section === 'purpose') purposeRoots.add(String(section.id));
+        return { ...data, sections: (data.sections || []).filter((section) => section.section !== 'purpose') };
+      } } : {}),
     });
     view?.el.addEventListener('change', () => {
       if (view !== funnel || view.el.isConnected === false) return;
@@ -138,13 +146,13 @@ export function mountBookChoices(host, ctx) {
       schedule({ choices, inst: view.installTypeId?.() || '' });
     });
 
-    host.replaceChildren(
+    host.replaceChildren(...[
       h('header', { class: 'bk-panel-h' }, h('h3', { class: 'bk-toc-h' }, 'Выбор для текстов')),
       h('p', { class: 'hint bk-toc-hint' }, 'Сверху вниз: от общего к частному. Меняет тексты на листе.'),
       path,
       choose?.el,
       view ? h('div', { class: 'bk-funnel-wrap' }, view.el) : null,
-    );
+    ].filter(Boolean));
   }
 
   paint();
@@ -155,6 +163,7 @@ export function mountBookChoices(host, ctx) {
       if (alternative) alternative.el.hidden = hide;
     },
     focus(root) {
+      if (ctx.S.template?.variant === 'short' && purposeRoots.has(String(root))) { ctx.openPurpose?.(); return; }
       if (alternative && root && !funnel?.stepEl(root)) { alternative.focus(); return; }
       const target = root && funnel?.stepEl(root)?.querySelector('button');
       if (target) target.focus();

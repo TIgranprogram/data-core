@@ -45,6 +45,10 @@ export function openZoom(pics, start = 0) { zoom(pics, start, () => {}); }
 function zoom(pics, start, sync) {
   let cur = start;
   const previousFocus = document.activeElement;
+  // Карточка может обновиться во время просмотра: возвращаемся к тому же рисунку только в исходной панели.
+  const imageOpener = previousFocus?.matches?.('img.g-big, img.pgal-img');
+  const focusOwner = imageOpener ? previousFocus.closest('aside[data-k="drawer"]') : null;
+  const focusSrc = imageOpener ? previousFocus.src : null;
   // адрес уже полный (http, /db/…, blob:, data:) — PREFIX второй раз не дописывать, иначе картинка не грузится (2026-11-13, «Габариты» в шаблоне паспорта)
   const at = (u) => (/^(https?:|blob:|data:)/.test(u) || (PREFIX && u.startsWith(PREFIX + '/')) ? u : PREFIX + u);
   const img = h('img', { src: at(pics[cur].url), alt: '' });
@@ -61,7 +65,11 @@ function zoom(pics, start, sync) {
       if (e.key !== 'Escape') { e.stopPropagation(); return; }
     }
     box.remove(); document.removeEventListener('keydown', close, true); e.stopPropagation?.();
-    if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
+    const focusTarget = previousFocus?.isConnected ? previousFocus
+      : focusOwner?.isConnected && focusSrc
+        ? [...focusOwner.querySelectorAll('img.g-big, img.pgal-img')].find((node) => node.src === focusSrc)
+        : null;
+    focusTarget?.focus({ preventScroll: true });
   };
   const arrow = (d, label, ch) => h('button', { type: 'button', class: 'btn btn-icon pgal-arrow ' + (d < 0 ? 'prev' : 'next'), 'aria-label': label, onclick: (e) => { e.stopPropagation(); go(d); } }, ch);
   const exit = h('button', { type: 'button', class: 'btn lightbox-close', 'aria-label': 'Закрыть фото', title: 'Закрыть фото (Esc)', onclick: close }, '✕ Закрыть фото');

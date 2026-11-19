@@ -1,0 +1,84 @@
+{
+  "startedAt": "2026-11-19T19:05:12.726Z",
+  "origin": "http://localhost:3102",
+  "phase": "c163",
+  "viewport": "1920×1080",
+  "checks": {
+    "cover-keyboard-isolated": {
+      "status": "FAIL",
+      "action": "Закрыть просмотр и вернуть фокус · light",
+      "themes": [],
+      "dom": {
+        "hash": "#products?open=6aff3ba30929d7d70f4b2451",
+        "book": 0,
+        "pictures": [
+          {
+            "cssClass": "g-big",
+            "visible": true,
+            "completed": true,
+            "width": 1000,
+            "tabindex": "0"
+          }
+        ],
+        "lightbox": 0
+      },
+      "reason": "Фокус не вернулся к фото."
+    },
+    "unchanged-template-and-cover": {
+      "status": "PASS"
+    },
+    "network": {
+      "status": "PASS",
+      "browserErrors": 0,
+      "outside": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOutside": 26,
+  "appOutside": 0,
+  "blockedWrites": {},
+  "pageErrors": 0,
+  "scenarioSha256": "c09b493606028840eea9f7f46af5ffa42c3d2c704e5c4fede2e0043413256320",
+  "guardSha256": "32475d59d869da8261a8002d0bb3a40b3b89bf97fe3fcaf9d8a1085fda064c81",
+  "browser": "157.0.8103.79",
+  "stand": {
+    "backup": "datacore-2026-11-18_031040.tgz",
+    "head": "f76489b9ed643e72ca2175d5f48535588481612d",
+    "dirty": true,
+    "builtAt": "2026-11-19T18:14:06.274Z"
+  },
+  "traffic": [
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/api/showcase/6aff3ba30929d7d70f4b2451/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "cover-keyboard-isolated",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "unchanged-template-and-cover",
+      "method": "GET",
+      "target": "/api/showcase/6aff3ba30929d7d70f4b2451/passport-template",
+      "variant": "short",
+      "status": 200
+    }
+  ]
+}

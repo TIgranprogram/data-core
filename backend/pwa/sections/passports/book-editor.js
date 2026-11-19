@@ -1,6 +1,5 @@
 /**
  * C134/C141: паспорт «как в PDF» — эталон правки. Поле правится на листе (inline); справа — ИИ и подсказка.
- * Модули: book-blocks (страницы), book-choices (воронка), book-focus (очередь), book-images, book-shared.
  * Жизненный цикл: одно открытое поле; перерисовка сохраняет черновик; запись — под замком паспорта.
  */
 import { api } from '../../core/api.js';
@@ -26,6 +25,7 @@ import { issueBookInstance } from './book-issue.js';
 import { paintBookHead } from './book-head.js';
 import { editBookTemplateText, openBookCategory, openBookSetting, openDescriptionSetup, openSimpleDescription } from './book-template-edit.js';
 import { openCompositionInBook, openDimsInBook, openMaterialsInBook } from './book-side-edit.js';
+import { bookSettingOpener, paintBookSetup } from './book-setup.js';
 
 const hhmm = () => new Date().toTimeString().slice(0, 5);
 
@@ -55,6 +55,7 @@ export async function openBookEditor(passport, { template = null, position, onCl
     tocPagesList);
   const tocFocus = h('section', { class: 'bk-panel bk-toc-focus' });
   const tocMeta = h('section', { class: 'bk-panel bk-toc-meta' });
+  const tocSetup = h('section', { class: 'bk-panel' });
   const toc = h('nav', { class: 'bk-toc', 'aria-label': 'Страницы и выбор для текстов' }, tocPages, tocFocus, tocMeta);
   const pages = h('div', { class: 'bk-pages bk-fit' });
   const scroller = h('div', { class: 'bk-scroll' }, pages);
@@ -68,7 +69,6 @@ export async function openBookEditor(passport, { template = null, position, onCl
       button({ label: 'Состав изделия', size: 'S', onClick: () => openProductSide(openCompositionInBook) })) : null);
   const slot = h('div', { class: 'bk-side-slot' }, sideEmpty());
   const head = h('div', { class: 'bk-head' });
-  // ИИ + Inventor — отдельный низ; при правке полей скрываются (.is-editing), форма занимает колонку
   const tools = h('div', { class: 'bk-side-tools' },
     aiCheckBlock(() => ({ pages: [...pages.querySelectorAll('.bk-page')].map(pageText) })),
     ilogicBlock());
@@ -89,7 +89,6 @@ export async function openBookEditor(passport, { template = null, position, onCl
     back.remove();
     onClose?.(S.r, S.changed);
   }
-  // Esc только отменяет правку на листе; книжку закрывает только крестик (владелец 18.11)
   const onKey = (e) => {
     if (e.key !== 'Escape' || document.querySelector('.modal-back:not(.bk-back)')) return;
     if (S.template?.variant === 'short' && slot.contains(e.target)
@@ -166,7 +165,7 @@ export async function openBookEditor(passport, { template = null, position, onCl
       choicesApi?.refresh();
     }
   }
-  function editTemplateSide(open, { description = false, followDictionary = false } = {}) {
+  function editTemplateSide(open, { description = false, followDictionary = false, followPurpose = false } = {}) {
     const trigger = document.activeElement;
     openSide(() => {
       choicesApi?.hideSimple(description);
@@ -177,11 +176,13 @@ export async function openBookEditor(passport, { template = null, position, onCl
         save: (changes, baseline) => lock(() => patchTemplate(changes, baseline)),
         done: (result) => {
           sideDone(result);
+          if (followPurpose && result?.saved) { editSetting('purpose'); return; }
           if (followDictionary && result?.saved && !S.template.simpleDescriptionSource) { openDictionaryDescription(); return; }
           if (description) (trigger?.isConnected && trigger !== document.body ? trigger : slot.querySelector('button'))?.focus();
         },
         openDictionary: openDictionaryDescription,
         openParts: openDescription,
+        openManual: (initialText) => editTemplateSide((slot, template, options) => openBookSetting(slot, template, { ...options, key: 'purpose', initialText })),
         isCurrent: () => back.isConnected && slot._bkOpening === token,
       })).catch((e) => { if (slot._bkOpening === token) { sideDone(); toastError(e); } });
     });
@@ -189,8 +190,7 @@ export async function openBookEditor(passport, { template = null, position, onCl
   function openDescription() { editTemplateSide(openSimpleDescription, { description: true }); }
   function openDictionaryDescription() { editTemplateSide(openDescriptionSetup, { description: true, followDictionary: true }); }
   ctx.openSimple = openDescription;
-  const editSetting = (key) => editTemplateSide(key === 'category' ? openBookCategory
-    : (slot, template, options) => openBookSetting(slot, template, { ...options, key }));
+  const editSetting = bookSettingOpener(S, editTemplateSide, openDescription);
   ctx.openDimensions = () => openProductSide(openDimsInBook);
   function openProductSide(open) {
     openSide(() => open(slot, S.r.productId, { onDone: async ({ saved } = {}) => {
@@ -301,8 +301,9 @@ export async function openBookEditor(passport, { template = null, position, onCl
     ensureComposition();
     tools.hidden = !can();
     if (!can()) setStat(readOnlyStat);
-    if (S.template?.variant === 'short' && S.r.readiness?.missing.some((item) => item.key.startsWith('choice:'))) toc.prepend(tocFocus, tocMeta);
+    if (S.template?.variant === 'short' && can()) toc.prepend(tocSetup, tocMeta, tocFocus, tocPages);
     else toc.prepend(tocPages, tocFocus);
+    paintBookSetup(tocSetup, S.template, { can: can(), open: editSetting });
     tocPagesLive = renderBookDocument({ ctx, pages, scroller, tocPagesList, markTocCurrent });
     markTocCurrent(0);
     paintHead();
@@ -378,7 +379,7 @@ export async function openBookEditor(passport, { template = null, position, onCl
   render();
   const onLeftChanged = () => { if (!slot._bkLeave) render(); else focusApi?.refresh(); };
   choicesApi = mountBookChoices(tocMeta, { S, get can() { return can(); }, lock, patchPassport, patchTemplate, refreshRow, onChanged: onLeftChanged,
-    openCategory: () => editTemplateSide(openBookCategory) });
+    openCategory: () => editTemplateSide(openBookCategory), openPurpose: () => editSetting('purpose') });
   focusApi = mountBookFocus(tocFocus, {
     S, get can() { return can(); }, pagesEl: pages,
     sideSlot: slot,
@@ -395,5 +396,4 @@ export async function openBookEditor(passport, { template = null, position, onCl
       choicesApi?.refresh(); render();
     },
   });
-  // клик по фону и Esc книжку не закрывают — только крестик
 }

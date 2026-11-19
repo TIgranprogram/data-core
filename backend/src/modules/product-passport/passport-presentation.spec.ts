@@ -31,6 +31,24 @@ describe('Источники версии 1 паспорта', () => {
   });
 });
 
+describe('C163: применимость соединений в short', () => {
+  const passport = { passportCategory: 'TRN', presentationVersion: 1, variant: 'short' };
+  const section = (key: string) => ({ key, title: key, paragraphs: ['Проверить болты {maxUsers}.'], when: ['bolts'] });
+  it('технические разделы не требуют соединений или чисел; full сохраняет требования', () => {
+    const all = { sections: ['description', 'materials', 'materials-spec', 'composition'].map(section), tables: [] };
+    const short = buildV2Text({ passport, all });
+    expect(short).toMatchObject({ needJoints: false, sections: [], missing: [] });
+    expect(buildV2Text({ passport: { ...passport, variant: 'full' }, all }).needJoints).toBe(true);
+  });
+  it.each(['safety', 'installation', 'service'])('%s сохраняет необходимость подтверждённых соединений', (key) => {
+    expect(buildV2Text({ passport, all: { sections: [section(key)] } }).needJoints).toBe(true);
+  });
+  it('условные дефекты обслуживания продолжают блокировать short', () => {
+    expect(buildV2Text({ passport, all: { sections: [] },
+      dicts: { defects: [{ code: 'THREAD', name: 'Ослабление болтов', when: 'bolts' }] } }).needJoints).toBe(true);
+  });
+});
+
 describe('C161: краткая фраза из подтверждённых частей', () => {
   const parts = new Map([
     ['frame', { name: 'каркас', genSingular: ' каркаса ' }],

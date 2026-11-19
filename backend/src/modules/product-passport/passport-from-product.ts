@@ -58,6 +58,27 @@ export async function productPatch(db: mongo.Db, prod: Doc, opts: { presentation
   if (opts.presentation) put('kindId', rk.kind?.id);
   for (const [k, v] of Object.entries(await kindPatch(db, prod, rk))) put(k, v);
   const category = await productPassportCode(db, prod, rk);
+  const facetCategory = category === 'MAF' ? 'BLG' : category;
+  // C163: ответы критериев читаются как источник элементов, своё не переписываем. Выданные снимки сюда не заходят.
+  if (facetCategory && !filled(pd.elements) && Array.isArray(prod.facetValueIds) && prod.facetValueIds.length) {
+    const ids = prod.facetValueIds.map(String).filter((v) => Types.ObjectId.isValid(v)).map((v) => new Types.ObjectId(v));
+    const values = await db.collection('dict_values').find({ dict: 'productFacetValues', deletedAt: null, _id: { $in: ids } }, { projection: { parentId: 1, elementIds: 1 } }).toArray();
+    const parentIds = [...new Set(values.map((v) => String(v.parentId ?? '')).filter((v) => Types.ObjectId.isValid(v)))].map((v) => new Types.ObjectId(v));
+    const parents = await db.collection('dict_values').find({ dict: 'productFacets', deletedAt: null, _id: { $in: parentIds },
+      category: { $in: facetCategory === 'BLG' ? ['BLG', 'MAF'] : [facetCategory] } }, { projection: { _id: 1 } }).toArray();
+    const applicable = new Set(parents.map((v) => String(v._id)));
+    const byId = new Map(values.filter((v) => applicable.has(String(v.parentId))).map((v) => [String(v._id), v]));
+    const linked = ids.flatMap((v) => {
+      const links = byId.get(String(v))?.elementIds;
+      return (Array.isArray(links) ? links : []).map(String).filter((x) => Types.ObjectId.isValid(x));
+    });
+    const unique = [...new Set([...(Array.isArray(out.elements) ? out.elements : []).map(String), ...linked])];
+    if (unique.length) {
+      const live = await db.collection('dict_values').find({ dict: 'passportElements', deletedAt: null, _id: { $in: unique.map((v) => new Types.ObjectId(v)) } }, { projection: { _id: 1 } }).toArray();
+      const have = new Set(live.map((v) => String(v._id)));
+      put('elements', unique.filter((v) => have.has(v)).map((v) => new Types.ObjectId(v)));
+    }
+  }
   put('passportCategory', opts.presentation && category === 'MAF' ? 'BLG' : category);
   // C142: черновик читает дерево состава. Пусто — null (у паспорта без поля отличия нет). Выпущенный сюда не заходит.
   if (!opts.brief && (Array.isArray(prod.composition) || Array.isArray(prod.productModuleIds))) {

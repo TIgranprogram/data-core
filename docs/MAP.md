@@ -1,5 +1,7 @@
 # MAP — карта кода (модуль → маршруты → коллекции)
 
+**C163 — критерии шаблона:** `PATCH /api/showcase/:id/passport-template` принимает `changes/expected.facetValueIds` (массив строк ObjectId либо null) как `products.facetValueIds`, одним CAS с остальными defaults (`modules/showcase/passport-template-patch.ts`); null снимает поле, [] сохраняет пустой список. `GET` того же шаблона отдаёт собственные `product.facetValueIds` (массив/null). Живые значения/родители, single/multi и категория новых ответов проверяются; старый хвост других категорий остаётся. `product-passport/passport-from-product.ts` добавляет производные живые элементы критериев при отсутствии своих, без записи defaults. Short исключает технические секции до проверки when (`passport-v2-text.ts`); применимые монтаж/обслуживание требуют соединений.
+
 > **Сборка текстов документов для ИИ:** [DOCUMENT-AUTOFILL-MAP.md](DOCUMENT-AUTOFILL-MAP.md) — документ → источник → критерии → справочники → текст → снимок, память выбора и места редактирования. Та же цепочка включена в `dc atlas docs` / JSON-сводку карты сайта.
 
 > Все пути относительно `backend/src/`. Маршруты — под префиксом `/api`. Точные контракты: grep по `docs/openapi.json`.
@@ -207,3 +209,5 @@ PWA: `financial-articles{,-state}.js`, `dicts-financial-articles.js`; `money-{fi
 - Приёмка C165: полная сохраняет frozen costCenter/costObject; иной явный разрез или partial со сменой qty при pending →409 до складских эффектов. Подтверждение само не создаёт приёмку/paid-зеркала. Проверки и границы: `docs/crew/C165-undated-payments-and-filename-repair/BACKEND-REPORT.md`.
 
 C165 ARCH-P1: `SupplyService.receiveRaw/writeReceipt` перечитывает source и invoice и пишет sourceCAS внутри каждой receipt-транзакции, включая изначально standalone/direct; callbacks на старом invoiceId больше нет, записей source после movement нет. Attach/create сверяют исходные qty/status/unpaid + matchedCount. Whole detail дополняет evidence.files разрешёнными `{id,name,url,mime}` одним photo-batch; partial/noMoney скрывают evidence целиком.
+
+C163 UI: `pwa/sections/passports/book-setup.js` задаёт последовательность вид→критерии→словарное назначение. Дополнительные родительские criteria с `step=false`, `code=*.form` ограничены kind всей phrase-цепочки; generic TRN-значения не отсекаются по отсутствию фраз. `passport-tree-state.js` учитывает scope при дублях/категории, счётчики видимой области. `showcase/showcase-photos.ts` пакетно подставляет паспортный overview как резервную обложку, `products.js` отделяет её от своей галереи.

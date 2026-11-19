@@ -1,5 +1,5 @@
 import { PREFIX, session } from '../core/api.js';
-import { sku as kitSku, button as kitButton, toast, confirmDlg } from '../ui/kit/index.js';
+import { sku as kitSku, button as kitButton, carousel, stack, toast, confirmDlg } from '../ui/kit/index.js';
 import { h } from '../core/dom.js';
 import { money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
@@ -124,16 +124,19 @@ export const products = {
         ['Вес', r.weightKg ? `${qty(r.weightKg)} кг` : null],
       ],
       more: (r) => [
-        r.photoSource === 'passport' ? ['Обложка', h('span', null,
-          h('span', { class: 'muted' }, 'фото из паспорта'),
-          session.canEdit ? kitButton({ label: '← своей обложкой', size: 'S', title: 'Скопировать фото из паспорта в карточку изделия — станет «своим»',
-            onClick: async () => { await data.setPhotoOrder(r, [r.photo.id]); patch({}); } }) : null)] : null,
         ['Ед. изм.', r.unit], ['RAL', r.ralCode], ['Цвета', (r.colors || []).join(', ')], ['Размеры', (r.sizes || []).join(', ')],
         ['Название в договоре', r.orderName && r.orderName !== r.name ? r.orderName : null], ['Название серии', r.series],
         ['Кто проектировал', r.designer ? `${r.designer.name}${r.designer.position ? ' · ' + r.designer.position : ''}` : h('span', { class: 'muted' }, 'не указан — к кому идти, если в паспорте не хватает данных')],
         ['Примечание', r.notes && !r.notes.startsWith('⚠') ? r.notes : null],
         ['Назначение', r.purpose], ['Монтаж', r.installation], ['Описание', r.description], // бывшая вкладка «Описание» (C119 шаг 3)
       ],
+      // Резерв показываем отдельно: он не становится собственным фото без явного выбора.
+      body: (r) => r.photoSource === 'passport' && r.photo && !r.photos?.length ? stack(
+        carousel([r.photo]).el,
+        h('span', { class: 'muted' }, 'Общий вид из паспорта'),
+        session.canEdit ? kitButton({ label: 'Сделать обложкой изделия', size: 'S', title: 'Использовать общий вид как главное фото изделия',
+          onClick: async () => { await data.setPhotoOrder(r, [r.photo.id]); patch({}); } }) : null,
+      ) : null,
       // C140: меню блоками с sep — правка → документы → связи/копии; Удалить — штатно danger
       menu: (r) => [
         session.canEdit && { label: 'Изменить', title: 'Правка полей изделия', run: (row, ctx) => ctx.edit() },
