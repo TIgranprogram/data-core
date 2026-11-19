@@ -4,22 +4,25 @@ import { passportCategoryFor, type PpCat } from '../../common/passport/form-valu
 import { resolveKinds } from '../../common/passport/kind';
 import { isIssued } from './passport-consts';
 import { loadPhotos } from '../../common/photos';
+import { variantOf, type PassportVariant } from './passport-variants';
 
 type Doc = Record<string, unknown>;
 type Db = NonNullable<Connection['db']>;
+type Presentation = { presentationVersion: 1; variant: PassportVariant };
 
 /** Что плану и выпуску по заказу нужно от сервиса паспортов. */
 export interface OrderHost {
   db: () => Db;
   /** Чего не хватает у изделия (шаблон): список подписей. */
-  templateMissing: (productId: string, variant?: string) => Promise<string[]>;
+  templateMissing: (productId: string, variant?: string, presentationVersion?: 1) => Promise<string[]>;
   /** Черновик на позицию. `supplierOrgId` — выбранная фирма, если в заказе её ещё нет. */
-  createDraft: (incomeId: string, title?: string, supplierOrgId?: string) => Promise<{ id: string }>;
+  createDraft: (incomeId: string, title?: string, supplierOrgId?: string, context?: { salesOrderId: string; productId: string } & Presentation) => Promise<{ id: string; presentationVersion?: number; variant?: string }>;
+  lineMissing?: (passportId: string, supplierOrgId?: string) => Promise<string[]>;
   /** Дописать фирму в черновик без поставщика (выпуск пачки, когда в заказе фирмы нет). */
-  setSupplier?: (passportId: string, supplierOrgId: string) => Promise<void>;
+  setSupplier?: (passportId: string, supplierOrgId: string, expected?: Presentation) => Promise<void>;
   /** Есть ли «наша фирма» — поставщик новых паспортов по умолчанию. */
   hasOurSupplier: () => Promise<boolean>;
-  issue: (id: string) => Promise<unknown>;
+  issue: (id: string, expected?: Presentation) => Promise<unknown>;
   discard: (id: string) => Promise<void>;
 }
 
@@ -38,7 +41,7 @@ export interface PlanLine {
   /** фото изделия (миниатюра для строки плана; пользователь 14.11) */
   photo?: { url: string; thumb: string } | null;
   qty: number | null;
-  passport: { id: string; number: string | null; status: 'draft' | 'issued' } | null;
+  passport: { id: string; number: string | null; status: 'draft' | 'issued'; presentationVersion?: 1; variant?: PassportVariant } | null;
   /** issued — уже выпущен; ready — можно выпускать; blocked — чего-то не хватает */
   state: 'issued' | 'ready' | 'blocked';
   missing: string[];
@@ -85,18 +88,24 @@ async function ourFirmList(db: Db): Promise<OrderFirm[]> {
  * `firm` — наша фирма из заказа; `firmChoices` — наши фирмы.
  * `supplierOrgId` — выбранная в панели фирма, ещё не записанная в заказ: снимает тупик «Выберите фирму» только для этого плана.
  */
-export async function orderPlan(h: OrderHost, orderId: string, variant?: string, supplierOrgId?: string) {
+export async function orderPlan(h: OrderHost, orderId: string, variant?: string, supplierOrgId?: string, presentationVersion?: 1) {
   const db = h.db();
   const order = await orderOf(db, orderId);
   const incomes = await db.collection('incomes').find({ orderId: order._id, deletedAt: null, cancelledAt: null }, { projection: { title: 1, qty: 1, lineNo: 1, productId: 1 } }).sort({ lineNo: 1, _id: 1 }).toArray();
   // отменённые позиции в план не идут; число — для строки «Отменено в заказе: N» (пользователь 14.11)
   const cancelled = await db.collection('incomes').countDocuments({ orderId: order._id, deletedAt: null, cancelledAt: { $ne: null } });
   const ids = incomes.map((i) => i._id);
-  const pass = ids.length ? await db.collection('productpassports').find({ incomeId: { $in: ids }, deletedAt: null, status: { $ne: 'annulled' } }, { projection: { incomeId: 1, status: 1, passportNumber: 1, supplierOrgId: 1 } }).sort({ createdAt: 1 }).toArray() : [];
+  const pass = ids.length ? await db.collection('productpassports').find({ incomeId: { $in: ids }, deletedAt: null, status: { $ne: 'annulled' } }, { projection: { incomeId: 1, status: 1, passportNumber: 1, supplierOrgId: 1, presentationVersion: 1, variant: 1 } }).sort({ createdAt: 1 }).toArray() : [];
   const byIncome = new Map<string, Doc>();
-  for (const p of pass) { const k = String(p.incomeId); const had = byIncome.get(k); if (!had || (!isIssued(had) && isIssued(p as Doc))) byIncome.set(k, p); } // выпущенный важнее черновика
+  const duplicates = new Set<string>();
+  for (const p of pass) {
+    const key = String(p.incomeId);
+    const had = byIncome.get(key);
+    if (had) duplicates.add(key);
+    if (!had || (!isIssued(had) && isIssued(p as Doc))) byIncome.set(key, p); // прежний план выбирает выпущенный перед черновиком
+  }
   const pids = [...new Set(incomes.filter((i) => i.productId).map((i) => String(i.productId)))];
-  const prods = pids.length ? await db.collection('products').find({ _id: { $in: pids.map((x) => new Types.ObjectId(x)) } }, { projection: { name: 1, sku: 1, categoryId: 1, 'passportDefaults.passportCategory': 1, 'passportDefaults.kindId': 1, mainPhotoId: 1, photoIds: 1 } }).toArray() : [];
+  const prods = pids.length ? await db.collection('products').find({ _id: { $in: pids.map((x) => new Types.ObjectId(x)) }, ...(presentationVersion === 1 ? { deletedAt: null } : {}) }, { projection: { name: 1, sku: 1, categoryId: 1, 'passportDefaults.passportCategory': 1, 'passportDefaults.kindId': 1, mainPhotoId: 1, photoIds: 1 } }).toArray() : [];
   const photoOf = (p: Doc) => (p.mainPhotoId ?? (p.photoIds as Types.ObjectId[] | undefined)?.[0]) as Types.ObjectId | undefined;
   const phs = await loadPhotos(db as never, prods.map(photoOf).filter((x): x is Types.ObjectId => !!x));
   const pphoto = new Map(prods.map((p) => { const f = photoOf(p as Doc); const ph = f ? phs.get(String(f)) : undefined; return [String(p._id), ph ? { url: ph.url, thumb: ph.thumb } : null]; }));
@@ -132,19 +141,29 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string,
   let ourSupplier: boolean | null = null;
   // Р8 (C112): проверки изделий идут пачками по 8, а не по одной подряд (50 позиций — десятки секунд)
   const templateChecks = new Map<string, string[]>();
-  const toCheck = [...new Set(incomes.filter((i) => i.productId && !(byIncome.has(String(i._id)) && isIssued(byIncome.get(String(i._id))!))).map((i) => String(i.productId)))];
+  const toCheck = [...new Set(incomes.filter((i) => {
+    const p = byIncome.get(String(i._id));
+    return i.productId && (presentationVersion === 1 ? !p && pname.has(String(i.productId)) : !p || (!isIssued(p) && p.presentationVersion !== 1));
+  }).map((i) => String(i.productId)))];
   for (let at = 0; at < toCheck.length; at += CHECK_PARALLEL) {
     const part = toCheck.slice(at, at + CHECK_PARALLEL);
-    const res = await Promise.all(part.map((id) => h.templateMissing(id, variant)));
+    const res = await Promise.all(part.map((id) => presentationVersion === 1 ? h.templateMissing(id, variant, presentationVersion) : h.templateMissing(id, variant)));
     part.forEach((id, k) => templateChecks.set(id, res[k]));
   }
   for (const inc of incomes) {
     const p = byIncome.get(String(inc._id));
-    const issued = !!p && isIssued(p);
+    const duplicate = presentationVersion === 1 && duplicates.has(String(inc._id));
+    const issued = !!p && !duplicate && isIssued(p);
     const productId = inc.productId ? String(inc.productId) : null;
     let missing: string[] = [];
     if (!issued) {
-      if (!productId) missing = ['К позиции не привязано изделие'];
+      if (duplicate) missing = ['На позицию найдено несколько живых паспортов'];
+      else if (presentationVersion === 1 && order.companyId && !firm) missing = ['В заказе указана удалённая или чужая фирма'];
+      else if (presentationVersion === 1 && firm && supplierOrgId && supplierOrgId !== firm.id) missing = ['Фирма панели отличается от фирмы заказа'];
+      else if (!productId) missing = ['К позиции не привязано изделие'];
+      else if (presentationVersion === 1 && !pname.has(productId)) missing = ['Изделие не найдено'];
+      else if (presentationVersion === 1 && p && p.presentationVersion !== 1) missing = ['У позиции есть черновик прежней формы'];
+      else if (p?.presentationVersion === 1 && h.lineMissing) missing = brief(await h.lineMissing(String(p._id), (firm ?? picked)?.id));
       else missing = brief(templateChecks.get(productId) ?? []);
     }
     // выпуск требует фирму: у черновика; иначе фирма заказа или выбранная в панели (C075); иначе одна наша (C062)
@@ -154,7 +173,7 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string,
     }
     lines.push({
       incomeId: String(inc._id), lineNo: (inc.lineNo as number) ?? null, title: String(inc.title ?? ''), productId, productName: productId ? pname.get(productId) ?? null : null, article: productId ? psku.get(productId) ?? null : null, categoryName: productId ? pcat.get(productId) ?? null : null, photo: productId ? pphoto.get(productId) ?? null : null, qty: (inc.qty as number) ?? null,
-      passport: p ? { id: String(p._id), number: issued ? String(p.passportNumber ?? '') : null, status: issued ? 'issued' : 'draft' } : null,
+      passport: p && !duplicate ? { id: String(p._id), number: issued ? String(p.passportNumber ?? '') : null, status: issued ? 'issued' : 'draft', ...(p.presentationVersion === 1 ? { presentationVersion: 1, variant: variantOf(p.variant) } : {}) } : null,
       state: issued ? 'issued' : missing.length ? 'blocked' : 'ready', missing,
     });
   }
@@ -170,7 +189,7 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string,
  * Выпуск паспортов для готовых позиций заказа. Каждый паспорт — своя транзакция выпуска (номер из счётчика атомарно);
  * неготовые и уже выпущенные пропускаются с причиной, повтор не плодит дубли (черновик позиции переиспользуется).
  */
-export async function orderIssue(h: OrderHost, orderId: string, opts: { lines?: string[]; variant?: string; supplierOrgId?: string } = {}) {
+export async function orderIssue(h: OrderHost, orderId: string, opts: { lines?: string[]; variant?: string; supplierOrgId?: string; presentationVersion?: 1 } = {}) {
   // Р3 (C112): выпуск одного заказа идёт по одному — двойной клик и вторая вкладка получают понятный отказ, а не гонку за номерами
   if (issuing.has(orderId)) throw new ConflictException('Выпуск паспортов этого заказа уже идёт — дождитесь окончания и обновите заказ');
   issuing.add(orderId);
@@ -180,8 +199,8 @@ export async function orderIssue(h: OrderHost, orderId: string, opts: { lines?: 
 /** Заказы, по которым выпуск идёт прямо сейчас (в этом процессе; сервер данных один). */
 const issuing = new Set<string>();
 
-async function issueLines(h: OrderHost, orderId: string, opts: { lines?: string[]; variant?: string; supplierOrgId?: string }) {
-  const plan = await orderPlan(h, orderId, opts.variant, opts.supplierOrgId);
+async function issueLines(h: OrderHost, orderId: string, opts: { lines?: string[]; variant?: string; supplierOrgId?: string; presentationVersion?: 1 }) {
+  const plan = await orderPlan(h, orderId, opts.variant, opts.supplierOrgId, opts.presentationVersion);
   // фирма панели — только пока в заказе своей нет; записанная в заказ важнее
   const pick = !plan.firm && opts.supplierOrgId && plan.firmChoices.some((f) => f.id === String(opts.supplierOrgId)) ? String(opts.supplierOrgId) : undefined;
   const want = opts.lines?.length ? new Set(opts.lines.map(String)) : null;
@@ -193,14 +212,31 @@ async function issueLines(h: OrderHost, orderId: string, opts: { lines?: string[
     if (l.state === 'issued') { skip(`Паспорт № ${l.passport?.number} уже выпущен`); continue; }
     if (l.state === 'blocked') { skip(`Не готово: ${l.missing.join(', ')}`); continue; }
     const fresh = !l.passport;
-    const id = l.passport ? l.passport.id : (await h.createDraft(l.incomeId, l.title, pick)).id;
+    let id = l.passport?.id;
+    const expected: Presentation | undefined = opts.presentationVersion === 1 || l.passport?.presentationVersion === 1
+      ? { presentationVersion: 1, variant: l.passport?.variant ?? variantOf(opts.variant) }
+      : undefined;
     try {
-      if (pick && h.setSupplier) await h.setSupplier(id, pick);
-      await h.issue(id);
+      if (!id) {
+        const draft = expected
+          ? await h.createDraft(l.incomeId, l.title, pick, { salesOrderId: plan.orderId, productId: l.productId!, ...expected })
+          : await h.createDraft(l.incomeId, l.title, pick);
+        if (expected && (draft.presentationVersion !== expected.presentationVersion || draft.variant !== expected.variant)) {
+          throw new ConflictException('У позиции уже есть паспорт другой версии или варианта — перечитайте план');
+        }
+        id = draft.id;
+      }
+      const supplier = opts.presentationVersion === 1 ? plan.firm?.id ?? pick : pick;
+      if (supplier && h.setSupplier) {
+        if (expected) await h.setSupplier(id, supplier, expected);
+        else await h.setSupplier(id, supplier);
+      }
+      if (expected) await h.issue(id, expected);
+      else await h.issue(id);
       issued.push({ incomeId: l.incomeId, passportId: id });
     }
     catch (e) {
-      if (fresh) await h.discard(id).catch(() => undefined); // свой черновик, который не выпустился, не оставляем
+      if (fresh && id && opts.presentationVersion !== 1) await h.discard(id).catch(() => undefined); // v1 мог вернуть уже существующий черновик
       skip(`Не выпущен: ${(e as { response?: { message?: string } }).response?.message ?? (e as Error).message}`);
     }
   }

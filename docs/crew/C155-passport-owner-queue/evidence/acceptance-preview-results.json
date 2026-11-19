@@ -1,0 +1,206 @@
+{
+  "startedAt": "2026-11-19T13:31:12.118Z",
+  "origin": "http://localhost:3102",
+  "phase": "preview",
+  "viewport": "1920×1080",
+  "checks": {
+    "template-and-known-description": {
+      "status": "PASS",
+      "productId": "6ae1269ae36900370537a2f3",
+      "initial": {
+        "passports": 0,
+        "numbers": {
+          "route": "last-numbers",
+          "last": 610
+        }
+      },
+      "action": "Проверить описание, настоящий рисунок обложки и отсутствие повторного вопроса",
+      "source": "dictionary",
+      "missing": [],
+      "templateGets": 1,
+      "funnelGets": 0
+    },
+    "sample-twice": {
+      "status": "PASS",
+      "pdf": [
+        {
+          "status": 201,
+          "sha256": "040fdd9f9030e18431aa9b071985a766d103159d039cd1983a89b2dd1fc28cb8",
+          "bytes": 131141,
+          "pages": 13,
+          "sizes": [
+            [
+              420,
+              595
+            ]
+          ],
+          "imageCount": 3,
+          "hasDescription": true,
+          "hasNumber": null,
+          "hasAnyPassportNumber": false,
+          "hasDraftMark": true,
+          "hasTechnicalComposition": false
+        },
+        {
+          "status": 201,
+          "sha256": "94df21219fe9b176981d4bc332a4f913ba2854b2328e2ce1d056629771e6113f",
+          "bytes": 131141,
+          "pages": 13,
+          "sizes": [
+            [
+              420,
+              595
+            ]
+          ],
+          "imageCount": 3,
+          "hasDescription": true,
+          "hasNumber": null,
+          "hasAnyPassportNumber": false,
+          "hasDraftMark": true,
+          "hasTechnicalComposition": false
+        }
+      ],
+      "action": "Открыть «Образец», попытка 2",
+      "numbers": {
+        "route": "last-numbers",
+        "last": 610
+      }
+    },
+    "filled-themes": {
+      "status": "PASS",
+      "themes": {
+        "light": {
+          "theme": "light",
+          "mainWidth": 1760,
+          "headerWidth": 1760,
+          "headerScroll": 1760,
+          "sheetWidth": 1012,
+          "image": "acceptance-light.png"
+        },
+        "dark": {
+          "theme": "dark",
+          "mainWidth": 1760,
+          "headerWidth": 1760,
+          "headerScroll": 1760,
+          "sheetWidth": 1012,
+          "image": "acceptance-dark.png"
+        }
+      },
+      "action": "Открыть заполненный шаблон в теме dark"
+    },
+    "network": {
+      "status": "PASS",
+      "browserErrors": 0,
+      "outside": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOutside": 33,
+  "appOutside": 0,
+  "blockedWrites": {
+    "PATCH prefs": 1
+  },
+  "pageErrors": 0,
+  "scenarioSha256": "bd65f8f20800ba74ed02d2341178de6e03a3415b4ab2b14070804f2f7070c470",
+  "browser": "157.0.8103.79",
+  "stand": {
+    "backup": "datacore-2026-11-18_031040.tgz",
+    "head": "179c6239105caf8284fc246637e4e2ac6897c45b",
+    "dirty": true,
+    "builtAt": "2026-11-19T13:25:59.302Z"
+  },
+  "traffic": [
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "template-and-known-description",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 200
+    },
+    {
+      "step": "template-and-known-description",
+      "method": "GET",
+      "target": "/api/passports/next-numbers",
+      "status": 403
+    },
+    {
+      "step": "template-and-known-description",
+      "method": "GET",
+      "target": "/api/passports/last-numbers",
+      "status": 200
+    },
+    {
+      "step": "template-and-known-description",
+      "method": "GET",
+      "target": "/api/showcase/6ae1269ae36900370537a2f3/passport-template",
+      "variant": "short",
+      "status": 200
+    },
+    {
+      "step": "template-and-known-description",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 304
+    },
+    {
+      "step": "template-and-known-description",
+      "method": "GET",
+      "target": "/api/passports/next-numbers",
+      "status": 403
+    },
+    {
+      "step": "template-and-known-description",
+      "method": "GET",
+      "target": "/api/passports/last-numbers",
+      "status": 304
+    },
+    {
+      "step": "sample-twice",
+      "method": "POST",
+      "target": "/api/passports/preview",
+      "status": 201
+    },
+    {
+      "step": "sample-twice",
+      "method": "POST",
+      "target": "/api/passports/preview",
+      "status": 201
+    },
+    {
+      "step": "sample-twice",
+      "method": "GET",
+      "target": "/api/passports/next-numbers",
+      "status": 403
+    },
+    {
+      "step": "sample-twice",
+      "method": "GET",
+      "target": "/api/passports/last-numbers",
+      "status": 304
+    },
+    {
+      "step": "sample-twice",
+      "method": "GET",
+      "target": "/api/passports",
+      "status": 304
+    },
+    {
+      "step": "filled-themes",
+      "method": "GET",
+      "target": "/api/showcase/6ae1269ae36900370537a2f3/passport-template",
+      "variant": "short",
+      "status": 200
+    }
+  ]
+}

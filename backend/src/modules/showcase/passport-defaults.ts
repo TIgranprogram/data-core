@@ -10,8 +10,9 @@ import { parseJoints, WhenError } from '../../common/passport/traits';
  * (коллекция общая с kppdf). «Выпустить паспорт» подставляет их в новый паспорт; запасной путь — последний паспорт модели.
  */
 export const PASSPORT_CATEGORY_CODES = ['DIO', 'DSP', 'TRN', 'WRK', 'BLG'] as const;
-const MANUAL_TEXT_KEYS = ['description', 'purpose', 'installationMethod'] as const;
-const NUMS = ['ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth', 'serviceLifeYears', 'warrantyMonths', 'foundationDepth'] as const; // foundationDepth — глубина Г, мм (iLogic «Схема установки», 2026-11-13)
+export const MANUAL_TEXT_KEYS = ['description', 'purpose', 'installationMethod'] as const;
+export const NUMS = ['ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth', 'serviceLifeYears', 'warrantyMonths', 'foundationDepth'] as const; // foundationDepth — глубина Г, мм (iLogic «Схема установки», 2026-11-13)
+export const PRESENTATION_DEFAULT_KEYS = ['simpleDescription', 'manualDescription', 'manualPurpose', 'manualInstall'] as const;
 
 export interface PassportDefaults {
   passportCategory?: string;
@@ -89,7 +90,19 @@ export const presentPassportDefaults = (d: PassportDefaults | null | undefined) 
   ...(d.elements ? { elements: d.elements.map(String) } : {}),
   ...(d.materialIds ? { materialIds: d.materialIds.map(String) } : {}),
   ...(d.installationTypeId ? { installationTypeId: String(d.installationTypeId) } : {}),
+  ...(d.simpleDescription ? { simpleDescription: { ...(d.simpleDescription as { text: string }), partIds: ((d.simpleDescription as { partIds?: unknown[] }).partIds ?? []).map(String) } } : {}),
 });
+
+/** Старый PUT и массовая отмена заменяют только прежние настройки. Выражение читает текущую версию в самой операции. */
+export function legacyDefaultsReplacement(value: PassportDefaults) {
+  const keep = { $arrayToObject: { $filter: {
+    input: { $objectToArray: { $ifNull: ['$passportDefaults', {}] } },
+    as: 'entry',
+    cond: { $in: ['$$entry.k', PRESENTATION_DEFAULT_KEYS] },
+  } } };
+  if (Object.keys(value).length) return { $mergeObjects: [{ $literal: value }, keep] };
+  return { $let: { vars: { keep }, in: { $cond: [{ $eq: ['$$keep', {}] }, '$$REMOVE', '$$keep'] } } };
+}
 
 /**
  * Дополнение значений по умолчанию (массовая правка): поля заменяются, а выбор текстов `textChoices` сливается по разделам —

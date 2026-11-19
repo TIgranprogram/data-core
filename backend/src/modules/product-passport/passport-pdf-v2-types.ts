@@ -4,6 +4,8 @@ import { InstallParts, MaintenanceTable } from './passport-compose-parts';
 
 export interface PdfImageV2 extends PdfImage { refCode?: string }
 export interface PdfPassportV2 extends PdfPassport {
+  presentationVersion?: number;
+  variant?: string;
   compositionPresentation?: 'tree' | 'both';
   status?: string;
   seatWidth?: number; seatHeight?: number; supports?: number; shipVolume?: number;

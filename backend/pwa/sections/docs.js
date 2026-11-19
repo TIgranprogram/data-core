@@ -1,17 +1,15 @@
 export { orderpass } from './order-passport-plan.js'; // LAZY.docs в main.js ждёт orderpass из docs.js
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { current, go, patch } from '../core/router.js';
-import { toast } from '../ui/kit/toast.js';
+import { current, go } from '../core/router.js';
 import { mountList } from '../ui/kit/list.js';
-import { passports, issuePassport } from './passports.js';
+import { passports } from './passports.js';
 import { numbersStrip } from './passports/numbers-strip.js';
-import { canWorkPassport as canEditTexts, statusOf } from './passports/common.js';
-import { linkDialog, previewPassport } from './passports/dialogs.js';
+import { canWorkPassport as canEditTexts } from './passports/common.js';
+import { openBookSample } from './passports/dialogs.js';
 import { mountOrdersTab } from './docs-orders.js';
 import { mountQueueTab } from './docs-queue.js';
 import { openPassportFunnel, openReadyPassport } from './passports/funnel/open.js';
-import { openBookEditor } from './passports/book-editor.js';
 import { openBookForProduct } from './passports/open-book.js';
 import { lastNumbersTop, passnums } from './passports/numbers-view.js';
 import { tabs as kitTabs, sku as kitSku, crumbTail, button } from '../ui/kit/index.js';
@@ -29,8 +27,7 @@ import { tabs as kitTabs, sku as kitSku, crumbTail, button } from '../ui/kit/ind
 const TABS = [['queue', 'К выпуску'], ['archive', 'Выпущенные'], ['orders', 'Паспорта по заказам'], ['templates', 'Настройки изделий']];
 // старые адреса: «По номерам» — теперь сортировка и отбор «№ от — до» внутри «Выпущенных»
 const tabOf = (p) => (['archive', 'orders', 'templates'].includes(p.tab) ? p.tab : p.tab === 'numbers' ? 'archive' : 'queue');
-const isOld = (r) => !!r.source && r.source !== 'app';
-const hasTpl = (d) => !!d && (Object.keys(d.textChoices || {}).length > 0 || !!d.passportCategory);
+const hasTpl = (d) => !!d && Object.keys(d).length > 0;
 const canTpl = () => session.canEdit && canEditTexts();
 
 export const doctpl = {
@@ -64,21 +61,18 @@ export const doctpl = {
     heading: (r) => [kitSku(r.sku), r.sku ? ' ' : null, r.name],
     editTitle: (r) => ['Настройки паспорта · ', kitSku(r.sku), r.sku ? ' ' : null, r.name],
     editSub: () => 'Ответы записываются сразу',
-    editLabel: 'Изменить в книжке',
+    editLabel: 'Открыть шаблон',
     subheading: (r) => [r.type, r.group].filter(Boolean).join(' → '),
     // C141: старая анкета шаблона не открывается
     editTop: false,
     editable: () => false,
     startEdit: () => false,
     noHistory: true,
-    actions: (r) => [
-      canTpl() && { label: 'Изменить в книжке', primary: true, title: 'Эталон: паспорт как в PDF', run: (row) => openBookForProduct(row.id) },
-      { label: 'Предпросмотр', title: 'PDF с пометкой «ЧЕРНОВИК» по текущему шаблону изделия; паспорт не выпускается', run: (row) => previewPassport(row.id) },
-      current().params.order ? { label: 'К паспортам заказа', title: 'Вернуться в заказ и выпустить там — фирма и заказ подставятся сами',
-        run: () => go('docs', { tab: 'orders', of: 'orderpass', open: current().params.order }) } :
-      session.sees('docs') && canEditTexts() && { label: 'Выпустить паспорт', title: 'Новый паспорт с номером — воронка до изделия, дальше книжка', run: async (row) => {
-        if (!(await issuePassport({ productId: row.id, name: row.name, article: row.sku }))) toast('Паспортов этой модели ещё не было — заполните габариты, описание и картинки');
-      } },
+    actions: () => [
+      canTpl() && { label: 'Открыть шаблон', primary: true, title: 'Книжка: образец, данные изделия и выпуск', run: (row) => openBookForProduct(row.id) },
+      canTpl() && { label: 'Образец без номера', run: (row) => openBookSample(row.id, 'short') },
+      current().params.order ? { label: 'К паспортам заказа', title: 'Вернуться в план и выпустить для точной позиции',
+        run: () => go('docs', { tab: 'orders', of: 'orderpass', open: current().params.order }) } : null,
       { label: 'Открыть изделие', more: true, run: (row) => go('products', { open: row.id }) },
     ].filter(Boolean),
     view: (r) => {
@@ -97,20 +91,12 @@ export const doctpl = {
   form: undefined,
 };
 
-// ─── вкладка «Выпущенные паспорта»: только просмотр и печать ────────────────────────────────────────────
-const archiveActions = (r) => [
-  // C141: черновик дописывают в эталонной книжке (как PDF), не в старой карточке
-  statusOf(r) === 'draft' && canEditTexts() && { label: 'Дописать и выпустить', title: 'Черновик без номера — большое окно: паспорт как в PDF, слева что заполнить первым', more: true, run: (row, ctx) => openBookEditor(row, { onClose: (nr, ch) => { if (ch) { ctx?.setRow?.(nr); ctx?.changed?.(); } } }) },
-  !r.productId && canEditTexts() && { label: 'Привязать к изделию', more: true, run: (row, ctx) => linkDialog(row, ctx) },
-].filter(Boolean);
-
-const oldBadge = (r) => (isOld(r) ? h('span', { class: 'badge dim', title: 'Перенесён из прежней таблицы паспортов' }, 'старый') : null);
+const oldBadge = (r) => r.presentationVersion === 1 ? null : h('span', { class: 'badge dim' }, 'Старый образец');
 
 export const passarchive = {
   ...passports,
   id: 'passarchive',
   title: 'Выпущенные',
-  // 2026-11-14: выпущенный правится (номер тот же, версии сами) — форма как у черновика
   remove: undefined,
   open: (id) => go('docs', { tab: 'archive', of: 'passarchive', open: id }),
   list: {
@@ -127,7 +113,7 @@ export const passarchive = {
     columns: passports.list.columns.map((c) => (c.key === 'status'
       ? { ...c, render: (r) => h('span', null, c.render(r), oldBadge(r) ? ' ' : null, oldBadge(r)) } : c)),
   },
-  card: { ...passports.card, editTop: false, actions: (r, ctx) => [...archiveActions(r), ...passports.card.actions(r, ctx).filter((a) => a.label !== 'Привязать к изделию')] },
+  card: { ...passports.card, editTop: false },
 };
 
 // ─── экран ────────────────────────────────────────────────────────────────────────────────────────────

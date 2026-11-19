@@ -1,10 +1,11 @@
-import { api, apiFile } from '../../core/api.js';
+import { api, apiBlob, apiFile } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { busyBtn } from '../../ui/kit/busy.js';
 import { attachCombo, button, hint, select } from '../../ui/kit/index.js';
 import { toast, toastError } from '../../ui/kit/toast.js';
 import { confirmDlg, modal } from '../../ui/kit/dialog.js';
 import { FORMATS, printQuery } from './print-options.js';
+import { openPdfPreview } from '../../ui/kit/pdf-preview.js';
 import { toggle } from '../../ui/kit/guide.js';
 import { icon } from '../../ui/icons.js';
 import { LATER_CATS, V2_CATS, heading, imgsOf, isRequired, kinds, numberOf, statusOf } from './common.js';
@@ -14,7 +15,8 @@ import { productsAll } from './models.js';
 /** НМ: «Выпустить» — номер, талон и номер изделия из счётчика (сервер, одна транзакция); повторное нажатие — тот же номер. */
 export async function issueAction(row, ctx) {
   if (!(await confirmDlg('Выпустить паспорт?', 'Паспорт получит номер и гарантийный талон, текст будет заморожен. После выпуска номер не меняется; правки — «Новой редакцией».', { okText: 'Выпустить' }))) return;
-  const r = await api(`/passports/${row.id}/issue`, { method: 'POST' });
+  const r = await api(`/passports/${row.id}/issue`, { method: 'POST',
+    ...(row.presentationVersion === 1 ? { body: { presentationVersion: 1, variant: row.variant } } : {}) });
   toast(`Выпущен паспорт № ${r.passportNumber}`); ctx.changed(); ctx.setRow(await api(`/passports/${row.id}`));
 }
 /** НМ: аннулирование выпущенного — причина обязательна (окно: одно поле). */
@@ -55,7 +57,14 @@ export async function linkDialog(r, ctx) {
 /** Скачать PDF: «Готовлю…» висит, пока сервер собирает файл (на сервере с одним ядром — секунды), потом «Скачан». */
 export async function download(r, query, what) {
   const done = toast(`Готовлю ${what}… это может занять до минуты`, { ms: 180000 });
-  try { const name = await apiFile(`/passports/${r.id}/pdf`, { query, fallback: `Паспорт_${numberOf(r) || 'черновик'}.pdf` }); done(); toast(`Скачан: ${name}`); }
+  try {
+    const name = await apiFile(`/passports/${r.id}/pdf`, {
+      query: { ...query, ...(r.presentationVersion === 1 ? {} : { readOnly: 1 }) },
+      fallback: `Паспорт_${numberOf(r) || 'черновик'}.pdf`,
+    });
+    done();
+    toast(`Скачан: ${name}`);
+  }
   catch (e) { done(); throw e; }
 }
 
@@ -63,13 +72,24 @@ export async function download(r, query, what) {
 export const passportVariant = { value: 'short' };
 export const VARIANT_HINT = 'Полный — с зоной размещения и доп. рисунками, если заполнены';
 
+/** Книжка v1: обычные страницы при просмотре, буклет скачивается отдельным действием. */
+export function openBookSample(productId, variant) {
+  return openPdfPreview({
+    title: 'Образец паспорта без номера',
+    load: () => apiBlob('/passports/preview', {
+      method: 'POST', body: { productId, presentationVersion: 1, variant, mode: 'pages', pack: 'passport' },
+      fallback: 'Образец_паспорта.pdf',
+    }),
+  });
+}
+
 /** Предпросмотр паспорта изделия: POST /passports/preview (PDF с «ЧЕРНОВИК», ничего не пишет). pack — C055: passport|tech|combined. */
-export async function previewPassport(productId, { pack } = {}) {
+export async function previewPassport(productId, { pack, variant = passportVariant.value, mode = 'pages', presentationVersion } = {}) {
   const done = toast('Готовлю предпросмотр… это может занять до минуты', { ms: 180000 });
   try {
     await apiFile('/passports/preview', {
       method: 'POST',
-      body: { productId, mode: 'pages', variant: passportVariant.value, ...(pack ? { pack } : {}) },
+      body: { productId, mode, variant, ...(pack ? { pack } : {}), ...(presentationVersion ? { presentationVersion } : {}) },
       fallback: pack === 'combined' ? 'Паспорт_и_техописание.pdf' : pack === 'tech' ? 'Техническое_описание.pdf' : 'Предпросмотр_паспорта.pdf',
     });
     done();
@@ -102,7 +122,7 @@ export async function printDialog(r) {
     return;
   }
   if (r.id && statusOf(r) !== 'draft' && !Array.isArray(r.requiredImages)) {
-    try { r = await api(`/passports/${r.id}`); }
+    try { r = await api(`/passports/${r.id}`, { query: { readOnly: 1 } }); }
     catch (err) { toastError(err); return; }
   }
   const hasCat = !!r.passportCategory; // текст по справочникам сервер соберёт сам, если его ещё нет
@@ -116,6 +136,7 @@ export async function printDialog(r) {
     setTimeout(() => [...document.querySelectorAll('.drawer button')].find((b) => b.textContent.trim() === 'Изменить')?.click(), 50);
   } });
   const imageWarning = h('div', null, hint(`Не хватает рисунков: ${missingImages.join(', ')}. Номер паспорта не изменится.`, 'warn'), goFix);
+  const variant = r.presentationVersion === 1 ? undefined : passportVariant.value;
   const po = printOptions({
     org: r.supplierOrg, mode: 'print',
     onMode: (m) => { imageWarning.hidden = m === 'stand' || !missingImages.length; },
@@ -131,8 +152,8 @@ export async function printDialog(r) {
       const free = busyBtn(ok, 'Готовлю PDF…');
       try {
         const v = po.value();
-        if (v.mode === 'stand') { await download(r, { mode: 'stand', variant: passportVariant.value }, 'лист для стенда'); return true; }
-        await download(r, printQuery({ variant: passportVariant.value, ...v }), v.mode === 'print' ? 'буклет A4' : 'PDF');
+        if (v.mode === 'stand') { await download(r, { mode: 'stand', variant }, 'лист для стенда'); return true; }
+        await download(r, printQuery({ variant, ...v }), v.mode === 'print' ? 'буклет A4' : 'PDF');
         return true;
       } finally { free(); }
     },

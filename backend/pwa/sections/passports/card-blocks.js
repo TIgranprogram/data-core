@@ -13,8 +13,8 @@ import { fieldEditor, fieldPencil, passportAction } from './field-edit.js';
 
 /** Блоки карточки паспорта: картинки, проверка, текст из снимка, комплектность. */
 /** Картинки по видам в карточке: миниатюры (клик — открыть, × — убрать) и своя зона «перетащите / Ctrl+V» у каждого вида. */
-export function imagesBlock(r, ctx) {
-  const editable = canEdit() && statusOf(r) === 'draft';
+export function imagesBlock(r, ctx, { readonly = false } = {}) {
+  const editable = !readonly && canEdit() && statusOf(r) === 'draft';
   const save = async (images) => {
     try { ctx.setRow(await api(`/passports/${r.id}`, { method: 'PATCH', body: { images: imagesBody(images) } }).then(() => api(`/passports/${r.id}`))); } catch (e) { toastError(e); }
   };
@@ -31,7 +31,7 @@ export function imagesBlock(r, ctx) {
         // Э9.5: своих нет — стандартная схема способа установки (в паспорт попадёт она; своя загруженная её заменит)
         !list.length && std(kind).length ? h('div', null, h('div', { class: 'hint' }, 'Стандартная схема способа установки — попадёт в паспорт' + (editable ? '; загрузите свою, чтобы заменить' : '')),
           h('div', { class: 'pf-strip' }, ...std(kind).map((i) => h('a', { class: 'pf-item', href: PREFIX + i.url, target: '_blank', rel: 'noopener', 'aria-label': `${label}: стандартная схема` }, h('img', { src: PREFIX + i.url, alt: label }))))) : null,
-        inherited ? h('p', { class: 'hint' }, 'Рисунок из изделия. Обновляется через Inventor.') : null,
+        inherited && editable ? h('p', { class: 'hint' }, 'Рисунок из изделия. Обновляется через Inventor.') : null,
         editable && !inherited ? photoDrop({ attach: async (photoId) => { await save([...(r.images || []), { kind, photoId, order: list.length }]); return r; }, done: () => {} }) : null);
     }) });
 }
@@ -175,7 +175,7 @@ export function previewBlock(r, ctx) {
 const fileOn = (r) => r.printSource === 'file' || !!r.printFile?.hasFile;
 const fileTitle = (r) => r.printFile?.name || r.printFile?.originalName || 'PDF';
 
-export function printFileBlock(r, ctx) {
+export function printFileBlock(r, ctx, { readonly = false } = {}) {
   const has = fileOn(r);
   let busy = false;
   const upload = async (file) => {
@@ -201,7 +201,7 @@ export function printFileBlock(r, ctx) {
   };
   return section({ title: 'Файл для печати', tone: 'info', body: [
     has ? hint(`Прикреплён файл «${fileTitle(r)}». Печать отдаёт его.`) : hint('Файла нет. Печать собирает паспорт на сайте.'),
-    canEdit() ? actions(
+    !readonly && canEdit() ? actions(
       has ? button({ label: 'Убрать файл', kind: 'ghost', size: 'S', onClick: remove }) : null,
       fileButton({ label: has ? 'Заменить PDF' : 'Прикрепить PDF', accept: 'application/pdf,.pdf', title: 'Свой PDF этого номера. Печать отдаст файл.', onFile: upload }),
     ) : null,

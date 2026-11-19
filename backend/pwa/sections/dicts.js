@@ -273,6 +273,7 @@ const lockBadge = () => { const b = badge('🔒 Встроено в програ
 let curNewTitle = null; // заголовок «Новый …» открытого справочника (из GET /dicts/:key)
 export const dict = {
   id: 'dict',
+  popout: false,
   canEdit: canEditDict,
   title: 'Справочники',
   // заголовок правой панели новой записи — что именно добавляем (2026-10-25)

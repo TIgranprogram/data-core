@@ -15,6 +15,36 @@ function service(items: unknown[]) {
 }
 
 describe('Р5: печать заказа при сбое одного паспорта', () => {
+  it('C155: общий PDF сохраняет short и full и использует снимки обеих редакций', async () => {
+    const items = ['short', 'full'].map((variant, k) => ({
+      ...pass(String(k + 1)),
+      status: 'issued', presentationVersion: 1, variant, passportCategory: 'BLG',
+      textSnapshot: { sections: [], description: `Описание ${variant}.` },
+      printSnapshot: {
+        effectiveImages: [{ kind: 'overview', url: '/uploads/overview.png' }, { kind: 'view_front', url: '/uploads/front.png' }],
+        standardImages: [], readiness: { requiredImages: ['overview'] }, install: 'anchor',
+        org: { name: `Фирма ${variant}` },
+      },
+    }));
+    const h = { issuedOfOrder: async () => ({ items, orderNo: '155' }), markIssued: jest.fn() };
+    const connection = { collection: jest.fn() };
+    const looks = { fromSnapshot: jest.fn() };
+    const svc = new PassportPdfService(h as never, looks as never, connection as never);
+    Object.assign(svc, { file: async () => Buffer.from('рисунок') });
+    jest.mocked(renderPassportsPdfV2).mockClear();
+    const pdf = await svc.orderPdf('order', { variant: 'full' });
+    expect(pdf.count).toBe(2);
+    const [short, full] = jest.mocked(renderPassportsPdfV2).mock.calls[0][0];
+    expect(short.images.view_front).toBeUndefined();
+    expect(full.images.view_front).toHaveLength(1);
+    expect(short.text.description).toBe('Описание short.');
+    expect(full.org?.name).toBe('Фирма full');
+    expect(connection.collection).not.toHaveBeenCalled();
+    h.markIssued.mockClear();
+    await svc.orderPdf('order', { readOnly: true });
+    expect(h.markIssued).not.toHaveBeenCalled();
+  });
+
   it('C148: одиночный и общий PDF сохраняют имена и текст двух старых issued без manualText', async () => {
     const photoId = new Types.ObjectId();
     const items = ['Имя первого экземпляра', 'Имя второго экземпляра'].map((name, i) => ({

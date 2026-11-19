@@ -16540,8 +16540,104 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "presentationVersion",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "variant",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/showcase/{id}/passport-template": {
+      "get": {
+        "operationId": "ProductPassportController_passportTemplate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "variant",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "short",
+              "enum": [
+                "short",
+                "full"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      },
+      "patch": {
+        "operationId": "ProductPassportController_updatePassportTemplate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "variant",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "short",
+              "enum": [
+                "short",
+                "full"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchPassportTemplateDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": ""
@@ -16789,7 +16885,15 @@
     "/passports/zip": {
       "get": {
         "operationId": "ProductPassportController_zip",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "readOnly",
+            "required": false,
+            "in": "query",
+            "description": "1 — выгрузка без записи снимков и отметок скачивания",
+            "schema": {}
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -16865,6 +16969,7 @@
             "required": false,
             "in": "query",
             "schema": {
+              "default": "short",
               "enum": [
                 "short",
                 "full"
@@ -16873,10 +16978,20 @@
             }
           },
           {
+            "name": "presentationVersion",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                1
+              ],
+              "type": "number"
+            }
+          },
+          {
             "name": "supplierOrgId",
             "required": false,
             "in": "query",
-            "description": "Наша фирма для плана, если в заказе её нет",
             "schema": {
               "type": "string"
             }
@@ -17002,6 +17117,15 @@
             "required": false,
             "in": "query",
             "description": "C104: id паспортов через запятую — только они (выпущенные этого заказа); пусто — все",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "readOnly",
+            "required": false,
+            "in": "query",
+            "description": "1 — печать без записи снимков и отметок скачивания",
             "schema": {
               "type": "string"
             }
@@ -17165,6 +17289,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "readOnly",
+            "required": false,
+            "in": "query",
+            "description": "1 — открыть сохранённый паспорт без синхронизации и записи",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -17324,6 +17457,15 @@
                 "tech",
                 "combined"
               ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "readOnly",
+            "required": false,
+            "in": "query",
+            "description": "1 — печать без синхронизации, записи снимка и отметки скачивания",
+            "schema": {
               "type": "string"
             }
           }
@@ -17633,6 +17775,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PassportPresentationDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": ""
@@ -23467,7 +23619,22 @@
       },
       "CreateProductPassportDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "variant": {
+            "type": "string",
+            "enum": [
+              "short",
+              "full"
+            ],
+            "default": "short"
+          },
+          "presentationVersion": {
+            "type": "number",
+            "enum": [
+              1
+            ]
+          }
+        }
       },
       "NextPassportNumberDto": {
         "type": "object",
@@ -23514,9 +23681,27 @@
           "supplierOrgId"
         ]
       },
+      "PatchPassportTemplateDto": {
+        "type": "object",
+        "properties": {}
+      },
       "PassportPreviewDto": {
         "type": "object",
         "properties": {
+          "variant": {
+            "type": "string",
+            "enum": [
+              "short",
+              "full"
+            ],
+            "default": "short"
+          },
+          "presentationVersion": {
+            "type": "number",
+            "enum": [
+              1
+            ]
+          },
           "productId": {
             "type": "string",
             "description": "id изделия"
@@ -23531,14 +23716,6 @@
           "bw": {
             "type": "boolean",
             "description": "чёрно-белый"
-          },
-          "variant": {
-            "type": "string",
-            "enum": [
-              "short",
-              "full"
-            ],
-            "description": "short — только обязательное (умолч.); full — плюс необязательные разделы"
           },
           "pack": {
             "type": "string",
@@ -23557,20 +23734,26 @@
       "OrderIssueDto": {
         "type": "object",
         "properties": {
-          "lines": {
-            "description": "id позиций заказа (incomes); нет — все готовые",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
           "variant": {
             "type": "string",
             "enum": [
               "short",
               "full"
             ],
-            "description": "вариант паспорта для проверки готовности"
+            "default": "short"
+          },
+          "presentationVersion": {
+            "type": "number",
+            "enum": [
+              1
+            ]
+          },
+          "lines": {
+            "description": "id позиций заказа (incomes); нет — все готовые",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "supplierOrgId": {
             "type": "string",
@@ -23610,6 +23793,25 @@
           },
           "pageLeft": {
             "type": "object"
+          }
+        }
+      },
+      "PassportPresentationDto": {
+        "type": "object",
+        "properties": {
+          "variant": {
+            "type": "string",
+            "enum": [
+              "short",
+              "full"
+            ],
+            "default": "short"
+          },
+          "presentationVersion": {
+            "type": "number",
+            "enum": [
+              1
+            ]
           }
         }
       },

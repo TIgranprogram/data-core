@@ -1,0 +1,58 @@
+{
+  "status": "PASS",
+  "stage": "dark",
+  "themes": {
+    "light": {
+      "image": "focus-light.png",
+      "field": {
+        "inside": true,
+        "focusVisible": true,
+        "tag": "input",
+        "name": "genPlural",
+        "outlineColor": "rgb(226, 243, 234)",
+        "outlineStyle": "solid",
+        "outlineWidth": "3px",
+        "boxShadow": "none",
+        "borderColor": "rgb(16, 110, 76)"
+      },
+      "button": {
+        "inside": true,
+        "focusVisible": true,
+        "tag": "button",
+        "name": null,
+        "outlineColor": "rgb(16, 16, 16)",
+        "outlineStyle": "auto",
+        "outlineWidth": "1px",
+        "boxShadow": "none",
+        "borderColor": "rgb(168, 187, 176)"
+      }
+    },
+    "dark": {
+      "image": "focus-dark.png",
+      "field": {
+        "inside": true,
+        "focusVisible": true,
+        "tag": "input",
+        "name": "genPlural",
+        "outlineColor": "rgba(63, 207, 142, 0.15)",
+        "outlineStyle": "solid",
+        "outlineWidth": "3px",
+        "boxShadow": "none",
+        "borderColor": "rgb(63, 207, 142)"
+      },
+      "button": {
+        "inside": true,
+        "focusVisible": true,
+        "tag": "button",
+        "name": null,
+        "outlineColor": "rgb(238, 238, 238)",
+        "outlineStyle": "auto",
+        "outlineWidth": "1px",
+        "boxShadow": "none",
+        "borderColor": "rgb(59, 69, 87)"
+      }
+    }
+  },
+  "pageErrors": 0,
+  "blockedWrites": 0
+}

@@ -6,7 +6,7 @@ import { button, section, table } from '../../ui/kit/index.js';
 import { canWorkPassport } from './common.js';
 
 /** Версии выпущенного паспорта: правки хранятся версиями, печатается последняя; прежние можно удалить. Нет правок — блока нет. */
-export function revisionsBlock(r, ctx) {
+export function revisionsBlock(r, ctx, { readonly = false } = {}) {
   const list = r.revisionList || [];
   if (!list.length) return null;
   const remove = async (v) => {
@@ -16,7 +16,7 @@ export function revisionsBlock(r, ctx) {
       toast(`Версия ${v.revision} удалена`);
     } catch (e) { toastError(e, 'удалить версию'); }
   };
-  const mayDelete = canWorkPassport();
+  const mayDelete = !readonly && canWorkPassport();
   return section({ title: 'Версии паспорта', tone: 'info', count: list.length, body: [
     table({ label: 'Версии паспорта', columns: [{ label: 'Версия' }, { label: 'Дата' }, { label: 'Кто', hide: true }, { label: '' }],
       rows: list.map((v) => ({ cells: [

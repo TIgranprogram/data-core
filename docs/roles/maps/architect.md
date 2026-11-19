@@ -1,5 +1,9 @@
 # Карта роли architect
 
+C155, повторная приёмка, коммит: 179c6239 (рабочий diff). Четыре находки закрыты: product-passport.service.ts:163,573,1092; passport-from-product.ts:88; passport-order.ts:224. Итог — можно выкладывать. docs/crew/C155-passport-owner-queue/FINAL-ARCH-REVIEW.md. Карта обновлена.
+
+C155, 19.11.2026, коммит: 179c6239 (проверен рабочий diff паспортов). Редакции и источники рисунков — product-passport.service.ts:555 и passport-pdf.service.ts:261. Наследование монтажа — passport-from-product.ts:77. Версия при пакетном выпуске — passport-order.ts:220. Архивная карточка без снимка — product-passport.service.ts:163. docs/crew/C155-passport-owner-queue/FINAL-ARCH-REVIEW.md. Карта обновлена.
+
 коммит: 8d4b21dc (12.11.2026: узкий review C089 UI незакоммиченного diff + C091 пульт; общий хвост architect не закрыт)
 C086: прежние 3 находки закрыты: compose.ts:138 → gaps.ts:175 сохраняют применимость заполненных чисел; gaps.ts:103,106 проверяет сохранённое назначение; order.ts:96,98 — два пакета групп (ещё нужен deletedAt:null). PDF отдельного прохода не проверен. Отчёт: docs/crew/C086-passports-owner-review/ARCH-REVIEW.md.
 C022 волна B (2026-11-04): открытие «Склада» несколько раз бьёт GET /stock/items?limit=10000 и /stock/categories; 325 с в SlowScreen — таймер плиток, не один запрос. Кэш клиента гасит data-changed (stock-list.js:41, stock.js:24, :98). Серверный stock.items сбрасывает запись CRM в materials/storageitems/supplyrequests/categories/warehouses. Отчёт: docs/crew/C022-stock-order/ARCHITECT.md.

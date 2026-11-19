@@ -12,7 +12,7 @@ const root = require('fs').existsSync(path.join(__dirname, '..', 'node_modules')
 const { NestFactory } = require(require.resolve('@nestjs/core', { paths: [root] }));
 const { getConnectionToken } = require(require.resolve('@nestjs/mongoose', { paths: [root] }));
 
-/** Модели data-core (коллекции, которые пишет data-core): индексы — из их схем. */
+/** Модели data-core: индексы из схем, включая уникальный разреженный ProductPassport.creationScopeKey_1. */
 const MODELS = ['Income', 'SalesOrder', 'Shipment', 'DesignTask', 'DesignOrder', 'DesignSticker', 'DesignNote', 'WorkTask', 'OrderLinePlan', 'ProductPassport', 'Photo', 'AuditLog', 'ClientError', 'SupplierItem', 'SupplyRequest', 'SupplyInvoice', 'SupplierContract', 'MaterialPrice', 'Notification', 'Message', 'ProductAlias', 'DevlogRelease', 'DevlogCommit', 'DevlogSession', 'DevlogItem', 'DevlogDoc', 'DevlogKit', 'Person', 'Zone', 'ZoneAssignment', 'Handoff', 'StockMovement', 'Reservation', 'StorageItem', 'Material', 'ProductRequest', 'ProductPhoto', 'QrCode', 'StockZone', 'ProductAttachment', 'Expense', 'PdmFile', 'PdmImport'];
 /** Индексы без схемы (коллекции читаются напрямую): частые запросы. */
 const RAW = [

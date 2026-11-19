@@ -30,7 +30,7 @@ export async function openPositions(productId) {
       if (String(l.productId || '') !== pid) continue;
       const seq = l.seqNo ?? l.lineNo;
       out.push({
-        incomeId: String(l.id), salesOrderId: String(o.id),
+        incomeId: String(l.id), salesOrderId: String(o.id), lineNo: seq,
         orderNo: o.orderNo || o.productionNo || '', customerName: o.customer || '', orderText,
         meta: [seq != null ? 'поз. ' + seq : '', l.title || 'позиция'].filter(Boolean).join(' · '),
       });
@@ -42,8 +42,8 @@ export async function openPositions(productId) {
 /** Шаг «Для заказа»: сначала «Без заказа» (ПР-2), затем список позиций. */
 export function orderStep({ positions, onPick, onNone }) {
   return stack(
-    hint('Паспорт можно выпустить без заказа и без договора. Или выберите позицию — подставятся заказчик, номер и адрес.'),
-    button({ label: 'Без заказа', kind: 'primary', title: 'Паспорт без привязки к заказу и договору', onClick: onNone }),
+    hint(onNone ? 'Выберите позицию или выпустите паспорт без заказа.' : 'Выберите точную позицию заказа.'),
+    onNone ? button({ label: 'Без заказа', kind: 'primary', title: 'Паспорт без привязки к заказу и договору', onClick: onNone }) : null,
     table({
       label: 'Или к заказу', clickable: true, maxHeight: 'M',
       columns: [{ label: 'Заказ' }],

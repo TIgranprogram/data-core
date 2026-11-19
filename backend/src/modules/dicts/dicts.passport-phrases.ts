@@ -10,6 +10,13 @@ const isOid = (v: unknown) => Types.ObjectId.isValid(String(v ?? '')) && String(
 const yes = (v: unknown) => v === true || v === 'true';
 const SECTION_RE = /^[a-z][a-z0-9_-]{1,30}$/;
 
+async function liveRefs(db: Db, raw: unknown, dict: string, label: string) {
+  if (!Array.isArray(raw) || !raw.every(isOid)) throw new BadRequestException(`${label}: укажите ссылки на записи справочника`);
+  const ids = [...new Set(raw.map((x) => String(x).toLowerCase()))].map((x) => new Types.ObjectId(x));
+  if (ids.length && (await db.collection('dict_values').countDocuments({ _id: { $in: ids }, dict, deletedAt: null })) !== ids.length) throw new BadRequestException(`${label}: запись справочника не найдена`);
+  return ids;
+}
+
 /** Живые узлы дерева текстов паспорта. */
 const loadNodes = async (db: Db): Promise<PhraseNode[]> => (await db.collection('dict_values').find({ dict: 'passportPhrases', deletedAt: null }).toArray()).map((r) => toNode(r));
 
@@ -35,6 +42,7 @@ export function passportPhrasesDef(base: DictBase): DictBase {
       { key: 'name', label: 'Название (у раздела — вопрос)', required: true, wide: true },
       { key: 'section', label: 'Раздел (только у раздела верхнего уровня)', type: 'select', options: [
         { value: 'purpose', label: 'Назначение' }, { value: 'installation', label: 'Установка' }, { value: 'mounting', label: 'Монтаж' },
+        { value: 'simple-description', label: 'Предложение краткого описания' },
         { value: 'use', label: 'Правила пользования' }, { value: 'service', label: 'Техническое обслуживание' }, { value: 'general', label: 'Общие указания' },
         { value: 'storage', label: 'Хранение' }, { value: 'transport', label: 'Транспортирование' }, { value: 'repair', label: 'Ремонт' }] },
       { key: 'categories', label: 'Категории', wide: true, hint: 'Коды категорий через запятую: TRN, WRK, BLG (благоустройство), DIO, DSP' },
@@ -44,6 +52,8 @@ export function passportPhrasesDef(base: DictBase): DictBase {
       { key: 'text', label: 'Текст (только у конечного варианта)', type: 'textarea', wide: true },
       { key: 'facetValueIds', label: 'Значения признаков', type: 'select', ref: 'productFacetValues', multi: true, wide: true, hint: 'Текст предлагается изделиям с этими значениями признаков (например, «Грузовой блок»); пусто — по категории' },
       { key: 'groupIds', label: 'Группы изделий', type: 'select', ref: 'productGroups', multi: true, wide: true, hint: 'Текст сам подставляется изделиям этих групп (например, «Трибуны»); пусто — по категории' },
+      { key: 'kindIds', label: 'Виды для краткого описания', type: 'select', ref: 'passportKinds', multi: true, wide: true },
+      { key: 'partIds', label: 'Части для краткого описания', type: 'select', ref: 'passportParts', multi: true, wide: true, hint: 'В тексте «Изделие состоит из {parts}» используются сохранённые формы родительного падежа.' },
       { tech: true, key: 'parentId', label: 'Родитель (id узла; пусто — раздел)', hint: 'Раздел → варианты → подварианты, не больше 4 уровней' },
       { tech: true, key: 'order', label: 'Порядок среди соседей' },
       { tech: true, key: 'installTypeId', label: 'Способ установки (id)', hint: 'У варианта раздела «Установка»: выбор сам ставит способ установки паспорта' },
@@ -53,6 +63,7 @@ export function passportPhrasesDef(base: DictBase): DictBase {
     row: (d) => ({
       name: s(d.name), section: s(d.section), parentId: d.parentId ? String(d.parentId) : '', categories: s(d.categories), allCategories: d.allCategories === true,
       order: d.order ?? 0, required: d.required === true, isDefault: d.isDefault === true, installTypeId: d.installTypeId ? String(d.installTypeId) : '', facetValueIds: ((d.facetValueIds as unknown[]) ?? []).map(String), groupIds: ((d.groupIds as unknown[]) ?? []).map(String), slot: d.slot ?? '', text: String(d.text ?? ''),
+      ...(d.section === 'simple-description' ? { partIds: ((d.partIds as unknown[]) ?? []).map(String), kindIds: ((d.kindIds as unknown[]) ?? []).map(String) } : {}),
     }),
     // запрет дублей — среди соседей (одно название под разными разделами допустимо)
     dupKey: (d) => `${d.parentId ? String(d.parentId) : ''}|${s(d.name).toLowerCase()}`,
@@ -88,6 +99,12 @@ export function passportPhrasesDef(base: DictBase): DictBase {
         : id ? (((await db.collection('dict_values').find({ _id: new Types.ObjectId(id) }).toArray())[0]?.groupIds as unknown[]) ?? []).map(String) : [];
       if (!gi.every(isOid)) throw new BadRequestException('Некорректная группа изделий');
       const groupIds = gi.map((x) => new Types.ObjectId(x));
+      const simple = section === 'simple-description';
+      const partIds = has('partIds') ? await liveRefs(db, b.partIds, 'passportParts', 'Части изделия') : (cur?.partIds ?? []).map((x) => new Types.ObjectId(x));
+      const kindIds = has('kindIds') ? await liveRefs(db, b.kindIds, 'passportKinds', 'Виды изделий') : (cur?.kindIds ?? []).map((x) => new Types.ObjectId(x));
+      if (partIds.length && !(simple && parentId && text)) throw new BadRequestException('Части задаются у конечного варианта краткого описания');
+      if (kindIds.length && !simple) throw new BadRequestException('Виды задаются у ветки краткого описания');
+      if (simple && /\{parts\}/.test(text) && !partIds.length) throw new BadRequestException('Укажите части изделия для подстановки в {parts}');
       const order = has('order') && s(b.order) !== '' ? Number(String(b.order).replace(',', '.')) : cur?.order ?? 0;
       if (!Number.isFinite(order)) throw new BadRequestException('Порядок — число');
       const slot = has('slot') && s(b.slot) !== '' ? Math.floor(Number(b.slot)) : cur?.slot ?? 1;
@@ -102,6 +119,7 @@ export function passportPhrasesDef(base: DictBase): DictBase {
         slot: parentId ? null : slot,
         installTypeId: installTypeId ? new Types.ObjectId(installTypeId) : null,
         facetValueIds, groupIds,
+        ...(simple ? { partIds, kindIds } : {}),
         funnelV: 1, updatedAt: new Date(),
       };
     },
@@ -141,7 +159,7 @@ export function passportPhrasesDef(base: DictBase): DictBase {
         let n = 0;
         for (const l of leafIdsOf(all, d)) n += m?.get(l) ?? 0;
         const text = s(d.text);
-        if (text) n += await db.collection('productpassports').countDocuments({ deletedAt: null, [legacyField(d)]: text });
+        if (text && d.section !== 'simple-description') n += await db.collection('productpassports').countDocuments({ deletedAt: null, [legacyField(d)]: text });
         out.set(id, n);
       }
       return out;
@@ -159,7 +177,7 @@ export function passportPhrasesDef(base: DictBase): DictBase {
         db.collection('products').find(gq).sort({ _id: -1 }).limit(15).project({ name: 1, sku: 1 }).toArray(),
         db.collection('products').countDocuments(gq),
       ]);
-      const legacy = s(d.text) ? await base.related(db, d) : { total: 0, items: [] as { label: string; href?: string }[] };
+      const legacy = s(d.text) && d.section !== 'simple-description' ? await base.related(db, d) : { total: 0, items: [] as { label: string; href?: string }[] };
       return {
         title: 'Паспорта и изделия с этим выбором', total: ppTotal + prTotal + legacy.total,
         items: [

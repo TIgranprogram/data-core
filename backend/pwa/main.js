@@ -557,8 +557,9 @@ function render(c) {
     mounted.list.update?.(params);
   }
   syncCard(section, params);
-  if (section === 'products' && params.bookFor) {
-    import('./sections/passports/book-entry.js').then((m) => m.openProductBookLink(params.bookFor)).catch((e) => console.error('Открытие книжки', e));
+  const templateFor = params.templateFor || params.bookFor;
+  if (section === 'products' && templateFor) {
+    import('./sections/passports/book-entry.js').then((m) => m.openProductBookLink(templateFor)).catch((e) => console.error('Открытие книжки', e));
   }
 }
 
@@ -586,7 +587,12 @@ let approvedRoute = '';
 const routeKey = (route) => JSON.stringify(route);
 async function guardRoute(next) {
   const dlg = document.querySelector('.modal-back');
-  if (dlg) { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return false; }
+  if (dlg) {
+    if (!dlg.classList.contains('bk-back') || document.querySelector('.modal-back:not(.bk-back)')) {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    }
+    return false;
+  }
   if (card?.handle?.isDirty?.()) {
     const ofName = next.params.of || (next.section === 'home' ? undefined : next.section);
     const want = next.params.new ? 'new' : next.params.open ? 'open:' + next.params.open : null;
@@ -633,7 +639,7 @@ function syncCard(section, params) {
     card = { key, of: ofName, handle: openCard(sec, { mode: 'create', initial }, ctx) };
   } else {
     // выбрано «в отдельном окне» для раздела — карточка уходит туда, основное окно не перекрывается (2026-11-10)
-    if (sec.id && !params.fill && popoutWanted(sec.id) && popout(sec.id, { remember: false })) { ctx.close(); return; }
+    if (sec.popout !== false && sec.id && !params.fill && popoutWanted(sec.id) && popout(sec.id, { remember: false })) { ctx.close(); return; }
     card = { key, of: ofName, handle: openCard(sec, { id: params.open, fill: params.fill }, ctx) };
   }
   card.hash = location.hash;

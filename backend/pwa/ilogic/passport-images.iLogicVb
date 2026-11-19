@@ -8,8 +8,8 @@
 ' Сайт: https://kppdf-crm.ru/db/api/  (пути не менять без правки сервера)
 '
 ' Делает: PNG (общий вид, габариты, схема установки) → загрузка в изделие →
-'          по согласию пишет Д×Ш×В, массу и глубину Г; открывает карточку изделия.
-' Версия текста: 2026-11-18 (C141: раздача с сайта; контракт API без изменений)
+'          по согласию пишет Д×Ш×В, массу и глубину Г; открывает шаблон паспорта изделия.
+' Версия текста: 2026-11-19 (C155: переход в шаблон изделия)
 '==============================================================================
 AddReference "System.Net.Http.dll"
 AddReference "System.Net.Primitives.dll"
@@ -384,10 +384,9 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
         Dim massKg As Double = ModelMassKg(model)
         Dim productId As String = UploadPassportImages(model, folder, dimensions, depthMm, massKg, stage)
         If productId <> "" Then
-            MessageBox.Show("Три рисунка изделия заменены и подтверждены сайтом. Откроется черновик с новыми рисунками. Ранее выданный паспорт сохранит прежний снимок; при необходимости выберите фирму для нового черновика.", "Картинки для паспорта")
-            ' После загрузки — эталонная книжка, приоритет у последнего черновика изделия.
-            stage = "Открытие редактора паспорта"
-            Dim productUrl As String = APP_BASE & "#products?bookFor=" & productId
+            MessageBox.Show("Сайт подтвердил три рисунка изделия. Откроется шаблон паспорта. Ранее выданный паспорт сохранит прежний снимок.", "Картинки для паспорта")
+            stage = "Открытие шаблона паспорта изделия"
+            Dim productUrl As String = APP_BASE & "#products?templateFor=" & productId
             System.Diagnostics.Process.Start(New System.Diagnostics.ProcessStartInfo(productUrl) With {.UseShellExecute = True})
             Return
         End If
@@ -502,19 +501,27 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
                                "Подтвердите изделие", MessageBoxButtons.YesNo, MessageBoxIcon.Question,
                                MessageBoxDefaultButton.Button2) <> DialogResult.Yes Then Return ""
             ' Значения в карточку — по отдельному согласию: на сайте их могли уже поправить вручную (пользователь 2026-11-13)
-            Dim massText As String = If(massKg > 0, massKg.ToString("0.0", Global.System.Globalization.CultureInfo.GetCultureInfo("ru-RU")) & " кг", "не определена — не запишется")
-            Dim writeSize As Boolean = MessageBox.Show(
-                "Записать в карточку изделия на сайте:" & vbCrLf &
-                "Габариты Д × Ш × В: " & FormatMm(dimensions(0)) & " × " & FormatMm(dimensions(1)) & " × " & FormatMm(dimensions(2)) & " мм" & vbCrLf &
-                "Масса: " & massText & vbCrLf & vbCrLf &
-                "«Нет» — на сайте останутся прежние значения.",
-                "Габариты и масса", MessageBoxButtons.YesNo, MessageBoxIcon.Question,
-                MessageBoxDefaultButton.Button1) = DialogResult.Yes
-            Dim writeDepth As Boolean = MessageBox.Show(
-                "Записать в карточку изделия глубину Г = " & FormatMm(depthMm) & " мм?" & vbCrLf & vbCrLf &
-                "«Нет» — на сайте останется прежнее значение.",
-                "Глубина Г", MessageBoxButtons.YesNo, MessageBoxIcon.Question,
-                MessageBoxDefaultButton.Button1) = DialogResult.Yes
+            Dim sizeKnown As Boolean = Global.System.Linq.Enumerable.All(dimensions, Function(mm) mm > 0 AndAlso Not Double.IsInfinity(mm))
+            Dim massKnown As Boolean = massKg > 0 AndAlso Not Double.IsInfinity(massKg)
+            Dim writeSizeAndMass As Boolean = False
+            If sizeKnown OrElse massKnown Then
+                Dim sizeText As String = If(sizeKnown, FormatMm(dimensions(0)) & " × " & FormatMm(dimensions(1)) & " × " & FormatMm(dimensions(2)) & " мм", "не определены — не запишутся")
+                Dim massText As String = If(massKnown, massKg.ToString("0.0", Global.System.Globalization.CultureInfo.GetCultureInfo("ru-RU")) & " кг", "не определена — не запишется")
+                writeSizeAndMass = MessageBox.Show(
+                    "Записать в карточку изделия на сайте:" & vbCrLf &
+                    "Габариты Д × Ш × В: " & sizeText & vbCrLf & "Масса: " & massText & vbCrLf & vbCrLf &
+                    "«Нет» — на сайте останутся прежние значения.",
+                    "Габариты и масса", MessageBoxButtons.YesNo, MessageBoxIcon.Question,
+                    MessageBoxDefaultButton.Button1) = DialogResult.Yes
+            End If
+            Dim writeSize As Boolean = writeSizeAndMass AndAlso sizeKnown
+            Dim writeMass As Boolean = writeSizeAndMass AndAlso massKnown
+            Dim writeDepth As Boolean = depthMm >= 0 AndAlso Not Double.IsInfinity(depthMm) AndAlso
+                MessageBox.Show(
+                    "Записать в карточку изделия глубину Г = " & FormatMm(depthMm) & " мм?" & vbCrLf & vbCrLf &
+                    "«Нет» — на сайте останется прежнее значение.",
+                    "Глубина Г", MessageBoxButtons.YesNo, MessageBoxIcon.Question,
+                    MessageBoxDefaultButton.Button1) = DialogResult.Yes
 
             Dim photosPath As String = "products/" & productId & "/photos"
             stage = "Проверка существующих рисунков"
@@ -544,6 +551,9 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
             End If
 
             Dim newLinks As New Global.System.Collections.Generic.List(Of String)
+            Dim payload As New Global.System.Collections.Generic.Dictionary(Of String, Object)
+            Dim productPath As String = "showcase/" & productId
+            Dim saved As Global.System.Text.Json.JsonElement
             Try
                 stage = "Привязка общего вида"
                 newLinks.Add(AttachPassportImage(client, photosPath, overviewId, "overview"))
@@ -551,19 +561,24 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
                 newLinks.Add(AttachPassportImage(client, photosPath, dimensionsId, "dimensions"))
                 stage = "Привязка схемы установки опор"
                 newLinks.Add(AttachPassportImage(client, photosPath, foundationId, "foundation"))
-                Dim payload As New Global.System.Collections.Generic.Dictionary(Of String, Object)
-                If writeSize Then
-                    payload.Add("dimensions", New With {
-                        .length = dimensions(0), .width = dimensions(1),
-                        .height = dimensions(2), .unit = "мм"})
-                    If massKg > 0 Then payload.Add("weightKg", massKg)
+                If writeSize OrElse writeMass OrElse writeDepth Then
+                    stage = "Сверка чисел с карточкой изделия"
+                    Dim product As Global.System.Text.Json.JsonElement = RequestJson(client, Global.System.Net.Http.HttpMethod.Get, productPath)
+                    If writeSize AndAlso Not DimensionsMatch(product, dimensions) Then
+                        payload.Add("dimensions", New With {
+                            .length = dimensions(0), .width = dimensions(1),
+                            .height = dimensions(2), .unit = "мм"})
+                    End If
+                    If writeMass AndAlso Not JsonNumberEquals(product, "weightKg", massKg) Then payload.Add("weightKg", massKg)
+                    If writeDepth AndAlso Not JsonNumberEquals(JsonObject(product, "passportDefaults"), "foundationDepth", depthMm) Then
+                        payload.Add("foundationDepth", depthMm)
+                    End If
                 End If
-                If writeDepth Then payload.Add("foundationDepth", depthMm)
                 If payload.Count > 0 Then
-                    stage = "Запись в карточку изделия: " & If(writeSize, "габариты и масса", "") & If(writeSize AndAlso writeDepth, ", ", "") & If(writeDepth, "глубина Г", "")
+                    stage = "Запись чисел в карточку изделия"
                     Dim json As String = Global.System.Text.Json.JsonSerializer.Serialize(payload)
                     Using body As New Global.System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json")
-                        RequestJson(client, New Global.System.Net.Http.HttpMethod("PATCH"), "showcase/" & productId, body)
+                        saved = RequestJson(client, New Global.System.Net.Http.HttpMethod("PATCH"), productPath, body)
                     End Using
                 End If
             Catch
@@ -583,22 +598,44 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
             Next
             stage = "Проверка результата замены рисунков"
             VerifyReadSlots(client, photosPath, newLinks)
-            If Not writeDepth Then Return productId
-            stage = "Проверка сохранённой глубины Г"
-            Dim saved As Global.System.Text.Json.JsonElement = RequestJson(client, Global.System.Net.Http.HttpMethod.Get, "showcase/" & productId)
-            Dim savedDefaults As Global.System.Text.Json.JsonElement
-            Dim depth As Global.System.Text.Json.JsonElement
-            Dim savedMm As Double
-            If Not saved.TryGetProperty("passportDefaults", savedDefaults) OrElse
-               savedDefaults.ValueKind <> Global.System.Text.Json.JsonValueKind.Object OrElse
-               Not savedDefaults.TryGetProperty("foundationDepth", depth) OrElse
-               depth.ValueKind <> Global.System.Text.Json.JsonValueKind.Number OrElse
-               Not depth.TryGetDouble(savedMm) OrElse savedMm <> depthMm Then
+            If payload.Count = 0 Then Return productId
+            stage = "Проверка чисел в карточке изделия"
+            If payload.ContainsKey("dimensions") AndAlso Not DimensionsMatch(saved, dimensions) Then
+                Throw New InvalidOperationException("Рисунки загружены, но сайт не подтвердил габариты изделия.")
+            End If
+            If payload.ContainsKey("weightKg") AndAlso Not JsonNumberEquals(saved, "weightKg", massKg) Then
+                Throw New InvalidOperationException("Рисунки загружены, но сайт не подтвердил массу изделия.")
+            End If
+            If payload.ContainsKey("foundationDepth") AndAlso
+               Not JsonNumberEquals(JsonObject(saved, "passportDefaults"), "foundationDepth", depthMm) Then
                 Throw New InvalidOperationException("Рисунки загружены, но сайт не подтвердил глубину Г = " & FormatMm(depthMm) & " мм.")
             End If
             Return productId
         End Using
     End Using
+End Function
+
+Function DimensionsMatch(product As Global.System.Text.Json.JsonElement, dimensions As Double()) As Boolean
+    Dim saved As Global.System.Text.Json.JsonElement = JsonObject(product, "dimensions")
+    Return saved.ValueKind = Global.System.Text.Json.JsonValueKind.Object AndAlso
+        JsonString(saved, "unit") = "мм" AndAlso
+        JsonNumberEquals(saved, "length", dimensions(0)) AndAlso
+        JsonNumberEquals(saved, "width", dimensions(1)) AndAlso
+        JsonNumberEquals(saved, "height", dimensions(2))
+End Function
+
+Function JsonObject(item As Global.System.Text.Json.JsonElement, name As String) As Global.System.Text.Json.JsonElement
+    Dim value As Global.System.Text.Json.JsonElement
+    If item.ValueKind = Global.System.Text.Json.JsonValueKind.Object AndAlso item.TryGetProperty(name, value) AndAlso
+       value.ValueKind = Global.System.Text.Json.JsonValueKind.Object Then Return value
+    Return Nothing
+End Function
+
+Function JsonNumberEquals(item As Global.System.Text.Json.JsonElement, name As String, expected As Double) As Boolean
+    Dim value As Global.System.Text.Json.JsonElement
+    Dim number As Double
+    Return item.ValueKind = Global.System.Text.Json.JsonValueKind.Object AndAlso item.TryGetProperty(name, value) AndAlso
+        value.ValueKind = Global.System.Text.Json.JsonValueKind.Number AndAlso value.TryGetDouble(number) AndAlso number = expected
 End Function
 
 Function ReadPassportSlots(client As Global.System.Net.Http.HttpClient, path As String) As Global.System.Collections.Generic.Dictionary(Of String, String)

@@ -1,15 +1,12 @@
 /**
  * C141: слева в книжке — «Сначала заполнить / проверить».
- * Данные: GET /showcase/:id/fill-queue. Клик не уводит из книжки: рисунок → лист; материалы/части/габариты → правая колонка.
+ * У новой книжки причины берутся из ответа той же проекции. Старые черновики используют очередь изделия.
  */
-import { api } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { toast } from '../../ui/kit/toast.js';
-import { button } from '../../ui/kit/index.js';
-import {
-  openMaterialsInBook, openDimsInBook, openInstallationInBook, openCompositionInBook,
-  openPurposeInBook, openDefaultsNumInBook,
-} from './book-side-edit.js';
+import { button, hint } from '../../ui/kit/index.js';
+import { openMaterialsInBook, openDimsInBook, openCompositionInBook } from './book-side-edit.js';
+import { isBookSetting } from './book-template-edit.js';
 
 const PAGE_HINTS = [
   [/обложк|наименован|паспорт\s*№/i, ['name', 'description', 'img_overview']],
@@ -20,12 +17,6 @@ const PAGE_HINTS = [
   [/комплект|состав/i, ['composition', 'elements', 'modules']],
   [/гарант/i, ['warrantyMonths', 'serviceLifeYears']],
 ];
-
-/** Числа passport-defaults, которые правятся в правом слоте (не габариты изделия). */
-const DEFAULT_NUM_KEYS = new Set([
-  'foundationDepth', 'seatsCount', 'ageFrom', 'ageTo', 'heightMin', 'heightMax',
-  'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth', 'serviceLifeYears', 'warrantyMonths',
-]);
 
 function focusLabel(it) {
   if (['parts', 'materials'].includes(String(it.key || ''))) return 'Описание конструкции и материалов';
@@ -39,16 +30,14 @@ function focusLabel(it) {
 
 function pageForKey(pagesEl, key) {
   const pages = [...(pagesEl?.children || [])];
-  if (String(key || '').startsWith('img_')) {
-    const hit = pages.find((p) => p.querySelector(`[data-focus="${key}"]`));
-    if (hit) return hit;
-  }
+  const byKey = pages.find((p) => [...p.querySelectorAll('[data-focus]')].some((node) => node.dataset.focus === key));
+  if (byKey) return byKey;
   for (const [re, keys] of PAGE_HINTS) {
     if (!keys.includes(key)) continue;
     const hit = pages.find((p) => re.test(p.textContent || ''));
     if (hit) return hit;
   }
-  return pages.find((p) => p.querySelector(`[data-focus="${key}"]`)) || null;
+  return null;
 }
 
 function flash(el) {
@@ -71,121 +60,86 @@ export function mountBookFocus(host, ctx) {
 
   const afterSide = ({ saved } = {}) => {
     ctx.sideHome?.();
-    if (saved) { ctx.S.changed = true; paint(); ctx.onChanged?.(); }
+    if (saved) { ctx.S.changed = true; ctx.onChanged?.(); }
   };
 
-  const paint = async () => {
+  const paint = () => {
     const r = ctx.S.r;
+    const tpl = ctx.S.template;
     const pid = r.productId;
-    const head = (done, total, hint) => [
+    const head = (details) => [
       h('header', { class: 'bk-panel-h' },
-        h('h3', { class: 'bk-toc-h' }, 'Сначала'),
-        total != null ? h('span', { class: 'bk-focus-meter', title: 'Заполнено из очереди' }, `${done}/${total}`) : null),
-      total > 0 ? h('div', { class: 'bk-focus-bar', 'aria-hidden': 'true', style: { '--bk-focus-pct': `${Math.round((100 * (done || 0)) / total)}%` } },
-        h('i', null)) : null,
-      hint ? h('p', { class: 'hint bk-toc-hint' }, hint) : null,
+        h('h3', { class: 'bk-toc-h' }, 'Сначала')),
+      details ? h('p', { class: 'hint bk-toc-hint' }, details) : null,
     ];
 
-    if (!pid) {
-      host.replaceChildren(...head(null, null, 'Паспорт без изделия — очередь заполнения недоступна.'));
+    if (!ctx.can) {
+      host.hidden = true;
+      host.replaceChildren();
       return;
     }
-    host.replaceChildren(...head(null, null), h('p', { class: 'muted bk-toc-hint' }, 'Загружаю…'));
-    let q;
-    try {
-      q = await api(`/showcase/${pid}/fill-queue`);
-    } catch {
-      host.replaceChildren(...head(null, null, 'Не удалось получить, что ещё заполнить.'));
+    host.hidden = false;
+    const q = r.readiness;
+    if (!q) {
+      host.replaceChildren(...head('Готовность этой редакции не указана.'));
       return;
     }
-    const items = (q.items || []).slice(0, 8);
-    const done = q.done ?? 0;
-    const total = q.total ?? 0;
-    if (!items.length) {
-      host.replaceChildren(...head(done, total, total
-        ? `Заполнено ${done} из ${total} — можно проверить тексты на листе и ИИ справа.`
-        : 'Пробелов по очереди нет — просмотрите страницы слева направо.'));
-      return;
-    }
+    const items = q.missing || [];
     const list = h('ul', { class: 'bk-focus-list', 'aria-label': 'Что заполнить или проверить' });
     for (const it of items) {
-      const need = it.required ? 'обязательно' : (it.urgent ? 'срочно' : 'желательно');
-      const tone = it.required ? ' is-req' : (it.urgent ? ' is-urgent' : '');
       const label = focusLabel(it);
       const key = String(it.key || '');
-      const brokenImg = /не читается|файл на сервере/i.test(String(it.label || '')) || key.startsWith('img_');
-      const go = () => {
-        const ask = ctx.sideSlot?._bkLeave;
-        if (typeof ask === 'function') {
-          void ask().then((ok) => {
-            if (!ok) return;
-            ctx.sideSlot._bkLeave = null;
-            const side = ctx.sideSlot.closest?.('.bk-side');
-            side?.classList.remove('is-wide', 'is-editing');
-            side?.closest?.('.bk-main')?.classList.remove('is-edit-wide');
-            goNow();
-          });
-          return;
-        }
-        goNow();
-      };
       const goNow = () => {
         if (!ctx.sideSlot && !String(key).startsWith('img_')) {
           toast('Правая колонка книжки недоступна — откройте паспорт заново.', { ms: 5000 });
           return;
         }
+        if (key.startsWith('choice:')) { ctx.openChoices?.(key.slice(7)); return; }
+        const options = { onDone: afterSide };
         if (key === 'materials' || key === 'parts' || it.target === 'techsheet') {
-          openMaterialsInBook(ctx.sideSlot, pid, { focusParts: key === 'parts', onDone: afterSide });
+          openMaterialsInBook(ctx.sideSlot, pid, { ...options, focusParts: key === 'parts' });
           return;
         }
         if (key === 'dimensions' || key === 'weightKg' || key === 'length' || key === 'width' || key === 'height' || key === 'weight') {
-          openDimsInBook(ctx.sideSlot, pid, { onDone: afterSide });
+          openDimsInBook(ctx.sideSlot, pid, options);
           return;
         }
         if (key === 'composition') {
-          openCompositionInBook(ctx.sideSlot, pid, { onDone: afterSide });
-          return;
-        }
-        if (key === 'installation' || key === 'installationTypeId' || key === 'install') {
-          openInstallationInBook(ctx.sideSlot, pid, {
-            focus: key === 'installationTypeId' ? 'installationTypeId' : 'text',
-            onDone: afterSide,
-          });
-          return;
-        }
-        if (key === 'foundationDepth') {
-          // глубина Г — отдельный пункт очереди; тот же слот монтажа с фокусом на поле
-          openInstallationInBook(ctx.sideSlot, pid, { focus: 'foundationDepth', onDone: afterSide });
-          return;
-        }
-        if (key === 'purpose') {
-          openPurposeInBook(ctx.sideSlot, pid, { onDone: afterSide });
-          return;
-        }
-        if (DEFAULT_NUM_KEYS.has(key)) {
-          openDefaultsNumInBook(ctx.sideSlot, pid, key, { onDone: afterSide });
+          openCompositionInBook(ctx.sideSlot, pid, options);
           return;
         }
         const page = pageForKey(ctx.pagesEl, key);
-        const slot = page?.querySelector(`[data-focus="${key}"]`) || page;
+        const slot = page && ([...page.querySelectorAll('[data-focus]')].find((el) => el.dataset.focus === key) || page);
         if (slot) { flash(slot); return; }
         // нет якоря на листе — без тоста: рамка некуда; пользователь видит клик в списке
       };
-      const li = h('li', { class: 'bk-focus-i' + tone },
+      const row = h('div', { class: 'bk-focus-i is-req' },
         button({
           label,
-          title: 'Правка в книжке, без перехода в другие экраны',
+          title: it.hint || 'Правка в книжке',
           kind: 'ghost',
           size: 'S',
           cls: 'bk-focus-btn',
-          onClick: go,
+          onClick: (e) => {
+            if (r.productId && (key === 'category' || key === 'simpleDescription' || isBookSetting(key))) {
+              ctx.openSetting(key, e.currentTarget);
+              return;
+            }
+            ctx.openSide(goNow);
+          },
         }),
-        h('span', { class: 'bk-focus-tag' }, need));
-      list.append(li);
+        h('span', { class: 'bk-focus-tag' }, 'обязательно'));
+      list.append(h('li', null, row, it.hint ? hint(it.hint) : null));
     }
     host.replaceChildren(
-      ...head(done, total, 'Сверху — что мешает выпуску. Клик — правка в книжке.'),
-      list,
+      ...head(items.length
+        ? 'Что мешает выпуску'
+        : q.ready ? (tpl ? 'Шаблон готов к выпуску.' : 'Обязательные сведения заполнены.') : 'Уточните данные перед выпуском.'),
+      items.length ? list : null,
+      q.recommendations?.length ? h('section', null,
+        h('h3', { class: 'bk-toc-h' }, 'Рекомендации'),
+        h('ul', { class: 'bk-focus-list' }, ...q.recommendations.map((it) =>
+          h('li', null, it.label, it.hint ? hint(it.hint) : null)))) : null,
     );
   };
 

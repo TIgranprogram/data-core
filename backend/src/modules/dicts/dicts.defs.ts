@@ -3,6 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { sameRe } from '../../common/text/same-text';
 import { normSize } from '../../common/catalog/materials-text';
+import { moveOrderedRef } from '../../common/catalog/ordered-refs';
 import { personWorkTypeIds, workTypeFields } from '../../common/catalog/person-work-types';
 import { passportPhrasesDef } from './dicts.passport-phrases';
 import { productGroupDefs } from './dicts.product-groups';
@@ -402,6 +403,20 @@ function withProducts(base: UsageParts, q: (db: Db, d: Doc) => Promise<Document 
   };
 }
 const noUsage: UsageParts = { usage: async () => new Map(), related: async () => ({ title: '', items: [], total: 0 }), reassign: async () => 0 };
+
+const inSimplePhrases = (key: 'partIds' | 'kindIds', id: unknown) => ({ dict: 'passportPhrases', section: 'simple-description', deletedAt: null, [key]: id });
+const partPhraseUses: UsageParts = {
+  usage: async (db, docs) => new Map(await Promise.all(docs.map(async (d) => [
+    String(d._id), await db.collection('dict_values').countDocuments(inSimplePhrases('partIds', d._id)),
+  ] as const))),
+  related: async (db, d) => {
+    const collection = db.collection('dict_values');
+    const q = inSimplePhrases('partIds', d._id);
+    const [rows, total] = await Promise.all([collection.find(q).limit(15).project({ name: 1 }).toArray(), collection.countDocuments(q)]);
+    return { title: 'Варианты краткого описания', total, items: rows.map((r) => ({ label: s(r.name), href: '#dicts?d=passportPhrases&open=' + String(r._id) })) };
+  },
+  reassign: async (db, from, to) => (await db.collection('dict_values').updateMany(inSimplePhrases('partIds', from._id), moveOrderedRef('partIds', from._id, to._id))).modifiedCount,
+};
 /** id записей «Материалов и покрытий» с кодом («Сортамент» привязан к коду материала, таблица изделия — к id). */
 const matIdsByCode = async (db: Db, code: string) => (code ? (await db.collection('dict_values').find({ dict: 'passportMaterials', code }).project({ _id: 1 }).toArray()).map((x) => x._id) : []);
 
@@ -863,10 +878,16 @@ const BASE: DictBase[] = [
         { key: 'genSingular', label: 'Родительный падеж, ед. ч.', hint: '«стойки»' },
         { key: 'categories', label: 'В коротком списке у типов', wide: true, hint: 'Типы паспорта, где часть сразу в таблице материалов. Пусто — в коротком списке нет (только «Показать все части»)' },
       ]),
-    ...withProducts(noUsage,
-      async (_db, d) => ({ 'materialsSpec.rows.partIds': d._id }),
-      async (db, from, to) => (await db.collection('products').updateMany({ 'materialsSpec.rows.partIds': from._id },
-        { $set: { 'materialsSpec.rows.$[].partIds.$[p]': to._id } }, { arrayFilters: [{ p: from._id }] })).modifiedCount),
+    ...withProducts(partPhraseUses,
+      async (_db, d) => ({ $or: [{ 'materialsSpec.rows.partIds': d._id }, { 'passportDefaults.simpleDescription.partIds': d._id }] }),
+      async (db, from, to) => {
+        const products = db.collection('products');
+        const partPath = 'passportDefaults.simpleDescription.partIds';
+        const rich = await products.updateMany({ 'materialsSpec.rows.partIds': from._id },
+          { $set: { 'materialsSpec.rows.$[].partIds.$[p]': to._id } }, { arrayFilters: [{ p: from._id }] });
+        const brief = await products.updateMany({ [partPath]: from._id }, moveOrderedRef(partPath, from._id, to._id));
+        return rich.modifiedCount + brief.modifiedCount;
+      }),
     editRoles: ['director'],
   },
   withTraits({

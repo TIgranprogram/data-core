@@ -22,7 +22,7 @@ const SLOTS = ['cover', 'page'] as const;
 export type LookSlot = (typeof SLOTS)[number];
 
 type Side = { top?: number | null; right?: number | null; bottom?: number | null; left?: number | null };
-type LookDoc = {
+export type LookDoc = {
   companyId: Types.ObjectId;
   color?: string | null;
   coverFile?: string | null;
@@ -81,14 +81,12 @@ export class PassportLookService {
     const name = `${randomUUID()}${MIME_EXT[file.mimetype]}`;
     await fs.writeFile(join(dir, name), file.buffer);
     const key = kind === 'cover' ? 'coverFile' : 'pageFile';
-    const prev = await this.model.findOne({ companyId: id }).lean().exec() as LookDoc | null;
     const doc = await this.model.findOneAndUpdate(
       { companyId: id },
       { $set: { [key]: `/uploads/passport-look/${name}` }, $setOnInsert: { companyId: id } },
       { new: true, upsert: true, lean: true },
     ).exec() as LookDoc;
-    if (prev?.[key]) await this.unlink(prev[key]);
-    this.cache.delete(String(prev?.[key] ?? ''));
+    // Старый бланк остаётся доступен ссылкам уже выданных редакций.
     const ratio = meta.width && meta.height ? meta.width / meta.height : A5_RATIO;
     const warning = Math.abs(ratio / A5_RATIO - 1) > 0.02 ? 'Пропорции не как у листа А5 — картинка растянется на всю страницу' : null;
     return { ...this.present(companyId, doc), warning };
@@ -101,7 +99,6 @@ export class PassportLookService {
     const prev = await this.model.findOne({ companyId: id }).lean().exec() as LookDoc | null;
     if (!prev?.[key]) return this.present(companyId, prev);
     const doc = await this.model.findOneAndUpdate({ companyId: id }, { $set: { [key]: null } }, { new: true, lean: true }).exec() as LookDoc;
-    await this.unlink(prev[key]);
     this.cache.delete(String(prev[key]));
     return this.present(companyId, doc);
   }
@@ -113,6 +110,10 @@ export class PassportLookService {
   async forPdf(companyId: unknown): Promise<PdfLook | undefined> {
     if (!companyId || !Types.ObjectId.isValid(String(companyId))) return undefined;
     const doc = await this.model.findOne({ companyId: new Types.ObjectId(String(companyId)) }).lean().exec() as LookDoc | null;
+    return this.fromSnapshot(doc);
+  }
+
+  async fromSnapshot(doc: LookDoc | null): Promise<PdfLook | undefined> {
     if (!doc) return undefined;
     const cover = await this.jpeg(doc.coverFile);
     const page = await this.jpeg(doc.pageFile);
@@ -165,11 +166,6 @@ export class PassportLookService {
     return org;
   }
 
-  private async unlink(url?: string | null) {
-    const p = safeUploadPath(url);
-    if (p) await fs.unlink(p).catch(() => undefined);
-  }
-
   /** PNG → JPEG q82 не шире 1654 px, чтобы PDF не раздувался. Битый или пропавший файл — без фона. */
   private async jpeg(url?: string | null): Promise<Buffer | null> {
     if (!url) return null;
@@ -180,6 +176,7 @@ export class PassportLookService {
     try {
       const buf = await sharp(path).rotate().flatten({ background: '#ffffff' }).resize({ width: 1654, withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer();
       this.cache.set(url, buf);
+      if (this.cache.size > 60) this.cache.delete(this.cache.keys().next().value!);
       return buf;
     } catch { return null; }
   }

@@ -27,11 +27,9 @@ function build() {
   const entry = takePending();
   readyMode = !!entry?.ready;
   if (entry?.ready) return buildReady(entry);
-  const lockedOrder = !!(entry && (entry.salesOrderId || entry.incomeId));
-  // ПР-2 / владелец: с карточки изделия — сразу без заказа и без договора; заказ только если явно зашли из заказа
-  const fromProductOnly = !!(entry?.productId && !entry?.salesOrderId && !entry?.incomeId);
-  // без quiet — в шапке видно «Заказ: без заказа ✎», можно привязать позже
-  const S = { P: {}, q: '', prod: null, order: lockedOrder ? entry : (fromProductOnly ? { noOrder: true } : null) };
+  const orderId = entry?.salesOrderId;
+  const initialOrder = entry?.incomeId ? entry : orderId ? null : { noOrder: true };
+  const S = { P: {}, q: '', prod: null, order: initialOrder };
   let stageSeq = 0;
   let closed = false;
   let creation = null;
@@ -60,7 +58,7 @@ function build() {
     },
   });
   const pl = productList({
-    onPick: (it) => choose(it.id),
+    onPick: (it) => choose(it),
     onSearch: (q) => { S.q = q; ps.update(S.P); },
     onNew: () => openNew(),
   });
@@ -109,17 +107,13 @@ function build() {
     if (!checked && !(await leaveStage())) return;
     stageSeq += 1;
     creation = null;
-    S.prod = null; S.manual = false; if (!lockedOrder) S.order = null; stages.replaceChildren(); recap.replaceChildren(); title('Новый паспорт');
+    S.prod = null; S.order = initialOrder; stages.replaceChildren(); recap.replaceChildren(); title('Новый паспорт');
     newBox.hidden = true; pickBox.hidden = false; ps.setDone(false); say(null); ps.update(S.P);
   }
 
   function paintRecap(prod) {
     const sku = prod.sku ? prod.sku + ' ' : '';
     const bits = [link({ label: `Изделие: ${sku}${prod.name} ✎`, title: 'Выбрать другое изделие', onClick: showPick })];
-    if (S.order && !S.order.quiet && !lockedOrder) {
-      const text = S.order.noOrder ? 'Заказ: без заказа ✎' : `Заказ: ${S.order.orderText || 'выбран'} ✎`;
-      bits.push(link({ label: text, title: 'Выбрать другой заказ', onClick: () => { S.order = null; S.manual = true; stagePanels(prod); } }));
-    }
     recap.replaceChildren(...bits);
   }
 
@@ -148,24 +142,26 @@ function build() {
       say('выберите заказ или «Без заказа»');
       stages.replaceChildren(hint('Ищу открытые позиции с этим изделием…'));
       let positions = [];
-      try { positions = await openPositions(prod.id); } catch { positions = []; }
+      try { positions = (await openPositions(prod.id)).filter((p) => p.salesOrderId === orderId); } catch { positions = []; }
       if (my !== stageSeq) return;
-      if (!positions.length) S.order = { noOrder: true, quiet: true };
+      if (!positions.length) {
+        stages.replaceChildren(hint('У этого изделия нет действующей позиции в выбранном заказе.', 'warn'));
+        return;
+      }
       else {
         stages.replaceChildren(orderStep({
           positions,
           onPick: (p) => { S.order = p; stagePanels(prod); },
-          onNone: () => { S.order = { noOrder: true }; stagePanels(prod); },
         }));
         return;
       }
       paintRecap(prod);
     }
-    const o = S.order?.noOrder ? {} : {
+    const position = S.order?.noOrder ? undefined : {
       salesOrderId: S.order?.salesOrderId,
       incomeId: S.order?.incomeId,
       orderNo: S.order?.orderNo,
-      customerName: S.order?.customerName,
+      lineNo: S.order?.lineNo,
     };
     let opening = false;
     let retry = null;
@@ -180,11 +176,11 @@ function build() {
       stages.replaceChildren(hint('Открываю эталонное окно паспорта…'));
       try {
         const row = await openBookForProduct(prod.id, {
-          extra: o, isCurrent,
+          position, isCurrent,
           onClose: () => { clearOwnedRoute(); window.dispatchEvent(new CustomEvent('data-changed')); },
         });
         if (!isCurrent()) return;
-        if (row) { clearOwnedRoute(); return; }
+        if (row) return;
         say('повторите открытие книжки');
         retry = button({ label: 'Повторить открытие паспорта', kind: 'secondary', onClick: enter });
         stages.replaceChildren(hint('Открытие отменено или не завершилось. Можно повторить здесь.', 'warn'), retry);

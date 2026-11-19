@@ -6,8 +6,8 @@ import { h } from '../core/dom.js';
 import { api } from '../core/api.js';
 import { button, card, badge, empty, stack, actions, busyBlock, failBlock } from '../ui/kit/index.js';
 import { numberOf, statusOf, canWorkPassport } from './passports/common.js';
-import { printDialog } from './passports/dialogs.js';
-import { openBookEditor } from './passports/book-editor.js';
+import { variantName } from './passports/book-template.js';
+import { busyBtn } from '../ui/kit/busy.js';
 import { toastError } from '../ui/kit/toast.js';
 import { go } from '../core/router.js';
 
@@ -53,8 +53,9 @@ export async function loadPassportsByIncome(orderIds) {
 }
 
 /** Клик по номеру — эталонная книжка (C141), не старая карточка. */
-function openPassport(p) {
-  openBookEditor(p);
+async function openPassport(p, options) {
+  const { openBookEditor } = await import('./passports/book-editor.js');
+  return openBookEditor(p.id, options);
 }
 
 /** Метка в строке позиций: только актуальный номер / черновик; нет паспорта — null. */
@@ -68,7 +69,10 @@ export function passportMark(list) {
       onclick: (e) => { e.preventDefault(); e.stopPropagation(); openPassport(p); },
     }, `Паспорт № ${n}`);
   }
-  return h('span', { class: 'muted small nowrap' }, 'Паспорт — черновик');
+  return h('a', {
+    href: '#', class: 'small nowrap', title: 'Открыть черновик паспорта позиции',
+    onclick: (e) => { e.preventDefault(); e.stopPropagation(); openPassport(p); },
+  }, 'Паспорт — черновик');
 }
 
 /** Состояние загрузки вкладки: { map, error }. map — Map|null; error — при сбое общей загрузки. */
@@ -91,16 +95,37 @@ export function attachLinePassports(orders) {
 /** Карточка «Документы»: из pack.map без повторного GET; при pack.error — fail + повтор; после правки — skipCache. */
 export function documentsCard(l, d, pack) {
   const body = h('div');
+  const salesOrderId = l.orderId || d.orderId;
   const showList = (list, reloadCard) => {
     const p = primaryPassport(list);
-    if (!p) { body.replaceChildren(empty({ title: 'Паспорта ещё нет', hint: 'Выпускается в «Документы → Паспорта заказа».' })); return; }
+    if (!p) {
+      const create = canWorkPassport() && salesOrderId && l.productId && !l.cancelledAt
+        ? button({ label: 'Создать черновик паспорта', size: 'S', onClick: async (e) => {
+          const b = e.currentTarget;
+          const end = busyBtn(b, 'Открываю…');
+          try {
+            const { openBookForLine } = await import('./passports/open-book.js');
+            await openBookForLine({ productId: l.productId, salesOrderId, incomeId: l.id },
+              { onClose: () => reloadCard(), isCurrent: () => b.isConnected });
+          } finally { end(); }
+        } }) : null;
+      body.replaceChildren(stack(empty({ title: 'Паспорта ещё нет', hint: 'Выпуск доступен также в плане паспортов заказа.' }), create));
+      return;
+    }
     const issued = statusOf(p) === 'issued';
     body.replaceChildren(stack(actions(
       button({ label: numberOf(p) ? `Паспорт № ${numberOf(p)}` : 'Паспорт — черновик', size: 'S', kind: 'ghost', onClick: () => openPassport(p) }),
-      badge(issued ? 'выпущен' : 'черновик', issued ? 'ok' : 'warn')),
+      badge(issued ? 'выпущен' : 'черновик', issued ? 'ok' : 'warn'),
+      badge(variantName(p.variant) || 'Прежний формат', 'dim')),
     actions(
-      !canWorkPassport() ? null : button({ label: 'Изменить паспорт', size: 'S', title: 'Большое окно: паспорт как в PDF, любое поле правится на месте', onClick: () => openBookEditor(p, { onClose: () => reloadCard() }) }),
-      issued ? button({ label: 'Скачать PDF', size: 'S', kind: 'ghost', onClick: (e) => { const b = e.currentTarget; b.classList.add('is-busy'); printDialog(p).catch(toastError).finally(() => b.classList.remove('is-busy')); } }) : null)));
+      canWorkPassport() && p.presentationVersion === 1 && !issued
+        ? button({ label: 'Изменить паспорт', size: 'S', onClick: () => openPassport(p, { onClose: () => reloadCard() }) }) : null,
+      issued ? button({ label: 'Скачать PDF', size: 'S', kind: 'ghost', onClick: async (e) => {
+        const end = busyBtn(e.currentTarget, 'Открываю…');
+        try { const { printDialog } = await import('./passports/dialogs.js'); await printDialog(p); }
+        catch (err) { toastError(err); }
+        finally { end(); }
+      } }) : null)));
   };
   const load = async ({ skipCache } = {}) => {
     const again = () => load({ skipCache: true });
@@ -110,8 +135,8 @@ export function documentsCard(l, d, pack) {
         if (pack.error && !pack.map) { body.replaceChildren(failBlock(pack.error, again, { text: 'Документы не загрузились' })); return; }
         if (pack.map) { showList(pack.map.get(String(l.id)), again); return; }
       }
-      if (!(l.orderId || d.orderId)) { body.replaceChildren(empty({ title: 'Паспорта ещё нет', hint: 'Позиция не привязана к заказу.' })); return; }
-      const r = await api('/passports', { query: { salesOrderId: l.orderId || d.orderId, limit: 200 } });
+      if (!salesOrderId) { body.replaceChildren(empty({ title: 'Паспорта ещё нет', hint: 'Позиция не привязана к заказу.' })); return; }
+      const r = await api('/passports', { query: { salesOrderId, limit: 200 } });
       showList(groupPassportsByIncome(r.items).get(String(l.id)), again);
     } catch (e) { body.replaceChildren(failBlock(e, again, { text: 'Документы не загрузились' })); }
   };

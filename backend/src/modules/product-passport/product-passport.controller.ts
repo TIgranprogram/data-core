@@ -20,6 +20,7 @@ import { OrderIssueDto } from './dto/order-issue.dto';
 import { NextPassportNumberDto } from './dto/next-number.dto';
 import { ReadyPassportDto } from './dto/ready-passport.dto';
 import { UpdateProductPassportDto } from './dto/update-product-passport.dto';
+import { PassportOrderQueryDto, PassportPresentationDto, PassportTemplateQueryDto, PatchPassportTemplateDto } from './dto/presentation.dto';
 import type { PassportTemplateContent } from './passport-template.default';
 
 const VIEW = ['admin', 'director', 'manager'] as const;
@@ -154,15 +155,36 @@ export class ProductPassportController {
   @ApiQuery({ name: 'productId', required: false, description: 'Изделие: тексты, привязанные к чужим признакам и группам, не приходят' })
   async funnel(@Query() q: Record<string, string>) {
     // тексты воронки ({ sections }) — как раньше; шаги создания паспорта ({ category, steps, products }) добавлены рядом (C028)
-    return { ...(await this.service.funnel(q.category, q.productId)), ...(await this.service.productFunnel(q)) };
+    if (q.presentationVersion !== undefined && q.presentationVersion !== '1') throw new BadRequestException('Неизвестная версия паспорта');
+    return { ...(await this.service.funnel(q.category, q.productId, q.presentationVersion === '1' ? variantOf(q.variant) : undefined)), ...(await this.service.productFunnel(q)) };
   }
 
   /** C028: чего не хватает изделию для паспорта — { category, missing[] }, только пустое. */
   @AppSection('products', 'passports')
   @Get('showcase/:id/passport-gaps')
   @Roles('admin', 'director', 'manager', 'user')
-  passportGaps(@Param('id') id: string) {
+  async passportGaps(@Param('id') id: string, @Query('presentationVersion') version?: string, @Query('variant') variant?: string) {
+    if (version !== undefined) {
+      if (version !== '1' || (variant !== undefined && variant !== 'short' && variant !== 'full')) throw new BadRequestException('Неизвестная версия или вариант паспорта');
+      const template = await this.service.passportTemplate(id, variant);
+      return this.service.presentationGaps(template);
+    }
     return this.service.gaps(id);
+  }
+
+  @AppSection('products', 'passports')
+  @Get('showcase/:id/passport-template')
+  @Roles(...WORK)
+  passportTemplate(@Param('id') id: string, @Query() query: PassportTemplateQueryDto) {
+    return this.service.passportTemplate(id, query.variant);
+  }
+
+  @AppSection('products', 'passports')
+  @Patch('showcase/:id/passport-template')
+  @Roles(...WORK)
+  @AuditAction({ action: 'showcase.passportDefaults', entityType: 'Product', idParam: 'id' })
+  updatePassportTemplate(@Param('id') id: string, @Query() query: PassportTemplateQueryDto, @Body() dto: PatchPassportTemplateDto) {
+    return this.service.savePassportTemplate(id, dto.changes, dto.expected, query.variant);
   }
 
   /** C114 J: «заполнено N из M» и очередь «что заполнить первым» по весу пунктов — { done, total, items[], scope }. */
@@ -244,6 +266,7 @@ export class ProductPassportController {
 
   /** Черновик формы: чего не хватает для выпуска ({missing:[{label,key}], requiredImages}) — ничего не пишет (ФП). */
   @Post('passports/check')
+  @AppSection('products', 'passports')
   @HttpCode(200)
   @Roles(...WORK)
   check(@Body() body: Record<string, unknown>) {
@@ -269,8 +292,9 @@ export class ProductPassportController {
   /** Пакет PDF по фильтру списка (до 200): ?stamp=1 — с печатью и подписью; ?mode=print — 2 стр. на A4. */
   @Get('passports/zip')
   @Roles(...EDIT)
+  @ApiQuery({ name: 'readOnly', required: false, description: '1 — выгрузка без записи снимков и отметок скачивания' })
   async zip(@Query() q: Record<string, string>, @Res({ passthrough: true }) res: Response) {
-    const buf = await this.pdfs.zip(q, { stamp: q.stamp === '1', mode: q.mode === 'print' ? 'print' : 'pages' });
+    const buf = await this.pdfs.zip(q, { stamp: q.stamp === '1', mode: q.mode === 'print' ? 'print' : 'pages', ...(q.readOnly === '1' ? { readOnly: true } : {}) });
     res.set({ 'Content-Type': 'application/zip', 'Content-Disposition': attachment(`Паспорта_${new Date().toISOString().slice(0, 10)}.zip`) });
     return new StreamableFile(buf);
   }
@@ -286,9 +310,10 @@ export class ProductPassportController {
 
   /** Предпросмотр PDF по изделию без выпуска: «ЧЕРНОВИК», без номера, в базу ничего не пишется. Нет категории у изделия — 400. */
   @Post('passports/preview')
+  @AppSection('products', 'passports')
   @Roles(...WORK)
   async preview(@Body() dto: PassportPreviewDto, @Res({ passthrough: true }) res: Response) {
-    const r = await this.pdfs.preview(dto.productId, { mode: dto.mode, mono: dto.bw, variant: dto.variant, pack: dto.pack });
+    const r = await this.pdfs.preview(dto.productId, { mode: dto.mode, mono: dto.bw, variant: dto.variant, pack: dto.pack, presentationVersion: dto.presentationVersion });
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': attachment(r.filename) });
     return new StreamableFile(r.buf);
   }
@@ -296,10 +321,8 @@ export class ProductPassportController {
   /** ПНЗ: план по заказу — позиции { state, missing[] } + счётчики; C075: firm и firmChoices. supplierOrgId — выбранная фирма, ещё не в заказе. */
   @Get('passports/order/:orderId/plan')
   @Roles(...WORK)
-  @ApiQuery({ name: 'variant', required: false, enum: ['short', 'full'] })
-  @ApiQuery({ name: 'supplierOrgId', required: false, description: 'Наша фирма для плана, если в заказе её нет' })
-  orderPlan(@Param('orderId') orderId: string, @Query('variant') variant?: string, @Query('supplierOrgId') supplierOrgId?: string) {
-    return this.service.orderPlan(orderId, variant === 'full' ? 'full' : 'short', supplierOrgId);
+  orderPlan(@Param('orderId') orderId: string, @Query() query: PassportOrderQueryDto) {
+    return this.service.orderPlan(orderId, variantOf(query.variant), query.supplierOrgId, query.presentationVersion);
   }
 
   /** ПНЗ: выпуск паспортов для готовых позиций заказа → { issued:[{incomeId,passportId}], skipped:[{incomeId,title,reason}], counts }. Повтор дублей не плодит. */
@@ -321,9 +344,10 @@ export class ProductPassportController {
   @ApiQuery({ name: 'seal', required: false, description: 'при stamp=1: 0 — без печати (только подпись)' })
   @ApiQuery({ name: 'sign', required: false, description: 'при stamp=1: 0 — без подписи (только печать)' })
   @ApiQuery({ name: 'ids', required: false, description: 'C104: id паспортов через запятую — только они (выпущенные этого заказа); пусто — все' })
-  async orderPdf(@Param('orderId') orderId: string, @Query('variant') variant: string, @Query('stamp') stamp: string, @Query('mode') mode: string, @Query('bw') bw: string, @Query('seal') seal: string, @Query('sign') sign: string, @Query('ids') ids: string, @Res({ passthrough: true }) res: Response) {
+  @ApiQuery({ name: 'readOnly', required: false, description: '1 — печать без записи снимков и отметок скачивания' })
+  async orderPdf(@Param('orderId') orderId: string, @Query('variant') variant: string, @Query('stamp') stamp: string, @Query('mode') mode: string, @Query('bw') bw: string, @Query('seal') seal: string, @Query('sign') sign: string, @Query('ids') ids: string, @Res({ passthrough: true }) res: Response, @Query('readOnly') readOnly?: string) {
     const only = String(ids ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-    const r = await this.pdfs.orderPdf(orderId, { stamp: stamp === '1', seal: seal !== '0', sign: sign !== '0', mode: mode === 'print' ? 'print' : 'pages', mono: bw === '1', variant: variantOf(variant) }, only);
+    const r = await this.pdfs.orderPdf(orderId, { stamp: stamp === '1', seal: seal !== '0', sign: sign !== '0', mode: mode === 'print' ? 'print' : 'pages', mono: bw === '1', variant: variantOf(variant), ...(readOnly === '1' ? { readOnly: true } : {}) }, only);
     // C072: паспорта со своим PDF в общий файл не входят — их список в заголовке X-Skipped-Passports (JSON, encodeURIComponent); Р5: не собравшиеся — X-Failed-Passports ([{id,passportNumber,name,reason}])
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': attachment(r.filename), ...(r.skipped.length ? { 'X-Skipped-Passports': encodeURIComponent(JSON.stringify(r.skipped)) } : {}), ...(r.failed.length ? { 'X-Failed-Passports': encodeURIComponent(JSON.stringify(r.failed)) } : {}), ...(r.skipped.length || r.failed.length ? { 'Access-Control-Expose-Headers': [r.skipped.length ? 'X-Skipped-Passports' : '', r.failed.length ? 'X-Failed-Passports' : ''].filter(Boolean).join(', ') } : {}) });
     return new StreamableFile(r.buf);
@@ -379,8 +403,9 @@ export class ProductPassportController {
 
   @Get('passports/:id')
   @Roles(...VIEW)
-  findOne(@Param('id') id: string) {
-    return this.service.get(id);
+  @ApiQuery({ name: 'readOnly', required: false, description: '1 — открыть сохранённый паспорт без синхронизации и записи' })
+  findOne(@Param('id') id: string, @Query('readOnly') readOnly?: string) {
+    return readOnly === '1' ? this.service.get(id, { readOnly: true }) : this.service.get(id);
   }
 
   /**
@@ -398,10 +423,11 @@ export class ProductPassportController {
   @ApiQuery({ name: 'sign', required: false, description: 'при stamp=1: 0 — без подписи (только печать)' })
   @ApiQuery({ name: 'variant', required: false, enum: ['short', 'full'], description: 'short — только обязательные разделы (умолч.); full — плюс необязательные, если заполнены' })
   @ApiQuery({ name: 'pack', required: false, enum: ['passport', 'tech', 'combined'], description: 'passport — только паспорт (умолч., старые клиенты); tech — только техническое описание из состава; combined — паспорт, затем техописание одним PDF. Не путать с variant.' })
-  async pdf(@Param('id') id: string, @Query('stamp') stamp: string, @Query('mode') mode: string, @Query('bw') bw: string, @Query('seal') seal: string, @Query('sign') sign: string, @Query('variant') variant: string, @Query('pack') pack: string, @Res({ passthrough: true }) res: Response) {
+  @ApiQuery({ name: 'readOnly', required: false, description: '1 — печать без синхронизации, записи снимка и отметки скачивания' })
+  async pdf(@Param('id') id: string, @Query('stamp') stamp: string, @Query('mode') mode: string, @Query('bw') bw: string, @Query('seal') seal: string, @Query('sign') sign: string, @Query('variant') variant: string, @Query('pack') pack: string, @Res({ passthrough: true }) res: Response, @Query('readOnly') readOnly?: string) {
     const kind = packOf(pack);
     if (mode === 'stand' && kind !== 'passport') throw new BadRequestException('Лист для стенда печатается отдельно от технического описания');
-    const r = mode === 'stand' ? await this.pdfs.stand(id) : await this.pdfs.pdf(id, { stamp: stamp === '1', seal: seal !== '0', sign: sign !== '0', mode: mode === 'print' ? 'print' : 'pages', mono: bw === '1', variant: variantOf(variant), pack: kind });
+    const r = mode === 'stand' ? await this.pdfs.stand(id, readOnly === '1') : await this.pdfs.pdf(id, { stamp: stamp === '1', seal: seal !== '0', sign: sign !== '0', mode: mode === 'print' ? 'print' : 'pages', mono: bw === '1', variant: variantOf(variant), pack: kind, ...(readOnly === '1' ? { readOnly: true } : {}) });
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': attachment(r.filename) });
     return new StreamableFile(r.buf);
   }
@@ -443,8 +469,8 @@ export class ProductPassportController {
   @Post('passports')
   @Roles(...WORK)
   @AuditAction({ action: 'passport.created', entityType: 'ProductPassport' })
-  create(@Body() dto: CreateProductPassportDto) {
-    return this.service.create(dto);
+  create(@Body() dto: CreateProductPassportDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.service.create(dto, user?.id);
   }
 
   /** v2: пересобрать текст паспорта по справочникам и шаблону категории (снимок `textSnapshot`). Паспорт без категории — 400. */
@@ -516,8 +542,8 @@ export class ProductPassportController {
   @HttpCode(200)
   @Roles(...WORK)
   @AuditAction({ action: 'passport.issued', entityType: 'ProductPassport', idParam: 'id' })
-  issue(@Param('id') id: string) {
-    return this.service.issue(id);
+  issue(@Param('id') id: string, @Body() expected?: PassportPresentationDto) {
+    return this.service.issue(id, expected);
   }
 
   /** НМ: аннулировать выпущенный — { reason } обязателен; номер остаётся занятым. */

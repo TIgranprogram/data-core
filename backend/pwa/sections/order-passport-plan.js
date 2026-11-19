@@ -3,17 +3,16 @@ import { h } from '../core/dom.js';
 import { go } from '../core/router.js';
 import { plural } from '../core/format.js';
 import * as kit from '../ui/kit/index.js';
+import { busyBtn } from '../ui/kit/busy.js';
 import { canWorkPassport as canEdit } from './passports/common.js';
-import { download, passportVariant, printDialog, printOptions } from './passports/dialogs.js';
 import { ORDER_FORMATS, printQuery } from './passports/print-options.js';
 import { displayName } from './passports/fill/model.js';
-import { openBookEditor } from './passports/book-editor.js';
+import { bookVariants, variantName } from './passports/book-template.js';
 import { shortMissing, summaryText } from './order-passport-text.js';
 
 /*
  * ПНЗ.2 / C075: правая панель «Паспорта заказа» (of=orderpass&open=<orderId>).
- * Сервер: GET /passports/order/:id/plan?variant&supplierOrgId, POST .../issue {lines?, variant, supplierOrgId?}, GET .../pdf.
- * Фирма — один раз на заказ. Пробелы позиции заполняются здесь же (passportFill, mode issue).
+ * План и выпуск v1. Выбранный вариант относится к новым экземплярам.
  */
 const STATE = { issued: ['Выпущен', 'ok'], ready: ['Готов к выпуску', 'info'], blocked: ['Не хватает данных', 'warn'] };
 /** Выбранная фирма, если в заказ записать не удалось (нет права): живёт, пока панель открыта. */
@@ -33,6 +32,7 @@ export const orderPassportsButton = (orderId, size = 'S') => kit.button({ label:
  * и выбор позиций галочками. Один PDF по отмеченным: GET …/pdf?ids=…
  */
 export async function printOrderDialog(row, { only = null } = {}) { // only — Set incomeId: отмечены только эти (C124: подвал заказа)
+  const { passportVariant, printOptions } = await import('./passports/dialogs.js');
   const issued = (row.lines || []).filter((l) => l.state === 'issued' && l.passport?.id);
   if (!issued.length) return;
   const boxes = issued.map((l) => {
@@ -69,7 +69,7 @@ export async function printOrderDialog(row, { only = null } = {}) { // only — 
       try {
         const v = po.value();
         const all = ids.length === issued.length;
-        const query = printQuery({ variant: passportVariant.value, ...v, ids: all ? null : ids });
+        const query = { ...printQuery({ variant: row._variant || passportVariant.value, ...v, ids: all ? null : ids }), readOnly: 1 };
         let name;
         try { name = await apiFile(`/passports/order/${row.orderId}/pdf`, { query, timeout: 600000, onFailed: (list) => kit.toast(`Не вошли в PDF: ${list.length}`, { error: true, sub: failedText(list), ms: 15000 }), fallback: `Паспорта_заказ_${row.orderNo || ''}.pdf` }); }
         catch (e) { if (e?.data?.failed) throw new Error(`Ни один паспорт не собрался.
@@ -84,9 +84,10 @@ ${failedText(e.data.failed)}`); throw e; }
 /** Р5 (C112): несобранные паспорта — по строке на каждый: «№ — название: причина». */
 export const failedText = (list) => (list || []).map((f) => `${f.passportNumber ? '№ ' + f.passportNumber + ' — ' : ''}${f.name || 'паспорт'}: ${f.reason || 'не собрался'}`).join('\n');
 
-const fetchPlan = (id) => {
+const fetchPlan = async (id, variant = 'short') => {
   const pick = pickOf(id);
-  return api(`/passports/order/${id}/plan`, { query: { variant: passportVariant.value, ...(pick ? { supplierOrgId: pick.id } : {}) } });
+  const row = await api(`/passports/order/${id}/plan`, { query: { presentationVersion: 1, variant, ...(pick ? { supplierOrgId: pick.id } : {}) } });
+  return { ...row, _variant: variant };
 };
 
 /**
@@ -114,52 +115,45 @@ function summaryRow(row) {
   });
 }
 
-/** C141: пробелы позиции — в книжке, не в старой анкете passportFill. */
-async function mountFill(line, host, reload) {
-  host.replaceChildren(kit.hint('Открываю книжку паспорта…'));
-  try {
-    const { openBookForProduct } = await import('./passports/open-book.js');
-    const extra = {
-      salesOrderId: line.orderId || line.salesOrderId,
-      incomeId: line.incomeId,
-      orderNo: line.orderNo,
-      customerName: line.customerName,
-    };
-    await openBookForProduct(line.productId, {
-      extra,
-      onClose: () => reload().catch((e) => kit.toastError(e, 'обновить план паспортов')),
-    });
-    host.replaceChildren(kit.hint('Правка — в книжке. Закройте окно и раскройте позицию снова, если нужно открыть ещё раз.'));
-  } catch (e) {
-    delete host.dataset.loaded;
-    host.replaceChildren(kit.hint('Не удалось открыть книжку. Раскройте позицию ещё раз.', 'warn'));
-    kit.toastError(e, 'открыть паспорт');
-  }
-}
-
 /** Фото изделия в строке плана (пользователь 14.11): миниатюра, клик — крупно. Нет фото — ничего. */
 const pic = (l) => kit.posPic(l.photo || null, 'sm'); // и без изделия — рамка «нет фото»: строки ровные
 
-function lineView(l, reload, issueOne, orderId) {
+function lineView(l, reload, issueOne, order) {
   const [label, tone] = STATE[l.state] || ['—', 'dim'];
   const name = `${l.lineNo ?? '—'} · ${displayName(l.title) || 'Позиция'}`;
-  const meta = [l.article, l.productName && l.productName !== l.title ? displayName(l.productName) : '', l.productId ? (l.categoryName || 'категория не выбрана') : '', l.qty != null ? `${l.qty} шт` : ''].filter(Boolean).join(' · ');
+  const format = l.passport ? variantName(l.passport.variant) || 'Прежний формат' : null;
+  const meta = [l.article, l.productName && l.productName !== l.title ? displayName(l.productName) : '', l.productId ? (l.categoryName || 'категория не выбрана') : '', l.qty != null ? `${l.qty} шт` : '', format].filter(Boolean).join(' · ');
+  const after = () => reload().catch((e) => kit.toastError(e, 'обновить план паспортов'));
+  const templateButton = () => kit.button({
+    label: 'Править шаблон', size: 'S', kind: 'ghost',
+    onClick: async (e) => {
+      const b = e.currentTarget;
+      const end = busyBtn(b, null);
+      try {
+        const { openBookForProduct } = await import('./passports/open-book.js');
+        await openBookForProduct(l.productId, {
+          variant: l.passport?.variant || order._variant,
+          position: { salesOrderId: order.orderId, incomeId: l.incomeId, lineNo: l.lineNo, orderNo: order.orderNo,
+            supplierOrgId: !order.firm ? pickOf(order.orderId)?.id : undefined },
+          onClose: after, isCurrent: () => b.isConnected,
+        });
+      } finally { end(); }
+    },
+  });
+  const openDraft = l.passport?.status === 'draft' && l.passport.id
+    ? kit.button({ label: 'Открыть черновик', size: 'S', onClick: async () => {
+      const { openBookEditor } = await import('./passports/book-editor.js');
+      await openBookEditor(l.passport.id, { onClose: after });
+    } }) : null;
   if (l.state === 'blocked' && l.productId && !firmOnly(l)) {
-    const host = h('div');
     // C086: название — обычным текстом; что не так и что делать — второй строкой; состояние — меткой справа, а не цветом всей строки
     const n = (l.missing || []).length;
-    const sec = kit.section({
+    return kit.section({
       lead: pic(l), title: name, plain: true, tone: 'neutral',
       sub: [meta, `Заполнить: ${shortMissing(l.missing)}`].filter(Boolean).join(' · '),
       side: kit.badge(n ? `не хватает ${n}` : label, tone),
-      body: [host],
+      body: [kit.actions(openDraft, canEdit() ? templateButton() : null)],
     });
-    sec.addEventListener('toggle', () => {
-      if (!sec.open || host.dataset.loaded) return;
-      host.dataset.loaded = '1';
-      mountFill(l, host, reload);
-    });
-    return sec;
   }
   const below = l.state === 'issued' ? null
     : l.state === 'ready' ? 'можно выпускать' : shortMissing(l.missing);
@@ -174,9 +168,8 @@ function lineView(l, reload, issueOne, orderId) {
     action = [
       issueOne ? kit.button({ label: 'Выпустить', size: 'S', title: 'Выпустить паспорт этой позиции — затем его можно распечатать',
         onClick: (e) => issueOne(l, e.currentTarget) }) : null,
-      kit.button({ label: 'Править шаблон', size: 'S', kind: 'ghost',
-        title: 'Открыть шаблон паспорта изделия для правки перед выпуском',
-        onClick: () => go('docs', { tab: 'templates', of: 'doctpl', open: l.productId, order: orderId }, { kind: 'card' }) }), // order: в шаблоне — «К паспортам заказа»
+      openDraft,
+      templateButton(),
     ].filter(Boolean);
   } else if (l.state === 'issued' && l.passport?.id) {
     const pid = l.passport.id;
@@ -184,7 +177,10 @@ function lineView(l, reload, issueOne, orderId) {
       kit.button({ label: 'Печать…', size: 'S', kind: 'ghost', title: 'Скачать PDF этого паспорта',
         onClick: async (e) => {
           const b = e.currentTarget; b.classList.add('is-busy');
-          try { await printDialog(await api(`/passports/${pid}`)); }
+          try {
+            const { printDialog } = await import('./passports/dialogs.js');
+            await printDialog(await api(`/passports/${pid}`, { query: { readOnly: 1 } }));
+          }
           catch (er) { kit.toastError(er, 'открыть печать паспорта'); }
           finally { b.classList.remove('is-busy'); }
         } }),
@@ -192,12 +188,15 @@ function lineView(l, reload, issueOne, orderId) {
         title: 'Большое окно: паспорт как в PDF, любое поле правится на месте',
         onClick: async (e) => {
           const b = e.currentTarget; b.classList.add('is-busy');
-          try { openBookEditor(await api(`/passports/${pid}`), { onClose: () => reload().catch(() => {}) }); }
+          try {
+            const { openBookEditor } = await import('./passports/book-editor.js');
+            await openBookEditor(pid, { onClose: after });
+          }
           catch (er) { kit.toastError(er, 'открыть паспорт'); }
           finally { b.classList.remove('is-busy'); }
         } }),
     ];
-  }
+  } else if (openDraft) action = [openDraft];
   // пользователь 14.11: выпущенная/готовая позиция — в такой же рамке-карточке, как строка «не хватает» выше
   if (!action) return kit.row({ lead: pic(l), title: name, meta: [meta, below].filter(Boolean).join(' · ') || null, side, wrap: true });
   return kit.section({
@@ -257,8 +256,9 @@ function body(row, ctx) {
   const editable = canEdit();
   const readyN = row.ready || 0;
   const issuedN = row.issued || 0;
-  const reload = async (extra) => {
-    const next = await fetchPlan(row.orderId);
+  const variant = row._variant || 'short';
+  const reload = async (extra, nextVariant = variant) => {
+    const next = await fetchPlan(row.orderId, nextVariant);
     if (next.firm) pickedFirm.delete(String(row.orderId));
     ctx.setRow({ ...next, ...(extra || {}) });
   };
@@ -267,7 +267,7 @@ function body(row, ctx) {
   const issueOne = async (l, b) => {
     b.classList.add('is-busy'); b.disabled = true;
     try {
-      const r = await api(`/passports/order/${row.orderId}/issue`, { method: 'POST', body: { lines: [l.incomeId], variant: passportVariant.value, ...(pick ? { supplierOrgId: pick.id } : {}) } });
+      const r = await api(`/passports/order/${row.orderId}/issue`, { method: 'POST', body: { presentationVersion: 1, lines: [l.incomeId], variant, ...(pick ? { supplierOrgId: pick.id } : {}) } });
       const skip = (r.skipped || [])[0];
       kit.toast(skip ? `Не выпущен: ${skip.reason}` : 'Паспорт выпущен — теперь его можно распечатать');
       window.dispatchEvent(new Event('data-changed'));
@@ -277,9 +277,15 @@ function body(row, ctx) {
 
   const seg = kit.segmented({
     label: 'Вариант паспорта', fit: true,
-    items: [{ key: 'short', label: 'Упрощённый' }, { key: 'full', label: 'Полный' }],
-    value: passportVariant.value,
-    onChange: async (k) => { passportVariant.value = k; try { await reload(); } catch (e) { kit.toastError(e, 'обновить план паспортов'); } },
+    items: bookVariants,
+    value: variant,
+    onChange: async (k) => {
+      seg.set(variant);
+      if (k === variant) return;
+      seg.buttons.forEach((btn) => { btn.disabled = true; });
+      try { await reload(undefined, k); } catch (e) { kit.toastError(e, 'обновить план паспортов'); }
+      finally { seg.buttons.forEach((btn) => { btn.disabled = false; }); }
+    },
   });
 
   const issueBtn = kit.button({
@@ -288,7 +294,7 @@ function body(row, ctx) {
     onClick: async (e) => {
       const b = e.currentTarget; b.classList.add('is-busy'); b.disabled = true;
       try {
-        const r = await api(`/passports/order/${row.orderId}/issue`, { method: 'POST', body: { variant: passportVariant.value, ...(pick ? { supplierOrgId: pick.id } : {}) } });
+        const r = await api(`/passports/order/${row.orderId}/issue`, { method: 'POST', body: { presentationVersion: 1, variant, ...(pick ? { supplierOrgId: pick.id } : {}) } });
         const n = (r.issued || []).length, m = (r.skipped || []).length;
         kit.toast(`Выпущено ${n}, пропущено ${m}`);
         window.dispatchEvent(new Event('data-changed'));
@@ -305,7 +311,7 @@ function body(row, ctx) {
   });
 
   const lines = (row.lines || []).length
-    ? kit.stack(...(row.lines || []).map((l) => lineView(l, reload, editable ? issueOne : null, row.orderId)))
+    ? kit.stack(...(row.lines || []).map((l) => lineView(l, reload, editable ? issueOne : null, row)))
     : kit.hint('В заказе нет позиций. Добавьте позиции — здесь появится план паспортов.');
 
   const skipped = row._skipped?.length ? kit.section({
@@ -319,7 +325,10 @@ function body(row, ctx) {
       const files = (d.items || []).filter((x) => x.printSource === 'file' || x.printFile?.hasFile);
       if (!files.length) return;
       filesBox.replaceChildren(h('p', { class: 'muted small' }, 'В общий PDF не входят, скачиваются отдельным файлом: ',
-        ...files.flatMap((x, i) => [i ? ', ' : null, kit.link({ label: '№ ' + x.passportNumber, title: x.name || 'Скачать файл', onClick: () => download(x, {}, 'файл').catch((e) => kit.toastError(e, 'скачать файл')) })])));
+        ...files.flatMap((x, i) => [i ? ', ' : null, kit.link({ label: '№ ' + x.passportNumber, title: x.name || 'Скачать файл', onClick: async () => {
+          try { const { download } = await import('./passports/dialogs.js'); await download(x, {}, 'файл'); }
+          catch (e) { kit.toastError(e, 'скачать файл'); }
+        } })])));
     }).catch(() => {});
   }
 
@@ -329,7 +338,7 @@ function body(row, ctx) {
   // C111: stack — зазор между шапкой, рядом кнопок и списком (на телефоне кнопки не липнут к списку).
   // Ш1: выпуск и печать — сразу под сводкой, видны без прокрутки при 12+ позициях.
   return kit.stack(
-    kit.headbar(h('div', null, summaryRow(row), firmBlock(row, reload), kit.hint('Упрощённый — основное. Полный — с зоной размещения и доп. рисунками, если заполнены.')), seg.el),
+    kit.headbar(h('div', null, summaryRow(row), firmBlock(row, reload), kit.hint('Вариант для новых паспортов.')), seg.el),
     kit.actions(...buttons),
     noReady,
     skipped, lines,

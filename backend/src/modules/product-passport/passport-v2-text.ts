@@ -2,6 +2,7 @@ import { compose, legacyStartNumber, legacyTemplateToBlocks, usedStandards, TRAI
 import { collectTraits, filterByWhen } from './passport-traits';
 import { overrideFor } from '../../common/passport/text-overrides';
 import { choicesObject, resolveChoices, FIELD_SECTIONS, type PhraseTreeNode, type ProductCtx } from '../../common/passport/phrase-tree';
+import { isBriefPresentation, printPhraseRoots } from './passport-presentation';
 import { describeProduct, installText, maintenanceTables, usageRulesFrom, type DictRec, type InstallParts, type MaintenanceRow, type MaintenanceTable } from './passport-compose-parts';
 import type { FieldRef, FieldRefs } from './passport-snapshot-field';
 
@@ -91,13 +92,15 @@ export function buildV2Text(input: V2TextInput): V2Text {
   let purposeRef = ofProduct('purpose');
   let installRef: FieldRef | null = null;
   // воронка: разделы «Назначение» и «Установка» идут в поля, остальные — заменяют пункт №slot раздела шаблона
-  const resolved = resolveChoices(input.funnel?.forest ?? [], input.funnel?.choices, input.funnel?.product);
+  const brief = isBriefPresentation(p);
+  const forest = printPhraseRoots(input.funnel?.forest ?? [], brief);
+  const resolved = resolveChoices(forest, input.funnel?.choices, input.funnel?.product);
   const extraMissing = new Set<string>();
   let purpose = '';
   let installLeaf: PhraseTreeNode | null = null;
   const used: Array<{ text: string; sectionTitle?: string }> = [];
   const funnelTexts: FunnelText[] = [];
-  for (const root of input.funnel?.forest ?? []) {
+  for (const root of forest) {
     const leaf = resolved.leaves.get(root.id)?.leaf;
     if (!leaf) continue;
     // C060: свой текст изделия вместо варианта справочника / раздел убран
@@ -137,7 +140,9 @@ export function buildV2Text(input: V2TextInput): V2Text {
   const byCode = (dicts.defects || []).filter((d) => !exDefects.includes(String(d?.code ?? '')));
   const defects = filterByWhen(byCode, info, 'maintenance', excluded);
   const manualDescr = manual.includes('description') && !!ownText('description');
-  const description = manualDescr ? ownText('description') : describeProduct(p as never, elements, materials, dicts.materials ?? []);
+  const description = brief
+    ? String((p.simpleDescription as { text?: unknown } | undefined)?.text ?? '').trim()
+    : manualDescr ? ownText('description') : describeProduct(p as never, elements, materials, dicts.materials ?? []);
   const rules = usageRulesFrom(elements);
   const rowRefs = new Map<MaintenanceRow, FieldRef>();
   const maintenance = maintenanceTables(materials, elements, defects.kept, install, rowRefs);

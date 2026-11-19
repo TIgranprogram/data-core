@@ -1,16 +1,15 @@
 import { api, session } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { date, money, qty } from '../../core/format.js';
-import { go } from '../../core/router.js';
+import { current, go, patch } from '../../core/router.js';
 import { badge, button, busyBlock, empty, enhanceSelect, failBlock, hint, readonlyGroup, row as kitRow, section, select, stack, table, toast, toastError } from '../../ui/kit/index.js';
 import { kindName, kindNorm } from '../../core/passport-kinds.js';
-import { passportVariant } from '../passports/dialogs.js';
+import { loadBookTemplate } from '../passports/book-template.js';
 import { jointsText } from '../passports/traits.js';
 import { suggestLink } from '../../ui/composition-suggest.js';
 import { warnCard } from '../../ui/kit/screens/blocks.js';
 import { clearNoteWarning, resetPdCategory } from './data.js';
 import { productTypeLine } from '../passports/common.js';
-import { openPassportFunnel } from '../passports/funnel/open.js';
 
 /* Блоки правой панели изделия (вид): примечание-предупреждение, состав, документация, «В заказах», тип паспорта.
  * ПМ-1 (2026-11-06): каждый блок — свёрнутая секция kit.section с числом; пустой — одна строка внутри. */
@@ -92,27 +91,23 @@ function orderCell(x) {
   return h('a', { href: `#salesorders?open=${oid}`, onClick: (e) => e.stopPropagation() }, label);
 }
 
-/** «⋯ → Править шаблон / Изменить паспорт»: C141 — только эталонная книжка (не старая анкета doctpl). */
-export async function openPassportTemplate(row, ctx) {
-  try {
-    const { openBookForProduct } = await import('../passports/open-book.js');
-    await openBookForProduct(row.id, {
-      onClose: async () => {
-        try { ctx?.setRow?.(await api(`/showcase/${row.id}`)); } catch { /* карточка как была */ }
-      },
-    });
-  } catch (e) { toastError(e, 'открыть паспорт'); }
+/** Ссылка на книжку сохраняет открытое изделие и параметры списка. */
+export function openPassportTemplate(row) {
+  if (current().section === 'products') patch({ templateFor: row.id, bookFor: undefined });
+  else go('products', { templateFor: row.id });
 }
 
 /** Вкладка «Паспорт»: сведения и таблица выпущенных — только чтение; выпуск, загрузка, правка шаблона — в «⋯» шапки (C119). */
 export function passportPane(row, ctx) {
   const host = stack(busyBlock('паспорт изделия', { retry: paint }));
-  const cat = () => row.passportCategory?.code || row.passportDefaults?.passportCategory || '';
   async function paint() {
     let check = null;
-    if (cat()) {
+    let category = row.passportCategory?.code || row.passportDefaults?.passportCategory || '';
+    if (session.canEdit) {
       try {
-        check = await api('/passports/check', { method: 'POST', body: { productId: row.id, mode: 'template', variant: passportVariant.value } });
+        const tpl = await loadBookTemplate(row.id);
+        check = tpl.readiness;
+        category = tpl.passportCategory;
       } catch (e) {
         host.replaceChildren(failBlock(e, paint, { text: 'Паспорт изделия не проверился' }));
         return;
@@ -124,13 +119,13 @@ export function passportPane(row, ctx) {
     const lackIn = lack.filter((k) => uniq.includes(k));
     const have = Math.max(0, uniq.length - lackIn.length);
     const names = [...new Set(lackIn)].map(kindName).join(', ');
-    const draw = !cat()
+    const draw = !category
       ? hint('Тип паспорта не задан: его задают в группе изделия или в виде изделия', 'warn')
       : uniq.length
         ? hint(`Рисунки: ${have} из ${uniq.length}` + (names ? ` · не хватает: ${names}` : ''))
         : hint('Рисунки не требуются');
     const n = (check?.missing || []).length;
-    const ready = !cat() ? null : n ? hint(`Готовность шаблона: не хватает ${n}`, 'warn') : badge('Готовность шаблона: всё готово', 'ok');
+    const ready = !check ? null : check.ready ? badge('Упрощённый шаблон готов', 'ok') : hint(`Упрощённый шаблон: не хватает ${n}`, 'warn');
     const card = section({
       title: 'Паспорт', fixed: true, tone: 'info',
       body: [
@@ -141,7 +136,8 @@ export function passportPane(row, ctx) {
           ['Как соединено', jointsText(row.passportDefaults?.joints) || null],
           ['Поставляется разобранным', row.passportDefaults?.isKit ? 'да' : null],
         ] }),
-        draw, ready,
+        check ? draw : null, ready,
+        session.canEdit ? button({ label: 'Открыть шаблон', size: 'S', onClick: () => openPassportTemplate(row) }) : null,
       ],
     });
     let items = row.passports?.items || [];
@@ -196,13 +192,6 @@ export function passportPane(row, ctx) {
             title: firmFilter ? 'Нет паспортов этой фирмы' : 'По этой модели паспортов ещё нет',
             hint: firmFilter ? undefined : '«Готовность шаблона» — данные. Файл появится после выпуска (без заказа и без договора).',
           }),
-          (!firmFilter && session.canEdit && session.seesDocs())
-            ? button({
-              label: 'Выпустить паспорт', kind: 'primary', size: 'S',
-              title: 'Без заказа и без договора — номер и PDF сразу',
-              onClick: () => openPassportFunnel({ productId: row.id }),
-            })
-            : null,
         );
       const more = total > items.length ? hint(`показаны последние ${items.length}`) : null;
       host.replaceChildren(card, filter, issued, more);

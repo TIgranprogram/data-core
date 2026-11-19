@@ -59,6 +59,7 @@
 
 - **Стенд после перезапуска Docker (2026-11-15):** Mongo и шлюз стенда остаются выключены (Exited 255), а `refresh` пересобирал только backend (`--no-deps`) → «EAI_AGAIN mongo» и «таймаут: backend health». Теперь `tools/night-stand.mjs` `refresh` сам поднимает mongo и proxy.
 - **Новый стенд (`dc stand renew`) — нет учётки стенда (2026-11-15):** свежая база без `stand-test` → stand-look «401». Теперь `tools/stand-look.mjs` при 401 сам заводит учётку (`stand-test-user.js`).
+- **Правая панель в Chromium выглядит на месте, но падает проверка её края (C155, 2026-11-19).** Перед замером дождитесь `animation.finished` у самой `.drawer`. Сравнивайте `drawer.getBoundingClientRect().right` с правой границей `document.body`. На копии после анимации обе границы были 1425 px, при этом `clientWidth` корневого элемента и `innerWidth` показали 1440 px из-за зарезервированной полосы прокрутки. [Сценарий и замеры](crew/C155-passport-owner-queue/DICTIONARY-PANEL.md)
 
 ## Ноутбук на Ubuntu после Windows (2026-11-15)
 - **Русские имена файлов в git — кодами** (`"pult/docs/\320\232…"`): `release.sh` считал такой файл «вне экранов» и шёл полным путём. Теперь `release.sh`/`preflight.sh` читают список с `-c core.quotepath=off`, `setup-ubuntu.sh` ставит `core.quotepath false`.

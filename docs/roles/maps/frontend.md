@@ -1,3 +1,11 @@
+## C155 B — шаблон и выпуск паспорта (2026-11-19)
+коммит: не закоммичено
+- `backend/pwa/sections/dicts.js:274`, `backend/pwa/main.js:642` — редактирование справочника в штатной панели. `backend/pwa/ui/kit/card.js:87`, `backend/pwa/core/popout.js:37` — возврат из прежнего окна с защитой ввода. Отчёт `DICTIONARY-PANEL.md`.
+- `backend/pwa/sections/passports/book-entry.js:8` — `templateFor` и совместимый `bookFor`. `book-editor.js:33` — общий renderer с явными режимами, `book-template.js:18` — частичный PATCH по собственным значениям.
+- `backend/pwa/sections/passports/book-choices.js:13` — незакрытые вопросы, выбор короткой словарной фразы. `book-template-edit.js:43` — своя формулировка, части, возврат к словарю.
+- `backend/pwa/sections/passports/book-issue.js:33` — выпуск и повтор по тому же ключу/id. `backend/pwa/sections/order-line-passports.js:96` — точная позиция. `backend/pwa/sections/order-passport-plan.js:87` — план v1. `backend/pwa/sections/passports.js:45` — открытие сохранённых экземпляров и печать старого образца в режиме чтения.
+- Отчёт и сценарии — `docs/crew/C155-passport-owner-queue/FRONTEND-IMPLEMENTATION.md`. Карта обновлена.
+
 ## C156 — отметка локальной копии (2026-11-19)
 коммит: не закоммичено
 - `backend/pwa/core/development-mode.js:17` метаданные разработки только с текущего loopback origin, без кэша и редиректа.

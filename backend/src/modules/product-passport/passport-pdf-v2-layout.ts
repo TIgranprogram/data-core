@@ -31,12 +31,13 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   const installLines = lines(t.install?.text);
   const requirements = (t.install?.requirements || []).map((x) => String(x).trim()).filter(Boolean);
   const rules = (t.rules || []).map((x) => String(x).trim()).filter(Boolean);
-  const descr = lines(t.description || p.description);
+  const brief = p.presentationVersion === 1 && p.variant === 'short';
+  const descr = lines(brief ? t.description : t.description || p.description);
   const purpose = lines(t.purpose);
   // Текстовое значение (паспорт партии: «по таблице …») печатается как есть
   // C095: модули сборного изделия — название, габариты, количество, рисунок; пустые строки не печатаются
-  const sheet = visibleSheet(p.compositionSheet);
-  const modules = (compositionPresentation(p) === 'tree' ? [] : p.modules || []).filter((m) => m && String(m.name || '').trim() && Number(m.qty) > 0);
+  const sheet = brief ? [] : visibleSheet(p.compositionSheet);
+  const modules = (brief || compositionPresentation(p) === 'tree' ? [] : p.modules || []).filter((m) => m && String(m.name || '').trim() && Number(m.qty) > 0);
   const specs = specRows(p, t.sizeLayout === 2).filter(([, v]) => has(v) || (typeof v === 'string' && v.trim() !== '')).map(([k, v]) => [String(k), has(v) ? num(v) : String(v)]);
 
   // Номера разделов (passport-numbering.ts): снимок с layout 2 — подряд 1…N, один «Монтаж»; прежние снимки — как печатались
