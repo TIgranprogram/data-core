@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { endpointFor, parseArgs, cacheKey, analyzeImage, review, latestAudit } from './vision-review.mjs';
 
 const good = () => ({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: '{"findings":[]}' } }], usage: { total_tokens: 42 } }) });
@@ -84,7 +85,7 @@ test('лимит изображений не учитывает текст; кэ
 
 test('CLI без input безопасен, аргументы ограничены', () => {
   for (const args of [['--limit', '11'], ['--limit', '0'], ['--timeout-seconds', '181'], ['--input'], ['--unknown'], ['--latest-audit', '--last'], ['--latest-audit', '--input', 'x']]) assert.throws(() => parseArgs(args));
-  const run = spawnSync(process.execPath, [new URL('./vision-review.mjs', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')], { encoding: 'utf8' });
+  const run = spawnSync(process.execPath, [fileURLToPath(new URL('./vision-review.mjs', import.meta.url))], { encoding: 'utf8' });
   assert.equal(run.status, 2);
   assert.match(run.stdout, /Использование/);
 });

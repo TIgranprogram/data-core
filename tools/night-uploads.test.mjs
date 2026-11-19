@@ -86,7 +86,7 @@ test('owner допускает свой uploads, отвергает чужие l
   assert.throws(() => assertOwned(run, b), /uploads/);
 });
 test('compose хранит uploads в отдельном owned volume', () => {
-  const compose = fs.readFileSync(new URL('./night/compose.yml', import.meta.url), 'utf8');
+  const compose = fs.readFileSync(new URL('./night/compose.yml', import.meta.url), 'utf8').replace(/\r\n/g, '\n'); // checkout с CRLF (autocrlf)
   assert.match(compose, /- uploads:\/app\/uploads/);
   assert.match(compose, /\n  uploads:\n    labels: \*owner/);
 });
