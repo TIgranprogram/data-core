@@ -1,0 +1,44 @@
+[
+  {
+    "path": "C:/Users/User/AppData/Local/Temp/datacore-c138-release",
+    "branch": "codex/c138-release",
+    "head": "e43db001aea26df2bb212d2701b26c0e9c3c230f",
+    "status": "M backend/pwa/sections/order-passport-plan.js\n M backend/pwa/sections/passports/book-shared.js",
+    "result": "detached; HEAD и рабочие изменения сохранены"
+  },
+  {
+    "path": "C:/Users/User/AppData/Local/Temp/datacore-c153-release",
+    "branch": "codex/c153-passport-print-name",
+    "head": "e99a4b7301b782ad7eaf6b80215b325f7f5a2cdf",
+    "status": "",
+    "result": "detached; HEAD и рабочие изменения сохранены"
+  },
+  {
+    "path": "D:/invSportiN/Сайт/01_Проекты_CRM/data-core/.claude/worktrees/c095-assembly",
+    "branch": "worktree-c095-assembly",
+    "head": "816bd81fa8c75a7a7b21995883416ee64329df98",
+    "status": "",
+    "result": "detached; HEAD и рабочие изменения сохранены"
+  },
+  {
+    "path": "D:/invSportiN/Сайт/01_Проекты_CRM/data-core-c088",
+    "branch": "c088-tester",
+    "head": "e77ee4d45c16d19937793bf3b52f4dda4f299dea",
+    "status": "",
+    "result": "detached; HEAD и рабочие изменения сохранены"
+  },
+  {
+    "path": "D:/invSportiN/Сайт/01_Проекты_CRM/data-core-c115",
+    "branch": "codex/c115-passports",
+    "head": "70c66dee09f19c66a6826d810fa3873aaa1436fd",
+    "status": "?? docs/crew/C115-solo-passports/evidence/order-9-601.pdf",
+    "result": "detached; HEAD и рабочие изменения сохранены"
+  },
+  {
+    "path": "D:/invSportiN/Сайт/01_Проекты_CRM/data-core-c116",
+    "branch": "codex/c116-dicts",
+    "head": "b0dff15502c1455694306e14725c9a6780354d63",
+    "status": "M docs/roles/maps/designer.md\n M docs/roles/maps/qa.md",
+    "result": "detached; HEAD и рабочие изменения сохранены"
+  }
+]
