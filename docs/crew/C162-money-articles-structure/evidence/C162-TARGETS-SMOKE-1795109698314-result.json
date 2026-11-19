@@ -1,0 +1,198 @@
+{
+  "run": "C162-TARGETS-SMOKE-1795109698314",
+  "origin": "http://localhost:3198",
+  "checks": [
+    "Sharedkit parentpicker:focus/input/listbox открыт без change/save",
+    "CombinedHEADb809fed4: readonly lazyclassification/invoice/dicts/orders picker формы без сохранения",
+    "Платежи/metadata не повторялись:7строк,5платежей,100000/262455/-162455 и2incomeID стабильны"
+  ],
+  "fixtures": [],
+  "screenshots": [
+    "C162-TARGETS-SMOKE-1795109698314-money-classification-lazy-1280.png",
+    "C162-TARGETS-SMOKE-1795109698314-invoice-paid-two-parts-1280.png",
+    "C162-TARGETS-SMOKE-1795109698314-financial-dictionary-shared-1280.png",
+    "C162-TARGETS-SMOKE-1795109698314-financial-dictionary-parent-picker-1280.png",
+    "C162-TARGETS-SMOKE-1795109698314-orders-financial-picker-1280.png"
+  ],
+  "status": "FAIL",
+  "control": {
+    "rows": 7,
+    "totals": {
+      "income": 100000,
+      "expense": 262455,
+      "net": -162455,
+      "currency": "RUB"
+    }
+  },
+  "sections": [],
+  "targets": [
+    {
+      "name": "money-classification-lazy",
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "money-classification-lazy",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "name": "invoice-paid-two-parts",
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "invoice-paid-two-parts",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "name": "financial-dictionary-shared",
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "financial-dictionary-shared",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "name": "orders-financial-picker",
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "orders-financial-picker",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    }
+  ],
+  "geometry": [
+    {
+      "name": "money-classification-lazy",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": "Фактические денежные операции",
+          "top": 660.109375,
+          "bottom": 1503.34375,
+          "left": 280,
+          "right": 1800.953125,
+          "parentWidth": 953,
+          "parentScrollWidth": 1521
+        }
+      ]
+    },
+    {
+      "name": "invoice-paid-two-parts",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": "Счета поставщиков",
+          "top": 398.671875,
+          "bottom": 1712.21875,
+          "left": 280,
+          "right": 1776.453125,
+          "parentWidth": 953,
+          "parentScrollWidth": 1496
+        },
+        {
+          "label": "Позиции счёта",
+          "top": 167.4375,
+          "bottom": 392.046875,
+          "left": 547,
+          "right": 1226,
+          "parentWidth": 679,
+          "parentScrollWidth": 679
+        },
+        {
+          "label": "История оплат счёта",
+          "top": 929.140625,
+          "bottom": 1052.9375,
+          "left": 547,
+          "right": 1226,
+          "parentWidth": 679,
+          "parentScrollWidth": 679
+        }
+      ]
+    },
+    {
+      "name": "financial-dictionary-shared",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": "Статьи доходов и расходов",
+          "top": 435.484375,
+          "bottom": 20778.71875,
+          "left": 611,
+          "right": 1379.5,
+          "parentWidth": 606,
+          "parentScrollWidth": 769
+        }
+      ]
+    },
+    {
+      "name": "financial-dictionary-parent-picker",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "INPUT",
+      "tables": [
+        {
+          "label": "Статьи доходов и расходов",
+          "top": 435.484375,
+          "bottom": 20778.71875,
+          "left": 611,
+          "right": 1379.5,
+          "parentWidth": 606,
+          "parentScrollWidth": 769
+        }
+      ]
+    },
+    {
+      "name": "orders-financial-picker",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": "Фактические денежные операции",
+          "top": 660.109375,
+          "bottom": 1503.34375,
+          "left": 280,
+          "right": 1800.953125,
+          "parentWidth": 953,
+          "parentScrollWidth": 1521
+        }
+      ]
+    }
+  ],
+  "profileCleanup": "Свой профиль удалён; только точный runID"
+}

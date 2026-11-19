@@ -53,3 +53,12 @@ Designerполучилточныйrunдлявизуальнойприёмки;д
 
 
 CombinedHEAD61558531/own3198,builtAt17:13:28.789Zhealth200:readonlysmoke`C161-COMBINED-SMOKE-1795108644079`rawFAIL(толькоdevelopmentversion/upload404),34экрана+4стыкабезJS/APIошибок/failedblocks/pagewide. Финансовыеинварианты7строк/100000/262455/−162455стабильны;см.COMBINED-SMOKE.mdиevidence. Ownprofileудалён,api.shлокальные2hunkпокасохранены.
+
+
+## Повторное сведение — b809fed4
+
+19.11.2026:owned3198standRefreshсохранилвсефикстуры/тома,health200. КодHEAD`b809fed45435254eb871765b3d9fa3c27ace1081`,dirty=true,builtAt`2026-11-19T17:34:37.715Z`;публичноеметадоказательствоevidence/combined-development-b809fed4.json. OpenAPI525pathsсновавыгруженизэтогоownedbackend,включаяновыеmainpartsDTOполя,SHA256`1a4e3663f44b1178035e2fa430882223eb4782aa76d2cfe03d21bfb93318fc7a`.
+
+Проверенныйrootwrapperc162-targets-smoke.mjs→combinedhelper--targets-only: **functional4targets+parentfocusPASS**,5PNG/result/summary/geometry`C162-TARGETS-SMOKE-1795109698314`. Общие34экранаповторнонеобходились. Lazyclassification/invoice2paidparts/financialdict/ordersnewpickersоткрылисьбезsave;kitparentinputfocus+listboxоткрытыбезchange. Финансовыесуммы7строк/5платежей,100000income/262455expense/net−162455,2stableincomeIDи21427reconciliation/nullсохранены.
+
+Rawresult **FAIL**сохранён:ровно4×/app/version.json404—прежнийсогласованныйenvironmentSKIP;0другихHTTP/API/JSошибок,0failedblocks/pagewide. Старыйобщий34+4результатпри61558531остаётсядоказательствомполногообхода,новыестыкиповторенынаb809fed4. Runtime/source/compose/фикстуры/денежныефактыагентомдоступанеменялись,prod/testDbнетронуты. Ownprofileудалён. Локальные2api.shhunkсохраненывtools/logs/c162-b809-stand-api-local.patchивосстановленыкb809fed4,diff0;новаяmainлогикасохранена.

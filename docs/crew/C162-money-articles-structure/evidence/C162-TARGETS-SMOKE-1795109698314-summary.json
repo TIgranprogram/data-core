@@ -1,0 +1,26 @@
+{
+  "run": "C162-TARGETS-SMOKE-1795109698314",
+  "sourceHead": "b809fed45435254eb871765b3d9fa3c27ace1081",
+  "builtAt": "2026-11-19T17:34:37.715Z",
+  "rawStatus": "FAIL",
+  "functionalTargets": "4 PASS",
+  "parentPickerFocus": "PASS",
+  "general34Repeated": false,
+  "environmentArtifact": "SKIP per coordinator:4 version.json404",
+  "otherEvents": [],
+  "failedBlocks": 0,
+  "pageWide": 0,
+  "control": {
+    "rows": 7,
+    "totals": {
+      "income": 100000,
+      "expense": 262455,
+      "net": -162455,
+      "currency": "RUB"
+    }
+  },
+  "profileRemoved": true,
+  "apiRestoredTo": "b809fed4",
+  "openapiPaths": 525,
+  "openapiSha256": "1a4e3663f44b1178035e2fa430882223eb4782aa76d2cfe03d21bfb93318fc7a"
+}

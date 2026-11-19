@@ -17053,7 +17053,7 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "Шаблон и готовность паспорта. Для краткого описания из частей defaults.simpleDescription содержит mode и partIds; вычисленный текст доступен в simpleDescriptionSource {kind:\"parts\",partIds,text,invalidPartIds?} и в textSnapshot.description."
           }
         },
         "tags": [
@@ -17097,7 +17097,7 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "Шаблон и готовность паспорта. Для краткого описания из частей defaults.simpleDescription содержит mode и partIds; вычисленный текст доступен в simpleDescriptionSource {kind:\"parts\",partIds,text,invalidPartIds?} и в textSnapshot.description."
           }
         },
         "tags": [
@@ -24375,7 +24375,33 @@
       },
       "PatchPassportTemplateDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "changes": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Собственные поля для записи. simpleDescription: {mode:\"parts\",partIds:[...]} для сборки из частей, {text,partIds} или {mode:\"manual\",text,partIds} для своего текста, null для сброса.",
+            "example": {
+              "simpleDescription": {
+                "mode": "parts",
+                "partIds": [
+                  "6537c21dd0f2c297559c4394"
+                ]
+              }
+            }
+          },
+          "expected": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Прежние собственные значения с теми же ключами. simpleDescription передаётся целиком из defaults или как null, если поле отсутствует.",
+            "example": {
+              "simpleDescription": null
+            }
+          }
+        },
+        "required": [
+          "changes",
+          "expected"
+        ]
       },
       "PassportPreviewDto": {
         "type": "object",
