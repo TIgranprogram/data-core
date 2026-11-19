@@ -1,0 +1,53 @@
+{
+  "run": "C165-STITCH-1795118222163",
+  "origin": "http://localhost:3198",
+  "status": "FAIL",
+  "checks": [
+    {
+      "view": "invoice list",
+      "visible": true
+    }
+  ],
+  "screenshots": [
+    "C165-STITCH-1795118222163-failure-1920.png"
+  ],
+  "errors": [],
+  "blockedRequests": [
+    {
+      "phase": "#requests",
+      "method": "HEAD",
+      "path": "/app/main.js"
+    },
+    {
+      "phase": "#requests",
+      "method": "HEAD",
+      "path": "/app/main.js"
+    },
+    {
+      "phase": "#requests",
+      "method": "HEAD",
+      "path": "/app/main.js"
+    },
+    {
+      "phase": "#requests",
+      "method": "HEAD",
+      "path": "/app/main.js"
+    }
+  ],
+  "knownCopyArtifacts": [
+    {
+      "phase": "#requests",
+      "kind": "http",
+      "status": 404,
+      "path": "/app/version.json"
+    },
+    {
+      "phase": "#requests",
+      "kind": "http",
+      "status": 404,
+      "path": "/app/version.json"
+    }
+  ],
+  "error": "The expression evaluated to a falsy value:\n\n  assert.ok(g&&g.amountVisible&&g.titleTypeCount===1&&g.parts.every(x=>x.visible&&x.left>=g.bounds.left-1&&x.right<=g.bounds.right+1))\n",
+  "profileExists": false
+}

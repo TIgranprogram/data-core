@@ -1,0 +1,3 @@
+*.mjs -text
+*.py -text
+*.cjs -text

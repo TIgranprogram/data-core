@@ -1,0 +1,87 @@
+{
+  "status": "PASS",
+  "exportedAt": "2026-11-19T19:51:13.704093+00:00",
+  "ownedRun": "f9f4ea383bd66a4c5d81e48b",
+  "backendContainerId": "fa3b0dcdd93fd91095b53eabaa302b46848b82f86f8d25e293810cfd1d4810d5",
+  "backendImage": "sha256:facc862d0a68359ce764251f491fa99ac870ae7cd3f5118384f39b34511c193a",
+  "source": {
+    "branch": "codex/wip-2026-11-19-c165",
+    "head": "0debbc3ee94bc6ce1bea0e6d7c43cf54c0e31d24",
+    "dirty": true,
+    "upstream": "origin/codex/wip-2026-11-19-c165",
+    "ahead": 4,
+    "behind": 0
+  },
+  "runtimeEquivalentTo": "5c0d346c (both frozen→HEAD and HEAD→worktree diff guards passed before backend-only build)",
+  "mongoUnchanged": {
+    "mongoId": "dec559c4d2c953ea05aef449e54b8527b7e55e094925268e953a3deb5293c42a",
+    "mongoStartedAt": "2026-11-19T13:06:21.678529654Z",
+    "proxyId": "de56d6b70a8a287a3c44c7dfc497554f925f954b066ad1dd9688e7d4a1c3fc3d",
+    "proxyStartedAt": "2026-11-19T13:14:19.94238077Z"
+  },
+  "beforeExportSha256": null,
+  "exportSha256": "efdcc84c91efd2e662fc40e3a242e5d5a7395dd4671627165cf02dda5f6a1392",
+  "pathCount": 528,
+  "schemaCount": 205,
+  "C165": [
+    {
+      "path": "/supply/invoices/{id}/undated-payment",
+      "method": "post",
+      "schema": "UndatedInvoicePaymentDto",
+      "fields": [
+        "clientUid",
+        "version",
+        "reason",
+        "fileIds"
+      ],
+      "required": [
+        "clientUid",
+        "version",
+        "reason"
+      ]
+    },
+    {
+      "path": "/supply/invoices/{id}/undated-payment/revoke",
+      "method": "post",
+      "schema": "RevokeUndatedInvoicePaymentDto",
+      "fields": [
+        "clientUid",
+        "version",
+        "reason"
+      ],
+      "required": [
+        "clientUid",
+        "version",
+        "reason"
+      ]
+    },
+    {
+      "path": "/photos/{id}/repair-original-filename",
+      "method": "post",
+      "schema": "RepairOriginalFilenameDto",
+      "fields": [
+        "expectedOriginalFilename",
+        "newOriginalFilename"
+      ],
+      "required": [
+        "expectedOriginalFilename",
+        "newOriginalFilename"
+      ]
+    }
+  ],
+  "C163": {
+    "path": "/showcase/{id}/passport-template",
+    "method": "patch",
+    "schema": "PatchPassportTemplateDto",
+    "changesExpectedGenericObject": true,
+    "typedFacetValueIds": false,
+    "limitation": "facetValueIds CAS is implemented in runtime, but changes/expected are generic additionalProperties:true. No invented typed OpenAPI property or hand-edited schema."
+  },
+  "sourceDtoSha256": {
+    "backend/src/modules/supply/dto-invoice.ts": "9244282a21fa6c75b1d458ff7040fa8538b08943e470e38d2d31ed9ff273b9de",
+    "backend/src/modules/photos/repair-filename.dto.ts": "066d6cb65b3d58fd9ac8866908ffac6ad8a9532a532432b463e2050876cf760a",
+    "backend/src/modules/product-passport/dto/presentation.dto.ts": "7e7f2ae94383d665d2dc012c935da503f5f72d4e0a865ccd04c961336d7ed435",
+    "backend/src/modules/showcase/passport-template-patch.ts": "02151b348812282beb910d9d9a19f30938c8dae2e392d94c2c9c2f3570d89340"
+  },
+  "noAuthNoBusinessWrites": true
+}

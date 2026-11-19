@@ -4172,6 +4172,72 @@
         ]
       }
     },
+    "/supply/invoices/{id}/undated-payment": {
+      "post": {
+        "operationId": "SupplyController_confirmUndated",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UndatedInvoicePaymentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/invoices/{id}/undated-payment/revoke": {
+      "post": {
+        "operationId": "SupplyController_revokeUndated",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeUndatedInvoicePaymentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
     "/supply/invoices/{id}/payments/{paymentId}/void": {
       "post": {
         "operationId": "SupplyController_voidInvoicePayment",
@@ -14244,6 +14310,36 @@
         }
       }
     },
+    "/photos/{id}/repair-original-filename": {
+      "post": {
+        "operationId": "PhotosController_repairOriginalFilename",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepairOriginalFilenameDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/counterparties": {
       "get": {
         "operationId": "CounterpartyController_list",
@@ -20176,6 +20272,50 @@
         "type": "object",
         "properties": {}
       },
+      "UndatedInvoicePaymentDto": {
+        "type": "object",
+        "properties": {
+          "clientUid": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "fileIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "clientUid",
+          "version",
+          "reason"
+        ]
+      },
+      "RevokeUndatedInvoicePaymentDto": {
+        "type": "object",
+        "properties": {
+          "clientUid": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "clientUid",
+          "version",
+          "reason"
+        ]
+      },
       "CreateInvoicePaymentDto": {
         "type": "object",
         "properties": {
@@ -20215,7 +20355,10 @@
           "version": {
             "type": "number"
           }
-        }
+        },
+        "required": [
+          "clientUid"
+        ]
       },
       "VoidInvoicePaymentDto": {
         "type": "object",
@@ -23714,6 +23857,21 @@
             "description": "TZ-ORG-ASSETS-301 — юридический адрес для шапки документов"
           }
         }
+      },
+      "RepairOriginalFilenameDto": {
+        "type": "object",
+        "properties": {
+          "expectedOriginalFilename": {
+            "type": "string"
+          },
+          "newOriginalFilename": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "expectedOriginalFilename",
+          "newOriginalFilename"
+        ]
       },
       "QuickCreatePartyDto": {
         "type": "object",

@@ -1,0 +1,139 @@
+{
+  "run": "C165-STITCH-1795118375287",
+  "origin": "http://localhost:3198",
+  "status": "PASS",
+  "checks": [
+    {
+      "view": "invoice list",
+      "visible": true
+    },
+    {
+      "view": "date form",
+      "theme": "light",
+      "emptyDate": true,
+      "geometry": {
+        "titleTypeCount": 1,
+        "amountVisible": true,
+        "bounds": {
+          "left": 1162,
+          "right": 1785
+        },
+        "parts": [
+          {
+            "left": 1542.109375,
+            "right": 1694.96875,
+            "visible": true
+          },
+          {
+            "left": 1702.96875,
+            "right": 1785,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "view": "date form",
+      "theme": "dark",
+      "emptyDate": true,
+      "geometry": {
+        "titleTypeCount": 1,
+        "amountVisible": true,
+        "bounds": {
+          "left": 1162,
+          "right": 1785
+        },
+        "parts": [
+          {
+            "left": 1542.109375,
+            "right": 1694.96875,
+            "visible": true
+          },
+          {
+            "left": 1702.96875,
+            "right": 1785,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "view": "fill invoicePaymentDate",
+      "ownPendingVisible": true
+    },
+    {
+      "view": "money table",
+      "theme": "light",
+      "layout": {
+        "rows": 7,
+        "wide": false,
+        "failed": 0
+      }
+    },
+    {
+      "view": "money table",
+      "theme": "dark",
+      "layout": {
+        "rows": 7,
+        "wide": false,
+        "failed": 0
+      }
+    },
+    {
+      "readonly": true,
+      "newFixtures": 0,
+      "pendingPayments": 0,
+      "pendingLedger": 0,
+      "moneyRows": 7,
+      "moneyUnchanged": true
+    }
+  ],
+  "screenshots": [
+    "C165-STITCH-1795118375287-date-light-1920.png",
+    "C165-STITCH-1795118375287-date-dark-1920.png",
+    "C165-STITCH-1795118375287-money-light-1920.png",
+    "C165-STITCH-1795118375287-money-dark-1920.png"
+  ],
+  "errors": [],
+  "blockedRequests": [],
+  "readonlyStaticHeadCount": 6,
+  "knownCopyArtifacts": [
+    {
+      "phase": "#requests",
+      "kind": "http",
+      "status": 404,
+      "path": "/app/version.json"
+    },
+    {
+      "phase": "#requests",
+      "kind": "http",
+      "status": 404,
+      "path": "/app/version.json"
+    },
+    {
+      "phase": "#requests",
+      "kind": "http",
+      "status": 404,
+      "path": "/app/version.json"
+    },
+    {
+      "phase": "#fill",
+      "kind": "http",
+      "status": 404,
+      "path": "/app/version.json"
+    },
+    {
+      "phase": "#money",
+      "kind": "http",
+      "status": 404,
+      "path": "/app/version.json"
+    },
+    {
+      "phase": "#money",
+      "kind": "http",
+      "status": 404,
+      "path": "/app/version.json"
+    }
+  ],
+  "profileExists": false
+}

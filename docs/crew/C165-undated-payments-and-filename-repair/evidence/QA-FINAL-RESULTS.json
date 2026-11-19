@@ -1,0 +1,344 @@
+{
+  "date": "2026-11-19",
+  "scope": "Combined C165 undated payments/filename repair + C163 passport changes",
+  "runtimeRunHash": "5c0d346c2edc7b5067818709280fe654b628a57d",
+  "finalDocsOnlyHead": "0debbc3ee94bc6ce1bea0e6d7c43cf54c0e31d24",
+  "status": "PASS_AUTOMATED_QA_WITH_T26_OPT_IN_SKIP",
+  "allFullRunsAreSingleActualRuns": true,
+  "commands": {
+    "unit": {
+      "run": {
+        "command": "node --max-old-space-size=6144 node_modules/jest/bin/jest.js --silent --runInBand --json --outputFile=../tools/logs/c165-final-unit-result.json",
+        "endedUtc": "2026-11-19T19:43:28.2591091Z",
+        "startedUtc": "2026-11-19T19:42:11.0283276Z",
+        "exitCode": 0
+      },
+      "result": {
+        "numPassedTestSuites": 367,
+        "numFailedTestSuites": 0,
+        "numPendingTestSuites": 0,
+        "numPassedTests": 3766,
+        "numFailedTests": 0,
+        "numPendingTests": 0,
+        "numTotalTests": 3766,
+        "startTime": 1795117332133,
+        "success": true
+      },
+      "jestSeconds": 75.927,
+      "artifacts": [
+        {
+          "file": "tools/logs/c165-final-unit-result.json",
+          "sha256": "73fd7100955884eab3b415dc0ffd069cea22b4449579b1ae336ff1bb258987cf"
+        },
+        {
+          "file": "tools/logs/c165-final-unit-run.json",
+          "sha256": "e4d203b4cd91aa8474a7dbe84634c7fb14dbf440593c7716bfdfaae51e55ef85"
+        },
+        {
+          "file": "tools/logs/c165-final-unit.log",
+          "sha256": "1b22f32cb68130b1c1cd944a202920d3e57e5ec763717a13a0d5d1b152dfa701"
+        }
+      ]
+    },
+    "e2e": {
+      "run": {
+        "startedUtc": "2026-11-19T19:42:11.5692509Z",
+        "exitCode": 0,
+        "endedUtc": "2026-11-19T19:51:28.3405473Z",
+        "command": "node tools/logs/c158-e2e.mjs --silent --json --outputFile=../tools/logs/c165-final-e2e-result.json"
+      },
+      "result": {
+        "numPassedTestSuites": 85,
+        "numFailedTestSuites": 0,
+        "numPendingTestSuites": 1,
+        "numPassedTests": 666,
+        "numFailedTests": 0,
+        "numPendingTests": 12,
+        "numTotalTests": 678,
+        "startTime": 1795117331983,
+        "success": true
+      },
+      "jestSeconds": 555.92,
+      "artifacts": [
+        {
+          "file": "tools/logs/c165-final-e2e-result.json",
+          "sha256": "8fbe8df4b6de9786e42f7192ac5a6380094a25724530c6db07d9eaa0181be97d"
+        },
+        {
+          "file": "tools/logs/c165-final-e2e-run.json",
+          "sha256": "60e9b90cfb41c50aa4ced34809364663270e97276262ea3fc74c13f9ee6797f8"
+        },
+        {
+          "file": "tools/logs/c165-final-e2e.log",
+          "sha256": "03fddd6d15806aa33cd4b8c68fc3259d737bbc86c4adb26b5f794877a3fd5702"
+        }
+      ]
+    }
+  },
+  "pwa": {
+    "run": {
+      "argv": [
+        "node",
+        "--experimental-vm-modules",
+        "--test",
+        "--test-concurrency=2",
+        "--test-reporter=tap",
+        "backend/pwa\\ilogic\\passport-images.test.mjs",
+        "backend/pwa\\ui\\search-logic.test.mjs",
+        "backend/pwa\\core\\write-retry.test.mjs",
+        "backend/pwa\\ui\\materials-spec.test.mjs",
+        "backend/pwa\\core\\stale.test.mjs",
+        "backend/pwa\\core\\recent-cards.test.mjs",
+        "backend/pwa\\core\\popout.test.mjs",
+        "backend/pwa\\core\\passport-images.test.mjs",
+        "backend/pwa\\core\\order-color.test.mjs",
+        "backend/pwa\\core\\nav-stack.test.mjs",
+        "backend/pwa\\core\\invoice-merge.test.mjs",
+        "backend/pwa\\core\\grammar.test.mjs",
+        "backend/pwa\\core\\garbage.test.mjs",
+        "backend/pwa\\core\\facets.test.mjs",
+        "backend/pwa\\core\\errors.test.mjs",
+        "backend/pwa\\core\\error-http-report.test.mjs",
+        "backend/pwa\\core\\error-context.test.mjs",
+        "backend/pwa\\core\\development-mode.test.mjs",
+        "backend/pwa\\sections\\invoice-price.test.mjs",
+        "backend/pwa\\sections\\financial-articles.test.mjs",
+        "backend/pwa\\sections\\dicts-c116.test.mjs",
+        "backend/pwa\\sections\\atlas-brief.test.mjs",
+        "backend/pwa\\sections\\money-operations.test.mjs",
+        "backend/pwa\\sections\\invoice-workspace.test.mjs",
+        "backend/pwa\\sections\\stock-passport.test.mjs",
+        "backend/pwa\\sections\\salesorders-next.test.mjs",
+        "backend/pwa\\sections\\request-step.test.mjs",
+        "backend/pwa\\sections\\products\\photo-fallback.test.mjs",
+        "backend/pwa\\sections\\products\\materials-proposal.test.mjs",
+        "backend/pwa\\sections\\products\\fill-composition.test.mjs",
+        "backend/pwa\\sections\\products\\data-pd.test.mjs",
+        "backend/pwa\\sections\\products\\create-session.test.mjs",
+        "backend/pwa\\ui\\kit\\card.test.mjs",
+        "backend/pwa\\ui\\kit\\card-gallery.test.mjs",
+        "backend/pwa\\ui\\kit\\auto-more.test.mjs",
+        "backend/pwa\\ui\\kit\\errors.test.mjs",
+        "backend/pwa\\ui\\kit\\drag.test.mjs",
+        "backend/pwa\\ui\\kit\\gallery.test.mjs",
+        "backend/pwa\\sections\\order-product-picker.test.mjs",
+        "backend/pwa\\sections\\order-passport-text.test.mjs",
+        "backend/pwa\\sections\\passport-tree-state.test.mjs",
+        "backend/pwa\\ui\\kit\\toast.test.mjs",
+        "backend/pwa\\sections\\passports\\product-block.test.mjs",
+        "backend/pwa\\sections\\passports\\product-block-create.test.mjs",
+        "backend/pwa\\sections\\passports\\print-options.test.mjs",
+        "backend/pwa\\sections\\passports\\modules.test.mjs",
+        "backend/pwa\\sections\\passports\\installation-text.test.mjs",
+        "backend/pwa\\sections\\passports\\image-ownership.test.mjs",
+        "backend/pwa\\ui\\kit\\recent-cards.test.mjs",
+        "backend/pwa\\ui\\kit\\pick-blur.test.mjs",
+        "backend/pwa\\sections\\passports\\book-inline-events.test.mjs",
+        "backend/pwa\\sections\\passports\\book-images.test.mjs",
+        "backend/pwa\\sections\\passports\\book-etalon-gate.test.mjs",
+        "backend/pwa\\sections\\passports\\book-entry.test.mjs",
+        "backend/pwa\\sections\\passports\\book-composition-tree.test.mjs",
+        "backend/pwa\\sections\\passports\\book-composition-funnel.test.mjs",
+        "backend/pwa\\sections\\passports\\book-autofill.test.mjs",
+        "backend/pwa\\sections\\passports\\funnel\\pick-steps.test.mjs",
+        "backend/pwa\\sections\\passports\\funnel\\new-product.test.mjs",
+        "backend/pwa\\sections\\passports\\funnel\\index-partial.test.mjs",
+        "backend/pwa\\sections\\passports\\funnel\\bar.test.mjs",
+        "backend/pwa\\sections\\passports\\form-state.test.mjs",
+        "backend/pwa\\sections\\passports\\choice-regressions.test.mjs",
+        "backend/pwa\\sections\\passports\\book-setup.test.mjs",
+        "backend/pwa\\sections\\passports\\create-book-draft.test.mjs",
+        "backend/pwa\\sections\\passports\\fill\\save-queue.test.mjs",
+        "backend/pwa\\sections\\passports\\fill\\model.test.mjs",
+        "backend/pwa\\sections\\passports\\fill\\control.test.mjs",
+        "backend/pwa\\sections\\passports\\fill\\category-change.test.mjs"
+      ],
+      "endedUtc": "2026-11-19T19:42:32.5179727Z",
+      "testFiles": 69,
+      "nodeExit": 0,
+      "importsExit": 0,
+      "startedUtc": "2026-11-19T19:42:11.8282285Z"
+    },
+    "tapSummary": {
+      "tests": 425,
+      "pass": 425,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "duration_ms": 15523.2206
+    },
+    "importsFiles": 364,
+    "importsErrors": 0,
+    "guardsInFullUnit": {
+      "tests": 359,
+      "status": "passed"
+    },
+    "artifacts": [
+      {
+        "file": "tools/logs/c165-final-pwa-run.json",
+        "sha256": "af751f7ee04a21becbb732198e2d323e08b21765a04e2c913a5fa18035b4dba9"
+      },
+      {
+        "file": "tools/logs/c165-final-pwa-test-files.json",
+        "sha256": "12db9f1a73d35c538c480d8c89293392d7da28d3584c59ab21cf118306b1d8cb"
+      },
+      {
+        "file": "tools/logs/c165-final-pwa-node.log",
+        "sha256": "f4789022ba17a93bd178a59cfac3ddfa99a99c5381a485c905ceedd5d1370046"
+      },
+      {
+        "file": "tools/logs/c165-final-pwa-imports.log",
+        "sha256": "d57e8be6b53ea141babb79812af6d174ce3ed1aa7bf5ebfe8c30540e67e780b1"
+      }
+    ]
+  },
+  "build": {
+    "run": {
+      "startedUtc": "2026-11-19T19:42:11.2348838Z",
+      "typecheckExit": 0,
+      "endedUtc": "2026-11-19T19:42:36.8070054Z",
+      "buildExit": 0
+    },
+    "artifacts": [
+      {
+        "file": "tools/logs/c165-final-build-run.json",
+        "sha256": "7ff7927c0ac6021d34cdc9f36e5d16fbceda621fd98784908353c13f1497a72e"
+      },
+      {
+        "file": "tools/logs/c165-final-typecheck.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "file": "tools/logs/c165-final-build.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ]
+  },
+  "tools": {
+    "run": {
+      "endedUtc": "2026-11-19T19:42:12.8947730Z",
+      "commitMsgExit": 0,
+      "startedUtc": "2026-11-19T19:42:10.4505768Z",
+      "cyclesExit": 0
+    },
+    "cycles": 0,
+    "commitMsg": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "skipped": 0
+    },
+    "artifacts": [
+      {
+        "file": "tools/logs/c165-final-tools-run.json",
+        "sha256": "b4ec3262ffaefb9d76e0961e70da9861088fba0c82dc13321269adf3450f2d66"
+      },
+      {
+        "file": "tools/logs/c165-final-cycles.log",
+        "sha256": "1435ae154f9c2998dd268cac2da29344b5daf3bcf332e04604b55a527b6ec2b5"
+      },
+      {
+        "file": "tools/logs/c165-final-commit-msg.log",
+        "sha256": "26a316c4567acedb3ad5f636d9bd248ad96ed21d95dedf45d726bd58d1fc1d42"
+      }
+    ]
+  },
+  "openApi": {
+    "file": "docs/openapi.json",
+    "sha256": "efdcc84c91efd2e662fc40e3a242e5d5a7395dd4671627165cf02dda5f6a1392",
+    "paths": 528,
+    "schemas": 205,
+    "generatedDocExcludedFromRuntimeManifest": true,
+    "exportRole": "datacore-access",
+    "proof": "docs/crew/C165-undated-payments-and-filename-repair/evidence/C165-combined-openapi-proof.json",
+    "proofSha256": "4a1e685580cc775aecaadfbe378e8323ccb03bbadea2c3e1df375f23e8f70b49"
+  },
+  "manifest": {
+    "files": 1735,
+    "beforeSha256": "34e1efb27a6c2093a4f3b0403ae316f9b9cb810684d104756981bca88831a170",
+    "afterSha256": "34e1efb27a6c2093a4f3b0403ae316f9b9cb810684d104756981bca88831a170",
+    "backendTestConfigLockBeforeSha256": "c3b51ae666b7964e96bf543448506842a4efa13778e53d3ac3e44fe07acbb60a",
+    "backendTestConfigLockAfterSha256": "c3b51ae666b7964e96bf543448506842a4efa13778e53d3ac3e44fe07acbb60a",
+    "changed": [],
+    "added": [],
+    "removed": []
+  },
+  "skipped": [
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога два create: новая/существующая резервация (false), один Material и один остаток",
+      "reason": "T26 opt-in1suite/12tests retained by agreement; dedicated disposable URI not enabled"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога два create: новая/существующая резервация (true), один Material и один остаток",
+      "reason": "T26 opt-in1suite/12tests retained by agreement; dedicated disposable URI not enabled"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога abort первого: второй создаёт один Material; повтор первого переиспользует id",
+      "reason": "T26 opt-in1suite/12tests retained by agreement; dedicated disposable URI not enabled"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога rename/create разделяют ключ нового имени; конфликт rename не делает дубль",
+      "reason": "T26 opt-in1suite/12tests retained by agreement; dedicated disposable URI not enabled"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога restore/create: одно активное имя, тот же восстановленный Material",
+      "reason": "T26 opt-in1suite/12tests retained by agreement; dedicated disposable URI not enabled"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога caseless Straße/STRAẞE использует один Material",
+      "reason": "T26 opt-in1suite/12tests retained by agreement; dedicated disposable URI not enabled"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога caseless Σ/ς использует один Material",
+      "reason": "T26 opt-in1suite/12tests retained by agreement; dedicated disposable URI not enabled"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога caseless ſ/S использует один Material",
+      "reason": "T26 opt-in1suite/12tests retained by agreement; dedicated disposable URI not enabled"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога caseless K/K использует один Material",
+      "reason": "T26 opt-in1suite/12tests retained by agreement; dedicated disposable URI not enabled"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога чужой scope не перекатегоризирует дубль; разрешённая категория остаётся",
+      "reason": "T26 opt-in1suite/12tests retained by agreement; dedicated disposable URI not enabled"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога post-commit сбой: повтор создаёт только недостающий остаток, не новый Material",
+      "reason": "T26 opt-in1suite/12tests retained by agreement; dedicated disposable URI not enabled"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога разные имена не склеиваются, закупки одного Material остаются двумя фактами",
+      "reason": "T26 opt-in1suite/12tests retained by agreement; dedicated disposable URI not enabled"
+    }
+  ],
+  "safety": {
+    "testDb": "datacore-test-f9f4ea383bd66a4c5d81e48b-night",
+    "mongoPort": 27158,
+    "standApiPort": 3198,
+    "separateHostJest": "no stand backend exec/refresh dependency",
+    "productionTouched": false,
+    "credentialsOpenedByQa": false,
+    "runtimeOrTestsEditedDuringRun": false
+  },
+  "limits": [
+    "Live UI/designer and release are coordinator/access scope",
+    "Docs-only merge0debbc3e has no source/config/lock difference; generated OpenAPI tracked separately",
+    "Stock empty catalog-card P2 remains documented backlog; no finance/stock quantity fact on rejected operation",
+    "Historical full runs preserved unchanged"
+  ]
+}
