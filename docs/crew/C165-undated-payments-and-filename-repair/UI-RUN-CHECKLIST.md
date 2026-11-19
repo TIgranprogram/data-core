@@ -1,0 +1,11 @@
+# C165 — запуск owned UI после backend freeze
+- [x] Root review: сценарий tools/logs/c165-ui-acceptance.mjs разрешён координатором для access/api.sh stand BROWSER; только localhost3198, session stdin, новые C165 fixtures, без prod/DB/секретов.
+- [x] Статическая сверка current UI: select aria-label="Дата оплаты", кнопки «Подтвердить без даты» / «Заполнить дату» / «Сохранить оплату» / «Отозвать подтверждение», file input/pf-pdf и fill-group.
+- [x] Статическая сверка current API: finance.operations.totals.expense (деньги /100, весь доступный набор), payments.items/total, optional requiresPaymentDate, evidence.files:id/name/url/mime.
+- [x] node --check PASS; собственный API/auth/браузер не запускал. UI-код freeze frontend; дополнительных правок без найденного дефекта нет.
+- [ ] Backend freeze + обновление owned3198; access запускает только reviewed сценарий; свежий уникальный run для каждого запуска сохраняет прошлый FAIL/result/PNG.
+- [ ] Fakecompany и C165 testsupplier, 2 счёта: 3 строки/50076 ₽/22%/16.09 и отдельный100 ₽ для revoke. Никакие реальные24334/24479/данныеC159 не менять.
+- [ ] Confirm через рабочую форму + synthetic PDF, reopen, id/имя/href/SHA сохранены. Отдельные PNG proof-link светлая/тёмная1920/1024 с видимым именем; resolved блок раскрывается штатным summary.
+- [ ] Pending: finance expense0, invoice payments0; list needsPaymentDate=1; отдельная #fill invoiceId; дата пустая, amount/payer hidden snapshot, сохранить пустую → ошибка/ledger0.
+- [ ] Явная17.09.2026 только тестовойфикстуре → одна оплата50076 ₽/тот же payer/date и financeexpense50076; из needsPaymentDate ушёл; фото не загружено повторно.
+- [ ] Второй счёт: revoke с причиной, state revoked/ledger0; без void/unpay/stock. Access сохраняет сырой JSON/PNG, designer оценивает фактические состояния; до этого UI PARTIAL.

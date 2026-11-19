@@ -293,6 +293,7 @@ export function invoiceBlock(r) {
   return section({ title: 'Счёт поставщика', open: true, body: [
     h('a', { class: 'link-btn', href }, r.invoiceNo ? 'Счёт № ' + r.invoiceNo : 'Счёт без номера'),
     h('p', { class: 'hint' }, [r.invoiceDate ? date(r.invoiceDate) : '', r.supplierName].filter(Boolean).join(' · ')),
+    r.invoiceRequiresPaymentDate || r.invoicePaymentState === 'date_required' ? h('p', { class: 'hint' }, 'Оплата подтверждена — заполнить дату') : null,
     h('p', { class: 'hint' }, 'Все позиции, реквизиты и разрешённые действия — в единой панели счёта.'),
   ] });
 }

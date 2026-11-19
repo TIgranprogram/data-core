@@ -1,3 +1,9 @@
+## C165 — подтверждённая оплата без даты (2026-11-19)
+коммит: не коммитил, передано координатору
+- `backend/pwa/sections/invoice-workspace-state.js:5,32,152` pending/date_required, финансовая блокировка, full RUB confirmation, explicit date/payer/amount; `invoice-workspace-forms.js:35,65,206` общие формы, пустая дата, snapshot, stable UID/body.
+- `backend/pwa/sections/invoice-workspace.js:241,274,287,333`, `invoices-tab.js:19`, `requests.js:367`, `request-invoice-actions.js:12`, `request-step.js:296` warning/сумма/основание и reopen evidence.files links (ARCH P2, ID/URL whitelist), filter и разрешённые команды; `invoice-workspace-api.js:29` отдельные confirm/revoke.
+- `backend/pwa/sections/fill.js:18,19` отдельная группа invoicePaymentDate из finance/needs-fill, переход по invoiceId; `invoice-workspace.test.mjs:528` регрессии. Отчёт/actual checklist C165/FRONTEND-REPORT.md, UI-REVIEW.md, UI-RUN-CHECKLIST.md; `tools/logs/c165-ui-acceptance.mjs:1` root-reviewed stdin-only3198, без собственного запуска. Карта обновлена.
+
 ## C161 — рекурсивные финансовые статьи и операции (2026-11-19)
 коммит: не закоммичено
 - `backend/pwa/sections/financial-articles-state.js:3,19,26,32`, `financial-articles.js:4` каноническое дерево, selectable/archive/parents/revision; usage opt-in и отдельный ключ кэша, счётчики только редактору; root только group, parent article выбирается явно при смене nodeKind; категории видны только expense+article и сохраняются при скрытии; invalidHierarchy не выбирается, historicalID сохраняется; `dicts-financial-articles.js:9,16,38`, `dicts.js:76,291,378` узкая финансовая ветка существующего редактора.

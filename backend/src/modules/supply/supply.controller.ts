@@ -1,3 +1,4 @@
+import { UndatedInvoicePaymentDto, RevokeUndatedInvoicePaymentDto } from './dto-invoice';
 import { canSeeMoney } from '../../common/roles-hierarchy';
 import { CreateInvoicePaymentDto, VoidInvoicePaymentDto, LegacyPayInvoiceDto } from './dto-invoice';
 import { AppSection, AppSectionFree } from '../../common/decorators/app-section.decorator';
@@ -153,6 +154,20 @@ export class SupplyController {
   async invoicePayments(@Param('id') id: string, @Query() q: Record<string, string>, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
     if (!canSeeMoney(user)) throw new ForbiddenException('Нет доступа к оплатам');
     return this.invoices.listPayments(id, q, scope);
+  }
+  @Post('invoices/:id/undated-payment')
+  @HttpCode(200) @Roles('admin', 'director', 'accountant', 'manager')
+  @AuditAction({ action: 'supply.invoice.undated_confirmed', entityType: 'SupplyInvoice', idParam: 'id' })
+  async confirmUndated(@Param('id') id: string, @Body() dto: UndatedInvoicePaymentDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    if (!canSeeMoney(user)) throw new ForbiddenException('Нет доступа к оплатам');
+    await this.invoices.assertWhole(id, scope); return this.invoices.confirmUndatedPayment(id, dto, user?.id);
+  }
+  @Post('invoices/:id/undated-payment/revoke')
+  @HttpCode(200) @Roles('admin', 'director', 'accountant', 'manager')
+  @AuditAction({ action: 'supply.invoice.undated_revoked', entityType: 'SupplyInvoice', idParam: 'id' })
+  async revokeUndated(@Param('id') id: string, @Body() dto: RevokeUndatedInvoicePaymentDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
+    if (!canSeeMoney(user)) throw new ForbiddenException('Нет доступа к оплатам');
+    await this.invoices.assertWhole(id, scope); return this.invoices.revokeUndatedPayment(id, dto, user?.id);
   }
   @Post('invoices/:id/payments')
   @HttpCode(200)

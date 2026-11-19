@@ -6,3 +6,9 @@
 2026-11-03 · «автообновление Sportin не сделано» в todo и SERVERS-STATUS устарело: на ПК задачи Windows уже есть, смотреть schtasks и D:\datacore-backups\refresh.log · docs/crew/C013-ha-sportin/REPORT.md
 2026-11-03 · не называть refresh-copy реальным временем: это mongorestore раз в сутки; цель пользователя — журнал replica set, и автомат макет запретил до защиты по лагу · docs/roles/tz/HA-TWO-SERVERS.md
 
+
+2026-11-19 · подтверждение полной оплаты без даты — отдельное evidence, не платёж и не долг; нельзя прятать его draft-статусом или подставлять today в legacy /pay · docs/crew/C158-supply-financial-fields/UNDATED-PAYMENT-ARCH.md
+
+2026-11-19 · «договор поставки» не определяет нашу сторону: сначала ИНН продавца/покупателя; SalesOrder — клиентский договор, productionNo только группировка. Счёт/условия аванса не создают поступление; PDF в фото позиции не заменяет юридический комплект договора · docs/crew/C164-new-documents-chain-audit/AUDIT-CODE.md
+
+2026-11-19 · callback транзакции, выбранный по invoiceId первого GET, не защищает первоначально standalone заявку от позднего attach→confirm. Freshsource/CAS нужен на всех receipt ветках до движения; исправление обычного PATCH не покрывает приёмку · docs/crew/C165-undated-payments-and-filename-repair/ARCH-REVIEW.md

@@ -1,3 +1,5 @@
+import type { StockScope } from '../../common/stock-scope';
+import { docScopeMatch } from '../../common/supply-scope';
 import { classifiedOperation } from './financial-operations';
 import { temporaryIncomeOperationId } from '../incomes/income-payment-identities';
 import { invoicePaymentSummaries } from '../supply/invoice-payment-summary';
@@ -86,7 +88,7 @@ export class FinanceService {
     const ids = [...new Map(rows.filter((r) => r.invoiceId).map((r) => [String(r.invoiceId), r.invoiceId])).values()];
     if (!ids.length) return new Set();
     const headers = await this.connection.db!.collection('supplyinvoices').find({ _id: { $in: ids }, deletedAt: null, $or: [
-      { paymentAccountingVersion: 1 }, { currency: { $in: FOREIGN_INVOICE_CURRENCIES } }, { status: 'paid', 'paymentSnapshot.paidAt': { $ne: null } },
+      { 'undatedPaymentEvidence.state': 'pending' }, { paymentAccountingVersion: 1 }, { currency: { $in: FOREIGN_INVOICE_CURRENCIES } }, { status: 'paid', 'paymentSnapshot.paidAt': { $ne: null } },
     ] }, { projection: { _id: 1 } }).toArray();
     return new Set(headers.map((r) => String(r._id)));
   }
@@ -94,7 +96,7 @@ export class FinanceService {
   /** Непогашенное обязательство периода. Неизвестные RUB — отдельный список, никогда не сумма0. */
   private async invoiceObligations(from: string, to: string, companyIds: Types.ObjectId[], overdueBefore = false, today = iso(new Date())) {
     const db = this.connection.db!, lower = overdueBefore && invoiceStaleSince(today) < from ? invoiceStaleSince(today) : from;
-    const invoices = await db.collection('supplyinvoices').find({ deletedAt: null, payerCompanyId: { $in: companyIds }, status: { $in: ['issued', 'paid'] }, date: { $gte: new Date(lower + 'T00:00:00Z'), $lt: new Date(Date.parse(to + 'T00:00:00Z') + 86400000) }, $or: [{ paymentAccountingVersion: 1 }, { currency: { $in: FOREIGN_INVOICE_CURRENCIES } }] },
+    const invoices = await db.collection('supplyinvoices').find({ deletedAt: null, 'undatedPaymentEvidence.state': { $ne: 'pending' }, payerCompanyId: { $in: companyIds }, status: { $in: ['issued', 'paid'] }, date: { $gte: new Date(lower + 'T00:00:00Z'), $lt: new Date(Date.parse(to + 'T00:00:00Z') + 86400000) }, $or: [{ paymentAccountingVersion: 1 }, { currency: { $in: FOREIGN_INVOICE_CURRENCIES } }] },
       { projection: { no: 1, date: 1, status: 1, payerCompanyId: 1, amount: 1, currency: 1, currencyName: 1, financialLines: 1, exchangeRate: 1, confirmedAmountRub: 1, vatMode: 1, vatRate: 1, declaredVatAmount: 1, paymentAccountingVersion: 1, paymentSnapshot: 1 } }).toArray();
     const ids = invoices.map((x) => x._id);
     const [rows, summaries, companies] = await Promise.all([
@@ -273,7 +275,7 @@ export class FinanceService {
   async operationsSource(from: string, to: string, companyIds: Types.ObjectId[], source?: string) { return (await this.ops(from, to, companyIds, false, source, true)).ops; }
 
   /** Что мешает посчитать: заявки с датой счёта без суммы и т.п., доходы без суммы/даты/компании. */
-  async needsFill(limit = 300) {
+  async needsFill(limit = 300, scope: StockScope | null = null) {
     const db = this.connection.db!;
     const ours = (await ourCompanies(this.connection)).map((c) => c.id);
     const noCompany = { $or: [{ companyId: null }, { companyId: { $exists: false } }, { companyId: { $nin: ours } }] };
@@ -290,6 +292,18 @@ export class FinanceService {
       db.collection('supplyrequests').find({ deletedAt: null, status: { $ne: 'cancelled' }, paid: true, priceHint: { $gt: 0 }, articleId: null },
         { projection: { num: 1, title: 1, priceHint: 1, paidAt: 1, invoiceDate: 1, invoiceNo: 1, categoryId: 1 } }).sort({ paidAt: -1, num: -1 }).toArray(),
     ]);
+    const undatedFilter: FinancialRecord = { deletedAt: null, payerCompanyId: { $in: ours }, 'undatedPaymentEvidence.state': 'pending' };
+    if (scope) {
+      const match = await docScopeMatch(this.connection, scope);
+      const visible = await db.collection('supplyrequests').distinct('invoiceId', { deletedAt: null, invoiceId: { $ne: null }, status: { $ne: 'cancelled' }, $and: [match] });
+      const hidden = new Set((await db.collection('supplyrequests').distinct('invoiceId', { deletedAt: null, invoiceId: { $in: visible }, status: { $ne: 'cancelled' }, $nor: [match] })).map(String));
+      undatedFilter._id = { $in: visible.filter(x => !hidden.has(String(x))) };
+    }
+    const [undatedTotal, undatedRows] = await Promise.all([
+      db.collection('supplyinvoices').countDocuments(undatedFilter),
+      db.collection('supplyinvoices').find(undatedFilter, { projection: { no: 1, date: 1, amount: 1 } }).sort({ date: -1, _id: -1 }).limit(limit).toArray(),
+    ]);
+    const needsPaymentDate = { total: undatedTotal, items: undatedRows.map(x => ({ type: 'invoice' as const, id: String(x._id), invoiceId: String(x._id), no: x.no || null, title: `Счёт № ${x.no || 'без номера'}`, date: iso(x.date), amount: Number(x.amount), sourceLink: '#requests?tab=invoices&of=invoicecard&open=' + String(x._id), missing: ['дата оплаты'] })) };
     const noArticle = paidNoArticle.filter((r) => !articleOfCategory(tree, r.categoryId));
     const has = (id: unknown) => !!id && ours.some((o) => String(o) === String(id));
     const items = [
@@ -298,12 +312,12 @@ export class FinanceService {
       ...incs.map((i) => ({ type: 'income' as const, id: String(i._id), title: String(i.title ?? ''), doc: i.orderNo ? `заказ ${i.orderNo}` : null, date: iso(i.reportDate) || null,
         missing: [!(Number(i.amount) > 0) && 'сумма (кол-во × цена или вручную)', !i.reportDate && 'дата отгрузки или оплаты', !has(i.companyId) && 'наша компания'].filter(Boolean) as string[] })),
     ];
-    return { total: items.length, items,
+    return { total: items.length + needsPaymentDate.total, items, needsPaymentDate,
       noArticle: { total: noArticle.length, items: noArticle.slice(0, limit).map((r) => ({ type: 'expense' as const, id: String(r._id), title: (r.num ? `№${r.num} · ` : '') + String(r.title ?? ''), doc: r.invoiceNo ? String(r.invoiceNo) : null, date: iso(r.paidAt) || iso(r.invoiceDate) || null, amount: Number(r.priceHint), missing: ['статья расхода'] })) },
       payrollNoCompany: await this.payroll.unassignedPayments(ours) };
   }
 
-  async cashflow(q: Record<string, unknown>) {
+  async cashflow(q: Record<string, unknown>, scope: StockScope | null = null) {
     const { from, to } = this.period(q);
     const opening = q.opening === undefined || q.opening === '' ? 0 : Number(String(q.opening).replace(',', '.'));
     if (!Number.isFinite(opening)) throw new BadRequestException('Начальный остаток — число');
@@ -326,7 +340,7 @@ export class FinanceService {
       expectedIncome: pending.awaiting.total, invoicesToPay: pending.invoices.total,
       overdueInvoices: Math.round(due.filter((o) => o.overdue && o.date >= from && o.date <= to).reduce((s, o) => s + o.amount, 0) * 100) / 100,
     };
-    return { from, to, org: q.org || 'all', companies: names, opening: open, startDate: start?.date ?? null, days, totals, metrics, pending, needsFill: await this.needsFill() };
+    return { from, to, org: q.org || 'all', companies: names, opening: open, startDate: start?.date ?? null, days, totals, metrics, pending, needsFill: await this.needsFill(300, scope) };
   }
 
   /**

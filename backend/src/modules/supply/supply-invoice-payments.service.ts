@@ -1,3 +1,4 @@
+import { hasUndatedPayment, undatedBasis, undatedLocked } from './undated-payment';
 import { ExpenseArticlesService } from '../expense-articles/expense-articles.service';
 import { originalClassification } from '../../common/financial-classification';
 import { invoicePaymentSummaries } from './invoice-payment-summary';
@@ -41,7 +42,7 @@ export class SupplyInvoicePaymentsService {
     const snapshot = inv.paymentSnapshot ? { ...inv.paymentSnapshot, lines: (inv.paymentSnapshot.lines || []).filter((x: Row) => visible.has(String(x.requestId))) } : null;
     if (snapshot) snapshot.amount = roundMoney(snapshot.lines.reduce((sum: number, x: Row) => sum + Number(x.lineAmount || 0), 0));
     const adjustments = (inv.paymentAdjustments || []).filter((x: Row) => (x.requestIds || []).some((id: unknown) => visible.has(String(id)))).map((x: Row) => ({ at: x.at, by: x.by, reason: x.reason, operation: x.operation, requestIds: x.requestIds.filter((id: unknown) => visible.has(String(id))), partial: true }));
-    return { ...inv, ...(!snapshot && inv.status === 'paid' && (inv.currency || 'RUB') === 'RUB' ? { reconciliationRequired: true, reconciliationReason: 'Для видимой части старой оплаты нет подтверждённого снимка. Нужна сверка; сумма оплаты и долг не рассчитаны.' } : {}), financialLines: Object.fromEntries(Object.entries(inv.financialLines || {}).filter(([id]) => visible.has(id))), amount: roundMoney(lines.reduce((sum, x) => sum + (Number(x.priceHint) || 0), 0)), confirmedAmountRub: null, declaredVatAmount: null, paymentSnapshot: snapshot, paymentAdjustments: adjustments, legacyClassifications: Object.fromEntries(Object.entries(inv.legacyClassifications || {}).filter(([id]) => visible.has(id))) };
+    return { ...inv, undatedPaymentEvidence: undefined, undatedPaymentCommands: undefined, ...(!snapshot && inv.status === 'paid' && (inv.currency || 'RUB') === 'RUB' ? { reconciliationRequired: true, reconciliationReason: 'Для видимой части старой оплаты нет подтверждённого снимка. Нужна сверка; сумма оплаты и долг не рассчитаны.' } : {}), financialLines: Object.fromEntries(Object.entries(inv.financialLines || {}).filter(([id]) => visible.has(id))), amount: roundMoney(lines.reduce((sum, x) => sum + (Number(x.priceHint) || 0), 0)), confirmedAmountRub: null, declaredVatAmount: null, paymentSnapshot: snapshot, paymentAdjustments: adjustments, legacyClassifications: Object.fromEntries(Object.entries(inv.legacyClassifications || {}).filter(([id]) => visible.has(id))) };
   }
   async facts(ids: unknown[], limit?: number, visibleRequestIds?: unknown[], skip = 0): Promise<Row[]> {
     const filter = { invoiceId: { $in: ids }, ...(visibleRequestIds ? { 'allocations.requestId': { $in: visibleRequestIds } } : {}) };
@@ -61,7 +62,7 @@ export class SupplyInvoicePaymentsService {
       f.requests = f.requests.map((x) => ({ ...x, accountingLineAmountRub: Number((x as Row).priceHint) || 0 }));
     }
     const totals = paymentTotals(scopedInv, f, aggregate ? [{ state: 'active', amount: aggregate.paidAmount, sourceAmount: aggregate.sourcePaidAmount }] : []);
-    return { ...f, ...totals, warnings: totals.reconciliationRequired ? [...f.warnings, totals.reconciliationReason!] : f.warnings, ...(partial ? { confirmedAmountRub: null, declaredVatAmount: null, ...(includeHistory ? { financialLines: scopedInv.financialLines, legacyClassifications: scopedInv.legacyClassifications, paymentSnapshot: scopedInv.paymentSnapshot, paymentAdjustments: scopedInv.paymentAdjustments } : {}) } : {}), paymentsTotal: aggregate?.paymentsTotal || 0, paymentAccountingVersion: inv.paymentAccountingVersion ?? null, financialLocked: inv.paymentAccountingVersion === 1 && Number(totals.paidAmount) > 0, financialLockReason: inv.paymentAccountingVersion === 1 && Number(totals.paidAmount) > 0 ? 'Фактические платежи зафиксировали финансовую базу' : null };
+    return { ...f, ...totals, undatedPaymentCommands: undefined, undatedPaymentEvidence: partial ? undefined : inv.undatedPaymentEvidence ? Object.fromEntries(Object.entries(inv.undatedPaymentEvidence).filter(([k]) => ['state', 'amountRub', 'sourceAmount', 'currency', 'payerCompanyId', 'reason', 'fileIds', 'confirmedAt', 'resolvedAt', 'resolvedPaymentId', 'revokedAt', 'revokeReason'].includes(k))) : undefined, ...(partial && hasUndatedPayment(inv) ? { requiresPaymentDate: true, paymentState: 'date_required', undatedConfirmedAmountRub: null, paidAmount: null, sourcePaidAmount: null, sourceBalance: null, balanceDue: null } : {}), warnings: totals.reconciliationRequired ? [...f.warnings, totals.reconciliationReason!] : f.warnings, ...(partial ? { confirmedAmountRub: null, declaredVatAmount: null, ...(includeHistory ? { financialLines: scopedInv.financialLines, legacyClassifications: scopedInv.legacyClassifications, paymentSnapshot: scopedInv.paymentSnapshot, paymentAdjustments: scopedInv.paymentAdjustments } : {}) } : {}), paymentsTotal: aggregate?.paymentsTotal || 0, paymentAccountingVersion: inv.paymentAccountingVersion ?? null, financialLocked: hasUndatedPayment(inv) || (inv.paymentAccountingVersion === 1 && Number(totals.paidAmount) > 0), financialLockReason: hasUndatedPayment(inv) ? 'Оплата подтверждена без даты — сначала заполните дату или снимите подтверждение' : inv.paymentAccountingVersion === 1 && Number(totals.paidAmount) > 0 ? 'Фактические платежи зафиксировали финансовую базу' : null };
   }
   /** Для частичного складского доступа возвращаются только суммы видимых allocations. */
   present(inv: Row, lines: Row[], facts: Row[], partial = false, aggregate?: Row, take = 100): Row {
@@ -107,6 +108,7 @@ export class SupplyInvoicePaymentsService {
     }); }
     return result;
   }
+  snapshotAllocations(inv: Row, lines: Row[], amount: number, payer: Types.ObjectId, session: ClientSession) { return this.allocations(inv, lines, amount, amount, payer, session); }
   private async initLegacy(inv: Row, lines: Row[], session: ClientSession) {
     if (inv.paymentAccountingVersion === 1) return;
     if (paymentTotals(inv, financials(inv, lines), []).reconciliationRequired) throw conflict('Старая оплата требует сверки первичных документов', 'LEGACY_RECONCILIATION_REQUIRED');
@@ -139,7 +141,7 @@ export class SupplyInvoicePaymentsService {
     const totals = paymentTotals({ ...inv, paymentAccountingVersion: 1 }, financials(inv, lines), facts);
     const active = facts.filter((p) => p.state === 'active').sort((a, b) => a.date.localeCompare(b.date));
     const paidAt = totals.paymentState === 'paid' ? new Date(active[active.length - 1].date + 'T00:00:00Z') : undefined;
-    const res = await this.invoices.updateOne(versionFilter(inv), { $set: { paymentAccountingVersion: 1, paidAmount: totals.paidAmount, sourcePaidAmount: totals.sourcePaidAmount, status: totals.paymentState === 'paid' ? 'paid' : 'issued', ...(paidAt ? { paidAt } : {}) }, ...(!paidAt ? { $unset: { paidAt: '' } } : {}), $inc: { version: 1 } }, { session }).exec();
+    const res = await this.invoices.updateOne(versionFilter(inv), { $set: { paymentAccountingVersion: 1, paidAmount: totals.paidAmount, sourcePaidAmount: totals.sourcePaidAmount, status: totals.paymentState === 'paid' ? 'paid' : 'issued', ...(inv.undatedPaymentEvidence ? { undatedPaymentEvidence: inv.undatedPaymentEvidence } : {}), ...(paidAt ? { paidAt } : {}) }, ...(!paidAt ? { $unset: { paidAt: '' } } : {}), $inc: { version: 1 } }, { session }).exec();
     if (!res.matchedCount) throw conflict('Счёт изменился — обновите карточку', 'INVOICE_VERSION_CONFLICT');
     await this.requests.updateMany({ invoiceId: inv._id, deletedAt: null, status: { $ne: 'cancelled' } }, { $set: { paid: totals.paymentState === 'paid', ...(paidAt ? { paidAt } : {}), editedInApp: true }, ...(!paidAt ? { $unset: { paidAt: '' } } : {}) }, { session }).exec();
   }
@@ -156,7 +158,7 @@ export class SupplyInvoicePaymentsService {
     if (dto.exchangeRateDate) factDate(dto.exchangeRateDate);
     return { date: dto.date, amount: dto.amount, sourceAmount, payerCompanyId: String(dto.payerCompanyId || inv.payerCompanyId || ''), exchangeRate: dto.exchangeRate ?? null, exchangeRateDate: dto.exchangeRateDate || null, exchangeRateSource: dto.exchangeRateSource?.trim() || null, fileIds: [...new Set(dto.fileIds || [])].sort(), note: dto.note?.trim() || '' };
   }
-  async add(id: string, dto: CreateInvoicePaymentDto, actorId?: string, onFullyPaid?: (invoice: Row, session: ClientSession) => Promise<void>) {
+  async add(id: string, dto: CreateInvoicePaymentDto, actorId?: string, onFullyPaid?: (invoice: Row, session: ClientSession) => Promise<void>, allowUndated = true) {
     if (!dto.clientUid?.trim() || dto.clientUid.length > 100) throw new BadRequestException('Укажите ключ clientUid платежа');
     const first = await this.load(id), requestHash = hashOf({ date: dto.date, amount: dto.amount, sourceAmount: dto.sourceAmount ?? null, payerCompanyId: dto.payerCompanyId || null, exchangeRate: dto.exchangeRate ?? null, exchangeRateDate: dto.exchangeRateDate || null, exchangeRateSource: dto.exchangeRateSource?.trim() || null, fileIds: [...new Set(dto.fileIds || [])].sort(), note: dto.note?.trim() || '' });
     const repeat = await this.payments.findOne({ invoiceId: first._id, clientUid: dto.clientUid }).lean().exec();
@@ -176,12 +178,16 @@ export class SupplyInvoicePaymentsService {
         if (inv.status !== 'issued' && inv.status !== 'paid') throw conflict('Сначала выставьте счёт', 'INVOICE_NOT_ISSUED');
         const lines = await this.lines(inv, session), f = financials(inv, lines);
         if (f.sourceAmount === null || !(f.sourceAmount > 0)) throw conflict('Заполните исходные суммы строк', 'SOURCE_AMOUNT_REQUIRED');
+        const undated = hasUndatedPayment(inv) ? inv.undatedPaymentEvidence : null;
+        if (undated && !allowUndated) throw undatedLocked();
+        if (undated && (f.currency !== 'RUB' || cents(canonical.amount) !== cents(undated.amountRub) || cents(canonical.sourceAmount) !== cents(undated.sourceAmount) || String(payer) !== String(undated.payerCompanyId) || undatedBasis(inv, lines) !== undated.basisHash)) throw undatedLocked();
         await this.initLegacy(inv, lines, session);
         const facts = await this.payments.find({ invoiceId: inv._id }).session(session).lean().exec() as Row[];
-        const totals = paymentTotals({ ...inv, paymentAccountingVersion: 1 }, f, facts);
+        const totals = paymentTotals({ ...inv, undatedPaymentEvidence: undefined, paymentAccountingVersion: 1 }, f, facts);
         if (cents(canonical.sourceAmount) > cents(totals.sourceBalance || 0)) throw conflict('Сумма оплаты превышает непогашенный остаток', 'PAYMENT_EXCEEDS_BALANCE');
         if ((inv.currency || 'RUB') === 'RUB' && cents(Number(inv.amount)) !== cents(Number(f.sourceAmount))) throw conflict('Сумма счёта не совпадает со строками', 'INVOICE_AMOUNT_MISMATCH');
-        await this.payments.create([{ ...canonical, payerCompanyId: payer, fileIds: canonical.fileIds.map((x) => oid(x, 'файла')), invoiceId: inv._id, clientUid: dto.clientUid, requestHash, currency: f.currency, currencyName: inv.currencyName, createdBy: actorId ? oid(actorId, 'автора') : undefined, state: 'active', allocations: await this.allocations(inv, lines, canonical.amount, canonical.sourceAmount, payer, session) }], { session });
+        const [created] = await this.payments.create([{ ...canonical, payerCompanyId: payer, fileIds: canonical.fileIds.map((x) => oid(x, 'файла')), invoiceId: inv._id, clientUid: dto.clientUid, requestHash, currency: f.currency, currencyName: inv.currencyName, createdBy: actorId ? oid(actorId, 'автора') : undefined, state: 'active', allocations: undated ? undated.allocations : await this.allocations(inv, lines, canonical.amount, canonical.sourceAmount, payer, session) }], { session });
+        if (undated) inv.undatedPaymentEvidence = { ...undated, state: 'resolved', resolvedAt: new Date(), resolvedPaymentId: created._id };
         await this.synchronize(inv, lines, session);
         if (onFullyPaid && totals.paymentState !== 'paid' && cents(canonical.sourceAmount) === cents(totals.sourceBalance || 0)) await onFullyPaid(inv, session);
       });
@@ -193,17 +199,19 @@ export class SupplyInvoicePaymentsService {
   }
   async payRemaining(id: string, actorId?: string, onFullyPaid?: (invoice: Row, session: ClientSession) => Promise<void>) {
     const inv = await this.load(id);
+    if (hasUndatedPayment(inv)) throw undatedLocked();
     const f = financials(inv, await this.lines(inv));
     if (paymentTotals(inv, f, []).reconciliationRequired) throw conflict('Старая оплата требует сверки первичных документов', 'LEGACY_RECONCILIATION_REQUIRED');
     if (inv.status === 'paid') return;
     const aggregate = (await invoicePaymentSummaries(this.connection, [inv._id])).get(String(inv._id));
     const totals = paymentTotals(inv, f, aggregate ? [{ state: 'active', amount: aggregate.paidAmount, sourceAmount: aggregate.sourcePaidAmount }] : []);
     if (totals.balanceDue === null || !(totals.balanceDue > 0)) throw conflict('Для оплаты уточните рублёвый пересчёт', 'CONVERSION_REQUIRED');
-    await this.add(id, { clientUid: `pay:${id}:${Number(inv.version || 0)}`, date: moscowToday(), amount: totals.balanceDue, ...(f.currency !== 'RUB' ? { sourceAmount: totals.sourceBalance! } : {}), version: Number(inv.version || 0) }, actorId, onFullyPaid);
+    await this.add(id, { clientUid: `pay:${id}:${Number(inv.version || 0)}`, date: moscowToday(), amount: totals.balanceDue, ...(f.currency !== 'RUB' ? { sourceAmount: totals.sourceBalance! } : {}), version: Number(inv.version || 0) }, actorId, onFullyPaid, false);
   }
   async void(id: string, paymentId: string | null, dto: VoidInvoicePaymentDto, actor: OverrideActor, dryRun: boolean) {
     assertAdminActor(actor, 'Сторно оплаты');
     const inv = await this.load(id), lines = await this.lines(inv);
+    if (hasUndatedPayment(inv)) throw undatedLocked();
     const payment = paymentId ? await this.payments.findOne({ _id: oid(paymentId, 'платежа'), invoiceId: inv._id }).lean().exec() : null;
     if (paymentId && !payment) throw new NotFoundException('Платёж не найден в этом счёте');
     if (payment?.state === 'voided' && payment.voidClientUid === dto.clientUid) {
@@ -222,6 +230,7 @@ export class SupplyInvoicePaymentsService {
     const session = await this.connection.startSession();
     try { await session.withTransaction(async () => {
       const fresh = await this.load(id, session), currentLines = await this.lines(fresh, session);
+      if (hasUndatedPayment(fresh)) throw undatedLocked();
       if (paymentId) {
         const current = await this.payments.findOne({ _id: oid(paymentId, 'платежа'), invoiceId: fresh._id }).session(session).lean().exec();
         if (current?.state === 'voided' && current.voidClientUid === dto.clientUid && current.voidReason === reason) return;

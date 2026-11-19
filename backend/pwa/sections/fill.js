@@ -6,6 +6,7 @@ import { go, patch } from '../core/router.js';
 import { opThumb } from '../ui/op-row.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { empty, button } from '../ui/kit/index.js';
+import { requestInvoiceOperation } from './invoice-workspace-state.js';
 import { withReason } from './admin-override.js';
 
 /**
@@ -14,7 +15,13 @@ import { withReason } from './admin-override.js';
  * (of=<раздел>&open=<id>&fill=<поле>, см. ui/card.js markFill). Заполнили и сохранили — строка уходит из списка.
  * Адрес страницы: #fill (все группы) или #fill?g=<ключ> (одна раскрыта).
  */
-const openRow = (g, x) => patch({ of: g.section, open: x.id, fill: g.field, new: undefined });
+const openRow = (g, x) => { if (g.key === 'invoicePaymentDate') { requestInvoiceOperation(x.invoiceId, 'payment'); patch({ of: 'invoicecard', open: x.invoiceId, fill: undefined, new: undefined }); } else patch({ of: g.section, open: x.id, fill: g.field, new: undefined }); };
+async function loadFill(limit) {
+  const [audit, finance] = await Promise.all([api('/fill-audit', { query: { limit } }), session.canMoney ? api('/finance/needs-fill') : null]);
+  const pending = finance?.needsPaymentDate;
+  if (pending?.total) { audit.groups.push({ key: 'invoicePaymentDate', area: 'Деньги', title: 'Заполнить даты подтверждённых оплат', why: 'Оплата подтверждена; до уточнения даты она не попадает в отчёты и не считается долгом', count: pending.total, section: 'invoicecard', items: pending.items.slice(0, limit) }); audit.total += pending.total; }
+  return audit;
+}
 
 /**
  * Быстрый ввод прямо в строке (группы с `quick`, к показу директорам): у заявки — № счёта, дата, сумма; у позиции заказа — цена → PATCH `quickPath`.
@@ -87,7 +94,7 @@ export function mountFill(params) {
     render(); reload();
   }
   async function reload() {
-    try { data = await api('/fill-audit', { query: { limit: 50 } }); render(); }
+    try { data = await loadFill(50); render(); }
     catch (e) { box.replaceChildren(failBlock(e, () => reload(), { cls: 'panel state' })); }
   }
   reload();
@@ -101,7 +108,7 @@ export function fillToday() {
   const el = h('section', { class: 'panel queue', id: 'q-fill' },
     h('header', { class: 'q-head' }, h('div', null, h('h3', null, 'Требуют заполнения ', n), h('div', { class: 'q-hint' }, 'Чем заняться: дозаполнить — и деньги с аналитикой посчитаются верно')),
       h('a', { href: '#fill', class: 'q-link' }, 'Все →')), list);
-  const load = () => api('/fill-audit', { query: { limit: 1 } }).then((r) => {
+  const load = () => loadFill(1).then((r) => {
     n.hidden = !r.total; n.textContent = qty(r.total);
     if (!r.groups.length) { list.replaceChildren(h('li', { class: 'q-empty' }, 'Всё заполнено 👍')); return; }
     const top = [...r.groups].sort((a, b) => b.count - a.count).slice(0, 5);

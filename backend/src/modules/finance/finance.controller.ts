@@ -36,8 +36,8 @@ export class FinanceController {
   @ApiQuery({ name: 'to', required: false, description: 'ГГГГ-ММ-ДД (умолч. конец месяца); период ≤ 1 года' })
   @ApiQuery({ name: 'org', required: false, description: 'all | СИЮ | ССЮ | id организации' })
   @ApiQuery({ name: 'opening', required: false, description: 'Остаток на начало периода, ₽' })
-  cashflow(@Query() q: Record<string, string>) {
-    return this.finance.cashflow(q);
+  cashflow(@Query() q: Record<string, string>, @StockScoped() scope: StockScope | null = null) {
+    return this.finance.cashflow(q, scope);
   }
 
   @Get('summary')
@@ -97,7 +97,7 @@ export class FinanceController {
   /** Записи, которые не попадают в расчёт: чего не хватает. */
   @Get('needs-fill')
   @Roles('admin', 'accountant', 'manager')
-  needsFill() {
-    return this.finance.needsFill();
+  needsFill(@StockScoped() scope: StockScope | null = null) {
+    return this.finance.needsFill(300, scope);
   }
 }

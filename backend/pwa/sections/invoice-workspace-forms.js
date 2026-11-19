@@ -2,7 +2,7 @@ import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
 import { money, date } from '../core/format.js';
 import { buildForm, section, table, button, actions, link, autoMore, photoField, badge, SUPPLY_STATUS } from '../ui/kit/index.js';
-import { permissions, assertOperation, lineDraft, changeLine, lineBody, addBody, metaBody, foreignInvoice, invoiceCurrency, businessToday, paymentBody, financialMetaBody } from './invoice-workspace-state.js';
+import { permissions, assertOperation, lineDraft, changeLine, lineBody, addBody, metaBody, foreignInvoice, invoiceCurrency, businessToday, paymentBody, financialMetaBody, needsPaymentDate } from './invoice-workspace-state.js';
 
 const field = (key, label, input) => ({ key, label, type: 'widget', wide: true, widget: () => ({ el: input, get value() { return JSON.stringify(input.value); }, set value(_) { /* начальное значение уже установлено */ } }) });
 const number = (name, value, step = 'any') => h('input', { name, type: 'number', min: '0', step, inputmode: 'decimal', value });
@@ -37,24 +37,47 @@ async function buildPaymentForm(invoice, services) {
   if (invoice.payerCompanyId && !payers.some(x => String(x.value) === String(invoice.payerCompanyId))) payers.push({ value: invoice.payerCompanyId, label: invoice.payerName || 'Текущая компания' });
   const files = photoField([], { pdf: true });
   const foreign = foreignInvoice(invoice);
+  const pending = needsPaymentDate(invoice);
   const form = buildForm([
-    { section: 'Добавить фактическую оплату', fixed: true },
-    { note: 'Дата оплаты — день перечисления денег, а не дата ввода. Можно внести старую оплату или аванс; товар от этого не считается полученным.' },
-    { key: 'payerCompanyId', label: 'Наша компания — плательщик', type: 'select', required: true, options: [{ value: '', label: 'Выберите компанию' }, ...payers] },
+    { section: pending ? 'Заполнить дату подтверждённой оплаты' : 'Добавить фактическую оплату', fixed: true },
+    ...(pending ? [{ note: 'Полная оплата подтверждена, но ещё не включена в денежный отчёт. Укажите день перечисления по документу. Сумма и плательщик сохранены из подтверждения.' }] : []),
+    !pending ? { note: 'Дата оплаты — день перечисления денег, а не дата ввода. Можно внести старую оплату или аванс; товар от этого не считается полученным.' } : null,
+    pending ? { key: 'payerCompanyId', type: 'hidden' } : { key: 'payerCompanyId', label: 'Наша компания — плательщик', type: 'select', required: true, options: [{ value: '', label: 'Выберите компанию' }, ...payers] },
+    ...(pending ? [{ note: `Плательщик: ${payers.find(p => String(p.value) === String(invoice.undatedPaymentEvidence?.payerCompanyId || invoice.payerCompanyId))?.label || invoice.payerName || 'Указанная наша компания'}. Подтверждено: ${money(invoice.undatedConfirmedAmountRub)}.` }] : []),
     { key: 'date', label: 'Фактическая дата оплаты', type: 'date', required: true },
-    { key: 'amount', label: 'Фактически уплачено, ₽', type: 'money', required: true, min: 0 },
+    pending ? { key: 'amount', type: 'hidden' } : { key: 'amount', label: 'Фактически уплачено, ₽', type: 'money', required: true, min: 0 },
     foreign ? { key: 'sourceAmount', label: `Погашено по счёту, ${invoiceCurrency(invoice)}`, type: 'number', required: true, min: 0, hint: 'Рублёвый платёж и погашение исходного обязательства сохраняются отдельно.' } : null,
     { section: 'Подтверждение оплаты', tone: 'info' },
     { key: 'note', label: 'Примечание / основание', type: 'textarea', max: 1000, wide: true },
     { key: 'fileIds', label: 'Платёжный документ или подтверждение', type: 'widget', wide: true, widget: () => ({ el: files.el, get value() { return JSON.stringify(files.ids()); }, set value(_) {} }) },
-  ].filter(Boolean), { date: businessToday(), payerCompanyId: String(invoice.payerCompanyId || ''), amount: foreign ? '' : invoice.balanceDue ?? invoice.amount ?? '', sourceAmount: foreign ? invoice.sourceBalance ?? '' : '', note: '' });
+  ].filter(Boolean), { date: pending ? '' : businessToday(), payerCompanyId: String(invoice.undatedPaymentEvidence?.payerCompanyId || invoice.payerCompanyId || ''), amount: pending ? invoice.undatedConfirmedAmountRub : foreign ? '' : invoice.balanceDue ?? invoice.amount ?? '', sourceAmount: foreign ? invoice.sourceBalance ?? '' : '', note: '' });
   const uid = globalThis.crypto?.randomUUID?.() || `payment-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   let submitted;
   return { ...form, rejectSubmission: () => { submitted = undefined; }, busy: () => !!files.el.querySelector('.photo-drop.busy'), lockSubmission: () => { if (submitted) form.el.querySelectorAll('input,select,textarea,button').forEach(el => { el.disabled = true; }); }, payload: () => {
     if (submitted) return submitted;
     const read = form.read(); if (read.errors) return null;
-    submitted = Object.freeze(paymentBody(invoice, { ...read.values, fileIds: files.ids() }, uid));
+    submitted = Object.freeze(paymentBody(invoice, { ...read.values, ...(pending ? { amount: invoice.undatedConfirmedAmountRub, payerCompanyId: invoice.undatedPaymentEvidence?.payerCompanyId || invoice.payerCompanyId } : {}), fileIds: files.ids() }, uid));
     return submitted;
+  } };
+}
+
+/** Подтверждение без даты не создаёт денежную операцию. UID и тело переживают потерянный ответ. */
+function buildUndatedForm(invoice, revoke) {
+  const files = revoke ? null : photoField([], { pdf: true });
+  const form = buildForm([
+    { section: revoke ? 'Отозвать подтверждение оплаты' : 'Оплата подтверждена, дата неизвестна', fixed: true },
+    { note: revoke ? 'Счёт снова станет обязательством к оплате. Отзыв сохраняется в истории; денежной операции здесь нет.' : 'Подтверждайте только известную полную оплату рублёвого счёта. Расход появится в отчётах после заполнения фактической даты. Товар не считается полученным.' },
+    { note: `Сумма: ${money(revoke ? invoice.undatedConfirmedAmountRub : invoice.amount)}. Плательщик: ${invoice.payerName || 'Указанная наша компания'}.` },
+    { key: 'reason', label: revoke ? 'Причина отзыва' : 'Основание подтверждения полной оплаты', type: 'textarea', required: true, min: 3, max: 1000, wide: true },
+    files ? { key: 'fileIds', label: 'Документ или переписка с подтверждением', type: 'widget', wide: true, widget: () => ({ el: files.el, get value() { return JSON.stringify(files.ids()); }, set value(_) {} }) } : null,
+  ].filter(Boolean), { reason: '' });
+  const clientUid = globalThis.crypto?.randomUUID?.() || `undated-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  let submitted;
+  return { ...form, busy: () => !!files?.el.querySelector('.photo-drop.busy'), rejectSubmission: () => { submitted = undefined; }, lockSubmission: () => { if (submitted) form.el.querySelectorAll('input,select,textarea,button').forEach(el => { el.disabled = true; }); }, payload: () => {
+    if (submitted) return submitted;
+    const read = form.read(); if (read.errors) return null;
+    const reason = String(read.values.reason || '').trim(); if (reason.length < 3) throw new Error('Укажите основание: не менее трёх символов');
+    submitted = Object.freeze({ clientUid, version: Number(invoice.version ?? 0), reason, ...(files ? { fileIds: files.ids() } : {}) }); return submitted;
   } };
 }
 
@@ -163,7 +186,7 @@ export async function buildWorkspaceForm(invoice, options, services) {
   const operation = options.operation || 'meta', lineId = options.lineId;
   assertOperation(invoice, session, operation, lineId);
   const form = operation === 'line' ? buildLineForm(invoice, invoice.requests.find((x) => x.id === lineId))
-    : operation === 'payment' ? await buildPaymentForm(invoice, services) : operation === 'add' ? buildAddForm(invoice, services) : await buildMetaForm(invoice, services);
+    : ['undated', 'revokeUndated'].includes(operation) ? buildUndatedForm(invoice, operation === 'revokeUndated') : operation === 'payment' ? await buildPaymentForm(invoice, services) : operation === 'add' ? buildAddForm(invoice, services) : await buildMetaForm(invoice, services);
   const conflict = h('div', { class: 'form-error', hidden: true });
   let bindSave, conflicted = false, duplicate = false;
   const duplicateInput = form.el.querySelector('[name="duplicateReason"]');
@@ -180,10 +203,10 @@ export async function buildWorkspaceForm(invoice, options, services) {
     section({ title: 'Позиции этого счёта', count: (invoice.requests || []).length, open: true, body: services.overview(invoice) }));
   return { el, busy: form.busy, dirty: form.dirty,
     focus: form.focus,
-    bindSave: (fn) => { bindSave = fn; if (operation === 'payment') fn(true, 'Сохранить оплату'); },
+    bindSave: (fn) => { bindSave = fn; if (['payment', 'undated', 'revokeUndated'].includes(operation)) fn(true, operation === 'undated' ? 'Подтвердить без даты' : operation === 'revokeUndated' ? 'Отозвать подтверждение' : 'Сохранить оплату'); },
     read: () => { const read = form.read(); return read.errors ? read : { values: { invoice, operation, lineId, body: form.payload() } }; },
     onError: (e) => {
-      if (operation === 'payment') { if (e?.status === 400) form.rejectSubmission?.(); else setTimeout(() => form.lockSubmission?.(), 0); }
+      if (['payment', 'undated', 'revokeUndated'].includes(operation)) { if (e?.status === 400) form.rejectSubmission?.(); else setTimeout(() => form.lockSubmission?.(), 0); }
       if (e?.status !== 409) return;
       duplicate = operation === 'meta' && !!e?.data?.existingInvoiceId;
       conflicted = true; bindSave?.(false);

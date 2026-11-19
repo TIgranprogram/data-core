@@ -1,5 +1,28 @@
 # Карта роли architect
 
+## C165 — первый адресный кодовой review (19.11.2026)
+коммит: f76489b9 (новый рабочий diff C165, исторический scope267bc1c не закрыт)
+- 🔴 `supply/supply.service.ts:769,788,808,817` — receipt выбирает invoice callback из старого d0.invoiceId: late attach→confirm после preGET обходит pendingbasis/CAS в standalone ветках. Нужен fresh source/invoice в receipt transaction для всех путей, не postmovement check; e2e пока только update-lateattach147.
+- 🟡 `supply.service.ts:796` — createItem до move transaction может оставить пустой каталог при отказе: P2 отдельного stock backlog, qty/движение/fact при существующем callback защищены. `pwa/sections/invoice-workspace.js:254` — evidence.fileIds сохраняются, но не открываются из подтверждения после reopen.
+- 🟢 `supply-undated-payments.service.ts:18`, `supply-invoice-payments.service.ts:183,189,190`, `finance.service.ts:91,99,295`, `photos.service.ts:83` — receipts/CAS, frozen allocation resolve, global exclusion, whole needsfill, same-ID filename repair просмотрены. Own tsc0/5unit/54PWA/cycles0.
+- `docs/crew/C165-undated-payments-and-filename-repair/ARCH-REVIEW.md` — пакет1; до одного точечного повтора/общего QA послеC163. Прод/пароли не трогались. Карта обновлена.
+
+## C164 — новые клиентские договоры: адресный аудит модели (19.11.2026)
+коммит: f76489b9 (кодовая основа чтения; C165 vendor-pending diff не принимался, исторический scope267bc1c не закрыт)
+- `salesorders/salesorders.service.ts:383` — CREATE всегда присваивает productionNo; `production-orders.ts:1`, controller:13 — производственный заказ является группировкой договоров, не отдельной сущностью. Нужен явный unassigned для нового сценария.
+- `salesorders/sales-order.schema.ts:16,20,25,30`, `pwa/sections/salesorders.js:640` — orderNo номер договора, customer текст без FK, contractNo госконтракт; дата договора ошибочно соседствует с подписью госконтракта.
+- `incomes/income.schema.ts:28,95,130`, `incomes.service.ts:364,393` — позиции/фото/legacy paidDate; импорт не подтверждает платёж, автосопоставление и design side effects учесть отдельно.
+- `offers/offers.service.ts:73,86,101`, `finance/forecast.ts:35,66`, `financial-operations-reader.service.ts:42,60` — КП-конверсия теряет снимки/условия; прогноз не структурный график; фильтр конкретного договора, не productionNo.
+- C164/FIELD-MAPPING.md, AUDIT-CODE.md, QUESTIONS-CODE.md, API-CHECKLIST.md — полная матрица/риски/следующий шаг. API/прод/PDF не читались, код не менялся, live-полнота не подтверждена. Карта обновлена.
+
+## C158 — новый сценарий подтверждения без даты (19.11.2026)
+коммит: f76489b9 (только адресный совет до кода; исторический scope267bc1c не закрыт)
+- `finance/finance.service.ts:85,95,147,354` — pending обязан подавлять legacy и обязательства до периодных фильтров; draft это не делает.
+- `supply/supply-invoice-payments.service.ts:160,173,194` — общий CAS/transaction и replay-before-state; legacy payRemaining ставит today и должен отказать для pending.
+- `supply/supply-invoice.service.ts:70,81,360` — сумма/состав/плательщик pending фиксируются условием DB-write, не одним предварительным GET; scoped summary новой evidence не раскрывает скрытый счёт.
+- `photos/photos.service.ts:303`, `photos/image-upload.options.ts:44`, `photos/photos.controller.ts:51` — новый PhotoDoc опасен общим storageUrl при DELETE; нужен узкий CAS-repair имени без дублирования/перезагрузки/изменения байтов.
+- План и границы: `docs/crew/C158-supply-financial-fields/UNDATED-PAYMENT-ARCH.md`; циклы0, исходники не менялись, реализация ещё не принималась. Карта обновлена.
+
 коммит: 179c6239 (19.11.2026: узкий review незакоммиченного финансового diff C158; общий хвост architect от267bc1c не закрыт)
 C158: FAIL первого прохода: unresolved-долг исчезает из finance; legacy partial snapshot раскрывает paidAmount полного счёта — supply-invoice-payments.service.ts:49 → invoice-financials.ts:58, raw snapshot/adjustments в supply-invoice.service.ts:282; replay hash зависит от изменяемых defaults — payments.service.ts:109–122. P2: вся история в finance, платежи/вложения в списке. Якоря относятся к состоянию до исправлений backend; полный отчёт: docs/crew/C158-supply-financial-fields/ARCH-REVIEW.md. Ledger/CAS/immutable allocations/global legacy marker проверены; tsc0,6unit PASS,cycles0. UI/прод/тайминги не принимались; review-scope --done не ставился.
 C158 второй проход: legacy scope/all-history/list summaries/replay defaults закрыты; остаются два принятых координатором условия PASS: весьFXenum включаяCNY вfinance.service.ts:87,95 и expectedVersion=dto.version??first.version вpayment service:137–159 при omittedversion после prior-key lookup. Точечные адресные тесты закрываетroot без третьего общего круга. Собственно13unitPASS/cycles0; backend23e2e/256unitPASS, fullunit355/3648 иstandBROWSERPASS поотчётам. Индексы invoice:142–143/payment:31–34 зарегистрированы вensure-indexes; querytiming не измерялся. Итог и границы: C158/ARCH-REVIEW.md.

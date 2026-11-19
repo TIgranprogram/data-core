@@ -1,10 +1,11 @@
+import { RepairOriginalFilenameDto, isFilenameEncodingRepair } from './repair-filename.dto';
 import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import { join, resolve } from 'path';
 import { safeUploadPath } from '../../common/uploads/safe-path';
 import sharp from 'sharp';
 import { shrinkInPlace } from './image-shrink';
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Photo, PhotoDocument, PhotoFrame } from './photo.schema';
@@ -76,6 +77,18 @@ export class PhotosService {
       ...dto,
       parentPhotoId: dto.parentPhotoId ? new Types.ObjectId(dto.parentPhotoId) : undefined,
     });
+  }
+
+  /** CAS меняет только испорченное имя: идентификатор и физический файл неизменны. */
+  async repairOriginalFilename(id: string, dto: RepairOriginalFilenameDto) {
+    if (!isFilenameEncodingRepair(dto.expectedOriginalFilename, dto.newOriginalFilename)) throw new BadRequestException('Допустимо только точное исправление кодировки имени');
+    if (!Types.ObjectId.isValid(id)) throw new NotFoundException('Файл не найден');
+    const current = await this.model.findOne({ _id: id, deletedAt: null }).exec();
+    if (!current) throw new NotFoundException('Файл не найден');
+    if (current.originalFilename === dto.newOriginalFilename) return current;
+    const saved = await this.model.findOneAndUpdate({ _id: current._id, deletedAt: null, originalFilename: dto.expectedOriginalFilename }, { $set: { originalFilename: dto.newOriginalFilename } }, { new: true }).exec();
+    if (!saved) throw new ConflictException('Имя файла изменилось — перечитайте запись');
+    return saved;
   }
 
   /**

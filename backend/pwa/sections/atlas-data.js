@@ -228,7 +228,7 @@ export const NODES = [
       { id: 'oplacheno', t: 'Оплаты', l: 'каждый аванс и доплата — своей датой', out: ['money'] },
       { id: 'priemka', t: 'Приёмка', l: 'товар приходит на склад', out: ['stock'] },
     ],
-    rules: ['Оплата не подтверждает получение товара.', 'После первого платежа новой истории финансовая база фиксируется; ошибка исправляется с историей.', 'После первой приёмки действуют финансовые ограничения.'],
+    rules: ['Оплата не подтверждает получение товара.', 'Подтверждённая полная рублёвая оплата без даты требует заполнения: до даты нет денежного факта, долга и повторного прогноза.', 'После первого платежа новой истории финансовая база фиксируется; ошибка исправляется с историей.', 'После первой приёмки действуют финансовые ограничения.'],
     docs: ['docs/PRODUCT.md — «Заявки»', 'docs/UNIFY-SUPPLY-WAREHOUSE.md', 'docs/crew/C158-supply-financial-fields/CONTRACT.md'], tech: 'supplyrequests (общая с CRM), supplyinvoices, supplyinvoicepayments (факты оплат)',
     code: ['backend/src/modules/supply', 'backend/pwa/sections/requests.js', 'backend/pwa/sections/invoice-workspace.js'] },
   { id: 'needs', tpl: 'card', tplStatus: 'legacy', band: 'supply', col: 3, sec: null, where: 'Продукция → карточка изделия → «Что купить»', t: 'Что купить', l: ['изделие × количество', '− остатки склада'],

@@ -34,3 +34,9 @@
 - C161 tree-review: проверятьshapeкаждогопредкавancestrywalk,а не только текущего узла; иначе child повреждённого article-parent станетвыбираемымкорнем. IDlookupпроекциясохраняетintermediategroup/архивныеID, eligibilityотдельноотналичиявистории.
 
 - C161 CORE: source cancel/delete/move/restore участвуют в том же version CAS, что первая оплата, иначе обычный soft-delete скроет финансовый факт после конкурентного addPayment. Архивная ссылка неизменённой исторической части не проходит новую active/selectable-валидацию; новая авто-подстановка stale hint сохраняет факт с null+warning. List projection не читает history, detail читает адресный источник.
+
+### C165: pending не является денежным фактом (2026-11-19)
+- Не подавлять legacy-пути фиктивным marker1: отдельный pending suppress на уровне источников, ledger только после явной даты. Старый payRemaining проверяет pending и снаружи, и внутри add-транзакции.
+- Receipt может по умолчанию дописать costCenter и уменьшить qty: для frozen pending полную приёмку проводить с прежними dims, partial блокировать до stock-effect; concurrent source edits/receipt/confirm сериализовать invoice CAS. Командные receipts должны сохранять прежние evidence, иначе новый confirm затрёт историю revoke.
+
+- C165 ARCH-P1: нельзя выбирать receipt callback по invoiceId, прочитанному до ожидания createItem/move. Callback обязателен даже для standalone; fresh source/invoice + запись qty/status/dims в той же stock-транзакции и sourceCAS защищают late attach. Встречный attach/create должен сравнивать qty/status/unpaid и matchedCount, иначе retry reset-ит received из старого preGET.

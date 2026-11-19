@@ -523,3 +523,81 @@ test('C159: known synthetic source отменяется только versioned p
   }
   assert.equal(m.calls.length, initialWrites); assert.equal(m.calls.some(write => write.body && 'payments' in write.body), false);
 });
+
+
+const undated = () => base({ payerCompanyId: 'company', payerName: 'СИЮ', paymentState: 'date_required', requiresPaymentDate: true, paidAmount: null, balanceDue: null, undatedConfirmedAmountRub: 100, undatedPaymentEvidence: { state: 'pending', amountRub: 100, payerCompanyId: 'company', reason: 'Оплачено по переписке' } });
+test('C165: pending блокирует финансовые правки и unpay, оставляя приёмку и явное заполнение даты', () => {
+  const inv = undated(); const p = pure.permissions(inv, rights);
+  for (const key of ['meta', 'finance', 'payer', 'add', 'editLine', 'removeLine', 'unpay', 'issue', 'confirmUndated']) assert.equal(p[key], false, key);
+  assert.equal(p.pay, true); assert.equal(p.receive, true); assert.equal(p.revokeUndated, true);
+  assert.match(pure.paymentStateLabel(inv), /Оплата подтверждена — заполнить дату/);
+  assert.equal(pure.invoiceWarnings(inv, rights)[0].tone, 'warn');
+  for (const extra of [{ partial: true }, { status: 'cancelled' }]) { const restricted = pure.permissions({ ...inv, ...extra }, rights); assert.equal(restricted.pay, false); assert.equal(restricted.revokeUndated, false); }
+  assert.equal(pure.permissions(inv, { ...rights, canMoney: false }).pay, false);
+});
+test('C165: подтверждение только полного RUB без ledger; приёмка не мешает', () => {
+  assert.equal(pure.permissions(base({ payerCompanyId: 'company', receiptBoundaryAt: 'at' }), rights).confirmUndated, true);
+  for (const extra of [{ currency: 'USD' }, { paymentsTotal: 1 }, { payments: [{ state: 'voided' }] }, { paidAmount: 1 }, { partial: true }, { payerCompanyId: '' }, { reconciliationRequired: true }]) assert.equal(pure.permissions(base({ payerCompanyId: 'company', ...extra }), rights).confirmUndated, false);
+});
+test('C165: pending требует явную корректную дату, полную сумму и исходного плательщика', () => {
+  const inv = undated(); const draft = { date: '2026-09-17', amount: 100, payerCompanyId: 'company' };
+  for (const bad of [{ date: '' }, { date: '2026-02-30' }, { amount: 99 }, { payerCompanyId: 'other' }]) assert.throws(() => pure.paymentBody(inv, { ...draft, ...bad }, 'uid'));
+  const body = pure.paymentBody(inv, draft, 'uid'); assert.equal(body.date, '2026-09-17'); assert.equal(body.amount, 100); assert.equal(body.payerCompanyId, 'company'); assert.equal('paidAt' in body, false);
+});
+test('C165: общая форма оставляет дату пустой; после явного ввода retry сохраняет UID/тело, transport один POST payments', async () => {
+  const invoice = undated(); const m = await modules({ invoice });
+  const form = await m.forms.buildWorkspaceForm(invoice, { operation: 'payment' }, { payers: async () => [{ value: 'company', label: 'СИЮ' }], href: () => '#', overview: () => null });
+  const date = form.el.querySelector('[name="date"]'); assert.equal(date.value, ''); assert.throws(() => form.read(), /фактическую дату/);
+  date.value = '2026-09-17'; const first = form.read().values;
+  form.el.querySelector('[name="amount"]').value = 999; form.el.querySelector('[name="payerCompanyId"]').value = 'other';
+  const replay = form.read().values; assert.deepEqual(clean(first.body), clean(replay.body)); assert.equal(first.body.amount, 100); assert.equal(first.body.payerCompanyId, 'company');
+  const transport = await m.load('sections/invoice-workspace-api.js'); await transport.evaluate(); await transport.namespace.writeInvoice(invoice, rights, first.operation, first.body);
+  assert.equal(m.calls.length, 1); assert.match(m.calls[0].path, /\/payments$/); assert.equal(m.calls[0].body.date, '2026-09-17');
+});
+test('C165: confirm/revoke — разные команды, причина обязательна, retry UID стабилен', async () => {
+  for (const operation of ['undated', 'revokeUndated']) {
+    const invoice = operation === 'undated' ? base({ payerCompanyId: 'company' }) : undated(); const m = await modules({ invoice });
+    const form = await m.forms.buildWorkspaceForm(invoice, { operation }, { href: () => '#', overview: () => null });
+    assert.throws(() => form.read(), /основание/); form.el.querySelector('[name="reason"]').value = 'Подтверждение по переписке';
+    const first = form.read().values; assert.deepEqual(clean(form.read().values.body), clean(first.body));
+    const transport = await m.load('sections/invoice-workspace-api.js'); await transport.evaluate(); await transport.namespace.writeInvoice(invoice, rights, operation, first.body);
+    assert.equal(m.calls.length, 1); assert.equal(m.calls[0].path, '/supply/invoices/invoice/undated-payment' + (operation === 'revokeUndated' ? '/revoke' : '')); assert.equal(m.calls[0].body.version, 8);
+    form.onError({ status: 409 }); assert.equal(form.conflicted, true);
+  }
+});
+
+test('C165: отдельная группа заполнения открывает invoiceId, не legacy request id', async () => {
+  const patches = []; const m = await modules({ call: (path) => path === '/fill-audit' ? { total: 1, groups: [{ key: 'old', area: 'Деньги', count: 1, title: 'Старое', why: '', items: [{ id: 'request-old', title: 'Заявка' }] }] } : { needsPaymentDate: { total: 1, items: [{ id: 'confusing-id', invoiceId: 'invoice-real', title: 'Счёт №24334' }] } } });
+  m.common.patch = value => patches.push(value);
+  const fill = await m.load('sections/fill.js'); await fill.evaluate(); const view = fill.namespace.mountFill({ g: 'invoicePaymentDate' }); await tick();
+  assert.match(view.el.textContent, /Заполнить даты подтверждённых оплат/); assert.match(view.el.textContent, /Счёт №24334/);
+  const item = view.el.querySelectorAll('li').find(el => el.textContent.includes('Счёт №24334')); item.onclick();
+  assert.equal(patches.at(-1).of, 'invoicecard'); assert.equal(patches.at(-1).open, 'invoice-real');
+});
+test('C165: board pending не предлагает новую оплату, даже после приёмки ведёт к заполнению даты', async () => {
+  const m = await modules(); const mod = await m.load('sections/request-invoice-actions.js'); await mod.evaluate();
+  const actions = mod.namespace.invoiceActions([{ invoiceId: 'invoice', invoiceRequiresPaymentDate: true, status: 'received' }]);
+  assert.equal(actions[0].label, 'Заполнить дату'); assert.equal(actions.some(action => action.label === 'Добавить оплату'), false);
+});
+
+test('C165 P2: после reopen read-model вложения подтверждения открываются безопасными ссылками без дополнительных GET', async () => {
+  const invoice = undated(); invoice.undatedPaymentEvidence.fileIds = ['proof']; invoice.undatedPaymentEvidence.files = [{ id: 'proof', name: 'Оплачено — переписка.pdf', url: '/uploads/proof.pdf' }];
+  const m = await modules({ invoice }); const reopened = await m.workspace.invoiceCard.get(invoice.id); m.calls.length = 0;
+  const body = m.workspace.invoiceCard.card.top(reopened, {});
+  const proof = body.querySelectorAll('a').find(el => el.textContent === 'Оплачено — переписка.pdf');
+  assert.ok(proof); assert.equal(proof.attrs.href, '/uploads/proof.pdf'); assert.equal(m.calls.length, 0);
+});
+test('C165 P2: partial/noMoney и чужие fileIds/опасные URL не превращаются в ссылки', async () => {
+  for (const [partial, money] of [[false, true], [true, true], [false, false]]) {
+    const invoice = undated(); invoice.partial = partial;
+    invoice.undatedPaymentEvidence.fileIds = ['proof', 'unsafe']; invoice.undatedPaymentEvidence.files = [
+      { id: 'proof', name: 'Разрешено.pdf', url: '/uploads/proof.pdf' },
+      { id: 'foreign', name: 'Не относится.pdf', url: '/uploads/foreign.pdf' },
+      { id: 'unsafe', name: 'Опасное.pdf', url: 'javascript:alert(1)' },
+    ];
+    const m = await modules({ invoice, money }); const body = m.workspace.invoiceCard.card.top(invoice, {}); const links = body.querySelectorAll('a');
+    assert.equal(links.some(el => el.textContent === 'Разрешено.pdf'), !partial && money);
+    assert.equal(links.some(el => /Не относится|Опасное/.test(el.textContent)), false);
+    assert.equal(m.calls.some(call => call.path.startsWith('/photos/')), false);
+  }
+});

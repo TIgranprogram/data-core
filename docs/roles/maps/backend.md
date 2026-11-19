@@ -1,3 +1,7 @@
+## C165 — оплаты без даты / исправление имени PDF (2026-11-19)
+- `backend/src/modules/supply/supply-undated-payments.service.ts:18` confirm/revoke transaction/CAS/UID/history; `undated-payment.ts:9` basis snapshot, `supply-invoice-payments.service.ts:161` existing add → atomic resolution, frozen allocations. `supply.service.ts:764` writeReceipt fresh source/invoice CAS во всех receipt-путях; `supply-invoice.service.ts:530` attachCAS qty/status/unpaid, `:289` evidence.files whole batch; `finance/finance.service.ts:306` scoped needsPaymentDate; `photos/photos.service.ts:83` exactencoding CAS repair.
+- Отчёт: `docs/crew/C165-undated-payments-and-filename-repair/BACKEND-REPORT.md`; коммит: — (не выполнялся). Карта обновлена.
+
 # Карта роли backend
 ## C161 краткое описание из частей (2026-11-19)
 - `backend/src/common/passport/simple-description.ts:12` сборщик и проверка ссылок, `backend/src/modules/showcase/passport-template-patch.ts:45` форма и CAS `:129`, `backend/src/modules/product-passport/product-passport.service.ts:1241` источник `parts`, `:1141` снимок при выпуске, `:1126` чтение сохранённого снимка, `:826` защита явной пересборки выданного и аннулированного. `backend/src/modules/product-passport/passport-parts-presentation.spec.ts:63` регрессия снимка, `docs/crew/C161-short-description-from-parts/BACKEND-REPORT.md` проверки. коммит: — (у координатора).

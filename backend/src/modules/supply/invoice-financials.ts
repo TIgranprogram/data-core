@@ -68,6 +68,7 @@ export function legacyReconciliation(inv: FinancialRecord, f: ReturnType<typeof 
   return { knownPaidAmount: known, reason: String(inv.reconciliationReason || 'Старая оплата и текущие суммы счёта не согласованы. Нужна сверка первичных документов; долг не рассчитан.') };
 }
 export function paymentTotals(inv: FinancialRecord, f: ReturnType<typeof financials>, payments: FinancialRecord[]) {
+  if (inv.undatedPaymentEvidence?.state === 'pending') return { paidAmount: null, sourcePaidAmount: null, sourceBalance: null, balanceDue: null, balanceEstimated: false, paymentState: 'date_required', paymentSource: 'undated-confirmation', requiresPaymentDate: true, undatedConfirmedAmountRub: Number(inv.undatedPaymentEvidence.amountRub), reconciliationRequired: false, reconciliationReason: null };
   const ledger = inv.paymentAccountingVersion === 1, reconciliation = legacyReconciliation(inv, f);
   if (reconciliation) return { paidAmount: reconciliation.knownPaidAmount, sourcePaidAmount: reconciliation.knownPaidAmount, sourceBalance: null, balanceDue: null, balanceEstimated: false, paymentState: 'reconciliation', paymentSource: 'legacy', reconciliationRequired: true, reconciliationReason: reconciliation.reason };
   const active = payments.filter((p) => p.state === 'active');

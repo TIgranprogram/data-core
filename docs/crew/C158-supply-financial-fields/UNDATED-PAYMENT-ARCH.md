@@ -1,0 +1,27 @@
+# C158 — адресный план оплаты без даты и исправления имени PDF
+19.11.2026; source f76489b9 / runtime b809fed4. Вердикт: можно после реализации перечисленных гарантий; это совет, не приёмка готового кода.
+1. Сначала `supply-invoice.schema.ts` + `dto-invoice.ts`: optional `undatedPaymentEvidence` без legacy-default/миграции; состояние pending/resolved/revoked, UID/hash, фиксированные RUB-сумма/плательщик/строки, основание/файлы, автор/время и исходная версия.
+2. Команды confirm/revoke в отдельном supply-сервисе, маршруты в `supply.controller.ts`: денежные роли как payments, `assertWhole`, typed DTO, UID+версия+аудит; операция с узлом счёта в Mongo-транзакции.
+3. Confirm — только полный RUB с известными строками/плательщиком и согласованным документом; ни одного ledger-платежа (включая voided), paid/snapshot/paid-зеркала или противоречия. Draft сначала валидированно issue, без выставления paid.
+4. Не устанавливать paymentAccountingVersion=1, paid/paidAt или нулевой фиктивный платёж ради исключения из аналитики; сохранять отдельное подтверждение, не второй источник денежных фактов.
+5. В `invoice-financials.ts:70`/ledger summary добавить derived `paymentState=date_required`, отдельную confirmed-undated сумму, paidAmount/sourcePaidAmount/balance=null; sourceAmount/цены остаются известными.
+6. `finance.service.ts:85–91` подавляет legacy-строки pending-счёта глобально до периода/компании; `invoiceObligations:95–110` не создаёт его долг/просрочку/прогноз. Не фильтровать по тексту note или статусу draft.
+7. Cashflow/canonical operations не создают строку без даты. В needsFill:276 добавить отдельную группу needsPaymentDate со ссылкой на invoicecard и total; адаптировать UI, не выдавать invoiceId за requestId старого expense-формата.
+8. `supply-invoice-payments.service.ts:add:160–191`: внутри existing transaction подтвердить full snapshot/плательщика/версию, создать один обычный платёж, resolve evidence с paymentId и synchronize в одной session; rollback возвращает оба состояния.
+9. UID-повтор платежа проверяется раньше состояния pending и устаревшей версии, как сейчас:160–164/173; competing confirm/revoke/add используют общий invoice CAS, иной payload с UID →409.
+10. `payRemaining:194` при pending обязан отказать: старый /pay подставляет today. /unpay/void не снимают evidence: только отдельная revoke с причиной, без фальшивого сторно.
+11. Новый /payments при pending принимает только полную подтверждённую сумму и явную дату ≤сегодня; частичные/FX/переназначение плательщика на первом этапе →409.
+12. Guard pending в `supply-invoice.service.ts:lockReason:70`, `touchFinancialInvoice:81`, update:360, add/remove/merge/line paths; проверка должна входить в условие CAS-записи, не только предварительный GET.
+13. Shared supplyrequests-схему не менять. `supply.service.ts:update:598+` уже запрещает прямые цену/qty/реквизиты строки счёта; проверить альтернативные batch/import/status пути и одновременное подтверждение с правкой строк.
+14. Пока pending фиксировать и денежную основу, и распределение аналитики: менять только описание/документы без изменения snapshot либо сначала revoke с причиной. Не приёмку: received/receiptBoundary/stock остаются независимыми.
+15. `supply-invoice-payments.service.ts:scoped/summary` явно маскирует новую evidence у partial/scope; нельзя отдавать полную сумму/строки/источник скрытых частей через spread inv. Команды partial никогда не разрешать.
+16. UI: invoice-workspace state/forms/meta + invoices-tab/requests board — warning «Оплата подтверждена — заполнить дату», явный фильтр/needsFill; скрыть обычный «Оплатить сегодня» и unpay, использовать common payment form с полной суммой.
+17. Сначала backend unit/e2e: due+forecast+legacy exclusion в другом месяце, full-date replay/race/forced rollback, wrong payer/sum/FX/legacy и scope; затем actual UI №24334 обе темы, reopen/filter/date-fill и денежные контроли.
+18. Для PDF не создавать второй PhotoDoc на тот же storageUrl и не удалять старый: `photos.service.ts:303–315` физически удаляет общий файл при DELETE.
+19. Отдельный `POST /photos/:id/repair-original-filename`: новый class DTO expectedOriginalFilename/newOriginalFilename (ограниченная длина, без control/path), @Roles(admin,manager), AuditAction(Photo), ожидаемое old-value в atomic update с deletedAt:null.
+20. Допустимо лишь точное преобразование raw latin1→валидный UTF8 либо Windows1251 через TextDecoder; сравнение с запрошенным новым именем обязательно. Не добавлять эвристику CP1251 в общий decoder: это испортит корректные западные имена.
+21. Никаких изменений storageUrl/mime/size/variants/байтов; уже правильное имя → no-op, несовпавшее expected/необратимый вариант →409/400. Проверить имя, MIME, размер и SHA исходного24479 до/после; новых uploads/PhotoDoc/платежей нет.
+22. Исправление кодировки следующих multipart-загрузок — в CLI-транспорте UTF8 и локальном тесте заголовков, отдельно от серверного восстановления сохранённых имён.
+23. После реализации: координаторское ТЗ → backend → PWA → адресные architect/QA/designer; максимум2 цикла. Full перед общим выпуском с соседним C163, OpenAPI/MAP/данные обновить; prod только access по конкретному плану.
+Проверено: указанные текущие guards/CAS/synchronize/finance/Photo delete/decoder; модульные циклы0. Код/БД не менялись; никакого PASS реализации или всего исторического review-scope.
+Ограничение инструмента: review-scope architect начинается с267bc1c и вывел весь исторический хвост; он не просмотрен и --done не устанавливается.

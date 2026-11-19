@@ -1,4 +1,4 @@
-import { sourceMoney, foreignInvoice, paymentStateLabel } from './invoice-workspace-state.js';
+import { sourceMoney, foreignInvoice, paymentStateLabel, needsPaymentDate } from './invoice-workspace-state.js';
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { current, patch } from '../core/router.js';
@@ -16,12 +16,14 @@ const invoiceHref = (id) => {
   return '#' + (route.section || 'requests') + '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== '')).toString();
 };
 export function mountInvoicesTab(params = {}) {
-  const F = { status: '', supplierId: '', q: '', from: '', to: '', contract: '', articleId: params.articleId || '' };
+  const F = { status: '', supplierId: '', q: '', from: '', to: '', contract: '', articleId: params.articleId || '', needsPaymentDate: params.needsPaymentDate === '1' ? '1' : '' };
   let timer = null;
   const sel = (opts, key, title) => {
-    const select = h('select', { class: 'invl-f', 'aria-label': title, onchange: () => { F[key] = select.value; if (key === 'articleId') patch({ articleId: F.articleId || undefined, page: undefined }); reload(); } }, ...opts.map(([value, label]) => h('option', { value }, label)));
+    const select = h('select', { class: 'invl-f', 'aria-label': title, onchange: () => { F[key] = select.value; if (key === 'articleId') patch({ articleId: F.articleId || undefined, page: undefined }); if (key === 'needsPaymentDate') patch({ needsPaymentDate: F.needsPaymentDate || undefined, page: undefined }); reload(); } }, ...opts.map(([value, label]) => h('option', { value }, label)));
     return enhanceSelect(select);
   };
+  const dateSel = sel([['', 'Дата оплаты: все'], ['1', 'Нужно заполнить дату оплаты']], 'needsPaymentDate', 'Дата оплаты');
+  dateSel.value = F.needsPaymentDate; enhanceSelect(dateSel);
   const statusSel = sel(STATUS_OPTS, 'status', 'Статус');
   const supSel = sel([['', 'Все поставщики']], 'supplierId', 'Поставщик');
   lookups().then((lk) => {
@@ -51,14 +53,14 @@ export function mountInvoicesTab(params = {}) {
       }
       rows.replaceChildren(table({ label: 'Счета поставщиков',
         columns: [{ label: 'Счёт' }, { label: 'Дата' }, { label: 'Поставщик', cls: 'clip' }, ...(session.canMoney ? [{ label: 'Сумма счёта', num: true }, { label: 'Оплачено, ₽', num: true }, { label: 'Остаток', num: true }] : []), { label: 'Статус' }, { label: 'Договор' }, { label: 'Позиций', num: true }],
-        rows: items.map((invoice) => ({ data: invoice.id, cells: [link({ label: invoice.no ? `Счёт № ${invoice.no}` : 'Счёт без номера', href: invoiceHref(invoice.id) }), date(invoice.date) || '—', invoice.supplierName || '—', ...(session.canMoney ? [invoice.accountingState === 'unresolved' ? sourceMoney(invoice.sourceAmount, invoice) + ' · Нужен пересчёт' : money(invoice.amount), invoice.paidAmount == null ? 'Не указано' : money(invoice.paidAmount), invoice.reconciliationRequired ? 'Требует сверки' : foreignInvoice(invoice) ? sourceMoney(invoice.sourceBalance, invoice) : invoice.balanceDue == null ? 'Не указано' : money(invoice.balanceDue)] : []),
-          h('span', null, invoice.reconciliationRequired || invoice.paymentState === 'reconciliation' ? h('span', { title: invoice.reconciliationReason || '' }, paymentStateLabel(invoice)) : invoice.paymentState === 'partial' ? 'Частично оплачен' : badge(INVOICE_STATUS, invoice.status), invoice.partial ? badge('Часть строк скрыта', 'warn') : null), invoice.contractNo ? `№ ${invoice.contractNo}` : 'Без договора', invoice.requestsCount ?? 0] })) }));
+        rows: items.map((invoice) => ({ data: invoice.id, cells: [link({ label: invoice.no ? `Счёт № ${invoice.no}` : 'Счёт без номера', href: invoiceHref(invoice.id) }), date(invoice.date) || '—', invoice.supplierName || '—', ...(session.canMoney ? [invoice.accountingState === 'unresolved' ? sourceMoney(invoice.sourceAmount, invoice) + ' · Нужен пересчёт' : money(invoice.amount), needsPaymentDate(invoice) ? 'Подтверждено без даты' : invoice.paidAmount == null ? 'Не указано' : money(invoice.paidAmount), needsPaymentDate(invoice) ? 'Дата не заполнена' : invoice.reconciliationRequired ? 'Требует сверки' : foreignInvoice(invoice) ? sourceMoney(invoice.sourceBalance, invoice) : invoice.balanceDue == null ? 'Не указано' : money(invoice.balanceDue)] : []),
+          h('span', null, needsPaymentDate(invoice) ? badge(paymentStateLabel(invoice), 'warn') : invoice.reconciliationRequired || invoice.paymentState === 'reconciliation' ? h('span', { title: invoice.reconciliationReason || '' }, paymentStateLabel(invoice)) : invoice.paymentState === 'partial' ? 'Частично оплачен' : badge(INVOICE_STATUS, invoice.status), invoice.partial ? badge('Часть строк скрыта', 'warn') : null), invoice.contractNo ? `№ ${invoice.contractNo}` : 'Без договора', invoice.requestsCount ?? 0] })) }));
     },
   });
   const load = (opt) => more.reload(opt);
   const el = h('div', { class: 'invl-tab' }, h('p', { class: 'hint' }, 'Откройте счёт по его названию. Позиции и разрешённые действия — в правой панели. Фильтр статьи отбирает счета по любой подходящей строке; счёт показывается целиком.'),
-    h('div', { class: 'invl-bar' }, q, statusSel, supSel, articleSel, ctrSel, button({ label: 'Сбросить фильтры', kind: 'ghost', onClick: () => { for (const key of Object.keys(F)) F[key] = ''; for (const control of [q, statusSel, supSel, articleSel, ctrSel, from, to]) { control.value = ''; if (control.tagName === 'SELECT') enhanceSelect(control); } patch({ articleId: undefined, page: undefined }); reload(); } }), h('span', { class: 'invl-period' }, from, h('span', { class: 'muted' }, '—'), to)), rows, more.el);
+    h('div', { class: 'invl-bar' }, q, statusSel, supSel, articleSel, ctrSel, dateSel, button({ label: 'Сбросить фильтры', kind: 'ghost', onClick: () => { for (const key of Object.keys(F)) F[key] = ''; for (const control of [q, statusSel, supSel, articleSel, ctrSel, dateSel, from, to]) { control.value = ''; if (control.tagName === 'SELECT') enhanceSelect(control); } patch({ articleId: undefined, needsPaymentDate: undefined, page: undefined }); reload(); } }), h('span', { class: 'invl-period' }, from, h('span', { class: 'muted' }, '—'), to)), rows, more.el);
   function reload() { return load(); }
   load();
-  return { el, reload: () => load({ keep: true }), update: (next = {}) => { const articleId = next.articleId || ''; if (F.articleId !== articleId) { F.articleId = articleId; articleSel.value = articleId; enhanceSelect(articleSel); reload(); } }, focusSearch: () => q.focus(), destroy: () => { clearTimeout(timer); more.destroy(); } };
+  return { el, reload: () => load({ keep: true }), update: (next = {}) => { const pending = next.needsPaymentDate === '1' ? '1' : ''; if (F.needsPaymentDate !== pending) { F.needsPaymentDate = pending; dateSel.value = pending; enhanceSelect(dateSel); reload(); } const articleId = next.articleId || ''; if (F.articleId !== articleId) { F.articleId = articleId; articleSel.value = articleId; enhanceSelect(articleSel); reload(); } }, focusSearch: () => q.focus(), destroy: () => { clearTimeout(timer); more.destroy(); } };
 }

@@ -1,3 +1,4 @@
+import { SupplyUndatedPaymentsService } from './supply-undated-payments.service';
 import { ExpenseArticlesModule } from '../expense-articles/expense-articles.module';
 import { SupplyInvoicePaymentsService } from './supply-invoice-payments.service';
 import { SupplyInvoicePayment, SupplyInvoicePaymentSchema } from './supply-invoice-payment.schema';
@@ -42,7 +43,7 @@ import { SupplierCatalogService } from './supplier-catalog.service';
     ]),
   ],
   controllers: [SupplyController, SupplierContractController],
-  providers: [SupplyInvoicePaymentsService, SupplyService, SupplierExcelService, SupplierCatalogService, SupplyInvoiceService, SupplierContractService],
+  providers: [SupplyUndatedPaymentsService, SupplyInvoicePaymentsService, SupplyService, SupplierExcelService, SupplierCatalogService, SupplyInvoiceService, SupplierContractService],
   exports: [SupplyService],
 })
 export class SupplyModule {}

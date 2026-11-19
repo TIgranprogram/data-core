@@ -1,5 +1,5 @@
 import { INVOICE_CURRENCIES } from './invoice-financials';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsMongoId, IsNumber, IsOptional, IsPositive, IsString, Length, Min, Matches } from 'class-validator';
 
 export class CreateInvoicesDto {
@@ -33,7 +33,7 @@ export class InvoiceTaxDto {
   @ApiPropertyOptional({ nullable: true }) @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) declaredVatAmount?: number | null;
 }
 export class CreateInvoicePaymentDto {
-  @ApiPropertyOptional() @IsString() @Length(1, 100) clientUid!: string;
+  @ApiProperty() @IsString() @Length(1, 100) clientUid!: string;
   @ApiPropertyOptional() @IsString() @Matches(/^\d{4}-\d{2}-\d{2}$/) date!: string;
   @ApiPropertyOptional() @IsNumber({ maxDecimalPlaces: 2 }) @IsPositive() amount!: number;
   @ApiPropertyOptional() @IsOptional() @IsMongoId() payerCompanyId?: string;
@@ -99,4 +99,17 @@ export class MergeInvoicesDto {
   @IsMongoId() targetId!: string;
   @ApiPropertyOptional({ description: 'append — добавить все строки; mergeSameRequest — пропустить одинаковые; replaceLines — заменить строки цели', enum: MERGE_STRATEGIES })
   @IsOptional() @IsIn(MERGE_STRATEGIES) strategy?: MergeStrategy;
+}
+
+/** Подтверждение полной оплаты без выдуманной даты. Сумма берётся из счёта. */
+export class UndatedInvoicePaymentDto {
+  @ApiProperty() @IsString() @Length(1, 100) clientUid!: string;
+  @ApiProperty() @IsInt() @Min(0) version!: number;
+  @ApiProperty() @IsString() @Length(3, 1000) reason!: string;
+  @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @ArrayMaxSize(20) @IsMongoId({ each: true }) fileIds?: string[];
+}
+export class RevokeUndatedInvoicePaymentDto {
+  @ApiProperty() @IsString() @Length(1, 100) clientUid!: string;
+  @ApiProperty() @IsInt() @Min(0) version!: number;
+  @ApiProperty() @IsString() @Length(3, 1000) reason!: string;
 }

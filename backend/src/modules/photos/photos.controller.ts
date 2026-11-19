@@ -1,3 +1,4 @@
+import { RepairOriginalFilenameDto } from './repair-filename.dto';
 import { Throttle } from '@nestjs/throttler';
 import {
   Body,
@@ -88,6 +89,13 @@ export class PhotosController {
   @AuditAction({ action: 'update', entityType: 'Photo', idParam: 'id' })
   async updateFrame(@Param('id') id: string, @Body() dto: UpdatePhotoFrameDto) {
     return this.service.updateFrame(id, dto);
+  }
+
+  @Post(':id/repair-original-filename')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'photo.filename.repaired', entityType: 'Photo', idParam: 'id' })
+  repairOriginalFilename(@Param('id') id: string, @Body() dto: RepairOriginalFilenameDto) {
+    return this.service.repairOriginalFilename(id, dto);
   }
 
   @Delete(':id')

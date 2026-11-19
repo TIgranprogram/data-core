@@ -6,7 +6,7 @@ import { labelFromPriority, labelFromStatus, priorityFromLabel, statusFromLabel 
 /** Цепочка запросов Mongoose — любой метод возвращает её же, exec отдаёт результат. */
 const chain = (result: unknown) => {
   const c: Record<string, jest.Mock> = {};
-  for (const m of ['sort', 'skip', 'limit', 'lean', 'setOptions', 'allowDiskUse']) c[m] = jest.fn(() => c);
+  for (const m of ['sort', 'skip', 'limit', 'lean', 'setOptions', 'allowDiskUse', 'session']) c[m] = jest.fn(() => c);
   c.exec = jest.fn(async () => result);
   return c;
 };
@@ -56,11 +56,12 @@ describe('SupplyService', () => {
     last = null;
     dup = null;
     const collection = (name: string) => ({
+      updateOne: jest.fn(async () => ({ matchedCount: 1 })),
       find: jest.fn(() => ({ toArray: async () => colls[name] ?? [], sort: () => ({ toArray: async () => colls[name] ?? [] }) })),
       findOne: jest.fn(async () => (colls[name] ?? [])[0] ?? null),
       countDocuments: jest.fn(async () => (colls[name] ?? []).length),
     });
-    const connection = { db: { collection: jest.fn(collection) } };
+    const connection = { db: { collection: jest.fn(collection) }, startSession: async () => ({ withTransaction: async (fn: () => Promise<unknown>) => fn(), endSession: async () => undefined }) };
     model = {
       find: jest.fn(() => chain([])),
       findOne: jest.fn((f: Record<string, unknown>) => chain(f.clientUid ? dup : f.num ? last : current)),
@@ -74,7 +75,7 @@ describe('SupplyService', () => {
     stock = {
       findMaterialByName: jest.fn(async () => null),
       adoptArticle: jest.fn(async () => undefined),
-      move: jest.fn(async () => ({})),
+      move: jest.fn(async (...args: unknown[]) => { const first = args[3] as ((session: unknown) => Promise<void>) | undefined; if (first) await first({}); return {}; }),
       createItem: jest.fn(async () => ({ id: String(new Types.ObjectId()) })),
     };
     counters = { setSeqAtLeast: jest.fn(async () => undefined), nextSeq: jest.fn(async () => (Number(last?.num) || 0) + 1) };
@@ -447,7 +448,7 @@ describe('SupplyService', () => {
       current = reqDoc({ materialId: new Types.ObjectId() });
       model.updateOne.mockReturnValue(chain({ matchedCount: 0 }));
       await expect(service.receive(String(current._id), {})).rejects.toBeInstanceOf(ConflictException);
-      expect(model.updateOne.mock.calls[0][0]).toMatchObject({ status: { $ne: 'received' } });
+      expect(model.updateOne.mock.calls[0][0]).toMatchObject({ status: 'requested', invoiceId: null, qty: current.qty });
     });
   });
 
@@ -623,7 +624,7 @@ describe('SupplyService', () => {
       current = reqDoc({ materialId: mid, num: 9 });
       await service.receive(String(current._id), { clientUid: 'r2' }, 'user1');
       expect(stock.createItem).not.toHaveBeenCalled();
-      expect(stock.move).toHaveBeenCalledWith(String(mid), expect.objectContaining({ type: 'in', qty: 10, documentRef: `SupplyRequest:${current._id}`, clientUid: 'r2' }), 'user1');
+      expect(stock.move).toHaveBeenCalledWith(String(mid), expect.objectContaining({ type: 'in', qty: 10, documentRef: `SupplyRequest:${current._id}`, clientUid: 'r2' }), 'user1', expect.any(Function));
       expect(setOf()).toMatchObject({ status: 'received', receivedQty: 10, receivedTo: 'stock', costCenter: 'workshop', receiveUid: 'r2', editedInApp: true });
     });
 
@@ -633,7 +634,7 @@ describe('SupplyService', () => {
       current = reqDoc({ unit: 'шт', article: 'A-7' });
       await service.receive(String(current._id), { qty: 4 });
       expect(stock.createItem).toHaveBeenCalledWith(expect.objectContaining({ name: 'Болт М10', unit: 'шт', article: 'A-7', invoiceName: 'Болт М10' }));
-      expect(stock.move).toHaveBeenCalledWith(newId, expect.objectContaining({ qty: 4 }), undefined);
+      expect(stock.move).toHaveBeenCalledWith(newId, expect.objectContaining({ qty: 4 }), undefined, expect.any(Function));
       expect(setOf().materialId).toEqual(new Types.ObjectId(newId));
       expect(stock.adoptArticle).toHaveBeenCalled();
     });
@@ -642,11 +643,11 @@ describe('SupplyService', () => {
       const mid = new Types.ObjectId(), other = String(new Types.ObjectId());
       current = reqDoc({ materialId: mid });
       await service.receive(String(current._id), { materialId: other });
-      expect(stock.move).toHaveBeenLastCalledWith(other, expect.objectContaining({ type: 'in' }), undefined);
+      expect(stock.move).toHaveBeenLastCalledWith(other, expect.objectContaining({ type: 'in' }), undefined, expect.any(Function));
       expect(setOf().materialId).toEqual(new Types.ObjectId(other));
       current = reqDoc({ materialId: mid });
       await service.receive(String(current._id), { materialId: 'мусор' });
-      expect(stock.move).toHaveBeenLastCalledWith(String(mid), expect.anything(), undefined);
+      expect(stock.move).toHaveBeenLastCalledWith(String(mid), expect.anything(), undefined, expect.any(Function));
     });
 
     it('нет материала и нет наименования → BadRequest', async () => {
@@ -676,7 +677,7 @@ describe('SupplyService', () => {
       const mid = new Types.ObjectId();
       current = reqDoc({ materialId: mid, qty: 10, receivedQty: 2 });
       await service.receive(String(current._id), { qty: 3, partial: true });
-      expect(stock.move).toHaveBeenCalledWith(String(mid), expect.objectContaining({ qty: 3, note: expect.stringContaining('(часть)') }), undefined);
+      expect(stock.move).toHaveBeenCalledWith(String(mid), expect.objectContaining({ qty: 3, note: expect.stringContaining('(часть)') }), undefined, expect.any(Function));
       const set = setOf();
       expect(set).toMatchObject({ qty: 7, receivedQty: 5 });
       expect(set).not.toHaveProperty('status');

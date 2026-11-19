@@ -4,7 +4,7 @@ import { api, PREFIX, session } from '../core/api.js';
 import { current } from '../core/router.js';
 import { date, dateTime, money, qty } from '../core/format.js';
 import { stack, section, table, button, actions, link, badge, INVOICE_STATUS, SUPPLY_STATUS, confirmDlg, failBlock, toast, toastError, attachCombo } from '../ui/kit/index.js';
-import { permissions, lineAmount, pendingLines, assertOperation, addBody, takeInvoiceOperation, sourceMoney, foreignInvoice, paymentStateLabel, invoiceWarnings } from './invoice-workspace-state.js';
+import { permissions, lineAmount, pendingLines, assertOperation, addBody, takeInvoiceOperation, sourceMoney, foreignInvoice, paymentStateLabel, invoiceWarnings, needsPaymentDate } from './invoice-workspace-state.js';
 import { adminAction, askReason } from './admin-override.js';
 import { getInvoice, getCandidates, getBusyRequests, getPayers, getContracts, writeInvoice, deleteInvoice } from './invoice-workspace-api.js';
 import { buildWorkspaceForm } from './invoice-workspace-forms.js';
@@ -237,6 +237,26 @@ function paymentHistory(invoice, ctx) {
   return section({ title: 'Фактические оплаты', count: invoice.paymentsTotal ?? records.length, body: [h('p', { class: 'hint' }, 'Каждая оплата учитывается в свой фактический день. Время регистрации и сторно сохраняются в истории.'), historyBox, actions(loadMore)] });
 }
 
+/** Только разрешённые read-model файлы текущего подтверждения; скрытые счета не догружаем по ID. */
+function undatedEvidenceBlock(invoice) {
+  const evidence = invoice.undatedPaymentEvidence;
+  if (!session.canMoney || invoice.partial || !evidence) return null;
+  const pending = needsPaymentDate(invoice);
+  const allowed = new Set((evidence.fileIds || []).map(String));
+  const files = (evidence.files || []).filter(file => allowed.has(String(file.id)));
+  const links = files.map(file => {
+    const url = String(file.url || '');
+    if (!/^\/uploads\/[^\\\s]+$/.test(url) && !/^https?:\/\/[^\\\s]+$/i.test(url)) return null;
+    return link({ label: file.name || 'Открыть подтверждение оплаты', href: fileUrl(url), target: '_blank' });
+  }).filter(Boolean);
+  return section({ title: 'Подтверждение оплаты без даты', open: pending, body: [
+    h('p', null, evidence.reason || ''),
+    h('p', { class: 'hint' }, `Подтверждено: ${dateTime(evidence.confirmedAt)}. ${pending ? 'Уточните фактическую дату; денежной операции пока нет.' : evidence.state === 'revoked' ? 'Подтверждение отозвано. ' + (evidence.revokeReason || '') : 'Дата заполнена, оплата учтена.'}`),
+    links.length ? actions(...links) : null,
+    allowed.size > links.length ? h('p', { class: 'hint' }, 'Часть файлов подтверждения недоступна. Обновите счёт или уточните доступ к документу.') : null,
+  ] });
+}
+
 function body(invoice, ctx, notes = []) {
   if (invoice._refreshError) return failBlock(invoice._refreshError, () => ctx.reload(), { text: 'Сохранено, но обновить показ не удалось. Повторить только загрузку' });
   const p = permissions(invoice, session), checks = p.receive ? new Map() : null;
@@ -251,6 +271,7 @@ function body(invoice, ctx, notes = []) {
       checks ? h('span', { class: 'hint' }, 'Отметьте только приехавшие позиции — кнопка «Принять на склад» в «Что дальше».') : null,
     ] }),
     ...notes,
+    undatedEvidenceBlock(invoice),
     metaBlock(invoice, ctx, refreshInvoice),
     paymentHistory(invoice, ctx),
     orders.length ? section({ title: 'Связанные заказы', body: table({ label: 'Заказы', columns: [{ label: 'Заказ' }, { label: 'Договоры' }], rows: orders.map((order) => ({ cells: [`№ ${order.productionNo || '—'}`, (order.contracts || []).join(', ') || '—'] })) }) }) : null,
@@ -267,7 +288,7 @@ function steps(invoice, ctx) {
   const p = permissions(invoice, session);
   const all = [
     p.issue && { key: 'issue', label: 'Выставить счёт', text: 'Сначала проверьте реквизиты, затем выставьте счёт.', run: () => command(invoice, ctx, 'issue') },
-    p.pay && { key: 'pay', label: 'Добавить оплату', text: 'Внесите подтверждённую сумму и фактическую дату. Авансы и доплаты сохраняются отдельно.', run: () => command(invoice, ctx, 'pay') },
+    p.pay && { key: 'pay', label: p.dateRequired ? 'Заполнить дату' : 'Добавить оплату', text: p.dateRequired ? 'Оплата подтверждена — заполнить дату перечисления по документу.' : 'Внесите подтверждённую сумму и фактическую дату. Авансы и доплаты сохраняются отдельно.', run: () => command(invoice, ctx, 'pay') },
     p.receive && { key: 'receive', label: 'Принять на склад', text: 'Отметьте приехавшие позиции в таблице и примите их на склад.', run: () => command(invoice, ctx, 'receive', null, { requestIds: [...(checksOf.get(invoice) || [])].filter(([, cb]) => cb.checked).map(([id]) => id) }) },
   ].filter(Boolean);
   return { main: all[0] || null, rest: all.slice(1) };
@@ -278,7 +299,7 @@ const invoiceFacts = (invoice) => [
   invoice.payerName ? ['Наша компания', invoice.payerName] : null,
   session.canMoney && (invoice.paidAmount != null || invoice.reconciliationRequired) ? ['Фактически оплачено', invoice.paidAmount == null ? 'Требует сверки' : money(invoice.paidAmount)] : null,
   session.canMoney && invoice.paymentState ? ['Оплата', paymentStateLabel(invoice)] : null,
-  session.canMoney && invoice.reconciliationRequired ? ['Остаток', 'Требует сверки'] : session.canMoney && foreignInvoice(invoice) ? ['Остаток по документу', sourceMoney(invoice.sourceBalance, invoice)] : session.canMoney && invoice.balanceDue !== undefined ? ['Остаток, ₽', invoice.balanceDue == null ? 'Нужен пересчёт' : money(invoice.balanceDue)] : null,
+  session.canMoney && needsPaymentDate(invoice) ? ['Подтверждено без даты', money(invoice.undatedConfirmedAmountRub)] : session.canMoney && invoice.reconciliationRequired ? ['Остаток', 'Требует сверки'] : session.canMoney && foreignInvoice(invoice) ? ['Остаток по документу', sourceMoney(invoice.sourceBalance, invoice)] : session.canMoney && invoice.balanceDue !== undefined ? ['Остаток, ₽', invoice.balanceDue == null ? 'Нужен пересчёт' : money(invoice.balanceDue)] : null,
 ].filter(Boolean);
 
 export const invoiceCard = {
@@ -290,7 +311,7 @@ export const invoiceCard = {
     ...screenCard({
       title: (invoice) => invoice.no ? `Счёт № ${invoice.no}` : 'Счёт без номера',
       sub: (invoice) => [invoice.supplierName || 'Поставщик не указан', invoice.date ? date(invoice.date) : ''].filter(Boolean).join(' · '),
-      stage: (invoice) => (invoice._refreshError ? null : invoice.reconciliationRequired || invoice.paymentState === 'reconciliation' ? badge('Требует сверки', 'warn') : badge(INVOICE_STATUS, invoice.status)),
+      stage: (invoice) => (invoice._refreshError ? null : needsPaymentDate(invoice) ? badge('Требует даты оплаты', 'warn') : invoice.reconciliationRequired || invoice.paymentState === 'reconciliation' ? badge('Требует сверки', 'warn') : badge(INVOICE_STATUS, invoice.status)),
       side: (invoice) => [session.canMoney && !invoice._refreshError ? h('b', null, invoice.accountingState === 'unresolved' ? sourceMoney(invoice.sourceAmount, invoice) + ' · Нужен пересчёт' : money(invoice.amount)) : null, invoice.partial ? 'только видимые строки' : null],
       noHistory: true,
       bodyFirst: true,
@@ -309,6 +330,8 @@ export const invoiceCard = {
           { label: 'Обновить', run: () => ctx.reload() },
           p.meta ? { label: 'Реквизиты счёта', run: () => ctx.edit({ _operation: 'meta' }) } : null,
           ...steps(invoice, ctx).rest.map((s) => ({ label: s.label, run: s.run })),
+          p.confirmUndated ? { label: 'Подтвердить оплату без даты', run: () => ctx.edit({ _operation: 'undated' }) } : null,
+          p.revokeUndated ? { label: 'Отозвать подтверждение без даты', danger: true, run: () => ctx.edit({ _operation: 'revokeUndated' }) } : null,
           p.unpay && invoice.paymentAccountingVersion !== 1 ? { label: 'Снять оплату', danger: true, run: () => override(invoice, ctx, 'unpay') } : null,
         ];
       },

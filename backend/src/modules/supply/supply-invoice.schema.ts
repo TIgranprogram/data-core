@@ -45,6 +45,11 @@ export type SupplyInvoicePaymentAdjustment = {
  */
 @Schema({ collection: 'supplyinvoices', timestamps: true })
 export class SupplyInvoice {
+  /** Подтверждение не входит в денежные факты, пока не заполнена дата. */
+  @Prop({ type: Object }) undatedPaymentEvidence?: Record<string, any>;
+  /** Квитанции команд сохраняют UID после снятия/уточнения подтверждения. */
+  @Prop({ type: [Object], default: undefined }) undatedPaymentCommands?: Array<Record<string, any>>;
+
   /** Метаданные классификации старых фактов, без изменения paymentSnapshot. */
   @Prop({ type: Object }) legacyClassifications?: Record<string, ClassificationMetadata>;
 

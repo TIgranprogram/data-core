@@ -9,8 +9,9 @@ export function invoiceActions(rs) {
   if (!id || !session.canEdit) return [];
   const keys = rs.map(supplyKey);
   const open = () => { patch({ of: 'invoicecard', open: id, new: undefined }); };
+  const pending = rs.some(r => r.invoiceRequiresPaymentDate || r.invoicePaymentState === 'date_required');
   const list = [];
-  if (keys.includes('ordered') && session.canMoney) list.push({ label: 'Добавить оплату', kind: 'primary', title: 'Внести фактическую дату и сумму', run: () => { requestInvoiceOperation(id, 'payment'); open(); return false; } });
+  if ((pending || keys.includes('ordered')) && session.canMoney) list.push({ label: pending ? 'Заполнить дату' : 'Добавить оплату', kind: 'primary', title: pending ? 'Заполнить фактическую дату подтверждённой оплаты' : 'Внести фактическую дату и сумму', run: () => { requestInvoiceOperation(id, 'payment'); open(); return false; } });
   if (keys.includes('paid')) list.push({ label: 'Принять', kind: list.length ? 'secondary' : 'primary', title: 'Открыть счёт и принять позиции на склад', run: open });
   list.push({ label: 'Открыть счёт', kind: 'ghost', title: 'Все позиции и реквизиты счёта', run: open });
   return list;

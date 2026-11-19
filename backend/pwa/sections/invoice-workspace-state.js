@@ -2,12 +2,14 @@
 export const lineAmount = (line) => Number(line.lineAmount ?? line.priceHint ?? 0);
 export const roundMoney = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 export const pendingLines = (invoice) => (invoice.requests || []).filter((r) => !r.deletedAt && !['received', 'cancelled'].includes(r.status));
+export const needsPaymentDate = (invoice) => invoice.requiresPaymentDate === true || invoice.paymentState === 'date_required';
 export function permissions(invoice, rights) {
   const whole = !invoice.partial;
   const live = invoice.status !== 'cancelled';
   const boundary = !!(invoice.receiptBoundaryAt || invoice.lockReason || (invoice.requests || []).some((r) => r.status === 'received'));
   const meta = !!rights.canEdit && whole && live;
-  const ledgerLocked = !!invoice.financialLocked || (invoice.paymentAccountingVersion === 1 && Number(invoice.paidAmount || 0) > 0);
+  const dateRequired = needsPaymentDate(invoice);
+  const ledgerLocked = dateRequired || !!invoice.financialLocked || (invoice.paymentAccountingVersion === 1 && Number(invoice.paidAmount || 0) > 0);
   const finance = meta && !!rights.canMoney && !boundary && !ledgerLocked;
   const isAdmin = !!(rights.isAdmin || rights.role === 'admin' || rights.user?.isOwner);
   const paid = invoice.status === 'paid';
@@ -19,16 +21,19 @@ export function permissions(invoice, rights) {
   const reconciliation = invoice.reconciliationRequired || invoice.paymentState === 'reconciliation';
   const reason = !whole ? 'Часть строк скрыта другим складом. Доступен только просмотр видимых позиций.'
     : !live ? 'Счёт отменён. Доступен только просмотр.'
+      : dateRequired ? 'Оплата подтверждена — заполнить дату. Сумма, плательщик и состав зафиксированы до уточнения даты или отзыва подтверждения.'
       : reconciliation ? invoice.reconciliationReason || 'Требуется сверка старой оплаты. Новая оплата недоступна до проверки источника.'
       : ledgerLocked ? 'Внесена оплата: суммы, НДС, валюта и состав зафиксированы. Новые оплаты доступны; для исправления ошибочного платежа обратитесь к администратору.'
       : boundary ? (isAdmin ? 'По счёту уже есть приёмка. Вы можете исправить цену и сумму позиции; количество принятой позиции меняется отменой приёмки.'
         : 'По счёту уже есть приёмка. Цены исправляет администратор; можно менять номер, дату, файлы и договор.')
         : paid ? 'До первой приёмки позиции можно править; убрать позицию из оплаченного счёта может администратор. Исходный платёж не меняется.' : '';
   // Цену позиции администратор исправляет на любой стадии (решение 2026-11-06); добавить и убрать — только до приёмки.
-  return { whole, live, boundary, ledgerLocked, meta, finance, payer, paid, isAdmin, reason,
+  return { whole, live, boundary, ledgerLocked, meta: meta && !dateRequired, finance, payer, paid, isAdmin, reason, dateRequired,
+    confirmUndated: meta && !!rights.canMoney && !dateRequired && !reconciliation && !foreignInvoice(invoice) && !!invoice.payerCompanyId && Number(invoice.amount) > 0 && !invoice.financialLocked && !invoice.paymentSnapshot && !invoice.paymentsTotal && !(invoice.payments || []).length && !Number(invoice.paidAmount || 0) && !invoice.paidAt && !(invoice.requests || []).some(r => r.paid || r.paidAt) && ['draft', 'issued'].includes(invoice.status),
+    revokeUndated: meta && !!rights.canMoney && dateRequired,
     add: linesAdmin && !!rights.canMoney, editLine: meta && !!rights.canMoney && !ledgerLocked && (isAdmin || !boundary), removeLine: linesAdmin && (isAdmin || !paid),
     // ЗЯ-1c: только администратор; сервер повторно проверяет и просит причину.
-    unpay: !reconciliation && isAdmin && !!rights.canMoney && whole && live && (paid || ledgerLocked) && !boundary,
+    unpay: !dateRequired && !reconciliation && isAdmin && !!rights.canMoney && whole && live && (paid || ledgerLocked) && !boundary,
     rollback: isAdmin && !!rights.canMoney && whole && live,
     issue: finance && invoice.status === 'draft',
     pay: !reconciliation && meta && !!rights.canMoney && invoice.status === 'issued',
@@ -78,7 +83,7 @@ export function metaBody(invoice, draft, rights) {
 }
 export function assertOperation(invoice, rights, operation, lineId) {
   const p = permissions(invoice, rights);
-  const allowed = { meta: p.meta, line: p.editLine, add: p.add, remove: p.removeLine, issue: p.issue, pay: p.pay, payment: p.pay, receive: p.receive };
+  const allowed = { meta: p.meta, line: p.editLine, add: p.add, remove: p.removeLine, issue: p.issue, pay: p.pay, payment: p.pay, undated: p.confirmUndated, revokeUndated: p.revokeUndated, receive: p.receive };
   if (!allowed[operation]) throw new Error(p.reason || 'Недостаточно прав для этого действия');
   if ((operation === 'issue' || operation === 'pay') && !invoice.payerCompanyId) {
     throw new Error('Укажите «Нашу компанию» — кто платит (иначе расход не попадёт в «Деньги»)');
@@ -100,7 +105,7 @@ export function takeInvoiceOperation(id) { const op = invoiceOperations.get(Stri
 export const invoiceCurrency = (invoice) => invoice.currency === 'UE' ? (invoice.currencyName || 'у.е.') : (invoice.currency || 'RUB');
 export const foreignInvoice = (invoice) => !!invoice.currency && invoice.currency !== 'RUB';
 export function sourceMoney(value, invoice) { return value == null ? 'Не указано' : `${Number(value).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${invoiceCurrency(invoice)}`; }
-export function paymentStateLabel(invoice) { if (invoice.reconciliationRequired || invoice.paymentState === 'reconciliation') return 'Требует сверки'; return ({ unpaid: 'Не оплачен', partial: 'Частично оплачен', paid: 'Оплачен' })[invoice.paymentState] || (invoice.status === 'paid' ? 'Оплачен' : 'Не оплачен'); }
+export function paymentStateLabel(invoice) { if (needsPaymentDate(invoice)) return 'Оплата подтверждена — заполнить дату'; if (invoice.reconciliationRequired || invoice.paymentState === 'reconciliation') return 'Требует сверки'; return ({ unpaid: 'Не оплачен', partial: 'Частично оплачен', paid: 'Оплачен' })[invoice.paymentState] || (invoice.status === 'paid' ? 'Оплачен' : 'Не оплачен'); }
 export function businessToday() { const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()); const pick = k => parts.find(p => p.type === k).value; return `${pick('year')}-${pick('month')}-${pick('day')}`; }
 const numeric = (v, label, { positive = false, precision = 2 } = {}) => {
   const raw = String(v ?? '').trim().replace(',', '.'); const n = Number(raw);
@@ -149,6 +154,7 @@ export function paymentBody(invoice, draft, clientUid) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date + 'T00:00:00Z')) || new Date(date + 'T00:00:00Z').toISOString().slice(0, 10) !== date || date > businessToday()) throw new Error('Укажите фактическую дату оплаты, не позже сегодняшней');
   if (!draft.payerCompanyId) throw new Error('Выберите нашу компанию — плательщика');
   const amount = numeric(draft.amount, 'Фактически уплачено, ₽', { positive: true });
+  if (needsPaymentDate(invoice) && (amount !== Number(invoice.undatedConfirmedAmountRub) || String(draft.payerCompanyId) !== String(invoice.undatedPaymentEvidence?.payerCompanyId || invoice.payerCompanyId))) throw new Error('Сумма и плательщик должны совпадать с подтверждением оплаты');
   const body = { clientUid, date, amount, payerCompanyId: draft.payerCompanyId, version: Number(invoice.version ?? 0), fileIds: draft.fileIds || [], note: String(draft.note || '').trim() };
   if (foreignInvoice(invoice)) body.sourceAmount = numeric(draft.sourceAmount, 'Погашено в валюте счёта', { positive: true });
   else if (invoice.balanceDue != null && amount > Number(invoice.balanceDue)) throw new Error('Оплата превышает непогашенный остаток');
@@ -168,7 +174,7 @@ export function invoiceWarnings(invoice, rights) {
     if (warnings.has(key)) { if (tone === 'warn') warnings.get(key).tone = 'warn'; }
     else warnings.set(key, { title, tone });
   };
-  add(reason, reconciliation ? 'warn' : 'neutral');
+  add(reason, reconciliation || needsPaymentDate(invoice) ? 'warn' : 'neutral');
   for (const warning of invoice.warnings || []) add(typeof warning === 'string' ? warning : warning.message || warning.title || 'Проверьте финансовые данные', 'warn');
   return [...warnings.values()];
 }

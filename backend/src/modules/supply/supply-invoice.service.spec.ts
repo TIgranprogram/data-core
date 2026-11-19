@@ -72,7 +72,7 @@ function fakeRequests(lines: Doc[]) {
         if (hit && u.$set) Object.assign(l, u.$set);
         if (hit && u.$unset) for (const k of Object.keys(u.$unset as Doc)) delete l[k];
       }
-      return chain({});
+      return chain({ matchedCount: range?.$in?.length ?? lines.length, modifiedCount: range?.$in?.length ?? lines.length });
     }),
     countDocuments: jest.fn(() => chain(0)),
   };

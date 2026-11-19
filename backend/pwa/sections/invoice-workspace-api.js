@@ -26,6 +26,7 @@ export async function getBusyRequests(invoice, { q = '', limit = 80 } = {}) {
 export function writeInvoice(invoice, rights, operation, body = {}, lineId) {
   assertOperation(invoice, rights, operation, lineId);
   const base = `/supply/invoices/${invoice.id}`;
+  if (operation === 'undated' || operation === 'revokeUndated') return api(`${base}/undated-payment${operation === 'revokeUndated' ? '/revoke' : ''}`, { noWait: true, method: 'POST', body });
   if (operation === 'payment') return api(`${base}/payments`, { noWait: true, method: 'POST', body });
   if (operation === 'meta') return api(base, { noWait: true, method: 'PATCH', body });
   if (operation === 'line') return api(`${base}/lines/${lineId}`, { noWait: true, method: 'PATCH', body });
