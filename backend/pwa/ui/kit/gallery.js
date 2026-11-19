@@ -44,19 +44,29 @@ export function openZoom(pics, start = 0) { zoom(pics, start, () => {}); }
 /** Крупно на весь экран, со стрелками; синхронизирует выбранное фото с каруселью. */
 function zoom(pics, start, sync) {
   let cur = start;
+  const previousFocus = document.activeElement;
   // адрес уже полный (http, /db/…, blob:, data:) — PREFIX второй раз не дописывать, иначе картинка не грузится (2026-11-13, «Габариты» в шаблоне паспорта)
   const at = (u) => (/^(https?:|blob:|data:)/.test(u) || (PREFIX && u.startsWith(PREFIX + '/')) ? u : PREFIX + u);
   const img = h('img', { src: at(pics[cur].url), alt: '' });
   const go = (d) => { cur = (cur + d + pics.length) % pics.length; img.src = at(pics[cur].url); sync(cur); };
   const close = (e) => {
     if (e.type === 'keydown') {
+      if (e.key === 'Tab') {
+        const controls = [...box.querySelectorAll('button')];
+        const at = controls.indexOf(document.activeElement);
+        controls[(at + (e.shiftKey ? -1 : 1) + controls.length) % controls.length]?.focus();
+        e.preventDefault(); e.stopPropagation(); return;
+      }
       if (e.key === 'ArrowLeft' && pics.length > 1) go(-1); else if (e.key === 'ArrowRight' && pics.length > 1) go(1); else if (e.key !== 'Escape') return;
       if (e.key !== 'Escape') { e.stopPropagation(); return; }
     }
     box.remove(); document.removeEventListener('keydown', close, true); e.stopPropagation?.();
+    if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
   };
   const arrow = (d, label, ch) => h('button', { type: 'button', class: 'btn btn-icon pgal-arrow ' + (d < 0 ? 'prev' : 'next'), 'aria-label': label, onclick: (e) => { e.stopPropagation(); go(d); } }, ch);
-  const box = h('div', { class: 'lightbox', role: 'dialog', 'aria-label': 'Фото', onclick: close }, img, pics.length > 1 ? arrow(-1, 'Предыдущее фото', '‹') : null, pics.length > 1 ? arrow(1, 'Следующее фото', '›') : null);
+  const exit = h('button', { type: 'button', class: 'btn lightbox-close', 'aria-label': 'Закрыть фото', title: 'Закрыть фото (Esc)', onclick: close }, '✕ Закрыть фото');
+  const box = h('div', { class: 'lightbox', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Фото', onclick: close }, img, exit, pics.length > 1 ? arrow(-1, 'Предыдущее фото', '‹') : null, pics.length > 1 ? arrow(1, 'Следующее фото', '›') : null);
   document.addEventListener('keydown', close, true);
   document.body.append(box);
+  exit.focus();
 }
