@@ -1,0 +1,155 @@
+{
+  "startedAt": "2026-11-19T19:38:17.170Z",
+  "origin": "http://localhost:3102",
+  "phase": "c163",
+  "viewport": "1920×1080",
+  "checks": {
+    "zoom-drawer-focus-lifecycle": {
+      "status": "PASS",
+      "trace": {
+        "before": {
+          "oldImageConnected": true,
+          "oldImageInsideActiveCard": true,
+          "currentImageExists": true,
+          "currentImageVisible": true,
+          "ownerFingerprint": {
+            "kind": "drawer",
+            "title": "QA-C163-VELO QA C163 — Вело"
+          },
+          "imageSource": "/uploads/passport/2026-11/10b10408-2abb-4124-8bff-e08449b0be91-medium.webp",
+          "currentImageSource": "/uploads/passport/2026-11/10b10408-2abb-4124-8bff-e08449b0be91-medium.webp",
+          "sourceMatches": true,
+          "sourceOriginalMatches": true,
+          "activeTag": "IMG",
+          "focusOnCurrent": true,
+          "dialogCount": 0,
+          "owner": {
+            "connected": true,
+            "hasPhoto": true,
+            "sameDrawer": true
+          }
+        },
+        "open": {
+          "oldImageConnected": false,
+          "oldImageInsideActiveCard": false,
+          "currentImageExists": true,
+          "currentImageVisible": true,
+          "ownerFingerprint": {
+            "kind": "drawer",
+            "title": "QA-C163-VELO QA C163 — Вело"
+          },
+          "imageSource": "/uploads/passport/2026-11/10b10408-2abb-4124-8bff-e08449b0be91-medium.webp",
+          "currentImageSource": "/uploads/passport/2026-11/10b10408-2abb-4124-8bff-e08449b0be91-medium.webp",
+          "sourceMatches": true,
+          "sourceOriginalMatches": true,
+          "activeTag": "BUTTON",
+          "focusOnCurrent": false,
+          "dialogCount": 1,
+          "owner": {
+            "connected": true,
+            "hasPhoto": true,
+            "sameDrawer": true
+          }
+        },
+        "after": {
+          "oldImageConnected": false,
+          "oldImageInsideActiveCard": false,
+          "currentImageExists": true,
+          "currentImageVisible": true,
+          "ownerFingerprint": {
+            "kind": "drawer",
+            "title": "QA-C163-VELO QA C163 — Вело"
+          },
+          "imageSource": "/uploads/passport/2026-11/10b10408-2abb-4124-8bff-e08449b0be91-medium.webp",
+          "currentImageSource": "/uploads/passport/2026-11/10b10408-2abb-4124-8bff-e08449b0be91-medium.webp",
+          "sourceMatches": true,
+          "sourceOriginalMatches": true,
+          "activeTag": "IMG",
+          "focusOnCurrent": true,
+          "dialogCount": 0,
+          "owner": {
+            "connected": true,
+            "hasPhoto": true,
+            "sameDrawer": true
+          }
+        },
+        "afterFrame": {
+          "oldImageConnected": false,
+          "oldImageInsideActiveCard": false,
+          "currentImageExists": true,
+          "currentImageVisible": true,
+          "ownerFingerprint": {
+            "kind": "drawer",
+            "title": "QA-C163-VELO QA C163 — Вело"
+          },
+          "imageSource": "/uploads/passport/2026-11/10b10408-2abb-4124-8bff-e08449b0be91-medium.webp",
+          "currentImageSource": "/uploads/passport/2026-11/10b10408-2abb-4124-8bff-e08449b0be91-medium.webp",
+          "sourceMatches": true,
+          "sourceOriginalMatches": true,
+          "activeTag": "IMG",
+          "focusOnCurrent": true,
+          "dialogCount": 0,
+          "owner": {
+            "connected": true,
+            "hasPhoto": true,
+            "sameDrawer": true
+          }
+        }
+      },
+      "action": "Закрыть Escape и проверить ссылку на текущую панель"
+    },
+    "dark-cta-caption-browser-only": {
+      "status": "PASS",
+      "action": "Дождаться подписи и снять тёмный кадр",
+      "browserOnly": true
+    },
+    "card-readback-unchanged": {
+      "status": "PASS"
+    },
+    "network": {
+      "status": "PASS",
+      "browserErrors": 0,
+      "outside": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOutside": 30,
+  "appOutside": 0,
+  "blockedWrites": {},
+  "pageErrors": 0,
+  "scenarioSha256": "e846556860729e33f494507a1ed21ff10dab16b8f3fa9631dde796a1b5e4bf58",
+  "guardSha256": "32475d59d869da8261a8002d0bb3a40b3b89bf97fe3fcaf9d8a1085fda064c81",
+  "browser": "157.0.8103.79",
+  "stand": {
+    "backup": "datacore-2026-11-18_031040.tgz",
+    "head": "f76489b9ed643e72ca2175d5f48535588481612d",
+    "dirty": true,
+    "builtAt": "2026-11-19T18:14:06.274Z"
+  },
+  "traffic": [
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "zoom-drawer-focus-lifecycle",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "dark-cta-caption-browser-only",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    }
+  ]
+}
