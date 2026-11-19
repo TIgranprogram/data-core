@@ -57,9 +57,10 @@ class Element {
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
-async function fixture({ pending = true, commit, solo = false, viewed } = {}) {
+async function fixture({ pending = true, commit, solo = false, viewed, popout, id, dirty = () => false } = {}) {
   const body = new Element('body');
   const reports = [];
+  const returns = [];
   let windowCloses = 0, geometryCalls = 0;
   const document = {
     body, createElement: (tag) => new Element(tag), createTextNode: (text) => new Text(text),
@@ -92,7 +93,7 @@ async function fixture({ pending = true, commit, solo = false, viewed } = {}) {
     './card-tabs.js': { buildCardTabs: noop },
     '../resizer.js': { makeResizable: noop },
     '../../core/prefs.js': { DOCK_MIN: 1000, getPref: noop, setPref: noop },
-    '../../core/popout.js': { isSolo: () => solo, popout: noop, setPopout: noop, soloGeometry: () => { geometryCalls++; } },
+    '../../core/popout.js': { isSolo: () => solo, popout: noop, setPopout: noop, returnToPanel: (sid) => returns.push(sid), soloGeometry: () => { geometryCalls++; } },
     '../notice-card.js': { noticeCard: ({ title }) => new Text(title), splitReason: (title) => ({ title }) },
     '../notices.js': { addNotice: noop },
   };
@@ -117,11 +118,12 @@ async function fixture({ pending = true, commit, solo = false, viewed } = {}) {
   const calls = { view: 0, beforeClose: 0, commit: 0 };
   const edit = new Element('form');
   const card = module.namespace.openCard({
+    id, popout,
     title: 'Шаблон паспорта',
     get: async () => ({ id: '3905', name: 'Указатель' }),
     card: { startEdit: () => true, heading: (row) => row.name, noHistory: true, view: () => { calls.view++; return []; } },
     form: { build: () => ({
-      el: edit, readonly: true, doneLabel: 'Готово', dirty: () => false,
+      el: edit, readonly: true, doneLabel: 'Готово', dirty,
       beforeClose: async () => {
         calls.beforeClose++;
         if (pending) { calls.commit++; await commit?.(); pending = false; }
@@ -133,7 +135,7 @@ async function fixture({ pending = true, commit, solo = false, viewed } = {}) {
   assert.ok(done);
   assert.equal(card.editing, true);
   assert.equal(calls.view, 1);
-  return { card, calls, done, reports, body, edit, document, openCard: module.namespace.openCard, get windowCloses() { return windowCloses; }, get geometryCalls() { return geometryCalls; } };
+  return { card, calls, done, reports, returns, body, edit, document, openCard: module.namespace.openCard, get windowCloses() { return windowCloses; }, get geometryCalls() { return geometryCalls; } };
 }
 
 test('Готово ждёт запись и переключает просмотр после одного коммита', async () => {
@@ -243,6 +245,26 @@ test('дочерняя панель в отдельном окне не насл
   await child.find((el) => el.localName === 'button' && el.textContent === '✕').click();
   assert.equal(f.windowCloses, 0);
   assert.equal(parent.hidden, false);
+});
+
+test('карточка без popout скрывает отдельное окно, другие карточки сохраняют кнопку', async () => {
+  const dictionary = await fixture({ id: 'dict', popout: false });
+  assert.equal(dictionary.body.find((el) => el.localName === 'button' && el.textContent === '↗'), undefined);
+  const other = await fixture({ id: 'products' });
+  assert.ok(other.body.find((el) => el.localName === 'button' && el.textContent === '↗'));
+});
+
+test('в старом окне справочника сначала нужно завершить ввод, затем можно вернуться в панель', async () => {
+  let dirty = true;
+  const f = await fixture({ id: 'dict', solo: true, popout: false, dirty: () => dirty });
+  const back = f.body.find((el) => el.localName === 'button' && el.textContent === 'Открыть в панели');
+  await back.click();
+  assert.deepEqual(f.returns, []);
+  assert.equal(f.card.editing, true);
+  assert.ok(f.body.find((el) => el === f.edit));
+  dirty = false;
+  await back.click();
+  assert.deepEqual(f.returns, ['dict']);
 });
 
 test("Успешный просмотр сообщает карточку для истории", async () => {

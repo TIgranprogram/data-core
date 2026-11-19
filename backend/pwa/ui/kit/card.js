@@ -19,10 +19,10 @@ import { buildCardTabs } from './card-tabs.js';
 import { fillCardMenu } from './card-menu.js';
 import { makeResizable } from '../resizer.js';
 import { DOCK_MIN, getPref, setPref } from '../../core/prefs.js';
-import { isSolo, popout, setPopout, soloGeometry } from '../../core/popout.js'; // панель в отдельном окне (2026-11-10)
+import { isSolo, popout, returnToPanel, setPopout, soloGeometry } from '../../core/popout.js'; // панель в отдельном окне (2026-11-10)
 /**
  * Карточка записи: просмотр / правка / создание (CANON §2).
- * section: title, entityType, noun, get(id); card: heading, view и необязательные subheading/stats/actions/extra/parent/startEdit/noHistory.
+ * section: title, entityType, noun, get(id), popout:false (только панель); card: heading, view, subheading/stats/actions/extra/parent/startEdit/noHistory.
  * Изображения: card.gallery(row), photoAdd/Remove(row, photoId); форма: fields/build, toBody, create/update, initial.
  * section.remove: run/restore/text/blocked; duplicate(row) возвращает начальные значения копии.
  * ctx.close() закрывает панель; ctx.changed() обновляет список; load(id) показывает соседнюю запись.
@@ -53,8 +53,11 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
   const menuBox = h('div', { class: 'rel' });
   const solo = isSolo() && !parent; const sid = section.id || ''; // в отдельном окне: панель на всё окно, ✕ закрывает окно
   const popBtn = parent || !sid || mode !== 'view' ? null : solo
-    ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', title: 'Следующие карточки будут открываться справа в основном окне', onclick: () => { setPopout(sid, false); window.close(); } }, 'Открывать в панели')
-    : h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Открыть в отдельном окне — его можно перенести на другой монитор; следующие карточки тоже откроются там', 'aria-label': 'В отдельном окне', onclick: () => { if (popout(sid)) tryClose(); else toast('Браузер не дал открыть окно — разрешите всплывающие окна для сайта', { error: true }); } }, '↗');
+    ? section.popout === false
+      ? h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: reopenInPanel }, 'Открыть в панели')
+      : h('button', { class: 'btn btn-ghost btn-sm', type: 'button', title: 'Следующие карточки будут открываться справа в основном окне', onclick: () => { setPopout(sid, false); window.close(); } }, 'Открывать в панели')
+    : section.popout === false ? null
+      : h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Открыть в отдельном окне — его можно перенести на другой монитор; следующие карточки тоже откроются там', 'aria-label': 'В отдельном окне', onclick: () => { if (popout(sid)) tryClose(); else toast('Браузер не дал открыть окно — разрешите всплывающие окна для сайта', { error: true }); } }, '↗');
   const body = h('div', { class: 'drawer-body' });
   const foot = h('div', { class: 'drawer-foot' });
   const drawer = mark(h('aside', { class: 'drawer', role: 'dialog', 'aria-modal': 'true' },
@@ -80,6 +83,13 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
     if (!(await canLeave())) return;
     destroy(); ctx.close();
     if (solo && !parent) window.close();
+  }
+  function reopenInPanel() {
+    if (saving || building || form?.busy?.() || form?.dirty() || cardParent(drawer)?.child) {
+      toast('Завершите редактирование: сохраните или отмените изменения, затем откройте запись в панели.');
+      return;
+    }
+    returnToPanel(sid);
   }
 
   // ---------- Просмотр ----------
