@@ -84,3 +84,8 @@ ecoverStale в core/update-check.js). Человеку со старой коп�
 ### C155: unit метрик и реальные uploads
 
 `control.service.spec.ts` проверяет сбой БД через `collectNow`, который также измеряет диск/папки. На ПК с фотографиями настоящий `dirSize(uploads)` делал эти unit нестабильными под параллельной нагрузкой (таймаут5с). В этом describe изолировать disk-fs и fs.statfs; поведение обработки БД/latency продолжает проверяться. Не увеличивать глобальный таймаут и не объявлять красные ворота зелёными после одного удачного запуска. Измерения самого disk-fs проверяются его отдельными тестами.
+
+
+### SSH ProxyCommand из desktop Windows
+
+Если штатная выкладка/план скрипта падает с PowerShell «exec не распознано», OpenSSH получил SHELL от запускающего desktop. Сам ключ/сервер не виноваты. В Git Bash для SSH устанавливается SHELL=/usr/bin/bash (только OSTYPE=msys); release.sh и remote-access/run-script.sh делают это сами. На Linux поведение прежнее. Проверка — штатный read-only план passport-creation-index; SSH-конфиг и ключи не править и не печатать.

@@ -3,6 +3,8 @@
 #   bash remote-access/run-script.sh <имя>           - план, ничего не пишет
 #   bash remote-access/run-script.sh <имя> --apply   - бэкап на сервере, затем запись (нет бэкапа - стоп)
 set -euo pipefail
+# ProxyCommand из SSH-конфига использует exec; PowerShell из desktop его не понимает.
+if [[ "${OSTYPE:-}" == msys* && -x /usr/bin/bash ]]; then export SHELL=/usr/bin/bash; fi
 cd "$(git rev-parse --show-toplevel)"
 NAME="${1:?имя скрипта}"; MODE="${2:-}"
 [ -f "backend/scripts/$NAME.js" ] || { echo "нет backend/scripts/$NAME.js"; exit 2; }
