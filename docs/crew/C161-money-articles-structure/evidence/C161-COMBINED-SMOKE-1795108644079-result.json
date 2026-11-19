@@ -1,0 +1,1901 @@
+{
+  "run": "C161-COMBINED-SMOKE-1795108644079",
+  "origin": "http://localhost:3198",
+  "checks": [
+    "CombinedHEAD61558531: общий readonly обход + lazyclassification/invoice/dicts/orders picker формы без сохранения",
+    "Платежи/metadata не повторялись:7строк,5платежей,100000/262455/-162455 и2incomeID стабильны"
+  ],
+  "fixtures": [],
+  "screenshots": [
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-1-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-2-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-3-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-4-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-5-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-6-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-7-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-8-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-9-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-10-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-11-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-12-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-13-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-14-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-15-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-16-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-17-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-18-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-19-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-20-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-21-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-22-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-23-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-24-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-25-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-26-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-27-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-28-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-29-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-30-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-31-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-32-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-33-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-section-failure-34-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-money-classification-lazy-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-invoice-paid-two-parts-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-financial-dictionary-shared-1280.png",
+    "C161-COMBINED-SMOKE-1795108644079-orders-financial-picker-1280.png"
+  ],
+  "status": "FAIL",
+  "control": {
+    "rows": 7,
+    "totals": {
+      "income": 100000,
+      "expense": 262455,
+      "net": -162455,
+      "currency": "RUB"
+    }
+  },
+  "sections": [
+    {
+      "hash": "home",
+      "ms": 1159,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "home",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "requests",
+      "ms": 1936,
+      "opened": true,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "requests",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        },
+        {
+          "phase": "requests",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/0b16cbab-bcdd-49b5-8271-0fc18dec9bcb.webp"
+        }
+      ]
+    },
+    {
+      "hash": "stock",
+      "ms": 1162,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "stock",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "suppliercatalog",
+      "ms": 1116,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "suppliercatalog",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "contracts",
+      "ms": 1127,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "contracts",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "salesorders",
+      "ms": 1140,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "salesorders",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "matching",
+      "ms": 1111,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "matching",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "design",
+      "ms": 1970,
+      "opened": true,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/1c69d3cb-6856-43f6-bd27-d10a69b90ae0.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/051ccf02-2109-4a7f-947e-8c8c5df8a4c0.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/c4591eba-5075-4245-a323-0fc9d0dd61ef.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/3d531544-85f6-44cc-88bc-7f7fc8c6e076.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/167ae163-141f-42f6-aedd-f61d59c5748a.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/29d7b67b-816b-4828-88d0-db416b6d802f.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/eac4ac95-9cac-431a-a6b4-271347e29b3b.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/620a79ef-80e0-46ef-b1d5-1e619c12d7d5.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/806d14fc-d8bc-4a03-a08f-c45cbf8b43bd.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/51fc977d-d14c-4967-aa95-c80ca8683ae1.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/d5977e0a-35a6-4553-9e0b-f956c07f35db.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/ad328555-f927-4f1e-b26a-4c20f6557481.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/b9e6eb1b-b477-4075-8f6b-d56a2664dc4d.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/57bb83fd-c688-4fea-bdd6-2777615cad39.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/0795fc9d-a758-47c5-8afa-7ee53e05f458.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/7f39230a-e7a8-41eb-8fdf-56b6d598c5f1.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/30eecf13-28d7-4c1e-bf5b-0584e2b8eb4c.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/1117cb14-7d7f-42bb-86a5-7752f60ff740.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/30250b41-fe60-4095-8445-1e0f91072735.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/0cc2064c-cc73-4962-bfff-8b6f47678346.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/c79aa217-e297-4c7d-94d2-fc80b1915124.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/5de6e9d4-bf33-450c-9b8b-e4bc3aad0e27.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/097abd15-a725-437d-8ab4-b5593d453962.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/f4819c2f-89f0-49ef-8ca3-6d27643a798d.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/dc1d3241-d0d9-4995-802c-ec92f3086924.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/d63ddb98-b181-4ce6-a9fa-df2ce3736fdc.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/b5869fa8-9bd0-4384-9699-1923cd6dc664.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/6ba47c51-07b5-49da-a1f8-ca877d54a794.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/1414a801-3464-4feb-9e1f-622118ccf538.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/cda624c1-3e76-45d8-9d34-1f89632c8e09.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/pp-deec2f8da26f463648e1-t.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/fadddda4-a972-42d0-9ab3-5f3e384a11e9.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/eb17b31b-f7a1-4330-a292-c752f17ad3e0.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/f1da35d7-6464-415b-801b-ebc5c58c8005.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/61421b5e-a5a4-4bab-87dc-2390539382cf.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/pp-d8b7bc46eaaa7badb766-t.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/ba77404b-55f3-4459-a8ac-48e878db3623.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/d5977e0a-35a6-4553-9e0b-f956c07f35db.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/806d14fc-d8bc-4a03-a08f-c45cbf8b43bd.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/51fc977d-d14c-4967-aa95-c80ca8683ae1.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/ad328555-f927-4f1e-b26a-4c20f6557481.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/b9e6eb1b-b477-4075-8f6b-d56a2664dc4d.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/0795fc9d-a758-47c5-8afa-7ee53e05f458.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/02b15e21-5779-46a2-8068-3cb27324da32.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/ca8a8c90-133a-406a-a324-01472e9d0eed.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/7e059160-1ab8-4951-925f-6d3267e4c32f.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/cb6399eb-f502-4b87-a9ee-9db587b59081.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/31bd34f2-a201-434a-b6b9-9e590d033bfb.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/4d5d9f89-8735-463f-b7a1-a405b68741c0.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/1c69d3cb-6856-43f6-bd27-d10a69b90ae0.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/c4591eba-5075-4245-a323-0fc9d0dd61ef.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/051ccf02-2109-4a7f-947e-8c8c5df8a4c0.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/3d531544-85f6-44cc-88bc-7f7fc8c6e076.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/167ae163-141f-42f6-aedd-f61d59c5748a.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/29d7b67b-816b-4828-88d0-db416b6d802f.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/0cc2064c-cc73-4962-bfff-8b6f47678346.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/30250b41-fe60-4095-8445-1e0f91072735.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/5de6e9d4-bf33-450c-9b8b-e4bc3aad0e27.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/c79aa217-e297-4c7d-94d2-fc80b1915124.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/097abd15-a725-437d-8ab4-b5593d453962.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/f4819c2f-89f0-49ef-8ca3-6d27643a798d.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/c1d4a884-a8fe-435a-8fb3-8b3142c41aea.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/38ed0de4-0046-4c43-95c0-8076e41e512d.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/052d6f99-f14b-407a-9b4f-97d0510b16d5.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/46b6abca-876f-4d4b-9d05-b931d850e87f.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/c6837293-ebb2-4383-b851-b25cfdf1e253.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/620a79ef-80e0-46ef-b1d5-1e619c12d7d5.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/57bb83fd-c688-4fea-bdd6-2777615cad39.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/7f39230a-e7a8-41eb-8fdf-56b6d598c5f1.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/eac4ac95-9cac-431a-a6b4-271347e29b3b.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/30eecf13-28d7-4c1e-bf5b-0584e2b8eb4c.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/1117cb14-7d7f-42bb-86a5-7752f60ff740.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/cda624c1-3e76-45d8-9d34-1f89632c8e09.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/dc1d3241-d0d9-4995-802c-ec92f3086924.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/pp-deec2f8da26f463648e1-t.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/6ba47c51-07b5-49da-a1f8-ca877d54a794.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/d63ddb98-b181-4ce6-a9fa-df2ce3736fdc.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/1414a801-3464-4feb-9e1f-622118ccf538.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/b5869fa8-9bd0-4384-9699-1923cd6dc664.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/fadddda4-a972-42d0-9ab3-5f3e384a11e9.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/f1da35d7-6464-415b-801b-ebc5c58c8005.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/eb17b31b-f7a1-4330-a292-c752f17ad3e0.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/pp-d8b7bc46eaaa7badb766-t.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/4dec5912-b813-4d86-9cb8-3b3a0dfd65c7.jpg"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/895b1f60-f8ec-431a-83ed-94c0272dcfc8.png"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/da5af5b1-7e20-4235-9063-2518357eb27d.png"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/c8e37ee6-4c50-464c-941a-994cff5504c3.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/pp-54a908508b449aa5291c-t.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/ba77404b-55f3-4459-a8ac-48e878db3623.webp"
+        },
+        {
+          "phase": "design",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/61421b5e-a5a4-4bab-87dc-2390539382cf.webp"
+        }
+      ]
+    },
+    {
+      "hash": "work",
+      "ms": 1105,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "work",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "workschedule",
+      "ms": 1123,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "workschedule",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "products",
+      "ms": 1133,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "products",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "modules",
+      "ms": 1110,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "modules",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "parts",
+      "ms": 1133,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "parts",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "offers",
+      "ms": 1111,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "offers",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "docs",
+      "ms": 1113,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "docs",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "partners",
+      "ms": 1109,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "partners",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "money",
+      "ms": 1122,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "money",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "expenses",
+      "ms": 1122,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "expenses",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "payroll",
+      "ms": 1125,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "payroll",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "staff",
+      "ms": 1110,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "staff",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "stock-mobile",
+      "ms": 1111,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "stock-mobile",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "money?tab=calendar",
+      "ms": 1115,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "money?tab=calendar",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "money?tab=debts",
+      "ms": 1127,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "money?tab=debts",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        },
+        {
+          "phase": "money?tab=debts",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/0b69d8da-d813-46ff-b397-e440e6912d8a.jpg"
+        },
+        {
+          "phase": "money?tab=debts",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/80d800de-8723-464c-a293-fb4984504ae6.png"
+        },
+        {
+          "phase": "money?tab=debts",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/f881e260-5185-4a60-b1b9-da0859986230.jpg"
+        },
+        {
+          "phase": "money?tab=debts",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/e4661724-4653-4cb0-ac77-0ac4301b7be7.jpg"
+        },
+        {
+          "phase": "money?tab=debts",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/fc363fd6-6f5e-4ce5-90b6-447620621eed.jpg"
+        },
+        {
+          "phase": "money?tab=debts",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/7d8cc73b-d550-425d-a1de-494f6a4117d1.jpg"
+        }
+      ]
+    },
+    {
+      "hash": "money?tab=forecast",
+      "ms": 1114,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "money?tab=forecast",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "money?tab=articles&view=operations",
+      "ms": 1953,
+      "opened": true,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "money?tab=articles&view=operations",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "docs?tab=queue",
+      "ms": 1108,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "docs?tab=queue",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "docs?tab=orders",
+      "ms": 1121,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "docs?tab=orders",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "docs?tab=archive",
+      "ms": 1133,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "docs?tab=archive",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        },
+        {
+          "phase": "docs?tab=archive",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/passport/2026-11/f23b6faa-26c8-4470-93b6-252b4c26f529.webp"
+        },
+        {
+          "phase": "docs?tab=archive",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/passport/2026-11/32c423fe-2519-46f2-a329-5efb12f0d559.webp"
+        },
+        {
+          "phase": "docs?tab=archive",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/other/2026-11/91f0a565-d65b-4acf-b9ce-d49deeb8f143.webp"
+        },
+        {
+          "phase": "docs?tab=archive",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/passport/2026-11/b702eb02-f511-463a-bcf7-b73da12be7ed.webp"
+        },
+        {
+          "phase": "docs?tab=archive",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/passport/2026-11/0856e9b2-ad4c-48e1-99b7-7bb5322de8ca.webp"
+        },
+        {
+          "phase": "docs?tab=archive",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/passport/2026-11/927a6729-4b70-4ac7-898f-b7c6be65c2fc.webp"
+        },
+        {
+          "phase": "docs?tab=archive",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/pp-f2feeaf6b7a8d91ac073-t.webp"
+        },
+        {
+          "phase": "docs?tab=archive",
+          "kind": "http",
+          "status": 404,
+          "path": "/uploads/pp-6122d779ec3a1a761e69-t.webp"
+        }
+      ]
+    },
+    {
+      "hash": "movements",
+      "ms": 1102,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "movements",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "dicts",
+      "ms": 1932,
+      "opened": true,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "dicts",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "dicts?d=financialArticles",
+      "ms": 1942,
+      "opened": true,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "dicts?d=financialArticles",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "trash",
+      "ms": 1123,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "trash",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "history",
+      "ms": 1117,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "history",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "hash": "help",
+      "ms": 1126,
+      "opened": false,
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "help",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    }
+  ],
+  "targets": [
+    {
+      "name": "money-classification-lazy",
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "money-classification-lazy",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "name": "invoice-paid-two-parts",
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "invoice-paid-two-parts",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "name": "financial-dictionary-shared",
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "financial-dictionary-shared",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "name": "orders-financial-picker",
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "orders-financial-picker",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    }
+  ],
+  "geometry": [
+    {
+      "name": "section-failure-1",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": []
+    },
+    {
+      "name": "section-failure-2",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": []
+    },
+    {
+      "name": "section-failure-3",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": []
+    },
+    {
+      "name": "section-failure-4",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": []
+    },
+    {
+      "name": "section-failure-5",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": null,
+          "top": 324.421875,
+          "bottom": 537.78125,
+          "left": 281,
+          "right": 1232,
+          "parentWidth": 951,
+          "parentScrollWidth": 951
+        }
+      ]
+    },
+    {
+      "name": "section-failure-6",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": []
+    },
+    {
+      "name": "section-failure-7",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": []
+    },
+    {
+      "name": "section-failure-8",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": []
+    },
+    {
+      "name": "section-failure-9",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": []
+    },
+    {
+      "name": "section-failure-10",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": []
+    },
+    {
+      "name": "section-failure-11",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": []
+    },
+    {
+      "name": "section-failure-12",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": null,
+          "top": 263.421875,
+          "bottom": 938.53125,
+          "left": 577,
+          "right": 1232,
+          "parentWidth": 655,
+          "parentScrollWidth": 655
+        }
+      ]
+    },
+    {
+      "name": "section-failure-13",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": null,
+          "top": 263.421875,
+          "bottom": 2428.21875,
+          "left": 577,
+          "right": 1232,
+          "parentWidth": 655,
+          "parentScrollWidth": 655
+        }
+      ]
+    },
+    {
+      "name": "section-failure-14",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": null,
+          "top": 368.421875,
+          "bottom": 447.65625,
+          "left": 281,
+          "right": 1232,
+          "parentWidth": 951,
+          "parentScrollWidth": 951
+        }
+      ]
+    },
+    {
+      "name": "section-failure-15",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": null,
+          "top": 399.84375,
+          "bottom": 5777.390625,
+          "left": 280,
+          "right": 1233,
+          "parentWidth": 953,
+          "parentScrollWidth": 953
+        }
+      ]
+    },
+    {
+      "name": "section-failure-16",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": null,
+          "top": 370.546875,
+          "bottom": 1641.53125,
+          "left": 281,
+          "right": 1232,
+          "parentWidth": 951,
+          "parentScrollWidth": 951
+        }
+      ]
+    },
+    {
+      "name": "section-failure-17",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": "Доходы и расходы по статьям",
+          "top": 716.28125,
+          "bottom": 1033.78125,
+          "left": 281,
+          "right": 1875.546875,
+          "parentWidth": 951,
+          "parentScrollWidth": 1595
+        }
+      ]
+    },
+    {
+      "name": "section-failure-18",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": null,
+          "top": 368.421875,
+          "bottom": 447.65625,
+          "left": 281,
+          "right": 1232,
+          "parentWidth": 951,
+          "parentScrollWidth": 951
+        }
+      ]
+    },
+    {
+      "name": "section-failure-19",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": []
+    },
+    {
+      "name": "section-failure-20",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": []
+    },
+    {
+      "name": "section-failure-21",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": []
+    },
+    {
+      "name": "section-failure-22",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": null,
+          "top": 483.640625,
+          "bottom": 971.234375,
+          "left": 281,
+          "right": 2563.671875,
+          "parentWidth": 951,
+          "parentScrollWidth": 2283
+        }
+      ]
+    },
+    {
+      "name": "section-failure-23",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": null,
+          "top": 494.671875,
+          "bottom": 1845.90625,
+          "left": 281,
+          "right": 1232,
+          "parentWidth": 951,
+          "parentScrollWidth": 951
+        }
+      ]
+    },
+    {
+      "name": "section-failure-24",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": null,
+          "top": 475.515625,
+          "bottom": 827.609375,
+          "left": 281,
+          "right": 3559.859375,
+          "parentWidth": 951,
+          "parentScrollWidth": 3279
+        }
+      ]
+    },
+    {
+      "name": "section-failure-25",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": "Фактические денежные операции",
+          "top": 660.109375,
+          "bottom": 3166.96875,
+          "left": 280,
+          "right": 1800.953125,
+          "parentWidth": 953,
+          "parentScrollWidth": 1521
+        }
+      ]
+    },
+    {
+      "name": "section-failure-26",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": null,
+          "top": 399.84375,
+          "bottom": 5777.390625,
+          "left": 280,
+          "right": 1233,
+          "parentWidth": 953,
+          "parentScrollWidth": 953
+        }
+      ]
+    },
+    {
+      "name": "section-failure-27",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": []
+    },
+    {
+      "name": "section-failure-28",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": []
+    },
+    {
+      "name": "section-failure-29",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": null,
+          "top": 407.546875,
+          "bottom": 1872.390625,
+          "left": 281,
+          "right": 1232,
+          "parentWidth": 951,
+          "parentScrollWidth": 951
+        }
+      ]
+    },
+    {
+      "name": "section-failure-30",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": "Справочник",
+          "top": 378.90625,
+          "bottom": 1468.203125,
+          "left": 593,
+          "right": 1232,
+          "parentWidth": 639,
+          "parentScrollWidth": 639
+        }
+      ]
+    },
+    {
+      "name": "section-failure-31",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": "Статьи доходов и расходов",
+          "top": 435.484375,
+          "bottom": 20778.71875,
+          "left": 611,
+          "right": 1379.5,
+          "parentWidth": 606,
+          "parentScrollWidth": 769
+        }
+      ]
+    },
+    {
+      "name": "section-failure-32",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": null,
+          "top": 245.21875,
+          "bottom": 1374.265625,
+          "left": 281,
+          "right": 1315,
+          "parentWidth": 467,
+          "parentScrollWidth": 1034
+        },
+        {
+          "label": null,
+          "top": 245.21875,
+          "bottom": 767.390625,
+          "left": 765.5,
+          "right": 1371.59375,
+          "parentWidth": 467,
+          "parentScrollWidth": 606
+        },
+        {
+          "label": null,
+          "top": 1425.0625,
+          "bottom": 1825.859375,
+          "left": 281,
+          "right": 960.15625,
+          "parentWidth": 467,
+          "parentScrollWidth": 679
+        },
+        {
+          "label": null,
+          "top": 1425.0625,
+          "bottom": 1947.234375,
+          "left": 765.5,
+          "right": 2018.375,
+          "parentWidth": 467,
+          "parentScrollWidth": 1253
+        },
+        {
+          "label": null,
+          "top": 1998.03125,
+          "bottom": 2945.015625,
+          "left": 765.5,
+          "right": 1778.578125,
+          "parentWidth": 467,
+          "parentScrollWidth": 1013
+        },
+        {
+          "label": null,
+          "top": 2995.8125,
+          "bottom": 3578.671875,
+          "left": 281,
+          "right": 1283.75,
+          "parentWidth": 467,
+          "parentScrollWidth": 1003
+        },
+        {
+          "label": null,
+          "top": 2995.8125,
+          "bottom": 3700.046875,
+          "left": 765.5,
+          "right": 1437.53125,
+          "parentWidth": 467,
+          "parentScrollWidth": 672
+        },
+        {
+          "label": null,
+          "top": 3750.84375,
+          "bottom": 4697.828125,
+          "left": 281,
+          "right": 1484.140625,
+          "parentWidth": 467,
+          "parentScrollWidth": 1203
+        }
+      ]
+    },
+    {
+      "name": "section-failure-33",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": null,
+          "top": 370.546875,
+          "bottom": 1629.5625,
+          "left": 281,
+          "right": 1232,
+          "parentWidth": 951,
+          "parentScrollWidth": 951
+        }
+      ]
+    },
+    {
+      "name": "section-failure-34",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": []
+    },
+    {
+      "name": "money-classification-lazy",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": "Фактические денежные операции",
+          "top": 660.109375,
+          "bottom": 1503.34375,
+          "left": 280,
+          "right": 1800.953125,
+          "parentWidth": 953,
+          "parentScrollWidth": 1521
+        }
+      ]
+    },
+    {
+      "name": "invoice-paid-two-parts",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": "Счета поставщиков",
+          "top": 398.671875,
+          "bottom": 1712.21875,
+          "left": 280,
+          "right": 1776.453125,
+          "parentWidth": 953,
+          "parentScrollWidth": 1496
+        },
+        {
+          "label": "Позиции счёта",
+          "top": 167.4375,
+          "bottom": 392.046875,
+          "left": 547,
+          "right": 1226,
+          "parentWidth": 679,
+          "parentScrollWidth": 679
+        },
+        {
+          "label": "История оплат счёта",
+          "top": 929.140625,
+          "bottom": 1052.9375,
+          "left": 547,
+          "right": 1226,
+          "parentWidth": 679,
+          "parentScrollWidth": 679
+        }
+      ]
+    },
+    {
+      "name": "financial-dictionary-shared",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": "Статьи доходов и расходов",
+          "top": 435.484375,
+          "bottom": 20778.71875,
+          "left": 611,
+          "right": 1379.5,
+          "parentWidth": 606,
+          "parentScrollWidth": 769
+        }
+      ]
+    },
+    {
+      "name": "orders-financial-picker",
+      "width": 1280,
+      "height": 900,
+      "documentWidth": 1265,
+      "viewportWidth": 1280,
+      "focus": "BODY",
+      "tables": [
+        {
+          "label": "Фактические денежные операции",
+          "top": 660.109375,
+          "bottom": 1503.34375,
+          "left": 280,
+          "right": 1800.953125,
+          "parentWidth": 953,
+          "parentScrollWidth": 1521
+        }
+      ]
+    }
+  ],
+  "profileCleanup": "Свой профиль удалён; только точный runID"
+}

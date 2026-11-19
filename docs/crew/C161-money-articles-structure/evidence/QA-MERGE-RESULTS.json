@@ -1,0 +1,329 @@
+{
+  "date": "2026-11-19",
+  "scope": "C158+C161 combined with main through v1.946",
+  "runtimeFreeze": "61558531e43a10659ef38a477fd73849ad85c5d3",
+  "status": "PASS_AUTOMATED_QA_WITH_T26_OPT_IN_SKIP",
+  "unitAndE2eAreActualFullRuns": true,
+  "commands": {
+    "unit": {
+      "run": {
+        "startedUtc": "2026-11-19T17:14:31.4076800Z",
+        "endedUtc": "2026-11-19T17:15:32.2976740Z",
+        "exitCode": 0,
+        "command": "node --max-old-space-size=6144 node_modules/jest/bin/jest.js --silent --runInBand --json --outputFile=../tools/logs/c161-qa-unit-result.json"
+      },
+      "result": {
+        "numPassedTestSuites": 363,
+        "numFailedTestSuites": 0,
+        "numPendingTestSuites": 0,
+        "numPassedTests": 3720,
+        "numFailedTests": 0,
+        "numPendingTests": 0,
+        "numTotalTests": 3720,
+        "startTime": 1795108472363,
+        "success": true
+      },
+      "artifacts": [
+        {
+          "file": "tools/logs/c161-qa-unit-result.json",
+          "sha256": "d184ff89fa75a77357bd21f9e913e8644e5b0ac91ab252f424c719a9318117d1"
+        },
+        {
+          "file": "tools/logs/c161-qa-unit-run.json",
+          "sha256": "2965409f34ecfb611235b26e5de963b60e84a6ac367d4a19220ca33b438a9560"
+        },
+        {
+          "file": "tools/logs/c161-qa-unit.log",
+          "sha256": "7a664eb218ca7c55acb520fe5934b86fe7659d1314124ed1ab4736fd8465704c"
+        }
+      ]
+    },
+    "e2e": {
+      "run": {
+        "endedUtc": "2026-11-19T17:23:30.0394818Z",
+        "exitCode": 0,
+        "startedUtc": "2026-11-19T17:14:31.0364841Z",
+        "command": "node tools/logs/c158-e2e.mjs --silent --json --outputFile=../tools/logs/c161-qa-e2e-result.json"
+      },
+      "result": {
+        "numPassedTestSuites": 84,
+        "numFailedTestSuites": 0,
+        "numPendingTestSuites": 1,
+        "numPassedTests": 652,
+        "numFailedTests": 0,
+        "numPendingTests": 12,
+        "numTotalTests": 664,
+        "startTime": 1795108471397,
+        "success": true
+      },
+      "artifacts": [
+        {
+          "file": "tools/logs/c161-qa-e2e-result.json",
+          "sha256": "f87fc54c2a516aa591c0b0c3bc06173324cd874197818a08c3340013be5930ef"
+        },
+        {
+          "file": "tools/logs/c161-qa-e2e-run.json",
+          "sha256": "2d202fc272175fdd46e8d34d3452734ecd70f8c91f96ff728ca79e90e67991ec"
+        },
+        {
+          "file": "tools/logs/c161-qa-e2e.log",
+          "sha256": "ba57b469a0b5ef524f8fbb1a089881a8da190f36e9aae36891e02130e8e64996"
+        }
+      ]
+    }
+  },
+  "build": {
+    "run": {
+      "endedUtc": "2026-11-19T17:14:54.6915819Z",
+      "startedUtc": "2026-11-19T17:14:31.8222149Z",
+      "typecheckExit": 0,
+      "buildExit": 0
+    },
+    "artifacts": [
+      {
+        "file": "tools/logs/c161-qa-build-run.json",
+        "sha256": "7f3dfbfaa8ab2e4e2e1784253c6eead6bf5babed342afcb8a8c64bef97b50e51"
+      },
+      {
+        "file": "tools/logs/c161-qa-typecheck.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "file": "tools/logs/c161-qa-build.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ]
+  },
+  "pwa": {
+    "allNodeRawRun": {
+      "nodeExit": 1,
+      "testFiles": 64,
+      "endedUtc": "2026-11-19T17:14:38.4585505Z",
+      "command": "node --experimental-vm-modules --test --test-concurrency=2 --test-reporter=tap [all64 backend/pwa/**/*.test.mjs]",
+      "importsExit": 0,
+      "startedUtc": "2026-11-19T17:14:32.3710199Z",
+      "argv": [
+        "node",
+        "--experimental-vm-modules",
+        "--test",
+        "--test-concurrency=2",
+        "--test-reporter=tap",
+        "backend/pwa\\ui\\search-logic.test.mjs",
+        "backend/pwa\\ui\\materials-spec.test.mjs",
+        "backend/pwa\\ui\\kit\\toast.test.mjs",
+        "backend/pwa\\ui\\kit\\recent-cards.test.mjs",
+        "backend/pwa\\ui\\kit\\gallery.test.mjs",
+        "backend/pwa\\ui\\kit\\errors.test.mjs",
+        "backend/pwa\\ui\\kit\\drag.test.mjs",
+        "backend/pwa\\ui\\kit\\card.test.mjs",
+        "backend/pwa\\ui\\kit\\auto-more.test.mjs",
+        "backend/pwa\\sections\\stock-passport.test.mjs",
+        "backend/pwa\\sections\\salesorders-next.test.mjs",
+        "backend/pwa\\sections\\request-step.test.mjs",
+        "backend/pwa\\sections\\products\\materials-proposal.test.mjs",
+        "backend/pwa\\sections\\products\\fill-composition.test.mjs",
+        "backend/pwa\\sections\\products\\data-pd.test.mjs",
+        "backend/pwa\\sections\\products\\create-session.test.mjs",
+        "backend/pwa\\sections\\passports\\product-block.test.mjs",
+        "backend/pwa\\sections\\passports\\product-block-create.test.mjs",
+        "backend/pwa\\sections\\passports\\print-options.test.mjs",
+        "backend/pwa\\sections\\passports\\modules.test.mjs",
+        "backend/pwa\\sections\\passports\\installation-text.test.mjs",
+        "backend/pwa\\sections\\passports\\image-ownership.test.mjs",
+        "backend/pwa\\sections\\order-passport-text.test.mjs",
+        "backend/pwa\\sections\\passports\\funnel\\pick-steps.test.mjs",
+        "backend/pwa\\sections\\passports\\funnel\\new-product.test.mjs",
+        "backend/pwa\\sections\\passports\\funnel\\index-partial.test.mjs",
+        "backend/pwa\\sections\\passports\\funnel\\bar.test.mjs",
+        "backend/pwa\\sections\\passports\\form-state.test.mjs",
+        "backend/pwa\\sections\\passports\\fill\\save-queue.test.mjs",
+        "backend/pwa\\sections\\passports\\fill\\model.test.mjs",
+        "backend/pwa\\sections\\passports\\fill\\control.test.mjs",
+        "backend/pwa\\sections\\passports\\fill\\category-change.test.mjs",
+        "backend/pwa\\sections\\passports\\create-book-draft.test.mjs",
+        "backend/pwa\\sections\\passports\\choice-regressions.test.mjs",
+        "backend/pwa\\sections\\passports\\book-inline-events.test.mjs",
+        "backend/pwa\\sections\\passports\\book-images.test.mjs",
+        "backend/pwa\\sections\\passports\\book-etalon-gate.test.mjs",
+        "backend/pwa\\sections\\passports\\book-entry.test.mjs",
+        "backend/pwa\\sections\\passports\\book-composition-tree.test.mjs",
+        "backend/pwa\\sections\\passports\\book-composition-funnel.test.mjs",
+        "backend/pwa\\sections\\passports\\book-autofill.test.mjs",
+        "backend/pwa\\sections\\order-product-picker.test.mjs",
+        "backend/pwa\\sections\\atlas-brief.test.mjs",
+        "backend/pwa\\ilogic\\passport-images.test.mjs",
+        "backend/pwa\\sections\\money-operations.test.mjs",
+        "backend/pwa\\sections\\invoice-workspace.test.mjs",
+        "backend/pwa\\sections\\invoice-price.test.mjs",
+        "backend/pwa\\sections\\financial-articles.test.mjs",
+        "backend/pwa\\sections\\dicts-c116.test.mjs",
+        "backend/pwa\\core\\write-retry.test.mjs",
+        "backend/pwa\\core\\stale.test.mjs",
+        "backend/pwa\\core\\recent-cards.test.mjs",
+        "backend/pwa\\core\\popout.test.mjs",
+        "backend/pwa\\core\\passport-images.test.mjs",
+        "backend/pwa\\core\\order-color.test.mjs",
+        "backend/pwa\\core\\nav-stack.test.mjs",
+        "backend/pwa\\core\\invoice-merge.test.mjs",
+        "backend/pwa\\core\\grammar.test.mjs",
+        "backend/pwa\\core\\garbage.test.mjs",
+        "backend/pwa\\core\\facets.test.mjs",
+        "backend/pwa\\core\\errors.test.mjs",
+        "backend/pwa\\core\\error-http-report.test.mjs",
+        "backend/pwa\\core\\error-context.test.mjs",
+        "backend/pwa\\core\\development-mode.test.mjs"
+      ],
+      "argvSource": "saved file list written before invocation; fixed flags match executed command"
+    },
+    "rawTAP": {
+      "tests": 366,
+      "passed": 362,
+      "failed": 2,
+      "skipped": 2
+    },
+    "browserTargetRun": {
+      "endedUtc": "2026-11-19T17:16:12.2722426Z",
+      "startedUtc": "2026-11-19T17:16:02.0439926Z",
+      "exitCode": 0,
+      "command": "node --experimental-vm-modules --test --test-concurrency=2 --test-reporter=tap [product-block,auto-more,book-inline-events,modules].test.mjs",
+      "argv": [
+        "node",
+        "--experimental-vm-modules",
+        "--test",
+        "--test-concurrency=2",
+        "--test-reporter=tap",
+        "backend/pwa/sections/passports/product-block.test.mjs",
+        "backend/pwa/ui/kit/auto-more.test.mjs",
+        "backend/pwa/sections/passports/book-inline-events.test.mjs",
+        "backend/pwa/sections/passports/modules.test.mjs"
+      ]
+    },
+    "browserTargetSummary": {
+      "tests": 14,
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0
+    },
+    "combined": {
+      "passed": 369,
+      "failed": 0,
+      "skipped": 0
+    },
+    "combinedIsOneRawFullNodePass": false,
+    "importsFiles": 362,
+    "importsErrors": 0,
+    "guardsInFullUnit": {
+      "tests": 357,
+      "status": "passed"
+    },
+    "artifacts": [
+      {
+        "file": "tools/logs/c161-qa-pwa-run.json",
+        "sha256": "9b3d5d46a826987d3159b3f6635fb8f0d02254c94d94864f502238d9064b7ba8"
+      },
+      {
+        "file": "tools/logs/c161-qa-pwa-node.log",
+        "sha256": "6d3b3e852e306c121b190057c0ead5b49e24097d8850d3fdaae91f0d05267a18"
+      },
+      {
+        "file": "tools/logs/c161-qa-pwa-test-files.json",
+        "sha256": "537aedaf69dcb5d01b4b1c3d6667f980ed3eb529d833003584668616982ca53b"
+      },
+      {
+        "file": "tools/logs/c161-qa-pwa-browser-run.json",
+        "sha256": "5135b463af2e869484ec9ebd419e74cbbd39a83bc183a5015947ed99e55eb932"
+      },
+      {
+        "file": "tools/logs/c161-qa-pwa-browser.log",
+        "sha256": "9a84015fe17d7f2f850219598b8945632b40e23978a0bed1d1ff12215c29e5c3"
+      },
+      {
+        "file": "tools/logs/c161-qa-pwa-imports.log",
+        "sha256": "dbc871fc537cdd249718635803354b014dfe40122795bdc48def84e4200885cd"
+      }
+    ]
+  },
+  "skipReasons": [
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога два create: новая/существующая резервация (false), один Material и один остаток",
+      "reason": "T26 opt-in requires dedicated disposable URI; agreement retains12 skipped"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога два create: новая/существующая резервация (true), один Material и один остаток",
+      "reason": "T26 opt-in requires dedicated disposable URI; agreement retains12 skipped"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога abort первого: второй создаёт один Material; повтор первого переиспользует id",
+      "reason": "T26 opt-in requires dedicated disposable URI; agreement retains12 skipped"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога rename/create разделяют ключ нового имени; конфликт rename не делает дубль",
+      "reason": "T26 opt-in requires dedicated disposable URI; agreement retains12 skipped"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога restore/create: одно активное имя, тот же восстановленный Material",
+      "reason": "T26 opt-in requires dedicated disposable URI; agreement retains12 skipped"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога caseless Straße/STRAẞE использует один Material",
+      "reason": "T26 opt-in requires dedicated disposable URI; agreement retains12 skipped"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога caseless Σ/ς использует один Material",
+      "reason": "T26 opt-in requires dedicated disposable URI; agreement retains12 skipped"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога caseless ſ/S использует один Material",
+      "reason": "T26 opt-in requires dedicated disposable URI; agreement retains12 skipped"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога caseless K/K использует один Material",
+      "reason": "T26 opt-in requires dedicated disposable URI; agreement retains12 skipped"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога чужой scope не перекатегоризирует дубль; разрешённая категория остаётся",
+      "reason": "T26 opt-in requires dedicated disposable URI; agreement retains12 skipped"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога post-commit сбой: повтор создаёт только недостающий остаток, не новый Material",
+      "reason": "T26 opt-in requires dedicated disposable URI; agreement retains12 skipped"
+    },
+    {
+      "suite": "C:\\Users\\User\\.codex\\worktrees\\c158-invoice-fields\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+      "test": "T26: Mongo atomicity каталога разные имена не склеиваются, закупки одного Material остаются двумя фактами",
+      "reason": "T26 opt-in requires dedicated disposable URI; agreement retains12 skipped"
+    }
+  ],
+  "manifest": {
+    "files": 1703,
+    "beforeSha256": "72e5f93220530abe49f295749c6df6d65c8f1b8142439dab44fadec21d63a6a4",
+    "afterSha256": "72e5f93220530abe49f295749c6df6d65c8f1b8142439dab44fadec21d63a6a4",
+    "changed": [],
+    "added": [],
+    "removed": []
+  },
+  "fixtureChangesBeforeManifest": [
+    "passport-presentation.e2e-spec.ts permits only local datacore-test/datacore-test-* and asserts actual connection name; no business predicate relaxed"
+  ],
+  "environmentCorrection": {
+    "problem": "missing tools/design-checks/node_modules/playwright-core in isolated worktree",
+    "solution": "local junction to already installed main checkout dependency directory; no package install or main edits",
+    "rerun": "only4 browser-dependent files,14/14PASS; previous raw2FAIL/2SKIP retained"
+  },
+  "limits": [
+    "T26 1suite/12tests intentional opt-in SKIP",
+    "Visual acceptance/stand walkthrough/release remains coordinator/designer scope",
+    "No production access/data updates/taxonomy apply/invoice import"
+  ]
+}

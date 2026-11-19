@@ -20,3 +20,9 @@ OpenAPI524pathsэкспортированизownedbackendпослеrefresh:SHA25
 
 
 Readonlyfinalcapture`C161-FINAL-CAPTURE-1795107991023`PASS20PNG;sourcebuild16:58:53.615Zдоmerge. UI-STATE/evidenceполные. IdentityUIplan→confirmPASS,7строк/итогипрежние. Ownprofileудалён. Локальные2api.shhunkсохраненывtools/logs/c161-stand-api-local.patch;restoreожидаетуказанияrootпослеdesigner.
+
+
+CombinedHEAD61558531/own3198,builtAt17:13:28.789Zhealth200:readonlysmoke`C161-COMBINED-SMOKE-1795108644079`rawFAIL(толькоdevelopmentversion/upload404),34экрана+4стыкабезJS/APIошибок/failedblocks/pagewide. Финансовыеинварианты7строк/100000/262455/−162455стабильны;см.COMBINED-SMOKE.mdиevidence. Ownprofileудалён,api.shлокальные2hunkпокасохранены.
+
+
+По решениюroot functional34+4PASS, version/upload404 environmentSKIPпри сохранённом rawFAIL. Metadata61558531вevidence. api.sh2localhunkвосстановлены кcombined61558531,diff0,патчсохранён. Источник/composeдляversionartifactне менялся.

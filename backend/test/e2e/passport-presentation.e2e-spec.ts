@@ -37,9 +37,14 @@ describe('C155. Шаблон и новые паспорта', () => {
   })).insertedId;
 
   beforeAll(async () => {
-    // Общий харнесс очищает только отдельную тестовую БД.
-    if (process.env.MONGO_DB_TEST && process.env.MONGO_DB_TEST !== 'datacore-test') throw new Error('C155 требует datacore-test');
+    // До общего cleanup: только локальная отдельная БД, включая owned-копии параллельной QA.
+    const testDb = process.env.MONGO_DB_TEST ?? 'datacore-test';
+    const mongoHost = process.env.MONGO_URI ? new URL(process.env.MONGO_URI).hostname : 'localhost';
+    if (!/^datacore-test(?:-[a-z0-9-]+)?$/.test(testDb) || !['127.0.0.1', 'localhost'].includes(mongoHost)) {
+      throw new Error('C155 e2e требует локальный Mongo и отдельную БД datacore-test или datacore-test-*');
+    }
     ctx = await createTestApp();
+    expect(ctx.connection.name).toBe(testDb);
     app = ctx.app;
     token = (await loginAsAdmin(app)).access;
     await passports().createIndex({ creationScopeKey: 1 }, { name: 'creationScopeKey_1', unique: true, sparse: true });

@@ -50,3 +50,6 @@ Capture`C161-FINAL-CAPTURE-1795107764693`остановленFAILhelper:посл
 Все заказыреальнымchangeснимаетsalesOrderId/mode/order,сохраняяcompanyId/from/to/articleId(обетемы). Lastactiontableпослепрокруткиподтверждёнвviewport. Wholepagehorizontalнепоявилась(document1009≤1024);внутренняяпрокруткатаблицыпредусмотрена. ПослефильтровGETконтроль7операций/100000income/262455expense/net−162455и2stableincomeIDсохранён.
 
 Designerполучилточныйrunдлявизуальнойприёмки;доступсамвиднепринимает. ЭтонашаworktreeHEAD179c6239dirty,builtAt16:58:53.615Z,**доmergeсmain**;combinedQA/smokeещёнужны. ИсходныйhelperFAILсemptyсохранёнкакпрошлыйrun. OwnEdgeprofileудалён,чужиеокна/данные/prod/testDbне менялись. Локальныйstandapi.patchсохранёнвtools/logs/c161-stand-api-local.patch,api.shещёНЕвосстановлендоуказанияroot.
+
+
+CombinedHEAD61558531/own3198,builtAt17:13:28.789Zhealth200:readonlysmoke`C161-COMBINED-SMOKE-1795108644079`rawFAIL(толькоdevelopmentversion/upload404),34экрана+4стыкабезJS/APIошибок/failedblocks/pagewide. Финансовыеинварианты7строк/100000/262455/−162455стабильны;см.COMBINED-SMOKE.mdиevidence. Ownprofileудалён,api.shлокальные2hunkпокасохранены.

@@ -171,7 +171,11 @@ Finance: новая история имеет приоритет над legacy s
 
 Сущность статей остаётся expensearticles, постоянныеID; type/parentId/nodeKind/selectable/sortOrder/archivedAt/version. Единый writer всех финансовых aliases, seed и restore/delete; узел+ревизия дерева, атомарный аудит, циклы/типы/использование проверяются сервером. CategoryIds — будущие подсказки; небезопасная смена legacy-derived классификации возвращает read-only план409. Точные контракты и приёмка: crew/C161-money-articles-structure/CONTRACT.md; бизнес-данные плана не являются миграцией.
 
-Core finance/incomes/classification ещё проходит интеграцию; маршруты/поля и версия выпуска фиксируются по итоговым CORE/QA/UI-отчётам, не по наличию DTO.
+Finance: `GET /api/finance/operations` и `/:operationId`, `PATCH /:operationId/classification` — canonical reader/detail и отдельная аналитическая корректировка с CAS/UID/аудитом. Код: `modules/finance/financial-operations-reader.service.ts`, `financial-operations.ts`, `financial-classification.service.ts`, `financial-article-report.ts`, общий `common/financial-classification.ts`. Права/видимость и payroll scope следуют исходному факту. Списки без полной истории, detail с original/effective/history; итоги всего фильтра до пагинации.
+
+Income: `GET /api/incomes/:id/payments/identity-plan`, `POST /api/incomes/:id/payments/materialize` — адресная подготовка метаданных старых частей, dry-run по умолчанию, confirm/version/clientUid/planHash и неизменные денежные факты. `income-payment-identities.service.ts`/`income-payment-identities.ts`; DELETE прежнего index-path проверяет expectedPaymentId/version/amount. Обычная замена массива/аналитики оплаченного источника защищена; классификация изменяется только отдельным маршрутом.
+
+PWA: `financial-articles{,-state}.js`, `dicts-financial-articles.js`; `money-{financial-filters,operations,operations-state,classification,income-preparation}.js`, существующие money/articles/orders/expenses. `moneyclassification` зарегистрирован lazy route/OWNER. Финансовые статьи — прежняя коллекция expensearticles, отдельной таблицы денежных фактов C161 нет. Итоговая проверка/выпуск — crew/C161-money-articles-structure/REPORT.md.
 
 ## C155 — шаблон и новые упрощённые паспорта (19.11.2026)
 

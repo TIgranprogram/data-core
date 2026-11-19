@@ -1,0 +1,65 @@
+{
+  "statusRaw": "FAIL",
+  "sections": 34,
+  "targets": 4,
+  "failedBlocks": 0,
+  "pageWide": 0,
+  "events": 143,
+  "version404": 38,
+  "upload404": 105,
+  "otherEvents": [],
+  "targetDetails": [
+    {
+      "name": "money-classification-lazy",
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "money-classification-lazy",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "name": "invoice-paid-two-parts",
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "invoice-paid-two-parts",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "name": "financial-dictionary-shared",
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "financial-dictionary-shared",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    },
+    {
+      "name": "orders-financial-picker",
+      "failed": 0,
+      "wide": false,
+      "events": [
+        {
+          "phase": "orders-financial-picker",
+          "kind": "http",
+          "status": 404,
+          "path": "/app/version.json"
+        }
+      ]
+    }
+  ]
+}
