@@ -1300,3 +1300,6 @@ tr.k-pos-more .k-readonly { border: 0; background: transparent; padding: 0; }
 }
 /* Кнопка общего полноэкранного просмотра фото (C159). */
 .lightbox-close { position: fixed; top: var(--s4); right: var(--s4); z-index: 2; background: var(--surface); color: var(--text); border-color: var(--border); cursor: pointer; }
+/* C163: auto-трек grid растёт до высоты исходника; конечный трек удерживает весь рисунок внутри экрана. */
+.lightbox { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+.lightbox > img { min-width: 0; min-height: 0; }
