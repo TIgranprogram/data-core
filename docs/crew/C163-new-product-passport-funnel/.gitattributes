@@ -1,0 +1,3 @@
+# SHA-план и проверенный исполнитель одинаковы на Windows/Linux.
+DICTIONARY-SUPPLEMENT.json text eol=lf
+dictionary-supplement-executor.mjs text eol=lf
