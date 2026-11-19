@@ -15,7 +15,7 @@
 set -euo pipefail
 # OpenSSH использует SHELL для ProxyCommand. Из desktop на Windows может прийти PowerShell,
 # который не понимает POSIX exec; в Git Bash явно оставляем POSIX-оболочку для SSH.
-if [[ "${OSTYPE:-}" == msys* && -x /usr/bin/bash ]]; then export SHELL=/usr/bin/bash; fi
+if [[ "${OSTYPE:-}" == msys* || "${OSTYPE:-}" == cygwin* ]] && [[ -x /usr/bin/bash ]]; then export SHELL=/usr/bin/bash; fi
 if [[ "${DC_RELEASE_LOGGED:-0}" != 1 ]]; then
   LOG="$(mktemp "${DC_RELEASE_LOG_DIR:-${TMPDIR:-/tmp}}/dc-release-XXXXXXXX.log")"
   RC=0

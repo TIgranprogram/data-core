@@ -88,4 +88,4 @@ ecoverStale в core/update-check.js). Человеку со старой коп�
 
 ### SSH ProxyCommand из desktop Windows
 
-Если штатная выкладка/план скрипта падает с PowerShell «exec не распознано», OpenSSH получил SHELL от запускающего desktop. Сам ключ/сервер не виноваты. В Git Bash для SSH устанавливается SHELL=/usr/bin/bash (только OSTYPE=msys); release.sh и remote-access/run-script.sh делают это сами. На Linux поведение прежнее. Проверка — штатный read-only план passport-creation-index; SSH-конфиг и ключи не править и не печатать.
+Если штатная выкладка/план скрипта падает с PowerShell «exec не распознано», OpenSSH получил SHELL от запускающего desktop. Сам ключ/сервер не виноваты. В Git Bash для SSH устанавливается SHELL=/usr/bin/bash (только OSTYPE=msys/cygwin; установленный Git здесь сообщает cygwin); release.sh и remote-access/run-script.sh делают это сами. На Linux поведение прежнее. Проверка — штатный read-only план passport-creation-index; SSH-конфиг и ключи не править и не печатать.
