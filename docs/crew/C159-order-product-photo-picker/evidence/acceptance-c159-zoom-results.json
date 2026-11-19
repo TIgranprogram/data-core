@@ -1,0 +1,103 @@
+{
+  "startedAt": "2026-11-19T16:12:17.551Z",
+  "origin": "http://localhost:3102",
+  "phase": "c159-zoom",
+  "viewport": "1920×1080",
+  "checks": {
+    "order-product-picker": {
+      "status": "PASS",
+      "fixture": {
+        "orderId": "6aff0bcb34de43c56e5ac570",
+        "lineId": "6aff1ada34de43c56e5acb25",
+        "targetId": "6ae1269ae36900370537a2f3",
+        "matchId": "6adaff0f2a8dad6034b14522",
+        "version": 1,
+        "alreadyLinked": "6adaff0f2a8dad6034b14522"
+      },
+      "action": "Показать пробный выбор 1066 в обеих темах и отменить",
+      "zoomImages": [
+        "acceptance-picker-zoom-light.png",
+        "acceptance-picker-zoom-dark.png"
+      ],
+      "matchingImages": [
+        "acceptance-picker-matching-current-selected-light.png",
+        "acceptance-picker-matching-current-selected-dark.png"
+      ],
+      "zoom": {
+        "closeVisible": true,
+        "dialogClosed": true,
+        "focusReturned": true,
+        "currentLinkUnchanged": true
+      }
+    },
+    "network": {
+      "status": "PASS",
+      "browserErrors": 0,
+      "outside": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOutside": 23,
+  "appOutside": 0,
+  "blockedWrites": {},
+  "pageErrors": 0,
+  "scenarioSha256": "d31d5f277c6ff831a94e264cb76cd534060c48d07e7df54220c203cbb0f3eb6b",
+  "guardSha256": "bf0f19630a3f6624e2c7222ef4a2503d6007faed2a8ecd6788285f7e1d5835d8",
+  "browser": "157.0.8103.79",
+  "stand": {
+    "backup": "datacore-2026-11-18_031040.tgz",
+    "head": "179c6239105caf8284fc246637e4e2ac6897c45b",
+    "dirty": true,
+    "builtAt": "2026-11-19T14:03:13.877Z"
+  },
+  "traffic": [
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/incomes/6aff1ada34de43c56e5acb25",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/matching/suggest",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase/groups",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/incomes/6aff1ada34de43c56e5acb25",
+      "status": 304
+    }
+  ]
+}

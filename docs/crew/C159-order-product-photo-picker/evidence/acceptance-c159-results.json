@@ -1,0 +1,337 @@
+{
+  "startedAt": "2026-11-19T16:00:56.457Z",
+  "origin": "http://localhost:3102",
+  "phase": "c159",
+  "viewport": "1920×1080",
+  "checks": {
+    "order-product-picker": {
+      "status": "FAIL",
+      "fixture": {
+        "orderId": "6aff0bcb34de43c56e5ac570",
+        "lineId": "6aff1ada34de43c56e5acb25",
+        "targetId": "6ae1269ae36900370537a2f3",
+        "matchId": "6adaff0f2a8dad6034b14522",
+        "version": 0,
+        "alreadyLinked": null
+      },
+      "action": "Подтвердить смену изделия из «Сопоставления»",
+      "pages": {
+        "initial": 20,
+        "afterMore": 40,
+        "total": 491
+      },
+      "searchHits": 28,
+      "photo": {
+        "id": "6ae1269ae36900370537a2f3",
+        "enlarged": true,
+        "selected": false
+      },
+      "listImages": [
+        "acceptance-picker-search-light.png",
+        "acceptance-picker-search-dark.png"
+      ],
+      "filters": {
+        "section": true,
+        "group": true,
+        "series": true,
+        "refreshed": true,
+        "reset": true,
+        "count": 1,
+        "alternativeFixture": true
+      },
+      "placeholder": true,
+      "empty": true,
+      "selectionImages": [
+        "acceptance-picker-selected-light.png",
+        "acceptance-picker-selected-dark.png"
+      ],
+      "cancelled": true,
+      "patchAccepted": true,
+      "saved": {
+        "productId": "6ae1269ae36900370537a2f3",
+        "version": 1,
+        "bindingRequests": 1,
+        "preservedFields": [
+          "title",
+          "qty",
+          "unit",
+          "amount",
+          "amountManual",
+          "unitPrice",
+          "paidAmount",
+          "paidDate",
+          "orderId",
+          "orderNo",
+          "companyId",
+          "companyName",
+          "productionNo",
+          "customer",
+          "paymentForm"
+        ]
+      },
+      "reopened": true,
+      "reason": "Ожидаемый элемент или сетевой ответ не появился."
+    },
+    "network": {
+      "status": "PASS",
+      "browserErrors": 0,
+      "outside": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOutside": 33,
+  "appOutside": 0,
+  "blockedWrites": {},
+  "pageErrors": 0,
+  "scenarioSha256": "254f79c626f76e51c8ed05f5f41f4fd9ddb0dad86f3154b854b63ebf6a5b5ced",
+  "guardSha256": "49ad79022ae6ce65080bfede875c90e5af1d696e379895b993bc684f6de5e284",
+  "browser": "157.0.8103.79",
+  "stand": {
+    "backup": "datacore-2026-11-18_031040.tgz",
+    "head": "179c6239105caf8284fc246637e4e2ac6897c45b",
+    "dirty": true,
+    "builtAt": "2026-11-19T14:03:13.877Z"
+  },
+  "traffic": [
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/incomes/6aff1ada34de43c56e5acb25",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase/groups",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase/groups",
+      "status": 304
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/incomes/6aff1ada34de43c56e5acb25",
+      "status": 304
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase/groups",
+      "status": 304
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase/similar",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 304
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 304
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 304
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase/groups",
+      "status": 304
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 304
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 304
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/incomes/6aff1ada34de43c56e5acb25",
+      "status": 304
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 304
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase/groups",
+      "status": 304
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase/similar",
+      "status": 304
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 304
+    },
+    {
+      "step": "order-product-picker",
+      "method": "PATCH",
+      "target": "/api/incomes/6aff1ada34de43c56e5acb25",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/incomes/6aff1ada34de43c56e5acb25",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 304
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 304
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase/groups",
+      "status": 304
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/incomes/6aff1ada34de43c56e5acb25",
+      "status": 304
+    }
+  ]
+}

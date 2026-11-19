@@ -1,5 +1,6 @@
 import { isBackgroundPath, newKey, withWriteRetry } from './write-retry.js';
 import { applyView, canViewAsUser, clearViewAsStore, viewAsActive, VIEW_AS_BLOCK } from './view-as.js';
+import { errorContext, reportableHttpError } from './error-context.js';
 
 /** Связь с сервером: JWT + обновление сессии, понятные русские ошибки (CANON §2 «Тексты»). */
 export const PREFIX = location.pathname.replace(/\/app(\/.*)?$/, ''); // '' локально или '/db' за nginx
@@ -25,7 +26,7 @@ export const session = {
   /** С наложением «Смотреть как», если оно включено у настоящего админа. */
   get user() { return applyView(this.realUser); },
   set user(v) { store.set('dca_user', v ? JSON.stringify(v) : ''); },
-  clear() { this.access = ''; this.refresh = ''; this.user = null; clearViewAsStore(); try { Object.keys(localStorage).filter((k) => k.startsWith('dca_dict:')).forEach((k) => localStorage.removeItem(k)); } catch { /* приватный режим */ } }, // кэш справочников (ui/dict-options.js)
+  clear() { this.access = ''; this.refresh = ''; this.user = null; clearViewAsStore(); errorContext.clear(); try { Object.keys(localStorage).filter((k) => k.startsWith('dca_dict:')).forEach((k) => localStorage.removeItem(k)); } catch { /* приватный режим */ } }, // кэш справочников (ui/dict-options.js)
   /** Пункт «Смотреть как» — только настоящий admin/owner, до наложения. */
   get canViewAs() { return canViewAsUser(this.realUser); },
   /** SK-8c: роль для прав — у своей роли («Кладовщик») это её «права как у» (baseRole), у встроенной — она сама. */
@@ -80,11 +81,11 @@ const waitHook = {
   onStart() { if (++waiters === 1) events.onWait(true, false); },
   onEnd(ok) { if (ok) restoredAny = true; if (--waiters <= 0) { waiters = 0; events.onWait(false, restoredAny); restoredAny = false; } },
 };
-/** Сбой (сеть, 5xx, ответ не разобрался) — сообщить сборщику; ответы 4xx — не сбой. Ошибку бросить дальше как есть.
+/** Неудачный запрос, включая 4xx, — в журнал; ошибку бросить дальше без изменения сообщения/поведения формы.
  *  Обрыв связи на фоновом опросе (версии, колокольчик, чат — раз в 20 с) не сбой сайта: интернет моргнул у человека (14.11: 14 записей за минуту). */
 function failed(e, url, method) {
   const netBlip = e instanceof ApiError && e.status === 0 && method === 'GET' && isQuietPath(url);
-  if (!netBlip && (!(e instanceof ApiError) || e.status === 0 || e.status >= 500)) { try { events.onFail(e, { url, method }); } catch { /* сборщик не мешает */ } }
+  if (!netBlip && (!(e instanceof ApiError) || e.status === 0 || e.status >= 500 || reportableHttpError(e, url))) { try { events.onFail(e, { url, method }); } catch { /* сборщик не мешает */ } }
   throw e;
 }
 /** Хуки после успешной записи (не GET): кэши данных сбрасываются сами (core/stock-list.js). */

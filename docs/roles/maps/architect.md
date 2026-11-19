@@ -1,5 +1,7 @@
 # Карта роли architect
 
+C160, коммит: 0f77c6c4 (рабочий diff). Все три P1 закрыты. core/error-context.js:18,43, core/errors.js:31,43,61,112 — маршрут, очистка текста 4xx, очередь и поздний отказ после выхода. Прогон 16/16. Отчёт docs/crew/C160-error-navigation-context/REVIEW.md. Карта обновлена.
+
 C155, повторная приёмка, коммит: 179c6239 (рабочий diff). Четыре находки закрыты: product-passport.service.ts:163,573,1092; passport-from-product.ts:88; passport-order.ts:224. Итог — можно выкладывать. docs/crew/C155-passport-owner-queue/FINAL-ARCH-REVIEW.md. Карта обновлена.
 
 C155, 19.11.2026, коммит: 179c6239 (проверен рабочий diff паспортов). Редакции и источники рисунков — product-passport.service.ts:555 и passport-pdf.service.ts:261. Наследование монтажа — passport-from-product.ts:77. Версия при пакетном выпуске — passport-order.ts:220. Архивная карточка без снимка — product-passport.service.ts:163. docs/crew/C155-passport-owner-queue/FINAL-ARCH-REVIEW.md. Карта обновлена.

@@ -34,8 +34,8 @@ import { reportError } from './core/errors.js';
 import { failBlock } from './ui/kit/busy.js';
 import { warnCard } from './ui/kit/warn-card.js';
 import { setCrumbs, crumbsEl } from './ui/kit/crumbs.js';
-// ОШ2: сбой запроса (сеть, 5xx, ответ не разобрался) — в сборщик; GET — фоновая загрузка, запись — действие человека
-events.onFail = (e, { url, method }) => reportError(e, { kind: method === 'GET' ? 'background' : 'action', action: method === 'GET' ? 'загрузка' : 'запись', url });
+// Неудачный запрос, включая 4xx: в журнал с методом и безопасным контекстом действий (C160).
+events.onFail = (e, { url, method }) => reportError(e, { kind: method === 'GET' ? 'background' : 'action', action: `${method} · ${method === 'GET' ? 'загрузка' : 'запись'}`, url });
 // ОШ: любая необработанная ошибка — в сборщик и понятным русским текстом (детали — в консоль), без повторов;
 // нет связи — уже видна полоса «нет связи», всплывашка не нужна
 installGlobalErrors((e) => { if (recoverStale(e)) return; reportError(e, { kind: 'unhandled' }); if (e?.status !== 0) toastError(e); });

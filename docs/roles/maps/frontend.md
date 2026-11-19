@@ -1,3 +1,9 @@
+## C159 — выбор изделия по фото (2026-11-19)
+коммит: не закоммичено
+- `backend/pwa/sections/orders.js:71` — вход из позиции. `backend/pwa/sections/salesorders-matching.js:38` — тот же каталог с подтверждением сопоставления.
+- `backend/pwa/sections/order-product-picker.js:18,28` — раздельные способы сохранения, вложенная панель. `:101` — фото в строке. `:161,222` — свежая выборка, фильтры и страницы.
+- `backend/pwa/sections/order-product-picker.test.mjs:93` — 6 регрессий. `atlas-data.js:57,81` — шаги заказов и сопоставления. Отчёт `docs/crew/C159-order-product-photo-picker/FRONTEND-REPORT.md`. Карта обновлена.
+
 ## C155 — переход из очереди к составу изделия (2026-11-19)
 коммит: не закоммичено
 - `backend/pwa/sections/products/fill-block.js:31`, `card-blocks.js:21` — «Заполнить» раскрывает состав. `card-blocks.js:65` — видимое действие правки и фокус. `fill-composition.test.mjs:25` — активная и другая вкладки, чтение без правки. Отчёт `FILL-BUTTON.md`. Карта обновлена.

@@ -54,7 +54,7 @@ export const NODES = [
   { id: 'salesorders', tpl: 'board', tplStatus: 'ok', band: 'sale', col: 2, sec: 'salesorders', t: 'Заказы', l: ['позиции, срок, этапы:', 'в работу → отгрузка'],
     seq: true, inside: [
       { id: 'zakaz-i-dogovory', t: 'Заказ и договоры', l: 'заказчик, его договоры (внутри заказа), наша компания — ссылка в шапке, КП', in: ['partners', 'offers'] },
-      { id: 'pozicii', t: 'Позиции', l: 'изделие, новое изделие или услуга; таблица всегда первой, пустая — кнопка «+ Позиция» (так же в окне договора, блок «Позиции»); в раскрытии строки — «Вложения»: папки, файл скачать, перетащить или загрузить; «Документы» — паспорт точной позиции заказа: шаблон изделия, образец без номера и отдельный выпуск; существующий паспорт открывается по своему id, старый образец только просматривается/печатается', in: ['products', 'matching'], out: ['matching'] },
+      { id: 'pozicii', t: 'Позиции', l: 'изделие, новое изделие или услуга; таблица всегда первой, пустая — кнопка «+ Позиция» (так же в окне договора, блок «Позиции»); в карточке позиции «Выбрать изделие» или «⋯ → Сменить изделие»: найдите по фото, названию или артикулу, подтвердите привязку; в раскрытии строки — «Вложения»: папки, файл скачать, перетащить или загрузить; «Документы» — паспорт точной позиции заказа: шаблон изделия, образец без номера и отдельный выпуск; существующий паспорт открывается по своему id, старый образец только просматривается/печатается', in: ['products', 'matching'], out: ['matching'] },
       { id: 'raspredelenie', t: 'Распределение', l: 'все позиции распределены — задачи проектирования создаются сами', out: ['design'] },
       { id: 'v-rabotu', t: 'В работу', l: 'позиции уходят в производство', out: ['work', 'shortage'] },
       { id: 'pasporta-zakaza', t: 'Паспорта заказа', l: 'по одному на экземпляр', out: ['docs'] },
@@ -64,7 +64,7 @@ export const NODES = [
     ],
     rules: ['Задачи проектирования создаются сами, только когда распределены все позиции заказа.', 'Позиция связывает изделие, количество, срок и работу.', 'Изменение заказа не переписывает выпущенный паспорт.', '«В производство» недоступно, пока есть нераспределённые позиции.'],
     docs: ['docs/PRODUCT.md — «Заказы»', 'docs/MAP.md — salesorders, shipments, incomes'], tech: 'salesorders, incomes, shipments',
-    code: ['backend/src/modules/salesorders', 'backend/src/modules/incomes', 'backend/src/modules/shipments', 'backend/pwa/sections/salesorders.js', 'backend/pwa/sections/order-lines.js', 'backend/pwa/sections/order-shipments.js'] },
+    code: ['backend/src/modules/salesorders', 'backend/src/modules/incomes', 'backend/src/modules/shipments', 'backend/pwa/sections/salesorders.js', 'backend/pwa/sections/order-lines.js', 'backend/pwa/sections/order-product-picker.js', 'backend/pwa/sections/order-shipments.js'] },
   { id: 'contracts', tpl: 'list', tplStatus: 'legacy', band: 'supply', col: 1, sec: 'contracts', t: 'Договоры поставщиков', l: ['с поставщиками:', 'номер, срок, файлы'],
     inside: [
       { id: 'dogovor-postavki', t: 'Договор поставки', l: 'поставщик, номер, дата; выбирается в счёте', out: ['requests'] },
@@ -78,12 +78,12 @@ export const NODES = [
   { id: 'matching', tpl: 'queue', tplStatus: 'legacy', band: 'sale', col: 3, sec: null, href: '#matching', t: 'Сопоставление', l: ['позиция заказа ↔', 'изделие из каталога'],
     seq: true, inside: [
       { id: 'nesopostavlennye', t: 'Несопоставленные', l: 'позиции заказов без изделия', in: ['salesorders'] },
-      { id: 'podbor', t: 'Подбор', l: 'похожие изделия: по артикулу, названию', in: ['products'] },
+      { id: 'podbor', t: 'Подбор', l: 'похожие изделия или «Выбрать из каталога»: поиск, раздел, группа, серия и фото с увеличением', in: ['products'] },
       { id: 'podtverdit', t: 'Подтвердить', l: 'изделие закрепляется за позицией', out: ['salesorders'] },
     ],
     rules: ['Пока позиция не сопоставлена, состав и паспорт для неё не подтянутся.'],
     docs: ['docs/MAP.md — matching'], tech: 'salesorders (позиции), products',
-    code: ['backend/src/modules/matching', 'backend/pwa/sections/matching-queue.js', 'backend/pwa/sections/salesorders-matching.js'] },
+    code: ['backend/src/modules/matching', 'backend/pwa/sections/matching-queue.js', 'backend/pwa/sections/salesorders-matching.js', 'backend/pwa/sections/order-product-picker.js'] },
 
   // ── Продукция
   { id: 'dicts', tpl: 'dict', tplStatus: 'legacy', band: 'prod', col: 0, sec: 'dicts', href: '#dicts', t: 'Справочники', l: ['типы паспортов, тексты,', 'цвета, виды работ'],

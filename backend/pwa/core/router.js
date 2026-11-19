@@ -1,4 +1,5 @@
 import { createNav } from './nav-stack.js';
+import { errorContext } from './error-context.js';
 
 /** Адрес = состояние экрана (CANON §2): #раздел?page=2&status=…&open=<id>.
  *  «Назад», обновление страницы и ссылка коллеге открывают то же самое.
@@ -59,7 +60,7 @@ export function closeStep(clearParams) {
 export function onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 export function onNav(fn) { navListeners.add(fn); fn(nav.info()); return () => navListeners.delete(fn); }
 export const navInfo = () => nav.info();
-function emit() { const c = current(); listeners.forEach((fn) => fn(c)); const i = nav.info(); navListeners.forEach((fn) => fn(i)); }
+function emit() { errorContext.add('переход', location.hash); const c = current(); listeners.forEach((fn) => fn(c)); const i = nav.info(); navListeners.forEach((fn) => fn(i)); }
 
 // «Назад» / «Вперёд» браузера и ссылки-якоря: hashchange (popstate без смены адреса не бывает — go() не пишет одинаковые)
 let restoring = false;

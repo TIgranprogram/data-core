@@ -167,3 +167,13 @@ GET /api/passports/:id дополнен effectiveImages (URL и fromProduct) д�
 - `GET /api/passports/:id`, `/:id/pdf`, `/order/:orderId/pdf`, `/zip`: opt-in `readOnly=1` запрещает синхронизацию старой записи и отметки скачивания. Новый интерфейс всегда использует этот режим для старого образца. Перевод legacy→v1 через PATCH запрещён409.
 - `GET /api/passports/funnel?...&presentationVersion=1&variant=short`: применимые `passportPhrases.section=simple-description`, ссылки `kindIds/partIds`, фильтры существующих признаков; неизвестное оставляет выбор, известное сужает. Ключ препятствия `choice:<rootId>` либо `simpleDescription` при отсутствии текста. Источники собственная фраза → явный применимый выбор → однозначный словарный вариант. Применимые данные возвращаются для предпросмотра без записи.
 - PWA: `#products?templateFor=<id>` (старый bookFor — алиас шаблона), `sections/passports/book-template*.js`, `book-document.js`, `book-head.js`, `book-issue.js`; product/order/docs входы разделяют шаблон, образец и выпуск. iLogic после успешного импорта рисунков/чисел открывает шаблон. Полный набор приёмочных случаев и действующий контракт — `crew/C155-passport-owner-queue/`.
+
+
+### C160 — диагностика ошибок интерфейса
+
+`backend/pwa/core/error-context.js` — безопасный след последних12действий/переходов вRAM, техническиеroute/of/open/tab, беззначенийформ/поиска/названийзаказчиков. `api.js::failed` сообщаетHTTP4xx наряду с5xx/сетью; `errors.js` очищаеттекст и добавляетслед всуществующийstackPOST/client-errors. `main.js` передаётметод, `router.js` отмечаетпереходы, logoutочищаетслед. Auth4xx/самжурнал/локальныйview-asнепорождаютновуюзапись. DTO/эндпоинты/backendнеизменены; REPORTвcrew/C160-error-navigation-context.
+
+
+### C159 — выбор изделия позиции и сопоставления договора
+
+`backend/pwa/sections/order-product-picker.js` — общая вложенная правая панель для `orders.js::pickProduct` и `salesorders-matching.js`. Свежие GET `/showcase`, `/showcase/groups`, `/showcase/similar`: поиск, зависимые фильтры, серверные страницы по20, фото108px и увеличение. Контекст исходной карточки остаётся на месте. Из позиции подтверждение вызывает `patchVersioned /incomes/:id` только с productId; из сопоставления — существующий POST `/matching/confirm` с lineId/productId, сохраняя подтверждённое состояние и алиасы. Изображение увеличивается независимо от выбора. Отмена не пишет. Общий zoom `ui/kit/gallery.js` имеет видимое закрытие/фокус. API/схемы не изменены; приёмка в crew/C159-order-product-photo-picker.

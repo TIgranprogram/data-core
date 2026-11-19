@@ -1,0 +1,179 @@
+{
+  "startedAt": "2026-11-19T16:05:47.932Z",
+  "origin": "http://localhost:3102",
+  "phase": "c159-match",
+  "viewport": "1920×1080",
+  "checks": {
+    "order-product-picker": {
+      "status": "PASS",
+      "fixture": {
+        "orderId": "6aff0bcb34de43c56e5ac570",
+        "lineId": "6aff1ada34de43c56e5acb25",
+        "targetId": "6ae1269ae36900370537a2f3",
+        "matchId": "6adaff0f2a8dad6034b14522",
+        "version": 1,
+        "alreadyLinked": "6ae1269ae36900370537a2f3"
+      },
+      "action": "Проверить сохранение и заново открыть «Сопоставление»",
+      "matchingInitial": {
+        "lineId": "6aff1ada34de43c56e5acb25",
+        "state": "auto",
+        "matched": false,
+        "productId": "6ae1269ae36900370537a2f3"
+      },
+      "matchAccepted": true,
+      "matching": {
+        "lineId": "6aff1ada34de43c56e5acb25",
+        "productId": "6adaff0f2a8dad6034b14522",
+        "requests": 1,
+        "preservedFields": [
+          "title",
+          "qty",
+          "unit",
+          "amount",
+          "amountManual",
+          "unitPrice",
+          "paidAmount",
+          "paidDate",
+          "orderId",
+          "orderNo",
+          "companyId",
+          "companyName",
+          "productionNo",
+          "customer",
+          "paymentForm"
+        ],
+        "reopened": true
+      }
+    },
+    "network": {
+      "status": "PASS",
+      "browserErrors": 0,
+      "outside": 0,
+      "unexpectedWrites": []
+    }
+  },
+  "refusedOutside": 24,
+  "appOutside": 0,
+  "blockedWrites": {},
+  "pageErrors": 0,
+  "scenarioSha256": "1d76d6338d398bacefebd2d907217d76fe25b738af7e5f31532610e78c0f49e1",
+  "guardSha256": "26329396fa1079ab9de7f55182f8ed0b3c89ed14c3a0b9c4b34d6d8d9c432138",
+  "browser": "157.0.8103.79",
+  "stand": {
+    "backup": "datacore-2026-11-18_031040.tgz",
+    "head": "179c6239105caf8284fc246637e4e2ac6897c45b",
+    "dirty": true,
+    "builtAt": "2026-11-19T14:03:13.877Z"
+  },
+  "traffic": [
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "stand",
+      "method": "GET",
+      "target": "/app/development.json",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/incomes/6aff1ada34de43c56e5acb25",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/incomes/6aff1ada34de43c56e5acb25",
+      "status": 304
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase/groups",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/matching/suggest",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase/groups",
+      "status": 304
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/incomes/6aff1ada34de43c56e5acb25",
+      "status": 304
+    },
+    {
+      "step": "order-product-picker",
+      "method": "POST",
+      "target": "/api/matching/confirm",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/matching/suggest",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/incomes/6aff1ada34de43c56e5acb25",
+      "status": 200
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase",
+      "status": 304
+    },
+    {
+      "step": "order-product-picker",
+      "method": "GET",
+      "target": "/api/showcase/groups",
+      "status": 304
+    }
+  ]
+}

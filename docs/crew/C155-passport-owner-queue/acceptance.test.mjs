@@ -12,7 +12,7 @@ const app = origin + '/app/';
 const script = fileURLToPath(import.meta.url);
 const dir = path.dirname(script);
 const root = path.resolve(dir, path.basename(dir) === 'logs' ? '../..' : '../../..');
-const evidence = path.join(root, 'docs/crew/C155-passport-owner-queue/evidence');
+let evidence = path.join(root, 'docs/crew/C155-passport-owner-queue/evidence');
 const timeout = 20_000;
 const oid = /^[\da-f]{24}$/i;
 const uuid = /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/i;
@@ -83,7 +83,9 @@ function pushLocal(req, res, url, body, onReply) {
   const pdf = (req.method === 'POST' && target === '/api/passports/preview')
     || (req.method === 'GET' && target.endsWith('/pdf'));
   if (onReply || pdf) options.headers['accept-encoding'] = 'identity';
-  const track = target.startsWith('/api/passports') || target.endsWith('/passport-template') || target === '/app/development.json';
+  const trackedPicker = ['c159', 'c159-match', 'c159-zoom'].includes(phase) && (/^\/api\/incomes\/[\da-f]{24}$/i.test(target)
+    || ['/api/showcase', '/api/showcase/groups', '/api/showcase/similar', '/api/matching/suggest', '/api/matching/confirm'].includes(target));
+  const track = target.startsWith('/api/passports') || target.endsWith('/passport-template') || target === '/app/development.json' || trackedPicker;
   const entry = { step, method: req.method, target };
   for (const key of ['variant', 'mode', 'readOnly']) {
     const value = url.searchParams.get(key);
@@ -144,7 +146,7 @@ function makeGuard() {
     const pdf = /^\/api\/passports\/(?:.*\/)?(?:pdf|zip)$/.test(pathname);
     const read = ['GET', 'HEAD', 'OPTIONS'].includes(req.method);
     if (read && !pdf) { pushLocal(req, res, url); return; }
-    if (!['fill', 'first-time-width'].includes(phase) && req.method === 'POST' && url.href === origin + '/api/auth/refresh') {
+    if (!['fill', 'first-time-width', 'c159', 'c159-match', 'c159-zoom'].includes(phase) && req.method === 'POST' && url.href === origin + '/api/auth/refresh') {
       pushLocal(req, res, url);
       return;
     }
@@ -692,8 +694,9 @@ export async function runOrderAcceptance(orderCase, source) {
 }
 
 export async function runFocusedAcceptance(name, focusedCase, source) {
-  expect(['order', 'first-time', 'first-time-width', 'fill'].includes(name) && typeof focusedCase === 'function', 'Неизвестный сценарий приёмки.');
+  expect(['order', 'first-time', 'first-time-width', 'fill', 'c159', 'c159-match', 'c159-zoom'].includes(name) && typeof focusedCase === 'function', 'Неизвестный сценарий приёмки.');
   phase = report.phase = name;
+  if (['c159', 'c159-match', 'c159-zoom'].includes(name)) evidence = path.join(root, 'docs/crew/C159-order-product-photo-picker/evidence');
   await start(source, focusedCase);
 }
 
