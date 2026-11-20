@@ -34,6 +34,7 @@ function scopeItem(record, index, ctx) {
   let saved = false;
   const title = exclude ? 'Исключить из согласованного состава' : 'Вернуть в согласованный состав';
   const panel = { title, newTitle: title, card: {}, form: {
+    toBody: (values) => values,
     fields: () => [
       { note: 'Исходный состав и цена остаются в истории. Изменяется только согласованный объём предложения.' },
       { key: 'reason', label: 'Основание решения', type: 'textarea', required: true, max: 1000, wide: true },
@@ -95,6 +96,7 @@ export async function linkOfferContract(record, ctx) {
   let saved = false;
   const clientUid = newKey();
   const panel = { title: 'Связать КП с договором', newTitle: 'Связать КП с договором', card: {}, form: {
+    toBody: (values) => values,
     fields: () => [
       { note: 'Связь сохраняет историю предложения. Статус оплаты и принятый состав не меняются.' },
       { key: 'orderId', label: 'Договор покупателя', type: 'select', required: true, choose: true, wide: true, options: candidates.map((x) => ({ value: x.id, label: `Договор ${x.orderNo || '—'} · ${x.customer || 'заказчик не указан'}` })) },
