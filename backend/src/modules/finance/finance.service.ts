@@ -1,3 +1,5 @@
+import { legalForecast } from './legal-forecast';
+import type { LegalBundleDto } from '../../common/legal/legal.dto';
 import type { StockScope } from '../../common/stock-scope';
 import { docScopeMatch } from '../../common/supply-scope';
 import { classifiedOperation } from './financial-operations';
@@ -152,7 +154,7 @@ export class FinanceService {
       includeIncome ? db.collection('incomes').find({ deletedAt: null, cancelledAt: null, amount: { $gt: 0 }, $and: [{ $or: [{ companyId: { $in: companyIds } }, { 'payments.companyId': { $in: companyIds } }, { 'legacyPaymentMetadata.companyId': { $in: companyIds } }] }], $or: [{ 'payments.date': range }, { paidDate: range }] },
         { projection: { orderNo: 1, orderId: 1, title: 1, amount: 1, paidDate: 1, ...paymentProjection, 'legacyPaymentMetadata.warnings': 1, 'legacyPaymentMetadata.paymentId': 1, 'legacyPaymentMetadata.companyId': 1, 'legacyPaymentMetadata.classificationOriginal': 1, 'legacyPaymentMetadata.classificationOverride': 1, 'legacyPaymentMetadata.classificationVersion': 1, version: 1, articleId: 1, companyId: 1, customer: 1 } }).toArray() : [],
       includeIncome && !factsOnly ? db.collection('incomes').find({ deletedAt: null, cancelledAt: null, amount: { $gt: 0 }, companyId: { $in: companyIds }, paidDate: null, shipDate: { $ne: null, $lt: end } },
-        { projection: { orderNo: 1, title: 1, amount: 1, shipDate: 1, payments: 1, paidDate: 1, companyId: 1, customer: 1 } }).toArray() : [],
+        { projection: { orderId:1,orderNo: 1, title: 1, amount: 1, shipDate: 1, payments: 1, paidDate: 1, companyId: 1, customer: 1 } }).toArray() : [],
       !onlySource || onlySource === 'payroll' ? this.payroll.paidOps(from, to, companyIds) : [],
       db.collection('categories').find({}, { projection: { name: 1 } }).toArray(),
       db.collection('organizations').find({}, { projection: { name: 1, shortName: 1 } }).toArray(),
@@ -170,6 +172,8 @@ export class FinanceService {
     const factHeaders = factInvoiceIds.length ? await db.collection('supplyinvoices').find({ _id: { $in: factInvoiceIds }, deletedAt: null, paymentAccountingVersion: 1 }, { projection: { _id: 1 } }).toArray() : [];
     const activeInvoiceIds = new Set(factHeaders.map((x) => String(x._id)));
     const ledgerFacts = periodFacts.filter((x) => activeInvoiceIds.has(String(x.invoiceId)));
+    const shippedParents=shipped.length?await db.collection('salesorders').find({_id:{$in:shipped.map(i=>i.orderId).filter(Boolean)}},{projection:{legal:1}}).toArray():[];
+    const unknownLegal=new Set(shippedParents.filter(o=>o.legal&&(o.legal.currency!=='RUB'||o.legal.state!=='verified'||o.legal.signature?.state!=='both')).map(o=>String(o._id)));
     const cat = new Map(cats.map((c) => [String(c._id), String(c.name)]));
     const org = new Map(orgs.map((o) => [String(o._id), String(o.shortName || o.name)]));
     const thumbMap = await firstPhotoThumbs(db, reqs);
@@ -264,6 +268,7 @@ export class FinanceService {
       invoices: [...reqs.filter((r) => !managedInvoiceIds.has(String(r.invoiceId)) && r.paid !== true).map((r) => { const d = iso(r.invoiceDate); return exp(r, d, !!d && d <= today); }), ...obligations.invoices],
       needsConversion: obligations.needsConversion,
       awaiting: shipped.flatMap((i): Op[] => {
+        if(unknownLegal.has(String(i.orderId)))return [];
         const left = Math.round((Number(i.amount) - incomePayments(i as { amount?: number; paidDate?: Date; payments?: IncomePayment[] }).reduce((s, p) => s + p.amount, 0)) * 100) / 100;
         return left > 0 ? [{ type: 'income', id: String(i._id), date: iso(i.shipDate), amount: left, company: cname.get(String(i.companyId)) ?? '?', title: String(i.title ?? ''),
           doc: i.orderNo ? `заказ ${i.orderNo}` : undefined, counterparty: i.customer ? String(i.customer) : undefined, overdue: iso(i.shipDate) < from }] : [];
@@ -375,7 +380,7 @@ export class FinanceService {
     ]);
     const [managedInvoiceIds, obligations] = await Promise.all([this.managedRequestInvoices(reqs), this.invoiceObligations(invoiceStaleSince(today), to, ids, false, today)]);
     const orders = await db.collection('salesorders').find({ _id: { $in: incs.map((i) => i.orderId).filter(Boolean) } },
-      { projection: { stage: 1, deletedAt: 1, contractDate: 1, createdAt: 1, shipDate: 1, productionDeadline: 1, deliveryDeadline: 1, paymentForm: 1 } }).toArray();
+      { projection: { legal:1,orderNo:1,title:1,customer:1,companyId:1,stage: 1, deletedAt: 1, contractDate: 1, createdAt: 1, shipDate: 1, productionDeadline: 1, deliveryDeadline: 1, paymentForm: 1 } }).toArray();
     const ord = new Map(orders.map((o) => [String(o._id), o]));
     const org = new Map(orgs.map((o) => [String(o._id), String(o.shortName || o.name)]));
     const thumbMap = await firstPhotoThumbs(db, reqs);
@@ -383,13 +388,17 @@ export class FinanceService {
       invoiceDate: iso(r.invoiceDate) || null, status: String(r.status), doc: r.invoiceNo ? String(r.invoiceNo) : undefined, counterparty: r.supplierId ? org.get(String(r.supplierId)) : undefined, thumb: thumbMap.get(String(r._id)) }));
     const incomes: IncomeSrc[] = incs.flatMap((i) => {
       const o = i.orderId ? ord.get(String(i.orderId)) : undefined;
-      if (o && (o.deletedAt || o.stage === 'cancelled')) return [];
+      if (o && (o.deletedAt || o.stage === 'cancelled'||o.legal)) return [];
       const paid = incomePayments(i as { amount?: number; paidDate?: Date; payments?: IncomePayment[] }).reduce((s, p) => s + p.amount, 0);
       return [{ id: String(i._id), paid, title: String(i.title ?? ''), amount: Number(i.amount), company: cname.get(String(i.companyId)) ?? '?', paymentForm: (i.paymentForm ?? o?.paymentForm) as string | undefined,
         orderNo: i.orderNo ? String(i.orderNo) : undefined, customer: i.customer ? String(i.customer) : undefined,
         orderDate: iso(o?.contractDate) || iso(o?.createdAt) || iso(i.createdAt) || null,
         due: iso(i.shipDate) || iso(o?.shipDate) || iso(o?.productionDeadline) || iso(o?.deliveryDeadline) || null }];
     });
+    const legalOrders=orders.filter(o=>o.legal&&!o.deletedAt&&o.stage!=='cancelled');
+    const actualByOrder=legalOrders.length?await db.collection('incomes').aggregate([{$match:{orderId:{$in:legalOrders.map(o=>o._id)},deletedAt:null,cancelledAt:null}},{$group:{_id:'$orderId',paid:{$sum:{$cond:[{$ifNull:['$paidDate',false]},'$amount',{$ifNull:['$paidAmount',0]}]}}}}]).toArray():[];
+    const actual=new Map(actualByOrder.map(x=>[String(x._id),Number(x.paid)||0]));
+    for(const order of legalOrders)incomes.push(...legalForecast(order as unknown as {_id:unknown;legal:LegalBundleDto},actual.get(String(order._id))||0,cname.get(String(order.companyId))||'?'));
     expenses.push(...obligations.invoices.map((x) => ({ ...x, invoiceDate: x.date, status: 'ordered' })));
     const { ops, noDate } = expectedOps(expenses, incomes, today);
     // ФОТ: начислено, не выплачено — в день расчёта по графику (просрочено — сегодня)

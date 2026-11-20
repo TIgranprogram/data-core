@@ -1,5 +1,7 @@
+import { canSeeMoney } from '../../common/roles-hierarchy';
+import { LegalPatchDto } from '../../common/legal/legal.dto';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, Res, StreamableFile, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, Param, Patch, Post, Query, Res, StreamableFile, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
@@ -9,7 +11,7 @@ import { AppSection } from '../../common/decorators/app-section.decorator';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { CreateOfferDto, OfferCompanyDto, OfferCopiesDto, OfferCopyDto, OfferCreateOrderDto, OfferIntakeDto, OfferPackDto, OfferStatusDto, UpdateBackgroundDto, UpdateOfferDto, UploadBackgroundDto } from './dto';
+import { CreateOfferDto, OfferCompanyDto, OfferCopiesDto, OfferCopyDto, OfferCreateOrderDto, OfferIntakeDto, OfferLinkOrderDto, OfferPackDto, OfferStatusDto, UpdateBackgroundDto, UpdateOfferDto, UploadBackgroundDto } from './dto';
 import { BG_MAX_BYTES, BG_MIME, OfferBackgroundsService } from './offer-backgrounds.service';
 import { OfferIntakeService } from './offer-intake.service';
 import { OffersService } from './offers.service';
@@ -114,7 +116,8 @@ export class OffersController {
   @Post('preview')
   @HttpCode(200)
   @Roles('admin', 'director', 'manager', 'user')
-  async preview(@Body() dto: CreateOfferDto, @Res({ passthrough: true }) res: Response) {
+  async preview(@Body() dto: CreateOfferDto, @Res({ passthrough: true }) res: Response, @CurrentUser() user: AuthenticatedUser) {
+    if (!canSeeMoney(user)) throw new ForbiddenException('Недостаточно прав для просмотра денежного документа');
     const r = await this.offers.preview(dto);
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="offer.pdf"; filename*=UTF-8''${encodeURIComponent(r.filename)}` });
     return new StreamableFile(r.buf);
@@ -138,6 +141,21 @@ export class OffersController {
   @AuditAction({ action: 'offer.updated', entityType: 'CommercialOffer', idParam: 'id' })
   update(@Param('id') id: string, @Body() dto: UpdateOfferDto, @CurrentUser() user: AuthenticatedUser) {
     return this.offers.update(id, dto, user);
+  }
+
+  @Patch(':id/legal')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'offer.legal.updated', entityType: 'CommercialOffer', idParam: 'id' })
+  updateLegal(@Param('id') id: string, @Body() dto: LegalPatchDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.offers.updateLegal(id, dto, user);
+  }
+
+  @Post(':id/link-order')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'offer.order.linked', entityType: 'CommercialOffer', idParam: 'id' })
+  linkOrder(@Param('id') id: string, @Body() dto: OfferLinkOrderDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.offers.linkOrder(id, dto, user);
   }
 
   /** Черновик заказа из КП (без цен) — для проверки перед созданием. */
@@ -226,7 +244,8 @@ export class OffersController {
 
   @Get(':id/pdf')
   @Roles('admin', 'director', 'manager', 'user')
-  async pdf(@Param('id') id: string, @Res({ passthrough: true }) res: Response) {
+  async pdf(@Param('id') id: string, @Res({ passthrough: true }) res: Response, @CurrentUser() user: AuthenticatedUser) {
+    if (!canSeeMoney(user)) throw new ForbiddenException('Недостаточно прав для просмотра денежного документа');
     const r = await this.offers.pdf(id);
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="offer.pdf"; filename*=UTF-8''${encodeURIComponent(r.filename)}` });
     return new StreamableFile(r.buf);

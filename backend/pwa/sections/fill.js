@@ -17,9 +17,14 @@ import { withReason } from './admin-override.js';
  */
 const openRow = (g, x) => { if (g.key === 'invoicePaymentDate') { requestInvoiceOperation(x.invoiceId, 'payment'); patch({ of: 'invoicecard', open: x.invoiceId, fill: undefined, new: undefined }); } else patch({ of: g.section, open: x.id, fill: g.field, new: undefined }); };
 async function loadFill(limit) {
-  const [audit, finance] = await Promise.all([api('/fill-audit', { query: { limit } }), session.canMoney ? api('/finance/needs-fill') : null]);
+  const [audit, finance, contracts, offers] = await Promise.all([api('/fill-audit', { query: { limit } }), session.canMoney ? api('/finance/needs-fill') : null, session.sees('salesorders') ? api('/salesorders', { query: { needsReview: '1', limit: Math.min(limit, 100) } }) : null, session.sees('offers') ? api('/offers', { query: { needsReview: '1', limit: Math.min(limit, 100) } }) : null]);
   const pending = finance?.needsPaymentDate;
   if (pending?.total) { audit.groups.push({ key: 'invoicePaymentDate', area: 'Деньги', title: 'Заполнить даты подтверждённых оплат', why: 'Оплата подтверждена; до уточнения даты она не попадает в отчёты и не считается долгом', count: pending.total, section: 'invoicecard', items: pending.items.slice(0, limit) }); audit.total += pending.total; }
+  for (const [key, data, title, target] of [['contractLegalReview', contracts, 'Уточнить сведения договоров', 'salesorder'], ['offerLegalReview', offers, 'Уточнить сведения КП', 'offers']]) {
+    if (!data?.total) continue;
+    audit.groups.push({ key, area: 'Договоры и КП', title, why: 'Неизвестные сведения сохранены пустыми. Откройте документ и заполните пометки менеджеру.', count: data.total, section: target, items: (data.items || []).map((x) => ({ id: x.id, title: [x.orderNo || x.number, x.customer].filter(Boolean).join(' · '), sub: `Открытых уточнений: ${x.legalSummary?.openIssueCount ?? 'нужно проверить'}` })) });
+    audit.total += data.total;
+  }
   return audit;
 }
 

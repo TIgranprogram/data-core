@@ -7,9 +7,9 @@ const chain = (result: unknown) => { const c: Record<string, jest.Mock> = {}; fo
 /** КМ4: assign не пускает договоры с несопоставленными позициями. */
 describe('ProductionOrdersService.assign — блок сопоставления', () => {
   const o1 = new Types.ObjectId(), o2 = new Types.ObjectId();
-  const mk = (incomes: Array<Record<string, unknown>>) => {
+  const mk = (incomes: Array<Record<string, unknown>>, legal=false) => {
     const model = {
-      find: jest.fn(() => chain([{ _id: o1, orderNo: '12' }, { _id: o2, orderNo: '13' }])),
+      find: jest.fn(() => chain([{ _id: o1, orderNo: '12',...(legal?{legal:{state:'draft'}}:{}) }, { _id: o2, orderNo: '13',...(legal?{legal:{state:'draft'}}:{}) }])),
       updateMany: jest.fn(() => chain({ modifiedCount: 2 })),
     };
     const coll = () => ({ find: () => ({ sort: () => ({ toArray: async () => incomes }) }) });
@@ -30,6 +30,11 @@ describe('ProductionOrdersService.assign — блок сопоставления
       { orderId: String(o2), orderNo: '13', total: 0, unmatched: 0, lines: [] },
     ]);
     expect(model.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('новые legal draft группируются до сопоставления и без выдуманных изделий',async()=>{
+    const {svc,model}=mk([{orderId:o1,title:'Секция',matchingMode:'manual'}],true);
+    const r=await svc.assign([String(o1),String(o2)]);expect(r.orderIds).toHaveLength(2);expect(model.updateMany).toHaveBeenCalled();
   });
 
   it('подтверждённые, «не изделие» и старые с изделием → блока нет, заказ создан', async () => {

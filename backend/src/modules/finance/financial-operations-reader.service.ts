@@ -41,6 +41,7 @@ export class FinancialOperationsReader {
     const articleIds = articleId && articleId !== 'none' ? new Set(Number(q.includeDescendants ?? 1) ? [articleId, ...articleDescendants(tree.items, articleId)] : [articleId]) : null;
     const orderId = q.salesOrderId || (q.mode === 'object' ? q.order : undefined);
     if (orderId) oid(String(orderId), 'аналитического объекта');
+    const groupIds=q.productionNo?new Set((await this.connection.db!.collection('salesorders').find({productionNo:String(q.productionNo),deletedAt:null},{projection:{_id:1}}).toArray()).map(o=>String(o._id))):null;
     const originalIds = ops.filter(o => o.scopeRequestId).map(o => oid(o.scopeRequestId!, 'заявки'));
     const visible = scope && originalIds.length ? new Set((await this.connection.db!.collection('supplyrequests').find({ _id: { $in: originalIds }, deletedAt: null, ...await docScopeMatch(this.connection, scope) }, { projection: { _id: 1 } }).toArray()).map(r => String(r._id))) : null;
     const open = openSectionsFor(actor);
@@ -58,6 +59,7 @@ export class FinancialOperationsReader {
       if ((articleId === 'none' || Number(q.unassigned) === 1) && !unassigned) continue;
       if (articleIds && (!op.articleId || !articleIds.has(op.articleId))) continue;
       if (orderId && String(orderId) !== op.salesOrderId) continue;
+      if(groupIds&&!groupIds.has(String(op.salesOrderId)))continue;
       if (q.costCenter && q.costCenter !== op.costCenterCode) continue;
       if (q.counterpartyId && String(q.counterpartyId) !== op.counterpartyId) continue;
       if (q.counterpartyName && String(q.counterpartyName).trim() !== String(op.counterpartyName || op.counterparty || '').trim()) continue;

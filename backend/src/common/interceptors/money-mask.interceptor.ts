@@ -1,4 +1,4 @@
-import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
+import { CallHandler, ExecutionContext, ForbiddenException, Injectable, NestInterceptor } from '@nestjs/common';
 import { map, type Observable } from 'rxjs';
 import { canSeeMoney, MONEY_FIELDS, MONEY_FIELDS_NESTED } from '../roles-hierarchy';
 
@@ -10,8 +10,10 @@ import { canSeeMoney, MONEY_FIELDS, MONEY_FIELDS_NESTED } from '../roles-hierarc
 @Injectable()
 export class MoneyMaskInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const req = context.switchToHttp().getRequest<{ user?: { role?: string; isOwner?: boolean }; body?: unknown; query?: Record<string, unknown> }>();
+    const req = context.switchToHttp().getRequest<{ user?: { role?: string; isOwner?: boolean }; body?: unknown; method?:string;url?:string; query?: Record<string, unknown> }>();
     if (canSeeMoney(req.user)) return next.handle();
+    const body=req.body as Record<string,unknown>|undefined;
+    if(body&&['initialLegal','legal','sourceLine','intakeUid'].some(k=>body[k]!==undefined)||req.method&&req.method!=='GET'&&/\/(legal|link-order)(?:\?|$)/.test(req.url||''))throw new ForbiddenException('Работа с юридическими источниками доступна денежным ролям');
     if (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) {
       for (const k of MONEY_FIELDS) delete (req.body as Record<string, unknown>)[k];
     }
@@ -30,11 +32,14 @@ export class MoneyMaskInterceptor implements NestInterceptor {
 const PAY_STATUS = new Set(['paid', 'partial', 'awaiting', 'noamount']);
 
 function strip(v: unknown, depth: number): unknown {
-  if (depth > 6 || v === null || typeof v !== 'object') return v;
+  if (v === null || typeof v !== 'object') return v;
+  if (depth > 6) return undefined;
   if (Array.isArray(v)) return v.map((x) => strip(x, depth + 1));
   if (v instanceof Date || (v as { _bsontype?: string })._bsontype) return v;
   const out: Record<string, unknown> = {};
   for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
+    if ((v as Record<string,unknown>).legal||(v as Record<string,unknown>).legalSummary||(v as Record<string,unknown>).sourceLine||(v as Record<string,unknown>).sourceRowKey) { if(['notes','terms','description','reason'].includes(k))continue; }
+    if (['legal','initialLegal','legalHistory','legalReceipts','sourceLine','sourceIntakeHash','sourceUid','intakeHash','intakeKey','agreedTotal','sourceTotal','versions','snapshot','exclusionReason','exclusionConfirmedAt','exclusionEventDate','orderConversion','linkReceipts'].includes(k)) continue;
     if (MONEY_FIELDS.includes(k) || (depth > 0 && MONEY_FIELDS_NESTED.includes(k))) continue;
     if (k === 'status' && typeof x === 'string' && PAY_STATUS.has(x)) { out[k] = 'shipped'; continue; }
     if (k === 'counts' && x && typeof x === 'object' && 'awaiting' in (x as object) && 'paid' in (x as object)) {

@@ -6043,6 +6043,39 @@
         ]
       }
     },
+    "/salesorders/{id}/legal": {
+      "patch": {
+        "operationId": "SalesOrdersController_updateLegal",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LegalPatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Заказы заказчиков"
+        ]
+      }
+    },
     "/salesorders/{id}/history": {
       "get": {
         "operationId": "SalesOrdersController_history",
@@ -11339,6 +11372,72 @@
         ]
       }
     },
+    "/offers/{id}/legal": {
+      "patch": {
+        "operationId": "OffersController_updateLegal",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LegalPatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      }
+    },
+    "/offers/{id}/link-order": {
+      "post": {
+        "operationId": "OffersController_linkOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfferLinkOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      }
+    },
     "/offers/{id}/to-order": {
       "post": {
         "operationId": "OffersController_toOrder",
@@ -12149,6 +12248,15 @@
       "get": {
         "operationId": "FinanceController_operationsList",
         "parameters": [
+          {
+            "name": "productionNo",
+            "required": false,
+            "in": "query",
+            "description": "Производственный заказ: все входящие договоры",
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "name": "from",
             "required": false,
@@ -20755,6 +20863,309 @@
           "zoneCodes"
         ]
       },
+      "PartySnapshotDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "inn": {
+            "type": "string"
+          },
+          "kpp": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "SignatureDto": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "signedDate": {
+            "type": "object"
+          },
+          "evidenceDocumentUid": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "LegalDocumentDto": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string"
+          },
+          "by": {
+            "type": "string"
+          },
+          "uid": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "fileId": {
+            "type": "string"
+          },
+          "sourceSha256": {
+            "type": "string"
+          },
+          "gross": {
+            "type": "number"
+          },
+          "vatRate": {
+            "type": "number"
+          },
+          "vatAmount": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "supersedesUid": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "lineRefs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "uid",
+          "kind",
+          "revision",
+          "fileId",
+          "sourceSha256"
+        ]
+      },
+      "ReviewIssueDto": {
+        "type": "object",
+        "properties": {
+          "resolvedAt": {
+            "type": "string"
+          },
+          "resolvedBy": {
+            "type": "string"
+          },
+          "uid": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "documentUid": {
+            "type": "string"
+          },
+          "responsibleId": {
+            "type": "string"
+          },
+          "resolution": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "uid",
+          "field",
+          "label",
+          "reason",
+          "state"
+        ]
+      },
+      "PaymentStageDto": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "percent": {
+            "type": "number"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "event": {
+            "type": "string"
+          },
+          "offsetDays": {
+            "type": "number"
+          },
+          "dayType": {
+            "type": "string"
+          },
+          "dueDate": {
+            "type": "object"
+          },
+          "eventDate": {
+            "type": "object"
+          },
+          "evidenceDocumentUid": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "uid",
+          "label",
+          "currency",
+          "event"
+        ]
+      },
+      "LegalOriginDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "sourceBatchUid": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "LegalBundleDto": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "sourceNumber": {
+            "type": "string"
+          },
+          "sourceDate": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "gross": {
+            "type": "number"
+          },
+          "vatMode": {
+            "type": "string"
+          },
+          "vatRate": {
+            "type": "number"
+          },
+          "vatAmount": {
+            "type": "number"
+          },
+          "companySnapshot": {
+            "$ref": "#/components/schemas/PartySnapshotDto"
+          },
+          "counterpartySnapshot": {
+            "$ref": "#/components/schemas/PartySnapshotDto"
+          },
+          "objectAddress": {
+            "type": "object"
+          },
+          "signature": {
+            "$ref": "#/components/schemas/SignatureDto"
+          },
+          "paymentVerification": {
+            "type": "string"
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegalDocumentDto"
+            }
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewIssueDto"
+            }
+          },
+          "paymentPlan": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PaymentStageDto"
+            }
+          },
+          "deliveryTerms": {
+            "type": "string"
+          },
+          "deadlineTerms": {
+            "type": "string"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/LegalOriginDto"
+          }
+        },
+        "required": [
+          "state",
+          "currency",
+          "signature",
+          "paymentVerification",
+          "documents",
+          "issues",
+          "paymentPlan"
+        ]
+      },
+      "LegalPatchDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number"
+          },
+          "clientUid": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "legal": {
+            "$ref": "#/components/schemas/LegalBundleDto"
+          }
+        },
+        "required": [
+          "version",
+          "clientUid",
+          "reason",
+          "legal"
+        ]
+      },
       "MatchPickDto": {
         "type": "object",
         "properties": {
@@ -20785,6 +21196,23 @@
       "SalesOrderDto": {
         "type": "object",
         "properties": {
+          "productionAssignment": {
+            "type": "string",
+            "enum": [
+              "unassigned",
+              "new",
+              "existing"
+            ]
+          },
+          "counterpartyId": {
+            "type": "object"
+          },
+          "intakeUid": {
+            "type": "string"
+          },
+          "initialLegal": {
+            "$ref": "#/components/schemas/LegalBundleDto"
+          },
           "orderNo": {
             "type": "string",
             "description": "№ договора (обязателен при создании)"
@@ -20932,6 +21360,47 @@
           }
         }
       },
+      "SourceLineDto": {
+        "type": "object",
+        "properties": {
+          "documentUid": {
+            "type": "string"
+          },
+          "rowKey": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "unitPrice": {
+            "type": "number"
+          },
+          "lineAmount": {
+            "type": "number"
+          },
+          "description": {
+            "type": "string"
+          },
+          "dimensions": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentUid",
+          "rowKey",
+          "title",
+          "qty"
+        ]
+      },
       "PaymentDto": {
         "type": "object",
         "properties": {
@@ -20970,6 +21439,15 @@
       "IncomeDto": {
         "type": "object",
         "properties": {
+          "matchingMode": {
+            "type": "string",
+            "enum": [
+              "manual"
+            ]
+          },
+          "sourceLine": {
+            "$ref": "#/components/schemas/SourceLineDto"
+          },
           "articleId": {
             "type": "object",
             "nullable": true,
@@ -22554,6 +23032,37 @@
       "OfferItemDto": {
         "type": "object",
         "properties": {
+          "sourceRowKey": {
+            "type": "string"
+          },
+          "sourceLine": {
+            "$ref": "#/components/schemas/SourceLineDto"
+          },
+          "scopeState": {
+            "type": "string",
+            "enum": [
+              "included",
+              "excluded"
+            ]
+          },
+          "exclusionReason": {
+            "type": "string"
+          },
+          "exclusionConfirmedAt": {
+            "type": "string"
+          },
+          "exclusionEventDate": {
+            "type": "object",
+            "nullable": true
+          },
+          "matchStatus": {
+            "type": "string",
+            "enum": [
+              "unmatched",
+              "confirmed",
+              "none"
+            ]
+          },
           "productId": {
             "type": "string",
             "description": "id изделия каталога"
@@ -22597,6 +23106,16 @@
       "CreateOfferDto": {
         "type": "object",
         "properties": {
+          "initialLegal": {
+            "$ref": "#/components/schemas/LegalBundleDto"
+          },
+          "sourceNumber": {
+            "type": "object",
+            "nullable": true
+          },
+          "intakeUid": {
+            "type": "string"
+          },
           "companyId": {
             "type": "string",
             "description": "Наша компания (organizations)"
@@ -22680,6 +23199,16 @@
       "UpdateOfferDto": {
         "type": "object",
         "properties": {
+          "initialLegal": {
+            "$ref": "#/components/schemas/LegalBundleDto"
+          },
+          "sourceNumber": {
+            "type": "object",
+            "nullable": true
+          },
+          "intakeUid": {
+            "type": "string"
+          },
           "companyId": {
             "type": "string",
             "description": "Наша компания (organizations)"
@@ -22753,15 +23282,42 @@
             "type": "string",
             "description": "Фон стр. 2+: id; «none» — белая; пусто — по умолчанию"
           },
+          "version": {
+            "type": "number",
+            "description": "Версия юридического комплекта для ручной правки импортированного КП"
+          },
           "reason": {
             "type": "string",
             "description": "Причина (от 3 символов) — нужна администратору для правки оплаченного КП; уходит в журнал"
           }
         }
       },
+      "OfferLinkOrderDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "clientUid": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "orderId",
+          "version",
+          "clientUid"
+        ]
+      },
       "OfferCreateOrderDto": {
         "type": "object",
         "properties": {
+          "version": {
+            "type": "number",
+            "description": "Версия исходного КП; обязательна для юридического источника"
+          },
           "orderNo": {
             "type": "string",
             "description": "№ договора; по умолчанию — из номера КП"

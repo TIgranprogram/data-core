@@ -1,3 +1,5 @@
+import { LegalBundleDto } from '../../common/legal/legal.dto';
+import { LegalBundleSchema, LegalHistorySchema, LegalReceiptSchema } from '../../common/legal/legal.schema';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 import { ORDER_PRIORITIES, ORDER_STAGES, type OrderPriority, type OrderStage } from '../../common/text/order-key';
@@ -12,6 +14,14 @@ export type SalesOrderDocument = HydratedDocument<SalesOrder>;
  */
 @Schema({ timestamps: true, collection: 'salesorders' })
 export class SalesOrder {
+  @Prop({type:Types.ObjectId, ref:'Organization'}) counterpartyId?: Types.ObjectId;
+  @Prop({type:LegalBundleSchema, default:undefined}) legal?: LegalBundleDto;
+  @Prop({type:Number}) legalVersion?: number;
+  @Prop({type:[LegalReceiptSchema], default:undefined}) legalReceipts?: unknown[];
+  @Prop({type:[LegalHistorySchema], default:undefined}) legalHistory?: unknown[];
+  @Prop() intakeUid?: string;
+  @Prop() intakeKey?: string;
+  @Prop() intakeHash?: string;
   /** № заказа как в документе («34», «110-П», «10 Новороссийск»). */
   @Prop({ trim: true, index: true }) orderNo?: string;
   /** Наша компания (organizations.isOurCompany: СИЮ / ССЮ). Пусто — компания не наша/не определена. */
@@ -65,3 +75,6 @@ export class SalesOrder {
 export const SalesOrderSchema = SchemaFactory.createForClass(SalesOrder);
 SalesOrderSchema.index({ stage: 1, shipDate: -1 });
 SalesOrderSchema.index({ productionNo: 1, deletedAt: 1 });
+
+SalesOrderSchema.index({intakeUid:1},{name:'c164_sales_intake_uid',unique:true,partialFilterExpression:{intakeUid:{$type:'string'}}});
+SalesOrderSchema.index({intakeKey:1},{name:'c164_sales_intake_key',unique:true,partialFilterExpression:{intakeKey:{$type:'string'}}});

@@ -183,8 +183,10 @@ export class MatchingService {
     }
     // полное распределение → задачи проектирования сами
     if (this.design) {
-      const orderIds = [...new Set(lines.map((l) => l.orderId).filter(Boolean).map(String))];
-      for (const oidStr of orderIds) await this.design.autoFromOrderIfReady(oidStr, userId).catch(() => undefined);
+      const orderIds = [...new Set(lines.filter(l=>l.matchingMode!=='manual').map((l) => l.orderId).filter(Boolean).map(String))];
+      const manualOrders=orderIds.length?await db.collection('incomes').find({orderId:{$in:orderIds.map(i=>new Types.ObjectId(i))},matchingMode:'manual',deletedAt:null},{projection:{orderId:1}}).toArray():[];
+      const manual=new Set([...lines.filter(l=>l.matchingMode==='manual').map(l=>String(l.orderId)),...manualOrders.map(l=>String(l.orderId))]);
+      for (const oidStr of orderIds.filter(i=>!manual.has(i))) await this.design.autoFromOrderIfReady(oidStr, userId).catch(() => undefined);
     }
     return { done: items.length, items };
   }

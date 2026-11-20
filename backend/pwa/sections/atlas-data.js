@@ -15,6 +15,7 @@ export const BANDS = [
   { id: 'after', name: 'Отгрузка и сервис', hint: 'довезти, смонтировать, гарантия', tok: 'orders' },
   { id: 'money', name: 'Деньги', hint: 'кто кому должен', tok: 'money' },
   { id: 'system', name: 'Система', hint: 'серверы и сохранность данных', tok: 'orders' },
+  { id: 'quality', name: 'Заполнение данных', hint: 'что осталось уточнить менеджеру', tok: 'orders' },
 ];
 
 /**
@@ -30,6 +31,14 @@ export const BANDS = [
  * tplStatus: ok — собран по шаблону; legacy — долг (число не растёт, tools/tpl-baseline.json); plan — экрана ещё нет.
  */
 export const NODES = [
+  { id: 'fill', tpl: 'queue', tplStatus: 'ok', band: 'quality', col: 0, sec: 'fill', t: 'Требуют заполнения', l: ['неизвестные сведения', 'и пометки менеджеру'],
+    inside: [
+      { id: 'utochneniya-dokumentov', t: 'Уточнения договоров и КП', l: 'открыть документ, заполнить известное и проверить пометки', in: ['offers', 'salesorders'] },
+      { id: 'nedostayuschie-dannye', t: 'Недостающие сведения', l: 'группы незаполненных полей и подтверждённые оплаты без даты' },
+    ],
+    rules: ['Неизвестные даты, адреса и связи остаются пустыми до уточнения.', 'Подтверждение оплаты без даты не создаёт датированную денежную операцию.'],
+    docs: ['docs/DESIGN.md — «Требуют заполнения»', 'docs/MAP.md — fill-audit'], tech: 'Очередь строится из существующих документов и полей; отдельные копии документов не создаются.',
+    code: ['backend/pwa/sections/fill.js', 'backend/src/modules/fill-audit'] },
   // ── Клиенты и продажи
   { id: 'partners', tpl: 'card', tplStatus: 'ok', band: 'sale', col: 0, sec: 'partners', href: '#partners', t: 'Контрагенты', l: ['заказчики, поставщики,', 'наши фирмы'],
     inside: [
@@ -44,18 +53,20 @@ export const NODES = [
   { id: 'offers', tpl: 'list', tplStatus: 'legacy', band: 'sale', col: 1, sec: 'offers', t: 'КП', l: ['подбор изделий, цена', 'с наценкой, PDF'],
     seq: true, inside: [
       { id: 'zakazchik-i-firma', t: 'Заказчик и фирма', l: 'из контрагентов', in: ['partners'] },
-      { id: 'pozicii-kp', t: 'Позиции КП', l: 'изделия из «Продукции» с количеством', in: ['products'] },
-      { id: 'cena-i-nacenka', t: 'Цена и наценка', l: 'копия для другой фирмы пересчитывает' },
+      { id: 'pozicii-kp', t: 'Позиции КП', l: 'исходные строки или изделия каталога; непонятное сопоставляет менеджер позже', in: ['products'] },
+      { id: 'cena-i-nacenka', t: 'Цена и наценка', l: 'исходная и согласованная сумма различаются; исключённая строка сохраняется в истории' },
+      { id: 'istoriya-kp', t: 'История и оригиналы', l: 'дата исходного КП, оригинал PDF, редакции и пометки менеджеру; связь с существующим договором', out: ['salesorders', 'fill'] },
       { id: 'pdf', t: 'PDF', l: 'бланк нашей фирмы', out: ['salesorders'] },
       { id: 'kp-po-shagam', t: 'КП по шагам', l: 'тот же путь мастером: заказчик → изделия → цвет', alt: true },
       { id: 'razobrat-zayavku-ii', t: 'Разобрать заявку (ИИ)', l: 'текст заказчика → строки КП с подбором', alt: true, plan: 'C092' },
     ],
-    rules: ['КП не меняет изделие: цена в КП — своя, у изделия — базовая.'],
+    rules: ['КП не меняет изделие: цена в КП — своя, у изделия — базовая.', 'Исключённая строка не входит в согласованную сумму, исходный состав остаётся в истории.', 'Исходное КП и связанный договор не создают два денежных поступления.'],
     docs: ['docs/PRODUCT.md — «КП»', 'docs/MAP.md — offers'], tech: 'offers',
-    code: ['backend/src/modules/offers', 'backend/pwa/sections/offers.js', 'backend/pwa/sections/offers/', 'backend/pwa/sections/kp.js'] },
+    code: ['backend/src/modules/offers', 'backend/pwa/sections/offers.js', 'backend/pwa/sections/offer-source.js', 'backend/pwa/sections/sales-legal.js', 'backend/pwa/sections/offers/', 'backend/pwa/sections/kp.js'] },
   { id: 'salesorders', tpl: 'board', tplStatus: 'ok', band: 'sale', col: 2, sec: 'salesorders', t: 'Заказы', l: ['позиции, срок, этапы:', 'в работу → отгрузка'],
     seq: true, inside: [
-      { id: 'zakaz-i-dogovory', t: 'Заказ и договоры', l: 'заказчик, его договоры (внутри заказа), наша компания — ссылка в шапке, КП', in: ['partners', 'offers'] },
+      { id: 'zakaz-i-dogovory', t: 'Заказ и договоры', l: 'договор можно сохранить без заказа; позже менеджер объединит несколько договоров в один заказ', in: ['partners', 'offers'] },
+      { id: 'komplekt-dogovora', t: 'Комплект договора', l: 'оригинал, исходящий счёт и план оплаты связаны с договором; неизвестное пустым и пометка «Требует заполнения»', out: ['fill'] },
       { id: 'pozicii', t: 'Позиции', l: 'изделие, новое изделие или услуга; таблица всегда первой, пустая — кнопка «+ Позиция» (так же в окне договора, блок «Позиции»); в карточке позиции «Выбрать изделие» или «⋯ → Сменить изделие»: найдите по фото, названию или артикулу, подтвердите привязку; в раскрытии строки — «Вложения»: папки, файл скачать, перетащить или загрузить; «Документы» — паспорт точной позиции заказа: шаблон изделия, образец без номера и отдельный выпуск; существующий паспорт открывается по своему id, старый образец только просматривается/печатается', in: ['products', 'matching'], out: ['matching'] },
       { id: 'raspredelenie', t: 'Распределение', l: 'все позиции распределены — задачи проектирования создаются сами', out: ['design'] },
       { id: 'v-rabotu', t: 'В работу', l: 'позиции уходят в производство', out: ['work', 'shortage'] },
@@ -64,9 +75,9 @@ export const NODES = [
       { id: 'otgruzka', t: 'Отгрузка', l: 'предлагаются изготовленные; не весь остаток — с причиной', out: ['shipping'] },
       { id: 'raschety', t: 'Расчёты', l: 'оплаты заказчика по заказу', out: ['money'] },
     ],
-    rules: ['Задачи проектирования создаются сами, только когда распределены все позиции заказа.', 'Позиция связывает изделие, количество, срок и работу.', 'Изменение заказа не переписывает выпущенный паспорт.', '«В производство» недоступно, пока есть нераспределённые позиции.'],
+    rules: ['Для строк из юридических документов автоматическое создание изделий и проектных задач отключено; сначала ручное сопоставление.', 'Задачи проектирования обычных заказов создаются только после распределения.', 'Позиция связывает изделие, количество, срок и работу.', 'Изменение заказа не переписывает выпущенный паспорт.', '«В производство» недоступно, пока есть нераспределённые позиции.'],
     docs: ['docs/PRODUCT.md — «Заказы»', 'docs/MAP.md — salesorders, shipments, incomes'], tech: 'salesorders, incomes, shipments',
-    code: ['backend/src/modules/salesorders', 'backend/src/modules/incomes', 'backend/src/modules/shipments', 'backend/pwa/sections/salesorders.js', 'backend/pwa/sections/order-lines.js', 'backend/pwa/sections/order-product-picker.js', 'backend/pwa/sections/order-shipments.js'] },
+    code: ['backend/src/modules/salesorders', 'backend/src/modules/incomes', 'backend/src/modules/shipments', 'backend/pwa/sections/salesorders.js', 'backend/pwa/sections/sales-legal.js', 'backend/pwa/sections/sales-legal-state.js', 'backend/pwa/sections/order-lines.js', 'backend/pwa/sections/order-product-picker.js', 'backend/pwa/sections/order-shipments.js'] },
   { id: 'contracts', tpl: 'list', tplStatus: 'legacy', band: 'supply', col: 1, sec: 'contracts', t: 'Договоры поставщиков', l: ['с поставщиками:', 'номер, срок, файлы'],
     inside: [
       { id: 'dogovor-postavki', t: 'Договор поставки', l: 'поставщик, номер, дата; выбирается в счёте', out: ['requests'] },
@@ -358,6 +369,8 @@ export const NODES = [
 
 /** Связи: [откуда, куда, что передаётся]. Это связь записей, а не автоматический переход статуса. */
 export const LINKS = [
+  ['offers', 'fill', 'уточнения и несопоставленные строки КП'],
+  ['salesorders', 'fill', 'уточнения комплекта договора'],
   ['partners', 'offers', 'заказчик и наша фирма'], ['offers', 'salesorders', 'основание для заказа'],
   ['partners', 'salesorders', 'заказчик'],
   ['products', 'offers', 'изделия и цены'], ['products', 'salesorders', 'изделия в позициях'],

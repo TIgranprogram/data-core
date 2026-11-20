@@ -1,0 +1,30 @@
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import { Types } from 'mongoose';
+import { LegalBundleDto, LegalPatchDto } from './legal.dto';
+import { assertIntakeIndexes, intakeContentHash, legalHash, patchLegal, prepareLegal } from './legal-utils';
+const bundle=():LegalBundleDto=>({state:'draft',currency:'RUB',signature:{state:'unknown'},paymentVerification:'unknown',documents:[],issues:[],paymentPlan:[],origin:{kind:'manual'}});
+const file=(uid='a')=>({uid,kind:'contract',revision:'1',fileId:new Types.ObjectId().toHexString(),sourceSha256:'a'.repeat(64)});
+const chain=(v:unknown)=>({lean(){return this;},exec:async()=>v});
+describe('C164 legal invariants',()=>{
+ it('пустое известно как unknown, сохраняется черновик без выдуманной даты',()=>{expect(prepareLegal(bundle())).toMatchObject({signature:{state:'unknown'},documents:[],paymentPlan:[]});});
+ it('реальная календарная дата проверяется без RangeError',()=>{for(const date of ['2026-99-01','2026-02-30'])expect(()=>prepareLegal({...bundle(),sourceDate:date})).toThrow('Проверьте календарную дату');});
+ it('повторныеUID и отсутствие вложенного signature отвергаются',async()=>{expect(()=>prepareLegal({...bundle(),documents:[file(),file()]})).toThrow();const bad=plainToInstance(LegalBundleDto,{...bundle(),signature:undefined});expect(await validate(bad)).not.toHaveLength(0);expect(await validate(plainToInstance(LegalPatchDto,{version:0,clientUid:'x',reason:'test'}))).not.toHaveLength(0);});
+ it('origin/source snapshot не обновляется переименованием справочника',()=>{const old={...bundle(),companySnapshot:{name:'Источник',inn:'2312308098'},gross:100};expect(()=>prepareLegal({...old,companySnapshot:{name:'Сегодня',inn:'2312308098'}},old)).toThrow();});
+ it('старый оригинал нельзя удалить или заменить; серверное at/by остаётся',()=>{const first=prepareLegal({...bundle(),documents:[file()]},undefined,'owner');expect(()=>prepareLegal(bundle(),first)).toThrow();expect(()=>prepareLegal({...first,documents:[{...first.documents[0],fileId:new Types.ObjectId().toHexString()}]},first)).toThrow();const carry=prepareLegal({...first,documents:[{...first.documents[0],at:'fake',by:'fake'}]},first,'other');expect(carry.documents[0].by).toBe('owner');expect(carry.documents[0].at).toEqual(first.documents[0].at);});
+ it('цикл редакций и ссылка на будущую редакцию запрещены',()=>{expect(()=>prepareLegal({...bundle(),documents:[{...file('a'),supersedesUid:'b'},{...file('b'),supersedesUid:'a'}]})).toThrow();});
+ it('draft принимает70%этап отдельно, verified требует100%',()=>{const b={...bundle(),gross:100,paymentPlan:[{uid:'pre',label:'Аванс',percent:70,amount:70,currency:'RUB',event:'signed'}]};expect(prepareLegal(b).paymentPlan).toHaveLength(1);expect(()=>prepareLegal({...b,state:'verified'})).toThrow();expect(()=>prepareLegal({...b,paymentPlan:[...b.paymentPlan,{uid:'rest',label:'Остаток',percent:40,amount:40,currency:'RUB',event:'signed'}]})).toThrow();});
+ it('amount-only полныйплан сверяется с договором',()=>{const b={...bundle(),gross:100,state:'verified',paymentPlan:[{uid:'one',label:'Полная',amount:99,currency:'RUB',event:'fixed',dueDate:'2026-12-01'}]};expect(()=>prepareLegal(b)).toThrow();});
+ it('неизвестное событие не допускает вычисленного срока',()=>{expect(()=>prepareLegal({...bundle(),paymentPlan:[{uid:'x',label:'Аванс',currency:'RUB',event:'signed',dueDate:'2026-11-20'}]})).toThrow();});
+ it('закрытиеуточнения требуетобъяснения; verified не пропускает unresolved',()=>{const issue={uid:'x',field:'objectAddress',label:'Адрес',reason:'Нет в источнике',state:'unknown'};expect(()=>prepareLegal({...bundle(),state:'verified',issues:[issue]})).toThrow();expect(()=>prepareLegal({...bundle(),issues:[{...issue,state:'resolved'}]})).toThrow();});
+ it('resolved требует фактически заполненного поля, not_applicable сохраняет объяснение',()=>{
+  for(const field of ['objectAddress','signedDate','signature','paymentVerification','deliveryTerms','deadlineTerms','paymentPlan','counterparty','productionAssignment','productMatching']){
+   const b={...bundle(),issues:[{uid:'x',field,label:'Проверка',reason:'Нет данных',state:'resolved',resolution:'Менеджер ответил'}]};
+   expect(()=>prepareLegal(b)).toThrow();expect(prepareLegal({...b,issues:[{...b.issues[0],state:'not_applicable'}]}).issues[0].state).toBe('not_applicable');
+  }
+  expect(prepareLegal({...bundle(),objectAddress:'Адрес',issues:[{uid:'a',field:'objectAddress',label:'Адрес',reason:'Нет данных',state:'resolved',resolution:'Подтверждён'}]}).objectAddress).toBe('Адрес');
+ });
+ it('одинконтент сдругимUID имеет одинhash; изменённое поле — другой',()=>{expect(intakeContentHash({intakeUid:'one',orderNo:'45'})).toBe(intakeContentHash({intakeUid:'two',orderNo:'45'}));expect(legalHash({a:1,b:2})).toBe(legalHash({b:2,a:1}));});
+ it('гейт уникальности проверяетkey/partial, не толькоимя',async()=>{const good={name:'c164_sales_intake_uid',key:{intakeUid:1},unique:true,partialFilterExpression:{intakeUid:{$type:'string'}}};const model=(idx:any)=>({collection:{indexes:async()=>[idx]}} as any);await expect(assertIntakeIndexes(model(good),[good.name])).resolves.toBeUndefined();for(const idx of [{...good,key:{other:1}},{...good,partialFilterExpression:undefined},{...good,sparse:true},{...good,collation:{locale:'ru'}}])await expect(assertIntakeIndexes(model(idx),[good.name])).rejects.toThrow();});
+ it('идемпотентный повтор legalPATCH раньшеCAS, изменённыйUIDpayload409',async()=>{const dto={version:0,clientUid:'one',reason:'Проверка',legal:bundle()};const current={_id:new Types.ObjectId(),legalVersion:1,legal:bundle(),legalReceipts:[{uid:'one',hash:legalHash({version:0,reason:dto.reason,legal:dto.legal}),version:1}]};const model={findOne:()=>chain(current),findOneAndUpdate:jest.fn()};await expect(patchLegal(model as any,String(current._id),dto)).resolves.toMatchObject({legalVersion:1});expect(model.findOneAndUpdate).not.toHaveBeenCalled();await expect(patchLegal(model as any,String(current._id),{...dto,reason:'Другой запрос'})).rejects.toThrow();});
+});

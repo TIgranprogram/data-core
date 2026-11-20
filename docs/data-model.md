@@ -965,3 +965,15 @@ C163: GET шаблона паспорта возвращает `product.facetVal
 ### C166 — app_control_state / switch (в работе)
 
 В существующем документе `_id:switch` добавляются scheduleConfig (revision/timezone/data/code/savedAt), scheduleRuntime (data/code: slot/runKey/attempt/result/nextRetryAt) и domain (owner/homeHealthy/officeHealthy/checkedAt). Это настройки HA, не бизнес-справочники. При копировании на запасной согласованная конфигурация переносится, его локальный runtime сохраняется отдельно; job не является переносимой рабочей историей. Истина полей — control/switch/*.ts, контракт в crew/C166-server-schedules/TZ.md.
+### C164 — исходные комплекты клиентских договоров и КП (20.11.2026)
+
+Расширяются существующие salesorders/incomes/commercialoffers; новые коллекции не добавляются. Legacy без legal сохраняет прежнюю семантику, массовая миграция не нужна.
+
+- SalesOrder: counterpartyId→organizations; legal(typed source snapshots сторон/НДС/сумм, оригиналы/исходящие счета/редакции/плановые этапы/уточнения), legalVersion, legalHistory/receipts, intakeUid/key/hash. Явный write-only productionAssignment:unassigned сохраняет договор без productionNo и без резервирования счётчика; позже существующий assign группирует несколько договоров.
+- LegalDocument: uid/kind/номер/дата/revision/fileId→photos/sourceSHA/сумма/валюта/НДС/lineRefs, server at/by; новые редакции append с supersedesUid, прежний файл/снимок не заменяется. Исходящий счёт описывает то же обязательство, не второй Income/платёж.
+- ReviewIssue: allowlisted field/label/reason/state/documentUid/responsibleId→persons/resolution/server resolvedAt/by. Неизвестное поле пустое, state unknown не false/0; менеджер дополняет позже.
+- PaymentStage: процент/сумма/event/offsetDays/dayType/eventDate/dueDate/evidence; отдельно от Income.payments. Неизвестное событие не создаёт дату/просрочку, юридический draft исключён из предполагаемого долга, реальные платежи сохраняются в отчёте.
+- Income: sourceUid (unique только для новых источников), matchingMode:manual и immutable sourceLine(documentUid,rowKey,исходный текст/qty/unit/unitPrice/lineAmount/габариты/артикул). ProductId может отсутствовать, ручная связь не переписывает источник и не запускает проектирование.
+- CommercialOffer: legal/версии/intake как выше; исходный date отдельно от createdAt, sourceNumber может отсутствовать. Строки sourceRowKey/sourceLine/scopeState/exclusionReason/подтверждение/неизвестная дата события. total исходного состава отдельно от agreedTotal включённых строк; orderId связывает существующий договор без автосоздания и принятия всего КП.
+
+Шесть новых partial unique индексов: salesorders(intakeUid,intakeKey),commercialoffers(intakeUid,intakeKey),incomes(orderId,sourceLine.documentUid,sourceLine.rowKey) и incomes(sourceUid). Только новые строки с заданными источниками участвуют; совместимость индексов проверяется до intake. NoMoney не получает вложенные суммы/историю/ссылки на финансовые PDF. Точный публичный контракт — C164/CONTRACT.md и сгенерированная OpenAPI после QA.

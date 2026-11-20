@@ -23,7 +23,7 @@ import { renderOrderPdf, ruDate, ruNum } from './order-pdf';
 type Doc = Record<string, unknown>;
 type See = { requests?: boolean; stock?: boolean };
 const SORT = ['productionNo', 'deadline', 'customer', 'createdAt'];
-const FIELDS = { orderNo: 1, customer: 1, companyId: 1, stage: 1, priority: 1, productionNo: 1, productionAddedAt: 1, createdAt: 1, shipDate: 1, productionDeadline: 1, deliveryDeadline: 1 };
+const FIELDS = { 'legal.state':1, orderNo: 1, customer: 1, companyId: 1, stage: 1, priority: 1, productionNo: 1, productionAddedAt: 1, createdAt: 1, shipDate: 1, productionDeadline: 1, deliveryDeadline: 1 };
 const ts = (d: unknown) => (d ? new Date(d as Date).getTime() : Infinity);
 
 /**
@@ -62,12 +62,19 @@ export class ProductionOrdersService {
   }
 
   /** Договоры без № заказа: id, № договора, заказчик, дата, сумма, число позиций. */
+  /** Группировка новых источников — организация работы, не запуск производства. */
+  private async groupingOnlyIds(docs:Doc[]){
+    const ids=docs.filter(d=>!d.legal).map(d=>d._id);
+    const manual=ids.length?await this.connection.db!.collection('incomes').find({orderId:{$in:ids},matchingMode:'manual',deletedAt:null,cancelledAt:null},{projection:{orderId:1,matchingMode:1}}).sort({_id:1}).toArray():[];
+    return new Set([...docs.filter(d=>!!d.legal).map(d=>String(d._id)),...manual.filter(d=>d.matchingMode==='manual').map(d=>String(d.orderId))]);
+  }
+
   async unassigned(q: Record<string, unknown> = {}) {
     const p = parseList(q, { sortable: ['createdAt'], defaultSort: '-createdAt', defaultLimit: 25 });
     const { filter } = this.orders.filters({ search: q.q ?? q.search });
     const full = { $and: [filter, { $or: [{ productionNo: null }, { productionNo: '' }, { productionNo: { $exists: false } }] }] };
     const [docs, total] = await Promise.all([
-      this.model.find(full, { orderNo: 1, customer: 1, contractDate: 1, createdAt: 1 }).sort({ createdAt: -1, _id: -1 }).skip(p.skip).limit(p.limit).lean().exec() as Promise<Doc[]>,
+      this.model.find(full, { 'legal.state':1,orderNo: 1, customer: 1, contractDate: 1, createdAt: 1 }).sort({ createdAt: -1, _id: -1 }).skip(p.skip).limit(p.limit).lean().exec() as Promise<Doc[]>,
       this.model.countDocuments(full).exec(),
     ]);
     const ids = docs.map((d) => d._id);
@@ -76,11 +83,12 @@ export class ProductionOrdersService {
       { $group: { _id: '$orderId', lines: { $sum: 1 }, amount: { $sum: '$amount' } } },
     ]).toArray() : [];
     const facts = await loadOrderMatches(this.connection.db!, ids);
+    const groupingOnly=await this.groupingOnlyIds(docs);
     const sum = new Map(agg.map((a) => [String(a._id), a]));
     const items = docs.map((d) => ({
       id: String(d._id), orderNo: (d.orderNo as string | undefined) ?? '', customer: (d.customer as string | undefined) ?? '',
       date: (d.contractDate ?? d.createdAt) as Date, amount: sum.get(String(d._id))?.amount ?? 0, lineCount: sum.get(String(d._id))?.lines ?? 0,
-      matchedCount: facts.get(String(d._id))?.matched ?? 0, canAssign: (facts.get(String(d._id))?.total ?? 0) > 0 && facts.get(String(d._id))?.unmatched.length === 0,
+      matchedCount: facts.get(String(d._id))?.matched ?? 0, canAssign: groupingOnly.has(String(d._id))||((facts.get(String(d._id))?.total ?? 0) > 0 && facts.get(String(d._id))?.unmatched.length === 0),
     }));
     // поиск ничего не дал среди свободных — подсказать, в каком заказе договор уже стоит (окно «Добавить договоры», 16.11: «не видит договор 39»)
     const asked = String(q.q ?? q.search ?? '').trim();
@@ -101,7 +109,8 @@ export class ProductionOrdersService {
     if (taken.length) throw new ConflictException(`Договор уже в заказе ${taken.map((t) => t.productionNo).join(', ')}`);
     // КМ4: в заказ — только когда все позиции сопоставлены (изделие подтверждено или «не изделие»)
     const facts = await loadOrderMatches(this.connection.db!, found.map((d) => d._id));
-    const blocked = found.filter((d) => { const m = facts.get(String(d._id))!; return !m.total || m.unmatched.length; });
+    const groupingOnly=await this.groupingOnlyIds(found);
+    const blocked = found.filter((d) => { const m = facts.get(String(d._id))!; return !groupingOnly.has(String(d._id))&&(!m.total || m.unmatched.length); });
     if (blocked.length) {
       const unmatched = blocked.map((d) => ({ orderId: String(d._id), orderNo: (d.orderNo as string | undefined) ?? '', total: facts.get(String(d._id))!.total, unmatched: facts.get(String(d._id))!.unmatched.length, lines: facts.get(String(d._id))!.unmatched.slice(0, 5) }));
       const text = blocked.map((d) => blockText((d.orderNo as string | undefined) ?? '', facts.get(String(d._id))!)).join('. ');
@@ -120,7 +129,7 @@ export class ProductionOrdersService {
     try {
       await session.withTransaction(async () => {
         // повторная проверка внутри транзакции: параллельная привязка того же договора → 409
-        const res = await this.model.updateMany({ _id: { $in: found.map((d) => d._id) }, deletedAt: null, $or: [{ productionNo: null }, { productionNo: '' }, { productionNo: { $exists: false } }] }, { $set: { productionNo: no, productionAddedAt: now, editedInApp: true } }, { session }).exec();
+        const res = await this.model.updateMany({ _id: { $in: found.map((d) => d._id) }, deletedAt: null, $and:[{$or:found.map(d=>({_id:d._id,...(d.updatedAt?{updatedAt:d.updatedAt}:{}),...(d.legalVersion!==undefined?{legalVersion:d.legalVersion}:{})}))}], $or: [{ productionNo: null }, { productionNo: '' }, { productionNo: { $exists: false } }] }, { $set: { productionNo: no, productionAddedAt: now, editedInApp: true } }, { session }).exec();
         if (res.modifiedCount !== found.length) throw new ConflictException('Договор уже занят другим заказом, обновите список');
       });
     } finally { await session.endSession(); }

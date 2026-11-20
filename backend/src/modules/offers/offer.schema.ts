@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
+import { LegalBundleSchema, SourceLineSchema, LegalReceiptSchema, LegalHistorySchema } from '../../common/legal/legal.schema';
 
 export type OfferDocument = HydratedDocument<CommercialOffer>;
 export type OfferBackgroundDocument = HydratedDocument<OfferBackground>;
@@ -10,6 +11,14 @@ export type OfferStatus = (typeof OFFER_STATUSES)[number];
 /** Строка КП: изделие каталога необязательно (бывает свободный текст). */
 @Schema({ _id: false })
 export class OfferItem {
+  @Prop({ type: String, maxlength: 100 }) sourceRowKey?: string;
+  @Prop({ type: SourceLineSchema }) sourceLine?: Record<string, unknown>;
+  @Prop({ type: String, enum: ['included', 'excluded'] }) scopeState?: 'included' | 'excluded';
+  @Prop({ type: String, maxlength: 1000 }) exclusionReason?: string;
+  @Prop({ type: Date }) exclusionConfirmedAt?: Date;
+  @Prop({ type: Date }) exclusionEventDate?: Date | null;
+  @Prop({ type: String, enum: ['unmatched', 'confirmed', 'none'] }) matchStatus?: string;
+
   @Prop({ type: Types.ObjectId }) productId?: Types.ObjectId;
   @Prop({ type: String, required: true, trim: true, maxlength: 300 }) productName!: string;
   @Prop({ type: String, trim: true, maxlength: 100 }) productSku?: string;
@@ -34,6 +43,7 @@ const OfferStatusEntrySchema = SchemaFactory.createForClass(OfferStatusEntry);
 
 @Schema({ _id: false })
 export class OfferVersion {
+  @Prop({ type: String }) reason?: string;
   @Prop({ type: Date, required: true }) at!: Date;
   @Prop({ type: String }) by?: string;
   @Prop({ type: Object, required: true }) snapshot!: Record<string, unknown>;
@@ -46,6 +56,19 @@ const OfferVersionSchema = SchemaFactory.createForClass(OfferVersion);
  */
 @Schema({ timestamps: true, collection: 'commercialoffers' })
 export class CommercialOffer {
+  /** Внутренний журнал возобновления явной конверсии; наружу не выдаётся. */
+  @Prop({ type: Object }) orderConversion?: Record<string, unknown>;
+  @Prop({ type: String, maxlength: 100 }) sourceNumber?: string | null;
+  @Prop({ type: LegalBundleSchema }) legal?: Record<string, unknown>;
+  @Prop({ type: Number, min: 0 }) legalVersion?: number;
+  @Prop({ type: [LegalReceiptSchema], default: undefined }) legalReceipts?: Array<Record<string, unknown>>;
+  @Prop({ type: [LegalHistorySchema], default: undefined }) legalHistory?: Array<Record<string, unknown>>;
+  @Prop({ type: String }) intakeUid?: string;
+  @Prop({ type: String }) intakeKey?: string;
+  @Prop({ type: String }) intakeHash?: string;
+  @Prop({ type: Number, min: 0 }) agreedTotal?: number;
+  @Prop({ type: [LegalReceiptSchema], default: undefined }) linkReceipts?: Array<Record<string, unknown>>;
+
   @Prop({ type: String, required: true, index: true }) number!: string;
   @Prop({ type: Date, required: true }) date!: Date;
   @Prop({ type: Date }) validUntil?: Date;
@@ -85,6 +108,8 @@ export class CommercialOffer {
   @Prop({ type: Date }) updatedAt?: Date;
 }
 export const CommercialOfferSchema = SchemaFactory.createForClass(CommercialOffer);
+CommercialOfferSchema.index({ intakeUid: 1 }, { name: 'c164_offer_intake_uid', unique: true, partialFilterExpression: { intakeUid: { $type: 'string' } } });
+CommercialOfferSchema.index({ intakeKey: 1 }, { name: 'c164_offer_intake_key', unique: true, partialFilterExpression: { intakeKey: { $type: 'string' } } });
 CommercialOfferSchema.index({ deletedAt: 1, date: -1 });
 
 /** Загруженный фон КП. `file` — ссылка `/uploads/offers/<имя>`. */

@@ -42,3 +42,13 @@ describe('MoneyMaskInterceptor — total (суммы КП)', () => {
     expect(JSON.stringify(out.items)).not.toContain('total');
   });
 });
+
+describe('C164 noMoney: исходники и историяКП',()=>{
+ it('скрывает agreedTotal/версии/причины и денежныйтекст sourceкарточки, не пагинацию',async()=>{
+  const row={legalSummary:{state:'draft'},agreedTotal:2061000,notes:'Согласовано2061000руб',terms:'Оплата70%',versions:[{snapshot:{notes:'1070000руб',items:[{total:1070000}]}}],items:[{sourceRowKey:'6',sourceLine:{lineAmount:1070000},exclusionReason:'Не делаем за1070000',scopeState:'excluded'}]};
+  const {out}=await run('user',{items:[row],total:1});const serialized=JSON.stringify(out);
+  for(const value of ['2061000','1070000','70%','snapshot','versions','exclusionReason'])expect(serialized).not.toContain(value);
+  expect(out.total).toBe(1);
+  expect((await run('manager',row)).out).toBe(row);
+ });
+});

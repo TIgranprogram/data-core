@@ -1,21 +1,20 @@
-import { api, apiFile, apiBlob } from '../core/api.js';
+import { api, apiFile, apiBlob, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, parseNum } from '../core/format.js';
 import { go } from '../core/router.js';
 import { badge } from '../ui/kit/badges.js';
-import { button, iconButton, enhanceSelect, section, stack, openPdfPreview, modal, buildForm } from '../ui/kit/index.js';
+import { button, iconButton, enhanceSelect, section, stack, readonlyGroup, openPdfPreview, modal, buildForm } from '../ui/kit/index.js';
 import { confirmDlg } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { incomeLookups } from './orders.js';
+import { screenCard } from '../ui/kit/screens/card.js';
+import { editLegal, legalBlocks } from './sales-legal.js';
+import { offerHistory, offerPositions, linkOfferContract } from './offer-source.js';
 import { isAdmin, withReason } from './admin-override.js';
 import { packBlock, openOfferPack, packListMark, funnelButton } from './offer-pack.js';
 import { LAST_KEYS, applyLastToForm, bindCustomer, lastOfferBanner, loadOfferParties, partyOptions, partyPick, rubWas } from './offer-memory.js';
 
-/**
- * Раздел «КП» (KP-1): коммерческие предложения хранятся на сервере (/offers), у каждого номер, статус и PDF с фоном.
- * Список → карточка в правой панели; форма: шапка, строки, условия, фоны страниц. Статусы меняются словами («Отправлено клиенту»…).
- * Корзина «В КП» живёт в sections/kp.js: «Сформировать» создаёт здесь запись.
- */
+/** КП: исходный документ, согласованный состав и ручное сопоставление строк с каталогом. */
 export const STATUS = {
   draft: { label: 'Черновик', tone: 'dim' },
   sent: { label: 'Отправлено', tone: 'info' },
@@ -113,6 +112,7 @@ function itemsWidget(initial, ctx) {
         const o = { productName: String(l.productName || '').trim(), quantity: num(l.quantity), unit: String(l.unit || '').trim() || 'шт' };
         if (String(l.unitPrice ?? '') !== '' && num(l.unitPrice) > 0) o.unitPrice = num(l.unitPrice);
         for (const k of ['productId', 'productSku', 'description', 'color', 'size', 'photoUrl']) if (l[k]) o[k] = String(l[k]).trim();
+        for (const k of ['sourceRowKey', 'sourceLine', 'scopeState', 'exclusionReason', 'exclusionConfirmedAt', 'exclusionEventDate', 'matchStatus']) if (l[k] !== undefined) o[k] = l[k];
         return o;
       }));
     },
@@ -203,8 +203,9 @@ const fields = async (row) => {
     { key: 'customer', label: 'Заказчик', type: 'combo', required: true, max: 300, options: () => source.options, hint: 'Контрагент из списка (недавние сверху) или новое название',
       mount: (fa) => bindCustomer(fa, source, () => hint.ask()) },
     { key: '_last', label: '', type: 'widget', wide: true, widget: () => hint, mount: (fa) => { bag.fapi = fa; if (String(fa.get('customer') || '').trim() || partyPick.id) hint.ask(); } },
+    { key: '_legalVersion', type: 'hidden' },
     { key: 'date', label: 'Дата', type: 'date', required: true },
-    { key: 'validUntil', label: 'Действительно до', type: 'date', required: true },
+    { key: 'validUntil', label: 'Действительно до', type: 'date', required: !row?.legal },
     { key: 'title', label: 'Тема', max: 200, wide: true, hint: 'Необязательно — для себя, в PDF не попадает' },
     { section: 'Объект и доставка', tone: 'neutral', collapsed: !(row?.objectName || row?.delivery) },
     { key: 'objectName', label: 'Объект', type: 'textarea', max: 500, wide: true, hint: 'Печатается жирным под заказчиком. Необязательно' },
@@ -233,6 +234,7 @@ const toBody = (v) => {
   if (!items.length) throw new Error('Добавьте хотя бы одну строку');
   const clean = (s) => (s === null || s === undefined ? '' : String(s).trim());
   return {
+    ...(v._legalVersion === '' || v._legalVersion == null ? {} : { version: Number(v._legalVersion) }),
     companyId: v.companyId, customer: clean(v.customer), counterpartyId: partyPick.id || null, date: v.date, validUntil: v.validUntil, title: clean(v.title),
     items,
     prepaymentPercent: numOrNull(v.prepaymentPercent), productionDays: numOrNull(v.productionDays), deliveryDays: numOrNull(v.deliveryDays),
@@ -252,7 +254,7 @@ const setStatus = async (r, ctx, status) => {
 };
 const makeOrder = async (r, ctx) => {
   try {
-    const res = await api(`/offers/${r.id}/create-order`, { method: 'POST', body: {} });
+    const res = await api(`/offers/${r.id}/create-order`, { method: 'POST', body: r.legal ? { version: r.legalVersion } : {} });
     toast(`Заказ: ${res.orderNo || '—'} · № ${res.productionNo || '—'}`);
     ctx.setRow(await api(`/offers/${r.id}`));
     if (res.orderId) go('salesorders', { open: res.orderId });
@@ -280,7 +282,7 @@ async function copyDialog(r) {
 const actions = (r) => {
   const to = (status, label, extra = {}) => ({ label, run: (row, ctx) => setStatus(row, ctx, status), ...extra });
   const out = [{ label: 'Предпросмотр', run: (row) => preview(row) }, { label: '⇩ Скачать PDF', run: (row) => pdf(row), primary: r.status === 'paid' || r.status === 'rejected' || r.status === 'cancelled' }];
-  if (r.orderId) out.unshift({ label: 'Открыть заказ', primary: true, run: () => go('salesorders', { open: r.orderId }) });
+  if (r.orderId) out.unshift({ label: r.legal ? 'Открыть договор' : 'Открыть заказ', primary: true, run: () => go('salesorders', { open: r.orderId }) });
   else if (['accepted', 'paid'].includes(r.status)) out.push({ label: 'Сделать заказ', primary: r.status === 'accepted', run: (row, ctx) => makeOrder(row, ctx) });
   out.push({ label: 'Копия для другой фирмы', more: true, run: () => copyDialog(r) });
   out.push({ label: 'КП от других фирм', more: true, run: (row) => openOfferPack(row.id) });
@@ -329,6 +331,7 @@ export const offers = {
     emptyText: 'КП пока нет.',
     emptyHint: 'Добавьте изделия из «Продукции» кнопкой «В КП» или нажмите «+ КП».',
     filters: [
+      { key: 'needsReview', label: 'Заполнение', type: 'chips', allLabel: 'Все', options: () => [{ value: '1', label: 'Требует заполнения' }] },
       { key: 'status', label: 'Статус', type: 'chips', options: () => ORDER.map((k) => ({ value: k, label: STATUS[k].label })),
         count: (resp, v) => (v === '' ? Object.values(resp.counts || {}).reduce((s, n) => s + (Number(n) || 0), 0) : resp.counts?.[v] || 0) },
     ],
@@ -346,39 +349,36 @@ export const offers = {
       side: (r) => [badge(STATUS, r.status)],
     },
   },
-  card: {
-    heading: (r) => `${r.number || 'КП'}`,
-    subheading: (r) => [r.companyName, r.customer, STATUS[r.status]?.label].filter(Boolean).join(' · '),
-    view: (r) => [
+  card: screenCard({
+    title: (r) => r.number || 'КП',
+    sub: (r) => [r.companyName, r.customer].filter(Boolean).join(' · '),
+    side: (r) => [date(r.date), badge(STATUS, r.status)],
+    bodyFirst: true,
+    facts: () => [],
+    body: (r, ctx) => stack(
+      offerPositions(r, ctx),
+      legalBlocks('offers', r, ctx),
+      section({ title: 'Сведения КП', body: readonlyGroup({ rows: [
       ['Наша фирма', r.companyName], ['Заказчик', r.customer], ['Дата', date(r.date)], ['Действительно до', r.validUntil ? date(r.validUntil) : ''],
-      ['Сумма', r.total ? money(r.total) : 'цены не указаны'],
+      ...(session.canMoney ? [['Исходная сумма', r.total ? money(r.total) : 'цены не указаны']] : []),
       ['Объект', r.objectName], ['НДС', r.vatMode === 'without' ? 'Без НДС' : r.vatMode === 'with' ? `С НДС${r.vatRate ? ` ${r.vatRate} %` : ''}` : ''],
       ['Доставка до объекта', r.delivery === 'included' ? 'Включена в стоимость' : r.delivery === 'excluded' ? 'Не входит в стоимость' : ''],
       ['Предоплата', r.prepaymentPercent ? `${r.prepaymentPercent} %` : ''], ['Срок изготовления', r.productionDays ? `${r.productionDays} дн.` : ''], ['Срок доставки', r.deliveryDays ? `${r.deliveryDays} дн.` : ''],
       ['Условия', r.terms], ['Примечание', r.notes],
       ['Статус', badge(STATUS, r.status)],
+    ] }) }),
+      offerHistory(r), packBlock(r)),
+    menu: (r, ctx) => [
+      ...actions(r),
+      session.canEditOrders && r.legal && { label: 'Уточнить сведения', run: () => editLegal('offers', r, ctx) },
+      session.canEditOrders && r.legal && !r.orderId && { label: 'Связать с договором', run: () => linkOfferContract(r, ctx) },
     ],
-    extra: (r) => stack(
-      packBlock(r),
-      section({ title: 'Изделия', tone: 'money', count: (r.items || []).length, open: true, cls: 'of-view', body: [
-        r.status === 'paid' ? h('p', { class: 'hint' }, isAdmin() && !r.orderId ? 'КП оплачено. Администратор может его править и вернуть статус — нужна причина.' : 'КП оплачено — править его нельзя.') : null,
-        r.status === 'draft' && (r.items || []).some((l) => !l.unitPrice) ? h('p', { class: 'hint' }, 'Чтобы отметить «отправлено клиенту», укажите цену у каждой строки.') : null,
-        r.status === 'accepted' ? h('p', { class: 'hint' }, 'После отметки «оплачено» КП нельзя править.') : null,
-        r.status === 'paid' && !r.orderId ? h('p', { class: 'hint' }, 'КП оплачено — нажмите «Сделать заказ», чтобы завести договор с позициями и ценами из КП.') : null,
-        r.orderId ? h('p', { class: 'hint' }, 'По этому КП уже есть заказ — откройте кнопкой «Открыть заказ».') : null,
-        h('ol', { class: 'of-items' }, ...(r.items || []).map((l) => h('li', null,
-          h('b', null, l.productName),
-          h('span', { class: 'muted' }, [l.color, l.size].filter(Boolean).map((x) => ' · ' + x).join('')),
-          h('div', { class: 'muted small' }, `${l.quantity} ${l.unit || 'шт'}${l.unitPrice ? ` × ${money(l.unitPrice)} = ${money(l.total ?? lineSum(l))}` : ' · цена не указана'}`),
-        ))),
-      ] }),
-    ),
-    actions,
-  },
+  }),
+
   form: {
     fields,
     initial: () => ({ date: isoDay(), validUntil: isoDay(new Date(Date.now() + 10 * 86400000)), items: [] }), // срок КП по умолчанию — 10 дней (как в форме; корзина kp.js — то же)
-    toInitial: (r) => ({ ...r, companyId: r.companyId ? String(r.companyId) : '', date: day(r.date), validUntil: day(r.validUntil), bg1Id: r.bg1Id ? String(r.bg1Id) : '', bg2Id: r.bg2Id ? String(r.bg2Id) : '', vatMode: r.vatMode || '', delivery: r.delivery || '', objectName: r.objectName || '', items: r.items || [] }),
+    toInitial: (r) => ({ ...r, _legalVersion: r.legal ? r.legalVersion : '', companyId: r.companyId ? String(r.companyId) : '', date: day(r.date), validUntil: day(r.validUntil), bg1Id: r.bg1Id ? String(r.bg1Id) : '', bg2Id: r.bg2Id ? String(r.bg2Id) : '', vatMode: r.vatMode || '', delivery: r.delivery || '', objectName: r.objectName || '', items: r.items || [] }),
     toBody,
     create: (b) => api('/offers', { method: 'POST', body: strip(b) }),
     update: async (id, b) => (await withReason((reason) => api(`/offers/${id}`, { method: 'PATCH', body: { ...strip(b), bg1Id: b.bg1Id || null, bg2Id: b.bg2Id || null, objectName: b.objectName || '', vatMode: b.vatMode || null, delivery: b.delivery || null, ...(reason ? { reason } : {}) } }), 'Править оплаченное КП')) ?? api(`/offers/${id}`),

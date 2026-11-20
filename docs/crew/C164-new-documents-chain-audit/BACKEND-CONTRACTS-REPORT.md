@@ -1,0 +1,45 @@
+# C164 — сервер договоров, исходников и финансового плана
+
+20.11.2026. Код готов к независимому QA/review; **не выпущен, не принят глазами, на прод записей0**.
+
+- ✅Additive SalesOrder legal/counterparty/source keys, явныйproductionAssignmentunassigned/new/existing с legacyсовместимостью. Manualdraftбезклиента/адреса/primaryfile сохраняется, companyNameподдерживаетстарыйresolver. Источникsource_importстрогийсосновнымдокументом/дата+номер/провереннымиИНН.
+- ✅Typed DTO/subschemas: стороны, исходныеоригиналы/редакции/customer_invoice, налоговыйснимок, подписьunknown, событияплана, reviewissues/ответственный/resolution. Sourceснимкиimmutable, новыйдокументappend; SHAсверяетсяпобайтамчерезsafeUploadPath, 30MBнаоригинал. File/UID/by/atсохраняются.
+- ✅PATCHlegalCAS+receipts/historyоднойзаписью, replayраньшеCAS, alteredpayload409. Новыйsourcebusinesskey+UIDunique; сменаUIDприsamecontentне создаётдубль. Runtime503если6scopeduniqueиндексовнеподтверждены exactkey/partial/simplecollation.
+- ✅Income sourceLineimmutable, stable sourceUid иbusinessrowunique, explicitmatchingMode manual: CREATE/UPDATEне вызываютautoMatch/new_product/autoDesign, наlegacyоперацияхавтодизайнтакжепропускаетгруппусmanualsourceстроками. Менеджер сопоставляетпозже, источник/цена/IDнепотеряны. Начальныеqty/title/amountсверены.
+- ✅Спискиunassigned/needsReviewиsummary; history/receiptsнечитаютсявобычномlist. ActualincomePaymentsсохраняютсявфинансовомотчёте независимоотdraft; draftнедаётожидаемыйдолг. Forecastиспользуетstageplan1разнадоговортолькосподтверждённымсобытием, анеlegacy70/30; groupfilterproductionNoвoperationsвыбираетвседоговорыбатчем.
+- ✅Non-RUBsnapshotможносохранить, ноnon-RUBпланбезрублёвогоконверсионногооснованиянепопадаетвRUBforecast; импортnon-RUBIncomeблокирован400допоявленияподтверждённойрублёвойсуммы. ПолныйFXдвижоквнеэтойверсии.
+- ✅Resolved требуетфактическогозначения/состояния: адрес/дата/подпись/платёжнаяпроверка/условия/этапы; контрагентсFK, production/matchingпроверяютсяпоactualcontext. not_applicableтребуетобъяснения. Draftпланможноредактироватьчастями, verifiedтребует100%/gross.
+- ✅NoMoney: новыйlegal/sourcewrite403доstrip/handler; legal/history/receipt/fileIDs/sourceснимкиневозвращаются, opaqueвложенность>6непропускается. ОбщееMoneyMaskневыдаётновыеmoneyдокументы.
+- ✅Шестьscopedиндексов: backend/scripts/c164-source-indexes.js plan→--apply, preflightвсех6сduplicatecheckдолюбойзаписи, createтольконедостающих/postverify. Ensure-indexesдобавленCommercialOffer; ничегонеудаляется. Доставкуиндексовнапродпроверяеткоординаторпослевыпуска, донегоsourceзапись503.
+
+Проверки: tsc--noEmit exit0; targetedunit15suites/164testsPASS (commonlegal+salesorders+incomes+finance+MoneyMask). Первоначально2mockfailsиз155PASSиз-заexistsвнеexistingtry; исправлено, финальныйпрогонвесьtargetPASS. Финальныйeslint--quietзатронутыхcommonlegal/маски/salesorders/incomes/finance+своегоe2e exit0. Отдельныеpurelegal/forecast2suites19PASS.
+
+Подготовлено, **ещё не запускалось мной**: test/e2e/c164-contract-source.e2e-spec.ts,6реальныхHTTPсценариев(tempPDF/проверкаSHA/FK/unassigned/replay/concurrent/headerдубль/manualIncome/noDesign/legalCAS/настоящийплатёжвиденприdraft). НаownedtestDB запускаетQA, fullзатемпослеединогоfreeze. Groupassign/маскировкаfilehistory/обычнаяпечать/двойнойдоговор/реальныйUIпроверяютсянезависимо. НикакихAPIprod/credentials/миграцииданных/коммитов/деплояэтойролью.
+
+Якоря: common/legal/legal.dto.ts:65; legal-utils.ts:22,57,86; incomes.service.ts:357; salesorders.service.ts:create/updateLegal; finance/legal-forecast.ts:4; financial-operations-reader.service.ts:44. Карта backendобновлена отдельнымразделом; коммит:не закоммичен(координатор).
+
+## Review iteration1 — единый исправительный пакет
+
+- P1MoneyMask: agreedTotal/sourceTotal, versions/snapshot/orderConversion/linkreceipts/exclusionmetadata скрыты дляnoMoney; notes/terms/description/reason sourceкарточкисlegal/summary/sourceLine невыдают денежныйтекст. Ролирасширены небыли, менеджервидитисходное. Unitпроверяетфактическийсериализованныйответ и пагинацию.
+- P1businessduplicate: sourceCREATEиспользуеттотжесущеcтвующий unique sparseimportKey=orderKey(companyShort,fullnumber), чтоlegacyCREATE. Новыйsource|ключубран; UID/intakeKeyостаютсядополнительнымиreplayguards. Активные/deletedlegacyзаписисбез/безimportKeyпроверяются, неизвестнаякомпанияпри совпаденииномераfailclosed. ИсторическиеimportKeyнепереписываются. E11000concurrent→409 либоsame-sourcereplay.
+- Runtime иscopedscriptдополнительноREADONLYпроверяютстарыйunique sparseimportKey/simplecollation; scriptпоказываетlegacyBusinessGuardready/missing, приmissing--applyшестиновыхостановлендоcreate. Старыйиндексэтимскриптомнесоздаётся.
+- P1Income: присутствующийorderId:null/differentдляmanualsource409доunset. FXпроверяетлюбойновыйрядилиперенос, не толькоdto.sourceLine; nonRUBтакженеawaitingRUB. Фактыплатежейнеудаляются.
+- P1matching.none/confirm/bulk: manualpickedsourceне вызываетautoDesign; смешанныйдоговорспозднейmanualсоседнейстрокойтакжеисключёнчерезодинадресныйquery. Чистыйlegacyсохраняетautodesign;3узкихunitPASS.
+- P2Offerlist: projectionнепередаётversions/legalHistory/legalReceipts/linkReceipts/orderConversion; публичныйversionCountсохранёноднимбатчевым$sizeaggregateпоIDстраницы, неN+1.
+- P2link-orderconcurrency НЕправился: immutablelegalparty/sourceзащищаютисторическиеснимки, ноordinaryIncomecurrenttitle/qty/priceмогутменятьсямеждусверкойtargetиCASКП. Полнойатомарностикросс-сверкипоканет; отдельныйguard/backlogрешаеткоординатор, этоявныйостаток.
+
+Проверкипослеfix: tsc0,eslintquiet0; широкийtargeted33suites/273testsPASS. Затемфинальные6suites/35testsPASSнаscriptlegacyguard/listprojection/mask/matching/salesorders/offer-source. Обычныйts-jestallowJsWARNнаrequireCLIскрипта — неошибка, глобальныйконфигнеменялся.
+
+МойHTTPe2eрасширендо9сценариев: дополнительноactivelegacy/deletedlegacyбезimportKey→409, source↔legacyconcurrentодинзаголовок[201,409], sourceorderIdnull409/ordinaryUSD400. НаобщуюtestDBмнойнезапускался; QAвыполняетпослеединогоfreeze. Послефинальныхtsc/eslint/runtimefreezeданных/кодаэта рольбольше неменяла.
+
+## Финальный узкий пакет — защита оригиналов и группировка до matching
+
+- Photos.remove до любой deleteOne/unlink резервирует исходноеPhoto/варианты/IDсообщимstorageURL через sourceDeleting/sourceDeleteClaim(UUID), лишьеслиsourceProtected!=true. Неполныйclaim→rollbackтолькоownUUID/409. Потомrawreferenceguard проверяетsalesorders/commercialoffers legal.documents/legalHistory(+offer.versions.snapshot.legal), включаякорзину, исуществующийSupplyInvoice.fileIds. Reference→rollbackownclaim/409, файлынетрогать. Предыдущийобычныйunreferencedremoveсохранён.
+- validateLegalFiles послеSHAпишет sourceProtected=true MongooseCASпофайлу, толькоеслиsourceDeleting!=true, ещёдоparentlegalCAS. ЕслиparentCASнепрошёл, защитаостаётсянафайле: безопаснаяизбыточнаязащита, разборпозжеC167. Обратныйпорядок(deleteclaimраньшеattach)даёт409допривязки.
+- SameURLaliasнеобходитсериализацию: attachпослерезервациипроверяетsameURLsourceDeleting, removeпослеclaimsсвежепроверяетsameURLsourceProtected. Существующийprotectedaliasблокируетclaim. УспешноудалённыеURLaliasesостаютсяclaimed(байтыисчезли), нетихогопереиспользованияисчезнувшегофайла. Неудаляемыеparent/linkedIDпроверяютсякакreferences, ненеостаютсянавсегдаclaimedприделетеотдельноговарианта.
+- Это неC167архив, нетновыхactualудаленийнапрод/миграций/кнопки«удалитьвсё». СтарыйпотокпервойпривязкиSupplyInvoiceнепереведённаэтиflags; егоужесуществующиеfileIdsзащищеныreferenceguard. Полнуюобщуюполитикуархива/C167этадоработканеподменяет.
+- Legal/manualsourceдоговорыможнообъединятьвгруппудосопоставлениякаталога, включаяпустуюещёшапкуlegal. Unassigned.canAssignсогласован; legacyбезmanual/legalпо-прежнемутребуетсопоставления. Переходвproductionдляsourceтребуетреальныхсопоставлений/строк, отдельноотгруппировки. Никакихнеизделие/autoDesign/autoWorkрадисозданиягруппы.
+
+Финальныепроверки: tsc0,eslintquiet0; targeted18suites/94testsPASS(photos/salesorders/commonlegal/manualmatching), втомчисле2порядкаphotoCASattachwins/deleteclaimwins,4reference/aliasварианта,oldunreferencedremove. Предыдущий16/78PASSбылдосериализационногошага; итогдляфинальногокода—18/94.
+
+HTTPe2eдополнен: DELETElegalPhoto409/ID+SHAсохранены;2legalдоговораводнойгруппедоmatching(canAssign=true),productionstart409ипроектирование0. ФайлпроверяетсяQAнаownedtestDB; этойрольюHTTP/MongoAPIне запускался. Послеэтогопакета runtime/testfreezeобъявленкоординатору, следующихкодовыхправокнет.

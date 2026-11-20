@@ -1,3 +1,5 @@
+import { SourceLineDto } from '../../common/legal/legal.dto';
+import { SourceLineSchema } from '../../common/legal/legal.schema';
 import type { ClassificationMetadata } from '../../common/financial-classification';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
@@ -18,6 +20,11 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
  */
 @Schema({ timestamps: true, collection: 'incomes' })
 export class Income {
+  @Prop({enum:['manual']}) matchingMode?: 'manual';
+  @Prop({type:SourceLineSchema,default:undefined}) sourceLine?: SourceLineDto;
+  @Prop() sourceIntakeHash?: string;
+  @Prop() sourceUid?: string;
+
   /** Доходная статья — подсказка только будущим платежам. */
   @Prop({ type: Types.ObjectId, index: true }) articleId?: Types.ObjectId | null;
   @Prop({ type: Object }) legacyPaymentMetadata?: LegacyIncomePaymentMetadata;
@@ -134,3 +141,7 @@ export function incomePayments(d: { amount?: number | null; paidDate?: Date | nu
 
 IncomeSchema.index({ companyId: 1, 'payments.date': 1, deletedAt: 1 });
 IncomeSchema.index({ 'payments.companyId': 1, 'payments.date': 1, deletedAt: 1 });
+
+IncomeSchema.index({orderId:1,'sourceLine.documentUid':1,'sourceLine.rowKey':1},{name:'c164_income_source_row',unique:true,partialFilterExpression:{'sourceLine.documentUid':{$type:'string'},'sourceLine.rowKey':{$type:'string'}}});
+
+IncomeSchema.index({sourceUid:1},{name:'c164_income_source_uid',unique:true,partialFilterExpression:{sourceUid:{$type:'string'}}});

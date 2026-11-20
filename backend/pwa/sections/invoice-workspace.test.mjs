@@ -50,7 +50,7 @@ function buildForm(fields, initial = {}) {
   return { el, inputs, read: () => ({ values: values() }), dirty: () => initialValue !== JSON.stringify(values()) };
 }
 async function modules({ invoice = base(), money = true, call, confirm = true } = {}) {
-  const calls = [], session = { canEdit: true, canMoney: money, role: 'admin', isAdmin: true };
+  const calls = [], session = { canEdit: true, canMoney: money, role: 'admin', isAdmin: true, sees: () => true };
   const api = async (path, opts = {}) => {
     calls.push({ path, method: opts.method || 'GET', ...opts });
     if (call) return call(path, opts);
@@ -567,7 +567,7 @@ test('C165: confirm/revoke — разные команды, причина об�
 });
 
 test('C165: отдельная группа заполнения открывает invoiceId, не legacy request id', async () => {
-  const patches = []; const m = await modules({ call: (path) => path === '/fill-audit' ? { total: 1, groups: [{ key: 'old', area: 'Деньги', count: 1, title: 'Старое', why: '', items: [{ id: 'request-old', title: 'Заявка' }] }] } : { needsPaymentDate: { total: 1, items: [{ id: 'confusing-id', invoiceId: 'invoice-real', title: 'Счёт №24334' }] } } });
+  const patches = []; const m = await modules({ call: (path) => ['/salesorders', '/offers'].includes(path) ? { items: [], total: 0 } : path === '/fill-audit' ? { total: 1, groups: [{ key: 'old', area: 'Деньги', count: 1, title: 'Старое', why: '', items: [{ id: 'request-old', title: 'Заявка' }] }] } : { needsPaymentDate: { total: 1, items: [{ id: 'confusing-id', invoiceId: 'invoice-real', title: 'Счёт №24334' }] } } });
   m.common.patch = value => patches.push(value);
   const fill = await m.load('sections/fill.js'); await fill.evaluate(); const view = fill.namespace.mountFill({ g: 'invoicePaymentDate' }); await tick();
   assert.match(view.el.textContent, /Заполнить даты подтверждённых оплат/); assert.match(view.el.textContent, /Счёт №24334/);

@@ -20,6 +20,11 @@ export interface PhotoFrame {
 
 @Schema({ collection: 'photos', timestamps: true })
 export class Photo {
+  /** C164: серверная защита источника; CAS удаления и первой привязки. */
+  @Prop({type:Boolean}) sourceProtected?: boolean;
+  @Prop({type:Boolean}) sourceDeleting?: boolean;
+  @Prop({type:String}) sourceDeleteClaim?: string;
+
   @Prop({ required: true })
   storageUrl!: string;
 

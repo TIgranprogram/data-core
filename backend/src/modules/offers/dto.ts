@@ -1,10 +1,19 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Matches, MaxLength, Min, Max, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Matches, MaxLength, Min, Max, ValidateNested, Length } from 'class-validator';
 import { IsObjectId } from '../../common/decorators/is-object-id.decorator';
+import { LegalBundleDto, SourceLineDto } from '../../common/legal/legal.dto';
 import { OFFER_STATUSES } from './offer.schema';
 
 export class OfferItemDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 100) sourceRowKey?: string;
+  @ApiPropertyOptional({ type: SourceLineDto }) @IsOptional() @ValidateNested() @Type(() => SourceLineDto) sourceLine?: SourceLineDto;
+  @ApiPropertyOptional({ enum: ['included', 'excluded'] }) @IsOptional() @IsIn(['included', 'excluded']) scopeState?: 'included' | 'excluded';
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(1000) exclusionReason?: string;
+  @ApiPropertyOptional() @IsOptional() @IsDateString() exclusionConfirmedAt?: string;
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @IsDateString() exclusionEventDate?: string | null;
+  @ApiPropertyOptional({ enum: ['unmatched', 'confirmed', 'none'] }) @IsOptional() @IsIn(['unmatched', 'confirmed', 'none']) matchStatus?: 'unmatched' | 'confirmed' | 'none';
+
   @ApiPropertyOptional({ description: 'id изделия каталога' }) @IsOptional() @IsObjectId() productId?: string;
   @ApiProperty() @IsString() @IsNotEmpty({ message: 'Укажите название строки' }) @MaxLength(300, { message: 'Название строки — не длиннее 300 знаков' }) productName!: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(100) productSku?: string;
@@ -20,6 +29,10 @@ export class OfferItemDto {
 const BG_ID = /^([a-f\d]{24}|builtin-[12]|none)$/i;
 
 export class CreateOfferDto {
+  @ApiPropertyOptional({ type: LegalBundleDto }) @IsOptional() @ValidateNested() @Type(() => LegalBundleDto) initialLegal?: LegalBundleDto;
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @IsString() @MaxLength(100) sourceNumber?: string | null;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 100) intakeUid?: string;
+
   @ApiProperty({ description: 'Наша компания (organizations)' }) @IsObjectId() companyId!: string;
   @ApiProperty() @IsString() @IsNotEmpty({ message: 'Укажите заказчика' }) @MaxLength(300) customer!: string;
   @ApiPropertyOptional() @IsOptional() @IsObjectId() counterpartyId?: string;
@@ -42,6 +55,8 @@ export class CreateOfferDto {
 
 /** Правка: любые поля из создания; статус меняется только через POST :id/status. */
 export class UpdateOfferDto extends PartialType(CreateOfferDto) {
+  @ApiPropertyOptional({ description: 'Версия юридического комплекта для ручной правки импортированного КП' }) @IsOptional() @IsInt() @Min(0) version?: number;
+
   @ApiPropertyOptional({ description: 'Причина (от 3 символов) — нужна администратору для правки оплаченного КП; уходит в журнал' }) @IsOptional() @IsString() @MaxLength(500) reason?: string;
 }
 
@@ -52,6 +67,7 @@ export class OfferStatusDto {
 
 /** Подтверждение заказа из КП (этап 2): номера можно переопределить. */
 export class OfferCreateOrderDto {
+  @ApiPropertyOptional({ description: 'Версия исходного КП; обязательна для юридического источника' }) @IsOptional() @IsInt() @Min(0) version?: number;
   @ApiPropertyOptional({ description: '№ договора; по умолчанию — из номера КП' }) @IsOptional() @IsString() @MaxLength(50) orderNo?: string;
   @ApiPropertyOptional({ description: '№ заказа на производство; по умолчанию — следующий свободный' }) @IsOptional() @IsString() @MaxLength(50) productionNo?: string;
 }
@@ -123,4 +139,11 @@ export class OfferPackDto {
 /** Показать/скрыть фирму в «Деньгах»: «только для КП» — в доходах, расходах, календаре её нет. */
 export class OfferCompanyDto {
   @ApiProperty() @IsBoolean() offersOnly!: boolean;
+}
+
+/** Связь исторического КП с уже сохранённым договором без конверсии и денег. */
+export class OfferLinkOrderDto {
+  @ApiProperty() @IsObjectId() orderId!: string;
+  @ApiProperty() @IsInt() @Min(0) version!: number;
+  @ApiProperty() @IsString() @Length(1, 100) clientUid!: string;
 }
