@@ -1,0 +1,248 @@
+{
+  "phase": "acceptance",
+  "head": "31b04dfed4692a74cd00dc32635618bd883e5e9f",
+  "checks": [
+    {
+      "name": "baseline14",
+      "status": "PASS",
+      "total": 14,
+      "issued": 0,
+      "attached": 0
+    },
+    {
+      "name": "missing-candidates-disabled",
+      "status": "PASS"
+    },
+    {
+      "name": "explicit-confirm-cancel-no-write",
+      "status": "PASS"
+    },
+    {
+      "name": "attached-no-new-issued",
+      "status": "PASS"
+    },
+    {
+      "name": "two-forms-stale409",
+      "status": "PASS"
+    },
+    {
+      "name": "reopen-attached",
+      "status": "PASS"
+    },
+    {
+      "name": "download-exact-synthetic-pdf",
+      "status": "PASS"
+    },
+    {
+      "name": "return-site-no-automatic-issue",
+      "status": "PASS"
+    }
+  ],
+  "writes": [
+    {
+      "name": "attach-confirmed",
+      "method": "PUT",
+      "path": "/api/passports/order/6ae10ce3aff789d00b26ff2d/lines/6ae10ce4aff789d00b26ff35/source",
+      "status": 200,
+      "revision": 1
+    },
+    {
+      "name": "second-form-stale409",
+      "method": "PUT",
+      "path": "/api/passports/order/6ae10ce3aff789d00b26ff2d/lines/6ae10ce4aff789d00b26ff35/source",
+      "status": 409,
+      "code": "STALE_CONTEXT"
+    },
+    {
+      "name": "read-selected-ticket",
+      "method": "POST",
+      "path": "/api/passports/order/6ae10ce3aff789d00b26ff2d/lines/6ae10ce4aff789d00b26ff35/source/download-ticket",
+      "status": 200
+    },
+    {
+      "name": "return-site-confirmed",
+      "method": "PUT",
+      "path": "/api/passports/order/6ae10ce3aff789d00b26ff2d/lines/6ae10ce4aff789d00b26ff35/source",
+      "status": 200,
+      "revision": 2
+    }
+  ],
+  "blockedExternalAtProxy": 26,
+  "externalPageRequests": 0,
+  "proxyHosts": {
+    "CONNECT edge.microsoft.com:443": 20,
+    "CONNECT www.bing.com:443": 6
+  },
+  "pageHosts": {},
+  "blockedWrites": 1,
+  "blockedApi": [
+    {
+      "method": "POST",
+      "path": "/api/client-errors",
+      "reason": "no-grant"
+    }
+  ],
+  "pageErrors": 0,
+  "pageErrorDetails": [],
+  "screenshots": [
+    {
+      "file": "site-baseline-light-1920.png",
+      "state": "site-baseline",
+      "theme": "light",
+      "width": 1920,
+      "customerMasked": true,
+      "clippedToDrawer": true
+    },
+    {
+      "file": "site-baseline-light-1024.png",
+      "state": "site-baseline",
+      "theme": "light",
+      "width": 1024,
+      "customerMasked": true,
+      "clippedToDrawer": true
+    },
+    {
+      "file": "site-baseline-dark-1920.png",
+      "state": "site-baseline",
+      "theme": "dark",
+      "width": 1920,
+      "customerMasked": true,
+      "clippedToDrawer": true
+    },
+    {
+      "file": "site-baseline-dark-1024.png",
+      "state": "site-baseline",
+      "theme": "dark",
+      "width": 1024,
+      "customerMasked": true,
+      "clippedToDrawer": true
+    },
+    {
+      "file": "picker-file-found-1.png",
+      "state": "picker-file-found-before-any-grant",
+      "customerMasked": true
+    },
+    {
+      "file": "picker-file-found-2.png",
+      "state": "picker-file-found-before-any-grant",
+      "customerMasked": true
+    },
+    {
+      "file": "explicit-picker-missing-light-1920.png",
+      "state": "explicit-picker-missing",
+      "theme": "light",
+      "width": 1920,
+      "customerMasked": true,
+      "clippedToDrawer": true
+    },
+    {
+      "file": "explicit-picker-missing-light-1024.png",
+      "state": "explicit-picker-missing",
+      "theme": "light",
+      "width": 1024,
+      "customerMasked": true,
+      "clippedToDrawer": true
+    },
+    {
+      "file": "explicit-picker-missing-dark-1920.png",
+      "state": "explicit-picker-missing",
+      "theme": "dark",
+      "width": 1920,
+      "customerMasked": true,
+      "clippedToDrawer": true
+    },
+    {
+      "file": "explicit-picker-missing-dark-1024.png",
+      "state": "explicit-picker-missing",
+      "theme": "dark",
+      "width": 1024,
+      "customerMasked": true,
+      "clippedToDrawer": true
+    },
+    {
+      "file": "explicit-confirm-cancel.png",
+      "state": "confirm-before-cancel",
+      "theme": "dark",
+      "width": 1920,
+      "customerMasked": true
+    },
+    {
+      "file": "attached-reopened-light-1920.png",
+      "state": "attached-reopened",
+      "theme": "light",
+      "width": 1920,
+      "customerMasked": true,
+      "clippedToDrawer": true
+    },
+    {
+      "file": "attached-reopened-light-1024.png",
+      "state": "attached-reopened",
+      "theme": "light",
+      "width": 1024,
+      "customerMasked": true,
+      "clippedToDrawer": true
+    },
+    {
+      "file": "attached-reopened-dark-1920.png",
+      "state": "attached-reopened",
+      "theme": "dark",
+      "width": 1920,
+      "customerMasked": true,
+      "clippedToDrawer": true
+    },
+    {
+      "file": "attached-reopened-dark-1024.png",
+      "state": "attached-reopened",
+      "theme": "dark",
+      "width": 1024,
+      "customerMasked": true,
+      "clippedToDrawer": true
+    },
+    {
+      "file": "returned-site-light-1920.png",
+      "state": "returned-site",
+      "theme": "light",
+      "width": 1920,
+      "customerMasked": true,
+      "clippedToDrawer": true
+    },
+    {
+      "file": "returned-site-light-1024.png",
+      "state": "returned-site",
+      "theme": "light",
+      "width": 1024,
+      "customerMasked": true,
+      "clippedToDrawer": true
+    },
+    {
+      "file": "returned-site-dark-1920.png",
+      "state": "returned-site",
+      "theme": "dark",
+      "width": 1920,
+      "customerMasked": true,
+      "clippedToDrawer": true
+    },
+    {
+      "file": "returned-site-dark-1024.png",
+      "state": "returned-site",
+      "theme": "dark",
+      "width": 1024,
+      "customerMasked": true,
+      "clippedToDrawer": true
+    }
+  ],
+  "scriptSha256": "89a91f31a3564310893db5944e4043ae433517f7f481974bcfcf89d061f621de",
+  "stand": {
+    "head": "31b04dfed4692a74cd00dc32635618bd883e5e9f",
+    "backup": "datacore-2026-11-18_031040.tgz"
+  },
+  "pickerFilesFound": 2,
+  "sourceMayRemain": false,
+  "issuedHistory": "no-issued-in-fixture; real-Mongo-e2e-covers-preservation",
+  "apiCovered": [
+    "file-delete-generation-purge",
+    "product-rebind",
+    "issued-snapshot-preservation"
+  ],
+  "status": "PASS"
+}

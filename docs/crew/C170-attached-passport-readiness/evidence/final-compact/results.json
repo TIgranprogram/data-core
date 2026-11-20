@@ -1,0 +1,157 @@
+{
+  "type": "READONLY_FINAL_SUPPLEMENT",
+  "head": "37cf0b9f8d6d3303a374df8041a847df881b55c1",
+  "phase": "readback",
+  "reads": [
+    {
+      "phase": "preflight",
+      "method": "GET",
+      "path": "/api/passports/order/6ae10ce3aff789d00b26ff2d/lines/6ae10ce4aff789d00b26ff35/source",
+      "orderId": "6ae10ce3aff789d00b26ff2d",
+      "incomeId": "6ae10ce4aff789d00b26ff35",
+      "status": 200,
+      "source": {
+        "incomeId": "6ae10ce4aff789d00b26ff35",
+        "productId": "6ae58501d8417c8a63cb5acf",
+        "mode": "site",
+        "revision": 2,
+        "effectiveState": "blocked"
+      }
+    },
+    {
+      "phase": "known-picker",
+      "method": "GET",
+      "path": "/api/passports/order/6ae10ce3aff789d00b26ff2d/lines/6ae10ce4aff789d00b26ff35/source",
+      "orderId": "6ae10ce3aff789d00b26ff2d",
+      "incomeId": "6ae10ce4aff789d00b26ff35",
+      "status": 304,
+      "json": false
+    },
+    {
+      "phase": "known-picker",
+      "method": "GET",
+      "path": "/api/passports/order/6ae10ce3aff789d00b26ff2d/lines/6ae10ce4aff789d00b26ff35/source/candidates",
+      "orderId": "6ae10ce3aff789d00b26ff2d",
+      "incomeId": "6ae10ce4aff789d00b26ff35",
+      "status": 200,
+      "candidates": {
+        "total": 4,
+        "count": 4,
+        "qa": [
+          {
+            "id": "6b0007b040dba0601a9d4a73",
+            "available": true,
+            "generation": 0
+          }
+        ]
+      }
+    },
+    {
+      "phase": "actual-order-folder",
+      "method": "GET",
+      "path": "/api/passports/order/6ae10ce3aff789d00b26ff2d/lines/6ae10ce4aff789d00b26ff35/source",
+      "orderId": "6ae10ce3aff789d00b26ff2d",
+      "incomeId": "6ae10ce4aff789d00b26ff35",
+      "status": 304,
+      "json": false
+    },
+    {
+      "phase": "readback",
+      "method": "GET",
+      "path": "/api/passports/order/6ae10ce3aff789d00b26ff2d/lines/6ae10ce4aff789d00b26ff35/source",
+      "orderId": "6ae10ce3aff789d00b26ff2d",
+      "incomeId": "6ae10ce4aff789d00b26ff35",
+      "status": 304,
+      "json": false
+    }
+  ],
+  "blocked": [
+    {
+      "method": "POST",
+      "path": "/api/client-errors"
+    }
+  ],
+  "pageErrors": [],
+  "blockedExternalAtProxy": 9,
+  "externalPageRequests": 0,
+  "stand": {
+    "head": "37cf0b9f8d6d3303a374df8041a847df881b55c1",
+    "backup": "datacore-2026-11-18_031040.tgz"
+  },
+  "before": {
+    "total": 14,
+    "mode": "site",
+    "revision": 2
+  },
+  "picker": {
+    "qaFound": true,
+    "available": true,
+    "russianHint": true,
+    "technicalCodeAbsent": true
+  },
+  "screenshots": [
+    {
+      "file": "picker-light-1920.png",
+      "theme": "light",
+      "width": 1920,
+      "customerMasked": true
+    },
+    {
+      "file": "picker-light-1024.png",
+      "theme": "light",
+      "width": 1024,
+      "customerMasked": true
+    },
+    {
+      "file": "picker-dark-1920.png",
+      "theme": "dark",
+      "width": 1920,
+      "customerMasked": true
+    },
+    {
+      "file": "picker-dark-1024.png",
+      "theme": "dark",
+      "width": 1024,
+      "customerMasked": true
+    },
+    {
+      "file": "actual-order-folder-dark-1024.png",
+      "theme": "dark",
+      "width": 1024,
+      "actualConsumer": true,
+      "customerMasked": true
+    }
+  ],
+  "folder": {
+    "actualConsumer": "salesorders-expanded-position",
+    "geometry": [
+      {
+        "chars": 11,
+        "width": 103,
+        "scrollWidth": 103,
+        "height": 20
+      },
+      {
+        "chars": 16,
+        "width": 103,
+        "scrollWidth": 103,
+        "height": 39
+      },
+      {
+        "chars": 34,
+        "width": 103,
+        "scrollWidth": 103,
+        "height": 59
+      },
+      {
+        "chars": 12,
+        "width": 103,
+        "scrollWidth": 103,
+        "height": 20
+      }
+    ]
+  },
+  "sourceUnchanged": true,
+  "forwardedWrites": 0,
+  "status": "PASS_READONLY_SUPPLEMENT"
+}
