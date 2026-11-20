@@ -1,13 +1,16 @@
-import { ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { randomBytes } from 'crypto';
 import { promises as fs } from 'fs';
 import type { Connection } from 'mongoose';
 import path from 'path';
 import { latency } from '../../../common/interceptors/latency-histogram';
-import type { SwitchReportDto } from './switch.dto';
+import type { SaveSwitchScheduleDto, SwitchReportDto } from './switch.dto';
+import { bridgeFiles, publishBridgeRequest, RequestNotPublished } from './switch-outbox';
+import { currentDomain, EMPTY_DOMAIN, idleReason, isFresh, recoveryWarning, refreshDomainReason, switchReadiness } from './switch-readiness';
+import { claimSchedule, refreshAttempt, SCHEDULE_LANES, scheduleConfig, scheduleDecision, scheduleProgress, scheduleView, type RefreshScope, type ScheduleConfig } from './schedule.rules';
 import {
-  AUTO_REFRESH_MIN, CACHE_MS, COL_STATE, STATE_ID, autoRefreshDue, canRefreshNow, copyAgeMin, readinessBlockers, defaultRole, jobBusy, parseSelf, peerOf, secretMatches, staleReason, versionLabel, versionsConflict,
+  AUTO_REFRESH_MIN, CACHE_MS, COL_STATE, STATE_ID, canRefreshNow, copyAgeMin, readinessBlockers, defaultRole, jobBusy, parseSelf, peerOf, secretMatches, staleReason, versionLabel,
   type SwitchDoc, type SwitchJob, type SwitchMode, type SwitchRole, type SwitchSelf,
 } from './switch.rules';
 
@@ -15,9 +18,19 @@ import {
 const BRIDGE_ALIVE_MS = 3 * 60_000;
 /** Как часто заново мерить второй сервер, пока идёт опрос экрана. На переключение не влияет. */
 const SPEED_CACHE_MS = 15_000;
+const DELIVERY_LEASE_MS = 30_000;
 
 type SideSpeed = { p50: number | null; p95: number | null; requests: number | null; slow: number | null; probeMs: number | null };
 type PeerSpeed = { p50: number | null; p95: number | null; requests: number; slow: number };
+type PeerProbe = {
+  healthy: boolean;
+  ms?: number;
+  speed?: PeerSpeed | null;
+  self?: string | null;
+  role?: string | null;
+  version?: string | null;
+  copyAt?: string | null;
+};
 
 /**
  * Состояние «главный/запасной» и режим «только чтение». Один документ `switch` в `app_control_state`, запись драйвером.
@@ -31,11 +44,9 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
   private timer?: NodeJS.Timeout;
   private autoTimer?: NodeJS.Timeout;
   private autoKick?: NodeJS.Timeout;
-  /** Когда сами ставили автообновление копии (C042-A3); 0 — не ставили. */
-  private autoAt = 0;
   private verCache: { at: number; label: string | null } | null = null;
   private speedAt = 0;
-  private speedPeer: { ms: number; speed: PeerSpeed | null } | null = null;
+  private cachedPeer: PeerProbe | null = null;
 
   constructor(@InjectConnection() private readonly connection: Connection) {}
 
@@ -72,6 +83,8 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
   /** Документ; нет — создаётся с ролью по умолчанию (дом — главный, офис — запасной). */
   private async load(self: SwitchSelf): Promise<SwitchDoc> {
     const col = this.col();
+    const saved = await col.findOne(this.filter());
+    if (saved) return saved;
     await col.updateOne(this.filter(), { $setOnInsert: { mode: 'normal', role: defaultRole(self), job: null } } as never, { upsert: true }).catch((e: { code?: number }) => {
       if (e.code !== 11000) throw e; // гонка двух upsert — документ уже есть
     });
@@ -85,13 +98,18 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
     const self = this.self;
     if (!self) return null;
     let doc = await this.load(self);
-    const reason = jobBusy(doc.job) ? staleReason(doc.job, Date.now(), await this.bridgeAlive()) : null;
-    if (reason && doc.job) {
-      const set: Record<string, unknown> = { 'job.state': 'failed', 'job.error': reason, 'job.finishedAt': new Date().toISOString() };
-      if (doc.role === 'main') set.mode = 'normal'; // главный не должен остаться в «только чтение» навсегда
-      await this.col().updateOne(this.filter({ 'job.id': doc.job.id, 'job.state': { $in: ['queued', 'running'] } }), { $set: set } as never);
-      doc = (await this.col().findOne(this.filter()))! as SwitchDoc;
-      this.log.warn(`переключение ${doc.job?.id}: ${reason}`);
+    if (jobBusy(doc.job)) {
+      const now = Date.now();
+      const alive = await this.bridgeAlive();
+      const reason = staleReason(doc.job, now, alive);
+      const job = doc.job!;
+      if (reason) {
+        await this.failJob(doc, job, reason, now);
+        doc = (await this.col().findOne(this.filter()))!;
+      } else if (job.state === 'queued' && alive && doc.bridgeDelivery?.jobId === job.id && !doc.bridgeDelivery.delivered) {
+        await this.reconcileDelivery(doc);
+        doc = (await this.col().findOne(this.filter()))!;
+      }
     }
     this.remember(doc);
     return doc;
@@ -128,30 +146,97 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
     return process.env.HA_AUTO_REFRESH_MIN !== undefined && Number.isFinite(v) && v >= 0 ? v : AUTO_REFRESH_MIN;
   }
 
-  /**
-   * C042-A3: главный сам ставит обновление копии, если она старше N минут, сервер в обычном режиме,
-   * работы нет и мост жив. Ошибка не валит сервер — только запись в журнал (следующая попытка через N минут).
-   */
-  async autoRefresh(): Promise<{ queued: boolean; reason: string }> {
-    if (!this.enabled) return { queued: false, reason: 'переключение не включено' };
-    const doc = await this.refresh();
-    if (!doc) return { queued: false, reason: 'нет состояния' };
-    const due = autoRefreshDue({
-      role: doc.role, mode: doc.mode, busy: jobBusy(doc.job), bridgeAlive: await this.bridgeAlive(),
-      peerHealthy: doc.peerHealthy ?? null, copyAgeMin: copyAgeMin(doc.peerCopyAt, Date.now()),
-      lastAutoAt: this.autoAt, now: Date.now(), minutes: this.autoMinutes(),
+  private revisionFilter(doc: SwitchDoc) {
+    return { 'scheduleConfig.revision': doc.scheduleConfig?.revision ?? null };
+  }
+
+  private domainFilter(doc: SwitchDoc) {
+    return {
+      'domain.owner': doc.domain?.owner ?? null,
+      'domain.checkedAt': doc.domain?.checkedAt ?? null,
+    };
+  }
+
+  async getSchedule() {
+    const self = this.assertEnabled();
+    const doc = await this.load(self);
+    const reason = idleReason(doc);
+    return scheduleView(doc, this.autoMinutes(), !reason, reason);
+  }
+
+  async saveSchedule(dto: SaveSwitchScheduleDto) {
+    const self = this.assertEnabled();
+    for (const lane of SCHEDULE_LANES) {
+      if (dto[lane].enabled && dto[lane].days.length === 0) throw new BadRequestException('Для включённого расписания выберите хотя бы один день недели.');
+    }
+    const doc = await this.load(self);
+    const conflict = () => new ConflictException({
+      code: 'SCHEDULE_REVISION_CONFLICT', message: 'Расписание уже изменили. Откройте текущие настройки перед повторным сохранением.',
     });
-    if (!due.due) return { queued: false, reason: due.reason };
+    if ((doc.scheduleConfig?.revision ?? 0) !== dto.expectedRevision) throw conflict();
+    const reason = idleReason(doc);
+    if (reason) throw new ConflictException(reason);
+
+    const config: ScheduleConfig = {
+      revision: dto.expectedRevision + 1,
+      timezone: dto.timezone,
+      data: { ...dto.data, days: [...dto.data.days].sort((a, b) => a - b) },
+      code: { ...dto.code, days: [...dto.code.days].sort((a, b) => a - b) },
+      savedAt: new Date().toISOString(),
+    };
+    const result = await this.col().updateOne(
+      this.filter({ ...this.revisionFilter(doc), role: 'main', mode: 'normal', 'job.state': { $nin: ['queued', 'running'] } }),
+      { $set: { scheduleConfig: config } },
+    );
+    const fresh = await this.load(self);
+    if (result.matchedCount !== 1) {
+      if ((fresh.scheduleConfig?.revision ?? 0) !== dto.expectedRevision) throw conflict();
+      throw new ConflictException(idleReason(fresh) ?? 'Состояние сервера изменилось. Повторите сохранение.');
+    }
+    const freshReason = idleReason(fresh);
+    return scheduleView(fresh, this.autoMinutes(), !freshReason, freshReason);
+  }
+
+  /** Один актуальный слот на тик. Для старого графика сохраняем обновление только данных. */
+  async autoRefresh(): Promise<{ queued: boolean; reason: string }> {
+    const self = this.self;
+    if (!self) return { queued: false, reason: 'Переключение не включено.' };
+    const doc = (await this.refresh())!;
+    const now = Date.now();
+    const reason = idleReason(doc) ?? refreshDomainReason(doc, self, now, !!doc.scheduleConfig);
+    if (reason) return { queued: false, reason };
+    if (doc.peerHealthy !== true || (doc.scheduleConfig && !isFresh(doc.peerCheckedAt, now))) {
+      return { queued: false, reason: 'Мост не подтвердил, что второй сервер отвечает.' };
+    }
+    const config = scheduleConfig(doc, this.autoMinutes());
+    const due = SCHEDULE_LANES.map((lane) => ({
+      lane,
+      slot: scheduleDecision(config, lane, doc.scheduleRuntime?.[lane], now, doc.peerCopyAt).slot,
+    })).find(({ slot }) => slot);
+    if (!due?.slot) return { queued: false, reason: 'Время обновления ещё не наступило.' };
+
     try {
-      await this.refreshPeer(true);
-      this.autoAt = Date.now();
-      this.log.log(`автообновление копии: заявка поставлена (${due.reason})`);
-      return { queued: true, reason: due.reason };
-    } catch (e) {
-      this.autoAt = Date.now(); // не долбим каждую минуту, если не вышло
-      const msg = e instanceof Error ? e.message : String(e);
-      this.log.warn(`автообновление копии не поставлено: ${msg}`);
-      return { queued: false, reason: msg };
+      const scope = due.lane === 'data' ? 'data' : 'both';
+      const run = claimSchedule(doc, due.lane, due.slot, now);
+      const previous = doc.scheduleRuntime?.[due.lane];
+      const prefix = 'scheduleRuntime.' + due.lane;
+      const job = await this.acquire(doc, 'main', 'refresh', {
+        refreshScope: scope,
+        scheduleKeys: { [due.lane]: due.slot.key },
+        scheduleExpiresAt: config.revision ? run.expiresAt : undefined,
+      }, {
+        ...this.revisionFilter(doc),
+        ...this.domainFilter(doc),
+        peerHealthy: true,
+        peerCheckedAt: doc.peerCheckedAt ?? null,
+        [prefix + '.slot']: previous?.slot ?? null,
+        [prefix + '.attempts']: previous?.attempts ?? null,
+      }, { [prefix]: run });
+      await this.deliverQueued({ ...doc, scheduleRuntime: { ...doc.scheduleRuntime, [due.lane]: run } }, job);
+      this.log.log(`Автообновление запасного поставлено: ${due.lane}, ${job.id}.`);
+      return { queued: true, reason: 'Заявка поставлена.' };
+    } catch (error) {
+      return { queued: false, reason: error instanceof Error ? error.message : String(error) };
     }
   }
 
@@ -196,27 +281,30 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
     return { home, office };
   }
 
-  /** Повторный опрос экрана не долбит сосед каждые 3 с. Кэш только для цифр, не для решения «кто главный». */
-  private async peerSpeedCached(): Promise<{ ms: number; speed: PeerSpeed | null } | null> {
+  /** Кэш только для опроса экрана. POST start выполняет новый замер. */
+  private async peerCached(): Promise<PeerProbe | null> {
     if (!process.env.HA_PEER_URL?.trim()) return null;
-    if (this.speedPeer && Date.now() - this.speedAt < SPEED_CACHE_MS) return this.speedPeer;
-    const peer = await this.probePeer();
-    if (!peer) return null;
-    this.speedPeer = { ms: peer.ms ?? 0, speed: peer.speed ?? null };
+    if (this.cachedPeer && Date.now() - this.speedAt < SPEED_CACHE_MS) return this.cachedPeer;
+    this.cachedPeer = await this.probePeer();
     this.speedAt = Date.now();
-    return this.speedPeer;
+    return this.cachedPeer;
   }
 
-  /** Спросить соседа по HA_PEER_URL (4 с). Нет адреса — null; не ответил — healthy:false. */
-  async probePeer(): Promise<{ healthy: boolean; ms?: number; speed?: PeerSpeed | null; self?: string | null; role?: string | null; version?: string | null; copyAt?: string | null } | null> {
+  /** Спросить соседа по HA_PEER_URL. Нет адреса — null; не ответил — healthy:false. */
+  async probePeer(verifyReady = false): Promise<PeerProbe | null> {
     const base = process.env.HA_PEER_URL?.trim().replace(/\/+$/, '');
     if (!base) return null;
     const t0 = Date.now();
     try {
-      const r = await fetch(`${base}/api/control/switch/ping`, { signal: AbortSignal.timeout(4000) });
+      const signal = AbortSignal.timeout(4000);
+      const [r, health] = await Promise.all([
+        fetch(base + '/api/control/switch/ping', { signal }),
+        verifyReady ? fetch(base + '/api/health/ready', { signal, redirect: 'error' }) : null,
+      ]);
       const ms = Date.now() - t0;
-      if (!r.ok) return { healthy: false, ms };
-      const b = (await r.json()) as Record<string, unknown>;
+      if (!r.ok || (health && !health.ok)) return { healthy: false, ms };
+      const b = (await r.json()) as Record<string, unknown> | null;
+      if (!b || typeof b !== 'object' || Array.isArray(b)) return { healthy: false, ms };
       const str = (v: unknown) => (typeof v === 'string' ? v : null);
       return {
         healthy: true, ms, speed: this.readSpeed(b.speed),
@@ -247,6 +335,8 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
       },
       bridge: { alive },
       blockers: readinessBlockers({ self: null, peerUrlSet: !!peer, peerHealthy: peer ? peer.healthy : null, copyAgeMin: age, bridgeAlive: alive }),
+      domain: EMPTY_DOMAIN,
+      switchReadiness: { state: 'unknown' as const, reasons: ['Переключение на этом сервере не настроено.'] },
       canStart: false,
       canRefresh: false,
       canEmergency: false,
@@ -258,20 +348,28 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
     const self = this.self;
     if (!self) return this.overview();
     const doc = (await this.refresh())!;
-    const [alive, version, peerSpeed] = await Promise.all([this.bridgeAlive(), this.appVersion(), this.peerSpeedCached()]);
+    const [alive, version, peerSpeed] = await Promise.all([this.bridgeAlive(), this.appVersion(), this.peerCached()]);
     const busy = jobBusy(doc.job);
-    const age = copyAgeMin(doc.peerCopyAt, Date.now());
-    const peerVersion = doc.peerVersion ?? null;
-    const blockers = readinessBlockers({ self, peerUrlSet: true, peerHealthy: doc.peerHealthy ?? null, copyAgeMin: age, bridgeAlive: alive, selfVersion: version, peerVersion });
+    const now = Date.now();
+    const age = copyAgeMin(doc.peerCopyAt, now);
+    const peerVersion = peerSpeed?.self === peerOf(self) && peerSpeed.healthy ? peerSpeed.version ?? doc.peerVersion ?? null : doc.peerVersion ?? null;
+    const domain = currentDomain(doc.domain, now);
+    const warning = recoveryWarning(doc, domain, alive);
+    const readiness = switchReadiness(doc, self, version, alive, !!process.env.HA_PEER_URL?.trim(), now, peerSpeed);
+    const config = scheduleConfig(doc, this.autoMinutes());
     return {
-      blockers,
+      blockers: readiness.reasons,
       enabled: true,
       self,
       version,
-      autoRefresh: { enabled: this.autoMinutes() > 0, minutes: this.autoMinutes(), lastAt: this.autoAt ? new Date(this.autoAt).toISOString() : null },
+      autoRefresh: {
+        enabled: config.data.enabled,
+        minutes: config.revision === 0 ? this.autoMinutes() : config.data.intervalMinutes,
+        lastAt: doc.scheduleRuntime?.data?.slotAttemptAt ?? null,
+      },
       role: doc.role,
       mode: doc.mode,
-      job: doc.job ?? null,
+      job: doc.job && warning ? { ...doc.job, warning } : doc.job ?? null,
       peer: {
         name: peerOf(self),
         version: peerVersion,
@@ -279,70 +377,124 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
         healthy: doc.peerHealthy ?? null,
         checkedAt: doc.peerCheckedAt ?? null,
       },
+      domain,
+      switchReadiness: readiness,
       bridge: { alive },
-      canStart: doc.role === 'main' && doc.mode === 'normal' && !busy && alive && !versionsConflict(version, peerVersion),
-      canRefresh: canRefreshNow(doc.role, doc.mode, busy, alive),
+      canStart: readiness.state === 'ready',
+      canRefresh: canRefreshNow(doc.role, doc.mode, busy, alive) && !refreshDomainReason(doc, self, now, false),
       canEmergency: doc.role === 'standby' && !busy && alive,
       speed: this.speedSides(self, peerSpeed),
     };
   }
 
-  /** Захват работы одним запросом к базе: кто успел, тот и владеет; второй получает 409. */
-  private async acquire(role: SwitchRole, direction: string): Promise<SwitchJob> {
-    const self = this.assertEnabled();
-    const doc = await this.refresh();
+  /** Захват работы и выбранного слота одним запросом к базе. */
+  private async acquire(
+    doc: SwitchDoc, role: SwitchRole, direction: string,
+    details: Pick<SwitchJob, 'refreshScope' | 'scheduleKeys' | 'scheduleExpiresAt'> = {},
+    filters: Record<string, unknown> = {}, extra: Record<string, unknown> = {},
+  ): Promise<SwitchJob> {
+    const reason = idleReason(doc, role);
+    if (reason) throw new ConflictException(reason);
     if (!(await this.bridgeAlive())) {
-      throw new ServiceUnavailableException('Мост переключения на сервере не запущен (cron раз в минуту). Переключение недоступно.');
+      throw new ServiceUnavailableException('Мост переключения на сервере не запущен (cron раз в минуту).');
     }
-    const job: SwitchJob = { id: randomBytes(6).toString('hex'), direction, step: 'queued', state: 'queued', startedAt: new Date().toISOString() };
-    const r = await this.col().updateOne(
-      this.filter({ role, 'job.state': { $nin: ['queued', 'running'] } }),
-      { $set: { job, updatedAt: new Date() } } as never,
+    const job: SwitchJob = {
+      id: randomBytes(6).toString('hex'), direction, step: 'queued', state: 'queued',
+      startedAt: new Date().toISOString(), ...details,
+    };
+    const result = await this.col().updateOne(
+      this.filter({
+        role, mode: doc.mode, 'job.id': doc.job?.id ?? null, 'job.state': { $nin: ['queued', 'running'] }, ...filters,
+      }),
+      { $set: { ...extra, ...refreshAttempt(job, Date.parse(job.startedAt)), job, bridgeDelivery: { jobId: job.id }, updatedAt: new Date() } } as never,
     );
-    if (r.matchedCount !== 1) {
-      if (jobBusy(doc?.job)) throw new ConflictException('Переключение уже идёт. Дождитесь окончания.');
-      throw new ConflictException(role === 'main'
-        ? `Этот сервер (${self}) сейчас не главный. Запустите переключение на главном сервере.`
-        : `Этот сервер (${self}) уже главный. Аварийный подъём не нужен.`);
-    }
+    if (result.matchedCount !== 1) throw new ConflictException('Состояние сервера изменилось. Повторите операцию после обновления страницы.');
     return job;
   }
 
-  /** Файл-запрос для хост-моста; temp + rename, чтобы мост не прочитал половину. */
-  private async writeRequest(job: SwitchJob, kind: 'switch' | 'emergency' | 'refresh', dataOnly = false) {
-    const file = path.join(this.dir, 'request');
-    const tmp = `${file}.${process.pid}.tmp`;
-    await fs.writeFile(tmp, `id=${job.id}\nkind=${kind}\nrequestedAt=${job.startedAt}\n${dataOnly ? 'code=0\n' : ''}`, { mode: 0o644 });
-    await fs.rename(tmp, file);
+  private async failJob(doc: SwitchDoc, job: SwitchJob, reason: string, now: number, safeRetry = false) {
+    const set: Record<string, unknown> = {
+      'job.state': 'failed', 'job.error': reason, 'job.finishedAt': new Date(now).toISOString(),
+      ...scheduleProgress(doc, job, 'failed', now, reason, undefined, safeRetry),
+    };
+    if (doc.role === 'main') set.mode = 'normal';
+    const result = await this.col().updateOne(
+      this.filter({ 'job.id': job.id, 'job.state': job.state, 'job.step': job.step, 'bridgeDelivery.token': doc.bridgeDelivery?.token ?? null }),
+      { $set: set } as never,
+    );
+    if (result.matchedCount === 1) this.log.warn(`Переключение ${job.id}: ${reason}`);
+    return result.matchedCount === 1;
   }
 
-  private async queue(role: SwitchRole, direction: string, kind: 'switch' | 'emergency' | 'refresh', dataOnly = false) {
-    const job = await this.acquire(role, direction);
+  /** Повторная доставка после рестарта сохраняет id той же заявки. */
+  private async reconcileDelivery(doc: SwitchDoc) {
+    const { job, bridgeDelivery: delivery } = doc;
+    if (job?.state !== 'queued' || delivery?.jobId !== job.id || delivery.delivered) return;
+    const now = Date.now();
+    if (delivery.leaseUntil && Date.parse(delivery.leaseUntil) > now) return;
+    const token = randomBytes(12).toString('hex');
+    const lease = { jobId: job.id, token, leaseUntil: new Date(now + DELIVERY_LEASE_MS).toISOString() };
+    const claim = await this.col().updateOne(
+      this.filter({ 'job.id': job.id, 'job.state': 'queued', 'bridgeDelivery.token': delivery.token ?? null, 'bridgeDelivery.delivered': { $ne: true } }),
+      { $set: { bridgeDelivery: lease } },
+    );
+    if (claim.matchedCount !== 1) return;
+
+    let delivered: boolean;
     try {
-      await this.writeRequest(job, kind, dataOnly);
-    } catch (e) {
-      await this.col().updateOne(this.filter({ 'job.id': job.id }), { $set: { job: null } } as never);
-      this.log.error(`запись заявки: ${(e as Error).message}`);
-      throw new ServiceUnavailableException('Не удалось передать заявку мосту переключения. Папка заявок недоступна.');
+      const expired = job.scheduleExpiresAt && Date.parse(job.scheduleExpiresAt) <= Date.now();
+      delivered = expired ? (await bridgeFiles(this.dir, job.id)) === 'delivered' : await publishBridgeRequest(this.dir, job);
+      if (expired && !delivered) {
+        const reason = 'Время запуска по расписанию истекло до передачи заявки мосту.';
+        if (await this.failJob({ ...doc, bridgeDelivery: lease }, job, reason, Date.now())) return reason;
+        return;
+      }
+    } catch (error) {
+      const reason = 'Не удалось передать заявку мосту переключения. Проверьте папку заявок.';
+      if (await this.failJob({ ...doc, bridgeDelivery: lease }, job, reason, Date.now(), error instanceof RequestNotPublished)) return reason;
+      return;
     }
+    await this.col().updateOne(this.filter({ 'job.id': job.id, 'bridgeDelivery.token': token }), {
+      $set: { bridgeDelivery: { jobId: job.id, delivered } },
+    });
+  }
+
+  private async deliverQueued(doc: SwitchDoc, job: SwitchJob) {
+    const reason = await this.reconcileDelivery({ ...doc, job, bridgeDelivery: { jobId: job.id } });
+    if (reason) throw new ServiceUnavailableException(reason);
     return { ok: true, job };
   }
 
   async start() {
     const self = this.assertEnabled();
-    return this.queue('main', `${self}->${peerOf(self)}`, 'switch');
+    const doc = (await this.refresh())!;
+    const reason = idleReason(doc);
+    if (reason) throw new ConflictException(reason);
+    if (!(await this.bridgeAlive())) throw new ServiceUnavailableException('Мост переключения на сервере не запущен (cron раз в минуту).');
+    const [version, probe] = await Promise.all([this.appVersion(), this.probePeer(true)]);
+    const readiness = switchReadiness(doc, self, version, true, !!process.env.HA_PEER_URL?.trim(), Date.now(), probe);
+    if (readiness.state !== 'ready') throw new ConflictException({ message: readiness.reasons, details: readiness });
+    const job = await this.acquire(doc, 'main', self + '->' + peerOf(self), {}, {
+      ...this.domainFilter(doc), peerCheckedAt: doc.peerCheckedAt, peerHealthy: true,
+    });
+    return this.deliverQueued(doc, job);
   }
 
   async emergency() {
     this.assertEnabled();
-    return this.queue('standby', 'emergency', 'emergency');
+    const doc = (await this.refresh())!;
+    const job = await this.acquire(doc, 'standby', 'emergency');
+    return this.deliverQueued(doc, job);
   }
 
-  /** Обновить запасной: код и база, без смены домена. Только с главного, тем же захватом, что и переключение. */
-  /** dataOnly — автообновление (C045 🟡4): только данные; код на запасной — кнопкой (ступенчатая выкладка). */
-  async refreshPeer(dataOnly = false) {
-    this.assertEnabled();
-    return this.queue('main', 'refresh', 'refresh', dataOnly);
+  /** Код и данные остаются режимом по умолчанию для прежних клиентов. */
+  async refreshPeer(scope: RefreshScope = 'both') {
+    const self = this.assertEnabled();
+    const doc = (await this.refresh())!;
+    const reason = idleReason(doc) ?? refreshDomainReason(doc, self, Date.now(), false);
+    if (reason) throw new ConflictException(reason);
+    const job = await this.acquire(doc, 'main', 'refresh', { refreshScope: scope }, this.domainFilter(doc));
+    return this.deliverQueued(doc, job);
   }
 
   /** Секрет моста из файла рядом с заявкой; нет файла — отчёты не принимаются. */
@@ -357,36 +509,45 @@ export class SwitchService implements OnModuleInit, OnModuleDestroy {
     const now = new Date();
     const set: Record<string, unknown> = { updatedAt: now };
     if (dto.peer) {
-      if (dto.peer.version !== undefined) set.peerVersion = dto.peer.version;
-      if (dto.peer.copyAt !== undefined) set.peerCopyAt = dto.peer.copyAt;
-      if (dto.peer.healthy !== undefined) set.peerHealthy = dto.peer.healthy;
-      set.peerCheckedAt = now.toISOString();
+      if (dto.peer.version !== undefined && dto.peer.version !== null) set.peerVersion = dto.peer.version;
+      if (dto.peer.copyAt !== undefined && dto.peer.copyAt !== null) set.peerCopyAt = dto.peer.copyAt;
+      if (dto.peer.healthy !== undefined && dto.peer.healthy !== null) {
+        set.peerHealthy = dto.peer.healthy;
+        set.peerCheckedAt = now.toISOString();
+      }
     }
+    if (dto.domain) set.domain = dto.domain;
     const doc = await this.load(self);
+    let conditions: Record<string, unknown> = {};
     if (dto.id === 'self') {
-      // вернувшийся старый главный: мост, увидев домен не у нас, просит стать запасным (работы при этом нет)
       if (jobBusy(doc.job)) throw new ConflictException('Идёт переключение');
+      conditions = { 'job.state': { $nin: ['queued', 'running'] } };
       if (dto.role) set.role = dto.role;
       if (dto.mode) set.mode = dto.mode;
     } else if (dto.id !== 'peer') {
       const job = doc.job;
       if (!job || job.id !== dto.id) throw new ConflictException('Это отчёт о другой работе');
-      const state = dto.state ?? 'running';
-      // C135: завершённую работу не переписываем — 16.11 повторный запуск моста записал «сбой» поверх «готово»
       if (!jobBusy(job)) throw new ConflictException('Работа уже завершена');
-      if (dto.step) set['job.step'] = dto.step;
-      set['job.state'] = state;
-      if (state === 'failed') set['job.error'] = (dto.error ?? 'Переключение не удалось').slice(0, 2000);
-      else if (dto.error) set['job.error'] = dto.error.slice(0, 2000); // предупреждение, не провал
-      if (state !== 'running') set['job.finishedAt'] = now.toISOString();
-      if (state === 'failed' && doc.role === 'main') set.mode = 'normal'; // неудача до переключения: сайт снова пишет
+      const state = dto.state ?? 'running';
+      const warning = dto.warning ?? (state === 'failed' ? undefined : dto.error);
+      const error = state === 'failed' ? (dto.error ?? 'Переключение не удалось').slice(0, 2000) : undefined;
+      const next = { ...job, step: dto.step ?? job.step, state };
+      if (warning) next.warning = warning.slice(0, 2000);
+      if (error) next.error = error;
+      else if (state === 'running' && dto.error) next.error = dto.error.slice(0, 2000); // Совместимость прежнего экрана.
+      else delete next.error;
+      if (state !== 'running') next.finishedAt = now.toISOString();
+      set.job = next;
+      const safeRetry = state === 'failed' && dto.step === 'preflight' && ['queued', 'preflight'].includes(job.step);
+      Object.assign(set, scheduleProgress(doc, job, state, now.getTime(), error, warning, safeRetry));
+      if (state === 'failed' && doc.role === 'main') set.mode = 'normal';
       if (dto.role) set.role = dto.role;
       if (dto.mode) set.mode = dto.mode;
+      conditions = { 'job.id': dto.id, 'job.state': job.state, 'job.step': job.step };
     }
-    const filter = dto.id === 'peer' || dto.id === 'self' ? this.filter() : this.filter({ 'job.id': dto.id });
-    const r = await this.col().updateOne(filter, { $set: set } as never);
-    if (r.matchedCount !== 1) throw new ConflictException('Работа изменилась во время отчёта');
-    const fresh = (await this.col().findOne(this.filter()))! as SwitchDoc;
+    const result = await this.col().updateOne(this.filter(conditions), { $set: set } as never);
+    if (result.matchedCount !== 1) throw new ConflictException('Работа изменилась во время отчёта');
+    const fresh = (await this.col().findOne(this.filter()))!;
     this.remember(fresh);
     return { ok: true, role: fresh.role, mode: fresh.mode, job: fresh.job ?? null };
   }

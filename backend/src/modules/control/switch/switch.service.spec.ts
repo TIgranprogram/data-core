@@ -23,6 +23,17 @@ const call = (sw: SwitchService, method: string, url: string) => {
   return { r, next };
 };
 
+const ready = async (sw: SwitchService) => {
+  process.env.HA_PEER_URL = 'http://peer.test';
+  const at = new Date().toISOString();
+  jest.spyOn(sw, 'appVersion').mockResolvedValue('v1.390');
+  jest.spyOn(sw, 'probePeer').mockResolvedValue({ healthy: true, self: 'office', role: 'standby', version: 'v1.390', copyAt: at });
+  await sw.report({
+    id: 'peer', peer: { version: 'v1.390', copyAt: at, healthy: true },
+    domain: { owner: 'home', homeHealthy: true, officeHealthy: true, checkedAt: at },
+  }, 'S3CRET', false);
+};
+
 describe('SwitchService и режим «только чтение»', () => {
   let dir: string;
   beforeEach(async () => {
@@ -33,7 +44,7 @@ describe('SwitchService и режим «только чтение»', () => {
     await fs.writeFile(path.join(dir, 'secret'), 'S3CRET\n');
   });
   afterEach(async () => {
-    delete process.env.HA_SELF; delete process.env.HA_SWITCH_DIR;
+    delete process.env.HA_SELF; delete process.env.HA_SWITCH_DIR; delete process.env.HA_PEER_URL; delete process.env.HA_AUTO_REFRESH_MIN;
     await fs.rm(dir, { recursive: true, force: true });
   });
 
@@ -120,6 +131,7 @@ describe('SwitchService и режим «только чтение»', () => {
 
   it('двойной старт: второй получает 409, заявка записана один раз', async () => {
     const { sw, doc } = make();
+    await ready(sw);
     const a = await sw.start();
     expect(a.job.direction).toBe('home->office');
     expect(await fs.readFile(path.join(dir, 'request'), 'utf8')).toContain(`id=${a.job.id}`);
@@ -151,7 +163,7 @@ describe('SwitchService и режим «только чтение»', () => {
     const { sw, doc } = make();
     const st = await sw.status() as { canRefresh: boolean; canStart: boolean };
     expect(st.canRefresh).toBe(true);
-    expect(st.canStart).toBe(true);
+    expect(st.canStart).toBe(false);
     const r = await sw.refreshPeer();
     expect(r.job.direction).toBe('refresh');
     expect(await fs.readFile(path.join(dir, 'request'), 'utf8')).toContain('kind=refresh');
@@ -174,6 +186,7 @@ describe('SwitchService и режим «только чтение»', () => {
 
   it('отчёт: без секрета и через прокси — 403; по секрету меняет шаг, режим и роль', async () => {
     const { sw, doc } = make();
+    await ready(sw);
     const { job } = await sw.start();
     await expect(sw.report({ id: job.id, step: 'x' }, undefined, false)).rejects.toThrow('только от моста');
     await expect(sw.report({ id: job.id, step: 'x' }, 'S3CRET', true)).rejects.toThrow('только от моста');
@@ -192,11 +205,13 @@ describe('SwitchService и режим «только чтение»', () => {
 
   it('ошибка до переключения возвращает обычный режим и сохраняет текст', async () => {
     const { sw, doc } = make();
+    await ready(sw);
     const { job } = await sw.start();
     await sw.report({ id: job.id, step: 'readonly', mode: 'readonly' }, 'S3CRET', false);
     await sw.report({ id: job.id, step: 'dump', state: 'failed', error: 'нет места' }, 'S3CRET', false);
     expect(doc()).toMatchObject({ mode: 'normal', role: 'main', job: { state: 'failed', error: 'нет места' } });
     expect(sw.isReadOnly()).toBe(false);
+    await fs.rm(path.join(dir, 'request'));
     await sw.start(); // после провала можно запускать снова
   });
 
@@ -206,13 +221,14 @@ describe('SwitchService и режим «только чтение»', () => {
     expect(doc()).toMatchObject({ role: 'standby', mode: 'readonly' });
     expect(sw.isReadOnly()).toBe(true);
     doc().role = 'main'; doc().mode = 'normal';
-    await sw.refresh();
+    await ready(sw);
     await sw.start();
     await expect(sw.report({ id: 'self', role: 'standby' }, 'S3CRET', false)).rejects.toThrow('Идёт переключение');
   });
 
   it('предупреждение моста попадает в job.error без провала', async () => {
     const { sw, doc } = make();
+    await ready(sw);
     const { job } = await sw.start();
     await sw.report({ id: job.id, step: 'preflight', state: 'running', error: 'CRM kppdf запущена' }, 'S3CRET', false);
     expect(doc().job).toMatchObject({ state: 'running', error: 'CRM kppdf запущена' });
@@ -223,11 +239,12 @@ describe('SwitchService и режим «только чтение»', () => {
     await sw.report({ id: 'peer', peer: { version: 'v1.390', copyAt: new Date(Date.now() - 3 * 60_000).toISOString(), healthy: true } }, 'S3CRET', false);
     const st = await sw.status();
     expect(st.peer).toMatchObject({ name: 'office', version: 'v1.390', healthy: true, copyAgeMin: 3 });
-    expect(st).toMatchObject({ self: 'home', role: 'main', canStart: true, canRefresh: true, canEmergency: false });
+    expect(st).toMatchObject({ self: 'home', role: 'main', canStart: false, canRefresh: true, canEmergency: false, switchReadiness: { state: 'unknown' } });
   });
 
   it('идущая работа при живом мосте не бросается по возрасту; без моста — снимает «только чтение»', async () => {
     const { sw, doc } = make();
+    await ready(sw);
     const { job } = await sw.start();
     await sw.report({ id: job.id, step: 'readonly', mode: 'readonly' }, 'S3CRET', false);
     doc().job.startedAt = new Date(Date.now() - 600 * 60_000).toISOString();
@@ -237,5 +254,90 @@ describe('SwitchService и режим «только чтение»', () => {
     await sw.refresh();
     expect(doc()).toMatchObject({ mode: 'normal', job: { state: 'failed' } });
     expect(sw.isReadOnly()).toBe(false);
+  });
+
+  it('при потере heartbeat во время VPS сохраняет readonly до подтверждения от моста', async () => {
+    const { sw, doc } = make();
+    await ready(sw);
+    const { job } = await sw.start();
+    await sw.report({ id: job.id, step: 'vps', state: 'running', mode: 'readonly' }, 'S3CRET', false);
+    await fs.rm(path.join(dir, 'alive'));
+    await sw.refresh();
+    expect(doc()).toMatchObject({ mode: 'readonly', job: { state: 'running', step: 'vps' } });
+    expect(sw.isReadOnly()).toBe(true);
+    const summary = await sw.status();
+    expect(summary).toMatchObject({
+      canStart: false, canRefresh: false,
+      job: { warning: expect.stringContaining('ещё не подтверждён') },
+      switchReadiness: { reasons: expect.arrayContaining([expect.stringContaining('Дождитесь восстановления')]) },
+    });
+    await expect(sw.refreshPeer()).rejects.toThrow('уже идёт');
+    await sw.report({ id: job.id, step: 'finish', state: 'done', role: 'standby', mode: 'readonly' }, 'S3CRET', false);
+    expect(doc()).toMatchObject({ role: 'standby', mode: 'readonly', job: { state: 'done' } });
+  });
+
+  it('legacy env сохраняет автоматическое обновление только данных, паузу и последнее время после рестарта', async () => {
+    const { sw, db } = make();
+    const restarted = new SwitchService({ db: { collection: (name: string) => db.collection(name) } } as never);
+    const at = new Date(Date.now() - 20 * 60_000).toISOString();
+    await sw.report({ id: 'peer', peer: { healthy: true, copyAt: at } }, 'S3CRET', false);
+    process.env.HA_AUTO_REFRESH_MIN = '0';
+    expect(await sw.getSchedule()).toMatchObject({ revision: 0, data: { enabled: false }, code: { enabled: false } });
+    expect((await sw.autoRefresh()).queued).toBe(false);
+    process.env.HA_AUTO_REFRESH_MIN = '10';
+    expect((await sw.autoRefresh()).queued).toBe(true);
+    const file = path.join(dir, 'request');
+    expect(await fs.readFile(file, 'utf8')).toContain('code=0');
+    const job = (await sw.refresh())!.job!;
+    await fs.rm(file);
+    await sw.report({ id: job.id, state: 'done' }, 'S3CRET', false);
+    expect((await restarted.autoRefresh()).queued).toBe(false);
+    expect(await restarted.getSchedule()).toMatchObject({ runs: { data: { lastState: 'done', lastSuccessAt: expect.any(String) } } });
+  });
+
+  it('после ошибки публикации остаётся failed; разрешён один повтор, сбой restore завершает слот', async () => {
+    const { sw, doc } = make();
+    await sw.refresh();
+    const minute = 60_000;
+    const midnight = Date.parse('2026-11-16T00:00:00Z');
+    const now = midnight + minute;
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+    const failLink = jest.spyOn(fs, 'link').mockRejectedValueOnce(Object.assign(new Error('нет прав'), { code: 'EACCES' }));
+    try {
+      doc().scheduleConfig = {
+        revision: 1, timezone: 'Europe/Moscow', savedAt: new Date(midnight - minute).toISOString(),
+        data: { enabled: false, mode: 'interval', intervalMinutes: 15, days: [], time: '03:00' },
+        code: { enabled: true, days: [1], time: '03:00' },
+      };
+      const checked = new Date(now).toISOString();
+      doc().domain = { owner: 'home', homeHealthy: true, officeHealthy: true, checkedAt: checked };
+      doc().peerCheckedAt = checked;
+      doc().peerHealthy = true;
+      const alive = path.join(dir, 'alive');
+      const heartbeat = async (at: number) => fs.utimes(alive, new Date(at), new Date(at));
+      await heartbeat(now);
+      expect((await sw.autoRefresh()).queued).toBe(false);
+      const failed = doc().job;
+      expect(failed).toMatchObject({ state: 'failed', error: expect.stringContaining('папку заявок') });
+      expect(doc().scheduleRuntime.code).toMatchObject({ lastState: 'failed', nextRetryAt: new Date(now + 3 * minute).toISOString() });
+      clock.mockReturnValue(now + 2 * minute);
+      expect((await sw.autoRefresh()).queued).toBe(false);
+      clock.mockReturnValue(now + 3 * minute);
+      await heartbeat(now + 3 * minute);
+      expect((await sw.autoRefresh()).queued).toBe(true);
+      const job = doc().job;
+      expect(job.id).not.toBe(failed.id);
+      expect(job.scheduleKeys).toEqual(failed.scheduleKeys);
+      expect(await fs.readFile(path.join(dir, 'request'), 'utf8')).not.toContain('code=0');
+      expect((await sw.autoRefresh()).queued).toBe(false); // другая операция не начинается, пока этот job занят
+      await fs.rm(path.join(dir, 'request'));
+      await sw.report({ id: job.id, step: 'restore', state: 'running' }, 'S3CRET', false);
+      clock.mockReturnValue(now + 7 * minute); // heartbeat этого моста устарел
+      await sw.refresh();
+      expect(doc().scheduleRuntime.code).toMatchObject({ attempts: 2, lastState: 'failed', nextRetryAt: null, lastError: expect.stringContaining('перестал отвечать') });
+    } finally {
+      failLink.mockRestore();
+      clock.mockRestore();
+    }
   });
 });

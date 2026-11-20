@@ -3,6 +3,7 @@
  * Весь механизм включается только переменной HA_SELF=home|office; без неё сервер ведёт себя как раньше.
  */
 import { timingSafeEqual } from 'crypto';
+import type { RefreshScope, ScheduleConfig, ScheduleKeys, ScheduleRuntime } from './schedule.rules';
 
 export type SwitchSelf = 'home' | 'office';
 export type SwitchMode = 'normal' | 'readonly';
@@ -18,7 +19,20 @@ export interface SwitchJob {
   startedAt: string;
   finishedAt?: string;
   error?: string;
+  warning?: string;
+  refreshScope?: RefreshScope;
+  scheduleKeys?: ScheduleKeys;
+  scheduleExpiresAt?: string;
 }
+
+export type SwitchDomain = {
+  owner: SwitchSelf | null;
+  homeHealthy: boolean | null;
+  officeHealthy: boolean | null;
+  checkedAt: string | null;
+};
+
+export type BridgeDelivery = { jobId: string; leaseUntil?: string; token?: string; delivered?: boolean };
 
 export interface SwitchDoc {
   mode: SwitchMode;
@@ -28,6 +42,10 @@ export interface SwitchDoc {
   peerCopyAt?: string;
   peerHealthy?: boolean;
   peerCheckedAt?: string;
+  domain?: SwitchDomain;
+  scheduleConfig?: ScheduleConfig;
+  scheduleRuntime?: ScheduleRuntime;
+  bridgeDelivery?: BridgeDelivery;
 }
 
 /** Кэш режима живёт 2 с: запрос на запись не ходит в базу. */
@@ -101,13 +119,20 @@ export function canRefreshNow(role: SwitchRole, mode: SwitchMode, busy: boolean,
   return role === 'main' && mode === 'normal' && !busy && bridgeAlive;
 }
 
+/** Переход домена может быть применён. Нужен подтверждённый результат от моста. */
+export function domainTransition(job: SwitchJob | null | undefined): boolean {
+  return job?.state === 'running' && job.direction !== 'refresh' && ['promote', 'vps'].includes(job.step);
+}
+
 /**
  * Брошена ли работа: запрос ждёт моста дольше 10 минут, либо работа идёт, а мост молчит (файл alive старше 3 минут).
- * По возрасту идущая работа НЕ бросается: мост сам ограничивает «только чтение» десятью минутами.
+ * После повышения второго сервера завершить работу может только мост, сверив VPS и роли.
+ * По возрасту идущая работа не бросается: мост сам ограничивает длительность этапов.
  * Возвращает текст причины или null.
  */
 export function staleReason(job: SwitchJob | null | undefined, now: number, bridgeAlive = true): string | null {
   if (!job || !jobBusy(job)) return null;
+  if (domainTransition(job)) return null;
   const age = isoAge(job.startedAt, now);
   if (age === null) return 'Нет времени начала';
   if (job.state === 'queued' && age > QUEUED_MAX_MS) return 'Мост переключения не откликнулся за 10 минут. Проверьте cron на сервере.';
@@ -141,35 +166,6 @@ export function versionLabel(json: unknown): string | null {
 /** Версии кода на серверах разошлись (сравниваем, только когда обе известны). */
 export const versionsConflict = (self: string | null | undefined, peer: string | null | undefined): boolean =>
   !!self && !!peer && self !== peer;
-
-export interface AutoRefreshInput {
-  role: SwitchRole;
-  mode: SwitchMode;
-  busy: boolean;
-  bridgeAlive: boolean;
-  peerHealthy: boolean | null;
-  /** Возраст копии на запасном, минут; null — неизвестен (обновлять нужно). */
-  copyAgeMin: number | null;
-  /** Когда последний раз сами ставили авто-обновление (мс); 0 — не ставили. */
-  lastAutoAt: number;
-  now: number;
-  /** Минуты между обновлениями; 0 — выключено. */
-  minutes?: number;
-}
-
-/** Пора ли главному самому обновить копию у запасного (C042-A3): только главный, обычный режим, нет работы, мост жив. */
-export function autoRefreshDue(i: AutoRefreshInput): { due: boolean; reason: string } {
-  const min = i.minutes ?? AUTO_REFRESH_MIN;
-  if (!(min > 0)) return { due: false, reason: 'автообновление выключено' };
-  if (i.role !== 'main') return { due: false, reason: 'этот сервер запасной' };
-  if (i.mode !== 'normal') return { due: false, reason: 'режим «только чтение»' };
-  if (i.busy) return { due: false, reason: 'идёт работа переключения' };
-  if (!i.bridgeAlive) return { due: false, reason: 'мост переключения не запущен' };
-  if (i.peerHealthy !== true) return { due: false, reason: 'второй сервер не отвечает' };
-  if (i.lastAutoAt && i.now - i.lastAutoAt < min * 60_000) return { due: false, reason: 'рано: прошлое автообновление недавно' };
-  if (i.copyAgeMin !== null && i.copyAgeMin < min) return { due: false, reason: 'копия свежая' };
-  return { due: true, reason: i.copyAgeMin === null ? 'копия неизвестна — обновляем' : `копия ${Math.round(i.copyAgeMin)} мин` };
-}
 
 export interface ReadinessInput {
   self: SwitchSelf | null;

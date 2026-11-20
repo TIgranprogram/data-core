@@ -135,6 +135,7 @@ import { RequestMethod } from '@nestjs/common';
             paths: [
               'req.headers.authorization',
               'req.headers["x-api-key"]',
+              'req.headers["x-switch-secret"]',
               'req.headers.cookie',
               'res.headers["set-cookie"]',
               'password',

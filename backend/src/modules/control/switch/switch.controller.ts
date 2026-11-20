@@ -1,9 +1,9 @@
-import { Body, Controller, Get, Headers, HttpCode, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Post, Put, Req } from '@nestjs/common';
 import { ApiHeader, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { Public } from '../../../common/decorators/public.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
-import { EmergencySwitchDto, StartSwitchDto, SwitchReportDto } from './switch.dto';
+import { EmergencySwitchDto, RefreshSwitchDto, SaveSwitchScheduleDto, StartSwitchDto, SwitchReportDto } from './switch.dto';
 import { SwitchService } from './switch.service';
 
 /** «Переключить сейчас»: какой сервер главный, запуск переключения. Без HA_SELF в .env GET / и /ping — обзор (enabled:false, blockers), остальные маршруты 404. */
@@ -15,10 +15,25 @@ export class SwitchController {
   @Get()
   @Roles('admin')
   @ApiOperation({ summary: 'Состояние переключения: кто главный, режим, работа, готовность второго сервера' })
-  @ApiResponse({ status: 200, description: '{ enabled, self:home|office, version, autoRefresh:{enabled,minutes,lastAt}, role:main|standby, mode:normal|readonly, job:{id,direction,step,state,startedAt,finishedAt?,error?}|null, peer:{name,version,copyAgeMin,healthy,checkedAt}, bridge:{alive}, blockers:[строки], canStart, canRefresh, canEmergency, speed:{home,office}:{p50,p95,requests,slow,probeMs} }; version — сборка этого сервера (из pwa/version.json), версии соседа и своей сравниваются: разные — blockers и canStart=false (C042-A5); autoRefresh — авто-«Обновить» копии на главном (C042-A3). direction=refresh, пока идёт обновление запасного. canRefresh = главный + обычный режим + нет работы + мост жив (blockers не входят). Без HA_SELF — enabled:false и обзор соседа по HA_PEER_URL. speed не меняет переключение.' })
+  @ApiResponse({ status: 200, description: '{ enabled, self:home|office, version, autoRefresh:{enabled,minutes,lastAt}, role:main|standby, mode:normal|readonly, job:{id,direction,step,state,startedAt,finishedAt?,error?}|null, peer:{name,version,copyAgeMin,healthy,checkedAt}, bridge:{alive}, blockers:[строки], canStart, canRefresh, canEmergency, domain:{owner,homeHealthy,officeHealthy,checkedAt}, switchReadiness:{state,reasons}, speed:{home,office}:{p50,p95,requests,slow,probeMs} }; version — сборка этого сервера (из pwa/version.json), версии соседа и своей сравниваются: разные — blockers и canStart=false (C042-A5); autoRefresh — авто-«Обновить» копии на главном (C042-A3). direction=refresh, пока идёт обновление запасного. canRefresh = главный + обычный режим + нет работы + мост жив (blockers не входят). Без HA_SELF — enabled:false и обзор соседа по HA_PEER_URL. speed не меняет переключение.' })
   
   status() {
     return this.service.status();
+  }
+
+  @Get('schedule')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Расписания обновления запасного сервера и результаты последних запусков' })
+  getSchedule() {
+    return this.service.getSchedule();
+  }
+
+  @Put('schedule')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Сохранить расписания на главном сервере с проверкой ревизии' })
+  @ApiResponse({ status: 409, description: 'Ревизия уже изменилась, сервер запасной или идёт работа' })
+  saveSchedule(@Body() dto: SaveSwitchScheduleDto) {
+    return this.service.saveSchedule(dto);
   }
 
   @Get('ping')
@@ -42,13 +57,12 @@ export class SwitchController {
 
   @Post('refresh')
   @Roles('admin')
-  @ApiOperation({ summary: 'Обновить запасной: код и база, без смены домена. Повтор, пока идёт работа, — 409' })
+  @ApiOperation({ summary: 'Обновить запасной: код и база, без смены домена. Объём: данные или код и данные. Повтор, пока идёт работа, — 409' })
   @ApiResponse({ status: 201, description: '{ ok:true, job }; direction=refresh' })
   @ApiResponse({ status: 409, description: 'Уже идёт работа или этот сервер не главный' })
   @ApiResponse({ status: 503, description: 'Мост переключения не запущен' })
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- тело нужно только для проверки confirm
-  refresh(@Body() _dto: StartSwitchDto) {
-    return this.service.refreshPeer();
+  refresh(@Body() dto: RefreshSwitchDto) {
+    return this.service.refreshPeer(dto.scope);
   }
 
   @Post('emergency')
