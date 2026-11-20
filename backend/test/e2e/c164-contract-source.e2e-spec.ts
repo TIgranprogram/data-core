@@ -32,6 +32,11 @@ describe('C164 клиентский источник',()=>{
   const replay=await call().post('/api/salesorders').set(auth()).send({...p,intakeUid:'another-uid'}).expect(201);expect(replay.body.id).toBe(order);
   await call().post('/api/salesorders').set(auth()).send({...p,notes:'изменено'}).expect(409);
  });
+ it('CREATE источника не обходит сопоставление через производственный stage',async()=>{
+  const p=payload('create-stage');
+  for(const stage of ['production','ready','closed'])await call().post('/api/salesorders').set(auth()).send({...p,stage}).expect(400);
+  expect(await db().collection('salesorders').countDocuments({orderNo:p.orderNo})).toBe(0);
+ });
  it('DELETE привязанного оригинала409, PhotoID/байты/SHAсохранены',async()=>{
   await call().delete('/api/photos/'+file).set(auth()).expect(409);
   expect((await db().collection('photos').findOne({_id:new Types.ObjectId(file)}))?.deletedAt).toBeNull();

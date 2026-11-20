@@ -381,6 +381,9 @@ export class SalesOrdersService {
   }
 
   async create(dto: SalesOrderDto, userId?: string) {
+    if (dto.initialLegal && dto.stage && dto.stage !== 'new') {
+      throw new BadRequestException('Исходный договор сначала сохраняется как новый; запуск производства выполняется после сопоставления позиций');
+    }
     const {f,companyShort}=await this.toFields(dto);
     const selectedCompany=f.companyId?String(f.companyId):'';
     let source:Doc={};

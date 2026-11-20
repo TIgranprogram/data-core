@@ -54,12 +54,13 @@ describe('C164 — доступ и ручная группировка юрид�
   expect(JSON.stringify(offerView)).not.toContain('C164_PRIVATE_EXCLUSION');expect(JSON.stringify(offerView)).not.toContain('C164_PRIVATE_VERSION');
   await http().get('/api/offers/'+o.id+'/pdf').set(a).expect(403);
  });
- it('два договора после ручного сопоставления попадают в один заказ без смены исходников и новых заданий',async()=>{
+ it('два manual договора группируются до сопоставления, но производство ждёт подтверждения без смены исходников и заданий',async()=>{
   const before=await db().collection('incomes').find({_id:{$in:lines.map(x=>new Types.ObjectId(x))}}).toArray();
   const tasks=await db().collection('designtasks').countDocuments({});
-  await http().post('/api/production-orders/assign').set(auth()).send({contractIds:ids}).expect(400);
-  for(const lineId of lines) await http().post('/api/matching/none').set(auth()).send({lineId}).expect(200);
   const assigned=await http().post('/api/production-orders/assign').set(auth()).send({contractIds:ids}).expect(200);
+  await http().post('/api/production-orders/'+encodeURIComponent(assigned.body.productionNo)+'/stage').set(auth()).send({stage:'production'}).expect(400);
+  // Синтетические строки «Доставка» менеджер явно отмечает как не изделие.
+  for(const lineId of lines) await http().post('/api/matching/none').set(auth()).send({lineId}).expect(200);
   expect(assigned.body.productionNo).toBeTruthy();expect(new Set(assigned.body.orderIds)).toEqual(new Set(ids));
   for(let i=0;i<ids.length;i++) {
    const head=(await http().get('/api/salesorders/'+ids[i]).set(auth()).expect(200)).body;
