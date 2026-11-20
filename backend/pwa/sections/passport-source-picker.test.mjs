@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 
 const code = readFileSync(new URL('./passport-source-picker.js', import.meta.url), 'utf8')
   .replace(/^import .*?;\r?\n/gm, '').replace(/^export /gm, '');
@@ -71,4 +72,56 @@ test('скачивание запрашивает тикет текущего в
   await s.sandbox.downloadSelectedPassport('order', 'line', { contextToken: 'current', attachment: { originalName: 'Паспорт.pdf' } });
   assert.deepEqual(s.calls[0], { path: '/passports/order/order/lines/line/source/download-ticket', options: { method: 'POST', body: { contextToken: 'current' } } });
   assert.equal(s.downloads[0].href, '/db/api/files/chosen');
+});
+
+test('DOM: настоящий openCard открывает вложенный выбор, подтверждает файл и возвращает в позицию', async () => {
+  const { chromium } = await import('../../../tools/design-checks/node_modules/playwright-core/index.mjs');
+  const { findBrowser } = await import('../../../tools/browser-path.mjs');
+  const browser = await chromium.launch({ executablePath: findBrowser(), headless: true });
+  const errors = [], calls = [];
+  const root = new URL('../', import.meta.url);
+  try {
+    const page = await browser.newPage({ viewport: { width: 1024, height: 900 } });
+    page.setDefaultTimeout(5000);
+    page.on('pageerror', (e) => errors.push(e.message));
+    // Как auto-more.test: реальный граф JS/CSS, локальные ответы через route, без входа/стенда.
+    await page.route('**/*', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.origin !== 'http://picker.test') return route.abort();
+      if (url.pathname.startsWith('/api/')) {
+        const method = route.request().method();
+        calls.push({ path: url.pathname, method, body: method === 'PUT' ? route.request().postDataJSON() : null });
+        const source = { selection: { mode: 'site', revision: 7 }, contextToken: 'baseline-7', sitePassports: [] };
+        const body = url.pathname.endsWith('/candidates') ? { items: [{ id: 'file', originalName: 'Паспорт песочницы.pdf', typeName: 'Паспорта', available: true, selectionGeneration: 2 }], total: 1, page: 1, limit: 20 } : source;
+        return route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
+      }
+      if (url.pathname === '/app/') return route.fulfill({ contentType: 'text/html', body: '<!doctype html><html lang="ru"><head><link rel="stylesheet" href="/app/ui/tokens.css"><link rel="stylesheet" href="/app/ui/base.css"><link rel="stylesheet" href="/app/ui/list.css"><link rel="stylesheet" href="/app/ui/form.css"><link rel="stylesheet" href="/app/ui/panels.css"><link rel="stylesheet" href="/app/ui/kit/kit.css"></head><body></body></html>' });
+      if (!url.pathname.startsWith('/app/') || url.pathname.includes('..')) return route.fulfill({ status: 404 });
+      return route.fulfill({ contentType: url.pathname.endsWith('.css') ? 'text/css' : 'text/javascript', body: await readFile(new URL(url.pathname.slice(5), root)) });
+    });
+    await page.goto('http://picker.test/app/#docs?of=orderpass&open=order');
+    await page.evaluate(async () => {
+      const kit = await import('/app/ui/kit/index.js');
+      const { openPassportSourcePicker } = await import('/app/sections/passport-source-picker.js');
+      const { session } = await import('/app/core/api.js');
+      session.user = { role: 'manager' }; window.saved = 0;
+      kit.openCard({ id: 'fixture', title: 'Позиция', popout: false, get: async () => ({}), canEdit: () => false,
+        card: { heading: () => 'Позиция заказа', noHistory: true, view: () => [], extra: () => kit.button({
+          label: 'Выбрать вложенный паспорт', onClick: (e) => openPassportSourcePicker('order', 'line', { parent: e.currentTarget.closest('.drawer'), onSaved: () => { window.saved++; } }),
+        }) },
+      }, { id: 'line' }, { changed() {}, close() {} });
+    });
+    await page.getByRole('button', { name: 'Выбрать вложенный паспорт', exact: true }).click();
+    await page.getByRole('heading', { name: 'Выбрать вложенный паспорт', exact: true }).waitFor();
+    await page.locator('.k-sec').filter({ hasText: 'Паспорт песочницы.pdf' }).waitFor();
+    assert.equal(await page.locator('.drawer:not([hidden])').count(), 1);
+    await page.getByRole('button', { name: 'Использовать как паспорт', exact: true }).click();
+    await page.locator('.modal-back').getByRole('button', { name: 'Использовать как паспорт', exact: true }).click();
+    await page.waitForFunction(() => window.saved === 1);
+    await page.getByRole('heading', { name: 'Позиция заказа', exact: true }).waitFor({ state: 'visible' });
+    assert.equal(await page.locator('.drawer').count(), 1);
+    assert.deepEqual(errors, []);
+    assert.equal(calls.filter((c) => c.method === 'GET').length, 2);
+    assert.deepEqual(calls.filter((c) => c.method === 'PUT'), [{ path: '/api/passports/order/order/lines/line/source', method: 'PUT', body: { mode: 'attachment', expectedRevision: 7, contextToken: 'baseline-7', attachmentId: 'file', expectedAttachmentGeneration: 2, confirm: true } }]);
+  } finally { await browser.close(); }
 });

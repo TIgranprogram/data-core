@@ -81,7 +81,7 @@ export function openPassportSourcePicker(orderId, incomeId, { parent, onSaved } 
   });
   handle = kit.openCard({ id: 'passport-source', title: 'Выбрать вложенный паспорт', popout: false,
     get: async () => ({}), canEdit: () => false,
-    card: { noHistory: true, view: () => [], extra: () => { load(); return content; } },
+    card: { heading: () => 'Выбрать вложенный паспорт', noHistory: true, view: () => [], extra: () => { load(); return content; } },
   }, { id: incomeId, parent }, { changed() {}, close() { stop(); } });
   return handle;
 }

@@ -22,8 +22,8 @@ export function missingName(m) {
 const lowerFirst = (s) => (s && !/^[A-ZА-ЯЁ]{2}/.test(s) ? s[0].toLowerCase() + s.slice(1) : s);
 const upperFirst = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
-/** Причины позиции → «Фото изделия, чертёж с размерами, габариты и ещё 2». max — сколько названий показать. */
-export function shortMissing(missing, max = 4) {
+/** Общий разбор видимых причин и количества скрытых серверным маркером. */
+function missingParts(missing) {
   const names = [];
   const seen = new Set();
   let extra = 0;
@@ -36,6 +36,19 @@ export function shortMissing(missing, max = 4) {
     seen.add(key);
     names.push(n);
   }
+  return { names, extra };
+}
+
+/** Число уникальных причин, включая скрытые сервером «и ещё N». */
+export function missingCount(missing) {
+  const { names, extra } = missingParts(missing);
+  return names.length + extra;
+}
+
+/** Причины позиции → «Фото изделия, чертёж с размерами, габариты и ещё 2». max — сколько названий показать. */
+export function shortMissing(missing, max = 4) {
+  const { names, extra: hidden } = missingParts(missing);
+  let extra = hidden;
   if (names.length > max) { extra += names.length - max; names.length = max; }
   if (!names.length) return extra ? `ещё ${extra}` : '';
   const text = names.map((n, i) => (i ? lowerFirst(n) : upperFirst(n))).join(', ');

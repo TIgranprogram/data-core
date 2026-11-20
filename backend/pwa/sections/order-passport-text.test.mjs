@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { missingName, shortMissing, summaryText } from './order-passport-text.js';
+import { missingCount, missingName, shortMissing, summaryText } from './order-passport-text.js';
 
 test('missingName: служебная фраза → название', () => {
   assert.equal(missingName('Обязательный рисунок не читается: Фото изделия. Загрузите изображение заново'), 'Фото изделия');
@@ -22,6 +22,22 @@ test('shortMissing: «и ещё N» от сервера и лишнее свер
   assert.equal(shortMissing(['Габариты', 'Вес', 'и ещё 1']), 'Габариты, вес и ещё 1');
   assert.equal(shortMissing(['А', 'Б', 'В', 'Г', 'Д', 'и ещё 2']), 'А, б, в, г и ещё 3');
   assert.equal(shortMissing([]), '');
+});
+
+test('missingCount: серверный свёрнутый маркер и описание дают одно число причин', () => {
+  const missing = ['Фото изделия', 'Габариты', 'Вес', 'Материалы', 'Монтаж', 'и ещё 5'];
+  assert.equal(missing.length, 6);
+  assert.equal(missingCount(missing), 10);
+  assert.equal(shortMissing(missing), 'Фото изделия, габариты, вес, материалы и ещё 6');
+  assert.equal(missingCount(['и ещё 6']), 6);
+  assert.equal(missingCount([]), 0);
+  assert.equal(missingCount(), 0);
+});
+
+test('missingCount: нормализованные повторы не увеличивают число и shortMissing', () => {
+  const missing = ['Фото изделия: файл на сервере пропал', 'фото изделия', 'Рисунок: Чертёж с размерами', 'Чертёж с размерами', '', null, 'и ещё 3'];
+  assert.equal(missingCount(missing), 5);
+  assert.equal(shortMissing(missing), 'Фото изделия, чертёж с размерами и ещё 3');
 });
 
 test('summaryText: без перечня причин', () => {

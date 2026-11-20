@@ -8,7 +8,7 @@ import { canWorkPassport as canEdit } from './passports/common.js';
 import { ORDER_FORMATS, printQuery } from './passports/print-options.js';
 import { displayName } from './passports/fill/model.js';
 import { bookVariants, variantName } from './passports/book-template.js';
-import { shortMissing, summaryText } from './order-passport-text.js';
+import { missingCount, shortMissing, summaryText } from './order-passport-text.js';
 import { attachmentSource, selectedPassportActions, openPassportSourcePicker } from './passport-source-picker.js';
 
 /*
@@ -152,7 +152,7 @@ function lineView(l, reload, issueOne, order) {
     } }) : null;
   if (l.state === 'blocked' && l.productId && !firmOnly(l)) {
     // C086: название — обычным текстом; что не так и что делать — второй строкой; состояние — меткой справа, а не цветом всей строки
-    const n = (l.missing || []).length;
+    const n = missingCount(l.missing);
     return kit.section({
       lead: pic(l), title: name, plain: true, tone: 'neutral',
       sub: [meta, `Заполнить: ${shortMissing(l.missing)}`].filter(Boolean).join(' · '),

@@ -1,0 +1,12 @@
+# C170 — обязательный заголовок правой панели
+Статус: FIX готов, frontend FREEZE. Коммит не создавался; общие kit/backend/src/test не менялись.
+Причина: `openCard` безусловно вызывает `section.card.heading(row)`; конфигурация выбора файла не предоставляла функцию. Прежний mock-тест этого не проверял.
+✅ `backend/pwa/sections/passport-source-picker.js:86` — добавлен `card.heading: () => 'Выбрать вложенный паспорт'`; get/view/extra/close/changed соответствуют используемому контракту openCard.
+✅ `backend/pwa/sections/passport-source-picker.test.mjs:77` — reuse существующего auto-more route-fixture с настоящими JS/CSS/openCard/card-parent/dialog; реальные клики открывают дочернюю панель, загружают candidate, подтверждают файл и возвращают видимый parent; ровно2GET+1PUT с revision/token/generation, saved1, pageErrors0.
+Проверки: syntax изменённых2/2 через module stdin; source-picker7+line-passports3+summary4=14/14. Браузерная регрессия≈9s; без стенда/учёток/реального API. Только route-fixture READ/PUT ответов. Backend full не повторялся.
+Быстрые локальные ответы source/candidates корректно отображаются: race content.isConnected до монтажа не воспроизвёлся; дополнительная правка жизненного цикла не делалась.
+Реальный повтор утверждённого BROWSER3102 остаётся обязательным координатору; тест не заменяет его. Исходное heading-исключение проявилось бы в новом тесте через настоящий openCard.
+Для designer: заказ `#salesorders?open=<известный order-key>&tab=pos`, раскрыть нужную строку `.k-pos-table tbody tr`, затем `tr.k-pos-more [data-k="folderTile"]` и `.k-folder-head` → `.k-folder-body .k-folder-file`.
+Другого отдельного заказного consumer нет: «files позиции» = раскрытый `lineMore` (`order-line-more.js:67` → `order-line-files.js:74`). Второй runtime consumer — витрина admin `#kit [data-k="folderTile"]` (`kit.js:183`); не выдавать её за отдельный деловой экран.
+Якоря переданы координатору для карты; корневые документы и чужие изменения сохранены. Дальнейшие правки только по адресному FIX.
+✅ P2 designer: `order-passport-text.js:26` missingParts единый разбор MORE+missingName/case-insensitive dedup для shortMissing и missingCount; `order-passport-plan.js:155` badge берёт missingCount. `order-passport-text.test.mjs` проверяет6элементов→10причин (4названия+«ещё6»), повторы/пусто/одинmarker:6/6PASS, syntax3/3. Другие UI/backend-файлы не менялись; heading-FIX сохранён. FREEZE, общий PWA-прогон выполняет QA один раз для обоих исправлений.
