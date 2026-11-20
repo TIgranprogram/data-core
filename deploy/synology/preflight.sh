@@ -67,6 +67,18 @@ if [[ $UI == 1 ]]; then
   ok "node --test и pwa-guards зелёные"
 fi
 
+# C166: изменения HA/выпуска требуют изолированных host-проверок, а не только backend/UI.
+if grep -qE '^deploy/ha/switch/|^deploy/synology/(release|rollback|preflight)\.sh$|^tools/test/ha-(bridge|standby)\.sh$' <<<"$CHANGED"; then
+  for f in deploy/ha/switch/*.sh deploy/synology/release.sh; do
+    bash -n "$f" >"$LOG" 2>&1 || { tail -8 "$LOG"; stop "синтаксис HA: $f"; }
+  done
+  node --test deploy/synology/release-flow.test.mjs deploy/synology/release.test.mjs >"$LOG" 2>&1 || { tail -25 "$LOG"; stop "изолированные тесты выпуска/отката"; }
+  for f in tools/test/ha-bridge.sh tools/test/ha-standby.sh; do
+    bash "$f" >"$LOG" 2>&1 || { tail -25 "$LOG"; stop "изолированные проверки HA: $f"; }
+  done
+  ok "HA: синтаксис, выпуск/откат и оба изолированных направления зелёные"
+fi
+
 # 6–7. след процесса в коммитах (трейлеры CLAUDE.md «Правила работы»)
 if [[ $URGENT == 1 ]]; then
   echo "  ! --force-urgent: приёмка дизайнера и full не проверялись — после выкладки догнать"

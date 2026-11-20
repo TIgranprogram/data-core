@@ -334,6 +334,8 @@ export const ADVICE = [
 
 // Скрипты без кнопки: ИИ / внутренние / убраны из пульта администратора.
 export const NOT_ON_BUTTONS = {
+  'deploy/ha/switch/release-artifact.sh': 'внутренний immutable-артефакт принятого выпуска; вызывают release.sh и HA-мост, отдельно не запускается',
+  'deploy/ha/switch/standby-release.sh': 'внутренняя staged-сборка и откат запасного; только из HA-моста под замком',
   'tools/setup-ubuntu.sh': 'первый запуск на новом Ubuntu-ноутбуке — до пульта: bash tools/setup-ubuntu.sh в терминале (проверка, установка, перенос секретов)',
   'tools/browser-path.mjs': 'общий поиск браузера для тестов и обходов (Windows и Linux) — библиотека, не запускается сама',
   'tools/areas.mjs': 'C128 участки кода (файл → блок карты / правило папки); зовёт dc check, не человек',

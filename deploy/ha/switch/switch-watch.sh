@@ -21,11 +21,9 @@
 # → readonly (дальше не более 10 минут) → дамп → передача → восстановление на втором (страховочный дамп с отметкой времени, хранится 3;
 # сосед сразу становится standby) → короткая досинхронизация фото → сверка записей и health → второй главный
 # → VPS (dc-switch, домен подтверждается `dc-switch status`) → цели копий вне дома выключаются здесь → этот standby+readonly.
-# kind=refresh (кнопка «Обновить» и авто каждые 15 мин, домен не трогаем): проверка без VPS → фото заранее → readonly → дамп → снова normal →
-# восстановление (сосед сразу standby+normal, не readonly) → фото → код (rsync backend/deploy/compose, сборка на соседе —
-# только при другой версии) → сверка, health, маркер last-refresh. VPS и смена роли главного не вызываются.
-# Любая ошибка ДО подтверждённой смены домена: этот сервер снова пишет (mode=normal), домен не тронут, сосед снова standby.
-# Каждый цикл: если домен у соседа, а этот сервер всё ещё main (вернулся старый главный) — он сам становится standby/readonly.
+# kind=refresh проверяет владельца на VPS, готовит принятый архив и собирает образ до паузы.
+# На запасном выполняется операция со страховочным снимком, откатом и проверкой до фиксации.
+# Локальный cron сообщает о маршрутах VPS и защищает вернувшийся старый главный.
 set -uo pipefail
 umask 077
 
@@ -52,7 +50,7 @@ COLLS="${HA_COUNT_COLLS:-users salesorders incomes materials stockmovements}"
 T_SSH="${T_SSH:-30}"; T_DUMP="${T_DUMP:-300}"; T_RESTORE="${T_RESTORE:-300}"; T_PHOTOS="${T_PHOTOS:-3600}"; T_PHOTOS_RO="${T_PHOTOS_RO:-120}"
 T_VERIFY="${T_VERIFY:-120}"; T_VPS="${T_VPS:-60}"; T_REPORT="${T_REPORT:-15}"; T_CODE="${T_CODE:-600}"
 RO_BUDGET="${RO_BUDGET:-600}"
-PEER_INFO_EVERY="${PEER_INFO_EVERY:-300}"
+PEER_INFO_EVERY="${PEER_INFO_EVERY:-60}"
 
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 L() { printf '%s %s\n' "$(now)" "$*" >> "$LOG"; }
@@ -74,6 +72,8 @@ touch "${SW_DIR}/alive"; chmod 644 "${SW_DIR}/alive" 2>/dev/null || true
 SELF="${HA_SELF:-$(envval HA_SELF)}"
 case "$SELF" in home) PEER_NAME=office ;; office) PEER_NAME=home ;; *) exit 0 ;; esac   # механизм выключен
 
+HELPERS="$(cd "$(dirname "$0")" && pwd)"
+. "$HELPERS/release-artifact.sh" || exit 1
 exec 9>"${SW_DIR}/.lock"
 flock -n 9 || exit 0
 
@@ -114,16 +114,48 @@ report_why() {
     *) echo "Сервер не ответил на отчёт моста ($LAST_ERR)." ;;
   esac
 }
+terminal_report() {
+  local body="$1"
+  post_report "$body" && return 0
+  [[ "$LAST_ERR" == 'код 409'* ]] && post_report '{"id":"peer"}' || return 1
+  printf '%s' "$LAST_REPLY" | docker exec -i datacore-backend node -e '
+    const q=JSON.parse(process.argv[1]), d=JSON.parse(require("fs").readFileSync(0,"utf8"));
+    const match=d.ok===true && d.job?.id===q.id && d.job.state===q.state &&
+      (!q.role || q.role===d.role) && (!q.mode || q.mode===d.mode);
+    process.exit(match?0:1)' "$body"
+}
 # report ID STEP STATE [ПРЕДУПРЕЖДЕНИЕ/ОШИБКА] [EXTRA-JSON-ФРАГМЕНТ]
 report() {
   local b="{\"id\":\"$1\",\"step\":\"$2\",\"state\":\"$3\""
   [[ -n "${4:-}" ]] && b+=",\"error\":\"$(jstr "$4")\""
   [[ -n "${5:-}" ]] && b+=",$5"
-  post_report "$b}"
+  b+='}'
+  if [[ "$3" == done || "$3" == failed ]]; then
+    printf 'phase=terminal\nid=%s\nkind=%s\nbody=%s\n' "$1" "$KIND" "$b" > "$CURRENT.new" && mv -f "$CURRENT.new" "$CURRENT" || return 1
+    if terminal_report "$b"; then rm -f "$CURRENT"; return 0; fi
+    return 1
+  fi
+  post_report "$b"
 }
 # то же на втором сервере: его секрет читаем там же, тело идёт через stdin
-PEER_REPORT_SH='S=$(cat "$PD/switch/secret") || exit 3; H=$(mktemp); printf "X-Switch-Secret: %s\n" "$S" > "$H"; B=$(cat); c=$(curl -sS -m 15 -o /dev/null -w "%{http_code}" -H @"$H" -H "Content-Type: application/json" -d "$B" "$PAPI/api/control/switch/report"); rm -f "$H"; [ "$c" = 200 ]'
-peer_report() { printf '%s' "$1" | peer "$T_SSH" "$(peer_vars)$PEER_REPORT_SH"; }
+DONE_REPLY_JS='const d=JSON.parse(require("fs").readFileSync(0,"utf8"));process.exit(d.ok===true&&d.role==="main"&&d.mode==="normal"&&d.job?.id===process.argv[1]&&d.job.state==="done"?0:1)'
+read -r -d '' PEER_REPORT_SH <<'E'
+set -eu
+S=$(cat "$PD/switch/secret"); H=$(mktemp); R=$(mktemp)
+trap 'rm -f "$H" "$R"' EXIT
+printf 'X-Switch-Secret: %s\n' "$S" > "$H"
+B=$(cat)
+send() { curl -sS -m 15 -o "$R" -w '%{http_code}' -H @"$H" -H 'Content-Type: application/json' -d "$1" "$PAPI/api/control/switch/report"; }
+c=$(send "$B")
+if [ -z "$VERIFY_DONE" ]; then [ "$c" = 200 ]; exit; fi
+# Доставка могла пройти до разрыва связи. 409 сам по себе не подтверждает именно нашу работу.
+if [ "$c" = 409 ]; then c=$(send '{"id":"peer"}'); fi
+[ "$c" = 200 ] || exit 1
+docker exec -i datacore-backend node -e "$DONE_JS" "$VERIFY_DONE" < "$R"
+E
+peer_report() {
+  printf '%s' "$1" | peer "$T_SSH" "$(peer_vars)VERIFY_DONE=$(printf '%q' "${2:-}") DONE_JS=$(printf '%q' "$DONE_REPLY_JS"); $PEER_REPORT_SH"
+}
 
 # ---------- Mongo (пароль не в argv: docker exec -e ИМЯ берёт значение из окружения) ----------
 LOCAL_CREDS() {
@@ -145,56 +177,36 @@ set -uo pipefail
 cd "$DC" 2>/dev/null && set -a && . ./.env && set +a || { echo "На втором сервере нет $DC/.env."; exit 20; }
 [ -n "$EXPECT_HOST" ] && [ "$(hostname)" = "$EXPECT_HOST" ] || { echo "Второй сервер называется не $EXPECT_HOST: это не тот сервер. Восстановление отменено."; exit 21; }
 [ "${HA_SELF:-}" = "$EXPECT_SELF" ] || { echo "На втором сервере в .env HA_SELF не равен $EXPECT_SELF. Восстановление отменено."; exit 22; }
+[[ ! -d "$DC/.ha-operation" ]] || { echo "Запасной занят выкладкой или требует проверки после прерванной операции."; exit 24; }
+containers="$(docker ps --format '{{.Names}}')" || exit 24
+! grep -Fxq kppdf-backend <<<"$containers" || { echo "На запасном CRM kppdf пишет в ту же базу. Восстановление отменено."; exit 25; }
 R=$(docker exec -e MONGO_ROOT_USER -e MONGO_ROOT_PASSWORD datacore-mongo sh -c 'mongo --quiet -u "$MONGO_ROOT_USER" -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin datacore --eval "var d=db.app_control_state.findOne({_id:\"switch\"}); print(d?d.role:\"\")"' 2>/dev/null | tr -d '[:space:]')
 [ "$R" = standby ] || { echo "Второй сервер не запасной (role=${R:-нет}). Восстановление отменено."; exit 23; }
 E
-read -r -d '' DEMOTE_SH <<'E'
-docker exec -e MONGO_ROOT_USER -e MONGO_ROOT_PASSWORD datacore-mongo sh -c 'mongo --quiet -u "$MONGO_ROOT_USER" -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin datacore --eval "db.app_control_state.updateOne({_id:\"switch\"},{\$set:{role:\"standby\",mode:\"readonly\"}})"' >/dev/null
-E
-read -r -d '' RESTORE_BODY <<'E'
-B="$PD/switch"; F="$B/incoming.archive.gz"; TS=$(date +%Y%m%d%H%M%S)
-gzip -t "$F" || { echo "архив повреждён"; exit 11; }
-docker exec -e MONGO_ROOT_USER -e MONGO_ROOT_PASSWORD datacore-mongo sh -c 'mongodump --quiet -u "$MONGO_ROOT_USER" -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --db datacore --archive --gzip' > "$B/before-switch-$TS.archive.gz" || { echo "страховочный дамп не снят"; rm -f "$B/before-switch-$TS.archive.gz"; exit 12; }
-ls -1t "$B"/before-switch-*.archive.gz 2>/dev/null | tail -n +4 | xargs -r rm -f
-docker stop datacore-backend >/dev/null 2>&1
-if ! docker exec -i -e MONGO_ROOT_USER -e MONGO_ROOT_PASSWORD datacore-mongo sh -c 'mongorestore --quiet -u "$MONGO_ROOT_USER" -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --drop --archive --gzip --nsInclude "datacore.*"' < "$F"; then
-  echo "восстановление не удалось"; eval "$DEMOTE_CMD"; docker start datacore-backend >/dev/null 2>&1; exit 13
-fi
-eval "$DEMOTE_CMD"   # дамп принёс role=main: сосед остаётся запасным, пока мост не повысит его
-docker start datacore-backend >/dev/null 2>&1
-for i in $(seq 1 60); do
-  [ "$(curl -s -m 3 -o /dev/null -w "%{http_code}" "$PAPI/api/health/ready")" = 200 ] && { rm -f "$F"; exit 0; }
-  sleep 3
-done
-echo "backend не поднялся"; exit 14
-E
-DEMOTE_SH="${DEMOTE_SH%$'\n'}"   # одна строка: printf %q тогда даёт запись, понятную любой оболочке
-# обновление копии: сосед остаётся запасным и пишет (не «только чтение»); job из дампа главного не оставляем
-read -r -d '' STANDBY_NORMAL_SH <<'E'
-docker exec -e MONGO_ROOT_USER -e MONGO_ROOT_PASSWORD datacore-mongo sh -c 'mongo --quiet -u "$MONGO_ROOT_USER" -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin datacore --eval "db.app_control_state.updateOne({_id:\"switch\"},{\$set:{role:\"standby\",mode:\"normal\",job:null}})"' >/dev/null
-E
-STANDBY_NORMAL_SH="${STANDBY_NORMAL_SH%$'\n'}"
-RESTORE_SH="$CHECK_SH"$'\n'"$RESTORE_BODY"
-
 peer_health() { [[ "$(peer "$T_SSH" "curl -s -m 5 -o /dev/null -w '%{http_code}' $(printf '%q' "$PEER_API")/api/health/ready" 2>/dev/null)" == 200 ]]; }
 # Версия приложения соседа: /app/version.json {"v":"hash","n":612} → «v1.612» (как в меню приложения); без n — хеш сборки.
 # Нужна для C042-A5: backend не даёт переключиться, пока версии кода на серверах разные.
 version_of() { local s n b; s="$(cat)"; n="$(sed -n 's/.*"n"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' <<<"$s" | head -n 1)"; b="$(sed -n 's/.*"b"[[:space:]]*:[[:space:]]*"\([0-9a-f]*\)".*/\1/p' <<<"$s" | head -n 1)"; if [[ -n "$n" ]]; then printf 'v%s%s' "$(if (( n < 1000 )); then echo "1.$n"; else echo "$(( 2 + (n - 1000) / 999 )).$(( (n - 1000) % 999 + 1 ))"; fi)" "${b:+ · $b}"; else sed -n 's/.*"v"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' <<<"$s" | head -n 1 | head -c 60; fi; }
-# сосед снова запасной (и backend запущен) — после сорванного восстановления / отката
-peer_demote() {
-  [[ -n "${HA_PEER_SSH:-}" ]] || return 0
-  peer "$T_SSH" "$(peer_vars)cd \"\$DC\" && set -a && . ./.env && set +a; $DEMOTE_SH; docker start datacore-backend >/dev/null 2>&1; true" >>"$LOG" 2>&1 || L "не удалось вернуть второй сервер в запасные"
+# Если переключение прервано после повышения, снимаем только роль и job этой передачи.
+held_by_switch() { printf 'test -f "$DC/.ha-operation/switch-ready" && test "$(cat "$DC/.ha-operation/owner")" = peer-%s' "$ID"; }
+unlock_peer() {
+  local cmd
+  cmd="$(peer_vars)export DC; bash -s -- $(printf '%q' "$ID")"
+  { cat "$HELPERS/release-artifact.sh"; printf '%s\n' 'if [[ -d "$DC/.ha-operation" ]]; then [[ -f "$DC/.ha-operation/switch-ready" ]] && release_operation_lock "$DC" "peer-$1"; fi'; } |
+    peer "$T_SSH" "$cmd"
 }
-# после сорванного обновления: запасной снова в обычном режиме (не readonly)
-peer_standby_normal() {
-  [[ -n "${HA_PEER_SSH:-}" ]] || return 0
-  peer "$T_SSH" "$(peer_vars)cd \"\$DC\" && set -a && . ./.env && set +a; $STANDBY_NORMAL_SH; docker start datacore-backend >/dev/null 2>&1; true" >>"$LOG" 2>&1 || L "не удалось вернуть второй сервер в запасные (обычный режим)"
+peer_cancel_switch() {
+  [[ "$KIND" == switch && "$ID" =~ ^[a-f0-9]{6,32}$ ]] || return 0
+  domain_now; [[ "$DOM" == "$SELF" ]] || return 1
+  local cancel
+  cancel='var r=db.app_control_state.updateOne({_id:"switch","job.id":"JOB_ID"},{$set:{role:"standby",mode:"readonly",job:null}}); assert.eq(r.matchedCount,1)'
+  cancel="${cancel/JOB_ID/$ID}"
+  peer "$T_SSH" "$(peer_vars) test \"\$(hostname)\" = \"\$EXPECT_HOST\" && $(held_by_switch) && docker exec datacore-mongo sh -c 'exec mongo --quiet -u \"\$MONGO_INITDB_ROOT_USERNAME\" -p \"\$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin datacore --eval \"\$1\"' sh $(printf '%q' "$cancel")" >>"$LOG" 2>&1 && unlock_peer
 }
-
 # сведения о втором сервере для экрана: версия, возраст копии, health
 peer_info() {
   local ver="" copy="" healthy=false x
-  if peer_health; then
+  if peer "$T_SSH" "$(peer_vars)test ! -d \"\$DC/.ha-operation\"" && peer_health; then
     healthy=true
     ver="$(peer "$T_SSH" "curl -s -m 5 $(printf '%q' "$PEER_API")/app/version.json" 2>/dev/null | version_of)"
   fi
@@ -210,22 +222,32 @@ peer_info() {
 # Результат — в глобальных DOM и VPS_STATUS (без подоболочки, чтобы вызывающий видел оба).
 VPS_STATUS=""; DOM=""
 domain_now() {
-  VPS_STATUS="$(vps status 2>/dev/null)" || VPS_STATUS=""
-  DOM="$(sed -n 's/^domain=\([a-z]*\).*/\1/p' <<<"$VPS_STATUS" | head -n 1)"
+  VPS_STATUS=""
+  if [[ -n "${HA_VPS_SSH:-}" ]]; then VPS_STATUS="$(vps status 2>/dev/null)" || VPS_STATUS=""; fi
+  DOM="$(sed -n 's/^domain=\(home\|office\) port=[0-9][0-9]*$/\1/p' <<<"$VPS_STATUS" | head -n 1)"
   [[ "$DOM" == home || "$DOM" == office ]] || DOM=""
   return 0
 }
-# вернувшийся старый главный: домен не у нас, а мы всё ещё main → сами становимся standby/readonly
-self_guard() {
-  [[ -n "${HA_VPS_SSH:-}" ]] || return 0
-  domain_now; local dom="$DOM"
-  [[ -n "$dom" && "$dom" != "$SELF" ]] || return 0
-  post_report '{"id":"peer"}' || return 0
-  [[ "$LAST_REPLY" == *'"role":"main"'* ]] || return 0
-  L "домен у $dom, а этот сервер main: становлюсь запасным (только чтение)"
-  post_report '{"id":"self","role":"standby","mode":"readonly"}' || L "не удалось стать запасным: идёт работа?"
+route_health() {
+  if grep -Fxq "$1=up" <<<"$VPS_STATUS"; then echo true
+  elif grep -Fxq "$1=down" <<<"$VPS_STATUS"; then echo false
+  else echo null; fi
 }
-
+self_guard() {
+  domain_now
+  local owner=null
+  [[ -z "$DOM" ]] || owner="\"$DOM\""
+  post_report "{\"id\":\"peer\",\"domain\":{\"owner\":$owner,\"homeHealthy\":$(route_health home),\"officeHealthy\":$(route_health office),\"checkedAt\":\"$(now)\"}}" || return 0
+  if [[ -n "$DOM" && "$DOM" != "$SELF" && "$LAST_REPLY" == *'"role":"main"'* ]]; then
+    post_report '{"id":"self","role":"standby","mode":"readonly"}' || L "не удалось стать запасным: идёт работа?"
+  fi
+}
+assert_source() {
+  domain_now
+  [[ "$DOM" == "$SELF" ]] && post_report '{"id":"peer"}' &&
+    [[ "$LAST_REPLY" == *'"role":"main"'* && "$LAST_REPLY" == *"\"id\":\"$ID\""* ]] ||
+    fail "$1" "Не подтверждены владелец домена, роль главного и текущая заявка. Операция остановлена."
+}
 # ---------- бюджет «только чтения» ----------
 READONLY_AT=0
 left() { echo $(( RO_BUDGET - ($(date +%s) - READONLY_AT) )); }
@@ -234,18 +256,30 @@ cap() { local l; l=$(left); (( READONLY_AT == 0 )) && { echo "$1"; return; }; ((
 check_budget() { (( READONLY_AT == 0 )) || [[ $(left) -gt 0 ]] || fail "$1" "Больше 10 минут в режиме «только чтение»: переключение отменено, сайт снова пишет."; }
 
 # ---------- провал и откат ----------
-ID=""; KIND=""; RESTORE_STARTED=0; CRM_STOPPED=0; NOCODE=""
+ID=""; KIND=""; RESTORE_STARTED=0; NOCODE=""
 fail() {   # fail STEP "понятная причина"; вызывается, только когда домен точно НЕ у соседа
   local msg="$2"
-  [[ "${KIND:-}" == refresh ]] && msg+=" Копия на запасном не обновилась (осталась прежней); главный работает как обычно."
   L "ОШИБКА [$1]: $msg"
-  # CRM останавливали на время переключения (C045 🔴1); домен не ушёл — запускаем обратно
-  [[ ${CRM_STOPPED:-0} == 1 ]] && { docker start kppdf-backend >/dev/null 2>&1 && L "CRM kppdf снова запущена" || L "CRM kppdf запустить не удалось — запустите вручную"; }
-  if [[ $RESTORE_STARTED == 1 ]]; then
-    if [[ "${KIND:-}" == refresh ]]; then peer_standby_normal; else peer_demote; fi
-  else peer "$T_SSH" "docker start datacore-backend >/dev/null 2>&1; true" >/dev/null 2>&1 || true; fi
-  report "$ID" "$1" failed "$msg" || L "отчёт о провале не доставлен; сервер снимет «только чтение» сам, когда мост перестанет отвечать"
-  rm -f "$CURRENT"
+  if [[ "$KIND" == refresh && "$ID" =~ ^[a-f0-9]{6,32}$ && -n "${HA_PEER_SSH:-}" ]]; then
+    # Нереализованный candidate можно убрать только до stop/snapshot и при свободном хосте.
+    peer "$T_SSH" "$(peer_vars)cd \"\$DC\" && test ! -d .ha-operation && test -f .ha-stage-$ID/prepared && test ! -e .ha-stage-$ID/old-version.json && rm -rf -- .ha-stage-$ID && docker image rm datacore-ha-candidate-$ID:local >/dev/null 2>&1" >>"$LOG" 2>&1 || true
+  fi
+  if [[ "$RESTORE_STARTED" == 1 ]]; then
+    if [[ "$KIND" == switch ]]; then peer_cancel_switch || L "Проверить роль второго сервера"; fi
+    post_report '{"id":"peer","peer":{"healthy":false}}' || true
+  fi
+  local extra=""
+  if [[ "$KIND" == switch || "$KIND" == refresh ]]; then
+    domain_now
+    if [[ "$DOM" == "$PEER_NAME" ]]; then
+      extra='"role":"standby","mode":"readonly"'
+    elif [[ -z "$DOM" && "$READONLY_AT" != 0 ]]; then
+      # База главного уже на паузе. Возвращать право записи можно лишь после ответа VPS.
+      printf 'phase=ownership\nid=%s\nkind=%s\n' "$ID" "$KIND" > "$CURRENT.new" && mv -f "$CURRENT.new" "$CURRENT"
+      L "Владелец неизвестен, режим записи определит следующий цикл"; exit 1
+    fi
+  fi
+  report "$ID" "$1" failed "$msg" "$extra" || L "отчёт о провале не доставлен; сервер снимет «только чтение» сам, когда мост перестанет отвечать"
   exit 1
 }
 
@@ -255,31 +289,77 @@ run_step() {   # run_step STEP [ПРЕДУПРЕЖДЕНИЕ] — сообщит
 }
 # C058: rsync может жить в $HOME/bin (без apt/sudo); --rsync-path с одинарными кавычками — HOME на удалённой стороне.
 sync_photos() { timeout "$(cap "$1")" env PATH="$HOME/bin:/usr/bin:/bin" rsync --rsync-path='$HOME/bin/rsync' -rt --ignore-existing --partial -e "$RSH" "${DATA_DIR}/uploads/" "${HA_PEER_SSH}:${PEER_DATA}/uploads/" >>"$LOG" 2>&1; }
-# код — отдельными деревьями: --delete на весь $PEER_DC стёр бы .env и всё, чего нет в этой передаче
-sync_code() {
-  local dest="${HA_PEER_SSH}:${PEER_DC}"
-  # секреты и ключи хоста не копируем (C045 🔴2): у второго сервера свои
-  local ex=(--exclude '.env' --exclude '*.env' --exclude 'config.env' --exclude 'CREDENTIALS*' --exclude 'access*' --exclude 'secrets' --exclude '*.key' --exclude '*.pem' --exclude 'node_modules' --exclude '.git' --exclude 'uploads' --exclude 'prev' --exclude 'dist')
-  timeout "$(cap "$T_CODE")" env PATH="$HOME/bin:/usr/bin:/bin" rsync --rsync-path='$HOME/bin/rsync' -a --delete "${ex[@]}" -e "$RSH" "${DC_DIR}/backend/" "${dest}/backend/" >>"$LOG" 2>&1 \
-    && timeout "$(cap "$T_CODE")" env PATH="$HOME/bin:/usr/bin:/bin" rsync --rsync-path='$HOME/bin/rsync' -a --delete "${ex[@]}" -e "$RSH" "${DC_DIR}/deploy/" "${dest}/deploy/" >>"$LOG" 2>&1 \
-    && timeout "$(cap "$T_CODE")" env PATH="$HOME/bin:/usr/bin:/bin" rsync --rsync-path='$HOME/bin/rsync' -a -e "$RSH" "${DC_DIR}/docker-compose.prod.yml" "${dest}/docker-compose.prod.yml" >>"$LOG" 2>&1
+# Единственный источник кода — неизменяемый архив принятого выпуска под блокировкой хоста.
+COMMIT=""; DIGEST=""; PWA_HASH=""; MANIFEST=""
+verify_pin() {
+  local marker
+  marker="$(cat "$DC_DIR/.release-commit")" &&
+    [[ "$marker" == "$COMMIT" && "$(cat "$DC_DIR/.ha-releases/$COMMIT/manifest")" == "$MANIFEST" ]]
 }
-
+peer_pipeline() {
+  local action=$1 scope=$2 mode=$3 counts=$4 t=$5
+  local cmd
+  cmd="$(peer_vars)export DC PD PAPI EXPECT_HOST EXPECT_SELF; bash -s -- $(printf '%q ' "$action" "$ID" "$scope" "$COMMIT" "$DIGEST" "$PWA_HASH" "$mode" "$counts")"
+  cat "$HELPERS/release-artifact.sh" "$HELPERS/standby-release.sh" | peer "$t" "$cmd"
+}
+prepare_code() {
+  COMMIT="$(cat "$DC_DIR/.release-commit")" && [[ "$COMMIT" =~ ^[a-f0-9]{40}$ ]] || return 1
+  local artifact="$DC_DIR/.ha-releases/$COMMIT" recorded
+  MANIFEST="$(cat "$artifact/manifest")" || return 1
+  read -r recorded DIGEST PWA_HASH <<<"$MANIFEST"
+  [[ "$recorded" == "$COMMIT" && "$DIGEST" =~ ^[a-f0-9]{64}$ && "$PWA_HASH" =~ ^[a-f0-9]{4,40}$ ]] &&
+    [[ "$(release_digest "$artifact/release.tgz")" == "$DIGEST" ]] && verify_pin || return 1
+  peer "$T_CODE" "$(peer_vars)umask 077; cd \"\$DC\" && mkdir .ha-stage-$ID && cat > .ha-stage-$ID/release.tgz" < "$artifact/release.tgz" &&
+    verify_pin && peer_pipeline stage both normal '' "$T_CODE" && verify_pin
+}
+transfer_dump() {
+  local target; target="$(printf '%q' "$PEER_DC")/.ha-stage-$ID"
+  if [[ "$1" == data ]]; then peer "$T_SSH" "umask 077; mkdir $target" || return 1; fi
+  dump_local | peer "$(cap "$T_DUMP")" "umask 077; cat > $target/incoming.archive.gz"
+}
+apply_standby() {
+  local scope=$1 mode=$2 before=$3 limit=$4
+  assert_source restore
+  if [[ "$scope" == both ]]; then verify_pin || fail restore "Изменилась отметка принятого выпуска."; fi
+  local result
+  if ! result="$(peer_pipeline apply "$scope" "$mode" "$before" "$limit" 2>&1)"; then
+    L "Восстановление: $result"
+    if [[ "$result" == *'ОТКАТ НЕ ПОДТВЕРЖДЁН'* ]]; then
+      fail restore "Откат запасного не подтверждён. Его код и снимок сохранены, активация заблокирована до проверки."
+    fi
+    fail restore "Запасной не подтвердил обновление. Подробности и результат отката в журнале моста."
+  fi
+}
 # после подтверждённой смены домена: сосед главный, здесь цели копий выключаем, роль здесь standby+readonly
 finish_switched() {
   LOCAL_CREDS
   local ok=0 i note=""
-  peer_report "{\"id\":\"$ID\",\"step\":\"finish\",\"state\":\"done\",\"role\":\"main\",\"mode\":\"normal\"}" >/dev/null 2>&1 || L "второй сервер: финальный отчёт не принят"
+  printf 'phase=switched\nid=%s\nkind=switch\n' "$ID" > "$CURRENT.new" && mv -f "$CURRENT.new" "$CURRENT" || exit 1
+  if ! peer_report "{\"id\":\"$ID\",\"step\":\"finish\",\"state\":\"done\",\"role\":\"main\",\"mode\":\"normal\"}" "$ID" >>"$LOG" 2>&1; then
+    L "Домен переключён. Новый главный пока не подтвердил завершение этой работы; захват сохранён до повторного отчёта."
+    exit 1
+  fi
+  unlock_peer || { L "Не удалось снять захват на новом главном; подтверждение повторит следующий цикл"; exit 1; }
   if ! targets_off; then note="Цели копий вне дома на этом сервере выключить не удалось: выключите вручную в админке."; L "$note"; fi
-  [[ $CRM_STOPPED == 1 ]] && note="${note:+$note }CRM kppdf на старом главном остановлена: её база теперь не главная. Запустите CRM, когда главный вернётся сюда."
   for i in 1 2 3 4 5; do
     report "$ID" finish done "$note" '"role":"standby","mode":"readonly"' && { ok=1; break; }
     sleep 10
   done
-  [[ $ok == 1 ]] || L "финальный отчёт не доставлен; проверьте состояние в админке"
-  rm -f "$CURRENT"
+  [[ $ok == 1 ]] || { L "Финальный отчёт ждёт подтверждения в следующем цикле"; exit 1; }
   L "переключение $ID завершено: главный — $PEER_NAME"
   exit 0
+}
+
+preflight_peer() {
+  peer "$T_SSH" 'echo ok' >/dev/null 2>&1 || fail preflight "Второй сервер недоступен по ssh."
+  PATH="$HOME/bin:/usr/bin:/bin" command -v rsync >/dev/null 2>&1 || fail preflight "На этом сервере нет rsync."
+  peer "$T_SSH" 'PATH="$HOME/bin:/usr/bin:/bin" command -v rsync >/dev/null' >/dev/null 2>&1 || fail preflight "На втором сервере нет rsync."
+  [[ "$(peer "$T_SSH" 'docker inspect -f "{{.State.Running}}" datacore-mongo 2>/dev/null')" == true ]] || fail preflight "На втором сервере не запущена база (datacore-mongo)."
+  local free; free="$(peer "$T_SSH" "df --output=avail -k $(printf '%q' "$PEER_DATA") | tail -n 1" 2>/dev/null | tr -dc 0-9)"
+  [[ -n "$free" && "$free" -gt 1048576 ]] || fail preflight "На втором сервере меньше 1 ГБ свободного места."
+  peer "$T_SSH" "test -w $(printf '%q' "$PEER_DATA")/switch" >/dev/null 2>&1 || fail preflight "Недоступна папка переключения на запасном."
+  local why; why="$(peer "$T_SSH" "$(peer_vars)export DC PD PAPI EXPECT_HOST EXPECT_SELF; bash -s" <<<"$CHECK_SH" 2>&1)" || fail preflight "${why:-Проверка второго сервера не пройдена.}"
+  peer_report '{"id":"peer"}' || fail preflight "Второй сервер не принимает отчёты: нет HA_SELF в .env или не запущен его мост."
 }
 
 # ---------- обычное переключение ----------
@@ -287,31 +367,18 @@ do_switch() {
   LOCAL_CREDS
   [[ -n "${HA_PEER_SSH:-}" && -n "${HA_VPS_SSH:-}" && -n "${HA_PEER_HOST:-}" ]] || fail preflight "Мост не настроен: нет HA_PEER_SSH, HA_PEER_HOST или HA_VPS_SSH (bridge.env)."
   local warn=""
-  # CRM kppdf пишет в ту же базу мимо паузы записи и не переезжает (C045 🔴1; решение пользователя: на время переключения CRM выключена).
-  # Останавливаем её перед паузой записи; провал до смены домена — запускаем обратно (fail), успех — остаётся выключенной.
   local names; names=$'\n'"$(docker ps --format '{{.Names}}' 2>/dev/null)"$'\n'
-  [[ "$names" == *$'\nkppdf-backend\n'* ]] && warn="CRM kppdf на время переключения будет остановлена: она пишет в эту же базу и на второй сервер не переезжает."
+  [[ "$names" != *$'\nkppdf-backend\n'* ]] || fail preflight "CRM kppdf пишет на главном. Для согласованного переключения требуется отдельная остановка CRM."
   run_step preflight "$warn"
-  peer "$T_SSH" 'echo ok' >/dev/null 2>&1 || fail preflight "Второй сервер недоступен по ssh."
-  PATH="$HOME/bin:/usr/bin:/bin" command -v rsync >/dev/null 2>&1 || fail preflight "На этом сервере нет rsync."
-  peer "$T_SSH" 'PATH="$HOME/bin:/usr/bin:/bin" command -v rsync >/dev/null' >/dev/null 2>&1 || fail preflight "На втором сервере нет rsync."
-  [[ "$(peer "$T_SSH" 'docker inspect -f "{{.State.Running}}" datacore-mongo 2>/dev/null')" == true ]] || fail preflight "На втором сервере не запущена база (datacore-mongo)."
-  local free; free="$(peer "$T_SSH" "df --output=avail -k $(printf '%q' "$PEER_DATA") | tail -n 1" 2>/dev/null | tr -dc 0-9)"
-  [[ -n "$free" && "$free" -gt 1048576 ]] || fail preflight "На втором сервере меньше 1 ГБ свободного места."
-  peer "$T_SSH" "mkdir -p $(printf '%q' "$PEER_DATA")/switch" >/dev/null 2>&1 || fail preflight "На втором сервере нельзя создать папку переключения."
-  local why; why="$(peer "$T_SSH" "$(peer_vars)$CHECK_SH" 2>&1)" || fail preflight "${why:-Проверка второго сервера не пройдена.}"
-  peer_report '{"id":"peer","peer":{"healthy":true}}' || fail preflight "Второй сервер не принимает отчёты: нет HA_SELF в .env или не запущен его мост."
-  { domain_now; [[ -n "$DOM" ]]; } || fail preflight "VPS не отвечает на dc-switch status (ключ или команда)."
+  assert_source preflight
+  preflight_peer
   [[ "$(curl -s -m 5 -o /dev/null -w '%{http_code}' "$API/api/health/ready")" == 200 ]] || fail preflight "Этот сервер не готов (health)."
 
   # основной объём фото уходит ДО «только чтения»: внутри него остаётся короткая досинхронизация
   run_step photos_pre
   sync_photos "$T_PHOTOS" || fail photos_pre "Не удалось передать фото."
 
-  if [[ "$names" == *$'\nkppdf-backend\n'* ]]; then
-    docker stop -t 30 kppdf-backend >/dev/null 2>&1 || fail readonly "Не удалось остановить CRM kppdf: без этого её записи потеряются."
-    CRM_STOPPED=1; L "CRM kppdf остановлена на время переключения"
-  fi
+  assert_source readonly
   run_step readonly
   report "$ID" readonly running "" '"mode":"readonly"' || fail readonly "Не удалось включить режим «только чтение»."
   READONLY_AT=$(date +%s)
@@ -320,13 +387,12 @@ do_switch() {
   L "записей до: $before"
 
   run_step dump
-  printf 'phase=restore\nid=%s\n' "$ID" > "$CURRENT"
+  printf 'phase=restore\nkind=switch\nid=%s\n' "$ID" > "$CURRENT"
   RESTORE_STARTED=1   # с первого байта передачи сосед считается тронутым
-  dump_local | peer "$(cap "$T_DUMP")" "cat > $(printf '%q' "$PEER_DATA")/switch/incoming.archive.gz" || fail dump "Не удалось снять и передать базу."
+  transfer_dump "${scope:-data}" || fail dump "Не удалось снять и передать базу."
 
   run_step restore
-  peer "$(cap "$T_RESTORE")" "$(peer_vars)DEMOTE_CMD=$(printf '%q' "$DEMOTE_SH"); $RESTORE_SH" >>"$LOG" 2>&1 \
-    || fail restore "Восстановление на втором сервере не удалось (страховочные копии — switch/before-switch-*.archive.gz на нём)."
+  apply_standby data readonly "$before" "$(cap "$T_RESTORE")"
 
   run_step photos
   sync_photos "$T_PHOTOS_RO" || fail photos "Не удалось досинхронизировать фото."
@@ -338,9 +404,13 @@ do_switch() {
   peer_health || fail verify "Второй сервер не отвечает на health."
 
   run_step promote
+  assert_source promote
+  peer "$T_SSH" "$(peer_vars)$(held_by_switch)" || fail promote "Захват запасного изменился перед повышением."
   peer_report "{\"id\":\"$ID\",\"step\":\"promote\",\"state\":\"running\",\"role\":\"main\",\"mode\":\"normal\"}" || fail promote "Второй сервер не стал главным."
 
   run_step vps
+  assert_source vps
+  peer "$T_SSH" "$(peer_vars)$(held_by_switch)" || fail vps "Захват запасного изменился перед переключением домена."
   printf 'phase=vps\nid=%s\n' "$ID" > "$CURRENT"   # домен может уже поменяться — до подтверждения откат решает `dc-switch status`
   vps "$PEER_NAME" >>"$LOG" 2>&1
   domain_now; case "$DOM" in
@@ -359,8 +429,7 @@ finish_refresh() {
     report "$ID" finish done "" '"mode":"normal"' && { ok=1; break; }
     sleep 10
   done
-  [[ $ok == 1 ]] || L "финальный отчёт не доставлен; проверьте состояние в админке"
-  rm -f "$CURRENT"
+  [[ $ok == 1 ]] || { L "Финальный отчёт ждёт подтверждения в следующем цикле"; exit 1; }
   L "обновление $ID завершено: главный остался $SELF, домен не менялся"
   exit 0
 }
@@ -371,20 +440,20 @@ do_refresh() {
   local names; names=$'\n'"$(docker ps --format '{{.Names}}' 2>/dev/null)"$'\n'
   [[ "$names" == *$'\nkppdf-backend\n'* ]] && warn="Предупреждение: CRM kppdf (kppdf-backend) запущена на этом сервере. Она не переключается и продолжит работать с этой базой."
   run_step preflight "$warn"
-  peer "$T_SSH" 'echo ok' >/dev/null 2>&1 || fail preflight "Второй сервер недоступен по ssh."
-  PATH="$HOME/bin:/usr/bin:/bin" command -v rsync >/dev/null 2>&1 || fail preflight "На этом сервере нет rsync."
-  peer "$T_SSH" 'PATH="$HOME/bin:/usr/bin:/bin" command -v rsync >/dev/null' >/dev/null 2>&1 || fail preflight "На втором сервере нет rsync."
-  [[ "$(peer "$T_SSH" 'docker inspect -f "{{.State.Running}}" datacore-mongo 2>/dev/null')" == true ]] || fail preflight "На втором сервере не запущена база (datacore-mongo)."
-  local free; free="$(peer "$T_SSH" "df --output=avail -k $(printf '%q' "$PEER_DATA") | tail -n 1" 2>/dev/null | tr -dc 0-9)"
-  [[ -n "$free" && "$free" -gt 1048576 ]] || fail preflight "На втором сервере меньше 1 ГБ свободного места."
-  peer "$T_SSH" "mkdir -p $(printf '%q' "$PEER_DATA")/switch" >/dev/null 2>&1 || fail preflight "На втором сервере нельзя создать папку переключения."
-  local why; why="$(peer "$T_SSH" "$(peer_vars)$CHECK_SH" 2>&1)" || fail preflight "${why:-Проверка второго сервера не пройдена.}"
-  peer_report '{"id":"peer","peer":{"healthy":true}}' || fail preflight "Второй сервер не принимает отчёты: нет HA_SELF в .env или не запущен его мост."
+  assert_source preflight
+  preflight_peer
   [[ "$(curl -s -m 5 -o /dev/null -w '%{http_code}' "$API/api/health/ready")" == 200 ]] || fail preflight "Этот сервер не готов (health)."
 
+  local scope=data
+  if [[ "$NOCODE" != 0 ]]; then
+    scope=both
+    run_step code
+    prepare_code >>"$LOG" 2>&1 || fail code "Не удалось проверить архив принятого выпуска или собрать образ запасного."
+  fi
   run_step photos_pre
   sync_photos "$T_PHOTOS" || fail photos_pre "Не удалось передать фото."
 
+  assert_source readonly
   run_step readonly
   report "$ID" readonly running "" '"mode":"readonly"' || fail readonly "Не удалось включить режим «только чтение»."
   READONLY_AT=$(date +%s)
@@ -395,43 +464,18 @@ do_refresh() {
   run_step dump
   printf 'phase=restore\nkind=refresh\nid=%s\n' "$ID" > "$CURRENT"
   RESTORE_STARTED=1
-  dump_local | peer "$(cap "$T_DUMP")" "cat > $(printf '%q' "$PEER_DATA")/switch/incoming.archive.gz" || fail dump "Не удалось снять и передать базу."
+  transfer_dump "${scope:-data}" || fail dump "Не удалось снять и передать базу."
   # Обновление идёт каждые 15 мин (C042-A3): запись на паузе только на время дампа (секунды), дальше главный снова пишет.
   # Сверка ниже сравнивает с числом записей «до», снятым под паузой, — копия соответствует дампу.
+  assert_source dump
   report "$ID" dump running "" '"mode":"normal"' || fail dump "Не удалось вернуть запись на этом сервере."
   READONLY_AT=0
 
-  run_step restore
-  peer "$T_RESTORE" "$(peer_vars)DEMOTE_CMD=$(printf '%q' "$STANDBY_NORMAL_SH"); $RESTORE_SH" >>"$LOG" 2>&1 \
-    || fail restore "Восстановление на втором сервере не удалось (страховочные копии — switch/before-switch-*.archive.gz на нём)."
-
   run_step photos
   sync_photos "$T_PHOTOS_RO" || fail photos "Не удалось досинхронизировать фото."
-
-  run_step code
-  # код и сборка — только когда версия на втором сервере другая (release.sh всегда меняет version.json)
-  local mine theirs
-  mine="$(version_of < "${DC_DIR}/backend/pwa/version.json" 2>/dev/null)"
-  theirs="$(peer "$T_SSH" "cat $(printf '%q' "$PEER_DC")/backend/pwa/version.json 2>/dev/null" 2>/dev/null | version_of)"
-  if [[ "$NOCODE" == 0 ]]; then
-    L "автообновление — только данные; код ${theirs:-?} на втором сервере не трогаю (ступенчатая выкладка: код — кнопкой «Обновить»)"
-  elif [[ -n "$mine" && "$mine" == "$theirs" ]]; then
-    L "код на втором сервере тот же ($mine) — сборка не нужна"
-  else
-    printf 'phase=code\nkind=refresh\nid=%s\n' "$ID" > "$CURRENT"
-    sync_code || fail code "Не удалось передать код на второй сервер."
-    peer "$T_CODE" "cd $(printf '%q' "$PEER_DC") && docker compose -f docker-compose.prod.yml build backend && docker compose -f docker-compose.prod.yml up -d --no-deps backend" >>"$LOG" 2>&1 \
-      || fail code "Не удалось собрать и запустить backend на втором сервере."
-    local i okh=0
-    for i in $(seq 1 40); do peer_health && { okh=1; break; }; sleep 3; done
-    [[ $okh == 1 ]] || fail code "Backend на втором сервере не поднялся после сборки."
-  fi
-
+  run_step restore
+  apply_standby "$scope" normal "$before" "$((T_RESTORE * 3 + T_VERIFY + 120))"
   run_step verify
-  local after; after="$(counts_peer)" || fail verify "Не удалось посчитать записи на втором сервере."
-  L "записей после: $after"
-  [[ -n "$before" && "$before" == "$after" ]] || fail verify "Число записей не совпало: здесь $before, там $after."
-  peer_health || fail verify "Второй сервер не отвечает на health."
   peer "$T_SSH" "mkdir -p $(printf '%q' "$PEER_DATA")/switch && date -u +%Y-%m-%dT%H:%M:%SZ > $(printf '%q' "$PEER_DATA")/switch/last-refresh" \
     || fail verify "Не удалось записать время обновления на втором сервере."
   peer_info
@@ -445,19 +489,25 @@ do_emergency() {
   run_step preflight
   { domain_now; [[ -n "$DOM" ]]; } || fail preflight "VPS не отвечает на dc-switch status: без него домен не переключить."
   # «основной мёртв» — по VPS: его туннель не отвечает (а не по ssh между серверами)
-  [[ "$VPS_STATUS" != *"${PEER_NAME}=up"* ]] || fail preflight "Основной сервер отвечает на VPS. Используйте обычное переключение с него."
+  [[ "$(route_health "$PEER_NAME")" == false ]] || fail preflight "Основной сервер отвечает на VPS. Используйте обычное переключение с него."
   # C045 🟡5: туннель лёг, а сам основной жив и пишет — это обрыв связи; второй главный дал бы две пишущие стороны
   if [[ -n "${HA_PEER_SSH:-}" ]] && peer_health; then fail preflight "Основной сервер жив (отвечает напрямую), не отвечает только связь с VPS. Это не авария: второй главный не включаю."; fi
   [[ "$(curl -s -m 5 -o /dev/null -w '%{http_code}' "$API/api/health/ready")" == 200 ]] || fail preflight "Этот сервер не готов (health)."
   run_step vps
+  domain_now
+  [[ "$DOM" == "$PEER_NAME" && "$(route_health "$PEER_NAME")" == false ]] || fail vps "Владелец домена или состояние основного сервера изменились."
   printf 'phase=emergency\nid=%s\n' "$ID" > "$CURRENT"
   vps "$SELF" >>"$LOG" 2>&1
-  { domain_now; [[ "$DOM" == "$SELF" ]]; } || { rm -f "$CURRENT"; fail vps "VPS не переключил домен на этот сервер."; }
+  domain_now
+  case "$DOM" in
+    "$SELF") ;;
+    "$PEER_NAME") fail vps "VPS не переключил домен на этот сервер." ;;
+    *) L "После аварийного запроса владелец неизвестен. Проверку повторит следующий цикл."; exit 1 ;;
+  esac
   local note="Цели копий вне дома на этом сервере выключены (это копия): включите нужные вручную в админке."
   local i ok=0
   for i in 1 2 3 4 5; do report "$ID" finish done "$note" '"role":"main","mode":"normal"' && { ok=1; break; }; sleep 10; done
-  [[ $ok == 1 ]] || L "финальный отчёт не доставлен"
-  rm -f "$CURRENT"
+  [[ $ok == 1 ]] || { L "Финальный отчёт ждёт подтверждения в следующем цикле"; exit 1; }
   L "аварийный подъём $ID завершён: главный — $SELF (на последних данных)"
   exit 0
 }
@@ -466,29 +516,40 @@ do_emergency() {
 if [[ -f "$CURRENT" ]]; then
   PHASE="$(sed -n 's/^phase=//p' "$CURRENT" | head -n 1)"; ID="$(sed -n 's/^id=//p' "$CURRENT" | head -n 1)"; KIND="$(sed -n 's/^kind=//p' "$CURRENT" | head -n 1)"
   L "найдена прерванная работа $ID (фаза ${PHASE:-?})"
+  # После остановки самого моста его собственный захват можно освободить под .lock.
+  # Блокировка операции на принимающей стороне снимается только её процессом.
+  if [[ "$(cat "$DC_DIR/.ha-operation/owner" 2>/dev/null)" == "bridge-$ID" ]]; then
+    release_operation_lock "$DC_DIR" "bridge-$ID" || exit 1
+  fi
   case "$PHASE" in
-    switched) finish_switched ;;
-    vps)
+    terminal)
+      BODY="$(sed -n 's/^body=//p' "$CURRENT")"
+      [[ -n "$BODY" ]] || exit 1
+      if terminal_report "$BODY"; then rm -f "$CURRENT"; fi ;;
+    ownership)
+      domain_now
+      if [[ "$DOM" == "$SELF" ]]; then
+        if [[ "$KIND" == switch ]]; then peer_cancel_switch || true; fi
+        report "$ID" recovery failed "Операция остановлена. VPS подтвердил, что домен остался здесь."
+      elif [[ "$DOM" == "$PEER_NAME" ]]; then
+        report "$ID" recovery failed "Операция остановлена. Домен у соседа, этот сервер переведён в запасные." '"role":"standby","mode":"readonly"'
+      fi ;;
+    switched|vps)
+      KIND=switch
       domain_now; case "$DOM" in
-        "$PEER_NAME") printf 'phase=switched\nid=%s\n' "$ID" > "$CURRENT"; finish_switched ;;
-        "$SELF") peer_demote; report "$ID" recovery failed "Мост был прерван на смене домена. Домен остался на этом сервере."; rm -f "$CURRENT" ;;
-        *) L "VPS не подтвердил, где домен; жду следующего цикла"; exit 0 ;;
+        "$PEER_NAME") finish_switched ;;
+        "$SELF") peer_cancel_switch; report "$ID" recovery failed "Мост прерван, домен остался на этом сервере." ;;
+        *) L "Владелец домена неизвестен, жду подтверждения"; exit 0 ;;
       esac ;;
     emergency)
-      if { domain_now; [[ "$DOM" == "$SELF" ]]; }; then report "$ID" finish done "" '"role":"main","mode":"normal"' && rm -f "$CURRENT"
-      else report "$ID" recovery failed "Аварийный подъём прерван, домен не у этого сервера."; rm -f "$CURRENT"; fi ;;
-    restore|code)
-      if [[ "${KIND:-}" == refresh ]]; then
-        peer_standby_normal
-        [[ -n "$ID" ]] && report "$ID" recovery failed "Мост был прерван во время обновления. Домен не менялся."
-      else
-        peer_demote
-        [[ -n "$ID" ]] && report "$ID" recovery failed "Мост был прерван во время передачи. Домен не менялся."
-      fi
-      rm -f "$CURRENT" ;;
-    *) peer "$T_SSH" "docker start datacore-backend >/dev/null 2>&1; true" >/dev/null 2>&1 || true
-       [[ -n "$ID" ]] && report "$ID" recovery failed "Мост был прерван до переключения домена. Домен не менялся."; rm -f "$CURRENT" ;;
+      domain_now
+      if [[ "$DOM" == "$SELF" ]]; then report "$ID" finish done "" '"role":"main","mode":"normal"'
+      elif [[ "$DOM" == "$PEER_NAME" ]]; then report "$ID" recovery failed "Аварийный подъём прерван, домен у основного сервера."; fi ;;
+    *)
+      if [[ "$KIND" == switch ]]; then peer_cancel_switch || true; fi
+      report "$ID" recovery failed "Мост был прерван. Проверьте состояние второго сервера перед повтором." ;;
   esac
+  [[ ! -f "$CURRENT" ]] || exit 0
 fi
 
 # вернувшийся старый главный — каждый цикл, и при старте
@@ -506,14 +567,18 @@ if [[ ! -e "$REQ" ]]; then
 fi
 
 ID="$(sed -n 's/^id=//p' "$REQ" | head -n 1)"; KIND="$(sed -n 's/^kind=//p' "$REQ" | head -n 1)"; NOCODE="$(sed -n 's/^code=//p' "$REQ" | head -n 1)"
-rm -f "$REQ" || L "заявку удалить не удалось — права на ${SW_DIR}"
-[[ "$ID" =~ ^[0-9a-f]{6,32}$ ]] || { L "заявка с неверным id отброшена"; exit 0; }
-# C135: одну заявку — один раз (16.11 та же работа запустилась повторно и записала «сбой» поверх «готово»)
+[[ "$ID" =~ ^[0-9a-f]{6,32}$ ]] || { L "заявка с неверным id отброшена"; rm -f "$REQ"; exit 0; }
 LAST_ID_FILE="${SW_DIR}/last-id"
-[[ "$(cat "$LAST_ID_FILE" 2>/dev/null)" == "$ID" ]] && { L "заявка $ID уже выполнялась — пропуск"; exit 0; }
-printf '%s\n' "$ID" > "$LAST_ID_FILE"
+[[ "$(cat "$LAST_ID_FILE" 2>/dev/null)" != "$ID" ]] || { rm -f "$REQ"; exit 0; }
+EXPIRES="$(sed -n 's/^expiresAt=//p' "$REQ" | head -n 1)"
+printf 'phase=pre\nid=%s\nkind=%s\n' "$ID" "$KIND" > "$CURRENT.new" && mv -f "$CURRENT.new" "$CURRENT" || exit 1
+printf '%s\n' "$ID" > "$LAST_ID_FILE" && rm -f "$REQ" || exit 1
 L "=== заявка $ID ($KIND) на $SELF ==="
-printf 'phase=pre\nid=%s\n' "$ID" > "$CURRENT"
+if [[ -n "$EXPIRES" ]]; then
+  until_ts="$(date -u -d "$EXPIRES" +%s)" && (( $(date -u +%s) < until_ts )) || fail preflight "Разрешённое окно расписания закончилось."
+fi
+take_operation_lock "$DC_DIR" "bridge-$ID" || fail preflight "Сервер занят выкладкой или восстановлением."
+trap 'release_operation_lock "$DC_DIR" "bridge-$ID"' EXIT
 case "$KIND" in
   switch) do_switch ;;
   emergency) do_emergency ;;

@@ -70,3 +70,9 @@ C144 (18.11, без коммита): каскад типа паспорта. П�
 C163, коммит: f76489b9 + рабочий diff (19.11.2026): узкий независимый аудит. P1 passport-from-product.ts:62–75 производит elements чужой категории/удалённого parent; сохранить facet IDs, фильтровать только производные по живому parent/category. CAS template-patch:217–231/root/null/merge и photo batch/safe fallback проверены. 4 suites63unit +14node PASS, cycles0. UI/full/e2e/timing у координатора; общий scope --done не ставился. docs/crew/C163-new-product-passport-funnel/ARCH-REVIEW.md. Карта обновлена.
 
 C163 адресное закрытие P1, коммит: f76489b9 + рабочий diff (19.11.2026). passport-from-product.ts:60–70 фильтрует derived elements по живому parent и текущей category, MAF/BLG совместимы; :63 своё приоритетно, foreign facet tail сохранён. 19/19 targeted PASS, freeze SHA256 93DCB2BD…3FFC1 совпал. ARCH-REVIEW.md — PASS архитектурного scope, общая QA/UI у координатора; review-scope --done не ставился. Карта обновлена.
+
+## C166 — backend20.11.2026
+
+Host: [ARCH-HOST-REVIEW.md](../../crew/C166-server-schedules/ARCH-HOST-REVIEW.md), два P1 закрыты, исправленный preflight static PASS; worker и координатор по 47 isolated PASS, собственный запуск архитектора SKIP среды. Bash-n исправленного preflight проверен координатором. Живой VPS/CRM/обратное переключение не принимались.
+
+Frozen890dece6: CAS/постоянные слоты/outbox/ночное окно/manual history/strict readiness/неоднозначный promote-VPS/logger redaction рассмотрены; 36/36unit и cycles0 собственные, backendPASS. Host/UI/live/combined отдельно. Отчёт crew/C166-server-schedules/ARCH-BACKEND-REVIEW.md. Карта сохранена координатором по итоговому сообщению роли, песочница роли не давала запись в новуюworktree.

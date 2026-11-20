@@ -961,3 +961,7 @@ Canonical API/файлы — MAP.md; точные проверки/совмес�
 
 
 C163: GET шаблона паспорта возвращает `product.facetValueIds` (собственное значение массива или null). PATCH `changes/expected.facetValueIds` пишет поле `products.facetValueIds` одним CAS с изменениями defaults; null удаляет поле, [] хранит пустой ответ. Производные элементы рассчитываются при чтении и не записывают ручные defaults. Схема БД не меняется.
+
+### C166 — app_control_state / switch (в работе)
+
+В существующем документе `_id:switch` добавляются scheduleConfig (revision/timezone/data/code/savedAt), scheduleRuntime (data/code: slot/runKey/attempt/result/nextRetryAt) и domain (owner/homeHealthy/officeHealthy/checkedAt). Это настройки HA, не бизнес-справочники. При копировании на запасной согласованная конфигурация переносится, его локальный runtime сохраняется отдельно; job не является переносимой рабочей историей. Истина полей — control/switch/*.ts, контракт в crew/C166-server-schedules/TZ.md.

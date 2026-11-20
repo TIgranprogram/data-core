@@ -33,9 +33,39 @@ DATA=0; DROP=0; URGENT=""; DRY=0; FORCE_FULL=0
 for a in "$@"; do [[ "$a" == "--data" ]] && DATA=1; [[ "$a" == "--drop-archive" ]] && DROP=1; [[ "$a" == "--force-urgent" ]] && URGENT="--force-urgent"; [[ "$a" == "--dry-run" ]] && DRY=1; [[ "$a" == "--full" ]] && FORCE_FULL=1; done
 
 cd "$(git rev-parse --show-toplevel)"
+# Загружаем функции через stdin: первая выкладка работает и поверх моста до C166.
+server_gate() {
+  local operation="$1" token="$2"
+  {
+    cat deploy/ha/switch/release-artifact.sh
+    cat <<'GATE'
+set -euo pipefail
+cd /opt/data-core
+case "$1" in
+  acquire)
+    take_operation_lock "$PWD" "$2"
+    # Точное место существующего cron-flock, без чтения окружения или секретов.
+    sw="$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/host-switch"}}{{.Source}}{{end}}{{end}}' datacore-backend)" &&
+      hold_watch_lock "$PWD" "$sw" "$2" || { release_operation_lock "$PWD" "$2"; echo "СТОП: хост-мост занят или не подтверждён его замок"; exit 1; } ;;
+  release)
+    [[ "$(cat .ha-operation/owner)" == "$2" ]]
+    rm -f .ha-operation/release.tgz
+    release_operation_lock "$PWD" "$2" ;;
+  *) exit 1 ;;
+esac
+GATE
+  } | "${SSH[@]}" "bash -s -- $operation $token"
+}
 if [[ " $* " == *" --rollback "* ]]; then
-  "${SSH[@]}" 'cd /opt/data-core && bash deploy/synology/rollback.sh'
-  exit $?
+  TOKEN="rollback-$(date +%s)-$RANDOM"
+  server_gate acquire "$TOKEN"
+  if "${SSH[@]}" 'cd /opt/data-core && bash deploy/synology/rollback.sh'; then
+    server_gate release "$TOKEN"
+  else
+    echo "ОТКАТ: результат не подтверждён, блокировка выпуска сохранена"
+    exit 1
+  fi
+  exit 0
 fi
 
 # Выбор пути (быстрый / полный). Любое сомнение — полный. Пометка версии сервера — /opt/data-core/.release-commit,
@@ -74,30 +104,49 @@ fi
 # с этого момента версия сервера «неизвестна», пока проверка не пройдёт
 TS="$(date +%Y%m%d%H%M%S)"   # имя копии backend.prev-$TS — откату передаётся точно
 TMP="$(mktemp -d)"
-MUTATED=0; VERIFIED=0
+MUTATED=0; VERIFIED=0; LOCKED=0; UNCERTAIN=0
+COMMIT="$(git rev-parse HEAD)"
+LOCK_ID="release-$TS-$RANDOM-$RANDOM"
+REMOTE_ARCHIVE="/opt/data-core/.ha-operation/release.tgz"
 cleanup_release() {
   RC=$?
   trap - EXIT
-  if [[ $RC != 0 && $MUTATED == 1 && $VERIFIED == 0 ]]; then
+  if [[ $RC != 0 && $MUTATED == 1 && $VERIFIED == 0 && $UNCERTAIN == 0 ]]; then
     echo "ОТКАТ: ошибка выпуска, возвращаю предыдущий код и образ"
     if ! "${SSH[@]}" "DC_ROLLBACK_ROOT=/opt/data-core bash -s -- backend.prev-$TS" < deploy/synology/rollback.sh; then
+      UNCERTAIN=1
       echo "ОТКАТ: СБОЙ — нужен ручной контроль сервера"
+    fi
+  fi
+  if [[ "$LOCKED" == 1 ]]; then
+    if [[ $UNCERTAIN == 1 ]]; then
+      echo "СТОП: результат не подтверждён. Блокировка выпуска и старого моста сохранена до проверки."
+    elif ! server_gate release "$LOCK_ID"; then
+      echo "СТОП: проверить блокировку выпуска"; RC=1
     fi
   fi
   rm -rf "$TMP"
   exit "$RC"
 }
 trap cleanup_release EXIT
+server_gate acquire "$LOCK_ID" || { echo "СТОП: сервер занят выкладкой или переключением"; exit 1; }
+LOCKED=1
+PINNED_PREV="$("${SSH[@]}" 'cd /opt/data-core && { test ! -f .release-commit || cat .release-commit; }')"
+[[ "$PINNED_PREV" == "$PREV" ]] || { echo "СТОП: пока шли проверки, сервер сменил выпуск"; exit 1; }
 # версия приложения — последний коммит, менявший backend/pwa (выкладка без правок приложения не просит «Обновить»)
 # n — номер версии: число коммитов, менявших приложение (растёт с каждым обновлением; показ «v1.n»)
-PWA_N="$(git rev-list --count HEAD -- backend/pwa)"
+PWA_N="$(git rev-list --count "$COMMIT" -- backend/pwa)"
 # показ: v1.1…v1.999, затем v2.1…v2.999, v3.1… (просьба пользователя 2026-11-16)
 ver_label() { local n=$1; if (( n < 1000 )); then echo "1.$n"; else echo "$(( 2 + (n - 1000) / 999 )).$(( (n - 1000) % 999 + 1 ))"; fi; }
 PWA_L="$(ver_label "$PWA_N")"
 # b — последний коммит серверного кода: по нему два сервера сверяют версию перед переключением (C045 🔴3)
-SRV_HASH="$(git log -1 --format=%h -- backend/src backend/package.json backend/Dockerfile docker-compose.prod.yml)"
-PWA_VER="$(git log -1 --format='{"v":"%h","n":'"$PWA_N"',"b":"'"$SRV_HASH"'","date":"%cI"}' -- backend/pwa)"
-PWA_HASH="$(git log -1 --format=%h -- backend/pwa)"
+SRV_HASH="$(git log -1 --format=%h "$COMMIT" -- backend/src backend/package.json backend/Dockerfile docker-compose.prod.yml)"
+PWA_VER="$(git log -1 --format='{"v":"%h","n":'"$PWA_N"',"b":"'"$SRV_HASH"'","date":"%cI"}' "$COMMIT" -- backend/pwa)"
+PWA_HASH="$(git log -1 --format=%h "$COMMIT" -- backend/pwa)"
+git -c core.autocrlf=false archive --format=tar.gz -o "$TMP/release.tgz" --add-virtual-file="backend/pwa/version.json:$PWA_VER" "$COMMIT" backend docker-compose.prod.yml deploy
+DIGEST="$(sha256sum "$TMP/release.tgz" | cut -d ' ' -f1)"
+scp -i "$KEY" -o BatchMode=yes "$TMP/release.tgz" "$VM:$REMOTE_ARCHIVE"
+"${SSH[@]}" "echo '$DIGEST  $REMOTE_ARCHIVE' | sha256sum -c -"
 # Резервируем неизменяемую пару образ/код до первой замены; чужие прошлые копии не перезаписываем.
 "${SSH[@]}" "TS=$TS MODE=$MODE bash -s" <<'EOS'
 set -euo pipefail; cd /opt/data-core
@@ -115,12 +164,10 @@ if [[ $MODE == fast ]]; then
   "${SSH[@]}" 'cd /opt/data-core && if find /var/lib/datacore/backups -maxdepth 1 -name "mongo-*" -mmin -1440 2>/dev/null | grep -q .; then echo "свежая копия базы есть — без бэкапа"; elif bash deploy/synology/backup.sh >/tmp/dc-backup.log 2>&1; then tail -1 /tmp/dc-backup.log; else echo "СТОП: бэкап не прошёл:"; tail -5 /tmp/dc-backup.log; exit 1; fi'
   echo "== 2. Экраны: архив pwa+admin → обновление на месте в примонтированных папках (без сборки и перезапуска)"
   # sync-dir.sh едет в том же архиве (на VM нет rsync; своя копия скрипта — независимо от версии deploy/ на сервере)
-  git -c core.autocrlf=false archive --format=tar.gz -o "$TMP/screens.tgz" --add-virtual-file="backend/pwa/version.json:$PWA_VER" HEAD backend/pwa backend/admin deploy/synology/sync-dir.sh
-  scp -i "$KEY" -o BatchMode=yes "$TMP/screens.tgz" "$VM:/tmp/dc-screens.tgz"
   MUTATED=1
   # папки обновляются на месте (их держит привязка контейнера); version.json — последним, чтобы приложение не закэшировало смесь
   "${SSH[@]}" "TS=$TS bash -s" <<'EOS'
-set -e; R=/tmp/dc-scr-$TS; mkdir -p $R; tar -xzf /tmp/dc-screens.tgz -C $R; cd /opt/data-core
+set -e; R=/tmp/dc-scr-$TS; mkdir -p $R; tar -xzf /opt/data-core/.ha-operation/release.tgz -C $R backend/pwa backend/admin deploy/synology/sync-dir.sh; cd /opt/data-core
 # ВЫКЛАДКА-404: контейнер должен видеть ту же папку экранов, что на диске (тот же inode); иначе — пересоздать до замены
 for d in pwa admin; do
   host=$(stat -c %i backend/$d); inside=$(docker exec datacore-backend stat -c %i /app/$d 2>/dev/null || echo нет)
@@ -131,18 +178,16 @@ rm -f .release-commit
 bash $R/deploy/synology/sync-dir.sh $R/backend/pwa backend/pwa --skip version.json
 bash $R/deploy/synology/sync-dir.sh $R/backend/admin backend/admin
 cp $R/backend/pwa/version.json backend/pwa/version.json
-rm -rf $R /tmp/dc-screens.tgz; echo "экраны заменены, откат: deploy/synology/rollback.sh backend.prev-$TS --screens-only"
+rm -rf $R; echo "экраны заменены, откат: deploy/synology/rollback.sh backend.prev-$TS --screens-only"
 EOS
 else
 echo "== 1. Бэкап базы на VM"
 "${SSH[@]}" 'cd /opt/data-core && if bash deploy/synology/backup.sh >/tmp/dc-backup.log 2>&1; then tail -1 /tmp/dc-backup.log; else echo "СТОП: бэкап не прошёл:"; tail -5 /tmp/dc-backup.log; exit 1; fi'
 
 echo "== 2. Архив и замена файлов (старые → *.prev-<время>)"
-git -c core.autocrlf=false archive --format=tar.gz -o "$TMP/release.tgz" --add-virtual-file="backend/pwa/version.json:$PWA_VER" HEAD backend docker-compose.prod.yml deploy
-scp -i "$KEY" -o BatchMode=yes "$TMP/release.tgz" "$VM:/tmp/dc-release.tgz"
 MUTATED=1
 "${SSH[@]}" "TS=$TS bash -s" <<'EOS'
-set -e; R=/tmp/dc-rel-$TS; mkdir -p $R; tar -xzf /tmp/dc-release.tgz -C $R
+set -e; R=/tmp/dc-rel-$TS; mkdir -p $R; tar -xzf /opt/data-core/.ha-operation/release.tgz -C $R
 cp /opt/data-core/deploy/synology/.env $R/deploy/synology/.env 2>/dev/null || true
 cd /opt/data-core
 test -d $R/backend; test -d $R/deploy; test -f $R/docker-compose.prod.yml
@@ -177,9 +222,9 @@ CHECK="$("${SSH[@]}" 'for i in $(seq 1 30); do s=$(curl -s -o /dev/null -w "%{ht
   [ $bad = 0 ] && echo "смоук: 7 из 7 в норме" || echo "смоук: есть сбои — смотреть выше"' || true)"
 echo "$CHECK"
 # Нет ответа — потеря связи, а не доказанный дефект. Не откатываем вслепую.
-if [[ -z "$CHECK" ]]; then MUTATED=0; echo "СТОП: нет связи с VM при проверке. Новая версия запущена, нужен ручной контроль"; exit 1; fi
+if [[ -z "$CHECK" ]]; then UNCERTAIN=1; echo "СТОП: нет связи с VM при проверке. Новая версия запущена, нужен ручной контроль"; exit 1; fi
 VERSION="$("${SSH[@]}" 'curl --max-time 10 -fsS http://127.0.0.1:3001/app/version.json' || true)"
-if ! node -e 'const [raw,expected]=process.argv.slice(1);try{if(JSON.parse(raw).v!==expected)process.exit(1)}catch{process.exit(1)}' "$VERSION" "$PWA_HASH"; then
+if [[ "$VERSION" != "$PWA_VER" ]]; then
   CHECK+=$'\nСБОЙ: version.json не соответствует выложенному коду'
 fi
 # Только искусственный fail для проверок на явно разрешённом тестовом хосте.
@@ -188,13 +233,13 @@ if [[ "${RG_TEST_FAIL:-0}" == 1 ]]; then
   CHECK+=$'\nСБОЙ: искусственный тест отката'
 fi
 # пустой ответ — оборвалась связь, а не проверка: откатывать вслепую нельзя
-if [[ -z "$CHECK" ]]; then MUTATED=0; echo "СТОП: нет связи с VM при проверке. Новая версия запущена, нужен ручной контроль"; exit 1; fi
+if [[ -z "$CHECK" ]]; then UNCERTAIN=1; echo "СТОП: нет связи с VM при проверке. Новая версия запущена, нужен ручной контроль"; exit 1; fi
 if ! grep -q 'ready: 200' <<<"$CHECK" || ! grep -q '/app/: 200' <<<"$CHECK" || ! grep -q 'смоук: 7 из 7' <<<"$CHECK" || grep -q 'СБОЙ' <<<"$CHECK"; then
   echo "СТОП: проверка не прошла, возвращаю прошлую версию"
   exit 1
 fi
 # проверка прошла — запомнить версию сервера (следующая выкладка сравнит с ней)
-"${SSH[@]}" "echo $(git rev-parse HEAD) > /opt/data-core/.release-commit"
+"${SSH[@]}" "set -euo pipefail; cd /opt/data-core; source deploy/ha/switch/release-artifact.sh; publish_artifact /opt/data-core '$REMOTE_ARCHIVE' '$COMMIT' '$DIGEST' '$PWA_HASH'; rotate_artifacts /opt/data-core || true"
 VERIFIED=1
 if [[ $MODE == full ]]; then
   "${SSH[@]}" "rm -rf /opt/data-core/backend.replacing-$TS /opt/data-core/deploy.replacing-$TS" || true
@@ -244,11 +289,11 @@ mkdir -p tools/logs && node backend/scripts/devlog-import.js prod --apply > tool
 echo "== Готово. Публично: https://kppdf-crm.ru/db/app/"
 # пользователь сверяет с меню приложения («v1.N») — то ли он видит (просьба 2026-10-25)
 echo "== Версия приложения: v$PWA_L (коммит $(git log -1 --format=%h -- backend/pwa)), сервер — $(git log --oneline -1 | cut -c1-60)"
-TAG="release-v$PWA_L-$(git rev-parse --short HEAD)"
+TAG="release-v$PWA_L-$(git rev-parse --short "$COMMIT")"
 if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
-  [[ "$(git rev-list -1 "$TAG")" == "$(git rev-parse HEAD)" ]] || { echo "СТОП: тег выпуска уже указывает на другой коммит"; exit 1; }
+  [[ "$(git rev-list -1 "$TAG")" == "$COMMIT" ]] || { echo "СТОП: тег выпуска уже указывает на другой коммит"; exit 1; }
 else
-  git tag "$TAG"
+  git tag "$TAG" "$COMMIT"
 fi
 git push origin "refs/tags/$TAG"
 echo "ГОТОВО v$PWA_L — health 200; смоук 7/7; версия $PWA_HASH; тег $TAG"
