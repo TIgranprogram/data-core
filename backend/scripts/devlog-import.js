@@ -11,11 +11,8 @@ const { execFileSync } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
-const [env, ...flags] = process.argv.slice(2);
-if (!['local', 'prod'].includes(env)) { console.error('usage: <local|prod> [--apply]'); process.exit(2); }
-const APPLY = flags.includes('--apply');
-const BASE = env === 'prod' ? 'https://kppdf-crm.ru/db' : 'http://localhost:3001';
 const ROOT = path.join(__dirname, '../..');
 const MAX_BODY = 700_000;
 
@@ -110,28 +107,57 @@ function batches(list, maxCount, size) {
   return out;
 }
 
-function creds() {
-  const d = path.join(ROOT, 'deploy/synology');
-  const get = (k, f) => { try { const m = fs.readFileSync(path.join(d, f), 'utf8').match(new RegExp(`^${k}=(.*)$`, 'm')); return m ? m[1].replace(/["\r]/g, '') : ''; } catch { return ''; } };
-  return { username: get('ACCESS_USER', 'access.env') || 'admin', password: get('ACCESS_PASSWORD', 'access.env') || get('ADMIN_PASSWORD', 'config.env') };
-}
-let token = '';
-async function login() {
-  const c = creds();
-  if (!c.password) throw new Error('нет пароля (config.env / access.env)');
-  const j = await fetch(BASE + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(c) }).then((r) => r.json());
-  token = j.access || (j.tokens && j.tokens.access);
-  if (!token) throw new Error('вход не удался');
-}
-async function api(method, p, body) {
-  await new Promise((r) => setTimeout(r, 700)); // лимит запросов в минуту
-  const r = await fetch(BASE + p, { method, headers: { Authorization: `Bearer ${token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
-  const txt = await r.text();
-  if (!r.ok) throw new Error(`${method} ${p}: ${r.status} ${txt.slice(0, 200)}`);
-  return txt ? JSON.parse(txt) : {};
+/** Основной checkout владеет доступом; worktree не читает и не копирует его секреты. */
+function mainCheckout(root, run = execFileSync) {
+  try {
+    const common = run('git', ['rev-parse', '--git-common-dir'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true }).trim();
+    if (!common) throw new Error();
+    const main = path.dirname(path.resolve(root, common));
+    if (!fs.statSync(path.join(main, 'deploy/synology/api.sh')).isFile()) throw new Error();
+    return main;
+  } catch { throw new Error('Не найден штатный api.sh основного checkout (git common-dir)'); }
 }
 
-(async () => {
+/** Только argv subprocess и закрытый файл тела: JSON не попадает в shell, argv или журнал ошибок. */
+function createApiTransport(root, target, { run = execFileSync, tempRoot = os.tmpdir(), wait = () => new Promise(r => setTimeout(r, 700)) } = {}) {
+  if (!['local', 'prod'].includes(target)) throw new Error('Транспорт devlog: нужен local или prod');
+  const main = mainCheckout(root, run);
+  const script = path.join(main, 'deploy/synology/api.sh').replace(/\\/g, '/');
+  return async (method, endpoint, body) => {
+    if (!['GET', 'POST'].includes(method) || !/^\/api\/devlog\/(?:import$|docs(?:\?|$))/.test(endpoint)) throw new Error('Транспорт devlog: недопустимый запрос');
+    await wait();
+    let dir, file;
+    try {
+      const args = [script, target, method, endpoint];
+      if (body !== undefined) {
+        dir = fs.mkdtempSync(path.join(tempRoot, 'datacore-devlog-'));
+        fs.chmodSync(dir, 0o700);
+        file = path.join(dir, 'body.json');
+        const fd = fs.openSync(file, 'wx', 0o600);
+        try { fs.writeFileSync(fd, JSON.stringify(body), 'utf8'); } finally { fs.closeSync(fd); }
+        args.push(file.replace(/\\/g, '/'));
+      }
+      const raw = run('bash', args, { cwd: main, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], shell: false, windowsHide: true, maxBuffer: 16 * 1024 * 1024 });
+      const result = JSON.parse(raw);
+      if (!result || typeof result !== 'object' || Array.isArray(result) || Number(result.statusCode) >= 400) throw new Error();
+      return result;
+    } catch { throw new Error('Запрос devlog через штатный api.sh не выполнен; проверьте доступ и ответ API'); }
+    finally {
+      let failed = false;
+      for (const [name, remove] of [[file, fs.unlinkSync], [dir, fs.rmdirSync]]) if (name) {
+        try { remove(name); } catch (e) { if (e.code !== 'ENOENT') failed = true; }
+      }
+      if (failed) throw new Error('Не удалось удалить временное тело запроса devlog');
+    }
+  };
+}
+
+async function main(argv = process.argv.slice(2)) {
+  const [env, ...flags] = argv;
+  if (!['local', 'prod'].includes(env)) throw new Error('usage: <local|prod> [--apply]');
+  const APPLY = flags.includes('--apply');
+  const BASE = env === 'prod' ? 'https://kppdf-crm.ru/db' : 'http://localhost:3001';
+
   const commits = readCommits();
   const items = readTasks();
   const { docs, open } = readDocs();
@@ -147,7 +173,7 @@ async function api(method, p, body) {
     console.log('  Удалять документы нельзя до сверки: после --apply скрипт сверит sha256 с сервером и назовёт файлы, которые можно удалить (git rm - отдельным коммитом).');
     return;
   }
-  await login();
+  const api = createApiTransport(ROOT, env);
   const total = {};
   const add = (r) => { for (const [k, v] of Object.entries(r)) total[k] = (total[k] || 0) + (typeof v === 'number' ? v : 0); };
   for (const b of batches(commits, 300, (c) => JSON.stringify(c).length)) add(await api('POST', '/api/devlog/import', { commits: b }));
@@ -164,4 +190,7 @@ async function api(method, p, body) {
   console.log(`  сверка sha256: совпало ${ok.length}, не совпало ${bad.length}`);
   if (bad.length) console.log('  НЕ удалять:\n    ' + bad.join('\n    '));
   if (ok.length) console.log('  можно удалить (git rm, отдельным коммитом «docs: архив → devlog»):\n    ' + ok.join('\n    '));
-})().catch((e) => { console.error('devlog-import:', e.message); process.exit(1); });
+}
+
+module.exports = { mainCheckout, createApiTransport };
+if (require.main === module) main().catch((e) => { console.error('devlog-import:', e.message); process.exitCode = ['local', 'prod'].includes(process.argv[2]) ? 1 : 2; });

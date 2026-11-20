@@ -288,3 +288,7 @@
 ### C164 оригиналы/группировка, финальный узкий пакет20.11
 - `photos/photos.service.ts:assertNoDocumentReferences/claimSourceDeletion/remove` rawreferencesвключаяdeleted, sharedURLaliases, conditionaldeleteclaims; `common/legal/legal-utils.ts:validateLegalFiles` Photo.sourceProtected доparentCAS/двапорядкасериализации. `photos/photo.schema.ts` serverflagsdefaultundefined; tests `c164-photo-reference.spec.ts`, `c164-photo-serialization.spec.ts`.
 - `salesorders/production-orders.service.ts:groupingOnlyIds/unassigned/assign` groupingдоmatchingдляlegal/manualsource; `salesorders.service.ts:assertHasLines` sourceproductionstartвсёещёгейтитсяреальнымmatching. E2EдвасценарияподготовленыQA. tsc/eslint0,18suites94unitPASS. FullarchiveC167отдельно; коммит:не закоммичен(координатор).
+
+### C166 — devlog transport из worktree (20.11.2026)
+- `backend/scripts/devlog-import.js:111` mainCheckout через git common-dir; `:123` createApiTransport→main api.sh, argv subprocess/private tempfile/cleanup, без чтения credentials/login. Адресный `devlog-import.test.mjs`:8PASS; настоящий dry-run0 без сети/API.
+- Отчёт `docs/crew/C166-server-schedules/DEVLOG-TRANSPORT.md`; apply только после rootreview штатным каналом. Новый runtimeCLI не добавлен, коммит: не выполнялся; карта обновлена.
