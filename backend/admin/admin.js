@@ -1600,7 +1600,7 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
       if (!d.items.length) { box.replaceChildren(el('p', 'muted', 'Копий пока нет — они создаются ночью автоматически.')); return; }
       const prog = el('span', 'muted srv-prog');
       const table = el('table', 'srv-backups');
-      const hr = el('tr'); ['Дата', 'База', 'Фото', 'Скачать'].forEach((h) => hr.append(el('th', null, h)));
+      const hr = el('tr'); ['Дата', 'База · объём содержимого', 'Фото · объём содержимого', 'Скачать'].forEach((h) => hr.append(el('th', null, h)));
       const th = el('thead'); th.append(hr); table.append(th);
       const tb = el('tbody');
       d.items.forEach((it) => {
