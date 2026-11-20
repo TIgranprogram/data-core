@@ -30,9 +30,9 @@ export function apiAddress(value) {
 
 export function connectApi({ apiBase, token, signal }) {
   const base = apiAddress(apiBase);
-  if (typeof token !== 'string' || !token.trim() || /\s/.test(token) || token.length > 4096) {
-    throw new IntakeError('AUTH', 'Войдите в DataCore для разбора документов.');
-  }
+  const validToken = (value) => typeof value === 'string' && value.trim() && !/\s/.test(value) && value.length <= 4096;
+  const authRequired = () => new IntakeError('AUTH', 'Войдите в DataCore для разбора документов.');
+  if (typeof token !== 'function' && !validToken(token)) throw authRequired();
   const params = (query) => query ? `?${new URLSearchParams(query)}` : '';
   function failed(status) {
     if (status === 401 || status === 403) throw new IntakeError('AUTH', 'DataCore просит войти снова или открыть нужные права.', 'Войдите в DataCore с доступом к документам, контрагентам и суммам, затем возобновите разбор.');
@@ -41,7 +41,13 @@ export function connectApi({ apiBase, token, signal }) {
     throw new IntakeError('API_UNAVAILABLE', 'DataCore недоступен или не смог подтвердить операцию.', 'Проверьте соединение с тем же сайтом и возобновите разбор.');
   }
   async function response(url, { method = 'GET', body, absent = false } = {}) {
-    const headers = { Authorization: `Bearer ${token}` };
+    signal?.throwIfAborted();
+    let access;
+    try { access = typeof token === 'function' ? await token() : token; }
+    catch { signal?.throwIfAborted(); throw authRequired(); }
+    signal?.throwIfAborted();
+    if (!validToken(access)) throw authRequired();
+    const headers = { Authorization: `Bearer ${access}` };
     if (body && !(body instanceof FormData)) {
       headers['Content-Type'] = 'application/json';
       body = JSON.stringify(body);

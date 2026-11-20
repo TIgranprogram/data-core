@@ -10,6 +10,7 @@ const production = 'https://kppdf-crm.ru/db/api';
 const defaults = { root: '', apiBase: '', modelBase: 'http://127.0.0.1:1235/v1', model: '' };
 const emptyCounts = { inbox: 0, processing: 0, ready: 0, question: 0 };
 const importRoles = new Set(['manager', 'accountant', 'director', 'admin']);
+const refreshAheadMs = 60_000;
 const fail = (status, error) => ({ status, body: { error } });
 const ok = (body, status = 200) => ({ status, body });
 const asText = (value, limit = 1200) => typeof value === 'string' ? value.slice(0, limit) : '';
@@ -46,12 +47,25 @@ function counts(value) {
   return Object.fromEntries(Object.keys(emptyCounts).map((key) => [key, asCount(value?.[key])]));
 }
 
-function expiresAt(access) {
+function jwtClaims(token) {
+  if (typeof token !== 'string' || token.length > 4096 || !/^[\w-]+\.[\w-]+\.[\w-]+$/.test(token)) return null;
   try {
-    const { exp } = JSON.parse(Buffer.from(access.split('.')[1], 'base64url').toString('utf8'));
-    if (Number.isFinite(exp)) return exp * 1000;
-  } catch { /* срок по умолчанию совпадает с access-сессией API */ }
-  return Date.now() + 15 * 60_000;
+    const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
+    if (typeof claims?.sub === 'string' && claims.sub && Number.isSafeInteger(claims.exp)) return claims;
+  } catch { /* некорректный ответ входа или обновления */ }
+  return null;
+}
+
+function sameAccount(left, right) {
+  return !!left && !!right && left.sub === right.sub && left.version === right.version;
+}
+
+function refreshCookie(response, access) {
+  const matches = response.headers.getSetCookie().map((value) => /^refreshToken=([^;]+)(?:;|$)/.exec(value)).filter(Boolean);
+  if (matches.length !== 1) return null;
+  const value = matches[0][1];
+  const claims = jwtClaims(value);
+  return sameAccount(claims, access) && claims.rem === false ? { value, expiresAt: claims.exp * 1000 } : null;
 }
 
 const errors = {
@@ -62,7 +76,7 @@ const errors = {
   ABORTED: 'Разбор остановлен. Чтобы продолжить, нажмите «Возобновить».',
 };
 
-export function createDocumentIntake({ stateDir, changed, engine = () => import('../tools/document-intake/index.mjs'), fetchFn = fetch, pickFolder = (root) => nativeFolder('Pick', root), openFolder = (root) => nativeFolder('Open', root) }) {
+export function createDocumentIntake({ stateDir, changed, engine = () => import('../tools/document-intake/index.mjs'), fetchFn = fetch, now = Date.now, pickFolder = (root) => nativeFolder('Pick', root), openFolder = (root) => nativeFolder('Open', root) }) {
   const file = path.join(stateDir, 'document-intake.json');
   const initialized = fs.readFile(file, 'utf8').then((raw) => {
     const saved = JSON.parse(raw);
@@ -78,15 +92,22 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
   let progress = null;
 
   const busy = () => !!active || pending;
-  const loggedIn = () => !!auth && auth.expiresAt > Date.now();
+  const loggedIn = () => !!auth && (auth.expiresAt > now() || auth.refresh?.expiresAt > now());
   const notify = () => changed?.();
+
+  function clearAuth(session = auth) {
+    if (!session) return;
+    if (auth === session) auth = null;
+    session.access = '';
+    session.refresh = null;
+  }
 
   async function save(next) {
     await fs.mkdir(stateDir, { recursive: true });
     const tmp = `${file}.${process.pid}.tmp`;
     await fs.writeFile(tmp, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600 });
     await fs.rename(tmp, file);
-    if (settings.apiBase !== next.apiBase) auth = null;
+    if (settings.apiBase !== next.apiBase) clearAuth();
     settings = next;
     revision++;
   }
@@ -103,6 +124,7 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
   function safeText(value) {
     let text = typeof value === 'string' ? value : '';
     if (auth?.access) text = text.replaceAll(auth.access, '[скрыто]');
+    if (auth?.refresh) text = text.replaceAll(auth.refresh.value, '[скрыто]');
     return asText(text.replace(/\bBearer\s+[^\s,;]+/gi, '[скрыто]').replace(/\beyJ[\w-]+\.[\w-]+\.[\w-]+\b/g, '[скрыто]'));
   }
 
@@ -140,7 +162,7 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
     if (typeof username !== 'string' || !username.trim() || username.length > 64 || typeof password !== 'string' || !password || password.length > 128) {
       return fail(400, 'Введите логин и пароль менеджера.');
     }
-    auth = null;
+    clearAuth();
     let response;
     try {
       response = await fetchFn(`${settings.apiBase}/auth/login`, {
@@ -158,8 +180,54 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
     if (!user?.isOwner && (!importRoles.has(user?.baseRole ?? user?.role) || user?.canMoney === false)) {
       return fail(403, 'Для разбора документов нужна учётная запись с правами менеджера и доступом к суммам.');
     }
-    auth = { access: result.access, expiresAt: expiresAt(result.access) };
+    const claims = jwtClaims(result.access);
+    if (claims && user.id && claims.sub !== user.id) return fail(502, 'Сайт не подтвердил учётную запись. Войдите снова.');
+    auth = {
+      access: result.access, claims, expiresAt: claims ? claims.exp * 1000 : now() + 15 * 60_000,
+      refresh: refreshCookie(response, claims), apiBase: settings.apiBase, refreshing: null,
+    };
     return ok({ signedIn: loggedIn() });
+  }
+
+  function tokenProvider(session, { root, apiBase }, controller) {
+    const { signal } = controller;
+    const authError = () => Object.assign(new Error(errors.AUTH), { code: 'AUTH' });
+    function checkBinding() {
+      signal.throwIfAborted();
+      if (auth !== session || session.apiBase !== apiBase || settings.apiBase !== apiBase || settings.root !== root || active !== controller) throw authError();
+    }
+    async function refreshAccess() {
+      try {
+        // Штатный JwtRefreshStrategy принимает значение refresh-cookie через Bearer. Сохраняем только в памяти пульта.
+        const response = await fetchFn(`${apiBase}/auth/refresh`, {
+          method: 'POST', headers: { Authorization: `Bearer ${session.refresh.value}`, 'Content-Type': 'application/json' },
+          body: '{}', redirect: 'error', signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)]),
+        });
+        checkBinding();
+        if (!response.ok) { await response.body?.cancel().catch(() => {}); throw authError(); }
+        const { access } = await response.json();
+        checkBinding();
+        const claims = jwtClaims(access);
+        const nextRefresh = refreshCookie(response, claims);
+        if (!sameAccount(claims, session.claims) || claims.role !== session.claims.role || claims.orgId !== session.claims.orgId
+          || claims.exp * 1000 <= now() || !nextRefresh || nextRefresh.expiresAt <= now()) throw authError();
+        Object.assign(session, { access, claims, expiresAt: claims.exp * 1000, refresh: nextRefresh });
+      } catch {
+        signal.throwIfAborted();
+        clearAuth(session);
+        throw authError();
+      }
+    }
+    return async () => {
+      checkBinding();
+      const remaining = session.expiresAt - now();
+      if (remaining > refreshAheadMs || (remaining > 0 && !session.refresh)) return session.access;
+      if (!session.refresh || session.refresh.expiresAt <= now()) { clearAuth(session); throw authError(); }
+      session.refreshing ??= refreshAccess().finally(() => { session.refreshing = null; });
+      await session.refreshing;
+      checkBinding();
+      return session.access;
+    };
   }
 
   function start(mode, arrivalIds) {
@@ -167,8 +235,9 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
     if (!settings.apiBase || !settings.model) return fail(409, 'Сначала сохраните адрес сайта и настройки локальной модели.');
     if (!loggedIn()) return fail(401, 'Войдите в учётную запись менеджера.');
     const { root, apiBase, modelBase, model } = settings;
-    const token = auth.access;
+    const session = auth;
     const controller = new AbortController();
+    const token = tokenProvider(session, { root, apiBase }, controller);
     active = controller;
     progress = publicProgress({ state: 'processing', message: 'Проверяем входящие документы…' });
     notify();
@@ -181,11 +250,11 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
       return intake[mode]({ root, apiBase, token, modelBase, model, onProgress, signal: controller.signal, ...(arrivalIds ? { arrivalIds } : {}) });
     })
       .then((result) => {
-        if (result?.stopped?.code === 'AUTH') auth = null;
+        if (result?.stopped?.code === 'AUTH' && !controller.signal.aborted) clearAuth(session);
         const message = safeStopped(result?.stopped);
         progress = publicProgress({ ...progress, state: message || controller.signal.aborted ? 'stopped' : 'finished', current: '', message: message || (controller.signal.aborted ? errors.ABORTED : '') });
       }).catch((err) => {
-        if (err.code === 'AUTH') auth = null;
+        if (err.code === 'AUTH' && !controller.signal.aborted) clearAuth(session);
         const message = controller.signal.aborted ? errors.ABORTED : errors[err.code] || 'Не удалось продолжить разбор. Проверьте доступ к папке, сайту и локальной модели.';
         progress = publicProgress({ ...progress, state: 'stopped', message });
       }).finally(() => { active = null; task = null; notify(); });
@@ -222,7 +291,7 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
         progress = null;
         return ok({ selected: true });
       }
-      if (action === 'logout') { auth = null; return ok({ signedIn: false }); }
+      if (action === 'logout') { clearAuth(); return ok({ signedIn: false }); }
       if (!['settings', 'login', 'run', 'resume', 'retry'].includes(action)) return fail(404, 'Нет такого действия.');
       const body = await readBody();
       if (body?.revision !== revision) return fail(409, 'Настройки изменились в другом окне. Проверьте показанный адрес и повторите действие.');
@@ -242,5 +311,5 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
     } finally { pending = false; notify(); }
   }
 
-  return { route, busy, async stop() { active?.abort(); await task; } };
+  return { route, busy, async stop() { active?.abort(); await task; clearAuth(); } };
 }

@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { setTimeout as wait } from 'node:timers/promises';
 import { test } from 'node:test';
+import { createDocumentIntake } from '../document-intake.mjs';
 import { createPult } from '../server.mjs';
 
 const access = 'fixture-access-value';
@@ -27,8 +28,8 @@ test('разбор документов: границы запросов, сес
     async configure(params) { assert.equal(params.root, documents); return { root: documents, folders: {} }; },
     async status(params) { assert.equal(params.root, documents); return { counts, running: false }; },
     async report(params) { assert.equal(params.root, documents); return { counts, items, token: access }; },
-    async run({ signal, onProgress, ...params }) {
-      calls.push({ mode: 'run', ...params });
+    async run({ signal, onProgress, token, ...params }) {
+      calls.push({ mode: 'run', ...params, token: await token() });
       onProgress({ processed: 1, total: 2, state: 'processing', current: 'Договор.pdf', token: access });
       await new Promise((resolve) => signal.addEventListener('abort', resolve, { once: true }));
       counts.processing = 1;
@@ -165,4 +166,157 @@ test('разбор документов: границы запросов, сес
   assert.equal(reopened.json.signedIn, false);
   assert.equal((await raw('report')).json.items[0].name, 'Счёт.pdf');
   assert.ok(calls.filter((call) => call.url).every((call) => call.url.startsWith('http://127.0.0.1:')));
+});
+
+async function refreshFixture(t) {
+  const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pult-intake-refresh-'));
+  const documents = path.join(stateDir, 'documents');
+  const minute = 60_000;
+  let time = Date.UTC(2026, 10, 20, 12, 0, 0);
+  let step = async () => ({});
+  let receivedSession;
+  let answer = 'ok';
+  let account = 'owner-a';
+  const calls = [];
+  const credentials = [];
+  let stopRefresh;
+  let previousRefresh;
+  const engine = {
+    async configure({ root }) { return { root }; },
+    async status() { return { counts: {}, running: false }; },
+    async report() { return { counts: {}, items: [{ name: 'Проба.pdf', message: credentials.join(' ') }] }; },
+    async run({ token }) { receivedSession = token; return step(token); },
+  };
+  const jwt = (payload) => `eyJhbGciOiJIUzI1NiJ9.${Buffer.from(JSON.stringify(payload)).toString('base64url')}.fake-signature`;
+  const fetchFn = async (url, request) => {
+    const login = url.endsWith('/auth/login');
+    calls.push({ url, method: request.method, auth: request.headers.Authorization, redirect: request.redirect, body: request.body });
+    if (!login) {
+      assert.equal(request.headers.Authorization, `Bearer ${previousRefresh}`);
+      assert.ok(request.signal);
+      if (answer === 'revoked') return new Response('test-revoked-secret', { status: 401 });
+      if (answer === 'unknown') throw new Error('test-unknown-secret');
+      if (answer === 'abort') {
+        stopRefresh();
+        await new Promise((_, reject) => request.signal.addEventListener('abort', () => reject(request.signal.reason), { once: true }));
+      }
+    }
+    const sub = !login && answer === 'wrong-account' ? 'owner-unexpected' : account;
+    const second = Math.floor(time / 1000);
+    const access = jwt({ sub, version: 5, exp: second + 15 * 60, role: 'manager', orgId: null });
+    const cookie = jwt({ sub, version: 5, exp: second + 30 * 24 * 60 * 60, rem: false });
+    previousRefresh = cookie;
+    credentials.push(access, cookie);
+    const user = login ? { id: sub, role: 'manager', canMoney: true } : undefined;
+    const headers = new Headers({ 'Set-Cookie': 'irrelevant=unused; Path=/' });
+    if (answer !== 'no-cookie') headers.append('Set-Cookie', `refreshToken=${cookie}; Path=/api/auth; HttpOnly; Secure; SameSite=Strict`);
+    return Response.json({ access, refresh: 'json-refresh-is-not-the-cookie', user }, { headers });
+  };
+  const intake = createDocumentIntake({ stateDir, engine: async () => engine, now: () => time, pickFolder: async () => documents, fetchFn });
+  t.after(async () => { await intake.stop(); await fs.rm(stateDir, { recursive: true, force: true }); });
+  const view = async () => (await intake.route('GET', 'status')).body;
+  const post = async (action, body = {}) => intake.route('POST', action, async () => ({ ...body, revision: (await view()).revision }));
+  const login = async () => post('login', { username: account, password });
+  const complete = async () => {
+    for (let i = 0; i < 50; i++) {
+      const state = await view();
+      if (!state.running) return state;
+      await wait(5);
+    }
+    assert.fail('Разбор не завершился');
+  };
+  await post('folder');
+  await post('settings', services);
+  return {
+    view, post, login, complete, calls, credentials, documents, stateDir,
+    report: () => intake.route('GET', 'report'),
+    advance: (minutes) => { time += minutes * minute; },
+    runWith: (fn) => { step = fn; },
+    previousProvider: () => receivedSession,
+    account: (value) => { account = value; },
+    answer: (value) => { answer = value; },
+    refreshStarted: () => new Promise((resolve) => { stopRefresh = resolve; }),
+  };
+}
+
+test('длинный пакет обновляет access дважды заранее, один refresh для параллельных запросов', async (t) => {
+  const f = await refreshFixture(t);
+  const first = await f.login();
+  assert.deepEqual(first, { status: 200, body: { signedIn: true } });
+  const tokens = [];
+  f.runWith(async (token) => {
+    tokens.push(await token());
+    f.advance(14.5);
+    tokens.push(...await Promise.all([token(), token()]));
+    f.advance(15.5);
+    tokens.push(await token());
+    return {};
+  });
+  assert.equal((await f.post('run')).status, 202);
+  const result = await f.complete();
+  assert.equal(result.progress.state, 'finished');
+  assert.equal(result.signedIn, true);
+  assert.deepEqual(tokens, [f.credentials[0], f.credentials[2], f.credentials[2], f.credentials[4]]);
+  const refreshes = f.calls.filter(({ url }) => url.endsWith('/auth/refresh'));
+  assert.deepEqual(refreshes, [1, 3].map((index) => ({
+    url: `${services.apiBase}/auth/refresh`, method: 'POST', auth: `Bearer ${f.credentials[index]}`, redirect: 'error', body: '{}',
+  })));
+  const report = await f.report();
+  const config = await fs.readFile(path.join(f.stateDir, 'document-intake.json'), 'utf8');
+  const exposed = JSON.stringify([first, result, report, config, await fs.readdir(f.stateDir)]);
+  assert.ok(f.credentials.every((secret) => !exposed.includes(secret)));
+  assert.doesNotMatch(exposed, /json-refresh-is-not-the-cookie|fixture-private-password/);
+
+  const old = f.previousProvider();
+  await f.post('logout');
+  assert.equal((await f.view()).signedIn, false);
+  f.account('owner-b');
+  assert.equal((await f.login()).body.signedIn, true);
+  await assert.rejects(old(), { code: 'AUTH' });
+  await f.post('settings', { ...services, apiBase: 'http://127.0.0.1:3102/api' });
+  assert.equal((await f.view()).signedIn, false);
+  await f.login();
+  await assert.rejects(old(), { code: 'AUTH' });
+  assert.equal(f.calls.at(-1).url, 'http://127.0.0.1:3102/api/auth/login');
+});
+
+for (const scenario of ['revoked', 'unknown', 'wrong-account', 'no-cookie']) {
+  test(`разбор приостанавливается при сбое обновления сессии (${scenario})`, async (t) => {
+    const f = await refreshFixture(t);
+    if (scenario === 'no-cookie') f.answer(scenario);
+    assert.equal((await f.login()).body.signedIn, true);
+    f.answer(scenario);
+    f.runWith(async (token) => {
+      await token();
+      f.advance(16);
+      await token();
+      assert.fail('Токен не должен дойти до операции DataCore');
+    });
+    assert.equal((await f.post('run')).status, 202);
+    const result = await f.complete();
+    assert.equal(result.signedIn, false);
+    assert.equal(result.progress.state, 'stopped');
+    assert.match(result.progress.message, /Войдите/);
+    assert.doesNotMatch(JSON.stringify(result), /test-(revoked|unknown)-secret/);
+    assert.equal(f.calls.length, scenario === 'no-cookie' ? 1 : 2);
+  });
+}
+
+test('остановка отменяет запрос refresh и сохраняет сессию для нового запуска', async (t) => {
+  const f = await refreshFixture(t);
+  await f.login();
+  f.answer('abort');
+  const started = f.refreshStarted();
+  f.runWith(async (token) => { f.advance(15); await token(); });
+  assert.equal((await f.post('run')).status, 202);
+  await started;
+  assert.equal((await f.post('stop')).status, 202);
+  const stopped = await f.complete();
+  assert.equal(stopped.signedIn, true);
+  assert.match(stopped.progress.message, /разбор остановлен/i);
+  f.answer('ok');
+  f.runWith(async (token) => { await token(); return {}; });
+  assert.equal((await f.post('run')).status, 202);
+  assert.equal((await f.complete()).progress.state, 'finished');
+  assert.equal(f.calls.filter(({ url }) => url.endsWith('/auth/refresh')).length, 2);
 });

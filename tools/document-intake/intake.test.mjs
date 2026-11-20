@@ -492,3 +492,37 @@ test('маскировка URL: API не пересылает bearer, модел
   await assert.rejects(api.original('/uploads/%2e%2e/api/auth/me', bytes.length), { code: 'QUESTION' });
   assert.deepEqual(seen, ['/db/api/auth/me', '/v1/chat/completions', '/db/uploads/c169/source.pdf']);
 });
+
+test('провайдер access вызывается перед каждым запросом, отказ не повторяет запись', async (t) => {
+  const base = 'http://127.0.0.1:3102';
+  const requests = [];
+  let tokens = 0;
+  let refuse = false;
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    const request = new URL(url);
+    assert.equal(request.origin, base);
+    assert.equal(options.redirect, 'error');
+    requests.push([options.method, request.pathname, options.headers.Authorization]);
+    if (request.pathname === '/db/uploads/c169/source.pdf') return new Response(bytes);
+    if (request.pathname === '/db/api/salesorders') return new Response('fixture', { status: 401 });
+    return Response.json({ id: 'fixture' });
+  });
+  const api = connectApi({ apiBase: `${base}/db/api`, token: async () => {
+    if (refuse) throw new Error('provider-private-data');
+    return `rotating-access-${++tokens}`;
+  } });
+  await api.get('/auth/me');
+  await api.original('/uploads/c169/source.pdf', bytes.length);
+  await assert.rejects(api.post('/salesorders', { orderNo: 'fixture' }), { code: 'AUTH' });
+  refuse = true;
+  await assert.rejects(api.post('/salesorders', { orderNo: 'fixture-2' }), (error) => {
+    assert.equal(error.code, 'AUTH');
+    assert.doesNotMatch(error.message, /provider-private-data/);
+    return true;
+  });
+  assert.deepEqual(requests, [
+    ['GET', '/db/api/auth/me', 'Bearer rotating-access-1'],
+    ['GET', '/db/uploads/c169/source.pdf', 'Bearer rotating-access-2'],
+    ['POST', '/db/api/salesorders', 'Bearer rotating-access-3'],
+  ]);
+});
