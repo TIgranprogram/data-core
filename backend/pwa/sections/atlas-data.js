@@ -353,6 +353,8 @@ export const NODES = [
 
 /** Связи: [откуда, куда, что передаётся]. Это связь записей, а не автоматический переход статуса. */
 export const LINKS = [
+  ['offers', 'fill', 'уточнения и несопоставленные строки КП'],
+  ['salesorders', 'fill', 'уточнения комплекта договора'],
   ['partners', 'offers', 'заказчик и наша фирма'], ['offers', 'salesorders', 'основание для заказа'],
   ['partners', 'salesorders', 'заказчик'],
   ['products', 'offers', 'изделия и цены'], ['products', 'salesorders', 'изделия в позициях'],
