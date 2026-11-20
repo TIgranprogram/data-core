@@ -1,3 +1,4 @@
+import { passportContextStage } from '../../common/passport/line-source';
 import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
@@ -175,7 +176,7 @@ export class MatchingService {
       const cur = lineBy.get(p.lineId)!;
       const set: Doc = { matchStatus: p.productId ? 'confirmed' : 'none', matchedAt: now, editedInApp: true, ...(by ? { matchedBy: by } : {}) };
       if (p.productId) set.productId = new Types.ObjectId(p.productId);
-      await db.collection('incomes').updateOne({ _id: cur._id as Types.ObjectId }, { $set: set, ...(p.productId ? {} : { $unset: { productId: '' } }) });
+      await db.collection('incomes').updateOne({ _id: cur._id as Types.ObjectId }, [passportContextStage({ $ne: [{ $ifNull: ['$productId', null] }, p.productId ? new Types.ObjectId(p.productId) : null] }), { $set: Object.fromEntries(Object.entries({ ...set, ...(p.productId ? {} : { productId: '$$REMOVE' }) }).map(([k,v]) => [k, v === '$$REMOVE' ? v : { $literal: v }])) }]);
       if (p.productId) await this.remember(String(cur.title ?? ''), p.productId, now);
       if (p.productId) await this.fillOrderName(p.productId, String(cur.title ?? ''));
       await this.audit.log({ action: 'income.updated', entityType: 'Income', entityId: p.lineId, details: { partial: true, before: { productId: cur.productId ? String(cur.productId) : null, matchStatus: cur.matchStatus ?? null }, after: { productId: p.productId, matchStatus: set.matchStatus }, meta: { via: 'matching' } } as never });

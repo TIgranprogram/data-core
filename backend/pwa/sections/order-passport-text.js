@@ -51,8 +51,8 @@ const plural = (n, one, few, many) => {
 
 /** Сводка панели: «Готово 0 из 12 · заполнить: 9 позиций». */
 export function summaryText(row) {
-  const done = (row?.ready || 0) + (row?.issued || 0);
+  const done = (row?.attached || 0) + (row?.issued || 0);
   const blocked = (row?.lines || []).filter((l) => l.state === 'blocked').length || row?.blocked || 0;
-  const base = `Готово ${done} из ${row?.total || 0}`;
-  return blocked ? `${base} · заполнить: ${blocked} ${plural(blocked, 'позицию', 'позиции', 'позиций')}` : base;
+  const base = `Документы готовы ${done} из ${row?.total || 0}`;
+  return `${base} · на сайте: ${row?.issued || 0} · вложенные: ${row?.attached || 0} · к выпуску: ${row?.ready || 0}${blocked ? ` · заполнить или выбрать файл: ${blocked} ${plural(blocked, 'позицию', 'позиции', 'позиций')}` : ''}`;
 }

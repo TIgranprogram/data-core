@@ -125,7 +125,7 @@ describe('MatchingService (КМ2–КМ3)', () => {
   });
   it('confirm: пишет productId/matchStatus и алиас (повтор — счётчик)', async () => {
     await svc.confirm(String(l1), String(prod), String(new Types.ObjectId()));
-    expect(incUpdate.mock.calls[0][1].$set).toMatchObject({ matchStatus: 'confirmed', productId: prod });
+    expect(incUpdate.mock.calls[0][1][1].$set).toMatchObject({ matchStatus: { $literal: 'confirmed' }, productId: { $literal: prod } });
     expect(aliasUpdate.mock.calls[0][0]).toEqual({ key: 'скамейка парковая' });
     expect(aliasUpdate.mock.calls[0][1].$inc).toEqual({ count: 1 });
   });
@@ -139,7 +139,7 @@ describe('MatchingService (КМ2–КМ3)', () => {
   });
   it('none: «не изделие» снимает productId, алиас не пишется', async () => {
     await svc.none(String(l2));
-    expect(incUpdate.mock.calls[0][1]).toMatchObject({ $set: { matchStatus: 'none' }, $unset: { productId: '' } });
+    expect(incUpdate.mock.calls[0][1][1]).toMatchObject({ $set: { matchStatus: { $literal: 'none' }, productId: '$$REMOVE' } });
     expect(aliasUpdate).not.toHaveBeenCalled();
   });
   it('bulk: дубль — 400, чужая позиция или изделие — 404, ничего не пишется', async () => {

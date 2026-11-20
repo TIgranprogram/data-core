@@ -26,8 +26,7 @@ test('shortMissing: «и ещё N» от сервера и лишнее свер
 
 test('summaryText: без перечня причин', () => {
   const lines = [{ state: 'blocked' }, { state: 'blocked' }, { state: 'ready' }];
-  assert.equal(summaryText({ ready: 1, issued: 0, total: 3, lines }), 'Готово 1 из 3 · заполнить: 2 позиции');
-  assert.equal(summaryText({ ready: 0, issued: 5, total: 5, lines: [] }), 'Готово 5 из 5');
-  assert.equal(summaryText({ total: 12, lines: Array(11).fill({ state: 'blocked' }) }), 'Готово 0 из 12 · заполнить: 11 позиций');
-  assert.equal(summaryText({ total: 1, lines: [{ state: 'blocked' }] }), 'Готово 0 из 1 · заполнить: 1 позицию');
+  assert.equal(summaryText({ ready: 1, issued: 0, total: 3, lines }), 'Документы готовы 0 из 3 · на сайте: 0 · вложенные: 0 · к выпуску: 1 · заполнить или выбрать файл: 2 позиции');
+  assert.equal(summaryText({ ready: 0, issued: 5, total: 5, lines: [] }), 'Документы готовы 5 из 5 · на сайте: 5 · вложенные: 0 · к выпуску: 0');
+  assert.equal(summaryText({ ready: 1, issued: 1, attached: 1, blocked: 1, total: 4 }), 'Документы готовы 2 из 4 · на сайте: 1 · вложенные: 1 · к выпуску: 1 · заполнить или выбрать файл: 1 позицию');
 });

@@ -1,3 +1,4 @@
+import { assertSitePassport, claimPassportLine, epochOf, passportLine } from '../../common/passport/line-source';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Types, type ClientSession, type Connection, type Model } from 'mongoose';
 import type { ProductPassportDocument } from './product-passport.schema';
@@ -40,6 +41,8 @@ export class PassportIssue {
     };
     assertExpected(first);
     if (isIssued(first)) return this.h.findById(id);
+    const baseline = first.incomeId ? await passportLine(this.h.connection.db!, first.incomeId) : null;
+    assertSitePassport(baseline);
     if (first.status === 'annulled') throw new ConflictException('Паспорт аннулирован — выпустить нельзя');
     if (first.incomeId) await assertOneLive(this.h.model, first.incomeId, new Types.ObjectId(id));
     // Сначала обновляем источники, затем проверяем именно тот текст и поля, которые выпускаем.
@@ -63,6 +66,7 @@ export class PassportIssue {
         assertExpected(current);
         if (current.presentationVersion !== first.presentationVersion) throw new ConflictException('Состояние паспорта изменилось — обновите карточку');
         if (draft.incomeId) await assertOneLive(this.h.model, draft.incomeId, _id, session);
+        if (baseline) await claimPassportLine(this.h.connection.db!, session, baseline, epochOf(baseline), 'site');
         let prepared: Doc = {};
         if (current.presentationVersion === 1) prepared = await this.h.preparePresentation!(current, session);
         else {

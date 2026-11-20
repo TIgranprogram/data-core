@@ -1,3 +1,4 @@
+import { PassportSelectionSchema } from '../../common/passport/selection.schema';
 import { SourceLineDto } from '../../common/legal/legal.dto';
 import { SourceLineSchema } from '../../common/legal/legal.schema';
 import type { ClassificationMetadata } from '../../common/financial-classification';
@@ -20,6 +21,9 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
  */
 @Schema({ timestamps: true, collection: 'incomes' })
 export class Income {
+  /** C170: принадлежит паспортам, не финансовому DTO/version. */
+  @Prop({ type: Number, default: undefined }) passportEpoch?: number;
+  @Prop({ type: PassportSelectionSchema, default: undefined }) passportSelection?: { mode: 'site' | 'attachment'; revision: number; attachmentId?: Types.ObjectId; attachmentGeneration?: number; productIdAtSelection?: Types.ObjectId; confirmedAt?: Date; confirmedBy?: string; changedAt?: Date; changedBy?: string; invalidatedAt?: Date; invalidReason?: string };
   @Prop({enum:['manual']}) matchingMode?: 'manual';
   @Prop({type:SourceLineSchema,default:undefined}) sourceLine?: SourceLineDto;
   @Prop() sourceIntakeHash?: string;

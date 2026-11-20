@@ -14,6 +14,8 @@ export type SalesOrderDocument = HydratedDocument<SalesOrder>;
  */
 @Schema({ timestamps: true, collection: 'salesorders' })
 export class SalesOrder {
+  /** C170: барьер смены живости шапки с выпуском/выбором паспорта. */
+  @Prop({ type: Number, default: undefined }) passportGuard?: number;
   @Prop({type:Types.ObjectId, ref:'Organization'}) counterpartyId?: Types.ObjectId;
   @Prop({type:LegalBundleSchema, default:undefined}) legal?: LegalBundleDto;
   @Prop({type:Number}) legalVersion?: number;

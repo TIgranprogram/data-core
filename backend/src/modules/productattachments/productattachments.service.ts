@@ -1,4 +1,5 @@
-import { BadRequestException, HttpException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { randomUUID } from 'crypto';
+import { BadRequestException, ConflictException, HttpException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { promises as fs } from 'fs';
 import { Connection, Model, Types } from 'mongoose';
@@ -84,12 +85,15 @@ export class ProductAttachmentsService implements OnModuleInit, OnModuleDestroy 
    */
   async purgeDeleted(now: Date = new Date()): Promise<number> {
     const before = new Date(now.getTime() - PURGE_DAYS * 86400_000);
-    const docs = await this.model.find({ deletedAt: { $ne: null, $lt: before }, fileRemovedAt: null }).limit(500).exec();
+    const docs = await this.model.find({ deletedAt: { $ne: null, $lt: before }, fileRemovedAt: null, purgeState: { $ne: 'purging' } }).limit(500).exec();
     let n = 0;
     for (const d of docs) {
+      const token = randomUUID();
+      const claim = await this.model.updateOne({ _id: d._id, deletedAt: d.deletedAt, fileRemovedAt: null, purgeState: { $ne: 'purging' }, ...(d.selectionGeneration ? { selectionGeneration: d.selectionGeneration } : { $or: [{ selectionGeneration: 0 }, { selectionGeneration: { $exists: false } }] }) }, { $set: { purgeState: 'purging', purgeToken: token } });
+      if (!claim.modifiedCount) continue;
       try {
         await fs.rm(resolveInside(UPLOAD_DIR, d.storedPath), { force: true });
-        await this.model.updateOne({ _id: d._id }, { $set: { fileRemovedAt: now } });
+        await this.model.updateOne({ _id: d._id, purgeToken: token, purgeState: 'purging' }, { $set: { fileRemovedAt: now, purgeState: 'removed' }, $unset: { purgeToken: '' } });
         n++;
       } catch (e) { this.log.warn(`Не стёрт файл вложения ${String(d._id)}: ${(e as Error).message}`); }
     }
@@ -140,14 +144,16 @@ export class ProductAttachmentsService implements OnModuleInit, OnModuleDestroy 
   async remove(productId: string, id: string, user: AuthenticatedUser, incomeId?: string) {
     const doc = await this.find(productId, id);
     if (incomeId && String(doc.incomeId ?? '') !== incomeId) throw new NotFoundException('Вложение не найдено.');
-    await this.model.updateOne({ _id: doc._id }, { $set: { deletedAt: new Date(), deletedBy: user?.id } });
+    const r = await this.model.updateOne({ _id: doc._id, deletedAt: null, purgeState: { $ne: 'purging' } }, { $set: { deletedAt: new Date(), deletedBy: user?.id }, $inc: { selectionGeneration: 1 } });
+    if (!r.modifiedCount) throw new ConflictException('Вложение изменилось — обновите список');
     return this.present(doc, (await this.typeNames()).get(String(doc.typeId)) ?? '');
   }
 
   async restore(productId: string, id: string) {
     const doc = await this.find(productId, id, true);
-    if (doc.fileRemovedAt) throw new BadRequestException(`Файл уже стёрт с сервера (прошло больше ${PURGE_DAYS} дней). Загрузите его заново.`);
-    await this.model.updateOne({ _id: doc._id }, { $set: { deletedAt: null }, $unset: { deletedBy: 1 } });
+    if (doc.fileRemovedAt || doc.purgeState === 'purging') throw new BadRequestException(`Файл уже стёрт с сервера (прошло больше ${PURGE_DAYS} дней). Загрузите его заново.`);
+    const r = await this.model.updateOne({ _id: doc._id, deletedAt: doc.deletedAt, fileRemovedAt: null, purgeState: { $ne: 'purging' } }, { $set: { deletedAt: null }, $unset: { deletedBy: 1 }, $inc: { selectionGeneration: 1 } }).setOptions({ includeSoftDeleted: true });
+    if (!r.modifiedCount) throw new ConflictException('Вложение изменилось или стирается — обновите список');
     return this.present(doc, (await this.typeNames()).get(String(doc.typeId)) ?? '');
   }
 
@@ -172,7 +178,7 @@ export class ProductAttachmentsService implements OnModuleInit, OnModuleDestroy 
     const q: Record<string, unknown> = { _id: new Types.ObjectId(id), productId: new Types.ObjectId(productId) };
     if (deleted) q.deletedAt = { $ne: null };
     const doc = await this.model.findOne(q).exec();
-    if (!doc) throw new NotFoundException('Вложение не найдено.');
+    if (!doc || doc.purgeState === 'purging' || !deleted && doc.fileRemovedAt) throw new NotFoundException('Вложение не найдено.');
     return doc;
   }
 
@@ -184,7 +190,7 @@ export class ProductAttachmentsService implements OnModuleInit, OnModuleDestroy 
   private present(d: ProductAttachmentDocument, typeName: string) {
     return {
       id: String(d._id), productId: String(d.productId), typeId: String(d.typeId), typeName,
-      originalName: d.originalName, size: d.size, ext: d.ext, mime: d.mime,
+      selectionGeneration: Number(d.selectionGeneration ?? 0), originalName: d.originalName, size: d.size, ext: d.ext, mime: d.mime,
       incomeId: d.incomeId ? String(d.incomeId) : null, scope: d.incomeId ? 'line' : 'product',
       uploadedAt: d.uploadedAt, uploadedByName: d.uploadedByName ?? null, deletedAt: d.deletedAt ?? null,
     };

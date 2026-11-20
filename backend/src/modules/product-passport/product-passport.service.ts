@@ -1,3 +1,4 @@
+import { assertSitePassport, passportLine, withPassportSite } from '../../common/passport/line-source';
 import { parseModules } from '../../common/passport/modules';
 import { installKindOf, variantOf, PASSPORT_VARIANTS, type PassportVariant } from './passport-variants';
 import { blankItems } from './passport-blanks';
@@ -253,11 +254,11 @@ export class ProductPassportService {
   }
 
   /** Запоздавшая пересборка не может затереть ручную правку или уже выпущенный снимок. */
-  private async saveCurrent(doc: ProductPassportDocument, previous: Doc): Promise<ProductPassportDocument> {
+  private async saveCurrent(doc: ProductPassportDocument, previous: Doc, session?: ClientSession): Promise<ProductPassportDocument> {
     doc.$where = { ...doc.$where, status: previous.status ?? { $exists: false },
       ...(previous.updatedAt ? { updatedAt: previous.updatedAt } : {}),
       textSnapshot: previous.textSnapshot === undefined ? { $exists: false } : previous.textSnapshot };
-    try { return await doc.save(); }
+    try { return await doc.save({ session }); }
     catch (e) {
       // VersionError — две правки одновременно (C115 QA-A B1): тоже 409, не 500
       if (e instanceof Error && (e.name === 'DocumentNotFoundError' || e.name === 'VersionError')) throw new ConflictException('Паспорт изменён другим действием. Обновите карточку и повторите сохранение.');
@@ -330,6 +331,8 @@ export class ProductPassportService {
   /** Новый паспорт: номера выдаёт сервер (если не заданы явно), описание собирается из частей, комплектность по умолчанию. */
   async create(dto: CreateProductPassportDto, actorId?: string): Promise<ProductPassportDocument> {
     if (dto.presentationVersion === 1) return this.createPresentation(dto, actorId);
+    const baseline = dto.incomeId ? await passportLine(this.connection.db!, dto.incomeId) : null;
+    assertSitePassport(baseline);
     const set = this.normalize(await bindDraft(this.connection.db!, dto));
     delete set.variant;
     if (set.incomeId) await assertOneLive(this.model, set.incomeId);
@@ -338,7 +341,7 @@ export class ProductPassportService {
     const date = (set.date as Date) || dayUtc();
     set.date = date;
     // НМ: новый паспорт — черновик без номера, талона и номера изделия; номер передан явно (перенос) — сразу выпущен
-    if (set.passportNumber) { await this.allocate(set, date); set.status = 'issued'; set.issuedAt = new Date(); set.revision = 1; }
+    if (set.passportNumber) { set.status = 'issued'; set.issuedAt = new Date(); set.revision = 1; }
     else {
       for (const f of ['passportNo', 'productCode', 'warrantyCode'] as const) delete set[f];
       set._id = new Types.ObjectId(); set.passportNumber = DRAFT_PREFIX + String(set._id); set.status = 'draft';
@@ -355,10 +358,19 @@ export class ProductPassportService {
     if (!set.bom) set.bom = DEFAULT_BOM;
     set.source = set.source || 'app';
     await this.assertFree(set);
+    if (baseline && set.passportCategory) {
+      const prepared = new this.model(set);
+      await this.applySnapshot(prepared, { ...set });
+      Object.assign(set, prepared.toObject());
+    }
     try {
-      const doc = await this.model.create(set);
+      const doc = await withPassportSite(this.connection, baseline, async session => {
+        if (set.status === 'issued') await this.allocate(set, date, session);
+        await this.assertFree(set, undefined, session);
+        return session ? (await this.model.create([set], { session }))[0] : await this.model.create(set);
+      });
       // v2: паспорт с категорией — сразу снимок текста (правка справочников потом его не меняет)
-      if (set.passportCategory) return (await this.snapshot(String(doc._id))) ?? doc;
+      if (!baseline && set.passportCategory) return (await this.snapshot(String(doc._id))) ?? doc;
       return doc;
     } catch (e) {
       if (isScopeDuplicate(e)) throw new ConflictException('На эту позицию уже есть паспорт');
@@ -383,6 +395,7 @@ export class ProductPassportService {
     const variant = variantOf(dto.variant);
     const db = this.connection.db!;
     await this.requireScopeIndex();
+    const baseline = dto.incomeId ? await passportLine(db, dto.incomeId) : null;
     const bound = await bindPresentation(db, dto as unknown as Doc);
     const findExisting = async () => {
       const rows = bound.incomeId
@@ -403,7 +416,8 @@ export class ProductPassportService {
       return existing;
     };
     const existing = await findExisting();
-    if (existing) return existing;
+    if (existing) { if (!isIssued(existing.toObject() as unknown as Doc)) assertSitePassport(baseline); return existing; }
+    assertSitePassport(baseline);
     const _id = new Types.ObjectId();
     const set: Doc = { ...bound, _id, presentationVersion: 1, variant, creationScopeKey, date: dayUtc(), status: 'draft', passportNumber: DRAFT_PREFIX + String(_id), source: 'app', bom: DEFAULT_BOM };
     const diff = await this.fromProductDiff(set);
@@ -415,7 +429,7 @@ export class ProductPassportService {
     Object.assign(set, diff);
     const draft = new this.model(set);
     await this.applySnapshot(draft, { ...set });
-    try { return await draft.save(); }
+    try { return await withPassportSite(this.connection, baseline, session => draft.save({ session })); }
     catch (e) {
       if (!isScopeDuplicate(e)) throw e;
       const winner = await findExisting();
@@ -432,10 +446,11 @@ export class ProductPassportService {
     const oid = this.oid(orderId);
     const db = this.connection.db!;
     if (!(await db.collection('salesorders').findOne({ _id: oid, deletedAt: null }, { projection: { _id: 1 } }))) throw new NotFoundException('Заказ не найден');
-    const incomes = await db.collection('incomes').find({ orderId: oid, deletedAt: null, cancelledAt: null, productId: { $ne: null } }, { projection: { title: 1 } }).sort({ lineNo: 1, _id: 1 }).toArray();
+    const incomes = await db.collection('incomes').find({ orderId: oid, deletedAt: null, cancelledAt: null, productId: { $ne: null } }, { projection: { title: 1, passportSelection: 1 } }).sort({ lineNo: 1, _id: 1 }).toArray();
     const items: Array<{ incomeId: string; passportId: string }> = [];
     let skipped = 0;
     for (const inc of incomes) {
+      if (inc.passportSelection?.mode === 'attachment') { skipped++; continue; }
       if (await this.model.exists({ incomeId: inc._id, status: { $ne: 'annulled' } })) { skipped++; continue; }
       try {
         const doc = await this.create({ incomeId: String(inc._id), ...(inc.title ? { name: String(inc.title) } : {}) } as CreateProductPassportDto);
@@ -499,16 +514,17 @@ export class ProductPassportService {
   /** Выпуск паспортов для готовых позиций заказа; неготовые и уже выпущенные — в skipped с причиной. */
   orderIssue(orderId: string, opts: { lines?: string[]; variant?: string; supplierOrgId?: string; presentationVersion?: 1 } = {}) { return orderIssue(this.orderHost(), orderId, opts); }
   /** Выпущенные паспорта заказа по порядку позиций (для общего PDF). */
-  async issuedOfOrder(orderId: string): Promise<{ items: Doc[]; orderNo: string | null }> {
+  async issuedOfOrder(orderId: string): Promise<{ items: Doc[]; orderNo: string | null; skipped: Doc[] }> {
     const db = this.connection.db!;
     const order = Types.ObjectId.isValid(orderId) ? await db.collection('salesorders').findOne({ _id: new Types.ObjectId(orderId), deletedAt: null }, { projection: { orderNo: 1 } }) : null;
     if (!order) throw new NotFoundException('Заказ не найден');
     // отменённые позиции заказа в общий PDF не идут (пользователь 2026-11-13: «вычеркнутые путают»)
-    const incomes = await db.collection('incomes').find({ orderId: order._id, deletedAt: null, cancelledAt: null }, { projection: { _id: 1 } }).sort({ lineNo: 1, _id: 1 }).toArray();
+    const incomes = await db.collection('incomes').find({ orderId: order._id, deletedAt: null, cancelledAt: null }, { projection: { _id: 1, passportSelection: 1 } }).sort({ lineNo: 1, _id: 1 }).toArray();
     const rows = (await this.model.find({ incomeId: { $in: incomes.map((i) => i._id) }, status: 'issued' }).sort({ passportNo: 1 }).lean().exec()) as unknown as Doc[];
     const order2 = new Map(incomes.map((i, k) => [String(i._id), k]));
     rows.sort((a, b) => (order2.get(String(a.incomeId)) ?? 0) - (order2.get(String(b.incomeId)) ?? 0));
-    return { items: rows, orderNo: (order.orderNo as string) ?? null };
+    const attached = new Set(incomes.filter(i => i.passportSelection?.mode === 'attachment').map(i => String(i._id)));
+    return { items: rows.filter(r => !attached.has(String(r.incomeId))), skipped: rows.filter(r => attached.has(String(r.incomeId))), orderNo: (order.orderNo as string) ?? null };
   }
 
   /** Копия на ту же модель: поля модели и картинки, новые номера, дата — сегодня, заказчик — пустой. */
@@ -526,6 +542,9 @@ export class ProductPassportService {
     // Выпуск пишет снимок транзакционным updateOne. Пустые maps в нём нужны для точного сравнения с BSON при сохранении.
     const cur = doc.toObject({ minimize: doc.presentationVersion !== 1 }) as unknown as Doc;
     if (cur.status === 'annulled') throw new ConflictException('Паспорт аннулирован — изменить его нельзя');
+    const targetIncome = dto.incomeId ?? cur.incomeId;
+    const baseline = targetIncome ? await passportLine(this.connection.db!, targetIncome) : null;
+    assertSitePassport(baseline);
     const set = this.normalize(dto);
     const issued = isIssued(cur);
     const presentation = cur.presentationVersion === 1;
@@ -605,7 +624,7 @@ export class ProductPassportService {
       } else if (hadText) await this.rebuildSafe(doc, after);
       else await this.applySnapshot(doc, after);
     }
-    try { return await this.saveCurrent(doc, cur); }
+    try { return await withPassportSite(this.connection, baseline, session => this.saveCurrent(doc, cur, session)); }
     catch (e) { if (isScopeDuplicate(e)) throw new ConflictException('На эту позицию уже есть паспорт'); throw e; }
   }
 

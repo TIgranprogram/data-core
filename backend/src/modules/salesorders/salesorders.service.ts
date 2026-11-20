@@ -1,3 +1,4 @@
+import { passportContextStage } from '../../common/passport/line-source';
 import { loadOrderMatches } from '../matching/match-facts';
 import { LegalPatchDto } from '../../common/legal/legal.dto';
 import { assertIntakeIndexes, assertSalesBusinessIndex, assertIntakeReplay, intakeContentHash, intakeBusinessKey, legalHash, legalPresentation, legalSummary, patchLegal, prepareLegal, validateLegalFiles, validateLegalParties } from '../../common/legal/legal-utils';
@@ -535,7 +536,7 @@ export class SalesOrdersService {
     try {
       await session.withTransaction(async () => {
         await this.model.updateOne({ _id: cur._id }, { $set: { deletedAt: now, editedInApp: true } }, { session }).exec();
-        await this.incomes().updateMany({ orderId: cur._id, deletedAt: null }, { $set: { deletedAt: now, deletedWithOrder: true, editedInApp: true, updatedAt: now } }, { session });
+        await this.incomes().updateMany({ orderId: cur._id, deletedAt: null }, { $set: { deletedAt: now, deletedWithOrder: true, editedInApp: true, updatedAt: now }, $inc: { passportEpoch: 1 } }, { session });
       });
     } finally { await session.endSession(); }
     return { id, deleted: true };
@@ -544,7 +545,7 @@ export class SalesOrdersService {
   async restore(id: string) {
     const cur = await this.findRaw(id, true);
     await this.model.updateOne({ _id: cur._id }, { $set: { deletedAt: null } }).setOptions({ includeSoftDeleted: true }).exec();
-    await this.incomes().updateMany({ orderId: cur._id, deletedWithOrder: true }, { $set: { deletedAt: null, updatedAt: new Date() }, $unset: { deletedWithOrder: '' } });
+    await this.incomes().updateMany({ orderId: cur._id, deletedWithOrder: true }, { $set: { deletedAt: null, updatedAt: new Date() }, $unset: { deletedWithOrder: '' }, $inc: { passportEpoch: 1 } });
     return this.get(id);
   }
 
@@ -573,7 +574,7 @@ export class SalesOrdersService {
     for (const x of todo) {
       if (!own.has(String(x.lineId))) throw new BadRequestException('Позиция не из этого заказа или уже с изделием');
       if (!found.has(String(x.productId))) throw new BadRequestException('Изделие не найдено');
-      await this.incomes().updateOne({ _id: oid(x.lineId, 'позиции') }, { $set: { productId: oid(String(x.productId), 'изделия'), matchStatus:'confirmed',matchedAt:new Date(), updatedAt: new Date() },$inc:{version:1} });
+      await this.incomes().updateOne({ _id: oid(x.lineId, 'позиции') }, [passportContextStage({ $ne: [{ $ifNull: ['$productId', null] }, oid(String(x.productId), 'изделия')] }), { $set: { productId: oid(String(x.productId), 'изделия'), matchStatus:'confirmed',matchedAt:new Date(), updatedAt: new Date(), version: { $add: [{ $ifNull: ['$version', 0] }, 1] } } }]);
       applied++;
     }
     return { applied: true, count: applied };

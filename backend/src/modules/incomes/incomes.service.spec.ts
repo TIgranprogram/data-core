@@ -324,7 +324,7 @@ describe('IncomesService', () => {
       const id = new Types.ObjectId();
       current = { _id: id, title: 'Скамья' };
       const res = await service.restore(String(id));
-      expect(model.updateOne.mock.calls[0][1]).toEqual({ $set: { deletedAt: null, editedInApp: true }, $inc: { version: 1 } });
+      expect(model.updateOne.mock.calls[0][1]).toEqual({ $set: { deletedAt: null, editedInApp: true }, $inc: { version: 1, passportEpoch: 1 } });
       expect(res.id).toBe(String(id));
     });
 

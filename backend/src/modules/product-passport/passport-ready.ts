@@ -1,3 +1,4 @@
+import { assertSitePassport, passportLine, withPassportSite } from '../../common/passport/line-source';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Types, type ClientSession, type Connection, type Model } from 'mongoose';
 import type { CreateProductPassportDto } from './dto/create-product-passport.dto';
@@ -27,6 +28,9 @@ const quoted = (name: unknown) => (String(name ?? '').trim() ? ` «${String(name
  * Обязательные поля категории не проверяются (документ готов). Все проверки — до записи; номер не передан — следующий из общего ряда.
  */
 export async function createReadyPassport(h: ReadyHost, dto: ReadyPassportDto, file: File, userId?: string): Promise<ProductPassportDocument> {
+  const baseline = dto.incomeId ? await passportLine(h.connection.db!, dto.incomeId) : null;
+  assertSitePassport(baseline);
+  if (baseline && String(baseline.productId ?? '') !== dto.productId) throw new ConflictException('Изделие позиции изменилось — перечитайте план');
   const buf = assertPdf(file);
   const db = h.connection.db!;
   const product = await db.collection('products').findOne({ _id: oid(dto.productId), deletedAt: null }, { projection: { name: 1, article: 1 } });
@@ -61,10 +65,12 @@ export async function createReadyPassport(h: ReadyHost, dto: ReadyPassportDto, f
         date, status: 'issued', issuedAt: new Date(), revision: 1, source: 'ready-file', printFile: stored, warrantyMonths: 12,
         ...(want ? { passportNumber: String(want), passportNo: want } : {}),
       };
-      await h.allocate(set, date);
-      await h.assertFree(set);
       try {
-        return await h.model.create(set);
+        return await withPassportSite(h.connection, baseline, async session => {
+          await h.allocate(set, date, session);
+          await h.assertFree(set, undefined, session);
+          return session ? (await h.model.create([set], { session }))[0] : await h.model.create(set);
+        });
       } catch (e) {
         if (isScopeDuplicate(e)) throw new ConflictException('На эту позицию уже есть паспорт');
         if ((e as { code?: number }).code !== 11000) throw e;

@@ -23,11 +23,13 @@ function mem(over: { twinNumber?: string; liveOnIncome?: boolean; noProduct?: bo
       if (q.incomeId && over.liveOnIncome) return chain({ passportNumber: '600', name: 'Урна' });
       return chain(null);
     },
-    create: async (set: Record<string, unknown>) => { created.push(set); return { _id: new Types.ObjectId(), ...set }; },
+    create: async (input: Record<string, unknown> | Record<string, unknown>[]) => { const set = Array.isArray(input) ? input[0] : input; created.push(set); const result = { _id: new Types.ObjectId(), ...set }; return Array.isArray(input) ? [result] : result; },
   };
   const connection = {
+    startSession: async () => ({ withTransaction: async (fn: () => Promise<void>) => fn(), endSession: async () => undefined }),
     db: {
       collection: (name: string) => ({
+        updateOne: async () => ({ modifiedCount: 1 }),
         findOne: async () => {
           if (name === 'products') return over.noProduct ? null : { _id: product, name: 'Стойка', article: 'A1' };
           if (name === 'organizations') return over.notOur ? null : { _id: firm, name: 'СИЮ' };

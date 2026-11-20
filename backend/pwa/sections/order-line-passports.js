@@ -10,6 +10,7 @@ import { variantName } from './passports/book-template.js';
 import { busyBtn } from '../ui/kit/busy.js';
 import { toastError } from '../ui/kit/toast.js';
 import { go } from '../core/router.js';
+import { attachmentSource, readPassportSource, selectedPassportActions, openPassportSourcePicker, downloadSelectedPassport } from './passport-source-picker.js';
 
 const rank = (p) => (statusOf(p) === 'issued' ? 0 : statusOf(p) === 'draft' ? 1 : 2);
 const isReuseGhost = (p) => String(numberOf(p) || '').includes('~');
@@ -47,8 +48,18 @@ export async function loadPassportsByIncome(orderIds) {
   const ids = [...new Set((orderIds || []).filter(Boolean).map(String))];
   const map = new Map();
   if (!ids.length) return map;
-  const results = await Promise.all(ids.map((id) => api('/passports', { query: { salesOrderId: id, limit: 200 } })));
-  for (const r of results) groupPassportsByIncome(r.items, map);
+  const results = await Promise.all(ids.map(async (id) => {
+    const [passports, plan] = await Promise.all([api('/passports', { query: { salesOrderId: id, limit: 200 } }), api(`/passports/order/${id}/plan`, { query: { presentationVersion: 1 } })]);
+    return { passports, plan, orderId: id };
+  }));
+  for (const { passports, plan, orderId } of results) {
+    groupPassportsByIncome(passports.items, map);
+    for (const line of plan.lines || []) {
+      const list = map.get(String(line.incomeId)) || [];
+      list.sourceView = { ...line, orderId };
+      map.set(String(line.incomeId), list);
+    }
+  }
   return map;
 }
 
@@ -60,6 +71,15 @@ async function openPassport(p, options) {
 
 /** Метка в строке позиций: только актуальный номер / черновик; нет паспорта — null. */
 export function passportMark(list) {
+  const source = list?.sourceView;
+  if (attachmentSource(source)) return button({ label: source.state === 'attached' ? 'Вложенный паспорт' : 'Паспорт — нужен файл', size: 'S', kind: 'ghost',
+    onClick: async (e) => {
+      e.stopPropagation();
+      if (source.state !== 'attached') return;
+      const end = busyBtn(e.currentTarget, null);
+      try { await downloadSelectedPassport(source.orderId, source.incomeId, source); }
+      catch (err) { toastError(err); window.dispatchEvent(new Event('data-changed')); } finally { end(); }
+    } });
   const p = primaryPassport(list);
   if (!p) return null;
   const n = numberOf(p);
@@ -96,7 +116,18 @@ export function attachLinePassports(orders) {
 export function documentsCard(l, d, pack) {
   const body = h('div');
   const salesOrderId = l.orderId || d.orderId;
-  const showList = (list, reloadCard) => {
+  const showList = (list, reloadCard, source) => {
+    if (attachmentSource(source)) {
+      const historical = (list || []).filter((p) => statusOf(p) === 'issued' && !isReuseGhost(p));
+      body.replaceChildren(stack(selectedPassportActions(salesOrderId, l.id, source, { reload: reloadCard, editable: canWorkPassport() && !l.cancelledAt }),
+        historical.length ? card({ size: 'S', title: 'Ранее выпущено на сайте', body: stack(...historical.map((p) => button({
+          label: `Паспорт № ${numberOf(p)}`, size: 'S', kind: 'ghost', onClick: () => openPassport(p),
+        }))) }) : null));
+      return;
+    }
+    const choose = canWorkPassport() && salesOrderId && l.productId && !l.cancelledAt ? button({
+      label: 'Выбрать вложенный паспорт', size: 'S', kind: 'ghost', onClick: (e) => openPassportSourcePicker(salesOrderId, l.id, { parent: e.currentTarget.closest('.drawer'), onSaved: reloadCard }),
+    }) : null;
     const p = primaryPassport(list);
     if (!p) {
       const create = canWorkPassport() && salesOrderId && l.productId && !l.cancelledAt
@@ -109,7 +140,7 @@ export function documentsCard(l, d, pack) {
               { onClose: () => reloadCard(), isCurrent: () => b.isConnected });
           } finally { end(); }
         } }) : null;
-      body.replaceChildren(stack(empty({ title: 'Паспорта ещё нет', hint: 'Выпуск доступен также в плане паспортов заказа.' }), create));
+      body.replaceChildren(stack(empty({ title: 'Паспорта ещё нет', hint: 'Выпуск доступен также в плане паспортов заказа.' }), actions(create, choose)));
       return;
     }
     const issued = statusOf(p) === 'issued';
@@ -125,7 +156,7 @@ export function documentsCard(l, d, pack) {
         try { const { printDialog } = await import('./passports/dialogs.js'); await printDialog(p); }
         catch (err) { toastError(err); }
         finally { end(); }
-      } }) : null)));
+      } }) : null, choose)));
   };
   const load = async ({ skipCache } = {}) => {
     const again = () => load({ skipCache: true });
@@ -133,11 +164,11 @@ export function documentsCard(l, d, pack) {
     try {
       if (pack && !skipCache) {
         if (pack.error && !pack.map) { body.replaceChildren(failBlock(pack.error, again, { text: 'Документы не загрузились' })); return; }
-        if (pack.map) { showList(pack.map.get(String(l.id)), again); return; }
+        if (pack.map) { const list = pack.map.get(String(l.id)); showList(list, again, list?.sourceView); return; }
       }
       if (!salesOrderId) { body.replaceChildren(empty({ title: 'Паспорта ещё нет', hint: 'Позиция не привязана к заказу.' })); return; }
-      const r = await api('/passports', { query: { salesOrderId, limit: 200 } });
-      showList(groupPassportsByIncome(r.items).get(String(l.id)), again);
+      const [r, source] = await Promise.all([api('/passports', { query: { salesOrderId, limit: 200 } }), readPassportSource(salesOrderId, l.id)]);
+      showList(groupPassportsByIncome(r.items).get(String(l.id)), again, source);
     } catch (e) { body.replaceChildren(failBlock(e, again, { text: 'Документы не загрузились' })); }
   };
   load();

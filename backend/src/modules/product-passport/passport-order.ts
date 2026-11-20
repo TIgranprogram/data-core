@@ -1,3 +1,5 @@
+import { epochOf, passportContextToken, selectionOf } from '../../common/passport/line-source';
+import { effectiveAttachment, selectedAttachments } from '../productattachments/attachment-availability';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Types, type Connection } from 'mongoose';
 import { passportCategoryFor, type PpCat } from '../../common/passport/form-values';
@@ -43,7 +45,13 @@ export interface PlanLine {
   qty: number | null;
   passport: { id: string; number: string | null; status: 'draft' | 'issued'; presentationVersion?: 1; variant?: PassportVariant } | null;
   /** issued — уже выпущен; ready — можно выпускать; blocked — чего-то не хватает */
-  state: 'issued' | 'ready' | 'blocked';
+  state: 'issued' | 'attached' | 'ready' | 'blocked';
+  source: 'site' | 'attachment';
+  selection: ReturnType<typeof selectionOf>;
+  passportEpoch: number;
+  contextToken: string;
+  attachment: ReturnType<typeof effectiveAttachment>['attachment'];
+  sitePassports: Array<{ id: string; number: string | null; status: 'draft' | 'issued'; presentationVersion?: 1; variant?: PassportVariant }>;
   missing: string[];
 }
 
@@ -91,9 +99,10 @@ async function ourFirmList(db: Db): Promise<OrderFirm[]> {
 export async function orderPlan(h: OrderHost, orderId: string, variant?: string, supplierOrgId?: string, presentationVersion?: 1) {
   const db = h.db();
   const order = await orderOf(db, orderId);
-  const incomes = await db.collection('incomes').find({ orderId: order._id, deletedAt: null, cancelledAt: null }, { projection: { title: 1, qty: 1, lineNo: 1, productId: 1 } }).sort({ lineNo: 1, _id: 1 }).toArray();
+  const incomes = await db.collection('incomes').find({ orderId: order._id, deletedAt: null, cancelledAt: null }, { projection: { title: 1, qty: 1, lineNo: 1, productId: 1, lineType: 1, orderId: 1, passportEpoch: 1, passportSelection: 1, cancelledAt: 1, deletedAt: 1 } }).sort({ lineNo: 1, _id: 1 }).toArray();
   // отменённые позиции в план не идут; число — для строки «Отменено в заказе: N» (пользователь 14.11)
   const cancelled = await db.collection('incomes').countDocuments({ orderId: order._id, deletedAt: null, cancelledAt: { $ne: null } });
+  const attachments = await selectedAttachments(db, incomes);
   const ids = incomes.map((i) => i._id);
   const pass = ids.length ? await db.collection('productpassports').find({ incomeId: { $in: ids }, deletedAt: null, status: { $ne: 'annulled' } }, { projection: { incomeId: 1, status: 1, passportNumber: 1, supplierOrgId: 1, presentationVersion: 1, variant: 1 } }).sort({ createdAt: 1 }).toArray() : [];
   const byIncome = new Map<string, Doc>();
@@ -142,6 +151,7 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string,
   // Р8 (C112): проверки изделий идут пачками по 8, а не по одной подряд (50 позиций — десятки секунд)
   const templateChecks = new Map<string, string[]>();
   const toCheck = [...new Set(incomes.filter((i) => {
+    if (selectionOf(i).mode === 'attachment') return false;
     const p = byIncome.get(String(i._id));
     return i.productId && (presentationVersion === 1 ? !p && pname.has(String(i.productId)) : !p || (!isIssued(p) && p.presentationVersion !== 1));
   }).map((i) => String(i.productId)))];
@@ -155,8 +165,13 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string,
     const duplicate = presentationVersion === 1 && duplicates.has(String(inc._id));
     const issued = !!p && !duplicate && isIssued(p);
     const productId = inc.productId ? String(inc.productId) : null;
+    const selection = selectionOf(inc);
+    const attached = selection.mode === 'attachment';
+    const file = attachments.get(String(selection.attachmentId));
+    const effective = attached ? effectiveAttachment(inc, file) : { attachment: null, missing: [] };
+    const sitePassports = pass.filter(p => String(p.incomeId) === String(inc._id)).map(p => ({ id: String(p._id), number: isIssued(p as Doc) ? String(p.passportNumber ?? '') : null, status: isIssued(p as Doc) ? 'issued' as const : 'draft' as const, ...(p.presentationVersion === 1 ? { presentationVersion: 1 as const, variant: variantOf(p.variant) } : {}) }));
     let missing: string[] = [];
-    if (!issued) {
+    if (!attached && !issued) {
       if (duplicate) missing = ['На позицию найдено несколько живых паспортов'];
       else if (presentationVersion === 1 && order.companyId && !firm) missing = ['В заказе указана удалённая или чужая фирма'];
       else if (presentationVersion === 1 && firm && supplierOrgId && supplierOrgId !== firm.id) missing = ['Фирма панели отличается от фирмы заказа'];
@@ -167,20 +182,21 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string,
       else missing = brief(templateChecks.get(productId) ?? []);
     }
     // выпуск требует фирму: у черновика; иначе фирма заказа или выбранная в панели (C075); иначе одна наша (C062)
-    if (!issued && productId && !missing.length && !p?.supplierOrgId && !firm && !picked) {
+    if (!attached && !issued && productId && !missing.length && !p?.supplierOrgId && !firm && !picked) {
       ourSupplier ??= await h.hasOurSupplier();
       if (!ourSupplier) missing = ['Выберите фирму'];
     }
     lines.push({
       incomeId: String(inc._id), lineNo: (inc.lineNo as number) ?? null, title: String(inc.title ?? ''), productId, productName: productId ? pname.get(productId) ?? null : null, article: productId ? psku.get(productId) ?? null : null, categoryName: productId ? pcat.get(productId) ?? null : null, photo: productId ? pphoto.get(productId) ?? null : null, qty: (inc.qty as number) ?? null,
-      passport: p && !duplicate ? { id: String(p._id), number: issued ? String(p.passportNumber ?? '') : null, status: issued ? 'issued' : 'draft', ...(p.presentationVersion === 1 ? { presentationVersion: 1, variant: variantOf(p.variant) } : {}) } : null,
-      state: issued ? 'issued' : missing.length ? 'blocked' : 'ready', missing,
+      source: attached ? 'attachment' : 'site', selection, passportEpoch: epochOf(inc), contextToken: passportContextToken(inc, file?.selectionGeneration), attachment: effective.attachment, sitePassports,
+      passport: !attached && p && !duplicate ? { id: String(p._id), number: issued ? String(p.passportNumber ?? '') : null, status: issued ? 'issued' : 'draft', ...(p.presentationVersion === 1 ? { presentationVersion: 1, variant: variantOf(p.variant) } : {}) } : null,
+      state: attached ? effective.missing.length ? 'blocked' : 'attached' : issued ? 'issued' : missing.length ? 'blocked' : 'ready', missing: attached ? effective.missing : missing,
     });
   }
   const count = (s: PlanLine['state']) => lines.filter((l) => l.state === s).length;
   return {
     orderId: String(order._id), orderNo: (order.orderNo as string) ?? null, customerName: (order.customer as string) ?? null,
-    total: lines.length, issued: count('issued'), ready: count('ready'), blocked: count('blocked'), lines,
+    total: lines.length, issued: count('issued'), attached: count('attached'), completed: count('issued') + count('attached'), ready: count('ready'), blocked: count('blocked'), lines,
     firm, firmChoices, cancelled,
   };
 }
@@ -209,6 +225,7 @@ async function issueLines(h: OrderHost, orderId: string, opts: { lines?: string[
   for (const l of plan.lines) {
     if (want && !want.has(l.incomeId)) continue;
     const skip = (reason: string) => skipped.push({ incomeId: l.incomeId, title: l.title, reason });
+    if (l.source === 'attachment') { skip('SOURCE_ATTACHMENT: выбран вложенный паспорт'); continue; }
     if (l.state === 'issued') { skip(`Паспорт № ${l.passport?.number} уже выпущен`); continue; }
     if (l.state === 'blocked') { skip(`Не готово: ${l.missing.join(', ')}`); continue; }
     const fresh = !l.passport;

@@ -113,7 +113,7 @@ export class IncomeCancelService {
       const [deps] = await this.depsOfLines([fresh], session);
       if (deps.blockers.length) throw new ConflictException({ message: 'Позицию нельзя отменить: ' + deps.blockers.join('; '), details: deps });
       if ((deps.reservations.length || deps.designTasks.length || deps.workTasks.length) && !cascade) throw new ConflictException({ message: 'У позиции есть брони и задачи — решите, снимать ли их', details: deps });
-      const now = new Date(), changed = await this.coll('incomes').updateOne({ _id: fresh._id, deletedAt: null, cancelledAt: null, ...versionFilter(expectedVersion) }, { $set: { cancelledAt: now, cancelReason: reason, editedInApp: true, updatedAt: now, ...(actor && Types.ObjectId.isValid(actor.id) ? { cancelledBy: new Types.ObjectId(actor.id) } : {}) }, $inc: { version: 1 } }, { session });
+      const now = new Date(), changed = await this.coll('incomes').updateOne({ _id: fresh._id, deletedAt: null, cancelledAt: null, ...versionFilter(expectedVersion) }, { $set: { cancelledAt: now, cancelReason: reason, editedInApp: true, updatedAt: now, ...(actor && Types.ObjectId.isValid(actor.id) ? { cancelledBy: new Types.ObjectId(actor.id) } : {}) }, $inc: { version: 1, passportEpoch: 1 } }, { session });
       if (!changed.matchedCount) throw new ConflictException('Позиция уже изменена — перечитайте');
       if (cascade) await this.releaseDeps(deps, reason, session);
       released = deps;
@@ -139,7 +139,7 @@ export class IncomeCancelService {
       const cur = await this.coll('incomes').findOne({ _id: oidOf(first._id), deletedAt: null }, { session });
       if (!cur || Number(cur.version || 0) !== expectedVersion) throw new ConflictException('Позиция уже изменена — перечитайте');
       if (!cur.cancelledAt) throw new ConflictException('Позиция не отменена');
-      const changed = await this.coll('incomes').updateOne({ _id: cur._id, deletedAt: null, ...versionFilter(expectedVersion) }, { $unset: { cancelledAt: '', cancelReason: '', cancelledBy: '' }, $set: { editedInApp: true, updatedAt: new Date() }, $inc: { version: 1 } }, { session });
+      const changed = await this.coll('incomes').updateOne({ _id: cur._id, deletedAt: null, ...versionFilter(expectedVersion) }, { $unset: { cancelledAt: '', cancelReason: '', cancelledBy: '' }, $set: { editedInApp: true, updatedAt: new Date() }, $inc: { version: 1, passportEpoch: 1 } }, { session });
       if (!changed.matchedCount) throw new ConflictException('Позиция уже изменена — перечитайте');
     }); } finally { await session.endSession(); }
     return this.incomes.get(id);
@@ -173,7 +173,7 @@ export class IncomeCancelService {
         if (!fresh || fresh.cancelledAt || Number(fresh.version || 0) !== expectedVersion) throw new ConflictException('Позиция уже изменена — перечитайте');
         const [actualDeps] = await this.depsOfLines([fresh], session);
         if (actualDeps.blockers.length) throw new ConflictException({ message: 'Позицию нельзя перенести: ' + actualDeps.blockers.join('; '), details: actualDeps });
-        const changed = await this.coll('incomes').updateOne({ _id: oidOf(cur._id), deletedAt: null, ...versionFilter(expectedVersion) }, { $set: set, $inc: { version: 1 }, ...(Object.keys(unset).length ? { $unset: unset } : {}) }, { session });
+        const changed = await this.coll('incomes').updateOne({ _id: oidOf(cur._id), deletedAt: null, ...versionFilter(expectedVersion) }, { $set: set, $inc: { version: 1, passportEpoch: 1 }, ...(Object.keys(unset).length ? { $unset: unset } : {}) }, { session });
         if (!changed.matchedCount) throw new ConflictException('Позиция уже изменена — перечитайте');
         await this.coll('designtasks').updateMany({ incomeId: cur._id }, { $set: { orderId: target } }, { session });
         await this.coll('worktasks').updateMany({ incomeId: cur._id }, { $set: { orderId: target } }, { session });

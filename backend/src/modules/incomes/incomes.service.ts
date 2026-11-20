@@ -1,3 +1,4 @@
+import { epochOf, epochFilter } from '../../common/passport/line-source';
 import { assertIntakeIndexes, intakeContentHash, legalHash } from '../../common/legal/legal-utils';
 import { createHash } from 'crypto';
 import { ExpenseArticlesService } from '../expense-articles/expense-articles.service';
@@ -453,8 +454,13 @@ export class IncomesService {
     if (reportDate) set.reportDate = reportDate; else unset.reportDate = '';
     // version — в том же фильтре (атомарно с записью); у guard платежей и версии может быть свой $or — тогда через $and
     const g = opts.guard ?? {}, vf = versionFilter(dto.version ?? Number(cur.version || 0));
-    const filter = '$or' in g && '$or' in vf ? { _id: cur._id, $and: [g, vf] } : { _id: cur._id, ...g, ...vf };
-    const res = await this.withArticleReferences(f, cur as unknown as Record<string, unknown>, (session) => this.model.updateOne(filter, { $set: set, $inc: { version: 1 }, ...(Object.keys(unset).length ? { $unset: unset } : {}), ...(opts.push ? { $push: opts.push } : {}) }, session ? { session } : {}).exec());
+    let filter: Record<string, unknown> = '$or' in g && '$or' in vf ? { _id: cur._id, $and: [g, vf] } : { _id: cur._id, ...g, ...vf };
+    const contextChanged = ['productId', 'orderId', 'lineType'].some(k => k in f && !same(k));
+    if (contextChanged) {
+      filter = { $and: [filter, epochFilter(epochOf(cur))] };
+      if ('productId' in f && !same('productId') && cur.passportSelection?.mode === 'attachment') set.passportSelection = { ...cur.passportSelection, revision: Number(cur.passportSelection.revision ?? 0) + 1, invalidatedAt: new Date(), invalidReason: 'PRODUCT_CHANGED' };
+    }
+    const res = await this.withArticleReferences(f, cur as unknown as Record<string, unknown>, (session) => this.model.updateOne(filter, { $set: set, $inc: { version: 1, ...(contextChanged ? { passportEpoch: 1 } : {}) }, ...(Object.keys(unset).length ? { $unset: unset } : {}), ...(opts.push ? { $push: opts.push } : {}) }, session ? { session } : {}).exec());
     if (!res.matchedCount) throw staleError('Позицию');
     if (opts.guard && !res.matchedCount) throw new ConflictException('Оплату уже изменили, обновите карточку');
     await this.notifyNoContract(cur as Record<string, unknown>, f, actor).catch(() => undefined);
@@ -524,7 +530,7 @@ export class IncomesService {
       if (!cur || Number(cur.version || 0) !== expectedVersion) throw staleError('Позицию');
       if (incomePayments(cur).length || Number(cur.paidAmount) > 0) throw new ConflictException('У позиции есть оплата — сначала уберите платежи');
       if (await this.connection.db!.collection('shipments').countDocuments({ deletedAt: null, 'lines.incomeId': cur._id }, { session })) throw new ConflictException('Позиция отгружена — сначала отмените отгрузку');
-      const changed = await this.model.updateOne({ _id: cur._id, deletedAt: null, ...versionFilter(expectedVersion) }, { $set: { deletedAt: new Date(), editedInApp: true }, $inc: { version: 1 } }, { session }).exec();
+      const changed = await this.model.updateOne({ _id: cur._id, deletedAt: null, ...versionFilter(expectedVersion) }, { $set: { deletedAt: new Date(), editedInApp: true }, $inc: { version: 1, passportEpoch: 1 } }, { session }).exec();
       if (!changed.matchedCount) throw staleError('Позицию');
     }); } finally { await session.endSession(); }
     if (first.productRequestId) await this.productRequests()?.recalc(first.productRequestId);
@@ -539,7 +545,7 @@ export class IncomesService {
     try { await session.withTransaction(async () => {
       const fresh = await this.model.findOne({ _id: first._id, deletedAt: { $ne: null } }).setOptions({ includeSoftDeleted: true }).session(session).lean().exec();
       if (!fresh || Number(fresh.version || 0) !== expectedVersion) throw staleError('Позицию');
-      const changed = await this.model.updateOne({ _id: fresh._id, deletedAt: { $ne: null }, ...versionFilter(expectedVersion) }, { $set: { deletedAt: null, editedInApp: true }, $inc: { version: 1 } }, { session }).setOptions({ includeSoftDeleted: true }).exec();
+      const changed = await this.model.updateOne({ _id: fresh._id, deletedAt: { $ne: null }, ...versionFilter(expectedVersion) }, { $set: { deletedAt: null, editedInApp: true }, $inc: { version: 1, passportEpoch: 1 } }, { session }).setOptions({ includeSoftDeleted: true }).exec();
       if (!changed.matchedCount) throw staleError('Позицию');
     }); } finally { await session.endSession(); }
     return this.get(id);

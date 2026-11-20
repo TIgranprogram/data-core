@@ -165,7 +165,7 @@ describe('ночная чистка убранных вложений', () => {
     let query: { deletedAt: { $lt: Date } } | undefined;
     const model = {
       find: (q: typeof query) => { query = q; return { limit: () => ({ exec: async () => [old, evil] }) }; },
-      updateOne: async (f: { _id: string }) => { updated.push(f._id); },
+      updateOne: async (f: { _id: string }, u: { $set?: { fileRemovedAt?: Date } }) => { if (u.$set?.fileRemovedAt) updated.push(f._id); return { modifiedCount: 1 }; },
     };
     const svc = new ProductAttachmentsService(model as never, {} as never, {} as never);
     try {

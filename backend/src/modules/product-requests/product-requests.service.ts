@@ -1,3 +1,4 @@
+import { passportContextStage } from '../../common/passport/line-source';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
@@ -70,10 +71,7 @@ export class ProductRequestsService {
       await this.model.updateOne({ _id: req._id }, { $set: set }).exec();
     }
     const prev = income.productRequestId as Types.ObjectId | undefined;
-    await this.db.collection('incomes').updateOne({ _id: income._id as Types.ObjectId }, {
-      $set: { lineType: 'new_product', productRequestId: req!._id, editedInApp: true },
-      $unset: { productId: '', matchStatus: '', matchedAt: '', matchedBy: '', serviceId: '', workTypeId: '' },
-    });
+    await this.db.collection('incomes').updateOne({ _id: income._id as Types.ObjectId }, [passportContextStage({ $ne: [{ $ifNull: ['$productId', null] }, null] }), { $set: { lineType: 'new_product', productRequestId: req!._id, editedInApp: true } }, { $unset: ['productId', 'matchStatus', 'matchedAt', 'matchedBy', 'serviceId', 'workTypeId'] }]);
     await this.recalc(req!._id);
     if (prev && String(prev) !== String(req!._id)) await this.recalc(prev);
     if (created) await this.notifyDesign(title, String(income.orderNo ?? ''), userId);
@@ -181,7 +179,7 @@ export class ProductRequestsService {
     const lines = await this.lines(requestId);
     const now = new Date();
     const by = uid(userId);
-    await this.db.collection('incomes').updateMany({ productRequestId: requestId, deletedAt: null }, { $set: { productId, matchStatus: 'confirmed', matchedAt: now, lineType: 'product', editedInApp: true, ...(by ? { matchedBy: by } : {}) } });
+    await this.db.collection('incomes').updateMany({ productRequestId: requestId, deletedAt: null }, [passportContextStage({ $ne: [{ $ifNull: ['$productId', null] }, productId] }), { $set: { productId, matchStatus: 'confirmed', matchedAt: now, lineType: 'product', editedInApp: true, ...(by ? { matchedBy: by } : {}) } }]);
     for (const key of new Set(lines.map((l) => aliasKey(l.title)).filter(Boolean))) {
       await this.db.collection('productaliases').updateOne({ key }, { $set: { productId, lastAt: now, updatedAt: now }, $inc: { count: 1 }, $setOnInsert: { createdAt: now } }, { upsert: true });
     }

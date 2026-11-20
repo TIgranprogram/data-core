@@ -6,6 +6,9 @@
 import { api, session, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { card, empty, failBlock, busyBlock, stack, fileButton, actions } from '../ui/kit/index.js';
+import { canWorkPassport } from './passports/common.js';
+import { useFileAsPassport } from './passport-source-picker.js';
+import { busyBtn } from '../ui/kit/busy.js';
 import { folderTile } from '../ui/kit/folder-tile.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { uploadFailText } from './product-attachments.js';
@@ -34,6 +37,11 @@ export function lineFilesCard(l) {
     for (const [id, t] of tiles) {
       t.setFiles(files.filter((f) => f.typeId === id).map((f) => ({
         id: f.id, name: f.originalName || f.name, mime: f.mime, meta: [f.scope === 'line' ? 'позиция' : 'изделие', sizeText(f.size)].filter(Boolean).join(' · '),
+        action: canWorkPassport() && l.orderId && !l.cancelledAt ? { label: 'Использовать как паспорт', onClick: async (e) => {
+          const end = busyBtn(e.currentTarget, null);
+          try { if (await useFileAsPassport(l.orderId, l.id, f)) toast('Вложенный паспорт выбран'); }
+          catch (err) { toastError(err); } finally { end(); }
+        } } : null,
         ticket: () => ticketUrl(l.productId, f), onDownload: async () => { try { const u = await ticketUrl(l.productId, f); const a = h('a', { href: u, download: f.originalName || f.name }); document.body.append(a); a.click(); a.remove(); } catch (e) { toastError(e); } },
       })));
     }
@@ -41,7 +49,7 @@ export function lineFilesCard(l) {
   const fetchFiles = async () => {
     try { const r = await api(`/incomes/${l.id}/attachments`); return (r.items || []).map((f) => ({ ...f, scope: f.scope || 'product' })); } catch (e) {
       if (e.status && e.status !== 404) throw e;
-      return ((await api(`/products/${l.productId}/attachments`)).items || []).map((f) => ({ id: f.id, name: f.originalName, size: f.size, mime: f.mime, typeId: f.typeId, scope: 'product' }));
+      return ((await api(`/products/${l.productId}/attachments`)).items || []).map((f) => ({ ...f, name: f.originalName, scope: 'product' }));
     }
   };
   async function send(typeId, list) {

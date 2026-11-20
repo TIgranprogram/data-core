@@ -9,6 +9,7 @@ import { ORDER_FORMATS, printQuery } from './passports/print-options.js';
 import { displayName } from './passports/fill/model.js';
 import { bookVariants, variantName } from './passports/book-template.js';
 import { shortMissing, summaryText } from './order-passport-text.js';
+import { attachmentSource, selectedPassportActions, openPassportSourcePicker } from './passport-source-picker.js';
 
 /*
  * ПНЗ.2 / C075: правая панель «Паспорта заказа» (of=orderpass&open=<orderId>).
@@ -119,6 +120,10 @@ function summaryRow(row) {
 const pic = (l) => kit.posPic(l.photo || null, 'sm'); // и без изделия — рамка «нет фото»: строки ровные
 
 function lineView(l, reload, issueOne, order) {
+  const choose = canEdit() && l.productId ? kit.button({ label: 'Выбрать вложенный паспорт', size: 'S', kind: 'ghost',
+    onClick: (e) => openPassportSourcePicker(order.orderId, l.incomeId, { parent: e.currentTarget.closest('.drawer'), onSaved: () => reload() }) }) : null;
+  if (attachmentSource(l)) return kit.section({ title: `${l.lineNo ?? '—'} · ${displayName(l.title) || 'Позиция'}`, lead: pic(l), open: true, plain: true,
+    body: [selectedPassportActions(order.orderId, l.incomeId, l, { reload, editable: canEdit() }), siteHistory(l.sitePassports)] });
   const [label, tone] = STATE[l.state] || ['—', 'dim'];
   const name = `${l.lineNo ?? '—'} · ${displayName(l.title) || 'Позиция'}`;
   const format = l.passport ? variantName(l.passport.variant) || 'Прежний формат' : null;
@@ -152,7 +157,7 @@ function lineView(l, reload, issueOne, order) {
       lead: pic(l), title: name, plain: true, tone: 'neutral',
       sub: [meta, `Заполнить: ${shortMissing(l.missing)}`].filter(Boolean).join(' · '),
       side: kit.badge(n ? `не хватает ${n}` : label, tone),
-      body: [kit.actions(openDraft, canEdit() ? templateButton() : null)],
+      body: [kit.actions(openDraft, canEdit() ? templateButton() : null, choose)],
     });
   }
   const below = l.state === 'issued' ? null
@@ -198,13 +203,23 @@ function lineView(l, reload, issueOne, order) {
     ];
   } else if (openDraft) action = [openDraft];
   // пользователь 14.11: выпущенная/готовая позиция — в такой же рамке-карточке, как строка «не хватает» выше
-  if (!action) return kit.row({ lead: pic(l), title: name, meta: [meta, below].filter(Boolean).join(' · ') || null, side, wrap: true });
+  if (!action && !choose) return kit.row({ lead: pic(l), title: name, meta: [meta, below].filter(Boolean).join(' · ') || null, side, wrap: true });
   return kit.section({
     lead: pic(l), title: name, plain: true, tone: 'neutral', open: true,
     sub: [meta, below].filter(Boolean).join(' · ') || null,
     side,
-    body: [kit.actions(...action)],
+    body: [kit.actions(...(action || []), choose)],
   });
+}
+
+function siteHistory(list) {
+  const issued = (list || []).filter((p) => p.status === 'issued');
+  return issued.length ? kit.section({ title: 'Ранее выпущено на сайте', body: issued.map((p) => kit.button({
+    label: `Паспорт № ${p.number || '—'}`, size: 'S', kind: 'ghost', onClick: async () => {
+      try { const { openBookEditor } = await import('./passports/book-editor.js'); await openBookEditor(p.id); }
+      catch (err) { kit.toastError(err); }
+    },
+  })) }) : null;
 }
 
 function firmBlock(row, reload) {
@@ -333,20 +348,19 @@ function body(row, ctx) {
   }
 
   const blockedN = (row.lines || []).filter((l) => l.state === 'blocked').length;
-  const noReady = readyN ? null : kit.hint(blockedN ? `Готовых к выпуску нет: у позиций с меткой «не хватает» (${blockedN}) надо заполнить данные — раскройте позицию ниже.` : issuedN ? 'Все позиции выпущены.' : 'Готовых к выпуску позиций нет.');
+  const noReady = readyN ? null : kit.hint(blockedN ? `Готовых к выпуску нет: заполните данные или выберите доступный вложенный паспорт (${blockedN}).` : issuedN || row.attached ? 'Документы готовы.' : 'Готовых к выпуску позиций нет.');
   const buttons = printPrimary ? [printBtn, issueBtn] : [issueBtn, printBtn];
   // C111: stack — зазор между шапкой, рядом кнопок и списком (на телефоне кнопки не липнут к списку).
   // Ш1: выпуск и печать — сразу под сводкой, видны без прокрутки при 12+ позициях.
   return kit.stack(
     kit.headbar(h('div', null, summaryRow(row), firmBlock(row, reload), kit.hint('Вариант для новых паспортов.')), seg.el),
     kit.actions(...buttons),
+    row.attached || (row.lines || []).some(attachmentSource) ? kit.hint('Вложенные паспорта не выпускаются на сайте и не входят в общий PDF. Скачивайте их отдельно у позиции.') : null,
     noReady,
     skipped, lines,
     // отменённые позиции сюда не идут (13.11); одна серая строка объясняет, почему позиций меньше, чем в заказе (14.11)
     row.cancelled ? kit.hint(`Отменено в заказе: ${row.cancelled} ${plural(row.cancelled, 'позиция', 'позиции', 'позиций')} — паспорта на них не нужны.`) : null,
     // «Паспорт по позиции» убрана (2026-11-13): открывала общую воронку выбора изделия — повтор строки позиции «›»
-    kit.actions(
-      editable ? kit.button({ label: 'Загрузить готовый паспорт (PDF)', kind: 'ghost', title: 'Паспорт сделан отдельно: приложить файл PDF к этому заказу', onClick: async () => { const { openReadyPassport } = await import('./passports/funnel/open.js'); openReadyPassport({ salesOrderId: row.orderId, orderNo: row.orderNo, customerName: row.customerName }); } }) : null),
     filesBox);
 }
 

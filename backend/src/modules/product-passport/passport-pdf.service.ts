@@ -228,10 +228,10 @@ export class PassportPdfService {
     // C104: выбранные паспорта (только выпущенные этого заказа, порядок — по позициям); пусто — все
     const want = new Set(only);
     const items = want.size ? all.items.filter((it) => want.has(String((it as Doc)._id))) : all.items;
-    if (want.size && !items.length) throw new BadRequestException('Выбранные паспорта не найдены среди выпущенных паспортов этого заказа');
+    if (want.size && !items.length && !(all.skipped ?? []).some(r => want.has(String(r._id)))) throw new BadRequestException('Выбранные паспорта не найдены среди выпущенных паспортов этого заказа');
     const inputs = [];
     // C072: паспорт со своим PDF в общий файл не склеить — отдаём списком, экран покажет ссылки на `GET /passports/:id/pdf`
-    const skipped: Array<{ id: string; passportNumber: string; name: string }> = [];
+    const skipped: Array<{ id: string; passportNumber: string; name: string; reason?: string }> = (all.skipped ?? []).map(r => ({ id: String(r._id), passportNumber: String(r.passportNumber ?? ''), name: String(r.name ?? ''), reason: 'SOURCE_ATTACHMENT' }));
     // Р5 (C112): паспорт, который не собрался, не рушит печать остальных — он идёт списком с причиной
     const failed: Array<{ id: string; passportNumber: string; name: string; reason: string }> = [];
     for (const raw of items) {
@@ -244,6 +244,7 @@ export class PassportPdfService {
       }
     }
     if (!inputs.length) {
+      if (skipped.some(s => s.reason === 'SOURCE_ATTACHMENT')) throw new BadRequestException({ code: 'SOURCE_ATTACHMENT', message: 'Выбранные позиции используют вложенные паспорта — скачайте их отдельно', details: { skipped } });
       if (skipped.length) throw new BadRequestException({ message: `Все паспорта заказа — готовые файлы, отдельным файлом: № ${skipped.map((x) => x.passportNumber).join(', ')}`, skipped });
       if (failed.length) throw new BadRequestException({ message: `Ни один паспорт заказа не собрался: ${failed.map((x) => `№ ${x.passportNumber} — ${x.reason}`).join('; ')}`, failed });
       throw new BadRequestException('По заказу нет выпущенных паспортов, которые можно напечатать');

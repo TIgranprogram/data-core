@@ -1,3 +1,5 @@
+import { PassportSourceService } from './passport-source.service';
+import { PassportSourceDto, PassportSourceTicketDto, PassportCandidatesDto } from './dto/passport-source.dto';
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Res, StreamableFile, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -26,6 +28,7 @@ import type { PassportTemplateContent } from './passport-template.default';
 const VIEW = ['admin', 'director', 'manager'] as const;
 const TEMPLATE_PROJECTION = 'Шаблон и готовность паспорта. Для краткого описания из частей defaults.simpleDescription содержит mode и partIds; вычисленный текст доступен в simpleDescriptionSource {kind:"parts",partIds,text,invalidPartIds?} и в textSnapshot.description.';
 // Работа с отдельными паспортами и заказом; общие настройки остаются EDIT.
+const READ = ['admin', 'director', 'manager', 'user'] as const;
 const WORK = ['admin', 'director', 'manager'] as const;
 const EDIT = ['admin', 'director'] as const;
 const attachment = (name: string) => `attachment; filename="passport.${name.endsWith('.zip') ? 'zip' : 'pdf'}"; filename*=UTF-8''${encodeURIComponent(name)}`;
@@ -38,7 +41,21 @@ const attachment = (name: string) => `attachment; filename="passport.${name.ends
 @AppSection('passports')
 @Controller()
 export class ProductPassportController {
-  constructor(private readonly service: ProductPassportService, private readonly pdfs: PassportPdfService, private readonly looks: PassportLookService) {}
+  constructor(private readonly service: ProductPassportService, private readonly pdfs: PassportPdfService, private readonly looks: PassportLookService, private readonly sources: PassportSourceService) {}
+
+  @Get('passports/order/:orderId/lines/:incomeId/source')
+  @Roles(...READ)
+  source(@Param('orderId') orderId: string, @Param('incomeId') incomeId: string) { return this.sources.view(orderId, incomeId); }
+  @Get('passports/order/:orderId/lines/:incomeId/source/candidates')
+  @Roles(...READ)
+  sourceCandidates(@Param('orderId') orderId: string, @Param('incomeId') incomeId: string, @Query() q: PassportCandidatesDto) { return this.sources.candidates(orderId, incomeId, q); }
+  @Put('passports/order/:orderId/lines/:incomeId/source')
+  @Roles(...WORK)
+  sourceSelect(@Param('orderId') orderId: string, @Param('incomeId') incomeId: string, @Body() dto: PassportSourceDto, @CurrentUser() actor: AuthenticatedUser) { return this.sources.select(orderId, incomeId, dto, actor); }
+  @Post('passports/order/:orderId/lines/:incomeId/source/download-ticket')
+  @HttpCode(200)
+  @Roles(...READ)
+  sourceTicket(@Param('orderId') orderId: string, @Param('incomeId') incomeId: string, @Body() dto: PassportSourceTicketDto, @CurrentUser() actor: AuthenticatedUser) { return this.sources.ticket(orderId, incomeId, dto.contextToken, actor); }
 
   /** Совместимость с kppdf: последний паспорт изделия-модели. */
   @Get('products/:productId/passport')
@@ -323,7 +340,7 @@ export class ProductPassportController {
 
   /** ПНЗ: план по заказу — позиции { state, missing[] } + счётчики; C075: firm и firmChoices. supplierOrgId — выбранная фирма, ещё не в заказе. */
   @Get('passports/order/:orderId/plan')
-  @Roles(...WORK)
+  @Roles(...READ)
   orderPlan(@Param('orderId') orderId: string, @Query() query: PassportOrderQueryDto) {
     return this.service.orderPlan(orderId, variantOf(query.variant), query.supplierOrgId, query.presentationVersion);
   }
