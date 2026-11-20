@@ -294,3 +294,12 @@
 - `backend/src/modules/product-passport/passport-source.service.ts:41` — PUT revision/token/candidate generation+audit transaction; `:64` ticket current selection+availability; `passport-order.ts:99` — attached/completed/history; `product-passport.service.ts:517` — current-order PDF фильтр, исторический issued issue остаётся read.
 - `backend/src/modules/productattachments/attachment-availability.ts:26` — поколение/изделие/stat; `productattachments.service.ts:86` — purge CAS, remove/restore bump generation без fanout; контекстные hooks incomes/matching/product-requests/salesorders.
 - Контракт/ограничения: `docs/crew/C170-attached-passport-readiness/API-CONTRACT.md`, `BACKEND-REPORT.md`; unit85/921PASS18.712s, C170e2e12/12PASS12.407s, types/lint/cyclesPASS. FullQA/независимый review впереди. коммит: не выполнялся (координатор); карта обновлена.
+
+### C170 FIX review1 (20.11.2026)
+- `backend/src/common/passport/line-source.ts:58` copyPassportValue; `product-passport.service.ts:368/:433/:629` fresh retry values/documents, `passport-ready.ts:70` retry numbers; `passport-issue.ts:36` binding fingerprint; `passport-order.ts:121` live product; `passport-source.service.ts:54` transactional live check.
+- `productattachments/productattachments.service.ts:87` bounded purge lease5min/CAS reconcile; `productattachment.schema.ts:16` purgeLeaseUntil; `passport-pdf.service.ts:234` explicit IDs также ограничивают attached skipped. `docs/crew/C170-attached-passport-readiness/FIX-REPORT.md` — 5пунктов/доказательства.
+- Unit85/923PASS18.949s, strict realMongo C170e2e23/23PASS12.345s; types/lint/cycles/diff-check0. Код FREEZE дляreview2/fullQA, коммит: не выполнялся; карта обновлена.
+
+### C170 FIX2 — явные удаления при retry (20.11.2026)
+- `backend/src/modules/product-passport/product-passport.service.ts:632` — doc.getChanges().$unset хранится отдельно от toObject, `:637` каждый fresh hydrate применяет unset. `backend/test/e2e/c170-passport-source.e2e-spec.ts` — FIX2 explicit unset: legacy incomeId:null→save/abort/retry→scope отсутствует→новая draft занимает unique lineScopeKey.
+- types/lint0; update unit2/28PASS5.284s; адресный strict realMongo e2e1PASS/23SKIP12.372s только datacore-test-c170. `FIX2-REPORT.md`; backend FREEZE, коммит: не выполнялся; карта обновлена.

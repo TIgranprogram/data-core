@@ -110,4 +110,17 @@ describe('Р5: печать заказа при сбое одного паспо
     expect(failReason(new Error('x'.repeat(500))).length).toBe(200);
     expect(failReason(null)).toBe('не удалось собрать');
   });
+  it('C170: unrelated attached не попадает в explicit site PDF skipped', async () => {
+    const site=pass('site'), attached=pass('attached');const passports={issuedOfOrder:async()=>({items:[site],skipped:[attached],orderNo:'1'}),markIssued:async()=>undefined};
+    const svc=new PassportPdfService(passports as never,{} as never,{} as never);Object.assign(svc,{input:async()=>({})});
+    expect((await svc.orderPdf('o',{},[site._id])).skipped).toEqual([]);
+    expect((await svc.orderPdf('o',{},[site._id,attached._id])).skipped).toMatchObject([{id:attached._id,reason:'SOURCE_ATTACHMENT'}]);
+  });
+  it('C170: unrelated attachment не маскирует ошибку explicit site', async () => {
+    const site=pass('site'), attached=pass('attached');const svc=new PassportPdfService({issuedOfOrder:async()=>({items:[site],skipped:[attached],orderNo:'1'})} as never,{} as never,{} as never);
+    Object.assign(svc,{input:async()=>{throw new Error('сломался выбранный сайт');}});
+    await expect(svc.orderPdf('o',{},[site._id])).rejects.toMatchObject({response:{failed:[{id:site._id,reason:'сломался выбранный сайт'}]}});
+    await expect(svc.orderPdf('o',{},[attached._id])).rejects.toMatchObject({response:{code:'SOURCE_ATTACHMENT',details:{skipped:[{id:attached._id}]}}});
+  });
+
 });

@@ -54,3 +54,13 @@ export async function withPassportSite<T>(connection: Connection, baseline: Pass
 export function assertSitePassport(baseline: PassportLine | null) {
   if (baseline && selectionOf(baseline).mode === 'attachment') throw new ConflictException({ code: 'SOURCE_ATTACHMENT', message: 'Для позиции выбран вложенный паспорт — измените источник явно' });
 }
+/** Копия BSON-значений для новой попытки transaction: document и выданные номера не переиспользуются. */
+export function copyPassportValue<T>(value: T): T {
+  if (value instanceof Types.ObjectId) return new Types.ObjectId(value.toHexString()) as T;
+  if (value instanceof Date) return new Date(value.getTime()) as T;
+  if (Buffer.isBuffer(value)) return Buffer.from(value) as T;
+  if (Array.isArray(value)) return value.map(copyPassportValue) as T;
+  if (value instanceof Map) return new Map([...value].map(([k, v]) => [k, copyPassportValue(v)])) as T;
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, copyPassportValue(v)])) as T;
+  return value;
+}

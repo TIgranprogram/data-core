@@ -33,7 +33,9 @@ export class PassportIssue {
    */
   async issue(id: string, expected: { presentationVersion?: number; variant?: string } = {}) {
     const first = (await this.h.findById(id)).toObject() as unknown as Doc;
+    const binding = (d: Doc) => ['incomeId', 'productId', 'salesOrderId'].map(k => String(d[k] ?? '')).join('/');
     const assertExpected = (doc: Doc) => {
+      if (binding(doc) !== binding(first)) throw new ConflictException({ code: 'STALE_CONTEXT', message: 'Принадлежность паспорта изменилась — перечитайте позицию' });
       if ((expected.presentationVersion !== undefined && expected.presentationVersion !== doc.presentationVersion)
         || (expected.variant !== undefined && expected.variant !== doc.variant)) {
         throw new ConflictException('Вариант паспорта изменился — перечитайте книжку');

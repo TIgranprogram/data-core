@@ -18,6 +18,7 @@ export const TYPES_DICT = 'attachmentTypes';
 /** Через сколько дней после «Убрать» файл стирается с диска, и в какой час (местное время сервера) идёт чистка. */
 export const PURGE_DAYS = 14;
 const PURGE_HOUR = 3;
+export const PURGE_LEASE_MS = 5 * 60_000;
 export const DEFAULT_TYPES = ['Чертежи', 'Паспорта', '3D-модели']; // без «Договоры / КП» — это заказ и заказчик (владелец 15.11)
 
 export interface UploadedAttachmentFile { path: string; originalname: string; size: number; mimetype?: string }
@@ -85,16 +86,21 @@ export class ProductAttachmentsService implements OnModuleInit, OnModuleDestroy 
    */
   async purgeDeleted(now: Date = new Date()): Promise<number> {
     const before = new Date(now.getTime() - PURGE_DAYS * 86400_000);
-    const docs = await this.model.find({ deletedAt: { $ne: null, $lt: before }, fileRemovedAt: null, purgeState: { $ne: 'purging' } }).limit(500).exec();
+    // Ограниченный reconcile: истёкший владелец не возвращает файл в live, новый token только завершает удаление.
+    const docs = await this.model.find({ deletedAt: { $ne: null, $lt: before }, fileRemovedAt: null, $or: [{ purgeState: { $ne: 'purging' } }, { purgeLeaseUntil: { $lte: now } }, { purgeLeaseUntil: { $exists: false } }] }).limit(500).exec();
     let n = 0;
     for (const d of docs) {
       const token = randomUUID();
-      const claim = await this.model.updateOne({ _id: d._id, deletedAt: d.deletedAt, fileRemovedAt: null, purgeState: { $ne: 'purging' }, ...(d.selectionGeneration ? { selectionGeneration: d.selectionGeneration } : { $or: [{ selectionGeneration: 0 }, { selectionGeneration: { $exists: false } }] }) }, { $set: { purgeState: 'purging', purgeToken: token } });
-      if (!claim.modifiedCount) continue;
       try {
-        await fs.rm(resolveInside(UPLOAD_DIR, d.storedPath), { force: true });
-        await this.model.updateOne({ _id: d._id, purgeToken: token, purgeState: 'purging' }, { $set: { fileRemovedAt: now, purgeState: 'removed' }, $unset: { purgeToken: '' } });
-        n++;
+        const abs = resolveInside(UPLOAD_DIR, d.storedPath);
+        const generation = d.selectionGeneration ? { selectionGeneration: d.selectionGeneration } : { $or: [{ selectionGeneration: 0 }, { selectionGeneration: { $exists: false } }] };
+        const claim = await this.model.updateOne({ _id: d._id, deletedAt: d.deletedAt, fileRemovedAt: null, purgeState: d.purgeState ?? null, purgeToken: d.purgeToken ?? null, purgeLeaseUntil: d.purgeLeaseUntil ?? null, ...generation }, { $set: { purgeState: 'purging', purgeToken: token, purgeLeaseUntil: new Date(now.getTime() + PURGE_LEASE_MS) } });
+        if (!claim.modifiedCount) continue;
+        const stat = await fs.stat(abs).catch((e: NodeJS.ErrnoException) => { if (e.code === 'ENOENT') return null; throw e; });
+        if (stat && !stat.isFile()) throw new Error('Путь вложения не является файлом');
+        if (stat) await fs.rm(abs, { force: true });
+        const saved = await this.model.updateOne({ _id: d._id, deletedAt: d.deletedAt, purgeToken: token, purgeState: 'purging', ...generation }, { $set: { fileRemovedAt: now, purgeState: 'removed' }, $unset: { purgeToken: '', purgeLeaseUntil: '' } });
+        if (saved.modifiedCount) n++;
       } catch (e) { this.log.warn(`Не стёрт файл вложения ${String(d._id)}: ${(e as Error).message}`); }
     }
     if (n) this.log.log(`Стёрто файлов убранных вложений: ${n}`);

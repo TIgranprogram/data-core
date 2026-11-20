@@ -1,4 +1,4 @@
-import { assertSitePassport, passportLine, withPassportSite } from '../../common/passport/line-source';
+import { assertSitePassport, copyPassportValue, passportLine, withPassportSite } from '../../common/passport/line-source';
 import { parseModules } from '../../common/passport/modules';
 import { installKindOf, variantOf, PASSPORT_VARIANTS, type PassportVariant } from './passport-variants';
 import { blankItems } from './passport-blanks';
@@ -365,9 +365,10 @@ export class ProductPassportService {
     }
     try {
       const doc = await withPassportSite(this.connection, baseline, async session => {
-        if (set.status === 'issued') await this.allocate(set, date, session);
-        await this.assertFree(set, undefined, session);
-        return session ? (await this.model.create([set], { session }))[0] : await this.model.create(set);
+        const attempt = copyPassportValue(set);
+        if (attempt.status === 'issued') await this.allocate(attempt, date, session);
+        await this.assertFree(attempt, undefined, session);
+        return session ? (await this.model.create([attempt], { session }))[0] : await this.model.create(attempt);
       });
       // v2: паспорт с категорией — сразу снимок текста (правка справочников потом его не меняет)
       if (!baseline && set.passportCategory) return (await this.snapshot(String(doc._id))) ?? doc;
@@ -429,7 +430,8 @@ export class ProductPassportService {
     Object.assign(set, diff);
     const draft = new this.model(set);
     await this.applySnapshot(draft, { ...set });
-    try { return await withPassportSite(this.connection, baseline, session => draft.save({ session })); }
+    const prepared = draft.toObject({ minimize: false });
+    try { return await withPassportSite(this.connection, baseline, session => new this.model(copyPassportValue(prepared)).save({ session })); }
     catch (e) {
       if (!isScopeDuplicate(e)) throw e;
       const winner = await findExisting();
@@ -624,7 +626,16 @@ export class ProductPassportService {
       } else if (hadText) await this.rebuildSafe(doc, after);
       else await this.applySnapshot(doc, after);
     }
-    try { return await withPassportSite(this.connection, baseline, session => this.saveCurrent(doc, cur, session)); }
+    const prepared = doc.toObject({ minimize: false });
+    // toObject опускает undefined: переносим явные удаления в каждую новую попытку отдельно.
+    const unsetPaths = baseline ? Object.keys(doc.getChanges().$unset ?? {}) : [];
+    try { return await withPassportSite(this.connection, baseline, session => {
+      if (!session) return this.saveCurrent(doc, cur);
+      const attempt = this.model.hydrate(copyPassportValue(cur));
+      attempt.set(copyPassportValue(prepared));
+      for (const path of unsetPaths) attempt.set(path, undefined);
+      return this.saveCurrent(attempt, cur, session);
+    }); }
     catch (e) { if (isScopeDuplicate(e)) throw new ConflictException('На эту позицию уже есть паспорт'); throw e; }
   }
 

@@ -114,10 +114,11 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string,
     if (!had || (!isIssued(had) && isIssued(p as Doc))) byIncome.set(key, p); // прежний план выбирает выпущенный перед черновиком
   }
   const pids = [...new Set(incomes.filter((i) => i.productId).map((i) => String(i.productId)))];
-  const prods = pids.length ? await db.collection('products').find({ _id: { $in: pids.map((x) => new Types.ObjectId(x)) }, ...(presentationVersion === 1 ? { deletedAt: null } : {}) }, { projection: { name: 1, sku: 1, categoryId: 1, 'passportDefaults.passportCategory': 1, 'passportDefaults.kindId': 1, mainPhotoId: 1, photoIds: 1 } }).toArray() : [];
+  const prods = pids.length ? await db.collection('products').find({ _id: { $in: pids.map((x) => new Types.ObjectId(x)) }, ...(presentationVersion === 1 ? { deletedAt: null } : {}) }, { projection: { name: 1, sku: 1, deletedAt: 1, categoryId: 1, 'passportDefaults.passportCategory': 1, 'passportDefaults.kindId': 1, mainPhotoId: 1, photoIds: 1 } }).toArray() : [];
   const photoOf = (p: Doc) => (p.mainPhotoId ?? (p.photoIds as Types.ObjectId[] | undefined)?.[0]) as Types.ObjectId | undefined;
   const phs = await loadPhotos(db as never, prods.map(photoOf).filter((x): x is Types.ObjectId => !!x));
   const pphoto = new Map(prods.map((p) => { const f = photoOf(p as Doc); const ph = f ? phs.get(String(f)) : undefined; return [String(p._id), ph ? { url: ph.url, thumb: ph.thumb } : null]; }));
+  const liveProducts = new Set(prods.filter(p => !p.deletedAt).map(p => String(p._id)));
   const pname = new Map(prods.map((p) => [String(p._id), String(p.name ?? '')]));
   // C086: справочник и группы с родителями загружаются пакетно, независимо от числа позиций заказа.
   const cats = (prods.length ? await db.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, name: 1, catalogNames: 1 } }).toArray() : []) as unknown as PpCat[];
@@ -168,7 +169,7 @@ export async function orderPlan(h: OrderHost, orderId: string, variant?: string,
     const selection = selectionOf(inc);
     const attached = selection.mode === 'attachment';
     const file = attachments.get(String(selection.attachmentId));
-    const effective = attached ? effectiveAttachment(inc, file) : { attachment: null, missing: [] };
+    const effective = attached ? effectiveAttachment(inc, file, !!productId && liveProducts.has(productId)) : { attachment: null, missing: [] };
     const sitePassports = pass.filter(p => String(p.incomeId) === String(inc._id)).map(p => ({ id: String(p._id), number: isIssued(p as Doc) ? String(p.passportNumber ?? '') : null, status: isIssued(p as Doc) ? 'issued' as const : 'draft' as const, ...(p.presentationVersion === 1 ? { presentationVersion: 1 as const, variant: variantOf(p.variant) } : {}) }));
     let missing: string[] = [];
     if (!attached && !issued) {

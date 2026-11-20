@@ -1,4 +1,4 @@
-import { assertSitePassport, passportLine, withPassportSite } from '../../common/passport/line-source';
+import { assertSitePassport, copyPassportValue, passportLine, withPassportSite } from '../../common/passport/line-source';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Types, type ClientSession, type Connection, type Model } from 'mongoose';
 import type { CreateProductPassportDto } from './dto/create-product-passport.dto';
@@ -67,9 +67,10 @@ export async function createReadyPassport(h: ReadyHost, dto: ReadyPassportDto, f
       };
       try {
         return await withPassportSite(h.connection, baseline, async session => {
-          await h.allocate(set, date, session);
-          await h.assertFree(set, undefined, session);
-          return session ? (await h.model.create([set], { session }))[0] : await h.model.create(set);
+          const attempt = copyPassportValue(set);
+          await h.allocate(attempt, date, session);
+          await h.assertFree(attempt, undefined, session);
+          return session ? (await h.model.create([attempt], { session }))[0] : await h.model.create(attempt);
         });
       } catch (e) {
         if (isScopeDuplicate(e)) throw new ConflictException('На эту позицию уже есть паспорт');

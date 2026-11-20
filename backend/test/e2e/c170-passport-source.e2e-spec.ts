@@ -1,5 +1,8 @@
 import request from 'supertest';
-import { Types } from 'mongoose';
+import { Types, mongo, type ClientSession } from 'mongoose';
+import { PassportIssue, type IssueHost } from '../../src/modules/product-passport/passport-issue';
+import { ProductPassport, type ProductPassportDocument } from '../../src/modules/product-passport/product-passport.schema';
+import { PURGE_LEASE_MS } from '../../src/modules/productattachments/productattachments.service';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { createTestApp, type TestContext } from '../setup/test-db';
@@ -10,6 +13,7 @@ import { ProductAttachmentsService } from '../../src/modules/productattachments/
 import { MatchingService } from '../../src/modules/matching/matching.service';
 import { claimPassportLine, epochOf, passportLine } from '../../src/common/passport/line-source';
 import { UPLOAD_DIR } from '../../src/modules/photos/image-upload.options';
+import { unlinkPrint } from '../../src/modules/product-passport/passport-print-file';
 
 describe('C170 выбор вложенного паспорта', () => {
   let ctx:TestContext, token:string, reader:string;
@@ -116,4 +120,106 @@ describe('C170 выбор вложенного паспорта', () => {
     await db().collection('productattachments').updateOne({_id:file},{$set:{deletedAt:new Date('2000-01-01')}});expect(await files.purgeDeleted()).toBeGreaterThanOrEqual(1);
     await expect(files.restore(String(product),String(file))).rejects.toMatchObject({status:400});const f=await db().collection('productattachments').findOne({_id:file});expect(f!.purgeState).toBe('removed');expect(f!.fileRemovedAt).toBeTruthy();
   });
+  const abortFirstCommit = () => {
+    const start = ctx.connection.startSession.bind(ctx.connection);
+    let commits = 0;
+    const spy = jest.spyOn(ctx.connection, 'startSession').mockImplementationOnce(async () => {
+      const session = await start();
+      const commit = session.commitTransaction.bind(session);
+      session.commitTransaction = async () => {
+        commits++;
+        if (commits === 1) {
+          await session.abortTransaction();
+          throw new mongo.MongoServerError({message:'C170 fault после save до commit',code:112,errorLabels:['TransientTransactionError']});
+        }
+        return commit();
+      };
+      return session;
+    });
+    return { spy, commits: () => commits };
+  };
+  it.each(['missing','deleted'])('P1: %s изделие блокирует выбор и уже выбранный effective, без fallback',async state=>{
+    const v=await view();
+    if(state==='missing')await db().collection('products').deleteOne({_id:product});else await db().collection('products').updateOne({_id:product},{$set:{deletedAt:new Date()}});
+    await expect(sources().select(String(order),String(income),{mode:'attachment',expectedRevision:0,contextToken:v.contextToken,attachmentId:String(file),expectedAttachmentGeneration:0,confirm:true},actor)).rejects.toMatchObject({status:409});
+    await db().collection('incomes').updateOne({_id:income},{$set:{passportSelection:{mode:'attachment',revision:1,attachmentId:file,attachmentGeneration:0,productIdAtSelection:product}}});
+    const plan=await ctx.module.get(ProductPassportService).orderPlan(String(order));expect(plan).toMatchObject({attached:0,completed:0,blocked:1});expect(plan.lines[0]).toMatchObject({source:'attachment',state:'blocked',attachment:{available:false,unavailableReason:'PRODUCT_UNAVAILABLE'}});
+    expect((await view()).missing[0]).toContain('Изделие не найдено');
+  });
+  it('P1 retry: новый presentation draft сохраняется ровно один раз после save→abort',async()=>{
+    const fault=abortFirstCommit();
+    try {
+      const p=ctx.module.get(ProductPassportService);const d=await p.create({incomeId:String(income),productId:String(product),salesOrderId:String(order),supplierOrgId:String(firm),presentationVersion:1});
+      expect(fault.commits()).toBe(2);expect(await db().collection('productpassports').countDocuments({incomeId:income})).toBe(1);
+      const saved=await db().collection('productpassports').findOne({_id:d._id});expect(saved).toMatchObject({status:'draft',presentationVersion:1});expect((await db().collection('incomes').findOne({_id:income}))!.passportEpoch).toBe(1);
+    }finally{fault.spy.mockRestore();}
+  });
+  it('FIX2 explicit unset: legacy incomeId:null освобождает unique scope после abort/retry',async()=>{
+    const p=ctx.module.get(ProductPassportService);const old=await p.create({incomeId:String(income),productId:String(product)});
+    expect((await db().collection('productpassports').findOne({_id:old._id}))!.creationScopeKey).toBe('line/'+income);
+    const fault=abortFirstCommit();
+    try{
+      await p.update(String(old._id),{incomeId:null} as never);expect(fault.commits()).toBe(2);
+      const detached=await db().collection('productpassports').findOne({_id:old._id});expect(detached!.incomeId).toBeNull();expect(detached).not.toHaveProperty('creationScopeKey');
+      const fresh=await p.create({incomeId:String(income),productId:String(product)});expect(String(fresh._id)).not.toBe(String(old._id));
+      const bound=await db().collection('productpassports').find({creationScopeKey:'line/'+income}).toArray();expect(bound).toHaveLength(1);expect(String(bound[0]._id)).toBe(String(fresh._id));expect(await db().collection('productpassports').countDocuments({_id:old._id})).toBe(1);
+    }finally{fault.spy.mockRestore();}
+  });
+  it('P1 retry: правка issued сохраняет изменение и одну редакцию после save→abort',async()=>{
+    const pid=new Types.ObjectId();await db().collection('productpassports').insertOne({_id:pid,incomeId:income,productId:product,salesOrderId:order,name:'До',passportNumber:'retry-'+pid,status:'issued',revision:1,deletedAt:null});
+    const fault=abortFirstCommit();
+    try {
+      await ctx.module.get(ProductPassportService).update(String(pid),{name:'После transient abort'},{user:actor});
+      expect(fault.commits()).toBe(2);const saved=await db().collection('productpassports').findOne({_id:pid});expect(saved).toMatchObject({name:'После transient abort',revision:2});expect(saved!.revisions).toHaveLength(1);expect(saved!.revisions[0].data.name).toBe('До');
+      expect((await db().collection('incomes').findOne({_id:income}))!.passportEpoch).toBe(1);
+    }finally{fault.spy.mockRestore();}
+  });
+  it('P1 retry: legacy numbered create заново выделяет счётчик после abort',async()=>{
+    const before=await db().collection('counters').findOne({entity:'passport',prefix:'productCode',year:0});const max=await db().collection('productpassports').find({productCode:{$exists:true}}).toArray();const floor=Math.max(Number(before?.seq??0),...max.map(p=>Number(p.productCode)||0),0);
+    const fault=abortFirstCommit();try{
+      const d=await ctx.module.get(ProductPassportService).create({incomeId:String(income),passportNumber:String(800000+parseInt(String(income).slice(-4),16)),productId:String(product)});
+      expect(fault.commits()).toBe(2);expect(await db().collection('productpassports').countDocuments({incomeId:income,status:'issued'})).toBe(1);
+      const counter=await db().collection('counters').findOne({entity:'passport',prefix:'productCode',year:0});expect(Number(counter!.seq)).toBe(floor+1);expect(Number(d.productCode)).toBe(floor+1);
+    }finally{fault.spy.mockRestore();}
+  });
+  it('P1 retry ready-file: один issued, номер/счётчики и один сохранённый файл после abort',async()=>{
+    const fault=abortFirstCommit();let stored:string|undefined;
+    try{
+      const d=await ctx.module.get(ProductPassportService).createReady({incomeId:String(income),productId:String(product),supplierOrgId:String(firm)} as never,{mimetype:'application/pdf',buffer:Buffer.from('%PDF-1.4 ready fixture'),originalname:'c170-fault.pdf'});
+      expect(fault.commits()).toBe(2);const rows=await db().collection('productpassports').find({incomeId:income}).toArray();expect(rows).toHaveLength(1);const raw=rows[0];stored=raw.printFile.path;
+      expect(raw).toMatchObject({status:'issued',source:'ready-file'});expect(d).toMatchObject({passportNumber:raw.passportNumber});expect((await db().collection('counters').findOne({entity:'passport',prefix:'passportNumber',year:0}))!.seq).toBe(Number(raw.passportNumber));
+      expect((await db().collection('counters').findOne({entity:'passport',prefix:'productCode',year:0}))!.seq).toBe(Number(raw.productCode));expect((await db().collection('incomes').findOne({_id:income}))!.passportEpoch).toBe(1);
+    }finally{fault.spy.mockRestore();if(stored)await unlinkPrint(stored);}
+  });
+  it.each(['rebind','standalone','selection'])('P1 real interleaving %s → issue409 без номера/issued',async mode=>{
+    const pid=new Types.ObjectId(), target=new Types.ObjectId();
+    await db().collection('incomes').insertOne({_id:target,orderId:order,productId:product,title:'B',deletedAt:null});
+    await db().collection('productpassports').insertOne({_id:pid,...(mode==='standalone'?{}:{incomeId:income}),productId:product,salesOrderId:order,name:'Draft',status:'draft',passportNumber:'draft-'+pid,deletedAt:null});
+    const model=ctx.connection.model<ProductPassportDocument>(ProductPassport.name), p=ctx.module.get(ProductPassportService);
+    let resume!:()=>void, paused!:()=>void;const gate=new Promise<void>(resolve=>resume=resolve), reached=new Promise<void>(resolve=>paused=resolve);
+    const host:IssueHost={model:model as never,connection:ctx.connection,findById:async id=>(await model.findById(id).exec())!,readiness:async()=>[],refresh:async()=>undefined,freezeImages:async()=>{paused();await gate;},allocate:(set,date,session)=>p.allocate(set,date,session),assertFree:async()=>undefined};
+    const before=await db().collection('counters').find({}).sort({_id:1}).toArray();
+    const issuing=new PassportIssue(host).issue(String(pid));const outcome=issuing.then(()=>null,e=>e);await reached;
+    if(mode!=='selection')await p.update(String(pid),{incomeId:String(target)});
+    const targetId=mode==='selection'?income:target;const v=await sources().view(String(order),String(targetId));
+    await sources().select(String(order),String(targetId),{mode:'attachment',expectedRevision:v.selection.revision,contextToken:v.contextToken,attachmentId:String(file),expectedAttachmentGeneration:0,confirm:true},actor);
+    resume();expect(await outcome).toMatchObject({status:409,response:{code:'STALE_CONTEXT'}});const saved=await db().collection('productpassports').findOne({_id:pid});expect(saved).toMatchObject({status:'draft',passportNumber:'draft-'+pid});expect(saved!.issuedAt).toBeUndefined();
+    expect(await db().collection('counters').find({}).sort({_id:1}).toArray()).toEqual(before);
+  });
+  it.each(['unlink','confirm'])('P2 purge %s failure: lease reconcile завершает removed, restore запрещён',async failure=>{
+    const files=ctx.module.get(ProductAttachmentsService);await files.remove(String(product),String(file),actor);await db().collection('productattachments').updateOne({_id:file},{$set:{deletedAt:new Date('2000-01-01')}});
+    const now=new Date();let restore:()=>void;
+    if(failure==='unlink'){
+      const original=fs.rm.bind(fs);const spy=jest.spyOn(fs,'rm').mockImplementationOnce(async()=>{throw Object.assign(new Error('C170 unlink fault'),{code:'EACCES'});});restore=()=>{spy.mockRestore();void original;};
+    }else{
+      const coll=ctx.connection.model('ProductAttachment').collection, original=coll.updateOne.bind(coll);
+      // Mongoose использует ту же native collection; ошибка только DB-подтверждения после реального unlink.
+      const spy=jest.spyOn(coll,'updateOne').mockImplementation(((filter:unknown,update:{ $set?:{fileRemovedAt?:Date}},opts:unknown)=>{if(update.$set?.fileRemovedAt)return Promise.reject(new Error('C170 confirmation fault'));return original(filter as never,update as never,opts as never);}) as never);restore=()=>spy.mockRestore();
+    }
+    try{expect(await files.purgeDeleted(now)).toBe(0);}finally{restore();}
+    const pending=await db().collection('productattachments').findOne({_id:file});expect(pending).toMatchObject({purgeState:'purging'});expect(pending!.purgeLeaseUntil).toBeTruthy();
+    await expect(files.restore(String(product),String(file))).rejects.toMatchObject({status:404});expect(await files.purgeDeleted(new Date(now.getTime()+PURGE_LEASE_MS+1))).toBeGreaterThanOrEqual(1);
+    const done=await db().collection('productattachments').findOne({_id:file});expect(done).toMatchObject({purgeState:'removed'});expect(done!.purgeToken).toBeUndefined();expect(done!.fileRemovedAt).toBeTruthy();await expect(fs.stat(path.resolve(UPLOAD_DIR,rel))).rejects.toMatchObject({code:'ENOENT'});
+  });
+
 });

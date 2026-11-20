@@ -22,7 +22,7 @@ export class PassportSourceService {
   async candidates(orderId: string, incomeId: string, q: PassportCandidatesDto) {
     const inc = await passportLine(this.db, incomeId, orderId);
     const page = q.page ?? 1, limit = q.limit ?? 20;
-    if (!inc.productId || inc.lineType === 'service') return { items: [], total: 0, page, limit };
+    if (!inc.productId || inc.lineType === 'service' || !await this.db.collection('products').findOne({ _id: inc.productId, deletedAt: null }, { projection: { _id: 1 } })) return { items: [], total: 0, page, limit };
     const filter = { productId: inc.productId, deletedAt: null };
     const [rows, total] = await Promise.all([this.db.collection('productattachments').find(filter).sort({ uploadedAt: -1, _id: 1 }).skip((page - 1) * limit).limit(limit).toArray(), this.db.collection('productattachments').countDocuments(filter)]);
     const types = await this.db.collection('dict_values').find({ _id: { $in: rows.map(r => r.typeId) } }, { projection: { name: 1 } }).toArray();
@@ -51,6 +51,7 @@ export class PassportSourceService {
       await session.withTransaction(async () => {
         await claimPassportLine(this.db, session, inc, epochOf(inc), 'select');
         if (file) {
+          if (!await this.db.collection('products').findOne({ _id: inc.productId, deletedAt: null }, { session, projection: { _id: 1 } })) throw unavailable();
           const generation = Number(file.selectionGeneration ?? 0);
           const r = await this.db.collection('productattachments').updateOne({ _id: file._id, productId: inc.productId, deletedAt: null, fileRemovedAt: null, purgeState: { $ne: 'purging' }, ...(generation ? { selectionGeneration: generation } : { $or: [{ selectionGeneration: 0 }, { selectionGeneration: { $exists: false } }] }) }, { $inc: { selectionGuard: 1 } }, { session });
           if (!r.modifiedCount) throw unavailable();

@@ -23,9 +23,9 @@ export async function presentSourceAttachment(d: FileDoc, typeName = '') {
   const available = await attachmentAvailable(d);
   return { id: String(d._id), productId: String(d.productId), originalName: String(d.originalName ?? ''), size: Number(d.size ?? 0), ext: String(d.ext ?? ''), mime: d.mime ?? null, typeId: String(d.typeId), typeName, selectionGeneration: Number(d.selectionGeneration ?? 0), available, unavailableReason: available ? null : d.deletedAt || d.fileRemovedAt || d.purgeState === 'purging' ? 'ATTACHMENT_DELETED' : 'FILE_MISSING' };
 }
-export function effectiveAttachment(inc: FileDoc, file: Awaited<ReturnType<typeof presentSourceAttachment>> | undefined) {
+export function effectiveAttachment(inc: FileDoc, file: Awaited<ReturnType<typeof presentSourceAttachment>> | undefined, productAvailable = true) {
   const s = inc.passportSelection;
   if (file && file.productId !== String(inc.productId)) file = undefined;
-  const reason = s?.invalidReason || (String(s?.productIdAtSelection) !== String(inc.productId) || inc.lineType === 'service' ? 'PRODUCT_CHANGED' : !file || Number(s?.attachmentGeneration ?? 0) !== file.selectionGeneration ? 'ATTACHMENT_DELETED' : file.unavailableReason);
-  return { attachment: file ? { ...file, available: !reason && file.available, unavailableReason: reason || null } : null, missing: reason ? [reason === 'PRODUCT_CHANGED' ? 'Изделие позиции изменилось — выберите паспорт заново' : reason === 'ATTACHMENT_DELETED' ? 'Вложение удалено или восстановлено — выберите паспорт заново' : 'Файл не найден на сервере'] : [] };
+  const reason = !productAvailable ? 'PRODUCT_UNAVAILABLE' : s?.invalidReason || (String(s?.productIdAtSelection) !== String(inc.productId) || inc.lineType === 'service' ? 'PRODUCT_CHANGED' : !file || Number(s?.attachmentGeneration ?? 0) !== file.selectionGeneration ? 'ATTACHMENT_DELETED' : file.unavailableReason);
+  return { attachment: file ? { ...file, available: !reason && file.available, unavailableReason: reason || null } : null, missing: reason ? [reason === 'PRODUCT_UNAVAILABLE' ? 'Изделие не найдено или удалено — вложенный паспорт недоступен' : reason === 'PRODUCT_CHANGED' ? 'Изделие позиции изменилось — выберите паспорт заново' : reason === 'ATTACHMENT_DELETED' ? 'Вложение удалено или восстановлено — выберите паспорт заново' : 'Файл не найден на сервере'] : [] };
 }

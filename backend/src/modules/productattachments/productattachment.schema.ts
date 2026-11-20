@@ -13,6 +13,7 @@ export class ProductAttachment {
   @Prop({ type: Number, default: undefined }) selectionGuard?: number;
   @Prop({ type: String }) purgeState?: string;
   @Prop({ type: String }) purgeToken?: string;
+  @Prop({ type: Date }) purgeLeaseUntil?: Date;
   @Prop({ type: Types.ObjectId, required: true }) productId!: Types.ObjectId;
   /** Файл одной позиции заказа (C121): `incomes._id`. Нет поля — файл изделия, общий для всех заказов. */
   @Prop({ type: Types.ObjectId, default: null }) incomeId?: Types.ObjectId | null;

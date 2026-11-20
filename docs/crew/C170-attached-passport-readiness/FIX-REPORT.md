@@ -1,0 +1,12 @@
+# C170 — FIX первого архитектурного прохода
+Статус: FIX1–5 выполнены, backend FREEZE для второго узкого review; общий full не запускался.
+✅ P1 live product: select проверяет живую products внутри transaction; candidates пусты для missing/deleted; plan/effective выдаёт PRODUCT_UNAVAILABLE+blocked без site fallback. История issued не переписывается.
+✅ P1 retry: каждый callback create/presentation/update/createReady создаёт новый Mongoose document и/или BSON-копию immutable prepared values; номера/array/revisions не переиспользуются. Standalone update сохраняет прежний save без transaction/retry. copyPassportValue сохраняет ObjectId/Date/Buffer/Map.
+✅ P1 issue binding: fingerprint incomeId/productId/salesOrderId сверяется после перечитывания и внутри transaction до guard/allocate; first issued остаётся идемпотентным чтением.
+✅ P2 PDF: explicit IDs ограничивают также attached skipped; unrelated attachment отсутствует в skipped и не маскирует выбранный site-error; mixed/all-requested-attached покрыты unit.
+✅ P2 purge: lease5мин+CAS token/generation, max500; истёкший/старый purging подхватывается cleanup, stat проверяет файл, ENOENT завершает removed. Reconcile никогда не возвращает запись в live; старый token не подтверждает новый claim; restore/select недоступны до завершения.
+Файлы: common/passport/line-source.ts:58; product-passport/product-passport.service.ts:368/:433/:629, passport-ready.ts:70, passport-issue.ts:36, passport-order.ts:121, passport-source.service.ts:54, passport-pdf.service.ts:234; productattachments/attachment-availability.ts:26, productattachment.schema.ts:16, productattachments.service.ts:87; unit passport-order-pdf.spec.ts и C170 e2e.
+Проверки: types0; unit85suites/923tests PASS18.949s; strict C170 e2e23/23 PASS12.345s на owned1c581d3cdf31:51796/datacore-test-c170; lint FIX0errors/0warnings; cycles0; git diff--check0.
+Доказательства Mongo: реальные save→abort-before-commit→retry для presentation draft, issued update/history, legacy numbered create и ready-file; реальные pause/rebind A→B/standalone→B/select↔issue→409 без нового issued/счётчика; missing/deleted product; unlink failure и DBconfirm failure после unlink→lease cleanup→removed.
+Риски: стойкая ошибка IO/DB удерживает файл недоступным до успешного bounded cleanup; lease не обещает восстановить недоступное хранилище. Публичный API не расширялся, финансовая семантика/старые snapshots не менялись; sourceGET perf/fullQA впереди.
+Коммит: не выполнялся; карта backend обновлена; нужны второй архитектурный проход и последующий общий QA координатора.

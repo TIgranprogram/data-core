@@ -231,7 +231,7 @@ export class PassportPdfService {
     if (want.size && !items.length && !(all.skipped ?? []).some(r => want.has(String(r._id)))) throw new BadRequestException('Выбранные паспорта не найдены среди выпущенных паспортов этого заказа');
     const inputs = [];
     // C072: паспорт со своим PDF в общий файл не склеить — отдаём списком, экран покажет ссылки на `GET /passports/:id/pdf`
-    const skipped: Array<{ id: string; passportNumber: string; name: string; reason?: string }> = (all.skipped ?? []).map(r => ({ id: String(r._id), passportNumber: String(r.passportNumber ?? ''), name: String(r.name ?? ''), reason: 'SOURCE_ATTACHMENT' }));
+    const skipped: Array<{ id: string; passportNumber: string; name: string; reason?: string }> = (all.skipped ?? []).filter(r => !want.size || want.has(String(r._id))).map(r => ({ id: String(r._id), passportNumber: String(r.passportNumber ?? ''), name: String(r.name ?? ''), reason: 'SOURCE_ATTACHMENT' }));
     // Р5 (C112): паспорт, который не собрался, не рушит печать остальных — он идёт списком с причиной
     const failed: Array<{ id: string; passportNumber: string; name: string; reason: string }> = [];
     for (const raw of items) {
