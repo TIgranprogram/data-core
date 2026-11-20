@@ -3,6 +3,8 @@ import { Type } from 'class-transformer';
 import { IsBoolean, IsIn, IsInt, IsMongoId, IsOptional, IsString, Length, Matches, Max, Min } from 'class-validator';
 import { FINANCIAL_COST_CENTERS } from '../../common/financial-classification';
 export class OperationsQueryDto {
+ @ApiPropertyOptional({description:'Производственный заказ: все входящие договоры'}) @IsOptional() @IsString() @Length(1,50) productionNo?: string;
+
   @ApiPropertyOptional() @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) from?: string;
   @ApiPropertyOptional() @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) to?: string;
   @ApiPropertyOptional() @IsOptional() @IsIn(['income', 'expense']) type?: 'income' | 'expense';

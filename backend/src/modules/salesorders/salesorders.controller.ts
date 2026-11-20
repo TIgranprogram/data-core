@@ -1,3 +1,4 @@
+import { LegalPatchDto } from '../../common/legal/legal.dto';
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseInterceptors, UseGuards } from '@nestjs/common';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
@@ -67,6 +68,11 @@ export class SalesOrdersController {
     const open = openSectionsFor(user);
     return this.orders.get(id, { requests: sectionOpen(open, 'requests'), stock: sectionOpen(open, 'stock') });
   }
+
+  @Patch(':id/legal')
+  @Roles('admin','manager')
+  @AuditAction({action:'salesorder.legal.updated',entityType:'SalesOrder',idParam:'id'})
+  updateLegal(@Param('id')id:string,@Body()dto:LegalPatchDto,@CurrentUser()user?:AuthenticatedUser){return this.orders.updateLegal(id,dto,user?.id);}
 
   /**
    * Единая лента заказа, новые сверху: { items:[{at, type, who, title, text, link}], total }.

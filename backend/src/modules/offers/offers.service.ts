@@ -1,6 +1,6 @@
 import { randomBytes } from 'crypto';
 import { promises as fs } from 'fs';
-import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Types, type Connection, type Model } from 'mongoose';
 import sharp from 'sharp';
@@ -13,7 +13,10 @@ import { CounterService } from '../counter/counter.service';
 import { IncomesService, ourCompanies } from '../incomes/incomes.service';
 import { SalesOrdersService } from '../salesorders/salesorders.service';
 import { offersOnlyIds, saveOffersOnlyIds } from '../../common/offers-only';
-import type { CreateOfferDto, OfferCopiesDto, OfferPackDto, OfferCopyDto, OfferCreateOrderDto, UpdateOfferDto } from './dto';
+import { legalHash, intakeContentHash, intakeBusinessKey, legalSummary, prepareLegal, validateLegalFiles, validateLegalParties, assertIntakeIndexes, patchLegal, assertIntakeReplay, legalPresentation } from '../../common/legal/legal-utils';
+import type { LegalPatchDto } from '../../common/legal/legal.dto';
+import { agreedOfferTotal, assertOfferOrderMatch, cents, validateSourceItems } from './offer-source';
+import type { OfferLinkOrderDto, CreateOfferDto, OfferCopiesDto, OfferPackDto, OfferCopyDto, OfferCreateOrderDto, UpdateOfferDto } from './dto';
 import { OfferBackgroundsService } from './offer-backgrounds.service';
 import { offerProblems, packProblems } from './offer-ready';
 import { renderOfferPdf } from './offer-pdf';
@@ -42,20 +45,24 @@ export class OffersService {
 
   private db() { return this.connection.db!; }
 
-  private present(o: Doc, companyName?: string | null, packSize?: number | null) {
+  private present(o: Doc, companyName?: string | null, packSize?: number | null, detail = false) {
     return {
-      id: String(o._id), number: o.number, date: o.date, validUntil: o.validUntil ?? null,
+      id: String(o._id), sourceNumber: o.sourceNumber ?? null, number: o.number, date: o.date, validUntil: o.validUntil ?? null,
       companyId: String(o.companyId), companyName: companyName ?? null,
       customer: o.customer, counterpartyId: o.counterpartyId ? String(o.counterpartyId) : null, title: o.title ?? null,
       objectName: o.objectName ?? null, vatMode: o.vatMode ?? null, vatRate: o.vatRate ?? null, delivery: o.delivery ?? null, copyOf: o.copyOf ? String(o.copyOf) : null,
       packId: o.packId ? String(o.packId) : null, packSize: packSize ?? null,
       status: o.status as OfferStatus,
       items: (o.items as Doc[]).map((i) => ({
+        sourceRowKey: i.sourceRowKey ?? null, sourceLine: i.sourceLine ?? null, scopeState: i.scopeState ?? 'included',
+        exclusionReason: i.exclusionReason ?? null, exclusionConfirmedAt: i.exclusionConfirmedAt ?? null, exclusionEventDate: i.exclusionEventDate ?? null, matchStatus: i.matchStatus ?? (i.productId ? 'confirmed' : 'unmatched'),
         productId: i.productId ? String(i.productId) : null, productName: i.productName, productSku: i.productSku ?? null, description: i.description ?? null,
         color: i.color ?? null, size: i.size ?? null, photoUrl: i.photoUrl ?? null, quantity: i.quantity, unit: i.unit || 'шт', unitPrice: i.unitPrice ?? null, total: i.total ?? 0,
       })),
-      total: o.total ?? 0, prepaymentPercent: o.prepaymentPercent ?? null, productionDays: o.productionDays ?? null, deliveryDays: o.deliveryDays ?? null,
+      agreedTotal: agreedOfferTotal(o.items || []), total: o.total ?? 0, prepaymentPercent: o.prepaymentPercent ?? null, productionDays: o.productionDays ?? null, deliveryDays: o.deliveryDays ?? null,
       terms: o.terms ?? null, notes: o.notes ?? null, bg1Id: o.bg1Id ?? null, bg2Id: o.bg2Id ?? null, orderId: o.orderId ? String(o.orderId) : null,
+      legalSummary: o.legal ? legalSummary(o.legal, (o.items || []).filter((r: Doc) => r.scopeState !== 'excluded' && !r.productId).length) : null,
+      ...(detail ? { legal: o.legal, legalVersion: o.legalVersion ?? 0, readiness: legalPresentation({ ...o, unassignedCount: (o.items || []).filter((r: Doc) => r.scopeState !== 'excluded' && !r.productId).length }).readiness, versions: o.versions || [], legalHistory: o.legalHistory || [] } : {}),
       versionCount: ((o.versions as Doc[]) ?? []).length,
       statusHistory: (o.statusHistory as Doc[]) ?? [], createdAt: o.createdAt ?? null, updatedAt: o.updatedAt ?? null,
     };
@@ -63,7 +70,7 @@ export class OffersService {
 
   private snapshot(o: Doc) {
     return {
-      customer: o.customer, companyId: String(o.companyId), title: o.title ?? null, items: o.items, total: o.total,
+      customer: o.customer, companyId: String(o.companyId), counterpartyId: o.counterpartyId, date: o.date, sourceNumber: o.sourceNumber, legal: o.legal, title: o.title ?? null, items: o.items, total: o.total, agreedTotal: agreedOfferTotal(o.items || []),
       objectName: o.objectName ?? null, vatMode: o.vatMode ?? null, vatRate: o.vatRate ?? null, delivery: o.delivery ?? null,
       terms: o.terms ?? null, notes: o.notes ?? null, prepaymentPercent: o.prepaymentPercent ?? null, productionDays: o.productionDays ?? null, deliveryDays: o.deliveryDays ?? null,
     };
@@ -79,21 +86,23 @@ export class OffersService {
     const o = await this.find(id);
     this.assertOrderFromOffer(o);
     const companyName = await this.companyName(o.companyId);
-    const { value: productionNo } = await this.salesOrders.nextProductionNo({});
+    const productionNo = o.legal ? '' : (await this.salesOrders.nextProductionNo({})).value;
     const orderNo = `КП-${String(o.number).replace(/^КП-?/i, '').slice(0, 40)}`;
     return {
       offerId: String(o._id), offerNo: o.number,
       header: { orderNo, productionNo, customer: o.customer, companyId: String(o.companyId), companyName: companyName ?? '', title: `По ${o.number}`, stage: 'new' as const },
-      lines: (o.items as Doc[]).map((i) => ({
+      lines: (o.items as Doc[]).filter((i) => i.scopeState !== 'excluded').map((i) => ({
         productId: i.productId ? String(i.productId) : null, title: i.productName, qty: i.quantity, unit: i.unit || 'шт', color: i.color ?? null, size: i.size ?? null,
         // цена КП идёт в позицию заказа (решение владельца 2026-11-11, C068-3); НДС в КП — внутри цены
         unitPrice: typeof i.unitPrice === 'number' && i.unitPrice > 0 ? i.unitPrice : null,
+        sourceLine: i.sourceLine, sourceRowKey: i.sourceRowKey,
       })),
     };
   }
 
   async createOrder(id: string, dto: OfferCreateOrderDto, user: AuthenticatedUser) {
     const o = await this.find(id);
+    if (o.legal) return this.createSourceOrder(o, dto, user);
     this.assertOrderFromOffer(o);
     const draft = await this.toOrder(id);
     const orderNo = clean(dto.orderNo) || draft.header.orderNo;
@@ -101,7 +110,7 @@ export class OffersService {
     const uid = `offer-order-${String(o._id)}`;
     const head = await this.salesOrders.create({
       orderNo, productionNo, customer: o.customer, companyId: String(o.companyId), title: draft.header.title,
-      stage: 'new', paymentForm: 'б/р', requireFields: true, clientUid: uid,
+      stage: 'new', paymentForm: 'б/р', requireFields: !o.legal, clientUid: uid,
       offerId: String(o._id), offerNo: String(o.number),
     }, user?.id);
     const orderId = head.id as string;
@@ -118,6 +127,54 @@ export class OffersService {
     return { orderId, productionNo: String(h.productionNo ?? productionNo), orderNo: String(h.orderNo ?? orderNo) };
   }
 
+  /** CAS-бронь источника и стабильные UID позволяют восстановить частично созданный черновик без дублей. */
+  private async createSourceOrder(current: Doc, dto: OfferCreateOrderDto, user: AuthenticatedUser) {
+    if (dto.version === undefined) throw new BadRequestException('Для конверсии исходного КП нужна его версия');
+    const hash = legalHash(dto);
+    const uid = `offer-order-${String(current._id)}`;
+    let receipt = current.orderConversion;
+    if (receipt) {
+      if (receipt.uid !== uid || receipt.hash !== hash) throw new ConflictException('Конверсия уже начата с другими данными — откройте журнал');
+      if (receipt.status === 'done') return receipt.result;
+    } else {
+      this.assertOrderFromOffer(current);
+      if (Number(current.legalVersion || 0) !== dto.version) throw new ConflictException('КП изменилось — обновите карточку');
+      const snapshot = { ...this.snapshot(current), _id: current._id, number: current.number, legalVersion: current.legalVersion, status: current.status };
+      receipt = { uid, hash, status: 'pending', version: dto.version + 1, snapshot, at: new Date() };
+      const claim = await this.model.updateOne({ _id: current._id, deletedAt: null, legalVersion: dto.version, orderId: null, orderConversion: { $exists: false } }, { $set: { orderConversion: receipt }, $inc: { legalVersion: 1 } }).exec();
+      if (!claim.matchedCount) throw new ConflictException('КП изменилось или конверсия уже начата — обновите карточку');
+    }
+    const o = receipt.snapshot as Doc;
+    const rows = (o.items as Doc[]).filter((r) => r.scopeState !== 'excluded');
+    const gross = agreedOfferTotal(rows);
+    const orderNo = clean(dto.orderNo) || `КП-${String(o.number).replace(/^КП-?/i, '').slice(0, 40)}`;
+    const productionNo = clean(dto.productionNo);
+    const legal = { ...o.legal, sourceNumber: orderNo, sourceDate: undefined, gross, state: 'draft',
+      vatAmount: o.legal.vatMode === 'included' && o.legal.vatRate !== undefined ? Math.round(gross * o.legal.vatRate / (100 + o.legal.vatRate) * 100) / 100 : undefined,
+      signature: { state: 'unknown' }, paymentVerification: 'unknown', paymentPlan: [], origin: { kind: 'manual' },
+      issues: [...(o.legal.issues || []).filter((i: Doc) => i.uid !== 'contract-source'), { uid: 'contract-source', field: 'other', label: 'Подтвердить реквизиты договора', reason: 'Черновик составлен по КП; исходный договор ещё не приложен', state: 'unknown' }] };
+    const head = await this.salesOrders.create({ orderNo, ...(productionNo ? { productionNo } : {}), productionAssignment: productionNo ? 'existing' : 'unassigned',
+      customer: o.customer, companyId: String(o.companyId), counterpartyId: o.counterpartyId ? String(o.counterpartyId) : undefined, title: `По ${o.number}`,
+      paymentForm: 'б/р', stage: 'new', requireFields: false, clientUid: uid, intakeUid: uid, initialLegal: legal, offerId: String(o._id), offerNo: o.number }, user?.id);
+    const orderId = String(head.id);
+    let n = 0;
+    for (const row of rows) {
+      n += 1;
+      await this.incomes.create({ orderId, title: row.productName, qty: row.quantity, unit: row.unit || 'шт', unitPrice: row.unitPrice,
+        color: row.color, size: row.size, lineNo: n, clientUid: `${uid}-line-${row.sourceRowKey || n}`, productId: row.productId ? String(row.productId) : undefined,
+        matchingMode: 'manual',
+        sourceLine: row.sourceLine || { documentUid: o.legal.documents.find((d: Doc) => d.kind === 'offer')?.uid || 'offer', rowKey: row.sourceRowKey || String(n), title: row.productName, qty: row.quantity, unit: row.unit || 'шт', unitPrice: row.unitPrice, lineAmount: row.total } }, user?.id, user);
+    }
+    const result = { orderId, productionNo: String((head as Doc).productionNo || ''), orderNo: String((head as Doc).orderNo || orderNo) };
+    const done = await this.model.updateOne({ _id: current._id, deletedAt: null, legalVersion: receipt.version, 'orderConversion.uid': uid, 'orderConversion.hash': hash, 'orderConversion.status': 'pending' }, { $set: { orderId: oid(orderId, 'договора'), 'orderConversion.status': 'done', 'orderConversion.result': result } }).exec();
+    if (!done.matchedCount) throw new ConflictException('Черновик создан; требуется сверка связи с КП, не повторяйте создание');
+    return result;
+  }
+
+  private assertNoConversion(cur: Doc) {
+    if (cur.orderConversion?.status === 'pending') throw new ConflictException('Конверсия КП не завершена — сначала восстановите её по прежнему ключу');
+  }
+
   private async companyName(id: unknown): Promise<string | null> {
     const c = await this.db().collection('organizations').findOne({ _id: id as Types.ObjectId }, { projection: { name: 1, fullName: 1, shortName: 1 } });
     return c ? String(c.shortName || c.name || c.fullName || '') : null;
@@ -131,6 +188,49 @@ export class OffersService {
     return new Map(rows.map((o) => [String(o._id), String(o.shortName || o.name || o.fullName || '')]));
   }
 
+  private async assertCounterparty(id: string) {
+    const row = await this.db().collection('organizations').findOne({ _id: oid(id, 'покупателя'), deletedAt: null }, { projection: { _id: 1 } });
+    if (!row) throw new BadRequestException('Покупатель не найден');
+  }
+
+  async updateLegal(id: string, dto: LegalPatchDto, user: AuthenticatedUser) {
+    const cur = await this.find(id);
+    this.assertNoConversion(cur);
+    if (cur.legal && (dto.legal.sourceDate !== cur.legal.sourceDate || dto.legal.sourceNumber !== cur.legal.sourceNumber || cents(dto.legal.gross) !== cents(cur.legal.gross))) {
+      throw new ConflictException('Исходные дата, номер и сумма КП неизменяемы');
+    }
+    checkEditable(cur.status, { admin: isAdminActor(user), hasOrder: !!cur.orderId });
+    await validateLegalParties(this.connection, String(cur.companyId), cur.counterpartyId ? String(cur.counterpartyId) : undefined, dto.legal);
+    await patchLegal(this.model, id, dto, user?.id);
+    return this.get(id);
+  }
+
+  async linkOrder(id: string, dto: OfferLinkOrderDto, user: AuthenticatedUser) {
+    const cur = await this.find(id);
+    this.assertNoConversion(cur);
+    const hash = legalHash({ orderId: dto.orderId, version: dto.version });
+    const prior = (cur.linkReceipts || []).find((r: Doc) => r.uid === dto.clientUid);
+    if (prior) {
+      if (prior.hash !== hash) throw new ConflictException('Ключ привязки уже использован с другими данными');
+      return this.get(id);
+    }
+    if (cur.orderId) throw new ConflictException('КП уже связано с договором');
+    if ((cur.legalVersion || 0) !== dto.version) throw new ConflictException('КП изменилось — обновите карточку');
+    const order = await this.db().collection('salesorders').findOne({ _id: oid(dto.orderId, 'договора'), deletedAt: null });
+    if (!order) throw new NotFoundException('Договор не найден');
+    const lines = await this.db().collection('incomes').find({ orderId: order._id, deletedAt: null }).limit(301).toArray();
+    if (lines.length > 300) throw new BadRequestException('Слишком много строк для адресного сопоставления');
+    assertOfferOrderMatch(cur, order, lines);
+    const guard = { _id: cur._id, deletedAt: null, orderId: null, $or: [{ legalVersion: dto.version }, ...(dto.version === 0 ? [{ legalVersion: { $exists: false } }] : [])] };
+    const updated = await this.model.updateOne(guard, { $set: { orderId: order._id }, $inc: { legalVersion: 1 }, $push: { linkReceipts: { uid: dto.clientUid, hash, version: dto.version + 1, at: new Date() }, versions: { at: new Date(), by: user?.username, reason: 'Связано с существующим договором', snapshot: this.snapshot(cur) } } }).exec();
+    if (!updated.matchedCount) {
+      const fresh = await this.find(id);
+      if ((fresh.linkReceipts || []).some((r: Doc) => r.uid === dto.clientUid && r.hash === hash)) return this.get(id);
+      throw new ConflictException('КП изменилось — обновите карточку');
+    }
+    return this.get(id);
+  }
+
   private async ourCompany(id: string) {
     const c = await this.db().collection('organizations').findOne({ _id: oid(id, 'компании'), isOurCompany: true, deletedAt: null }, { projection: { _id: 1 } });
     if (!c) throw new BadRequestException('Выберите нашу компанию из списка');
@@ -138,10 +238,15 @@ export class OffersService {
   }
 
   private mapItems(items: CreateOfferDto['items']) {
-    return calcTotals(items.map((i) => ({
+    validateSourceItems(items);
+    const calculated = calcTotals(items.map((i) => ({
       productId: i.productId ? oid(i.productId, 'изделия') : undefined, productName: i.productName.trim(), productSku: clean(i.productSku) || undefined, description: clean(i.description) || undefined,
       color: clean(i.color) || undefined, size: clean(i.size) || undefined, photoUrl: clean(i.photoUrl) || undefined, quantity: i.quantity, unit: clean(i.unit) || 'шт', unitPrice: i.unitPrice,
+      sourceRowKey: i.sourceRowKey, sourceLine: i.sourceLine, scopeState: i.scopeState, exclusionReason: i.exclusionReason, exclusionConfirmedAt: i.exclusionConfirmedAt, exclusionEventDate: i.exclusionEventDate, matchStatus: i.matchStatus,
     })));
+    for (const row of calculated.items) if (row.sourceLine?.lineAmount !== undefined) row.total = row.sourceLine.lineAmount;
+    calculated.total = calculated.items.reduce((sum, row) => sum + cents(row.total), 0) / 100;
+    return calculated;
   }
 
   /** `{ items, total, page, limit, counts }`; counts — по статусам для поиска `q` (без фильтра статуса) + `all`. */
@@ -155,6 +260,7 @@ export class OffersService {
       if (!(OFFER_STATUSES as readonly string[]).includes(st)) throw new BadRequestException('Неизвестный статус');
       filter.status = st;
     }
+    if (q.needsReview === '1') filter['legal.issues'] = { $elemMatch: { state: { $in: ['unknown', 'conflict'] } } };
     const packId = clean(q.packId);
     if (packId) filter.packId = packId;
     const opt = { includeSoftDeleted: true };
@@ -183,43 +289,84 @@ export class OffersService {
     const o = await this.find(id);
     const packId = o.packId ? String(o.packId) : '';
     const packSizes = await this.packSizes([packId || undefined]);
-    return this.present(o, await this.companyName(o.companyId), packSizes.get(packId) ?? null);
+    return this.present(o, await this.companyName(o.companyId), packSizes.get(packId) ?? null, true);
   }
 
   async create(dto: CreateOfferDto, user: AuthenticatedUser) {
     const companyId = await this.ourCompany(dto.companyId);
     const { items, total } = this.mapItems(dto.items);
+    const legal = dto.initialLegal ? prepareLegal(dto.initialLegal, undefined, user?.id) : undefined;
+    if (dto.items.some((i) => i.sourceLine) && !legal) throw new BadRequestException('Исходные строки сохраняются вместе с юридическим комплектом');
+    if (dto.intakeUid && !legal) throw new BadRequestException('Для загрузки источника нужен юридический комплект');
+    if (legal) {
+      if (!dto.intakeUid) throw new BadRequestException('Укажите ключ загрузки источника');
+      await assertIntakeIndexes(this.model, ['c164_offer_intake_uid', 'c164_offer_intake_key']);
+      if (!dto.date || legal.sourceDate !== dto.date.slice(0, 10)) throw new BadRequestException('Сохраните исходную дату КП отдельно от даты загрузки');
+      if (legal.gross !== undefined && cents(legal.gross) !== cents(total)) throw new BadRequestException('Исходный итог КП не совпадает с суммой строк');
+      await validateLegalFiles(this.connection, legal);
+      await validateLegalParties(this.connection, String(companyId), dto.counterpartyId, legal);
+      if (dto.counterpartyId) await this.assertCounterparty(dto.counterpartyId);
+    }
+    const intakeKey = legal ? intakeBusinessKey(legal, 'offer') : undefined;
+    const intakeHash = legal ? intakeContentHash(dto) : undefined;
+    if (intakeKey) {
+      const existing = await this.model.findOne({ $or: [{ intakeUid: dto.intakeUid }, { intakeKey }] }).setOptions({ includeSoftDeleted: true }).lean().exec();
+      if (existing) { assertIntakeReplay(existing as unknown as Doc, intakeHash!); return this.get(String(existing._id)); }
+    }
     const number = await this.counters.next('CommercialOffer', 'КП');
     const now = new Date();
-    const doc = await this.model.create({
+    let doc;
+    try { doc = await this.model.create({
+      ...(legal ? { legal, legalVersion: 0, intakeUid: dto.intakeUid, intakeKey, intakeHash } : {}), sourceNumber: dto.sourceNumber, agreedTotal: agreedOfferTotal(items),
       number, date: day(dto.date), validUntil: dto.validUntil ? day(dto.validUntil) : undefined, companyId, customer: dto.customer.trim(),
       counterpartyId: dto.counterpartyId ? oid(dto.counterpartyId, 'контрагента') : undefined, title: clean(dto.title) || undefined,
       status: 'draft', items, total, prepaymentPercent: dto.prepaymentPercent, productionDays: dto.productionDays, deliveryDays: dto.deliveryDays,
       objectName: clean(dto.objectName) || undefined, vatMode: dto.vatMode, vatRate: dto.vatRate, delivery: dto.delivery,
       terms: clean(dto.terms) || undefined, notes: clean(dto.notes) || undefined, bg1Id: dto.bg1Id, bg2Id: dto.bg2Id,
       statusHistory: [{ status: 'draft', at: now, by: user?.username }],
-    });
+    }); } catch (error) {
+      if (intakeKey && (error as { code?: number }).code === 11000) {
+        const existing = await this.model.findOne({ $or: [{ intakeUid: dto.intakeUid }, { intakeKey }] }).setOptions({ includeSoftDeleted: true }).lean().exec();
+        if (existing) { assertIntakeReplay(existing as unknown as Doc, intakeHash!); return this.get(String(existing._id)); }
+      }
+      throw error;
+    }
     return this.present(doc.toObject() as unknown as Doc, await this.companyName(companyId));
   }
 
   async update(id: string, dto: UpdateOfferDto, user?: AuthenticatedUser) {
     const cur = await this.find(id);
+    this.assertNoConversion(cur);
+    if (dto.initialLegal !== undefined || dto.intakeUid !== undefined) throw new BadRequestException('Юридический комплект меняется отдельным действием с версией');
+    if (cur.legal) {
+      if (dto.version === undefined || dto.version !== (cur.legalVersion || 0)) throw new ConflictException('КП изменилось — откройте актуальную версию');
+      if (dto.sourceNumber !== undefined && dto.sourceNumber !== cur.sourceNumber) throw new ConflictException('Исходный номер КП неизменяем');
+      if (dto.companyId !== undefined && dto.companyId !== String(cur.companyId)) throw new ConflictException('Исходная компания КП неизменяема');
+      if (dto.date !== undefined && dto.date.slice(0, 10) !== String(cur.legal.sourceDate)) throw new ConflictException('Исходная дата КП неизменяема');
+      if (dto.items) validateSourceItems(dto.items, cur.items);
+    }
     const bypass = checkEditable(cur.status, { admin: isAdminActor(user), hasOrder: !!cur.orderId });
     const reason = bypass ? overrideReason(dto.reason) : ''; // ЗЯ-1: оплаченное КП правит администратор только с причиной
     const set: Doc = {};
     if (dto.companyId !== undefined) set.companyId = await this.ourCompany(dto.companyId);
     if (dto.customer !== undefined) set.customer = dto.customer.trim();
-    if (dto.counterpartyId !== undefined) set.counterpartyId = dto.counterpartyId ? oid(dto.counterpartyId, 'контрагента') : null;
+    if (dto.counterpartyId !== undefined) {
+      if (cur.legal && dto.counterpartyId) await validateLegalParties(this.connection, String(cur.companyId), dto.counterpartyId, cur.legal);
+      set.counterpartyId = dto.counterpartyId ? oid(dto.counterpartyId, 'контрагента') : null;
+    }
     if (dto.date !== undefined) set.date = day(dto.date);
     if (dto.validUntil !== undefined) set.validUntil = dto.validUntil ? day(dto.validUntil) : null;
     for (const k of ['title', 'terms', 'notes', 'objectName'] as const) if (dto[k] !== undefined) set[k] = clean(dto[k]) || null;
     for (const k of ['prepaymentPercent', 'productionDays', 'deliveryDays', 'bg1Id', 'bg2Id', 'vatMode', 'vatRate', 'delivery'] as const) if (dto[k] !== undefined) set[k] = dto[k] ?? null;
     if (dto.items !== undefined) { const m = this.mapItems(dto.items); set.items = m.items; set.total = m.total; }
     if (!Object.keys(set).length) throw new BadRequestException('Нечего менять');
-    const versioned = ['sent', 'accepted'].includes(String(cur.status));
+    const versioned = !!cur.legal || ['sent', 'accepted'].includes(String(cur.status));
     const upd: Doc = { $set: set };
-    if (versioned) upd.$push = { versions: { at: new Date(), by: user?.username, snapshot: this.snapshot(cur) } };
-    await this.model.updateOne({ _id: cur._id }, upd).exec();
+    if (set.items) set.agreedTotal = agreedOfferTotal(set.items);
+    if (versioned) upd.$push = { versions: { at: new Date(), by: user?.username, reason: dto.reason || 'Ручная правка КП', snapshot: this.snapshot(cur) } };
+    if (cur.legal) upd.$inc = { legalVersion: 1 };
+    const changed = await this.model.updateOne({ _id: cur._id, ...(cur.legal ? { legalVersion: dto.version } : {}) }, upd).exec();
+    if (cur.legal && !changed.matchedCount) throw new ConflictException('КП изменилось — откройте актуальную версию');
     if (bypass) await adminOverride(this.audit, { rule: 'offer.paid_edit', entityType: 'CommercialOffer', entityId: cur._id, before: { status: cur.status, total: cur.total ?? 0, items: cur.items }, after: { fields: Object.keys(set) }, reason, actor: user });
     return this.get(id);
   }
@@ -227,7 +374,9 @@ export class OffersService {
   /** Мягкое удаление. */
   async remove(id: string) {
     const cur = await this.find(id);
-    await this.model.updateOne({ _id: cur._id }, { $set: { deletedAt: new Date() } }).exec();
+    this.assertNoConversion(cur);
+    const changed = await this.model.updateOne({ _id: cur._id, ...(cur.legal ? { legalVersion: cur.legalVersion || 0, 'orderConversion.status': { $ne: 'pending' } } : {}) }, { $set: { deletedAt: new Date() } }).exec();
+    if (cur.legal && !changed.matchedCount) throw new ConflictException('КП изменилось — обновите карточку');
     return { id, deleted: true };
   }
 
@@ -240,10 +389,12 @@ export class OffersService {
 
   async setStatus(id: string, to: string, user: AuthenticatedUser, reasonText?: string) {
     const cur = await this.find(id);
+    this.assertNoConversion(cur);
     if (!(OFFER_STATUSES as readonly string[]).includes(to)) throw new BadRequestException('Неизвестный статус');
     const bypass = checkMove(cur.status, to as OfferStatus, cur.items, { admin: isAdminActor(user), hasOrder: !!cur.orderId });
     const reason = bypass ? overrideReason(reasonText) : ''; // ЗЯ-1: недопустимый переход — только администратор и с причиной
-    await this.model.updateOne({ _id: cur._id }, { $set: { status: to }, $push: { statusHistory: { status: to, at: new Date(), by: user?.username } } }).exec();
+    const changed = await this.model.updateOne({ _id: cur._id, ...(cur.legal ? { legalVersion: cur.legalVersion || 0, 'orderConversion.status': { $ne: 'pending' } } : {}) }, { $set: { status: to }, ...(cur.legal ? { $inc: { legalVersion: 1 } } : {}), $push: { statusHistory: { status: to, at: new Date(), by: user?.username } } }).exec();
+    if (cur.legal && !changed.matchedCount) throw new ConflictException('КП изменилось — обновите карточку');
     if (bypass) await adminOverride(this.audit, { rule: 'offer.status_jump', entityType: 'CommercialOffer', entityId: cur._id, before: { status: cur.status }, after: { status: to }, reason, actor: user });
     return this.get(id);
   }
@@ -335,8 +486,8 @@ export class OffersService {
     const vat = resolveVat(o.vatMode, o.vatRate, orgVat);
     return renderOfferPdf({
       number: o.number, draft, date: o.date, validUntil: o.validUntil, customer: o.customer, objectName: o.objectName, companyName: companyName ?? undefined,
-      items: o.items, total: o.total ?? 0, prepaymentPercent: o.prepaymentPercent, productionDays: o.productionDays, deliveryDays: o.deliveryDays,
-      ...vat, delivery: o.delivery, terms: o.terms, notes: o.notes, bg1: bg1.jpeg, bg2: bg2.jpeg, zones: { first: bg1, next: bg2 },
+      items: o.legal ? o.items.map((row: Doc) => row.scopeState === 'excluded' ? { ...row, productName: `Исключено: ${row.productName}`, description: [row.description, row.exclusionReason].filter(Boolean).join(' · ') } : row) : o.items, total: o.total ?? 0, prepaymentPercent: o.prepaymentPercent, productionDays: o.productionDays, deliveryDays: o.deliveryDays,
+      ...vat, delivery: o.delivery, terms: o.terms, notes: o.legal ? [o.notes, `История предложения: исходная сумма ${Number(o.total || 0).toFixed(2)}; согласованный состав ${agreedOfferTotal(o.items || []).toFixed(2)}. Исключённые позиции не входят в согласованный состав. Оригинал документа сохранён отдельно.`].filter(Boolean).join('\n') : o.notes, bg1: bg1.jpeg, bg2: bg2.jpeg, zones: { first: bg1, next: bg2 },
       photos: new Map(photos.flatMap((b, k) => (b ? [[k, b] as [number, Buffer]] : []))),
     });
   }
@@ -392,6 +543,7 @@ export class OffersService {
   /** Копия КП для другой нашей фирмы: цены × (1 + наценка), округление до рубля; бланк — новой фирмы; черновик. */
   async copy(id: string, dto: OfferCopyDto, user: AuthenticatedUser) {
     const cur = await this.find(id);
+    if (cur.legal) throw new BadRequestException('Историческое КП сохраняется с исходной компанией; подготовьте отдельное новое предложение');
     const companyId = await this.ourCompany(dto.companyId);
     const doc = await this.createCopyDoc(cur, companyId, dto.markupPercent ?? 0, user, null, false);
     return this.present(doc.toObject() as unknown as Doc, await this.companyName(companyId));
@@ -403,6 +555,7 @@ export class OffersService {
    */
   async copyMany(id: string, dto: OfferCopiesDto, user: AuthenticatedUser) {
     const cur = await this.find(id);
+    if (cur.legal) throw new BadRequestException('Историческое КП сохраняется с исходной компанией; подготовьте отдельное новое предложение');
     const rows = dto.companies ?? [];
     if (!rows.length) throw new BadRequestException('Отметьте хотя бы одну фирму');
     if (rows.length > 10) throw new BadRequestException('Не больше 10 фирм за раз');
@@ -444,6 +597,7 @@ export class OffersService {
    * удаляем созданные этим вызовом (Mongo 4.4, без транзакций) и отдаём ошибку.
    */
   async createPack(dto: OfferPackDto, user: AuthenticatedUser) {
+    if (dto.items.some((i) => i.sourceLine)) throw new BadRequestException('Исторический источник сохраняется отдельным КП с юридическим комплектом');
     const rows = dto.companies ?? [];
     if (!rows.length) throw new BadRequestException('Отметьте хотя бы одну фирму');
     if (rows.length > 10) throw new BadRequestException('Не больше 10 фирм за раз');

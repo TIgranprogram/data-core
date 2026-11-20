@@ -9,10 +9,10 @@
 Бизнес-требования полностью:TZ-NEXT.md с уточнениями владельца20.11. Точный контракт реализации:CONTRACT.md (архитектор до кода). Источник:SOURCE-REGISTER.md, FIELD-MAPPING.md, AUDIT-CODE.md; им доверять, повторный аудитPDFне нужен. Технические решения принимать координатору без вопросов владельцу; неизвестное в сделке — пустым+очередь менеджера.
 
 ## Работа и ownership
-1. [ ] Архитектор:CONTRACT.md — точные additiveDTO/routes/поля, CAS/replay/документы/план/маскировка; существующийSalesOrder иOffer — единственные шапки.
-2. [ ] Backend contracts: salesorders/incomes + связанный минимумfinance/production-orders, точечные commonhelpers/индексы/registry поCONTRACT. Не трогатьoffers/PWA.
-3. [ ] Backend offers: offers + необходимыеsourcehistoryhelperпоCONTRACT, unit/e2eсвоей логики. Не трогатьsalesorders/incomes/PWA без согласования.
-4. [ ] Frontend: толькоbackend/pwa иbackend/admin; карточки/очереди/контекстные действия поCONTRACT. Rootпишет общуюдокументацию/atlas толькоесли не забралfrontend.
+1. [x] Архитектор:CONTRACT.md — точные additiveDTO/routes/поля, CAS/replay/документы/план/маскировка; существующийSalesOrder иOffer — единственные шапки.
+2. [~] Backend contracts: salesorders/incomes + связанный минимумfinance/production-orders, точечные commonhelpers/индексы/registry поCONTRACT. Не трогатьoffers/PWA.
+3. [~] Backend offers: offers + необходимыеsourcehistoryhelperпоCONTRACT, unit/e2eсвоей логики. Не трогатьsalesorders/incomes/PWA без согласования.
+4. [~] Frontend: толькоbackend/pwa иbackend/admin; карточки/очереди/контекстные действия поCONTRACT. Rootпишет общуюдокументацию/atlas толькоесли не забралfrontend.
 5. [ ] QA: точечные регрессии→полныйunit/e2e/PWA; независимая архитектура иdesktopприёмка→один исправительный пакет при находках.
 6. [ ] Координатор: доки/MAP/data-model/OpenAPI/atlas/help/TEST-LOG, commit/push, одинштатныйвыпуск, независимыйread-onlypostcheck.
 7. [ ] Access: передимпортомсвежиеактивные+deletedдубли/права/версия, конкретныйreviewedpayload;7PDF/3договора+КП+счета,19строкбезкаталога/групп/платежей,reportIDs/остаток и повторROбезновыхзаписей.

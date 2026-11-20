@@ -98,3 +98,5 @@ intakeKey=SHA256(normalized companyINN|buyerINN|kind|fullnumber|sourceDate|editi
 ### Уточнения координатора при реализации
 - Открытие оригинала использует существующий GET`/photos/:id`(PhotosController31–39), ответPhoto.storageUrl/originalFilename/mimeType/sizeBytes. Отдельный придуманныйfile-routeне нужен. FrontendполучаетfileIdтолькоприразрешённыхденежныхданных иленивозагружаетметаданные; noMoneyссылкинаюридическийPDFнеотдавать. Глобальныеисторическиеphotos/uploadsACLэтойзадачейнерасширяются.
 - Legalредактор во вложеннойправойпанелиkit.openCard/ctx.parent поexistingorder-product-picker, без новыхsection/routerрадиформы. СохранениеCAS, обновлениеparentпослеуспеха, dirtyguardиошибкибезпотериввода.
+
+- Дополнение реализации: новаяsourceIncome получает sourceUidизобязательногоclientUid и шестойpartialuniqueиндекс c164_income_source_uid. Это защитаодинаковогоUIDсразнымистрокамивконкуренции; legacyclientUidостаётсякакбыл. Новыйиндексвходитвscopedplan/apply/gateвместесисходнымипятью.

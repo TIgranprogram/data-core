@@ -48,9 +48,10 @@ export async function memoryFields({ row, customers, companies, next, needNo }) 
       hint: row ? undefined : 'Выберите заказчика — подскажем компанию, форму оплаты и приоритет из его прошлого заказа.',
       mount: (fa) => { if (!row) fa.on('customer', () => like.show(fa)); } },
     ...(row ? [] : [{ key: '_like', type: 'widget', label: '', wide: true, widget: () => like.widget }]),
-    ...(needNo ? [{ key: '_noMode', label: 'Заказ', type: 'segment', options: [{ value: 'new', label: 'Новый заказ' }, { value: 'existing', label: 'В существующий заказ' }],
-      hint: 'Новый — возьмём следующий свободный №; существующий — выберите № ниже, договоры объединятся.',
+    ...(needNo ? [{ key: '_noMode', label: 'Заказ', type: 'segment', options: [{ value: 'new', label: 'Новый заказ' }, { value: 'existing', label: 'В существующий заказ' }, { value: 'unassigned', label: 'Привязать позже' }],
+      hint: 'Можно сохранить без заказа. Позже менеджер объединит несколько договоров в один заказ.',
       mount: (fa) => fa.on('_noMode', () => {
+        if (fa.get('_noMode') === 'unassigned') { fa.set('productionNo', ''); return; }
         if (fa.get('_noMode') === 'new') { if (next) fa.set('productionNo', next, { auto: true }); return; }
         if (fa.get('_noMode') !== 'existing') return; // при открытии формы ничего не раскрываем сами (приёмка дизайнера)
         fa.set('productionNo', ''); fa.input('productionNo')?.focus?.();

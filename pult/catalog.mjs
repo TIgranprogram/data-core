@@ -366,6 +366,7 @@ export const NOT_ON_BUTTONS = {
   'docs/crew/C155-passport-owner-queue/fill-acceptance.mjs': 'проверка кнопки заполнения карточки на QA без записей; только агент доступа, не пользователь',
   'docs/crew/C155-passport-owner-queue/order-acceptance.mjs': 'приёмка точной позиции заказа C155 на копии; агент доступа и утверждённый сценарий, не пользователь',
   'docs/crew/C155-passport-owner-queue/prod-short-import.mjs': 'утверждённое наполнение коротких словарных текстов; только агент доступа через API после проверки версии, не пользователь',
+  'backend/scripts/c164-source-indexes.js': 'шесть служебных индексов защиты от дублей C164; план/apply только координатору при выпуске через штатный run-script с бэкапом, не действие менеджера',
   'backend/scripts/passport-creation-index.js': 'один служебный индекс защиты от повторного создания паспорта C155; план/apply штатным run-script, только координатор при выпуске',
   'docs/crew/C156-work-development-modes/scenario.test.mjs': 'приёмочный браузерный тест C156; только агент доступа через api.sh stand BROWSER, сессия через stdin, не пользователь',
   'deploy/synology/kp-data-fill.sh': 'разовая запись данных КП на прод (KP-2, 2026-11-09): реквизиты, НДС, бланки фирм; запускает пользователь один раз',

@@ -1,3 +1,10 @@
+## C164 — договоры, исходники и история КП (2026-11-20)
+коммит: не коммитил, код передан координатору; визуальная приёмка ожидается
+- `backend/pwa/sections/sales-legal-state.js:2,14,20,29` typed labels/unknown amounts/original-agreed/manualdraft; `sales-legal.js:15,43,63,136,179` вложенные legalCASформы, адрес/подписание/issues/ответственный, PDFappend SHA/unknownuploadSTOP, план; источники/история не заменяются.
+- `backend/pwa/sections/offer-source.js:14,55,79,90` DTOprojectionбезcomputedfields, ручноеmatching, excludedsourceitem, исходный/согласованныйитог, readonlyhistory, linkexistingcontract; `offers.js:352` screenCardиlegalVersionform.
+- `backend/pwa/sections/salesorders.js:603,613,696`, `salesorders-memory.js:50` screenCardдоговора, manualunassignedcreate/company/customerIDs, groupchoice; `fill.js:19` обеочередиneedsReview. `atlas-data.js:45,56`, `help-guide-data.js:16,88`, `index.html` preload178.
+- `sales-legal.test.mjs:1`9регрессийsource/unknown/UID/CAS/409/noMoney/unknownupload/manualdraft. Smokeimports367/0,guards362/362,designlint0; не доказательство визуальнойприёмки. UI-REVIEWPLAN.md иFRONTEND-REPORT.md вC164. Карта обновлена.
+
 ## C165 — подтверждённая оплата без даты (2026-11-19)
 коммит: не коммитил, передано координатору
 - `backend/pwa/sections/invoice-workspace-state.js:5,32,152` pending/date_required, финансовая блокировка, full RUB confirmation, explicit date/payer/amount; `invoice-workspace-forms.js:35,65,206` общие формы, пустая дата, snapshot, stable UID/body.

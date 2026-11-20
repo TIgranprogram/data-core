@@ -1,3 +1,4 @@
+import { SourceLineDto } from '../../common/legal/legal.dto';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsMongoId, IsNumber, IsOptional, IsString, Length, Matches, Min, ValidateIf, ValidateNested } from 'class-validator';
@@ -17,6 +18,9 @@ export class PaymentDto {
 
 /** Доход (строка заказа). Числа: null — очистить поле. Даты: ГГГГ-ММ-ДД / ДД.ММ.ГГГГ, '' — очистить. */
 export class IncomeDto {
+ @ApiPropertyOptional({enum:['manual']}) @IsOptional() @IsIn(['manual']) matchingMode?: 'manual';
+ @ApiPropertyOptional({type:SourceLineDto}) @IsOptional() @ValidateNested() @Type(()=>SourceLineDto) sourceLine?: SourceLineDto;
+
   @ApiPropertyOptional({ nullable: true, description: 'Доходная статья для новых платежей' }) @IsOptional() @IsMongoId() articleId?: string | null;
 
   @ApiPropertyOptional({ description: 'C049-1: версия записи, которую правили (`version` из GET). Не совпала — 409 `code: STALE`. Не передана — прежнее поведение.' }) @IsOptional() @IsInt() @Min(0) version?: number;

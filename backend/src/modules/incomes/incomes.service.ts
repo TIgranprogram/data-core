@@ -1,3 +1,4 @@
+import { assertIntakeIndexes, intakeContentHash, legalHash } from '../../common/legal/legal-utils';
 import { createHash } from 'crypto';
 import { ExpenseArticlesService } from '../expense-articles/expense-articles.service';
 import { protectIncomePaymentWrites } from './income-payment-identities';
@@ -103,6 +104,7 @@ export class IncomesService {
   private async maybeAutoDesign(orderId: unknown, userId?: string) {
     if (!orderId) return;
     try {
+      if(await this.model.exists({orderId,matchingMode:'manual',deletedAt:null}))return;
       const design = this.moduleRef.get(DesignService, { strict: false });
       await design.autoFromOrderIfReady(orderId as string | Types.ObjectId, userId);
     } catch { /* DesignModule ещё не готов */ }
@@ -352,16 +354,34 @@ export class IncomesService {
   private assertOrderOpen(orderId: unknown, actor: AuthenticatedUser | undefined) { return this.assertCanChange(orderId, actor); }
 
   async create(dto: IncomeDto, userId?: string, actor?: AuthenticatedUser) {
-    if (dto.clientUid) {
+    let source:Record<string,unknown>={};
+    if(dto.sourceLine){
+      if(dto.matchingMode!=='manual'||!dto.orderId||!dto.clientUid)throw new BadRequestException('Строке источника нужны договор и ручное сопоставление');
+      await assertIntakeIndexes(this.model,['c164_income_source_row','c164_income_source_uid']);
+      const sourceIntakeHash=intakeContentHash(dto);
+      const filter={orderId:oid(dto.orderId,'договора'),'sourceLine.documentUid':dto.sourceLine.documentUid,'sourceLine.rowKey':dto.sourceLine.rowKey};
+      const duplicate=await this.model.findOne({$or:[filter,{sourceUid:dto.clientUid}]}).setOptions({includeSoftDeleted:true}).lean().exec();
+      if(duplicate){if(duplicate.deletedAt||duplicate.sourceIntakeHash!==sourceIntakeHash)throw new ConflictException('Строка источника уже существует с другими данными');return this.get(String(duplicate._id));}
+      if(dto.title!==dto.sourceLine.title||Number(dto.qty)!==dto.sourceLine.qty)throw new BadRequestException('Название и количество должны совпадать с исходной строкой');
+      const entered=dto.amountManual??(Number(dto.qty)*Number(dto.unitPrice));
+      if(dto.sourceLine.lineAmount!==undefined&&(!Number.isFinite(entered)||Math.abs(Math.round(entered*100)-Math.round(dto.sourceLine.lineAmount*100))>1))throw new BadRequestException('Сумма строки отличается от источника');
+      const parent=await this.connection.db!.collection('salesorders').findOne({_id:filter.orderId,deletedAt:null},{projection:{'legal.documents':1,'legal.currency':1}});
+      if(parent?.legal?.currency&&parent.legal.currency!=='RUB')throw new BadRequestException('Для валютной строки сначала требуется подтверждённая рублёвая учётная сумма');
+      if(!parent||!parent.legal?.documents?.some((d:any)=>d.uid===dto.sourceLine!.documentUid))throw new BadRequestException('Исходный документ не привязан к договору');
+      if(dto.lineType==='new_product'||dto.productRequestId)throw new BadRequestException('Импорт источника не создаёт новое изделие');
+      source={matchingMode:'manual',sourceLine:dto.sourceLine,sourceIntakeHash,sourceUid:dto.clientUid};
+    }
+    if (dto.clientUid&&!dto.sourceLine) {
       const dup = await this.model.findOne({ clientUid: dto.clientUid }).lean().exec();
       if (dup) return this.get(String(dup._id));
     }
-    const f = await this.toFields(dto);
+    const f = {...await this.toFields(dto),...source};
+    if(dto.matchingMode)f.matchingMode=dto.matchingMode;
     await this.assertOrderOpen(f.orderId, actor);
     if (!f.title) throw new BadRequestException('Укажите наименование');
     await this.checkType(f);
     // новое изделие и услугу по названию к изделию не привязываем
-    if (dto.productId === undefined && !f.lineType) f.productId = await this.productByTitle(String(f.title));
+    if (dto.matchingMode!=='manual'&&dto.productId === undefined && !f.lineType) f.productId = await this.productByTitle(String(f.title));
     if (f.orderId) {
       await this.applyHeader(f, f.orderId);
       // КМ6: позиция добавлена в договор, уже вошедший в заказ производства, — «не сопоставлена» до подтверждения
@@ -380,7 +400,7 @@ export class IncomesService {
       amount, reportDate, clientUid: dto.clientUid,
       createdBy: userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined,
     };
-    const doc = await this.withArticleReferences(f, {}, async (session) => session ? (await this.model.create([document], { session }))[0] : this.model.create(document));
+    let doc;try{doc = await this.withArticleReferences(f, {}, async (session) => session ? (await this.model.create([document], { session }))[0] : this.model.create(document));}catch(e){if((e as {code?:number}).code!==11000||!dto.sourceLine)throw e;const duplicate=await this.model.findOne({$or:[{orderId:f.orderId,'sourceLine.documentUid':dto.sourceLine.documentUid,'sourceLine.rowKey':dto.sourceLine.rowKey},{sourceUid:dto.clientUid}]}).setOptions({includeSoftDeleted:true}).lean().exec();if(!duplicate||duplicate.deletedAt||duplicate.sourceIntakeHash!==source.sourceIntakeHash)throw new ConflictException('Строка источника уже существует с другими данными');return this.get(String(duplicate._id));}
     // новое изделие → заявка проектировщику (та же заявка на то же название)
     if (f.lineType === 'new_product') {
       const req = this.productRequests();
@@ -390,13 +410,16 @@ export class IncomesService {
         : doc) as Record<string, unknown>;
       await req.attachIncome(raw, userId);
     }
-    await this.maybeAutoDesign((doc as { orderId?: unknown }).orderId ?? f.orderId, userId);
+    if(dto.matchingMode!=='manual')await this.maybeAutoDesign((doc as { orderId?: unknown }).orderId ?? f.orderId, userId);
     return this.get(String(doc._id));
   }
 
   async update(id: string, dto: IncomeDto, actor?: AuthenticatedUser, opts: { guard?: Record<string, unknown>; push?: Record<string, unknown>; allowRemovedPaymentId?: string } = {}) {
     const cur = await this.model.findOne({ _id: oid(id, 'дохода'), deletedAt: null }).lean().exec();
     if (!cur) throw new NotFoundException('Запись дохода не найдена');
+    if(dto.sourceLine&&legalHash(dto.sourceLine)!==legalHash(cur.sourceLine))throw new ConflictException('Исходная строка неизменяема');
+    if(dto.matchingMode&&dto.matchingMode!==cur.matchingMode)throw new ConflictException('Режим источника фиксируется при создании');
+    if(cur.matchingMode==='manual'&&(dto.lineType==='new_product'||dto.productRequestId||dto.orderId&&String(dto.orderId)!==String(cur.orderId)))throw new BadRequestException('Исходная строка остаётся в своём договоре без автоматического создания изделия');
     // C049-1: устаревшая правка — до любых проверок и побочных записей
     if (isStale(cur as { version?: unknown }, dto.version)) throw staleError('Позицию');
     const f = await this.toFields({ ...dto, ...(dto.articleId !== undefined && String(dto.articleId || '') === String(cur.articleId || '') ? { articleId: undefined } : {}) });
@@ -427,8 +450,8 @@ export class IncomesService {
     if (!res.matchedCount) throw staleError('Позицию');
     if (opts.guard && !res.matchedCount) throw new ConflictException('Оплату уже изменили, обновите карточку');
     await this.notifyNoContract(cur as Record<string, unknown>, f, actor).catch(() => undefined);
-    await this.syncRequest(cur as Record<string, unknown>, f, actor?.id);
-    if ('productId' in f || 'lineType' in f || 'matchStatus' in f) {
+    if(cur.matchingMode!=='manual')await this.syncRequest(cur as Record<string, unknown>, f, actor?.id);
+    if (cur.matchingMode!=='manual'&&('productId' in f || 'lineType' in f || 'matchStatus' in f)) {
       await this.maybeAutoDesign(orderId, actor?.id);
     }
     return this.get(id);

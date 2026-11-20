@@ -272,3 +272,6 @@
 - backend/src/modules/stock/stock-reservations.service.ts:143 — optional externalSession без вложенной транзакции; stock.service.ts:101 — forwarding; incomes/income-cancel.service.ts:124 — reservation/design/work одной session, ошибка каскада не подавляется.
 - backend/src/modules/supply/supply.service.ts:624 — paid truth из header/snapshot при false mirror, marker ledger сохраняет приоритет; backend/test/e2e/financial-operations.e2e-spec.ts:239/:257 — forced rollback4сущностей/retry и snapshot falsemirror regression.
 - Проверки:core18/18PASS13.659s; stock/incomes/supply4suites182unitPASS6.155s; tsc/lint/cycles0. JSON evidence/core-e2e-two-fixes-pass.json/core-unit-two-fixes.json; коммит: —; карта обновлена.
+
+## C164 — КП source/legal (20.11.2026)
+- `backend/src/modules/offers/offer-source.ts:8` original/agreed и immutable source/targetmatch; `offers.service.ts:131` CASpendingconversion/manualincluded/unassigned/replay; `offers.service.ts:220` legal/linkhandlers, `offers.service.ts:313` sourcecreate/readproof; `offer.schema.ts:15` typedsource/exclusion, `offers.controller.ts:153` legal/linkroutes иnoMoneyPDF403. Новыеunit/e2e:offer-source.spec.ts,offers.source-conversion.spec.ts,offers-legal.e2e-spec.ts. Smoke15suites/85PASS,tsc/eslint0; full/e2eещёQAкоординатора. ОтчётC164/BACKEND-OFFERS-REPORT.md. Коммит: не выполнялся; карта обновлена.

@@ -1,3 +1,4 @@
+import { LegalBundleDto } from '../../common/legal/legal.dto';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsArray, IsBoolean, ValidateIf, ValidateNested, ArrayMaxSize, IsIn, IsMongoId, IsOptional, IsString, Length } from 'class-validator';
@@ -5,6 +6,10 @@ import { ORDER_PRIORITIES, ORDER_STAGES, type OrderPriority, type OrderStage } f
 
 /** Шапка заказа заказчика. Даты: ГГГГ-ММ-ДД / ДД.ММ.ГГГГ, '' — очистить; текст '' — очистить. */
 export class SalesOrderDto {
+  @ApiPropertyOptional({enum:['unassigned','new','existing']}) @IsOptional() @IsIn(['unassigned','new','existing']) productionAssignment?: 'unassigned'|'new'|'existing';
+  @ApiPropertyOptional() @IsOptional() @IsMongoId() counterpartyId?: string|null;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(1,100) intakeUid?: string;
+  @ApiPropertyOptional({type:LegalBundleDto}) @IsOptional() @ValidateNested() @Type(()=>LegalBundleDto) initialLegal?: LegalBundleDto;
   @ApiPropertyOptional({ description: '№ договора (обязателен при создании)' }) @IsOptional() @IsString() @Length(0, 50) orderNo?: string;
   @ApiPropertyOptional({ description: 'Наша компания по id (organizations)' }) @IsOptional() @IsMongoId() companyId?: string;
   @ApiPropertyOptional({ description: 'Наша компания по названию: СИЮ / ССЮ; "" — без компании' }) @IsOptional() @IsString() @Length(0, 200) companyName?: string;

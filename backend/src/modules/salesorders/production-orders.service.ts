@@ -120,7 +120,7 @@ export class ProductionOrdersService {
     try {
       await session.withTransaction(async () => {
         // повторная проверка внутри транзакции: параллельная привязка того же договора → 409
-        const res = await this.model.updateMany({ _id: { $in: found.map((d) => d._id) }, deletedAt: null, $or: [{ productionNo: null }, { productionNo: '' }, { productionNo: { $exists: false } }] }, { $set: { productionNo: no, productionAddedAt: now, editedInApp: true } }, { session }).exec();
+        const res = await this.model.updateMany({ _id: { $in: found.map((d) => d._id) }, deletedAt: null, $and:[{$or:found.map(d=>({_id:d._id,...(d.updatedAt?{updatedAt:d.updatedAt}:{}),...(d.legalVersion!==undefined?{legalVersion:d.legalVersion}:{})}))}], $or: [{ productionNo: null }, { productionNo: '' }, { productionNo: { $exists: false } }] }, { $set: { productionNo: no, productionAddedAt: now, editedInApp: true } }, { session }).exec();
         if (res.modifiedCount !== found.length) throw new ConflictException('Договор уже занят другим заказом, обновите список');
       });
     } finally { await session.endSession(); }

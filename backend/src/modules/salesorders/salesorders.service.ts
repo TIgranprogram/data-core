@@ -1,3 +1,5 @@
+import { LegalPatchDto } from '../../common/legal/legal.dto';
+import { assertIntakeIndexes, assertIntakeReplay, intakeContentHash, intakeBusinessKey, legalHash, legalPresentation, legalSummary, patchLegal, prepareLegal, validateLegalFiles, validateLegalParties } from '../../common/legal/legal-utils';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -67,7 +69,7 @@ export class SalesOrdersService {
       const s = sum.get(String(d._id));
       const stage = (d.stage as OrderStage) || 'new';
       return {
-        ...d, id: String(d._id), _id: String(d._id),
+        ...d, legal:undefined, legalHistory:undefined, legalReceipts:undefined, intakeHash:undefined, legalSummary:legalSummary(d.legal as any,Number(s?.unassigned||0)), id: String(d._id), _id: String(d._id),
         offerId: d.offerId ? String(d.offerId) : null,
         companyName: d.companyId ? name.get(String(d.companyId)) ?? null : null,
         stage, stageLabel: STAGE_LABELS[stage] ?? stage,
@@ -107,6 +109,8 @@ export class SalesOrdersService {
       if (bad) throw new BadRequestException(`Неизвестный приоритет «${bad}»: urgent, high, normal или low`);
       filter.$and = [...((filter.$and as unknown[]) ?? []), { $or: [{ priority: { $in: want } }, ...(want.includes('normal') ? [{ priority: null }] : [])] }];
     }
+    if(String(q.unassigned)==='1')filter.$and=[...((filter.$and as unknown[])||[]),{$or:[{productionNo:null},{productionNo:''}]}];
+    if(String(q.needsReview)==='1')filter['legal.issues']={$elemMatch:{state:{$in:['unknown','conflict']}}};
     return { filter, stages };
   }
 
@@ -129,11 +133,11 @@ export class SalesOrdersService {
     const [docs, total, byStage] = await Promise.all([
       'productionNo' in p.sort
         ? this.model.aggregate([{ $match: full }, { $addFields: { _pnone: { $cond: [{ $gt: [{ $strLenCP: { $ifNull: ['$productionNo', ''] } }, 0] }, 0, 1] }, _py: num(1), _pn: num(0) } },
-          { $sort: { _pnone: 1, _py: p.sort.productionNo, _pn: p.sort.productionNo, productionNo: p.sort.productionNo, _id: -1 } }, { $skip: p.skip }, { $limit: p.limit }, { $project: { _pnone: 0, _py: 0, _pn: 0 } }]).exec()
+          { $sort: { _pnone: 1, _py: p.sort.productionNo, _pn: p.sort.productionNo, productionNo: p.sort.productionNo, _id: -1 } }, { $skip: p.skip }, { $limit: p.limit }, { $project: { _pnone: 0, _py: 0, _pn: 0, legalHistory:0,legalReceipts:0,intakeHash:0 } }]).exec()
       : 'priority' in p.sort
         // срочность — не по алфавиту: ранг через $switch (Mongo 4.4)
-        ? this.model.aggregate([{ $match: full }, { $addFields: { _rank: { $switch: { branches: Object.entries(PRIORITY_RANK).map(([k, v]) => ({ case: { $eq: ['$priority', k] }, then: v })), default: PRIORITY_RANK.normal } } } }, { $sort: { _rank: p.sort.priority, _id: -1 } }, { $skip: p.skip }, { $limit: p.limit }, { $project: { _rank: 0 } }]).exec()
-        : this.model.find(full).setOptions({ includeSoftDeleted: true }).sort({ ...p.sort, _id: -1 }).skip(p.skip).limit(p.limit).lean().exec(),
+        ? this.model.aggregate([{ $match: full }, { $addFields: { _rank: { $switch: { branches: Object.entries(PRIORITY_RANK).map(([k, v]) => ({ case: { $eq: ['$priority', k] }, then: v })), default: PRIORITY_RANK.normal } } } }, { $sort: { _rank: p.sort.priority, _id: -1 } }, { $skip: p.skip }, { $limit: p.limit }, { $project: { _rank: 0,legalHistory:0,legalReceipts:0,intakeHash:0 } }]).exec()
+        : this.model.find(full,{legalHistory:0,legalReceipts:0,intakeHash:0}).setOptions({ includeSoftDeleted: true }).sort({ ...p.sort, _id: -1 }).skip(p.skip).limit(p.limit).lean().exec(),
       this.model.countDocuments(full).setOptions({ includeSoftDeleted: true }).exec(),
       this.model.aggregate([{ $match: filter }, { $group: { _id: '$stage', n: { $sum: 1 } } }]).exec(),
     ]);
@@ -158,7 +162,7 @@ export class SalesOrdersService {
    */
   async get(id: string, see: { requests?: boolean; stock?: boolean } = {}) {
     const seeReq = see.requests !== false, seeStock = see.stock !== false;
-    const doc = await this.findRaw(id);
+    const doc = legalPresentation(await this.findRaw(id));
     const _id = doc._id as Types.ObjectId;
     // Привязка — поля data-core salesOrderId (orderId в заявках занят CRM-заказами)
     const db = this.connection.db!;
@@ -208,7 +212,7 @@ export class SalesOrdersService {
     const header = { ...(await this.present([doc]))[0], shipmentCount: ships.length, legacyShipped: doc.stage === 'shipped' && ships.length === 0 };
     const fix = (a: Doc[]) => a.map((x) => ({ ...x, id: String(x._id), _id: String(x._id) }));
     return {
-      ...header,
+      ...header,legal:doc.legal,legalVersion:doc.legalVersion,legalHistory:doc.legalHistory,readiness:doc.readiness,
       leadDays: await this.orderLeadDays(lines), // срок изготовления по нормам планов позиций (C041 Э3)
       lines: fix(lines.map((l) => ({ ...l, status: l.cancelledAt ? 'cancelled' : l.paidDate ? 'paid' : l.shipDate ? 'awaiting' : 'draft', unassigned: !l.cancelledAt && isUnassigned(l as Doc) }))),
       supplyRequests: fix(supplyRequests), stockMovements: fix(stockMovements), issuedByLine,
@@ -318,6 +322,8 @@ export class SalesOrdersService {
   /** Поля формы → поля схемы; undefined = очистить. companyShort: undefined — компанию не меняли, null — убрали. */
   private async toFields(dto: SalesOrderDto): Promise<{ f: Doc; companyShort?: string | null }> {
     const f: Doc = {};
+    if(dto.counterpartyId===null)f.counterpartyId=undefined;
+    if(dto.counterpartyId){const customer=await this.connection.db!.collection('organizations').findOne({_id:oid(dto.counterpartyId,'контрагента'),deletedAt:null},{projection:{_id:1}});if(!customer)throw new BadRequestException('Контрагент не найден');f.counterpartyId=customer._id;}
     for (const k of TEXT) if (dto[k] !== undefined) f[k] = String(dto[k] ?? '').trim() || undefined;
     for (const [k, label] of DATES) {
       if (dto[k] === undefined) continue;
@@ -374,27 +380,46 @@ export class SalesOrdersService {
   }
 
   async create(dto: SalesOrderDto, userId?: string) {
-    if (dto.clientUid) {
+    const {f,companyShort}=await this.toFields(dto);
+    const selectedCompany=f.companyId?String(f.companyId):'';
+    let source:Doc={};
+    if(dto.initialLegal){
+      if(!selectedCompany||(dto.initialLegal.origin?.kind!=='manual'&&(!dto.counterpartyId||!dto.intakeUid)))throw new BadRequestException('Для источника выберите нашу компанию, контрагента и ключ загрузки');
+      if(dto.initialLegal.origin?.kind==='source_import'&&(String(dto.initialLegal.sourceNumber||'').trim()!==String(dto.orderNo||'').trim()||f.contractDate&&(f.contractDate as Date).toISOString().slice(0,10)!==dto.initialLegal.sourceDate))throw new BadRequestException('Номер и дата договора должны совпадать с источником');
+      await assertIntakeIndexes(this.model,['c164_sales_intake_uid','c164_sales_intake_key']);
+      const intakeKey=dto.initialLegal.origin?.kind==='manual'?legalHash(['contract-derived',selectedCompany,dto.counterpartyId,dto.orderNo]):intakeBusinessKey(dto.initialLegal,'contract'),intakeHash=intakeContentHash(dto);
+      const intakeUid=dto.intakeUid||'manual-'+intakeKey;
+      const dup=await this.model.findOne({$or:[{intakeUid},{intakeKey}]}).setOptions({includeSoftDeleted:true}).lean().exec();
+      if(dup){assertIntakeReplay(dup as any,intakeHash);return this.get(String(dup._id));}
+      await validateLegalParties(this.connection,selectedCompany,dto.counterpartyId||undefined,dto.initialLegal);
+      const legal=prepareLegal(dto.initialLegal,undefined,userId);await validateLegalFiles(this.connection,legal);
+      source={legal,legalVersion:0,intakeUid,intakeKey,intakeHash};
+    }else if(dto.intakeUid)throw new BadRequestException('Для ключа загрузки нужен комплект источника');
+    if (dto.clientUid&&!dto.initialLegal) {
       const dup = await this.model.findOne({ clientUid: dto.clientUid }).lean().exec();
       if (dup) return this.get(String(dup._id));
     }
-    const { f, companyShort } = await this.toFields(dto);
     // Новый договор всегда получает № заказа: пусто → следующий свободный «N-ГГ» (last+1).
-    if (!String(f.productionNo ?? '').trim()) f.productionNo = (await this.nextProductionNo()).value;
-    if (dto.requireFields) this.checkRequired(f);
+    if(dto.productionAssignment==='unassigned'){if(f.productionNo)throw new BadRequestException('Договор без заказа не должен содержать номер производства');}
+    else if(dto.productionAssignment==='existing'){if(!f.productionNo||!(await this.model.exists({productionNo:f.productionNo,deletedAt:null})))throw new BadRequestException('Выберите существующий заказ производства');}
+    else if (!String(f.productionNo ?? '').trim()) f.productionNo = (await this.nextProductionNo()).value;
+    if (dto.requireFields) this.checkRequired(dto.productionAssignment==='unassigned'?{...f,productionNo:'без заказа'}:f);
     if (!f.orderNo) throw new BadRequestException('Укажите № договора');
-    const key = orderKey(companyShort ?? '', f.orderNo);
-    const taken = await this.clash(key);
+    const key = source.intakeKey?'source|'+String(source.intakeKey):orderKey(companyShort ?? '', f.orderNo);
+    const taken = source.intakeKey?null:await this.clash(key);
     if (taken) throw new ConflictException(`Договор № ${f.orderNo}${companyShort ? ` у ${companyShort}` : ''} уже есть${taken.deletedAt ? ' (в корзине)' : ''}`);
-    const doc = await this.model.create({
+    const createDocument={...source,
       ...Object.fromEntries(Object.entries(f).filter(([, v]) => v !== undefined)),
       stage: f.stage ?? 'new', importKey: key, clientUid: dto.clientUid,
-      productionAddedAt: new Date(),
+      ...(f.productionNo?{productionAddedAt:new Date()}:{}),
       createdBy: userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined,
-    });
+    };
+    let doc;try{doc=await this.model.create(createDocument);}catch(e){if((e as {code?:number}).code!==11000||!source.intakeKey)throw e;const dup=await this.model.findOne({$or:[{intakeKey:source.intakeKey},{intakeUid:dto.intakeUid}]}).setOptions({includeSoftDeleted:true}).lean().exec();if(!dup)throw e;assertIntakeReplay(dup as any,String(source.intakeHash));return this.get(String(dup._id));}
     await this.afterCreate(doc.toObject() as unknown as Doc, userId);
     return this.get(String(doc._id));
   }
+
+  async updateLegal(id:string,dto:LegalPatchDto,userId?:string){await patchLegal(this.model,id,dto,userId);return this.get(id);}
 
   /** ЗО-3/5: новый заказ — личному менеджеру, иначе зоне «Договоры», иначе руководству («Не назначено»). */
   private async afterCreate(o: Doc, actorId?: string) {
@@ -430,11 +455,13 @@ export class SalesOrdersService {
   }
 
   async update(id: string, dto: SalesOrderDto, userId?: string, actor?: AuthenticatedUser) {
+    if(dto.initialLegal||dto.intakeUid||dto.productionAssignment)throw new BadRequestException('Комплект источников меняется отдельным действием карточки');
     const cur = await this.findRaw(id);
     await this.assertHasLines([cur as Doc], dto.stage);
     this.checkStageMove(cur as Doc, dto, actor);
     const { f, companyShort } = await this.toFields(dto);
-    if (dto.requireFields) this.checkRequired(f, cur as Doc);
+    if(cur.legal&&['companyId',...((cur.legal as any).counterpartySnapshot?['counterpartyId']:[])].some(k=>k in f&&String(f[k]||'')!==String(cur[k]||'')))throw new ConflictException('Стороны исходного договора зафиксированы');
+    if (dto.requireFields) this.checkRequired(cur.legal&&!cur.productionNo?{...f,productionNo:'без заказа'}:f, cur as Doc);
     if ('orderNo' in f && !f.orderNo) throw new BadRequestException('№ договора не может быть пустым');
     if ('orderNo' in f || companyShort !== undefined) {
       const company = companyShort !== undefined ? companyShort ?? '' : await this.companyShort(cur.companyId);
@@ -529,7 +556,7 @@ export class SalesOrdersService {
     for (const x of todo) {
       if (!own.has(String(x.lineId))) throw new BadRequestException('Позиция не из этого заказа или уже с изделием');
       if (!found.has(String(x.productId))) throw new BadRequestException('Изделие не найдено');
-      await this.incomes().updateOne({ _id: oid(x.lineId, 'позиции') }, { $set: { productId: oid(String(x.productId), 'изделия'), updatedAt: new Date() } });
+      await this.incomes().updateOne({ _id: oid(x.lineId, 'позиции') }, { $set: { productId: oid(String(x.productId), 'изделия'), matchStatus:'confirmed',matchedAt:new Date(), updatedAt: new Date() },$inc:{version:1} });
       applied++;
     }
     return { applied: true, count: applied };
