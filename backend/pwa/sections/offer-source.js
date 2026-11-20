@@ -40,7 +40,7 @@ function scopeItem(record, index, ctx) {
       { key: 'confirmedAt', label: 'Дата подтверждения решения', type: 'date', required: true },
       { key: 'eventDate', label: 'Когда позицию исключили', type: 'date', hint: 'Если фактическая дата неизвестна, оставьте пустым.' },
     ],
-    initial: () => ({ confirmedAt: isoDay(), eventDate: '' }), closeAfterCreate: true,
+    initial: () => ({ confirmedAt: isoDay(), eventDate: '' }), closeAfterCreate: true, saveLabel: 'Сохранить',
     async create(v) {
       const items = offerWriteItems(record.items);
       items[index] = { ...items[index], scopeState: exclude ? 'excluded' : 'included', exclusionReason: v.reason, exclusionConfirmedAt: v.confirmedAt, exclusionEventDate: v.eventDate || null };
@@ -98,7 +98,7 @@ export async function linkOfferContract(record, ctx) {
     fields: () => [
       { note: 'Связь сохраняет историю предложения. Статус оплаты и принятый состав не меняются.' },
       { key: 'orderId', label: 'Договор покупателя', type: 'select', required: true, choose: true, wide: true, options: candidates.map((x) => ({ value: x.id, label: `Договор ${x.orderNo || '—'} · ${x.customer || 'заказчик не указан'}` })) },
-    ], closeAfterCreate: true,
+    ], closeAfterCreate: true, saveLabel: 'Сохранить',
     async create({ orderId }) { const result = await api(`/offers/${record.id}/link-order`, { method: 'POST', body: { orderId, version: record.legalVersion, clientUid } }); saved = true; return result; },
   } };
   return openCard(panel, { mode: 'create', parent: parentPanel() }, { changed() {}, close() { if (saved) { void ctx.reload(); ctx.changed?.(); } } });
