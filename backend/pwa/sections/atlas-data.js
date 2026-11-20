@@ -360,7 +360,7 @@ export const NODES = [
     ],
     rules: ['Идея: часть цифр уже есть («Доходы и расходы», себестоимость позиции) — сводки на одном экране нет.'],
     docs: ['docs/PRODUCT.md — «Деньги»'], tech: null },
-  { id: 'servers', tpl: 'summary', tplStatus: 'plan', plan: 'C166', band: 'system', col: 0, sec: null, where: SERVER_GUIDE.where, t: 'Серверы', l: ['расписания данных и кода,', 'домен и резервные копии'],
+  { id: 'servers', tpl: 'summary', tplStatus: 'legacy', band: 'system', col: 0, sec: null, where: SERVER_GUIDE.where, t: 'Серверы', l: ['расписания данных и кода,', 'домен и резервные копии'],
     inside: SERVER_GUIDE.steps,
     rules: ['Копирование данных и обновление кода имеют отдельные графики. Автоматическое переключение домена не включается.', 'Расписание сохраняется с ревизией; job и слоты постоянны, один запуск за раз. Не догонять ночное обновление днём.', 'Только принятый immutable выпуск главного; неизвестная готовность запрещает опасные шаги. CRM и главный Mongo не менять.'],
     docs: ['docs/crew/C166-server-schedules/TZ.md', 'docs/MAP.md — control/switch', 'deploy/synology/README.md'], tech: 'app_control_state: switch (scheduleConfig, scheduleRuntime, domain)',
