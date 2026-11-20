@@ -303,3 +303,7 @@
 ### C170 FIX2 — явные удаления при retry (20.11.2026)
 - `backend/src/modules/product-passport/product-passport.service.ts:632` — doc.getChanges().$unset хранится отдельно от toObject, `:637` каждый fresh hydrate применяет unset. `backend/test/e2e/c170-passport-source.e2e-spec.ts` — FIX2 explicit unset: legacy incomeId:null→save/abort/retry→scope отсутствует→новая draft занимает unique lineScopeKey.
 - types/lint0; update unit2/28PASS5.284s; адресный strict realMongo e2e1PASS/23SKIP12.372s только datacore-test-c170. `FIX2-REPORT.md`; backend FREEZE, коммит: не выполнялся; карта обновлена.
+
+### C170 concurrent create — runtimeFIX после FULL1
+- `backend/src/modules/product-passport/product-passport.service.ts:400` findExisting(expectedBound); `:436` scope/E11000 или точный STALE_CONTEXT→live readonly context/bind→совместимый winner, без rebaselinewrite и без ослабления claim guard. Source/contextchange409; oldissuedread сохранён.
+- `backend/test/e2e/c170-passport-source.e2e-spec.ts` deterministic winner/source/winner-source + strict HTTP Promise.all(a,uppercaseA,b); неизменённый исходный presentation concurrent testPASS. Targeted e2e2/6PASS31SKIP18.938s, unit2/26PASS3.033s, types/lint0. `CREATE-REPLAY-REPORT.md`; FREEZE; коммит: не выполнялся; карта обновлена.

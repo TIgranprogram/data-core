@@ -139,7 +139,18 @@ describe('Новые эндпоинты 2026-11-01', () => {
       const managerPlan = (await http().get(`/api/passports/order/${orderId}/plan`).set(as(await mkUser('manager', 'pnz'))).expect(200)).body;
       expect(managerPlan).toMatchObject({ orderId, total: 4, ready: 2, blocked: 2, issued: 0 });
       expect(managerPlan.lines.find((line: { incomeId: string }) => line.incomeId === okLine)).toMatchObject({ state: 'ready', missing: [], qty: 2 });
-      await http().get(`/api/passports/order/${orderId}/plan`).set(as(await mkUser('user', 'pnz-denied'))).expect(403);
+      const reader = as(await mkUser('user', 'pnz-read'));
+      const readerPlan = (await http().get(`/api/passports/order/${orderId}/plan`).set(reader).expect(200)).body;
+      expect(readerPlan).toMatchObject({ orderId, total: 4, ready: 2, blocked: 2, issued: 0 });
+      const readerLine = readerPlan.lines.find((line: { incomeId: string }) => line.incomeId === okLine);
+      expect(readerLine).toMatchObject({ state: 'ready', missing: [], qty: 2 });
+      for (const key of ['payments', 'sourceLine', 'storedPath', 'unitPrice', 'lineAmount']) expect(JSON.stringify(readerPlan)).not.toContain(`"${key}":`);
+      if (readerPlan.firm) expect(Object.keys(readerPlan.firm).sort()).toEqual(['hasSeal', 'hasSignature', 'id', 'name']);
+      for (const firm of readerPlan.firmChoices ?? []) expect(Object.keys(firm).sort()).toEqual(['hasSeal', 'hasSignature', 'id', 'name']);
+      await http().post(`/api/passports/order/${orderId}/issue`).set(reader).send({}).expect(403);
+      await http().post('/api/passports').set(reader).send({ incomeId: okLine }).expect(403);
+      await http().put(`/api/passports/order/${orderId}/lines/${okLine}/source`).set(reader)
+        .send({ mode: 'site', expectedRevision: readerLine.selection.revision, contextToken: readerLine.contextToken }).expect(403);
     });
 
     it('pdf до выпуска — 400', async () => {

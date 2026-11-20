@@ -1,0 +1,9 @@
+# C170 — идемпотентное concurrent presentation create
+Статус: узкий runtimeFIX после FULL1 выполнен; backend FREEZE, нового аудита/full не запускал.
+Причина: второй create одного income после commit победителя получает STALE_CONTEXT по epoch до unique insert; прежний catch только E11000 не возвращал winner.
+✅ Только createPresentation: replaycatch распознаёт scope duplicate либо точный STALE_CONTEXT, read-only перепроверяет live income/order/product/lineType/selectionRevision и текущую bind-фирму, возвращает только совместимый существующий winner. Нового write/rebaseline/retry с обновлённымepoch нет, общий claim/guard не менялся.
+✅ Реальная смена source/context остаётся409; отсутствие winner не разрешает новую запись. Early historical issued replay сохранён; uppercase ObjectId идемпотентен.
+Файлы: backend/src/modules/product-passport/product-passport.service.ts:400 findExisting(expectedBound), :436 replaycatch; backend/test/e2e/c170-passport-source.e2e-spec.ts — presentation replay HTTP и deterministic winner/source/winner-source. Исходный passport-presentation.e2e-spec.ts не изменён.
+Проверки: tsc0; presentation/bind unit2suites/26PASS3.033s; targeted Mongo e2e2suites/6PASS31SKIP18.938s (strict C170+неизменённый исходный concurrent test), только owned51796/datacore-test-c170; eslint сервиса0.
+Доказательства: Promise.all(a,uppercaseA,b)201всем/A.sameid/B.otherid; deterministic baseline0→winner commit epoch1→replay.sameid без epoch2; baseline0→source или winner→source→409, документов0/1только прежнийwinner, issued0, counters неизменны; исторический issued idempotentreadPASS.
+QA-owned salesorders.service.spec.ts/soft-delete-coverage.spec.ts/new-endpoints-1101.e2e-spec.ts не трогались. Коммит: не выполнялся, координатор; карта обновлена. Нужен только продолженный QA по принятому порядку.

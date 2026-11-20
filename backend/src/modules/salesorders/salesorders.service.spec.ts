@@ -127,7 +127,21 @@ describe('SalesOrdersService.matchProducts (ПРЖ-4)', () => {
   });
   it('apply — пишет productId; чужая позиция — 400', async () => {
     await service.matchProducts(String(orderId), true, [{ lineId: String(lineId), productId: String(prodId) }]);
-    expect(updateOne.mock.calls[0][1].$set.productId).toEqual(prodId);
+    const [filter, pipeline] = updateOne.mock.calls[0];
+    expect(filter).toEqual({ _id: lineId });
+    expect(pipeline).toHaveLength(2);
+    expect(pipeline[0]).toEqual({ $set: {
+      passportEpoch: { $add: [{ $ifNull: ['$passportEpoch', 0] }, 1] },
+      passportSelection: { $cond: [
+        { $and: [{ $eq: ['$passportSelection.mode', 'attachment'] }, { $ne: [{ $ifNull: ['$productId', null] }, prodId] }] },
+        { $mergeObjects: ['$passportSelection', { revision: { $add: [{ $ifNull: ['$passportSelection.revision', 0] }, 1] }, invalidatedAt: '$$NOW', invalidReason: 'PRODUCT_CHANGED' }] },
+        { $ifNull: ['$passportSelection', '$$REMOVE'] },
+      ] },
+    } });
+    expect(pipeline[1]).toEqual({ $set: {
+      productId: prodId, matchStatus: 'confirmed', matchedAt: expect.any(Date), updatedAt: expect.any(Date),
+      version: { $add: [{ $ifNull: ['$version', 0] }, 1] },
+    } });
     await expect(service.matchProducts(String(orderId), true, [{ lineId: String(new Types.ObjectId()), productId: String(prodId) }])).rejects.toBeInstanceOf(BadRequestException);
   });
 });

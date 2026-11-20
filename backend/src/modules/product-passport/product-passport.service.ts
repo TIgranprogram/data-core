@@ -1,4 +1,4 @@
-import { assertSitePassport, copyPassportValue, passportLine, withPassportSite } from '../../common/passport/line-source';
+import { assertSitePassport, copyPassportValue, lineBaseline, passportLine, stalePassport, withPassportSite } from '../../common/passport/line-source';
 import { parseModules } from '../../common/passport/modules';
 import { installKindOf, variantOf, PASSPORT_VARIANTS, type PassportVariant } from './passport-variants';
 import { blankItems } from './passport-blanks';
@@ -398,20 +398,20 @@ export class ProductPassportService {
     await this.requireScopeIndex();
     const baseline = dto.incomeId ? await passportLine(db, dto.incomeId) : null;
     const bound = await bindPresentation(db, dto as unknown as Doc);
-    const findExisting = async () => {
-      const rows = bound.incomeId
-        ? await this.model.find({ incomeId: bound.incomeId, status: { $ne: 'annulled' } }).limit(2).exec()
+    const findExisting = async (expectedBound = bound) => {
+      const rows = expectedBound.incomeId
+        ? await this.model.find({ incomeId: expectedBound.incomeId, status: { $ne: 'annulled' } }).limit(2).exec()
         : await this.model.find({ creationScopeKey }).setOptions({ includeSoftDeleted: true }).limit(1).exec();
       if (rows.length > 1) throw new ConflictException('На позицию найдено несколько живых паспортов');
       const existing = rows[0];
       if (!existing) return null;
       const saved = existing.toObject() as unknown as Doc;
-      if (String(saved.productId) !== String(bound.productId)
-        || (bound.incomeId && String(saved.salesOrderId) !== String(bound.salesOrderId))) {
+      if (String(saved.productId) !== String(expectedBound.productId)
+        || (expectedBound.incomeId && String(saved.salesOrderId) !== String(expectedBound.salesOrderId))) {
         throw new ConflictException('Паспорт уже связан с другими исходными данными — перечитайте книжку');
       }
-      if (!bound.incomeId || !isIssued(saved)) {
-        if (saved.supplierOrgId && String(saved.supplierOrgId) !== String(bound.supplierOrgId)) throw new ConflictException('Фирма сохранённого паспорта отличается — перечитайте книжку');
+      if (!expectedBound.incomeId || !isIssued(saved)) {
+        if (saved.supplierOrgId && String(saved.supplierOrgId) !== String(expectedBound.supplierOrgId)) throw new ConflictException('Фирма сохранённого паспорта отличается — перечитайте книжку');
         if (saved.presentationVersion === 1 && saved.variant !== variant) throw new ConflictException('Вариант сохранённого паспорта отличается — откройте его для изменения');
       }
       return existing;
@@ -433,9 +433,21 @@ export class ProductPassportService {
     const prepared = draft.toObject({ minimize: false });
     try { return await withPassportSite(this.connection, baseline, session => new this.model(copyPassportValue(prepared)).save({ session })); }
     catch (e) {
-      if (!isScopeDuplicate(e)) throw e;
-      const winner = await findExisting();
+      const stale = e instanceof ConflictException && (e.getResponse() as { code?: string }).code === 'STALE_CONTEXT';
+      if (!isScopeDuplicate(e) && !stale) throw e;
+      // Повтор создания может проиграть epoch раньше unique insert. Возвращаем только готовый winner, не повторяем запись с новым baseline.
+      let replayBound = bound;
+      if (baseline) {
+        try {
+          const live = await passportLine(db, baseline._id, baseline.orderId);
+          if (JSON.stringify({ ...lineBaseline(live), passportEpoch: 0 }) !== JSON.stringify({ ...lineBaseline(baseline), passportEpoch: 0 })) throw stalePassport();
+          assertSitePassport(live);
+          replayBound = await bindPresentation(db, dto as unknown as Doc);
+        } catch { throw stalePassport(); }
+      }
+      const winner = await findExisting(replayBound);
       if (winner) return winner;
+      if (stale) throw e;
       throw new ConflictException('Принадлежность паспорта изменилась — повторите создание');
     }
   }

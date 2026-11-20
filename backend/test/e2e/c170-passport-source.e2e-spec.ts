@@ -222,4 +222,34 @@ describe('C170 выбор вложенного паспорта', () => {
     const done=await db().collection('productattachments').findOne({_id:file});expect(done).toMatchObject({purgeState:'removed'});expect(done!.purgeToken).toBeUndefined();expect(done!.fileRemovedAt).toBeTruthy();await expect(fs.stat(path.resolve(UPLOAD_DIR,rel))).rejects.toMatchObject({code:'ENOENT'});
   });
 
+  it('presentation replay HTTP: Promise.all(a, uppercaseA, b)201, same-id только у A',async()=>{
+    const b=new Types.ObjectId();await db().collection('incomes').insertOne({_id:b,orderId:order,productId:product,title:'B',deletedAt:null});
+    const dto=(id:string)=>({incomeId:id,productId:String(product),salesOrderId:String(order),presentationVersion:1,variant:'short'});
+    const post=(id:string)=>http().post('/api/passports').set(authHeader(token)).send(dto(id)).expect(201);
+    const [a1,a2,b1]=await Promise.all([post(String(income)),post(String(income).toUpperCase()),post(String(b))]);
+    expect(a1.body.id).toBe(a2.body.id);expect(b1.body.id).not.toBe(a1.body.id);expect(await db().collection('productpassports').countDocuments({incomeId:income})).toBe(1);
+    expect((await db().collection('incomes').findOne({_id:income}))!.passportEpoch).toBe(1);
+  });
+  it.each(['winner','source','winner-source'])('presentation replay deterministic: %s сохраняет исходный baseline',async mode=>{
+    const p=ctx.module.get(ProductPassportService);
+    const internal=p as unknown as { applySnapshot:(...args:unknown[])=>Promise<unknown> };
+    const original=internal.applySnapshot.bind(p);let resume!:()=>void,paused!:()=>void;
+    const gate=new Promise<void>(r=>resume=r),reached=new Promise<void>(r=>paused=r);
+    const spy=jest.spyOn(internal,'applySnapshot').mockImplementationOnce(async(...args)=>{const result=await original(...args);paused();await gate;return result;});
+    const dto={incomeId:String(income),productId:String(product),salesOrderId:String(order),presentationVersion:1 as const};
+    const before=await db().collection('counters').find({}).sort({_id:1}).toArray();
+    const pending=p.create(dto);const outcome=pending.then(doc=>({doc,error:null}),error=>({doc:null,error}));
+    try{
+      await reached;const winner=mode==='source'?null:await p.create({...dto,incomeId:String(income).toUpperCase()});
+      if(mode!=='winner')await select();resume();const result=await outcome;
+      if(mode==='winner'){
+        expect(result.error).toBeNull();expect(String(result.doc!._id)).toBe(String(winner!._id));expect((await db().collection('incomes').findOne({_id:income}))!.passportEpoch).toBe(1);
+      }else{
+        expect(result.error).toMatchObject({status:409,response:{code:'STALE_CONTEXT'}});expect((await view()).selection.mode).toBe('attachment');
+      }
+      expect(await db().collection('productpassports').countDocuments({incomeId:income})).toBe(mode==='source'?0:1);expect(await db().collection('productpassports').countDocuments({incomeId:income,status:'issued'})).toBe(0);
+      expect(await db().collection('counters').find({}).sort({_id:1}).toArray()).toEqual(before);
+    }finally{resume();spy.mockRestore();}
+  });
+
 });
