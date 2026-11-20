@@ -977,3 +977,9 @@ C163: GET шаблона паспорта возвращает `product.facetVal
 - CommercialOffer: legal/версии/intake как выше; исходный date отдельно от createdAt, sourceNumber может отсутствовать. Строки sourceRowKey/sourceLine/scopeState/exclusionReason/подтверждение/неизвестная дата события. total исходного состава отдельно от agreedTotal включённых строк; orderId связывает существующий договор без автосоздания и принятия всего КП.
 
 Шесть новых partial unique индексов: salesorders(intakeUid,intakeKey),commercialoffers(intakeUid,intakeKey),incomes(orderId,sourceLine.documentUid,sourceLine.rowKey) и incomes(sourceUid). Только новые строки с заданными источниками участвуют; совместимость индексов проверяется до intake. NoMoney не получает вложенные суммы/историю/ссылки на финансовые PDF. Точный публичный контракт — C164/CONTRACT.md и сгенерированная OpenAPI после QA.
+
+## Источник паспорта позиции заказа (C170)
+
+`incomes.passportSelection` — необязательный embedded-объект: mode site|attachment, revision, attachmentId/generation, productIdAtSelection, confirmed/changed/invalidated audit. Нет поля — site/rev0. `passportEpoch` и `salesorders.passportGuard` — служебные барьеры транзакций, финансовую version не заменяют. Новый/копируемый Income выбор не наследует.
+
+`productattachments.selectionGeneration` инвалидирует старый выбор при удалении/восстановлении; purge использует token/generation и bounded lease/reconcile. Доступность подтверждается физическим файлом, не ticket. Выпущенные `productpassports` и их снимки сохраняются независимо от текущего источника позиции. Точный контракт и проекции: [C170/API-CONTRACT.md](crew/C170-attached-passport-readiness/API-CONTRACT.md).

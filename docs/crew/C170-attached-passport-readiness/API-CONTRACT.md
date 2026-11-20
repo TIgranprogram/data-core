@@ -1,5 +1,5 @@
 # C170 API contract
-Base `/api/passports/order/:orderId/lines/:incomeId/source`; existing plan `/api/passports/order/:orderId/plan`. WORK + passports section. IDs strings, dates ISO.
+Base `/api/passports/order/:orderId/lines/:incomeId/source`; existing plan `/api/passports/order/:orderId/plan`. READ + passports section для GET plan/source/candidates и POST download-ticket; WORK для PUT source/создания/выпуска. ID строковые, даты ISO. План отдаёт явную проекцию без финансовых полей.
 
 GET/PUT source: `{orderId,incomeId,productId,selection,passportEpoch,contextToken,effectiveState,missing,attachment,sitePassports}`.
 `selection={mode:'site'|'attachment',revision:number,attachmentId?,attachmentGeneration?,productIdAtSelection?,confirmedAt?,confirmedBy?,changedAt?,changedBy?,invalidatedAt?,invalidReason?}`.

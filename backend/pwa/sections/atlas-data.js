@@ -170,11 +170,12 @@ export const NODES = [
       { id: 'istochniki-teksta', t: 'Источники автотекстов для ИИ', l: 'шаблон хранит выбранный режим: фраза из частей passportParts или своя формулировка; без своего режима применяется готовая словарная фраза по категории, виду и критериям. При выпуске текст фиксируется в снимке', in: ['products', 'dicts'], alt: true },
       { id: 'vypusk-pdf', t: 'Выпуск PDF', l: 'текст и рисунки фиксируются', out: ['warranty'] },
       { id: 'pravka-vypushchennogo', t: 'Выпущенный и старый образец', l: 'выпущенный хранит снимок и номер; старые документы и черновики в новом интерфейсе только просмотр/печать без перевода в новый формат', alt: true },
-      { id: 'pasporta-zakaza', t: 'Паспорта заказа', l: '«Печать паспортов…» — из карточки заказа, «Паспорта по заказам» и панели; фото изделия в строке, отменённые позиции — одной строкой «Отменено в заказе»', alt: true },
+      { id: 'pasporta-zakaza', t: 'Паспорта заказа', l: 'готовность различает выпущенные, вложенные, готовые к выпуску и требующие заполнения; фото изделия в строке; отменённые позиции — отдельно', alt: true },
+      { id: 'vlozhennyi-pasport', t: 'Вложенный паспорт', l: 'позиция заказа → выбрать конкретный доступный файл → подтвердить «Использовать как паспорт»; отметка сохраняется только у позиции. Такой паспорт скачивается отдельно и исключён из выпуска и PDF сайта; потерянный файл не считается готовым. Можно вернуться к паспорту сайта без удаления истории', in: ['salesorders', 'products'], alt: true },
     ],
     rules: ['Без типа паспорта PDF не выпускается.', 'Одна позиция заказа — один паспорт и один номер: правка и смена фирмы номер не меняют.'],
     docs: ['docs/DOCUMENT-AUTOFILL-MAP.md', 'docs/PATTERNS.md — П-1 все документы', 'docs/crew/C155-passport-owner-queue/CONTRACT.md', 'docs/PASSPORTS-V2.md', 'docs/crew/C096-passport-system-audit/', 'docs/MAP.md — product-passport'], tech: 'productpassports, passporttemplates',
-    code: ['backend/src/modules/product-passport', 'backend/pwa/sections/passports.js', 'backend/pwa/sections/passports/', 'backend/pwa/sections/docs.js', 'backend/pwa/sections/docs-queue.js'] },
+    code: ['backend/src/modules/product-passport', 'backend/pwa/sections/passports.js', 'backend/pwa/sections/passports/', 'backend/pwa/sections/docs.js', 'backend/pwa/sections/docs-queue.js', 'backend/pwa/sections/order-passport-plan.js', 'backend/pwa/sections/passport-source-picker.js'] },
 
   // ── Производство
   { id: 'staff', tpl: 'dict', tplStatus: 'legacy', band: 'make', col: 0, sec: 'staff', t: 'Сотрудники', l: ['роли, зоны,', 'ставки, доступ'],
