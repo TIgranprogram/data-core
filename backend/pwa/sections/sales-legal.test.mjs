@@ -82,7 +82,7 @@ test('role without money cannot open legal mutation or original upload', () => {
 test('unknown PDF upload result blocks retry, rather than uploading the same file again', async () => {
   const h = harness(); h.subject.addDocument('salesorders', base(), {});
   const form = h.panels[0].panel.form;
-  const widget = form.fields.find((x) => x.key === '_file').widget();
+  const widget = form.fields().find((x) => x.key === '_file').widget();
   const picker = widget.el.children[0];
   picker.onFile({ name: 'Договор.pdf', arrayBuffer: async () => new ArrayBuffer(1) });
   await assert.rejects(form.create({ kind: 'contract', revision: '1' }), /Повтор отключён/);
@@ -109,4 +109,37 @@ test('manual draft has unknown manager tasks but no invented date, amount, produ
   assert.equal(draft.issues.some((x) => x.field === 'objectAddress' && x.state === 'unknown'), true);
   assert.equal('productionNo' in draft, false); assert.equal('payments' in draft, false);
   assert.equal(pure.manualLegalDraft({ contractDate: '2026-11-18' }).sourceDate, '2026-11-18');
+});
+
+
+test('nested offer actions expose callable kit fields, preserve exclusion evidence and leave event date unknown', async () => {
+  const panels = [], writes = [];
+  const sandbox = vm.createContext({
+    ...pure, session: { canEditOrders: true, canMoney: true },
+    document: { querySelectorAll: () => [{}] }, isoDay: () => '2026-11-20', newKey: () => 'link-uid',
+    openCard: (panel) => { panels.push(panel); return panel; },
+    api: async (path, options) => { if (!options) return { items: [{ id: 'contract1', companyId: 'company1' }] }; writes.push({ path, ...options }); return { id: 'offer1' }; },
+  });
+  vm.runInContext(bare('./offer-source.js') + '\nglobalThis.subject={scopeItem,linkOfferContract};', sandbox);
+  const record = { id: 'offer1', companyId: 'company1', legalVersion: 7, legal: {}, items: [{ productName: 'Строка 6', quantity: 1, unitPrice: 1070000, sourceRowKey: '6' }] };
+  sandbox.subject.scopeItem(record, 0, {});
+  const scope = panels[0];
+  assert.equal(scope.newTitle, 'Исключить из согласованного состава');
+  assert.equal(typeof scope.form.fields, 'function');
+  assert.deepEqual(clean(scope.form.fields().filter((x) => x.key).map((x) => x.key)), ['reason', 'confirmedAt', 'eventDate']);
+  assert.equal(scope.form.initial().eventDate, '');
+  await scope.form.create({ reason: 'Решение владельца', confirmedAt: '2026-11-20', eventDate: '' });
+  const item = writes[0].body.items[0];
+  assert.equal(item.exclusionReason, 'Решение владельца');
+  assert.equal(item.exclusionConfirmedAt, '2026-11-20');
+  assert.equal(item.exclusionEventDate, null);
+  assert.equal(item.scopeState, 'excluded');
+  assert.equal(writes[0].body.version, 7);
+  assert.equal(record.items[0].scopeState, undefined);
+  await sandbox.subject.linkOfferContract(record, {});
+  assert.equal(typeof panels[1].form.fields, 'function');
+  assert.equal(panels[1].form.fields()[1].key, 'orderId');
+  const legal = harness(); legal.subject.editLegal('offers', base(), {});
+  assert.equal(typeof legal.panels[0].panel.form.fields, 'function');
+  assert.ok(legal.panels[0].panel.form.fields().some((x) => x.key === 'objectAddress'));
 });

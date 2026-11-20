@@ -32,8 +32,9 @@ function scopeItem(record, index, ctx) {
   const item = record.items[index];
   const exclude = item.scopeState !== 'excluded';
   let saved = false;
-  const panel = { title: exclude ? 'Исключить из согласованного состава' : 'Вернуть в согласованный состав', card: {}, form: {
-    fields: [
+  const title = exclude ? 'Исключить из согласованного состава' : 'Вернуть в согласованный состав';
+  const panel = { title, newTitle: title, card: {}, form: {
+    fields: () => [
       { note: 'Исходный состав и цена остаются в истории. Изменяется только согласованный объём предложения.' },
       { key: 'reason', label: 'Основание решения', type: 'textarea', required: true, max: 1000, wide: true },
       { key: 'confirmedAt', label: 'Дата подтверждения решения', type: 'date', required: true },
@@ -93,8 +94,8 @@ export async function linkOfferContract(record, ctx) {
   const candidates = (data.items || []).filter((x) => String(x.companyId) === String(record.companyId));
   let saved = false;
   const clientUid = newKey();
-  const panel = { title: 'Связать КП с договором', card: {}, form: {
-    fields: [
+  const panel = { title: 'Связать КП с договором', newTitle: 'Связать КП с договором', card: {}, form: {
+    fields: () => [
       { note: 'Связь сохраняет историю предложения. Статус оплаты и принятый состав не меняются.' },
       { key: 'orderId', label: 'Договор покупателя', type: 'select', required: true, choose: true, wide: true, options: candidates.map((x) => ({ value: x.id, label: `Договор ${x.orderNo || '—'} · ${x.customer || 'заказчик не указан'}` })) },
     ], closeAfterCreate: true,

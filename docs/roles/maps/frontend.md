@@ -1,3 +1,8 @@
+## C164 — исправление открытия вложенных форм (2026-11-20)
+коммит: не коммитил, передано координатору
+- `backend/pwa/sections/offer-source.js:35,37,98`, `sales-legal.js:25` — kit ожидает функцию fields, исправлены исключение, связь договора и все юридические формы; осмысленные newTitle.
+- `backend/pwa/sections/sales-legal.test.mjs:115` — регрессия трёх входов, основание/подтверждение/неизвестная дата события. Targeted 10/10, imports 367/0, guards 362/362, design-lint по изменённым файлам 0. Визуальный повтор выполняет access. Карта обновлена.
+
 ## C164 — договоры, исходники и история КП (2026-11-20)
 коммит: не коммитил, код передан координатору; визуальная приёмка ожидается
 - `backend/pwa/sections/sales-legal-state.js:2,14,20,29` typed labels/unknown amounts/original-agreed/manualdraft; `sales-legal.js:15,43,63,136,179` вложенные legalCASформы, адрес/подписание/issues/ответственный, PDFappend SHA/unknownuploadSTOP, план; источники/история не заменяются.

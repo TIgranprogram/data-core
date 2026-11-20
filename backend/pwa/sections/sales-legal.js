@@ -22,7 +22,7 @@ function legalForm(kind, record, ctx, { title, fields, initial = {}, change, rea
   let confirmed = false;
   let conflict = false;
   const panel = { title, newTitle: title, card: {}, form: {
-    fields, initial: () => initial, closeAfterCreate: true, saveLabel: 'Сохранить',
+    fields: () => fields, initial: () => initial, closeAfterCreate: true, saveLabel: 'Сохранить',
     async create(values) {
       if (conflict) throw new Error('Документ уже изменили. Закройте форму и обновите карточку перед новой правкой.');
       const legal = await change(copyLegal(base), values);
