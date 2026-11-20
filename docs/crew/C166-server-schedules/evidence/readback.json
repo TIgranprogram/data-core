@@ -1,0 +1,28 @@
+{
+  "checkedAt": "2026-11-20T06:19:32.9111018Z",
+  "revision": 1,
+  "timezone": "Europe/Moscow",
+  "data": {
+    "enabled": true,
+    "time": "03:00",
+    "days": [
+      6
+    ],
+    "mode": "daily",
+    "intervalMinutes": 15
+  },
+  "code": {
+    "enabled": true,
+    "time": "03:00",
+    "days": [
+      6
+    ]
+  },
+  "nextData": "2026-11-21T00:00:00.000Z",
+  "nextCode": "2026-11-21T00:00:00.000Z",
+  "mode": "normal",
+  "role": "main",
+  "bridge": false,
+  "domain": null,
+  "job": false
+}

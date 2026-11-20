@@ -1,0 +1,38 @@
+{
+  "checks": [
+    "PUT-200",
+    "next-run-in-future",
+    "PUT-409",
+    "conflict-kept-input",
+    "cancel"
+  ],
+  "writes": [
+    {
+      "status": 200,
+      "revision": 1,
+      "code": {
+        "enabled": true,
+        "time": "03:00",
+        "days": [
+          6
+        ]
+      }
+    },
+    {
+      "status": 409,
+      "revision": null,
+      "code": "SCHEDULE_REVISION_CONFLICT"
+    }
+  ],
+  "unexpectedApiErrors": [],
+  "assetErrors": [],
+  "pageErrors": [],
+  "refusedApiWrites": 0,
+  "blockedExternalAtProxy": 25,
+  "externalPageRequests": 0,
+  "fail": {
+    "stage": "readback-and-visuals",
+    "type": "Finding",
+    "reason": "Сохранение и конфликт не подтверждены реальными HTTP-кодами."
+  }
+}
