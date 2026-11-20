@@ -63,7 +63,7 @@ export function openPassportSourcePicker(orderId, incomeId, { parent, onSaved } 
       if (!content.isConnected) return;
       content.replaceChildren(kit.stack(kit.hint('Выберите файл, который является паспортом этой позиции. Вложенные паспорта скачиваются отдельно и не входят в PDF сайта.'),
         ...(list.items || []).map((file) => kit.section({ title: file.originalName, sub: file.typeName, open: true, plain: true,
-          body: [!file.available ? kit.hint(file.unavailableReason || 'Файл недоступен', 'warn') : null,
+          body: [!file.available ? kit.hint('Файл недоступен. Загрузите его заново во «Вложения» позиции или выберите другой.', 'warn') : null,
             kit.actions(kit.button({ label: 'Использовать как паспорт', size: 'S', disabled: !file.available, onClick: async (e) => {
               if (writing) return;
               writing = true; const end = busyBtn(e.currentTarget, null);
