@@ -412,6 +412,14 @@ export class SalesOrdersService {
     if (!f.orderNo) throw new BadRequestException('Укажите № договора');
     const key = orderKey(companyShort ?? '', f.orderNo);
     const taken = await this.clash(key,undefined,!!source.intakeKey);
+    if (taken && source.intakeKey) {
+      // Первый одинаковый запрос мог завершиться после начальной проверки UID.
+      const replay = await this.model.findOne({ _id: taken._id }).setOptions({ includeSoftDeleted: true }).lean().exec();
+      if (replay?.intakeKey === source.intakeKey) {
+        assertIntakeReplay(replay as unknown as Doc, String(source.intakeHash));
+        return this.get(String(replay._id));
+      }
+    }
     if (taken) throw new ConflictException(`Договор № ${f.orderNo}${companyShort ? ` у ${companyShort}` : ''} уже есть${taken.deletedAt ? ' (в корзине)' : ''}`);
     const createDocument={...source,
       ...Object.fromEntries(Object.entries(f).filter(([, v]) => v !== undefined)),

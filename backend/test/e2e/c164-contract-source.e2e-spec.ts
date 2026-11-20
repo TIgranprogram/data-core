@@ -52,7 +52,14 @@ describe('C164 клиентский источник',()=>{
   const p=payload('legacy-source-race');const responses=await Promise.all([call().post('/api/salesorders').set(auth()).send(p),call().post('/api/salesorders').set(auth()).send({orderNo:p.orderNo,companyId:company,productionAssignment:'unassigned'})]);
   expect(responses.map(r=>r.status).sort()).toEqual([201,409]);expect(await db().collection('salesorders').countDocuments({orderNo:p.orderNo})).toBe(1);
  });
- it('конкурентныйповторсоздаётодинзаголовок',async()=>{const p=payload('18/11/46');const r=await Promise.all([call().post('/api/salesorders').set(auth()).send(p),call().post('/api/salesorders').set(auth()).send(p)]);expect(r.map(x=>x.status)).toEqual([201,201]);expect(r[0].body.id).toBe(r[1].body.id);expect(await db().collection('salesorders').countDocuments({orderNo:p.orderNo})).toBe(1);});
+ it('конкурентныйповторсоздаётодинзаголовок',async()=>{
+  for(let attempt=0;attempt<8;attempt++){
+   const p=payload(attempt===0?'18/11/46':`18/11/46-replay-${attempt}`);
+   const r=await Promise.all([call().post('/api/salesorders').set(auth()).send(p),call().post('/api/salesorders').set(auth()).send(p)]);
+   expect(r.map(x=>x.status)).toEqual([201,201]);expect(r[0].body.id).toBe(r[1].body.id);
+   expect(await db().collection('salesorders').countDocuments({orderNo:p.orderNo})).toBe(1);
+  }
+ });
  it('оригиналнеподменяетсяневернымSHAиличужимИНН',async()=>{const p=payload('wrong-sha');p.initialLegal.documents[0].sourceSha256='0'.repeat(64);await call().post('/api/salesorders').set(auth()).send(p).expect(400);const other=payload('wrong-party');other.initialLegal.counterpartySnapshot.inn='0107024068';await call().post('/api/salesorders').set(auth()).send(other).expect(400);});
  it('sourceстрокапереноситсябезавтопродукции, повторидемпотентен, другойpayload409',async()=>{
   const body={orderId:order,title:'Секция C164',qty:2,unit:'шт',unitPrice:500,clientUid:'c164-source-line',matchingMode:'manual',sourceLine:{documentUid:'doc-18/11/45',rowKey:'1',title:'Секция C164',qty:2,unit:'шт',unitPrice:500,lineAmount:1000,dimensions:'2м'}};
