@@ -307,3 +307,6 @@
 ### C170 concurrent create — runtimeFIX после FULL1
 - `backend/src/modules/product-passport/product-passport.service.ts:400` findExisting(expectedBound); `:436` scope/E11000 или точный STALE_CONTEXT→live readonly context/bind→совместимый winner, без rebaselinewrite и без ослабления claim guard. Source/contextchange409; oldissuedread сохранён.
 - `backend/test/e2e/c170-passport-source.e2e-spec.ts` deterministic winner/source/winner-source + strict HTTP Promise.all(a,uppercaseA,b); неизменённый исходный presentation concurrent testPASS. Targeted e2e2/6PASS31SKIP18.938s, unit2/26PASS3.033s, types/lint0. `CREATE-REPLAY-REPORT.md`; FREEZE; коммит: не выполнялся; карта обновлена.
+### C166 — devlog transport из worktree (20.11.2026)
+- `backend/scripts/devlog-import.js:111` mainCheckout через git common-dir; `:123` createApiTransport→main api.sh, argv subprocess/private tempfile/cleanup, без чтения credentials/login. Адресный `devlog-import.test.mjs`:8PASS; настоящий dry-run0 без сети/API.
+- Отчёт `docs/crew/C166-server-schedules/DEVLOG-TRANSPORT.md`; apply только после rootreview штатным каналом. Новый runtimeCLI не добавлен, коммит: не выполнялся; карта обновлена.

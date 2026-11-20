@@ -7,6 +7,7 @@ trap 'rm -rf -- "$lab"' EXIT
 export HOME="$lab/home-dir" LAB="$lab" MSYS_NO_PATHCONV=1
 export PATH="$HOME/bin:$PATH"
 mkdir -p "$HOME/bin"
+printf '#!/bin/bash\nexit 1\n' > "$HOME/bin/crontab"
 cat > "$HOME/bin/ssh" <<'STUB'
 #!/usr/bin/env bash
 set -eu

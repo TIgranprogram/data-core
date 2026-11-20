@@ -438,7 +438,7 @@ export const requests = {
   },
 
   form: {
-    fields: () => fields(),
+    fields: (row) => fields(row),
     initial: () => ({ qty: 1, unit: 'шт', status: 'requested', priority: 'normal', requestedBy: session.name, requestDate: isoDay() }),
     toInitial,
     toBody: (v, row) => {
