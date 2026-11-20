@@ -1,5 +1,6 @@
 import { Schema } from 'mongoose';
-const sub = (fields: Record<string, unknown>) => new Schema(fields, {_id:false, strict:true});
+// Снимки внутри договора не являются коллекциями и не имеют собственного удаления.
+const sub = (fields: Record<string, unknown>) => new Schema(fields, { _id: false, strict: true, softDelete: false });
 const money={type:Number,min:0};
 export const SourceLineSchema=sub({documentUid:String,rowKey:String,title:String,qty:Number,unit:String,unitPrice:money,lineAmount:money,description:String,dimensions:String,sku:String});
 const party=sub({name:String,inn:String,kpp:String,address:String});
