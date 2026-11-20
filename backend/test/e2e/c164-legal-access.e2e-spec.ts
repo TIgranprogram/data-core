@@ -46,9 +46,12 @@ describe('C164 — доступ и ручная группировка юрид�
   for (const marker of ['C164_PRIVATE_SOURCE',sha,file,'sourceLine','legalHistory','legalReceipts']) expect(visible).not.toContain(marker);
   await http().post('/api/salesorders').set(a).send({orderNo:'SHOULD-NOT-EXIST',companyId:company,initialLegal:legal('forbidden'),productionAssignment:'unassigned'}).expect(403);
   expect(await db().collection('salesorders').countDocuments({})).toBe(before);
-  const o=(await http().post('/api/offers').set(auth()).send({companyId:company,counterpartyId:buyer,customer:'Покупатель QA',date:'2026-11-18',intakeUid:'qa-observer-offer',initialLegal:legal('QA-OFFER','offer'),items:[{productName:'Доставка QA',quantity:1,unitPrice:1000,sourceRowKey:'1',sourceLine:{documentUid:'doc-QA-OFFER',rowKey:'1',title:'Доставка QA',qty:1,unitPrice:1000,lineAmount:1000},matchStatus:'unmatched'}]}).expect(201)).body;
+  const o=(await http().post('/api/offers').set(auth()).send({companyId:company,counterpartyId:buyer,customer:'Покупатель QA',date:'2026-11-18',intakeUid:'qa-observer-offer',initialLegal:legal('QA-OFFER','offer'),items:[{productName:'Доставка QA',quantity:1,unitPrice:1000,sourceRowKey:'1',sourceLine:{documentUid:'doc-QA-OFFER',rowKey:'1',title:'Доставка QA',qty:1,unitPrice:1000,lineAmount:1000},matchStatus:'unmatched',scopeState:'excluded',exclusionReason:'C164_PRIVATE_EXCLUSION',exclusionConfirmedAt:'2026-11-20',exclusionEventDate:null}]}).expect(201)).body;
+  await http().patch('/api/offers/'+o.id).set(auth()).send({version:0,notes:'Уточнил менеджер',reason:'C164_PRIVATE_VERSION'}).expect(200);
   const offerView=(await http().get('/api/offers/'+o.id).set(a).expect(200)).body;
   expect(JSON.stringify(offerView)).not.toContain('C164_PRIVATE_SOURCE');expect(JSON.stringify(offerView)).not.toContain(file);
+  expect(offerView).not.toHaveProperty('agreedTotal');expect(offerView).not.toHaveProperty('versions');
+  expect(JSON.stringify(offerView)).not.toContain('C164_PRIVATE_EXCLUSION');expect(JSON.stringify(offerView)).not.toContain('C164_PRIVATE_VERSION');
   await http().get('/api/offers/'+o.id+'/pdf').set(a).expect(403);
  });
  it('два договора после ручного сопоставления попадают в один заказ без смены исходников и новых заданий',async()=>{

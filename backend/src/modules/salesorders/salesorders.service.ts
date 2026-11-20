@@ -1,5 +1,6 @@
+import { loadOrderMatches } from '../matching/match-facts';
 import { LegalPatchDto } from '../../common/legal/legal.dto';
-import { assertIntakeIndexes, assertIntakeReplay, intakeContentHash, intakeBusinessKey, legalHash, legalPresentation, legalSummary, patchLegal, prepareLegal, validateLegalFiles, validateLegalParties } from '../../common/legal/legal-utils';
+import { assertIntakeIndexes, assertSalesBusinessIndex, assertIntakeReplay, intakeContentHash, intakeBusinessKey, legalHash, legalPresentation, legalSummary, patchLegal, prepareLegal, validateLegalFiles, validateLegalParties } from '../../common/legal/legal-utils';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -362,12 +363,12 @@ export class SalesOrdersService {
   }
 
   /** Другой действующий заказ с тем же «компания|номер» (по ключу или по текущим полям). */
-  private async clash(key: string, exceptId?: Types.ObjectId) {
+  private async clash(key: string, exceptId?: Types.ObjectId, strictUnknown=false) {
     const byKey = await this.model.findOne({ importKey: key, ...(exceptId ? { _id: { $ne: exceptId } } : {}) }).setOptions({ includeSoftDeleted: true }).lean().exec();
     if (byKey) return byKey;
     const no = key.slice(key.indexOf('|') + 1);
-    const cands = await this.model.find({ deletedAt: null, ...(exceptId ? { _id: { $ne: exceptId } } : {}) }, { orderNo: 1, companyId: 1 }).lean().exec();
-    for (const c of cands) if (orderKey('', c.orderNo).slice(1) === no && orderKey(await this.companyShort(c.companyId), c.orderNo) === key) return c;
+    const cands = await this.model.find({ ...(exceptId ? { _id: { $ne: exceptId } } : {}) }, { orderNo: 1, companyId: 1,deletedAt:1 }).setOptions({includeSoftDeleted:true}).lean().exec();
+    for (const c of cands)if(orderKey('',c.orderNo).slice(1)===no){const company=await this.companyShort(c.companyId);if(strictUnknown&&!company)return c;if(orderKey(company,c.orderNo)===key)return c;}
     return null;
   }
 
@@ -387,6 +388,7 @@ export class SalesOrdersService {
       if(!selectedCompany||(dto.initialLegal.origin?.kind!=='manual'&&(!dto.counterpartyId||!dto.intakeUid)))throw new BadRequestException('Для источника выберите нашу компанию, контрагента и ключ загрузки');
       if(dto.initialLegal.origin?.kind==='source_import'&&(String(dto.initialLegal.sourceNumber||'').trim()!==String(dto.orderNo||'').trim()||f.contractDate&&(f.contractDate as Date).toISOString().slice(0,10)!==dto.initialLegal.sourceDate))throw new BadRequestException('Номер и дата договора должны совпадать с источником');
       await assertIntakeIndexes(this.model,['c164_sales_intake_uid','c164_sales_intake_key']);
+      await assertSalesBusinessIndex(this.model);
       const intakeKey=dto.initialLegal.origin?.kind==='manual'?legalHash(['contract-derived',selectedCompany,dto.counterpartyId,dto.orderNo]):intakeBusinessKey(dto.initialLegal,'contract'),intakeHash=intakeContentHash(dto);
       const intakeUid=dto.intakeUid||'manual-'+intakeKey;
       const dup=await this.model.findOne({$or:[{intakeUid},{intakeKey}]}).setOptions({includeSoftDeleted:true}).lean().exec();
@@ -405,8 +407,8 @@ export class SalesOrdersService {
     else if (!String(f.productionNo ?? '').trim()) f.productionNo = (await this.nextProductionNo()).value;
     if (dto.requireFields) this.checkRequired(dto.productionAssignment==='unassigned'?{...f,productionNo:'без заказа'}:f);
     if (!f.orderNo) throw new BadRequestException('Укажите № договора');
-    const key = source.intakeKey?'source|'+String(source.intakeKey):orderKey(companyShort ?? '', f.orderNo);
-    const taken = source.intakeKey?null:await this.clash(key);
+    const key = orderKey(companyShort ?? '', f.orderNo);
+    const taken = await this.clash(key,undefined,!!source.intakeKey);
     if (taken) throw new ConflictException(`Договор № ${f.orderNo}${companyShort ? ` у ${companyShort}` : ''} уже есть${taken.deletedAt ? ' (в корзине)' : ''}`);
     const createDocument={...source,
       ...Object.fromEntries(Object.entries(f).filter(([, v]) => v !== undefined)),
@@ -414,7 +416,7 @@ export class SalesOrdersService {
       ...(f.productionNo?{productionAddedAt:new Date()}:{}),
       createdBy: userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined,
     };
-    let doc;try{doc=await this.model.create(createDocument);}catch(e){if((e as {code?:number}).code!==11000||!source.intakeKey)throw e;const dup=await this.model.findOne({$or:[{intakeKey:source.intakeKey},{intakeUid:dto.intakeUid}]}).setOptions({includeSoftDeleted:true}).lean().exec();if(!dup)throw e;assertIntakeReplay(dup as any,String(source.intakeHash));return this.get(String(dup._id));}
+    let doc;try{doc=await this.model.create(createDocument);}catch(e){if((e as {code?:number}).code!==11000)throw e;if(!source.intakeKey)throw new ConflictException('Договор с таким номером у нашей компании уже существует');const dup=await this.model.findOne({$or:[{intakeKey:source.intakeKey},{intakeUid:dto.intakeUid}]}).setOptions({includeSoftDeleted:true}).lean().exec();if(!dup)throw new ConflictException('Договор с таким номером у нашей компании уже существует — сверка обязательна');assertIntakeReplay(dup as any,String(source.intakeHash));return this.get(String(dup._id));}
     await this.afterCreate(doc.toObject() as unknown as Doc, userId);
     return this.get(String(doc._id));
   }
@@ -433,6 +435,10 @@ export class SalesOrdersService {
   async assertHasLines(docs: Doc[], target?: string) {
     if (!target || ORDER_STAGES.indexOf(target as OrderStage) < ORDER_STAGES.indexOf('production') || target === 'cancelled') return;
     const fresh = docs.filter((d) => (d.stage || 'new') === 'new');
+    const manual=fresh.length?await this.incomes().find({orderId:{$in:fresh.map(d=>d._id)},matchingMode:'manual',deletedAt:null,cancelledAt:null},{projection:{orderId:1,matchingMode:1}}).toArray():[];
+    const manualIds=new Set(manual.filter(d=>d.matchingMode==='manual').map(d=>String(d.orderId)));
+    const source=fresh.filter(d=>!!d.legal||manualIds.has(String(d._id)));
+    if(source.length){const matches=await loadOrderMatches(this.connection.db!,source.map(d=>d._id));for(const d of source){const m=matches.get(String(d._id));if(!m?.total||m.unmatched.length)throw new ConflictException('Перед запуском производства сопоставьте позиции договора с изделиями');}}
     for (const d of fresh) {
       const n = await this.incomes().countDocuments({ orderId: d._id, deletedAt: null, cancelledAt: null }, { limit: 1 });
       if (!n) throw new ConflictException(`В договоре ${d.orderNo || ''} нет позиций — добавьте позиции, потом переводите в производство`);

@@ -50,7 +50,11 @@ export async function validateLegalFiles(connection:Connection,legal:LegalBundle
  const ids=legal.documents.map(d=>new Types.ObjectId(d.fileId));
  const photos=ids.length?await connection.db!.collection('photos').find({_id:{$in:ids},deletedAt:null},{projection:{storageUrl:1,sha256:1,sizeBytes:1,variant:1}}).toArray():[];
  const byId=new Map(photos.map(x=>[String(x._id),x]));
- for(const d of legal.documents){const p=byId.get(String(d.fileId));if(!p||p.variant==='thumb')throw new BadRequestException('Оригинал файла не найден');const file=safeUploadPath(p.storageUrl);if(!file)throw new BadRequestException('Для договора нужен локальный оригинал');try{const info=await stat(file);if(info.size>30*1024*1024)throw new Error();const bytes=await readFile(file);if(createHash('sha256').update(bytes).digest('hex')!==d.sourceSha256)throw new BadRequestException('Контрольная сумма оригинала отличается');}catch(e){if(e instanceof BadRequestException)throw e;throw new BadRequestException('Не удалось проверить оригинал файла');}}
+ for(const d of legal.documents){const p=byId.get(String(d.fileId));if(!p||p.variant==='thumb')throw new BadRequestException('Оригинал файла не найден');const file=safeUploadPath(p.storageUrl);if(!file)throw new BadRequestException('Для договора нужен локальный оригинал');try{const info=await stat(file);if(info.size>30*1024*1024)throw new Error();const bytes=await readFile(file);if(createHash('sha256').update(bytes).digest('hex')!==d.sourceSha256)throw new BadRequestException('Контрольная сумма оригинала отличается');}catch(e){if(e instanceof BadRequestException)throw e;throw new BadRequestException('Не удалось проверить оригинал файла');}
+ const reserved=await connection.model('Photo').updateOne({_id:p._id,deletedAt:null,sourceDeleting:{$ne:true}},{$set:{sourceProtected:true}}).exec();
+ if(!reserved.matchedCount)throw new ConflictException('Файл уже удаляется или недоступен — оригинал не привязан');
+ if(await connection.db!.collection('photos').findOne({storageUrl:p.storageUrl,sourceDeleting:true},{projection:{_id:1}}))throw new ConflictException('Файл уже удаляется через другую ссылку — оригинал не привязан');
+ }
  for(const i of legal.issues)if(i.responsibleId&&!(await connection.db!.collection('persons').findOne({_id:new Types.ObjectId(i.responsibleId),deletedAt:null},{projection:{_id:1}})))throw new BadRequestException('Ответственный сотрудник не найден');
 }
 /** Legal версия+история+receipt одной CAS записью. Не повторять unknown результат без чтения. */
@@ -96,3 +100,9 @@ export async function validateLegalParties(connection:Connection,companyId:strin
 }
 
 export function intakeContentHash(dto:Row){const content={...dto};for(const key of ['intakeUid','clientUid','requireFields'])delete content[key];return legalHash(content);}
+
+/** Новый источник разделяет существующий unique importKey с legacy CREATE. */
+export async function assertSalesBusinessIndex(model:Model<any>){
+ let indexes;try{indexes=await model.collection.indexes();}catch{throw new ServiceUnavailableException('Индекс номера договора недоступен');}
+ if(!indexes.some(i=>JSON.stringify(i.key)===JSON.stringify({importKey:1})&&i.unique===true&&i.sparse===true&&!i.partialFilterExpression&&!i.hidden&&(!i.collation||i.collation.locale==='simple')))throw new ServiceUnavailableException('Сначала требуется проверить единый индекс номера договора');
+}

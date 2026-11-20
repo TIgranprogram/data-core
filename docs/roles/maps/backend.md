@@ -275,3 +275,16 @@
 
 ## C164 — КП source/legal (20.11.2026)
 - `backend/src/modules/offers/offer-source.ts:8` original/agreed и immutable source/targetmatch; `offers.service.ts:131` CASpendingconversion/manualincluded/unassigned/replay; `offers.service.ts:220` legal/linkhandlers, `offers.service.ts:313` sourcecreate/readproof; `offer.schema.ts:15` typedsource/exclusion, `offers.controller.ts:153` legal/linkroutes иnoMoneyPDF403. Новыеunit/e2e:offer-source.spec.ts,offers.source-conversion.spec.ts,offers-legal.e2e-spec.ts. Smoke15suites/85PASS,tsc/eslint0; full/e2eещёQAкоординатора. ОтчётC164/BACKEND-OFFERS-REPORT.md. Коммит: не выполнялся; карта обновлена.
+
+## C164 договоры/common legal/source Income (20.11.2026)
+- `backend/src/common/legal/legal.dto.ts:65` LegalBundleDto; `legal-utils.ts:22` prepareLegal/immutableoriginal/resolvedactual; `:57` patchLegal CAS/receipts; `:86` exactindexgate; `legal.schema.ts` typedsubschemas.
+- `salesorders/salesorders.service.ts:381` create unassigned/sourceUID; `incomes/incomes.service.ts:357` source row/manual mode; `finance/legal-forecast.ts:4` source event plan, `financial-operations-reader.service.ts:44` groupfilter. Scopedindexscript `backend/scripts/c164-source-indexes.js` plan→apply6only.
+- `backend/test/e2e/c164-contract-source.e2e-spec.ts` targeted6HTTPprepared; unit15/164PASS, tsc/eslint0. Отчёт `docs/crew/C164-new-documents-chain-audit/BACKEND-CONTRACTS-REPORT.md`; коммит:не закоммичен, координаторвыполнит.
+
+### C164 review1 (20.11)
+- `matching/matching.service.ts:185` bulk:manualsources/siblingsне вызываютautoDesign; `matching/c164-manual-source.spec.ts`3regressions. `salesorders.service.ts:create/clash` source/legacyразделяютстарыйuniqueimportKey,deleted/unknowncompanyfailclosed. `legal-utils.ts:assertSalesBusinessIndex` READONLYlegacyguard; CLIпоказываетегоотдельно.
+- MoneyMasksourcehistory/text/agreeTotal скрыты; IncomesourceNULLdetach409,allnew/movedFXguard. tsc/eslint0,33/273ифинальный6/35unitPASS; e2e9prepared QA. P2crosslinkconcurrencyявнонеустранён, reportдополнен. коммит:не закоммичен(координатор).
+
+### C164 оригиналы/группировка, финальный узкий пакет20.11
+- `photos/photos.service.ts:assertNoDocumentReferences/claimSourceDeletion/remove` rawreferencesвключаяdeleted, sharedURLaliases, conditionaldeleteclaims; `common/legal/legal-utils.ts:validateLegalFiles` Photo.sourceProtected доparentCAS/двапорядкасериализации. `photos/photo.schema.ts` serverflagsdefaultundefined; tests `c164-photo-reference.spec.ts`, `c164-photo-serialization.spec.ts`.
+- `salesorders/production-orders.service.ts:groupingOnlyIds/unassigned/assign` groupingдоmatchingдляlegal/manualsource; `salesorders.service.ts:assertHasLines` sourceproductionstartвсёещёгейтитсяреальнымmatching. E2EдвасценарияподготовленыQA. tsc/eslint0,18suites94unitPASS. FullarchiveC167отдельно; коммит:не закоммичен(координатор).

@@ -63,7 +63,7 @@ export class OffersService {
       terms: o.terms ?? null, notes: o.notes ?? null, bg1Id: o.bg1Id ?? null, bg2Id: o.bg2Id ?? null, orderId: o.orderId ? String(o.orderId) : null,
       legalSummary: o.legal ? legalSummary(o.legal, (o.items || []).filter((r: Doc) => r.scopeState !== 'excluded' && !r.productId).length) : null,
       ...(detail ? { legal: o.legal, legalVersion: o.legalVersion ?? 0, readiness: legalPresentation({ ...o, unassignedCount: (o.items || []).filter((r: Doc) => r.scopeState !== 'excluded' && !r.productId).length }).readiness, versions: o.versions || [], legalHistory: o.legalHistory || [] } : {}),
-      versionCount: ((o.versions as Doc[]) ?? []).length,
+      versionCount: Number(o.versionCount ?? ((o.versions as Doc[]) ?? []).length),
       statusHistory: (o.statusHistory as Doc[]) ?? [], createdAt: o.createdAt ?? null, updatedAt: o.updatedAt ?? null,
     };
   }
@@ -265,12 +265,16 @@ export class OffersService {
     if (packId) filter.packId = packId;
     const opt = { includeSoftDeleted: true };
     const [rows, total, grouped] = await Promise.all([
-      this.model.find(filter).setOptions(opt).sort({ ...p.sort, _id: -1 }).skip(p.skip).limit(p.limit).lean().exec() as unknown as Promise<Doc[]>,
+      this.model.find(filter,{legalHistory:0,legalReceipts:0,orderConversion:0,versions:0,linkReceipts:0}).setOptions(opt).sort({ ...p.sort, _id: -1 }).skip(p.skip).limit(p.limit).lean().exec() as unknown as Promise<Doc[]>,
       this.model.countDocuments(filter).setOptions(opt).exec(),
       this.model.aggregate([{ $match: base }, { $group: { _id: '$status', n: { $sum: 1 } } }]).exec() as Promise<Array<{ _id: string; n: number }>>,
     ]);
     const counts: Record<string, number> = { all: 0, ...Object.fromEntries(OFFER_STATUSES.map((s) => [s, 0])) };
     for (const g of grouped) { counts[g._id] = g.n; counts.all += g.n; }
+    // Сохраняем публичный versionCount, не передавая массивы снимков в список.
+    const versionCounts=rows.length?await this.model.aggregate([{$match:{_id:{$in:rows.map(r=>r._id)}}},{$project:{versionCount:{$size:{$ifNull:['$versions',[]]}}}}]).exec() as Doc[]:[];
+    const countById=new Map(versionCounts.map(r=>[String(r._id),Number(r.versionCount)]));
+    for(const row of rows){const count=countById.get(String(row._id));if(count!==undefined&&Number.isFinite(count))row.versionCount=count;}
     const names = await this.companyNames(rows.map((r) => r.companyId));
     const packSizes = await this.packSizes(rows.map((r) => r.packId as string | undefined));
     return {

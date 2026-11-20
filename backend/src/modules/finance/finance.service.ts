@@ -173,7 +173,7 @@ export class FinanceService {
     const activeInvoiceIds = new Set(factHeaders.map((x) => String(x._id)));
     const ledgerFacts = periodFacts.filter((x) => activeInvoiceIds.has(String(x.invoiceId)));
     const shippedParents=shipped.length?await db.collection('salesorders').find({_id:{$in:shipped.map(i=>i.orderId).filter(Boolean)}},{projection:{legal:1}}).toArray():[];
-    const unknownLegal=new Set(shippedParents.filter(o=>o.legal&&(o.legal.state!=='verified'||o.legal.signature?.state!=='both')).map(o=>String(o._id)));
+    const unknownLegal=new Set(shippedParents.filter(o=>o.legal&&(o.legal.currency!=='RUB'||o.legal.state!=='verified'||o.legal.signature?.state!=='both')).map(o=>String(o._id)));
     const cat = new Map(cats.map((c) => [String(c._id), String(c.name)]));
     const org = new Map(orgs.map((o) => [String(o._id), String(o.shortName || o.name)]));
     const thumbMap = await firstPhotoThumbs(db, reqs);

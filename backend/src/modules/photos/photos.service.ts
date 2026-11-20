@@ -313,10 +313,37 @@ export class PhotosService {
       .exec();
   }
 
+  /** Юридические оригиналы и файлы счетов не удаляются вместе с произвольным фото. Читаем и корзину. */
+  private async assertNoDocumentReferences(doc: PhotoDocument, variants: PhotoDocument[]) {
+    const db=this.model.db.db!;
+    const urls=[doc.storageUrl,...variants.map(v=>v.storageUrl)];
+    const aliases=await db.collection('photos').find({storageUrl:{$in:urls}},{projection:{_id:1,sourceProtected:1}}).toArray();
+    if(aliases.some(p=>p.sourceProtected===true))throw new ConflictException('Файл защищён как источник — удаление запрещено');
+    const values=[doc._id,doc.parentPhotoId,doc.linkedPhotoId,...variants.map(v=>v._id),...aliases.map(p=>p._id)].filter(Boolean);
+    const ids=[...new Set(values.map(String))].filter(Types.ObjectId.isValid).map(id=>new Types.ObjectId(id));
+    for(const name of ['salesorders','commercialoffers']){
+      const used=await db.collection(name).findOne({$or:[{'legal.documents.fileId':{$in:ids}},{'legalHistory.legal.documents.fileId':{$in:ids}},...(name==='commercialoffers'?[{'versions.snapshot.legal.documents.fileId':{$in:ids}}]:[])]},{projection:{_id:1}});
+      if(used)throw new ConflictException('Файл сохранён в истории договора или КП — удаление запрещено');
+    }
+    if(await db.collection('supplyinvoices').findOne({fileIds:{$in:ids}},{projection:{_id:1}}))throw new ConflictException('Файл приложен к счёту поставщика — удаление запрещено');
+  }
+
+  private async claimSourceDeletion(doc:PhotoDocument,variants:PhotoDocument[]){
+    const aliases=await this.model.db.db!.collection('photos').find({storageUrl:{$in:[doc.storageUrl,...variants.map(v=>v.storageUrl)]}},{projection:{_id:1}}).toArray();
+    const ids=[...new Set([doc._id,...variants.map(v=>v._id),...aliases.map(p=>p._id)].filter(Boolean).map(String))].filter(Types.ObjectId.isValid).map(id=>new Types.ObjectId(id));
+    const token=randomUUID();
+    const result=await this.model.updateMany({_id:{$in:ids},deletedAt:null,sourceProtected:{$ne:true},sourceDeleting:{$ne:true}},{$set:{sourceDeleting:true,sourceDeleteClaim:token}}).exec();
+    const rollback=()=>this.model.updateMany({sourceDeleteClaim:token},{$unset:{sourceDeleting:'',sourceDeleteClaim:''}}).exec();
+    if(result.modifiedCount!==ids.length){await rollback();throw new ConflictException('Файл защищён как источник или уже удаляется — удаление запрещено');}
+    return rollback;
+  }
+
   async remove(id: string): Promise<void> {
     const doc = await this.findById(id);
     // варианты фото (миниатюра, повёрнутая копия) — отдельные записи со ссылкой parentPhotoId: удаляются вместе (М9)
     const variants = await this.model.find({ parentPhotoId: doc._id }).exec();
+    const rollback=await this.claimSourceDeletion(doc,variants);
+    try{await this.assertNoDocumentReferences(doc,variants);}catch(e){await rollback();throw e;}
     for (const v of variants) await v.deleteOne();
     await doc.deleteOne();
     // Файлы — по возможности: нет файла или прав — предупреждение, запрос не падает (истина — запись в базе).

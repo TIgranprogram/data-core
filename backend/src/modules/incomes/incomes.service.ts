@@ -353,7 +353,14 @@ export class IncomesService {
   }
   private assertOrderOpen(orderId: unknown, actor: AuthenticatedUser | undefined) { return this.assertCanChange(orderId, actor); }
 
+  private async assertAccountingCurrency(orderId:unknown){
+    if(!orderId)return;
+    const parent=await this.connection.db!.collection('salesorders').findOne({_id:typeof orderId==='string'?oid(orderId,'договора'):orderId,deletedAt:null},{projection:{'legal.currency':1}});
+    if(parent?.legal?.currency&&parent.legal.currency!=='RUB')throw new BadRequestException('Для валютного договора сначала требуется подтверждённая рублёвая учётная сумма');
+  }
+
   async create(dto: IncomeDto, userId?: string, actor?: AuthenticatedUser) {
+    await this.assertAccountingCurrency(dto.orderId);
     let source:Record<string,unknown>={};
     if(dto.sourceLine){
       if(dto.matchingMode!=='manual'||!dto.orderId||!dto.clientUid)throw new BadRequestException('Строке источника нужны договор и ручное сопоставление');
@@ -419,7 +426,8 @@ export class IncomesService {
     if (!cur) throw new NotFoundException('Запись дохода не найдена');
     if(dto.sourceLine&&legalHash(dto.sourceLine)!==legalHash(cur.sourceLine))throw new ConflictException('Исходная строка неизменяема');
     if(dto.matchingMode&&dto.matchingMode!==cur.matchingMode)throw new ConflictException('Режим источника фиксируется при создании');
-    if(cur.matchingMode==='manual'&&(dto.lineType==='new_product'||dto.productRequestId||dto.orderId&&String(dto.orderId)!==String(cur.orderId)))throw new BadRequestException('Исходная строка остаётся в своём договоре без автоматического создания изделия');
+    if(cur.matchingMode==='manual'&&(dto.lineType==='new_product'||dto.productRequestId||dto.orderId!==undefined&&String(dto.orderId||'')!==String(cur.orderId||'')))throw new ConflictException('Исходная строка остаётся в своём договоре без автоматического создания изделия');
+    if(dto.orderId!==undefined&&String(dto.orderId||'')!==String(cur.orderId||''))await this.assertAccountingCurrency(dto.orderId);
     // C049-1: устаревшая правка — до любых проверок и побочных записей
     if (isStale(cur as { version?: unknown }, dto.version)) throw staleError('Позицию');
     const f = await this.toFields({ ...dto, ...(dto.articleId !== undefined && String(dto.articleId || '') === String(cur.articleId || '') ? { articleId: undefined } : {}) });

@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { mkdtemp, writeFile, rm } from 'fs/promises';
+import { mkdtemp, readFile, writeFile, rm } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { createHash } from 'crypto';
@@ -32,12 +32,42 @@ describe('C164 клиентский источник',()=>{
   const replay=await call().post('/api/salesorders').set(auth()).send({...p,intakeUid:'another-uid'}).expect(201);expect(replay.body.id).toBe(order);
   await call().post('/api/salesorders').set(auth()).send({...p,notes:'изменено'}).expect(409);
  });
+ it('DELETE привязанного оригинала409, PhotoID/байты/SHAсохранены',async()=>{
+  await call().delete('/api/photos/'+file).set(auth()).expect(409);
+  expect((await db().collection('photos').findOne({_id:new Types.ObjectId(file)}))?.deletedAt).toBeNull();
+  expect(createHash('sha256').update(await readFile(join(folder,'source.pdf'))).digest('hex')).toBe(sha);
+ });
+ it('source не дублирует активный legacy и deleted legacy без importKey',async()=>{
+  const active=payload('legacy-active');await call().post('/api/salesorders').set(auth()).send({orderNo:active.orderNo,companyId:company,productionAssignment:'unassigned'}).expect(201);
+  await call().post('/api/salesorders').set(auth()).send(active).expect(409);
+  const deleted=payload('legacy-deleted');await db().collection('salesorders').insertOne({orderNo:deleted.orderNo,companyId:new Types.ObjectId(company),deletedAt:new Date()});
+  await call().post('/api/salesorders').set(auth()).send(deleted).expect(409);
+ });
+ it('source и legacy CREATE делят единый concurrency guard',async()=>{
+  const p=payload('legacy-source-race');const responses=await Promise.all([call().post('/api/salesorders').set(auth()).send(p),call().post('/api/salesorders').set(auth()).send({orderNo:p.orderNo,companyId:company,productionAssignment:'unassigned'})]);
+  expect(responses.map(r=>r.status).sort()).toEqual([201,409]);expect(await db().collection('salesorders').countDocuments({orderNo:p.orderNo})).toBe(1);
+ });
  it('конкурентныйповторсоздаётодинзаголовок',async()=>{const p=payload('18/11/46');const r=await Promise.all([call().post('/api/salesorders').set(auth()).send(p),call().post('/api/salesorders').set(auth()).send(p)]);expect(r.map(x=>x.status)).toEqual([201,201]);expect(r[0].body.id).toBe(r[1].body.id);expect(await db().collection('salesorders').countDocuments({orderNo:p.orderNo})).toBe(1);});
  it('оригиналнеподменяетсяневернымSHAиличужимИНН',async()=>{const p=payload('wrong-sha');p.initialLegal.documents[0].sourceSha256='0'.repeat(64);await call().post('/api/salesorders').set(auth()).send(p).expect(400);const other=payload('wrong-party');other.initialLegal.counterpartySnapshot.inn='0107024068';await call().post('/api/salesorders').set(auth()).send(other).expect(400);});
  it('sourceстрокапереноситсябезавтопродукции, повторидемпотентен, другойpayload409',async()=>{
   const body={orderId:order,title:'Секция C164',qty:2,unit:'шт',unitPrice:500,clientUid:'c164-source-line',matchingMode:'manual',sourceLine:{documentUid:'doc-18/11/45',rowKey:'1',title:'Секция C164',qty:2,unit:'шт',unitPrice:500,lineAmount:1000,dimensions:'2м'}};
   const before=await db().collection('products').countDocuments({});const a=await call().post('/api/incomes').set(auth()).send(body).expect(201);line=a.body.id;expect(a.body.productId).toBeFalsy();expect(a.body.sourceLine.dimensions).toBe('2м');
   expect((await call().post('/api/incomes').set(auth()).send(body).expect(201)).body.id).toBe(line);await call().post('/api/incomes').set(auth()).send({...body,qty:3}).expect(409);expect(await db().collection('products').countDocuments({})).toBe(before);expect(await db().collection('designtasks').countDocuments({incomeId:new Types.ObjectId(line)})).toBe(0);
+ });
+ it('менеджер группирует два legal договора до matching; запуск производства пока запрещён',async()=>{
+  const other=await db().collection('salesorders').findOne({orderNo:'18/11/46'});
+  const free=await call().get('/api/production-orders/unassigned').query({limit:100}).set(auth()).expect(200);
+  expect(free.body.items.find((x:any)=>x.id===order)?.canAssign).toBe(true);
+  const assigned=await call().post('/api/production-orders/assign').set(auth()).send({contractIds:[order,String(other!._id)]}).expect(200);
+  const after=await call().get('/api/salesorders/'+order).set(auth()).expect(200);expect(after.body.productionNo).toBe(assigned.body.productionNo);expect(after.body.lines[0].productId).toBeFalsy();
+  await call().patch('/api/salesorders/'+order).set(auth()).send({stage:'production'}).expect(409);
+  expect(await db().collection('designtasks').countDocuments({orderId:new Types.ObjectId(order)})).toBe(0);
+ });
+ it('source строка не отвязывается null orderId; обычная строка не создаёт RUB стоимость под USD договором',async()=>{
+  await call().patch('/api/incomes/'+line).set(auth()).send({orderId:null}).expect(409);
+  expect(String((await db().collection('incomes').findOne({_id:new Types.ObjectId(line)}))?.orderId)).toBe(order);
+  const usd=await db().collection('salesorders').insertOne({orderNo:'USD-source',companyId:new Types.ObjectId(company),legal:{state:'draft',currency:'USD'},deletedAt:null});
+  await call().post('/api/incomes').set(auth()).send({orderId:String(usd.insertedId),title:'Валюта',qty:1,unitPrice:100}).expect(400);
  });
  it('legalCASсохраняетредактированиеиоригинал,повторнеперезаписываетновоерешениеменеджера',async()=>{
   const get=await call().get('/api/salesorders/'+order).set(auth()).expect(200);const next={...get.body.legal,objectAddress:'Подтверждённый адрес',issues:[{uid:'address',field:'objectAddress',label:'Адрес объекта',reason:'Не указан',state:'resolved',resolution:'Уточнил менеджер'}]};
