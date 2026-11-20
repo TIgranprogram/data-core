@@ -1,5 +1,9 @@
 # Карта роли architect
 
+## C169 — файловая очередь документов, совет до кода
+
+коммит: a8413b18. [ARCH-PLAN.md](../../crew/C169-local-document-intake/ARCH-PLAN.md) — ID поступления и SHA документа, журнал намерений, восстановление по UID и проверка результата перед Ready. Основания в C169/TZ.md:21 и C164/CONTRACT.md:83. Доступность гарантий в конкретных API сверяет аналитик. Карта обновлена.
+
 ## C165 — первый адресный кодовой review (19.11.2026)
 коммит: f76489b9 (новый рабочий diff C165, исторический scope267bc1c не закрыт)
 - Второй, последний адресный проход: P1закрыт `supply.service.ts:764,789,794,810` fresh request/invoice + sourceCAS + unconditional stockcallback/directtx; reverse attach/createCAS `supply-invoice.service.ts:354,530,534`. P2filesзакрыт `:289–297` и `pwa/sections/invoice-workspace.js:241`. Ниже строки первого пакета — история, не открытые P1. Итог можно по архитектуре; до общего QA/UI послеC163.
