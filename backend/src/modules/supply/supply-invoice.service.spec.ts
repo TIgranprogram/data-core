@@ -16,7 +16,7 @@ const chain = (result: unknown) => {
 
 const connection = () => ({
   startSession: async () => ({ withTransaction: async (fn: () => Promise<void>) => fn(), endSession: async () => undefined }),
-  db: { collection: () => ({ findOne: async () => null, find: () => ({ toArray: async () => [] }), countDocuments: async () => 0 }) },
+  db: { collection: () => ({ findOne: async () => null, find: () => ({ toArray: async () => [] }), countDocuments: async () => 0, updateOne: async () => ({ matchedCount: 1 }) }) },
 });
 
 /** Фейковый model счетов: хранит документы, применяет $set/$unset/$inc/$push. */

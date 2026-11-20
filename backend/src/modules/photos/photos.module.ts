@@ -4,6 +4,8 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Photo, PhotoSchema } from './photo.schema';
 import { PhotosService } from './photos.service';
 import { PhotosController } from './photos.controller';
+import { PhotoIntakeController } from './photo-intake.controller';
+import { PhotoIntakeService } from './photo-intake.service';
 import { photoUploadMulterOptions } from './image-upload.options';
 
 @Module({
@@ -11,8 +13,8 @@ import { photoUploadMulterOptions } from './image-upload.options';
     MongooseModule.forFeature([{ name: Photo.name, schema: PhotoSchema }]),
     MulterModule.register(photoUploadMulterOptions),
   ],
-  controllers: [PhotosController],
-  providers: [PhotosService],
-  exports: [PhotosService, MongooseModule],
+  controllers: [PhotoIntakeController, PhotosController],
+  providers: [PhotosService, PhotoIntakeService],
+  exports: [PhotosService, PhotoIntakeService, MongooseModule],
 })
 export class PhotosModule {}

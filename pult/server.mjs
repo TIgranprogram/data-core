@@ -18,18 +18,19 @@ import { terminateProcess } from './process.mjs';
 import { assertRun, dockerEndpointProbe, localDockerEndpoint } from '../tools/night-owner.mjs';
 import { STAND_BACKUP_DIR } from '../tools/night.mjs';
 import { aiLive, aiStopAll } from './ai-live.mjs';
+import { createDocumentIntake } from './document-intake.mjs';
 import { KINDS, SAFE_RISKS, WEEKDAYS, cleanRule, isDue, lastSlot, mergeRules, nextSlot, ruleText } from './schedule.mjs';
 import { ROOT, ROUTE_LABEL, adviceFor, buildRun, childEnv, cleanLine, detectMachine, listProdScripts, missingNeeds, validateParams } from './dispatch.mjs';
 
 const UI_DIR = path.join(ROOT, 'pult', 'ui');
 
-/** Отпечаток кода пульта (имена и время изменения файлов pult/*.mjs и pult/ui/*). Изменился — пульт перезапускается сам. */
+/** Отпечаток кода пульта. Изменился — пульт перезапускается сам. */
 export function codeStamp() {
   const dirs = [path.join(ROOT, 'pult'), UI_DIR];
   const parts = [];
   for (const d of dirs) {
     for (const f of fs.readdirSync(d).sort()) {
-      if (d !== UI_DIR && !f.endsWith('.mjs')) continue;
+      if (d !== UI_DIR && !f.endsWith('.mjs') && f !== 'document-intake-folder.ps1') continue;
       const st = fs.statSync(path.join(d, f)); if (st.isFile()) parts.push(`${f}:${st.mtimeMs}`);
     }
   }
@@ -42,7 +43,7 @@ function respawn(port) {
   const child = spawn(process.execPath, [SELF, '--no-open', '--respawned'], { cwd: ROOT, detached: true, windowsHide: true, stdio: 'ignore', env: { ...process.env, PULT_PORT: String(port) } });
   child.unref();
 }
-const STATIC = { '/app.js': 'text/javascript; charset=utf-8', '/chain.mjs': 'text/javascript; charset=utf-8', '/style.css': 'text/css; charset=utf-8', '/icon.svg': 'image/svg+xml' };
+const STATIC = { '/app.js': 'text/javascript; charset=utf-8', '/chain.mjs': 'text/javascript; charset=utf-8', '/document-intake.js': 'text/javascript; charset=utf-8', '/style.css': 'text/css; charset=utf-8', '/icon.svg': 'image/svg+xml' };
 const MAX_JOB_LINES = 20000;
 const KEEP_LOGS = 200;
 const NEEDS_CONFIRM = new Set(['prod-write', 'danger']);
@@ -62,6 +63,14 @@ function openExternal(target) {
   const opener = process.platform === 'win32' ? 'explorer.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open';
   spawn(opener, [target], { detached: true, stdio: 'ignore', windowsHide: true })
     .on('error', (error) => console.error('Не удалось открыть адрес: ' + error.message)).unref();
+}
+
+/** Внутреннее поручение открывается на текущем порту, включая PULT_PORT. */
+export function todoTarget(link, host) {
+  if (typeof link !== 'string') return null;
+  if (!link.startsWith('#')) return link;
+  if (link !== '#document-intake' || !/^(?:127\.0\.0\.1|localhost):[0-9]{1,5}$/.test(host || '')) return null;
+  return `http://${host}/${link}`;
 }
 
 /** Пока запущен локальный интерфейс, автоподтягивание не меняет привязанные файлы. */
@@ -132,7 +141,7 @@ export function testerRunning(root = ROOT) {
   try { const r = JSON.parse(fs.readFileSync(path.join(root, 'tools', 'logs', 'ai-tester', 'run.json'), 'utf8')); return Date.now() - Number(r.beat) < 4 * 60000 && !(r.until && Date.now() > Number(r.until) + 20 * 60000); } catch { return false; }
 }
 
-export function createPult({ catalog = defaultCatalog, machine = detectMachine(), root = ROOT, logDir = path.join(root, 'pult', 'logs'), stateDir = path.join(root, 'pult', '.state'), onIdle = null, statusFn = readStatus, terminateFn = terminateProcess, now = () => new Date() } = {}) {
+export function createPult({ catalog = defaultCatalog, machine = detectMachine(), root = ROOT, logDir = path.join(root, 'pult', 'logs'), stateDir = path.join(root, 'pult', '.state'), onIdle = null, idleDelayMs = 15_000, statusFn = readStatus, terminateFn = terminateProcess, now = () => new Date(), documentIntake = {} } = {}) {
   const token = crypto.randomBytes(24).toString('hex');
   const jobs = new Map();
   let restartAt = 0; // время, когда пульт ушёл на перезапуск после обновления кода
@@ -141,6 +150,7 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
   const clients = new Set();
   let port = 0;
   let idleTimer = null;
+  let closing = false;
   const prodScripts = () => listProdScripts(root);
   const runsFile = path.join(logDir, 'runs.json');
   const scheduleFile = path.join(logDir, 'schedule.json'); // правки автозапуска — у каждого ПК свои
@@ -204,11 +214,16 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
   };
 
   const running = () => [...jobs.values()].filter((j) => j.state === 'running');
+  const intake = createDocumentIntake({ ...documentIntake, stateDir, changed: () => {
+    send({ type: 'document-intake' });
+    checkIdle();
+  } });
+  const activeCount = () => running().length + Number(intake.busy());
 
   function checkIdle() {
     clearTimeout(idleTimer);
-    if (!onIdle || clients.size || running().length) return;
-    idleTimer = setTimeout(() => { if (!clients.size && !running().length) onIdle(); }, 15000);
+    if (closing || !onIdle || clients.size || activeCount()) return;
+    idleTimer = setTimeout(() => { if (!clients.size && !activeCount()) onIdle(); }, idleDelayMs);
   }
 
   function publicCatalog() {
@@ -324,6 +339,7 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     if (testBusy) return { status: 409, error: `Проверки делят одну тестовую базу. Сначала дождитесь: ${testBusy.title}` };
     const busy = live.find((j) => NEEDS_CONFIRM.has(j.risk));
     if (NEEDS_CONFIRM.has(cmd.risk) && busy) return { status: 409, error: `Сначала дождитесь: ${busy.title}` };
+    if (NEEDS_CONFIRM.has(cmd.risk) && intake.busy()) return { status: 409, error: 'Сначала дождитесь завершения разбора документов' };
     const job = startJob(cmd, spec, auto, id === 'ai-key-local' ? secret : undefined); job.params = values;
     return { job: summary(job) };
   }
@@ -361,7 +377,7 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
 
   /** Раз в минуту: одна просроченная команда за раз и только когда ничего не идёт — ручной запуск не толкается с автоматическим. */
   function tickAuto() {
-    if (running().length) return null;
+    if (activeCount()) return null;
     const runs = readRuns(), t = now();
     for (const r of readRules()) {
       const slot = lastSlot(r, t).getTime();
@@ -399,7 +415,7 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     if (req.method === 'POST' && url.pathname === '/api/upgrade') {
       const { stamp } = await readBody(req);
       if (stamp === STAMP || stamp !== codeStamp()) return json(res, 409, { error: 'Не нужно' });
-      if (running().length) return json(res, 409, { error: 'Идёт команда — пульт обновится после неё' });
+      if (activeCount()) return json(res, 409, { error: 'Идёт команда — пульт обновится после неё' });
       json(res, 200, { ok: true });
       setTimeout(() => process.exit(0), 200);
       return undefined;
@@ -418,6 +434,24 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
     const given = req.headers['x-pult-token'] || url.searchParams.get('t');
     if (given !== token) return json(res, 401, { error: 'Нет ключа сессии' });
 
+    const intakeRoute = /^\/api\/document-intake\/([a-z]+)$/.exec(url.pathname);
+    if (intakeRoute) {
+      if (req.headers['x-pult-token'] !== token) return json(res, 401, { error: 'Нет ключа сессии' });
+      if ((origin || req.method === 'POST') && origin !== `http://${req.headers.host}`) return json(res, 403, { error: 'Чужая страница' });
+      const [, action] = intakeRoute;
+      if (req.method === 'POST' && ['run', 'resume', 'retry'].includes(action) && (restartAt || running().some((j) => NEEDS_CONFIRM.has(j.risk)))) {
+        return json(res, 409, { error: 'Дождитесь завершения текущей команды или обновления пульта.' });
+      }
+      try {
+        const result = await intake.route(req.method, action, readBody.bind(null, req));
+        return json(res, result.status, result.body);
+      } catch {
+        const error = ['folder', 'inbox', 'question'].includes(action) ? 'Не удалось открыть папку. Проверьте, что она доступна.'
+          : action === 'report' ? 'Не удалось прочитать отчёт из выбранной папки.' : 'Действие не удалось. Проверьте настройки разбора.';
+        return json(res, 500, { error });
+      }
+    }
+
     if (url.pathname === '/api/events') {
       res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' });
       res.write(': ok\n\n');
@@ -435,7 +469,7 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
       // окно ведёт цепочку «Выполнить все по очереди» (заголовок X-Pult-Chain) — не перезапускаться между шагами
       const disk = codeStamp();
       const catalogLag = auditProblems(auditCatalog(catalog));
-      const restarting = disk !== STAMP && running().length === 0 && !restartAt && !req.headers['x-pult-chain'];
+      const restarting = disk !== STAMP && activeCount() === 0 && !restartAt && !req.headers['x-pult-chain'];
       if (restarting) { restartAt = Date.now(); setTimeout(() => { respawn(port); process.exit(0); }, 300); }
       // Версия пульта: отпечаток файлов pult/ при старте (stamp) vs сейчас на диске (disk); каталог кнопок — отдельно.
       const pult = {
@@ -449,11 +483,11 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
       };
       // «Забрать обновления» сам: GitHub впереди, в папке нет правок и своих коммитов, ничего не идёт — git pull --ff-only.
       // Правки Claude в папке (dirty) или неотправленные коммиты — не трогаем; новый код пульта → он перезапустится сам.
-      if (autoPull && canAutoPull(status, running().length, Date.now() - pulledAt)) {
+      if (autoPull && canAutoPull(status, activeCount(), Date.now() - pulledAt)) {
         pulledAt = Date.now();
         execFile('git', ['pull', '--ff-only', '--quiet'], { cwd: root, windowsHide: true }, () => {});
       }
-      return json(res, 200, { ...status, tester: testerState(root, runs, [...jobs.values()]), runs: brief, advice: advise(status, runs, catalog.COMMANDS, Date.now(), readTodo()), restarting: restarting || !!restartAt, pult });
+      return json(res, 200, { ...status, documentIntakeBusy: intake.busy(), tester: testerState(root, runs, [...jobs.values()]), runs: brief, advice: advise(status, runs, catalog.COMMANDS, Date.now(), readTodo()), restarting: restarting || !!restartAt, pult });
     }
     if (req.method === 'GET' && url.pathname === '/api/jobs') return json(res, 200, { items: [...jobs.values()].map((j) => ({ ...summary(j), lines: j.lines })) });
     if (req.method === 'GET' && url.pathname === '/api/schedule') return json(res, 200, scheduleView());
@@ -474,7 +508,11 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
       const { id, action } = await readBody(req);
       const t = readTodo().find((x) => x.id === id);
       if (!t) return json(res, 404, { error: 'Такого поручения нет' });
-      if (action === 'open' && t.link) { openExternal(t.link); return json(res, 200, { ok: true }); }
+      if (action === 'open' && t.link) {
+        const target = todoTarget(t.link, req.headers.host);
+        if (!target) return json(res, 400, { error: 'Неизвестный раздел пульта' });
+        openExternal(target); return json(res, 200, { ok: true });
+      }
       if (action === 'done') {
         markDone(t.id, 'button');
         return json(res, 200, { ok: true, done: todoDone(t, readRuns()) });
@@ -512,7 +550,16 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
       server.once('error', reject);
       server.listen(p, '127.0.0.1', () => { port = server.address().port; resolve(port); });
     }),
-    close: () => new Promise((resolve) => { for (const c of clients) c.end(); server.close(resolve); server.closeAllConnections(); }),
+    close: async () => {
+      closing = true;
+      clearTimeout(idleTimer);
+      const closed = new Promise((resolve) => {
+        for (const c of clients) c.end();
+        server.close(resolve);
+        server.closeAllConnections();
+      });
+      await Promise.all([closed, intake.stop()]);
+    },
   };
 }
 

@@ -1,6 +1,8 @@
 # Карта роли qa
 
-коммит:3fccdda1 (C164; backend b3628b20 unchanged). Автоматический композиционный PASS20.11: unit378/3820,e2e88/684,T26opt-in1/12SKIP; PWA434/434,guards362,imports367/0,design0новых,cycles0,pultcatalog17/17. Backend1436SHAda940990…идентиченfull3, финальныйmanifest2095SHA0a4e13cb…неизменен. C164/QA-REPORT.md; визуальнаяприёмка/выпуск/импорт отдельно.
+коммит: 26c51f58 + изменения C169 перед коммитом координатора. QA C169 · юниты 383 набора / 3866 PASS; e2e 91 набор / 735 PASS, T26 1 набор / 12 SKIP; пульт 77/77, обработчик 22/22. Итоги объединены по наборам общего и адресных прогонов, SHA сервера совпал. [Отчёт](../../crew/C169-local-document-intake/QA-REPORT.md).
+
+- C169 (20.11.2026): `docs/crew/C169-local-document-intake/QA-REPORT.md:3`, `backend/test/e2e/c169-photo-intake.e2e-spec.ts:59`, `backend/test/e2e/c169-supplier-invoice.e2e-spec.ts:70`, `tools/document-intake/api.mjs:275`, `tools/document-intake/api.mjs:429`. Для старой паспортной фикстуры с `path.resolve('uploads')` можно запускать Jest из временной папки с абсолютными путями к конфигу и спекам, согласовав `UPLOAD_DIR`. Guard C170 с точным именем БД проходит в новой одноразовой MongoDB. Карта обновлена.
 
 - C148 (2026-11-18): `docs/crew/C148-composition-meaning/QA-REPORT.md:1`, доказательства `QA-E2E.json:1`; тест `backend/test/e2e/composition-meaning.e2e-spec.ts:31` guard отдельной БД, `:78` предложение→PATCH/GET→draft→технический PDF, `:110` 101 источник, `:121` legacy/unmatched, `:137` ручное имя/manualText, `:151` комплекс/циклы, `:173` настоящий issue→PDF/снимок; C152 modules{name,dims,qty} сохранены, marker both в БД/GET, дерево и описание C095 печатаются вместе. Mongo4.4.30 Docker c148-qa-mongo :27148, datacore-test, 1 suite/6 tests PASS,13.249с,exit0; eslint --no-ignore PASS. Общий full/UI/batch имён — координатор. коммит: —; карта обновлена.
 

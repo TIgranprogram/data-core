@@ -5,7 +5,7 @@ import { SupplyInvoiceService } from './supply-invoice.service';
 
 const chain = (result: unknown) => {
   const c: Record<string, jest.Mock> = {};
-  for (const m of ['sort', 'skip', 'limit', 'lean']) c[m] = jest.fn(() => c);
+  for (const m of ['sort', 'skip', 'limit', 'lean', 'session']) c[m] = jest.fn(() => c);
   c.exec = jest.fn(async () => result);
   return c;
 };
@@ -104,6 +104,7 @@ describe('SupplyInvoiceService: договор в счёте', () => {
       db: { collection: (n: string) => ({
         findOne: async () => (n === 'suppliercontracts' ? contract : n === 'organizations' ? { _id: other, name: 'Металл' } : null),
         find: () => ({ toArray: async () => [] }),
+        updateOne: async () => ({ matchedCount: 1 }),
       }) },
     };
     const requests = { find: jest.fn(() => chain([])), updateMany: jest.fn(() => ({ exec: async () => ({}) })) };

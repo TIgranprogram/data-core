@@ -12,6 +12,7 @@ import { Photo, PhotoDocument, PhotoFrame } from './photo.schema';
 import { decodeMulterOriginalName, drawingExt, drawingSignatureOk, IMAGE_UPLOAD_MAX_BYTES, PDF_MIME, PDF_UPLOAD_MAX_BYTES } from './image-upload.options';
 import { buildRotatedCopy } from './image-orientation';
 import { uploadSubdir } from '../../common/uploads/upload-folder';
+import { PHOTO_INTAKE_URL_PREFIX } from './photo-intake.storage';
 
 /** Потолок площади рисунка при загрузке (пикселей). */
 const MAX_PIXELS = 100_000_000;
@@ -73,8 +74,14 @@ export class PhotosService {
   ) {}
 
   async create(dto: CreatePhotoDto): Promise<PhotoDocument> {
+    if (typeof dto.storageUrl === 'string' && dto.storageUrl.toLowerCase().startsWith(PHOTO_INTAKE_URL_PREFIX)) {
+      throw new BadRequestException('Ссылку оригинала создаёт загрузчик документов');
+    }
     return this.model.create({
       ...dto,
+      // Поля резервирования не принимаются через legacy JSON-маршрут.
+      intakeUid: undefined,
+      intakeAccount: undefined,
       parentPhotoId: dto.parentPhotoId ? new Types.ObjectId(dto.parentPhotoId) : undefined,
     });
   }

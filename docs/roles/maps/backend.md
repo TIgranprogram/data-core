@@ -310,3 +310,9 @@
 ### C166 — devlog transport из worktree (20.11.2026)
 - `backend/scripts/devlog-import.js:111` mainCheckout через git common-dir; `:123` createApiTransport→main api.sh, argv subprocess/private tempfile/cleanup, без чтения credentials/login. Адресный `devlog-import.test.mjs`:8PASS; настоящий dry-run0 без сети/API.
 - Отчёт `docs/crew/C166-server-schedules/DEVLOG-TRANSPORT.md`; apply только после rootreview штатным каналом. Новый runtimeCLI не добавлен, коммит: не выполнялся; карта обновлена.
+
+## C169 — оригиналы и счёт поставщика (20.11.2026)
+
+- `backend/src/modules/photos/photo-intake.service.ts:38` — unique UID/аккаунт/SHA, повтор по физическому PDF. `photo-intake.storage.ts:73` — публикация без перезаписи.
+- `backend/src/modules/supply/supply-invoice-intake.service.ts:41` — атомарная шапка и строки, legacy/корзина, проверка квитанции в `:225`. `supply-invoice-identity.ts:15` — общая транзакционная блокировка реквизитов и файлов.
+- `backend/scripts/c169-intake-indexes.js:62` — план и точечное создание пяти индексов. Контракт и границы в `docs/crew/C169-local-document-intake/BACKEND-REPORT.md`. коммит: не выполнялся, карта обновлена.

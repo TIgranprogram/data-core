@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { test } from 'node:test';
 import { advise, LEVELS, todoDone } from '../advisor.mjs';
-import { COMMANDS } from '../catalog.mjs';
+import { COMMANDS, SECTIONS } from '../catalog.mjs';
 
 const NOW = new Date(2026, 9, 31, 12, 0).getTime();
 const DAY = 86400000;
@@ -127,7 +127,8 @@ test('pult/todo.json корректен: кнопка есть, шаги свя�
     if (t.manual) assert.ok(!t.cmd, `${t.id}: ручной шаг не должен запускать команду`);
     if (t.cmd) assert.ok(COMMANDS.some((c) => c.id === t.cmd), t.cmd);
     if (t.after) assert.ok(todo.some((x) => x.id === t.after), t.after);
-    if (t.link) assert.match(t.link, /^https:\/\//);
+    if (t.link === '#document-intake') assert.ok(SECTIONS.some(section => section.id === 'document-intake'));
+    else if (t.link) assert.match(t.link, /^https:\/\//);
   }
 });
 

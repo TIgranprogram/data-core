@@ -5,7 +5,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { after, before, test } from 'node:test';
-import { createPult } from '../server.mjs';
+import { createPult, todoTarget } from '../server.mjs';
 
 const say = (js) => ({ node: ['-e', js] });
 const fake = {
@@ -135,6 +135,10 @@ test('две записи на сайт разом и повтор команд�
   const { job } = (await api('/api/run', { id: 'write', confirmed: true })).json();
   assert.equal((await api('/api/run', { id: 'write2', confirmed: true })).status, 409);
   assert.equal((await api('/api/run', { id: 'write', confirmed: true })).status, 409);
+  for (const action of ['run', 'resume', 'retry']) {
+    const blocked = await raw(`/api/document-intake/${action}`, { method: 'POST', headers: { 'X-Pult-Token': pult.token, Origin: `http://127.0.0.1:${port}`, 'Content-Type': 'application/json' }, body: {} });
+    assert.equal(blocked.status, 409, `разбор ${action} не запускается одновременно с выкладкой`);
+  }
   const read = (await api('/api/run', { id: 'hello' })).json();
   await finished(read.job.id);
   assert.equal((await api('/api/stop', { id: job.id })).status, 200);
@@ -217,4 +221,11 @@ test('T23: ошибка cancellation transport возвращается поль
     for (const j of p2.jobs.values()) if (j.state === 'running') process.kill(j.pid);
     await p2.close();
   }
+});
+
+test('поручение разбора открывает текущий локальный порт', () => {
+  assert.equal(todoTarget('#document-intake', '127.0.0.1:47899'), 'http://127.0.0.1:47899/#document-intake');
+  assert.equal(todoTarget('#document-intake', 'outside.example:47899'), null);
+  assert.equal(todoTarget('#unknown', '127.0.0.1:47899'), null);
+  assert.equal(todoTarget('https://kppdf-crm.ru/db/app/', '127.0.0.1:47899'), 'https://kppdf-crm.ru/db/app/');
 });

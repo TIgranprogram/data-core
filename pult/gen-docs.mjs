@@ -30,7 +30,11 @@ export function renderDoc() {
     ...Object.values(RISKS).map((r) => `| ${r.label} | ${r.hint} |`),
     '',
   ];
-  for (const s of SECTIONS.filter((x) => COMMANDS.some((c) => c.section === x.id))) {
+  for (const s of SECTIONS.filter((x) => x.id === 'document-intake' || COMMANDS.some((c) => c.section === x.id))) {
+    if (s.id === 'document-intake') {
+      out.push(`## ${s.title}`, '', s.hint, '', 'Папка · Открыть входящие · Разобрать · Отчёт · Остановить · Возобновить.', '', '[Порядок работы](../README.md#разбор-документов).', '');
+      continue;
+    }
     out.push(`## ${s.title}`, '', s.hint, '', '| Кнопка | Когда нажимать | Отметка | Время | Ритм | Что запускает |', '|--|--|--|--|--|--|');
     for (const c of COMMANDS.filter((x) => x.section === s.id)) {
       const word = c.word ? ` (слово ${c.word})` : '';

@@ -3715,6 +3715,68 @@
         ]
       }
     },
+    "/supply/invoices/intake": {
+      "post": {
+        "operationId": "SupplyInvoiceIntakeController_import",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupplyInvoiceIntakeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupplyInvoiceIntakeReceiptDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/supply/invoices/intake/{uid}": {
+      "get": {
+        "operationId": "SupplyInvoiceIntakeController_receipt",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupplyInvoiceIntakeReceiptDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
     "/supply/invoices": {
       "post": {
         "operationId": "SupplyController_createInvoices",
@@ -5463,6 +5525,216 @@
         "tags": [
           "Финансовые статьи"
         ]
+      }
+    },
+    "/photos/intake/{uid}": {
+      "post": {
+        "operationId": "PhotoIntakeController_upload",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "sha256",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeReceiptDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "PhotoIntakeController_receipt",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeReceiptDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/photos": {
+      "get": {
+        "operationId": "PhotosController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      },
+      "post": {
+        "operationId": "PhotosController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/photos/{id}": {
+      "get": {
+        "operationId": "PhotosController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      },
+      "delete": {
+        "operationId": "PhotosController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/photos/upload": {
+      "post": {
+        "operationId": "PhotosController_upload",
+        "parameters": [
+          {
+            "name": "purpose",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/photos/{id}/frame": {
+      "patch": {
+        "operationId": "PhotosController_updateFrame",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/photos/{id}/repair-original-filename": {
+      "post": {
+        "operationId": "PhotosController_repairOriginalFilename",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepairOriginalFilenameDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        }
       }
     },
     "/notifications": {
@@ -14358,134 +14630,6 @@
         }
       }
     },
-    "/photos": {
-      "get": {
-        "operationId": "PhotosController_findAll",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      },
-      "post": {
-        "operationId": "PhotosController_create",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/photos/{id}": {
-      "get": {
-        "operationId": "PhotosController_findOne",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      },
-      "delete": {
-        "operationId": "PhotosController_remove",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/photos/upload": {
-      "post": {
-        "operationId": "PhotosController_upload",
-        "parameters": [
-          {
-            "name": "purpose",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/photos/{id}/frame": {
-      "patch": {
-        "operationId": "PhotosController_updateFrame",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/photos/{id}/repair-original-filename": {
-      "post": {
-        "operationId": "PhotosController_repairOriginalFilename",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RepairOriginalFilenameDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        }
-      }
-    },
     "/counterparties": {
       "get": {
         "operationId": "CounterpartyController_list",
@@ -20351,6 +20495,140 @@
         "type": "object",
         "properties": {}
       },
+      "SupplyInvoiceIntakeLineDto": {
+        "type": "object",
+        "properties": {
+          "rowKey": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "unitPrice": {
+            "type": "number"
+          },
+          "amount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "rowKey",
+          "title",
+          "qty",
+          "unit",
+          "unitPrice",
+          "amount"
+        ]
+      },
+      "SupplyInvoiceIntakeDto": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$"
+          },
+          "sourceSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "fileId": {
+            "type": "string"
+          },
+          "supplierId": {
+            "type": "string"
+          },
+          "payerCompanyId": {
+            "type": "string"
+          },
+          "no": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "RUB"
+            ]
+          },
+          "gross": {
+            "type": "number"
+          },
+          "vatMode": {
+            "type": "string",
+            "enum": [
+              "included",
+              "excluded",
+              "none"
+            ]
+          },
+          "vatRate": {
+            "type": "number"
+          },
+          "vatAmount": {
+            "type": "number"
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SupplyInvoiceIntakeLineDto"
+            }
+          }
+        },
+        "required": [
+          "uid",
+          "sourceSha256",
+          "fileId",
+          "supplierId",
+          "payerCompanyId",
+          "no",
+          "date",
+          "currency",
+          "gross",
+          "vatMode",
+          "lines"
+        ]
+      },
+      "SupplyInvoiceIntakeReceiptDto": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "sourceSha256": {
+            "type": "string"
+          },
+          "invoiceId": {
+            "type": "string"
+          },
+          "requestIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "payloadHash": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "uid",
+          "sourceSha256",
+          "invoiceId",
+          "requestIds",
+          "payloadHash"
+        ]
+      },
       "CreateInvoicesDto": {
         "type": "object",
         "properties": {
@@ -20974,6 +21252,44 @@
             ]
           }
         }
+      },
+      "IntakeReceiptDto": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "fileId": {
+            "type": "string"
+          },
+          "storageUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "uid",
+          "sha256",
+          "fileId",
+          "storageUrl"
+        ]
+      },
+      "RepairOriginalFilenameDto": {
+        "type": "object",
+        "properties": {
+          "expectedOriginalFilename": {
+            "type": "string"
+          },
+          "newOriginalFilename": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "expectedOriginalFilename",
+          "newOriginalFilename"
+        ]
       },
       "CreateZoneDto": {
         "type": "object",
@@ -24756,21 +25072,6 @@
             "description": "TZ-ORG-ASSETS-301 — юридический адрес для шапки документов"
           }
         }
-      },
-      "RepairOriginalFilenameDto": {
-        "type": "object",
-        "properties": {
-          "expectedOriginalFilename": {
-            "type": "string"
-          },
-          "newOriginalFilename": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "expectedOriginalFilename",
-          "newOriginalFilename"
-        ]
       },
       "QuickCreatePartyDto": {
         "type": "object",

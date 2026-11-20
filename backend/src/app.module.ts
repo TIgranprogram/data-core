@@ -306,6 +306,11 @@ export class AppModule implements NestModule {
     // and /health from caching even if they bear an Idempotency-Key header.
     consumer
       .apply(IdempotencyMiddleware)
+      // Квитанция оригинала проверяет байты и аккаунт при каждом вызове.
+      .exclude(
+        { path: 'photos/intake/:uid', method: RequestMethod.POST },
+        { path: 'supply/invoices/intake', method: RequestMethod.POST },
+      )
       .forRoutes(
         { path: '*', method: RequestMethod.POST },
         { path: '*', method: RequestMethod.PUT },

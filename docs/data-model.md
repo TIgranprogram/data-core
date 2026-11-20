@@ -983,3 +983,9 @@ C163: GET шаблона паспорта возвращает `product.facetVal
 `incomes.passportSelection` — необязательный embedded-объект: mode site|attachment, revision, attachmentId/generation, productIdAtSelection, confirmed/changed/invalidated audit. Нет поля — site/rev0. `passportEpoch` и `salesorders.passportGuard` — служебные барьеры транзакций, финансовую version не заменяют. Новый/копируемый Income выбор не наследует.
 
 `productattachments.selectionGeneration` инвалидирует старый выбор при удалении/восстановлении; purge использует token/generation и bounded lease/reconcile. Доступность подтверждается физическим файлом, не ticket. Выпущенные `productpassports` и их снимки сохраняются независимо от текущего источника позиции. Точный контракт и проекции: [C170/API-CONTRACT.md](crew/C170-attached-passport-readiness/API-CONTRACT.md).
+
+### C169 — служебные ключи импорта без backfill
+
+`photos`: необязательные скрытые `intakeUid`, `intakeAccount`; оригинальный `sha256`, существующая защита `sourceProtected`. Unique sparse `c169_photo_intake_uid` на intakeUid сохраняет ключ и для удалённого оригинала. Публикация байтов не перезаписывает существующий файл, read receipt сверяет реальный SHA.
+
+`supplyinvoices` (только data-core): необязательные скрытые `intakeUid`, `intakeBusinessKey`, `intakeSourceSha256`, `intakePayloadHash`, `intakeLines:[{requestId,rowKey}]`. Первые три защищены отдельными sparse unique индексами `c169_supply_invoice_uid/business/sha`. Связи строк — существующий `supplyrequests.invoiceId`; новые поля общей CRM-схемы заявок не добавлены. `fileIds_1` sparse ускоряет поиск исходников. Отсутствие служебного индекса блокирует новый импорт 503 до мутации; старые операции продолжают прежний контракт. [Правила и проверки](crew/C169-local-document-intake/SUPPLIER-IMPORT.md).

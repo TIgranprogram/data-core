@@ -4,6 +4,7 @@ import { HydratedDocument, Types } from 'mongoose';
 export type PhotoDocument = HydratedDocument<Photo>;
 export type PhotoVariant = 'original' | 'full' | 'medium' | 'thumb';
 export type PhotoFrameFit = 'contain' | 'cover';
+export const PHOTO_INTAKE_UID_INDEX = 'c169_photo_intake_uid';
 
 /**
  * Прямоугольный кадр показа фото (WAVE-PHOTO-FRAME-POSITION, TZ-PHOTO-304).
@@ -24,6 +25,10 @@ export class Photo {
   @Prop({type:Boolean}) sourceProtected?: boolean;
   @Prop({type:Boolean}) sourceDeleting?: boolean;
   @Prop({type:String}) sourceDeleteClaim?: string;
+
+  /** Ключ и аккаунт резервирования оригинала C169. */
+  @Prop({ type: String, select: false }) intakeUid?: string;
+  @Prop({ type: String, select: false }) intakeAccount?: string;
 
   @Prop({ required: true })
   storageUrl!: string;
@@ -75,3 +80,4 @@ export class Photo {
 }
 
 export const PhotoSchema = SchemaFactory.createForClass(Photo);
+PhotoSchema.index({ intakeUid: 1 }, { name: PHOTO_INTAKE_UID_INDEX, unique: true, sparse: true });

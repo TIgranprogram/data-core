@@ -5,6 +5,11 @@ import { HydratedDocument, Types } from 'mongoose';
 
 export type SupplyInvoiceDocument = HydratedDocument<SupplyInvoice>;
 export type SupplyInvoiceStatus = 'draft' | 'issued' | 'paid' | 'cancelled';
+export const SUPPLY_INTAKE_INDEXES = {
+  intakeUid: 'c169_supply_invoice_uid',
+  intakeBusinessKey: 'c169_supply_invoice_business',
+  intakeSourceSha256: 'c169_supply_invoice_sha',
+} as const;
 
 export type SupplyInvoicePaymentLine = {
   requestId: Types.ObjectId;
@@ -45,6 +50,12 @@ export type SupplyInvoicePaymentAdjustment = {
  */
 @Schema({ collection: 'supplyinvoices', timestamps: true })
 export class SupplyInvoice {
+  @Prop({ type: String, select: false }) intakeUid?: string;
+  @Prop({ type: String, select: false }) intakeBusinessKey?: string;
+  @Prop({ type: String, select: false }) intakeSourceSha256?: string;
+  @Prop({ type: String, select: false }) intakePayloadHash?: string;
+  @Prop({ type: [Object], default: undefined, select: false }) intakeLines?: { requestId: Types.ObjectId; rowKey: string }[];
+
   /** Подтверждение не входит в денежные факты, пока не заполнена дата. */
   @Prop({ type: Object }) undatedPaymentEvidence?: Record<string, any>;
   /** Квитанции команд сохраняют UID после снятия/уточнения подтверждения. */
@@ -151,3 +162,7 @@ export const SupplyInvoiceSchema = SchemaFactory.createForClass(SupplyInvoice);
 // C158: отбор текущих обязательств по компании/статусу/дате без полной истории.
 SupplyInvoiceSchema.index({ payerCompanyId: 1, status: 1, date: 1, deletedAt: 1 });
 SupplyInvoiceSchema.index({ status: 1, 'paymentSnapshot.paidAt': 1, payerCompanyId: 1 });
+SupplyInvoiceSchema.index({ fileIds: 1 }, { sparse: true });
+for (const [field, name] of Object.entries(SUPPLY_INTAKE_INDEXES)) {
+  SupplyInvoiceSchema.index({ [field]: 1 }, { name, unique: true, sparse: true });
+}

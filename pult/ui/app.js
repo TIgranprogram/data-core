@@ -1,5 +1,6 @@
 // Окно пульта: разделы, карточки, подтверждение, журнал запусков. Текст всегда идёт через textContent.
 import { isBatchSafe } from './chain.mjs';
+import { createIntakeView } from './document-intake.js';
 const token = document.querySelector('meta[name="pult-token"]').content;
 const $ = (id) => document.getElementById(id);
 const CONFIRM_RISKS = new Set(['prod-write', 'danger']);
@@ -40,6 +41,10 @@ function toast(text) {
   toastTimer = setTimeout(() => { t.hidden = true; }, 5000);
 }
 
+const intakeSection = 'document-intake';
+const intake = createIntakeView({ api, el });
+const intakeVisible = () => S.section === intakeSection && !S.query;
+
 // ---------- разделы и карточки ----------
 
 // «Все кнопки»: служебные (extra — проверки, отчёты, копии; их делают Claude и расписание) видны только по переключателю
@@ -47,7 +52,7 @@ const allMode = () => { try { return localStorage.getItem('pult.all') === '1'; }
 const shownCmd = (c) => !c.hidden && (S.all || !c.extra);
 const sectionCount = (s) => (s.id === 'auto' && S.schedule ? S.schedule.items.filter((r) => r.enabled).length
   : S.catalog.commands.filter((c) => c.section === s.id && shownCmd(c)).length + (S.all ? S.catalog.switches.filter((w) => w.section === s.id).length : 0));
-const sectionShown = (s) => s.id === 'now' || ((S.all || !s.extra) && sectionCount(s) > 0);
+const sectionShown = (s) => s.id === 'now' || s.id === intakeSection || ((S.all || !s.extra) && sectionCount(s) > 0);
 
 function renderNav() {
   const box = $('nav');
@@ -63,8 +68,16 @@ function renderNav() {
       b.dataset.color = g.color;
       b.title = s.hint;
       const n = s.id === 'now' ? el('span', `n${todo.length ? ' alert' : ''}`, todo.length ? String(todo.length) : '') : el('span', 'n', String(sectionCount(s)));
-      b.append(el('span', 'ico', s.icon), el('span', '', s.title), n);
-      b.onclick = () => { S.section = s.id; S.query = ''; $('search').value = ''; render(); };
+      b.append(el('span', 'ico', s.icon), el('span', '', s.title));
+      if (s.id !== intakeSection) b.append(n);
+      b.onclick = () => {
+        S.section = s.id;
+        const hash = s.id === intakeSection ? `#${intakeSection}` : '';
+        if (hash || location.hash === `#${intakeSection}`) history.replaceState(null, '', hash || location.pathname + location.search);
+        S.query = '';
+        $('search').value = '';
+        render();
+      };
       box.append(b);
     }
   }
@@ -353,6 +366,10 @@ function renderNow() {
 
 function render() {
   renderNav();
+  const showIntake = intakeVisible();
+  $('intakeSide').hidden = !showIntake;
+  $('intakeSide').parentElement.classList.toggle('intake-open', showIntake);
+  if (!showIntake) intake.hide();
   if (S.section === 'now' && !S.query) {
     const s = S.catalog.sections.find((x) => x.id === 'now');
     $('title').textContent = `${s.icon} ${s.title}`;
@@ -365,6 +382,7 @@ function render() {
   const sec = S.catalog.sections.find((s) => s.id === S.section);
   $('title').textContent = S.query ? 'Поиск' : `${sec.icon} ${sec.title}`;
   $('subtitle').textContent = S.query ? `По запросу «${S.query}»` : sec.hint;
+  if (showIntake) { intake.mount($('cards'), $('intakeSide')); return; }
   if (S.section === 'aitester' && !S.query) { renderTester(); return; }
   const list = visible();
   const box = $('cards');
@@ -693,7 +711,7 @@ async function loadStatus() {
       pv.title = 'Сервер не прислал версию пульта';
     } else if (s.restarting || (p.disk && p.stamp && p.disk !== p.stamp)) {
       // обновится сам, как только закончатся идущие запуски (их нельзя оборвать)
-      const busy = [...S.jobs.values()].some((j) => j.state === 'running');
+      const busy = s.documentIntakeBusy || [...S.jobs.values()].some((j) => j.state === 'running');
       pv.className = 'pill warn';
       pv.textContent = busy ? 'Пульт · обновится после текущего запуска' : 'Пульт · обновляется';
       pv.title = p.reason || `Отпечаток ${p.stamp} → ${p.disk}`;
@@ -711,6 +729,7 @@ async function loadStatus() {
 
 async function start() {
   S.catalog = await api('/api/catalog');
+  if (location.hash === `#${intakeSection}`) S.section = intakeSection;
   S.all = allMode();
   S.schedule = await api('/api/schedule').catch(() => null);
   renderLegend();
@@ -726,6 +745,7 @@ async function start() {
   loadStatus();
   setInterval(loadStatus, 60000);
   setInterval(() => { if (S.section === 'aitester' && !document.hidden) loadStatus(); }, 5000);
+  setInterval(() => { if (intakeVisible() && !document.hidden) intake.refresh(); }, 5000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') loadStatus(); });
   connectEvents();
   setInterval(() => { if (S.jobs.get(S.current)?.state === 'running') renderHead(); }, 1000);
@@ -734,7 +754,11 @@ async function start() {
 function connectEvents() {
   const events = new EventSource(`/api/events?t=${token}`);
   let down = false;
-  events.onmessage = (m) => onEvent(JSON.parse(m.data));
+  events.onmessage = (m) => {
+    const event = JSON.parse(m.data);
+    if (event.type === 'document-intake') { if (intakeVisible()) intake.refresh(); return; }
+    onEvent(event);
+  };
   events.onerror = () => {
     if (down) return;
     down = true;
@@ -744,7 +768,7 @@ function connectEvents() {
 }
 
 $('search').oninput = (e) => { S.query = e.target.value; render(); };
-$('refresh').onclick = loadStatus;
+$('refresh').onclick = () => { loadStatus(); if (intakeVisible()) intake.refresh(true); };
 start().catch((e) => toast(e.message));
 
 // «Локальный ИИ сейчас» (15.11): что загружено и запущено — каждые 5 с; «Остановить всё» снимает тестировщика, Старожила, тестовые браузеры и модели

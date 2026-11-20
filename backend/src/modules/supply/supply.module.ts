@@ -11,6 +11,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { SalesOrdersModule } from '../salesorders/salesorders.module';
 import { MaterialModule } from '../material/material.module';
 import { StockModule } from '../stock/stock.module';
+import { PhotosModule } from '../photos/photos.module';
 import { SupplyController } from './supply.controller';
 import { SupplyRequest, SupplyRequestSchema } from './supply-request.schema';
 import { SupplierItem, SupplierItemSchema } from './supplier-item.schema';
@@ -19,6 +20,8 @@ import { SupplierContract, SupplierContractSchema } from './supplier-contract.sc
 import { SupplierContractService } from './supplier-contract.service';
 import { SupplierContractController } from './supplier-contract.controller';
 import { SupplyInvoiceService } from './supply-invoice.service';
+import { SupplyInvoiceIntakeController } from './supply-invoice-intake.controller';
+import { SupplyInvoiceIntakeService } from './supply-invoice-intake.service';
 import { SupplyService } from './supply.service';
 import { SupplierExcelService } from './supplier-excel.service';
 import { SupplierCatalogService } from './supplier-catalog.service';
@@ -28,6 +31,7 @@ import { SupplierCatalogService } from './supplier-catalog.service';
   imports: [
     ExpenseArticlesModule,
     StockModule,
+    PhotosModule,
     AuditModule,
     CounterModule,
     NotificationsModule,
@@ -42,8 +46,8 @@ import { SupplierCatalogService } from './supplier-catalog.service';
       { name: SupplierContract.name, schema: SupplierContractSchema },
     ]),
   ],
-  controllers: [SupplyController, SupplierContractController],
-  providers: [SupplyUndatedPaymentsService, SupplyInvoicePaymentsService, SupplyService, SupplierExcelService, SupplierCatalogService, SupplyInvoiceService, SupplierContractService],
+  controllers: [SupplyInvoiceIntakeController, SupplyController, SupplierContractController],
+  providers: [SupplyUndatedPaymentsService, SupplyInvoicePaymentsService, SupplyService, SupplierExcelService, SupplierCatalogService, SupplyInvoiceService, SupplyInvoiceIntakeService, SupplierContractService],
   exports: [SupplyService],
 })
 export class SupplyModule {}

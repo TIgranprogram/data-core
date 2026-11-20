@@ -21,6 +21,7 @@ import { MaterialPriceService } from '../material/material-price.service';
 import type { PriceSource } from '../material/material-price.schema';
 import { PatchInvoiceDto, PatchInvoiceLineDto } from './dto-invoice';
 import { ISSUED_GATE, ORDERED_GATE, missing, normInvoiceNo } from './supply-invoice-rules';
+import { guardLegacyInvoiceIdentity, INVOICE_IDENTITY_FIELDS, lockInvoiceIdentity } from './supply-invoice-identity';
 import { SupplyInvoice, SupplyInvoiceDocument } from './supply-invoice.schema';
 import { SupplyRequest, SupplyRequestDocument } from './supply-request.schema';
 import { SupplyService } from './supply.service';
@@ -53,6 +54,14 @@ export class SupplyInvoiceService {
       await session.withTransaction(async () => { out = await fn(session); });
       return out;
     } finally { await session.endSession(); }
+  }
+
+  private async recheckIntakeIdentity(inv: Lean, changes: Lean, reason: string | undefined, session: ClientSession) {
+    if (!INVOICE_IDENTITY_FIELDS.some(field => field in changes)) return;
+    await lockInvoiceIdentity(this.connection, session);
+    const fresh = await this.model.findOne({ _id: inv._id, deletedAt: null }).session(session).lean().exec() as Lean | null;
+    if (!fresh || fresh.version !== inv.version) throw new ConflictException('Реквизиты счёта изменились — обновите карточку');
+    return guardLegacyInvoiceIdentity(this.connection, fresh, changes, reason, session);
   }
 
   private async orgNames(ids: unknown[]) {
@@ -472,6 +481,9 @@ export class SupplyInvoiceService {
     }
     const status = (set.status ?? inv.status) as string;
     await this.tx(async (session) => {
+      const duplicate = await this.recheckIntakeIdentity(inv, set, dto.duplicateReason, session);
+      // Дополнительные поля применяются только в успешно зафиксированной транзакции.
+      const applied = { ...set, ...duplicate };
       if (financial.length) await this.touchFinancialInvoice(inv._id, session, inv.version);
       else if (dto.payerCompanyId !== undefined) {
         const guarded = await this.model.updateOne({ _id: inv._id, version: inv.version, 'undatedPaymentEvidence.state': { $ne: 'pending' } }, { $inc: { version: 1 } }, { session }).exec();
@@ -479,7 +491,7 @@ export class SupplyInvoiceService {
       }
       if (valuation) for (const row of valuation.requests) await this.requests.updateOne({ _id: row._id, invoiceId: inv._id }, { $set: { priceHint: row.accountingLineAmountRub ?? 0, editedInApp: true } }, { session }).exec();
       const $set: Lean = {}; const $unset: Lean = {};
-      for (const [k, v] of Object.entries(set)) (v === undefined ? $unset : $set)[k] = v === undefined ? '' : v;
+      for (const [k, v] of Object.entries(applied)) (v === undefined ? $unset : $set)[k] = v === undefined ? '' : v;
       await this.model.updateOne({ _id: inv._id }, { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}), $inc: { version: 1 } }, { session }).exec();
       // № / дата / плательщик — метаданные строк, и у черновика тоже: доска заявок подписывает счёт по invoiceNo заявки
       // (2026-11-09: черновик с номером показывался «Счёт без номера»); цены не перераспределяются (это и «слипало» строки)
@@ -664,7 +676,10 @@ export class SupplyInvoiceService {
     }
     if (Object.keys($set).length || Object.keys($unset).length) {
       await this.tx(async (session) => {
-        const guarded = await this.model.updateOne({ _id: inv._id, ...(dto.payerCompanyId !== undefined ? { 'undatedPaymentEvidence.state': { $ne: 'pending' }, version: inv.version } : {}) }, { ...(Object.keys($set).length ? { $set } : {}), ...(Object.keys($unset).length ? { $unset } : {}), $inc: { version: 1 } }, { session }).exec();
+        const changes = { ...$set, ...Object.fromEntries(Object.keys($unset).map(key => [key, undefined])) };
+        const duplicate = await this.recheckIntakeIdentity(inv, changes, dto.duplicateReason, session);
+        const applied = { ...$set, ...duplicate };
+        const guarded = await this.model.updateOne({ _id: inv._id, ...(dto.payerCompanyId !== undefined ? { 'undatedPaymentEvidence.state': { $ne: 'pending' }, version: inv.version } : {}) }, { ...(Object.keys(applied).length ? { $set: applied } : {}), ...(Object.keys($unset).length ? { $unset } : {}), $inc: { version: 1 } }, { session }).exec();
         if (!guarded.matchedCount) throw undatedLocked();
         // № / дата / плательщик — метаданные строк, цены и количество не трогаем
         if (['no', 'date', 'payerCompanyId'].some((k) => k in $set || k in $unset)) await this.copyMetaToRequests({ ...inv, ...$set }, session);
