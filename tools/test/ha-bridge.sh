@@ -12,6 +12,20 @@ export HA_PEER_DC_DIR="$lab/peer" HA_PEER_DATA="$lab/peer-data" HA_API=http://mo
 export HA_PEER_SSH=mock-peer HA_PEER_HOST=peer-host HA_VPS_SSH=mock-vps HA_COUNT_COLLS=users
 export PEER_INFO_EVERY=0 MSYS_NO_PATHCONV=1
 mkdir -p "$DC_DIR" "$HA_PEER_DC_DIR" "$HA_SWITCH_DIR_HOST" "$DATA_DIR/uploads" "$HA_PEER_DATA/switch"
+chmod 1777 "$HA_SWITCH_DIR_HOST"
+# NTFS в Git Bash не хранит sticky-бит. Его поведение отдельно проверяет ha-owner.sh на Linux tmpfs.
+case "$(uname -s)" in
+  MSYS*|MINGW*)
+    export NATIVE_STAT="$(command -v stat)"
+    cat > "$HOME/bin/stat" <<'STUB'
+#!/usr/bin/env bash
+if [[ "$1" == -c && "$2" == '%u:%g:%a' && "${!#}" == "$HA_SWITCH_DIR_HOST" ]]; then
+  printf '%s:%s:1777\n' "$(id -u)" "$(id -g)"; exit
+fi
+exec "$NATIVE_STAT" "$@"
+STUB
+    ;;
+esac
 printf mock > "$HA_PEER_DATA/switch/secret"
 printf '#!/bin/bash\nexit 0\n' > "$HOME/bin/flock"
 cp "$HOME/bin/flock" "$HOME/bin/sleep"

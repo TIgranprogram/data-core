@@ -30,9 +30,10 @@ umask 077
 DATA_DIR="${DATA_DIR:-/var/lib/datacore}"
 DC_DIR="${DC_DIR:-/opt/data-core}"
 SW_DIR="${HA_SWITCH_DIR_HOST:-${DATA_DIR}/switch}"
-mkdir -p "$SW_DIR"
-# в каталоге пишет контейнер (root) — sticky-бит, как у /tmp; владелец каталога (пользователь моста) всё равно может удалять заявку
-chmod 1777 "$SW_DIR" 2>/dev/null || true
+HELPERS="$(cd "$(dirname "$0")" && pwd)"
+. "$HELPERS/release-artifact.sh" || exit 1
+# Проверяем до heartbeat и захвата request. Пока права неверны, мост не заявляет о готовности.
+switch_queue_dir "$SW_DIR" check || exit 1
 CONF="${HA_BRIDGE_ENV:-${SW_DIR}/bridge.env}"
 # shellcheck disable=SC1090
 [[ -f "$CONF" ]] && . "$CONF"
@@ -72,8 +73,6 @@ touch "${SW_DIR}/alive"; chmod 644 "${SW_DIR}/alive" 2>/dev/null || true
 SELF="${HA_SELF:-$(envval HA_SELF)}"
 case "$SELF" in home) PEER_NAME=office ;; office) PEER_NAME=home ;; *) exit 0 ;; esac   # механизм выключен
 
-HELPERS="$(cd "$(dirname "$0")" && pwd)"
-. "$HELPERS/release-artifact.sh" || exit 1
 exec 9>"${SW_DIR}/.lock"
 flock -n 9 || exit 0
 
@@ -569,10 +568,11 @@ fi
 ID="$(sed -n 's/^id=//p' "$REQ" | head -n 1)"; KIND="$(sed -n 's/^kind=//p' "$REQ" | head -n 1)"; NOCODE="$(sed -n 's/^code=//p' "$REQ" | head -n 1)"
 [[ "$ID" =~ ^[0-9a-f]{6,32}$ ]] || { L "заявка с неверным id отброшена"; rm -f "$REQ"; exit 0; }
 LAST_ID_FILE="${SW_DIR}/last-id"
-[[ "$(cat "$LAST_ID_FILE" 2>/dev/null)" != "$ID" ]] || { rm -f "$REQ"; exit 0; }
+[[ "$(cat "$LAST_ID_FILE" 2>/dev/null)" != "$ID" ]] || { rm -f "$REQ" || { L "Не удалось снять уже обработанную заявку $ID"; exit 1; }; exit 0; }
 EXPIRES="$(sed -n 's/^expiresAt=//p' "$REQ" | head -n 1)"
 printf 'phase=pre\nid=%s\nkind=%s\n' "$ID" "$KIND" > "$CURRENT.new" && mv -f "$CURRENT.new" "$CURRENT" || exit 1
-printf '%s\n' "$ID" > "$LAST_ID_FILE" && rm -f "$REQ" || exit 1
+printf '%s\n' "$ID" > "$LAST_ID_FILE" || exit 1
+rm -f "$REQ" || { L "Не удалось снять заявку $ID после захвата"; exit 1; }
 L "=== заявка $ID ($KIND) на $SELF ==="
 if [[ -n "$EXPIRES" ]]; then
   until_ts="$(date -u -d "$EXPIRES" +%s)" && (( $(date -u +%s) < until_ts )) || fail preflight "Разрешённое окно расписания закончилось."

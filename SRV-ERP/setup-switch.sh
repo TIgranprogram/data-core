@@ -66,6 +66,13 @@ on_vm()  { "${VM[@]}" 'bash -s'; }
 on_erp() { "${ERP[@]}" 'bash -s'; }
 on_vps() { "${VM[@]}" "ssh -o BatchMode=yes -o ConnectTimeout=15 '$TARGET' 'bash -s'"; }
 
+# Обе удалённые команды работают именно от имени будущего владельца crontab.
+. deploy/ha/switch/release-artifact.sh || exit 1
+for side in on_vm on_erp; do
+  { declare -f owns_switch_cron switch_queue_dir; echo 'switch_queue_dir /var/lib/datacore/switch setup'; } | "$side" ||
+    { say "СТОП: не удалось подготовить каталог заявок пользователя cron ($side)."; exit 1; }
+done
+
 # ---------- 1. ключи на VM и Sportin ----------
 say "== Ключи на VM и Sportin"
 GEN='mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"; for k in "$@"; do [ -f "$HOME/.ssh/$k" ] || ssh-keygen -q -t ed25519 -N "" -C "$k-$(hostname)" -f "$HOME/.ssh/$k"; done'
@@ -140,7 +147,7 @@ VM_HOST="$("${VM[@]}" hostname | tr -d '[:space:]')"; ERP_HOSTNAME="$("${ERP[@]}
 [[ -n "$VM_HOST" && -n "$ERP_HOSTNAME" ]] || { say "СТОП: не получены имена хостов"; exit 2; }
 on_vm <<EOF
 set -e
-d=/var/lib/datacore/switch; mkdir -p "\$d"; chmod 1777 "\$d"
+d=/var/lib/datacore/switch
 cat > "\$d/bridge.env" <<E2
 HA_SELF=home
 HA_PEER_SSH=$ERP_HOST
@@ -153,7 +160,7 @@ chmod 600 "\$d/bridge.env"
 EOF
 on_erp <<EOF
 set -e
-d=/var/lib/datacore/switch; mkdir -p "\$d"; chmod 1777 "\$d"
+d=/var/lib/datacore/switch
 cat > "\$d/bridge.env" <<E2
 HA_SELF=office
 HA_PEER_SSH=tiit@127.0.0.1
