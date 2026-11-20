@@ -1,0 +1,24 @@
+{
+  "checks": [
+    "full-drawer-light",
+    "full-drawer-dark",
+    "unknown-technical-dark",
+    "actual-stale-409-light",
+    "revision-1-unchanged"
+  ],
+  "writes": [
+    {
+      "status": 409,
+      "expectedConflict": true
+    }
+  ],
+  "projectionReads": 1,
+  "unexpectedApiErrors": [],
+  "assetErrors": [],
+  "pageErrors": [],
+  "refusedApiWrites": 0,
+  "blockedExternalAtProxy": 33,
+  "externalPageRequests": 0,
+  "revision": 1,
+  "pass": true
+}
