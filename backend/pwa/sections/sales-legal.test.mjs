@@ -118,7 +118,7 @@ test('nested offer actions expose callable kit fields, preserve exclusion eviden
     ...pure, session: { canEditOrders: true, canMoney: true },
     document: { querySelectorAll: () => [{}] }, isoDay: () => '2026-11-20', newKey: () => 'link-uid',
     openCard: (panel) => { panels.push(panel); return panel; },
-    api: async (path, options) => { if (!options) return { items: [{ id: 'contract1', companyId: 'company1' }] }; writes.push({ path, ...options }); return { id: 'offer1' }; },
+    api: async (path, options) => { if (!options?.method) return { items: [{ id: 'contract1', companyId: 'company1' }] }; writes.push({ path, ...options }); return { id: 'offer1' }; },
   });
   vm.runInContext(bare('./offer-source.js') + '\nglobalThis.subject={scopeItem,linkOfferContract};', sandbox);
   const record = { id: 'offer1', companyId: 'company1', legalVersion: 7, legal: {}, items: [{ productName: 'Строка 6', quantity: 1, unitPrice: 1070000, sourceRowKey: '6' }] };
@@ -142,4 +142,52 @@ test('nested offer actions expose callable kit fields, preserve exclusion eviden
   const legal = harness(); legal.subject.editLegal('offers', base(), {});
   assert.equal(typeof legal.panels[0].panel.form.fields, 'function');
   assert.ok(legal.panels[0].panel.form.fields().some((x) => x.key === 'objectAddress'));
+});
+
+
+// Исполняем тот же обработчик сохранения kit, включая toBody, ошибки и закрытие панели.
+async function submitThroughKit(panel, values, panelCtx = {}) {
+  const card = source('../ui/kit/card.js');
+  const start = card.indexOf('save.onclick = async () => {');
+  const end = card.indexOf('\n    // readonly:', start);
+  const errors = [], changed = [], closed = [];
+  const sandbox = vm.createContext({
+    section: panel, form: { read: () => ({ values }) }, row: null, isNew: true,
+    save: { disabled: false }, cancel: {}, err: {}, body: { querySelectorAll: () => [] },
+    saving: false, busyBtn: () => () => {}, reportError: (e) => errors.push(e),
+    isFailure: () => false, errText: (e) => e.message,
+    ctx: { changed: () => { changed.push(true); panelCtx.changed?.(); }, close: () => { closed.push(true); panelCtx.close?.(); } },
+    window: { dispatchEvent() {} }, CustomEvent: class {}, destroy() {},
+  });
+  vm.runInContext(card.slice(start, end) + '\nglobalThis.submit=save.onclick;', sandbox);
+  await sandbox.submit();
+  assert.deepEqual(errors.map((e) => e.message), [], 'настоящий kit submit не должен ловить ошибку до API');
+  assert.equal(changed.length, 1); assert.equal(closed.length, 1);
+}
+
+test('kit save promise submits exclusion, existing-contract link and legal edit through toBody', async () => {
+  const panels = [], contexts = [], writes = [];
+  let reloaded = 0; const parentCtx = { reload: async () => { reloaded++; }, changed() {} };
+  const sandbox = vm.createContext({
+    ...pure, session: { canEditOrders: true, canMoney: true },
+    document: { querySelectorAll: () => [{}] }, isoDay: () => '2026-11-20', newKey: () => 'link-uid',
+    openCard: (panel, _opts, ctx) => { panels.push(panel); contexts.push(ctx); return panel; },
+    api: async (path, options) => { if (!options?.method) return { items: [{ id: 'contract1', companyId: 'company1' }] }; writes.push({ path, ...options }); return { id: 'offer1' }; },
+  });
+  vm.runInContext(bare('./offer-source.js') + '\nglobalThis.subject={scopeItem,linkOfferContract};', sandbox);
+  const record = { id: 'offer1', companyId: 'company1', legalVersion: 7, legal: {}, items: [{ productName: 'Строка 6', quantity: 1, unitPrice: 1070000, sourceRowKey: '6' }] };
+  sandbox.subject.scopeItem(record, 0, parentCtx);
+  await submitThroughKit(panels[0], { reason: 'Решение владельца', confirmedAt: '2026-11-20', eventDate: '' }, contexts[0]);
+  assert.equal(writes[0].body.items[0].scopeState, 'excluded');
+  assert.equal(writes[0].body.items[0].exclusionReason, 'Решение владельца');
+  assert.equal(writes[0].body.items[0].exclusionConfirmedAt, '2026-11-20');
+  assert.equal(writes[0].body.items[0].exclusionEventDate, null);
+  await sandbox.subject.linkOfferContract(record, parentCtx);
+  await submitThroughKit(panels[1], { orderId: 'contract1' }, contexts[1]);
+  assert.equal(reloaded, 2);
+  assert.equal(writes[1].body.orderId, 'contract1');
+  const legal = harness(); legal.subject.editLegal('salesorders', base(), parentCtx);
+  await submitThroughKit(legal.panels[0].panel, { objectAddress: 'Уточнённый адрес', state: 'draft', signature: 'unknown', signedDate: '' }, legal.panels[0].ctx);
+  assert.equal(reloaded, 3);
+  assert.equal(legal.writes[0].body.legal.objectAddress, 'Уточнённый адрес');
 });
