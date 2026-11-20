@@ -4,7 +4,7 @@ import { button } from './index.js';
 
 /**
  * folderTile — «папка» с файлами (C121): светло-жёлтая плитка с названием и числом файлов; клик раскрывает список.
- *   folderTile({ name, files: [{ id, name, meta, mime, ticket(): Promise<absoluteUrl>, onDownload() }], hint, open, onDrop(files[]) })
+ *   folderTile({ name, files: [{ id, name, meta, mime, ticket(): Promise<absoluteUrl>, onDownload(), action?: {label,onClick} }], hint, open, onDrop(files[]) })
  *   → узел; .setFiles(list) обновляет содержимое без перерисовки папки.
  * Перетаскивание ИЗ папки (Chrome/Edge): на pointerenter берётся одноразовый тикет, строка становится draggable и отдаёт DownloadURL;
  * в других браузерах и на телефоне — кнопка «Скачать». onDrop — папка принимает файлы (подсветка .k-over); без onDrop зоны загрузки нет.
@@ -12,8 +12,11 @@ import { button } from './index.js';
 const TICKET_MS = 50000; // тикет живёт 60 с и одноразовый — берём заново после перетаскивания и по истечении
 
 function fileRow(f) {
-  const row = h('li', { class: 'k-folder-file' }, h('span', { class: 'k-folder-name clip', title: f.name }, f.name), f.meta ? h('span', { class: 'muted small' }, f.meta) : null);
-  row.append(button({ label: 'Скачать', size: 'S', kind: 'ghost', onClick: () => f.onDownload?.() }));
+  const row = h('li', { class: 'k-folder-file' },
+    h('div', { class: 'k-folder-name' }, h('div', { title: f.name }, f.name), f.meta ? h('div', { class: 'muted small' }, f.meta) : null),
+    h('div', { class: 'k-folder-actions' },
+      button({ label: 'Скачать', size: 'S', kind: 'ghost', onClick: () => f.onDownload?.() }),
+      f.action ? button({ ...f.action, size: 'S', kind: 'ghost' }) : null));
   if (!f.ticket) return row;
   let url = '', timer = 0, loading = false;
   const reset = () => { url = ''; clearTimeout(timer); row.draggable = false; row.classList.remove('is-drag-ready'); };

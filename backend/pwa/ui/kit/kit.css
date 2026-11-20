@@ -984,8 +984,9 @@ tr.k-pos-more .k-readonly { border: 0; background: transparent; padding: 0; }
 .k-folder-title { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* узкая колонка раскрытия: «Чертежи» не рвётся посреди слова */
 .k-folder-body { padding: 0 var(--s3) var(--s3); }
 .k-folder-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s1); }
-.k-folder-file { display: flex; align-items: center; gap: var(--s2); padding: var(--s1) var(--s2); background: var(--surface); border-radius: var(--radius-sm); }
-.k-folder-name { flex: 1; min-width: 0; }
+.k-folder-file { display: flex; flex-direction: column; align-items: stretch; gap: var(--s2); min-width: 0; padding: var(--s1) var(--s2); background: var(--surface); border-radius: var(--radius-sm); }
+.k-folder-name { min-width: 0; overflow-wrap: anywhere; }
+.k-folder-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
 .k-folder-file.is-drag-ready { cursor: grab; }
 .k-folder.k-over { outline: 2px dashed var(--gold); outline-offset: 2px; background: var(--gold-soft); }
 @media (max-width: 720px) { .k-folder-file .btn { min-height: 44px; } }
