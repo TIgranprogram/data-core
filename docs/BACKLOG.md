@@ -17,9 +17,10 @@
 - [x] Backend CAS/runtime/API, admin форма, immutable/staged bridge готовы; архитектор PASS, host47 PASS.
 - [x] Изолированные host-направления и отказы проверены; UI unknown/CAS/save/reopen, backup-аудит без удаления. Реальный VPS/failback не испытывался и не объявлен готовым.
 - [x] UI/архитектор/QA приняты: 3827unit/688e2e/435PWA/7admin, guards362; 12opt-in e2e SKIP. QA-REPORT/UI-REVIEW/BROWSER-REPORT сохранены.
-- [ ] Итоговые PWA-only исправления C164, согласованный выпуск и post-check; рабочий график на проде ещё не сохранён. Исходный Dcheckout не менять.
+- [x] C164+C166 выпущены v1.966 (source0cd8bcbc/UI3fe6b35d); health/smoke7/7/CRM200 и независимый GET PASS. [Post-release](crew/C166-server-schedules/POST-RELEASE.md).
+- [~] После разрешённого точечного исправления владельца switch восстановлен исходный график CAS revision2: данные15мин включены, код выключен. Проверить реальное автоматическое задание после11:25МСК; профилактика владельца и импорт истории выпуска ещё в работе.
 
-Текущий сайт **v1.956**, UI/сервер **5c0d346c**, main **e89b11b3**, тег `release-v1.956-e89b11b3`. Общий C163+C165 выпущен после 3766 unit/666 e2e/425 PWA PASS (12 opt-in SKIP). Health/смоук7/7/CRM200 и независимый паспортный GET PASS. [Итог](crew/C163-new-product-passport-funnel/POST-RELEASE.md).
+Текущий сайт **v1.966**, UI **3fe6b35d**, main **0cd8bcbc**, тег `release-v1.966-0cd8bcbc`. Текущие границы — [C166 post-release](crew/C166-server-schedules/POST-RELEASE.md). Предыдущий выпуск v1.956: Общий C163+C165 выпущен после 3766 unit/666 e2e/425 PWA PASS (12 opt-in SKIP). Health/смоук7/7/CRM200 и независимый паспортный GET PASS. [Итог](crew/C163-new-product-passport-funnel/POST-RELEASE.md).
 
 1. [x] **C163+C165 выпущены v1.956.** Общий QA и обе независимые проверки PASS; финансовый JS совпадает с исходником после нормализации CRLF→LF. [C165 итог](crew/C165-undated-payments-and-filename-repair/POST-RELEASE.md).
 2. [x] **C157:33 новых счёта с датированными оплатами —3 281 474,57₽.** Последняя партия20/2 862 228,54₽ завершена как13+7 после штатного read-only окна. Реальные ID20платежей сверены по ledger; исходный STOP25541 сохранён. №24334/50 076₽ отдельно: подтверждение без даты, денежных фактов0. 27PDF уже в Downloads/Готово, ещё7DONE подготовлены к перемещению. [Учёт](crew/C157-invoice-manager-import/IMPORT-STATUS.md).
