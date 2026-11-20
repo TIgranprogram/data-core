@@ -56,7 +56,12 @@ test('таблица: root области прокрутки загружает 
 });
 
 test('после resize к телефону продолжает карточки через прокрутку страницы', async () => {
-  const { page } = await fixture();
+  let releaseThird;
+  const thirdPage = new Promise((resolve) => { releaseThird = resolve; });
+  const { page, calls } = await fixture({ respond: async (q) => {
+    if (q.page === '3') await thirdPage;
+    return rows(Number(q.page), Number(q.limit), 250);
+  } });
   try {
     await mount(page); await page.setViewportSize({ width: 390, height: 844 });
     // раскладка карточек после resize перестраивается не сразу — прокручивать, когда карточки на месте
@@ -67,8 +72,12 @@ test('после resize к телефону продолжает карточк�
     assert.equal(await page.locator('.cards > li').count(), 200);
     await page.setViewportSize({ width: 1024, height: 900 });
     await page.locator('.table-wrap').evaluate((el) => { el.scrollTop = el.scrollHeight - el.clientHeight - 100; });
+    releaseThird();
     await page.waitForFunction(() => document.querySelector('.list-foot')?.textContent.includes('250 из 250'));
-  } finally { await page.close(); }
+    const names = await page.locator('tbody tr td:first-child').allTextContents();
+    assert.equal(names.length, 250); assert.equal(new Set(names).size, 250);
+    assert.deepEqual(calls.map((q) => q.page), ['1', '2', '3']);
+  } finally { releaseThird(); await page.close(); }
 });
 
 test('без observer доступны клавиатурная кнопка, повтор ошибки и защита от устаревшего append', async () => {
