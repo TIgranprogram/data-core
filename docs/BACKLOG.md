@@ -6,6 +6,12 @@
 
 ## ▶ Сейчас (координатор, 20.11.2026; новая сессия начинает отсюда)
 
+**20.11 — C166, поручение владельца:**
+- [x] Разделены расписания данных/кода, выполнены аналитик/архитектор и readonly baseline; TZ в crew/C166-server-schedules.
+- [ ] Backend CAS/runtime/API, admin форма, безопасный immutable/staged bridge — отдельные владельцы.
+- [ ] Проверка домена в обе стороны на изолированном контуре; честные unknown на проде, проверка backup retention без удаления.
+- [ ] UI/архитектор/QA, согласованный с C164 выпуск, commit/push; исходный Dcheckout не менять.
+
 Текущий сайт **v1.956**, UI/сервер **5c0d346c**, main **e89b11b3**, тег `release-v1.956-e89b11b3`. Общий C163+C165 выпущен после 3766 unit/666 e2e/425 PWA PASS (12 opt-in SKIP). Health/смоук7/7/CRM200 и независимый паспортный GET PASS. [Итог](crew/C163-new-product-passport-funnel/POST-RELEASE.md).
 
 1. [x] **C163+C165 выпущены v1.956.** Общий QA и обе независимые проверки PASS; финансовый JS совпадает с исходником после нормализации CRLF→LF. [C165 итог](crew/C165-undated-payments-and-filename-repair/POST-RELEASE.md).
