@@ -7,7 +7,7 @@ import { findBrowser } from '../../../../tools/browser-path.mjs';
 const root = new URL('../../', import.meta.url);
 const evidence = new URL('../../../../tools/logs/c170-folder-geometry/', import.meta.url);
 
-test('folderTile: длинные русские имена, метаданные и действия не сжимаются в колонках225/320', async () => {
+test('folderTile: длинные русские имена, метаданные и действия не сжимаются в колонках145/190/225/320', async () => {
   const browser = await chromium.launch({ executablePath: findBrowser(), headless: true });
   const errors = [], apiCalls = [];
   try {
@@ -34,13 +34,13 @@ test('folderTile: длинные русские имена, метаданные
         { id: '2', name: 'Паспорт тренажёра с длинным русским названием и обозначением изделия № 123-456.pdf', meta: 'Позиция заказа · 2,4 МБ', onDownload: () => window.actions.download++, action: { label: 'Использовать как паспорт', onClick: () => window.actions.select++ } },
       ] }));
     });
-    for (const theme of ['light', 'dark']) for (const width of [225, 320]) {
+    for (const theme of ['light', 'dark']) for (const width of [145, 190, 225, 320]) {
       await page.evaluate(({ width, theme }) => {
         document.documentElement.dataset.theme = theme;
         Object.assign(document.querySelector('main').style, { width: `${width}px`, margin: '24px' });
       }, { width, theme });
       const rects = await page.locator('.k-folder').evaluate((folder) => {
-        const rect = (el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height }; };
+        const rect = (el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height, overflowX: el.scrollWidth - el.clientWidth, overflowY: el.scrollHeight - el.clientHeight }; };
         return { folder: rect(folder), overflow: folder.scrollWidth - folder.clientWidth, rows: [...folder.querySelectorAll('.k-folder-file')].map((row) => ({
           row: rect(row), overflow: row.scrollWidth - row.clientWidth, name: rect(row.querySelector('.k-folder-name')),
           buttons: [...row.querySelectorAll('button')].map(rect),
@@ -52,6 +52,7 @@ test('folderTile: длинные русские имена, метаданные
         assert.ok(row.overflow <= 1 && rects.overflow <= 1, `${where}: горизонтальный overflow`);
         for (const button of row.buttons) {
           assert.ok(button.width > 0 && button.height > 0, `${where}: действие невидимо`);
+          assert.ok(button.overflowX <= 1 && button.overflowY <= 1, `${where}: текст действия обрезан`);
           assert.ok(button.left >= row.row.left - 1 && button.right <= row.row.right + 1, `${where}: действие вышло из строки`);
           assert.ok(button.top >= row.name.bottom - 1, `${where}: действие перекрывает имя или metadata`);
         }
@@ -63,7 +64,7 @@ test('folderTile: длинные русские имена, метаданные
       await first.getByRole('button', { name: 'Использовать как паспорт', exact: true }).click();
       await page.locator('main').screenshot({ path: new URL(`${theme}-${width}.png`, evidence).pathname.replace(/^\/([A-Za-z]:)/, '$1') });
     }
-    assert.deepEqual(await page.evaluate(() => window.actions), { download: 4, select: 4 });
+    assert.deepEqual(await page.evaluate(() => window.actions), { download: 8, select: 8 });
     assert.deepEqual(apiCalls, []); assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 });
