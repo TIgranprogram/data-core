@@ -16,3 +16,5 @@
 Точные ID/SHA/остатки: локальные data/PROCESSING-STATE.json, remaining9-final-receipt.json,24334-undated-final-receipt.json и отдельные DONEjournals. Старые STOPжурналы не переписаны. Оригиналы Downloads/Новые счета не перемещены. NO_ACTIVE_WRITE.
 
 20.11по прямому поручению владельца14DONEоригиналовперемещеныв `C:/Users/User/Downloads/Готово`; до/послеSHAпроверены, перезаписи0. ТекущиепутиобновленывPROCESSING-STATE, историческиеoriginalFilesисходныеоплаченныепланы/журналысохранены. ОстальныефайлыDownloadsи«Новыесчета»остаютсянасвоихместах. Журнал: data/move-completed-to-gotovo-receipt.json. Не считать перемещение новой загрузкой/оплатой.
+
+20.11продолжение:ещё13датированныхDONE1464873₽;всего26/1884119,03₽. Next20остановленна503READ_ONLYдосоздания25541(поставщик0поfreshproof),осталсяновый7план1397355,54₽. OriginalSTOP/DONEсохраняются, повторстарого20helperзапрещён. Новые13PDFперенесеныГотово:всего27обработанныхPDFвэтойзадаче. Counterparty/6sourceпоставокоставленыдоотдельногоreviewиcontroljobdone.

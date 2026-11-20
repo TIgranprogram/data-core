@@ -16,3 +16,6 @@
 - 2026-11-18 · неэкспорт воронки состава: `SourceTextModule` без флага на Node 26 не стартует · `vm.Script` + заглушка `api`; `deepEqual` массива из vm красный (другой realm) — сравнивать поля · `book-composition-funnel.test.mjs`
 - 2026-11-18 · e2e «выставить счёт» 400 после 7790cadd · в том же PATCH, что `issue: true`, нужен `payerCompanyId` · `supply-invoice-rules.ts:21`, `E2E-SUPPLY-FAIL.md`
 - 2026-11-19 · C161. В `GET /api/passports/:id?readOnly=1` сырой `printSnapshot` скрыт. Для сохранности исторических выпусков сравниваем хеш проекции печати и редакции, для проверки сохранности всего снимка используем отдельный HTTP e2e на тестовой БД. Полный PWA node-прогон запускается из корня, на него рассчитан путь в тесте загрузки рисунка модуля.
+
+- 2026-11-20 · C164: targeted иногда не ловил lateclashгонку, full получилsamepayload201/409 · проверять все триветкиreplay(earlylookup,lateclash,11000), добавить детерминированный4caseunit и8HTTPпар; неослаблять201/201 · C164/QA-REPORT.md, salesorders/c164-source-replay-race.spec.ts.
+- 2026-11-20 · C164: ошибкиATLAS/VMфикстурыобнаружилисьтолькопоследорогогоe2e · передследующимдорогимfullпроверятьполныйNodePWAнабор(16с), а не толькоpwa-guards; adminstubдолженподдерживатьреальныйsession.sees, неruntimefallback · C164/QA-REPORT.md.
