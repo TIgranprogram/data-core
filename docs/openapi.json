@@ -13594,7 +13594,45 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": "{ enabled, self:home|office, version, autoRefresh:{enabled,minutes,lastAt}, role:main|standby, mode:normal|readonly, job:{id,direction,step,state,startedAt,finishedAt?,error?}|null, peer:{name,version,copyAgeMin,healthy,checkedAt}, bridge:{alive}, blockers:[строки], canStart, canRefresh, canEmergency, speed:{home,office}:{p50,p95,requests,slow,probeMs} }; version — сборка этого сервера (из pwa/version.json), версии соседа и своей сравниваются: разные — blockers и canStart=false (C042-A5); autoRefresh — авто-«Обновить» копии на главном (C042-A3). direction=refresh, пока идёт обновление запасного. canRefresh = главный + обычный режим + нет работы + мост жив (blockers не входят). Без HA_SELF — enabled:false и обзор соседа по HA_PEER_URL. speed не меняет переключение."
+            "description": "{ enabled, self:home|office, version, autoRefresh:{enabled,minutes,lastAt}, role:main|standby, mode:normal|readonly, job:{id,direction,step,state,startedAt,finishedAt?,error?}|null, peer:{name,version,copyAgeMin,healthy,checkedAt}, bridge:{alive}, blockers:[строки], canStart, canRefresh, canEmergency, domain:{owner,homeHealthy,officeHealthy,checkedAt}, switchReadiness:{state,reasons}, speed:{home,office}:{p50,p95,requests,slow,probeMs} }; version — сборка этого сервера (из pwa/version.json), версии соседа и своей сравниваются: разные — blockers и canStart=false (C042-A5); autoRefresh — авто-«Обновить» копии на главном (C042-A3). direction=refresh, пока идёт обновление запасного. canRefresh = главный + обычный режим + нет работы + мост жив (blockers не входят). Без HA_SELF — enabled:false и обзор соседа по HA_PEER_URL. speed не меняет переключение."
+          }
+        },
+        "tags": [
+          "Переключение сервера"
+        ]
+      }
+    },
+    "/control/switch/schedule": {
+      "get": {
+        "operationId": "SwitchController_getSchedule",
+        "summary": "Расписания обновления запасного сервера и результаты последних запусков",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Переключение сервера"
+        ]
+      },
+      "put": {
+        "operationId": "SwitchController_saveSchedule",
+        "summary": "Сохранить расписания на главном сервере с проверкой ревизии",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveSwitchScheduleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "409": {
+            "description": "Ревизия уже изменилась, сервер запасной или идёт работа"
           }
         },
         "tags": [
@@ -13651,14 +13689,14 @@
     "/control/switch/refresh": {
       "post": {
         "operationId": "SwitchController_refresh",
-        "summary": "Обновить запасной: код и база, без смены домена. Повтор, пока идёт работа, — 409",
+        "summary": "Обновить запасной: код и база, без смены домена. Объём: данные или код и данные. Повтор, пока идёт работа, — 409",
         "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/StartSwitchDto"
+                "$ref": "#/components/schemas/RefreshSwitchDto"
               }
             }
           }
@@ -23944,6 +23982,109 @@
           "optionCode"
         ]
       },
+      "DataScheduleDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "time": {
+            "type": "string",
+            "example": "03:00"
+          },
+          "days": {
+            "example": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "interval",
+              "daily"
+            ]
+          },
+          "intervalMinutes": {
+            "type": "number",
+            "minimum": 5,
+            "maximum": 1440,
+            "example": 15
+          }
+        },
+        "required": [
+          "enabled",
+          "time",
+          "days",
+          "mode",
+          "intervalMinutes"
+        ]
+      },
+      "DailyScheduleDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "time": {
+            "type": "string",
+            "example": "03:00"
+          },
+          "days": {
+            "example": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "enabled",
+          "time",
+          "days"
+        ]
+      },
+      "SaveSwitchScheduleDto": {
+        "type": "object",
+        "properties": {
+          "expectedRevision": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9007199254740990
+          },
+          "timezone": {
+            "type": "string",
+            "enum": [
+              "Europe/Moscow"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/DataScheduleDto"
+          },
+          "code": {
+            "$ref": "#/components/schemas/DailyScheduleDto"
+          }
+        },
+        "required": [
+          "expectedRevision",
+          "timezone",
+          "data",
+          "code"
+        ]
+      },
       "StartSwitchDto": {
         "type": "object",
         "properties": {
@@ -23951,6 +24092,27 @@
             "type": "boolean",
             "example": true,
             "description": "Подтверждение: только true"
+          }
+        },
+        "required": [
+          "confirm"
+        ]
+      },
+      "RefreshSwitchDto": {
+        "type": "object",
+        "properties": {
+          "confirm": {
+            "type": "boolean",
+            "example": true,
+            "description": "Подтверждение: только true"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "data",
+              "both"
+            ],
+            "default": "both"
           }
         },
         "required": [
@@ -23987,6 +24149,38 @@
           }
         }
       },
+      "SwitchDomainDto": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "enum": [
+              "home",
+              "office"
+            ],
+            "nullable": true
+          },
+          "homeHealthy": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "officeHealthy": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "owner",
+          "homeHealthy",
+          "officeHealthy",
+          "checkedAt"
+        ]
+      },
       "SwitchReportDto": {
         "type": "object",
         "properties": {
@@ -24010,6 +24204,10 @@
             "type": "string",
             "description": "Текст ошибки без секретов"
           },
+          "warning": {
+            "type": "string",
+            "description": "Предупреждение, не меняющее результат операции"
+          },
           "role": {
             "type": "string",
             "enum": [
@@ -24026,6 +24224,9 @@
           },
           "peer": {
             "$ref": "#/components/schemas/PeerInfoDto"
+          },
+          "domain": {
+            "$ref": "#/components/schemas/SwitchDomainDto"
           }
         },
         "required": [

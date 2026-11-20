@@ -14,9 +14,10 @@
 
 **20.11 — C166, поручение владельца:**
 - [x] Разделены расписания данных/кода, выполнены аналитик/архитектор и readonly baseline; TZ в crew/C166-server-schedules.
-- [ ] Backend CAS/runtime/API, admin форма, безопасный immutable/staged bridge — отдельные владельцы.
-- [ ] Проверка домена в обе стороны на изолированном контуре; честные unknown на проде, проверка backup retention без удаления.
-- [ ] UI/архитектор/QA, согласованный с C164 выпуск, commit/push; исходный Dcheckout не менять.
+- [x] Backend CAS/runtime/API, admin форма, immutable/staged bridge готовы; архитектор PASS, host47 PASS.
+- [x] Изолированные host-направления и отказы проверены; UI unknown/CAS/save/reopen, backup-аудит без удаления. Реальный VPS/failback не испытывался и не объявлен готовым.
+- [x] UI/архитектор/QA приняты: 3827unit/688e2e/435PWA/7admin, guards362; 12opt-in e2e SKIP. QA-REPORT/UI-REVIEW/BROWSER-REPORT сохранены.
+- [ ] Итоговые PWA-only исправления C164, согласованный выпуск и post-check; рабочий график на проде ещё не сохранён. Исходный Dcheckout не менять.
 
 Текущий сайт **v1.956**, UI/сервер **5c0d346c**, main **e89b11b3**, тег `release-v1.956-e89b11b3`. Общий C163+C165 выпущен после 3766 unit/666 e2e/425 PWA PASS (12 opt-in SKIP). Health/смоук7/7/CRM200 и независимый паспортный GET PASS. [Итог](crew/C163-new-product-passport-funnel/POST-RELEASE.md).
 
