@@ -37,7 +37,7 @@ export function lineFilesCard(l) {
     for (const [id, t] of tiles) {
       t.setFiles(files.filter((f) => f.typeId === id).map((f) => ({
         id: f.id, name: f.originalName || f.name, mime: f.mime, meta: [f.scope === 'line' ? 'позиция' : 'изделие', sizeText(f.size)].filter(Boolean).join(' · '),
-        action: canWorkPassport() && l.orderId && !l.cancelledAt ? { label: 'Использовать как паспорт', onClick: async (e) => {
+        action: canWorkPassport() && l.orderId && !l.cancelledAt ? { label: 'Это паспорт', onClick: async (e) => {
           const end = busyBtn(e.currentTarget, null);
           try { if (await useFileAsPassport(l.orderId, l.id, f)) toast('Вложенный паспорт выбран'); }
           catch (err) { toastError(err); } finally { end(); }
