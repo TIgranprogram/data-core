@@ -16771,6 +16771,148 @@
         }
       }
     },
+    "/passports/order/{orderId}/lines/{incomeId}/source": {
+      "get": {
+        "operationId": "ProductPassportController_source",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "incomeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      },
+      "put": {
+        "operationId": "ProductPassportController_sourceSelect",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "incomeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PassportSourceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/order/{orderId}/lines/{incomeId}/source/candidates": {
+      "get": {
+        "operationId": "ProductPassportController_sourceCandidates",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "incomeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/passports/order/{orderId}/lines/{incomeId}/source/download-ticket": {
+      "post": {
+        "operationId": "ProductPassportController_sourceTicket",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "incomeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PassportSourceTicketDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
     "/products/{productId}/passport": {
       "get": {
         "operationId": "ProductPassportController_findByProduct",
@@ -25223,6 +25365,14 @@
             "description": "Название не вписано — нужно заполнить"
           }
         }
+      },
+      "PassportSourceDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "PassportSourceTicketDto": {
+        "type": "object",
+        "properties": {}
       },
       "CreateProductPassportDto": {
         "type": "object",
