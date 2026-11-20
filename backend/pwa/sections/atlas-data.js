@@ -13,6 +13,7 @@ export const BANDS = [
   { id: 'stock', name: 'Склад', hint: 'что лежит и куда ушло', tok: 'stock' },
   { id: 'after', name: 'Отгрузка и сервис', hint: 'довезти, смонтировать, гарантия', tok: 'orders' },
   { id: 'money', name: 'Деньги', hint: 'кто кому должен', tok: 'money' },
+  { id: 'quality', name: 'Заполнение данных', hint: 'что осталось уточнить менеджеру', tok: 'orders' },
 ];
 
 /**
@@ -28,6 +29,14 @@ export const BANDS = [
  * tplStatus: ok — собран по шаблону; legacy — долг (число не растёт, tools/tpl-baseline.json); plan — экрана ещё нет.
  */
 export const NODES = [
+  { id: 'fill', tpl: 'queue', tplStatus: 'ok', band: 'quality', col: 0, sec: 'fill', t: 'Требуют заполнения', l: ['неизвестные сведения', 'и пометки менеджеру'],
+    inside: [
+      { id: 'utochneniya-dokumentov', t: 'Уточнения договоров и КП', l: 'открыть документ, заполнить известное и проверить пометки', in: ['offers', 'salesorders'] },
+      { id: 'nedostayuschie-dannye', t: 'Недостающие сведения', l: 'группы незаполненных полей и подтверждённые оплаты без даты' },
+    ],
+    rules: ['Неизвестные даты, адреса и связи остаются пустыми до уточнения.', 'Подтверждение оплаты без даты не создаёт датированную денежную операцию.'],
+    docs: ['docs/DESIGN.md — «Требуют заполнения»', 'docs/MAP.md — fill-audit'], tech: 'Очередь строится из существующих документов и полей; отдельные копии документов не создаются.',
+    code: ['backend/pwa/sections/fill.js', 'backend/src/modules/fill-audit'] },
   // ── Клиенты и продажи
   { id: 'partners', tpl: 'card', tplStatus: 'ok', band: 'sale', col: 0, sec: 'partners', href: '#partners', t: 'Контрагенты', l: ['заказчики, поставщики,', 'наши фирмы'],
     inside: [
