@@ -10,5 +10,3 @@
 Файлы: `backend/test/e2e/passport-import.e2e-spec.ts`; доказательства `QA-E2E-{BASELINE,PRESENTATION,MAPPING,DRAFT-V1}.json` и соответствующие `.log`; первые ошибки фикстур сохранены отдельно.
 Контракт: `product-passport.controller.ts:48,52` ↔ `passport-images.iLogicVb:529,532,559`; e2e `:51,130`; Docker Mongo4.4 rs0 `c172-qa-mongo:27172`, строго `datacore-test-c172`, временный UPLOAD_DIR. Секреты/прод/стенд не читались.
 Риски: Inventor/№616/desktop/full не подтверждены этой QA. Legacy draft с синтетическим конфликтующим текстом — отдельный SKIP/known limitation (QA-E2E-DRAFT.json), не доказанный баг; strict печать должна отказывать при конфликте, валидный v1 draft проверен. коммит: 697b8df3 + текущие C172; карта обновлена.
-
-

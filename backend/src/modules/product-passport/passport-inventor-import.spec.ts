@@ -51,4 +51,3 @@ describe('C172 подготовка legacy в общей session', () => {
     expect(current.name).toBe('Своё имя'); expect(rebuildSafe).toHaveBeenCalledTimes(1);
   });
 });
-
