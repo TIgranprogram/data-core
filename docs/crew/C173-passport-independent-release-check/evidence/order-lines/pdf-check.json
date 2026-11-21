@@ -1,0 +1,34 @@
+[
+  {
+    "file": "short-r1.pdf",
+    "pages": 7,
+    "sha256": "29268ea7aa33409c0cbbd7354b353e44b4c6cb79178d467ad87c8566706b96ea",
+    "coverAndCouponName": "Имя карточки изделия",
+    "passportNumber": "1",
+    "warrantyCode": "202611-1"
+  },
+  {
+    "file": "short-r2.pdf",
+    "pages": 7,
+    "sha256": "9b097d132e3e019da57b69db6fe7c54821ce957d349bf38093b9c62790a2950c",
+    "coverAndCouponName": "Редакция короткого паспорта",
+    "passportNumber": "1",
+    "warrantyCode": "202611-1"
+  },
+  {
+    "file": "full-r1.pdf",
+    "pages": 7,
+    "sha256": "02228c3443f75ec3fbcd25adfd55a976d5532942d66fa9efe9083be3c517a83d",
+    "coverAndCouponName": "Имя карточки изделия",
+    "passportNumber": "2",
+    "warrantyCode": "202611-2"
+  },
+  {
+    "file": "full-r2.pdf",
+    "pages": 7,
+    "sha256": "f09973719dfbd3f96ebbdaabfbaea65b9dc0bc736df7c393b318148da75f4bce",
+    "coverAndCouponName": "Редакция полного паспорта",
+    "passportNumber": "2",
+    "warrantyCode": "202611-2"
+  }
+]

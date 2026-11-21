@@ -1,0 +1,28 @@
+[
+  {
+    "variant": "short",
+    "id": "6b01f77f59a65d95efa8f8f7",
+    "orderId": "6b01f77e59a65d95efa8f8a9",
+    "incomeId": "6b01f77e59a65d95efa8f8aa",
+    "productId": "6b01f77e59a65d95efa8f8a6",
+    "passportNumber": "1",
+    "warrantyCode": "202611-1",
+    "revision": 2,
+    "historyLength": 1,
+    "previousName": "Имя карточки изделия",
+    "name": "Редакция короткого паспорта"
+  },
+  {
+    "variant": "full",
+    "id": "6b01f77f59a65d95efa8f953",
+    "orderId": "6b01f77e59a65d95efa8f8a9",
+    "incomeId": "6b01f77e59a65d95efa8f8ab",
+    "productId": "6b01f77e59a65d95efa8f8a6",
+    "passportNumber": "2",
+    "warrantyCode": "202611-2",
+    "revision": 2,
+    "historyLength": 1,
+    "previousName": "Имя карточки изделия",
+    "name": "Редакция полного паспорта"
+  }
+]
