@@ -188,3 +188,8 @@
 
 ## Воронка паспорта C054 (2026-11-09)
 - `docs/crew/C054-passport-funnel/REQUIREMENTS.md`. Сборщик УЖЕ умеет условия (`passport-compose.ts:23-97`), но `legacyTemplateToBlocks :181` их не ставит; «Для всех» — в коде `passport-texts.v2.json`. Баг: `parseBom` (`pwa/sections/passports/common.js:106`) теряет `size`. Нумерация: `legacyStartNumber` + второй «Монтаж» `passport-pdf-v2-layout.ts:216`. Решение: 10 признаков `traits`, `when` строкой. Вопросы 1–5 в файле.
+
+## Закрытие и архив заказа (C172, 2026-11-21)
+- Правила и приёмка: `docs/crew/C172-inventor-image-flow/ARCHIVE-RULES.md` §§«Уже есть», «Ближайшая граница C172», «Полный архив». `closed` не проверяет оплату; производство — группа `salesorders.productionNo`; факт оплаты — `incomeDerived`/`incomePayments`, не один флаг этапа.
+- C172: предлагается консервативный пропуск паспортов закрытого договора; полный неизменяемый архив — отдельная задача, прежний комплект сохраняется при admin reopen.
+- коммит: не закоммичен (исследование C172). Карта обновлена.

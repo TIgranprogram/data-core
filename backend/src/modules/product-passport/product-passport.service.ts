@@ -1,3 +1,4 @@
+import { passportProductVersion, withPassportProductWrite } from './passport-product-write';
 import { assertSitePassport, copyPassportValue, lineBaseline, passportLine, stalePassport, withPassportSite } from '../../common/passport/line-source';
 import { parseModules } from '../../common/passport/modules';
 import { installKindOf, variantOf, PASSPORT_VARIANTS, type PassportVariant } from './passport-variants';
@@ -334,6 +335,7 @@ export class ProductPassportService {
     const baseline = dto.incomeId ? await passportLine(this.connection.db!, dto.incomeId) : null;
     assertSitePassport(baseline);
     const set = this.normalize(await bindDraft(this.connection.db!, dto));
+    const productVersion = await passportProductVersion(this.connection, set.productId);
     delete set.variant;
     if (set.incomeId) await assertOneLive(this.model, set.incomeId);
     if (set.incomeId) set.creationScopeKey = lineScopeKey(set.incomeId);
@@ -364,12 +366,12 @@ export class ProductPassportService {
       Object.assign(set, prepared.toObject());
     }
     try {
-      const doc = await withPassportSite(this.connection, baseline, async session => {
+      const doc = await withPassportSite(this.connection, baseline, outer => withPassportProductWrite(this.connection, productVersion, outer, async session => {
         const attempt = copyPassportValue(set);
         if (attempt.status === 'issued') await this.allocate(attempt, date, session);
         await this.assertFree(attempt, undefined, session);
         return session ? (await this.model.create([attempt], { session }))[0] : await this.model.create(attempt);
-      });
+      }));
       // v2: паспорт с категорией — сразу снимок текста (правка справочников потом его не меняет)
       if (!baseline && set.passportCategory) return (await this.snapshot(String(doc._id))) ?? doc;
       return doc;
@@ -420,6 +422,7 @@ export class ProductPassportService {
     if (existing) { if (!isIssued(existing.toObject() as unknown as Doc)) assertSitePassport(baseline); return existing; }
     assertSitePassport(baseline);
     const _id = new Types.ObjectId();
+    const productVersion = await passportProductVersion(this.connection, bound.productId);
     const set: Doc = { ...bound, _id, presentationVersion: 1, variant, creationScopeKey, date: dayUtc(), status: 'draft', passportNumber: DRAFT_PREFIX + String(_id), source: 'app', bom: DEFAULT_BOM };
     const diff = await this.fromProductDiff(set);
     if (set.name && diff.name && set.name !== diff.name) {
@@ -431,7 +434,7 @@ export class ProductPassportService {
     const draft = new this.model(set);
     await this.applySnapshot(draft, { ...set });
     const prepared = draft.toObject({ minimize: false });
-    try { return await withPassportSite(this.connection, baseline, session => new this.model(copyPassportValue(prepared)).save({ session })); }
+    try { return await withPassportSite(this.connection, baseline, outer => withPassportProductWrite(this.connection, productVersion, outer, session => new this.model(copyPassportValue(prepared)).save({ session }))); }
     catch (e) {
       const stale = e instanceof ConflictException && (e.getResponse() as { code?: string }).code === 'STALE_CONTEXT';
       if (!isScopeDuplicate(e) && !stale) throw e;
@@ -721,15 +724,15 @@ export class ProductPassportService {
 
   // ─── шаблон (ПС.1) ───────────────────────────────────────────────────────────────────────────────
   /** Активная версия именно этой категории (для «Для всех» — в т.ч. без поля category). */
-  private ownDoc(category: PassportCategory) {
+  private ownDoc(category: PassportCategory, session?: ClientSession) {
     const filter = category === 'ALL' ? { isActive: true, category: { $in: [null, 'ALL'] } } : { isActive: true, category };
-    return this.templates.findOne(filter).sort({ version: -1 }).lean().exec();
+    return this.templates.findOne(filter).sort({ version: -1 }).session(session ?? null).lean().exec();
   }
 
   /** Действующий шаблон категории; своей нет — «Для всех»; в базе пусто — встроенный (версия 0, по образцу №549). */
-  async template(category?: string): Promise<PassportTemplateContent & { version: number; id?: string; updatedAt?: Date; materialsSpec?: StoredSpec | null; category: PassportCategory }> {
+  async template(category?: string, session?: ClientSession): Promise<PassportTemplateContent & { version: number; id?: string; updatedAt?: Date; materialsSpec?: StoredSpec | null; category: PassportCategory }> {
     const cat = normalizeCategory(category);
-    const t = (await this.ownDoc(cat)) ?? (cat === 'ALL' ? null : await this.ownDoc('ALL'));
+    const t = (await this.ownDoc(cat, session)) ?? (cat === 'ALL' ? null : await this.ownDoc('ALL', session));
     if (!t) return { version: 0, category: 'ALL', ...DEFAULT_PASSPORT_TEMPLATE };
     return { version: t.version, category: normalizeCategory(t.category), id: String(t._id), sections: t.sections, tables: t.tables, materialsSpec: t.materialsSpec ?? null, updatedAt: (t as unknown as { updatedAt?: Date }).updatedAt };
   }
@@ -885,9 +888,9 @@ export class ProductPassportService {
    * C096 Э1: пересборка снимка черновика без потери ручных пунктов (в `doc`, без сохранения).
    * false — содержимое и производные поля те же (запись не нужна); конфликт ключа ручной правки — 409, `doc` не меняется.
    */
-  private async rebuildSafe(doc: ProductPassportDocument, p: Doc): Promise<boolean> {
+  private async rebuildSafe(doc: ProductPassportDocument, p: Doc, session?: ClientSession): Promise<boolean> {
     const q: Doc = { ...p };
-    const built = await this.buildText(q);
+    const built = await this.buildText(q, undefined, session);
     if (!built) return false;
     const { text, instLeaf } = built;
     const prev = p.textSnapshot as Snap | undefined;
@@ -914,8 +917,8 @@ export class ProductPassportService {
   }
 
   /** Снимок и его исходные поля сохраняются одним doc.save(). Ручные пункты не переносятся — для явной пересборки и нового текста. */
-  private async applySnapshot(doc: ProductPassportDocument, p: Doc): Promise<boolean> {
-    const built = await this.buildText(p);
+  private async applySnapshot(doc: ProductPassportDocument, p: Doc, session?: ClientSession): Promise<boolean> {
+    const built = await this.buildText(p, undefined, session);
     if (!built) return false;
     const { text, instLeaf } = built;
     if (p.installationTypeId) doc.set('installationTypeId', p.installationTypeId);
@@ -1001,7 +1004,7 @@ export class ProductPassportService {
     const document: Doc = { ...input };
     const brief = isBriefPresentation(document);
     const category = String(document.passportCategory ?? '');
-    const [categories, installs] = await Promise.all([this.categoryRules(), this.installs()]);
+    const [categories, installs] = await Promise.all([this.categoryRules(session), this.installs(session)]);
     const cat = categories.get(category);
     const hasCategory = !!cat || (PASSPORT_CATEGORY_CODES as readonly string[]).includes(category);
     const oldInstall = document.installationTypeId;
@@ -1136,19 +1139,42 @@ export class ProductPassportService {
     };
   }
 
-  private async refreshRevisionPrint(doc: ProductPassportDocument, current: Doc, after: Doc, changed: string[]) {
+  private async refreshRevisionPrint(doc: ProductPassportDocument, current: Doc, after: Doc, changed: string[], session?: ClientSession) {
     const print = current.printSnapshot as PassportPrintSources | undefined;
     const reuseText = !!print && !!current.textSnapshot && changed.every((key) => key === 'images');
     // В images при выпуске записываются и типовые схемы. Не считать их собственными при новой редакции.
     const priorSchemes = new Set((print?.standardImages ?? []).map((i) => `${i.kind}/${i.photoId}`));
     const images = ((after.images as PassportImageLike[]) ?? []).filter((i) => !priorSchemes.has(`${i.kind}/${i.photoId}`));
-    const evaluated = await this.evaluatePresentation({ ...after, images }, 'instance', undefined, print ? { print, reuseText } : undefined);
+    const evaluated = await this.evaluatePresentation({ ...after, images }, 'instance', session, print ? { print, reuseText } : undefined);
     if (!evaluated.readiness.ready) throw new BadRequestException({ message: 'Проверьте данные новой редакции', missing: evaluated.readiness.missing });
-    const sources = await this.printSources(evaluated, undefined, print, reuseText);
+    const sources = await this.printSources(evaluated, session, print, reuseText);
     doc.set({
       textSnapshot: evaluated.document.textSnapshot, images: evaluated.images, printSnapshot: sources,
       ...(evaluated.document.installationTypeId ? { installationTypeId: evaluated.document.installationTypeId } : {}),
     });
+  }
+
+  /** C172: подготовка внутри общей транзакции импорта, без самостоятельного save/commit. */
+  async prepareImportedPassport(current: Doc, patch: Doc, session: ClientSession): Promise<Doc> {
+    const doc = this.model.hydrate(copyPassportValue(current));
+    doc.set(copyPassportValue(patch));
+    const after = { ...current, ...patch };
+    const fields = Object.keys(patch);
+    if (current.presentationVersion === 1) {
+      if (isIssued(current)) await this.refreshRevisionPrint(doc, current, after, fields, session);
+      else {
+        const evaluated = await this.evaluatePresentation(after, 'instance', session);
+        if (evaluated.readiness.missing.some(m => m.key === 'textSnapshot')) throw new ConflictException('Не удалось пересобрать текст паспорта');
+        doc.set('textSnapshot', evaluated.document.textSnapshot);
+      }
+    } else if (fields.some(k => k !== 'images') && after.passportCategory) {
+      after.textSnapshot = { ...(current.textSnapshot as Snap ?? {}), sizeLayout: 2 };
+      if ((current.textSnapshot as Snap | undefined)?.sections) await this.rebuildSafe(doc, after, session);
+      else await this.applySnapshot(doc, after, session);
+    }
+    // Пересборка не должна менять нецелевые поля экземпляра.
+    const prepared = doc.toObject({ minimize: false }) as unknown as Doc;
+    return Object.fromEntries([...fields, 'textSnapshot', 'printSnapshot'].filter(k => prepared[k] !== undefined).map(k => [k, prepared[k]]));
   }
 
   private async getPresentation(raw: Doc) {
@@ -1246,23 +1272,23 @@ export class ProductPassportService {
   /** Текст паспорта по справочникам для `p` (без записи; выбранный способ установки кладёт в `p.installationTypeId`); нет категории — null. */
   private async buildText(p: Doc, usedFields?: Set<string>, session?: ClientSession) {
     if (!p.passportCategory) return null;
-    applyCategoryDefaults(p, (await this.categoryRules()).get(String(p.passportCategory))); // C112 А1: умолчание типа — заполнено (в изделие не пишется)
+    applyCategoryDefaults(p, (await this.categoryRules(session)).get(String(p.passportCategory))); // C112 А1: умолчание типа — заполнено (в изделие не пишется)
     // v2: общая часть — тексты v2 из кода (шаблон «Для всех» в базе остаётся для PDF v1); версия категории — из базы, иначе из кода
     const cat = String(p.passportCategory);
-    const { own: dbOwn } = await this.templatesFor(cat);
-    const all = await this.v2All();
+    const { own: dbOwn } = await this.templatesFor(cat, session);
+    const all = await this.v2All(session);
     const code = PASSPORT_TEXTS_V2[cat as keyof typeof PASSPORT_TEXTS_V2];
     const own = dbOwn ?? (code ? { ...code, version: 0 } : null);
-    const { dict: standards } = await this.standards();
+    const { dict: standards } = await this.standards(session);
     const dv = this.connection.collection('dict_values');
-    const load = (d: string) => this.dictCached('passports.dict', () => dv.find({ dict: d, deletedAt: null }).toArray() as unknown as Promise<DictRec[]>, d);
+    const load = (d: string) => { const make = () => dv.find({ dict: d, deletedAt: null }, { session }).toArray() as unknown as Promise<DictRec[]>; return session ? make() : this.dictCached('passports.dict', make, d); };
     const [elements, materials, defects, install] = await Promise.all([load('passportElements'), load('passportMaterials'), load('passportDefects'), load('passportInstall')]);
     // воронка (ПВ): выбор по разделам; вариант раздела «Установка» сам ставит способ установки (схемы, рисунки, основание — в нём)
-    const product = await this.productCtx(p.productId, p.presentationVersion === 1 ? String(p.kindId ?? '') : undefined);
-    const allRoots = await this.forest(cat);
+    const product = await this.productCtx(p.productId, p.presentationVersion === 1 ? String(p.kindId ?? '') : undefined, false, session);
+    const allRoots = await this.forest(cat, session);
     const applicableForest = forProduct(allRoots, product); // тексты, привязанные к чужим признакам, изделию не идут
     const forest = printPhraseRoots(applicableForest, isBriefPresentation(p));
-    const simple = p.presentationVersion === 1 ? await this.resolveSimpleText(p, await this.simpleChoices(allRoots, product), applicableForest, session) : null;
+    const simple = p.presentationVersion === 1 ? await this.resolveSimpleText(p, await this.simpleChoices(allRoots, product, session), applicableForest, session) : null;
     const resolved = resolveChoices(forest, p.textChoices as Record<string, string> | undefined, product);
     const instRoot = forest.find((r) => r.section === 'installation');
     const instLeaf = instRoot ? resolved.leaves.get(instRoot.id)?.leaf : undefined;
@@ -1271,13 +1297,13 @@ export class ProductPassportService {
     return { text, instLeaf, resolved, simple };
   }
 
-  private async simpleChoices(roots: PhraseTreeNode[], context?: ProductCtx) {
+  private async simpleChoices(roots: PhraseTreeNode[], context?: ProductCtx, session?: ClientSession) {
     const ids = simpleFacetIds(roots);
     if (!context || !ids.length) return forProduct(roots, context);
     const all = [...new Set([...ids, ...context.facetValueIds])].filter((id) => Types.ObjectId.isValid(id)).map((id) => new Types.ObjectId(id));
     const rows = await this.connection.collection('dict_values').find({
       dict: 'productFacetValues', deletedAt: null, _id: { $in: all },
-    }, { projection: { parentId: 1 } }).toArray();
+    }, { session, projection: { parentId: 1 } }).toArray();
     return simpleChoiceForest(roots, context, new Map(rows.filter((r) => r.parentId).map((r) => [String(r._id), String(r.parentId)])));
   }
 
@@ -1435,20 +1461,28 @@ export class ProductPassportService {
 
   // ─── воронка текстов (ПВ 2026-10-25) ─────────────────────────────────────────────────────────────
   /** Признаки и группы изделия (сама группа и её родители) — по ним тексты, привязанные к признакам/группам, выбираются сами (C028 B2). */
-  private async productCtx(productId: unknown, kindId?: string, resolveProductKind = false): Promise<ProductCtx | undefined> {
+  private async productCtx(productId: unknown, kindId?: string, resolveProductKind = false, session?: ClientSession): Promise<ProductCtx | undefined> {
     if (!productId || !Types.ObjectId.isValid(String(productId))) return undefined;
     const db = this.connection.db!;
-    const prod = await db.collection('products').findOne({ _id: new Types.ObjectId(String(productId)), ...(resolveProductKind ? { deletedAt: null } : {}) }, { projection: { facetValueIds: 1, categoryId: 1, ...(resolveProductKind ? { passportDefaults: 1 } : {}) } });
+    const prod = await db.collection('products').findOne({ _id: new Types.ObjectId(String(productId)), ...(resolveProductKind ? { deletedAt: null } : {}) }, { session, projection: { facetValueIds: 1, categoryId: 1, ...(resolveProductKind ? { passportDefaults: 1 } : {}) } });
     if (!prod) return undefined;
     const resolved = resolveProductKind ? (await resolveKind(db, prod)).kind?.id : kindId;
-    return { facetValueIds: new Set(((prod.facetValueIds as unknown[]) ?? []).map(String)), groupIds: await groupChain(db, prod.categoryId), ...(resolved ? { kindId: resolved } : {}) };
+    const groupIds = new Set<string>();
+    if (session) {
+      for (let id = String(prod.categoryId ?? ''); Types.ObjectId.isValid(id) && !groupIds.has(id); ) {
+        groupIds.add(id);
+        const group = await db.collection('categories').findOne({ _id: new Types.ObjectId(id) }, { session, projection: { parentId: 1 } });
+        id = String(group?.parentId ?? '');
+      }
+    }
+    return { facetValueIds: new Set(((prod.facetValueIds as unknown[]) ?? []).map(String)), groupIds: session ? groupIds : await groupChain(db, prod.categoryId), ...(resolved ? { kindId: resolved } : {}) };
   }
 
   /** Дерево текстов, видимое категории (без категории — всё): один расчёт, пока не менялся dict_values. Общий результат — не менять. */
-  async forest(category?: string): Promise<PhraseTreeNode[]> {
+  async forest(category?: string, session?: ClientSession): Promise<PhraseTreeNode[]> {
     const cat = String(category ?? '').trim();
-    const make = async () => buildForest((await this.connection.collection('dict_values').find({ dict: 'passportPhrases', deletedAt: null }).toArray()).map((r) => toNode(r)), cat || undefined);
-    return this.versions ? this.versions.cached('passports.funnel', ['dict_values'], cat, make) : make();
+    const make = async () => buildForest((await this.connection.collection('dict_values').find({ dict: 'passportPhrases', deletedAt: null }, { session }).toArray()).map((r) => toNode(r)), cat || undefined);
+    return !session && this.versions ? this.versions.cached('passports.funnel', ['dict_values'], cat, make) : make();
   }
 
   /** GET passports/funnel?category=TRN&productId= → { sections: [раздел → варианты → подварианты → текст] }; с изделием — без текстов чужих признаков. */
@@ -1517,9 +1551,9 @@ export class ProductPassportService {
   }
 
   /** Способы установки (справочник) по id — для стандартных схем узлов (Э9.5). */
-  async installs() {
-    const make = async () => new Map((await this.connection.collection('dict_values').find({ dict: 'passportInstall', deletedAt: null }).toArray()).map((d) => [String(d._id), d as Record<string, unknown>]));
-    return this.dictCached('passports.installs', make);
+  async installs(session?: ClientSession) {
+    const make = async () => new Map((await this.connection.collection('dict_values').find({ dict: 'passportInstall', deletedAt: null }, { session }).toArray()).map((d) => [String(d._id), d as Record<string, unknown>]));
+    return session ? make() : this.dictCached('passports.installs', make);
   }
 
   /** Р7/Р8 (C112): справочник из dict_values — один расчёт, пока он не менялся (общий результат, не менять). */
@@ -1542,27 +1576,28 @@ export class ProductPassportService {
   }
 
   /** Справочник типов паспортов (v2): код → обязательные рисунки и прочее. Пусто — паспорта v1 проверяются как раньше. */
-  async categoryRules() {
+  async categoryRules(session?: ClientSession) {
     const make = async () => {
-      const docs = await this.connection.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, name: 1, requiredImages: 1, requiredFields: 1, serviceLifeYears: 1, warrantyMonths: 1, standards: 1, fieldDefaults: 1 } }).toArray();
+      const docs = await this.connection.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { session, projection: { code: 1, name: 1, requiredImages: 1, requiredFields: 1, serviceLifeYears: 1, warrantyMonths: 1, standards: 1, fieldDefaults: 1 } }).toArray();
       return new Map(docs.map((d) => [String(d.code), d as { name?: string; requiredImages?: string; requiredFields?: string; serviceLifeYears?: string; warrantyMonths?: string; standards?: string; fieldDefaults?: string }]));
     };
-    return this.dictCached('passports.categoryRules', make);
+    return session ? make() : this.dictCached('passports.categoryRules', make);
   }
 
   /** Нормативы для {std:КОД} (справочник «Паспорта → Нормативы», dict_values) — словарь и записи для предупреждений. */
-  async standards() {
-    return this.dictCached('passports.standards', async () => {
-      const docs = (await this.connection.collection('dict_values').find({ dict: 'passportStandards', deletedAt: null }, { projection: { code: 1, name: 1, status: 1, checkedAt: 1 } }).toArray()) as StandardDoc[];
+  async standards(session?: ClientSession) {
+    const make = async () => {
+      const docs = (await this.connection.collection('dict_values').find({ dict: 'passportStandards', deletedAt: null }, { session, projection: { code: 1, name: 1, status: 1, checkedAt: 1 } }).toArray()) as StandardDoc[];
       return { dict: standardsDict(docs), docs };
-    });
+    };
+    return session ? make() : this.dictCached('passports.standards', make);
   }
 
   /** Для сборщика текста: версия «Для всех» и версия категории (null, если своей нет). */
-  async templatesFor(category?: string) {
+  async templatesFor(category?: string, session?: ClientSession) {
     const cat = normalizeCategory(category);
-    const all = await this.template('ALL');
-    const own = cat === 'ALL' ? null : await this.ownDoc(cat);
+    const all = await this.template('ALL', session);
+    const own = cat === 'ALL' ? null : await this.ownDoc(cat, session);
     return { all, own: own ? { version: own.version, category: cat, id: String(own._id), sections: own.sections, tables: own.tables } : null };
   }
 
@@ -1614,8 +1649,8 @@ export class ProductPassportService {
    * Общая часть «Для всех» v2 (Э9.4): своя версия в `passporttemplates` с category `ALL_V2` (шаблон «Для всех» PDF v1 —
    * category пусто/ALL — не трогается), иначе — тексты из кода (`scripts/passport-texts.v2.json`).
    */
-  private async v2All() {
-    const db = await this.templates.findOne({ isActive: true, category: ALL_V2 }).sort({ version: -1 }).lean().exec();
+  private async v2All(session?: ClientSession) {
+    const db = await this.templates.findOne({ isActive: true, category: ALL_V2 }).sort({ version: -1 }).session(session ?? null).lean().exec();
     if (db) return { version: db.version, sections: db.sections, tables: db.tables ?? [], source: 'db' as const };
     return { ...PASSPORT_TEXTS_V2.ALL, version: 0, source: 'code' as const };
   }

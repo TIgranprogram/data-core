@@ -1,4 +1,6 @@
 import { PassportSourceService } from './passport-source.service';
+import { PassportImportService } from './passport-import.service';
+import { PassportImportContextResponseDto, PassportImportDto, PassportImportResponseDto } from './dto/passport-import.dto';
 import { PassportSourceDto, PassportSourceTicketDto, PassportCandidatesDto } from './dto/passport-source.dto';
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Res, StreamableFile, UploadedFile, UseInterceptors } from '@nestjs/common';
@@ -41,7 +43,19 @@ const attachment = (name: string) => `attachment; filename="passport.${name.ends
 @AppSection('passports')
 @Controller()
 export class ProductPassportController {
-  constructor(private readonly service: ProductPassportService, private readonly pdfs: PassportPdfService, private readonly looks: PassportLookService, private readonly sources: PassportSourceService) {}
+  constructor(private readonly service: ProductPassportService, private readonly pdfs: PassportPdfService, private readonly looks: PassportLookService, private readonly sources: PassportSourceService, private readonly importer: PassportImportService) {}
+
+  @Get('products/:productId/passport-import-context')
+  @ApiOkResponse({ type: PassportImportContextResponseDto })
+  @Roles(...WORK)
+  importContext(@Param('productId') productId: string) { return this.importer.context(productId); }
+
+  @Post('products/:productId/passport-import')
+  @ApiOkResponse({ type: PassportImportResponseDto })
+  @HttpCode(200)
+  @Roles(...WORK)
+  @AuditAction({ action: 'passport.import', entityType: 'ProductPassport' })
+  importImages(@Param('productId') productId: string, @Body() dto: PassportImportDto, @CurrentUser() actor: AuthenticatedUser) { return this.importer.apply(productId, dto, actor); }
 
   @Get('passports/order/:orderId/lines/:incomeId/source')
   @Roles(...READ)

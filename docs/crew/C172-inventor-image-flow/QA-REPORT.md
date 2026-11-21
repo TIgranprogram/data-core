@@ -1,0 +1,14 @@
+# C172 — независимая QA
+Статус: targeted PASS, единый финальный e2e 1 suite/20 tests PASS, 0 skip, exit0, 13.031с; eslint теста PASS. Full проекта и desktop/Inventor — координатор.
+Проверки: итог QA-E2E-FINAL.json/QA-E2E-FINAL.log; после scoped cleanup-fix новый тест 1/1 PASS,20 filtered,14.197с (QA-E2E-CLEANUP.json/log), прежние20 не повторялись; предшествующие baseline16/17, presentation1/1, mapping2/2, draft-v1 1/1 сохранены. Четыре первые fixture-ошибки исправлены только в тестах.
+✅ Атомарность: ошибка второго паспорта и CAS откатывают изделие/первую редакцию; повреждённый PNG/sourceDeleting не оставляют частичной защиты или записи.
+✅ Повтор: прежний context и новые photoId с теми же байтами дают unchanged без редакции; confirmed:{} не очищает числа, чужое изделие/showcase/mounting защищены.
+✅ Границы: annulled/printFile/closed с недоплатой/order_missing/source_attachment/mismatch явно skipped; смена договора после context даёт rollback; strict DTO/auth/RBAC проверены.
+✅ История: cleanup-регрессия подтверждает sourceProtected всех6 старых IDs (дубли links/own и отдельный own.foundation без productlink), точную сохранность history.images; DELETE всех6 даёт409. Реальный PDF восстановленных исторических данных содержит прежние image-stream, текущий — другие; независимые изображения различны; renderer получает веса 12/12/14, legacy sizeLayout2 установлен. Штатного действия печати старой редакции сейчас нет; тест не вводит новый API.
+✅ Схемы: anchor→mounting/concrete→foundation проверены на реальном short/full PDF; буфер схемы равен подготовке именно третьего PNG. Draft v1 с прежним concrete проецирует anchor изделия без дубля схемы.
+✅ Гонки: настоящий snapshot-read→HTTP attach/create, затем возобновление импорта; проверены rollback либо целостный конечный набор. Private spy разрешён координатором, runtime hooks не добавлялись.
+Файлы: `backend/test/e2e/passport-import.e2e-spec.ts`; доказательства `QA-E2E-{BASELINE,PRESENTATION,MAPPING,DRAFT-V1}.json` и соответствующие `.log`; первые ошибки фикстур сохранены отдельно.
+Контракт: `product-passport.controller.ts:48,52` ↔ `passport-images.iLogicVb:529,532,559`; e2e `:51,130`; Docker Mongo4.4 rs0 `c172-qa-mongo:27172`, строго `datacore-test-c172`, временный UPLOAD_DIR. Секреты/прод/стенд не читались.
+Риски: Inventor/№616/desktop/full не подтверждены этой QA. Legacy draft с синтетическим конфликтующим текстом — отдельный SKIP/known limitation (QA-E2E-DRAFT.json), не доказанный баг; strict печать должна отказывать при конфликте, валидный v1 draft проверен. коммит: 697b8df3 + текущие C172; карта обновлена.
+
+

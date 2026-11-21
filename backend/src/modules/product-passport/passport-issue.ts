@@ -7,6 +7,7 @@ import { takeOverNumbers } from './passport-reuse';
 import { assertOneLive } from './passport-bind';
 import { escapeRe, isDraftNumber, isIssued, type Doc } from './passport-consts';
 import { compositionPresentation } from './passport-composition-presentation';
+import { claimPassportProduct } from './passport-product-write';
 
 /** Что выпуску нужно от сервиса паспортов. */
 export interface IssueHost {
@@ -66,6 +67,7 @@ export class PassportIssue {
         if (!draft) return; // уже выпущен параллельным запросом
         const current = draft as unknown as Doc;
         assertExpected(current);
+        await claimPassportProduct(this.h.connection, current.productId, session);
         if (current.presentationVersion !== first.presentationVersion) throw new ConflictException('Состояние паспорта изменилось — обновите карточку');
         if (draft.incomeId) await assertOneLive(this.h.model, draft.incomeId, _id, session);
         if (baseline) await claimPassportLine(this.h.connection.db!, session, baseline, epochOf(baseline), 'site');

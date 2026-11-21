@@ -1,0 +1,92 @@
+{
+  "base": "697b8df3ded13a4e6dd7a88fb46c262e37a43f06",
+  "unit": {
+    "suites": 385,
+    "tests": 3881,
+    "passed": true
+  },
+  "e2e": {
+    "full": false,
+    "passed": 21,
+    "composition": "20 final + 1 cleanup"
+  },
+  "desktop": 4,
+  "manifest": [
+    {
+      "path": "backend/pwa/ilogic/passport-images.iLogicVb",
+      "sha256": "af1df54805d006b0673966e1be91516754b7c895bfa5e099c43dfd96b77451a5"
+    },
+    {
+      "path": "backend/pwa/ilogic/passport-images.test.mjs",
+      "sha256": "e6c90643e90a93cdb92bcf1cf76bee325704ca8ef6b2ef7fd78098faace9e513"
+    },
+    {
+      "path": "backend/pwa/sections/atlas-data.js",
+      "sha256": "e1c046d5a3561ceb6b572a095dac0e636cc2c5023d6f0f9d910eb0fa5089583d"
+    },
+    {
+      "path": "backend/pwa/sections/help-guide-data.js",
+      "sha256": "0932ad190034cbd1ddaf901ae52c1452114499d6343bfcc3a48558ff5f0476f3"
+    },
+    {
+      "path": "backend/pwa/sections/passports/book-ilogic.js",
+      "sha256": "02bc8bc28cbda8fa98b7d7c1f38ae20d51d3c499ee17634e27031b479888448c"
+    },
+    {
+      "path": "backend/src/modules/product-passport/dto/passport-import.dto.ts",
+      "sha256": "fae91fd9687cfecc4f95c407e07a1e9b437d8076260f06225d3a08e0fb66e0ef"
+    },
+    {
+      "path": "backend/src/modules/product-passport/passport-import.service.ts",
+      "sha256": "690486375aaeed916a6af74cb92e759d136b47dab1d0fbea8688bf0412bba6d9"
+    },
+    {
+      "path": "backend/src/modules/product-passport/passport-inventor-import.spec.ts",
+      "sha256": "e30970f8f493fd5ad9e2f187c924238d26773b753d70a12e0ed91785af31009b"
+    },
+    {
+      "path": "backend/src/modules/product-passport/passport-issue.ts",
+      "sha256": "1dd732b3b398d3bb2c7fead680820c1991ee5735146f7c11549a12aa6be7ed1f"
+    },
+    {
+      "path": "backend/src/modules/product-passport/passport-materials-spec.spec.ts",
+      "sha256": "9fc2aba2c9c0c47706ce3e63512f902b94f28bd3135f5d51ed7adf25073247fa"
+    },
+    {
+      "path": "backend/src/modules/product-passport/passport-name.spec.ts",
+      "sha256": "4fb2e7f9057e555ae307bd664dbb236fc5382e4f31c2d1d5f30d6a5ea282fbe8"
+    },
+    {
+      "path": "backend/src/modules/product-passport/passport-product-write.ts",
+      "sha256": "66dec9fd9459f113743e3dcc79abc48f4e49df5d7101de2ae318171f55fcf319"
+    },
+    {
+      "path": "backend/src/modules/product-passport/product-passport.controller.ts",
+      "sha256": "817a0174b60e82e5649d602cecb5c96d8f8f501a30d4438c8a79cec23af91c0b"
+    },
+    {
+      "path": "backend/src/modules/product-passport/product-passport.module.ts",
+      "sha256": "17f85598c251b2ea6e5fc7faf0ba6e4b9e800d4fdbf2713e5ff9f0e2544a6765"
+    },
+    {
+      "path": "backend/src/modules/product-passport/product-passport.service.ts",
+      "sha256": "4792083704c64bfaadfcb037759ce45bd35930a3174331e47327045e19fcb1e5"
+    },
+    {
+      "path": "backend/src/modules/product-photo/product-photo-import-guard.spec.ts",
+      "sha256": "4d2fbb63f4391ccaced98f6e19c878d49236a2e03cf6ed059947a9aec8d9bef9"
+    },
+    {
+      "path": "backend/src/modules/product-photo/product-photo.service.ts",
+      "sha256": "6783feba43e8104053f3da960282a461a02aeb6ba08c130c8b4b425168edf6c0"
+    },
+    {
+      "path": "backend/src/modules/product-photo/product-photo.spec.ts",
+      "sha256": "e60f483e40ea5f3f041f9dfbd39607e76024bd076a918a6a9ff8b3a5226a2473"
+    },
+    {
+      "path": "backend/test/e2e/passport-import.e2e-spec.ts",
+      "sha256": "0a6e76ddcd835577a5f00c3dc0b4942d2c23408b62af06a9c191c76850ade8d0"
+    }
+  ]
+}

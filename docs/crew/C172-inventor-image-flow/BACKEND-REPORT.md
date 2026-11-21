@@ -1,0 +1,16 @@
+# C172 — серверный импорт (21.11.2026)
+- Статус: runtime готов к независимой QA; коммит/выкладка не выполнялись.
+- GET /api/products/:productId/passport-import-context → {contextToken}; POST /api/products/:productId/passport-import (HTTP 200), DTO строго по TZ; роли admin/director/manager, старые маршруты сохранены.
+- Ответ VB: status applied|unchanged, updatedKinds:string[], confirmedFields:string[], issued:[{id,number,fromRevision,toRevision}], drafts:string[], skipped:[{id,reason}], warnings:string[]. confirmedFields использует поля изделия (dimensions,weightKg,passportDefaults.foundationDepth).
+- ✅ Одна Mongo transaction: файлы/защита sourceProtected+sourceDeleting, SHA256 по байтам, контекст/CAS, три CAD-вида, одобренные числа, все применимые паспорта; новый photoId с прежними байтами сохраняет прежний id; уже применённые данные дают unchanged при старом token.
+- ✅ Wire third kind foundation: canonical foundation для бетона/неизвестного, mounting для анкеров по собственному способу установки; у анкеров legacy foundation снимается из актуальных связей, файлы/история остаются. Concrete сохраняет нецелевой mounting.
+- ✅ Issued/legacy без status: номер/заказ/прочие поля сохранены, +revision только при изменении; прежние затронутые поля+images+textSnapshot+printSnapshot в revisions. Пересборка/session не подавляет ошибки; legacy numeric after snapshot sizeLayout2, прежний снимок не мутирует.
+- ✅ Skips: annulled, printFile, order_closed, order_missing, line_missing, order_mismatch, source_attachment; без заказа — warning. Удалённые исключены. Это консервативная защита C172, не полный неизменяемый архив.
+- ✅ Против гонок: product write сериализует import и ручные passport CAD links; salesorders.passportGuard+claimPassportLine защищают закрытие/смену позиции; create/issue product-guard добавлен координатором. Лимит 500 паспортов/связей/способов установки — явный отказ, не усечение.
+- Проверки: typecheck exit0; eslint затронутых модулей exit0; адресные unit 3 suites/21 tests PASS (5.463s); общий модульный smoke до адаптации двух fixture-стендов координатором: 75 suites/792 tests PASS, 2 suites/5 tests FAIL (новая обязательная transaction/products fixture). Повтор — координатор/QA.
+- ➖ Real Mongo/e2e/history PDF/race/desktop/Inventor — независимая QA, отчёт не подменяет её. Новые collection/index/schema не добавлялись; OpenAPI/MAP/atlas — координатор.
+- Риск для QA: draft с устаревшим собственным installationTypeId следует актуальным productphotos по прежнему канону; проверить syncFromProduct/PDF. Полный архив закрытых договоров — отдельная задача. Карта обновлена; коммит: —.
+
+21.11, финальная metadata: request/nested DTO получили явные ApiProperty/Optional, GET/POST — ApiOkResponse с полными response DTO. Runtime не менялся; tsc/eslint targeted exit0. Локальный SchemaObjectFactory подтвердил 8 непустых schemas: request 3 поля, result 7 полей; свежий OpenAPI со стенда регенерирует координатор.
+
+21.11, cleanup review: перед заменой/очисткой защищаются все прежние managed photoId links и own images, включая дубли и legacy foundation анкеров; file(false) защищает также существующие soft-deleted/нелокальные photo aliases до чтения. tsc/eslint0; regression realMongo выполняет QA.

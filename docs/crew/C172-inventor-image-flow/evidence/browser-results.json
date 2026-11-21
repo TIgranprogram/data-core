@@ -1,0 +1,33 @@
+{
+  "kind": "readonly-text-review",
+  "checks": [
+    {
+      "width": 1920,
+      "theme": "light",
+      "overflow": false,
+      "visible": true
+    },
+    {
+      "width": 1920,
+      "theme": "dark",
+      "overflow": false,
+      "visible": true
+    },
+    {
+      "width": 1024,
+      "theme": "light",
+      "overflow": false,
+      "visible": true
+    },
+    {
+      "width": 1024,
+      "theme": "dark",
+      "overflow": false,
+      "visible": true
+    }
+  ],
+  "pageErrors": 0,
+  "blocked": [],
+  "clipboard": "current rule",
+  "status": "PASS"
+}

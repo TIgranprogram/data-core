@@ -21,8 +21,9 @@ describe('фото изделия: purpose / kind', () => {
     const calls: Record<string, unknown[]> = { find: [], create: [], updateMany: [] };
     const chain = { populate: () => chain, sort: () => chain, exec: async () => [] };
     const model = {
+      db: { startSession: async () => ({ withTransaction: async (run: () => Promise<void>) => run(), endSession: async () => undefined }), db: { collection: () => ({ updateOne: async () => ({ matchedCount: 1 }) }) } },
       find: (f: unknown) => { calls.find.push(f); return chain; },
-      create: async (d: unknown) => { calls.create.push(d); return d; },
+      create: async (d: unknown) => { calls.create.push(Array.isArray(d) ? d[0] : d); return d; },
       updateMany: (f: unknown) => { calls.updateMany.push(f); return { exec: async () => undefined }; },
     };
     return { svc: new ProductPhotoService(model as never), calls };

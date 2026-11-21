@@ -6,17 +6,18 @@ import { ProductPassportService } from './product-passport.service';
 const id = () => new Types.ObjectId();
 const pipe = id(), post = id(), gone = id();
 const live = [{ _id: pipe, dict: 'passportMaterials' }, { _id: post, dict: 'passportParts' }];
-const collection = () => ({ find: (q: { dict: string; _id: { $in: Types.ObjectId[] } }) => ({ toArray: async () => live.filter((x) => x.dict === q.dict && q._id.$in.some((i) => i.equals(x._id))) }), findOne: async () => null });
+const collection = (name: string) => ({ find: (q: { dict: string; _id: { $in: Types.ObjectId[] } }) => ({ toArray: async () => live.filter((x) => x.dict === q.dict && q._id.$in.some((i) => i.equals(x._id))) }), findOne: async (q: { _id?: Types.ObjectId }) => name === 'products' ? { _id: q._id } : null, updateOne: async () => ({ matchedCount: 1 }) });
 const db = { collection };
 
 /** Паспорт в «базе»: findById → документ с set/save; create → то, что записали. */
 function make(cur: Record<string, unknown>) {
   const state = { ...cur };
   const doc = { _id: cur._id, toObject: () => ({ ...state }), set: (s: Record<string, unknown>) => Object.assign(state, s), save: async () => doc, get passportCategory() { return state.passportCategory; } };
-  const chain = (v: unknown) => ({ setOptions: () => chain(v), select: () => chain(v), lean: () => chain(v), exec: async () => v });
+  const chain = (v: unknown) => ({ setOptions: () => chain(v), select: () => chain(v), lean: () => chain(v), session: () => chain(v), exec: async () => v });
   const created: Record<string, unknown>[] = [];
-  const model = { findById: () => chain(doc), findOne: () => chain(null), create: async (s: Record<string, unknown>) => { created.push(s); return s; } };
-  const svc = new ProductPassportService(model as never, {} as never, { db, collection } as never);
+  const model = { findById: () => chain(doc), findOne: () => chain(null), create: async (s: Record<string, unknown> | Record<string, unknown>[]) => { created.push(...(Array.isArray(s) ? s : [s])); return s; } };
+  const startSession = async () => ({ withTransaction: async (fn: () => Promise<unknown>) => fn(), endSession: async () => {} });
+  const svc = new ProductPassportService(model as never, {} as never, { db, collection, startSession } as never);
   return { svc, state, created };
 }
 const spec = (materialId: Types.ObjectId, partIds: Types.ObjectId[] = []) => ({ rows: [{ materialId: String(materialId), sizes: ['Ø89x3'], partIds: partIds.map(String) }], coatingIds: [] });

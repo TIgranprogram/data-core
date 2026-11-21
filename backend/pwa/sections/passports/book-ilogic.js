@@ -1,7 +1,7 @@
 /**
  * C141: справа внизу книжки — эталон правила Inventor iLogic «Картинки для паспорта».
  * Текст лежит статикой: /app/ilogic/passport-images.iLogicVb (канон в репо).
- * Пути API правила: photos/upload, products/:id/photos, PATCH showcase — не менять без синхронизации с .iLogicVb.
+ * Пути API правила: photos/upload, products/:id/passport-import(-context) — синхронизированы с .iLogicVb.
  */
 import { PREFIX } from '../../core/api.js';
 import { h } from '../../core/dom.js';
@@ -64,7 +64,7 @@ export function ilogicBlock() {
   }, 'Скачать .iLogicVb');
 
   body.append(
-    h('p', { class: 'hint bk-toc-hint' }, 'Правило загружает три рисунка. Габариты, массу и глубину Г из модели можно записать по подтверждению. После проверки откроется шаблон паспорта изделия.'),
+    h('p', { class: 'hint bk-toc-hint' }, 'Отправка из Inventor обновляет три рисунка изделия и его действующих паспортов. Габариты, масса и глубина Г — по подтверждению. Номера сохраняются, прежние данные остаются в истории редакций. Паспорта закрытых договоров и прикреплённые готовые PDF не меняются. После проверки откроется шаблон изделия.'),
     h('div', { class: 'bk-ed-row' }, btn, open),
     status,
   );
