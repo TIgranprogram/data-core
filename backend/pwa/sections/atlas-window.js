@@ -79,6 +79,7 @@ export function detail(n, open, back, close, { shipping = false } = {}) {
       ? { label: 'Идея', text: 'Раздела нет и в очереди задач его нет. Это предложение — скажите, брать ли его в работу. Ниже — как он мог бы выглядеть.', tone: 'warn' }
       : { label: 'В разработке', text: 'Раздела пока нет на сайте. Ниже — как он задуман.', tone: 'warn' }) : null,
     h('p', null, what),
+    href && n.where ? h('p', { class: 'muted small' }, n.where) : null,
     blockDetails(n, open),
     // «Я хочу…» — частые задачи этого раздела (бывший общий блок «С чего начать?», 2026-11-12)
     wants.length ? h('section', null, h('h3', null, 'Частые задачи'), h('div', { class: 'g-wants' }, ...wants.map((sc) => guide.want({ tok: sc.tok, want: sc.want, menu: sc.menu, href: sc.href, start: sc.start })))) : null,

@@ -7,6 +7,8 @@ const SRC_DEMO = { all: 'Общий — для всех изделий', type: '
 import { pad, hint, tileGrid, typeArt, typeIconList, landing, miniChart, navList, photoStrip, catArt, stat, searchBox, readonlyGroup, similarBox, posPic, posPicOf, sku, section, stack, button, iconButton, segmented, headbar, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, openPdfPreview, stageBar, headStats, clamp, funnel, planner, qtyInput, folderTile, targetPicker, toast, pick, filter, table, treeTable, textInput, fieldRow, panel, entityPanel, select, fileButton, links, guide, SUPPLY_STATUS } from '../ui/kit/index.js';
 import { buildCardTabs } from '../ui/kit/card-tabs.js';
 import { gallery } from '../ui/kit/card-gallery.js';
+import { atlasMap } from '../ui/kit/atlas-map.js';
+import { buildAtlasModel, traceAtlas } from './atlas-model.js';
 import { infoCard, nextCard, warnCard, positionsTable, boardCard, footerBar } from '../ui/kit/screens/blocks.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
@@ -115,10 +117,19 @@ export const kit = {
   title: 'Эталоны',
   mount(el) {
     if (session.role !== 'admin') { el.append(empty({ title: 'Раздел только для администратора' })); return {}; }
+    const mapBody = h('div');
+    const mapSample = guide.cat({ title: 'Карта связей', body: [mapBody] });
+    let map;
+    mapSample.addEventListener('toggle', () => {
+      if (!mapSample.open || !el.isConnected || map) return;
+      map = atlasMap({ model: buildAtlasModel(), trace: traceAtlas, onOpen: (id) => { location.hash = '#atlas?n=' + id; } });
+      mapBody.append(map.el);
+    });
     const t = tabs({ items: [{ key: 'a', label: 'Первая', count: 3 }, { key: 'b', label: 'Вторая' }, { key: 'c', label: 'Третья', count: 0 }], value: 'a' });
     const dens = (d) => (d === 'compact' ? 'compact' : undefined);
     el.append(
       h('div', { class: 'page-head' }, h('h1', null, 'Эталоны'), button({ label: 'Сменить тему', kind: 'ghost', size: 'S', onClick: () => window.dcTheme?.cycle() })),
+      block('Интерактивная карта (atlasMap)', 'Слои связей, увеличение, выбор раздела и список входов и выходов.', mapSample),
       block('Длинное действие на телефоне', 'Кнопка kit: минимум 44 px, подпись переносится.', sample(button({ label: 'Сохранить только в этом паспорте', kind: 'primary' }))),
       block('Кнопки', 'primary / secondary / ghost / danger × M и S; занята и выключена.',
         ...['M', 'S'].map((size) => sample(...['primary', 'secondary', 'ghost', 'danger'].map((kind) => button({ label: kind, kind, size })),
@@ -377,7 +388,7 @@ export const kit = {
       block('Недавно открытые карточки', 'recentRecorder записывает успешный просмотр; до 20 карточек. pop-menu lead: миниатюра внутри ссылки, при отсутствии/ошибке фото — значок сущности (pm-thumb). Заказ содержит номер и заказчика; длинная подпись переносится. Проверять заполненную историю в обеих темах.', recentCardsButton(() => true)),
       block('Пусто и ошибка (empty)', 'Единственная фабрика пустых состояний: kind "empty" (записей нет, подсказка и ссылка), "notFound" (поиск ничего не дал, сброс), "noData" (за период пусто). Тексты «Пусто / Ничего не найдено / Нет данных» — только через empty().', empty({ title: 'Ничего нет', hint: 'Добавьте запись в панели справа.' }), empty({ kind: 'notFound', query: 'болт М99', onReset: () => toast('Сброс') }), empty({ kind: 'notFound', onReset: () => toast('Сброс') }), empty({ kind: 'noData' }), failBlock(new Error('Тестовая ошибка'), () => toast('Повтор'))),
     );
-    return {};
+    return { destroy: () => map?.destroy() };
   },
 };
 

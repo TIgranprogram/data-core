@@ -179,7 +179,7 @@ export async function atlasCheck() {
   const errors = m.atlasProblems(), warns = [];
   const mainJs = fs.readFileSync(path.join(ROOT, 'backend/pwa/main.js'), 'utf8');
   const gitTime = (paths) => Number(run('git', ['log', '-1', '--format=%ct', '--', ...paths]).stdout.trim()) || 0;
-  const mapTime = gitTime(['backend/pwa/sections/atlas-data.js']);
+  const mapTime = gitTime(['backend/pwa/sections/atlas-data.js', 'backend/pwa/sections/atlas-links.js']);
   // Шаблоны экранов (C118, docs/DESIGN.md §3.1): tpl обязателен, legacy не растёт.
   const TPLS = ['list', 'board', 'card', 'queue', 'funnel', 'summary', 'dict'], STATUSES = ['ok', 'legacy', 'plan'];
   let legacy = 0;

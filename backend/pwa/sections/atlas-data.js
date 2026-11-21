@@ -34,7 +34,7 @@ export const NODES = [
   { id: 'fill', tpl: 'queue', tplStatus: 'ok', band: 'quality', col: 0, sec: 'fill', t: 'Требуют заполнения', l: ['неизвестные сведения', 'и пометки менеджеру'],
     inside: [
       { id: 'utochneniya-dokumentov', t: 'Уточнения договоров и КП', l: 'открыть документ, заполнить известное и проверить пометки', in: ['offers', 'salesorders'] },
-      { id: 'nedostayuschie-dannye', t: 'Недостающие сведения', l: 'поля записей, реквизиты в карточке связанного счёта и оплаты без даты' },
+      { id: 'nedostayuschie-dannye', t: 'Недостающие сведения', l: 'поля записей, реквизиты в карточке связанного счёта и оплаты без даты', in: ['money', 'requests'] },
     ],
     rules: ['Неизвестные даты, адреса и связи остаются пустыми до уточнения.', 'Подтверждение оплаты без даты не создаёт датированную денежную операцию.'],
     docs: ['docs/DESIGN.md — «Требуют заполнения»', 'docs/MAP.md — fill-audit'], tech: 'Очередь строится из существующих документов и полей; отдельные копии документов не создаются.',
@@ -72,8 +72,9 @@ export const NODES = [
       { id: 'v-rabotu', t: 'В работу', l: 'позиции уходят в производство', out: ['work', 'shortage'] },
       { id: 'pasporta-zakaza', t: 'Паспорта заказа', l: 'по одному на экземпляр', out: ['docs'] },
       { id: 'ves-zakaz', t: 'Весь заказ (подвал)', l: 'галочки у позиций; внизу — паспорта, печать, отгрузить, PDF и вложения: для всех или отмеченных' },
-      { id: 'otgruzka', t: 'Отгрузка', l: 'предлагаются изготовленные; не весь остаток — с причиной', out: ['shipping'] },
+      { id: 'otgruzka', t: 'Отгрузка', l: 'предлагаются изготовленные; не весь остаток — с причиной', out: ['shiporder', 'shipping'] },
       { id: 'raschety', t: 'Расчёты', l: 'оплаты заказчика по заказу', out: ['money'] },
+      { id: 'kandidaty-v-katalog', t: 'Позиции для добавления в каталог', l: 'в каталоге команда «Из заказов» показывает кандидатов и создаёт отмеченные изделия по подтверждению', out: ['products'] },
     ],
     rules: ['Для строк из юридических документов автоматическое создание изделий и проектных задач отключено; сначала ручное сопоставление.', 'Задачи проектирования обычных заказов создаются только после распределения.', 'Позиция связывает изделие, количество, срок и работу.', 'Изменение заказа не переписывает выпущенный паспорт.', '«В производство» недоступно, пока есть нераспределённые позиции.'],
     docs: ['docs/PRODUCT.md — «Заказы»', 'docs/MAP.md — salesorders, shipments, incomes'], tech: 'salesorders, incomes, shipments',
@@ -88,7 +89,7 @@ export const NODES = [
     docs: ['docs/PRODUCT.md — «Договоры»'], tech: 'contracts',
     code: ['backend/src/modules/supply', 'backend/pwa/sections/contracts.js'] },
 
-  { id: 'matching', tpl: 'queue', tplStatus: 'legacy', band: 'sale', col: 3, sec: null, href: '#matching', t: 'Сопоставление', l: ['позиция заказа ↔', 'изделие из каталога'],
+  { id: 'matching', tpl: 'queue', tplStatus: 'legacy', band: 'sale', col: 3, sec: null, href: '#salesorders?view=table', where: 'Заказы → «Несопоставленные» в шапке', t: 'Сопоставление', l: ['позиция заказа ↔', 'изделие из каталога'],
     seq: true, inside: [
       { id: 'nesopostavlennye', t: 'Несопоставленные', l: 'позиции заказов без изделия', in: ['salesorders'] },
       { id: 'podbor', t: 'Подбор', l: 'похожие изделия или «Выбрать из каталога»: поиск, раздел, группа, серия и фото с увеличением', in: ['products'] },
@@ -120,6 +121,11 @@ export const NODES = [
       { id: 'sebestoimost', t: 'Себестоимость', l: 'материалы + работы по ставкам' },
       { id: 'shablon-pasporta', t: 'Шаблон паспорта', l: 'упрощённый вариант: вид → признаки → готовые тексты → применимые части; ручная формулировка отдельно; образец без номера и выпуск с фирмой', in: ['dicts'], out: ['docs'] },
       { id: 'tekhopisanie', t: 'Техописание', l: 'описание конструкции и материалов: предложение из состава с источниками; название в тексте необязательно; ручные размеры, тексты и покрытия сохраняются' },
+      { id: 'kp-iz-kataloga', t: 'Собрать КП из каталога', l: 'выбранные изделия и количества переходят в КП', href: '#products?of=kp&new=1', out: ['offers'] },
+      { id: 'import-kataloga', t: 'Импорт каталога', l: 'предпросмотр строк файла, затем подтверждение выбранных строк', href: '#products?of=catalogimport&new=1' },
+      { id: 'iz-zakazov', t: 'Завести изделия из заказов', l: 'просмотр кандидатов и создание отмеченных изделий после подтверждения', href: '#products?of=fromorders&new=1', in: ['salesorders'] },
+      { id: 'iz-pasportov', t: 'Завести изделия из паспортов', l: 'создание отмеченных изделий и привязка исходных паспортов', href: '#products?of=frompassports&new=1', in: ['docs'], out: ['docs'] },
+      { id: 'varianty-i-artikul', t: 'Копия, вариант и артикул', l: 'в меню карточки можно клонировать изделие, сделать вариант или присвоить артикул группы' },
     ],
     rules: [
       'Иерархия (словарь 15.11 + владелец 18.11): изделие → модуль (=сборка) → деталь → сырьё/покупное.',
@@ -172,6 +178,7 @@ export const NODES = [
       { id: 'vypusk-pdf', t: 'Выпуск PDF', l: 'текст и рисунки фиксируются', out: ['warranty'] },
       { id: 'pasporta-zakaza', t: 'Паспорта заказа', l: 'готовность различает выпущенные, вложенные, готовые к выпуску и требующие заполнения; фото изделия в строке; отменённые позиции — отдельно', alt: true },
       { id: 'vlozhennyi-pasport', t: 'Вложенный паспорт', l: 'позиция заказа → выбрать конкретный доступный файл → подтвердить «Использовать как паспорт»; отметка сохраняется только у позиции. Такой паспорт скачивается отдельно и исключён из выпуска и PDF сайта; потерянный файл не считается готовым. Можно вернуться к паспорту сайта без удаления истории', in: ['salesorders', 'products'], alt: true },
+      { id: 'pasporta-v-katalog', t: 'Паспорта для добавления в каталог', l: 'в каталоге команда «Из паспортов» создаёт выбранные изделия и привязывает исходные паспорта', out: ['products'], alt: true },
     ],
     rules: ['Без типа паспорта PDF не выпускается.', 'Одна позиция заказа — один паспорт и один номер: правка и смена фирмы номер не меняют.'],
     docs: ['docs/DOCUMENT-AUTOFILL-MAP.md', 'docs/PATTERNS.md — П-1 все документы', 'docs/crew/C155-passport-owner-queue/CONTRACT.md', 'docs/PASSPORTS-V2.md', 'docs/crew/C096-passport-system-audit/', 'docs/MAP.md — product-passport'], tech: 'productpassports, passporttemplates',
@@ -193,7 +200,7 @@ export const NODES = [
       { id: 'sostav-pozicii', t: 'Состав позиции', l: 'части × виды работ, часы на 1 шт.', in: ['salesorders', 'products', 'modules', 'parts'] },
       { id: 'provereno-i-sohranit', t: '«Проверено» и «Сохранить»', l: 'зелёная метка; правка часов снимает' },
       { id: 'zadaniya', t: 'Задания', l: 'по видам работ, с исполнителями', in: ['staff', 'master'], out: ['gantt'] },
-      { id: 'nachal-zakonchil', t: '«Начал» / «Закончил»', l: 'материалы со склада; из отметок — факт', in: ['stock'] },
+      { id: 'nachal-zakonchil', t: '«Начал» / «Закончил»', l: 'материалы со склада; из отметок — факт, изготовленные позиции участвуют в проверке готовности к отгрузке', in: ['stock'], out: ['shiporder'] },
       { id: 'fakt-norma', t: 'Факт → норма', l: '«Принять как норму» пишет в изделие', out: ['products', 'reports'] },
     ],
     rules: ['Порядок: части и работы → «Проверено» → «Сохранить» → «Запустить».', '«И в продукцию» меняет состав изделия для будущих заказов.'],
@@ -238,7 +245,7 @@ export const NODES = [
     seq: true, inside: [
       { id: 'zayavka', t: 'Заявка', l: 'что купить и сколько', in: ['suppliercatalog', 'needs', 'shortage'] },
       { id: 'zakazal', t: '«Заказал»', l: 'у поставщика, по договору', in: ['partners', 'contracts'] },
-      { id: 'schet', t: 'Счёт', l: 'валюта, НДС и неоплаченный остаток', out: ['money'] },
+      { id: 'schet', t: 'Счёт', l: 'валюта, НДС и неоплаченный остаток; полная оплата без даты попадает в очередь уточнения', out: ['money', 'fill'] },
       { id: 'oplacheno', t: 'Оплаты', l: 'каждый аванс и доплата — своей датой', out: ['money'] },
       { id: 'priemka', t: 'Приёмка', l: 'товар приходит на склад', out: ['stock'] },
     ],
@@ -273,6 +280,8 @@ export const NODES = [
       { id: 'vydacha', t: 'Выдача', l: 'в работу по брони или заданию', out: ['work'] },
       { id: 'zony-sklada', t: 'Зоны склада', l: 'кто за какую зону отвечает', alt: true },
       { id: 'bron-po-sostavu', t: 'Бронь по составу', l: 'одна кнопка в позиции заказа', alt: true, plan: 'C068-4', in: ['products'] },
+      { id: 'ekran-truboreza', t: 'Экран «Труборез»', l: 'рабочая сетка остатков заготовок для соответствующей роли', href: '#stock?view=pipe', alt: true },
+      { id: 'ekran-lazera', t: 'Экран «Лазер лист»', l: 'рабочая сетка остатков листового металла для соответствующей роли', href: '#stock?view=sheet', alt: true },
     ],
     rules: ['Приём, выдача и пересчёт меняют остаток; всё видно в журнале.', 'Количество — только операцией, не правкой карточки.'],
     docs: ['docs/UNIFY-SUPPLY-WAREHOUSE.md', 'docs/MAP.md — stock, stock-zones'], tech: 'storageitems, reservations, warehouses (общие с CRM)',
@@ -297,6 +306,14 @@ export const NODES = [
     code: [] },
 
   // ── Отгрузка и сервис (набросок будущего, 2026-11-12: «идея» — решение за владельцем)
+  { id: 'shiporder', tpl: 'card', tplStatus: 'ok', band: 'after', col: 3, sec: null, href: '#salesorders', where: 'Заказы → нужный заказ → «Отгрузить…»',
+    t: 'Отгрузка заказа', l: ['готовность и позиции', 'к отгрузке внутри заказа'],
+    seq: true, inside: [
+      { id: 'gotovnost', t: 'Проверить готовность', l: 'в карточке заказа видны состояние изготовления и результаты проверок готовности', in: ['work'] },
+      { id: 'otgruzit', t: 'Отгрузить позиции', l: 'в окне заказа выберите изготовленные позиции и подтвердите отгрузку; для неполного остатка укажите причину', in: ['salesorders'] },
+    ],
+    docs: ['docs/MAP.md — shipments'],
+    code: ['backend/pwa/sections/salesorders.js', 'backend/src/modules/shipments'] },
   { id: 'shipping', tpl: 'queue', tplStatus: 'plan', band: 'after', col: 0, sec: null, plan: 'идея', t: 'Отгрузки и доставка', l: ['что везём на неделе,', 'документы, кто везёт'],
     seq: true, inside: [
       { id: 'k-otgruzke', t: 'К отгрузке', l: 'изготовленные позиции всех заказов', in: ['salesorders', 'stock'] },
@@ -348,6 +365,8 @@ export const NODES = [
       { id: 'vyplaty', t: 'Выплаты', l: 'фактические платежи, прочие расходы, зарплата', in: ['requests', 'expenses', 'payroll'] },
       { id: 'dolgi-i-plan', t: 'Долги и план', l: 'непогашенные остатки и ожидаемые поступления', in: ['requests'] },
       { id: 'kalendar', t: 'Календарь', l: 'остаток денег по дням', out: ['reports'] },
+      { id: 'statya-i-obekt', t: 'Статья и объект оплаты', l: 'во вкладке «По статьям»: смените классификацию операции, сохранив сумму, дату и исходный платёж' },
+      { id: 'bez-daty', t: 'Платежи без даты', l: 'из списка исключённых операций можно перейти к уточнению данных', out: ['fill'] },
     ],
     rules: ['Оплата не подтверждает, что товар пришёл на склад.', 'Привязка платежа определяет, чей долг закрыт.'],
     docs: ['docs/PRODUCT.md — «Деньги»', 'docs/MAP.md — finance, incomes'], tech: 'сводка finance: incomes.payments, supplyinvoicepayments, legacy supplyrequests/supplyinvoices без двойного учёта, expenses, payroll_*, finance_settings',
@@ -368,31 +387,4 @@ export const NODES = [
     code: ['backend/src/modules/control/switch', 'backend/admin/control-switch.js', 'deploy/ha/switch', 'deploy/synology/backup.sh'] },
 ];
 
-/** Связи: [откуда, куда, что передаётся]. Это связь записей, а не автоматический переход статуса. */
-export const LINKS = [
-  ['offers', 'fill', 'уточнения и несопоставленные строки КП'],
-  ['salesorders', 'fill', 'уточнения комплекта договора'],
-  ['partners', 'offers', 'заказчик и наша фирма'], ['offers', 'salesorders', 'основание для заказа'],
-  ['partners', 'salesorders', 'заказчик'],
-  ['products', 'offers', 'изделия и цены'], ['products', 'salesorders', 'изделия в позициях'],
-  ['salesorders', 'design', 'новое изделие, когда всё распределено'],
-  ['salesorders', 'matching', 'позиции без изделия'], ['products', 'matching', 'изделия-кандидаты'], ['matching', 'salesorders', 'изделие в позиции'],
-  ['gantt', 'master', 'шаги исполнителей'], ['master', 'work', 'отметки «Начал / Закончил»'],
-  ['salesorders', 'shortage', 'позиции в работе'], ['stock', 'shortage', 'свободный остаток'], ['shortage', 'requests', 'заявка на недостающее'], ['design', 'products', 'созданное изделие'],
-  ['dicts', 'products', 'категории, цвета, работы'], ['dicts', 'docs', 'тексты и рисунки'],
-  ['parts', 'modules', 'детали в сборку'], ['modules', 'products', 'модули в изделие'], ['parts', 'products', 'деталь прямо в изделие'],
-  ['modules', 'needs', 'состав модуля в потребность'],
-  ['products', 'docs', 'общие сведения'], ['salesorders', 'docs', 'экземпляры заказа'],
-  ['salesorders', 'work', 'позиции в работу'], ['products', 'work', 'состав и нормы'], ['modules', 'work', 'работы модуля'], ['parts', 'work', 'работы детали'],
-  ['work', 'products', 'факт → норма'], ['staff', 'work', 'исполнители'], ['work', 'gantt', 'шаги и сроки'], ['staff', 'gantt', 'люди'],
-  ['suppliercatalog', 'parts', 'сырьё в деталь'], ['suppliercatalog', 'products', 'покупное в состав'], ['suppliercatalog', 'requests', 'что заказать'],
-  ['partners', 'requests', 'поставщик'], ['contracts', 'requests', 'договор поставки'],
-  ['products', 'needs', 'состав × количество (по цепочке модулей)'], ['stock', 'needs', 'остатки'], ['needs', 'requests', 'нехватка → заявка'],
-  ['products', 'stock', 'бронь по составу (есть на складе)'],
-  ['requests', 'stock', 'приёмка'], ['stockmobile', 'stock', 'те же остатки'], ['stock', 'movements', 'каждая операция'],
-  ['stock', 'work', 'выдача материалов'], ['requests', 'money', 'счета: план, после оплаты — факт'], ['salesorders', 'money', 'оплаты заказчика'],
-  ['expenses', 'money', 'расходы'], ['dicts', 'expenses', 'статьи расходов'], ['payroll', 'money', 'выплаты'], ['staff', 'payroll', 'ставки'],
-  ['salesorders', 'shipping', 'что отгрузить'], ['stock', 'shipping', 'готовые изделия'], ['shipping', 'install', 'что везём на объект'],
-  ['docs', 'warranty', 'срок гарантии по паспорту'], ['install', 'warranty', 'акт монтажа'],
-  ['money', 'reports', 'деньги по заказам'], ['work', 'reports', 'часы и загрузка'],
-];
+export { LINKS } from './atlas-links.js';
