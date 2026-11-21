@@ -15,7 +15,14 @@ import { withReason } from './admin-override.js';
  * (of=<раздел>&open=<id>&fill=<поле>, см. ui/card.js markFill). Заполнили и сохранили — строка уходит из списка.
  * Адрес страницы: #fill (все группы) или #fill?g=<ключ> (одна раскрыта).
  */
-const openRow = (g, x) => { if (g.key === 'invoicePaymentDate') { requestInvoiceOperation(x.invoiceId, 'payment'); patch({ of: 'invoicecard', open: x.invoiceId, fill: undefined, new: undefined }); } else patch({ of: g.section, open: x.id, fill: g.field, new: undefined }); };
+function openRow(g, x) {
+  if (x.invoiceId) {
+    if (g.key === 'invoicePaymentDate') requestInvoiceOperation(x.invoiceId, 'payment');
+    patch({ of: 'invoicecard', open: x.invoiceId, fill: undefined, new: undefined });
+    return;
+  }
+  patch({ of: g.section, open: x.id, fill: g.field, new: undefined });
+}
 async function loadFill(limit) {
   const [audit, finance, contracts, offers] = await Promise.all([api('/fill-audit', { query: { limit } }), session.canMoney ? api('/finance/needs-fill') : null, session.sees('salesorders') ? api('/salesorders', { query: { needsReview: '1', limit: Math.min(limit, 100) } }) : null, session.sees('offers') ? api('/offers', { query: { needsReview: '1', limit: Math.min(limit, 100) } }) : null]);
   const pending = finance?.needsPaymentDate;
@@ -29,7 +36,7 @@ async function loadFill(limit) {
 }
 
 /**
- * Быстрый ввод прямо в строке (группы с `quick`, к показу директорам): у заявки — № счёта, дата, сумма; у позиции заказа — цена → PATCH `quickPath`.
+ * Быстрый ввод прямо в строке (группы с `quick`): у заявки без связи со счётом — №, дата, сумма; у позиции заказа — цена → PATCH `quickPath`.
  * Сохранили — строка уходит, число группы уменьшается; полная карточка — кнопка «Открыть».
  */
 const QUICK = { invoiceNo: ['№ счёта', 'text'], invoiceDate: ['Дата счёта', 'date'], priceHint: ['Сумма, ₽', 'text'], unitPrice: ['Цена за ед., ₽', 'text'] };
@@ -65,15 +72,26 @@ function quickRow(g, x, done) {
     h('div', { class: 'q-side' }, button({ label: 'Открыть', kind: 'ghost', size: 'S', onClick: () => openRow(g, x) })));
 }
 
+function fillRow(g, x, onSaved) {
+  if (!x.invoiceId && g.quick?.length) return quickRow(g, x, () => onSaved(g, x));
+  const linkedInvoice = x.invoiceId && g.key !== 'invoicePaymentDate';
+  const open = () => openRow(g, x);
+  const activation = linkedInvoice ? {} : { tabindex: '0', onclick: open, onkeydown: (e) => { if (e.key === 'Enter') open(); } };
+  return h('li', { class: 'q-row' + (x.thumb ? ' has-pic' : ''), ...activation },
+    opThumb(x.thumb),
+    h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, x.title), x.sub ? h('div', { class: 'q-sub' }, x.sub) : null,
+      x.lock ? h('div', { class: 'muted' }, x.lock) : null),
+    h('div', { class: 'q-side' }, linkedInvoice
+      ? button({ label: 'Открыть счёт', kind: 'ghost', size: 'S', onClick: open })
+      : h('span', { class: 'btn btn-sm' }, 'Заполнить')));
+}
+
 function groupBlock(g, open, onToggle, onSaved) {
   const head = h('button', { type: 'button', class: 'fill-head', 'aria-expanded': String(open), onclick: onToggle },
     h('span', { class: 'fill-chev', 'aria-hidden': 'true' }, open ? '▾' : '▸'),
     h('span', { class: 'fill-t' }, h('b', null, g.title), h('span', { class: 'muted' }, g.why)),
     h('span', { class: 'q-n' }, qty(g.count)));
-  const body = open ? h('ul', { class: 'q-list' }, ...g.items.map((x) => g.quick?.length ? quickRow(g, x, () => onSaved(g, x)) : h('li', { class: 'q-row' + (x.thumb ? ' has-pic' : ''), tabindex: '0', onclick: () => openRow(g, x), onkeydown: (e) => { if (e.key === 'Enter') openRow(g, x); } },
-    opThumb(x.thumb),
-    h('div', { class: 'q-main' }, h('div', { class: 'q-title' }, x.title), x.sub ? h('div', { class: 'q-sub' }, x.sub) : null),
-    h('div', { class: 'q-side' }, h('span', { class: 'btn btn-sm' }, 'Заполнить')))),
+  const body = open ? h('ul', { class: 'q-list' }, ...g.items.map((x) => fillRow(g, x, onSaved)),
   g.count > g.items.length ? h('li', { class: 'q-empty' }, `Показаны первые ${g.items.length} из ${qty(g.count)}. Заполните эти — список обновится.`) : null) : null;
   return h('section', { class: 'panel fill-group' + (open ? ' open' : '') }, head, body);
 }
@@ -84,7 +102,7 @@ export function mountFill(params) {
   const box = h('div', { class: 'fill-list' }, h('div', { class: 'panel state' }, 'Проверяю, что не заполнено…'));
   const el = h('div', { class: 'fill-page' },
     h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Требуют заполнения'),
-      h('div', { class: 'sub hint' }, 'Без этих данных неточно считаются деньги и аналитика. Откройте группу → «Заполнить» — карточка откроется сразу на нужном поле. Счёт можно вписать прямо в строке.'))),
+      h('div', { class: 'sub hint' }, 'Без этих данных неточно считаются деньги и аналитика. Кнопка «Заполнить» откроет карточку на нужном поле. Реквизиты связанного счёта заполняются в его карточке.'))),
     box);
   function render() {
     if (!data.groups.length) { box.replaceChildren(empty({ title: 'Всё заполнено — аналитика и деньги считаются полностью 👍', hint: 'Здесь появятся записи, где не указан счёт, статья или контрагент.' })); return; }

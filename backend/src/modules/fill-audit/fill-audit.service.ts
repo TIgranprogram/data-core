@@ -23,7 +23,7 @@ export async function lockedInvoices(db: Db, rows: Array<Record<string, unknown>
   ]);
   return new Set([...bound.map((x) => String(x._id)), ...received.map(String)]);
 }
-type Item = { id: string; title: string; sub?: string; thumb?: string; values?: Record<string, unknown>; lock?: string };
+type Item = { id: string; title: string; sub?: string; thumb?: string; values?: Record<string, unknown>; lock?: string; invoiceId?: string };
 /**
  * Одна очередь «требуют заполнения»: что не заполнено, зачем это нужно и куда идти.
  * section + field — раздел приложения и ключ поля формы: клик открывает карточку сразу в правке с подсвеченным полем.
@@ -84,7 +84,8 @@ export class FillAuditService {
     const reqItem = (r: Q): Item => ({ id: String(r._id), title: (r.num ? `№${r.num} · ` : '') + String(r.title ?? ''), sub: [r.invoiceNo ? `счёт ${r.invoiceNo}` : '', r.invoiceDate ? dmy(r.invoiceDate) : r.requestDate ? dmy(r.requestDate) : '', r.requestedBy].filter(Boolean).join(' · ') });
     const incItem = (r: Q): Item => ({ id: String(r._id), title: String(r.title ?? ''), sub: [r.orderNo ? `заказ ${r.orderNo}` : '', r.customer].filter(Boolean).join(' · ') });
 
-    const reqQuick = (r: Q): Item => ({ ...reqItem(r), values: { invoiceNo: r.invoiceNo ?? '', invoiceDate: iso(r.invoiceDate), priceHint: Number(r.priceHint) > 0 ? Number(r.priceHint) : null } });
+    const reqInvoiceItem = (r: Q): Item => ({ ...reqItem(r), ...(r.invoiceId ? { invoiceId: String(r.invoiceId) } : {}) });
+    const reqQuick = (r: Q): Item => ({ ...reqInvoiceItem(r), values: { invoiceNo: r.invoiceNo ?? '', invoiceDate: iso(r.invoiceDate), priceHint: Number(r.priceHint) > 0 ? Number(r.priceHint) : null } });
     const noSum = { $or: [{ priceHint: null }, { priceHint: { $exists: false } }, { priceHint: { $lte: 0 } }] };
     type Def = Omit<FillGroup, 'count' | 'items'> & { coll: string; q: Q; item: (r: Q) => Item; sort: Record<string, 1 | -1> };
     // только черновики: у выпущенного/аннулированного эти поля не меняются (AFTER_PRINT_FIELDS) — в «Заполнить» им не место
@@ -115,11 +116,11 @@ export class FillAuditService {
       { key: 'exp-date', area: 'Деньги', title: 'Сумма есть, даты счёта нет', why: 'Без даты счёта выплата не встаёт в календарь', section: 'requests', field: 'invoiceDate', money: true,
         coll: 'supplyrequests', q: { ...live, priceHint: { $gt: 0 }, ...empty('invoiceDate') }, item: reqQuick, quick: QUICK_REQ, quickPath: REQ_PATH, sort: { requestDate: -1 } },
       { key: 'exp-company', area: 'Деньги', title: 'Не указана наша компания', why: 'Платёжный календарь делится по компаниям — без неё расход теряется', section: 'requests', field: 'companyName', money: true,
-        coll: 'supplyrequests', q: { ...inExpenses, ...noCompany }, item: reqItem, sort: { invoiceDate: -1 } },
+        coll: 'supplyrequests', q: { ...inExpenses, ...noCompany }, item: reqInvoiceItem, sort: { invoiceDate: -1 } },
       { key: 'exp-cost', area: 'Аналитика расходов', title: 'Не указано, куда пошло', why: 'Цех, офис, СМР или заказ — иначе в «Куда тратили» это «не указано»', section: 'requests', field: 'costCenter', money: true,
         coll: 'supplyrequests', q: { ...inExpenses, ...empty('costCenter'), $and: [empty('salesOrderId')] }, item: reqItem, sort: { invoiceDate: -1 } },
       { key: 'exp-supplier', area: 'Аналитика расходов', title: 'Не указан поставщик', why: '«Кому платили» и сверка с поставщиками', section: 'requests', field: 'supplierName', money: true,
-        coll: 'supplyrequests', q: { ...inExpenses, ...empty('supplierId') }, item: reqItem, sort: { invoiceDate: -1 } },
+        coll: 'supplyrequests', q: { ...inExpenses, ...empty('supplierId') }, item: reqInvoiceItem, sort: { invoiceDate: -1 } },
       { key: 'exp-article', area: 'Аналитика расходов', title: 'Оплачено, а статья расхода не определилась', why: 'В «Деньги → По статьям» такой расход стоит в строке «Без статьи» — выберите статью', section: 'requests', field: 'articleId', money: true,
         coll: 'supplyrequests', q: { ...live, paid: true, priceHint: { $gt: 0 }, ...empty('articleId'), categoryId: { $nin: mappedCats } }, item: reqItem, sort: { paidAt: -1 } },
       { key: 'exp-category', area: 'Аналитика расходов', title: 'Не указана категория', why: '«На что тратили» — по категориям', section: 'requests', field: 'categoryName', money: true,

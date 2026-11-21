@@ -56,6 +56,7 @@ describe('FillAuditService: exp-noinvoice', () => {
     const res = await svc.report({ role: 'admin', isOwner: true }, { only: 'exp-noinvoice' });
     expect(res.groups[0]).toMatchObject({ key: 'exp-noinvoice', field: 'invoiceNo', quick: ['invoiceNo', 'invoiceDate', 'priceHint'] });
     expect(res.groups[0].items[0].values).toEqual({ invoiceNo: '', invoiceDate: '', priceHint: null });
+    expect(res.groups[0].items[0]).not.toHaveProperty('invoiceId');
     expect(seen).toMatchObject({ paid: { $ne: true }, status: { $in: ['ordered', 'received'] } });
   });
 
@@ -64,6 +65,36 @@ describe('FillAuditService: exp-noinvoice', () => {
     const svc = new FillAuditService({ db: { collection: col } } as never);
     const res = await svc.report({ role: 'user' }, { only: 'exp-noinvoice' });
     expect(res.groups).toEqual([]);
+  });
+});
+
+describe('FillAuditService: связанные счета', () => {
+  const rows = [{ _id: 'r1', invoiceId: 'inv1', title: 'Труба' }, { _id: 'r2', title: 'Уголок' }];
+  const collection = (name: string) => ({
+    find: () => ({
+      sort: () => ({ limit: () => ({ toArray: async () => name === 'supplyrequests' ? rows : [] }) }),
+      toArray: async () => [],
+    }),
+    countDocuments: async () => name === 'supplyrequests' ? rows.length : 0,
+    distinct: async () => [],
+  });
+  const svc = new FillAuditService({ db: { collection } } as never);
+
+  it.each(['exp-amount', 'exp-paid', 'exp-date', 'exp-company', 'exp-supplier'])('отдаёт id счёта только для связанной заявки в %s', async (only) => {
+    const { groups } = await svc.report({ role: 'manager' }, { only });
+    expect(groups[0].items[0]).toMatchObject({ id: 'r1', invoiceId: 'inv1' });
+    expect(groups[0].items[1]).not.toHaveProperty('invoiceId');
+  });
+
+  it('сохраняет переход к полю направления затрат в заявке', async () => {
+    const { groups } = await svc.report({ role: 'manager' }, { only: 'exp-cost' });
+    expect(groups[0]).toMatchObject({ section: 'requests', field: 'costCenter' });
+    expect(groups[0].items[0]).not.toHaveProperty('invoiceId');
+  });
+
+  it('финансовая группа недоступна роли без денег', async () => {
+    const { groups } = await svc.report({ role: 'user' }, { only: 'exp-date' });
+    expect(groups).toEqual([]);
   });
 });
 
