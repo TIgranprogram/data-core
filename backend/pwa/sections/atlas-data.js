@@ -8,14 +8,14 @@ import { SERVER_GUIDE } from './help-guide-data.js';
 export const BANDS = [
   { id: 'sale', name: 'Клиенты и продажи', hint: 'кто покупает и что', tok: 'orders' },
   { id: 'prod', name: 'Продукция', hint: 'изделие, модуль, деталь', tok: 'products' },
-  { id: 'paper', name: 'Описание', hint: 'проектирование и паспорта', tok: 'products' },
+  { id: 'paper', name: 'Проектирование и документы', hint: 'проектирование изделий и выпуск паспортов', tok: 'products' },
   { id: 'make', name: 'Производство', hint: 'кто и когда делает', tok: 'products' },
-  { id: 'supply', name: 'Снабжение', hint: 'что и у кого покупаем', tok: 'supply' },
+  { id: 'supply', name: 'Снабжение и заявки', hint: 'расчёт закупки, заявки поставщикам и приёмка', tok: 'supply' },
   { id: 'stock', name: 'Склад', hint: 'что лежит и куда ушло', tok: 'stock' },
   { id: 'after', name: 'Отгрузка и сервис', hint: 'довезти, смонтировать, гарантия', tok: 'orders' },
-  { id: 'money', name: 'Деньги', hint: 'кто кому должен', tok: 'money' },
-  { id: 'system', name: 'Система', hint: 'серверы и сохранность данных', tok: 'orders' },
-  { id: 'quality', name: 'Заполнение данных', hint: 'что осталось уточнить менеджеру', tok: 'orders' },
+  { id: 'money', name: 'Деньги', hint: 'доходы, расходы и оплата труда', tok: 'money' },
+  { id: 'system', name: 'Сервисы приложения', hint: 'поиск, чат, история, корзина, профиль и серверы', tok: 'orders' },
+  { id: 'quality', name: 'Сегодня и уточнения', hint: 'что осталось уточнить менеджеру', tok: 'orders' },
 ];
 
 /**
@@ -350,7 +350,7 @@ export const NODES = [
     rules: ['Статья обязательна — без неё расход не попадёт в отчёт.'],
     docs: ['docs/MAP.md — expenses, expense-articles'], tech: 'expenses',
     code: ['backend/src/modules/expenses', 'backend/pwa/sections/expenses.js'] },
-  { id: 'payroll', tpl: 'summary', tplStatus: 'legacy', band: 'money', col: 1, sec: 'payroll', t: 'ФОТ', l: ['ставка × табель,', 'начислено, выплачено'],
+  { id: 'payroll', tpl: 'summary', tplStatus: 'legacy', band: 'money', col: 1, sec: 'payroll', t: 'Оплата труда (ФОТ)', l: ['ставки сотрудников и табель', 'начисления и выплаты'],
     seq: true, inside: [
       { id: 'tabel', t: 'Табель', l: 'отработанные дни и часы', in: ['staff'] },
       { id: 'nachisleno', t: 'Начислено', l: 'ставка (из карточки сотрудника) × табель' },
