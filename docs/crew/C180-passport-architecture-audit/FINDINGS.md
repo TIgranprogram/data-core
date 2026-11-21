@@ -1,0 +1,12 @@
+# C180 — находки по изученным стыкам
+| ID | Приоритет/статус | Доказательство и действие |
+|--|--|--|
+| F01 | 🔴 до текущего release, C179 | passport-variants.ts:installKindOf: «бетон» раньшеanchor, exactcode7сведенык2+unknown; imageKindAllowed не запрещаетholes дляanchors. Одинexactcodeprofile, согласоватьallowed/required/текст/Г итаблицу7+unknown. |
+| F02 | 🔴 до текущего release, C179 | import.service.ts:28–33: staticcategoryDEFAULT_INSTALL и unknown→foundation; dictANCHORSrequiredfoundation+holes, traitsconcrete+anchors. ПоставщикCADнеопределяетphysicalmethod: сайт назначает3йвидпоexplicitprofile, unknownвыбор/409дооперации. |
+| F03 | 🔴 конкретные данные622 | C179/CURRENT-622 иPRODUCT-OWN-INSTALLATION: ownEMBEDDED4245+старыйtextchoice, новыеfoundation истарыеholes. Не массевыйrename: reviewedproduct+issuedпланANCHORS4244/подтвержденный03mounting/новаяредакция622, прежниефайлыиhistoryсохранить. |
+| F04 | Закрыто узким C178, до общей QA | editSnapshotField/Itemраньшеменялиissuedбезhistory. НовыйsnapshotRevisionPatch+commitSnapshotEdit копируетprevious икоммититrevision/text/statusCAS; annnulledguard/samevalue/shortlocalown. DIRECT-REVIEW-C178.md, realMongo6/6+807unit поотчётукоординатора; общийfullещёвпереди. |
+| F05 | 🟡 совместимость при C179 | printSnapshot.install — frozenenumanchor/concrete/unknown; новыйexactprofile долженчитатьсяизfrozenконтекста/версии, некаждыйразизживогоdict. Иначе историческаяпечатьизменитсяотправкисправочника. Доказать oldrevision→прежняяпечать, currentrevision→новыйprofile. |
+| F06 | 🟡 этап после срочного исправления | service preparation ordinaryPATCH/CAD/local snapshot раздельны; compare/changed/revision/printfreeze повторяются. Извлечь общийmutationplan/commit малымишагами, сохраняявнешниеendpointконтракты, анепереписатьсервиссразу. |
+| F07 | 🟡 неполная проверка | Условияedit/issue/variant/file/annulled продублированы вbook-editor/head исервере. C178лечиткнижку; провестиcapabilitymatrixпоостальнымвходам, не объявлять«любойэкран»поодномутесту. |
+| F08 | 🟡 критерий завершения | Многоцелевыхюнит/е2е не доказываютсемантическуюсквознуюматрицу. Нужен одинverificationentry иmanifestсверсиями/expectedslottext/source/PDF/history для7codes,2variants и3контекстов, результатPASS/FAIL/SKIPбезподменыfixtureреальнымPDF. |
+Неисследованные стыки не объявлены дефектными; новыхколлекций/скриптовprod/данных этототчётне создаёт. Полныйархив и общийПС-1.0 signoff остаются открытыми.
