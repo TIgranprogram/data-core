@@ -305,6 +305,7 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
     } }, 'Отмена');
     save.onclick = async () => {
       let saved;
+      const previousId = id;
       if (save.disabled) return;
       if (saving || form?.busy?.()) return;
       const done = busyBtn(save, 'Сохраняю…'); err.hidden = true;
@@ -340,6 +341,10 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
       toast(isNew ? 'Создано' : 'Сохранено');
       ctx.changed();
       id = saved.id;
+      // Ошибка перехода после записи не превращает успешный API-save в «Не сохранено».
+      try {
+        if (await section.form.afterSave?.(saved, { previousId, isNew }) === true) return;
+      } catch (e) { reportError(e, { action: 'открыть сохранённую запись' }); toastError(e, 'открыть сохранённую запись'); }
       if (isNew) ctx.opened?.(saved.id);
       showView(saved);
     };
