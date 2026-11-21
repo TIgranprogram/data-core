@@ -2,7 +2,7 @@
 import { h } from '../core/dom.js';
 import { patch } from '../core/router.js';
 import { entityPanel, guide, headbar, link, segmented } from '../ui/kit/index.js';
-import { atlasMap } from '../ui/kit/atlas-map.js';
+import { atlasFocus, atlasMap } from '../ui/kit/atlas-map.js';
 import { buildAtlasModel, traceAtlas } from './atlas-model.js';
 import { SECTIONS } from './help-guide-data.js';
 import { bandOf, byId, nameOf } from './atlas-util.js';
@@ -11,6 +11,7 @@ import { atlasOverview } from './atlas-overview.js';
 
 const model = buildAtlasModel();
 const graphNodes = new Map(model.nodes.map((node) => [node.id, node]));
+const compositionId = 'products.sostav';
 
 function guideDetail(node) {
   const section = SECTIONS[node.section], steps = section?.steps || [];
@@ -33,7 +34,7 @@ export const atlas = {
       panelEl.remove(); panelEl = null; current = prev = null;
       document.removeEventListener('mousedown', onOutside, true);
       document.removeEventListener('keydown', onKey, true);
-      map?.pin(selected);
+      map?.pin?.(selected);
       if (returnTo) (returnTo.el?.isConnected ? returnTo.el : findOpener(returnTo.section))?.focus();
       returnTo = null;
     };
@@ -79,36 +80,40 @@ export const atlas = {
     const switcher = segmented({
       label: 'Вид карты сайта', fit: true, value: 'all',
       items: [{ key: 'all', label: 'Все связи' }, { key: 'route', label: 'Путь заказа' }],
-      onChange: (next) => patch({ view: next === 'route' ? 'route' : null, n: null }),
+      onChange: (next) => patch({ view: next === 'route' ? 'route' : null, n: null, ...(mode === 'composition' && { focus: null }) }),
     });
     const findOpener = (id) => [...body.querySelectorAll('[data-atlas-node], [data-node]')]
       .find((item) => (item.dataset.atlasNode || item.dataset.node) === id) || switcher.buttons[mode === 'route' ? 1 : 0];
     const render = (nextMode) => {
+      const previous = mode;
       map?.destroy(); map = null; mode = nextMode;
       if (mode === 'route') el.classList.add('g-route-page');
       else el.classList.remove('g-route-page');
-      switcher.set(mode);
+      switcher.set(mode === 'route' ? 'route' : 'all');
       if (mode === 'route') {
         body.replaceChildren(hint, overview);
         return;
       }
-      map = atlasMap({
-        model, trace: traceAtlas,
-        onOpen: (id, opener) => open(id, false, opener),
-        onSelect: (id) => { selected = id; patch({ focus: id }); },
-      });
+      map = mode === 'composition'
+        ? atlasFocus({ model, id: compositionId, onExit: () => patch({ focus: null, n: null }) })
+        : atlasMap({
+          model, trace: traceAtlas,
+          onOpen: (id, opener) => open(id, false, opener),
+          onSelect: (id) => { selected = id; patch({ focus: id }); },
+        });
       body.replaceChildren(map.el);
-      map.pin(selected);
+      map.pin?.(selected);
+      if (mode === 'composition' && previous) map.focus?.();
     };
     const head = headbar(h('h1', null, 'Карта сайта'), switcher.el);
     head.classList.add('page-head', 'g-route-head');
     el.append(head, body);
 
     const update = ({ n, view, focus } = {}) => {
-      const nextMode = view === 'route' ? 'route' : 'all';
       const nextFocus = graphNodes.has(focus) ? focus : null;
+      const nextMode = view === 'route' ? 'route' : nextFocus === compositionId ? 'composition' : 'all';
       if (mode !== nextMode) { close(); selected = nextFocus; render(nextMode); }
-      else if (selected !== nextFocus) { selected = nextFocus; map?.pin(selected); }
+      else if (selected !== nextFocus) { selected = nextFocus; map?.pin?.(selected); }
       if (byId.has(n) || graphNodes.get(n)?.kind === 'section') {
         if (n !== directPanel || !panelEl) open(n, true, findOpener(n));
         directPanel = n;

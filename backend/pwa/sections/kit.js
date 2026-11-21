@@ -130,6 +130,7 @@ export const kit = {
     el.append(
       h('div', { class: 'page-head' }, h('h1', null, 'Эталоны'), button({ label: 'Сменить тему', kind: 'ghost', size: 'S', onClick: () => window.dcTheme?.cycle() })),
       block('Интерактивная карта (atlasMap)', 'Слои связей, увеличение, выбор раздела и список входов и выходов.', mapSample),
+      block('Раскрытие связей (atlasFocus)', null, link({ label: 'Открыть пример «Изделие → Состав»', href: '#atlas?focus=products.sostav' })),
       block('Длинное действие на телефоне', 'Кнопка kit: минимум 44 px, подпись переносится.', sample(button({ label: 'Сохранить только в этом паспорте', kind: 'primary' }))),
       block('Кнопки', 'primary / secondary / ghost / danger × M и S; занята и выключена.',
         ...['M', 'S'].map((size) => sample(...['primary', 'secondary', 'ghost', 'danger'].map((kind) => button({ label: kind, kind, size })),
