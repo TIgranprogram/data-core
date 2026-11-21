@@ -59,7 +59,7 @@ function scenarioNode(sc) {
   return (NODES.find((m) => !m.plan && baseHref(hrefOf(m)) === baseHref(sc.href)) || NODES.find((m) => m.sec === sc.sec))?.id;
 }
 
-export function detail(n, open, back, close, { shipping = false } = {}) {
+export function detail(n, open, back, close) {
   const sec = n.sec ? SECTIONS[n.sec] : null, href = hrefOf(n);
   const what = sec?.what || n.l.join(' ');
   const go = n.plan ? h('span', { class: 'muted small' }, n.plan === 'идея' ? 'На сайте нет — это идея' : 'На сайте пока нет — в разработке')
@@ -74,7 +74,6 @@ export function detail(n, open, back, close, { shipping = false } = {}) {
     button({ label: 'Ссылка на блок', kind: 'ghost', title: 'Скопировать ссылку, которая откроет это окно', onClick: () => copy(link, 'Ссылка скопирована') }));
   return [
     nav,
-    shipping ? guide.note({ label: 'Где отгрузить', text: 'Заказы → нужный заказ → «Отгрузить…».' }) : null,
     n.plan ? guide.note(n.plan === 'идея'
       ? { label: 'Идея', text: 'Раздела нет и в очереди задач его нет. Это предложение — скажите, брать ли его в работу. Ниже — как он мог бы выглядеть.', tone: 'warn' }
       : { label: 'В разработке', text: 'Раздела пока нет на сайте. Ниже — как он задуман.', tone: 'warn' }) : null,

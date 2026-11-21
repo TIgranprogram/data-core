@@ -8,7 +8,7 @@ import { pad, hint, tileGrid, typeArt, typeIconList, landing, miniChart, navList
 import { buildCardTabs } from '../ui/kit/card-tabs.js';
 import { gallery } from '../ui/kit/card-gallery.js';
 import { atlasMap } from '../ui/kit/atlas-map.js';
-import { buildAtlasModel, traceAtlas } from './atlas-model.js';
+import { buildAtlasModel } from './atlas-model.js';
 import { infoCard, nextCard, warnCard, positionsTable, boardCard, footerBar } from '../ui/kit/screens/blocks.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
@@ -122,15 +122,14 @@ export const kit = {
     let map;
     mapSample.addEventListener('toggle', () => {
       if (!mapSample.open || !el.isConnected || map) return;
-      map = atlasMap({ model: buildAtlasModel(), trace: traceAtlas, onOpen: (id) => { location.hash = '#atlas?n=' + id; } });
+      map = atlasMap({ model: buildAtlasModel() });
       mapBody.append(map.el);
     });
     const t = tabs({ items: [{ key: 'a', label: 'Первая', count: 3 }, { key: 'b', label: 'Вторая' }, { key: 'c', label: 'Третья', count: 0 }], value: 'a' });
     const dens = (d) => (d === 'compact' ? 'compact' : undefined);
     el.append(
       h('div', { class: 'page-head' }, h('h1', null, 'Эталоны'), button({ label: 'Сменить тему', kind: 'ghost', size: 'S', onClick: () => window.dcTheme?.cycle() })),
-      block('Интерактивная карта (atlasMap)', 'Слои связей, увеличение, выбор раздела и список входов и выходов.', mapSample),
-      block('Раскрытие связей (atlasFocus)', null, link({ label: 'Открыть пример «Изделие → Состав»', href: '#atlas?view=composition&focus=products.sostav' })),
+      block('Интерактивная карта (atlasMap)', 'Обзор областей и раскрытие связей колесом.', mapSample),
       block('Длинное действие на телефоне', 'Кнопка kit: минимум 44 px, подпись переносится.', sample(button({ label: 'Сохранить только в этом паспорте', kind: 'primary' }))),
       block('Кнопки', 'primary / secondary / ghost / danger × M и S; занята и выключена.',
         ...['M', 'S'].map((size) => sample(...['primary', 'secondary', 'ghost', 'danger'].map((kind) => button({ label: kind, kind, size })),
