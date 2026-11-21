@@ -226,3 +226,6 @@ C164: `common/legal/` — общие typed DTO/subschemas, проверка ис
 
 ### C179 — применимость монтажа
 `modules/product-passport/passport-variants.ts` — installationProfile по 7 стабильным code без NL/defaultкатегории; ANCHORS требует mounting и исключает foundation/holes/embedded_layout. GET passport/template аддитивно отдаёт installationPlan (managedKinds/allowedKinds/requiredKinds/labels/thirdImportKind/depthApplicable), новый printSnapshot замораживает его. Явная смена метода issued создаёт редакцию; только отсутствие новой схемы допускает сохранение с readiness=false, PDF до загрузки схемы400. `embedded_layout` добавлен в enum рисунков и PDF; старые исторические снимки не пересобираются. Inventor принимает те же 3 kind; unknown способ даёт409.
+
+### C178 — источник названия паспорта (после v1.984)
+`passport-bind.ts` не переносит income.title в passport.name; автоматические orderIssue/createDraftsForOrder не передают title как dto.name. Автоматическое имя с productId — из productPatch(products.name), настоящее manualname сохраняется binding/GET/issue. Исторические issued не обновляются при чтении, отдельный явный PATCH создаёт редакцию. API/роли/C170 источники PDF не изменены.

@@ -63,7 +63,7 @@ describe('паспорта на весь заказ', () => {
 
     const result = await orderIssue(host, String(o), { lines: [String(i1)], presentationVersion: 1 });
 
-    expect(createDraft).toHaveBeenCalledWith(String(i1), 'Урна А', undefined, { salesOrderId: String(o), productId: String(p1), presentationVersion: 1, variant: 'short' });
+    expect(createDraft).toHaveBeenCalledWith(String(i1), undefined, undefined, { salesOrderId: String(o), productId: String(p1), presentationVersion: 1, variant: 'short' });
     expect(result.skipped[0].reason).toContain('другой версии');
     expect(setSupplier).not.toHaveBeenCalled();
     expect(issue).not.toHaveBeenCalled();

@@ -1,0 +1,125 @@
+{
+  "status": "FAIL",
+  "failure": "e2e-full failed",
+  "scope": "backend/src + backend/test + backend/admin; final PWA checks separate after UI freeze",
+  "testDb": "datacore-test-c176-identification",
+  "mongo": "owned c172-qa-mongo Mongo4.4 rs0 :27172",
+  "before": "ce9cc41315e0301fb321a558237140da586af5b2187c64e79c27f72f1b36ca47",
+  "after": "ce9cc41315e0301fb321a558237140da586af5b2187c64e79c27f72f1b36ca47",
+  "unchanged": true,
+  "fileCount": 1323,
+  "uiChangedDuringServerQa": false,
+  "results": [
+    {
+      "name": "unit",
+      "passedSuites": 389,
+      "failedSuites": 0,
+      "skippedSuites": 0,
+      "passed": 3914,
+      "failed": 0,
+      "skipped": 0,
+      "total": 3914,
+      "success": true,
+      "failures": []
+    },
+    {
+      "name": "e2e",
+      "passedSuites": 95,
+      "failedSuites": 1,
+      "skippedSuites": 1,
+      "passed": 782,
+      "failed": 1,
+      "skipped": 12,
+      "total": 795,
+      "success": false,
+      "failures": [
+        {
+          "file": "backend\\test\\e2e\\order-lines.e2e-spec.ts",
+          "failedTestNames": [
+            "ORDER-LINES: позиции заказа, заявки на изделие, draft-all, overdue draft-all: черновики только на позиции с изделием без паспорта, название из позиции; повтор — created 0"
+          ],
+          "message": "  ● ORDER-LINES: позиции заказа, заявки на изделие, draft-all, overdue › draft-all: черновики только на позиции с изделием без паспорта, название из позиции; повтор — created 0"
+        }
+      ]
+    }
+  ],
+  "stages": [
+    {
+      "name": "tsc",
+      "start": "2026-11-21T15:22:38.811Z",
+      "end": "2026-11-21T15:22:40.949Z",
+      "exitCode": 0,
+      "command": [
+        "C:/Program Files/WindowsApps/OpenAI.CodexPrimaryRuntime.v26-1119-907-0_26.1119.907.0_x64__3k8sg7r9htsxt/dependencies/node/bin/node.exe",
+        "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\node_modules\\typescript\\bin\\tsc",
+        "--noEmit"
+      ],
+      "cwd": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend",
+      "log": "tools\\logs\\c176-qa-2026-11-21T15-22-38-476Z\\tsc.log"
+    },
+    {
+      "name": "unit",
+      "start": "2026-11-21T15:22:40.949Z",
+      "end": "2026-11-21T15:23:35.664Z",
+      "exitCode": 0,
+      "command": [
+        "C:/Program Files/WindowsApps/OpenAI.CodexPrimaryRuntime.v26-1119-907-0_26.1119.907.0_x64__3k8sg7r9htsxt/dependencies/node/bin/node.exe",
+        "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\node_modules\\jest\\bin\\jest.js",
+        "--runInBand",
+        "--silent",
+        "--json",
+        "--outputFile=C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\tools\\logs\\c176-qa-2026-11-21T15-22-38-476Z\\unit-results.json"
+      ],
+      "cwd": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend",
+      "log": "tools\\logs\\c176-qa-2026-11-21T15-22-38-476Z\\unit.log"
+    },
+    {
+      "name": "eslint",
+      "start": "2026-11-21T15:23:35.665Z",
+      "end": "2026-11-21T15:23:46.676Z",
+      "exitCode": 0,
+      "command": [
+        "C:/Program Files/WindowsApps/OpenAI.CodexPrimaryRuntime.v26-1119-907-0_26.1119.907.0_x64__3k8sg7r9htsxt/dependencies/node/bin/node.exe",
+        "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\node_modules\\eslint\\bin\\eslint.js",
+        "src/**/*.ts"
+      ],
+      "cwd": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend",
+      "log": "tools\\logs\\c176-qa-2026-11-21T15-22-38-476Z\\eslint.log"
+    },
+    {
+      "name": "build",
+      "start": "2026-11-21T15:23:46.676Z",
+      "end": "2026-11-21T15:23:59.437Z",
+      "exitCode": 0,
+      "command": [
+        "C:/Program Files/WindowsApps/OpenAI.CodexPrimaryRuntime.v26-1119-907-0_26.1119.907.0_x64__3k8sg7r9htsxt/dependencies/node/bin/node.exe",
+        "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\node_modules\\@nestjs\\cli\\bin\\nest.js",
+        "build"
+      ],
+      "cwd": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend",
+      "log": "tools\\logs\\c176-qa-2026-11-21T15-22-38-476Z\\build.log"
+    },
+    {
+      "name": "e2e-full",
+      "start": "2026-11-21T15:23:59.439Z",
+      "end": "2026-11-21T15:35:05.154Z",
+      "exitCode": 1,
+      "command": [
+        "C:/Program Files/WindowsApps/OpenAI.CodexPrimaryRuntime.v26-1119-907-0_26.1119.907.0_x64__3k8sg7r9htsxt/dependencies/node/bin/node.exe",
+        "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\node_modules\\jest\\bin\\jest.js",
+        "--config",
+        "{\"moduleFileExtensions\":[\"js\",\"json\",\"ts\"],\"rootDir\":\"C:\\\\Users\\\\User\\\\.codex\\\\worktrees\\\\c172-passport-release\\\\data-core\\\\backend\\\\test\",\"testEnvironment\":\"node\",\"testRegex\":\".e2e-spec\\\\.ts$\",\"transform\":{\"^.+\\\\.(t|j)s$\":[\"D:\\\\invSportiN\\\\Сайт\\\\01_Проекты_CRM\\\\data-core\\\\backend\\\\node_modules\\\\.pnpm\\\\ts-jest@29.4.11_@babel+core@7.29.7_@jest+transform@29.7.0_@jest+types@29.6.3_babel-jest@29.7._xy2molyflzuu2e5l6hnyek62dy\\\\node_modules\\\\ts-jest\\\\dist\\\\index.js\",{\"tsconfig\":\"C:\\\\Users\\\\User\\\\.codex\\\\worktrees\\\\c172-passport-release\\\\data-core\\\\backend\\\\tsconfig.json\"}]},\"setupFiles\":[\"./setup/jest-e2e-env.ts\"],\"collectCoverageFrom\":[\"src/modules/**/services/*.ts\"],\"coverageDirectory\":\"./coverage-e2e\",\"testTimeout\":60000}",
+        "--runInBand",
+        "--forceExit",
+        "--silent",
+        "--json",
+        "--outputFile=C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\tools\\logs\\c176-qa-2026-11-21T15-22-38-476Z\\e2e-results.json"
+      ],
+      "cwd": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\tools\\logs\\c176-qa-2026-11-21T15-22-38-476Z\\scratch",
+      "log": "tools\\logs\\c176-qa-2026-11-21T15-22-38-476Z\\e2e-full.log"
+    }
+  ],
+  "raw": "tools\\logs\\c176-qa-2026-11-21T15-22-38-476Z",
+  "out": "docs\\crew\\C176-product-identification-queue\\proofs\\qa-2026-11-21T15-22-38-476Z",
+  "skipBoundary": "T26 opt-in disposable database suite is not enabled; exact counts in Jest results."
+}

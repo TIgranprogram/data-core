@@ -1,0 +1,17 @@
+{
+  "scope": "Reuse accepted production v1.984 PWA from Git a96e708d; not the earlier b96 QA source",
+  "acceptedCommit": "a96e708d",
+  "currentPwaSha": "d47e28ad5aa4903e53c4c0e88799dcda85d3aa48ad0dbf26f0e7dcfe4648bd6c",
+  "gitDiffExit": 0,
+  "unchangedFromAcceptedRelease": true,
+  "checks": {
+    "nodeTests": 498,
+    "guards": 365,
+    "imports": 371
+  },
+  "evidence": [
+    "tools/logs/c175-final-all-pwa-repeat.log",
+    "tools/logs/dc-release-0LaQgSja.log"
+  ],
+  "earlierQaSourceChanged": true
+}

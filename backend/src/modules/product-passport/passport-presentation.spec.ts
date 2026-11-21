@@ -18,8 +18,9 @@ describe('Источники версии 1 паспорта', () => {
 
   it('использует позицию, заказ и фирму для полей и нормализует ключ позиции', async () => {
     expect(await bindPresentation(db(), { productId, salesOrderId, incomeId, orderNo: 'чужой', customerName: 'чужой' })).toMatchObject({
-      productId, incomeId, salesOrderId, supplierOrgId, supplier: 'Наша фирма', name: 'Имя по договору', orderNo: 'Заказ-1', customerName: 'Заказчик',
+      productId, incomeId, salesOrderId, supplierOrgId, supplier: 'Наша фирма', orderNo: 'Заказ-1', customerName: 'Заказчик',
     });
+    expect(await bindPresentation(db(), { productId, salesOrderId, incomeId, name: 'Своё имя экземпляра' })).not.toHaveProperty('name');
     expect(lineScopeKey(String(incomeId).toUpperCase())).toBe('line/' + String(incomeId));
   });
 

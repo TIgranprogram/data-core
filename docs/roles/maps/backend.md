@@ -349,3 +349,8 @@
 - `product-passport.schema.ts:11`, `passport-pdf-v2-refs.ts:57` — additive embedded_layout для реальных схем закладных. Коммит: не выполнялся; карта обновлена.
 
 - C179 legacy blocker: `passport-variants.ts:78` reconcileInstallationRules пересчитывает только managedrequired/slots новой image-only редакции; `product-passport.service.ts:1051/1080` неизвестный профиль блокируется независимо frozen текста. Unit79/818 и C1793/3 realMongo/PDF/legacyCAD/noop/CAS PASS; raw `tools/logs/c176-qa-2026-11-21T14-04-14-084Z`. Коммит: не выполнялся; карта обновлена.
+
+## C178 — источник названия после v1.984
+- `backend/src/modules/product-passport/passport-bind.ts:65` — binding не поставляет income.title как passport.name; оно берётся из productPatch либо настоящего manual override.
+- `passport-order.ts:240`, `product-passport.service.ts:426/468/487` — auto order/createDraft не передают/не фиксируют имя строки как ручное. Standalone legacy и explicit dto.name сохранены; issued readonly остаётся frozen.
+- `test/e2e/c178-passport-name-source.e2e-spec.ts` —6realMongo/PDF/actor/403/history/manual/shortfull/orderbatch сценариев; отчёт C178/NAME-SOURCE-REPORT.md. Коммит: не выполнялся; карта обновлена.

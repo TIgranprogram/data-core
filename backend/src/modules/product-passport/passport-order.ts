@@ -17,7 +17,7 @@ export interface OrderHost {
   db: () => Db;
   /** Чего не хватает у изделия (шаблон): список подписей. */
   templateMissing: (productId: string, variant?: string, presentationVersion?: 1) => Promise<string[]>;
-  /** Черновик на позицию. `supplierOrgId` — выбранная фирма, если в заказе её ещё нет. */
+  /** Черновик на позицию. title оставлен для совместимости host; автоматически имя берётся из изделия. `supplierOrgId` — выбранная фирма, если в заказе её ещё нет. */
   createDraft: (incomeId: string, title?: string, supplierOrgId?: string, context?: { salesOrderId: string; productId: string } & Presentation) => Promise<{ id: string; presentationVersion?: number; variant?: string }>;
   lineMissing?: (passportId: string, supplierOrgId?: string) => Promise<string[]>;
   /** Дописать фирму в черновик без поставщика (выпуск пачки, когда в заказе фирмы нет). */
@@ -237,8 +237,8 @@ async function issueLines(h: OrderHost, orderId: string, opts: { lines?: string[
     try {
       if (!id) {
         const draft = expected
-          ? await h.createDraft(l.incomeId, l.title, pick, { salesOrderId: plan.orderId, productId: l.productId!, ...expected })
-          : await h.createDraft(l.incomeId, l.title, pick);
+          ? await h.createDraft(l.incomeId, undefined, pick, { salesOrderId: plan.orderId, productId: l.productId!, ...expected })
+          : await h.createDraft(l.incomeId, undefined, pick);
         if (expected && (draft.presentationVersion !== expected.presentationVersion || draft.variant !== expected.variant)) {
           throw new ConflictException('У позиции уже есть паспорт другой версии или варианта — перечитайте план');
         }

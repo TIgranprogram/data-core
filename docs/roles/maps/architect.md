@@ -103,3 +103,6 @@ C180 первыйадресныйauditзакреплён: AUDIT.md/FINDINGS.md/R
 
 ## C175 — afterSave навигация
 коммит: текущийWIP/UI-diff. АдресныйPASS2файлов: ui/kit/card.jsoptionalafterSaveпослеAPIуспеха/formclear,доdefaultnav; passport-tree.jsnewroot→new.id/newleaf→id, таймерудалён. AFTER-SAVE-REVIEW.md;16card/34target/guards365imports371принятыпоотчёту, backendfullнеповторялся. Картаобновлена.
+
+## C178 — Product.name источникназвания
+коммит: a96e708d + текущийname-sourceWIP. NAME-SOURCE-REVIEW-FINAL.md PASS3runtimefiles: bindPresentationбезincome.title, orderbatchбезавтоматическогоdto.name, createPresentationбезложногоmanualflag. ProductDiff/manualoverride/issuedfreeze/standalone/attachedконтрактысохранены;818unitи12targetedпринятыпоQA, fullновогорелизаещёвпереди. C179/данные20-26неаудировались. Картаобновлена.

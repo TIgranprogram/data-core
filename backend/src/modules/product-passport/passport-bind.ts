@@ -63,7 +63,6 @@ export async function bindPresentation(db: Db, input: Doc, session?: ClientSessi
       customerName: order.customer || null,
       customerOrgId: order.customerOrgId || null,
       objectName: input.objectName || await addressFromOrder(db, order) || null,
-      ...(inc.title ? { name: String(inc.title) } : {}),
     };
   } else if (input.salesOrderId || input.orderNo || input.customerOrgId || input.customerName) {
     throw new BadRequestException('Для самостоятельного паспорта заказ и покупатель не задаются');

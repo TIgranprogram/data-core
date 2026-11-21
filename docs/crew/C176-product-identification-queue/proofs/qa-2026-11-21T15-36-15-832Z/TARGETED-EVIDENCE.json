@@ -1,0 +1,8 @@
+{
+  "scope": "order-lines targeted before source freeze, not full acceptance",
+  "passed": 7,
+  "failed": 0,
+  "skipped": 0,
+  "raw": "tools\\logs\\c176-qa-2026-11-21T15-36-15-832Z",
+  "failures": []
+}

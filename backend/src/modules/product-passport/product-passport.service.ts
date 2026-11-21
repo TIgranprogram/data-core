@@ -348,7 +348,7 @@ export class ProductPassportService {
     else {
       for (const f of ['passportNo', 'productCode', 'warrantyCode'] as const) delete set[f];
       set._id = new Types.ObjectId(); set.passportNumber = DRAFT_PREFIX + String(set._id); set.status = 'draft';
-      // ПНЗ/C148: название из заказа или явно введённое сохраняется и при следующих чтениях черновика.
+      // C148: явно введённое имя сохраняется; автоматические вызовы заказа не передают название строки.
       const ownName = String(set.name ?? '').trim();
       const productDiff = await this.fromProductDiff({ ...set });
       Object.assign(set, productDiff);
@@ -426,11 +426,6 @@ export class ProductPassportService {
     const productVersion = await passportProductVersion(this.connection, bound.productId);
     const set: Doc = { ...bound, _id, presentationVersion: 1, variant, creationScopeKey, date: dayUtc(), status: 'draft', passportNumber: DRAFT_PREFIX + String(_id), source: 'app', bom: DEFAULT_BOM };
     const diff = await this.fromProductDiff(set);
-    if (set.name && diff.name && set.name !== diff.name) {
-      delete diff.name;
-      diff.instanceManualText = ['name'];
-      diff.manualText = [...new Set([...((diff.manualText as string[]) ?? []), 'name'])];
-    }
     Object.assign(set, diff);
     const draft = new this.model(set);
     await this.applySnapshot(draft, { ...set });
@@ -471,7 +466,7 @@ export class ProductPassportService {
       if (inc.passportSelection?.mode === 'attachment') { skipped++; continue; }
       if (await this.model.exists({ incomeId: inc._id, status: { $ne: 'annulled' } })) { skipped++; continue; }
       try {
-        const doc = await this.create({ incomeId: String(inc._id), ...(inc.title ? { name: String(inc.title) } : {}) } as CreateProductPassportDto);
+        const doc = await this.create({ incomeId: String(inc._id) } as CreateProductPassportDto);
         items.push({ incomeId: String(inc._id), passportId: String(doc._id) });
       } catch (e) {
         const msg = e instanceof ConflictException ? String((e.getResponse() as { message?: string })?.message ?? e.message) : '';
@@ -490,9 +485,9 @@ export class ProductPassportService {
         try { return (await this.check({ productId, mode: 'template', variant, presentationVersion })).missing.map((m) => m.label); }
         catch (e) { if (e instanceof NotFoundException) return ['Изделие не найдено']; throw e; }
       },
-      createDraft: async (incomeId, title, supplierOrgId, context) => {
+      createDraft: async (incomeId, _title, supplierOrgId, context) => {
         const draft = await this.create({
-          incomeId, ...(title ? { name: title } : {}), ...(supplierOrgId ? { supplierOrgId } : {}), ...context,
+          incomeId, ...(supplierOrgId ? { supplierOrgId } : {}), ...context,
         });
         return { id: String(draft._id), presentationVersion: draft.presentationVersion, variant: draft.variant };
       },

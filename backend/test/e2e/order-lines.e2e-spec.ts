@@ -112,7 +112,7 @@ describe('ORDER-LINES: позиции заказа, заявки на издел
     await http().patch(`/api/incomes/${l.id}`).set(auth()).send({ qty: 3 }).expect(200);
   });
 
-  it('draft-all: черновики только на позиции с изделием без паспорта, название из позиции; повтор — created 0', async () => {
+  it('draft-all: черновики только на позиции с изделием без паспорта, название из изделия; повтор — created 0', async () => {
     const o = await order('OL-7');
     const prod = (await http().post('/api/showcase').set(auth()).send({ sku: 'OL-P2', name: 'Имя изделия', type: 'Благоустройство' }).expect(201)).body.id;
     const withP = (await http().post('/api/incomes').set(auth()).send({ orderId: o, title: 'Название из заказа', qty: 1, unit: 'шт', productId: prod }).expect(201)).body.id;
@@ -121,7 +121,7 @@ describe('ORDER-LINES: позиции заказа, заявки на издел
     expect(r1.created).toBe(1);
     expect(r1.items[0].incomeId).toBe(withP);
     const pass = await db().collection('productpassports').findOne({ incomeId: new Types.ObjectId(withP) });
-    expect(pass!.name).toBe('Название из заказа');
+    expect(pass!.name).toBe('Имя изделия');
     const r2 = (await http().post(`/api/salesorders/${o}/passports/draft-all`).set(auth()).expect(200)).body;
     expect(r2).toMatchObject({ created: 0, skipped: 1 });
   });

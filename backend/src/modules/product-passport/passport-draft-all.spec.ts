@@ -16,12 +16,12 @@ describe('createDraftsForOrder', () => {
     svc.connection = { db: { collection: col } };
     return { svc: svc as unknown as ProductPassportService, made };
   };
-  it('создаёт только недостающие, название из позиции', async () => {
+  it('создаёт только недостающие, название позиции не подменяет изделие', async () => {
     const { svc, made } = make([i1]);
     const r = await svc.createDraftsForOrder(String(o));
     expect(r).toMatchObject({ created: 1, skipped: 1 });
     expect(r.items[0].incomeId).toBe(String(i2));
-    expect(made[0]).toMatchObject({ incomeId: String(i2), name: 'Урна Б' });
+    expect(made[0]).toEqual({ incomeId: String(i2) });
   });
   it('повторный вызов — 0 созданных', async () => {
     const { svc, made } = make([]);

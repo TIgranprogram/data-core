@@ -1,0 +1,20 @@
+{
+  "baselineFullStatus": "FAIL:782PASS/1obsolete-expectFAIL/12SKIP",
+  "runtimeBefore": "b209e1eb33da774682d1cce8e111688907a2dbac9df1489fdc7d37e7c4aea66f",
+  "runtimeAfter": "b209e1eb33da774682d1cce8e111688907a2dbac9df1489fdc7d37e7c4aea66f",
+  "runtimeUnchanged": true,
+  "changedFiles": [
+    "backend/test/e2e/order-lines.e2e-spec.ts"
+  ],
+  "allowedFixtureOnly": true,
+  "status": "PASS_AGGREGATED_COVERAGE",
+  "targeted": {
+    "suite": "order-lines.e2e-spec.ts",
+    "passed": 7,
+    "failed": 0,
+    "proof": "../qa-2026-11-21T15-36-15-832Z/TARGETED-EVIDENCE.json"
+  },
+  "uniqueE2eCovered": 783,
+  "skippedOptIn": 12,
+  "firstFullRemainsFail": true
+}
