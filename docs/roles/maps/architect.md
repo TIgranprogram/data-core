@@ -1,5 +1,10 @@
 # Карта роли architect
 
+## C171 — совет до реализации (21.11.2026)
+C171 инфраструктурный review: коммит 7ce3eac1 + рабочий diff. ARCH-REVIEW.md: marker index.mjs runQueue, metadata в первом claim store.mjs, recovery claiming до Inbox; file-specific catch закрыты. WIP можно после QA-регрессий, весь C171/серверный CAS/send/UI не принят. Check syntax PASS/cycles0, ранний analysis9/10, окончательные tests у QA. Карта обновлена.
+
+коммит: 7ce3eac1. [ARCH-PLAN.md](../../crew/C171-document-intake-review/ARCH-PLAN.md): index.mjs:94–107 сохранять raw/pages до проверки; api.mjs:453–459 upload раньше отказа бизнес-POST; нужны review revision/CAS и независимые analyze/send. Это план, не приёмка кода/стенда. Карта обновлена.
+
 ## C169 — файловая очередь документов, совет до кода
 
 коммит: a8413b18. [ARCH-PLAN.md](../../crew/C169-local-document-intake/ARCH-PLAN.md) — ID поступления и SHA документа, журнал намерений, восстановление по UID и проверка результата перед Ready. Основания в C169/TZ.md:21 и C164/CONTRACT.md:83. Доступность гарантий в конкретных API сверяет аналитик. Карта обновлена.
@@ -80,3 +85,5 @@ C163 адресное закрытие P1, коммит: f76489b9 + рабочи
 Host: [ARCH-HOST-REVIEW.md](../../crew/C166-server-schedules/ARCH-HOST-REVIEW.md), два P1 закрыты, исправленный preflight static PASS; worker и координатор по 47 isolated PASS, собственный запуск архитектора SKIP среды. Bash-n исправленного preflight проверен координатором. Живой VPS/CRM/обратное переключение не принимались.
 
 Frozen890dece6: CAS/постоянные слоты/outbox/ночное окно/manual history/strict readiness/неоднозначный promote-VPS/logger redaction рассмотрены; 36/36unit и cycles0 собственные, backendPASS. Host/UI/live/combined отдельно. Отчёт crew/C166-server-schedules/ARCH-BACKEND-REVIEW.md. Карта сохранена координатором по итоговому сообщению роли, песочница роли не давала запись в новуюworktree.
+
+C171 интеграция Пульта (7ce3eac1 + рабочий diff): reviewreport/draft owner+target, preparation reset и legacy report isolation исправлены; token/origin/analyze guards и heartbeat просмотрены. Regression13/13 по координатору, syntax PASS. Можно WIP, не весь C171. ARCH-REVIEW.md дополнен; карта обновлена.

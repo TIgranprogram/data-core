@@ -6,6 +6,8 @@ import {
 import { apiAddress, authorize, connectApi, decideInvoice, executeIntake } from './api.mjs';
 import { checkPages, EXTRACTOR_VERSION, extractDocument, propose, question, RULES_VERSION, validateProposal } from './proposal.mjs';
 
+export { analyze, getDraft, reviseDraft, reviewStatus } from './analysis.mjs';
+
 export async function configure({ root }) {
   const store = await openRoot(root);
   return { root: store.root, folders: store.folders };
@@ -19,8 +21,9 @@ function publicEntry(entry) {
 async function snapshot(store) {
   const [inbox, entries] = await Promise.all([inboxFiles(store), arrivalsOf(store)]);
   const counts = { inbox: inbox.length, processing: 0, ready: 0, question: 0 };
-  for (const entry of entries) counts[entry.state]++;
-  return { root: store.root, counts, items: entries.map(publicEntry) };
+  const legacy = entries.filter(entry => entry.workflow !== 'c171');
+  for (const entry of legacy) counts[entry.state]++;
+  return { root: store.root, counts, items: legacy.map(publicEntry) };
 }
 
 export async function status({ root }) {
@@ -204,6 +207,9 @@ async function runQueue(options, dependencies, mode) {
   }
 
   try {
+    if (await exists(path.join(store.root, '.intake', 'c171-review.json'))) {
+      throw new IntakeError('REVIEW_REQUIRED', 'Эта папка используется для проверки черновиков C171.', 'Продолжите в экране проверки. Автоматическая отправка C169 для этой папки запрещена.');
+    }
     const entries = await arrivalsOf(store);
     const selected = new Set(options.arrivalIds);
     const pending = entries.filter((entry) => entry.state === 'processing' && (mode !== 'retry' || entry.retryIntent && selected.has(entry.arrivalId)));

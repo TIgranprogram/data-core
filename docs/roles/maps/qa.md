@@ -1,6 +1,8 @@
 # Карта роли qa
 
-коммит: 26c51f58 + изменения C169 перед коммитом координатора. QA C169 · юниты 383 набора / 3866 PASS; e2e 91 набор / 735 PASS, T26 1 набор / 12 SKIP; пульт 77/77, обработчик 22/22. Итоги объединены по наборам общего и адресных прогонов, SHA сервера совпал. [Отчёт](../../crew/C169-local-document-intake/QA-REPORT.md).
+коммит: 7ce3eac1 + текущие изменения C171. QA C171 подэтап A: 128 уникальных сценариев подтверждены (база127 + JOURNAL1); финальная дельта preflight/broker15/15, JOURNAL1/1. Backend/e2e не повторялись. [Отчёт](../../crew/C171-document-intake-review/QA-REPORT.md). Всё C171 PARTIAL.
+
+- C171 (21.11.2026): `tools/document-intake/analysis.mjs:58` owner/target сводка и изоляция JOURNAL, `:94` локальный CAS, `:118` analyze read-only; `tools/document-intake/index.mjs:21` legacy исключает C171, `:210` marker блокирует автоотправку; `tools/document-intake/store.mjs:193` metadata в первом claim; `pult/document-intake.mjs:306` login-gated report, `:350` draft binding; UI `pult/ui/document-intake.js:84` analyze-only. Регрессии — `analysis.test.mjs:14` JOURNAL/path, `:203` marker, `:220` crash до захвата, `:231` crash после, `:243` scope. Логи `tools/logs/c171-qa-*.log`. Карта обновлена.
 
 - C169 (20.11.2026): `docs/crew/C169-local-document-intake/QA-REPORT.md:3`, `backend/test/e2e/c169-photo-intake.e2e-spec.ts:59`, `backend/test/e2e/c169-supplier-invoice.e2e-spec.ts:70`, `tools/document-intake/api.mjs:275`, `tools/document-intake/api.mjs:429`. Для старой паспортной фикстуры с `path.resolve('uploads')` можно запускать Jest из временной папки с абсолютными путями к конфигу и спекам, согласовав `UPLOAD_DIR`. Guard C170 с точным именем БД проходит в новой одноразовой MongoDB. Карта обновлена.
 

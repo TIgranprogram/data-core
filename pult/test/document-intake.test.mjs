@@ -12,6 +12,51 @@ const access = 'fixture-access-value';
 const password = 'fixture-private-password';
 const services = { apiBase: 'http://127.0.0.1:3001/api', modelBase: 'http://127.0.0.1:1235/v1', model: 'учебная-модель' };
 
+test('C171: подготовка блокирует анализ, просмотр связан с владельцем и контуром, запись не вызывается', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pult-c171-'));
+  const id = '00000000-0000-4000-8000-000000000001';
+  const actor = '111111111111111111111111';
+  const jwt = `${Buffer.from('{}').toString('base64url')}.${Buffer.from(JSON.stringify({ sub: actor, exp: Math.floor(Date.now() / 1000) + 600 })).toString('base64url')}.signature`;
+  let prepared = false, analyzed = 0, draftOwner = actor, draftTarget = `${services.apiBase}/`;
+  const intake = createDocumentIntake({ stateDir: path.join(root, 'settings'), pickFolder: async () => root,
+    prepare: async ({ onStep }) => { onStep({ title: 'Проверяем модель' }); return { ready: prepared, steps: [{ status: prepared ? 'ready' : 'blocked', recovery: 'Запустите модель.' }] }; },
+    fetchFn: async () => Response.json({ access: jwt, user: { id: actor, baseRole: 'manager', canMoney: true } }),
+    engine: async () => ({
+      configure: async () => ({ root }), status: async () => ({ counts: { inbox: 1 }, running: false }),
+      reviewStatus: async () => ({ counts: { pending: 0, checked: 1, question: 0, uploaded: 0 }, items: [{ arrivalId: id, name: 'Счёт.pdf', state: 'checked', version: 1, issues: [] }] }),
+      analyze: async ({ token, onProgress }) => { assert.equal(await token(), jwt); analyzed++; onProgress({ total: 1, processed: 1, state: 'processing', stage: 'checked' }); return {}; },
+      getDraft: async () => ({ owner: draftOwner, target: draftTarget, name: 'Счёт.pdf', version: 1, pages: ['Счёт'], raw: { number: { value: '17' } }, issues: [], history: [{ private: true }] }),
+    }),
+  });
+  t.after(async () => { await intake.stop(); await fs.rm(root, { recursive: true, force: true }); });
+  const call = async (action, body = {}, method = 'POST') => {
+    const status = await intake.route('GET', 'status');
+    return intake.route(method, action, async () => ({ revision: status.body.revision, ...body }));
+  };
+  await call('settings', services); await call('folder');
+  assert.equal((await call('draft', { arrivalId: id })).status, 401);
+  await call('login', { username: 'manager', password });
+  assert.equal((await call('analyze')).status, 202);
+  for (let n = 0; n < 50 && intake.busy(); n++) await wait(5);
+  assert.equal(analyzed, 0);
+  assert.match((await call('status', {}, 'GET')).body.progress.message, /Запустите модель/);
+  prepared = true;
+  assert.equal((await call('analyze')).status, 202);
+  for (let n = 0; n < 50 && intake.busy(); n++) await wait(5);
+  assert.equal(analyzed, 1);
+  const report = await call('reviewreport', {}, 'GET');
+  assert.equal(report.body.items[0].state, 'checked');
+  const draft = await call('draft', { arrivalId: id });
+  assert.equal(draft.status, 200);
+  assert.equal(draft.body.history, undefined);
+  assert.equal(draft.body.owner, undefined);
+  draftOwner = '222222222222222222222222';
+  assert.equal((await call('draft', { arrivalId: id })).status, 403);
+  draftOwner = actor; draftTarget = 'http://127.0.0.1:3102/api/';
+  assert.equal((await call('draft', { arrivalId: id })).status, 403);
+  assert.equal((await call('draft', { arrivalId: '../other' })).status, 400);
+});
+
 test('разбор документов: границы запросов, сессия, один процесс, остановка, отчёт и восстановление', async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pult-intake-api-'));
   const stateDir = path.join(root, 'settings');

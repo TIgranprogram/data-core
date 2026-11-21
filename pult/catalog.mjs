@@ -43,7 +43,7 @@ export const SECTIONS = [
   { id: 'aitester', group: 'checks', extra: true, title: 'ИИ-тестировщик', icon: '🤖', hint: 'ИИ ходит по копии сайта как менеджер, ищет ошибки и пишет отчёт', subs: ['Главное', 'Один раз на ПК и если что-то не так'] },
   { id: 'starozhil', group: 'tools', title: 'Старожил', icon: '🧠', hint: 'Включили на ночь — локальный ИИ делает наряды и проверяет сайт. Выключили — компьютер ваш', subs: ['Главное', 'Если что-то не так'] },
   { id: 'localai', group: 'tools', title: 'Excel заказа (ИИ)', icon: '📄', hint: 'Документы заказа → локальный ИИ → Excel → импорт на сайт' },
-  { id: 'document-intake', group: 'tools', title: 'Разбор документов', icon: '📂', hint: 'Счета поставщиков, договоры и КП из папки на этом ПК' },
+  { id: 'document-intake', group: 'tools', title: 'Разбор документов', icon: '📂', hint: 'Локальная проверка счетов поставщиков по оригиналу' },
   { id: 'backups', group: 'copies', title: 'Копии базы и сервер', icon: '💾', hint: 'Копия базы на этот ПК, учебное восстановление, место на сервере', subs: ['Копии базы', 'Место на сервере'] },
   { id: 'sportin', group: 'copies', title: 'Sportin', icon: '🖥', hint: 'Второй сервер: обновить, бэкап, проверка копии' },
   { id: 'setup', group: 'pc', title: 'Настройка ПК', icon: '⚙', hint: 'GitHub, установка пульта, разовая подготовка компьютера', subs: ['GitHub', 'Один раз на ПК', 'Папки и ссылки'] },
@@ -337,6 +337,7 @@ export const ADVICE = [
 export const NOT_ON_BUTTONS = {
   'backend/scripts/c169-intake-indexes.js': 'подготовка пяти служебных индексов C169 в backend runtime: план по умолчанию; --apply только координатор в порученной выкладке после бэкапа',
   'tools/document-intake/cli.mjs': 'внутренний CLI для диагностики загрузчика; оператор работает в экране «Разбор документов», который вызывает тот же index.mjs',
+  'tools/document-intake/live-analysis.fixture.mjs': 'внутренний readonly-сценарий C171 для агента доступа: копируется в tools/logs и запускается только через api.sh stand BROWSER, сессия только stdin',
   'tools/test/ha-owner.sh': 'регрессия Unix-владельца очереди только в выделенном Linux tmpfs без сети; внутренний тест, не операторская команда',
   'deploy/ha/switch/release-artifact.sh': 'внутренний immutable-артефакт принятого выпуска; вызывают release.sh и HA-мост, отдельно не запускается',
   'deploy/ha/switch/standby-release.sh': 'внутренняя staged-сборка и откат запасного; только из HA-моста под замком',

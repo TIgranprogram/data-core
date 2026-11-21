@@ -1,5 +1,7 @@
 # Карта роли designer
 
+- C171 (21.11): [DESIGNER](../../crew/C171-document-intake-review/DESIGNER.md), PASS визуального поднабора A / полный C171 PARTIAL. Пять заполненных PNG Пульта открыты независимо: progress/draft/source 1440 light, draft/report1024 dark; имена/причины/цитаты читаемы. Основа 7ce3eac1 + рабочий diff; системный Windows, PDF, отправка, XLSX и серверный CAS не приняты. `--done` не запускался.
+
 - C158/C161 (19.11), второй адресный проход: [UI-REVIEW](../../crew/C162-money-articles-structure/UI-REVIEW.md#второй-адресный-проход--итоговая-приёмка-исправлений), PASS компьютерного изменённого scope до merge main. Run1795107991023:16целевых/20PNG просмотрены, filters/clamp/parentselect/lastaction/legacywarn; identity1795107548633:6/6PNG, plan→confirm→ready. P1/P2 закрыты;34сценария не объявлены сплошным visualPASS, альтернативы соотнесены сQA. Коммит:179c6239 + diff; после merge только затронутые стыки; --done не запускался.
 
 
