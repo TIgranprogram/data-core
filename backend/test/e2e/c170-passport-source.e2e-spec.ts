@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { Types, mongo, type ClientSession } from 'mongoose';
+import { Types, mongo } from 'mongoose';
 import { PassportIssue, type IssueHost } from '../../src/modules/product-passport/passport-issue';
 import { ProductPassport, type ProductPassportDocument } from '../../src/modules/product-passport/product-passport.schema';
 import { PURGE_LEASE_MS } from '../../src/modules/productattachments/productattachments.service';

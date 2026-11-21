@@ -1,0 +1,62 @@
+[
+  {
+    "suite": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+    "title": "T26: Mongo atomicity каталога два create: новая/существующая резервация (false), один Material и один остаток",
+    "reason": "T26 opt-in требует отдельной disposable datacore-test-t26-<suffix> и STOCK_CATALOG_TEST_DISPOSABLE=1; не включён в порученный namespace datacore-test-c172-release"
+  },
+  {
+    "suite": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+    "title": "T26: Mongo atomicity каталога два create: новая/существующая резервация (true), один Material и один остаток",
+    "reason": "T26 opt-in требует отдельной disposable datacore-test-t26-<suffix> и STOCK_CATALOG_TEST_DISPOSABLE=1; не включён в порученный namespace datacore-test-c172-release"
+  },
+  {
+    "suite": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+    "title": "T26: Mongo atomicity каталога abort первого: второй создаёт один Material; повтор первого переиспользует id",
+    "reason": "T26 opt-in требует отдельной disposable datacore-test-t26-<suffix> и STOCK_CATALOG_TEST_DISPOSABLE=1; не включён в порученный namespace datacore-test-c172-release"
+  },
+  {
+    "suite": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+    "title": "T26: Mongo atomicity каталога rename/create разделяют ключ нового имени; конфликт rename не делает дубль",
+    "reason": "T26 opt-in требует отдельной disposable datacore-test-t26-<suffix> и STOCK_CATALOG_TEST_DISPOSABLE=1; не включён в порученный namespace datacore-test-c172-release"
+  },
+  {
+    "suite": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+    "title": "T26: Mongo atomicity каталога restore/create: одно активное имя, тот же восстановленный Material",
+    "reason": "T26 opt-in требует отдельной disposable datacore-test-t26-<suffix> и STOCK_CATALOG_TEST_DISPOSABLE=1; не включён в порученный namespace datacore-test-c172-release"
+  },
+  {
+    "suite": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+    "title": "T26: Mongo atomicity каталога caseless Straße/STRAẞE использует один Material",
+    "reason": "T26 opt-in требует отдельной disposable datacore-test-t26-<suffix> и STOCK_CATALOG_TEST_DISPOSABLE=1; не включён в порученный namespace datacore-test-c172-release"
+  },
+  {
+    "suite": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+    "title": "T26: Mongo atomicity каталога caseless Σ/ς использует один Material",
+    "reason": "T26 opt-in требует отдельной disposable datacore-test-t26-<suffix> и STOCK_CATALOG_TEST_DISPOSABLE=1; не включён в порученный namespace datacore-test-c172-release"
+  },
+  {
+    "suite": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+    "title": "T26: Mongo atomicity каталога caseless ſ/S использует один Material",
+    "reason": "T26 opt-in требует отдельной disposable datacore-test-t26-<suffix> и STOCK_CATALOG_TEST_DISPOSABLE=1; не включён в порученный namespace datacore-test-c172-release"
+  },
+  {
+    "suite": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+    "title": "T26: Mongo atomicity каталога caseless K/K использует один Material",
+    "reason": "T26 opt-in требует отдельной disposable datacore-test-t26-<suffix> и STOCK_CATALOG_TEST_DISPOSABLE=1; не включён в порученный namespace datacore-test-c172-release"
+  },
+  {
+    "suite": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+    "title": "T26: Mongo atomicity каталога чужой scope не перекатегоризирует дубль; разрешённая категория остаётся",
+    "reason": "T26 opt-in требует отдельной disposable datacore-test-t26-<suffix> и STOCK_CATALOG_TEST_DISPOSABLE=1; не включён в порученный namespace datacore-test-c172-release"
+  },
+  {
+    "suite": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+    "title": "T26: Mongo atomicity каталога post-commit сбой: повтор создаёт только недостающий остаток, не новый Material",
+    "reason": "T26 opt-in требует отдельной disposable datacore-test-t26-<suffix> и STOCK_CATALOG_TEST_DISPOSABLE=1; не включён в порученный namespace datacore-test-c172-release"
+  },
+  {
+    "suite": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\test\\e2e\\stock-catalog-atomicity.e2e-spec.ts",
+    "title": "T26: Mongo atomicity каталога разные имена не склеиваются, закупки одного Material остаются двумя фактами",
+    "reason": "T26 opt-in требует отдельной disposable datacore-test-t26-<suffix> и STOCK_CATALOG_TEST_DISPOSABLE=1; не включён в порученный namespace datacore-test-c172-release"
+  }
+]

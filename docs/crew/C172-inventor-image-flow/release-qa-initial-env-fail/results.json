@@ -1,0 +1,31 @@
+{
+  "scratch": "C:\\Users\\User\\AppData\\Local\\Temp\\c172-release-qa-6DL90J",
+  "results": [
+    {
+      "name": "tsc",
+      "start": "2026-11-21T11:00:48.680Z",
+      "end": "2026-11-21T11:00:58.731Z",
+      "exitCode": 0,
+      "signal": null,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "D:\\invSportiN\\Сайт\\01_Проекты_CRM\\data-core\\backend\\node_modules\\.pnpm\\typescript@5.9.3\\node_modules\\typescript\\bin\\tsc",
+        "--noEmit"
+      ],
+      "cwd": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend"
+    },
+    {
+      "name": "build",
+      "start": "2026-11-21T11:00:58.732Z",
+      "end": "2026-11-21T11:01:10.760Z",
+      "exitCode": 0,
+      "signal": null,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "D:\\invSportiN\\Сайт\\01_Проекты_CRM\\data-core\\backend\\node_modules\\.pnpm\\@nestjs+cli@10.4.9\\node_modules\\@nestjs\\cli\\bin\\nest.js",
+        "build"
+      ],
+      "cwd": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend"
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "before": "4f6db3a8f01a072e45d49bfca0fec5c79c54c03704b5a9f05872a6cf3534aae2",
+  "after": "4f6db3a8f01a072e45d49bfca0fec5c79c54c03704b5a9f05872a6cf3534aae2",
+  "unchanged": true,
+  "fileCount": 1950,
+  "results": [
+    {
+      "name": "tsc",
+      "start": "2026-11-21T11:00:48.680Z",
+      "end": "2026-11-21T11:00:58.731Z",
+      "exitCode": 0,
+      "signal": null,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "D:\\invSportiN\\Сайт\\01_Проекты_CRM\\data-core\\backend\\node_modules\\.pnpm\\typescript@5.9.3\\node_modules\\typescript\\bin\\tsc",
+        "--noEmit"
+      ],
+      "cwd": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend",
+      "reusedFrom": "release-qa-initial-env-fail: same source fingerprint"
+    },
+    {
+      "name": "build",
+      "start": "2026-11-21T11:00:58.732Z",
+      "end": "2026-11-21T11:01:10.760Z",
+      "exitCode": 0,
+      "signal": null,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "D:\\invSportiN\\Сайт\\01_Проекты_CRM\\data-core\\backend\\node_modules\\.pnpm\\@nestjs+cli@10.4.9\\node_modules\\@nestjs\\cli\\bin\\nest.js",
+        "build"
+      ],
+      "cwd": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend",
+      "reusedFrom": "release-qa-initial-env-fail: same source fingerprint"
+    },
+    {
+      "name": "e2e",
+      "start": "2026-11-21T11:02:18.909Z",
+      "end": "2026-11-21T11:12:26.376Z",
+      "exitCode": 1,
+      "signal": null,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "D:\\invSportiN\\Сайт\\01_Проекты_CRM\\data-core\\backend\\node_modules\\.pnpm\\jest@29.7.0_@types+node@20.19.43_ts-node@10.9.2_@types+node@20.19.43_typescript@5.9.3_\\node_modules\\jest\\bin\\jest.js",
+        "--config",
+        "{\"moduleFileExtensions\":[\"js\",\"json\",\"ts\"],\"rootDir\":\"C:\\\\Users\\\\User\\\\.codex\\\\worktrees\\\\c172-passport-release\\\\data-core\\\\backend\\\\test\",\"testEnvironment\":\"node\",\"testRegex\":\".e2e-spec\\\\.ts$\",\"transform\":{\"^.+\\\\.(t|j)s$\":[\"ts-jest\",{\"tsconfig\":\"C:\\\\Users\\\\User\\\\.codex\\\\worktrees\\\\c172-passport-release\\\\data-core\\\\backend\\\\tsconfig.json\"}]},\"setupFiles\":[\"./setup/jest-e2e-env.ts\"],\"collectCoverageFrom\":[\"src/modules/**/services/*.ts\"],\"coverageDirectory\":\"./coverage-e2e\",\"testTimeout\":60000}",
+        "--runInBand",
+        "--forceExit",
+        "--silent",
+        "--json",
+        "--outputFile=C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\docs\\crew\\C172-inventor-image-flow\\release-qa\\e2e-results.json"
+      ],
+      "cwd": "C:\\Users\\User\\AppData\\Local\\Temp\\c172-release-qa-2tz7PC"
+    }
+  ],
+  "testDb": "datacore-test-c172-release",
+  "mongo": "owned c172-qa-mongo Mongo4.4 rs0 :27172",
+  "scratch": "C:\\Users\\User\\AppData\\Local\\Temp\\c172-release-qa-2tz7PC",
+  "skips": "T26 opt-in separate disposable DB not enabled; see Jest JSON for exact count"
+}

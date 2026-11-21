@@ -1,0 +1,24 @@
+{
+  "scratch": "C:\\Users\\User\\AppData\\Local\\Temp\\c172-release-qa-DHnmgs",
+  "results": [
+    {
+      "name": "e2e",
+      "start": "2026-11-21T11:20:46.295Z",
+      "end": "2026-11-21T11:30:57.473Z",
+      "exitCode": 0,
+      "signal": null,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "D:\\invSportiN\\Сайт\\01_Проекты_CRM\\data-core\\backend\\node_modules\\.pnpm\\jest@29.7.0_@types+node@20.19.43_ts-node@10.9.2_@types+node@20.19.43_typescript@5.9.3_\\node_modules\\jest\\bin\\jest.js",
+        "--config",
+        "{\"moduleFileExtensions\":[\"js\",\"json\",\"ts\"],\"rootDir\":\"C:\\\\Users\\\\User\\\\.codex\\\\worktrees\\\\c172-passport-release\\\\data-core\\\\backend\\\\test\",\"testEnvironment\":\"node\",\"testRegex\":\".e2e-spec\\\\.ts$\",\"transform\":{\"^.+\\\\.(t|j)s$\":[\"ts-jest\",{\"tsconfig\":\"C:\\\\Users\\\\User\\\\.codex\\\\worktrees\\\\c172-passport-release\\\\data-core\\\\backend\\\\tsconfig.json\"}]},\"setupFiles\":[\"./setup/jest-e2e-env.ts\"],\"collectCoverageFrom\":[\"src/modules/**/services/*.ts\"],\"coverageDirectory\":\"./coverage-e2e\",\"testTimeout\":60000}",
+        "--runInBand",
+        "--forceExit",
+        "--silent",
+        "--json",
+        "--outputFile=C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\docs\\crew\\C172-inventor-image-flow\\release-qa-full2\\e2e-results.json"
+      ],
+      "cwd": "C:\\Users\\User\\AppData\\Local\\Temp\\c172-release-qa-DHnmgs"
+    }
+  ]
+}

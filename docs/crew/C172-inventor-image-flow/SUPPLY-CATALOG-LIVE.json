@@ -1,0 +1,31 @@
+{
+  "capturedAt": "2026-11-21T11:27:00.9595290Z",
+  "request": {
+    "id": "6afd764d6279d7b3ea67f5f3",
+    "num": 227,
+    "status": "ordered",
+    "materialId": null,
+    "supplierCatalogId": null,
+    "parentInvoiceId": null,
+    "name": "Картридж Cactus CS-W1335X, W1335X, 13700 страниц, черный / CS-W1335X",
+    "qty": 2,
+    "supplierId": "6afd76426279d7b3ea67f5b8"
+  },
+  "catalogSearches": [
+    {
+      "items": [],
+      "total": 0,
+      "search": "Cactus"
+    },
+    {
+      "items": [],
+      "total": 0,
+      "search": "1335"
+    },
+    {
+      "items": [],
+      "total": 0,
+      "search": "картридж"
+    }
+  ]
+}

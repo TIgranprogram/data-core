@@ -1,0 +1,35 @@
+{
+  "before": "5577f3564b3325cd680fdea89008eaf449f119359c50452a4edc627eb6dd00d9",
+  "after": "5577f3564b3325cd680fdea89008eaf449f119359c50452a4edc627eb6dd00d9",
+  "unchanged": true,
+  "fileCount": 1303,
+  "results": [
+    {
+      "name": "e2e",
+      "start": "2026-11-21T11:19:21.483Z",
+      "end": "2026-11-21T11:19:45.240Z",
+      "exitCode": 1,
+      "signal": null,
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "D:\\invSportiN\\Сайт\\01_Проекты_CRM\\data-core\\backend\\node_modules\\.pnpm\\jest@29.7.0_@types+node@20.19.43_ts-node@10.9.2_@types+node@20.19.43_typescript@5.9.3_\\node_modules\\jest\\bin\\jest.js",
+        "--config",
+        "{\"moduleFileExtensions\":[\"js\",\"json\",\"ts\"],\"rootDir\":\"C:\\\\Users\\\\User\\\\.codex\\\\worktrees\\\\c172-passport-release\\\\data-core\\\\backend\\\\test\",\"testEnvironment\":\"node\",\"testRegex\":\".e2e-spec\\\\.ts$\",\"transform\":{\"^.+\\\\.(t|j)s$\":[\"ts-jest\",{\"tsconfig\":\"C:\\\\Users\\\\User\\\\.codex\\\\worktrees\\\\c172-passport-release\\\\data-core\\\\backend\\\\tsconfig.json\"}]},\"setupFiles\":[\"./setup/jest-e2e-env.ts\"],\"collectCoverageFrom\":[\"src/modules/**/services/*.ts\"],\"coverageDirectory\":\"./coverage-e2e\",\"testTimeout\":60000}",
+        "--runTestsByPath",
+        "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\test\\e2e\\passport-import.e2e-spec.ts",
+        "-t",
+        "legacy issue после readiness",
+        "--runInBand",
+        "--forceExit",
+        "--silent",
+        "--json",
+        "--outputFile=C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\docs\\crew\\C172-inventor-image-flow\\release-qa-legacy\\e2e-results.json"
+      ],
+      "cwd": "C:\\Users\\User\\AppData\\Local\\Temp\\c172-release-qa-nOGyAK"
+    }
+  ],
+  "testDb": "datacore-test-c172-release",
+  "mongo": "owned c172-qa-mongo Mongo4.4 rs0 :27172",
+  "scratch": "C:\\Users\\User\\AppData\\Local\\Temp\\c172-release-qa-nOGyAK",
+  "skips": "T26 opt-in separate disposable DB not enabled; see Jest JSON for exact count"
+}
