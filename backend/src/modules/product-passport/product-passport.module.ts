@@ -1,4 +1,5 @@
 import { PassportSourceService } from './passport-source.service';
+import { PassportImportService } from './passport-import.service';
 import { ProductAttachmentsModule } from '../productattachments/productattachments.module';
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
@@ -20,7 +21,7 @@ import { ProductPassportController } from './product-passport.controller';
     ]),
   ],
   controllers: [ProductPassportController],
-  providers: [PassportSourceService, ProductPassportService, PassportPdfService, PassportLookService],
+  providers: [PassportImportService, PassportSourceService, ProductPassportService, PassportPdfService, PassportLookService],
   exports: [ProductPassportService],
 })
 export class ProductPassportModule {}

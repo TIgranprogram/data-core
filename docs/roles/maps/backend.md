@@ -316,3 +316,11 @@
 - `backend/src/modules/photos/photo-intake.service.ts:38` — unique UID/аккаунт/SHA, повтор по физическому PDF. `photo-intake.storage.ts:73` — публикация без перезаписи.
 - `backend/src/modules/supply/supply-invoice-intake.service.ts:41` — атомарная шапка и строки, legacy/корзина, проверка квитанции в `:225`. `supply-invoice-identity.ts:15` — общая транзакционная блокировка реквизитов и файлов.
 - `backend/scripts/c169-intake-indexes.js:62` — план и точечное создание пяти индексов. Контракт и границы в `docs/crew/C169-local-document-intake/BACKEND-REPORT.md`. коммит: не выполнялся, карта обновлена.
+
+## C172 — единый CAD импорт (21.11.2026)
+- backend/src/modules/product-passport/passport-import.service.ts:28 canonical third-kind, :72 context, :107 transaction/dedup/CAS/history/skips; product-passport.service.ts:1158 session-aware prepareImportedPassport/:1142 refreshRevisionPrint. product-passport.controller.ts:50/:56 GET-context/POST-import, dto/passport-import.dto.ts строгие 3wire-kind/числа.
+- backend/src/modules/product-photo/product-photo.service.ts:28 ручные CAD links+product-guard общей session; product-photo-import-guard.spec.ts адресные tx guards. Проверки/границы — docs/crew/C172-inventor-image-flow/BACKEND-REPORT.md. Коммит: — (координатор); карта обновлена.
+
+- C172 metadata freeze: backend/src/modules/product-passport/dto/passport-import.dto.ts:1 — явные request/nested/response Swagger schemas; product-passport.controller.ts:49 — ApiOkResponse обоих import routes. tsc/eslint0, SchemaObjectFactory8schemasPASS; коммит: —; карта обновлена.
+
+- C172 cleanup review: passport-import.service.ts/file(false), apply old-own/old-links — защита всех источников history до удаления связи, включая дубли и legacy foundation; typecheck/eslint0; коммит: —; карта обновлена.

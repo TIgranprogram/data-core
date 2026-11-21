@@ -13,9 +13,9 @@ it.each(['own', 'catalog', 'empty'])('C148: create → повторные GET с
     set: (set: Record<string, unknown>) => Object.assign(state, set),
     save: async () => doc,
   };
-  const query = (value: unknown) => ({ exec: async () => value, setOptions: () => query(value), select: () => query(value), lean: () => query(value) });
+  const query = (value: unknown) => ({ exec: async () => value, setOptions: () => query(value), select: () => query(value), lean: () => query(value), session: () => query(value) });
   const model = {
-    create: async (set: Record<string, unknown>) => { Object.assign(state, set); return doc; },
+    create: async (set: Record<string, unknown> | Record<string, unknown>[]) => { Object.assign(state, Array.isArray(set) ? set[0] : set); return Array.isArray(set) ? [doc] : doc; },
     findById: () => query(doc), findOne: () => query(null),
   };
   const cursor = () => ({ toArray: async () => [], sort: () => cursor(), limit: () => cursor() });
@@ -23,8 +23,10 @@ it.each(['own', 'catalog', 'empty'])('C148: create → повторные GET с
     findOne: async () => name === 'products' ? product : null,
     find: () => cursor(),
     countDocuments: async () => 0,
+    updateOne: async () => ({ matchedCount: 1 }),
   });
-  const svc = new ProductPassportService(model as never, {} as never, { db: { collection }, collection } as never);
+  const startSession = async () => ({ withTransaction: async (fn: () => Promise<unknown>) => fn(), endSession: async () => {} });
+  const svc = new ProductPassportService(model as never, {} as never, { db: { collection }, collection, startSession } as never);
   await svc.create({ productId: String(pid), supplierOrgId: String(new Types.ObjectId()), ...(mode === 'empty' ? {} : { name: explicit ? 'Название договора' : 'Модель' }) } as never);
   expect(state.manualText).toEqual(explicit ? ['purpose', 'name'] : ['purpose']);
   product.name = 'Новая модель';
