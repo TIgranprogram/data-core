@@ -95,7 +95,7 @@ export const atlas = {
         return;
       }
       map = mode === 'composition'
-        ? atlasFocus({ model, id: compositionId, onExit: () => patch({ focus: null, n: null }) })
+        ? atlasFocus({ model, id: compositionId, onExit: () => patch({ view: null, focus: null, n: null }) })
         : atlasMap({
           model, trace: traceAtlas,
           onOpen: (id, opener) => open(id, false, opener),
@@ -111,7 +111,7 @@ export const atlas = {
 
     const update = ({ n, view, focus } = {}) => {
       const nextFocus = graphNodes.has(focus) ? focus : null;
-      const nextMode = view === 'route' ? 'route' : nextFocus === compositionId ? 'composition' : 'all';
+      const nextMode = view === 'route' ? 'route' : view === 'composition' && nextFocus === compositionId ? 'composition' : 'all';
       if (mode !== nextMode) { close(); selected = nextFocus; render(nextMode); }
       else if (selected !== nextFocus) { selected = nextFocus; map?.pin?.(selected); }
       if (byId.has(n) || graphNodes.get(n)?.kind === 'section') {
