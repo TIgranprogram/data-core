@@ -1,6 +1,5 @@
 import { financialFilters } from './money-financial-filters.js';
-import { operationsView } from './money-operations.js';
-import { FINANCE_FILTER_KEYS, financialQuery } from './money-operations-state.js';
+import { FINANCE_FILTER_KEYS } from './money-operations-state.js';
 import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { failBlock } from '../ui/kit/busy.js';
@@ -11,7 +10,6 @@ import { mountList } from '../ui/kit/list.js';
 import { openSide, noteField, sideForm } from '../ui/kit/side-form.js';
 import { toast } from '../ui/kit/toast.js';
 import { forecastView, financeOpRow, conversionBlock } from './money-forecast.js';
-import { articlesView } from './money-articles.js';
 /**
  * «Деньги»: календарь (факт по сегодня), сводка, прогноз, долги, «требуют заполнения».
  * Считает сервер (/api/finance): выплаты — оплаченные заявки, поступления — платежи по заказам.
@@ -121,6 +119,7 @@ export function mountMoney(params) {
   const startDialog = () => openSide('finstart', 'x');
   live = { month, reload: () => load() };
   const body = h('div', { class: 'm-body' });
+  let articleFilters = null;
   const el = h('div', { class: 'money' },
     h('div', { class: 'page-head' }, h('h1', null, 'Деньги'), h('span', { class: 'spacer' }), tabs,
       // главное действие экрана — кнопка, а не шестая вкладка (C118 3.2, шаблон «Сводка»)
@@ -328,7 +327,6 @@ export function mountMoney(params) {
       if (my === seq) body.replaceChildren(failBlock(e, load, { cls: 'panel state' }));
     } finally { if (my === seq) el.classList.remove('loading'); }
   }
-
   let seq = 0;
   async function load() {
     const my = ++seq;
@@ -336,18 +334,22 @@ export function mountMoney(params) {
     el.classList.add('loading');
     if (tab() === 'debts') { await mountDebts(my); return; }
     dropDebts();
+    let target = body;
     try {
       const m = month();
       const end = `${m}-${String(lastDay(m)).padStart(2, '0')}`;
       if (settings === null) settings = ['admin', 'accountant'].includes(session.role) ? await api('/finance/settings').catch(() => ({})) : {}; // «Старт учёта» читают только админ и бухгалтер; менеджеру — без него, раздел открыт (2026-11-15)
+      if (my !== seq) return;
       const q = { from: `${m}-01`, to: end < todayIso() ? end : todayIso(), org: org() };
       let content;
-      // старая вкладка «Требуют заполнения» — теперь своя страница по категориям (#fill)
       if (tab() === 'fill') { go('fill', {}, { replace: true }); return; }
       if (tab() === 'articles') {
         renderChrome(settings?.companies);
-        const filters = await financialFilters(P); const query = financialQuery(P);
-        content = [filters, P.view === 'operations' ? await operationsView(P) : articlesView({ year: query.from.slice(0, 4), org: org(), mode: P.mode, order: P.order, filters: query, incomeMode: P.incomeMode, opRow: financeOpRow, noIncomeText: zeroIncomeText(hasStart() ? settings.startDate : null, openingIsZero(org())) })];
+        articleFilters ||= financialFilters(financeOpRow);
+        target = articleFilters.content;
+        if (articleFilters.el.parentElement !== body) body.replaceChildren(articleFilters.el);
+        await articleFilters.update(P, zeroIncomeText(settings?.startDate, openingIsZero(org())), () => my === seq);
+        return;
       } else if (tab() === 'forecast') {
         const days = [30, 60, 90].includes(Number(P.days)) ? Number(P.days) : 30;
         const f = await api('/finance/forecast', { query: { days, org: org(), ...(hasStart() ? {} : { opening: opening.value.trim().replace(',', '.') || 0 }) } });
@@ -377,11 +379,10 @@ export function mountMoney(params) {
       if (my !== seq) return;
       body.replaceChildren(...content.filter(Boolean));
     } catch (e) {
-      if (my === seq) body.replaceChildren(failBlock(e, load, { cls: 'panel state' }));
+      if (my === seq) target.replaceChildren(failBlock(e, load, { cls: 'panel state' }));
     } finally { if (my === seq) el.classList.remove('loading'); }
   }
   load();
-
   return {
     el,
     reload: () => (tab() === 'debts' && debts ? debts.reload?.() : load()),

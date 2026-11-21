@@ -49,7 +49,7 @@ export const history = {
     path: '/audit-logs/app',
     sortDefault: '',
     createLabel: false,
-    searchPlaceholder: 'Поиск не нужен — фильтры справа',
+    searchPlaceholder: 'Выберите условия в фильтрах',
     emptyText: 'Изменений за выбранное время нет.', emptyHint: 'Выберите период шире.',
     filters: [
       { key: 'entityType', label: 'Раздел', type: 'chips', options: async () => TYPES.map(({ value, label }) => ({ value, label })) },

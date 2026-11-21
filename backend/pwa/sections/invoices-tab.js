@@ -3,7 +3,8 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { current, patch } from '../core/router.js';
 import { date, money } from '../core/format.js';
-import { INVOICE_STATUS, badge, enhanceSelect, empty, table, link, autoMore, button } from '../ui/kit/index.js';
+import { INVOICE_STATUS, badge, enhanceSelect, empty, table, link, autoMore, button, field, searchBox } from '../ui/kit/index.js';
+import { filterPanel } from '../ui/kit/filter-panel.js';
 import { lookups } from './lookups.js';
 import { articleTree, articleFilterOptions } from './expenses.js';
 
@@ -17,7 +18,6 @@ const invoiceHref = (id) => {
 };
 export function mountInvoicesTab(params = {}) {
   const F = { status: '', supplierId: '', q: '', from: '', to: '', contract: '', articleId: params.articleId || '', needsPaymentDate: params.needsPaymentDate === '1' ? '1' : '' };
-  let timer = null;
   const sel = (opts, key, title) => {
     const select = h('select', { class: 'invl-f', 'aria-label': title, onchange: () => { F[key] = select.value; if (key === 'articleId') patch({ articleId: F.articleId || undefined, page: undefined }); if (key === 'needsPaymentDate') patch({ needsPaymentDate: F.needsPaymentDate || undefined, page: undefined }); reload(); } }, ...opts.map(([value, label]) => h('option', { value }, label)));
     return enhanceSelect(select);
@@ -37,7 +37,7 @@ export function mountInvoicesTab(params = {}) {
   const fillArticles = () => articleTree(true).then(tree => { articleSel.replaceChildren(h('option', { value: '' }, 'Все статьи'), ...articleFilterOptions(tree).map(({ value, label }) => h('option', { value }, label))); articleSel.value = F.articleId; enhanceSelect(articleSel); }).catch(() => { articleSel.title = 'Статьи не загрузились; нажмите фильтр, чтобы повторить'; });
   articleSel.value = F.articleId; articleSel.addEventListener('focus', fillArticles); fillArticles();
   const ctrSel = sel([['', 'Договор поставщика: все'], ['has', 'Договор есть'], ['none', 'Без договора']], 'contract', 'Договор поставщика');
-  const q = h('input', { type: 'search', class: 'invl-f', placeholder: 'Поиск: № счёта, поставщик…', oninput: () => { clearTimeout(timer); timer = setTimeout(() => { F.q = q.value.trim(); reload(); }, 300); } });
+  const q = searchBox({ placeholder: 'Поиск: № счёта, поставщик…', onSearch: (value) => { F.q = value; reload(); } });
   const from = h('input', { type: 'date', class: 'invl-f', 'aria-label': 'С даты', onchange: () => { F.from = from.value; reload(); } });
   const to = h('input', { type: 'date', class: 'invl-f', 'aria-label': 'По дату', onchange: () => { F.to = to.value; reload(); } });
   const rows = h('div', { class: 'invl-list' });
@@ -58,9 +58,30 @@ export function mountInvoicesTab(params = {}) {
     },
   });
   const load = (opt) => more.reload(opt);
-  const el = h('div', { class: 'invl-tab' }, h('p', { class: 'hint' }, 'Откройте счёт по его названию. Позиции и разрешённые действия — в правой панели. Фильтр статьи отбирает счета по любой подходящей строке; счёт показывается целиком.'),
-    h('div', { class: 'invl-bar' }, q, statusSel, supSel, articleSel, ctrSel, dateSel, button({ label: 'Сбросить фильтры', kind: 'ghost', onClick: () => { for (const key of Object.keys(F)) F[key] = ''; for (const control of [q, statusSel, supSel, articleSel, ctrSel, dateSel, from, to]) { control.value = ''; if (control.tagName === 'SELECT') enhanceSelect(control); } patch({ articleId: undefined, needsPaymentDate: undefined, page: undefined }); reload(); } }), h('span', { class: 'invl-period' }, from, h('span', { class: 'muted' }, '—'), to)), rows, more.el);
-  function reload() { return load(); }
-  load();
-  return { el, reload: () => load({ keep: true }), update: (next = {}) => { const pending = next.needsPaymentDate === '1' ? '1' : ''; if (F.needsPaymentDate !== pending) { F.needsPaymentDate = pending; dateSel.value = pending; enhanceSelect(dateSel); reload(); } const articleId = next.articleId || ''; if (F.articleId !== articleId) { F.articleId = articleId; articleSel.value = articleId; enhanceSelect(articleSel); reload(); } }, focusSearch: () => q.focus(), destroy: () => { clearTimeout(timer); more.destroy(); } };
+  const reset = button({ label: 'Сбросить фильтры', kind: 'ghost', cls: 'ls-reset', onClick: () => {
+    for (const key of Object.keys(F)) F[key] = '';
+    for (const control of [statusSel, supSel, articleSel, ctrSel, dateSel, from, to]) {
+      control.value = '';
+      if (control.tagName === 'SELECT') enhanceSelect(control);
+    }
+    q.set('', true);
+    patch({ articleId: undefined, needsPaymentDate: undefined, page: undefined });
+    reload();
+  } });
+  const filters = filterPanel({
+    key: 'requests-invoices',
+    search: q.el,
+    fields: [field('Статус', statusSel), field('Поставщик', supSel), field('Статья расходов', articleSel),
+      field('Договор поставщика', ctrSel), field('Дата оплаты', dateSel), field('С даты', from), field('По дату', to), reset],
+    content: [rows, more.el],
+  });
+  const el = h('div', { class: 'invl-tab' }, h('p', { class: 'hint' }, 'Откройте счёт по его названию. Позиции и разрешённые действия — в правой панели. Фильтр статьи отбирает счета по любой подходящей строке; счёт показывается целиком.'), filters.el);
+  function reload() {
+    const count = Object.entries(F).filter(([key, value]) => key !== 'q' && value).length;
+    filters.setCount(count);
+    reset.hidden = !count && !F.q;
+    return load();
+  }
+  reload();
+  return { el, reload: () => load({ keep: true }), update: (next = {}) => { const pending = next.needsPaymentDate === '1' ? '1' : ''; if (F.needsPaymentDate !== pending) { F.needsPaymentDate = pending; dateSel.value = pending; enhanceSelect(dateSel); reload(); } const articleId = next.articleId || ''; if (F.articleId !== articleId) { F.articleId = articleId; articleSel.value = articleId; enhanceSelect(articleSel); reload(); } }, focusSearch: q.focus, destroy: () => more.destroy() };
 }

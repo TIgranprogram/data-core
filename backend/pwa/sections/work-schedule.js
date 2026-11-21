@@ -1,7 +1,8 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { patch } from '../core/router.js';
-import { actions, busyBlock, button, empty, failBlock, funnel, hint, openSide, planner, section, segmented, stack, toast, toastError } from '../ui/kit/index.js';
+import { actions, busyBlock, button, empty, failBlock, funnel, hint, openSide, planner, segmented, stack, toast, toastError } from '../ui/kit/index.js';
+import { filterPanel } from '../ui/kit/filter-panel.js';
 import { buildModel } from './work-schedule-tree.js';
 import { DAY, NONE, SCHEDULE, day, dmy, iso, partOf, pref, savePref, startOfWeek, steps } from './work-schedule-shared.js';
 export { wsStep } from './work-schedule-step.js';
@@ -35,7 +36,7 @@ function countBy(list, keyOf, labelOf) {
 const narrow = () => typeof matchMedia === 'function' && matchMedia('(max-width: 720px)').matches;
 
 /** Ядро экрана: рисует в el. set(изменения) — сменить параметры адреса (воронка, окно дат); extra — условия списка «В работе». */
-function createSchedule(el, p0, set, extra0 = {}) {
+function createSchedule(el, p0, set, extra0 = {}, host = {}) {
   let P = p0, data = null, seq = 0, extra = extra0, touched = false, chart = null;
   let lens = LENSES.includes(P.mode) ? P.mode : pref('lens', 'orders');
   let scaleK = SCALES.includes(P.scale) ? P.scale : pref('scale', 'day'); // «День» по умолчанию: на «Неделе» работа на 1–2 дня — точка
@@ -47,7 +48,10 @@ function createSchedule(el, p0, set, extra0 = {}) {
   const bannerBox = stack();
   const filterBox = stack();
   const chartBox = stack();
-  box.append(top, bannerBox, filterBox, chartBox);
+  const fields = stack(filterBox, top);
+  const drawer = host.filterFields ? null : filterPanel({ key: 'work-schedule', fields, content: [bannerBox, chartBox] });
+  if (drawer) box.append(drawer.el);
+  else { host.filterFields.replaceChildren(fields); box.append(bannerBox, chartBox); }
   el.append(box);
 
   const F = () => ({ order: P.order || '', line: P.incomeId || '', part: P.part || '', person: P.person || '', work: P.work || '' });
@@ -71,6 +75,7 @@ function createSchedule(el, p0, set, extra0 = {}) {
 
   function paintTop() {
     // переключатель «По заказам / По людям» — в одной строке с масштабом (planner lead), здесь — только «Сбросить фильтры»
+    if (host.filterFields) return;
     top.replaceChildren(...(Object.values(F()).some(Boolean) ? [button({ label: 'Сбросить фильтры', kind: 'ghost', size: 'S', onClick: () => set({ order: undefined, incomeId: undefined, part: undefined, person: undefined, work: undefined }) })] : [])); // без фильтров — пусто (null дал бы текст «null»)
   }
 
@@ -116,8 +121,9 @@ function createSchedule(el, p0, set, extra0 = {}) {
       { key: 'work', label: 'Вид работ', ask: 'выберите вид работ', optional: true, value: f.work, values: countBy(bars.filter((b) => pass(b, f, 'work')), (b) => b.workTypeName, (b) => b.workTypeName) },
     ].filter((s) => s.values.length || s.value);
     const fn = funnel({ steps: steps2, onChange: (key, v) => set({ [key === 'line' ? 'incomeId' : key]: v || undefined }) });
-    if (!steps2.length) { filterBox.replaceChildren(); return; } // нечего фильтровать — блока «Фильтры» нет
-    filterBox.replaceChildren(section({ title: 'Фильтры', count: Object.values(f).filter(Boolean).length || undefined, tone: 'main', open: !!Object.values(f).some(Boolean), body: [fn.el] }));
+    const n = Object.values(f).filter(Boolean).length;
+    if (drawer) drawer.setCount(n); else host.onFilterCount?.(n);
+    filterBox.replaceChildren(...(steps2.length ? [fn.el] : []));
   }
 
   function saveOpen() { savePref('open', [...open].slice(-OPEN_MAX)); }
@@ -204,6 +210,7 @@ function createSchedule(el, p0, set, extra0 = {}) {
       if (!data || refetch) { paintTop(); load(); } else paint();
     },
     setExtra(q) { if (JSON.stringify(q) === JSON.stringify(extra)) return; extra = q; if (data) load(); },
+    resetFilters: () => set({ order: undefined, incomeId: undefined, part: undefined, person: undefined, work: undefined }),
     reload: load,
     destroy() { seq++; },
   };
@@ -217,10 +224,10 @@ export const workSchedule = {
 };
 
 /** Вид «Гант» списка «В работе» (list.gantt.mount): тот же экран; фильтры адреса держит у себя, исполнитель и заказ списка передаёт серверу. */
-export function mountScheduleView(_cfg, _path, query = {}) {
+export function mountScheduleView(_cfg, _path, query = {}, host = {}) {
   const el = h('div');
   const pick = (q) => ({ ...(q?.assigneeId ? { personId: q.assigneeId } : {}), ...(q?.orderId ? { orderId: q.orderId } : {}) });
   let P = {};
-  const core = createSchedule(el, P, (c) => { P = { ...P, ...c }; for (const k of Object.keys(P)) if (P[k] === undefined) delete P[k]; core.update(P); }, pick(query));
-  return { el, setQuery: (q) => core.setExtra(pick(q)), reload: () => core.reload() };
+  const core = createSchedule(el, P, (c) => { P = { ...P, ...c }; for (const k of Object.keys(P)) if (P[k] === undefined) delete P[k]; core.update(P); }, pick(query), host);
+  return { el, setQuery: (q) => core.setExtra(pick(q)), reload: () => core.reload(), resetFilters: () => core.resetFilters(), destroy: () => core.destroy() };
 }

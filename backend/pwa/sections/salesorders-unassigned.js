@@ -6,7 +6,8 @@ import { matchBadge, openMatching } from './salesorders-matching.js';
 import { session } from '../core/api.js';
 import { toast } from '../ui/kit/toast.js';
 import { modal } from '../ui/kit/dialog.js';
-import { attachCombo, button, select, section, clamp } from '../ui/kit/index.js';
+import { attachCombo, button, select, section, clamp, field, searchBox } from '../ui/kit/index.js';
+import { filterPanel } from '../ui/kit/filter-panel.js';
 import { errText } from '../ui/kit/errors.js';
 
 /** В3: «Договоры без заказа» — выбор галочками и перенос в новый или существующий заказ (POST /production-orders/assign). */
@@ -15,14 +16,14 @@ const LIMIT = 50;
 const EMPTY = 'Все договоры уже в заказах';
 
 /** Список договоров без заказа с поиском и галочками. onChange(ids) — при каждом изменении выбора. */
-export function unassignedPicker({ onChange } = {}) {
+export function unassignedPicker({ onChange, inline } = {}) {
   const picked = new Set();
   let rows = [];
   let total = 0;
   let elsewhere = []; // договоры, которые нашлись по поиску, но уже стоят в заказах (сервер отдаёт, когда свободных нет)
   let q = '';
   let who = ''; // фильтр по заказчику — среди уже загруженных строк
-  const search = h('input', { type: 'search', placeholder: 'Поиск: № договора, заказчик…', 'aria-label': 'Поиск договоров' });
+  const search = searchBox({ placeholder: 'Поиск: № договора, заказчик…', label: 'Поиск договоров', onSearch: (value) => { q = value; load(false); } });
   const whoIn = h('input', { placeholder: 'Заказчик: все', autocomplete: 'off', 'aria-label': 'Заказчик' });
   const whoAll = button({ label: 'Выбрать всех этого заказчика', kind: 'ghost', size: 'S' }); whoAll.hidden = true;
   const shown = () => (who ? rows.filter((r) => (r.customer || '') === who) : rows);
@@ -36,6 +37,8 @@ export function unassignedPicker({ onChange } = {}) {
     info.textContent = total ? `Показано ${qty(view.length)} из ${qty(total)}` : '';
     more.hidden = rows.length >= total;
     whoAll.hidden = !who;
+    filters?.setCount(Number(!!who));
+    reset.hidden = !who && !q;
     if (!view.length) {
       body.replaceChildren(h('p', { class: 'muted' }, q || who ? 'Среди договоров без заказа ничего не найдено.' : EMPTY),
         ...elsewhere.map((x) => h('p', null, `Договор № ${x.orderNo || '—'}${x.customer ? ' (' + x.customer + ')' : ''} уже в заказе № ${x.productionNo}. Позиции добавляют в карточке этого заказа: «⋯» → «+ Позиция».`)));
@@ -60,8 +63,6 @@ export function unassignedPicker({ onChange } = {}) {
       paint();
     } catch (e) { body.replaceChildren(h('p', { class: 'neg' }, errText(e))); }
   };
-  let t;
-  search.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { q = search.value.trim(); load(false); }, 300); });
   allCb.addEventListener('change', () => { for (const r of shown()) { if (allCb.checked) picked.add(r.id); else picked.delete(r.id); } paint(); });
   attachCombo(whoIn, { options: () => [...new Set(rows.map((r) => r.customer).filter(Boolean))].sort().map((c) => ({ value: c, label: c })), free: false, empty: 'Заказчиков нет в загруженных' });
   const setWho = () => { const v = whoIn.value.trim(); who = rows.some((r) => r.customer === v) ? v : ''; paint(); };
@@ -69,11 +70,23 @@ export function unassignedPicker({ onChange } = {}) {
   whoIn.addEventListener('input', () => { if (!whoIn.value.trim() && who) setWho(); });
   whoAll.addEventListener('click', () => { for (const r of shown()) picked.add(r.id); paint(); });
   more.addEventListener('click', () => load(true));
+  const reset = button({ label: 'Сбросить фильтры', kind: 'ghost', cls: 'ls-reset', onClick: () => {
+    const hadSearch = !!q;
+    q = who = whoIn.value = '';
+    search.set('', true);
+    if (hadSearch) load(false);
+    else paint();
+  } });
+  reset.hidden = true;
+  const selection = h('div', { class: 'ua-head' }, h('label', { class: 'ua-all' }, allCb, ' Выбрать все'), whoAll, info);
+  const filters = inline ? null : filterPanel({
+    key: 'orders-unassigned',
+    search: search.el,
+    fields: [field('Заказчик', whoIn), reset],
+    content: [selection, body, more],
+  });
+  const el = h('div', { class: 'ua' }, filters?.el || [search.el, h('div', { class: 'ua-head' }, whoIn), selection, body, more]);
   load(false);
-  const el = h('div', { class: 'ua' }, search,
-    h('div', { class: 'ua-head' }, whoIn, whoAll),
-    h('div', { class: 'ua-head' }, h('label', { class: 'ua-all' }, allCb, ' Выбрать все'), info),
-    body, more);
   return { el, rows: () => rows, ids: () => [...picked], reload: () => load(false), count: () => total };
 }
 
@@ -161,7 +174,7 @@ export function addContractsDialog(productionNo, after) {
   const blocked = blockedBox();
   return modal({
     title: `Добавить договоры в заказ № ${productionNo}`, okText: 'Добавить выбранные', wide: true,
-    body: h('div', null, (picker = unassignedPicker()).el, blocked.el),
+    body: h('div', null, (picker = unassignedPicker({ inline: true })).el, blocked.el),
     onOk: async () => {
       const ids = picker.ids();
       if (!ids.length) throw new Error('Отметьте хотя бы один договор');

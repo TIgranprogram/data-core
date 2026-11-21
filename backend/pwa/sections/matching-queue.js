@@ -2,7 +2,8 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
-import { enhanceSelect, table, tabs as kitTabs, button, section, clamp } from '../ui/kit/index.js';
+import { enhanceSelect, table, tabs as kitTabs, button, section, clamp, field, searchBox } from '../ui/kit/index.js';
+import { filterPanel } from '../ui/kit/filter-panel.js';
 import { toastError } from '../ui/kit/toast.js';
 import { STAGE } from './order-stage.js';
 import { openMatching } from './salesorders-matching.js';
@@ -50,7 +51,7 @@ export function unmatchedTop({ open = false } = {}) {
   const el = h('div', { class: 'ua-top' }, sec || box);
   let items = [], total = 0, q = '', onlyProd = false, loaded = false;
   const filter = { productionNo: '', orderNo: '', stage: '' };
-  const search = h('input', { type: 'search', placeholder: 'Поиск: № заказа, № договора, заказчик, позиция…', 'aria-label': 'Поиск несопоставленных позиций' });
+  const search = searchBox({ placeholder: 'Поиск: № заказа, № договора, заказчик, позиция…', label: 'Поиск несопоставленных позиций', onSearch: (value) => { q = value; load(false); } });
   const select = (key, label) => { const s = h('select', { class: 'mq-f', 'aria-label': label, onchange: () => { filter[key] = s.value; load(false); } }, h('option', { value: '' }, label + ': все')); return s; };
   const orderSel = select('productionNo', 'Заказ'), contractSel = select('orderNo', 'Договор'), stageSel = select('stage', 'Этап заказа');
   const fill = (s, key, label, list, name) => {
@@ -100,6 +101,9 @@ export function unmatchedTop({ open = false } = {}) {
     more.hidden = items.length >= total;
   };
   const load = async (append) => {
+    const count = Object.values(filter).filter(Boolean).length + Number(onlyProd);
+    filters.setCount(count);
+    reset.hidden = !count && !q;
     try {
       const page = append ? Math.floor(items.length / LIMIT) + 1 : 1;
       const d = await api('/matching/unmatched', { query: { page, limit: LIMIT, q: q || undefined, inProduction: onlyProd ? 1 : undefined, productionNo: filter.productionNo || undefined, orderNo: filter.orderNo || undefined, stage: filter.stage || undefined } });
@@ -111,13 +115,30 @@ export function unmatchedTop({ open = false } = {}) {
     } catch (e) { toastError(e, 'загрузить несопоставленные позиции'); }
     paint();
   };
-  let timer = 0;
-  search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { q = search.value.trim(); load(false); }, 300); });
+  const reset = button({ label: 'Сбросить фильтры', kind: 'ghost', cls: 'ls-reset', onClick: () => {
+    for (const key of Object.keys(filter)) filter[key] = '';
+    for (const control of [orderSel, contractSel, stageSel]) {
+      control.value = '';
+      enhanceSelect(control);
+    }
+    prod.checked = onlyProd = false;
+    q = '';
+    search.set('', true);
+    load(false);
+  } });
+  reset.hidden = true;
+  const filters = filterPanel({
+    key: 'orders-unmatched',
+    search: search.el,
+    fields: [field('Заказ', orderSel), field('Договор', contractSel), field('Этап заказа', stageSel),
+      h('label', { class: 'check' }, prod, 'Только в производстве'), reset],
+    content: [bulkBtn, body, more],
+  });
   prod.addEventListener('change', () => { onlyProd = prod.checked; load(false); });
   more.addEventListener('click', () => load(true));
   bulkBtn.addEventListener('click', (e) => { e.currentTarget.classList.add('is-busy'); const list = sure(); run(() => api('/matching/bulk', { method: 'POST', body: { items: list.map((x) => ({ lineId: x.lineId, productId: best(x).productId })) } })); });
   box.append(h('p', { class: 'hint' }, write ? 'Здесь строки договоров, которые ещё не связаны с изделием из «Продукции». Сравните картинки слева и справа. Совпало — подтвердите. Нет — выберите другое изделие.' : 'Только просмотр: сопоставлять могут администратор и менеджер.'),
-    bulkBtn, h('div', { class: 'mq-bar' }, h('label', { class: 'field' }, search), orderSel, contractSel, stageSel, h('label', { class: 'check' }, prod, ' Только в производстве')), body, more);
+    filters.el);
   sec?.addEventListener('toggle', () => { if (sec.open) load(false); });
   window.addEventListener('data-changed', () => { if (!el.isConnected) return; setCount(); if (open || sec.open) load(false); });
   setCount();

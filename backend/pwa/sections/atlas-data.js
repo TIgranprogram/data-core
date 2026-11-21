@@ -286,7 +286,7 @@ export const NODES = [
     rules: ['Приём, выдача и пересчёт меняют остаток; всё видно в журнале.', 'Количество — только операцией, не правкой карточки.'],
     docs: ['docs/UNIFY-SUPPLY-WAREHOUSE.md', 'docs/MAP.md — stock, stock-zones'], tech: 'storageitems, reservations, warehouses (общие с CRM)',
     code: ['backend/src/modules/stock', 'backend/src/modules/stock-zones', 'backend/pwa/sections/stock.js', 'backend/pwa/sections/reservations.js'] },
-  { id: 'movements', tpl: 'list', tplStatus: 'legacy', band: 'stock', col: 3, sec: 'movements', t: 'Журнал движений', l: ['каждый приход', 'и каждая выдача'],
+  { id: 'movements', tpl: 'list', tplStatus: 'ok', band: 'stock', col: 3, sec: 'movements', t: 'Журнал движений', l: ['каждый приход', 'и каждая выдача'],
     seq: true, inside: [
       { id: 'zapis-operacii', t: 'Запись операции', l: 'кто, что, сколько, когда', in: ['stock'] },
       { id: 'ispravit', t: '«Исправить»', l: 'старая запись отменяется, новая проходит' },

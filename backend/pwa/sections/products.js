@@ -12,7 +12,7 @@ import { openBulk } from './bulk-edit.js';
 import { qrBulkAction, qrPrintAction } from './qr.js';
 import * as data from './products/data.js';
 import { productForm, productBulkFields } from './products/form-fields.js';
-import { prodFunnel, catLanding, deepGroup } from './products/landing.js';
+import { prodFunnel, catLanding, deepGroup, productPathBar } from './products/landing.js';
 import { STATUS, dims, editProductComposition, openPassportTemplate } from './products/card-blocks.js';
 import { openReadyPassport } from './passports/funnel/open.js';
 import { productTabs, productWarns } from './products/tabs.js';
@@ -60,6 +60,7 @@ export const products = {
     sidebar: true,
     chipsTop: true, // «Состояние» — строкой над списком, слева — только «что ищем»
     extraKeys: ['sec', 'grp', 'sub'],
+    top: productPathBar,
     defaultView: (P) => P.needsIdentification === '1' ? 'table' : undefined,
     toolbarExtra: () => {
       const funnel = prodFunnel();
@@ -75,8 +76,11 @@ export const products = {
     query: (P) => ({ ...(P.series ? { series: P.series } : {}), ...(deepGroup(P) ? { groupId: deepGroup(P) } : {}), ...(P.needsIdentification === '1' ? { needsIdentification: '1' } : {}) }),
     // ФИ2: основной вид — карточки с фото по разделам и группам, как «Паспорта»; «Таблица» — для поиска и сортировки
     gallery: {
-      default: true, limit: 100, sort: 'category', lastGroup: 'Без типа',
-      groupBy: (r) => [r.type, r.group].filter(Boolean).join(' › ') || 'Без типа',
+      default: true, pathKeys: ['sec', 'grp', 'sub'], limit: 100, sort: 'category', lastGroup: 'Без типа',
+      groupBy: (r, P) => {
+        if (r.groupId && r.groupId === deepGroup(P)) return ''; // текущая категория уже указана в пути
+        return [r.type, r.group].filter(Boolean).join(' › ') || 'Без типа';
+      },
       card: (r) => ({
         pic: r.photo ? PREFIX + (r.photo.thumb || r.photo.url) : null,
         title: r.name,

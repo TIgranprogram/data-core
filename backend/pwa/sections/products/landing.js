@@ -1,7 +1,7 @@
 import { h } from '../../core/dom.js';
 import { plural, qty } from '../../core/format.js';
-import { patch } from '../../core/router.js';
-import { stepFunnel, button as kitButton, card, tileGrid, landing } from '../../ui/kit/index.js';
+import { current, patch } from '../../core/router.js';
+import { stepFunnel, button as kitButton, card, tileGrid, landing, section } from '../../ui/kit/index.js';
 import { catArt } from '../../ui/cat-art.js';
 import { groupsTree, groupsFresh, facets } from './data.js';
 
@@ -20,25 +20,79 @@ const secSave = (id) => { try { if (id) sessionStorage.setItem(SEC_KEY, id); els
 /** ПРД.6: воронка «Раздел → Группа → Подгруппа → Серия», у значений — число изделий. Числа групп — /showcase/groups, серий — facets. */
 export function prodFunnel() {
   const kids = (all, pid) => all.filter((g) => (pid ? g.parentId === pid : !g.parentId)).map((g) => ({ value: g.id, label: g.name, n: g.count }));
+  let gallery = false;
+  let revision = 0;
   const f = stepFunnel({
-    title: 'Раздел → группа → серия',
-    steps: [{ key: 'sec', label: 'Раздел', always: true, icon: (o) => { const i = h('span', { class: 'ff-ico', 'aria-hidden': 'true' }); i.innerHTML = catArt(o.label); return i; } }, { key: 'grp', label: 'Группа', when: (P) => P.sec }, { key: 'sub', label: 'Подгруппа', when: (P) => P.grp }, { key: 'series', label: 'Серия' }],
+    title: 'Уточнить',
+    steps: [{ key: 'sec', label: 'Раздел', when: () => !gallery, always: true, icon: (o) => { const i = h('span', { class: 'ff-ico', 'aria-hidden': 'true' }); i.innerHTML = catArt(o.label); return i; } }, { key: 'grp', label: 'Группа', when: (P) => !gallery && P.sec }, { key: 'sub', label: 'Подгруппа', when: (P) => !gallery && P.grp }, { key: 'series', label: 'Серия' }],
+    onChange: (P, key) => {
+      const change = { [key]: P[key], page: undefined };
+      if (key === 'sec') change.grp = undefined;
+      if (key === 'sec' || key === 'grp') change.sub = undefined;
+      patch(change);
+    },
     load: async (P) => {
       const all = await groupsTree();
       const r = await facets({ ...(deepGroup(P) ? { groupId: deepGroup(P) } : {}), ...(P.status ? { status: P.status } : {}), ...(P.q ? { search: P.q } : {}) });
       return { sec: kids(all, null), grp: P.sec ? kids(all, P.sec) : [], sub: P.grp ? kids(all, P.grp) : [], series: r.facets?.series || [] };
     },
   });
-  return { el: f.el, update: async (P) => {
+  return { el: f.el, update: async (P, view) => {
+    gallery = !!view?.gallery;
+    const version = ++revision;
     // старая ссылка #products?groupId=… или выбор с плиток раздела: раскладываем путь по шагам
     if (P.groupId && !deepGroup(P)) {
       const all = await groupsTree(); const path = []; let cur = all.find((g) => g.id === P.groupId);
       while (cur && path.length < 3) { path.unshift(cur.id); cur = all.find((g) => g.id === cur.parentId); }
+      if (version !== revision || current().section !== 'products' || current().params.groupId !== P.groupId) return;
       patch({ groupId: undefined, sec: path[0], grp: path[1], sub: path[2], page: undefined });
       return;
     }
     f.update(P);
   } };
+}
+
+/** Путь в иерархии галереи. Переход на родителя сохраняет поиск, статус и серию. */
+export function productPathBar() {
+  const nav = h('nav', { class: 'product-path', 'aria-label': 'Разделы продукции', hidden: true });
+  let version = 0;
+  let chooseSection = false;
+  nav.onParams = async (P, view) => {
+    const request = ++version;
+    const hasCriteria = !!(P.q || P.series || P.status || P.needsIdentification);
+    nav.hidden = !view?.gallery || !(deepGroup(P) || P.all || hasCriteria);
+    nav.replaceChildren();
+    if (nav.hidden) return;
+    const all = await groupsTree();
+    if (request !== version) return;
+    const keys = ['sec', 'grp', 'sub'];
+    const goTo = (depth, child) => {
+      const change = { all: undefined, groupId: undefined, page: undefined };
+      for (let i = depth; i < keys.length; i++) change[keys[i]] = i === depth ? child : undefined;
+      chooseSection = !depth && !child;
+      patch(change);
+    };
+    if (!deepGroup(P) && hasCriteria) {
+      const roots = all.filter((g) => !g.parentId);
+      if (roots.length) nav.append(section({ title: 'Разделы продукции', open: chooseSection, body: [tileGrid(...roots.map((g) => catTile(g, id => goTo(0, id))))] }));
+      return;
+    }
+    const trail = h('div', { class: 'crumbs' }, kitButton({ label: 'Разделы продукции', kind: 'ghost', size: 'S', onClick: () => goTo(0) }));
+    const chosen = keys.filter((key) => P[key]);
+    for (const key of chosen) {
+      const label = all.find((g) => g.id === P[key])?.name || ({ sec: 'Раздел', grp: 'Группа', sub: 'Подгруппа' }[key]);
+      const last = key === chosen.at(-1);
+      trail.append(h('span', { 'aria-hidden': 'true' }, '›'), last ? h('span', { 'aria-current': 'page' }, label)
+        : kitButton({ label, kind: 'ghost', size: 'S', onClick: () => goTo(keys.indexOf(key) + 1) }));
+    }
+    if (!chosen.length) trail.append(h('span', { 'aria-hidden': 'true' }, '›'), h('span', { 'aria-current': 'page' }, 'Все изделия'));
+    nav.append(trail);
+    const parent = deepGroup(P);
+    const depth = keys.indexOf(chosen.at(-1)) + 1;
+    const children = parent && depth < keys.length ? all.filter((g) => g.parentId === parent) : [];
+    if (children.length) nav.append(tileGrid(...children.map((g) => catTile(g, (id) => goTo(depth, id)))));
+  };
+  return nav;
 }
 
 const showAll = () => kitButton({ label: 'Все изделия', onClick: () => patch({ all: '1' }) });

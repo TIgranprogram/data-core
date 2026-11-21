@@ -1,3 +1,4 @@
+import { filterPanel } from '../ui/kit/filter-panel.js';
 import { recentCardsButton } from '../ui/kit/recent-cards.js';
 import { openCard } from '../ui/kit/card.js';
 import { h } from '../core/dom.js';
@@ -232,6 +233,7 @@ export const kit = {
       block('Похожее (kit.similarBox)', 'Под названием нового изделия и в сопоставлении: до 5 строк kit.row; клик — открыть/выбрать.', sample((() => { const b = similarBox({ pickLabel: 'Взять это' }); b.show([{ id: '1', name: 'Горка «Малыш»', sku: 'ГК-01', groupName: 'Горки', photo: null }, { id: '2', name: 'Горка «Малыш-2»', sku: 'ГК-02', groupName: 'Горки', photo: null }]); return b.el; })())),
       block('Фото в строке (kit.posPic)', 'Миниатюра 36 px (sm) или 72 px (lg); posPicOf — из полей lines-lookup: клик — крупно; фото нет — «нет фото». Таблицы и строки выбора изделия.', sample(posPic(null, 'sm'), posPic(null, 'lg'), posPicOf({}, 'sm'))),
       block('Выбор (pick)', 'single — список вместо select; combo — поле со списком и «+ Новое»; multi — через запятую; tags — метки. На телефоне (≤ 480 px) список — лист.', ...pickDemo()),
+      block('Левая панель фильтров (filterPanel)', 'Поиск доступен при закрытой панели. Кнопка показывает число выбранных условий.', filterPanel({ key: 'kit', search: searchBox({ placeholder: 'Поиск…' }).el, fields: textInput({ label: 'Категория' }).el, content: hint('Область списка') }).el),
       block('Фильтр (kit.filter)', 'chips — фишки, один или несколько; facets — признаки склада (поиск и группы); funnel — шаги уточнения (параметры адреса).', sample(
         filter({ mode: 'chips', items: [{ key: 'a', label: 'Все', count: 12 }, { key: 'b', label: 'Новые', count: 3 }, { key: 'c', label: LONG }], value: 'a', label: 'Один выбор', onChange: (k) => toast('Выбрано: ' + k) }).el,
         filter({ mode: 'chips', multi: true, items: [{ key: 'a', label: 'Болты' }, { key: 'b', label: 'Гайки' }, { key: 'c', label: 'Шайбы' }], value: ['a', 'c'], label: 'Несколько', onChange: (k) => toast('Выбрано: ' + k.join(', ')) }).el),
