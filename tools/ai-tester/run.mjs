@@ -21,9 +21,16 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { TAG, isLocalStand, isLocalModel, standMatchesPassport, newRunId, netFinding, cleanupAllowed, tagText, createdFrom, screenGarbage, screenGrammar, blockedClick, buildReport, speedKey, screenChange, nextHint, pickOption, closedForRole, watchdogAction, DEAD_MS, runLive } from './lib.mjs';
 import { sessionFromStdin } from './stand-session.mjs';
-import { loadSettings, llm, llmUp, ensureLLM, keepAwake } from './llm.mjs';
+import { loadSettings, llm as requestModel, llmUp, ensureLLM, keepAwake } from './llm.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+function llm(settings, body, timeout) {
+  const options = /^google\/gemma-4-/i.test(settings.model)
+    ? { reasoning_effort: 'none', chat_template_kwargs: { enable_thinking: false }, ...body }
+    : body;
+  return requestModel(settings, options, timeout);
+}
+
 const ROOT = path.resolve(HERE, '..', '..');
 const LOGS = path.join(ROOT, 'tools', 'logs', 'ai-tester');
 const STOP_FILE = path.join(LOGS, 'STOP');

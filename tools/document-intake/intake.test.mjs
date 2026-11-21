@@ -493,6 +493,41 @@ test('маскировка URL: API не пересылает bearer, модел
   assert.deepEqual(seen, ['/db/api/auth/me', '/v1/chat/completions', '/db/uploads/c169/source.pdf']);
 });
 
+test('Gemma получает параметры генерации и инструкции для дословных реквизитов и НДС', async (t) => {
+  const { pages, raw } = fixture('supplier_invoice');
+  const sellerQuote = `${raw.seller.name} ИНН ${raw.seller.inn}\nПоставщик`;
+  const buyerQuote = `${raw.buyer.name} ИНН ${raw.buyer.inn}\nПокупатель`;
+  raw.vat = { mode: 'excluded', rate: 22, amount: 22, page: 1, quote: 'Сверх цены НДС 22% 22,00' };
+  raw.gross = { value: 122, page: 1, quote: 'Всего 122,00 руб.' };
+  pages[0] = pages[0]
+    .replace(raw.seller.quote, sellerQuote)
+    .replace(raw.buyer.quote, buyerQuote)
+    .replace(payment.tax, raw.vat.quote)
+    .replace(payment.total, raw.gross.quote);
+  raw.seller.quote = sellerQuote;
+  raw.buyer.quote = buyerQuote;
+  const requests = [];
+  t.mock.method(globalThis, 'fetch', async (_url, options) => {
+    requests.push(JSON.parse(options.body));
+    return Response.json({ choices: [{ message: { content: JSON.stringify(raw) } }] });
+  });
+  const modelBase = 'http://127.0.0.1:1235/v1';
+  const proposal = await propose({ pages, modelBase, model: 'google/gemma-4-12b-qat' });
+  await propose({ pages, modelBase, model: 'other-local-model' });
+
+  const [gemma, other] = requests;
+  assert.equal(gemma.reasoning_effort, 'none');
+  assert.deepEqual(gemma.chat_template_kwargs, { enable_thinking: false });
+  assert.equal(Object.hasOwn(other, 'reasoning_effort'), false);
+  assert.equal(Object.hasOwn(other, 'chat_template_kwargs'), false);
+  assert.match(gemma.messages[0].content, /напечатанную ставку НДС дословно/u);
+  assert.match(gemma.messages[0].content, /может стоять после названия и ИНН/u);
+  const facts = validateProposal(proposal, pages);
+  assert.equal(facts.seller.inn, seller.inn);
+  assert.equal(facts.buyer.inn, buyer.inn);
+  assert.deepEqual(facts.vat, { mode: 'excluded', rate: 22, amount: 22 });
+});
+
 test('провайдер access вызывается перед каждым запросом, отказ не повторяет запись', async (t) => {
   const base = 'http://127.0.0.1:3102';
   const requests = [];
