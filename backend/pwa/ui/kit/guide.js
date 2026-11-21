@@ -5,6 +5,7 @@
  * note — строка «Порядок важен / Можно потом», toggle — галочка-переключатель.
  * Вид — kit.css (классы g-…), цвета и размеры — токены. */
 import { h } from '../../core/dom.js';
+import { icon } from '../icons.js';
 import { mark } from './mark.js';
 import { miniChart } from './blocks.js';
 
@@ -47,6 +48,28 @@ export function flow(items) {
     items.flatMap((it, i) => [
       i ? h('i', { class: 'g-flow-sep', 'aria-hidden': 'true' }, '→') : null,
       h('button', { type: 'button', class: 'g-flow-chip', onclick: it.onClick, title: it.title || it.label }, it.label)])), 'guide');
+}
+
+/**
+ * Маршрут по этапам с входом и результатом. tok — цвет раздела (--sec-*).
+ * @param {{ name: string, icon: string, input: string, result: string, tok: string, data?: Record<string, string>, onClick: (event: MouseEvent) => void }[]} items
+ */
+function route(items) {
+  return mark(h('ol', { class: 'g-route-flow', role: 'list' }, items.map((item, i) => {
+    const { name, input, result, tok, data, onClick } = item;
+    const trigger = h('button', { type: 'button', class: 'btn g-route-card', dataset: data, onclick: onClick },
+      h('span', { class: 'g-route-content' },
+        h('span', { class: 'g-route-lead' },
+          icon(item.icon, 'g-route-icon'),
+          h('span', { class: 'g-route-more', 'aria-hidden': 'true' }, '›')),
+        h('strong', { class: 'g-route-title' }, name),
+        h('span', { class: 'g-route-fact' }, h('span', null, 'На входе'), input),
+        h('span', { class: 'g-route-fact' }, h('span', null, 'Результат'), result)));
+    trigger.style.setProperty('--route-tone', `var(--sec-${tok})`);
+    trigger.style.setProperty('--route-soft', `var(--sec-${tok}-soft)`);
+    return h('li', null, trigger, i < items.length - 1
+      ? h('span', { class: 'g-route-arrow', 'aria-hidden': 'true' }, '→') : null);
+  })), 'guide');
 }
 
 /** Карточка «Я хочу…»: tok — цветовой токен раздела (--sec-*, полоса слева), menu — где в меню, href — ссылка в раздел. */
@@ -108,4 +131,4 @@ export function beforeAfter({ before, after, labels = ['Было', 'Станет
   return mark(h('div', { class: 'g-ba' }, col(labels[0], before, 'is-old'), h('i', { class: 'g-flow-sep', 'aria-hidden': 'true' }, '→'), col(labels[1], after, 'is-new')), 'guide');
 }
 
-export const guide = { cat, unit, chain, flow, want, note, toggle, diagram, steps, source, progress, checklist, beforeAfter };
+export const guide = { cat, unit, chain, flow, route, want, note, toggle, diagram, steps, source, progress, checklist, beforeAfter };
