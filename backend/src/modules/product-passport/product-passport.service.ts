@@ -80,7 +80,7 @@ export class ProductPassportService {
     // тяжёлые части вынесены в отдельные файлы (ПР-1); публичные методы сервиса прежние
     this.queries = new PassportQueries({ model, connection, versions, categoryRules: () => this.categoryRules(), installs: () => this.installs(), withSchemes: (d, i) => this.withSchemes(d, i), oid: (v) => this.oid(v), forest: (c) => this.forest(c) });
     this.bulkOps = new PassportBulk({ model, findById: (id) => this.findById(id), update: (id, p) => this.update(id, p), snapshot: (id) => this.snapshot(id), oid: (v) => this.oid(v) });
-    this.issueOps = new PassportIssue({ model, connection, findById: (id) => this.findById(id), readiness: (d) => this.readiness(d), freezeImages: (id) => this.freezeImages(id), refresh: (id) => this.refreshDraftText(id), preparePresentation: (d, session) => this.preparePresentation(d, session), allocate: (set, date, session) => this.allocate(set, date, session), assertFree: (set, selfId, session) => this.assertFree(set, selfId, session) });
+    this.issueOps = new PassportIssue({ model, connection, findById: (id) => this.findById(id), readiness: (d, session) => this.readiness(d, session), effectiveImages: (d, session) => this.effectiveImages(d, session), freezeImages: (id) => this.freezeImages(id), refresh: (id) => this.refreshDraftText(id), preparePresentation: (d, session) => this.preparePresentation(d, session), allocate: (set, date, session) => this.allocate(set, date, session), assertFree: (set, selfId, session) => this.assertFree(set, selfId, session) });
     this.numbers = new PassportNumbers({
       connection, maxOf: (f, s) => this.maxOf(f, s),
       maxShown: (f) => (this.versions ? this.versions.cached('passports.maxNo', ['productpassports'], f, () => this.maxOf(f)) : this.maxOf(f)),
@@ -1418,17 +1418,17 @@ export class ProductPassportService {
   }
 
   /** ПП: чего не хватает для выпуска сохранённого паспорта — [{ label, key }] (стандартные схемы способа установки засчитываются). */
-  async readiness(doc: Doc): Promise<Array<{ label: string; key: string }>> {
-    const [cats, inst] = await Promise.all([this.categoryRules(), this.installs()]);
-    doc = { ...doc, images: await this.effectiveImages(doc) };
+  async readiness(doc: Doc, session?: ClientSession): Promise<Array<{ label: string; key: string }>> {
+    const [cats, inst] = await Promise.all([this.categoryRules(session), this.installs(session)]);
+    doc = { ...doc, images: await this.effectiveImages(doc, session) };
     this.defaultInstall(doc, inst);
     const cat = cats.get(String(doc.passportCategory ?? '')) ?? null;
     const full = this.withSchemes(doc, inst);
     applyCategoryDefaults(full as Doc, cat); // C112 А1: умолчание типа паспорта — заполнено (копия, в паспорт не пишется)
     const ctx = { category: String(doc.passportCategory ?? ''), variant: 'short' as const, install: installKindOf(inst.get(String(doc.installationTypeId ?? ''))) };
-    const missing = [...missingKeyed(full as never, cat, ctx), ...(await this.choiceMissing(doc)), ...jointsMissing(doc)];
+    const missing = [...missingKeyed(full as never, cat, ctx), ...(await this.choiceMissing(doc, session)), ...jointsMissing(doc)];
     const required = imageRules(full, cat, ctx).required;
-    const broken = await unreadableRequiredImages(this.connection.db!, (full.images ?? []) as Array<{ kind?: unknown; photoId?: unknown }>, required);
+    const broken = await unreadableRequiredImages(this.connection.db!, (full.images ?? []) as Array<{ kind?: unknown; photoId?: unknown }>, required, session);
     for (const kind of broken) {
       const key = 'img_' + (kind === 'safety_zone' ? 'safety' : kind);
       if (!missing.some((m) => m.key === key)) missing.push({ key, label: `${IMAGE_KIND_LABELS[kind] ?? kind}: файл на сервере повреждён или пропал — замените фото` });
@@ -1545,9 +1545,9 @@ export class ProductPassportService {
   techsheetAnalogs(productId: string) { return productTechAnalogs(this.connection.db!, productId); }
 
   /** Обязательные разделы воронки без выбора → [{ label, key: 'choice:<id раздела>' }]; текст, набранный вручную, раздел закрывает. */
-  private async choiceMissing(d: Doc): Promise<Array<{ label: string; key: string }>> {
+  private async choiceMissing(d: Doc, session?: ClientSession): Promise<Array<{ label: string; key: string }>> {
     if (!d.passportCategory) return [];
-    return choiceMissingIn(forProduct(await this.forest(String(d.passportCategory)), await this.productCtx(d.productId)), d);
+    return choiceMissingIn(forProduct(await this.forest(String(d.passportCategory), session), await this.productCtx(d.productId, undefined, false, session)), d);
   }
 
   /** Способы установки (справочник) по id — для стандартных схем узлов (Э9.5). */

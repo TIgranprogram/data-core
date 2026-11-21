@@ -1,0 +1,11 @@
+# C172+C174 — независимые приёмки кандидата
+
+Архитектор,21.11: clean1512aecb→0e8d326a initial reviewPASS, C171исключён. ПослеfullQAвыявленыfalseconcurrentcreate409 иlegacyfreezeoutsideTx; повторныйscopedreview3runtimefix PASS, оставшихсяP0/P1невыявлено.
+- passport-product-write.ts:businessfingerprintисключаеттолькоupdatedAt/__v; реальноеbusinessсодержимое сравниваетсявtxдозаписиобщегоproducts guard. Техническийtouchневызываетfalse409.
+- passport-issue.ts:productionlegacyчитаетeffectiveImages/readinessпослеclaimвобщейsession; старыйfreeze—толькосовместимостьoldtest-hostбезcallback.
+- product-passport.service.ts:sessionпрокинутвготовность/варианты/обязательныефайлы.
+КодоваяприёмканеподменяетFULL2, которыйидётнафинальномbackendmanifest;точныйрезультатвRELEASE-QA.
+
+ДизайнерC174:PASSназначенногокомпьютерногообъёма,независимопросмотрены7снимков,матрица12/12+старыйpop-menu. Группыразличимысловами/рамками,фотоfallback/навигация/clear/Escape/focus/clampPASS. Свободныйgridtrackпри3группахна1920—P3косметика,неблокирует. ПолныйreportиSHA3PWAfiles:../C174-recent-groups/UI-REVIEW.md.
+
+РеальныйInventor/физическаяпечать иполныйнеизменяемыйархивзаказовнепринималисьэтимrelease;данныепродпроверяютсятолькочтением. Этообновлениеготовыхфункций,необъявлениеПС-1.0полностьюзавершённым.

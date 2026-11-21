@@ -48,6 +48,23 @@ function entryLabel(e) {
   const title = (kind && e.title.startsWith(kind) ? e.title.slice(kind.length).replace(/^\s*·?\s*/, '') : e.title) || e.title;
   return h('span', { class: 'pm-rc' }, kind ? h('small', { class: 'pm-rc-kind' }, kind) : null, h('span', { class: 'pm-rc-title', title }, title));
 }
+/** Тип сущности задаёт отдельную подписанную группу; порядок карточек остаётся по давности. */
+const TYPE_LABELS = { salesorders: 'Заказы', salesorder: 'Заказы', products: 'Изделия', passports: 'Паспорта',
+  requests: 'Заявки', partners: 'Контрагенты', stock: 'Склад', orders: 'Позиции заказов', offers: 'Коммерческие предложения',
+  contracts: 'Договоры', expenses: 'Расходы', money: 'Деньги', work: 'Работы', designtasks: 'Проектирование', docs: 'Документы' };
+function recentGroups(entries) {
+  const groups = new Map();
+  for (const e of entries) {
+    const key = ({ salesorder: 'salesorders', orderpass: 'passports' })[e.of] || e.of;
+    if (!groups.has(key)) groups.set(key, { title: TYPE_LABELS[key] || e.kind || key, items: [] });
+    groups.get(key).items.push({ label: entryLabel(e), lead: thumbnail(e), href: recentHref(e), cls: areaOf(e) ? 'rc-' + areaOf(e) : '' });
+  }
+  const priority = ['Заказы', 'Изделия', 'Паспорта'];
+  return [...groups.values()].sort((a, b) => {
+    const rank = (g) => { const i = priority.indexOf(g.title); return i < 0 ? priority.length : i; };
+    return rank(a) - rank(b);
+  });
+}
 /** Эталон pop-menu: на телефоне нижний лист, на широком экране меню у кнопки. */
 export function recentCardsButton(allowed) {
   const btn = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', title: 'Недавно открытые карточки',
@@ -58,7 +75,7 @@ export function recentCardsButton(allowed) {
       openPopMenu({ anchor: btn, side: 'down', cls: 'pm-recent',
         head: entries.length ? null : h('p', { class: 'hint' }, 'Здесь появятся карточки, которые вы откроете. История хранится только в этом браузере.'),
         groups: [
-          { title: 'Недавно открытые', items: entries.map((e) => ({ label: entryLabel(e), lead: thumbnail(e), href: recentHref(e), cls: areaOf(e) ? 'rc-' + areaOf(e) : '' })) },
+          ...recentGroups(entries),
           entries.length ? { sep: true, items: [{ label: 'Очистить список', onSelect: () => cache.clear() }] } : null,
         ],
       });

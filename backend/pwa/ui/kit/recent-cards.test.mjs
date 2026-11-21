@@ -89,3 +89,32 @@ test('реальный pop-menu: вся строка ссылка, фото бе
  assert.match(links[1].attrs.href,/#products\?open=/);
  links[1].attrs.onclick();assert.equal(f.body.all(x=>x.attrs.role==='menu').length,0);
 });
+
+
+test('группы типов: порядок и давность, фильтр прав, очистка и пустая история', async () => {
+ const f = await fixture();
+ const cache = createRecentCards(f.storage, 'dc-recent-cards:/db:a');
+ for (const [of, id, title] of [['products','1','Старое изделие'],['salesorders','2','Заказ'],['passports','3','Паспорт'],['products','4','Новое изделие'],['partners','5','Контрагент']])
+  cache.remember({section:of,of,id:id.padStart(24,'0'),title});
+ f.button(x=>x!=='partners').attrs.onclick();
+ assert.deepEqual(Array.from(f.menu.groups.filter(g=>g&&!g.sep),g=>g.title), ['Заказы','Изделия','Паспорта']);
+ assert.deepEqual(Array.from(f.menu.groups[1].items,x=>x.label.textContent), ['Новое изделие','Старое изделие']);
+ assert.equal(f.menu.groups[2].items[0].href,'#passports?open=000000000000000000000003&of=passports');
+ f.menu.groups.at(-1).items[0].onSelect();assert.equal(f.entries().length,0);
+ f.button(()=>true).attrs.onclick();assert.equal(f.menu.groups.filter(Boolean).length,0);assert.match(f.menu.head.textContent,/Здесь появятся/);
+});
+
+test('неизвестные типы образуют собственные группы без потери карточек', async()=>{
+ const f=await fixture(); const cache=createRecentCards(f.storage,'dc-recent-cards:/db:a');
+ for(let i=0;i<8;i++) cache.remember({section:'custom'+i,of:'custom'+i,id:String(i).padStart(24,'0'),title:'Карточка '+i,kind:'Тип '+i});
+ f.button(()=>true).attrs.onclick();assert.equal(f.menu.groups.filter(g=>g&&!g.sep).length,8);
+ assert.equal(f.menu.groups[0].title,'Тип 7');assert.equal(f.menu.groups[7].title,'Тип 0');
+});
+
+
+test('Паспорта заказа отделены от изделий, финансовые позиции — от производственных заказов', async()=>{
+ const f=await fixture();const cache=createRecentCards(f.storage,'dc-recent-cards:/db:a');
+ for(const [i,of]of ['products','orderpass','orders','salesorders'].entries())cache.remember({section:of==='orderpass'?'docs':of,of,id:String(i+1).padStart(24,'0'),title:of,kind:of==='orderpass'?'Паспорта заказа':''});
+ f.button(()=>true).attrs.onclick();assert.deepEqual(Array.from(f.menu.groups.filter(g=>g&&!g.sep),g=>g.title),['Заказы','Изделия','Паспорта','Позиции заказов']);
+ assert.match(f.menu.groups[2].items[0].href,/#docs\?open=.*&of=orderpass/);
+});

@@ -99,3 +99,5 @@
 
 - C141 правая колонка (18.11): [UI-REVIEW-RIGHT](../../crew/C141-passport-book-etalon/UI-REVIEW-RIGHT.md), PARTIAL по коду, стенда нет. Тот же `.bk-panel` через `sidePanel` (`book-shared.js`); класса `.bk-side-panel` нет. P1: материалы `.rt-table` min 520px в колонке 280; несколько `.btn-primary` (шапка + «Сохранить» + «В состав»). Крестик книжки `k-close` + `--on-danger`. design-lint новых по правой: R2, L2 textarea, L4 11px/2px. коммит: 8cb68273 + рабочий diff; review-scope --done не запускался.
 - C155 (19.11): [VISUAL-ACCEPTANCE](../../crew/C155-passport-owner-queue/VISUAL-ACCEPTANCE.md) — PASS назначенного объёма: шаблон 1066, issued №611, панель справочника и фокус в обеих темах. Подсказка режима чтения исправлена. Коммит: 179c6239 + рабочие изменения.
+
+- C17421.11: PASS группы недавно открытых (2/3/8 типов,1920/1024,light/dark), legacy-menu ифокус; UI-REVIEW: ../../crew/C174-recent-groups/UI-REVIEW.md. ТолькоUI-scope,неbackend/прод. коммит: releasecandidate.

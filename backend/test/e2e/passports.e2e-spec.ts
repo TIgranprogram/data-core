@@ -218,7 +218,7 @@ describe('Паспорта изделий', () => {
   });
 
   it('НМ: дубли — черновик того же изделия; свой паспорт не считается', async () => {
-    const pid = String(new Types.ObjectId());
+    const pid = String((await db().collection('products').insertOne({ name: 'Турник для проверки дублей', deletedAt: null })).insertedId);
     const d1 = (await http().post('/api/passports').set(as(admin.access)).send({ name: 'Турник', productId: pid, orderNo: '77' }).expect(201)).body;
     const dup = (await http().get('/api/passports/duplicates').query({ productId: pid, orderNo: '77' }).set(as(admin.access)).expect(200)).body;
     expect(dup.items.map((x: { id: string }) => x.id)).toEqual([d1.id]);

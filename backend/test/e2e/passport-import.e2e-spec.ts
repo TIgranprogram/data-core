@@ -22,9 +22,9 @@ describe('C172: атомарный импорт рисунков Inventor', () =
   const http = () => request(app.getHttpServer());
   const auth = () => authHeader(token);
   beforeAll(async () => {
-    if (process.env.MONGO_DB_TEST !== 'datacore-test-c172' || !['localhost', '127.0.0.1'].includes(new URL(process.env.MONGO_URI!).hostname)) throw new Error('Только локальная datacore-test-c172');
+    if (!['datacore-test-c172', 'datacore-test-c172-release'].includes(process.env.MONGO_DB_TEST ?? '') || !['localhost', '127.0.0.1'].includes(new URL(process.env.MONGO_URI!).hostname)) throw new Error('Только локальная datacore-test-c172');
     ctx = await createTestApp({ strictValidation: true });
-    expect(ctx.connection.name).toBe('datacore-test-c172');
+    expect(ctx.connection.name).toBe(process.env.MONGO_DB_TEST);
     app = ctx.app;
     token = (await loginAsAdmin(app)).access;
     await fs.mkdir(uploadsRoot(), { recursive: true });
@@ -320,5 +320,31 @@ describe('C172: атомарный импорт рисунков Inventor', () =
     expect(await db().collection('photos').countDocuments({ _id: { $in: historicalIds }, deletedAt: null, sourceProtected: true })).toBe(historicalIds.length);
     expect(current.images.filter((i: { kind: string }) => i.kind === 'foundation')).toHaveLength(0);
     for (const kind of ['overview', 'dimensions', 'mounting']) expect(await db().collection('productphotos').countDocuments({ productId: f.productId, purpose: 'passport', kind, deletedAt: null })).toBe(1);
+  });
+  it('legacy issue после readiness перечитывает свежую HTTP-связь рисунка в транзакции', async () => {
+    const f = await fixture();
+    const org = (await db().collection('organizations').insertOne({ name: 'C172 наша фирма race', isOurCompany: true, deletedAt: null })).insertedId;
+    await db().collection('productpassports').updateOne({ _id: f.passportId }, { $set: { status: 'draft', passportNumber: `draft-${f.passportId}`, supplierOrgId: org, manualText: [], description: 'Урна для проверки гонки выпуска', materials: 'Сталь', purpose: 'Для отдыха', installationMethod: 'Установить на основание', category: 'Благоустройство', date: new Date('2026-11-21') } });
+    const service = app.get(ProductPassportService), original = service.readiness.bind(service);
+    let reached!: () => void, release!: () => void, stopped = false;
+    const started = new Promise<void>(resolve => { reached = resolve; });
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    jest.spyOn(service, 'readiness').mockImplementation(async (...args) => {
+      const result = await original(...args);
+      if (!args[1] && !stopped) { stopped = true; reached(); await gate; }
+      return result;
+    });
+    const issuing = http().post(`/api/passports/${f.passportId}/issue`).set(auth()).then(r => r);
+    try {
+      await started;
+      const old = (await db().collection('productphotos').findOne({ productId: f.productId, kind: 'overview', deletedAt: null }))!;
+      await http().delete(`/api/products/${f.productId}/photos/${old._id}`).set(auth()).expect(204);
+      await http().post(`/api/products/${f.productId}/photos`).set(auth()).send({ purpose: 'passport', kind: 'overview', photoId: f.fresh[0].photoId }).expect(201);
+    } finally { release(); }
+    const result = await issuing;
+    expect({ status: result.status, error: result.body.message }).toEqual({ status: 200, error: undefined });
+    const issued = (await db().collection('productpassports').findOne({ _id: f.passportId }))!;
+    expect(issued.status).toBe('issued');
+    expect(issued.images.filter((i: { kind: string }) => i.kind === 'overview').map((i: { photoId: unknown }) => String(i.photoId))).toEqual([f.fresh[0].photoId]);
   });
 });

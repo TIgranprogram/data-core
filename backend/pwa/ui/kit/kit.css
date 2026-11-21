@@ -903,6 +903,15 @@ table.cal.k-tree tr.k-tree-ins > td { padding: 0; white-space: normal; text-alig
 .pm-item .pm-lbl { min-width: 0; overflow-wrap: anywhere; }
 /* «Недавно открытые» (2026-11-13): каждая запись — карточка в рамке с полосой цвета раздела, фото крупно, вид — строкой над названием */
 .pm-recent { min-inline-size: min(380px, 92vw); }
+/* C174: типы разделены подписанными секциями; цвет остаётся дополнительным признаком. */
+.pm-recent .pm-group:not(.sep) { min-inline-size: 0; padding: var(--s3); border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface-2); }
+.pm-recent .pm-group:not(.sep) > .pm-title { padding: 0 0 var(--s3); margin: 0; color: var(--heading); font-size: var(--fs-h3); font-weight: 650; text-transform: none; letter-spacing: normal; }
+@media (min-width: 761px) {
+  .pm.pm-recent { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: var(--s3); inline-size: min(1120px, calc(100% - var(--s5))); max-inline-size: calc(100% - var(--s5)); max-block-size: calc(100vh - 100px); overflow-y: auto; align-items: start; }
+  .pm-recent > .pm-group { margin-block-start: 0; }
+  .pm-recent > .pm-group.sep, .pm-recent > .hint { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) { .pm-recent .pm-group:not(.sep) { margin-block-end: var(--s3); } }
 .pm-recent .pm-item { align-items: center; gap: var(--s3); margin-block-end: var(--s2); padding: var(--s2); border: 1px solid var(--border); border-inline-start: 6px solid var(--rc, var(--border)); border-radius: var(--radius-sm); background: var(--surface); }
 .pm-recent .pm-group.sep .pm-item { border: 0; background: none; margin: 0; }
 .pm-recent .pm-thumb { inline-size: 56px; block-size: 56px; border: 1px solid var(--border); }

@@ -1,0 +1,526 @@
+[
+  {
+    "width": 1920,
+    "theme": "light",
+    "groups": 2,
+    "result": "PASS",
+    "measure": {
+      "left": 746,
+      "right": 1866,
+      "win": 1920,
+      "doc": 1920,
+      "cssRight": "39px",
+      "offset": 1120,
+      "top": 66,
+      "bottom": 649.78125,
+      "scrollWidth": 1118,
+      "clientWidth": 1118,
+      "groups": [
+        {
+          "title": "Заказы",
+          "x": 8,
+          "y": 8
+        },
+        {
+          "title": "Изделия",
+          "x": 287,
+          "y": 8
+        }
+      ],
+      "focused": true
+    },
+    "errors": []
+  },
+  {
+    "width": 1920,
+    "theme": "light",
+    "groups": 3,
+    "result": "PASS",
+    "measure": {
+      "left": 746,
+      "right": 1866,
+      "win": 1920,
+      "doc": 1920,
+      "cssRight": "39px",
+      "offset": 1120,
+      "top": 66,
+      "bottom": 649.78125,
+      "scrollWidth": 1118,
+      "clientWidth": 1118,
+      "groups": [
+        {
+          "title": "Заказы",
+          "x": 8,
+          "y": 8
+        },
+        {
+          "title": "Изделия",
+          "x": 287,
+          "y": 8
+        },
+        {
+          "title": "Паспорта",
+          "x": 565,
+          "y": 8
+        }
+      ],
+      "focused": true
+    },
+    "errors": []
+  },
+  {
+    "width": 1920,
+    "theme": "light",
+    "groups": 8,
+    "result": "PASS",
+    "measure": {
+      "left": 746,
+      "right": 1866,
+      "win": 1920,
+      "doc": 1920,
+      "cssRight": "39px",
+      "offset": 1120,
+      "top": 66,
+      "bottom": 634.25,
+      "scrollWidth": 1118,
+      "clientWidth": 1118,
+      "groups": [
+        {
+          "title": "Заказы",
+          "x": 8,
+          "y": 8
+        },
+        {
+          "title": "Изделия",
+          "x": 287,
+          "y": 8
+        },
+        {
+          "title": "Паспорта",
+          "x": 565,
+          "y": 8
+        },
+        {
+          "title": "Архив",
+          "x": 844,
+          "y": 8
+        },
+        {
+          "title": "Работы",
+          "x": 8,
+          "y": 259
+        },
+        {
+          "title": "Позиции заказов",
+          "x": 287,
+          "y": 259
+        },
+        {
+          "title": "Заявки",
+          "x": 565,
+          "y": 259
+        },
+        {
+          "title": "Контрагенты",
+          "x": 844,
+          "y": 259
+        }
+      ],
+      "focused": true
+    },
+    "errors": []
+  },
+  {
+    "width": 1920,
+    "theme": "dark",
+    "groups": 2,
+    "result": "PASS",
+    "measure": {
+      "left": 746,
+      "right": 1866,
+      "win": 1920,
+      "doc": 1920,
+      "cssRight": "39px",
+      "offset": 1120,
+      "top": 66,
+      "bottom": 649.78125,
+      "scrollWidth": 1118,
+      "clientWidth": 1118,
+      "groups": [
+        {
+          "title": "Заказы",
+          "x": 8,
+          "y": 8
+        },
+        {
+          "title": "Изделия",
+          "x": 287,
+          "y": 8
+        }
+      ],
+      "focused": true
+    },
+    "errors": []
+  },
+  {
+    "width": 1920,
+    "theme": "dark",
+    "groups": 3,
+    "result": "PASS",
+    "measure": {
+      "left": 746,
+      "right": 1866,
+      "win": 1920,
+      "doc": 1920,
+      "cssRight": "39px",
+      "offset": 1120,
+      "top": 66,
+      "bottom": 649.78125,
+      "scrollWidth": 1118,
+      "clientWidth": 1118,
+      "groups": [
+        {
+          "title": "Заказы",
+          "x": 8,
+          "y": 8
+        },
+        {
+          "title": "Изделия",
+          "x": 287,
+          "y": 8
+        },
+        {
+          "title": "Паспорта",
+          "x": 565,
+          "y": 8
+        }
+      ],
+      "focused": true
+    },
+    "errors": []
+  },
+  {
+    "width": 1920,
+    "theme": "dark",
+    "groups": 8,
+    "result": "PASS",
+    "measure": {
+      "left": 746,
+      "right": 1866,
+      "win": 1920,
+      "doc": 1920,
+      "cssRight": "39px",
+      "offset": 1120,
+      "top": 66,
+      "bottom": 634.25,
+      "scrollWidth": 1118,
+      "clientWidth": 1118,
+      "groups": [
+        {
+          "title": "Заказы",
+          "x": 8,
+          "y": 8
+        },
+        {
+          "title": "Изделия",
+          "x": 287,
+          "y": 8
+        },
+        {
+          "title": "Паспорта",
+          "x": 565,
+          "y": 8
+        },
+        {
+          "title": "Архив",
+          "x": 844,
+          "y": 8
+        },
+        {
+          "title": "Работы",
+          "x": 8,
+          "y": 259
+        },
+        {
+          "title": "Позиции заказов",
+          "x": 287,
+          "y": 259
+        },
+        {
+          "title": "Заявки",
+          "x": 565,
+          "y": 259
+        },
+        {
+          "title": "Контрагенты",
+          "x": 844,
+          "y": 259
+        }
+      ],
+      "focused": true
+    },
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "theme": "light",
+    "groups": 2,
+    "result": "PASS",
+    "measure": {
+      "left": 8,
+      "right": 993,
+      "win": 1024,
+      "doc": 1024,
+      "cssRight": "16px",
+      "offset": 985,
+      "top": 66,
+      "bottom": 649.78125,
+      "scrollWidth": 983,
+      "clientWidth": 983,
+      "groups": [
+        {
+          "title": "Заказы",
+          "x": 8,
+          "y": 8
+        },
+        {
+          "title": "Изделия",
+          "x": 334,
+          "y": 8
+        }
+      ],
+      "focused": true
+    },
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "theme": "light",
+    "groups": 3,
+    "result": "PASS",
+    "measure": {
+      "left": 8,
+      "right": 993,
+      "win": 1024,
+      "doc": 1024,
+      "cssRight": "16px",
+      "offset": 985,
+      "top": 66,
+      "bottom": 649.78125,
+      "scrollWidth": 983,
+      "clientWidth": 983,
+      "groups": [
+        {
+          "title": "Заказы",
+          "x": 8,
+          "y": 8
+        },
+        {
+          "title": "Изделия",
+          "x": 334,
+          "y": 8
+        },
+        {
+          "title": "Паспорта",
+          "x": 661,
+          "y": 8
+        }
+      ],
+      "focused": true
+    },
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "theme": "light",
+    "groups": 8,
+    "result": "PASS",
+    "measure": {
+      "left": 8,
+      "right": 993,
+      "win": 1024,
+      "doc": 1024,
+      "cssRight": "16px",
+      "offset": 985,
+      "top": 66,
+      "bottom": 884.875,
+      "scrollWidth": 983,
+      "clientWidth": 983,
+      "groups": [
+        {
+          "title": "Заказы",
+          "x": 8,
+          "y": 8
+        },
+        {
+          "title": "Изделия",
+          "x": 334,
+          "y": 8
+        },
+        {
+          "title": "Паспорта",
+          "x": 661,
+          "y": 8
+        },
+        {
+          "title": "Архив",
+          "x": 8,
+          "y": 259
+        },
+        {
+          "title": "Работы",
+          "x": 334,
+          "y": 259
+        },
+        {
+          "title": "Позиции заказов",
+          "x": 661,
+          "y": 259
+        },
+        {
+          "title": "Заявки",
+          "x": 8,
+          "y": 509
+        },
+        {
+          "title": "Контрагенты",
+          "x": 334,
+          "y": 509
+        }
+      ],
+      "focused": true
+    },
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "theme": "dark",
+    "groups": 2,
+    "result": "PASS",
+    "measure": {
+      "left": 8,
+      "right": 993,
+      "win": 1024,
+      "doc": 1024,
+      "cssRight": "16px",
+      "offset": 985,
+      "top": 66,
+      "bottom": 649.78125,
+      "scrollWidth": 983,
+      "clientWidth": 983,
+      "groups": [
+        {
+          "title": "Заказы",
+          "x": 8,
+          "y": 8
+        },
+        {
+          "title": "Изделия",
+          "x": 334,
+          "y": 8
+        }
+      ],
+      "focused": true
+    },
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "theme": "dark",
+    "groups": 3,
+    "result": "PASS",
+    "measure": {
+      "left": 8,
+      "right": 993,
+      "win": 1024,
+      "doc": 1024,
+      "cssRight": "16px",
+      "offset": 985,
+      "top": 66,
+      "bottom": 649.78125,
+      "scrollWidth": 983,
+      "clientWidth": 983,
+      "groups": [
+        {
+          "title": "Заказы",
+          "x": 8,
+          "y": 8
+        },
+        {
+          "title": "Изделия",
+          "x": 334,
+          "y": 8
+        },
+        {
+          "title": "Паспорта",
+          "x": 661,
+          "y": 8
+        }
+      ],
+      "focused": true
+    },
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "theme": "dark",
+    "groups": 8,
+    "result": "PASS",
+    "measure": {
+      "left": 8,
+      "right": 993,
+      "win": 1024,
+      "doc": 1024,
+      "cssRight": "16px",
+      "offset": 985,
+      "top": 66,
+      "bottom": 884.875,
+      "scrollWidth": 983,
+      "clientWidth": 983,
+      "groups": [
+        {
+          "title": "Заказы",
+          "x": 8,
+          "y": 8
+        },
+        {
+          "title": "Изделия",
+          "x": 334,
+          "y": 8
+        },
+        {
+          "title": "Паспорта",
+          "x": 661,
+          "y": 8
+        },
+        {
+          "title": "Архив",
+          "x": 8,
+          "y": 259
+        },
+        {
+          "title": "Работы",
+          "x": 334,
+          "y": 259
+        },
+        {
+          "title": "Позиции заказов",
+          "x": 661,
+          "y": 259
+        },
+        {
+          "title": "Заявки",
+          "x": 8,
+          "y": 509
+        },
+        {
+          "title": "Контрагенты",
+          "x": 334,
+          "y": 509
+        }
+      ],
+      "focused": true
+    },
+    "errors": []
+  }
+]

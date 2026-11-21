@@ -43,10 +43,10 @@ export function openPopMenu({ anchor, groups, head, side = 'up', cls = '' }) {
       pop.style.left = (narrow ? r.right + 8 : Math.max(8, r.left)) + 'px';
       if (narrow) pop.classList.add('pm-narrow');
     } else {
-      pop.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
       // внизу экрана не помещается — открыть вверх, иначе нижние пункты уходят за край
       if (r.bottom + 6 + pop.offsetHeight > window.innerHeight - 8 && r.top > pop.offsetHeight + 14) pop.style.bottom = window.innerHeight - r.top + 6 + 'px';
       else pop.style.top = r.bottom + 6 + 'px';
+      pop.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
     }
   }
   const onKey = (e) => {
@@ -77,6 +77,10 @@ export function openPopMenu({ anchor, groups, head, side = 'up', cls = '' }) {
   }
   current = { pop, anchor, close };
   items[0]?.focus();
+  // Широкий вариант после фокуса и перерасчёта scrollbar не выходит за левую границу.
+  if (!phone && side === 'down' && pop.getBoundingClientRect().left < 8) {
+    pop.style.right = Math.max(8, parseFloat(pop.style.right) + pop.getBoundingClientRect().left - 8) + 'px';
+  }
   return close;
 }
 

@@ -1,0 +1,44 @@
+{
+  "capturedAt": "2026-11-21T10:59:43.5469007Z",
+  "health": {
+    "mongo": "up",
+    "status": "ok"
+  },
+  "version": {
+    "b": "8d68df6c",
+    "v": "37cf0b9f",
+    "n": 977,
+    "date": "2026-11-20T12:26:08+03:00"
+  },
+  "passport": {
+    "id": "6b01677f11ba790ea085433a",
+    "number": 618,
+    "productId": "6ae58b71ef6c7562ae8d2d82",
+    "status": "issued",
+    "revision": 1,
+    "images": [
+      {
+        "photoId": "6b01661211ba790ea0853ff0",
+        "order": 0,
+        "kind": "overview"
+      },
+      {
+        "photoId": "6b01661411ba790ea0853ffa",
+        "order": 0,
+        "kind": "dimensions"
+      },
+      {
+        "photoId": "6b01661611ba790ea0854004",
+        "order": 0,
+        "kind": "foundation"
+      }
+    ],
+    "numbers": {
+      "length": 335,
+      "foundationDepth": 10,
+      "weight": 19.5,
+      "width": 335,
+      "height": 711
+    }
+  }
+}

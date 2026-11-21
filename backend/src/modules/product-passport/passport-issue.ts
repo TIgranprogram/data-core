@@ -14,7 +14,9 @@ export interface IssueHost {
   model: Model<ProductPassportDocument>;
   connection: Connection;
   findById: (id: string) => Promise<ProductPassportDocument>;
-  readiness: (doc: Doc) => Promise<Array<{ label: string; key: string }>>;
+  readiness: (doc: Doc, session?: ClientSession) => Promise<Array<{ label: string; key: string }>>;
+  /** Актуальные рисунки читаются в транзакции выпуска; старые тестовые host могут хранить только own images. */
+  effectiveImages?: (doc: Doc, session: ClientSession) => Promise<Doc[]>;
   /** Рисунки изделия -> images[] паспорта (заморозка при выпуске). */
   freezeImages: (id: string) => Promise<void>;
   /** C096 Э1: текст черновика по текущим полям с переносом ручных пунктов; конфликт ручной правки — 409 до номера. */
@@ -57,7 +59,8 @@ export class PassportIssue {
       if (current.status !== 'draft' || current.presentationVersion === 1) throw new ConflictException('Состояние паспорта изменилось — обновите карточку');
       const missing = await this.h.readiness(current);
       if (missing.length) throw new BadRequestException({ message: `Не хватает для выпуска: ${missing.map((m) => m.label).join(', ')}`, missing });
-      await this.h.freezeImages(id);
+      // Совместимость прежних host: production передаёт session-aware effectiveImages.
+      if (!this.h.effectiveImages) await this.h.freezeImages(id);
     }
     const _id = new Types.ObjectId(id);
     const session = await this.h.connection.startSession();
@@ -74,7 +77,8 @@ export class PassportIssue {
         let prepared: Doc = {};
         if (current.presentationVersion === 1) prepared = await this.h.preparePresentation!(current, session);
         else {
-          const missing = await this.h.readiness(current);
+          prepared.images = this.h.effectiveImages ? await this.h.effectiveImages(current, session) : current.images ?? [];
+          const missing = await this.h.readiness({ ...current, ...prepared }, session);
           if (missing.length) throw new BadRequestException({ message: 'Данные паспорта изменились — заполните недостающее', missing });
         }
         const set: Doc = { ...prepared, ...(await takeOverNumbers(this.h.model, current, session)) }; // C060: позиция договора + изделие — один номер

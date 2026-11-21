@@ -1,3 +1,9 @@
+## C174 — различимые группы истории (2026-11-21)
+коммит: не коммитил, передано координатору
+- backend/pwa/ui/kit/recent-cards.js:52 — semantic типы, orderpass → Паспорта, orders отдельно; recent-cards.test.mjs:109 — группировка/давность/права/очистка.
+- backend/pwa/ui/kit/kit.css:906 — колонки/секции; pop-menu.js:80 — clamp после фокуса. docs/DESIGN.md:403.
+- C174/FRONTEND-REPORT.md и evidence: 12 сценариев + старое меню; tests8/8, guards363/363, lint новых0. Карта обновлена.
+
 ## C164 — исправление открытия вложенных форм (2026-11-20)
 коммит: не коммитил, передано координатору
 - `backend/pwa/sections/offer-source.js:35,37,98`, `sales-legal.js:25` — kit ожидает функцию fields, исправлены исключение, связь договора и все юридические формы; осмысленные newTitle.
