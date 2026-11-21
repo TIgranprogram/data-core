@@ -1,4 +1,5 @@
 import { h, fill } from '../../core/dom.js';
+export { atlasFocus } from '../atlas-map/focus.js';
 import { icon } from '../icons.js';
 import { button, guide, iconButton, link } from './index.js';
 import { atlasInspector, isDirect, LAYERS } from '../atlas-map/inspector.js';

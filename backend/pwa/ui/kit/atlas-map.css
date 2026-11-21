@@ -261,3 +261,84 @@
 @media (prefers-reduced-motion: reduce) {
   .am-station.btn, .am-substation.btn { transition: none; }
 }
+
+/* Состав изделия: отдельные позиции карточек и линий для каждого уровня детализации. */
+.atlas-focus { color: var(--text); min-width: 0; }
+.af-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s3); margin-block-end: var(--s3); }
+.af-back.btn { padding-inline: var(--s2); }
+.af-canvas {
+  position: relative;
+  isolation: isolate;
+  height: 520px;
+  min-width: 0;
+  overflow: clip;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--border-strong) 27%, transparent) .65px, transparent .9px) 0 0 / 20px 20px, var(--surface-2);
+}
+.af-canvas:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.af-hint { margin: var(--s2) var(--s1) 0; color: var(--muted); font-size: var(--fs-sm); text-align: end; }
+.af-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.atlas-focus [data-direction='in'] { --af-tone: var(--info); --af-soft: var(--info-soft); }
+.atlas-focus [data-direction='out'] { --af-tone: var(--primary); --af-soft: var(--primary-soft); }
+.af-line { fill: none; stroke: var(--af-tone); stroke-width: 2; opacity: 1; }
+.af-arrow { fill: var(--af-tone); }
+.af-hub, .af-column, .af-bundle, .af-card {
+  position: absolute;
+  inset: var(--am-y) auto auto var(--am-x);
+  width: var(--am-w);
+  height: var(--am-h);
+  margin: 0;
+}
+.af-hub {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s1);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius);
+  background: var(--primary-soft);
+  color: var(--heading);
+  box-shadow: var(--shadow);
+}
+.af-hub h2 { margin: 0; font-size: var(--fs-h2); line-height: 1.25; }
+.af-parent { font-size: var(--fs-sm); color: var(--link); }
+.af-column {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  border-block-end: 1px solid color-mix(in srgb, var(--af-tone) 42%, var(--border));
+  color: var(--af-tone);
+  font-size: var(--fs-h3);
+}
+.af-count { color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.af-bundle, .af-card {
+  padding: var(--s3) var(--s4);
+  border: 1px solid color-mix(in srgb, var(--af-tone) 36%, var(--border));
+  border-inline-start: 3px solid var(--af-tone);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.af-bundle {
+  display: grid;
+  list-style: none;
+  align-content: center;
+  padding-block: var(--s2);
+  background: color-mix(in srgb, var(--af-soft) 46%, var(--surface));
+}
+.af-bundle li { padding-block: var(--s2); }
+.af-bundle li + li { border-block-start: 1px solid var(--border); }
+.af-bundle li, .af-title { color: var(--text); font-size: var(--fs); line-height: 1.23; font-weight: 600; overflow-wrap: anywhere; }
+.af-card { display: grid; align-content: center; gap: var(--s1); }
+.af-title, .af-relation-note { margin: 0; }
+.af-relation-note { color: var(--muted); font-size: var(--fs-sm); line-height: 1.32; }
+.atlas-focus[data-level='1'] .af-relation-note, .atlas-focus[data-level='0'] .af-relation-note { position: absolute; opacity: 0; pointer-events: none; }
+.af-bundle, .af-card, .af-line, .af-relation-note { transition: opacity 170ms ease; }
+.atlas-focus[data-level='0'] :is(.af-card, .af-individual), .atlas-focus:not([data-level='0']) :is(.af-bundle, .af-bundled) { opacity: 0; pointer-events: none; }
+.atlas-focus:not([data-level='0']) :is(.af-card, .af-individual), .atlas-focus[data-level='0'] :is(.af-bundle, .af-bundled) { transition-delay: 95ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .af-bundle, .af-card, .af-line, .af-relation-note { transition: none; }
+}
