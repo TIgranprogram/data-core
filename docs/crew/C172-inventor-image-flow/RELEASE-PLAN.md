@@ -8,13 +8,15 @@ Release candidate: чистый worktree C:\Users\User\.codex\worktrees\c172-pas
 
 - [x] Claude Desktop/Code удалены штатно, остаточные данные оставлены по явному выбору пользователя.
 - [x] Подготовлен чистый кандидат без незавершённых инструментов C171.
-- [ ] QA: полный e2e на отдельной Mongo4.4rs0/testDB, PWA/admin/guards/build; точные команды/manifest/TEST-LOG.
-- [ ] Архитектор: независимая проверка интеграции release candidate и сохранности snapshots, кода без C171.
-- [ ] Desktop: прежние4text-состояния/clipboard сохранены; на кандидате перепроверить ключевые template/short/full/PDF/anchor-сценарии через проверенный сценарий на изолированном стенде. Выполнение VB в Inventor и физическая печать не подменять API-тестом.
-- [ ] Явные замечания исправить, unit/tsc/PWA и штатные ворота без force; branch→origin/main без C171.
-- [ ] Штатный remote-access/deploy.sh с рабочего ПК, backup/build/backendonly/health/version/CRM; никаких ручных prod бизнес-фикстур.
-- [ ] datacore-access независимые GET опубликованных endpoints/статики/версии/doctor; обновить HISTORY/CONTROL/отчёт и зафиксировать исходный+releaseSHA.
+- [x] QA: полный e2e на отдельной Mongo4.4rs0/testDB, PWA/admin/guards/build; точные команды/manifest/TEST-LOG.
+- [x] Архитектор: независимая проверка интеграции release candidate и сохранности snapshots, кода без C171.
+- [x] Desktop: прежние4text-состояния/clipboard сохранены; на кандидате перепроверить ключевые template/short/full/PDF/anchor-сценарии через проверенный сценарий на изолированном стенде. Выполнение VB в Inventor и физическая печать не подменять API-тестом.
+- [x] Явные замечания исправить, unit/tsc/PWA и штатные ворота без force; branch→origin/main без C171.
+- [x] Штатный remote-access/deploy.sh с рабочего ПК, backup/build/backendonly/health/version/CRM; никаких ручных prod бизнес-фикстур.
+- [x] datacore-access независимые GET опубликованных endpoints/статики/версии/doctor; обновить HISTORY/CONTROL/отчёт и зафиксировать исходный+releaseSHA.
 
 QA владеет только отдельными тестами/TEST-LOG/RELEASE-QA.md, производственный код не правит. Архитектор код не меняет, присылает находки. Координатор — интеграция, фиксы и выкладка. Все роли работают в этом candidate explicit workdir, друг другу изменения не откатывают; новые внешние ИИ не запускаются без отдельного поручения. Секреты не читать/выводить; API local/stand/prod только datacore-access/api.sh.
 ## Найденные блокеры полного QA
 Полный e2e выявил ложный409 одновременного создания паспортов: product guard считал собственный __v/updatedAt изменением источника. Исправление должно сохранять сериализацию, сравнивая бизнес-содержимое; тесты idempotent/concurrent create не ослабляются. Дополнительно legacy issue должен замораживать/проверять рисунки внутри той же транзакции. До исправления и PASS выпуск запрещён. Отсутствующий product в одной старой fixture — отдельная тестовая правка, не ослабление runtime404.
+## Фактическое завершение
+v1.979/sourceba40418f, UI6d347af4, release-v1.979-ba40418f. Найденные блокеры выше исправлены; full757/0fail, unit3889, независимые static4/4 и doctor0. POST-RELEASE.md. Истинный Inventor/физическая печать/стандарт C173 остаются вне завершённой технической выкладки.

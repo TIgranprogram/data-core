@@ -4,7 +4,7 @@ import { catNames } from '../../core/passport-kinds.js';
 import { actions, attachCombo, buildForm, button, hint, link, stack, tagPick, textInput } from '../../ui/kit/index.js';
 import { busyBtn } from '../../ui/kit/busy.js';
 import { confirmDlg } from '../../ui/kit/dialog.js';
-import { codeList, dictOpts, dictRows, passportCategoryOptions, V2_NUMS } from './common.js';
+import { canEdit, codeList, dictOpts, dictRows, passportCategoryOptions, V2_NUMS } from './common.js';
 import { sidePanel } from './book-shared.js';
 import { setSideWide } from './book-side-edit.js';
 import { jointsPick } from './traits.js';
@@ -108,13 +108,23 @@ function descriptionPartPicker(byId, template, initial, onChange) {
   const ids = new Set(initial);
   let allParts = false;
   const selected = actions();
+  const guidance = h('div', { role: 'status' });
   const search = textInput({ label: 'Добавить часть', placeholder: 'Найдите по названию' });
   const widen = button({ label: 'Искать среди всех частей', kind: 'ghost', size: 'S', onClick: () => {
     allParts = !allParts;
     widen.textContent = allParts ? 'Только подходящие части' : 'Искать среди всех частей';
+    render();
     search.value = ''; combo.close(); search.focus();
   } });
   const render = () => {
+    guidance.replaceChildren(!byId.size
+      ? hint(canEdit()
+        ? 'В справочнике пока нет частей. Откройте «Справочник частей», добавьте нужные части и нажмите «Обновить части». Или нажмите «Изменить текст» и укажите состав сами.'
+        : 'В справочнике пока нет частей. Попросите директора дополнить «Справочник частей», затем нажмите «Обновить части». Для этого паспорта можно нажать «Изменить текст» и указать состав самостоятельно.')
+      : !linked.size ? hint(allParts
+        ? 'Показаны все части справочника. Выберите только те, которые действительно входят в это изделие.'
+        : 'Готовый состав для этого изделия ещё не задан. Нажмите «Искать среди всех частей» и выберите состав вручную либо подберите готовый вариант.') : null);
+    widen.hidden = !byId.size;
     selected.replaceChildren(...[...ids].map((id) => {
       const label = byId.get(id)?.label || `Часть недоступна (${id})`;
       return button({ label: `${label} ×`, title: `Убрать «${label}»`, kind: 'ghost', size: 'S', onClick: () => {
@@ -124,14 +134,15 @@ function descriptionPartPicker(byId, template, initial, onChange) {
   };
   const combo = attachCombo(search.input, {
     options: () => [...byId.values()].filter((part) => part.label && !ids.has(part.value) && (allParts || linked.has(part.value))),
-    empty: () => !allParts && !linked.size ? 'Уточните вид и признаки; готовый набор частей пока не задан'
+    empty: () => !byId.size ? 'В справочнике пока нет частей — см. действия выше'
+      : !allParts && !linked.size ? 'Нажмите «Искать среди всех частей» над поиском'
       : search.value.trim() ? 'Части с таким названием не найдены' : 'Нет доступных частей для добавления',
     max: 12,
     onPick: (part) => { ids.add(part.value); search.value = ''; search.input.title = ''; render(); onChange(); },
   });
   render();
-  return { el: stack(selected, !linked.size ? hint('Уточните вид и признаки; готовый набор частей пока не задан') : null,
-    search.el, actions(widen)), value: () => [...ids], focus: search.focus, close: combo.close };
+  return { el: stack(selected, guidance, actions(widen), search.el), value: () => [...ids], focus: search.focus,
+    close: combo.close, refresh: () => { combo.close(); render(); onChange(); } };
 }
 
 export async function openSimpleDescription(slot, template, { save, done, isCurrent, openDictionary }) {
@@ -141,10 +152,10 @@ export async function openSimpleDescription(slot, template, { save, done, isCurr
   const initialMode = current && current.mode !== 'parts' ? 'manual' : 'parts';
   const { items } = await api('/dicts/passportParts');
   if (!isCurrent()) return;
-  const parts = (items || []).map((part) => ({
+  const partOptions = (items) => (items || []).map((part) => ({
     ...part, value: String(part.id), label: partText(part.name), sub: catNames(part.categories), cats: codeList(part.categories),
-  }));
-  const byId = new Map(parts.map((part) => [part.value, part]));
+  })).filter((part) => part.label);
+  const byId = new Map(partOptions(items).map((part) => [part.value, part]));
   let mode = initialMode;
   let manualForm;
   const preview = h('div', { role: 'status', 'aria-label': 'Предпросмотр краткого описания' });
@@ -152,7 +163,7 @@ export async function openSimpleDescription(slot, template, { save, done, isCurr
   const picker = descriptionPartPicker(byId, template, partIds, render);
   const autoText = () => simplePartsPreview(picker.value(), byId);
   const manualDirty = () => manualForm?.dirty() ?? false;
-  const editText = button({ label: 'Изменить текст', size: 'S', onClick: () => {
+  const editText = button({ label: 'Изменить текст', kind: 'ghost', size: 'S', onClick: () => {
     if (!manualForm || (mode === 'parts' && !manualDirty())) {
       const text = mode === 'parts' ? autoText() || savedText : savedText;
       manualForm = buildForm([{ key: 'text', label: 'Своя формулировка', type: 'textarea', rows: 4, wide: true, max: 4000, required: true }], { text });
@@ -162,13 +173,32 @@ export async function openSimpleDescription(slot, template, { save, done, isCurr
     render();
     manualForm.focus();
   } });
-  const useParts = button({ label: 'Собрать из частей', size: 'S', onClick: () => {
+  const useParts = button({ label: 'Собрать из частей', kind: 'ghost', size: 'S', onClick: () => {
     mode = 'parts'; render(); picker.focus();
   } });
   const reset = current ? button({ label: 'Вернуться к справочнику', kind: 'ghost', size: 'S', onClick: () => {
     mode = 'dictionary'; render(); useParts.focus();
   } }) : null;
   const choose = !current && openDictionary ? button({ label: 'Подобрать готовый вариант', kind: 'ghost', size: 'S', onClick: openDictionary }) : null;
+  const refreshStatus = h('div', { role: 'status' });
+  let refreshing = false;
+  const refresh = button({ label: 'Обновить части', kind: 'ghost', size: 'S', onClick: async () => {
+    if (refreshing) return;
+    refreshing = true;
+    const end = busyBtn(refresh, 'Обновляю…');
+    refreshStatus.replaceChildren();
+    try {
+      const { items } = await api('/dicts/passportParts');
+      if (!isCurrent()) return;
+      const nextParts = partOptions(items);
+      byId.clear();
+      for (const part of nextParts) byId.set(part.value, part);
+      picker.refresh();
+      refreshStatus.replaceChildren(hint('Справочник обновлён. Ваш выбор и набранный текст сохранены.'));
+    } catch {
+      if (isCurrent()) refreshStatus.replaceChildren(hint('Не удалось обновить части. Ваш выбор сохранён; нажмите «Обновить части» ещё раз.', 'warn'));
+    } finally { refreshing = false; end(); }
+  } });
 
   function render() {
     const ids = picker.value();
@@ -192,7 +222,7 @@ export async function openSimpleDescription(slot, template, { save, done, isCurr
   sideForm(slot, {
     title: 'Краткое описание', done, confirm: !current,
     extra: stack(picker.el, preview, manual, actions(editText, useParts), actions(
-      choose, reset, link({ label: 'Справочник частей ↗', href: '#dicts?d=passportParts', target: '_blank' }))),
+      choose, reset, link({ label: 'Справочник частей ↗', href: '#dicts?d=passportParts', target: '_blank' }), refresh), refreshStatus),
     changed: () => mode !== initialMode || manualDirty() || picker.value().join() !== partIds.join(),
     read() {
       picker.close();

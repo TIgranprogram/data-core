@@ -1,0 +1,569 @@
+{
+  "items": [
+    {
+      "name": "Буквы",
+      "genPlural": "букв",
+      "genSingular": "буквы",
+      "categories": "BLG",
+      "id": "6afd50dd7485414ce8b73561",
+      "_id": "6afd50dd7485414ce8b73561",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-19T13:14:26.171Z"
+    },
+    {
+      "name": "Весовой стек",
+      "genPlural": "весовых стеков",
+      "genSingular": "весового стека",
+      "categories": "TRN",
+      "id": "6ae44ab6e2b85c75e0686864",
+      "_id": "6ae44ab6e2b85c75e0686864",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:30.191Z"
+    },
+    {
+      "name": "Гиря",
+      "genPlural": "гирь",
+      "genSingular": "гири",
+      "categories": "TRN",
+      "id": "6adceeeb3ca001b9b3b0e57e",
+      "_id": "6adceeeb3ca001b9b3b0e57e",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:31.422Z"
+    },
+    {
+      "name": "Гриф",
+      "genPlural": "грифов",
+      "genSingular": "грифа",
+      "categories": "TRN",
+      "id": "6ae3267ca3f6de10abf03642",
+      "_id": "6ae3267ca3f6de10abf03642",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-19T12:59:41.607Z"
+    },
+    {
+      "name": "Диск-отягощение",
+      "genPlural": "дисков-отягощений",
+      "genSingular": "диска-отягощения",
+      "categories": "TRN",
+      "id": "6ae44ab6e2b85c75e0686863",
+      "_id": "6ae44ab6e2b85c75e0686863",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:33.242Z"
+    },
+    {
+      "name": "Дуга",
+      "genPlural": "дуг",
+      "genSingular": "дуги",
+      "categories": "WRK,DSP",
+      "id": "6ae44ab6e2b85c75e0686865",
+      "_id": "6ae44ab6e2b85c75e0686865",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:34.532Z"
+    },
+    {
+      "name": "Задвижка",
+      "genPlural": "задвижек",
+      "genSingular": "задвижки",
+      "categories": "BLG,DIO",
+      "id": "6adceeeb3ca001b9b3b0e58a",
+      "_id": "6adceeeb3ca001b9b3b0e58a",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:35.783Z"
+    },
+    {
+      "name": "Зацеп",
+      "genPlural": "зацепов",
+      "genSingular": "зацепа",
+      "categories": "WRK,DIO",
+      "id": "6ae44ab6e2b85c75e0686866",
+      "_id": "6ae44ab6e2b85c75e0686866",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:37.043Z"
+    },
+    {
+      "name": "Калитка",
+      "genPlural": "калиток",
+      "genSingular": "калитки",
+      "categories": "BLG,DIO",
+      "id": "6ae44ab6e2b85c75e068686d",
+      "_id": "6ae44ab6e2b85c75e068686d",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:38.305Z"
+    },
+    {
+      "name": "Каркас",
+      "genPlural": "каркасов",
+      "genSingular": "каркаса",
+      "categories": "",
+      "id": "6af81f883389de160b2c97d9",
+      "_id": "6af81f883389de160b2c97d9",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-19T12:59:36.609Z"
+    },
+    {
+      "name": "Кольцо баскетбольное",
+      "genPlural": "колец баскетбольных",
+      "genSingular": "кольца баскетбольного",
+      "categories": "WRK,DSP",
+      "id": "6ae44ab6e2b85c75e0686868",
+      "_id": "6ae44ab6e2b85c75e0686868",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:39.613Z"
+    },
+    {
+      "name": "Кольцо гимнастическое",
+      "genPlural": "гимнастических колец",
+      "genSingular": "гимнастического кольца",
+      "categories": "WRK,DSP",
+      "id": "6adceeeb3ca001b9b3b0e586",
+      "_id": "6adceeeb3ca001b9b3b0e586",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:40.854Z"
+    },
+    {
+      "name": "Крючок для крепления сетки",
+      "genPlural": "крючков для крепления сетки",
+      "genSingular": "крючка для крепления сетки",
+      "categories": "WRK,DSP",
+      "id": "6adceeeb3ca001b9b3b0e582",
+      "_id": "6adceeeb3ca001b9b3b0e582",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:42.073Z"
+    },
+    {
+      "name": "Лежак",
+      "genPlural": "лежаков",
+      "genSingular": "лежака",
+      "categories": "TRN,WRK",
+      "id": "6adceeeb3ca001b9b3b0e57c",
+      "_id": "6adceeeb3ca001b9b3b0e57c",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:43.304Z"
+    },
+    {
+      "name": "Маятник",
+      "genPlural": "маятников",
+      "genSingular": "маятника",
+      "categories": "TRN",
+      "id": "6ae32680a3f6de10abf03651",
+      "_id": "6ae32680a3f6de10abf03651",
+      "dict": "passportParts",
+      "updatedAt": "2026-10-29T10:57:04.124Z"
+    },
+    {
+      "name": "Механизм натяжения",
+      "genPlural": "механизмов натяжения",
+      "genSingular": "механизма натяжения",
+      "categories": "WRK,DSP",
+      "id": "6ae44ab6e2b85c75e0686869",
+      "_id": "6ae44ab6e2b85c75e0686869",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:45.418Z"
+    },
+    {
+      "name": "Накопитель дисков",
+      "genPlural": "накопителей дисков",
+      "genSingular": "накопителя дисков",
+      "categories": "TRN",
+      "id": "6ae3267da3f6de10abf03647",
+      "_id": "6ae3267da3f6de10abf03647",
+      "dict": "passportParts",
+      "updatedAt": "2026-10-29T10:57:01.961Z"
+    },
+    {
+      "name": "Несущая рама",
+      "genPlural": "несущих рам",
+      "genSingular": "несущей рамы",
+      "categories": "TRN,WRK,BLG,DIO",
+      "id": "6adceeeb3ca001b9b3b0e574",
+      "_id": "6adceeeb3ca001b9b3b0e574",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:47.233Z"
+    },
+    {
+      "name": "Ногоступ",
+      "genPlural": "ногоступов",
+      "genSingular": "ногоступа",
+      "categories": "TRN",
+      "id": "6ae32682a3f6de10abf0365b",
+      "_id": "6ae32682a3f6de10abf0365b",
+      "dict": "passportParts",
+      "updatedAt": "2026-10-29T10:57:06.312Z"
+    },
+    {
+      "name": "Опорная пятка",
+      "genPlural": "опорных пяток",
+      "genSingular": "опорной пятки",
+      "categories": "TRN,WRK,BLG,DIO,DSP",
+      "id": "6ae3267fa3f6de10abf0364c",
+      "_id": "6ae3267fa3f6de10abf0364c",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:49.027Z"
+    },
+    {
+      "name": "Педаль",
+      "genPlural": "педалей",
+      "genSingular": "педали",
+      "categories": "TRN",
+      "id": "6aff3bba1eb87438515b409a",
+      "_id": "6aff3bba1eb87438515b409a",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-19T18:11:06.379Z"
+    },
+    {
+      "name": "Перекладина",
+      "genPlural": "перекладин",
+      "genSingular": "перекладины",
+      "categories": "WRK,DIO,DSP",
+      "id": "6adceeeb3ca001b9b3b0e572",
+      "_id": "6adceeeb3ca001b9b3b0e572",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:50.317Z"
+    },
+    {
+      "name": "Петля",
+      "genPlural": "петель",
+      "genSingular": "петли",
+      "categories": "BLG,DIO",
+      "id": "6adceeeb3ca001b9b3b0e589",
+      "_id": "6adceeeb3ca001b9b3b0e589",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:51.536Z"
+    },
+    {
+      "name": "Подвес",
+      "genPlural": "подвесов",
+      "genSingular": "подвеса",
+      "categories": "",
+      "id": "6afefd841ca5b05a5ce7f7c0",
+      "_id": "6afefd841ca5b05a5ce7f7c0",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-19T13:45:40.464Z"
+    },
+    {
+      "name": "Подлокотник",
+      "genPlural": "подлокотников",
+      "genSingular": "подлокотника",
+      "categories": "TRN",
+      "id": "6adceeeb3ca001b9b3b0e57d",
+      "_id": "6adceeeb3ca001b9b3b0e57d",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:52.78Z"
+    },
+    {
+      "name": "Подставка для ног поворотная",
+      "genPlural": "поворотных подставок для ног",
+      "genSingular": "поворотной подставки для ног",
+      "categories": "TRN",
+      "id": "6adceeeb3ca001b9b3b0e57f",
+      "_id": "6adceeeb3ca001b9b3b0e57f",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:54.064Z"
+    },
+    {
+      "name": "Покрышка",
+      "genPlural": "покрышек",
+      "genSingular": "покрышки",
+      "categories": "TRN,DIO",
+      "id": "6adceeeb3ca001b9b3b0e587",
+      "_id": "6adceeeb3ca001b9b3b0e587",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:55.279Z"
+    },
+    {
+      "name": "Поручень",
+      "genPlural": "поручней",
+      "genSingular": "поручня",
+      "categories": "TRN,WRK,DIO,DSP",
+      "id": "6ae32681a3f6de10abf03656",
+      "_id": "6ae32681a3f6de10abf03656",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:56.54Z"
+    },
+    {
+      "name": "Пружина",
+      "genPlural": "пружин",
+      "genSingular": "пружины",
+      "categories": "",
+      "id": "6afefd861ca5b05a5ce7f7c7",
+      "_id": "6afefd861ca5b05a5ce7f7c7",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-19T13:45:42.259Z"
+    },
+    {
+      "name": "Прут",
+      "genPlural": "прутьев",
+      "genSingular": "прута",
+      "categories": "BLG,DIO",
+      "id": "6ae44ab6e2b85c75e068686b",
+      "_id": "6ae44ab6e2b85c75e068686b",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:57.783Z"
+    },
+    {
+      "name": "Рейка",
+      "genPlural": "реек",
+      "genSingular": "рейки",
+      "categories": "BLG",
+      "id": "6ae44ab6e2b85c75e068686c",
+      "_id": "6ae44ab6e2b85c75e068686c",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:11:59.027Z"
+    },
+    {
+      "name": "Ролик для троса",
+      "genPlural": "роликов для троса",
+      "genSingular": "ролика для троса",
+      "categories": "TRN",
+      "id": "6adceeeb3ca001b9b3b0e588",
+      "_id": "6adceeeb3ca001b9b3b0e588",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:12:00.289Z"
+    },
+    {
+      "name": "Ручка",
+      "genPlural": "ручек",
+      "genSingular": "ручки",
+      "categories": "TRN,WRK,DIO",
+      "id": "6adceeeb3ca001b9b3b0e575",
+      "_id": "6adceeeb3ca001b9b3b0e575",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:12:01.56Z"
+    },
+    {
+      "name": "Рычаг",
+      "genPlural": "рычагов",
+      "genSingular": "рычага",
+      "categories": "TRN",
+      "id": "6adceeeb3ca001b9b3b0e576",
+      "_id": "6adceeeb3ca001b9b3b0e576",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:12:02.827Z"
+    },
+    {
+      "name": "Сетка",
+      "genPlural": "сеток",
+      "genSingular": "сетки",
+      "categories": "WRK,DIO,DSP",
+      "id": "6adceeeb3ca001b9b3b0e583",
+      "_id": "6adceeeb3ca001b9b3b0e583",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:12:04.069Z"
+    },
+    {
+      "name": "Сиденье",
+      "genPlural": "сидений",
+      "genSingular": "сиденья",
+      "categories": "TRN,WRK,BLG,DIO",
+      "id": "6adceeeb3ca001b9b3b0e57a",
+      "_id": "6adceeeb3ca001b9b3b0e57a",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:12:05.395Z"
+    },
+    {
+      "name": "Спинка",
+      "genPlural": "спинок",
+      "genSingular": "спинки",
+      "categories": "TRN,BLG",
+      "id": "6adceeeb3ca001b9b3b0e57b",
+      "_id": "6adceeeb3ca001b9b3b0e57b",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:12:06.731Z"
+    },
+    {
+      "name": "Стакан",
+      "genPlural": "стаканов",
+      "genSingular": "стакана",
+      "categories": "WRK,BLG,DSP",
+      "id": "6ae44ab6e2b85c75e068686a",
+      "_id": "6ae44ab6e2b85c75e068686a",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:12:07.984Z"
+    },
+    {
+      "name": "Стойка",
+      "genPlural": "стоек",
+      "genSingular": "стойки",
+      "categories": "TRN,WRK,BLG,DIO,DSP",
+      "id": "6adceeeb3ca001b9b3b0e571",
+      "_id": "6adceeeb3ca001b9b3b0e571",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:12:09.406Z"
+    },
+    {
+      "name": "Столешница",
+      "genPlural": "столешниц",
+      "genSingular": "столешницы",
+      "categories": "",
+      "id": "6afefd881ca5b05a5ce7f7ce",
+      "_id": "6afefd881ca5b05a5ce7f7ce",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-19T13:45:44.047Z"
+    },
+    {
+      "name": "Стул откидной",
+      "genPlural": "откидных стульев",
+      "genSingular": "откидного стула",
+      "categories": "WRK,BLG",
+      "id": "6adceeeb3ca001b9b3b0e580",
+      "_id": "6adceeeb3ca001b9b3b0e580",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:12:10.71Z"
+    },
+    {
+      "name": "Ступень",
+      "genPlural": "ступеней",
+      "genSingular": "ступени",
+      "categories": "WRK,DIO,DSP",
+      "id": "6adceeeb3ca001b9b3b0e581",
+      "_id": "6adceeeb3ca001b9b3b0e581",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:12:11.977Z"
+    },
+    {
+      "name": "Тумба",
+      "genPlural": "тумб",
+      "genSingular": "тумбы",
+      "categories": "TRN,BLG",
+      "id": "6adceeeb3ca001b9b3b0e585",
+      "_id": "6adceeeb3ca001b9b3b0e585",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:12:13.243Z"
+    },
+    {
+      "name": "Указатель",
+      "genPlural": "указателей",
+      "genSingular": "указателя",
+      "categories": "BLG",
+      "id": "6afd4bc97485414ce8b72e9b",
+      "_id": "6afd4bc97485414ce8b72e9b",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-19T13:14:33.242Z"
+    },
+    {
+      "name": "Упор для груди",
+      "genPlural": "упоров для груди",
+      "genSingular": "упора для груди",
+      "categories": "TRN",
+      "id": "6adceeeb3ca001b9b3b0e578",
+      "_id": "6adceeeb3ca001b9b3b0e578",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:12:14.545Z"
+    },
+    {
+      "name": "Упор для ног",
+      "genPlural": "упоров для ног",
+      "genSingular": "упора для ног",
+      "categories": "TRN,WRK",
+      "id": "6adceeeb3ca001b9b3b0e577",
+      "_id": "6adceeeb3ca001b9b3b0e577",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:12:15.846Z"
+    },
+    {
+      "name": "Упор для спины",
+      "genPlural": "упоров для спины",
+      "genSingular": "упора для спины",
+      "categories": "TRN,WRK",
+      "id": "6adceeeb3ca001b9b3b0e579",
+      "_id": "6adceeeb3ca001b9b3b0e579",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:12:17.126Z"
+    },
+    {
+      "name": "Ферма",
+      "genPlural": "ферм",
+      "genSingular": "фермы",
+      "categories": "WRK,BLG",
+      "id": "6ae44ab6e2b85c75e0686867",
+      "_id": "6ae44ab6e2b85c75e0686867",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:12:18.402Z"
+    },
+    {
+      "name": "Хомут",
+      "genPlural": "хомутов",
+      "genSingular": "хомута",
+      "categories": "TRN,WRK,DIO,DSP",
+      "id": "6adceeeb3ca001b9b3b0e573",
+      "_id": "6adceeeb3ca001b9b3b0e573",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:12:19.658Z"
+    },
+    {
+      "name": "Шит",
+      "genPlural": "",
+      "genSingular": "",
+      "categories": "WRK",
+      "id": "6afd50b17485414ce8b7350d",
+      "_id": "6afd50b17485414ce8b7350d",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-19T13:07:55.24Z"
+    },
+    {
+      "name": "Щит",
+      "genPlural": "щитов",
+      "genSingular": "щита",
+      "categories": "WRK,BLG,DSP",
+      "id": "6adceeeb3ca001b9b3b0e584",
+      "_id": "6adceeeb3ca001b9b3b0e584",
+      "dict": "passportParts",
+      "updatedAt": "2026-11-10T15:12:20.923Z"
+    }
+  ],
+  "total": 51,
+  "page": 1,
+  "limit": 51,
+  "dict": {
+    "key": "passportParts",
+    "title": "Части изделия",
+    "newTitle": "Новая часть изделия",
+    "group": "Паспорта",
+    "hint": "Названия частей для текста паспорта. Пример: «Стойка», «Перекладина», «Хомут» → «Состоит из стоек, перекладин и хомутов». Изготавливаемые детали ведутся отдельно в разделе «Детали».",
+    "columns": [
+      {
+        "key": "genPlural",
+        "label": "Родительный падеж, мн. ч."
+      },
+      {
+        "key": "genSingular",
+        "label": "Родительный падеж, ед. ч."
+      },
+      {
+        "key": "categories",
+        "label": "В коротком списке у типов"
+      }
+    ],
+    "fields": [
+      {
+        "key": "name",
+        "label": "Название",
+        "required": true,
+        "wide": true
+      },
+      {
+        "key": "genPlural",
+        "label": "Родительный падеж, мн. ч.",
+        "hint": "«стоек» — так в тексте «Состоит из…»"
+      },
+      {
+        "key": "genSingular",
+        "label": "Родительный падеж, ед. ч.",
+        "hint": "«стойки»"
+      },
+      {
+        "key": "categories",
+        "label": "В коротком списке у типов",
+        "wide": true,
+        "hint": "Типы паспорта, где часть сразу в таблице материалов. Пусто — в коротком списке нет (только «Показать все части»)"
+      }
+    ],
+    "refs": {},
+    "sections": [
+      "Документация",
+      "Продукция"
+    ],
+    "refBy": "id",
+    "locked": []
+  }
+}

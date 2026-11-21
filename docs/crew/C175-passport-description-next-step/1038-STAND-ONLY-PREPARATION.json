@@ -1,0 +1,13 @@
+{
+  "reason": "Копиястарееprod,kindотсутствовал",
+  "contour": "stand",
+  "patch": {
+    "expected": {
+      "kindId": null
+    },
+    "changes": {
+      "kindId": "6af707fdc451d4c05df6a047"
+    }
+  },
+  "prodPlanChanged": false
+}

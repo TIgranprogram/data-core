@@ -1,0 +1,97 @@
+{
+  "productId": "6adafef82a8dad6034b1451c",
+  "sku": "1038",
+  "readiness": {
+    "ready": false,
+    "missing": [
+      {
+        "key": "simpleDescription",
+        "label": "Краткое описание не определено",
+        "hint": "Карточка изделия → Паспорт → Добавьте фразу для изделия"
+      }
+    ],
+    "recommendations": [],
+    "defaulted": [
+      {
+        "key": "heightMin",
+        "label": "Рост пользователя от"
+      },
+      {
+        "key": "weightMax",
+        "label": "Вес пользователя до"
+      }
+    ],
+    "requiredImages": [
+      "overview",
+      "dimensions"
+    ],
+    "imageSlots": [
+      "overview",
+      "dimensions",
+      "mounting",
+      "holes",
+      "assembly",
+      "bom_item"
+    ]
+  },
+  "simpleDescriptionSource": null,
+  "simpleDescriptionSuggestions": [],
+  "simpleChoices": null,
+  "product": {
+    "name": "Уличный тренажёр - Жим от плеч «STREET IRON»",
+    "article": "1038",
+    "dimensions": {
+      "length": 1655,
+      "width": 1036,
+      "height": 1893,
+      "unit": "мм"
+    },
+    "weightKg": 136,
+    "facetValueIds": [
+      "6aeea9373b8b9255839ab43b"
+    ]
+  },
+  "defaults": {
+    "elements": [
+      "6ada091046ad81616709da46"
+    ],
+    "installationTypeId": "6ada090c7536f8509feb4244",
+    "textChoices": {
+      "6add909915d601111692a40f": "6adb5ab2edd024ba63d7f190",
+      "6add909915d601111692a410": "6adb5ab2edd024ba63d7f1aa"
+    },
+    "joints": [
+      "solid"
+    ],
+    "maxUsers": 1,
+    "serviceLifeYears": 10,
+    "warrantyMonths": 12,
+    "materialIds": [
+      "6adceeeb3ca001b9b3b0e4e1",
+      "6adceeeb3ca001b9b3b0e4f5"
+    ],
+    "foundationDepth": 0,
+    "kindId": "6af707fdc451d4c05df6a047"
+  },
+  "diagnosis": {
+    "kindId": "6af707fdc451d4c05df6a047",
+    "reason": "Нагрузка не задаёт контактную конструкцию. Нет живой root/leaf simple-description этого вида; old43 предлагает отдельный конструктивный критерий другого изделия. Подтверждение состава1038 необходимо, автоматически критерий не присваивать.",
+    "trait": {
+      "code": "trn.load.body",
+      "id": "6aeea9373b8b9255839ab43b",
+      "parentName": "Нагрузка",
+      "parentId": "6aeea9373b8b9255839ab423",
+      "name": "Собственный вес"
+    },
+    "old43": {
+      "covers1038Automatically": false,
+      "root": "root.T1",
+      "criterion": "value.T1",
+      "leaf": "leaf.T1",
+      "evidenceProductId": "6adaff2f2a8dad6034b1456f",
+      "code": "trn.contact.seats-backs-levers-grips",
+      "criterionName": "Сиденья со спинками и рычаги с рукоятками"
+    },
+    "liveShortPhrasesForKind": 0
+  }
+}

@@ -90,3 +90,5 @@
 - 2026-11-20: C169 MVP — локальный разбор договоров/КП/RUB-счетов через пульт, устойчивые UID/SHA, атомарные строки, сверка оригинала и выборочный повтор. Backend8d68df6c/sourceed01b939, release-v1.977-ed01b939,5индексовready; клиент0387ccc2 продлевает сессию в памяти. Unit3866/e2e735, пульт83/engine23, real broker/API и независимый prod GET PASS; бизнес-записей на проде0. [C169 итог](crew/C169-local-document-intake/POST-RELEASE.md).
 
 - 21.11.2026: C172+C174 выпущены v1.979, source ba40418f, UI6d347af4, тег release-v1.979-ba40418f. Backup/health/app/admin/CRM200, smoke7/7 PASS; unit3889/e2e757 PASS,12opt-inSKIP. Независимая проверка — crew/C172-inventor-image-flow/POST-RELEASE.md. C173/реальный Inventor/полный архив остаются открыты.
+
+- 2026-11-21, данныеC175 наv1.979:47разрешённыхоперацийсправочников/связи1038;short1038ready/dictionary6parts,41старыйпаспортнеизменён. UIпринятнаstand,выпускаетсяследомсC176;all493необъявленыготовыми. crew/C175-passport-description-next-step/APPLY-REPORT.md.

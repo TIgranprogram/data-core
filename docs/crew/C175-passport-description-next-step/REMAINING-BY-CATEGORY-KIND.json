@@ -1,0 +1,325 @@
+{
+  "canPassportFalse": [
+    {
+      "id": "6af2cd2fc7bb1cf477582b65",
+      "sku": "6104.0000.0000",
+      "name": "6104.0000.0000",
+      "ppCategory": null,
+      "ppSource": null,
+      "kind": null,
+      "facetValueIds": [],
+      "missing": [
+        "Нет типа паспорта — задайте его в группе или виде изделия"
+      ]
+    }
+  ],
+  "category": [
+    {
+      "withoutTraits": 1,
+      "withoutKind": 1,
+      "category": "",
+      "total": 1
+    },
+    {
+      "withoutTraits": 165,
+      "withoutKind": 23,
+      "category": "BLG",
+      "total": 173
+    },
+    {
+      "withoutTraits": 29,
+      "withoutKind": 3,
+      "category": "DIO",
+      "total": 29
+    },
+    {
+      "withoutTraits": 2,
+      "withoutKind": 82,
+      "category": "TRN",
+      "total": 87
+    },
+    {
+      "withoutTraits": 202,
+      "withoutKind": 203,
+      "category": "WRK",
+      "total": 203
+    }
+  ],
+  "kind": [
+    {
+      "name": "Навесы",
+      "kindId": "6af6ca4a22a0611d2b3a4733",
+      "examples": [
+        {
+          "id": "6adaff3b2a8dad6034b145c5",
+          "sku": "26_3",
+          "name": "Беседка МЗДАХ"
+        },
+        {
+          "id": "6adaff3b2a8dad6034b145c4",
+          "sku": "26_2",
+          "name": "Беседка детская"
+        },
+        {
+          "id": "6adaff3b2a8dad6034b145c6",
+          "sku": "26_4",
+          "name": "Беседка с камышовой крышей"
+        },
+        {
+          "id": "6addd770c93bb8ea2a6e3960",
+          "sku": "3102",
+          "name": "Пергола"
+        }
+      ],
+      "noSuggestions": 15,
+      "total": 15
+    },
+    {
+      "name": "Ограждения",
+      "kindId": "6af6ca4a22a0611d2b3a4734",
+      "examples": [],
+      "noSuggestions": 0,
+      "total": 28
+    },
+    {
+      "name": "Скамьи",
+      "kindId": "6af6ca4a22a0611d2b3a4735",
+      "examples": [
+        {
+          "id": "6addd771c93bb8ea2a6e398a",
+          "sku": "3402",
+          "name": "Скамейка"
+        }
+      ],
+      "noSuggestions": 1,
+      "total": 22
+    },
+    {
+      "name": "Урны",
+      "kindId": "6af6ca4a22a0611d2b3a4736",
+      "examples": [],
+      "noSuggestions": 0,
+      "total": 13
+    },
+    {
+      "name": "Велопарковки",
+      "kindId": "6af6ca4a22a0611d2b3a4737",
+      "examples": [
+        {
+          "id": "6adaff462a8dad6034b14619",
+          "sku": "ПС-08153E",
+          "name": "Велопарковка с бетонными боковинами"
+        },
+        {
+          "id": "6adaff462a8dad6034b1461a",
+          "sku": "ПС-2193E8",
+          "name": "Велопарковка с нержавеющими стойками"
+        },
+        {
+          "id": "6addd772c93bb8ea2a6e39a5",
+          "sku": "3801",
+          "name": "Велопарковки на территории МО «Город Майкоп»"
+        },
+        {
+          "id": "6addd772c93bb8ea2a6e39a8",
+          "sku": "3802",
+          "name": "Велопарковки на территории МО «Город Майкоп»"
+        }
+      ],
+      "noSuggestions": 4,
+      "total": 4
+    },
+    {
+      "name": "Информационные стенды и указатели",
+      "kindId": "6af6ca4a22a0611d2b3a4738",
+      "examples": [],
+      "noSuggestions": 0,
+      "total": 18
+    },
+    {
+      "name": "Трибуны",
+      "kindId": "6af6ca4a22a0611d2b3a4739",
+      "examples": [],
+      "noSuggestions": 0,
+      "total": 26
+    },
+    {
+      "name": "Качели",
+      "kindId": "6af6ca4a22a0611d2b3a473a",
+      "examples": [],
+      "noSuggestions": 0,
+      "total": 4
+    },
+    {
+      "name": "Карусели",
+      "kindId": "6af6ca4b22a0611d2b3a473b",
+      "examples": [],
+      "noSuggestions": 0,
+      "total": 3
+    },
+    {
+      "name": "Экотропа",
+      "kindId": "6af6fc565ce4939b9c68f90d",
+      "examples": [
+        {
+          "id": "6addd770c93bb8ea2a6e3981",
+          "sku": "3215",
+          "name": "Экотропа"
+        }
+      ],
+      "noSuggestions": 1,
+      "total": 1
+    },
+    {
+      "name": "Кардиотренажёр",
+      "kindId": "6af707fdc451d4c05df6a045",
+      "examples": [],
+      "noSuggestions": 0,
+      "total": 1
+    },
+    {
+      "name": "Тренажёр для ног",
+      "kindId": "6af707fdc451d4c05df6a046",
+      "examples": [],
+      "noSuggestions": 0,
+      "total": 1
+    },
+    {
+      "name": "Тренажёр для груди, плеч и рук",
+      "kindId": "6af707fdc451d4c05df6a047",
+      "examples": [
+        {
+          "id": "6adafef82a8dad6034b1451c",
+          "sku": "1038",
+          "name": "Уличный тренажёр - Жим от плеч «STREET IRON»"
+        },
+        {
+          "id": "6adaff2f2a8dad6034b1456f",
+          "sku": "1026",
+          "name": "Уличный тренажёр Жим+Подтягивание «STREET IRON»"
+        }
+      ],
+      "noSuggestions": 2,
+      "total": 2
+    },
+    {
+      "name": "Тренажёр для спины",
+      "kindId": "6af707fdc451d4c05df6a048",
+      "examples": [],
+      "noSuggestions": 0,
+      "total": 1
+    },
+    {
+      "name": "Стол уличный",
+      "kindId": "6af707fdc451d4c05df6a05b",
+      "examples": [],
+      "noSuggestions": 0,
+      "total": 3
+    },
+    {
+      "name": "Качели городские",
+      "kindId": "6af707fdc451d4c05df6a05c",
+      "examples": [],
+      "noSuggestions": 0,
+      "total": 12
+    },
+    {
+      "name": "Геопластика",
+      "kindId": "6af707fdc451d4c05df6a05d",
+      "examples": [
+        {
+          "id": "6adaff3f2a8dad6034b145ea",
+          "sku": "4207",
+          "name": "«Пончик» из геопластики"
+        },
+        {
+          "id": "6adaff3e2a8dad6034b145de",
+          "sku": "4205",
+          "name": "Геопластика"
+        },
+        {
+          "id": "6adaff3f2a8dad6034b145e9",
+          "sku": "4206",
+          "name": "Геопластика"
+        },
+        {
+          "id": "6adaff332a8dad6034b1458a",
+          "sku": "4203",
+          "name": "Дубль-холм. Геопластика из 2-х холмов с нерж. тоннелями"
+        }
+      ],
+      "noSuggestions": 8,
+      "total": 8
+    },
+    {
+      "name": "Качалка-балансир",
+      "kindId": "6af707fdc451d4c05df6a05e",
+      "examples": [],
+      "noSuggestions": 0,
+      "total": 4
+    },
+    {
+      "name": "Качалка на пружине",
+      "kindId": "6af707fdc451d4c05df6a05f",
+      "examples": [],
+      "noSuggestions": 0,
+      "total": 3
+    },
+    {
+      "name": "Игровой комплекс",
+      "kindId": "6af707fdc451d4c05df6a060",
+      "examples": [
+        {
+          "id": "6af401e4d83abd4d10b808d5",
+          "sku": "6107",
+          "name": "Арт-объект «Великан»"
+        },
+        {
+          "id": "6adaff402a8dad6034b145f0",
+          "sku": "21_7",
+          "name": "Детская музыкальная площадка"
+        },
+        {
+          "id": "6addd772c93bb8ea2a6e39d2",
+          "sku": "6105",
+          "name": "Детский игровой комплекс"
+        },
+        {
+          "id": "6adaff3d2a8dad6034b145d7",
+          "sku": "21_3",
+          "name": "Детский игровой комплекс ИКС-13"
+        }
+      ],
+      "noSuggestions": 12,
+      "total": 12
+    },
+    {
+      "name": null,
+      "kindId": "",
+      "examples": [
+        {
+          "id": "6af2cd2fc7bb1cf477582b65",
+          "sku": "6104.0000.0000",
+          "name": "6104.0000.0000"
+        },
+        {
+          "id": "6af401f0d83abd4d10b8093d",
+          "sku": "3225",
+          "name": "«Луна»"
+        },
+        {
+          "id": "6af401ebd83abd4d10b80915",
+          "sku": "3223",
+          "name": "«Мир Нартов»"
+        },
+        {
+          "id": "6af401eed83abd4d10b80929",
+          "sku": "3224",
+          "name": "«Солнце»"
+        }
+      ],
+      "noSuggestions": 312,
+      "total": 312
+    }
+  ]
+}

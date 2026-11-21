@@ -1,0 +1,44 @@
+[
+  {
+    "theme": "light",
+    "status": "PASS",
+    "save": [
+      {
+        "simpleDescription": {
+          "text": "Проверенный ручной текст.",
+          "partIds": [
+            "frame"
+          ]
+        }
+      }
+    ],
+    "geometry": {
+      "scroll": 279,
+      "width": 279,
+      "page": 1425,
+      "viewport": 1440
+    },
+    "errors": []
+  },
+  {
+    "theme": "dark",
+    "status": "PASS",
+    "save": [
+      {
+        "simpleDescription": {
+          "text": "Проверенный ручной текст.",
+          "partIds": [
+            "frame"
+          ]
+        }
+      }
+    ],
+    "geometry": {
+      "scroll": 279,
+      "width": 279,
+      "page": 1425,
+      "viewport": 1440
+    },
+    "errors": []
+  }
+]

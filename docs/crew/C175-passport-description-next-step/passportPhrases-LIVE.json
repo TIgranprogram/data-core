@@ -1,0 +1,5033 @@
+{
+  "items": [
+    {
+      "name": "Анкерное крепление",
+      "section": "installation",
+      "parentId": "6add909915d601111692a410",
+      "categories": "TRN, WRK",
+      "allCategories": false,
+      "order": 3,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "6ada090c7536f8509feb4244",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Изделие устанавливается на открытых спортивных площадках и дворовых территориях и крепится анкерными болтами к твёрдому основанию (бетонной плите, фундаменту).",
+      "id": "6adb5ab2edd024ba63d7f1aa",
+      "_id": "6adb5ab2edd024ba63d7f1aa",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 17,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Анкерное крепление",
+      "section": "installation",
+      "parentId": "6add909915d601111692a410",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 7,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "6ada090c7536f8509feb4244",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Изделие устанавливается в местах общественного пользования: на дворовых территориях, в парках и пешеходных зонах и крепится анкерными болтами к твёрдому основанию (бетонной плите, фундаменту).",
+      "id": "6adb5ab2edd024ba63d7f1b4",
+      "_id": "6adb5ab2edd024ba63d7f1b4",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:47:50.657Z",
+      "used": 10,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Анкерное крепление",
+      "section": "installation",
+      "parentId": "6add909915d601111692a410",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 12,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "6ada090c7536f8509feb4244",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Изделие устанавливается на детских игровых площадках и крепится анкерными болтами к твёрдому основанию (бетонной плите, фундаменту).",
+      "id": "6adb5ab2edd024ba63d7f1b9",
+      "_id": "6adb5ab2edd024ba63d7f1b9",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Баскетбол",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 9,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для игры в баскетбол.",
+      "id": "6adb5ab2edd024ba63d7f198",
+      "_id": "6adb5ab2edd024ba63d7f198",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 20,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Бетонирование опорной части изделия",
+      "section": "installation",
+      "parentId": "6add909915d601111692a410",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 5,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "6ada090c7536f8509feb4243",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Изделие устанавливают в местах общественного пользования: на дворовых территориях, в парках и пешеходных зонах. Опорную часть изделия закрепляют бетонированием в соответствии со схемой установки и указаниями изготовителя.",
+      "id": "6adb5ab2edd024ba63d7f1b2",
+      "_id": "6adb5ab2edd024ba63d7f1b2",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-12T13:55:11.525Z",
+      "used": 36,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Бетонирование опорных стоек",
+      "section": "installation",
+      "parentId": "6add909915d601111692a410",
+      "categories": "TRN, WRK",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "6ada090c7536f8509feb4243",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Изделие устанавливается на открытых спортивных площадках и дворовых территориях; опорные стойки бетонируют в грунт.",
+      "id": "6adb5ab2edd024ba63d7f1a8",
+      "_id": "6adb5ab2edd024ba63d7f1a8",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 1,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Бетонирование опорных стоек",
+      "section": "installation",
+      "parentId": "6add909915d601111692a410",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 10,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "6ada090c7536f8509feb4243",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Изделие устанавливается на детских игровых площадках; опорные стойки бетонируют в грунт.",
+      "id": "6adb5ab2edd024ba63d7f1b7",
+      "_id": "6adb5ab2edd024ba63d7f1b7",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 1,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Брусья",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 8,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для отжиманий на брусьях и упражнений в упоре.",
+      "id": "6adb5ab2edd024ba63d7f197",
+      "_id": "6adb5ab2edd024ba63d7f197",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 20,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Волейбол",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 10,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для игры в волейбол.",
+      "id": "6adb5ab2edd024ba63d7f199",
+      "_id": "6adb5ab2edd024ba63d7f199",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 10,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Гимнастика, пресс",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 13,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для гимнастических упражнений и тренировки мышц пресса.",
+      "id": "6adb5ab2edd024ba63d7f19c",
+      "_id": "6adb5ab2edd024ba63d7f19c",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 6,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Гимнастические кольца",
+      "section": "simple-description",
+      "parentId": "6aff08c1fd285cf4215c5208",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6afef76f1ca5b05a5ce7f2ce"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Рабочая часть снаряда — подвесные гимнастические кольца.",
+      "partIds": [
+        "6adceeeb3ca001b9b3b0e586"
+      ],
+      "kindIds": [
+        "6af707fdc451d4c05df6a058"
+      ],
+      "id": "6aff08c3fd285cf4215c5211",
+      "_id": "6aff08c3fd285cf4215c5211",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:39.447Z",
+      "used": 0,
+      "facetValueNames": "Гимнастические кольца",
+      "groupNames": "",
+      "kindNames": "Кольца, канат, скалодром",
+      "partNames": "Кольцо гимнастическое"
+    },
+    {
+      "name": "Грудь, плечи, руки",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "TRN",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для тренировки мышц груди, плечевого пояса и рук.",
+      "id": "6adb5ab2edd024ba63d7f190",
+      "_id": "6adb5ab2edd024ba63d7f190",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 25,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Две платформы для ног и рукоятка",
+      "section": "simple-description",
+      "parentId": "6aff08a6fd285cf4215c51b4",
+      "categories": "TRN",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6afef7661ca5b05a5ce7f2b5"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Тренажёр состоит из каркаса с рукояткой и двух платформ для ног.",
+      "partIds": [
+        "6af81f883389de160b2c97d9",
+        "6adceeeb3ca001b9b3b0e575",
+        "6ae32682a3f6de10abf0365b"
+      ],
+      "kindIds": [
+        "6af707fdc451d4c05df6a046"
+      ],
+      "id": "6aff08a8fd285cf4215c51bb",
+      "_id": "6aff08a8fd285cf4215c51bb",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:12.967Z",
+      "used": 2,
+      "facetValueNames": "Две платформы для ног и рукоятка",
+      "groupNames": "",
+      "kindNames": "Тренажёр для ног",
+      "partNames": "Каркас, Ручка, Ногоступ"
+    },
+    {
+      "name": "Детский спорт",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "DSP",
+      "allCategories": false,
+      "order": 99,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для спортивных игр и упражнений детей.",
+      "id": "6aeea931e6cf14bd396f3b18",
+      "_id": "6aeea931e6cf14bd396f3b18",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Единоборства",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 12,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для отработки ударов и занятий единоборствами.",
+      "id": "6adb5ab2edd024ba63d7f19b",
+      "_id": "6adb5ab2edd024ba63d7f19b",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Закладные детали",
+      "section": "installation",
+      "parentId": "6add909915d601111692a410",
+      "categories": "TRN, WRK",
+      "allCategories": false,
+      "order": 2,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "6ada090c7536f8509feb4245",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Изделие устанавливается на открытых спортивных площадках и дворовых территориях и крепится к закладным деталям, забетонированным в основание.",
+      "id": "6adb5ab2edd024ba63d7f1a9",
+      "_id": "6adb5ab2edd024ba63d7f1a9",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 1,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Закладные детали",
+      "section": "installation",
+      "parentId": "6add909915d601111692a410",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 6,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "6ada090c7536f8509feb4245",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Изделие устанавливается в местах общественного пользования: на дворовых территориях, в парках и пешеходных зонах и крепится к закладным деталям, забетонированным в основание.",
+      "id": "6adb5ab2edd024ba63d7f1b3",
+      "_id": "6adb5ab2edd024ba63d7f1b3",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:47:50.657Z",
+      "used": 2,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Закладные детали",
+      "section": "installation",
+      "parentId": "6add909915d601111692a410",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 11,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "6ada090c7536f8509feb4245",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Изделие устанавливается на детских игровых площадках и крепится к закладным деталям, забетонированным в основание.",
+      "id": "6adb5ab2edd024ba63d7f1b8",
+      "_id": "6adb5ab2edd024ba63d7f1b8",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Занятия с сопровождающим для маломобильных групп",
+      "section": "use",
+      "parentId": "",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 16,
+      "text": "",
+      "id": "6aeea943461bef0a491fe534",
+      "_id": "6aeea943461bef0a491fe534",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:55.1Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Зрительские места",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "WRK, BLG",
+      "allCategories": false,
+      "order": 99,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для размещения зрителей и судей.",
+      "id": "6aeea931e6cf14bd396f3b17",
+      "_id": "6aeea931e6cf14bd396f3b17",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 31,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Зрительский модуль",
+      "section": "simple-description",
+      "parentId": "6aff0a31fd285cf4215c5360",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6afef7931ca5b05a5ce7f319"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Зрительские места расположены на основании трибуны.",
+      "partIds": [
+        "6adceeeb3ca001b9b3b0e57a"
+      ],
+      "kindIds": [
+        "6af6ca4a22a0611d2b3a4739"
+      ],
+      "id": "6aff0a33fd285cf4215c5367",
+      "_id": "6aff0a33fd285cf4215c5367",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:47.723Z",
+      "used": 0,
+      "facetValueNames": "Зрительские места",
+      "groupNames": "",
+      "kindNames": "Трибуны",
+      "partNames": "Сиденье"
+    },
+    {
+      "name": "Игровое",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 24,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для игр и активного отдыха детей на детской игровой площадке.",
+      "id": "6adb5ab2edd024ba63d7f1a7",
+      "_id": "6adb5ab2edd024ba63d7f1a7",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 31,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Информационный стенд",
+      "section": "simple-description",
+      "parentId": "6aff0a0dfd285cf4215c52ea",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6afef7831ca5b05a5ce7f2f1"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Информационная панель образует лицевую часть стенда.",
+      "partIds": [],
+      "kindIds": [
+        "6af6ca4a22a0611d2b3a4738"
+      ],
+      "id": "6aff0a0ffd285cf4215c52f1",
+      "_id": "6aff0a0ffd285cf4215c52f1",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:11.148Z",
+      "used": 0,
+      "facetValueNames": "Стенд с информационной панелью",
+      "groupNames": "",
+      "kindNames": "Информационные стенды и указатели",
+      "partNames": ""
+    },
+    {
+      "name": "Информирование",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 21,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для размещения информации.",
+      "id": "6adb5ab2edd024ba63d7f1a4",
+      "_id": "6adb5ab2edd024ba63d7f1a4",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:47:50.657Z",
+      "used": 24,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Информирование — указатели и стенды",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 21,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [
+        "6addd76fc93bb8ea2a6e3945"
+      ],
+      "slot": "",
+      "text": "Предназначено для размещения информации.",
+      "id": "6af5b27ae665aeae7f9513f8",
+      "_id": "6af5b27ae665aeae7f9513f8",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-12T12:35:06.571Z",
+      "used": 11,
+      "facetValueNames": "",
+      "groupNames": "Информационные стенды и указатели"
+    },
+    {
+      "name": "Испытания ГТО",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 99,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для подготовки к испытаниям (тестам) комплекса ГТО и их выполнения.",
+      "id": "6aeea931e6cf14bd396f3b16",
+      "_id": "6aeea931e6cf14bd396f3b16",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 10,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Калитка",
+      "section": "simple-description",
+      "parentId": "6aff0a19fd285cf4215c5310",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 2,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aeea9373b8b9255839ab452"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Калитка представляет собой подвижную створку для прохода через ограждение.",
+      "partIds": [
+        "6ae44ab6e2b85c75e068686d"
+      ],
+      "kindIds": [
+        "6af6ca4a22a0611d2b3a4734"
+      ],
+      "id": "6aff0a1dfd285cf4215c5320",
+      "_id": "6aff0a1dfd285cf4215c5320",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:25.736Z",
+      "used": 0,
+      "facetValueNames": "Калитка",
+      "groupNames": "",
+      "kindNames": "Ограждения",
+      "partNames": "Калитка"
+    },
+    {
+      "name": "Канат",
+      "section": "simple-description",
+      "parentId": "6aff08c1fd285cf4215c5208",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 2,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6afef7731ca5b05a5ce7f2d5"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Рабочая часть снаряда — подвесной канат для лазания.",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a058"
+      ],
+      "id": "6aff08c5fd285cf4215c5218",
+      "_id": "6aff08c5fd285cf4215c5218",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:41.671Z",
+      "used": 0,
+      "facetValueNames": "Канат",
+      "groupNames": "",
+      "kindNames": "Кольца, канат, скалодром",
+      "partNames": ""
+    },
+    {
+      "name": "Кардио",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "TRN",
+      "allCategories": false,
+      "order": 5,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для кардиотренировки и развития выносливости.",
+      "id": "6adb5ab2edd024ba63d7f194",
+      "_id": "6adb5ab2edd024ba63d7f194",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 17,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Кольца, канат, скалодром",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 99,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для упражнений в висе, лазания и развития силы хвата.",
+      "id": "6aeea931e6cf14bd396f3b15",
+      "_id": "6aeea931e6cf14bd396f3b15",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 6,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Комплекс с собственным весом",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 15,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для выполнения комплекса упражнений с собственным весом.",
+      "id": "6adb5ab2edd024ba63d7f19e",
+      "_id": "6adb5ab2edd024ba63d7f19e",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 55,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Комплексный",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "TRN",
+      "allCategories": false,
+      "order": 6,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для комплексной тренировки основных групп мышц.",
+      "id": "6adb5ab2edd024ba63d7f195",
+      "_id": "6adb5ab2edd024ba63d7f195",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 5,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Краткое описание — Баскетбольная стойка",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a053"
+      ],
+      "id": "6aff08affd285cf4215c51d0",
+      "_id": "6aff08affd285cf4215c51d0",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:19.733Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Баскетбольная стойка",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Брусья",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a04d"
+      ],
+      "id": "6aff08b4fd285cf4215c51de",
+      "_id": "6aff08b4fd285cf4215c51de",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:24.161Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Брусья",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Вазон, цветочница",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a059"
+      ],
+      "id": "6aff0a08fd285cf4215c52dc",
+      "_id": "6aff0a08fd285cf4215c52dc",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:04.568Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Вазон, цветочница",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Вело",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "TRN",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aff3bbc1eb87438515b40a1"
+      ],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a045"
+      ],
+      "id": "6aff3bbe1eb87438515b40a8",
+      "_id": "6aff3bbe1eb87438515b40a8",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T18:11:10.908Z",
+      "used": 0,
+      "facetValueNames": "Сиденье, рукоятки и педали",
+      "groupNames": "",
+      "kindNames": "Кардиотренажёр",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Волейбольные стойки",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a054"
+      ],
+      "id": "6aff08b8fd285cf4215c51ec",
+      "_id": "6aff08b8fd285cf4215c51ec",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:28.505Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Волейбольные стойки",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Ворота для мини-футбола",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a055"
+      ],
+      "id": "6aff08bcfd285cf4215c51fa",
+      "_id": "6aff08bcfd285cf4215c51fa",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:32.835Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Ворота для мини-футбола",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Гребная тяга",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "TRN",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aff288afd285cf4215c7593"
+      ],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a048"
+      ],
+      "id": "6aff288cfd285cf4215c759c",
+      "_id": "6aff288cfd285cf4215c759c",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T16:49:16.918Z",
+      "used": 1,
+      "facetValueNames": "Рычаги с рукоятками и упоры для ног",
+      "groupNames": "",
+      "kindNames": "Тренажёр для спины",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Информационные стенды и указатели",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af6ca4a22a0611d2b3a4738"
+      ],
+      "id": "6aff0a0dfd285cf4215c52ea",
+      "_id": "6aff0a0dfd285cf4215c52ea",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:09.032Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Информационные стенды и указатели",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Карусели",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af6ca4b22a0611d2b3a473b"
+      ],
+      "id": "6aff0a3cfd285cf4215c5385",
+      "_id": "6aff0a3cfd285cf4215c5385",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:56.677Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Карусели",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Качалка на пружине",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a05f"
+      ],
+      "id": "6aff0a41fd285cf4215c5393",
+      "_id": "6aff0a41fd285cf4215c5393",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:40:01.101Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Качалка на пружине",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Качалка-балансир",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a05e"
+      ],
+      "id": "6aff0a45fd285cf4215c53a1",
+      "_id": "6aff0a45fd285cf4215c53a1",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:40:05.395Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Качалка-балансир",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Качели",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af6ca4a22a0611d2b3a473a"
+      ],
+      "id": "6aff0a49fd285cf4215c53af",
+      "_id": "6aff0a49fd285cf4215c53af",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:40:09.705Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Качели",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Качели городские",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a05c"
+      ],
+      "id": "6aff0a14fd285cf4215c5302",
+      "_id": "6aff0a14fd285cf4215c5302",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:16.484Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Качели городские",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Кольца, канат, скалодром",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a058"
+      ],
+      "id": "6aff08c1fd285cf4215c5208",
+      "_id": "6aff08c1fd285cf4215c5208",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:37.171Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Кольца, канат, скалодром",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Комплексный тренажёр",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "TRN",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a04b"
+      ],
+      "id": "6aff08abfd285cf4215c51c2",
+      "_id": "6aff08abfd285cf4215c51c2",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:15.311Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Комплексный тренажёр",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Ограждения",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af6ca4a22a0611d2b3a4734"
+      ],
+      "id": "6aff0a19fd285cf4215c5310",
+      "_id": "6aff0a19fd285cf4215c5310",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:21.047Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Ограждения",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Приствольная решётка",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a05a"
+      ],
+      "id": "6aff0a22fd285cf4215c532e",
+      "_id": "6aff0a22fd285cf4215c532e",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:30.146Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Приствольная решётка",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Рукоход",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a04f"
+      ],
+      "id": "6aff08cafd285cf4215c5227",
+      "_id": "6aff08cafd285cf4215c5227",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:46.596Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Рукоход",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Скамьи",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af6ca4a22a0611d2b3a4735"
+      ],
+      "id": "6aff0a26fd285cf4215c533c",
+      "_id": "6aff0a26fd285cf4215c533c",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:34.397Z",
+      "used": 2,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Скамьи",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Скамья для пресса",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a051"
+      ],
+      "id": "6aff08cffd285cf4215c5235",
+      "_id": "6aff08cffd285cf4215c5235",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:51.111Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Скамья для пресса",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Стол уличный",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a05b"
+      ],
+      "id": "6aff0a2dfd285cf4215c5351",
+      "_id": "6aff0a2dfd285cf4215c5351",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:41.175Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Стол уличный",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Тренажёр для ног",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "TRN",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a046"
+      ],
+      "id": "6aff08a6fd285cf4215c51b4",
+      "_id": "6aff08a6fd285cf4215c51b4",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:10.77Z",
+      "used": 2,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Тренажёр для ног",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Трибуны",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af6ca4a22a0611d2b3a4739"
+      ],
+      "id": "6aff0a31fd285cf4215c5360",
+      "_id": "6aff0a31fd285cf4215c5360",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:45.499Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Трибуны",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Турник",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a04c"
+      ],
+      "id": "6aff08d3fd285cf4215c5243",
+      "_id": "6aff08d3fd285cf4215c5243",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:55.426Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Турник",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Турник и брусья",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a04e"
+      ],
+      "id": "6aff08d7fd285cf4215c5251",
+      "_id": "6aff08d7fd285cf4215c5251",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:59.965Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Турник и брусья",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Урны",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af6ca4a22a0611d2b3a4736"
+      ],
+      "id": "6aff0a38fd285cf4215c5375",
+      "_id": "6aff0a38fd285cf4215c5375",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:52.301Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Урны",
+      "partNames": ""
+    },
+    {
+      "name": "Краткое описание — Шведская стенка",
+      "section": "simple-description",
+      "parentId": "",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 0,
+      "required": true,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a050"
+      ],
+      "id": "6aff08dcfd285cf4215c525f",
+      "_id": "6aff08dcfd285cf4215c525f",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:34:04.5Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Шведская стенка",
+      "partNames": ""
+    },
+    {
+      "name": "Крепёж секций ограждения",
+      "section": "care",
+      "parentId": "",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 6,
+      "text": "",
+      "id": "6aeea931e6cf14bd396f3af9",
+      "_id": "6aeea931e6cf14bd396f3af9",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Лестничный модуль",
+      "section": "simple-description",
+      "parentId": "6aff0a31fd285cf4215c5360",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 2,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6afef7961ca5b05a5ce7f320"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Лестничный модуль состоит из ступеней и обеспечивает подъём к зрительским местам.",
+      "partIds": [
+        "6adceeeb3ca001b9b3b0e581"
+      ],
+      "kindIds": [
+        "6af6ca4a22a0611d2b3a4739"
+      ],
+      "id": "6aff0a36fd285cf4215c536e",
+      "_id": "6aff0a36fd285cf4215c536e",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:50.109Z",
+      "used": 0,
+      "facetValueNames": "Лестничный модуль",
+      "groupNames": "",
+      "kindNames": "Трибуны",
+      "partNames": "Ступень"
+    },
+    {
+      "name": "Навес, беседка",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 18,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для защиты от солнца и осадков и организации зоны отдыха.",
+      "id": "6adb5ab2edd024ba63d7f1a1",
+      "_id": "6adb5ab2edd024ba63d7f1a1",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:47:50.657Z",
+      "used": 16,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Назначение",
+      "section": "purpose",
+      "parentId": "",
+      "categories": "",
+      "allCategories": false,
+      "order": 10,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "id": "6add909915d601111692a40f",
+      "_id": "6add909915d601111692a40f",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 450,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Настил для экотропы",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 100,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Изделие предназначено для обустройства пешеходных маршрутов на природных и парковых территориях, защиты почвенно-растительного слоя от вытаптывания и организации безопасного передвижения посетителей.",
+      "id": "6afaa6eb5932bda919d17746",
+      "_id": "6afaa6eb5932bda919d17746",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-16T06:47:07.572Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Ноги",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "TRN",
+      "allCategories": false,
+      "order": 3,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для тренировки мышц ног и ягодиц.",
+      "id": "6adb5ab2edd024ba63d7f192",
+      "_id": "6adb5ab2edd024ba63d7f192",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 31,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Обслуживание велопарковок",
+      "section": "care",
+      "parentId": "",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 9,
+      "text": "",
+      "id": "6aeea931e6cf14bd396f3aff",
+      "_id": "6aeea931e6cf14bd396f3aff",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Обслуживание грузового блока",
+      "section": "service",
+      "parentId": "",
+      "categories": "TRN",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 12,
+      "text": "",
+      "id": "6aeea943461bef0a491fe52a",
+      "_id": "6aeea943461bef0a491fe52a",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:55.1Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Обслуживание детского спортивного оборудования",
+      "section": "service",
+      "parentId": "",
+      "categories": "DSP",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 12,
+      "text": "",
+      "id": "6aeea931e6cf14bd396f3b11",
+      "_id": "6aeea931e6cf14bd396f3b11",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Обслуживание пружин и крепления качалок",
+      "section": "service",
+      "parentId": "",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 12,
+      "text": "",
+      "id": "6aeea931e6cf14bd396f3b0b",
+      "_id": "6aeea931e6cf14bd396f3b0b",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Обслуживание урн",
+      "section": "care",
+      "parentId": "",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 8,
+      "text": "",
+      "id": "6aeea931e6cf14bd396f3afd",
+      "_id": "6aeea931e6cf14bd396f3afd",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Ограждение",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 17,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для ограждения территории площадки.",
+      "id": "6adb5ab2edd024ba63d7f1a0",
+      "_id": "6adb5ab2edd024ba63d7f1a0",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:47:50.657Z",
+      "used": 34,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Ограждение на опорных стойках",
+      "section": "installation",
+      "parentId": "6add909915d601111692a410",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 8,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "6ada091046ad81616709da3d",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Изделие устанавливается в местах общественного пользования: на дворовых территориях, в парках и пешеходных зонах; секции крепятся к опорным стойкам, забетонированным в грунт.",
+      "id": "6adb5ab2edd024ba63d7f1b5",
+      "_id": "6adb5ab2edd024ba63d7f1b5",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:47:50.657Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Ограничения по возрасту 7+",
+      "section": "use",
+      "parentId": "",
+      "categories": "DSP",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 11,
+      "text": "",
+      "id": "6aeea943461bef0a491fe53e",
+      "_id": "6aeea943461bef0a491fe53e",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:55.1Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Озеленение",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 20,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для озеленения и украшения территории.",
+      "id": "6adb5ab2edd024ba63d7f1a3",
+      "_id": "6adb5ab2edd024ba63d7f1a3",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:47:50.657Z",
+      "used": 3,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Опорная стойка",
+      "section": "simple-description",
+      "parentId": "6aff0a19fd285cf4215c5310",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 3,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aeea9373b8b9255839ab453"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Стойка служит опорой для крепления секций ограждения.",
+      "partIds": [
+        "6adceeeb3ca001b9b3b0e571"
+      ],
+      "kindIds": [
+        "6af6ca4a22a0611d2b3a4734"
+      ],
+      "id": "6aff0a1ffd285cf4215c5327",
+      "_id": "6aff0a1ffd285cf4215c5327",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:27.919Z",
+      "used": 0,
+      "facetValueNames": "Стойка, столб",
+      "groupNames": "",
+      "kindNames": "Ограждения",
+      "partNames": "Стойка"
+    },
+    {
+      "name": "Освещение",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 22,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для освещения территории.",
+      "id": "6adb5ab2edd024ba63d7f1a5",
+      "_id": "6adb5ab2edd024ba63d7f1a5",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:47:50.657Z",
+      "used": 2,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Особенности осмотра ворот",
+      "section": "checks",
+      "parentId": "",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 5,
+      "text": "",
+      "id": "6aeea943461bef0a491fe538",
+      "_id": "6aeea943461bef0a491fe538",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:55.1Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Особенности осмотра стоек и сетки",
+      "section": "checks",
+      "parentId": "",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 6,
+      "text": "",
+      "id": "6aeea943461bef0a491fe53a",
+      "_id": "6aeea943461bef0a491fe53a",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:55.1Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Отдых",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 19,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для отдыха посетителей на открытом воздухе.",
+      "id": "6adb5ab2edd024ba63d7f1a2",
+      "_id": "6adb5ab2edd024ba63d7f1a2",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:47:50.657Z",
+      "used": 52,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Подвесы и зазоры качелей",
+      "section": "use",
+      "parentId": "",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 12,
+      "text": "",
+      "id": "6aeea931e6cf14bd396f3b03",
+      "_id": "6aeea931e6cf14bd396f3b03",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Подвесы и осмотр городских качелей",
+      "section": "care",
+      "parentId": "",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 7,
+      "text": "",
+      "id": "6aeea931e6cf14bd396f3afb",
+      "_id": "6aeea931e6cf14bd396f3afb",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Подтверждённая конструкция",
+      "section": "simple-description",
+      "parentId": "6aff08affd285cf4215c51d0",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Стойка служит опорой для баскетбольного щита с кольцом.",
+      "partIds": [
+        "6adceeeb3ca001b9b3b0e571"
+      ],
+      "kindIds": [
+        "6af707fdc451d4c05df6a053"
+      ],
+      "id": "6aff08b1fd285cf4215c51d7",
+      "_id": "6aff08b1fd285cf4215c51d7",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:21.942Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Баскетбольная стойка",
+      "partNames": "Стойка"
+    },
+    {
+      "name": "Подтверждённая конструкция",
+      "section": "simple-description",
+      "parentId": "6aff08b4fd285cf4215c51de",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Рабочая часть брусьев — параллельные перекладины для упора руками.",
+      "partIds": [
+        "6adceeeb3ca001b9b3b0e572"
+      ],
+      "kindIds": [
+        "6af707fdc451d4c05df6a04d"
+      ],
+      "id": "6aff08b6fd285cf4215c51e5",
+      "_id": "6aff08b6fd285cf4215c51e5",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:26.362Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Брусья",
+      "partNames": "Перекладина"
+    },
+    {
+      "name": "Подтверждённая конструкция",
+      "section": "simple-description",
+      "parentId": "6aff08b8fd285cf4215c51ec",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Волейбольные стойки служат опорами для крепления сетки.",
+      "partIds": [
+        "6adceeeb3ca001b9b3b0e571"
+      ],
+      "kindIds": [
+        "6af707fdc451d4c05df6a054"
+      ],
+      "id": "6aff08bafd285cf4215c51f3",
+      "_id": "6aff08bafd285cf4215c51f3",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:30.661Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Волейбольные стойки",
+      "partNames": "Стойка"
+    },
+    {
+      "name": "Подтверждённая конструкция",
+      "section": "simple-description",
+      "parentId": "6aff08bcfd285cf4215c51fa",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Рама ворот образована боковыми стойками и верхней перекладиной.",
+      "partIds": [
+        "6adceeeb3ca001b9b3b0e574",
+        "6adceeeb3ca001b9b3b0e571",
+        "6adceeeb3ca001b9b3b0e572"
+      ],
+      "kindIds": [
+        "6af707fdc451d4c05df6a055"
+      ],
+      "id": "6aff08befd285cf4215c5201",
+      "_id": "6aff08befd285cf4215c5201",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:34.982Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Ворота для мини-футбола",
+      "partNames": "Несущая рама, Стойка, Перекладина"
+    },
+    {
+      "name": "Подтверждённая конструкция",
+      "section": "simple-description",
+      "parentId": "6aff08cafd285cf4215c5227",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Рабочие элементы рукохода расположены последовательно, чтобы перемещаться по ним в висе.",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a04f"
+      ],
+      "id": "6aff08ccfd285cf4215c522e",
+      "_id": "6aff08ccfd285cf4215c522e",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:48.906Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Рукоход",
+      "partNames": ""
+    },
+    {
+      "name": "Подтверждённая конструкция",
+      "section": "simple-description",
+      "parentId": "6aff08cffd285cf4215c5235",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Скамья имеет опорную поверхность для тела при упражнениях на пресс.",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a051"
+      ],
+      "id": "6aff08d1fd285cf4215c523c",
+      "_id": "6aff08d1fd285cf4215c523c",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:53.251Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Скамья для пресса",
+      "partNames": ""
+    },
+    {
+      "name": "Подтверждённая конструкция",
+      "section": "simple-description",
+      "parentId": "6aff08d3fd285cf4215c5243",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Рабочая часть турника — перекладина для виса и подтягиваний.",
+      "partIds": [
+        "6adceeeb3ca001b9b3b0e572"
+      ],
+      "kindIds": [
+        "6af707fdc451d4c05df6a04c"
+      ],
+      "id": "6aff08d5fd285cf4215c524a",
+      "_id": "6aff08d5fd285cf4215c524a",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:57.703Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Турник",
+      "partNames": "Перекладина"
+    },
+    {
+      "name": "Подтверждённая конструкция",
+      "section": "simple-description",
+      "parentId": "6aff08d7fd285cf4215c5251",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Изделие объединяет перекладину для подтягиваний и параллельные перекладины брусьев.",
+      "partIds": [
+        "6adceeeb3ca001b9b3b0e572"
+      ],
+      "kindIds": [
+        "6af707fdc451d4c05df6a04e"
+      ],
+      "id": "6aff08dafd285cf4215c5258",
+      "_id": "6aff08dafd285cf4215c5258",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:34:02.299Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Турник и брусья",
+      "partNames": "Перекладина"
+    },
+    {
+      "name": "Подтверждённая конструкция",
+      "section": "simple-description",
+      "parentId": "6aff08dcfd285cf4215c525f",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Шведская стенка имеет ряд перекладин, расположенных одна над другой.",
+      "partIds": [
+        "6adceeeb3ca001b9b3b0e572"
+      ],
+      "kindIds": [
+        "6af707fdc451d4c05df6a050"
+      ],
+      "id": "6aff08dffd285cf4215c5266",
+      "_id": "6aff08dffd285cf4215c5266",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:34:07.022Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Шведская стенка",
+      "partNames": "Перекладина"
+    },
+    {
+      "name": "Подтверждённая конструкция",
+      "section": "simple-description",
+      "parentId": "6aff0a08fd285cf4215c52dc",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Основная часть вазона — ёмкость для грунта и растений.",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a059"
+      ],
+      "id": "6aff0a0afd285cf4215c52e3",
+      "_id": "6aff0a0afd285cf4215c52e3",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:06.713Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Вазон, цветочница",
+      "partNames": ""
+    },
+    {
+      "name": "Подтверждённая конструкция",
+      "section": "simple-description",
+      "parentId": "6aff0a14fd285cf4215c5302",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Сиденье городских качелей закреплено на подвесах.",
+      "partIds": [
+        "6adceeeb3ca001b9b3b0e57a",
+        "6afefd841ca5b05a5ce7f7c0"
+      ],
+      "kindIds": [
+        "6af707fdc451d4c05df6a05c"
+      ],
+      "id": "6aff0a16fd285cf4215c5309",
+      "_id": "6aff0a16fd285cf4215c5309",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:18.807Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Качели городские",
+      "partNames": "Сиденье, Подвес"
+    },
+    {
+      "name": "Подтверждённая конструкция",
+      "section": "simple-description",
+      "parentId": "6aff0a22fd285cf4215c532e",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Решётка размещается вокруг ствола дерева и закрывает приствольное пространство.",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a05a"
+      ],
+      "id": "6aff0a24fd285cf4215c5335",
+      "_id": "6aff0a24fd285cf4215c5335",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:32.262Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Приствольная решётка",
+      "partNames": ""
+    },
+    {
+      "name": "Подтверждённая конструкция",
+      "section": "simple-description",
+      "parentId": "6aff0a2dfd285cf4215c5351",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Столешница уличного стола установлена на опорах.",
+      "partIds": [
+        "6afefd881ca5b05a5ce7f7ce"
+      ],
+      "kindIds": [
+        "6af707fdc451d4c05df6a05b"
+      ],
+      "id": "6aff0a2ffd285cf4215c5358",
+      "_id": "6aff0a2ffd285cf4215c5358",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:43.267Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Стол уличный",
+      "partNames": "Столешница"
+    },
+    {
+      "name": "Подтверждённая конструкция",
+      "section": "simple-description",
+      "parentId": "6aff0a38fd285cf4215c5375",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Основная часть урны — ёмкость для сбора мусора.",
+      "partIds": [],
+      "kindIds": [
+        "6af6ca4a22a0611d2b3a4736"
+      ],
+      "id": "6aff0a3afd285cf4215c537e",
+      "_id": "6aff0a3afd285cf4215c537e",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:54.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Урны",
+      "partNames": ""
+    },
+    {
+      "name": "Подтверждённая конструкция",
+      "section": "simple-description",
+      "parentId": "6aff0a3cfd285cf4215c5385",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Рабочая часть карусели вращается вокруг оси.",
+      "partIds": [],
+      "kindIds": [
+        "6af6ca4b22a0611d2b3a473b"
+      ],
+      "id": "6aff0a3efd285cf4215c538c",
+      "_id": "6aff0a3efd285cf4215c538c",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:58.821Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Карусели",
+      "partNames": ""
+    },
+    {
+      "name": "Подтверждённая конструкция",
+      "section": "simple-description",
+      "parentId": "6aff0a41fd285cf4215c5393",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Корпус качалки соединён с основанием пружиной.",
+      "partIds": [
+        "6afefd861ca5b05a5ce7f7c7"
+      ],
+      "kindIds": [
+        "6af707fdc451d4c05df6a05f"
+      ],
+      "id": "6aff0a43fd285cf4215c539a",
+      "_id": "6aff0a43fd285cf4215c539a",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:40:03.252Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Качалка на пружине",
+      "partNames": "Пружина"
+    },
+    {
+      "name": "Подтверждённая конструкция",
+      "section": "simple-description",
+      "parentId": "6aff0a45fd285cf4215c53a1",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Рабочая часть балансира качается относительно опоры.",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a05e"
+      ],
+      "id": "6aff0a47fd285cf4215c53a8",
+      "_id": "6aff0a47fd285cf4215c53a8",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:40:07.528Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Качалка-балансир",
+      "partNames": ""
+    },
+    {
+      "name": "Подтверждённая конструкция",
+      "section": "simple-description",
+      "parentId": "6aff0a49fd285cf4215c53af",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Сиденье детских качелей закреплено на подвесах.",
+      "partIds": [
+        "6adceeeb3ca001b9b3b0e57a",
+        "6afefd841ca5b05a5ce7f7c0"
+      ],
+      "kindIds": [
+        "6af6ca4a22a0611d2b3a473a"
+      ],
+      "id": "6aff0a4cfd285cf4215c53b6",
+      "_id": "6aff0a4cfd285cf4215c53b6",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:40:12.133Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "",
+      "kindNames": "Качели",
+      "partNames": "Сиденье, Подвес"
+    },
+    {
+      "name": "Полоса препятствий",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 14,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для преодоления препятствий и развития ловкости.",
+      "id": "6adb5ab2edd024ba63d7f19d",
+      "_id": "6adb5ab2edd024ba63d7f19d",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 8,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Правила для горок",
+      "section": "use",
+      "parentId": "",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 13,
+      "text": "",
+      "id": "6aeea931e6cf14bd396f3b05",
+      "_id": "6aeea931e6cf14bd396f3b05",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Правила для зрительских мест",
+      "section": "use",
+      "parentId": "",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 18,
+      "text": "",
+      "id": "6aeea943461bef0a491fe53c",
+      "_id": "6aeea943461bef0a491fe53c",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:55.1Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Правила для игровых снарядов",
+      "section": "use",
+      "parentId": "",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 17,
+      "text": "",
+      "id": "6aeea943461bef0a491fe536",
+      "_id": "6aeea943461bef0a491fe536",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:55.1Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Правила для каруселей",
+      "section": "use",
+      "parentId": "",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 14,
+      "text": "",
+      "id": "6aeea931e6cf14bd396f3b07",
+      "_id": "6aeea931e6cf14bd396f3b07",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Правила для качалок-балансиров",
+      "section": "use",
+      "parentId": "",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 15,
+      "text": "",
+      "id": "6aeea931e6cf14bd396f3b09",
+      "_id": "6aeea931e6cf14bd396f3b09",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Правила для колец, каната и скалодрома",
+      "section": "use",
+      "parentId": "",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 14,
+      "text": "",
+      "id": "6aeea943461bef0a491fe530",
+      "_id": "6aeea943461bef0a491fe530",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:55.1Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Правила для площадки подготовки к ГТО",
+      "section": "use",
+      "parentId": "",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 15,
+      "text": "",
+      "id": "6aeea943461bef0a491fe532",
+      "_id": "6aeea943461bef0a491fe532",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:55.1Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Правила для совмещённых тренажёров",
+      "section": "use",
+      "parentId": "",
+      "categories": "TRN",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 17,
+      "text": "",
+      "id": "6aeea943461bef0a491fe52c",
+      "_id": "6aeea943461bef0a491fe52c",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:55.1Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Правила для тренажёров суставов и разминки",
+      "section": "use",
+      "parentId": "",
+      "categories": "TRN",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 16,
+      "text": "",
+      "id": "6aeea943461bef0a491fe528",
+      "_id": "6aeea943461bef0a491fe528",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:55.1Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Правила для трибун",
+      "section": "use",
+      "parentId": "",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "id": "6aeea931e6cf14bd396f3af5",
+      "_id": "6aeea931e6cf14bd396f3af5",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Правила для шведской стенки",
+      "section": "use",
+      "parentId": "",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 13,
+      "text": "",
+      "id": "6aeea943461bef0a491fe52e",
+      "_id": "6aeea943461bef0a491fe52e",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:55.1Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Правила пользования детским спортивным оборудованием",
+      "section": "use",
+      "parentId": "",
+      "categories": "DSP",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 11,
+      "text": "",
+      "id": "6aeea931e6cf14bd396f3b0f",
+      "_id": "6aeea931e6cf14bd396f3b0f",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Пресс",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "TRN",
+      "allCategories": false,
+      "order": 4,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для тренировки мышц брюшного пресса.",
+      "id": "6adb5ab2edd024ba63d7f193",
+      "_id": "6adb5ab2edd024ba63d7f193",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 5,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Прочее благоустройство",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 23,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для благоустройства территории.",
+      "id": "6adb5ab2edd024ba63d7f1a6",
+      "_id": "6adb5ab2edd024ba63d7f1a6",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:47:50.657Z",
+      "used": 14,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Разминка суставов",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "TRN",
+      "allCategories": false,
+      "order": 99,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для разминки суставов и мягкой нагрузки на мышцы.",
+      "id": "6aeea931e6cf14bd396f3b13",
+      "_id": "6aeea931e6cf14bd396f3b13",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 9,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Рычаги с рукоятками и упоры для ног",
+      "section": "simple-description",
+      "parentId": "6aff288cfd285cf4215c759c",
+      "categories": "TRN",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aff288afd285cf4215c7593"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Тренажёр состоит из несущей рамы, подвижных рычагов с рукоятками и упоров для ног.",
+      "partIds": [
+        "6adceeeb3ca001b9b3b0e574",
+        "6adceeeb3ca001b9b3b0e576",
+        "6adceeeb3ca001b9b3b0e575",
+        "6adceeeb3ca001b9b3b0e577"
+      ],
+      "kindIds": [
+        "6af707fdc451d4c05df6a048"
+      ],
+      "id": "6aff288ffd285cf4215c75a3",
+      "_id": "6aff288ffd285cf4215c75a3",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T16:49:19.485Z",
+      "used": 1,
+      "facetValueNames": "Рычаги с рукоятками и упоры для ног",
+      "groupNames": "",
+      "kindNames": "Тренажёр для спины",
+      "partNames": "Несущая рама, Рычаг, Ручка, Упор для ног"
+    },
+    {
+      "name": "Сбор мусора",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 16,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для сбора мелкого мусора.",
+      "id": "6adb5ab2edd024ba63d7f19f",
+      "_id": "6adb5ab2edd024ba63d7f19f",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:47:50.657Z",
+      "used": 18,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Свободная установка",
+      "section": "installation",
+      "parentId": "6add909915d601111692a410",
+      "categories": "TRN, WRK",
+      "allCategories": false,
+      "order": 4,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "6ada090c7536f8509feb4246",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Изделие устанавливается на открытых спортивных площадках и дворовых территориях на ровное твёрдое основание без крепления.",
+      "id": "6adb5ab2edd024ba63d7f1ac",
+      "_id": "6adb5ab2edd024ba63d7f1ac",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Свободная установка",
+      "section": "installation",
+      "parentId": "6add909915d601111692a410",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 9,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "6ada090c7536f8509feb4246",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Изделие устанавливается в местах общественного пользования: на дворовых территориях, в парках и пешеходных зонах на ровное твёрдое основание без крепления.",
+      "id": "6adb5ab2edd024ba63d7f1b6",
+      "_id": "6adb5ab2edd024ba63d7f1b6",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:47:50.657Z",
+      "used": 9,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Свободная установка",
+      "section": "installation",
+      "parentId": "6add909915d601111692a410",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 13,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "6ada090c7536f8509feb4246",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Изделие устанавливается на детских игровых площадках на ровное твёрдое основание без крепления.",
+      "id": "6adb5ab2edd024ba63d7f1bb",
+      "_id": "6adb5ab2edd024ba63d7f1bb",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Секция ограждения",
+      "section": "simple-description",
+      "parentId": "6aff0a19fd285cf4215c5310",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aeea9373b8b9255839ab451"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Секция образует участок ограждения между опорами.",
+      "partIds": [],
+      "kindIds": [
+        "6af6ca4a22a0611d2b3a4734"
+      ],
+      "id": "6aff0a1bfd285cf4215c5319",
+      "_id": "6aff0a1bfd285cf4215c5319",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:23.551Z",
+      "used": 0,
+      "facetValueNames": "Секция",
+      "groupNames": "",
+      "kindNames": "Ограждения",
+      "partNames": ""
+    },
+    {
+      "name": "Сиденье, рукоятки и педали",
+      "section": "simple-description",
+      "parentId": "6aff3bbe1eb87438515b40a8",
+      "categories": "TRN",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aff3bbc1eb87438515b40a1"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Тренажёр состоит из рамы, рукояток, сиденья и педалей.",
+      "partIds": [
+        "6adceeeb3ca001b9b3b0e574",
+        "6adceeeb3ca001b9b3b0e575",
+        "6adceeeb3ca001b9b3b0e57a",
+        "6aff3bba1eb87438515b409a"
+      ],
+      "kindIds": [
+        "6af707fdc451d4c05df6a045"
+      ],
+      "id": "6aff3bc11eb87438515b40af",
+      "_id": "6aff3bc11eb87438515b40af",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T18:11:13.368Z",
+      "used": 0,
+      "facetValueNames": "Сиденье, рукоятки и педали",
+      "groupNames": "",
+      "kindNames": "Кардиотренажёр",
+      "partNames": "Несущая рама, Ручка, Сиденье, Педаль"
+    },
+    {
+      "name": "Скалодром",
+      "section": "simple-description",
+      "parentId": "6aff08c1fd285cf4215c5208",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 3,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6afef7791ca5b05a5ce7f2e0"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "На поверхности скалодрома размещены зацепы для рук и ног.",
+      "partIds": [
+        "6ae44ab6e2b85c75e0686866"
+      ],
+      "kindIds": [
+        "6af707fdc451d4c05df6a058"
+      ],
+      "id": "6aff08c8fd285cf4215c521f",
+      "_id": "6aff08c8fd285cf4215c521f",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:44.389Z",
+      "used": 0,
+      "facetValueNames": "Скалодром с зацепами",
+      "groupNames": "",
+      "kindNames": "Кольца, канат, скалодром",
+      "partNames": "Зацеп"
+    },
+    {
+      "name": "Скамья без спинки",
+      "section": "simple-description",
+      "parentId": "6aff0a26fd285cf4215c533c",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 2,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aeea9383b8b9255839ab45d"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Сиденье скамьи установлено на опорах. Спинка отсутствует.",
+      "partIds": [
+        "6adceeeb3ca001b9b3b0e57a"
+      ],
+      "kindIds": [
+        "6af6ca4a22a0611d2b3a4735"
+      ],
+      "id": "6aff0a2afd285cf4215c534a",
+      "_id": "6aff0a2afd285cf4215c534a",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:38.958Z",
+      "used": 0,
+      "facetValueNames": "Без перил / без спинки",
+      "groupNames": "",
+      "kindNames": "Скамьи",
+      "partNames": "Сиденье"
+    },
+    {
+      "name": "Скамья со спинкой",
+      "section": "simple-description",
+      "parentId": "6aff0a26fd285cf4215c533c",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aeea9373b8b9255839ab45c"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Сиденье скамьи установлено на опорах и дополнено спинкой.",
+      "partIds": [
+        "6adceeeb3ca001b9b3b0e57a",
+        "6adceeeb3ca001b9b3b0e57b"
+      ],
+      "kindIds": [
+        "6af6ca4a22a0611d2b3a4735"
+      ],
+      "id": "6aff0a28fd285cf4215c5343",
+      "_id": "6aff0a28fd285cf4215c5343",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:36.736Z",
+      "used": 2,
+      "facetValueNames": "С перилами / со спинкой",
+      "groupNames": "",
+      "kindNames": "Скамьи",
+      "partNames": "Сиденье, Спинка"
+    },
+    {
+      "name": "Совмещённые рабочие модули",
+      "section": "simple-description",
+      "parentId": "6aff08abfd285cf4215c51c2",
+      "categories": "TRN",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aeea9373b8b9255839ab43c"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Тренажёр объединяет несколько рабочих модулей для разных упражнений.",
+      "partIds": [],
+      "kindIds": [
+        "6af707fdc451d4c05df6a04b"
+      ],
+      "id": "6aff08adfd285cf4215c51c9",
+      "_id": "6aff08adfd285cf4215c51c9",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:33:17.528Z",
+      "used": 0,
+      "facetValueNames": "Совмещённый (2 в 1)",
+      "groupNames": "",
+      "kindNames": "Комплексный тренажёр",
+      "partNames": ""
+    },
+    {
+      "name": "Спина",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "TRN",
+      "allCategories": false,
+      "order": 2,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для тренировки мышц спины.",
+      "id": "6adb5ab2edd024ba63d7f191",
+      "_id": "6adb5ab2edd024ba63d7f191",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 9,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Текст",
+      "section": "use",
+      "parentId": "6aeea931e6cf14bd396f3af5",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [
+        "6addd76fc93bb8ea2a6e3946"
+      ],
+      "slot": "",
+      "text": "Число зрителей не превышает расчётной вместимости, указанной в паспорте.\nЗапрещается стоять на сиденьях, прыгать и раскачивать конструкцию.\nПерила и ограждения не используют не по назначению.\nПодъём и спуск совершают по ступеням, держась за перила.\nПри обнаружении повреждения конструкции трибуной не пользуются.",
+      "id": "6aeea931e6cf14bd396f3af6",
+      "_id": "6aeea931e6cf14bd396f3af6",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "Трибуны"
+    },
+    {
+      "name": "Текст",
+      "section": "care",
+      "parentId": "6aeea931e6cf14bd396f3af7",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [
+        "6addd76fc93bb8ea2a6e393d"
+      ],
+      "slot": "",
+      "text": "Снег с кровли навеса регулярно удаляют, не допуская превышения нагрузки.\nКровельное покрытие осматривают на трещины и повреждения после сильных ветров.\nКрепление стоек и узлов проверяют после зимы.\nВодоотвод и желоба очищают от листвы.",
+      "id": "6aeea931e6cf14bd396f3af8",
+      "_id": "6aeea931e6cf14bd396f3af8",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "Навесы"
+    },
+    {
+      "name": "Текст",
+      "section": "care",
+      "parentId": "6aeea931e6cf14bd396f3af9",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [
+        "6addd76fc93bb8ea2a6e393f"
+      ],
+      "slot": "",
+      "text": "Крепление секций к стойкам проверяют при каждом периодическом осмотре.\nОслабленные соединения подтягивают.\nПроверяют ровность линии ограждения и отсутствие провисаний.\nОтсутствующий крепёж заменяют деталями, согласованными с изготовителем.\nКалитки и запоры проверяют на лёгкость хода.",
+      "id": "6aeea931e6cf14bd396f3afa",
+      "_id": "6aeea931e6cf14bd396f3afa",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "Ограждения"
+    },
+    {
+      "name": "Текст",
+      "section": "care",
+      "parentId": "6aeea931e6cf14bd396f3afb",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [
+        "6ae122f89b387dad2061b8c9"
+      ],
+      "slot": "",
+      "text": "Перед использованием проверяют крепление подвесов и сидений.\nПодвесы осматривают на износ, перетирание и деформацию звеньев.\nПроверяют лёгкость вращения шарниров и отсутствие люфта.\nОдновременно на качелях находятся не более {maxUsers} чел.\nЗапрещается раскачиваться стоя и вставать на сиденье.\nЗона раскачивания остаётся свободной от других людей.",
+      "id": "6aeea931e6cf14bd396f3afc",
+      "_id": "6aeea931e6cf14bd396f3afc",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "Качели городские"
+    },
+    {
+      "name": "Текст",
+      "section": "care",
+      "parentId": "6aeea931e6cf14bd396f3afd",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [
+        "6addd76fc93bb8ea2a6e3941"
+      ],
+      "slot": "",
+      "text": "Урну регулярно освобождают от мусора.\nВнутреннюю ёмкость периодически промывают.\nПроверяют крепление урны к основанию и состояние покрытия.\nКрышки и вставные вкладыши, если они есть, проверяют на целостность.",
+      "id": "6aeea931e6cf14bd396f3afe",
+      "_id": "6aeea931e6cf14bd396f3afe",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "Урны"
+    },
+    {
+      "name": "Текст",
+      "section": "care",
+      "parentId": "6aeea931e6cf14bd396f3aff",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [
+        "6addd76fc93bb8ea2a6e3944"
+      ],
+      "slot": "",
+      "text": "Проверяют крепление парковки к основанию.\nОсматривают сварные соединения и состояние покрытия.\nПарковку используют только для хранения велосипедов.\nЗапрещается садиться и подниматься на конструкцию.\nВелопарковка рассчитана на число велосипедов, указанное в паспорте; садиться и вставать на неё запрещено.",
+      "id": "6aeea931e6cf14bd396f3b00",
+      "_id": "6aeea931e6cf14bd396f3b00",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:51:33.937Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "Велопарковки"
+    },
+    {
+      "name": "Текст",
+      "section": "care",
+      "parentId": "6aeea931e6cf14bd396f3b01",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [
+        "6ae5d54656a573801a7de411"
+      ],
+      "slot": "",
+      "text": "Покрытие поверхности периодически осматривают на размывы и просадки.\nРастительный слой и газон поддерживают по рекомендациям изготовителя.\nПросевшие участки досыпают материалом, согласованным с изготовителем.\nДетали формы проверяют на устойчивость.",
+      "id": "6aeea931e6cf14bd396f3b02",
+      "_id": "6aeea931e6cf14bd396f3b02",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "Геопластика"
+    },
+    {
+      "name": "Текст",
+      "section": "use",
+      "parentId": "6aeea931e6cf14bd396f3b03",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [
+        "6addd76fc93bb8ea2a6e3947"
+      ],
+      "slot": "",
+      "text": "Перед игрой проверяют крепление подвесов и сидений.\nПодвесы осматривают на износ, перетирание и деформацию.\nРаскачиваться стоя и вставать на сиденье запрещается.\nВ зоне качания не находятся посторонние дети.",
+      "id": "6aeea931e6cf14bd396f3b04",
+      "_id": "6aeea931e6cf14bd396f3b04",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "Качели"
+    },
+    {
+      "name": "Текст",
+      "section": "use",
+      "parentId": "6aeea931e6cf14bd396f3b05",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [
+        "6addd76fc93bb8ea2a6e394d"
+      ],
+      "slot": "",
+      "text": "Подъём на горку выполняют по лестнице, держась за поручни.\nСпускаются по одному, сидя и лицом вперёд.\nЗапрещается подниматься по скату и спускаться головой вперёд.\nЗону выката держат свободной.\nСкат осматривают на сколы и острые кромки.",
+      "id": "6aeea931e6cf14bd396f3b06",
+      "_id": "6aeea931e6cf14bd396f3b06",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "Горки"
+    },
+    {
+      "name": "Текст",
+      "section": "use",
+      "parentId": "6aeea931e6cf14bd396f3b07",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [
+        "6addd76fc93bb8ea2a6e3948"
+      ],
+      "slot": "",
+      "text": "Нагрузка на карусель не превышает значения, указанного в паспорте.\nТребования к каруселям установлены ГОСТ 34614.5–2024.\nВращать карусель допускается, когда пользователи надёжно держатся за поручни.\nЗапрещается спрыгивать на ходу и вставать на вращающуюся платформу.\nПодшипниковый узел и привод осматривают и смазывают по таблице обслуживания.",
+      "id": "6aeea931e6cf14bd396f3b08",
+      "_id": "6aeea931e6cf14bd396f3b08",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "Карусели"
+    },
+    {
+      "name": "Текст",
+      "section": "use",
+      "parentId": "6aeea931e6cf14bd396f3b09",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [
+        "6addd76fc93bb8ea2a6e3949"
+      ],
+      "slot": "",
+      "text": "Качалка рассчитана на число детей, указанное в паспорте.\nДети садятся лицом друг к другу и держатся за поручни.\nЗапрещается вставать на сиденья.\nШарнирный узел и ограничители хода периодически проверяют.",
+      "id": "6aeea931e6cf14bd396f3b0a",
+      "_id": "6aeea931e6cf14bd396f3b0a",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "Качалка-балансир"
+    },
+    {
+      "name": "Текст",
+      "section": "service",
+      "parentId": "6aeea931e6cf14bd396f3b0b",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [
+        "6addd76fc93bb8ea2a6e394a"
+      ],
+      "slot": "",
+      "text": "Пружину осматривают на трещины, деформацию и коррозию.\nПроверяют крепление пружины к основанию и корпусу.\nДети садятся на качалку по одному, если иное не указано в паспорте.\nЗазоры между витками пружины проверяют на безопасность для пальцев.",
+      "id": "6aeea931e6cf14bd396f3b0c",
+      "_id": "6aeea931e6cf14bd396f3b0c",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "Качалка на пружине"
+    },
+    {
+      "name": "Текст",
+      "section": "care",
+      "parentId": "6aeea931e6cf14bd396f3b0d",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [
+        "6addd76fc93bb8ea2a6e394c"
+      ],
+      "slot": "",
+      "text": "Песок периодически заменяют в сроки, установленные эксплуатантом.\nПесок перекапывают и очищают от мусора перед сезоном.\nВ нерабочее время песочницу закрывают крышкой, если она предусмотрена.\nДеревянные борта осматривают на сколы и занозы.\nСостояние песка проверяйте при каждом осмотре; при загрязнении, уплотнении или уменьшении слоя песок заменяйте или досыпайте. Если песочница не закрывается защитным покрытием, заменяйте песок чаще.",
+      "id": "6aeea931e6cf14bd396f3b0e",
+      "_id": "6aeea931e6cf14bd396f3b0e",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:51:33.942Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "Песочницы"
+    },
+    {
+      "name": "Текст",
+      "section": "use",
+      "parentId": "6aeea931e6cf14bd396f3b0f",
+      "categories": "DSP",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [
+        "6addd76fc93bb8ea2a6e394f"
+      ],
+      "slot": "",
+      "text": "Занятия проходят под присмотром взрослых.\nПеред занятием осматривают оборудование на повреждения.\nЗапрещается толкать других детей и висеть на оборудовании вдвоём.",
+      "id": "6aeea931e6cf14bd396f3b10",
+      "_id": "6aeea931e6cf14bd396f3b10",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "Детское спортивное оборудование"
+    },
+    {
+      "name": "Текст",
+      "section": "service",
+      "parentId": "6aeea931e6cf14bd396f3b11",
+      "categories": "DSP",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [
+        "6addd76fc93bb8ea2a6e394f"
+      ],
+      "slot": "",
+      "text": "Крепёж проверяют при каждом периодическом осмотре.\nПерекладины и поручни осматривают на трещины и заусенцы.\nЗону приземления поддерживают свободной.\nВизуально осматривайте ежедневно, если площадка используется интенсивно; функциональный осмотр — раз в 1–3 месяца или по инструкции изготовителя; основной осмотр — не реже одного раза в год (ГОСТ 34614.7-2019, п. 6.2).",
+      "id": "6aeea931e6cf14bd396f3b12",
+      "_id": "6aeea931e6cf14bd396f3b12",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:51:33.947Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": "Детское спортивное оборудование"
+    },
+    {
+      "name": "Текст",
+      "section": "use",
+      "parentId": "6aeea943461bef0a491fe528",
+      "categories": "TRN",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aeea9373b8b9255839ab434"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Тренажёр предназначен для мягкой нагрузки и разминки суставов; силовые упражнения на нём не выполняют.\nУпражнения выполняют плавно, в комфортной амплитуде, без рывков и болевых ощущений.\nПри боли в суставе занятие прекращают и обращаются к врачу.\nУпражнение выполняйте плавно, без рывков; число повторений и время занятия подбирайте по самочувствию.",
+      "id": "6aeea943461bef0a491fe529",
+      "_id": "6aeea943461bef0a491fe529",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:51:33.917Z",
+      "used": 0,
+      "facetValueNames": "Для суставов и разминки",
+      "groupNames": ""
+    },
+    {
+      "name": "Текст",
+      "section": "service",
+      "parentId": "6aeea943461bef0a491fe52a",
+      "categories": "TRN",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aeea9373b8b9255839ab43a"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "При каждом периодическом осмотре проверяют целостность и крепление грузового блока.\nПроверяют надёжность фиксаторов и штифтов, удерживающих грузы.\nПроверяют лёгкость хода направляющих и отсутствие перекосов грузов.\nТросы, цепи и тяги осматривают на износ, перетирание и деформацию; изношенные детали заменяют.\nГрузы не снимают и не заменяют без согласия изготовителя.\nЗапрещается пользоваться тренажёром при снятом, незафиксированном или повреждённом грузе.",
+      "id": "6aeea943461bef0a491fe52b",
+      "_id": "6aeea943461bef0a491fe52b",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:55.1Z",
+      "used": 0,
+      "facetValueNames": "Изменяемая (грузы)",
+      "groupNames": ""
+    },
+    {
+      "name": "Текст",
+      "section": "use",
+      "parentId": "6aeea943461bef0a491fe52c",
+      "categories": "TRN",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aeea9373b8b9255839ab43c"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Совмещённый тренажёр имеет несколько рабочих модулей, рассчитанных на разные упражнения.\nНа каждом модуле одновременно занимается один человек.\nПользователь соседнего модуля находится вне зоны движения подвижных частей.\nНе допускается использовать один модуль нескольким людям одновременно.\nОбщее число занимающихся не превышает {maxUsers} чел.",
+      "id": "6aeea943461bef0a491fe52d",
+      "_id": "6aeea943461bef0a491fe52d",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:55.1Z",
+      "used": 0,
+      "facetValueNames": "Совмещённый (2 в 1)",
+      "groupNames": ""
+    },
+    {
+      "name": "Текст",
+      "section": "use",
+      "parentId": "6aeea943461bef0a491fe52e",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aeea9373b8b9255839ab443"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Шведскую стенку используют для гимнастических упражнений, лазания и растяжки.\nПеред занятием проверяют надёжность перекладин и отсутствие сколов и заусенцев.\nЛазают по стенке по одному человеку; другим не находиться под занимающимся.\nЗапрещается висеть на верхней перекладине в положении, не предусмотренном упражнением.",
+      "id": "6aeea943461bef0a491fe52f",
+      "_id": "6aeea943461bef0a491fe52f",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:55.1Z",
+      "used": 0,
+      "facetValueNames": "Шведская стенка",
+      "groupNames": ""
+    },
+    {
+      "name": "Текст",
+      "section": "use",
+      "parentId": "6aeea943461bef0a491fe530",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aeea9373b8b9255839ab444"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Элементы предназначены для упражнений в висе, лазания и развития силы хвата.\nПеред занятием проверяют крепление колец, каната и зацепов, состояние хвата.\nРаскачивание на кольцах и канате допускается только в пределах зоны безопасности.\nЗапрещается обматывать канат вокруг шеи, рук и ног.\nМокрые и обледенелые элементы не используют.\nНе спрыгивайте с высоты больше указанной в паспорте изделия; приземляйтесь на покрытие, предусмотренное площадкой.",
+      "id": "6aeea943461bef0a491fe531",
+      "_id": "6aeea943461bef0a491fe531",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:51:33.926Z",
+      "used": 0,
+      "facetValueNames": "Кольца, канат, скалодром",
+      "groupNames": ""
+    },
+    {
+      "name": "Текст",
+      "section": "use",
+      "parentId": "6aeea943461bef0a491fe532",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aeea9373b8b9255839ab44e"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Оборудование используют для подготовки к испытаниям (тестам) комплекса ГТО.\nРазметку и линейки на оборудовании периодически проверяют на читаемость и сохранность.\nПеред испытаниями проверяют точность разметки и положение элементов относительно измерительных отметок.\nПовреждённую или стёртую разметку восстанавливают по документации изготовителя.",
+      "id": "6aeea943461bef0a491fe533",
+      "_id": "6aeea943461bef0a491fe533",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:55.1Z",
+      "used": 0,
+      "facetValueNames": "Для испытаний ГТО",
+      "groupNames": ""
+    },
+    {
+      "name": "Текст",
+      "section": "use",
+      "parentId": "6aeea943461bef0a491fe534",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aeea9373b8b9255839ab44f"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Оборудование может использоваться людьми с ограниченными возможностями здоровья.\nТакие занятия проходят только в присутствии сопровождающего.\nСопровождающий оценивает состояние занимающегося и подходящий режим нагрузки.\nПодходы к оборудованию и покрытие поддерживают свободными и ровными.\nНагрузку подбирают с учётом рекомендаций врача.",
+      "id": "6aeea943461bef0a491fe535",
+      "_id": "6aeea943461bef0a491fe535",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:55.1Z",
+      "used": 0,
+      "facetValueNames": "Для людей с ограниченными возможностями",
+      "groupNames": ""
+    },
+    {
+      "name": "Текст",
+      "section": "use",
+      "parentId": "6aeea943461bef0a491fe536",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aeea9373b8b9255839ab445"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Запрещается висеть на кольце, сетке, щите и воротах, раскачиваться на них.\nЗапрещается залезать на щит, стойки и перекладины ворот.\nПеред игрой проверяют крепление щита и кольца, натяжение сетки.\nПри ослаблении крепления или разрыве сетки игру прекращают.\nВо время игры в зоне вокруг площадки не находятся посторонние.",
+      "id": "6aeea943461bef0a491fe537",
+      "_id": "6aeea943461bef0a491fe537",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:55.1Z",
+      "used": 0,
+      "facetValueNames": "Баскетбол",
+      "groupNames": ""
+    },
+    {
+      "name": "Текст",
+      "section": "checks",
+      "parentId": "6aeea943461bef0a491fe538",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aeea9373b8b9255839ab446"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Проверяют устойчивость и надёжность крепления ворот к основанию.\nПроверяют отсутствие трещин сварных швов и деформации штанги и перекладины.\nПроверяют натяжение и целостность сетки и узлов её крепления.\nВорота без надёжного крепления к основанию не эксплуатируют.",
+      "id": "6aeea943461bef0a491fe539",
+      "_id": "6aeea943461bef0a491fe539",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:55.1Z",
+      "used": 0,
+      "facetValueNames": "Ворота (футбол, хоккей)",
+      "groupNames": ""
+    },
+    {
+      "name": "Текст",
+      "section": "checks",
+      "parentId": "6aeea943461bef0a491fe53a",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aeea9373b8b9255839ab447"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Проверяют надёжность крепления стоек и отсутствие наклона.\nПроверяют натяжной механизм и целостность сетки.\nСетку снимают при длительном неиспользовании в зимний период.\nЕсли стойки и сетка оснащены мягкими накладками, проверяйте их целостность и крепление при каждом осмотре.",
+      "id": "6aeea943461bef0a491fe53b",
+      "_id": "6aeea943461bef0a491fe53b",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:51:33.932Z",
+      "used": 0,
+      "facetValueNames": "Стойки (волейбол, теннис, бадминтон)",
+      "groupNames": ""
+    },
+    {
+      "name": "Текст",
+      "section": "use",
+      "parentId": "6aeea943461bef0a491fe53c",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aeea9373b8b9255839ab449"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Места предназначены для размещения зрителей и судей.\nЗапрещается стоять на сиденьях и ограждениях.\nДети находятся на трибуне под присмотром взрослых.",
+      "id": "6aeea943461bef0a491fe53d",
+      "_id": "6aeea943461bef0a491fe53d",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:55.1Z",
+      "used": 0,
+      "facetValueNames": "Трибуна, судейская вышка",
+      "groupNames": ""
+    },
+    {
+      "name": "Текст",
+      "section": "use",
+      "parentId": "6aeea943461bef0a491fe53e",
+      "categories": "DSP",
+      "allCategories": false,
+      "order": 1,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6aeea9383b8b9255839ab471"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Оборудование предназначено для детей от {ageFrom} лет.\nМладшие дети пользуются оборудованием только под присмотром взрослых.\nДети следят за положением других детей в зоне движения.",
+      "id": "6aeea943461bef0a491fe53f",
+      "_id": "6aeea943461bef0a491fe53f",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:55.1Z",
+      "used": 0,
+      "facetValueNames": "7–12 лет",
+      "groupNames": ""
+    },
+    {
+      "name": "Турник, рукоход",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 7,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для упражнений в висе и подтягиваний.",
+      "id": "6adb5ab2edd024ba63d7f196",
+      "_id": "6adb5ab2edd024ba63d7f196",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 28,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Указатель направления",
+      "section": "simple-description",
+      "parentId": "6aff0a0dfd285cf4215c52ea",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 2,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [
+        "6afef7881ca5b05a5ce7f2f8"
+      ],
+      "groupIds": [],
+      "slot": "",
+      "text": "Указатель имеет табличку с обозначением направления.",
+      "partIds": [],
+      "kindIds": [
+        "6af6ca4a22a0611d2b3a4738"
+      ],
+      "id": "6aff0a11fd285cf4215c52f8",
+      "_id": "6aff0a11fd285cf4215c52f8",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-19T14:39:13.417Z",
+      "used": 0,
+      "facetValueNames": "Указатель с обозначением направления",
+      "groupNames": "",
+      "kindNames": "Информационные стенды и указатели",
+      "partNames": ""
+    },
+    {
+      "name": "Установка",
+      "section": "installation",
+      "parentId": "",
+      "categories": "",
+      "allCategories": false,
+      "order": 20,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "id": "6add909915d601111692a410",
+      "_id": "6add909915d601111692a410",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 49,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Уход за геопластикой",
+      "section": "care",
+      "parentId": "",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 10,
+      "text": "",
+      "id": "6aeea931e6cf14bd396f3b01",
+      "_id": "6aeea931e6cf14bd396f3b01",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Уход за навесами и перголами",
+      "section": "care",
+      "parentId": "",
+      "categories": "BLG",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 5,
+      "text": "",
+      "id": "6aeea931e6cf14bd396f3af7",
+      "_id": "6aeea931e6cf14bd396f3af7",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Уход за песочницей",
+      "section": "care",
+      "parentId": "",
+      "categories": "DIO",
+      "allCategories": false,
+      "order": 0,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": 1,
+      "text": "",
+      "id": "6aeea931e6cf14bd396f3b0d",
+      "_id": "6aeea931e6cf14bd396f3b0d",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Футбол",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "WRK",
+      "allCategories": false,
+      "order": 11,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для игры в футбол и мини-футбол.",
+      "id": "6adb5ab2edd024ba63d7f19a",
+      "_id": "6adb5ab2edd024ba63d7f19a",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-10-25T05:16:09.13Z",
+      "used": 11,
+      "facetValueNames": "",
+      "groupNames": ""
+    },
+    {
+      "name": "Шведская стенка",
+      "section": "purpose",
+      "parentId": "6add909915d601111692a40f",
+      "categories": "WRK, DSP",
+      "allCategories": false,
+      "order": 99,
+      "required": false,
+      "isDefault": false,
+      "installTypeId": "",
+      "facetValueIds": [],
+      "groupIds": [],
+      "slot": "",
+      "text": "Предназначено для гимнастических упражнений, лазания и растяжки.",
+      "id": "6aeea931e6cf14bd396f3b14",
+      "_id": "6aeea931e6cf14bd396f3b14",
+      "dict": "passportPhrases",
+      "updatedAt": "2026-11-07T04:29:37.41Z",
+      "used": 0,
+      "facetValueNames": "",
+      "groupNames": ""
+    }
+  ],
+  "total": 162,
+  "page": 1,
+  "limit": 162,
+  "dict": {
+    "key": "passportPhrases",
+    "title": "Тексты паспорта",
+    "newTitle": "Новый текст паспорта",
+    "group": "Паспорта",
+    "hint": "Зачем: готовые тексты разделов паспорта без ручного набора. Пример: Назначение → «Силовые упражнения» → полный абзац. Раздел → варианты → один текст. Кому видно — по типу паспорта; один вариант подставится сам.",
+    "columns": [
+      {
+        "key": "section",
+        "label": "Раздел"
+      },
+      {
+        "key": "categories",
+        "label": "Категории"
+      }
+    ],
+    "fields": [
+      {
+        "key": "name",
+        "label": "Название (у раздела — вопрос)",
+        "required": true,
+        "wide": true
+      },
+      {
+        "key": "section",
+        "label": "Раздел (только у раздела верхнего уровня)",
+        "type": "select",
+        "options": [
+          {
+            "value": "purpose",
+            "label": "Назначение"
+          },
+          {
+            "value": "installation",
+            "label": "Установка"
+          },
+          {
+            "value": "mounting",
+            "label": "Монтаж"
+          },
+          {
+            "value": "simple-description",
+            "label": "Предложение краткого описания"
+          },
+          {
+            "value": "use",
+            "label": "Правила пользования"
+          },
+          {
+            "value": "service",
+            "label": "Техническое обслуживание"
+          },
+          {
+            "value": "general",
+            "label": "Общие указания"
+          },
+          {
+            "value": "storage",
+            "label": "Хранение"
+          },
+          {
+            "value": "transport",
+            "label": "Транспортирование"
+          },
+          {
+            "value": "repair",
+            "label": "Ремонт"
+          }
+        ]
+      },
+      {
+        "key": "categories",
+        "label": "Категории",
+        "wide": true,
+        "hint": "Коды категорий через запятую: TRN, WRK, BLG (благоустройство), DIO, DSP"
+      },
+      {
+        "key": "allCategories",
+        "label": "Для всех категорий",
+        "type": "select",
+        "bool": true,
+        "options": [
+          {
+            "value": "true",
+            "label": "да"
+          }
+        ]
+      },
+      {
+        "key": "required",
+        "label": "Раздел обязателен",
+        "type": "select",
+        "bool": true,
+        "options": [
+          {
+            "value": "true",
+            "label": "да"
+          }
+        ],
+        "hint": "Только у раздела: без выбора паспорт не выпустить"
+      },
+      {
+        "key": "isDefault",
+        "label": "По умолчанию",
+        "type": "select",
+        "bool": true,
+        "options": [
+          {
+            "value": "true",
+            "label": "да"
+          }
+        ],
+        "hint": "Подставляется, пока не выбран другой вариант"
+      },
+      {
+        "key": "text",
+        "label": "Текст (только у конечного варианта)",
+        "type": "textarea",
+        "wide": true
+      },
+      {
+        "key": "facetValueIds",
+        "label": "Значения признаков",
+        "type": "select",
+        "ref": "productFacetValues",
+        "multi": true,
+        "wide": true,
+        "hint": "Текст предлагается изделиям с этими значениями признаков (например, «Грузовой блок»); пусто — по категории"
+      },
+      {
+        "key": "groupIds",
+        "label": "Группы изделий",
+        "type": "select",
+        "ref": "productGroups",
+        "multi": true,
+        "wide": true,
+        "hint": "Текст сам подставляется изделиям этих групп (например, «Трибуны»); пусто — по категории"
+      },
+      {
+        "key": "kindIds",
+        "label": "Виды для краткого описания",
+        "type": "select",
+        "ref": "passportKinds",
+        "multi": true,
+        "wide": true
+      },
+      {
+        "key": "partIds",
+        "label": "Части для краткого описания",
+        "type": "select",
+        "ref": "passportParts",
+        "multi": true,
+        "wide": true,
+        "hint": "В тексте «Изделие состоит из {parts}» используются сохранённые формы родительного падежа."
+      },
+      {
+        "tech": true,
+        "key": "parentId",
+        "label": "Родитель (id узла; пусто — раздел)",
+        "hint": "Раздел → варианты → подварианты, не больше 4 уровней"
+      },
+      {
+        "tech": true,
+        "key": "order",
+        "label": "Порядок среди соседей"
+      },
+      {
+        "tech": true,
+        "key": "installTypeId",
+        "label": "Способ установки (id)",
+        "hint": "У варианта раздела «Установка»: выбор сам ставит способ установки паспорта"
+      },
+      {
+        "tech": true,
+        "key": "slot",
+        "label": "Номер пункта раздела шаблона",
+        "hint": "У раздела: какой по счёту пункт раздела шаблона заменяет выбранный текст (по умолчанию 1)"
+      }
+    ],
+    "refs": {
+      "productFacetValues": [
+        {
+          "value": "6aeea9373b8b9255839ab455",
+          "label": "10"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab456",
+          "label": "15"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab44b",
+          "label": "2–3 снаряда"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab457",
+          "label": "20"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab458",
+          "label": "25 и больше"
+        },
+        {
+          "value": "6aeea9383b8b9255839ab465",
+          "label": "3–12 лет"
+        },
+        {
+          "value": "6aeea9383b8b9255839ab470",
+          "label": "3–7 лет"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab44c",
+          "label": "4–5 снарядов"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab44d",
+          "label": "6 и больше"
+        },
+        {
+          "value": "6aeea9383b8b9255839ab471",
+          "label": "7–12 лет"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab445",
+          "label": "Баскетбол"
+        },
+        {
+          "value": "6aeea9383b8b9255839ab45d",
+          "label": "Без перил / без спинки"
+        },
+        {
+          "value": "6aeea9383b8b9255839ab460",
+          "label": "Бетон"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab440",
+          "label": "Брусья"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab446",
+          "label": "Ворота (футбол, хоккей)"
+        },
+        {
+          "value": "6afef76f1ca5b05a5ce7f2ce",
+          "label": "Гимнастические кольца"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab437",
+          "label": "Грудь, плечи, руки"
+        },
+        {
+          "value": "6aeea9383b8b9255839ab467",
+          "label": "Два места"
+        },
+        {
+          "value": "6afef7661ca5b05a5ce7f2b5",
+          "label": "Две платформы для ног и рукоятка"
+        },
+        {
+          "value": "6aeea9383b8b9255839ab46a",
+          "label": "Дерево (или металл с деревом)"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab44e",
+          "label": "Для испытаний ГТО"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab44f",
+          "label": "Для людей с ограниченными возможностями"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab434",
+          "label": "Для суставов и разминки"
+        },
+        {
+          "value": "6aeea9383b8b9255839ab462",
+          "label": "до 3 лет"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab454",
+          "label": "до 5"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab45b",
+          "label": "Доска"
+        },
+        {
+          "value": "6afc53f6b675e0891e37c7c6",
+          "label": "Доска"
+        },
+        {
+          "value": "6afef7931ca5b05a5ce7f319",
+          "label": "Зрительские места"
+        },
+        {
+          "value": "6aeea9383b8b9255839ab46f",
+          "label": "Игровой спорт (ворота, баскетбол)"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab43a",
+          "label": "Изменяемая (грузы)"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab452",
+          "label": "Калитка"
+        },
+        {
+          "value": "6afef7731ca5b05a5ce7f2d5",
+          "label": "Канат"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab433",
+          "label": "Кардио"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab444",
+          "label": "Кольца, канат, скалодром"
+        },
+        {
+          "value": "6aeea9383b8b9255839ab46c",
+          "label": "Комплекс"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab43e",
+          "label": "Комплекс (несколько снарядов)"
+        },
+        {
+          "value": "6afef7961ca5b05a5ce7f320",
+          "label": "Лестничный модуль"
+        },
+        {
+          "value": "6aeea9383b8b9255839ab469",
+          "label": "Металл"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab436",
+          "label": "Ноги и ягодицы"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab450",
+          "label": "Обычное"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab43d",
+          "label": "Одиночный"
+        },
+        {
+          "value": "6aeea9383b8b9255839ab466",
+          "label": "Одно место"
+        },
+        {
+          "value": "6aeea9383b8b9255839ab472",
+          "label": "от 12 лет"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab45a",
+          "label": "Пластик"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab459",
+          "label": "Подъём (лестница) трибуны"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab448",
+          "label": "Полоса препятствий"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab439",
+          "label": "Пресс и поясница"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab44a",
+          "label": "Прочее"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab441",
+          "label": "Рукоход"
+        },
+        {
+          "value": "6aff288afd285cf4215c7593",
+          "label": "Рычаги с рукоятками и упоры для ног"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab45c",
+          "label": "С перилами / со спинкой"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab451",
+          "label": "Секция"
+        },
+        {
+          "value": "6aff3bbc1eb87438515b40a1",
+          "label": "Сиденье, рукоятки и педали"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab432",
+          "label": "Силовой"
+        },
+        {
+          "value": "6afef7791ca5b05a5ce7f2e0",
+          "label": "Скалодром с зацепами"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab442",
+          "label": "Скамья (пресс, гимнастика)"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab43b",
+          "label": "Собственный вес"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab43c",
+          "label": "Совмещённый (2 в 1)"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab438",
+          "label": "Спина"
+        },
+        {
+          "value": "6aeea9383b8b9255839ab46b",
+          "label": "Стеклопластик"
+        },
+        {
+          "value": "6aeea9383b8b9255839ab461",
+          "label": "Стеклопластик с подсветкой"
+        },
+        {
+          "value": "6afef7831ca5b05a5ce7f2f1",
+          "label": "Стенд с информационной панелью"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab453",
+          "label": "Стойка, столб"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab447",
+          "label": "Стойки (волейбол, теннис, бадминтон)"
+        },
+        {
+          "value": "6aeea9383b8b9255839ab468",
+          "label": "Три и больше"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab449",
+          "label": "Трибуна, судейская вышка"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab43f",
+          "label": "Турник, перекладина"
+        },
+        {
+          "value": "6aeea9383b8b9255839ab46d",
+          "label": "Турник, рукоход, брусья"
+        },
+        {
+          "value": "6afef7881ca5b05a5ce7f2f8",
+          "label": "Указатель с обозначением направления"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab435",
+          "label": "Функциональный"
+        },
+        {
+          "value": "6aeea9373b8b9255839ab443",
+          "label": "Шведская стенка"
+        },
+        {
+          "value": "6aeea9383b8b9255839ab46e",
+          "label": "Шведская стенка, лестница"
+        }
+      ],
+      "productGroups": [
+        {
+          "value": "6addd76fc93bb8ea2a6e393e",
+          "label": "Благоустройство (оборудование невошедшее в другие группы)"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e3943",
+          "label": "Вазоны"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e3944",
+          "label": "Велопарковки"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e393c",
+          "label": "Военизированная полоса препятствий"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e393b",
+          "label": "Воркаут"
+        },
+        {
+          "value": "6ae5d54656a573801a7de411",
+          "label": "Геопластика"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e394d",
+          "label": "Горки"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e3951",
+          "label": "Детские игровые комплексы"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e3950",
+          "label": "Детское игровое оборудование"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e394f",
+          "label": "Детское спортивное оборудование"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e394b",
+          "label": "Домики"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e3945",
+          "label": "Информационные стенды и указатели"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e3948",
+          "label": "Карусели"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e394a",
+          "label": "Качалка на пружине"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e3949",
+          "label": "Качалка-балансир"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e3947",
+          "label": "Качели"
+        },
+        {
+          "value": "6ae122f89b387dad2061b8c9",
+          "label": "Качели городские"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e393d",
+          "label": "Навесы"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e393f",
+          "label": "Ограждения"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e394c",
+          "label": "Песочницы"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e394e",
+          "label": "Пространственные сети"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e3940",
+          "label": "Скамьи"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e393a",
+          "label": "Спорт оборудование"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e3942",
+          "label": "Столы"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e3939",
+          "label": "Тренажеры"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e3946",
+          "label": "Трибуны"
+        },
+        {
+          "value": "6addd76fc93bb8ea2a6e3941",
+          "label": "Урны"
+        }
+      ],
+      "passportKinds": [
+        {
+          "value": "6af707fdc451d4c05df6a053",
+          "label": "Баскетбольная стойка"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a04d",
+          "label": "Брусья"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a059",
+          "label": "Вазон, цветочница"
+        },
+        {
+          "value": "6af6ca4a22a0611d2b3a4737",
+          "label": "Велопарковки"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a054",
+          "label": "Волейбольные стойки"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a055",
+          "label": "Ворота для мини-футбола"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a05d",
+          "label": "Геопластика"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a060",
+          "label": "Игровой комплекс"
+        },
+        {
+          "value": "6af6ca4a22a0611d2b3a4738",
+          "label": "Информационные стенды и указатели"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a045",
+          "label": "Кардиотренажёр"
+        },
+        {
+          "value": "6af6ca4b22a0611d2b3a473b",
+          "label": "Карусели"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a05f",
+          "label": "Качалка на пружине"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a05e",
+          "label": "Качалка-балансир"
+        },
+        {
+          "value": "6af6ca4a22a0611d2b3a473a",
+          "label": "Качели"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a05c",
+          "label": "Качели городские"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a058",
+          "label": "Кольца, канат, скалодром"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a052",
+          "label": "Комплекс воркаут"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a056",
+          "label": "Комплекс ГТО"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a04b",
+          "label": "Комплексный тренажёр"
+        },
+        {
+          "value": "6af6ca4a22a0611d2b3a4733",
+          "label": "Навесы"
+        },
+        {
+          "value": "6af6ca4a22a0611d2b3a4734",
+          "label": "Ограждения"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a057",
+          "label": "Полоса препятствий"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a05a",
+          "label": "Приствольная решётка"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a04f",
+          "label": "Рукоход"
+        },
+        {
+          "value": "6af6ca4a22a0611d2b3a4735",
+          "label": "Скамьи"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a051",
+          "label": "Скамья для пресса"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a05b",
+          "label": "Стол уличный"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a04a",
+          "label": "Твистер"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a047",
+          "label": "Тренажёр для груди, плеч и рук"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a046",
+          "label": "Тренажёр для ног"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a049",
+          "label": "Тренажёр для пресса"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a048",
+          "label": "Тренажёр для спины"
+        },
+        {
+          "value": "6af6ca4a22a0611d2b3a4739",
+          "label": "Трибуны"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a04c",
+          "label": "Турник"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a04e",
+          "label": "Турник и брусья"
+        },
+        {
+          "value": "6af6ca4a22a0611d2b3a4736",
+          "label": "Урны"
+        },
+        {
+          "value": "6af707fdc451d4c05df6a050",
+          "label": "Шведская стенка"
+        },
+        {
+          "value": "6af6fc565ce4939b9c68f90d",
+          "label": "Экотропа"
+        }
+      ],
+      "passportParts": [
+        {
+          "value": "6afd50dd7485414ce8b73561",
+          "label": "Буквы"
+        },
+        {
+          "value": "6ae44ab6e2b85c75e0686864",
+          "label": "Весовой стек"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e57e",
+          "label": "Гиря"
+        },
+        {
+          "value": "6ae3267ca3f6de10abf03642",
+          "label": "Гриф"
+        },
+        {
+          "value": "6ae44ab6e2b85c75e0686863",
+          "label": "Диск-отягощение"
+        },
+        {
+          "value": "6ae44ab6e2b85c75e0686865",
+          "label": "Дуга"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e58a",
+          "label": "Задвижка"
+        },
+        {
+          "value": "6ae44ab6e2b85c75e0686866",
+          "label": "Зацеп"
+        },
+        {
+          "value": "6ae44ab6e2b85c75e068686d",
+          "label": "Калитка"
+        },
+        {
+          "value": "6af81f883389de160b2c97d9",
+          "label": "Каркас"
+        },
+        {
+          "value": "6ae44ab6e2b85c75e0686868",
+          "label": "Кольцо баскетбольное"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e586",
+          "label": "Кольцо гимнастическое"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e582",
+          "label": "Крючок для крепления сетки"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e57c",
+          "label": "Лежак"
+        },
+        {
+          "value": "6ae32680a3f6de10abf03651",
+          "label": "Маятник"
+        },
+        {
+          "value": "6ae44ab6e2b85c75e0686869",
+          "label": "Механизм натяжения"
+        },
+        {
+          "value": "6ae3267da3f6de10abf03647",
+          "label": "Накопитель дисков"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e574",
+          "label": "Несущая рама"
+        },
+        {
+          "value": "6ae32682a3f6de10abf0365b",
+          "label": "Ногоступ"
+        },
+        {
+          "value": "6ae3267fa3f6de10abf0364c",
+          "label": "Опорная пятка"
+        },
+        {
+          "value": "6aff3bba1eb87438515b409a",
+          "label": "Педаль"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e572",
+          "label": "Перекладина"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e589",
+          "label": "Петля"
+        },
+        {
+          "value": "6afefd841ca5b05a5ce7f7c0",
+          "label": "Подвес"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e57d",
+          "label": "Подлокотник"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e57f",
+          "label": "Подставка для ног поворотная"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e587",
+          "label": "Покрышка"
+        },
+        {
+          "value": "6ae32681a3f6de10abf03656",
+          "label": "Поручень"
+        },
+        {
+          "value": "6afefd861ca5b05a5ce7f7c7",
+          "label": "Пружина"
+        },
+        {
+          "value": "6ae44ab6e2b85c75e068686b",
+          "label": "Прут"
+        },
+        {
+          "value": "6ae44ab6e2b85c75e068686c",
+          "label": "Рейка"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e588",
+          "label": "Ролик для троса"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e575",
+          "label": "Ручка"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e576",
+          "label": "Рычаг"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e583",
+          "label": "Сетка"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e57a",
+          "label": "Сиденье"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e57b",
+          "label": "Спинка"
+        },
+        {
+          "value": "6ae44ab6e2b85c75e068686a",
+          "label": "Стакан"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e571",
+          "label": "Стойка"
+        },
+        {
+          "value": "6afefd881ca5b05a5ce7f7ce",
+          "label": "Столешница"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e580",
+          "label": "Стул откидной"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e581",
+          "label": "Ступень"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e585",
+          "label": "Тумба"
+        },
+        {
+          "value": "6afd4bc97485414ce8b72e9b",
+          "label": "Указатель"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e578",
+          "label": "Упор для груди"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e577",
+          "label": "Упор для ног"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e579",
+          "label": "Упор для спины"
+        },
+        {
+          "value": "6ae44ab6e2b85c75e0686867",
+          "label": "Ферма"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e573",
+          "label": "Хомут"
+        },
+        {
+          "value": "6afd50b17485414ce8b7350d",
+          "label": "Шит"
+        },
+        {
+          "value": "6adceeeb3ca001b9b3b0e584",
+          "label": "Щит"
+        }
+      ]
+    },
+    "sections": [
+      "Документация"
+    ],
+    "refBy": "id",
+    "locked": []
+  }
+}

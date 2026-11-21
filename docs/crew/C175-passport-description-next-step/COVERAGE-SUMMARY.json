@@ -1,0 +1,117 @@
+{
+  "scope": "Статический анализ связей493изделий; не runtime приёмка. groupIds включают только прямую группу; собственный текст/выбор/parts из defaults не оценены.",
+  "products": 493,
+  "noCategory": 1,
+  "noKind": 312,
+  "noTraits": 399,
+  "noDictionarySuggestions": 355,
+  "withDictionarySuggestions": 138,
+  "withAutoCandidate": 42,
+  "countsByKind": [
+    {
+      "kindId": "none",
+      "total": 312,
+      "noSuggestions": 312
+    },
+    {
+      "kindId": "6af707fdc451d4c05df6a05d",
+      "total": 8,
+      "noSuggestions": 8
+    },
+    {
+      "kindId": "6af6ca4a22a0611d2b3a4739",
+      "total": 26,
+      "noSuggestions": 0
+    },
+    {
+      "kindId": "6af6ca4a22a0611d2b3a4738",
+      "total": 18,
+      "noSuggestions": 0
+    },
+    {
+      "kindId": "6af707fdc451d4c05df6a060",
+      "total": 12,
+      "noSuggestions": 12
+    },
+    {
+      "kindId": "6af707fdc451d4c05df6a05e",
+      "total": 4,
+      "noSuggestions": 0
+    },
+    {
+      "kindId": "6af6ca4a22a0611d2b3a4733",
+      "total": 15,
+      "noSuggestions": 15
+    },
+    {
+      "kindId": "6af6ca4a22a0611d2b3a4735",
+      "total": 22,
+      "noSuggestions": 1
+    },
+    {
+      "kindId": "6af6ca4a22a0611d2b3a4737",
+      "total": 4,
+      "noSuggestions": 4
+    },
+    {
+      "kindId": "6af6ca4a22a0611d2b3a4736",
+      "total": 13,
+      "noSuggestions": 0
+    },
+    {
+      "kindId": "6af6ca4a22a0611d2b3a4734",
+      "total": 28,
+      "noSuggestions": 0
+    },
+    {
+      "kindId": "6af6ca4b22a0611d2b3a473b",
+      "total": 3,
+      "noSuggestions": 0
+    },
+    {
+      "kindId": "6af707fdc451d4c05df6a05f",
+      "total": 3,
+      "noSuggestions": 0
+    },
+    {
+      "kindId": "6af707fdc451d4c05df6a05c",
+      "total": 12,
+      "noSuggestions": 0
+    },
+    {
+      "kindId": "6af6ca4a22a0611d2b3a473a",
+      "total": 4,
+      "noSuggestions": 0
+    },
+    {
+      "kindId": "6af707fdc451d4c05df6a05b",
+      "total": 3,
+      "noSuggestions": 0
+    },
+    {
+      "kindId": "6af707fdc451d4c05df6a048",
+      "total": 1,
+      "noSuggestions": 0
+    },
+    {
+      "kindId": "6af707fdc451d4c05df6a047",
+      "total": 2,
+      "noSuggestions": 2
+    },
+    {
+      "kindId": "6af707fdc451d4c05df6a045",
+      "total": 1,
+      "noSuggestions": 0
+    },
+    {
+      "kindId": "6af707fdc451d4c05df6a046",
+      "total": 1,
+      "noSuggestions": 0
+    },
+    {
+      "kindId": "6af6fc565ce4939b9c68f90d",
+      "total": 1,
+      "noSuggestions": 1
+    }
+  ]
+}

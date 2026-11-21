@@ -1,0 +1,1029 @@
+{
+  "items": [
+    {
+      "name": "Баскетбольная стойка",
+      "passportCategory": "WRK",
+      "elementIds": [
+        "6ada091046ad81616709da3e"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f198",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a053",
+      "_id": "6af707fdc451d4c05df6a053",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.418Z",
+      "elementNames": "Баскетбольная стойка",
+      "purposeLeafName": "Баскетбол"
+    },
+    {
+      "name": "Брусья",
+      "passportCategory": "WRK",
+      "elementIds": [
+        "6ada090c7536f8509feb4220"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f197",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a04d",
+      "_id": "6af707fdc451d4c05df6a04d",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.388Z",
+      "elementNames": "Брусья",
+      "purposeLeafName": "Брусья"
+    },
+    {
+      "name": "Вазон, цветочница",
+      "passportCategory": "BLG",
+      "elementIds": [
+        "6adb17107920f392cb442fcd"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f1a3",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a059",
+      "_id": "6af707fdc451d4c05df6a059",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.44Z",
+      "elementNames": "Вазон / цветочница",
+      "purposeLeafName": "Озеленение"
+    },
+    {
+      "name": "Велопарковки",
+      "passportCategory": "BLG",
+      "elementIds": [
+        "6adb17107920f392cb442fd1"
+      ],
+      "purposeLeafId": "",
+      "notes": "",
+      "id": "6af6ca4a22a0611d2b3a4737",
+      "_id": "6af6ca4a22a0611d2b3a4737",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T08:28:58.926Z",
+      "elementNames": "Велопарковка",
+      "purposeLeafName": ""
+    },
+    {
+      "name": "Волейбольные стойки",
+      "passportCategory": "WRK",
+      "elementIds": [
+        "6ada091046ad81616709da3f"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f199",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a054",
+      "_id": "6af707fdc451d4c05df6a054",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.423Z",
+      "elementNames": "Волейбольные стойки",
+      "purposeLeafName": "Волейбол"
+    },
+    {
+      "name": "Ворота для мини-футбола",
+      "passportCategory": "WRK",
+      "elementIds": [
+        "6ada091046ad81616709da40"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f19a",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a055",
+      "_id": "6af707fdc451d4c05df6a055",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.426Z",
+      "elementNames": "Ворота для мини-футбола",
+      "purposeLeafName": "Футбол"
+    },
+    {
+      "name": "Геопластика",
+      "passportCategory": "BLG",
+      "elementIds": [],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f1a6",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a05d",
+      "_id": "6af707fdc451d4c05df6a05d",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.451Z",
+      "elementNames": "",
+      "purposeLeafName": "Прочее благоустройство"
+    },
+    {
+      "name": "Игровой комплекс",
+      "passportCategory": "DIO",
+      "elementIds": [],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f1a7",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a060",
+      "_id": "6af707fdc451d4c05df6a060",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.459Z",
+      "elementNames": "",
+      "purposeLeafName": "Игровое"
+    },
+    {
+      "name": "Информационные стенды и указатели",
+      "passportCategory": "BLG",
+      "elementIds": [
+        "6adb17107920f392cb442fd0"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f1a4",
+      "notes": "",
+      "id": "6af6ca4a22a0611d2b3a4738",
+      "_id": "6af6ca4a22a0611d2b3a4738",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T08:28:58.943Z",
+      "elementNames": "Информационный стенд",
+      "purposeLeafName": "Информирование"
+    },
+    {
+      "name": "Кардиотренажёр",
+      "passportCategory": "TRN",
+      "elementIds": [
+        "6ada091046ad81616709da45"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f194",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a045",
+      "_id": "6af707fdc451d4c05df6a045",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.341Z",
+      "elementNames": "Кардиотренажёр",
+      "purposeLeafName": "Кардио"
+    },
+    {
+      "name": "Карусели",
+      "passportCategory": "DIO",
+      "elementIds": [
+        "6ada090c7536f8509feb4226"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f1a7",
+      "notes": "",
+      "id": "6af6ca4b22a0611d2b3a473b",
+      "_id": "6af6ca4b22a0611d2b3a473b",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T08:28:59.01Z",
+      "elementNames": "Карусель",
+      "purposeLeafName": "Игровое"
+    },
+    {
+      "name": "Качалка на пружине",
+      "passportCategory": "DIO",
+      "elementIds": [],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f1a7",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a05f",
+      "_id": "6af707fdc451d4c05df6a05f",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.456Z",
+      "elementNames": "",
+      "purposeLeafName": "Игровое"
+    },
+    {
+      "name": "Качалка-балансир",
+      "passportCategory": "DIO",
+      "elementIds": [
+        "6ada090c7536f8509feb4227"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f1a7",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a05e",
+      "_id": "6af707fdc451d4c05df6a05e",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.453Z",
+      "elementNames": "Балансир",
+      "purposeLeafName": "Игровое"
+    },
+    {
+      "name": "Качели",
+      "passportCategory": "DIO",
+      "elementIds": [
+        "6ada090c7536f8509feb4225"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f1a7",
+      "notes": "",
+      "id": "6af6ca4a22a0611d2b3a473a",
+      "_id": "6af6ca4a22a0611d2b3a473a",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T08:28:58.985Z",
+      "elementNames": "Качели",
+      "purposeLeafName": "Игровое"
+    },
+    {
+      "name": "Качели городские",
+      "passportCategory": "BLG",
+      "elementIds": [],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f1a2",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a05c",
+      "_id": "6af707fdc451d4c05df6a05c",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.448Z",
+      "elementNames": "",
+      "purposeLeafName": "Отдых"
+    },
+    {
+      "name": "Кольца, канат, скалодром",
+      "passportCategory": "WRK",
+      "elementIds": [],
+      "purposeLeafId": "6aeea931e6cf14bd396f3b15",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a058",
+      "_id": "6af707fdc451d4c05df6a058",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.437Z",
+      "elementNames": "",
+      "purposeLeafName": "Кольца, канат, скалодром"
+    },
+    {
+      "name": "Комплекс воркаут",
+      "passportCategory": "WRK",
+      "elementIds": [
+        "6ada090c7536f8509feb421f",
+        "6ada090c7536f8509feb4220",
+        "6ada090c7536f8509feb4223"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f19e",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a052",
+      "_id": "6af707fdc451d4c05df6a052",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.411Z",
+      "elementNames": "Турник, Брусья, Рукоход",
+      "purposeLeafName": "Комплекс с собственным весом"
+    },
+    {
+      "name": "Комплекс ГТО",
+      "passportCategory": "WRK",
+      "elementIds": [],
+      "purposeLeafId": "6aeea931e6cf14bd396f3b16",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a056",
+      "_id": "6af707fdc451d4c05df6a056",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.431Z",
+      "elementNames": "",
+      "purposeLeafName": "Испытания ГТО"
+    },
+    {
+      "name": "Комплексный тренажёр",
+      "passportCategory": "TRN",
+      "elementIds": [
+        "6ada090c7536f8509feb4229"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f195",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a04b",
+      "_id": "6af707fdc451d4c05df6a04b",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.38Z",
+      "elementNames": "Тренажёр с подвижными узлами",
+      "purposeLeafName": "Комплексный"
+    },
+    {
+      "name": "Навесы",
+      "passportCategory": "BLG",
+      "elementIds": [
+        "6ada091046ad81616709da43"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f1a1",
+      "notes": "",
+      "id": "6af6ca4a22a0611d2b3a4733",
+      "_id": "6af6ca4a22a0611d2b3a4733",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T08:28:58.803Z",
+      "elementNames": "Навес / пергола",
+      "purposeLeafName": "Навес, беседка"
+    },
+    {
+      "name": "Ограждения",
+      "passportCategory": "BLG",
+      "elementIds": [
+        "6ada091046ad81616709da41"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f1a0",
+      "notes": "",
+      "id": "6af6ca4a22a0611d2b3a4734",
+      "_id": "6af6ca4a22a0611d2b3a4734",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T08:28:58.835Z",
+      "elementNames": "Ограждение площадки",
+      "purposeLeafName": "Ограждение"
+    },
+    {
+      "name": "Полоса препятствий",
+      "passportCategory": "WRK",
+      "elementIds": [],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f19d",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a057",
+      "_id": "6af707fdc451d4c05df6a057",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.434Z",
+      "elementNames": "",
+      "purposeLeafName": "Полоса препятствий"
+    },
+    {
+      "name": "Приствольная решётка",
+      "passportCategory": "BLG",
+      "elementIds": [
+        "6af1cc85bde492a73d513dca"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f1a3",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a05a",
+      "_id": "6af707fdc451d4c05df6a05a",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.442Z",
+      "elementNames": "Приствольная решётка",
+      "purposeLeafName": "Озеленение"
+    },
+    {
+      "name": "Рукоход",
+      "passportCategory": "WRK",
+      "elementIds": [
+        "6ada090c7536f8509feb4223"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f196",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a04f",
+      "_id": "6af707fdc451d4c05df6a04f",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.397Z",
+      "elementNames": "Рукоход",
+      "purposeLeafName": "Турник, рукоход"
+    },
+    {
+      "name": "Скамьи",
+      "passportCategory": "BLG",
+      "elementIds": [
+        "6ada090c7536f8509feb422a"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f1a2",
+      "notes": "",
+      "id": "6af6ca4a22a0611d2b3a4735",
+      "_id": "6af6ca4a22a0611d2b3a4735",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T08:28:58.859Z",
+      "elementNames": "Скамья",
+      "purposeLeafName": "Отдых"
+    },
+    {
+      "name": "Скамья для пресса",
+      "passportCategory": "WRK",
+      "elementIds": [
+        "6ada090c7536f8509feb4221"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f19c",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a051",
+      "_id": "6af707fdc451d4c05df6a051",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.404Z",
+      "elementNames": "Скамья для пресса",
+      "purposeLeafName": "Гимнастика, пресс"
+    },
+    {
+      "name": "Стол уличный",
+      "passportCategory": "BLG",
+      "elementIds": [
+        "6adb17107920f392cb442fcf"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f1a2",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a05b",
+      "_id": "6af707fdc451d4c05df6a05b",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.445Z",
+      "elementNames": "Стол уличный",
+      "purposeLeafName": "Отдых"
+    },
+    {
+      "name": "Твистер",
+      "passportCategory": "TRN",
+      "elementIds": [
+        "6ada091046ad81616709da47"
+      ],
+      "purposeLeafId": "6aeea931e6cf14bd396f3b13",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a04a",
+      "_id": "6af707fdc451d4c05df6a04a",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.374Z",
+      "elementNames": "Твистер",
+      "purposeLeafName": "Разминка суставов"
+    },
+    {
+      "name": "Тренажёр для груди, плеч и рук",
+      "passportCategory": "TRN",
+      "elementIds": [
+        "6ada091046ad81616709da46"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f190",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a047",
+      "_id": "6af707fdc451d4c05df6a047",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.355Z",
+      "elementNames": "Тренажёр для мышц груди и спины",
+      "purposeLeafName": "Грудь, плечи, руки"
+    },
+    {
+      "name": "Тренажёр для ног",
+      "passportCategory": "TRN",
+      "elementIds": [
+        "6ada091046ad81616709da44"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f192",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a046",
+      "_id": "6af707fdc451d4c05df6a046",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.35Z",
+      "elementNames": "Тренажёр для мышц ног и ягодиц",
+      "purposeLeafName": "Ноги"
+    },
+    {
+      "name": "Тренажёр для пресса",
+      "passportCategory": "TRN",
+      "elementIds": [
+        "6ada090c7536f8509feb4229"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f193",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a049",
+      "_id": "6af707fdc451d4c05df6a049",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.365Z",
+      "elementNames": "Тренажёр с подвижными узлами",
+      "purposeLeafName": "Пресс"
+    },
+    {
+      "name": "Тренажёр для спины",
+      "passportCategory": "TRN",
+      "elementIds": [
+        "6ada091046ad81616709da46"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f191",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a048",
+      "_id": "6af707fdc451d4c05df6a048",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.36Z",
+      "elementNames": "Тренажёр для мышц груди и спины",
+      "purposeLeafName": "Спина"
+    },
+    {
+      "name": "Трибуны",
+      "passportCategory": "BLG",
+      "elementIds": [],
+      "purposeLeafId": "6aeea931e6cf14bd396f3b17",
+      "notes": "",
+      "id": "6af6ca4a22a0611d2b3a4739",
+      "_id": "6af6ca4a22a0611d2b3a4739",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T08:28:58.968Z",
+      "elementNames": "",
+      "purposeLeafName": "Зрительские места"
+    },
+    {
+      "name": "Турник",
+      "passportCategory": "WRK",
+      "elementIds": [
+        "6ada090c7536f8509feb421f"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f196",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a04c",
+      "_id": "6af707fdc451d4c05df6a04c",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.384Z",
+      "elementNames": "Турник",
+      "purposeLeafName": "Турник, рукоход"
+    },
+    {
+      "name": "Турник и брусья",
+      "passportCategory": "WRK",
+      "elementIds": [
+        "6ada090c7536f8509feb421f",
+        "6ada090c7536f8509feb4220"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f19e",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a04e",
+      "_id": "6af707fdc451d4c05df6a04e",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.393Z",
+      "elementNames": "Турник, Брусья",
+      "purposeLeafName": "Комплекс с собственным весом"
+    },
+    {
+      "name": "Урны",
+      "passportCategory": "BLG",
+      "elementIds": [
+        "6ada091046ad81616709da42"
+      ],
+      "purposeLeafId": "6adb5ab2edd024ba63d7f19f",
+      "notes": "",
+      "id": "6af6ca4a22a0611d2b3a4736",
+      "_id": "6af6ca4a22a0611d2b3a4736",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T08:28:58.885Z",
+      "elementNames": "Урна",
+      "purposeLeafName": "Сбор мусора"
+    },
+    {
+      "name": "Шведская стенка",
+      "passportCategory": "WRK",
+      "elementIds": [
+        "6ada090c7536f8509feb4222"
+      ],
+      "purposeLeafId": "6aeea931e6cf14bd396f3b14",
+      "notes": "C107: по смыслу справочников",
+      "id": "6af707fdc451d4c05df6a050",
+      "_id": "6af707fdc451d4c05df6a050",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-13T12:52:13.401Z",
+      "elementNames": "Шведская стенка",
+      "purposeLeafName": "Шведская стенка"
+    },
+    {
+      "name": "Экотропа",
+      "passportCategory": "BLG",
+      "elementIds": [
+        "6af6f6db5ce4939b9c68f3e3"
+      ],
+      "purposeLeafId": "",
+      "notes": "",
+      "id": "6af6fc565ce4939b9c68f90d",
+      "_id": "6af6fc565ce4939b9c68f90d",
+      "dict": "passportKinds",
+      "updatedAt": "2026-11-16T06:42:45.921Z",
+      "elementNames": "Экотропа",
+      "purposeLeafName": ""
+    }
+  ],
+  "total": 38,
+  "page": 1,
+  "limit": 38,
+  "dict": {
+    "key": "passportKinds",
+    "title": "Виды изделий",
+    "newTitle": "Новый вид изделия",
+    "group": "Паспорта",
+    "hint": "Зачем: один ярлык «что это за изделие» для группы или карточки. Пример: «Урна», «Скамья». Вид задаёт тип паспорта, функциональные элементы и назначение. Переименовать элемент — в «Функциональных элементах», здесь только выбор.",
+    "columns": [
+      {
+        "key": "passportCategory",
+        "label": "Категория"
+      },
+      {
+        "key": "elementNames",
+        "label": "Функциональные элементы"
+      },
+      {
+        "key": "purposeLeafName",
+        "label": "Назначение"
+      }
+    ],
+    "fields": [
+      {
+        "key": "name",
+        "label": "Название",
+        "required": true,
+        "wide": true
+      },
+      {
+        "key": "passportCategory",
+        "label": "Тип паспорта",
+        "type": "select",
+        "hint": "Тип паспорта изделий этого вида. Свой тип, заданный в изделии вручную, главнее",
+        "options": [
+          {
+            "value": "DIO",
+            "label": "Детское игровое"
+          },
+          {
+            "value": "DSP",
+            "label": "Детское спортивное"
+          },
+          {
+            "value": "TRN",
+            "label": "Уличный тренажёр"
+          },
+          {
+            "value": "WRK",
+            "label": "Воркаут"
+          },
+          {
+            "value": "BLG",
+            "label": "Благоустройство"
+          }
+        ]
+      },
+      {
+        "key": "elementIds",
+        "label": "Функциональные элементы",
+        "type": "select",
+        "ref": "passportElements",
+        "multi": true,
+        "wide": true,
+        "hint": "Ссылки на справочник «Функциональные элементы», не больше 3. Переименовать элемент — там; здесь только выбрать, какие входят в вид."
+      },
+      {
+        "key": "purposeLeafId",
+        "label": "Назначение",
+        "type": "select",
+        "ref": "passportPhrases",
+        "refMatch": {
+          "section": "purpose",
+          "parentId": {
+            "$ne": null
+          }
+        },
+        "wide": true,
+        "hint": "Конечный вариант раздела «Назначение» из «Текстов паспорта»"
+      },
+      {
+        "key": "notes",
+        "label": "Примечание",
+        "wide": true
+      }
+    ],
+    "refs": {
+      "passportElements": [
+        {
+          "value": "6ae3a02a793eb93d71b3f35a",
+          "label": "Анкер"
+        },
+        {
+          "value": "6ada090c7536f8509feb4227",
+          "label": "Балансир"
+        },
+        {
+          "value": "6ada091046ad81616709da3e",
+          "label": "Баскетбольная стойка"
+        },
+        {
+          "value": "6adb17107920f392cb442fce",
+          "label": "Беседка"
+        },
+        {
+          "value": "6ae3a041793eb93d71b3f3c1",
+          "label": "Борт"
+        },
+        {
+          "value": "6ada090c7536f8509feb4220",
+          "label": "Брусья"
+        },
+        {
+          "value": "6adb17107920f392cb442fcd",
+          "label": "Вазон / цветочница"
+        },
+        {
+          "value": "6adb17107920f392cb442fd1",
+          "label": "Велопарковка"
+        },
+        {
+          "value": "6ada091046ad81616709da3f",
+          "label": "Волейбольные стойки"
+        },
+        {
+          "value": "6ada091046ad81616709da40",
+          "label": "Ворота для мини-футбола"
+        },
+        {
+          "value": "6ae3a033793eb93d71b3f385",
+          "label": "Втулка"
+        },
+        {
+          "value": "6ada090c7536f8509feb4224",
+          "label": "Горка"
+        },
+        {
+          "value": "6ae3a02e793eb93d71b3f371",
+          "label": "Заглушка"
+        },
+        {
+          "value": "6ae3a029793eb93d71b3f355",
+          "label": "Закладная деталь"
+        },
+        {
+          "value": "6ae3a046793eb93d71b3f3dc",
+          "label": "Информационная табличка"
+        },
+        {
+          "value": "6adb17107920f392cb442fd0",
+          "label": "Информационный стенд"
+        },
+        {
+          "value": "6ada090c7536f8509feb4228",
+          "label": "Канатная сеть"
+        },
+        {
+          "value": "6ada091046ad81616709da45",
+          "label": "Кардиотренажёр"
+        },
+        {
+          "value": "6ae3a03b793eb93d71b3f3a3",
+          "label": "Каретка (платформа)"
+        },
+        {
+          "value": "6ae3a023793eb93d71b3f341",
+          "label": "Каркас"
+        },
+        {
+          "value": "6ada090c7536f8509feb4226",
+          "label": "Карусель"
+        },
+        {
+          "value": "6ada090c7536f8509feb4225",
+          "label": "Качели"
+        },
+        {
+          "value": "6ae3a045793eb93d71b3f3d7",
+          "label": "Корпус (ёмкость)"
+        },
+        {
+          "value": "6ae3a032793eb93d71b3f380",
+          "label": "Косынка (ребро жёсткости)"
+        },
+        {
+          "value": "6ae3a02c793eb93d71b3f36c",
+          "label": "Крепёж"
+        },
+        {
+          "value": "6ae3a043793eb93d71b3f3cd",
+          "label": "Кровля (крыша)"
+        },
+        {
+          "value": "6ae3a02f793eb93d71b3f376",
+          "label": "Кронштейн"
+        },
+        {
+          "value": "6ae3a03f793eb93d71b3f3b7",
+          "label": "Лестница"
+        },
+        {
+          "value": "6ae3a039793eb93d71b3f39e",
+          "label": "Маховик"
+        },
+        {
+          "value": "6afabf745932bda919d1a1a3",
+          "label": "Мостик"
+        },
+        {
+          "value": "6ada091046ad81616709da43",
+          "label": "Навес / пергола"
+        },
+        {
+          "value": "6ae3a031793eb93d71b3f37b",
+          "label": "Накладка"
+        },
+        {
+          "value": "6ae3a03e793eb93d71b3f3b2",
+          "label": "Ограждение (перила)"
+        },
+        {
+          "value": "6ada091046ad81616709da41",
+          "label": "Ограждение площадки"
+        },
+        {
+          "value": "6ae3a037793eb93d71b3f394",
+          "label": "Ограничитель хода"
+        },
+        {
+          "value": "6ae3a025793eb93d71b3f346",
+          "label": "Опора"
+        },
+        {
+          "value": "6ae3a028793eb93d71b3f350",
+          "label": "Опорная пластина"
+        },
+        {
+          "value": "6ae3a027793eb93d71b3f34b",
+          "label": "Основание"
+        },
+        {
+          "value": "6ae3a035793eb93d71b3f38a",
+          "label": "Ось"
+        },
+        {
+          "value": "6ae3a038793eb93d71b3f399",
+          "label": "Педаль"
+        },
+        {
+          "value": "6ae3a03d793eb93d71b3f3ad",
+          "label": "Площадка"
+        },
+        {
+          "value": "6ae3a042793eb93d71b3f3c8",
+          "label": "Подвес"
+        },
+        {
+          "value": "6ae3a036793eb93d71b3f38f",
+          "label": "Подшипниковый узел"
+        },
+        {
+          "value": "6ae3a03c793eb93d71b3f3a8",
+          "label": "Поручень"
+        },
+        {
+          "value": "6af1cc85bde492a73d513dca",
+          "label": "Приствольная решётка"
+        },
+        {
+          "value": "6ada090c7536f8509feb4223",
+          "label": "Рукоход"
+        },
+        {
+          "value": "6ada090c7536f8509feb422a",
+          "label": "Скамья"
+        },
+        {
+          "value": "6ada090c7536f8509feb4221",
+          "label": "Скамья для пресса"
+        },
+        {
+          "value": "6ae3a040793eb93d71b3f3bc",
+          "label": "Скат"
+        },
+        {
+          "value": "6adb17107920f392cb442fcf",
+          "label": "Стол уличный"
+        },
+        {
+          "value": "6ae3a044793eb93d71b3f3d2",
+          "label": "Столешница"
+        },
+        {
+          "value": "6ada091046ad81616709da47",
+          "label": "Твистер"
+        },
+        {
+          "value": "6ada091046ad81616709da46",
+          "label": "Тренажёр для мышц груди и спины"
+        },
+        {
+          "value": "6ada091046ad81616709da44",
+          "label": "Тренажёр для мышц ног и ягодиц"
+        },
+        {
+          "value": "6ada090c7536f8509feb4229",
+          "label": "Тренажёр с подвижными узлами"
+        },
+        {
+          "value": "6ada090c7536f8509feb421f",
+          "label": "Турник"
+        },
+        {
+          "value": "6af5c6bee665aeae7f952201",
+          "label": "Указатель"
+        },
+        {
+          "value": "6ada091046ad81616709da42",
+          "label": "Урна"
+        },
+        {
+          "value": "6ada090c7536f8509feb4222",
+          "label": "Шведская стенка"
+        },
+        {
+          "value": "6af6f6db5ce4939b9c68f3e3",
+          "label": "Экотропа"
+        }
+      ],
+      "passportPhrases": [
+        {
+          "value": "6adb5ab2edd024ba63d7f198",
+          "label": "Баскетбол"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f197",
+          "label": "Брусья"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f199",
+          "label": "Волейбол"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f19c",
+          "label": "Гимнастика, пресс"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f190",
+          "label": "Грудь, плечи, руки"
+        },
+        {
+          "value": "6aeea931e6cf14bd396f3b18",
+          "label": "Детский спорт"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f19b",
+          "label": "Единоборства"
+        },
+        {
+          "value": "6aeea931e6cf14bd396f3b17",
+          "label": "Зрительские места"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f1a7",
+          "label": "Игровое"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f1a4",
+          "label": "Информирование"
+        },
+        {
+          "value": "6af5b27ae665aeae7f9513f8",
+          "label": "Информирование — указатели и стенды"
+        },
+        {
+          "value": "6aeea931e6cf14bd396f3b16",
+          "label": "Испытания ГТО"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f194",
+          "label": "Кардио"
+        },
+        {
+          "value": "6aeea931e6cf14bd396f3b15",
+          "label": "Кольца, канат, скалодром"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f19e",
+          "label": "Комплекс с собственным весом"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f195",
+          "label": "Комплексный"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f1a1",
+          "label": "Навес, беседка"
+        },
+        {
+          "value": "6afaa6eb5932bda919d17746",
+          "label": "Настил для экотропы"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f192",
+          "label": "Ноги"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f1a0",
+          "label": "Ограждение"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f1a3",
+          "label": "Озеленение"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f1a5",
+          "label": "Освещение"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f1a2",
+          "label": "Отдых"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f19d",
+          "label": "Полоса препятствий"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f193",
+          "label": "Пресс"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f1a6",
+          "label": "Прочее благоустройство"
+        },
+        {
+          "value": "6aeea931e6cf14bd396f3b13",
+          "label": "Разминка суставов"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f19f",
+          "label": "Сбор мусора"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f191",
+          "label": "Спина"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f196",
+          "label": "Турник, рукоход"
+        },
+        {
+          "value": "6adb5ab2edd024ba63d7f19a",
+          "label": "Футбол"
+        },
+        {
+          "value": "6aeea931e6cf14bd396f3b14",
+          "label": "Шведская стенка"
+        }
+      ]
+    },
+    "sections": [
+      "Документация",
+      "Продукция"
+    ],
+    "refBy": "id",
+    "locked": []
+  }
+}

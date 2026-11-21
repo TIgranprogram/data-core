@@ -1,0 +1,122 @@
+{
+  "issuedUnchanged": true,
+  "facetValueIds": [
+    "6aeea9373b8b9255839ab43b",
+    "6b018d5088dbc703e017ae89"
+  ],
+  "created": [
+    {
+      "id": "6b018d5088dbc703e017ae89",
+      "symbol": "value.1038.seat-back-levers-footrest"
+    },
+    {
+      "id": "6b018d5188dbc703e017ae8e",
+      "symbol": "root.1038.seat-back-levers-footrest"
+    },
+    {
+      "id": "6b018d5388dbc703e017ae93",
+      "symbol": "leaf.1038.seat-back-levers-footrest"
+    }
+  ],
+  "contour": "stand",
+  "issuedCount": 1,
+  "readiness": {
+    "ready": false,
+    "missing": [
+      {
+        "key": "img_overview",
+        "label": "Фото изделия: файл на сервере повреждён или пропал — замените фото",
+        "hint": "Карточка изделия → Фото и файлы → Для паспорта → «Фото изделия: файл на сервере повреждён или пропал — замените фото»"
+      },
+      {
+        "key": "img_dimensions",
+        "label": "Чертёж с размерами: файл на сервере повреждён или пропал — замените фото",
+        "hint": "Карточка изделия → Фото и файлы → Для паспорта → «Чертёж с размерами: файл на сервере повреждён или пропал — замените фото»"
+      }
+    ],
+    "recommendations": [],
+    "defaulted": [
+      {
+        "key": "heightMin",
+        "label": "Рост пользователя от"
+      },
+      {
+        "key": "weightMax",
+        "label": "Вес пользователя до"
+      }
+    ],
+    "requiredImages": [
+      "overview",
+      "dimensions"
+    ],
+    "imageSlots": [
+      "overview",
+      "dimensions",
+      "mounting",
+      "holes",
+      "assembly",
+      "bom_item"
+    ]
+  },
+  "standFacetId": "6b018d4e88dbc703e017ae84",
+  "before": [
+    {
+      "numbers": [
+        1655,
+        1036,
+        1893,
+        137.6,
+        null
+      ],
+      "revision": 1,
+      "id": "6ad8d482371b65d090d8c71a",
+      "images": [
+        {
+          "kind": "overview",
+          "photoId": "6ad8d482371b65d090d8c718",
+          "order": 0,
+          "url": "/uploads/pp-d8b7bc46eaaa7badb766.png"
+        }
+      ],
+      "textSnapshotSha256": "25D76CEFA2A55C88AE1593957CFD17D7DCE7C4E3156CFE4180DE2EAE0E2BC91E",
+      "status": "issued"
+    }
+  ],
+  "description": "Тренажёр включает несущую раму, сиденье со спинкой, рычаги с ручками и площадку для ног.",
+  "source": {
+    "kind": "dictionary",
+    "id": "6b018d5388dbc703e017ae93",
+    "rootId": "6b018d5188dbc703e017ae8e",
+    "partIds": [
+      "6adceeeb3ca001b9b3b0e574",
+      "6adceeeb3ca001b9b3b0e57a",
+      "6adceeeb3ca001b9b3b0e57b",
+      "6adceeeb3ca001b9b3b0e576",
+      "6adceeeb3ca001b9b3b0e575",
+      "6adceeeb3ca001b9b3b0e577"
+    ]
+  },
+  "after": [
+    {
+      "numbers": [
+        1655,
+        1036,
+        1893,
+        137.6,
+        null
+      ],
+      "id": "6ad8d482371b65d090d8c71a",
+      "images": [
+        {
+          "kind": "overview",
+          "photoId": "6ad8d482371b65d090d8c718",
+          "order": 0,
+          "url": "/uploads/pp-d8b7bc46eaaa7badb766.png"
+        }
+      ],
+      "status": "issued",
+      "textSnapshotSha256": "25D76CEFA2A55C88AE1593957CFD17D7DCE7C4E3156CFE4180DE2EAE0E2BC91E",
+      "revision": 1
+    }
+  ]
+}

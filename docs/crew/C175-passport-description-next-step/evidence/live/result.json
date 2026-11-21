@@ -1,0 +1,41 @@
+{
+  "status": "PASS",
+  "scope": "stand live UI/save/readback/reopen/restore; exactly two template PATCH at most",
+  "pageErrors": [],
+  "blocked": [],
+  "writes": [
+    {
+      "method": "PATCH",
+      "path": "/api/showcase/6adafef82a8dad6034b1451c/passport-template",
+      "phase": "save"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/showcase/6adafef82a8dad6034b1451c/passport-template",
+      "phase": "restore"
+    }
+  ],
+  "checks": [
+    {
+      "saveReadback": true,
+      "partCount": 6,
+      "dictionaryOpenedAndReturned": true
+    },
+    {
+      "reopenAfterReload": true,
+      "geometry": {
+        "scroll": 261,
+        "width": 261,
+        "page": 1425,
+        "viewport": 1440
+      }
+    },
+    {
+      "restoredDictionary": true,
+      "issuedUnchanged": true,
+      "issuedId": "6ad8d482371b65d090d8c71a",
+      "issuedRevision": 1
+    }
+  ],
+  "restored": true
+}

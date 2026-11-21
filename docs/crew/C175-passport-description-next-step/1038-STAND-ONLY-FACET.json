@@ -1,0 +1,14 @@
+{
+  "standId": "6b018d4e88dbc703e017ae84",
+  "body": {
+    "step": false,
+    "hint": "",
+    "category": "TRN",
+    "order": 90,
+    "code": "trn.contact",
+    "multi": false,
+    "name": "Рабочие части тренажёра"
+  },
+  "partsRemapped": [],
+  "prodId": "6afef7611ca5b05a5ce7f2aa"
+}

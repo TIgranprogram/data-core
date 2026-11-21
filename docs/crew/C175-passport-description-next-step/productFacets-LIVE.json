@@ -1,0 +1,395 @@
+{
+  "items": [
+    {
+      "name": "Вид тренажёра",
+      "code": "trn.kind",
+      "category": "TRN",
+      "order": 1,
+      "step": true,
+      "multi": false,
+      "hint": "Сначала главное: силовой, кардио или для суставов",
+      "id": "6aeea9373b8b9255839ab421",
+      "_id": "6aeea9373b8b9255839ab421",
+      "dict": "productFacets",
+      "updatedAt": "2026-11-07T04:29:43.69Z"
+    },
+    {
+      "name": "Возраст детей",
+      "code": "dio.age",
+      "category": "DIO",
+      "order": 1,
+      "step": true,
+      "multi": false,
+      "hint": "Сейчас ни у одного изделия не задан — спросить один раз, сохранить в изделие",
+      "id": "6aeea9373b8b9255839ab42d",
+      "_id": "6aeea9373b8b9255839ab42d",
+      "dict": "productFacets",
+      "updatedAt": "2026-11-07T04:29:43.69Z"
+    },
+    {
+      "name": "Возраст детей",
+      "code": "dsp.age",
+      "category": "DSP",
+      "order": 2,
+      "step": true,
+      "multi": false,
+      "hint": "Обычно от 7 лет (справочник категорий)",
+      "id": "6aeea9373b8b9255839ab431",
+      "_id": "6aeea9373b8b9255839ab431",
+      "dict": "productFacets",
+      "updatedAt": "2026-11-07T04:29:43.69Z"
+    },
+    {
+      "name": "Группа мышц",
+      "code": "trn.muscles",
+      "category": "TRN",
+      "order": 2,
+      "step": true,
+      "multi": true,
+      "hint": "Для силовых. Совмещённый тренажёр — несколько значений",
+      "id": "6aeea9373b8b9255839ab422",
+      "_id": "6aeea9373b8b9255839ab422",
+      "dict": "productFacets",
+      "updatedAt": "2026-11-07T04:29:43.69Z"
+    },
+    {
+      "name": "Исполнение",
+      "code": "trn.build",
+      "category": "TRN",
+      "order": 4,
+      "step": true,
+      "multi": false,
+      "hint": "Один тренажёр или два в одном",
+      "id": "6aeea9373b8b9255839ab424",
+      "_id": "6aeea9373b8b9255839ab424",
+      "dict": "productFacets",
+      "updatedAt": "2026-11-07T04:29:43.69Z"
+    },
+    {
+      "name": "Конструкция информационного изделия",
+      "code": "blg.sign.form",
+      "category": "BLG",
+      "order": 90,
+      "step": false,
+      "multi": false,
+      "hint": "",
+      "id": "6afef77e1ca5b05a5ce7f2ea",
+      "_id": "6afef77e1ca5b05a5ce7f2ea",
+      "dict": "productFacets",
+      "updatedAt": "2026-11-19T13:19:58.703Z"
+    },
+    {
+      "name": "Материал",
+      "code": "blg.material",
+      "category": "BLG",
+      "order": 5,
+      "step": false,
+      "multi": false,
+      "hint": "Не шаг воронки: подставляется в текст ухода (дерево — пропитка)",
+      "id": "6aeea9373b8b9255839ab42c",
+      "_id": "6aeea9373b8b9255839ab42c",
+      "dict": "productFacets",
+      "updatedAt": "2026-11-07T04:29:43.69Z"
+    },
+    {
+      "name": "Материал",
+      "code": "dio.material",
+      "category": "DIO",
+      "order": 3,
+      "step": false,
+      "multi": false,
+      "hint": "Не шаг воронки: подставляется в текст ухода",
+      "id": "6aeea9373b8b9255839ab42f",
+      "_id": "6aeea9373b8b9255839ab42f",
+      "dict": "productFacets",
+      "updatedAt": "2026-11-07T04:29:43.69Z"
+    },
+    {
+      "name": "Мест",
+      "code": "blg.seats",
+      "category": "BLG",
+      "order": 2,
+      "step": true,
+      "multi": false,
+      "hint": "Трибуны, скамьи, столы",
+      "id": "6aeea9373b8b9255839ab429",
+      "_id": "6aeea9373b8b9255839ab429",
+      "dict": "productFacets",
+      "updatedAt": "2026-11-07T04:29:43.69Z"
+    },
+    {
+      "name": "Мест",
+      "code": "dio.seats",
+      "category": "DIO",
+      "order": 2,
+      "step": true,
+      "multi": false,
+      "hint": "Качели, качалки, карусели",
+      "id": "6aeea9373b8b9255839ab42e",
+      "_id": "6aeea9373b8b9255839ab42e",
+      "dict": "productFacets",
+      "updatedAt": "2026-11-07T04:29:43.69Z"
+    },
+    {
+      "name": "Нагрузка",
+      "code": "trn.load",
+      "category": "TRN",
+      "order": 3,
+      "step": true,
+      "multi": false,
+      "hint": "Для силовых: свой вес или грузы. От неё зависит текст ТО",
+      "id": "6aeea9373b8b9255839ab423",
+      "_id": "6aeea9373b8b9255839ab423",
+      "dict": "productFacets",
+      "updatedAt": "2026-11-07T04:29:43.69Z"
+    },
+    {
+      "name": "Назначение модуля трибуны",
+      "code": "blg.tribune.form",
+      "category": "BLG",
+      "order": 90,
+      "step": false,
+      "multi": false,
+      "hint": "",
+      "id": "6afef78d1ca5b05a5ce7f310",
+      "_id": "6afef78d1ca5b05a5ce7f310",
+      "dict": "productFacets",
+      "updatedAt": "2026-11-19T13:20:13.869Z"
+    },
+    {
+      "name": "Особое назначение",
+      "code": "wrk.special",
+      "category": "WRK",
+      "order": 3,
+      "step": true,
+      "multi": true,
+      "hint": "ГТО и МГН добавляют свои тексты в паспорт",
+      "id": "6aeea9373b8b9255839ab427",
+      "_id": "6aeea9373b8b9255839ab427",
+      "dict": "productFacets",
+      "updatedAt": "2026-11-07T04:29:43.69Z"
+    },
+    {
+      "name": "Перила, спинка",
+      "code": "blg.rail",
+      "category": "BLG",
+      "order": 4,
+      "step": true,
+      "multi": false,
+      "hint": "Трибуны и скамьи",
+      "id": "6aeea9373b8b9255839ab42b",
+      "_id": "6aeea9373b8b9255839ab42b",
+      "dict": "productFacets",
+      "updatedAt": "2026-11-07T04:29:43.69Z"
+    },
+    {
+      "name": "Рабочие части тренажёра",
+      "code": "trn.contact",
+      "category": "TRN",
+      "order": 90,
+      "step": false,
+      "multi": false,
+      "hint": "",
+      "id": "6afef7611ca5b05a5ce7f2aa",
+      "_id": "6afef7611ca5b05a5ce7f2aa",
+      "dict": "productFacets",
+      "updatedAt": "2026-11-19T13:19:29.568Z"
+    },
+    {
+      "name": "Размер комплекса",
+      "code": "wrk.size",
+      "category": "WRK",
+      "order": 2,
+      "step": true,
+      "multi": false,
+      "hint": "Только для комплексов: сколько снарядов",
+      "id": "6aeea9373b8b9255839ab426",
+      "_id": "6aeea9373b8b9255839ab426",
+      "dict": "productFacets",
+      "updatedAt": "2026-11-07T04:29:43.69Z"
+    },
+    {
+      "name": "Сиденье",
+      "code": "blg.seat",
+      "category": "BLG",
+      "order": 3,
+      "step": true,
+      "multi": false,
+      "hint": "Трибуны и скамьи: от этого зависит текст ухода",
+      "id": "6aeea9373b8b9255839ab42a",
+      "_id": "6aeea9373b8b9255839ab42a",
+      "dict": "productFacets",
+      "updatedAt": "2026-11-07T04:29:43.69Z"
+    },
+    {
+      "name": "Снаряд",
+      "code": "wrk.kind",
+      "category": "WRK",
+      "order": 1,
+      "step": true,
+      "multi": false,
+      "hint": "Комплекс или отдельный снаряд; для спорта — вид игры",
+      "id": "6aeea9373b8b9255839ab425",
+      "_id": "6aeea9373b8b9255839ab425",
+      "dict": "productFacets",
+      "updatedAt": "2026-11-07T04:29:43.69Z"
+    },
+    {
+      "name": "Снаряд",
+      "code": "dsp.kind",
+      "category": "DSP",
+      "order": 1,
+      "step": true,
+      "multi": false,
+      "hint": "Как у воркаута, для детей",
+      "id": "6aeea9373b8b9255839ab430",
+      "_id": "6aeea9373b8b9255839ab430",
+      "dict": "productFacets",
+      "updatedAt": "2026-11-07T04:29:43.69Z"
+    },
+    {
+      "name": "Снаряд для виса или лазания",
+      "code": "wrk.climb",
+      "category": "WRK",
+      "order": 90,
+      "step": false,
+      "multi": false,
+      "hint": "",
+      "id": "6afef76b1ca5b05a5ce7f2c7",
+      "_id": "6afef76b1ca5b05a5ce7f2c7",
+      "dict": "productFacets",
+      "updatedAt": "2026-11-19T13:19:39.444Z"
+    },
+    {
+      "name": "Элемент ограждения",
+      "code": "blg.fence",
+      "category": "BLG",
+      "order": 1,
+      "step": true,
+      "multi": false,
+      "hint": "Только для ограждений",
+      "id": "6aeea9373b8b9255839ab428",
+      "_id": "6aeea9373b8b9255839ab428",
+      "dict": "productFacets",
+      "updatedAt": "2026-11-07T04:29:43.69Z"
+    }
+  ],
+  "total": 21,
+  "page": 1,
+  "limit": 21,
+  "dict": {
+    "key": "productFacets",
+    "title": "Признаки продукции",
+    "newTitle": "Новый признак продукции",
+    "group": "Паспорта",
+    "hint": "Зачем: шаги воронки паспорта «по какому признаку сужаем выбор». Пример: у тренажёров — «Вид» (силовой / кардио), «Группа мышц». Сами варианты — в «Значениях признаков». Тип паспорта у признака обязателен.",
+    "columns": [
+      {
+        "key": "category",
+        "label": "Тип паспорта"
+      },
+      {
+        "key": "order",
+        "label": "Порядок"
+      },
+      {
+        "key": "step",
+        "label": "Шаг воронки"
+      },
+      {
+        "key": "multi",
+        "label": "Можно несколько значений"
+      },
+      {
+        "key": "hint",
+        "label": "Подсказка менеджеру"
+      }
+    ],
+    "fields": [
+      {
+        "key": "name",
+        "label": "Название",
+        "required": true,
+        "wide": true
+      },
+      {
+        "key": "category",
+        "label": "Тип паспорта",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "value": "TRN",
+            "label": "Уличный тренажёр"
+          },
+          {
+            "value": "WRK",
+            "label": "Воркаут"
+          },
+          {
+            "value": "BLG",
+            "label": "Благоустройство"
+          },
+          {
+            "value": "DIO",
+            "label": "Детское игровое"
+          },
+          {
+            "value": "DSP",
+            "label": "Детское спортивное"
+          }
+        ]
+      },
+      {
+        "key": "order",
+        "label": "Порядок",
+        "hint": "Число: чем меньше, тем раньше шаг"
+      },
+      {
+        "key": "step",
+        "label": "Шаг воронки",
+        "type": "select",
+        "bool": true,
+        "options": [
+          {
+            "value": "true",
+            "label": "да"
+          }
+        ],
+        "hint": "Спрашивать при создании паспорта"
+      },
+      {
+        "key": "multi",
+        "label": "Можно несколько значений",
+        "type": "select",
+        "bool": true,
+        "options": [
+          {
+            "value": "true",
+            "label": "да"
+          }
+        ]
+      },
+      {
+        "key": "hint",
+        "label": "Подсказка менеджеру",
+        "wide": true
+      },
+      {
+        "tech": true,
+        "key": "code",
+        "label": "Код признака",
+        "required": true,
+        "lockAfterCreate": true,
+        "hint": "Короткое имя латиницей (trn.kind). После создания не меняется"
+      }
+    ],
+    "refs": {},
+    "sections": [
+      "Документация",
+      "Продукция"
+    ],
+    "refBy": "id",
+    "locked": []
+  }
+}

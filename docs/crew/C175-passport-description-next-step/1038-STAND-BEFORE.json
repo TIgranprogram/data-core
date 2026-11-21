@@ -1,0 +1,21 @@
+{
+  "numbers": [
+    1655,
+    1036,
+    1893,
+    137.6,
+    null
+  ],
+  "revision": 1,
+  "id": "6ad8d482371b65d090d8c71a",
+  "images": [
+    {
+      "kind": "overview",
+      "photoId": "6ad8d482371b65d090d8c718",
+      "order": 0,
+      "url": "/uploads/pp-d8b7bc46eaaa7badb766.png"
+    }
+  ],
+  "textSnapshotSha256": "25D76CEFA2A55C88AE1593957CFD17D7DCE7C4E3156CFE4180DE2EAE0E2BC91E",
+  "status": "issued"
+}

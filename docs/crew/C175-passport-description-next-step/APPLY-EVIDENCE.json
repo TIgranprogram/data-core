@@ -1,0 +1,128 @@
+{
+  "status": "PASS",
+  "contour": "prod",
+  "originalBudget": 47,
+  "completedAt": "2026-11-21T12:36:33.7502363Z",
+  "refs": {
+    "existing.part.net": "6adceeeb3ca001b9b3b0e583",
+    "root.N1": "6b018ebb1d59b131ce504b63",
+    "part.beam": "6b018e891d59b131ce504a5d",
+    "existing.part.stand": "6adceeeb3ca001b9b3b0e571",
+    "existing.kind.chest": "6af707fdc451d4c05df6a047",
+    "leaf.E1": "6b018f961d59b131ce504c4e",
+    "part.deck": "6b018e8a1d59b131ce504a6f",
+    "existing.facet.contact": "6afef7611ca5b05a5ce7f2aa",
+    "existing.part.frame": "6af81f883389de160b2c97d9",
+    "facet.bikepark": "6b018e8c1d59b131ce504a76",
+    "value.E1": "6b018ea31d59b131ce504af0",
+    "existing.part.suspension": "6afefd841ca5b05a5ce7f7c0",
+    "root.G2": "6b018eb31d59b131ce504b47",
+    "existing.kind.geo": "6af707fdc451d4c05df6a05d",
+    "existing.part.footstep": "6ae32682a3f6de10abf0365b",
+    "leaf.1038.seat-back-levers-footrest": "6b018fae1d59b131ce504c7e",
+    "root.T1": "6b018f861d59b131ce504c2b",
+    "root.G1": "6b018eaf1d59b131ce504b36",
+    "part.slide": "6b018e861d59b131ce504a4f",
+    "existing.kind.bikepark": "6af6ca4a22a0611d2b3a4737",
+    "value.G2": "6b018e9a1d59b131ce504aae",
+    "root.E1": "6b018f911d59b131ce504c43",
+    "leaf.D1": "6b018eb91d59b131ce504b5c",
+    "existing.value.platforms": "6afef7661ca5b05a5ce7f2b5",
+    "facet.eco": "6b018e911d59b131ce504a8b",
+    "leaf.P2": "6b018ead1d59b131ce504b2f",
+    "existing.part.lever": "6adceeeb3ca001b9b3b0e576",
+    "leaf.N2": "6b018f811d59b131ce504c22",
+    "value.1038.seat-back-levers-footrest": "6b018fa31d59b131ce504c6c",
+    "existing.kind.canopy": "6af6ca4a22a0611d2b3a4733",
+    "part.bridge": "6b018e841d59b131ce504a48",
+    "existing.kind.cardio": "6af707fdc451d4c05df6a045",
+    "facet.geo": "6b018e8e1d59b131ce504a7d",
+    "part.hill": "6b018e811d59b131ce504a3a",
+    "value.G1": "6b018e981d59b131ce504aa7",
+    "leaf.P1": "6b018ea81d59b131ce504b02",
+    "root.1038.seat-back-levers-footrest": "6b018fa81d59b131ce504c75",
+    "value.D1": "6b018e9c1d59b131ce504ab9",
+    "leaf.G2": "6b018eb51d59b131ce504b4e",
+    "existing.kind.eco": "6af6fc565ce4939b9c68f90d",
+    "existing.part.seat": "6adceeeb3ca001b9b3b0e57a",
+    "value.P2": "6b018e961d59b131ce504aa0",
+    "existing.part.handle": "6adceeeb3ca001b9b3b0e575",
+    "existing.part.back": "6adceeeb3ca001b9b3b0e57b",
+    "root.P1": "6b018ea61d59b131ce504afb",
+    "value.P1": "6b018e941d59b131ce504a99",
+    "part.tunnel": "6b018e831d59b131ce504a41",
+    "leaf.N1": "6b018f761d59b131ce504c05",
+    "value.T1": "6b018ea11d59b131ce504ad2",
+    "existing.kind.complex": "6af707fdc451d4c05df6a060",
+    "existing.part.handrail": "6ae32681a3f6de10abf03656",
+    "part.sidewall": "6b018e7e1d59b131ce504a2a",
+    "existing.part.bearingFrame": "6adceeeb3ca001b9b3b0e574",
+    "value.N2": "6b018ea01d59b131ce504acb",
+    "leaf.G1": "6b018eb11d59b131ce504b3d",
+    "leaf.T1": "6b018f8b1d59b131ce504c34",
+    "root.D1": "6b018eb71d59b131ce504b55",
+    "part.playPlatform": "6b018e871d59b131ce504a56",
+    "root.P2": "6b018eaa1d59b131ce504b28",
+    "part.wheelHolder": "6b018e801d59b131ce504a33",
+    "facet.complex": "6b018e921d59b131ce504a92",
+    "leaf.T2": "6b018fa01d59b131ce504c60",
+    "root.T2": "6b018f9b1d59b131ce504c57",
+    "value.N1": "6b018e9e1d59b131ce504ac4",
+    "facet.canopy": "6b018e8f1d59b131ce504a84",
+    "root.N2": "6b018f7b1d59b131ce504c19"
+  },
+  "productReadback": {
+    "facetValueIds": [
+      "6aeea9373b8b9255839ab43b",
+      "6b018fa31d59b131ce504c6c"
+    ],
+    "source": {
+      "kind": "dictionary",
+      "id": "6b018fae1d59b131ce504c7e",
+      "rootId": "6b018fa81d59b131ce504c75",
+      "partIds": [
+        "6adceeeb3ca001b9b3b0e574",
+        "6adceeeb3ca001b9b3b0e57a",
+        "6adceeeb3ca001b9b3b0e57b",
+        "6adceeeb3ca001b9b3b0e576",
+        "6adceeeb3ca001b9b3b0e575",
+        "6adceeeb3ca001b9b3b0e577"
+      ]
+    },
+    "description": "Тренажёр включает несущую раму, сиденье со спинкой, рычаги с ручками и площадку для ног.",
+    "readiness": {
+      "ready": true,
+      "missing": [],
+      "recommendations": [],
+      "defaulted": [
+        {
+          "key": "heightMin",
+          "label": "Рост пользователя от"
+        },
+        {
+          "key": "weightMax",
+          "label": "Вес пользователя до"
+        }
+      ],
+      "requiredImages": [
+        "overview",
+        "dimensions"
+      ],
+      "imageSlots": [
+        "overview",
+        "dimensions",
+        "mounting",
+        "holes",
+        "assembly",
+        "bom_item"
+      ]
+    }
+  },
+  "issuedBaselineCount": 41,
+  "issuedUnchanged": true,
+  "oldT2LegUnchanged": true,
+  "canonicalization": "Только slot листа1038 принятreviewroot, остальные поля точно совпали",
+  "rawFinalPath": "tools/logs/c175-prod-apply/APPLY-FINAL-20261121-123543.json",
+  "rawFinalSha256": "ae51e6b1df7e4e0c971ef3df4797e57d27d948ef729531e7bbc2045a78fb828f",
+  "rawFiles": 57
+}

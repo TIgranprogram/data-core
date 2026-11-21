@@ -1,3 +1,9 @@
+## C175 — следующий шаг краткого описания (2026-11-21)
+коммит: не коммитил, передано координатору
+- backend/pwa/sections/passports/book-template-edit.js:105 — причина пустого linked/явный ручной поиск перед полем; :185 — refresh частей без потери ids/ручного текста и с ошибкой; common.canEdit учитывает роль.
+- backend/pwa/sections/passports/book-autofill.test.mjs:340 — пустой набор, права, обновление/сбой без записи; atlas-data.js:168 и help-guide-data.js:111 — шаги обновлены.
+- C175/FRONTEND-REPORT.md и UI-REVIEW.md; node21/21, imports369/0, guards363/363, lintновых0, browserfixture6PNG/2темы PASS; настоящее сохранение и независимая приёмка у координатора. Карта обновлена.
+
 ## C174 — различимые группы истории (2026-11-21)
 коммит: не коммитил, передано координатору
 - backend/pwa/ui/kit/recent-cards.js:52 — semantic типы, orderpass → Паспорта, orders отдельно; recent-cards.test.mjs:109 — группировка/давность/права/очистка.

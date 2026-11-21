@@ -1,0 +1,171 @@
+{
+  "format": "c175-product1038-binding-plan/1",
+  "status": "REVIEW_REQUIRED_NO_WRITES",
+  "scope": "3 новые справочные записи и 1 CAS PATCH признаков изделия; old43 не применять",
+  "productId": "6adafef82a8dad6034b1451c",
+  "sku": "1038",
+  "evidence": [
+    "evidence/1038-overview.png",
+    "evidence/1038-dimensions.png",
+    "PRODUCT-1038-DETAIL.json"
+  ],
+  "confirmation": "Координатор подтвердил по собственным рисункам: несущая рама, одно сиденье, спинка, рычаги с ручками, площадка для ног.",
+  "existing": {
+    "facet": {
+      "id": "6afef7611ca5b05a5ce7f2aa",
+      "code": "trn.contact",
+      "name": "Рабочие части тренажёра",
+      "multi": false,
+      "category": "TRN"
+    },
+    "kind": {
+      "id": "6af707fdc451d4c05df6a047",
+      "name": "Тренажёр для груди, плеч и рук"
+    },
+    "preservedFacetValueIds": [
+      "6aeea9373b8b9255839ab43b"
+    ],
+    "parts": [
+      {
+        "id": "6adceeeb3ca001b9b3b0e574",
+        "name": "Несущая рама"
+      },
+      {
+        "id": "6adceeeb3ca001b9b3b0e57a",
+        "name": "Сиденье"
+      },
+      {
+        "id": "6adceeeb3ca001b9b3b0e57b",
+        "name": "Спинка"
+      },
+      {
+        "id": "6adceeeb3ca001b9b3b0e576",
+        "name": "Рычаг"
+      },
+      {
+        "id": "6adceeeb3ca001b9b3b0e575",
+        "name": "Ручка"
+      },
+      {
+        "id": "6adceeeb3ca001b9b3b0e577",
+        "name": "Упор для ног",
+        "mapping": "Подтверждённая площадка опоры ног. Характер движения не определяется по снимкам."
+      }
+    ]
+  },
+  "records": [
+    {
+      "symbol": "value.1038.seat-back-levers-footrest",
+      "method": "POST",
+      "path": "/api/dicts/productFacetValues",
+      "body": {
+        "name": "Сиденье со спинкой, рычаги с ручками и площадка для ног",
+        "code": "trn.contact.seat-back-levers-footrest",
+        "parentId": "6afef7611ca5b05a5ce7f2aa",
+        "order": 9,
+        "purposePhraseId": "",
+        "installTypeId": "",
+        "elementIds": []
+      }
+    },
+    {
+      "symbol": "root.1038.seat-back-levers-footrest",
+      "method": "POST",
+      "path": "/api/dicts/passportPhrases",
+      "body": {
+        "name": "Краткое описание — Сиденье со спинкой, рычаги с ручками и площадка для ног",
+        "section": "simple-description",
+        "categories": "TRN",
+        "allCategories": false,
+        "kindIds": [
+          "6af707fdc451d4c05df6a047"
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "value.1038.seat-back-levers-footrest"
+          }
+        ],
+        "groupIds": [],
+        "parentId": "",
+        "slot": 1,
+        "text": "",
+        "partIds": [],
+        "required": false,
+        "isDefault": false,
+        "order": 0
+      }
+    },
+    {
+      "symbol": "leaf.1038.seat-back-levers-footrest",
+      "method": "POST",
+      "path": "/api/dicts/passportPhrases",
+      "body": {
+        "name": "Сиденье со спинкой, рычаги с ручками и площадка для ног",
+        "section": "simple-description",
+        "categories": "TRN",
+        "allCategories": false,
+        "kindIds": [
+          "6af707fdc451d4c05df6a047"
+        ],
+        "facetValueIds": [
+          {
+            "$ref": "value.1038.seat-back-levers-footrest"
+          }
+        ],
+        "groupIds": [],
+        "parentId": {
+          "$ref": "root.1038.seat-back-levers-footrest"
+        },
+        "slot": 1,
+        "text": "Тренажёр включает несущую раму, сиденье со спинкой, рычаги с ручками и площадку для ног.",
+        "partIds": [
+          "6adceeeb3ca001b9b3b0e574",
+          "6adceeeb3ca001b9b3b0e57a",
+          "6adceeeb3ca001b9b3b0e57b",
+          "6adceeeb3ca001b9b3b0e576",
+          "6adceeeb3ca001b9b3b0e575",
+          "6adceeeb3ca001b9b3b0e577"
+        ],
+        "required": false,
+        "isDefault": false,
+        "order": 0
+      }
+    }
+  ],
+  "productPatch": {
+    "method": "PATCH",
+    "path": "/api/showcase/6adafef82a8dad6034b1451c/passport-template?variant=short",
+    "body": {
+      "changes": {
+        "facetValueIds": [
+          "6aeea9373b8b9255839ab43b",
+          {
+            "$ref": "value.1038.seat-back-levers-footrest"
+          }
+        ]
+      },
+      "expected": {
+        "facetValueIds": [
+          "6aeea9373b8b9255839ab43b"
+        ]
+      }
+    },
+    "reason": "Штатный template CAS пишет products.facetValueIds; ожидает точный прежний массив и не затирает конкурентные правки. Собственный manual/simpleDescription не задаётся."
+  },
+  "preconditions": [
+    "Перед применением перечитать вид, собственные facetValueIds1038 и все6parts; при любом отличии стоп, план пересогласовать.",
+    "Новый code и root/leaf ещё отсутствуют; одноимённый или частично созданный узел не перезаписывать и не создавать дубль.",
+    "Снять baseline всех issued/annulled паспортов1038: ID,status,revision,images,числа и SHA безопасной проекции textSnapshot.",
+    "Применение сначала только stand после review. Prod требует отдельного точного разрешения координатора от пользователя."
+  ],
+  "acceptance": [
+    "Созданы ровно1value+1root+1leaf, все ссылки читаются по возвращённым ID.",
+    "У1038 сохранён прежний trait нагрузки и добавлен только новый конструктивный trait; прочие поля/defaults не менялись.",
+    "shorttemplate source.kind=dictionary, source.id=новыйleaf, source.rootId=новыйroot, source.partIds=6existingparts; simpleDescription больше не missing.",
+    "shorttemplate готовность пересчитывается штатно; никаких own manualDescription/textChoices не добавлено.",
+    "Issued/annulled паспорта1038 после записи читаются readOnly=1 и полностью совпадают с baseline; выпуск/перевыпуск/PDF не запрашивать.",
+    "Изделия других kind или с другим известным trn.contact не получают этот вариант. Уже имеющийся trait нагрузки не используется как конструктивный критерий."
+  ],
+  "failureHandling": "При CAS409 или частичном результате остановиться и сохранить IDs; не откатывать удалением, не повторятьPOST вслепую. Восстановление только отдельным review.",
+  "writesExecuted": false
+}

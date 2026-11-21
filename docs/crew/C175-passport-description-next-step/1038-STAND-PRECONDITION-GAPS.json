@@ -1,0 +1,42 @@
+[
+  {
+    "dict": "productFacets",
+    "found": false,
+    "id": "6afef7611ca5b05a5ce7f2aa"
+  },
+  {
+    "dict": "passportParts",
+    "found": true,
+    "id": "6adceeeb3ca001b9b3b0e574"
+  },
+  {
+    "dict": "passportParts",
+    "found": true,
+    "id": "6adceeeb3ca001b9b3b0e57a"
+  },
+  {
+    "dict": "passportParts",
+    "found": true,
+    "id": "6adceeeb3ca001b9b3b0e57b"
+  },
+  {
+    "dict": "passportParts",
+    "found": true,
+    "id": "6adceeeb3ca001b9b3b0e576"
+  },
+  {
+    "dict": "passportParts",
+    "found": true,
+    "id": "6adceeeb3ca001b9b3b0e575"
+  },
+  {
+    "dict": "passportParts",
+    "found": true,
+    "id": "6adceeeb3ca001b9b3b0e577"
+  },
+  {
+    "dict": "passportKinds",
+    "found": true,
+    "id": "6af707fdc451d4c05df6a047"
+  }
+]

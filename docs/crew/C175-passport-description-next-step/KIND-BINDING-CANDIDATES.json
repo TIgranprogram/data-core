@@ -1,0 +1,2414 @@
+{
+  "format": "c175-kind-binding-candidates/1",
+  "status": "REVIEW_ONLY_NO_WRITES",
+  "sourceCatalogSha256": "57cc028bc919a979a143b21f77b1f7c1d52088ae7f8a23209d376e85649f2d47",
+  "sourceProducts": 493,
+  "sourceMissingEffectiveKind": 312,
+  "candidateCount": 126,
+  "remainingNeedsReview": 186,
+  "writeAuthorization": "These126 candidates are outside the approved43+3+1038 scope; no execution is authorized by this plan.",
+  "preconditions": [
+    "Re-read source product, group chain, actual stored passportDefaults.kindId and effective kind before constructing CAS.",
+    "Abort if effective kind is no longer null or category differs; preserve concurrent changes and issued snapshots.",
+    "No mass group-level assignment; mixed groups remain mixed.",
+    "Assigning kind does not prove applicable phrase, composition or ready passport.",
+    "No new normative category, trait, composition, dimensions, installation or payment facts are inferred."
+  ],
+  "candidates": [
+    {
+      "id": "6adaff432a8dad6034b145fe",
+      "sku": "ПС-F2C782",
+      "name": "Баскетбольная стойка Г-образная (с фермой) вынос 2,25 м в комплекте: щит баскетбольный игровой из монолитного поликарбоната 10 мм на металлической раме, 180х105 см, кольцо баскетбольное усиленное, сетка баскетбольная, D нити 6,0 мм",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a053",
+      "proposedKindName": "Баскетбольная стойка",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Баскетбольная стойка Г-образная (с фермой) вынос 2,25 м в комплекте: щит баскетбольный игровой из монолитного поликарбоната 10 мм на металлической раме, 180х105 см, кольцо баскетбольное усиленное, сетка баскетбольная, D нити 6,0 мм",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126bae36900370537a37c",
+      "sku": "1106",
+      "name": "Баскетбольная стойка Г-образная вынос 1,2 м, щит игровой - поликарбонат",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a053",
+      "proposedKindName": "Баскетбольная стойка",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Баскетбольная стойка Г-образная вынос 1,2 м, щит игровой - поликарбонат",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126bce36900370537a386",
+      "sku": "1108",
+      "name": "Баскетбольная стойка Г-образная вынос 1,2 м, щит игровой - фанера",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a053",
+      "proposedKindName": "Баскетбольная стойка",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Баскетбольная стойка Г-образная вынос 1,2 м, щит игровой - фанера",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126c1e36900370537a39a",
+      "sku": "1112",
+      "name": "Баскетбольная стойка вынос фермы 1,2 м, щит игровой - поликарбонат",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a053",
+      "proposedKindName": "Баскетбольная стойка",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Баскетбольная стойка вынос фермы 1,2 м, щит игровой - поликарбонат",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126c4e36900370537a3a9",
+      "sku": "1115",
+      "name": "Баскетбольная стойка вынос фермы 1,2 м, щит игровой - фанера",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a053",
+      "proposedKindName": "Баскетбольная стойка",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Баскетбольная стойка вынос фермы 1,2 м, щит игровой - фанера",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126c2e36900370537a39f",
+      "sku": "1113",
+      "name": "Баскетбольная стойка вынос фермы 2,25 м, щит игровой - поликарбонат",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a053",
+      "proposedKindName": "Баскетбольная стойка",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Баскетбольная стойка вынос фермы 2,25 м, щит игровой - поликарбонат",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126c5e36900370537a3ae",
+      "sku": "1116",
+      "name": "Баскетбольная стойка вынос фермы 2,25 м, щит игровой - фанера",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a053",
+      "proposedKindName": "Баскетбольная стойка",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Баскетбольная стойка вынос фермы 2,25 м, щит игровой - фанера",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126c3e36900370537a3a4",
+      "sku": "1114",
+      "name": "Баскетбольная стойка вынос фермы 3,25 м, щит игровой - поликарбонат",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a053",
+      "proposedKindName": "Баскетбольная стойка",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Баскетбольная стойка вынос фермы 3,25 м, щит игровой - поликарбонат",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126c7e36900370537a3b3",
+      "sku": "1117",
+      "name": "Баскетбольная стойка вынос фермы 3,25 м, щит игровой - фанера",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a053",
+      "proposedKindName": "Баскетбольная стойка",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Баскетбольная стойка вынос фермы 3,25 м, щит игровой - фанера",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126c0e36900370537a395",
+      "sku": "1111",
+      "name": "Баскетбольная стойка с выносом 8,36 м - поворотная",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a053",
+      "proposedKindName": "Баскетбольная стойка",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Баскетбольная стойка с выносом 8,36 м - поворотная",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff3a2a8dad6034b145bc",
+      "sku": "3_1_7",
+      "name": "Брусья «Жук», d трубы 108 мм",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04d",
+      "proposedKindName": "Брусья",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Брусья «Жук», d трубы 108 мм",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126e3e36900370537a42d",
+      "sku": "1213",
+      "name": "Брусья конусные",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04d",
+      "proposedKindName": "Брусья",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Брусья конусные",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126eae36900370537a44b",
+      "sku": "1219",
+      "name": "Брусья малые с упорами",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04d",
+      "proposedKindName": "Брусья",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Брусья малые с упорами",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126e7e36900370537a43c",
+      "sku": "1216",
+      "name": "Брусья низкие",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04d",
+      "proposedKindName": "Брусья",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Брусья низкие",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff292a8dad6034b1453c",
+      "sku": "ПС-6CAB18",
+      "name": "Брусья параллельные",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04d",
+      "proposedKindName": "Брусья",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Брусья параллельные",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126e2e36900370537a428",
+      "sku": "1212",
+      "name": "Брусья параллельные",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04d",
+      "proposedKindName": "Брусья",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Брусья параллельные",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126e4e36900370537a432",
+      "sku": "1214",
+      "name": "Брусья параллельные двойные",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04d",
+      "proposedKindName": "Брусья",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Брусья параллельные двойные",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126e8e36900370537a441",
+      "sku": "1217",
+      "name": "Брусья параллельные малые",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04d",
+      "proposedKindName": "Брусья",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Брусья параллельные малые",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff362a8dad6034b145a3",
+      "sku": "28_8",
+      "name": "Брусья разновысотные уличные",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04d",
+      "proposedKindName": "Брусья",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Брусья разновысотные уличные",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126e5e36900370537a437",
+      "sku": "1215",
+      "name": "Брусья разноуровневые двойные",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04d",
+      "proposedKindName": "Брусья",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Брусья разноуровневые двойные",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff342a8dad6034b1458e",
+      "sku": "3_1_4",
+      "name": "Брусья разноуровневые двойные для воркаут",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04d",
+      "proposedKindName": "Брусья",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Брусья разноуровневые двойные для воркаут",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff3a2a8dad6034b145bb",
+      "sku": "3_1_8",
+      "name": "Брусья разноуровневые двойные для воркаут, d трубы 108 мм",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04d",
+      "proposedKindName": "Брусья",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Брусья разноуровневые двойные для воркаут, d трубы 108 мм",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff382a8dad6034b145ad",
+      "sku": "3_1_5",
+      "name": "Брусья разноуровневые двойные для воркаут, d трубы 89 мм",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04d",
+      "proposedKindName": "Брусья",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Брусья разноуровневые двойные для воркаут, d трубы 89 мм",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae1272be36900370537a562",
+      "sku": "1274",
+      "name": "Брусья разноуровневые для инвалидов и лиц с ограниченными возможностями",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04d",
+      "proposedKindName": "Брусья",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Брусья разноуровневые для инвалидов и лиц с ограниченными возможностями",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff3e2a8dad6034b145df",
+      "sku": "3_1_9",
+      "name": "Брусья разноуровневые с возможностью занятий для инвалидов и лиц с ограниченными возможностями здоровья",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04d",
+      "proposedKindName": "Брусья",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Брусья разноуровневые с возможностью занятий для инвалидов и лиц с ограниченными возможностями здоровья",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126e9e36900370537a446",
+      "sku": "1218",
+      "name": "Брусья тройные малые",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04d",
+      "proposedKindName": "Брусья",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Брусья тройные малые",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6aeb05439257daffedf6ae86",
+      "sku": "3220",
+      "name": "Вазон световой «Кольцо» (вазон из стеклопластика, подсветка светодиодная 24в.)",
+      "groupId": "6addd76fc93bb8ea2a6e393e",
+      "ppCategory": "BLG",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a059",
+      "proposedKindName": "Вазон, цветочница",
+      "proposedKindCategory": "BLG",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Вазон световой «Кольцо» (вазон из стеклопластика, подсветка светодиодная 24в.)",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6addd770c93bb8ea2a6e3954",
+      "sku": "1101",
+      "name": "Ворота мини-футбольные",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a055",
+      "proposedKindName": "Ворота для мини-футбола",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Ворота мини-футбольные",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff282a8dad6034b14535",
+      "sku": "ПС-228C37",
+      "name": "Ворота мини-футбольные (без сетки)",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a055",
+      "proposedKindName": "Ворота для мини-футбола",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Ворота мини-футбольные (без сетки)",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff302a8dad6034b14578",
+      "sku": "9_1-2",
+      "name": "Ворота мини-футбольные 3х2 свободностоящие, крепления анкерные. «STREET IRON»",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a055",
+      "proposedKindName": "Ворота для мини-футбола",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Ворота мини-футбольные 3х2 свободностоящие, крепления анкерные. «STREET IRON»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6addd770c93bb8ea2a6e3957",
+      "sku": "1102",
+      "name": "Ворота мини-футбольные с закладными стаканами",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a055",
+      "proposedKindName": "Ворота для мини-футбола",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Ворота мини-футбольные с закладными стаканами",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff2a2a8dad6034b14547",
+      "sku": "9_1",
+      "name": "Ворота мини-футбольные стационарные «STREET IRON» 3х2 со стаканами",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a055",
+      "proposedKindName": "Ворота для мини-футбола",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Ворота мини-футбольные стационарные «STREET IRON» 3х2 со стаканами",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff382a8dad6034b145ac",
+      "sku": "3_8_1",
+      "name": "Гимнастические кольца",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a058",
+      "proposedKindName": "Кольца, канат, скалодром",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Гимнастические кольца",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae12731e36900370537a57d",
+      "sku": "1279",
+      "name": "Гимнастический снаряд «Шведская стенка»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a050",
+      "proposedKindName": "Шведская стенка",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Гимнастический снаряд «Шведская стенка»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff382a8dad6034b145af",
+      "sku": "3_9_1",
+      "name": "Канат",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a058",
+      "proposedKindName": "Кольца, канат, скалодром",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Канат",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff342a8dad6034b14593",
+      "sku": "3_5_9",
+      "name": "Комплекс воркаут 1 «Скамья 2шт-Турники 1шт-Кольца 1шт-Рукоходы 2шт-Брусья»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут 1 «Скамья 2шт-Турники 1шт-Кольца 1шт-Рукоходы 2шт-Брусья»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae12704e36900370537a4bb",
+      "sku": "1241",
+      "name": "Комплекс воркаут «Два турника-брусья-стенка-рукоход»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Два турника-брусья-стенка-рукоход»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126ffe36900370537a4a2",
+      "sku": "1236",
+      "name": "Комплекс воркаут «Два турника-брусья-шведская стенка»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Два турника-брусья-шведская стенка»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126f4e36900370537a475",
+      "sku": "1227",
+      "name": "Комплекс воркаут «Два турника-брусья»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Два турника-брусья»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae12706e36900370537a4c0",
+      "sku": "1242",
+      "name": "Комплекс воркаут «Два турника-шведская стенка-два рукохода»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Два турника-шведская стенка-два рукохода»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126f7e36900370537a47f",
+      "sku": "1229",
+      "name": "Комплекс воркаут «Два турника-шведская стенка»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Два турника-шведская стенка»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126f8e36900370537a484",
+      "sku": "1230",
+      "name": "Комплекс воркаут «Два турника-шведская стенка» Г-обр",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Два турника-шведская стенка» Г-обр",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126f9e36900370537a489",
+      "sku": "1231",
+      "name": "Комплекс воркаут «Два турника-шведская стенка» П-обр",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Два турника-шведская стенка» П-обр",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae1270fe36900370537a4e8",
+      "sku": "1250",
+      "name": "Комплекс воркаут «Две скамьи-два турника-стенка»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Две скамьи-два турника-стенка»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae1271be36900370537a521",
+      "sku": "1261",
+      "name": "Комплекс воркаут «Две скамьи-стенка-два рукохода-два турника-брусья»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Две скамьи-стенка-два рукохода-два турника-брусья»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae1271ae36900370537a51c",
+      "sku": "1260",
+      "name": "Комплекс воркаут «Две скамьи-стенка-рукоход-два турника-брусья»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Две скамьи-стенка-рукоход-два турника-брусья»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adb23215e482abfeb5142e0",
+      "sku": "3_5_18",
+      "name": "Комплекс воркаут «Две скамьи-стенка-турники-кольца",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Две скамьи-стенка-турники-кольца",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae12719e36900370537a517",
+      "sku": "1259",
+      "name": "Комплекс воркаут «Две скамьи-стенка-турники-кольца»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Две скамьи-стенка-турники-кольца»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae12711e36900370537a4f4",
+      "sku": "1252",
+      "name": "Комплекс воркаут «Две скамьи-три турника-стенка»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Две скамьи-три турника-стенка»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae12703e36900370537a4b6",
+      "sku": "1240",
+      "name": "Комплекс воркаут «Пять турников-стенка-рукоход змеевик»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Пять турников-стенка-рукоход змеевик»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff462a8dad6034b1461b",
+      "sku": "3_5_17",
+      "name": "Комплекс воркаут «Пять турников-стенка-рукоход-змеевик» d трубы 89 мм",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Пять турников-стенка-рукоход-змеевик» d трубы 89 мм",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae1270be36900370537a4d9",
+      "sku": "1247",
+      "name": "Комплекс воркаут «Скамья для пресса-два турника»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Скамья для пресса-два турника»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adafbeb2a8dad6034b142e5",
+      "sku": "3_5_5",
+      "name": "Комплекс воркаут «Скамья-Шведская стенка-Турники_4шт",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Скамья-Шведская стенка-Турники_4шт",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adafd5b2a8dad6034b14485",
+      "sku": "3_5_8",
+      "name": "Комплекс воркаут «Скамья-Шведская стенка-Турники_5шт-Брусья»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Скамья-Шведская стенка-Турники_5шт-Брусья»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae12715e36900370537a508",
+      "sku": "1256",
+      "name": "Комплекс воркаут «Скамья-брусья-стенка-турник-кольца»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Скамья-брусья-стенка-турник-кольца»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae12717e36900370537a50d",
+      "sku": "1257",
+      "name": "Комплекс воркаут «Скамья-брусья-стенка-турники-кольца»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Скамья-брусья-стенка-турники-кольца»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae1270ce36900370537a4de",
+      "sku": "1248",
+      "name": "Комплекс воркаут «Скамья-брусья-турник»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Скамья-брусья-турник»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae12718e36900370537a512",
+      "sku": "1258",
+      "name": "Комплекс воркаут «Скамья-брусья-турники-рукоходы»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Скамья-брусья-турники-рукоходы»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae12712e36900370537a4f9",
+      "sku": "1253",
+      "name": "Комплекс воркаут «Скамья-стенка-брусья-турник»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Скамья-стенка-брусья-турник»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae12713e36900370537a4fe",
+      "sku": "1254",
+      "name": "Комплекс воркаут «Скамья-стенка-два турника-брусья»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Скамья-стенка-два турника-брусья»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adafcec2a8dad6034b143d7",
+      "sku": "3_5_6",
+      "name": "Комплекс воркаут «Скамья-стенка-турники-рукоходы»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Скамья-стенка-турники-рукоходы»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae12714e36900370537a503",
+      "sku": "1255",
+      "name": "Комплекс воркаут «Скамья-стенка-турники-рукоходы»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Скамья-стенка-турники-рукоходы»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff392a8dad6034b145b9",
+      "sku": "3_5_11",
+      "name": "Комплекс воркаут «Скамья-турник разноуровневый»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Скамья-турник разноуровневый»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae1270de36900370537a4e3",
+      "sku": "1249",
+      "name": "Комплекс воркаут «Скамья-турник разноуровневый»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Скамья-турник разноуровневый»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adafd302a8dad6034b14434",
+      "sku": "3_5_7",
+      "name": "Комплекс воркаут «Скамья_2шт-Турники_2шт-Рукоходы_2шт-Брусья»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Скамья_2шт-Турники_2шт-Рукоходы_2шт-Брусья»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adb666759f13dfae44586c9",
+      "sku": "3_5_21",
+      "name": "Комплекс воркаут «Стенка, кольца, канат, скалодром»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Стенка, кольца, канат, скалодром»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae1271de36900370537a526",
+      "sku": "1262",
+      "name": "Комплекс воркаут «Стенка-кольца-канат-скаладром»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Стенка-кольца-канат-скаладром»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adb58eecba2f46cef61072f",
+      "sku": "3_5_19",
+      "name": "Комплекс воркаут «Три турника, два рукохода с подъёмом»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Три турника, два рукохода с подъёмом»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae1271ee36900370537a52b",
+      "sku": "1263",
+      "name": "Комплекс воркаут «Три турника-два рукохода с подъемом»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Три турника-два рукохода с подъемом»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126fce36900370537a498",
+      "sku": "1234",
+      "name": "Комплекс воркаут «Три турника-шведская стенка-брусья»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Три турника-шведская стенка-брусья»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff442a8dad6034b14608",
+      "sku": "3_5_16",
+      "name": "Комплекс воркаут «Турник - брусья - стенка - рукоход»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Турник - брусья - стенка - рукоход»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126fae36900370537a48e",
+      "sku": "1232",
+      "name": "Комплекс воркаут «Турник-брусья-вертикальный пресс»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Турник-брусья-вертикальный пресс»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126fbe36900370537a493",
+      "sku": "1233",
+      "name": "Комплекс воркаут «Турник-брусья-стенка-пресс»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Турник-брусья-стенка-пресс»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae12700e36900370537a4a7",
+      "sku": "1237",
+      "name": "Комплекс воркаут «Турник-брусья-стенка-рукоход»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Турник-брусья-стенка-рукоход»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126fee36900370537a49d",
+      "sku": "1235",
+      "name": "Комплекс воркаут «Турник-брусья-шведская стенка»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Турник-брусья-шведская стенка»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126f3e36900370537a470",
+      "sku": "1226",
+      "name": "Комплекс воркаут «Турник-брусья»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Турник-брусья»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126f6e36900370537a47a",
+      "sku": "1228",
+      "name": "Комплекс воркаут «Турник-шведская стенка»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Турник-шведская стенка»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae12701e36900370537a4ac",
+      "sku": "1238",
+      "name": "Комплекс воркаут «Турники «два треугольника»-рукоход»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Турники «два треугольника»-рукоход»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae12702e36900370537a4b1",
+      "sku": "1239",
+      "name": "Комплекс воркаут «Турники «два треугольника»-шведская стенка»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Турники «два треугольника»-шведская стенка»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adb6022c9a484a4e33b0526",
+      "sku": "3_5_20",
+      "name": "Комплекс воркаут «Шесть турников-два рукохода»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Шесть турников-два рукохода»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae12707e36900370537a4c5",
+      "sku": "1243",
+      "name": "Комплекс воркаут «Шесть турников-два рукохода»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут «Шесть турников-два рукохода»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae12710e36900370537a4ed",
+      "sku": "1251",
+      "name": "Комплекс воркаут П-обр «Скамья-брусья-стенка-турник»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут П-обр «Скамья-брусья-стенка-турник»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adb0109a752c827a514a84d",
+      "sku": "3_5_15",
+      "name": "Комплекс воркаут П-обр_Скамья-брусья-стенка-турник_СК014",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут П-обр_Скамья-брусья-стенка-турник_СК014",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff392a8dad6034b145b8",
+      "sku": "3_5_10",
+      "name": "Комплекс воркаут из 5 турников, шведской стенки и рукохода «Зигзаг»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a052",
+      "proposedKindName": "Комплекс воркаут",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Комплекс воркаут из 5 турников, шведской стенки и рукохода «Зигзаг»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6addd771c93bb8ea2a6e3984",
+      "sku": "3216",
+      "name": "Ограждение деревянное 28 м.п.",
+      "groupId": "6addd76fc93bb8ea2a6e393e",
+      "ppCategory": "BLG",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af6ca4a22a0611d2b3a4734",
+      "proposedKindName": "Ограждения",
+      "proposedKindCategory": "BLG",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Ограждение деревянное 28 м.п.",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6af1a3ae4a9243614293be26",
+      "sku": "RPS-12-LIST",
+      "name": "Решётка приствольная",
+      "groupId": "6addd76fc93bb8ea2a6e393e",
+      "ppCategory": "BLG",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a05a",
+      "proposedKindName": "Приствольная решётка",
+      "proposedKindCategory": "BLG",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Решётка приствольная",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126ece36900370537a450",
+      "sku": "1220",
+      "name": "Рукоход двухуровневый",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04f",
+      "proposedKindName": "Рукоход",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Рукоход двухуровневый",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff372a8dad6034b145a8",
+      "sku": "3_7_2",
+      "name": "Рукоход двухуровневый d трубы 89 мм",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04f",
+      "proposedKindName": "Рукоход",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Рукоход двухуровневый d трубы 89 мм",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff3e2a8dad6034b145e0",
+      "sku": "3_7_4",
+      "name": "Рукоход двухуровневый воркаут, d трубы 89 мм",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04f",
+      "proposedKindName": "Рукоход",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Рукоход двухуровневый воркаут, d трубы 89 мм",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff372a8dad6034b145a9",
+      "sku": "3_7_3",
+      "name": "Рукоход змейка",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04f",
+      "proposedKindName": "Рукоход",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Рукоход змейка",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126eee36900370537a45a",
+      "sku": "1222",
+      "name": "Рукоход змейка",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04f",
+      "proposedKindName": "Рукоход",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Рукоход змейка",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126ede36900370537a455",
+      "sku": "1221",
+      "name": "Рукоход ломаный",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04f",
+      "proposedKindName": "Рукоход",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Рукоход ломаный",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae12730e36900370537a578",
+      "sku": "1278",
+      "name": "Рукоход с изменением высоты и с вспомогательными рукоятками",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04f",
+      "proposedKindName": "Рукоход",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Рукоход с изменением высоты и с вспомогательными рукоятками",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff382a8dad6034b145b0",
+      "sku": "3_10_1",
+      "name": "Скалодром",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a058",
+      "proposedKindName": "Кольца, канат, скалодром",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Скалодром",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff282a8dad6034b1453b",
+      "sku": "ПС-452F7C",
+      "name": "Скамья для пресса",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a051",
+      "proposedKindName": "Скамья для пресса",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Скамья для пресса",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adcaa606abdac3554cb4b13",
+      "sku": "3_2_2",
+      "name": "Скамья для пресса",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a051",
+      "proposedKindName": "Скамья для пресса",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Скамья для пресса",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae12708e36900370537a4ca",
+      "sku": "1244",
+      "name": "Скамья для пресса",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a051",
+      "proposedKindName": "Скамья для пресса",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Скамья для пресса",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae1270ae36900370537a4d4",
+      "sku": "1246",
+      "name": "Скамья для пресса наклонная",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a051",
+      "proposedKindName": "Скамья для пресса",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Скамья для пресса наклонная",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff382a8dad6034b145ab",
+      "sku": "3_2_6",
+      "name": "Скамья для пресса с наклоном 15° бетонирование",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a051",
+      "proposedKindName": "Скамья для пресса",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Скамья для пресса с наклоном 15° бетонирование",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae12709e36900370537a4cf",
+      "sku": "1245",
+      "name": "Скамья для пресса с упором",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a051",
+      "proposedKindName": "Скамья для пресса",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Скамья для пресса с упором",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adee7b61b264bcc1d20b3cb",
+      "sku": "3_2_11",
+      "name": "Скамья для пресса с упором для ног воркаут, d трубы 89 мм",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a051",
+      "proposedKindName": "Скамья для пресса",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Скамья для пресса с упором для ног воркаут, d трубы 89 мм",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff282a8dad6034b14533",
+      "sku": "ПС-06E955",
+      "name": "Стойка баскетбольная (щит поликарбонат, каркас ферма с креплением на ворота)",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a053",
+      "proposedKindName": "Баскетбольная стойка",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Стойка баскетбольная (щит поликарбонат, каркас ферма с креплением на ворота)",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adafee92a8dad6034b14513",
+      "sku": "1_4",
+      "name": "Стойка баскетбольная «Г» образная, вынос 1,2м (со щитом из влагостойкой фанеры)",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a053",
+      "proposedKindName": "Баскетбольная стойка",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Стойка баскетбольная «Г» образная, вынос 1,2м (со щитом из влагостойкой фанеры)",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adafeeb2a8dad6034b14514",
+      "sku": "1_5",
+      "name": "Стойка баскетбольная «Г» образная, вынос 1,2м (со щитом из влагостойкой фанеры)",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a053",
+      "proposedKindName": "Баскетбольная стойка",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Стойка баскетбольная «Г» образная, вынос 1,2м (со щитом из влагостойкой фанеры)",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff2a2a8dad6034b14546",
+      "sku": "ПС-120314",
+      "name": "Стойка баскетбольная «Г» образная, вынос 1,2м (щит -поликарбонат)",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a053",
+      "proposedKindName": "Баскетбольная стойка",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Стойка баскетбольная «Г» образная, вынос 1,2м (щит -поликарбонат)",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff2e2a8dad6034b14563",
+      "sku": "1_1",
+      "name": "Стойка баскетбольная Г образная, вынос 3,25м",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a053",
+      "proposedKindName": "Баскетбольная стойка",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Стойка баскетбольная Г образная, вынос 3,25м",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126bbe36900370537a381",
+      "sku": "1107",
+      "name": "Стойка баскетбольная Г-образная, вынос 1,2 м; щит тренировочный - поликарбонат",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a053",
+      "proposedKindName": "Баскетбольная стойка",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Стойка баскетбольная Г-образная, вынос 1,2 м; щит тренировочный - поликарбонат",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126bde36900370537a38b",
+      "sku": "1109",
+      "name": "Стойка баскетбольная Г-образная, вынос 1,2 м; щит тренировочный - фанера",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a053",
+      "proposedKindName": "Баскетбольная стойка",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Стойка баскетбольная Г-образная, вынос 1,2 м; щит тренировочный - фанера",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff282a8dad6034b14534",
+      "sku": "2_1",
+      "name": "Стойки волейбольные (комплект, без сетки)",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a054",
+      "proposedKindName": "Волейбольные стойки",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Стойки волейбольные (комплект, без сетки)",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6addd770c93bb8ea2a6e395a",
+      "sku": "1118",
+      "name": "Стойки волейбольные с механизмом натяжения сетки",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a054",
+      "proposedKindName": "Волейбольные стойки",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Стойки волейбольные с механизмом натяжения сетки",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff372a8dad6034b145a5",
+      "sku": "2_1-3",
+      "name": "Стойки волейбольные с механизмом натяжения сетки с сеткой",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a054",
+      "proposedKindName": "Волейбольные стойки",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Стойки волейбольные с механизмом натяжения сетки с сеткой",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff302a8dad6034b14577",
+      "sku": "2_1-2",
+      "name": "Стойки волейбольные ∅89 мм с механизмом плавной регулировки высоты и лебедочным механизмом натяжения «STREET IRON»",
+      "groupId": "6addd76fc93bb8ea2a6e393a",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a054",
+      "proposedKindName": "Волейбольные стойки",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Стойки волейбольные ∅89 мм с механизмом плавной регулировки высоты и лебедочным механизмом натяжения «STREET IRON»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae12697e36900370537a2e9",
+      "sku": "1011",
+      "name": "Твистер сидя",
+      "groupId": "6addd76fc93bb8ea2a6e3939",
+      "ppCategory": "TRN",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04a",
+      "proposedKindName": "Твистер",
+      "proposedKindCategory": "TRN",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Твистер сидя",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adeee5a1b264bcc1d20b809",
+      "sku": "1208",
+      "name": "Турник воркаут «Двойной Треугольник»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04c",
+      "proposedKindName": "Турник",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Турник воркаут «Двойной Треугольник»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126d8e36900370537a400",
+      "sku": "1203",
+      "name": "Турник воркаут двойной Г-образный",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04c",
+      "proposedKindName": "Турник",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Турник воркаут двойной Г-образный",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126d7e36900370537a3fb",
+      "sku": "1202",
+      "name": "Турник воркаут двойной разноуровневый",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04c",
+      "proposedKindName": "Турник",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Турник воркаут двойной разноуровневый",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126d6e36900370537a3f6",
+      "sku": "1201",
+      "name": "Турник воркаут уличный одноуровневый",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04c",
+      "proposedKindName": "Турник",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Турник воркаут уличный одноуровневый",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126dee36900370537a419",
+      "sku": "1209",
+      "name": "Турник для воркаут «Призма»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04c",
+      "proposedKindName": "Турник",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Турник для воркаут «Призма»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126dfe36900370537a41e",
+      "sku": "1210",
+      "name": "Турник для воркаут «Фристайл»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04c",
+      "proposedKindName": "Турник",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Турник для воркаут «Фристайл»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126dde36900370537a414",
+      "sku": "1207",
+      "name": "Турник тройной «Звезда»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04c",
+      "proposedKindName": "Турник",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Турник тройной «Звезда»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126dbe36900370537a40f",
+      "sku": "1206",
+      "name": "Турник тройной «Треугольник»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04c",
+      "proposedKindName": "Турник",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Турник тройной «Треугольник»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126d9e36900370537a405",
+      "sku": "1204",
+      "name": "Турник тройной каскад",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04c",
+      "proposedKindName": "Турник",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Турник тройной каскад",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126dae36900370537a40a",
+      "sku": "1205",
+      "name": "Турник тройной уличный",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04c",
+      "proposedKindName": "Турник",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Турник тройной уличный",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae1272ae36900370537a55d",
+      "sku": "1273",
+      "name": "Турник-перекладина с регулируемой высотой от 90 см до 260 см",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a04c",
+      "proposedKindName": "Турник",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Турник-перекладина с регулируемой высотой от 90 см до 260 см",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6ae126efe36900370537a45f",
+      "sku": "1223",
+      "name": "Шведская стенка воркаут",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a050",
+      "proposedKindName": "Шведская стенка",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Шведская стенка воркаут",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    },
+    {
+      "id": "6adaff302a8dad6034b14576",
+      "sku": "3_6_1",
+      "name": "Шведская стенка воркаут «STREET IRON»",
+      "groupId": "6addd76fc93bb8ea2a6e393b",
+      "ppCategory": "WRK",
+      "beforeEffectiveKind": null,
+      "proposedKindId": "6af707fdc451d4c05df6a050",
+      "proposedKindName": "Шведская стенка",
+      "proposedKindCategory": "WRK",
+      "evidence": {
+        "source": "CATALOG-493.json",
+        "field": "name",
+        "quote": "Шведская стенка воркаут «STREET IRON»",
+        "rule": "Явный основной тип в названии; нормативная ppCategory уже совпадает. Это не доказательство состава/параметров и не исполняемый CAS."
+      },
+      "assignTraits": false,
+      "assignParts": false
+    }
+  ],
+  "writesExecuted": false
+}

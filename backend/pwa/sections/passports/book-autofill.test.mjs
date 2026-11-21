@@ -32,7 +32,7 @@ const searchField = (el) => nodes(el).find((it) => it.tag === 'input' && it.prop
 const json = (value) => JSON.parse(JSON.stringify(value));
 const click = (slot, label) => action(slot, label).props.onClick();
 
-function scenario({ alternatives = [phrase, other], auto = false, defaults = {}, confirm = () => true, conflict = false } = {}) {
+function scenario({ alternatives = [phrase, other], auto = false, defaults = {}, confirm = () => true, conflict = false, parts = dict.passportParts, editor = true } = {}) {
   const writes = [];
   const patches = [];
   const slot = node('aside');
@@ -45,9 +45,9 @@ function scenario({ alternatives = [phrase, other], auto = false, defaults = {},
     V2_NUMS: [], h: node, button: (opts) => node('button', opts), link: (opts) => node('a', opts, opts.label),
     hint: (message) => node('p', null, message), stack: (...children) => node('div', null, children),
     actions: (...children) => node('div', null, children), sidePanel: (title, ...children) => node('section', null, title, children),
-    setSideWide() {}, busyBtn: () => () => {}, dictRows: async (key) => dict[key],
+    setSideWide() {}, busyBtn: () => () => {}, dictRows: async (key) => dict[key], canEdit: () => editor,
     dictOpts: async () => [{ value: 'element', label: 'Кардио', cats: ['TRN'] }], jointsPick() {},
-    api: async (path) => { assert.equal(path, '/dicts/passportParts'); return { items: dict.passportParts }; },
+    api: async (path) => { assert.equal(path, '/dicts/passportParts'); return { items: typeof parts === 'function' ? parts() : parts }; },
     confirmDlg: async (title) => confirm(title), codeList: (value) => value?.split(',') || [], catNames: () => '',
     attachCombo: (input, combo) => { Object.assign(input.props, combo); return { close() {} }; }, textInput: (opts) => {
       const input = node('input', opts);
@@ -169,7 +169,7 @@ test('готовый источник пропускает второй шаг, 
 test('TRN сама по себе не предлагает весовой стек, обычный поиск не снимает фильтр применимости', async () => {
   const s = scenario();
   s.open('simpleDescription'); await s.wait();
-  assert.match(viewText(s.slot), /Уточните вид и признаки; готовый набор частей пока не задан/);
+  assert.match(viewText(s.slot), /Нажмите «Искать среди всех частей» и выберите состав вручную/);
   const search = searchField(s.slot);
   search.value = 'весовой стек';
   assert.deepEqual([...search.props.options()].map((part) => part.value), []);
@@ -336,3 +336,57 @@ for (const key of ['joints', 'elements']) {
     });
   }
 }
+
+test('нет готового состава: явный ручной путь расположен перед поиском и не выбирает части автоматически', async () => {
+  const s = scenario();
+  s.open('simpleDescription'); await s.wait();
+  const search = searchField(s.slot);
+  assert.deepEqual([...search.props.options()], []);
+  assert.ok(nodes(s.slot).indexOf(action(s.slot, 'Искать среди всех частей')) < nodes(s.slot).indexOf(search));
+  await click(s.slot, 'Искать среди всех частей');
+  assert.match(viewText(s.slot), /Показаны все части справочника/);
+  assert.ok([...search.props.options()].some(p => p.value === 'frame'));
+  assert.equal(s.writes.length, 0);
+});
+
+for (const editor of [true, false]) {
+  test(`пустой справочник: ${editor ? 'редактор получает путь дополнения' : 'менеджеру не обещана правка справочника'}`, async () => {
+    const s = scenario({parts: [], editor});
+    s.open('simpleDescription'); await s.wait();
+    assert.match(viewText(s.slot), editor ? /добавьте нужные части/ : /Попросите директора дополнить/);
+    assert.match(viewText(s.slot), /«Изменить текст»/);
+    assert.ok(action(s.slot, 'Обновить части'));
+    assert.equal(action(s.slot, 'Искать среди всех частей'), undefined);
+    assert.equal(s.writes.length, 0);
+  });
+}
+
+test('обновление справочника сохраняет выбранные части и ручной текст и открывает новую часть', async () => {
+  let parts = dict.passportParts;
+  const s = scenario({parts: () => parts, defaults: {simpleDescription: {mode: 'parts', partIds: ['frame']}}});
+  s.open('simpleDescription'); await s.wait();
+  await click(s.slot, 'Изменить текст');
+  field(s.slot, 'text').props.values.text = 'Мой проверенный состав.';
+  parts = [...dict.passportParts, {id: 'new', name: 'Крепёж', genSingular: 'крепежа'}];
+  await click(s.slot, 'Обновить части');
+  assert.ok(action(s.slot, 'каркас ×'));
+  assert.equal(field(s.slot, 'text').props.values.text, 'Мой проверенный состав.');
+  assert.match(viewText(s.slot), /Справочник обновлён/);
+  await click(s.slot, 'Искать среди всех частей');
+  assert.ok([...searchField(s.slot).props.options()].some(p => p.value === 'new'));
+  assert.equal(s.writes.length, 0);
+});
+
+test('ошибка обновления оставляет исходный справочник, выбор и введённый текст', async () => {
+  let fail = false;
+  const s = scenario({parts: () => { if (fail) throw Error('network'); return dict.passportParts; }, defaults: {simpleDescription: {mode: 'parts', partIds: ['frame']}}});
+  s.open('simpleDescription'); await s.wait();
+  await click(s.slot, 'Изменить текст');
+  field(s.slot, 'text').props.values.text = 'Не терять эту правку.';
+  fail = true;
+  await click(s.slot, 'Обновить части');
+  assert.ok(action(s.slot, 'каркас ×'));
+  assert.equal(field(s.slot, 'text').props.values.text, 'Не терять эту правку.');
+  assert.match(viewText(s.slot), /Не удалось обновить части/);
+  assert.equal(s.writes.length, 0);
+});

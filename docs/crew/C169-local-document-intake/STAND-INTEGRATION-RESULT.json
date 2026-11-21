@@ -1,0 +1,50 @@
+{
+  "status": "PASS",
+  "writes": [
+    {
+      "method": "POST",
+      "path": "/api/photos/intake/c169-9cf9763f7d173c6495934ed8558730a0e0597e6d6fa58ba57bd97a9e0568dd79"
+    },
+    {
+      "method": "POST",
+      "path": "/api/supply/invoices/intake"
+    }
+  ],
+  "modelCalls": 1,
+  "stages": [
+    {
+      "stage": "first",
+      "counts": {
+        "inbox": 0,
+        "processing": 0,
+        "ready": 1,
+        "question": 0
+      },
+      "stopped": null,
+      "elapsedMs": 35093
+    },
+    {
+      "stage": "repeat",
+      "counts": {
+        "inbox": 0,
+        "processing": 0,
+        "ready": 2,
+        "question": 0
+      },
+      "stopped": null
+    }
+  ],
+  "proof": {
+    "sha256": "9cf9763f7d173c6495934ed8558730a0e0597e6d6fa58ba57bd97a9e0568dd79",
+    "uid": "c169-9cf9763f7d173c6495934ed8558730a0e0597e6d6fa58ba57bd97a9e0568dd79",
+    "invoiceId": "6b018ba9fa818924ea3368c5",
+    "requestIds": [
+      "6b018ba9fa818924ea3368c6"
+    ],
+    "photoWrites": 1,
+    "invoiceWrites": 1,
+    "queueReady": 2,
+    "sameReceipt": true,
+    "noExtraModelCall": true
+  }
+}
