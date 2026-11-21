@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # H1 (ORDER-MASTER-PLAN §3): при staged backend/pwa|admin — синтаксис модулей и design-lint (храповик: рост нарушений блокирует коммит).
+node backend/scripts/review-scope.mjs owners --staged >/dev/null || exit $?
 FILES="$(git diff --cached --name-only --diff-filter=ACMR)"
 grep -qE '^backend/(pwa|admin)/' <<<"$FILES" || exit 0
 ERR=0

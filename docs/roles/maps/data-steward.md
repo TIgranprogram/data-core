@@ -1,81 +1,16 @@
 # Карта роли data-steward
 
-коммит: не закоммичено (роль не коммитит). C163 план словаря short — `docs/crew/C163-new-product-passport-funnel/DICTIONARY-PLAN.md`. C055 Э3 план элементов — `docs/crew/C055-tech-passport/`. C054 части и покрытия — тоже без коммита.
+коммит: 3929ea33 · опорная ревизия для поиска, 21.11.2026. Приёмка конкретного изменения фиксируется отдельно.
 
-## Законы (выжимка)
-- CANON §5: одна сущность — одна таблица; данные священны. AGENTS «Жёсткие правила» №2 (без deleteMany/drop без «да»), №4 (общая база с kppdf: таблицы `kind:'crm'` и схемы общих коллекций не ломать).
-- README «Охрана своей зоны», «Сверка перед отчётом», отчёт ≤ 15 строк. Зона: `backend/scripts/data-*.js` (+ скрипты по прямому ТЗ), `docs/DB-AUDIT.md`, `docs/roles/data-steward.md`.
-- Удаление — только мягкое: `deletedAt` (+ `mergedInto` при объединении — как `dicts.service.ts` `merge` ~159).
+Открой ТЗ, эту карту и свою часть вывода `node backend/scripts/review-scope.mjs owners --staged`.
+Границы и проверяющие заданы в [реестре](../ownership.json). Читай назначенный diff и только нужные функции или разделы по ссылкам ниже.
 
-## Справочники «Паспорта» (`dict_values`, поле `dict`)
-- Описание полей: `backend/src/modules/dicts/dicts.defs.ts:538–720` (categories, standards, elements, materials, sortament, parts, defects, install, phrases, style). `norm` — :83; ссылки и «Объединить» (`withProducts`, `ppUsage`) — там же.
-- Ссылки: products `passportDefaults.{elements[],materialIds[],installationTypeId}`, `materialsSpec.rows[].{materialId,partIds[],sizes[]}`, `materialsSpec.coatingIds[]`; productpassports — те же + `purpose`/`installationMethod` (ТЕКСТ фразы, не id), `status` draft|issued|annulled|нет (старый). Коды: categories.standards, elements.standard, materials.defects, defects.applies, sortament.material.
-- Сборка текста: `product-passport/passport-compose-parts.ts` (`purposeText` — «Предназначено для: …», `usageRules`, `installText`), `passport-v2-text.ts`.
-- Подстановка «Установки» по способу: `pwa/sections/passports/wire-form.js:92` `INSTALL_VARIANT` (по НАЗВАНИЮ варианта + категории).
-- Наполнение: `scripts/seed-passport-categories|standards|dicts|category-fields|phrases.js`, `passport-texts-transfer.js` (П-10), `data-mi-dicts.js` (МИ: материалы/сортамент/части из текстов паспортов). `seed-metal-dicts.js` — не паспорта (склад).
-- Эталоны: `docs/PASSPORT-TEXTS-ETALON.xlsx` (лист 1 «Эталоны», 3 «Правило категорий», 5 «Вопросы»; читать `unzip` + node-разбор XML, python нет), `docs/PASSPORTS-TEXTS-SELECTION.md`.
+**Ответственность.** Качество справочников, дубли, обратные ссылки и план исправления данных. Одна сущность хранится в одной таблице. Для объединения используется мягкое удаление с `deletedAt` и ссылкой `mergedInto`.
 
-## Мои скрипты
-- `scripts/passport-dicts-cleanup.js` — ПВ: план/`--apply`/`--out`; экспорт `buildPlan(db)`, `applyPlan(db, plan, {ObjectId})`, `printPlan`; `DECISIONS` (назначения элементов, правила/ТО, уход/дефекты материалов), `DISPUTED_RULES`, `ID_REFS`. Эталоны берёт из ROWS `seed-passport-phrases.js`.
-- `scripts/data-mi-dicts.js` — МИ.1a; `scripts/customers-cleanup.js` — образец «только план».
-- Проверка без Mongo: scratchpad `fakemongo.js` (MongoClient в памяти), `runseeds.js` (сиды → dump.json), `t2.js` (сценарий + assert). Пересоздать при нужде — по описанию в уроках.
+- Начни с нужного раздела `docs/DB-AUDIT.md`, определения справочника в `backend/src/modules/dicts/dicts.defs.ts` и функции объединения в `dicts.service.ts`. Для полей проверь реальные схемы обеих сторон ссылки.
+- План и применение разделены. Образцы — `backend/scripts/passport-dicts-cleanup.js` (построение плана, применение, отчёт) и `backend/scripts/customers-cleanup.js`. Перед применением проверь выборку, обратные ссылки, возможность повторного запуска и восстановление из резервной копии.
+- Для C163 сходное имя ещё не доказывает дубль: группы, ветки и применимость фразы могут различаться. Сопоставь [план](../../crew/C163-new-product-passport-funnel/DICTIONARY-PLAN.md) с [обратной проверкой](../../crew/C163-new-product-passport-funnel/DICTIONARY-READBACK.md).
+- Тест на изолированных фикстурах: план точно перечисляет изменения, непричастные записи сохраняются, повтор оставляет ожидаемый результат. Для таблиц CRM проверь совместимость с другим потребителем через архитектора.
+- Сбор на стенде и проде поручается `access` через координатора. Запись на прод требует отдельного разрешения владельца. Порядок ручной правки — `docs/DATA-FIX-USER.md`; индивидуальные выгрузки живут вне Git.
 
-## Отчёты
-- `docs/DB-AUDIT.md` (§1–5 таблицы реестра, МИ.1, ПВ), `docs/roles/tz/PASSPORT-FUNNEL-data-steward.md`.
-
-## C163 «Словарь short» (2026-11-19)
-- План: `docs/crew/C163-new-product-passport-funnel/DICTIONARY-PLAN.md`; readonly `tools/logs/c163-dictionary-audit.json` (160 phrases / 38 kinds / 50 parts / 21 facets / 71 values).
-- short: 26 корней / 33 заполненных листа, 26/38 видов с веткой; 12 без ветки. 1061 уже заполнен; для 1068 предложены contact Вело, Педаль, root+leaf по подтверждённому составу; запись не выполнялась.
-- «Дубли · 2» = две строки одной пары Информирование с разными groupIds, не точные дубли. Merge пока не предлагать: потеряет групповую автоприменимость; kind.purposeLeafId/facet.purposePhraseId не переносит.
-- `dicts.defs.ts` partPhraseUses (~407) + withProducts покрывают merge phrase.partIds и обе ссылки частей изделия; актуальную обёртку учитывать перед выводом о неполном переносе. У parts нет полей criterion→parts, только categories; точные рекомендации уже задаются через simple-description leaf.partIds + kind/facet.
-- Карта обновлена; коммит: не закоммичено.
-- C163 дополнение §6: просмотрены 10 изображений `tools/logs/c163-reference-images/manifest.json`, подготовлены 10 literal entries по productId/kind+construction. Девять passport overview, у полусферы только общий main-render. Противоречие 19_4: имя обещает защиту от дождя, рисунок показывает открытые балки; не утверждать кровлю. Для parts предложено 9 новых слов; у 5 facets нет kindIds — вопросы показывать только в выбранной ветке short.
-- §2 применил access: `tools/logs/c163-dictionary-prod-apply-1795111854718/summary.json` completed/verified=4, phrases162/parts51/values72. 1068 не менялся; хранитель API не вызывал.
-- Reverse-ref API граница C163 §7.1: admin collections/:name/docs q=24hex ищет _id владельца, не nested partId; candidates импортирует текстовые кандидаты. Для точных owners нужна отдельная постраничная raw-выгрузка products/productpassports и контроль sanitize-обрезки (arrays100/depth8), не q=partId. «Шит»/«Щит» busy/tracked без locked, статусы owners через usage не доказаны.
-- C163 §8: утверждён JSON `DICTIONARY-SUPPLEMENT.json` (43=9parts+5facets+9values+10roots+10leaves); исполнитель `tools/logs/c163-dictionary-supplement.mjs` только для access, required exact C163_RELEASE, no PATCH/delete, before/readback/prod1061/1068. Офлайн VM6сценариев PASS, liveAPI хранитель не запускал. План/скрипт SHA в §8; коммит: не закоммичено.
-
-## ПВ2 «Тексты» (2026-10-25)
-- `scripts/passport-texts-polish.js` — 32 правки по `_id` (CHANGES: dict,id,label,field,was,to,why); `buildPlan(db,{ObjectId})`, `applyPlan`, `printPlan`; `--apply`, `--out`. Отчёт — `docs/roles/tz/PP-TEXTS-POLISH.md`.
-- Выгрузка прода — одна JSON-строка в конце `для анализа/паспорта-2026-10-25/pp-dicts.json` (до неё — mongo-shell мусор). `{std:КОД}` в полях справочников НЕ подставляется (только блоки шаблона «Для всех»).
-- Проверка: scratchpad `t3.js` (fakemongo + дамп прода).
-
-## C054-P «Части изделия» (2026-11-09)
-- План категорий 43 `passportParts`: `docs/crew/C054-passport-funnel/parts-categories-plan.json` (keep 4, patch 39). Новые не создавать: `parts-new-suggest.json`. Отчёт: `REPORT-parts.md`.
-- Пустое `categories` UI считал «для всех». Калитка, задвижка, зацеп, дуга, кольцо баскетбольное, щит, сетка, крючок сетки — без TRN.
-- Состав типов — `backend/scripts/seed-passport-types.js`. Рукоять = уже «Ручка». Фланец = «Опорная пятка». На прод не писалось.
-
-## C055 Э3 «Функциональные элементы» (2026-11-09)
-- Аудит 56 `passportElements`: `inDescription`, `usageRules`, `categories` по TRN/WRK/BLG/DIO/DSP. Пустых описания и категорий нет. 10 снарядов без правил.
-- План: `docs/crew/C055-tech-passport/elements-fill-plan.json` (patch 13, keep 43). Отчёт: `REPORT-E3-steward.md`.
-- Скрипт `backend/scripts/data-passport-elements-e3.js`: план по выгрузке C054 (`--dump` / файл по умолчанию) или Mongo; `--apply` не трогает базу `datacore`. На прод не писалось.
-- Узлы состава (скат, борт, кровля, подвес, опора, столешница, корпус) → `kind=part`, без удаления. `passportParts` не сливать. Баскетбол и ворота — WRK,DSP, не TRN.
-- Спорно: качели/балансир DIO при типе BLG; скамья для пресса остаётся WRK (TRN сняли 2026-11-07); волейбол без DSP.
-
-## C054 покрытия (2026-11-09)
-- План категорий 40 `passportMaterials`: `docs/crew/C054-passport-funnel/coatings-categories-plan.json` (patch 39, keep 1 — лист+порошок уже BLG). Отчёт: `REPORT-coatings.md`.
-- Пустое `categories` у покрытия = «везде». Цинк и порошок — TRN,WRK,BLG,DIO,DSP. Масло и пропитка — WRK,BLG,DIO,DSP (не TRN). Резина металла `COAT_RUBBER` — TRN,WRK. Крошка `RUBBER_SURFACE` — BLG,DIO,DSP. Эмаль — только BLG. На прод не писалось.
-
-## C027 «Деньги по статьям» (2026-11-06)
-- `scripts/map-articles.js`: план «заявка → подстатья», правила внутри файла, подстатьи — из `expensearticles`. Запуск на проде — `remote-access/run-script.sh map-articles [--apply]` (stdin; запись — пользователь, копия базы перед записью). Экспорты `classify/buildPlan/renderPlan/applyPlan`. Цель правила — путь «Статья / Подстатья».
-- Локальная Mongo: `127.0.0.1:27018` (контейнер datacore-mongo, root-пароль — `docker exec datacore-mongo printenv …`, `authSource=admin&directConnection=true`); данные только в `datacoreqa` (60 заявок), `datacore` пустая.
-- Итог: `docs/crew/C027-money-by-articles/mapping-plan.md`, отчёт — `steward-report.md`. Карта обновлена.
-
-## C057-Э0 «Номенклатура к загрузке из PDM» (2026-11-09)
-- Скрипты `backend/scripts/c057-{kind,parse-names,weight-report,dupes-report,profiles}.js`; общее — `scripts/lib/c057-{common,parse,match}.js`. Тесты: `node --test scripts/c057-lib.test.mjs` (34 названия прода, ключ JS = TS).
-- Режимы: `--from <выгрузка>` (план без базы), без него — чтение базы (`MONGO_URI`+`MONGO_DB`), `--apply [--out]` только в базу. Планы — `docs/crew/C057-pdm-import/data/*.md|json`. Идемпотентность проверена на локальной Mongo (27018, тестовая БД, удалена).
-- `lib/c057-match.js` — копия `common/catalog/match-key.ts` (transpileModule); правка TS → пересоздать, тест упадёт при расхождении.
-- Вес без `weightUnit:'kg'` = граммы (stock/weight.ts); сортамент: name = «сортамент, марка» (ключ = ключ PDM), article `Сортамент: <name>`, unit м²/м.
-- На прод не писалось. коммит: не закоммичено.
-
-## C157 — подготовка импорта счетов (19.11.2026)
-- `docs/crew/C157-invoice-manager-import/PREPARE-IMPORT.md`:74 документа ready,115 счетов review,15 исключены; локальный анализ безAPI/прода.
-- `data/ready-import.json`, `needs-review.json`, `verification-report.json` в той же папке (gitignored): шапка/ИНН/строки/суммы/SHA и прямые оплачено-даты со строками исходной переписки.
-- Готовый документ не равен готовой оплате;24334 бездаты толькоdraft.24479/7077/63 — провереннаяпартия, companyId доPOST отдельно.
-- №1197 АлюмВерк — ворота, а не электричество;№3834 — погашениестарогодолга. Назначениеизсоседнегосообщения не присваивать.
-- Проверка:204uniquehashpartition;74ready totals/hash;10независимыхоригиналовPDF PASS. Коммит:не закоммичено (роль не коммитит).
-
-## C157 — полный разбор190счетов (19.11.2026,extra2)
-- `docs/crew/C157-invoice-manager-import/PREPARE-EXTRA2.md`:190=4816+74+23+56+36; всеисточникиимеютсодержательныйстатус, форматнеосталсяпричинойостановки.
-- Новые `data/verified-extra2.json`56 и `remaining-review.json`36 (gitignored),52кандидатаоплатыдляroot-review поownerpayer-rule;API/продрольнетрогала. Старые97JSONнеизменны.
-- Якоря:КонтурСертум6673240328,Кошкин0.50,давальческий221,долговые3834/4686,перепутанныйfilename227,МСПвознаграждение≠принципал;точныефакты/подписи/печатныепропускивJSON.
-- Коммит:не закоммичено (роль не коммитит). Картаобновлена.
+История карты до сокращения: `git show 3929ea33:docs/roles/maps/data-steward.md | rg -n 'слово|Cxxx'`. Подробные результаты остаются в отчётах задач.

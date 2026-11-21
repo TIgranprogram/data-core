@@ -3,6 +3,7 @@
 # Коммит с backend/src|test|pwa|admin — нужна строка «Класс: S|M|L|XL»; с backend/pwa|admin — ещё «Дизайнер: принято|не нужно».
 # Слияния, rebase и fixup не проверяются.
 MSG="$1"
+node backend/scripts/review-scope.mjs owners --verify-message "$MSG" || exit $?
 head -1 "$MSG" | grep -qE '^(Merge|Revert|fixup!|squash!)' && exit 0
 [[ -d "$(git rev-parse --git-path rebase-merge)" || -d "$(git rev-parse --git-path rebase-apply)" ]] && exit 0
 FILES="$(git diff --cached --name-only)"

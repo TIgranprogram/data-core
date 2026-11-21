@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "zones": [
+    {
+      "id": "governance",
+      "owner": "coordinator",
+      "paths": [
+        ".agents/**", ".claude/**", ".codex/**", ".cursor/**", ".githooks/**", "docs/roles/**",
+        "AGENTS.md", "CLAUDE.md", "MANUS.md",
+        "backend/scripts/review-scope.mjs", "backend/scripts/review-scope.test.mjs", "deploy/synology/preflight.sh"
+      ],
+      "reviewers": [
+        {
+          "role": "architect",
+          "paths": [".githooks/**", "docs/roles/ownership.json", "backend/scripts/review-scope.mjs", "deploy/synology/preflight.sh"]
+        }
+      ]
+    },
+    {
+      "id": "backend",
+      "owner": "backend",
+      "paths": [
+        "backend/src/**", "backend/assets/**", "backend/.eslintrc.js", "backend/.prettierrc",
+        "backend/README.md", "backend/jest.config.ts", "backend/nest-cli.json", "backend/package.json",
+        "backend/pnpm-lock.yaml", "backend/tsconfig.build.json", "backend/tsconfig.json",
+        "docs/MAP.md", "docs/data-model.md", "docs/openapi.json"
+      ],
+      "reviewers": [
+        {
+          "role": "architect",
+          "paths": [
+            "backend/src/common/**", "backend/src/config/**", "backend/src/database/**",
+            "backend/src/app.module.ts", "backend/src/main.ts", "backend/src/modules/product-passport/**",
+            "backend/src/modules/finance/**", "backend/src/modules/supply/**", "docs/openapi.json"
+          ],
+          "excludeSuffixes": [".spec.ts"]
+        }
+      ]
+    },
+    {
+      "id": "frontend",
+      "owner": "frontend",
+      "paths": ["backend/pwa/**", "backend/admin/**", "apps/**", "docs/DESIGN.md", "docs/DESIGN-MOBILE.md"],
+      "reviewers": [
+        {
+          "role": "designer",
+          "paths": ["backend/pwa/ui/**", "backend/pwa/sections/**", "backend/admin/**", "backend/pwa/index.html", "backend/pwa/theme.js", "docs/DESIGN.md", "docs/DESIGN-MOBILE.md"],
+          "excludeSuffixes": [".test.js", ".test.mjs", ".spec.js", ".spec.mjs"]
+        }
+      ]
+    },
+    {
+      "id": "qa",
+      "owner": "qa",
+      "paths": ["backend/test/**", "tools/ai-tester/**", "tools/design-checks/**", "docs/TEST-LOG.md"]
+    },
+    {
+      "id": "data",
+      "owner": "data-steward",
+      "paths": ["backend/scripts/**", "backend/scripts-fields-helpers/**", "docs/DB-AUDIT.md", "docs/DATA-FIX-USER.md", "docs/PASSPORT-TEXTS-ETALON.xlsx"],
+      "exclude": [
+        "backend/scripts/review-scope.mjs", "backend/scripts/review-scope.test.mjs", "backend/scripts/check-map.mjs",
+        "backend/scripts/pwa-import-check.mjs", "backend/scripts/pwa-preload.mjs", "backend/scripts/design-lint.mjs",
+        "backend/scripts/design-lint.l3.test.mjs", "backend/scripts/design-allow.json", "backend/scripts/design-baseline.json",
+        "backend/scripts/qa-english.mjs", "backend/scripts/qa-nav-scenarios.js", "backend/scripts/qa-screenshot.mjs",
+        "backend/scripts/qa-search-scenarios.js", "backend/scripts/qa-smoke.mjs", "backend/scripts/ui-inventory.mjs"
+      ]
+    },
+    {
+      "id": "deploy",
+      "owner": "coordinator",
+      "paths": [
+        "deploy/**", "SRV-ERP/**", "remote-access/**", ".env.example", "backend/.env.example", "backend/.dockerignore",
+        "backend/Dockerfile", "backend/reset-password.js", "docker-compose.yml", "docker-compose.qa.yml", "docker-compose.prod.yml"
+      ],
+      "exclude": ["deploy/synology/preflight.sh"],
+      "reviewers": [
+        {
+          "role": "architect",
+          "paths": ["deploy/ha/**", "deploy/synology/release.sh", "deploy/synology/api.sh", "backend/Dockerfile", "docker-compose.yml", "docker-compose.prod.yml"],
+          "excludeSuffixes": [".md"]
+        }
+      ]
+    },
+    {
+      "id": "tooling",
+      "owner": "coordinator",
+      "paths": [
+        "tools/**", "pult/**", "mcp/**", "starozhil/**", ".gitignore", ".gitattributes",
+        "backend/scripts/check-map.mjs", "backend/scripts/pwa-import-check.mjs", "backend/scripts/pwa-preload.mjs",
+        "backend/scripts/design-lint.mjs", "backend/scripts/design-lint.l3.test.mjs", "backend/scripts/design-allow.json",
+        "backend/scripts/design-baseline.json", "backend/scripts/qa-english.mjs", "backend/scripts/qa-nav-scenarios.js",
+        "backend/scripts/qa-screenshot.mjs", "backend/scripts/qa-search-scenarios.js", "backend/scripts/qa-smoke.mjs", "backend/scripts/ui-inventory.mjs"
+      ],
+      "exclude": ["tools/ai-tester/**", "tools/design-checks/**"]
+    },
+    {
+      "id": "product",
+      "owner": "analyst",
+      "paths": ["VISION.md", "ROADMAP.md", "docs/PRODUCT.md", "docs/QUESTIONS.md", "docs/PATTERNS.md", "docs/PASSPORTS-STANDARD.md"]
+    },
+    {
+      "id": "docs",
+      "owner": "coordinator",
+      "paths": ["README.md", "docs/**"],
+      "exclude": [
+        "docs/roles/**", "docs/MAP.md", "docs/data-model.md", "docs/openapi.json", "docs/DESIGN.md", "docs/DESIGN-MOBILE.md",
+        "docs/TEST-LOG.md", "docs/DB-AUDIT.md", "docs/DATA-FIX-USER.md", "docs/PASSPORT-TEXTS-ETALON.xlsx",
+        "docs/PRODUCT.md", "docs/QUESTIONS.md", "docs/PATTERNS.md", "docs/PASSPORTS-STANDARD.md"
+      ]
+    }
+  ]
+}

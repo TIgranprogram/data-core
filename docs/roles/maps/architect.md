@@ -1,108 +1,17 @@
 # Карта роли architect
 
-## C169 — файловая очередь документов, совет до кода
+коммит: 3929ea33 · опорная ревизия для поиска, 21.11.2026. Приёмка конкретного изменения фиксируется отдельно.
 
-коммит: a8413b18. [ARCH-PLAN.md](../../crew/C169-local-document-intake/ARCH-PLAN.md) — ID поступления и SHA документа, журнал намерений, восстановление по UID и проверка результата перед Ready. Основания в C169/TZ.md:21 и C164/CONTRACT.md:83. Доступность гарантий в конкретных API сверяет аналитик. Карта обновлена.
+Открой ТЗ, эту карту и свою часть вывода `node backend/scripts/review-scope.mjs owners --staged`.
+Границы и проверяющие заданы в [реестре](../ownership.json). Читай назначенный diff и только нужные функции или разделы по ссылкам ниже.
 
-## C165 — первый адресный кодовой review (19.11.2026)
-коммит: f76489b9 (новый рабочий diff C165, исторический scope267bc1c не закрыт)
-- Второй, последний адресный проход: P1закрыт `supply.service.ts:764,789,794,810` fresh request/invoice + sourceCAS + unconditional stockcallback/directtx; reverse attach/createCAS `supply-invoice.service.ts:354,530,534`. P2filesзакрыт `:289–297` и `pwa/sections/invoice-workspace.js:241`. Ниже строки первого пакета — история, не открытые P1. Итог можно по архитектуре; до общего QA/UI послеC163.
-- Собственные финальные tsc0/2suites159unit/56PWA/cycles0; meaningfulrace-e2e168/205 просмотрены,12/53e2e поfreezeотчёту. Остаётся P2createItemдоtx `supply.service.ts:802` как stockbacklogбезденежного/qtyэффекта. ARCH-REVIEW.md обновлён, карта обновлена.
-- 🔴 `supply/supply.service.ts:769,788,808,817` — receipt выбирает invoice callback из старого d0.invoiceId: late attach→confirm после preGET обходит pendingbasis/CAS в standalone ветках. Нужен fresh source/invoice в receipt transaction для всех путей, не postmovement check; e2e пока только update-lateattach147.
-- 🟡 `supply.service.ts:796` — createItem до move transaction может оставить пустой каталог при отказе: P2 отдельного stock backlog, qty/движение/fact при существующем callback защищены. `pwa/sections/invoice-workspace.js:254` — evidence.fileIds сохраняются, но не открываются из подтверждения после reopen.
-- 🟢 `supply-undated-payments.service.ts:18`, `supply-invoice-payments.service.ts:183,189,190`, `finance.service.ts:91,99,295`, `photos.service.ts:83` — receipts/CAS, frozen allocation resolve, global exclusion, whole needsfill, same-ID filename repair просмотрены. Own tsc0/5unit/54PWA/cycles0.
-- `docs/crew/C165-undated-payments-and-filename-repair/ARCH-REVIEW.md` — пакет1; до одного точечного повтора/общего QA послеC163. Прод/пароли не трогались. Карта обновлена.
+**Ответственность.** Границы участков, публичные контракты, общие коллекции с CRM, сохранность данных, скорость и постоянные ворота. Архитектор проверяет и принимает решения по стыку. Код исправляет назначенный владелец.
 
-## C164 — новые клиентские договоры: адресный аудит модели (19.11.2026)
-коммит: f76489b9 (кодовая основа чтения; C165 vendor-pending diff не принимался, исторический scope267bc1c не закрыт)
-- `salesorders/salesorders.service.ts:383` — CREATE всегда присваивает productionNo; `production-orders.ts:1`, controller:13 — производственный заказ является группировкой договоров, не отдельной сущностью. Нужен явный unassigned для нового сценария.
-- `salesorders/sales-order.schema.ts:16,20,25,30`, `pwa/sections/salesorders.js:640` — orderNo номер договора, customer текст без FK, contractNo госконтракт; дата договора ошибочно соседствует с подписью госконтракта.
-- `incomes/income.schema.ts:28,95,130`, `incomes.service.ts:364,393` — позиции/фото/legacy paidDate; импорт не подтверждает платёж, автосопоставление и design side effects учесть отдельно.
-- `offers/offers.service.ts:73,86,101`, `finance/forecast.ts:35,66`, `financial-operations-reader.service.ts:42,60` — КП-конверсия теряет снимки/условия; прогноз не структурный график; фильтр конкретного договора, не productionNo.
-- C164/FIELD-MAPPING.md, AUDIT-CODE.md, QUESTIONS-CODE.md, API-CHECKLIST.md — полная матрица/риски/следующий шаг. API/прод/PDF не читались, код не менялся, live-полнота не подтверждена. Карта обновлена.
+- Найди затронутые модули и их потребителей в `docs/MAP.md`, затем открой соответствующий раздел `docs/ARCHITECTURE.md`. Для паспортов сверь ПС-ID в `docs/PASSPORTS-STANDARD.md`.
+- Для пересечения зафиксируй основного владельца, обязанности каждой стороны и проверяемый контракт. Новую границу или обязательную проверку одобряй по конкретной дельте с причиной, положительным и отрицательным примером, стоимостью прогона.
+- Владелец участка может исправить воспроизводимый дефект, добавить регрессию или замер роста и скорости. Для изменения общей политики или добавления постоянного блокирующего шага он передаёт архитектору diff и результаты.
+- Зависимости модулей: `node backend/scripts/audit-cycles.js`. Публичный API: сравни затронутый маршрут, его DTO и потребителя. Для изменения транзакции или конкурентного обновления запроси адресный тест на гонку.
+- Миграции: сохранность исторического чтения и область изменения новых записей. Пример адресного аудита архитектуры — [C180](../../crew/C180-passport-architecture-audit/AUDIT.md). Границы изолированной проверки выпуска — [C166](../../crew/C166-server-schedules/ARCH-HOST-REVIEW.md).
+- В выводе укажи принятые пути и контракт, проверенную дельту, выполненные проверки и остаток. Для исправленного дефекта перечитай затронутый участок и необходимый стык.
 
-## C158 — новый сценарий подтверждения без даты (19.11.2026)
-коммит: f76489b9 (только адресный совет до кода; исторический scope267bc1c не закрыт)
-- `finance/finance.service.ts:85,95,147,354` — pending обязан подавлять legacy и обязательства до периодных фильтров; draft это не делает.
-- `supply/supply-invoice-payments.service.ts:160,173,194` — общий CAS/transaction и replay-before-state; legacy payRemaining ставит today и должен отказать для pending.
-- `supply/supply-invoice.service.ts:70,81,360` — сумма/состав/плательщик pending фиксируются условием DB-write, не одним предварительным GET; scoped summary новой evidence не раскрывает скрытый счёт.
-- `photos/photos.service.ts:303`, `photos/image-upload.options.ts:44`, `photos/photos.controller.ts:51` — новый PhotoDoc опасен общим storageUrl при DELETE; нужен узкий CAS-repair имени без дублирования/перезагрузки/изменения байтов.
-- План и границы: `docs/crew/C158-supply-financial-fields/UNDATED-PAYMENT-ARCH.md`; циклы0, исходники не менялись, реализация ещё не принималась. Карта обновлена.
-
-коммит: 179c6239 (19.11.2026: узкий review незакоммиченного финансового diff C158; общий хвост architect от267bc1c не закрыт)
-C158: FAIL первого прохода: unresolved-долг исчезает из finance; legacy partial snapshot раскрывает paidAmount полного счёта — supply-invoice-payments.service.ts:49 → invoice-financials.ts:58, raw snapshot/adjustments в supply-invoice.service.ts:282; replay hash зависит от изменяемых defaults — payments.service.ts:109–122. P2: вся история в finance, платежи/вложения в списке. Якоря относятся к состоянию до исправлений backend; полный отчёт: docs/crew/C158-supply-financial-fields/ARCH-REVIEW.md. Ledger/CAS/immutable allocations/global legacy marker проверены; tsc0,6unit PASS,cycles0. UI/прод/тайминги не принимались; review-scope --done не ставился.
-C158 второй проход: legacy scope/all-history/list summaries/replay defaults закрыты; остаются два принятых координатором условия PASS: весьFXenum включаяCNY вfinance.service.ts:87,95 и expectedVersion=dto.version??first.version вpayment service:137–159 при omittedversion после prior-key lookup. Точечные адресные тесты закрываетroot без третьего общего круга. Собственно13unitPASS/cycles0; backend23e2e/256unitPASS, fullunit355/3648 иstandBROWSERPASS поотчётам. Индексы invoice:142–143/payment:31–34 зарегистрированы вensure-indexes; querytiming не измерялся. Итог и границы: C158/ARCH-REVIEW.md.
-C161 до кода: основу принять после source adapter matrix legacy correction, единого transactional writer для всех dicts aliases/create/restore/merge/seed (dicts.service.ts:202–271) и сохранности income IDs на replacement/paidDate (incomes.service.ts:167–174,245+). План183unique=159KEEP+11MOVE+13REVIEW. Конкретные места original/override и этапы справочник→доходные связи/IDs→read-only операции→corrections→план переноса: docs/crew/C162-money-articles-structure/ARCH-PLAN-REVIEW.md. Код C161 отсутствует; это оценка плана, не PASS реализации.
-C161 ARTICLES API первыйкодовойпроход: P1rootarticle reparent теряет categoryfallback (articles-tree.ts:76–79,95–99;writer:53–57,115–119); P2ancestor invalidshape не запрещает childrefs (tree:54–72), formerleaf-groupID пропадает legacychildren, FinancialArticle не включён ensure-indexes (schema:22). Rootпринял: толькоrootgroups, rawrootarticlesdiagnostics/noRefs, projectionall-descendants+flags, chooseronlyselectableactiveexpenseleaf, invalidancestorpropagation. ReferenceGuardтогожеcounter/CAS/aliases/atomic audit проверены;3suites16unitPASS/cycles0. Coreещёнестабилен/непрочитан; продолжить wholeREADY безповторногочтениядерева. Отчёт C161/ARCH-REVIEW.md.
-C161 wholeCORE первыйпроход: P1 payrollsection bypass(reader:48–49/classification:75–77), income cancel/remove race безsourceCAS(cancel:107–117/incomes:467–488), legacy paidrequest/Expense ordinary analyticsPATCH bypass(supply:599–643/expenses:115), UTCtoday вместоMoscow(reader:24,47). P2wholehistoryвlist(reader:77), byArticlesobjectscope потерян(report:7); archivedincomepart prevalidation ужеубрана, ждётрегрессии. identities/readhash/materialize/CAS/audit/ledgeraliascarry просмотрены;69unitPASS/cycles0. ARTfixes повторнонечитались; finalfreeze/perftests/адреснаяприёмка впереди. C161/ARCH-REVIEW.md — сценарии/условия; никакогоwholePASSпока.
-C161 второйАДРЕСНЫЙпроход: payrollAppSection/Moscow/thinlist/objectopts/archivedparts/ART3/codeindexes закрыты. Income sourceCAS закрываетpayment-race, но releaseDeps:124–131 оставилstockrelease/worktasksбезsession; ordinarylegacyguard supply:623–632 смотриттолькоrow.paid инепокрываетsnapshotpaid+row.paid=false. Это2остаткаисходныхP1, rootзакрываетадресно без3-гообщегокруга. Собственно5suites93unitPASS/cycles0; pureinvalidchildreject/formergroupID/hint/MoscowPASS. Core14e2ePASSпоотчёту;ART14target12PASS2fixtureFAILзатемотдельно2fixturePASS,неединый14green. C161/ARCH-REVIEW.md обновлён сточнымиусловиями.
-
-C161, коммит: e4a1b0e0 (рабочий diff). P1 закрыт: product-passport.service.ts:829 возвращает 409 при пересборке выданного или аннулированного паспорта v1 из частей. Независимый прогон passport-parts-presentation.spec.ts — 3/3. Отчёт docs/crew/C161-short-description-from-parts/ARCH-REVIEW.md. Карта обновлена.
-
-C160, коммит: 0f77c6c4 (рабочий diff). Все три P1 закрыты. core/error-context.js:18,43, core/errors.js:31,43,61,112 — маршрут, очистка текста 4xx, очередь и поздний отказ после выхода. Прогон 16/16. Отчёт docs/crew/C160-error-navigation-context/REVIEW.md. Карта обновлена.
-
-C155, повторная приёмка, коммит: 179c6239 (рабочий diff). Четыре находки закрыты: product-passport.service.ts:163,573,1092; passport-from-product.ts:88; passport-order.ts:224. Итог — можно выкладывать. docs/crew/C155-passport-owner-queue/FINAL-ARCH-REVIEW.md. Карта обновлена.
-
-C155, 19.11.2026, коммит: 179c6239 (проверен рабочий diff паспортов). Редакции и источники рисунков — product-passport.service.ts:555 и passport-pdf.service.ts:261. Наследование монтажа — passport-from-product.ts:77. Версия при пакетном выпуске — passport-order.ts:220. Архивная карточка без снимка — product-passport.service.ts:163. docs/crew/C155-passport-owner-queue/FINAL-ARCH-REVIEW.md. Карта обновлена.
-
-коммит: 8d4b21dc (12.11.2026: узкий review C089 UI незакоммиченного diff + C091 пульт; общий хвост architect не закрыт)
-C086: прежние 3 находки закрыты: compose.ts:138 → gaps.ts:175 сохраняют применимость заполненных чисел; gaps.ts:103,106 проверяет сохранённое назначение; order.ts:96,98 — два пакета групп (ещё нужен deletedAt:null). PDF отдельного прохода не проверен. Отчёт: docs/crew/C086-passports-owner-review/ARCH-REVIEW.md.
-C022 волна B (2026-11-04): открытие «Склада» несколько раз бьёт GET /stock/items?limit=10000 и /stock/categories; 325 с в SlowScreen — таймер плиток, не один запрос. Кэш клиента гасит data-changed (stock-list.js:41, stock.js:24, :98). Серверный stock.items сбрасывает запись CRM в materials/storageitems/supplyrequests/categories/warehouses. Отчёт: docs/crew/C022-stock-order/ARCHITECT.md.
-аудит C013: без коммита кода, HEAD на чтении 23ff7ff7 (2026-11-03).
-
-Паспорта: текст сейчас — product-passport/passport-v2-text.ts:buildV2Text (Для всех = код + ALL_V2 в passporttemplates, плюс версия категории; замена по номеру пункта); снимок service.snapshot (~284) в textSnapshot; выпуск passport-issue.ts:32.
-Справочники паспортов — dicts/dicts.defs.ts:538–720 (simpleList, ppUsage, withProducts для merge/reassign); dict_values индекс dict+deletedAt (ensure-indexes.js:20).
-Изделие в паспорт: products.passportDefaults (showcase/passport-defaults.ts, PUT :id/passport-defaults, bulk в showcase-bulk.ts); клона изделия в showcase нет.
-Решение ПВ (воронка): docs/roles/tz/PASSPORT-FUNNEL-architect.md.
-Ловушки: DTO паспорта (forbidNonWhitelisted); GET passports/phrases старый, дублирует справочник.
-Аудит покупателя 2026-10-30 (сервер и данные). Узлы риска: оплата — incomes.service.ts:198 (paidDate в PATCH стирает payments), :214 (перезапись массива); счёт — supply-invoice.service.ts:345 (received → ordered); отмена склада — stock-movements.service.ts:220, :436; clientUid проверяется вне транзакции (:43, :138); брони — stock-reservations.service.ts:121; листы — sheets-sync.targets.ts:130, :202 (adopt без editedInApp); бэкап — backup.sh:44, :48, :67; выкладка — release.sh:53, :56.
-C013 (2026-11-03): два сервера — суточный refresh-copy, не replica set. Задача Windows «DataCore copy refresh» на этом ПК есть (1–2.11 ок; 3.11 tar код 2, архив datacore-2026-11-03_030001.tgz). Кнопка SW-1…6 в коде; HA_SELF и setup-switch на проде не включались; SW-7 нет; автодомен при смерти не написан. Макет: потеря ~30 % при обрыве канала и смерти главного — автомат нельзя. Отчёт: docs/crew/C013-ha-sportin/.
-C042 (2026-11-07): кнопка переключения в коде есть, но HA_SELF и cron-мост не включены (setup-switch.sh --enable не запускали, BACKLOG:25); refresh Sportin раз в сутки с домашнего ПК, падал 3.11 и 6.11 (refresh.log:38,64-70); боем не гоняли. Отчёт: docs/crew/C042-server-switch/AUDIT.md, PLAN.md.
-
-C089/C091: fill/index.js:31 + paint.js:187 — related main/side без изменения save/API; kit.css:761 — общие drawer требуют визуальной приёмки. pult/ui/app.js:171 — безусловный renderTester после await может подменить другой раздел; tester.mjs:27 — state без содержимого marker/REPORT. Отчёт: docs/crew/C089-workplace-clarity/ARCH-REVIEW.md. Карта обновлена.
-
-C096 Э1: коммит: c41e60de (12.11.2026, review незакоммиченного diff, общий хвост не закрыт). passport-snapshot-refresh.ts:34 теряет edited при совпадении; passport-issue.ts:36 проверяет readiness до синхронизации категории; product-passport.service.ts:396 новая редакция и snapshot не атомарны. Отчёт: docs/crew/C096-passport-system-audit/E1-REVIEW.md. Карта обновлена.
-
-C096 Э1 повторная приёмка: коммит: c41e60de (незакоммиченный diff). Прежние три находки закрыты: carryManual сохраняет edited; issue refresh→readiness и повтор в tx; update собирает новую редакцию до одного save. sizeLayout отдельно сохраняет старую таблицу issued; PDF strict sync, get.syncWarning. Риск конкурентного syncDraft.save не воспроизведён и остаётся; общий хвост не закрыт. E1-REVIEW.md обновлён. Карта обновлена.
-C096 финальный CAS: коммит: c41e60de (12.11.2026, незакоммиченный diff). service.ts:208 saveCurrent проверяет прежние status/updatedAt/textSnapshot, вызывается syncDraft/update/editSnapshotItem/snapshot; products-order.e2e-spec.ts:84 воспроизводит позднюю запись после issued/manual (QA PASS). passport-snapshot-refresh.ts:53 нормализует пустую choices только для сравнения. Собственный targeted22/22 PASS; прежний риск закрыт в этом scope, C049-1 целиком не закрыт. E1-REVIEW.md обновлён. Карта обновлена; общий хвост не закрыт.
-C096 legacy status: schema.ts:67 без default; missing status сохраняет CAS exists:false. Явный null требует отличать от undefined (данные с null не подтверждены), E1-REVIEW дополнен; коммит: c41e60de, карта обновлена.
-
-C142 (18.11 ночь, без коммита): состав→паспорт→обеспечить. Enum CompositionLine не тронут. 🔴 книжка PUT затирает поля строки (`showcase-composition.ts:104`); legacy `materials[]` / `productModuleIds` прячется первой канонической строкой (`composition-line.service.ts:128`, `catalog-graph.service.ts:307,312`). «Что купить» дерево читает; лист паспорта и «Обеспечить» — нет. Отчёт: docs/crew/C142-composition-hierarchy/ARCH-NIGHT.md. Карта обновлена.
-
-C144 (18.11, без коммита): каскад типа паспорта. Пустое `categories`: материалы/покрытия/установка = для всех (`materials-spec.js:58`, `passport-gaps.ts:188`); части = не в коротком списке (`dicts-sort.js:18`, `materials-spec.js:155`); элементы = никому (`passport-gaps.ts:27`), а колонка справочника говорит «для всех» (`dicts-sort.js:19`). Чип «Для всех» у частей пишет пусто и прячет часть (`cat-chips.js:16`). Отчёт: docs/crew/C144-dict-cascade-scope/AUDIT.md. Карта обновлена. Общий хвост не закрыт.
-
-C163, коммит: f76489b9 + рабочий diff (19.11.2026): узкий независимый аудит. P1 passport-from-product.ts:62–75 производит elements чужой категории/удалённого parent; сохранить facet IDs, фильтровать только производные по живому parent/category. CAS template-patch:217–231/root/null/merge и photo batch/safe fallback проверены. 4 suites63unit +14node PASS, cycles0. UI/full/e2e/timing у координатора; общий scope --done не ставился. docs/crew/C163-new-product-passport-funnel/ARCH-REVIEW.md. Карта обновлена.
-
-C163 адресное закрытие P1, коммит: f76489b9 + рабочий diff (19.11.2026). passport-from-product.ts:60–70 фильтрует derived elements по живому parent и текущей category, MAF/BLG совместимы; :63 своё приоритетно, foreign facet tail сохранён. 19/19 targeted PASS, freeze SHA256 93DCB2BD…3FFC1 совпал. ARCH-REVIEW.md — PASS архитектурного scope, общая QA/UI у координатора; review-scope --done не ставился. Карта обновлена.
-
-## C166 — backend20.11.2026
-
-Host: [ARCH-HOST-REVIEW.md](../../crew/C166-server-schedules/ARCH-HOST-REVIEW.md), два P1 закрыты, исправленный preflight static PASS; worker и координатор по 47 isolated PASS, собственный запуск архитектора SKIP среды. Bash-n исправленного preflight проверен координатором. Живой VPS/CRM/обратное переключение не принимались.
-
-Frozen890dece6: CAS/постоянные слоты/outbox/ночное окно/manual history/strict readiness/неоднозначный promote-VPS/logger redaction рассмотрены; 36/36unit и cycles0 собственные, backendPASS. Host/UI/live/combined отдельно. Отчёт crew/C166-server-schedules/ARCH-BACKEND-REVIEW.md. Карта сохранена координатором по итоговому сообщению роли, песочница роли не давала запись в новуюworktree.
-
-## C176 — очередь идентификации, совет до кода
-коммит: ed72ef69 (новая реализация ещё не проверена). Якорь: docs/crew/C176-product-identification-queue/ARCHITECTURE.md; service.list/present:93–174, common/passport/kind.ts:33–57, form-values.ts; bulk:50–54/65–91, defaults setter:258–270. Shared metadata/scalar helper до pagination; facets без series в eligibility; перед новыми bulk-полями atomic row/prevalidation и безопасный undo. cycles0; глобальный review-scope --done не выставлялся. Карта обновлена.
-
-## C176 — финальный узкий review до full
-коммит: d8b03f4f + незакоммиченный C176. REVIEW.md: блокеры service:292–295 inherited-type compatibility и:298/369/377/384/306 category-sideeffect до validation/CAS; до них FAIL. Sharedfilter/facets/CAS/undo просмотрены, cycles0; PWA/full не принимались. Нужен адресный повтор после фикса. Карта обновлена.
-
-## C176 — закрытие двух блокеров
-коммит: d8b03f4f + текущий C176diff. Адресный повтор PASS: service:292–299 beforeeffective/explicitincoming, :300–317 настоящий transaction+CAScategoryId/pd; categoryfind/insert session и fieldsvalidationдоcreate. REVIEW.md обновлён, QA10/10realMongo принято, full/UI впереди. Карта обновлена.
-
-## C180 — срочныйсоветC179 иdirectreviewC178
-коммит: текущийWIP, непринятыйmain. Якоря C180/ADVICE-C179.md (exactcode7+unknown, одинimage/readiness/PDF/importprofile;622reviewedmigration), DIRECT-REVIEW-C178.md (узкийhistory/CAS/UIcapabilitiesdiffPASSкQA). По7codesневыдумыватьphysicalспособ,unknownнеfoundation, Inventorнепеределывать. Полныйauditнепроводился; расширенныйпланпослесрочногопаспорта. Картаобновлена.
-
-C180 первыйадресныйauditзакреплён: AUDIT.md/FINDINGS.md/REFACTOR-PLAN.md, изужепросмотренныхстыковбезрасширенногопоиска. F01–03срочныеC179/622, C178локальныйhistorybypassзакрыт, F05–08freeze/commit/capabilities/единыйverificationследующимиэтапами. Коммит: текущийWIP; release/fullещёнеприняты. Картаобновлена.
-
-## C179 — directreview legacyimage-only
-коммит: текущийWIP/sourcefreeze, непринятыйmain. DIRECT-REVIEW.md FAIL: service1042/1075–1079 новыйprofile+старыйpriorrequiredнесогласованы дляlegacyfrozenбезplan; нужнаадреснаяmanaged-required миграцияТОЛЬКОнoвойредакции, historicalreadсохранить. ДобавитьrealMongolegacyANCHORSimportрегрессию+unknownmutationguard;fullпослефикса. Картаобновлена.
-
-## C179 — legacy blocker закрыт
-коммит: текущийWIP/finalfreeze. DIRECT-REVIEW.md PASS адресногоповтора: reconcileInstallationRules replacesmanagedrequired/slots + сохраняетnonmanaged; reuseTextunknownguard; historicalREADне меняется. Просмотрены2realMongoregressionкейса, QA3/3/import23/23/C1786/6/unit818принятыпоотчётам. Можноодинобщийfull; выпуск/622/UIещёнепринимались. Картаобновлена.
-
-## C175 — afterSave навигация
-коммит: текущийWIP/UI-diff. АдресныйPASS2файлов: ui/kit/card.jsoptionalafterSaveпослеAPIуспеха/formclear,доdefaultnav; passport-tree.jsnewroot→new.id/newleaf→id, таймерудалён. AFTER-SAVE-REVIEW.md;16card/34target/guards365imports371принятыпоотчёту, backendfullнеповторялся. Картаобновлена.
-
-## C178 — Product.name источникназвания
-коммит: a96e708d + текущийname-sourceWIP. NAME-SOURCE-REVIEW-FINAL.md PASS3runtimefiles: bindPresentationбезincome.title, orderbatchбезавтоматическогоdto.name, createPresentationбезложногоmanualflag. ProductDiff/manualoverride/issuedfreeze/standalone/attachedконтрактысохранены;818unitи12targetedпринятыпоQA, fullновогорелизаещёвпереди. C179/данные20-26неаудировались. Картаобновлена.
+История карты до сокращения: `git show 3929ea33:docs/roles/maps/architect.md | rg -n 'слово|Cxxx'`. Подробные результаты остаются в отчётах задач.

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync, mkdirSync, writeFileSync, rmSync} from 'node:fs';
+import {copyFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -16,6 +16,8 @@ test('PARTIAL сохраняется только в явно незавершё
   try {
     git('init', '-b', 'main');
     mkdirSync(join(dir, 'backend/pwa'), {recursive: true});
+    mkdirSync(join(dir, 'backend/scripts'), {recursive: true});
+    copyFileSync(resolve('backend/scripts/review-scope.mjs'), join(dir, 'backend/scripts/review-scope.mjs'));
     writeFileSync(join(dir, 'backend/pwa/example.js'), '// fixture\n');
     git('add', 'backend/pwa/example.js');
     const message = join(dir, 'message.txt');
