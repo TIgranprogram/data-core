@@ -1,399 +1,256 @@
-// «Карта сайта»: общий маршрут и связи выбранного узла на одном полотне.
+// Одна схема сайта: области, разделы, затем связи и содержимое конкретного узла.
 import { h, fill } from '../../core/dom.js';
-export { atlasFocus } from '../atlas-map/focus.js';
 import { icon } from '../icons.js';
-import { button, guide, iconButton, link } from './index.js';
-import { atlasInspector, isDirect, LAYERS } from '../atlas-map/inspector.js';
-import { HEIGHT, MIN_WIDTH, TERRITORIES, applyCamera, bindPan, bindViewportKeys, bindWheel,
-  drawTerritories, geometry, keepInView, pathFor, spanBoxes, svg } from '../atlas-map/layout.js';
-import { semanticScene } from '../atlas-map/semantic.js';
+import { button } from './index.js';
+import { atlasHierarchy, atlasScene } from '../atlas-map/layout.js';
+import { svg, place, interpolate, span, wireGeometry, applyView, panInto, bindAtlasDrag } from '../atlas-map/geometry.js';
 
-const OVERVIEW = new Set([
-  'salesorders:design', 'design:products', 'products:work', 'requests:stock', 'stock:work', 'work:shiporder',
-]);
-const LEVELS = ['Общая карта', 'Связи узла', 'Подписи связей'];
+const MOTION = 320;
+const PRIMARY = { sale: 'salesorders', prod: 'products', paper: 'design', make: 'work', supply: 'requests',
+  stock: 'stock', after: 'shiporder', money: 'money', system: 'servers', quality: 'fill' };
 let nextId = 0;
 
-export function atlasMap({ model, trace, onOpen, onSelect }) {
-  const id = 'am-' + ++nextId;
-  const nodes = new Map(model.nodes.map((node) => [node.id, node]));
-  const sections = model.nodes.filter((node) => node.kind === 'section').sort((a, b) => a.order - b.order);
-  const groups = new Map(model.groups.map((group) => [group.id, group]));
-  const kinds = Object.keys(LAYERS);
-  const enabled = new Set(kinds);
-  const edges = model.edges.filter((edge) => nodes.has(edge.from) && nodes.has(edge.to));
-  const stations = new Map();
-  const traces = new Map();
-  let planOn = true;
-  let selected = null;
-  let hover = null;
-  let detailTarget = null;
-  let focusedEdge = null;
-  let local = null;
-  let beforeInspect = null;
-  let overviewCamera = null;
-  let width = MIN_WIDTH;
-  let camera = { x: 0, y: 0 };
-  let bounds = { left: 0, right: width, top: 0, bottom: HEIGHT };
-  let layout = geometry(width, sections);
-  let layerEdges = edges;
-  let business = edges;
-
-  const el = h('section', { class: 'atlas-map', 'aria-label': 'Интерактивная карта сайта' });
+export function atlasMap({ model, onSelect }) {
+  const prefix = 'am-' + ++nextId;
+  const data = atlasHierarchy(model);
+  const focus = new Map();
+  const views = new Map();
+  const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const el = h('section', { class: 'atlas-map', dataset: { level: 0 }, 'aria-label': 'Карта сайта' });
   const viewport = h('div', {
-    class: 'am-viewport', tabindex: '0', role: 'region', 'aria-label': 'Полотно карты', 'aria-describedby': id + '-help',
+    class: 'am-viewport', tabindex: '0', role: 'region', 'aria-label': 'Карта областей, разделов и связей',
+    'aria-keyshortcuts': 'Escape + - ArrowLeft ArrowRight ArrowUp ArrowDown',
   });
   const plate = h('div', { class: 'am-plate' });
-  const defs = svg('defs');
-  const territories = svg('g', { class: 'am-territory-shapes' });
-  const rails = svg('g', { class: 'am-overview-rails' });
-  const lines = svg('g', { class: 'am-overview-lines' });
-  const wires = svg('g', { class: 'am-local-wires' });
-  const drawing = svg('svg', { class: 'am-drawing', 'aria-hidden': 'true' }, defs, territories, rails, lines, wires);
-  const headings = h('div', { class: 'am-area-labels' });
-  const stationLayer = h('div', { class: 'am-stations' });
-  const detailLayer = h('div', { class: 'am-details-layer' });
-  const levelStatus = h('span', { class: 'am-level', role: 'status' });
-  const layerStatus = h('span', { class: 'am-layer-status' });
-  const minus = button({ label: '−', cls: 'am-zoom-step', title: 'Свернуть подробности', onClick: () => changeDetail(-1) });
-  const plus = button({ label: '+', cls: 'am-zoom-step', title: 'Раскрыть подробности', onClick: () => changeDetail(1) });
-  const reset = iconButton({ icon: icon('refresh'), label: 'Вернуть общий вид', onClick: resetView });
-  const selectionTitle = h('h3');
-  const selectionDescription = h('p');
-  const destination = h('span', { class: 'am-destination' });
-  const show = button({ label: 'Открыть подробности', size: 'S', kind: 'primary', onClick: (event) => onOpen?.(sectionOf(selected), event.currentTarget) });
-  const clear = button({ label: 'Снять выбор', size: 'S', kind: 'ghost', onClick: () => clearSelection() });
-  const selection = h('div', { class: 'am-selection' },
-    h('div', { class: 'am-selection-text' }, selectionTitle, selectionDescription),
-    h('div', { class: 'am-selection-actions' }, show, destination, clear));
-  const inspector = atlasInspector({ nodes, sectionOf, edges, onSelect: (nodeId) => {
-    selectNode(nodeId);
-    scene.control(nodeId)?.focus({ preventScroll: true });
-  }, onInspect: inspect });
-
-  for (const kind of [...kinds, 'planned']) {
-    for (const direction of ['overview', 'incoming', 'outgoing']) {
-      defs.append(svg('marker', {
-        id: marker(direction, kind), class: 'am-arrow', 'data-layer': kind, 'data-direction': direction,
-        markerWidth: 9, markerHeight: 9, refX: 8, refY: 4, viewBox: '0 0 8 8', markerUnits: 'userSpaceOnUse', orient: 'auto',
-      }, svg('path', { d: 'M0 1 L8 4 L0 7 Z' })));
-    }
-  }
-
-  const filters = h('details', { class: 'am-layer-menu' },
-    h('summary', null, icon('settings'), 'Слои карты', layerStatus),
-    h('div', { class: 'am-layer-options' }, kinds.map((kind) => guide.toggle({
-      label: layerKey(kind, LAYERS[kind]), checked: true,
-      onChange: (checked) => {
-        if (checked) enabled.add(kind);
-        else enabled.delete(kind);
-        applyLayers();
-      },
-    })), guide.toggle({
-      label: layerKey('planned', 'В планах'), checked: true,
-      onChange: (checked) => { planOn = checked; applyLayers(); },
-    })));
-  plate.append(drawing, headings, stationLayer, detailLayer);
+  const paths = svg('g');
+  const markers = svg('defs');
+  const drawing = svg('svg', { class: 'am-drawing', 'aria-hidden': 'true' }, markers, paths);
+  const stations = h('div', { class: 'am-stations' });
+  const live = h('span', { class: 'am-live', role: 'status' });
+  plate.append(drawing, stations);
   viewport.append(plate);
-  el.append(h('div', { class: 'am-toolbar' }, filters,
-    h('div', { class: 'am-zoom', role: 'group', 'aria-label': 'Детализация карты' }, levelStatus, minus, plus, reset)),
-  viewport,
-  h('div', { class: 'am-caption' },
-    h('div', { class: 'am-legend', 'aria-label': 'Обозначения' }, kinds.map((kind) => layerKey(kind, LAYERS[kind])), layerKey('planned', 'В планах'),
-      h('span', { class: 'am-direction-hint' }, layerKey('incoming', 'Входящие'), layerKey('outgoing', 'Исходящие'))),
-    h('span', { id: id + '-help', class: 'am-help' }, 'Колесо над карточкой раскрывает связи · перетащите карту, чтобы сдвинуть её')),
-  selection, inspector.el);
+  el.append(viewport, live);
 
-  for (const node of sections) {
-    const control = stationButton(node);
-    stations.set(node.id, control);
-    stationLayer.append(control);
-  }
-  const scene = semanticScene({
-    stations, nodes, stationLayer, legendLayer: detailLayer, wires, makeStation: stationButton, marker,
-    makeGroup: () => button({
-      label: stationContent('Состав и шаги'), cls: 'am-substation am-group-card', title: 'Показать связи состава в списке',
-      onClick: () => { inspector.openStructure(); drawInspector(); },
-    }),
-    onBounds: (next) => { bounds = next; updateCamera(); },
-  });
-
-  function marker(direction, kind) { return id + '-' + direction + '-' + kind; }
-  function layerKey(kind, label) {
-    return h('span', { class: 'am-layer-label', 'data-layer': kind }, h('span', { class: 'am-key' }), label);
-  }
-  function sectionOf(nodeId) { return nodes.get(nodeId)?.section || nodeId; }
-  function visible(nodeId) { return planOn || !nodes.get(nodeId)?.planned; }
-  function stationContent(title) {
-    return h('span', { class: 'am-station-content' }, h('strong', null, title), h('span', { class: 'am-station-note', hidden: true }));
+  for (const direction of ['incoming', 'outgoing']) {
+    markers.append(svg('marker', {
+      id: prefix + '-' + direction, class: 'am-arrow', 'data-direction': direction, viewBox: '0 0 9 9',
+      markerWidth: 8, markerHeight: 8, refX: 8.5, refY: 4.5, markerUnits: 'userSpaceOnUse', orient: 'auto',
+    }, svg('path', { d: 'M0 0 L9 4.5 L0 9 Z' })));
   }
 
-  function stationButton(node, duplicate = false) {
+  const controls = new Map();
+  let path = [];
+  let pan = { x: 0, y: 0 };
+  let boxes = new Map();
+  let dest = new Map();
+  let bounds = { minX: 0, minY: 0, maxX: 1, maxY: 1 };
+  let animation = 0;
+  let lastWheel = null;
+  let previousView = null;
+
+  function size() {
+    return { x: -pan.x, y: -pan.y, w: viewport.clientWidth || 960, h: viewport.clientHeight || 650 };
+  }
+  function anchor() { return path.at(-1); }
+  function currentView() { return views.get(anchor()) || size(); }
+  function move() { applyView(plate, viewport, pan, bounds); }
+  function panBy(x, y) { pan.x += x; pan.y += y; move(); }
+
+  function buildCard(key, card) {
     const control = button({
-      label: stationContent(node.title),
-      title: [node.title, node.description, node.planned ? 'В планах' : null].filter(Boolean).join(' · '),
-      cls: duplicate ? 'am-peer' : node.kind === 'section' ? 'am-station' : 'am-substation',
-      onClick: () => selectNode(node.id),
+      label: h('span', { class: 'am-card-text' }, h('strong', { class: 'am-card-title' }, card.node.title),
+        h('span', { class: 'am-card-note' })),
+      cls: 'am-station',
+      onClick: () => expand(control.dataset.node, control),
     });
-    Object.assign(control.dataset, { node: node.id, atlasNode: node.id, band: node.band, kind: node.kind,
-      main: String(TERRITORIES.find((area) => area.id === node.band)?.main === node.id), planned: String(Boolean(node.planned)) });
-    control.setAttribute('aria-pressed', 'false');
-    control.addEventListener('pointerenter', (event) => {
-      if (event.pointerType === 'mouse' && !isDragging()) setHover(node.id);
-    });
-    control.addEventListener('pointerleave', () => { if (hover === node.id) setHover(null); });
+    if (card.node.icon) control.prepend(icon(card.node.icon, 'am-area-icon'));
+    control.dataset.key = key;
+    control.dataset.node = card.node.id;
+    control.dataset.kind = card.node.kind;
+    control.dataset.band = card.node.band;
+    control.dataset.planned = String(Boolean(card.node.planned));
+    controls.set(key, control);
+    stations.append(control);
     return control;
   }
 
-  function drawOverview(active) {
-    const flow = active && (traces.get(active) || trace(business, active, 'both'));
-    if (flow) traces.set(active, flow);
-    const chosen = new Map();
-    const add = (edge, priority) => {
-      const from = sectionOf(edge.from);
-      const to = sectionOf(edge.to);
-      const key = from + ':' + to;
-      if (from === to || !layout.boxes.has(from) || !layout.boxes.has(to) || chosen.get(key)?.priority >= priority) return;
-      chosen.set(key, { edge, from, to, priority });
-    };
-    if (active) {
-      for (const edge of layerEdges) {
-        if (chosen.size >= 12) break;
-        if (isDirect(edge, active, nodes, sectionOf)) add(edge, 3);
-      }
-      for (const edge of business) {
-        if (chosen.size >= 16) break;
-        if (flow.edgeIds.has(edge.id) && edge.from === sectionOf(edge.from) && edge.to === sectionOf(edge.to)) add(edge, 2);
-      }
-    } else {
-      for (const edge of layerEdges) if (OVERVIEW.has(edge.from + ':' + edge.to)) add(edge, 1);
-      if (!chosen.size && enabled.size < kinds.length) {
-        for (const edge of layerEdges) { if (chosen.size >= 6) break; add(edge, 1); }
-      }
-    }
-    fill(lines, [...chosen.values()].sort((a, b) => a.priority - b.priority).map(({ edge, from, to, priority }, lane) => {
-      const kind = edge.planned ? 'planned' : edge.kind;
-      return svg('path', {
-        d: pathFor(layout.boxes.get(from), layout.boxes.get(to), lane), class: 'am-connection',
-        'data-layer': kind, 'data-weight': priority, 'marker-end': 'url(#' + marker('overview', kind) + ')',
-      });
-    }));
-    return flow;
+  function syncCard(key, card) {
+    const control = controls.get(key) || buildCard(key, card);
+    const note = control.querySelector('.am-card-note');
+    note.textContent = card.note || (card.node.planned ? 'В планах' : '');
+    note.hidden = !note.textContent;
+    control.dataset.role = card.role;
+    control.dataset.atlasNode = card.node.id;
+    control.title = [card.node.title, card.relationTitle || card.note, card.node.planned ? 'В планах' : null].filter(Boolean).join(' · ');
+    control.setAttribute('aria-current', card.role === 'anchor' ? 'true' : 'false');
+    return control;
   }
 
-  function highlight() {
-    const active = hover || selected;
-    const flow = !local && drawOverview(active);
-    const lit = new Set(active ? [active, sectionOf(active)] : []);
-    if (!local && active) {
-      for (const edge of layerEdges) {
-        if (isDirect(edge, active, nodes, sectionOf)) lit.add(sectionOf(edge.from)).add(sectionOf(edge.to));
-      }
-      for (const nodeId of flow.nodeIds) lit.add(sectionOf(nodeId));
+  function wireElement(wire) {
+    const direction = wire.direction || 'outgoing';
+    const attrs = { 'data-direction': direction, 'data-kind': wire.kind };
+    const connection = svg('path', {
+      class: 'am-wire', ...attrs, 'data-edge': wire.edge?.id || '', 'data-from': wire.edge?.from || wire.from, 'data-to': wire.edge?.to || wire.to,
+      ...(wire.kind === 'containment' ? {} : { 'marker-end': 'url(#' + prefix + '-' + direction + ')' }),
+    });
+    if (wire.edge?.label) {
+      const title = svg('title');
+      title.textContent = wire.edge.label;
+      connection.append(title);
     }
-    for (const control of scene.controls()) {
-      const nodeId = control.dataset.node;
-      if (nodeId) control.hidden = !visible(nodeId);
-      control.classList.toggle('is-related', Boolean(local ? control.dataset.mapRole !== 'context' : lit.has(nodeId)));
-      control.classList.toggle('is-muted', Boolean(local ? control.dataset.mapRole === 'context' : active && !lit.has(nodeId)));
-      control.classList.toggle('is-pinned', Boolean(selected && nodeId === selected));
-      if (nodeId) control.setAttribute('aria-pressed', String(selected === nodeId));
-    }
+    const start = svg('circle', { class: 'am-port', ...attrs, r: 2.8 });
+    const end = svg('circle', { class: 'am-port', ...attrs, r: 2.8 });
+    return { wire, connection, start, end };
   }
 
-  function setHover(nodeId) {
-    if (nodeId === hover) return;
-    hover = nodeId;
-    highlight();
-    syncControls();
+  function updateLine(entry, positions) {
+    const { wire, connection, start, end } = entry;
+    const from = positions.get(wire.from), to = positions.get(wire.to);
+    if (!from || !to) return;
+    const line = wireGeometry(from, to, wire);
+    connection.setAttribute('d', line.d);
+    start.setAttribute('cx', line.origin.x);
+    start.setAttribute('cy', line.origin.y);
+    end.setAttribute('cx', line.end.x);
+    end.setAttribute('cy', line.end.y);
   }
 
-  function updateCamera() { applyCamera(plate, viewport, camera, bounds); }
-  function panBy(x, y) { camera.x += x; camera.y += y; updateCamera(); }
-
-  function paint(animate = false) {
-    el.dataset.level = String(local?.step || 0);
-    if (local) el.dataset.anchor = local.anchor;
+  function render(animate = false) {
+    cancelAnimationFrame(animation);
+    const id = anchor();
+    const view = currentView();
+    const origin = focus.get(id);
+    const plan = atlasScene(data, id, origin, view);
+    el.dataset.level = String(path.length);
+    if (id) el.dataset.anchor = id;
     else delete el.dataset.anchor;
-    const inspectEdge = layerEdges.find((edge) => edge.id === focusedEdge);
-    scene.render({ step: local?.step, anchor: local?.anchor, origin: local?.origin, view: local?.view,
-      layout, sections: sections.filter((node) => visible(node.id)), edges: inspectEdge ? [inspectEdge] : layerEdges,
-      width, inspected: focusedEdge }, animate);
-    highlight();
-    syncControls();
-  }
+    live.textContent = id ? data.nodes.get(id).title : 'Области сайта';
+    for (const [key, control] of controls) {
+      if (plan.cards.has(key)) continue;
+      control.remove();
+      controls.delete(key);
+    }
+    for (const [key, card] of plan.cards) syncCard(key, card);
+    const wireList = plan.wires.map(wireElement);
+    fill(paths, wireList.flatMap(({ connection, start, end }) => [connection, start, end]));
+    const before = boxes;
+    dest = new Map([...plan.cards].map(([key, entry]) => [key, entry.box]));
+    bounds = span(plan.cards, size());
+    move();
 
-  function chooseTarget(control) {
-    return control?.dataset?.node || hover || (visible(detailTarget) && detailTarget) || local?.anchor || selected || sections.find((node) => visible(node.id))?.id;
-  }
-
-  function syncControls() {
-    const description = LEVELS[local?.step || 0];
-    levelStatus.textContent = local ? description + ' · ' + nodes.get(local.anchor).title : description;
-    minus.disabled = !local;
-    plus.disabled = Boolean(local?.step === 2 && chooseTarget(document.activeElement?.closest('.am-stations button')) === local.anchor);
-  }
-
-  function setLocal(nodeId, step, control) {
-    detailTarget = nodeId;
-    if (!local) overviewCamera = { ...camera };
-    if (local?.anchor === nodeId) { local.step = step; return; }
-    const origin = scene.box(nodeId, control) || layout.boxes.get(sectionOf(nodeId));
-    if (!origin) return;
-    local = {
-      anchor: nodeId, step, origin,
-      view: { x: -camera.x, y: -camera.y, w: viewport.clientWidth || width, h: viewport.clientHeight || HEIGHT },
+    function paint(progress) {
+      boxes = new Map();
+      for (const [key, target] of dest) {
+        const drawn = before.get(key);
+        const original = drawn || (origin
+          ? { ...target, x: target.x * 0.54 + origin.x * 0.46, y: target.y * 0.54 + origin.y * 0.46 }
+          : target);
+        const box = interpolate(original, target, progress);
+        place(controls.get(key), box);
+        boxes.set(key, box);
+      }
+      for (const wire of wireList) updateLine(wire, boxes);
+    }
+    if (!animate || motion.matches || !before.size) { paint(1); return; }
+    paint(0);
+    const start = performance.now();
+    const tick = (now) => {
+      const progress = Math.min(1, Math.max(0, (now - start) / MOTION));
+      paint(1 - (1 - progress) ** 3);
+      if (progress < 1) animation = requestAnimationFrame(tick);
     };
+    animation = requestAnimationFrame(tick);
   }
 
-  function changeDetail(direction, control) {
-    const nodeId = direction < 0 && !control ? local?.anchor : chooseTarget(control);
-    if (!nodeId || !visible(nodeId)) return false;
-    const step = local?.anchor === nodeId ? local.step : 0;
-    const next = step + direction;
-    if (next < 0 || next >= LEVELS.length) return false;
-    if (next === 0) { resetView(); return true; }
-    focusedEdge = null;
-    beforeInspect = null;
-    setLocal(nodeId, next, control);
-    paint(true);
-    drawInspector();
+  function enter(nodeId, opener, notify) {
+    if (nodeId === anchor()) return false;
+    const next = data.chain(nodeId);
+    if (nodeId && !next.length) return false;
+    const keyboard = viewport.contains(document.activeElement);
+    const parent = next.at(-2);
+    const previous = anchor();
+    const back = previous && next.length < path.length && (!nodeId || path.includes(nodeId));
+    if (previous && !back) views.set(previous, size());
+    const from = boxes.get(opener?.dataset.key || nodeId) || boxes.get(parent);
+    if (nodeId && !back) {
+      const view = size();
+      const onScreen = from && from.x < view.x + view.w && from.x + from.w > view.x &&
+        from.y < view.y + view.h && from.y + from.h > view.y;
+      focus.set(nodeId, onScreen ? from : null);
+      views.set(nodeId, view);
+    }
+    if (back && nodeId && views.has(nodeId)) {
+      const view = views.get(nodeId);
+      pan = { x: -view.x, y: -view.y };
+    }
+    if (!nodeId) pan = { x: 0, y: 0 };
+    path = next;
+    render(true);
+    if (keyboard && !viewport.contains(document.activeElement)) {
+      (controls.get(nodeId) || viewport).focus({ preventScroll: true });
+    }
+    if (notify) onSelect?.(nodeId || null);
     return true;
   }
 
-  function resetView() {
-    const oldAnchor = local?.anchor;
-    local = beforeInspect = focusedEdge = null;
-    camera = overviewCamera || { x: 0, y: 0 };
-    overviewCamera = null;
-    paint(true);
-    drawInspector();
-    if (oldAnchor && viewport.contains(document.activeElement)) {
-      stations.get(sectionOf(oldAnchor))?.focus({ preventScroll: true });
-    }
+  function expand(nodeId, opener) {
+    if (!nodeId) return false;
+    const node = data.nodes.get(nodeId);
+    if (!node) return false;
+    if (anchor() !== nodeId) return enter(nodeId, opener, true);
+    const child = node.kind === 'area'
+      ? PRIMARY[node.band] || data.sectionsByBand.get(node.band)?.[0]?.id
+      : node.id === 'products' ? 'products.sostav' : data.children.get(node.id)?.[0]?.id;
+    return child ? enter(child, controls.get(child) || opener, true) : false;
   }
 
-  function scrollToNode(nodeId, control) {
-    const box = scene.box(nodeId, control) || layout.boxes.get(sectionOf(nodeId));
-    if (!box) return;
-    keepInView(camera, box, viewport);
-    updateCamera();
+  function back() {
+    return path.length ? enter(path.at(-2) || null, controls.get(anchor()), true) : false;
   }
 
-  function selectNode(nodeId, notify = true) {
-    const node = nodes.get(nodeId);
-    if (!node || (selected === nodeId && !notify)) return;
-    detailTarget = selected = nodeId;
-    hover = focusedEdge = beforeInspect = null;
-    inspector.resetScope();
-    if (node.kind !== 'section' && local?.anchor !== nodeId) setLocal(nodeId, node.kind === 'part' ? 1 : 2);
-    paint(false);
-    scrollToNode(nodeId);
-    drawSelection();
-    drawInspector();
-    if (notify) onSelect?.(nodeId);
-  }
-
-  function clearSelection(notify = true) {
-    if (!selected && !focusedEdge) return;
-    selected = focusedEdge = hover = null;
-    if (beforeInspect) { local = beforeInspect; beforeInspect = null; paint(false); }
-    highlight();
-    drawSelection();
-    drawInspector();
-    if (notify) onSelect?.(null);
-  }
-
-  function drawSelection() {
-    const current = nodes.get(selected);
-    selection.hidden = !current;
-    if (!current) return;
-    const parent = nodes.get(sectionOf(selected));
-    show.dataset.atlasNode = parent.id;
-    selectionTitle.textContent = [current.id === parent.id ? current.title : parent.title + ' · ' + current.title,
-      current.planned ? 'В планах' : null].filter(Boolean).join(' · ');
-    selectionDescription.textContent = current.description || '';
-    selectionDescription.hidden = !current.description;
-    const href = current.planned ? null : current.href;
-    destination.hidden = !href;
-    fill(destination, href ? link({ href, label: 'Перейти в раздел' }) : null);
-  }
-
-  function drawInspector() {
-    const subject = focusedEdge ? beforeInspect?.anchor : local?.anchor;
-    inspector.render({ selected: subject || selected, exact: Boolean(subject), focusedEdge, layerEdges });
-  }
-
-  function inspect(edge) {
-    hover = null;
-    if (focusedEdge === edge.id) {
-      focusedEdge = null;
-      local = beforeInspect;
-      beforeInspect = null;
+  viewport.addEventListener('wheel', (event) => {
+    if (event.ctrlKey || event.metaKey || !event.deltaY || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+    const related = event.target.closest?.('.am-station[data-node]');
+    const stationary = lastWheel && Math.hypot(event.clientX - lastWheel.x, event.clientY - lastWheel.y) <= 3;
+    const target = stationary && path.length && event.deltaY < 0 ? controls.get(anchor()) : related;
+    if (lastWheel && stationary && performance.now() < lastWheel.after) { event.preventDefault(); return; }
+    const changed = event.deltaY > 0 ? back() : expand(target?.dataset.node, target);
+    if (!changed) return;
+    event.preventDefault();
+    lastWheel = { x: event.clientX, y: event.clientY, after: performance.now() + 260 };
+  }, { passive: false });
+  viewport.addEventListener('keydown', (event) => {
+    const target = event.target.closest?.('.am-station[data-node]');
+    if (event.key === 'Escape' || event.key === '-') {
+      if (!back()) return;
+      event.stopPropagation();
+    } else if (event.key === '+' || event.key === '=') {
+      const node = target?.dataset.node || anchor() || 'area:sale';
+      if (!expand(node, target)) return;
     } else {
-      if (!focusedEdge) beforeInspect = local && { ...local };
-      focusedEdge = edge.id;
-      const priorAnchor = local?.anchor;
-      const anchor = priorAnchor === edge.to ? edge.to : edge.from;
-      setLocal(anchor, 2);
+      if (event.target !== viewport) return;
+      const vector = { ArrowLeft: [56, 0], ArrowRight: [-56, 0], ArrowUp: [0, 56], ArrowDown: [0, -56] }[event.key];
+      if (!vector) return;
+      panBy(...vector);
     }
-    paint(false);
-    drawInspector();
-    inspector.focusRelation(edge.id);
-    if (focusedEdge) {
-      const from = scene.box(edge.from), to = scene.box(edge.to);
-      if (from && to) { keepInView(camera, spanBoxes(from, to), viewport); updateCamera(); }
-      viewport.scrollIntoView({ block: 'nearest' });
-    }
-  }
-
-  function applyLayers() {
-    layerEdges = edges.filter((edge) => enabled.has(edge.kind) && (planOn || !edge.planned) && visible(edge.from) && visible(edge.to));
-    business = layerEdges.filter(({ kind }) => kind === 'data' || kind === 'process');
-    traces.clear();
-    if (selected && !visible(selected)) clearSelection();
-    if (local && !visible(local.anchor)) resetView();
-    if (focusedEdge && !layerEdges.some((edge) => edge.id === focusedEdge)) {
-      focusedEdge = null; local = beforeInspect; beforeInspect = null;
-    }
-    layerStatus.textContent = enabled.size + '/' + kinds.length;
-    paint(false);
-    drawInspector();
-  }
-
-  const actualCard = (target) => target?.closest('.am-stations [data-node]');
-  bindWheel(viewport, { targetOf: actualCard, change: changeDetail,
-    holdsTarget: (control) => local?.anchor === control.dataset.node });
-  const isDragging = bindPan(viewport, {
-    canStart: (event) => !event.target.closest('button, a'), read: () => camera,
-    update: (x, y) => { camera = { x, y }; updateCamera(); }, onStart: () => setHover(null),
+    event.preventDefault();
   });
   viewport.addEventListener('focusin', (event) => {
-    const target = event.target.dataset.node;
-    if (target && !isDragging()) { detailTarget = target; scrollToNode(target, event.target); syncControls(); }
+    const box = dest.get(event.target.dataset.key);
+    if (box) { panInto(pan, box, viewport); move(); }
   });
-  bindViewportKeys(viewport, {
-    escape: () => { if (local) resetView(); else if (selected) clearSelection(); else return false; return true; },
-    panBy, change: (direction, target) => changeDetail(direction, actualCard(target)), reset: resetView,
-  });
+  bindAtlasDrag(viewport, panBy);
 
-  function paintTerritories() {
-    drawTerritories({ drawing, width, plate, layout, territories, rails, headings, stations, groups });
-  }
-  paintTerritories();
-  drawSelection();
-  applyLayers();
+  render();
   const resize = new ResizeObserver(() => {
-    const nextWidth = Math.max(MIN_WIDTH, viewport.clientWidth);
-    if (nextWidth !== width) {
-      width = nextWidth;
-      layout = geometry(width, sections);
-      paintTerritories();
-    }
-    if (local) local.view = { ...local.view, w: viewport.clientWidth, h: viewport.clientHeight };
-    paint(false);
+    const view = size();
+    if (previousView?.w === view.w && previousView?.h === view.h) return;
+    previousView = view;
+    const current = views.get(anchor());
+    if (current) views.set(anchor(), { ...current, w: view.w, h: view.h });
+    render();
   });
   resize.observe(viewport);
-  return { el, pin(sectionId) { if (sectionId) selectNode(sectionId, false); else clearSelection(false); },
-    destroy() { resize.disconnect(); scene.destroy(); } };
+  return { el, pin(nodeId) { enter(nodeId || null, null, false); },
+    destroy() { resize.disconnect(); cancelAnimationFrame(animation); } };
 }

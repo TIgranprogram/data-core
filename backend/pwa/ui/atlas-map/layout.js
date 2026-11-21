@@ -1,192 +1,218 @@
-import { h, fill } from '../../core/dom.js';
-import { icon } from '../icons.js';
-
-export const TERRITORIES = [
-  { id: 'quality', column: 0, row: 0, icon: 'ok' },
-  { id: 'paper', column: 1, row: 0, icon: 'dicts' },
-  { id: 'supply', column: 2, row: 0, span: 3, columns: 2, icon: 'requests' },
-  { id: 'sale', column: 0, row: 1, icon: 'partners', main: 'salesorders' },
-  { id: 'prod', column: 1, row: 1, icon: 'catalog', main: 'products' },
-  { id: 'make', column: 2, row: 1, icon: 'ops', main: 'work' },
-  { id: 'after', column: 3, row: 1, icon: 'moves', main: 'shiporder' },
-  { id: 'money', column: 4, row: 1, icon: 'money', main: 'money' },
-  { id: 'stock', column: 0, row: 2, span: 2, columns: 2, icon: 'stock' },
-  { id: 'system', column: 2, row: 2, span: 3, columns: 3, icon: 'admin' },
+const AREA_LAYOUT = {
+  quality: [0, 0], paper: [1, 0], system: [4, 0],
+  sale: [0, 1], prod: [1, 1], make: [2, 1], after: [3, 1], money: [4, 1],
+  supply: [1, 2], stock: [2, 2],
+};
+const AREA_ICONS = {
+  quality: 'ok', paper: 'dicts', system: 'admin', sale: 'partners', prod: 'catalog',
+  make: 'ops', after: 'moves', money: 'money', supply: 'requests', stock: 'stock',
+};
+const AREA_ROUTES = [
+  ['salesorders', 'products'], ['products', 'work'], ['work', 'shiporder'],
+  ['staff', 'payroll', 'under'], ['offers', 'fill'], ['design', 'products'],
+  ['requests', 'stock'], ['stock', 'work'],
 ];
-export const HEIGHT = 697;
-export const MIN_WIDTH = 920;
+const EDGE_RANK = { data: 0, process: 1, structure: 2, navigation: 3 };
 
-export function svg(tag, attrs = {}, ...children) {
-  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
-  for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value);
-  el.append(...children);
-  return el;
+const areaId = (band) => 'area:' + band;
+const midpoint = (box) => box.y + box.h / 2;
+const limit = (value, min, max) => max < min ? (min + max) / 2 : Math.max(min, Math.min(max, value));
+
+function orderPeers(a, b) {
+  return Number(a.edge.planned) - Number(b.edge.planned) || EDGE_RANK[a.edge.kind] - EDGE_RANK[b.edge.kind];
 }
 
-export function place(el, { x, y, w, h: height }) {
-  el.style.setProperty('--am-x', `${x}px`);
-  el.style.setProperty('--am-y', `${y}px`);
-  el.style.setProperty('--am-w', `${w}px`);
-  el.style.setProperty('--am-h', `${height}px`);
-}
-
-export function geometry(width, sections) {
-  const gap = 26;
-  const margin = 24;
-  const column = (width - 2 * margin - 4 * gap) / 5;
-  const rows = [{ y: 23, h: 156 }, { y: 233, h: 250 }, { y: 518, h: 156 }];
-  const areas = TERRITORIES.map((territory) => {
-    const { span = 1, row } = territory;
-    return { ...territory, ...rows[row], x: margin + territory.column * (column + gap), w: span * column + (span - 1) * gap };
-  });
-  const boxes = new Map();
-  for (const area of areas) {
-    const { columns = 1 } = area;
-    const w = (area.w - 24) / columns - 9 * (columns - 1) / columns;
-    sections.filter((node) => node.band === area.id).forEach((node, index) => {
-      boxes.set(node.id, {
-        x: area.x + 12 + (index % columns) * (w + 9),
-        y: area.y + 52 + Math.floor(index / columns) * 49, w, h: 41, area,
-      });
-    });
-  }
-  return { areas, boxes };
-}
-
-export function pathFor(a, b, lane) {
-  const dir = b.x >= a.x ? 1 : -1;
-  const corridor = 7 + (lane % 4) * 3;
-  const sameArea = a.area === b.area;
-  const across = !sameArea || Math.abs(a.y - b.y) < 24;
-  const side = across ? dir : 1;
-  const x1 = a.x + (side > 0 ? a.w : 0);
-  const x2 = b.x + ((across ? -side : side) > 0 ? b.w : 0);
-  const y1 = a.y + a.h / 2;
-  const y2 = b.y + b.h / 2;
-  const rail = (x, direction, box) => {
-    const rim = direction > 0 ? box.area.x + box.area.w : box.area.x;
-    return Math.abs(x - rim) > 15 ? x + direction * 4 : rim + direction * corridor;
-  };
-  const rail1 = rail(x1, side, a);
-  const rail2 = rail(x2, across ? -side : side, b);
-  const laneY = a.area.row === 2 || b.area.row === 2 ? 488 + (lane % 5) * 5 : 184 + (lane % 5) * 5;
-  if (sameArea && !across && a.x === b.x) return `M${x1} ${y1} H${rail1} V${y2} H${x2}`;
-  if (sameArea && y1 === y2 && Math.abs(x2 - x1) <= 10) return `M${x1} ${y1} H${x2}`;
-  if (sameArea) {
-    const rowGap = Math.min(a.y, b.y) + a.h + 4;
-    return `M${x1} ${y1} H${rail1} V${rowGap} H${rail2} V${y2} H${x2}`;
-  }
-  return `M${x1} ${y1} H${rail1} V${laneY} H${rail2} V${y2} H${x2}`;
-}
-
-export function drawTerritories({ drawing, width, plate, layout, territories, rails, headings, stations, groups }) {
-  drawing.setAttribute('width', width);
-  drawing.setAttribute('height', HEIGHT);
-  drawing.setAttribute('viewBox', `0 0 ${width} ${HEIGHT}`);
-  plate.style.setProperty('--am-width', `${width}px`);
-  plate.style.setProperty('--am-height', `${HEIGHT}px`);
-  fill(territories, layout.areas.map((area) => svg('rect', {
-    x: area.x, y: area.y, width: area.w, height: area.h, rx: 10, class: 'am-area', 'data-band': area.id,
-  })));
-  const main = layout.areas.filter((area) => area.row === 1);
-  const anchors = main.map((area) => area.x + area.w / 2);
-  fill(rails,
-    svg('path', { class: 'am-spine', d: `M${anchors[0]} 219 H${anchors.at(-1)}` }),
-    ...anchors.slice(1).map((point, index) => {
-      const x = (anchors[index] + point) / 2;
-      return svg('path', { class: 'am-spine-chevron', d: `M${x - 3} 215 L${x + 2} 219 L${x - 3} 223` });
-    }),
-    ...anchors.map((x, index) => svg('path', { 'data-band': main[index].id, class: 'am-spine-stop', d: `M${x} 214 V233` })),
-  );
-  fill(headings, layout.areas.map((area) => {
-    const group = groups.get(area.id);
-    const title = h('h3', { class: 'am-area-label', dataset: { band: area.id, row: area.row } },
-      icon(area.icon), h('span', null, group?.title || group?.name || area.id));
-    place(title, { x: area.x + 12, y: area.y + 8, w: area.w - 24, h: 40 });
-    return title;
+export function atlasHierarchy(model) {
+  const areas = model.groups.map((group) => ({
+    id: areaId(group.id), band: group.id, title: group.name || group.title, description: group.hint,
+    icon: AREA_ICONS[group.id], kind: 'area',
   }));
-  for (const [nodeId, control] of stations) {
-    const box = layout.boxes.get(nodeId);
-    if (box) place(control, box);
+  const nodes = new Map([...areas, ...model.nodes].map((node) => [node.id, node]));
+  const sections = model.nodes.filter((node) => node.kind === 'section').sort((a, b) => a.order - b.order);
+  const sectionsByBand = new Map(areas.map((area) => [area.band, sections.filter((node) => node.band === area.band)]));
+  const children = new Map(sections.map((node) => [node.id, []]));
+  for (const node of model.nodes) if (node.kind !== 'section') children.get(node.section)?.push(node);
+  const edges = model.edges.filter(({ from, to }) => nodes.has(from) && nodes.has(to));
+  const baseEdges = new Map(edges.filter((edge) => edge.source === 'LINKS').map((edge) => [edge.from + '>' + edge.to, edge]));
+  function chain(nodeId) {
+    const node = nodes.get(nodeId);
+    if (!node) return [];
+    const area = areaId(node.band);
+    if (node.kind === 'area') return [area];
+    if (node.kind === 'section') return [area, node.id];
+    return [area, node.section, node.id];
   }
+  return { areas, nodes, edges, baseEdges, sectionsByBand, children, chain };
 }
 
-export function bindPan(viewport, { canStart, read, update, onStart }) {
-  let drag = null;
-  viewport.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0 || !canStart(event)) return;
-    viewport.setPointerCapture(event.pointerId);
-    drag = { x: event.clientX, y: event.clientY, pan: { ...read() } };
-    viewport.classList.add('is-dragging');
-    onStart();
+function makeCard(node, box, note, role = '') {
+  return { node, box, note, role };
+}
+
+function areaOverview(data, view) {
+  const { w, h } = view;
+  const max = Math.min(1560, w - 48);
+  const gap = limit(max * 0.058, 25, 116);
+  const cardWidth = (max - 4 * gap) / 5;
+  const cardHeight = 102;
+  const left = (w - max) / 2;
+  const rowGap = Math.min(204, (h - cardHeight - 60) / 2);
+  const cards = new Map();
+  for (const area of data.areas) {
+    const [col, row] = AREA_LAYOUT[area.band] || [0, 0];
+    const box = { x: left + col * (cardWidth + gap), y: (h - cardHeight) / 2 + (row - 1) * rowGap, w: cardWidth, h: cardHeight };
+    cards.set(area.id, makeCard(area, box, ''));
+  }
+  const wires = AREA_ROUTES.flatMap(([from, to, route]) => {
+    const edge = data.baseEdges.get(from + '>' + to);
+    const a = data.nodes.get(from), b = data.nodes.get(to);
+    if (!edge || !a || !b) return [];
+    return [{ key: edge.id, from: areaId(a.band), to: areaId(b.band), kind: edge.kind, route, edge,
+      fromPort: route === 'under' ? 22 : 0, toPort: from === 'stock' ? -12 : 0 }];
   });
-  viewport.addEventListener('pointermove', (event) => {
-    if (drag) update(drag.pan.x + event.clientX - drag.x, drag.pan.y + event.clientY - drag.y);
-  });
-  viewport.addEventListener('lostpointercapture', () => {
-    drag = null;
-    viewport.classList.remove('is-dragging');
-  });
-  return () => Boolean(drag);
+  return { cards, wires };
 }
 
-export function keepInView(camera, box, viewport) {
-  const fit = (offset, min, size, available) => {
-    const start = offset + min;
-    return start < 0 || start + size > available ? (available - size) / 2 - min : offset;
-  };
-  camera.x = fit(camera.x, box.x, box.w, viewport.clientWidth);
-  camera.y = fit(camera.y, box.y, box.h, viewport.clientHeight);
+function areaDetail(data, hub, origin, view) {
+  const sections = data.sectionsByBand.get(hub.band) || [];
+  const cardHeight = 64;
+  const gap = 12;
+  const length = sections.length * (cardHeight + gap) - gap;
+  const laneWidth = limit(view.w * 0.34, 180, 316);
+  const hubWidth = Math.min(origin.w, view.w * 0.28);
+  const distance = limit(view.w * 0.13, 66, 190);
+  const center = limit(midpoint(origin), view.y + 32 + length / 2, view.y + view.h - 32 - length / 2);
+  const towardRight = origin.x + hubWidth / 2 < view.x + view.w / 2;
+  const leftPad = towardRight ? 26 : 64 + laneWidth + distance;
+  const rightPad = towardRight ? 64 + laneWidth + distance : 26;
+  const x = limit(origin.x, view.x + leftPad, view.x + view.w - hubWidth - rightPad);
+  const box = { x, y: center - origin.h / 2, w: hubWidth, h: origin.h };
+  const slotX = towardRight ? x + hubWidth + distance : x - distance - laneWidth;
+  const cards = new Map([[hub.id, makeCard(hub, box, '', 'anchor')]]);
+  const inward = towardRight ? 'outgoing' : 'incoming';
+  const ids = new Set(sections.map(({ id }) => id));
+  const business = data.edges.filter((edge) =>
+    !edge.planned && (edge.kind === 'data' || edge.kind === 'process') && ids.has(edge.from) && ids.has(edge.to) && edge.from !== edge.to);
+  const seen = new Set();
+  const transmissions = business.filter((edge) => {
+    const key = edge.from + '>' + edge.to;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 5);
+  for (const [index, node] of sections.entries()) {
+    const slot = { x: slotX, y: center - length / 2 + index * (cardHeight + gap), w: laneWidth, h: cardHeight };
+    const label = transmissions.find((edge) => edge.to === node.id && edge.label);
+    const source = label && data.nodes.get(label.from);
+    const note = source ? source.title + ' → ' + label.label : '';
+    cards.set(node.id, makeCard(node, slot, note, 'member'));
+  }
+  return { cards, wires: [
+    ...sections.map((node, index) => ({
+      key: hub.id + '>' + node.id, from: hub.id, to: node.id, kind: 'containment', direction: inward,
+      route: 'fan', fromPort: port(index, sections.length, box.h),
+    })),
+    ...transmissions.map((edge, index) => ({
+      key: edge.id, from: edge.from, to: edge.to, kind: edge.kind, edge, route: towardRight ? 'outer-right' : 'outer-left',
+      lane: index, direction: 'outgoing',
+    })),
+  ] };
 }
 
-export function spanBoxes(a, b) {
-  const x = Math.min(a.x, b.x);
-  const y = Math.min(a.y, b.y);
-  return { x, y, w: Math.max(a.x + a.w, b.x + b.w) - x, h: Math.max(a.y + a.h, b.y + b.h) - y };
+function roleOf(edge, hub) { return edge.to === hub.id ? 'incoming' : 'outgoing'; }
+
+function peersOf(data, hub) {
+  const groups = new Map();
+  const incident = data.edges.filter((edge) => (edge.from === hub.id || edge.to === hub.id) && edge.from !== edge.to);
+  const business = incident.filter((edge) => edge.kind !== 'structure');
+  for (const { actual, role, edge } of business.map((edge) => ({
+    actual: data.nodes.get(edge.to === hub.id ? edge.from : edge.to), role: roleOf(edge, hub), edge,
+  })).sort(orderPeers)) {
+    if (hub.kind === 'section' && edge.kind === 'navigation' && actual.section === hub.id) continue;
+    const node = hub.kind === 'section' && actual.section !== hub.id ? data.nodes.get(actual.section) || actual : actual;
+    const key = role + ':' + node.id;
+    const entry = groups.get(key);
+    if (entry) {
+      if (edge.label && !entry.labels.includes(edge.label)) entry.labels.push(edge.label);
+    } else groups.set(key, { node, role, edge, labels: edge.label ? [edge.label] : [] });
+  }
+  return [...groups.values()];
 }
 
-export function applyCamera(plate, viewport, camera, bounds) {
-  const clamp = (offset, size, min, max) => {
-    const world = max - min;
-    return size >= world ? (size - world) / 2 - min : Math.max(size - max, Math.min(-min, offset));
-  };
-  camera.x = clamp(camera.x, viewport.clientWidth, bounds.left, bounds.right);
-  camera.y = clamp(camera.y, viewport.clientHeight, bounds.top, bounds.bottom);
-  plate.style.setProperty('--am-pan-x', `${camera.x}px`);
-  plate.style.setProperty('--am-pan-y', `${camera.y}px`);
+function port(i, n, height) {
+  return (i - (n - 1) / 2) * Math.min(15, (height - 24) / Math.max(1, n - 1));
 }
 
-export function bindViewportKeys(viewport, { escape, panBy, change, reset }) {
-  viewport.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && escape()) { event.stopPropagation(); return; }
-    const command = { '+': 1, '=': 1, '-': -1, '−': -1 }[event.key];
-    if (command) {
-      if (change(command, event.target)) event.preventDefault();
-      return;
+function nodeDetail(data, hub, origin, view) {
+  const peers = peersOf(data, hub);
+  const children = data.children.get(hub.id) || [];
+  const from = peers.filter((item) => item.role === 'incoming');
+  const to = peers.filter((item) => item.role === 'outgoing');
+  const laneW = limit(view.w * 0.25, 150, 306);
+  const hubW = limit(origin.w, 146, Math.min(268, view.w * 0.25));
+  const gap = limit(view.w * 0.077, 55, 172);
+  const h = 94;
+  const largest = Math.max(from.length, to.length);
+  const radius = Math.max(60, (largest - 1) / 2 * (largest > 5 ? 84 : 102) + 64);
+  const y = limit(midpoint(origin), view.y + radius, view.y + view.h - radius);
+  const x = limit(origin.x + (origin.w - hubW) / 2, view.x + (from.length ? laneW + gap + 22 : 22),
+    view.x + view.w - hubW - (to.length ? laneW + gap + 22 : 22));
+  const box = { x, y: y - h / 2, w: hubW, h };
+  const parent = data.nodes.get(hub.kind === 'section' ? areaId(hub.band) : hub.section);
+  const anchor = makeCard(hub, box, parent?.title, 'anchor');
+  anchor.relationTitle = hub.kind === 'section' ? '' : hub.description;
+  const cards = new Map([[hub.id, anchor]]);
+  const wires = [];
+  const used = new Set([hub.id]);
+  for (const [lane, side] of [[from, -1], [to, 1]]) {
+    // На длинной стороне ближайшие к центру карточки оставляют самый ранний ввод и вывод видимыми.
+    const order = [...lane].sort((a, b) => orderPeers(a, b));
+    const offsets = order.map((_, i) => order.length % 2
+      ? Math.ceil(i / 2) * (i % 2 ? -1 : 1)
+      : (Math.floor(i / 2) + 0.5) * (i % 2 ? 1 : -1));
+    const pitch = order.length > 5 ? 84 : 102;
+    const height = order.length > 5 ? 72 : 84;
+    for (const [i, peer] of order.entries()) {
+      const offset = offsets[i];
+      const slot = { x: side < 0 ? x - gap - laneW : x + hubW + gap, y: y + offset * pitch - height / 2, w: laneW, h: height };
+      const key = used.has(peer.node.id) ? peer.role + ':' + peer.node.id : peer.node.id;
+      used.add(peer.node.id);
+      const card = makeCard(peer.node, slot, peer.labels[0] || '', peer.role);
+      card.relationTitle = peer.labels.join(' · ');
+      cards.set(key, card);
+      const relativePort = port(offset + (order.length - 1) / 2, order.length, h);
+      wires.push({ key: peer.edge.id, from: side < 0 ? key : hub.id, to: side < 0 ? hub.id : key,
+        direction: peer.role, kind: peer.edge.planned ? 'planned' : peer.edge.kind, edge: peer.edge,
+        fromPort: side > 0 ? relativePort : 0, toPort: side < 0 ? relativePort : 0 });
     }
-    if (event.target !== viewport) return;
-    const pan = { ArrowLeft: [54, 0], ArrowRight: [-54, 0], ArrowUp: [0, 54], ArrowDown: [0, -54] }[event.key];
-    if (pan) panBy(...pan);
-    else if (event.key === '0' || event.key === 'Home') reset();
-    else return;
-    event.preventDefault();
-  });
+  }
+  if (children.length) {
+    // Вся ветка внутри ширины узла. Входы и выходы проходят по обе стороны без наложения на карточки состава.
+    const inset = 32;
+    const cardW = hubW - inset - 6;
+    const fromPort = 10 - hubW / 2;
+    const childY = box.y + box.h + 28;
+    const membership = new Map(data.edges.filter((edge) => edge.from === hub.id && edge.kind === 'structure')
+      .map((edge) => [edge.to, edge]));
+    let last;
+    children.forEach((node, i) => {
+      const key = cards.has(node.id) ? 'child:' + node.id : node.id;
+      cards.set(key, makeCard(node, {
+        x: x + inset, y: childY + i * 65, w: cardW, h: 53,
+      }, '', 'child'));
+      const edge = membership.get(node.id);
+      wires.push({ key: edge?.id || hub.id + '>' + key, from: hub.id, to: key, kind: 'containment', route: 'branch', edge, fromPort });
+      last = key;
+    });
+    wires.unshift({ key: hub.id + ':stem', from: hub.id, to: last, kind: 'containment', route: 'trunk', fromPort });
+  }
+  return { cards, wires };
 }
 
-export function bindWheel(viewport, { targetOf, change, holdsTarget }) {
-  let last = null;
-  viewport.addEventListener('wheel', (event) => {
-    if (event.ctrlKey || event.metaKey || !event.deltaY || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
-    const stationary = last && Math.hypot(event.clientX - last.x, event.clientY - last.y) <= 3;
-    const target = stationary && holdsTarget(last.target) ? last.target : targetOf(event.target);
-    if (!target) return;
-    const now = performance.now();
-    if (last?.target === target && now < last.after) {
-      event.preventDefault();
-      return;
-    }
-    if (!change(-Math.sign(event.deltaY), target)) return;
-    event.preventDefault();
-    last = { x: event.clientX, y: event.clientY, target, after: now + 280 };
-  }, { passive: false });
+export function atlasScene(data, nodeId, origin, view) {
+  if (!nodeId) return areaOverview(data, view);
+  const node = data.nodes.get(nodeId);
+  const defaultBox = { x: view.x + view.w / 2 - 102, y: view.y + view.h / 2 - 45, w: 204, h: 90 };
+  if (node.kind === 'area') return areaDetail(data, node, origin || defaultBox, view);
+  return nodeDetail(data, node, origin || defaultBox, view);
 }
