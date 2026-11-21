@@ -4,11 +4,23 @@ import { icon } from '../icons.js';
 import { button } from './index.js';
 import { atlasHierarchy, atlasScene } from '../atlas-map/layout.js';
 import { svg, place, interpolate, span, wireGeometry, applyView, panInto, bindAtlasDrag } from '../atlas-map/geometry.js';
+import { atlasSearch } from '../atlas-map/search.js';
 
 const MOTION = 360;
 const PRIMARY = { sale: 'salesorders', prod: 'products', paper: 'design', make: 'work', supply: 'requests',
   stock: 'stock', after: 'shiporder', money: 'money', system: 'servers', quality: 'fill' };
 let nextId = 0;
+
+function mapLegend(prefix) {
+  const items = [
+    ['Вход в блок', 'data', 'incoming'], ['Выход из блока', 'data', 'outgoing'],
+    ['Переход в раздел', 'navigation', 'outgoing'], ['Части блока', 'containment'], ['Связь в планах', 'planned', 'planned'],
+  ];
+  return h('footer', { class: 'am-legend', 'aria-label': 'Обозначения на карте' }, items.map(([label, kind, direction]) =>
+    h('span', { class: 'am-legend-item' }, svg('svg', { viewBox: '0 0 34 14', 'aria-hidden': 'true' },
+      svg('path', { d: 'M2 7 H31', class: 'am-legend-line', 'data-kind': kind, 'data-direction': direction || '',
+        ...(direction ? { 'marker-end': 'url(#' + prefix + '-' + direction + ')' } : {}) })), label)));
+}
 
 export function atlasMap({ model, trace: walk, onSelect }) {
   const prefix = 'am-' + ++nextId;
@@ -28,14 +40,18 @@ export function atlasMap({ model, trace: walk, onSelect }) {
   const stations = h('div', { class: 'am-stations' });
   const frame = h('div', { class: 'am-frame', hidden: true, 'aria-hidden': 'true' });
   const live = h('span', { class: 'am-live', role: 'status' });
+  const search = atlasSearch(data, prefix, id => {
+    enter(id, null, true);
+    viewport.focus({ preventScroll: true });
+  });
   plate.append(frame, drawing, stations);
   viewport.append(plate);
-  el.append(viewport, live);
+  el.append(search, viewport, mapLegend(prefix), live);
 
-  for (const direction of ['incoming', 'outgoing']) {
+  for (const direction of ['incoming', 'outgoing', 'planned']) {
     markers.append(svg('marker', {
       id: prefix + '-' + direction, class: 'am-arrow', 'data-direction': direction, viewBox: '0 0 9 9',
-      markerWidth: 8, markerHeight: 8, refX: 8.5, refY: 4.5, markerUnits: 'userSpaceOnUse', orient: 'auto',
+      markerWidth: 9, markerHeight: 9, refX: 8.5, refY: 4.5, markerUnits: 'userSpaceOnUse', orient: 'auto',
     }, svg('path', { d: 'M0 0 L9 4.5 L0 9 Z' })));
   }
 
@@ -95,11 +111,12 @@ export function atlasMap({ model, trace: walk, onSelect }) {
 
   function wireElement(wire) {
     const direction = wire.direction || 'outgoing';
+    const marker = wire.kind === 'planned' ? 'planned' : direction;
     const attrs = { 'data-direction': direction, 'data-kind': wire.kind };
     const connection = svg('path', {
       class: 'am-wire', ...attrs, 'data-edge': wire.edge?.id || '', 'data-from': wire.edge?.from || wire.from, 'data-to': wire.edge?.to || wire.to,
       ...(wire.context ? { 'data-context': '' } : {}),
-      ...(wire.kind === 'containment' ? {} : { 'marker-end': 'url(#' + prefix + '-' + direction + ')' }),
+      ...(wire.kind === 'containment' ? {} : { 'marker-end': 'url(#' + prefix + '-' + marker + ')' }),
     });
     if (wire.edge?.label) {
       const title = svg('title');

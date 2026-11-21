@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildAtlasModel } from '../../sections/atlas-model.js';
 import { atlasHierarchy, atlasScene } from './layout.js';
+import { atlasSearchIndex, findAtlasNodes } from './search-index.js';
 
 const data = atlasHierarchy(buildAtlasModel());
 const productionAreas = ['sale', 'paper', 'prod', 'make', 'after', 'supply', 'stock', 'money'];
@@ -37,4 +38,25 @@ test('контекст областей не подменяет точные с�
   const exact = data.edges.filter(({ from, to, kind }) => kind === 'data' && (from === id || to === id));
   const seen = scene.wires.filter(({ context, edge, kind }) => !context && edge && kind === 'data').map(({ edge }) => edge.id);
   assert.deepEqual(seen.sort(), exact.map(({ id }) => id).sort());
+});
+
+test('длинные цепочки снабжения и денег помещаются при разделении экрана', () => {
+  const view = { x: 0, y: 0, w: 952, h: 1016 };
+  let scene = atlasScene(data, null, null, view);
+  for (const id of ['area:supply', 'requests', 'requests.priemka', 'area:money', 'money', 'money.vyplaty']) {
+    scene = atlasScene(data, id, scene.cards.get(id)?.box, view);
+    for (const [key, { box }] of scene.cards) {
+      assert.ok(box.x >= 0 && box.x + box.w <= view.w, `${id}, ${key} за краем полотна`);
+    }
+  }
+});
+
+test('поиск карты ставит точный раздел и детальный путь выше упоминаний', () => {
+  const index = atlasSearchIndex(data);
+  const first = query => findAtlasNodes(index, query)[0]?.node.id;
+  assert.equal(first('  ЗаЯвКа '), 'requests');
+  assert.equal(first('ИЗДЕЛИЕ'), 'products');
+  assert.equal(first('заявки приемка'), 'requests.priemka');
+  assert.equal(first('что купить'), 'needs');
+  assert.deepEqual(findAtlasNodes(index, 'несуществующийузел'), []);
 });

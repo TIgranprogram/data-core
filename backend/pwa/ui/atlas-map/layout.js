@@ -13,6 +13,8 @@ const AREA_ROUTES = [
   ['requests', 'stock'], ['stock', 'work'],
 ];
 const EDGE_RANK = { data: 0, process: 1, structure: 2, navigation: 3 };
+const COMPACT_WIDTH = 1100;
+const COMPACT_STRIDE = 156;
 
 const areaId = (band) => 'area:' + band;
 const midpoint = (box) => box.y + box.h / 2;
@@ -113,9 +115,21 @@ function areaContext(data, area, view) {
   const rows = [...peers.values()].map((peer) => peer.row).concat(1);
   const min = Math.min(...rows);
   const max = Math.max(...rows);
-  const pitch = view.w < 1100 ? 104 : 82;
-  const height = view.w < 1100 ? 84 : 68;
+  const pitch = view.w < COMPACT_WIDTH ? 104 : 82;
+  const height = view.w < COMPACT_WIDTH ? 84 : 68;
   return { area, peers, connections, min, height, pitch, offset: (1 - min) * pitch, span: (max - min) * pitch + height };
+}
+
+function scopeLeft(view, context, width, incoming = false, outgoing = false) {
+  const center = view.x + (view.w - width) / 2;
+  if (view.w >= COMPACT_WIDTH) return center;
+
+  // Длинная цепочка может занять свободную сторону, не уменьшая шрифт карточек.
+  const ranks = { incoming: 0, outgoing: 0 };
+  for (const peer of context.peers.values()) ranks[peer.role] = Math.max(ranks[peer.role], peer.rank);
+  const left = Math.max(ranks.incoming * COMPACT_STRIDE + 24, incoming ? 196 : 0);
+  const right = Math.max(ranks.outgoing * COMPACT_STRIDE + 24, outgoing ? 196 : 0);
+  return limit(center, view.x + left, view.x + view.w - width - right);
 }
 
 function mountAreaContext(data, context, view, frame, top, scopeKey, cards, wires) {
@@ -125,8 +139,8 @@ function mountAreaContext(data, context, view, frame, top, scopeKey, cards, wire
     if (!lane.length) continue;
     const rankCount = Math.max(...lane.map((peer) => peer.rank));
     const outer = side === 'incoming' ? frame.x - view.x : view.x + view.w - frame.x - frame.w;
-    const compact = view.w < 1100;
-    const stride = Math.max(compact ? 158 : 126, (outer - 26) / rankCount);
+    const compact = view.w < COMPACT_WIDTH;
+    const stride = Math.max(compact ? COMPACT_STRIDE : 126, (outer - 26) / rankCount);
     const width = Math.min(290, stride - (compact ? 16 : Math.max(25, stride * 0.22)));
     for (const peer of lane) {
       const separation = (stride - width) * (compact ? 0.5 : 0.77) + (peer.rank - 1) * stride;
@@ -168,7 +182,7 @@ function areaDetail(data, hub, origin, view) {
   const length = h + 24 + Math.max(0, sections.length - 1) * pitch + cardHeight;
   const margin = Math.max(24, context.offset + 12);
   const y = limit(midpoint(origin) - length / 2, view.y + margin, Math.max(view.y + margin, view.y + view.h - length - margin));
-  const x = view.x + (view.w - hubWidth - frameRight + 12) / 2;
+  const x = scopeLeft(view, context, hubWidth + 12 + frameRight) + 12;
   const box = { x, y, w: hubWidth, h };
   const cards = new Map([[hub.id, makeCard(hub, box, '', 'anchor')]]);
   const ids = new Set(sections.map(({ id }) => id));
@@ -248,7 +262,7 @@ function nodeDetail(data, hub, origin, view) {
   const topRoom = view.y + radius + context.span + 34;
   const preferredY = children.length ? midpoint(origin) : Math.min(midpoint(origin), view.y + view.h * 0.63);
   const y = limit(preferredY, topRoom, Math.max(topRoom, view.y + view.h - radius));
-  const x = view.x + (view.w - hubW) / 2;
+  const x = scopeLeft(view, context, hubW + 30, from.length > 0, to.length > 0) + 15;
   const box = { x, y: y - h / 2, w: hubW, h };
   const anchor = makeCard(hub, box, '', 'anchor');
   anchor.relationTitle = hub.kind === 'section' ? '' : hub.description;
@@ -263,9 +277,12 @@ function nodeDetail(data, hub, origin, view) {
       : (Math.floor(i / 2) + 0.5) * (i % 2 ? 1 : -1));
     const pitch = order.length > 5 ? 84 : 102;
     const height = order.length > 5 ? 72 : 84;
+    const room = side < 0 ? x - view.x : view.x + view.w - x - hubW;
+    const laneGap = view.w < COMPACT_WIDTH ? Math.min(gap, room * 0.23) : gap;
+    const sideWidth = view.w < COMPACT_WIDTH ? limit(room - laneGap - 18, 138, laneW) : laneW;
     for (const [i, peer] of order.entries()) {
       const offset = offsets[i];
-      const slot = { x: side < 0 ? x - gap - laneW : x + hubW + gap, y: y + offset * pitch - height / 2, w: laneW, h: height };
+      const slot = { x: side < 0 ? x - laneGap - sideWidth : x + hubW + laneGap, y: y + offset * pitch - height / 2, w: sideWidth, h: height };
       const key = used.has(peer.node.id) ? peer.role + ':' + peer.node.id : peer.node.id;
       used.add(peer.node.id);
       const card = makeCard(peer.node, slot, peer.labels[0] || '', peer.role);
