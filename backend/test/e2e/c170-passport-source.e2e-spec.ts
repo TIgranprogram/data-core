@@ -15,6 +15,22 @@ import { claimPassportLine, epochOf, passportLine } from '../../src/common/passp
 import { UPLOAD_DIR } from '../../src/modules/photos/image-upload.options';
 import { unlinkPrint } from '../../src/modules/product-passport/passport-print-file';
 
+function assertC170TestDatabase() {
+  const { MONGO_DB_TEST: testDb, MONGO_DB: db, MONGO_URI: uri, MONGO_PORT: port } = process.env;
+  if (testDb && ['datacore-test-c170', 'datacore-test-c172-release', 'datacore-test-c176-identification'].includes(testDb)) return;
+
+  // Ночной прогон выдаёт отдельную БД и loopback-порт собственному стенду.
+  // jest-e2e-env подставляет /x перед выбором MONGO_DB_TEST в createTestApp.
+  const target = uri && URL.canParse(uri) ? new URL(uri) : null;
+  if (testDb && /^datacore-test-[a-f0-9]{24}-night$/.test(testDb) && db === testDb
+    && target?.protocol === 'mongodb:' && ['127.0.0.1', 'localhost'].includes(target.hostname)
+    && port && target.port === port && Number(port) >= 1024 && Number(port) <= 65535
+    && ![3000, 3001, 3002, 27017, 27018].includes(Number(port)) && [`/${testDb}`, '/x'].includes(target.pathname)
+    && target.searchParams.get('directConnection') === 'true') return;
+
+  throw new Error('C170 требует отдельную разрешённую тестовую БД или изолированную БД ночного прогона');
+}
+
 describe('C170 выбор вложенного паспорта', () => {
   let ctx:TestContext, token:string, reader:string;
   const db=()=>ctx.connection.db!, http=()=>request(ctx.app.getHttpServer());
@@ -25,7 +41,7 @@ describe('C170 выбор вложенного паспорта', () => {
   const view=()=>sources().view(String(order),String(income));
   const select=async(extra:Record<string,unknown>={})=>{const v=await view();return sources().select(String(order),String(income),{mode:'attachment',expectedRevision:v.selection.revision,contextToken:v.contextToken,attachmentId:String(file),expectedAttachmentGeneration:0,confirm:true,...extra},actor);};
   beforeAll(async()=>{
-    if(!['datacore-test-c170','datacore-test-c172-release','datacore-test-c176-identification'].includes(process.env.MONGO_DB_TEST??''))throw new Error('C170 требует отдельный разрешённый test namespace');
+    assertC170TestDatabase();
     ctx=await createTestApp({strictValidation:true}); token=(await loginAsAdmin(ctx.app)).access;
     await http().post('/api/admin/users').set(authHeader(token)).send({username:'c170-reader',password:'c170-reader-password',role:'user'}).expect(201);
     reader=(await http().post('/api/auth/login').send({username:'c170-reader',password:'c170-reader-password'}).expect(200)).body.access;

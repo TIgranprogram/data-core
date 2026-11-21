@@ -90,7 +90,7 @@ const ANSI = /\u001b\[[0-9;]*[A-Za-z]/g;
 /** Сигнатура провала: «шаг:хеш» по первым ключевым строкам, числа и пути выброшены — одинаковый провал даёт одну сигнатуру. */
 export function failSignature(step, out) {
   const keys = String(out).replace(ANSI, '').split(/\r?\n/)
-    .filter((l) => /error TS\d+|^\s*●|\bFAIL\b|✗|\berror\b|\bError:|not ok|вход не удался|шире экрана|таймаут/i.test(l))
+    .filter((l) => /error TS\d+|^\s*●|^\s*! [A-E]:|\bFAIL\b|✗|\berror\b|\bError:|not ok|вход не удался|шире экрана|таймаут/i.test(l))
     .slice(0, 3)
     .map((l) => l.trim().replace(/[A-Za-z]:[\\/][^\s:]*|(?:\.{0,2}\/)?(?:[\w.-]+\/)+[\w.-]+/g, '<path>').replace(/\d+/g, '#').slice(0, 120));
   if (!keys.length) return `${step}:no-lines`;
@@ -349,7 +349,7 @@ export async function cmdNight({ quick = false } = {}, ctx) {
         const eenv = { ...baseEnv, MONGO_ROOT_PASSWORD: e.NIGHT_ROOT_PW, MONGO_HOST: '127.0.0.1', MONGO_PORT: String(run.mongoPort), MONGO_DB: run.testDb, MONGO_DB_TEST: run.testDb, MONGO_URI: `mongodb://root:${e.NIGHT_ROOT_PW}@127.0.0.1:${run.mongoPort}/${run.testDb}?authSource=admin&replicaSet=rs0&directConnection=true` };
         Object.assign(eenv, { STOCK_CATALOG_TEST_DISPOSABLE: '1', STOCK_CATALOG_TEST_URI: `mongodb://root:${e.NIGHT_ROOT_PW}@127.0.0.1:${run.mongoPort}/datacore-test-t26-${run.id}-night?authSource=admin&replicaSet=rs0&directConnection=true` });
         assertStandSafe({ testDb: eenv.MONGO_DB_TEST });
-        await doStep('e2e', process.execPath, [path.join(be, 'node_modules', 'jest', 'bin', 'jest.js'), '--config', './test/jest-e2e.json', '--runInBand', '--forceExit'], { cwd: be, env: eenv, timeoutMs: 30 * MIN });
+        await doStep('e2e', process.execPath, ['--max-old-space-size=8192', path.join(be, 'node_modules', 'jest', 'bin', 'jest.js'), '--config', './test/jest-e2e.json', '--runInBand', '--forceExit'], { cwd: be, env: eenv, timeoutMs: 30 * MIN });
         await doStep('smoke', process.execPath, ['backend/scripts/qa-smoke.mjs'], { cwd: WORKTREE, env: { ...baseEnv, QA_BASE: `http://localhost:${run.apiPort}`, QA_DIR: stand.runDir(run) }, timeoutMs: 15 * MIN });
         // обход экранов: мусор на экране («[object …]», undefined, «Изменить» без сущности); код из worktree, вход — тестовый qa
         const qaPw = fs.readFileSync(path.join(stand.runDir(run), 'qa-login.txt'), 'utf8').trim();

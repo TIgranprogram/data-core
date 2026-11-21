@@ -63,6 +63,7 @@ test('failSignature: одинаковый провал с другими чис�
   assert.notEqual(failSignature('tsc', a), failSignature('tsc', 'src/a.ts(1,1): error TS9999: другое'));
   assert.equal(failSignature('unit', 'всё тихо'), 'unit:no-lines');
   assert.match(failSignature('unit', '  ● Suite › case\nFAIL src/x.spec.ts'), /^unit:[0-9a-f]{8}$/);
+  assert.match(failSignature('scenarios', '  ! A: не открылся шаблон'), /^scenarios:[0-9a-f]{8}$/);
 });
 
 test('makeStep / summarize / stepLine', () => {

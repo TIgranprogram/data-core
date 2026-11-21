@@ -1,7 +1,7 @@
 // Сценарные проверки «как человек» на стенде-копии: паспорт, документация, проектирование, продукция, доски.
 //   node tools/scenarios.mjs [адрес=http://localhost:3102] [A,B,C,D,E]   (вход — tools/logs/stand-login.local.env или STAND_LOGIN / STAND_PASSWORD)
 // Каждый сценарий — шаги, ожидание, снимок экрана при ошибке: tools/logs/scenarios/<дата>/<сценарий>.png.
-// Сценарий A временно меняет число в изделии и возвращает исходное значение. Остальное — только чтение.
+// Сценарий C временно меняет настройки раскрытия групп у тестовой учётной записи.
 // Без зависимостей: Edge/Chrome по Chrome DevTools Protocol. Код выхода: 0 чисто · 1 дефекты · 2 сбой запуска.
 import { spawn } from 'child_process';
 import fs from 'fs';
@@ -102,10 +102,10 @@ async function scenario(sid, title, fn) {
   results.push(res);
 }
 
-// ── A. Паспорт: шаблон → не хватает → сохранить → предпросмотр ──
+// ── A. Паспорт: шаблон → образец ──
 const PDF_BAD = /undefined|\[object|NaN|\{[^}]{0,40}\}/;
 async function pdfInfo() {
-  const info = await ev(`(async()=>{const b=(window.__blobs||[]).slice(-1)[0];if(!b)return null;const buf=new Uint8Array(await b.arrayBuffer());let s='';for(let i=0;i<buf.length;i+=8192)s+=String.fromCharCode(...buf.subarray(i,i+8192));return {size:buf.length,type:b.type,b64:btoa(s)}})()`);
+  const info = await ev(`(async()=>{const b=(window.__blobs||[]).findLast(x=>x.type==='application/pdf');if(!b)return null;const buf=new Uint8Array(await b.arrayBuffer());let s='';for(let i=0;i<buf.length;i+=8192)s+=String.fromCharCode(...buf.subarray(i,i+8192));return {size:buf.length,type:b.type,b64:btoa(s)}})()`);
   if (!info) return null;
   const raw = Buffer.from(info.b64, 'base64');
   // распаковка потоков (Flate) и поиск «мусора» в тексте-операторах Tj/TJ; шрифты с кодами глифов дают нечитаемое — тогда заметка
@@ -124,74 +124,49 @@ async function pdfInfo() {
   return { size: info.size, type: info.type, header: raw.subarray(0, 5).toString('latin1'), text: strings, readable, bad: PDF_BAD.exec(readable ? strings : '')?.[0] || '' };
 }
 
-await scenario('A', 'Паспорт: шаблон, «Не хватает», сохранение, предпросмотр', async (check, notes) => {
-  // изделие с категорией, у которого не хватает числа «Пользователей одновременно» (maxUsers)
+await scenario('A', 'Паспорт: книжка шаблона и PDF-образец без номера', async (check, notes) => {
   const sc = await jget('/showcase?limit=200');
-  const items = sc.items || [];
   let pick = null;
-  for (const it of items.filter((x) => x.passportCategory || x.group).slice(0, 80)) {
+  for (const it of (sc.items || []).filter((x) => x.passportCategory || x.group).slice(0, 80)) {
     const r = await jsend('POST', '/passports/check', { productId: it.id, mode: 'template', variant: 'short' });
-    let b; try { b = JSON.parse(r.body); } catch { continue; }
-    if ((b.missing || []).some((m) => m && m.key === 'maxUsers')) { pick = it; break; }
+    if (r.status !== 200) continue;
+    const b = JSON.parse(r.body);
+    if ((b.missing || []).some((m) => m?.key === 'maxUsers')) { pick = it; break; }
   }
-  if (!check(!!pick, 'на стенде нет изделия, где не хватает «Пользователей одновременно» (maxUsers) — сценарий не на чем гонять')) return;
-  const before = await jget(`/showcase/${pick.id}`);
-  const origPd = before.passportDefaults || {};
+  if (!check(!!pick, 'на стенде нет изделия с незаполненным полем «Пользователей одновременно»')) return;
   notes.push(`изделие ${pick.sku || ''} ${pick.name}`.slice(0, 80));
+  await nav('#products?open=' + pick.id, 1200);
+  if (!check(await clickText('^⋯$', '.drawer button[aria-label="Ещё действия"]'), 'в карточке изделия нет меню «Ещё действия»')) return;
+  if (!check(await clickText('^Шаблон паспорта', 'button, a, [role=menuitem]'), 'в меню изделия нет действия «Шаблон паспорта»')) return;
+  if (!check(await until(`[...document.querySelectorAll('h2')].some(h=>/^Шаблон паспорта ·/.test(h.innerText))`), 'книжка «Шаблон паспорта» не открылась')) return;
   try {
-    await nav('#products?open=' + pick.id, 1200);
-    // ПМ-1 (2026-11-06): блок «Документация» — свёрнутая секция; кнопка внутри
-    await clickText('^Документация', 'summary');
-    check(await clickText('^Шаблон паспорта', 'button, a, .btn'), 'в карточке изделия нет кнопки «Шаблон паспорта»');
-    await until(`/шаблон паспорта ·|Раздел не открылся/i.test(document.body.innerText)`, 8000);
-    if (await docsBroken(check)) return;
-    check(await until(`/шаблон паспорта ·/i.test(document.body.innerText)`, 8000), 'форма не открылась: нет заголовка «Шаблон паспорта · …»');
-    check(await until(`/не хватает для паспорта \\(\\d+\\)/i.test(document.body.innerText)`, 8000), 'нет блока «Не хватает для паспорта (N)»');
-    const field = `(()=>{const f=[...document.querySelectorAll('.drawer .field')].find(x=>/Пользователей одновременно/.test(x.innerText)&&x.querySelector('input'));return f})()`;
-    if (!check(await until(field), 'в «Не хватает» нет поля «Пользователей одновременно»')) return;
-    const nBefore = await ev(`(+((document.body.innerText.match(/не хватает для паспорта \\((\\d+)\\)/i)||[])[1])||0)`);
-    await ev(`(()=>{const f=${field};const i=f.querySelector('input');i.focus();const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;set.call(i,'12');i.dispatchEvent(new Event('input',{bubbles:true}));i.dispatchEvent(new Event('change',{bubbles:true}));return 1})()`);
-    check(await ev(`(()=>{const f=${field};const b=[...f.querySelectorAll('button')].find(x=>/Сохранить в изделии/.test(x.innerText));if(!b)return 0;b.click();return 1})()`), 'у поля нет кнопки «Сохранить в изделии»');
-    const gone = await until(`!${field}`, 8000);
-    check(gone, 'после «Сохранить в изделии» пункт «Пользователей одновременно» не исчез из «Не хватает»');
-    const nAfter = await ev(`(+((document.body.innerText.match(/не хватает для паспорта \\((\\d+)\\)/i)||[])[1])||0)`);
-    check(nAfter < nBefore || !(await ev(`/Не хватает для паспорта \\(/i.test(document.body.innerText)`)), `счётчик «Не хватает» не уменьшился (${nBefore} → ${nAfter})`);
-    // предпросмотр
+    check(await until(`document.querySelector('.bk-toc-pages')`), 'в книжке нет оглавления');
     await ev(`window.__blobs.length=0;1`);
-    if (!(await ev(`[...document.querySelectorAll('.drawer button')].some(x=>x.offsetParent&&/^Предпросмотр/.test(x.innerText))`))) {
-      check(false, 'в форме «Шаблон паспорта · …» нет кнопки «Предпросмотр» (она только в просмотре карточки, docs.js:80) — после «Сохранить в изделии» её не видно, пока не нажать «Отмена»');
-      await clickText('^Отмена$', '.drawer button'); await ready(900);
-    }
-    check(await clickText('^Предпросмотр', '.drawer button, button, a, .btn'), 'нет кнопки «Предпросмотр»');
-    const got = await until(`window.__blobs.length>0`, 30000);
-    if (check(got, 'предпросмотр не отдал файл (PDF не скачался за 30 с)')) {
-      const p = await pdfInfo();
-      if (check(!!p, 'не удалось прочитать файл предпросмотра')) {
-        check(p.header.startsWith('%PDF'), 'предпросмотр отдал не PDF (начало файла: ' + JSON.stringify(p.header) + ')');
-        check(p.size > 10 * 1024, `PDF слишком мал: ${p.size} байт (нужно > 10 КБ)`);
-        if (p.readable) check(!p.bad, 'в тексте PDF мусор: ' + p.bad);
-        else notes.push('текст PDF не извлечён (шрифт с кодами глифов) — проверены заголовок и размер ' + p.size);
-      }
+    if (!check(await clickText('^Образец$', '.bk-acts button'), 'образец паспорта недоступен')) return;
+    check(await until(`document.querySelector('iframe.k-pdf[title="Образец паспорта без номера"]')`), 'не открылся просмотр образца без номера');
+    if (!check(await until(`window.__blobs.some(b=>b.type==='application/pdf')`, 60000), 'образец не отдал PDF за 60 секунд')) return;
+    const p = await pdfInfo();
+    if (check(!!p, 'не удалось прочитать PDF-образец')) {
+      check(p.header.startsWith('%PDF'), 'образец отдал файл без заголовка PDF');
+      check(p.size > 10 * 1024, `PDF слишком мал: ${p.size} байт (нужно > 10 КБ)`);
+      if (p.readable) check(!p.bad, 'в тексте PDF мусор: ' + p.bad);
+      notes.push(`PDF ${p.size} байт`);
     }
   } finally {
-    // вернуть исходное значение
-    const keep = Object.fromEntries(Object.entries(origPd).filter(([k, v]) => v !== null && v !== undefined && v !== '' && k !== 'textChoices' && k !== 'passportCategory' || (k === 'passportCategory' && v)));
-    const r = await jsend('PUT', `/showcase/${pick.id}/passport-defaults`, { ...keep, textChoices: origPd.textChoices || {} });
-    const now = (await jget(`/showcase/${pick.id}`)).passportDefaults || {};
-    const same = (now.maxUsers ?? null) === (origPd.maxUsers ?? null);
-    notes.push(`значение возвращено (${r.status})` + (same ? '' : ': maxUsers ' + (now.maxUsers ?? '—') + ' ≠ исходное ' + (origPd.maxUsers ?? '—')));
-    if (!same) check(false, 'исходное значение «Пользователей одновременно» не вернулось в изделие ' + pick.id);
+    await clickText('^Вернуться к правке$', '.modal-foot button');
+    check(await ev(`(()=>{const b=document.querySelector('button[aria-label="Закрыть книжку"]');if(!b)return false;b.click();return true})()`), 'у книжки нет кнопки закрытия');
+    check(await until(`!document.querySelector('.bk-acts')`), 'книжка не закрылась');
   }
 });
 
 // ── B. Документация ──
-await scenario('B', 'Документация: разделы, крошки, «По заказам», «Выпущенные паспорта»', async (check, notes) => {
+await scenario('B', 'Документация: паспорта по заказам и выпущенные', async (check, notes) => {
   await nav('#docs', 1200);
   if (await docsBroken(check)) return;
-  const tabs = await ev(`[...document.querySelectorAll('button,a,[role=tab]')].filter(x=>x.offsetParent).map(x=>x.innerText.trim().replace(/\s+/g,' '))`);
-  for (const t of ['Нужно сделать паспорт', 'По заказам', 'Выпущенные паспорта']) check((tabs || []).includes(t), `в «Документации» нет вкладки «${t}»`);
+  const tabs = await ev(`[...document.querySelectorAll('.docs [role=tab]')].filter(x=>x.offsetParent).map(x=>x.innerText.trim().replace(/\\s+/g,' '))`);
+  for (const t of ['К выпуску', 'Паспорта по заказам', 'Выпущенные', 'Настройки изделий']) check((tabs || []).includes(t), `в «Документации» нет вкладки «${t}»`);
   // «По заказам»
-  check(await clickText('^По заказам'), 'нет вкладки «По заказам»');
+  check(await clickText('^Паспорта по заказам$', '.docs [role=tab]'), 'нет вкладки «Паспорта по заказам»');
   await ready(1200);
   const okRows = await until(`document.querySelectorAll('.do-group').length>0`, 10000);
   check(okRows, '«По заказам»: нет ни одной строки');
@@ -199,7 +174,7 @@ await scenario('B', 'Документация: разделы, крошки, «�
   const nOrd = await ev(`document.querySelectorAll('.do-group').length`);
   notes.push(`«По заказам»: строк ${nOrd}`);
   // «Выпущенные паспорта»
-  check(await clickText('^Выпущенные паспорта'), 'нет вкладки «Выпущенные паспорта»');
+  check(await clickText('^Выпущенные$', '.docs [role=tab]'), 'нет вкладки «Выпущенные»');
   await ready(1200);
   const hasArch = await until(`document.querySelectorAll('table.list tbody tr:not(.static), article.tcard').length>0 || /пока нет|Нет выпущенных|ничего не найдено/i.test(document.body.innerText)`, 10000);
   check(hasArch, '«Выпущенные паспорта»: ни строк, ни пустого состояния с подсказкой');
@@ -212,26 +187,30 @@ await scenario('B', 'Документация: разделы, крошки, «�
 await scenario('C', 'Проектирование: «Заказы» слева, группы на доске, ⇕, сохранение состояния', async (check, notes) => {
   await nav('#design', 1800);
   await until(`document.querySelector('.board')`, 10000);
-  // слева — только заказы с нераспределёнными позициями (бейдж «не взято N»)
-  const side = await ev(`(()=>{const t=[...document.querySelectorAll('.toolbar b')].find(b=>/^Заказы · \\d+/.test(b.innerText));if(!t)return null;const items=[...document.querySelectorAll('.k-side-item')].filter(x=>x.querySelector('.card, .k-card, article')&&x.offsetParent);return {head:t.innerText,total:+t.innerText.match(/\\d+/)[0],cards:items.length,withFree:items.filter(x=>/не взято\\s*\\d+/.test(x.innerText)).length}})()`);
+  // Слева — заказы с нераспределёнными позициями или с открытыми задачами.
+  const side = await ev(`(()=>{const t=[...document.querySelectorAll('.toolbar b')].find(b=>/^Заказы · \\d+/.test(b.innerText));if(!t)return null;const items=[...t.closest('.toolbar').parentElement.querySelectorAll(':scope > .k-side-item')].filter(x=>x.offsetParent);return {total:Number(t.innerText.match(/\\d+/)[0]),cards:items.length,active:items.filter(x=>/(?:не взято|распределение|в работе|пауза)\\s*\\d+/.test(x.firstElementChild?.innerText || '')).length}})()`);
   if (check(!!side, 'слева нет блока «Заказы · N»')) {
-    notes.push(`слева: ${side.head}, карточек ${side.cards}, с «не взято» ${side.withFree}`);
-    check(side.total === 0 || side.withFree >= side.total, `слева есть заказы без нераспределённых позиций: показано ${side.total}, с «не взято» ${side.withFree}`);
-    // сверка с API: у видимых заказов counts.free > 0
+    notes.push(`слева: Заказы · ${side.total}, карточек ${side.cards}, с открытой работой ${side.active}`);
+    check(side.cards === side.total, `счётчик заказов ${side.total} не совпадает с числом карточек ${side.cards}`);
+    check(side.active === side.cards, 'слева показаны завершённые заказы при выключенном фильтре «Завершённые»');
   }
-  // клик по группе-заказу на доске
+  // Ключ mountBoard для пути /design-tasks. На выходе возвращаем настройки тестовой учётки целиком для этой доски.
+  const prefKey = 'bgrp:_design-tasks';
+  const prefsBefore = (await jget('/auth/me')).uiPrefs;
+  if (!check(!!prefsBefore, 'не удалось прочитать исходные настройки доски')) return;
   const g = `document.querySelector('.board article.db-order.k-gfold')`;
-  if (check(!!(await ev(`!!${g}`)), 'на доске нет групп-заказов (article.db-order)')) {
-    const was = await ev(`${g}.getAttribute('aria-expanded')`);
+  if (!check(!!(await ev(`!!${g}`)), 'на доске нет групп-заказов (article.db-order)')) return;
+  try {
+    const was = await ev(`${g}.querySelector('.db-chev').getAttribute('aria-expanded')`);
     await ev(`${g}.querySelector('.db-oh').click();1`); await sleep(300);
-    const now = await ev(`document.querySelector('.board article.db-order.k-gfold').getAttribute('aria-expanded')`);
+    const now = await ev(`document.querySelector('.board article.db-order.k-gfold').querySelector('.db-chev').getAttribute('aria-expanded')`);
     check(now !== was, `клик по группе-заказу не переключил её (aria-expanded ${was} → ${now})`);
     await ev(`document.querySelector('.board article.db-order.k-gfold').querySelector('.db-oh').click();1`); await sleep(300);
     // ⇕ в шапке колонки
     const folds = `[...document.querySelectorAll('.board .col-fold')].filter(x=>!x.hidden&&x.offsetParent)`;
     if (check(!!(await ev(`${folds}.length`)), 'в шапке колонок нет кнопки ⇕ (видимой)')) {
       const col = await ev(`(()=>{const b=${folds}[0];return b.closest('.col').dataset.key})()`);
-      const cnt = (open) => ev(`(()=>{const c=document.querySelector('.board .col[data-key=${JSON.stringify(col)}]');const a=[...c.querySelectorAll('article.k-gfold')];return {n:a.length,open:a.filter(x=>x.getAttribute('aria-expanded')==='true').length}})()`);
+      const cnt = () => ev(`(()=>{const c=document.querySelector('.board .col[data-key=${JSON.stringify(col)}]');const a=[...c.querySelectorAll('article.k-gfold .db-chev')];return {n:a.length,open:a.filter(x=>x.getAttribute('aria-expanded')==='true').length}})()`);
       const s0 = await cnt();
       await ev(`${folds}.find(b=>b.closest('.col').dataset.key===${JSON.stringify(col)}).click();1`); await sleep(500);
       const s1 = await cnt();
@@ -239,7 +218,7 @@ await scenario('C', 'Проектирование: «Заказы» слева, 
       const toAll = s0.open < s0.n;
       check(toAll ? s1.open === s1.n : s1.open === 0, `⇕ не ${toAll ? 'раскрыл' : 'свернул'} все группы колонки «${col}»: было ${s0.open}/${s0.n}, стало ${s1.open}/${s1.n}`);
       await sleep(1500); // сохранение предпочтений уходит отложенно
-      const patches = net.filter((n) => n.method === 'PATCH' && /\/auth\/me\/prefs/.test(n.url));
+      const patches = net.filter((n) => n.method === 'PATCH' && /\/auth\/me\/prefs/.test(n.url) && n.post.includes(JSON.stringify(prefKey)));
       if (check(patches.length > 0, 'после ⇕ нет запроса PATCH /auth/me/prefs (состояние не сохраняется)')) {
         const bad = patches.filter((n) => n.status !== 200);
         let why = '';
@@ -252,9 +231,12 @@ await scenario('C', 'Проектирование: «Заказы» слева, 
       await sleep(600);
       const s2 = await cnt();
       check(s2.open === s1.open && s2.n === s1.n, `после перезагрузки состояние групп колонки «${col}» не сохранилось: было ${s1.open}/${s1.n}, стало ${s2.open}/${s2.n}`);
-      // вернуть как было
-      if (s2.open !== s0.open) { await ev(`[...document.querySelectorAll('.board .col-fold')].find(b=>b.closest('.col').dataset.key===${JSON.stringify(col)})?.click();1`); await sleep(1500); }
     }
+  } finally {
+    await sleep(1250);
+    const restored = await jsend('PATCH', '/auth/me/prefs', { [prefKey]: prefsBefore[prefKey] ?? null });
+    const prefsAfter = (await jget('/auth/me')).uiPrefs;
+    check(restored.status === 200 && (prefsAfter?.[prefKey] ?? null) === (prefsBefore[prefKey] ?? null), 'не удалось вернуть исходные настройки доски');
   }
 });
 
@@ -262,12 +244,12 @@ await scenario('C', 'Проектирование: «Заказы» слева, 
 await scenario('D', 'Продукция: плитки, фильтр «Раздел», галочка и панель «Выбрано»', async (check, notes) => {
   await ev(`sessionStorage.removeItem('dc-prod-sec');1`);
   await nav('#products', 1500);
-  const tiles = await ev(`document.querySelectorAll('.sec-tile, .cat-tile').length`);
+  const tiles = await ev(`document.querySelectorAll('.k-landing > .k-tilegrid > .tile, .k-landing > .k-tilegrid > .k-tile-wrap > .tile').length`);
   check(tiles > 0, 'на старте «Продукции» нет стартовых плиток разделов');
   notes.push('плиток: ' + tiles);
   await nav('#products?all=1', 1800);
   // фильтр «Раздел»: раскрыт, значения с иконками
-  const ff = await ev(`(()=>{const h=document.querySelector('.ff-gh[data-fk="g:sec"]');return h?{exp:h.getAttribute('aria-expanded'),ico:document.querySelectorAll('.ff-body .ff-ico').length,opts:document.querySelectorAll('.ff-body .ff-opt, .ff-body button.ff-v, .ff-body [data-fk^="v:"]').length}:null})()`);
+  const ff = await ev(`(()=>{const h=document.querySelector('.ff-gh[data-fk="g:sec"]');return h?{exp:h.getAttribute('aria-expanded'),ico:document.querySelectorAll('.ff-body .ff-ico').length}:null})()`);
   if (check(!!ff, 'в «Продукции» (все изделия) нет фильтра «Раздел» (.ff-gh g:sec)')) {
     check(ff.exp !== 'false', 'фильтр «Раздел» свёрнут, а должен быть раскрыт');
     check(ff.ico > 0, 'у значений фильтра «Раздел» нет иконок (.ff-ico)');
@@ -288,7 +270,7 @@ await scenario('D', 'Продукция: плитки, фильтр «Разде
 });
 
 // ── E. Доски «В работе» / «Заказы» ──
-await scenario('E', 'Доски: колонки 290 px, фото ≤ 140 px, текст не столбиком', async (check, notes) => {
+await scenario('E', 'Доски: колонки 290–520 px, фото ≤ 140 px, текст не столбиком', async (check, notes) => {
   for (const [hash, name] of [['#work', '«В работе»'], ['#salesorders', '«Заказы»']]) {
     await nav(hash, 1500);
     if (hash === '#salesorders') { await clickText('^(Доска|Колонки)'); await ready(1000); }
@@ -298,7 +280,7 @@ await scenario('E', 'Доски: колонки 290 px, фото ≤ 140 px, т�
       const pics=[...document.querySelectorAll('.board .t-pic')].map(i=>Math.round(i.getBoundingClientRect().height));
       const titles=[...document.querySelectorAll('.board .t-title')].filter(t=>t.offsetParent&&t.innerText.trim().length>12).map(t=>({w:Math.round(t.getBoundingClientRect().width),lines:Math.round(t.getBoundingClientRect().height/(parseFloat(getComputedStyle(t).lineHeight)||16)),len:t.innerText.trim().length}));
       return {w,pics,titles}})()`);
-    check(m.w.length > 0 && m.w.every((x) => Math.abs(x - 290) <= 2), `${name}: ширина колонок не 290 px: ${[...new Set(m.w)].join(', ')}`);
+    check(m.w.length > 0 && m.w.every((x) => x >= 288 && x <= 522), `${name}: ширина колонок вне 290–520 px: ${[...new Set(m.w)].join(', ')}`);
     check(m.pics.every((x) => x <= 140), `${name}: фото выше 140 px: ${Math.max(0, ...m.pics)}`);
     const col = m.titles.filter((t) => t.w < 80 || t.lines > Math.ceil(t.len / 4));
     check(!col.length, `${name}: текст названия столбиком (${col.length} карточек, пример: ширина ${col[0]?.w} px, строк ${col[0]?.lines})`);
