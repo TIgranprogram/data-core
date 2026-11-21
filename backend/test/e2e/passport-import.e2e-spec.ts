@@ -322,9 +322,3 @@ describe('C172: атомарный импорт рисунков Inventor', () =
     for (const kind of ['overview', 'dimensions', 'mounting']) expect(await db().collection('productphotos').countDocuments({ productId: f.productId, purpose: 'passport', kind, deletedAt: null })).toBe(1);
   });
 });
-
-
-
-
-
-

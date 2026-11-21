@@ -38,11 +38,11 @@
     },
     {
       "path": "backend/src/modules/product-passport/passport-import.service.ts",
-      "sha256": "690486375aaeed916a6af74cb92e759d136b47dab1d0fbea8688bf0412bba6d9"
+      "sha256": "6238bdf50a2fdf92abcd3225ab24a78be6eab762d94becb8b53d6a3accb84c3d"
     },
     {
       "path": "backend/src/modules/product-passport/passport-inventor-import.spec.ts",
-      "sha256": "e30970f8f493fd5ad9e2f187c924238d26773b753d70a12e0ed91785af31009b"
+      "sha256": "efe72f2e94d144bf1a3a77824be2a61a8c6bba31c5677f0bd158aa49884c243b"
     },
     {
       "path": "backend/src/modules/product-passport/passport-issue.ts",
@@ -86,7 +86,8 @@
     },
     {
       "path": "backend/test/e2e/passport-import.e2e-spec.ts",
-      "sha256": "0a6e76ddcd835577a5f00c3dc0b4942d2c23408b62af06a9c191c76850ade8d0"
+      "sha256": "314d24caca5c1319e6813cdf4031d0fd0eb5c2d1537438dfd91bce613881b2cb"
     }
-  ]
+  ],
+  "note": "After test PASS only EOF whitespace trimmed in service and specs; runtime behavior unchanged. Runtime baseline ef42cc9a."
 }
