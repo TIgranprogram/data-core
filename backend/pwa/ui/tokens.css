@@ -47,6 +47,7 @@
   --surface-3: #e9eeec;
   --col-bg: #e1e8e4; /* колонка доски — темнее фона страницы (светлая тема сливалась, 2026-11-07) */
   --col-border: #d3dcd7;
+  --workspace-max: 1640px;
   --photo-bg: #f6f7f9; /* фото изделий и рисунки разделов — светлый фон в обеих темах */
   --paper: #ffffff; /* чертёж и печать — всегда на белом, в обеих темах */
   /* чернила */
@@ -154,23 +155,23 @@
 
 /* Средняя тема: матовая серая канва, светлые панели и графитовое меню. */
 :root[data-theme='soft'] {
-  --bg: #cdd0cf;
-  --surface: #eff0ed;
-  --surface-2: #e3e5e2;
-  --surface-3: #d9dcda;
-  --col-bg: #c3c8c4;
-  --col-border: #a2aaa5;
-  --photo-bg: #e0e3df;
-  --border: #aeb5b1;
+  --bg: #e1e4df;
+  --surface: #f5f6f1;
+  --surface-2: #eceee9;
+  --surface-3: #dfe4de;
+  --col-bg: #d8dfd8;
+  --col-border: #b8c2b9;
+  --photo-bg: #e6eae4;
+  --border: #bac4bc;
   --border-strong: #65706e;
   --text: #242829;
   --muted: #4d5253;
   --heading: #233e35;
-  --side: #292d2f;
-  --side-2: #3b4241;
-  --side-text: #e5e8e5;
+  --side: #353c39;
+  --side-2: #47514b;
+  --side-text: #e9ece7;
   --side-text-hi: #ffffff;
-  --side-head: #dcc183;
+  --side-head: #e1ca91;
   --side-brand-note: var(--side-head);
   --primary: #335c4e;
   --primary-hover: #294a3f;
@@ -200,7 +201,7 @@
   --sec-supply: #703a24; --sec-supply-soft: #ebe1d9;
   --sec-stock: #24515b; --sec-stock-soft: #dbe7e7;
   --sec-money: #6d344b; --sec-money-soft: #eadfe3;
-  --topbar-bg: var(--bg);
+  --topbar-bg: var(--surface-2);
   --row-hover: #e5e8e4;
   --row-selected: #d9e4db;
   --hint-bg: #e4ebe4;
@@ -208,6 +209,8 @@
   --shadow-sm: 0 1px 2px rgba(28, 34, 32, .12);
   --shadow-lg: 0 14px 36px rgba(25, 30, 28, .20);
 }
+
+@media (min-width: 1101px) { :root[data-theme='soft'] { --gutter: var(--s5); } }
 
 :root[data-theme='dark'] {
   --bg: #0f131a;

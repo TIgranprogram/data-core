@@ -155,10 +155,8 @@ const developmentMode = loadDevelopmentMode(location.href);
 
 function placeDevelopmentMode(anchor, info, dialog = false) {
   const card = warnCard({ tone: 'warn', title: info.title, sub: dialog ? null : info.sub });
-  if (dialog) {
-    card.setAttribute('data-development-mode', '');
-    card.title = info.sub;
-  }
+  card.setAttribute('data-development-mode', '');
+  if (dialog) card.title = info.sub;
   anchor.after(card);
 }
 
