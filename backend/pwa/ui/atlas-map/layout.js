@@ -71,18 +71,9 @@ function areaOverview(data, view) {
   for (const area of data.areas) {
     const [col, row] = AREA_LAYOUT[area.band] || [0, 0];
     const box = { x: left + col * (cardWidth + gap), y: (h - cardHeight) / 2 + (row - 1) * rowGap, w: cardWidth, h: cardHeight };
-    cards.set(area.id, makeCard(area, box, ''));
+    cards.set(area.id, { ...makeCard(area, box, ''), relationTitle: area.description });
   }
   return { cards, wires: areaWires(data) };
-}
-
-function areaPeers(data, area) {
-  return areaWires(data).flatMap(({ from, to, edge }) => {
-    if (from !== area.id && to !== area.id) return [];
-    const incoming = to === area.id;
-    const node = data.nodes.get(incoming ? from : to);
-    return [{ node, role: incoming ? 'incoming' : 'outgoing', edge, endpoint: incoming ? edge.to : edge.from }];
-  });
 }
 
 function contextCard(node, box, role) {
@@ -95,22 +86,89 @@ function peerWire(peer, peerKey, targetKey, context = false) {
     direction: peer.role, kind: peer.edge.planned ? 'planned' : peer.edge.kind, edge: peer.edge, context };
 }
 
+function areaContext(data, area, view) {
+  const available = areaWires(data);
+  const connections = new Map();
+  const peers = new Map();
+  for (const [role, from, to] of [['incoming', 'to', 'from'], ['outgoing', 'from', 'to']]) {
+    const ranks = new Map([[area, 0]]);
+    const queue = [area];
+    for (const current of queue) {
+      for (const edge of available) {
+        if (edge[from] !== current) continue;
+        connections.set(edge.key, { ...edge, role });
+        const target = edge[to];
+        if (ranks.has(target)) continue;
+        ranks.set(target, ranks.get(current) + 1);
+        queue.push(target);
+      }
+    }
+    for (const [id, rank] of ranks) {
+      if (!rank || peers.has(id)) continue;
+      const node = data.nodes.get(id);
+      const row = node.band === 'money' ? 2 : AREA_LAYOUT[node.band][1];
+      peers.set(id, { node, rank, role, row });
+    }
+  }
+  const rows = [...peers.values()].map((peer) => peer.row).concat(1);
+  const min = Math.min(...rows);
+  const max = Math.max(...rows);
+  const pitch = view.w < 1100 ? 104 : 82;
+  const height = view.w < 1100 ? 84 : 68;
+  return { area, peers, connections, min, height, pitch, offset: (1 - min) * pitch, span: (max - min) * pitch + height };
+}
+
+function mountAreaContext(data, context, view, frame, top, scopeKey, cards, wires) {
+  const visible = new Map([[context.area, scopeKey]]);
+  for (const side of ['incoming', 'outgoing']) {
+    const lane = [...context.peers.values()].filter((peer) => peer.role === side);
+    if (!lane.length) continue;
+    const rankCount = Math.max(...lane.map((peer) => peer.rank));
+    const outer = side === 'incoming' ? frame.x - view.x : view.x + view.w - frame.x - frame.w;
+    const compact = view.w < 1100;
+    const stride = Math.max(compact ? 158 : 126, (outer - 26) / rankCount);
+    const width = Math.min(290, stride - (compact ? 16 : Math.max(25, stride * 0.22)));
+    for (const peer of lane) {
+      const separation = (stride - width) * (compact ? 0.5 : 0.77) + (peer.rank - 1) * stride;
+      const x = side === 'incoming' ? frame.x - separation - width : frame.x + frame.w + separation;
+      const key = cards.has(peer.node.id) ? 'context:' + side + ':' + peer.node.id : peer.node.id;
+      const box = { x, y: top + (peer.row - context.min) * context.pitch, w: width, h: context.height };
+      const card = contextCard(peer.node, box, side);
+      if (peer.node.band === 'money') {
+        const route = [...context.connections.values()].find(({ edge }) => edge.from === 'staff' && edge.to === 'payroll');
+        if (route) {
+          const source = data.nodes.get(route.edge.from).title;
+          const recipient = data.nodes.get(route.edge.to).title;
+          card.note = 'Ставки для оплаты труда';
+          card.relationTitle = source + ' → ' + recipient + ' · ' + route.edge.label;
+        }
+      }
+      cards.set(key, card);
+      visible.set(peer.node.id, key);
+    }
+  }
+  for (const { from, to, edge, role } of context.connections.values()) {
+    const frameEnd = from === context.area ? 'from' : to === context.area ? 'to' : undefined;
+    // У раскрытой области сохраняем точное присоединение к разделу, если он уже виден в рамке.
+    const scopeEndpoint = frameEnd && cards.has(edge[frameEnd]) ? edge[frameEnd] : scopeKey;
+    wires.push({ key: edge.id + ':area', from: frameEnd === 'from' ? scopeEndpoint : visible.get(from),
+      to: frameEnd === 'to' ? scopeEndpoint : visible.get(to), kind: edge.kind, edge, context: true,
+      direction: role, frameEnd });
+  }
+}
+
 function areaDetail(data, hub, origin, view) {
   const sections = data.sectionsByBand.get(hub.band) || [];
-  const peers = areaPeers(data, hub);
+  const context = areaContext(data, hub.id, view);
   const pitch = 74;
   const cardHeight = 62;
-  const laneWidth = limit(view.w * 0.22, 146, 266);
   const hubWidth = limit(view.w * 0.27, 186, 328);
-  const distance = limit(view.w * 0.09, 78, 150);
   const frameRight = 56;
   const h = 82;
   const length = h + 24 + Math.max(0, sections.length - 1) * pitch + cardHeight;
-  const margin = 24;
-  const sides = ['incoming', 'outgoing'];
-  const padding = sides.map(role => margin + (peers.some(peer => peer.role === role) ? laneWidth + distance : role === 'outgoing' ? frameRight : 0));
+  const margin = Math.max(24, context.offset + 12);
   const y = limit(midpoint(origin) - length / 2, view.y + margin, Math.max(view.y + margin, view.y + view.h - length - margin));
-  const x = limit(origin.x + (origin.w - hubWidth) / 2, view.x + padding[0], view.x + view.w - hubWidth - padding[1]);
+  const x = view.x + (view.w - hubWidth - frameRight + 12) / 2;
   const box = { x, y, w: hubWidth, h };
   const cards = new Map([[hub.id, makeCard(hub, box, '', 'anchor')]]);
   const ids = new Set(sections.map(({ id }) => id));
@@ -144,30 +202,11 @@ function areaDetail(data, hub, origin, view) {
     wires.unshift({ key: hub.id + ':stem', from: hub.id, to: sections.at(-1).id, kind: 'containment', route: 'trunk', fromPort });
   }
 
-  // Сохраняем соседние области. Линия теперь входит в тот раздел, который действительно принимает данные.
-  for (const [side, role] of sides.entries()) {
-    const lane = peers.filter(peer => peer.role === role).map(peer => {
-      const target = cards.get(peer.endpoint);
-      return { ...peer, target: target?.node.id || hub.id, center: midpoint(target?.box || box) };
-    }).sort((a, b) => a.center - b.center);
-    const ports = new Map();
-    for (const peer of lane) {
-      if (!ports.has(peer.target)) ports.set(peer.target, []);
-      ports.get(peer.target).push(peer);
-    }
-    let prior = -Infinity;
-    for (const peer of lane) {
-      const key = cards.has(peer.node.id) ? peer.role + ':' + peer.node.id : peer.node.id;
-      const top = Math.max(peer.center - cardHeight / 2, prior + pitch);
-      const peerX = side ? x + hubWidth + distance : x - distance - laneWidth;
-      cards.set(key, contextCard(peer.node, { x: peerX, y: top, w: laneWidth, h: cardHeight }, role));
-      const siblings = ports.get(peer.target);
-      const offset = port(siblings.indexOf(peer), siblings.length, cardHeight);
-      wires.push({ ...peerWire(peer, key, peer.target, true), ...(side ? { fromPort: offset - 11 } : { toPort: offset }) });
-      prior = top;
-    }
-  }
-  return { cards, wires, frame: { x: box.x - 12, y: box.y - 14, w: box.w + 12 + frameRight, h: length + 28 } };
+  const contextTop = Math.max(view.y + 24, y + (h - context.height) / 2 - context.offset);
+  const frameTop = Math.min(box.y, contextTop) - 14;
+  const frame = { x: box.x - 12, y: frameTop, w: box.w + 12 + frameRight, h: box.y + length + 14 - frameTop };
+  mountAreaContext(data, context, view, frame, contextTop, hub.id, cards, wires);
+  return { cards, wires, frame };
 }
 
 function roleOf(edge, hub) { return edge.to === hub.id ? 'incoming' : 'outgoing'; }
@@ -194,56 +233,22 @@ function port(i, n, height) {
   return (i - (n - 1) / 2) * Math.min(15, (height - 24) / Math.max(1, n - 1));
 }
 
-function parentContext(data, hub, visible) {
-  const parent = data.nodes.get(hub.kind === 'section' ? areaId(hub.band) : hub.section);
-  const directions = ['incoming', 'outgoing'];
-  const known = new Set(visible.map(peer => peer.role + ':' + peer.node.id));
-  const candidates = parent.kind === 'area' ? areaPeers(data, parent) : peersOf(data, parent)
-    .filter(peer => peer.edge.kind === 'data' && !peer.edge.planned && !known.has(peer.role + ':' + peer.node.id));
-  const [incoming, outgoing] = directions.map(role => {
-    const lane = candidates.filter(peer => peer.role === role);
-    return parent.kind === 'area' ? lane : lane.slice(0, 1);
-  });
-  const padding = 14, height = 57;
-  const rows = Math.max(incoming.length, outgoing.length, 1);
-  return { parent, incoming, outgoing, padding, height, span: rows * (height + padding) - padding };
-}
-
-function mountParentContext(context, hub, box, laneWidth, distance, y, cards, wires) {
-  const { parent, incoming, outgoing, height, span, padding } = context;
-  const parentKey = cards.has(parent.id) ? 'context:' + parent.id : parent.id;
-  const parentBox = { x: box.x, y: y + (span - height) / 2, w: box.w, h: height };
-  cards.set(parentKey, contextCard(parent, parentBox, 'ancestor'));
-  const bridge = { key: parent.id + '>' + hub.id + ':context', from: parentKey, to: hub.id, kind: 'containment', route: 'scope-membership', context: true };
-  wires.unshift(bridge);
-  for (const [side, lane] of [incoming, outgoing].entries()) {
-    for (const [index, peer] of lane.entries()) {
-      const key = cards.has(peer.node.id) ? 'context:' + peer.role + ':' + peer.node.id : peer.node.id;
-      const x = side ? box.x + box.w + distance : box.x - distance - laneWidth;
-      const slot = { x, y: y + (span - lane.length * (height + padding) + padding) / 2 + index * (height + padding), w: laneWidth, h: height };
-      cards.set(key, contextCard(peer.node, slot, peer.role));
-      wires.push({ ...peerWire(peer, key, parentKey, true), frameEnd: side ? 'from' : 'to' });
-    }
-  }
-}
-
 function nodeDetail(data, hub, origin, view) {
   const peers = peersOf(data, hub);
-  const context = parentContext(data, hub, peers);
+  const context = areaContext(data, areaId(hub.band), view);
   const children = data.children.get(hub.id) || [];
   const from = peers.filter((item) => item.role === 'incoming');
   const to = peers.filter((item) => item.role === 'outgoing');
-  const laneW = limit(view.w * 0.25, 150, 306);
-  const hubW = limit(origin.w, 146, Math.min(268, view.w * 0.25));
-  const gap = limit(view.w * 0.077, 55, 172);
+  const laneW = limit(view.w * 0.22, 150, 410);
+  const hubW = limit(view.w * 0.2, 186, 332);
+  const gap = Math.max(48, (view.w / 2 - hubW / 2 - laneW) * 0.65);
   const h = 94;
   const largest = Math.max(from.length, to.length);
   const radius = Math.max(60, (largest - 1) / 2 * (largest > 5 ? 84 : 102) + 64);
   const topRoom = view.y + radius + context.span + 34;
   const preferredY = children.length ? midpoint(origin) : Math.min(midpoint(origin), view.y + view.h * 0.63);
   const y = limit(preferredY, topRoom, Math.max(topRoom, view.y + view.h - radius));
-  const x = limit(origin.x + (origin.w - hubW) / 2, view.x + (from.length || context.incoming.length ? laneW + gap + 22 : 22),
-    view.x + view.w - hubW - (to.length || context.outgoing.length ? laneW + gap + 22 : 22));
+  const x = view.x + (view.w - hubW) / 2;
   const box = { x, y: y - h / 2, w: hubW, h };
   const anchor = makeCard(hub, box, '', 'anchor');
   anchor.relationTitle = hub.kind === 'section' ? '' : hub.description;
@@ -291,10 +296,19 @@ function nodeDetail(data, hub, origin, view) {
     wires.unshift({ key: hub.id + ':stem', from: hub.id, to: last, kind: 'containment', route: 'trunk', fromPort });
   }
   const contextTop = y - radius - context.span - 16;
-  mountParentContext(context, hub, box, laneW, gap, contextTop, cards, wires);
+  const parent = data.nodes.get(context.area);
+  const parentKey = cards.has(parent.id) ? 'context:' + parent.id : parent.id;
+  const parentBox = { x: box.x, y: contextTop + context.offset, w: box.w, h: context.height };
+  const heading = contextCard(parent, parentBox, 'ancestor');
+  if (hub.kind !== 'section') heading.note = data.nodes.get(hub.section)?.title || '';
+  cards.set(parentKey, heading);
+  wires.unshift({ key: parent.id + '>' + hub.id + ':context', from: parentKey, to: hub.id,
+    kind: 'containment', route: 'scope-membership', context: true });
   const frameBottom = Math.max(y + radius, ...[...cards.values()]
     .filter(card => card.role === 'child').map(card => card.box.y + card.box.h + 14));
-  return { cards, wires, frame: { x: box.x - 15, y: contextTop - 12, w: box.w + 30, h: frameBottom - contextTop + 12 } };
+  const frame = { x: box.x - 15, y: contextTop - 12, w: box.w + 30, h: frameBottom - contextTop + 12 };
+  mountAreaContext(data, context, view, frame, contextTop, parentKey, cards, wires);
+  return { cards, wires, frame };
 }
 
 export function atlasScene(data, nodeId, origin, view) {

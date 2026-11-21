@@ -88,8 +88,8 @@
   background: var(--am-soft, var(--primary-soft));
 }
 .am-station[data-kind='area'] {
-  border-color: color-mix(in srgb, var(--am-tone) 43%, var(--border));
-  background: color-mix(in srgb, var(--am-soft) 39%, var(--surface));
+  border-color: color-mix(in srgb, var(--am-tone) 58%, var(--border));
+  background: color-mix(in srgb, var(--am-tone) 9%, var(--surface));
   color: var(--am-tone);
   box-shadow: var(--shadow);
 }
@@ -103,7 +103,15 @@
 }
 .atlas-map [data-band] { --am-tone: var(--primary); --am-soft: var(--primary-soft); }
 .atlas-map :is([data-band='sale'], [data-band='after'], [data-band='quality']) { --am-tone: var(--sec-orders); --am-soft: var(--sec-orders-soft); }
-.atlas-map :is([data-band='prod'], [data-band='paper'], [data-band='make']) { --am-tone: var(--sec-products); --am-soft: var(--sec-products-soft); }
+.atlas-map [data-band='prod'] { --am-tone: var(--primary); --am-soft: var(--primary-soft); }
+.atlas-map [data-band='make'] {
+  --am-tone: color-mix(in srgb, var(--status-new) 78%, var(--text));
+  --am-soft: color-mix(in srgb, var(--am-tone) 15%, var(--surface));
+}
+.atlas-map [data-band='paper'] {
+  --am-tone: color-mix(in srgb, var(--muted) 68%, var(--primary));
+  --am-soft: color-mix(in srgb, var(--am-tone) 10%, var(--surface));
+}
 .atlas-map [data-band='supply'] { --am-tone: var(--sec-supply); --am-soft: var(--sec-supply-soft); }
 .atlas-map [data-band='stock'] { --am-tone: var(--sec-stock); --am-soft: var(--sec-stock-soft); }
 .atlas-map [data-band='money'] { --am-tone: var(--sec-money); --am-soft: var(--sec-money-soft); }
@@ -128,9 +136,9 @@
 .am-port { stroke: var(--surface); stroke-width: 1; }
 .am-port[data-kind='containment'], .am-port[data-kind='planned'] { fill: var(--muted); }
 .am-station.btn[data-context]:not([data-context='false']) {
-  border-color: color-mix(in srgb, var(--am-flow, var(--am-tone)) 34%, var(--border));
-  background: color-mix(in srgb, var(--am-flow-soft, var(--am-soft)) 24%, var(--surface-2));
-  color: var(--muted);
+  border-color: color-mix(in srgb, var(--am-flow, var(--am-tone)) 69%, var(--border));
+  background: color-mix(in srgb, var(--am-flow, var(--am-tone)) 6%, var(--surface));
+  color: var(--text);
   box-shadow: none;
 }
 .am-station.btn[data-context]:hover { color: var(--text); }
@@ -139,8 +147,8 @@
   background: transparent;
 }
 .am-wire-group[data-route='scope-membership'] { visibility: hidden; }
-.am-wire[data-context]:not([data-context='false']) { opacity: .56; stroke-width: 1.45; }
-.am-wire-group:has(> .am-wire[data-context]:not([data-context='false'])) > .am-port { opacity: .66; }
+.am-wire[data-context]:not([data-context='false']) { opacity: .82; stroke-width: 1.6; }
+.am-wire-group:has(> .am-wire[data-context]:not([data-context='false'])) > .am-port { opacity: .9; }
 .am-station.btn[data-trace='muted'] {
   border-color: var(--border);
   background: color-mix(in srgb, var(--surface-2) 64%, var(--surface));
