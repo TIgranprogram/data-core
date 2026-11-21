@@ -4,12 +4,12 @@ import { busyBlock, failBlock } from '../ui/kit/busy.js';
 import { current, patch } from '../core/router.js';
 import { confirmDlg, modal } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
-import { button, select, empty, tagPick } from '../ui/kit/index.js';
+import { button, select, empty, tagPick, searchBox } from '../ui/kit/index.js';
 import { catChips } from '../ui/cat-chips.js';
 import { qualityBadges, qualityFilter } from '../ui/quality.js';
 import { phraseDuplicates, phraseFitsCategory, phraseRootApplies } from './passport-tree-state.js';
 import { LATER_CATS, dictRows } from './passports/common.js';
-import { VARS, VAR_LABELS, canEditTexts } from './passport-texts.js';
+import { VARS, VAR_LABELS, canEditTexts, withVars } from './passport-texts.js';
 
 /**
  * «Справочники → Паспорта → Тексты паспорта» (ПВ, 2026-10-25): слева дерево «раздел → вариант → подвариант» с метками «пусто» / «дубль · N»
@@ -17,6 +17,7 @@ import { VARS, VAR_LABELS, canEditTexts } from './passport-texts.js';
  * «по умолчанию», «Объединить с…», «Убрать». Данные — dict_values passportPhrases (узел: parentId, text, categories, allCategories, order, required, isDefault).
  * Адрес: #dicts?d=passportPhrases; панель — of=ptnode&open=<id узла> | new.<id родителя>.
  */
+import { loadPhraseTableReferences, phraseDictionaryTable } from './passport-dict-table.js';
 export const TREE_KEY = 'passportPhrases';
 const DICT = '/dicts/' + TREE_KEY;
 
@@ -54,11 +55,12 @@ function shape(items) {
 // ─── экран ───────────────────────────────────────────────────────────────────────────────────────
 export function mountTree() {
   const edit = canEditTexts();
-  let mode = 'all'; let catFilter = ''; let model = null; let catsMap = new Map(); let catOpts = [];
+  let mode = 'all'; let catFilter = ''; let query = ''; let references = {}; let model = null; let catsMap = new Map(); let catOpts = [];
   const info = h('p', { class: 'hint pt-info' });
   const filterBox = h('div', { class: 'pt-filters' });
-  const tree = h('div', { class: 'pt-tree' }, busyBlock('тексты'));
-  const el = h('div', { class: 'pt' }, h('div', { class: 'pt-bar' }, info, filterBox),
+  const tree = h('div', null, busyBlock('тексты'));
+  const search = searchBox({ placeholder: 'Поиск по тексту, пути и связям…', onSearch: (value) => { query = value; render(); } });
+  const el = h('div', { class: 'pt' }, h('div', { class: 'pt-bar' }, search.el, info, filterBox),
     edit ? null : h('p', { class: 'hint' }, 'Смотреть могут все; править тексты — директор и администратор.'), tree);
   const catText = (n) => (n.allCategories ? 'для всех' : String(n.categories || '').split(/[,;\s]+/).filter(Boolean).map((c) => catsMap.get(c) || 'тип удалён').join(', '));
   /** Лист подходит типу (как phrase-tree: allCategories или код в списке). */
@@ -90,37 +92,22 @@ export function mountTree() {
       const qOk = mode === 'all' || (mode === 'empty' ? model.isEmpty(n) : model.dupes.has(n.id));
       return qOk && leafFits(n);
     };
-    const row = (n, depth) => {
-      const kids = model.children(n.id).filter(shown);
-      const leaf = !model.children(n.id).length;
-      const btn = h('button', { type: 'button', class: 'pt-item' + (sel === n.id ? ' active' : ''), 'data-depth': String(depth), onclick: () => patch({ of: 'ptnode', open: n.id, new: undefined }) },
-        h('span', { class: 'pt-name' }, n.name || 'Без названия'),
-        leaf && n.text.trim() ? h('span', { class: 'pt-text' }, n.text.replace(/\{[^}]+\}/g, '…')) : null,
-        ...qualityBadges({ empty: model.isEmpty(n), dupe: model.dupes.get(n.id) || 0,
-          dupeHint: 'Одинаковый текст и условия. Перед объединением проверьте связанные записи.' }),
-        leaf ? h('span', { class: 'pt-cats' }, catText(n)) : null,
-        n.isDefault ? h('span', { class: 'pt-tag own' }, 'по умолчанию') : null);
-      return [h('li', null, btn), ...kids.flatMap((k) => row(k, depth + 1))];
-    };
     const secs = model.roots.filter((root) => phraseRootApplies(root, model.leavesOf(root.id), catFilter))
       .filter((root) => mode === 'all' || shown(root));
     if (!secs.length) { tree.replaceChildren(empty({ title: mode === 'all' ? 'Разделов пока нет — их создаёт программа при обновлении справочника.' : mode === 'empty' ? 'Пустых текстов нет.' : 'Дублей нет.' })); return; }
-    tree.replaceChildren(...secs.map((r) => {
-      const gap = catFilter && !secHasFit(r);
-      const kids = model.children(r.id).filter(shown);
-      return h('section', { class: 'pt-sec' + (gap ? ' is-gap' : '') },
-        h('div', { class: 'pt-sec-head' }, h('h3', null, r.name), r.required ? h('span', { class: 'pt-sec-tag' }, 'обязательный раздел') : null,
-          gap ? h('span', { class: 'badge warn' }, 'нет текста для типа') : null,
-          edit ? button({ label: '+ Вариант', kind: 'ghost', size: 'S', onClick: () => patch({ of: 'ptnode', open: 'new.' + r.id, new: undefined }) }) : null),
-        gap ? h('p', { class: 'hint' }, `Для «${catName}» в этом разделе нет своего и общего варианта — добавьте текст или отметьте «Для всех».`)
-          : (kids.length ? h('ul', { class: 'pt-items' }, ...kids.flatMap((k) => row(k, 0)))
-            : h('p', { class: 'muted' }, 'Вариантов пока нет — «+ Вариант».')));
+    tree.replaceChildren(phraseDictionaryTable({ model, roots: secs, shown, references, catText, selected: sel, edit, query, reset: () => search.clear(),
+      open: (id) => patch({ of: 'ptnode', open: id, new: undefined }),
+      add: (id) => patch({ of: 'ptnode', open: 'new.' + id, new: undefined }),
+      quality: (node) => qualityBadges({ empty: model.isEmpty(node), dupe: model.dupes.get(node.id) || 0,
+        dupeHint: 'Одинаковый текст и условия. Перед объединением проверьте связанные записи.' }),
+      gap: (node) => !!catFilter && !node.parentId && !secHasFit(node), renderText: withVars,
     }));
   }
   async function reload() {
     if (!model) tree.replaceChildren(busyBlock('тексты', { retry: () => reload() }));
     try {
-      const d = await loadTree(true);
+      const [d, refs] = await Promise.all([loadTree(true), loadPhraseTableReferences(dictRows)]);
+      references = refs;
       catOpts = d.cats;
       catsMap = new Map(d.cats.map((c) => [c.code, c.name]));
       model = shape(d.items);
@@ -250,7 +237,7 @@ export const ptnode = {
         : String(r.categories || '').split(/[,;\s]+/).filter(Boolean)
           .map((c) => (r.cats || []).find((x) => String(x.code) === c)?.name || c).join(', ') || '—';
       return [
-        ['Текст', r.text ? h('span', { class: 'pt-plain' }, r.text) : h('span', { class: 'muted' }, 'пусто — «Изменить»')],
+        ['Текст', r.text ? h('span', { class: 'pt-plain' }, ...withVars(r.text)) : h('span', { class: 'muted' }, 'пусто — «Изменить»')],
         ['Кому предлагают', names],
         ['Порядок', r.order || null],
         ['По умолчанию', r.isDefault ? 'да' : null],

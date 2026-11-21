@@ -1,0 +1,188 @@
+{
+  "status": "PASS",
+  "scope": "real stand API/table DOM/PNG; readonly; no fixture data",
+  "blocked": [],
+  "pageErrors": [],
+  "checks": [
+    {
+      "screen": "phrases",
+      "width": 1024,
+      "theme": "light",
+      "rows": 103,
+      "pageOverflow": false
+    },
+    {
+      "screen": "phrases",
+      "width": 1024,
+      "theme": "dark",
+      "rows": 103,
+      "pageOverflow": false
+    },
+    {
+      "screen": "phrases",
+      "width": 1440,
+      "theme": "light",
+      "rows": 103,
+      "pageOverflow": false
+    },
+    {
+      "screen": "phrases",
+      "width": 1440,
+      "theme": "dark",
+      "rows": 103,
+      "pageOverflow": false
+    },
+    {
+      "screen": "phrases",
+      "width": 1920,
+      "theme": "light",
+      "rows": 103,
+      "pageOverflow": false
+    },
+    {
+      "screen": "phrases",
+      "width": 1920,
+      "theme": "dark",
+      "rows": 103,
+      "pageOverflow": false
+    },
+    {
+      "screen": "phrases",
+      "rightPanel": true,
+      "horizontalScrollProof": true
+    },
+    {
+      "screen": "phrases",
+      "emptySearch": true
+    },
+    {
+      "screen": "general",
+      "width": 1024,
+      "theme": "light",
+      "rows": 113,
+      "pageOverflow": false
+    },
+    {
+      "screen": "general",
+      "width": 1024,
+      "theme": "dark",
+      "rows": 113,
+      "pageOverflow": false
+    },
+    {
+      "screen": "general",
+      "width": 1440,
+      "theme": "light",
+      "rows": 113,
+      "pageOverflow": false
+    },
+    {
+      "screen": "general",
+      "width": 1440,
+      "theme": "dark",
+      "rows": 113,
+      "pageOverflow": false
+    },
+    {
+      "screen": "general",
+      "width": 1920,
+      "theme": "light",
+      "rows": 113,
+      "pageOverflow": false
+    },
+    {
+      "screen": "general",
+      "width": 1920,
+      "theme": "dark",
+      "rows": 113,
+      "pageOverflow": false
+    },
+    {
+      "screen": "general",
+      "rightPanel": true,
+      "horizontalScrollProof": true
+    },
+    {
+      "screen": "general",
+      "emptySearch": true
+    }
+  ],
+  "api": [
+    {
+      "path": "/api/me/versions",
+      "status": 200
+    },
+    {
+      "path": "/api/notifications/unread",
+      "status": 200
+    },
+    {
+      "path": "/api/auth/me",
+      "status": 200
+    },
+    {
+      "path": "/api/messages/threads",
+      "status": 200
+    },
+    {
+      "path": "/api/me/counters",
+      "status": 200
+    },
+    {
+      "path": "/api/dicts",
+      "status": 200
+    },
+    {
+      "path": "/api/dicts/passportParts",
+      "status": 200
+    },
+    {
+      "path": "/api/dicts/passportCategories",
+      "status": 200
+    },
+    {
+      "path": "/api/dicts/productGroups",
+      "status": 200
+    },
+    {
+      "path": "/api/dicts/passportKinds",
+      "status": 200
+    },
+    {
+      "path": "/api/dicts/passportInstall",
+      "status": 200
+    },
+    {
+      "path": "/api/dicts/productFacetValues",
+      "status": 200
+    },
+    {
+      "path": "/api/dicts/passportPhrases",
+      "status": 200
+    },
+    {
+      "path": "/api/dicts/productFacets",
+      "status": 200
+    },
+    {
+      "path": "/api/dicts/productGroups",
+      "status": 200
+    },
+    {
+      "path": "/api/dicts/passportPhrases/6aeea943461bef0a491fe534",
+      "status": 200
+    },
+    {
+      "path": "/api/dicts/productFacetValues",
+      "status": 200
+    },
+    {
+      "path": "/api/dicts",
+      "status": 200
+    },
+    {
+      "path": "/api/passports/texts",
+      "status": 200
+    }
+  ]
+}

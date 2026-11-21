@@ -43,7 +43,12 @@ function screen(items) {
     qualityFilter: (opts) => { quality = opts; return el('filters'); },
     select: (opts) => { category = opts; return el('select'); },
     qualityBadges: () => [], empty: ({ title }) => el('p', null, title),
+    searchBox: () => ({ el: el('input'), clear() {} }), withVars: (text) => [text],
+    clamp:value=>value,table: ({ rows }) => el('table', null, ...rows.map((row) => el('tr', null, row.cells))),
+    stack: (...children) => el('div', null, children), hint: (text) => el('p', null, text),
+    button: ({ label }) => el('button', null, label), whenText: (raw) => raw,
   });
+  vm.runInContext(read('./passport-dict-table.js').replace(/^import .*;\r?\n/gm, '').replace(/\bexport /g, ''), context);
   vm.runInContext(read('./passport-tree.js').replace(/^import .*;\r?\n/gm, '').replace(/\bexport /g, '')
     + '\nglobalThis.mount = mountTree;', context);
   const view = context.mount();

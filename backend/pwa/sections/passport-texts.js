@@ -1,12 +1,14 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { tabs } from '../ui/kit/index.js';
+import { tabs, searchBox } from '../ui/kit/index.js';
 import { busyBlock, failBlock } from '../ui/kit/busy.js';
 import { current, patch } from '../core/router.js';
 import { confirmDlg } from '../ui/kit/dialog.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { badge, section, tagPick } from '../ui/kit/index.js';
 import { PASSPORT_TRAITS, buildWhen, idsOf, whenText, whenToPick } from './passports/traits.js';
+
+import { generalTextsTable } from './passport-dict-table.js';
 
 /**
  * «Справочники → Паспорта → Общие разделы (шаблон)» (БЗ-6 Э2d, docs/PASSPORTS-V2.md §3.3 п. 2); тексты ВАРИАНТОВ для воронки — в passport-tree.js. 
@@ -25,7 +27,7 @@ export function withVars(text) {
     const m = /^\{(std|fig|tab):([^}]+)\}$/.exec(part) || /^\{([A-Za-z]+)\}$/.exec(part);
     if (!m) return part;
     const label = m[2] ? (m[1] === 'std' ? 'норматив ' + m[2].replace(/_/g, ' ') : m[1] === 'fig' ? 'рисунок' : 'таблица') : VAR_NAMES[m[1]] || m[1];
-    return h('span', { class: 'pt-var', title: `${part} — подставится в паспорте` }, label);
+    return h('span', { class: 'pt-var', title: `${label} — подставится в паспорте` }, label);
   });
 }
 export const CATS = [
@@ -103,16 +105,18 @@ function whenTag(t, it) {
 // ─── экран (в «Справочниках» вместо таблицы) ──────────────────────────────────────────────────────
 export function mountTexts() {
   const chips = h('div');
+  let query = '';
+  const search = searchBox({ placeholder: 'Поиск по разделу, тексту и источнику…', onSearch: (value) => { query = value; update(); } });
   const info = h('p', { class: 'hint pt-info' });
   const edit = canEditTexts();
   const addSec = h('button', { type: 'button', class: 'btn btn-primary', hidden: !edit, onclick: () => patch({ of: 'ptext', open: `${textsCat()}.s`, new: undefined }) }, '+ Раздел');
   const prev = h('button', { type: 'button', class: 'btn', title: 'Собранный текст категории — как в паспорте (переменные — метками «не заполнено»)', onclick: () => patch({ of: 'ptextview', open: `${textsCat()}.p`, new: undefined }) }, 'Предпросмотр');
   // образец паспорта (БЗ-7 шаг 2): разделы и пункты по порядку, как в PDF; клик по пункту — правка справа
-  const tree = h('div', { class: 'pt-tree pt-sheet' }, busyBlock('тексты'));
+  const tree = h('div', null, busyBlock('тексты'));
   const DICTS = [['passportElements', 'Элементы'], ['passportMaterials', 'Материалы'], ['passportDefects', 'Дефекты'], ['passportInstall', 'Способы установки'], ['passportStandards', 'Нормативы']];
   const srcBar = h('p', { class: 'hint pt-src' }, 'Нажмите на пункт — правка откроется справа. Описание, материалы, монтаж и дефекты собираются из справочников: ',
     ...DICTS.flatMap(([k, t], i) => [i ? ' · ' : '', h('a', { href: '#dicts?d=' + k }, t)]));
-  const el = h('div', { class: 'pt' }, chips, h('div', { class: 'pt-bar' }, info, h('div', { class: 'dict-tools' }, prev, addSec)),
+  const el = h('div', { class: 'pt' }, chips, search.el, h('div', { class: 'pt-bar' }, info, h('div', { class: 'dict-tools' }, prev, addSec)),
     edit ? null : h('p', { class: 'hint' }, 'Смотреть могут все; править тексты — директор и администратор.'), srcBar, tree);
 
   const open = (of, id) => patch({ of, open: id, new: undefined });
@@ -121,26 +125,14 @@ export function mountTexts() {
   }
   function renderTree(cat, t) {
     const sel = current().params.open || '';
-    info.textContent = (cat === 'ALL' ? 'Общая часть: эти разделы получают паспорта всех категорий. ' : `Серые пункты — общие (правятся в «Для всех»), остальные — только для «${catName(cat)}». `)
+    info.textContent = (cat === 'ALL' ? 'Общая часть: эти разделы получают паспорта всех категорий. ' : `Пункты с источником «Для всех» — общие (правятся в «Для всех»), остальные — только для «${catName(cat)}». `)
       + (t.source === 'db' ? `Сохранено версий: ${t.version}.` : 'Тексты из программы — после первого сохранения появится своя версия.');
     if (!t.tree.length) { tree.replaceChildren(h('div', { class: 'state' }, 'Разделов нет.')); return; }
-    tree.replaceChildren(...t.tree.map((s) => {
-      const mine = s.ownSection != null;
-      const addHint = s.ownCount < s.allCount ? `Новый пункт встанет вместо общего ${s.number}.${s.ownCount + 1}` : 'Новый пункт — в конец раздела';
-      return h('section', { class: 'pt-sec' },
-        h('div', { class: 'pt-sec-head' },
-          h('h3', null, `${s.number} ${s.title}`),
-          h('span', { class: 'pt-sec-tag' }, cat === 'ALL' ? 'общий раздел' : s.allSection == null ? 'раздел категории' : mine ? 'общий + категории' : 'общий'),
-          edit && mine ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: addHint, onclick: () => open('ptext', `${cat}.n.${s.key}`) }, '+ Пункт') : null),
-        h('ol', { class: 'pt-items' }, ...s.items.map((it) => {
-          const id = it.origin === 'all' ? `${cat}.a.${s.key}.${it.allIndex}` : `${cat}.i.${s.ownSection}.${it.ownIndex}`;
-          const of = it.origin === 'all' ? 'ptextview' : 'ptext';
-          return h('li', null, h('button', { type: 'button', class: 'pt-item' + (it.origin === 'all' ? ' all' : '') + (sel === id ? ' active' : ''), onclick: () => open(of, id) },
-            h('span', { class: 'pt-num num' }, it.number || '—'),
-            h('span', { class: 'pt-text' }, ...withVars(it.bullet ? it.text : it.text.replace(LEAD, ''))),
-            it.origin === 'all' ? h('span', { class: 'pt-tag' }, 'общий') : it.origin === 'override' ? h('span', { class: 'pt-tag own' }, 'заменяет общий') : null,
-            whenTag(t, it)));
-        })));
+    tree.replaceChildren(generalTextsTable({ cat, text: t, selected: sel, edit, open, query, reset: () => search.clear(), renderText: withVars,
+      add: (section) => open('ptext', `${cat}.n.${section.key}`),
+      conditionFor: (section, item) => item.origin === 'all'
+        ? whenAt(t.all.sections[section.allSection], item.allIndex)
+        : whenAt(t.own?.sections?.[section.ownSection], item.ownIndex),
     }));
   }
   let shown = '';
@@ -220,7 +212,7 @@ function textForm(r) {
     ta.value = ta.value.slice(0, s) + v + ta.value.slice(e);
     ta.focus(); ta.selectionStart = ta.selectionEnd = s + v.length;
   };
-  const vars = h('div', { class: 'pt-vars' }, ...VARS.map((v) => h('button', { type: 'button', class: 'tag', title: v === '{std:' ? 'Норматив по коду из справочника «Нормативы»: {std:КОД}' : 'Вставить в текст', onclick: () => insert(v) }, v === '{std:' ? '{std:КОД}' : v)));
+  const vars = h('div', { class: 'pt-vars' }, ...VARS.map((v) => h('button', { type: 'button', class: 'tag', title: 'Вставить в текст: ' + (VAR_LABELS[v] || 'значение изделия'), onclick: () => insert(v) }, VAR_LABELS[v] || 'Значение изделия')));
   const cond = whenField(r.when || '');
   let removed = false;
   const del = r.kind === 'i' ? h('button', { type: 'button', class: 'btn btn-danger btn-sm', onclick: () => removeItem(r, () => { removed = true; }) }, 'Убрать пункт') : null;
@@ -291,7 +283,7 @@ export const ptext = {
     subheading: (r) => `${catName(r.cat)}${r.secTitle ? ' · ' + r.secTitle : ''}`,
     startEdit: () => true,
     noHistory: true,
-    view: (r) => [['Текст', r.text ? h('span', { class: 'pt-plain' }, r.text) : h('span', { class: 'muted' }, 'Ещё не сохранён — «Изменить»')], ['Когда попадает в паспорт', r.kind === 's' ? null : r.when ? whenText(r.when) : 'всегда (общий пункт)'], ['Общий текст (заменяется)', r.allText]],
+    view: (r) => [['Текст', r.text ? h('span', { class: 'pt-plain' }, ...withVars(r.text)) : h('span', { class: 'muted' }, 'Ещё не сохранён — «Изменить»')], ['Когда попадает в паспорт', r.kind === 's' ? null : r.when ? whenText(r.when) : 'всегда (общий пункт)'], ['Общий текст (заменяется)', r.allText ? h('span', { class: 'pt-plain' }, ...withVars(r.allText)) : null]],
   },
   form: {
     build: (r) => textForm(r),
@@ -349,7 +341,7 @@ export const ptextview = {
     heading: (r) => (r.kind === 'p' ? 'Предпросмотр текста' : `Пункт ${r.number} · общий`),
     subheading: (r) => `${catName(r.cat)}${r.secTitle ? ' · ' + r.secTitle : ''}`,
     noHistory: true,
-    view: (r) => (r.kind === 'p' ? [] : [['Текст', h('span', { class: 'pt-plain' }, r.text)], ['Когда попадает в паспорт', r.when ? whenText(r.when) : 'всегда'], ['Где', 'Общая часть «Для всех» — правится на чипе «Для всех»']]),
+    view: (r) => (r.kind === 'p' ? [] : [['Текст', h('span', { class: 'pt-plain' }, ...withVars(r.text))], ['Когда попадает в паспорт', r.when ? whenText(r.when) : 'всегда'], ['Где', 'Общая часть «Для всех» — правится на чипе «Для всех»']]),
     actions: (r) => (r.kind !== 'a' ? [] : [
       r.canReplace && { label: 'Заменить для категории', run: () => patch({ of: 'ptext', open: `${r.cat}.n.${r.key}.copy` }) },
       // общий пункт — править прямо отсюда: переход на «Для всех» с этим же пунктом (БЗ-7 шаг 2)

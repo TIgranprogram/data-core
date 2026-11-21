@@ -1,0 +1,89 @@
+[
+  {
+    "theme": "light",
+    "width": 1024,
+    "d": "passportPhrases",
+    "rightPanel": true,
+    "errors": []
+  },
+  {
+    "theme": "light",
+    "width": 1024,
+    "d": "ptexts",
+    "rightPanel": true,
+    "errors": []
+  },
+  {
+    "theme": "light",
+    "width": 1440,
+    "d": "passportPhrases",
+    "rightPanel": true,
+    "errors": []
+  },
+  {
+    "theme": "light",
+    "width": 1440,
+    "d": "ptexts",
+    "rightPanel": true,
+    "errors": []
+  },
+  {
+    "theme": "light",
+    "width": 1920,
+    "d": "passportPhrases",
+    "rightPanel": true,
+    "errors": []
+  },
+  {
+    "theme": "light",
+    "width": 1920,
+    "d": "ptexts",
+    "rightPanel": true,
+    "errors": []
+  },
+  {
+    "theme": "dark",
+    "width": 1024,
+    "d": "passportPhrases",
+    "rightPanel": true,
+    "errors": []
+  },
+  {
+    "theme": "dark",
+    "width": 1024,
+    "d": "ptexts",
+    "rightPanel": true,
+    "errors": []
+  },
+  {
+    "theme": "dark",
+    "width": 1440,
+    "d": "passportPhrases",
+    "rightPanel": true,
+    "errors": []
+  },
+  {
+    "theme": "dark",
+    "width": 1440,
+    "d": "ptexts",
+    "rightPanel": true,
+    "errors": []
+  },
+  {
+    "theme": "dark",
+    "width": 1920,
+    "d": "passportPhrases",
+    "rightPanel": true,
+    "errors": []
+  },
+  {
+    "theme": "dark",
+    "width": 1920,
+    "d": "ptexts",
+    "rightPanel": true,
+    "errors": []
+  },
+  {
+    "allEditable": true
+  }
+]
