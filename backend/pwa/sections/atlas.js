@@ -206,7 +206,7 @@ export const atlas = {
       prev = goingBack ? null : (current && current !== id ? byId.get(current) : prev);
       current = id; map?.pin(id);
       const shipping = id === 'salesorders' && opener?.dataset?.atlasStage === 'shipping';
-      const p = entityPanel({ section: bandOf.get(n.band).name, title: shipping ? 'Отгрузка заказа' : nameOf(n), kind: 'Раздел сайта', main: detail(n, open, prev, close, { shipping }), onClose: close });
+      const p = entityPanel({ section: bandOf.get(n.band).name, title: shipping ? 'Отгрузка заказа' : nameOf(n), main: detail(n, open, prev, close, { shipping }), onClose: close });
       // .k-panel — образец для витрины (static); без него действует общий .drawer: окно справа поверх карты, ширина — --detail-w
       p.el.classList.remove('k-panel');
       p.el.style.setProperty('--detail-w', 'min(1080px, 100vw)');
@@ -221,7 +221,7 @@ export const atlas = {
       p.el.querySelector('.drawer-head button')?.focus({ preventScroll: true });
     };
     // Подробная схема рассчитана на широкое окно. На узком остаются плитки и списки.
-    const mqMap = window.matchMedia('(min-width: 1240px)'), mqWin = window.matchMedia('(min-width: 1100px)');
+    const mqMap = window.matchMedia('(min-width: 1240px)');
     const hint = h('p', { class: 'muted g-route-intro' });
     const body = h('div');
     const overview = atlasOverview(open);
@@ -244,9 +244,7 @@ export const atlas = {
     const findOpener = (id) => [...body.querySelectorAll('[data-atlas-node]')]
       .find((item) => item.dataset.atlasNode === id) || switcher.buttons[mode === 'route' ? 0 : 1];
     const onMapWidth = () => { if (mode === 'all') render(); };
-    const onPanelWidth = () => { if (current) open(current, false, returnTo); };
     mqMap.addEventListener('change', onMapWidth);
-    mqWin.addEventListener('change', onPanelWidth);
     el.classList.add('g-route-page');
     const head = headbar(h('h1', null, 'Карта сайта'), switcher.el);
     head.classList.add('page-head', 'g-route-head');
@@ -259,7 +257,6 @@ export const atlas = {
     update(params);
     const destroy = () => {
       mqMap.removeEventListener('change', onMapWidth);
-      mqWin.removeEventListener('change', onPanelWidth);
       close();
     };
     return { update, destroy };
