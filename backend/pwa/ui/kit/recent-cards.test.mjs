@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createContext, SourceTextModule, SyntheticModule } from 'node:vm';
-import { createRecentCards, recentHref, recentThumb } from '../../core/recent-cards.js';
+import { createRecentCards, recentHref, recentThumb, recentOrderNumber } from '../../core/recent-cards.js';
 
 class Element {
  constructor(tag, attrs={}, ...kids) { this.tag=tag;this.attrs=attrs||{};this.children=[];this.style={};this.classList={add(){}};this.append(...kids); }
@@ -23,7 +23,7 @@ async function fixture({section='products',open='000000000000000000000001',tab,r
  const context=createContext({localStorage:storage,String,setTimeout:()=>0,document:{body,addEventListener(){},removeEventListener(){}},window:{matchMedia:()=>({matches:true}),addEventListener(){},removeEventListener(){}}});
  const deps={
  '../../core/api.js':{session,PREFIX:'/db'}, '../../core/router.js':{current:()=>route},
- '../../core/dom.js':{h}, '../../core/recent-cards.js':{createRecentCards,recentHref,recentThumb},
+ '../../core/dom.js':{h}, '../../core/recent-cards.js':{createRecentCards,recentHref,recentThumb,recentOrderNumber},
  '../icons.js':{icon:name=>h('svg',{name})}, './mark.js':{mark:x=>x},
  './pop-menu.js':{openPopMenu:opts=>{menu=opts;},closePopMenu(){},isOpenFor:()=>false},
  };
@@ -78,13 +78,13 @@ test('миниатюра из загруженной карточки; внеш�
  lead.children[0].attrs.onerror();assert.equal(lead.children[0].tag,'svg');assert.equal(lead.children[0].attrs.name,'stock');
 });
 
-test('реальный pop-menu: вся строка ссылка, фото без вложенной кнопки; старые записи дают значок',async()=>{
+test('реальный pop-menu: вся строка ссылка, фото изделий сохранено; старый заказ показывает номер',async()=>{
  const id='000000000000000000000001',f=await fixture({realMenu:true});
  f.record('products')({id,photos:[{thumb:'/uploads/own.webp'}]},'Длинное название '.repeat(30),'Изделие');
  createRecentCards(f.storage,'dc-recent-cards:/db:a').remember({section:'salesorders',of:'salesorders',id:'36-26',title:'Заказ 36-26'});
  f.button(()=>true).attrs.onclick();
  const links=f.body.all(x=>x.tag==='a');assert.equal(links.length,2);
- assert.equal(links[0].all(x=>x.tag==='svg')[0].attrs.name,'orders');
+ assert.equal(links[0].all(x=>x.attrs.class==='pm-order-number')[0].textContent,'36');
  assert.equal(links[1].all(x=>x.tag==='img').length,1);assert.equal(links[1].all(x=>x.tag==='button').length,0);
  assert.match(links[1].attrs.href,/#products\?open=/);
  links[1].attrs.onclick();assert.equal(f.body.all(x=>x.attrs.role==='menu').length,0);
@@ -118,3 +118,24 @@ test('Паспорта заказа отделены от изделий, фин
  f.button(()=>true).attrs.onclick();assert.deepEqual(Array.from(f.menu.groups.filter(g=>g&&!g.sep),g=>g.title),['Заказы','Изделия','Паспорта','Позиции заказов']);
  assert.match(f.menu.groups[2].items[0].href,/#docs\?open=.*&of=orderpass/);
 });
+
+
+test('Заказ и Паспорта заказа показывают номер, договор отдельно, фото изделий и паспортов сохранены',async()=>{
+ const f=await fixture();const cache=createRecentCards(f.storage,'dc-recent-cards:/db:a');
+ for(const[of,kind,title,productionNo]of[['salesorders','Заказ','Заказ № 20-26','20-26'],['orderpass','Паспорта','Паспорта заказа · № 12-26','12-26'],['salesorder','Договор','Договор №63',undefined],['products','Изделие','Урна',undefined],['passports','Паспорт','Паспорт №618',undefined]]){
+  cache.remember({section:of==='orderpass'?'docs':of,of,id:of==='salesorders'?'20-26':'000000000000000000000001',title,kind,productionNo,thumb:'/uploads/own.png'});
+ }
+ f.button(()=>true).attrs.onclick();const groups=f.menu.groups.filter(g=>g&&!g.sep);
+ const order=groups.find(g=>g.title==='Заказы').items[0];assert.equal(order.lead.textContent,'20');assert.equal(order.lead.all(e=>e.tag==='img').length,0);assert.match(order.href,/20-26/);
+ const docs=groups.find(g=>g.title==='Паспорта').items;assert.equal(docs.find(e=>e.href.includes('of=orderpass')).lead.textContent,'12');assert.equal(docs.find(e=>e.href.includes('of=passports')).lead.all(e=>e.tag==='img').length,1);
+ assert.equal(groups.find(g=>g.title==='Изделия').items[0].lead.all(e=>e.tag==='img').length,1);
+ assert.equal(groups.find(g=>g.title==='Договоры с заказчиками').items[0].lead.all(e=>e.tag==='img').length,1);
+});
+
+test('recorder сохраняет явный productionNo и orderNo для нового orderpass',async()=>{
+ const f=await fixture({section:'salesorders',open:'39-26'});
+ f.record('salesorders')({id:'39-26',productionNo:'39-26'},'Заказ №39-26','Заказ');assert.equal(f.entries()[0].productionNo,'39-26');
+ f.route({section:'docs',params:{of:'orderpass',open:'000000000000000000000001'}});
+ f.record('orderpass')({id:'000000000000000000000001',orderNo:'20-26'},'Паспорта заказа · №20-26','Паспорта');assert.equal(f.entries()[0].productionNo,'20-26');
+});
+

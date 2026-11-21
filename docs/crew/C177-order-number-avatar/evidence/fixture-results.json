@@ -1,0 +1,34 @@
+[
+  {
+    "theme": "light",
+    "numbers": [
+      "39",
+      "36",
+      "12",
+      "20",
+      "39",
+      "36",
+      "12",
+      "20"
+    ],
+    "photos": 12,
+    "contractGroup": true,
+    "errors": []
+  },
+  {
+    "theme": "dark",
+    "numbers": [
+      "39",
+      "36",
+      "12",
+      "20",
+      "39",
+      "36",
+      "12",
+      "20"
+    ],
+    "photos": 12,
+    "contractGroup": true,
+    "errors": []
+  }
+]

@@ -21,6 +21,7 @@
  *   chipsTop?: true — с sidebar чипы-фильтры не в панели, а строкой над таблицей (СКФ.2: «Состояние» сверху, слева — только «что ищем»),
  *   sidebar?: true — левая панель (280 px, всегда открыта): поиск, tiles, фильтры chips/select/date, toolbarExtra, «Сбросить всё»; на телефоне — лист по кнопке «Фильтры · N» (NAV F1),
  *   defaults?: { status: 'requested' } — фильтры при входе в раздел без параметров в адресе (попадают в адрес; чип «Все» снимает),
+ *   defaultView?(params) → 'table'|'gallery'|'board'|'gantt' — вид для контекстной ссылки без явного view; не меняет сохранённое предпочтение,
  *   quick?: { placeholder, fields, create(values) } — быстрое добавление одной строкой (ui/quick.js),
  *   hints?: { [значение фильтра status]: 'что делать с этими записями' } — подсказка под вкладками,
  *   rowAction?(row) → { label, title, run(row) } | null — кнопка следующего шага в строке (как на «Сегодня»),
@@ -38,7 +39,9 @@ export function viewStore(L, getP) {
   const savedView = () => { const k = vKey(); if (!k) return ''; try { return localStorage.getItem(k) || ''; } catch { return ''; } };
   const saveView = (v) => { const k = vKey(); if (!k) return; try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch { /* */ } };
   const st = () => {
-    const P = getP();
+    const params = getP();
+    const defaultView = !params.view && L.defaultView?.(params);
+    const P = defaultView ? { ...params, view: defaultView } : params;
     const sv = !P.view ? savedView() : '';
     return {
       limit: Number(P.limit) || L.limit || 25,

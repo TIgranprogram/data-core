@@ -1,0 +1,48 @@
+{
+  "status": "PASS",
+  "scope": "real stand app; seeded local recent cache; photos are GET fixture SVG",
+  "blocked": [],
+  "pageErrors": [],
+  "themes": [
+    {
+      "theme": "light",
+      "numbers": [
+        "39",
+        "36",
+        "12",
+        "20",
+        "12",
+        "20"
+      ],
+      "groups": [
+        "Заказы",
+        "Изделия",
+        "Паспорта",
+        "Договоры с заказчиками"
+      ],
+      "preservedFixturePhotos": 3,
+      "legacyPreserved": true,
+      "fullOrderLink": true
+    },
+    {
+      "theme": "dark",
+      "numbers": [
+        "39",
+        "36",
+        "12",
+        "20",
+        "12",
+        "20"
+      ],
+      "groups": [
+        "Заказы",
+        "Изделия",
+        "Паспорта",
+        "Договоры с заказчиками"
+      ],
+      "preservedFixturePhotos": 3,
+      "legacyPreserved": true,
+      "fullOrderLink": true
+    }
+  ]
+}

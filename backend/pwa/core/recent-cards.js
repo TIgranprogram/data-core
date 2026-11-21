@@ -1,6 +1,18 @@
 /** Последние просмотренные карточки: только локальные адреса, отдельный ключ каждого пользователя. */
 const word = (v) => typeof v === 'string' && /^[a-z][a-z0-9-]{0,63}$/i.test(v) ? v : '';
 const label = (v) => typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, 240) : '';
+/** Только канонический короткий производственный номер; не ID и не число из имени заказчика. */
+const productionNo = (value) => {
+  if (typeof value !== 'string' || value.length > 32) return '';
+  const m = value.trim().match(/^(?:№\s*)?(\d{1,4})(?:\s*([-\/])\s*(\d{2}|\d{4})(-[a-zа-яё\d]{1,8})?)?$/iu);
+  return m ? m[1] + (m[2] ? m[2] + m[3] + (m[4] || '') : '') : '';
+};
+export function recentOrderNumber(entry) {
+  if (!['salesorders', 'orderpass'].includes(entry?.of)) return '';
+  const title = label(entry.title).match(/^(?:(?:Заказ|Паспорта\s+заказа|Паспорта|заказа)\s*[·:]?\s*)?(?:№\s*)?(\d{1,4}\s*[-\/]\s*\d{2,4}(?:-[a-zа-яё\d]{1,8})?)(?=\s*(?:[·:—–]|$))/iu);
+  const value = productionNo(entry.productionNo) || (entry.of === 'salesorders' ? productionNo(entry.id) : '') || productionNo(title?.[1]);
+  return value.match(/^\d{1,4}/)?.[0] || '—';
+}
 /** Текстовый ключ допустим только у производственного заказа; он всегда кодируется URLSearchParams. */
 const recordId = (v, of) => typeof v === 'string' && (/^[a-f0-9]{24}$/i.test(v) ||
   (of === 'salesorders' && v.trim() && v.length <= 160 && !/[\u0000-\u001f\u007f\\]/.test(v) && !v.includes('://'))) ? v : '';
@@ -16,7 +28,8 @@ export function recentEntry(v) {
   const title = label(v.title);
   if (!title) return null;
   return { section: word(v.section), of: word(v.of), id: v.id, title, kind: label(v.kind), ...(recentThumb(v.thumb) ? { thumb: recentThumb(v.thumb) } : {}),
-    ...(word(v.tab) ? { tab: word(v.tab) } : {}), ...(word(v.d) ? { d: word(v.d) } : {}) };
+    ...(word(v.tab) ? { tab: word(v.tab) } : {}), ...(word(v.d) ? { d: word(v.d) } : {}),
+    ...(['salesorders', 'orderpass'].includes(v.of) && productionNo(v.productionNo) ? { productionNo: productionNo(v.productionNo) } : {}) };
 }
 const same = (a, b) => a.of === b.of && a.id === b.id && a.d === b.d;
 export function recentHref(entry) {

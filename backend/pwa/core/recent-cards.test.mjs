@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createRecentCards, recentHref, recentEntry, recentThumb } from './recent-cards.js';
+import { createRecentCards, recentHref, recentEntry, recentThumb, recentOrderNumber } from './recent-cards.js';
 const memory = () => { const m = new Map(); return { getItem: k => m.get(k), setItem: (k,v) => m.set(k,v), removeItem: k => m.delete(k) }; };
 const entry = n => ({section:'products',of:'products',id:n.toString(16).padStart(24,'0'),title:`Изделие ${n}`});
 test('История сохраняется, ограничена 20 и повторный просмотр переносит карточку вверх', () => {
@@ -45,4 +45,25 @@ test('история хранит только безопасный локаль
  const a=createRecentCards(memory(),'photo'); a.remember(entry(1));a.remember({...entry(2),thumb:'/uploads/a.png'});a.remember({...entry(3),thumb:'https://evil.test/a.png'});
  assert.equal(a.list().length,3);assert.equal(a.list()[0].thumb,undefined);assert.equal(a.list()[1].thumb,'/uploads/a.png');
  assert.equal(recentEntry(entry(1)).title,'Изделие 1');
+});
+
+
+test('первый номер только из производственного номера, канонического ключа или строгого заголовка',()=>{
+ for(const n of ['20','12','36','39']){
+  assert.equal(recentOrderNumber({of:'salesorders',productionNo:n+'-26',id:'a'.repeat(24),title:'Заказ'}),n);
+  assert.equal(recentOrderNumber({of:'salesorders',id:n+'-26',title:'Заказ'}),n);
+  assert.equal(recentOrderNumber({of:'salesorders',id:'a'.repeat(24),title:'Заказ № '+n+'-26 · Школа № 99'}),n);
+ }
+ assert.equal(recentOrderNumber({of:'orderpass',productionNo:'20-26',id:'a'.repeat(24),title:'Паспорта заказа'}),'20');
+ assert.equal(recentOrderNumber({of:'orderpass',id:'a'.repeat(24),title:'Паспорта заказа · № 20-26 · Школа'}),'20');
+ for(const id of ['a'.repeat(24),'123456789012345678901234','2026112112345678',undefined])assert.equal(recentOrderNumber({of:'salesorders',id,title:'Администрация школы № 20'}),'—');
+ assert.equal(recentOrderNumber({of:'salesorder',productionNo:'63-26',title:'Договор №63'}),'');
+});
+
+test('необязательный productionNo нормализован, legacy cache и полные ссылки не меняются',()=>{
+ const value={section:'salesorders',of:'salesorders',id:'20-26',title:'Заказ № 20-26',productionNo:' № 20 / 26 '};
+ assert.equal(recentEntry(value).productionNo,'20/26');
+ assert.equal(recentEntry({...value,productionNo:'f'.repeat(24)}).productionNo,undefined);
+ const store=createRecentCards(memory(),'orders');store.remember({...value,productionNo:undefined});assert.equal(recentOrderNumber(store.list()[0]),'20');
+ store.remember(value);assert.equal(store.list().length,1);assert.equal(recentHref(store.list()[0]),'#salesorders?open=20-26&of=salesorders');
 });

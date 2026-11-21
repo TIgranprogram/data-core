@@ -915,6 +915,7 @@ table.cal.k-tree tr.k-tree-ins > td { padding: 0; white-space: normal; text-alig
 .pm-recent .pm-item { align-items: center; gap: var(--s3); margin-block-end: var(--s2); padding: var(--s2); border: 1px solid var(--border); border-inline-start: 6px solid var(--rc, var(--border)); border-radius: var(--radius-sm); background: var(--surface); }
 .pm-recent .pm-group.sep .pm-item { border: 0; background: none; margin: 0; }
 .pm-recent .pm-thumb { inline-size: 56px; block-size: 56px; border: 1px solid var(--border); }
+.pm-recent .pm-order-number { color: var(--heading); font-size: var(--fs-h1); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
 .pm-recent .pm-thumb:has(img) { background: var(--paper); } /* фото — на белом, значок без фото — на подложке темы */
 .pm-rc { display: grid; gap: var(--s1); min-width: 0; }
 .pm-rc-kind { color: var(--rc, var(--muted)); font-size: var(--fs-sm); font-weight: 600; }

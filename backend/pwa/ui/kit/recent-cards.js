@@ -1,7 +1,7 @@
 import { session, PREFIX } from '../../core/api.js';
 import { current } from '../../core/router.js';
 import { h } from '../../core/dom.js';
-import { createRecentCards, recentHref, recentThumb } from '../../core/recent-cards.js';
+import { createRecentCards, recentHref, recentThumb, recentOrderNumber } from '../../core/recent-cards.js';
 import { icon } from '../icons.js';
 import { openPopMenu, closePopMenu, isOpenFor } from './pop-menu.js';
 
@@ -24,13 +24,18 @@ export function recentRecorder(of) {
     const customer = of === 'salesorders' ? (Array.isArray(row.customers) ? row.customers.filter((v) => typeof v === 'string').join(', ') : typeof row.customer === 'string' ? row.customer : '') : '';
     const photos = [row.photo, ...list(row.photos), { thumb: row.photoThumb }, ...list(row.lines).map((l) => l.photo), ...list(row.orders).flatMap((o) => list(o.lines).map((l) => l.photo))];
     const thumb = photos.flatMap((p) => [p?.thumb, p?.url]).map(recentThumb).find(Boolean);
-    store()?.remember({ section, of, id, title: [title, customer].filter(Boolean).join(' · '), kind, thumb, tab: params.tab, d: params.d });
+    const productionNo = of === 'salesorders' ? row.productionNo || row.key : of === 'orderpass' ? row.productionNo || row.orderNo : undefined;
+    store()?.remember({ section, of, id, title: [title, customer].filter(Boolean).join(' · '), kind, thumb, productionNo, tab: params.tab, d: params.d });
   };
 }
 /** Миниатюра — декоративный узел внутри одной ссылки; сбой загрузки возвращает значок сущности. */
 function thumbnail(entry) {
   const fallback = () => icon(({ salesorders: 'orders', salesorder: 'orders', orders: 'orders', products: 'stock', stock: 'stock', requests: 'requests', partners: 'partners', dict: 'dicts' })[entry.of] || 'history');
   const box = h('span', { class: 'pm-thumb', 'aria-hidden': 'true' });
+  if (entry.of === 'salesorders' || entry.of === 'orderpass') {
+    box.append(h('b', { class: 'pm-order-number' }, recentOrderNumber(entry)));
+    return box;
+  }
   const src = recentThumb(entry.thumb);
   box.append(src ? h('img', { src: src.startsWith('/db/') ? src : PREFIX + src, alt: '', loading: 'lazy', decoding: 'async',
     onerror: () => box.replaceChildren(fallback()) }) : fallback());
@@ -49,13 +54,13 @@ function entryLabel(e) {
   return h('span', { class: 'pm-rc' }, kind ? h('small', { class: 'pm-rc-kind' }, kind) : null, h('span', { class: 'pm-rc-title', title }, title));
 }
 /** Тип сущности задаёт отдельную подписанную группу; порядок карточек остаётся по давности. */
-const TYPE_LABELS = { salesorders: 'Заказы', salesorder: 'Заказы', products: 'Изделия', passports: 'Паспорта',
+const TYPE_LABELS = { salesorders: 'Заказы', salesorder: 'Договоры с заказчиками', products: 'Изделия', passports: 'Паспорта',
   requests: 'Заявки', partners: 'Контрагенты', stock: 'Склад', orders: 'Позиции заказов', offers: 'Коммерческие предложения',
   contracts: 'Договоры', expenses: 'Расходы', money: 'Деньги', work: 'Работы', designtasks: 'Проектирование', docs: 'Документы' };
 function recentGroups(entries) {
   const groups = new Map();
   for (const e of entries) {
-    const key = ({ salesorder: 'salesorders', orderpass: 'passports' })[e.of] || e.of;
+    const key = ({ orderpass: 'passports' })[e.of] || e.of;
     if (!groups.has(key)) groups.set(key, { title: TYPE_LABELS[key] || e.kind || key, items: [] });
     groups.get(key).items.push({ label: entryLabel(e), lead: thumbnail(e), href: recentHref(e), cls: areaOf(e) ? 'rc-' + areaOf(e) : '' });
   }
