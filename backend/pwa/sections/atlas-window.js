@@ -106,7 +106,7 @@ function scenarioNode(sc) {
   return (NODES.find((m) => !m.plan && baseHref(hrefOf(m)) === baseHref(sc.href)) || NODES.find((m) => m.sec === sc.sec))?.id;
 }
 
-export function detail(n, open, back, close) {
+export function detail(n, open, back, close, { shipping = false } = {}) {
   const sec = n.sec ? SECTIONS[n.sec] : null, href = hrefOf(n);
   const what = sec?.what || n.l.join(' ');
   const go = n.plan ? h('span', { class: 'muted small' }, n.plan === 'идея' ? 'На сайте нет — это идея' : 'На сайте пока нет — в разработке')
@@ -122,11 +122,12 @@ export function detail(n, open, back, close) {
   const ins = LINKS.filter(([, b]) => b === n.id).length, outs = LINKS.filter(([a]) => a === n.id).length;
   return [
     nav,
+    shipping ? guide.note({ label: 'Где отгрузить', text: 'Заказы → нужный заказ → «Отгрузить…».' }) : null,
     n.plan ? guide.note(n.plan === 'идея'
       ? { label: 'Идея', text: 'Раздела нет и в очереди задач его нет. Это предложение — скажите, брать ли его в работу. Ниже — как он мог бы выглядеть.', tone: 'warn' }
       : { label: 'В разработке', text: 'Раздела пока нет на сайте. Ниже — как он задуман.', tone: 'warn' }) : null,
     h('p', null, what),
-    h('p', { class: 'muted small' }, `${n.seq ? 'Шаги идут сверху вниз по порядку. ' : ''}Слева — что приходит (${ins}) и в какой шаг, справа — что уходит (${outs}) и откуда. Нажмите соседний блок — окно перейдёт к нему.`),
+    h('p', { class: 'muted small' }, `${n.seq ? 'Шаги идут сверху вниз по порядку. ' : ''}Входящие связи (${ins}) показывают, что нужно для работы. Исходящие (${outs}) показывают, куда передаётся результат. Нажмите соседний блок, чтобы открыть его.`),
     window.matchMedia('(min-width: 1100px)').matches ? inner(n, open) : innerList(n, open),
     // «Я хочу…» — частые задачи этого раздела (бывший общий блок «С чего начать?», 2026-11-12)
     wants.length ? h('section', null, h('h3', null, 'Частые задачи'), h('div', { class: 'g-wants' }, ...wants.map((sc) => guide.want({ tok: sc.tok, want: sc.want, menu: sc.menu, href: sc.href, start: sc.start })))) : null,

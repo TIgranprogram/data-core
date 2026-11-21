@@ -1,12 +1,13 @@
-// «Карта сайта» (#atlas, кнопка «?» в шапке): весь сайт одной схемой сверху вниз — от заказчика до денег.
+// «Карта сайта» (#atlas, кнопка «?» в шапке): путь заказа и подробная схема всех связей.
 // Нажатие на блок не уводит со страницы: справа открывается окно «что внутри» — части раздела, откуда приходят
 // сведения, куда уходят, что учитывать при изменении, шаги и где описано (для ИИ). Данные — atlas-data.js.
 // Бывшая «Работа с сайтом» (#help) влита сюда; #help открывает эту же карту. Окно блока — atlas-window.js, помощники — atlas-util.js, сводка для ИИ — atlas-brief.js.
 import { h } from '../core/dom.js';
-import { entityPanel, card, tileGrid } from '../ui/kit/index.js';
+import { entityPanel, card, headbar, segmented, tileGrid } from '../ui/kit/index.js';
 import { BANDS, NODES, LINKS } from './atlas-data.js';
 import { s, byId, bandOf, tone, nameOf, fit, wrap, roundPath, planLabel } from './atlas-util.js';
 import { detail } from './atlas-window.js';
+import { atlasOverview } from './atlas-overview.js';
 
 // ---------- общая схема: слой = полоса, блок = раздел ----------
 const W = 1230, LBL = 150, COL0 = 180, COLW = 262, NW = 222, NH = 92, BAND_H = 168, TOP = 36;
@@ -128,7 +129,7 @@ function bigMap(open) {
     const desc = s('g', {}, ...n.l.map((t, i) => s('text', { x: g0.x + 12, y: g0.y + 47 + i * 17, fill: 'var(--muted)', 'font-size': 13 }, t)));
     const rel = [0, 1].map((i) => s('text', { x: g0.x + 12, y: g0.y + 47 + i * 17, fill: 'var(--heading)', 'font-size': 13, 'font-weight': 600 }));
     const plan = n.plan;
-    const g = s('g', { tabindex: 0, role: 'button', cursor: 'pointer', 'aria-label': `${nameOf(n)}${plan ? ' (в разработке)' : ''}: открыть, что внутри` },
+    const g = s('g', { tabindex: 0, role: 'button', cursor: 'pointer', 'data-atlas-node': n.id, 'aria-label': `${nameOf(n)}${plan ? ' (в разработке)' : ''}: открыть, что внутри` },
       s('rect', { x: g0.x, y: g0.y, width: g0.w, height: g0.h, rx: 10, fill: plan ? 'var(--surface-2)' : n.big ? 'var(--primary-soft)' : `var(--sec-${tok}-soft)`,
         stroke: plan ? 'var(--muted)' : n.big ? 'var(--primary)' : `var(--sec-${tok})`, 'stroke-width': n.big ? 2.6 : 1.4, 'stroke-dasharray': plan ? '6 4' : null, 'fill-opacity': plan ? '.6' : null, 'stroke-opacity': plan ? '.7' : null }),
       s('text', { x: g0.x + 12, y: g0.y + 25, fill: 'var(--heading)', 'font-size': n.big ? 17 : 15, 'font-weight': 700 }, n.t),
@@ -137,8 +138,8 @@ function bigMap(open) {
         : parts ? s('text', { x: g0.x + g0.w - 10, y: g0.y + g0.h - 9, 'text-anchor': 'end', fill: n.big ? 'var(--primary)' : `var(--sec-${tok})`, 'font-size': 12, 'font-weight': 700 }, `внутри: ${parts} ›`) : null);
     g.addEventListener('mouseenter', () => light(n.id)); g.addEventListener('mouseleave', () => light(null));
     g.addEventListener('focus', () => light(n.id)); g.addEventListener('blur', () => light(null));
-    g.addEventListener('click', () => open(n.id));
-    g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(n.id); } });
+    g.addEventListener('click', () => open(n.id, false, g));
+    g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(n.id, false, g); } });
     boxes.set(n.id, { g, desc, rel }); svg.append(g);
   }
   const pin = (id) => { pinned = id; light(null); };
@@ -175,33 +176,42 @@ function legend() {
 
 // ---------- телефон и узкий экран: те же блоки плитками по слоям ----------
 function narrowList(open) {
+  const tile = (n) => {
+    const meta = (n.plan ? (n.plan === 'идея' ? 'Идея. ' : 'В разработке. ') : '') + n.l.join(' ');
+    const trigger = card({ size: 'S', title: nameOf(n), meta, onClick: (e) => open(n.id, false, e.currentTarget) });
+    trigger.dataset.atlasNode = n.id;
+    return trigger;
+  };
   return h('div', null, ...BANDS.map((b) => h('section', null, h('h2', null, b.name),
-    tileGrid(...NODES.filter((n) => n.band === b.id).map((n) => card({ size: 'S', title: nameOf(n), meta: (n.plan ? (n.plan === 'идея' ? 'Идея. ' : 'В разработке. ') : '') + n.l.join(' '), onClick: () => open(n.id) }))))));
+    tileGrid(...NODES.filter((n) => n.band === b.id).map(tile)))));
 }
 
 export const atlas = {
   id: 'atlas',
   title: 'Карта сайта',
   mount(el, { params } = {}) {
-    let panelEl = null, backEl = null, current = null, prev = null, map = null, returnTo = null;
+    let panelEl = null, current = null, prev = null, map = null, returnTo = null, mode = 'route';
     const close = () => {
-      panelEl?.remove(); panelEl = backEl = null; document.removeEventListener('mousedown', onOutside, true); current = prev = null;
+      panelEl?.remove(); panelEl = null; document.removeEventListener('mousedown', onOutside, true); current = prev = null;
       document.removeEventListener('keydown', onKey, true); map?.pin(null);
-      if (returnTo?.isConnected) returnTo.focus(); returnTo = null;
+      if (returnTo) (returnTo.isConnected ? returnTo : findOpener(returnTo.dataset.atlasNode)).focus();
+      returnTo = null;
     };
     const onKey = (e) => { if (e.key === 'Escape') close(); };
-    const onOutside = (e) => { if (panelEl && !panelEl.contains(e.target) && !e.target.closest?.('[role="button"]')) close(); };
-    const open = (id, goingBack = false) => {
+    const onOutside = (e) => {
+      if (!panelEl.contains(e.target) && !e.target.closest?.('[role="button"], [data-atlas-node]')) close();
+    };
+    const open = (id, goingBack = false, opener = document.activeElement) => {
       const n = byId.get(id); if (!n) return;
       prev = goingBack ? null : (current && current !== id ? byId.get(current) : prev);
       current = id; map?.pin(id);
-      const p = entityPanel({ section: bandOf.get(n.band).name, title: nameOf(n), kind: 'Раздел сайта', main: detail(n, open, prev, close), onClose: close });
+      const shipping = id === 'salesorders' && opener?.dataset?.atlasStage === 'shipping';
+      const p = entityPanel({ section: bandOf.get(n.band).name, title: shipping ? 'Отгрузка заказа' : nameOf(n), kind: 'Раздел сайта', main: detail(n, open, prev, close, { shipping }), onClose: close });
       // .k-panel — образец для витрины (static); без него действует общий .drawer: окно справа поверх карты, ширина — --detail-w
       p.el.classList.remove('k-panel');
       p.el.style.setProperty('--detail-w', 'min(1080px, 100vw)');
-      if (!backEl) {
-        returnTo = document.activeElement;
-        backEl = true; // нажатие мимо окна закрывает его (как у правой панели)
+      if (!panelEl) {
+        returnTo = opener;
         document.addEventListener('keydown', onKey, true);
         document.addEventListener('mousedown', onOutside, true);
       }
@@ -210,27 +220,48 @@ export const atlas = {
       p.el.querySelector('.drawer-body')?.scrollTo(0, 0);
       p.el.querySelector('.drawer-head button')?.focus({ preventScroll: true });
     };
-    window.addEventListener('hashchange', close, { once: true });
-
-    // схема рассчитана на 1200: уже — шрифт меньше 12 px, поэтому плитки. Ширина окна меняется — вид перестраивается (замечание C097 GPT)
+    // Подробная схема рассчитана на широкое окно. На узком остаются плитки и списки.
     const mqMap = window.matchMedia('(min-width: 1240px)'), mqWin = window.matchMedia('(min-width: 1100px)');
-    const head = h('div', { class: 'page-head' }, h('h1', null, 'Карта сайта'),
-      h('span', { class: 'muted small' }, 'Как устроен сайт сверху вниз: от заказчика до денег. Нажмите блок — справа откроется, что внутри и с чем он связан.'));
+    const hint = h('p', { class: 'muted g-route-intro' });
     const body = h('div');
-    // «С чего начать?» и «Всегда под рукой» убраны (просьба 2026-11-12: «на карте — только карта»):
-    // карточки «Я хочу…» — в окне своего раздела, общие инструменты и так в меню
+    const overview = atlasOverview(open);
     const render = () => {
-      const wide = mqMap.matches;
+      const wide = mode === 'all' && mqMap.matches;
       map = wide ? bigMap(open) : null;
-      body.replaceChildren(...[wide ? legend() : null, wide ? map.svg : narrowList(open)].filter(Boolean));
-      if (current) { const keep = current; current = null; open(keep, true); }
+      map?.pin(current);
+      hint.textContent = mode === 'route'
+        ? 'От запроса клиента до расчётов. Нажмите на этап, чтобы увидеть его шаги.'
+        : 'Выберите раздел, чтобы увидеть его шаги и связи с другими разделами.';
+      if (mode === 'route') body.replaceChildren(overview);
+      else if (wide) body.replaceChildren(legend(), map.svg);
+      else body.replaceChildren(narrowList(open));
     };
-    const onWidth = () => render();
-    mqMap.addEventListener('change', onWidth); mqWin.addEventListener('change', onWidth);
-    el.append(head, body);
+    const switcher = segmented({
+      label: 'Вид карты сайта', fit: true, value: mode,
+      items: [{ key: 'route', label: 'Путь заказа' }, { key: 'all', label: 'Все связи' }],
+      onChange: (next) => { if (next !== mode) { close(); mode = next; render(); } },
+    });
+    const findOpener = (id) => [...body.querySelectorAll('[data-atlas-node]')]
+      .find((item) => item.dataset.atlasNode === id) || switcher.buttons[mode === 'route' ? 0 : 1];
+    const onMapWidth = () => { if (mode === 'all') render(); };
+    const onPanelWidth = () => { if (current) open(current, false, returnTo); };
+    mqMap.addEventListener('change', onMapWidth);
+    mqWin.addEventListener('change', onPanelWidth);
+    el.classList.add('g-route-page');
+    const head = headbar(h('h1', null, 'Карта сайта'), switcher.el);
+    head.classList.add('page-head', 'g-route-head');
+    el.append(head, hint, body);
     render();
-    if (params?.n && byId.has(params.n)) open(params.n);
-    const destroy = () => { mqMap.removeEventListener('change', onWidth); mqWin.removeEventListener('change', onWidth); close(); };
-    return { destroy };
+    const update = ({ n } = {}) => {
+      if (byId.has(n)) { if (n !== current) open(n, true, findOpener(n)); }
+      else if (current) close();
+    };
+    update(params);
+    const destroy = () => {
+      mqMap.removeEventListener('change', onMapWidth);
+      mqWin.removeEventListener('change', onPanelWidth);
+      close();
+    };
+    return { update, destroy };
   },
 };
