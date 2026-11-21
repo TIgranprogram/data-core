@@ -1,0 +1,141 @@
+{
+  "capturedAt": "2026-11-21T11:56:29.1100419Z",
+  "health": {
+    "status": "ok",
+    "info": {
+      "mongo": {
+        "status": "up"
+      }
+    },
+    "error": {},
+    "details": {
+      "mongo": {
+        "status": "up"
+      }
+    }
+  },
+  "version": {
+    "v": "6d347af4",
+    "n": 979,
+    "b": "6d347af4",
+    "date": "2026-11-21T14:25:22+03:00"
+  },
+  "expectedBuild": "ba40418f",
+  "versionMatches": true,
+  "static": [
+    {
+      "actualGitBlob": "1ff3385cfa0d0a3709a203acb06ad9d6dc78913e",
+      "path": "backend/pwa/ilogic/passport-images.iLogicVb",
+      "expectedGitBlob": "1ff3385cfa0d0a3709a203acb06ad9d6dc78913e",
+      "match": true
+    },
+    {
+      "actualGitBlob": "739461a4e228ed15e71cb5a8d376e75d2cb4eae4",
+      "path": "backend/pwa/ui/kit/recent-cards.js",
+      "expectedGitBlob": "739461a4e228ed15e71cb5a8d376e75d2cb4eae4",
+      "match": true
+    },
+    {
+      "actualGitBlob": "6392682e3d87e67fe78a354f796dd716a21d02c0",
+      "path": "backend/pwa/ui/kit/pop-menu.js",
+      "expectedGitBlob": "6392682e3d87e67fe78a354f796dd716a21d02c0",
+      "match": true
+    },
+    {
+      "actualGitBlob": "48cf2992e094801b8fdb4235a0d36fa3589af691",
+      "path": "backend/pwa/ui/kit/kit.css",
+      "expectedGitBlob": "48cf2992e094801b8fdb4235a0d36fa3589af691",
+      "match": true
+    }
+  ],
+  "openapi": {
+    "responseFields": [
+      "status",
+      "updatedKinds",
+      "confirmedFields",
+      "issued",
+      "drafts",
+      "skipped",
+      "warnings"
+    ],
+    "importFields": [
+      "contextToken",
+      "images",
+      "confirmed"
+    ],
+    "paths": 540
+  },
+  "context": {
+    "received": true
+  },
+  "passport618": {
+    "unchanged": true,
+    "current": {
+      "id": "6b01677f11ba790ea085433a",
+      "number": 618,
+      "productId": "6ae58b71ef6c7562ae8d2d82",
+      "status": "issued",
+      "revision": 1,
+      "images": [
+        {
+          "order": 0,
+          "kind": "overview",
+          "photoId": "6b01661211ba790ea0853ff0"
+        },
+        {
+          "order": 0,
+          "kind": "dimensions",
+          "photoId": "6b01661411ba790ea0853ffa"
+        },
+        {
+          "order": 0,
+          "kind": "foundation",
+          "photoId": "6b01661611ba790ea0854004"
+        }
+      ],
+      "numbers": {
+        "length": 335,
+        "width": 335,
+        "height": 711,
+        "foundationDepth": 10,
+        "weight": 19.5
+      }
+    }
+  },
+  "backendHealth": {
+    "status": "ok",
+    "info": {
+      "mongo": {
+        "status": "up"
+      },
+      "memory": {
+        "status": "up"
+      },
+      "disk": {
+        "status": "up"
+      },
+      "backup": {
+        "status": "up",
+        "last": "2026-11-21T11:38:43",
+        "ageHours": 0
+      }
+    },
+    "error": {},
+    "details": {
+      "mongo": {
+        "status": "up"
+      },
+      "memory": {
+        "status": "up"
+      },
+      "disk": {
+        "status": "up"
+      },
+      "backup": {
+        "status": "up",
+        "last": "2026-11-21T11:38:43",
+        "ageHours": 0
+      }
+    }
+  }
+}
