@@ -16,6 +16,8 @@
 
 ## Текущий выпуск
 
+**21.11.2026: C175–181 выпущены v1.984, sourcea96e708d, тег release-v1.984-a96e708d. Штатныеворота/backup/health/app/admin/CRM200/smoke7/7 PASS;3914unit/777e2e/498nodePWA/365guards. Независимые4SHA/46справочников/1038/OpenAPI PASS. Узкий backendпатч a6a6ef11 выпущенexit0;UIa96e708dпрежний. Все7TRN20-26issued/ready,буклетыА4QA PASS. Владелецостановилновыеизменения,режимТОЛЬКОПРОВЕРКА. Полныйархив/C173открыты.**
+
 **21.11.2026: C172+C174 выпущены v1.979, source ba40418f, UI6d347af4, тег release-v1.979-ba40418f. Backup/health/app/admin/CRM200, smoke7/7 PASS; unit3889/e2e757 PASS,12opt-inSKIP. Независимая проверка — crew/C172-inventor-image-flow/POST-RELEASE.md. C173/реальный Inventor/полный архив остаются открыты.**
 
 **20.11, C169 — текущий backend8d68df6c/sourceed01b939:** тег release-v1.977-ed01b939, UI v1.977/37cf0b9f сохранён. Ворота/backup/health/app/admin/CRM200/smoke7/7 и независимые GET PASS;5служебныхиндексовready. Unit3866/e2e735 (12opt-in SKIP), пульт83/engine23, UI/архитектор и настоящий broker/auth-refresh/API PASS. Данные118/45/1 и расписание03:30МСК/rev3/codeoff сохранены. Код пульта0387ccc2 в Git; новая изолированная копия18.11 доступна localhost:3102/app/. [C169 post-release](crew/C169-local-document-intake/POST-RELEASE.md).

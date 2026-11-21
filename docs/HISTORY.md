@@ -92,3 +92,7 @@
 - 21.11.2026: C172+C174 выпущены v1.979, source ba40418f, UI6d347af4, тег release-v1.979-ba40418f. Backup/health/app/admin/CRM200, smoke7/7 PASS; unit3889/e2e757 PASS,12opt-inSKIP. Независимая проверка — crew/C172-inventor-image-flow/POST-RELEASE.md. C173/реальный Inventor/полный архив остаются открыты.
 
 - 2026-11-21, данныеC175 наv1.979:47разрешённыхоперацийсправочников/связи1038;short1038ready/dictionary6parts,41старыйпаспортнеизменён. UIпринятнаstand,выпускаетсяследомсC176;all493необъявленыготовыми. crew/C175-passport-description-next-step/APPLY-REPORT.md.
+
+2026-11-21 · v1.984/sourcea96e708d · C175–181: issuedредакции,единыймонтаж,очередьуточнения/bulkUndo,номеразаказов,таблицы/контекстописания. Backup/health/app/admin/CRM200/smoke7/7;3914unit/777e2e/498nodePWA/365guards;independent4SHA+46dictPASS. Release-tag release-v1.984-a96e708d. Полныйархив/C173открыты.
+
+2026-11-21 · v1.984/backenda6a6ef11/UIa96e708d · defaultназваниеизизделия;обычныйreleaseexit0/backup/health200/smoke7/7. Совокупныйe2eохват783 ссохранённымobsolete-expectFAILиадресным7PASS,unit3914PASS. ВладелецзавершилработыврежимеТОЛЬКОПРОВЕРКА; текущие7буклетов20-26прошлиQA,новыхвыкладокнет.
