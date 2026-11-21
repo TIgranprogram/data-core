@@ -797,6 +797,35 @@ table.list .k-nowrap { white-space: nowrap; }
   .g-route-branch .g-route-arrow { inset: 100% auto auto 50%; transform: translateX(-50%) rotate(90deg); }
 }
 
+/* guide: подробности блока карты со сворачиваемыми шагами и списками связей */
+.g-detail { container-type: inline-size; }
+.g-detail-grid { display: grid; gap: var(--s5); padding-block: var(--s2); }
+.g-detail-section { min-width: 0; display: flex; flex-direction: column; gap: var(--s3); }
+.g-detail-section h2 { margin: 0; font-size: var(--fs-h3); }
+.g-detail-section h3 { margin: var(--s2) 0 0; font-size: var(--fs); }
+.g-detail-parts, .g-detail-relations { display: grid; gap: var(--s2); margin: 0; padding: 0; }
+:is(ul.g-detail-parts, .g-detail-relations) { list-style: none; }
+ol.g-detail-parts { padding-inline-start: var(--s5); }
+.g-detail-parts li::marker { color: var(--muted); }
+.g-detail-parts .g-cat > summary { min-height: var(--tap); padding: var(--s2) var(--s3); }
+.g-detail-parts .g-sum-t { font-size: var(--fs); overflow-wrap: anywhere; }
+.g-detail-parts :is(.g-sum-n, .g-body), .g-detail-relations li { overflow-wrap: anywhere; }
+.g-detail-parts .g-body { padding: 0 var(--s3) var(--s3); gap: var(--s2); }
+.g-detail-parts p, .g-detail-relations p { margin: 0; }
+.g-detail-part-links { display: grid; gap: var(--s2); }
+.g-detail-relations li { display: grid; justify-items: start; gap: var(--s1); padding-block-end: var(--s2); border-bottom: 1px solid var(--border); }
+.g-detail-relations li:last-child { border-bottom: 0; }
+.g-detail-relations .link-btn { max-width: 100%; text-align: start; font-weight: 600; }
+.g-detail-relations p { font-size: var(--fs-sm); }
+@container (min-width: 520px) {
+  .g-detail-grid:has(> :nth-child(2)) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .g-detail-main:has(~ :nth-child(3)) { grid-column: 1 / -1; }
+}
+@container (min-width: 810px) {
+  .g-detail-grid:has(> :nth-child(3)) { grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr)); }
+  .g-detail-main:has(~ :nth-child(3)) { grid-column: auto; }
+}
+
 /* guide: инфографика-подсказки (C114 I) — steps, source, progress, checklist, beforeAfter */
 .g-mini { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
 .g-mini-i { display: inline-flex; align-items: center; gap: var(--s2); padding: var(--s1) var(--s3); border-radius: var(--s6); background: var(--surface-2); color: var(--muted); font-size: var(--fs-sm); font-weight: 600; }
