@@ -5,12 +5,12 @@ import { button } from './index.js';
 import { atlasHierarchy, atlasScene } from '../atlas-map/layout.js';
 import { svg, place, interpolate, span, wireGeometry, applyView, panInto, bindAtlasDrag } from '../atlas-map/geometry.js';
 
-const MOTION = 320;
+const MOTION = 360;
 const PRIMARY = { sale: 'salesorders', prod: 'products', paper: 'design', make: 'work', supply: 'requests',
   stock: 'stock', after: 'shiporder', money: 'money', system: 'servers', quality: 'fill' };
 let nextId = 0;
 
-export function atlasMap({ model, onSelect }) {
+export function atlasMap({ model, trace: walk, onSelect }) {
   const prefix = 'am-' + ++nextId;
   const data = atlasHierarchy(model);
   const focus = new Map();
@@ -26,8 +26,9 @@ export function atlasMap({ model, onSelect }) {
   const markers = svg('defs');
   const drawing = svg('svg', { class: 'am-drawing', 'aria-hidden': 'true' }, markers, paths);
   const stations = h('div', { class: 'am-stations' });
+  const frame = h('div', { class: 'am-frame', hidden: true, 'aria-hidden': 'true' });
   const live = h('span', { class: 'am-live', role: 'status' });
-  plate.append(drawing, stations);
+  plate.append(frame, drawing, stations);
   viewport.append(plate);
   el.append(viewport, live);
 
@@ -42,11 +43,16 @@ export function atlasMap({ model, onSelect }) {
   let path = [];
   let pan = { x: 0, y: 0 };
   let boxes = new Map();
+  let drawnFrame;
   let dest = new Map();
   let bounds = { minX: 0, minY: 0, maxX: 1, maxY: 1 };
   let animation = 0;
   let lastWheel = null;
   let previousView = null;
+  let pointer = null;
+  let hovered = null;
+  let wireList = [];
+  let directedWires = [];
 
   function size() {
     return { x: -pan.x, y: -pan.y, w: viewport.clientWidth || 960, h: viewport.clientHeight || 650 };
@@ -54,7 +60,7 @@ export function atlasMap({ model, onSelect }) {
   function anchor() { return path.at(-1); }
   function currentView() { return views.get(anchor()) || size(); }
   function move() { applyView(plate, viewport, pan, bounds); }
-  function panBy(x, y) { pan.x += x; pan.y += y; move(); }
+  function panBy(x, y) { pan.x += x; pan.y += y; move(); refreshHover(); }
 
   function buildCard(key, card) {
     const control = button({
@@ -80,6 +86,7 @@ export function atlasMap({ model, onSelect }) {
     note.textContent = card.note || (card.node.planned ? 'В планах' : '');
     note.hidden = !note.textContent;
     control.dataset.role = card.role;
+    control.toggleAttribute('data-context', Boolean(card.context));
     control.dataset.atlasNode = card.node.id;
     control.title = [card.node.title, card.relationTitle || card.note, card.node.planned ? 'В планах' : null].filter(Boolean).join(' · ');
     control.setAttribute('aria-current', card.role === 'anchor' ? 'true' : 'false');
@@ -91,6 +98,7 @@ export function atlasMap({ model, onSelect }) {
     const attrs = { 'data-direction': direction, 'data-kind': wire.kind };
     const connection = svg('path', {
       class: 'am-wire', ...attrs, 'data-edge': wire.edge?.id || '', 'data-from': wire.edge?.from || wire.from, 'data-to': wire.edge?.to || wire.to,
+      ...(wire.context ? { 'data-context': '' } : {}),
       ...(wire.kind === 'containment' ? {} : { 'marker-end': 'url(#' + prefix + '-' + direction + ')' }),
     });
     if (wire.edge?.label) {
@@ -99,23 +107,95 @@ export function atlasMap({ model, onSelect }) {
       connection.append(title);
     }
     const start = svg('circle', { class: 'am-port', ...attrs, r: 2.8 });
-    const end = svg('circle', { class: 'am-port', ...attrs, r: 2.8 });
-    return { wire, connection, start, end };
+    const end = svg('circle', { class: 'am-port', ...attrs, 'data-port': 'end', r: 2.8 });
+    const stem = wire.route === 'trunk' ? svg('path', { class: 'am-active-stem' }) : null;
+    const group = svg('g', { class: 'am-wire-group', 'data-route': wire.route || '',
+      'data-from-key': wire.from, 'data-to-key': wire.to }, connection, start, end);
+    if (stem) group.append(stem);
+    return { wire, group, connection, start, end, stem, activeEnd: null };
   }
 
-  function updateLine(entry, positions) {
+  function updateLine(entry, positions, scope) {
     const { wire, connection, start, end } = entry;
-    const from = positions.get(wire.from), to = positions.get(wire.to);
+    let from = positions.get(wire.from), to = positions.get(wire.to);
     if (!from || !to) return;
+    if (scope && wire.frameEnd === 'from') from = { ...scope, y: to.y, h: to.h };
+    if (scope && wire.frameEnd === 'to') to = { ...scope, y: from.y, h: from.h };
     const line = wireGeometry(from, to, wire);
     connection.setAttribute('d', line.d);
     start.setAttribute('cx', line.origin.x);
     start.setAttribute('cy', line.origin.y);
     end.setAttribute('cx', line.end.x);
     end.setAttribute('cy', line.end.y);
+    updateStem(entry, positions);
   }
 
-  function render(animate = false) {
+  function updateStem(entry, positions) {
+    if (!entry.stem) return;
+    const from = positions.get(entry.wire.from);
+    const to = positions.get(entry.activeEnd);
+    if (from && to) entry.stem.setAttribute('d', wireGeometry(from, to, entry.wire).d);
+    else entry.stem.removeAttribute('d');
+  }
+
+  function cardAt(target) {
+    const card = target?.closest?.('.am-station[data-key]');
+    return card && controls.get(card.dataset.key) === card ? card : null;
+  }
+
+  function markTrace(element, activeSet, key) {
+    if (activeSet) element.dataset.trace = activeSet.has(key) ? 'active' : 'muted';
+    else delete element.dataset.trace;
+  }
+
+  function paintTrace() {
+    const trace = hovered && walk(directedWires, hovered.dataset.key, 'both');
+    if (hovered) {
+      el.dataset.hover = hovered.dataset.node;
+      el.dataset.hoverKey = hovered.dataset.key;
+    } else {
+      delete el.dataset.hover;
+      delete el.dataset.hoverKey;
+    }
+    for (const [key, control] of controls) markTrace(control, trace?.nodeIds, key);
+    const branchEnds = new Map();
+    for (const id of trace?.edgeIds || []) {
+      const { wire } = wireList[id];
+      if (wire.route !== 'branch') continue;
+      const current = branchEnds.get(wire.from);
+      if (!current || dest.get(current).y < dest.get(wire.to).y) branchEnds.set(wire.from, wire.to);
+    }
+    for (const [index, entry] of wireList.entries()) {
+      const { wire, group, stem } = entry;
+      if (stem) {
+        entry.activeEnd = branchEnds.get(wire.from);
+        if (trace) group.dataset.trace = entry.activeEnd ? 'active' : 'muted';
+        else delete group.dataset.trace;
+        updateStem(entry, boxes);
+      } else markTrace(group, trace?.edgeIds, index);
+    }
+  }
+
+  function setHover(card, force = false) {
+    if (card === hovered && !force) return;
+    hovered = card;
+    paintTrace();
+  }
+
+  function refreshHover(force = false) {
+    const target = pointer && !viewport.classList.contains('is-dragging') ? document.elementFromPoint(pointer.x, pointer.y) : null;
+    setHover(cardAt(target), force);
+  }
+
+  function pointAtCard(event) {
+    if (event.pointerType === 'touch') return;
+    pointer = { x: event.clientX, y: event.clientY };
+    setHover(viewport.classList.contains('is-dragging') ? null : cardAt(event.target));
+  }
+
+  function leaveCanvas() { pointer = null; setHover(null); }
+
+  function render(animate = false, previousId) {
     cancelAnimationFrame(animation);
     const id = anchor();
     const view = currentView();
@@ -131,33 +211,53 @@ export function atlasMap({ model, onSelect }) {
       controls.delete(key);
     }
     for (const [key, card] of plan.cards) syncCard(key, card);
-    const wireList = plan.wires.map(wireElement);
-    fill(paths, wireList.flatMap(({ connection, start, end }) => [connection, start, end]));
+    const previousWires = new Set(wireList.map(({ wire }) => wire.key));
+    wireList = plan.wires.map(wireElement);
+    // Ключи проекции различают две видимые карточки одного и того же узла.
+    directedWires = wireList.flatMap(({ wire }, id) => wire.route === 'trunk' ? [] : [{ id, from: wire.from, to: wire.to }]);
+    fill(paths, wireList.map(({ group }) => group));
     const before = boxes;
+    const emergence = origin || before.get(previousId);
+    const oldFrame = drawnFrame || emergence || plan.frame;
+    const closedFrame = !plan.frame && drawnFrame && animate && !motion.matches
+      ? plan.cards.get(data.chain(previousId)[0])?.box
+      : null;
+    const nextFrame = plan.frame || closedFrame;
     dest = new Map([...plan.cards].map(([key, entry]) => [key, entry.box]));
     bounds = span(plan.cards, size());
     move();
 
-    function paint(progress) {
+    function paint(progress, appearance = 1) {
       boxes = new Map();
+      drawnFrame = nextFrame && interpolate(oldFrame, nextFrame, progress);
+      if (drawnFrame) place(frame, drawnFrame);
+      frame.hidden = !nextFrame || Boolean(closedFrame && progress === 1);
+      frame.style.opacity = closedFrame ? 1 - progress : '';
       for (const [key, target] of dest) {
         const drawn = before.get(key);
-        const original = drawn || (origin
-          ? { ...target, x: target.x * 0.54 + origin.x * 0.46, y: target.y * 0.54 + origin.y * 0.46 }
+        const original = drawn || (emergence
+          ? { ...target, x: target.x * 0.54 + emergence.x * 0.46, y: target.y * 0.54 + emergence.y * 0.46 }
           : target);
         const box = interpolate(original, target, progress);
-        place(controls.get(key), box);
+        const control = controls.get(key);
+        control.style.opacity = drawn || appearance === 1 ? '' : appearance;
+        place(control, box);
         boxes.set(key, box);
       }
-      for (const wire of wireList) updateLine(wire, boxes);
+      for (const entry of wireList) {
+        entry.group.style.opacity = previousWires.has(entry.wire.key) || appearance === 1 ? '' : appearance;
+        updateLine(entry, boxes, drawnFrame);
+      }
     }
-    if (!animate || motion.matches || !before.size) { paint(1); return; }
-    paint(0);
+    if (!animate || motion.matches || !before.size) { paint(1); refreshHover(true); return; }
+    paint(0, 0);
+    refreshHover(true);
     const start = performance.now();
     const tick = (now) => {
       const progress = Math.min(1, Math.max(0, (now - start) / MOTION));
-      paint(1 - (1 - progress) ** 3);
+      paint(1 - (1 - progress) ** 3, Math.min(progress * 2, 1));
       if (progress < 1) animation = requestAnimationFrame(tick);
+      else refreshHover();
     };
     animation = requestAnimationFrame(tick);
   }
@@ -185,7 +285,7 @@ export function atlasMap({ model, onSelect }) {
     }
     if (!nodeId) pan = { x: 0, y: 0 };
     path = next;
-    render(true);
+    render(true, previous);
     if (keyboard && !viewport.contains(document.activeElement)) {
       (controls.get(nodeId) || viewport).focus({ preventScroll: true });
     }
@@ -217,7 +317,7 @@ export function atlasMap({ model, onSelect }) {
     const changed = event.deltaY > 0 ? back() : expand(target?.dataset.node, target);
     if (!changed) return;
     event.preventDefault();
-    lastWheel = { x: event.clientX, y: event.clientY, after: performance.now() + 260 };
+    lastWheel = { x: event.clientX, y: event.clientY, after: performance.now() + MOTION - 45 };
   }, { passive: false });
   viewport.addEventListener('keydown', (event) => {
     const target = event.target.closest?.('.am-station[data-node]');
@@ -237,9 +337,14 @@ export function atlasMap({ model, onSelect }) {
   });
   viewport.addEventListener('focusin', (event) => {
     const box = dest.get(event.target.dataset.key);
-    if (box) { panInto(pan, box, viewport); move(); }
+    if (box) { panInto(pan, box, viewport); move(); refreshHover(); }
   });
   bindAtlasDrag(viewport, panBy);
+  viewport.addEventListener('pointerover', pointAtCard);
+  viewport.addEventListener('pointermove', pointAtCard);
+  viewport.addEventListener('pointerleave', leaveCanvas);
+  viewport.addEventListener('pointercancel', leaveCanvas);
+  viewport.addEventListener('lostpointercapture', () => refreshHover());
 
   render();
   const resize = new ResizeObserver(() => {

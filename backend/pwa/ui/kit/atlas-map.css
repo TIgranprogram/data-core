@@ -1,7 +1,7 @@
 /* Полноэкранная карта использует обычное меню и верхнюю строку приложения. */
 .main:has(> .page > .atlas-canvas-page) { height: 100dvh; min-height: 0; }
 .main:has(> .page > .atlas-canvas-page) > :not(.page) { flex-shrink: 0; }
-.main:has(> .page > .atlas-canvas-page) > .crumbs { display: none; }
+.main:has(> .page > .atlas-canvas-page) > :is(.crumbs, [data-development-mode]) { display: none; }
 .page:has(> .atlas-canvas-page) { flex: 1; min-height: 0; max-inline-size: none; padding: 0; }
 .page > .atlas-canvas-page { height: 100%; min-width: 0; min-height: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
 .atlas-canvas-page > .atlas-map { height: 100%; min-height: 0; }
@@ -30,6 +30,16 @@
 .am-viewport:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
 .am-viewport.is-dragging, .am-viewport.is-dragging * { cursor: grabbing; }
 .am-plate { position: absolute; inset: 0; transform: translate(var(--am-pan-x, 0), var(--am-pan-y, 0)); }
+.am-frame {
+  position: absolute;
+  inset: var(--am-y) auto auto var(--am-x);
+  width: var(--am-w);
+  height: var(--am-h);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 48%, transparent);
+  pointer-events: none;
+}
 .am-stations, .am-drawing { position: absolute; inset: 0; pointer-events: none; }
 .am-drawing { width: 100%; height: 100%; overflow: visible; }
 .am-station.btn {
@@ -51,7 +61,7 @@
   text-align: start;
   white-space: normal;
   pointer-events: auto;
-  transition: background-color .15s ease, border-color .15s ease;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
 }
 .am-station.btn:hover { border-color: var(--am-tone, var(--primary)); background: var(--am-soft, var(--primary-soft)); }
 .am-station.btn:focus-visible { outline: 2px solid var(--am-tone, var(--link)); outline-offset: 2px; }
@@ -88,6 +98,9 @@
   .am-station.btn[data-kind='area'] { flex-direction: column; justify-content: center; text-align: center; }
   .am-station[data-kind='area'] .am-card-title { overflow-wrap: normal; hyphens: auto; }
 }
+@container (min-width: 1081px) {
+  .am-card-title { font-size: max(var(--fs), var(--fs-h3)); }
+}
 .atlas-map [data-band] { --am-tone: var(--primary); --am-soft: var(--primary-soft); }
 .atlas-map :is([data-band='sale'], [data-band='after'], [data-band='quality']) { --am-tone: var(--sec-orders); --am-soft: var(--sec-orders-soft); }
 .atlas-map :is([data-band='prod'], [data-band='paper'], [data-band='make']) { --am-tone: var(--sec-products); --am-soft: var(--sec-products-soft); }
@@ -114,6 +127,37 @@
 .am-arrow, .am-port { fill: var(--am-flow); }
 .am-port { stroke: var(--surface); stroke-width: 1; }
 .am-port[data-kind='containment'], .am-port[data-kind='planned'] { fill: var(--muted); }
+.am-station.btn[data-context]:not([data-context='false']) {
+  border-color: color-mix(in srgb, var(--am-flow, var(--am-tone)) 34%, var(--border));
+  background: color-mix(in srgb, var(--am-flow-soft, var(--am-soft)) 24%, var(--surface-2));
+  color: var(--muted);
+  box-shadow: none;
+}
+.am-station.btn[data-context]:hover { color: var(--text); }
+.am-station.btn[data-role='ancestor']:not(:hover, :focus-visible) {
+  border-color: transparent;
+  background: transparent;
+}
+.am-wire-group[data-route='scope-membership'] { visibility: hidden; }
+.am-wire[data-context]:not([data-context='false']) { opacity: .56; stroke-width: 1.45; }
+.am-wire-group:has(> .am-wire[data-context]:not([data-context='false'])) > .am-port { opacity: .66; }
+.am-station.btn[data-trace='muted'] {
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--surface-2) 64%, var(--surface));
+  box-shadow: none;
+  color: var(--muted);
+}
+.am-station[data-trace='muted'] .am-area-icon { background: var(--surface-3); color: var(--muted); }
+.am-station.btn[data-trace='active'] {
+  border-color: var(--am-flow, var(--am-tone));
+  background: color-mix(in srgb, var(--am-flow-soft, var(--am-soft)) 57%, var(--surface));
+}
+.am-station.btn[data-trace='active']:hover { background: var(--am-flow-soft, var(--am-soft)); }
+.am-wire, .am-port { transition: opacity .15s ease, stroke-width .15s ease; }
+.am-wire-group[data-trace='active'] > .am-wire { opacity: 1; stroke-width: 2.7; }
+.am-wire-group[data-trace='muted'] > :is(.am-wire, .am-port),
+.am-wire-group[data-trace='active'][data-route='trunk'] > :is(.am-wire, [data-port='end']) { opacity: .26; stroke-width: 1.3; }
+.am-active-stem { fill: none; stroke: var(--muted); stroke-dasharray: 2 5; stroke-width: 2.7; }
 .am-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
-@media (prefers-reduced-motion: reduce) { .am-station.btn { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .am-station.btn, .am-wire, .am-port { transition: none; } }
