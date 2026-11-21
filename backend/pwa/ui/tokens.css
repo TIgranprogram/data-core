@@ -152,44 +152,61 @@
   --sec-money-side: var(--sec-money);
 }
 
-/* Средняя тема: нейтральный серый фон, светлые панели и графитовое меню. */
+/* Средняя тема: матовая серая канва, светлые панели и графитовое меню. */
 :root[data-theme='soft'] {
-  --bg: #cfd2cc;
-  --surface: #f2f3ef;
-  --surface-2: #e6e9e3;
-  --surface-3: #d5d9d2;
-  --col-bg: #cdd2cb;
-  --col-border: #adb6ad;
-  --photo-bg: #dfe3dd;
-  --border: #aeb7ae;
-  --border-strong: #7e8a80;
-  --text: #1b1e1a;
-  --muted: #3a3d37;
+  --bg: #cdd0cf;
+  --surface: #eff0ed;
+  --surface-2: #e3e5e2;
+  --surface-3: #d9dcda;
+  --col-bg: #c3c8c4;
+  --col-border: #a2aaa5;
+  --photo-bg: #e0e3df;
+  --border: #aeb5b1;
+  --border-strong: #65706e;
+  --text: #242829;
+  --muted: #4d5253;
   --heading: #233e35;
-  --side: #262c28;
-  --side-2: #3b443e;
-  --side-text: #eef0ea;
+  --side: #292d2f;
+  --side-2: #3b4241;
+  --side-text: #e5e8e5;
   --side-text-hi: #ffffff;
-  --side-head: #f2d58a;
-  --primary: #175e49;
-  --link: #164e3d;
+  --side-head: #dcc183;
+  --side-brand-note: var(--side-head);
+  --primary: #335c4e;
+  --primary-hover: #294a3f;
+  --primary-soft: #dce7de;
+  --link: #275240;
+  --gold: #c9aa66;
+  --gold-hover: #ba9a54;
+  --gold-soft: #eee5d0;
   --gold-deep: #5c4513;
+  --on-accent: var(--text);
   --danger: #862c24;
+  --danger-soft: #efe0de;
   --warn: #653e09;
+  --warn-soft: #efe6d5;
   --ok: #225731;
+  --ok-soft: #dfe9e0;
   --info: #214d62;
+  --info-soft: #dce7ea;
   --violet: #4f3685;
+  --violet-soft: #e8e2ef;
+  --neutral-soft: #e0e3e1;
   --sec-products: #275646;
-  --sec-products-soft: #d1dacb;
+  --sec-products-soft: #dbe4da;
   --sec-products-side: #b2cfb7;
   --sec-products-side-soft: rgba(178, 207, 183, .17);
-  --sec-orders: #4c3778;
-  --sec-supply: #703a24;
-  --sec-stock: #24515b;
-  --sec-money: #6d344b;
-  --topbar-bg: #cfd2cc;
-  --row-hover: #e4e9e2;
-  --row-selected: #d7e2d8;
+  --sec-orders: #4c3778; --sec-orders-soft: #e6e1ee;
+  --sec-supply: #703a24; --sec-supply-soft: #ebe1d9;
+  --sec-stock: #24515b; --sec-stock-soft: #dbe7e7;
+  --sec-money: #6d344b; --sec-money-soft: #eadfe3;
+  --topbar-bg: var(--bg);
+  --row-hover: #e5e8e4;
+  --row-selected: #d9e4db;
+  --hint-bg: #e4ebe4;
+  --shadow: 0 1px 2px rgba(28, 34, 32, .08);
+  --shadow-sm: 0 1px 2px rgba(28, 34, 32, .12);
+  --shadow-lg: 0 14px 36px rgba(25, 30, 28, .20);
 }
 
 :root[data-theme='dark'] {

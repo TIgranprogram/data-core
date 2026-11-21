@@ -45,6 +45,8 @@ h3 { font-size: var(--fs-h3); font-weight: 650; color: var(--text); margin: 0; l
 .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--gold); color: #1b1f27; display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none; }
 .main { min-width: 0; display: flex; flex-direction: column; }
 .topbar { position: sticky; top: 0; z-index: 20; height: var(--topbar-h); background: var(--topbar-bg); backdrop-filter: saturate(1.4) blur(8px); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: var(--s3); padding: 0 var(--gutter); }
+:root[data-theme='soft'] .topbar { backdrop-filter: none; }
+:root[data-theme='soft'] .login-art { background: var(--side); }
 .topbar .burger { display: none; }
 .gsearch { position: relative; flex: 1; max-width: 560px; min-width: 200px; }
 @media (max-width: 720px) { .topbar { gap: var(--s1); padding: 0 var(--s2); } .topbar .hide-sm, .topbar .histnav .btn:last-child { display: none; } .gsearch, .gsearch input { min-width: 0; } }
@@ -93,6 +95,10 @@ h3 { font-size: var(--fs-h3); font-weight: 650; color: var(--text); margin: 0; l
 .btn:hover { background: var(--surface-2); text-decoration: none; }
 .btn:disabled { opacity: .55; cursor: default; }
 .btn:focus-visible, .chip:focus-visible, .side-link:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+:root[data-theme='soft'] :is(.btn, .chip, .tcard, .q-row, .k-seg-btn, .db-order, .db-oname, .db-chev, .drawer-spine, .form-sec):focus-visible,
+:root[data-theme='soft'] table.list tr[tabindex]:focus-visible { outline-color: var(--gold-deep); }
+:root[data-theme='soft'] .col-body .tcard:focus-visible { outline-offset: -2px; }
+:root[data-theme='soft'] .sidebar :focus-visible { outline-color: var(--side-head); }
 .btn-primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 .btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
 .btn-gold { background: var(--gold); border-color: var(--gold); color: #1b1f27; }
