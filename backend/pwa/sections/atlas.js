@@ -3,7 +3,7 @@ import { h } from '../core/dom.js';
 import { patch } from '../core/router.js';
 import { entityPanel, guide, link } from '../ui/kit/index.js';
 import { atlasMap } from '../ui/kit/atlas-map.js';
-import { buildAtlasModel } from './atlas-model.js';
+import { buildAtlasModel, traceAtlas } from './atlas-model.js';
 import { SECTIONS } from './help-guide-data.js';
 import { bandOf, byId, nameOf } from './atlas-util.js';
 import { detail } from './atlas-window.js';
@@ -74,6 +74,7 @@ export const atlas = {
     };
     const map = atlasMap({
       model,
+      trace: traceAtlas,
       onSelect: (id) => {
         selected = id;
         patch({ focus: id, n: null, view: null });

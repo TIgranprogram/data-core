@@ -8,7 +8,7 @@ import { pad, hint, tileGrid, typeArt, typeIconList, landing, miniChart, navList
 import { buildCardTabs } from '../ui/kit/card-tabs.js';
 import { gallery } from '../ui/kit/card-gallery.js';
 import { atlasMap } from '../ui/kit/atlas-map.js';
-import { buildAtlasModel } from './atlas-model.js';
+import { buildAtlasModel, traceAtlas } from './atlas-model.js';
 import { infoCard, nextCard, warnCard, positionsTable, boardCard, footerBar } from '../ui/kit/screens/blocks.js';
 
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
@@ -122,7 +122,7 @@ export const kit = {
     let map;
     mapSample.addEventListener('toggle', () => {
       if (!mapSample.open || !el.isConnected || map) return;
-      map = atlasMap({ model: buildAtlasModel() });
+      map = atlasMap({ model: buildAtlasModel(), trace: traceAtlas });
       mapBody.append(map.el);
     });
     const t = tabs({ items: [{ key: 'a', label: 'Первая', count: 3 }, { key: 'b', label: 'Вторая' }, { key: 'c', label: 'Третья', count: 0 }], value: 'a' });
