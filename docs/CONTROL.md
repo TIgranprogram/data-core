@@ -16,6 +16,8 @@
 
 ## Текущий выпуск
 
+**21.11.2026: C172+C174 выпущены v1.979, source ba40418f, UI6d347af4, тег release-v1.979-ba40418f. Backup/health/app/admin/CRM200, smoke7/7 PASS; unit3889/e2e757 PASS,12opt-inSKIP. Независимая проверка — crew/C172-inventor-image-flow/POST-RELEASE.md. C173/реальный Inventor/полный архив остаются открыты.**
+
 **20.11, C169 — текущий backend8d68df6c/sourceed01b939:** тег release-v1.977-ed01b939, UI v1.977/37cf0b9f сохранён. Ворота/backup/health/app/admin/CRM200/smoke7/7 и независимые GET PASS;5служебныхиндексовready. Unit3866/e2e735 (12opt-in SKIP), пульт83/engine23, UI/архитектор и настоящий broker/auth-refresh/API PASS. Данные118/45/1 и расписание03:30МСК/rev3/codeoff сохранены. Код пульта0387ccc2 в Git; новая изолированная копия18.11 доступна localhost:3102/app/. [C169 post-release](crew/C169-local-document-intake/POST-RELEASE.md).
 
 **20.11, C170 — предыдущий выпуск v1.977:** source/tagce2ec19c, UI37cf0b9f/backenddef6a82e. Unit3850/e2e716/PWA449/admin7/host53, BROWSER8/8/дизайнер PASS;12opt-in SKIP. Ворота/backup/health/app/admin/CRM200/smoke7/7 и независимые17GET/SHA4/4 PASS. Заказ20-26:14позиций,ready2/issued0/attached0 без изменений. Целостность/новыеошибки0,старых9/slow1. Данные ежедневно03:30МСК/rev3,кодoff; ночнаядоставка/failback/offsite/drill не подтверждены. [C170 post-release](crew/C170-attached-passport-readiness/POST-RELEASE.md).
@@ -62,3 +64,4 @@ C159/C160 уже включены: выбор изделия по фото/фи�
 C096 Э4-доп12.11: четыре замечания независимого ревью закрыты, live28PASS/0FAIL/1SKIP составной фикстуры, UI принят; E4-FIX-LIVE.md. Без деплоя.
 
 13.11: v1.745 выложен (C096/C098/C097/C087). Preflight зелёный, health 200, смоук 7/7, doctor 0 ✗ / 4 давних предупреждения.
+
