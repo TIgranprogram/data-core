@@ -190,13 +190,24 @@ async function captureClosed(input, target) {
   throw new IntakeError('ORIGINAL', 'Не удалось безопасно захватить исходный файл.', 'Проверьте папку и возобновите разбор.');
 }
 
-export async function claim(store, name, stableMs = 2200) {
+export async function claim(store, name, stableMs = 2200, metadata) {
   if (!safeName(name)) return null;
   await checkWorkflowFolders(store, ['inbox', 'processing']);
   const input = path.join(store.folders.inbox, name);
   const stat = await exists(input);
   if (!stat?.isFile() || stat.nlink !== 1 || (stableMs > 0 && Date.now() - Math.max(stat.mtimeMs, stat.ctimeMs) < stableMs)) return null;
   const entry = { arrivalId: uid(), name, state: 'processing', phase: 'claiming', createdAt: new Date().toISOString() };
+  if (metadata) {
+    if (metadata.workflow !== 'c171' || typeof metadata.batchId !== 'string' || !/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/.test(metadata.batchId)) {
+      throw new IntakeError('JOURNAL', 'Не подтверждён режим захвата документа.');
+    }
+    entry.workflow = metadata.workflow;
+    entry.batchId = metadata.batchId;
+    if (metadata.owner && metadata.target) {
+      entry.reviewOwner = metadata.owner;
+      entry.reviewTarget = metadata.target;
+    }
+  }
   await saveArrival(store, entry);
   const target = withinArrival(store, 'processing', entry);
   await checkWorkflowFolders(store, ['inbox', 'processing']);

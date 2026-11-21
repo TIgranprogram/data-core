@@ -439,7 +439,7 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
       if (req.headers['x-pult-token'] !== token) return json(res, 401, { error: 'Нет ключа сессии' });
       if ((origin || req.method === 'POST') && origin !== `http://${req.headers.host}`) return json(res, 403, { error: 'Чужая страница' });
       const [, action] = intakeRoute;
-      if (req.method === 'POST' && ['run', 'resume', 'retry'].includes(action) && (restartAt || running().some((j) => NEEDS_CONFIRM.has(j.risk)))) {
+      if (req.method === 'POST' && ['run', 'resume', 'retry', 'analyze', 'prepare', 'send'].includes(action) && (restartAt || running().some((j) => NEEDS_CONFIRM.has(j.risk)))) {
         return json(res, 409, { error: 'Дождитесь завершения текущей команды или обновления пульта.' });
       }
       try {

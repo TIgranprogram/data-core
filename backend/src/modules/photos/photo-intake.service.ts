@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { randomBytes } from 'crypto';
-import { Model, Types } from 'mongoose';
+import { Model, Types, type ClientSession } from 'mongoose';
 import { safeUploadPath } from '../../common/uploads/safe-path';
 import { PDF_MIME } from './image-upload.options';
 import { Photo, PhotoDocument, PHOTO_INTAKE_UID_INDEX } from './photo.schema';
@@ -71,7 +71,21 @@ export class PhotoIntakeService {
     return reservation.sizeBytes!;
   }
 
-  private async assertUniqueIndex(): Promise<void> {
+  async createReviewed(fileId: string, uid: string, sha256: string, size: number, actor: string, storageUrl: string, session: ClientSession) {
+    await this.photos.create([{
+      _id: new Types.ObjectId(fileId), intakeUid: uid, intakeAccount: actor, sha256, sizeBytes: size,
+      storageUrl, originalFilename: 'original.pdf', sourceProtected: true, mimeType: PDF_MIME, variant: 'original',
+    }], { session });
+  }
+
+  async reviewedPath(fileId: string): Promise<string | null> {
+    const url = '/uploads/reviewed-invoices/' + fileId + '.pdf';
+    const photo = await this.photos.exists({ _id: fileId, storageUrl: url, sourceProtected: true, deletedAt: null })
+      .readConcern('majority').exec();
+    return photo ? safeUploadPath(url) : null;
+  }
+
+  async assertUniqueIndex(): Promise<void> {
     const indexes = await this.photos.collection.indexes().catch(() => []);
     const ready = indexes.some(index => index.name === PHOTO_INTAKE_UID_INDEX
       && Object.keys(index.key).length === 1 && index.key.intakeUid === 1
@@ -127,7 +141,8 @@ export class PhotoIntakeService {
 
   private originalPath(reservation: Reservation): string {
     const expected = `${PHOTO_INTAKE_URL_PREFIX}${reservation._id}.pdf`;
-    const path = reservation.storageUrl === expected && safeUploadPath(expected);
+    const reviewed = '/uploads/reviewed-invoices/' + reservation._id + '.pdf';
+    const path = (reservation.storageUrl === expected || reservation.storageUrl === reviewed) && safeUploadPath(reservation.storageUrl);
     if (!path) throw new ConflictException('Путь зарезервированного оригинала изменился');
     return path;
   }

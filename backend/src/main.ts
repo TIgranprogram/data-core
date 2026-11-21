@@ -22,6 +22,7 @@ import { SecretValidationService } from './config/secret-validation.service';
 import { registerAppDataBodyParser } from './modules/app-data/app-data.body-parser';
 import { MetaService } from './modules/meta/meta.controller';
 import { isAttachmentsUrl } from './modules/productattachments/attachment-paths';
+import { registerReviewedOriginalRoute } from './modules/photos/reviewed-original-route';
 
 async function bootstrap() {
   // TZ-157: Initialize Sentry before NestJS so exceptions in bootstrap are captured
@@ -128,9 +129,12 @@ async function bootstrap() {
   // Вложения изделий (ВЛ-1) не раздаются статикой: только по одноразовому тикету через API (до useStaticAssets!)
   app.use((req: { url?: string }, res: { status(c: number): { end(): void } }, next: () => void) => (isAttachmentsUrl(req.url) ? res.status(404).end() : next()));
 
+  registerReviewedOriginalRoute(app);
+
   // Static serve for uploaded photos at /uploads/* → ./uploads/
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',
+    dotfiles: 'ignore',
     setHeaders: (res: { setHeader(name: string, value: string): void }, path: string) => {
       const p = path.split(String.fromCharCode(92)).join('/').toLowerCase();
       if (p.includes('/drawing/') || p.includes('/pdm/')) {

@@ -135,6 +135,7 @@ import { RequestMethod } from '@nestjs/common';
             paths: [
               'req.headers.authorization',
               'req.headers["x-api-key"]',
+              'req.headers["x-review-ticket"]',
               'req.headers["x-switch-secret"]',
               'req.headers.cookie',
               'res.headers["set-cookie"]',
@@ -310,6 +311,7 @@ export class AppModule implements NestModule {
       .exclude(
         { path: 'photos/intake/:uid', method: RequestMethod.POST },
         { path: 'supply/invoices/intake', method: RequestMethod.POST },
+        { path: 'supply/invoices/intake/:step', method: RequestMethod.POST },
       )
       .forRoutes(
         { path: '*', method: RequestMethod.POST },

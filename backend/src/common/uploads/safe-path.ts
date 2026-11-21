@@ -15,7 +15,9 @@ export function uploadsRoot(): string {
 export function safeUploadPath(url: unknown, root = uploadsRoot()): string | null {
   const u = String(url ?? '');
   if (!SAFE_UPLOAD_URL_RE.test(u) || u.includes('..')) return null;
-  const p = resolve(root, u.slice('/uploads/'.length));
+  const reviewed = /^\/uploads\/reviewed-invoices\/([a-f0-9]{24})\.pdf$/.exec(u);
+  // Публичная ссылка читает приватный файл только после подтверждения транзакции.
+  const p = reviewed ? resolve(root, '.reviewed-invoices', reviewed[1] + '.pdf') : resolve(root, u.slice('/uploads/'.length));
   const rel = relative(root, p);
   return !rel || rel.startsWith('..') || isAbsolute(rel) ? null : p;
 }

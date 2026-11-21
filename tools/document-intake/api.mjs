@@ -40,7 +40,7 @@ export function connectApi({ apiBase, token, signal }) {
     if (status === 400 || status === 413 || status === 422) throw question('DataCore отклонил реквизиты или формат файла.', 'Сверьте обязательные поля в карточке и проверьте тип оригинала.');
     throw new IntakeError('API_UNAVAILABLE', 'DataCore недоступен или не смог подтвердить операцию.', 'Проверьте соединение с тем же сайтом и возобновите разбор.');
   }
-  async function response(url, { method = 'GET', body, absent = false } = {}) {
+  async function response(url, { method = 'GET', body, absent = false, ticket } = {}) {
     signal?.throwIfAborted();
     let access;
     try { access = typeof token === 'function' ? await token() : token; }
@@ -48,6 +48,7 @@ export function connectApi({ apiBase, token, signal }) {
     signal?.throwIfAborted();
     if (!validToken(access)) throw authRequired();
     const headers = { Authorization: `Bearer ${access}` };
+    if (ticket) headers['X-Review-Ticket'] = ticket;
     if (body && !(body instanceof FormData)) {
       headers['Content-Type'] = 'application/json';
       body = JSON.stringify(body);
@@ -78,6 +79,7 @@ export function connectApi({ apiBase, token, signal }) {
   return {
     get: (endpoint, query, absent) => json(`${endpoint}${params(query)}`, { absent }),
     post: (endpoint, body, query) => json(`${endpoint}${params(query)}`, { method: 'POST', body }),
+    commitReviewed: (draftId, ticket, body) => json('/supply/invoices/intake/commit' + params({ draftId }), { method: 'POST', body, ticket }),
     async original(url, expectedLength) {
       // API может быть опубликован под /db. Хранимый URL начинается в корне приложения.
       if (typeof url !== 'string' || !/^\/uploads\/[A-Za-z0-9/_%.-]+$/.test(url)
@@ -368,7 +370,7 @@ const invoiceEndpoint = '/supply/invoices';
 const invoiceIntake = `${invoiceEndpoint}/intake`;
 const INVOICE_RESOLVE = 'Откройте «Снабжение» → «Счета», сравните поставщика, плательщика, полный номер, дату, суммы и оригинал.';
 
-function makeInvoicePayload(doc) {
+export function makeInvoicePayload(doc) {
   const p = doc.proposal;
   return {
     uid: doc.uid, sourceSha256: doc.hash, fileId: doc.fileId, ...doc.parties, no: p.number, date: p.date, currency: 'RUB',
@@ -424,6 +426,16 @@ async function invoiceProof(api, doc, bytes, receipt, entity) {
     throw question('У нового счёта появился платёж, приёмка или другой статус.', INVOICE_RESOLVE);
   }
   await originalProof(api, doc, bytes);
+}
+
+export async function proveReviewedInvoice(api, draft, bytes, receipt) {
+  const doc = { uid: 'c169-' + draft.hash, hash: draft.hash, proposal: draft.proposal, parties: draft.parties };
+  assertInvoiceReceipt(receipt, doc);
+  const entity = await invoiceDetail(api, receipt);
+  const photo = await api.get('/photos/intake/' + doc.uid, undefined, true);
+  if (!objectId(photo?.fileId)) throw question('Квитанция оригинала не подтверждена.', INVOICE_RESOLVE);
+  doc.fileId = photo.fileId;
+  await invoiceProof(api, doc, bytes, receipt, entity);
 }
 
 async function executeInvoice({ api, doc, bytes, name, save }) {

@@ -6,6 +6,7 @@ import { validateSync } from 'class-validator';
 import { promises as fs } from 'fs';
 import { Types, type ClientSession, type Connection, type Model } from 'mongoose';
 import type { StockScope } from '../../common/stock-scope';
+import { legalHash } from '../../common/legal/legal-utils';
 import { assertNewDocInScope } from '../../common/supply-scope';
 import { safeUploadPath } from '../../common/uploads/safe-path';
 import { IsINN } from '../../common/validators/inn.validator';
@@ -82,7 +83,7 @@ export class SupplyInvoiceIntakeService {
     return this.prove(invoice, actor, scope);
   }
 
-  private async assertIndexes(): Promise<void> {
+  async assertIndexes(): Promise<void> {
     const indexes = await this.invoices.collection.indexes().catch(() => []);
     const ready = Object.entries(SUPPLY_INTAKE_INDEXES).every(([field, name]) => indexes.some(index =>
       index.name === name && Object.keys(index.key).length === 1 && index.key[field] === 1
@@ -178,6 +179,39 @@ export class SupplyInvoiceIntakeService {
         throw new ConflictException('Счёт уже указан в действующих или удалённых заявках поставщика — нужна ручная сверка');
       }
     }
+  }
+
+  /** Тот же контроль первички и корзины при просмотре, подготовке и внутри транзакции отправки. */
+  async validateReviewed(data: PreparedInvoiceIntake, size: number, supplierInn: string, payerInn: string, actor: string, scope: StockScope | null, session: ClientSession) {
+    await assertNewDocInScope(this.connection, scope, {}, 'Загрузка счёта без категорий доступна только для основного склада');
+    const supplierName = await this.assertParties(data, session);
+    const parties = await this.connection.collection('organizations').find({ inn: { $in: [supplierInn, payerInn] }, deletedAt: null },
+      { projection: { inn: 1 }, session }).limit(3).toArray();
+    if (parties.length !== 2 || !parties.some(p => p.inn === supplierInn && String(p._id) === data.payload.supplierId)
+      || !parties.some(p => p.inn === payerInn && String(p._id) === data.payload.payerCompanyId)) {
+      throw new ConflictException('ИНН, однозначность или связь организации изменились');
+    }
+    // Каждая пачка резервирует свой fileId. Повторяем исходный расчёт с фактически сохранённым оригиналом.
+    const saved = await this.invoices.findOne({ intakeUid: data.payload.uid }).setOptions({ includeSoftDeleted: true })
+      .select(RECEIPT_FIELDS).session(session).lean().exec();
+    if (saved) {
+      const fileId = saved.fileIds?.[0];
+      const original = fileId && await this.connection.collection('photos').findOne(
+        { _id: fileId, intakeUid: data.payload.uid, sha256: data.payload.sourceSha256, sizeBytes: size }, { projection: { _id: 1 }, session });
+      if (!original) throw new ConflictException('Оригинал сохранённого счёта не совпадает с проверкой');
+      const expected = legalHash({ ...data.payload, fileId: String(fileId) });
+      await this.prove(saved, actor, scope, expected);
+      return { supplierName, savedFileId: String(fileId) };
+    }
+    const existingOriginal = await this.connection.collection('photos').findOne({ intakeUid: data.payload.uid }, { projection: { _id: 1 }, session });
+    if (existingOriginal) throw new ConflictException('Ключ оригинала уже использован. Сверьте существующую квитанцию.');
+    const files = await this.legacySourceFiles(data.payload.fileId, data.payload.sourceSha256, size, session);
+    await this.assertNoLegacyOrOtherIntake(data, supplierName, files, session);
+    return { supplierName, savedFileId: null };
+  }
+
+  async writeReviewed(data: PreparedInvoiceIntake, supplierName: string, actor: string, session: ClientSession) {
+    await this.writeInvoice(data, new Types.ObjectId(), data.payload.lines.map(() => new Types.ObjectId()), supplierName, actor, session);
   }
 
   private async writeInvoice(

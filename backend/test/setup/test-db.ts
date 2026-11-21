@@ -8,6 +8,7 @@ import { MulterExceptionFilter } from '../../src/common/filters/multer-exception
 import { VersionConflictFilter } from '../../src/common/filters/version-conflict.filter';
 import { TEST_ADMIN_PASSWORD } from './admin.fixture';
 import { registerAppDataBodyParser } from '../../src/modules/app-data/app-data.body-parser';
+import { registerReviewedOriginalRoute } from '../../src/modules/photos/reviewed-original-route';
 
 export interface TestContext {
   app: INestApplication;
@@ -92,6 +93,7 @@ export async function createTestApp(options: { strictValidation?: boolean } = {}
   );
   app.setGlobalPrefix('api');
   registerAppDataBodyParser(app); // как в main.ts
+  registerReviewedOriginalRoute(app);
   await app.init();
 
   const connection = app.get<Connection>(getConnectionToken());

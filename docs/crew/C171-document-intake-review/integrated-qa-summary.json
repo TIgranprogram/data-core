@@ -1,0 +1,50 @@
+{
+  "unit": {
+    "files": 390,
+    "suites": {
+      "passed": 390
+    },
+    "assertions": {
+      "passed": 3930
+    }
+  },
+  "e2e": {
+    "files": 98,
+    "suites": {
+      "passed": 98
+    },
+    "assertions": {
+      "passed": 802
+    }
+  },
+  "restored": [],
+  "batches": [
+    {
+      "success": true,
+      "suites": 33,
+      "failedSuites": 0,
+      "total": 295,
+      "failed": 0,
+      "passed": 295,
+      "skipped": 0
+    },
+    {
+      "success": true,
+      "suites": 33,
+      "failedSuites": 0,
+      "total": 262,
+      "failed": 0,
+      "passed": 262,
+      "skipped": 0
+    },
+    {
+      "success": true,
+      "suites": 32,
+      "failedSuites": 0,
+      "total": 245,
+      "failed": 0,
+      "passed": 245,
+      "skipped": 0
+    }
+  ]
+}

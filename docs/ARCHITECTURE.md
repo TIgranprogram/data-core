@@ -26,6 +26,8 @@ Docker Compose (`docker-compose.yml`): `mongo-keyfile` (одноразово п�
 4. **Interceptors:** `IdNormalizeInterceptor` (`id` рядом с `_id`), `UserContextInterceptor` (кладёт актора в AsyncLocalStorage → плагины Mongoose видят, кто пишет), `AuditInterceptor` (+ `@AuditAction`) → `auditlogs`.
 5. **Filters:** `VersionConflictFilter` (optimistic lock → 409), `MulterExceptionFilter` (413/400), `HttpExceptionFilter` (общий; `CastError` → 400, единый формат ошибки; в409 сохраняет неотрицательные целые `currentVersion/currentTreeRevision` и явный `plan.readOnly=true` для сверки).
 
+Пакетная отправка счетов C171 проверяет права и билет до разбора тела PDF. Сервер хранит только хеш билета и привязывает подтверждение к контуру, владельцу, складу и версии. PDF хранится в закрытом каталоге; выдача проверяет наличие зафиксированной карточки оригинала. [Границы и восстановление](crew/C171-document-intake-review/DELIVERY.md)
+
 ## Слой данных
 
 - Подключение и **глобальные плагины** — `database/database.module.ts`: `soft-delete` (запросы скрывают `deletedAt != null`; `.softDelete()`), `audit` (createdBy/updatedBy), `user-context`.

@@ -3715,6 +3715,180 @@
         ]
       }
     },
+    "/api/supply/invoices/intake/review": {
+      "post": {
+        "operationId": "SupplyIntakeReviewController_save",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvoiceReviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceReviewResult"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/api/supply/invoices/intake/review/{draftId}": {
+      "get": {
+        "operationId": "SupplyIntakeReviewController_read",
+        "parameters": [
+          {
+            "name": "draftId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceReviewResult"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/api/supply/invoices/intake/prepare": {
+      "post": {
+        "operationId": "SupplyIntakeReviewController_prepare",
+        "parameters": [
+          {
+            "name": "host",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvoiceReviewVersion"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoicePreparedResult"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/api/supply/invoices/intake/commit": {
+      "post": {
+        "operationId": "SupplyIntakeReviewController_commit",
+        "parameters": [
+          {
+            "name": "draftId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-review-ticket",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "host",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Review-Ticket",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupplyInvoiceIntakeReceiptDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
     "/api/supply/invoices/intake": {
       "post": {
         "operationId": "SupplyInvoiceIntakeController_import",
@@ -20603,6 +20777,226 @@
           "amount"
         ]
       },
+      "ReviewInvoiceFacts": {
+        "type": "object",
+        "properties": {
+          "supplierId": {
+            "type": "string"
+          },
+          "payerCompanyId": {
+            "type": "string"
+          },
+          "no": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "RUB"
+            ]
+          },
+          "gross": {
+            "type": "number"
+          },
+          "vatMode": {
+            "type": "string",
+            "enum": [
+              "included",
+              "excluded",
+              "none"
+            ]
+          },
+          "vatRate": {
+            "type": "number"
+          },
+          "vatAmount": {
+            "type": "number"
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SupplyInvoiceIntakeLineDto"
+            }
+          },
+          "supplierInn": {
+            "type": "string"
+          },
+          "payerInn": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "supplierId",
+          "payerCompanyId",
+          "no",
+          "date",
+          "currency",
+          "gross",
+          "vatMode",
+          "lines",
+          "supplierInn",
+          "payerInn"
+        ]
+      },
+      "InvoiceReviewDto": {
+        "type": "object",
+        "properties": {
+          "draftId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "batchId": {
+            "type": "string"
+          },
+          "withdraw": {
+            "type": "boolean"
+          },
+          "expectedRevision": {
+            "type": "number"
+          },
+          "sourceSha256": {
+            "type": "string"
+          },
+          "sourceSize": {
+            "type": "number",
+            "minimum": 5,
+            "maximum": 15728640
+          },
+          "evidenceSummary": {
+            "type": "string"
+          },
+          "facts": {
+            "$ref": "#/components/schemas/ReviewInvoiceFacts"
+          }
+        },
+        "required": [
+          "draftId",
+          "requestId",
+          "batchId",
+          "expectedRevision",
+          "sourceSha256",
+          "sourceSize",
+          "evidenceSummary",
+          "facts"
+        ]
+      },
+      "InvoiceReviewResult": {
+        "type": "object",
+        "properties": {
+          "draftId": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "number"
+          },
+          "payloadHash": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "validated",
+              "committing",
+              "committed",
+              "question"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "draftId",
+          "revision",
+          "payloadHash",
+          "state"
+        ]
+      },
+      "InvoiceReviewVersion": {
+        "type": "object",
+        "properties": {
+          "draftId": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "number"
+          },
+          "payloadHash": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "draftId",
+          "revision",
+          "payloadHash"
+        ]
+      },
+      "InvoicePreparedResult": {
+        "type": "object",
+        "properties": {
+          "draftId": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "number"
+          },
+          "payloadHash": {
+            "type": "string"
+          },
+          "ticket": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "draftId",
+          "revision",
+          "payloadHash",
+          "ticket",
+          "expiresAt"
+        ]
+      },
+      "SupplyInvoiceIntakeReceiptDto": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "sourceSha256": {
+            "type": "string"
+          },
+          "invoiceId": {
+            "type": "string"
+          },
+          "requestIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "payloadHash": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "uid",
+          "sourceSha256",
+          "invoiceId",
+          "requestIds",
+          "payloadHash"
+        ]
+      },
       "SupplyInvoiceIntakeDto": {
         "type": "object",
         "properties": {
@@ -20674,36 +21068,6 @@
           "gross",
           "vatMode",
           "lines"
-        ]
-      },
-      "SupplyInvoiceIntakeReceiptDto": {
-        "type": "object",
-        "properties": {
-          "uid": {
-            "type": "string"
-          },
-          "sourceSha256": {
-            "type": "string"
-          },
-          "invoiceId": {
-            "type": "string"
-          },
-          "requestIds": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "payloadHash": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "uid",
-          "sourceSha256",
-          "invoiceId",
-          "requestIds",
-          "payloadHash"
         ]
       },
       "CreateInvoicesDto": {
