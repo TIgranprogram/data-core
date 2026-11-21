@@ -39,6 +39,7 @@ h3 { font-size: var(--fs-h3); font-weight: 650; color: var(--text); margin: 0; l
 .side-link .ico { width: 18px; height: 18px; flex: none; opacity: .9; }
 .side-link .cnt { margin-left: auto; font-size: 11.5px; font-weight: 600; color: var(--side-text); background: rgba(255,255,255,.07); border-radius: 10px; padding: 1px 8px; }
 .side-link.active .cnt { background: var(--gold); color: #1b1f27; }
+:root[data-theme='soft'] .sidebar :is(.side-group, .brand small, .side-link .cnt) { font-size: var(--fs-label); }
 .side-settings { width: 100%; border: 0; background: none; font: inherit; cursor: pointer; }
 .side-settings:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
 .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 4px; border-top: 1px solid rgba(255,255,255,.07); padding-top: 12px; }
@@ -114,6 +115,7 @@ h3 { font-size: var(--fs-h3); font-weight: 650; color: var(--text); margin: 0; l
 .btn-sm { height: var(--control-compact); padding: 0 10px; font-size: var(--fs-sm); }
 .btn-icon { width: var(--control-height); padding: 0; }
 input, select, textarea { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); height: var(--control-height); padding: 0 10px; min-width: 0; }
+:root[data-theme='soft'] :is(input, textarea)::placeholder { color: var(--muted); opacity: 1; }
 textarea { height: auto; padding: 8px 10px; resize: vertical; }
 input:focus, select:focus, textarea:focus { outline: 3px solid var(--primary-soft); border-color: var(--primary); }
 .search { position: relative; flex: 1 1 320px; min-width: 200px; max-width: 520px; }

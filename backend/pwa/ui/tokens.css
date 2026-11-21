@@ -155,6 +155,10 @@
 
 /* Средняя тема: матовая серая канва, светлые панели и графитовое меню. */
 :root[data-theme='soft'] {
+  --fs: 15px;
+  --fs-sm: 14px;
+  --fs-table: 14px;
+  --fs-label: 12px;
   --bg: #e1e4df;
   --surface: #f5f6f1;
   --surface-2: #eceee9;
@@ -164,8 +168,8 @@
   --photo-bg: #e6eae4;
   --border: #bac4bc;
   --border-strong: #65706e;
-  --text: #242829;
-  --muted: #4d5253;
+  --text: #1e2321;
+  --muted: #3c4541;
   --heading: #233e35;
   --side: #353c39;
   --side-2: #47514b;
