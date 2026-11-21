@@ -1,0 +1,29 @@
+{
+  "openapi": {
+    "needsIdentification": true,
+    "paths": 540
+  },
+  "rawAttempt": "POST-RELEASE-20261121-152030.json preserved CHECK_FAILED duepublic401",
+  "source": "a96e708d",
+  "doctor": {
+    "proof": "POST-RELEASE-DOCTOR-20261121-152030.txt",
+    "exit": 0,
+    "warnings": 5
+  },
+  "health": "ready/health200",
+  "dictionary": {
+    "proof": "POST-RELEASE-DICTIONARY-46.json",
+    "expected": 46,
+    "exact": 46,
+    "drift": 0
+  },
+  "static": "4 normalizedSHA PASS (CRLF→LF only)",
+  "crm": {
+    "internal": "coordinator release smokeCRM200",
+    "public": "HTTP401 authchallenge",
+    "interpretation": "publicunauthenticatedharness limitation, not outage; no authattempt"
+  },
+  "product1038": "ready/sourceexpected",
+  "status": "PASS_DATACORE",
+  "version": "v1.984"
+}

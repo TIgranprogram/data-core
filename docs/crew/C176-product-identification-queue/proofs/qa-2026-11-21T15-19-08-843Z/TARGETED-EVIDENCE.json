@@ -1,0 +1,8 @@
+{
+  "scope": "c178 targeted before source freeze, not full acceptance",
+  "passed": 12,
+  "failed": 0,
+  "skipped": 0,
+  "raw": "tools\\logs\\c176-qa-2026-11-21T15-19-08-843Z",
+  "failures": []
+}

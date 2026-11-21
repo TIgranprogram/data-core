@@ -29,7 +29,9 @@
     "status": "PASS",
     "pageErrors": [],
     "blocked": [],
-    "raw": "evidence/press-auto-readonly/result.json"
+    "raw": "evidence/press-auto-readonly/result.json",
+    "sheetHasActualDescription": true,
+    "screenshotCorrection": "Снят реальный bk-page страницы2 после scrollIntoView; прежний viewport кадр показывал обложку до завершения smoothscroll."
   },
   "previousFailedRoot": {
     "retainedWithoutChild": true,

@@ -1,0 +1,223 @@
+{
+  "expectedCommit": "a96e708d",
+  "checkedAt": "2026-11-21T15:20:30.2411654Z",
+  "status": "CHECK_FAILED",
+  "healthReady": {
+    "status": "ok",
+    "info": {
+      "mongo": {
+        "status": "up"
+      }
+    },
+    "error": {},
+    "details": {
+      "mongo": {
+        "status": "up"
+      }
+    }
+  },
+  "health": {
+    "status": "ok",
+    "info": {
+      "mongo": {
+        "status": "up"
+      },
+      "memory": {
+        "status": "up"
+      },
+      "disk": {
+        "status": "up"
+      },
+      "backup": {
+        "status": "up",
+        "last": "2026-11-21T15:03:44",
+        "ageHours": 0
+      }
+    },
+    "error": {},
+    "details": {
+      "mongo": {
+        "status": "up"
+      },
+      "memory": {
+        "status": "up"
+      },
+      "disk": {
+        "status": "up"
+      },
+      "backup": {
+        "status": "up",
+        "last": "2026-11-21T15:03:44",
+        "ageHours": 0
+      }
+    }
+  },
+  "version": {
+    "v": "a96e708d",
+    "n": 984,
+    "b": "a96e708d",
+    "date": "2026-11-21T18:01:02+03:00"
+  },
+  "static": [
+    {
+      "rawGitMatch": false,
+      "normalization": {
+        "match": true,
+        "normalization": "CRLF to LF only",
+        "actualCRLF": 198,
+        "expectedCRLF": 0,
+        "normalizedSHA256": "013845057356c2cc1c4ca771eb6d2f15a5d326a00be26f39ac9321eebe0626cb",
+        "expectedNormalizedSHA256": "013845057356c2cc1c4ca771eb6d2f15a5d326a00be26f39ac9321eebe0626cb"
+      },
+      "sha256": "2042543b0e8e0095c24541150b4f6637bf066785fee314f73d01c4cb1e9cae65",
+      "path": "backend/pwa/sections/passports/common.js",
+      "actualGitBlob": "e9827b389087d162565fcb8cf7806977022281ef",
+      "expectedGitBlob": "213c0e74eaddf5fa7692ba6afb4ca5980eea40ed",
+      "match": true
+    },
+    {
+      "rawGitMatch": false,
+      "normalization": {
+        "match": true,
+        "normalization": "CRLF to LF only",
+        "actualCRLF": 356,
+        "expectedCRLF": 0,
+        "normalizedSHA256": "99e98ae7b75e11fe805bc543615f800b549fd5b39f6a47295f9d8c6461c887ca",
+        "expectedNormalizedSHA256": "99e98ae7b75e11fe805bc543615f800b549fd5b39f6a47295f9d8c6461c887ca"
+      },
+      "sha256": "04c852200b340867fe393953970c0517f6f26f9fa7a55c21dd8454c0f6c48c8a",
+      "path": "backend/pwa/sections/passports/book-template-edit.js",
+      "actualGitBlob": "4851e6de521a4253992fde89922ab23f297d50b4",
+      "expectedGitBlob": "45500197c3e2f234ecd622ced28c108acd9660e8",
+      "match": true
+    },
+    {
+      "rawGitMatch": false,
+      "normalization": {
+        "match": true,
+        "normalization": "CRLF to LF only",
+        "actualCRLF": 62,
+        "expectedCRLF": 0,
+        "normalizedSHA256": "dbd8fe4a7a007b2b60c2c85e881a314b445c7619cc2ab101ce74c0dc0b50b4ab",
+        "expectedNormalizedSHA256": "dbd8fe4a7a007b2b60c2c85e881a314b445c7619cc2ab101ce74c0dc0b50b4ab"
+      },
+      "sha256": "6ea9c97f88b1c341a60dfbc19df29e6bab5ade2ea54c7ab390ac54f87007cd33",
+      "path": "backend/pwa/core/recent-cards.js",
+      "actualGitBlob": "5acf6962cf7e59435d99eee56560c7351a5c5b40",
+      "expectedGitBlob": "5ede0498235d79a9444a3fc30fface883b6daa74",
+      "match": true
+    },
+    {
+      "rawGitMatch": false,
+      "normalization": {
+        "match": true,
+        "normalization": "CRLF to LF only",
+        "actualCRLF": 273,
+        "expectedCRLF": 0,
+        "normalizedSHA256": "efb439b8010f0f1605abaf4a80ebf053b6cece827e0eb6ff66027107c0258f68",
+        "expectedNormalizedSHA256": "efb439b8010f0f1605abaf4a80ebf053b6cece827e0eb6ff66027107c0258f68"
+      },
+      "sha256": "0bb9e107f94846f730775c0b5a1622e98da6306668bc356511d29f34df138152",
+      "path": "backend/pwa/sections/passport-tree.js",
+      "actualGitBlob": "c7bac6761f84756bf22c427b0daaacc579fa7183",
+      "expectedGitBlob": "48e39f49d09ca35784d3639157f66e1327b9c103",
+      "match": true
+    }
+  ],
+  "openapi": {
+    "paths": 540,
+    "needsIdentificationQuery": true
+  },
+  "product1038": {
+    "facetValueIds": [
+      "6aeea9373b8b9255839ab43b",
+      "6b018fa31d59b131ce504c6c"
+    ],
+    "ready": true,
+    "source": {
+      "kind": "dictionary",
+      "id": "6b018fae1d59b131ce504c7e",
+      "rootId": "6b018fa81d59b131ce504c75",
+      "partIds": [
+        "6adceeeb3ca001b9b3b0e574",
+        "6adceeeb3ca001b9b3b0e57a",
+        "6adceeeb3ca001b9b3b0e57b",
+        "6adceeeb3ca001b9b3b0e576",
+        "6adceeeb3ca001b9b3b0e575",
+        "6adceeeb3ca001b9b3b0e577"
+      ]
+    },
+    "missing": []
+  },
+  "dictionaryCounts": {
+    "passportPhrases": 184,
+    "productFacetValues": 82,
+    "productFacets": 26,
+    "passportParts": 60
+  },
+  "passport622BeforeRepair": {
+    "status": "issued",
+    "installationTypeId": "6ada090c7536f8509feb4245",
+    "images": [
+      {
+        "kind": "holes",
+        "photoId": "6af2b1a8f044286b3f45962e",
+        "order": 0
+      },
+      {
+        "kind": "overview",
+        "photoId": "6b019a461d59b131ce505571",
+        "order": 0
+      },
+      {
+        "kind": "dimensions",
+        "photoId": "6b019a4a1d59b131ce50557b",
+        "order": 0
+      },
+      {
+        "kind": "foundation",
+        "photoId": "6b019a4d1d59b131ce505585",
+        "order": 2
+      }
+    ],
+    "number": 622,
+    "id": "6b019aa41d59b131ce5056dd",
+    "revision": 1
+  },
+  "installationPlan622": {
+    "code": "EMBEDDED",
+    "known": true,
+    "kind": "embedded",
+    "managedKinds": [
+      "foundation",
+      "holes",
+      "embedded_layout",
+      "mounting"
+    ],
+    "allowedKinds": [
+      "foundation",
+      "embedded_layout"
+    ],
+    "requiredKinds": [
+      "foundation",
+      "embedded_layout"
+    ],
+    "labels": {
+      "foundation": "Схема фундамента",
+      "holes": "Разметка ям под опоры",
+      "embedded_layout": "Схема закладных деталей",
+      "mounting": "Схема установки"
+    },
+    "depthApplicable": false,
+    "traits": [],
+    "thirdImportKind": "foundation"
+  },
+  "template622Missing": [
+    {
+      "key": "img_embedded_layout",
+      "label": "Рисунок: Схема закладных деталей",
+      "hint": "Карточка изделия → Фото и файлы → Для паспорта → «Схема закладных деталей»"
+    }
+  ],
+  "failure": "Response status code does not indicate success: 401 (Unauthorized)."
+}

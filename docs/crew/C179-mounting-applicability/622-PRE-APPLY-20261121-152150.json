@@ -1,0 +1,93 @@
+{
+  "match": true,
+  "links": [
+    {
+      "photoId": "6af2b1a8f044286b3f45962e",
+      "kind": "holes",
+      "id": "6af2b1a8f044286b3f45963b"
+    },
+    {
+      "photoId": "6b019a461d59b131ce505571",
+      "kind": "overview",
+      "id": "6b019a4e1d59b131ce50558f"
+    },
+    {
+      "photoId": "6b019a4a1d59b131ce50557b",
+      "kind": "dimensions",
+      "id": "6b019a4e1d59b131ce505590"
+    },
+    {
+      "photoId": "6b019a4d1d59b131ce505585",
+      "kind": "foundation",
+      "id": "6b019a4f1d59b131ce505591"
+    }
+  ],
+  "drift": [],
+  "productInstallation": "6ada090c7536f8509feb4245",
+  "checkedAt": "2026-11-21T15:21:50.6254025Z",
+  "baseline": "622-CAS-BEFORE.json",
+  "current": {
+    "status": "issued",
+    "name": "Уличный тренажёр «жим к груди»",
+    "number": 622,
+    "installationTypeId": "6ada090c7536f8509feb4245",
+    "revision": 1,
+    "images": [
+      {
+        "kind": "holes",
+        "photoId": "6af2b1a8f044286b3f45962e",
+        "order": 0
+      },
+      {
+        "kind": "overview",
+        "photoId": "6b019a461d59b131ce505571",
+        "order": 0
+      },
+      {
+        "kind": "dimensions",
+        "photoId": "6b019a4a1d59b131ce50557b",
+        "order": 0
+      },
+      {
+        "kind": "foundation",
+        "photoId": "6b019a4d1d59b131ce505585",
+        "order": 2
+      }
+    ],
+    "textChoices": {
+      "6add909915d601111692a410": "6adb5ab2edd024ba63d7f1a9",
+      "6add909915d601111692a40f": "6adb5ab2edd024ba63d7f190"
+    },
+    "id": "6b019aa41d59b131ce5056dd",
+    "updatedAt": "2026-11-21T13:20:46.985Z",
+    "textSnapshotSha256": "C597D32AE704B4ACFEAC38F084D6F89511B7FC56193824AD6BF4134CB8018C00"
+  },
+  "currentPlan": {
+    "code": "EMBEDDED",
+    "known": true,
+    "kind": "embedded",
+    "managedKinds": [
+      "foundation",
+      "holes",
+      "embedded_layout",
+      "mounting"
+    ],
+    "allowedKinds": [
+      "foundation",
+      "embedded_layout"
+    ],
+    "requiredKinds": [
+      "foundation",
+      "embedded_layout"
+    ],
+    "labels": {
+      "foundation": "Схема фундамента",
+      "holes": "Разметка ям под опоры",
+      "embedded_layout": "Схема закладных деталей",
+      "mounting": "Схема установки"
+    },
+    "depthApplicable": false,
+    "traits": [],
+    "thirdImportKind": "foundation"
+  }
+}
