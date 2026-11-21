@@ -1,6 +1,5 @@
 import { h, fill } from '../../core/dom.js';
 import { icon } from '../icons.js';
-import { button } from '../kit/index.js';
 
 export const TERRITORIES = [
   { id: 'quality', column: 0, row: 0, icon: 'ok' },
@@ -131,96 +130,63 @@ export function bindPan(viewport, { canStart, read, update, onStart }) {
   return () => Boolean(drag);
 }
 
-export function buildBranch({ owner, children, title, stationButton, onClose }) {
-  const buttons = new Map();
-  const close = button({ label: '×', title: 'Свернуть до разделов', cls: 'am-branch-close', size: 'S', onClick: onClose });
-  const list = h('div', { class: 'am-branch-nodes' }, children.map((node) => {
-    const control = stationButton(node, true);
-    buttons.set(node.id, control);
-    return control;
-  }));
-  return {
-    buttons, list,
-    el: h('div', { class: 'am-branch', dataset: { band: owner.band }, 'aria-label': `${title} · ${owner.title}` },
-      h('div', { class: 'am-branch-head' }, h('h3', null, owner.title), close), list),
-  };
-}
-
-export function keepInView(camera, box, viewport, pad = 0) {
+export function keepInView(camera, box, viewport) {
   const fit = (offset, min, size, available) => {
-    const start = offset + min * camera.zoom;
-    const length = size * camera.zoom;
-    return start < pad || start + length > available - pad ? (available - length) / 2 - min * camera.zoom : offset;
+    const start = offset + min;
+    return start < 0 || start + size > available ? (available - size) / 2 - min : offset;
   };
   camera.x = fit(camera.x, box.x, box.w, viewport.clientWidth);
   camera.y = fit(camera.y, box.y, box.h, viewport.clientHeight);
 }
 
-export function revealBranchRows(list, targets, zoom) {
-  const bounds = list.getBoundingClientRect();
-  const items = targets.map((target) => target.getBoundingClientRect());
-  if (items.length) {
-    const min = Math.min(...items.map((target) => target.top));
-    const max = Math.max(...items.map((target) => target.bottom));
-    if (min < bounds.top || max > bounds.bottom) list.scrollTop += (min - bounds.top) / zoom;
-  }
-}
-
-export function nearestStation(point, boxes, isCandidate) {
-  let closest = null;
-  let distance = Infinity;
-  for (const [nodeId, box] of boxes) {
-    if (!isCandidate(nodeId)) continue;
-    const dx = Math.max(box.x - point.x, point.x - box.x - box.w, 0);
-    const dy = Math.max(box.y - point.y, point.y - box.y - box.h, 0);
-    const score = Math.hypot(dx, dy);
-    if (score < distance) {
-      distance = score;
-      closest = nodeId;
-    }
-  }
-  return closest;
-}
-
-export function applyCamera(plate, viewport, width, camera) {
-  const clamp = (offset, available, total) => available >= total ? (available - total) / 2 : Math.max(available - total, Math.min(0, offset));
-  camera.x = clamp(camera.x, viewport.clientWidth, width * camera.zoom);
-  camera.y = clamp(camera.y, viewport.clientHeight, HEIGHT * camera.zoom);
-  plate.style.setProperty('--am-pan-x', `${camera.x}px`);
-  plate.style.setProperty('--am-pan-y', `${camera.y}px`);
-  plate.style.setProperty('--am-zoom', camera.zoom);
-}
-
-export function cameraForEdge(viewport, a, b, zoom) {
+export function spanBoxes(a, b) {
   const x = Math.min(a.x, b.x);
   const y = Math.min(a.y, b.y);
-  const w = Math.max(a.x + a.w, b.x + b.w) - x;
-  const h = Math.max(a.y + a.h, b.y + b.h) - y;
-  const nextZoom = Math.max(1, Math.min(zoom, (viewport.clientWidth - 12) / w, (viewport.clientHeight - 12) / h));
-  return { x: (viewport.clientWidth - w * nextZoom) / 2 - x * nextZoom,
-    y: (viewport.clientHeight - h * nextZoom) / 2 - y * nextZoom, zoom: nextZoom };
+  return { x, y, w: Math.max(a.x + a.w, b.x + b.w) - x, h: Math.max(a.y + a.h, b.y + b.h) - y };
 }
 
-export function bindViewportKeys(viewport, { escape, panBy, zoomBy, reset }) {
+export function applyCamera(plate, viewport, camera, bounds) {
+  const clamp = (offset, size, min, max) => {
+    const world = max - min;
+    return size >= world ? (size - world) / 2 - min : Math.max(size - max, Math.min(-min, offset));
+  };
+  camera.x = clamp(camera.x, viewport.clientWidth, bounds.left, bounds.right);
+  camera.y = clamp(camera.y, viewport.clientHeight, bounds.top, bounds.bottom);
+  plate.style.setProperty('--am-pan-x', `${camera.x}px`);
+  plate.style.setProperty('--am-pan-y', `${camera.y}px`);
+}
+
+export function bindViewportKeys(viewport, { escape, panBy, change, reset }) {
   viewport.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && escape()) { event.stopPropagation(); return; }
+    const command = { '+': 1, '=': 1, '-': -1, '−': -1 }[event.key];
+    if (command) {
+      if (change(command, event.target)) event.preventDefault();
+      return;
+    }
     if (event.target !== viewport) return;
     const pan = { ArrowLeft: [54, 0], ArrowRight: [-54, 0], ArrowUp: [0, 54], ArrowDown: [0, -54] }[event.key];
     if (pan) panBy(...pan);
-    else if (event.key === '+' || event.key === '=') zoomBy(1.32);
-    else if (event.key === '-') zoomBy(1 / 1.32);
     else if (event.key === '0' || event.key === 'Home') reset();
     else return;
     event.preventDefault();
   });
 }
 
-export function bindWheel(viewport, { canZoom, zoomBy }) {
+export function bindWheel(viewport, { targetOf, change, holdsTarget }) {
+  let last = null;
   viewport.addEventListener('wheel', (event) => {
-    if (!event.deltaY || !canZoom(event.target)) return;
+    if (event.ctrlKey || event.metaKey || !event.deltaY || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+    const stationary = last && Math.hypot(event.clientX - last.x, event.clientY - last.y) <= 3;
+    const target = stationary && holdsTarget(last.target) ? last.target : targetOf(event.target);
+    if (!target) return;
+    const now = performance.now();
+    if (last?.target === target && now < last.after) {
+      event.preventDefault();
+      return;
+    }
+    if (!change(-Math.sign(event.deltaY), target)) return;
     event.preventDefault();
-    const { left, top } = viewport.getBoundingClientRect();
-    const amount = Math.min(3, Math.max(-3, event.deltaY / (event.deltaMode ? 3 : 100)));
-    zoomBy(Math.pow(1.19, -amount), { x: event.clientX - left, y: event.clientY - top });
+    last = { x: event.clientX, y: event.clientY, target, after: now + 280 };
   }, { passive: false });
 }

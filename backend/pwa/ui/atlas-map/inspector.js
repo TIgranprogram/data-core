@@ -17,6 +17,7 @@ export function isDirect(edge, nodeId, nodes, sectionOf) {
 export function atlasInspector({ nodes, sectionOf, edges, onSelect, onInspect }) {
   let scope = 'selected';
   let selected = null;
+  let exact = false;
   let focusedEdge = null;
   let layerEdges = edges;
   let query = '';
@@ -65,7 +66,8 @@ export function atlasInspector({ nodes, sectionOf, edges, onSelect, onInspect })
   }
 
   function drawInspector() {
-    const visibleEdges = layerEdges.filter((edge) => (scope === 'all' || !selected || isDirect(edge, selected, nodes, sectionOf))
+    const matches = (edge) => exact ? edge.from === selected || edge.to === selected : isDirect(edge, selected, nodes, sectionOf);
+    const visibleEdges = layerEdges.filter((edge) => (scope === 'all' || !selected || matches(edge))
       && (!query || edgeText.get(edge.id).includes(query)));
     count.textContent = String(visibleEdges.length);
     if (!inspector.open) return;
@@ -80,7 +82,7 @@ export function atlasInspector({ nodes, sectionOf, edges, onSelect, onInspect })
   return {
     el: inspector,
     render(state) {
-      ({ selected, focusedEdge, layerEdges } = state);
+      ({ selected, exact, focusedEdge, layerEdges } = state);
       drawInspector();
     },
     resetScope() {
@@ -89,6 +91,14 @@ export function atlasInspector({ nodes, sectionOf, edges, onSelect, onInspect })
       search.set('', true);
       scopeControl.set(scope);
       inspector.open = true;
+    },
+    openStructure() {
+      scope = 'selected';
+      query = normalized(LAYERS.structure);
+      search.set(LAYERS.structure, true);
+      scopeControl.set(scope);
+      inspector.open = true;
+      inspector.scrollIntoView({ block: 'nearest' });
     },
     focusRelation(edgeId) {
       [...list.querySelectorAll('.am-relation')].find((row) => row.dataset.edge === edgeId)
