@@ -14,12 +14,12 @@
  *   board?: см. ui/board.js — вид «Доска» (board.mount — своя доска вместо ui/board.js: «Проектирование», sections/design-data.js; board.alt — ещё одно значение ?view=, открывающее доску), ?view=board (board.default — доска по умолчанию, таблица — ?view=table),
  *   landing?: { when(P) → bool, render({ pick }) → Node | Promise<Node> } — первая страница вместо галереи (плитки категорий); pick(value) — выбрать плитку L.tiles.key,
  *   limit?: число строк таблицы по умолчанию (25); выбор 25/50/100 — внизу.
- *   gallery?: { default?, limit, sort, lastGroup?, groupBy(row) → подпись группы, card(row) → { pic, title, meta, price?, badge } } — вид «Галерея» (?view=gallery): карточки с фото по группам,
+ *   gallery?: { default?, limit, sort, lastGroup?, groupBy(row, params) → подпись группы, card(row) → { pic, title, meta, price?, badge } } — вид «Галерея» (?view=gallery): карточки с фото по группам,
  *   bulk?: { label?, open?(ids, { done }), extra?: [{label, run(ids, rows)}] } — отметка записей галочками (таблица, карточки, галерея; «все на странице») и
  *     полоса «Выбрано: N · Изменить выбранные · Снять выбор» (БЗ-9); open — панель массового изменения справа, done() — снять отметки и обновить.
  *   tiles?: { key, title?, load: async () => [{ value, label, n, sub, head? }] } — плитки-фильтр над списком; с sidebar — список «Категории» в левой панели (head — раздел-заголовок),
  *   chipsTop?: true — с sidebar чипы-фильтры не в панели, а строкой над таблицей (СКФ.2: «Состояние» сверху, слева — только «что ищем»),
- *   sidebar?: true — левая панель (280 px, всегда открыта): поиск, tiles, фильтры chips/select/date, toolbarExtra, «Сбросить всё»; на телефоне — лист по кнопке «Фильтры · N» (NAV F1),
+ *   sidebar?: true — категории и чипы в левой панели; поля отбора и toolbarExtra включают её автоматически. Поиск всегда доступен,
  *   defaults?: { status: 'requested' } — фильтры при входе в раздел без параметров в адресе (попадают в адрес; чип «Все» снимает),
  *   defaultView?(params) → 'table'|'gallery'|'board'|'gantt' — вид для контекстной ссылки без явного view; не меняет сохранённое предпочтение,
  *   quick?: { placeholder, fields, create(values) } — быстрое добавление одной строкой (ui/quick.js),

@@ -32,7 +32,7 @@ export function longPress(enterBulkMode) {
 /** Галерея: карточки с фото по группам (ПС: паспорта по категориям). */
 export function paintGallery({ galleryBox, rows, L, P, bindLong, bulkOn, pickBox, openOrPick }) {
   const groups = new Map();
-  for (const r of rows) { const g = L.gallery.groupBy ? L.gallery.groupBy(r) : ''; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(r); }
+  for (const r of rows) { const g = L.gallery.groupBy ? L.gallery.groupBy(r, P) : ''; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(r); }
   const order = [...groups].sort((a, b) => (a[0] === L.gallery.lastGroup) - (b[0] === L.gallery.lastGroup)); // «Без категории» — в конце
   galleryBox.replaceChildren(...order.map(([g, items]) => h('section', { class: 'gal-group' },
     g ? h('h3', { class: 'gal-head' }, g, h('span', { class: 'gal-n' }, qty(items.length))) : null,

@@ -1,5 +1,5 @@
 import { exportList } from '../list-export.js';
-import { makeResizable } from '../resizer.js';
+import { filterPanel } from './filter-panel.js';
 import { searchBox } from './searchbox.js';
 import { enhanceSelect } from './index.js';
 import { api, canEditSection, session } from '../../core/api.js';
@@ -71,28 +71,23 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   // ---------- Поиск и фильтры (создаются один раз) ----------
   // общий поиск (ПО.3): пусто = весь список — q убирается из адреса и запроса, страница — на первую
   const sb = searchBox({ value: P.q || '', placeholder: L.searchPlaceholder || 'Поиск…', onSearch: (q) => patch({ q: q || undefined, page: undefined }) });
-  // L.sidebar (NAV F1): поиск, категории, признаки и «Сбросить всё» — в левой панели; на телефоне она выезжает листом по кнопке «Фильтры · N»
-  const side = L.sidebar ? h('aside', { class: 'list-side', 'aria-label': 'Фильтры' }) : null;
-  if (side) makeResizable(side, { prefKey: 'filterW', edge: 'right', label: 'Ширина панели фильтров' });
-  const toolbar = h('div', { class: 'toolbar' }, side ? null : h('div', { class: 'search' }, sb.el));
   const chipFilters = (L.filters || []).filter((f) => f.type === 'chips');
-  const sideChips = side && !L.chipsTop; // СКФ.2: chipsTop — чипы строкой над таблицей и при левой панели
   const otherFilters = (L.filters || []).filter((f) => f.type !== 'chips' && f.type !== 'hidden');
+  const side = !!(L.sidebar || otherFilters.length || L.toolbarExtra);
+  const sideChips = L.sidebar && !L.chipsTop;
+  const toolbar = h('div', { class: 'toolbar' }, side ? null : h('div', { class: 'search' }, sb.el));
   const controls = {};
   const sideParts = []; // выпадающие списки/даты левой панели
-  const put = (n) => (side ? sideParts.push(n) : toolbar.append(n));
-  const filtersToggle = otherFilters.length && !side ? h('button', { class: 'btn filters-toggle', type: 'button', onclick: () => toolbar.classList.toggle('open') }, 'Фильтры') : null;
-  if (filtersToggle) toolbar.append(filtersToggle);
   for (const f of otherFilters) {
     if (f.type === 'date') {
       const inp = h('input', { type: 'date', 'aria-label': f.label, onchange: (e) => patch({ [f.key]: e.target.value, page: undefined }) });
       controls[f.key] = inp;
-      put(h('label', { class: 'date-f opt' }, h('span', null, f.short || f.label), inp));
+      sideParts.push(h('label', { class: 'date-f opt' }, h('span', null, f.short || f.label), inp));
       continue;
     }
-    const sel = h('select', { class: 'opt', 'aria-label': f.label, onchange: (e) => patch({ [f.key]: e.target.value, page: undefined }) }, h('option', { value: '' }, side ? f.allLabel || f.label : f.label));
+    const sel = h('select', { class: 'opt', 'aria-label': f.label, onchange: (e) => patch({ [f.key]: e.target.value, page: undefined }) }, h('option', { value: '' }, f.allLabel || f.label));
     controls[f.key] = sel;
-    put(side ? h('div', { class: 'ls-group' }, h('div', { class: 'ls-h' }, f.label), sel) : sel);
+    sideParts.push(h('div', { class: 'ls-group' }, h('div', { class: 'ls-h' }, f.label), sel));
     Promise.resolve(f.options()).then((opts) => {
       for (const o of opts) sel.append(h('option', { value: String(o.value) }, o.label));
       sel.value = P[f.key] || '';
@@ -100,17 +95,21 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     }).catch(() => { /* фильтр без вариантов — не критично */ });
   }
   const extra = L.toolbarExtra ? L.toolbarExtra() : null;
-  if (extra) { put(extra.el); extra.update(P); }
+  if (extra) { sideParts.push(extra.el); extra.update(P, st()); }
   const resetBtn = h('button', { class: 'btn btn-ghost' + (side ? ' ls-reset' : ''), type: 'button', onclick: () => resetFilters() }, side ? 'Сбросить всё' : 'Сбросить');
   if (!side) toolbar.append(resetBtn);
   /** Сколько фильтров выбрано (для кнопки «Фильтры · N» на телефоне). */
-  const selCount = () => (L.filters || []).filter((f) => P[f.key]).length
-    + (L.extraKeys || []).reduce((n, k) => n + (P[k] ? String(P[k]).split('|').filter(Boolean).length : 0), 0);
-  const anyFilter = () => selCount() > 0;
+  let ganttCount = 0;
+  const extraFilterKeys = () => (L.extraKeys || []).filter(k => !(st().gallery && L.gallery.pathKeys?.includes(k)));
+  const selCount = () => (L.filters || []).filter((f) => P[f.key] && P[f.key] !== 'all').length
+    + extraFilterKeys().reduce((n, k) => n + (k !== 'all' && P[k] ? String(P[k]).split('|').filter(Boolean).length : 0), 0);
+
+  const anyFilter = () => selCount() > 0 || (st().gantt && ganttCount > 0);
   function resetFilters() {
     const clear = { q: undefined, page: undefined };
     for (const f of L.filters || []) clear[f.key] = undefined;
-    for (const k of L.extraKeys || []) clear[k] = undefined;
+    for (const k of extraFilterKeys()) clear[k] = undefined;
+    if (st().gantt && ganttCount) gantt?.resetFilters?.();
     sb.set('', true);
     patch(clear);
   }
@@ -170,7 +169,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const headPick = () => headCb;
   // L.top(reload) — свой блок над списком (полоса состояния загрузки и т. п.), создаётся один раз
   const topBox = L.top ? L.top(() => load()) : null;
-  topBox?.onParams?.(P); // top может следить за адресом (крошки)
+  topBox?.onParams?.(P, st()); // top может следить за адресом (крошки)
   const panel = h('div', { class: 'panel list-panel' }, chipFilters.length && !sideChips ? chipsBox : null, topBox, hintBox, side ? null : toolbar, bulkBar, quickBox, tableBox, galleryBox, foot);
   const boardBox = h('div');
   const ganttBox = h('div', { hidden: true });
@@ -191,32 +190,21 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   if (tilesBox) loadTiles(false);
   function renderTiles() { paintTiles({ L, P, tiles, tilesBox, tileTagBox, side }); }
 
-  // ---------- Левая панель: сборка, лист на телефоне ----------
-  const shade = side ? h('div', { class: 'ls-shade', hidden: true, onclick: () => closeSheet() }) : null;
-  const openBtn = side ? button({ label: 'Фильтры', onClick: () => openSheet() }) : null;
-  if (openBtn) { openBtn.classList.add('ls-open-btn'); openBtn.setAttribute('aria-expanded', 'false'); }
-  if (side) {
-    side.append(
-      h('div', { class: 'ls-head' }, h('b', null, 'Фильтры'), h('button', { type: 'button', class: 'btn btn-ghost btn-sm', 'aria-label': 'Закрыть', onclick: () => closeSheet() }, '×')),
-      h('div', { class: 'ls-body' }, h('div', { class: 'ls-search' }, sb.el), tilesGroup, chipFilters.length && sideChips ? chipsBox : null, ...sideParts, resetBtn),
-      h('div', { class: 'ls-foot' }, h('button', { type: 'button', class: 'btn btn-primary', onclick: () => closeSheet() }, 'Показать')));
-    head.insertBefore(openBtn, head.querySelector('.spacer').nextSibling);
-  }
-  function openSheet() { side.classList.add('open'); shade.hidden = false; openBtn.setAttribute('aria-expanded', 'true'); }
-  function closeSheet() { side.classList.remove('open'); shade.hidden = true; openBtn.setAttribute('aria-expanded', 'false'); }
-  const el = mark(side
-    ? h('div', { class: 'list-screen has-side' }, head, h('div', { class: 'ls-grid' }, side, h('div', { class: 'ls-main' }, panel, boardBox, ganttBox)), shade)
-    : h('div', { class: 'list-screen' }, head, tilesBox, panel, boardBox, ganttBox), 'list');
+  const ganttFields = L.gantt ? h('div', { hidden: true }) : null;
+  const filters = side ? filterPanel({ key: section.id, search: sb.el,
+    fields: [tilesGroup, chipFilters.length && sideChips ? chipsBox : null, ...sideParts, resetBtn, ganttFields],
+    content: [panel, boardBox, ganttBox] }) : null;
+  const el = mark(h('div', { class: 'list-screen' + (side ? ' has-side' : '') }, head,
+    filters ? filters.el : [tilesBox, panel, boardBox, ganttBox]), 'list');
 
   // ---------- Синхронизация элементов с адресом ----------
   function syncControls() {
     const { board: isBoard, gallery: isGallery, gantt: isGantt } = st();
     sb.set(P.q || '');
     for (const [k, c] of Object.entries(controls)) c.value = P[k] || '';
-    const nOpt = otherFilters.filter((f) => P[f.key]).length;
-    if (filtersToggle) filtersToggle.textContent = 'Фильтры' + (nOpt ? ' · ' + nOpt : '');
     resetBtn.hidden = !(anyFilter() || P.q);
-    if (openBtn) openBtn.textContent = 'Фильтры' + (selCount() ? ' · ' + selCount() : '');
+    if (ganttFields) ganttFields.hidden = !isGantt;
+    filters?.setCount(selCount() + (isGantt ? ganttCount : 0));
     btnTable.classList.toggle('active', !isBoard);
     btnBoard.classList.toggle('active', isBoard);
     btnGallery.classList.toggle('active', isGallery);
@@ -282,7 +270,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     if (per && !isBoard) { limit = 2000; page = 1; }
     if (isGantt) {
       firstDrawn(); countEl.textContent = '';
-      if (!gantt) { gantt = L.gantt.mount(L.gantt, L.path, query, { onOpen, onChanged: () => gantt.reload(), onTotal: (n) => { if (st().gantt) countEl.textContent = qty(n); } }); ganttBox.replaceChildren(gantt.el); }
+      if (!gantt) { gantt = L.gantt.mount(L.gantt, L.path, query, { filterFields: ganttFields, onFilterCount: (n) => { ganttCount = n; if (st().gantt) { filters?.setCount(selCount() + n); resetBtn.hidden = !(anyFilter() || P.q); } }, onOpen, onChanged: () => gantt.reload(), onTotal: (n) => { if (st().gantt) countEl.textContent = qty(n); } }); ganttBox.replaceChildren(gantt.el); }
       else gantt.setQuery(query);
       return;
     }
@@ -368,7 +356,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const actionButton = rowActions(L, (o) => load(o), onChanged);
 
   // ---------- Клавиатура: ↑/↓ — соседняя запись, N — новая ----------
-  const onKey = listKeys({ side: () => side, closeSheet, rows: () => rows, P: () => P, st, onOpen, canCreate, onCreate });
+  const onKey = listKeys({ side: () => filters?.side, closeSheet: () => filters?.close(), rows: () => rows, P: () => P, st, onOpen, canCreate, onCreate });
   document.addEventListener('keydown', onKey);
 
   syncControls();
@@ -383,8 +371,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     const onlyOpen = [...dataKeys].every(same);
     if (onlyOpen) { markSelected(); return; }
     syncControls();
-    extra?.update(P);
-    topBox?.onParams?.(P);
+    extra?.update(P, st());
+    topBox?.onParams?.(P, st());
     load();
   }
 
@@ -392,8 +380,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     el,
     update,
     // после записи (dc:changed): строки, числа плиток и шаги «Уточнить» обновляются на месте, без мигания
-    reload: (row) => { if (tilesBox) loadTiles(true); extra?.update(P); if (st().gantt && gantt) return gantt.reload(); return st().board && board ? (row && board.reloadFor ? board.reloadFor(row) : board.reload()) : load({ keep: true }); },
+    reload: (row) => { if (tilesBox) loadTiles(true); extra?.update(P, st()); if (st().gantt && gantt) return gantt.reload(); return st().board && board ? (row && board.reloadFor ? board.reloadFor(row) : board.reload()) : load({ keep: true }); },
     focusSearch: () => sb.focus(),
-    destroy: () => { destroyed = true; seq++; document.removeEventListener('keydown', onKey); watch.destroy(); watchIn.destroy(); },
+    destroy: () => { destroyed = true; seq++; gantt?.destroy?.(); document.removeEventListener('keydown', onKey); watch.destroy(); watchIn.destroy(); },
   };
 }

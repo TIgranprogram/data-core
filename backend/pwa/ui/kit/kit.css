@@ -1333,6 +1333,7 @@ tr.k-pos-more .k-readonly { border: 0; background: transparent; padding: 0; }
   .page:has(.ls-main > div:not([hidden]) > .board.board-pics) > .docs { height: 100%; display: flex; flex-direction: column; }
   .page .docs-body:has(.ls-main > div:not([hidden]) > .board.board-pics) { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .list-screen:has(.ls-main > div:not([hidden]) > .board.board-pics) { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .filter-layout:has(.ls-main > div:not([hidden]) > .board.board-pics) { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .ls-grid:has(.board.board-pics) { flex: 1; min-height: 0; align-items: stretch; }
   .ls-grid:has(.board.board-pics) > .list-side { position: static; max-height: none; min-height: 0; }
   .ls-main:has(.board.board-pics) { display: flex; flex-direction: column; min-height: 0; }
@@ -1345,3 +1346,13 @@ tr.k-pos-more .k-readonly { border: 0; background: transparent; padding: 0; }
 /* C163: auto-трек grid растёт до высоты исходника; конечный трек удерживает весь рисунок внутри экрана. */
 .lightbox { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
 .lightbox > img { min-width: 0; min-height: 0; }
+
+/* Единая панель отбора и путь по карточкам категорий. */
+.filter-tools { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; margin-bottom: var(--s2); }
+.filter-tools > .sb { width: min(100%, 340px); flex: 0 1 340px; }
+.filter-tools .sb input::placeholder { color: var(--muted); opacity: 1; }
+.ls-grid.filters-closed { grid-template-columns: minmax(0, 1fr); }
+.list-side[hidden] { display: none; }
+.product-path { padding: var(--s3); }
+.product-path .crumbs { margin: 0; flex-wrap: wrap; }
+@media (max-width: 720px) { .filter-tools > .sb { flex: 1; min-width: 130px; } }
