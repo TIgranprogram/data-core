@@ -1,0 +1,78 @@
+{
+  "date": "2026-11-21",
+  "status": "PARTIAL",
+  "release": {
+    "version": "1.984",
+    "backend": "a6a6ef11",
+    "ui": "a96e708d",
+    "historicalBaseline": "6d347af4",
+    "historicalReleaseSource": "ba40418f"
+  },
+  "local": {
+    "checkout": "e19dcd3f",
+    "branch": "main",
+    "workdir": "backend",
+    "versionCheck": "git diff --name-status a6a6ef11 HEAD -- backend/src backend/pwa backend/admin backend/test returned no paths. git status --short before and after the checks matched. The pre-existing local C170 test harness diff was not exercised.",
+    "checks": [
+      {
+        "id": "LOCAL-JEST",
+        "exitCode": 0,
+        "suites": 5,
+        "passed": 72,
+        "failed": 0,
+        "command": "node node_modules/jest/bin/jest.js --runInBand --no-cache --silent --runTestsByPath src/modules/product-passport/passport-applicability.spec.ts src/modules/product-passport/passport-installation-profile.spec.ts src/modules/product-passport/passport-field-sources.spec.ts src/modules/product-passport/passport-manager-access.spec.ts src/common/passport/line-source.spec.ts"
+      },
+      {
+        "id": "LOCAL-PWA",
+        "exitCode": 0,
+        "files": 4,
+        "passed": 41,
+        "failed": 0,
+        "skipped": 0,
+        "command": "node --test pwa/sections/passports/book-installation-plan.test.mjs pwa/sections/passports/book-autofill.test.mjs pwa/sections/passport-dict-table.test.mjs pwa/sections/passport-source-picker.test.mjs"
+      }
+    ]
+  },
+  "prior": [
+    {
+      "id": "V1979",
+      "path": "../C172-inventor-image-flow/POST-RELEASE.md"
+    },
+    {
+      "id": "V1984-RELEASE",
+      "path": "../../HISTORY.md",
+      "smokePassed": 7
+    },
+    {
+      "id": "V1984-QA",
+      "path": "../../TEST-LOG.md",
+      "unitPassed": 3914,
+      "e2eCovered": 783,
+      "e2eFullPassed": 782,
+      "e2eFullFailed": 1,
+      "e2eCorrectedSuitePassed": 7,
+      "e2eOptInSkipped": 12,
+      "pwaNodePassed": 498,
+      "pwaGuardsPassed": 365,
+      "pwaImportsChecked": 371,
+      "importErrors": 0
+    },
+    {
+      "id": "C178",
+      "path": "../C178-issued-passport-editing/LIVE-UI-REPORT.md"
+    },
+    {
+      "id": "C179",
+      "path": "../C179-mounting-applicability/QA-REPORT.md"
+    },
+    {
+      "id": "C179-PRINTED-TRN",
+      "path": "../../archive/TASKS-DONE-2026-11-21-C175-C181.md",
+      "historicalPrintedCount": 7
+    },
+    {
+      "id": "C181",
+      "path": "../C181-passport-dictionaries-table/REPORT.md"
+    }
+  ]
+}
